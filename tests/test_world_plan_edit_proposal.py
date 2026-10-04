@@ -43,8 +43,10 @@ from application_state.plan_action_dialogue.service import PlanActionDialogueSer
 from application_state.plan_action_dialogue.types import (
     CompletedPlanActionContext,
     PlanActionBasis,
+    PlanActionPlayableTargetReceipt,
     PlanActionReservation,
 )
+from apps.live_control_server.services.plan_playable_body_target import PlayableTarget, resolve_playable_body_target
 
 
 def _sha(text: str) -> str:
@@ -67,6 +69,50 @@ def _request(**overrides) -> WorldPlanDocumentEditProposalRequest:
     }
     data.update(overrides)
     return WorldPlanDocumentEditProposalRequest.model_validate(data)
+
+
+_CARD_DRAFT = (
+    "<!-- dmb-playable-element:v1 kind=scene id=scene:first -->\n"
+    "## First\n"
+    "The same authored body.\n\n"
+    "<!-- dmb-playable-element:v1 kind=scene id=scene:second -->\n"
+    "## Second\n"
+    "The same authored body.\n"
+)
+
+
+_V1_OPTION_DRAFT = (
+    "<!-- dmb-playable-element:v1 kind=scene id=scene:first -->\n"
+    "## First\n"
+    "A scene body.\n\n"
+    "<!-- dmb-playable-element:v1 kind=choice id=choice:route -->\n"
+    "### Route\n"
+    "Choose a path.\n\n"
+    "<!-- dmb-playable-element:v1 kind=option id=option:go -->\n"
+    "#### Go\n"
+    "Take the covered bridge.\n"
+)
+
+
+def _playable_request(
+    *,
+    target_id: str = "scene:first",
+    idempotency_key: str | None = None,
+    draft_markdown: str = _CARD_DRAFT,
+):
+    kind = target_id.split(":", 1)[0]
+    resolved = resolve_playable_body_target(draft_markdown, PlayableTarget(kind=kind, id=target_id))
+    return _request(
+        idempotency_key=idempotency_key or str(uuid4()),
+        draft_markdown=draft_markdown,
+        draft_sha256=_sha(draft_markdown),
+        target_kind="replace_playable_body",
+        selected_text="",
+        playable_target={"kind": kind, "id": target_id},
+        body_serialization_version=resolved.body_serialization_version,
+        target_body_markdown=resolved.target_body_markdown,
+        target_body_sha256=resolved.target_body_sha256,
+    )
 
 
 class _FakeGenerationClient:
@@ -199,18 +245,37 @@ def _stored_action(
     status: str = "pending",
     request_fingerprint: str | None = None,
 ):
+    playable_receipt = None
+    if request.target_kind == "replace_playable_body":
+        assert request.playable_target is not None
+        assert request.target_body_sha256 is not None
+        resolved = resolve_playable_body_target(
+            request.draft_markdown,
+            PlayableTarget(kind=request.playable_target.kind, id=request.playable_target.id),
+        )
+        playable_receipt = PlanActionPlayableTargetReceipt(
+            schema_version="dmb_plan_playable_target_receipt_v1",
+            kind=resolved.target.kind,
+            id=resolved.target.id,
+            marker_grammar_version=resolved.marker_grammar_version,
+            body_scope=resolved.body_scope,
+            range_semantics_version=resolved.range_semantics_version,
+            body_serialization_version=resolved.body_serialization_version,
+            target_body_sha256=resolved.target_body_sha256,
+        )
     return SimpleNamespace(
         action_id=uuid4(),
         idempotency_key=request.idempotency_key,
-        request_fingerprint=request_fingerprint or service._action_fingerprint(request, basis),
+        request_fingerprint=request_fingerprint or service._action_fingerprint(request, basis, playable_receipt),
         action_type="compose" if request.target_kind == "insert_at_caret" else "revise",
         basis=basis,
         draft_matches_basis=request.draft_sha256 == basis.content_sha256,
         draft_sha256=request.draft_sha256,
         target_kind=request.target_kind,
         selected_text_sha256=(
-            None if request.target_kind == "insert_at_caret" else _sha(request.selected_text)
+            None if request.target_kind in {"insert_at_caret", "replace_playable_body"} else _sha(request.selected_text)
         ),
+        playable_target_receipt=playable_receipt,
         instruction=request.instruction,
         status=status,
         assistant_summary="Stored proposal summary" if status == "completed" else None,
@@ -412,6 +477,113 @@ def test_world_proposal_uses_only_explicit_draft_context_and_returns_exact_ident
     assert ask_reader.calls == [("world-1", PlanAskContextBasis.model_validate(
         basis.model_dump(mode="python")
     ), 6)]
+
+
+@pytest.mark.parametrize(
+    ("draft_markdown", "target_id", "expected_kind"),
+    [
+        (_CARD_DRAFT, "scene:first", "scene"),
+        (_V1_OPTION_DRAFT, "option:go", "option"),
+    ],
+)
+def test_playable_body_proposal_persists_and_echoes_exact_target_receipt(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    draft_markdown: str,
+    target_id: str,
+    expected_kind: str,
+) -> None:
+    snapshot = _authority(monkeypatch)
+    request = _playable_request(target_id=target_id, draft_markdown=draft_markdown)
+    fake = _FakeGenerationClient("A reviewed body replacement.")
+    action_store = _FakeActionStore()
+    ask_reader = _FakeAskContextService()
+    monkeypatch.setattr(service, "AgentConversationService", lambda: ask_reader)
+
+    result = service.propose_world_plan_document_edit(
+        root=tmp_path,
+        request=request,
+        generation_client=fake,
+        model="test-model",
+        action_store=action_store,
+    )
+
+    assert result.schema_version == "dmb_world_plan_document_edit_proposal_v2"
+    assert result.idempotency_key == request.idempotency_key
+    assert result.action_id == action_store.action_id
+    assert result.target_kind == "replace_playable_body"
+    assert result.playable_target == request.playable_target
+    assert result.selected_text_sha256 is None
+    assert result.target_body_sha256 == request.target_body_sha256
+    assert result.marker_grammar_version == "v1"
+    assert result.body_scope == "heading_body"
+    assert result.range_semantics_version == "plan-playable-ranges-v1"
+    assert result.body_serialization_version == "plan-playable-body-markdown-v1"
+    receipt = action_store.reservations[0].playable_target_receipt
+    assert receipt.kind == expected_kind and receipt.id == target_id
+    assert receipt.target_body_sha256 == request.target_body_sha256
+    assert receipt.marker_grammar_version == "v1"
+    assert receipt.body_scope == "heading_body"
+    context = json.loads(fake.requests[0].user_prompt)
+    assert context["playable_target"] == {"kind": expected_kind, "id": target_id}
+    assert context["target_body_markdown"] == request.target_body_markdown
+    assert result.base_content_sha256 == snapshot.content_sha256
+    assert ask_reader.calls
+
+
+def test_same_key_different_playable_id_conflicts_before_current_plan_read_or_provider(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    snapshot = _authority(monkeypatch)
+    first = _playable_request(target_id="scene:first")
+    different = _playable_request(target_id="scene:second", idempotency_key=str(first.idempotency_key))
+    stored = _stored_action(first, _plan_basis(snapshot))
+    store = _FakeActionStore()
+    store.existing = stored
+    fake = _FakeGenerationClient()
+
+    def current_plan_read_must_not_happen(*_args, **_kwargs):
+        pytest.fail("same-key target conflict must be decided before the current Plan read")
+
+    monkeypatch.setattr(service, "get_committed_playable_revision", current_plan_read_must_not_happen)
+    with pytest.raises(service.PlanDocumentEditProposalError) as caught:
+        service.propose_world_plan_document_edit(
+            root=tmp_path,
+            request=different,
+            generation_client=fake,
+            model="test-model",
+            action_store=store,
+        )
+
+    assert caught.value.code == "action_idempotency_conflict"
+    assert fake.requests == []
+    assert store.reservations == []
+
+
+def test_same_key_different_playable_id_loses_reservation_race_before_provider(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    snapshot = _authority(monkeypatch)
+    first = _playable_request(target_id="scene:first")
+    different = _playable_request(target_id="scene:second", idempotency_key=str(first.idempotency_key))
+    raced = _stored_action(first, _plan_basis(snapshot))
+    store = _FakeActionStore()
+    store.reserve_error = ApplicationStateConflictError("unique idempotency key")
+    store.lookup_results = [None, raced]
+    fake = _FakeGenerationClient()
+
+    with pytest.raises(service.PlanDocumentEditProposalError) as caught:
+        service.propose_world_plan_document_edit(
+            root=tmp_path,
+            request=different,
+            generation_client=fake,
+            model="test-model",
+            action_store=store,
+        )
+
+    assert caught.value.code == "action_idempotency_conflict"
+    assert fake.requests == []
+    assert store.context_calls == []
 
 
 @pytest.mark.parametrize("fingerprint_version", ["legacy", "current"])

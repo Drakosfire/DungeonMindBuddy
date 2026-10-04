@@ -9,7 +9,11 @@ import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
 import { PeekRegionProvider } from "../surfaceInteraction/peekHost";
 import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
 import { PlanSurfacePage } from "./PlanSurfacePage";
-import { buildWorldPlanCardProjectionModel, worldPlanCardTargetKeys } from "./components/WorldPlanCardProjection";
+import {
+  buildWorldPlanCardProjectionModel,
+  WorldPlanCardProjection,
+  worldPlanCardTargetKeys,
+} from "./components/WorldPlanCardProjection";
 
 vi.mock("./components/WorldPlanAgentConversation", () => ({
   WorldPlanAgentConversation: () => null,
@@ -188,6 +192,51 @@ it("makes duplicate marker identities unavailable to target selection", () => {
 
   expect(model.status).toBe("blocked");
   expect(worldPlanCardTargetKeys(model)).toEqual(new Set());
+});
+
+it("keeps current-draft Edit selection separate from committed-Plan Ask selection", () => {
+  const imported = markdownToTiptapDoc(initialMarkdown);
+  const model = buildWorldPlanCardProjectionModel({
+    document: imported.doc,
+    markdown: initialMarkdown,
+    sourceWarnings: [],
+  });
+  expect(model.status).toBe("ready");
+  const targetKeys = worldPlanCardTargetKeys(model);
+  const selectForAsk = vi.fn();
+  const selectForEdit = vi.fn();
+  render(
+    <WorldPlanCardProjection
+      worldId={worldId}
+      documentId={documentId}
+      document={imported.doc}
+      markdown={initialMarkdown}
+      sourceWarnings={[]}
+      basis={{ status: "verified", revision: 4, contentSha256: committedDigest }}
+      isDirty
+      onReturnToDocument={vi.fn()}
+      selectableTargetKeys={targetKeys}
+      editableTargetKeys={targetKeys}
+      onSelectTarget={selectForAsk}
+      onSelectEditTarget={selectForEdit}
+    />,
+  );
+
+  const cards = screen.getByTestId("world-plan-cards");
+  const scene = cards.querySelector('[data-element-id="scene:arrival"]');
+  expect(scene).not.toBeNull();
+  const askButton = scene!.querySelector<HTMLButtonElement>('button[data-target-id="scene:arrival"]');
+  const editButton = scene!.querySelector<HTMLButtonElement>('button[data-edit-target-id="scene:arrival"]');
+  expect(askButton).not.toBeNull();
+  expect(editButton).not.toBeNull();
+  expect(askButton).toBeEnabled();
+  expect(editButton).toBeEnabled();
+  fireEvent.click(editButton!);
+  expect(selectForEdit).toHaveBeenCalledWith({ kind: "scene", id: "scene:arrival" });
+  expect(selectForAsk).not.toHaveBeenCalled();
+  fireEvent.click(askButton!);
+  expect(selectForAsk).toHaveBeenCalledWith({ kind: "scene", id: "scene:arrival" });
+  expect(selectForEdit).toHaveBeenCalledTimes(1);
 });
 
 it("keeps one editor draft through Cards, ordinary Save, and fresh reopen at the exact committed revision", async () => {

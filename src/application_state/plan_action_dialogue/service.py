@@ -66,6 +66,7 @@ class PlanActionDialogueService:
                     action_sequence=item.action_sequence,
                     accepted_at=item.accepted_at,
                     completed_at=item.completed_at,
+                    playable_target_receipt=item.playable_target_receipt,
                 )
                 for item in records
             ],

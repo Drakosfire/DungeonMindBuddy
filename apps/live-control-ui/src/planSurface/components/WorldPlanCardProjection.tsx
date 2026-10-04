@@ -219,17 +219,25 @@ export function buildWorldPlanCardProjectionModel(input: {
 function CardNodeView({
   node,
   selectableTargetKeys,
+  editableTargetKeys,
   selectedTarget,
+  selectedEditTarget,
   onSelectTarget,
+  onSelectEditTarget,
 }: {
   node: WorldPlanCardNode;
   selectableTargetKeys: ReadonlySet<string>;
+  editableTargetKeys: ReadonlySet<string>;
   selectedTarget: WorldPlanCardTarget | null;
+  selectedEditTarget: WorldPlanCardTarget | null;
   onSelectTarget?: (target: WorldPlanCardTarget) => void;
+  onSelectEditTarget?: (target: WorldPlanCardTarget) => void;
 }) {
   const target = { kind: node.kind, id: node.id };
   const selected = selectedTarget?.kind === target.kind && selectedTarget.id === target.id;
+  const selectedForEdit = selectedEditTarget?.kind === target.kind && selectedEditTarget.id === target.id;
   const selectable = selectableTargetKeys.has(worldPlanCardTargetKey(target));
+  const editable = editableTargetKeys.has(worldPlanCardTargetKey(target));
   return (
     <li className={`world-plan-card-node world-plan-card-node--${node.kind}`} data-element-id={node.id} data-element-kind={node.kind}>
       <article className="world-plan-card">
@@ -249,6 +257,18 @@ function CardNodeView({
           >
             {selected ? "Selected for Ask" : "Select for Ask"}
           </button>
+          <button
+            type="button"
+            className="world-plan-card__edit-target"
+            data-edit-target-kind={node.kind}
+            data-edit-target-id={node.id}
+            aria-pressed={selectedForEdit}
+            disabled={!editable || !onSelectEditTarget}
+            title={editable ? "Use this exact current card body for a Compose proposal" : "This card is not a unique editable target in the current Plan draft"}
+            onClick={() => onSelectEditTarget?.(target)}
+          >
+            {selectedForEdit ? "Selected for Edit" : "Select for Edit"}
+          </button>
         </header>
         {node.sceneId ? <p className="world-plan-card__relationship">Associated scene: <code>{node.sceneId}</code></p> : null}
         {node.bodyText ? <p className="world-plan-card__body">{node.bodyText}</p> : null}
@@ -266,8 +286,11 @@ function CardNodeView({
               key={child.id}
               node={child}
               selectableTargetKeys={selectableTargetKeys}
+              editableTargetKeys={editableTargetKeys}
               selectedTarget={selectedTarget}
+              selectedEditTarget={selectedEditTarget}
               onSelectTarget={onSelectTarget}
+              onSelectEditTarget={onSelectEditTarget}
             />
           ))}
         </ol>
@@ -286,8 +309,11 @@ export function WorldPlanCardProjection({
   isDirty,
   onReturnToDocument,
   selectableTargetKeys = new Set<string>(),
+  editableTargetKeys = new Set<string>(),
   selectedTarget = null,
+  selectedEditTarget = null,
   onSelectTarget,
+  onSelectEditTarget,
   selectionStale = false,
 }: {
   worldId: string;
@@ -299,8 +325,11 @@ export function WorldPlanCardProjection({
   isDirty: boolean;
   onReturnToDocument: () => void;
   selectableTargetKeys?: ReadonlySet<string>;
+  editableTargetKeys?: ReadonlySet<string>;
   selectedTarget?: WorldPlanCardTarget | null;
+  selectedEditTarget?: WorldPlanCardTarget | null;
   onSelectTarget?: (target: WorldPlanCardTarget) => void;
+  onSelectEditTarget?: (target: WorldPlanCardTarget) => void;
   selectionStale?: boolean;
 }) {
   const model = useMemo(() => buildWorldPlanCardProjectionModel({ document, markdown, sourceWarnings }), [document, markdown, sourceWarnings]);
@@ -355,6 +384,9 @@ export function WorldPlanCardProjection({
       <p className="world-plan-cards__target-note" role="note">
         Select one uniquely matching card for Ask. A targeted answer uses the committed Plan revision; unsaved edits are not sent.
       </p>
+      <p className="world-plan-cards__target-note" role="note">
+        Select for Edit targets the exact body in the current draft. When the Plan is dirty, the proposal uses unsaved draft content; Apply still changes only the mounted draft and Save remains separate.
+      </p>
       {basis.status !== "verified" ? (
         <p className="world-plan-cards__target-warning" role="status">
           Card targeting is unavailable until a committed Plan snapshot is verified.
@@ -371,8 +403,11 @@ export function WorldPlanCardProjection({
             key={node.id}
             node={node}
             selectableTargetKeys={selectableTargetKeys}
+            editableTargetKeys={editableTargetKeys}
             selectedTarget={selectedTarget}
+            selectedEditTarget={selectedEditTarget}
             onSelectTarget={onSelectTarget}
+            onSelectEditTarget={onSelectEditTarget}
           />
         ))}
       </ol>

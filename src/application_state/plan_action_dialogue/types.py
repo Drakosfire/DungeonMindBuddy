@@ -8,11 +8,11 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 ActionStatus = Literal["pending", "completed", "failed", "indeterminate"]
 ActionType = Literal["compose", "revise"]
-TargetKind = Literal["replace_selection", "insert_at_caret"]
+TargetKind = Literal["replace_selection", "insert_at_caret", "replace_playable_body"]
 
 
 class StrictModel(BaseModel):
@@ -28,6 +28,33 @@ class PlanActionBasis(StrictModel):
     content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
+class PlanActionPlayableTargetReceipt(StrictModel):
+    schema_version: Literal["dmb_plan_playable_target_receipt_v1"]
+    kind: Literal["scene", "beat", "choice", "option"]
+    id: str = Field(pattern=r"^(scene|beat|choice|option):[a-z0-9][a-z0-9._-]{0,127}$")
+    marker_grammar_version: Literal["v1", "v2"]
+    body_scope: Literal["heading_body", "beat_direct_body", "option_item_content"]
+    range_semantics_version: Literal["plan-playable-ranges-v1"]
+    body_serialization_version: Literal["plan-playable-body-markdown-v1"]
+    target_body_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_typed_scope(self):
+        if self.id.split(":", 1)[0] != self.kind:
+            raise ValueError("Playable target receipt kind must match its ID prefix")
+        if self.marker_grammar_version == "v1":
+            valid_scope = self.body_scope == "heading_body"
+        elif self.kind == "option":
+            valid_scope = self.body_scope == "option_item_content"
+        elif self.kind == "beat":
+            valid_scope = self.body_scope == "beat_direct_body"
+        else:
+            valid_scope = self.body_scope == "heading_body"
+        if not valid_scope:
+            raise ValueError("Playable target receipt scope does not match its grammar and kind")
+        return self
+
+
 class PlanActionReservation(StrictModel):
     idempotency_key: UUID
     request_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -37,7 +64,21 @@ class PlanActionReservation(StrictModel):
     draft_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     target_kind: TargetKind
     selected_text_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    playable_target_receipt: PlanActionPlayableTargetReceipt | None = None
     instruction: str = Field(min_length=1, max_length=4000)
+
+    @model_validator(mode="after")
+    def validate_target_witness(self):
+        if self.target_kind == "replace_playable_body":
+            if self.action_type != "revise" or self.selected_text_sha256 is not None or self.playable_target_receipt is None:
+                raise ValueError("Playable body actions require a revise action and one typed target receipt")
+        elif self.playable_target_receipt is not None:
+            raise ValueError("Only Playable body actions may carry a typed target receipt")
+        elif self.target_kind == "replace_selection" and self.selected_text_sha256 is None:
+            raise ValueError("replace_selection requires a selected-text digest")
+        elif self.target_kind == "insert_at_caret" and self.selected_text_sha256 is not None:
+            raise ValueError("insert_at_caret cannot carry a selected-text digest")
+        return self
 
 
 class PlanActionRecord(StrictModel):
@@ -50,6 +91,7 @@ class PlanActionRecord(StrictModel):
     draft_sha256: str
     target_kind: TargetKind
     selected_text_sha256: str | None
+    playable_target_receipt: PlanActionPlayableTargetReceipt | None
     instruction: str
     status: ActionStatus
     assistant_summary: str | None
@@ -72,6 +114,7 @@ class PlanActionProjection(StrictModel):
     action_sequence: int
     accepted_at: datetime
     completed_at: datetime | None
+    playable_target_receipt: PlanActionPlayableTargetReceipt | None
 
 
 class PlanActionProjectionPage(StrictModel):

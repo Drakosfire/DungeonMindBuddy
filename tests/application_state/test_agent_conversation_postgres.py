@@ -143,7 +143,7 @@ def test_agent_conversation_migration_is_single_current_head(
     application_state_dsn: str,
 ) -> None:
     current, head = _current_and_head(application_state_dsn)
-    assert current == head == "20261003_0014"
+    assert current == head == "20261004_0015"
 
 
 def test_turn_and_draft_round_trip_exact_typed_provenance(

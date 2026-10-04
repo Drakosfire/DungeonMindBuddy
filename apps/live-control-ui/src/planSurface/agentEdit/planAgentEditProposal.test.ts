@@ -7,6 +7,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from "../../tiptap/MarkdownEditorCore";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { tiptapJsonToSemanticMarkdown } from "../../tiptap/markdown/calloutMarkdown";
+import { resolvePlayableBodyTarget } from "./planPlayableBodyTarget";
 import {
   admitWorldPlanEditProposal,
   admitPlanEditProposal,
@@ -97,18 +98,30 @@ async function sha256Hex(value: string): Promise<string> {
 async function worldResponseFor(
   captured: Awaited<ReturnType<typeof captureWorldPlanEditTarget>>,
   replacement_markdown: string,
+  idempotency_key = "00000000-0000-4000-8000-000000000002",
 ) {
+  const bodyTarget = captured.playableBodyTarget;
   return {
-    schema_version: "dmb_world_plan_document_edit_proposal_v1" as const,
+    schema_version: bodyTarget
+      ? "dmb_world_plan_document_edit_proposal_v2" as const
+      : "dmb_world_plan_document_edit_proposal_v1" as const,
     action_id: "00000000-0000-4000-8000-000000000001",
-    idempotency_key: "00000000-0000-4000-8000-000000000002",
+    idempotency_key,
     document_id: captured.request.document_id,
     world_id: captured.request.world_id,
     base_revision: captured.request.base_revision,
     base_content_sha256: captured.request.base_content_sha256,
     draft_sha256: captured.request.draft_sha256,
     target_kind: captured.request.target_kind,
-    selected_text_sha256: await sha256Hex(captured.request.selected_text),
+    selected_text_sha256: bodyTarget ? null : await sha256Hex(captured.request.selected_text),
+    ...(bodyTarget ? {
+      playable_target: bodyTarget.target,
+      marker_grammar_version: bodyTarget.markerGrammarVersion,
+      body_scope: bodyTarget.bodyScope,
+      range_semantics_version: bodyTarget.rangeSemanticsVersion,
+      body_serialization_version: bodyTarget.bodySerializationVersion,
+      target_body_sha256: bodyTarget.targetBodySha256,
+    } : {}),
     replacement_markdown,
     summary: "Opening scene",
     assumptions: [],
@@ -698,5 +711,98 @@ describe("reviewed World-only Plan edit admission and Apply", () => {
       getAgentBinding: matchingAgentBinding,
     })).rejects.toThrow();
     expect(editor.getJSON()).toEqual(before);
+  });
+
+  it("reviews and applies only one Option body, then saves and freshly reopens with its edges and references intact", async () => {
+    const sourceMarkdown = [
+      "# Plan",
+      "",
+      "<!-- dmb-playable-element:v2 kind=beat id=beat:approach beat_kind=spine -->",
+      "## Approach",
+      "The party reaches the gate.",
+      "",
+      "<!-- dmb-playable-element:v2 kind=choice id=choice:route -->",
+      "### Route",
+      "Choose a path.",
+      "",
+      "<!-- dmb-playable-element:v2 kind=option id=option:explore activates=beat:arrival -->",
+      "- Explore [Aldric](dmb-node:node:captain-lysandra-ironveil) at dusk.",
+      "",
+      "<!-- dmb-playable-element:v2 kind=option id=option:wait suppresses=beat:arrival -->",
+      "- Wait by the gate.",
+      "",
+      "<!-- dmb-playable-element:v2 kind=beat id=beat:arrival beat_kind=optional -->",
+      "## Arrival",
+      "A guide appears.",
+      "",
+    ].join("\n");
+    const { editor, state } = mountedState(sourceMarkdown);
+    const originalSavedMarkdown = state.sourceMarkdown;
+    const current: WorldPlanEditEditorState = {
+      ...worldState(state),
+      playableTarget: { kind: "option", id: "option:explore" },
+      playableTargetGeneration: 4,
+    };
+    const captured = await captureWorldPlanEditTarget(current, () => current);
+    expect(captured.request).toMatchObject({
+      target_kind: "replace_playable_body",
+      selected_text: "",
+      playable_target: { kind: "option", id: "option:explore" },
+      target_body_markdown: "Explore [Aldric](dmb-node:node:captain-lysandra-ironveil) at dusk.\n",
+    });
+    const key = "00000000-0000-4000-8000-000000000002";
+    const changedReference = await worldResponseFor(
+      captured,
+      "Explore [Someone else](dmb-node:node:different-person) quietly.",
+      key,
+    );
+    await expect(admitWorldPlanEditProposal(captured, changedReference, key)).rejects.toThrow(/protected card-body link/);
+
+    const replacement = "Quietly follow [Aldric](dmb-node:node:captain-lysandra-ironveil) through the gate.";
+    const response = await worldResponseFor(captured, replacement, key);
+    const admitted = await admitWorldPlanEditProposal(captured, response, key);
+    let saveCalls = 0;
+    let persistedMarkdown = originalSavedMarkdown;
+    const ordinarySave = () => {
+      saveCalls += 1;
+      persistedMarkdown = tiptapJsonToSemanticMarkdown(editor.getJSON());
+    };
+
+    await applyWorldPlanEditProposal({
+      captured,
+      admitted,
+      getCurrent: () => current,
+      expectedAgentBinding: expectedAgentBinding(),
+      getAgentBinding: matchingAgentBinding,
+    });
+
+    expect(tiptapJsonToSemanticMarkdown(editor.getJSON())).toContain(
+      "- Quietly follow [Aldric](dmb-node:node:captain-lysandra-ironveil) through the gate.",
+    );
+    expect(state.sourceMarkdown).toBe(originalSavedMarkdown);
+    expect(persistedMarkdown).toBe(originalSavedMarkdown);
+    expect(saveCalls).toBe(0);
+
+    ordinarySave();
+    expect(saveCalls).toBe(1);
+    expect(persistedMarkdown).toContain("option:explore activates=beat:arrival");
+    expect(persistedMarkdown).toContain("option:wait suppresses=beat:arrival");
+    expect(persistedMarkdown).toContain("- Wait by the gate.");
+    expect(persistedMarkdown).toContain("[Aldric](dmb-node:node:captain-lysandra-ironveil)");
+    expect(persistedMarkdown).toContain("- Quietly follow [Aldric](dmb-node:node:captain-lysandra-ironveil) through the gate.");
+    const reopened = markdownToTiptapDoc(persistedMarkdown);
+    expect(reopened.diagnostics.filter((diagnostic) => diagnostic.level === "warning")).toEqual([]);
+    const reopenedElement = document.createElement("div");
+    document.body.appendChild(reopenedElement);
+    const reopenedEditor = new Editor({
+      element: reopenedElement,
+      extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,
+      content: reopened.doc,
+    });
+    editors.push(reopenedEditor);
+    const reopenedTarget = await resolvePlayableBodyTarget(reopenedEditor, { kind: "option", id: "option:explore" });
+    expect(reopenedTarget.targetBodyMarkdown).toBe(`${admitted.canonicalMarkdown}`);
+    expect(reopenedTarget.targetBodySha256).toBe(await sha256Hex(admitted.canonicalMarkdown));
+    expect(reopenedTarget.targetBodySha256).not.toBe(captured.playableBodyTarget?.targetBodySha256);
   });
 });

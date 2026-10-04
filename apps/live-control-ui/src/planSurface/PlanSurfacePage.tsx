@@ -59,6 +59,16 @@ type SelectedWorldPlanPlayableTarget = {
   stale: boolean;
 };
 
+type SelectedWorldPlanPlayableEditTarget = {
+  target: WorldPlanCardTarget;
+  worldId: string;
+  documentId: string;
+  revision: number;
+  contentSha256: string;
+  generation: number;
+  stale: boolean;
+};
+
 function markdownFidelityWarnings(
   importDiagnostics: readonly MarkdownImportDiagnostic[],
   editorDocument: JSONContent,
@@ -348,6 +358,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const [editor, setEditor] = useState<Editor | null>(null);
   const [selectedCardViewIdentity, setSelectedCardViewIdentity] = useState<string | null>(null);
   const [selectedPlayableTarget, setSelectedPlayableTarget] = useState<SelectedWorldPlanPlayableTarget | null>(null);
+  const [selectedPlayableEditTarget, setSelectedPlayableEditTarget] = useState<SelectedWorldPlanPlayableEditTarget | null>(null);
+  const [playableEditTargetGeneration, setPlayableEditTargetGeneration] = useState(0);
   const importedMarkdown = useMemo(() => markdownToTiptapDoc(markdown), [markdown]);
   const editorContent = importedMarkdown.doc;
   const fidelityWarnings = useMemo(
@@ -369,6 +381,10 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const serverDigestRef = useRef<string | null>(null);
   const editGenerationRef = useRef(localDraft?.edit_generation ?? 0);
   const selectionGenerationRef = useRef(0);
+  const selectedPlayableEditTargetRef = useRef<SelectedWorldPlanPlayableEditTarget | null>(null);
+  const playableEditTargetGenerationRef = useRef(0);
+  const playableEditTargetStaleRef = useRef(false);
+  selectedPlayableEditTargetRef.current = selectedPlayableEditTarget;
   const pendingWriteRef = useRef(localDraft?.pending_write ?? null);
   const uncertainCreateDraftRef = useRef(localDraft?.uncertain_create_draft ?? null);
   const savingRef = useRef(false);
@@ -454,6 +470,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     sourceMarkdown: "",
     draftGeneration: 0,
     selectionGeneration: 0,
+    playableTarget: null,
+    playableTargetGeneration: 0,
+    playableTargetStale: false,
     canEdit: false,
   }));
   worldEditStateGetterRef.current = () => ({
@@ -465,6 +484,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     sourceMarkdown: markdownRef.current,
     draftGeneration: editGenerationRef.current,
     selectionGeneration: selectionGenerationRef.current,
+    playableTarget: selectedPlayableEditTargetRef.current?.target ?? null,
+    playableTargetGeneration: playableEditTargetGenerationRef.current,
+    playableTargetStale: playableEditTargetStaleRef.current,
     canEdit: Boolean(
       documentIdRef.current
       && serverDigestRef.current
@@ -1296,6 +1318,10 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     const savedKeys = worldPlanCardTargetKeys(savedCardProjection);
     return new Set([...currentKeys].filter((key) => savedKeys.has(key)));
   }, [currentCardProjection, savedBasis, savedCardProjection]);
+  const editableTargetKeys = useMemo(() => {
+    if (savedBasis.status !== "verified") return new Set<string>();
+    return worldPlanCardTargetKeys(currentCardProjection);
+  }, [currentCardProjection, savedBasis]);
   const selectedTargetBasisMatches = Boolean(selectedPlayableTarget
     && selectedPlayableTarget.worldId === worldId
     && selectedPlayableTarget.documentId === documentId
@@ -1306,6 +1332,17 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     && (!selectedTargetBasisMatches
       || selectedPlayableTarget.stale
       || !selectableTargetKeys.has(worldPlanCardTargetKey(selectedPlayableTarget.target))));
+  const selectedEditTargetBasisMatches = Boolean(selectedPlayableEditTarget
+    && selectedPlayableEditTarget.worldId === worldId
+    && selectedPlayableEditTarget.documentId === documentId
+    && savedBasis.status === "verified"
+    && selectedPlayableEditTarget.revision === savedBasis.revision
+    && selectedPlayableEditTarget.contentSha256 === savedBasis.contentSha256);
+  const selectedPlayableEditTargetStale = Boolean(selectedPlayableEditTarget
+    && (!selectedEditTargetBasisMatches
+      || selectedPlayableEditTarget.stale
+      || !editableTargetKeys.has(worldPlanCardTargetKey(selectedPlayableEditTarget.target))));
+  playableEditTargetStaleRef.current = selectedPlayableEditTargetStale;
 
   useEffect(() => {
     if (!selectedPlayableTarget) return;
@@ -1325,6 +1362,31 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     }
   }, [documentId, savedBasis, selectableTargetKeys, selectedPlayableTarget, selectedTargetBasisMatches, worldId]);
 
+  useEffect(() => {
+    if (!selectedPlayableEditTarget) return;
+    if (selectedPlayableEditTarget.worldId !== worldId || selectedPlayableEditTarget.documentId !== documentId) {
+      setSelectedPlayableEditTarget(null);
+      selectedPlayableEditTargetRef.current = null;
+      playableEditTargetGenerationRef.current += 1;
+      setPlayableEditTargetGeneration(playableEditTargetGenerationRef.current);
+      return;
+    }
+    if (savedBasis.status === "verified"
+      && (selectedPlayableEditTarget.revision !== savedBasis.revision
+        || selectedPlayableEditTarget.contentSha256 !== savedBasis.contentSha256)) {
+      setSelectedPlayableEditTarget(null);
+      selectedPlayableEditTargetRef.current = null;
+      playableEditTargetGenerationRef.current += 1;
+      setPlayableEditTargetGeneration(playableEditTargetGenerationRef.current);
+      return;
+    }
+    if ((!selectedEditTargetBasisMatches
+      || !editableTargetKeys.has(worldPlanCardTargetKey(selectedPlayableEditTarget.target)))
+      && !selectedPlayableEditTarget.stale) {
+      setSelectedPlayableEditTarget({ ...selectedPlayableEditTarget, stale: true });
+    }
+  }, [documentId, editableTargetKeys, savedBasis, selectedEditTargetBasisMatches, selectedPlayableEditTarget, worldId]);
+
   const selectPlayableTarget = useCallback((target: WorldPlanCardTarget) => {
     if (savedBasis.status !== "verified" || !documentId
       || !selectableTargetKeys.has(worldPlanCardTargetKey(target))) return;
@@ -1337,6 +1399,34 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       stale: false,
     });
   }, [documentId, savedBasis, selectableTargetKeys, worldId]);
+
+  const selectPlayableEditTarget = useCallback((target: WorldPlanCardTarget) => {
+    if (savedBasis.status !== "verified" || !documentId
+      || !editableTargetKeys.has(worldPlanCardTargetKey(target))) return;
+    const generation = playableEditTargetGenerationRef.current + 1;
+    playableEditTargetGenerationRef.current = generation;
+    setPlayableEditTargetGeneration(generation);
+    const selected = {
+      target,
+      worldId,
+      documentId,
+      revision: savedBasis.revision,
+      contentSha256: savedBasis.contentSha256,
+      generation,
+      stale: false,
+    };
+    selectedPlayableEditTargetRef.current = selected;
+    playableEditTargetStaleRef.current = false;
+    setSelectedPlayableEditTarget(selected);
+  }, [documentId, editableTargetKeys, savedBasis, worldId]);
+
+  const clearPlayableEditTarget = useCallback(() => {
+    playableEditTargetGenerationRef.current += 1;
+    setPlayableEditTargetGeneration(playableEditTargetGenerationRef.current);
+    selectedPlayableEditTargetRef.current = null;
+    playableEditTargetStaleRef.current = false;
+    setSelectedPlayableEditTarget(null);
+  }, []);
 
   return (
     <AppChrome activeRoute="plan" editorTools={editorToolsGeneration} editToolboxLayout="dock">
@@ -1462,8 +1552,11 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             isDirty={cardProjectionDirty}
             onReturnToDocument={() => setSelectedCardViewIdentity(null)}
             selectableTargetKeys={selectableTargetKeys}
+            editableTargetKeys={editableTargetKeys}
             selectedTarget={selectedPlayableTarget?.target ?? null}
+            selectedEditTarget={selectedPlayableEditTarget?.target ?? null}
             onSelectTarget={selectPlayableTarget}
+            onSelectEditTarget={selectPlayableEditTarget}
             selectionStale={selectedPlayableTargetStale}
           />
         ) : null}
@@ -1490,6 +1583,14 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         } : null}
         playableTargetStale={selectedPlayableTargetStale}
         onClearPlayableTarget={() => setSelectedPlayableTarget(null)}
+        playableEditTarget={selectedPlayableEditTarget ? {
+          ...selectedPlayableEditTarget.target,
+          generation: selectedPlayableEditTarget.generation,
+        } : null}
+        playableEditTargetGeneration={playableEditTargetGeneration}
+        playableEditTargetStale={selectedPlayableEditTargetStale}
+        playableEditTargetDirty={cardProjectionDirty}
+        onClearPlayableEditTarget={clearPlayableEditTarget}
       />
     </AppChrome>
   );

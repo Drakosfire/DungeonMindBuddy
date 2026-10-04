@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { StrictMode, type ReactNode } from "react";
 import { webcrypto } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -45,6 +45,28 @@ vi.mock("./PlanSurfaceShell", () => ({
 const worldId = "world-reviewed-edit-integration";
 const documentId = "saved-world-plan-reviewed-edit";
 const initialMarkdown = "# Plan\n\nThe keeper waits beneath the black arch.\n";
+const v2OptionPlanMarkdown = [
+  "# Plan",
+  "",
+  "<!-- dmb-playable-element:v2 kind=beat id=beat:approach beat_kind=spine -->",
+  "## Approach",
+  "The party reaches the gate.",
+  "",
+  "<!-- dmb-playable-element:v2 kind=choice id=choice:route -->",
+  "### Route",
+  "Choose a path.",
+  "",
+  "<!-- dmb-playable-element:v2 kind=option id=option:explore activates=beat:arrival -->",
+  "- Explore [Aldric](dmb-node:node:captain-lysandra-ironveil) at dusk.",
+  "",
+  "<!-- dmb-playable-element:v2 kind=option id=option:wait suppresses=beat:arrival -->",
+  "- Wait by the gate.",
+  "",
+  "<!-- dmb-playable-element:v2 kind=beat id=beat:arrival beat_kind=optional -->",
+  "## Arrival",
+  "A guide appears.",
+  "",
+].join("\n");
 const repositoryRoot = resolve(process.cwd(), "../..");
 const session29Markdown = readFileSync(resolve(
   repositoryRoot,
@@ -197,6 +219,42 @@ function ThreadSwitchControl() {
 async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function v2OptionProposalResponse(
+  request: WorldPlanDocumentEditProposalRequest,
+  actionId: string,
+  replacementMarkdown: string,
+): WorldPlanDocumentEditProposalResponse {
+  if (request.target_kind !== "replace_playable_body" || !request.playable_target) {
+    throw new Error("The mounted card-body test must submit a typed Playable target.");
+  }
+  return {
+    schema_version: "dmb_world_plan_document_edit_proposal_v2",
+    action_id: actionId,
+    idempotency_key: request.idempotency_key,
+    document_id: request.document_id,
+    world_id: request.world_id,
+    base_revision: request.base_revision,
+    base_content_sha256: request.base_content_sha256,
+    draft_sha256: request.draft_sha256,
+    target_kind: "replace_playable_body",
+    selected_text_sha256: null,
+    playable_target: request.playable_target,
+    marker_grammar_version: "v2",
+    body_scope: "option_item_content",
+    range_semantics_version: "plan-playable-ranges-v1",
+    body_serialization_version: "plan-playable-body-markdown-v1",
+    target_body_sha256: request.target_body_sha256!,
+    replacement_markdown: replacementMarkdown,
+    summary: "Revise the selected Option body.",
+    assumptions: [],
+    model: "gpt-6-luna",
+    model_observed: true,
+    model_latency_ms: 1,
+    wall_latency_ms: 1,
+    usage: null,
+  };
 }
 
 function setupWorldApi() {
@@ -983,4 +1041,321 @@ it("rejects a thread switch during deferred Apply without changing the mounted e
   expect(editorSurface).not.toHaveTextContent("A lantern glows under the arch.");
   expect(prepare).not.toHaveBeenCalled();
   expect(commit).not.toHaveBeenCalled();
+});
+
+it("drops a delayed card-body proposal after a new Option target is selected", async () => {
+  savedMarkdown = v2OptionPlanMarkdown;
+  setupWorldApi();
+  let release!: (value: WorldPlanDocumentEditProposalResponse) => void;
+  const pending = new Promise<WorldPlanDocumentEditProposalResponse>((resolve) => { release = resolve; });
+  const proposal = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockReturnValue(pending);
+  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite");
+  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite");
+  const location = `/plan?world=${worldId}&documentId=${documentId}`;
+  window.history.replaceState({}, "", location);
+  const view = render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
+  const editorSurface = await screen.findByTestId("world-owned-plan-markdown-editor");
+  await waitFor(() => expect(editorSurface).toHaveTextContent("Wait by the gate."));
+  const originalEditorText = editorSurface.textContent;
+  fireEvent.click(await screen.findByRole("button", { name: "Cards" }));
+  const cards = screen.getByTestId("world-plan-cards");
+  const exploreCard = cards.querySelector('[data-element-id="option:explore"]');
+  const waitCard = cards.querySelector('[data-element-id="option:wait"]');
+  expect(exploreCard).not.toBeNull();
+  expect(waitCard).not.toBeNull();
+  fireEvent.click(within(exploreCard as HTMLElement).getByRole("button", { name: "Select for Edit" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
+  fireEvent.change(await screen.findByLabelText("Message DungeonBuddy"), {
+    target: { value: "Guide Aldric through the gate quietly." },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
+  await waitFor(() => expect(proposal).toHaveBeenCalledTimes(1));
+  const request = proposal.mock.calls[0]?.[0];
+  expect(request).toMatchObject({
+    target_kind: "replace_playable_body",
+    playable_target: { kind: "option", id: "option:explore" },
+  });
+
+  fireEvent.click(within(waitCard as HTMLElement).getByRole("button", { name: "Select for Edit" }));
+  await waitFor(() => expect(screen.getByRole("group", { name: "Selected Playable card for edit" })).toHaveTextContent("option:wait"));
+  await act(async () => {
+    release(v2OptionProposalResponse(request!, "00000000-0000-4000-8000-000000000041", "A quiet guide leads the way."));
+    await pending;
+  });
+
+  expect(screen.queryByRole("region", { name: "Review proposed Plan edit" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Apply changes" })).not.toBeInTheDocument();
+  expect(editorSurface.textContent).toBe(originalEditorText);
+  expect(savedMarkdown).toBe(v2OptionPlanMarkdown);
+  expect(prepare).not.toHaveBeenCalled();
+  expect(commit).not.toHaveBeenCalled();
+  view.unmount();
+});
+
+it("drops a late same-card response when a newer capture is current", async () => {
+  savedMarkdown = v2OptionPlanMarkdown;
+  setupWorldApi();
+  let releaseFirst!: (value: WorldPlanDocumentEditProposalResponse) => void;
+  let releaseSecond!: (value: WorldPlanDocumentEditProposalResponse) => void;
+  const firstPending = new Promise<WorldPlanDocumentEditProposalResponse>((resolve) => { releaseFirst = resolve; });
+  const secondPending = new Promise<WorldPlanDocumentEditProposalResponse>((resolve) => { releaseSecond = resolve; });
+  const proposal = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal")
+    .mockImplementationOnce(() => firstPending)
+    .mockImplementationOnce(() => secondPending);
+  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite");
+  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite");
+  const location = `/plan?world=${worldId}&documentId=${documentId}`;
+  window.history.replaceState({}, "", location);
+  const view = render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
+  const editorSurface = await screen.findByTestId("world-owned-plan-markdown-editor");
+  await waitFor(() => expect(editorSurface).toHaveTextContent("Wait by the gate."));
+  const originalEditorText = editorSurface.textContent;
+  fireEvent.click(await screen.findByRole("button", { name: "Cards" }));
+  const cards = screen.getByTestId("world-plan-cards");
+  const exploreCard = cards.querySelector('[data-element-id="option:explore"]');
+  expect(exploreCard).not.toBeNull();
+  fireEvent.click(within(exploreCard as HTMLElement).getByRole("button", { name: "Select for Edit" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
+  fireEvent.change(await screen.findByLabelText("Message DungeonBuddy"), {
+    target: { value: "Add the stale guide response." },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
+  await waitFor(() => expect(proposal).toHaveBeenCalledTimes(1));
+  const firstRequest = proposal.mock.calls[0]?.[0];
+  expect(firstRequest).toMatchObject({
+    target_kind: "replace_playable_body",
+    playable_target: { kind: "option", id: "option:explore" },
+  });
+
+  fireEvent.click(within(exploreCard as HTMLElement).getByRole("button", { name: "Selected for Edit" }));
+  await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).not.toBeDisabled());
+  fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
+    target: { value: "Use the newer guide response." },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
+  await waitFor(() => expect(proposal).toHaveBeenCalledTimes(2));
+  const secondRequest = proposal.mock.calls[1]?.[0];
+  expect(secondRequest).toMatchObject({
+    target_kind: "replace_playable_body",
+    playable_target: { kind: "option", id: "option:explore" },
+    instruction: "Use the newer guide response.",
+  });
+  expect(secondRequest?.idempotency_key).not.toBe(firstRequest?.idempotency_key);
+
+  await act(async () => {
+    releaseFirst(v2OptionProposalResponse(firstRequest!, "00000000-0000-4000-8000-000000000043", "A stale guide leads [Aldric](dmb-node:node:captain-lysandra-ironveil) forward."));
+    await firstPending;
+  });
+  expect(screen.queryByRole("region", { name: "Review proposed Plan edit" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Apply changes" })).not.toBeInTheDocument();
+  expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("Use the newer guide response.");
+  expect(editorSurface.textContent).toBe(originalEditorText);
+  expect(savedMarkdown).toBe(v2OptionPlanMarkdown);
+  expect(prepare).not.toHaveBeenCalled();
+  expect(commit).not.toHaveBeenCalled();
+
+  await act(async () => {
+    releaseSecond(v2OptionProposalResponse(secondRequest!, "00000000-0000-4000-8000-000000000044", "A fresh guide leads [Aldric](dmb-node:node:captain-lysandra-ironveil) forward."));
+    await secondPending;
+  });
+  const review = await screen.findByRole("region", { name: "Review proposed Plan edit" });
+  expect(review).toHaveTextContent("A fresh guide leads");
+  expect(review).not.toHaveTextContent("A stale guide leads");
+  fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
+  await waitFor(() => {
+    expect(editorSurface).toHaveTextContent("A fresh guide leads");
+    expect(editorSurface).not.toHaveTextContent("A stale guide leads");
+  });
+  expect(savedMarkdown).toBe(v2OptionPlanMarkdown);
+  expect(prepare).not.toHaveBeenCalled();
+  expect(commit).not.toHaveBeenCalled();
+  view.unmount();
+});
+
+it("refuses card-body Apply when the selected target changes during recapture", async () => {
+  savedMarkdown = v2OptionPlanMarkdown;
+  setupWorldApi();
+  const proposal = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) =>
+    v2OptionProposalResponse(request, "00000000-0000-4000-8000-000000000042", "Wait while the guide distracts the guard."));
+  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite");
+  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite");
+  const location = `/plan?world=${worldId}&documentId=${documentId}`;
+  window.history.replaceState({}, "", location);
+  const view = render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
+  const editorSurface = await screen.findByTestId("world-owned-plan-markdown-editor");
+  await waitFor(() => expect(editorSurface).toHaveTextContent("Wait by the gate."));
+  const originalEditorText = editorSurface.textContent;
+  fireEvent.click(await screen.findByRole("button", { name: "Cards" }));
+  const cards = screen.getByTestId("world-plan-cards");
+  const exploreCard = cards.querySelector('[data-element-id="option:explore"]');
+  const waitCard = cards.querySelector('[data-element-id="option:wait"]');
+  expect(exploreCard).not.toBeNull();
+  expect(waitCard).not.toBeNull();
+  fireEvent.click(within(waitCard as HTMLElement).getByRole("button", { name: "Select for Edit" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
+  fireEvent.change(await screen.findByLabelText("Message DungeonBuddy"), {
+    target: { value: "Wait while the guide creates a distraction." },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
+  await waitFor(() => expect(proposal).toHaveBeenCalledTimes(1));
+  expect(proposal.mock.calls[0]?.[0]).toMatchObject({
+    target_kind: "replace_playable_body",
+    playable_target: { kind: "option", id: "option:wait" },
+  });
+  await screen.findByRole("region", { name: "Review proposed Plan edit" });
+  expect(prepare).not.toHaveBeenCalled();
+  expect(commit).not.toHaveBeenCalled();
+
+  const originalDigest = crypto.subtle.digest.bind(crypto.subtle);
+  let releaseDigest!: () => void;
+  const digestGate = new Promise<void>((resolve) => { releaseDigest = resolve; });
+  const digest = vi.spyOn(crypto.subtle, "digest").mockImplementationOnce(async (...args) => {
+    await digestGate;
+    return originalDigest(...args);
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
+  await waitFor(() => expect(digest).toHaveBeenCalledTimes(1));
+  fireEvent.click(within(exploreCard as HTMLElement).getByRole("button", { name: "Select for Edit" }));
+  await waitFor(() => expect(screen.getByRole("group", { name: "Selected Playable card for edit" })).toHaveTextContent("option:explore"));
+  await act(async () => { releaseDigest(); });
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("changed while capturing the target");
+  expect(screen.queryByRole("region", { name: "Review proposed Plan edit" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Apply changes" })).not.toBeInTheDocument();
+  expect(editorSurface.textContent).toBe(originalEditorText);
+  expect(editorSurface).not.toHaveTextContent("Wait while the guide distracts the guard.");
+  expect(savedMarkdown).toBe(v2OptionPlanMarkdown);
+  expect(prepare).not.toHaveBeenCalled();
+  expect(commit).not.toHaveBeenCalled();
+  view.unmount();
+});
+
+it("edits one selected Option body, keeps Apply draft-only, then saves and freshly reopens the same Plan", async () => {
+  savedMarkdown = v2OptionPlanMarkdown;
+  setupWorldApi();
+  const replacement = "Quietly guide [Aldric](dmb-node:node:captain-lysandra-ironveil) through the gate.";
+  const proposal = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) => ({
+    schema_version: "dmb_world_plan_document_edit_proposal_v2",
+    action_id: "00000000-0000-4000-8000-000000000011",
+    idempotency_key: request.idempotency_key,
+    document_id: request.document_id,
+    world_id: request.world_id,
+    base_revision: request.base_revision,
+    base_content_sha256: request.base_content_sha256,
+    draft_sha256: request.draft_sha256,
+    target_kind: "replace_playable_body",
+    selected_text_sha256: null,
+    playable_target: request.playable_target!,
+    marker_grammar_version: "v2",
+    body_scope: "option_item_content",
+    range_semantics_version: "plan-playable-ranges-v1",
+    body_serialization_version: "plan-playable-body-markdown-v1",
+    target_body_sha256: request.target_body_sha256!,
+    replacement_markdown: replacement,
+    summary: "Steers Aldric through the gate quietly.",
+    assumptions: [],
+    model: "gpt-6-luna",
+    model_observed: true,
+    model_latency_ms: 1,
+    wall_latency_ms: 1,
+    usage: null,
+  }));
+  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockResolvedValue({
+    schema_version: "dmb_tiptap_markdown_write_prepare_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    document_id: documentId,
+    title: "Integration Plan",
+    target_relpath: `out/workspace/plan/${documentId}.md`,
+    target_display_path: `out/workspace/plan/${documentId}.md`,
+    registry_revision: 8,
+    file_exists: true,
+    writer_ok: true,
+    writer_confirm_token: "integration-card-save-token",
+    warnings: [],
+    diagnostics: [],
+  });
+  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite").mockImplementation(async (request) => {
+    savedMarkdown = request.markdown;
+    savedRevision = 8;
+    savedDigest = "c".repeat(64);
+    return {
+      schema_version: "dmb_tiptap_markdown_write_commit_v2",
+      scope_mode: "world",
+      world_id: worldId,
+      document_id: documentId,
+      title: "Integration Plan",
+      target_relpath: `out/workspace/plan/${documentId}.md`,
+      target_display_path: `out/workspace/plan/${documentId}.md`,
+      registry_revision: savedRevision,
+      committed_revision: savedRevision,
+      committed_record: { ...planRecord(), revision: savedRevision },
+      normalized_content_sha256: savedDigest,
+      writer_ok: true,
+      writer_phase: "commit",
+      diagnostics: [],
+    };
+  });
+
+  const location = `/plan?world=${worldId}&documentId=${documentId}`;
+  window.history.replaceState({}, "", location);
+  const view = render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
+  const editorSurface = await screen.findByTestId("world-owned-plan-markdown-editor");
+  await waitFor(() => expect(editorSurface).toHaveTextContent("Wait by the gate."));
+  fireEvent.click(await screen.findByRole("button", { name: "Cards" }));
+  const cards = screen.getByTestId("world-plan-cards");
+  const targetCard = cards.querySelector('[data-element-id="option:explore"]');
+  expect(targetCard).not.toBeNull();
+  fireEvent.click(within(targetCard as HTMLElement).getByRole("button", { name: "Select for Edit" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
+  fireEvent.change(await screen.findByLabelText("Message DungeonBuddy"), {
+    target: { value: "Guide Aldric through the gate without drawing attention." },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
+  await screen.findByRole("region", { name: "Review proposed Plan edit" });
+
+  expect(proposal).toHaveBeenCalledTimes(1);
+  expect(proposal.mock.calls[0]?.[0]).toMatchObject({
+    target_kind: "replace_playable_body",
+    selected_text: "",
+    playable_target: { kind: "option", id: "option:explore" },
+    body_serialization_version: "plan-playable-body-markdown-v1",
+    target_body_markdown: "Explore [Aldric](dmb-node:node:captain-lysandra-ironveil) at dusk.\n",
+  });
+  expect(screen.getByRole("region", { name: "Review proposed Plan edit" })).toHaveTextContent(replacement);
+  expect(prepare).not.toHaveBeenCalled();
+  expect(commit).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
+  await waitFor(() => {
+    expect(editorSurface).toHaveTextContent("Quietly guide");
+    expect(editorSurface).toHaveTextContent("through the gate.");
+  });
+  expect(prepare).not.toHaveBeenCalled();
+  expect(commit).not.toHaveBeenCalled();
+  expect(savedMarkdown).not.toContain("Quietly guide Aldric");
+
+  fireEvent.click(await screen.findByRole("button", { name: "Save Plan" }));
+  await screen.findByText("Saved to this World.");
+  expect(prepare).toHaveBeenCalledTimes(1);
+  expect(commit).toHaveBeenCalledTimes(1);
+  expect(savedMarkdown).toContain("option:explore activates=beat:arrival");
+  expect(savedMarkdown).toContain("option:wait suppresses=beat:arrival");
+  expect(savedMarkdown).toContain("- Wait by the gate.");
+  expect(savedMarkdown).toContain("[Aldric](dmb-node:node:captain-lysandra-ironveil)");
+  expect(savedMarkdown).toContain("- Quietly guide [Aldric](dmb-node:node:captain-lysandra-ironveil) through the gate.");
+
+  view.unmount();
+  window.history.replaceState({}, "", location);
+  render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
+  const reopened = await screen.findByTestId("world-owned-plan-markdown-editor");
+  await waitFor(() => {
+    expect(reopened).toHaveTextContent("Quietly guide");
+    expect(reopened).toHaveTextContent("through the gate.");
+  });
+  expect(reopened).toHaveTextContent("Wait by the gate.");
 });

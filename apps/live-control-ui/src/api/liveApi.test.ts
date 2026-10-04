@@ -269,6 +269,60 @@ describe("World Plan edit proposal transport", () => {
     expect(JSON.stringify(request)).not.toContain("campaign_id");
   });
 
+  it("transports a typed selected-card body request and its correlated v2 receipt unchanged", async () => {
+    const request: WorldPlanDocumentEditProposalRequest = {
+      idempotency_key: "00000000-0000-4000-8000-000000000022",
+      document_id: "document-1",
+      world_id: "world-a",
+      base_revision: 3,
+      base_content_sha256: "a".repeat(64),
+      draft_markdown: "<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->\n## Arrival\nThe gate opens.\n",
+      draft_sha256: "b".repeat(64),
+      target_kind: "replace_playable_body",
+      selected_text: "",
+      playable_target: { kind: "scene", id: "scene:arrival" },
+      body_serialization_version: "plan-playable-body-markdown-v1",
+      target_body_markdown: "The gate opens.\n",
+      target_body_sha256: "c".repeat(64),
+      instruction: "Make the opening more urgent.",
+      conversation_history: [],
+    };
+    const response = {
+      schema_version: "dmb_world_plan_document_edit_proposal_v2",
+      action_id: "00000000-0000-4000-8000-000000000023",
+      idempotency_key: request.idempotency_key,
+      document_id: request.document_id,
+      world_id: request.world_id,
+      base_revision: request.base_revision,
+      base_content_sha256: request.base_content_sha256,
+      draft_sha256: request.draft_sha256,
+      target_kind: "replace_playable_body",
+      selected_text_sha256: null,
+      playable_target: request.playable_target,
+      marker_grammar_version: "v1",
+      body_scope: "heading_body",
+      range_semantics_version: "plan-playable-ranges-v1",
+      body_serialization_version: request.body_serialization_version,
+      target_body_sha256: request.target_body_sha256,
+      replacement_markdown: "A more urgent gate opening.",
+      summary: "Escalates the entrance.",
+      assumptions: [],
+      model: "test-model",
+      model_observed: true,
+      model_latency_ms: 1,
+      wall_latency_ms: 2,
+      usage: null,
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockJsonResponse(response));
+
+    await expect(postWorldPlanDocumentEditProposal(request)).resolves.toEqual(response);
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe("/api/live/world-plan-edit/propose");
+    expect(JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))).toEqual(request);
+    expect(response.idempotency_key).toBe(request.idempotency_key);
+    expect(response.playable_target).toEqual(request.playable_target);
+    expect(response.target_body_sha256).toBe(request.target_body_sha256);
+  });
+
   it("reads the bounded World Plan action status projection by exact route identity", async () => {
     const response = {
       schema_version: "dmb_world_plan_action_projection_v1",
