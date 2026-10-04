@@ -432,8 +432,8 @@ describe("World Plan conversation consumer", () => {
       makeTurn(3, "turn-3", "Current A turn", "A answer"),
     ], 3);
     const movedPointer = history("conversation-b", 6, [
-      makeTurn(1, "turn-b1", "Fresh B turn", "Fresh answer"),
-    ], 1);
+      makeTurn(2, "turn-b2", "Fresh B turn", "Fresh answer"),
+    ], 2);
     const api = setupApi(oldLatest);
     let releaseStalePage!: (value: WorldAgentConversationHistoryResponseV1) => void;
     const stalePage = new Promise<WorldAgentConversationHistoryResponseV1>((resolve) => { releaseStalePage = resolve; });
@@ -443,7 +443,7 @@ describe("World Plan conversation consumer", () => {
       return {
         schema: "dmb_agent_new_conversation_response_v1",
         world_id: worldId,
-        conversation_id: "conversation-c",
+        conversation_id: "conversation-b",
         active_conversation_id: "conversation-b",
         pointer_revision: request.expected_pointer_revision + 1,
       } as any;
@@ -468,14 +468,14 @@ describe("World Plan conversation consumer", () => {
     await waitFor(() => expect(olderButton).toBeEnabled());
 
     api.setOlderHandler(async () => history("conversation-b", 6, [
-      makeTurn(0, "turn-b0", "Fresh older B turn", "Older B answer"),
+      makeTurn(1, "turn-b1", "Fresh older B turn", "Older B answer"),
     ], null));
     fireEvent.click(olderButton);
     expect(await screen.findByText("Fresh older B turn")).toBeInTheDocument();
-    expect(api.historyCalls).toContainEqual({ limit: 50, beforeSequence: 1 });
+    expect(api.historyCalls).toContainEqual({ limit: 50, beforeSequence: 2 });
   });
 
-  it("persists Ask before dispatch, recovers the exact request after reload, and leaves legacy bytes exportable", async () => {
+  it("replays the exact Ask receipt across Plan and conversation changes without injecting it into the active transcript", async () => {
     const api = setupApi(history("conversation-a", 4, []));
     const thread = legacyThread();
     const localKey = threadStorageKey(namespace, legacyThreadId);
@@ -492,14 +492,18 @@ describe("World Plan conversation consumer", () => {
     Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: revokeObjectUrl });
 
     const sent: WorldPlanAgentTurnRequestV1[] = [];
+    let replayReceipt: ReturnType<typeof durableReplayResponse> | null = null;
     const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
       expect(pendingAskKeys()).toHaveLength(1);
       sent.push(request);
-      if (sent.length === 1) throw new Error("connection reset after dispatch");
-      api.setCurrent(history("conversation-a", 4, [
-        makeTurn(1, request.turn_id, request.message, "Recovered answer"),
-      ]));
-      return durableReplayResponse(request, "conversation-a", "Recovered answer") as any;
+      if (sent.length === 1) {
+        replayReceipt = durableReplayResponse(request, "conversation-b", "Recovered answer");
+        api.setCurrent(history("conversation-c", 6, [
+          makeTurn(1, "turn-c1", "Current C question", "Current C answer"),
+        ]));
+        throw new Error("connection reset after dispatch");
+      }
+      return replayReceipt as any;
     });
 
     const first = mountComponent();
@@ -544,10 +548,17 @@ describe("World Plan conversation consumer", () => {
     document.body.appendChild(harness.host);
     mountComponent(8);
     fireEvent.click(await screen.findByRole("button", { name: "Retry saved Ask" }));
-    expect(await screen.findByText("Recovered answer")).toBeInTheDocument();
     await waitFor(() => expect(postAsk).toHaveBeenCalledTimes(2));
     expect(sent[1]).toEqual(sent[0]);
+    expect(replayReceipt?.conversation.conversation_id).toBe("conversation-b");
+    expect(replayReceipt?.answer.trace.model_calls).toEqual([]);
+    expect(replayReceipt?.answer.trace.conversation_context).toBe("durable_replay");
+    expect(api.getPlanBasis).toHaveBeenCalledTimes(1);
     expect(pendingAskKeys()).toHaveLength(0);
+    expect(await screen.findByText(/confirmed this Ask under conversation conversation-b\. It was not inserted into the currently active conversation/)).toBeInTheDocument();
+    expect(await screen.findByText("Current C question")).toBeInTheDocument();
+    expect(screen.getByText("Current C answer")).toBeInTheDocument();
+    expect(screen.queryByText("Recovered answer")).not.toBeInTheDocument();
     expect(localStorage.getItem(localKey)).toBe(legacyBytes);
     expect(harness.agent.updateThread).not.toHaveBeenCalled();
 
@@ -690,27 +701,14 @@ describe("World Plan conversation consumer", () => {
 
   it("keeps a null-basis Ask response pending unless it carries the durable receipt replay trace", async () => {
     setupApi(history("conversation-a", 4, []));
-    const response = agentResponse({
-      schema: "dmb_agent_turn_request_v1",
-      client_thread_id: "client-thread",
-      turn_id: "turn-null-basis",
-      surface: { surface_id: "plan", instance_id: surfaceInstanceId },
-      owner_scope: { kind: "world", world_id: worldId },
-      primary_work: {
-        kind: "plan",
-        object_id: documentId,
-        expected_revision: 7,
-        expected_revision_n: 1,
-        expected_content_sha256: contentSha256,
-      },
-      client_work_state: "saved_clean",
-      graph_request: { mode: "none" },
-      message: "Do not accept this result",
-      idempotency_key: "00000000-0000-4000-8000-000000000055",
-    } as WorldPlanAgentTurnRequestV1, "conversation-a", "Unverified response");
-    response.primary_work.content_basis = null as any;
-    response.conversation.pointer_status = "reused";
-    vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockResolvedValue(response as any);
+    const requests: WorldPlanAgentTurnRequestV1[] = [];
+    vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
+      requests.push(request);
+      const response = agentResponse(request, "conversation-a", "Unverified response");
+      response.primary_work.content_basis = null as any;
+      response.conversation.pointer_status = "reused";
+      return response as any;
+    });
 
     mountComponent();
     await screen.findByText(/no visible conversation turns yet/i);
@@ -718,6 +716,8 @@ describe("World Plan conversation consumer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Ask" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/did not match this saved Plan|could not be verified/i);
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.message).toBe("Do not accept this result");
     expect(pendingAskKeys()).toHaveLength(1);
   });
 

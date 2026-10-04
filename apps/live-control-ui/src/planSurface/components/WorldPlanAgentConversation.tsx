@@ -1047,7 +1047,6 @@ export function WorldPlanAgentConversation({
         && Boolean(origin.workRevisionId.trim());
       const responseBasisMatchesOrigin = validation.value.replayed
         ? requestBasisMatchesOrigin
-          && (!origin.conversationId || origin.conversationId === validation.value.conversationId)
         : requestBasisMatchesOrigin
           && validation.value.summary.contentBasis?.worldId === origin.worldId
           && validation.value.summary.contentBasis?.documentId === origin.documentId
