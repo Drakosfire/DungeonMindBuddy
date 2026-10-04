@@ -8,3 +8,4 @@ export function validateBoard(board){
 }
 export function newPlayState(){return {notes:'',sceneNotes:{},entityNotes:{},completed:{},decisions:[],selected:{},other:{}}}
 export function logDecision(state,card,choices,note,at){return {...state,decisions:[...state.decisions,{card,choices:[...choices],note,at,status:'operator_recorded'}]}}
+export function recoverPreviousState(previous,board){const state=structuredClone(previous);if(!board.cards.some(c=>c.id===state.current))state.current=board.startCard??board.cards[0].id;return state}
