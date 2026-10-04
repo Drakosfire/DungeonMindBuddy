@@ -1,27 +1,40 @@
 # HANDOFF — DEMO: Plan navigation shell
 
-**Status:** ACTIVE — #886 remains Draft/HOLD at remote head `717727c33fe70fc154aee291e4397e2d53ac425c`; geometry evidence remains pending. See current lease reconciliation below.
+**Status:** ACTIVE — the local #886 candidate is rebased on `origin/main@de9e2a1ea16adb2703353f54813758ade33857ab`; its focused suite passes 187/187 and the isolated desktop/mobile geometry gate passes 1/1. At the last remote check, PR #886 was Draft at `717727c33fe70fc154aee291e4397e2d53ac425c`; PRIME review remains pending on the exact published head.
 **Owner:** DEMO.
-**Original activation base:** Buddy `origin/main@1ded2275349f4e9ada1b67a6ab4f6061f9c2465e` (merged #885); current review requires re-anchoring against remote main.
-**Original branch/worktree:** `codex/demo-plan-nav-shell` at `/home/drakosfire/.codex/worktrees/demo-plan-nav-shell/DungeonMindBuddy`.
-**PR topology:** one independent implementation PR; the current test-file split and protected runtimes are specified below. Original recap-lane comparison is historical. PR: `DEMO: stabilize Plan navigation and Edit shell`.
+**Original activation base:** Buddy `origin/main@1ded2275349f4e9ada1b67a6ab4f6061f9c2465e` (merged #885).
+**Current branch/worktree:** `codex/demo-plan-nav-shell-geometry-head` at `/home/drakosfire/.codex/worktrees/plan-nav-shell-restack/DungeonMindBuddy`.
+**Assigned PR:** #886, `DEMO: stabilize Plan navigation and Edit shell`.
+**PR topology:** serial. PRIME reviews and merges #886 before any successor implementation acquires released Page paths. The first saved-Plan card projection remains BLOCKED.
 
 ## 2026-10-04 lease reconciliation
 
-The temporary freeze at `935bf04c48ff7ca0b45b8d08f4f4f433107d5fac` ended
-when #889 merged at `8dc639f06e05cf1809f42ecaba4c791ef21af66b` and PRIME
-released its fidelity-guard lease. #886 regained Page/shell ownership and was
-pushed at `717727c33fe70fc154aee291e4397e2d53ac425c`; the portable branch
-handoff remains valid. Subsequent local restack work is not the remote PR head
-or accepted geometry evidence. Refresh its exact head before review or merge.
+The earlier #889 fidelity-guard freeze ended when #889 merged at
+`8dc639f06e05cf1809f42ecaba4c791ef21af66b`; #886 again owns the bounded Page
+and shell geometry slice. Current Buddy main is `de9e2a1ea16adb2703353f54813758ade33857ab`.
+It includes #904 at `fb1c48d622c9d8d404b1dddb5d5f618e03cc7ef0`, #906 at
+`6feb3059b2da4d2ec29966ce9723f0effc70108f`, #907 at
+`d8e861661716d2fa8c1fb1e3e56ef08268d32da8`, and #905 plus its follow-up
+authority sync at `cafbe54c` and `de9e2a1e`. #904's six-path lease is settled;
+#906's mounted-test repair is merged and its lease is closed.
 
-PRIME now transfers only `PlanSurfacePage.test.tsx` to the PRIME-assigned RAKE repair worker for the bounded
-history/action API mock repair under `HANDOFF-RAKE-plan-mounted-harness-repair.md`.
-#886 retains Page runtime/shell ownership and its independent geometry gate.
-The first integrated card slice must wait for handback or use disjoint paths.
-No allocation here authorizes use of the operator's UI 5202/API 8000 or DOGFOOD
-5203. SERVER owns the current operator runtime; historical lease inventories
-below do not authorize replacing it.
+PRIME's 2026-10-04 sequencing decision is serial: no Page handback now. Rebase
+#886 onto current main, drop the duplicate #906 blank-Plan wait repair, preserve
+the #904 composer integration, and prove real desktop/mobile geometry on the
+isolated synthetic Ladle story. The current candidate does that. `PlanSurfacePage.tsx`
+remains in #886's shell lease; `PlanSurfacePage.test.tsx` is no longer changed
+by this lane. Only after PRIME accepts the exact merge-ready #886 head and it
+merges may the first-card implementation acquire Page plus any necessary mounted
+test/CSS paths under its own freshly pinned ACTIVE handoff. Its current handoff
+is BLOCKED; no card code or Page handback is active.
+
+At the start of this refresh, remote #886 was rechecked as Draft at
+`717727c33fe70fc154aee291e4397e2d53ac425c`; its existing PR body still described
+the earlier candidate and pending geometry gate. This publication replaces that
+packet with the exact current head and evidence below. No allocation here
+authorizes use of the operator's UI 5202/API 8000 or DOGFOOD 5203. SERVER owns
+the operator runtime; all geometry evidence below is from an isolated synthetic
+preview.
 
 ## Blocked action and reproduction
 
@@ -46,7 +59,6 @@ Modify only the paths needed from this allowlist:
 - `apps/live-control-ui/src/surfaceInteraction/editHost/EditHost.test.tsx`
 - `apps/live-control-ui/src/styles.css` — AppChrome/EditHost shell selectors only
 - `apps/live-control-ui/src/planSurface/PlanSurfacePage.tsx` — #886 retains shell/tool write ownership after #889 settlement
-- `apps/live-control-ui/src/planSurface/PlanSurfacePage.test.tsx` — temporarily transferred to the PRIME-assigned RAKE repair worker solely for the bounded history/action API mock repair; other edits require handback
 - `apps/live-control-ui/src/planSurface/WorldPlanEditHost.integration.test.tsx`
 - `apps/live-control-ui/src/planSurface/PlanSurfaceGraphInformation.integration.test.tsx` — repair its AppChrome provider harness and assert the existing projection-backed EditHost search remains discoverable; no Graph/product behavior changes
 - `apps/live-control-ui/src/ui/VisualContract.stories.tsx` — the existing `EditHostDockResponsive` fixture only; add the production `WorldPlanSurfaceContext` contribution and required providers without changing product/runtime behavior
@@ -55,7 +67,21 @@ Modify only the paths needed from this allowlist:
 
 PRIME approved the Graph integration harness path and, on 2026-10-03, the two visual-fixture paths above as test-only lease extensions. They do not authorize a new product surface or runtime behavior.
 
-Historical activation inventory (superseded for current lease/resource decisions): the fetched base includes the unrelated corpus merges #884 (`4509433ce6758f1c852afed68cf18a10d5ae7cb0`) and #885 (`1ded2275349f4e9ada1b67a6ab4f6061f9c2465e`). PR #885 changed only `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/IronVeilHouse.md`. The current open PR inventory is #869, #865, #844, #826, #798, #781 and #763. PRIME checked those PRs for the shell paths; none overlap. #865 conversation files remain excluded. `apps/live-control-ui/src/planSurface/planSurface.css` is exclusively leased to RAKE and will not be edited. RAKE’s concurrent recap lane owns the nine paths named in its activation message: IngestionModule and test, WorldGraphRecapProjection and test, GraphReviewAuthorNodeDrawer/Host, PublishedRecapLocalAuthoring and test, and `planSurface.css`, plus its handoff. No shared port, database, provider or runtime is leased here; the then-current DOGFOOD runtime used UI 5202/API 7866. Current operator UI 5202/API 8000 is SERVER-owned and protected; DOGFOOD uses 5203.
+`PlanSurfacePage.test.tsx` is outside the current #886 write set. Its bounded
+#906 repair is merged, and this branch drops the duplicate wait assertion rather
+than retaining a second copy of that fix.
+
+The current open-PR list was refreshed after fetching main. Adjacent file lists
+were checked: #887 remains prototype-only under `prototypes/plan-play-cards/`;
+#869 changes statblock editor/workbench paths; #781 changes semantic-action
+projection paths; #844, #760, and #761 are handoff/design docs; #826 is
+WorldSpace server/lockfile code; #798 is backlog-only; #765 and #763 are Rules
+Lawyer server/UI paths; #764 changes Rules Lawyer plus Plan projection catalog
+registration. None overlaps this lease's AppChrome, EditHost, Plan Page, shell
+CSS, mounted integration, or visual-story paths. Recheck before the serial card
+successor. The old RAKE recap-lane inventory and its `planSurface.css` hold are
+historical; this #886 candidate still does not edit `planSurface.css` or any
+shared UI package. No port, database, provider, or runtime is shared here.
 
 ## Required verification and acceptance
 
@@ -63,11 +89,13 @@ Historical activation inventory (superseded for current lease/resource decisions
 - Browser geometry at desktop 1280×800 and narrow 390×844 checks Edit open and closed, header/context and workspace alignment, Edit width/top/bottom against the shared shell, inspector/tool containment and absence of horizontal overflow. Graph search discoverability is covered at the mounted projection integration boundary. Use the mounted `EditHostDockResponsive` story with the production World Plan context component and no API/DB/live data. Never change DOGFOOD’s route or draft.
 - Run focused AppChrome, EditHost, PlanSurfacePage, WorldPlan EditHost integration and PlanSurfaceShell tests. Preserve inherited failures explicitly.
 
-## Historical verification evidence — exact re-anchor required
+## Current verification evidence
 
-- `git diff --check` passes. The focused eight-file Vitest run at the current head completed with 171 passed and 13 failed. All 13 failures were present in the fetched `main` comparison: 11 `AppChrome.surfaceInteraction.test.tsx` cases fail because their harnesses omit `PeekRegionProvider`, and two `PlanSurfaceShell.test.tsx` cases cannot find the `Open` button. The repaired projection-backed Graph integration test passes 4/4, including the `Find objects` search assertion. The seven-file baseline run was 166 passed/13 failed; the corresponding head run was 167 passed/13 failed before adding the four passing Graph integration cases. `tsc --noEmit --pretty false -p tsconfig.app.json` reports the same inherited `TS2503: Cannot find namespace 'JSX'` at `src/statblocks/publication/ThreatPublicationPanel.tsx:553` on both fetched `main` and this head; no changed-file type error was reported.
-- The approved visual TypeScript check reports no errors for `VisualContract.stories.tsx` or `tests/ui-visual.pw.ts`. The full app typecheck still reports only the inherited JSX namespace error noted above.
-- The isolated static visual fixture at `/tmp/demo-plan-nav-shell-fixture/index.html` is not an AppChrome witness. Initial in-app navigation to `http://127.0.0.1:18765/` timed out after 31.392 seconds; blank-tab creation and `getState()` calls timed out after 33.049 and 31.698 seconds, with no denial reason in their tool results. Host `curl -I` returned HTTP 200. The mounted Ladle story now includes the production World Plan surface context, and `tests/ui-visual.pw.ts` contains the approved geometry assertions. The in-app browser attempt to open `http://127.0.0.1:5184/?story=visual-contract--edit-host-dock-responsive&mode=preview` returned `net::ERR_BLOCKED_BY_CLIENT`. The Ladle/Vite server also reported that `/tmp/demo-plan-nav-shell-deps/node_modules/@ladle/react/typings-for-build/app/index.html` was outside its serving allowlist. No screenshot or browser geometry was obtained; no alternate browser, endpoint or route was tried. No DOGFOOD UI/API port or route was used.
-- DOGFOOD’s live route and draft were not opened or changed.
+- `origin/main` was freshly fetched at `de9e2a1ea16adb2703353f54813758ade33857ab` before final verification. `git diff --check origin/main...HEAD` passes for the rebased candidate.
+- The focused eight-file Vitest run passed: 8 files, 187 tests. A parallel run briefly timed out in two `PlanSurfaceShell` cases while the visual build/typecheck ran; the isolated rerun passed all 187. Existing React `act(...)` and duplicate-key warnings remain non-failing.
+- `npm run ui:visual -- --grep "keeps Plan chrome stable while Edit docks"` passed 1/1 on the mounted `EditHostDockResponsive` Ladle story, built from this branch with the production `WorldPlanSurfaceContext`, a valid local-draft identity, and matching Plan publication/EditHost targets. The run used bundled Node v24; the shell default Node v18.19.0 is below Playwright 1.63's Node 20 minimum. At desktop 1280×800, the drawer measures 380px wide at x=0, aligns within 1px of the rendered header bottom, ends at y=800, and contains its tool body. The Plan workspace shifts and shrinks by exactly 380px between open and closed states; nav/context bounds stay identical and document width remains 1280px. At mobile 390×844, the drawer is at least 360px wide and stays inside viewport bounds; its top tracks the header, the workspace retains more than 75% of viewport width, nav/context/workspace geometry stays stable on close/reopen, drawer content stays contained, and document width never exceeds 390px.
+- The first geometry attempt found a fixture-only 336px desktop overflow: an inline `width: 100%` overrode the production dock sizing. The Plan fixture now uses the actual World/local-draft identity and publication target and leaves width to production shell CSS; the test now asserts the declared 380px inset relative to closed state, rather than an unrelated absolute outer margin.
+- `npx tsc --noEmit --pretty false -p tsconfig.app.json` reports one error on both this head and a detached checkout of exact current main: `src/statblocks/publication/ThreatPublicationPanel.tsx(553,77): error TS2503: Cannot find namespace 'JSX'.` This path is outside the #886 diff; no new type error was reported. The Playwright/Ladle build completed successfully.
+- No DOGFOOD route, operator Plan, API, or user state was opened or changed. Ports 5202, 8000, and 5203 were not used. All responsive evidence came from the isolated synthetic story and local browser automation.
 
 No API, schema, graph/state mutation, Plan conversation, shared UI package, shared contract redesign or runtime restart is in scope. If the fix needs a path outside this lease, return the exact path and reason to PRIME before editing it.
