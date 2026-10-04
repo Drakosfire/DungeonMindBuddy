@@ -16,7 +16,7 @@ Conks and Sheep are tuning material. Retain their pinned source/unit/assembly/in
 | Edit with agent | Captured target/basis, inert proposal, deliberate Apply, stale result rejected | Owning-boundary integration tests; local prototype alone cannot pass |
 | Recover | Previous source/config/writing accessible; backup/restore round trip | Actual export/import and verified content equality |
 
-For each iteration record failures, time/steps, fidelity, readability and corrections. Retention counts do not score semantic correctness. No aesthetic pass can hide disclosure or mechanics failure. Current gaps: source typography/emphasis flattened in OCR, source-specific callouts incomplete, no structured media composition editor, no native agent presentation tool, export/restore unverified, no unseen-adventure evaluation.
+For each iteration record failures, time/steps, fidelity, readability and corrections. Retention counts do not score semantic correctness. No aesthetic pass can hide disclosure or mechanics failure. Current gaps: source typography/emphasis flattened in OCR, source-specific callouts incomplete, no native agent presentation tool, downloaded-file transport unverified, no unseen-adventure evaluation. Typed media construction and local-file restore were subsequently implemented and checked in iterations 2–4.
 
 ## First useful iteration
 
@@ -49,3 +49,5 @@ Browser evidence: Style preset changed the live canvas; keyboard resize produced
 Back up / restore offers downloadable or copyable JSON plus local-file/paste review. It validates board/source revision, preserves unmatched writing, archives the current state before replacement, and restores earlier revisions into their original revision key. Browser paste review/restore roundtripped the existing state. File chooser/download transport has not been independently proven in this iteration. Model tests cover writing, decisions, themes/compositions, invalid targets, and earlier revision handling.
 
 The target remains a candidate: source/operator acceptance and the native World presentation edit contract remain outstanding.
+
+Recovery follow-up: local file chooser loaded the exact private backup; Review enabled explicit Restore, and restoring returned to the canvas. Backup UI now invalidates an earlier review immediately when another file is selected, disables review while reading, and fences late file results against newer typed input and disconnected dialogs. A focused UI-handler test proves those races. Six model/UI test files pass. Downloaded-file transport remains unproven; local-file import and paste restoration are proven separately.
