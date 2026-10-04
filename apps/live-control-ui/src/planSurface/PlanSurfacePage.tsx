@@ -1291,7 +1291,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   }, workObject) : null, [status, saving, fidelityBlocked, createUncertain, recoveryConflict, uncertainCreateDraft,
     documentId, markdown, title, documentActions, toolbarModel, workObject]);
   const cardsViewActive = Boolean(documentId) && status === "ready"
-    && selectedCardViewIdentity === editorIdentity;
+    && (selectedCardViewIdentity === editorIdentity
+      || (new URLSearchParams(window.location.search).get("prototype") === "focused"
+        && new URLSearchParams(window.location.search).get("view") === "cards"));
   const cardProjectionDocument = editor?.getJSON() ?? editorContent;
   const cardProjectionDirty = documentId !== null
     && (markdown !== serverMarkdownRef.current || title !== serverTitleRef.current);
@@ -1481,13 +1483,13 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           <button
             type="button"
             aria-pressed={!cardsViewActive}
-            onClick={() => setSelectedCardViewIdentity(null)}
+            onClick={() => { updateFocusedPrototypeView("document"); setSelectedCardViewIdentity(null); }}
           >Document</button>
           <button
             type="button"
             aria-pressed={cardsViewActive}
             disabled={!documentId || status !== "ready" || !editor}
-            onClick={() => setSelectedCardViewIdentity(editorIdentity)}
+            onClick={() => { updateFocusedPrototypeView("cards"); setSelectedCardViewIdentity(editorIdentity); }}
           >Cards</button>
         </nav>
         <div
@@ -1550,7 +1552,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             sourceWarnings={fidelityWarnings}
             basis={savedBasis}
             isDirty={cardProjectionDirty}
-            onReturnToDocument={() => setSelectedCardViewIdentity(null)}
+            onReturnToDocument={() => { updateFocusedPrototypeView("document"); setSelectedCardViewIdentity(null); }}
             selectableTargetKeys={selectableTargetKeys}
             editableTargetKeys={editableTargetKeys}
             selectedTarget={selectedPlayableTarget?.target ?? null}
@@ -1594,4 +1596,11 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       />
     </AppChrome>
   );
+}
+
+function updateFocusedPrototypeView(view: "cards" | "document") {
+  const url = new URL(window.location.href);
+  if (url.searchParams.get("prototype") !== "focused") return;
+  url.searchParams.set("view", view);
+  window.history.replaceState(window.history.state, "", url);
 }

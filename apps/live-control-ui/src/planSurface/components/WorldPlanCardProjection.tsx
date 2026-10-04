@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { FocusedPlanPrototype } from "./FocusedPlanPrototype";
 import type { JSONContent } from "@tiptap/core";
 import {
   indexPlayableStructure,
@@ -351,6 +352,12 @@ export function WorldPlanCardProjection({
         <button type="button" onClick={onReturnToDocument}>Open Document</button>
       </section>
     );
+  }
+  if (new URLSearchParams(window.location.search).get("prototype") === "focused") {
+    return <FocusedPlanPrototype model={model} document={document} isDirty={isDirty}
+      selectableTargetKeys={selectableTargetKeys} editableTargetKeys={editableTargetKeys}
+      onSelectTarget={onSelectTarget} onSelectEditTarget={onSelectEditTarget}
+      onReturnToDocument={onReturnToDocument} />;
   }
   const cardState = isDirty
     ? "Draft / unsaved"

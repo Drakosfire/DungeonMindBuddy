@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { agentSurfaceLabel, surfaceContextSubtitle } from "./surfaceContextDisplay";
 import { useAskPluginSlot } from "./AskPluginSlot";
 import { useAgentInteraction } from "./useAgentInteraction";
@@ -16,6 +17,15 @@ export function AgentInteractionChrome() {
   const { paneState, setPaneOpen, activeThread, activeSurfaceContext } = useAgentInteraction();
   const { setHostElement, askPluginPresent } = useAskPluginSlot();
   const open = paneState.isOpen;
+  const focusedPrototype = new URLSearchParams(window.location.search).get("prototype") === "focused";
+  const [prototypeWidth, setPrototypeWidth] = useState(420);
+  useEffect(() => {
+    if (!focusedPrototype) return;
+    document.documentElement.style.setProperty("--focused-chat-width", `${prototypeWidth}px`);
+    return () => { document.documentElement.style.removeProperty("--focused-chat-width"); };
+  }, [focusedPrototype, prototypeWidth]);
+  const resizePrototype = (width: number) => setPrototypeWidth(Math.max(300, Math.min(window.innerWidth * .55, width)));
+
   const threadTitle = activeThread?.title?.trim() || "New thread";
   const surfaceId = activeSurfaceContext?.surfaceId ?? null;
   const surfaceLabel = agentSurfaceLabel(surfaceId);
@@ -33,6 +43,11 @@ export function AgentInteractionChrome() {
     >
       {open ? (
         <>
+          {focusedPrototype && <div className="focused-chat-resize" role="separator" aria-label="Resize conversation" aria-orientation="vertical" aria-valuemin={300} aria-valuemax={Math.round(window.innerWidth * .55)} aria-valuenow={prototypeWidth} tabIndex={0}
+            onPointerDown={event => event.currentTarget.setPointerCapture(event.pointerId)}
+            onPointerMove={event => { if (event.currentTarget.hasPointerCapture(event.pointerId)) resizePrototype(window.innerWidth - event.clientX); }}
+            onPointerUp={event => event.currentTarget.releasePointerCapture(event.pointerId)}
+            onKeyDown={event => { if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); resizePrototype(prototypeWidth + (event.key === "ArrowLeft" ? 24 : -24)); } }} />}
           <button
             type="button"
             className="agent-interaction-exit"
