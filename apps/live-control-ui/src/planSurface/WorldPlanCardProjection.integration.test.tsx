@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
@@ -32,6 +32,25 @@ const initialMarkdown = [
   "#### Run through the gate",
   "Move quickly.",
 ].join("\n") + "\n";
+const initialV2Markdown = [
+  "<!-- dmb-playable-element:v2 kind=beat id=beat:hold-the-gate beat_kind=spine -->",
+  "## Hold the gate",
+  "Beat overview.",
+  "",
+  "Talk to [Caelynn](#dmb-ref:npc:caelynn).",
+  "<!-- dmb-playable-element:v2 kind=scene id=scene:gate-line -->",
+  "### Gate line",
+  "The queue is waiting.",
+  "<!-- dmb-playable-element:v2 kind=choice id=choice:gate-response scene=scene:gate-line -->",
+  "### What do you do?",
+  "The guard asks for a decision.",
+  "<!-- dmb-playable-element:v2 kind=option id=option:open-gate activates=scene:gate-line suppresses=beat:panic-breaks -->",
+  "- Open the gate",
+  "  Consult [Gate procedure](#dmb-ref:citation:gate-procedure).",
+  "<!-- dmb-playable-element:v2 kind=beat id=beat:panic-breaks beat_kind=optional -->",
+  "## Panic breaks",
+  "The line starts to move.",
+].join("\n") + "\n";
 const initialDigest = "a".repeat(64);
 const committedDigest = "b".repeat(64);
 
@@ -64,8 +83,8 @@ function renderPlan(selectedWorldId = worldId) {
   );
 }
 
-function installApiMocks() {
-  let savedMarkdown = initialMarkdown;
+function installApiMocks(initialSource = initialMarkdown) {
+  let savedMarkdown = initialSource;
   let savedRevision = 4;
   let savedDigest = initialDigest;
   const listWorlds = vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
@@ -232,6 +251,135 @@ it("keeps one editor draft through Cards, ordinary Save, and fresh reopen at the
   expect(screen.getByText(committedDigest)).toBeInTheDocument();
   expect(within(screen.getByTestId("world-plan-cards")).getByText("Scene overview revised.")).toBeInTheDocument();
   expect(screen.getByTestId("world-owned-plan-markdown-editor").querySelector(".ProseMirror")).not.toBe(editorElement);
+  expect(apis.commit).toHaveBeenCalledTimes(1);
+});
+
+it("round-trips the mounted v2 writer boundary from Document edit through Cards, Save, and fresh reopen", async () => {
+  const apis = installApiMocks(initialV2Markdown);
+  window.history.replaceState({}, "", `/plan?world=${worldId}&documentId=${documentId}`);
+  const mounted = renderPlan();
+  const page = await screen.findByTestId("world-owned-plan");
+  const cardsButton = within(page).getByRole("button", { name: "Cards" });
+  await waitFor(() => expect(cardsButton).toBeEnabled());
+
+  const sceneBody = within(screen.getByTestId("world-owned-plan-markdown-editor")).getByText("The queue is waiting.");
+  sceneBody.textContent = "The queue is moving.";
+  fireEvent.input(sceneBody);
+  await waitFor(() => expect(within(screen.getByTestId("world-plan-document-view")).getByText("The queue is moving.")).toBeInTheDocument());
+  expect(apis.prepare).not.toHaveBeenCalled();
+  expect(apis.commit).not.toHaveBeenCalled();
+
+  fireEvent.click(cardsButton);
+  const cards = screen.getByTestId("world-plan-cards");
+  expect(within(cards).getByText("Draft / unsaved")).toBeInTheDocument();
+  expect(within(cards).getByText("The queue is moving.")).toBeInTheDocument();
+  expect(cards).toHaveTextContent("Associated scene: scene:gate-line");
+  expect(cards).toHaveTextContent("Authored activates: scene:gate-line");
+  expect(cards).toHaveTextContent("Authored suppresses: beat:panic-breaks");
+  expect(apis.prepare).not.toHaveBeenCalled();
+  expect(apis.commit).not.toHaveBeenCalled();
+
+  const editHost = await screen.findByTestId("surface-edit-host");
+  const saveButton = await within(editHost).findByRole("button", { name: "Save Plan" });
+  await waitFor(() => expect(saveButton).toBeEnabled());
+  fireEvent.click(saveButton);
+  await screen.findByText("Saved to this World.");
+
+  expect(apis.prepare).toHaveBeenCalledTimes(1);
+  expect(apis.commit).toHaveBeenCalledTimes(1);
+  expect(apis.prepare.mock.calls[0]?.[0]).toMatchObject({
+    world_id: worldId,
+    document_id: documentId,
+    expected_revision: 4,
+  });
+  const committedMarkdown = apis.commit.mock.calls[0]?.[0].markdown ?? "";
+  expect(committedMarkdown).toContain("The queue is moving.");
+  expect(committedMarkdown).toContain("[Caelynn](#dmb-ref:npc:caelynn)");
+  expect(committedMarkdown).toContain("[Gate procedure](#dmb-ref:citation:gate-procedure)");
+  const markerIdentityOrder = [...committedMarkdown.matchAll(/<!-- dmb-playable-element:v2 kind=([a-z]+) id=([a-z0-9._:-]+)/g)]
+    .map((match) => `${match[1]}:${match[2]}`);
+  expect(markerIdentityOrder).toEqual([
+    "beat:beat:hold-the-gate",
+    "scene:scene:gate-line",
+    "choice:choice:gate-response",
+    "option:option:open-gate",
+    "beat:beat:panic-breaks",
+  ]);
+  expect(committedMarkdown).toContain("kind=choice id=choice:gate-response scene=scene:gate-line");
+  expect(committedMarkdown).toContain("kind=option id=option:open-gate activates=scene:gate-line suppresses=beat:panic-breaks");
+  expect(apis.readServer()).toMatchObject({ savedRevision: 6, savedDigest: committedDigest });
+
+  mounted.unmount();
+  localStorage.removeItem(`dmb:world-plan-local-draft:v2:${worldId}`);
+  window.history.replaceState({}, "", `/plan?world=${worldId}&documentId=${documentId}`);
+  renderPlan();
+  const reopenedPage = await screen.findByTestId("world-owned-plan");
+  const reopenedCardsButton = within(reopenedPage).getByRole("button", { name: "Cards" });
+  await waitFor(() => expect(reopenedCardsButton).toBeEnabled());
+  fireEvent.click(reopenedCardsButton);
+  const reopenedCards = screen.getByTestId("world-plan-cards");
+  const reopenedRoots = reopenedCards.querySelector(":scope > .world-plan-card-roots")!;
+  expect([...reopenedRoots.querySelectorAll(":scope > li")].map((node) => node.getAttribute("data-element-id")))
+    .toEqual(["beat:hold-the-gate", "beat:panic-breaks"]);
+  const childCardIds = (node: Element) => {
+    const childList = [...node.children].find((child) => child.tagName === "OL");
+    return childList ? [...childList.children].map((child) => child.getAttribute("data-element-id")) : [];
+  };
+  const holdTheGate = reopenedCards.querySelector('[data-element-id="beat:hold-the-gate"]')!;
+  expect(childCardIds(holdTheGate)).toEqual(["scene:gate-line", "choice:gate-response"]);
+  const reopenedChoice = reopenedCards.querySelector('[data-element-id="choice:gate-response"]')!;
+  expect(reopenedChoice).toHaveTextContent("Associated scene: scene:gate-line");
+  expect(childCardIds(reopenedChoice)).toEqual(["option:open-gate"]);
+  const reopenedOption = reopenedCards.querySelector('[data-element-id="option:open-gate"]')!;
+  expect(reopenedOption).toHaveTextContent("Authored activates: scene:gate-line");
+  expect(reopenedOption).toHaveTextContent("Authored suppresses: beat:panic-breaks");
+  expect(reopenedCards).toHaveTextContent("The queue is moving.");
+  fireEvent.click(within(reopenedCards).getByText("Saved revision details"));
+  expect(within(reopenedCards).getByText("6", { selector: "dd" })).toBeInTheDocument();
+  expect(within(reopenedCards).getByText(committedDigest)).toBeInTheDocument();
+  expect(apis.commit).toHaveBeenCalledTimes(1);
+});
+
+it("hides the saved basis while a commit is uncertain and preserves the draft without retrying", async () => {
+  const apis = installApiMocks();
+  let rejectCommit!: (reason: Error) => void;
+  apis.commit.mockImplementationOnce(() => new Promise((_, reject) => { rejectCommit = reject; }));
+  window.history.replaceState({}, "", `/plan?world=${worldId}&documentId=${documentId}`);
+  renderPlan();
+  const page = await screen.findByTestId("world-owned-plan");
+  await waitFor(() => expect(within(page).getByRole("button", { name: "Cards" })).toBeEnabled());
+  const editor = within(screen.getByTestId("world-owned-plan-markdown-editor"));
+  const sceneBody = editor.getByText("Scene overview.");
+  sceneBody.textContent = "Scene overview pending.";
+  fireEvent.input(sceneBody);
+  await waitFor(() => expect(within(screen.getByTestId("world-plan-document-view")).getByText("Scene overview pending.")).toBeInTheDocument());
+  fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
+  const cards = screen.getByTestId("world-plan-cards");
+  const detailsSummary = within(cards).getByText("Saved revision details");
+  fireEvent.click(detailsSummary);
+  expect(within(cards).getByText(initialDigest)).toBeInTheDocument();
+
+  const editHost = await screen.findByTestId("surface-edit-host");
+  fireEvent.click(within(editHost).getByRole("button", { name: "Save Plan" }));
+  await waitFor(() => expect(apis.commit).toHaveBeenCalledTimes(1));
+  expect(apis.prepare).toHaveBeenCalledTimes(1);
+  expect(within(cards).getByText("Draft / unsaved")).toBeInTheDocument();
+  expect(within(cards).getAllByText("Unavailable")).toHaveLength(2);
+
+  fireEvent.click(within(page).getByRole("button", { name: "Document" }));
+  fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
+  const pendingCards = screen.getByTestId("world-plan-cards");
+  fireEvent.click(within(pendingCards).getByText("Saved revision details"));
+  expect(within(pendingCards).getAllByText("Unavailable")).toHaveLength(2);
+  expect(within(pendingCards).getByText("Scene overview pending.")).toBeInTheDocument();
+  const localDraft = JSON.parse(localStorage.getItem(`dmb:world-plan-local-draft:v2:${worldId}`) ?? "null");
+  expect(localDraft).toMatchObject({ pending_write: { phase: "commit", base_revision: 4, prepared_revision: 5 } });
+  expect(localDraft.pending_write.markdown).toContain("Scene overview pending.");
+
+  await act(async () => { rejectCommit(new Error("commit response failed")); });
+  expect(await screen.findByText("commit response failed")).toBeInTheDocument();
+  expect(within(screen.getByTestId("world-plan-cards")).getByText("Draft / unsaved")).toBeInTheDocument();
+  expect(apis.prepare).toHaveBeenCalledTimes(1);
   expect(apis.commit).toHaveBeenCalledTimes(1);
 });
 

@@ -341,18 +341,31 @@ World/Plan data:
   `WorldPlanCardProjection.integration.test.tsx`, together with
   `PlanSurfacePage.test.tsx`, `WorldPlanEditHost.integration.test.tsx`,
   `playableStructureIndex.test.ts`, and `playableEdgeConformance.test.ts`:
-  **105/105 passed** across six files. The mounted witness confirms the same
-  editor node and selection survive view switching, the card lens reflects its
-  dirty draft, no prepare/commit runs before Save, exact marker order survives
-  the ordinary writer, and fresh reopen shows revision 6 and its returned
-  digest. A second mounted test confirms document/World changes retire the old
-  projection.
+  **107/107 passed** across six files. Mounted witnesses confirm the same
+  editor node and selection survive view switching; the card lens reflects its
+  dirty draft; and no prepare/commit runs before explicit Save. The v1 witness
+  verifies exact marker order through the ordinary writer and fresh reopen at
+  revision 6 with its returned digest. A v2 witness edits Document, opens Cards,
+  saves while Cards remains active, then freshly reopens and checks exact ID
+  order, Beat→Scene/Choice siblings, Choice→Option containment, Scene
+  association, authored `activates`/`suppresses`, both preserved `dmb-ref`
+  links, revision, and digest. A pending/uncertain commit witness confirms the
+  card basis is unavailable instead of combining a prepared revision with an
+  older digest; the dirty draft and pending recovery record remain, and no
+  duplicate prepare/commit occurs. A further mounted test confirms
+  document/World changes retire the old projection.
 - `markdownIngressCorpus.test.ts` and `usePlanMarkdownSave.test.ts`:
-  **133/133 passed** across two files. Total focused evidence is **238/238**.
-- The production Vite build succeeds into `/tmp/dmb-demo-card-build`; Vite emits
-  the repository's existing advisory about a JavaScript chunk above 500 kB.
+  **133/133 passed** across two files.
+- Final focused evidence is **240/240** across eight files (the 107 tests above
+  plus 133 Markdown ingress/save-fidelity tests).
+- `node_modules/.bin/vite build --configLoader=runner --outDir
+  /tmp/dmb-demo-card-build-final-review` succeeds. Vite emits the repository's
+  existing advisory about a JavaScript chunk above 500 kB. The standard
+  `npm run build` typecheck step remains blocked by the inherited JSX namespace
+  error below and its attempt to write build metadata through the read-only
+  `node_modules` symlink; the standalone Vite production build is green.
 - `tsc -p tsconfig.app.json --noEmit --pretty false
-  --tsBuildInfoFile /tmp/dmb-demo-card-tsbuildinfo` reports only the inherited
+  --tsBuildInfoFile /tmp/dmb-demo-card-tsbuildinfo-prime-review` reports only the inherited
   `src/statblocks/publication/ThreatPublicationPanel.tsx(553,77): TS2503 Cannot
   find namespace 'JSX'` error, outside this ten-path lease.
 - Synthetic browser preview on UI/API ports 54126/54127 uses no live service.
@@ -365,8 +378,8 @@ World/Plan data:
   `/api/live/query` route does not establish canonical World conversation or
   Graph provenance. No clean-draft Graph basis is adopted by this slice.
 
-The implementation was delivered in [PR #909](https://github.com/Drakosfire/DungeonMindBuddy/pull/909)
-against `main@e7b1464af6474e64a0f36c8a2fc57927b85db190`, initially at head
-`ffd83e424bb238dc2331cf55ab6237993bc0762e`. The PR is open for PRIME's
-independent review; GitHub PR metadata carries its current exact head. The ACTIVE
-lease remains in review and PRIME owns merge.
+The implementation is delivered in [PR #909](https://github.com/Drakosfire/DungeonMindBuddy/pull/909)
+against `main@e7b1464af6474e64a0f36c8a2fc57927b85db190`. The PR is open for
+PRIME's independent review; its exact final implementation head is recorded in
+the PR metadata after this verification update. The ACTIVE lease remains in
+review and PRIME owns merge.

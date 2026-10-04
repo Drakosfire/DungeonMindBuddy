@@ -171,13 +171,15 @@ lease is released. The inherited UI typecheck failure at
   server-owned pins for the active native World binding/version, exact Graph
   revision actually read, exact saved Plan basis, conversation, and immutable
   Graph receipt; drift must fail closed and a receipt must not replay under a
-  different revision. Graph identity/locator data does not prove opened source
-  text or source-body citation. The dirty-draft source basis remains undecided:
-  a future design must justify its chosen basis rather than inherit a clean-only
-  policy. Sequence this after the saved-Plan card slice, APP-STATE's contract,
-  and #905's adapter gate. Owners: DEMO for the Plan product/route, APP-STATE for
-  durable receipt/idempotency, and DungeonMind for Graph identity/revision and
-  source evidence.
+  different revision. The committed/saved Plan revision is the only authorized
+  Plan content basis for Graph evidence or provider context; dirty editor text
+  must not be silently substituted. Graph identity/locator data does not prove
+  opened source text or source-body citation. Product behavior when a draft is
+  dirty remains a design decision: block Ask, or explicitly allow an Ask against
+  the committed revision with clear disclosure. Sequence this after the
+  saved-Plan card slice, APP-STATE's contract, and #905's adapter gate. Owners:
+  DEMO for the Plan product/route, APP-STATE for durable receipt/idempotency,
+  and DungeonMind for Graph identity/revision and source evidence.
 - ARCHITECTURE's Plan-to-Run design (#907) and SERVER's managed Graph adapter
   handoff (#905) are merged; their implementation handoffs remain BLOCKED on
   their explicit contract, sequencing, and path/resource gates. APP-STATE's
@@ -195,21 +197,23 @@ lease is released. The inherited UI typecheck failure at
 serial card/document projection in [PR #909](https://github.com/Drakosfire/DungeonMindBuddy/pull/909),
 opened against `main@e7b1464af6474e64a0f36c8a2fc57927b85db190` from
 `codex/demo-first-saved-plan-card-projection`. Its initial implementation head
-is `ffd83e424bb238dc2331cf55ab6237993bc0762e`; the PR's current exact head is
+is `ffd83e424bb238dc2331cf55ab6237993bc0762e`; its current exact head is
 authoritative in GitHub metadata. The view is a read-only lens
 over the same mounted editor draft; supported edits stay in Document and use
 ordinary Save plus a fresh reopen. It adds no card store, parser admission,
-Run, Graph, or J1–J6 acceptance. Focused suites pass 238/238: the new model and
-mounted tests plus Plan Page/EditHost and Playable index/conformance pass 105/105;
-Markdown ingress and Plan Save tests pass 133/133. A production Vite build to
-`/tmp` passes with the repository's existing large-chunk advisory. The UI
-typecheck still reports only
+Run, Graph, or J1–J6 acceptance. Focused suites pass 240/240: the model,
+mounted tests, Plan Page/EditHost, and Playable index/conformance pass 107/107;
+Markdown ingress and Plan Save tests pass 133/133. Mounted evidence now includes
+the v2 editor-to-Cards-to-Save-to-reopen writer path and a pending/uncertain-save
+regression that keeps the revision/digest pair unavailable until verified. A
+production Vite build to `/tmp` passes with the repository's existing large-chunk
+advisory. The UI typecheck still reports only
 `ThreatPublicationPanel.tsx(553,77): TS2503 Cannot find namespace 'JSX'`.
 On the isolated synthetic preview, desktop 1280×800 had no horizontal overflow
 (document width 1265px); mobile 390×844 had body width 375px and a 335px card
-region with 20px side insets. The mobile heading/grid styles applied. Exact
-cumulative-diff review is complete; PRIME's independent review remains. No
-merge or J1–J6 acceptance is claimed. Ports 5202, 8000, and 5203 remain untouched.
+region with 20px side insets. The mobile heading/grid styles applied. The
+cumulative diff is ready for PRIME's independent review. No merge or J1–J6
+acceptance is claimed. Ports 5202, 8000, and 5203 remain untouched.
 
 **Prior DEMO lane checkpoint (2026-09-28):** three bounded predecessors are now merged.
 #785 / J4 World-scoped statblock drafts merged at
