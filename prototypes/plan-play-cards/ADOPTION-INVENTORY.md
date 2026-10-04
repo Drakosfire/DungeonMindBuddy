@@ -38,6 +38,10 @@ Production risks to prove at the owning boundary:
 4. Keep preparation and actual Run actions separate. Choice selections, notes, rolls and combat values need durable identity/recovery; browser state must not be copied wholesale into production authority.
 5. Sparse entity relations, flattened source typography, unresolved rule-version bindings and incomplete chronology remain. Maps and supplied statblocks are not full Graph/asset adoption.
 
+## Explicit disclosure holds
+
+Metadata-only COMPOSITOR finding, locally verified against Conks dataset `99d5b5c3fd6777e79f1d5acda2146cd26d9aedfcda9f26ef0fcbadefcf69cbb6`: Read aloud entries on `conks:card:35` and `conks:card:36` are `source_supported` but have no audience annotation. Hold both from any player projection until explicit per-claim player-safe disclosure review is recorded. A Read aloud lens name does not establish disclosure authority. This finding is not a source re-audit; frozen prototype/source snapshots are unchanged.
+
 ## Observed usability and first adoption witness
 
 The operator reported Session29 mostly worked and felt good, strongly accepted the aesthetic, and estimated about 80% of preparation went unused. That supports small focus, optional depth, nonlinear access and writing—not a measured scene-utilization rate or acceptance of every feature. Metadata, duplicate headings and giant spacing repeatedly failed. Initial node inspection failed the expected profile/timeline/statblock experience. Scene location and visible autosave were explicit requirements.
