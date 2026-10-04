@@ -51,3 +51,9 @@ Back up / restore offers downloadable or copyable JSON plus local-file/paste rev
 The target remains a candidate: source/operator acceptance and the native World presentation edit contract remain outstanding.
 
 Recovery follow-up: local file chooser loaded the exact private backup; Review enabled explicit Restore, and restoring returned to the canvas. Backup UI now invalidates an earlier review immediately when another file is selected, disables review while reading, and fences late file results against newer typed input and disconnected dialogs. A focused UI-handler test proves those races. Six model/UI test files pass. Downloaded-file transport remains unproven; local-file import and paste restoration are proven separately.
+
+## Iteration 5 — direct styling
+
+The same validated theme configuration now has color wells, built-in font menus, and bounded sliders for text size, line spacing, card padding, corner radius, and reading width. JSON sits in a closed Advanced disclosure and remains interchangeable with the controls. Apply uses the existing board/source/current-config basis guard. The action bar remains visible while the pane scrolls.
+
+Browser evidence: one arrow-key step and one font selection changed the actual canvas to 17px Georgia without JSON editing. Reading width reached 600px; Apply plus refresh retained typography. The first refresh exposed duplicated width constraints (528px instead of 600px); fixed the card-versus-container sizing, then verified 600px after refresh. Restore returned the unconfigured design-v1 baseline. This is usability evidence for observed tasks, not source or operator acceptance.
