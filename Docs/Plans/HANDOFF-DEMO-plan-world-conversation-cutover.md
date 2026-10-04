@@ -133,9 +133,16 @@ Required focused evidence for the implementation PR:
 ### Current implementation evidence
 
 - Exact implementation base: `402390ca051553a09e844ea57ddf8be3f6217fef`. The assigned remote branch was still at that base during the final pre-PR re-anchor; the implementation commit/head is recorded by its PR metadata.
-- From `apps/live-control-ui`, `/home/drakosfire/.local/bin/rtk npm test -- src/api/liveApi.test.ts src/api/liveApi.worldConversation.test.ts src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx src/planSurface/WorldPlanAgentReviewedEdit.integration.test.tsx` passed: 4 files, 122 tests.
-- `/home/drakosfire/.local/bin/rtk npm run typecheck` reports only the inherited `src/statblocks/publication/ThreatPublicationPanel.tsx(553,77): error TS2503: Cannot find namespace 'JSX'.` No out-of-lease file was changed to address it.
-- API and mounted-consumer tests use deterministic fakes. They establish client transport and UI behavior only; they are not a live server, configured-provider, or product-acceptance witness.
+- From `apps/live-control-ui`, `/home/drakosfire/.local/bin/rtk npm test -- src/api/liveApi.test.ts src/api/liveApi.worldConversation.test.ts src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx src/planSurface/WorldPlanAgentReviewedEdit.integration.test.tsx` passed: 4 files, 124 tests.
+- The Ask recovery regression loses the first response, reloads after the saved Plan advances from revision 7 to 8, and accepts only the server-shaped completed-receipt replay (`content_basis: null`, exact `durable_receipt` trace, matching turn and reused conversation). The retry sends the persisted request unchanged and uses the frozen local origin; it does not synthesize current basis data. A null-basis response without that trace remains pending.
+- The paging regression starts an older-page fetch, confirms a new World conversation while it is in flight, discards the stale page, and then loads the refreshed cursor successfully.
+- A provider-backed consumer test seeds a full-cap legacy Agent thread, composes and applies through the real `AgentInteractionProvider` storage, reloads the proposal thread, and verifies the original legacy thread bytes stay unchanged and export byte-for-byte.
+- `/home/drakosfire/.local/bin/rtk npm run typecheck` reports only the inherited `src/statblocks/publication/ThreatPublicationPanel.tsx(553,77): error TS2503: Cannot find namespace 'JSX'.` No out-of-lease file was changed to address it. `git diff --check` passes.
+- The API and World transcript tests use deterministic fakes. The provider-backed test exercises actual local Agent storage with a deterministic proposal API/edit bridge. None is a live server, configured-provider, or product-acceptance witness.
+
+### Independent review checkpoint
+
+PRIME reviewed exact code head `dde188505056f73373165c462aaf485971ac832e` and returned HOLD for completed-receipt replay handling, stale paging lock recovery, and proposal writes into the legacy Agent thread. The implementation and mounted/provider-backed regressions above address those findings within the ACTIVE write set. PR #900 remains open for a new exact-head review; this checkpoint does not authorize or claim merge, and does not dispatch Slice B.
 
 ## Runtime, database, and provider resources
 
@@ -150,7 +157,9 @@ No runtime resource is leased or required for the Slice A acceptance plan. Focus
 - An uncertain retry reuses the exact envelope; it never silently mints a new turn or command identity.
 - A pending request for another World, Plan, basis, or conversation remains recoverable without overwriting the active origin.
 - Server history unavailability is visible and actionable. Local browser rows are never an implicit transcript fallback.
-- Legacy data remains byte-preserved and exportable, with no import, delete, or transcript dual-write.
+- Legacy data remains byte-preserved and exportable, with no import, delete, or transcript dual-write. New Compose/Revise proposal turns use their own marked browser thread; the provider never prepends them into the prior legacy record.
+- Completed receipt replay with a null `content_basis` is accepted only with the existing durable-receipt trace, exact request/turn correlation, a reused conversation ID, and a saved origin matching the original request. The client never treats a current Plan read as historical provenance.
+- A World-history generation change clears older-page loading state; a prior in-flight page cannot block a later request on the refreshed cursor.
 - Compose/Revise can still produce a reviewable proposal against the captured draft/selection, but receives no conversation history in Slice A. Apply still edits only the draft; ordinary Save remains the commit boundary.
 - Graph remains not_requested. No graph retrieval/citation or J1–J6 completion is implied.
 

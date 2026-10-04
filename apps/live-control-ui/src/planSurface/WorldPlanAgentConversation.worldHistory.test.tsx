@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useEffect } from "react";
 import { webcrypto } from "node:crypto";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -25,15 +26,21 @@ vi.mock("../agentInteraction/AskPluginSlot", () => ({
   useAskPluginSlotOptional: () => ({ hostElement: harness.host }),
   useRegisterAskPluginPresence: () => undefined,
 }));
-vi.mock("../agentInteraction/useAgentInteraction", () => ({
-  useAgentInteraction: () => harness.agent,
-}));
+vi.mock("../agentInteraction/useAgentInteraction", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../agentInteraction/useAgentInteraction")>();
+  return {
+    useAgentInteraction: () => harness.agent ?? actual.useAgentInteraction(),
+  };
+});
 vi.mock("../agentInteraction/usePublishAgentSurfaceContext", () => ({
   usePublishAgentSurfaceContext: () => undefined,
 }));
 
+import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
+import { activeThreadStorageKey, persistAgentThread } from "../agentInteraction/agentInteractionStorage";
+import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
 import { WorldPlanAgentConversation } from "./components/WorldPlanAgentConversation";
-import { threadStorageKey } from "./components/agentInteractionHistory";
+import { AGENT_TURN_HISTORY_CAP, threadStorageKey } from "./components/agentInteractionHistory";
 
 const worldId = "world-conversation-test";
 const documentId = "saved-plan-test";
@@ -169,6 +176,80 @@ function agentResponse(request: WorldPlanAgentTurnRequestV1, conversationId: str
   };
 }
 
+function durableReplayResponse(request: WorldPlanAgentTurnRequestV1, conversationId: string, answer: string) {
+  const accepted = agentResponse(request, conversationId, answer);
+  return {
+    ...accepted,
+    primary_work: { ...accepted.primary_work, content_basis: null },
+    conversation: { ...accepted.conversation, pointer_status: "reused" },
+    answer: {
+      ...accepted.answer,
+      trace: {
+        schema: "dmb_agent_turn_trace_v1",
+        trace_id: "00000000-0000-4000-8000-000000000099",
+        agent_thread_id: request.client_thread_id,
+        turn_id: request.turn_id,
+        runtime: "durable_receipt",
+        backend: "application_state",
+        mode: "replay",
+        status: "ok",
+        usage: {},
+        model_calls: [],
+        spans: [],
+        steps: [],
+        context_summary: {},
+        artifact_refs: [],
+        warnings: ["durable_turn_replay_no_provider_dispatch"],
+        conversation_context: "durable_replay",
+      },
+    },
+  };
+}
+
+function fullLegacyThread(): AgentInteractionThread {
+  const thread = legacyThread();
+  const first = thread.turns[0]!;
+  return {
+    ...thread,
+    turns: Array.from({ length: AGENT_TURN_HISTORY_CAP }, (_, index) => ({
+      ...first,
+      turnId: `legacy-turn-${index + 1}`,
+      askedAt: `2026-01-01T00:${String(index).padStart(2, "0")}:00.000Z`,
+      completedAt: `2026-01-01T00:${String(index).padStart(2, "0")}:30.000Z`,
+      question: `Legacy question ${index + 1}`,
+      answer: `Legacy answer ${index + 1}`,
+    })),
+  };
+}
+
+function ActualProviderScopeInitializer() {
+  const agent = useAgentInteraction();
+  useEffect(() => {
+    agent.rehydrateScope({
+      campaignId: namespace,
+      sessionNumber: null,
+      surfaceId: "plan",
+      documentId,
+    });
+    agent.setPaneOpen(true);
+  }, []);
+  return null;
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function readBlob(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error ?? new Error("Could not read exported history."));
+    reader.readAsText(blob);
+  });
+}
+
 function legacyThread(): AgentInteractionThread {
   const turn: AgentInteractionTurn = {
     turnId: "legacy-turn-1",
@@ -253,6 +334,7 @@ function committedRevision() {
 
 function setupApi(initialHistory: WorldAgentConversationHistoryResponseV1) {
   let currentHistory = initialHistory;
+  let currentBasis = committedRevision();
   let olderPage: WorldAgentConversationHistoryResponseV1 | null = null;
   let olderHandler: (() => Promise<WorldAgentConversationHistoryResponseV1>) | null = null;
   const historyCalls: Array<{ limit?: number; beforeSequence?: number }> = [];
@@ -264,7 +346,8 @@ function setupApi(initialHistory: WorldAgentConversationHistoryResponseV1) {
     }
     return currentHistory;
   });
-  vi.spyOn(liveApi, "getWorldOwnedPlanCommittedRevision").mockResolvedValue(committedRevision() as any);
+  const getPlanBasis = vi.spyOn(liveApi, "getWorldOwnedPlanCommittedRevision")
+    .mockImplementation(async () => currentBasis as any);
   vi.spyOn(liveApi, "getWorldPlanDocumentEditActions").mockResolvedValue({
     schema_version: "dmb_world_plan_action_projection_v1",
     basis: {
@@ -279,8 +362,10 @@ function setupApi(initialHistory: WorldAgentConversationHistoryResponseV1) {
   });
   return {
     getHistory,
+    getPlanBasis,
     historyCalls,
     setCurrent(value: WorldAgentConversationHistoryResponseV1) { currentHistory = value; },
+    setPlanBasis(value: ReturnType<typeof committedRevision>) { currentBasis = value; },
     setOlder(value: WorldAgentConversationHistoryResponseV1) { olderPage = value; },
     setOlderHandler(value: () => Promise<WorldAgentConversationHistoryResponseV1>) { olderHandler = value; },
   };
@@ -342,28 +427,52 @@ describe("World Plan conversation consumer", () => {
     expect(renderedTurns).toEqual(["1", "2", "3"]);
   });
 
-  it("discards an older page when its World pointer changed while the page was loading", async () => {
+  it("unlocks older paging after navigation invalidates a pending page and discards its stale response", async () => {
     const oldLatest = history("conversation-a", 5, [
       makeTurn(3, "turn-3", "Current A turn", "A answer"),
     ], 3);
     const movedPointer = history("conversation-b", 6, [
       makeTurn(1, "turn-b1", "Fresh B turn", "Fresh answer"),
-    ]);
+    ], 1);
     const api = setupApi(oldLatest);
-    api.setOlderHandler(async () => {
+    let releaseStalePage!: (value: WorldAgentConversationHistoryResponseV1) => void;
+    const stalePage = new Promise<WorldAgentConversationHistoryResponseV1>((resolve) => { releaseStalePage = resolve; });
+    api.setOlderHandler(() => stalePage);
+    vi.spyOn(liveApi, "postWorldAgentNewConversation").mockImplementation(async (_world, request) => {
       api.setCurrent(movedPointer);
-      return history("conversation-b", 6, [
-        makeTurn(1, "stale-b-page", "Stale older page", "Must be discarded"),
-      ], null);
+      return {
+        schema: "dmb_agent_new_conversation_response_v1",
+        world_id: worldId,
+        conversation_id: "conversation-c",
+        active_conversation_id: "conversation-b",
+        pointer_revision: request.expected_pointer_revision + 1,
+      } as any;
     });
 
     mountComponent();
     expect(await screen.findByText("Current A turn")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Older turns" }));
+    await waitFor(() => expect(api.historyCalls.some((call) => call.beforeSequence === 3)).toBe(true));
 
+    fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
     expect(await screen.findByText("Fresh B turn")).toBeInTheDocument();
+    expect(api.historyCalls).toContainEqual({ limit: 50 });
+
+    await act(async () => {
+      releaseStalePage(history("conversation-a", 5, [
+        makeTurn(1, "stale-a-page", "Stale older page", "Must be discarded"),
+      ], null));
+    });
     expect(screen.queryByText("Stale older page")).not.toBeInTheDocument();
-    expect(api.historyCalls.some((call) => call.beforeSequence === 3)).toBe(true);
+    const olderButton = screen.getByRole("button", { name: "Older turns" });
+    await waitFor(() => expect(olderButton).toBeEnabled());
+
+    api.setOlderHandler(async () => history("conversation-b", 6, [
+      makeTurn(0, "turn-b0", "Fresh older B turn", "Older B answer"),
+    ], null));
+    fireEvent.click(olderButton);
+    expect(await screen.findByText("Fresh older B turn")).toBeInTheDocument();
+    expect(api.historyCalls).toContainEqual({ limit: 50, beforeSequence: 1 });
   });
 
   it("persists Ask before dispatch, recovers the exact request after reload, and leaves legacy bytes exportable", async () => {
@@ -390,7 +499,7 @@ describe("World Plan conversation consumer", () => {
       api.setCurrent(history("conversation-a", 4, [
         makeTurn(1, request.turn_id, request.message, "Recovered answer"),
       ]));
-      return agentResponse(request, "conversation-a", "Recovered answer") as any;
+      return durableReplayResponse(request, "conversation-a", "Recovered answer") as any;
     });
 
     const first = mountComponent();
@@ -423,9 +532,17 @@ describe("World Plan conversation consumer", () => {
     expect(harness.agent.updateThread).not.toHaveBeenCalled();
 
     first.unmount();
+    api.setPlanBasis({
+      ...committedRevision(),
+      object_revision: 8,
+      work_revision_id: "00000000-0000-4000-8000-000000000012",
+      revision_n: 2,
+      content_sha256: "b".repeat(64),
+      markdown: "# Changed Plan",
+    });
     harness.host = document.createElement("div");
     document.body.appendChild(harness.host);
-    mountComponent();
+    mountComponent(8);
     fireEvent.click(await screen.findByRole("button", { name: "Retry saved Ask" }));
     expect(await screen.findByText("Recovered answer")).toBeInTheDocument();
     await waitFor(() => expect(postAsk).toHaveBeenCalledTimes(2));
@@ -480,11 +597,11 @@ describe("World Plan conversation consumer", () => {
     expect(postAsk).toHaveBeenCalledTimes(1);
     const savedRequest = JSON.parse(localStorage.getItem(pendingAskKeys()[0]!)!).request;
 
-    fireEvent.change(screen.getByLabelText("Local operator Graph credential"), {
+    fireEvent.change(screen.getByLabelText("Local operator credential for Agent and Graph"), {
       target: { value: "test-only-local-operator-credential-value" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Set Graph access" }));
-    expect(await screen.findByText(/authorizes Agent and native Graph requests/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Set Agent and Graph authorization" }));
+    expect(await screen.findByText(/authorizes local Agent access and is also sent with native Graph requests/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Retry saved Ask" }));
 
     expect(await screen.findByText("Authorized retry answer")).toBeInTheDocument();
@@ -569,6 +686,177 @@ describe("World Plan conversation consumer", () => {
     expect(screen.queryByText("Old conversation answer")).not.toBeInTheDocument();
     expect(screen.queryByText("Keep this in conversation A")).not.toBeInTheDocument();
     expect(harness.agent.updateThread).not.toHaveBeenCalled();
+  });
+
+  it("keeps a null-basis Ask response pending unless it carries the durable receipt replay trace", async () => {
+    setupApi(history("conversation-a", 4, []));
+    const response = agentResponse({
+      schema: "dmb_agent_turn_request_v1",
+      client_thread_id: "client-thread",
+      turn_id: "turn-null-basis",
+      surface: { surface_id: "plan", instance_id: surfaceInstanceId },
+      owner_scope: { kind: "world", world_id: worldId },
+      primary_work: {
+        kind: "plan",
+        object_id: documentId,
+        expected_revision: 7,
+        expected_revision_n: 1,
+        expected_content_sha256: contentSha256,
+      },
+      client_work_state: "saved_clean",
+      graph_request: { mode: "none" },
+      message: "Do not accept this result",
+      idempotency_key: "00000000-0000-4000-8000-000000000055",
+    } as WorldPlanAgentTurnRequestV1, "conversation-a", "Unverified response");
+    response.primary_work.content_basis = null as any;
+    response.conversation.pointer_status = "reused";
+    vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockResolvedValue(response as any);
+
+    mountComponent();
+    await screen.findByText(/no visible conversation turns yet/i);
+    fireEvent.change(screen.getByLabelText("Your question"), { target: { value: "Do not accept this result" } });
+    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/did not match this saved Plan|could not be verified/i);
+    expect(pendingAskKeys()).toHaveLength(1);
+  });
+
+  it("keeps a full-cap legacy thread byte-for-byte exportable while real provider storage persists Compose and Apply separately", async () => {
+    const api = setupApi(history("conversation-a", 4, []));
+    harness.agent = null;
+    const legacy = fullLegacyThread();
+    persistAgentThread(legacy);
+    const legacyKey = threadStorageKey(namespace, legacy.threadId);
+    const legacyBytes = localStorage.getItem(legacyKey);
+    expect(legacyBytes).toBeTruthy();
+    expect(JSON.parse(legacyBytes!).turns).toHaveLength(AGENT_TURN_HISTORY_CAP);
+
+    const createdBlobs: Blob[] = [];
+    const oldCreate = Object.getOwnPropertyDescriptor(URL, "createObjectURL");
+    const oldRevoke = Object.getOwnPropertyDescriptor(URL, "revokeObjectURL");
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: vi.fn((blob: Blob) => {
+        createdBlobs.push(blob);
+        return "blob:legacy-export";
+      }),
+    });
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+
+    try {
+      const captured = {
+        editor: { isDestroyed: false },
+        request: {
+          document_id: documentId,
+          world_id: worldId,
+          session: 1,
+          base_revision: 7,
+          base_content_sha256: contentSha256,
+          draft_markdown: "# Draft\n\nDraft excerpt.",
+          draft_sha256: "d".repeat(64),
+          target_kind: "replace_selection" as const,
+          selected_text: "Draft excerpt",
+        },
+        from: 1,
+        to: 2,
+        editorJson: "{}",
+        selectionJson: "[]",
+        draftGeneration: 0,
+        selectionGeneration: 0,
+      };
+      const bridge = {
+        capture: vi.fn(async () => captured),
+        apply: vi.fn(async () => undefined),
+      };
+      vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) => ({
+        schema_version: "dmb_world_plan_document_edit_proposal_v1",
+        action_id: "00000000-0000-4000-8000-000000000088",
+        idempotency_key: request.idempotency_key,
+        document_id: request.document_id,
+        world_id: request.world_id,
+        base_revision: request.base_revision,
+        base_content_sha256: request.base_content_sha256,
+        draft_sha256: request.draft_sha256,
+        target_kind: request.target_kind,
+        selected_text_sha256: await sha256Hex(request.selected_text),
+        replacement_markdown: "A distant bell rings.",
+        summary: "Add a distant bell.",
+        assumptions: [],
+        model: "test-model",
+        model_observed: false,
+        model_latency_ms: 0,
+        wall_latency_ms: 0,
+        usage: null,
+      }) as any);
+
+      const renderRealProvider = () => render(
+        <AgentInteractionProvider>
+          <ActualProviderScopeInitializer />
+          <WorldPlanAgentConversation
+            worldId={worldId}
+            worldName="Test World"
+            documentId={documentId}
+            surfaceInstanceId={surfaceInstanceId}
+            revision={7}
+            editBridge={bridge}
+            draftGeneration={0}
+            selectionGeneration={0}
+            savedDirty={false}
+            pageReady
+            saveInFlight={false}
+          />
+        </AgentInteractionProvider>,
+      );
+
+      let view = renderRealProvider();
+      expect(await screen.findByText("Legacy question 20")).toBeInTheDocument();
+      expect(screen.getByRole("region", { name: "Local-only legacy Plan history" })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Export local history JSON" }));
+      expect(await readBlob(createdBlobs[0]!)).toBe(legacyBytes);
+
+      fireEvent.change(screen.getByLabelText("What should DungeonBuddy change?"), {
+        target: { value: "Add a distant bell." },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Compose proposal" }));
+      expect(await screen.findByRole("region", { name: "Review proposed Plan edit" })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Apply to mounted draft" }));
+      await waitFor(() => expect(bridge.apply).toHaveBeenCalledTimes(1));
+
+      const activeThreadId = localStorage.getItem(activeThreadStorageKey(namespace, "plan", documentId));
+      expect(activeThreadId).toBeTruthy();
+      expect(activeThreadId).not.toBe(legacy.threadId);
+      const proposalKey = threadStorageKey(namespace, activeThreadId!);
+      const proposalThread = JSON.parse(localStorage.getItem(proposalKey) ?? "null");
+      expect(proposalThread).toMatchObject({
+        worldPlanProposalHistory: "world_plan_proposals_v1",
+        turns: [{ backend: "plan_edit", planEdit: { applied: true } }],
+      });
+      expect(proposalThread.turns).toHaveLength(1);
+      expect(localStorage.getItem(legacyKey)).toBe(legacyBytes);
+      expect(JSON.parse(legacyBytes!).turns).toHaveLength(AGENT_TURN_HISTORY_CAP);
+      expect(await screen.findByRole("region", { name: "Local-only Plan proposal activity" })).toBeInTheDocument();
+      expect(screen.getByRole("region", { name: "Local-only legacy Plan history" })).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "Export local history JSON" }));
+      expect(await readBlob(createdBlobs[1]!)).toBe(legacyBytes);
+      view.unmount();
+      api.setPlanBasis(committedRevision());
+
+      harness.host = document.createElement("div");
+      document.body.appendChild(harness.host);
+      view = renderRealProvider();
+      expect(await screen.findByRole("region", { name: "Local-only Plan proposal activity" })).toBeInTheDocument();
+      expect(await screen.findByRole("region", { name: "Local-only legacy Plan history" })).toBeInTheDocument();
+      expect(localStorage.getItem(legacyKey)).toBe(legacyBytes);
+      expect(JSON.parse(localStorage.getItem(proposalKey) ?? "null").turns[0].planEdit.applied).toBe(true);
+      view.unmount();
+    } finally {
+      if (oldCreate) Object.defineProperty(URL, "createObjectURL", oldCreate);
+      else delete (URL as any).createObjectURL;
+      if (oldRevoke) Object.defineProperty(URL, "revokeObjectURL", oldRevoke);
+      else delete (URL as any).revokeObjectURL;
+    }
   });
 
   it("sends empty proposal history and preserves an in-flight PlanAction body across a conversation change", async () => {

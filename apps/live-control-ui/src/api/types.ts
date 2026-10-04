@@ -1008,6 +1008,8 @@ export interface AgentInteractionThread {
   surfaceId: "plan" | "play" | "build" | string;
   activeBackend: LiveQueryBackend;
   hermesSession?: HermesSessionHandle | null;
+  /** Identifies isolated local Plan proposal history; never server conversation context. */
+  worldPlanProposalHistory?: "world_plan_proposals_v1";
   turns: AgentInteractionTurn[];
   uiState?: {
     traceVisible: boolean;

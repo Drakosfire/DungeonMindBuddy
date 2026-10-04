@@ -31,6 +31,9 @@ import { planSectionTargets, type PlanSectionTarget } from "../agentEdit/planSec
 import {
   AGENT_TURN_HISTORY_CAP,
   createAgentInteractionThread,
+  listAgentThreads,
+  loadAgentThreadById,
+  threadStorageKey,
   threadTitleFromQuestion,
 } from "./agentInteractionHistory";
 import "./WorldPlanAgentConversation.css";
@@ -54,6 +57,7 @@ interface ValidatedWorldPlanResponse {
   trace: Record<string, unknown>;
   summary: WorldPlanAgentTurnResolvedSummary;
   conversationId: string | null;
+  replayed: boolean;
 }
 
 interface WorldPlanEditReview {
@@ -88,6 +92,7 @@ const RESPONSE_MISMATCH = "DungeonBuddy's response did not match this saved Plan
 const POINTER_STATUSES = ["absent", "accepted", "recovered", "rejected", "reused"] as const;
 
 const WORLD_HISTORY_PAGE_SIZE = 50;
+const WORLD_PLAN_LOCAL_PROPOSAL_HISTORY = "world_plan_proposals_v1" as const;
 const PENDING_ASK_STORAGE_PREFIX = "dmb:world-plan-pending-ask:v1:";
 const PENDING_NEW_CONVERSATION_STORAGE_PREFIX = "dmb:world-agent-new-conversation:v1:";
 
@@ -367,6 +372,21 @@ function matchesCommittedPlanBasis(
     && typeof value.has_divergent_working_copy === "boolean";
 }
 
+function isDurableReceiptReplayTrace(value: unknown, turnId: string): boolean {
+  if (!isRecord(value)) return false;
+  return value.schema === "dmb_agent_turn_trace_v1"
+    && value.turn_id === turnId
+    && value.runtime === "durable_receipt"
+    && value.backend === "application_state"
+    && value.mode === "replay"
+    && value.status === "ok"
+    && Array.isArray(value.model_calls)
+    && value.model_calls.length === 0
+    && value.conversation_context === "durable_replay"
+    && Array.isArray(value.warnings)
+    && value.warnings.includes("durable_turn_replay_no_provider_dispatch");
+}
+
 function planThreadNamespace(worldId: string, documentId: string): string {
   return `world-plan-agent:world:${encodeURIComponent(worldId)}:document:${encodeURIComponent(documentId)}`;
 }
@@ -411,6 +431,8 @@ function validateWorldPlanResponse(
     return { ok: false, message: "The selected World could not be verified for this Plan response." };
   }
 
+  const replayTrace = isRecord(value.answer)
+    && isDurableReceiptReplayTrace(value.answer.trace, request.turn_id);
   const work = value.primary_work;
   if (!hasExactKeys(work, ["status", "kind", "object_id", "revision_used", "expected_revision", "content_basis"])
     || work.kind !== "plan"
@@ -419,9 +441,14 @@ function validateWorldPlanResponse(
     || work.status !== "resolved"
     || work.revision_used !== request.primary_work.expected_revision
     || !isPositiveRevision(work.revision_used)
-    || !matchesCommittedPlanBasis(work.content_basis, request)) {
+    || !(matchesCommittedPlanBasis(work.content_basis, request)
+      || (work.content_basis === null && replayTrace))) {
     return { ok: false, message: "The saved Plan identity or committed revision could not be verified. Reopen the Plan and try again." };
   }
+  const replayed = work.content_basis === null && replayTrace;
+  const responseContentBasis = matchesCommittedPlanBasis(work.content_basis, request)
+    ? work.content_basis
+    : null;
 
   if (value.client_work_state_reported !== request.client_work_state) {
     return { ok: false, message: RESPONSE_MISMATCH };
@@ -466,6 +493,12 @@ function validateWorldPlanResponse(
       && !isNullableString(conversation.conversation_id))) {
     return { ok: false, message: RESPONSE_MISMATCH };
   }
+  if (replayed && (conversation.pointer_status !== "reused"
+    || conversation.pointer_id !== null
+    || typeof conversation.conversation_id !== "string"
+    || !conversation.conversation_id.trim())) {
+    return { ok: false, message: RESPONSE_MISMATCH };
+  }
 
   const answer = value.answer;
   if (!hasExactKeys(answer, ["status", "text", "code", "message", "graph_grounded", "trace"])
@@ -492,21 +525,23 @@ function validateWorldPlanResponse(
     workStatus: work.status as WorldPlanAgentTurnResolvedSummary["workStatus"],
     expectedRevision: request.primary_work.expected_revision,
     revisionUsed: work.revision_used,
-    contentBasis: {
-      worldId: work.content_basis.world_id,
-      documentId: work.content_basis.document_id,
-      objectRevision: work.content_basis.object_revision,
-      workRevisionId: work.content_basis.work_revision_id,
-      revisionN: work.content_basis.revision_n,
-      contentSha256: work.content_basis.content_sha256,
-      committedStatus: "committed",
-      hasDivergentWorkingCopy: work.content_basis.has_divergent_working_copy,
-    },
+    ...(responseContentBasis ? {
+      contentBasis: {
+        worldId: responseContentBasis.world_id,
+        documentId: responseContentBasis.document_id,
+        objectRevision: responseContentBasis.object_revision,
+        workRevisionId: responseContentBasis.work_revision_id,
+        revisionN: responseContentBasis.revision_n,
+        contentSha256: responseContentBasis.content_sha256,
+        committedStatus: "committed" as const,
+        hasDivergentWorkingCopy: responseContentBasis.has_divergent_working_copy,
+      },
+    } : {}),
     clientWorkState: request.client_work_state,
     graphStatus: "not_requested",
     pointerStatus: conversation.pointer_status as WorldPlanAgentTurnResolvedSummary["pointerStatus"],
   };
-  return { ok: true, value: { answer: answer.text, trace: answer.trace, summary, conversationId: typeof conversation.conversation_id === "string" ? conversation.conversation_id : null } };
+  return { ok: true, value: { answer: answer.text, trace: answer.trace, summary, conversationId: typeof conversation.conversation_id === "string" ? conversation.conversation_id : null, replayed } };
 }
 
 function isScopedPlanThread(
@@ -619,6 +654,7 @@ export function WorldPlanAgentConversation({
   const newConversationRef = useRef<symbol | null>(null);
   const historySnapshotRef = useRef<WorldAgentConversationHistoryResponseV1 | null>(null);
   const historyGenerationRef = useRef(0);
+  const legacyHistoryRef = useRef<{ scopeKey: string; thread: AgentInteractionThread; rawBytes: string | null } | null>(null);
   const proposalRequestRef = useRef<{ token: symbol; threadId: string; fenceKey: string; providerThreadId: string | null } | null>(null);
   const proposalIntentRef = useRef<{ fingerprint: string; idempotencyKey: string } | null>(null);
   const editReviewRef = useRef<WorldPlanEditReview | null>(null);
@@ -642,6 +678,39 @@ export function WorldPlanAgentConversation({
     askVisible: Boolean(askSlot?.hostElement && agent.paneState.isOpen),
     mounted: false,
   });
+  const storedLegacyHistory = useMemo(() => {
+    if (!namespace || !documentId
+      || activeThread?.worldPlanProposalHistory !== WORLD_PLAN_LOCAL_PROPOSAL_HISTORY) return null;
+    try {
+      for (const summary of listAgentThreads(namespace, "plan", documentId)) {
+        if (summary.threadId === activeThread.threadId) continue;
+        const thread = loadAgentThreadById(namespace, summary.threadId);
+        if (!thread || thread.worldPlanProposalHistory === WORLD_PLAN_LOCAL_PROPOSAL_HISTORY) continue;
+        return {
+          scopeKey,
+          thread,
+          rawBytes: window.localStorage.getItem(threadStorageKey(namespace, thread.threadId)),
+        };
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }, [activeThread?.threadId, activeThread?.worldPlanProposalHistory, documentId, namespace, scopeKey]);
+  if (storedLegacyHistory
+    && (!legacyHistoryRef.current || legacyHistoryRef.current.scopeKey !== scopeKey)) {
+    legacyHistoryRef.current = storedLegacyHistory;
+  }
+  const preservedLegacyHistory = legacyHistoryRef.current?.scopeKey === scopeKey
+    ? legacyHistoryRef.current
+    : storedLegacyHistory;
+  const legacyThreadForDisplay = activeThread?.worldPlanProposalHistory === WORLD_PLAN_LOCAL_PROPOSAL_HISTORY
+    ? preservedLegacyHistory?.thread ?? null
+    : activeThread;
+  const proposalThreadForDisplay = activeThread?.worldPlanProposalHistory === WORLD_PLAN_LOCAL_PROPOSAL_HISTORY
+    ? activeThread
+    : null;
+
   latestRef.current.fenceKey = requestFenceKey;
   latestRef.current.proposalFenceKey = proposalFenceKey;
   latestRef.current.threadId = activeThread?.threadId ?? null;
@@ -711,6 +780,7 @@ export function WorldPlanAgentConversation({
     let active = true;
     const generation = ++historyGenerationRef.current;
     historySnapshotRef.current = null;
+    setOlderLoading(false);
     setHistory(null);
     setHistoryError(null);
     if (!scopeMatches || !verifiedWorldId || !documentId) {
@@ -796,6 +866,8 @@ export function WorldPlanAgentConversation({
     newConversationRef.current = null;
     historyGenerationRef.current += 1;
     historySnapshotRef.current = null;
+    setOlderLoading(false);
+    if (legacyHistoryRef.current?.scopeKey !== scopeKey) legacyHistoryRef.current = null;
     setSending(false);
     setNewConversationSending(false);
     setTraceVisible(false);
@@ -965,13 +1037,25 @@ export function WorldPlanAgentConversation({
       if (!isCurrent()) return;
       const validation = validateWorldPlanResponse(response, envelope.request);
       if (!validation.ok) throw new Error(validation.message);
-      if (!validation.value.conversationId
-        || validation.value.summary.contentBasis?.worldId !== envelope.origin.worldId
-        || validation.value.summary.contentBasis?.documentId !== envelope.origin.documentId
-        || validation.value.summary.contentBasis?.objectRevision !== envelope.origin.objectRevision
-        || validation.value.summary.contentBasis?.workRevisionId !== envelope.origin.workRevisionId
-        || validation.value.summary.contentBasis?.revisionN !== envelope.origin.revisionN
-        || validation.value.summary.contentBasis?.contentSha256 !== envelope.origin.contentSha256) {
+      const origin = envelope.origin;
+      const requestBasisMatchesOrigin = origin.worldId === envelope.request.owner_scope.world_id
+        && origin.documentId === envelope.request.primary_work.object_id
+        && origin.objectRevision === envelope.request.primary_work.expected_revision
+        && origin.revisionN === envelope.request.primary_work.expected_revision_n
+        && origin.contentSha256 === envelope.request.primary_work.expected_content_sha256
+        && typeof origin.workRevisionId === "string"
+        && Boolean(origin.workRevisionId.trim());
+      const responseBasisMatchesOrigin = validation.value.replayed
+        ? requestBasisMatchesOrigin
+          && (!origin.conversationId || origin.conversationId === validation.value.conversationId)
+        : requestBasisMatchesOrigin
+          && validation.value.summary.contentBasis?.worldId === origin.worldId
+          && validation.value.summary.contentBasis?.documentId === origin.documentId
+          && validation.value.summary.contentBasis?.objectRevision === origin.objectRevision
+          && validation.value.summary.contentBasis?.workRevisionId === origin.workRevisionId
+          && validation.value.summary.contentBasis?.revisionN === origin.revisionN
+          && validation.value.summary.contentBasis?.contentSha256 === origin.contentSha256;
+      if (!validation.value.conversationId || !responseBasisMatchesOrigin) {
         throw new Error("The durable Ask result did not identify its original World conversation and committed basis. The saved request remains available for exact recovery.");
       }
 
@@ -1145,8 +1229,21 @@ export function WorldPlanAgentConversation({
   }
 
   function exportLegacyLocalHistory() {
-    if (!activeThread) return;
-    const exportFile = new Blob([JSON.stringify(activeThread, null, 2)], {
+    const thread = legacyThreadForDisplay;
+    if (!thread) return;
+    const preserved = legacyHistoryRef.current?.scopeKey === scopeKey
+      && legacyHistoryRef.current.thread.threadId === thread.threadId
+      ? legacyHistoryRef.current.rawBytes
+      : null;
+    let storedBytes = preserved;
+    if (storedBytes === null) {
+      try {
+        storedBytes = window.localStorage.getItem(threadStorageKey(thread.campaignId, thread.threadId));
+      } catch {
+        storedBytes = null;
+      }
+    }
+    const exportFile = new Blob([storedBytes ?? JSON.stringify(thread, null, 2)], {
       type: "application/json",
     });
     const url = URL.createObjectURL(exportFile);
@@ -1327,14 +1424,30 @@ export function WorldPlanAgentConversation({
       || composing || sending || requestRef.current || proposalRequestRef.current) return;
 
     const providerThreadId = agent.activeThread?.threadId ?? null;
-    const currentThread = activeThread ?? createAgentInteractionThread(
-      namespace,
-      null,
-      "plan",
-      "hermes",
-      threadTitleFromQuestion(instruction),
-      documentId,
-    );
+    if (activeThread?.worldPlanProposalHistory !== WORLD_PLAN_LOCAL_PROPOSAL_HISTORY) {
+      let rawBytes: string | null = null;
+      if (activeThread) {
+        try {
+          rawBytes = window.localStorage.getItem(threadStorageKey(activeThread.campaignId, activeThread.threadId));
+        } catch {
+          rawBytes = null;
+        }
+        legacyHistoryRef.current = { scopeKey, thread: activeThread, rawBytes };
+      }
+    }
+    const currentThread = activeThread?.worldPlanProposalHistory === WORLD_PLAN_LOCAL_PROPOSAL_HISTORY
+      ? activeThread
+      : {
+        ...createAgentInteractionThread(
+          namespace,
+          null,
+          "plan",
+          "hermes",
+          threadTitleFromQuestion(instruction),
+          documentId,
+        ),
+        worldPlanProposalHistory: WORLD_PLAN_LOCAL_PROPOSAL_HISTORY,
+      };
     const token = Symbol("world-plan-edit-proposal");
     const fenceKey = proposalFenceKey;
     proposalRequestRef.current = { token, threadId: currentThread.threadId, fenceKey, providerThreadId };
@@ -1521,9 +1634,9 @@ export function WorldPlanAgentConversation({
           </button>
         </div>
       </header>
-      <section aria-label="Native Graph access">
+      <section aria-label="Local operator Agent and Graph authorization">
         <form onSubmit={(event) => { void saveGraphCredential(event); }}>
-          <label htmlFor="world-plan-agent-graph-credential">Local operator Graph credential</label>
+          <label htmlFor="world-plan-agent-graph-credential">Local operator credential for Agent and Graph</label>
           <input
             id="world-plan-agent-graph-credential"
             type="password"
@@ -1532,14 +1645,14 @@ export function WorldPlanAgentConversation({
             onChange={(event) => setGraphCredential(event.currentTarget.value)}
             maxLength={4096}
           />
-          <button type="submit">Set Graph access</button>
-          <button type="button" onClick={clearGraphCredential}>Clear Graph access</button>
+          <button type="submit">Set Agent and Graph authorization</button>
+          <button type="button" onClick={clearGraphCredential}>Clear Agent and Graph authorization</button>
         </form>
-        <p role="note">This local operator credential stays in memory only and authorizes Agent and native Graph requests. Plan Ask stays graphless but still requires local operator authorization. It is never included in request bodies, saved recovery envelopes, or exports.</p>
+        <p role="note">The credential stays in memory only. It authorizes local Agent access and is also sent with native Graph requests. Plan Ask remains graphless; setting this credential does not request or enable Graph. It is never included in request bodies, saved recovery envelopes, or exports.</p>
         {graphCredentialStatus ? <p role="status">{graphCredentialStatus}</p> : null}
       </section>
       <p className="world-plan-agent-conversation__notice" role="note">
-        Ask sends this Plan’s exact committed text and your question to the configured model. Unsaved editor changes are excluded; the turn records which committed revision it used and whether a divergent working copy existed. Compose or Revise below sends the selected text and current mounted draft to the configured model. Slice A sends no conversation history with a new proposal. Nothing changes until you review and apply a proposal.
+        Ask sends this Plan’s exact committed text and your question to the configured model. Unsaved editor changes are excluded; the turn records which committed revision it used and whether a divergent working copy existed. Compose or Revise below sends the selected text and current mounted draft to the configured model. New proposal requests do not include earlier conversation turns. Nothing changes until you review and apply a proposal.
       </p>
       {saveInFlight ? (
         <p className="world-plan-agent-conversation__saving" role="status">Conversation paused while the Plan is saving.</p>
@@ -1763,13 +1876,13 @@ export function WorldPlanAgentConversation({
             ))}
         </section>
       ) : null}
-      {activeThread?.turns.length ? (
+      {legacyThreadForDisplay?.turns.length ? (
         <section aria-label="Local-only legacy Plan history">
-          <h3>Local-only legacy and Plan proposal history</h3>
+          <h3>Local-only legacy Plan history</h3>
           <p>This browser copy is not server-confirmed, is never used for Ask or proposal context, and remains separate from the World transcript.</p>
           <button type="button" onClick={exportLegacyLocalHistory}>Export local history JSON</button>
           <ol>
-            {[...activeThread.turns].reverse().map((turn) => (
+            {[...legacyThreadForDisplay.turns].reverse().map((turn) => (
               <li key={turn.turnId}>
                 <p><strong>You:</strong> {turn.question}</p>
                 <p><strong>Local response{turn.planEdit ? " · Plan proposal" : ""}:</strong> {turn.answer}</p>
@@ -1781,6 +1894,26 @@ export function WorldPlanAgentConversation({
                 {turn.agentTurnResolved?.surfaceId === "plan" ? (
                   <p className="world-plan-agent-conversation__context">
                     Legacy local summary · committed revision {turn.agentTurnResolved.revisionUsed}; not part of server history.
+                  </p>
+                ) : null}
+                {turn.trace && traceVisible ? <AgentTraceInspector trace={turn.trace} /> : null}
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+      {proposalThreadForDisplay?.turns.length ? (
+        <section aria-label="Local-only Plan proposal activity">
+          <h3>Local-only Plan proposal activity</h3>
+          <p>This browser activity is separate from the World transcript and is never used as proposal context.</p>
+          <ol>
+            {[...proposalThreadForDisplay.turns].reverse().map((turn) => (
+              <li key={turn.turnId}>
+                <p><strong>You:</strong> {turn.question}</p>
+                <p><strong>Local response · Plan proposal:</strong> {turn.answer}</p>
+                {turn.planEdit ? (
+                  <p className="world-plan-agent-conversation__context">
+                    Plan proposal · {turn.planEdit.applied ? "Applied to the local draft" : "Not applied"}
                   </p>
                 ) : null}
                 {turn.trace && traceVisible ? <AgentTraceInspector trace={turn.trace} /> : null}
