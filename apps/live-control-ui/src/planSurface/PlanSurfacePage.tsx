@@ -1578,6 +1578,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         savedDirty={Boolean(documentId && (title !== serverTitleRef.current || markdown !== serverMarkdownRef.current))}
         pageReady={status === "ready"}
         saveInFlight={saving || pendingWriteRef.current !== null}
+        prototypeContextLabel={findFocusedPrototypeTitle(currentCardProjection, selectedPlayableTarget?.target ?? null)}
         playableTarget={selectedPlayableTarget?.target ?? null}
         playableTargetBasis={selectedPlayableTarget ? {
           revision: selectedPlayableTarget.revision,
@@ -1603,4 +1604,15 @@ function updateFocusedPrototypeView(view: "cards" | "document") {
   if (url.searchParams.get("prototype") !== "focused") return;
   url.searchParams.set("view", view);
   window.history.replaceState(window.history.state, "", url);
+}
+
+function findFocusedPrototypeTitle(model: ReturnType<typeof buildWorldPlanCardProjectionModel>, target: WorldPlanCardTarget | null): string | undefined {
+  if (model.status !== "ready" || !target) return undefined;
+  const pending = [...model.roots];
+  while (pending.length) {
+    const node = pending.shift()!;
+    if (node.kind === target.kind && node.id === target.id) return node.title;
+    pending.push(...node.children);
+  }
+  return undefined;
 }

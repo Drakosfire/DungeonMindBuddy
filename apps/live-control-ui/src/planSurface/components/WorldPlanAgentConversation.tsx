@@ -52,6 +52,7 @@ interface WorldPlanAgentConversationProps {
   pageReady: boolean;
   saveInFlight: boolean;
   playableTarget?: Omit<WorldPlanSelectedPlayableTargetV1, "schema"> | null;
+  prototypeContextLabel?: string;
   playableTargetBasis?: { revision: number; contentSha256: string } | null;
   playableTargetStale?: boolean;
   onClearPlayableTarget?: () => void;
@@ -699,6 +700,7 @@ export function WorldPlanAgentConversation({
   savedDirty,
   pageReady,
   saveInFlight,
+  prototypeContextLabel,
   playableTarget = null,
   playableTargetBasis = null,
   playableTargetStale = false,
@@ -709,6 +711,8 @@ export function WorldPlanAgentConversation({
   playableEditTargetDirty = false,
   onClearPlayableEditTarget = () => undefined,
 }: WorldPlanAgentConversationProps) {
+  const focusedPrototype = new URLSearchParams(window.location.search).get("prototype") === "focused";
+  const ContextContainer = focusedPrototype ? "details" : "div";
   const selectedWorld = useSelectedWorld();
   const agent = useAgentInteraction();
   const askSlot = useAskPluginSlotOptional();
@@ -1957,8 +1961,8 @@ export function WorldPlanAgentConversation({
     <section className="world-plan-agent-conversation" aria-label="Saved World Plan conversation">
       <header className="world-plan-agent-conversation__header">
         <div>
-          <h2>Plan conversation</h2>
-          <p>{worldName} · Saved Plan</p>
+          <h2>{focusedPrototype ? "DungeonBuddy" : "Plan conversation"}</h2>
+          <p>{worldName} · {focusedPrototype && prototypeContextLabel ? prototypeContextLabel : "Saved Plan"}</p>
         </div>
         <div className="world-plan-agent-conversation__actions">
           <button type="button" aria-expanded={settingsOpen} aria-controls="world-plan-agent-settings" onClick={() => setSettingsOpen((open) => !open)}>
@@ -1997,6 +2001,8 @@ export function WorldPlanAgentConversation({
         <p role="note">This credential stays in this tab’s memory. Local Agent requests use it, and other surfaces may use it for native Graph requests. Plan Ask does not request Graph data. It is never stored in recovery data or exports.</p>
         {graphCredentialStatus ? <p role="status">{graphCredentialStatus}</p> : null}
       </section>
+      <ContextContainer className={focusedPrototype ? "focused-conversation-details" : undefined}>
+      {focusedPrototype && <summary>Context &amp; instructions</summary>}
       <p className="world-plan-agent-conversation__notice" role="note">
         Talk through the saved Plan, or choose Propose edit to request a change. You’ll review it before it touches the draft.
       </p>
@@ -2031,6 +2037,8 @@ export function WorldPlanAgentConversation({
           <button type="button" onClick={onClearPlayableEditTarget}>Clear edit target</button>
         </section>
       ) : null}
+      </ContextContainer>
+      {focusedPrototype && (playableTargetStale || playableEditTargetStale) ? <p role="alert">Scene context changed or is unavailable. Verify the saved Plan before continuing.</p> : null}
       <section className="world-plan-agent-conversation__turns" aria-label="World conversation transcript" aria-live="polite">
         <h3>Conversation</h3>
         {historyLoading ? <p role="status">Loading the latest World conversation page…</p> : null}
@@ -2313,7 +2321,7 @@ export function WorldPlanAgentConversation({
               value={composerMessage}
               onChange={(event) => setComposerMessage(event.currentTarget.value)}
               maxLength={messageLimit}
-              disabled={composerBusy}
+              disabled={focusedPrototype ? intentBusy : composerBusy}
               placeholder={composerIntent === "discuss" ? "Ask about this Plan…" : "Describe the change you want…"}
             />
             {messageTooLong ? <p role="alert">Edit requests can be at most 4,000 characters. Shorten this message to continue.</p> : null}
@@ -2331,7 +2339,7 @@ export function WorldPlanAgentConversation({
       ) : (
         <form className="world-plan-agent-conversation__composer" onSubmit={submitComposer}>
           <label htmlFor="world-plan-agent-message">Message DungeonBuddy</label>
-          <textarea id="world-plan-agent-message" value={composerMessage} onChange={(event) => setComposerMessage(event.currentTarget.value)} maxLength={8000} disabled={composerBusy} />
+          <textarea id="world-plan-agent-message" value={composerMessage} onChange={(event) => setComposerMessage(event.currentTarget.value)} maxLength={8000} disabled={focusedPrototype ? intentBusy : composerBusy} />
           {error ? <p role="alert">{error}</p> : null}
           <button type="submit" disabled={composerBusy || !composerMessage.trim() || playableTargetStale}>{sending ? "Sending…" : "Send message"}</button>
         </form>

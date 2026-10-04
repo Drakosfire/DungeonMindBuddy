@@ -1,6 +1,5 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { JSONContent } from "@tiptap/core";
-import { useAgentInteraction } from "../../agentInteraction/useAgentInteraction";
 import { useGraphNodeChipRuntime } from "../../graphReference";
 import { adaptFocusedPlan } from "./FocusedPlanAdapter";
 import { worldPlanCardTargetKey, type WorldPlanCardProjectionModel, type WorldPlanCardTarget } from "./WorldPlanCardProjection";
@@ -34,22 +33,26 @@ function RichBlock({ node }: { node: JSONContent }): ReactNode {
   return <>{children ?? (node.attrs?.label ? String(node.attrs.label) : null)}</>;
 }
 
-export function FocusedPlanPrototype({ model, document, isDirty, selectableTargetKeys, editableTargetKeys, onSelectTarget, onSelectEditTarget, onReturnToDocument }: {
+export function FocusedPlanPrototype({ model, document, isDirty, selectableTargetKeys, editableTargetKeys, onSelectTarget, onReturnToDocument, selectedTarget, selectedEditTarget, onSelectEditTarget }: {
+  selectedTarget: WorldPlanCardTarget | null; selectedEditTarget: WorldPlanCardTarget | null;
   model: WorldPlanCardProjectionModel; document: JSONContent; isDirty: boolean;
   selectableTargetKeys: ReadonlySet<string>; editableTargetKeys: ReadonlySet<string>;
   onSelectTarget?: (target: WorldPlanCardTarget) => void; onSelectEditTarget?: (target: WorldPlanCardTarget) => void; onReturnToDocument: () => void;
 }) {
-  const { setPaneOpen } = useAgentInteraction();
+
   const scenes = adaptFocusedPlan(model, document);
   const [sceneId, setSceneId] = useState(() => new URLSearchParams(location.search).get("scene"));
   const [lensId, setLensId] = useState<string | null>(null);
   const [outline, setOutline] = useState(true);
   const index = Math.max(0, scenes.findIndex(s => s.scene.id === sceneId));
   const current = scenes[index];
+  const focusKey = current ? worldPlanCardTargetKey({ kind: current.scene.kind, id: current.scene.id }) : null;
+  const selectedKey = selectedTarget ? worldPlanCardTargetKey(selectedTarget) : null;
+  useEffect(() => {
+    if (current && focusKey !== selectedKey && selectableTargetKeys.has(focusKey!)) onSelectTarget?.({ kind: current.scene.kind, id: current.scene.id });
+  }, [focusKey, selectedKey, selectableTargetKeys, onSelectTarget]);
   if (!current) return <section className="focused-prototype"><p>This Plan has no supported scenes. Document remains available.</p><button onClick={onReturnToDocument}>Document</button></section>;
   const lens = current.lenses.find(l => l.id === lensId) ?? current.lenses[0];
-  const targetNode = current.scene;
-  const target = { kind: targetNode.kind, id: targetNode.id };
   const go = (id: string) => {
     setSceneId(id); setLensId(null);
     const url = new URL(location.href); url.searchParams.set("scene", id); history.replaceState(history.state, "", url);
@@ -59,9 +62,6 @@ export function FocusedPlanPrototype({ model, document, isDirty, selectableTarge
       <button aria-expanded={outline} onClick={() => setOutline(!outline)}>Outline</button>
       <div><small>{current.group}</small><h2>{current.scene.title}</h2></div>
       <span>{index + 1} / {scenes.length}</span><span>{isDirty ? "Unsaved draft" : "Saved Plan"}</span>
-      <button disabled={!selectableTargetKeys.has(worldPlanCardTargetKey(target))} onClick={() => { onSelectTarget?.(target); setPaneOpen(true); }}>Discuss scene</button>
-      <button disabled={!editableTargetKeys.has(worldPlanCardTargetKey(target))} onClick={() => { onSelectEditTarget?.(target); setPaneOpen(true); }}>Revise scene</button>
-      <button onClick={onReturnToDocument}>Document</button>
     </nav>
     {outline && <aside aria-label="Scene outline">{scenes.map(s => <button key={s.scene.id} aria-current={current.scene.id === s.scene.id ? "step" : undefined} onClick={() => go(s.scene.id)}>{s.scene.title}</button>)}</aside>}
     <div className="focused-reading">

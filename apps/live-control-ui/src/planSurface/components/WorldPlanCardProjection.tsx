@@ -354,7 +354,7 @@ export function WorldPlanCardProjection({
     );
   }
   if (new URLSearchParams(window.location.search).get("prototype") === "focused") {
-    return <FocusedPlanPrototype model={model} document={document} isDirty={isDirty}
+    return <FocusedPlanPrototype selectedTarget={selectedTarget} selectedEditTarget={selectedEditTarget} model={model} document={document} isDirty={isDirty}
       selectableTargetKeys={selectableTargetKeys} editableTargetKeys={editableTargetKeys}
       onSelectTarget={onSelectTarget} onSelectEditTarget={onSelectEditTarget}
       onReturnToDocument={onReturnToDocument} />;
