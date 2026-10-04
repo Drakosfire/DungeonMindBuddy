@@ -1,6 +1,6 @@
 # RAKE: mounted Plan test harness repair
 
-Status: ACTIVE
+Status: SETTLED — PR #906 merged; write lease closed
 Owner: RAKE repair worker under PRIME's explicit two-path lease transfer
 PR topology: parallel-independent
 Authority/base: Buddy remote main `0f42fec0812655bb37c87b6be9a7fe5741d7f25f` (PRIME audit correction; fetched from GitHub)
@@ -62,3 +62,7 @@ PRIME explicitly adopted the test-only migration of stale pre-#900 expectations 
 The blank-Plan race is nondeterministic on baseline. The context-publication wait adopted from #886 ensures its owner context has mounted before asserting Agent-empty state; no assertion is dropped. Successful mock replies carry conversation identity and project typed exact-basis history. Empty action pages avoid fabricating extra committed-revision reads. No replay proof is invented: existing invalid/correlation/stale-basis tests still reject invalid replies.
 
 Author verification: all 50 mounted tests pass. A follow-up run exposed a second pre-existing async assertion race: `findAllByText` returned the already-visible first reply before the second history refresh. The test now waits for both server-projected replies before checking their sequence and provenance. The runner loader avoids Vite's bundled-config writes into read-only shared dependencies. This is test-boundary evidence, not live product acceptance. PRIME independently reviews the exact head before merge.
+
+## PRIME settlement — 2026-10-04
+
+PR #906 reviewed head `7ea7e9d319e82dec6e33248cdbc74e0fda86d1be` merged at `6feb3059b2da4d2ec29966ce9723f0effc70108f`. PRIME independently reran the mounted suite: 50/50 passed. This test-only lease is closed; the historical sections above authorize no further writes.

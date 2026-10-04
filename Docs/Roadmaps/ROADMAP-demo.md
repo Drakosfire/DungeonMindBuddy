@@ -223,7 +223,7 @@ rerun on the exact clean head. The implementation lease is closed. No operator
 acceptance or J1–J6 completion is claimed. Ports 5202, 8000, and 5203 remain
 untouched.
 
-**Next bounded candidate — committed-card Plan Ask (not ACTIVE):**
+**ACTIVE next slice — selected committed-card Plan Ask:**
 After #909, add the selected committed Playable-card identity to the existing
 server-owned World conversation's canonical Plan Ask. Do not include proposal,
 review or Apply targeting in this first capability.
@@ -248,7 +248,7 @@ Preserve the existing authorized server-resolved committed Plan context in
 graphless Ask (`agent_turn_service.py` uses `_plan_message`). Send no client card,
 source or draft Markdown and no Graph payload; keep `graph_request=none` and
 `graph_selection=null`. If target provenance enters durable receipts/history,
-APP-STATE must co-own that admission contract before activation. First-slice proof
+APP-STATE has accepted the existing-supporting-reference storage and fingerprint contract. First-slice proof
 must cover mounted selection-to-identity mapping, request pins and immutable
 replay, stale target/document/basis rejection, unchanged World conversation
 identity, and graph-disabled Ask with the existing committed Plan context.
@@ -258,8 +258,7 @@ this Ask capability. It must map exact v1/v2 Scene, Choice and Option body range
 (including sibling headings and list items), define dirty-draft targeting, and
 fence review/Apply through `WorldPlanEditBridge` before claiming selected-card
 proposal → Apply → ordinary Save → fresh reopen. Existing document-selection
-proposals remain unchanged. This candidate has no active write lease or
-successor PR. Graph-backed Plan Ask remains separately blocked on APP-STATE's
+proposals remain unchanged. PRIME activated the bounded single DEMO implementation PR from `f8ad152c669e76cccb21fecfb9aecc3656589e5b` under [HANDOFF-DEMO-plan-agent-card-target](../Plans/HANDOFF-DEMO-plan-agent-card-target.md), after DEMO, SERVER, and APP-STATE accepted the contract. The handoff owns the exact path lease, deterministic tests, and immutable target/basis replay evidence; no SQL migration or runtime restart is authorized. Graph-backed Plan Ask remains separately blocked on APP-STATE's
 durable receipt, Buddy managed-binding admission, and DungeonMind source-evidence
 contracts.
 

@@ -1,70 +1,29 @@
 ---
 title: Managed-World Plan Agent committed Playable-card Ask target
 document_class: implementation_handoff
-status: BLOCKED
+status: ACTIVE
 created_at: "2026-10-04"
 workstream: DEMO
 design_authority: "../Design/DESIGN-world-plan-agent-playable-target.md"
 design_base: "Buddy main 5b1322d9719b4ee2bf64c28c2ee22ce071cee43f"
 pr_topology: serial
-implementation_branch: not_assigned
-implementation_pr: not_authorized
+implementation_branch: codex/demo-selected-committed-card-ask
+implementation_pr: authorized_one_serial_pr
 ---
 
 # HANDOFF — Ask about one committed Playable card in a World Plan
 
-> This is durable design authority only. It is BLOCKED and holds no
-> implementation write lease.
+## PRIME activation — 2026-10-04
 
-## Status and activation gate
+**Status: ACTIVE.** PRIME authorizes one selected committed-card Ask implementation PR from Buddy remote main `f8ad152c669e76cccb21fecfb9aecc3656589e5b`, after reviewing #910 head `20f381f6ecdad48443d2b446869bb6ab16605766`. This activation is pinned by the commit publishing this handoff. Re-anchor to that commit before coding.
 
-**Status: BLOCKED.** This handoff is proposed with the companion design at
-Buddy main `5b1322d9719b4ee2bf64c28c2ee22ce071cee43f`. No implementation lane,
-branch, PR, or schema change is authorized.
+DEMO accepted selection/dirty-editor and model-facing-focus semantics. Buddy SERVER accepted exact membership against the atomic committed Plan resolver result using the existing pure v1/v2 scanners unchanged. APP-STATE accepted the intent/provenance/replay contract: client schema/kind/id enters the fingerprint; absent/null omits only that new field and preserves old fingerprints exactly; changed target or submitted basis under the same key conflicts before current Plan resolution/provider dispatch. Historical receipts lacking submitted fingerprints remain fail-closed. Server-derived grammar and target use a typed codec over existing supporting reference rows with the exact basis in `primary_work`; Graph `selected_object` is untouched. No SQL migration, new reference role, table, or column is authorized.
 
-Activation requires all of the following to be recorded by PRIME after
-re-anchoring:
+**Path ownership:** DEMO is the sole implementation writer for the finalized §4 paths in one serial PR, with Buddy SERVER reviewing Agent admission/runtime evidence and APP-STATE reviewing its intent/storage/replay changes. Those owners retain contract authority; neither receives a competing write lease. PRIME reviews the exact cumulative head and independently verifies owning evidence before merge.
 
-1. The companion design is accepted at its exact reviewed head. That acceptance
-   confirms the first capability is committed-card Ask only; Compose/Review/
-   Apply remain a serial successor.
-2. APP-STATE approves how the selected Playable reference enters
-   `SubmittedTurnIntentV1` and durable `TurnProvenance` (or demonstrates an
-   existing typed receipt with equivalent semantics). The decision must cover
-   intent fingerprints, durable history/replay identity, persisted
-   server-resolved marker grammar version, compatibility for no-target turns,
-   and any storage/migration paths. APP-STATE's audit confirms the fingerprint
-   is persisted but the original submitted-intent payload is not. Current
-   `selected_object` is Graph selection and may not be reused. No storage or
-   schema change is authorized by this BLOCKED handoff; a migration requires
-   owner approval and a finalized ACTIVE allowlist.
-3. Buddy's Agent/server owner approves the typed request field/version and the
-   exact committed-Plan membership resolver. The request carries only
-   `{kind, id}` plus the target-envelope schema version; the server selects
-   v1/v2 marker parsing from the exact pinned WorkRevision. Client-supplied
-   marker grammar versions or unknown envelope versions are rejected. The
-   owner also approves duplicate, malformed, dangling, and wrong-kind
-   membership behavior and proves validation does not invoke Run
-   admission/readiness or mutate Run behavior.
-4. DEMO accepts the mounted Cards selection affordance and dirty-editor
-   behavior: same `{kind, id}` means Ask against the pinned committed Plan with
-   explicit disclosure. World/document/committed-basis replacement clears the
-   target; a draft-generation change revalidates against the already available
-   verified saved baseline and retains only the same unique provable identity.
-   Draft-only, missing, changed-kind, ambiguous, or otherwise unprovable
-   target/basis clears or shows stale/unavailable and fails closed.
-5. PRIME fetches current `main`, inspects open PRs and active leases again,
-   records the final Buddy and APP-STATE path owners, and confirms the complete
-   future path allowlist and runtime/state ownership. PR #887 was prototype-only
-   at the design snapshot and is not a production dependency; its status still
-   must be rechecked.
-6. The future implementation PR is explicitly authorized as one serial DEMO
-   PR after this handoff becomes ACTIVE. No APP-STATE migration or additional
-   successor PR is implied.
+**Collision census:** PRIME fetched current main and inspected changed paths for all eleven open Buddy PRs (#887, #869, #844, #826, #798, #781, #765, #764, #763, #761, #760). None claims this §4 allowlist. #887 remains prototype-only. #904/#906/#908/#909 are merged and their relevant leases closed. Older active labels for disjoint Recap/Graph/optimization work do not grant this lane additional paths. The stale #906 mounted-harness label is settled in this activation publication.
 
-If any answer changes the one-turn invariant or needs proposal/Apply behavior,
-stop and re-review the design. Do not activate by metadata-only edits while a
-contract owner or path is unresolved.
+**Topology/resources:** one serial implementation PR, no selected-card proposal/Review/Apply successor in scope. Deterministic synthetic/provider fakes only; no operator UI/API restart, browser reload, live provider, corpus copy, credential change, shared database migration, or 5202/8000/5203 lease. Isolated APP-STATE test fixtures only. Stop for any additional path, new storage role/schema, parser behavior change, or unresolved owner semantics.
 
 ## §1 Mission and merge-ready invariant
 
@@ -91,7 +50,7 @@ than substitute a card, document, World, or revision.
 
 ## §2 Design authority and owning boundaries
 
-Re-read after activation:
+Execution references:
 
 1. `Docs/Design/DESIGN-world-plan-agent-playable-target.md`.
 2. `Docs/Roadmaps/ROADMAP-demo.md` at the current re-anchored main; the
@@ -106,7 +65,7 @@ Re-read after activation:
    `_submitted_turn_intent`, `_conversation_provenance`, and `_plan_message`.
 6. APP-STATE's approved `SubmittedTurnIntentV1` / `TurnProvenance` contract,
    current `request_fingerprint` compatibility rules, and exact turn replay
-   behavior. These are an activation dependency, not a design assumption.
+   behavior. The accepted owner ruling above governs this slice.
 
 Design-time facts at main `5b1322d9719b4ee2bf64c28c2ee22ce071cee43f`:
 
@@ -221,10 +180,14 @@ Required owning-boundary proof after activation:
   document-selection proposal suites still pass. These tests do not prove
   selected-card Compose/Review/Apply; that belongs to the serial successor.
 
-## §4 Candidate implementation paths — not a write lease
+## §4 Finalized ACTIVE implementation write lease
 
-This BLOCKED handoff reserves no paths. The following is the candidate Buddy
-write set to revalidate and finalize at activation:
+Only the following Buddy paths are leased. Optional new helper/test paths may be used only for the identity-only resolver already described; no other new file is authorized.
+
+**Authority settlement in this same PR**
+
+- `Docs/Plans/HANDOFF-DEMO-plan-agent-card-target.md`
+- `Docs/Roadmaps/ROADMAP-demo.md`
 
 **Buddy UI and public request**
 
@@ -251,12 +214,9 @@ write set to revalidate and finalize at activation:
 - new `tests/test_agent_plan_playable_target.py` only if the new resolver file
   is needed.
 
-**APP-STATE paths — conditional, unapproved, and not authorized while BLOCKED**
+**APP-STATE paths — owner-approved existing storage only**
 
-The BLOCKED handoff authorizes no APP-STATE storage or database change. The
-following paths may be considered only after APP-STATE names and approves the
-storage contract and PRIME records them in the finalized ACTIVE write
-allowlist; none is currently leased:
+APP-STATE approves DEMO changes to these paths for the existing supporting-reference codec, fingerprint compatibility, and immutable replay. No migration is leased:
 
 - `src/application_state/agent_conversation/types.py`
 - `src/application_state/agent_conversation/service.py`
@@ -264,12 +224,8 @@ allowlist; none is currently leased:
 - `tests/application_state/test_agent_conversation_service.py`
 - `tests/application_state/test_agent_conversation_postgres.py`
 - `tests/application_state/test_agent_conversation_provenance_migration.py`
-- any migration path explicitly named by APP-STATE and included in the
-  finalized ACTIVE allowlist.
 
-If APP-STATE requires additional paths, a different schema version, a separate
-co-owned PR, or a changed identity model, stop and return to PRIME. Do not
-implement from this candidate list as if it were an active lease.
+If implementation needs another path, storage role, migration, separate PR, or changed identity model, stop and return to PRIME and APP-STATE before editing.
 
 ## §5 Explicit exclusions
 
@@ -284,10 +240,7 @@ implement from this candidate list as if it were an active lease.
 - No Run/Playable admission or readiness change, Run schema/database change,
   marker authoring or mutation, credentials, dependency, lockfile, or prototype
   import.
-- No database/storage migration is authorized while this handoff is BLOCKED. If
-  APP-STATE approves a required target-provenance migration, it may be added
-  only to a finalized ACTIVE write allowlist. This does not authorize any Run
-  schema, Run database, or Run admission change.
+- No database/storage migration, new supporting-reference role, table, or column. Any such need returns to PRIME and APP-STATE for a revised contract; no Run schema/database/admission change.
 - No GenerationEngine, provider adapter, or model-selection behavior change.
   This exclusion does not omit the Buddy-owned validated target and exact
   WorkRevision focus metadata required in the existing model-facing Plan turn
@@ -295,12 +248,11 @@ implement from this candidate list as if it were an active lease.
 - No generic `/api/live/query` pointer route, `AgentSurfaceContextRequestV1`
   widening, or reuse of Graph `graph_selection`/`selected_object` for a Plan
   element.
-- No branch, implementation PR, or active write lease while this handoff is
-  BLOCKED.
+- No second implementation PR or successor capability in this lease.
 
 ## §6 Topology and runtime/state ownership
 
-**PR topology: serial.** Once ACTIVE, this handoff may authorize exactly one
+**PR topology: serial.** This ACTIVE handoff authorizes exactly one
 implementation PR: `DEMO: selected committed-card Ask target`. No proposal,
 Apply, Graph, or cleanup PR is authorized here. The selected-card
 Compose/Review/Apply successor waits until this Ask slice merges, its state
@@ -385,4 +337,4 @@ The implementation is merge-ready only when all are true:
 Stop and return to PRIME before editing if the work needs a Graph read, a new
 source-text contract, proposal/Apply targeting, a Run/parser behavior change,
 an unapproved APP-STATE path/schema, or any path outside the finalized ACTIVE
-lease. The handoff remains BLOCKED until every activation gate is satisfied.
+lease. The ACTIVE lease is limited to the owner rulings and exact paths above; unresolved deviations stop implementation.
