@@ -8,15 +8,15 @@
 
 ## Re-anchored basis
 
-- DungeonMindBuddy main: `a1d2424a986328a9459631c0634da67bc91d1620` (includes merged #904 at `fb1c48d622c9d8d404b1dddb5d5f618e03cc7ef0` and merged #907; latest Plan-to-Play settlement is included).
+- PR #905 design base: DungeonMindBuddy main `a1d2424a986328a9459631c0634da67bc91d1620`. PRIME reviewed exact head `1fc11d22ef1a8049e6411595a1724903f366e56a` and merged the design at `cafbe54c0a03d1a79ba2728921e39bbf63db0faf`. This accepts the design only; implementation remains BLOCKED.
 - DungeonOverMind architecture and ownership authorities were refreshed at `9a80ab328a687039519569855c2b25a4ee7df07b`.
 - Open Buddy PRs rechecked for collisions:
   - #886 remains open and owns Plan navigation/shell paths. The #906 mounted-harness repair has merged and #904's lease is settled; allocation of `PlanSurfacePage.test.tsx` follows #886's explicit geometry settlement and then the card slice. Do not assign it to another worker in this handoff. No path overlap with this handoff.
   - #826 remains open and owns managed World/KnowledgeSpace provisioning, registry, and binding implementation paths. No path overlap with this handoff.
   - #904 Agent composer merged as `fb1c48d622c9d8d404b1dddb5d5f618e03cc7ef0`; it preserves graphless exact-basis Plan Ask.
-  - #907 Plan-to-Playable design and its follow-up settlement are merged at current main `a1d2424a986328a9459631c0634da67bc91d1620`; it does not alter Graph receipt ownership or replay semantics.
+  - #907 Plan-to-Playable design merged at `d8e861661716d2fa8c1fb1e3e56ef08268d32da8`, with follow-up settlement at `a1d2424a986328a9459631c0634da67bc91d1620`; it does not alter Graph receipt ownership or replay semantics.
   - Merged #898 remains an APP-STATE Plan Ask projection and does not change the Graph receipt contract.
-- This proposed handoff file is still absent from main. Recheck current heads, leases, and path collisions before activation.
+- This handoff is on main through #905 merge `cafbe54c0a03d1a79ba2728921e39bbf63db0faf`. Recheck current heads, leases, and path collisions before activation.
 
 ## Primary question
 
@@ -100,7 +100,7 @@ Before proposing code readiness, inspect the exact cumulative Buddy base-to-head
 
 This handoff remains **BLOCKED** until:
 
-1. APP-STATE publishes and confirms the versioned receipt contract, durable pre-dispatch freeze, strict-v1 provenance preservation, atomic answer/citation completion, immutable retry behavior, and exact pinned-revision availability check. Its current proposed two-document design is unpublished and is not an accepted dependency yet.
+1. APP-STATE publishes and confirms the versioned receipt contract, durable pre-dispatch freeze, strict-v1 provenance preservation, atomic answer/reference-mapping completion, immutable retry behavior, and exact pinned-revision availability check. Its current proposed two-document design is unpublished and is not an accepted dependency yet.
 2. PRIME reviews this Buddy-owned design and explicitly activates the implementation lease after fresh PR/path collision checks.
 3. The adapter mapping is confirmed for currently supported campaign/focus/selection fields and revision semantics, with a fake-owner test witness.
 
