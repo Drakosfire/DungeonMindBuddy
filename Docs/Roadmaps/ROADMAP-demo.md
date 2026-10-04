@@ -74,12 +74,14 @@ production implementation or independently frozen gold.
    prototype persistence into production. Reuse the scene/block grammar where it
    fits; justify a missing contract before changing it. Full adventure ingestion,
    sound cues and all style controls are not prerequisites to this first slice.
-3. Attach the shared World conversation to the selected card through the generic
-   active-surface context contract. Define target identity and revision fences,
-   then prove conversational proposal → inline review → Apply → Save → reopen.
-   The Agent knows the current surface and selection, not a separate Plan-only
-   identity. Card-targeting work follows the first card contract and is its own
-   bounded slice if it needs another capability or public contract.
+3. Add selected committed-card context to canonical managed-World Plan Ask through
+   a typed, server-admitted target bound to the exact Plan basis and immutable
+   turn/replay identity. Preserve graph-disabled Ask and the existing
+   server-resolved committed Plan context. Existing document-selection
+   Compose/Review/Apply remains unchanged. Selected-card proposal/Apply is a
+   serial successor: it needs exact v1/v2 Scene/Choice/Option body ranges, an
+   explicit dirty-draft policy, and `WorldPlanEditBridge` fences; Ask targeting
+   does not grant proposal targeting.
 4. Connect the same authored content to a pinned Playable/Run. Keep current scene,
    choices and inspection navigation coherent; record live notes, submitted rolls,
    selected results and outcomes as durable Run state. Preparation and rehearsal
@@ -221,25 +223,45 @@ rerun on the exact clean head. The implementation lease is closed. No operator
 acceptance or J1–J6 completion is claimed. Ports 5202, 8000, and 5203 remain
 untouched.
 
-**Next bounded candidate — card-targeted Plan collaboration (not ACTIVE):**
-After #909, attach the existing server-owned World conversation to a selected
-Playable card and prove proposal → inline review → Apply → ordinary Save → fresh
-reopen. Preserve the World/document conversation identity, current committed
-revision and existing editor draft/selection fences; use stable marker-backed
-element ID and kind, and the existing `WorldPlanEditBridge` for editor changes.
-Before activation, confirm that the identity-only
-`SurfaceInteractionPublication.agentContext` pointer contract has a
-server-consumed path on the canonical Plan Agent turn and can carry the selected
-element identity without placing Plan Markdown or Graph data in that identity
-pointer or silently enabling Graph. Preserve the existing authorized committed
-Plan context in graphless Ask.
-The current Plan Page publishes `agentContext: null`, and its separate ambient
-Plan context does not include card selection. If the existing contract cannot
-carry and validate the target, settle the owning shared/server contract before
-code. This candidate has no active write lease or successor PR. Graph-backed
-Plan Ask remains a separate blocked design pending the APP-STATE durable receipt,
-Buddy managed-binding adapter/admission, and DungeonMind source-evidence
-contracts; it is not enabled by card targeting.
+**Next bounded candidate — committed-card Plan Ask (not ACTIVE):**
+After #909, add the selected committed Playable-card identity to the existing
+server-owned World conversation's canonical Plan Ask. Do not include proposal,
+review or Apply targeting in this first capability.
+
+The inspected baseline `origin/main@414ae10436f95a10022723b4e8e02ae4c8a01aba`
+shows that `PlanSurfacePage` publishes `agentContext: null`, ambient Plan context
+has no card selection, `WorldPlanAgentTurnRequestV1` has no selected-element
+target, and strict server `AgentTurnRequest` rejects unknown fields. The generic
+Plan surface-context resolver rejects non-empty Plan pointers
+(`tests/test_agent_surface_context.py::test_non_empty_plan_pointers_reject_surface`).
+A typed selected-Playable `{kind, id}` target on the existing canonical managed-
+World Plan turn, with Buddy server admission, is therefore required. Bind it to
+the exact World, document/object revision, actual WorkRevision ID and
+`revision_n`, content digest, and immutable turn/replay identity. Registry
+`loaded_revision` is not a substitute for the WorkRevision pin. Reject stale, foreign, non-canonical or
+missing targets. If membership requires a Plan read, define a pinned committed-
+Plan read and nondisclosure behavior. The selected target must resolve against
+the same committed Plan basis the server uses for Ask; fail closed whenever the
+UI cannot prove that correspondence, including an unresolved dirty-draft case.
+
+Preserve the existing authorized server-resolved committed Plan context in
+graphless Ask (`agent_turn_service.py` uses `_plan_message`). Send no client card,
+source or draft Markdown and no Graph payload; keep `graph_request=none` and
+`graph_selection=null`. If target provenance enters durable receipts/history,
+APP-STATE must co-own that admission contract before activation. First-slice proof
+must cover mounted selection-to-identity mapping, request pins and immutable
+replay, stale target/document/basis rejection, unchanged World conversation
+identity, and graph-disabled Ask with the existing committed Plan context.
+
+Selected-card Compose/Review/Apply is a named serial successor, not implied by
+this Ask capability. It must map exact v1/v2 Scene, Choice and Option body ranges
+(including sibling headings and list items), define dirty-draft targeting, and
+fence review/Apply through `WorldPlanEditBridge` before claiming selected-card
+proposal → Apply → ordinary Save → fresh reopen. Existing document-selection
+proposals remain unchanged. This candidate has no active write lease or
+successor PR. Graph-backed Plan Ask remains separately blocked on APP-STATE's
+durable receipt, Buddy managed-binding admission, and DungeonMind source-evidence
+contracts.
 
 **Prior DEMO lane checkpoint (2026-09-28):** three bounded predecessors are now merged.
 #785 / J4 World-scoped statblock drafts merged at
