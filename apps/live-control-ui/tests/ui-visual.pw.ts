@@ -104,9 +104,12 @@ test(
 
       const narrowOpen = await readDockGeometry(page);
       expect(narrowOpen.drawer?.width).toBeGreaterThanOrEqual(360);
-      expect(narrowOpen.drawer?.width).toBeLessThanOrEqual(narrow.width);
+      expect(narrowOpen.drawer?.left).toBeGreaterThanOrEqual(0);
+      expect(narrowOpen.drawer?.right).toBeLessThanOrEqual(narrow.width);
+      expect(narrowOpen.drawer?.bottom).toBeLessThanOrEqual(narrow.height);
       expect(narrowOpen.drawer?.top).toBeGreaterThanOrEqual(narrowOpen.header?.bottom ?? 0);
       expect(narrowOpen.drawer?.top).toBeLessThanOrEqual((narrowOpen.header?.bottom ?? 0) + 1);
+      expect(narrowOpen.workspace?.top).toBeGreaterThanOrEqual(narrowOpen.header?.bottom ?? 0);
       expect(narrowOpen.layoutPaddingLeft).toBe("0px");
       expect(narrowOpen.workspaceMarginLeft).toBe("0px");
       expect(narrowOpen.workspace?.width).toBeGreaterThan(narrow.width * 0.75);
@@ -121,6 +124,7 @@ test(
       await expect(backdrop).toHaveAttribute("hidden", "");
       await expect(backdrop).toHaveCSS("display", "none");
       const narrowClosed = await readDockGeometry(page);
+      expect(narrowClosed.documentWidth).toBeLessThanOrEqual(narrow.width);
       expect(narrowOpen.nav).toEqual(narrowClosed.nav);
       if (hasPlanSurface) expect(narrowOpen.context).toEqual(narrowClosed.context);
       expect(narrowClosed.workspace?.left).toBe(narrowOpen.workspace?.left);
@@ -143,20 +147,25 @@ test(
     await expect(drawer).toBeVisible();
     const desktopOpen = await readDockGeometry(page);
     expect(desktopOpen.drawer?.width).toBe(380);
+    expect(desktopOpen.drawer?.left).toBe(0);
+    expect(desktopOpen.drawer?.right).toBe(380);
+    expect(desktopOpen.drawer?.bottom).toBe(desktop.height);
     expect(desktopOpen.drawer?.top).toBeGreaterThanOrEqual(desktopOpen.header?.bottom ?? 0);
     expect(desktopOpen.drawer?.top).toBeLessThanOrEqual((desktopOpen.header?.bottom ?? 0) + 1);
+    expect(desktopOpen.workspace?.top).toBeGreaterThanOrEqual(desktopOpen.header?.bottom ?? 0);
     expect(desktopOpen.layoutPaddingLeft).toBe("0px");
     expect(desktopOpen.workspaceMarginLeft).toBe("380px");
-    expect(desktopOpen.workspace?.left).toBe(400);
     expect(desktopOpen.workspace?.width).toBeGreaterThan(800);
+    expect(desktopOpen.documentWidth).toBeLessThanOrEqual(desktop.width);
     expect(desktopOpen.drawerBodyContained).toBe(true);
 
     await page.getByRole("button", { name: "Close Edit" }).click();
     await expect(drawer).toBeHidden();
     const desktopClosed = await readDockGeometry(page);
+    expect(desktopClosed.documentWidth).toBeLessThanOrEqual(desktop.width);
     expect(desktopOpen.nav).toEqual(desktopClosed.nav);
     expect(desktopOpen.context).toEqual(desktopClosed.context);
-    expect(desktopOpen.workspace?.left).toBe(20);
+    expect(desktopOpen.workspace?.left).toBe(desktopClosed.workspace?.left! + 380);
     expect(desktopOpen.workspace?.width).toBe(desktopClosed.workspace?.width! - 380);
     await page.getByRole("button", { name: "Edit" }).click();
     await expect(drawer).toBeVisible();

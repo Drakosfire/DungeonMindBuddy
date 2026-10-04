@@ -7,6 +7,7 @@ import { ToolHostView, type ToolHostViewGroup } from "../surfaceInteraction/tool
 import type { SurfaceInteractionPublication } from "../surfaceInteraction/types";
 import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
 import { WorldPlanSurfaceContext } from "../planSurface/components/PlanSurfaceContext";
+import { buildWorldPlanSurfaceIdentity, worldPlanWorkObject } from "../planSurface/worldPlanIdentity";
 import "../styles.css";
 
 const groups: readonly ToolHostViewGroup[] = [{
@@ -76,21 +77,35 @@ const indexEditDockPublication: SurfaceInteractionPublication = {
   canvas: { canvasId: "edit-dock-layout-fixture", workObject: editDockTarget },
 };
 
+const fixtureWorldId = "visual-fixture-world";
+const fixtureLocalDraftId = "local-plan:visual-fixture-world:edit-dock-layout-fixture";
+const planEditDockTarget = worldPlanWorkObject({
+  worldId: fixtureWorldId,
+  documentId: null,
+  localDraftId: fixtureLocalDraftId,
+});
+
 const planEditDockPublication: SurfaceInteractionPublication = {
   ...indexEditDockPublication,
   surfaceId: "plan",
-  identity: { surfaceId: "plan", instanceKey: "edit-dock-layout-fixture" },
+  identity: buildWorldPlanSurfaceIdentity({
+    worldId: fixtureWorldId,
+    documentId: null,
+    localDraftId: fixtureLocalDraftId,
+  }),
+  canvas: { canvasId: "plan-edit-dock-layout-fixture", workObject: planEditDockTarget },
 };
 
 function EditHostDockFixture({ surfaceId }: { surfaceId: "index" | "plan" }) {
   const publication = surfaceId === "plan" ? planEditDockPublication : indexEditDockPublication;
+  const target = surfaceId === "plan" ? planEditDockTarget : editDockTarget;
   usePublishSurfaceInteraction(publication);
   return (
     <AppChrome
       activeRoute={surfaceId}
       editToolboxLayout="dock"
       editorTools={{
-        target: editDockTarget,
+        target,
         tools: {
           sections: [{
             id: "fixture",
@@ -110,7 +125,6 @@ function EditHostDockFixture({ surfaceId }: { surfaceId: "index" | "plan" }) {
           minWidth: 0,
           minHeight: "24rem",
           padding: "1rem",
-          width: "100%",
         }}
       >
         <h1>Central canvas</h1>
@@ -125,10 +139,10 @@ function EditHostDockStory({ surfaceId }: { surfaceId: "index" | "plan" }) {
     <SurfaceContextProvider>
       {surfaceId === "plan" ? (
         <WorldPlanSurfaceContext
-          worldId="visual-fixture-world"
+          worldId={fixtureWorldId}
           worldName="Visual fixture World"
           documentId={null}
-          localDraftId="visual-fixture-draft"
+          localDraftId={fixtureLocalDraftId}
           records={[]}
           onSelect={noAction}
           onNewPlan={noAction}
