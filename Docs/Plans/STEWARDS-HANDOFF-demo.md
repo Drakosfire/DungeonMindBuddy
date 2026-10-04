@@ -84,7 +84,7 @@ The operator approved three smaller serial implementation slices. Refresh remote
 2. **Exact World Plan identity:** publish one saved-document or uniquely identified World-scoped local-draft work object through the existing surface/context seam. Prove old local-draft migration, reload stability, World/document replacement and local-to-saved promotion with mocked API/mounted tests. Keep server document identity, local token, revision and editor generation distinct. Shared publisher/host contracts stay read-only.
 3. **EditHost controls:** consume the identity from slice 2 to put title, Save, formatting and insertion in the established AppChrome/EditHost, removing duplicate inline controls. Prove one matching inventory, current-at-click targeting and inert held callbacks after document/World/draft replacement, save promotion and unmount. Include a mobile close/reopen click witness with mocked APIs; an unavailable database is not a prerequisite for this bounded UI behavior.
 
-Slice 3 depends on slice 2. The switch-safety fix is independent and should land first to avoid overlapping edits to `PlanSurfacePage.tsx`. Keep the existing canvas theme and visual styling from #793 parked on its preserved branch. A separate visual PR needs a fresh appearance decision and operator acceptance; it does not block the three functional slices.
+Slice 3 depends on slice 2. The switch-safety fix is independent and should land first to avoid overlapping edits to `PlanSurfacePage.tsx`. Keep the existing editor theme and visual styling from #793 parked on its preserved branch. A separate visual PR needs a fresh appearance decision and operator acceptance; it does not block the three functional slices.
 
 After these bounded repairs, adopt the shared conversational Agent UI with truthful per-turn context on Index, Plan, Play, Build, Ingest and Combat, then resume the full connected fresh-World rehearsal. The rehearsal's isolated database pair is separate from the persistent `54330`/`54331` targets; the prior #793 live witness remained blocked on unavailable services and mismatched target configuration. Coordinate any runtime start or target change with PRIME and the designated runtime owner. Do not point an isolated witness at the persistent targets.
 
@@ -151,7 +151,7 @@ required product-state persistence. It owns bounded presentation improvements
 observed on this journey using the accepted UI substrate.
 
 DEMO does not own generic DungeonMind semantics/storage, WorldKeeper lifecycle,
-reusable provider execution, platform auth/tenancy/deployment, Canvas package
+reusable provider execution, platform auth/tenancy/deployment, shared UI package
 internals, Rules/Jev research, general PC progression, or a new universal UI or
 agent framework. It may consume their accepted capabilities and expose defects.
 
@@ -205,9 +205,9 @@ request, not a vague instruction to make the demo work.
 - **WORLDKEEPER** — `01a0c9dc-c685-70d3-b766-8bc2f91b06a8`: preparation,
   confirmation, semantic transaction coordination and verified-result contracts.
 - **ARCHITECTURE** — `01a086f2-c457-7b10-b753-df6063cab1ce`: observed E5/GE
-  execution work and cross-repository ownership questions. Route Canvas/shared
+  execution work and cross-repository ownership questions. Route shared
   UI package needs here for explicit current-owner confirmation; do not assume
-  this task already holds a Canvas implementation lease.
+  this task already holds a shared UI implementation lease.
 - **SERVER** — `01a0dbd8-4d8d-7372-a9bc-ea25c2d59a19`: platform/server producer,
   assets/auth/deployment dependencies; coordinate with its ongoing Rules/GE work
   rather than displacing that work silently.

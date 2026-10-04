@@ -53,8 +53,10 @@ scene lenses, choices, a grouped outline, location/map navigation, readable sour
 material and contextual writing. Plan is the editable preparation view; Play is
 the interactive view of the same authored material. Preserve the prototype and
 its private source/media/state snapshots as design and regression evidence.
-Buddy PR #887 at `5e2ef9f144e18f643dc1caa8316904dbfc801236` is the current
-preserved reference, not an accepted production implementation or frozen gold.
+Buddy PR #887 preserves the prototype at `5e2ef9f144e18f643dc1caa8316904dbfc801236`.
+Its adoption inventory is pinned at `4b91c09d8a50188dfb1c9ce795358b32d17c02d7`
+(`prototypes/plan-play-cards/ADOPTION-INVENTORY.md`). Neither is accepted
+production implementation or independently frozen gold.
 
 ### Delivery order
 
@@ -132,9 +134,37 @@ merged at `f8712198848598c5ce83248eb66a54d93c1fd044` and
 canonical World conversation for visible history/Ask recovery, and Compose/Revise
 proposal context is assembled server-side from exact-basis completed Ask and
 PlanAction pairs. This is code integration, not the missing live Graph-backed
-Plan witness or full J2 acceptance. The next product gate is unleased; see the
-execution ledger entry below for the proposed witness and its owner/resource
-questions.
+Plan witness or full J2 acceptance. The Graph-backed product witness remains
+unleased; the independent Agent usability slice is ACTIVE in #904. See the
+execution ledger entry below for the Graph witness and owner/resource questions.
+
+**Parallel work allocation (2026-10-04):** re-anchored Buddy main
+`d9b7d1e1ef9c1ad4401e107694260ad4f19455b6` and open PRs before dispatch.
+
+- #904, head `b59abf0784301d71d00cf002c2a3b697f0216a46`, remains open;
+  DEMO is correcting proposal/conversation ordering and supplying inspectable
+  desktop/mobile evidence before PRIME review. Its branch-pinned handoff is
+  ACTIVE; absence from main is not an activation gate.
+- #886, remote head `717727c33fe70fc154aee291e4397e2d53ac425c`, remains
+  Draft/HOLD for geometry evidence. #889 merged and its guard lease is released.
+  #886 owns Page runtime/shell paths. PRIME transfers only
+  `PlanSurfacePage.test.tsx` to the PRIME-assigned RAKE repair worker for the
+  bounded missing history/action API mock repair, under `HANDOFF-RAKE-plan-mounted-harness-repair.md`; this does
+  not grant product code or geometry acceptance.
+- #869, head `23d76f4d4f4f223b62067024e152e8cb2dde37b8`, remains
+  Draft/HOLD for real movement preview/edit/Save/reload. Prior temporary
+  runtime evidence below is historical; a fresh isolated lane is still needed.
+- ARCHITECTURE prepares `DESIGN-world-plan-playable-adoption.md` and
+  `HANDOFF-world-plan-playable-adoption.md`; APP-STATE prepares
+  `DESIGN-world-agent-graph-evidence-receipt.md` and
+  `HANDOFF-APP-STATE-world-agent-graph-evidence-receipt.md`; SERVER prepares
+  `HANDOFF-SERVER-managed-world-agent-graph-adapter.md`. These independent
+  design/document scopes permit no code, schema, provider or runtime changes.
+  Future implementation remains BLOCKED pending exact contract review and lease.
+
+The first production card implementation still needs its own bounded activation
+and disjoint write set or explicit #886 handback. Operator UI 5202/API 8000 and
+DOGFOOD 5203 remain reserved; no dispatch authorizes replacing those runtimes.
 
 **Prior DEMO lane checkpoint (2026-09-28):** three bounded predecessors are now merged.
 #785 / J4 World-scoped statblock drafts merged at
@@ -158,14 +188,14 @@ main at `eac67508ea34115b102c7c4af8a55e17843a16d9` from reviewed code head
 cycles. Its accepted create/save/reload/recovery and bounded ordinary-browser
 evidence remain valid, but it did not prove full shell composition or J1/J2
 acceptance. Operator dogfood identified a distinct World Plan composition gap:
-the route lacked the shared Plan canvas, editing tools and truthful
+the route lacked the shared Plan surface, editing tools and truthful
 World/document context. Buddy #789 completed that composition slice and merged
 at `ed1bf1ba0531bf9018f2397863825fa20c781bfe` from reviewed code head
 `7e4fb73d5a553b58bd1350c9c0ded653ef97b2e0` after one distinct review-head
 cycle; its 115 focused Plan tests passed. **That is not visual acceptance.** On
 the exact blank World Plan witness at
 `http://127.0.0.1:5201/plan?world=pr788-exact-head-witness-b-2026-09-28`, the
-operator rejected the canvas as awful/default with no perceptible boundary.
+operator rejected the editor presentation as awful/default with no perceptible boundary.
 Although CSS contains a 3px slate outer frame and 2px parchment editor border,
 the nested Tiptap/Markdown presentation still reads as a dark generic panel
 around a large blank slab. The operator re-viewed the actual route on
@@ -196,7 +226,7 @@ The second serial identity slice merged as Buddy #801 at
 `550aa4c0251ffa08477bda2293829725f2d6a8d8`, under
 [`HANDOFF-DEMO-world-plan-identity.md`](../Plans/HANDOFF-DEMO-world-plan-identity.md).
 PRIME independently reran 18/18 focused mounted Plan page/context tests and
-accepted the exact canvas/context identity, legacy local-draft migration,
+accepted the exact editor/context identity, legacy local-draft migration,
 pending/failed selection retirement, promotion and unmount behavior. The
 inherited JSX namespace typecheck error remains outside that diff. The third
 serial EditHost placement slice merged as Buddy #802 at
@@ -626,51 +656,25 @@ turn receipts are complete: Buddy #822 merged at
 `c48abb9fa5857df90af0b086ab78294445fd252a`. #822's assigned service/PostgreSQL
 tests passed 14/14; its full Application State suite had three inherited stale
 migration-head assertions confirmed on the exact base. #827's retry/PostgreSQL
-tests passed 9/9 and conversation service tests passed 10/10. The next serial
-gate is AGENT-INTERACTION production runtime adoption; A2's harness boundary
-and A3's challenger experiment do not complete it. The design-only BLOCKED
-[runtime handoff](../Plans/HANDOFF-AGENT-INTERACTION-world-conversation-runtime.md)
-records the owner gap and required production proof. Once that gate is reviewed,
-DEMO's first consumer cutover is Plan. The Session 29 existing-Graph
-query is its own serial J3 successor after that cutover; Play follows under its
-separate BLOCKED [conversation handoff](../Plans/HANDOFF-DEMO-play-agent-adoption.md).
-Neither consumer has an implementation lease. #826 retains its independent
-KnowledgeSpace holds and is not a Play predecessor.
+tests passed 9/9 and conversation service tests passed 10/10.
 
-**Plan World-conversation cutover — design BLOCKED:** the next DEMO consumer
-contract is pinned in
+**Plan World-conversation cutover — implementation merged:** the earlier
+BLOCKED design sequence has settled. Runtime adoption #865, PlanAction ledger/
+projection #897 and exact Ask projection #898 preceded the consumer #900 and
+server proposal-context integration #902. The authoritative bounded contract is
 [HANDOFF-DEMO-plan-world-conversation-cutover.md](../Plans/HANDOFF-DEMO-plan-world-conversation-cutover.md).
-It adopts the APP-STATE World transcript for saved Plan Ask while preserving
-the committed-content-only #833 request and Plan-owned Compose/Revise/Apply/
-Save behavior. PRIME ruled that Compose/Revise must retain its existing
-six-item dialogue behavior. Since the current local window includes `plan_edit`
-turns without exact committed-basis provenance, the separate Plan-owned typed
-[action-dialogue projection capability](../Plans/HANDOFF-DEMO-plan-action-dialogue-projection.md)
-and its own PR must precede this consumer cutover.
-The projection exposes only typed action type, exact World/Plan/committed-basis
-references, stable server order, truthful `pending`/`completed`/`failed`/
-`indeterminate` status, the instruction, and a visible assistant summary for
-completed actions. Only completed instruction/summary pairs enter model
-context; unresolved status items are not assistant turns. Proposal bytes and
-Apply/Save receipts stay out of this capability. The Plan-owned ledger uses
-Buddy's existing Application State database and Alembic chain; APP-STATE must
-review its migration. The cutover combines eligible APP-STATE Ask turns and
-that Plan projection under the same exact Plan/basis filter and six-turn
-server-side cap. Ask-only narrowing and client-supplied history remain
-unauthorized. The runtime and
-action-projection prerequisites must be accepted, then PRIME must grant the
-exact consumer lease before implementation. This remains separate from any
-AGENT-INTERACTION runtime lease; no Plan consumer UI/provider lease is active.
-The consumer design merged in Buddy #857 at
-`41fe2944468327da852a987685992fc50f91f059` from reviewed head
-`de08a3cc2f24406d1440b771f047ba0b8398a6e8`; the separate action-projection
-design merged in #859 at `43c4c4daa8e1c17b22953681fe817e6881242b36` from
-reviewed head `c78feb94f37f7612200e2d0962d26d0f5a1326cf`. Both merges accept
-design only; the projection and consumer implementation remain BLOCKED.
+Saved-World Plan uses server-owned World history; new proposals combine eligible
+completed Ask and PlanAction context under exact Plan/basis filtering and a
+six-pair total cap. Client-supplied history does not become provider authority.
+See the #900/#902 execution checkpoint for reviewed heads, merge revisions and
+owning-boundary tests. Those merges do not prove Graph-backed Plan use, full J2,
+or operator acceptance. Play consumer adoption remains separate and unleased
+under its [conversation handoff](../Plans/HANDOFF-DEMO-play-agent-adoption.md).
+#826 retains its independent KnowledgeSpace holds and is not a Play predecessor.
 
 **Build Agent adoption — contract resolved, implementation still blocked:**
 ARCHITECTURE's 2026-09-30 ruling establishes the exact admitted workspace
-`document_id` plus its committed registry revision as primary work. A Canvas
+`document_id` plus its committed registry revision as primary work. An editor
 session is only a secondary locator and must be server-verified against that
 document and revision. Owner scope comes only from the authoritative record;
 stale revisions conflict, and campaign/world ID equality never grants scope.
@@ -920,7 +924,7 @@ implemented or activated merely because #784 merged. Buddy #779 previously merge
 proof is accepted and its test/report lease is released. The original basic-
 presentation design STOP resolved to `RESUME_NON_UI` for the then-observed
 functional blocker. The later #789 Plan witness is new contrary human
-evidence: the composed canvas is explicitly rejected visually. This reopens
+evidence: the composed editor surface is explicitly rejected visually. This reopens
 the presentation acceptance question, but does not itself authorize an
 unbounded redesign or application-code change. Record it for bounded steward
 re-decomposition; no UI styling work is included in the universal Agent
@@ -931,7 +935,7 @@ Inherited work: PLAY-1 / Buddy #773 merged at
 it proves only the in-memory Buddy→WorldKeeper consumer mapping. Buddy #779
 now proves isolated persistent composition; browser interaction, source
 admission, and next-turn retrieval remain open. Basic presentation
-design/dogfood has an existing merged handoff independent of Canvas F5/F6.
+design/dogfood has an existing merged handoff independent of historical F5/F6 UI work.
 Foundation evidence and exact snapshot PRs are in the reconciliation; refresh at
 activation rather than copying those snapshots into another permanent tracker.
 
@@ -1002,7 +1006,7 @@ Reopen after restart.
 Buddy can admit the exact saved source snapshot to native World source authority;
 it does not yet establish extracted assertions, governed assertion publication,
 ordinary Agent read/citation, or J3 completion. World-owned blank Plan and
-shared-canvas composition code are integrated via #788/#789, but Plan visual
+shared-surface composition code are integrated via #788/#789, but Plan visual
 acceptance remains rejected. The active Agent backend baseline is specified
 by the accepted #790 design and the ACTIVE implementation handoff above. Its
 first bounded implementation supports explicit no-graph conversation and
@@ -1204,7 +1208,7 @@ that their foundations are absent. Historical slices retain their IDs.
   brief Hempholm opening frame to be written into the selected Plan. The first
   reply stayed in chat and offered a later direct write; the second explicitly
   said the Agent cannot edit the document and suggested manual copy/paste.
-  The TipTap canvas remained unchanged. At that checkpoint Agent received the selected
+  The Tiptap editor remained unchanged. At that checkpoint Agent received the selected
   Plan's metadata, not an authorized edit path into its mounted local draft.
   The resulting #784 design preserved the existing editor's dirty-draft/revision-safe
   save semantics and made every Agent edit reviewable before application.
@@ -1342,10 +1346,9 @@ that their foundations are absent. Historical slices retain their IDs.
   owning Vitest files pass **150/150**; cumulative diff check passes. UI
   typecheck still reports only the inherited `ThreatPublicationPanel.tsx:553`
   `TS2503` JSX namespace error. PRIME allocated a fresh disposable J4 lane at
-  `/tmp/j4-dms-buddy-pr869-20261002`. SERVER's isolated DMS/PostgreSQL packet is
-  live: DMS main `a79a52123c1d72caa87be3eec10b6b9a6da7df22`, PostgreSQL migrated
+  `/tmp/j4-dms-buddy-pr869-20261002`. SERVER's isolated DMS/PostgreSQL packet was live at that checkpoint: DMS main `a79a52123c1d72caa87be3eec10b6b9a6da7df22`, PostgreSQL migrated
   through Alembic head `20261002_0012`, and the Firestore emulator health check
-  passed. DMS authenticated readiness returned `ready` with read routes enabled,
+  passed at that checkpoint. DMS authenticated readiness returned `ready` with read routes enabled,
   generation disabled, and no readiness errors. No provider call or candidate/
   revision write occurred. The Buddy API and UI were started from PR head
   `2f47b3e6816094367ae53e6a9dd399ce826edb4a` on the reserved lane ports 17861 and
@@ -1360,6 +1363,10 @@ that their foundations are absent. Historical slices retain their IDs.
   disabled under PRIME's current runtime direction. The retained candidate body
   is not in checked-in evidence, so a synthetic same-schema witness cannot be
   called its repair or full J4 acceptance. This checkpoint does not close J4.
+  Current runtime audit: the old `/tmp/j4-dms-buddy-pr869-20261002` lane and
+  UI/API listeners on 15202/17861 are gone. Retained PostgreSQL on 55460 is
+  historical state, not a fresh witness target; do not migrate it for this slice.
+  A new isolated fixture and explicit runtime allocation are required.
 - **DEMO-J4 prepared-checkpoint scope defect:** opening Plan Tools → Statblock
   in Of Conks displays `eldyrwild · longmont-c2` creation defaults. Code
   inspection confirms `LIVE_CONTROL_CREATE_CONTEXT` drives projection
@@ -1438,7 +1445,7 @@ program, WORLDKEEPER's lifecycle, ARCHITECTURE's E5 parity, SERVER's production
 platform and Rules/Jev work remain separately owned. Shared leases still require
 coordination even where acceptance paths are independent.
 
-Do not wait for all of vNext, all provider parity, full hosting, or Canvas F5/F6 by
+Do not wait for all of vNext, all provider parity, full hosting, or historical F5/F6 UI work by
 default. Equally, do not bypass an actually missing contract. A proposed isolated
 demo must prove coherent read/write authority and source admission. The current
 operator choice removes legacy bridge migration as a DEMO prerequisite, not
