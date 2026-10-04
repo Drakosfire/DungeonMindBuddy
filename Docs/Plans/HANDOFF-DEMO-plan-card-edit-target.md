@@ -27,6 +27,10 @@ implementation_pr: authorized_one_serial_pr
 
 The parity/protected-structure/retry/race/migration and mounted Apply→Save→fresh-reopen evidence below is required before the implementation merges. Activation permits the code needed to produce that evidence. Stop for any extra path, new capability, schema head collision or inability to preserve canonical body/protected structure.
 
+## PRIME narrow history amendment — 2026-10-04
+
+PRIME adds only the two §5 local-history paths needed for the existing proposal persistence contract to recognize `replace_playable_body`. DEMO remains the sole writer in PR #913. Preserve existing payload limits, sanitization, privacy, and recovery behavior; do not mislabel card edits as selection/caret edits, broaden durable conversation state, change storage authority, or make a reloaded proposal actionable without existing fresh target/basis checks. Prove correct target-kind persistence and reload in the focused test. PRIME fetched remote main `a21da688c1a63907519607675453350b35216bf2` and inspected all twelve open PR file sets; neither added path overlaps another PR. This amendment is pinned by its publication commit and does not change the active implementation base or other leases.
+
 ## 1. User action and invariant
 
 In the existing managed-World Plan Cards view, the user selects one current
@@ -213,6 +217,8 @@ Only these paths are leased. New helpers/tests are limited to the named body-tar
 - apps/live-control-ui/src/planSurface/components/WorldPlanCardProjection.tsx
 - apps/live-control-ui/src/planSurface/PlanSurfacePage.tsx
 - apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.tsx
+- apps/live-control-ui/src/planSurface/components/agentInteractionHistory.ts — only preserve/reload the existing proposal payload with the truthful `replace_playable_body` target kind
+- apps/live-control-ui/src/planSurface/components/agentInteractionHistory.test.ts — focused persistence/reload coverage for that target kind
 - apps/live-control-ui/src/planSurface/agentEdit/planAgentEditProposal.ts
 - apps/live-control-ui/src/planSurface/agentEdit/planPlayableBodyTarget.ts
 - apps/live-control-ui/src/planSurface/agentEdit/planPlayableBodyTarget.test.ts
