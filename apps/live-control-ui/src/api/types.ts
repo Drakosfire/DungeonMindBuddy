@@ -950,14 +950,18 @@ export interface WorldPlanDocumentEditProposalRequest {
   base_content_sha256: string;
   draft_markdown: string;
   draft_sha256: string;
-  target_kind: "replace_selection" | "insert_at_caret";
+  target_kind: "replace_selection" | "insert_at_caret" | "replace_playable_body";
   selected_text: string;
+  playable_target?: { kind: "scene" | "beat" | "choice" | "option"; id: string };
+  body_serialization_version?: "plan-playable-body-markdown-v1";
+  target_body_markdown?: string;
+  target_body_sha256?: string;
   instruction: string;
   conversation_history: { role: "user" | "assistant"; content: string }[];
 }
 
 export interface WorldPlanDocumentEditProposalResponse {
-  schema_version: "dmb_world_plan_document_edit_proposal_v1";
+  schema_version: "dmb_world_plan_document_edit_proposal_v1" | "dmb_world_plan_document_edit_proposal_v2";
   action_id: string;
   idempotency_key: string;
   document_id: string;
@@ -965,8 +969,14 @@ export interface WorldPlanDocumentEditProposalResponse {
   base_revision: number;
   base_content_sha256: string;
   draft_sha256: string;
-  target_kind: "replace_selection" | "insert_at_caret";
-  selected_text_sha256: string;
+  target_kind: "replace_selection" | "insert_at_caret" | "replace_playable_body";
+  selected_text_sha256: string | null;
+  playable_target?: { kind: "scene" | "beat" | "choice" | "option"; id: string };
+  marker_grammar_version?: "v1" | "v2";
+  body_scope?: "heading_body" | "beat_direct_body" | "option_item_content";
+  range_semantics_version?: "plan-playable-ranges-v1";
+  body_serialization_version?: "plan-playable-body-markdown-v1";
+  target_body_sha256?: string;
   replacement_markdown: string;
   summary: string;
   assumptions: string[];
@@ -986,6 +996,17 @@ export interface WorldPlanActionBasis {
   content_sha256: string;
 }
 
+export interface WorldPlanPlayableTargetReceiptV1 {
+  schema_version: "dmb_plan_playable_target_receipt_v1";
+  kind: "scene" | "beat" | "choice" | "option";
+  id: string;
+  marker_grammar_version: "v1" | "v2";
+  body_scope: "heading_body" | "beat_direct_body" | "option_item_content";
+  range_semantics_version: "plan-playable-ranges-v1";
+  body_serialization_version: "plan-playable-body-markdown-v1";
+  target_body_sha256: string;
+}
+
 export interface WorldPlanActionProjection {
   action_id: string;
   action_type: "compose" | "revise";
@@ -996,6 +1017,7 @@ export interface WorldPlanActionProjection {
   action_sequence: number;
   accepted_at: string;
   completed_at: string | null;
+  playable_target_receipt: WorldPlanPlayableTargetReceiptV1 | null;
 }
 
 export interface WorldPlanActionProjectionPage {

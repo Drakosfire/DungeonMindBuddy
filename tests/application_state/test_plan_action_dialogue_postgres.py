@@ -1,17 +1,21 @@
 from __future__ import annotations
 
+import json
 from concurrent.futures import ThreadPoolExecutor
 from uuid import UUID, uuid4
 
 import psycopg
 import pytest
+from alembic import command
 
 from application_state.errors import ApplicationStateConflictError
 from application_state.plan_action_dialogue.service import PlanActionDialogueService
 from application_state.plan_action_dialogue.types import (
     PlanActionBasis,
+    PlanActionPlayableTargetReceipt,
     PlanActionReservation,
 )
+from application_state.cli import _current_and_head, alembic_config
 
 
 def _basis(revision: int = 4, digest: str = "a" * 64) -> PlanActionBasis:
@@ -32,16 +36,18 @@ def _reservation(
     instruction: str = "Add a quiet warning.",
     target_kind: str = "replace_selection",
     fingerprint: str = "b" * 64,
+    playable_target_receipt: PlanActionPlayableTargetReceipt | None = None,
 ) -> PlanActionReservation:
     return PlanActionReservation(
         idempotency_key=key or uuid4(),
         request_fingerprint=fingerprint,
-        action_type="revise" if target_kind == "replace_selection" else "compose",
+        action_type="compose" if target_kind == "insert_at_caret" else "revise",
         basis=basis or _basis(),
         draft_matches_basis=False,
         draft_sha256="c" * 64,
         target_kind=target_kind,
         selected_text_sha256="d" * 64 if target_kind == "replace_selection" else None,
+        playable_target_receipt=playable_target_receipt,
         instruction=instruction,
     )
 
@@ -90,6 +96,107 @@ def test_reservation_idempotency_live_pending_and_privacy(application_state_dsn:
     assert "replacement_markdown" not in serialized
     assert "provider" not in serialized
     assert "Add a quiet warning." in serialized
+
+
+def test_playable_target_receipt_survives_reservation_and_projection(application_state_dsn: str) -> None:
+    service = PlanActionDialogueService()
+    receipt = PlanActionPlayableTargetReceipt(
+        schema_version="dmb_plan_playable_target_receipt_v1",
+        kind="option",
+        id="option:go",
+        marker_grammar_version="v2",
+        body_scope="option_item_content",
+        range_semantics_version="plan-playable-ranges-v1",
+        body_serialization_version="plan-playable-body-markdown-v1",
+        target_body_sha256="e" * 64,
+    )
+    request = _reservation(target_kind="replace_playable_body", playable_target_receipt=receipt)
+    action, created = service.reserve(request)
+    assert created is True
+    assert action.selected_text_sha256 is None
+    assert action.playable_target_receipt == receipt
+
+    loaded = PlanActionDialogueService().get_by_key(request.basis.world_id, request.idempotency_key)
+    assert loaded is not None
+    assert loaded.playable_target_receipt == receipt
+    assert loaded.request_fingerprint == request.request_fingerprint
+    assert loaded.basis == request.basis
+    assert loaded.draft_sha256 == request.draft_sha256
+    projection = service.list_status(request.basis)
+    assert projection.actions[0].playable_target_receipt == receipt
+
+    different_target = receipt.model_copy(update={"id": "option:wait"})
+    with pytest.raises(ApplicationStateConflictError, match="different request"):
+        service.reserve(request.model_copy(update={"playable_target_receipt": different_target}))
+
+
+def test_database_rejects_malformed_playable_target_receipt(application_state_dsn: str) -> None:
+    service = PlanActionDialogueService()
+    receipt = PlanActionPlayableTargetReceipt(
+        schema_version="dmb_plan_playable_target_receipt_v1",
+        kind="option",
+        id="option:go",
+        marker_grammar_version="v2",
+        body_scope="option_item_content",
+        range_semantics_version="plan-playable-ranges-v1",
+        body_serialization_version="plan-playable-body-markdown-v1",
+        target_body_sha256="e" * 64,
+    )
+    request = _reservation(target_kind="replace_playable_body", playable_target_receipt=receipt)
+    action, created = service.reserve(request)
+    assert created
+    malformed = receipt.model_dump(mode="json")
+    malformed["body_scope"] = "heading_body"
+    with psycopg.connect(application_state_dsn) as conn:
+        with pytest.raises(psycopg.errors.CheckViolation):
+            conn.execute(
+                "UPDATE plan_action.action SET playable_target_receipt = %s::jsonb WHERE action_id = %s",
+                (json.dumps(malformed), action.action_id),
+            )
+
+
+def test_0015_upgrade_preserves_populated_0014_legacy_action_history(application_state_dsn: str) -> None:
+    service = PlanActionDialogueService()
+    request = _reservation(key=uuid4(), target_kind="replace_selection")
+    action, created = service.reserve(request)
+    assert created and action.dispatch_token is not None
+    completed = service.finish(
+        action_id=action.action_id,
+        token=action.dispatch_token,
+        fence=action.fence,
+        status="completed",
+        summary="Legacy summary survives the additive migration.",
+    )
+    assert completed.status == "completed"
+
+    command.downgrade(alembic_config(), "20261003_0014")
+    with psycopg.connect(application_state_dsn) as conn:
+        legacy_row = conn.execute(
+            "SELECT action_id, target_kind, selected_text_sha256, instruction, assistant_summary "
+            "FROM plan_action.action WHERE idempotency_key = %s",
+            (request.idempotency_key,),
+        ).fetchone()
+    assert legacy_row == (
+        action.action_id,
+        "replace_selection",
+        request.selected_text_sha256,
+        request.instruction,
+        "Legacy summary survives the additive migration.",
+    )
+
+    command.upgrade(alembic_config(), "head")
+    current, head = _current_and_head(application_state_dsn)
+    assert current == head == "20261004_0015"
+    loaded = PlanActionDialogueService().get_by_key(request.basis.world_id, request.idempotency_key)
+    assert loaded is not None
+    assert loaded.action_id == action.action_id
+    assert loaded.status == "completed"
+    assert loaded.instruction == request.instruction
+    assert loaded.assistant_summary == "Legacy summary survives the additive migration."
+    assert loaded.selected_text_sha256 == request.selected_text_sha256
+    assert loaded.playable_target_receipt is None
+    projection = PlanActionDialogueService().list_status(request.basis)
+    assert any(item.action_id == action.action_id and item.playable_target_receipt is None for item in projection.actions)
 
 
 def test_concurrent_same_key_reservations_have_one_dispatch_owner(application_state_dsn: str) -> None:

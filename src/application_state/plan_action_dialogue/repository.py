@@ -7,10 +7,12 @@ from uuid import UUID, uuid4
 
 import psycopg
 from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
 
 from application_state.errors import ApplicationStateConflictError
 from application_state.plan_action_dialogue.types import (
     PlanActionBasis,
+    PlanActionPlayableTargetReceipt,
     PlanActionRecord,
     PlanActionReservation,
 )
@@ -20,7 +22,7 @@ _RETURNING = """
     action_id, idempotency_key, request_fingerprint, action_type, world_id,
     document_id, object_revision, work_revision_id, revision_n,
     content_sha256, draft_matches_basis, draft_sha256, target_kind,
-    selected_text_sha256, instruction, status, assistant_summary,
+    selected_text_sha256, playable_target_receipt, instruction, status, assistant_summary,
     failure_code, dispatch_token, fence, action_sequence, accepted_at,
     completed_at, lease_expires_at
 """
@@ -45,6 +47,10 @@ def _record(row: dict[str, Any]) -> PlanActionRecord:
         draft_sha256=row["draft_sha256"],
         target_kind=row["target_kind"],
         selected_text_sha256=row["selected_text_sha256"],
+        playable_target_receipt=(
+            PlanActionPlayableTargetReceipt.model_validate(row["playable_target_receipt"])
+            if row["playable_target_receipt"] is not None else None
+        ),
         instruction=row["instruction"],
         status=row["status"],
         assistant_summary=row["assistant_summary"],
@@ -118,10 +124,10 @@ def reserve(conn: psycopg.Connection, request: PlanActionReservation) -> tuple[P
                 action_id, idempotency_key, request_fingerprint, action_type,
                 world_id, document_id, object_revision, work_revision_id,
                 revision_n, content_sha256, draft_matches_basis, draft_sha256,
-                target_kind, selected_text_sha256, instruction, status,
+                target_kind, selected_text_sha256, playable_target_receipt, instruction, status,
                 dispatch_token, fence, accepted_at, lease_expires_at, updated_at
             ) VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                 'pending', %s, 1, clock_timestamp(),
                 clock_timestamp() + interval '120 seconds', clock_timestamp()
             )
@@ -134,7 +140,10 @@ def reserve(conn: psycopg.Connection, request: PlanActionReservation) -> tuple[P
                 basis.object_revision, basis.work_revision_id, basis.revision_n,
                 basis.content_sha256, request.draft_matches_basis,
                 request.draft_sha256, request.target_kind,
-                request.selected_text_sha256, request.instruction, token,
+                request.selected_text_sha256,
+                Jsonb(request.playable_target_receipt.model_dump(mode="json"))
+                if request.playable_target_receipt is not None else None,
+                request.instruction, token,
             ),
         )
         row = cur.fetchone()
@@ -144,7 +153,10 @@ def reserve(conn: psycopg.Connection, request: PlanActionReservation) -> tuple[P
     existing = _get_by_key(conn, basis.world_id, request.idempotency_key, lock=True)
     if existing is None:
         raise RuntimeError("Plan action idempotency conflict did not resolve to a row")
-    if existing.request_fingerprint != request.request_fingerprint:
+    if (
+        existing.request_fingerprint != request.request_fingerprint
+        or existing.playable_target_receipt != request.playable_target_receipt
+    ):
         raise ApplicationStateConflictError("Plan action key was reused with a different request")
     if existing.status == "pending":
         existing = _reconcile_expiry(conn, existing.action_id)

@@ -55,6 +55,11 @@ interface WorldPlanAgentConversationProps {
   playableTargetBasis?: { revision: number; contentSha256: string } | null;
   playableTargetStale?: boolean;
   onClearPlayableTarget?: () => void;
+  playableEditTarget?: { kind: "scene" | "beat" | "choice" | "option"; id: string; generation: number } | null;
+  playableEditTargetGeneration?: number;
+  playableEditTargetStale?: boolean;
+  playableEditTargetDirty?: boolean;
+  onClearPlayableEditTarget?: () => void;
 }
 
 interface ValidatedWorldPlanResponse {
@@ -698,6 +703,11 @@ export function WorldPlanAgentConversation({
   playableTargetBasis = null,
   playableTargetStale = false,
   onClearPlayableTarget = () => undefined,
+  playableEditTarget = null,
+  playableEditTargetGeneration = 0,
+  playableEditTargetStale = false,
+  playableEditTargetDirty = false,
+  onClearPlayableEditTarget = () => undefined,
 }: WorldPlanAgentConversationProps) {
   const selectedWorld = useSelectedWorld();
   const agent = useAgentInteraction();
@@ -744,6 +754,9 @@ export function WorldPlanAgentConversation({
     draftGeneration,
     selectionGeneration,
     savedDirty,
+    playableEditTarget,
+    playableEditTargetGeneration,
+    playableEditTargetStale,
     paneOpen: agent.paneState.isOpen,
     hasAskHost: Boolean(askSlot?.hostElement),
     agentScope: agent.scope ? {
@@ -1623,6 +1636,10 @@ export function WorldPlanAgentConversation({
     if (composerIntent !== "propose" || !planReady || !scopeMatches || !namespace || !documentId || !editBridge
       || !isPositiveRevision(revision) || saveInFlight || !instruction
       || composing || sending || requestRef.current || proposalRequestRef.current) return;
+    if (playableEditTarget && playableEditTargetStale) {
+      setEditError("The selected card is stale or no longer unique in this draft. Select it again before composing.");
+      return;
+    }
 
     const dispatchHistory = historySnapshotRef.current;
     const canAnchorProposal = !historyLoading && !historyError
@@ -1696,7 +1713,7 @@ export function WorldPlanAgentConversation({
         || typeof response.action_id !== "string" || !response.action_id.trim()) {
         throw new Error("DungeonBuddy's Plan action response did not match this edit request. No proposal was opened.");
       }
-      const admitted = await admitWorldPlanEditProposal(captured, response);
+      const admitted = await admitWorldPlanEditProposal(captured, response, request.idempotency_key);
       if (!isCurrent()) return;
 
       const now = new Date().toISOString();
@@ -1965,6 +1982,20 @@ export function WorldPlanAgentConversation({
           <button type="button" onClick={onClearPlayableTarget}>Clear selected card</button>
         </section>
       ) : null}
+      {playableEditTarget ? (
+        <section role="group" aria-label="Selected Playable card for edit">
+          <h3>Selected card for edit</h3>
+          <p><code>{playableEditTarget.kind} · {playableEditTarget.id}</code></p>
+          <p role={playableEditTargetStale ? "alert" : "note"}>
+            {playableEditTargetStale
+              ? "This card is stale or no longer unique in the current draft. Select it again before composing."
+              : playableEditTargetDirty
+                ? "This proposal uses the unsaved Plan draft. Apply changes only the mounted draft; Save remains separate."
+                : "This proposal uses the current Plan draft. Apply changes only the mounted draft; Save remains separate."}
+          </p>
+          <button type="button" onClick={onClearPlayableEditTarget}>Clear edit target</button>
+        </section>
+      ) : null}
       <section className="world-plan-agent-conversation__turns" aria-label="World conversation transcript" aria-live="polite">
         <h3>Conversation</h3>
         {historyLoading ? <p role="status">Loading the latest World conversation page…</p> : null}
@@ -2105,6 +2136,14 @@ export function WorldPlanAgentConversation({
                 {actionHistory.map((action) => (
                   <li key={action.action_id}>
                     <strong>{action.status}</strong> · {action.instruction}
+                    {action.playable_target_receipt ? (
+                      <p className="world-plan-agent-conversation__context">
+                        Target · {action.playable_target_receipt.kind} {action.playable_target_receipt.id}
+                        · {action.playable_target_receipt.marker_grammar_version}
+                        · {action.playable_target_receipt.body_scope}
+                        · body SHA-256 <code>{action.playable_target_receipt.target_body_sha256}</code>
+                      </p>
+                    ) : null}
                     {action.status === "completed" && action.assistant_summary
                       ? <p>{action.assistant_summary}</p>
                       : action.status === "pending"
@@ -2200,11 +2239,14 @@ export function WorldPlanAgentConversation({
             </fieldset>
             {composerIntent === "propose" ? (
               <div className="world-plan-agent-conversation__target" role="group" aria-label="Choose where the proposed edit applies">
+                {playableEditTarget ? (
+                  <p role="note">The selected card body takes precedence over editor selection and Plan section. Clear the card target to use a different proposal target.</p>
+                ) : null}
                 <label htmlFor="world-plan-agent-plan-section">Plan section (optional)</label>
                 <select
                   id="world-plan-agent-plan-section"
                   value={selectedSectionTargetId}
-                  disabled={intentBusy || sectionTargets.length === 0}
+                  disabled={intentBusy || sectionTargets.length === 0 || Boolean(playableEditTarget)}
                   onChange={(event) => { void selectPlanSection(event.currentTarget.value); }}
                 >
                   <option value="">Use the editor selection or caret</option>

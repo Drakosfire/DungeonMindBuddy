@@ -1,0 +1,95 @@
+{
+  "schema_version": "plan-playable-body-codec-vectors-v1",
+  "vectors": [
+    {
+      "name": "v1_scene_inline_escaped_link_code",
+      "draft_markdown": "<!-- dmb-playable-element:v1 kind=scene id=scene:one -->\n## Scene\nA \\*literal\\* and **bold** [wiki](https://example.test/page) and `code`.\n",
+      "target": { "kind": "scene", "id": "scene:one" },
+      "expected": {
+        "available": true,
+        "body_markdown": "A \\*literal\\* and **bold** [wiki](https://example.test/page) and `code`.\n",
+        "body_sha256": "dfd92bb794f82e2bf31fec3d934553e3abcc1ca29641a54abd24203151766dc3"
+      }
+    },
+    {
+      "name": "v1_scene_crlf",
+      "draft_markdown": "<!-- dmb-playable-element:v1 kind=scene id=scene:one -->\r\n## Scene\r\nA \\*literal\\* and **bold** [wiki](https://example.test/page) and `code`.\r\n",
+      "target": { "kind": "scene", "id": "scene:one" },
+      "expected": {
+        "available": true,
+        "body_markdown": "A \\*literal\\* and **bold** [wiki](https://example.test/page) and `code`.\n",
+        "body_sha256": "dfd92bb794f82e2bf31fec3d934553e3abcc1ca29641a54abd24203151766dc3"
+      }
+    },
+    {
+      "name": "v1_scene_cr",
+      "draft_markdown": "<!-- dmb-playable-element:v1 kind=scene id=scene:one -->\r## Scene\rA \\*literal\\* and **bold** [wiki](https://example.test/page) and `code`.\r",
+      "target": { "kind": "scene", "id": "scene:one" },
+      "expected": {
+        "available": true,
+        "body_markdown": "A \\*literal\\* and **bold** [wiki](https://example.test/page) and `code`.\n",
+        "body_sha256": "dfd92bb794f82e2bf31fec3d934553e3abcc1ca29641a54abd24203151766dc3"
+      }
+    },
+    {
+      "name": "v2_beat_direct_body_nested_heading_boundary",
+      "draft_markdown": "<!-- dmb-playable-element:v2 kind=beat id=beat:approach beat_kind=spine -->\n## Approach\nA beat line.\n\n### Unmarked note\n\nNested note stays in direct body.\n\n## Next section\nOutside the Beat.\n",
+      "target": { "kind": "beat", "id": "beat:approach" },
+      "expected": {
+        "available": true,
+        "body_markdown": "A beat line.\n\n### Unmarked note\n\nNested note stays in direct body.\n",
+        "body_sha256": "f605803636cbf44ba461185bc7b7ddb89ed7f49922e8b8a8cc026ffd99f5e8eb"
+      }
+    },
+    {
+      "name": "v2_option_inline",
+      "draft_markdown": "<!-- dmb-playable-element:v2 kind=option id=option:ask -->\n- Ask **carefully** about [Mireward](https://example.test/mireward) before `dusk`.\n",
+      "target": { "kind": "option", "id": "option:ask" },
+      "expected": {
+        "available": true,
+        "body_markdown": "Ask **carefully** about [Mireward](https://example.test/mireward) before `dusk`.\n",
+        "body_sha256": "aeb87e177dc63af5ff1bc82eb800def62e0727cb35e9a06d7fa251b253acad29"
+      }
+    },
+    {
+      "name": "v2_option_nested_list",
+      "draft_markdown": "<!-- dmb-playable-element:v2 kind=option id=option:go -->\n- Go **now**\n  - Find the [gate](https://example.test/gate)\n  - Avoid `fire`\n",
+      "target": { "kind": "option", "id": "option:go" },
+      "expected": {
+        "available": true,
+        "body_markdown": "Go **now**\n\n- Find the [gate](https://example.test/gate)\n- Avoid `fire`\n",
+        "body_sha256": "999c3e0a111885ff52818d0581dd90fd06182d6967a36bb80aed72c7189a0e9d"
+      }
+    },
+    {
+      "name": "v2_option_multiple_paragraphs_not_roundtripping",
+      "draft_markdown": "<!-- dmb-playable-element:v2 kind=option id=option:split -->\n- First paragraph.\n\n  Second paragraph.\n",
+      "target": { "kind": "option", "id": "option:split" },
+      "expected": { "available": false }
+    },
+    {
+      "name": "v1_scene_hard_break_not_supported",
+      "draft_markdown": "<!-- dmb-playable-element:v1 kind=scene id=scene:break -->\n## Scene\nLine one  \nLine two\n",
+      "target": { "kind": "scene", "id": "scene:break" },
+      "expected": { "available": false }
+    },
+    {
+      "name": "duplicate_identity_not_supported",
+      "draft_markdown": "<!-- dmb-playable-element:v1 kind=scene id=scene:duplicate -->\n## First\nFirst body.\n\n<!-- dmb-playable-element:v1 kind=scene id=scene:duplicate -->\n## Second\nSecond body.\n",
+      "target": { "kind": "scene", "id": "scene:duplicate" },
+      "expected": { "available": false }
+    },
+    {
+      "name": "mixed_marker_grammar_not_supported",
+      "draft_markdown": "<!-- dmb-playable-element:v1 kind=scene id=scene:legacy -->\n## Legacy\nLegacy body.\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:current -->\n### Current\nCurrent body.\n",
+      "target": { "kind": "scene", "id": "scene:current" },
+      "expected": { "available": false }
+    },
+    {
+      "name": "v2_choice_body_split_by_options_not_supported",
+      "draft_markdown": "<!-- dmb-playable-element:v2 kind=choice id=choice:route -->\n### Route\nChoose the gate.\n\n<!-- dmb-playable-element:v2 kind=option id=option:gate -->\n- Open the gate.\n\nAnother Choice paragraph.\n",
+      "target": { "kind": "choice", "id": "choice:route" },
+      "expected": { "available": false }
+    }
+  ]
+}

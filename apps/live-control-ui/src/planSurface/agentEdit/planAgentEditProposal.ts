@@ -17,6 +17,13 @@ import {
 } from "../../tiptap/playable/playableElementIdentity";
 import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from "../../tiptap/MarkdownEditorCore";
 import { planSectionTargetForSelection, type PlanSectionTarget } from "./planSectionTarget";
+import {
+  playableBodyProtectedStructureMatches,
+  resolvePlayableBodyTarget,
+  samePlayableBodyTarget,
+  type CapturedPlayableBodyRange,
+  type PlayableBodyTarget,
+} from "./planPlayableBodyTarget";
 
 export interface PlanEditEditorState {
   editor: Editor | null;
@@ -64,6 +71,9 @@ export interface WorldPlanEditEditorState {
   sourceMarkdown: string;
   draftGeneration: number;
   selectionGeneration: number;
+  playableTarget?: PlayableBodyTarget | null;
+  playableTargetGeneration?: number;
+  playableTargetStale?: boolean;
   canEdit: boolean;
 }
 
@@ -76,6 +86,8 @@ export interface CapturedWorldPlanEditTarget {
   selectionJson: string;
   draftGeneration: number;
   selectionGeneration: number;
+  playableTargetGeneration?: number;
+  playableBodyTarget?: CapturedPlayableBodyRange;
   wholeBulletItem?: CapturedPlanEditTarget["wholeBulletItem"];
   sectionTarget?: CapturedWorldPlanSectionTarget;
 }
@@ -176,7 +188,11 @@ function sameWorldPlanEditorBinding(
     && current.baseContentSha256 === captured.baseContentSha256
     && current.sourceMarkdown === captured.sourceMarkdown
     && current.draftGeneration === captured.draftGeneration
-    && current.selectionGeneration === captured.selectionGeneration;
+    && current.selectionGeneration === captured.selectionGeneration
+    && (current.playableTarget?.kind ?? null) === (captured.playableTarget?.kind ?? null)
+    && (current.playableTarget?.id ?? null) === (captured.playableTarget?.id ?? null)
+    && (current.playableTargetGeneration ?? 0) === (captured.playableTargetGeneration ?? 0)
+    && (current.playableTargetStale ?? false) === (captured.playableTargetStale ?? false);
 }
 
 function assertWorldPlanAgentBinding(
@@ -485,14 +501,19 @@ export async function captureWorldPlanEditTarget(
   const editor = currentWorldEditor(input);
   const { from, to } = editor.state.selection;
   const editorSelectedText = editor.state.doc.textBetween(from, to, "\n");
-  const targetKind = from === to ? "insert_at_caret" : "replace_selection";
-  if (targetKind === "replace_selection" && !editorSelectedText.trim()) {
+  const playableTarget = input.playableTarget ?? null;
+  const targetKind = playableTarget ? "replace_playable_body" : from === to ? "insert_at_caret" : "replace_selection";
+  if (playableTarget && input.playableTargetStale) {
+    throw new PlanEditGuardError("The selected card is stale or no longer unique in this draft. Select it again before composing.");
+  }
+  if (!playableTarget && targetKind === "replace_selection" && !editorSelectedText.trim()) {
     throw new PlanEditGuardError("Select text or place a caret in the Plan editor.");
   }
   const json = editor.getJSON();
   const editorJson = JSON.stringify(json);
   const selectionJson = JSON.stringify(editor.state.selection.toJSON());
   const wholeBulletItem = wholeBulletItemSelection(editor, from, to, editorSelectedText);
+  const playableBodyTarget = playableTarget ? await resolvePlayableBodyTarget(editor, playableTarget) : undefined;
   if (markdownToTiptapDoc(input.sourceMarkdown).diagnostics.some((diagnostic) => diagnostic.level === "warning")) {
     throw new PlanEditGuardError("This Plan source cannot round-trip safely; resolve its Markdown warnings first.");
   }
@@ -503,10 +524,10 @@ export async function captureWorldPlanEditTarget(
     input.sourceMarkdown,
     tiptapJsonToSemanticMarkdown(json),
   );
-  const matchedSection = targetKind === "replace_selection"
+  const matchedSection = !playableTarget && targetKind === "replace_selection"
     ? planSectionTargetForSelection(editor, from, to)
     : null;
-  let selectedText = editorSelectedText;
+  let selectedText = playableTarget ? "" : editorSelectedText;
   let sectionTarget: CapturedWorldPlanSectionTarget | undefined;
   if (matchedSection) {
     const sectionSlice = rootNodesOverlappingSelection(editor, from, to, matchedSection);
@@ -563,15 +584,23 @@ export async function captureWorldPlanEditTarget(
       draft_sha256: draftSha256,
       target_kind: targetKind,
       selected_text: selectedText,
+      ...(playableBodyTarget ? {
+        playable_target: { ...playableBodyTarget.target },
+        body_serialization_version: playableBodyTarget.bodySerializationVersion,
+        target_body_markdown: playableBodyTarget.targetBodyMarkdown,
+        target_body_sha256: playableBodyTarget.targetBodySha256,
+      } : {}),
     },
-    from,
-    to,
+    from: playableBodyTarget?.from ?? from,
+    to: playableBodyTarget?.to ?? to,
     editorJson,
     selectionJson,
     draftGeneration: input.draftGeneration,
     selectionGeneration: input.selectionGeneration,
+    playableTargetGeneration: input.playableTargetGeneration ?? 0,
     wholeBulletItem,
     sectionTarget,
+    playableBodyTarget,
   };
 }
 
@@ -635,6 +664,8 @@ function insertionForTarget(
 function validateFragment(
   markdown: string,
   sectionInventory?: WorldPlanProtectedStructureEntry[],
+  playableBodyMode = false,
+  expectedProtectedReferences?: string[],
 ): { content: JSONContent[]; canonicalMarkdown: string } {
   if (!markdown.trim() || markdown.length > 12_000) {
     throw new PlanEditGuardError("Agent returned an empty or oversized edit.");
@@ -647,13 +678,20 @@ function validateFragment(
   const expectedMarkers = sectionMode
     ? sectionInventory.filter((entry) => entry.kind === "playable-marker").map((entry) => entry.identity)
     : [];
+  const expectedGraphReferenceCount = expectedProtectedReferences?.filter((reference) =>
+    JSON.parse(reference).type === "graphNodeReference").length ?? 0;
+  const graphLinks = Array.from(markdown.matchAll(/\[[^\]]*\]\(dmb-node:[^)]+\)/gi));
   if (
     (!sectionMode && /^---\s*$/m.test(markdown))
+    || (playableBodyMode && /<!--\s*dmb-playable-element:/i.test(markdown))
     || /<\/?[A-Za-z][^>]*>/.test(markdown)
     || (sectionMode
       ? /(?:graphNodeReference|\bnode:[a-z0-9_-]+)/i.test(referenceFreeText)
         || JSON.stringify(comments) !== JSON.stringify(expectedMarkers)
-      : /(?:dmb-node:|graphNodeReference|\bnode:[a-z0-9_-]+)/i.test(markdown))
+      : (playableBodyMode
+        ? /(?:graphNodeReference|\bnode:[a-z0-9_-]+)/i.test(markdown)
+          || graphLinks.length !== expectedGraphReferenceCount
+        : /(?:dmb-node:|graphNodeReference|\bnode:[a-z0-9_-]+)/i.test(markdown)))
     || /\[[^\]]+\]\((?:file:|\.{1,2}\/|\/)/i.test(markdown)
     || /(?:^|\n)\s*>\s*\[!(?!READ-ALOUD\]|GM-NOTE\]|DECISION-CONSEQUENCE\])[^\]]+\]/i.test(markdown)
   ) {
@@ -666,6 +704,16 @@ function validateFragment(
   }
   if (semanticMarkdownSerializationDiagnostics(parsed.doc).length) {
     throw new PlanEditGuardError("Agent proposed a component the Plan editor cannot serialize safely.");
+  }
+  if (playableBodyMode && (parsed.doc.content ?? []).some((node) =>
+    node.type === "heading" && Number(node.attrs?.level) <= 2)) {
+    throw new PlanEditGuardError("Agent proposal introduced a root Plan boundary heading into the card body.");
+  }
+  if (playableBodyMode && expectedProtectedReferences !== undefined) {
+    const actualReferences = playableBodyProtectedReferences(parsed.doc.content ?? []);
+    if (JSON.stringify(actualReferences) !== JSON.stringify(expectedProtectedReferences)) {
+      throw new PlanEditGuardError("Agent proposal changed a protected card-body link or reference.");
+    }
   }
   if (sectionMode) {
     const replacementInventory = worldPlanProtectedStructureInventory(parsed.doc.content ?? []);
@@ -684,6 +732,30 @@ function validateFragment(
     throw new PlanEditGuardError("Agent proposal does not round-trip through Plan Markdown.");
   }
   return { content: parsed.doc.content ?? [], canonicalMarkdown };
+}
+
+function playableBodyProtectedReferences(nodes: JSONContent[]): string[] {
+  const references: string[] = [];
+  const visit = (node: JSONContent) => {
+    if (node.type === "graphNodeReference") {
+      references.push(JSON.stringify({
+        type: node.type,
+        nodeId: node.attrs?.nodeId ?? null,
+        label: node.attrs?.label ?? null,
+      }));
+    } else if (node.type === "runbookReference") {
+      references.push(JSON.stringify({
+        type: node.type,
+        kind: node.attrs?.kind ?? null,
+        refType: node.attrs?.refType ?? null,
+        refId: node.attrs?.refId ?? null,
+        label: node.attrs?.label ?? null,
+      }));
+    }
+    for (const child of node.content ?? []) visit(child);
+  };
+  for (const node of nodes) visit(node);
+  return references;
 }
 
 export async function admitPlanEditProposal(
@@ -711,8 +783,40 @@ export async function admitPlanEditProposal(
 export async function admitWorldPlanEditProposal(
   captured: CapturedWorldPlanEditTarget,
   response: WorldPlanDocumentEditProposalResponse,
+  expectedIdempotencyKey?: string,
 ): Promise<AdmittedWorldPlanEditProposal> {
   const request = captured.request;
+  if (request.target_kind === "replace_playable_body") {
+    const target = request.playable_target;
+    const bodyTarget = captured.playableBodyTarget;
+    if (!target || !bodyTarget || !expectedIdempotencyKey
+      || response.schema_version !== "dmb_world_plan_document_edit_proposal_v2"
+      || response.idempotency_key !== expectedIdempotencyKey
+      || response.target_kind !== "replace_playable_body"
+      || response.playable_target?.kind !== target.kind
+      || response.playable_target?.id !== target.id
+      || response.marker_grammar_version !== bodyTarget.markerGrammarVersion
+      || response.body_scope !== bodyTarget.bodyScope
+      || response.range_semantics_version !== bodyTarget.rangeSemanticsVersion
+      || response.body_serialization_version !== bodyTarget.bodySerializationVersion
+      || response.target_body_sha256 !== bodyTarget.targetBodySha256
+      || response.selected_text_sha256 !== null
+      || response.document_id !== request.document_id
+      || response.world_id !== request.world_id
+      || response.base_revision !== request.base_revision
+      || response.base_content_sha256 !== request.base_content_sha256
+      || response.draft_sha256 !== request.draft_sha256
+      || typeof response.action_id !== "string" || !response.action_id.trim()) {
+      throw new PlanEditGuardError("Agent proposal does not match the captured World Plan card target and request.");
+    }
+    const fragment = validateFragment(
+      response.replacement_markdown,
+      undefined,
+      true,
+      bodyTarget.protectedReferences,
+    );
+    return { response, ...fragment };
+  }
   if (
     response.schema_version !== "dmb_world_plan_document_edit_proposal_v1"
     || typeof response.action_id !== "string"
@@ -836,6 +940,10 @@ export async function applyWorldPlanEditProposal(args: {
     || now.to !== captured.to
     || now.editorJson !== captured.editorJson
     || now.selectionJson !== captured.selectionJson
+    || (captured.playableBodyTarget !== undefined
+      && (!now.playableBodyTarget || !samePlayableBodyTarget(captured.playableBodyTarget, now.playableBodyTarget)))
+    || (captured.playableBodyTarget !== undefined
+      && now.playableTargetGeneration !== captured.playableTargetGeneration)
     || admitted.response.document_id !== captured.request.document_id
     || admitted.response.world_id !== captured.request.world_id
     || admitted.response.draft_sha256 !== captured.request.draft_sha256
@@ -853,7 +961,9 @@ export async function applyWorldPlanEditProposal(args: {
     extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,
     content: editor.getJSON(),
   });
-  const insertion = captured.sectionTarget
+  const insertion = captured.playableBodyTarget
+    ? { range: { from: captured.playableBodyTarget.from, to: captured.playableBodyTarget.to }, content: admitted.content }
+    : captured.sectionTarget
     ? {
       range: { from: captured.sectionTarget.applyFrom, to: captured.sectionTarget.applyTo },
       content: admitted.content,
@@ -865,6 +975,12 @@ export async function applyWorldPlanEditProposal(args: {
     }
     const result = simulated.getJSON();
     const resultRootContent = result.content ?? [];
+    if (captured.playableBodyTarget) {
+      const originalDocument = JSON.parse(captured.editorJson) as JSONContent;
+      if (!playableBodyProtectedStructureMatches(originalDocument, result, captured.playableBodyTarget)) {
+        throw new PlanEditGuardError("Agent proposal changed card identity, option edges, sibling content, or another protected Plan structure.");
+      }
+    }
     if (captured.sectionTarget) {
       const { applyRootEndIndex, applyRootStartIndex } = captured.sectionTarget;
       const originalRootContent = (JSON.parse(captured.editorJson) as JSONContent).content ?? [];
@@ -892,6 +1008,21 @@ export async function applyWorldPlanEditProposal(args: {
     const serialized = tiptapJsonToSemanticMarkdown(result);
     const reimported = markdownToTiptapDoc(serialized);
     const reserialized = tiptapJsonToSemanticMarkdown(reimported.doc);
+    if (captured.playableBodyTarget) {
+      const originalDocument = JSON.parse(captured.editorJson) as JSONContent;
+      if (!playableBodyProtectedStructureMatches(originalDocument, reimported.doc, captured.playableBodyTarget)) {
+        throw new PlanEditGuardError("Agent proposal would change protected card or sibling structure after Markdown reload.");
+      }
+      const roundTripEditor = new Editor({ extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: reimported.doc });
+      try {
+        const roundTripTarget = await resolvePlayableBodyTarget(roundTripEditor, captured.playableBodyTarget.target);
+        if (roundTripTarget.targetBodyMarkdown !== admitted.canonicalMarkdown) {
+          throw new PlanEditGuardError("The reviewed card body changed during Markdown reload.");
+        }
+      } finally {
+        roundTripEditor.destroy();
+      }
+    }
     if (captured.sectionTarget) {
       const { applyRootStartIndex, fullDocumentInventory, roundTripPrefix, roundTripSuffix } = captured.sectionTarget;
       const reimportedRootContent = reimported.doc.content ?? [];
@@ -929,6 +1060,9 @@ export async function applyWorldPlanEditProposal(args: {
     || finalState.baseContentSha256 !== captured.request.base_content_sha256
     || finalState.draftGeneration !== captured.draftGeneration
     || finalState.selectionGeneration !== captured.selectionGeneration
+    || (finalState.playableTargetGeneration ?? 0) !== (captured.playableTargetGeneration ?? 0)
+    || (finalState.playableTarget?.kind ?? null) !== (captured.playableBodyTarget?.target.kind ?? null)
+    || (finalState.playableTarget?.id ?? null) !== (captured.playableBodyTarget?.target.id ?? null)
     || JSON.stringify(editor.getJSON()) !== captured.editorJson
     || JSON.stringify(editor.state.selection.toJSON()) !== captured.selectionJson
   ) {
