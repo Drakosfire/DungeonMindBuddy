@@ -749,6 +749,21 @@ export function WorldPlanAgentConversation({
     planReady,
     saveInFlight,
   });
+  const askPresentationFenceKey = JSON.stringify({
+    requestFenceKey,
+    playableTarget: playableTarget ? {
+      kind: playableTarget.kind,
+      id: playableTarget.id,
+    } : null,
+    playableTargetBasis: playableTargetBasis ? {
+      revision: playableTargetBasis.revision,
+      contentSha256: playableTargetBasis.contentSha256,
+    } : null,
+    playableTargetStale,
+    selectionGeneration,
+    draftGeneration,
+    savedDirty,
+  });
   const proposalFenceKey = JSON.stringify({
     requestFenceKey,
     draftGeneration,
@@ -807,6 +822,7 @@ export function WorldPlanAgentConversation({
   const sectionOperationRef = useRef<symbol | null>(null);
   const latestRef = useRef({
     fenceKey: requestFenceKey,
+    presentationFenceKey: askPresentationFenceKey,
     proposalFenceKey,
     threadId: activeThread?.threadId ?? null,
     providerThreadId: agent.activeThread?.threadId ?? null,
@@ -872,6 +888,7 @@ export function WorldPlanAgentConversation({
   );
 
   latestRef.current.fenceKey = requestFenceKey;
+  latestRef.current.presentationFenceKey = askPresentationFenceKey;
   latestRef.current.proposalFenceKey = proposalFenceKey;
   latestRef.current.threadId = activeThread?.threadId ?? null;
   latestRef.current.providerThreadId = agent.activeThread?.threadId ?? null;
@@ -1184,9 +1201,11 @@ export function WorldPlanAgentConversation({
     const token = Symbol("world-plan-agent-turn");
     const originScopeKey = `${envelope.origin.worldId}\u001f${envelope.origin.documentId}`;
     requestRef.current = { token, scopeKey: originScopeKey, fenceKey: requestFenceKey };
+    const submittedPresentationFenceKey = askPresentationFenceKey;
     setSending(true);
     setError(null);
     setConversationNotice(null);
+    // A changed selection only changes how this successful turn is presented; it must not abandon a server-accepted turn.
     const isCurrent = () => latestRef.current.mounted
       && latestRef.current.scopeMatches
       && latestRef.current.verifiedWorldId === envelope.origin.worldId
@@ -1232,9 +1251,24 @@ export function WorldPlanAgentConversation({
         (envelope.origin.conversationId && envelope.origin.conversationId !== validation.value.conversationId)
         || (currentlyActiveConversationId && currentlyActiveConversationId !== validation.value.conversationId),
       );
-      setConversationNotice(belongsToPreviousConversation
-        ? `The server confirmed this Ask under conversation ${validation.value.conversationId}. It was not inserted into the currently active conversation; refreshing World history.`
-        : "The server confirmed this Ask. Refreshing World history.");
+      const submittedContextChanged = latestRef.current.presentationFenceKey !== submittedPresentationFenceKey;
+      if (submittedContextChanged) {
+        const target = envelope.request.playable_target;
+        let originalContext = "saved Plan context";
+        if (target) {
+          const targetLabel = target.id.startsWith(`${target.kind}:`)
+            ? target.id
+            : `${target.kind} ${target.id}`;
+          originalContext = `selected card ${targetLabel}`;
+        }
+        setConversationNotice(
+          `The server confirmed this Ask for its original ${originalContext} at committed Plan object revision ${envelope.origin.objectRevision}. Refreshing World history with that submitted provenance.`,
+        );
+      } else {
+        setConversationNotice(belongsToPreviousConversation
+          ? `The server confirmed this Ask under conversation ${validation.value.conversationId}. It was not inserted into the currently active conversation; refreshing World history.`
+          : "The server confirmed this Ask. Refreshing World history.");
+      }
       setHistoryRefreshNonce((current) => current + 1);
       setComposerMessage("");
     } catch (reason) {
