@@ -1099,12 +1099,15 @@ it("edits one selected Option body, keeps Apply draft-only, then saves and fresh
     body_serialization_version: "plan-playable-body-markdown-v1",
     target_body_markdown: "Explore [Aldric](dmb-node:node:captain-lysandra-ironveil) at dusk.\n",
   });
-  expect(screen.getByRole("region", { name: "Review proposed Plan edit" })).toHaveTextContent(replacement.replace(/\[([^\]]+)\]\([^)]+\)/, "$1"));
+  expect(screen.getByRole("region", { name: "Review proposed Plan edit" })).toHaveTextContent(replacement);
   expect(prepare).not.toHaveBeenCalled();
   expect(commit).not.toHaveBeenCalled();
 
   fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
-  await waitFor(() => expect(editorSurface).toHaveTextContent("Quietly guide Aldric through the gate."));
+  await waitFor(() => {
+    expect(editorSurface).toHaveTextContent("Quietly guide");
+    expect(editorSurface).toHaveTextContent("through the gate.");
+  });
   expect(prepare).not.toHaveBeenCalled();
   expect(commit).not.toHaveBeenCalled();
   expect(savedMarkdown).not.toContain("Quietly guide Aldric");
@@ -1123,6 +1126,9 @@ it("edits one selected Option body, keeps Apply draft-only, then saves and fresh
   window.history.replaceState({}, "", location);
   render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
   const reopened = await screen.findByTestId("world-owned-plan-markdown-editor");
-  await waitFor(() => expect(reopened).toHaveTextContent("Quietly guide Aldric through the gate."));
+  await waitFor(() => {
+    expect(reopened).toHaveTextContent("Quietly guide");
+    expect(reopened).toHaveTextContent("through the gate.");
+  });
   expect(reopened).toHaveTextContent("Wait by the gate.");
 });

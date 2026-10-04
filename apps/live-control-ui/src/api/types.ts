@@ -679,7 +679,7 @@ export interface AgentInteractionTurn {
     proposalSummary: string;
     replacementMarkdown: string;
     applied: boolean;
-    targetKind: "replace_selection" | "insert_at_caret";
+    targetKind: "replace_selection" | "insert_at_caret" | "replace_playable_body";
   } | null;
 }
 

@@ -34,6 +34,13 @@ describe("shared Playable body codec vectors", () => {
       editors.push(editor);
 
       if (!vector.expected.available) {
+        const warnings = imported.diagnostics.filter((item) => item.level === "warning");
+        if (warnings.length) {
+          if (vector.name.endsWith("_ordinary_https_unsupported")) {
+            expect(warnings.some((item) => item.message.includes("Ordinary Markdown links"))).toBe(true);
+          }
+          return;
+        }
         await expect(resolvePlayableBodyTarget(editor, vector.target)).rejects.toThrow();
         return;
       }

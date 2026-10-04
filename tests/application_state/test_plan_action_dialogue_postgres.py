@@ -130,6 +130,53 @@ def test_playable_target_receipt_survives_reservation_and_projection(application
         service.reserve(request.model_copy(update={"playable_target_receipt": different_target}))
 
 
+def _playable_target_receipt_payload(kind: str, grammar: str, scope: str) -> dict[str, str]:
+    return {
+        "schema_version": "dmb_plan_playable_target_receipt_v1",
+        "kind": kind,
+        "id": f"{kind}:fixture",
+        "marker_grammar_version": grammar,
+        "body_scope": scope,
+        "range_semantics_version": "plan-playable-ranges-v1",
+        "body_serialization_version": "plan-playable-body-markdown-v1",
+        "target_body_sha256": "e" * 64,
+    }
+
+
+def test_database_accepts_each_supported_playable_target_receipt_scope(application_state_dsn: str) -> None:
+    service = PlanActionDialogueService()
+    receipt = PlanActionPlayableTargetReceipt(
+        schema_version="dmb_plan_playable_target_receipt_v1",
+        kind="option",
+        id="option:go",
+        marker_grammar_version="v2",
+        body_scope="option_item_content",
+        range_semantics_version="plan-playable-ranges-v1",
+        body_serialization_version="plan-playable-body-markdown-v1",
+        target_body_sha256="e" * 64,
+    )
+    request = _reservation(target_kind="replace_playable_body", playable_target_receipt=receipt)
+    action, created = service.reserve(request)
+    assert created
+    valid_combinations = [
+        ("scene", "v1", "heading_body"),
+        ("beat", "v1", "heading_body"),
+        ("choice", "v1", "heading_body"),
+        ("option", "v1", "heading_body"),
+        ("scene", "v2", "heading_body"),
+        ("beat", "v2", "beat_direct_body"),
+        ("choice", "v2", "heading_body"),
+        ("option", "v2", "option_item_content"),
+    ]
+    with psycopg.connect(application_state_dsn) as conn:
+        for kind, grammar, scope in valid_combinations:
+            payload = _playable_target_receipt_payload(kind, grammar, scope)
+            conn.execute(
+                "UPDATE plan_action.action SET playable_target_receipt = %s::jsonb WHERE action_id = %s",
+                (json.dumps(payload), action.action_id),
+            )
+
+
 def test_database_rejects_malformed_playable_target_receipt(application_state_dsn: str) -> None:
     service = PlanActionDialogueService()
     receipt = PlanActionPlayableTargetReceipt(
@@ -145,14 +192,26 @@ def test_database_rejects_malformed_playable_target_receipt(application_state_ds
     request = _reservation(target_kind="replace_playable_body", playable_target_receipt=receipt)
     action, created = service.reserve(request)
     assert created
-    malformed = receipt.model_dump(mode="json")
-    malformed["body_scope"] = "heading_body"
-    with psycopg.connect(application_state_dsn) as conn:
-        with pytest.raises(psycopg.errors.CheckViolation):
-            conn.execute(
-                "UPDATE plan_action.action SET playable_target_receipt = %s::jsonb WHERE action_id = %s",
-                (json.dumps(malformed), action.action_id),
-            )
+    valid = receipt.model_dump(mode="json")
+    invalid_payloads: list[object] = [None]
+    for key in valid:
+        invalid_payloads.extend([
+            {**valid, key: None},
+            {**valid, key: 7},
+        ])
+    invalid_payloads.extend([
+        {**valid, "unexpected": "extra"},
+        {key: value for key, value in valid.items() if key != "id"},
+        {**valid, "body_scope": "heading_body"},
+        {**valid, "target_body_sha256": "not-a-digest"},
+    ])
+    with psycopg.connect(application_state_dsn, autocommit=True) as conn:
+        for malformed in invalid_payloads:
+            with pytest.raises(psycopg.errors.CheckViolation):
+                conn.execute(
+                    "UPDATE plan_action.action SET playable_target_receipt = %s::jsonb WHERE action_id = %s",
+                    (json.dumps(malformed), action.action_id),
+                )
 
 
 def test_0015_upgrade_preserves_populated_0014_legacy_action_history(application_state_dsn: str) -> None:

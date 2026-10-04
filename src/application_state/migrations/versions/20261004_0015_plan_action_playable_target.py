@@ -40,12 +40,24 @@ def upgrade() -> None:
         ADD CONSTRAINT plan_action_playable_target_receipt_check CHECK (
             playable_target_receipt IS NULL OR (
                 jsonb_typeof(playable_target_receipt) = 'object'
-                AND jsonb_object_length(playable_target_receipt) = 8
                 AND playable_target_receipt ?& ARRAY[
                     'schema_version', 'kind', 'id', 'marker_grammar_version',
                     'body_scope', 'range_semantics_version',
                     'body_serialization_version', 'target_body_sha256'
                 ]
+                AND playable_target_receipt - ARRAY[
+                    'schema_version', 'kind', 'id', 'marker_grammar_version',
+                    'body_scope', 'range_semantics_version',
+                    'body_serialization_version', 'target_body_sha256'
+                ] = '{}'::jsonb
+                AND jsonb_typeof(playable_target_receipt->'schema_version') = 'string'
+                AND jsonb_typeof(playable_target_receipt->'kind') = 'string'
+                AND jsonb_typeof(playable_target_receipt->'id') = 'string'
+                AND jsonb_typeof(playable_target_receipt->'marker_grammar_version') = 'string'
+                AND jsonb_typeof(playable_target_receipt->'body_scope') = 'string'
+                AND jsonb_typeof(playable_target_receipt->'range_semantics_version') = 'string'
+                AND jsonb_typeof(playable_target_receipt->'body_serialization_version') = 'string'
+                AND jsonb_typeof(playable_target_receipt->'target_body_sha256') = 'string'
                 AND playable_target_receipt->>'schema_version' = 'dmb_plan_playable_target_receipt_v1'
                 AND playable_target_receipt->>'kind' IN ('scene', 'beat', 'choice', 'option')
                 AND playable_target_receipt->>'id' ~ '^(scene|beat|choice|option):[a-z0-9][a-z0-9._-]{0,127}$'
@@ -56,18 +68,17 @@ def upgrade() -> None:
                 AND playable_target_receipt->>'body_serialization_version' = 'plan-playable-body-markdown-v1'
                 AND playable_target_receipt->>'target_body_sha256' ~ '^[0-9a-f]{64}$'
                 AND (
-                    (playable_target_receipt->>'kind' = 'option'
-                        AND playable_target_receipt->>'marker_grammar_version' = 'v2'
-                        AND playable_target_receipt->>'body_scope' = 'option_item_content')
-                    OR (playable_target_receipt->>'kind' = 'beat'
-                        AND playable_target_receipt->>'marker_grammar_version' = 'v2'
+                    (playable_target_receipt->>'marker_grammar_version' = 'v1'
+                        AND playable_target_receipt->>'body_scope' = 'heading_body')
+                    OR (playable_target_receipt->>'marker_grammar_version' = 'v2'
+                        AND playable_target_receipt->>'kind' IN ('scene', 'choice')
+                        AND playable_target_receipt->>'body_scope' = 'heading_body')
+                    OR (playable_target_receipt->>'marker_grammar_version' = 'v2'
+                        AND playable_target_receipt->>'kind' = 'beat'
                         AND playable_target_receipt->>'body_scope' = 'beat_direct_body')
-                    OR (
-                        (playable_target_receipt->>'kind' NOT IN ('option', 'beat')
-                            OR (playable_target_receipt->>'kind' = 'beat'
-                                AND playable_target_receipt->>'marker_grammar_version' = 'v1'))
-                        AND playable_target_receipt->>'body_scope' = 'heading_body'
-                    )
+                    OR (playable_target_receipt->>'marker_grammar_version' = 'v2'
+                        AND playable_target_receipt->>'kind' = 'option'
+                        AND playable_target_receipt->>'body_scope' = 'option_item_content')
                 )
             )
         )

@@ -776,7 +776,9 @@ describe("reviewed World-only Plan edit admission and Apply", () => {
       getAgentBinding: matchingAgentBinding,
     });
 
-    expect(editor.getText()).toContain(replacement.replace(/\[([^\]]+)\]\([^)]+\)/, "$1"));
+    expect(tiptapJsonToSemanticMarkdown(editor.getJSON())).toContain(
+      "- Quietly follow [Aldric](dmb-node:node:captain-lysandra-ironveil) through the gate.",
+    );
     expect(state.sourceMarkdown).toBe(originalSavedMarkdown);
     expect(persistedMarkdown).toBe(originalSavedMarkdown);
     expect(saveCalls).toBe(0);

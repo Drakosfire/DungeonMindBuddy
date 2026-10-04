@@ -2,39 +2,45 @@
   "schema_version": "plan-playable-body-codec-vectors-v1",
   "vectors": [
     {
-      "name": "v1_scene_inline_escaped_link_code",
+      "name": "v1_scene_inline_escaped_link_code_ordinary_https_unsupported",
       "draft_markdown": "<!-- dmb-playable-element:v1 kind=scene id=scene:one -->\n## Scene\nA \\*literal\\* and **bold** [wiki](https://example.test/page) and `code`.\n",
-      "target": { "kind": "scene", "id": "scene:one" },
+      "target": {
+        "kind": "scene",
+        "id": "scene:one"
+      },
       "expected": {
-        "available": true,
-        "body_markdown": "A \\*literal\\* and **bold** [wiki](https://example.test/page) and `code`.\n",
-        "body_sha256": "dfd92bb794f82e2bf31fec3d934553e3abcc1ca29641a54abd24203151766dc3"
+        "available": false
       }
     },
     {
-      "name": "v1_scene_crlf",
+      "name": "v1_scene_crlf_ordinary_https_unsupported",
       "draft_markdown": "<!-- dmb-playable-element:v1 kind=scene id=scene:one -->\r\n## Scene\r\nA \\*literal\\* and **bold** [wiki](https://example.test/page) and `code`.\r\n",
-      "target": { "kind": "scene", "id": "scene:one" },
+      "target": {
+        "kind": "scene",
+        "id": "scene:one"
+      },
       "expected": {
-        "available": true,
-        "body_markdown": "A \\*literal\\* and **bold** [wiki](https://example.test/page) and `code`.\n",
-        "body_sha256": "dfd92bb794f82e2bf31fec3d934553e3abcc1ca29641a54abd24203151766dc3"
+        "available": false
       }
     },
     {
-      "name": "v1_scene_cr",
+      "name": "v1_scene_cr_ordinary_https_unsupported",
       "draft_markdown": "<!-- dmb-playable-element:v1 kind=scene id=scene:one -->\r## Scene\rA \\*literal\\* and **bold** [wiki](https://example.test/page) and `code`.\r",
-      "target": { "kind": "scene", "id": "scene:one" },
+      "target": {
+        "kind": "scene",
+        "id": "scene:one"
+      },
       "expected": {
-        "available": true,
-        "body_markdown": "A \\*literal\\* and **bold** [wiki](https://example.test/page) and `code`.\n",
-        "body_sha256": "dfd92bb794f82e2bf31fec3d934553e3abcc1ca29641a54abd24203151766dc3"
+        "available": false
       }
     },
     {
       "name": "v2_beat_direct_body_nested_heading_boundary",
       "draft_markdown": "<!-- dmb-playable-element:v2 kind=beat id=beat:approach beat_kind=spine -->\n## Approach\nA beat line.\n\n### Unmarked note\n\nNested note stays in direct body.\n\n## Next section\nOutside the Beat.\n",
-      "target": { "kind": "beat", "id": "beat:approach" },
+      "target": {
+        "kind": "beat",
+        "id": "beat:approach"
+      },
       "expected": {
         "available": true,
         "body_markdown": "A beat line.\n\n### Unmarked note\n\nNested note stays in direct body.\n",
@@ -42,54 +48,222 @@
       }
     },
     {
-      "name": "v2_option_inline",
+      "name": "v2_option_inline_ordinary_https_unsupported",
       "draft_markdown": "<!-- dmb-playable-element:v2 kind=option id=option:ask -->\n- Ask **carefully** about [Mireward](https://example.test/mireward) before `dusk`.\n",
-      "target": { "kind": "option", "id": "option:ask" },
+      "target": {
+        "kind": "option",
+        "id": "option:ask"
+      },
       "expected": {
-        "available": true,
-        "body_markdown": "Ask **carefully** about [Mireward](https://example.test/mireward) before `dusk`.\n",
-        "body_sha256": "aeb87e177dc63af5ff1bc82eb800def62e0727cb35e9a06d7fa251b253acad29"
+        "available": false
       }
     },
     {
-      "name": "v2_option_nested_list",
+      "name": "v2_option_nested_list_ordinary_https_unsupported",
       "draft_markdown": "<!-- dmb-playable-element:v2 kind=option id=option:go -->\n- Go **now**\n  - Find the [gate](https://example.test/gate)\n  - Avoid `fire`\n",
-      "target": { "kind": "option", "id": "option:go" },
+      "target": {
+        "kind": "option",
+        "id": "option:go"
+      },
       "expected": {
-        "available": true,
-        "body_markdown": "Go **now**\n\n- Find the [gate](https://example.test/gate)\n- Avoid `fire`\n",
-        "body_sha256": "999c3e0a111885ff52818d0581dd90fd06182d6967a36bb80aed72c7189a0e9d"
+        "available": false
       }
     },
     {
       "name": "v2_option_multiple_paragraphs_not_roundtripping",
       "draft_markdown": "<!-- dmb-playable-element:v2 kind=option id=option:split -->\n- First paragraph.\n\n  Second paragraph.\n",
-      "target": { "kind": "option", "id": "option:split" },
-      "expected": { "available": false }
+      "target": {
+        "kind": "option",
+        "id": "option:split"
+      },
+      "expected": {
+        "available": false
+      }
     },
     {
       "name": "v1_scene_hard_break_not_supported",
       "draft_markdown": "<!-- dmb-playable-element:v1 kind=scene id=scene:break -->\n## Scene\nLine one  \nLine two\n",
-      "target": { "kind": "scene", "id": "scene:break" },
-      "expected": { "available": false }
+      "target": {
+        "kind": "scene",
+        "id": "scene:break"
+      },
+      "expected": {
+        "available": false
+      }
     },
     {
       "name": "duplicate_identity_not_supported",
       "draft_markdown": "<!-- dmb-playable-element:v1 kind=scene id=scene:duplicate -->\n## First\nFirst body.\n\n<!-- dmb-playable-element:v1 kind=scene id=scene:duplicate -->\n## Second\nSecond body.\n",
-      "target": { "kind": "scene", "id": "scene:duplicate" },
-      "expected": { "available": false }
+      "target": {
+        "kind": "scene",
+        "id": "scene:duplicate"
+      },
+      "expected": {
+        "available": false
+      }
     },
     {
       "name": "mixed_marker_grammar_not_supported",
       "draft_markdown": "<!-- dmb-playable-element:v1 kind=scene id=scene:legacy -->\n## Legacy\nLegacy body.\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:current -->\n### Current\nCurrent body.\n",
-      "target": { "kind": "scene", "id": "scene:current" },
-      "expected": { "available": false }
+      "target": {
+        "kind": "scene",
+        "id": "scene:current"
+      },
+      "expected": {
+        "available": false
+      }
     },
     {
       "name": "v2_choice_body_split_by_options_not_supported",
       "draft_markdown": "<!-- dmb-playable-element:v2 kind=choice id=choice:route -->\n### Route\nChoose the gate.\n\n<!-- dmb-playable-element:v2 kind=option id=option:gate -->\n- Open the gate.\n\nAnother Choice paragraph.\n",
-      "target": { "kind": "choice", "id": "choice:route" },
-      "expected": { "available": false }
+      "target": {
+        "kind": "choice",
+        "id": "choice:route"
+      },
+      "expected": {
+        "available": false
+      }
+    },
+    {
+      "name": "v1_scene_crlf_supported",
+      "draft_markdown": "<!-- dmb-playable-element:v1 kind=scene id=scene:one -->\r\n## Scene\r\nA \\*literal\\* and **bold**.\r\n",
+      "target": {
+        "kind": "scene",
+        "id": "scene:one"
+      },
+      "expected": {
+        "available": true,
+        "body_markdown": "A \\*literal\\* and **bold**.\n",
+        "body_sha256": "fe7fd1a14258f589d6ba07d0fb7fc551c4a019fef069a778fc7fc64bdeec4ef2"
+      }
+    },
+    {
+      "name": "v1_scene_cr_supported",
+      "draft_markdown": "<!-- dmb-playable-element:v1 kind=scene id=scene:one -->\r## Scene\rA \\*literal\\* and **bold**.\r",
+      "target": {
+        "kind": "scene",
+        "id": "scene:one"
+      },
+      "expected": {
+        "available": true,
+        "body_markdown": "A \\*literal\\* and **bold**.\n",
+        "body_sha256": "fe7fd1a14258f589d6ba07d0fb7fc551c4a019fef069a778fc7fc64bdeec4ef2"
+      }
+    },
+    {
+      "name": "v1_scene_typed_graph_link",
+      "draft_markdown": "<!-- dmb-playable-element:v1 kind=scene id=scene:refs -->\n## References\n[Aldric](dmb-node:node:captain-lysandra-ironveil) remembers the route.\n",
+      "target": {
+        "kind": "scene",
+        "id": "scene:refs"
+      },
+      "expected": {
+        "available": true,
+        "body_markdown": "[Aldric](dmb-node:node:captain-lysandra-ironveil) remembers the route.\n",
+        "body_sha256": "dd428594943dc6d17f84c4e63f7cc5b1577989c2b11f51d373d75bdb5c54a9fe"
+      }
+    },
+    {
+      "name": "v1_beat_h3_includes_unmarked_h3_h4_stops_at_root_h2",
+      "draft_markdown": "<!-- dmb-playable-element:v1 kind=beat id=beat:approach -->\n### Approach\nA beat line.\n\n### Unmarked note\n\n#### Detail\n\nNested detail.\n\n## Next section\nOutside the Beat.\n",
+      "target": {
+        "kind": "beat",
+        "id": "beat:approach"
+      },
+      "expected": {
+        "available": true,
+        "body_markdown": "A beat line.\n\n### Unmarked note\n\n#### Detail\n\nNested detail.\n",
+        "body_sha256": "6fd4bc272cec2642d1994572196f22dc6e1dcd40e0d824343918dd9e52023a34"
+      }
+    },
+    {
+      "name": "v1_choice_h3_stops_at_root_h1",
+      "draft_markdown": "<!-- dmb-playable-element:v1 kind=choice id=choice:route -->\n### Route\nChoose the eastern passage.\n\n# Next chapter\nOutside the Choice.\n",
+      "target": {
+        "kind": "choice",
+        "id": "choice:route"
+      },
+      "expected": {
+        "available": true,
+        "body_markdown": "Choose the eastern passage.\n",
+        "body_sha256": "b18c27e44109244f6c4a4aeae0a0a8bc20bb59435a502efd4e1293c507080e8d"
+      }
+    },
+    {
+      "name": "v1_option_h4_heading_body",
+      "draft_markdown": "<!-- dmb-playable-element:v1 kind=option id=option:wait -->\n#### Wait\nHold until dusk.\n",
+      "target": {
+        "kind": "option",
+        "id": "option:wait"
+      },
+      "expected": {
+        "available": true,
+        "body_markdown": "Hold until dusk.\n",
+        "body_sha256": "fc79e7b4dc7ac93b0cc5b28e3296687e3471fa3c269b6f966aeb0ee77bd3555b"
+      }
+    },
+    {
+      "name": "v2_scene_h3_includes_unmarked_h4_stops_at_root_h2",
+      "draft_markdown": "<!-- dmb-playable-element:v2 kind=scene id=scene:arrival -->\n### Arrival\nThe guide waits.\n\n#### Local detail\nThe lantern is lit.\n\n## Next root section\nOutside the Scene.\n",
+      "target": {
+        "kind": "scene",
+        "id": "scene:arrival"
+      },
+      "expected": {
+        "available": true,
+        "body_markdown": "The guide waits.\n\n#### Local detail\n\nThe lantern is lit.\n",
+        "body_sha256": "f3996d157dbe842f097c0f74eb0e1e3634c53b0b1943b99b968982cd2074494d"
+      }
+    },
+    {
+      "name": "v2_choice_contiguous_options",
+      "draft_markdown": "<!-- dmb-playable-element:v2 kind=choice id=choice:route -->\n### Route\nChoose the gate.\n\n<!-- dmb-playable-element:v2 kind=option id=option:open activates=beat:opens -->\n- Open the gate.\n\n<!-- dmb-playable-element:v2 kind=option id=option:wait suppresses=beat:opens -->\n- Wait until morning.\n",
+      "target": {
+        "kind": "choice",
+        "id": "choice:route"
+      },
+      "expected": {
+        "available": true,
+        "body_markdown": "Choose the gate.\n",
+        "body_sha256": "3d7920a624edbb829ed8c8d64ec82a91708ed6b547ea4e9c3854230c0ffb3040"
+      }
+    },
+    {
+      "name": "v2_option_typed_graph_link_nested_list",
+      "draft_markdown": "<!-- dmb-playable-element:v2 kind=option id=option:go -->\n- Go **now**\n  - Find [gate](dmb-node:node:gate-keeper)\n  - Avoid the fire\n",
+      "target": {
+        "kind": "option",
+        "id": "option:go"
+      },
+      "expected": {
+        "available": true,
+        "body_markdown": "Go **now**\n\n- Find [gate](dmb-node:node:gate-keeper)\n- Avoid the fire\n",
+        "body_sha256": "7203c11579d4a9a7cf5d8e3a0904f22d5f0537e8fe7b2ddc8029158692f8d326"
+      }
+    },
+    {
+      "name": "v2_option_typed_runbook_reference",
+      "draft_markdown": "<!-- dmb-playable-element:v2 kind=option id=option:cite -->\n- Read [the citation](#dmb-ref:citation:source-42).\n",
+      "target": {
+        "kind": "option",
+        "id": "option:cite"
+      },
+      "expected": {
+        "available": true,
+        "body_markdown": "Read [the citation](#dmb-ref:citation:source-42).\n",
+        "body_sha256": "27443c0a8c4bcfd108e4927831cf1bd0573dce9516668410d630537b49569c3e"
+      }
+    },
+    {
+      "name": "v2_option_multiple_top_level_items_unsupported",
+      "draft_markdown": "<!-- dmb-playable-element:v2 kind=option id=option:ambiguous -->\n- First choice.\n\n- Second choice.\n",
+      "target": {
+        "kind": "option",
+        "id": "option:ambiguous"
+      },
+      "expected": {
+        "available": false
+      }
     }
   ]
 }

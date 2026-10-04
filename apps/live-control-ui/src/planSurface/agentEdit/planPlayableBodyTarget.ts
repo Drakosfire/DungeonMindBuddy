@@ -42,6 +42,27 @@ type HeadingIdentity = { kind: PlayableElementKind; id: string; version: Playabl
 type IndexedHeadingIdentity = HeadingIdentity & { rootIndex: number };
 type OptionIdentity = { kind: "option"; id: string; version: "v2" };
 
+function canonicalJsonValue(value: unknown, parentKey?: string): unknown {
+  if (Array.isArray(value)) return value.map((item) => canonicalJsonValue(item));
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([, item]) => item !== undefined && !(parentKey === "attrs" && item === null))
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, item]) => [key, canonicalJsonValue(item, key)]),
+    );
+  }
+  return value;
+}
+
+function sameJson(left: unknown, right: unknown): boolean {
+  return JSON.stringify(canonicalJsonValue(left)) === JSON.stringify(canonicalJsonValue(right));
+}
+
+function sameAttrs(left: unknown, right: unknown): boolean {
+  return JSON.stringify(canonicalJsonValue(left, "attrs")) === JSON.stringify(canonicalJsonValue(right, "attrs"));
+}
+
 function digestHex(value: string): Promise<string> {
   return crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)).then((digest) =>
     Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join(""));
@@ -87,9 +108,16 @@ function hasOptionInList(node: JSONContent): boolean {
 function semanticProjection(nodes: JSONContent[] | undefined): unknown[] {
   return (nodes ?? []).map((node) => {
     const attrs = node.attrs
-      ? Object.fromEntries(Object.entries(node.attrs).filter(([, value]) => value !== null && value !== undefined))
+      ? Object.fromEntries(Object.entries(node.attrs)
+        .filter(([, value]) => value !== null && value !== undefined)
+        .sort(([left], [right]) => left.localeCompare(right)))
       : undefined;
-    const marks = node.marks?.map((mark) => ({ type: mark.type, ...(mark.attrs ? { attrs: mark.attrs } : {}) }));
+    const marks = node.marks?.map((mark) => ({
+      type: mark.type,
+      ...(mark.attrs
+        ? { attrs: Object.fromEntries(Object.entries(mark.attrs).sort(([left], [right]) => left.localeCompare(right))) }
+        : {}),
+    }));
     return {
       type: node.type,
       ...(node.text !== undefined
@@ -150,7 +178,7 @@ function resolveHeadingTarget(
   roots: RootEntry[],
   target: PlayableBodyTarget,
   identity: IndexedHeadingIdentity,
-): Omit<CapturedPlayableBodyRange, "targetBodyMarkdown" | "targetBodySha256"> & { bodyContent: JSONContent[] } {
+): Omit<CapturedPlayableBodyRange, "targetBodyMarkdown" | "targetBodySha256" | "protectedReferences"> & { bodyContent: JSONContent[] } {
   const headingIndex = identity.rootIndex;
   let bodyEndIndex = rootContent.length;
   for (let index = headingIndex + 1; index < rootContent.length; index += 1) {
@@ -258,7 +286,7 @@ export async function resolvePlayableBodyTarget(
     throw new PlayableBodyTargetError("This Plan has mixed or missing Playable marker grammar and cannot be targeted safely.");
   }
   const grammar = identities[0]!.version;
-  const matches: Array<{ kind: "heading"; rootIndex: number; identity: HeadingIdentity } | { kind: "option"; rootIndex: number; itemIndex: number; identity: OptionIdentity }> = [];
+  const matches: Array<{ kind: "heading"; rootIndex: number; identity: IndexedHeadingIdentity } | { kind: "option"; rootIndex: number; itemIndex: number; identity: OptionIdentity }> = [];
   for (const [rootIndex, node] of rootContent.entries()) {
     const heading = headingIdentity(node);
     if (heading?.kind === target.kind && heading.id === target.id) {
@@ -281,11 +309,14 @@ export async function resolvePlayableBodyTarget(
   let range: ReturnType<typeof resolveHeadingTarget>;
   let optionPath: CapturedPlayableBodyRange["optionPath"];
   if (matches[0]!.kind === "heading") {
-    range = resolveHeadingTarget(rootContent, roots, target, matches[0]!.identity as IndexedHeadingIdentity);
+    range = resolveHeadingTarget(rootContent, roots, target, matches[0]!.identity);
   } else {
     const match = matches[0]!;
     if (grammar !== "v2") throw new PlayableBodyTargetError("Options can be edited only with the v2 Playable grammar.");
     const root = rootContent[match.rootIndex]!;
+    if ((root.content ?? []).length !== 1) {
+      throw new PlayableBodyTargetError("This Option marker does not identify exactly one top-level list item.");
+    }
     const item = root.content?.[match.itemIndex];
     const bodyContent = item?.content ?? [];
     if (!bodyContent.length) throw new PlayableBodyTargetError("This Option has no editable body content.");
@@ -359,31 +390,31 @@ export function playableBodyProtectedStructureMatches(
     const beforeBody = beforeRoot.slice(captured.rootStartIndex, captured.rootEndIndex);
     const afterBody = afterRoot.slice(captured.rootStartIndex, suffixStart);
     return afterRoot.length >= prefix.length + suffix.length
-      && JSON.stringify(afterRoot.slice(0, prefix.length)) === JSON.stringify(prefix)
+      && sameJson(afterRoot.slice(0, prefix.length), prefix)
       && suffixStart >= prefix.length
-      && JSON.stringify(afterRoot.slice(suffixStart)) === JSON.stringify(suffix)
+      && sameJson(afterRoot.slice(suffixStart), suffix)
       && JSON.stringify(protectedReferenceInventory(beforeBody)) === JSON.stringify(captured.protectedReferences)
       && JSON.stringify(protectedReferenceInventory(afterBody)) === JSON.stringify(captured.protectedReferences);
   }
   const { rootIndex, itemIndex } = captured.optionPath;
   if (beforeRoot.length !== afterRoot.length) return false;
   for (let index = 0; index < beforeRoot.length; index += 1) {
-    if (index !== rootIndex && JSON.stringify(beforeRoot[index]) !== JSON.stringify(afterRoot[index])) return false;
+    if (index !== rootIndex && !sameJson(beforeRoot[index], afterRoot[index])) return false;
   }
   const beforeList = beforeRoot[rootIndex];
   const afterList = afterRoot[rootIndex];
   if (beforeList?.type !== afterList?.type
-    || JSON.stringify(beforeList?.attrs ?? null) !== JSON.stringify(afterList?.attrs ?? null)
-    || JSON.stringify(beforeList?.marks ?? null) !== JSON.stringify(afterList?.marks ?? null)) return false;
+    || !sameAttrs(beforeList?.attrs ?? null, afterList?.attrs ?? null)
+    || !sameJson(beforeList?.marks ?? null, afterList?.marks ?? null)) return false;
   const beforeItems = beforeList?.content ?? [];
   const afterItems = afterList?.content ?? [];
   if (beforeItems.length !== afterItems.length) return false;
   return beforeItems.every((item, index) => {
     const candidate = afterItems[index];
-    if (index !== itemIndex) return JSON.stringify(item) === JSON.stringify(candidate);
+    if (index !== itemIndex) return sameJson(item, candidate);
     if (!candidate || item.type !== candidate.type
-      || JSON.stringify(item.attrs ?? null) !== JSON.stringify(candidate.attrs ?? null)
-      || JSON.stringify(item.marks ?? null) !== JSON.stringify(candidate.marks ?? null)) return false;
+      || !sameAttrs(item.attrs ?? null, candidate.attrs ?? null)
+      || !sameJson(item.marks ?? null, candidate.marks ?? null)) return false;
     return JSON.stringify(protectedReferenceInventory(item.content)) === JSON.stringify(captured.protectedReferences)
       && JSON.stringify(protectedReferenceInventory(candidate.content)) === JSON.stringify(captured.protectedReferences);
   });

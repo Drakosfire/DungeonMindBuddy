@@ -31,6 +31,12 @@ _V2_MARKER = re.compile(
 _FRONTMATTER = re.compile(r"^---[ \t]*(?:\r\n|\n)([\s\S]*?)(?:\r\n|\n)---[ \t]*(?:(?:\r\n|\n)|$)")
 _YAML_KEY = re.compile(r"(?:^|\r?\n)[A-Za-z0-9_.-]+:\s*")
 _LIST_MARKER = re.compile(r"^( {0,3})([-+*]|[0-9]{1,9}[.)])[ \t]+")
+_GRAPH_NODE_HREF = re.compile(r"^dmb-node:([a-z0-9][a-z0-9_.:-]*)$", re.IGNORECASE)
+_RUNBOOK_HREF = re.compile(r"^#dmb-(ref|action):([a-z][a-z0-9-]*):([a-z0-9][a-z0-9_.:-]*)$")
+_RUNBOOK_REF_TYPES = {"npc", "location", "statblock", "roll-table", "citation", "graph-node"}
+_RUNBOOK_ACTION_TYPES = {"combat"}
+_GRAPH_NODE_ID = re.compile(r"^[a-z0-9][a-z0-9_.:-]*$", re.IGNORECASE)
+_CORPUS_REF_ID = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
 
 class PlayableBodyTargetError(ValueError):
@@ -207,6 +213,54 @@ def _normal_body(raw: str) -> str:
     return f"{value}\n" if value else "\n"
 
 
+def _supported_typed_link(href: object) -> bool:
+    if not isinstance(href, str):
+        return False
+    graph_match = _GRAPH_NODE_HREF.fullmatch(href)
+    if graph_match:
+        return bool(_GRAPH_NODE_ID.fullmatch(graph_match.group(1)))
+    reference_match = _RUNBOOK_HREF.fullmatch(href)
+    if not reference_match:
+        return False
+    kind, ref_type, ref_id = reference_match.groups()
+    if kind == "ref" and ref_type in _RUNBOOK_REF_TYPES:
+        id_pattern = _GRAPH_NODE_ID if ref_type == "graph-node" else _CORPUS_REF_ID
+        return bool(id_pattern.fullmatch(ref_id))
+    if kind == "action" and ref_type in _RUNBOOK_ACTION_TYPES:
+        return bool(_CORPUS_REF_ID.fullmatch(ref_id))
+    return False
+
+
+def _contains_unsupported_links(tokens: list[object]) -> bool:
+    for token in tokens:
+        children = getattr(token, "children", None)
+        if not children:
+            continue
+        index = 0
+        while index < len(children):
+            child = children[index]
+            if getattr(child, "type", "") != "link_open":
+                index += 1
+                continue
+            attrs = getattr(child, "attrs", None) or {}
+            if not _supported_typed_link(attrs.get("href")) or attrs.get("title") is not None:
+                return True
+            index += 1
+            label_parts: list[str] = []
+            while index < len(children) and getattr(children[index], "type", "") != "link_close":
+                label = children[index]
+                if getattr(label, "type", "") != "text":
+                    return True
+                label_parts.append(str(getattr(label, "content", "")))
+                index += 1
+            if index >= len(children) or not "".join(label_parts).strip():
+                return True
+            index += 1
+        if _contains_unsupported_links(children):
+            return True
+    return False
+
+
 def _canonical_body(raw: str, parser: MarkdownIt) -> str:
     """Rebuild body bytes from independently parsed root block boundaries."""
     normalized = raw.replace("\r\n", "\n").replace("\r", "\n")
@@ -240,8 +294,8 @@ def _option_body(lines: list[str], list_block: _Block, list_token_index: int, to
         and getattr(token, "map", None)
         and int(token.map[0]) < list_block.end
     ]
-    if not items:
-        raise PlayableBodyTargetError("v2 Option has no list item body.")
+    if len(items) != 1:
+        raise PlayableBodyTargetError("v2 Option target must resolve to exactly one canonical top-level list item.")
     item = items[0]
     start, end = int(item.map[0]), int(item.map[1])
     item_lines = lines[start:end]
@@ -279,6 +333,8 @@ def resolve_playable_body_target(
     lines = normalized_source.split("\n")
     parser = MarkdownIt("commonmark", {"html": True})
     tokens = parser.parse(normalized_source)
+    if _contains_unsupported_links(tokens):
+        raise PlayableBodyTargetError("The submitted Plan contains links the mounted editor cannot preserve in this codec version.")
     blocks = _line_blocks(tokens)
     markers = _root_markers(tokens, blocks, lines)
     attached = _attached_heading(tokens, blocks, markers, lines)
