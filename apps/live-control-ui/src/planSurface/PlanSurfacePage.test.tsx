@@ -134,6 +134,24 @@ function AgentEnabledPlanPage() {
   ) : <span>{selected.kind}</span>;
 }
 
+function savedWorldPlanConversation() {
+  return screen.getByRole("region", { name: "Saved World Plan conversation" });
+}
+
+function messageDungeonBuddyField(conversation = savedWorldPlanConversation()) {
+  return within(conversation).getByLabelText("Message DungeonBuddy");
+}
+
+function sendDiscussMessage(conversation = savedWorldPlanConversation()) {
+  const discussIntent = within(conversation).queryByRole("radio", { name: "Discuss" });
+  if (discussIntent) expect(discussIntent).toBeChecked();
+  fireEvent.click(within(conversation).getByRole("button", { name: "Send message" }));
+}
+
+function openAdvancedDetails(conversation = savedWorldPlanConversation()) {
+  fireEvent.click(within(conversation).getByText("Advanced details"));
+}
+
 const savedAgentPlanId = "saved-plan-agent-test";
 const savedAgentPlanText = "# Private Plan prose\nThe keeper waits beneath the black arch.\n";
 
@@ -363,15 +381,15 @@ it("pins Ask to the exact committed World Plan revision and excludes editor text
   expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
   expect(await screen.findByRole("region", { name: "Saved World Plan conversation" })).toBeInTheDocument();
-  expect(screen.getByText(/Ask sends this Plan’s exact committed text and your question to the configured model/)).toBeInTheDocument();
+  expect(screen.getByText(/Talk through the saved Plan, or choose Propose edit to request a change/)).toBeInTheDocument();
 
   act(() => capturedPlanControls().changeTitle({ target: { value: "Unsaved local title" } }));
-  fireEvent.change(screen.getByLabelText("Your question"), { target: { value: "What Plan metadata can you see?" } });
-  fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+  fireEvent.change(messageDungeonBuddyField(), { target: { value: "What Plan metadata can you see?" } });
+  sendDiscussMessage();
   expect(await screen.findByText(/The keeper is below the black arch\./)).toBeInTheDocument();
   expect(serverHistoryTurns[0].provenance.primary_work).toMatchObject({ object_revision: 7, revision_n: 4, content_sha256: "b".repeat(64) });
-  fireEvent.change(screen.getByLabelText("Your question"), { target: { value: "And what is its saved revision?" } });
-  fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+  fireEvent.change(messageDungeonBuddyField(), { target: { value: "And what is its saved revision?" } });
+  sendDiscussMessage();
   await waitFor(() => expect(postTurn).toHaveBeenCalledTimes(2));
   await waitFor(() => expect(screen.getAllByText(/The keeper is below the black arch\./)).toHaveLength(2));
 
@@ -439,15 +457,16 @@ it("accepts a local Graph credential in a password field and clears it from the 
   );
 
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  const input = await screen.findByLabelText("Local operator credential for Agent and Graph");
+  fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
+  const input = await screen.findByLabelText("Local operator credential");
   expect(input).toHaveAttribute("type", "password");
   fireEvent.change(input, { target: { value: "test-only-local-operator-credential-value" } });
-  fireEvent.click(screen.getByRole("button", { name: "Set Agent and Graph authorization" }));
+  fireEvent.click(screen.getByRole("button", { name: "Set authorization" }));
 
   expect(setCredential).toHaveBeenCalledWith("test-only-local-operator-credential-value");
   expect(input).toHaveValue("");
   expect(await screen.findByText(/Credential is held in this tab's memory/)).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Clear Agent and Graph authorization" }));
+  fireEvent.click(screen.getByRole("button", { name: "Clear authorization" }));
   expect(setCredential).toHaveBeenLastCalledWith(null);
   expect(await screen.findByText("Local operator Agent/Graph credential cleared.")).toBeInTheDocument();
 });
@@ -514,8 +533,8 @@ it("keeps completed server Ask transcripts and provider trace payloads out of br
 
   expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  fireEvent.change(await screen.findByLabelText("Your question"), { target: { value: "What trace receipts are available?" } });
-  fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+  fireEvent.change(messageDungeonBuddyField(), { target: { value: "What trace receipts are available?" } });
+  sendDiscussMessage();
   expect(await screen.findByText(/The keeper is below the black arch\./)).toBeInTheDocument();
 
   const request = postTurn.mock.calls[0][0];
@@ -537,12 +556,13 @@ it("lets a saved World Plan opt into diagnostics before its first Agent turn", a
   expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
   const conversation = await screen.findByRole("region", { name: "Saved World Plan conversation" });
-  const offButton = within(conversation).getByRole("button", { name: "Advanced diagnostics: Off" });
+  openAdvancedDetails(conversation);
+  const offButton = within(conversation).getByRole("button", { name: "Show trace details" });
   expect(offButton).toHaveAttribute("aria-pressed", "false");
   expect(localStorage.getItem(activeThreadStorageKey(planAgentNamespace(), "plan", savedAgentPlanId))).toBeNull();
 
   fireEvent.click(offButton);
-  expect(within(conversation).getByRole("button", { name: "Advanced diagnostics: On" })).toHaveAttribute("aria-pressed", "true");
+  expect(within(conversation).getByRole("button", { name: "Hide trace details" })).toHaveAttribute("aria-pressed", "true");
   const threadId = localStorage.getItem(activeThreadStorageKey(planAgentNamespace(), "plan", savedAgentPlanId));
   expect(threadId).toBeNull();
   expect(postTurn).not.toHaveBeenCalled();
@@ -565,14 +585,15 @@ it("keeps the trace toggle disabled while the first World Plan Agent turn is pen
   expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
   const conversation = await screen.findByRole("region", { name: "Saved World Plan conversation" });
-  fireEvent.change(within(conversation).getByLabelText("Your question"), { target: { value: "What metadata is available?" } });
-  fireEvent.click(within(conversation).getByRole("button", { name: "Ask" }));
+  fireEvent.change(messageDungeonBuddyField(conversation), { target: { value: "What metadata is available?" } });
+  sendDiscussMessage(conversation);
   await waitFor(() => expect(postTurn).toHaveBeenCalledTimes(1));
 
-  expect(within(conversation).getByRole("button", { name: "Advanced diagnostics: Off" })).toBeDisabled();
+  openAdvancedDetails(conversation);
+  expect(within(conversation).getByRole("button", { name: "Show trace details" })).toBeDisabled();
   act(() => finishTurn?.(worldPlanAgentResponse(postTurn.mock.calls[0][0])));
   expect(await screen.findByText(/The keeper is below the black arch\./)).toBeInTheDocument();
-  expect(within(conversation).getByRole("button", { name: "Advanced diagnostics: Off" })).toBeEnabled();
+  expect(within(conversation).getByRole("button", { name: "Show trace details" })).toBeEnabled();
   expect(postTurn).toHaveBeenCalledTimes(1);
 });
 
@@ -655,7 +676,8 @@ it("reveals a stored World Plan call mode after rehydrate only when diagnostics 
   expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
   const firstConversation = await screen.findByRole("region", { name: "Saved World Plan conversation" });
-  const offButton = within(firstConversation).getByRole("button", { name: "Advanced diagnostics: Off" });
+  openAdvancedDetails(firstConversation);
+  const offButton = within(firstConversation).getByRole("button", { name: "Show trace details" });
   expect(offButton).toHaveAttribute("aria-pressed", "false");
   expect(within(firstConversation).queryByTestId("agent-trace-model-calls")).not.toBeInTheDocument();
 
@@ -675,9 +697,10 @@ it("reveals a stored World Plan call mode after rehydrate only when diagnostics 
   expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
   const reloadedConversation = await screen.findByRole("region", { name: "Saved World Plan conversation" });
-  expect(within(reloadedConversation).getByRole("button", { name: "Advanced diagnostics: Off" })).toHaveAttribute("aria-pressed", "false");
+  openAdvancedDetails(reloadedConversation);
+  expect(within(reloadedConversation).getByRole("button", { name: "Show trace details" })).toHaveAttribute("aria-pressed", "false");
   expect(within(reloadedConversation).queryByTestId("agent-trace-model-calls")).not.toBeInTheDocument();
-  fireEvent.click(within(reloadedConversation).getByRole("button", { name: "Advanced diagnostics: Off" }));
+  fireEvent.click(within(reloadedConversation).getByRole("button", { name: "Show trace details" }));
   const reloadedCalls = await within(reloadedConversation).findByTestId("agent-trace-model-calls");
   const reloadedInspector = reloadedCalls.closest("details");
   expect(reloadedInspector).not.toHaveAttribute("open");
@@ -717,7 +740,7 @@ it("keeps Ask disabled for an unresolved pending write", async () => {
   expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
   expect(await screen.findByText("Conversation paused while the Plan is saving.")).toBeInTheDocument();
-  expect(screen.getByLabelText("Your question")).toBeDisabled();
+  expect(messageDungeonBuddyField()).toBeDisabled();
   expect(within(screen.getByRole("region", { name: "Saved World Plan conversation" })).getByRole("button", { name: "Saving…" })).toBeDisabled();
   expect(postTurn).not.toHaveBeenCalled();
 });
@@ -828,13 +851,13 @@ it("drops a pending turn when the selected saved Plan changes", async () => {
   );
   expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  fireEvent.change(await screen.findByLabelText("Your question"), { target: { value: "This answer belongs only to Plan A." } });
-  fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+  fireEvent.change(messageDungeonBuddyField(), { target: { value: "This answer belongs only to Plan A." } });
+  sendDiscussMessage();
   await waitFor(() => expect(postTurn).toHaveBeenCalledTimes(1));
   const request = postTurn.mock.calls[0][0];
 
   fireEvent.change(screen.getByLabelText("Plan document"), { target: { value: documentB } });
-  expect(await screen.findByText("No World conversation is active. Ask starts the first server-owned conversation.")).toBeInTheDocument();
+  expect(await screen.findByText("No messages here yet. Start with a question about the saved Plan.")).toBeInTheDocument();
   await act(async () => resolveTurn(worldPlanAgentResponse(request)));
 
   expect(screen.queryByText("This answer belongs only to Plan A.")).not.toBeInTheDocument();
@@ -864,11 +887,11 @@ it("does not send the prepared revision while its Plan save is still committing"
 
   expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  expect(await screen.findByLabelText("Your question")).toBeInTheDocument();
+  expect(await screen.findByLabelText("Message DungeonBuddy")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Save Plan" }));
   await waitFor(() => expect(prepare).toHaveBeenCalledTimes(1));
   expect(screen.getByText("Conversation paused while the Plan is saving.")).toBeInTheDocument();
-  expect(screen.getByLabelText("Your question")).toBeDisabled();
+  expect(messageDungeonBuddyField()).toBeDisabled();
   expect(within(screen.getByRole("region", { name: "Saved World Plan conversation" })).getByRole("button", { name: "Saving…" })).toBeDisabled();
   expect(postTurn).not.toHaveBeenCalled();
 
@@ -888,7 +911,7 @@ it("does not send the prepared revision while its Plan save is still committing"
     diagnostics: [],
   }));
   await waitFor(() => expect(commit).toHaveBeenCalledTimes(1));
-  expect(screen.getByLabelText("Your question")).toBeDisabled();
+  expect(messageDungeonBuddyField()).toBeDisabled();
   expect(postTurn).not.toHaveBeenCalled();
 
   await act(async () => releaseCommit({
@@ -951,8 +974,8 @@ it.each(invalidWorldPlanResponses)("persists no first-turn transcript for %s", a
 
   expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  fireEvent.change(await screen.findByLabelText("Your question"), { target: { value: "Question that must not be saved" } });
-  fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+  fireEvent.change(messageDungeonBuddyField(), { target: { value: "Question that must not be saved" } });
+  sendDiscussMessage();
   expect(await screen.findByRole("alert")).toHaveTextContent(/response|turn|revision|Plan/i);
   expect(postTurn).toHaveBeenCalledTimes(1);
 
@@ -975,8 +998,8 @@ it("stops before the Agent call when the committed Plan changed since this view 
 
   expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  fireEvent.change(await screen.findByLabelText("Your question"), { target: { value: "Question that must not be sent" } });
-  fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+  fireEvent.change(messageDungeonBuddyField(), { target: { value: "Question that must not be sent" } });
+  sendDiscussMessage();
 
   expect(await screen.findByRole("alert")).toHaveTextContent(/committed Plan changed|Refresh the Plan/i);
   expect(postTurn).not.toHaveBeenCalled();

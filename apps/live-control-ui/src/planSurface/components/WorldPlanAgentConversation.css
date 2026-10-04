@@ -16,6 +16,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.65rem;
+  padding-right: 5.5rem;
 }
 
 .world-plan-agent-conversation__header h2,
@@ -81,6 +82,14 @@
   overflow: auto;
   overscroll-behavior: contain;
   padding: 0.1rem 0.2rem 0.2rem 0;
+}
+
+.world-plan-agent-conversation__local-activity {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: min(28vh, 16rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .world-plan-agent-conversation__turns article {
@@ -274,6 +283,12 @@
 
   .world-plan-agent-conversation__preview {
     grid-template-columns: 1fr;
+  }
+
+  .world-plan-agent-conversation__local-activity {
+    flex: 0 0 auto;
+    max-height: none;
+    overflow: visible;
   }
 
   .world-plan-agent-conversation__target {
