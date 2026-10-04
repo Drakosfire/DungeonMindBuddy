@@ -223,7 +223,7 @@ rerun on the exact clean head. The implementation lease is closed. No operator
 acceptance or J1–J6 completion is claimed. Ports 5202, 8000, and 5203 remain
 untouched.
 
-**ACTIVE next slice — selected committed-card Plan Ask:**
+**Merged — selected committed-card Plan Ask:**
 After #909, add the selected committed Playable-card identity to the existing
 server-owned World conversation's canonical Plan Ask. Do not include proposal,
 review or Apply targeting in this first capability.
@@ -262,7 +262,7 @@ this Ask capability. It must map exact v1/v2 Scene, Choice and Option body range
 (including sibling headings and list items), define dirty-draft targeting, and
 fence review/Apply through `WorldPlanEditBridge` before claiming selected-card
 proposal → Apply → ordinary Save → fresh reopen. Existing document-selection
-proposals remain unchanged. PRIME activated the bounded single DEMO implementation PR from `f8ad152c669e76cccb21fecfb9aecc3656589e5b` under [HANDOFF-DEMO-plan-agent-card-target](../Plans/HANDOFF-DEMO-plan-agent-card-target.md), after DEMO, SERVER, and APP-STATE accepted the contract. The handoff owns the exact path lease, deterministic tests, and immutable target/basis replay evidence; no SQL migration or runtime restart is authorized. Graph-backed Plan Ask remains separately blocked on APP-STATE's
+proposals remain unchanged. PRIME activated the bounded single DEMO implementation PR from `f8ad152c669e76cccb21fecfb9aecc3656589e5b` under [HANDOFF-DEMO-plan-agent-card-target](../Plans/HANDOFF-DEMO-plan-agent-card-target.md), after DEMO, SERVER, and APP-STATE accepted the contract. PR #911 merged at `4efdef1898e78aa3590a39e8f84c1fdb901b2695` from reviewed head `72b67cd7fcb91f1db0e5b58888d84e6d451c36f1`; the handoff records owning review/test evidence and closes the write lease. Cards can focus Ask on the exact committed Plan, with immutable target/basis history and replay. No SQL migration or operator runtime restart occurred. Selected-card Compose/Review/Apply is the next serial candidate and is not active. Graph-backed Plan Ask remains separately blocked on APP-STATE's
 durable receipt, Buddy managed-binding admission, and DungeonMind source-evidence
 contracts.
 

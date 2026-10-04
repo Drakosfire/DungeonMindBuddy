@@ -1,29 +1,27 @@
 ---
 title: Managed-World Plan Agent committed Playable-card Ask target
 document_class: implementation_handoff
-status: ACTIVE
+status: SETTLED
 created_at: "2026-10-04"
 workstream: DEMO
 design_authority: "../Design/DESIGN-world-plan-agent-playable-target.md"
 design_base: "Buddy main 5b1322d9719b4ee2bf64c28c2ee22ce071cee43f"
 pr_topology: serial
 implementation_branch: codex/demo-selected-committed-card-ask
-implementation_pr: authorized_one_serial_pr
+implementation_pr: 911
 ---
 
 # HANDOFF — Ask about one committed Playable card in a World Plan
 
-## PRIME activation — 2026-10-04
+## PRIME settlement — 2026-10-04
 
-**Status: ACTIVE.** PRIME authorizes one selected committed-card Ask implementation PR from Buddy remote main `f8ad152c669e76cccb21fecfb9aecc3656589e5b`, after reviewing #910 head `20f381f6ecdad48443d2b446869bb6ab16605766`. This activation is pinned by the commit publishing this handoff. Re-anchor to that commit before coding.
+**Status: SETTLED.** PR #911 reviewed head `72b67cd7fcb91f1db0e5b58888d84e6d451c36f1` merged at `4efdef1898e78aa3590a39e8f84c1fdb901b2695`. The implementation lease is closed. No section below authorizes further writes. Activation authority was `02fa11885229429cbd5f9dfdb732d69948d44570`, after design #910 merged at `f8ad152c669e76cccb21fecfb9aecc3656589e5b`.
 
-DEMO accepted selection/dirty-editor and model-facing-focus semantics. Buddy SERVER accepted exact membership against the atomic committed Plan resolver result using the existing pure v1/v2 scanners unchanged. APP-STATE accepted the intent/provenance/replay contract: client schema/kind/id enters the fingerprint; absent/null omits only that new field and preserves old fingerprints exactly; changed target or submitted basis under the same key conflicts before current Plan resolution/provider dispatch. Historical receipts lacking submitted fingerprints remain fail-closed. Server-derived grammar and target use a typed codec over existing supporting reference rows with the exact basis in `primary_work`; Graph `selected_object` is untouched. No SQL migration, new reference role, table, or column is authorized.
+DEMO implemented one serial selected committed-card Ask capability; SERVER and APP-STATE accepted its exact final head. Independent UI review passed 73 mounted tests on unchanged UI. PRIME independently passed 102 server/APP-STATE tests on the initial head against isolated PostgreSQL/provider fakes, then 35 resolver/service/request tests on the final amendment. Author final results: 69 server, 37 APP-STATE; unchanged UI 175. Review correction: canonical `beat:a` was initially rejected by minimum length 7; final head accepts minimum 6 and tests request, v1/v2 membership/runtime focus and receipt codec. Two reviewed heads; no further runtime capability was added.
 
-**Path ownership:** DEMO is the sole implementation writer for the finalized §4 paths in one serial PR, with Buddy SERVER reviewing Agent admission/runtime evidence and APP-STATE reviewing its intent/storage/replay changes. Those owners retain contract authority; neither receives a competing write lease. PRIME reviews the exact cumulative head and independently verifies owning evidence before merge.
+APP-STATE contract uses existing supporting-reference rows, fingerprinted client identity and server-derived grammar with exact `primary_work` basis. No-target fingerprints stay compatible, changed-target/basis same-key retries conflict, and completed replay uses stored receipt without current Plan/provider reads. No SQL migration, new storage role/table/column, or Graph-selected-object overload.
 
-**Collision census:** PRIME fetched current main and inspected changed paths for all eleven open Buddy PRs (#887, #869, #844, #826, #798, #781, #765, #764, #763, #761, #760). None claims this §4 allowlist. #887 remains prototype-only. #904/#906/#908/#909 are merged and their relevant leases closed. Older active labels for disjoint Recap/Graph/optimization work do not grant this lane additional paths. The stale #906 mounted-harness label is settled in this activation publication.
-
-**Topology/resources:** one serial implementation PR, no selected-card proposal/Review/Apply successor in scope. Deterministic synthetic/provider fakes only; no operator UI/API restart, browser reload, live provider, corpus copy, credential change, shared database migration, or 5202/8000/5203 lease. Isolated APP-STATE test fixtures only. Stop for any additional path, new storage role/schema, parser behavior change, or unresolved owner semantics.
+The full cumulative diff and write set were reviewed; diff-check passed. GitHub reported no checks. Inherited UI TS2503 at ThreatPublicationPanel.tsx:553 remains, with no new reported diagnostics. The disposable PG55461 cluster was stopped. No live-provider or operator-runtime acceptance is claimed; operator 5202/8000/5203 were untouched. Selected-card Compose/Review/Apply remains a serial successor requiring its own activation, and Graph-backed Ask remains separately blocked.
 
 ## §1 Mission and merge-ready invariant
 
@@ -182,9 +180,9 @@ Required owning-boundary proof after activation:
   document-selection proposal suites still pass. These tests do not prove
   selected-card Compose/Review/Apply; that belongs to the serial successor.
 
-## §4 Finalized ACTIVE implementation write lease
+## §4 Closed implementation path inventory
 
-Only the following Buddy paths are leased. Optional new helper/test paths may be used only for the identity-only resolver already described; no other new file is authorized.
+These were the final leased Buddy paths. The lease is now closed; this inventory authorizes no new edits.
 
 **Authority settlement in this same PR**
 
@@ -254,7 +252,7 @@ If implementation needs another path, storage role, migration, separate PR, or c
 
 ## §6 Topology and runtime/state ownership
 
-**PR topology: serial.** This ACTIVE handoff authorizes exactly one
+**PR topology: serial.** The completed ACTIVE handoff authorized exactly one
 implementation PR: `DEMO: selected committed-card Ask target`. No proposal,
 Apply, Graph, or cleanup PR is authorized here. The selected-card
 Compose/Review/Apply successor waits until this Ask slice merges, its state
@@ -340,4 +338,4 @@ The implementation is merge-ready only when all are true:
 Stop and return to PRIME before editing if the work needs a Graph read, a new
 source-text contract, proposal/Apply targeting, a Run/parser behavior change,
 an unapproved APP-STATE path/schema, or any path outside the finalized ACTIVE
-lease. The ACTIVE lease is limited to the owner rulings and exact paths above; unresolved deviations stop implementation.
+lease. The lease is closed. Any successor requires a fresh bounded handoff and explicit activation.
