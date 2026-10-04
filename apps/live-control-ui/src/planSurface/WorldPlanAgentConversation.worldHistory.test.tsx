@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useEffect } from "react";
 import { webcrypto } from "node:crypto";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -250,6 +250,80 @@ function readBlob(blob: Blob): Promise<string> {
   });
 }
 
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+interface ConversationTestProps {
+  revision?: number;
+  editBridge?: any;
+  playableTarget?: { kind: "scene" | "beat" | "choice" | "option"; id: string } | null;
+  playableTargetBasis?: { revision: number; contentSha256: string } | null;
+  playableTargetStale?: boolean;
+  selectionGeneration?: number;
+  draftGeneration?: number;
+  savedDirty?: boolean;
+}
+
+function conversationElement(props: ConversationTestProps = {}) {
+  const revision = props.revision ?? 7;
+  const playableTarget = props.playableTarget ?? null;
+  const hasExplicitTargetBasis = Object.prototype.hasOwnProperty.call(props, "playableTargetBasis");
+  const playableTargetBasis = hasExplicitTargetBasis
+    ? props.playableTargetBasis ?? null
+    : playableTarget ? { revision: 7, contentSha256 } : null;
+  return (
+    <WorldPlanAgentConversation
+      worldId={worldId}
+      worldName="Test World"
+      documentId={documentId}
+      surfaceInstanceId={surfaceInstanceId}
+      revision={revision}
+      editBridge={props.editBridge ?? null}
+      draftGeneration={props.draftGeneration ?? 0}
+      selectionGeneration={props.selectionGeneration ?? 0}
+      savedDirty={props.savedDirty ?? false}
+      pageReady
+      saveInFlight={false}
+      playableTarget={playableTarget}
+      playableTargetBasis={playableTargetBasis}
+      playableTargetStale={props.playableTargetStale ?? false}
+    />
+  );
+}
+
+function historyTurnForAsk(
+  request: WorldPlanAgentTurnRequestV1,
+  answer: string,
+): WorldAgentConversationHistoryTurnV1 {
+  const turn = makeTurn(1, request.turn_id, request.message, answer);
+  turn.provenance.primary_work = {
+    ...turn.provenance.primary_work,
+    revision: String(request.primary_work.expected_revision),
+    content_sha256: request.primary_work.expected_content_sha256,
+    object_revision: request.primary_work.expected_revision,
+    work_revision_id: workRevisionId,
+    revision_n: request.primary_work.expected_revision_n,
+  };
+  turn.provenance.supporting_work = request.playable_target ? [{
+    resolution: "resolved",
+    kind: "dmb_plan_playable_target_v1",
+    object_id: request.playable_target.id,
+    revision: "v1",
+    content_sha256: null,
+    object_revision: null,
+    work_revision_id: null,
+    revision_n: null,
+  }] : [];
+  return turn;
+}
+
 function legacyThread(): AgentInteractionThread {
   const turn: AgentInteractionTurn = {
     turnId: "legacy-turn-1",
@@ -302,24 +376,12 @@ function mountComponent(
   playableTarget: { kind: "scene" | "beat" | "choice" | "option"; id: string } | null = null,
   playableTargetStale = false,
 ) {
-  return render(
-    <WorldPlanAgentConversation
-      worldId={worldId}
-      worldName="Test World"
-      documentId={documentId}
-      surfaceInstanceId={surfaceInstanceId}
-      revision={revision}
-      editBridge={editBridge}
-      draftGeneration={0}
-      selectionGeneration={0}
-      savedDirty={false}
-      pageReady
-      saveInFlight={false}
-      playableTarget={playableTarget}
-      playableTargetBasis={playableTarget ? { revision: 7, contentSha256 } : null}
-      playableTargetStale={playableTargetStale}
-    />,
-  );
+  return render(conversationElement({
+    revision,
+    editBridge,
+    playableTarget,
+    playableTargetStale,
+  }));
 }
 
 function committedRevision() {
@@ -433,6 +495,171 @@ describe("World Plan conversation consumer", () => {
 
     expect(await screen.findByText(/Playable target: scene scene:arrival · marker grammar v1 · committed Plan saved-plan-test, object revision 7/)).toBeInTheDocument();
     expect(screen.getByText(new RegExp(`WorkRevision ${workRevisionId}, revision 4, SHA-256 ${contentSha256}`))).toBeInTheDocument();
+  });
+
+  it("settles a successful late Ask as history for its original card after selection changes", async () => {
+    const api = setupApi(history("conversation-a", 10, []));
+    const response = deferred<ReturnType<typeof agentResponse>>();
+    const sent: WorldPlanAgentTurnRequestV1[] = [];
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
+      sent.push(request);
+      return response.promise as any;
+    });
+    const cardA = { kind: "scene" as const, id: "scene:opening" };
+    const cardB = { kind: "scene" as const, id: "scene:ending" };
+    const mounted = render(conversationElement({ playableTarget: cardA, selectionGeneration: 0 }));
+
+    await screen.findByText(/No messages here yet/);
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
+      target: { value: "What happens at the opening?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await waitFor(() => expect(postAsk).toHaveBeenCalledTimes(1));
+    const originalRequest = sent[0]!;
+    expect(originalRequest).toMatchObject({
+      message: "What happens at the opening?",
+      playable_target: { schema: "dmb_plan_playable_target_v1", ...cardA },
+      primary_work: {
+        object_id: documentId,
+        expected_revision: 7,
+        expected_content_sha256: contentSha256,
+      },
+    });
+    expect(pendingAskKeys()).toHaveLength(1);
+
+    mounted.rerender(conversationElement({ playableTarget: cardB, selectionGeneration: 1 }));
+    const selectedCardForB = screen.getByRole("group", { name: "Selected Playable card for Ask" });
+    const selectedCardForBBeforeSettlement = selectedCardForB.textContent;
+
+    const answer = "The opening is guarded by two sentries.";
+    const acceptedTurn = historyTurnForAsk(originalRequest, answer);
+    await act(async () => {
+      api.setCurrent(history("conversation-a", 11, [acceptedTurn]));
+      response.resolve(agentResponse(originalRequest, "conversation-a", answer));
+      await response.promise;
+    });
+
+    expect(await screen.findByText(answer)).toBeInTheDocument();
+    expect(await screen.findByText(/original selected card scene:opening at committed Plan object revision 7/)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`Playable target: scene scene:opening · marker grammar v1 · committed Plan ${documentId}, object revision 7, WorkRevision ${workRevisionId}, revision 1, SHA-256 ${contentSha256}`))).toBeInTheDocument();
+    expect(selectedCardForB.textContent).toBe(selectedCardForBBeforeSettlement);
+    expect(screen.getByRole("region", { name: "World conversation transcript" }).querySelector("article"))
+      .toHaveTextContent("scene:opening");
+    expect(screen.getByRole("region", { name: "World conversation transcript" }).querySelector("article"))
+      .not.toHaveTextContent("scene:ending");
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    expect(sent).toEqual([originalRequest]);
+    expect(pendingAskKeys()).toHaveLength(0);
+
+    mounted.unmount();
+    render(conversationElement({ playableTarget: cardA, selectionGeneration: 2 }));
+    expect(await screen.findByText(answer)).toBeInTheDocument();
+    expect(screen.getByText(/Playable target: scene scene:opening · marker grammar v1/)).toBeInTheDocument();
+  });
+
+  it("keeps a late same-card Ask attributed to its old committed basis after the basis changes", async () => {
+    const api = setupApi(history("conversation-a", 10, []));
+    const response = deferred<ReturnType<typeof agentResponse>>();
+    const sent: WorldPlanAgentTurnRequestV1[] = [];
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
+      sent.push(request);
+      return response.promise as any;
+    });
+    const sameCard = { kind: "scene" as const, id: "scene:arrival" };
+    const mounted = render(conversationElement({ playableTarget: sameCard, selectionGeneration: 0 }));
+
+    await screen.findByText(/No messages here yet/);
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
+      target: { value: "What changes at arrival?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await waitFor(() => expect(postAsk).toHaveBeenCalledTimes(1));
+    const originalRequest = sent[0]!;
+    const newDigest = "b".repeat(64);
+
+    mounted.rerender(conversationElement({
+      revision: 8,
+      playableTarget: sameCard,
+      playableTargetBasis: { revision: 8, contentSha256: newDigest },
+      selectionGeneration: 1,
+      draftGeneration: 1,
+      savedDirty: true,
+    }));
+    const selectedCardAfterBasisChange = screen.getByRole("group", { name: "Selected Playable card for Ask" });
+    expect(selectedCardAfterBasisChange).toHaveTextContent(`Committed Plan revision 8 · SHA-256 ${newDigest}`);
+
+    const answer = "The arrival now has a verified historical answer.";
+    const acceptedTurn = historyTurnForAsk(originalRequest, answer);
+    await act(async () => {
+      api.setCurrent(history("conversation-a", 11, [acceptedTurn]));
+      response.resolve(agentResponse(originalRequest, "conversation-a", answer));
+      await response.promise;
+    });
+
+    expect(await screen.findByText(answer)).toBeInTheDocument();
+    expect(await screen.findByText(/original selected card scene:arrival at committed Plan object revision 7/)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`Playable target: scene scene:arrival · marker grammar v1 · committed Plan ${documentId}, object revision 7, WorkRevision ${workRevisionId}, revision 1, SHA-256 ${contentSha256}`))).toBeInTheDocument();
+    expect(selectedCardAfterBasisChange).toHaveTextContent(`Committed Plan revision 8 · SHA-256 ${newDigest}`);
+    expect(selectedCardAfterBasisChange).not.toHaveTextContent(contentSha256);
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    expect(sent[0]).toEqual(originalRequest);
+    expect(originalRequest.primary_work.expected_revision).toBe(7);
+    expect(originalRequest.primary_work.expected_content_sha256).toBe(contentSha256);
+  });
+
+  it("keeps a late Ask with a malformed target receipt generic after selection changes and reopen", async () => {
+    const api = setupApi(history("conversation-a", 10, []));
+    const response = deferred<ReturnType<typeof agentResponse>>();
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async () => {
+      return response.promise as any;
+    });
+    const cardA = { kind: "scene" as const, id: "scene:opening" };
+    const cardB = { kind: "scene" as const, id: "scene:ending" };
+    const mounted = render(conversationElement({ playableTarget: cardA, selectionGeneration: 0 }));
+
+    await screen.findByText(/No messages here yet/);
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
+      target: { value: "What happens at the opening?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await waitFor(() => expect(postAsk).toHaveBeenCalledTimes(1));
+    const originalRequest = postAsk.mock.calls[0]![0];
+    const acceptedTurn = historyTurnForAsk(originalRequest, "The opening has a safe generic historical answer.");
+    acceptedTurn.provenance.supporting_work = [{
+      resolution: "resolved",
+      kind: "dmb_plan_playable_target_v1",
+      object_id: "scene:invalid/id",
+      revision: "v1",
+      content_sha256: null,
+      object_revision: null,
+      work_revision_id: null,
+      revision_n: null,
+    }];
+
+    mounted.rerender(conversationElement({ playableTarget: cardB, selectionGeneration: 1 }));
+    await act(async () => {
+      api.setCurrent(history("conversation-a", 11, [acceptedTurn]));
+      response.resolve(agentResponse(originalRequest, "conversation-a", "The opening has a safe generic historical answer."));
+      await response.promise;
+    });
+
+    const answer = "The opening has a safe generic historical answer.";
+    expect(await screen.findByText(answer)).toBeInTheDocument();
+    const transcript = screen.getByRole("region", { name: "World conversation transcript" });
+    const row = transcript.querySelector("article")!;
+    expect(within(row).getByRole("alert")).toHaveTextContent("Target receipt unavailable");
+    expect(row).not.toHaveTextContent("Playable target:");
+    expect(row).not.toHaveTextContent(cardA.id);
+    expect(row).not.toHaveTextContent(cardB.id);
+
+    mounted.unmount();
+    render(conversationElement({ playableTarget: cardA, selectionGeneration: 2 }));
+    expect(await screen.findByText(answer)).toBeInTheDocument();
+    const reopenedTranscript = screen.getByRole("region", { name: "World conversation transcript" });
+    const reopenedRow = reopenedTranscript.querySelector("article")!;
+    expect(within(reopenedRow).getByRole("alert")).toHaveTextContent("Target receipt unavailable");
+    expect(reopenedRow).not.toHaveTextContent("Playable target:");
+    expect(reopenedRow).not.toHaveTextContent(cardA.id);
   });
 
   it("blocks a stale targeted Ask before browser persistence or API dispatch", async () => {
