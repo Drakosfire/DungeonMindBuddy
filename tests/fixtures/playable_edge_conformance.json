@@ -1,0 +1,231 @@
+{
+  "scope": "Synthetic source-marker effect target conformance; not complete grammar or persisted manifest equivalence.",
+  "cases": [
+    {
+      "name": "valid_v1",
+      "grammar": 1,
+      "valid": true,
+      "markdown": "<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->\n## Gate\n\n<!-- dmb-playable-element:v1 kind=beat id=beat:arrival -->\n### Arrival\n\n<!-- dmb-playable-element:v1 kind=choice id=choice:route -->\n### Route\n\n<!-- dmb-playable-element:v1 kind=option id=option:go -->\n#### Go\n",
+      "expected": [
+        {
+          "kind": "scene",
+          "element_id": "scene:gate",
+          "scene_id": null,
+          "choice_id": null
+        },
+        {
+          "kind": "beat",
+          "element_id": "beat:arrival",
+          "scene_id": "scene:gate",
+          "choice_id": null
+        },
+        {
+          "kind": "choice",
+          "element_id": "choice:route",
+          "scene_id": "scene:gate",
+          "choice_id": null
+        },
+        {
+          "kind": "option",
+          "element_id": "option:go",
+          "scene_id": "scene:gate",
+          "choice_id": "choice:route"
+        }
+      ],
+      "order": [
+        "scene:gate",
+        "beat:arrival",
+        "choice:route",
+        "option:go"
+      ]
+    },
+    {
+      "name": "valid_distinct_v2_targets",
+      "grammar": 2,
+      "valid": true,
+      "markdown": "<!-- dmb-playable-element:v2 kind=beat id=beat:start beat_kind=spine -->\n## Start\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:gate -->\n### Gate\n\n<!-- dmb-playable-element:v2 kind=choice id=choice:route scene=scene:gate -->\n### Route\n\n<!-- dmb-playable-element:v2 kind=option id=option:go activates=beat:later,scene:later suppresses=beat:avoid -->\n- Go\n\n<!-- dmb-playable-element:v2 kind=option id=option:wait -->\n- Wait\n\n<!-- dmb-playable-element:v2 kind=beat id=beat:later beat_kind=optional -->\n## Later\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:later -->\n### Later scene\n\n<!-- dmb-playable-element:v2 kind=beat id=beat:avoid beat_kind=interrupt -->\n## Avoid\n",
+      "expected": {
+        "beats": [
+          {
+            "beat_id": "beat:avoid",
+            "beat_kind": "interrupt"
+          },
+          {
+            "beat_id": "beat:later",
+            "beat_kind": "optional"
+          },
+          {
+            "beat_id": "beat:start",
+            "beat_kind": "spine"
+          }
+        ],
+        "scenes": [
+          {
+            "scene_id": "scene:gate",
+            "beat_id": "beat:start"
+          },
+          {
+            "scene_id": "scene:later",
+            "beat_id": "beat:later"
+          }
+        ],
+        "choices": [
+          {
+            "choice_id": "choice:route",
+            "beat_id": "beat:start",
+            "scene_id": "scene:gate"
+          }
+        ],
+        "options": [
+          {
+            "option_id": "option:go",
+            "choice_id": "choice:route"
+          },
+          {
+            "option_id": "option:wait",
+            "choice_id": "choice:route"
+          }
+        ],
+        "edges": [
+          {
+            "option_id": "option:go",
+            "effect": "activate",
+            "target_kind": "beat",
+            "target_id": "beat:later"
+          },
+          {
+            "option_id": "option:go",
+            "effect": "activate",
+            "target_kind": "scene",
+            "target_id": "scene:later"
+          },
+          {
+            "option_id": "option:go",
+            "effect": "suppress",
+            "target_kind": "beat",
+            "target_id": "beat:avoid"
+          }
+        ]
+      },
+      "order": [
+        "beat:start",
+        "scene:gate",
+        "choice:route",
+        "option:go",
+        "option:wait",
+        "beat:later",
+        "scene:later",
+        "beat:avoid"
+      ]
+    },
+    {
+      "name": "same_target_across_options_valid",
+      "grammar": 2,
+      "valid": true,
+      "markdown": "<!-- dmb-playable-element:v2 kind=beat id=beat:start beat_kind=spine -->\n## Start\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:gate -->\n### Gate\n\n<!-- dmb-playable-element:v2 kind=choice id=choice:route scene=scene:gate -->\n### Route\n\n<!-- dmb-playable-element:v2 kind=option id=option:go activates=beat:later,scene:later suppresses=beat:avoid -->\n- Go\n\n<!-- dmb-playable-element:v2 kind=option id=option:wait activates=beat:later -->\n- Wait\n\n<!-- dmb-playable-element:v2 kind=beat id=beat:later beat_kind=optional -->\n## Later\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:later -->\n### Later scene\n\n<!-- dmb-playable-element:v2 kind=beat id=beat:avoid beat_kind=interrupt -->\n## Avoid\n",
+      "expected": {
+        "beats": [
+          {
+            "beat_id": "beat:avoid",
+            "beat_kind": "interrupt"
+          },
+          {
+            "beat_id": "beat:later",
+            "beat_kind": "optional"
+          },
+          {
+            "beat_id": "beat:start",
+            "beat_kind": "spine"
+          }
+        ],
+        "scenes": [
+          {
+            "scene_id": "scene:gate",
+            "beat_id": "beat:start"
+          },
+          {
+            "scene_id": "scene:later",
+            "beat_id": "beat:later"
+          }
+        ],
+        "choices": [
+          {
+            "choice_id": "choice:route",
+            "beat_id": "beat:start",
+            "scene_id": "scene:gate"
+          }
+        ],
+        "options": [
+          {
+            "option_id": "option:go",
+            "choice_id": "choice:route"
+          },
+          {
+            "option_id": "option:wait",
+            "choice_id": "choice:route"
+          }
+        ],
+        "edges": [
+          {
+            "option_id": "option:go",
+            "effect": "activate",
+            "target_kind": "beat",
+            "target_id": "beat:later"
+          },
+          {
+            "option_id": "option:go",
+            "effect": "activate",
+            "target_kind": "scene",
+            "target_id": "scene:later"
+          },
+          {
+            "option_id": "option:go",
+            "effect": "suppress",
+            "target_kind": "beat",
+            "target_id": "beat:avoid"
+          },
+          {
+            "option_id": "option:wait",
+            "effect": "activate",
+            "target_kind": "beat",
+            "target_id": "beat:later"
+          }
+        ]
+      },
+      "order": [
+        "beat:start",
+        "scene:gate",
+        "choice:route",
+        "option:go",
+        "option:wait",
+        "beat:later",
+        "scene:later",
+        "beat:avoid"
+      ]
+    },
+    {
+      "name": "duplicate_activates",
+      "grammar": 2,
+      "valid": false,
+      "markdown": "<!-- dmb-playable-element:v2 kind=beat id=beat:start beat_kind=spine -->\n## Start\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:gate -->\n### Gate\n\n<!-- dmb-playable-element:v2 kind=choice id=choice:route scene=scene:gate -->\n### Route\n\n<!-- dmb-playable-element:v2 kind=option id=option:go activates=beat:later,beat:later suppresses=beat:avoid -->\n- Go\n\n<!-- dmb-playable-element:v2 kind=option id=option:wait activates=beat:later -->\n- Wait\n\n<!-- dmb-playable-element:v2 kind=beat id=beat:later beat_kind=optional -->\n## Later\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:later -->\n### Later scene\n\n<!-- dmb-playable-element:v2 kind=beat id=beat:avoid beat_kind=interrupt -->\n## Avoid\n"
+    },
+    {
+      "name": "duplicate_suppresses",
+      "grammar": 2,
+      "valid": false,
+      "markdown": "<!-- dmb-playable-element:v2 kind=beat id=beat:start beat_kind=spine -->\n## Start\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:gate -->\n### Gate\n\n<!-- dmb-playable-element:v2 kind=choice id=choice:route scene=scene:gate -->\n### Route\n\n<!-- dmb-playable-element:v2 kind=option id=option:go activates=beat:later,scene:later suppresses=beat:avoid,beat:avoid -->\n- Go\n\n<!-- dmb-playable-element:v2 kind=option id=option:wait activates=beat:later -->\n- Wait\n\n<!-- dmb-playable-element:v2 kind=beat id=beat:later beat_kind=optional -->\n## Later\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:later -->\n### Later scene\n\n<!-- dmb-playable-element:v2 kind=beat id=beat:avoid beat_kind=interrupt -->\n## Avoid\n"
+    },
+    {
+      "name": "overlap_effect_lists",
+      "grammar": 2,
+      "valid": false,
+      "markdown": "<!-- dmb-playable-element:v2 kind=beat id=beat:start beat_kind=spine -->\n## Start\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:gate -->\n### Gate\n\n<!-- dmb-playable-element:v2 kind=choice id=choice:route scene=scene:gate -->\n### Route\n\n<!-- dmb-playable-element:v2 kind=option id=option:go activates=beat:later,scene:later suppresses=beat:later -->\n- Go\n\n<!-- dmb-playable-element:v2 kind=option id=option:wait activates=beat:later -->\n- Wait\n\n<!-- dmb-playable-element:v2 kind=beat id=beat:later beat_kind=optional -->\n## Later\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:later -->\n### Later scene\n\n<!-- dmb-playable-element:v2 kind=beat id=beat:avoid beat_kind=interrupt -->\n## Avoid\n"
+    },
+    {
+      "name": "dangling_target",
+      "grammar": 2,
+      "valid": false,
+      "markdown": "<!-- dmb-playable-element:v2 kind=beat id=beat:start beat_kind=spine -->\n## Start\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:gate -->\n### Gate\n\n<!-- dmb-playable-element:v2 kind=choice id=choice:route scene=scene:gate -->\n### Route\n\n<!-- dmb-playable-element:v2 kind=option id=option:go activates=beat:missing suppresses=beat:avoid -->\n- Go\n\n<!-- dmb-playable-element:v2 kind=option id=option:wait activates=beat:later -->\n- Wait\n\n<!-- dmb-playable-element:v2 kind=beat id=beat:later beat_kind=optional -->\n## Later\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:later -->\n### Later scene\n\n<!-- dmb-playable-element:v2 kind=beat id=beat:avoid beat_kind=interrupt -->\n## Avoid\n"
+    }
+  ]
+}
