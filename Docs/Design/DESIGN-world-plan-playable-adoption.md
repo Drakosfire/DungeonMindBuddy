@@ -6,8 +6,10 @@ version: 0.1
 created_at: "2026-10-04"
 workstream: DEMO
 design_base: "Buddy main 0f42fec0812655bb37c87b6be9a7fe5741d7f25f"
-accepted_reviewed_head: "PR #907 be84bf001a1f810524f913bbfd2507269afa8b2c"
-final_pr_review: pending_updated_head
+accepted_reviewed_head: "PR #907 7d44c33cc6e240bd711b6e202bc4042ea52ea9b7"
+final_pr_review: accepted
+merged_pr: 907
+merge_commit: "d8e861661716d2fa8c1fb1e3e56ef08268d32da8"
 companion_handoff: "../Plans/HANDOFF-world-plan-playable-adoption.md"
 ---
 
@@ -184,17 +186,17 @@ change the separate GenerationEngine parity workstream.
 
 ## Design review disposition
 
-PRIME accepted the design premise at PR #907 reviewed head
-**be84bf001a1f810524f913bbfd2507269afa8b2c**: supported Content API kind
+PRIME accepted the final two-document design at PR #907 reviewed head
+**7d44c33cc6e240bd711b6e202bc4042ea52ea9b7** and merged it at
+**d8e861661716d2fa8c1fb1e3e56ef08268d32da8**. Supported Content API kind
 stability is sufficient without a database trigger or extra Run/manifest
 source-kind field, and exact historical replay/read remains distinct from
-current active admission. This records acceptance of the contract decisions,
-not approval of the subsequently updated PR head and not implementation
-activation.
+current active admission. This satisfies the design-review gate only;
+implementation remains unauthorized.
 
 ## Review and next gate
 
 This document does not amend the active product roadmap or authorize
-implementation. The companion handoff remains BLOCKED on the updated-head
-review, product sequencing prerequisites, and an explicit
-path/owner/runtime-resource lease before any executable work.
+implementation. The companion handoff remains BLOCKED on product sequencing,
+card-projection predecessor proof, and an explicit path/owner/runtime-resource
+lease before any executable work.

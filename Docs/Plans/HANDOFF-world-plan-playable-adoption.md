@@ -18,10 +18,11 @@ implementation_pr: not_authorized
 
 ## Status and activation gate
 
-**Status: BLOCKED — PRIME accepted the design premise at reviewed PR #907 head
-be84bf001a1f810524f913bbfd2507269afa8b2c. The updated PR head still needs final
-review; product-sequence and implementation resource/path gates are
-outstanding.**
+**Status: BLOCKED — PRIME accepted final PR #907 head
+7d44c33cc6e240bd711b6e202bc4042ea52ea9b7 and merged it at
+d8e861661716d2fa8c1fb1e3e56ef08268d32da8. The design-review gate is satisfied;
+product sequencing, card-projection predecessor proof, and implementation
+resource/path gates remain outstanding.**
 
 This handoff was prepared against Buddy main
 0f42fec0812655bb37c87b6be9a7fe5741d7f25f. Re-anchor against live main and
@@ -31,10 +32,10 @@ design-time reference, not an implementation pin.
 Implementation may be activated only after all of the following are true:
 
 1. PRIME's acceptance of the companion design's source identity, admission,
-   revision, audience, and Runtime ownership decisions is recorded at reviewed
-   PR #907 head be84bf001a1f810524f913bbfd2507269afa8b2c. The current updated
-   PR head must receive final review before this handoff can move from BLOCKED
-   to ACTIVE. That review does not itself activate implementation.
+   revision, audience, and Runtime ownership decisions is recorded at final
+   PR #907 head 7d44c33cc6e240bd711b6e202bc4042ea52ea9b7, merged at
+   d8e861661716d2fa8c1fb1e3e56ef08268d32da8. This design-review gate is
+   satisfied; it does not activate implementation or waive the remaining gates.
 2. PRIME has re-anchored the Demo roadmap and confirmed the prerequisites and
    ordering for the saved-Plan card projection and shared World-conversation
    work. The current roadmap places same-content-to-Run after those steps; do
