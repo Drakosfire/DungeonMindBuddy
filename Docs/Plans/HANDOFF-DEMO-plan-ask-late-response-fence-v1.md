@@ -1,6 +1,6 @@
 # HANDOFF — DEMO: fence late saved-Plan Ask responses
 
-**Status:** ACTIVE — PRIME authorized one isolated, parallel-independent implementation lane on 2026-10-04 after a fresh 12-open-PR GitHub file census found no overlap with either UI/test path. This handoff is pinned before source edits; PRIME owns review and merge.
+**Status:** SETTLED — Buddy PR #915 merged at `e287cb875ddf763fb8376b76fde2c5bc3091732e` on 2026-10-04 from reviewed head `49173201e7466d40aeb41ac617b0d779ef1584ac`; the implementation lease is released.
 
 **Owner:** DEMO
 
@@ -10,7 +10,7 @@
 
 **Topology:** `parallel-independent` from open draft PR #914. PRIME checked all 12 currently open PRs and found zero path overlap with the two UI/test files below. PR #914 remains on the same base and owns card/runbook projection files, its handoff and roadmap; it has no behavioral dependency on this slice and retains its independent visual review hold. No shared service, database, provider, port or external state is used.
 
-**PR topology:** One implementation PR for this capability: [PR #915](https://github.com/Drakosfire/DungeonMindBuddy/pull/915), opened from this branch after implementation and exact cumulative review. Implementation commit: `efaa86da`. DEMO does not merge. PRIME owns review/merge coordination.
+**PR topology:** One implementation PR for this capability: [PR #915](https://github.com/Drakosfire/DungeonMindBuddy/pull/915), opened from this branch after implementation and exact cumulative review. Implementation commit: `efaa86da`; PRIME merged the reviewed head after independent acceptance. DEMO does not merge.
 
 **Activation record:** PRIME’s explicit activation names the base, branch, parallel-independent topology, exact write lease, handoff-first commit, acceptance witnesses, one-PR limit and exclusions. The reviewed pre-activation design draft SHA-256 was `39d3e9ed0c7b3b56378056a6ff4a4f4381eed41f26490e3d1d5cc39fda8d16c5`.
 
@@ -24,13 +24,13 @@ The accepted canonical history carries primary-work revision and typed Playable-
 
 ARCHITECTURE ruling: keep a successful late Ask as one durable turn under its original submitted envelope/basis/card. Never rebind it to the current selection or discard it. A fence mismatch means “not current selection,” not cancellation of the server-accepted turn. Shared World history may refresh while B remains selected when the completed row is visibly and structurally attributed to A’s exact card and Plan revision and is excluded from B’s active answer/evidence projection. The accepted history contract guarantees a typed target receipt for every accepted targeted Ask. Missing/malformed receipts must never be inferred from current selection or used to attach the answer to A after reopen; the UI may retain only the existing generic history projection with its unavailable-receipt warning where available. The malformed-receipt test verifies the row stays generic and is not attributed to B. No local persistence is added.
 
-## Exact ACTIVE write set
+## Exact ACTIVE implementation write set (released at merge)
 
 - `apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.tsx`
 - `apps/live-control-ui/src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx`
 - `Docs/Plans/HANDOFF-DEMO-plan-ask-late-response-fence-v1.md` — only to pin this ACTIVE authority and record truthful verification/PR settlement.
 
-This is an exclusive expected write lease: no other path may be edited under this activation. Commit this handoff as the first lane commit before editing either source/test file. No `PlanSurfacePage`, API type/error, server, APP-STATE, schema/migration, provider, Graph, or roadmap path is included. Request/response authority stays server-owned; this UI slice only fences presentation and verifies the original turn’s canonical provenance.
+This was an exclusive expected write lease, released at merge; no other path was edited under this activation. The handoff was the first lane commit (`ce5610c7`) before either source/test file changed. The implementation commit was `efaa86da`; post-merge settlement is recorded in a docs-only steward sync. No `PlanSurfacePage`, API type/error, server, APP-STATE, schema/migration, provider, Graph, or roadmap path was included. Request/response authority stays server-owned; this UI slice only fences presentation and verifies the original turn’s canonical provenance.
 
 ## Resources and state
 
@@ -53,3 +53,9 @@ No service, server, database, provider, port, credential, corpus, or external st
 ## Explicit exclusions
 
 Do not add or modify Graph policy/receipt/completion rendering, stale-retry HTTP 409 error projection, saved-Plan editing, proposal targeting, visual styling, backend persistence, or the APP-STATE/SERVER Graph Ask implementation. The separate blocked Graph Ask handoff remains governed by its owner publication and PRIME activation gates.
+
+## Post-merge settlement — 2026-10-04
+
+- PR #915 merged at `e287cb875ddf763fb8376b76fde2c5bc3091732e` from the exact reviewed head `49173201e7466d40aeb41ac617b0d779ef1584ac`.
+- PRIME reported independent exact-head review as ACCEPT. Its focused mounted history rerun passed **16/16**; the captured run is `/tmp/prime-915-ui-review.log`. DEMO's three-suite owning-boundary run passed **104/104** with branch/archive source and test SHA-256 matches, and the cumulative diff check passed.
+- The only inherited package typecheck failure is recorded above. No runtime, service, database, provider, or external state was used. All three leased paths are released.
