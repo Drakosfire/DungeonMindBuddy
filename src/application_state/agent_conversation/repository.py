@@ -8,6 +8,7 @@ from uuid import UUID
 
 import psycopg
 from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
 
 from application_state.agent_conversation.types import (
     Conversation,
@@ -17,6 +18,7 @@ from application_state.agent_conversation.types import (
     HistoricalReference,
     LegacyImportReceipt,
     PlanAskContextBasis,
+    PlanWorldGraphCompletionV1,
     Turn,
     TurnProvenance,
     WorldPointer,
@@ -34,6 +36,7 @@ _TURN_COLS = """
     turn_id, conversation_id, world_id, idempotency_key, sequence, revision,
     status, user_text, assistant_text, failure_code, surface_resolution,
     surface_id, surface_instance_id, submitted_intent_fingerprint_v1, attempt,
+    submitted_intent_fingerprint_v2, graph_context_receipt, completion,
     claim_expires_at, accepted_at, completed_at, updated_at
 """
 _DRAFT_COLS = """
@@ -475,7 +478,7 @@ def get_active_conversation(
 
 def get_turn_by_world_key(
     conn: psycopg.Connection, world_id: str, idempotency_key: UUID
-) -> tuple[Turn, str, str, str | None] | None:
+) -> tuple[Turn, str, str, str | None, str | None] | None:
     """Find the durable turn receipt in a World, regardless of its conversation."""
 
     with conn.cursor(row_factory=dict_row) as cur:
@@ -496,6 +499,7 @@ def get_turn_by_world_key(
         request_hash,
         idempotency_hash,
         row["submitted_intent_fingerprint_v1"],
+        row["submitted_intent_fingerprint_v2"],
     )
 
 
@@ -617,6 +621,7 @@ def insert_turn(
     request_fingerprint: str,
     idempotency_fingerprint: str,
     submitted_intent_fingerprint_v1: str | None = None,
+    submitted_intent_fingerprint_v2: str | None = None,
     submission: Any,
     sequence: int,
     now: datetime,
@@ -626,6 +631,7 @@ def insert_turn(
     attempt: int = 0,
 ) -> Turn:
     provenance: TurnProvenance = submission.provenance
+    graph_context_receipt = getattr(submission, "graph_context_receipt", None)
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
@@ -633,10 +639,15 @@ def insert_turn(
                 turn_id, conversation_id, world_id, idempotency_key, idempotency_fingerprint, sequence,
                 revision, status, request_fingerprint, user_text, assistant_text,
                 failure_code, surface_resolution, surface_id, surface_instance_id,
-                submitted_intent_fingerprint_v1, attempt, claim_expires_at, accepted_at,
-                completed_at, updated_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, 1, %s, %s, %s, %s, %s, %s, %s, %s,
-                      %s, %s, NULL, %s, %s, %s)
+                submitted_intent_fingerprint_v1, submitted_intent_fingerprint_v2,
+                graph_context_receipt, completion, attempt, claim_expires_at,
+                accepted_at, completed_at, updated_at
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s,
+                1, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s,
+                NULL, %s, %s, %s
+            )
             RETURNING {_TURN_COLS}
             """,
             (
@@ -655,6 +666,15 @@ def insert_turn(
                 provenance.surface_id,
                 provenance.surface_instance_id,
                 submitted_intent_fingerprint_v1,
+                submitted_intent_fingerprint_v2,
+                (
+                    None
+                    if graph_context_receipt is None
+                    else Jsonb(
+                        graph_context_receipt.model_dump(mode="json", by_alias=True)
+                    )
+                ),
+                None,
                 attempt,
                 now,
                 now if status in {"completed", "failed", "interrupted"} else None,
@@ -763,6 +783,7 @@ def complete_claimed_turn(
     turn_id: UUID,
     expected_revision: int,
     assistant_text: str,
+    completion: PlanWorldGraphCompletionV1 | None,
 ) -> Turn | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
@@ -770,13 +791,22 @@ def complete_claimed_turn(
             UPDATE agent.turn
             SET status = 'completed', revision = revision + 1,
                 assistant_text = %s, failure_code = NULL,
+                completion = %s,
                 claim_expires_at = NULL,
                 completed_at = clock_timestamp(), updated_at = clock_timestamp()
             WHERE world_id = %s AND turn_id = %s AND status = 'running'
               AND revision = %s AND claim_expires_at > clock_timestamp()
             RETURNING {_TURN_COLS}
             """,
-            (assistant_text, world_id, turn_id, expected_revision),
+            (
+                assistant_text,
+                None
+                if completion is None
+                else Jsonb(completion.model_dump(mode="json", by_alias=True)),
+                world_id,
+                turn_id,
+                expected_revision,
+            ),
         )
         row = cur.fetchone()
     return None if row is None else _turn_from_row(conn, row)
