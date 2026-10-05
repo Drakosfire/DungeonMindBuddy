@@ -16,6 +16,12 @@ class CandidateBoundary(unittest.TestCase):
    with self.assertRaisesRegex(ValueError,'backup differs'):module.capture(source,play,renderer,root/'.private'/'wrong','a'*40)
    self.assertFalse((root/'.private'/'wrong').exists())
    self.assertEqual(module.verify_candidate(out),receipt)
+   receipt_path=out/'receipt.json'
+   altered=json.loads(receipt_path.read_text());del altered['files']['play.json'];receipt_path.write_text(json.dumps(altered))
+   with self.assertRaisesRegex(ValueError,'omits required files'):module.verify_candidate(out)
+   altered=json.loads(json.dumps(receipt));altered['rendererHash']='0'*64;receipt_path.write_text(json.dumps(altered))
+   with self.assertRaisesRegex(ValueError,'renderer hash differs'):module.verify_candidate(out)
+   receipt_path.write_text(json.dumps(receipt))
    (out/'play.json').write_text('changed writing')
    with self.assertRaisesRegex(ValueError,'Candidate file changed'):module.verify_candidate(out)
    d['sourcePin']='pin';play.write_text(json.dumps(d));(source/'source.pdf').write_bytes(b'tampered')

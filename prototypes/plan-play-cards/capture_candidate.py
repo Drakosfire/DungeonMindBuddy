@@ -36,6 +36,11 @@ def capture(board_dir,play_file,renderer_dir,output,revision):
 def verify_candidate(output):
     output=Path(output);receipt=json.loads((output/'receipt.json').read_text())
     if receipt.get('status')!='candidate_not_accepted':raise ValueError('Unsupported candidate status')
+    required={'source/board.json','source/reference-manifest.json','source/source.pdf','play.json'}|{'renderer/'+name for name in RENDERER_FILES}
+    if not required.issubset(receipt.get('files',{})):raise ValueError('Candidate receipt omits required files')
+    if not re.fullmatch(r'[0-9a-f]{40}',receipt.get('rendererRevision','')):raise ValueError('Exact renderer Git revision required')
+    renderer_hash=hashlib.sha256(json.dumps({k:v for k,v in receipt['files'].items() if k.startswith('renderer/')},sort_keys=True).encode()).hexdigest()
+    if renderer_hash!=receipt.get('rendererHash'):raise ValueError('Candidate renderer hash differs from receipt')
     for rel,expected in receipt['files'].items():
         path=output/rel
         if not path.resolve().is_relative_to(output.resolve()) or digest(path)!=expected:raise ValueError('Candidate file changed: '+rel)
