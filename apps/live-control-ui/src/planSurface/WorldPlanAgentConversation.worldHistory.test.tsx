@@ -49,6 +49,9 @@ const namespace = `world-plan-agent:world:${encodeURIComponent(worldId)}:documen
 const workRevisionId = "00000000-0000-4000-8000-000000000011";
 const contentSha256 = "a".repeat(64);
 const legacyThreadId = "legacy-thread-test";
+const pendingAskClearedEventName = "dmb:world-plan-pending-ask-cleared:v1";
+const pendingAskAcceptedEventName = "dmb:world-plan-ask-accepted:v1";
+const pendingAskEventListeners: { eventName: string; listener: EventListener }[] = [];
 
 function makeTurn(
   sequence: number,
@@ -446,6 +449,14 @@ function pendingAskKeys(): string[] {
     key.startsWith(`dmb:world-plan-pending-ask:v1:${encodeURIComponent(worldId)}:${encodeURIComponent(documentId)}:`));
 }
 
+function capturePendingAskEvents(eventName: string): CustomEvent<unknown>[] {
+  const events: CustomEvent<unknown>[] = [];
+  const listener: EventListener = (event) => events.push(event as CustomEvent<unknown>);
+  pendingAskEventListeners.push({ eventName, listener });
+  window.addEventListener(eventName, listener);
+  return events;
+}
+
 function pendingCommandKeys(): string[] {
   return Object.keys(localStorage).filter((key) =>
     key.startsWith(`dmb:world-agent-new-conversation:v1:${encodeURIComponent(worldId)}:`));
@@ -463,6 +474,9 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  for (const { eventName, listener } of pendingAskEventListeners.splice(0)) {
+    window.removeEventListener(eventName, listener);
+  }
   localStorage.clear();
   document.body.innerHTML = "";
   harness.host = null;
@@ -556,6 +570,241 @@ describe("World Plan conversation consumer", () => {
     expect(await screen.findByText(answer)).toBeInTheDocument();
     expect(screen.getByText(/Playable target: scene scene:opening · marker grammar v1/)).toBeInTheDocument();
   });
+
+  it("settles an accepted Ask across SPA unmount and remount", async () => {
+    const api = setupApi(history("conversation-a", 10, []));
+    const response = deferred<ReturnType<typeof agentResponse>>();
+    const sent: WorldPlanAgentTurnRequestV1[] = [];
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
+      sent.push(request);
+      return response.promise as any;
+    });
+    const mounted = render(conversationElement());
+
+    await screen.findByText(/No messages here yet/);
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
+      target: { value: "What is the saved Plan's opening?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await waitFor(() => expect(postAsk).toHaveBeenCalledTimes(1));
+
+    const originalRequest = sent[0]!;
+    const storageKey = pendingAskKeys()[0]!;
+    const originalBytes = localStorage.getItem(storageKey)!;
+    expect(originalBytes).toContain(originalRequest.turn_id);
+
+    mounted.unmount();
+    render(conversationElement());
+    await screen.findByRole("button", { name: "Retry saved Ask" });
+    expect(pendingAskKeys()).toEqual([storageKey]);
+    expect(postAsk).toHaveBeenCalledTimes(1);
+
+    const historyCallsBeforeSettlement = api.historyCalls.length;
+    const canonicalConversationId = "00000000-0000-4000-8000-000000000222";
+    const answer = "The saved Plan opens at the north gate.";
+    const acceptedTurn = historyTurnForAsk(originalRequest, answer);
+    const clearEvents = capturePendingAskEvents(pendingAskClearedEventName);
+    const acceptedEvents = capturePendingAskEvents(pendingAskAcceptedEventName);
+
+    await act(async () => {
+      api.setCurrent(history(canonicalConversationId, 11, [acceptedTurn]));
+      response.resolve(agentResponse(originalRequest, canonicalConversationId, answer));
+      await response.promise;
+    });
+
+    expect(originalRequest.turn_id).not.toBe(canonicalConversationId);
+    expect(await screen.findByText(answer)).toBeInTheDocument();
+    expect(api.historyCalls).toHaveLength(historyCallsBeforeSettlement + 1);
+    expect(pendingAskKeys()).toEqual([]);
+    expect(localStorage.getItem(storageKey)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Retry saved Ask" })).not.toBeInTheDocument();
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    expect(sent).toEqual([originalRequest]);
+    expect(screen.getByRole("region", { name: "World conversation transcript" }).querySelector("article"))
+      .toHaveTextContent(answer);
+
+    expect(clearEvents).toHaveLength(1);
+    expect(acceptedEvents).toHaveLength(0);
+    const detail = clearEvents[0]!.detail as Record<string, unknown>;
+    expect(Object.keys(detail).sort()).toEqual(["key", "origin", "version"]);
+    expect(detail).toEqual({
+      version: 1,
+      key: storageKey,
+      origin: {
+        worldId,
+        documentId,
+        objectRevision: 7,
+        workRevisionId,
+        revisionN: 1,
+        contentSha256,
+      },
+    });
+    expect(JSON.stringify(detail)).not.toContain(answer);
+    expect(JSON.stringify(detail)).not.toContain(originalRequest.message);
+  });
+
+  it("ignores pending Ask cleared events for another scope or with malformed origin", async () => {
+    const api = setupApi(history("conversation-a", 10, []));
+    render(conversationElement());
+
+    await screen.findByText(/No messages here yet/);
+    const initialHistoryCalls = api.historyCalls.length;
+    const otherWorldId = "another-world";
+    const otherScopeKey = "dmb:world-plan-pending-ask:v1:"
+      + encodeURIComponent(otherWorldId) + ":" + encodeURIComponent(documentId) + ":test";
+    const malformedOriginKey = "dmb:world-plan-pending-ask:v1:"
+      + encodeURIComponent(worldId) + ":" + encodeURIComponent(documentId) + ":test";
+
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent(pendingAskClearedEventName, {
+        detail: {
+          version: 1,
+          key: otherScopeKey,
+          origin: {
+            worldId: otherWorldId,
+            documentId,
+            objectRevision: 7,
+            workRevisionId,
+            revisionN: 1,
+            contentSha256,
+          },
+        },
+      }));
+      window.dispatchEvent(new CustomEvent(pendingAskClearedEventName, {
+        detail: {
+          version: 1,
+          key: malformedOriginKey,
+          origin: {
+            worldId,
+            documentId,
+            objectRevision: 7,
+            workRevisionId,
+            revisionN: 1,
+            contentSha256,
+            unexpected: "must be ignored",
+          },
+        },
+      }));
+    });
+
+    expect(api.historyCalls).toHaveLength(initialHistoryCalls);
+    expect(pendingAskKeys()).toEqual([]);
+  });
+
+  it("preserves replacement recovery bytes when a captured Ask succeeds after unmount", async () => {
+    const api = setupApi(history("conversation-a", 10, []));
+    const response = deferred<ReturnType<typeof agentResponse>>();
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async () => {
+      return response.promise as any;
+    });
+    const mounted = render(conversationElement());
+
+    await screen.findByText(/No messages here yet/);
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
+      target: { value: "Original captured request" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await waitFor(() => expect(postAsk).toHaveBeenCalledTimes(1));
+
+    const originalRequest = postAsk.mock.calls[0]![0];
+    const storageKey = pendingAskKeys()[0]!;
+    const originalBytes = localStorage.getItem(storageKey)!;
+    const replacement = JSON.parse(originalBytes);
+    replacement.request.message = "Replacement recovery must remain";
+    const replacementBytes = JSON.stringify(replacement);
+    localStorage.setItem(storageKey, replacementBytes);
+
+    mounted.unmount();
+    render(conversationElement());
+    await screen.findByRole("button", { name: "Retry saved Ask" });
+    const clearEvents = capturePendingAskEvents(pendingAskClearedEventName);
+    const acceptedEvents = capturePendingAskEvents(pendingAskAcceptedEventName);
+    const canonicalConversationId = "00000000-0000-4000-8000-000000000223";
+    const answer = "The original request completed on the server.";
+    const historyCallsBeforeSettlement = api.historyCalls.length;
+
+    await act(async () => {
+      api.setCurrent(history(canonicalConversationId, 11, [
+        historyTurnForAsk(originalRequest, answer),
+      ]));
+      response.resolve(agentResponse(originalRequest, canonicalConversationId, answer));
+      await response.promise;
+    });
+
+    expect(localStorage.getItem(storageKey)).toBe(replacementBytes);
+    expect(pendingAskKeys()).toEqual([storageKey]);
+    expect(screen.getByRole("button", { name: "Retry saved Ask" })).toBeInTheDocument();
+    expect(await screen.findByText(answer)).toBeInTheDocument();
+    expect(api.historyCalls).toHaveLength(historyCallsBeforeSettlement + 1);
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    expect(clearEvents).toHaveLength(0);
+    expect(acceptedEvents).toHaveLength(1);
+    const detail = acceptedEvents[0]!.detail as Record<string, unknown>;
+    expect(Object.keys(detail).sort()).toEqual(["key", "origin", "version"]);
+    expect(JSON.stringify(detail)).not.toContain(answer);
+  });
+
+  it.each(["network rejection", "malformed response"])(
+    "keeps exact recovery after an unmounted %s and explicit retry",
+    async (firstOutcome) => {
+      const api = setupApi(history("conversation-a", 10, []));
+      const firstResponse = deferred<unknown>();
+      const requests: WorldPlanAgentTurnRequestV1[] = [];
+      const canonicalConversationId = "00000000-0000-4000-8000-000000000224";
+      const answer = "The exact recovered Plan answer.";
+      const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
+        requests.push(request);
+        if (requests.length === 1) return firstResponse.promise as any;
+        api.setCurrent(history(canonicalConversationId, 11, [
+          historyTurnForAsk(request, answer),
+        ]));
+        return agentResponse(request, canonicalConversationId, answer) as any;
+      });
+      const mounted = render(conversationElement());
+
+      await screen.findByText(/No messages here yet/);
+      fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
+        target: { value: "Keep this exact request recoverable" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+      await waitFor(() => expect(postAsk).toHaveBeenCalledTimes(1));
+
+      const storageKey = pendingAskKeys()[0]!;
+      const originalBytes = localStorage.getItem(storageKey)!;
+      const originalRequest = requests[0]!;
+      mounted.unmount();
+      render(conversationElement());
+      await screen.findByRole("button", { name: "Retry saved Ask" });
+      const clearEvents = capturePendingAskEvents(pendingAskClearedEventName);
+      const acceptedEvents = capturePendingAskEvents(pendingAskAcceptedEventName);
+
+      await act(async () => {
+        if (firstOutcome === "network rejection") {
+          firstResponse.reject(new Error("connection lost"));
+          await firstResponse.promise.catch(() => undefined);
+        } else {
+          firstResponse.resolve({});
+          await firstResponse.promise;
+        }
+      });
+
+      expect(localStorage.getItem(storageKey)).toBe(originalBytes);
+      expect(pendingAskKeys()).toEqual([storageKey]);
+      expect(postAsk).toHaveBeenCalledTimes(1);
+      expect(clearEvents).toHaveLength(0);
+      expect(acceptedEvents).toHaveLength(0);
+      expect(screen.getByRole("button", { name: "Retry saved Ask" })).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "Retry saved Ask" }));
+      expect(await screen.findByText(answer)).toBeInTheDocument();
+      expect(postAsk).toHaveBeenCalledTimes(2);
+      expect(requests[1]).toEqual(originalRequest);
+      expect(pendingAskKeys()).toEqual([]);
+      expect(localStorage.getItem(storageKey)).toBeNull();
+      expect(clearEvents).toHaveLength(1);
+      expect(acceptedEvents).toHaveLength(0);
+    },
+  );
 
   it("keeps a late same-card Ask attributed to its old committed basis after the basis changes", async () => {
     const api = setupApi(history("conversation-a", 10, []));
