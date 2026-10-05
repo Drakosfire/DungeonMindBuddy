@@ -49,7 +49,9 @@ const namespace = `world-plan-agent:world:${encodeURIComponent(worldId)}:documen
 const workRevisionId = "00000000-0000-4000-8000-000000000011";
 const contentSha256 = "a".repeat(64);
 const legacyThreadId = "legacy-thread-test";
-const pendingAskClearedListeners: EventListener[] = [];
+const pendingAskClearedEventName = "dmb:world-plan-pending-ask-cleared:v1";
+const pendingAskAcceptedEventName = "dmb:world-plan-ask-accepted:v1";
+const pendingAskEventListeners: { eventName: string; listener: EventListener }[] = [];
 
 function makeTurn(
   sequence: number,
@@ -447,11 +449,11 @@ function pendingAskKeys(): string[] {
     key.startsWith(`dmb:world-plan-pending-ask:v1:${encodeURIComponent(worldId)}:${encodeURIComponent(documentId)}:`));
 }
 
-function capturePendingAskClearedEvents(): CustomEvent<unknown>[] {
+function capturePendingAskEvents(eventName: string): CustomEvent<unknown>[] {
   const events: CustomEvent<unknown>[] = [];
   const listener: EventListener = (event) => events.push(event as CustomEvent<unknown>);
-  pendingAskClearedListeners.push(listener);
-  window.addEventListener("dmb:world-plan-pending-ask-cleared:v1", listener);
+  pendingAskEventListeners.push({ eventName, listener });
+  window.addEventListener(eventName, listener);
   return events;
 }
 
@@ -472,8 +474,8 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
-  for (const listener of pendingAskClearedListeners.splice(0)) {
-    window.removeEventListener("dmb:world-plan-pending-ask-cleared:v1", listener);
+  for (const { eventName, listener } of pendingAskEventListeners.splice(0)) {
+    window.removeEventListener(eventName, listener);
   }
   localStorage.clear();
   document.body.innerHTML = "";
@@ -601,7 +603,8 @@ describe("World Plan conversation consumer", () => {
     const canonicalConversationId = "00000000-0000-4000-8000-000000000222";
     const answer = "The saved Plan opens at the north gate.";
     const acceptedTurn = historyTurnForAsk(originalRequest, answer);
-    const clearEvents = capturePendingAskClearedEvents();
+    const clearEvents = capturePendingAskEvents(pendingAskClearedEventName);
+    const acceptedEvents = capturePendingAskEvents(pendingAskAcceptedEventName);
 
     await act(async () => {
       api.setCurrent(history(canonicalConversationId, 11, [acceptedTurn]));
@@ -621,6 +624,7 @@ describe("World Plan conversation consumer", () => {
       .toHaveTextContent(answer);
 
     expect(clearEvents).toHaveLength(1);
+    expect(acceptedEvents).toHaveLength(0);
     const detail = clearEvents[0]!.detail as Record<string, unknown>;
     expect(Object.keys(detail).sort()).toEqual(["key", "origin", "version"]);
     expect(detail).toEqual({
@@ -652,7 +656,7 @@ describe("World Plan conversation consumer", () => {
       + encodeURIComponent(worldId) + ":" + encodeURIComponent(documentId) + ":test";
 
     await act(async () => {
-      window.dispatchEvent(new CustomEvent("dmb:world-plan-pending-ask-cleared:v1", {
+      window.dispatchEvent(new CustomEvent(pendingAskClearedEventName, {
         detail: {
           version: 1,
           key: otherScopeKey,
@@ -666,7 +670,7 @@ describe("World Plan conversation consumer", () => {
           },
         },
       }));
-      window.dispatchEvent(new CustomEvent("dmb:world-plan-pending-ask-cleared:v1", {
+      window.dispatchEvent(new CustomEvent(pendingAskClearedEventName, {
         detail: {
           version: 1,
           key: malformedOriginKey,
@@ -713,9 +717,11 @@ describe("World Plan conversation consumer", () => {
     mounted.unmount();
     render(conversationElement());
     await screen.findByRole("button", { name: "Retry saved Ask" });
-    const clearEvents = capturePendingAskClearedEvents();
+    const clearEvents = capturePendingAskEvents(pendingAskClearedEventName);
+    const acceptedEvents = capturePendingAskEvents(pendingAskAcceptedEventName);
     const canonicalConversationId = "00000000-0000-4000-8000-000000000223";
     const answer = "The original request completed on the server.";
+    const historyCallsBeforeSettlement = api.historyCalls.length;
 
     await act(async () => {
       api.setCurrent(history(canonicalConversationId, 11, [
@@ -728,8 +734,14 @@ describe("World Plan conversation consumer", () => {
     expect(localStorage.getItem(storageKey)).toBe(replacementBytes);
     expect(pendingAskKeys()).toEqual([storageKey]);
     expect(screen.getByRole("button", { name: "Retry saved Ask" })).toBeInTheDocument();
+    expect(await screen.findByText(answer)).toBeInTheDocument();
+    expect(api.historyCalls).toHaveLength(historyCallsBeforeSettlement + 1);
     expect(postAsk).toHaveBeenCalledTimes(1);
     expect(clearEvents).toHaveLength(0);
+    expect(acceptedEvents).toHaveLength(1);
+    const detail = acceptedEvents[0]!.detail as Record<string, unknown>;
+    expect(Object.keys(detail).sort()).toEqual(["key", "origin", "version"]);
+    expect(JSON.stringify(detail)).not.toContain(answer);
   });
 
   it.each(["network rejection", "malformed response"])(
@@ -763,7 +775,8 @@ describe("World Plan conversation consumer", () => {
       mounted.unmount();
       render(conversationElement());
       await screen.findByRole("button", { name: "Retry saved Ask" });
-      const clearEvents = capturePendingAskClearedEvents();
+      const clearEvents = capturePendingAskEvents(pendingAskClearedEventName);
+      const acceptedEvents = capturePendingAskEvents(pendingAskAcceptedEventName);
 
       await act(async () => {
         if (firstOutcome === "network rejection") {
@@ -779,6 +792,7 @@ describe("World Plan conversation consumer", () => {
       expect(pendingAskKeys()).toEqual([storageKey]);
       expect(postAsk).toHaveBeenCalledTimes(1);
       expect(clearEvents).toHaveLength(0);
+      expect(acceptedEvents).toHaveLength(0);
       expect(screen.getByRole("button", { name: "Retry saved Ask" })).toBeInTheDocument();
 
       fireEvent.click(screen.getByRole("button", { name: "Retry saved Ask" }));
@@ -788,6 +802,7 @@ describe("World Plan conversation consumer", () => {
       expect(pendingAskKeys()).toEqual([]);
       expect(localStorage.getItem(storageKey)).toBeNull();
       expect(clearEvents).toHaveLength(1);
+      expect(acceptedEvents).toHaveLength(0);
     },
   );
 
