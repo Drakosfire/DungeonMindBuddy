@@ -180,16 +180,17 @@ lease is released. The inherited UI typecheck failure at
   current concrete adapter behind the existing seam. It must never redispatch
   an authorized/unknown attempt or expose the raw execution ledger.
   #917 remains prototype evidence only; it is not a predecessor or code source.
-  #914's visual hold is independent. PRIME reports scoped APP-STATE acceptance
-  at local ref `7a8365a5a354e9d3c85e788112f7904f1e517cce` (publication approval
-  pending) and SERVER acceptance at PR #926 head
-  `746711815577e022e6961b32c135395e00d36531`. DEMO's mounted history test now
-  consumes a body emitted by SERVER's actual v2 history projection/serializer
-  using the APP-STATE execution types from that exact ref; it renders grounded
-  status, citation, and completed/no-redispatch guidance. This is a joined
-  wire-shape witness, not persisted runtime integration. Producer publication,
-  merge, live/provider behavior and rollout remain gated; the fixture uses no
-  live Graph, provider, service or database.
+  #914's visual hold is independent. APP-STATE contract #928 and implementation
+  #929 merged in order at `38ba7b1dcdde44508f123b606d156d2b381f4522` and
+  `940bfbf890064de96c4cd845850d4b5018869b61`; the merged implementation head
+  `b757d7236fafb27a4d8da70d7b6b1066c6e72010` is tree-identical to accepted ref
+  `7a8365a5a354e9d3c85e788112f7904f1e517cce` and passed 62 PostgreSQL tests.
+  SERVER #926 merged at `711b652399c2298da5bd6db34f77dcb6a488e212`, then the
+  target/history correction #930 merged at `3bb57f8288c54090ee5b7aba36d6de4186b4e790`.
+  DEMO's mounted history fixtures separately cover the execution sidecar and
+  card-A target/citation projection. Producer code and persistence have merged;
+  live provider/Graph behavior, connected acceptance and rollout remain open.
+  The fixtures use no live Graph, provider, service or database.
 - #887 remains DOGFOOD's prototype-only evidence lane. Its private corpus,
   media, and state snapshots are not production data or sources to copy.
 - #869, head `23d76f4d4f4f223b62067024e152e8cb2dde37b8`, remains
@@ -273,12 +274,12 @@ PR #917 remains prototype evidence, not a production prerequisite or code predec
 
 **Current capability priority:** Graph-backed World conversation through Buddy's runtime-neutral Agent Harness integration is the first production capability, ahead of focused-card prepare/run, durable Run state, multimedia and further presentation expansion. The contract covers conversation execution, tools/context, authorization, lifecycle, evidence, and replay. Hermes is the current concrete adapter behind the existing seam. The synthetic DEMO consumer is ACTIVE on deterministic fixtures against the accepted wire contract. It proves request, response/history, citations and recovery presentation only; parent-brokered traversal through the current Hermes adapter and connected acceptance remain producer-owned evidence. The integrated witness must record admitted evidence and exact Plan/Graph basis in the canonical conversation, then survive navigation and replay without duplicate provider work. Retain compact typed citations and disclose that source content was not opened. Source opening and governed Graph writes remain later slices.
 
-**SERVER candidate review settlement (2026-10-05):** The earlier review finding applied to stale #926 head `be94f4ea3e0c06c50b97e91bf58937c22b9b8902`; the current candidate is `746711815577e022e6961b32c135395e00d36531`. PRIME accepted the current candidate after review, including tests for later parent-brokered function-output membership and the typed `plan_context_failure` pre-dispatch response. The joined DEMO fixture consumes the serialized history projection; it does not prove producer execution or membership on its own. APP-STATE's exact implementation at local head `7a8365a5a354e9d3c85e788112f7904f1e517cce` passed 62 PostgreSQL tests and was accepted by PRIME, but publication remains paused pending the operator's direct response to the automatic-review block. These accepted code and test boundaries do not represent merged dependency settlement or production rollout; those remain pending.
+**SERVER and APP-STATE producer settlement (2026-10-05):** PRIME accepted SERVER #926 at head `746711815577e022e6961b32c135395e00d36531`; #926 merged at `711b652399c2298da5bd6db34f77dcb6a488e212`, including later parent-brokered function-output membership and typed `plan_context_failure`. SERVER #930's card-target/history consistency correction merged at `3bb57f8288c54090ee5b7aba36d6de4186b4e790`. APP-STATE contract #928 and implementation #929 merged at `38ba7b1dcdde44508f123b606d156d2b381f4522` and `940bfbf890064de96c4cd845850d4b5018869b61`; #929's merged tree `b757d7236fafb27a4d8da70d7b6b1066c6e72010` is tree-identical to accepted ref `7a8365a5a354e9d3c85e788112f7904f1e517cce` and passed 62 PostgreSQL tests. These merges settle producer implementation and persistence code; DEMO's joined fixtures remain serialized consumer evidence, not live provider/Graph execution, connected acceptance, or rollout.
 
 **DEMO history projection settlement (2026-10-05):** Buddy #926 merged at
 `711b652399c2298da5bd6db34f77dcb6a488e212`, then SERVER #930 merged at
-`3bb57f8288c54090ee5b7aba36d6de4186b4e790`. DEMO #925 remains open at its
-prior `6319ff3` base and is re-anchored onto this current main. The exact
+`3bb57f8288c54090ee5b7aba36d6de4186b4e790`. DEMO #925 remains open on current
+base `main@3bb57f8288c54090ee5b7aba36d6de4186b4e790`. The exact
 FastAPI history body emitted by reviewed #930 head
 `e232984385b3bbc08bf82e6fcb692aa9aa778999` binds card A in both receipt and durable
 provenance and retains the cited Graph completion. DEMO mounts that unchanged
