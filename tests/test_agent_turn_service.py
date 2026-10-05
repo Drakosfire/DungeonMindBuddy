@@ -76,19 +76,24 @@ def test_graph_operation_membership_requires_exact_typed_function_output() -> No
         "name": "expand_graph_retrieval", "arguments": "{}",
     }
     output = {"type": "function_call_output", "call_id": "call-1", "output": payload}
-    assert _included_graph_operation_payloads({"input": [call, output]}) == {payload}
+    assert _included_graph_operation_payloads({"input": [call, output]}) == [payload]
     assert _included_graph_operation_payloads({
         "input": [{"role": "user", "content": payload}],
-    }) == set()
+    }) == []
     assert _included_graph_operation_payloads({
         "input": [call, {**output, "output": payload + " altered"}],
-    }) == {payload + " altered"}
+    }) == [payload + " altered"]
     assert _included_graph_operation_payloads({
         "input": [{**call, "name": "other_tool"}, output],
-    }) == set()
+    }) == []
     assert _included_graph_operation_payloads({
         "input": [call, {**output, "call_id": "wrong"}],
-    }) == set()
+    }) == []
+    assert _included_graph_operation_payloads({"input": [
+        call, output,
+        {**call, "call_id": "call-2"},
+        {**output, "call_id": "call-2"},
+    ]}) == [payload, payload]
 
 
 def test_explicit_plan_context_policy_is_fingerprinted_as_submitted_intent_v2() -> None:
@@ -750,7 +755,8 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     assert fake.authorize_count == 1
     assert adapter.record_lifecycle({"transition": "sdk_entered"}) is True
     assert adapter.record_lifecycle({"transition": "response_received"}) is True
-    turn = adapter.stop()
+    assert adapter.fence is not None
+    turn = adapter.fence.turn
     assert turn is not None
     assert adapter.producing_provider_attempt_id is not None
     assert turn.graph_context_receipt is not None
@@ -766,6 +772,66 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     assert completion.answer_context_status == "plan_only_insufficient_evidence"
     assert bindings == {}
     assert answer == "The keeper waits."
+
+    duplicate_payload = '{"schema":"dmb_world_graph_retrieval_result_v1","claim":"same"}'
+    operation_event = graph_types.ValidatedGraphOperationEventV1(
+        event_id=uuid4(), sequence=len(turn.graph_context_execution.events),
+        kind="validated_graph_operation", operation_id=uuid4(),
+        operation="expand_graph_retrieval",
+        request_arguments_sha256=sha256(b"{}").hexdigest(),
+        graph_revision="graph-revision-3",
+        result_packet_sha256=sha256(duplicate_payload.encode()).hexdigest(),
+        assertion_ids=[], relationship_ids=["rel:one"],
+        evidence_ref_ids=["ev:one"],
+        evidence_sufficiency_status="sufficient", coverage_status="complete",
+        truncated=False, source_opened=False,
+    )
+    turn, fresh = adapter.fence.append(
+        "append_validated_graph_operation", "operation_event", operation_event,
+    )
+    assert fresh is True
+    adapter.operation_payloads[operation_event.event_id] = duplicate_payload
+    repeated_body = json.loads(payload_json)
+    repeated_body["input"].extend([
+        {"type": "function_call", "call_id": "call-a", "name": "expand_graph_retrieval", "arguments": "{}"},
+        {"type": "function_call_output", "call_id": "call-a", "output": duplicate_payload},
+        {"type": "function_call", "call_id": "call-b", "name": "expand_graph_retrieval", "arguments": "{}"},
+        {"type": "function_call_output", "call_id": "call-b", "output": duplicate_payload},
+    ])
+    repeated_json = json.dumps(repeated_body, sort_keys=True, separators=(",", ":"))
+    repeated_view = {
+        **view, "payloadJson": repeated_json,
+        "payloadSha256": sha256(repeated_json.encode()).hexdigest(),
+        "payloadUtf8Bytes": len(repeated_json.encode()),
+    }
+    assert adapter.authorize(repeated_view) is True
+    latest_attempt = adapter.fence.turn.graph_context_execution.events[-1]
+    assert latest_attempt.kind == "provider_attempt_authorized"
+    assert latest_attempt.included_graph_event_ids == []
+    assert latest_attempt.included_relationship_ids == []
+    assert latest_attempt.included_evidence_ref_ids == []
+    assert adapter.record_lifecycle({"transition": "sdk_entered"}) is True
+    assert adapter.record_lifecycle({"transition": "response_received"}) is True
+    duplicate_graph_answer = json.dumps({
+        "answer_context_status": "graph_grounded",
+        "answer_segments": [{
+            "kind": "graph_claim", "claim_id": "rel:one", "text": "A claim.",
+            "target_kind": "relationship", "target_id": "rel:one",
+            "graph_revision": "graph-revision-3", "evidence_ref_ids": ["ev:one"],
+        }],
+        "citation_map": {"entries": [{
+            "claim_id": "rel:one", "target_kind": "relationship",
+            "target_id": "rel:one", "graph_revision": "graph-revision-3",
+            "evidence_ref_ids": ["ev:one"], "source_opened": False,
+        }]},
+    })
+    with pytest.raises(AgentTurnServiceError) as duplicate_rejected:
+        service_module._parse_policy_completion(
+            duplicate_graph_answer, adapter.fence.turn,
+            adapter.producing_provider_attempt_id,
+        )
+    assert duplicate_rejected.value.code == "answer_validation_failed"
+    adapter.stop()
 
     fake = FakeExecutionPort()
 

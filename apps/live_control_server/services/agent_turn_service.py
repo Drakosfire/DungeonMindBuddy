@@ -289,13 +289,13 @@ def _nested_text_values(value: Any) -> list[str]:
     return []
 
 
-def _included_graph_operation_payloads(body: Mapping[str, Any]) -> set[str]:
+def _included_graph_operation_payloads(body: Mapping[str, Any]) -> list[str]:
     """Read only matched Responses function outputs from the final request."""
     items = body.get("input")
     if not isinstance(items, list):
-        return set()
+        return []
     calls: dict[str, str] = {}
-    outputs: set[str] = set()
+    outputs: list[str] = []
     seen_outputs: set[str] = set()
     for item in items:
         if not isinstance(item, Mapping):
@@ -304,7 +304,7 @@ def _included_graph_operation_payloads(body: Mapping[str, Any]) -> set[str]:
         call_id = item.get("call_id")
         if kind == "function_call":
             if not isinstance(call_id, str) or not call_id or call_id in calls:
-                return set()
+                return []
             calls[call_id] = str(item.get("name") or "")
         elif kind == "function_call_output":
             if (
@@ -313,9 +313,9 @@ def _included_graph_operation_payloads(body: Mapping[str, Any]) -> set[str]:
                 or calls.get(call_id) != "expand_graph_retrieval"
                 or not isinstance(item.get("output"), str)
             ):
-                return set()
+                return []
             seen_outputs.add(call_id)
-            outputs.add(item["output"])
+            outputs.append(item["output"])
     return outputs
 
 
@@ -985,7 +985,7 @@ class _PolicyExecutionAdapter:
                 and (
                     payload := self.operation_payloads.get(event.event_id)
                 ) is not None
-                and payload in included_payloads
+                and included_payloads.count(payload) == 1
                 and sum(
                     known == payload for known in self.operation_payloads.values()
                 ) == 1
