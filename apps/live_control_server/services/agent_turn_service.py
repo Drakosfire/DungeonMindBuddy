@@ -1985,6 +1985,12 @@ def _validate_policy_turn_record(
             code="turn_receipt_unverifiable",
             status_code=409,
         )
+    if receipt.playable_target != _stored_plan_playable_target(provenance):
+        raise AgentTurnServiceError(
+            "The stored Plan Graph target does not match its historical turn provenance.",
+            code="turn_receipt_unverifiable",
+            status_code=409,
+        )
     if turn.status == "completed":
         if turn.completion is None or turn.assistant_text is None:
             raise AgentTurnServiceError(
