@@ -44,6 +44,13 @@ def verify_candidate(output):
     for rel,expected in receipt['files'].items():
         path=output/rel
         if not path.resolve().is_relative_to(output.resolve()) or digest(path)!=expected:raise ValueError('Candidate file changed: '+rel)
+    board=json.loads((output/'source/board.json').read_text())
+    prefix='/private/'+board['id']+'/'
+    for asset in board.get('assets',[]):
+        if not asset['url'].startswith(prefix):raise ValueError('Asset belongs to another source')
+        name=asset['url'][len(prefix):]
+        if not name or Path(name).name!=name:raise ValueError('Asset path must be a selected local file')
+        if receipt['files'].get('source/'+name)!=asset['hash']:raise ValueError('Candidate receipt omits or mismatches declared asset')
     return receipt
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
