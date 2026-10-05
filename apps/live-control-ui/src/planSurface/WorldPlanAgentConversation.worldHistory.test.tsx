@@ -1398,3 +1398,31 @@ describe("World Plan conversation consumer", () => {
     });
   });
 });
+
+it("requires a current bounded context preview before prototype Send", async () => {
+  window.history.replaceState(null, "", "?prototype=focused");
+  try {
+    setupApi(history(null, 0, []));
+    const preview = vi.spyOn(liveApi, "previewWorldPlanContext").mockImplementation(async request => ({
+      message: request.message, characters: request.plan_context_mode === "whole_plan" ? 50312 : request.message.length,
+      max_characters: 8000, within_budget: request.plan_context_mode !== "whole_plan", mode: request.plan_context_mode!,
+      content_basis: { content_sha256: contentSha256, object_revision: 7, revision_n: 1 },
+    }));
+    const post = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async request => agentResponse(request, "conversation-one", "Test received") as any);
+    mountComponent(7, { capture: vi.fn(), apply: vi.fn() }, { kind: "scene", id: "scene:opening" });
+    await screen.findByText(/No messages here yet/i);
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Test" } });
+    fireEvent.change(screen.getByLabelText("Context", { exact: true }), { target: { value: "message_only" } });
+    expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Preview context" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Send message" })).toBeEnabled());
+    expect(preview.mock.calls[0]![0].plan_context_mode).toBe("message_only");
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Changed" } });
+    expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Context", { exact: true }), { target: { value: "whole_plan" } });
+    fireEvent.click(screen.getByRole("button", { name: "Preview context" }));
+    await screen.findByText(/exceeds the current transport budget/);
+    expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
+    expect(post).not.toHaveBeenCalled();
+  } finally { window.history.replaceState(null, "", "/"); }
+});

@@ -1399,7 +1399,6 @@ export function WorldPlanAgentConversation({
           || verifiedPreview.content_basis.content_sha256 !== contextPreview.value.content_basis.content_sha256) {
           throw new Error("Context changed or exceeds the budget. Preview again before sending.");
         }
-        window.localStorage.setItem(`dmb-plan-context-receipt:${request.turn_id}`, JSON.stringify({ mode: contextMode, characters: verifiedPreview.characters, revision, contentSha256: verifiedPreview.content_basis.content_sha256 }));
       }
       const origin: WorldPlanPendingAskOrigin = {
         worldId,
@@ -2231,7 +2230,6 @@ export function WorldPlanAgentConversation({
               ) : null;
             })()}
             <p><strong>You:</strong> {event.turn.user_text}</p>
-            {focusedPrototype && <LocalContextReceipt turnId={event.turn.turn_id} />}
             {event.turn.assistant_text ? (
               <p><strong>DungeonBuddy:</strong> {event.turn.assistant_text}</p>
             ) : (
@@ -2413,14 +2411,4 @@ export function WorldPlanAgentConversation({
     </section>,
     askSlot.hostElement,
   );
-}
-
-
-function LocalContextReceipt({ turnId }: { turnId: string }) {
-  try {
-    const raw = window.localStorage.getItem(`dmb-plan-context-receipt:${turnId}`);
-    if (!raw) return null;
-    const receipt = JSON.parse(raw);
-    return <details><summary>Context used · local receipt</summary><p>{receipt.mode} · {receipt.characters} characters · saved revision {receipt.revision}</p><small>Plan digest: {receipt.contentSha256}</small></details>;
-  } catch { return null; }
 }
