@@ -998,13 +998,16 @@ def _request_budget_guard(policy: Mapping[str, Any]) -> Callable[[Any], bool]:
     context_limit = int(policy["contextLimitTokens"])
     output_reserve = int(policy["outputReserveTokens"])
 
+    protocol_by_provider = {
+        "openai-api": frozenset({"codex_responses", "chat_completions"}),
+    }
+
     def allow(view: Any) -> bool:
         if (
             view.provider != expected_provider
             or view.model != expected_model
             or view.api_mode != expected_mode
-            or expected_provider != "openai"
-            or expected_mode not in {"codex_responses", "chat_completions"}
+            or expected_mode not in protocol_by_provider.get(expected_provider, ())
             or expected_estimator != "utf8_json_bytes_plus_64_per_node_v1"
         ):
             return False
@@ -1014,59 +1017,202 @@ def _request_budget_guard(policy: Mapping[str, Any]) -> Callable[[Any], bool]:
             return False
         if not isinstance(payload, dict) or payload.get("model") != expected_model:
             return False
-        media_keys = {
-            "image",
-            "image_url",
-            "input_image",
-            "audio",
-            "input_audio",
-            "video",
-            "video_url",
-            "file",
-            "file_id",
-        }
-
-        def inspect_json(value: Any) -> tuple[bool, int]:
+        def count_nodes(value: Any) -> int:
             if isinstance(value, dict):
-                if any(key in media_keys for key in value):
-                    return False, 0
-                count = 1
-                for item in value.values():
-                    valid, child_count = inspect_json(item)
-                    if not valid:
-                        return False, 0
-                    count += child_count
-                return True, count
+                return 1 + sum(count_nodes(item) for item in value.values())
             if isinstance(value, list):
-                count = 1
-                for item in value:
-                    valid, child_count = inspect_json(item)
-                    if not valid:
-                        return False, 0
-                    count += child_count
-                return True, count
-            if value is None or isinstance(value, (str, bool, int, float)):
-                return True, 0
-            return False, 0
+                return 1 + sum(count_nodes(item) for item in value)
+            return 0
 
-        valid_payload, protocol_nodes = inspect_json(payload)
-        if not valid_payload or protocol_nodes > 100_000:
-            return False
-        tools = payload.get("tools", [])
-        if not isinstance(tools, list):
-            return False
+        def text_content(value: Any, *, allowed_types: frozenset[str]) -> bool:
+            if isinstance(value, str):
+                return True
+            return isinstance(value, list) and all(
+                isinstance(part, dict)
+                and set(part) == {"type", "text"}
+                and part.get("type") in allowed_types
+                and isinstance(part.get("text"), str)
+                for part in value
+            )
+
+        def valid_function_tool(tool: Any, *, responses: bool) -> bool:
+            if not isinstance(tool, dict):
+                return False
+            if responses:
+                return (
+                    set(tool) <= {"type", "name", "description", "parameters", "strict"}
+                    and tool.get("type") == "function"
+                    and isinstance(tool.get("name"), str)
+                    and isinstance(tool.get("parameters"), dict)
+                    and ("description" not in tool or isinstance(tool["description"], str))
+                    and ("strict" not in tool or isinstance(tool["strict"], bool))
+                )
+            if set(tool) != {"type", "function"} or tool.get("type") != "function":
+                return False
+            function = tool.get("function")
+            return (
+                isinstance(function, dict)
+                and set(function) <= {"name", "description", "parameters", "strict"}
+                and isinstance(function.get("name"), str)
+                and isinstance(function.get("parameters"), dict)
+                and ("description" not in function or isinstance(function["description"], str))
+                and ("strict" not in function or isinstance(function["strict"], bool))
+            )
+
+        def valid_responses_input(inputs: Any) -> bool:
+            if isinstance(inputs, str):
+                return True
+            if not isinstance(inputs, list):
+                return False
+            for item in inputs:
+                if not isinstance(item, dict):
+                    return False
+                kind = item.get("type", "message")
+                if kind == "message":
+                    if set(item) - {"type", "role", "content", "status"}:
+                        return False
+                    if item.get("role") not in {"system", "developer", "user", "assistant"}:
+                        return False
+                    if not text_content(item.get("content"), allowed_types=frozenset({"input_text", "output_text"})):
+                        return False
+                elif kind == "function_call":
+                    if set(item) - {"type", "call_id", "name", "arguments", "id", "status"}:
+                        return False
+                    if not all(isinstance(item.get(key), str) for key in ("call_id", "name", "arguments")):
+                        return False
+                elif kind == "function_call_output":
+                    if set(item) - {"type", "call_id", "output"}:
+                        return False
+                    if not isinstance(item.get("call_id"), str) or not text_content(item.get("output"), allowed_types=frozenset({"input_text", "output_text"})):
+                        return False
+                else:
+                    return False
+            return True
+
+        def valid_chat_messages(messages: Any) -> bool:
+            if not isinstance(messages, list):
+                return False
+            for item in messages:
+                if not isinstance(item, dict):
+                    return False
+                role = item.get("role")
+                if role in {"system", "developer", "user"}:
+                    if set(item) - {"role", "content", "name"} or not text_content(
+                        item.get("content"), allowed_types=frozenset({"text"})
+                    ):
+                        return False
+                elif role == "assistant":
+                    if set(item) - {"role", "content", "name", "tool_calls", "refusal"}:
+                        return False
+                    if "content" in item and not text_content(
+                        item["content"], allowed_types=frozenset({"text"})
+                    ):
+                        return False
+                    calls = item.get("tool_calls", [])
+                    if not isinstance(calls, list):
+                        return False
+                    for call in calls:
+                        if (
+                            not isinstance(call, dict)
+                            or set(call) != {"id", "type", "function"}
+                            or call.get("type") != "function"
+                            or not isinstance(call.get("id"), str)
+                        ):
+                            return False
+                        function = call.get("function")
+                        if (
+                            not isinstance(function, dict)
+                            or set(function) != {"name", "arguments"}
+                            or not isinstance(function.get("name"), str)
+                            or not isinstance(function.get("arguments"), str)
+                        ):
+                            return False
+                elif role == "tool":
+                    if set(item) - {"role", "content", "tool_call_id"} or not isinstance(
+                        item.get("tool_call_id"), str
+                    ) or not isinstance(item.get("content"), str):
+                        return False
+                else:
+                    return False
+            return True
+
         if expected_mode == "codex_responses":
+            allowed_root = {
+                "model", "input", "instructions", "tools", "tool_choice",
+                "parallel_tool_calls", "max_output_tokens", "stream", "store",
+                "include", "reasoning", "prompt_cache_key",
+            }
+            if set(payload) - allowed_root:
+                return False
             inputs = payload.get("input")
             actual_output = payload.get("max_output_tokens")
-            if not isinstance(inputs, (str, list)):
+            if not valid_responses_input(inputs):
+                return False
+            if "instructions" in payload and not isinstance(payload["instructions"], str):
+                return False
+            if "include" in payload and (
+                not isinstance(payload["include"], list)
+                or any(value not in {"reasoning.encrypted_content"} for value in payload["include"])
+            ):
+                return False
+            if "reasoning" in payload and (
+                not isinstance(payload["reasoning"], dict)
+                or set(payload["reasoning"]) - {"effort", "summary"}
+            ):
+                return False
+            if payload.get("store", False) is not False:
+                return False
+            if "tool_choice" in payload and not (
+                isinstance(payload["tool_choice"], str)
+                and payload["tool_choice"] in {"auto", "none", "required"}
+            ) and not (
+                isinstance(payload["tool_choice"], dict)
+                and payload["tool_choice"].get("type") == "function"
+                and set(payload["tool_choice"]) == {"type", "name"}
+                and isinstance(payload["tool_choice"].get("name"), str)
+            ):
+                return False
+            tools = payload.get("tools", [])
+            if not isinstance(tools, list) or not all(
+                valid_function_tool(tool, responses=True) for tool in tools
+            ):
                 return False
         else:
+            allowed_root = {
+                "model", "messages", "tools", "tool_choice", "parallel_tool_calls",
+                "max_tokens", "max_completion_tokens", "temperature", "top_p",
+                "stop", "stream", "reasoning_effort", "seed",
+            }
+            if set(payload) - allowed_root:
+                return False
             messages = payload.get("messages")
             if "max_completion_tokens" in payload and "max_tokens" in payload:
                 return False
             actual_output = payload.get("max_completion_tokens", payload.get("max_tokens"))
-            if not isinstance(messages, list) or any(not isinstance(item, dict) for item in messages):
+            if not valid_chat_messages(messages):
                 return False
+            tools = payload.get("tools", [])
+            if not isinstance(tools, list) or not all(
+                valid_function_tool(tool, responses=False) for tool in tools
+            ):
+                return False
+            if "tool_choice" in payload and not (
+                isinstance(payload["tool_choice"], str)
+                and payload["tool_choice"] in {"auto", "none", "required"}
+            ) and not (
+                isinstance(payload["tool_choice"], dict)
+                and set(payload["tool_choice"]) == {"type", "function"}
+                and payload["tool_choice"].get("type") == "function"
+                and isinstance(payload["tool_choice"].get("function"), dict)
+                and set(payload["tool_choice"]["function"]) == {"name"}
+                and isinstance(payload["tool_choice"]["function"].get("name"), str)
+            ):
+                return False
+        for key in ("stream", "parallel_tool_calls"):
+            if key in payload and not isinstance(payload[key], bool):
+                return False
+        if count_nodes(payload) > 100_000:
+            return False
         if (
             isinstance(actual_output, bool)
             or not isinstance(actual_output, int)
@@ -1078,7 +1224,7 @@ def _request_budget_guard(policy: Mapping[str, Any]) -> Callable[[Any], bool]:
         # tool schemas. Treat each UTF-8 byte as a conservative content-token
         # ceiling and reserve additional protocol framing per input/tool item.
         # This is explicitly an upper-bound guard, not an exact token count.
-        input_upper_bound = view.payload_utf8_bytes + 64 * (1 + protocol_nodes)
+        input_upper_bound = view.payload_utf8_bytes + 64 * (1 + count_nodes(payload))
         return input_upper_bound + output_reserve <= context_limit
 
     return allow
@@ -1476,6 +1622,11 @@ def run_hermes_graph_agent_turn(
                             model=model,
                             base_url=base_url,
                             **(
+                                {"max_tokens": request.request_budget["outputReserveTokens"]}
+                                if request.request_budget is not None
+                                else {}
+                            ),
+                            **(
                                 {"session_db": session_db}
                                 if session_db is not None
                                 else {}
@@ -1571,20 +1722,35 @@ def run_hermes_graph_agent_turn(
                         tool_events=collector.events,
                     )
 
-                if raw.get("failure_code") == "request_budget_exceeded":
+                request_budget_failure_codes = {
+                    "request_budget_exceeded",
+                    "request_budget_guard_invalid",
+                    "request_budget_guard_error",
+                }
+                if raw.get("failure_reason") == "request_budget_veto" and raw.get(
+                    "failure_code"
+                ) in request_budget_failure_codes:
                     request_id = raw.get("api_request_id")
                     api_observer.discard_pre_dispatch_veto(
                         request_id if isinstance(request_id, str) else ""
                     )
-                    return observed_error(
+                    failure_code = str(raw["failure_code"])
+                    prior_calls, prior_warnings = api_observer.finish()
+                    prior_attempts = bool(prior_calls)
+                    return _error_result(
                         hermes_session_id=session_id,
-                        error_code="request_budget_exceeded",
+                        error_code=failure_code,
                         error_message=(
-                            "The provider request exceeded the configured local budget; "
-                            "no inference request was dispatched."
+                            "The current provider request was denied before dispatch by "
+                            "the local request-budget guard."
+                            if not prior_attempts
+                            else "The current provider request was denied before dispatch; "
+                            "one or more earlier provider attempts occurred."
                         ),
                         messages=[dict(item) for item in messages if isinstance(item, Mapping)],
                         tool_events=collector.events,
+                        model_calls=prior_calls,
+                        telemetry_warnings=prior_warnings,
                     )
 
                 final_response = raw.get("final_response")

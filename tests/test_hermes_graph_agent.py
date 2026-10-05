@@ -587,6 +587,15 @@ def test_explicit_conversation_only_worker_turn_has_no_graph_or_tools(
             campaign_id=None,
             scope_mode=None,
             capability_policy=default_conversation_only_capability_policy(),
+            request_budget={
+                "schema": "dmb_hermes_request_budget_policy_v1",
+                "provider": "openai-api",
+                "model": "synthetic-model",
+                "apiMode": "chat_completions",
+                "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+                "contextLimitTokens": 32768,
+                "outputReserveTokens": 1536,
+            },
             session_id="conversation-only-session",
             root=tmp_path,
         ),
@@ -597,6 +606,7 @@ def test_explicit_conversation_only_worker_turn_has_no_graph_or_tools(
     assert result.answer_scope is None
     assert result.tool_events == []
     assert ConversationAgent.init.get("enabled_toolsets") == []
+    assert ConversationAgent.init.get("max_tokens") == 1536
     prompt = str(ConversationAgent.init.get("ephemeral_system_prompt") or "")
     assert "No graph retrieval is performed on this turn" in prompt
     assert "historical graph-derived statements" in prompt
@@ -2354,7 +2364,7 @@ def test_request_budget_guard_bounds_full_openai_request_and_output_reserve():
     request_bytes = len(encoded.encode("utf-8"))
     input_upper_bound = request_bytes + 64 * (1 + count_nodes(payload))
     policy = {
-        "provider": "openai",
+        "provider": "openai-api",
         "model": "synthetic-model",
         "apiMode": "chat_completions",
         "estimator": "utf8_json_bytes_plus_64_per_node_v1",
@@ -2362,7 +2372,7 @@ def test_request_budget_guard_bounds_full_openai_request_and_output_reserve():
         "outputReserveTokens": 2048,
     }
     view = SimpleNamespace(
-        provider="openai",
+        provider="openai-api",
         model="synthetic-model",
         api_mode="chat_completions",
         payload_json=encoded,
@@ -2379,20 +2389,20 @@ def test_request_budget_guard_accepts_codex_responses_envelope():
     payload = {
         "model": "synthetic-model",
         "instructions": "Use the available graph tools.",
-        "input": [{"role": "user", "content": "question"}],
-        "tools": [],
+        "input": [{"type": "message", "role": "user", "content": [{"type": "input_text", "text": "question"}]}],
+        "tools": [{"type": "function", "name": "expand_graph", "parameters": {"type": "object"}}],
         "max_output_tokens": 100,
     }
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     view = SimpleNamespace(
-        provider="openai",
+        provider="openai-api",
         model="synthetic-model",
         api_mode="codex_responses",
         payload_json=encoded,
         payload_utf8_bytes=len(encoded.encode("utf-8")),
     )
     policy = {
-        "provider": "openai",
+        "provider": "openai-api",
         "model": "synthetic-model",
         "apiMode": "codex_responses",
         "estimator": "utf8_json_bytes_plus_64_per_node_v1",
@@ -2408,6 +2418,11 @@ def test_request_budget_guard_accepts_codex_responses_envelope():
         ({"provider": "other"}, {}),
         ({"apiMode": "unknown"}, {}),
         ({}, {"messages": [{"role": "user", "content": [{"type": "input_image", "image_url": "x"}]}]}),
+        ({}, {"messages": [{"role": "user", "content": [{"type": "input_file", "file_id": "file-x"}]}]}),
+        ({}, {"messages": [{"role": "user", "content": [{"type": "text_blob", "text": "x"}]}]}),
+        ({}, {"previous_response_id": "resp_remote"}),
+        ({}, {"tools": [{"type": "web_search_preview"}]}),
+        ({}, {"unknown_extension": True}),
         ({}, {"max_completion_tokens": True}),
     ],
 )
@@ -2423,14 +2438,14 @@ def test_request_budget_guard_fails_closed_for_unknown_accounting(
     payload.update(payload_change)
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     view = SimpleNamespace(
-        provider="openai",
+        provider="openai-api",
         model="synthetic-model",
         api_mode="chat_completions",
         payload_json=encoded,
         payload_utf8_bytes=len(encoded.encode("utf-8")),
     )
     policy: dict[str, Any] = {
-        "provider": "openai",
+        "provider": "openai-api",
         "model": "synthetic-model",
         "apiMode": "chat_completions",
         "estimator": "utf8_json_bytes_plus_64_per_node_v1",
@@ -2441,6 +2456,75 @@ def test_request_budget_guard_fails_closed_for_unknown_accounting(
     assert _request_budget_guard(policy)(view) is False
 
 
+@pytest.mark.parametrize(
+    ("base_url", "model", "expected_mode"),
+    [
+        ("http://127.0.0.1:9/v1", "synthetic-model", "chat_completions"),
+        ("https://api.openai.com/v1", "gpt-6-luna", "codex_responses"),
+    ],
+)
+def test_request_budget_guard_accepts_actual_buddy_provider_protocol(
+    base_url: str,
+    model: str,
+    expected_mode: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    hermes_home = tmp_path / "hermes-home"
+    hermes_home.mkdir()
+    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    with hermes_import_namespace():
+        run_agent = importlib.import_module("run_agent")
+        with patch("run_agent.OpenAI"):
+            agent = run_agent.AIAgent(
+                api_key="synthetic-test-key",
+                base_url=base_url,
+                provider="openai-api",
+                model=model,
+                max_tokens=100,
+                max_iterations=1,
+                enabled_toolsets=[],
+                quiet_mode=True,
+                skip_context_files=True,
+                skip_memory=True,
+            )
+        assert agent.provider == "openai-api"
+        assert agent.api_mode == expected_mode
+        if expected_mode == "chat_completions":
+            body = {
+                "model": agent.model,
+                "messages": [{"role": "user", "content": "question"}],
+                "max_tokens": agent.max_tokens,
+                "tools": [],
+            }
+        else:
+            body = {
+                "model": agent.model,
+                "instructions": "Answer from the admitted Graph packet.",
+                "input": [{"role": "user", "content": [{"type": "input_text", "text": "question"}]}],
+                "max_output_tokens": agent.max_tokens,
+                "tools": [],
+            }
+        budget_module = importlib.import_module("agent.api_request_budget")
+        view = budget_module.build_api_request_budget_view(
+            provider=agent.provider,
+            model=agent.model,
+            api_mode=agent.api_mode,
+            base_url=agent.base_url,
+            request=body,
+        )
+    assert _request_budget_guard(
+        {
+            "provider": "openai-api",
+            "model": model,
+            "apiMode": expected_mode,
+            "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+            "contextLimitTokens": 100_000,
+            "outputReserveTokens": 100,
+        }
+    )(view)
+
+
 def test_pre_dispatch_veto_is_not_reported_as_a_provider_inference_call():
     observer = _ApiObserverCollector()
     observer.on_pre_api_request(api_request_id="turn:api:1", model="synthetic-model")
@@ -2449,3 +2533,74 @@ def test_pre_dispatch_veto_is_not_reported_as_a_provider_inference_call():
     calls, warnings = observer.finish()
     assert calls == []
     assert warnings == []
+
+
+@pytest.mark.parametrize(
+    "failure_code",
+    [
+        "request_budget_exceeded",
+        "request_budget_guard_invalid",
+        "request_budget_guard_error",
+    ],
+)
+def test_budget_veto_family_maps_at_public_result_and_preserves_prior_attempt(
+    failure_code: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    request_id = "turn-budget:api:1"
+    original_register = _ApiObserverCollector.register
+
+    def register_with_prior_attempt(self, plugin_manager):
+        original_register(self, plugin_manager)
+        pre = _observer_payload(api_request_id=request_id, turn_id="turn-budget", kind="pre")
+        self.on_pre_api_request(**pre)
+        self.on_api_request_error(
+            **_observer_payload(api_request_id=request_id, turn_id="turn-budget", kind="error")
+        )
+        # Hermes reuses api_request_id for an internal retry. The later attempt
+        # has a new pre-hook, which the terminal veto must discard.
+        self.on_pre_api_request(**pre)
+
+    monkeypatch.setattr(_ApiObserverCollector, "register", register_with_prior_attempt)
+
+    class VetoAgent:
+        def __init__(self, **kwargs):
+            self.session_id = kwargs.get("session_id")
+
+        def run_conversation(self, user_message, **_kwargs):
+            assert user_message == "Continue the bounded conversation."
+            return {
+                "messages": [],
+                "failure_reason": "request_budget_veto",
+                "failure_code": failure_code,
+                "api_request_id": request_id,
+                "api_calls": 1,
+            }
+
+    result = run_hermes_graph_agent_turn(
+        HermesGraphAgentTurnRequest(
+            question="Continue the bounded conversation.",
+            world_id=None,
+            campaign_id=None,
+            scope_mode=None,
+            capability_policy=default_conversation_only_capability_policy(),
+            request_budget={
+                "schema": "dmb_hermes_request_budget_policy_v1",
+                "provider": "openai-api",
+                "model": "synthetic-model",
+                "apiMode": "chat_completions",
+                "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+                "contextLimitTokens": 32768,
+                "outputReserveTokens": 1024,
+            },
+            root=tmp_path,
+        ),
+        agent_factory=VetoAgent,
+    )
+    assert result.status == "error"
+    assert result.error_code == failure_code
+    assert "earlier provider attempts occurred" in result.error_message
+    assert len(result.model_calls) == 1
+    assert result.model_calls[0]["runtime_api_request_id"] == request_id
+    assert result.telemetry_warnings == []

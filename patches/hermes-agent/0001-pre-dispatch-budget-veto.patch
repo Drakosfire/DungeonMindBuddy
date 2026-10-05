@@ -1,6 +1,6 @@
 diff --git a/agent/api_request_budget.py b/agent/api_request_budget.py
 new file mode 100644
-index 000000000..237db8457
+index 0000000..237db84
 --- /dev/null
 +++ b/agent/api_request_budget.py
 @@ -0,0 +1,119 @@
@@ -124,7 +124,7 @@ index 000000000..237db8457
 +    if allowed is not True:
 +        raise ApiRequestBudgetVeto()
 diff --git a/agent/conversation_loop.py b/agent/conversation_loop.py
-index 12c80a8bf..04d75cd21 100644
+index 12c80a8..cf613bb 100644
 --- a/agent/conversation_loop.py
 +++ b/agent/conversation_loop.py
 @@ -34,6 +34,7 @@ from agent.error_classifier import FailoverReason, classify_api_error
@@ -151,7 +151,7 @@ index 12c80a8bf..04d75cd21 100644
                      if _use_streaming:
                          return agent._interruptible_streaming_api_call(
                              next_api_kwargs, on_first_delta=_stop_spinner
-@@ -2296,7 +2306,29 @@ def run_conversation(
+@@ -2296,7 +2306,33 @@ def run_conversation(
                          pass
                  agent._touch_activity(f"API call #{api_call_count} completed")
                  break  # Success, exit retry loop
@@ -170,9 +170,13 @@ index 12c80a8bf..04d75cd21 100644
 +                except Exception:
 +                    logger.exception("Could not persist the conversation after a local request-budget veto")
 +                return {
-+                    "final_response": "Request exceeds the configured local input budget; no provider call was made.",
++                    "final_response": (
++                        "The current provider request was denied before dispatch by the local request-budget guard. "
++                        "Earlier provider attempts may have occurred."
++                    ),
 +                    "messages": messages,
 +                    "api_calls": api_call_count,
++                    "api_request_id": api_request_id,
 +                    "completed": False,
 +                    "failed": True,
 +                    "failure_code": veto.code,
@@ -184,10 +188,10 @@ index 12c80a8bf..04d75cd21 100644
                      thinking_spinner.stop("")
 diff --git a/tests/agent/test_pre_dispatch_budget_veto.py b/tests/agent/test_pre_dispatch_budget_veto.py
 new file mode 100644
-index 000000000..ee80d5fa2
+index 0000000..7d4d667
 --- /dev/null
 +++ b/tests/agent/test_pre_dispatch_budget_veto.py
-@@ -0,0 +1,140 @@
+@@ -0,0 +1,142 @@
 +"""Terminal request-budget rejection at the common SDK dispatch boundary."""
 +
 +from __future__ import annotations
@@ -214,7 +218,7 @@ index 000000000..ee80d5fa2
 +        return AIAgent(
 +            api_key="synthetic-test-key",
 +            base_url="http://127.0.0.1:9/v1",
-+            provider="openai-compat",
++            provider="openai-api",
 +            model="synthetic-model",
 +            max_iterations=4,
 +            enabled_toolsets=[],
@@ -255,8 +259,10 @@ index 000000000..ee80d5fa2
 +
 +    assert result["failure_code"] == "request_budget_exceeded"
 +    assert result["failure_reason"] == "request_budget_veto"
++    assert result["api_request_id"].endswith(":api:1")
++    assert "Earlier provider attempts may have occurred" in result["final_response"]
 +    assert views
-+    assert views[0].provider == "openai-compat"
++    assert views[0].provider == "openai-api"
 +    assert views[0].model == "synthetic-model"
 +    assert views[0].api_mode == agent.api_mode
 +    assert views[0].payload_utf8_bytes > 0

@@ -300,6 +300,8 @@ def _serialize_request_budget(value: Any) -> dict[str, Any] | None:
         ).strip()
         if not result[key]:
             raise ValueError(f"requestBudget.{key} must be non-empty")
+    if result["provider"] != "openai-api":
+        raise ValueError("requestBudget.provider is unsupported")
     estimator = _require_str(value.get("estimator"), label="requestBudget.estimator", max_chars=64)
     if estimator != "utf8_json_bytes_plus_64_per_node_v1":
         raise ValueError("requestBudget.estimator is unsupported")

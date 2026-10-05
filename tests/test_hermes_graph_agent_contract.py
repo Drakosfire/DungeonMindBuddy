@@ -12,7 +12,7 @@ from apps.live_control_server.services.hermes_graph_agent_contract import (
 def _budget() -> dict[str, object]:
     return {
         "schema": "dmb_hermes_request_budget_policy_v1",
-        "provider": "openai",
+        "provider": "openai-api",
         "model": "synthetic-model",
         "apiMode": "chat_completions",
         "estimator": "utf8_json_bytes_plus_64_per_node_v1",
@@ -51,6 +51,7 @@ def test_legacy_request_omits_budget_field_byte_for_byte():
     [
         lambda policy: policy.update(schema="unknown"),
         lambda policy: policy.update(apiMode=""),
+        lambda policy: policy.update(provider="openai"),
         lambda policy: policy.update(estimator="unknown"),
         lambda policy: policy.update(contextLimitTokens=True),
         lambda policy: policy.update(outputReserveTokens=32768),
