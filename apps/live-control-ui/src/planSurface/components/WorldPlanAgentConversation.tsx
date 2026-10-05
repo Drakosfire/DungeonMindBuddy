@@ -106,6 +106,7 @@ const WORLD_PLAN_LOCAL_PROPOSAL_HISTORY = "world_plan_proposals_v1" as const;
 const WORLD_PLAN_LOCAL_PROPOSAL_ORDER_SCHEMA = "dmb_world_plan_local_proposal_order_v1" as const;
 const WORLD_PLAN_LOCAL_PROPOSAL_ORDER_PREFIX = "dmb:world-plan-local-proposal-order:v1:";
 const PENDING_ASK_STORAGE_PREFIX = "dmb:world-plan-pending-ask:v1:";
+const PENDING_ASK_CLEARED_EVENT = "dmb:world-plan-pending-ask-cleared:v1";
 const PENDING_NEW_CONVERSATION_STORAGE_PREFIX = "dmb:world-agent-new-conversation:v1:";
 
 interface WorldPlanLocalProposalPosition {
@@ -142,8 +143,20 @@ interface WorldPlanPendingAskEnvelope {
   createdAt: string;
 }
 
+type PendingAskClearedOrigin = Pick<
+  WorldPlanPendingAskOrigin,
+  "worldId" | "documentId" | "objectRevision" | "workRevisionId" | "revisionN" | "contentSha256"
+>;
+
+interface PendingAskClearedEventDetail {
+  version: 1;
+  key: string;
+  origin: PendingAskClearedOrigin;
+}
+
 interface StoredPendingAsk {
   storageKey: string;
+  serialized: string;
   envelope: WorldPlanPendingAskEnvelope | null;
   error: string | null;
 }
@@ -243,16 +256,76 @@ function parsePendingAsk(
     }
     return {
       storageKey,
+      serialized: raw,
       envelope: value as unknown as WorldPlanPendingAskEnvelope,
       error: null,
     };
   } catch (reason) {
     return {
       storageKey,
+      serialized: raw,
       envelope: null,
       error: reason instanceof Error ? reason.message : "This saved Ask envelope is malformed.",
     };
   }
+}
+
+function isPendingAskClearedEventDetail(value: unknown): value is PendingAskClearedEventDetail {
+  if (!isRecord(value) || Object.keys(value).sort().join(",") !== "key,origin,version"
+    || value.version !== 1 || typeof value.key !== "string" || !isRecord(value.origin)) {
+    return false;
+  }
+  const origin = value.origin;
+  return Object.keys(origin).sort().join(",")
+      === "contentSha256,documentId,objectRevision,revisionN,workRevisionId,worldId"
+    && typeof origin.worldId === "string"
+    && typeof origin.documentId === "string"
+    && Number.isSafeInteger(origin.objectRevision)
+    && typeof origin.workRevisionId === "string"
+    && Number.isSafeInteger(origin.revisionN)
+    && typeof origin.contentSha256 === "string"
+    && value.key.startsWith(pendingAskPrefix(origin.worldId, origin.documentId));
+}
+
+type PendingAskClearResult =
+  | { kind: "cleared" }
+  | { kind: "changed" }
+  | { kind: "unavailable"; message: string };
+
+function clearPendingAskIfUnchanged(stored: StoredPendingAsk): PendingAskClearResult {
+  const envelope = stored.envelope;
+  if (!envelope) return { kind: "changed" };
+
+  try {
+    const storage = window.localStorage;
+    if (storage.getItem(stored.storageKey) !== stored.serialized) return { kind: "changed" };
+    storage.removeItem(stored.storageKey);
+    if (storage.getItem(stored.storageKey) !== null) return { kind: "changed" };
+  } catch (reason) {
+    return {
+      kind: "unavailable",
+      message: reason instanceof Error
+        ? reason.message
+        : "The Ask completed, but browser storage could not clear its local recovery envelope.",
+    };
+  }
+
+  const origin = envelope.origin;
+  window.dispatchEvent(new CustomEvent<PendingAskClearedEventDetail>(PENDING_ASK_CLEARED_EVENT, {
+    detail: {
+      version: 1,
+      key: stored.storageKey,
+      origin: {
+        worldId: origin.worldId,
+        documentId: origin.documentId,
+        objectRevision: origin.objectRevision,
+        workRevisionId: origin.workRevisionId,
+        revisionN: origin.revisionN,
+        contentSha256: origin.contentSha256,
+      },
+    },
+  }));
+  return { kind: "cleared" };
 }
 
 function readPendingAsks(worldId: string, documentId: string): StoredPendingAsk[] {
@@ -1066,6 +1139,23 @@ export function WorldPlanAgentConversation({
     }
   }
 
+  useLayoutEffect(() => {
+    if (!scopeMatches || !verifiedWorldId || !documentId) return;
+    const onPendingAskCleared = (event: Event) => {
+      const detail = (event as CustomEvent<unknown>).detail;
+      if (!isPendingAskClearedEventDetail(detail)
+        || detail.origin.worldId !== verifiedWorldId
+        || detail.origin.documentId !== documentId
+        || !detail.key.startsWith(pendingAskPrefix(verifiedWorldId, documentId))) {
+        return;
+      }
+      refreshPendingAskList();
+      setHistoryRefreshNonce((current) => current + 1);
+    };
+    window.addEventListener(PENDING_ASK_CLEARED_EVENT, onPendingAskCleared);
+    return () => window.removeEventListener(PENDING_ASK_CLEARED_EVENT, onPendingAskCleared);
+  }, [scopeMatches, verifiedWorldId, documentId]);
+
   function refreshPendingCommandList() {
     if (!verifiedWorldId || !documentId) return;
     try {
@@ -1214,7 +1304,7 @@ export function WorldPlanAgentConversation({
 
     try {
       const response: unknown = await postWorldPlanAgentTurn(envelope.request);
-      if (!isCurrent()) return;
+      // The captured request is authoritative even when this SPA component has unmounted.
       const validation = validateWorldPlanResponse(response, envelope.request);
       if (!validation.ok) throw new Error(validation.message);
       const origin = envelope.origin;
@@ -1238,14 +1328,13 @@ export function WorldPlanAgentConversation({
         throw new Error("The durable Ask result did not identify its original World conversation and committed basis. The saved request remains available for exact recovery.");
       }
 
-      try {
-        window.localStorage.removeItem(stored.storageKey);
-        refreshPendingAskList();
-      } catch (reason) {
-        setPendingAskLoadError(reason instanceof Error
-          ? reason.message
-          : "The Ask completed, but its local recovery envelope could not be cleared. Retrying the same request remains safe.");
+      const clearResult = clearPendingAskIfUnchanged(stored);
+      if (clearResult.kind !== "cleared" && isCurrent()) refreshPendingAskList();
+      if (clearResult.kind === "unavailable" && isCurrent()) {
+        setPendingAskLoadError(clearResult.message);
       }
+      if (!isCurrent()) return;
+
       const currentlyActiveConversationId = historySnapshotRef.current?.active_conversation_id ?? null;
       const belongsToPreviousConversation = Boolean(
         (envelope.origin.conversationId && envelope.origin.conversationId !== validation.value.conversationId)
@@ -1269,7 +1358,9 @@ export function WorldPlanAgentConversation({
           ? `The server confirmed this Ask under conversation ${validation.value.conversationId}. It was not inserted into the currently active conversation; refreshing World history.`
           : "The server confirmed this Ask. Refreshing World history.");
       }
-      setHistoryRefreshNonce((current) => current + 1);
+      if (clearResult.kind !== "cleared") {
+        setHistoryRefreshNonce((current) => current + 1);
+      }
       setComposerMessage("");
     } catch (reason) {
       if (isCurrent()) {
@@ -1381,7 +1472,7 @@ export function WorldPlanAgentConversation({
       refreshPendingAskList();
       requestRef.current = null;
       setSending(false);
-      await sendPendingAsk({ storageKey, envelope, error: null });
+      await sendPendingAsk({ storageKey, serialized, envelope, error: null });
     } catch (reason) {
       if (requestRef.current?.token === preparationToken) {
         requestRef.current = null;
