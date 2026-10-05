@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -53,7 +53,11 @@ def _fingerprint_compatible_payload(value: object) -> object:
                 and (
                     (key == "surface_instance_id" and is_provenance)
                     or (
-                        key in {"submitted_intent_v2", "graph_context_receipt"}
+                        key in {
+                            "submitted_intent_v2",
+                            "graph_context_receipt",
+                            "graph_context_execution",
+                        }
                         and is_turn_submission
                     )
                     or (
@@ -869,6 +873,205 @@ class PlanWorldGraphCompletionV1(StrictModel):
         return self
 
 
+class GraphExecutionAccountingV1(StrictModel):
+    kind: Literal["exact_token_count", "conservative_upper_bound"]
+    estimator: str = Field(min_length=1, max_length=128)
+
+
+class GraphExecutionPolicyV1(StrictModel):
+    policy_version: str = Field(min_length=1, max_length=128)
+    allowed_graph_operations: list[str] = Field(min_length=1, max_length=32)
+    max_provider_attempts: int = Field(strict=True, ge=1, le=128)
+    max_graph_operations: int = Field(strict=True, ge=0, le=512)
+    max_results_per_operation: int = Field(strict=True, ge=0, le=4096)
+    max_total_provider_input_tokens: int = Field(strict=True, ge=1)
+    max_total_provider_output_tokens: int = Field(strict=True, ge=1)
+    provider_input_accounting: GraphExecutionAccountingV1
+    source_opened: Literal[False]
+
+    @model_validator(mode="after")
+    def validate_policy(self) -> "GraphExecutionPolicyV1":
+        if any(not item.strip() for item in self.allowed_graph_operations):
+            raise ValueError("allowed Graph operations cannot be blank")
+        if self.allowed_graph_operations != sorted(set(self.allowed_graph_operations)):
+            raise ValueError("allowed Graph operations must be sorted and unique")
+        if (
+            self.provider_input_accounting.kind == "conservative_upper_bound"
+            and self.provider_input_accounting.estimator
+            != "utf8_json_bytes_plus_64_per_node_v1"
+        ):
+            raise ValueError("unknown conservative provider input estimator")
+        return self
+
+
+class GraphExecutionEventBaseV1(StrictModel):
+    event_id: UUID
+    sequence: int = Field(strict=True, ge=0, le=2047)
+    kind: str
+
+
+class ValidatedGraphOperationEventV1(GraphExecutionEventBaseV1):
+    kind: Literal["validated_graph_operation"]
+    operation_id: UUID
+    operation: str = Field(min_length=1, max_length=128)
+    request_arguments_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    graph_revision: str = Field(min_length=1, max_length=256)
+    result_packet_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    assertion_ids: list[str] = Field(max_length=512)
+    relationship_ids: list[str] = Field(max_length=512)
+    evidence_ref_ids: list[str] = Field(max_length=1024)
+    evidence_sufficiency_status: Literal["sufficient", "insufficient"]
+    coverage_status: Literal["complete", "incomplete"]
+    truncated: bool
+    source_opened: Literal[False]
+
+    @model_validator(mode="after")
+    def validate_ids(self) -> "ValidatedGraphOperationEventV1":
+        for name in ("assertion_ids", "relationship_ids", "evidence_ref_ids"):
+            values = getattr(self, name)
+            if any(not value.strip() for value in values) or values != sorted(set(values)):
+                raise ValueError(f"{name} must be nonblank, sorted, and unique")
+        return self
+
+
+class ProviderAttemptAuthorizedEventV1(GraphExecutionEventBaseV1):
+    kind: Literal["provider_attempt_authorized"]
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    serializer_version: Literal["canonical-json-utf8-v1"]
+    provider: str = Field(min_length=1, max_length=128)
+    model: str = Field(min_length=1, max_length=256)
+    api_mode: str = Field(min_length=1, max_length=64)
+    tool_schema_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    input_accounting_kind: Literal["exact_token_count", "conservative_upper_bound"]
+    input_estimator: str = Field(min_length=1, max_length=128)
+    input_tokens: int = Field(strict=True, ge=0)
+    output_token_reserve: int = Field(strict=True, ge=0)
+    included_assertion_ids: list[str] = Field(max_length=512)
+    included_relationship_ids: list[str] = Field(max_length=512)
+    included_evidence_ref_ids: list[str] = Field(max_length=1024)
+    included_graph_event_ids: list[UUID] = Field(max_length=512)
+
+    @model_validator(mode="after")
+    def validate_included_ids(self) -> "ProviderAttemptAuthorizedEventV1":
+        for name in ("included_assertion_ids", "included_relationship_ids", "included_evidence_ref_ids"):
+            values = getattr(self, name)
+            if any(not value.strip() for value in values) or values != sorted(set(values)):
+                raise ValueError(f"{name} must be nonblank, sorted, and unique")
+        if len(set(self.included_graph_event_ids)) != len(self.included_graph_event_ids):
+            raise ValueError("included Graph event IDs must be unique")
+        return self
+
+
+class ProviderOutcomeEventV1(GraphExecutionEventBaseV1):
+    kind: Literal["provider_outcome"]
+    provider_attempt_id: UUID
+    outcome: Literal["sdk_entered", "response_received", "known_not_sent", "outcome_unknown"]
+    status_code: int | None = Field(default=None, strict=True, ge=100, le=599)
+    request_id: str | None = Field(default=None, max_length=256)
+    response_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+
+class CompletionBindingEventV1(GraphExecutionEventBaseV1):
+    kind: Literal["completion_binding"]
+    provider_attempt_id: UUID
+    completion_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    claim_graph_event_ids: dict[str, list[UUID]] = Field(max_length=256)
+
+
+GraphExecutionEventV1 = Annotated[
+    ValidatedGraphOperationEventV1
+    | ProviderAttemptAuthorizedEventV1
+    | ProviderOutcomeEventV1
+    | CompletionBindingEventV1,
+    Field(discriminator="kind"),
+]
+
+
+class PlanWorldGraphExecutionV1(StrictModel):
+    schema_: Literal["dmb_agent_plan_world_graph_execution_v1"] = Field(
+        default="dmb_agent_plan_world_graph_execution_v1", alias="schema"
+    )
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    policy: GraphExecutionPolicyV1
+    events: list[GraphExecutionEventV1] = Field(max_length=2048)
+
+    @model_validator(mode="after")
+    def validate_execution(self) -> "PlanWorldGraphExecutionV1":
+        if [event.sequence for event in self.events] != list(range(len(self.events))):
+            raise ValueError("Graph execution events must have contiguous sequence numbers")
+        if len({event.event_id for event in self.events}) != len(self.events):
+            raise ValueError("Graph execution event IDs must be unique")
+        operation_ids: set[UUID] = set()
+        attempts: dict[UUID, ProviderAttemptAuthorizedEventV1] = {}
+        outcomes: dict[UUID, list[str]] = {}
+        completion_bindings = 0
+        for event in self.events:
+            if isinstance(event, ValidatedGraphOperationEventV1):
+                if attempts:
+                    latest_attempt_id = next(reversed(attempts))
+                    if outcomes[latest_attempt_id][-1:] == ["outcome_unknown"]:
+                        raise ValueError("Graph operations cannot continue after an unknown provider outcome")
+                if event.operation not in self.policy.allowed_graph_operations:
+                    raise ValueError("Graph operation is outside the accepted policy")
+                if event.operation_id in operation_ids:
+                    raise ValueError("Graph operation ID must be unique within the turn")
+                operation_ids.add(event.operation_id)
+            elif isinstance(event, ProviderAttemptAuthorizedEventV1):
+                if event.provider_attempt_id in attempts:
+                    raise ValueError("provider attempt ID was authorized more than once")
+                if attempts:
+                    latest_attempt_id = next(reversed(attempts))
+                    prior_outcomes = outcomes[latest_attempt_id]
+                    if not prior_outcomes or prior_outcomes[-1] not in {"response_received", "known_not_sent"}:
+                        raise ValueError("a new provider attempt requires a resolved prior attempt")
+                if event.input_accounting_kind != self.policy.provider_input_accounting.kind or event.input_estimator != self.policy.provider_input_accounting.estimator:
+                    raise ValueError("provider attempt accounting differs from accepted policy")
+                attempts[event.provider_attempt_id] = event
+                outcomes[event.provider_attempt_id] = []
+            elif isinstance(event, ProviderOutcomeEventV1):
+                if event.provider_attempt_id not in attempts:
+                    raise ValueError("provider outcome requires a prior authorization")
+                prior = outcomes[event.provider_attempt_id]
+                if event.outcome == "sdk_entered" and prior:
+                    raise ValueError("SDK entry must be the first provider outcome")
+                if event.outcome == "known_not_sent" and prior:
+                    raise ValueError("known-not-sent must be recorded before SDK entry")
+                if event.outcome not in {"sdk_entered", "known_not_sent", "outcome_unknown"} and not prior:
+                    raise ValueError("provider outcome requires observed SDK entry")
+                if prior and prior[-1] in {"response_received", "known_not_sent", "outcome_unknown"}:
+                    raise ValueError("provider attempt already has a terminal outcome")
+                prior.append(event.outcome)
+            elif isinstance(event, CompletionBindingEventV1):
+                completion_bindings += 1
+                if completion_bindings > 1 or event.sequence != len(self.events) - 1:
+                    raise ValueError("completion binding must be unique and the final execution event")
+                if event.provider_attempt_id not in attempts or outcomes[event.provider_attempt_id][-1:] != ["response_received"]:
+                    raise ValueError("completion binding requires a response-received attempt")
+        if len(attempts) > self.policy.max_provider_attempts:
+            raise ValueError("provider attempt policy limit exceeded")
+        graph_events = [e for e in self.events if isinstance(e, ValidatedGraphOperationEventV1)]
+        if len(graph_events) > self.policy.max_graph_operations:
+            raise ValueError("Graph operation policy limit exceeded")
+        graph_by_event_id = {event.event_id: event for event in graph_events}
+        if any(
+            len(event.assertion_ids) + len(event.relationship_ids) + len(event.evidence_ref_ids)
+            > self.policy.max_results_per_operation
+            for event in graph_events
+        ):
+            raise ValueError("Graph operation result limit exceeded")
+        input_total = sum(event.input_tokens for event in attempts.values())
+        output_total = sum(event.output_token_reserve for event in attempts.values())
+        if input_total > self.policy.max_total_provider_input_tokens or output_total > self.policy.max_total_provider_output_tokens:
+            raise ValueError("provider token budget exceeded")
+        for attempt in attempts.values():
+            if any(event_id not in graph_by_event_id for event_id in attempt.included_graph_event_ids):
+                raise ValueError("provider envelope references an unknown Graph operation event")
+        if len(self.model_dump_json(by_alias=True).encode("utf-8")) > 1_048_576:
+            raise ValueError("Graph execution record exceeds the storage size limit")
+        return self
+
+
 def validate_completion_against_receipt(
     completion: PlanWorldGraphCompletionV1,
     receipt: PlanWorldGraphContextReceiptV1,
@@ -951,6 +1154,125 @@ def validate_completion_against_receipt(
                 raise ValueError("citation refs must match the Graph claim refs")
 
 
+def validate_execution_completion(
+    completion: PlanWorldGraphCompletionV1,
+    receipt: PlanWorldGraphContextReceiptV1,
+    execution: PlanWorldGraphExecutionV1,
+    producing_provider_attempt_id: UUID,
+    claim_graph_event_ids: dict[str, list[UUID]],
+) -> None:
+    """Validate citations against packets included in the final provider envelope."""
+    if completion.context_receipt_sha256 != receipt.context_receipt_sha256:
+        raise ValueError("completion must bind the exact stored Graph receipt")
+    auths = {
+        event.provider_attempt_id: event
+        for event in execution.events
+        if isinstance(event, ProviderAttemptAuthorizedEventV1)
+    }
+    outcomes = [
+        event for event in execution.events
+        if isinstance(event, ProviderOutcomeEventV1)
+        and event.provider_attempt_id == producing_provider_attempt_id
+    ]
+    producing = auths.get(producing_provider_attempt_id)
+    if producing is None or not outcomes or outcomes[-1].outcome != "response_received":
+        raise ValueError("completion requires a durable response from its producing attempt")
+    events = {
+        event.event_id: event
+        for event in execution.events
+        if isinstance(event, ValidatedGraphOperationEventV1)
+    }
+    included_event_ids = set(producing.included_graph_event_ids)
+    included_assertions = set(producing.included_assertion_ids)
+    included_relationships = set(producing.included_relationship_ids)
+    included_evidence = set(producing.included_evidence_ref_ids)
+    dispatched = {
+        "assertion": set(receipt.assembled_input.dispatched_assertion_ids),
+        "relationship": set(receipt.assembled_input.dispatched_relationship_ids),
+    }
+    claims = [s for s in completion.answer_segments if isinstance(s, PlanWorldGraphClaimSegmentV1)]
+    for segment in completion.answer_segments:
+        if isinstance(segment, PlanWorldGraphPlanClaimSegmentV1) and segment.plan_content_sha256 != receipt.plan_basis.content_sha256:
+            raise ValueError("Plan claim attribution must match the frozen Plan digest")
+    if set(claim_graph_event_ids) != {claim.claim_id for claim in claims}:
+        raise ValueError("completion binding must map each Graph claim exactly once")
+    if claims and completion.citation_map is None:
+        raise ValueError("Graph claims require a citation map")
+    citation_entries = {} if completion.citation_map is None else {entry.claim_id: entry for entry in completion.citation_map.entries}
+    if claims and (len(citation_entries) != len(completion.citation_map.entries) or set(citation_entries) != {claim.claim_id for claim in claims}):
+        raise ValueError("citation map must correspond one-to-one with Graph claims")
+    sufficient_sources: list[tuple[str, bool]] = []
+    for claim in claims:
+        if claim.graph_revision != receipt.graph_authority.graph_revision:
+            raise ValueError("Graph claim must use the frozen Graph revision")
+        target_ids = dispatched[claim.target_kind] | (
+            included_assertions if claim.target_kind == "assertion" else included_relationships
+        )
+        if claim.target_id not in target_ids:
+            raise ValueError("Graph claim target is absent from the final producing envelope")
+        if claim.evidence_ref_ids != sorted(set(claim.evidence_ref_ids)):
+            raise ValueError("Graph claim evidence refs must be sorted and unique")
+        refs = set(claim.evidence_ref_ids)
+        mapped_ids = claim_graph_event_ids[claim.claim_id]
+        if len(mapped_ids) != len(set(mapped_ids)):
+            raise ValueError("completion binding event IDs must be unique per claim")
+        support_packets: list[tuple[set[str], set[str], str, str, bool]] = []
+        if claim.target_id in dispatched[claim.target_kind] and refs.issubset(set(receipt.assembled_input.dispatched_evidence_ref_ids)):
+            if claim.target_id in (included_assertions if claim.target_kind == "assertion" else included_relationships) and refs.issubset(included_evidence):
+                support_packets.append((set(receipt.assembled_input.dispatched_assertion_ids) | set(receipt.assembled_input.dispatched_relationship_ids), set(receipt.assembled_input.dispatched_evidence_ref_ids), receipt.graph_packet.evidence_sufficiency_status, receipt.graph_packet.coverage_status, receipt.graph_packet.truncated))
+        for event_id in mapped_ids:
+            event = events.get(event_id)
+            if event is None or event_id not in included_event_ids:
+                raise ValueError("citation event must be validated and present in the final producing envelope")
+            targets = set(event.assertion_ids if claim.target_kind == "assertion" else event.relationship_ids)
+            included_targets = included_assertions if claim.target_kind == "assertion" else included_relationships
+            if (
+                claim.target_id in targets
+                and claim.target_id in included_targets
+                and refs.issubset(set(event.evidence_ref_ids))
+                and refs.issubset(included_evidence)
+            ):
+                support_packets.append((targets, set(event.evidence_ref_ids), event.evidence_sufficiency_status, event.coverage_status, event.truncated))
+            else:
+                raise ValueError("completion binding names an event that does not support its claim")
+        if not support_packets:
+            raise ValueError("Graph claim target and evidence refs lack included validated support")
+        sufficient_sources.extend((status, coverage == "complete" and not truncated) for _, _, status, coverage, truncated in support_packets)
+        if completion.citation_map is None:
+            raise ValueError("Graph claims require a citation map")
+        entry = citation_entries.get(claim.claim_id)
+        if entry is None or entry.target_kind != claim.target_kind or entry.target_id != claim.target_id or entry.graph_revision != claim.graph_revision or entry.evidence_ref_ids != claim.evidence_ref_ids:
+            raise ValueError("citation map entry must match its Graph claim")
+    if claims:
+        expected = "graph_grounded" if all(status == "sufficient" and complete for status, complete in sufficient_sources) else "graph_grounded_partial"
+        if completion.answer_context_status != expected:
+            raise ValueError("Graph grounded status does not match cited execution evidence")
+    else:
+        initial_ids_in_envelope = bool(
+            set(receipt.assembled_input.dispatched_assertion_ids).intersection(included_assertions)
+            or set(receipt.assembled_input.dispatched_relationship_ids).intersection(included_relationships)
+            or set(receipt.assembled_input.dispatched_evidence_ref_ids).intersection(included_evidence)
+        )
+        sufficient = (
+            receipt.graph_packet.evidence_sufficiency_status == "sufficient"
+            and receipt.assembled_input.packet_disposition == "included"
+            and initial_ids_in_envelope
+        )
+        sufficient = sufficient or any(
+            event.event_id in included_event_ids
+            and event.evidence_sufficiency_status == "sufficient"
+            and (
+                set(event.assertion_ids).intersection(included_assertions)
+                or set(event.relationship_ids).intersection(included_relationships)
+                or set(event.evidence_ref_ids).intersection(included_evidence)
+            )
+            for event in events.values()
+        )
+        expected = "plan_only_graph_unused" if sufficient else "plan_only_insufficient_evidence"
+        if completion.answer_context_status != expected:
+            raise ValueError("Plan-only status does not match evidence in the producing envelope")
+
+
 class WorldPointer(StrictModel):
     world_id: str
     active_conversation_id: UUID | None
@@ -1009,6 +1331,7 @@ class TurnSubmission(StrictModel):
     submitted_intent_v1: SubmittedTurnIntentV1 | None = None
     submitted_intent_v2: SubmittedTurnIntentV2 | None = None
     graph_context_receipt: PlanWorldGraphContextReceiptV1 | None = None
+    graph_context_execution: PlanWorldGraphExecutionV1 | None = None
 
     @model_validator(mode="after")
     def validate_submission(self) -> "TurnSubmission":
@@ -1069,8 +1392,24 @@ class TurnSubmission(StrictModel):
                 raise ValueError(
                     "Graph context receipt must match the submitted Plan intent"
                 )
+            if self.graph_context_execution is not None:
+                execution = self.graph_context_execution
+                if execution.events:
+                    raise ValueError("accepted Graph execution record must start empty")
+                if execution.context_receipt_sha256 != receipt.context_receipt_sha256:
+                    raise ValueError("Graph execution policy must bind the frozen receipt")
+                accounting = execution.policy.provider_input_accounting
+                if accounting.estimator != receipt.assembled_input.tokenizer_name:
+                    raise ValueError("receipt tokenizer metadata differs from Graph execution policy")
+                if (
+                    accounting.kind == "conservative_upper_bound"
+                    and receipt.assembled_input.tokenizer_version != "v1"
+                ):
+                    raise ValueError("receipt accounting differs from Graph execution policy")
         elif self.graph_context_receipt is not None:
             raise ValueError("Graph context receipt requires submitted intent v2")
+        if self.graph_context_execution is not None and self.submitted_intent_v2 is None:
+            raise ValueError("Graph execution requires submitted intent v2")
         return self
 
 
@@ -1108,6 +1447,7 @@ class Turn(StrictModel):
         default=None, pattern=r"^[0-9a-f]{64}$"
     )
     graph_context_receipt: PlanWorldGraphContextReceiptV1 | None = None
+    graph_context_execution: PlanWorldGraphExecutionV1 | None = None
     completion: PlanWorldGraphCompletionV1 | None = None
     attempt: int = Field(ge=0)
     claim_expires_at: datetime | None = None
@@ -1129,12 +1469,40 @@ class Turn(StrictModel):
             and self.submitted_intent_fingerprint_v2 is None
         ):
             raise ValueError("Graph receipt requires a v2 submitted-intent fingerprint")
+        if self.graph_context_execution is not None:
+            if self.graph_context_receipt is None:
+                raise ValueError("Graph execution requires its frozen context receipt")
+            if self.submitted_intent_fingerprint_v2 is None:
+                raise ValueError("Graph execution requires a v2 submitted-intent fingerprint")
+            if self.graph_context_execution.context_receipt_sha256 != self.graph_context_receipt.context_receipt_sha256:
+                raise ValueError("Graph execution must bind the exact stored receipt")
+            has_completion_binding = any(
+                isinstance(event, CompletionBindingEventV1)
+                for event in self.graph_context_execution.events
+            )
+            if has_completion_binding != (self.completion is not None):
+                raise ValueError("completion binding must be present exactly when completion is stored")
         if self.completion is not None:
             if self.graph_context_receipt is None:
                 raise ValueError("Graph completion requires its frozen context receipt")
-            validate_completion_against_receipt(
-                self.completion, self.graph_context_receipt
-            )
+            if self.graph_context_execution is None:
+                validate_completion_against_receipt(
+                    self.completion, self.graph_context_receipt
+                )
+            else:
+                bindings = [e for e in self.graph_context_execution.events if isinstance(e, CompletionBindingEventV1)]
+                if len(bindings) != 1:
+                    raise ValueError("execution completion requires exactly one completion binding")
+                binding = bindings[0]
+                if binding.completion_sha256 != _canonical_sha256(self.completion.model_dump(mode="json", by_alias=True)):
+                    raise ValueError("completion binding digest does not match completion")
+                validate_execution_completion(
+                    self.completion,
+                    self.graph_context_receipt,
+                    self.graph_context_execution,
+                    binding.provider_attempt_id,
+                    binding.claim_graph_event_ids,
+                )
         return self
 
 
@@ -1145,11 +1513,17 @@ class TurnResult(StrictModel):
     expected_revision: int = Field(ge=1)
     assistant_text: str
     completion: PlanWorldGraphCompletionV1 | None = None
+    producing_provider_attempt_id: UUID | None = None
+    claim_graph_event_ids: dict[str, list[UUID]] | None = None
 
     @model_validator(mode="after")
     def validate_text(self) -> "TurnResult":
         if not self.assistant_text.strip():
             raise ValueError("assistant_text is required")
+        if (self.producing_provider_attempt_id is None) != (self.claim_graph_event_ids is None):
+            raise ValueError("execution completion binding inputs must be supplied together")
+        if self.completion is None and self.producing_provider_attempt_id is not None:
+            raise ValueError("completion binding inputs require a completion")
         return self
 
 

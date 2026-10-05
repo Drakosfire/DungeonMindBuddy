@@ -169,12 +169,52 @@ def test_graphless_turn_request_fingerprint_omits_new_null_policy_fields() -> No
                 "submitted_intent_v1",
                 "submitted_intent_v2",
                 "graph_context_receipt",
+                "graph_context_execution",
             },
         )
     )
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
     expected = hashlib.sha256(encoded.encode("utf-8")).hexdigest()
     assert request_fingerprint(submission) == expected
+
+
+def test_graph_execution_records_enforce_event_order_and_policy() -> None:
+    from application_state.agent_conversation.types import (
+        GraphExecutionAccountingV1,
+        GraphExecutionPolicyV1,
+        PlanWorldGraphExecutionV1,
+        ValidatedGraphOperationEventV1,
+    )
+
+    policy = GraphExecutionPolicyV1(
+        policy_version="test-v1",
+        allowed_graph_operations=["search_assertions"],
+        max_provider_attempts=2,
+        max_graph_operations=2,
+        max_results_per_operation=8,
+        max_total_provider_input_tokens=100,
+        max_total_provider_output_tokens=50,
+        provider_input_accounting=GraphExecutionAccountingV1(
+            kind="conservative_upper_bound",
+            estimator="utf8_json_bytes_plus_64_per_node_v1",
+        ),
+        source_opened=False,
+    )
+    operation = ValidatedGraphOperationEventV1(
+        event_id=uuid4(), sequence=1, kind="validated_graph_operation",
+        operation_id=uuid4(), operation="search_assertions",
+        request_arguments_sha256="a" * 64, graph_revision="revision-1",
+        result_packet_sha256="b" * 64, assertion_ids=[], relationship_ids=[],
+        evidence_ref_ids=[], evidence_sufficiency_status="insufficient",
+        coverage_status="incomplete", truncated=False, source_opened=False,
+    )
+    with pytest.raises(ValidationError, match="contiguous sequence"):
+        PlanWorldGraphExecutionV1(
+            schema="dmb_agent_plan_world_graph_execution_v1",
+            context_receipt_sha256="c" * 64,
+            policy=policy,
+            events=[operation],
+        )
 
 
 def test_content_reference_requires_complete_typed_revision_and_resolved_identity() -> (
@@ -808,8 +848,8 @@ def test_claim_recovery_migration_preserves_completed_legacy_turn(
     command.downgrade(alembic_config(), "20261002_0012")
     command.upgrade(alembic_config(), "head")
     assert _current_and_head(application_state_dsn) == (
-        "20261004_0016",
-        "20261004_0016",
+        "20261005_0017",
+        "20261005_0017",
     )
 
     loaded = AgentConversationService().list_turns(

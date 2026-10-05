@@ -255,7 +255,7 @@ def test_agent_conversation_migration_is_single_current_head(
     application_state_dsn: str,
 ) -> None:
     current, head = _current_and_head(application_state_dsn)
-    assert current == head == "20261004_0016"
+    assert current == head == "20261005_0017"
 
 
 def test_graph_receipt_and_completion_round_trip_through_fresh_service(
@@ -264,6 +264,13 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
     import psycopg
     from alembic import command
     from pydantic import ValidationError
+    from application_state.agent_conversation.types import (
+        GraphExecutionAccountingV1,
+        GraphExecutionPolicyV1,
+        PlanWorldGraphExecutionV1,
+        ProviderAttemptAuthorizedEventV1,
+        ProviderOutcomeEventV1,
+    )
 
     from application_state.cli import alembic_config
 
@@ -317,6 +324,24 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
         supporting_work=[encode_plan_playable_target_reference(playable_target)],
         selected_object=HistoricalReference(resolution="absent"),
     )
+    execution = PlanWorldGraphExecutionV1(
+        schema="dmb_agent_plan_world_graph_execution_v1",
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        policy=GraphExecutionPolicyV1(
+            policy_version="test-policy-v1",
+            allowed_graph_operations=["search_assertions"],
+            max_provider_attempts=2,
+            max_graph_operations=0,
+            max_results_per_operation=0,
+            max_total_provider_input_tokens=100,
+            max_total_provider_output_tokens=40,
+            provider_input_accounting=GraphExecutionAccountingV1(
+                kind="exact_token_count", estimator="synthetic-tokenizer"
+            ),
+            source_opened=False,
+        ),
+        events=[],
+    )
     submission = TurnSubmission(
         world_id=world_id,
         conversation_id=conversation.conversation_id,
@@ -326,15 +351,22 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
         provenance=provenance,
         submitted_intent_v2=intent,
         graph_context_receipt=receipt,
+        graph_context_execution=execution,
     )
     accepted = service.accept_turn(submission)
     fresh = AgentConversationService()
     loaded = fresh.list_turns(world_id, conversation.conversation_id)[0]
     assert loaded.graph_context_receipt == receipt
+    assert loaded.graph_context_execution == execution
     assert (
         loaded.graph_context_receipt.playable_target.marker_grammar_version == "v2"
     )
     assert fresh.accept_turn(submission) == accepted
+    changed_execution = execution.model_copy(
+        update={"policy": execution.policy.model_copy(update={"max_provider_attempts": 3})}
+    )
+    with pytest.raises(ApplicationStateConflictError, match="different submitted intent or Graph receipt"):
+        fresh.accept_turn(submission.model_copy(update={"graph_context_execution": changed_execution}))
 
     with pytest.raises(ValidationError, match="Graph context receipt must match"):
         TurnSubmission(
@@ -363,6 +395,52 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
         expected_revision=accepted.revision,
         lease_seconds=60,
     )
+    attempt_id = uuid4()
+    authorization_event = ProviderAttemptAuthorizedEventV1(
+        event_id=uuid4(), sequence=0, kind="provider_attempt_authorized",
+        provider_attempt_id=attempt_id, envelope_sha256="c" * 64,
+        serializer_version="canonical-json-utf8-v1", provider="test-provider",
+        model="synthetic-model", api_mode="messages", tool_schema_sha256="2" * 64,
+        input_accounting_kind="exact_token_count", input_estimator="synthetic-tokenizer",
+        input_tokens=12, output_token_reserve=10, included_assertion_ids=[],
+        included_relationship_ids=[], included_evidence_ref_ids=[], included_graph_event_ids=[],
+    )
+    authorized, allowed = fresh.authorize_provider_attempt(
+        world_id, conversation.conversation_id, accepted.turn_id,
+        expected_revision=claimed.turn.revision, expected_attempt=claimed.turn.attempt,
+        provider_attempt_event=authorization_event,
+    )
+    assert allowed is True
+    duplicate_turn, duplicate_allowed = fresh.authorize_provider_attempt(
+        world_id, conversation.conversation_id, accepted.turn_id,
+        expected_revision=authorized.revision, expected_attempt=claimed.turn.attempt,
+        provider_attempt_event=authorization_event,
+    )
+    assert duplicate_allowed is False
+    assert duplicate_turn.graph_context_execution == authorized.graph_context_execution
+    with pytest.raises(ApplicationStateConflictError, match="stale claim"):
+        fresh.authorize_provider_attempt(
+            world_id, conversation.conversation_id, accepted.turn_id,
+            expected_revision=claimed.turn.revision, expected_attempt=claimed.turn.attempt,
+            provider_attempt_event=authorization_event,
+        )
+    entered, _ = fresh.record_provider_outcome(
+        world_id, conversation.conversation_id, accepted.turn_id,
+        expected_revision=authorized.revision, expected_attempt=claimed.turn.attempt,
+        outcome=ProviderOutcomeEventV1(
+            event_id=uuid4(), sequence=1, kind="provider_outcome",
+            provider_attempt_id=attempt_id, outcome="sdk_entered",
+        ),
+    )
+    responded, _ = fresh.record_provider_outcome(
+        world_id, conversation.conversation_id, accepted.turn_id,
+        expected_revision=entered.revision, expected_attempt=claimed.turn.attempt,
+        outcome=ProviderOutcomeEventV1(
+            event_id=uuid4(), sequence=2, kind="provider_outcome",
+            provider_attempt_id=attempt_id, outcome="response_received",
+            response_sha256="3" * 64,
+        ),
+    )
     completion = PlanWorldGraphCompletionV1(
         context_receipt_sha256=receipt.context_receipt_sha256,
         answer_basis="committed_plan",
@@ -381,9 +459,11 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
             world_id=world_id,
             conversation_id=conversation.conversation_id,
             turn_id=accepted.turn_id,
-            expected_revision=claimed.turn.revision,
+            expected_revision=responded.revision,
             assistant_text="The plan is to reach the northern pass.",
             completion=completion,
+            producing_provider_attempt_id=attempt_id,
+            claim_graph_event_ids={},
         )
     )
     reloaded = AgentConversationService().list_turns(
@@ -392,12 +472,59 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
     assert reloaded == completed
     assert reloaded.graph_context_receipt == receipt
     assert reloaded.completion == completion
+    assert reloaded.graph_context_execution.events[-1].kind == "completion_binding"
+    assert fresh.accept_turn(submission) == completed
+    with pytest.raises(ApplicationStateConflictError, match="different recorded result"):
+        fresh.complete_turn(
+            TurnResult(
+                world_id=world_id,
+                conversation_id=conversation.conversation_id,
+                turn_id=accepted.turn_id,
+                expected_revision=responded.revision,
+                assistant_text="The plan is to reach the northern pass.",
+                completion=completion,
+                producing_provider_attempt_id=uuid4(),
+                claim_graph_event_ids={},
+            )
+        )
     assert fresh.claim_turn(
         world_id,
         conversation.conversation_id,
         accepted.turn_id,
         expected_revision=accepted.revision,
     ).turn == completed
+
+    # Model a populated 0016 row: receipt/completion and legacy fingerprints
+    # exist, while the newly introduced execution column is still NULL.
+    with psycopg.connect(application_state_dsn, autocommit=True) as conn:
+        conn.execute(
+            "UPDATE agent.turn SET graph_context_execution = NULL WHERE turn_id = %s",
+            (accepted.turn_id,),
+        )
+        graph_state_before = conn.execute(
+            """SELECT request_fingerprint, idempotency_fingerprint,
+                      graph_context_receipt, completion, graph_context_execution
+               FROM agent.turn WHERE turn_id = %s""",
+            (accepted.turn_id,),
+        ).fetchone()
+    command.downgrade(alembic_config(), "20261004_0016")
+    command.upgrade(alembic_config(), "head")
+    assert _current_and_head(application_state_dsn) == (
+        "20261005_0017", "20261005_0017"
+    )
+    with psycopg.connect(application_state_dsn, autocommit=True) as conn:
+        assert conn.execute(
+            """SELECT request_fingerprint, idempotency_fingerprint,
+                      graph_context_receipt, completion, graph_context_execution
+               FROM agent.turn WHERE turn_id = %s""",
+            (accepted.turn_id,),
+        ).fetchone() == graph_state_before
+    migrated = AgentConversationService().list_turns(world_id, conversation.conversation_id)[0]
+    assert migrated.graph_context_execution is None
+    assert migrated.graph_context_receipt == completed.graph_context_receipt
+    assert migrated.completion == completed.completion
+    legacy_receipt_replay = submission.model_copy(update={"graph_context_execution": None})
+    assert AgentConversationService().accept_turn(legacy_receipt_replay) == migrated
 
     with pytest.raises(psycopg.errors.CheckViolation):
         with psycopg.connect(application_state_dsn) as conn:
@@ -408,8 +535,8 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
     with pytest.raises(RuntimeError, match="refusing to drop non-null Agent Graph context"):
         command.downgrade(alembic_config(), "20261004_0015")
     assert _current_and_head(application_state_dsn) == (
-        "20261004_0016",
-        "20261004_0016",
+        "20261005_0017",
+        "20261005_0017",
     )
 
 
