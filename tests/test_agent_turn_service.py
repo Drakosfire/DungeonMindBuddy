@@ -65,6 +65,32 @@ def _request(**updates: Any) -> AgentTurnRequest:
     return AgentTurnRequest.model_validate(payload)
 
 
+def test_graph_operation_membership_requires_exact_typed_function_output() -> None:
+    from apps.live_control_server.services.agent_turn_service import (
+        _included_graph_operation_payloads,
+    )
+
+    payload = '{"schema":"dmb_world_graph_retrieval_result_v1","claim":"accepted"}'
+    call = {
+        "type": "function_call", "call_id": "call-1",
+        "name": "expand_graph_retrieval", "arguments": "{}",
+    }
+    output = {"type": "function_call_output", "call_id": "call-1", "output": payload}
+    assert _included_graph_operation_payloads({"input": [call, output]}) == {payload}
+    assert _included_graph_operation_payloads({
+        "input": [{"role": "user", "content": payload}],
+    }) == set()
+    assert _included_graph_operation_payloads({
+        "input": [call, {**output, "output": payload + " altered"}],
+    }) == {payload + " altered"}
+    assert _included_graph_operation_payloads({
+        "input": [{**call, "name": "other_tool"}, output],
+    }) == set()
+    assert _included_graph_operation_payloads({
+        "input": [call, {**output, "call_id": "wrong"}],
+    }) == set()
+
+
 def test_explicit_plan_context_policy_is_fingerprinted_as_submitted_intent_v2() -> None:
     request = _request(
         surface={"surface_id": "plan", "instance_id": "plan-main"},

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -187,7 +188,7 @@ def test_policy_unknown_outcome_never_projects_as_predispatch(monkeypatch: Any) 
 
 
 def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id(
-    tmp_path: Path, monkeypatch: Any,
+    tmp_path: Path, monkeypatch: Any, application_state_dsn: str,
 ) -> None:
     from apps.live_control_server.routes import agent as agent_route
     from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
@@ -402,6 +403,147 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     assert brokered_result["snapshot"]["revisionId"] == published.revision_id
     assert brokered["retrievalSession"]["snapshot"]["revision_id"] == published.revision_id
     assert adapter.fence.turn.graph_context_execution.events[0].graph_revision == published.revision_id
+
+    from application_state.agent_conversation.service import AgentConversationService
+    from apps.live_control_server.services.agent_runtime import (
+        AgentRuntimeDescriptor, AgentRuntimeResult,
+    )
+    from apps.live_control_server.services.agent_turn_service import execute_agent_turn
+    from apps.live_control_server.services.hermes_session_store import HermesSessionPointerStore
+
+    assert application_state_dsn
+    from apps.live_control_server.services import agent_turn_service as service_module
+    safe_bootstrap = service_module._admitted_initial_policy_bootstrap(bootstrap)
+    safe_projected = safe_bootstrap.retrieval_session.project_for_hermes()
+    assert safe_projected["claim_ledger"] == []
+    assert safe_projected["source_anchors"] == []
+    first_packet = {
+        "candidates": safe_projected["candidates"][:8],
+        "claimLedger": safe_projected["claim_ledger"][:24],
+        "intentHint": safe_projected["intent_hint"],
+        "availableExpansions": safe_projected["available_expansions"],
+    }
+    first_request_body = {
+        **request_body,
+        "input": [
+            {
+                "role": "system",
+                "content": "Turn capability policy (runtime-enforced; also required on tool calls):\n"
+                + json.dumps({"initialClaimPacket": first_packet}),
+            },
+            request_body["input"][1],
+        ],
+    }
+    first_payload_json = json.dumps(
+        first_request_body, sort_keys=True, separators=(",", ":")
+    )
+    first_view = {
+        **view, "payloadJson": first_payload_json,
+        "payloadSha256": __import__("hashlib").sha256(first_payload_json.encode()).hexdigest(),
+        "payloadUtf8Bytes": len(first_payload_json.encode()),
+    }
+    policy_budget = {
+        **budget, "provider": "openai-api", "model": "test-model",
+        "apiMode": "codex_responses",
+    }
+
+    class BrokeredRuntime:
+        descriptor = AgentRuntimeDescriptor("fake-brokered", "fake", "test", "graph")
+        calls = 0
+
+        def run_with_provider_authorization(
+            self, _invocation: Any, authorize: Any, *, request_budget: Any,
+            on_graph_operation: Any, on_provider_lifecycle: Any,
+        ) -> AgentRuntimeResult:
+            assert request_budget["model"] == "test-model"
+            assert first_packet["claimLedger"] == []
+            assert all(
+                claim.claim_id not in first_view["payloadJson"]
+                for claim in bootstrap.retrieval_session.claims
+            )
+            assert authorize(first_view) is True
+            self.calls += 1
+            assert on_provider_lifecycle({"transition": "sdk_entered"}) is True
+            assert on_provider_lifecycle({"transition": "response_received"}) is True
+            operation = on_graph_operation({
+                "toolName": "expand_graph_retrieval",
+                "arguments": {
+                    "schema": "dmb_expand_graph_retrieval_request_v1",
+                    "retrievalSessionId": bootstrap.retrieval_session.id,
+                    "operation": "search", "queryText": "tavern",
+                    "historicalRevisionId": published.revision_id,
+                },
+            })
+            assert json.loads(operation["resultJson"])["snapshot"]["revisionId"] == published.revision_id
+            followup_body = {
+                **first_request_body,
+                "input": [
+                    *first_request_body["input"],
+                    {
+                        "type": "function_call", "call_id": "call-graph-1",
+                        "name": "expand_graph_retrieval", "arguments": "{}",
+                    },
+                    {
+                        "type": "function_call_output", "call_id": "call-graph-1",
+                        "output": operation["resultJson"],
+                    },
+                ],
+            }
+            followup_json = json.dumps(followup_body, sort_keys=True, separators=(",", ":"))
+            followup_view = {
+                **first_view,
+                "payloadJson": followup_json,
+                "payloadSha256": __import__("hashlib").sha256(followup_json.encode()).hexdigest(),
+                "payloadUtf8Bytes": len(followup_json.encode()),
+            }
+            assert authorize(followup_view) is True
+            self.calls += 1
+            assert on_provider_lifecycle({"transition": "sdk_entered"}) is True
+            assert on_provider_lifecycle({"transition": "response_received"}) is True
+            return AgentRuntimeResult(
+                status="ok",
+                final_text=json.dumps({
+                    "answer_context_status": "plan_only_graph_unused",
+                    "answer_segments": [{
+                        "kind": "plan_claim", "text": "The keeper waits by the tavern.",
+                    }],
+                    "citation_map": None,
+                }),
+                runtime_session_id="brokered-test-session",
+            )
+
+    monkeypatch.setattr(service_module, "_policy_request_budget", lambda: policy_budget)
+    runtime = BrokeredRuntime()
+    response = execute_agent_turn(
+        body, root=tmp_path,
+        pointer_store=HermesSessionPointerStore(tmp_path / "sessions"),
+        owner_resolver=lambda _body: {
+            "kind": "world", "id": managed.world_id, "name": managed.name,
+        },
+        work_resolver=lambda _body, _owner: work,
+        graph_resolver=lambda *_args: pytest.fail("generic Graph path used"),
+        plan_graph_resolver=lambda *_args: bootstrap,
+        runtime=runtime,
+        conversation_service=AgentConversationService(),
+    )
+    assert runtime.calls == 2
+    assert response.schema_ == "dmb_agent_turn_response_v2"
+    assert response.answer.text == "The keeper waits by the tavern."
+    assert response.plan_context.completion is not None
+    assert response.plan_context.execution is not None
+    assert response.plan_context.execution.authorization_state == "response_received"
+    stored = AgentConversationService().list_turns(
+        managed.world_id, response.conversation.conversation_id,
+    )[0]
+    assert stored.graph_context_receipt.assembled_input.packet_disposition == "omitted_insufficient"
+    events = stored.graph_context_execution.events
+    attempts = [event for event in events if event.kind == "provider_attempt_authorized"]
+    operations = [event for event in events if event.kind == "validated_graph_operation"]
+    assert len(attempts) == 2
+    assert len(operations) == 1
+    assert attempts[0].included_assertion_ids == []
+    assert attempts[0].included_graph_event_ids == []
+    assert attempts[1].included_graph_event_ids == [operations[0].event_id]
 
 
 def _durable_turn(

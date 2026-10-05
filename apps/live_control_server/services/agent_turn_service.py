@@ -289,6 +289,36 @@ def _nested_text_values(value: Any) -> list[str]:
     return []
 
 
+def _included_graph_operation_payloads(body: Mapping[str, Any]) -> set[str]:
+    """Read only matched Responses function outputs from the final request."""
+    items = body.get("input")
+    if not isinstance(items, list):
+        return set()
+    calls: dict[str, str] = {}
+    outputs: set[str] = set()
+    seen_outputs: set[str] = set()
+    for item in items:
+        if not isinstance(item, Mapping):
+            continue
+        kind = item.get("type")
+        call_id = item.get("call_id")
+        if kind == "function_call":
+            if not isinstance(call_id, str) or not call_id or call_id in calls:
+                return set()
+            calls[call_id] = str(item.get("name") or "")
+        elif kind == "function_call_output":
+            if (
+                not isinstance(call_id, str)
+                or call_id in seen_outputs
+                or calls.get(call_id) != "expand_graph_retrieval"
+                or not isinstance(item.get("output"), str)
+            ):
+                return set()
+            seen_outputs.add(call_id)
+            outputs.add(item["output"])
+    return outputs
+
+
 def _initial_claim_packet_from_view(
     view: Any,
     bootstrap: AgentPlanWorldGraphBootstrap,
@@ -388,6 +418,33 @@ def _initial_packet_membership(
             provider_dispatched=False,
         )
     return sorted(assertion_ids), sorted(relationship_ids), sorted(evidence_ids)
+
+
+def _admitted_initial_policy_bootstrap(
+    bootstrap: AgentPlanWorldGraphBootstrap,
+) -> AgentPlanWorldGraphBootstrap:
+    """Keep navigation handles but withhold claims lacking source evidence."""
+    projection = bootstrap.retrieval_session.project_for_hermes()
+    assertions, relationships, evidence = _initial_packet_membership(
+        {"claimLedger": projection.get("claim_ledger", [])}, bootstrap
+    )
+    if (assertions or relationships) and evidence:
+        return bootstrap
+    session = bootstrap.retrieval_session.model_copy(deep=True)
+    session.claims = []
+    session.source_anchors = []
+    session.source_reads = []
+    session.source_citations = []
+    session.graph_references = []
+    session.inferences = []
+    session.operations = []
+    session.diagnostics = []
+    session.latest_recap_change = None
+    session.referents = [
+        ref.model_copy(update={"label": None, "match_reasons": []})
+        for ref in session.referents
+    ]
+    return replace(bootstrap, retrieval_session=session)
 
 
 def _verify_policy_plan_payload(
@@ -808,7 +865,19 @@ class _PolicyExecutionAdapter:
         )
         membership = _initial_packet_membership(initial, self.bootstrap)
         if self.fence is not None:
-            return self.fence.turn, *membership
+            receipt = self.fence.turn.graph_context_receipt
+            if receipt is None:
+                raise AgentTurnServiceError(
+                    "The claimed Plan Graph turn has no frozen receipt.",
+                    code="turn_receipt_unverifiable", status_code=409,
+                    provider_dispatched=None,
+                )
+            return (
+                self.fence.turn,
+                list(receipt.assembled_input.dispatched_assertion_ids),
+                list(receipt.assembled_input.dispatched_relationship_ids),
+                list(receipt.assembled_input.dispatched_evidence_ref_ids),
+            )
         if self.turn is None:
             receipt, execution, membership = _freeze_policy_receipt(
                 self.request, self.work, self.bootstrap,
@@ -859,6 +928,11 @@ class _PolicyExecutionAdapter:
                     code="turn_already_authorized", status_code=409,
                     provider_dispatched=None,
                 )
+        membership = (
+            list(receipt.assembled_input.dispatched_assertion_ids),
+            list(receipt.assembled_input.dispatched_relationship_ids),
+            list(receipt.assembled_input.dispatched_evidence_ref_ids),
+        )
         assert self.turn is not None
         claim = self.service.claim_turn(
             self.turn.world_id, self.turn.conversation_id, self.turn.turn_id,
@@ -904,14 +978,17 @@ class _PolicyExecutionAdapter:
                 )
             graph_types = _app_state_graph_execution_types()
             provider_attempt_id = uuid4()
-            request_texts = _nested_text_values(body)
+            included_payloads = _included_graph_operation_payloads(body)
             included_operations = [
                 event for event in execution.events
                 if getattr(event, "kind", None) == "validated_graph_operation"
                 and (
                     payload := self.operation_payloads.get(event.event_id)
                 ) is not None
-                and any(payload in text for text in request_texts)
+                and payload in included_payloads
+                and sum(
+                    known == payload for known in self.operation_payloads.values()
+                ) == 1
             ]
             assertions = sorted(set(assertions) | {
                 item for event in included_operations for item in event.assertion_ids
@@ -2367,7 +2444,9 @@ def execute_agent_turn(
                 "answer_context_status, answer_segments, and citation_map. "
                 "Use answer_context_status=plan_only_insufficient_evidence when "
                 "Graph evidence is unavailable. In that case, use only plan_claim "
-                "segments and set citation_map to null. For Graph claims, cite only "
+                "segments and set citation_map to null. If Graph evidence is available "
+                "but the answer uses only the Plan, use plan_only_graph_unused. "
+                "For Graph claims, cite only "
                 "claim and evidence IDs included in the authorized provider input. "
                 "Do not invent citations or present unsupported Graph facts."
             )
@@ -2408,6 +2487,7 @@ def execute_agent_turn(
                 work,
                 None if durable_turn is None else durable_turn.graph_context_receipt,
             )
+            policy_bootstrap = _admitted_initial_policy_bootstrap(policy_bootstrap)
         except AgentTurnServiceError:
             raise
         except Exception as exc:
