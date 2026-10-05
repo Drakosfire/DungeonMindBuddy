@@ -18,3 +18,5 @@ header{gap:10px;flex-wrap:wrap}header a{font-size:12px;color:#adc0c8}.source-sta
 .source-bullet-list { padding-left:1.4rem; margin:.6rem 0; }
 .source-bullet-list .source-item { margin:.25rem 0; }
 .source-warning { border-left:3px solid var(--theme-accent,#a38b5a); padding-left:.6rem; font-size:.85em; }
+
+.source-abilities{width:100%;table-layout:fixed;border-collapse:collapse;margin:.5rem 0}.source-abilities th,.source-abilities td{text-align:center;padding:.3rem .15rem;border-bottom:1px solid var(--border,#aa9670)}.source-statblock-name{margin:.25rem 0;font-size:1.15rem}.source-statblock-type{font-style:italic;margin:.15rem 0}.source-statblock-section{margin:.5rem 0 .2rem;border-bottom:1px solid var(--border,#aa9670)}.source-statblock-field{margin:.12rem 0}.source-statblock-action{margin:.35rem 0}

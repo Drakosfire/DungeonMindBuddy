@@ -9,7 +9,7 @@ export function validateSourceAnnotations(board){
  const used=new Map();
  for(const a of board.sourceAnnotations){
   const u=units.get(a?.unitId),points=Array.from(u?.text??'');
-  if(!u||!Number.isInteger(a.start)||!Number.isInteger(a.end)||a.start<0||a.end<=a.start||a.end>points.length||points.slice(a.start,a.end).join('')!==a.expectedText||!['excerpt','list_item','conditional','warning'].includes(a.kind)||!cards.has(a.targetCard)||a.audience!=='GM'||!/^([a-f0-9]{64})$/.test(a.packageHash??'')){errors.push('Invalid source annotation basis or range');continue}
+  if(!u||!Number.isInteger(a.start)||!Number.isInteger(a.end)||a.start<0||a.end<=a.start||a.end>points.length||points.slice(a.start,a.end).join('')!==a.expectedText||!['excerpt','list_item','conditional','warning','statblock'].includes(a.kind)||!cards.has(a.targetCard)||a.audience!=='GM'||!/^([a-f0-9]{64})$/.test(a.packageHash??'')){errors.push('Invalid source annotation basis or range');continue}
   const key=a.unitId+'|'+a.targetCard+'|'+a.kind;const prior=used.get(key)??[];
   if(prior.some(b=>a.start<b.end&&b.start<a.end))errors.push('Overlapping source annotation');
   prior.push(a);used.set(key,prior);
@@ -93,4 +93,100 @@ export function expectedSheepTransformation(parent,pack,packageHash){
   if(f.id==='guz-charisma-modifier')board.sourceWarnings.push({unitId:f.units[0].id,targetCard:f.cards[0].id,text:p.annotation,packageHash});
  }
  return board;
+}
+
+// Conks is a separate reviewed transformation, not a generic alias for Sheep.
+export function expectedConksTransformation(parent,pack,packageHash){
+ const ids=['source-semantic-legend','missing-sensory-candidates','saladin-mixed-unit','statblock-hierarchy','stale-blindsight-diagnostic'];
+ if(canonical(pack.findings.map(f=>f.id))!==canonical(ids))throw Error('Incomplete reviewed Conks package');
+ const board=structuredClone(parent),cards=new Map(board.cards.map(c=>[c.id,c]));
+ board.sourceAnnotations=[];board.sourceWarnings=[];
+ board.sourceSemantics=structuredClone(pack.findings[0].proposed);
+ const sensory=pack.findings[1].proposed.ranges,split=pack.findings[2].proposed;
+ for(const range of sensory){
+  const card=cards.get(range.cardId),items=card.lenses['GM only'];
+  const index=items.findIndex(i=>i.refs.length===1&&i.refs[0]===range.unitId&&i.text===board.units.find(u=>u.id===range.unitId)?.text);
+  if(index<0)throw Error('Invalid Conks excerpt basis');
+  const old=items[index],ranges=[range];
+  if(range.cardId===split.cardId)ranges.push({...split.gmBiographyRange,cardId:split.cardId});
+  const replacement=ranges.map(r=>{
+   board.sourceAnnotations.push({...r,targetCard:r.cardId,kind:'excerpt',packageHash,audience:'GM'});
+   return {...old,text:r.expectedText,status:'reviewed_inference',sourceExcerpt:{start:r.start,end:r.end},audience:r===range?'GM sensory candidate · disclosure not reviewed':'GM biography'};
+  });
+  items.splice(index,1,...replacement);
+ }
+ for(const r of pack.findings[3].proposedSemanticRanges)board.sourceAnnotations.push({...r,targetCard:r.cardId,kind:'statblock',packageHash,audience:'GM'});
+ const diagnostic=pack.findings[4].proposed;
+ // Only exact stale diagnostic strings are replaced; source/rules values are never rewritten.
+ const stale='PDF visual audit: senses are blindsight 60 ft.; OCR says blindness 600 ft. Preserve the OCR readback, use PDF p16 (printed p17) for rules. Do not execute OCR numbers blindly.';
+ for(const card of board.cards)for(const item of card.reviewDetails??[])if(item.text===stale)item.text=diagnostic.honestDiagnostic;
+ return board;
+}
+export function expectedConksManifest(parentManifest,board,pack,packageHash,evidenceHash){
+ const manifest=structuredClone(parentManifest),d=pack.findings[4].proposed;
+ manifest.datasetPin=board.pin;manifest.cards=structuredClone(board.cards);
+ manifest.audit.knownGaps[1]=d.additionalStaleDiagnostic;manifest.audit.knownGaps[2]=d.honestDiagnostic;
+ manifest.audit.pdfVisualAudit.findings['Grotesque Tree · statblock']=d.honestDiagnostic;
+ manifest.sourceAnnotations=structuredClone(board.sourceAnnotations);manifest.sourceSemantics=structuredClone(board.sourceSemantics);
+ manifest.sourceFidelityDerivative={packageHash,parentDatasetPin:pack.parent.datasetPin,independentEvidenceHash:evidenceHash};
+ return manifest;
+}
+const statblockRoles=new Set(['name','type_alignment','field_label','field_value','ability_label','ability_value','section_heading','trait_name','trait_body','action_name','action_body']);
+export function renderConksStatblock(item,board,cardId){
+ if(item.refs?.length!==1)return null;
+ const unit=board.units.find(u=>u.id===item.refs[0]);if(!unit||item.text!==unit.text||item.status!=='source_supported')return null;
+ const marks=(board.sourceAnnotations??[]).filter(a=>a.kind==='statblock'&&a.unitId===unit.id&&a.targetCard===cardId);
+ if(!marks.length||validateSourceAnnotations(board).length||marks.some(a=>!statblockRoles.has(a.role)))return null;
+ const correction=board.sourceCorrections?.[unit.id];
+ const value=a=>{
+  // Ranges were selected against original OCR. A reviewed whole-unit correction can
+  // supply the corresponding labeled field value only after original basis validation.
+  if(a.role==='field_value'&&correction?.originalText===unit.text){
+   const line=correction.text.split('\n').find(line=>line.startsWith(a.field+' '));
+   if(line)return sourceEscape(line.slice(a.field.length+1));
+  }
+  return sourceEscape(a.expectedText);
+ };
+ if(marks.some(a=>a.role==='ability_label')){
+  const columns=Array.from({length:6},(_,column)=>marks.filter(a=>a.column===column));
+  if(columns.some(pair=>pair.length!==2||!pair.some(a=>a.role==='ability_label')||!pair.some(a=>a.role==='ability_value')))return null;
+  return '<table class="source-abilities"><thead><tr>'+columns.map(pair=>'<th scope="col">'+value(pair.find(a=>a.role==='ability_label'))+'</th>').join('')+'</tr></thead><tbody><tr>'+columns.map(pair=>'<td>'+value(pair.find(a=>a.role==='ability_value'))+'</td>').join('')+'</tr></tbody></table>';
+ }
+ let html='';for(const a of [...marks].sort((a,b)=>a.start-b.start)){
+  if(a.role==='name')html+='<h3 class="source-statblock-name">'+value(a)+'</h3>';
+  else if(a.role==='type_alignment')html+='<p class="source-statblock-type">'+value(a)+'</p>';
+  else if(a.role==='section_heading')html+='<h4 class="source-statblock-section">'+value(a)+'</h4>';
+  else if(a.role==='field_label')html+='<div class="source-statblock-field"><strong>'+value(a)+'</strong> ';
+  else if(a.role==='field_value')html+=value(a)+'</div>';
+  else if(a.role.endsWith('_name'))html+='<p class="source-statblock-action"><strong>'+value(a)+'</strong> ';
+  else if(a.role.endsWith('_body'))html+=value(a)+'</p>';
+ }
+ return '<div class="source-statblock">'+html+'</div>';
+}
+export async function verifyConksDerivativeReceipt(receipt,read,hash){
+ const fail=()=>{throw Error('Invalid Conks derivative receipt or file basis')},digest=/^[a-f0-9]{64}$/;
+ if(receipt?.schema!=='conks_source_structure_derivative_receipt_v1'||receipt.acceptanceStatus!=='candidate_not_accepted'||!/^[a-f0-9]{40}$/.test(receipt.rendererExactGitRevision??''))fail();
+ const verify=async(scope,name,expected)=>{if(!digest.test(expected??''))fail();const bytes=await read(scope,name);if(await hash(bytes)!==expected)fail();return bytes};
+ const parse=bytes=>JSON.parse(new TextDecoder().decode(bytes));
+ const parent=parse(await verify('parent','receipt.json',receipt.parent?.receiptSha256));
+ const required=['source/board.json','source/reference-manifest.json','source/source.pdf','play.json',...derivativeRendererFiles.map(n=>'renderer/'+n)];
+ for(const n of required)if(!parent.files?.[n])fail();
+ for(const [n,h] of Object.entries(parent.files)){if(n.startsWith('/')||n.split('/').includes('..'))fail();await verify('parent',n,h)}
+ const original=parse(await read('parent','source/board.json')),parentManifest=parse(await read('parent','source/reference-manifest.json'));
+ for(const asset of original.assets??[])if(parent.files['source/'+asset.url.split('/').at(-1)]!==asset.hash)fail();
+ const pack=parse(await verify('package','correction.json',receipt.reviewedCorrectionPackageSha256));
+ const evidence=parse(await verify('evidence','evidence.json',receipt.independentEvidenceSha256));
+ const review=parse(await verify('review','review.json',receipt.independentPackageReviewSha256));
+ if(pack.parent.receiptSha256!==receipt.parent.receiptSha256||pack.parent.pdfHash&&pack.parent.pdfHash!==original.pdfHash||pack.parent.printerFriendlyPdfSha256!==original.pdfHash||pack.parent.datasetPin!==original.pin||pack.evidence.sha256!==receipt.independentEvidenceSha256||evidence.datasetPin!==original.pin||review.verdict!=='ACCEPT_SOURCE_PACKAGE_ONLY'||review.packageSha256!==receipt.reviewedCorrectionPackageSha256||review.evidenceSha256!==receipt.independentEvidenceSha256)fail();
+ const files=receipt.outputSha256ByFilename;if(!files||Object.keys(files).sort().join('|')!=='board.json|reference-manifest.json')fail();
+ const board=parse(await verify('derivative','board.json',files['board.json'])),manifest=parse(await verify('derivative','reference-manifest.json',files['reference-manifest.json']));
+ if(receipt.newDatasetPin!==await hash(new TextEncoder().encode(receipt.reviewedCorrectionPackageSha256+pack.parent.datasetPin)))fail();
+ const expected=expectedConksTransformation(original,pack,receipt.reviewedCorrectionPackageSha256);
+ expected.pin=receipt.newDatasetPin;expected.previousPins=[...new Set([...(original.previousPins??[]),original.pin])];
+ if(canonical(board)!==canonical(expected)||validateSourceCorrections(board).length||validateSourceAnnotations(board).length)fail();
+ if(canonical(manifest)!==canonical(expectedConksManifest(parentManifest,expected,pack,receipt.reviewedCorrectionPackageSha256,receipt.independentEvidenceSha256)))fail();
+ const renderer=receipt.rendererSha256ByFilename;if(!renderer||Object.keys(renderer).sort().join('|')!==[...derivativeRendererFiles].sort().join('|'))fail();
+ for(const name of derivativeRendererFiles)await verify('renderer',name,renderer[name]);
+ if(await hash(new TextEncoder().encode(JSON.stringify(Object.fromEntries(Object.entries(renderer).sort(([a],[b])=>a.localeCompare(b))))))!==receipt.rendererAggregateSha256)fail();
+ return {status:'candidate_not_accepted',board,manifest};
 }

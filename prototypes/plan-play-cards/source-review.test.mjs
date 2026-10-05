@@ -71,3 +71,35 @@ if(process.env.SHEEP_FIDELITY_ROOT){
  for(const mutate of mutations)await assert.rejects(()=>trial(mutate));
  console.log('PASS: actual reviewed transformation rejects nine independently rehashed invalid derivatives');
 }
+
+if(process.env.CONKS_FIDELITY_ROOT){
+ const {readFile}=await import('node:fs/promises'),root=process.env.CONKS_FIDELITY_ROOT;
+ const json=async p=>JSON.parse(await readFile(p,'utf8'));
+ const {verifyConksDerivativeReceipt,renderConksStatblock}=await import('./source-review.js');
+ const actual=await json(root+'/.private/conks-successor-v1/receipt.json'),actualBoard=await json(root+'/.private/conks-successor-v1/board.json'),actualManifest=await json(root+'/.private/conks-successor-v1/reference-manifest.json');
+ async function trial(mutate){
+  const b=structuredClone(actualBoard),m=structuredClone(actualManifest),r=structuredClone(actual);mutate(b,m,r);
+  const output={'board.json':encode(b),'reference-manifest.json':encode(m)};r.outputSha256ByFilename=Object.fromEntries(Object.entries(output).map(([n,v])=>[n,hash(v)]));
+  r.rendererSha256ByFilename=Object.fromEntries(await Promise.all(derivativeRendererFiles.map(async n=>[n,hash(await readFile(root+'/'+n))])));
+  r.rendererAggregateSha256=hash(encode(Object.fromEntries(Object.entries(r.rendererSha256ByFilename).sort(([a],[b])=>a.localeCompare(b)))));
+  const reader=(scope,name)=>scope==='derivative'?output[name]:readFile(scope==='parent'?r.parent.root+'/'+name:scope==='renderer'?root+'/'+name:scope==='package'?root+'/.private/conks-correction-package-v2.json':scope==='evidence'?'/tmp/prime-conks-source-review/evidence.json':'/tmp/prime-conks-source-review/v2-span-review.json');
+  return verifyConksDerivativeReceipt(r,reader,hash);
+ }
+ assert.equal((await trial(()=>{})).status,'candidate_not_accepted');
+ for(const mutate of [
+  b=>b.sourceAnnotations.pop(),b=>b.sourceAnnotations.reverse(),b=>{b.sourceAnnotations[0].targetCard='conks:card:1'},
+  b=>{b.sourceAnnotations[0].audience='player'},b=>{b.sourceAnnotations.at(-1).role='html'},
+  b=>{b.sourceSemantics.boldMonsterNames='Force combat'},b=>{b.cards.find(c=>c.id==='conks:card:18').lenses['GM only'].reverse()},
+  b=>{b.units[0].text='changed'},(_,m)=>{m.datasetPin='wrong'},(_,m)=>{m.audit.knownGaps[2]='blindsight60'},
+  b=>{b.sourceAnnotations.find(a=>a.role==='ability_value').column=5},(_,m,r)=>{r.independentPackageReviewSha256='0'.repeat(64)}
+ ])await assert.rejects(()=>trial(mutate));
+ const card=actualBoard.cards.find(c=>c.id==='conks:card:1');
+ const abilities=card.lenses['GM only'].find(i=>i.refs.includes(actualBoard.sourceAnnotations.find(a=>a.role==='ability_label').unitId));
+ const table=renderConksStatblock(abilities,actualBoard,card.id);assert.equal((table.match(/<th scope=/g)??[]).length,6);assert.equal((table.match(/<td>/g)??[]).length,6);
+ const senses=card.lenses['GM only'].find(i=>i.text.includes('Senses blindness'));
+ assert.match(renderConksStatblock(senses,actualBoard,card.id),/blindsight 600 ft/);assert.match(senses.text,/blindness 600 ft/,'original OCR stays intact');
+ assert.equal(renderConksStatblock(senses,actualBoard,'conks:card:2'),null);
+ assert.equal(renderConksStatblock({...senses,text:'authored adaptation'},actualBoard,card.id),null);
+ const wagon=actualBoard.cards.find(c=>c.id==='conks:card:18');assert.equal(wagon.lenses['Read aloud'].length,0);assert.ok(wagon.lenses['GM only'].some(i=>i.audience==='GM biography'));
+ console.log('PASS: real Conks complete derivative rejects twelve rehashed mutations; six ability columns, original-offset corrected senses and GM-only split verified');
+}
