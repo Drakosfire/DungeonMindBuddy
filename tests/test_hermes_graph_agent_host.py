@@ -1312,7 +1312,7 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
         "schema": EXPAND_GRAPH_RETRIEVAL_SCHEMA,
         "retrievalSessionId": "sess:SPOOF",
         "operation": "search",
-        "queryText": "Tripod",
+        "queryText": os.environ.get("DMB_HERMES_TEST_TOOL_QUERY", "Tripod"),
     }
     responses_streams = [
         [
@@ -1339,7 +1339,9 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
         [
             SimpleNamespace(
                 type="response.output_text.delta",
-                delta="Tripod stands at the North Gate.",
+                delta=os.environ.get(
+                    "DMB_HERMES_TEST_FINAL_TEXT", "Tripod stands at the North Gate."
+                ),
             ),
             SimpleNamespace(
                 type="response.completed",

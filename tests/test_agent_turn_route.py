@@ -236,7 +236,13 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         _FakeBundle(world_graph, sources, _receipt(NATIVE_ID, published.revision_id)),
         NATIVE_ID,
     )
-    monkeypatch.setattr(direct, "direct_services_from_config", lambda world_id: services if world_id == NATIVE_ID else None)
+    graph_reads: list[str] = []
+
+    def bound_direct_services(world_id: str) -> Any:
+        graph_reads.append(world_id)
+        return services if world_id == NATIVE_ID else None
+
+    monkeypatch.setattr(direct, "direct_services_from_config", bound_direct_services)
     binding = NativeGraphBindingRecord(
         native_world_id=NATIVE_ID, binding_version=1, status="active",
         validated_at="2026-10-05T00:00:00Z",
@@ -443,7 +449,8 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         "payloadUtf8Bytes": len(first_payload_json.encode()),
     }
     policy_budget = {
-        **budget, "provider": "openai-api", "model": "test-model",
+        **budget, "schema": "dmb_hermes_request_budget_policy_v1",
+        "provider": "openai-api", "model": "test-model",
         "apiMode": "codex_responses",
     }
 
@@ -544,6 +551,148 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     assert attempts[0].included_assertion_ids == []
     assert attempts[0].included_graph_event_ids == []
     assert attempts[1].included_graph_event_ids == [operations[0].event_id]
+
+    from fastapi.testclient import TestClient
+    from apps.live_control_server.services.hermes_agent_runtime import (
+        HermesAgentRuntimeAdapter,
+    )
+    from apps.live_control_server.services.hermes_graph_agent_host import (
+        HermesGraphAgentHost,
+    )
+    from tests.test_hermes_graph_agent_host import _tool_using_aiagent_host_worker
+
+    http_payload = {
+        **payload,
+        "client_thread_id": "thread-host-policy",
+        "turn_id": "turn-host-policy",
+        "message": "Explore this World.",
+    }
+    plan_basis = {
+        "world_id": managed.world_id,
+        "document_id": "plan-1",
+        "object_revision": 7,
+        "work_revision_id": work.content_basis.work_revision_id,
+        "revision_n": 3,
+        "markdown": work.plan_markdown,
+        "content_sha256": "a" * 64,
+        "committed_status": "committed",
+        "has_divergent_working_copy": False,
+    }
+    monkeypatch.setattr(
+        agent_route, "get_current_world_plan_revision",
+        lambda *_args, **_kwargs: SimpleNamespace(**plan_basis),
+    )
+    monkeypatch.setattr(agent_route, "session_dir", lambda: tmp_path / "host-sessions")
+    route_service: dict[str, Any] = {"value": AgentConversationService()}
+    monkeypatch.setattr(
+        agent_route, "_conversation_service", lambda _request: route_service["value"]
+    )
+    monkeypatch.setenv("DMB_HERMES_HOST_OFFLINE_WITNESS", str(tmp_path / "host-witness.json"))
+    monkeypatch.setenv("DUNGEONMIND_HERMES_GRAPH_MODEL", "test-model")
+    monkeypatch.setenv("DMB_HERMES_TEST_TOOL_QUERY", "tavern")
+    graph_claim = {
+        "kind": "graph_claim",
+        "claim_id": "rel:tavern-cellar",
+        "text": "The Prancing Tavern contains a hidden cellar.",
+        "target_kind": "relationship",
+        "target_id": "rel:tavern-cellar",
+        "graph_revision": published.revision_id,
+        "evidence_ref_ids": ["ev:cellar"],
+    }
+    monkeypatch.setenv("DMB_HERMES_TEST_FINAL_TEXT", json.dumps({
+        "answer_context_status": "graph_grounded",
+        "answer_segments": [graph_claim],
+        "citation_map": {"entries": [{
+            "claim_id": graph_claim["claim_id"],
+            "target_kind": "relationship",
+            "target_id": graph_claim["target_id"],
+            "graph_revision": published.revision_id,
+            "evidence_ref_ids": ["ev:cellar"],
+            "source_opened": False,
+        }]},
+    }))
+    host = HermesGraphAgentHost(
+        worker_target=_tool_using_aiagent_host_worker,
+        turn_timeout_s=120.0, ready_timeout_s=90.0, accept_timeout_s=30.0,
+        session_profiles_root=tmp_path / "host-profiles",
+    )
+    app = FastAPI()
+    app.include_router(live_router)
+    app.state.agent_turn_runtime = HermesAgentRuntimeAdapter(host_factory=lambda: host)
+    app.state.agent_conversation_service = AgentConversationService()
+    try:
+        with TestClient(app) as client:
+            http_turn = client.post("/api/live/agent/turn", json=http_payload)
+            assert http_turn.status_code == 200, http_turn.text
+            http_answer = http_turn.json()
+            assert http_answer["schema"] == "dmb_agent_turn_response_v2"
+            assert http_answer["answer"]["graph_grounded"] is True
+            assert http_answer["answer"]["text"] == graph_claim["text"]
+            before_history_reads = len(graph_reads)
+            history = client.get(f"/api/live/agent/worlds/{managed.world_id}/conversation")
+            assert history.status_code == 200, history.text
+            assert history.json()["schema"] == "dmb_agent_conversation_history_v2"
+            assert len(graph_reads) == before_history_reads
+            replay = client.post("/api/live/agent/turn", json=http_payload)
+            assert replay.status_code == 200, replay.text
+            assert replay.json()["plan_context"]["delivery_replay"] is True
+            assert len(graph_reads) == before_history_reads
+            monkeypatch.setattr(
+                world_container_registry, "get_world_container",
+                lambda _root, world_id: (
+                    bound.model_copy(update={"native_graph_binding": None})
+                    if world_id == managed.world_id else None
+                ),
+            )
+            denied = client.post("/api/live/agent/turn", json={
+                **http_payload, "turn_id": "turn-host-binding-denied",
+            })
+            assert denied.status_code == 409, denied.text
+            assert len(graph_reads) == before_history_reads
+            monkeypatch.setattr(
+                world_container_registry, "get_world_container",
+                lambda _root, world_id: bound if world_id == managed.world_id else None,
+            )
+            from application_state.errors import ApplicationStateError
+
+            class DenyAuthorizationService(AgentConversationService):
+                def authorize_provider_attempt(self, *_args: Any, **_kwargs: Any) -> Any:
+                    raise ApplicationStateError("synthetic authorization persistence refusal")
+
+            route_service["value"] = DenyAuthorizationService()
+            before_persistence_reads = len(graph_reads)
+            persistence_denied = client.post("/api/live/agent/turn", json={
+                **http_payload, "turn_id": "turn-host-persistence-denied",
+            })
+            assert persistence_denied.status_code == 503, persistence_denied.text
+            assert len(graph_reads) == before_persistence_reads + 1
+    finally:
+        host.shutdown()
+    sdk_witness = json.loads((tmp_path / "host-witness.json").read_text())
+    assert sdk_witness["network_attempts"] == []
+    assert sdk_witness["responses_stub_calls"] == 2
+    sdk_bodies = sdk_witness["provider_request_bodies"][0]
+    assert len(sdk_bodies) == 2
+    assert '"claimLedger": []' in sdk_bodies[0]["instructions"]
+    assert graph_claim["claim_id"] not in json.dumps(sdk_bodies[0])
+    followup_output = sdk_bodies[1]["input"][-1]
+    assert followup_output["type"] == "function_call_output"
+    assert followup_output["call_id"] == sdk_bodies[1]["input"][-2]["call_id"]
+    assert graph_claim["claim_id"] in followup_output["output"]
+    stored_http = next(
+        turn for turn in AgentConversationService().list_turns(
+            managed.world_id, http_answer["conversation"]["conversation_id"],
+        ) if turn.user_text == http_payload["message"]
+    )
+    http_events = stored_http.graph_context_execution.events
+    http_attempts = [e for e in http_events if e.kind == "provider_attempt_authorized"]
+    http_operations = [e for e in http_events if e.kind == "validated_graph_operation"]
+    assert len(http_attempts) == 2
+    assert len(http_operations) == 1
+    assert http_attempts[0].included_graph_event_ids == []
+    assert http_attempts[1].included_graph_event_ids == [http_operations[0].event_id]
+    assert graph_claim["target_id"] in http_attempts[1].included_relationship_ids
+    assert graph_claim["evidence_ref_ids"][0] in http_attempts[1].included_evidence_ref_ids
 
 
 def _durable_turn(
