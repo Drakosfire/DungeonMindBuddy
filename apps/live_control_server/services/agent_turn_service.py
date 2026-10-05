@@ -18,13 +18,16 @@ from application_state.agent_conversation.types import (
     Conversation,
     ConversationCommand,
     HistoricalReference,
+    PlanWorldGraphContextReceiptV1,
     PlanPlayableTargetReceiptV1,
+    PlanContextPolicyV1,
     SubmittedGraphFocusIntentV1,
     SubmittedGraphRequestIntentV1,
     SubmittedGraphSelectionIntentV1,
     SubmittedPlanPlayableTargetV1,
     SubmittedPrimaryWorkIntentV1,
     SubmittedTurnIntentV1,
+    SubmittedTurnIntentV2,
     Turn,
     TurnFailure,
     TurnProvenance,
@@ -39,6 +42,7 @@ from application_state.errors import (
 )
 
 from apps.live_control_server.models.agent_turn import (
+    AgentPlanWorldGraphExecutionProjectionV1,
     AgentTurnContentBasis,
     AgentTurnRequest,
     AgentTurnResponse,
@@ -183,6 +187,33 @@ class AgentTurnServiceError(ValueError):
         super().__init__(message)
         self.code = code
         self.status_code = status_code
+
+
+def project_plan_graph_execution_state(
+    authorization_state: str | None,
+    *,
+    completed: bool = False,
+) -> AgentPlanWorldGraphExecutionProjectionV1:
+    """Expose only safe retry disposition from internal execution lifecycle state."""
+    if completed:
+        claimability = "completed"
+    elif authorization_state == "none":
+        claimability = "safe_to_reclaim_without_dispatch"
+    elif authorization_state == "known_not_sent":
+        claimability = "explicit_new_attempt_required"
+    else:
+        # Authorized, SDK-entered, response-received without durable completion,
+        # outcome-unknown, and unrecognized states may already have been sent.
+        claimability = "blocked_unknown_or_sent"
+        if authorization_state not in {
+            "authorized", "sdk_entered", "response_received", "outcome_unknown", None
+        }:
+            authorization_state = "outcome_unknown"
+    return AgentPlanWorldGraphExecutionProjectionV1(
+        claimability=claimability,
+        authorization_state=authorization_state or "outcome_unknown",
+        automatic_redispatch=False,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -473,7 +504,7 @@ def _conversation_provenance(
 
 def _submitted_turn_intent(
     request: AgentTurnRequest, *, world_id: str
-) -> SubmittedTurnIntentV1:
+) -> SubmittedTurnIntentV1 | SubmittedTurnIntentV2:
     """Capture normalized caller semantics before resolving mutable context."""
     graph_request = request.graph_request.model_dump(mode="python")
     graph_focus = graph_request.get("focus")
@@ -502,7 +533,7 @@ def _submitted_turn_intent(
             node_id=request.graph_selection.node_id
         )
     )
-    return SubmittedTurnIntentV1(
+    common = dict(
         world_id=world_id,
         client_thread_id=request.client_thread_id,
         message=request.message,
@@ -520,6 +551,20 @@ def _submitted_turn_intent(
         graph_request=graph_intent,
         graph_selection=graph_selection,
     )
+    if request.plan_context_policy is not None:
+        if primary_work is None:
+            raise AgentTurnServiceError(
+                "The explicit Plan context policy has no normalized Plan basis.",
+                code="plan_context_intent_invalid",
+                status_code=422,
+            )
+        return SubmittedTurnIntentV2(
+            **common,
+            plan_context_policy=PlanContextPolicyV1(
+                policy=request.plan_context_policy.policy
+            ),
+        )
+    return SubmittedTurnIntentV1(**common)
 
 
 def _turn_idempotency_key(world_id: str, turn_id: str) -> UUID:
@@ -817,8 +862,15 @@ def _accept_world_turn(
     *,
     world_id: str,
     provenance: TurnProvenance,
-    submitted_intent: SubmittedTurnIntentV1,
+    submitted_intent: SubmittedTurnIntentV1 | SubmittedTurnIntentV2,
+    graph_context_receipt: PlanWorldGraphContextReceiptV1 | None = None,
 ) -> Turn:
+    if isinstance(submitted_intent, SubmittedTurnIntentV2) and graph_context_receipt is None:
+        raise AgentTurnServiceError(
+            "auto_plan_world cannot be accepted before its first provider envelope is frozen.",
+            code="plan_graph_receipt_unavailable",
+            status_code=503,
+        )
     idempotency_key = _turn_idempotency_key(world_id, request.turn_id)
     for _attempt in range(3):
         active = _active_or_create_conversation(
@@ -831,7 +883,17 @@ def _accept_world_turn(
             expected_conversation_revision=active.revision,
             user_text=request.message,
             provenance=provenance,
-            submitted_intent_v1=submitted_intent,
+            submitted_intent_v1=(
+                submitted_intent
+                if isinstance(submitted_intent, SubmittedTurnIntentV1)
+                else None
+            ),
+            submitted_intent_v2=(
+                submitted_intent
+                if isinstance(submitted_intent, SubmittedTurnIntentV2)
+                else None
+            ),
+            graph_context_receipt=graph_context_receipt,
         )
         try:
             return service.accept_turn(submission)
@@ -890,7 +952,7 @@ def execute_agent_turn(
         ) from exc
 
     durable_turn: Turn | None = None
-    submitted_intent: SubmittedTurnIntentV1 | None = None
+    submitted_intent: SubmittedTurnIntentV1 | SubmittedTurnIntentV2 | None = None
     canonical_world_id: str | None = None
     if request.owner_scope is not None and request.owner_scope.kind == "world":
         requested_world_id = request.owner_scope.world_id

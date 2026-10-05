@@ -5,6 +5,7 @@
 **Pinned base:** Buddy `main@6319ff30466dd9ab2e3e0752fce31ac8a71b7d4b` (merge of accepted #924 head `0e716a0ec3f9f479d7202f9ca48411cbdd0558ef`).
 **Branch:** `codex/plan-world-graph-context-route`.
 **Topology:** one serial SERVER implementation PR on the refreshed base. APP-STATE implementation is active separately. SERVER uses an in-memory fake persistence port until an exact APP-STATE producer head is accepted; actual cross-repository integration acceptance and final dependency merge remain outstanding.
+**Current candidate state:** implementation is in progress. The bounded provider-boundary amendment below has focused evidence, but the route lifecycle, complete acceptance witnesses, and independent PRIME review are not yet complete. Do not treat this checkpoint as merge-ready.
 
 ## Mission
 
@@ -62,6 +63,20 @@ The first exact final envelope—not `_plan_message`, route assembly, retrieval 
 
 ## Path lease
 
+**PRIME-approved bounded amendment (2026-10-05):** The accepted #924 guard is
+not yet the final boundary for Codex streaming in this policy path. The pinned
+Hermes stream runtime adds `stream=true` after the guard view and retries a
+streaming SDK request internally without a fresh parent authorization. This
+successor may update the existing pinned Hermes patch and its owning tests only
+to include the actual `stream` request field in the guarded canonical view and
+to prevent a hidden guarded streaming retry. Prefer disabling that internal
+retry when the parent guard is active; each later individual provider attempt
+must obtain a fresh single-use parent authorization. Preserve legacy retry
+behavior when the guard is absent. Prove exact guarded-view/SDK-body equality,
+zero SDK entry on denial, no second SDK call after a guarded stream failure,
+and legacy retry parity. This does not authorize a new serializer, SDK wrapper,
+provider path, or installed-package edits.
+
 Exclusive write lease for this PR:
 
 - `Docs/Plans/HANDOFF-SERVER-plan-world-graph-context-route-v1.md`
@@ -81,8 +96,11 @@ Exclusive write lease for this PR:
 - `tests/test_hermes_graph_agent_contract.py`
 - `tests/test_hermes_graph_agent.py`
 - `tests/test_hermes_graph_interaction_tools.py`
+- `patches/hermes-agent/0001-pre-dispatch-budget-veto.patch` (only the bounded stream field and guarded retry changes described above)
+- `tests/hermes_patch/test_pre_dispatch_budget_veto.py`
+- `scripts/prepare_patched_hermes.py` only if a pinned manifest/source identity constant must change as a direct result of the patch
 
-No APP-STATE, GenerationEngine, DungeonMind, DEMO, migration, dependency/lock, Hermes upstream patch, generic `agent_runtime.py`, or other path is leased. Do not change the #924 upstream patch unless a demonstrated boundary gap requires an explicit lease amendment first.
+No APP-STATE, GenerationEngine, DungeonMind, DEMO, migration, dependency/lock, generic `agent_runtime.py`, or other path is leased. The Hermes patch lease is limited to the PRIME-approved amendment above.
 
 ## Re-anchored collision and authority facts
 
@@ -97,12 +115,25 @@ Use deterministic Plan, binding, Graph session, fake APP-STATE execution ledger,
 
 1. Preserve no-policy request/response/history schemas and golden request, idempotency, and v1 submitted-intent fingerprints byte-for-byte. Reject policy contradictions and non-saved/non-Plan inputs before Graph read, turn claim, or provider dispatch.
 2. Test managed World ID distinct from native ID, active binding and binding/version/source-root drift, exact revision pin, fixed World/null-campaign scope, foreign/duplicate evidence rejection, and retries that never repin.
-3. At actual subprocess boundary, prove initial request reaches final middleware-shaped Hermes view; receipt and authorization persist before mocked SDK entry; boundary captured SDK request matches the stored digest, accounting, and evidence membership.
+3. At actual subprocess boundary, prove initial request reaches final middleware-shaped Hermes view; receipt and authorization persist before mocked SDK entry; boundary captured SDK request matches the stored digest, accounting, and evidence membership. For streaming, `stream=true` must be included in that same guarded view and SDK body; do not normalize it away.
 4. Prove initial call → parent `expand_graph_retrieval` → follow-up provider call with the updated parent-admitted session in the child. Prove child-local Graph fallback is impossible. Denied/invalid expansion produces zero follow-up SDK calls.
-5. Prove no SDK on stale attempt, persistence deny/uncertainty, duplicate authorization, or unknown dispatch; duplicate permission is never reusable; hidden provider retry cannot bypass the gate. Preserve truthful `known_not_sent`, `sdk_entered`, `response_received`, and `outcome_unknown` states.
+5. Prove no SDK on stale attempt, persistence deny/uncertainty, duplicate authorization, or unknown dispatch; duplicate permission is never reusable; hidden provider retry cannot bypass the gate. For guarded streaming, prove one fresh authorization per actual wire attempt, no internal retry can repeat SDK entry under one authorization, denial produces zero SDK requests, and unguarded legacy streaming retains its retry behavior. Preserve truthful `known_not_sent`, `sdk_entered`, `response_received`, and `outcome_unknown` states.
 6. Completion cites only evidence included in the producing envelope, including initial evidence; test rejecting an initial candidate not actually included, evidence only present in an earlier/different attempt, and child-claimed unadmitted evidence. Bind claim IDs to supporting operation events.
 7. Exercise all APP-STATE statuses and replay/lifecycle semantics with the fake port: completed replay performs zero Plan/binding/Graph/provider reads; pending retry uses original pins; answer/receipt/execution completion is atomic in the fake contract witness. Clearly label these tests as fake persistence, not actual cross-repo integration.
 8. Run all seven leased owning suites, changed-path Ruff, relevant repository gates, patch/lock verification only if dependencies remain untouched, and exact cumulative base→head diff/allowlist checks.
+
+### Provider-boundary amendment evidence checkpoint
+
+- Checked-in patch SHA-256: `0a12e115fd671ff4efa8e7d3d658c472c3aa0f7a27a77013b5fd6f08728b73a4`.
+- Prepared patched-Hermes tree SHA: `3ec4254f5578edfedb071d55671f5e69332c3e49`.
+- `uv run pytest -q out/hermes-agent/tests/agent/test_pre_dispatch_budget_veto.py`: 11 passed.
+- `uv run pytest -q tests/hermes_patch/test_pre_dispatch_budget_veto.py`: 1 passed.
+- `uv run pytest -q tests/test_hermes_graph_agent_host.py::test_parent_authorization_and_graph_broker_guard_real_provider_requests`: 1 passed with exact canonical authorized JSON and SHA-256 matching captured `responses.create` kwargs, including `stream=true`.
+- `uv run ruff check tests/hermes_patch/test_pre_dispatch_budget_veto.py tests/test_hermes_graph_agent_host.py`: passed.
+- `python3 scripts/prepare_patched_hermes.py --verify`: passed. `pyproject.toml` and `uv.lock` are unchanged; the local Hermes package was reinstalled from the prepared source.
+- The DB-backed route test `test_plan_agent_route_dispatches_only_atomic_committed_content` passes against a PRIME-authorized temporary PostgreSQL 16 container on loopback port 32770, with a synthetic user/password, tmpfs data directory, and no volumes. The repo fixture created and dropped its unique `dungeonbuddy_app_state_test_<random>` database.
+- Full lifecycle host test `test_app_lifespan_shuts_down_global_host` currently stalls at `TestClient.__enter__`; a 15-second faulthandler snapshot shows the test thread waiting for ASGI startup completion and the AnyIO portal thread idle in its event loop. This remains an unresolved verification issue, not a pass.
+- This evidence checkpoint covers the stream/retry gap only. The full SERVER candidate remains incomplete, and APP-STATE integration remains pending its accepted producer implementation.
 
 ## Stop conditions and pending integration
 

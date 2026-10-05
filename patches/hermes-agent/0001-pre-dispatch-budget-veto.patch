@@ -141,16 +141,40 @@ index b93dcf6..df243dc 100644
 +        else getattr(assistant_message, "codex_reasoning_items", None)
 +    )
      if codex_items:
+diff --git a/agent/codex_runtime.py b/agent/codex_runtime.py
+index c1e46e8..e9debaf 100644
+--- a/agent/codex_runtime.py
++++ b/agent/codex_runtime.py
+@@ -852,3 +852,9 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
+     active_client = client or agent._ensure_primary_openai_client(reason="codex_stream_direct")
+-    max_stream_retries = 1
++    # The conversation loop's parent authorization is single-use. A local
++    # retry here would enter the SDK again without returning through that
++    # guard, so guarded turns rely on the outer loop to make a new authorized
++    # attempt. Preserve the established in-function retry for legacy callers.
++    max_stream_retries = (
++        0 if callable(getattr(agent, "api_request_budget_guard", None)) else 1
++    )
+     # Accumulate streamed text so callers / compat shims can read it.
 diff --git a/agent/conversation_loop.py b/agent/conversation_loop.py
-index 12c80a8..cf613bb 100644
+index 12c80a8..ae751a4 100644
 --- a/agent/conversation_loop.py
 +++ b/agent/conversation_loop.py
 @@ -36,2 +36,3 @@ from agent.turn_context import build_turn_context
  from agent.turn_retry_state import TurnRetryState
 +from agent.api_request_budget import ApiRequestBudgetVeto
  from agent.memory_manager import build_memory_context_block
-@@ -1326,2 +1327,11 @@ def run_conversation(
+@@ -1323,5 +1324,19 @@ def run_conversation(
+                             next_api_kwargs,
+-                            allow_stream=False,
++                            # Codex requests are sent through
++                            # ``responses.create(stream=True)`` in both the
++                            # interruptible and direct dispatch helpers. Keep
++                            # that body field in the canonical guarded view.
++                            allow_stream=True,
+                             is_github_responses=agent._is_copilot_url(),
                          )
++                        next_api_kwargs["stream"] = True
 +                    # This guard is deliberately at the terminal call boundary:
 +                    # execution middleware has already produced
 +                    # ``next_api_kwargs``, and both streaming and non-streaming
@@ -161,7 +185,7 @@ index 12c80a8..cf613bb 100644
 +
 +                    enforce_api_request_budget(agent, next_api_kwargs)
                      if _use_streaming:
-@@ -2298,3 +2308,29 @@ def run_conversation(
+@@ -2298,3 +2313,29 @@ def run_conversation(
                  break  # Success, exit retry loop
 -
 +            except ApiRequestBudgetVeto as veto:
@@ -194,10 +218,10 @@ index 12c80a8..cf613bb 100644
              except InterruptedError:
 diff --git a/tests/agent/test_pre_dispatch_budget_veto.py b/tests/agent/test_pre_dispatch_budget_veto.py
 new file mode 100644
-index 0000000..4938032
+index 0000000..9446528
 --- /dev/null
 +++ b/tests/agent/test_pre_dispatch_budget_veto.py
-@@ -0,0 +1,262 @@
+@@ -0,0 +1,342 @@
 +"""Terminal request-budget rejection at the common SDK dispatch boundary."""
 +
 +from __future__ import annotations
@@ -327,6 +351,86 @@ index 0000000..4938032
 +        base_url = "http://localhost/v1"
 +
 +    enforce_api_request_budget(Agent(), {"model": "synthetic-model", "messages": []})
++
++
++def test_guarded_codex_authorization_includes_stream_and_denial_precedes_sdk(
++    agent_factory,
++):
++    agent = agent_factory(
++        base_url="https://api.openai.com/v1", model="gpt-6-luna"
++    )
++    assert agent.api_mode == "codex_responses"
++    calls = []
++    views = []
++
++    def deny(view):
++        views.append(view)
++        return False
++
++    agent.api_request_budget_guard = deny
++    agent._interruptible_streaming_api_call = lambda *_a, **_k: calls.append("stream")
++    agent._interruptible_api_call = lambda *_a, **_k: calls.append("plain")
++    result = agent.run_conversation(
++        "synthetic request", conversation_history=[], task_id="budget-codex-stream"
++    )
++
++    assert result["failure_code"] == "request_budget_exceeded"
++    assert len(views) == 1
++    assert '"stream":true' in views[0].payload_json
++    assert calls == []
++
++
++def test_guarded_codex_stream_does_not_retry_inside_one_authorization(agent_factory):
++    import httpx
++
++    agent = agent_factory(
++        base_url="https://api.openai.com/v1", model="gpt-6-luna"
++    )
++    assert agent.api_mode == "codex_responses"
++    agent.api_request_budget_guard = lambda _view: True
++    calls = []
++
++    def fail_before_response(**kwargs):
++        calls.append(kwargs)
++        raise httpx.ConnectError("synthetic transport failure")
++
++    client = SimpleNamespace(responses=SimpleNamespace(create=fail_before_response))
++    with pytest.raises(httpx.ConnectError):
++        agent._run_codex_stream(
++            {"model": "gpt-6-luna", "instructions": "test", "input": []},
++            client=client,
++        )
++
++    assert len(calls) == 1
++    assert calls[0]["stream"] is True
++
++
++def test_unguarded_codex_stream_keeps_legacy_retry(agent_factory):
++    import httpx
++
++    agent = agent_factory(
++        base_url="https://api.openai.com/v1", model="gpt-6-luna"
++    )
++    assert not callable(getattr(agent, "api_request_budget_guard", None))
++    calls = []
++
++    def fail_once_then_return(**kwargs):
++        calls.append(kwargs)
++        if len(calls) == 1:
++            raise httpx.ConnectError("synthetic transport failure")
++        return SimpleNamespace(output=[])
++
++    client = SimpleNamespace(
++        responses=SimpleNamespace(create=fail_once_then_return)
++    )
++    response = agent._run_codex_stream(
++        {"model": "gpt-6-luna", "instructions": "test", "input": []},
++        client=client,
++    )
++
++    assert response.output == []
++    assert len(calls) == 2
++    assert all(call["stream"] is True for call in calls)
 +
 +
 +@pytest.mark.parametrize("field,value", [("model", None), ("messages", object())])

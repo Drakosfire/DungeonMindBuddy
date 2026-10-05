@@ -54,6 +54,7 @@ from graph_memory.hermes_graph_plugin import (
     set_active_capability_policy,
     set_active_retrieval_session_id,
 )
+import graph_memory.hermes_graph_plugin as graph_plugin
 from graph_memory.interaction.schema_constants import EXPAND_GRAPH_RETRIEVAL_SCHEMA
 from graph_memory.retrieval.models import (
     RETRIEVAL_ERROR_SCHEMA,
@@ -2383,6 +2384,90 @@ def test_request_budget_guard_bounds_full_openai_request_and_output_reserve():
 
     policy["contextLimitTokens"] -= 1
     assert _request_budget_guard(policy)(view) is False
+
+
+def test_request_budget_guard_requires_parent_authorization_after_budget_check():
+    payload = {
+        "model": "synthetic-model",
+        "messages": [{"role": "user", "content": "question"}],
+        "max_completion_tokens": 16,
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    input_upper = len(encoded.encode()) + 64 * 4
+    policy = {
+        "provider": "openai-api",
+        "model": "synthetic-model",
+        "apiMode": "chat_completions",
+        "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+        "contextLimitTokens": input_upper + 16,
+        "outputReserveTokens": 16,
+    }
+    view = SimpleNamespace(
+        provider="openai-api",
+        model="synthetic-model",
+        api_mode="chat_completions",
+        payload_json=encoded,
+        payload_utf8_bytes=len(encoded.encode()),
+    )
+    authorized: list[Any] = []
+    guard = _request_budget_guard(
+        policy,
+        on_provider_authorization=lambda actual: authorized.append(actual) or True,
+    )
+    assert guard(view) is True
+    assert authorized == [view]
+
+    policy["contextLimitTokens"] = input_upper + 15
+    assert _request_budget_guard(
+        policy,
+        on_provider_authorization=lambda _actual: pytest.fail(
+            "over-budget request reached parent authorization"
+        ),
+    )(view) is False
+
+
+def test_parent_graph_broker_blocks_child_fallback_and_returns_parent_packet(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, dict[str, Any]]] = []
+    packet = {"retrieval_session_id": "parent-session", "candidates": []}
+    broker_token = graph_plugin.set_parent_graph_broker(
+        lambda name, args: (
+            calls.append((name, dict(args))) or '{"status":"ok"}',
+            packet,
+        ),
+        required=True,
+    )
+    policy_token = set_active_capability_policy(
+        default_graph_only_capability_policy(
+            HermesGraphScope(
+                world_id="native-world-1",
+                campaign_id="",
+                focus={"kind": "none", "sessionId": None},
+                admissibility="gm",
+                revision_pin="revision-1",
+                scope_mode="world",
+            )
+        )
+    )
+    monkeypatch.setattr(
+        graph_plugin,
+        "execute_hermes_graph_interaction_tool_json",
+        lambda *_args, **_kwargs: pytest.fail("parent-required mode used child-local Graph"),
+    )
+    try:
+        expand = graph_plugin._handler_for("expand_graph_retrieval")
+        result = expand({"query": "find the gate"})
+        assert result == '{"status":"ok"}'
+        assert calls and calls[0][0] == "expand_graph_retrieval"
+        assert graph_plugin.get_parent_retrieval_session_packet() == packet
+
+        read_source = graph_plugin._handler_for("read_graph_source")
+        denied = json.loads(read_source({"sourceAnchorId": "anchor-1"}))
+        assert denied["code"] == "plan_graph_tool_not_permitted"
+    finally:
+        reset_active_capability_policy(policy_token)
+        graph_plugin.reset_parent_graph_broker(broker_token)
 
 
 def test_request_budget_guard_accepts_codex_responses_envelope():

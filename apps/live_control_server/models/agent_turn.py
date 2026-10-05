@@ -8,6 +8,9 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from application_state.agent_conversation.types import (
+    PlanWorldGraphCompletionV1,
+    PlanWorldGraphContextReceiptV1,
+    PlanContextPolicyV1,
     SubmittedPlanPlayableTargetV1,
     TurnProvenance,
 )
@@ -206,6 +209,7 @@ class AgentTurnRequest(BaseModel):
     client_work_state: Literal["none", "saved_clean", "saved_dirty", "new_unsaved"]
     graph_request: AgentTurnGraphRequest
     graph_selection: AgentTurnGraphSelection | None
+    plan_context_policy: PlanContextPolicyV1 | None = None
     message: str = Field(min_length=1, max_length=8000)
 
     @field_validator("client_thread_id", "turn_id", mode="before")
@@ -244,6 +248,23 @@ class AgentTurnRequest(BaseModel):
         ):
             raise ValueError(
                 "Playable target requires a graphless saved Plan turn"
+            )
+        if self.plan_context_policy is not None and (
+            self.plan_context_policy.policy != "auto_plan_world"
+            or self.surface.surface_id != "plan"
+            or self.owner_scope is None
+            or self.owner_scope.kind != "world"
+            or self.primary_work is None
+            or self.primary_work.kind != "plan"
+            or self.client_work_state not in {"saved_clean", "saved_dirty"}
+            or self.primary_work.expected_revision_n is None
+            or self.primary_work.expected_content_sha256 is None
+            or self.graph_request.mode != "none"
+            or self.graph_selection is not None
+        ):
+            raise ValueError(
+                "auto_plan_world requires a saved, exactly pinned World Plan turn "
+                "with generic Graph request disabled"
             )
         if (
             self.surface.surface_id == "plan"
@@ -370,6 +391,44 @@ class AgentTurnResponse(BaseModel):
     answer: AgentTurnAnswerResult
 
 
+class AgentPlanWorldGraphExecutionProjectionV1(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_: Literal["dmb_agent_plan_world_graph_execution_projection_v1"] = Field(
+        default="dmb_agent_plan_world_graph_execution_projection_v1", alias="schema"
+    )
+    claimability: Literal[
+        "safe_to_reclaim_without_dispatch",
+        "explicit_new_attempt_required",
+        "blocked_unknown_or_sent",
+        "completed",
+    ]
+    authorization_state: Literal[
+        "none", "authorized", "sdk_entered", "response_received",
+        "known_not_sent", "outcome_unknown",
+    ]
+    automatic_redispatch: Literal[False] = False
+
+
+class AgentPlanWorldGraphContextResponseV1(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_: Literal["dmb_agent_plan_world_graph_context_response_v1"] = Field(
+        default="dmb_agent_plan_world_graph_context_response_v1", alias="schema"
+    )
+    receipt: PlanWorldGraphContextReceiptV1
+    completion: PlanWorldGraphCompletionV1 | None
+    execution: AgentPlanWorldGraphExecutionProjectionV1 | None
+    delivery_replay: bool
+
+
+class AgentTurnResponseV2(AgentTurnResponse):
+    schema_: Literal["dmb_agent_turn_response_v2"] = Field(
+        default="dmb_agent_turn_response_v2", alias="schema"
+    )
+    plan_context: AgentPlanWorldGraphContextResponseV1
+
+
 class AgentConversationHistoryTurn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -381,6 +440,10 @@ class AgentConversationHistoryTurn(BaseModel):
     user_text: str
     assistant_text: str | None
     provenance: TurnProvenance
+
+
+class AgentConversationHistoryTurnV2(AgentConversationHistoryTurn):
+    plan_context: AgentPlanWorldGraphContextResponseV1
 
 
 class AgentConversationHistoryResponse(BaseModel):
@@ -412,6 +475,13 @@ class AgentConversationHistoryResponse(BaseModel):
         ):
             raise ValueError("active conversation state requires matching active conversation IDs")
         return self
+
+
+class AgentConversationHistoryResponseV2(AgentConversationHistoryResponse):
+    schema_: Literal["dmb_agent_conversation_history_v2"] = Field(
+        default="dmb_agent_conversation_history_v2", alias="schema"
+    )
+    turns: list[AgentConversationHistoryTurnV2 | AgentConversationHistoryTurn]
 
 
 class AgentNewConversationRequest(BaseModel):

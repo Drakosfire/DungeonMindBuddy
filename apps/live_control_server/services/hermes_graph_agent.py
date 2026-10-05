@@ -74,9 +74,12 @@ from graph_memory.hermes_graph_plugin import (
     default_graph_only_capability_policy,
     reset_active_capability_policy,
     reset_active_retrieval_session_id,
+    reset_parent_graph_broker,
     reset_graph_root_override,
     set_active_capability_policy,
     set_active_retrieval_session_id,
+    set_parent_graph_broker,
+    get_parent_retrieval_session_packet,
     set_graph_root_override,
     validate_capability_policy_structure,
 )
@@ -989,7 +992,11 @@ class _ApiObserverCollector:
         self._flush_pending()
 
 
-def _request_budget_guard(policy: Mapping[str, Any]) -> Callable[[Any], bool]:
+def _request_budget_guard(
+    policy: Mapping[str, Any],
+    *,
+    on_provider_authorization: Callable[[Any], bool] | None = None,
+) -> Callable[[Any], bool]:
     """Build the strict local request-envelope guard for one resolved model."""
     expected_provider = str(policy["provider"])
     expected_model = str(policy["model"])
@@ -1324,7 +1331,14 @@ def _request_budget_guard(policy: Mapping[str, Any]) -> Callable[[Any], bool]:
         # ceiling and reserve additional protocol framing per input/tool item.
         # This is explicitly an upper-bound guard, not an exact token count.
         input_upper_bound = view.payload_utf8_bytes + 64 * (1 + count_nodes(payload))
-        return input_upper_bound + output_reserve <= context_limit
+        if input_upper_bound + output_reserve > context_limit:
+            return False
+        if on_provider_authorization is None:
+            return True
+        try:
+            return on_provider_authorization(view) is True
+        except Exception:
+            return False
 
     return allow
 
@@ -1335,6 +1349,10 @@ def run_hermes_graph_agent_turn(
     agent_factory: Any | None = None,
     on_model_call: Callable[[Mapping[str, Any]], None] | None = None,
     on_worker_phase: Callable[[Mapping[str, Any]], None] | None = None,
+    on_provider_authorization: Callable[[Any], bool] | None = None,
+    on_parent_graph_operation: Callable[
+        [str, Mapping[str, Any]], tuple[str, Mapping[str, Any] | None]
+    ] | None = None,
 ) -> HermesGraphAgentTurnResult:
     """Run one lockdown Hermes graph-agent turn and return a typed result.
 
@@ -1386,6 +1404,23 @@ def run_hermes_graph_agent_turn(
             hermes_session_id=session_id,
             error_code="invalid_request",
             error_message="Hermes graph-agent turn requires a non-empty question.",
+        )
+    if (
+        request.provider_authorization_required
+        and (request.request_budget is None or on_provider_authorization is None)
+    ):
+        return _error_result(
+            hermes_session_id=session_id,
+            error_code="request_budget_guard_invalid",
+            error_message="This turn requires a parent authorization and valid request budget.",
+        )
+    if request.parent_graph_broker_required and (
+        on_parent_graph_operation is None or not request.provider_authorization_required
+    ):
+        return _error_result(
+            hermes_session_id=session_id,
+            error_code="parent_graph_broker_unavailable",
+            error_message="This turn requires a parent Graph-operation broker.",
         )
     try:
         policy = _resolve_capability_policy(request)
@@ -1458,14 +1493,22 @@ def run_hermes_graph_agent_turn(
             retrieval_session_packet["retrieval_session_id"] = (
                 request.retrieval_session_id
             )
-        try:
-            hydrate_session_from_packet(retrieval_session_packet)
-        except Exception:
-            return _error_result(
-                hermes_session_id=session_id,
-                error_code="retrieval_session_hydrate_error",
-                error_message="Hermes could not hydrate the shared retrieval session.",
-            )
+        if request.parent_graph_broker_required:
+            if retrieval_session_packet.get("retrieval_session_id") != request.retrieval_session_id:
+                return _error_result(
+                    hermes_session_id=session_id,
+                    error_code="retrieval_session_hydrate_error",
+                    error_message="Parent Graph session identity is invalid.",
+                )
+        else:
+            try:
+                hydrate_session_from_packet(retrieval_session_packet)
+            except Exception:
+                return _error_result(
+                    hermes_session_id=session_id,
+                    error_code="retrieval_session_hydrate_error",
+                    error_message="Hermes could not hydrate the shared retrieval session.",
+                )
 
     with _RUNTIME_LOCK:
         # Persistent native profiles belong to saved Plan work only. Other
@@ -1577,6 +1620,10 @@ def run_hermes_graph_agent_turn(
         root_token = set_graph_root_override(request.root)
         policy_token = set_active_capability_policy(policy)
         session_token = set_active_retrieval_session_id(request.retrieval_session_id)
+        parent_broker_token = set_parent_graph_broker(
+            on_parent_graph_operation,
+            required=request.parent_graph_broker_required,
+        )
         collector = _ToolEventCollector(policy)
         api_observer = _ApiObserverCollector(on_model_call=on_model_call)
         pre_tool_hook: Callable[..., Any] | None = None
@@ -1678,6 +1725,15 @@ def run_hermes_graph_agent_turn(
                             enabled_toolsets=list(policy.enabled_toolsets),
                             quiet_mode=True,
                         )
+                        if request.parent_graph_broker_required:
+                            visible_defs = [
+                                definition
+                                for definition in visible_defs
+                                if (
+                                    names := _tool_names_from_definitions([definition])
+                                )
+                                and set(names).issubset(policy.enabled_tool_names)
+                            ]
                         visible_names = _tool_names_from_definitions(visible_defs)
                         surface_error = _validate_model_visible_surface(
                             visible_names,
@@ -1740,12 +1796,30 @@ def run_hermes_graph_agent_turn(
                         )
                         if request.request_budget is not None:
                             agent.api_request_budget_guard = _request_budget_guard(
-                                request.request_budget
+                                request.request_budget,
+                                on_provider_authorization=(
+                                    (
+                                        on_provider_authorization
+                                        or (lambda _view: False)
+                                    )
+                                    if request.provider_authorization_required
+                                    else (lambda _view: True)
+                                ),
                             )
                         api_observer.capture_runtime_api_mode(agent)
 
                         agent_tools = getattr(agent, "tools", None)
                         if isinstance(agent_tools, list):
+                            if request.parent_graph_broker_required:
+                                agent_tools = [
+                                    definition
+                                    for definition in agent_tools
+                                    if (
+                                        names := _tool_names_from_definitions([definition])
+                                    )
+                                    and set(names).issubset(policy.enabled_tool_names)
+                                ]
+                                agent.tools = agent_tools
                             agent_visible = _tool_names_from_definitions(agent_tools)
                             agent_surface_error = _validate_model_visible_surface(
                                 agent_visible,
@@ -1881,9 +1955,11 @@ def run_hermes_graph_agent_turn(
                         ),
                         tool_events=collector.events,
                     )
+                parent_packet = get_parent_retrieval_session_packet()
                 hydrated = (
                     get_session(request.retrieval_session_id)
                     if request.retrieval_session_id
+                    and not request.parent_graph_broker_required
                     else None
                 )
                 model_calls, telemetry_warnings = api_observer.finish()
@@ -1901,7 +1977,9 @@ def run_hermes_graph_agent_turn(
                     process_isolation=PROCESS_ISOLATION_MODE,
                     retrieval_session_id=request.retrieval_session_id,
                     retrieval_session=(
-                        hydrated.project_for_hermes()
+                        dict(parent_packet)
+                        if isinstance(parent_packet, Mapping)
+                        else hydrated.project_for_hermes()
                         if hydrated is not None
                         else retrieval_session_packet
                     ),
@@ -1921,6 +1999,7 @@ def run_hermes_graph_agent_turn(
         finally:
             api_observer.unregister()
             reset_active_retrieval_session_id(session_token)
+            reset_parent_graph_broker(parent_broker_token)
             if plugin_manager is not None and pre_tool_hook is not None:
                 hooks = plugin_manager._hooks.get("pre_tool_call") or []
                 try:

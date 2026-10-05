@@ -12,6 +12,7 @@ import pytest
 from application_state.agent_conversation.types import (
     HistoricalReference,
     PlanPlayableTargetReceiptV1,
+    SubmittedTurnIntentV2,
     SubmittedPlanPlayableTargetV1,
     Turn,
     TurnProvenance,
@@ -27,6 +28,9 @@ from apps.live_control_server.services.agent_runtime import (
     AgentRuntimeResult,
 )
 from apps.live_control_server.services.agent_turn_service import (
+    _accept_world_turn,
+    _submitted_turn_intent,
+    project_plan_graph_execution_state,
     AgentTurnResolvedWork,
     AgentTurnServiceError,
     execute_agent_turn,
@@ -51,6 +55,87 @@ def _request(**updates: Any) -> AgentTurnRequest:
     }
     payload.update(updates)
     return AgentTurnRequest.model_validate(payload)
+
+
+def test_explicit_plan_context_policy_is_fingerprinted_as_submitted_intent_v2() -> None:
+    request = _request(
+        surface={"surface_id": "plan", "instance_id": "plan-main"},
+        owner_scope={"kind": "world", "world_id": "managed-world-1"},
+        primary_work={
+            "kind": "plan",
+            "object_id": "plan-1",
+            "expected_revision": 7,
+            "expected_revision_n": 3,
+            "expected_content_sha256": "a" * 64,
+        },
+        client_work_state="saved_clean",
+        plan_context_policy={"policy": "auto_plan_world"},
+    )
+    intent = _submitted_turn_intent(request, world_id="managed-world-1")
+    assert isinstance(intent, SubmittedTurnIntentV2)
+    assert intent.plan_context_policy.policy == "auto_plan_world"
+
+
+def test_plan_context_policy_cannot_be_accepted_without_frozen_provider_receipt() -> None:
+    request = _request(
+        surface={"surface_id": "plan", "instance_id": "plan-main"},
+        owner_scope={"kind": "world", "world_id": "managed-world-1"},
+        primary_work={
+            "kind": "plan",
+            "object_id": "plan-1",
+            "expected_revision": 7,
+            "expected_revision_n": 3,
+            "expected_content_sha256": "a" * 64,
+        },
+        client_work_state="saved_clean",
+        plan_context_policy={"policy": "auto_plan_world"},
+    )
+    intent = _submitted_turn_intent(request, world_id="managed-world-1")
+    assert isinstance(intent, SubmittedTurnIntentV2)
+    provenance = TurnProvenance(
+        world_id="managed-world-1",
+        surface_resolution="resolved",
+        surface_id="plan",
+        primary_work=HistoricalReference(resolution="absent"),
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    with pytest.raises(AgentTurnServiceError) as caught:
+        _accept_world_turn(
+            None,  # Guard must run before touching the persistence service.
+            request,
+            world_id="managed-world-1",
+            provenance=provenance,
+            submitted_intent=intent,
+        )
+    assert caught.value.code == "plan_graph_receipt_unavailable"
+
+
+@pytest.mark.parametrize(
+    ("authorization", "completed", "claimability", "projected_authorization"),
+    [
+        ("none", False, "safe_to_reclaim_without_dispatch", "none"),
+        ("known_not_sent", False, "explicit_new_attempt_required", "known_not_sent"),
+        ("authorized", False, "blocked_unknown_or_sent", "authorized"),
+        ("sdk_entered", False, "blocked_unknown_or_sent", "sdk_entered"),
+        ("response_received", False, "blocked_unknown_or_sent", "response_received"),
+        ("outcome_unknown", False, "blocked_unknown_or_sent", "outcome_unknown"),
+        (None, False, "blocked_unknown_or_sent", "outcome_unknown"),
+        ("response_received", True, "completed", "response_received"),
+        ("invalid", False, "blocked_unknown_or_sent", "outcome_unknown"),
+    ],
+)
+def test_execution_projection_never_implies_automatic_redispatch(
+    authorization: str | None,
+    completed: bool,
+    claimability: str,
+    projected_authorization: str,
+) -> None:
+    projection = project_plan_graph_execution_state(
+        authorization, completed=completed
+    )
+    assert projection.claimability == claimability
+    assert projection.authorization_state == projected_authorization
+    assert projection.automatic_redispatch is False
 
 
 class FakeRuntime:

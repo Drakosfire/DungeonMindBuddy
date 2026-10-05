@@ -13,7 +13,7 @@ import copy
 import json
 from collections.abc import Mapping
 from contextvars import ContextVar
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Literal
 
@@ -51,6 +51,16 @@ _active_capability_policy: ContextVar["HermesCapabilityPolicy | None"] = Context
 _active_retrieval_session_id: ContextVar[str | None] = ContextVar(
     "hermes_graph_plugin_retrieval_session_id",
     default=None,
+)
+
+_active_parent_graph_broker: ContextVar[Any | None] = ContextVar(
+    "hermes_graph_plugin_parent_broker", default=None
+)
+_parent_graph_broker_required: ContextVar[bool] = ContextVar(
+    "hermes_graph_plugin_parent_broker_required", default=False
+)
+_parent_retrieval_session_packet: ContextVar[Mapping[str, Any] | None] = ContextVar(
+    "hermes_graph_plugin_parent_retrieval_packet", default=None
 )
 
 
@@ -213,12 +223,46 @@ def default_conversation_only_capability_policy() -> HermesCapabilityPolicy:
     )
 
 
+def parent_brokered_graph_expansion_policy(
+    scope: HermesGraphScope,
+) -> HermesCapabilityPolicy:
+    """Expose only the parent-brokered expansion operation for Plan grounding."""
+    policy = default_graph_only_capability_policy(scope)
+    rule = policy.rule_for("expand_graph_retrieval")
+    if rule is None:
+        raise ValueError("Graph expansion rule is not present in the plugin catalog")
+    return replace(
+        policy,
+        enabled_tool_names=("expand_graph_retrieval",),
+        tool_rules=(rule,),
+    )
+
+
 def set_active_retrieval_session_id(session_id: str | None) -> Any:
     return _active_retrieval_session_id.set(session_id)
 
 
 def reset_active_retrieval_session_id(token: Any) -> None:
     _active_retrieval_session_id.reset(token)
+
+
+def set_parent_graph_broker(broker: Any | None, *, required: bool) -> tuple[Any, Any, Any]:
+    return (
+        _active_parent_graph_broker.set(broker),
+        _parent_graph_broker_required.set(required),
+        _parent_retrieval_session_packet.set(None),
+    )
+
+
+def reset_parent_graph_broker(tokens: tuple[Any, Any]) -> None:
+    broker_token, required_token, packet_token = tokens
+    _parent_retrieval_session_packet.reset(packet_token)
+    _active_parent_graph_broker.reset(broker_token)
+    _parent_graph_broker_required.reset(required_token)
+
+
+def get_parent_retrieval_session_packet() -> Mapping[str, Any] | None:
+    return _parent_retrieval_session_packet.get()
 
 
 def get_active_retrieval_session_id() -> str | None:
@@ -390,6 +434,22 @@ def _handler_for(tool_name: str):
             if denied is not None:
                 return denied
             assert payload is not None
+            if _parent_graph_broker_required.get():
+                if tool_name != "expand_graph_retrieval":
+                    return _policy_denied_error(
+                        code="plan_graph_tool_not_permitted",
+                        message="Only parent-brokered Graph expansion is permitted.",
+                    )
+                broker = _active_parent_graph_broker.get()
+                if not callable(broker):
+                    return _policy_denied_error(
+                        code="plan_graph_broker_unavailable",
+                        message="Parent Graph-operation broker is unavailable.",
+                    )
+                result_json, retrieval_packet = broker(tool_name, payload)
+                if isinstance(retrieval_packet, Mapping):
+                    _parent_retrieval_session_packet.set(dict(retrieval_packet))
+                return result_json
             return execute_hermes_graph_interaction_tool_json(
                 tool_name,
                 payload,
@@ -457,6 +517,7 @@ __all__ = [
     "apply_capability_policy_to_arguments",
     "default_conversation_only_capability_policy",
     "default_graph_only_capability_policy",
+    "parent_brokered_graph_expansion_policy",
     "get_active_capability_policy",
     "get_active_retrieval_session_id",
     "register",

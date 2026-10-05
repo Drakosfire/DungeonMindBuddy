@@ -24,4 +24,4 @@ def test_pinned_hermes_dispatch_boundary_suite() -> None:
         text=True,
     )
     assert completed.returncode == 0, completed.stdout + completed.stderr
-    assert "8 passed" in completed.stdout
+    assert "11 passed" in completed.stdout

@@ -55,6 +55,69 @@ def _payload() -> dict[str, Any]:
     }
 
 
+def test_auto_plan_world_request_requires_exact_saved_world_plan_pin() -> None:
+    payload = _payload()
+    payload.update(
+        {
+            "surface": {"surface_id": "plan", "instance_id": "plan-main"},
+            "owner_scope": {"kind": "world", "world_id": "managed-world-1"},
+            "primary_work": {
+                "kind": "plan",
+                "object_id": "plan-1",
+                "expected_revision": 7,
+                "expected_revision_n": 3,
+                "expected_content_sha256": "a" * 64,
+            },
+            "client_work_state": "saved_dirty",
+            "plan_context_policy": {
+                "schema": "dmb_plan_context_policy_v1",
+                "policy": "auto_plan_world",
+            },
+        }
+    )
+
+    parsed = AgentTurnRequest.model_validate(payload)
+    assert parsed.plan_context_policy is not None
+    assert parsed.plan_context_policy.policy == "auto_plan_world"
+
+    invalid = dict(payload)
+    invalid["primary_work"] = {
+        "kind": "plan",
+        "object_id": "plan-1",
+        "expected_revision": 7,
+    }
+    with pytest.raises(ValueError, match="auto_plan_world"):
+        AgentTurnRequest.model_validate(invalid)
+
+
+def test_auto_plan_world_rejects_generic_graph_reads_and_non_plan_surface() -> None:
+    payload = _payload()
+    payload.update(
+        {
+            "surface": {"surface_id": "plan", "instance_id": "plan-main"},
+            "owner_scope": {"kind": "world", "world_id": "managed-world-1"},
+            "primary_work": {
+                "kind": "plan",
+                "object_id": "plan-1",
+                "expected_revision": 7,
+                "expected_revision_n": 3,
+                "expected_content_sha256": "a" * 64,
+            },
+            "client_work_state": "saved_clean",
+            "plan_context_policy": {"policy": "auto_plan_world"},
+            "graph_request": {
+                "mode": "world",
+                "world_id": "native-world-1",
+                "campaign_id": None,
+                "revision_pin": None,
+                "focus": {"kind": "none", "session_id": None, "campaign_id": None},
+            },
+        }
+    )
+    with pytest.raises(ValueError, match="auto_plan_world"):
+        AgentTurnRequest.model_validate(payload)
+
+
 def _durable_turn(
     *,
     world_id: str,
