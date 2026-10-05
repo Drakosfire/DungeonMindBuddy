@@ -17,9 +17,9 @@ assert.deepEqual(validateSourceAnnotations({...annotated,units:[{id:'unit',text:
 
 const {renderSourceFormatting,isSourceListItem}=await import('./source-review.js');
 const formatted={...annotated,sourceAnnotations:[{...annotation,kind:'conditional'}]};
-assert.equal(renderSourceFormatting(original,formatted),'<p><strong>Synthetic</strong> OCR typo</p>');
-assert.equal(renderSourceFormatting({...original,text:'authored'},formatted),null);
-assert.equal(isSourceListItem(original,{...annotated,sourceAnnotations:[{...annotation,kind:'list_item',expectedText:original.text}]}),true);
+assert.equal(renderSourceFormatting(original,formatted,'card'),'<p><strong>Synthetic</strong> OCR typo</p>');
+assert.equal(renderSourceFormatting({...original,text:'authored'},formatted,'card'),null);
+assert.equal(isSourceListItem(original,{...annotated,sourceAnnotations:[{...annotation,kind:'list_item',expectedText:original.text}]},'card'),true);
 
 const {verifyDerivativeReceipt,derivativeRendererFiles}=await import('./source-review.js');
 const {createHash}=await import('node:crypto');const hash=bytes=>createHash('sha256').update(bytes).digest('hex');const encode=x=>new TextEncoder().encode(JSON.stringify(x));
@@ -31,8 +31,43 @@ const successor={...parentBoard,pin:'new'};const outputs={'board.json':put('deri
 const renderer=Object.fromEntries(derivativeRendererFiles.map(n=>[n,put('renderer',n,encode(n))]));
 const receipt={schema:'sheep_source_fidelity_derivative_receipt_v1',acceptanceStatus:'candidate_not_accepted',rendererExactGitRevision:'a'.repeat(40),parent:{receiptSha256:parentReceipt},outputSha256ByFilename:outputs,newDatasetPin:'new',reviewedCorrectionPackageSha256:put('package','correction.json',encode({sourceBasis:{receiptSha256:parentReceipt,pdfSha256:'pdf'},independentEvidence:{sha256:hash(encode({}))},findings:[]})),independentEvidenceSha256:put('evidence','evidence.json',encode({})),rendererSha256ByFilename:renderer,rendererAggregateSha256:hash(encode(Object.fromEntries(Object.entries(renderer).sort(([a],[b])=>a.localeCompare(b)))))};
 const read=async(scope,name)=>{const bytes=fileMap.get(scope+':'+name);if(!bytes)throw Error('Missing scoped file');return bytes};
-assert.equal((await verifyDerivativeReceipt(receipt,read,hash)).status,'candidate_not_accepted');
+await assert.rejects(()=>verifyDerivativeReceipt(receipt,read,hash),'incomplete package rejects even when every supplied digest agrees');
 for(const patch of [{newDatasetPin:'wrong'},{rendererExactGitRevision:'unknown'},{outputSha256ByFilename:{'board.json':outputs['board.json']}},{rendererAggregateSha256:'0'.repeat(64)},{reviewedCorrectionPackageSha256:'0'.repeat(64)},{acceptanceStatus:'accepted'}])await assert.rejects(()=>verifyDerivativeReceipt({...receipt,...patch},read,hash));
 const originalFile=fileMap.get('parent:play.json');fileMap.set('parent:play.json',encode({changed:true}));await assert.rejects(()=>verifyDerivativeReceipt(receipt,read,hash));fileMap.set('parent:play.json',originalFile);
 const wrongManifest=put('derivative','reference-manifest.json',encode({units:[{id:'u',text:'changed original'}]}));await assert.rejects(()=>verifyDerivativeReceipt({...receipt,outputSha256ByFilename:{...outputs,'reference-manifest.json':wrongManifest}},read,hash));
 console.log('PASS: derivative parent/output/renderer/package verification rejects missing, stale and altered evidence');
+assert.equal(renderSourceFormatting(original,formatted,'wrong-card'),null,'marks remain scoped to their reviewed card');
+// Private fixture runs prove completeness against the independently reviewed real package without committing corpus.
+if(process.env.SHEEP_FIDELITY_ROOT){
+ const {readFile}=await import('node:fs/promises'),root=process.env.SHEEP_FIDELITY_ROOT;
+ const json=async p=>JSON.parse(await readFile(p,'utf8'));
+ const actualReceipt=await json(root+'/.private/sheep-successor-v1/receipt.json');
+ const actualBoard=await json(root+'/.private/sheep-successor-v1/board.json'),actualManifest=await json(root+'/.private/sheep-successor-v1/reference-manifest.json');
+ const actualParent=await json(actualReceipt.parent.root+'/source/board.json');
+ const packageData=await json(root+'/.private/sheep-correction-package-v2.json');
+ const {expectedSheepTransformation}=await import('./source-review.js');
+ const rebuilt=expectedSheepTransformation(actualParent,packageData,actualReceipt.reviewedCorrectionPackageSha256);
+ for(const key of ['cards','sourceAnnotations','sourceCorrections','sourceWarnings'])assert.deepEqual(actualBoard[key],rebuilt[key]);
+ async function trial(mutate){
+  const b=structuredClone(actualBoard),m=structuredClone(actualManifest),r=structuredClone(actualReceipt);mutate(b,m,r);
+  const output={'board.json':encode(b),'reference-manifest.json':encode(m)};r.outputSha256ByFilename=Object.fromEntries(Object.entries(output).map(([n,v])=>[n,hash(v)]));
+  r.rendererSha256ByFilename=Object.fromEntries(await Promise.all(derivativeRendererFiles.map(async n=>[n,hash(await readFile(root+'/'+n))])));
+  r.rendererAggregateSha256=hash(encode(Object.fromEntries(Object.entries(r.rendererSha256ByFilename).sort(([a],[b])=>a.localeCompare(b)))));
+  const reader=(scope,name)=>scope==='derivative'?output[name]:readFile(scope==='parent'?r.parent.root+'/'+name:scope==='renderer'?root+'/'+name:scope==='package'?root+'/.private/sheep-correction-package-v2.json':'/tmp/prime-sheep-source-review/evidence.json');
+  return verifyDerivativeReceipt(r,reader,hash);
+ }
+ assert.equal((await trial(()=>{})).status,'candidate_not_accepted');
+ const mutations=[
+ b=>{const index=b.sourceAnnotations.findIndex(a=>a.kind==='conditional');b.sourceAnnotations.splice(index,1)},
+ b=>{delete b.sourceCorrections[Object.keys(b.sourceCorrections)[0]]},
+ b=>{b.sourceAnnotations.find(a=>a.kind==='conditional').targetCard='sheep:card:1'},
+ b=>{b.cards=structuredClone(actualParent.cards)},
+ b=>{b.sourceWarnings[0].text='Unreviewed replacement'},
+ (_,m)=>{m.datasetPin='wrong';m.cards=structuredClone(actualParent.cards)},
+ b=>{const card=b.cards.find(c=>c.id==='sheep:card:2');card.lenses['GM only'].reverse()},
+ b=>{b.sourceAnnotations[0].audience='player'},
+ b=>{b.sourceAnnotations.find(a=>a.kind==='conditional').kind='list_item'}
+ ];
+ for(const mutate of mutations)await assert.rejects(()=>trial(mutate));
+ console.log('PASS: actual reviewed transformation rejects nine independently rehashed invalid derivatives');
+}
