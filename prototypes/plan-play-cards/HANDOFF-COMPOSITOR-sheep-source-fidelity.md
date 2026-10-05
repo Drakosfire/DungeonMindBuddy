@@ -1,6 +1,6 @@
 # Sheep source fidelity successor proposal
 
-BLOCKED candidate design — no new implementation lease or runtime allocation. Serial continuation within PR887 after the exact source correction package receives independent source review. Existing frozen Sheep/Conks candidates, design-v1 and Session29 remain unchanged. This proposal does not settle native World-owned presentation edits or operator acceptance.
+ACTIVE — PRIME activation 2026-10-04 under the operator DOGFOOD mandate; DOGFOOD designs/executes this prototype-only slice. Serial continuation within PR887; no merge authority or runtime allocation. Existing frozen Sheep/Conks candidates, design-v1 and Session29 remain unchanged. This proposal does not settle native World-owned presentation edits or operator acceptance.
 
 ## Invariant
 
@@ -42,3 +42,26 @@ PRIME’s independent navigation_shell_review accepted eight bounded findings ag
 Accepted evidence covers dagger reassignment, three missing ability cells, biography/exterior split, seven explanation bullets, three conditional lead-ins, cover association, printed save-label restoration and a warning for Guz’s printed modifier. Save label attribution is now precise: printed “Deterity”, OCR “Detrity”; normalizing to “Dexterity” remains a separately labeled interpretation. Automatic player disclosure and silent rules normalization remain held.
 
 This is acceptance of correction evidence, not an executable successor package or its implementation. Status remains BLOCKED: the steward must adopt a narrowed write lease and exact package before dispatch. Full Conks review, operator acceptance and the native contract remain separate outstanding gates.
+
+## Activated bounded implementation authority
+
+Pinned package `.private/sheep-correction-package-v2.json`, SHA-256 `f2367fd97976ce96463879f8acfbb413ac4bf29500d17b74b93bca3fa520d5d2`, independently accepted for correction data and receipt/lease design. Activation base: fetched main `498353516a1ed49c48d4039e0edc218e63419424`; predecessor PR887 head `af86bfdc5b50d452c7b98da2c495d44d49331230`. Isolated branch `codex/dogfood-plan-play-cards`, checkout `/tmp/dmb-plan-play-cards`. PR917 head `9128685d28709b70ada92334e6b4e305205af71b` has separate runtime ownership at5203; this slice gets no port or runtime takeover.
+
+Exclusive exact write lease under `prototypes/plan-play-cards/`:
+
+- `source-review.js`
+- `source-review.test.mjs`
+- `board-model.js`
+- `board-model.test.mjs`
+- `boards.js`
+- `boards.css`
+- `backup-model.test.mjs`
+- `backup-ui.test.mjs`
+- `PRESENTATION-GOLD.md`
+- `PRIVATE-BOARDS.md`
+- `HANDOFF-COMPOSITOR-sheep-source-fidelity.md`
+- `.private/sheep-successor-v1/board.json`
+- `.private/sheep-successor-v1/reference-manifest.json`
+- `.private/sheep-successor-v1/receipt.json`
+
+Implement exactly reviewed eight findings, immutable-parent derivative receipt verification, and previous-key storage recovery tests. Preserve all original units/PDF/media/frozen candidates/play writing and design-v1. No Conks corrections, automatic player disclosure, silent normalization, public/native contract or app/API/schema/provider changes. Verify invalid basis/ranges/receipt inventories and actual writing routing, inspect cumulative diff, commit/push PR887 and obtain independent final review. Rendered-source/operator/native gates remain separate; successor status stays `candidate_not_accepted`. Earlier BLOCKED sections describe preparation history and are superseded only by this bounded activation.
