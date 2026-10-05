@@ -219,6 +219,7 @@ class HermesAgentRuntimeAdapter:
         *,
         request_budget: Mapping[str, Any],
         on_graph_operation: Callable[[Mapping[str, Any]], Mapping[str, Any]],
+        on_provider_lifecycle: Callable[[Mapping[str, Any]], bool] | None = None,
     ) -> AgentRuntimeResult:
         """Use the existing Hermes host with a per-request parent authorization gate."""
         return self._run(
@@ -226,6 +227,7 @@ class HermesAgentRuntimeAdapter:
             authorize=authorize,
             request_budget=request_budget,
             on_graph_operation=on_graph_operation,
+            on_provider_lifecycle=on_provider_lifecycle,
             require_authorization=True,
         )
 
@@ -236,6 +238,7 @@ class HermesAgentRuntimeAdapter:
         authorize: Callable[[Mapping[str, Any]], bool] | None = None,
         request_budget: Mapping[str, Any] | None = None,
         on_graph_operation: Callable[[Mapping[str, Any]], Mapping[str, Any]] | None = None,
+        on_provider_lifecycle: Callable[[Mapping[str, Any]], bool] | None = None,
         require_authorization: bool = False,
     ) -> AgentRuntimeResult:
         policy_id = invocation.capability_policy.policy_id
@@ -269,12 +272,14 @@ class HermesAgentRuntimeAdapter:
             if len(host_phase_spans) < 24:
                 host_phase_spans.append(dict(span))
 
-        result = host.execute(
-            request,
-            on_host_phase=on_host_phase,
-            on_provider_authorization=authorize,
-            on_graph_operation=on_graph_operation,
-        )
+        host_options: dict[str, Any] = {"on_host_phase": on_host_phase}
+        if authorize is not None:
+            host_options["on_provider_authorization"] = authorize
+        if on_graph_operation is not None:
+            host_options["on_graph_operation"] = on_graph_operation
+        if on_provider_lifecycle is not None:
+            host_options["on_provider_lifecycle"] = on_provider_lifecycle
+        result = host.execute(request, **host_options)
         runtime_result = map_hermes_result_to_runtime_result(
             result,
             worker_pid=_host_worker_pid(host),

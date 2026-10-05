@@ -14,7 +14,9 @@ from application_state.errors import ApplicationStateError
 from apps.live_control_server.config import repo_root, session_dir, world_graph_root
 from apps.live_control_server.models.agent_turn import (
     AgentConversationHistoryResponse,
+    AgentConversationHistoryResponseV2,
     AgentConversationHistoryTurn,
+    AgentConversationHistoryTurnV2,
     AgentNewConversationRequest,
     AgentNewConversationResponse,
     AgentTurnContentBasis,
@@ -30,6 +32,7 @@ from apps.live_control_server.services.agent_turn_service import (
     AgentTurnServiceError,
     build_existing_graph_context,
     execute_agent_turn,
+    project_plan_turn_context,
 )
 from apps.live_control_server.services.hermes_session_store import (
     HermesSessionPointerStore,
@@ -519,23 +522,42 @@ def get_world_conversation_history(
             pointer_revision=pointer.revision,
             turns=[],
         )
-    return AgentConversationHistoryResponse(
+    contains_plan_context = any(
+        turn.graph_context_receipt is not None for turn in turns
+    )
+    history_turns = []
+    for turn in turns:
+        values = {
+            "turn_id": turn.turn_id,
+            "sequence": turn.sequence,
+            "lifecycle_status": turn.status,
+            "user_text": turn.user_text,
+            "assistant_text": turn.assistant_text,
+            "provenance": turn.provenance,
+        }
+        if turn.graph_context_receipt is not None:
+            history_turns.append(
+                AgentConversationHistoryTurnV2(
+                    **values,
+                    plan_context=project_plan_turn_context(
+                        turn, delivery_replay=False
+                    ),
+                )
+            )
+        else:
+            history_turns.append(AgentConversationHistoryTurn(**values))
+    response_model = (
+        AgentConversationHistoryResponseV2
+        if contains_plan_context
+        else AgentConversationHistoryResponse
+    )
+    return response_model(
         world_id=verified_world_id,
         conversation_state="active",
         conversation_id=conversation.conversation_id,
         active_conversation_id=pointer.active_conversation_id,
         pointer_revision=pointer.revision,
-        turns=[
-            AgentConversationHistoryTurn(
-                turn_id=turn.turn_id,
-                sequence=turn.sequence,
-                lifecycle_status=turn.status,
-                user_text=turn.user_text,
-                assistant_text=turn.assistant_text,
-                provenance=turn.provenance,
-            )
-            for turn in turns
-        ],
+        turns=history_turns,
         # before_sequence is exclusive; using the first visible sequence gives
         # the caller the next older page without exposing repository ordering.
         next_before_sequence=(

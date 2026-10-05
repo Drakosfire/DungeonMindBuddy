@@ -1356,6 +1356,13 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
 
     def _create_responses_stream(**kwargs: Any) -> Any:
         mocked_responses_requests.append(kwargs)
+        if (
+            os.environ.get("DMB_HERMES_TEST_TRANSPORT_FAILURE") == "1"
+            and len(mocked_responses_requests) == 1
+        ):
+            import httpx
+
+            raise httpx.ConnectError("synthetic ambiguous provider transport failure")
         policy = None if active_request is None else active_request.capability_policy
         if policy is not None and policy.mode == "conversation_only":
             answer = (
@@ -1461,6 +1468,28 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
                     and response.get("allowOnce") is True
                 )
 
+            def report_provider_lifecycle(event: Any) -> bool:
+                if not request.provider_authorization_required or not isinstance(event, dict):
+                    return not request.provider_authorization_required
+                sequence = event.get("authorizationSequence")
+                transition = event.get("transition")
+                if isinstance(sequence, bool) or sequence != authorization_sequence:
+                    return False
+                authorization_id = f"{request_id}:{sequence}"
+                _put_json(response_queue, {
+                    "type": "provider_lifecycle_request",
+                    "requestId": request_id,
+                    "authorizationId": authorization_id,
+                    "transition": transition,
+                })
+                response = decode_json_wire(request_queue.get(timeout=30.0))
+                return (
+                    response.get("type") == "provider_lifecycle_response"
+                    and response.get("requestId") == request_id
+                    and response.get("authorizationId") == authorization_id
+                    and response.get("acknowledged") is True
+                )
+
             graph_operation_sequence = 0
 
             def parent_graph_operation(
@@ -1498,6 +1527,7 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
                     request,
                     agent_factory=_factory,
                     on_provider_authorization=authorize_provider,
+                    on_provider_lifecycle=report_provider_lifecycle,
                     on_parent_graph_operation=parent_graph_operation,
                 )
             _write_offline_witness(len(mocked_responses_requests))
@@ -2901,6 +2931,7 @@ def test_parent_authorization_and_graph_broker_guard_real_provider_requests(
         parent_graph_broker_required=True,
     )
     authorizations: list[dict[str, Any]] = []
+    lifecycle: list[dict[str, Any]] = []
     graph_requests: list[dict[str, Any]] = []
     updated_packet = {
         **initial_packet,
@@ -2915,6 +2946,10 @@ def test_parent_authorization_and_graph_broker_guard_real_provider_requests(
 
     def authorize(view: dict[str, Any]) -> bool:
         authorizations.append(dict(view))
+        return True
+
+    def persist_lifecycle(event: dict[str, Any]) -> bool:
+        lifecycle.append(dict(event))
         return True
 
     def broker(operation: dict[str, Any]) -> dict[str, Any]:
@@ -2940,6 +2975,7 @@ def test_parent_authorization_and_graph_broker_guard_real_provider_requests(
         result = host.execute(
             request,
             on_provider_authorization=authorize,
+            on_provider_lifecycle=persist_lifecycle,
             on_graph_operation=broker,
         )
         assert result.status == "ok", (result.error_code, result.error_message)
@@ -2948,6 +2984,17 @@ def test_parent_authorization_and_graph_broker_guard_real_provider_requests(
         host.shutdown()
 
     assert len(authorizations) == 2
+    assert [event["transition"] for event in lifecycle] == [
+        "sdk_entered", "response_received", "sdk_entered", "response_received"
+    ]
+    assert [event["authorizationId"] for event in lifecycle] == [
+        lifecycle[0]["authorizationId"],
+        lifecycle[0]["authorizationId"],
+        lifecycle[2]["authorizationId"],
+        lifecycle[2]["authorizationId"],
+    ]
+    assert lifecycle[0]["authorizationId"].endswith(":1")
+    assert lifecycle[2]["authorizationId"].endswith(":2")
     assert [view["provider"] for view in authorizations] == ["openai-api"] * 2
     assert len(graph_requests) == 1
     assert graph_requests[0]["toolName"] == "expand_graph_retrieval"
@@ -2979,6 +3026,111 @@ def test_parent_authorization_and_graph_broker_guard_real_provider_requests(
     assert "threat:parent-expanded" in json.dumps(
         provider_bodies[1], ensure_ascii=False
     )
+
+
+def test_lifecycle_persistence_failure_aborts_before_followup_provider_request(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from graph_memory.hermes_graph_plugin import parent_brokered_graph_expansion_policy
+
+    witness = tmp_path / "offline-witness.json"
+    monkeypatch.setenv("DMB_HERMES_HOST_OFFLINE_WITNESS", str(witness))
+    monkeypatch.setenv("DUNGEONMIND_HERMES_GRAPH_MODEL", "test-model")
+    scope = HermesGraphScope(
+        world_id="world:eldyrwild", campaign_id="",
+        focus={"kind": "none", "sessionId": None}, admissibility="gm",
+        revision_pin="revision:test", scope_mode="world",
+    )
+    request = HermesGraphAgentTurnRequest(
+        question="Where is Tripod?", world_id=scope.world_id, campaign_id="",
+        scope_mode="world", focus=dict(scope.focus), admissibility="gm",
+        revision_pin=scope.revision_pin, root=tmp_path / "graph",
+        capability_policy=parent_brokered_graph_expansion_policy(scope),
+        retrieval_session_id="sess:SPOOF",
+        retrieval_session={
+            "retrieval_session_id": "sess:SPOOF",
+            "candidates": [{"node_id": "threat:initial", "label": "Initial"}],
+            "claim_ledger": [], "intent_hint": None,
+            "available_expansions": ["search"],
+        },
+        request_budget=_synthetic_request_budget(),
+        provider_authorization_required=True, parent_graph_broker_required=True,
+    )
+    host = HermesGraphAgentHost(
+        worker_target=_tool_using_aiagent_host_worker, turn_timeout_s=120.0,
+        ready_timeout_s=90.0, accept_timeout_s=30.0,
+        session_profiles_root=tmp_path / "profiles",
+    )
+    lifecycle: list[dict[str, Any]] = []
+    try:
+        result = host.execute(
+            request,
+            on_provider_authorization=lambda _view: True,
+            on_provider_lifecycle=lambda event: lifecycle.append(dict(event)) and False,
+            on_graph_operation=lambda _operation: pytest.fail(
+                "worker continued to Graph tool after lifecycle persistence failure"
+            ),
+        )
+        assert [event["transition"] for event in lifecycle] == [
+            "sdk_entered", "outcome_unknown"
+        ]
+        assert json.loads(witness.read_text(encoding="utf-8"))["responses_stub_calls"] == 1
+        assert result.status == "error", (result.status, result.error_code, result.error_message)
+    finally:
+        host.shutdown()
+
+
+def test_lifecycle_transport_failure_is_unknown_and_never_retried(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from graph_memory.hermes_graph_plugin import parent_brokered_graph_expansion_policy
+
+    witness = tmp_path / "offline-witness.json"
+    monkeypatch.setenv("DMB_HERMES_HOST_OFFLINE_WITNESS", str(witness))
+    monkeypatch.setenv("DMB_HERMES_TEST_TRANSPORT_FAILURE", "1")
+    monkeypatch.setenv("DUNGEONMIND_HERMES_GRAPH_MODEL", "test-model")
+    scope = HermesGraphScope(
+        world_id="world:eldyrwild", campaign_id="",
+        focus={"kind": "none", "sessionId": None}, admissibility="gm",
+        revision_pin="revision:test", scope_mode="world",
+    )
+    request = HermesGraphAgentTurnRequest(
+        question="Where is Tripod?", world_id=scope.world_id, campaign_id="",
+        scope_mode="world", focus=dict(scope.focus), admissibility="gm",
+        revision_pin=scope.revision_pin, root=tmp_path / "graph",
+        capability_policy=parent_brokered_graph_expansion_policy(scope),
+        retrieval_session_id="sess:SPOOF",
+        retrieval_session={
+            "retrieval_session_id": "sess:SPOOF",
+            "candidates": [{"node_id": "threat:initial", "label": "Initial"}],
+            "claim_ledger": [], "intent_hint": None,
+            "available_expansions": ["search"],
+        },
+        request_budget=_synthetic_request_budget(),
+        provider_authorization_required=True, parent_graph_broker_required=True,
+    )
+    host = HermesGraphAgentHost(
+        worker_target=_tool_using_aiagent_host_worker, turn_timeout_s=120.0,
+        ready_timeout_s=90.0, accept_timeout_s=30.0,
+        session_profiles_root=tmp_path / "profiles",
+    )
+    lifecycle: list[dict[str, Any]] = []
+    try:
+        result = host.execute(
+            request,
+            on_provider_authorization=lambda _view: True,
+            on_provider_lifecycle=lambda event: lifecycle.append(dict(event)) or True,
+            on_graph_operation=lambda _operation: pytest.fail(
+                "worker continued after ambiguous transport failure"
+            ),
+        )
+        assert result.status == "error"
+    finally:
+        host.shutdown()
+    assert [event["transition"] for event in lifecycle] == ["outcome_unknown"]
+    assert json.loads(witness.read_text(encoding="utf-8"))["responses_stub_calls"] == 1
 
 
 def test_native_plan_conversation_resumes_after_worker_restart_without_browser_history(

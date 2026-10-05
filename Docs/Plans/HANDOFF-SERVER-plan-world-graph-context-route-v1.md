@@ -77,6 +77,25 @@ zero SDK entry on denial, no second SDK call after a guarded stream failure,
 and legacy retry parity. This does not authorize a new serializer, SDK wrapper,
 provider path, or installed-package edits.
 
+**PRIME-approved bounded lifecycle amendment (2026-10-05):** A durable
+authorization must be followed by correlated lifecycle callbacks before a
+guarded worker may continue to another tool/provider authorization. Within the
+same pinned Hermes patch and existing host IPC, `conversation_loop.py`,
+`codex_runtime.py`, and the already-used request helper may report SDK-entry
+observation and definite complete-response observation for that same
+single-use attempt. The parent must acknowledge each transition after durable
+persistence before the worker proceeds. SDK invocation observation is not
+response proof; `response_received` is appended only after a definite complete
+response. Stream interruption, transport exceptions, IPC loss, or persistence
+uncertainty remain unknown unless a specific known-not-sent fact is independently
+proven. A persistence/channel failure after SDK entry aborts continuation and
+leaves the authorized attempt potentially sent. It must not trigger an
+automatic repeated request. These guarded callbacks do not replace or wrap the
+existing Hermes provider dispatcher, and the unguarded legacy path remains
+unchanged. Add actual subprocess witnesses for authorize→entry→complete response
+→next authorization, and prove that persistence or transport failure causes
+zero follow-up provider requests. No other Hermes source path is leased.
+
 Exclusive write lease for this PR:
 
 - `Docs/Plans/HANDOFF-SERVER-plan-world-graph-context-route-v1.md`
@@ -96,7 +115,7 @@ Exclusive write lease for this PR:
 - `tests/test_hermes_graph_agent_contract.py`
 - `tests/test_hermes_graph_agent.py`
 - `tests/test_hermes_graph_interaction_tools.py`
-- `patches/hermes-agent/0001-pre-dispatch-budget-veto.patch` (only the bounded stream field and guarded retry changes described above)
+- `patches/hermes-agent/0001-pre-dispatch-budget-veto.patch` (only the PRIME-approved stream-field, guarded-retry, and correlated guarded-lifecycle changes described above)
 - `tests/hermes_patch/test_pre_dispatch_budget_veto.py`
 - `scripts/prepare_patched_hermes.py` only if a pinned manifest/source identity constant must change as a direct result of the patch
 
@@ -106,7 +125,7 @@ No APP-STATE, GenerationEngine, DungeonMind, DEMO, migration, dependency/lock, g
 
 - The route branch was rebased on fetched Buddy `origin/main@6319ff30466dd9ab2e3e0752fce31ac8a71b7d4b`; the prior two handoff commits are preserved above that base.
 - PR #924 is merged at the pinned base and its guard correction is present.
-- Open PR #922 is docs-only and is not backend acceptance evidence. Open PR #917 is a focused Plan/context prototype with no production reservation; PRIME withdrew its reservation for the three core service paths. Preserve its branch and do not edit it. No open PR path search found a reservation of this lease’s Hermes host/agent or route service paths.
+- Open PR #922 is docs-only and is not backend acceptance evidence. #917’s earlier reservation was withdrawn, but a fresh 2026-10-05 open-PR inspection confirms it remains open and its current diff modifies `routes/agent.py` and `services/agent_turn_service.py`, including `_plan_message`, submitted intent, and `execute_agent_turn`. Those hunks overlap this candidate’s leased route/service changes. PRIME must arbitrate whether #917 is superseded, integrated, or kept separate before this candidate can be opened as a clean independent PR. Preserve #917’s branch and do not edit it. #925 is UI-only; no open PR reserves the Hermes host/agent paths.
 - APP-STATE contract commit `e907c904c95854ce539c919bac8e868a5fe4f69d` is accepted portable design authority, not implementation evidence. Its actual producer implementation head and methods are pending. SERVER may implement its candidate against a local fake port; it may not claim actual persistence integration until that producer head is accepted. Final dependency merge follows ordinary review/merge authority.
 
 ## Acceptance witnesses
@@ -124,16 +143,17 @@ Use deterministic Plan, binding, Graph session, fake APP-STATE execution ledger,
 
 ### Provider-boundary amendment evidence checkpoint
 
-- Checked-in patch SHA-256: `0a12e115fd671ff4efa8e7d3d658c472c3aa0f7a27a77013b5fd6f08728b73a4`.
-- Prepared patched-Hermes tree SHA: `3ec4254f5578edfedb071d55671f5e69332c3e49`.
-- `uv run pytest -q out/hermes-agent/tests/agent/test_pre_dispatch_budget_veto.py`: 11 passed.
-- `uv run pytest -q tests/hermes_patch/test_pre_dispatch_budget_veto.py`: 1 passed.
-- `uv run pytest -q tests/test_hermes_graph_agent_host.py::test_parent_authorization_and_graph_broker_guard_real_provider_requests`: 1 passed with exact canonical authorized JSON and SHA-256 matching captured `responses.create` kwargs, including `stream=true`.
-- `uv run ruff check tests/hermes_patch/test_pre_dispatch_budget_veto.py tests/test_hermes_graph_agent_host.py`: passed.
-- `python3 scripts/prepare_patched_hermes.py --verify`: passed. `pyproject.toml` and `uv.lock` are unchanged; the local Hermes package was reinstalled from the prepared source.
-- The DB-backed route test `test_plan_agent_route_dispatches_only_atomic_committed_content` passes against a PRIME-authorized temporary PostgreSQL 16 container on loopback port 32770, with a synthetic user/password, tmpfs data directory, and no volumes. The repo fixture created and dropped its unique `dungeonbuddy_app_state_test_<random>` database.
-- Full lifecycle host test `test_app_lifespan_shuts_down_global_host` currently stalls at `TestClient.__enter__`; a 15-second faulthandler snapshot shows the test thread waiting for ASGI startup completion and the AnyIO portal thread idle in its event loop. This remains an unresolved verification issue, not a pass.
-- This evidence checkpoint covers the stream/retry gap only. The full SERVER candidate remains incomplete, and APP-STATE integration remains pending its accepted producer implementation.
+- Checked-in patch SHA-256: `b86a45648bd323eaf58f73550725c2fb8d0442e58bc5471ee2c369fe82a53ada`.
+- Prepared patched-Hermes tree SHA: `0430126a406c559bb38d20e77f2307caf1c2b71`.
+- `pytest -q out/hermes-agent/tests/agent/test_pre_dispatch_budget_veto.py`: 12 passed, including terminal guarded transport failure with `outcome_unknown` and one SDK invocation.
+- `pytest -q tests/hermes_patch/test_pre_dispatch_budget_veto.py`: 1 passed after updating the owning expected upstream count to 12.
+- Actual subprocess authorization/lifecycle witness: 1 passed. Two parent authorizations each received and acknowledged `sdk_entered` then `response_received`; exact authorized JSON and SHA-256 match captured `responses.create` kwargs, including `stream=true`.
+- Actual subprocess persistence-rejection witness: 1 passed. Parent rejected the `sdk_entered` append, worker attempted `outcome_unknown`, exactly one SDK request occurred, and neither Graph nor another provider request followed.
+- Actual subprocess transport-failure witness: 1 passed. The parent recorded `outcome_unknown`, exactly one SDK request occurred, and no follow-up Graph/provider request ran.
+- The leased test command across route, service, runtime, host, contract, graph-agent, and Hermes patch suites completed with 239 passed and one wrapper assertion failure because it still expected 11 upstream tests. The assertion was corrected; the wrapper then passed independently. `test_app_lifespan_shuts_down_global_host` was excluded because it stalls at ASGI startup on both candidate and clean base, as previously documented.
+- The named leased test file `tests/test_hermes_graph_interaction_tools.py` is absent at the pinned base. `tests/test_graph_retrieval_interaction.py` exists but cannot collect because `graph_memory.interaction.digest_audit` is absent; it is not a usable substitute for this slice.
+- Changed-path Ruff passed. `pyproject.toml` and `uv.lock` remain unchanged; patched Hermes was reinstalled from the prepared source. `scripts/prepare_patched_hermes.py --verify` and reverse-apply check of the checked-in patch passed.
+- Lifecycle plumbing is implemented through the existing worker IPC and verified at the subprocess boundary, but the route candidate remains incomplete and APP-STATE integration remains pending its accepted producer implementation.
 
 ## Stop conditions and pending integration
 

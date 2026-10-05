@@ -434,6 +434,37 @@ def hermes_graph_agent_worker_main(
 
             authorization_sequence = 0
 
+            def report_provider_lifecycle(event: Any) -> bool:
+                if not request.provider_authorization_required:
+                    return True
+                if not isinstance(event, Mapping):
+                    return False
+                sequence = event.get("authorizationSequence")
+                transition = event.get("transition")
+                if (
+                    isinstance(sequence, bool)
+                    or not isinstance(sequence, int)
+                    or sequence != authorization_sequence
+                    or transition not in {"sdk_entered", "response_received", "outcome_unknown"}
+                ):
+                    return False
+                try:
+                    response_queue.put(encode_json_wire({
+                        "type": "provider_lifecycle_request",
+                        "requestId": request_id,
+                        "authorizationId": f"{request_id}:{sequence}",
+                        "transition": transition,
+                    }))
+                    message = decode_json_wire(request_queue.get(timeout=30.0))
+                except Exception:
+                    return False
+                return (
+                    message.get("type") == "provider_lifecycle_response"
+                    and message.get("requestId") == request_id
+                    and message.get("authorizationId") == f"{request_id}:{sequence}"
+                    and message.get("acknowledged") is True
+                )
+
             def authorize_provider_request(view: Any) -> bool:
                 nonlocal authorization_sequence
                 if not request.provider_authorization_required:
@@ -531,6 +562,7 @@ def hermes_graph_agent_worker_main(
                 on_model_call=on_model_call,
                 on_worker_phase=on_worker_phase,
                 on_provider_authorization=authorize_provider_request,
+                on_provider_lifecycle=report_provider_lifecycle,
                 on_parent_graph_operation=broker_graph_operation,
             )
             response_queue.put(
@@ -655,6 +687,7 @@ class HermesGraphAgentHost:
         timeout_s: float | None = None,
         on_host_phase: Callable[[dict[str, Any]], None] | None = None,
         on_provider_authorization: Callable[[Mapping[str, Any]], bool] | None = None,
+        on_provider_lifecycle: Callable[[Mapping[str, Any]], bool] | None = None,
         on_graph_operation: Callable[[Mapping[str, Any]], Mapping[str, Any]] | None = None,
     ) -> HermesGraphAgentTurnResult:
         """Run one turn on the worker. Concurrent callers queue on the turn gate."""
@@ -717,6 +750,7 @@ class HermesGraphAgentHost:
                 emit_phase=emit_phase,
                 emit_worker_phase=emit_worker_phase,
                 on_provider_authorization=on_provider_authorization,
+                on_provider_lifecycle=on_provider_lifecycle,
                 on_graph_operation=on_graph_operation,
             )
 
@@ -728,6 +762,7 @@ class HermesGraphAgentHost:
         emit_phase: Callable[[str, float, str], None],
         emit_worker_phase: Callable[[dict[str, Any]], None],
         on_provider_authorization: Callable[[Mapping[str, Any]], bool] | None,
+        on_provider_lifecycle: Callable[[Mapping[str, Any]], bool] | None,
         on_graph_operation: Callable[[Mapping[str, Any]], Mapping[str, Any]] | None,
     ) -> HermesGraphAgentTurnResult:
         self._started = True
@@ -927,6 +962,34 @@ class HermesGraphAgentHost:
                 except Exception:
                     return
 
+            def handle_provider_lifecycle(message: dict[str, Any]) -> None:
+                authorization_id = message.get("authorizationId")
+                transition = message.get("transition")
+                acknowledged = False
+                if (
+                    authorization_id == f"{request_id}:{authorization_sequence}"
+                    and transition in {"sdk_entered", "response_received", "outcome_unknown"}
+                ):
+                    try:
+                        acknowledged = bool(
+                            on_provider_lifecycle is not None
+                            and on_provider_lifecycle({
+                                "authorizationId": authorization_id,
+                                "transition": transition,
+                            }) is True
+                        )
+                    except Exception:
+                        acknowledged = False
+                try:
+                    local_worker.request_queue.put(encode_json_wire({
+                        "type": "provider_lifecycle_response",
+                        "requestId": request_id,
+                        "authorizationId": authorization_id,
+                        "acknowledged": acknowledged,
+                    }))
+                except Exception:
+                    return
+
             phase_started = time.monotonic()
             try:
                 local_worker.request_queue.put(
@@ -956,6 +1019,7 @@ class HermesGraphAgentHost:
                 telemetry_warnings=streamed_warnings,
                 telemetry_worker_phases=streamed_worker_phases,
                 on_provider_authorization=handle_provider_authorization,
+                on_provider_lifecycle=handle_provider_lifecycle,
                 on_graph_operation=handle_graph_operation,
             )
             emit_phase(
@@ -1202,6 +1266,7 @@ class HermesGraphAgentHost:
         telemetry_warnings: list[str] | None = None,
         telemetry_worker_phases: list[dict[str, Any]] | None = None,
         on_provider_authorization: Callable[[dict[str, Any]], None] | None = None,
+        on_provider_lifecycle: Callable[[dict[str, Any]], None] | None = None,
         on_graph_operation: Callable[[dict[str, Any]], None] | None = None,
     ) -> dict[str, Any] | None:
         deadline = time.monotonic() + timeout_s
@@ -1259,6 +1324,14 @@ class HermesGraphAgentHost:
                     and on_provider_authorization is not None
                 ):
                     on_provider_authorization(message)
+                continue
+            if msg_type == "provider_lifecycle_request":
+                if (
+                    request_id is not None
+                    and str(message.get("requestId") or "") == request_id
+                    and on_provider_lifecycle is not None
+                ):
+                    on_provider_lifecycle(message)
                 continue
             if msg_type == "graph_operation_request":
                 if (

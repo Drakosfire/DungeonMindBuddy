@@ -35,6 +35,7 @@ from application_state.agent_conversation.types import (
     TurnSubmission,
     decode_plan_playable_target_reference,
     encode_plan_playable_target_reference,
+    validate_completion_against_receipt,
 )
 from application_state.errors import (
     ApplicationStateConflictError,
@@ -42,10 +43,12 @@ from application_state.errors import (
 )
 
 from apps.live_control_server.models.agent_turn import (
+    AgentPlanWorldGraphContextResponseV1,
     AgentPlanWorldGraphExecutionProjectionV1,
     AgentTurnContentBasis,
     AgentTurnRequest,
     AgentTurnResponse,
+    AgentTurnResponseV2,
 )
 from apps.live_control_server.services.agent_context_assembler import (
     assemble_agent_conversation_context,
@@ -735,7 +738,27 @@ def _completed_turn_replay(
         if primary.resolution == "resolved"
         else "unavailable"
     )
-    return AgentTurnResponse(
+    completion = turn.completion
+    answer_text = turn.assistant_text
+    graph_grounded = False
+    plan_context = None
+    if request.plan_context_policy is not None:
+        plan_context = project_plan_turn_context(turn, delivery_replay=True)
+        if turn.status != "completed":
+            raise AgentTurnServiceError(
+                "Only a completed Plan Graph turn can be delivered as a replay.",
+                code="turn_receipt_unverifiable",
+                status_code=409,
+            )
+        assert completion is not None
+        answer_text = "\n".join(
+            segment.text for segment in completion.answer_segments
+        )
+        graph_grounded = completion.answer_context_status in {
+            "graph_grounded",
+            "graph_grounded_partial",
+        }
+    response = AgentTurnResponse(
         client_thread_id=request.client_thread_id,
         turn_id=request.turn_id,
         surface={
@@ -799,12 +822,110 @@ def _completed_turn_replay(
         },
         answer={
             "status": "ok",
-            "text": turn.assistant_text,
+            "text": answer_text,
             "code": None,
             "message": None,
-            "graph_grounded": False,
+            "graph_grounded": graph_grounded,
             "trace": final_trace,
         },
+    )
+    if request.plan_context_policy is None:
+        return response
+    return AgentTurnResponseV2.model_validate(
+        {
+            **response.model_dump(mode="json", by_alias=True),
+            "schema": "dmb_agent_turn_response_v2",
+            "plan_context": plan_context.model_dump(mode="json", by_alias=True),
+        }
+    )
+
+
+def _validate_policy_turn_record(
+    turn: Turn,
+    *,
+    require_completed: bool = False,
+) -> None:
+    """Check the immutable receipt, historical Plan reference, and lifecycle agree."""
+    receipt = turn.graph_context_receipt
+    provenance = turn.provenance
+    primary = provenance.primary_work
+    if (
+        receipt is None
+        or receipt.plan_context_policy.policy != "auto_plan_world"
+        or receipt.plan_basis.world_id != turn.world_id
+        or receipt.plan_basis.document_id != primary.object_id
+        or receipt.plan_basis.object_revision != primary.object_revision
+        or receipt.plan_basis.work_revision_id != primary.work_revision_id
+        or receipt.plan_basis.revision_n != primary.revision_n
+        or receipt.plan_basis.content_sha256 != primary.content_sha256
+        or receipt.graph_authority.managed_world_id != turn.world_id
+        or receipt.graph_authority.scope_mode != "world"
+        or receipt.graph_authority.campaign_id not in {None, ""}
+        or provenance.world_id != turn.world_id
+        or provenance.surface_resolution != "resolved"
+        or provenance.surface_id != "plan"
+        or primary.resolution != "resolved"
+        or primary.kind != "plan"
+    ):
+        raise AgentTurnServiceError(
+            "The stored Plan Graph receipt does not match its historical turn provenance.",
+            code="turn_receipt_unverifiable",
+            status_code=409,
+        )
+    if turn.status == "completed":
+        if turn.completion is None or turn.assistant_text is None:
+            raise AgentTurnServiceError(
+                "The completed Plan Graph turn has no matching typed completion.",
+                code="turn_receipt_unverifiable",
+                status_code=409,
+            )
+        try:
+            validate_completion_against_receipt(turn.completion, receipt)
+        except ValueError as exc:
+            raise AgentTurnServiceError(
+                "The Plan Graph completion does not match its historical receipt.",
+                code="turn_receipt_unverifiable",
+                status_code=409,
+            ) from exc
+        expected_text = "\n".join(
+            segment.text for segment in turn.completion.answer_segments
+        )
+        if expected_text != turn.assistant_text:
+            raise AgentTurnServiceError(
+                "The completed Plan Graph answer does not match its typed completion.",
+                code="turn_receipt_unverifiable",
+                status_code=409,
+            )
+    elif turn.completion is not None or turn.assistant_text is not None:
+        raise AgentTurnServiceError(
+            "An incomplete Plan Graph turn unexpectedly carries an answer completion.",
+            code="turn_receipt_unverifiable",
+            status_code=409,
+        )
+    if require_completed and turn.status != "completed":
+        raise AgentTurnServiceError(
+            "Only a completed Plan Graph turn can be delivered as a replay.",
+            code="turn_receipt_unverifiable",
+            status_code=409,
+        )
+
+
+def project_plan_turn_context(
+    turn: Turn,
+    *,
+    delivery_replay: bool,
+) -> AgentPlanWorldGraphContextResponseV1:
+    """Project a history/replay receipt only after checking its lifecycle binding."""
+    _validate_policy_turn_record(turn)
+    receipt = turn.graph_context_receipt
+    assert receipt is not None
+    return AgentPlanWorldGraphContextResponseV1(
+        receipt=receipt,
+        completion=turn.completion,
+        # The current producer exposes receipt/completion only. Keep execution
+        # absent until its exact execution-ledger contract is available.
+        execution=None,
+        delivery_replay=delivery_replay,
     )
 
 
@@ -951,6 +1072,13 @@ def execute_agent_turn(
             status_code=503,
         ) from exc
 
+    if request.plan_context_policy is not None and conversation_service is None:
+        raise AgentTurnServiceError(
+            "auto_plan_world requires durable replay and execution authorization support.",
+            code="plan_graph_execution_unavailable",
+            status_code=503,
+        )
+
     durable_turn: Turn | None = None
     submitted_intent: SubmittedTurnIntentV1 | SubmittedTurnIntentV2 | None = None
     canonical_world_id: str | None = None
@@ -998,6 +1126,18 @@ def execute_agent_turn(
                 return _completed_turn_replay(
                     request, owner=owner, turn=durable_turn
                 )
+
+    if request.plan_context_policy is not None:
+        # The current APP-STATE producer exposes the receipt-only lifecycle.
+        # Until its execution ledger is accepted and connected here, fail
+        # before loading mutable Plan/Graph state, claiming a turn, or creating
+        # a provider runtime. In particular, never fall through to generic
+        # graphless dispatch for an unfinished policy-bearing turn.
+        raise AgentTurnServiceError(
+            "auto_plan_world execution persistence is not available for this turn.",
+            code="plan_graph_execution_unavailable",
+            status_code=503,
+        )
 
     stored_playable_target: PlanPlayableTargetReceiptV1 | None = None
     if durable_turn is not None:

@@ -996,6 +996,7 @@ def _request_budget_guard(
     policy: Mapping[str, Any],
     *,
     on_provider_authorization: Callable[[Any], bool] | None = None,
+    on_provider_lifecycle: Callable[[Mapping[str, Any]], bool] | None = None,
 ) -> Callable[[Any], bool]:
     """Build the strict local request-envelope guard for one resolved model."""
     expected_provider = str(policy["provider"])
@@ -1009,7 +1010,11 @@ def _request_budget_guard(
         "openai-api": frozenset({"codex_responses", "chat_completions"}),
     }
 
+    authorization_sequence = 0
+    agent_ref: list[Any] = []
+
     def allow(view: Any) -> bool:
+        nonlocal authorization_sequence
         if (
             view.provider != expected_provider
             or view.model != expected_model
@@ -1336,9 +1341,17 @@ def _request_budget_guard(
         if on_provider_authorization is None:
             return True
         try:
-            return on_provider_authorization(view) is True
+            authorized = on_provider_authorization(view) is True
         except Exception:
             return False
+        if authorized:
+            authorization_sequence += 1
+            if agent_ref:
+                agent_ref[0]._api_request_budget_authorization_sequence = authorization_sequence
+        return authorized
+
+    allow.bind_agent = agent_ref  # type: ignore[attr-defined]
+    allow.provider_lifecycle = on_provider_lifecycle  # type: ignore[attr-defined]
 
     return allow
 
@@ -1350,6 +1363,7 @@ def run_hermes_graph_agent_turn(
     on_model_call: Callable[[Mapping[str, Any]], None] | None = None,
     on_worker_phase: Callable[[Mapping[str, Any]], None] | None = None,
     on_provider_authorization: Callable[[Any], bool] | None = None,
+    on_provider_lifecycle: Callable[[Mapping[str, Any]], bool] | None = None,
     on_parent_graph_operation: Callable[
         [str, Mapping[str, Any]], tuple[str, Mapping[str, Any] | None]
     ] | None = None,
@@ -1805,6 +1819,25 @@ def run_hermes_graph_agent_turn(
                                     if request.provider_authorization_required
                                     else (lambda _view: True)
                                 ),
+                                on_provider_lifecycle=(
+                                    on_provider_lifecycle
+                                    if request.provider_authorization_required
+                                    else None
+                                ),
+                            )
+                            agent.api_request_budget_guard.bind_agent.append(agent)
+                            lifecycle_callback = agent.api_request_budget_guard.provider_lifecycle
+                            agent.api_provider_lifecycle_callback = (
+                                lambda transition: lifecycle_callback({
+                                    "authorizationSequence": getattr(
+                                        agent,
+                                        "_api_request_budget_authorization_sequence",
+                                        0,
+                                    ),
+                                    "transition": transition,
+                                }) is True
+                                if lifecycle_callback is not None
+                                else None
                             )
                         api_observer.capture_runtime_api_mode(agent)
 
@@ -1899,6 +1932,7 @@ def run_hermes_graph_agent_turn(
                     "request_budget_exceeded",
                     "request_budget_guard_invalid",
                     "request_budget_guard_error",
+                    "provider_lifecycle_unavailable",
                 }
                 if raw.get("failure_reason") == "request_budget_veto" and raw.get(
                     "failure_code"

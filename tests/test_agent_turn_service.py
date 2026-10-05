@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from hashlib import sha256
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -11,6 +12,9 @@ import pytest
 
 from application_state.agent_conversation.types import (
     HistoricalReference,
+    PlanWorldGraphCompletionV1,
+    PlanWorldGraphContextReceiptV1,
+    PlanWorldGraphPlanClaimSegmentV1,
     PlanPlayableTargetReceiptV1,
     SubmittedTurnIntentV2,
     SubmittedPlanPlayableTargetV1,
@@ -29,8 +33,10 @@ from apps.live_control_server.services.agent_runtime import (
 )
 from apps.live_control_server.services.agent_turn_service import (
     _accept_world_turn,
+    _completed_turn_replay,
     _submitted_turn_intent,
     project_plan_graph_execution_state,
+    project_plan_turn_context,
     AgentTurnResolvedWork,
     AgentTurnServiceError,
     execute_agent_turn,
@@ -110,6 +116,56 @@ def test_plan_context_policy_cannot_be_accepted_without_frozen_provider_receipt(
     assert caught.value.code == "plan_graph_receipt_unavailable"
 
 
+def test_plan_context_policy_fails_after_replay_preflight_before_mutable_reads(
+    tmp_path: Path,
+) -> None:
+    request = _request(
+        surface={"surface_id": "plan", "instance_id": "plan-main"},
+        owner_scope={"kind": "world", "world_id": "world:one"},
+        primary_work={
+            "kind": "plan",
+            "object_id": "plan:one",
+            "expected_revision": 7,
+            "expected_revision_n": 4,
+            "expected_content_sha256": "b" * 64,
+        },
+        client_work_state="saved_dirty",
+        plan_context_policy={"policy": "auto_plan_world"},
+    )
+
+    class ReconcileOnly:
+        calls = 0
+
+        def reconcile_turn(self, *_args: Any) -> None:
+            self.calls += 1
+            return None
+
+    conversation_service = ReconcileOnly()
+    mutable_reads: list[str] = []
+    runtime_lookups: list[str] = []
+
+    with pytest.raises(AgentTurnServiceError) as caught:
+        execute_agent_turn(
+            request,
+            root=tmp_path,
+            pointer_store=HermesSessionPointerStore(tmp_path / "pointers"),
+            owner_resolver=lambda _request: {
+                "kind": "world",
+                "id": "world:one",
+                "name": "One",
+            },
+            work_resolver=lambda *_args: mutable_reads.append("plan") or None,
+            graph_resolver=lambda *_args: pytest.fail("generic Graph must stay disabled"),
+            runtime_factory=lambda: runtime_lookups.append("runtime"),
+            conversation_service=conversation_service,  # type: ignore[arg-type]
+        )
+
+    assert caught.value.code == "plan_graph_execution_unavailable"
+    assert conversation_service.calls == 1
+    assert mutable_reads == []
+    assert runtime_lookups == []
+
+
 @pytest.mark.parametrize(
     ("authorization", "completed", "claimability", "projected_authorization"),
     [
@@ -136,6 +192,206 @@ def test_execution_projection_never_implies_automatic_redispatch(
     assert projection.claimability == claimability
     assert projection.authorization_state == projected_authorization
     assert projection.automatic_redispatch is False
+
+
+def _policy_turn(
+    *, status: str = "completed", completion_present: bool = True, drift: bool = False
+) -> Turn:
+    from uuid import uuid4
+
+    revision_id = uuid4()
+    receipt_payload = {
+        "schema": "dmb_agent_plan_world_graph_context_receipt_v1",
+        "receipt_serializer_version": "canonical-json-utf8-v1",
+        "context_receipt_sha256": "0" * 64,
+        "plan_context_policy": {
+            "schema": "dmb_plan_context_policy_v1",
+            "policy": "auto_plan_world",
+        },
+        "plan_basis": {
+            "world_id": "world:one",
+            "document_id": "plan:one",
+            "object_revision": 7,
+            "work_revision_id": str(revision_id),
+            "revision_n": 4,
+            "content_sha256": "b" * 64,
+        },
+        "playable_target": None,
+        "graph_authority": {
+            "managed_world_id": "world:one",
+            "native_world_id": "native:one",
+            "binding_version": 2,
+            "scope_mode": "world",
+            "campaign_id": None,
+            "admissibility_version": "gm-v1",
+            "graph_revision": "graph-revision-3",
+        },
+        "graph_packet": {
+            "schema": "dmb_plan_world_graph_packet_v1",
+            "packet_serializer_version": "canonical-json-utf8-v1",
+            "selection_policy_version": "selection-v1",
+            "evidence_sufficiency_policy_version": "sufficiency-v1",
+            "retrieval_packet_sha256": "c" * 64,
+            "candidate_assertion_ids": [],
+            "candidate_relationship_ids": [],
+            "candidate_evidence_ref_ids": [],
+            "retrieval_status": "empty",
+            "evidence_sufficiency_status": "insufficient",
+            "result_limit": 32,
+            "coverage_status": "incomplete",
+            "truncated": False,
+            "omission_reasons": ["no_admissible_evidence"],
+        },
+        "assembled_input": {
+            "assembler_version": "assembler-v1",
+            "budget_policy_version": "budget-v1",
+            "provider_model_name": "synthetic-model",
+            "provider_model_version": "1",
+            "tokenizer_name": "utf8_json_bytes_plus_64_per_node_v1",
+            "tokenizer_version": "v1",
+            "provider_envelope_input_tokens": 10,
+            "output_token_reserve": 10,
+            "context_window_limit": 100,
+            "packet_disposition": "omitted_insufficient",
+            "packet_disposition_reason": "insufficient_evidence",
+            "dispatched_packet_sha256": None,
+            "dispatched_assertion_ids": [],
+            "dispatched_relationship_ids": [],
+            "dispatched_evidence_ref_ids": [],
+            "source_token_accounting": [],
+            "included_history": [],
+            "assembled_input_sha256": "d" * 64,
+        },
+        "evidence_mode": "metadata_only",
+        "source_opened": False,
+    }
+    canonical = json.dumps(
+        {key: value for key, value in receipt_payload.items() if key != "context_receipt_sha256"},
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    receipt_payload["context_receipt_sha256"] = sha256(canonical).hexdigest()
+    receipt = PlanWorldGraphContextReceiptV1.model_validate(receipt_payload)
+    completion = PlanWorldGraphCompletionV1(
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        answer_basis="committed_plan",
+        answer_context_status="plan_only_insufficient_evidence",
+        answer_segments=[
+            PlanWorldGraphPlanClaimSegmentV1(
+                kind="plan_claim",
+                text="The keeper waits below the arch.",
+                plan_content_sha256="b" * 64,
+            )
+        ],
+        citation_map=None,
+    )
+    primary = HistoricalReference(
+        resolution="resolved",
+        kind="plan",
+        object_id="plan:one",
+        revision="7",
+        content_sha256="b" * 64 if not drift else "e" * 64,
+        object_revision=7,
+        work_revision_id=revision_id,
+        revision_n=4,
+    )
+    now = datetime.now(UTC)
+    return Turn(
+        turn_id=uuid4(),
+        conversation_id=uuid4(),
+        world_id="world:one",
+        idempotency_key=uuid4(),
+        sequence=1,
+        revision=1,
+        status=status,
+        user_text="What does the Plan say?",
+        assistant_text=(
+            "The keeper waits below the arch."
+            if completion_present and status == "completed"
+            else None
+        ),
+        failure_code=None,
+        provenance=TurnProvenance(
+            world_id="world:one",
+            surface_resolution="resolved",
+            surface_id="plan",
+            surface_instance_id="plan-main",
+            primary_work=primary,
+            selected_object=HistoricalReference(resolution="absent"),
+        ),
+        submitted_intent_fingerprint_v2="f" * 64,
+        graph_context_receipt=receipt,
+        completion=completion if completion_present else None,
+        attempt=1 if status in {"running", "completed"} else 0,
+        claim_expires_at=None,
+        accepted_at=now,
+        completed_at=now if status == "completed" else None,
+        updated_at=now,
+    )
+
+
+def test_history_projection_keeps_receipt_and_completion_bound_to_provenance() -> None:
+    context = project_plan_turn_context(_policy_turn(), delivery_replay=False)
+    assert context.receipt.plan_basis.document_id == "plan:one"
+    assert context.completion is not None
+    assert context.execution is None
+    assert context.delivery_replay is False
+
+    with pytest.raises(AgentTurnServiceError, match="historical turn provenance"):
+        project_plan_turn_context(_policy_turn(drift=True), delivery_replay=False)
+
+
+def test_completed_policy_replay_returns_v2_from_stored_receipt_only() -> None:
+    from apps.live_control_server.models.agent_turn import AgentTurnResponseV2
+
+    turn = _policy_turn()
+    request = _request(
+        client_thread_id="plan-main-thread",
+        turn_id=str(turn.turn_id),
+        surface={"surface_id": "plan", "instance_id": "plan-main"},
+        owner_scope={"kind": "world", "world_id": "world:one"},
+        primary_work={
+            "kind": "plan",
+            "object_id": "plan:one",
+            "expected_revision": 7,
+            "expected_revision_n": 4,
+            "expected_content_sha256": "b" * 64,
+        },
+        client_work_state="saved_clean",
+        message=turn.user_text,
+        plan_context_policy={"policy": "auto_plan_world"},
+    )
+
+    response = _completed_turn_replay(
+        request,
+        owner={"kind": "world", "id": "world:one", "name": "One"},
+        turn=turn,
+    )
+
+    assert isinstance(response, AgentTurnResponseV2)
+    assert response.graph.status == "not_requested"
+    assert response.plan_context.receipt == turn.graph_context_receipt
+    assert response.plan_context.completion == turn.completion
+    assert response.plan_context.execution is None
+    assert response.plan_context.delivery_replay is True
+    assert response.answer.text == "The keeper waits below the arch."
+    assert response.answer.graph_grounded is False
+
+
+@pytest.mark.parametrize(
+    ("status", "completion_present"),
+    [("completed", False), ("running", True), ("failed", True)],
+)
+def test_history_projection_requires_completion_to_match_lifecycle(
+    status: str, completion_present: bool
+) -> None:
+    with pytest.raises(AgentTurnServiceError, match="completion"):
+        project_plan_turn_context(
+            _policy_turn(status=status, completion_present=completion_present),
+            delivery_replay=False,
+        )
 
 
 class FakeRuntime:
