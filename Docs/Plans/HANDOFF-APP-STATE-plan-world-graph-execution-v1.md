@@ -1,15 +1,16 @@
 # HANDOFF — APP-STATE: bounded Plan World Graph execution record v1
 
-**Status:** BLOCKED for implementation. This document publishes the PRIME-approved persistence direction; it grants no implementation lease.
-**PR topology:** one focused APP-STATE contract-document PR. Implementation, when activated, is a separate serial slice after SERVER bootstrap/transport reconciliation and an exact write lease.
-**Suggested PR title:** `APP-STATE: define Graph execution persistence contract`.
-**Re-anchor:** fetched current `github/main@93c07c243acd9abc9acc044f9a4e59390710871d` after PR #923. The fresh open-PR census found #922 (SERVER Graph-context contract, head `067a34db6e3bcff55d6ffdd2333e4433fbcb04f4`), #924 (Hermes pre-dispatch veto, head `0e716a0ec3f9f479d7202f9ca48411cbdd0558ef`), #917 (focused Plan/context exploration), and #914 (Plan card projection) among other unrelated work. #922 and #924 are read as the exact adjacent contracts; this PR writes only this APP-STATE handoff path. The local `origin/main` is an older ancestor and was not used.
-**Last verified schema head:** `20261004_0016`. Candidate migration `20261005_0017` is valid only if a fresh activation re-anchor confirms 0016 remains head.
-**Authority:** PRIME’s direct decision in this task selects nullable `agent.turn.graph_context_execution` JSONB; no new event table, hash chain, receipt v2, or completion v2.
+**Status:** ACTIVE — local APP-STATE implementation lease activated 2026-10-05 by PRIME. External push/publication remains paused pending the operator’s direct approval after automatic review rejected the previous push.
+**Branch/worktree:** `codex/app-state-graph-context-execution` at `/tmp/app-state-graph-context-execution`.
+**Pinned base:** Buddy `main@6319ff30466dd9ab2e3e0752fce31ac8a71b7d4b` (merged PR #924).
+**Schema head:** `20261004_0016`; candidate migration `20261005_0017` with `down_revision=20261004_0016`.
+**Topology:** serial APP-STATE persistence → SERVER integration. The write set excludes SERVER’s active #924 Hermes patch/runtime paths.
+**Fresh PR census:** #922 (SERVER Graph-context contract, head `067a34db6e3bcff55d6ffdd2333e4433fbcb04f4`), #917, and #914 remain open; #924 is merged at `6319ff30466dd9ab2e3e0752fce31ac8a71b7d4b`. No open PR writes this APP-STATE allowlist.
+**Authority:** PRIME’s local activation selects nullable `agent.turn.graph_context_execution` JSONB; no new event table, hash chain, receipt v2, or completion v2.
 
 ## Mission
 
-Persist the authorized, actual execution of a Plan World Graph turn that uses parent-brokered Graph operations and multiple provider requests. Preserve the accepted `PlanWorldGraphContextReceiptV1` and `PlanWorldGraphCompletionV1` contracts. Keep legacy turns unchanged when the new field is null.
+Persist the authorized, actual execution of a Plan World Graph turn in Buddy’s Agent Harness, including its conversation lifecycle, parent-brokered Graph tools, provider authorization, evidence, and replay boundaries. This persistence contract is runtime-neutral; Hermes is the current concrete adapter. Preserve the accepted `PlanWorldGraphContextReceiptV1` and `PlanWorldGraphCompletionV1` contracts. Keep legacy turns unchanged when the new field is null.
 
 This record is an APP-STATE-owned execution/evidence adjunct. `agent.turn` remains the lifecycle authority. APP-STATE does not rebuild turn status from events, resolve Graph facts, or authorize source-body access. This reconciles with `ARCHITECTURE-application-state-layer.md`’s event-sourcing non-goal: the JSONB is a bounded typed record on the existing domain row, not a general event store or replay engine.
 
@@ -42,7 +43,7 @@ Each event has `event_id` (UUID), contiguous `sequence`, `kind`, and a strict ki
 ### Event kinds
 
 1. **`validated_graph_operation`** — `operation_id`, allowlisted operation name, digest of canonical request arguments, pinned Graph revision, result-packet digest, admitted assertion/relationship/evidence-ref IDs, evidence-sufficiency status, coverage/truncation, and `source_opened: false`. Do not store query arguments or result prose.
-2. **`provider_attempt_authorized`** — `provider_attempt_id`, exact final-envelope SHA-256 and serializer version, provider/model/API mode, tool-schema digest, input accounting kind/estimator/result, output reserve, included initial evidence IDs, and the ordered `validated_graph_operation` event IDs actually present in that envelope. It is committed before SDK entry.
+2. **`provider_attempt_authorized`** — `provider_attempt_id`, exact final-envelope SHA-256 and serializer version, provider/model/API mode, tool-schema digest, input accounting kind/estimator/result, output reserve, included initial assertion/relationship/evidence-ref IDs, and the ordered `validated_graph_operation` event IDs actually present in that envelope. It is committed before SDK entry.
 3. **`provider_outcome`** — the attempt ID and one ordered state: `sdk_entered`, `response_received`, `known_not_sent`, or `outcome_unknown`; include bounded status/request metadata and response digest when available, never the provider response body. An authorized attempt with no final outcome is unresolved and treated as potentially sent.
 4. **`completion_binding`** — appended atomically with turn completion; contains the final producing provider-attempt ID, canonical digest of the existing completion v1 JSON, and a per-claim list of the validated Graph-operation event IDs that support that claim. It does not add fields to, reserialize, or change the digest semantics of the stored completion.
 
@@ -63,21 +64,21 @@ An accepted turn left between steps 3 and 4 has no authorized provider attempt a
 
 ## Parent-brokered Graph traversal
 
-The Hermes child’s hydrated Graph retrieval session is child-local. Child-reported results are not admissible evidence. A child tool request is only a request: the parent checks it against the execution policy, executes the read through the authoritative Graph service against the receipt’s exact managed/native binding and frozen Graph revision, validates the returned IDs and packet, appends `validated_graph_operation`, then returns the admitted result to the child. A changed revision, binding, disallowed operation, over-budget result, or persistence failure denies the operation and cannot produce a later provider envelope.
+In the current Hermes adapter, the child’s hydrated Graph retrieval session is child-local. Child-reported results are not admissible evidence. A child tool request is only a request: the Agent Harness parent checks it against the execution policy, executes the read through the authoritative Graph service against the receipt’s exact managed/native binding and frozen Graph revision, validates the returned IDs and packet, appends `validated_graph_operation`, then returns the admitted result to the child. A changed revision, binding, disallowed operation, over-budget result, or persistence failure denies the operation and cannot produce a later provider envelope.
 
 `read_source`, source opening, Graph writes, arbitrary child-local Graph queries, and raw source/result bodies remain outside this contract. No validated event is appended from a worker claim alone.
 
 ## Completion, citations, replay, and retry
 
-- Keep `PlanWorldGraphCompletionV1` exactly as stored today. For a turn with a non-null execution record, `complete_turn` accepts the final producing attempt ID, validates that the attempt has a durable `response_received` outcome, appends `completion_binding`, validates each claim’s target/evidence refs against either the original receipt’s dispatched IDs or the named validated operation events included in that producing envelope, and stores completion + final execution JSON + completed lifecycle in one transaction. The sidecar also records `claim_id → validated_graph_operation event IDs`; no completion v2, citation-shape change, or change to the receipt/completion digest algorithms is proposed.
-- The execution-aware validator applies the existing status meanings to the actual supporting packet(s): a cited initial packet uses its frozen receipt sufficiency/coverage; a cited tool result uses that event’s validated sufficiency/coverage/truncation. `graph_grounded` requires each cited source to be sufficient, complete, and untruncated; `graph_grounded_partial` applies when a cited source is incomplete or truncated. With no sufficient evidence in the final request, use `plan_only_insufficient_evidence`; with sufficient evidence available but no Graph claims, use `plan_only_graph_unused`. When `graph_context_execution` is null, retain the current v1 validator and its exact initial-packet semantics.
+- Keep `PlanWorldGraphCompletionV1` exactly as stored today. For a turn with a non-null execution record, `complete_turn` accepts the final producing attempt ID, validates that the attempt has a durable `response_received` outcome, appends `completion_binding`, validates each claim’s target/evidence refs against the original receipt’s dispatched IDs or named validated operation events **and** requires every cited target and evidence ref to be present in the final producing provider envelope. Initial-receipt membership alone never authorizes a citation. The sidecar records `claim_id → validated_graph_operation event IDs`; the final attempt records which initial IDs and tool-event IDs it actually included. It stores completion + final execution JSON + completed lifecycle in one transaction. No completion v2, citation-shape change, or change to receipt/completion digest algorithms is proposed.
+- The execution-aware validator applies the existing status meanings to the actual supporting packet(s): a cited initial packet uses its frozen receipt sufficiency/coverage; a cited tool result uses that event’s validated sufficiency/coverage/truncation. `graph_grounded` requires each cited source to be sufficient, complete, untruncated, and present in the producing envelope; `graph_grounded_partial` applies when a cited source is incomplete or truncated. With no sufficient evidence in the final request, use `plan_only_insufficient_evidence`; with sufficient evidence available but no Graph claims, use `plan_only_graph_unused`. When `graph_context_execution` is null, retain the current v1 validator and its exact initial-packet semantics.
 - Completion v1 turns without `graph_context_execution` use the existing validator byte-for-byte and do not require a producing-attempt binding. Graphless legacy turns retain a null field, old fingerprints, and current replay behavior.
 - Completed replay returns the stored receipt, unchanged completion v1, and execution record before current Plan/Graph/provider reads. No provider/tool dispatch is repeated.
-- SDK automatic retries are disabled or routed through the gate one wire attempt at a time. A retry after a definite provider response requires a new attempt event and consumes policy budget. If a dispatch was authorized but the caller/parent lost the result, persist `outcome_unknown` when observed; on recovery, an unresolved or already-entered provider attempt blocks same-turn redispatch. Surface recovery/new user turn rather than silently replaying the initial envelope. An accepted/failed/interrupted turn with no authorized provider attempt may be claimed again under the existing lifecycle fence.
+- The current Hermes SDK adapter disables automatic retries or routes them through the Agent Harness gate one wire attempt at a time. A retry after a definite provider response requires a new attempt event and consumes policy budget. If a dispatch was authorized but the caller/parent lost the result, persist `outcome_unknown` when observed; on recovery, an unresolved or already-entered provider attempt blocks same-turn redispatch. Surface recovery/new user turn rather than silently replaying the initial envelope. An accepted/failed/interrupted turn with no authorized provider attempt may be claimed again under the existing lifecycle fence.
 
-## APP-STATE method and path proposal
+## APP-STATE active path allowlist
 
-The bounded implementation write set, after a new activation re-anchor, is:
+The exclusive APP-STATE implementation write set is:
 
 - `src/application_state/agent_conversation/types.py` — strict root, policy, event union, optional field on `Turn`/`TurnSubmission`, and completion-binding validator inputs. Execution policy must be absent with a null execution field; when present it must bind the stored receipt and estimator metadata.
 - `src/application_state/agent_conversation/repository.py` — JSONB column mapping and atomic append/readback under row lock.
@@ -86,7 +87,9 @@ The bounded implementation write set, after a new activation re-anchor, is:
 - `tests/application_state/test_agent_conversation_service.py`
 - `tests/application_state/test_agent_conversation_postgres.py`
 - `tests/application_state/test_agent_conversation_provenance_migration.py`
-- `tests/application_state/test_plan_action_dialogue_postgres.py` — update the migration-head assertion if this remains its current owner/path at activation.
+- `tests/application_state/test_plan_action_dialogue_postgres.py` — current migration-head assertion.
+
+No other path is included. If implementation needs another file, stop and return the exact deviation to PRIME before editing.
 
 Expected method behavior:
 
@@ -101,7 +104,7 @@ The new nullable field is omitted from legacy request-fingerprint serialization 
 
 ## SERVER contract and candidate paths
 
-SERVER owns exact-envelope preparation/hash/accounting, replay preflight, first-receipt bootstrap, the non-bypassable provider gate, parent execution of Graph operations, evidence validation, and supplying the producing-attempt ID at completion. Reuse the current SERVER proposals: API/context admission and Graph traversal ownership in `Docs/Plans/HANDOFF-SERVER-plan-world-graph-context-api-projection-v1.md` (#922), and the pinned Hermes final-envelope veto in `Docs/Plans/HANDOFF-SERVER-hermes-pre-dispatch-budget-veto-v1.md` (#924). Extend those specific seams; do not introduce a general-purpose broker framework. Candidate Buddy runtime paths are:
+SERVER owns the Agent Harness contract for exact-envelope preparation/hash/accounting, replay preflight, first-receipt bootstrap, provider authorization, parent execution of Graph tools, evidence validation, and supplying the producing-attempt ID at completion. Reuse the current SERVER proposals: API/context admission and Graph traversal ownership in `Docs/Plans/HANDOFF-SERVER-plan-world-graph-context-api-projection-v1.md` (#922), and the pinned Hermes adapter final-envelope veto in `Docs/Plans/HANDOFF-SERVER-hermes-pre-dispatch-budget-veto-v1.md` (#924). Keep authorization at that adapter boundary while preserving the runtime-neutral Agent Harness contract. Extend those specific seams; do not introduce a general-purpose broker framework. Candidate Buddy runtime paths are:
 
 - `apps/live_control_server/services/agent_turn_service.py`
 - `apps/live_control_server/services/hermes_agent_runtime.py`
@@ -129,6 +132,6 @@ DungeonMind Graph remains authority for Graph reads/revision semantics. APP-STAT
 
 ## Activation gates and stop rules
 
-This contract PR does not grant an implementation lease. Before implementation, PRIME must record a new activation with a freshly fetched `main` SHA, open-PR/lease census, confirmed migration head, exact SERVER transport/bootstrap path, and serial PR topology. SERVER must demonstrate the first-envelope bootstrap while preserving `reconcile_turn` replay ordering and use a truthful named input estimator. Existing multi-transaction `accept_turn` → `claim_turn` → authorization is sufficient because no provider request can occur before a fresh authorization; an accepted row without authorization is safe to reclaim. If exact-envelope preparation cannot precede `accept_turn`, stop and return a revised bounded contract; do not reinterpret the v1 receipt hash.
+This implementation lease is active on `main@6319ff30466dd9ab2e3e0752fce31ac8a71b7d4`, with migration head 0016 and the exact APP-STATE write set above. The APP-STATE implementation may proceed locally; the serial SERVER integration remains a separate owner/lease. Preserve the parent bootstrap contract: `reconcile_turn` precedes mutable reads, the exact first envelope is frozen before `accept_turn`, and no provider call occurs before a fresh authorization. Existing multi-transaction `accept_turn` → `claim_turn` → authorization is sufficient because an accepted row without authorization is safe to reclaim. If implementation requires any path outside the allowlist, if the schema head changes, or if a required invariant cannot be enforced within the current row transaction, stop and return the exact deviation to PRIME before editing outside the lease.
 
 The implementation is one APP-STATE slice with the paths above, followed by the separately owned SERVER integration. No new event table, hash chain, receipt/completion v2, generic replay/tracing facility, source-opening capability, provider/Graph live call, operator database, or merge authority is included.

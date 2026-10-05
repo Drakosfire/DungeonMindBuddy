@@ -19,6 +19,7 @@ from application_state.agent_conversation.types import (
     LegacyImportReceipt,
     PlanAskContextBasis,
     PlanWorldGraphCompletionV1,
+    PlanWorldGraphExecutionV1,
     Turn,
     TurnProvenance,
     WorldPointer,
@@ -37,6 +38,7 @@ _TURN_COLS = """
     status, user_text, assistant_text, failure_code, surface_resolution,
     surface_id, surface_instance_id, submitted_intent_fingerprint_v1, attempt,
     submitted_intent_fingerprint_v2, graph_context_receipt, completion,
+    graph_context_execution,
     claim_expires_at, accepted_at, completed_at, updated_at
 """
 _DRAFT_COLS = """
@@ -632,6 +634,7 @@ def insert_turn(
 ) -> Turn:
     provenance: TurnProvenance = submission.provenance
     graph_context_receipt = getattr(submission, "graph_context_receipt", None)
+    graph_context_execution = getattr(submission, "graph_context_execution", None)
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
@@ -640,12 +643,13 @@ def insert_turn(
                 revision, status, request_fingerprint, user_text, assistant_text,
                 failure_code, surface_resolution, surface_id, surface_instance_id,
                 submitted_intent_fingerprint_v1, submitted_intent_fingerprint_v2,
-                graph_context_receipt, completion, attempt, claim_expires_at,
+                graph_context_receipt, completion, graph_context_execution,
+                attempt, claim_expires_at,
                 accepted_at, completed_at, updated_at
             ) VALUES (
                 %s, %s, %s, %s, %s, %s,
                 1, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s,
                 NULL, %s, %s, %s
             )
             RETURNING {_TURN_COLS}
@@ -675,6 +679,11 @@ def insert_turn(
                     )
                 ),
                 None,
+                (
+                    None
+                    if graph_context_execution is None
+                    else Jsonb(graph_context_execution.model_dump(mode="json", by_alias=True))
+                ),
                 attempt,
                 now,
                 now if status in {"completed", "failed", "interrupted"} else None,
@@ -784,6 +793,7 @@ def complete_claimed_turn(
     expected_revision: int,
     assistant_text: str,
     completion: PlanWorldGraphCompletionV1 | None,
+    graph_context_execution: PlanWorldGraphExecutionV1 | None = None,
 ) -> Turn | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
@@ -792,6 +802,7 @@ def complete_claimed_turn(
             SET status = 'completed', revision = revision + 1,
                 assistant_text = %s, failure_code = NULL,
                 completion = %s,
+                graph_context_execution = %s,
                 claim_expires_at = NULL,
                 completed_at = clock_timestamp(), updated_at = clock_timestamp()
             WHERE world_id = %s AND turn_id = %s AND status = 'running'
@@ -803,6 +814,74 @@ def complete_claimed_turn(
                 None
                 if completion is None
                 else Jsonb(completion.model_dump(mode="json", by_alias=True)),
+                (
+                    None
+                    if graph_context_execution is None
+                    else Jsonb(graph_context_execution.model_dump(mode="json", by_alias=True))
+                ),
+                world_id,
+                turn_id,
+                expected_revision,
+            ),
+        )
+        row = cur.fetchone()
+    return None if row is None else _turn_from_row(conn, row)
+
+
+def update_graph_execution(
+    conn: psycopg.Connection,
+    *,
+    world_id: str,
+    turn_id: UUID,
+    expected_revision: int,
+    execution: PlanWorldGraphExecutionV1,
+) -> Turn | None:
+    """Persist one validated execution append under the caller's locked row."""
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""
+            UPDATE agent.turn
+            SET graph_context_execution = %s, revision = revision + 1,
+                updated_at = clock_timestamp()
+            WHERE world_id = %s AND turn_id = %s AND status = 'running'
+              AND revision = %s AND claim_expires_at > clock_timestamp()
+            RETURNING {_TURN_COLS}
+            """,
+            (
+                Jsonb(execution.model_dump(mode="json", by_alias=True)),
+                world_id,
+                turn_id,
+                expected_revision,
+            ),
+        )
+        row = cur.fetchone()
+    return None if row is None else _turn_from_row(conn, row)
+
+
+def interrupt_expired_graph_execution(
+    conn: psycopg.Connection,
+    *,
+    world_id: str,
+    turn_id: UUID,
+    expected_revision: int,
+    execution: PlanWorldGraphExecutionV1,
+    failure_code: str,
+) -> Turn | None:
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""
+            UPDATE agent.turn
+            SET graph_context_execution = %s, status = 'interrupted',
+                revision = revision + 1, failure_code = %s,
+                claim_expires_at = NULL, completed_at = clock_timestamp(),
+                updated_at = clock_timestamp()
+            WHERE world_id = %s AND turn_id = %s AND status = 'running'
+              AND revision = %s AND claim_expires_at <= clock_timestamp()
+            RETURNING {_TURN_COLS}
+            """,
+            (
+                Jsonb(execution.model_dump(mode="json", by_alias=True)),
+                failure_code,
                 world_id,
                 turn_id,
                 expected_revision,
