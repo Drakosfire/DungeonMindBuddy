@@ -2413,6 +2413,59 @@ def test_request_budget_guard_accepts_codex_responses_envelope():
 
 
 @pytest.mark.parametrize(
+    "change",
+    [
+        {"include": ["reasoning.encrypted_content"]},
+        {"input": [{"type": "reasoning", "encrypted_content": "opaque"}]},
+        {"input": [{"type": "message", "role": "assistant", "status": {"unknown": "value"}, "content": [{"type": "output_text", "text": "answer"}]}]},
+        {"input": [{"type": "message", "role": "assistant", "id": {"unknown": "value"}, "content": [{"type": "output_text", "text": "answer"}]}]},
+        {"input": [{"type": "message", "role": "assistant", "phase": {"unknown": "value"}, "content": [{"type": "output_text", "text": "answer"}]}]},
+        {"input": [{"type": "function_call", "call_id": "call-1", "name": "expand_graph", "arguments": "{}", "status": {"unknown": "value"}}]},
+        {"reasoning": {"effort": {"unknown": "value"}}},
+        {"reasoning": {"summary": {"unknown": "value"}}},
+    ],
+)
+def test_request_budget_guard_rejects_opaque_reasoning_and_malformed_responses_fields(
+    change: dict[str, Any],
+):
+    payload = {
+        "model": "synthetic-model",
+        "instructions": "Use graph tools.",
+        "input": [
+            {
+                "type": "message",
+                "role": "assistant",
+                "id": "msg_assistant_1",
+                "phase": "commentary",
+                "status": "completed",
+                "content": [{"type": "output_text", "text": "visible"}],
+            }
+        ],
+        "tools": [],
+        "max_output_tokens": 100,
+    }
+    payload.update(change)
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    view = SimpleNamespace(
+        provider="openai-api",
+        model="synthetic-model",
+        api_mode="codex_responses",
+        payload_json=encoded,
+        payload_utf8_bytes=len(encoded.encode("utf-8")),
+    )
+    assert _request_budget_guard(
+        {
+            "provider": "openai-api",
+            "model": "synthetic-model",
+            "apiMode": "codex_responses",
+            "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+            "contextLimitTokens": 100_000,
+            "outputReserveTokens": 100,
+        }
+    )(view) is False
+
+
+@pytest.mark.parametrize(
     ("policy_change", "payload_change"),
     [
         ({"provider": "other"}, {}),
@@ -2424,6 +2477,10 @@ def test_request_budget_guard_accepts_codex_responses_envelope():
         ({}, {"tools": [{"type": "web_search_preview"}]}),
         ({}, {"unknown_extension": True}),
         ({}, {"max_completion_tokens": True}),
+        ({}, {"messages": [{"role": "user", "name": {"unknown": "value"}, "content": "question"}]}),
+        ({}, {"messages": [{"role": "assistant", "refusal": {"unknown": "value"}, "content": "answer"}]}),
+        ({}, {"reasoning_effort": {"unknown": "value"}}),
+        ({}, {"tool_choice": {"type": "function", "function": {"name": {"unknown": "value"}}}}),
     ],
 )
 def test_request_budget_guard_fails_closed_for_unknown_accounting(
@@ -2518,6 +2575,93 @@ def test_request_budget_guard_accepts_actual_buddy_provider_protocol(
             "provider": "openai-api",
             "model": model,
             "apiMode": expected_mode,
+            "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+            "contextLimitTokens": 100_000,
+            "outputReserveTokens": 100,
+        }
+    )(view)
+
+
+def test_guarded_request_budget_uses_actual_responses_builder_with_assistant_tool_continuation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    hermes_home = tmp_path / "hermes-home-guarded-builder"
+    hermes_home.mkdir()
+    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+    with hermes_import_namespace():
+        run_agent = importlib.import_module("run_agent")
+        with patch("run_agent.OpenAI"):
+            agent = run_agent.AIAgent(
+                api_key="synthetic-test-key",
+                base_url="https://api.openai.com/v1",
+                provider="openai-api",
+                model="gpt-6-luna",
+                max_tokens=100,
+                max_iterations=1,
+                enabled_toolsets=[],
+                quiet_mode=True,
+                skip_context_files=True,
+                skip_memory=True,
+            )
+        agent.api_request_budget_guard = lambda _view: True
+        agent.reasoning_config = {"enabled": True, "effort": "medium"}
+        messages = [
+            {"role": "system", "content": "Use graph tools."},
+            {
+                "role": "assistant",
+                "content": "Inspecting graph.",
+                "codex_reasoning_items": [
+                    {"type": "reasoning", "encrypted_content": "opaque-state"}
+                ],
+                "codex_message_items": [
+                    {
+                        "type": "message",
+                        "id": "msg_graph_1",
+                        "phase": "commentary",
+                        "role": "assistant",
+                        "status": "completed",
+                        "content": [{"type": "output_text", "text": "Inspecting graph."}],
+                    }
+                ],
+                "tool_calls": [
+                    {
+                        "id": "call_graph_1",
+                        "type": "function",
+                        "function": {"name": "expand_graph", "arguments": "{}"},
+                    }
+                ],
+            },
+            {"role": "tool", "tool_call_id": "call_graph_1", "content": "Node A found."},
+            {"role": "user", "content": "Continue."},
+        ]
+        request = agent._build_api_kwargs(messages)
+        budget_module = importlib.import_module("agent.api_request_budget")
+        view = budget_module.build_api_request_budget_view(
+            provider=agent.provider,
+            model=agent.model,
+            api_mode=agent.api_mode,
+            base_url=agent.base_url,
+            request=request,
+        )
+    built_payload = json.loads(view.payload_json)
+    assert request["include"] == []
+    assert "opaque-state" not in view.payload_json
+    assert any(
+        item.get("type") == "message"
+        and item.get("id") == "msg_graph_1"
+        and item.get("phase") == "commentary"
+        for item in built_payload["input"]
+    )
+    assert any(item.get("type") == "function_call" for item in built_payload["input"])
+    assert any(
+        item.get("type") == "function_call_output" and item.get("output") == "Node A found."
+        for item in built_payload["input"]
+    )
+    assert _request_budget_guard(
+        {
+            "provider": "openai-api",
+            "model": "gpt-6-luna",
+            "apiMode": "codex_responses",
             "estimator": "utf8_json_bytes_plus_64_per_node_v1",
             "contextLimitTokens": 100_000,
             "outputReserveTokens": 100,

@@ -123,21 +123,33 @@ index 0000000..237db84
 +        raise ApiRequestBudgetVeto(code="request_budget_guard_error") from exc
 +    if allowed is not True:
 +        raise ApiRequestBudgetVeto()
+diff --git a/agent/chat_completion_helpers.py b/agent/chat_completion_helpers.py
+index b93dcf6..df243dc 100644
+--- a/agent/chat_completion_helpers.py
++++ b/agent/chat_completion_helpers.py
+@@ -880,3 +880,3 @@ def build_api_kwargs(agent, api_messages: list) -> dict:
+                 getattr(agent, "_codex_reasoning_replay_enabled", True)
+-            ),
++            ) and getattr(agent, "api_request_budget_guard", None) is None,
+         )
+@@ -1190,3 +1190,7 @@ def build_assistant_message(agent, assistant_message, finish_reason: str) -> dic
+     # multi-turn continuity. These get replayed as input on the next turn.
+-    codex_items = getattr(assistant_message, "codex_reasoning_items", None)
++    codex_items = (
++        None
++        if getattr(agent, "api_request_budget_guard", None) is not None
++        else getattr(assistant_message, "codex_reasoning_items", None)
++    )
+     if codex_items:
 diff --git a/agent/conversation_loop.py b/agent/conversation_loop.py
 index 12c80a8..cf613bb 100644
 --- a/agent/conversation_loop.py
 +++ b/agent/conversation_loop.py
-@@ -34,6 +34,7 @@ from agent.error_classifier import FailoverReason, classify_api_error
- from agent.iteration_budget import IterationBudget
- from agent.turn_context import build_turn_context
+@@ -36,2 +36,3 @@ from agent.turn_context import build_turn_context
  from agent.turn_retry_state import TurnRetryState
 +from agent.api_request_budget import ApiRequestBudgetVeto
  from agent.memory_manager import build_memory_context_block
- from agent.message_sanitization import (
-     close_interrupted_tool_sequence,
-@@ -1324,6 +1325,15 @@ def run_conversation(
-                             allow_stream=False,
-                             is_github_responses=agent._is_copilot_url(),
+@@ -1326,2 +1327,11 @@ def run_conversation(
                          )
 +                    # This guard is deliberately at the terminal call boundary:
 +                    # execution middleware has already produced
@@ -149,11 +161,7 @@ index 12c80a8..cf613bb 100644
 +
 +                    enforce_api_request_budget(agent, next_api_kwargs)
                      if _use_streaming:
-                         return agent._interruptible_streaming_api_call(
-                             next_api_kwargs, on_first_delta=_stop_spinner
-@@ -2296,7 +2306,33 @@ def run_conversation(
-                         pass
-                 agent._touch_activity(f"API call #{api_call_count} completed")
+@@ -2298,3 +2308,29 @@ def run_conversation(
                  break  # Success, exit retry loop
 -
 +            except ApiRequestBudgetVeto as veto:
@@ -184,14 +192,12 @@ index 12c80a8..cf613bb 100644
 +                    "error": veto.code,
 +                }
              except InterruptedError:
-                 if thinking_spinner:
-                     thinking_spinner.stop("")
 diff --git a/tests/agent/test_pre_dispatch_budget_veto.py b/tests/agent/test_pre_dispatch_budget_veto.py
 new file mode 100644
-index 0000000..7d4d667
+index 0000000..4938032
 --- /dev/null
 +++ b/tests/agent/test_pre_dispatch_budget_veto.py
-@@ -0,0 +1,142 @@
+@@ -0,0 +1,262 @@
 +"""Terminal request-budget rejection at the common SDK dispatch boundary."""
 +
 +from __future__ import annotations
@@ -200,6 +206,7 @@ index 0000000..7d4d667
 +import shutil
 +import sys
 +import tempfile
++from types import SimpleNamespace
 +
 +import pytest
 +
@@ -214,12 +221,17 @@ index 0000000..7d4d667
 +            del sys.modules[mod]
 +    from run_agent import AIAgent
 +
-+    def create():
++    def create(
++        *,
++        base_url="http://127.0.0.1:9/v1",
++        provider="openai-api",
++        model="synthetic-model",
++    ):
 +        return AIAgent(
 +            api_key="synthetic-test-key",
-+            base_url="http://127.0.0.1:9/v1",
-+            provider="openai-api",
-+            model="synthetic-model",
++            base_url=base_url,
++            provider=provider,
++            model=model,
 +            max_iterations=4,
 +            enabled_toolsets=[],
 +            quiet_mode=True,
@@ -334,3 +346,117 @@ index 0000000..7d4d667
 +        from agent.api_request_budget import enforce_api_request_budget
 +
 +        enforce_api_request_budget(Agent(), payload)
++
++
++def test_guarded_responses_builder_preserves_visible_tool_history_without_opaque_reasoning(
++    agent_factory,
++):
++    from unittest.mock import patch
++
++    with patch("run_agent.OpenAI"):
++        agent = agent_factory(base_url="https://api.openai.com/v1", model="gpt-6-luna")
++    agent.provider = "openai-api"
++    agent.api_request_budget_guard = lambda _view: True
++    agent.reasoning_config = {"enabled": True, "effort": "medium"}
++    prior = {
++        "role": "assistant",
++        "content": "I will inspect the graph.",
++        "codex_reasoning_items": [
++            {"type": "reasoning", "encrypted_content": "opaque-provider-state"}
++        ],
++        "codex_message_items": [
++            {
++                "type": "message",
++                "id": "msg_assistant_1",
++                "phase": "commentary",
++                "role": "assistant",
++                "status": "completed",
++                "content": [{"type": "output_text", "text": "I will inspect the graph."}],
++            }
++        ],
++        "tool_calls": [
++            {
++                "id": "call_1",
++                "type": "function",
++                "function": {"name": "expand_graph", "arguments": "{}"},
++            }
++        ],
++    }
++    messages = [
++        {"role": "system", "content": "Use graph tools."},
++        prior,
++        {"role": "tool", "tool_call_id": "call_1", "content": "Found node A."},
++        {"role": "user", "content": "Continue."},
++    ]
++
++    request = agent._build_api_kwargs(messages)
++
++    assert request["include"] == []
++    assert "opaque-provider-state" not in repr(request)
++    assert all(item.get("type") != "reasoning" for item in request["input"] if isinstance(item, dict))
++    assert any(
++        item.get("type") == "message"
++        and item.get("role") == "assistant"
++        and item.get("id") == "msg_assistant_1"
++        and item.get("phase") == "commentary"
++        for item in request["input"]
++    )
++    assert any(item.get("type") == "function_call" for item in request["input"])
++    assert any(
++        item.get("type") == "function_call_output" and item.get("output") == "Found node A."
++        for item in request["input"]
++    )
++    assert any(
++        item.get("role") == "user" and item.get("content") == "Continue."
++        for item in request["input"]
++    )
++
++    response = SimpleNamespace(
++        content="Visible answer",
++        reasoning=None,
++        reasoning_content=None,
++        reasoning_details=None,
++        codex_reasoning_items=[
++            {"type": "reasoning", "encrypted_content": "opaque-response-state"}
++        ],
++        codex_message_items=[
++            {"type": "message", "role": "assistant", "content":[{"type":"output_text","text":"Visible answer"}]}
++        ],
++        tool_calls=None,
++    )
++    stored = agent._build_assistant_message(response, "stop")
++    assert "codex_reasoning_items" not in stored
++    assert stored["codex_message_items"] == response.codex_message_items
++
++
++def test_unbudgeted_responses_keeps_legacy_encrypted_reasoning_replay_and_storage(agent_factory):
++    from unittest.mock import patch
++
++    with patch("run_agent.OpenAI"):
++        agent = agent_factory(base_url="https://api.openai.com/v1", model="gpt-6-luna")
++    agent.provider = "openai-api"
++    agent.reasoning_config = {"enabled": True, "effort": "medium"}
++    prior = {
++        "role": "assistant",
++        "content": "Earlier answer.",
++        "codex_reasoning_items": [
++            {"type": "reasoning", "encrypted_content": "legacy-provider-state"}
++        ],
++    }
++    request = agent._build_api_kwargs([{"role": "system", "content": "System"}, prior])
++    assert request["include"] == ["reasoning.encrypted_content"]
++    assert any(item.get("type") == "reasoning" for item in request["input"])
++
++    response = SimpleNamespace(
++        content="Visible answer",
++        reasoning=None,
++        reasoning_content=None,
++        reasoning_details=None,
++        codex_reasoning_items=[
++            {"type": "reasoning", "encrypted_content": "legacy-response-state"}
++        ],
++        codex_message_items=None,
++        tool_calls=None,
++    )
++    stored = agent._build_assistant_message(response, "stop")
++    assert stored["codex_reasoning_items"] == response.codex_reasoning_items

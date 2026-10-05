@@ -1030,9 +1030,37 @@ def _request_budget_guard(policy: Mapping[str, Any]) -> Callable[[Any], bool]:
             return isinstance(value, list) and all(
                 isinstance(part, dict)
                 and set(part) == {"type", "text"}
+                and isinstance(part.get("type"), str)
                 and part.get("type") in allowed_types
                 and isinstance(part.get("text"), str)
                 for part in value
+            )
+
+        def optional_string(item: Mapping[str, Any], key: str, *, nonempty: bool = False) -> bool:
+            if key not in item:
+                return True
+            value = item[key]
+            return isinstance(value, str) and (not nonempty or bool(value.strip()))
+
+        def valid_tool_choice(value: Any, *, responses: bool) -> bool:
+            if isinstance(value, str):
+                return value in {"auto", "none", "required"}
+            if not isinstance(value, dict):
+                return False
+            if responses:
+                return (
+                    set(value) == {"type", "name"}
+                    and value.get("type") == "function"
+                    and isinstance(value.get("name"), str)
+                    and bool(value["name"].strip())
+                )
+            return (
+                set(value) == {"type", "function"}
+                and value.get("type") == "function"
+                and isinstance(value.get("function"), dict)
+                and set(value["function"]) == {"name"}
+                and isinstance(value["function"].get("name"), str)
+                and bool(value["function"]["name"].strip())
             )
 
         def valid_function_tool(tool: Any, *, responses: bool) -> bool:
@@ -1069,21 +1097,58 @@ def _request_budget_guard(policy: Mapping[str, Any]) -> Callable[[Any], bool]:
                     return False
                 kind = item.get("type", "message")
                 if kind == "message":
-                    if set(item) - {"type", "role", "content", "status"}:
+                    if set(item) - {"type", "role", "content", "status", "id", "phase"}:
                         return False
-                    if item.get("role") not in {"system", "developer", "user", "assistant"}:
+                    if not isinstance(item.get("role"), str) or item.get("role") not in {"system", "developer", "user", "assistant"}:
                         return False
                     if not text_content(item.get("content"), allowed_types=frozenset({"input_text", "output_text"})):
+                        return False
+                    if "status" in item and (
+                        not isinstance(item["status"], str)
+                        or item["status"] not in {"completed", "incomplete", "in_progress"}
+                    ):
+                        return False
+                    if "id" in item and (
+                        not isinstance(item["id"], str)
+                        or not item["id"].strip()
+                        or len(item["id"].strip()) > 64
+                    ):
+                        return False
+                    if "phase" in item and (
+                        not isinstance(item["phase"], str)
+                        or item["phase"] not in {"analysis", "commentary"}
+                    ):
                         return False
                 elif kind == "function_call":
                     if set(item) - {"type", "call_id", "name", "arguments", "id", "status"}:
                         return False
-                    if not all(isinstance(item.get(key), str) for key in ("call_id", "name", "arguments")):
+                    if not all(
+                        isinstance(item.get(key), str)
+                        for key in ("call_id", "name", "arguments")
+                    ) or not item["call_id"].strip() or not item["name"].strip():
+                        return False
+                    if "id" in item and (
+                        not isinstance(item["id"], str)
+                        or not item["id"].strip()
+                        or len(item["id"].strip()) > 64
+                    ):
+                        return False
+                    if "status" in item and (
+                        not isinstance(item["status"], str)
+                        or item["status"] not in {"in_progress", "completed"}
+                    ):
                         return False
                 elif kind == "function_call_output":
                     if set(item) - {"type", "call_id", "output"}:
                         return False
-                    if not isinstance(item.get("call_id"), str) or not text_content(item.get("output"), allowed_types=frozenset({"input_text", "output_text"})):
+                    if (
+                        not isinstance(item.get("call_id"), str)
+                        or not item["call_id"].strip()
+                        or not text_content(
+                            item.get("output"),
+                            allowed_types=frozenset({"input_text", "output_text"}),
+                        )
+                    ):
                         return False
                 else:
                     return False
@@ -1096,10 +1161,12 @@ def _request_budget_guard(policy: Mapping[str, Any]) -> Callable[[Any], bool]:
                 if not isinstance(item, dict):
                     return False
                 role = item.get("role")
+                if not isinstance(role, str):
+                    return False
                 if role in {"system", "developer", "user"}:
                     if set(item) - {"role", "content", "name"} or not text_content(
                         item.get("content"), allowed_types=frozenset({"text"})
-                    ):
+                    ) or not optional_string(item, "name", nonempty=True):
                         return False
                 elif role == "assistant":
                     if set(item) - {"role", "content", "name", "tool_calls", "refusal"}:
@@ -1107,6 +1174,8 @@ def _request_budget_guard(policy: Mapping[str, Any]) -> Callable[[Any], bool]:
                     if "content" in item and not text_content(
                         item["content"], allowed_types=frozenset({"text"})
                     ):
+                        return False
+                    if not optional_string(item, "name", nonempty=True) or not optional_string(item, "refusal"):
                         return False
                     calls = item.get("tool_calls", [])
                     if not isinstance(calls, list):
@@ -1117,6 +1186,7 @@ def _request_budget_guard(policy: Mapping[str, Any]) -> Callable[[Any], bool]:
                             or set(call) != {"id", "type", "function"}
                             or call.get("type") != "function"
                             or not isinstance(call.get("id"), str)
+                            or not call["id"].strip()
                         ):
                             return False
                         function = call.get("function")
@@ -1124,13 +1194,14 @@ def _request_budget_guard(policy: Mapping[str, Any]) -> Callable[[Any], bool]:
                             not isinstance(function, dict)
                             or set(function) != {"name", "arguments"}
                             or not isinstance(function.get("name"), str)
+                            or not function["name"].strip()
                             or not isinstance(function.get("arguments"), str)
                         ):
                             return False
                 elif role == "tool":
                     if set(item) - {"role", "content", "tool_call_id"} or not isinstance(
                         item.get("tool_call_id"), str
-                    ) or not isinstance(item.get("content"), str):
+                    ) or not item["tool_call_id"].strip() or not isinstance(item.get("content"), str):
                         return False
                 else:
                     return False
@@ -1152,25 +1223,39 @@ def _request_budget_guard(policy: Mapping[str, Any]) -> Callable[[Any], bool]:
                 return False
             if "include" in payload and (
                 not isinstance(payload["include"], list)
-                or any(value not in {"reasoning.encrypted_content"} for value in payload["include"])
+                or payload["include"] != []
             ):
                 return False
             if "reasoning" in payload and (
                 not isinstance(payload["reasoning"], dict)
                 or set(payload["reasoning"]) - {"effort", "summary"}
+                or (
+                    "effort" in payload["reasoning"]
+                    and (
+                        not isinstance(payload["reasoning"]["effort"], str)
+                        or payload["reasoning"]["effort"] not in {"minimal", "low", "medium", "high", "xhigh"}
+                    )
+                )
+                or (
+                    "summary" in payload["reasoning"]
+                    and (
+                        not isinstance(payload["reasoning"]["summary"], str)
+                        or payload["reasoning"]["summary"] not in {"auto", "concise", "detailed"}
+                    )
+                )
             ):
                 return False
             if payload.get("store", False) is not False:
                 return False
-            if "tool_choice" in payload and not (
-                isinstance(payload["tool_choice"], str)
-                and payload["tool_choice"] in {"auto", "none", "required"}
-            ) and not (
-                isinstance(payload["tool_choice"], dict)
-                and payload["tool_choice"].get("type") == "function"
-                and set(payload["tool_choice"]) == {"type", "name"}
-                and isinstance(payload["tool_choice"].get("name"), str)
+            for key in ("stream", "parallel_tool_calls"):
+                if key in payload and not isinstance(payload[key], bool):
+                    return False
+            if "prompt_cache_key" in payload and (
+                not isinstance(payload["prompt_cache_key"], str)
+                or not payload["prompt_cache_key"].strip()
             ):
+                return False
+            if "tool_choice" in payload and not valid_tool_choice(payload["tool_choice"], responses=True):
                 return False
             tools = payload.get("tools", [])
             if not isinstance(tools, list) or not all(
@@ -1196,21 +1281,30 @@ def _request_budget_guard(policy: Mapping[str, Any]) -> Callable[[Any], bool]:
                 valid_function_tool(tool, responses=False) for tool in tools
             ):
                 return False
-            if "tool_choice" in payload and not (
-                isinstance(payload["tool_choice"], str)
-                and payload["tool_choice"] in {"auto", "none", "required"}
-            ) and not (
-                isinstance(payload["tool_choice"], dict)
-                and set(payload["tool_choice"]) == {"type", "function"}
-                and payload["tool_choice"].get("type") == "function"
-                and isinstance(payload["tool_choice"].get("function"), dict)
-                and set(payload["tool_choice"]["function"]) == {"name"}
-                and isinstance(payload["tool_choice"]["function"].get("name"), str)
-            ):
+            if "tool_choice" in payload and not valid_tool_choice(payload["tool_choice"], responses=False):
                 return False
         for key in ("stream", "parallel_tool_calls"):
             if key in payload and not isinstance(payload[key], bool):
                 return False
+        for key in ("temperature", "top_p"):
+            if key in payload and (
+                isinstance(payload[key], bool)
+                or not isinstance(payload[key], (int, float))
+                or not (0 <= payload[key] <= 2)
+            ):
+                return False
+        if "reasoning_effort" in payload and (
+            not isinstance(payload["reasoning_effort"], str)
+            or payload["reasoning_effort"] not in {"minimal", "low", "medium", "high", "xhigh"}
+        ):
+            return False
+        if "seed" in payload and (isinstance(payload["seed"], bool) or not isinstance(payload["seed"], int)):
+            return False
+        if "stop" in payload and not (
+            isinstance(payload["stop"], str)
+            or isinstance(payload["stop"], list) and all(isinstance(value, str) for value in payload["stop"])
+        ):
+            return False
         if count_nodes(payload) > 100_000:
             return False
         if (
