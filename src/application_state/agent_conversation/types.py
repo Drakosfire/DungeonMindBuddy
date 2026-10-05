@@ -395,6 +395,7 @@ class SubmittedTurnIntentV1(StrictModel):
     client_work_state: Literal["none", "saved_clean", "saved_dirty", "new_unsaved"]
     primary_work: SubmittedPrimaryWorkIntentV1 | None
     playable_target: SubmittedPlanPlayableTargetV1 | None = None
+    plan_context_mode: Literal["message_only", "selected_scene", "whole_plan"] = "whole_plan"
     graph_request: SubmittedGraphRequestIntentV1
     graph_selection: SubmittedGraphSelectionIntentV1 | None
 
@@ -418,6 +419,13 @@ class SubmittedTurnIntentV1(StrictModel):
             raise ValueError("submitted graph World must match submitted turn World")
         if self.graph_selection is not None and self.graph_request.mode == "none":
             raise ValueError("submitted graph selection requires a graph request")
+        if self.plan_context_mode != "whole_plan" and (
+            self.surface_id != "plan"
+            or self.primary_work is None
+            or self.primary_work.kind != "plan"
+            or self.graph_request.mode != "none"
+        ):
+            raise ValueError("Context modes require a graphless pinned Plan")
         if self.playable_target is not None and (
             self.surface_id != "plan"
             or self.primary_work is None
@@ -441,6 +449,8 @@ def submitted_turn_intent_fingerprint_v1(intent: SubmittedTurnIntentV1) -> str:
     # existed. Omit its null shape byte-for-byte; targeted intents include it.
     if payload.get("playable_target") is None:
         payload.pop("playable_target", None)
+    if payload.get("plan_context_mode") == "whole_plan":
+        payload.pop("plan_context_mode", None)
     return _fingerprint(payload)
 
 

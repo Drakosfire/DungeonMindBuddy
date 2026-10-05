@@ -35,3 +35,6 @@ body:has(.focused-prototype) .world-plan-agent-conversation__turns:has([aria-lab
 body:has(.focused-prototype) .world-plan-agent-conversation { height:100%; box-sizing:border-box; overflow-y:auto; overscroll-behavior:contain; }
 body:has(.focused-prototype) .world-plan-agent-conversation > * { flex-shrink:0; }
 body:has(.focused-prototype) .world-plan-agent-conversation__turns { flex:0 0 auto; max-height:none; overflow:visible; }
+.focused-context-composer { border:1px solid #60756f; border-radius:.4rem; padding:.55rem; font-size:.82rem; }
+.focused-context-composer pre { white-space:pre-wrap; overflow-wrap:anywhere; max-height:16rem; overflow:auto; font-size:.75rem; }
+.focused-context-composer select { max-width:100%; }

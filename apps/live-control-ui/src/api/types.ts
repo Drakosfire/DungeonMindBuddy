@@ -785,6 +785,7 @@ export interface WorldPlanAgentTurnRequestV1 {
     expected_content_sha256: string;
   };
   playable_target?: WorldPlanSelectedPlayableTargetV1 | null;
+  plan_context_mode?: "message_only" | "selected_scene" | "whole_plan";
   client_work_state: "saved_clean" | "saved_dirty";
   graph_request: { mode: "none" };
   graph_selection: null;

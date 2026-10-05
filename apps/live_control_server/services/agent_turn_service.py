@@ -298,7 +298,23 @@ def _plan_message(
     *,
     playable_target: PlanPlayableTargetReceiptV1 | None = None,
     content_basis: AgentTurnContentBasis | None = None,
+    context_mode: str = "whole_plan",
+    enforce_budget: bool = True,
 ) -> str:
+    if context_mode == "message_only":
+        return question
+    if context_mode == "selected_scene":
+        from apps.live_control_server.services.agent_plan_context import (
+            selected_scene_markdown,
+        )
+
+        if playable_target is None or playable_target.kind != "scene":
+            raise AgentTurnServiceError(
+                "Select a scene for this context mode.",
+                code="plan_context_scene_required",
+                status_code=422,
+            )
+        markdown = selected_scene_markdown(markdown, playable_target.id)
     payload_data: dict[str, Any] = {
         "committed_plan_markdown": markdown,
         "user_question": question,
@@ -329,7 +345,7 @@ def _plan_message(
         separators=(",", ":"),
     )
     message = f"{_PLAN_MESSAGE_INSTRUCTIONS}\n{payload}"
-    if len(message) > MAX_QUESTION_CHARS:
+    if enforce_budget and len(message) > MAX_QUESTION_CHARS:
         raise AgentTurnServiceError(
             "The committed Plan is too large to include in one Agent turn. Shorten the Plan and try again.",
             code="plan_content_over_budget",
@@ -510,6 +526,7 @@ def _submitted_turn_intent(
         surface_instance_id=request.surface.instance_id,
         client_work_state=request.client_work_state,
         primary_work=primary_work,
+        plan_context_mode=request.plan_context_mode,
         playable_target=(
             None
             if request.playable_target is None
@@ -1081,6 +1098,7 @@ def execute_agent_turn(
             work.plan_markdown,
             playable_target=playable_target_receipt,
             content_basis=work.content_basis,
+            context_mode=request.plan_context_mode,
         )
 
     owner_kind = (

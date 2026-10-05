@@ -30,6 +30,7 @@ from apps.live_control_server.services.agent_turn_service import (
     AgentTurnServiceError,
     build_existing_graph_context,
     execute_agent_turn,
+    _plan_message,
 )
 from apps.live_control_server.services.hermes_session_store import (
     HermesSessionPointerStore,
@@ -609,4 +610,56 @@ def post_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, Any]:
         raise HTTPException(
             status_code=exc.status_code,
             detail={"code": "conversation_unavailable", "message": str(exc)},
+        ) from exc
+
+
+@router.post("/plan-context-preview")
+def preview_plan_context(body: AgentTurnRequest, request: Request) -> dict[str, Any]:
+    """Resolve reference text without claiming a turn or calling a provider."""
+    enforce_native_graph_gm(request)
+    try:
+        owner = _owner_resolver(body)
+        work = _work_resolver(body, owner)
+        if (
+            work is None
+            or work.plan_markdown is None
+            or body.surface.surface_id != "plan"
+            or body.graph_request.mode != "none"
+        ):
+            raise AgentTurnServiceError(
+                "Preview requires a pinned graphless Plan.",
+                code="plan_context_scope_rejected",
+                status_code=422,
+            )
+        from apps.live_control_server.services.agent_plan_playable_target import (
+            resolve_agent_plan_playable_target,
+        )
+
+        target = resolve_agent_plan_playable_target(
+            body.playable_target, work.plan_markdown
+        )
+        message = _plan_message(
+            body.message,
+            work.plan_markdown,
+            playable_target=target,
+            content_basis=work.content_basis,
+            context_mode=body.plan_context_mode,
+            enforce_budget=False,
+        )
+        return {
+            "message": message,
+            "characters": len(message),
+            "max_characters": 8000,
+            "within_budget": len(message) <= 8000,
+            "mode": body.plan_context_mode,
+            "content_basis": work.content_basis.model_dump(mode="json"),
+        }
+    except AgentTurnServiceError as exc:
+        raise HTTPException(
+            status_code=exc.status_code, detail={"code": exc.code, "message": str(exc)}
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "plan_context_unavailable", "message": str(exc)},
         ) from exc

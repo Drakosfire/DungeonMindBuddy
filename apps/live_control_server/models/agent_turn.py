@@ -203,6 +203,7 @@ class AgentTurnRequest(BaseModel):
     owner_scope: AgentTurnOwner | None
     primary_work: AgentTurnPrimaryWork | None
     playable_target: SubmittedPlanPlayableTargetV1 | None = None
+    plan_context_mode: Literal["message_only", "selected_scene", "whole_plan"] = "whole_plan"
     client_work_state: Literal["none", "saved_clean", "saved_dirty", "new_unsaved"]
     graph_request: AgentTurnGraphRequest
     graph_selection: AgentTurnGraphSelection | None
@@ -234,6 +235,13 @@ class AgentTurnRequest(BaseModel):
             "saved_dirty",
         }:
             raise ValueError("primary_work requires saved_clean or saved_dirty state")
+        if self.plan_context_mode != "whole_plan" and (
+            self.surface.surface_id != "plan"
+            or self.primary_work is None
+            or self.primary_work.kind != "plan"
+            or self.graph_request.mode != "none"
+        ):
+            raise ValueError("Context modes require a graphless pinned Plan")
         if self.playable_target is not None and (
             self.surface.surface_id != "plan"
             or self.primary_work is None

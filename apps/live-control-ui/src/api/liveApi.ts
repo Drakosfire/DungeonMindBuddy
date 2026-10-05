@@ -2549,3 +2549,9 @@ export async function putWorldPlayRunReferenceManifest(
   }
   return manifest;
 }
+
+
+export interface PlanContextPreview { message: string; characters: number; max_characters: number; within_budget: boolean; mode: string; content_basis: { content_sha256: string; object_revision: number; revision_n: number }; }
+export async function previewWorldPlanContext(request: WorldPlanAgentTurnRequestV1): Promise<PlanContextPreview> {
+  return apiFetch<PlanContextPreview>("/api/live/agent/plan-context-preview", { method: "POST", body: JSON.stringify(request) });
+}

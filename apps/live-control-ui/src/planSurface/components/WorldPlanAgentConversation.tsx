@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 
-import { getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlanDocumentEditProposal, setNativeGraphAccessToken, LiveApiError } from "../../api/liveApi";
+import { getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, previewWorldPlanContext, type PlanContextPreview, postWorldPlanDocumentEditProposal, setNativeGraphAccessToken, LiveApiError } from "../../api/liveApi";
 import type {
   AgentInteractionThread,
   AgentInteractionTurn,
@@ -229,6 +229,7 @@ function parsePendingAsk(
       || request.graph_selection !== null || typeof request.message !== "string"
       || (Object.prototype.hasOwnProperty.call(request, "playable_target")
         && !isPlanPlayableTarget(request.playable_target))
+      || (request.plan_context_mode !== undefined && !["message_only", "selected_scene", "whole_plan"].includes(String(request.plan_context_mode)))
       || origin.worldId !== worldId || origin.documentId !== documentId
       || !Number.isSafeInteger(origin.objectRevision)
       || typeof origin.workRevisionId !== "string"
@@ -786,6 +787,38 @@ export function WorldPlanAgentConversation({
     } : null,
   });
   const [composerMessage, setComposerMessage] = useState("");
+  const [contextMode, setContextMode] = useState<"message_only" | "selected_scene" | "whole_plan">("selected_scene");
+  const [contextPreview, setContextPreview] = useState<{ key: string; value: PlanContextPreview } | null>(null);
+  const [contextLoading, setContextLoading] = useState(false);
+  const [contextError, setContextError] = useState<string | null>(null);
+  const contextKey = JSON.stringify([worldId, documentId, revision, playableTarget, composerMessage.trim(), contextMode]);
+  const contextKeyRef = useRef(contextKey);
+  contextKeyRef.current = contextKey;
+  const previewReady = contextPreview?.key === contextKey && contextPreview.value.within_budget;
+
+  async function previewContext() {
+    if (!documentId || !surfaceInstanceId || !worldId || !composerMessage.trim() || contextLoading) return;
+    const key = contextKey;
+    setContextLoading(true); setContextError(null);
+    try {
+      const committed = await getWorldOwnedPlanCommittedRevision(documentId);
+      const basis = readCommittedPlanBasis(committed, worldId, documentId, revision!);
+      if (!basis) throw new Error("The saved Plan changed. Refresh before composing context.");
+      const request: WorldPlanAgentTurnRequestV1 = {
+        schema: "dmb_agent_turn_request_v1", client_thread_id: crypto.randomUUID(), turn_id: crypto.randomUUID(),
+        surface: { surface_id: "plan", instance_id: surfaceInstanceId }, owner_scope: { kind: "world", world_id: worldId },
+        primary_work: { kind: "plan", object_id: documentId, expected_revision: revision!, expected_revision_n: basis.revision_n, expected_content_sha256: basis.content_sha256 },
+        client_work_state: savedDirty ? "saved_dirty" : "saved_clean", graph_request: { mode: "none" }, graph_selection: null,
+        ...(playableTarget ? { playable_target: { schema: "dmb_plan_playable_target_v1", ...playableTarget } } : {}),
+        plan_context_mode: contextMode, message: composerMessage.trim(),
+      };
+      const value = await previewWorldPlanContext(request);
+      if (contextKeyRef.current === key) setContextPreview({ key, value });
+    } catch (reason) {
+      if (contextKeyRef.current === key) setContextError(reason instanceof Error ? reason.message : "Context preview unavailable.");
+    } finally { setContextLoading(false); }
+  }
+
   const [composerIntent, setComposerIntent] = useState<"discuss" | "propose">("discuss");
   const [graphCredential, setGraphCredential] = useState("");
   const [graphCredentialStatus, setGraphCredentialStatus] = useState<string | null>(null);
@@ -1354,8 +1387,20 @@ export function WorldPlanAgentConversation({
         ...(targetAtSubmit ? {
           playable_target: { schema: "dmb_plan_playable_target_v1" as const, ...targetAtSubmit },
         } : {}),
+        ...(focusedPrototype ? { plan_context_mode: contextMode } : {}),
         message,
       };
+
+      if (focusedPrototype) {
+        if (!previewReady || !contextPreview) throw new Error("Preview the current context before sending.");
+        const verifiedPreview = await previewWorldPlanContext(request);
+        if (!stillPreparing()) return;
+        if (!verifiedPreview.within_budget || verifiedPreview.message !== contextPreview.value.message
+          || verifiedPreview.content_basis.content_sha256 !== contextPreview.value.content_basis.content_sha256) {
+          throw new Error("Context changed or exceeds the budget. Preview again before sending.");
+        }
+        window.localStorage.setItem(`dmb-plan-context-receipt:${request.turn_id}`, JSON.stringify({ mode: contextMode, characters: verifiedPreview.characters, revision, contentSha256: verifiedPreview.content_basis.content_sha256 }));
+      }
       const origin: WorldPlanPendingAskOrigin = {
         worldId,
         documentId,
@@ -1983,6 +2028,22 @@ export function WorldPlanAgentConversation({
                 Propose edit
               </label>
             </fieldset>
+
+            {focusedPrototype && composerIntent === "discuss" && <section className="focused-context-composer" aria-label="Context composer">
+              <label>Context <select value={contextMode} disabled={intentBusy} onChange={e => setContextMode(e.currentTarget.value as typeof contextMode)}>
+                <option value="message_only">Message only</option>
+                <option value="selected_scene" disabled={playableTarget?.kind !== "scene"}>Selected scene</option>
+                <option value="whole_plan">Whole Plan</option>
+              </select></label>
+              <button type="button" disabled={contextLoading || intentBusy || !composerMessage.trim()} onClick={() => { void previewContext(); }}>{contextLoading ? "Preparing context…" : "Preview context"}</button>
+              {contextError && <p role="alert">{contextError}</p>}
+              {contextPreview?.key === contextKey ? <>
+                <p role="status">{contextPreview.value.characters.toLocaleString()} / {contextPreview.value.max_characters.toLocaleString()} characters · approximately {Math.ceil(contextPreview.value.characters / 4).toLocaleString()} tokens</p>
+                {!contextPreview.value.within_budget && <p role="alert">This context exceeds the current transport budget. Choose Message only or Selected scene.</p>}
+                <details><summary>Exact Plan message preview</summary><pre>{contextPreview.value.message}</pre></details>
+              </> : <p>Preview before sending. Changing the message, scene or context choice requires a new preview.</p>}
+              <small>This previews the current Plan message. System instructions and runtime conversation history are separate; Graph retrieval is off. Edit proposals use their existing context.</small>
+            </section>}
             {composerIntent === "propose" ? (
               <div className="world-plan-agent-conversation__target" role="group" aria-label="Choose where the proposed edit applies">
                 {playableEditTarget ? (
@@ -2032,7 +2093,7 @@ export function WorldPlanAgentConversation({
             {composerIntent === "propose" && editError && !authorizationBlocked ? <p role="alert">{editError}</p> : null}
             <div className="world-plan-agent-conversation__composer-footer">
               <p className="world-plan-agent-conversation__context">For proposed edits, Apply changes your draft. Save keeps the changes.</p>
-              <button type="submit" disabled={composerBusy || !composerMessage.trim() || messageTooLong
+              <button type="submit" disabled={composerBusy || (focusedPrototype && composerIntent === "discuss" && !previewReady) || !composerMessage.trim() || messageTooLong
                 || (composerIntent === "discuss" && playableTargetStale)}>
                 {sending ? "Sending…" : composing ? "Preparing proposal…" : saveInFlight ? "Saving…" : composerIntent === "discuss" ? "Send message" : "Propose edit"}
               </button>
@@ -2170,6 +2231,7 @@ export function WorldPlanAgentConversation({
               ) : null;
             })()}
             <p><strong>You:</strong> {event.turn.user_text}</p>
+            {focusedPrototype && <LocalContextReceipt turnId={event.turn.turn_id} />}
             {event.turn.assistant_text ? (
               <p><strong>DungeonBuddy:</strong> {event.turn.assistant_text}</p>
             ) : (
@@ -2351,4 +2413,14 @@ export function WorldPlanAgentConversation({
     </section>,
     askSlot.hostElement,
   );
+}
+
+
+function LocalContextReceipt({ turnId }: { turnId: string }) {
+  try {
+    const raw = window.localStorage.getItem(`dmb-plan-context-receipt:${turnId}`);
+    if (!raw) return null;
+    const receipt = JSON.parse(raw);
+    return <details><summary>Context used · local receipt</summary><p>{receipt.mode} · {receipt.characters} characters · saved revision {receipt.revision}</p><small>Plan digest: {receipt.contentSha256}</small></details>;
+  } catch { return null; }
 }
