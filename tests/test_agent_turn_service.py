@@ -83,12 +83,14 @@ def test_graph_operation_membership_requires_exact_typed_function_output() -> No
     assert _included_graph_operation_payloads({
         "input": [call, {**output, "output": payload + " altered"}],
     }) == [payload + " altered"]
-    assert _included_graph_operation_payloads({
-        "input": [{**call, "name": "other_tool"}, output],
-    }) == []
-    assert _included_graph_operation_payloads({
-        "input": [call, {**output, "call_id": "wrong"}],
-    }) == []
+    with pytest.raises(ValueError, match="not matched"):
+        _included_graph_operation_payloads({
+            "input": [{**call, "name": "other_tool"}, output],
+        })
+    with pytest.raises(ValueError, match="not matched"):
+        _included_graph_operation_payloads({
+            "input": [call, {**output, "call_id": "wrong"}],
+        })
     assert _included_graph_operation_payloads({"input": [
         call, output,
         {**call, "call_id": "call-2"},
@@ -804,33 +806,12 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         "payloadSha256": sha256(repeated_json.encode()).hexdigest(),
         "payloadUtf8Bytes": len(repeated_json.encode()),
     }
-    assert adapter.authorize(repeated_view) is True
-    latest_attempt = adapter.fence.turn.graph_context_execution.events[-1]
-    assert latest_attempt.kind == "provider_attempt_authorized"
-    assert latest_attempt.included_graph_event_ids == []
-    assert latest_attempt.included_relationship_ids == []
-    assert latest_attempt.included_evidence_ref_ids == []
-    assert adapter.record_lifecycle({"transition": "sdk_entered"}) is True
-    assert adapter.record_lifecycle({"transition": "response_received"}) is True
-    duplicate_graph_answer = json.dumps({
-        "answer_context_status": "graph_grounded",
-        "answer_segments": [{
-            "kind": "graph_claim", "claim_id": "rel:one", "text": "A claim.",
-            "target_kind": "relationship", "target_id": "rel:one",
-            "graph_revision": "graph-revision-3", "evidence_ref_ids": ["ev:one"],
-        }],
-        "citation_map": {"entries": [{
-            "claim_id": "rel:one", "target_kind": "relationship",
-            "target_id": "rel:one", "graph_revision": "graph-revision-3",
-            "evidence_ref_ids": ["ev:one"], "source_opened": False,
-        }]},
-    })
-    with pytest.raises(AgentTurnServiceError) as duplicate_rejected:
-        service_module._parse_policy_completion(
-            duplicate_graph_answer, adapter.fence.turn,
-            adapter.producing_provider_attempt_id,
-        )
-    assert duplicate_rejected.value.code == "answer_validation_failed"
+    assert adapter.authorize(repeated_view) is False
+    assert adapter.failure is not None
+    assert adapter.failure.code == "graph_evidence_invalid"
+    assert adapter.failure.provider_dispatched is False
+    assert fake.authorize_count == 1
+    assert adapter.fence.turn.graph_context_execution.events[-1].kind == "validated_graph_operation"
     adapter.stop()
 
     fake = FakeExecutionPort()

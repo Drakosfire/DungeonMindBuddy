@@ -304,7 +304,7 @@ def _included_graph_operation_payloads(body: Mapping[str, Any]) -> list[str]:
         call_id = item.get("call_id")
         if kind == "function_call":
             if not isinstance(call_id, str) or not call_id or call_id in calls:
-                return []
+                raise ValueError("provider function call ID is invalid or duplicated")
             calls[call_id] = str(item.get("name") or "")
         elif kind == "function_call_output":
             if (
@@ -313,7 +313,7 @@ def _included_graph_operation_payloads(body: Mapping[str, Any]) -> list[str]:
                 or calls.get(call_id) != "expand_graph_retrieval"
                 or not isinstance(item.get("output"), str)
             ):
-                return []
+                raise ValueError("provider Graph function output is not matched")
             seen_outputs.add(call_id)
             outputs.append(item["output"])
     return outputs
@@ -978,7 +978,24 @@ class _PolicyExecutionAdapter:
                 )
             graph_types = _app_state_graph_execution_types()
             provider_attempt_id = uuid4()
-            included_payloads = _included_graph_operation_payloads(body)
+            try:
+                included_payloads = _included_graph_operation_payloads(body)
+            except ValueError as exc:
+                raise AgentTurnServiceError(
+                    "The final provider request has an invalid Graph result block.",
+                    code="graph_evidence_invalid", status_code=502,
+                    provider_dispatched=False,
+                ) from exc
+            known_payloads = list(self.operation_payloads.values())
+            if (
+                len(included_payloads) != len(set(included_payloads))
+                or any(known_payloads.count(payload) != 1 for payload in included_payloads)
+            ):
+                raise AgentTurnServiceError(
+                    "The final provider request has ambiguous Graph evidence.",
+                    code="graph_evidence_invalid", status_code=502,
+                    provider_dispatched=False,
+                )
             included_operations = [
                 event for event in execution.events
                 if getattr(event, "kind", None) == "validated_graph_operation"
@@ -986,9 +1003,6 @@ class _PolicyExecutionAdapter:
                     payload := self.operation_payloads.get(event.event_id)
                 ) is not None
                 and included_payloads.count(payload) == 1
-                and sum(
-                    known == payload for known in self.operation_payloads.values()
-                ) == 1
             ]
             assertions = sorted(set(assertions) | {
                 item for event in included_operations for item in event.assertion_ids
