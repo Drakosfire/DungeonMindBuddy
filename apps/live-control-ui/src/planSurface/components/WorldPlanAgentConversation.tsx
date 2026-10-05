@@ -107,6 +107,7 @@ const WORLD_PLAN_LOCAL_PROPOSAL_ORDER_SCHEMA = "dmb_world_plan_local_proposal_or
 const WORLD_PLAN_LOCAL_PROPOSAL_ORDER_PREFIX = "dmb:world-plan-local-proposal-order:v1:";
 const PENDING_ASK_STORAGE_PREFIX = "dmb:world-plan-pending-ask:v1:";
 const PENDING_ASK_CLEARED_EVENT = "dmb:world-plan-pending-ask-cleared:v1";
+const PENDING_ASK_ACCEPTED_EVENT = "dmb:world-plan-ask-accepted:v1";
 const PENDING_NEW_CONVERSATION_STORAGE_PREFIX = "dmb:world-agent-new-conversation:v1:";
 
 interface WorldPlanLocalProposalPosition {
@@ -310,8 +311,15 @@ function clearPendingAskIfUnchanged(stored: StoredPendingAsk): PendingAskClearRe
     };
   }
 
+  return { kind: "cleared" };
+}
+
+function dispatchPendingAskSettlement(stored: StoredPendingAsk, result: PendingAskClearResult): void {
+  const envelope = stored.envelope;
+  if (!envelope) return;
   const origin = envelope.origin;
-  window.dispatchEvent(new CustomEvent<PendingAskClearedEventDetail>(PENDING_ASK_CLEARED_EVENT, {
+  const eventName = result.kind === "cleared" ? PENDING_ASK_CLEARED_EVENT : PENDING_ASK_ACCEPTED_EVENT;
+  window.dispatchEvent(new CustomEvent<PendingAskClearedEventDetail>(eventName, {
     detail: {
       version: 1,
       key: stored.storageKey,
@@ -325,7 +333,6 @@ function clearPendingAskIfUnchanged(stored: StoredPendingAsk): PendingAskClearRe
       },
     },
   }));
-  return { kind: "cleared" };
 }
 
 function readPendingAsks(worldId: string, documentId: string): StoredPendingAsk[] {
@@ -1141,7 +1148,7 @@ export function WorldPlanAgentConversation({
 
   useLayoutEffect(() => {
     if (!scopeMatches || !verifiedWorldId || !documentId) return;
-    const onPendingAskCleared = (event: Event) => {
+    const onPendingAskSettled = (event: Event) => {
       const detail = (event as CustomEvent<unknown>).detail;
       if (!isPendingAskClearedEventDetail(detail)
         || detail.origin.worldId !== verifiedWorldId
@@ -1152,8 +1159,12 @@ export function WorldPlanAgentConversation({
       refreshPendingAskList();
       setHistoryRefreshNonce((current) => current + 1);
     };
-    window.addEventListener(PENDING_ASK_CLEARED_EVENT, onPendingAskCleared);
-    return () => window.removeEventListener(PENDING_ASK_CLEARED_EVENT, onPendingAskCleared);
+    window.addEventListener(PENDING_ASK_CLEARED_EVENT, onPendingAskSettled);
+    window.addEventListener(PENDING_ASK_ACCEPTED_EVENT, onPendingAskSettled);
+    return () => {
+      window.removeEventListener(PENDING_ASK_CLEARED_EVENT, onPendingAskSettled);
+      window.removeEventListener(PENDING_ASK_ACCEPTED_EVENT, onPendingAskSettled);
+    };
   }, [scopeMatches, verifiedWorldId, documentId]);
 
   function refreshPendingCommandList() {
@@ -1329,7 +1340,7 @@ export function WorldPlanAgentConversation({
       }
 
       const clearResult = clearPendingAskIfUnchanged(stored);
-      if (clearResult.kind !== "cleared" && isCurrent()) refreshPendingAskList();
+      dispatchPendingAskSettlement(stored, clearResult);
       if (clearResult.kind === "unavailable" && isCurrent()) {
         setPendingAskLoadError(clearResult.message);
       }
@@ -1357,9 +1368,6 @@ export function WorldPlanAgentConversation({
         setConversationNotice(belongsToPreviousConversation
           ? `The server confirmed this Ask under conversation ${validation.value.conversationId}. It was not inserted into the currently active conversation; refreshing World history.`
           : "The server confirmed this Ask. Refreshing World history.");
-      }
-      if (clearResult.kind !== "cleared") {
-        setHistoryRefreshNonce((current) => current + 1);
       }
       setComposerMessage("");
     } catch (reason) {
