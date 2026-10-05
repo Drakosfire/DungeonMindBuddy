@@ -2420,6 +2420,7 @@ def test_request_budget_guard_accepts_codex_responses_envelope():
         {"input": [{"type": "message", "role": "assistant", "status": {"unknown": "value"}, "content": [{"type": "output_text", "text": "answer"}]}]},
         {"input": [{"type": "message", "role": "assistant", "id": {"unknown": "value"}, "content": [{"type": "output_text", "text": "answer"}]}]},
         {"input": [{"type": "message", "role": "assistant", "phase": {"unknown": "value"}, "content": [{"type": "output_text", "text": "answer"}]}]},
+        {"input": [{"type": "message", "role": "assistant", "phase": "notification", "content": [{"type": "output_text", "text": "answer"}]}]},
         {"input": [{"type": "function_call", "call_id": "call-1", "name": "expand_graph", "arguments": "{}", "status": {"unknown": "value"}}]},
         {"reasoning": {"effort": {"unknown": "value"}}},
         {"reasoning": {"summary": {"unknown": "value"}}},
@@ -2532,6 +2533,9 @@ def test_request_budget_guard_accepts_actual_buddy_provider_protocol(
     monkeypatch.setenv("HERMES_HOME", str(hermes_home))
     with hermes_import_namespace():
         run_agent = importlib.import_module("run_agent")
+        # The isolated Hermes namespace may reuse modules initialized by an
+        # earlier test, so bind its cached home to this test's writable profile.
+        run_agent._hermes_home = hermes_home
         with patch("run_agent.OpenAI"):
             agent = run_agent.AIAgent(
                 api_key="synthetic-test-key",
@@ -2582,14 +2586,18 @@ def test_request_budget_guard_accepts_actual_buddy_provider_protocol(
     )(view)
 
 
+@pytest.mark.parametrize("assistant_phase", ["final_answer", "final"])
 def test_guarded_request_budget_uses_actual_responses_builder_with_assistant_tool_continuation(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    assistant_phase: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ):
     hermes_home = tmp_path / "hermes-home-guarded-builder"
     hermes_home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(hermes_home))
     with hermes_import_namespace():
         run_agent = importlib.import_module("run_agent")
+        run_agent._hermes_home = hermes_home
         with patch("run_agent.OpenAI"):
             agent = run_agent.AIAgent(
                 api_key="synthetic-test-key",
@@ -2617,7 +2625,7 @@ def test_guarded_request_budget_uses_actual_responses_builder_with_assistant_too
                     {
                         "type": "message",
                         "id": "msg_graph_1",
-                        "phase": "commentary",
+                        "phase": assistant_phase,
                         "role": "assistant",
                         "status": "completed",
                         "content": [{"type": "output_text", "text": "Inspecting graph."}],
@@ -2649,7 +2657,7 @@ def test_guarded_request_budget_uses_actual_responses_builder_with_assistant_too
     assert any(
         item.get("type") == "message"
         and item.get("id") == "msg_graph_1"
-        and item.get("phase") == "commentary"
+        and item.get("phase") == assistant_phase
         for item in built_payload["input"]
     )
     assert any(item.get("type") == "function_call" for item in built_payload["input"])

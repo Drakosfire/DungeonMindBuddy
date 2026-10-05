@@ -1116,7 +1116,12 @@ def _request_budget_guard(policy: Mapping[str, Any]) -> Callable[[Any], bool]:
                         return False
                     if "phase" in item and (
                         not isinstance(item["phase"], str)
-                        or item["phase"] not in {"analysis", "commentary"}
+                        or item["phase"] not in {
+                            "analysis",
+                            "commentary",
+                            "final_answer",
+                            "final",
+                        }
                     ):
                         return False
                 elif kind == "function_call":
