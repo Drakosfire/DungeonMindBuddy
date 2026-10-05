@@ -46,6 +46,51 @@ def upgrade() -> None:
                     'max_total_provider_output_tokens', 'provider_input_accounting',
                     'source_opened'
                 ]
+                AND CASE
+                    WHEN jsonb_typeof(graph_context_execution->'policy'->'allowed_graph_operations') = 'array'
+                    THEN jsonb_array_length(graph_context_execution->'policy'->'allowed_graph_operations') BETWEEN 1 AND 32
+                    ELSE FALSE
+                END
+                AND CASE
+                    WHEN jsonb_typeof(graph_context_execution->'policy'->'max_provider_attempts') = 'number'
+                         AND graph_context_execution->'policy'->>'max_provider_attempts' ~ '^[0-9]+$'
+                    THEN (graph_context_execution->'policy'->>'max_provider_attempts')::numeric BETWEEN 1 AND 128
+                    ELSE FALSE
+                END
+                AND CASE
+                    WHEN jsonb_typeof(graph_context_execution->'policy'->'max_graph_operations') = 'number'
+                         AND graph_context_execution->'policy'->>'max_graph_operations' ~ '^[0-9]+$'
+                    THEN (graph_context_execution->'policy'->>'max_graph_operations')::numeric BETWEEN 0 AND 512
+                    ELSE FALSE
+                END
+                AND CASE
+                    WHEN jsonb_typeof(graph_context_execution->'policy'->'max_results_per_operation') = 'number'
+                         AND graph_context_execution->'policy'->>'max_results_per_operation' ~ '^[0-9]+$'
+                    THEN (graph_context_execution->'policy'->>'max_results_per_operation')::numeric BETWEEN 0 AND 4096
+                    ELSE FALSE
+                END
+                AND CASE
+                    WHEN jsonb_typeof(graph_context_execution->'policy'->'max_total_provider_input_tokens') = 'number'
+                         AND graph_context_execution->'policy'->>'max_total_provider_input_tokens' ~ '^[0-9]+$'
+                    THEN (graph_context_execution->'policy'->>'max_total_provider_input_tokens')::numeric >= 1
+                    ELSE FALSE
+                END
+                AND CASE
+                    WHEN jsonb_typeof(graph_context_execution->'policy'->'max_total_provider_output_tokens') = 'number'
+                         AND graph_context_execution->'policy'->>'max_total_provider_output_tokens' ~ '^[0-9]+$'
+                    THEN (graph_context_execution->'policy'->>'max_total_provider_output_tokens')::numeric >= 1
+                    ELSE FALSE
+                END
+                AND jsonb_typeof(graph_context_execution->'policy'->'provider_input_accounting') = 'object'
+                AND graph_context_execution->'policy'->'provider_input_accounting' ?& ARRAY['kind', 'estimator']
+                AND graph_context_execution->'policy'->'provider_input_accounting'->>'kind' IN (
+                    'exact_token_count', 'conservative_upper_bound'
+                )
+                AND length(graph_context_execution->'policy'->'provider_input_accounting'->>'estimator') BETWEEN 1 AND 128
+                AND (
+                    graph_context_execution->'policy'->'provider_input_accounting'->>'kind' <> 'conservative_upper_bound'
+                    OR graph_context_execution->'policy'->'provider_input_accounting'->>'estimator' = 'utf8_json_bytes_plus_64_per_node_v1'
+                )
                 AND graph_context_execution->'policy'->>'source_opened' = 'false'
                 AND jsonb_typeof(graph_context_execution->'events') = 'array'
                 AND jsonb_array_length(graph_context_execution->'events') <= 2048

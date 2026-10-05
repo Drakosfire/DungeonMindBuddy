@@ -215,6 +215,58 @@ def test_graph_execution_records_enforce_event_order_and_policy() -> None:
             policy=policy,
             events=[operation],
         )
+    with pytest.raises(ValidationError, match="max_provider_attempts"):
+        GraphExecutionPolicyV1.model_validate(
+            policy.model_dump() | {"max_provider_attempts": 0}
+        )
+    with pytest.raises(ValidationError, match="conservative provider input estimator"):
+        GraphExecutionPolicyV1.model_validate(
+            policy.model_dump()
+            | {
+                "provider_input_accounting": {
+                    "kind": "conservative_upper_bound",
+                    "estimator": "unrecognized-estimator",
+                }
+            }
+        )
+    oversized_events = [
+        operation.model_dump() | {
+            "event_id": uuid4(),
+            "operation_id": uuid4(),
+            "sequence": sequence,
+        }
+        for sequence in range(2049)
+    ]
+    with pytest.raises(ValidationError, match="at most 2048"):
+        PlanWorldGraphExecutionV1.model_validate(
+            {
+                "schema": "dmb_agent_plan_world_graph_execution_v1",
+                "context_receipt_sha256": "c" * 64,
+                "policy": policy.model_dump(),
+                "events": oversized_events,
+            }
+        )
+
+    long_ids = [f"{'x' * 2048}{index:04d}" for index in range(512)]
+    oversized_operation = ValidatedGraphOperationEventV1(
+        event_id=uuid4(), sequence=0, kind="validated_graph_operation",
+        operation_id=uuid4(), operation="search_assertions",
+        request_arguments_sha256="a" * 64, graph_revision="revision-1",
+        result_packet_sha256="b" * 64, assertion_ids=long_ids,
+        relationship_ids=[], evidence_ref_ids=[],
+        evidence_sufficiency_status="insufficient",
+        coverage_status="incomplete", truncated=False, source_opened=False,
+    )
+    large_policy = GraphExecutionPolicyV1.model_validate(
+        policy.model_dump() | {"max_results_per_operation": 4096}
+    )
+    with pytest.raises(ValidationError, match="storage size limit"):
+        PlanWorldGraphExecutionV1(
+            schema="dmb_agent_plan_world_graph_execution_v1",
+            context_receipt_sha256="c" * 64,
+            policy=large_policy,
+            events=[oversized_operation],
+        )
 
 
 def test_content_reference_requires_complete_typed_revision_and_resolved_identity() -> (
