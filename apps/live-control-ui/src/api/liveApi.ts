@@ -16,8 +16,9 @@ import type {
   IndexAgentTurnRequestV1,
   IndexAgentTurnResponseV1,
   WorldPlanAgentTurnRequestV1,
-  WorldPlanAgentTurnResponseV1,
-  WorldAgentConversationHistoryResponseV1,
+  WorldPlanAgentTurnResponse,
+  WorldPlanGraphContextFailureV1,
+  WorldAgentConversationHistoryResponse,
   WorldAgentNewConversationRequestV1,
   WorldAgentNewConversationResponseV1,
   LiveQueryBackend,
@@ -309,11 +310,13 @@ export interface LiveApiErrorDiagnostic {
 export interface LiveApiErrorOptions {
   code?: string | null;
   diagnostics?: LiveApiErrorDiagnostic[] | null;
+  planContextFailure?: WorldPlanGraphContextFailureV1 | null;
 }
 
 export class LiveApiError extends Error {
   public readonly code?: string | null;
   public readonly diagnostics?: LiveApiErrorDiagnostic[] | null;
+  public readonly planContextFailure?: WorldPlanGraphContextFailureV1 | null;
 
   constructor(
     message: string,
@@ -324,6 +327,7 @@ export class LiveApiError extends Error {
     this.name = "LiveApiError";
     this.code = options?.code ?? null;
     this.diagnostics = options?.diagnostics ?? null;
+    this.planContextFailure = options?.planContextFailure ?? null;
   }
 }
 
@@ -361,6 +365,25 @@ function parseWorldGraphErrorFields(body: {
   return { code, diagnostics };
 }
 
+function parsePlanWorldGraphContextFailure(body: unknown): WorldPlanGraphContextFailureV1 | null {
+  if (!isRecord(body)) return null;
+  const detail = isRecord(body.detail) ? body.detail : body;
+  const failure = detail.plan_context_failure;
+  if (!isRecord(failure)) return null;
+  const expectedKeys = [
+    "schema", "status", "failure_code", "provider_dispatched", "automatic_downgrade",
+  ].sort();
+  const actualKeys = Object.keys(failure).sort();
+  if (actualKeys.length !== expectedKeys.length
+    || actualKeys.some((key, index) => key !== expectedKeys[index])
+    || failure.schema !== "dmb_plan_world_graph_context_failure_v1"
+    || failure.status !== "pre_dispatch_failed"
+    || typeof failure.failure_code !== "string" || !failure.failure_code.trim()
+    || failure.provider_dispatched !== false
+    || failure.automatic_downgrade !== false) return null;
+  return failure as unknown as WorldPlanGraphContextFailureV1;
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const target = apiRequestTarget(path, init?.body);
   const headers = nativeGraphHeaders(path, init?.body, {
@@ -385,10 +408,16 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
       }>(response);
       if (typeof body.message === "string") {
         detail = body.message;
-        errorOptions = parseWorldGraphErrorFields(body);
+        errorOptions = {
+          ...parseWorldGraphErrorFields(body),
+          planContextFailure: parsePlanWorldGraphContextFailure(body),
+        };
       } else if (typeof body.detail === "string") {
         detail = body.detail;
-        errorOptions = parseWorldGraphErrorFields(body);
+        errorOptions = {
+          ...parseWorldGraphErrorFields(body),
+          planContextFailure: parsePlanWorldGraphContextFailure(body),
+        };
       } else if (body.detail != null && typeof body.detail === "object") {
         const detailObj = body.detail as {
           code?: unknown;
@@ -401,16 +430,22 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
         } else {
           detail = JSON.stringify(body.detail);
         }
-        errorOptions = parseWorldGraphErrorFields({
-          ...body,
-          ...detailObj,
-        });
+        errorOptions = {
+          ...parseWorldGraphErrorFields({
+            ...body,
+            ...detailObj,
+          }),
+          planContextFailure: parsePlanWorldGraphContextFailure(body),
+        };
         if (!errorOptions.code && typeof detailObj.code === "string") {
-          errorOptions = { code: detailObj.code, diagnostics: null };
+          errorOptions = { ...errorOptions, code: detailObj.code, diagnostics: null };
         }
       } else if (body.detail != null) {
         detail = JSON.stringify(body.detail);
-        errorOptions = parseWorldGraphErrorFields(body);
+        errorOptions = {
+          ...parseWorldGraphErrorFields(body),
+          planContextFailure: parsePlanWorldGraphContextFailure(body),
+        };
       }
     } catch (parseError) {
       if (parseError instanceof Error) {
@@ -1353,8 +1388,8 @@ export async function postIndexAgentTurn(
 
 export async function postWorldPlanAgentTurn(
   request: WorldPlanAgentTurnRequestV1,
-): Promise<WorldPlanAgentTurnResponseV1> {
-  return apiFetch<WorldPlanAgentTurnResponseV1>("/api/live/agent/turn", {
+): Promise<WorldPlanAgentTurnResponse> {
+  return apiFetch<WorldPlanAgentTurnResponse>("/api/live/agent/turn", {
     method: "POST",
     body: JSON.stringify(request),
   });
@@ -1368,12 +1403,12 @@ export interface WorldAgentConversationHistoryOptions {
 export async function getWorldAgentConversationHistory(
   worldId: string,
   options: WorldAgentConversationHistoryOptions = {},
-): Promise<WorldAgentConversationHistoryResponseV1> {
+): Promise<WorldAgentConversationHistoryResponse> {
   const query = new URLSearchParams();
   if (options.limit !== undefined) query.set("limit", String(options.limit));
   if (options.beforeSequence !== undefined) query.set("before_sequence", String(options.beforeSequence));
   const suffix = query.size ? `?${query.toString()}` : "";
-  return apiFetch<WorldAgentConversationHistoryResponseV1>(
+  return apiFetch<WorldAgentConversationHistoryResponse>(
     `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation${suffix}`,
   );
 }

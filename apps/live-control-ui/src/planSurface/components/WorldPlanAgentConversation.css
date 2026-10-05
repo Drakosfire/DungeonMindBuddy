@@ -43,6 +43,51 @@
   color: var(--ui-text-secondary);
 }
 
+.world-plan-agent-conversation__graph-context {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.65rem 0.75rem;
+  border-left: 3px solid var(--ui-border-strong);
+  background: var(--ui-background-ops);
+  font-size: 0.92rem;
+}
+
+.world-plan-agent-conversation__graph-context p {
+  margin: 0;
+}
+
+.world-plan-agent-conversation__graph-citation {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.world-plan-agent-conversation__graph-citation details {
+  color: var(--ui-text-secondary);
+  font-size: 0.85rem;
+}
+
+.world-plan-agent-conversation__graph-citation summary {
+  width: fit-content;
+  cursor: pointer;
+}
+
+.world-plan-agent-conversation__graph-citation ul {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0.25rem 0 0;
+  padding-left: 1.4rem;
+  overflow-wrap: anywhere;
+}
+
+.world-plan-agent-conversation__graph-context-opt-in {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.25rem 0;
+  color: var(--ui-text-secondary);
+}
+
 .world-plan-agent-conversation__notice {
   margin: 0;
   color: var(--ui-text-secondary);
