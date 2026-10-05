@@ -64,7 +64,7 @@ Keep Hermes' generic observational hooks fail-open and preserve normal provider 
 ## Evidence to fill before PR readiness
 
 - **Base:** `93c07c243acd9abc9acc044f9a4e59390710871d`
-- **Implementation head:** pending final code commit; record below before publication.
+- **Implementation code commit:** `827f2172` (`feat: add Hermes pre-dispatch request budget veto`). The final published PR head also includes this handoff evidence update.
 - **Upstream source SHA:** `861d69c7bba8d2ea6a1cd170e989c901c74d32d1`
 - **Patch SHA-256:** `329f8b549e732b8c745a613ef0138bac0d5a4927ace69a1288cb6b85300c1eb7`
 - **Prepared source tree SHA:** `f5c916fe1f88497752d89e8286fe0768c35ca1d6`
