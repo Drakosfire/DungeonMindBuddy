@@ -7,9 +7,16 @@ import * as liveApi from "../api/liveApi";
 import type {
   AgentInteractionThread,
   AgentInteractionTurn,
+  WorldAgentConversationHistoryResponse,
   WorldAgentConversationHistoryResponseV1,
+  WorldAgentConversationHistoryResponseV2,
   WorldAgentConversationHistoryTurnV1,
+  WorldAgentConversationHistoryTurnV2,
+  WorldPlanAgentPlanContextV1,
+  WorldPlanAgentTurnResponseV2,
   WorldPlanAgentTurnRequestV1,
+  WorldPlanGraphAnswerContextStatusV1,
+  WorldPlanGraphExecutionProjectionV1,
 } from "../api/types";
 
 const harness = vi.hoisted(() => ({
@@ -112,6 +119,581 @@ function history(
     pointer_revision: pointerRevision,
     turns,
     next_before_sequence: nextBeforeSequence,
+  };
+}
+
+// Captured from SERVER #926 head 746711815577e022e6961b32c135395e00d36531 with the
+// APP-STATE execution types from 7a8365a5a354e9d3c85e788112f7904f1e517cce:
+// get_world_conversation_history -> project_plan_turn_context -> FastAPI response serializer.
+// Mount this v2 wire body unchanged to join the accepted producer projection to the consumer.
+const serverHistoryProjection: WorldAgentConversationHistoryResponseV2 = {
+  "active_conversation_id": "00000000-0000-4000-8000-000000000031",
+  "conversation_id": "00000000-0000-4000-8000-000000000031",
+  "conversation_state": "active",
+  "next_before_sequence": null,
+  "pointer_revision": 4,
+  "schema": "dmb_agent_conversation_history_v2",
+  "turns": [
+    {
+      "assistant_text": "The western gate is watched.",
+      "lifecycle_status": "completed",
+      "plan_context": {
+        "completion": {
+          "answer_basis": "committed_plan_plus_world_graph",
+          "answer_context_status": "graph_grounded",
+          "answer_segments": [
+            {
+              "claim_id": "claim-internal-test",
+              "evidence_ref_ids": [
+                "evidence-internal-test"
+              ],
+              "graph_revision": "graph-revision-test",
+              "kind": "graph_claim",
+              "target_id": "assertion-internal-test",
+              "target_kind": "assertion",
+              "text": "The western gate is watched."
+            }
+          ],
+          "citation_map": {
+            "context_receipt_sha256": "c67e5dc4a2ef13672c0373330c8fd560dea3be9906045fcdce3ee30a7e791fec",
+            "entries": [
+              {
+                "claim_id": "claim-internal-test",
+                "evidence_ref_ids": [
+                  "evidence-internal-test"
+                ],
+                "graph_revision": "graph-revision-test",
+                "source_opened": false,
+                "target_id": "assertion-internal-test",
+                "target_kind": "assertion"
+              }
+            ],
+            "schema": "dmb_graph_citation_map_v1"
+          },
+          "context_receipt_sha256": "c67e5dc4a2ef13672c0373330c8fd560dea3be9906045fcdce3ee30a7e791fec",
+          "schema": "dmb_plan_world_graph_completion_v1"
+        },
+        "delivery_replay": false,
+        "execution": {
+          "authorization_state": "response_received",
+          "automatic_redispatch": false,
+          "claimability": "completed",
+          "schema": "dmb_agent_plan_world_graph_execution_projection_v1"
+        },
+        "receipt": {
+          "assembled_input": {
+            "assembled_input_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "assembler_version": "assembler-v1",
+            "budget_policy_version": "budget-v1",
+            "context_window_limit": 100,
+            "dispatched_assertion_ids": [
+              "assertion-internal-test"
+            ],
+            "dispatched_evidence_ref_ids": [
+              "evidence-internal-test"
+            ],
+            "dispatched_packet_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "dispatched_relationship_ids": [],
+            "included_history": [],
+            "output_token_reserve": 10,
+            "packet_disposition": "included",
+            "packet_disposition_reason": null,
+            "provider_envelope_input_tokens": 10,
+            "provider_model_name": "synthetic-model",
+            "provider_model_version": "1",
+            "source_token_accounting": [],
+            "tokenizer_name": "utf8_json_bytes_plus_64_per_node_v1",
+            "tokenizer_version": "v1"
+          },
+          "context_receipt_sha256": "c67e5dc4a2ef13672c0373330c8fd560dea3be9906045fcdce3ee30a7e791fec",
+          "evidence_mode": "metadata_only",
+          "graph_authority": {
+            "admissibility_version": "gm-v1",
+            "binding_version": 2,
+            "campaign_id": null,
+            "graph_revision": "graph-revision-test",
+            "managed_world_id": "world-conversation-test",
+            "native_world_id": "native-world-internal-test",
+            "scope_mode": "world"
+          },
+          "graph_packet": {
+            "candidate_assertion_ids": [
+              "assertion-internal-test"
+            ],
+            "candidate_evidence_ref_ids": [
+              "evidence-internal-test"
+            ],
+            "candidate_relationship_ids": [],
+            "coverage_status": "complete",
+            "evidence_sufficiency_policy_version": "sufficiency-v1",
+            "evidence_sufficiency_status": "sufficient",
+            "omission_reasons": [],
+            "packet_serializer_version": "canonical-json-utf8-v1",
+            "result_limit": 32,
+            "retrieval_packet_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "retrieval_status": "complete",
+            "schema": "dmb_plan_world_graph_packet_v1",
+            "selection_policy_version": "selection-v1",
+            "truncated": false
+          },
+          "plan_basis": {
+            "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "document_id": "saved-plan-test",
+            "object_revision": 7,
+            "revision_n": 1,
+            "work_revision_id": "00000000-0000-4000-8000-000000000011",
+            "world_id": "world-conversation-test"
+          },
+          "plan_context_policy": {
+            "policy": "auto_plan_world",
+            "schema": "dmb_plan_context_policy_v1"
+          },
+          "playable_target": null,
+          "receipt_serializer_version": "canonical-json-utf8-v1",
+          "schema": "dmb_agent_plan_world_graph_context_receipt_v1",
+          "source_opened": false
+        },
+        "schema": "dmb_agent_plan_world_graph_context_response_v1"
+      },
+      "provenance": {
+        "primary_work": {
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "kind": "plan",
+          "object_id": "saved-plan-test",
+          "object_revision": 7,
+          "resolution": "resolved",
+          "revision": "7",
+          "revision_n": 1,
+          "work_revision_id": "00000000-0000-4000-8000-000000000011"
+        },
+        "selected_object": {
+          "content_sha256": null,
+          "kind": null,
+          "object_id": null,
+          "object_revision": null,
+          "resolution": "absent",
+          "revision": null,
+          "revision_n": null,
+          "work_revision_id": null
+        },
+        "supporting_work": [],
+        "surface_id": "plan",
+        "surface_instance_id": "plan-main",
+        "surface_resolution": "resolved",
+        "world_id": "world-conversation-test"
+      },
+      "sequence": 1,
+      "turn_id": "00000000-0000-4000-8000-000000000021",
+      "user_text": "Who watches the western gate?"
+    }
+  ],
+  "world_id": "world-conversation-test"
+};
+
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value !== null && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(",")}}`;
+  }
+  const encoded = JSON.stringify(value);
+  if (encoded === undefined) throw new Error("Unsupported value in canonical JSON payload.");
+  return encoded;
+}
+
+// Exact SERVER #930 response body emitted by get_world_conversation_history ->
+// project_plan_turn_context -> FastAPI serialization; SHA-256: 9bcefddc6b4bd9854f8842f280a6c30d01e0eec5d493836f12685021c5682b46.
+// The separate serverHistoryProjection above retains the non-null execution witness.
+const serverCardTargetHistoryProjection: WorldAgentConversationHistoryResponseV2 = {
+    "active_conversation_id": "00000000-0000-4000-8000-000000000031",
+    "conversation_id": "00000000-0000-4000-8000-000000000031",
+    "conversation_state": "active",
+    "next_before_sequence": null,
+    "pointer_revision": 4,
+    "schema": "dmb_agent_conversation_history_v2",
+    "turns": [
+      {
+        "assistant_text": "The western gate is watched.",
+        "lifecycle_status": "completed",
+        "plan_context": {
+          "completion": {
+            "answer_basis": "committed_plan_plus_world_graph",
+            "answer_context_status": "graph_grounded",
+            "answer_segments": [
+              {
+                "claim_id": "claim-internal-test",
+                "evidence_ref_ids": [
+                  "evidence-internal-test"
+                ],
+                "graph_revision": "graph-revision-3",
+                "kind": "graph_claim",
+                "target_id": "assertion-internal-test",
+                "target_kind": "assertion",
+                "text": "The western gate is watched."
+              }
+            ],
+            "citation_map": {
+              "context_receipt_sha256": "63043187af13a39b0f4792b664e905e1e52354b4a9a00c208e65474de40512b2",
+              "entries": [
+                {
+                  "claim_id": "claim-internal-test",
+                  "evidence_ref_ids": [
+                    "evidence-internal-test"
+                  ],
+                  "graph_revision": "graph-revision-3",
+                  "source_opened": false,
+                  "target_id": "assertion-internal-test",
+                  "target_kind": "assertion"
+                }
+              ],
+              "schema": "dmb_graph_citation_map_v1"
+            },
+            "context_receipt_sha256": "63043187af13a39b0f4792b664e905e1e52354b4a9a00c208e65474de40512b2",
+            "schema": "dmb_plan_world_graph_completion_v1"
+          },
+          "delivery_replay": false,
+          "execution": null,
+          "receipt": {
+            "assembled_input": {
+              "assembled_input_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "assembler_version": "assembler-v1",
+              "budget_policy_version": "budget-v1",
+              "context_window_limit": 100,
+              "dispatched_assertion_ids": [
+                "assertion-internal-test"
+              ],
+              "dispatched_evidence_ref_ids": [
+                "evidence-internal-test"
+              ],
+              "dispatched_packet_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "dispatched_relationship_ids": [],
+              "included_history": [],
+              "output_token_reserve": 10,
+              "packet_disposition": "included",
+              "packet_disposition_reason": null,
+              "provider_envelope_input_tokens": 10,
+              "provider_model_name": "synthetic-model",
+              "provider_model_version": "1",
+              "source_token_accounting": [],
+              "tokenizer_name": "utf8_json_bytes_plus_64_per_node_v1",
+              "tokenizer_version": "v1"
+            },
+            "context_receipt_sha256": "63043187af13a39b0f4792b664e905e1e52354b4a9a00c208e65474de40512b2",
+            "evidence_mode": "metadata_only",
+            "graph_authority": {
+              "admissibility_version": "gm-v1",
+              "binding_version": 2,
+              "campaign_id": null,
+              "graph_revision": "graph-revision-3",
+              "managed_world_id": "world-conversation-test",
+              "native_world_id": "native:one",
+              "scope_mode": "world"
+            },
+            "graph_packet": {
+              "candidate_assertion_ids": [
+                "assertion-internal-test"
+              ],
+              "candidate_evidence_ref_ids": [
+                "evidence-internal-test"
+              ],
+              "candidate_relationship_ids": [],
+              "coverage_status": "complete",
+              "evidence_sufficiency_policy_version": "sufficiency-v1",
+              "evidence_sufficiency_status": "sufficient",
+              "omission_reasons": [],
+              "packet_serializer_version": "canonical-json-utf8-v1",
+              "result_limit": 32,
+              "retrieval_packet_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+              "retrieval_status": "complete",
+              "schema": "dmb_plan_world_graph_packet_v1",
+              "selection_policy_version": "selection-v1",
+              "truncated": false
+            },
+            "plan_basis": {
+              "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "document_id": "saved-plan-test",
+              "object_revision": 7,
+              "revision_n": 1,
+              "work_revision_id": "00000000-0000-4000-8000-000000000011",
+              "world_id": "world-conversation-test"
+            },
+            "plan_context_policy": {
+              "policy": "auto_plan_world",
+              "schema": "dmb_plan_context_policy_v1"
+            },
+            "playable_target": {
+              "id": "scene:opening",
+              "kind": "scene",
+              "marker_grammar_version": "v1",
+              "schema": "dmb_plan_playable_target_receipt_v1"
+            },
+            "receipt_serializer_version": "canonical-json-utf8-v1",
+            "schema": "dmb_agent_plan_world_graph_context_receipt_v1",
+            "source_opened": false
+          },
+          "schema": "dmb_agent_plan_world_graph_context_response_v1"
+        },
+        "provenance": {
+          "primary_work": {
+            "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "kind": "plan",
+            "object_id": "saved-plan-test",
+            "object_revision": 7,
+            "resolution": "resolved",
+            "revision": "7",
+            "revision_n": 1,
+            "work_revision_id": "00000000-0000-4000-8000-000000000011"
+          },
+          "selected_object": {
+            "content_sha256": null,
+            "kind": null,
+            "object_id": null,
+            "object_revision": null,
+            "resolution": "absent",
+            "revision": null,
+            "revision_n": null,
+            "work_revision_id": null
+          },
+          "supporting_work": [
+            {
+              "content_sha256": null,
+              "kind": "dmb_plan_playable_target_v1",
+              "object_id": "scene:opening",
+              "object_revision": null,
+              "resolution": "resolved",
+              "revision": "v1",
+              "revision_n": null,
+              "work_revision_id": null
+            }
+          ],
+          "surface_id": "plan",
+          "surface_instance_id": "plan-main",
+          "surface_resolution": "resolved",
+          "world_id": "world-conversation-test"
+        },
+        "sequence": 2,
+        "turn_id": "00000000-0000-4000-8000-000000000032",
+        "user_text": "Who watches the western gate?"
+      },
+      {
+        "assistant_text": "A legacy answer",
+        "lifecycle_status": "completed",
+        "provenance": {
+          "primary_work": {
+            "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "kind": "plan",
+            "object_id": "saved-plan-test",
+            "object_revision": 7,
+            "resolution": "resolved",
+            "revision": "7",
+            "revision_n": 1,
+            "work_revision_id": "00000000-0000-4000-8000-000000000011"
+          },
+          "selected_object": {
+            "content_sha256": null,
+            "kind": null,
+            "object_id": null,
+            "object_revision": null,
+            "resolution": "absent",
+            "revision": null,
+            "revision_n": null,
+            "work_revision_id": null
+          },
+          "supporting_work": [
+            {
+              "content_sha256": null,
+              "kind": "dmb_plan_playable_target_v1",
+              "object_id": "scene:opening",
+              "object_revision": null,
+              "resolution": "resolved",
+              "revision": "v1",
+              "revision_n": null,
+              "work_revision_id": null
+            }
+          ],
+          "surface_id": "plan",
+          "surface_instance_id": "plan-main",
+          "surface_resolution": "resolved",
+          "world_id": "world-conversation-test"
+        },
+        "sequence": 1,
+        "turn_id": "00000000-0000-4000-8000-000000000033",
+        "user_text": "A legacy question"
+      }
+    ],
+    "world_id": "world-conversation-test"
+  };
+
+async function planGraphContext(
+  status: WorldPlanGraphAnswerContextStatusV1,
+  options: {
+    request?: WorldPlanAgentTurnRequestV1;
+    execution?: WorldPlanGraphExecutionProjectionV1 | null;
+    completion?: boolean;
+  } = {},
+): Promise<WorldPlanAgentPlanContextV1> {
+  const graphClaimed = status === "graph_grounded" || status === "graph_grounded_partial";
+  const sufficient = status !== "plan_only_insufficient_evidence";
+  const graphRevision = "graph-revision-test";
+  const assertionIds = sufficient ? ["assertion-internal-test"] : [];
+  const evidenceIds = sufficient ? ["evidence-internal-test"] : [];
+  const receiptPayload = {
+    schema: "dmb_agent_plan_world_graph_context_receipt_v1" as const,
+    receipt_serializer_version: "canonical-json-utf8-v1" as const,
+    context_receipt_sha256: "0".repeat(64),
+    plan_context_policy: { schema: "dmb_plan_context_policy_v1" as const, policy: "auto_plan_world" as const },
+    plan_basis: {
+      world_id: worldId,
+      document_id: documentId,
+      object_revision: options.request?.primary_work.expected_revision ?? 7,
+      work_revision_id: workRevisionId,
+      revision_n: options.request?.primary_work.expected_revision_n ?? 1,
+      content_sha256: options.request?.primary_work.expected_content_sha256 ?? contentSha256,
+    },
+    playable_target: options.request?.playable_target ? {
+      schema: "dmb_plan_playable_target_receipt_v1" as const,
+      kind: options.request.playable_target.kind,
+      id: options.request.playable_target.id,
+      marker_grammar_version: "v1" as const,
+    } : null,
+    graph_authority: {
+      managed_world_id: worldId,
+      native_world_id: "native-world-internal-test",
+      binding_version: 3,
+      scope_mode: "world" as const,
+      campaign_id: null,
+      admissibility_version: "admissibility-test-v1",
+      graph_revision: graphRevision,
+    },
+    graph_packet: {
+      schema: "dmb_plan_world_graph_packet_v1" as const,
+      packet_serializer_version: "canonical-json-utf8-v1" as const,
+      selection_policy_version: "selection-test-v1",
+      evidence_sufficiency_policy_version: "evidence-test-v1",
+      retrieval_packet_sha256: "b".repeat(64),
+      candidate_assertion_ids: assertionIds,
+      candidate_relationship_ids: [],
+      candidate_evidence_ref_ids: evidenceIds,
+      retrieval_status: sufficient ? "complete" as const : "empty" as const,
+      evidence_sufficiency_status: sufficient ? "sufficient" as const : "insufficient" as const,
+      result_limit: 10,
+      coverage_status: status === "graph_grounded_partial" ? "incomplete" as const : "complete" as const,
+      truncated: status === "graph_grounded_partial",
+      omission_reasons: sufficient ? [] : ["no_claim_ready_evidence"],
+    },
+    assembled_input: {
+      assembler_version: "assembler-test-v1",
+      budget_policy_version: "budget-test-v1",
+      provider_model_name: "test-model",
+      provider_model_version: "test-model-v1",
+      tokenizer_name: "test-tokenizer",
+      tokenizer_version: "test-tokenizer-v1",
+      provider_envelope_input_tokens: 400,
+      output_token_reserve: 100,
+      context_window_limit: 1000,
+      packet_disposition: sufficient ? "included" as const : "omitted_insufficient" as const,
+      packet_disposition_reason: sufficient ? null : "insufficient_evidence" as const,
+      dispatched_packet_sha256: sufficient ? "c".repeat(64) : null,
+      dispatched_assertion_ids: assertionIds,
+      dispatched_relationship_ids: [],
+      dispatched_evidence_ref_ids: evidenceIds,
+      source_token_accounting: [{ source_kind: "plan" as const, source_id: documentId, input_tokens: 200 }],
+      included_history: [],
+      assembled_input_sha256: "d".repeat(64),
+    },
+    evidence_mode: "metadata_only" as const,
+    source_opened: false as const,
+  };
+  const { context_receipt_sha256: _ignored, ...receiptForHash } = receiptPayload;
+  const receiptDigest = await sha256Hex(canonicalJson(receiptForHash));
+  const receipt = { ...receiptPayload, context_receipt_sha256: receiptDigest };
+  const segments = graphClaimed
+    ? [{
+      kind: "graph_claim" as const,
+      claim_id: "claim-internal-test",
+      text: "The western gate is watched.",
+      target_kind: "assertion" as const,
+      target_id: assertionIds[0]!,
+      graph_revision: graphRevision,
+      evidence_ref_ids: evidenceIds,
+    }]
+    : [{ kind: "connective" as const, text: "The saved Plan has one opening scene." }];
+  const citationEntries = graphClaimed ? [{
+    claim_id: "claim-internal-test",
+    target_kind: "assertion" as const,
+    target_id: assertionIds[0]!,
+    graph_revision: graphRevision,
+    evidence_ref_ids: evidenceIds,
+    source_opened: false as const,
+  }] : [];
+  return {
+    schema: "dmb_agent_plan_world_graph_context_response_v1",
+    receipt,
+    completion: options.completion === false ? null : {
+      schema: "dmb_plan_world_graph_completion_v1",
+      context_receipt_sha256: receiptDigest,
+      answer_basis: graphClaimed ? "committed_plan_plus_world_graph" : "committed_plan",
+      answer_context_status: status,
+      answer_segments: segments,
+      citation_map: graphClaimed ? {
+        schema: "dmb_graph_citation_map_v1",
+        context_receipt_sha256: receiptDigest,
+        entries: citationEntries,
+      } : null,
+    },
+    execution: options.execution === undefined ? {
+      schema: "dmb_agent_plan_world_graph_execution_projection_v1",
+      claimability: "completed",
+      authorization_state: "response_received",
+      automatic_redispatch: false,
+    } : options.execution,
+    delivery_replay: false,
+  };
+}
+
+async function resealPlanGraphContext(context: WorldPlanAgentPlanContextV1): Promise<WorldPlanAgentPlanContextV1> {
+  const { context_receipt_sha256: _ignored, ...receiptPayload } = context.receipt;
+  const digest = await sha256Hex(canonicalJson(receiptPayload));
+  context.receipt.context_receipt_sha256 = digest;
+  if (context.completion) {
+    context.completion.context_receipt_sha256 = digest;
+    if (context.completion.citation_map) context.completion.citation_map.context_receipt_sha256 = digest;
+  }
+  return context;
+}
+
+async function historyV2(
+  conversationId: string | null,
+  pointerRevision: number,
+  turns: WorldAgentConversationHistoryTurnV2[],
+  nextBeforeSequence: number | null = null,
+): Promise<WorldAgentConversationHistoryResponseV2> {
+  const absent = conversationId === null;
+  return {
+    schema: "dmb_agent_conversation_history_v2",
+    world_id: worldId,
+    conversation_state: absent ? "absent" : "active",
+    conversation_id: conversationId,
+    active_conversation_id: conversationId,
+    pointer_revision: pointerRevision,
+    turns,
+    next_before_sequence: nextBeforeSequence,
+  };
+}
+
+async function policyResponse(
+  request: WorldPlanAgentTurnRequestV1,
+  conversationId: string,
+  answer: string,
+  status: WorldPlanGraphAnswerContextStatusV1 = "graph_grounded",
+): Promise<WorldPlanAgentTurnResponseV2> {
+  const legacy = agentResponse(request, conversationId, answer);
+  const graphGrounded = status === "graph_grounded" || status === "graph_grounded_partial";
+  return {
+    ...legacy,
+    schema: "dmb_agent_turn_response_v2",
+    answer: { ...legacy.answer, graph_grounded: graphGrounded },
+    plan_context: await planGraphContext(status, { request }),
   };
 }
 
@@ -327,6 +909,29 @@ function historyTurnForAsk(
   return turn;
 }
 
+function policyHistoryTurn(
+  sequence: number,
+  turnId: string,
+  question: string,
+  answer: string | null,
+  context: WorldPlanAgentPlanContextV1,
+  lifecycle: WorldAgentConversationHistoryTurnV2["lifecycle_status"] = "completed",
+): WorldAgentConversationHistoryTurnV2 {
+  const turn = makeTurn(sequence, turnId, question, answer);
+  const basis = context.receipt.plan_basis;
+  turn.provenance.primary_work = {
+    resolution: "resolved",
+    kind: "plan",
+    object_id: basis.document_id,
+    revision: String(basis.object_revision),
+    content_sha256: basis.content_sha256,
+    object_revision: basis.object_revision,
+    work_revision_id: basis.work_revision_id,
+    revision_n: basis.revision_n,
+  };
+  return { ...turn, lifecycle_status: lifecycle, plan_context: context };
+}
+
 function legacyThread(): AgentInteractionThread {
   const turn: AgentInteractionTurn = {
     turnId: "legacy-turn-1",
@@ -405,11 +1010,11 @@ function committedRevision() {
   };
 }
 
-function setupApi(initialHistory: WorldAgentConversationHistoryResponseV1) {
+function setupApi(initialHistory: WorldAgentConversationHistoryResponse) {
   let currentHistory = initialHistory;
   let currentBasis = committedRevision();
-  let olderPage: WorldAgentConversationHistoryResponseV1 | null = null;
-  let olderHandler: (() => Promise<WorldAgentConversationHistoryResponseV1>) | null = null;
+  let olderPage: WorldAgentConversationHistoryResponse | null = null;
+  let olderHandler: (() => Promise<WorldAgentConversationHistoryResponse>) | null = null;
   const historyCalls: Array<{ limit?: number; beforeSequence?: number }> = [];
   const getHistory = vi.spyOn(liveApi, "getWorldAgentConversationHistory").mockImplementation(async (_world, options = {}) => {
     historyCalls.push(options);
@@ -437,10 +1042,10 @@ function setupApi(initialHistory: WorldAgentConversationHistoryResponseV1) {
     getHistory,
     getPlanBasis,
     historyCalls,
-    setCurrent(value: WorldAgentConversationHistoryResponseV1) { currentHistory = value; },
+    setCurrent(value: WorldAgentConversationHistoryResponse) { currentHistory = value; },
     setPlanBasis(value: ReturnType<typeof committedRevision>) { currentBasis = value; },
-    setOlder(value: WorldAgentConversationHistoryResponseV1) { olderPage = value; },
-    setOlderHandler(value: () => Promise<WorldAgentConversationHistoryResponseV1>) { olderHandler = value; },
+    setOlder(value: WorldAgentConversationHistoryResponse) { olderPage = value; },
+    setOlderHandler(value: () => Promise<WorldAgentConversationHistoryResponse>) { olderHandler = value; },
   };
 }
 
@@ -483,6 +1088,528 @@ afterEach(() => {
 });
 
 describe("World Plan conversation consumer", () => {
+  it("mounts the exact SERVER history projection and renders its validated citation", async () => {
+    const api = setupApi(serverHistoryProjection);
+
+    render(conversationElement());
+
+    expect(await screen.findAllByText("The western gate is watched.")).toHaveLength(2);
+    expect(screen.getByText("Grounded in complete World Graph evidence.")).toBeInTheDocument();
+    expect(screen.getByText("graph-revision-test")).toBeInTheDocument();
+    expect(screen.getByText(
+      "The server recorded this Ask as complete. Its structured outcome is shown above; this turn will not be automatically resent.",
+    )).toBeInTheDocument();
+    const evidenceSummary = screen.getByText("1 evidence reference");
+    const evidenceDetails = evidenceSummary.closest("details")!;
+    fireEvent.click(evidenceSummary);
+    expect(within(evidenceDetails).getByText("evidence-internal-test")).toBeInTheDocument();
+    expect(api.getHistory).toHaveBeenCalledWith(worldId, { limit: 50 });
+  });
+
+  it("keeps SERVER's card-A receipt and provenance after selection changes and history reloads", async () => {
+    const api = setupApi(serverCardTargetHistoryProjection);
+    const cardA = { kind: "scene" as const, id: "scene:opening" };
+    const cardB = { kind: "scene" as const, id: "scene:ending" };
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn");
+    const mounted = render(conversationElement({ playableTarget: cardA, selectionGeneration: 0 }));
+
+    expect(await screen.findAllByText("The western gate is watched.")).toHaveLength(2);
+    expect(screen.getByText("Grounded in complete World Graph evidence.")).toBeInTheDocument();
+    expect(screen.getAllByText(/Playable target: scene scene:opening/)).toHaveLength(2);
+    expect(screen.getByText("graph-revision-3")).toBeInTheDocument();
+    const evidenceSummary = screen.getByText("1 evidence reference");
+    fireEvent.click(evidenceSummary);
+    expect(screen.getByText("evidence-internal-test")).toBeInTheDocument();
+    expect(Array.from(screen.getByRole("region", { name: "World conversation transcript" }).querySelectorAll("article"))
+      .map((article) => article.getAttribute("data-sequence"))).toEqual(["1", "2"]);
+
+    mounted.rerender(conversationElement({ playableTarget: cardB, selectionGeneration: 1 }));
+    expect(screen.getByRole("group", { name: "Selected Playable card for Ask" })).toHaveTextContent("scene:ending");
+    expect(screen.getAllByText(/Playable target: scene scene:opening/)).toHaveLength(2);
+    expect(screen.queryByText(/Playable target: scene scene:ending/)).not.toBeInTheDocument();
+
+    const callsBeforeReload = api.historyCalls.length;
+    mounted.unmount();
+    render(conversationElement({ playableTarget: cardB, selectionGeneration: 1 }));
+
+    expect(await screen.findAllByText("The western gate is watched.")).toHaveLength(2);
+    expect(screen.getByText("Grounded in complete World Graph evidence.")).toBeInTheDocument();
+    expect(screen.getAllByText(/Playable target: scene scene:opening/)).toHaveLength(2);
+    expect(screen.getByText("evidence-internal-test")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Selected Playable card for Ask" })).toHaveTextContent("scene:ending");
+    expect(api.historyCalls).toHaveLength(callsBeforeReload + 1);
+    expect(postAsk).not.toHaveBeenCalled();
+  });
+
+  it.each(["omitted", "mismatched"] as const)(
+    "rejects the SERVER Graph history projection when card provenance is %s",
+    async (failure) => {
+      const projection = JSON.parse(JSON.stringify(serverCardTargetHistoryProjection)) as WorldAgentConversationHistoryResponseV2;
+      const graphTurn = projection.turns[0]! as WorldAgentConversationHistoryTurnV2;
+      if (failure === "omitted") {
+        graphTurn.provenance.supporting_work = [];
+      } else {
+        graphTurn.provenance.supporting_work[0]!.object_id = "scene:ending";
+      }
+      setupApi(projection);
+
+      render(conversationElement({ playableTarget: { kind: "scene", id: "scene:ending" } }));
+
+      expect(await screen.findByText(/invalid Graph-context receipt/)).toBeInTheDocument();
+      expect(screen.queryByText("The western gate is watched.")).not.toBeInTheDocument();
+      expect(screen.queryByText(/Playable target: scene scene:ending/)).not.toBeInTheDocument();
+    },
+  );
+
+  it.each(["duplicate", "mixed"] as const)(
+    "rejects SERVER history with %s sequence order",
+    async (failure) => {
+      const projection = JSON.parse(JSON.stringify(serverCardTargetHistoryProjection)) as WorldAgentConversationHistoryResponseV2;
+      if (failure === "duplicate") {
+        projection.turns[1]!.sequence = projection.turns[0]!.sequence;
+      } else {
+        projection.turns.push({
+          ...projection.turns[1]!,
+          sequence: 3,
+          turn_id: "00000000-0000-4000-8000-000000000034",
+        });
+      }
+      setupApi(projection);
+
+      render(conversationElement());
+
+      expect(await screen.findByText(/invalid Graph-context receipt/)).toBeInTheDocument();
+      expect(screen.queryByText("The western gate is watched.")).not.toBeInTheDocument();
+    },
+  );
+
+  it("sends the explicit additive Graph policy with the committed Plan and card pins, then reads v2 history citations", async () => {
+    const api = setupApi(history("conversation-a", 4, []));
+    const card = { kind: "scene" as const, id: "scene:opening" };
+    let captured: WorldPlanAgentTurnRequestV1 | null = null;
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
+      captured = request;
+      const response = await policyResponse(request, "conversation-a", "The western gate is watched.");
+      const turn = {
+        ...historyTurnForAsk(request, "The western gate is watched."),
+        plan_context: response.plan_context,
+      };
+      api.setCurrent(await historyV2("conversation-a", 5, [turn]));
+      return response;
+    });
+
+    render(conversationElement({ playableTarget: card, savedDirty: true }));
+    await screen.findByText(/No messages here yet/);
+    const checkbox = screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" });
+    fireEvent.click(checkbox);
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
+      target: { value: "Who watches the western gate?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByText("Grounded in complete World Graph evidence.")).toBeInTheDocument();
+    expect(await screen.findByText("graph-revision-test")).toBeInTheDocument();
+    const evidenceSummary = screen.getByText("1 evidence reference");
+    const evidenceDetails = evidenceSummary.closest("details")!;
+    expect(evidenceDetails).not.toHaveAttribute("open");
+    fireEvent.click(evidenceSummary);
+    expect(within(evidenceDetails).getByText("evidence-internal-test")).toBeInTheDocument();
+    expect(screen.getByText(/Playable target: scene scene:opening · marker grammar v1/)).toBeInTheDocument();
+    expect(screen.getByText("Ask uses the committed Plan revision; unsaved edits are not included.")).toBeInTheDocument();
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    expect(captured).toMatchObject({
+      schema: "dmb_agent_turn_request_v1",
+      plan_context_policy: { schema: "dmb_plan_context_policy_v1", policy: "auto_plan_world" },
+      primary_work: {
+        kind: "plan",
+        object_id: documentId,
+        expected_revision: 7,
+        expected_revision_n: 1,
+        expected_content_sha256: contentSha256,
+      },
+      playable_target: { schema: "dmb_plan_playable_target_v1", ...card },
+      client_work_state: "saved_dirty",
+      graph_request: { mode: "none" },
+      graph_selection: null,
+    });
+    expect(Object.keys(captured ?? {}).sort()).toEqual([
+      "client_thread_id", "client_work_state", "graph_request", "graph_selection", "message", "owner_scope",
+      "plan_context_policy", "playable_target", "primary_work", "schema", "surface", "turn_id",
+    ]);
+    expect(JSON.stringify(captured)).not.toContain("unsaved editor bytes");
+    expect(JSON.stringify(captured)).not.toContain("native_world_id");
+    expect(JSON.stringify(captured)).not.toContain("graph_revision");
+    expect(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" })).not.toBeChecked();
+    expect(screen.queryByText(/assertion-internal-test|native-world-internal-test/)).not.toBeInTheDocument();
+  });
+
+  it("renders each validated v2 completion outcome and safe execution recovery guidance", async () => {
+    const outcomes: Array<[WorldPlanGraphAnswerContextStatusV1, WorldPlanGraphExecutionProjectionV1, string]> = [
+      ["graph_grounded", {
+        schema: "dmb_agent_plan_world_graph_execution_projection_v1",
+        claimability: "completed", authorization_state: "response_received", automatic_redispatch: false,
+      }, "Grounded in complete World Graph evidence."],
+      ["graph_grounded_partial", {
+        schema: "dmb_agent_plan_world_graph_execution_projection_v1",
+        claimability: "blocked_unknown_or_sent", authorization_state: "outcome_unknown", automatic_redispatch: false,
+      }, "Partially grounded in World Graph evidence; coverage was incomplete."],
+      ["plan_only_insufficient_evidence", {
+        schema: "dmb_agent_plan_world_graph_execution_projection_v1",
+        claimability: "safe_to_reclaim_without_dispatch", authorization_state: "none", automatic_redispatch: false,
+      }, "No sufficient World Graph evidence was available; this answer uses the saved Plan context only."],
+      ["plan_only_graph_unused", {
+        schema: "dmb_agent_plan_world_graph_execution_projection_v1",
+        claimability: "explicit_new_attempt_required", authorization_state: "known_not_sent", automatic_redispatch: false,
+      }, "Graph context was available; no Graph claims were cited or used in the structured answer."],
+    ];
+    const turns: WorldAgentConversationHistoryTurnV2[] = [];
+    for (const [status, execution] of outcomes) {
+      const context = await planGraphContext(status, { execution });
+      turns.push(policyHistoryTurn(
+        turns.length + 1,
+        `status-turn-${turns.length + 1}`,
+        `Question ${status}`,
+        `Answer ${status}`,
+        context,
+      ));
+    }
+    setupApi(await historyV2("conversation-a", 8, turns));
+
+    render(conversationElement());
+
+    for (const [, , label] of outcomes) expect(await screen.findByText(label)).toBeInTheDocument();
+    expect(screen.getByText(/provider dispatch did not begin\. Submit a new Ask if you want another attempt/)).toBeInTheDocument();
+    expect(screen.getByText(/attempt outcome is unknown\. Refresh World history before taking another action/)).toBeInTheDocument();
+    expect(screen.getByText(/A new attempt requires a new Ask/)).toBeInTheDocument();
+    expect(screen.queryByText(/assertion-internal-test|context_receipt_sha256/)).not.toBeInTheDocument();
+    expect(screen.getAllByText("graph-revision-test")).toHaveLength(2);
+  });
+
+  it("accepts parent-validated tool evidence when the initial Graph receipt was insufficient", async () => {
+    const api = setupApi(history("conversation-a", 4, []));
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
+      const response = await policyResponse(request, "conversation-a", "The tool found a watched gate.", "graph_grounded");
+      const context = response.plan_context;
+      context.receipt.graph_packet.candidate_assertion_ids = [];
+      context.receipt.graph_packet.candidate_relationship_ids = [];
+      context.receipt.graph_packet.candidate_evidence_ref_ids = [];
+      context.receipt.graph_packet.retrieval_status = "empty";
+      context.receipt.graph_packet.evidence_sufficiency_status = "insufficient";
+      context.receipt.graph_packet.omission_reasons = ["no_claim_ready_evidence"];
+      context.receipt.assembled_input.packet_disposition = "omitted_insufficient";
+      context.receipt.assembled_input.packet_disposition_reason = "insufficient_evidence";
+      context.receipt.assembled_input.dispatched_packet_sha256 = null;
+      context.receipt.assembled_input.dispatched_assertion_ids = [];
+      context.receipt.assembled_input.dispatched_relationship_ids = [];
+      context.receipt.assembled_input.dispatched_evidence_ref_ids = [];
+      const claim = context.completion!.answer_segments[0]!;
+      expect(claim.kind).toBe("graph_claim");
+      if (claim.kind !== "graph_claim") throw new Error("Fixture expected one Graph claim.");
+      claim.target_id = "tool-assertion-test";
+      claim.evidence_ref_ids = ["tool-evidence-test"];
+      const citation = context.completion!.citation_map!.entries[0]!;
+      citation.target_id = claim.target_id;
+      citation.evidence_ref_ids = claim.evidence_ref_ids;
+      await resealPlanGraphContext(context);
+      api.setCurrent(await historyV2("conversation-a", 5, [policyHistoryTurn(
+        1, request.turn_id, request.message, "The tool found a watched gate.", context,
+      )]));
+      return response;
+    });
+
+    render(conversationElement());
+    await screen.findByText(/No messages here yet/);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Check the northern gate." } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByText("Grounded in complete World Graph evidence.")).toBeInTheDocument();
+    expect(await screen.findByText("The tool found a watched gate.")).toBeInTheDocument();
+    const details = screen.getByText("1 evidence reference").closest("details")!;
+    fireEvent.click(screen.getByText("1 evidence reference"));
+    expect(within(details).getByText("tool-evidence-test")).toBeInTheDocument();
+    expect(postAsk).toHaveBeenCalledTimes(1);
+  });
+
+  it("accepts mixed initial and tool citations for a partial completion with truncated retrieval", async () => {
+    const api = setupApi(history("conversation-a", 4, []));
+    vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
+      const response = await policyResponse(request, "conversation-a", "The gate is watched, and a patrol circles it.", "graph_grounded_partial");
+      const context = response.plan_context;
+      context.completion!.answer_segments.push(
+        { kind: "connective", text: " A patrol also circles it." },
+        {
+          kind: "graph_claim",
+          claim_id: "tool-claim-test",
+          text: "A patrol circles it.",
+          target_kind: "relationship",
+          target_id: "tool-relationship-test",
+          graph_revision: "graph-revision-test",
+          evidence_ref_ids: ["tool-evidence-test"],
+        },
+      );
+      context.completion!.citation_map!.entries.push({
+        claim_id: "tool-claim-test",
+        target_kind: "relationship",
+        target_id: "tool-relationship-test",
+        graph_revision: "graph-revision-test",
+        evidence_ref_ids: ["tool-evidence-test"],
+        source_opened: false,
+      });
+      await resealPlanGraphContext(context);
+      api.setCurrent(await historyV2("conversation-a", 5, [policyHistoryTurn(
+        1, request.turn_id, request.message, "The gate is watched, and a patrol circles it.", context,
+      )]));
+      return response;
+    });
+
+    render(conversationElement());
+    await screen.findByText(/No messages here yet/);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Describe the gate patrol." } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByText("Partially grounded in World Graph evidence; coverage was incomplete.")).toBeInTheDocument();
+    const evidenceSummaries = screen.getAllByText("1 evidence reference");
+    expect(evidenceSummaries).toHaveLength(2);
+    for (const summary of evidenceSummaries) fireEvent.click(summary);
+    expect(screen.getByText("evidence-internal-test")).toBeInTheDocument();
+    expect(screen.getByText("tool-evidence-test")).toBeInTheDocument();
+  });
+
+  it("keeps pending, interrupted, and failed policy turns without inventing a completion", async () => {
+    const turns: WorldAgentConversationHistoryTurnV2[] = [];
+    for (const lifecycle of ["accepted", "interrupted", "failed"] as const) {
+      const context = await planGraphContext("plan_only_graph_unused", { completion: false, execution: null });
+      turns.push(policyHistoryTurn(
+        turns.length + 1,
+        `incomplete-${lifecycle}`,
+        `Question ${lifecycle}`,
+        null,
+        context,
+        lifecycle,
+      ));
+    }
+    setupApi(await historyV2("conversation-a", 9, turns));
+
+    render(conversationElement());
+
+    expect(await screen.findAllByText("No final Graph-context completion has been recorded for this turn yet.")).toHaveLength(3);
+    expect(screen.getAllByText("No execution recovery status was recorded. Refresh World history before taking another action.")).toHaveLength(3);
+    expect(screen.queryByText(/Graph context was available; no Graph claims/)).not.toBeInTheDocument();
+  });
+
+  it("rejects a v2 history citation that does not map to its validated graph claim", async () => {
+    const context = await planGraphContext("graph_grounded");
+    context.completion!.citation_map!.entries[0]!.target_id = "unsupported-claim-target";
+    const turn = policyHistoryTurn(1, "bad-citation-turn", "Question", "Should not display", context);
+    setupApi(await historyV2("conversation-a", 10, [turn]));
+
+    render(conversationElement());
+
+    expect(await screen.findByText(/invalid Graph-context receipt/)).toBeInTheDocument();
+    expect(screen.queryByText("Should not display")).not.toBeInTheDocument();
+  });
+
+  it("accepts a valid receipt for a different historical Plan when that turn provenance matches", async () => {
+    const context = await planGraphContext("graph_grounded");
+    context.receipt.plan_basis.document_id = "older-plan-test";
+    context.receipt.plan_basis.object_revision = 3;
+    context.receipt.plan_basis.work_revision_id = "00000000-0000-4000-8000-000000000099";
+    context.receipt.plan_basis.revision_n = 2;
+    context.receipt.plan_basis.content_sha256 = "b".repeat(64);
+    await resealPlanGraphContext(context);
+    const turn = policyHistoryTurn(1, "older-plan-turn", "What did the north gate reveal?", "A watch patrol circles the gate.", context);
+    setupApi(await historyV2("conversation-a", 11, [turn]));
+
+    render(conversationElement());
+
+    expect(await screen.findByText("A watch patrol circles the gate.")).toBeInTheDocument();
+    expect(screen.getByText("Grounded in complete World Graph evidence.")).toBeInTheDocument();
+  });
+
+  it("rejects internally valid history receipts for a foreign World or mismatched Plan revision", async () => {
+    const foreignContext = await planGraphContext("graph_grounded");
+    foreignContext.receipt.plan_basis.world_id = "foreign-world-test";
+    foreignContext.receipt.graph_authority.managed_world_id = "foreign-world-test";
+    await resealPlanGraphContext(foreignContext);
+    setupApi(await historyV2("conversation-a", 12, [policyHistoryTurn(
+      1, "foreign-world-turn", "Foreign?", "Must not display", foreignContext,
+    )]));
+    const foreignView = render(conversationElement());
+    expect(await screen.findByText(/invalid Graph-context receipt/)).toBeInTheDocument();
+    expect(screen.queryByText("Must not display")).not.toBeInTheDocument();
+    foreignView.unmount();
+
+    vi.restoreAllMocks();
+    localStorage.clear();
+    const wrongRevisionContext = await planGraphContext("graph_grounded");
+    wrongRevisionContext.receipt.plan_basis.object_revision = 8;
+    await resealPlanGraphContext(wrongRevisionContext);
+    const wrongRevisionTurn = policyHistoryTurn(
+      1, "wrong-plan-revision-turn", "Wrong revision?", "Must also not display", wrongRevisionContext,
+    );
+    wrongRevisionTurn.provenance.primary_work.revision = "7";
+    wrongRevisionTurn.provenance.primary_work.object_revision = 7;
+    setupApi(await historyV2("conversation-a", 13, [wrongRevisionTurn]));
+    render(conversationElement());
+
+    expect(await screen.findByText(/invalid Graph-context receipt/)).toBeInTheDocument();
+    expect(screen.queryByText("Must also not display")).not.toBeInTheDocument();
+  });
+
+  it("rejects completed policy history without completion and in-progress history with final completion", async () => {
+    const missingCompletion = await planGraphContext("plan_only_graph_unused", { completion: false });
+    setupApi(await historyV2("conversation-a", 14, [policyHistoryTurn(
+      1, "completed-without-completion", "Missing completion?", "Must not display", missingCompletion,
+    )]));
+    const missingView = render(conversationElement());
+    expect(await screen.findByText(/invalid Graph-context receipt/)).toBeInTheDocument();
+    expect(screen.queryByText("Must not display")).not.toBeInTheDocument();
+    missingView.unmount();
+
+    vi.restoreAllMocks();
+    localStorage.clear();
+    const finalCompletion = await planGraphContext("plan_only_graph_unused");
+    setupApi(await historyV2("conversation-a", 15, [policyHistoryTurn(
+      1, "running-with-completion", "Premature completion?", "Also must not display", finalCompletion, "running",
+    )]));
+    render(conversationElement());
+
+    expect(await screen.findByText(/invalid Graph-context receipt/)).toBeInTheDocument();
+    expect(screen.queryByText("Also must not display")).not.toBeInTheDocument();
+  });
+
+  it("keeps a malformed policy response pending instead of accepting its prose", async () => {
+    setupApi(history("conversation-a", 4, []));
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
+      const response = await policyResponse(request, "conversation-a", "Unsupported answer.");
+      response.plan_context.completion!.citation_map!.entries[0]!.target_id = "unsupported-target";
+      return response;
+    });
+    render(conversationElement());
+    await screen.findByText(/No messages here yet/);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Ask for a grounded answer." } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByText(/outcome of this Graph-context Ask is uncertain/)).toBeInTheDocument();
+    expect(screen.queryByText("Unsupported answer.")).not.toBeInTheDocument();
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    expect(pendingAskKeys()).toHaveLength(1);
+  });
+
+  it("rejects a completion citation map that is not one-to-one with graph claims", async () => {
+    setupApi(history("conversation-a", 4, []));
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
+      const response = await policyResponse(request, "conversation-a", "Structurally unsupported answer.");
+      response.plan_context.completion!.citation_map!.entries = [];
+      return response;
+    });
+    render(conversationElement());
+    await screen.findByText(/No messages here yet/);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Ask with a malformed map." } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByText(/outcome of this Graph-context Ask is uncertain/)).toBeInTheDocument();
+    expect(screen.queryByText("Structurally unsupported answer.")).not.toBeInTheDocument();
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    expect(pendingAskKeys()).toHaveLength(1);
+  });
+
+  it("tells the GM when a Graph-context Ask failed before provider dispatch", async () => {
+    setupApi(history("conversation-a", 4, []));
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 409,
+      statusText: "Conflict",
+      text: async () => JSON.stringify({
+        detail: {
+          code: "native_binding_invalid",
+          message: "No active Graph binding is available.",
+          plan_context_failure: {
+            schema: "dmb_plan_world_graph_context_failure_v1",
+            status: "pre_dispatch_failed",
+            failure_code: "native_binding_invalid",
+            provider_dispatched: false,
+            automatic_downgrade: false,
+          },
+        },
+      }),
+    } as Response);
+    render(conversationElement());
+    await screen.findByText(/No messages here yet/);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Check the north gate." } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByText(/server confirmed provider dispatch did not begin/)).toBeInTheDocument();
+    expect(screen.getByText(/No active Graph binding is available/)).toBeInTheDocument();
+    expect(screen.queryByText(/outcome of this Graph-context Ask is uncertain/)).not.toBeInTheDocument();
+    expect(await screen.findByText(/This Graph-context Ask is not replayed from browser recovery/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry saved Ask" })).not.toBeInTheDocument();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe("/api/live/agent/turn");
+    expect(JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))).toHaveProperty(
+      "plan_context_policy",
+      { schema: "dmb_plan_context_policy_v1", policy: "auto_plan_world" },
+    );
+    expect(pendingAskKeys()).toHaveLength(1);
+  });
+
+  it("does not repost an uncertain Graph-context Ask from browser recovery", async () => {
+    setupApi(history("conversation-a", 4, []));
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockRejectedValue(new Error("connection reset after dispatch"));
+    render(conversationElement());
+    await screen.findByText(/No messages here yet/);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Check the north gate." } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByText(/outcome of this Graph-context Ask is uncertain/)).toBeInTheDocument();
+    expect(await screen.findByText(/This Graph-context Ask is not replayed from browser recovery/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry saved Ask" })).not.toBeInTheDocument();
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    expect(pendingAskKeys()).toHaveLength(1);
+  });
+
+  it("directs an authorization-rejected Graph Ask to refresh history before another action", async () => {
+    setupApi(history("conversation-a", 4, []));
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockRejectedValue(new liveApi.LiveApiError("Unauthorized", 401));
+    render(conversationElement());
+    await screen.findByText(/No messages here yet/);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Check the north gate." } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByText(/Check the credential in Settings, then refresh World history before taking another action/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry saved Ask" })).not.toBeInTheDocument();
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    expect(pendingAskKeys()).toHaveLength(1);
+  });
+
+  it("keeps an unchecked Ask on the byte-compatible v1 request shape", async () => {
+    const api = setupApi(history("conversation-a", 4, []));
+    let captured: WorldPlanAgentTurnRequestV1 | null = null;
+    vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
+      captured = request;
+      api.setCurrent(history("conversation-a", 5, [historyTurnForAsk(request, "A saved-Plan answer.")]));
+      return agentResponse(request, "conversation-a", "A saved-Plan answer.") as any;
+    });
+    render(conversationElement());
+    await screen.findByText(/No messages here yet/);
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Ask without Graph context" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    expect(await screen.findByText("A saved-Plan answer.")).toBeInTheDocument();
+    expect(captured?.schema).toBe("dmb_agent_turn_request_v1");
+    expect(captured).not.toHaveProperty("plan_context_policy");
+    expect(Object.keys(captured ?? {}).sort()).toEqual([
+      "client_thread_id", "client_work_state", "graph_request", "graph_selection", "message", "owner_scope",
+      "primary_work", "schema", "surface", "turn_id",
+    ]);
+  });
+
   it("renders the immutable target, grammar, and exact WorkRevision from history", async () => {
     const turn = makeTurn(1, "target-turn", "What happens at arrival?", "The arrival is guarded.");
     turn.provenance.primary_work = {
@@ -953,6 +2080,41 @@ describe("World Plan conversation consumer", () => {
     const renderedTurns = Array.from(transcript.querySelectorAll("article"))
       .map((article) => article.getAttribute("data-sequence"));
     expect(renderedTurns).toEqual(["1", "2", "3"]);
+  });
+
+  it("keeps the newer v2 receipt and execution sidecar when an older page repeats the same turn", async () => {
+    const latestContext = await planGraphContext("graph_grounded", {
+      execution: {
+        schema: "dmb_agent_plan_world_graph_execution_projection_v1",
+        claimability: "completed", authorization_state: "response_received", automatic_redispatch: false,
+      },
+    });
+    const staleContext = await planGraphContext("plan_only_insufficient_evidence", {
+      execution: {
+        schema: "dmb_agent_plan_world_graph_execution_projection_v1",
+        claimability: "safe_to_reclaim_without_dispatch", authorization_state: "none", automatic_redispatch: false,
+      },
+    });
+    const latestTurn = policyHistoryTurn(2, "shared-policy-turn", "Was the gate watched?", "The western gate is watched.", latestContext);
+    const staleDuplicate: WorldAgentConversationHistoryTurnV2 = {
+      ...latestTurn,
+      plan_context: staleContext,
+    };
+    const api = setupApi(await historyV2("conversation-a", 5, [latestTurn], 2));
+    api.setOlder(await historyV2("conversation-a", 5, [
+      makeTurn(1, "legacy-before-policy", "What is the opening?", "A saved-plan opening."),
+      staleDuplicate,
+    ]));
+
+    render(conversationElement());
+    expect(await screen.findByText("Grounded in complete World Graph evidence.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Older turns" }));
+    expect(await screen.findByText("A saved-plan opening.")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByText("The western gate is watched.")).toHaveLength(2));
+    expect(screen.getByText("Grounded in complete World Graph evidence.")).toBeInTheDocument();
+    expect(screen.queryByText(/No sufficient World Graph evidence was available/)).not.toBeInTheDocument();
+    const transcript = screen.getByRole("region", { name: "World conversation transcript" });
+    expect(transcript.querySelectorAll('[data-sequence="2"]')).toHaveLength(1);
   });
 
   it("unlocks older paging after navigation invalidates a pending page and discards its stale response", async () => {

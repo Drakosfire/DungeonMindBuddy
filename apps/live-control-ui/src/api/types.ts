@@ -770,6 +770,19 @@ export interface WorldPlanSelectedPlayableTargetV1 {
   id: string;
 }
 
+export interface WorldPlanContextPolicyV1 {
+  schema: "dmb_plan_context_policy_v1";
+  policy: "auto_plan_world";
+}
+
+export interface WorldPlanGraphContextFailureV1 {
+  schema: "dmb_plan_world_graph_context_failure_v1";
+  status: "pre_dispatch_failed";
+  failure_code: string;
+  provider_dispatched: false;
+  automatic_downgrade: false;
+}
+
 /** Accepted generic turn route, bound to one saved Plan in a verified World. */
 export interface WorldPlanAgentTurnRequestV1 {
   schema: "dmb_agent_turn_request_v1";
@@ -784,6 +797,7 @@ export interface WorldPlanAgentTurnRequestV1 {
     expected_revision_n: number;
     expected_content_sha256: string;
   };
+  plan_context_policy?: WorldPlanContextPolicyV1;
   playable_target?: WorldPlanSelectedPlayableTargetV1 | null;
   client_work_state: "saved_clean" | "saved_dirty";
   graph_request: { mode: "none" };
@@ -845,6 +859,157 @@ export interface WorldPlanAgentTurnResponseV1 {
   };
 }
 
+export type WorldPlanGraphAnswerContextStatusV1 =
+  | "graph_grounded"
+  | "graph_grounded_partial"
+  | "plan_only_insufficient_evidence"
+  | "plan_only_graph_unused";
+
+export interface WorldPlanGraphExecutionProjectionV1 {
+  schema: "dmb_agent_plan_world_graph_execution_projection_v1";
+  claimability:
+    | "safe_to_reclaim_without_dispatch"
+    | "explicit_new_attempt_required"
+    | "blocked_unknown_or_sent"
+    | "completed";
+  authorization_state:
+    | "none"
+    | "authorized"
+    | "sdk_entered"
+    | "response_received"
+    | "known_not_sent"
+    | "outcome_unknown";
+  automatic_redispatch: false;
+}
+
+export interface WorldPlanGraphContextReceiptV1 {
+  schema: "dmb_agent_plan_world_graph_context_receipt_v1";
+  receipt_serializer_version: "canonical-json-utf8-v1";
+  context_receipt_sha256: string;
+  plan_context_policy: WorldPlanContextPolicyV1;
+  plan_basis: {
+    world_id: string;
+    document_id: string;
+    object_revision: number;
+    work_revision_id: string;
+    revision_n: number;
+    content_sha256: string;
+  };
+  playable_target: {
+    schema: "dmb_plan_playable_target_receipt_v1";
+    kind: "scene" | "beat" | "choice" | "option";
+    id: string;
+    marker_grammar_version: "v1" | "v2";
+  } | null;
+  graph_authority: {
+    managed_world_id: string;
+    native_world_id: string;
+    binding_version: number;
+    scope_mode: "world";
+    campaign_id: null;
+    admissibility_version: string;
+    graph_revision: string;
+  };
+  graph_packet: {
+    schema: "dmb_plan_world_graph_packet_v1";
+    packet_serializer_version: "canonical-json-utf8-v1";
+    selection_policy_version: string;
+    evidence_sufficiency_policy_version: string;
+    retrieval_packet_sha256: string;
+    candidate_assertion_ids: string[];
+    candidate_relationship_ids: string[];
+    candidate_evidence_ref_ids: string[];
+    retrieval_status: "complete" | "empty";
+    evidence_sufficiency_status: "sufficient" | "insufficient";
+    result_limit: number;
+    coverage_status: "complete" | "incomplete";
+    truncated: boolean;
+    omission_reasons: string[];
+  };
+  assembled_input: {
+    packet_disposition: "included" | "omitted_insufficient";
+    packet_disposition_reason: "insufficient_evidence" | null;
+    assembler_version: string;
+    budget_policy_version: string;
+    provider_model_name: string;
+    provider_model_version: string;
+    tokenizer_name: string;
+    tokenizer_version: string;
+    provider_envelope_input_tokens: number;
+    output_token_reserve: number;
+    context_window_limit: number;
+    dispatched_packet_sha256: string | null;
+    dispatched_assertion_ids: string[];
+    dispatched_relationship_ids: string[];
+    dispatched_evidence_ref_ids: string[];
+    source_token_accounting: Array<{
+      source_kind: "plan" | "history" | "graph" | "instructions" | "tools" | "message";
+      source_id: string;
+      input_tokens: number;
+    }>;
+    included_history: Array<{ turn_id: string; answer_sha256: string }>;
+    assembled_input_sha256: string;
+  };
+  evidence_mode: "metadata_only";
+  source_opened: false;
+}
+
+export type WorldPlanGraphAnswerSegmentV1 =
+  | {
+    kind: "graph_claim";
+    claim_id: string;
+    text: string;
+    target_kind: "assertion" | "relationship";
+    target_id: string;
+    graph_revision: string;
+    evidence_ref_ids: string[];
+  }
+  | { kind: "plan_claim"; text: string; plan_content_sha256: string }
+  | { kind: "proposal"; text: string; label: "invented_idea" }
+  | { kind: "connective"; text: string };
+
+export interface WorldPlanGraphCitationV1 {
+  claim_id: string;
+  target_kind: "assertion" | "relationship";
+  target_id: string;
+  graph_revision: string;
+  evidence_ref_ids: string[];
+  source_opened: false;
+}
+
+export interface WorldPlanGraphCitationMapV1 {
+  schema: "dmb_graph_citation_map_v1";
+  context_receipt_sha256: string;
+  entries: WorldPlanGraphCitationV1[];
+}
+
+export interface WorldPlanGraphCompletionV1 {
+  schema: "dmb_plan_world_graph_completion_v1";
+  context_receipt_sha256: string;
+  answer_basis: "committed_plan" | "committed_plan_plus_world_graph";
+  answer_context_status: WorldPlanGraphAnswerContextStatusV1;
+  answer_segments: WorldPlanGraphAnswerSegmentV1[];
+  citation_map: WorldPlanGraphCitationMapV1 | null;
+}
+
+/** Exact policy-only response envelope defined by SERVER's accepted wire contract. */
+export interface WorldPlanAgentPlanContextV1 {
+  schema: "dmb_agent_plan_world_graph_context_response_v1";
+  receipt: WorldPlanGraphContextReceiptV1;
+  completion: WorldPlanGraphCompletionV1 | null;
+  execution: WorldPlanGraphExecutionProjectionV1 | null;
+  delivery_replay: boolean;
+}
+
+export interface WorldPlanAgentTurnResponseV2 extends Omit<WorldPlanAgentTurnResponseV1, "schema"> {
+  schema: "dmb_agent_turn_response_v2";
+  plan_context: WorldPlanAgentPlanContextV1;
+}
+
+export type WorldPlanAgentTurnResponse =
+  | WorldPlanAgentTurnResponseV1
+  | WorldPlanAgentTurnResponseV2;
+
 export interface AgentConversationHistoryReferenceV1 {
   resolution: "resolved" | "absent" | "unresolved" | "unavailable";
   kind: string | null;
@@ -892,6 +1057,26 @@ export interface WorldAgentConversationHistoryResponseV1 {
   turns: WorldAgentConversationHistoryTurnV1[];
   next_before_sequence: number | null;
 }
+
+export interface WorldAgentConversationHistoryTurnV2 extends WorldAgentConversationHistoryTurnV1 {
+  /** Absent on legacy turns; present on a policy-bearing turn with a frozen receipt. */
+  plan_context?: Omit<WorldPlanAgentPlanContextV1, "delivery_replay"> & {
+    delivery_replay?: boolean;
+  };
+}
+
+export interface WorldAgentConversationHistoryResponseV2 extends Omit<WorldAgentConversationHistoryResponseV1, "schema" | "turns"> {
+  schema: "dmb_agent_conversation_history_v2";
+  turns: WorldAgentConversationHistoryTurnV2[];
+}
+
+export type WorldAgentConversationHistoryTurn =
+  | WorldAgentConversationHistoryTurnV1
+  | WorldAgentConversationHistoryTurnV2;
+
+export type WorldAgentConversationHistoryResponse =
+  | WorldAgentConversationHistoryResponseV1
+  | WorldAgentConversationHistoryResponseV2;
 
 export interface WorldAgentNewConversationRequestV1 {
   schema: "dmb_agent_new_conversation_v1";
