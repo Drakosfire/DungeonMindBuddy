@@ -9,6 +9,7 @@ from application_state.cli import assert_at_head
 from application_state.config import load_runtime_dsn
 from application_state.content.playable_admission import (
     admit_playable_revision,
+    require_world_runbook_rebase_source,
     resolve_pinned_playable_revision,
 )
 from application_state.errors import (
@@ -86,7 +87,7 @@ def _resolve_world_run_owner(conn, run: PlayRun, *, world_id: str) -> str:
     )
     if revision.world_id != requested_world_id:
         raise ApplicationStateIntegrityError(
-            "Play Run binding does not match its exact World-owned Runbook revision"
+            "Play Run binding does not match its exact World-owned playable revision"
         )
     return revision.world_id
 
@@ -739,6 +740,12 @@ def _rebase_play_run(
         )
         if canonical_world_id is None:
             _require_campaign_run(run)
+        else:
+            require_world_runbook_rebase_source(
+                conn,
+                run.playable_work_object_id,
+                expected_world_id=canonical_world_id,
+            )
         manifest = require_persisted_aggregate_integrity(
             run, repo.get_manifest(conn, canonical_run_id)
         )

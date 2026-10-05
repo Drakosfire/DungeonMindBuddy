@@ -6,9 +6,18 @@ from uuid import UUID
 import psycopg
 import pytest
 
-from application_state.content.service import commit_runbook, create_world_runbook
+from application_state.content.service import (
+    autosave_plan,
+    commit_plan,
+    commit_runbook,
+    create_plan,
+    create_world_plan,
+    create_world_runbook,
+    update_plan_metadata,
+)
 from application_state.errors import ApplicationStateError
 from application_state.play.service import (
+    create_play_run,
     create_world_play_run,
     get_world_play_run_aggregate,
     list_play_run_aggregates,
@@ -18,6 +27,7 @@ from application_state.play.service import (
 )
 from tests.application_state.play_runtime_helpers import (
     RUN_ID_A,
+    RUN_ID_B,
     SOURCE_MARKDOWN,
     SURVIVING_TARGET_MARKDOWN,
     create_committed_runbook,
@@ -36,6 +46,17 @@ def _create_world_runbook(world_id: str, *, markdown: str = SOURCE_MARKDOWN):
     work_object, revision = commit_runbook(
         str(created.work_object_id),
         markdown,
+        expected_revision=created.object_revision,
+    )
+    return work_object, revision
+
+
+def _create_world_plan(world_id: str, *, markdown: str = SOURCE_MARKDOWN):
+    created = create_world_plan(title=f"World Plan {world_id}", world_id=world_id)
+    work_object, revision = commit_plan(
+        str(created.work_object_id),
+        markdown,
+        expected_world_id=world_id,
         expected_revision=created.object_revision,
     )
     return work_object, revision
@@ -186,3 +207,133 @@ def test_detail_resolves_world_from_exact_committed_revision(
     )
     assert loaded.world_id == "demo-world-a"
     assert loaded.world_id == loaded.run.world_id
+
+
+def test_world_plan_can_start_run_and_reopen_exact_pin_after_save_and_discard(
+    application_state_dsn: str,
+) -> None:
+    world_id = "demo-world-plan-run"
+    plan, first_revision = _create_world_plan(world_id)
+    first = create_world_play_run(
+        world_id=world_id,
+        run_id=RUN_ID_A,
+        playable_artifact_id=plan.work_object_id,
+        expected_playable_revision=first_revision.revision_n,
+        expected_playable_content_sha256=first_revision.content_sha256,
+    )
+
+    assert first.run.world_id == world_id
+    assert first.run.campaign_id is None
+    assert first.run.playable_work_object_id == plan.work_object_id
+    assert first.run.playable_work_revision_id == first_revision.work_revision_id
+    assert first.manifest.playable_work_revision_id == first_revision.work_revision_id
+    assert first.manifest.playable_content_sha256 == first_revision.content_sha256
+
+    changed_plan, second_revision = commit_plan(
+        str(plan.work_object_id),
+        SURVIVING_TARGET_MARKDOWN,
+        expected_world_id=world_id,
+        expected_revision=plan.object_revision,
+    )
+    with pytest.raises(ApplicationStateError):
+        create_world_play_run(
+            world_id=world_id,
+            run_id=RUN_ID_B,
+            playable_artifact_id=plan.work_object_id,
+            expected_playable_revision=first_revision.revision_n,
+            expected_playable_content_sha256=first_revision.content_sha256,
+        )
+    second = create_world_play_run(
+        world_id=world_id,
+        run_id=RUN_ID_B,
+        playable_artifact_id=plan.work_object_id,
+        expected_playable_revision=second_revision.revision_n,
+        expected_playable_content_sha256=second_revision.content_sha256,
+    )
+    assert second.run.playable_work_revision_id == second_revision.work_revision_id
+
+    discarded = update_plan_metadata(
+        str(plan.work_object_id),
+        status="discarded",
+        expected_revision=changed_plan.object_revision,
+    )
+    assert discarded.status == "discarded"
+
+    replayed = create_world_play_run(
+        world_id=world_id,
+        run_id=RUN_ID_A,
+        playable_artifact_id=plan.work_object_id,
+        expected_playable_revision=first_revision.revision_n,
+        expected_playable_content_sha256=first_revision.content_sha256,
+    )
+    reopened = get_world_play_run_aggregate(RUN_ID_A, world_id=world_id)
+    assert replayed == first
+    assert reopened.run.playable_work_revision_id == first_revision.work_revision_id
+    assert reopened.manifest == first.manifest
+
+
+def test_world_plan_new_run_requires_clean_current_revision(
+    application_state_dsn: str,
+) -> None:
+    world_id = "demo-world-plan-dirty"
+    plan, revision = _create_world_plan(world_id)
+    autosave_plan(
+        str(plan.work_object_id),
+        SOURCE_MARKDOWN + "\nUncommitted Plan edit.\n",
+        expected_world_id=world_id,
+        expected_revision=plan.object_revision,
+    )
+
+    with pytest.raises(ApplicationStateError, match="not committed"):
+        create_world_play_run(
+            world_id=world_id,
+            run_id=RUN_ID_A,
+            playable_artifact_id=plan.work_object_id,
+            expected_playable_revision=revision.revision_n,
+            expected_playable_content_sha256=revision.content_sha256,
+        )
+
+
+def test_campaign_run_admission_remains_runbook_only(
+    application_state_dsn: str,
+) -> None:
+    plan = create_plan(title="Campaign Plan", campaign_id="campaign-plan-control")
+    _plan, revision = commit_plan(
+        str(plan.work_object_id),
+        SOURCE_MARKDOWN,
+        expected_revision=plan.object_revision,
+    )
+
+    with pytest.raises(ApplicationStateError, match="runbook"):
+        create_play_run(
+            run_id=RUN_ID_A,
+            playable_artifact_id=plan.work_object_id,
+            expected_playable_revision=revision.revision_n,
+            expected_playable_content_sha256=revision.content_sha256,
+        )
+
+
+def test_world_plan_rebase_rejected_even_for_same_target_retry(
+    application_state_dsn: str,
+) -> None:
+    world_id = "demo-world-plan-no-rebase"
+    plan, revision = _create_world_plan(world_id)
+    created = create_world_play_run(
+        world_id=world_id,
+        run_id=RUN_ID_A,
+        playable_artifact_id=plan.work_object_id,
+        expected_playable_revision=revision.revision_n,
+        expected_playable_content_sha256=revision.content_sha256,
+    )
+    before = fetch_play_runtime_state(application_state_dsn, RUN_ID_A)
+
+    with pytest.raises(ApplicationStateError, match="Plan-backed.*rebasing"):
+        rebase_world_play_run(
+            world_id=world_id,
+            run_id=RUN_ID_A,
+            expected_run_revision=created.run.run_revision,
+            target_playable_revision=revision.revision_n,
+            target_playable_content_sha256=revision.content_sha256,
+        )
+
+    assert fetch_play_runtime_state(application_state_dsn, RUN_ID_A) == before
