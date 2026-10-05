@@ -1431,7 +1431,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   }, []);
 
   return (
-    <AppChrome activeRoute="plan" editorTools={editorToolsGeneration} editToolboxLayout="dock">
+    <AppChrome activeRoute="plan" editorTools={editorToolsGeneration} editToolboxLayout={new URLSearchParams(window.location.search).get("prototype") === "focused" ? "overlay" : "dock"}>
       <WorldPlanSurfaceContext
         worldId={worldId}
         worldName={worldName}

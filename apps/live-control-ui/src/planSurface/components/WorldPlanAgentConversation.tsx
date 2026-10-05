@@ -2028,21 +2028,6 @@ export function WorldPlanAgentConversation({
               </label>
             </fieldset>
 
-            {focusedPrototype && composerIntent === "discuss" && <section className="focused-context-composer" aria-label="Context composer">
-              <label>Context <select value={contextMode} disabled={intentBusy} onChange={e => setContextMode(e.currentTarget.value as typeof contextMode)}>
-                <option value="message_only">Message only</option>
-                <option value="selected_scene" disabled={playableTarget?.kind !== "scene"}>Selected scene</option>
-                <option value="whole_plan">Whole Plan</option>
-              </select></label>
-              <button type="button" disabled={contextLoading || intentBusy || !composerMessage.trim()} onClick={() => { void previewContext(); }}>{contextLoading ? "Preparing context…" : "Preview context"}</button>
-              {contextError && <p role="alert">{contextError}</p>}
-              {contextPreview?.key === contextKey ? <>
-                <p role="status">{contextPreview.value.characters.toLocaleString()} / {contextPreview.value.max_characters.toLocaleString()} characters · approximately {Math.ceil(contextPreview.value.characters / 4).toLocaleString()} tokens</p>
-                {!contextPreview.value.within_budget && <p role="alert">This context exceeds the current transport budget. Choose Message only or Selected scene.</p>}
-                <details><summary>Exact Plan message preview</summary><pre>{contextPreview.value.message}</pre></details>
-              </> : <p>Preview before sending. Changing the message, scene or context choice requires a new preview.</p>}
-              <small>This previews the current Plan message. System instructions and runtime conversation history are separate; Graph retrieval is off. Edit proposals use their existing context.</small>
-            </section>}
             {composerIntent === "propose" ? (
               <div className="world-plan-agent-conversation__target" role="group" aria-label="Choose where the proposed edit applies">
                 {playableEditTarget ? (
@@ -2087,6 +2072,21 @@ export function WorldPlanAgentConversation({
               disabled={focusedPrototype ? intentBusy : composerBusy}
               placeholder={composerIntent === "discuss" ? "Ask about this Plan…" : "Describe the change you want…"}
             />
+            {focusedPrototype && composerIntent === "discuss" && <section className="focused-context-composer" aria-label="Context composer">
+              <label>Context <select value={contextMode} disabled={intentBusy} onChange={e => setContextMode(e.currentTarget.value as typeof contextMode)}>
+                <option value="message_only">Message only</option>
+                <option value="selected_scene" disabled={playableTarget?.kind !== "scene"}>Selected scene</option>
+                <option value="whole_plan">Whole Plan</option>
+              </select></label>
+              <button type="button" disabled={contextLoading || intentBusy || !composerMessage.trim()} onClick={() => { void previewContext(); }}>{contextLoading ? "Preparing context…" : "Preview context"}</button>
+              {contextError && <p role="alert">{contextError}</p>}
+              {contextPreview?.key === contextKey ? <>
+                <p role="status">{contextPreview.value.characters.toLocaleString()} / {contextPreview.value.max_characters.toLocaleString()} characters · approximately {Math.ceil(contextPreview.value.characters / 4).toLocaleString()} tokens</p>
+                {!contextPreview.value.within_budget && <p role="alert">This context exceeds the current transport budget. Choose Message only or Selected scene.</p>}
+                <details><summary>Exact Plan message preview</summary><pre>{contextPreview.value.message}</pre></details>
+              </> : <p>Preview before sending. Changing the message, scene or context choice requires a new preview.</p>}
+              <details><summary>About this context</summary><small>This previews the current Plan message. System instructions and runtime conversation history are separate; Graph retrieval is off. Edit proposals use their existing context.</small></details>
+            </section>}
             {messageTooLong ? <p role="alert">Edit requests can be at most 4,000 characters. Shorten this message to continue.</p> : null}
             {composerIntent === "discuss" && error && !authorizationBlocked ? <p role="alert">{error}</p> : null}
             {composerIntent === "propose" && editError && !authorizationBlocked ? <p role="alert">{editError}</p> : null}

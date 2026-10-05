@@ -38,3 +38,9 @@ body:has(.focused-prototype) .world-plan-agent-conversation__turns { flex:0 0 au
 .focused-context-composer { border:1px solid #60756f; border-radius:.4rem; padding:.55rem; font-size:.82rem; }
 .focused-context-composer pre { white-space:pre-wrap; overflow-wrap:anywhere; max-height:16rem; overflow:auto; font-size:.75rem; }
 .focused-context-composer select { max-width:100%; }
+
+/* The conversation is one column; its close button must not create a grid row. */
+body:has(.focused-prototype) .plan-agent-shell.open { display:block; min-width:0; }
+body:has(.focused-prototype) .world-plan-agent-conversation__header { padding-right:4.5rem; }
+body:has(.focused-prototype) .focused-context-composer { margin-top:.5rem; }
+body:has(.focused-prototype) .focused-context-composer > p { margin:.4rem 0; }
