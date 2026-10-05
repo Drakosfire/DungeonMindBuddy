@@ -4,7 +4,7 @@
 
 **Owner:** DungeonMindBuddy SERVER. PRIME owns exact-head independent review and adoption approval.
 
-**Base:** Buddy `main@e671784dc53e698a33a5125f08d76953faa34a19`.
+**Base:** Buddy `main@6240620423989ce0d132c26861c1e0b09cab3053` (after merged DEMO Graph-priority PR #921).
 
 **Topology:** serial prerequisite before the separate Plan World Graph context integration. This PR must be independently reviewed at exact head before product/runtime adoption. APP-STATE receipt remains the precise later integration dependency.
 
@@ -28,7 +28,7 @@ Keep Hermes' generic observational hooks fail-open and preserve normal provider 
 - `Docs/Plans/HANDOFF-SERVER-hermes-pre-dispatch-budget-veto-v1.md` — this lease and exact evidence.
 - `patches/hermes-agent/0001-pre-dispatch-budget-veto.patch` — the narrow patch against the exact upstream source.
 - `scripts/prepare_patched_hermes.py` — verify/prepare ignored source reproducibly; no package installation side effect.
-- `pyproject.toml`, `uv.lock` — make standard locked installation consume the prepared local patched distribution, with a clear missing-preparation error.
+- `pyproject.toml`, `uv.lock` — make standard locked installation consume the prepared local patched distribution, with a clear missing-preparation error. PRIME transferred these paths from open PR #826 to this prerequisite; #826 must freeze them and reconcile after this dependency pin merges.
 - `README.md` — only the actual setup commands needed for prepare followed by `uv sync --locked`.
 - `apps/live_control_server/services/hermes_graph_agent_contract.py` — strict bounded request-budget IPC policy if needed by the guard.
 - `apps/live_control_server/services/hermes_graph_agent.py` — bind the turn budget policy to the Hermes agent; map typed terminal veto only if the existing result path cannot already preserve it.
@@ -37,7 +37,7 @@ Keep Hermes' generic observational hooks fail-open and preserve normal provider 
 - `tests/test_patched_hermes_dependency.py`.
 - `tests/hermes_patch/test_pre_dispatch_budget_veto.py` — isolated owning-boundary tests against the patched pinned Hermes source.
 
-`apps/live_control_server/services/agent_turn_service.py` and `tests/test_agent_turn_service.py` are conditionally reserved only for narrow typed veto translation, and remain read-only until APP-STATE confirms path coordination. Reuse current failure handling if sufficient. No other path is authorized. If inspected behavior requires any additional path, stop and amend this lease before editing it.
+`apps/live_control_server/services/agent_turn_service.py` and `tests/test_agent_turn_service.py` are conditionally reserved only for narrow typed veto translation, and remain read-only until APP-STATE confirms path coordination. Reuse current failure handling if sufficient. No other path is authorized. Current overlapping PR census: #917 has no production reservation on this slice except the still-coordinated `agent_turn_service.py`; #826 is not a prerequisite and has frozen `pyproject.toml`/`uv.lock` under PRIME transfer. If inspected behavior requires any additional path, stop and amend this lease before editing it.
 
 ## Contract and safety requirements
 
@@ -61,7 +61,7 @@ Keep Hermes' generic observational hooks fail-open and preserve normal provider 
 
 ## Evidence to fill before PR readiness
 
-- **Base:** `e671784dc53e698a33a5125f08d76953faa34a19`
+- **Base:** `6240620423989ce0d132c26861c1e0b09cab3053`
 - **Implementation head:** pending
 - **Upstream source SHA:** `861d69c7bba8d2ea6a1cd170e989c901c74d32d1`
 - **Patch SHA-256:** pending
