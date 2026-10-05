@@ -10,7 +10,7 @@
 
 ## Mission
 
-Persist the authorized, actual execution of a Plan World Graph turn that uses parent-brokered Graph operations and multiple provider requests. Preserve the accepted `PlanWorldGraphContextReceiptV1` and `PlanWorldGraphCompletionV1` contracts. Keep legacy turns unchanged when the new field is null.
+Persist the authorized, actual execution of a Plan World Graph turn in Buddy’s Agent Harness, including its conversation lifecycle, parent-brokered Graph tools, provider authorization, evidence, and replay boundaries. This persistence contract is runtime-neutral; Hermes is the current concrete adapter. Preserve the accepted `PlanWorldGraphContextReceiptV1` and `PlanWorldGraphCompletionV1` contracts. Keep legacy turns unchanged when the new field is null.
 
 This record is an APP-STATE-owned execution/evidence adjunct. `agent.turn` remains the lifecycle authority. APP-STATE does not rebuild turn status from events, resolve Graph facts, or authorize source-body access. This reconciles with `ARCHITECTURE-application-state-layer.md`’s event-sourcing non-goal: the JSONB is a bounded typed record on the existing domain row, not a general event store or replay engine.
 
@@ -64,7 +64,7 @@ An accepted turn left between steps 3 and 4 has no authorized provider attempt a
 
 ## Parent-brokered Graph traversal
 
-The Hermes child’s hydrated Graph retrieval session is child-local. Child-reported results are not admissible evidence. A child tool request is only a request: the parent checks it against the execution policy, executes the read through the authoritative Graph service against the receipt’s exact managed/native binding and frozen Graph revision, validates the returned IDs and packet, appends `validated_graph_operation`, then returns the admitted result to the child. A changed revision, binding, disallowed operation, over-budget result, or persistence failure denies the operation and cannot produce a later provider envelope.
+In the current Hermes adapter, the child’s hydrated Graph retrieval session is child-local. Child-reported results are not admissible evidence. A child tool request is only a request: the Agent Harness parent checks it against the execution policy, executes the read through the authoritative Graph service against the receipt’s exact managed/native binding and frozen Graph revision, validates the returned IDs and packet, appends `validated_graph_operation`, then returns the admitted result to the child. A changed revision, binding, disallowed operation, over-budget result, or persistence failure denies the operation and cannot produce a later provider envelope.
 
 `read_source`, source opening, Graph writes, arbitrary child-local Graph queries, and raw source/result bodies remain outside this contract. No validated event is appended from a worker claim alone.
 
@@ -74,7 +74,7 @@ The Hermes child’s hydrated Graph retrieval session is child-local. Child-repo
 - The execution-aware validator applies the existing status meanings to the actual supporting packet(s): a cited initial packet uses its frozen receipt sufficiency/coverage; a cited tool result uses that event’s validated sufficiency/coverage/truncation. `graph_grounded` requires each cited source to be sufficient, complete, untruncated, and present in the producing envelope; `graph_grounded_partial` applies when a cited source is incomplete or truncated. With no sufficient evidence in the final request, use `plan_only_insufficient_evidence`; with sufficient evidence available but no Graph claims, use `plan_only_graph_unused`. When `graph_context_execution` is null, retain the current v1 validator and its exact initial-packet semantics.
 - Completion v1 turns without `graph_context_execution` use the existing validator byte-for-byte and do not require a producing-attempt binding. Graphless legacy turns retain a null field, old fingerprints, and current replay behavior.
 - Completed replay returns the stored receipt, unchanged completion v1, and execution record before current Plan/Graph/provider reads. No provider/tool dispatch is repeated.
-- SDK automatic retries are disabled or routed through the gate one wire attempt at a time. A retry after a definite provider response requires a new attempt event and consumes policy budget. If a dispatch was authorized but the caller/parent lost the result, persist `outcome_unknown` when observed; on recovery, an unresolved or already-entered provider attempt blocks same-turn redispatch. Surface recovery/new user turn rather than silently replaying the initial envelope. An accepted/failed/interrupted turn with no authorized provider attempt may be claimed again under the existing lifecycle fence.
+- The current Hermes SDK adapter disables automatic retries or routes them through the Agent Harness gate one wire attempt at a time. A retry after a definite provider response requires a new attempt event and consumes policy budget. If a dispatch was authorized but the caller/parent lost the result, persist `outcome_unknown` when observed; on recovery, an unresolved or already-entered provider attempt blocks same-turn redispatch. Surface recovery/new user turn rather than silently replaying the initial envelope. An accepted/failed/interrupted turn with no authorized provider attempt may be claimed again under the existing lifecycle fence.
 
 ## APP-STATE active path allowlist
 
@@ -104,7 +104,7 @@ The new nullable field is omitted from legacy request-fingerprint serialization 
 
 ## SERVER contract and candidate paths
 
-SERVER owns exact-envelope preparation/hash/accounting, replay preflight, first-receipt bootstrap, the non-bypassable provider gate, parent execution of Graph operations, evidence validation, and supplying the producing-attempt ID at completion. Reuse the current SERVER proposals: API/context admission and Graph traversal ownership in `Docs/Plans/HANDOFF-SERVER-plan-world-graph-context-api-projection-v1.md` (#922), and the pinned Hermes final-envelope veto in `Docs/Plans/HANDOFF-SERVER-hermes-pre-dispatch-budget-veto-v1.md` (#924). Extend those specific seams; do not introduce a general-purpose broker framework. Candidate Buddy runtime paths are:
+SERVER owns the Agent Harness contract for exact-envelope preparation/hash/accounting, replay preflight, first-receipt bootstrap, provider authorization, parent execution of Graph tools, evidence validation, and supplying the producing-attempt ID at completion. Reuse the current SERVER proposals: API/context admission and Graph traversal ownership in `Docs/Plans/HANDOFF-SERVER-plan-world-graph-context-api-projection-v1.md` (#922), and the pinned Hermes adapter final-envelope veto in `Docs/Plans/HANDOFF-SERVER-hermes-pre-dispatch-budget-veto-v1.md` (#924). Keep authorization at that adapter boundary while preserving the runtime-neutral Agent Harness contract. Extend those specific seams; do not introduce a general-purpose broker framework. Candidate Buddy runtime paths are:
 
 - `apps/live_control_server/services/agent_turn_service.py`
 - `apps/live_control_server/services/hermes_agent_runtime.py`
