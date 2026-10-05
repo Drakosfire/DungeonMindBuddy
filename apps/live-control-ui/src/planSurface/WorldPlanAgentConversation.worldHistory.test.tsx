@@ -122,6 +122,174 @@ function history(
   };
 }
 
+// Captured from SERVER #926 head 746711815577e022e6961b32c135395e00d36531 with the
+// APP-STATE execution types from 7a8365a5a354e9d3c85e788112f7904f1e517cce:
+// get_world_conversation_history -> project_plan_turn_context -> FastAPI response serializer.
+// Mount this v2 wire body unchanged to join the accepted producer projection to the consumer.
+const serverHistoryProjection: WorldAgentConversationHistoryResponseV2 = {
+  "active_conversation_id": "00000000-0000-4000-8000-000000000031",
+  "conversation_id": "00000000-0000-4000-8000-000000000031",
+  "conversation_state": "active",
+  "next_before_sequence": null,
+  "pointer_revision": 4,
+  "schema": "dmb_agent_conversation_history_v2",
+  "turns": [
+    {
+      "assistant_text": "The western gate is watched.",
+      "lifecycle_status": "completed",
+      "plan_context": {
+        "completion": {
+          "answer_basis": "committed_plan_plus_world_graph",
+          "answer_context_status": "graph_grounded",
+          "answer_segments": [
+            {
+              "claim_id": "claim-internal-test",
+              "evidence_ref_ids": [
+                "evidence-internal-test"
+              ],
+              "graph_revision": "graph-revision-test",
+              "kind": "graph_claim",
+              "target_id": "assertion-internal-test",
+              "target_kind": "assertion",
+              "text": "The western gate is watched."
+            }
+          ],
+          "citation_map": {
+            "context_receipt_sha256": "c67e5dc4a2ef13672c0373330c8fd560dea3be9906045fcdce3ee30a7e791fec",
+            "entries": [
+              {
+                "claim_id": "claim-internal-test",
+                "evidence_ref_ids": [
+                  "evidence-internal-test"
+                ],
+                "graph_revision": "graph-revision-test",
+                "source_opened": false,
+                "target_id": "assertion-internal-test",
+                "target_kind": "assertion"
+              }
+            ],
+            "schema": "dmb_graph_citation_map_v1"
+          },
+          "context_receipt_sha256": "c67e5dc4a2ef13672c0373330c8fd560dea3be9906045fcdce3ee30a7e791fec",
+          "schema": "dmb_plan_world_graph_completion_v1"
+        },
+        "delivery_replay": false,
+        "execution": {
+          "authorization_state": "response_received",
+          "automatic_redispatch": false,
+          "claimability": "completed",
+          "schema": "dmb_agent_plan_world_graph_execution_projection_v1"
+        },
+        "receipt": {
+          "assembled_input": {
+            "assembled_input_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "assembler_version": "assembler-v1",
+            "budget_policy_version": "budget-v1",
+            "context_window_limit": 100,
+            "dispatched_assertion_ids": [
+              "assertion-internal-test"
+            ],
+            "dispatched_evidence_ref_ids": [
+              "evidence-internal-test"
+            ],
+            "dispatched_packet_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "dispatched_relationship_ids": [],
+            "included_history": [],
+            "output_token_reserve": 10,
+            "packet_disposition": "included",
+            "packet_disposition_reason": null,
+            "provider_envelope_input_tokens": 10,
+            "provider_model_name": "synthetic-model",
+            "provider_model_version": "1",
+            "source_token_accounting": [],
+            "tokenizer_name": "utf8_json_bytes_plus_64_per_node_v1",
+            "tokenizer_version": "v1"
+          },
+          "context_receipt_sha256": "c67e5dc4a2ef13672c0373330c8fd560dea3be9906045fcdce3ee30a7e791fec",
+          "evidence_mode": "metadata_only",
+          "graph_authority": {
+            "admissibility_version": "gm-v1",
+            "binding_version": 2,
+            "campaign_id": null,
+            "graph_revision": "graph-revision-test",
+            "managed_world_id": "world-conversation-test",
+            "native_world_id": "native-world-internal-test",
+            "scope_mode": "world"
+          },
+          "graph_packet": {
+            "candidate_assertion_ids": [
+              "assertion-internal-test"
+            ],
+            "candidate_evidence_ref_ids": [
+              "evidence-internal-test"
+            ],
+            "candidate_relationship_ids": [],
+            "coverage_status": "complete",
+            "evidence_sufficiency_policy_version": "sufficiency-v1",
+            "evidence_sufficiency_status": "sufficient",
+            "omission_reasons": [],
+            "packet_serializer_version": "canonical-json-utf8-v1",
+            "result_limit": 32,
+            "retrieval_packet_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "retrieval_status": "complete",
+            "schema": "dmb_plan_world_graph_packet_v1",
+            "selection_policy_version": "selection-v1",
+            "truncated": false
+          },
+          "plan_basis": {
+            "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "document_id": "saved-plan-test",
+            "object_revision": 7,
+            "revision_n": 1,
+            "work_revision_id": "00000000-0000-4000-8000-000000000011",
+            "world_id": "world-conversation-test"
+          },
+          "plan_context_policy": {
+            "policy": "auto_plan_world",
+            "schema": "dmb_plan_context_policy_v1"
+          },
+          "playable_target": null,
+          "receipt_serializer_version": "canonical-json-utf8-v1",
+          "schema": "dmb_agent_plan_world_graph_context_receipt_v1",
+          "source_opened": false
+        },
+        "schema": "dmb_agent_plan_world_graph_context_response_v1"
+      },
+      "provenance": {
+        "primary_work": {
+          "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "kind": "plan",
+          "object_id": "saved-plan-test",
+          "object_revision": 7,
+          "resolution": "resolved",
+          "revision": "7",
+          "revision_n": 1,
+          "work_revision_id": "00000000-0000-4000-8000-000000000011"
+        },
+        "selected_object": {
+          "content_sha256": null,
+          "kind": null,
+          "object_id": null,
+          "object_revision": null,
+          "resolution": "absent",
+          "revision": null,
+          "revision_n": null,
+          "work_revision_id": null
+        },
+        "supporting_work": [],
+        "surface_id": "plan",
+        "surface_instance_id": "plan-main",
+        "surface_resolution": "resolved",
+        "world_id": "world-conversation-test"
+      },
+      "sequence": 1,
+      "turn_id": "00000000-0000-4000-8000-000000000021",
+      "user_text": "Who watches the western gate?"
+    }
+  ],
+  "world_id": "world-conversation-test"
+};
+
 function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   if (value !== null && typeof value === "object") {
@@ -697,6 +865,24 @@ afterEach(() => {
 });
 
 describe("World Plan conversation consumer", () => {
+  it("mounts the exact SERVER history projection and renders its validated citation", async () => {
+    const api = setupApi(serverHistoryProjection);
+
+    render(conversationElement());
+
+    expect(await screen.findAllByText("The western gate is watched.")).toHaveLength(2);
+    expect(screen.getByText("Grounded in complete World Graph evidence.")).toBeInTheDocument();
+    expect(screen.getByText("graph-revision-test")).toBeInTheDocument();
+    expect(screen.getByText(
+      "The server recorded this Ask as complete. Its structured outcome is shown above; this turn will not be automatically resent.",
+    )).toBeInTheDocument();
+    const evidenceSummary = screen.getByText("1 evidence reference");
+    const evidenceDetails = evidenceSummary.closest("details")!;
+    fireEvent.click(evidenceSummary);
+    expect(within(evidenceDetails).getByText("evidence-internal-test")).toBeInTheDocument();
+    expect(api.getHistory).toHaveBeenCalledWith(worldId, { limit: 50 });
+  });
+
   it("sends the explicit additive Graph policy with the committed Plan and card pins, then reads v2 history citations", async () => {
     const api = setupApi(history("conversation-a", 4, []));
     const card = { kind: "scene" as const, id: "scene:opening" };

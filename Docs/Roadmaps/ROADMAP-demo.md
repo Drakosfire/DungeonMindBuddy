@@ -180,9 +180,16 @@ lease is released. The inherited UI typecheck failure at
   current concrete adapter behind the existing seam. It must never redispatch
   an authorized/unknown attempt or expose the raw execution ledger.
   #917 remains prototype evidence only; it is not a predecessor or code source.
-  #914's visual hold is independent. Producer integration, merge, live/provider
-  behavior and runtime rollout remain gated on independently accepted producer
-  implementations; this slice uses no live Graph, provider, service or database.
+  #914's visual hold is independent. PRIME reports scoped APP-STATE acceptance
+  at local ref `7a8365a5a354e9d3c85e788112f7904f1e517cce` (publication approval
+  pending) and SERVER acceptance at PR #926 head
+  `746711815577e022e6961b32c135395e00d36531`. DEMO's mounted history test now
+  consumes a body emitted by SERVER's actual v2 history projection/serializer
+  using the APP-STATE execution types from that exact ref; it renders grounded
+  status, citation, and completed/no-redispatch guidance. This is a joined
+  wire-shape witness, not persisted runtime integration. Producer publication,
+  merge, live/provider behavior and rollout remain gated; the fixture uses no
+  live Graph, provider, service or database.
 - #887 remains DOGFOOD's prototype-only evidence lane. Its private corpus,
   media, and state snapshots are not production data or sources to copy.
 - #869, head `23d76f4d4f4f223b62067024e152e8cb2dde37b8`, remains
