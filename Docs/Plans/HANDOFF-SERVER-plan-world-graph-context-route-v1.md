@@ -5,7 +5,7 @@
 **Pinned base:** Buddy `main@6319ff30466dd9ab2e3e0752fce31ac8a71b7d4b` (merge of accepted #924 head `0e716a0ec3f9f479d7202f9ca48411cbdd0558ef`).
 **Branch:** `codex/plan-world-graph-context-route`.
 **Topology:** one serial SERVER implementation PR on the refreshed base. APP-STATE execution-ledger implementation is committed locally but still needs tests/PostgreSQL verification and publication approval. SERVER uses an in-memory fake persistence port until an exact APP-STATE producer head is reviewed and accepted; actual cross-repository integration acceptance and final dependency merge remain outstanding.
-**Current candidate state:** implementation remains in progress at checkpoint `9ad634b587d015d7caa03d4da8cfd16a0358c4da`. The stream/retry and lifecycle amendments have focused owning-boundary evidence, but the full route lifecycle and actual APP-STATE integration remain incomplete. PRIME confirmed #917 is a preserved prototype with no active reservation; production SERVER owns the overlapping route/service paths, and prototype reconciliation follows production. A draft candidate PR may proceed with the incomplete implementation clearly disclosed.
+**Current candidate state:** implementation remains in progress. The route now binds policy turns to a pinned native Graph read, freezes the first actual provider request into a typed receipt, appends authorization and lifecycle events through a fenced persistence port, brokers bounded parent Graph operations, validates typed completion, and projects v2 response/history. These are candidate behaviors with focused fake-port evidence; accepted APP-STATE producer integration and all owning gates remain outstanding. PRIME confirmed #917 is a preserved prototype with no active reservation; production SERVER owns the overlapping route/service paths, and prototype reconciliation follows production. Keep the PR draft and disclose these limits.
 
 ## Mission
 
@@ -166,6 +166,13 @@ Use deterministic Plan, binding, Graph session, fake APP-STATE execution ledger,
 - Lifecycle plumbing is implemented through the existing worker IPC and verified at the subprocess boundary, but the route candidate remains incomplete. APP-STATE has a local implementation at `da99c20e9fd3acfe45a22496cc1f43337adddfeb`; tests/PostgreSQL verification, publication approval, and producer acceptance remain pending. SERVER currently has no integration code against those methods, so no compatibility claim is made yet.
 
 ## Stop conditions and pending integration
+
+### Current route integration checkpoint (2026-10-05)
+
+- Candidate code is confined to the leased route/service/test files. It injects the Plan-specific parent Graph resolver, preserves a frozen Graph revision and managed/native binding, authorizes the final provider envelope through a fake APP-STATE execution port, appends correlated lifecycle events, brokers parent Graph reads, validates typed completion, and emits v2 route/history projections. No live provider or deployment was used.
+- The focused policy/history/claim-fence suite with the local APP-STATE candidate preloaded passed: 14 passed, 59 deselected. Changed-path Ruff and Python compilation passed. A broader route/service run stopped after 66 passed because the disposable PostgreSQL fixture could not connect to `127.0.0.1:54329`; that failure is environmental and does not prove the database-backed route.
+- A deterministic in-memory native Graph fixture with distinct managed/native IDs passed, as did the guarded fake-port completion test. The fake port is a boundary witness, not proof of accepted APP-STATE persistence. The local producer candidate remains unaccepted and must receive its own review before cross-repository integration acceptance.
+- Remaining acceptance work includes full leased suites, a real persistence contract integration after producer acceptance, and exact provider-subprocess evidence for the newly joined route path. Keep #926 draft. PRIME owns independent review; do not merge or deploy.
 
 Stop and report the smallest concrete blocker to PRIME if the final Agent Harness request cannot synchronously reach the parent before SDK entry; any child-local Graph operation can bypass the broker; lifecycle methods cannot prevent duplicate/uncertain dispatch; evidence membership cannot be derived from the actual producing request; or a required path/API/storage change falls outside this lease. Amend this handoff before any path expansion.
 

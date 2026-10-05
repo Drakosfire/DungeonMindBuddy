@@ -10,8 +10,8 @@ from datetime import datetime
 from hashlib import sha256
 from pathlib import Path
 from threading import Event, Lock, Thread
-from typing import Any, Callable, Mapping
-from uuid import NAMESPACE_URL, UUID, uuid5
+from typing import Any, Callable, Mapping, Protocol
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation.types import (
@@ -186,10 +186,14 @@ def _trace_safe_host_phase_span(
 
 
 class AgentTurnServiceError(ValueError):
-    def __init__(self, message: str, *, code: str, status_code: int = 422) -> None:
+    def __init__(
+        self, message: str, *, code: str, status_code: int = 422,
+        provider_dispatched: bool | None = None,
+    ) -> None:
         super().__init__(message)
         self.code = code
         self.status_code = status_code
+        self.provider_dispatched = provider_dispatched
 
 
 def project_plan_graph_execution_state(
@@ -219,6 +223,360 @@ def project_plan_graph_execution_state(
     )
 
 
+def _app_state_graph_execution_types() -> Any:
+    """Load the exact producer contract lazily so older installations fail closed."""
+    from application_state.agent_conversation import types as graph_types
+
+    required = (
+        "GraphExecutionAccountingV1",
+        "GraphExecutionPolicyV1",
+        "PlanWorldGraphExecutionV1",
+        "ProviderAttemptAuthorizedEventV1",
+        "ProviderOutcomeEventV1",
+        "ValidatedGraphOperationEventV1",
+    )
+    if any(not hasattr(graph_types, name) for name in required):
+        raise AgentTurnServiceError(
+            "The installed APP-STATE producer has no Graph execution contract.",
+            code="plan_graph_execution_unavailable",
+            status_code=503,
+        )
+    return graph_types
+
+
+def _require_fresh_execution_append(result: tuple[Turn, bool]) -> Turn:
+    """Only a newly committed one-shot event may acknowledge harness progress."""
+    if (
+        not isinstance(result, tuple)
+        or len(result) != 2
+        or not isinstance(result[0], Turn)
+        or result[1] is not True
+    ):
+        raise AgentTurnServiceError(
+            "APP-STATE did not confirm a fresh execution event.",
+            code="turn_persistence_indeterminate",
+            status_code=409,
+        )
+    return result[0]
+
+
+def _canonical_sha256(value: Any) -> str:
+    encoded = json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return sha256(encoded).hexdigest()
+
+
+def _json_node_count(value: Any) -> int:
+    if isinstance(value, Mapping):
+        return 1 + sum(_json_node_count(item) for item in value.values())
+    if isinstance(value, list):
+        return 1 + sum(_json_node_count(item) for item in value)
+    return 0
+
+
+def _nested_text_values(value: Any) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, Mapping):
+        return [text for item in value.values() for text in _nested_text_values(item)]
+    if isinstance(value, list):
+        return [text for item in value for text in _nested_text_values(item)]
+    return []
+
+
+def _initial_claim_packet_from_view(
+    view: Any,
+    bootstrap: AgentPlanWorldGraphBootstrap,
+    *,
+    frozen_projection: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Parse the provider request's actual system policy block and verify it."""
+    try:
+        body = json.loads(view.payload_json)
+    except (TypeError, ValueError, AttributeError) as exc:
+        raise AgentTurnServiceError(
+            "The Agent Harness provider request could not be validated.",
+            code="graph_evidence_invalid",
+            status_code=502,
+        ) from exc
+    expected_packet = (
+        frozen_projection
+        if frozen_projection is not None
+        else bootstrap.retrieval_session.project_for_hermes()
+    )
+    expected = {
+        "candidates": list(expected_packet.get("candidates") or [])[:8],
+        "claimLedger": list(expected_packet.get("claim_ledger") or [])[:24],
+        "intentHint": expected_packet.get("intent_hint"),
+        "availableExpansions": list(
+            expected_packet.get("available_expansions") or []
+        ),
+    }
+    latest = expected_packet.get("latest_recap_change")
+    if isinstance(latest, Mapping):
+        latest_packet = dict(latest)
+        excerpt = latest_packet.pop("admitted_recap_excerpt", None)
+        expected["latestRecapChange"] = latest_packet
+        if isinstance(excerpt, str) and excerpt.strip():
+            expected["admittedRecapExcerpt"] = excerpt.strip()
+    parsed_packets: list[dict[str, Any]] = []
+    marker = "Turn capability policy (runtime-enforced; also required on tool calls):"
+    decoder = json.JSONDecoder()
+    for content in _nested_text_values(body):
+        start = content.find(marker)
+        if start < 0:
+            continue
+        object_start = content.find("{", start + len(marker))
+        if object_start < 0:
+            continue
+        try:
+            policy_block, _end = decoder.raw_decode(content[object_start:])
+        except ValueError:
+            continue
+        if isinstance(policy_block, Mapping) and isinstance(
+            policy_block.get("initialClaimPacket"), Mapping
+        ):
+            parsed_packets.append(dict(policy_block["initialClaimPacket"]))
+    if len(parsed_packets) != 1 or parsed_packets[0] != expected:
+        raise AgentTurnServiceError(
+            "The initial Graph claims were not exactly present in the final provider request.",
+            code="graph_evidence_invalid",
+            status_code=502,
+        )
+    return parsed_packets[0]
+
+
+def _initial_packet_membership(
+    packet: Mapping[str, Any], bootstrap: AgentPlanWorldGraphBootstrap,
+) -> tuple[list[str], list[str], list[str]]:
+    """Admit only typed IDs actually serialized in the provider's claim packet."""
+    candidate_assertions = set(bootstrap.candidate_assertion_ids)
+    candidate_relationships = set(bootstrap.candidate_relationship_ids)
+    assertion_ids: set[str] = set()
+    relationship_ids: set[str] = set()
+    evidence_ids: set[str] = set()
+    for raw in packet.get("claimLedger", []):
+        if not isinstance(raw, Mapping):
+            raise AgentTurnServiceError(
+                "The provider Graph claim packet is malformed.",
+                code="graph_evidence_invalid", status_code=502,
+                provider_dispatched=False,
+            )
+        claim_id = raw.get("claim_id")
+        if claim_id in candidate_assertions:
+            assertion_ids.add(claim_id)
+        elif claim_id in candidate_relationships:
+            relationship_ids.add(claim_id)
+        else:
+            continue
+        support = raw.get("support")
+        if not isinstance(support, Mapping):
+            continue
+        for anchor_id in support.get("source_anchor_ids", []):
+            evidence_id = bootstrap.evidence_by_anchor_id.get(anchor_id)
+            if evidence_id is not None:
+                evidence_ids.add(evidence_id)
+    if not evidence_ids.issubset(set(bootstrap.candidate_evidence_ref_ids)):
+        raise AgentTurnServiceError(
+            "The provider Graph evidence is foreign to the pinned retrieval.",
+            code="graph_evidence_invalid", status_code=502,
+            provider_dispatched=False,
+        )
+    return sorted(assertion_ids), sorted(relationship_ids), sorted(evidence_ids)
+
+
+def _verify_policy_plan_payload(
+    view: Mapping[str, Any],
+    request: AgentTurnRequest,
+    work: AgentTurnResolvedWork,
+    playable_target: PlanPlayableTargetReceiptV1 | None,
+) -> None:
+    if work.plan_markdown is None or work.content_basis is None:
+        raise AgentTurnServiceError(
+            "The final provider request has no committed Plan basis.",
+            code="graph_evidence_invalid", status_code=502,
+            provider_dispatched=False,
+        )
+    expected = _plan_message(
+        request.message, work.plan_markdown,
+        playable_target=playable_target,
+        content_basis=work.content_basis,
+    )
+    try:
+        body = json.loads(view["payloadJson"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise AgentTurnServiceError(
+            "The final provider request could not be parsed.",
+            code="graph_evidence_invalid", status_code=502,
+            provider_dispatched=False,
+        ) from exc
+    if not any(expected in text for text in _nested_text_values(body)):
+        raise AgentTurnServiceError(
+            "The committed Plan was absent from the final provider request.",
+            code="graph_evidence_invalid", status_code=502,
+            provider_dispatched=False,
+        )
+
+
+def _freeze_policy_receipt(
+    request: AgentTurnRequest,
+    work: AgentTurnResolvedWork,
+    bootstrap: AgentPlanWorldGraphBootstrap,
+    playable_target: PlanPlayableTargetReceiptV1 | None,
+    view: Mapping[str, Any],
+    budget: Mapping[str, Any],
+) -> tuple[PlanWorldGraphContextReceiptV1, Any, tuple[list[str], list[str], list[str]]]:
+    """Freeze exact first-request accounting and source-free initial evidence."""
+    graph_types = _app_state_graph_execution_types()
+    _verify_policy_plan_payload(view, request, work, playable_target)
+    packet = _initial_claim_packet_from_view(
+        type("RequestView", (), {"payload_json": view["payloadJson"]})(),
+        bootstrap,
+    )
+    assertions, relationships, evidence = _initial_packet_membership(packet, bootstrap)
+    basis = work.content_basis
+    if basis is None or request.plan_context_policy is None:
+        raise AgentTurnServiceError(
+            "The committed Plan basis is unavailable for receipt freeze.",
+            code="receipt_freeze_failed", status_code=503,
+            provider_dispatched=False,
+        )
+    try:
+        provider_body = json.loads(view["payloadJson"])
+        upper_bound = view["payloadUtf8Bytes"] + 64 * (1 + _json_node_count(provider_body))
+        if upper_bound + budget["outputReserveTokens"] > budget["contextLimitTokens"]:
+            raise AgentTurnServiceError(
+                "The final provider request exceeds its context budget.",
+                code="provider_envelope_over_budget", status_code=413,
+                provider_dispatched=False,
+            )
+        sufficient = bool((assertions or relationships) and evidence)
+        coverage = bootstrap.retrieval_session.coverage.state == "ready"
+        packet_included = sufficient
+        receipt_payload = {
+            "receipt_serializer_version": "canonical-json-utf8-v1",
+            "context_receipt_sha256": "0" * 64,
+            "plan_context_policy": request.plan_context_policy,
+            "plan_basis": {
+                "world_id": basis.world_id, "document_id": basis.document_id,
+                "object_revision": basis.object_revision,
+                "work_revision_id": basis.work_revision_id,
+                "revision_n": basis.revision_n,
+                "content_sha256": basis.content_sha256,
+            },
+            "playable_target": playable_target,
+            "graph_authority": {
+                "managed_world_id": basis.world_id,
+                "native_world_id": bootstrap.world_scope.world_id,
+                "binding_version": bootstrap.binding_version,
+                "scope_mode": "world", "campaign_id": None,
+                "admissibility_version": "gm-v1",
+                "graph_revision": bootstrap.world_scope.revision_id,
+            },
+            "graph_packet": {
+                "packet_serializer_version": "canonical-json-utf8-v1",
+                "selection_policy_version": "parent_initial_retrieval_v1",
+                "evidence_sufficiency_policy_version": "accepted_fact_with_evidence_v1",
+                "retrieval_packet_sha256": _canonical_sha256(packet),
+                "candidate_assertion_ids": list(bootstrap.candidate_assertion_ids),
+                "candidate_relationship_ids": list(bootstrap.candidate_relationship_ids),
+                "candidate_evidence_ref_ids": list(bootstrap.candidate_evidence_ref_ids),
+                "retrieval_status": (
+                    "complete" if bootstrap.candidate_assertion_ids
+                    or bootstrap.candidate_relationship_ids
+                    or bootstrap.candidate_evidence_ref_ids else "empty"
+                ),
+                "evidence_sufficiency_status": "sufficient" if sufficient else "insufficient",
+                "result_limit": 32,
+                "coverage_status": "complete" if coverage else "incomplete",
+                "truncated": False,
+                "omission_reasons": [] if packet_included else ["insufficient_evidence"],
+            },
+            "assembled_input": {
+                "assembler_version": "agent_harness_final_request_v1",
+                "budget_policy_version": "plan_world_graph_budget_v1",
+                "provider_model_name": view["model"],
+                "provider_model_version": view["model"],
+                "tokenizer_name": budget["estimator"],
+                "tokenizer_version": "v1",
+                "provider_envelope_input_tokens": upper_bound,
+                "output_token_reserve": budget["outputReserveTokens"],
+                "context_window_limit": budget["contextLimitTokens"],
+                "packet_disposition": "included" if packet_included else "omitted_insufficient",
+                "packet_disposition_reason": None if packet_included else "insufficient_evidence",
+                "dispatched_packet_sha256": _canonical_sha256(packet) if packet_included else None,
+                "dispatched_assertion_ids": assertions if packet_included else [],
+                "dispatched_relationship_ids": relationships if packet_included else [],
+                "dispatched_evidence_ref_ids": evidence if packet_included else [],
+                "source_token_accounting": [{
+                    "source_kind": "message", "source_id": "final_provider_envelope",
+                    "input_tokens": upper_bound,
+                }],
+                "included_history": [],
+                "assembled_input_sha256": view["payloadSha256"],
+            },
+            "evidence_mode": "metadata_only", "source_opened": False,
+        }
+        # Build typed nested values before hashing so every default schema and
+        # alias is included exactly as APP-STATE will persist it.
+        provisional = graph_types.PlanWorldGraphContextReceiptV1.model_construct(
+            receipt_serializer_version="canonical-json-utf8-v1",
+            context_receipt_sha256="0" * 64,
+            plan_context_policy=request.plan_context_policy,
+            plan_basis=graph_types.PlanAskContextBasis.model_validate(
+                receipt_payload["plan_basis"]
+            ),
+            playable_target=playable_target,
+            graph_authority=graph_types.PlanWorldGraphAuthorityV1.model_validate(
+                receipt_payload["graph_authority"]
+            ),
+            graph_packet=graph_types.PlanWorldGraphPacketV1.model_validate(
+                receipt_payload["graph_packet"]
+            ),
+            assembled_input=graph_types.PlanWorldGraphAssembledInputV1.model_validate(
+                receipt_payload["assembled_input"]
+            ),
+            evidence_mode="metadata_only",
+            source_opened=False,
+        )
+        receipt = graph_types.PlanWorldGraphContextReceiptV1.model_validate(
+            provisional.model_copy(update={
+                "context_receipt_sha256":
+                graph_types.plan_world_graph_context_receipt_digest(provisional)
+            }).model_dump(mode="json", by_alias=True)
+        )
+        execution = graph_types.PlanWorldGraphExecutionV1(
+            context_receipt_sha256=receipt.context_receipt_sha256,
+            policy=graph_types.GraphExecutionPolicyV1(
+                policy_version="plan_world_graph_execution_v1",
+                allowed_graph_operations=["expand_graph_retrieval"],
+                max_provider_attempts=4, max_graph_operations=8,
+                max_results_per_operation=512,
+                max_total_provider_input_tokens=budget["contextLimitTokens"] * 4,
+                max_total_provider_output_tokens=budget["outputReserveTokens"] * 4,
+                provider_input_accounting=graph_types.GraphExecutionAccountingV1(
+                    kind="conservative_upper_bound", estimator=budget["estimator"],
+                ),
+                source_opened=False,
+            ),
+            events=[],
+        )
+        return receipt, execution, (assertions, relationships, evidence)
+    except AgentTurnServiceError:
+        raise
+    except (KeyError, TypeError, ValueError) as exc:
+        raise AgentTurnServiceError(
+            "The final provider receipt could not be frozen.",
+            code="receipt_freeze_failed", status_code=503,
+            provider_dispatched=False,
+        ) from exc
+
+
 @dataclass(frozen=True, slots=True)
 class AgentTurnResolvedWork:
     kind: str
@@ -236,6 +594,21 @@ class AgentTurnResolvedWork:
     plan_markdown: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class AgentPlanWorldGraphBootstrap:
+    """Parent-owned, source-free initial Graph packet for a policy turn."""
+
+    graph_envelope: Mapping[str, Any]
+    world_scope: AgentWorldScope
+    retrieval_session: Any
+    binding_version: int
+    source_root_relpath: str
+    candidate_assertion_ids: tuple[str, ...]
+    candidate_relationship_ids: tuple[str, ...]
+    candidate_evidence_ref_ids: tuple[str, ...]
+    evidence_by_anchor_id: Mapping[str, str]
+
+
 OwnerResolver = Callable[[AgentTurnRequest], Mapping[str, Any] | None]
 WorkResolver = Callable[
     [AgentTurnRequest, Mapping[str, Any] | None], AgentTurnResolvedWork | None
@@ -248,6 +621,50 @@ GraphResolver = Callable[
     [AgentTurnRequest, Mapping[str, Any] | None, AgentTurnResolvedWork | None],
     tuple[dict[str, Any], AgentWorldScope],
 ]
+PlanGraphResolver = Callable[
+    [
+        AgentTurnRequest,
+        Mapping[str, Any] | None,
+        AgentTurnResolvedWork | None,
+        PlanWorldGraphContextReceiptV1 | None,
+    ],
+    AgentPlanWorldGraphBootstrap,
+]
+
+
+class AgentTurnExecutionPersistencePort(Protocol):
+    """Narrow SERVER-facing APP-STATE seam for guarded Graph execution."""
+
+    def accept_turn(self, submission: TurnSubmission) -> Turn: ...
+
+    def claim_turn(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, lease_seconds: int = 120,
+    ) -> Any: ...
+
+    def authorize_provider_attempt(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, provider_attempt_event: Any,
+    ) -> tuple[Turn, bool]: ...
+
+    def record_provider_outcome(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, outcome: Any,
+    ) -> tuple[Turn, bool]: ...
+
+    def append_validated_graph_operation(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, operation_event: Any,
+    ) -> tuple[Turn, bool]: ...
+
+    def complete_turn(self, result: TurnResult) -> Turn: ...
+
+    def fail_turn(self, failure: TurnFailure, *, interrupted: bool = False) -> Turn: ...
+
+    def renew_turn_claim(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, lease_seconds: int = 120,
+    ) -> Turn: ...
 
 
 class _TurnClaimRenewer:
@@ -255,21 +672,30 @@ class _TurnClaimRenewer:
 
     def __init__(
         self,
-        service: AgentConversationService,
+        service: AgentTurnExecutionPersistencePort,
         turn: Turn,
         *,
         lease_seconds: int = 120,
         renewal_interval_seconds: int = 30,
+        state_lock: Lock | None = None,
     ) -> None:
         self._service = service
         self._turn = turn
         self._lease_seconds = lease_seconds
         self._renewal_interval_seconds = renewal_interval_seconds
         self._stop = Event()
-        self._lock = Lock()
+        self._lock = state_lock or Lock()
         self._error: Exception | None = None
         self._thread = Thread(target=self._run, name="agent-turn-claim-renewer", daemon=True)
         self._thread.start()
+
+    def current_turn(self) -> Turn:
+        with self._lock:
+            return self._turn
+
+    def update_turn(self, turn: Turn) -> None:
+        with self._lock:
+            self._turn = turn
 
     def _run(self) -> None:
         while not self._stop.wait(self._renewal_interval_seconds):
@@ -294,6 +720,602 @@ class _TurnClaimRenewer:
         self._thread.join()
         with self._lock:
             return self._turn, self._error
+
+
+class _ClaimFence:
+    """Serialize event appends with renewals through one moving APP fence."""
+
+    def __init__(self, service: AgentTurnExecutionPersistencePort, turn: Turn) -> None:
+        self.service = service
+        self.renewer = _TurnClaimRenewer(service, turn)
+
+    @property
+    def turn(self) -> Turn:
+        return self.renewer.current_turn()
+
+    def append(self, method_name: str, event_name: str, event: Any) -> tuple[Turn, bool]:
+        with self.renewer._lock:
+            current = self.renewer._turn
+            method = getattr(self.service, method_name, None)
+            if not callable(method):
+                raise ApplicationStateError(
+                    f"APP-STATE execution method {method_name} is unavailable."
+                )
+            updated, fresh = method(
+                current.world_id,
+                current.conversation_id,
+                current.turn_id,
+                expected_revision=current.revision,
+                expected_attempt=current.attempt,
+                **{event_name: event},
+            )
+            if not isinstance(fresh, bool):
+                raise ApplicationStateError(
+                    "APP-STATE execution append returned an invalid disposition."
+                )
+            self.renewer._turn = updated
+            return updated, fresh
+
+    def stop(self) -> tuple[Turn, Exception | None]:
+        return self.renewer.stop_and_join()
+
+
+class _PolicyExecutionAdapter:
+    """Parent-owned persistence gate for one Plan/World Graph harness turn."""
+
+    def __init__(
+        self,
+        *,
+        service: AgentTurnExecutionPersistencePort,
+        request: AgentTurnRequest,
+        world_id: str,
+        work: AgentTurnResolvedWork,
+        bootstrap: AgentPlanWorldGraphBootstrap,
+        playable_target: PlanPlayableTargetReceiptV1 | None,
+        submitted_intent: SubmittedTurnIntentV2,
+        existing_turn: Turn | None,
+        budget: Mapping[str, Any],
+    ) -> None:
+        self.service = service
+        self.request = request
+        self.world_id = world_id
+        self.work = work
+        self.bootstrap = bootstrap
+        self.initial_session_projection = json.loads(json.dumps(
+            bootstrap.retrieval_session.project_for_hermes(),
+            ensure_ascii=False,
+        ))
+        self.playable_target = playable_target
+        self.submitted_intent = submitted_intent
+        self.turn = existing_turn
+        self.budget = budget
+        self.fence: _ClaimFence | None = None
+        self.last_provider_attempt_id: UUID | None = None
+        self.producing_provider_attempt_id: UUID | None = None
+        self.failure: AgentTurnServiceError | None = None
+        self.operation_payloads: dict[UUID, str] = {}
+
+    def _ensure_claimed(
+        self, view: Mapping[str, Any],
+    ) -> tuple[Turn, list[str], list[str], list[str]]:
+        _verify_policy_plan_payload(
+            view, self.request, self.work, self.playable_target
+        )
+        initial = _initial_claim_packet_from_view(
+            type("RequestView", (), {"payload_json": view["payloadJson"]})(),
+            self.bootstrap,
+            frozen_projection=self.initial_session_projection,
+        )
+        membership = _initial_packet_membership(initial, self.bootstrap)
+        if self.fence is not None:
+            return self.fence.turn, *membership
+        if self.turn is None:
+            receipt, execution, membership = _freeze_policy_receipt(
+                self.request, self.work, self.bootstrap,
+                self.playable_target, view, self.budget,
+            )
+            provenance = _conversation_provenance(
+                self.request,
+                world_id=self.world_id,
+                work=self.work,
+                playable_target=self.playable_target,
+            )
+            accepted = _accept_world_turn(
+                self.service, self.request, world_id=self.world_id,
+                provenance=provenance, submitted_intent=self.submitted_intent,
+                graph_context_receipt=receipt,
+                graph_context_execution=execution,
+            )
+            if accepted.provenance != provenance or accepted.graph_context_receipt != receipt:
+                raise AgentTurnServiceError(
+                    "A concurrent Plan Graph receipt won admission with another basis.",
+                    code="turn_basis_changed", status_code=409,
+                    provider_dispatched=False,
+                )
+            self.turn = accepted
+        else:
+            receipt = self.turn.graph_context_receipt
+            if (
+                receipt is None
+                or receipt.graph_authority.graph_revision
+                != self.bootstrap.world_scope.revision_id
+                or receipt.graph_authority.binding_version
+                != self.bootstrap.binding_version
+                or receipt.assembled_input.assembled_input_sha256
+                != view["payloadSha256"]
+            ):
+                raise AgentTurnServiceError(
+                    "The retry provider envelope differs from the frozen receipt.",
+                    code="turn_receipt_unverifiable", status_code=409,
+                    provider_dispatched=False,
+                )
+            execution = getattr(self.turn, "graph_context_execution", None)
+            if execution is None or any(
+                getattr(event, "kind", None) == "provider_attempt_authorized"
+                for event in execution.events
+            ):
+                raise AgentTurnServiceError(
+                    "The stored provider attempt cannot be automatically repeated.",
+                    code="turn_already_authorized", status_code=409,
+                    provider_dispatched=None,
+                )
+        assert self.turn is not None
+        claim = self.service.claim_turn(
+            self.turn.world_id, self.turn.conversation_id, self.turn.turn_id,
+            expected_revision=self.turn.revision, lease_seconds=120,
+        )
+        if claim.disposition != "claimed":
+            raise AgentTurnServiceError(
+                "The Plan Graph turn could not acquire a fresh claim.",
+                code="turn_lifecycle_conflict", status_code=409,
+                provider_dispatched=False,
+            )
+        self.turn = claim.turn
+        self.fence = _ClaimFence(self.service, claim.turn)
+        return claim.turn, *membership
+
+    def authorize(self, view: Mapping[str, Any]) -> bool:
+        """Return allow only for one fresh durable authorization append."""
+        try:
+            if (
+                view.get("provider") != self.budget["provider"]
+                or view.get("model") != self.budget["model"]
+                or view.get("apiMode") != self.budget["apiMode"]
+            ):
+                raise AgentTurnServiceError(
+                    "Provider request identity differs from the approved budget.",
+                    code="provider_envelope_over_budget", status_code=413,
+                    provider_dispatched=False,
+                )
+            turn, assertions, relationships, evidence = self._ensure_claimed(view)
+            execution = getattr(turn, "graph_context_execution", None)
+            if execution is None or self.fence is None:
+                raise AgentTurnServiceError(
+                    "The Graph execution ledger is unavailable after claim.",
+                    code="turn_persistence_indeterminate", status_code=503,
+                )
+            body = json.loads(view["payloadJson"])
+            upper_bound = view["payloadUtf8Bytes"] + 64 * (1 + _json_node_count(body))
+            if upper_bound + self.budget["outputReserveTokens"] > self.budget["contextLimitTokens"]:
+                raise AgentTurnServiceError(
+                    "The final provider request exceeds the frozen budget.",
+                    code="provider_envelope_over_budget", status_code=413,
+                    provider_dispatched=False,
+                )
+            graph_types = _app_state_graph_execution_types()
+            provider_attempt_id = uuid4()
+            request_texts = _nested_text_values(body)
+            included_operations = [
+                event for event in execution.events
+                if getattr(event, "kind", None) == "validated_graph_operation"
+                and (
+                    payload := self.operation_payloads.get(event.event_id)
+                ) is not None
+                and any(payload in text for text in request_texts)
+            ]
+            assertions = sorted(set(assertions) | {
+                item for event in included_operations for item in event.assertion_ids
+            })
+            relationships = sorted(set(relationships) | {
+                item for event in included_operations for item in event.relationship_ids
+            })
+            evidence = sorted(set(evidence) | {
+                item for event in included_operations for item in event.evidence_ref_ids
+            })
+            event = graph_types.ProviderAttemptAuthorizedEventV1(
+                event_id=uuid4(), sequence=len(execution.events),
+                kind="provider_attempt_authorized",
+                provider_attempt_id=provider_attempt_id,
+                envelope_sha256=view["payloadSha256"],
+                serializer_version="canonical-json-utf8-v1",
+                provider=view["provider"], model=view["model"],
+                api_mode=view["apiMode"],
+                tool_schema_sha256=_canonical_sha256(body.get("tools", [])),
+                input_accounting_kind="conservative_upper_bound",
+                input_estimator=self.budget["estimator"],
+                input_tokens=upper_bound,
+                output_token_reserve=self.budget["outputReserveTokens"],
+                included_assertion_ids=assertions,
+                included_relationship_ids=relationships,
+                included_evidence_ref_ids=evidence,
+                included_graph_event_ids=[event.event_id for event in included_operations],
+            )
+            updated = _require_fresh_execution_append(
+                self.fence.append(
+                    "authorize_provider_attempt", "provider_attempt_event", event
+                )
+            )
+            self.turn = updated
+            self.last_provider_attempt_id = provider_attempt_id
+            return True
+        except (AgentTurnServiceError, ApplicationStateError, ValueError, KeyError, TypeError) as exc:
+            self.failure = (
+                exc if isinstance(exc, AgentTurnServiceError)
+                else AgentTurnServiceError(
+                    "The provider authorization could not be durably confirmed.",
+                    code="turn_persistence_indeterminate", status_code=503,
+                )
+            )
+            return False
+
+    def record_lifecycle(self, lifecycle: Mapping[str, Any]) -> bool:
+        try:
+            if self.fence is None or self.last_provider_attempt_id is None:
+                return False
+            transition = lifecycle.get("transition")
+            if transition not in {"sdk_entered", "response_received", "outcome_unknown"}:
+                return False
+            graph_types = _app_state_graph_execution_types()
+            event = graph_types.ProviderOutcomeEventV1(
+                event_id=uuid4(),
+                sequence=len(self.fence.turn.graph_context_execution.events),
+                kind="provider_outcome",
+                provider_attempt_id=self.last_provider_attempt_id,
+                outcome=transition,
+            )
+            updated = _require_fresh_execution_append(
+                self.fence.append("record_provider_outcome", "outcome", event)
+            )
+            self.turn = updated
+            if transition == "response_received":
+                self.producing_provider_attempt_id = self.last_provider_attempt_id
+            return True
+        except (AgentTurnServiceError, ApplicationStateError, ValueError) as exc:
+            self.failure = (
+                exc if isinstance(exc, AgentTurnServiceError)
+                else AgentTurnServiceError(
+                    "The provider lifecycle could not be durably confirmed.",
+                    code="turn_persistence_indeterminate", status_code=503,
+                )
+            )
+            return False
+
+    def broker_graph_operation(self, message: Mapping[str, Any]) -> Mapping[str, Any]:
+        """Resolve and persist an exact native Graph expansion before IPC reply."""
+        from graph_memory.interaction.authority_classifier import (
+            claims_from_retrieval_result,
+        )
+        from graph_memory.interaction.expansion_executor import (
+            ExpandGraphRetrievalRequest,
+        )
+        from graph_memory.interaction.session import SourceAnchorState
+        from graph_memory.interaction.session_store import replace_session
+        from graph_memory.retrieval.models import (
+            WorldGraphEvidenceRequest, WorldGraphNeighborhoodRequest,
+            WorldGraphObjectRequest, WorldGraphSearchRequest,
+        )
+        from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
+            direct_services_from_config, get_evidence_direct, get_neighborhood_direct,
+            get_object_direct, search_world_graph_direct,
+        )
+
+        def denied(code: str, status: int = 502) -> Mapping[str, Any]:
+            return {
+                "resultJson": json.dumps({
+                    "schema": "dmb_world_graph_retrieval_error_v1",
+                    "code": code,
+                    "message": "Parent Graph expansion could not be admitted.",
+                    "statusCode": status,
+                    "diagnostics": [],
+                }, separators=(",", ":")),
+                "retrievalSession": None,
+            }
+
+        try:
+            if self.fence is None or self.last_provider_attempt_id is None:
+                return denied("graph_operation_before_authorization", 409)
+            arguments = message.get("arguments")
+            if message.get("toolName") != "expand_graph_retrieval" or not isinstance(arguments, Mapping):
+                return denied("plan_graph_tool_not_permitted", 403)
+            # Ignore any child-supplied scope. The parent supplies the frozen
+            # World, campaign, admissibility, and revision in every direct read.
+            normalized = {
+                key: value for key, value in arguments.items()
+                if key not in {
+                    "worldId", "campaignId", "focus", "admissibility",
+                    "revisionPin", "scopeMode", "world_id", "campaign_id",
+                    "revision_pin", "scope_mode",
+                }
+            }
+            request = ExpandGraphRetrievalRequest.model_validate(normalized)
+            session = self.bootstrap.retrieval_session
+            if request.retrieval_session_id != session.id or (
+                request.historical_revision_id is not None
+                and request.historical_revision_id != self.bootstrap.world_scope.revision_id
+            ):
+                return denied("graph_revision_conflict", 409)
+            target_ids = [target.id for target in request.targets] or (
+                session.selected_referent_ids() or list(session.preflight_candidate_ids)
+            )
+            common = {
+                "worldId": self.bootstrap.world_scope.world_id,
+                "campaignId": "", "scopeMode": "world",
+                "focus": {"kind": "none", "sessionId": None, "campaignId": None},
+                "admissibility": "gm",
+                "revisionPin": self.bootstrap.world_scope.revision_id,
+            }
+            services = direct_services_from_config(self.bootstrap.world_scope.world_id)
+            if request.operation == "object":
+                if len(target_ids) != 1:
+                    return denied("ambiguous_target", 422)
+                result = get_object_direct(services, WorldGraphObjectRequest.model_validate({
+                    **common, "schema": "dmb_world_graph_object_request_v1",
+                    "nodeId": target_ids[0],
+                }))
+            elif request.operation == "neighborhood":
+                if not 1 <= len(target_ids) <= 8:
+                    return denied("ambiguous_target", 422)
+                result = get_neighborhood_direct(services, WorldGraphNeighborhoodRequest.model_validate({
+                    **common, "schema": "dmb_world_graph_neighborhood_request_v1",
+                    "seedNodeIds": target_ids, "maxDepth": request.depth,
+                }))
+            elif request.operation == "support":
+                if len(target_ids) != 1:
+                    return denied("ambiguous_target", 422)
+                result = get_evidence_direct(services, WorldGraphEvidenceRequest.model_validate({
+                    **common, "schema": "dmb_world_graph_evidence_request_v1",
+                    "target": {"kind": "node", "id": target_ids[0]},
+                }))
+            else:
+                result = search_world_graph_direct(services, WorldGraphSearchRequest.model_validate({
+                    **common, "schema": "dmb_world_graph_search_request_v1",
+                    "queryText": request.query_text or session.question,
+                    "seedNodeIds": target_ids[:8],
+                }))
+            if (
+                result.snapshot is None
+                or result.snapshot.world_id != self.bootstrap.world_scope.world_id
+                or result.snapshot.revision_id != self.bootstrap.world_scope.revision_id
+            ):
+                return denied("graph_revision_conflict", 409)
+            result_payload = result.model_dump(mode="json", by_alias=True)
+            claims = claims_from_retrieval_result(
+                result_payload, revision_id=self.bootstrap.world_scope.revision_id
+            )
+            assertion_ids = sorted({item.assertion_id for item in result.attributes})
+            relationship_ids = sorted({item.edge_id for item in result.relationships})
+            evidence_ids = sorted({
+                item.evidence_ref_id for item in result.source_anchors
+                if item.evidence_ref_id
+            })
+            if len(assertion_ids) + len(relationship_ids) + len(evidence_ids) > 512:
+                return denied("graph_operation_over_budget", 413)
+            sufficient = bool((assertion_ids or relationship_ids) and evidence_ids)
+            truncated = result.outcome == "truncated" or bool(
+                result.coverage.truncated_fields
+            )
+            graph_types = _app_state_graph_execution_types()
+            event_id = uuid4()
+            event = graph_types.ValidatedGraphOperationEventV1(
+                event_id=event_id,
+                sequence=len(self.fence.turn.graph_context_execution.events),
+                kind="validated_graph_operation",
+                operation_id=uuid4(), operation="expand_graph_retrieval",
+                request_arguments_sha256=_canonical_sha256(normalized),
+                graph_revision=self.bootstrap.world_scope.revision_id,
+                result_packet_sha256=_canonical_sha256(result_payload),
+                assertion_ids=assertion_ids,
+                relationship_ids=relationship_ids,
+                evidence_ref_ids=evidence_ids,
+                evidence_sufficiency_status=(
+                    "sufficient" if sufficient else "insufficient"
+                ),
+                coverage_status=(
+                    "complete" if result.outcome == "enough" and not truncated
+                    else "incomplete"
+                ),
+                truncated=truncated,
+                source_opened=False,
+            )
+            updated = _require_fresh_execution_append(
+                self.fence.append(
+                    "append_validated_graph_operation", "operation_event", event
+                )
+            )
+            self.turn = updated
+            session.upsert_claims(claims)
+            prior_anchors = {item.anchor_id for item in session.source_anchors}
+            for anchor in result.source_anchors:
+                if anchor.anchor_id not in prior_anchors:
+                    session.source_anchors.append(SourceAnchorState(
+                        anchor_id=anchor.anchor_id,
+                        readable=anchor.readable,
+                        opened=False,
+                        locator_kind=anchor.locator_kind,
+                    ))
+                    prior_anchors.add(anchor.anchor_id)
+            replace_session(session)
+            result_json = json.dumps({
+                **result_payload,
+                "retrievalSessionId": session.id,
+                "addedClaimIds": [claim.claim_id for claim in claims],
+                "claimLedger": [
+                    claim.model_dump(mode="json", by_alias=True)
+                    for claim in session.claims
+                ],
+            }, ensure_ascii=False, separators=(",", ":"))
+            self.operation_payloads[event_id] = result_json
+            return {
+                "resultJson": result_json,
+                "retrievalSession": session.project_for_hermes(),
+            }
+        except Exception as exc:
+            self.failure = (
+                exc if isinstance(exc, AgentTurnServiceError)
+                else AgentTurnServiceError(
+                    "The parent Graph operation could not be durably admitted.",
+                    code="graph_operation_indeterminate", status_code=503,
+                )
+            )
+            return denied("graph_operation_unavailable", 503)
+
+    def stop(self) -> Turn | None:
+        if self.fence is None:
+            return self.turn
+        turn, error = self.fence.stop()
+        self.turn = turn
+        if error is not None:
+            raise AgentTurnServiceError(
+                "The Plan Graph claim renewal became indeterminate.",
+                code="turn_claim_indeterminate", status_code=503,
+            ) from error
+        return turn
+
+
+def _parse_policy_completion(
+    final_text: str,
+    turn: Turn,
+    producing_provider_attempt_id: UUID,
+) -> tuple[Any, dict[str, list[UUID]], str]:
+    """Admit a strict typed answer, then bind every claim to producing evidence."""
+    graph_types = _app_state_graph_execution_types()
+    receipt = turn.graph_context_receipt
+    execution = getattr(turn, "graph_context_execution", None)
+    if receipt is None or execution is None:
+        raise AgentTurnServiceError(
+            "The provider answer has no durable Graph execution authority.",
+            code="answer_validation_failed", status_code=502,
+        )
+    try:
+        candidate = json.loads(final_text)
+        if not isinstance(candidate, dict) or set(candidate) != {
+            "answer_context_status", "answer_segments", "citation_map"
+        }:
+            raise ValueError("provider answer must be a strict typed JSON object")
+        segments = candidate["answer_segments"]
+        if not isinstance(segments, list):
+            raise ValueError("answer segments must be a list")
+        normalized_segments = []
+        for segment in segments:
+            if not isinstance(segment, dict):
+                raise ValueError("answer segment must be an object")
+            normalized = dict(segment)
+            if normalized.get("kind") == "plan_claim":
+                if normalized.get("plan_content_sha256") not in {
+                    None, receipt.plan_basis.content_sha256
+                }:
+                    raise ValueError("Plan claim used another content digest")
+                normalized["plan_content_sha256"] = receipt.plan_basis.content_sha256
+            if normalized.get("kind") == "graph_claim":
+                if normalized.get("graph_revision") not in {
+                    None, receipt.graph_authority.graph_revision
+                }:
+                    raise ValueError("Graph claim used another revision")
+                normalized["graph_revision"] = receipt.graph_authority.graph_revision
+            normalized_segments.append(normalized)
+        citations = candidate["citation_map"]
+        if citations is not None:
+            if not isinstance(citations, dict) or set(citations) != {"entries"}:
+                raise ValueError("citation map must contain only entries")
+            citations = {
+                "schema": "dmb_graph_citation_map_v1",
+                "context_receipt_sha256": receipt.context_receipt_sha256,
+                "entries": citations["entries"],
+            }
+        has_graph = any(s.get("kind") == "graph_claim" for s in normalized_segments)
+        completion = graph_types.PlanWorldGraphCompletionV1.model_validate({
+            "schema": "dmb_plan_world_graph_completion_v1",
+            "context_receipt_sha256": receipt.context_receipt_sha256,
+            "answer_basis": (
+                "committed_plan_plus_world_graph" if has_graph else "committed_plan"
+            ),
+            "answer_context_status": candidate["answer_context_status"],
+            "answer_segments": normalized_segments,
+            "citation_map": citations,
+        })
+        auth = next(
+            event for event in execution.events
+            if getattr(event, "kind", None) == "provider_attempt_authorized"
+            and event.provider_attempt_id == producing_provider_attempt_id
+        )
+        operations = {
+            event.event_id: event for event in execution.events
+            if getattr(event, "kind", None) == "validated_graph_operation"
+        }
+        bindings: dict[str, list[UUID]] = {}
+        for segment in completion.answer_segments:
+            if not isinstance(segment, graph_types.PlanWorldGraphClaimSegmentV1):
+                continue
+            initial_targets = (
+                receipt.assembled_input.dispatched_assertion_ids
+                if segment.target_kind == "assertion"
+                else receipt.assembled_input.dispatched_relationship_ids
+            )
+            initial_support = (
+                segment.target_id in initial_targets
+                and set(segment.evidence_ref_ids).issubset(
+                    receipt.assembled_input.dispatched_evidence_ref_ids
+                )
+            )
+            supporting = [
+                event_id for event_id in auth.included_graph_event_ids
+                if event_id in operations
+                and segment.target_id in (
+                    operations[event_id].assertion_ids
+                    if segment.target_kind == "assertion"
+                    else operations[event_id].relationship_ids
+                )
+                and set(segment.evidence_ref_ids).issubset(
+                    operations[event_id].evidence_ref_ids
+                )
+            ]
+            if not initial_support and not supporting:
+                raise ValueError("Graph claim lacks producing-envelope support")
+            bindings[segment.claim_id] = [] if initial_support else supporting[:1]
+        graph_types.validate_execution_completion(
+            completion, receipt, execution, producing_provider_attempt_id, bindings
+        )
+        answer_text = "\n".join(segment.text for segment in completion.answer_segments)
+        return completion, bindings, answer_text
+    except (ValueError, KeyError, StopIteration, TypeError) as exc:
+        raise AgentTurnServiceError(
+            "The provider answer did not satisfy the pinned Plan/Graph evidence contract.",
+            code="answer_validation_failed", status_code=502,
+        ) from exc
+
+
+def _policy_request_budget() -> dict[str, Any]:
+    from apps.live_control_server.services.agent_graph_policy import (
+        resolve_agent_graph_openai_inference,
+    )
+
+    selected = resolve_agent_graph_openai_inference(require_api_key=False)
+    if isinstance(selected, str):
+        raise AgentTurnServiceError(
+            "The Plan Graph provider model could not be resolved.",
+            code="provider_envelope_over_budget", status_code=503,
+            provider_dispatched=False,
+        )
+    provider, model, _base_url = selected
+    return {
+        "schema": "dmb_hermes_request_budget_policy_v1",
+        "provider": provider,
+        "model": model,
+        "apiMode": "codex_responses",
+        "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+        "contextLimitTokens": 32768,
+        "outputReserveTokens": 2048,
+    }
 
 
 def _stop_claim_renewer(
@@ -880,7 +1902,25 @@ def _validate_policy_turn_record(
                 status_code=409,
             )
         try:
-            validate_completion_against_receipt(turn.completion, receipt)
+            execution = getattr(turn, "graph_context_execution", None)
+            if execution is None:
+                validate_completion_against_receipt(turn.completion, receipt)
+            else:
+                graph_types = _app_state_graph_execution_types()
+                bindings = [
+                    event
+                    for event in execution.events
+                    if getattr(event, "kind", None) == "completion_binding"
+                ]
+                if len(bindings) != 1:
+                    raise ValueError("execution completion binding is missing or ambiguous")
+                graph_types.validate_execution_completion(
+                    turn.completion,
+                    receipt,
+                    execution,
+                    bindings[0].provider_attempt_id,
+                    bindings[0].claim_graph_event_ids,
+                )
         except ValueError as exc:
             raise AgentTurnServiceError(
                 "The Plan Graph completion does not match its historical receipt.",
@@ -919,12 +1959,36 @@ def project_plan_turn_context(
     _validate_policy_turn_record(turn)
     receipt = turn.graph_context_receipt
     assert receipt is not None
+    execution = getattr(turn, "graph_context_execution", None)
+    execution_projection = None
+    if execution is not None:
+        authorized = [
+            event
+            for event in execution.events
+            if getattr(event, "kind", None) == "provider_attempt_authorized"
+        ]
+        authorization_state = "none"
+        if authorized:
+            last_attempt_id = authorized[-1].provider_attempt_id
+            outcomes = [
+                event
+                for event in execution.events
+                if getattr(event, "kind", None) == "provider_outcome"
+                and event.provider_attempt_id == last_attempt_id
+            ]
+            authorization_state = (
+                "authorized"
+                if not outcomes
+                else outcomes[-1].outcome
+            )
+        execution_projection = project_plan_graph_execution_state(
+            authorization_state,
+            completed=turn.status == "completed",
+        )
     return AgentPlanWorldGraphContextResponseV1(
         receipt=receipt,
         completion=turn.completion,
-        # The current producer exposes receipt/completion only. Keep execution
-        # absent until its exact execution-ledger contract is available.
-        execution=None,
+        execution=execution_projection,
         delivery_replay=delivery_replay,
     )
 
@@ -985,6 +2049,7 @@ def _accept_world_turn(
     provenance: TurnProvenance,
     submitted_intent: SubmittedTurnIntentV1 | SubmittedTurnIntentV2,
     graph_context_receipt: PlanWorldGraphContextReceiptV1 | None = None,
+    graph_context_execution: Any | None = None,
 ) -> Turn:
     if isinstance(submitted_intent, SubmittedTurnIntentV2) and graph_context_receipt is None:
         raise AgentTurnServiceError(
@@ -1015,6 +2080,7 @@ def _accept_world_turn(
                 else None
             ),
             graph_context_receipt=graph_context_receipt,
+            graph_context_execution=graph_context_execution,
         )
         try:
             return service.accept_turn(submission)
@@ -1052,6 +2118,7 @@ def execute_agent_turn(
     work_resolver: WorkResolver,
     historical_work_resolver: HistoricalWorkResolver | None = None,
     graph_resolver: GraphResolver,
+    plan_graph_resolver: PlanGraphResolver | None = None,
     runtime: AgentRuntime | None = None,
     runtime_factory: Callable[[], AgentRuntime | None] | None = None,
     conversation_service: AgentConversationService | None = None,
@@ -1128,16 +2195,26 @@ def execute_agent_turn(
                 )
 
     if request.plan_context_policy is not None:
-        # The current APP-STATE producer exposes the receipt-only lifecycle.
-        # Until its execution ledger is accepted and connected here, fail
-        # before loading mutable Plan/Graph state, claiming a turn, or creating
-        # a provider runtime. In particular, never fall through to generic
-        # graphless dispatch for an unfinished policy-bearing turn.
-        raise AgentTurnServiceError(
-            "auto_plan_world execution persistence is not available for this turn.",
-            code="plan_graph_execution_unavailable",
-            status_code=503,
+        required_methods = (
+            "accept_turn", "claim_turn", "authorize_provider_attempt",
+            "record_provider_outcome", "append_validated_graph_operation",
+            "complete_turn", "fail_turn", "renew_turn_claim",
         )
+        if any(
+            not callable(getattr(conversation_service, name, None))
+            for name in required_methods
+        ):
+            raise AgentTurnServiceError(
+                "The installed APP-STATE producer has no Graph execution ledger adapter.",
+                code="plan_graph_execution_unavailable",
+                status_code=503,
+            )
+        if plan_graph_resolver is None:
+            raise AgentTurnServiceError(
+                "The parent DungeonMind Graph retrieval adapter is unavailable.",
+                code="plan_graph_execution_unavailable",
+                status_code=503,
+            )
 
     stored_playable_target: PlanPlayableTargetReceiptV1 | None = None
     if durable_turn is not None:
@@ -1284,6 +2361,16 @@ def execute_agent_turn(
             playable_target=playable_target_receipt,
             content_basis=work.content_basis,
         )
+        if request.plan_context_policy is not None:
+            runtime_message += (
+                "\n\nReturn one JSON object only with keys "
+                "answer_context_status, answer_segments, and citation_map. "
+                "Use answer_context_status=plan_only_insufficient_evidence when "
+                "Graph evidence is unavailable. In that case, use only plan_claim "
+                "segments and set citation_map to null. For Graph claims, cite only "
+                "claim and evidence IDs included in the authorized provider input. "
+                "Do not invent citations or present unsupported Graph facts."
+            )
 
     owner_kind = (
         str(owner.get("kind"))
@@ -1312,7 +2399,27 @@ def execute_agent_turn(
     selected_node_id = (
         None if request.graph_selection is None else request.graph_selection.node_id
     )
-    if request.graph_request.mode == "none":
+    policy_bootstrap: AgentPlanWorldGraphBootstrap | None = None
+    if request.plan_context_policy is not None:
+        try:
+            policy_bootstrap = plan_graph_resolver(
+                request,
+                owner,
+                work,
+                None if durable_turn is None else durable_turn.graph_context_receipt,
+            )
+        except AgentTurnServiceError:
+            raise
+        except Exception as exc:
+            raise AgentTurnServiceError(
+                "The parent DungeonMind Graph retrieval could not be resolved.",
+                code="graph_unavailable",
+                status_code=503,
+            ) from exc
+        graph_result = {"status": "not_requested", "selection_found": None}
+        envelope = policy_bootstrap.graph_envelope
+        scope = policy_bootstrap.world_scope
+    elif request.graph_request.mode == "none":
         graph_result = {"status": "not_requested", "selection_found": None}
     else:
         try:
@@ -1399,7 +2506,7 @@ def execute_agent_turn(
 
     running_turn: Turn | None = None
     if conversation_service is not None and canonical_world_id is not None:
-        if durable_turn is None:
+        if durable_turn is None and request.plan_context_policy is None:
             if submitted_intent is None:
                 raise AgentTurnServiceError(
                     "The normalized submitted World intent is unavailable.",
@@ -1432,14 +2539,15 @@ def execute_agent_turn(
                     code="turn_basis_changed",
                     status_code=409,
                 )
-        segment_thread_id = _provider_segment_thread_id(
-            durable_turn.provenance, conversation_id=durable_turn.conversation_id
-        )
-        pointer_owner_kind = "world"
-        pointer_owner_id = canonical_world_id
-        pointer_work_kind = "agent_conversation_segment"
-        pointer_work_id = segment_thread_id
-        pointer_thread_id = segment_thread_id
+        if durable_turn is not None:
+            segment_thread_id = _provider_segment_thread_id(
+                durable_turn.provenance, conversation_id=durable_turn.conversation_id
+            )
+            pointer_owner_kind = "world"
+            pointer_owner_id = canonical_world_id
+            pointer_work_kind = "agent_conversation_segment"
+            pointer_work_id = segment_thread_id
+            pointer_thread_id = segment_thread_id
 
     pointer = pointer_store.resolve_structured_for_request(
         owner_kind=pointer_owner_kind,
@@ -1490,10 +2598,17 @@ def execute_agent_turn(
             turn_id=request.turn_id,
             runtime_session_id=pointer.continuity_session_id,
             surface_context=surface_context,
+            retrieval_session=(
+                None if policy_bootstrap is None else policy_bootstrap.retrieval_session
+            ),
         )
 
     renewer: _TurnClaimRenewer | None = None
-    if conversation_service is not None and durable_turn is not None:
+    if (
+        conversation_service is not None
+        and durable_turn is not None
+        and request.plan_context_policy is None
+    ):
         try:
             claim = conversation_service.claim_turn(
                 durable_turn.world_id,
@@ -1562,6 +2677,134 @@ def execute_agent_turn(
         mode=descriptor.trace_mode,
     )
     trace.context_summary = dict(assembly.trace_summary)
+    if request.plan_context_policy is not None:
+        if (
+            conversation_service is None or canonical_world_id is None
+            or work is None or policy_bootstrap is None
+            or not isinstance(submitted_intent, SubmittedTurnIntentV2)
+        ):
+            raise AgentTurnServiceError(
+                "The Plan Graph execution basis is incomplete.",
+                code="plan_graph_execution_unavailable", status_code=503,
+            )
+        guarded_run = getattr(selected_runtime, "run_with_provider_authorization", None)
+        if not callable(guarded_run):
+            raise AgentTurnServiceError(
+                "The selected Agent Harness cannot authorize provider requests.",
+                code="plan_graph_execution_unavailable", status_code=503,
+            )
+        budget = _policy_request_budget()
+        adapter = _PolicyExecutionAdapter(
+            service=conversation_service,
+            request=request,
+            world_id=canonical_world_id,
+            work=work,
+            bootstrap=policy_bootstrap,
+            playable_target=playable_target_receipt,
+            submitted_intent=submitted_intent,
+            existing_turn=durable_turn,
+            budget=budget,
+        )
+        span_id = trace.start_phase("runtime_dispatch")
+        try:
+            invocation = replace(
+                assembly.invocation, plan_continuity_turn=plan_continuity
+            )
+            policy_result = guarded_run(
+                invocation, adapter.authorize,
+                request_budget=budget,
+                on_graph_operation=adapter.broker_graph_operation,
+                on_provider_lifecycle=adapter.record_lifecycle,
+            )
+        finally:
+            policy_turn = adapter.stop()
+        if adapter.failure is not None:
+            trace.complete_phase(span_id, status="error")
+            if policy_turn is None:
+                raise adapter.failure
+            raise AgentTurnServiceError(
+                "Plan Graph delivery stopped after its receipt was frozen.",
+                code="plan_context_delivery_failure", status_code=503,
+            ) from adapter.failure
+        if (
+            policy_turn is None
+            or policy_result.status != "ok"
+            or not policy_result.final_text
+            or adapter.producing_provider_attempt_id is None
+        ):
+            trace.complete_phase(span_id, status="error")
+            raise AgentTurnServiceError(
+                "The Plan Graph provider did not return a durably acknowledged answer.",
+                code="plan_context_delivery_failure", status_code=503,
+            )
+        try:
+            completion, bindings, answer_text = _parse_policy_completion(
+                policy_result.final_text, policy_turn,
+                adapter.producing_provider_attempt_id,
+            )
+            completed_turn = conversation_service.complete_turn(TurnResult(
+                world_id=policy_turn.world_id,
+                conversation_id=policy_turn.conversation_id,
+                turn_id=policy_turn.turn_id,
+                expected_revision=policy_turn.revision,
+                assistant_text=answer_text,
+                completion=completion,
+                producing_provider_attempt_id=adapter.producing_provider_attempt_id,
+                claim_graph_event_ids=bindings,
+            ))
+        except AgentTurnServiceError as exc:
+            trace.complete_phase(span_id, status="error")
+            try:
+                conversation_service.fail_turn(TurnFailure(
+                    world_id=policy_turn.world_id,
+                    conversation_id=policy_turn.conversation_id,
+                    turn_id=policy_turn.turn_id,
+                    expected_revision=policy_turn.revision,
+                    failure_code=exc.code,
+                ))
+            except (ApplicationStateError, psycopg.OperationalError):
+                pass
+            raise
+        except (ApplicationStateError, psycopg.OperationalError) as exc:
+            trace.complete_phase(span_id, status="error")
+            raise AgentTurnServiceError(
+                "The Plan Graph completion could not be durably confirmed.",
+                code="turn_persistence_indeterminate", status_code=503,
+            ) from exc
+        trace.complete_phase(span_id)
+        final_trace = trace.finalize_and_log(
+            status="ok", model_calls=policy_result.model_calls,
+            extra_warnings=policy_result.telemetry_warnings,
+            hermes_fields={
+                "process_isolation": policy_result.runtime_metadata.get("process_isolation"),
+                "conversation_context": "structured",
+            },
+            observed_model_call_count=policy_result.observed_model_call_count,
+        )
+        pointer_binding = None
+        if policy_result.runtime_session_id:
+            pointer_binding = pointer_store.upsert_structured_after_turn(
+                owner_kind="world", owner_id=canonical_world_id,
+                work_kind="agent_conversation_segment",
+                work_id=_provider_segment_thread_id(
+                    completed_turn.provenance,
+                    conversation_id=completed_turn.conversation_id,
+                ),
+                agent_thread_id=pointer_thread_id,
+                hermes_session_id=policy_result.runtime_session_id,
+                require_new_thread=plan_continuity,
+            )
+        response = _completed_turn_replay(request, owner=owner or {}, turn=completed_turn)
+        payload = response.model_dump(mode="json", by_alias=True)
+        payload["answer"]["trace"] = final_trace
+        payload["plan_context"]["delivery_replay"] = False
+        payload["conversation"]["pointer_status"] = (
+            "reused" if pointer.continuity_session_id else pointer.pointer_status
+        )
+        payload["conversation"]["pointer_id"] = (
+            None if pointer_binding is None else pointer_binding.pointer_id
+        )
+        return AgentTurnResponseV2.model_validate(payload)
     runtime_dispatch_span_id: str | None = None
     result = None
     replayed_completed_turn = (
@@ -1570,6 +2813,12 @@ def execute_agent_turn(
     if not replayed_completed_turn:
         runtime_dispatch_span_id = trace.start_phase("runtime_dispatch")
         try:
+            if request.plan_context_policy is not None:
+                raise AgentTurnServiceError(
+                    "The Plan Graph execution adapter has not authorized a provider request.",
+                    code="plan_graph_execution_unavailable",
+                    status_code=503,
+                )
             invocation = replace(
                 assembly.invocation, plan_continuity_turn=plan_continuity
             )

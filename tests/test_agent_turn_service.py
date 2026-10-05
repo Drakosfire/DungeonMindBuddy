@@ -32,6 +32,7 @@ from apps.live_control_server.services.agent_runtime import (
     AgentRuntimeResult,
 )
 from apps.live_control_server.services.agent_turn_service import (
+    _ClaimFence,
     _accept_world_turn,
     _completed_turn_replay,
     _submitted_turn_intent,
@@ -40,6 +41,7 @@ from apps.live_control_server.services.agent_turn_service import (
     AgentTurnResolvedWork,
     AgentTurnServiceError,
     execute_agent_turn,
+    _require_fresh_execution_append,
 )
 from apps.live_control_server.services.hermes_session_store import (
     HermesSessionPointerStore,
@@ -378,6 +380,406 @@ def test_completed_policy_replay_returns_v2_from_stored_receipt_only() -> None:
     assert response.plan_context.delivery_replay is True
     assert response.answer.text == "The keeper waits below the arch."
     assert response.answer.graph_grounded is False
+
+
+def test_history_http_route_serializes_mixed_v1_and_v2_turns(
+    monkeypatch: Any,
+) -> None:
+    """Exercise FastAPI's response serialization for additive policy history."""
+    import asyncio
+    from fastapi.encoders import jsonable_encoder
+    from fastapi.routing import serialize_response
+    from types import SimpleNamespace
+    from uuid import uuid4
+
+    from apps.live_control_server.routes import agent as agent_route
+
+    policy_turn = _policy_turn()
+    legacy_turn = SimpleNamespace(
+        turn_id=uuid4(),
+        sequence=1,
+        status="completed",
+        user_text="A legacy question",
+        assistant_text="A legacy answer",
+        provenance=policy_turn.provenance,
+        graph_context_receipt=None,
+    )
+    policy_turn = policy_turn.model_copy(update={"sequence": 2})
+    conversation_id = policy_turn.conversation_id
+
+    class HistoryService:
+        def get_world_pointer(self, _world_id: str) -> Any:
+            return SimpleNamespace(
+                revision=4, active_conversation_id=conversation_id
+            )
+
+        def get_active_conversation(self, _world_id: str) -> Any:
+            return SimpleNamespace(conversation_id=conversation_id)
+
+        def list_turns(self, *_args: Any, **_kwargs: Any) -> list[Any]:
+            return [policy_turn, legacy_turn]
+
+    monkeypatch.setattr(agent_route, "_verified_world_id", lambda value: value)
+    monkeypatch.setattr(agent_route, "enforce_native_graph_gm", lambda _request: None)
+    route = next(
+        item
+        for item in agent_route.router.routes
+        if getattr(item, "path", None) == "/agent/worlds/{world_id}/conversation"
+    )
+    assert route.response_model == (
+        agent_route.AgentConversationHistoryResponse
+        | agent_route.AgentConversationHistoryResponseV2
+    )
+    request = SimpleNamespace(
+        app=SimpleNamespace(state=SimpleNamespace(
+            agent_conversation_service=HistoryService()
+        ))
+    )
+    response = agent_route.get_world_conversation_history(
+        "world:one", request, limit=50, before_sequence=None
+    )
+    serialized = asyncio.run(
+        serialize_response(
+            field=route.response_field,
+            response_content=response,
+            by_alias=True,
+            is_coroutine=True,
+        )
+    )
+    body = jsonable_encoder(serialized, by_alias=True)
+
+    assert body["schema"] == "dmb_agent_conversation_history_v2"
+    assert [turn["sequence"] for turn in body["turns"]] == [2, 1]
+    policy_payload = body["turns"][0]["plan_context"]
+    assert policy_payload["schema"] == "dmb_agent_plan_world_graph_context_response_v1"
+    assert policy_payload["receipt"]["schema"] == "dmb_agent_plan_world_graph_context_receipt_v1"
+    assert body["turns"][1]["assistant_text"] == "A legacy answer"
+    assert "plan_context" not in body["turns"][1]
+
+
+def test_execution_claim_fence_serializes_appends_with_latest_revision() -> None:
+    turn = _policy_turn(status="running", completion_present=False)
+
+    class AppendService:
+        revisions: list[int] = []
+
+        def record_provider_outcome(self, _world: str, _conversation: Any, _turn: Any,
+                                    *, expected_revision: int, expected_attempt: int,
+                                    outcome: Any) -> tuple[Turn, bool]:
+            self.revisions.append(expected_revision)
+            assert expected_attempt == turn.attempt
+            assert outcome is not None
+            return turn.model_copy(update={"revision": expected_revision + 1}), True
+
+        def renew_turn_claim(self, *_args: Any, **_kwargs: Any) -> Turn:
+            raise AssertionError("renewal should not run in this short witness")
+
+    service = AppendService()
+    fence = _ClaimFence(service, turn)  # type: ignore[arg-type]
+    try:
+        first, first_fresh = fence.append(
+            "record_provider_outcome", "outcome", {"outcome": "sdk_entered"}
+        )
+        second, second_fresh = fence.append(
+            "record_provider_outcome", "outcome", {"outcome": "response_received"}
+        )
+    finally:
+        latest, error = fence.stop()
+
+    assert error is None
+    assert first_fresh is True and second_fresh is True
+    assert [first.revision, second.revision, latest.revision] == [2, 3, 3]
+    assert service.revisions == [1, 2]
+
+
+def test_duplicate_execution_event_never_acknowledges_harness_progress() -> None:
+    turn = _policy_turn(status="running", completion_present=False)
+    with pytest.raises(AgentTurnServiceError) as caught:
+        _require_fresh_execution_append((turn, False))
+    assert caught.value.code == "turn_persistence_indeterminate"
+
+
+def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
+    monkeypatch: Any,
+) -> None:
+    from datetime import timedelta
+    from application_state.agent_conversation import types as graph_types
+    if not hasattr(graph_types, "PlanWorldGraphExecutionV1"):
+        pytest.skip("run with pinned APP-STATE candidate")
+    from apps.live_control_server.services import agent_turn_service as service_module
+    from apps.live_control_server.services.agent_runtime import AgentWorldScope
+    from graph_memory.interaction.session import (
+        CoverageState, GraphRetrievalSession, SessionSnapshot,
+    )
+    from application_state.agent_conversation.types import TurnClaimReceipt
+
+    request = _request(
+        surface={"surface_id": "plan", "instance_id": "plan-main"},
+        owner_scope={"kind": "world", "world_id": "world:one"},
+        primary_work={
+            "kind": "plan", "object_id": "plan:one", "expected_revision": 7,
+            "expected_revision_n": 4, "expected_content_sha256": "b" * 64,
+        },
+        client_work_state="saved_clean",
+        plan_context_policy={"policy": "auto_plan_world"},
+        message="What does the Plan say?",
+    )
+    basis = AgentTurnContentBasis(
+        world_id="world:one", document_id="plan:one", object_revision=7,
+        work_revision_id=str(uuid4()), revision_n=4, content_sha256="b" * 64,
+        committed_status="committed", has_divergent_working_copy=False,
+    )
+    work = AgentTurnResolvedWork(
+        kind="plan", object_id="plan:one", revision=7,
+        changed_since_expected=False, owner_kind="world", owner_id="world:one",
+        world_id="world:one", content_basis=basis, plan_markdown="The keeper waits.",
+    )
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="native:one", campaign_id="", focus={"kind": "none"},
+            admissibility="gm", revision_id="graph-revision-3",
+            is_head=True, scope_mode="world",
+        ),
+        question=request.message,
+        coverage=CoverageState(state="empty"),
+    )
+    bootstrap = service_module.AgentPlanWorldGraphBootstrap(
+            graph_envelope={
+                "revision_id": "graph-revision-3", "world_id": "native:one",
+                "scope_mode": "world",
+            },
+        world_scope=AgentWorldScope(
+            world_id="native:one", campaign_id="", focus={"kind": "none"},
+            admissibility="gm", revision_id="graph-revision-3", scope_mode="world",
+        ),
+        retrieval_session=session,
+        binding_version=2,
+        source_root_relpath="corpus/world-one-markdown",
+        candidate_assertion_ids=(), candidate_relationship_ids=(),
+        candidate_evidence_ref_ids=(), evidence_by_anchor_id={},
+    )
+    projected = session.project_for_hermes()
+    initial_packet = {
+        "candidates": projected["candidates"][:8],
+        "claimLedger": projected["claim_ledger"][:24],
+        "intentHint": projected["intent_hint"],
+        "availableExpansions": projected["available_expansions"],
+    }
+    provider_body = {
+        "input": [{
+            "role": "system",
+            "content": "Turn capability policy (runtime-enforced; also required on tool calls):\n"
+            + json.dumps({"initialClaimPacket": initial_packet}),
+        }, {
+            "role": "user",
+            "content": service_module._plan_message(
+                request.message, work.plan_markdown,
+                content_basis=work.content_basis,
+            ),
+        }],
+        "tools": [],
+    }
+    payload_json = json.dumps(provider_body, sort_keys=True, separators=(",", ":"))
+    view = {
+        "provider": "openai-api", "model": "test-model",
+        "apiMode": "codex_responses", "payloadJson": payload_json,
+        "payloadSha256": sha256(payload_json.encode()).hexdigest(),
+        "payloadUtf8Bytes": len(payload_json.encode()),
+    }
+    budget = {
+        "provider": "openai-api", "model": "test-model",
+        "apiMode": "codex_responses",
+        "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+        "contextLimitTokens": 32768, "outputReserveTokens": 2048,
+    }
+
+    class FakeExecutionPort:
+        turn: Turn | None = None
+        accepted_count = 0
+        authorize_count = 0
+
+        def reconcile_turn(self, *_args: Any) -> None:
+            return None
+
+        def accept_turn(self, _submission: Any) -> Turn:
+            raise AssertionError("test intercepts acceptance after final envelope")
+
+        def claim_turn(self, world_id: str, conversation_id: Any, turn_id: Any, *, expected_revision: int, lease_seconds: int = 120) -> Any:
+            assert self.turn is not None
+            assert (world_id, conversation_id, turn_id, expected_revision) == (
+                self.turn.world_id, self.turn.conversation_id, self.turn.turn_id,
+                self.turn.revision,
+            )
+            now = datetime.now(UTC)
+            self.turn = self.turn.model_copy(update={
+                "status": "running", "attempt": self.turn.attempt + 1,
+                "revision": self.turn.revision + 1,
+                "claim_expires_at": now + timedelta(seconds=lease_seconds),
+                "updated_at": now,
+            })
+            return TurnClaimReceipt(disposition="claimed", turn=self.turn)
+
+        def _append(self, event: Any, expected_revision: int, expected_attempt: int) -> tuple[Turn, bool]:
+            assert self.turn is not None
+            assert (expected_revision, expected_attempt) == (
+                self.turn.revision, self.turn.attempt,
+            )
+            execution = self.turn.graph_context_execution
+            assert execution is not None
+            updated = graph_types.PlanWorldGraphExecutionV1.model_validate({
+                **execution.model_dump(mode="json", by_alias=True),
+                "events": [
+                    *[prior.model_dump(mode="json", by_alias=True) for prior in execution.events],
+                    event.model_dump(mode="json", by_alias=True),
+                ],
+            })
+            self.turn = self.turn.model_copy(update={
+                "graph_context_execution": updated,
+                "revision": self.turn.revision + 1,
+            })
+            return self.turn, True
+
+        def authorize_provider_attempt(self, _world_id: str, _conversation_id: Any, _turn_id: Any, *, expected_revision: int, expected_attempt: int, provider_attempt_event: Any) -> tuple[Turn, bool]:
+            self.authorize_count += 1
+            return self._append(provider_attempt_event, expected_revision, expected_attempt)
+
+        def record_provider_outcome(self, _world_id: str, _conversation_id: Any, _turn_id: Any, *, expected_revision: int, expected_attempt: int, outcome: Any) -> tuple[Turn, bool]:
+            return self._append(outcome, expected_revision, expected_attempt)
+
+        def append_validated_graph_operation(self, _world_id: str, _conversation_id: Any, _turn_id: Any, *, expected_revision: int, expected_attempt: int, operation_event: Any) -> tuple[Turn, bool]:
+            return self._append(operation_event, expected_revision, expected_attempt)
+
+        def complete_turn(self, result: Any) -> Turn:
+            assert self.turn is not None
+            assert self.turn.revision == result.expected_revision
+            execution = self.turn.graph_context_execution
+            assert execution is not None
+            binding = graph_types.CompletionBindingEventV1(
+                event_id=uuid4(), sequence=len(execution.events),
+                kind="completion_binding",
+                provider_attempt_id=result.producing_provider_attempt_id,
+                completion_sha256=service_module._canonical_sha256(
+                    result.completion.model_dump(mode="json", by_alias=True)
+                ),
+                claim_graph_event_ids=result.claim_graph_event_ids,
+            )
+            updated_execution = graph_types.PlanWorldGraphExecutionV1.model_validate({
+                **execution.model_dump(mode="json", by_alias=True),
+                "events": [
+                    *[prior.model_dump(mode="json", by_alias=True) for prior in execution.events],
+                    binding.model_dump(mode="json", by_alias=True),
+                ],
+            })
+            graph_types.validate_execution_completion(
+                result.completion, self.turn.graph_context_receipt,
+                updated_execution, result.producing_provider_attempt_id,
+                result.claim_graph_event_ids,
+            )
+            now = datetime.now(UTC)
+            self.turn = Turn.model_validate(self.turn.model_copy(update={
+                "status": "completed", "revision": self.turn.revision + 1,
+                "assistant_text": result.assistant_text,
+                "completion": result.completion,
+                "graph_context_execution": updated_execution,
+                "claim_expires_at": None,
+                "completed_at": now, "updated_at": now,
+            }).model_dump(mode="json", by_alias=True))
+            return self.turn
+
+        def fail_turn(self, _failure: Any, *, interrupted: bool = False) -> Turn:
+            raise AssertionError("valid typed answer must not fail the turn")
+
+        def renew_turn_claim(self, *_args: Any, **_kwargs: Any) -> Turn:
+            assert self.turn is not None
+            return self.turn
+
+    fake = FakeExecutionPort()
+
+    def accept(_service: Any, _request: Any, **kwargs: Any) -> Turn:
+        fake.accepted_count += 1
+        now = datetime.now(UTC)
+        fake.turn = Turn(
+            turn_id=uuid4(), conversation_id=uuid4(), world_id="world:one",
+            idempotency_key=uuid4(), sequence=1, revision=1,
+            status="accepted", user_text=request.message,
+            assistant_text=None, failure_code=None,
+            provenance=kwargs["provenance"],
+            submitted_intent_fingerprint_v2="f" * 64,
+            graph_context_receipt=kwargs["graph_context_receipt"],
+            graph_context_execution=kwargs["graph_context_execution"],
+            completion=None, attempt=0, claim_expires_at=None,
+            accepted_at=now, completed_at=None, updated_at=now,
+        )
+        return fake.turn
+
+    monkeypatch.setattr(service_module, "_accept_world_turn", accept)
+    adapter = service_module._PolicyExecutionAdapter(
+        service=fake, request=request, world_id="world:one", work=work,
+        bootstrap=bootstrap, playable_target=None,
+        submitted_intent=_submitted_turn_intent(request, world_id="world:one"),
+        existing_turn=None, budget=budget,
+    )
+    assert adapter.authorize(view) is True
+    assert fake.accepted_count == 1
+    assert fake.authorize_count == 1
+    assert adapter.record_lifecycle({"transition": "sdk_entered"}) is True
+    assert adapter.record_lifecycle({"transition": "response_received"}) is True
+    turn = adapter.stop()
+    assert turn is not None
+    assert adapter.producing_provider_attempt_id is not None
+    assert turn.graph_context_receipt is not None
+    assert turn.graph_context_receipt.assembled_input.assembled_input_sha256 == view["payloadSha256"]
+    typed_answer = json.dumps({
+        "answer_context_status": "plan_only_insufficient_evidence",
+        "answer_segments": [{"kind": "plan_claim", "text": "The keeper waits."}],
+        "citation_map": None,
+    })
+    completion, bindings, answer = service_module._parse_policy_completion(
+        typed_answer, turn, adapter.producing_provider_attempt_id,
+    )
+    assert completion.answer_context_status == "plan_only_insufficient_evidence"
+    assert bindings == {}
+    assert answer == "The keeper waits."
+
+    fake = FakeExecutionPort()
+
+    class GuardedRuntime:
+        descriptor = AgentRuntimeDescriptor("fake-guarded", "fake", "test", "graph")
+
+        def run_with_provider_authorization(
+            self, _invocation: Any, authorize: Any, *, request_budget: Any,
+            on_graph_operation: Any, on_provider_lifecycle: Any,
+        ) -> AgentRuntimeResult:
+            assert callable(on_graph_operation)
+            adjusted = dict(view)
+            adjusted["model"] = request_budget["model"]
+            assert authorize(adjusted) is True
+            assert on_provider_lifecycle({"transition": "sdk_entered"}) is True
+            assert on_provider_lifecycle({"transition": "response_received"}) is True
+            return AgentRuntimeResult(
+                status="ok", final_text=typed_answer,
+                runtime_session_id="synthetic-plan-session",
+            )
+
+    monkeypatch.setattr(service_module, "_policy_request_budget", lambda: budget)
+    response = execute_agent_turn(
+        request,
+        root=Path("/tmp"),
+        pointer_store=HermesSessionPointerStore(Path("/tmp") / f"plan-policy-{uuid4()}"),
+        owner_resolver=lambda _request: {
+            "kind": "world", "id": "world:one", "name": "World One",
+        },
+        work_resolver=lambda _request, _owner: work,
+        graph_resolver=lambda *_args: pytest.fail("generic Graph resolver was used"),
+        plan_graph_resolver=lambda *_args: bootstrap,
+        runtime=GuardedRuntime(),
+        conversation_service=fake,
+    )
+    assert response.schema_ == "dmb_agent_turn_response_v2"
+    assert response.plan_context.delivery_replay is False
+    assert response.plan_context.completion is not None
+    assert response.answer.text == "The keeper waits."
+    assert fake.turn is not None and fake.turn.status == "completed"
 
 
 @pytest.mark.parametrize(

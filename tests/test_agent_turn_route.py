@@ -118,6 +118,292 @@ def test_auto_plan_world_rejects_generic_graph_reads_and_non_plan_surface() -> N
         AgentTurnRequest.model_validate(payload)
 
 
+def test_policy_predispatch_failure_has_strict_typed_projection(monkeypatch: Any) -> None:
+    from fastapi import HTTPException
+    from apps.live_control_server.routes import agent as agent_route
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+
+    payload = _payload()
+    payload.update({
+        "surface": {"surface_id": "plan", "instance_id": "plan-main"},
+        "owner_scope": {"kind": "world", "world_id": "managed-world-1"},
+        "primary_work": {
+            "kind": "plan", "object_id": "plan-1", "expected_revision": 7,
+            "expected_revision_n": 3, "expected_content_sha256": "a" * 64,
+        },
+        "client_work_state": "saved_clean",
+        "plan_context_policy": {"policy": "auto_plan_world"},
+    })
+    body = AgentTurnRequest.model_validate(payload)
+    monkeypatch.setattr(agent_route, "enforce_native_graph_gm", lambda _request: None)
+    monkeypatch.setattr(agent_route, "execute_agent_turn", lambda *_args, **_kwargs: (_ for _ in ()).throw(
+        AgentTurnServiceError(
+            "The frozen Graph revision could not be reopened.",
+            code="graph_revision_unavailable", status_code=409,
+            provider_dispatched=False,
+        )
+    ))
+    with pytest.raises(HTTPException) as caught:
+        agent_route.post_agent_turn(body, SimpleNamespace(app=SimpleNamespace()))
+    assert caught.value.status_code == 409
+    assert caught.value.detail["plan_context_failure"] == {
+        "schema": "dmb_agent_plan_world_graph_context_failure_v1",
+        "status": "pre_dispatch_failed",
+        "failure_code": "graph_revision_unavailable",
+        "provider_dispatched": False,
+        "automatic_downgrade": False,
+    }
+
+
+def test_policy_unknown_outcome_never_projects_as_predispatch(monkeypatch: Any) -> None:
+    from fastapi import HTTPException
+    from apps.live_control_server.routes import agent as agent_route
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+
+    payload = _payload()
+    payload.update({
+        "surface": {"surface_id": "plan", "instance_id": "plan-main"},
+        "owner_scope": {"kind": "world", "world_id": "managed-world-1"},
+        "primary_work": {
+            "kind": "plan", "object_id": "plan-1", "expected_revision": 7,
+            "expected_revision_n": 3, "expected_content_sha256": "a" * 64,
+        },
+        "client_work_state": "saved_clean",
+        "plan_context_policy": {"policy": "auto_plan_world"},
+    })
+    body = AgentTurnRequest.model_validate(payload)
+    monkeypatch.setattr(agent_route, "enforce_native_graph_gm", lambda _request: None)
+    monkeypatch.setattr(agent_route, "execute_agent_turn", lambda *_args, **_kwargs: (_ for _ in ()).throw(
+        AgentTurnServiceError(
+            "SDK entry could not be ruled out.",
+            code="graph_revision_unavailable", status_code=503,
+            provider_dispatched=None,
+        )
+    ))
+    with pytest.raises(HTTPException) as caught:
+        agent_route.post_agent_turn(body, SimpleNamespace(app=SimpleNamespace()))
+    assert caught.value.status_code == 503
+    assert "plan_context_failure" not in caught.value.detail
+
+
+def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id(
+    tmp_path: Path, monkeypatch: Any,
+) -> None:
+    from apps.live_control_server.routes import agent as agent_route
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+    from apps.live_control_server.services.world_container_registry import (
+        NativeGraphBindingRecord,
+        create_world_container,
+        world_source_root_relpath,
+    )
+    from apps.live_control_server.services import world_container_registry
+    from dungeonmind.contracts.graph import PublishRevisionCommand
+    from dungeonmind.infrastructure.memory import (
+        InMemorySourceRepository,
+        InMemoryWorldGraphRepository,
+    )
+    from tests._cutover_direct_dungeonmind_read_helpers import (
+        WORLD_ID as NATIVE_ID, NOW, _FakeBundle, _payload as graph_payload,
+        _receipt, _seed_sources,
+    )
+
+    managed = create_world_container(tmp_path, name="Managed World")
+    assert managed.world_id != NATIVE_ID
+    (tmp_path / world_source_root_relpath(managed.world_id)).mkdir(
+        parents=True, exist_ok=True
+    )
+    world_graph = InMemoryWorldGraphRepository()
+    published = world_graph.publish_revision(PublishRevisionCommand(
+        world_id=NATIVE_ID,
+        parent_revision_id=None,
+        expected_parent_revision_id=None,
+        operation_ids=["op:policy-real-graph"],
+        graph_schema="dm_union_graph_v6",
+        graph_payload=graph_payload(),
+        created_at=NOW,
+    ))
+    sources = InMemorySourceRepository()
+    seeded = _seed_sources()
+    for artifact_id in ("src:world-lore", "src:one-notes", "src:one-recap", "src:player-sign"):
+        artifact = seeded.get_artifact(artifact_id)
+        assert artifact is not None
+        sources.put_artifact(artifact)
+        revision = seeded.get_revision(artifact.current_revision_id)
+        assert revision is not None
+        sources.put_revision(revision)
+    services = direct.direct_services_from_bundle(
+        _FakeBundle(world_graph, sources, _receipt(NATIVE_ID, published.revision_id)),
+        NATIVE_ID,
+    )
+    monkeypatch.setattr(direct, "direct_services_from_config", lambda world_id: services if world_id == NATIVE_ID else None)
+    binding = NativeGraphBindingRecord(
+        native_world_id=NATIVE_ID, binding_version=1, status="active",
+        validated_at="2026-10-05T00:00:00Z",
+        validated_head_revision_id=published.revision_id,
+    )
+    bound = managed.model_copy(update={"native_graph_binding": binding})
+    monkeypatch.setattr(agent_route, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(
+        world_container_registry, "get_world_container",
+        lambda _root, world_id: bound if world_id == managed.world_id else None,
+    )
+    payload = _payload()
+    payload.update({
+        "surface": {"surface_id": "plan", "instance_id": "plan-main"},
+        "owner_scope": {"kind": "world", "world_id": managed.world_id},
+        "primary_work": {"kind": "plan", "object_id": "plan-1", "expected_revision": 7,
+                         "expected_revision_n": 3, "expected_content_sha256": "a" * 64},
+        "client_work_state": "saved_clean",
+        "plan_context_policy": {"policy": "auto_plan_world"},
+        "message": "Where is the tavern?",
+    })
+    body = AgentTurnRequest.model_validate(payload)
+    work = agent_route.AgentTurnResolvedWork(
+        kind="plan", object_id="plan-1", revision=7,
+        changed_since_expected=False, owner_kind="world", owner_id=managed.world_id,
+        world_id=managed.world_id,
+        content_basis=agent_route.AgentTurnContentBasis(
+            world_id=managed.world_id, document_id="plan-1", object_revision=7,
+            work_revision_id=str(uuid4()), revision_n=3,
+            content_sha256="a" * 64, committed_status="committed",
+            has_divergent_working_copy=False,
+        ),
+        plan_markdown="The keeper waits by the tavern.",
+    )
+    bootstrap = agent_route._plan_context_resolver(
+        body, {"kind": "world", "id": managed.world_id}, work, None,
+    )
+    assert bootstrap.world_scope.world_id == NATIVE_ID
+    assert bootstrap.world_scope.revision_id == published.revision_id
+    assert bootstrap.graph_envelope["revision_id"] == published.revision_id
+    assert bootstrap.retrieval_session.snapshot.world_id == NATIVE_ID
+    assert bootstrap.retrieval_session.snapshot.revision_id == published.revision_id
+    assert bootstrap.retrieval_session.claims
+
+    from application_state.agent_conversation import types as graph_types
+    if not hasattr(graph_types, "PlanWorldGraphExecutionV1"):
+        pytest.skip("run with the pinned APP-STATE candidate to verify receipt freeze")
+    from apps.live_control_server.services.agent_turn_service import _freeze_policy_receipt
+    from apps.live_control_server.services.agent_turn_service import _plan_message
+
+    projected = bootstrap.retrieval_session.project_for_hermes()
+    initial_packet = {
+        "candidates": projected["candidates"][:8],
+        "claimLedger": projected["claim_ledger"][:24],
+        "intentHint": projected["intent_hint"],
+        "availableExpansions": projected["available_expansions"],
+    }
+    request_body = {
+        "input": [{
+            "role": "system",
+            "content": "Turn capability policy (runtime-enforced; also required on tool calls):\n"
+            + __import__("json").dumps({"initialClaimPacket": initial_packet}),
+        }, {
+            "role": "user",
+            "content": _plan_message(
+                body.message, work.plan_markdown, content_basis=work.content_basis,
+            ),
+        }],
+        "tools": [],
+    }
+    payload_json = __import__("json").dumps(
+        request_body, sort_keys=True, separators=(",", ":")
+    )
+    view = {
+        "provider": "openai-api", "model": "test-model",
+        "apiMode": "codex_responses", "payloadJson": payload_json,
+        "payloadSha256": __import__("hashlib").sha256(payload_json.encode()).hexdigest(),
+        "payloadUtf8Bytes": len(payload_json.encode()),
+    }
+    budget = {
+        "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+        "contextLimitTokens": 32768, "outputReserveTokens": 2048,
+    }
+    receipt, execution, membership = _freeze_policy_receipt(
+        body, work, bootstrap, None, view, budget,
+    )
+    assert receipt.assembled_input.assembled_input_sha256 == view["payloadSha256"]
+    assert receipt.graph_authority.native_world_id == NATIVE_ID
+    assert receipt.graph_authority.managed_world_id == managed.world_id
+    assert execution.context_receipt_sha256 == receipt.context_receipt_sha256
+    assert tuple(receipt.assembled_input.dispatched_assertion_ids) == tuple(membership[0])
+
+    from datetime import UTC, datetime, timedelta
+    from application_state.agent_conversation.types import (
+        HistoricalReference, Turn, TurnProvenance,
+    )
+    from apps.live_control_server.services.agent_turn_service import (
+        _PolicyExecutionAdapter, _submitted_turn_intent,
+    )
+    now = datetime.now(UTC)
+    turn = Turn(
+        turn_id=uuid4(), conversation_id=uuid4(), world_id=managed.world_id,
+        idempotency_key=uuid4(), sequence=1, revision=2, status="running",
+        user_text=body.message, assistant_text=None, failure_code=None,
+        provenance=TurnProvenance(
+            world_id=managed.world_id, surface_resolution="resolved",
+            surface_id="plan", surface_instance_id="plan-main",
+            primary_work=HistoricalReference(
+                resolution="resolved", kind="plan", object_id="plan-1",
+                revision="7", object_revision=7,
+                work_revision_id=__import__("uuid").UUID(work.content_basis.work_revision_id),
+                revision_n=3, content_sha256="a" * 64,
+            ),
+            selected_object=HistoricalReference(resolution="absent"),
+        ),
+        submitted_intent_fingerprint_v2="f" * 64,
+        graph_context_receipt=receipt, graph_context_execution=execution,
+        completion=None, attempt=1,
+        claim_expires_at=now + timedelta(minutes=2),
+        accepted_at=now, completed_at=None, updated_at=now,
+    )
+
+    class FakeFence:
+        def __init__(self, value: Turn) -> None:
+            self.turn = value
+
+        def append(self, method_name: str, event_name: str, event: Any) -> tuple[Turn, bool]:
+            assert method_name == "append_validated_graph_operation"
+            assert event_name == "operation_event"
+            current = self.turn.graph_context_execution
+            assert current is not None
+            updated = graph_types.PlanWorldGraphExecutionV1.model_validate({
+                **current.model_dump(mode="json", by_alias=True),
+                "events": [event.model_dump(mode="json", by_alias=True)],
+            })
+            self.turn = self.turn.model_copy(update={
+                "revision": self.turn.revision + 1,
+                "graph_context_execution": updated,
+            })
+            return self.turn, True
+
+    adapter = _PolicyExecutionAdapter(
+        service=object(), request=body, world_id=managed.world_id,
+        work=work, bootstrap=bootstrap, playable_target=None,
+        submitted_intent=_submitted_turn_intent(body, world_id=managed.world_id),
+        existing_turn=turn, budget={
+            **budget, "provider": "openai-api", "model": "test-model",
+            "apiMode": "codex_responses",
+        },
+    )
+    adapter.fence = FakeFence(turn)
+    adapter.last_provider_attempt_id = uuid4()
+    brokered = adapter.broker_graph_operation({
+        "toolName": "expand_graph_retrieval",
+        "arguments": {
+            "schema": "dmb_expand_graph_retrieval_request_v1",
+            "retrievalSessionId": bootstrap.retrieval_session.id,
+            "operation": "search", "queryText": "tavern",
+            "historicalRevisionId": published.revision_id,
+        },
+    })
+    brokered_result = __import__("json").loads(brokered["resultJson"])
+    assert brokered_result["schema"] == "dmb_world_graph_retrieval_result_v1"
+    assert brokered_result["snapshot"]["revisionId"] == published.revision_id
+    assert brokered["retrievalSession"]["snapshot"]["revision_id"] == published.revision_id
+    assert adapter.fence.turn.graph_context_execution.events[0].graph_revision == published.revision_id
+
+
 def _durable_turn(
     *,
     world_id: str,
