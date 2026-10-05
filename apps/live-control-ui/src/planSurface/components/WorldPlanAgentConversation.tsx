@@ -854,34 +854,26 @@ function isWorldPlanGraphCompletion(
     }
     for (const claim of graphClaims) {
       const entry = entriesByClaimId.get(claim.claim_id);
-      const dispatchedTargetIds = claim.target_kind === "assertion"
-        ? receipt.assembled_input.dispatched_assertion_ids
-        : receipt.assembled_input.dispatched_relationship_ids;
       if (!entry
         || entry.target_kind !== claim.target_kind
         || entry.target_id !== claim.target_id
         || entry.graph_revision !== claim.graph_revision
-        || !dispatchedTargetIds.includes(claim.target_id)
-        || claim.evidence_ref_ids.some((ref) => !receipt.assembled_input.dispatched_evidence_ref_ids.includes(ref))
         || entry.evidence_ref_ids.length !== claim.evidence_ref_ids.length
         || entry.evidence_ref_ids.some((ref, index) => ref !== claim.evidence_ref_ids[index])) return false;
     }
   }
 
   const status = value.answer_context_status as WorldPlanGraphAnswerContextStatusV1;
-  const sufficient = receipt.graph_packet.evidence_sufficiency_status === "sufficient";
-  const complete = receipt.graph_packet.coverage_status === "complete" && !receipt.graph_packet.truncated;
   if (status === "plan_only_insufficient_evidence") {
-    return !sufficient && graphClaims.length === 0 && citationMap === null
-      && value.answer_basis === "committed_plan"
-      && receipt.assembled_input.packet_disposition === "omitted_insufficient";
-  }
-  if (status === "plan_only_graph_unused") {
-    return sufficient && graphClaims.length === 0 && citationMap === null
+    return receipt.graph_packet.evidence_sufficiency_status === "insufficient"
+      && receipt.assembled_input.packet_disposition === "omitted_insufficient"
+      && graphClaims.length === 0 && citationMap === null
       && value.answer_basis === "committed_plan";
   }
-  if (!sufficient || graphClaims.length === 0 || citationMap === null) return false;
-  return status === "graph_grounded" ? complete : !complete;
+  if (status === "plan_only_graph_unused") {
+    return graphClaims.length === 0 && citationMap === null && value.answer_basis === "committed_plan";
+  }
+  return graphClaims.length > 0 && citationMap !== null && value.answer_basis === "committed_plan_plus_world_graph";
 }
 
 function isWorldPlanGraphExecution(value: unknown): value is WorldPlanGraphExecutionProjectionV1 {
@@ -956,9 +948,28 @@ function isHistoryTurn(
     || !Array.isArray(provenance.supporting_work)
     || !provenance.supporting_work.every(isHistoryReference)
     || !isHistoryReference(provenance.selected_object)) return false;
-  return schema === "dmb_agent_conversation_history_v2"
-    ? !hasPlanContext || isWorldPlanContextProjection(value.plan_context, undefined, true)
-    : !hasPlanContext;
+  if (schema !== "dmb_agent_conversation_history_v2" || !hasPlanContext) return !hasPlanContext;
+  if (!isWorldPlanContextProjection(value.plan_context, undefined, true)
+    || !isHistoryPlanContextBound(value.plan_context, provenance, worldId)) return false;
+  const hasCompletion = value.plan_context.completion !== null;
+  return value.lifecycle_status === "completed" ? hasCompletion : !hasCompletion;
+}
+
+function isHistoryPlanContextBound(value: unknown, provenance: unknown, worldId: string): boolean {
+  if (!isRecord(value) || !isRecord(value.receipt) || !isRecord(value.receipt.plan_basis)
+    || !isRecord(provenance) || !isRecord(provenance.primary_work)) return false;
+  const basis = value.receipt.plan_basis;
+  const primary = provenance.primary_work;
+  return provenance.world_id === worldId
+    && basis.world_id === worldId
+    && primary.resolution === "resolved"
+    && primary.kind === "plan"
+    && primary.object_id === basis.document_id
+    && primary.revision === String(basis.object_revision)
+    && primary.object_revision === basis.object_revision
+    && primary.work_revision_id === basis.work_revision_id
+    && primary.revision_n === basis.revision_n
+    && primary.content_sha256 === basis.content_sha256;
 }
 
 function isWorldConversationHistory(value: unknown): value is WorldAgentConversationHistoryResponse {

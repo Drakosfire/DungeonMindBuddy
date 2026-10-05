@@ -95,7 +95,7 @@ This slice's witness is synthetic and UI-boundary only. It proves the consumer s
 
 ### Synthetic consumer verification (2026-10-05)
 
-- `rtk npm --prefix apps/live-control-ui test -- src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx` — 30 tests passed, including dirty committed-basis/card pinning, no-policy v1 shape, all four v2 outcomes, malformed response/history citations, duplicate-turn sidecar merge, unknown-outcome recovery, and authorization-rejected Graph recovery.
+- `rtk npm --prefix apps/live-control-ui test -- src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx` — 36 tests passed, including dirty committed-basis/card pinning, no-policy v1 shape, all four v2 outcomes, initially insufficient receipts completed with later parent-validated tool evidence, mixed initial/tool citations, truncated partial coverage, malformed completion maps, historical Plan/provenance binding, lifecycle/completion consistency, duplicate-turn sidecar merge, unknown-outcome recovery, and authorization-rejected Graph recovery.
 - `rtk git diff --check` — clean.
 - `rtk npm --prefix apps/live-control-ui run typecheck` — blocked only by the inherited `src/statblocks/publication/ThreatPublicationPanel.tsx(553,77): error TS2503: Cannot find namespace 'JSX'.` The changed consumer files produced no additional diagnostics.
 - No producer-integrated route, provider, Graph, database, or runtime check is claimed by this synthetic fixture lane.
