@@ -55,6 +55,11 @@ This is a browser UI recovery slice verified with mounted tests, deferred mocked
 - UI typecheck is blocked by the inherited main error `src/statblocks/publication/ThreatPublicationPanel.tsx(553,77): TS2503 Cannot find namespace 'JSX'`; that file is unchanged from the pinned base.
 - The candidate has not yet received PRIME review. Record its published head and PR link after publication; do not claim runtime or visual acceptance for this slice.
 
+## Publication checkpoint
+
+- Published as [PR #919](https://github.com/Drakosfire/DungeonMindBuddy/pull/919), based on the pinned main SHA above. The PR opened at `70c312988880579b4aae415095f7f740e608043a`; that head contains the source, mounted regressions, and this verification record across only the three leased paths.
+- PRIME's exact-head review and merge coordination remain pending. Do not merge from this handoff.
+
 ## PR and settlement
 
 One implementation PR for this capability, from this pinned base. DEMO implements, verifies, inspects the cumulative diff, commits and pushes the branch, and opens/updates that PR. PRIME independently reviews the exact head and owns merge coordination. Do not claim this slice complete until that review and its required gates settle; record actual head, evidence and lease release here after merge.
