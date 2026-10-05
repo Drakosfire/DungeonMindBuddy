@@ -154,7 +154,7 @@ Use deterministic Plan, binding, Graph session, fake APP-STATE execution ledger,
 ### Provider-boundary amendment evidence checkpoint
 
 - Checked-in patch SHA-256: `b86a45648bd323eaf58f73550725c2fb8d0442e58bc5471ee2c369fe82a53ada`.
-- Prepared patched-Hermes tree SHA: `0430126a406c559bb38d20e77f2307caf1c2b71`.
+- Prepared patched-Hermes tree SHA: `0430126a406c559bb38b86990f513e19c2ec938e` (also recorded as `expected_tree_sha` in `out/hermes-agent-manifest.json`; upstream commit `861d69c7bba8d2ea6a1cd170e989c901c74d32d1`).
 - `pytest -q out/hermes-agent/tests/agent/test_pre_dispatch_budget_veto.py`: 12 passed, including terminal guarded transport failure with `outcome_unknown` and one SDK invocation.
 - `pytest -q tests/hermes_patch/test_pre_dispatch_budget_veto.py`: 1 passed after updating the owning expected upstream count to 12.
 - Actual subprocess authorization/lifecycle witness: 1 passed. Two parent authorizations each received and acknowledged `sdk_entered` then `response_received`; exact authorized JSON and SHA-256 match captured `responses.create` kwargs, including `stream=true`.
