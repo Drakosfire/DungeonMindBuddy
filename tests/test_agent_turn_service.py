@@ -6,7 +6,7 @@ from hashlib import sha256
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -232,7 +232,6 @@ def test_execution_projection_never_implies_automatic_redispatch(
 def _policy_turn(
     *, status: str = "completed", completion_present: bool = True, drift: bool = False
 ) -> Turn:
-    from uuid import uuid4
 
     revision_id = uuid4()
     receipt_payload = {
@@ -367,6 +366,125 @@ def _policy_turn(
     )
 
 
+def _policy_turn_with_targets(
+    receipt_target: PlanPlayableTargetReceiptV1 | None,
+    provenance_target: PlanPlayableTargetReceiptV1 | None,
+) -> Turn:
+    turn = _policy_turn()
+    payload = turn.graph_context_receipt.model_dump(mode="json", by_alias=True)
+    payload["playable_target"] = (
+        None
+        if receipt_target is None
+        else receipt_target.model_dump(mode="json", by_alias=True)
+    )
+    canonical = json.dumps(
+        {key: value for key, value in payload.items() if key != "context_receipt_sha256"},
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    payload["context_receipt_sha256"] = sha256(canonical).hexdigest()
+    receipt = PlanWorldGraphContextReceiptV1.model_validate(payload)
+    completion = turn.completion.model_copy(update={
+        "context_receipt_sha256": receipt.context_receipt_sha256,
+    })
+    provenance = turn.provenance.model_copy(update={
+        "supporting_work": (
+            [] if provenance_target is None
+            else [encode_plan_playable_target_reference(provenance_target)]
+        ),
+    })
+    return turn.model_copy(update={
+        "graph_context_receipt": receipt,
+        "completion": completion,
+        "provenance": provenance,
+    })
+
+
+def _cited_card_a_policy_turn() -> Turn:
+    card_a = PlanPlayableTargetReceiptV1(
+        schema="dmb_plan_playable_target_receipt_v1",
+        kind="scene",
+        id="scene:opening",
+        marker_grammar_version="v1",
+    )
+    turn = _policy_turn_with_targets(card_a, card_a)
+    payload = turn.graph_context_receipt.model_dump(mode="json", by_alias=True)
+    payload["plan_basis"].update({
+        "world_id": "world-conversation-test",
+        "document_id": "saved-plan-test",
+        "work_revision_id": "00000000-0000-4000-8000-000000000011",
+        "revision_n": 1,
+        "content_sha256": "a" * 64,
+    })
+    payload["graph_authority"]["managed_world_id"] = "world-conversation-test"
+    payload["graph_packet"].update({
+        "candidate_assertion_ids": ["assertion-internal-test"],
+        "candidate_evidence_ref_ids": ["evidence-internal-test"],
+        "retrieval_status": "complete",
+        "evidence_sufficiency_status": "sufficient",
+        "coverage_status": "complete",
+        "omission_reasons": [],
+    })
+    payload["assembled_input"].update({
+        "packet_disposition": "included",
+        "packet_disposition_reason": None,
+        "dispatched_packet_sha256": "c" * 64,
+        "dispatched_assertion_ids": ["assertion-internal-test"],
+        "dispatched_evidence_ref_ids": ["evidence-internal-test"],
+    })
+    canonical = json.dumps(
+        {key: value for key, value in payload.items() if key != "context_receipt_sha256"},
+        ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False,
+    ).encode("utf-8")
+    payload["context_receipt_sha256"] = sha256(canonical).hexdigest()
+    receipt = PlanWorldGraphContextReceiptV1.model_validate(payload)
+    claim = {
+        "kind": "graph_claim",
+        "claim_id": "claim-internal-test",
+        "text": "The western gate is watched.",
+        "target_kind": "assertion",
+        "target_id": "assertion-internal-test",
+        "graph_revision": "graph-revision-3",
+        "evidence_ref_ids": ["evidence-internal-test"],
+    }
+    completion = PlanWorldGraphCompletionV1.model_validate({
+        "schema": "dmb_plan_world_graph_completion_v1",
+        "context_receipt_sha256": receipt.context_receipt_sha256,
+        "answer_basis": "committed_plan_plus_world_graph",
+        "answer_context_status": "graph_grounded",
+        "answer_segments": [claim],
+        "citation_map": {
+            "schema": "dmb_graph_citation_map_v1",
+            "context_receipt_sha256": receipt.context_receipt_sha256,
+            "entries": [{
+                **{key: value for key, value in claim.items() if key not in {"kind", "text"}},
+                "source_opened": False,
+            }],
+        },
+    })
+    provenance = turn.provenance.model_copy(update={
+        "world_id": "world-conversation-test",
+        "primary_work": turn.provenance.primary_work.model_copy(update={
+            "object_id": "saved-plan-test",
+            "work_revision_id": UUID("00000000-0000-4000-8000-000000000011"),
+            "revision_n": 1,
+            "content_sha256": "a" * 64,
+        }),
+    })
+    return turn.model_copy(update={
+        "turn_id": UUID("00000000-0000-4000-8000-000000000032"),
+        "conversation_id": UUID("00000000-0000-4000-8000-000000000031"),
+        "world_id": "world-conversation-test",
+        "user_text": "Who watches the western gate?",
+        "assistant_text": claim["text"],
+        "provenance": provenance,
+        "graph_context_receipt": receipt,
+        "completion": completion,
+    })
+
+
 def test_history_projection_keeps_receipt_and_completion_bound_to_provenance() -> None:
     context = project_plan_turn_context(_policy_turn(), delivery_replay=False)
     assert context.receipt.plan_basis.document_id == "plan:one"
@@ -376,6 +494,33 @@ def test_history_projection_keeps_receipt_and_completion_bound_to_provenance() -
 
     with pytest.raises(AgentTurnServiceError, match="historical turn provenance"):
         project_plan_turn_context(_policy_turn(drift=True), delivery_replay=False)
+
+
+def test_history_projection_requires_exact_canonical_playable_target() -> None:
+    card_a = PlanPlayableTargetReceiptV1(
+        schema="dmb_plan_playable_target_receipt_v1",
+        kind="scene",
+        id="scene:card-a",
+        marker_grammar_version="v1",
+    )
+    card_b = card_a.model_copy(update={"id": "scene:card-b"})
+    for receipt_target, provenance_target in (
+        (card_a, None),
+        (None, card_a),
+        (card_a, card_b),
+    ):
+        turn = _policy_turn_with_targets(receipt_target, provenance_target)
+        with pytest.raises(AgentTurnServiceError) as caught:
+            project_plan_turn_context(turn, delivery_replay=False)
+        assert caught.value.code == "turn_receipt_unverifiable"
+
+    matching = project_plan_turn_context(
+        _policy_turn_with_targets(card_a, card_a), delivery_replay=False
+    )
+    assert matching.receipt.playable_target == card_a
+    assert project_plan_turn_context(
+        _policy_turn_with_targets(None, None), delivery_replay=False
+    ).receipt.playable_target is None
 
 
 def test_completed_policy_replay_returns_v2_from_stored_receipt_only() -> None:
@@ -415,21 +560,20 @@ def test_completed_policy_replay_returns_v2_from_stored_receipt_only() -> None:
     assert response.answer.graph_grounded is False
 
 
-def test_history_http_route_serializes_mixed_v1_and_v2_turns(
+def _serialized_card_a_history_body(
     monkeypatch: Any,
-) -> None:
+) -> dict[str, Any]:
     """Exercise FastAPI's response serialization for additive policy history."""
     import asyncio
     from fastapi.encoders import jsonable_encoder
     from fastapi.routing import serialize_response
     from types import SimpleNamespace
-    from uuid import uuid4
 
     from apps.live_control_server.routes import agent as agent_route
 
-    policy_turn = _policy_turn()
+    policy_turn = _cited_card_a_policy_turn()
     legacy_turn = SimpleNamespace(
-        turn_id=uuid4(),
+        turn_id=UUID("00000000-0000-4000-8000-000000000033"),
         sequence=1,
         status="completed",
         user_text="A legacy question",
@@ -469,7 +613,7 @@ def test_history_http_route_serializes_mixed_v1_and_v2_turns(
         ))
     )
     response = agent_route.get_world_conversation_history(
-        "world:one", request, limit=50, before_sequence=None
+        "world-conversation-test", request, limit=50, before_sequence=None
     )
     serialized = asyncio.run(
         serialize_response(
@@ -481,11 +625,45 @@ def test_history_http_route_serializes_mixed_v1_and_v2_turns(
     )
     body = jsonable_encoder(serialized, by_alias=True)
 
+    return body
+
+
+def test_history_http_route_serializes_mixed_v1_and_v2_turns(
+    monkeypatch: Any,
+) -> None:
+    body = _serialized_card_a_history_body(monkeypatch)
+
     assert body["schema"] == "dmb_agent_conversation_history_v2"
+    assert body["world_id"] == "world-conversation-test"
     assert [turn["sequence"] for turn in body["turns"]] == [2, 1]
     policy_payload = body["turns"][0]["plan_context"]
     assert policy_payload["schema"] == "dmb_agent_plan_world_graph_context_response_v1"
     assert policy_payload["receipt"]["schema"] == "dmb_agent_plan_world_graph_context_receipt_v1"
+    assert policy_payload["receipt"]["plan_basis"]["document_id"] == "saved-plan-test"
+    assert policy_payload["receipt"]["playable_target"] == {
+        "schema": "dmb_plan_playable_target_receipt_v1",
+        "kind": "scene",
+        "id": "scene:opening",
+        "marker_grammar_version": "v1",
+    }
+    assert body["turns"][0]["provenance"]["supporting_work"] == [
+        encode_plan_playable_target_reference(
+            PlanPlayableTargetReceiptV1(
+                schema="dmb_plan_playable_target_receipt_v1",
+                kind="scene",
+                id="scene:opening",
+                marker_grammar_version="v1",
+            )
+        ).model_dump(mode="json")
+    ]
+    assert policy_payload["completion"]["citation_map"]["entries"][0] == {
+        "claim_id": "claim-internal-test",
+        "target_kind": "assertion",
+        "target_id": "assertion-internal-test",
+        "graph_revision": "graph-revision-3",
+        "evidence_ref_ids": ["evidence-internal-test"],
+        "source_opened": False,
+    }
     assert body["turns"][1]["assistant_text"] == "A legacy answer"
     assert "plan_context" not in body["turns"][1]
 
