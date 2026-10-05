@@ -71,6 +71,7 @@ _REQUEST_ALLOWED_KEYS = frozenset(
         "retrievalSession",
         "surfaceContextBlock",
         "planContinuityTurn",
+        "requestBudget",
     }
 )
 _REQUEST_FORBIDDEN_KEYS = frozenset(
@@ -257,6 +258,7 @@ class HermesGraphAgentTurnRequest:
     retrieval_session: Mapping[str, Any] | None = None
     surface_context_block: str | None = None
     plan_continuity_turn: bool = False
+    request_budget: Mapping[str, Any] | None = None
 
 
 def _reject_unknown_keys(payload: Mapping[str, Any], allowed: frozenset[str], *, label: str) -> None:
@@ -271,6 +273,45 @@ def _require_str(value: Any, *, label: str, max_chars: int) -> str:
     if len(value) > max_chars:
         raise ValueError(f"{label} exceeds max length {max_chars}")
     return value
+
+
+def _serialize_request_budget(value: Any) -> dict[str, Any] | None:
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise ValueError("requestBudget must be a mapping or null")
+    allowed = {
+        "schema",
+        "provider",
+        "model",
+        "apiMode",
+        "estimator",
+        "contextLimitTokens",
+        "outputReserveTokens",
+    }
+    _reject_unknown_keys(value, frozenset(allowed), label="requestBudget")
+    schema = _require_str(value.get("schema"), label="requestBudget.schema", max_chars=64)
+    if schema != "dmb_hermes_request_budget_policy_v1":
+        raise ValueError("requestBudget.schema is unsupported")
+    result: dict[str, Any] = {"schema": schema}
+    for key in ("provider", "model", "apiMode"):
+        result[key] = _require_str(
+            value.get(key), label=f"requestBudget.{key}", max_chars=MAX_ID_CHARS
+        ).strip()
+        if not result[key]:
+            raise ValueError(f"requestBudget.{key} must be non-empty")
+    estimator = _require_str(value.get("estimator"), label="requestBudget.estimator", max_chars=64)
+    if estimator != "utf8_json_bytes_plus_64_per_node_v1":
+        raise ValueError("requestBudget.estimator is unsupported")
+    result["estimator"] = estimator
+    for key, maximum in (("contextLimitTokens", 10_000_000), ("outputReserveTokens", 1_000_000)):
+        raw = value.get(key)
+        if isinstance(raw, bool) or not isinstance(raw, int) or raw <= 0 or raw > maximum:
+            raise ValueError(f"requestBudget.{key} is outside its supported range")
+        result[key] = raw
+    if result["outputReserveTokens"] >= result["contextLimitTokens"]:
+        raise ValueError("requestBudget output reserve must be below the context limit")
+    return result
 
 
 def _scope_mode(value: Any) -> Literal["campaign", "world"]:
@@ -747,7 +788,8 @@ def serialize_hermes_graph_agent_turn_request(
         )
     if not isinstance(request.plan_continuity_turn, bool):
         raise ValueError("planContinuityTurn must be a boolean")
-    return {
+    request_budget = _serialize_request_budget(request.request_budget)
+    payload = {
         "question": question,
         "worldId": world_id,
         "campaignId": campaign_id,
@@ -780,6 +822,9 @@ def serialize_hermes_graph_agent_turn_request(
         "surfaceContextBlock": surface_block,
         "planContinuityTurn": request.plan_continuity_turn,
     }
+    if request_budget is not None:
+        payload["requestBudget"] = request_budget
+    return payload
 
 
 def deserialize_hermes_graph_agent_turn_request(
@@ -802,6 +847,7 @@ def deserialize_hermes_graph_agent_turn_request(
     plan_continuity_turn = payload.get("planContinuityTurn", False)
     if not isinstance(plan_continuity_turn, bool):
         raise ValueError("planContinuityTurn must be a boolean")
+    request_budget = _serialize_request_budget(payload.get("requestBudget"))
     conversation_only = policy is not None and policy.mode == "conversation_only"
     if conversation_only:
         graph_keys = (
@@ -861,6 +907,7 @@ def deserialize_hermes_graph_agent_turn_request(
             max_chars=MAX_SURFACE_CONTEXT_BLOCK_CHARS,
         ),
         plan_continuity_turn=plan_continuity_turn,
+        request_budget=request_budget,
     )
 
 

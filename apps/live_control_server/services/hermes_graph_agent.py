@@ -947,6 +947,12 @@ class _ApiObserverCollector:
         except Exception:
             self._note("observer_payload_malformed")
 
+    def discard_pre_dispatch_veto(self, api_request_id: str) -> None:
+        """Do not report an observed pre-hook as an inference call when vetoed."""
+        key = str(api_request_id or "").strip()
+        if key:
+            self._pending.pop(key, None)
+
     def _flush_pending(self) -> None:
         for payload in self._pending.values():
             try:
@@ -981,6 +987,101 @@ class _ApiObserverCollector:
                 self._note("observer_hook_already_removed")
         self._registered.clear()
         self._flush_pending()
+
+
+def _request_budget_guard(policy: Mapping[str, Any]) -> Callable[[Any], bool]:
+    """Build the strict local request-envelope guard for one resolved model."""
+    expected_provider = str(policy["provider"])
+    expected_model = str(policy["model"])
+    expected_mode = str(policy["apiMode"])
+    expected_estimator = str(policy["estimator"])
+    context_limit = int(policy["contextLimitTokens"])
+    output_reserve = int(policy["outputReserveTokens"])
+
+    def allow(view: Any) -> bool:
+        if (
+            view.provider != expected_provider
+            or view.model != expected_model
+            or view.api_mode != expected_mode
+            or expected_provider != "openai"
+            or expected_mode not in {"codex_responses", "chat_completions"}
+            or expected_estimator != "utf8_json_bytes_plus_64_per_node_v1"
+        ):
+            return False
+        try:
+            payload = json.loads(view.payload_json)
+        except (TypeError, ValueError):
+            return False
+        if not isinstance(payload, dict) or payload.get("model") != expected_model:
+            return False
+        media_keys = {
+            "image",
+            "image_url",
+            "input_image",
+            "audio",
+            "input_audio",
+            "video",
+            "video_url",
+            "file",
+            "file_id",
+        }
+
+        def inspect_json(value: Any) -> tuple[bool, int]:
+            if isinstance(value, dict):
+                if any(key in media_keys for key in value):
+                    return False, 0
+                count = 1
+                for item in value.values():
+                    valid, child_count = inspect_json(item)
+                    if not valid:
+                        return False, 0
+                    count += child_count
+                return True, count
+            if isinstance(value, list):
+                count = 1
+                for item in value:
+                    valid, child_count = inspect_json(item)
+                    if not valid:
+                        return False, 0
+                    count += child_count
+                return True, count
+            if value is None or isinstance(value, (str, bool, int, float)):
+                return True, 0
+            return False, 0
+
+        valid_payload, protocol_nodes = inspect_json(payload)
+        if not valid_payload or protocol_nodes > 100_000:
+            return False
+        tools = payload.get("tools", [])
+        if not isinstance(tools, list):
+            return False
+        if expected_mode == "codex_responses":
+            inputs = payload.get("input")
+            actual_output = payload.get("max_output_tokens")
+            if not isinstance(inputs, (str, list)):
+                return False
+        else:
+            messages = payload.get("messages")
+            if "max_completion_tokens" in payload and "max_tokens" in payload:
+                return False
+            actual_output = payload.get("max_completion_tokens", payload.get("max_tokens"))
+            if not isinstance(messages, list) or any(not isinstance(item, dict) for item in messages):
+                return False
+        if (
+            isinstance(actual_output, bool)
+            or not isinstance(actual_output, int)
+            or actual_output <= 0
+            or actual_output > output_reserve
+        ):
+            return False
+        # Full canonical request JSON includes instructions/input/messages and
+        # tool schemas. Treat each UTF-8 byte as a conservative content-token
+        # ceiling and reserve additional protocol framing per input/tool item.
+        # This is explicitly an upper-bound guard, not an exact token count.
+        input_upper_bound = view.payload_utf8_bytes + 64 * (1 + protocol_nodes)
+        return input_upper_bound + output_reserve <= context_limit
+
+    return allow
 
 
 def run_hermes_graph_agent_turn(
@@ -1387,6 +1488,10 @@ def run_hermes_graph_agent_turn(
                                 retrieval_session_packet=retrieval_session_packet,
                             ),
                         )
+                        if request.request_budget is not None:
+                            agent.api_request_budget_guard = _request_budget_guard(
+                                request.request_budget
+                            )
                         api_observer.capture_runtime_api_mode(agent)
 
                         agent_tools = getattr(agent, "tools", None)
@@ -1463,6 +1568,22 @@ def run_hermes_graph_agent_turn(
                         hermes_session_id=session_id,
                         error_code="hermes_malformed_response",
                         error_message="Hermes returned a malformed messages payload.",
+                        tool_events=collector.events,
+                    )
+
+                if raw.get("failure_code") == "request_budget_exceeded":
+                    request_id = raw.get("api_request_id")
+                    api_observer.discard_pre_dispatch_veto(
+                        request_id if isinstance(request_id, str) else ""
+                    )
+                    return observed_error(
+                        hermes_session_id=session_id,
+                        error_code="request_budget_exceeded",
+                        error_message=(
+                            "The provider request exceeded the configured local budget; "
+                            "no inference request was dispatched."
+                        ),
+                        messages=[dict(item) for item in messages if isinstance(item, Mapping)],
                         tool_events=collector.events,
                     )
 

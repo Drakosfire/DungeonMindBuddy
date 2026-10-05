@@ -121,8 +121,14 @@ authority model.
 This repository uses `uv` for Python dependency and environment management.
 
 ```bash
-uv sync
+python3 scripts/prepare_patched_hermes.py
+uv sync --locked
 ```
+
+The prepare step checks out the locked Hermes commit and applies Buddy's
+reviewed pre-dispatch budget patch into ignored `out/hermes-agent`. `uv sync`
+then installs that local source. A locked sync without the prepared source fails
+with an actionable error; the script never patches an installed package.
 
 For local OpenAI-backed commands, put `OPENAI_API_KEY` in a repo-root `.env` or
 `.env.development` file. The CLI, eval harnesses, and pytest load it through

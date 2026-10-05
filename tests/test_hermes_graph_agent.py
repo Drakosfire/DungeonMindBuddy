@@ -19,7 +19,9 @@ import yaml
 import apps.live_control_server.services.hermes_graph_agent as hermes_graph_agent_mod
 from apps.live_control_server.services.hermes_graph_agent import (
     HermesGraphAgentTurnRequest,
+    _ApiObserverCollector,
     _derive_answer_scope,
+    _request_budget_guard,
     _summarize_tool_result,
     hermes_import_namespace,
     run_hermes_graph_agent_turn,
@@ -2320,3 +2322,130 @@ def test_surface_context_block_appended_to_ephemeral_system_not_question(
     assert question not in json.dumps(
         _FakeAgent.last_run.get("conversation_history") or []
     )
+
+
+def test_request_budget_guard_bounds_full_openai_request_and_output_reserve():
+    payload = {
+        "model": "synthetic-model",
+        "messages": [
+            {"role": "system", "content": "instruction"},
+            {"role": "user", "content": "question"},
+        ],
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "expand_graph",
+                    "parameters": {"type": "object", "properties": {"depth": {"type": "integer"}}},
+                },
+            }
+        ],
+        "max_completion_tokens": 2048,
+    }
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+    def count_nodes(value: Any) -> int:
+        if isinstance(value, dict):
+            return 1 + sum(count_nodes(child) for child in value.values())
+        if isinstance(value, list):
+            return 1 + sum(count_nodes(child) for child in value)
+        return 0
+
+    request_bytes = len(encoded.encode("utf-8"))
+    input_upper_bound = request_bytes + 64 * (1 + count_nodes(payload))
+    policy = {
+        "provider": "openai",
+        "model": "synthetic-model",
+        "apiMode": "chat_completions",
+        "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+        "contextLimitTokens": input_upper_bound + 2048,
+        "outputReserveTokens": 2048,
+    }
+    view = SimpleNamespace(
+        provider="openai",
+        model="synthetic-model",
+        api_mode="chat_completions",
+        payload_json=encoded,
+        payload_utf8_bytes=request_bytes,
+    )
+    guard = _request_budget_guard(policy)
+    assert guard(view) is True
+
+    policy["contextLimitTokens"] -= 1
+    assert _request_budget_guard(policy)(view) is False
+
+
+def test_request_budget_guard_accepts_codex_responses_envelope():
+    payload = {
+        "model": "synthetic-model",
+        "instructions": "Use the available graph tools.",
+        "input": [{"role": "user", "content": "question"}],
+        "tools": [],
+        "max_output_tokens": 100,
+    }
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    view = SimpleNamespace(
+        provider="openai",
+        model="synthetic-model",
+        api_mode="codex_responses",
+        payload_json=encoded,
+        payload_utf8_bytes=len(encoded.encode("utf-8")),
+    )
+    policy = {
+        "provider": "openai",
+        "model": "synthetic-model",
+        "apiMode": "codex_responses",
+        "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+        "contextLimitTokens": 32768,
+        "outputReserveTokens": 100,
+    }
+    assert _request_budget_guard(policy)(view) is True
+
+
+@pytest.mark.parametrize(
+    ("policy_change", "payload_change"),
+    [
+        ({"provider": "other"}, {}),
+        ({"apiMode": "unknown"}, {}),
+        ({}, {"messages": [{"role": "user", "content": [{"type": "input_image", "image_url": "x"}]}]}),
+        ({}, {"max_completion_tokens": True}),
+    ],
+)
+def test_request_budget_guard_fails_closed_for_unknown_accounting(
+    policy_change: dict[str, Any], payload_change: dict[str, Any]
+):
+    payload = {
+        "model": "synthetic-model",
+        "messages": [{"role": "user", "content": "question"}],
+        "tools": [],
+        "max_completion_tokens": 100,
+    }
+    payload.update(payload_change)
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    view = SimpleNamespace(
+        provider="openai",
+        model="synthetic-model",
+        api_mode="chat_completions",
+        payload_json=encoded,
+        payload_utf8_bytes=len(encoded.encode("utf-8")),
+    )
+    policy: dict[str, Any] = {
+        "provider": "openai",
+        "model": "synthetic-model",
+        "apiMode": "chat_completions",
+        "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+        "contextLimitTokens": 32768,
+        "outputReserveTokens": 100,
+    }
+    policy.update(policy_change)
+    assert _request_budget_guard(policy)(view) is False
+
+
+def test_pre_dispatch_veto_is_not_reported_as_a_provider_inference_call():
+    observer = _ApiObserverCollector()
+    observer.on_pre_api_request(api_request_id="turn:api:1", model="synthetic-model")
+    observer.discard_pre_dispatch_veto("turn:api:1")
+
+    calls, warnings = observer.finish()
+    assert calls == []
+    assert warnings == []
