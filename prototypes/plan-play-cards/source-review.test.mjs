@@ -96,6 +96,9 @@ if(process.env.CONKS_FIDELITY_ROOT){
  const card=actualBoard.cards.find(c=>c.id==='conks:card:1');
  const abilities=card.lenses['GM only'].find(i=>i.refs.includes(actualBoard.sourceAnnotations.find(a=>a.role==='ability_label').unitId));
  const table=renderConksStatblock(abilities,actualBoard,card.id);assert.equal((table.match(/<th scope=/g)??[]).length,6);assert.equal((table.match(/<td>/g)??[]).length,6);
+ const title=card.lenses['GM only'][0];
+ assert.match(renderConksStatblock(title,actualBoard,card.id),/Huge plant, unaligned/);
+ assert.match(title.text,/Huqe plant, unaligned/,'original title OCR stays intact');
  const senses=card.lenses['GM only'].find(i=>i.text.includes('Senses blindness'));
  assert.match(renderConksStatblock(senses,actualBoard,card.id),/blindsight 600 ft/);assert.match(senses.text,/blindness 600 ft/,'original OCR stays intact');
  assert.equal(renderConksStatblock(senses,actualBoard,'conks:card:2'),null);

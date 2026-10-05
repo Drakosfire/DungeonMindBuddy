@@ -141,6 +141,10 @@ export function renderConksStatblock(item,board,cardId){
  const value=a=>{
   // Ranges were selected against original OCR. A reviewed whole-unit correction can
   // supply the corresponding labeled field value only after original basis validation.
+  if(a.role==='type_alignment'&&correction?.originalText===unit.text){
+   const separator=unit.text.indexOf(' — '),correctedSeparator=correction.text.indexOf(' — ');
+   if(separator>=0&&correctedSeparator>=0&&Array.from(unit.text.slice(0,separator+3)).length===a.start&&a.end===Array.from(unit.text).length)return sourceEscape(correction.text.slice(correctedSeparator+3));
+  }
   if(a.role==='field_value'&&correction?.originalText===unit.text){
    const line=correction.text.split('\n').find(line=>line.startsWith(a.field+' '));
    if(line)return sourceEscape(line.slice(a.field.length+1));
