@@ -1,6 +1,6 @@
 # Conks source structure successor
 
-BLOCKED implementation; authorized preparation only, PRIME 2026-10-04. Serial continuation in existing PR887 after Sheep bounded code review ACCEPT at724370ce; Sheep rendered/operator/native acceptance remains open. This proposal grants no renderer lease or runtime allocation.
+ACTIVE bounded implementation, PRIME activation 2026-10-04; preparation history and separate acceptance gates retained. Serial continuation in existing PR887 after Sheep bounded code review ACCEPT at724370ce; Sheep rendered/operator/native acceptance remains open. The exact individual-file lease below is activated; no runtime allocation.
 
 ## Pinned basis
 
@@ -12,7 +12,7 @@ Recover source structure on the Conks preparation surface while retaining immuta
 
 Statblocks should expose name/type, AC/HP/speed, six ability columns, defensive/senses/challenge fields, Traits and individually named Actions. Use the independently reviewed v2 exact source spans; formatting does not authorize rule changes or arbitrary HTML/CSS. Existing cross-page continuations and attributed conditional alternatives remain intact.
 
-## Candidate individual-file lease, requires activation
+## Activated individual-file lease
 
 Under `prototypes/plan-play-cards/` only:
 
@@ -48,4 +48,8 @@ Independent review accepted v1 package data at c41ed87d8ce0dacc894e60f6a22988cfe
 
 Independent reviewer ACCEPT_SOURCE_PACKAGE_ONLY at exact PR887 head `5ce8943490a3f6d2f3e3a29848d4d8e502380c0e`. Parsed evidence `/tmp/prime-conks-source-review/v2-span-review.json`, SHA-256 `3c7c5d2070ee677baade4d5c2b61bf956880201b58352863eae61db84918cdad`, verifies89 exact Unicode ranges/hashes over16 units, card/GM mappings, nonoverlap, complete nonseparator coverage and both six-column ability pairings. Physical16/printed17 visual comparison supports all roles. Original five findings remain unchanged.
 
-Activation must pin immutable v2 package `bf221249244946851f1f225b25cac0cdfd6e8b50676389651d590c8eee88f227` and the exact review evidence. Apply original offsets to original OCR, including Huqe, blindness and escaped math, before length-changing display corrections. Ability range declaration alternates heading/value by column: sort by offsets for coverage, retain explicit column pairings for tables. No claim to recover every inline accent inside action bodies. Immutable v1/v2 preparation-status wording remains historical; this section records later source review only. Implementation stays BLOCKED pending explicit activation. Media/disclosure/rendered/operator/native/full-gold holds remain separate.
+Activation must pin immutable v2 package `bf221249244946851f1f225b25cac0cdfd6e8b50676389651d590c8eee88f227` and the exact review evidence. Apply original offsets to original OCR, including Huqe, blindness and escaped math, before length-changing display corrections. Ability range declaration alternates heading/value by column: sort by offsets for coverage, retain explicit column pairings for tables. No claim to recover every inline accent inside action bodies. Immutable v1/v2 preparation-status wording remains historical; this section records later source review only. Implementation is activated only by the bounded authority below; source-package acceptance alone did not activate it. Media/disclosure/rendered/operator/native/full-gold holds remain separate.
+
+## Bounded implementation activation
+
+PRIME explicitly activates this serial PR887 slice after accepted Sheep code724370ce. Fetched base main `498353516a1ed49c48d4039e0edc218e63419424`; activation predecessor local/pushed PR887 `33bf15c16c0776792448ed46290a636e645af7b3` (settled acceptance), independently reviewed package head `5ce8943490a3f6d2f3e3a29848d4d8e502380c0e`; separate PR917 `05fa6365b710c70ab0aea56849fb63d30177d669`. Branch `codex/dogfood-plan-play-cards`, isolated checkout `/tmp/dmb-plan-play-cards`. Exact v2 package and review hashes above are pinned authority. Exact listed individual-file lease is exclusive for this prototype slice, with no additional files. Implement five findings and89 spans with Conks-specific complete expected transformation/manifest/receipt inventories and adversarial rejection. Preserve Sheep regression behavior and accepted immutable derivative pins. Commit/push existingPR887 and obtain independent implementation review before merge. No merge authority. No runtime/active catalog changes; DEMO priority and conversation-file holds remain binding. Rendered/operator/native/media/disclosure gates remain open.
