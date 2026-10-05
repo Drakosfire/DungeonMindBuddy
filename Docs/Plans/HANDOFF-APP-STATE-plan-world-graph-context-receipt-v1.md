@@ -79,7 +79,7 @@ SERVER's provider-envelope witness must prove that retrieved candidate identitie
 
 - `ruff check` passed for all leased Python source, migration, and test paths.
 - Against an isolated tmpfs PostgreSQL container and disposable per-test databases, the focused APP-STATE service, PostgreSQL, provenance migration, and Plan action PostgreSQL suites passed: 52 passed. This includes fresh-service receipt/completion readback, completed receipt replay, malformed receipt rejection, downgrade refusal with a non-null receipt, and legacy null/fingerprint preservation.
-- A final focused rerun of the receipt round-trip, graphless request-fingerprint compatibility, and populated legacy migration tests passed: 3 passed.
+- The selected-card regression accepts `beat:a` with receipt-only marker grammar v2, reads it from a fresh service, completes and replays the stored result, and rejects an intent/receipt ID mismatch.
 - No provider, Graph service, operator database, or persistent database volume was used.
 
 ## Stop rules

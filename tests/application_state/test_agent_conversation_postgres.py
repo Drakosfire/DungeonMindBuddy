@@ -112,7 +112,11 @@ def _typed_provenance(world_id: str) -> TurnProvenance:
     )
 
 
-def _graph_receipt(world_id: str, plan_revision_id) -> PlanWorldGraphContextReceiptV1:
+def _graph_receipt(
+    world_id: str,
+    plan_revision_id,
+    playable_target: PlanPlayableTargetReceiptV1 | None = None,
+) -> PlanWorldGraphContextReceiptV1:
     payload = {
         "schema": "dmb_agent_plan_world_graph_context_receipt_v1",
         "receipt_serializer_version": "canonical-json-utf8-v1",
@@ -128,7 +132,11 @@ def _graph_receipt(world_id: str, plan_revision_id) -> PlanWorldGraphContextRece
             "revision_n": 2,
             "content_sha256": "a" * 64,
         },
-        "playable_target": None,
+        "playable_target": (
+            None
+            if playable_target is None
+            else playable_target.model_dump(mode="json", by_alias=True)
+        ),
         "graph_authority": {
             "managed_world_id": world_id,
             "native_world_id": "native-world-17",
@@ -234,6 +242,7 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
 ) -> None:
     import psycopg
     from alembic import command
+    from pydantic import ValidationError
 
     from application_state.cli import alembic_config
 
@@ -241,7 +250,16 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
     world_id = "graph-receipt-roundtrip-world"
     conversation = _new(service, world_id)
     plan_revision_id = uuid4()
-    receipt = _graph_receipt(world_id, plan_revision_id)
+    playable_target = PlanPlayableTargetReceiptV1(
+        schema="dmb_plan_playable_target_receipt_v1",
+        kind="beat",
+        id="beat:a",
+        marker_grammar_version="v2",
+    )
+    submitted_target = SubmittedPlanPlayableTargetV1(
+        schema="dmb_plan_playable_target_v1", kind="beat", id="beat:a"
+    )
+    receipt = _graph_receipt(world_id, plan_revision_id, playable_target)
     intent = SubmittedTurnIntentV2(
         world_id=world_id,
         client_thread_id="graph-receipt-thread",
@@ -257,6 +275,7 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
             expected_content_sha256="a" * 64,
         ),
         plan_context_policy=PlanContextPolicyV1(policy="auto_plan_world"),
+        playable_target=submitted_target,
         graph_request=SubmittedGraphRequestIntentV1(mode="none"),
         graph_selection=None,
     )
@@ -274,6 +293,7 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
             work_revision_id=plan_revision_id,
             revision_n=2,
         ),
+        supporting_work=[encode_plan_playable_target_reference(playable_target)],
         selected_object=HistoricalReference(resolution="absent"),
     )
     submission = TurnSubmission(
@@ -290,7 +310,30 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
     fresh = AgentConversationService()
     loaded = fresh.list_turns(world_id, conversation.conversation_id)[0]
     assert loaded.graph_context_receipt == receipt
+    assert (
+        loaded.graph_context_receipt.playable_target.marker_grammar_version == "v2"
+    )
     assert fresh.accept_turn(submission) == accepted
+
+    with pytest.raises(ValidationError, match="Graph context receipt must match"):
+        TurnSubmission(
+            world_id=world_id,
+            conversation_id=conversation.conversation_id,
+            idempotency_key=uuid4(),
+            expected_conversation_revision=1,
+            user_text=intent.message,
+            provenance=provenance,
+            submitted_intent_v2=intent.model_copy(
+                update={
+                    "playable_target": SubmittedPlanPlayableTargetV1(
+                        schema="dmb_plan_playable_target_v1",
+                        kind="beat",
+                        id="beat:b",
+                    )
+                }
+            ),
+            graph_context_receipt=receipt,
+        )
 
     claimed = fresh.claim_turn(
         world_id,

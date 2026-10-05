@@ -1047,7 +1047,9 @@ class TurnSubmission(StrictModel):
                 != intent.primary_work.expected_revision_n
                 or receipt.plan_basis.content_sha256
                 != intent.primary_work.expected_content_sha256
-                or receipt.playable_target != intent.playable_target
+                or not _receipt_target_matches_intent(
+                    receipt.playable_target, intent.playable_target
+                )
                 or receipt.graph_authority.managed_world_id != self.world_id
                 or self.provenance.world_id != self.world_id
                 or self.provenance.surface_id != "plan"
@@ -1070,6 +1072,21 @@ class TurnSubmission(StrictModel):
         elif self.graph_context_receipt is not None:
             raise ValueError("Graph context receipt requires submitted intent v2")
         return self
+
+
+def _receipt_target_matches_intent(
+    receipt_target: PlanPlayableTargetReceiptV1 | None,
+    intent_target: SubmittedPlanPlayableTargetV1 | None,
+) -> bool:
+    """Compare shared target identity while retaining receipt-only grammar metadata."""
+    if receipt_target is None or intent_target is None:
+        return receipt_target is None and intent_target is None
+    # marker_grammar_version is intentionally receipt-only: its typed value and
+    # inclusion in the receipt digest remain independently validated/persisted.
+    return (
+        receipt_target.kind == intent_target.kind
+        and receipt_target.id == intent_target.id
+    )
 
 
 class Turn(StrictModel):
