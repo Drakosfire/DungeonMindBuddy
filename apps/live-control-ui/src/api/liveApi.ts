@@ -16,8 +16,8 @@ import type {
   IndexAgentTurnRequestV1,
   IndexAgentTurnResponseV1,
   WorldPlanAgentTurnRequestV1,
-  WorldPlanAgentTurnResponseV1,
-  WorldAgentConversationHistoryResponseV1,
+  WorldPlanAgentTurnResponse,
+  WorldAgentConversationHistoryResponse,
   WorldAgentNewConversationRequestV1,
   WorldAgentNewConversationResponseV1,
   LiveQueryBackend,
@@ -1353,8 +1353,8 @@ export async function postIndexAgentTurn(
 
 export async function postWorldPlanAgentTurn(
   request: WorldPlanAgentTurnRequestV1,
-): Promise<WorldPlanAgentTurnResponseV1> {
-  return apiFetch<WorldPlanAgentTurnResponseV1>("/api/live/agent/turn", {
+): Promise<WorldPlanAgentTurnResponse> {
+  return apiFetch<WorldPlanAgentTurnResponse>("/api/live/agent/turn", {
     method: "POST",
     body: JSON.stringify(request),
   });
@@ -1368,12 +1368,12 @@ export interface WorldAgentConversationHistoryOptions {
 export async function getWorldAgentConversationHistory(
   worldId: string,
   options: WorldAgentConversationHistoryOptions = {},
-): Promise<WorldAgentConversationHistoryResponseV1> {
+): Promise<WorldAgentConversationHistoryResponse> {
   const query = new URLSearchParams();
   if (options.limit !== undefined) query.set("limit", String(options.limit));
   if (options.beforeSequence !== undefined) query.set("before_sequence", String(options.beforeSequence));
   const suffix = query.size ? `?${query.toString()}` : "";
-  return apiFetch<WorldAgentConversationHistoryResponseV1>(
+  return apiFetch<WorldAgentConversationHistoryResponse>(
     `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation${suffix}`,
   );
 }

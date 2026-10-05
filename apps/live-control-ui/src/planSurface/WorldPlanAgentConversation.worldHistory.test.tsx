@@ -7,9 +7,16 @@ import * as liveApi from "../api/liveApi";
 import type {
   AgentInteractionThread,
   AgentInteractionTurn,
+  WorldAgentConversationHistoryResponse,
   WorldAgentConversationHistoryResponseV1,
+  WorldAgentConversationHistoryResponseV2,
   WorldAgentConversationHistoryTurnV1,
+  WorldAgentConversationHistoryTurnV2,
+  WorldPlanAgentPlanContextV1,
+  WorldPlanAgentTurnResponseV2,
   WorldPlanAgentTurnRequestV1,
+  WorldPlanGraphAnswerContextStatusV1,
+  WorldPlanGraphExecutionProjectionV1,
 } from "../api/types";
 
 const harness = vi.hoisted(() => ({
@@ -112,6 +119,179 @@ function history(
     pointer_revision: pointerRevision,
     turns,
     next_before_sequence: nextBeforeSequence,
+  };
+}
+
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value !== null && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(",")}}`;
+  }
+  const encoded = JSON.stringify(value);
+  if (encoded === undefined) throw new Error("Unsupported value in canonical JSON payload.");
+  return encoded;
+}
+
+async function planGraphContext(
+  status: WorldPlanGraphAnswerContextStatusV1,
+  options: {
+    request?: WorldPlanAgentTurnRequestV1;
+    execution?: WorldPlanGraphExecutionProjectionV1 | null;
+    completion?: boolean;
+  } = {},
+): Promise<WorldPlanAgentPlanContextV1> {
+  const graphClaimed = status === "graph_grounded" || status === "graph_grounded_partial";
+  const sufficient = status !== "plan_only_insufficient_evidence";
+  const graphRevision = "graph-revision-test";
+  const assertionIds = sufficient ? ["assertion-internal-test"] : [];
+  const evidenceIds = sufficient ? ["evidence-internal-test"] : [];
+  const receiptPayload = {
+    schema: "dmb_agent_plan_world_graph_context_receipt_v1" as const,
+    receipt_serializer_version: "canonical-json-utf8-v1" as const,
+    context_receipt_sha256: "0".repeat(64),
+    plan_context_policy: { schema: "dmb_plan_context_policy_v1" as const, policy: "auto_plan_world" as const },
+    plan_basis: {
+      world_id: worldId,
+      document_id: documentId,
+      object_revision: options.request?.primary_work.expected_revision ?? 7,
+      work_revision_id: workRevisionId,
+      revision_n: options.request?.primary_work.expected_revision_n ?? 1,
+      content_sha256: options.request?.primary_work.expected_content_sha256 ?? contentSha256,
+    },
+    playable_target: options.request?.playable_target ? {
+      schema: "dmb_plan_playable_target_receipt_v1" as const,
+      kind: options.request.playable_target.kind,
+      id: options.request.playable_target.id,
+      marker_grammar_version: "v1" as const,
+    } : null,
+    graph_authority: {
+      managed_world_id: worldId,
+      native_world_id: "native-world-internal-test",
+      binding_version: 3,
+      scope_mode: "world" as const,
+      campaign_id: null,
+      admissibility_version: "admissibility-test-v1",
+      graph_revision: graphRevision,
+    },
+    graph_packet: {
+      schema: "dmb_plan_world_graph_packet_v1" as const,
+      packet_serializer_version: "canonical-json-utf8-v1" as const,
+      selection_policy_version: "selection-test-v1",
+      evidence_sufficiency_policy_version: "evidence-test-v1",
+      retrieval_packet_sha256: "b".repeat(64),
+      candidate_assertion_ids: assertionIds,
+      candidate_relationship_ids: [],
+      candidate_evidence_ref_ids: evidenceIds,
+      retrieval_status: sufficient ? "complete" as const : "empty" as const,
+      evidence_sufficiency_status: sufficient ? "sufficient" as const : "insufficient" as const,
+      result_limit: 10,
+      coverage_status: status === "graph_grounded_partial" ? "incomplete" as const : "complete" as const,
+      truncated: status === "graph_grounded_partial",
+      omission_reasons: sufficient ? [] : ["no_claim_ready_evidence"],
+    },
+    assembled_input: {
+      assembler_version: "assembler-test-v1",
+      budget_policy_version: "budget-test-v1",
+      provider_model_name: "test-model",
+      provider_model_version: "test-model-v1",
+      tokenizer_name: "test-tokenizer",
+      tokenizer_version: "test-tokenizer-v1",
+      provider_envelope_input_tokens: 400,
+      output_token_reserve: 100,
+      context_window_limit: 1000,
+      packet_disposition: sufficient ? "included" as const : "omitted_insufficient" as const,
+      packet_disposition_reason: sufficient ? null : "insufficient_evidence" as const,
+      dispatched_packet_sha256: sufficient ? "c".repeat(64) : null,
+      dispatched_assertion_ids: assertionIds,
+      dispatched_relationship_ids: [],
+      dispatched_evidence_ref_ids: evidenceIds,
+      source_token_accounting: [{ source_kind: "plan" as const, source_id: documentId, input_tokens: 200 }],
+      included_history: [],
+      assembled_input_sha256: "d".repeat(64),
+    },
+    evidence_mode: "metadata_only" as const,
+    source_opened: false as const,
+  };
+  const { context_receipt_sha256: _ignored, ...receiptForHash } = receiptPayload;
+  const receiptDigest = await sha256Hex(canonicalJson(receiptForHash));
+  const receipt = { ...receiptPayload, context_receipt_sha256: receiptDigest };
+  const segments = graphClaimed
+    ? [{
+      kind: "graph_claim" as const,
+      claim_id: "claim-internal-test",
+      text: "The western gate is watched.",
+      target_kind: "assertion" as const,
+      target_id: assertionIds[0]!,
+      graph_revision: graphRevision,
+      evidence_ref_ids: evidenceIds,
+    }]
+    : [{ kind: "connective" as const, text: "The saved Plan has one opening scene." }];
+  const citationEntries = graphClaimed ? [{
+    claim_id: "claim-internal-test",
+    target_kind: "assertion" as const,
+    target_id: assertionIds[0]!,
+    graph_revision: graphRevision,
+    evidence_ref_ids: evidenceIds,
+    source_opened: false as const,
+  }] : [];
+  return {
+    schema: "dmb_agent_plan_world_graph_context_response_v1",
+    receipt,
+    completion: options.completion === false ? null : {
+      schema: "dmb_plan_world_graph_completion_v1",
+      context_receipt_sha256: receiptDigest,
+      answer_basis: graphClaimed ? "committed_plan_plus_world_graph" : "committed_plan",
+      answer_context_status: status,
+      answer_segments: segments,
+      citation_map: graphClaimed ? {
+        schema: "dmb_graph_citation_map_v1",
+        context_receipt_sha256: receiptDigest,
+        entries: citationEntries,
+      } : null,
+    },
+    execution: options.execution === undefined ? {
+      schema: "dmb_agent_plan_world_graph_execution_projection_v1",
+      claimability: "completed",
+      authorization_state: "response_received",
+      automatic_redispatch: false,
+    } : options.execution,
+    delivery_replay: false,
+  };
+}
+
+async function historyV2(
+  conversationId: string | null,
+  pointerRevision: number,
+  turns: WorldAgentConversationHistoryTurnV2[],
+  nextBeforeSequence: number | null = null,
+): Promise<WorldAgentConversationHistoryResponseV2> {
+  const absent = conversationId === null;
+  return {
+    schema: "dmb_agent_conversation_history_v2",
+    world_id: worldId,
+    conversation_state: absent ? "absent" : "active",
+    conversation_id: conversationId,
+    active_conversation_id: conversationId,
+    pointer_revision: pointerRevision,
+    turns,
+    next_before_sequence: nextBeforeSequence,
+  };
+}
+
+async function policyResponse(
+  request: WorldPlanAgentTurnRequestV1,
+  conversationId: string,
+  answer: string,
+  status: WorldPlanGraphAnswerContextStatusV1 = "graph_grounded",
+): Promise<WorldPlanAgentTurnResponseV2> {
+  const legacy = agentResponse(request, conversationId, answer);
+  const graphGrounded = status === "graph_grounded" || status === "graph_grounded_partial";
+  return {
+    ...legacy,
+    schema: "dmb_agent_turn_response_v2",
+    answer: { ...legacy.answer, graph_grounded: graphGrounded },
+    plan_context: await planGraphContext(status, { request }),
   };
 }
 
@@ -405,11 +585,11 @@ function committedRevision() {
   };
 }
 
-function setupApi(initialHistory: WorldAgentConversationHistoryResponseV1) {
+function setupApi(initialHistory: WorldAgentConversationHistoryResponse) {
   let currentHistory = initialHistory;
   let currentBasis = committedRevision();
-  let olderPage: WorldAgentConversationHistoryResponseV1 | null = null;
-  let olderHandler: (() => Promise<WorldAgentConversationHistoryResponseV1>) | null = null;
+  let olderPage: WorldAgentConversationHistoryResponse | null = null;
+  let olderHandler: (() => Promise<WorldAgentConversationHistoryResponse>) | null = null;
   const historyCalls: Array<{ limit?: number; beforeSequence?: number }> = [];
   const getHistory = vi.spyOn(liveApi, "getWorldAgentConversationHistory").mockImplementation(async (_world, options = {}) => {
     historyCalls.push(options);
@@ -437,10 +617,10 @@ function setupApi(initialHistory: WorldAgentConversationHistoryResponseV1) {
     getHistory,
     getPlanBasis,
     historyCalls,
-    setCurrent(value: WorldAgentConversationHistoryResponseV1) { currentHistory = value; },
+    setCurrent(value: WorldAgentConversationHistoryResponse) { currentHistory = value; },
     setPlanBasis(value: ReturnType<typeof committedRevision>) { currentBasis = value; },
-    setOlder(value: WorldAgentConversationHistoryResponseV1) { olderPage = value; },
-    setOlderHandler(value: () => Promise<WorldAgentConversationHistoryResponseV1>) { olderHandler = value; },
+    setOlder(value: WorldAgentConversationHistoryResponse) { olderPage = value; },
+    setOlderHandler(value: () => Promise<WorldAgentConversationHistoryResponse>) { olderHandler = value; },
   };
 }
 
@@ -483,6 +663,210 @@ afterEach(() => {
 });
 
 describe("World Plan conversation consumer", () => {
+  it("sends the explicit additive Graph policy with the committed Plan and card pins, then reads v2 history citations", async () => {
+    const api = setupApi(history("conversation-a", 4, []));
+    const card = { kind: "scene" as const, id: "scene:opening" };
+    let captured: WorldPlanAgentTurnRequestV1 | null = null;
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
+      captured = request;
+      const response = await policyResponse(request, "conversation-a", "The western gate is watched.");
+      const turn = {
+        ...historyTurnForAsk(request, "The western gate is watched."),
+        plan_context: response.plan_context,
+      };
+      api.setCurrent(await historyV2("conversation-a", 5, [turn]));
+      return response;
+    });
+
+    render(conversationElement({ playableTarget: card, savedDirty: true }));
+    await screen.findByText(/No messages here yet/);
+    const checkbox = screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" });
+    fireEvent.click(checkbox);
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
+      target: { value: "Who watches the western gate?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByText("Grounded in complete World Graph evidence.")).toBeInTheDocument();
+    expect(await screen.findByText("graph-revision-test")).toBeInTheDocument();
+    const evidenceSummary = screen.getByText("1 evidence reference");
+    const evidenceDetails = evidenceSummary.closest("details")!;
+    expect(evidenceDetails).not.toHaveAttribute("open");
+    fireEvent.click(evidenceSummary);
+    expect(within(evidenceDetails).getByText("evidence-internal-test")).toBeInTheDocument();
+    expect(screen.getByText(/Playable target: scene scene:opening · marker grammar v1/)).toBeInTheDocument();
+    expect(screen.getByText("Ask uses the committed Plan revision; unsaved edits are not included.")).toBeInTheDocument();
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    expect(captured).toMatchObject({
+      schema: "dmb_agent_turn_request_v1",
+      plan_context_policy: { schema: "dmb_plan_context_policy_v1", policy: "auto_plan_world" },
+      primary_work: {
+        kind: "plan",
+        object_id: documentId,
+        expected_revision: 7,
+        expected_revision_n: 1,
+        expected_content_sha256: contentSha256,
+      },
+      playable_target: { schema: "dmb_plan_playable_target_v1", ...card },
+      client_work_state: "saved_dirty",
+      graph_request: { mode: "none" },
+      graph_selection: null,
+    });
+    expect(Object.keys(captured ?? {}).sort()).toEqual([
+      "client_thread_id", "client_work_state", "graph_request", "graph_selection", "message", "owner_scope",
+      "plan_context_policy", "playable_target", "primary_work", "schema", "surface", "turn_id",
+    ]);
+    expect(JSON.stringify(captured)).not.toContain("unsaved editor bytes");
+    expect(JSON.stringify(captured)).not.toContain("native_world_id");
+    expect(JSON.stringify(captured)).not.toContain("graph_revision");
+    expect(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" })).not.toBeChecked();
+    expect(screen.queryByText(/assertion-internal-test|native-world-internal-test/)).not.toBeInTheDocument();
+  });
+
+  it("renders each validated v2 completion outcome and safe execution recovery guidance", async () => {
+    const outcomes: Array<[WorldPlanGraphAnswerContextStatusV1, WorldPlanGraphExecutionProjectionV1, string]> = [
+      ["graph_grounded", {
+        schema: "dmb_agent_plan_world_graph_execution_projection_v1",
+        claimability: "completed", authorization_state: "response_received", automatic_redispatch: false,
+      }, "Grounded in complete World Graph evidence."],
+      ["graph_grounded_partial", {
+        schema: "dmb_agent_plan_world_graph_execution_projection_v1",
+        claimability: "blocked_unknown_or_sent", authorization_state: "outcome_unknown", automatic_redispatch: false,
+      }, "Partially grounded in World Graph evidence; coverage was incomplete."],
+      ["plan_only_insufficient_evidence", {
+        schema: "dmb_agent_plan_world_graph_execution_projection_v1",
+        claimability: "safe_to_reclaim_without_dispatch", authorization_state: "none", automatic_redispatch: false,
+      }, "No sufficient World Graph evidence was available; this answer uses the saved Plan context only."],
+      ["plan_only_graph_unused", {
+        schema: "dmb_agent_plan_world_graph_execution_projection_v1",
+        claimability: "explicit_new_attempt_required", authorization_state: "known_not_sent", automatic_redispatch: false,
+      }, "Graph context was available; no Graph claims were cited or used in the structured answer."],
+    ];
+    const turns: WorldAgentConversationHistoryTurnV2[] = [];
+    for (const [status, execution] of outcomes) {
+      const context = await planGraphContext(status, { execution });
+      turns.push({
+        ...makeTurn(turns.length + 1, `status-turn-${turns.length + 1}`, `Question ${status}`, `Answer ${status}`),
+        plan_context: context,
+      });
+    }
+    setupApi(await historyV2("conversation-a", 8, turns));
+
+    render(conversationElement());
+
+    for (const [, , label] of outcomes) expect(await screen.findByText(label)).toBeInTheDocument();
+    expect(screen.getByText(/provider dispatch did not begin\. Submit a new Ask if you want another attempt/)).toBeInTheDocument();
+    expect(screen.getByText(/attempt outcome is unknown\. Refresh World history before taking another action/)).toBeInTheDocument();
+    expect(screen.getByText(/A new attempt requires a new Ask/)).toBeInTheDocument();
+    expect(screen.queryByText(/assertion-internal-test|context_receipt_sha256/)).not.toBeInTheDocument();
+    expect(screen.getAllByText("graph-revision-test")).toHaveLength(2);
+  });
+
+  it("keeps pending, interrupted, and failed policy turns without inventing a completion", async () => {
+    const turns: WorldAgentConversationHistoryTurnV2[] = [];
+    for (const lifecycle of ["accepted", "interrupted", "failed"] as const) {
+      const context = await planGraphContext("plan_only_graph_unused", { completion: false, execution: null });
+      turns.push({
+        ...makeTurn(turns.length + 1, `incomplete-${lifecycle}`, `Question ${lifecycle}`, null),
+        lifecycle_status: lifecycle,
+        plan_context: context,
+      });
+    }
+    setupApi(await historyV2("conversation-a", 9, turns));
+
+    render(conversationElement());
+
+    expect(await screen.findAllByText("No final Graph-context completion has been recorded for this turn yet.")).toHaveLength(3);
+    expect(screen.getAllByText("No execution recovery status was recorded. Refresh World history before taking another action.")).toHaveLength(3);
+    expect(screen.queryByText(/Graph context was available; no Graph claims/)).not.toBeInTheDocument();
+  });
+
+  it("rejects a v2 history citation that does not map to its validated graph claim", async () => {
+    const context = await planGraphContext("graph_grounded");
+    context.completion!.citation_map!.entries[0]!.target_id = "unsupported-claim-target";
+    const turn: WorldAgentConversationHistoryTurnV2 = {
+      ...makeTurn(1, "bad-citation-turn", "Question", "Should not display"),
+      plan_context: context,
+    };
+    setupApi(await historyV2("conversation-a", 10, [turn]));
+
+    render(conversationElement());
+
+    expect(await screen.findByText(/invalid Graph-context receipt/)).toBeInTheDocument();
+    expect(screen.queryByText("Should not display")).not.toBeInTheDocument();
+  });
+
+  it("keeps a malformed policy response pending instead of accepting its prose", async () => {
+    setupApi(history("conversation-a", 4, []));
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
+      const response = await policyResponse(request, "conversation-a", "Unsupported answer.");
+      response.plan_context.completion!.citation_map!.entries[0]!.target_id = "unsupported-target";
+      return response;
+    });
+    render(conversationElement());
+    await screen.findByText(/No messages here yet/);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Ask for a grounded answer." } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByText(/outcome of this Graph-context Ask is uncertain/)).toBeInTheDocument();
+    expect(screen.queryByText("Unsupported answer.")).not.toBeInTheDocument();
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    expect(pendingAskKeys()).toHaveLength(1);
+  });
+
+  it("does not repost an uncertain Graph-context Ask from browser recovery", async () => {
+    setupApi(history("conversation-a", 4, []));
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockRejectedValue(new Error("connection reset after dispatch"));
+    render(conversationElement());
+    await screen.findByText(/No messages here yet/);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Check the north gate." } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByText(/outcome of this Graph-context Ask is uncertain/)).toBeInTheDocument();
+    expect(await screen.findByText(/This Graph-context Ask is not replayed from browser recovery/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry saved Ask" })).not.toBeInTheDocument();
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    expect(pendingAskKeys()).toHaveLength(1);
+  });
+
+  it("directs an authorization-rejected Graph Ask to refresh history before another action", async () => {
+    setupApi(history("conversation-a", 4, []));
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockRejectedValue(new liveApi.LiveApiError("Unauthorized", 401));
+    render(conversationElement());
+    await screen.findByText(/No messages here yet/);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Check the north gate." } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByText(/Check the credential in Settings, then refresh World history before taking another action/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry saved Ask" })).not.toBeInTheDocument();
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    expect(pendingAskKeys()).toHaveLength(1);
+  });
+
+  it("keeps an unchecked Ask on the byte-compatible v1 request shape", async () => {
+    const api = setupApi(history("conversation-a", 4, []));
+    let captured: WorldPlanAgentTurnRequestV1 | null = null;
+    vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
+      captured = request;
+      api.setCurrent(history("conversation-a", 5, [historyTurnForAsk(request, "A saved-Plan answer.")]));
+      return agentResponse(request, "conversation-a", "A saved-Plan answer.") as any;
+    });
+    render(conversationElement());
+    await screen.findByText(/No messages here yet/);
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Ask without Graph context" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    expect(await screen.findByText("A saved-Plan answer.")).toBeInTheDocument();
+    expect(captured?.schema).toBe("dmb_agent_turn_request_v1");
+    expect(captured).not.toHaveProperty("plan_context_policy");
+    expect(Object.keys(captured ?? {}).sort()).toEqual([
+      "client_thread_id", "client_work_state", "graph_request", "graph_selection", "message", "owner_scope",
+      "primary_work", "schema", "surface", "turn_id",
+    ]);
+  });
+
   it("renders the immutable target, grammar, and exact WorkRevision from history", async () => {
     const turn = makeTurn(1, "target-turn", "What happens at arrival?", "The arrival is guarded.");
     turn.provenance.primary_work = {
@@ -953,6 +1337,44 @@ describe("World Plan conversation consumer", () => {
     const renderedTurns = Array.from(transcript.querySelectorAll("article"))
       .map((article) => article.getAttribute("data-sequence"));
     expect(renderedTurns).toEqual(["1", "2", "3"]);
+  });
+
+  it("keeps the newer v2 receipt and execution sidecar when an older page repeats the same turn", async () => {
+    const latestContext = await planGraphContext("graph_grounded", {
+      execution: {
+        schema: "dmb_agent_plan_world_graph_execution_projection_v1",
+        claimability: "completed", authorization_state: "response_received", automatic_redispatch: false,
+      },
+    });
+    const staleContext = await planGraphContext("plan_only_insufficient_evidence", {
+      execution: {
+        schema: "dmb_agent_plan_world_graph_execution_projection_v1",
+        claimability: "safe_to_reclaim_without_dispatch", authorization_state: "none", automatic_redispatch: false,
+      },
+    });
+    const latestTurn: WorldAgentConversationHistoryTurnV2 = {
+      ...makeTurn(2, "shared-policy-turn", "Was the gate watched?", "The western gate is watched."),
+      plan_context: latestContext,
+    };
+    const staleDuplicate: WorldAgentConversationHistoryTurnV2 = {
+      ...latestTurn,
+      plan_context: staleContext,
+    };
+    const api = setupApi(await historyV2("conversation-a", 5, [latestTurn], 2));
+    api.setOlder(await historyV2("conversation-a", 5, [
+      makeTurn(1, "legacy-before-policy", "What is the opening?", "A saved-plan opening."),
+      staleDuplicate,
+    ]));
+
+    render(conversationElement());
+    expect(await screen.findByText("Grounded in complete World Graph evidence.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Older turns" }));
+    expect(await screen.findByText("A saved-plan opening.")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByText("The western gate is watched.")).toHaveLength(2));
+    expect(screen.getByText("Grounded in complete World Graph evidence.")).toBeInTheDocument();
+    expect(screen.queryByText(/No sufficient World Graph evidence was available/)).not.toBeInTheDocument();
+    const transcript = screen.getByRole("region", { name: "World conversation transcript" });
+    expect(transcript.querySelectorAll('[data-sequence="2"]')).toHaveLength(1);
   });
 
   it("unlocks older paging after navigation invalidates a pending page and discards its stale response", async () => {

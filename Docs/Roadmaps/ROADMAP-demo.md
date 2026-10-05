@@ -60,36 +60,23 @@ production implementation or independently frozen gold.
 
 ### Delivery order
 
-1. Finish the active bounded Agent panel usability slice: one shared message
-   composer with Discuss / Propose edit intent, inline proposal review/apply,
-   Settings for memory-only credentials and collapsed advanced diagnostics.
-   Apply changes the draft; Save keeps the changes. Preserve existing exact-basis,
-   recovery and save-fidelity protections. No new backend intent-routing contract
-   is implied. Plan Ask remains graphless until its separately reviewed integration.
-2. Bring J5 card presentation forward alongside J2. DEMO designs and pins the
-   first production adoption slice against an existing saved World Plan, using
-   Session 29 as the primary operator example. Prove card/document view equivalence,
-   supported edits, source/marker/link preservation, explicit Save and fresh reopen.
-   Consume the accepted document/edit controllers; do not copy browser-local
-   prototype persistence into production. Reuse the scene/block grammar where it
-   fits; justify a missing contract before changing it. Full adventure ingestion,
-   sound cues and all style controls are not prerequisites to this first slice.
-3. Add selected committed-card context to canonical managed-World Plan Ask through
-   a typed, server-admitted target bound to the exact Plan basis and immutable
-   turn/replay identity. Preserve graph-disabled Ask and the existing
-   server-resolved committed Plan context. Existing document-selection
-   Compose/Review/Apply remains unchanged. Selected-card proposal/Apply is a
-   serial successor: it needs exact v1/v2 Scene/Choice/Option body ranges, an
-   explicit dirty-draft policy, and `WorldPlanEditBridge` fences; Ask targeting
-   does not grant proposal targeting.
-4. Connect the same authored content to a pinned Playable/Run. Keep current scene,
-   choices and inspection navigation coherent; record live notes, submitted rolls,
-   selected results and outcomes as durable Run state. Preparation and rehearsal
-   must remain distinguishable from actual session outcomes and graph canon.
-5. Enrich the board through independently advancing J3 Graph and J4 asset lanes,
-   then admit reviewed COMPOSITOR packages into that same production board. Use
-   Conks and Sheep as comparative source-backed examples after the saved-Plan
-   projection is proven. Do not make the first card renderer wait on full ingestion.
+1. Complete Graph-backed Ask in the shared canonical World conversation. The
+   synthetic DEMO consumer is ACTIVE under the pinned seven-path lease and
+   consumes the accepted opt-in request/v2 response/history contract. No-policy
+   requests stay byte-compatible v1. This fixture work does not prove parent-
+   brokered traversal or live provider behavior; integrated acceptance, merge,
+   and rollout wait for accepted APP-STATE and SERVER producer implementations.
+2. After Graph acceptance, deliver one shared focused-card prepare/run experience
+   across Session 29, Conks, and Sheep. Preserve source identity and evidence
+   separately from navigation choices such as chronology, location, and scene
+   focus. Reuse existing document and Playable authority; do not copy prototype
+   persistence or add a second retrieval path.
+3. Add durable Run choices, notes, submitted rolls, selected results, and combat
+   outcomes, then complete the remaining J1–J6 journey. Keep rehearsal/preparation
+   distinct from actual session outcomes and graph canon, and prove survival across
+   navigation, restart, and resume at the owning boundary.
+4. Advance J4 assets and reviewed COMPOSITOR packages through their own bounded
+   lanes. They do not block Graph acceptance or the focused-card/run slice.
 
 ### Existing milestones retain their meaning
 
@@ -164,29 +151,31 @@ lease is released. The inherited UI typecheck failure at
   [HANDOFF-DEMO-saved-plan-card-projection.md](../Plans/HANDOFF-DEMO-saved-plan-card-projection.md).
   Its own model tests must fail closed for malformed, mixed, unknown, and orphan
   structures. No full parser equivalence or Run admission is claimed.
-- **Future Graph-backed Plan Ask remains a separate blocked contract.** The
-  canonical World Plan conversation uses `/api/live/agent/turn` with Graph
-  disabled. The legacy Plan `/api/live/query` path has client-supplied history
-  and is not canonical World conversation or durable Graph provenance. #905's
-  Graph adapter and APP-STATE's receipt/provenance/atomic Ask-context contract
-  remain unsettled. Before that successor is designed, its owners must define
-  server-owned pins for the active native World binding/version, exact Graph
-  revision actually read, exact saved Plan basis, conversation, and immutable
-  Graph receipt; drift must fail closed and a receipt must not replay under a
-  different revision. The committed/saved Plan revision is the only authorized
-  Plan content basis for Graph evidence or provider context; dirty editor text
-  must not be silently substituted. Graph identity/locator data does not prove
-  opened source text or source-body citation. Product behavior when a draft is
-  dirty remains a design decision: block Ask, or explicitly allow an Ask against
-  the committed revision with clear disclosure. Sequence this after the
-  saved-Plan card slice, APP-STATE's contract, and #905's adapter gate. Owners:
-  DEMO for the Plan product/route, APP-STATE for durable receipt/idempotency,
-  and DungeonMind for Graph identity/revision and source evidence.
-- ARCHITECTURE's Plan-to-Run design (#907) and SERVER's managed Graph adapter
-  handoff (#905) are merged; their implementation handoffs remain BLOCKED on
-  their explicit contract, sequencing, and path/resource gates. APP-STATE's
-  durable evidence-receipt and Plan Ask context contract remains unpublished;
-  it is a prerequisite for the separate Graph-backed Plan Ask successor.
+- **Graph-grounded saved-World Plan Ask — synthetic consumer ACTIVE (2026-10-05).**
+  The canonical route is the server-owned `/api/live/agent/turn` World
+  conversation; the legacy Plan `/api/live/query` path remains outside this
+  capability. The initial design/roadmap handoff merged as Buddy #921 at
+  `6240620423989ce0d132c26861c1e0b09cab3053` and was BLOCKED while owner
+  contracts were unsettled. Buddy #923's APP-STATE receipt/replay foundation
+  later merged at `93c07c243acd9abc9acc044f9a4e59390710871d`; #924's final
+  Hermes view/pre-SDK budget guard merged at
+  `6319ff30466dd9ab2e3e0752fce31ac8a71b7d4b`.
+  PRIME accepted APP-STATE's portable execution-ledger design at
+  `e907c904c95854ce539c919bac8e868a5fe4f69d` and the SERVER response/history
+  projection in its route handoff at
+  `70b1da70858a16dbe113cfa2967b76b7e23516a7`. SERVER and APP-STATE retain their
+  own producer implementation/evidence leases. PRIME activated DEMO's serial
+  synthetic consumer on base `main@6319ff30466dd9ab2e3e0752fce31ac8a71b7d4b`,
+  branch `codex/demo-graph-execution-consumer`, under
+  [the active handoff](../Plans/HANDOFF-DEMO-plan-graph-grounded-ask.md).
+  This UI/API fixture slice preserves byte-compatible no-policy v1 behavior,
+  consumes policy-only response/history v2, and presents only validated
+  completion/citation and safe execution-disposition data. It must never
+  redispatch an authorized/unknown attempt or expose the raw execution ledger.
+  #917 remains prototype evidence only; it is not a predecessor or code source.
+  #914's visual hold is independent. Producer integration, merge, live/provider
+  behavior and runtime rollout remain gated on independently accepted producer
+  implementations; this slice uses no live Graph, provider, service or database.
 - #887 remains DOGFOOD's prototype-only evidence lane. Its private corpus,
   media, and state snapshots are not production data or sources to copy.
 - #869, head `23d76f4d4f4f223b62067024e152e8cb2dde37b8`, remains
@@ -262,13 +251,13 @@ this Ask capability. It must map exact v1/v2 Scene, Choice and Option body range
 (including sibling headings and list items), define dirty-draft targeting, and
 fence review/Apply through `WorldPlanEditBridge` before claiming selected-card
 proposal → Apply → ordinary Save → fresh reopen. Existing document-selection
-proposals remain unchanged. PRIME activated the bounded single DEMO implementation PR from `f8ad152c669e76cccb21fecfb9aecc3656589e5b` under [HANDOFF-DEMO-plan-agent-card-target](../Plans/HANDOFF-DEMO-plan-agent-card-target.md), after DEMO, SERVER, and APP-STATE accepted the contract. PR #911 merged at `4efdef1898e78aa3590a39e8f84c1fdb901b2695` from reviewed head `72b67cd7fcb91f1db0e5b58888d84e6d451c36f1`; the handoff records owning review/test evidence and closes the write lease. Cards can focus Ask on the exact committed Plan, with immutable target/basis history and replay. No SQL migration or operator runtime restart occurred. Selected-card body Compose/Review/Apply merged in PR #913 at `f971931ebade4bc7e4550b6fc2f659276afb30d1`, reviewed head `110440433e6d350a0508fd99f554974f09ad3a36`, under the now-SETTLED [handoff](../Plans/HANDOFF-DEMO-plan-card-edit-target.md). Exact body/range binding, parity, explicit draft-only Apply, Save/fresh reopen, stale/same-card correlation refusal and typed nullable action receipts were verified at their owning boundaries. Migration 0015 was tested only in isolated databases; the operator runtime is not yet refreshed/migrated for this capability. Graph-backed World conversation is the next separate capability; its current owner dispatch and consumer gates are recorded below. Source opening and source-document claims are not prerequisites for its first bounded Ask slice.
+proposals remain unchanged. PRIME activated the bounded single DEMO implementation PR from `f8ad152c669e76cccb21fecfb9aecc3656589e5b` under [HANDOFF-DEMO-plan-agent-card-target](../Plans/HANDOFF-DEMO-plan-agent-card-target.md), after DEMO, SERVER, and APP-STATE accepted the contract. PR #911 merged at `4efdef1898e78aa3590a39e8f84c1fdb901b2695` from reviewed head `72b67cd7fcb91f1db0e5b58888d84e6d451c36f1`; the handoff records owning review/test evidence and closes the write lease. Cards can focus Ask on the exact committed Plan, with immutable target/basis history and replay. No SQL migration or operator runtime restart occurred. Selected-card body Compose/Review/Apply merged in PR #913 at `f971931ebade4bc7e4550b6fc2f659276afb30d1`, reviewed head `110440433e6d350a0508fd99f554974f09ad3a36`, under the now-SETTLED [handoff](../Plans/HANDOFF-DEMO-plan-card-edit-target.md). Exact body/range binding, parity, explicit draft-only Apply, Save/fresh reopen, stale/same-card correlation refusal and typed nullable action receipts were verified at their owning boundaries. Migration 0015 was tested only in isolated databases; the operator runtime is not yet refreshed/migrated for this capability. Graph-backed World conversation is the active capability recorded below. Source opening and source-document claims are not prerequisites for its first bounded Ask slice.
 
-**Re-anchor and Graph-first execution — operator direction (2026-10-04):** current Buddy main is `e671784dc53e698a33a5125f08d76953faa34a19`, including merged #919 recovery and #920 handoff settlement. This re-anchor supersedes the earlier Graph-blocked checkpoint above; it records priority and owner dispatch, not completed behavior. The operator prioritized Graph integration in the canonical shared World conversation ahead of Plan-to-Run, multimedia, and further presentation expansion. PRIME dispatched APP-STATE to publish/implement the immutable Graph receipt/replay slice and SERVER to publish/implement Buddy managed-binding/context integration, including the minimal Hermes traversal/budget prerequisite. Those producer tasks are active; no contract PR or owning-boundary result is claimed here. DEMO's consumer remains BLOCKED until their exact published contracts are accepted and PRIME grants a fresh consumer path lease. See [HANDOFF-DEMO-plan-graph-grounded-ask.md](../Plans/HANDOFF-DEMO-plan-graph-grounded-ask.md). Reuse the existing Hermes Graph traversal and MIND read contract; do not build another retriever, ingestion pipeline, Graph store, or prototype-based predecessor. Source opening and governed Graph writes are separate future slices.
+**Historical Graph-first checkpoint (2026-10-04; superseded 2026-10-05):** Buddy main at that checkpoint was `e671784dc53e698a33a5125f08d76953faa34a19`, including merged #919 recovery and #920 handoff settlement. The operator prioritized Graph integration in the canonical shared World conversation ahead of Plan-to-Run, multimedia, and further presentation expansion. PRIME had dispatched APP-STATE's immutable Graph receipt/replay slice and SERVER's managed-binding/context integration, including the minimal Hermes traversal/budget prerequisite. At that point, no contract PR or owning-boundary result was claimed and the DEMO consumer remained BLOCKED. PRIME later accepted the stable SERVER wire contract and activated the bounded synthetic consumer recorded in the active entry above. APP-STATE/SERVER still own producer implementation and integrated acceptance. Reuse the existing Hermes Graph traversal and MIND read contract; do not build another retriever, ingestion pipeline, Graph store, or prototype-based predecessor. Source opening and governed Graph writes are separate future slices.
 
-PR #917 remains an open DOGFOOD prototype at head `56a46bf00513c5a13bac37e24207d2d3059cd17a`; #887 remains prototype evidence. Neither is a production prerequisite or code predecessor. The 2026-10-04 DOGFOOD Cards consultation is design evidence for later bounded adoption and adds no gate to this Graph slice. Reconcile #917's overlapping conversation/API paths before any DEMO consumer lease. PR #914 remains open/draft at head `41e81264802b4235ef1e81ccace6aab76b10ab1e` for its synthetic desktop/narrow visual review. That independent visual gate does not block Graph. PRIME transferred `ROADMAP-demo.md` from #914's former lease to this docs lane; #914 retains its implementation paths, handoff, and visual hold. When #914 is rebased, preserve its evidence without restoring the stale priority wording.
+PR #917 remains prototype evidence, not a production prerequisite or code predecessor; PRIME withdrew its overlapping production reservation for the active DEMO consumer. #887 remains prototype evidence. The 2026-10-04 DOGFOOD Cards consultation informs later bounded adoption and adds no gate to the Graph slice. PR #914's synthetic desktop/narrow visual hold is independent and does not block Graph. Preserve its evidence without restoring the stale priority wording.
 
-**Next capability priority:** Graph-backed World conversation is the first production capability, ahead of Plan-to-Run, multimedia and further presentation expansion. The first acceptance witness must answer a synthetic question requiring same-World Graph traversal, record its admitted evidence and exact Plan/Graph basis in the canonical conversation, then survive navigation and exact replay without duplicate provider work. Retain compact typed citations and disclose that source content was not opened. Reuse the existing Hermes traversal and managed/native binding contract; source opening and governed Graph writes remain later slices.
+**Current capability priority:** Graph-backed World conversation is the first production capability, ahead of focused-card prepare/run, durable Run state, multimedia and further presentation expansion. The synthetic DEMO consumer is ACTIVE on deterministic fixtures against the accepted wire contract. It proves request, response/history, citations and recovery presentation only; parent-brokered Hermes traversal and connected acceptance remain producer-owned evidence. The integrated witness must record admitted evidence and exact Plan/Graph basis in the canonical conversation, then survive navigation and replay without duplicate provider work. Retain compact typed citations and disclose that source content was not opened. Source opening and governed Graph writes remain later slices.
 
 **Shared interface adoption target:** use the successful Conks prototypes (including the original Con-ready presentation), A Wild Sheep Chase and campaign Session 29 as joint examples of one prepare/run interface. Preserve focused central cards, lenses, readable semantic content and connections while allowing chronological, location and choice navigation appropriate to each source. Current production Cards is infrastructure, not full prototype adoption. Its observed loss of atomic reference labels and paragraph/list structure is now an ACTIVE bounded [projection-fidelity repair](../Plans/HANDOFF-DEMO-plan-card-projection-fidelity.md), after #913 released the overlapping paths. This independent UI lane can proceed alongside Graph owner work; it does not include focused scene/lens or aesthetic adoption. Durable Run decisions, rolls and notes remain separate contracts.
 
