@@ -5,7 +5,7 @@
 **Pinned base:** Buddy `main@6319ff30466dd9ab2e3e0752fce31ac8a71b7d4b` (merge of accepted #924 head `0e716a0ec3f9f479d7202f9ca48411cbdd0558ef`).
 **Branch:** `codex/plan-world-graph-context-route`.
 **Topology:** one serial SERVER implementation PR on the refreshed base. APP-STATE implementation is active separately. SERVER uses an in-memory fake persistence port until an exact APP-STATE producer head is accepted; actual cross-repository integration acceptance and final dependency merge remain outstanding.
-**Current candidate state:** implementation is in progress. The bounded provider-boundary amendment below has focused evidence, but the route lifecycle, complete acceptance witnesses, and independent PRIME review are not yet complete. Do not treat this checkpoint as merge-ready.
+**Current candidate state:** implementation remains in progress at checkpoint `a2f85dc99142362a89163e1f2aaa40b7c793ef7b`. The stream/retry and lifecycle amendments have focused owning-boundary evidence, but the full route lifecycle and actual APP-STATE integration remain incomplete. Freshly discovered open PR #917 route/service hunk overlap also requires PRIME path arbitration before opening a clean independent candidate PR. Do not treat this checkpoint as merge-ready.
 
 ## Mission
 
