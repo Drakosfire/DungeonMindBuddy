@@ -48,6 +48,13 @@ This is a browser UI recovery slice verified with mounted tests, deferred mocked
 - Preserve current-context fences: a response for another World/document or malformed origin cannot refresh or mutate the selected subscriber.
 - Run the focused mounted Plan conversation/history suite, `git diff --check`, and inspect the exact cumulative base-to-head diff. Record any inherited failures without broadening this lease.
 
+## Candidate verification
+
+- Focused mounted history suite: 21/21 passed, including late success after unmount/remount, exact canonical-history refresh, canonical conversation UUID distinct from client `turn_id`, replacement-byte preservation, malformed/network failure preservation and exact explicit retry.
+- `git diff --check` against the pinned base passes.
+- UI typecheck is blocked by the inherited main error `src/statblocks/publication/ThreatPublicationPanel.tsx(553,77): TS2503 Cannot find namespace 'JSX'`; that file is unchanged from the pinned base.
+- The candidate has not yet received PRIME review. Record its published head and PR link after publication; do not claim runtime or visual acceptance for this slice.
+
 ## PR and settlement
 
 One implementation PR for this capability, from this pinned base. DEMO implements, verifies, inspects the cumulative diff, commits and pushes the branch, and opens/updates that PR. PRIME independently reviews the exact head and owns merge coordination. Do not claim this slice complete until that review and its required gates settle; record actual head, evidence and lease release here after merge.
