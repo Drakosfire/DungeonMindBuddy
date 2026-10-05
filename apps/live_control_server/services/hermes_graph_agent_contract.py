@@ -72,6 +72,8 @@ _REQUEST_ALLOWED_KEYS = frozenset(
         "surfaceContextBlock",
         "planContinuityTurn",
         "requestBudget",
+        "providerAuthorizationRequired",
+        "parentGraphBrokerRequired",
     }
 )
 _REQUEST_FORBIDDEN_KEYS = frozenset(
@@ -259,6 +261,8 @@ class HermesGraphAgentTurnRequest:
     surface_context_block: str | None = None
     plan_continuity_turn: bool = False
     request_budget: Mapping[str, Any] | None = None
+    provider_authorization_required: bool = False
+    parent_graph_broker_required: bool = False
 
 
 def _reject_unknown_keys(payload: Mapping[str, Any], allowed: frozenset[str], *, label: str) -> None:
@@ -790,7 +794,23 @@ def serialize_hermes_graph_agent_turn_request(
         )
     if not isinstance(request.plan_continuity_turn, bool):
         raise ValueError("planContinuityTurn must be a boolean")
+    if not isinstance(request.provider_authorization_required, bool):
+        raise ValueError("providerAuthorizationRequired must be a boolean")
+    if not isinstance(request.parent_graph_broker_required, bool):
+        raise ValueError("parentGraphBrokerRequired must be a boolean")
+    if request.parent_graph_broker_required and (
+        not request.provider_authorization_required
+        or request.retrieval_session_id is None
+        or request.retrieval_session is None
+    ):
+        raise ValueError(
+            "parent Graph broker requires provider authorization and a retrieval session"
+        )
     request_budget = _serialize_request_budget(request.request_budget)
+    if request.provider_authorization_required and request_budget is None:
+        raise ValueError(
+            "provider authorization requires an explicit request budget"
+        )
     payload = {
         "question": question,
         "worldId": world_id,
@@ -826,6 +846,10 @@ def serialize_hermes_graph_agent_turn_request(
     }
     if request_budget is not None:
         payload["requestBudget"] = request_budget
+    if request.provider_authorization_required:
+        payload["providerAuthorizationRequired"] = True
+    if request.parent_graph_broker_required:
+        payload["parentGraphBrokerRequired"] = True
     return payload
 
 
@@ -849,7 +873,25 @@ def deserialize_hermes_graph_agent_turn_request(
     plan_continuity_turn = payload.get("planContinuityTurn", False)
     if not isinstance(plan_continuity_turn, bool):
         raise ValueError("planContinuityTurn must be a boolean")
+    provider_authorization_required = payload.get("providerAuthorizationRequired", False)
+    if not isinstance(provider_authorization_required, bool):
+        raise ValueError("providerAuthorizationRequired must be a boolean")
+    parent_graph_broker_required = payload.get("parentGraphBrokerRequired", False)
+    if not isinstance(parent_graph_broker_required, bool):
+        raise ValueError("parentGraphBrokerRequired must be a boolean")
     request_budget = _serialize_request_budget(payload.get("requestBudget"))
+    if provider_authorization_required and request_budget is None:
+        raise ValueError(
+            "provider authorization requires an explicit request budget"
+        )
+    if parent_graph_broker_required and (
+        not provider_authorization_required
+        or not payload.get("retrievalSessionId")
+        or retrieval_session_raw is None
+    ):
+        raise ValueError(
+            "parent Graph broker requires provider authorization and a retrieval session"
+        )
     conversation_only = policy is not None and policy.mode == "conversation_only"
     if conversation_only:
         graph_keys = (
@@ -910,6 +952,8 @@ def deserialize_hermes_graph_agent_turn_request(
         ),
         plan_continuity_turn=plan_continuity_turn,
         request_budget=request_budget,
+        provider_authorization_required=provider_authorization_required,
+        parent_graph_broker_required=parent_graph_broker_required,
     )
 
 

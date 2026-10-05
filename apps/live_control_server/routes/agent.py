@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, Mapping
+from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import ValidationError
@@ -14,7 +15,9 @@ from application_state.errors import ApplicationStateError
 from apps.live_control_server.config import repo_root, session_dir, world_graph_root
 from apps.live_control_server.models.agent_turn import (
     AgentConversationHistoryResponse,
+    AgentConversationHistoryResponseV2,
     AgentConversationHistoryTurn,
+    AgentConversationHistoryTurnV2,
     AgentNewConversationRequest,
     AgentNewConversationResponse,
     AgentTurnContentBasis,
@@ -26,10 +29,12 @@ from apps.live_control_server.services.agent_runtime import (
 )
 from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
 from apps.live_control_server.services.agent_turn_service import (
+    AgentPlanWorldGraphBootstrap,
     AgentTurnResolvedWork,
     AgentTurnServiceError,
     build_existing_graph_context,
     execute_agent_turn,
+    project_plan_turn_context,
 )
 from apps.live_control_server.services.hermes_session_store import (
     HermesSessionPointerStore,
@@ -48,6 +53,19 @@ from apps.live_control_server.services.world_container_registry import (
 
 
 router = APIRouter(prefix="/agent", tags=["agent-turn"])
+
+_PLAN_PREDISPATCH_FAILURES = {
+    "managed_world_unresolved": ("managed_world_unresolved", 404),
+    "world_owner_unavailable": ("managed_world_unresolved", 404),
+    "native_binding_invalid": ("native_binding_invalid", 409),
+    "native_graph_binding_unavailable": ("native_binding_invalid", 409),
+    "native_graph_binding_changed": ("native_binding_invalid", 409),
+    "graph_revision_unavailable": ("graph_revision_unavailable", 409),
+    "graph_unavailable": ("graph_read_failed", 503),
+    "graph_evidence_invalid": ("graph_evidence_invalid", 502),
+    "provider_envelope_over_budget": ("provider_envelope_over_budget", 413),
+    "receipt_freeze_failed": ("receipt_freeze_failed", 503),
+}
 
 
 def _owner_resolver(body: AgentTurnRequest) -> Mapping[str, Any] | None:
@@ -440,6 +458,257 @@ def _graph_resolver(
         ) from exc
 
 
+def _plan_context_resolver(
+    body: AgentTurnRequest,
+    owner: Mapping[str, Any] | None,
+    work: AgentTurnResolvedWork | None,
+    frozen_receipt: Any | None,
+) -> AgentPlanWorldGraphBootstrap:
+    """Resolve one source-free, revision-pinned DungeonMind retrieval packet."""
+    from graph_memory.interaction.authority_classifier import (
+        claims_from_retrieval_result,
+    )
+    from graph_memory.interaction.session import (
+        CoverageState,
+        GraphReferent,
+        GraphRetrievalSession,
+        RetrievalOperationEvent,
+        SessionSnapshot,
+        SourceAnchorState,
+    )
+    from graph_memory.interaction.session_store import create_session
+    from graph_memory.retrieval.models import WorldGraphSearchRequest
+
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
+        direct_services_from_config,
+        search_world_graph_direct,
+    )
+    from apps.live_control_server.services.world_container_registry import (
+        get_world_container,
+        world_source_root_relpath,
+    )
+    from apps.live_control_server.services.agent_runtime import AgentWorldScope
+
+    managed_world_id = str(owner.get("id")) if owner is not None else ""
+    if (
+        owner is None
+        or owner.get("kind") != "world"
+        or not managed_world_id
+        or work is None
+        or work.kind != "plan"
+        or work.world_id != managed_world_id
+    ):
+        raise AgentTurnServiceError(
+            "auto_plan_world requires a saved Plan owned by the verified World.",
+            code="plan_context_scope_rejected",
+            status_code=403,
+        )
+    registry_root = repo_root()
+    expected_root = world_source_root_relpath(managed_world_id)
+    try:
+        initial = get_world_container(registry_root, managed_world_id)
+    except WorldContainerRegistryError as exc:
+        raise AgentTurnServiceError(
+            str(exc),
+            code="world_owner_unavailable",
+            status_code=exc.status_code,
+            provider_dispatched=False,
+        ) from exc
+    binding = initial.native_graph_binding
+    if (
+        initial.source_root_relpath != expected_root
+        or not (registry_root / expected_root).is_dir()
+        or binding is None
+        or binding.status != "active"
+        or binding.binding_version <= 0
+    ):
+        raise AgentTurnServiceError(
+            "The managed World has no verified active native Graph binding.",
+            code="native_graph_binding_unavailable",
+            status_code=409,
+            provider_dispatched=False,
+        )
+    native_world_id = binding.native_world_id
+    if frozen_receipt is not None and (
+        frozen_receipt.graph_authority.managed_world_id != managed_world_id
+        or frozen_receipt.graph_authority.native_world_id != native_world_id
+        or frozen_receipt.graph_authority.binding_version != binding.binding_version
+    ):
+        raise AgentTurnServiceError(
+            "The stored Graph authority no longer matches the managed World binding.",
+            code="native_binding_invalid",
+            status_code=409,
+            provider_dispatched=False,
+        )
+    try:
+        request = WorldGraphSearchRequest.model_validate(
+            {
+                "schema": "dmb_world_graph_search_request_v1",
+                "worldId": native_world_id,
+                "campaignId": "",
+                "focus": {"kind": "none", "sessionId": None, "campaignId": None},
+                "admissibility": "gm",
+                "revisionPin": (
+                    None if frozen_receipt is None
+                    else frozen_receipt.graph_authority.graph_revision
+                ),
+                "scopeMode": "world",
+                "queryText": body.message,
+                "seedNodeIds": [],
+                "bounds": {
+                    "maxNodes": 8,
+                    "maxRelationships": 16,
+                    "maxAttributes": 24,
+                    "maxSourceAnchors": 24,
+                },
+            }
+        )
+        services = direct_services_from_config(native_world_id)
+        result = search_world_graph_direct(services, request)
+    except Exception as exc:
+        raise AgentTurnServiceError(
+            "The pinned DungeonMind Graph retrieval could not be resolved.",
+            code="graph_unavailable",
+            status_code=503,
+            provider_dispatched=False,
+        ) from exc
+    try:
+        current = get_world_container(registry_root, managed_world_id)
+    except WorldContainerRegistryError as exc:
+        raise AgentTurnServiceError(
+            "Managed World binding changed during Graph retrieval.",
+            code="native_graph_binding_changed",
+            status_code=409,
+            provider_dispatched=False,
+        ) from exc
+    current_binding = current.native_graph_binding
+    if (
+        current.source_root_relpath != initial.source_root_relpath
+        or current_binding is None
+        or current_binding.status != "active"
+        or current_binding.native_world_id != native_world_id
+        or current_binding.binding_version != binding.binding_version
+    ):
+        raise AgentTurnServiceError(
+            "Managed World binding changed during Graph retrieval; retry the turn.",
+            code="native_graph_binding_changed",
+            status_code=409,
+        )
+    if result.snapshot is None or result.snapshot.world_id != native_world_id:
+        raise AgentTurnServiceError(
+            "DungeonMind returned no exact Graph snapshot for the active binding.",
+            code="graph_revision_unavailable",
+            status_code=503,
+            provider_dispatched=False,
+        )
+    if (
+        frozen_receipt is not None
+        and result.snapshot.revision_id
+        != frozen_receipt.graph_authority.graph_revision
+    ):
+        raise AgentTurnServiceError(
+            "DungeonMind did not return the stored Graph revision.",
+            code="graph_revision_unavailable",
+            status_code=409,
+            provider_dispatched=False,
+        )
+    packet = result.model_dump(mode="python", by_alias=False)
+    revision_id = result.snapshot.revision_id
+    matched = list(result.matched_node_ids)
+    claims = claims_from_retrieval_result(packet, revision_id=revision_id)
+    evidence_by_anchor = {
+        anchor.anchor_id: anchor.evidence_ref_id
+        for anchor in result.source_anchors
+        if anchor.anchor_id and anchor.evidence_ref_id
+    }
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id=native_world_id,
+            campaign_id="",
+            focus={"kind": "none", "session_id": None, "campaign_id": None},
+            admissibility="gm",
+            revision_id=revision_id,
+            is_head=result.snapshot.is_head,
+            scope_mode="world",
+        ),
+        question=body.message,
+        referents=[
+            GraphReferent(
+                kind="node",
+                id=node.node_id,
+                label=node.label,
+                origin="deterministic_match",
+                match_reasons=list(result.match_reasons.get(node.node_id, [])),
+                selected=(len(matched) == 1 and node.node_id == matched[0]),
+            )
+            for node in result.nodes
+        ],
+        claims=claims,
+        source_anchors=[
+            SourceAnchorState(
+                anchor_id=anchor.anchor_id,
+                readable=anchor.readable,
+                opened=False,
+                locator_kind=anchor.locator_kind,
+            )
+            for anchor in result.source_anchors
+        ],
+        preflight_candidate_ids=matched,
+        coverage=CoverageState(
+            state=("ready" if result.outcome == "enough" else "empty" if result.outcome == "empty" else "partial_coverage"),
+            known=[claim.predicate or claim.claim_kind for claim in claims if claim.may_state_as_campaign_fact()],
+            missing=[] if result.outcome == "enough" else ["complete Graph coverage"],
+            gap_codes=[diagnostic.code for diagnostic in result.diagnostics],
+        ),
+        diagnostics=[diagnostic.code for diagnostic in result.diagnostics],
+    )
+    session.operations.append(
+        RetrievalOperationEvent(
+            operation_id=f"op:{uuid4().hex[:12]}",
+            requested_by="server_initial",
+            operation="search",
+            inputs={"result_limit": 32},
+            status="completed" if result.outcome == "enough" else "partial",
+            added_claim_ids=[claim.claim_id for claim in claims],
+            diagnostic_codes=[diagnostic.code for diagnostic in result.diagnostics],
+        )
+    )
+    session = create_session(session)
+    return AgentPlanWorldGraphBootstrap(
+        graph_envelope={
+            "world_id": native_world_id,
+            "campaign_id": "",
+            "revision_id": revision_id,
+            "head_revision_id": result.snapshot.head_revision_id,
+            "is_head": result.snapshot.is_head,
+            "scope_mode": "world",
+            "focus": {"kind": "none", "session_id": None, "campaign_id": None},
+            "admissibility": "gm",
+            "matched_node_ids": matched,
+            "nodes": [item.model_dump(mode="python") for item in result.nodes],
+            "relationships": [item.model_dump(mode="python") for item in result.relationships],
+            "attributes": [item.model_dump(mode="python") for item in result.attributes],
+            "source_anchors": [item.model_dump(mode="python") for item in result.source_anchors],
+            "warning_codes": [diagnostic.code for diagnostic in result.diagnostics],
+        },
+        world_scope=AgentWorldScope(
+            world_id=native_world_id,
+            campaign_id="",
+            focus={"kind": "none", "session_id": None},
+            admissibility="gm",
+            revision_id=revision_id,
+            scope_mode="world",
+        ),
+        retrieval_session=session,
+        binding_version=binding.binding_version,
+        source_root_relpath=initial.source_root_relpath,
+        candidate_assertion_ids=tuple(sorted({item.assertion_id for item in result.attributes})),
+        candidate_relationship_ids=tuple(sorted({item.edge_id for item in result.relationships})),
+        candidate_evidence_ref_ids=tuple(sorted({item.evidence_ref_id for item in result.source_anchors})),
+        evidence_by_anchor_id=evidence_by_anchor,
+    )
+
+
 def _conversation_service(request: Request) -> AgentConversationService:
     configured = getattr(request.app.state, "agent_conversation_service", None)
     return configured if configured is not None else AgentConversationService()
@@ -457,14 +726,16 @@ def _verified_world_id(world_id: str) -> str:
 
 @router.get(
     "/worlds/{world_id}/conversation",
-    response_model=AgentConversationHistoryResponse,
+    # The response is selected per snapshot when it contains a policy turn.
+    # A fixed v1 model would reject the additive plan_context payload.
+    response_model=AgentConversationHistoryResponse | AgentConversationHistoryResponseV2,
 )
 def get_world_conversation_history(
     world_id: str,
     request: Request,
     limit: int = Query(default=50, ge=1, le=100),
     before_sequence: int | None = Query(default=None, gt=0),
-) -> AgentConversationHistoryResponse:
+) -> AgentConversationHistoryResponse | AgentConversationHistoryResponseV2:
     # Authenticate before managed World lookup and every APP-STATE read.
     enforce_native_graph_gm(request)
     verified_world_id = _verified_world_id(world_id)
@@ -519,23 +790,42 @@ def get_world_conversation_history(
             pointer_revision=pointer.revision,
             turns=[],
         )
-    return AgentConversationHistoryResponse(
+    contains_plan_context = any(
+        turn.graph_context_receipt is not None for turn in turns
+    )
+    history_turns = []
+    for turn in turns:
+        values = {
+            "turn_id": turn.turn_id,
+            "sequence": turn.sequence,
+            "lifecycle_status": turn.status,
+            "user_text": turn.user_text,
+            "assistant_text": turn.assistant_text,
+            "provenance": turn.provenance,
+        }
+        if turn.graph_context_receipt is not None:
+            history_turns.append(
+                AgentConversationHistoryTurnV2(
+                    **values,
+                    plan_context=project_plan_turn_context(
+                        turn, delivery_replay=False
+                    ),
+                )
+            )
+        else:
+            history_turns.append(AgentConversationHistoryTurn(**values))
+    response_model = (
+        AgentConversationHistoryResponseV2
+        if contains_plan_context
+        else AgentConversationHistoryResponse
+    )
+    return response_model(
         world_id=verified_world_id,
         conversation_state="active",
         conversation_id=conversation.conversation_id,
         active_conversation_id=pointer.active_conversation_id,
         pointer_revision=pointer.revision,
-        turns=[
-            AgentConversationHistoryTurn(
-                turn_id=turn.turn_id,
-                sequence=turn.sequence,
-                lifecycle_status=turn.status,
-                user_text=turn.user_text,
-                assistant_text=turn.assistant_text,
-                provenance=turn.provenance,
-            )
-            for turn in turns
-        ],
+        turns=history_turns,
         # before_sequence is exclusive; using the first visible sequence gives
         # the caller the next older page without exposing repository ordering.
         next_before_sequence=(
@@ -592,6 +882,7 @@ def post_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, Any]:
             work_resolver=_work_resolver,
             historical_work_resolver=_historical_work_resolver,
             graph_resolver=_graph_resolver,
+            plan_graph_resolver=_plan_context_resolver,
             runtime_factory=lambda: getattr(
                 request.app.state, "agent_turn_runtime", None
             ),
@@ -599,6 +890,24 @@ def post_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, Any]:
         )
         return result.model_dump(mode="json", by_alias=True)
     except AgentTurnServiceError as exc:
+        if body.plan_context_policy is not None and exc.provider_dispatched is False:
+            mapping = _PLAN_PREDISPATCH_FAILURES.get(exc.code)
+            if mapping is not None:
+                failure_code, status_code = mapping
+                raise HTTPException(
+                    status_code=status_code,
+                    detail={
+                        "code": failure_code,
+                        "message": str(exc),
+                        "plan_context_failure": {
+                            "schema": "dmb_agent_plan_world_graph_context_failure_v1",
+                            "status": "pre_dispatch_failed",
+                            "failure_code": failure_code,
+                            "provider_dispatched": False,
+                            "automatic_downgrade": False,
+                        },
+                    },
+                ) from exc
         raise HTTPException(
             status_code=exc.status_code,
             detail={"code": exc.code, "message": str(exc)},

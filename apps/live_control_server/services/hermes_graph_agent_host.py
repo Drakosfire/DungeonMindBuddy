@@ -8,6 +8,7 @@ the child process, communicating through bounded JSON wire bytes.
 from __future__ import annotations
 
 import multiprocessing as mp
+import hashlib
 import os
 import re
 import shutil
@@ -431,10 +432,138 @@ def hermes_graph_agent_worker_main(
                 except Exception:
                     return
 
+            authorization_sequence = 0
+
+            def report_provider_lifecycle(event: Any) -> bool:
+                if not request.provider_authorization_required:
+                    return True
+                if not isinstance(event, Mapping):
+                    return False
+                sequence = event.get("authorizationSequence")
+                transition = event.get("transition")
+                if (
+                    isinstance(sequence, bool)
+                    or not isinstance(sequence, int)
+                    or sequence != authorization_sequence
+                    or transition not in {"sdk_entered", "response_received", "outcome_unknown"}
+                ):
+                    return False
+                try:
+                    response_queue.put(encode_json_wire({
+                        "type": "provider_lifecycle_request",
+                        "requestId": request_id,
+                        "authorizationId": f"{request_id}:{sequence}",
+                        "transition": transition,
+                    }))
+                    message = decode_json_wire(request_queue.get(timeout=30.0))
+                except Exception:
+                    return False
+                return (
+                    message.get("type") == "provider_lifecycle_response"
+                    and message.get("requestId") == request_id
+                    and message.get("authorizationId") == f"{request_id}:{sequence}"
+                    and message.get("acknowledged") is True
+                )
+
+            def authorize_provider_request(view: Any) -> bool:
+                nonlocal authorization_sequence
+                if not request.provider_authorization_required:
+                    return True
+                authorization_sequence += 1
+                authorization_id = f"{request_id}:{authorization_sequence}"
+                try:
+                    response_queue.put(encode_json_wire({
+                        "type": "provider_authorization_request",
+                        "requestId": request_id,
+                        "authorizationId": authorization_id,
+                        "view": {
+                            "provider": view.provider,
+                            "model": view.model,
+                            "apiMode": view.api_mode,
+                            "baseUrl": view.base_url,
+                            "payloadJson": view.payload_json,
+                            "payloadSha256": view.payload_sha256,
+                            "payloadUtf8Bytes": view.payload_utf8_bytes,
+                        },
+                    }))
+                    message = decode_json_wire(request_queue.get(timeout=30.0))
+                except Exception:
+                    return False
+                return (
+                    message.get("type") == "provider_authorization_response"
+                    and message.get("requestId") == request_id
+                    and message.get("authorizationId") == authorization_id
+                    and message.get("allowOnce") is True
+                )
+
+            graph_operation_sequence = 0
+
+            def broker_graph_operation(
+                tool_name: str, arguments: Mapping[str, Any]
+            ) -> tuple[str, Mapping[str, Any] | None]:
+                nonlocal graph_operation_sequence
+                if not request.parent_graph_broker_required:
+                    return (
+                        '{"schema":"dmb_world_graph_retrieval_error_v1",'
+                        '"code":"parent_graph_broker_unavailable",'
+                        '"message":"Parent Graph broker is unavailable.",'
+                        '"statusCode":503,"diagnostics":[]}',
+                        None,
+                    )
+                graph_operation_sequence += 1
+                operation_id = f"{request_id}:g{graph_operation_sequence}"
+                if tool_name != "expand_graph_retrieval":
+                    return (
+                        '{"schema":"dmb_world_graph_retrieval_error_v1",'
+                        '"code":"plan_graph_tool_not_permitted",'
+                        '"message":"Only Graph expansion is permitted.",'
+                        '"statusCode":403,"diagnostics":[]}',
+                        None,
+                    )
+                try:
+                    response_queue.put(encode_json_wire({
+                        "type": "graph_operation_request",
+                        "requestId": request_id,
+                        "operationId": operation_id,
+                        "toolName": tool_name,
+                        "arguments": dict(arguments),
+                    }))
+                    message = decode_json_wire(request_queue.get(timeout=30.0))
+                except Exception:
+                    return (
+                        '{"schema":"dmb_world_graph_retrieval_error_v1",'
+                        '"code":"parent_graph_broker_unavailable",'
+                        '"message":"Parent Graph broker did not respond.",'
+                        '"statusCode":503,"diagnostics":[]}',
+                        None,
+                    )
+                if (
+                    message.get("type") != "graph_operation_response"
+                    or message.get("requestId") != request_id
+                    or message.get("operationId") != operation_id
+                    or not isinstance(message.get("resultJson"), str)
+                    or (
+                        message.get("retrievalSession") is not None
+                        and not isinstance(message.get("retrievalSession"), Mapping)
+                    )
+                ):
+                    return (
+                        '{"schema":"dmb_world_graph_retrieval_error_v1",'
+                        '"code":"parent_graph_broker_protocol_error",'
+                        '"message":"Parent Graph broker response was invalid.",'
+                        '"statusCode":502,"diagnostics":[]}',
+                        None,
+                    )
+                session_packet = message.get("retrievalSession")
+                return message["resultJson"], session_packet
+
             result = run_hermes_graph_agent_turn(
                 request,
                 on_model_call=on_model_call,
                 on_worker_phase=on_worker_phase,
+                on_provider_authorization=authorize_provider_request,
+                on_provider_lifecycle=report_provider_lifecycle,
+                on_parent_graph_operation=broker_graph_operation,
             )
             response_queue.put(
                 encode_json_wire(
@@ -557,6 +686,9 @@ class HermesGraphAgentHost:
         *,
         timeout_s: float | None = None,
         on_host_phase: Callable[[dict[str, Any]], None] | None = None,
+        on_provider_authorization: Callable[[Mapping[str, Any]], bool] | None = None,
+        on_provider_lifecycle: Callable[[Mapping[str, Any]], bool] | None = None,
+        on_graph_operation: Callable[[Mapping[str, Any]], Mapping[str, Any]] | None = None,
     ) -> HermesGraphAgentTurnResult:
         """Run one turn on the worker. Concurrent callers queue on the turn gate."""
         turn_timeout = self._turn_timeout_s if timeout_s is None else float(timeout_s)
@@ -617,6 +749,9 @@ class HermesGraphAgentHost:
                 turn_timeout_s=turn_timeout,
                 emit_phase=emit_phase,
                 emit_worker_phase=emit_worker_phase,
+                on_provider_authorization=on_provider_authorization,
+                on_provider_lifecycle=on_provider_lifecycle,
+                on_graph_operation=on_graph_operation,
             )
 
     def _execute_turn(
@@ -626,6 +761,9 @@ class HermesGraphAgentHost:
         turn_timeout_s: float,
         emit_phase: Callable[[str, float, str], None],
         emit_worker_phase: Callable[[dict[str, Any]], None],
+        on_provider_authorization: Callable[[Mapping[str, Any]], bool] | None,
+        on_provider_lifecycle: Callable[[Mapping[str, Any]], bool] | None,
+        on_graph_operation: Callable[[Mapping[str, Any]], Mapping[str, Any]] | None,
     ) -> HermesGraphAgentTurnResult:
         self._started = True
         # Retry only covers pre-enqueue / start failures. After enqueue, two-phase
@@ -723,6 +861,135 @@ class HermesGraphAgentHost:
             streamed_calls: list[dict[str, Any]] = []
             streamed_worker_phases: list[dict[str, Any]] = []
             streamed_warnings: list[str] = []
+            authorization_sequence = 0
+            graph_operation_sequence = 0
+
+            def handle_provider_authorization(message: dict[str, Any]) -> None:
+                nonlocal authorization_sequence
+                authorization_id = message.get("authorizationId")
+                view = message.get("view")
+                expected_id = f"{request_id}:{authorization_sequence + 1}"
+                allow = False
+                valid_view = False
+                if (
+                    authorization_id == expected_id
+                    and isinstance(view, Mapping)
+                    and set(view) == {
+                        "provider", "model", "apiMode", "baseUrl",
+                        "payloadJson", "payloadSha256", "payloadUtf8Bytes",
+                    }
+                ):
+                    raw_json = view.get("payloadJson")
+                    raw_digest = view.get("payloadSha256")
+                    raw_size = view.get("payloadUtf8Bytes")
+                    valid_view = (
+                        all(isinstance(view.get(key), str) and view[key].strip()
+                            for key in ("provider", "model", "apiMode"))
+                        and (view.get("baseUrl") is None or isinstance(view.get("baseUrl"), str))
+                        and isinstance(raw_json, str)
+                        and len(raw_json.encode("utf-8")) <= 256_000
+                        and isinstance(raw_digest, str)
+                        and re.fullmatch(r"[0-9a-f]{64}", raw_digest) is not None
+                        and isinstance(raw_size, int)
+                        and not isinstance(raw_size, bool)
+                        and raw_size == len(raw_json.encode("utf-8"))
+                        and hashlib.sha256(raw_json.encode("utf-8")).hexdigest() == raw_digest
+                    )
+                if valid_view:
+                    authorization_sequence += 1
+                    try:
+                        allow = bool(
+                            on_provider_authorization is not None
+                            and on_provider_authorization(view) is True
+                        )
+                    except Exception:
+                        allow = False
+                try:
+                    local_worker.request_queue.put(
+                        encode_json_wire({
+                            "type": "provider_authorization_response",
+                            "requestId": request_id,
+                            "authorizationId": authorization_id,
+                            "allowOnce": allow,
+                        })
+                    )
+                except Exception:
+                    allow = False
+
+            def handle_graph_operation(message: dict[str, Any]) -> None:
+                nonlocal graph_operation_sequence
+                operation_id = message.get("operationId")
+                tool_name = message.get("toolName")
+                arguments = message.get("arguments")
+                expected_id = f"{request_id}:g{graph_operation_sequence + 1}"
+                result: Mapping[str, Any] = {
+                    "resultJson": (
+                        '{"schema":"dmb_world_graph_retrieval_error_v1",'
+                        '"code":"parent_graph_broker_unavailable",'
+                        '"message":"Parent Graph broker is unavailable.",'
+                        '"statusCode":503,"diagnostics":[]}'
+                    ),
+                    "retrievalSession": None,
+                }
+                if (
+                    operation_id == expected_id
+                    and tool_name == "expand_graph_retrieval"
+                    and isinstance(arguments, Mapping)
+                    and on_graph_operation is not None
+                ):
+                    graph_operation_sequence += 1
+                    try:
+                        candidate = on_graph_operation(message)
+                        if (
+                            isinstance(candidate, Mapping)
+                            and isinstance(candidate.get("resultJson"), str)
+                            and (
+                                candidate.get("retrievalSession") is None
+                                or isinstance(candidate.get("retrievalSession"), Mapping)
+                            )
+                        ):
+                            result = candidate
+                    except Exception:
+                        pass
+                try:
+                    local_worker.request_queue.put(encode_json_wire({
+                        "type": "graph_operation_response",
+                        "requestId": request_id,
+                        "operationId": operation_id,
+                        "resultJson": result["resultJson"],
+                        "retrievalSession": result.get("retrievalSession"),
+                    }))
+                except Exception:
+                    return
+
+            def handle_provider_lifecycle(message: dict[str, Any]) -> None:
+                authorization_id = message.get("authorizationId")
+                transition = message.get("transition")
+                acknowledged = False
+                if (
+                    authorization_id == f"{request_id}:{authorization_sequence}"
+                    and transition in {"sdk_entered", "response_received", "outcome_unknown"}
+                ):
+                    try:
+                        acknowledged = bool(
+                            on_provider_lifecycle is not None
+                            and on_provider_lifecycle({
+                                "authorizationId": authorization_id,
+                                "transition": transition,
+                            }) is True
+                        )
+                    except Exception:
+                        acknowledged = False
+                try:
+                    local_worker.request_queue.put(encode_json_wire({
+                        "type": "provider_lifecycle_response",
+                        "requestId": request_id,
+                        "authorizationId": authorization_id,
+                        "acknowledged": acknowledged,
+                    }))
+                except Exception:
+                    return
+
             phase_started = time.monotonic()
             try:
                 local_worker.request_queue.put(
@@ -751,6 +1018,9 @@ class HermesGraphAgentHost:
                 telemetry_calls=streamed_calls,
                 telemetry_warnings=streamed_warnings,
                 telemetry_worker_phases=streamed_worker_phases,
+                on_provider_authorization=handle_provider_authorization,
+                on_provider_lifecycle=handle_provider_lifecycle,
+                on_graph_operation=handle_graph_operation,
             )
             emit_phase(
                 "host_worker_result_wait",
@@ -995,6 +1265,9 @@ class HermesGraphAgentHost:
         telemetry_calls: list[dict[str, Any]] | None = None,
         telemetry_warnings: list[str] | None = None,
         telemetry_worker_phases: list[dict[str, Any]] | None = None,
+        on_provider_authorization: Callable[[dict[str, Any]], None] | None = None,
+        on_provider_lifecycle: Callable[[dict[str, Any]], None] | None = None,
+        on_graph_operation: Callable[[dict[str, Any]], None] | None = None,
     ) -> dict[str, Any] | None:
         deadline = time.monotonic() + timeout_s
         while True:
@@ -1043,6 +1316,30 @@ class HermesGraphAgentHost:
                     telemetry_warnings=telemetry_warnings,
                     telemetry_worker_phases=telemetry_worker_phases,
                 )
+                continue
+            if msg_type == "provider_authorization_request":
+                if (
+                    request_id is not None
+                    and str(message.get("requestId") or "") == request_id
+                    and on_provider_authorization is not None
+                ):
+                    on_provider_authorization(message)
+                continue
+            if msg_type == "provider_lifecycle_request":
+                if (
+                    request_id is not None
+                    and str(message.get("requestId") or "") == request_id
+                    and on_provider_lifecycle is not None
+                ):
+                    on_provider_lifecycle(message)
+                continue
+            if msg_type == "graph_operation_request":
+                if (
+                    request_id is not None
+                    and str(message.get("requestId") or "") == request_id
+                    and on_graph_operation is not None
+                ):
+                    on_graph_operation(message)
                 continue
             if msg_type not in expected_types:
                 if not process.is_alive():

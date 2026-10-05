@@ -8,6 +8,7 @@ create retrieval sessions, validate grounding, or finalize A0 traces.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +38,7 @@ from graph_memory.hermes_graph_plugin import (
     HermesGraphScope,
     default_conversation_only_capability_policy,
     default_graph_only_capability_policy,
+    parent_brokered_graph_expansion_policy,
 )
 
 HostFactory = Callable[[], HermesGraphAgentHost]
@@ -208,6 +210,37 @@ class HermesAgentRuntimeAdapter:
         self.descriptor: AgentRuntimeDescriptor = HERMES_RUNTIME_DESCRIPTOR
 
     def run(self, invocation: AgentRuntimeInvocation) -> AgentRuntimeResult:
+        return self._run(invocation)
+
+    def run_with_provider_authorization(
+        self,
+        invocation: AgentRuntimeInvocation,
+        authorize: Callable[[Mapping[str, Any]], bool],
+        *,
+        request_budget: Mapping[str, Any],
+        on_graph_operation: Callable[[Mapping[str, Any]], Mapping[str, Any]],
+        on_provider_lifecycle: Callable[[Mapping[str, Any]], bool] | None = None,
+    ) -> AgentRuntimeResult:
+        """Use the existing Hermes host with a per-request parent authorization gate."""
+        return self._run(
+            invocation,
+            authorize=authorize,
+            request_budget=request_budget,
+            on_graph_operation=on_graph_operation,
+            on_provider_lifecycle=on_provider_lifecycle,
+            require_authorization=True,
+        )
+
+    def _run(
+        self,
+        invocation: AgentRuntimeInvocation,
+        *,
+        authorize: Callable[[Mapping[str, Any]], bool] | None = None,
+        request_budget: Mapping[str, Any] | None = None,
+        on_graph_operation: Callable[[Mapping[str, Any]], Mapping[str, Any]] | None = None,
+        on_provider_lifecycle: Callable[[Mapping[str, Any]], bool] | None = None,
+        require_authorization: bool = False,
+    ) -> AgentRuntimeResult:
         policy_id = invocation.capability_policy.policy_id
         world_scope = invocation.context_packet.world_scope
         expected_policy = (
@@ -218,6 +251,20 @@ class HermesAgentRuntimeAdapter:
         if policy_id != expected_policy:
             return _unsupported_policy_result(policy_id)
         request = map_invocation_to_hermes_request(invocation)
+        if require_authorization:
+            if request.capability_policy is None or request.capability_policy.graph_scope is None:
+                raise ValueError("Plan Graph authorization requires a resolved World scope")
+            if on_graph_operation is None:
+                raise ValueError("Plan Graph authorization requires a parent broker")
+            request = replace(
+                request,
+                provider_authorization_required=True,
+                request_budget=request_budget,
+                parent_graph_broker_required=True,
+                capability_policy=parent_brokered_graph_expansion_policy(
+                    request.capability_policy.graph_scope
+                ),
+            )
         host = self._host_factory()
         host_phase_spans: list[dict[str, Any]] = []
 
@@ -225,7 +272,14 @@ class HermesAgentRuntimeAdapter:
             if len(host_phase_spans) < 24:
                 host_phase_spans.append(dict(span))
 
-        result = host.execute(request, on_host_phase=on_host_phase)
+        host_options: dict[str, Any] = {"on_host_phase": on_host_phase}
+        if authorize is not None:
+            host_options["on_provider_authorization"] = authorize
+        if on_graph_operation is not None:
+            host_options["on_graph_operation"] = on_graph_operation
+        if on_provider_lifecycle is not None:
+            host_options["on_provider_lifecycle"] = on_provider_lifecycle
+        result = host.execute(request, **host_options)
         runtime_result = map_hermes_result_to_runtime_result(
             result,
             worker_pid=_host_worker_pid(host),
