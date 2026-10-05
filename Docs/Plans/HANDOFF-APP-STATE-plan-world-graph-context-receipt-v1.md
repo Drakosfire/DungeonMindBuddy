@@ -78,8 +78,8 @@ SERVER's provider-envelope witness must prove that retrieved candidate identitie
 ## APP-STATE verification evidence
 
 - `ruff check` passed for all leased Python source, migration, and test paths.
-- Against an isolated tmpfs PostgreSQL container and disposable per-test databases, the focused APP-STATE service, PostgreSQL, provenance migration, and Plan action PostgreSQL suites passed: 52 passed. This includes fresh-service receipt/completion readback, completed receipt replay, malformed receipt rejection, downgrade refusal with a non-null receipt, and legacy null/fingerprint preservation.
-- The selected-card regression accepts `beat:a` with receipt-only marker grammar v2, reads it from a fresh service, completes and replays the stored result, and rejects an intent/receipt ID mismatch.
+- Against an isolated tmpfs PostgreSQL container and disposable per-test databases, the exact combined command `uv run --no-sync pytest -q tests/application_state/test_agent_conversation_service.py tests/application_state/test_agent_conversation_postgres.py tests/application_state/test_agent_conversation_provenance_migration.py tests/application_state/test_plan_action_dialogue_postgres.py` passed: 55 passed. This includes fresh-service receipt/completion readback, completed receipt replay, malformed receipt rejection, downgrade refusal with a non-null receipt, and legacy null/fingerprint preservation.
+- Owning-boundary regressions accept and persist selected target `beat:a` with receipt-only marker grammar v2, read it from a fresh service, complete and replay the stored result, and reject a mismatched intent/receipt ID. Completion coverage includes grounded, partial, and sufficient-but-unused outcomes; candidate evidence absent from the dispatched packet is rejected.
 - No provider, Graph service, operator database, or persistent database volume was used.
 
 ## Stop rules
