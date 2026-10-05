@@ -147,6 +147,36 @@ def test_additive_null_provenance_fields_preserve_legacy_fingerprint_shape() -> 
     ) != request_fingerprint(provenance)
 
 
+def test_graphless_turn_request_fingerprint_omits_new_null_policy_fields() -> None:
+    from application_state.agent_conversation.types import request_fingerprint
+
+    submission = TurnSubmission(
+        world_id="fingerprint-graphless-world",
+        conversation_id=uuid4(),
+        idempotency_key=uuid4(),
+        expected_conversation_revision=2,
+        user_text="Keep the old request fingerprint shape.",
+        provenance=_provenance("fingerprint-graphless-world"),
+        submitted_intent_v1=_submitted_intent(
+            "fingerprint-graphless-world", "Keep the old request fingerprint shape."
+        ),
+    )
+    payload = _without_0012_fields(
+        submission.model_dump(
+            mode="json",
+            exclude={
+                "idempotency_key",
+                "submitted_intent_v1",
+                "submitted_intent_v2",
+                "graph_context_receipt",
+            },
+        )
+    )
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+    expected = hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+    assert request_fingerprint(submission) == expected
+
+
 def test_content_reference_requires_complete_typed_revision_and_resolved_identity() -> (
     None
 ):

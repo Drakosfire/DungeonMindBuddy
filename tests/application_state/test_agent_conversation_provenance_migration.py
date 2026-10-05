@@ -85,6 +85,13 @@ def test_0011_receipts_survive_additive_typed_provenance_migration_and_fail_clos
             """,
             (turn.turn_id,),
         ).fetchone()
+        graph_fields_before = conn.execute(
+            """
+            SELECT submitted_intent_fingerprint_v2, graph_context_receipt, completion
+            FROM agent.turn WHERE turn_id = %s
+            """,
+            (turn.turn_id,),
+        ).fetchone()
         draft_fingerprint_before = conn.execute(
             """
             SELECT request_fingerprint, source_fingerprint
@@ -110,6 +117,9 @@ def test_0011_receipts_survive_additive_typed_provenance_migration_and_fail_clos
     assert loaded_turn.provenance.primary_work.object_revision is None
     assert loaded_turn.provenance.primary_work.work_revision_id is None
     assert loaded_turn.provenance.primary_work.revision_n is None
+    assert loaded_turn.graph_context_receipt is None
+    assert loaded_turn.completion is None
+    assert loaded_turn.submitted_intent_fingerprint_v2 is None
     with pytest.raises(
         ApplicationStateConflictError, match="legacy-receipt-unverifiable"
     ):
@@ -134,6 +144,17 @@ def test_0011_receipts_survive_additive_typed_provenance_migration_and_fail_clos
                 (turn.turn_id,),
             ).fetchone()
             == fingerprints_before
+        )
+        assert (
+            conn.execute(
+                """
+                SELECT submitted_intent_fingerprint_v2, graph_context_receipt, completion
+                FROM agent.turn WHERE turn_id = %s
+                """,
+                (turn.turn_id,),
+            ).fetchone()
+            == graph_fields_before
+            == (None, None, None)
         )
         assert (
             conn.execute(

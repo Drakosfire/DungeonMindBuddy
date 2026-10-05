@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
@@ -16,11 +18,16 @@ from application_state.agent_conversation.types import (
     ConversationCommand,
     DraftSave,
     HistoricalReference,
+    PlanContextPolicyV1,
+    PlanWorldGraphCompletionV1,
+    PlanWorldGraphContextReceiptV1,
+    PlanWorldGraphPlanClaimSegmentV1,
     PlanPlayableTargetReceiptV1,
     SubmittedGraphRequestIntentV1,
     SubmittedPlanPlayableTargetV1,
     SubmittedPrimaryWorkIntentV1,
     SubmittedTurnIntentV1,
+    SubmittedTurnIntentV2,
     TurnProvenance,
     TurnSubmission,
     TurnFailure,
@@ -105,6 +112,82 @@ def _typed_provenance(world_id: str) -> TurnProvenance:
     )
 
 
+def _graph_receipt(world_id: str, plan_revision_id) -> PlanWorldGraphContextReceiptV1:
+    payload = {
+        "schema": "dmb_agent_plan_world_graph_context_receipt_v1",
+        "receipt_serializer_version": "canonical-json-utf8-v1",
+        "plan_context_policy": {
+            "schema": "dmb_plan_context_policy_v1",
+            "policy": "auto_plan_world",
+        },
+        "plan_basis": {
+            "world_id": world_id,
+            "document_id": "graph-receipt-plan",
+            "object_revision": 3,
+            "work_revision_id": str(plan_revision_id),
+            "revision_n": 2,
+            "content_sha256": "a" * 64,
+        },
+        "playable_target": None,
+        "graph_authority": {
+            "managed_world_id": world_id,
+            "native_world_id": "native-world-17",
+            "binding_version": 4,
+            "scope_mode": "world",
+            "campaign_id": None,
+            "admissibility_version": "admission-v1",
+            "graph_revision": "graph-rev-11",
+        },
+        "graph_packet": {
+            "schema": "dmb_plan_world_graph_packet_v1",
+            "packet_serializer_version": "canonical-json-utf8-v1",
+            "selection_policy_version": "selection-v1",
+            "evidence_sufficiency_policy_version": "sufficiency-v1",
+            "retrieval_packet_sha256": "b" * 64,
+            "candidate_assertion_ids": [],
+            "candidate_relationship_ids": [],
+            "candidate_evidence_ref_ids": [],
+            "retrieval_status": "empty",
+            "evidence_sufficiency_status": "insufficient",
+            "result_limit": 32,
+            "coverage_status": "incomplete",
+            "truncated": False,
+            "omission_reasons": ["no_admissible_evidence"],
+        },
+        "assembled_input": {
+            "assembler_version": "assembler-v1",
+            "budget_policy_version": "budget-v1",
+            "provider_model_name": "synthetic-model",
+            "provider_model_version": "1",
+            "tokenizer_name": "synthetic-tokenizer",
+            "tokenizer_version": "1",
+            "provider_envelope_input_tokens": 12,
+            "output_token_reserve": 10,
+            "context_window_limit": 100,
+            "packet_disposition": "omitted_insufficient",
+            "packet_disposition_reason": "insufficient_evidence",
+            "dispatched_packet_sha256": None,
+            "dispatched_assertion_ids": [],
+            "dispatched_relationship_ids": [],
+            "dispatched_evidence_ref_ids": [],
+            "source_token_accounting": [],
+            "included_history": [],
+            "assembled_input_sha256": "c" * 64,
+        },
+        "evidence_mode": "metadata_only",
+        "source_opened": False,
+    }
+    canonical = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    payload["context_receipt_sha256"] = hashlib.sha256(canonical).hexdigest()
+    return PlanWorldGraphContextReceiptV1.model_validate(payload)
+
+
 def _saved_plan_turn_payload(
     *, world_id: str, work_object, work_revision, turn_id: str, message: str
 ) -> dict[str, object]:
@@ -143,7 +226,127 @@ def test_agent_conversation_migration_is_single_current_head(
     application_state_dsn: str,
 ) -> None:
     current, head = _current_and_head(application_state_dsn)
-    assert current == head == "20261004_0015"
+    assert current == head == "20261004_0016"
+
+
+def test_graph_receipt_and_completion_round_trip_through_fresh_service(
+    application_state_dsn: str,
+) -> None:
+    import psycopg
+    from alembic import command
+
+    from application_state.cli import alembic_config
+
+    service = AgentConversationService()
+    world_id = "graph-receipt-roundtrip-world"
+    conversation = _new(service, world_id)
+    plan_revision_id = uuid4()
+    receipt = _graph_receipt(world_id, plan_revision_id)
+    intent = SubmittedTurnIntentV2(
+        world_id=world_id,
+        client_thread_id="graph-receipt-thread",
+        message="Summarize the current plan.",
+        surface_id="plan",
+        surface_instance_id="plan-pane-4",
+        client_work_state="saved_clean",
+        primary_work=SubmittedPrimaryWorkIntentV1(
+            kind="plan",
+            object_id="graph-receipt-plan",
+            expected_revision=3,
+            expected_revision_n=2,
+            expected_content_sha256="a" * 64,
+        ),
+        plan_context_policy=PlanContextPolicyV1(policy="auto_plan_world"),
+        graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+        graph_selection=None,
+    )
+    provenance = TurnProvenance(
+        world_id=world_id,
+        surface_resolution="resolved",
+        surface_id="plan",
+        surface_instance_id="plan-pane-4",
+        primary_work=HistoricalReference(
+            resolution="resolved",
+            kind="plan",
+            object_id="graph-receipt-plan",
+            content_sha256="a" * 64,
+            object_revision=3,
+            work_revision_id=plan_revision_id,
+            revision_n=2,
+        ),
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    submission = TurnSubmission(
+        world_id=world_id,
+        conversation_id=conversation.conversation_id,
+        idempotency_key=uuid4(),
+        expected_conversation_revision=1,
+        user_text=intent.message,
+        provenance=provenance,
+        submitted_intent_v2=intent,
+        graph_context_receipt=receipt,
+    )
+    accepted = service.accept_turn(submission)
+    fresh = AgentConversationService()
+    loaded = fresh.list_turns(world_id, conversation.conversation_id)[0]
+    assert loaded.graph_context_receipt == receipt
+    assert fresh.accept_turn(submission) == accepted
+
+    claimed = fresh.claim_turn(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=accepted.revision,
+        lease_seconds=60,
+    )
+    completion = PlanWorldGraphCompletionV1(
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        answer_basis="committed_plan",
+        answer_context_status="plan_only_insufficient_evidence",
+        answer_segments=[
+            PlanWorldGraphPlanClaimSegmentV1(
+                kind="plan_claim",
+                text="The plan is to reach the northern pass.",
+                plan_content_sha256="a" * 64,
+            )
+        ],
+        citation_map=None,
+    )
+    completed = fresh.complete_turn(
+        TurnResult(
+            world_id=world_id,
+            conversation_id=conversation.conversation_id,
+            turn_id=accepted.turn_id,
+            expected_revision=claimed.turn.revision,
+            assistant_text="The plan is to reach the northern pass.",
+            completion=completion,
+        )
+    )
+    reloaded = AgentConversationService().list_turns(
+        world_id, conversation.conversation_id
+    )[0]
+    assert reloaded == completed
+    assert reloaded.graph_context_receipt == receipt
+    assert reloaded.completion == completion
+    assert fresh.claim_turn(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=accepted.revision,
+    ).turn == completed
+
+    with pytest.raises(psycopg.errors.CheckViolation):
+        with psycopg.connect(application_state_dsn) as conn:
+            conn.execute(
+                "UPDATE agent.turn SET graph_context_receipt = '{}'::jsonb WHERE turn_id = %s",
+                (accepted.turn_id,),
+            )
+    with pytest.raises(RuntimeError, match="refusing to drop non-null Agent Graph context"):
+        command.downgrade(alembic_config(), "20261004_0015")
+    assert _current_and_head(application_state_dsn) == (
+        "20261004_0016",
+        "20261004_0016",
+    )
 
 
 def test_turn_and_draft_round_trip_exact_typed_provenance(

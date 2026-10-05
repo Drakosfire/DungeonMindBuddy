@@ -22,6 +22,7 @@ from application_state.agent_conversation.types import (
     LegacyImportReceipt,
     PlanAskContextBasis,
     ReopenCommand,
+    SubmittedTurnIntentV2,
     SubmittedTurnIntentV1,
     Turn,
     TurnClaimReceipt,
@@ -31,7 +32,9 @@ from application_state.agent_conversation.types import (
     WorldPointer,
     request_fingerprint,
     submitted_turn_intent_fingerprint_v1,
+    submitted_turn_intent_fingerprint_v2,
     turn_idempotency_fingerprint,
+    validate_completion_against_receipt,
 )
 from application_state.cli import assert_at_head
 from application_state.config import load_runtime_dsn
@@ -315,6 +318,7 @@ class AgentConversationService:
         if submission.provenance.world_id != world_id:
             raise ApplicationStateValidationError("turn provenance must match verified World")
         submitted_intent = submission.submitted_intent_v1
+        submitted_intent_v2 = submission.submitted_intent_v2
         if submitted_intent is not None and (
             submitted_intent.world_id != world_id
             or submitted_intent.message != submission.user_text
@@ -331,6 +335,11 @@ class AgentConversationService:
         submitted_intent_fingerprint = (
             None if submitted_intent is None else submitted_turn_intent_fingerprint_v1(submitted_intent)
         )
+        submitted_intent_fingerprint_v2 = (
+            None
+            if submitted_intent_v2 is None
+            else submitted_turn_intent_fingerprint_v2(submitted_intent_v2)
+        )
 
         def matching_receipt(existing) -> Turn:
             (
@@ -338,18 +347,33 @@ class AgentConversationService:
                 _old_request_fingerprint,
                 _old_idempotency_fingerprint,
                 old_submitted_intent_fingerprint,
+                old_submitted_intent_fingerprint_v2,
             ) = existing
-            if old_submitted_intent_fingerprint is None:
+            if (
+                old_submitted_intent_fingerprint is None
+                and old_submitted_intent_fingerprint_v2 is None
+            ):
                 raise ApplicationStateConflictError(
                     "legacy-receipt-unverifiable: the stored turn has no submitted-intent fingerprint"
                 )
-            if submitted_intent_fingerprint is None:
+            if submitted_intent_fingerprint is None and submitted_intent_fingerprint_v2 is None:
                 raise ApplicationStateConflictError(
                     "turn idempotency key requires its submitted-intent fingerprint"
                 )
-            if old_submitted_intent_fingerprint != submitted_intent_fingerprint:
+            if submitted_intent_fingerprint is not None and (
+                old_submitted_intent_fingerprint != submitted_intent_fingerprint
+                or old_submitted_intent_fingerprint_v2 is not None
+            ):
                 raise ApplicationStateConflictError(
                     "turn idempotency key was already used with different submitted intent"
+                )
+            if submitted_intent_fingerprint_v2 is not None and (
+                old_submitted_intent_fingerprint_v2 != submitted_intent_fingerprint_v2
+                or old_submitted_intent_fingerprint is not None
+                or turn.graph_context_receipt != submission.graph_context_receipt
+            ):
+                raise ApplicationStateConflictError(
+                    "turn idempotency key was already used with different submitted intent or Graph receipt"
                 )
             return turn
 
@@ -362,7 +386,7 @@ class AgentConversationService:
             )
             if existing is not None:
                 return matching_receipt(existing)
-            if submitted_intent_fingerprint is None:
+            if submitted_intent_fingerprint is None and submitted_intent_fingerprint_v2 is None:
                 raise ApplicationStateValidationError(
                     "submitted intent v1 is required for ordinary turn acceptance"
                 )
@@ -395,6 +419,7 @@ class AgentConversationService:
                 request_fingerprint=fingerprint,
                 idempotency_fingerprint=stable_fingerprint,
                 submitted_intent_fingerprint_v1=submitted_intent_fingerprint,
+                submitted_intent_fingerprint_v2=submitted_intent_fingerprint_v2,
                 submission=submission,
                 sequence=sequence,
                 now=now,
@@ -404,7 +429,7 @@ class AgentConversationService:
         self,
         world_id: str,
         idempotency_key: UUID,
-        submitted_intent: SubmittedTurnIntentV1,
+        submitted_intent: SubmittedTurnIntentV1 | SubmittedTurnIntentV2,
     ) -> Turn | None:
         """Find an exact World receipt before resolving mutable current context.
 
@@ -416,18 +441,28 @@ class AgentConversationService:
             raise ApplicationStateValidationError(
                 "submitted intent World does not match verified World"
             )
-        digest = submitted_turn_intent_fingerprint_v1(submitted_intent)
+        if isinstance(submitted_intent, SubmittedTurnIntentV2):
+            digest_v1 = None
+            digest_v2 = submitted_turn_intent_fingerprint_v2(submitted_intent)
+        else:
+            digest_v1 = submitted_turn_intent_fingerprint_v1(submitted_intent)
+            digest_v2 = None
         dsn = _ready_dsn()
         with unit_of_work(dsn) as conn:
             existing = repo.get_turn_by_world_key(conn, world_id, idempotency_key)
         if existing is None:
             return None
-        turn, _request_hash, _idempotency_hash, stored_digest = existing
-        if stored_digest is None:
+        turn, _request_hash, _idempotency_hash, stored_digest, stored_digest_v2 = existing
+        if stored_digest is None and stored_digest_v2 is None:
             raise ApplicationStateConflictError(
                 "legacy-receipt-unverifiable: the stored turn has no submitted-intent fingerprint"
             )
-        if stored_digest != digest:
+        if (
+            (digest_v1 is not None and stored_digest != digest_v1)
+            or (digest_v2 is not None and stored_digest_v2 != digest_v2)
+            or (digest_v1 is not None and stored_digest_v2 is not None)
+            or (digest_v2 is not None and stored_digest is not None)
+        ):
             raise ApplicationStateConflictError(
                 "turn idempotency key was already used with different submitted intent"
             )
@@ -584,6 +619,7 @@ class AgentConversationService:
             if turn.status == "completed":
                 if (
                     turn.assistant_text == result.assistant_text
+                    and turn.completion == result.completion
                     and turn.revision == result.expected_revision + 1
                 ):
                     return turn
@@ -592,12 +628,29 @@ class AgentConversationService:
                 )
             if turn.revision != result.expected_revision or turn.status != "running":
                 raise ApplicationStateConflictError("turn revision or lifecycle state changed")
+            if turn.graph_context_receipt is None:
+                if result.completion is not None:
+                    raise ApplicationStateValidationError(
+                        "Graph completion requires a frozen context receipt"
+                    )
+            else:
+                if result.completion is None:
+                    raise ApplicationStateValidationError(
+                        "Graph receipt turn requires a completion envelope"
+                    )
+                try:
+                    validate_completion_against_receipt(
+                        result.completion, turn.graph_context_receipt
+                    )
+                except ValueError as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
             updated = repo.complete_claimed_turn(
                 conn,
                 world_id=world_id,
                 turn_id=turn.turn_id,
                 expected_revision=result.expected_revision,
                 assistant_text=result.assistant_text,
+                completion=result.completion,
             )
         if updated is None:
             raise ApplicationStateConflictError(
@@ -724,8 +777,12 @@ class AgentConversationService:
                     old_fingerprint,
                     _old_idempotency_fingerprint,
                     old_submitted_intent_fingerprint,
+                    old_submitted_intent_fingerprint_v2,
                 ) = existing
-                if old_submitted_intent_fingerprint is not None:
+                if (
+                    old_submitted_intent_fingerprint is not None
+                    or old_submitted_intent_fingerprint_v2 is not None
+                ):
                     raise ApplicationStateConflictError(
                         "turn idempotency key was already used by an Agent turn"
                     )
