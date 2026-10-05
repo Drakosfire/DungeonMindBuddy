@@ -1,14 +1,14 @@
 # HANDOFF — DEMO: recover successful Plan Ask across SPA remount
 
-**Status:** ACTIVE — PRIME authorized this bounded production slice and its exact paths.
+**Status:** SETTLED — PR #919 merged; implementation write lease released.
 
 **Owner:** DEMO
 
-**Repository/base:** `Drakosfire/DungeonMindBuddy`, fetched remote `main@498353516a1ed49c48d4039e0edc218e63419424` (PR #918).
+**Repository/base:** `Drakosfire/DungeonMindBuddy`, PR base `main@498353516a1ed49c48d4039e0edc218e63419424` (PR #918); merged to current `main@4731245e5ccce8eb1179449903c40c824dc64a48`.
 
 **Branch/checkout:** `codex/demo-plan-ask-spa-recovery-v1`, isolated checkout `/tmp/dmb-demo-plan-ask-spa-recovery`.
 
-**Topology:** parallel-independent from #914 at codex/demo-plan-card-projection-fidelity@41e81264802b4235ef1e81ccace6aab76b10ab1e and #917 at codex/dogfood-focused-plan-adapter@05fa6365b710c70ab0aea56849fb63d30177d669. The #914 diff is path-disjoint. The current #917 diff historically includes the two UI paths below, but PRIME explicitly transferred exclusive production ownership of those paths to DEMO and instructed DOGFOOD to hold new edits until this lease settles. Its pushed diff remains prototype-reconciliation material, not an active competing writer or implementation dependency. Do not import prototype changes. PRIME owns independent review and merge coordination.
+**Topology:** implementation ran parallel-independent from #914 at codex/demo-plan-card-projection-fidelity@41e81264802b4235ef1e81ccace6aab76b10ab1e and #917 at codex/dogfood-focused-plan-adapter@05fa6365b710c70ab0aea56849fb63d30177d669. The #914 diff was path-disjoint. PR #917 historically included the two UI paths below; PRIME transferred exclusive production ownership of those paths to DEMO until this lane settled. That transfer ended when #919 merged. No prototype code was imported. The #914 visual witness remains a separate pending gate for its own slice.
 
 ## Mission and observed failure
 
@@ -26,15 +26,15 @@ At the pinned base, `sendPendingAsk` returns before validating or settling the r
 6. Network errors, malformed or unknown responses, and response/basis mismatches do not clear the captured record or emit a cleared event. Explicit retry continues to use the exact request and client turn ID. Remounting does not automatically POST a second time.
 7. Do not change schemas, correlation APIs, provider behavior, server ownership, Graph behavior, or canonical history authority. The server transcript remains the source of truth for completed turns.
 
-## Exclusive expected write lease
+## Implementation write lease — released
 
-Only these paths may change in this lane:
+These were the only implementation paths changed in this lane:
 
 - `apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.tsx`
 - `apps/live-control-ui/src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx`
 - `Docs/Plans/HANDOFF-DEMO-plan-ask-spa-recovery-v1.md`
 
-The handoff is committed before either source/test path is edited. If implementation or owning-boundary evidence requires another path or contract, stop and ask PRIME for a bounded lease change. Do not edit the roadmap, API types, server, APP-STATE, migrations, package manifests, lockfiles, prototype, or #914 files.
+The handoff was committed before either source/test path was edited. The exclusive lease on these three paths ended when PR #919 merged. No implementation edits remain active under this handoff. Do not infer runtime, server, APP-STATE, or #914 authority from this completed UI slice.
 
 ## Runtime, data and fixture ownership
 
@@ -49,19 +49,21 @@ This is a browser UI recovery slice verified with mounted tests, deferred mocked
 - Preserve current-context fences: a response for another World/document or malformed origin cannot refresh or mutate the selected subscriber.
 - Run the focused mounted Plan conversation/history suite, `git diff --check`, and inspect the exact cumulative base-to-head diff. Record any inherited failures without broadening this lease.
 
-## Candidate verification
+## Implementation verification and review
 
 - Focused mounted history suite: 21/21 passed, including late success after unmount/remount, exact canonical-history refresh, canonical conversation UUID distinct from client `turn_id`, replacement-byte preservation, malformed/network failure preservation and exact explicit retry.
 - `git diff --check` against the pinned base passes.
 - UI typecheck is blocked by the inherited main error `src/statblocks/publication/ThreatPublicationPanel.tsx(553,77): TS2503 Cannot find namespace 'JSX'`; that file is unchanged from the pinned base.
-- The current candidate head is published through PR #919 and has not yet received PRIME review. Do not claim runtime or visual acceptance for this slice.
+- PR #919's final reviewed head was `9e2fbdd418d61301fc88f99b9bd4baea6a32150e`; PRIME reported an independent exact-head PASS. GitHub's review API contains no submitted PR review, and the commit-status API returned no status entries.
+- PR #919 merged into main at `4731245e5ccce8eb1179449903c40c824dc64a48`. This settles the recovery implementation only; it does not establish runtime or visual acceptance for #914 or operator acceptance of the full DEMO mission.
 - The byte comparison is synchronous in this document, but localStorage has no transactional compare-delete operation across browsing contexts. This protects a replacement already present when settlement starts; cross-tab concurrent writes to the same key are outside this slice. Pending keys are per submitted turn and explicit retry reuses the same envelope. Do not describe this as a cross-tab atomic CAS guarantee.
 
-## Publication checkpoint
+## Publication and settlement
 
-- Published as [PR #919](https://github.com/Drakosfire/DungeonMindBuddy/pull/919), based on the pinned main SHA above. The PR opened at `70c312988880579b4aae415095f7f740e608043a`; that head contains the source, mounted regressions, and this verification record across only the three leased paths.
-- PRIME's exact-head review and merge coordination remain pending. Do not merge from this handoff.
+- Published as [PR #919](https://github.com/Drakosfire/DungeonMindBuddy/pull/919), based on the pinned main SHA above. The PR opened at `70c312988880579b4aae415095f7f740e608043a`; follow-up commits added the replacement-success history refresh and its regression before final review.
+- PRIME reviewed final head `9e2fbdd418d61301fc88f99b9bd4baea6a32150e` and merged PR #919 at `4731245e5ccce8eb1179449903c40c824dc64a48`. The implementation lease is closed and its three paths are released.
+- No live runtime, provider, database, credentials, operator World, or corpus was touched. #914's synthetic visual witness remains separate; its shared API timing question is unresolved and did not gate this PR.
 
-## PR and settlement
+## Slice disposition
 
-One implementation PR for this capability, from this pinned base. DEMO implements, verifies, inspects the cumulative diff, commits and pushes the branch, and opens/updates that PR. PRIME independently reviews the exact head and owns merge coordination. Do not claim this slice complete until that review and its required gates settle; record actual head, evidence and lease release here after merge.
+This implementation slice is settled after exact-head review and merge. The complete DEMO mission remains open until its separate journey and operator-acceptance gates pass.
