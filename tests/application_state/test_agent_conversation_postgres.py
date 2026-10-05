@@ -540,6 +540,257 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
     )
 
 
+def test_execution_partial_citations_require_sufficient_evidence(
+    application_state_dsn: str,
+) -> None:
+    from application_state.agent_conversation.types import (
+        GraphExecutionAccountingV1,
+        GraphExecutionPolicyV1,
+        PlanWorldGraphExecutionV1,
+        ProviderAttemptAuthorizedEventV1,
+        ProviderOutcomeEventV1,
+        ValidatedGraphOperationEventV1,
+    )
+
+    service = AgentConversationService()
+    world_id = "graph-execution-citation-sufficiency"
+    conversation = _new(service, world_id)
+    plan_revision_id = uuid4()
+    receipt = _graph_receipt(world_id, plan_revision_id)
+    intent = SubmittedTurnIntentV2(
+        world_id=world_id,
+        client_thread_id="graph-execution-citation-thread",
+        message="Describe this Graph evidence.",
+        surface_id="plan",
+        surface_instance_id="plan-pane-citations",
+        client_work_state="saved_clean",
+        primary_work=SubmittedPrimaryWorkIntentV1(
+            kind="plan",
+            object_id="graph-receipt-plan",
+            expected_revision=3,
+            expected_revision_n=2,
+            expected_content_sha256="a" * 64,
+        ),
+        plan_context_policy=PlanContextPolicyV1(policy="auto_plan_world"),
+        graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+        graph_selection=None,
+    )
+    provenance = TurnProvenance(
+        world_id=world_id,
+        surface_resolution="resolved",
+        surface_id="plan",
+        surface_instance_id="plan-pane-citations",
+        primary_work=HistoricalReference(
+            resolution="resolved",
+            kind="plan",
+            object_id="graph-receipt-plan",
+            content_sha256="a" * 64,
+            object_revision=3,
+            work_revision_id=plan_revision_id,
+            revision_n=2,
+        ),
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    execution = PlanWorldGraphExecutionV1(
+        schema="dmb_agent_plan_world_graph_execution_v1",
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        policy=GraphExecutionPolicyV1(
+            policy_version="test-policy-v1",
+            allowed_graph_operations=["search_assertions"],
+            max_provider_attempts=1,
+            max_graph_operations=2,
+            max_results_per_operation=4,
+            max_total_provider_input_tokens=100,
+            max_total_provider_output_tokens=20,
+            provider_input_accounting=GraphExecutionAccountingV1(
+                kind="exact_token_count", estimator="synthetic-tokenizer"
+            ),
+            source_opened=False,
+        ),
+        events=[],
+    )
+    accepted = service.accept_turn(
+        TurnSubmission(
+            world_id=world_id,
+            conversation_id=conversation.conversation_id,
+            idempotency_key=uuid4(),
+            expected_conversation_revision=1,
+            user_text=intent.message,
+            provenance=provenance,
+            submitted_intent_v2=intent,
+            graph_context_receipt=receipt,
+            graph_context_execution=execution,
+        )
+    )
+    claimed = service.claim_turn(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=accepted.revision,
+    ).turn
+    insufficient = ValidatedGraphOperationEventV1(
+        event_id=uuid4(),
+        sequence=0,
+        kind="validated_graph_operation",
+        operation_id=uuid4(),
+        operation="search_assertions",
+        request_arguments_sha256="1" * 64,
+        graph_revision="graph-rev-11",
+        result_packet_sha256="2" * 64,
+        assertion_ids=["assertion-evidence-1"],
+        relationship_ids=[],
+        evidence_ref_ids=["evidence-evidence-1"],
+        evidence_sufficiency_status="insufficient",
+        coverage_status="incomplete",
+        truncated=False,
+        source_opened=False,
+    )
+    after_insufficient, _ = service.append_validated_graph_operation(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=claimed.revision,
+        expected_attempt=claimed.attempt,
+        operation_event=insufficient,
+    )
+    sufficient_partial = ValidatedGraphOperationEventV1(
+        event_id=uuid4(),
+        sequence=1,
+        kind="validated_graph_operation",
+        operation_id=uuid4(),
+        operation="search_assertions",
+        request_arguments_sha256="3" * 64,
+        graph_revision="graph-rev-11",
+        result_packet_sha256="4" * 64,
+        assertion_ids=["assertion-evidence-1"],
+        relationship_ids=[],
+        evidence_ref_ids=["evidence-evidence-1"],
+        evidence_sufficiency_status="sufficient",
+        coverage_status="incomplete",
+        truncated=False,
+        source_opened=False,
+    )
+    after_sufficient, _ = service.append_validated_graph_operation(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=after_insufficient.revision,
+        expected_attempt=claimed.attempt,
+        operation_event=sufficient_partial,
+    )
+    attempt_id = uuid4()
+    authorized, _ = service.authorize_provider_attempt(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=after_sufficient.revision,
+        expected_attempt=claimed.attempt,
+        provider_attempt_event=ProviderAttemptAuthorizedEventV1(
+            event_id=uuid4(),
+            sequence=2,
+            kind="provider_attempt_authorized",
+            provider_attempt_id=attempt_id,
+            envelope_sha256="c" * 64,
+            serializer_version="canonical-json-utf8-v1",
+            provider="test-provider",
+            model="synthetic-model",
+            api_mode="messages",
+            tool_schema_sha256="5" * 64,
+            input_accounting_kind="exact_token_count",
+            input_estimator="synthetic-tokenizer",
+            input_tokens=12,
+            output_token_reserve=10,
+            included_assertion_ids=["assertion-evidence-1"],
+            included_relationship_ids=[],
+            included_evidence_ref_ids=["evidence-evidence-1"],
+            included_graph_event_ids=[insufficient.event_id, sufficient_partial.event_id],
+        ),
+    )
+    entered, _ = service.record_provider_outcome(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=authorized.revision,
+        expected_attempt=claimed.attempt,
+        outcome=ProviderOutcomeEventV1(
+            event_id=uuid4(), sequence=3, kind="provider_outcome",
+            provider_attempt_id=attempt_id, outcome="sdk_entered",
+        ),
+    )
+    responded, _ = service.record_provider_outcome(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=entered.revision,
+        expected_attempt=claimed.attempt,
+        outcome=ProviderOutcomeEventV1(
+            event_id=uuid4(), sequence=4, kind="provider_outcome",
+            provider_attempt_id=attempt_id, outcome="response_received",
+            response_sha256="6" * 64,
+        ),
+    )
+    claim = PlanWorldGraphClaimSegmentV1(
+        kind="graph_claim",
+        claim_id="claim-1",
+        text="The available assertion is incomplete.",
+        target_kind="assertion",
+        target_id="assertion-evidence-1",
+        graph_revision="graph-rev-11",
+        evidence_ref_ids=["evidence-evidence-1"],
+    )
+    citation = PlanWorldGraphCitationV1(
+        claim_id="claim-1",
+        target_kind="assertion",
+        target_id="assertion-evidence-1",
+        graph_revision="graph-rev-11",
+        evidence_ref_ids=["evidence-evidence-1"],
+        source_opened=False,
+    )
+    completion = PlanWorldGraphCompletionV1(
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        answer_basis="committed_plan_plus_world_graph",
+        answer_context_status="graph_grounded_partial",
+        answer_segments=[claim],
+        citation_map=PlanWorldGraphCitationMapV1(
+            context_receipt_sha256=receipt.context_receipt_sha256,
+            entries=[citation],
+        ),
+    )
+    for supporting_events in (
+        [insufficient.event_id],
+        [insufficient.event_id, sufficient_partial.event_id],
+    ):
+        with pytest.raises(
+            ApplicationStateValidationError,
+            match="Graph grounded claims require sufficient cited evidence",
+        ):
+            service.complete_turn(
+                TurnResult(
+                    world_id=world_id,
+                    conversation_id=conversation.conversation_id,
+                    turn_id=accepted.turn_id,
+                    expected_revision=responded.revision,
+                    assistant_text="Partially grounded answer.",
+                    completion=completion,
+                    producing_provider_attempt_id=attempt_id,
+                    claim_graph_event_ids={"claim-1": supporting_events},
+                )
+            )
+    completed = service.complete_turn(
+        TurnResult(
+            world_id=world_id,
+            conversation_id=conversation.conversation_id,
+            turn_id=accepted.turn_id,
+            expected_revision=responded.revision,
+            assistant_text="Partially grounded answer.",
+            completion=completion,
+            producing_provider_attempt_id=attempt_id,
+            claim_graph_event_ids={"claim-1": [sufficient_partial.event_id]},
+        )
+    )
+    assert completed.completion == completion
+
+
 @pytest.mark.parametrize(
     ("context_status", "coverage_status", "truncated", "has_graph_claim"),
     [

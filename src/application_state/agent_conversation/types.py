@@ -1237,6 +1237,8 @@ def validate_execution_completion(
                 raise ValueError("completion binding names an event that does not support its claim")
         if not support_packets:
             raise ValueError("Graph claim target and evidence refs lack included validated support")
+        if any(status != "sufficient" for _, _, status, _, _ in support_packets):
+            raise ValueError("Graph grounded claims require sufficient cited evidence")
         sufficient_sources.extend((status, coverage == "complete" and not truncated) for _, _, status, coverage, truncated in support_packets)
         if completion.citation_map is None:
             raise ValueError("Graph claims require a citation map")
@@ -1244,7 +1246,11 @@ def validate_execution_completion(
         if entry is None or entry.target_kind != claim.target_kind or entry.target_id != claim.target_id or entry.graph_revision != claim.graph_revision or entry.evidence_ref_ids != claim.evidence_ref_ids:
             raise ValueError("citation map entry must match its Graph claim")
     if claims:
-        expected = "graph_grounded" if all(status == "sufficient" and complete for status, complete in sufficient_sources) else "graph_grounded_partial"
+        expected = (
+            "graph_grounded"
+            if all(complete for _, complete in sufficient_sources)
+            else "graph_grounded_partial"
+        )
         if completion.answer_context_status != expected:
             raise ValueError("Graph grounded status does not match cited execution evidence")
     else:
