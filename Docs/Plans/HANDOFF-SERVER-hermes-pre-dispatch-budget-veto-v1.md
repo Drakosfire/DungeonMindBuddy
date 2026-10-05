@@ -75,3 +75,19 @@ Keep Hermes' generic observational hooks fail-open and preserve normal provider 
 - **Deviation / remaining risk:** Packaging still resolves the pre-existing direct/transitive DungeonMind revision conflict to Buddy's exact selected source. No code in `agent_turn_service.py` or its tests changed; the existing lifecycle carries the terminal typed error. Remote exact-head CI has not yet run for this updated commit; push the same-branch correction and obtain the independent exact-head review before adoption or rollout. Existing full-repository Ruff/test baseline failures remain.
 - **Accounting witness:** The request policy names estimator `utf8_json_bytes_plus_64_per_node_v1`; exact canonical payload SHA-256 and UTF-8 byte count come from the pinned Hermes boundary view. Both supported provider protocols have successful actual-agent guard tests.
 - **Terminal-veto acceptance:** The local boundary suite proves the veto is terminal across streaming settings, performs zero SDK calls for the denied attempt, avoids fallback, and observes post-middleware payload. The Buddy regression proves safe request-ID correlation and preservation of prior SDK attempt evidence. PRIME's independent exact-head review remains required before adoption or rollout.
+
+## PRIME-approved continuation: guarded accounting excludes opaque reasoning
+
+PRIME approved this bounded amendment after exact-head review found that opaque `reasoning.encrypted_content` cannot be bounded from its serialized wire bytes. When the request-budget guard is configured, that guard now selects an explicit supported accounting mode: Hermes must not request encrypted reasoning, replay prior encrypted reasoning, or store returned encrypted reasoning. This is an accounting-mode limitation only; it makes no claim that the provider performs no internal reasoning and does not change the selected provider/model or configured reasoning effort. Without a request-budget guard, Hermes behavior remains unchanged.
+
+The checked-in patch may modify only these pinned upstream paths for this amendment:
+
+- `agent/chat_completion_helpers.py` — force `replay_encrypted_reasoning=False` for guarded Responses calls and omit `codex_reasoning_items` from guarded assistant history storage.
+- `tests/agent/test_pre_dispatch_budget_veto.py` — prove actual pinned request construction does not request/replay/store encrypted reasoning for guarded calls, while retaining visible assistant text, ordinary message metadata, function calls/outputs, and tool history. Include a no-guard regression proving legacy replay/storage remains unchanged.
+
+The existing Buddy adapter/test paths may be changed only to enforce this mode at the owning guard boundary:
+
+- `apps/live_control_server/services/hermes_graph_agent.py` — reject `reasoning.encrypted_content` requests and opaque Responses reasoning input; validate supported known fields recursively by field type/value, including assistant message IDs/phases/statuses, chat message names/refusal, tool-choice variants, and reasoning effort/summary.
+- `tests/test_hermes_graph_agent.py` — actual-builder acceptance for self-contained visible assistant/tool continuation under the guarded mode, and fail-closed regressions for encrypted reasoning and malformed known fields.
+
+Do not broaden this amendment to remote `previous_response_id`, media, hosted search, or alternate providers/models. Preserve visible assistant text, supported ordinary metadata, function calls/outputs, and tool history in the request and accounting view. The user-visible limitation is that opaque provider reasoning continuity is disabled only for budget-guarded requests.
