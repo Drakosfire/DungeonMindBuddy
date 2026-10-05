@@ -775,6 +775,14 @@ export interface WorldPlanContextPolicyV1 {
   policy: "auto_plan_world";
 }
 
+export interface WorldPlanGraphContextFailureV1 {
+  schema: "dmb_plan_world_graph_context_failure_v1";
+  status: "pre_dispatch_failed";
+  failure_code: string;
+  provider_dispatched: false;
+  automatic_downgrade: false;
+}
+
 /** Accepted generic turn route, bound to one saved Plan in a verified World. */
 export interface WorldPlanAgentTurnRequestV1 {
   schema: "dmb_agent_turn_request_v1";

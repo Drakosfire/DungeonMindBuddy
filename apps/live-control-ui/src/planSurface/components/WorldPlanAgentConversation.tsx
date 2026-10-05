@@ -532,6 +532,11 @@ function localOperatorCredentialFailure(reason: unknown, nextStep: string): stri
   return `The local operator Agent/Graph credential is missing or was rejected (HTTP ${reason.status}). Set or verify it above, then ${nextStep}.`;
 }
 
+function graphContextPreDispatchFailure(reason: unknown): string | null {
+  if (!(reason instanceof LiveApiError) || !reason.planContextFailure) return null;
+  return `The server confirmed provider dispatch did not begin. ${reason.message} This saved Graph-context Ask will not be resent. Resolve the issue and submit a new Ask if you want another attempt.`;
+}
+
 function readCommittedPlanBasis(
   value: unknown,
   worldId: string,
@@ -1825,6 +1830,7 @@ export function WorldPlanAgentConversation({
       if (isCurrent()) {
         setError(envelope.request.plan_context_policy
           ? localOperatorCredentialFailure(reason, "refresh World history to inspect this turn; do not resend it")
+            ?? graphContextPreDispatchFailure(reason)
             ?? `The outcome of this Graph-context Ask is uncertain. Refresh World history before taking another action. This saved turn will not be reposted. ${reason instanceof Error ? reason.message : ""}`
           : localOperatorCredentialFailure(reason, "retry the saved Ask; its exact request and turn ID are preserved")
             ?? (reason instanceof Error

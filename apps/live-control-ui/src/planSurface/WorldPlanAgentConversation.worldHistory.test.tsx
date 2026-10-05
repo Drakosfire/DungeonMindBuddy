@@ -1032,6 +1032,46 @@ describe("World Plan conversation consumer", () => {
     expect(pendingAskKeys()).toHaveLength(1);
   });
 
+  it("tells the GM when a Graph-context Ask failed before provider dispatch", async () => {
+    setupApi(history("conversation-a", 4, []));
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 409,
+      statusText: "Conflict",
+      text: async () => JSON.stringify({
+        detail: {
+          code: "native_binding_invalid",
+          message: "No active Graph binding is available.",
+          plan_context_failure: {
+            schema: "dmb_plan_world_graph_context_failure_v1",
+            status: "pre_dispatch_failed",
+            failure_code: "native_binding_invalid",
+            provider_dispatched: false,
+            automatic_downgrade: false,
+          },
+        },
+      }),
+    } as Response);
+    render(conversationElement());
+    await screen.findByText(/No messages here yet/);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Check the north gate." } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByText(/server confirmed provider dispatch did not begin/)).toBeInTheDocument();
+    expect(screen.getByText(/No active Graph binding is available/)).toBeInTheDocument();
+    expect(screen.queryByText(/outcome of this Graph-context Ask is uncertain/)).not.toBeInTheDocument();
+    expect(await screen.findByText(/This Graph-context Ask is not replayed from browser recovery/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry saved Ask" })).not.toBeInTheDocument();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe("/api/live/agent/turn");
+    expect(JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))).toHaveProperty(
+      "plan_context_policy",
+      { schema: "dmb_plan_context_policy_v1", policy: "auto_plan_world" },
+    );
+    expect(pendingAskKeys()).toHaveLength(1);
+  });
+
   it("does not repost an uncertain Graph-context Ask from browser recovery", async () => {
     setupApi(history("conversation-a", 4, []));
     const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockRejectedValue(new Error("connection reset after dispatch"));
