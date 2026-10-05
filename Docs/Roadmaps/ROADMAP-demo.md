@@ -60,8 +60,12 @@ production implementation or independently frozen gold.
 
 ### Delivery order
 
-1. Complete Graph-backed Ask in the shared canonical World conversation. The
-   synthetic DEMO consumer is ACTIVE under the pinned seven-path lease and
+1. Complete Graph-backed Ask in the shared canonical World conversation through
+   Buddy's Agent Harness integration contract. It covers conversation execution,
+   tools/context, authorization, lifecycle, evidence, and replay; the current
+   Hermes adapter stays behind the existing seam. Do not add a new runtime
+   abstraction or replace the current adapter in this slice. The synthetic
+   DEMO consumer is ACTIVE under the pinned seven-path lease and
    consumes the accepted opt-in request/v2 response/history contract. No-policy
    requests stay byte-compatible v1. This fixture work does not prove parent-
    brokered traversal or live provider behavior; integrated acceptance, merge,
@@ -158,7 +162,7 @@ lease is released. The inherited UI typecheck failure at
   `6240620423989ce0d132c26861c1e0b09cab3053` and was BLOCKED while owner
   contracts were unsettled. Buddy #923's APP-STATE receipt/replay foundation
   later merged at `93c07c243acd9abc9acc044f9a4e59390710871d`; #924's final
-  Hermes view/pre-SDK budget guard merged at
+  view from the current Hermes adapter and pre-SDK budget guard merged at
   `6319ff30466dd9ab2e3e0752fce31ac8a71b7d4b`.
   PRIME accepted APP-STATE's portable execution-ledger design at
   `e907c904c95854ce539c919bac8e868a5fe4f69d` and the SERVER response/history
@@ -170,8 +174,11 @@ lease is released. The inherited UI typecheck failure at
   [the active handoff](../Plans/HANDOFF-DEMO-plan-graph-grounded-ask.md).
   This UI/API fixture slice preserves byte-compatible no-policy v1 behavior,
   consumes policy-only response/history v2, and presents only validated
-  completion/citation and safe execution-disposition data. It must never
-  redispatch an authorized/unknown attempt or expose the raw execution ledger.
+  completion/citation and safe execution-disposition data. The capability is
+  Buddy's runtime-neutral Agent Harness integration for conversation execution,
+  tools/context, authorization, lifecycle, evidence, and replay; Hermes is the
+  current concrete adapter behind the existing seam. It must never redispatch
+  an authorized/unknown attempt or expose the raw execution ledger.
   #917 remains prototype evidence only; it is not a predecessor or code source.
   #914's visual hold is independent. Producer integration, merge, live/provider
   behavior and runtime rollout remain gated on independently accepted producer
@@ -253,11 +260,11 @@ fence review/Apply through `WorldPlanEditBridge` before claiming selected-card
 proposal → Apply → ordinary Save → fresh reopen. Existing document-selection
 proposals remain unchanged. PRIME activated the bounded single DEMO implementation PR from `f8ad152c669e76cccb21fecfb9aecc3656589e5b` under [HANDOFF-DEMO-plan-agent-card-target](../Plans/HANDOFF-DEMO-plan-agent-card-target.md), after DEMO, SERVER, and APP-STATE accepted the contract. PR #911 merged at `4efdef1898e78aa3590a39e8f84c1fdb901b2695` from reviewed head `72b67cd7fcb91f1db0e5b58888d84e6d451c36f1`; the handoff records owning review/test evidence and closes the write lease. Cards can focus Ask on the exact committed Plan, with immutable target/basis history and replay. No SQL migration or operator runtime restart occurred. Selected-card body Compose/Review/Apply merged in PR #913 at `f971931ebade4bc7e4550b6fc2f659276afb30d1`, reviewed head `110440433e6d350a0508fd99f554974f09ad3a36`, under the now-SETTLED [handoff](../Plans/HANDOFF-DEMO-plan-card-edit-target.md). Exact body/range binding, parity, explicit draft-only Apply, Save/fresh reopen, stale/same-card correlation refusal and typed nullable action receipts were verified at their owning boundaries. Migration 0015 was tested only in isolated databases; the operator runtime is not yet refreshed/migrated for this capability. Graph-backed World conversation is the active capability recorded below. Source opening and source-document claims are not prerequisites for its first bounded Ask slice.
 
-**Historical Graph-first checkpoint (2026-10-04; superseded 2026-10-05):** Buddy main at that checkpoint was `e671784dc53e698a33a5125f08d76953faa34a19`, including merged #919 recovery and #920 handoff settlement. The operator prioritized Graph integration in the canonical shared World conversation ahead of Plan-to-Run, multimedia, and further presentation expansion. PRIME had dispatched APP-STATE's immutable Graph receipt/replay slice and SERVER's managed-binding/context integration, including the minimal Hermes traversal/budget prerequisite. At that point, no contract PR or owning-boundary result was claimed and the DEMO consumer remained BLOCKED. PRIME later accepted the stable SERVER wire contract and activated the bounded synthetic consumer recorded in the active entry above. APP-STATE/SERVER still own producer implementation and integrated acceptance. Reuse the existing Hermes Graph traversal and MIND read contract; do not build another retriever, ingestion pipeline, Graph store, or prototype-based predecessor. Source opening and governed Graph writes are separate future slices.
+**Historical Graph-first checkpoint (2026-10-04; superseded 2026-10-05):** Buddy main at that checkpoint was `e671784dc53e698a33a5125f08d76953faa34a19`, including merged #919 recovery and #920 handoff settlement. The operator prioritized Graph integration in the canonical shared World conversation ahead of Plan-to-Run, multimedia, and further presentation expansion. PRIME had dispatched APP-STATE's immutable Graph receipt/replay slice and SERVER's managed-binding/context integration, including the minimal traversal/budget prerequisite for the then-current Hermes adapter. At that point, no contract PR or owning-boundary result was claimed and the DEMO consumer remained BLOCKED. PRIME later accepted the stable SERVER wire contract and activated the bounded synthetic consumer recorded in the active entry above. APP-STATE/SERVER still own producer implementation and integrated acceptance. Reuse the existing Agent Harness integration with the current Hermes Graph adapter and MIND read contract; do not build another retriever, ingestion pipeline, Graph store, or prototype-based predecessor. Source opening and governed Graph writes are separate future slices.
 
 PR #917 remains prototype evidence, not a production prerequisite or code predecessor; PRIME withdrew its overlapping production reservation for the active DEMO consumer. #887 remains prototype evidence. The 2026-10-04 DOGFOOD Cards consultation informs later bounded adoption and adds no gate to the Graph slice. PR #914's synthetic desktop/narrow visual hold is independent and does not block Graph. Preserve its evidence without restoring the stale priority wording.
 
-**Current capability priority:** Graph-backed World conversation is the first production capability, ahead of focused-card prepare/run, durable Run state, multimedia and further presentation expansion. The synthetic DEMO consumer is ACTIVE on deterministic fixtures against the accepted wire contract. It proves request, response/history, citations and recovery presentation only; parent-brokered Hermes traversal and connected acceptance remain producer-owned evidence. The integrated witness must record admitted evidence and exact Plan/Graph basis in the canonical conversation, then survive navigation and replay without duplicate provider work. Retain compact typed citations and disclose that source content was not opened. Source opening and governed Graph writes remain later slices.
+**Current capability priority:** Graph-backed World conversation through Buddy's runtime-neutral Agent Harness integration is the first production capability, ahead of focused-card prepare/run, durable Run state, multimedia and further presentation expansion. The contract covers conversation execution, tools/context, authorization, lifecycle, evidence, and replay. Hermes is the current concrete adapter behind the existing seam. The synthetic DEMO consumer is ACTIVE on deterministic fixtures against the accepted wire contract. It proves request, response/history, citations and recovery presentation only; parent-brokered traversal through the current Hermes adapter and connected acceptance remain producer-owned evidence. The integrated witness must record admitted evidence and exact Plan/Graph basis in the canonical conversation, then survive navigation and replay without duplicate provider work. Retain compact typed citations and disclose that source content was not opened. Source opening and governed Graph writes remain later slices.
 
 **Shared interface adoption target:** use the successful Conks prototypes (including the original Con-ready presentation), A Wild Sheep Chase and campaign Session 29 as joint examples of one prepare/run interface. Preserve focused central cards, lenses, readable semantic content and connections while allowing chronological, location and choice navigation appropriate to each source. Current production Cards is infrastructure, not full prototype adoption. Its observed loss of atomic reference labels and paragraph/list structure is now an ACTIVE bounded [projection-fidelity repair](../Plans/HANDOFF-DEMO-plan-card-projection-fidelity.md), after #913 released the overlapping paths. This independent UI lane can proceed alongside Graph owner work; it does not include focused scene/lens or aesthetic adoption. Durable Run decisions, rolls and notes remain separate contracts.
 
