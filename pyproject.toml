@@ -17,8 +17,9 @@ dependencies = [
     "ruff>=0.15.7",
     "paramiko>=4.0.0",
     "python-docx>=1.2.0",
-    # Exact pin matches Hermes 0.18.2 (NousResearch/hermes-agent@861d69c7).
-    # Do not raise this without revisiting the Hermes dependency gate.
+    # The prepare script checks out this exact source, applies the checked-in
+    # terminal pre-dispatch budget patch, then uv installs the local tree.
+    # Do not raise the pin without revisiting the Hermes dependency gate.
     "openai==2.24.0",
     # A3 experiment pin: newest PydanticAI whose openai extra still admits 2.24.
     # Do not raise this to 2.x in A3; that extra requires openai>=2.29.
@@ -27,7 +28,7 @@ dependencies = [
     "fastapi>=0.115.0",
     "httpx>=0.27.0",
     "uvicorn>=0.30.0",
-    "hermes-agent @ git+https://github.com/NousResearch/hermes-agent.git@861d69c7bba8d2ea6a1cd170e989c901c74d32d1",
+    "hermes-agent==0.18.2",
     # Exact runtime pin: DungeonMind PR #85 native text/evidence admission,
     # including empty-space initialization and persistent source receipts.
     # The postgres extra carries the in-process PostgreSQL adapter
@@ -76,3 +77,18 @@ exclude = [
     ".cursor",
     "_bmad",
 ]
+
+[tool.uv.sources]
+hermes-agent = { path = "out/hermes-agent", editable = false }
+# WorldKeeper's pinned metadata names an older DungeonMind Git commit. Normalize
+# only that dependency name so this repository's exact direct source below is
+# selected consistently; do not change the Buddy-owned DungeonMind pin.
+dungeonmind = { git = "https://github.com/Drakosfire/DungeonMind.git", rev = "7c69e447f6d4acc963ac09c6fb9cb48cc1c5b9cc" }
+
+# The pinned WorldKeeper release has one dependency, DungeonMind. Its package
+# metadata override drops the conflicting URL; tool.uv.sources above retains
+# Buddy's existing selected commit for that transitive name.
+[[tool.uv.dependency-metadata]]
+name = "worldkeeper"
+version = "0.1.0"
+requires-dist = ["dungeonmind"]

@@ -1,0 +1,462 @@
+diff --git a/agent/api_request_budget.py b/agent/api_request_budget.py
+new file mode 100644
+index 0000000..237db84
+--- /dev/null
++++ b/agent/api_request_budget.py
+@@ -0,0 +1,119 @@
++"""Typed, terminal guard for provider requests immediately before dispatch.
++
++This module is intentionally separate from observational plugin hooks. A
++request-budget veto is control flow: it must never be swallowed as an observer
++failure or retried as a provider error.
++"""
++
++from __future__ import annotations
++
++import hashlib
++import json
++from dataclasses import dataclass
++from typing import Any, Callable, Mapping
++
++
++@dataclass(frozen=True, slots=True)
++class ApiRequestBudgetView:
++    """Resolved provider identity and a canonical snapshot of final request."""
++
++    provider: str
++    model: str
++    api_mode: str
++    base_url: str | None
++    payload_json: str
++    payload_sha256: str
++    payload_utf8_bytes: int
++
++
++class ApiRequestBudgetVeto(BaseException):
++    """Terminal local rejection; deliberately bypasses generic retry handlers."""
++
++    def __init__(self, *, code: str = "request_budget_exceeded") -> None:
++        super().__init__(code)
++        self.code = code
++
++
++ApiRequestBudgetGuard = Callable[[ApiRequestBudgetView], bool]
++
++
++def _json_snapshot(value: Any) -> Any:
++    if value is None or isinstance(value, (str, bool, int)):
++        return value
++    if isinstance(value, float):
++        if not (value == value and abs(value) != float("inf")):
++            raise ValueError("non-finite request number")
++        return value
++    if isinstance(value, list):
++        return [_json_snapshot(item) for item in value]
++    if isinstance(value, tuple):
++        return [_json_snapshot(item) for item in value]
++    if isinstance(value, Mapping):
++        if any(not isinstance(key, str) for key in value):
++            raise ValueError("request object keys must be strings")
++        return {key: _json_snapshot(item) for key, item in value.items()}
++    raise ValueError("request contains an unsupported value")
++
++
++def build_api_request_budget_view(
++    *,
++    provider: Any,
++    model: Any,
++    api_mode: Any,
++    base_url: Any,
++    request: Any,
++) -> ApiRequestBudgetView:
++    """Build a bounded JSON view of the effective provider request.
++
++    `timeout` and `http_client` are SDK transport controls rather than model
++    input. Every other request field is retained; unsupported values reject.
++    """
++    if not all(isinstance(value, str) and value.strip() for value in (provider, model, api_mode)):
++        raise ValueError("resolved provider, model, and API mode are required")
++    if base_url is not None and not isinstance(base_url, str):
++        raise ValueError("resolved base URL must be a string or null")
++    if not isinstance(request, Mapping):
++        raise ValueError("provider request must be an object")
++    body = {key: value for key, value in request.items() if key not in {"timeout", "http_client"}}
++    snapshot = _json_snapshot(body)
++    payload_json = json.dumps(
++        snapshot,
++        ensure_ascii=False,
++        allow_nan=False,
++        sort_keys=True,
++        separators=(",", ":"),
++    )
++    payload_bytes = payload_json.encode("utf-8")
++    return ApiRequestBudgetView(
++        provider=provider.strip(),
++        model=model.strip(),
++        api_mode=api_mode.strip(),
++        base_url=base_url,
++        payload_json=payload_json,
++        payload_sha256=hashlib.sha256(payload_bytes).hexdigest(),
++        payload_utf8_bytes=len(payload_bytes),
++    )
++
++
++def enforce_api_request_budget(agent: Any, request: Any) -> None:
++    """Run the opt-in turn guard. Any unknown result fails closed."""
++    guard = getattr(agent, "api_request_budget_guard", None)
++    if guard is None:
++        return
++    if not callable(guard):
++        raise ApiRequestBudgetVeto(code="request_budget_guard_invalid")
++    try:
++        view = build_api_request_budget_view(
++            provider=getattr(agent, "provider", None),
++            model=request.get("model") if isinstance(request, Mapping) else None,
++            api_mode=getattr(agent, "api_mode", None),
++            base_url=getattr(agent, "base_url", None),
++            request=request,
++        )
++        allowed = guard(view)
++    except ApiRequestBudgetVeto:
++        raise
++    except Exception as exc:
++        raise ApiRequestBudgetVeto(code="request_budget_guard_error") from exc
++    if allowed is not True:
++        raise ApiRequestBudgetVeto()
+diff --git a/agent/chat_completion_helpers.py b/agent/chat_completion_helpers.py
+index b93dcf6..df243dc 100644
+--- a/agent/chat_completion_helpers.py
++++ b/agent/chat_completion_helpers.py
+@@ -880,3 +880,3 @@ def build_api_kwargs(agent, api_messages: list) -> dict:
+                 getattr(agent, "_codex_reasoning_replay_enabled", True)
+-            ),
++            ) and getattr(agent, "api_request_budget_guard", None) is None,
+         )
+@@ -1190,3 +1190,7 @@ def build_assistant_message(agent, assistant_message, finish_reason: str) -> dic
+     # multi-turn continuity. These get replayed as input on the next turn.
+-    codex_items = getattr(assistant_message, "codex_reasoning_items", None)
++    codex_items = (
++        None
++        if getattr(agent, "api_request_budget_guard", None) is not None
++        else getattr(assistant_message, "codex_reasoning_items", None)
++    )
+     if codex_items:
+diff --git a/agent/conversation_loop.py b/agent/conversation_loop.py
+index 12c80a8..cf613bb 100644
+--- a/agent/conversation_loop.py
++++ b/agent/conversation_loop.py
+@@ -36,2 +36,3 @@ from agent.turn_context import build_turn_context
+ from agent.turn_retry_state import TurnRetryState
++from agent.api_request_budget import ApiRequestBudgetVeto
+ from agent.memory_manager import build_memory_context_block
+@@ -1326,2 +1327,11 @@ def run_conversation(
+                         )
++                    # This guard is deliberately at the terminal call boundary:
++                    # execution middleware has already produced
++                    # ``next_api_kwargs``, and both streaming and non-streaming
++                    # paths pass through this function. The typed veto inherits
++                    # BaseException so generic middleware/provider retry handlers
++                    # cannot turn a local rejection into another dispatch.
++                    from agent.api_request_budget import enforce_api_request_budget
++
++                    enforce_api_request_budget(agent, next_api_kwargs)
+                     if _use_streaming:
+@@ -2298,3 +2308,29 @@ def run_conversation(
+                 break  # Success, exit retry loop
+-
++            except ApiRequestBudgetVeto as veto:
++                # A local budget veto is terminal. It is not a provider failure,
++                # so it must not enter retry classification, fallback selection,
++                # stream downgrade, or tool dispatch.
++                if thinking_spinner:
++                    thinking_spinner.stop("")
++                    thinking_spinner = None
++                if agent.thinking_callback:
++                    agent.thinking_callback("")
++                try:
++                    agent._persist_session(messages, conversation_history)
++                except Exception:
++                    logger.exception("Could not persist the conversation after a local request-budget veto")
++                return {
++                    "final_response": (
++                        "The current provider request was denied before dispatch by the local request-budget guard. "
++                        "Earlier provider attempts may have occurred."
++                    ),
++                    "messages": messages,
++                    "api_calls": api_call_count,
++                    "api_request_id": api_request_id,
++                    "completed": False,
++                    "failed": True,
++                    "failure_code": veto.code,
++                    "failure_reason": "request_budget_veto",
++                    "error": veto.code,
++                }
+             except InterruptedError:
+diff --git a/tests/agent/test_pre_dispatch_budget_veto.py b/tests/agent/test_pre_dispatch_budget_veto.py
+new file mode 100644
+index 0000000..4938032
+--- /dev/null
++++ b/tests/agent/test_pre_dispatch_budget_veto.py
+@@ -0,0 +1,262 @@
++"""Terminal request-budget rejection at the common SDK dispatch boundary."""
++
++from __future__ import annotations
++
++import os
++import shutil
++import sys
++import tempfile
++from types import SimpleNamespace
++
++import pytest
++
++
++@pytest.fixture()
++def agent_factory(monkeypatch):
++    home = tempfile.mkdtemp(prefix="hermes_budget_veto_")
++    monkeypatch.setenv("HERMES_HOME", os.path.join(home, ".hermes"))
++    os.makedirs(os.environ["HERMES_HOME"])
++    for mod in list(sys.modules):
++        if mod == "run_agent" or mod.startswith(("agent.", "tools.", "hermes_")):
++            del sys.modules[mod]
++    from run_agent import AIAgent
++
++    def create(
++        *,
++        base_url="http://127.0.0.1:9/v1",
++        provider="openai-api",
++        model="synthetic-model",
++    ):
++        return AIAgent(
++            api_key="synthetic-test-key",
++            base_url=base_url,
++            provider=provider,
++            model=model,
++            max_iterations=4,
++            enabled_toolsets=[],
++            quiet_mode=True,
++            skip_context_files=True,
++            skip_memory=True,
++            save_trajectories=False,
++            platform="cli",
++        )
++
++    yield create
++    shutil.rmtree(home, ignore_errors=True)
++
++
++@pytest.mark.parametrize("streaming_disabled", [False, True])
++def test_budget_veto_is_terminal_before_sdk_fallback_or_streaming(
++    agent_factory, streaming_disabled
++):
++    from agent.api_request_budget import ApiRequestBudgetVeto
++
++    agent = agent_factory()
++    agent._disable_streaming = streaming_disabled
++    agent._fallback_chain = [{"provider": "fallback", "model": "synthetic-fallback"}]
++    agent._fallback_index = 0
++    dispatches = []
++    agent._interruptible_streaming_api_call = lambda *_a, **_k: dispatches.append("stream")
++    agent._interruptible_api_call = lambda *_a, **_k: dispatches.append("plain")
++    fallback_calls = []
++    agent._try_activate_fallback = lambda **_k: fallback_calls.append(True) or True
++    views = []
++
++    def veto(view):
++        views.append(view)
++        raise ApiRequestBudgetVeto()
++
++    agent.api_request_budget_guard = veto
++    result = agent.run_conversation("synthetic request", conversation_history=[], task_id="budget-test")
++
++    assert result["failure_code"] == "request_budget_exceeded"
++    assert result["failure_reason"] == "request_budget_veto"
++    assert result["api_request_id"].endswith(":api:1")
++    assert "Earlier provider attempts may have occurred" in result["final_response"]
++    assert views
++    assert views[0].provider == "openai-api"
++    assert views[0].model == "synthetic-model"
++    assert views[0].api_mode == agent.api_mode
++    assert views[0].payload_utf8_bytes > 0
++    assert dispatches == []
++    assert fallback_calls == []
++
++
++def test_final_execution_middleware_request_is_the_budgeted_request(agent_factory):
++    from hermes_cli.plugins import get_plugin_manager
++    from agent.api_request_budget import ApiRequestBudgetVeto
++
++    agent = agent_factory()
++    manager = get_plugin_manager()
++    callbacks = manager._middleware.setdefault("llm_execution", [])
++    seen = []
++
++    def rewrite_request(request, next_call, **_kwargs):
++        rewritten = dict(request)
++        rewritten["messages"] = [{"role": "user", "content": "rewritten-after-preflight"}]
++        return next_call(rewritten)
++
++    callbacks.append(rewrite_request)
++    agent._interruptible_streaming_api_call = lambda *_a, **_k: pytest.fail("stream dispatched")
++    agent._interruptible_api_call = lambda *_a, **_k: pytest.fail("request dispatched")
++
++    def guard(view):
++        seen.append(view)
++        if "rewritten-after-preflight" in view.payload_json:
++            raise ApiRequestBudgetVeto()
++        return True
++
++    agent.api_request_budget_guard = guard
++    try:
++        result = agent.run_conversation("original", conversation_history=[], task_id="budget-middleware")
++    finally:
++        callbacks.remove(rewrite_request)
++
++    assert result["failure_code"] == "request_budget_exceeded"
++    assert len(seen) == 1
++    assert "rewritten-after-preflight" in seen[0].payload_json
++
++
++def test_unconfigured_guard_preserves_legacy_dispatch_path(agent_factory):
++    from agent.api_request_budget import enforce_api_request_budget
++
++    class Agent:
++        provider = "openai-compat"
++        model = "synthetic-model"
++        api_mode = "chat_completions"
++        base_url = "http://localhost/v1"
++
++    enforce_api_request_budget(Agent(), {"model": "synthetic-model", "messages": []})
++
++
++@pytest.mark.parametrize("field,value", [("model", None), ("messages", object())])
++def test_unknown_budget_view_fails_closed(agent_factory, field, value):
++    from agent.api_request_budget import ApiRequestBudgetVeto
++
++    class Agent:
++        provider = "openai-compat"
++        model = "synthetic-model"
++        api_mode = "chat_completions"
++        base_url = "http://localhost/v1"
++        api_request_budget_guard = staticmethod(lambda _view: True)
++
++    payload = {"model": "synthetic-model", "messages": []}
++    payload[field] = value
++    with pytest.raises(ApiRequestBudgetVeto):
++        from agent.api_request_budget import enforce_api_request_budget
++
++        enforce_api_request_budget(Agent(), payload)
++
++
++def test_guarded_responses_builder_preserves_visible_tool_history_without_opaque_reasoning(
++    agent_factory,
++):
++    from unittest.mock import patch
++
++    with patch("run_agent.OpenAI"):
++        agent = agent_factory(base_url="https://api.openai.com/v1", model="gpt-6-luna")
++    agent.provider = "openai-api"
++    agent.api_request_budget_guard = lambda _view: True
++    agent.reasoning_config = {"enabled": True, "effort": "medium"}
++    prior = {
++        "role": "assistant",
++        "content": "I will inspect the graph.",
++        "codex_reasoning_items": [
++            {"type": "reasoning", "encrypted_content": "opaque-provider-state"}
++        ],
++        "codex_message_items": [
++            {
++                "type": "message",
++                "id": "msg_assistant_1",
++                "phase": "commentary",
++                "role": "assistant",
++                "status": "completed",
++                "content": [{"type": "output_text", "text": "I will inspect the graph."}],
++            }
++        ],
++        "tool_calls": [
++            {
++                "id": "call_1",
++                "type": "function",
++                "function": {"name": "expand_graph", "arguments": "{}"},
++            }
++        ],
++    }
++    messages = [
++        {"role": "system", "content": "Use graph tools."},
++        prior,
++        {"role": "tool", "tool_call_id": "call_1", "content": "Found node A."},
++        {"role": "user", "content": "Continue."},
++    ]
++
++    request = agent._build_api_kwargs(messages)
++
++    assert request["include"] == []
++    assert "opaque-provider-state" not in repr(request)
++    assert all(item.get("type") != "reasoning" for item in request["input"] if isinstance(item, dict))
++    assert any(
++        item.get("type") == "message"
++        and item.get("role") == "assistant"
++        and item.get("id") == "msg_assistant_1"
++        and item.get("phase") == "commentary"
++        for item in request["input"]
++    )
++    assert any(item.get("type") == "function_call" for item in request["input"])
++    assert any(
++        item.get("type") == "function_call_output" and item.get("output") == "Found node A."
++        for item in request["input"]
++    )
++    assert any(
++        item.get("role") == "user" and item.get("content") == "Continue."
++        for item in request["input"]
++    )
++
++    response = SimpleNamespace(
++        content="Visible answer",
++        reasoning=None,
++        reasoning_content=None,
++        reasoning_details=None,
++        codex_reasoning_items=[
++            {"type": "reasoning", "encrypted_content": "opaque-response-state"}
++        ],
++        codex_message_items=[
++            {"type": "message", "role": "assistant", "content":[{"type":"output_text","text":"Visible answer"}]}
++        ],
++        tool_calls=None,
++    )
++    stored = agent._build_assistant_message(response, "stop")
++    assert "codex_reasoning_items" not in stored
++    assert stored["codex_message_items"] == response.codex_message_items
++
++
++def test_unbudgeted_responses_keeps_legacy_encrypted_reasoning_replay_and_storage(agent_factory):
++    from unittest.mock import patch
++
++    with patch("run_agent.OpenAI"):
++        agent = agent_factory(base_url="https://api.openai.com/v1", model="gpt-6-luna")
++    agent.provider = "openai-api"
++    agent.reasoning_config = {"enabled": True, "effort": "medium"}
++    prior = {
++        "role": "assistant",
++        "content": "Earlier answer.",
++        "codex_reasoning_items": [
++            {"type": "reasoning", "encrypted_content": "legacy-provider-state"}
++        ],
++    }
++    request = agent._build_api_kwargs([{"role": "system", "content": "System"}, prior])
++    assert request["include"] == ["reasoning.encrypted_content"]
++    assert any(item.get("type") == "reasoning" for item in request["input"])
++
++    response = SimpleNamespace(
++        content="Visible answer",
++        reasoning=None,
++        reasoning_content=None,
++        reasoning_details=None,
++        codex_reasoning_items=[
++            {"type": "reasoning", "encrypted_content": "legacy-response-state"}
++        ],
++        codex_message_items=None,
++        tool_calls=None,
++    )
++    stored = agent._build_assistant_message(response, "stop")
++    assert stored["codex_reasoning_items"] == response.codex_reasoning_items
