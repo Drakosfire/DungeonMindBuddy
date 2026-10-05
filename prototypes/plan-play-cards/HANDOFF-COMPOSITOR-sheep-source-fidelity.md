@@ -34,3 +34,11 @@ Only prototypes/plan-play-cards/: source-review.js and tests for validated sourc
 ## Activation gates
 
 Independent source reviewer must approve the exact private proposed corrections/annotations against the pinned original PDF. Designing steward must adopt the narrowed lease and evidence package. No implicit activation follows from this proposal's publication. Continue source review without modifying frozen gold; candidate acceptance requires source plus operator review.
+
+## Independent correction evidence — 2026-10-04
+
+PRIME’s independent navigation_shell_review accepted eight bounded findings against PR887 head555c2557deeeb3eb4bf7605022e3f4bd7d1d3e46 after visually reviewing all six PDF pages and verifying all21 frozen receipt files. Private packet `/tmp/prime-sheep-source-review/evidence.json`, SHA-256 `f11c9aaa997701eadee7293b5538ac653e22aa958ea74c4681093055e31b94bd`, records exact original hashes, card/unit mappings, excerpt/format ranges and proposed derivatives. Packet JSON was successfully parsed and its file digest checked by the implementation lane.
+
+Accepted evidence covers dagger reassignment, three missing ability cells, biography/exterior split, seven explanation bullets, three conditional lead-ins, cover association, printed save-label restoration and a warning for Guz’s printed modifier. Save label attribution is now precise: printed “Deterity”, OCR “Detrity”; normalizing to “Dexterity” remains a separately labeled interpretation. Automatic player disclosure and silent rules normalization remain held.
+
+This is acceptance of correction evidence, not an executable successor package or its implementation. Status remains BLOCKED: the steward must adopt a narrowed write lease and exact package before dispatch. Full Conks review, operator acceptance and the native contract remain separate outstanding gates.
