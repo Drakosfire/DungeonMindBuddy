@@ -397,6 +397,12 @@ class PlayRunReferenceManifestV2(BaseModel):
             target_set = beat_set if edge.target_kind == "beat" else scene_set
             if edge.target_id not in target_set:
                 raise ValueError("edge target_id does not resolve in this manifest")
+        edge_keys = [
+            (edge.option_id, edge.effect, edge.target_kind, edge.target_id)
+            for edge in self.edges
+        ]
+        if len(edge_keys) != len(set(edge_keys)):
+            raise ValueError("manifest v2 transition edges must be unique")
         return self
 
 
