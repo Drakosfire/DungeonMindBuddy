@@ -97,6 +97,28 @@ const protectedScenePlanMarkdown = [
   "- Continue the smoke test.",
   "",
 ].join("\n");
+const multiParagraphProtectedScenePlanMarkdown = [
+  "# Disposable card edit",
+  "",
+  "<!-- dmb-playable-element:v2 kind=beat id=beat:smoke beat_kind=spine -->",
+  "## Smoke",
+  "",
+  "<!-- dmb-playable-element:v2 kind=scene id=scene:smoke -->",
+  "### Quiet scene",
+  "",
+  "Scene body.",
+  "",
+  "<!-- dmb-playable-element:v2 kind=choice id=choice:smoke scene=scene:smoke -->",
+  "### Choose",
+  "",
+  "<!-- dmb-playable-element:v2 kind=option id=option:smoke -->",
+  "- **Continue the smoke test.**",
+  "",
+  "  First option paragraph with [the guide](dmb-node:node:guide).",
+  "",
+  "  Second option paragraph.",
+  "",
+].join("\n");
 const repositoryRoot = resolve(process.cwd(), "../..");
 const session29Markdown = readFileSync(resolve(
   repositoryRoot,
@@ -379,6 +401,44 @@ afterEach(() => {
   savedDigest = "b".repeat(64);
 });
 
+it("keeps a Scene target available when a sibling Option has multiple paragraphs", async () => {
+  const markdown = [
+    "# Plan",
+    "",
+    "<!-- dmb-playable-element:v2 kind=beat id=beat:smoke beat_kind=spine -->",
+    "## Smoke",
+    "",
+    "<!-- dmb-playable-element:v2 kind=scene id=scene:smoke -->",
+    "### Quiet scene",
+    "",
+    "Scene body.",
+    "",
+    "<!-- dmb-playable-element:v2 kind=choice id=choice:smoke scene=scene:smoke -->",
+    "### Choose",
+    "",
+    "<!-- dmb-playable-element:v2 kind=option id=option:smoke -->",
+    "- **Continue the smoke test.**",
+    "",
+    "  First option paragraph.",
+    "",
+    "  Second option paragraph.",
+    "",
+  ].join("\n");
+  const imported = markdownToTiptapDoc(markdown);
+  const editor = new Editor({ extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: imported.doc });
+  try {
+    const before = editor.getJSON();
+    const beforeList = before.content?.find((node) => node.type === "bulletList");
+    expect(beforeList?.content?.[0]?.content).toHaveLength(3);
+    const reloaded = markdownToTiptapDoc(tiptapJsonToSemanticMarkdown(before)).doc;
+    const afterList = reloaded.content?.find((node) => node.type === "bulletList");
+    expect(afterList?.content?.[0]?.content).toHaveLength(3);
+    const target = await resolvePlayableBodyTarget(editor, { kind: "scene", id: "scene:smoke" });
+    expect(target.targetBodyMarkdown).toBe("Scene body.\n");
+    expect(playableBodyProtectedStructureMatches(before, reloaded, target)).toBe(true);
+  } finally { editor.destroy(); }
+});
+
 it.each(liveApplyScenarios)("composes, reviews, applies, saves, and reloads a live %s edit on the mounted editor", async (_label, sourceMarkdown, replacementMarkdown, expectedAppliedText, expectedVisibleSource = sourceMarkdown) => {
   savedMarkdown = sourceMarkdown;
   setupWorldApi();
@@ -629,23 +689,6 @@ it.each(session29SectionCases)("targets a Session 29 $label and keeps Apply with
   await waitFor(() => expect(sectionSelect.options.length).toBeGreaterThan(1));
   const option = Array.from(sectionSelect.options).find((candidate) => candidate.textContent?.includes(sectionCase.heading));
   expect(option).toBeDefined();
-
-  if (sectionCase.label === "parent Beat") {
-    const beforeSelection = editorSurface.textContent;
-    expect(option!.disabled).toBe(true);
-    expect(option!.textContent).toContain("unavailable");
-    fireEvent.change(sectionSelect, { target: { value: option!.value } });
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(
-      "This heading section changes editor structure during Markdown round-trip",
-    ));
-    expect(sectionSelect.value).toBe("");
-    expect(editorSurface.textContent).toBe(beforeSelection);
-    expect(proposal).not.toHaveBeenCalled();
-    expect(prepare).not.toHaveBeenCalled();
-    expect(commit).not.toHaveBeenCalled();
-    expect(savedMarkdown).toBe(session29Markdown);
-    return;
-  }
 
   expect(option!.disabled).toBe(false);
   fireEvent.change(sectionSelect, { target: { value: option!.value } });
@@ -1215,6 +1258,105 @@ it("applies a reviewed Scene body through semantic Markdown reload without chang
   } finally {
     beforeEditor.destroy();
     afterEditor.destroy();
+    view.unmount();
+  }
+});
+
+it("applies a reviewed Scene edit when a protected sibling Option has multiple paragraphs", async () => {
+  savedMarkdown = multiParagraphProtectedScenePlanMarkdown;
+  setupWorldApi();
+  const replacement = "Scene body.\n\nGM note: Pause here for the players to choose their next action.";
+  const proposal = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) =>
+    v2SceneProposalResponse(request, "00000000-0000-4000-8000-000000000072", replacement));
+  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockResolvedValue({
+    schema_version: "dmb_tiptap_markdown_write_prepare_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    document_id: documentId,
+    title: "Integration Plan",
+    target_relpath: `out/workspace/plan/${documentId}.md`,
+    target_display_path: `out/workspace/plan/${documentId}.md`,
+    registry_revision: 8,
+    file_exists: true,
+    writer_ok: true,
+    writer_confirm_token: "integration-multiline-scene-save-token",
+    warnings: [],
+    diagnostics: [],
+  });
+  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite").mockImplementation(async (request) => {
+    savedMarkdown = request.markdown;
+    savedRevision = 8;
+    savedDigest = "f".repeat(64);
+    return {
+      schema_version: "dmb_tiptap_markdown_write_commit_v2",
+      scope_mode: "world",
+      world_id: worldId,
+      document_id: documentId,
+      title: "Integration Plan",
+      target_relpath: `out/workspace/plan/${documentId}.md`,
+      target_display_path: `out/workspace/plan/${documentId}.md`,
+      registry_revision: savedRevision,
+      committed_revision: savedRevision,
+      committed_record: { ...planRecord(), revision: savedRevision },
+      normalized_content_sha256: savedDigest,
+      writer_ok: true,
+      writer_phase: "commit",
+      diagnostics: [],
+    };
+  });
+
+  const location = `/plan?world=${worldId}&documentId=${documentId}`;
+  window.history.replaceState({}, "", location);
+  const view = render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
+  const editorSurface = await screen.findByTestId("world-owned-plan-markdown-editor");
+  await waitFor(() => expect(editorSurface).toHaveTextContent("Scene body."));
+  fireEvent.click(await screen.findByRole("button", { name: "Cards" }));
+  const cards = screen.getByTestId("world-plan-cards");
+  const sceneCard = cards.querySelector<HTMLElement>('[data-element-id="scene:smoke"]');
+  expect(sceneCard).not.toBeNull();
+  fireEvent.click(within(sceneCard!).getByRole("button", { name: "Select for Edit" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
+  fireEvent.change(await screen.findByLabelText("Message DungeonBuddy"), {
+    target: { value: "Preserve the Scene body and add one short GM cue." },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
+  await screen.findByRole("region", { name: "Review proposed Plan edit" });
+  expect(proposal).toHaveBeenCalledTimes(1);
+  expect(proposal.mock.calls[0]?.[0]).toMatchObject({
+    target_kind: "replace_playable_body",
+    selected_text: "",
+    playable_target: { kind: "scene", id: "scene:smoke" },
+    target_body_markdown: "Scene body.\n",
+  });
+  expect(savedMarkdown).toBe(multiParagraphProtectedScenePlanMarkdown);
+  expect(prepare).not.toHaveBeenCalled();
+  expect(commit).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
+  await waitFor(() => expect(editorSurface).toHaveTextContent("GM note: Pause here for the players to choose their next action."), { timeout: 3_000 });
+  expect(savedMarkdown).toBe(multiParagraphProtectedScenePlanMarkdown);
+  expect(prepare).not.toHaveBeenCalled();
+  expect(commit).not.toHaveBeenCalled();
+
+  fireEvent.click(await screen.findByRole("button", { name: "Save Plan" }));
+  await screen.findByText("Saved to this World.");
+  expect(prepare).toHaveBeenCalledTimes(1);
+  expect(commit).toHaveBeenCalledTimes(1);
+
+  const reopened = markdownToTiptapDoc(savedMarkdown);
+  const list = reopened.doc.content?.find((node) => node.type === "bulletList");
+  expect(list?.content?.[0]?.content).toHaveLength(3);
+  expect(reopened.diagnostics.filter((diagnostic) => diagnostic.level === "warning")).toEqual([]);
+  expect(tiptapJsonToSemanticMarkdown(reopened.doc)).toBe(savedMarkdown);
+  expect(session29V2Markers(savedMarkdown)).toEqual(session29V2Markers(multiParagraphProtectedScenePlanMarkdown));
+  expect(session29NodeLinks(savedMarkdown)).toEqual(session29NodeLinks(multiParagraphProtectedScenePlanMarkdown));
+  const reopenedEditor = new Editor({ extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: reopened.doc });
+  try {
+    const target = await resolvePlayableBodyTarget(reopenedEditor, { kind: "scene", id: "scene:smoke" });
+    expect(target.targetBodyMarkdown).toBe(tiptapJsonToSemanticMarkdown(markdownToTiptapDoc(replacement).doc));
+  } finally {
+    reopenedEditor.destroy();
     view.unmount();
   }
 });
