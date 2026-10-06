@@ -890,6 +890,9 @@ interface ConversationTestProps {
   revision?: number;
   editBridge?: any;
   playableTarget?: { kind: "scene" | "beat" | "choice" | "option"; id: string } | null;
+  playableEditTarget?: { kind: "scene" | "beat" | "choice" | "option"; id: string; generation: number } | null;
+  playableEditTargetGeneration?: number;
+  playableEditTargetStale?: boolean;
   playableTargetBasis?: { revision: number; contentSha256: string } | null;
   playableTargetStale?: boolean;
   selectionGeneration?: number;
@@ -918,6 +921,9 @@ function conversationElement(props: ConversationTestProps = {}) {
       pageReady
       saveInFlight={false}
       playableTarget={playableTarget}
+      playableEditTarget={props.playableEditTarget}
+      playableEditTargetGeneration={props.playableEditTargetGeneration}
+      playableEditTargetStale={props.playableEditTargetStale ?? false}
       playableTargetBasis={playableTargetBasis}
       playableTargetStale={props.playableTargetStale ?? false}
     />
@@ -1100,6 +1106,80 @@ function committedRevision() {
     markdown: "# Saved Plan",
     has_divergent_working_copy: false,
   };
+}
+
+async function capturedCardBodyEdit(targetBodyMarkdown: string) {
+  const target = { kind: "scene" as const, id: "scene:arrival" };
+  const targetBodySha256 = await sha256Hex(targetBodyMarkdown);
+  const bodyTarget = {
+    target,
+    markerGrammarVersion: "v2" as const,
+    bodyScope: "heading_body" as const,
+    rangeSemanticsVersion: "plan-playable-ranges-v1" as const,
+    bodySerializationVersion: "plan-playable-body-markdown-v1" as const,
+    targetBodyMarkdown,
+    targetBodySha256,
+    from: 10,
+    to: 30,
+    rootStartIndex: 0,
+    rootEndIndex: 2,
+    protectedReferences: [],
+  };
+  return {
+    editor: { isDestroyed: false },
+    request: {
+      document_id: documentId,
+      world_id: worldId,
+      session: 1,
+      base_revision: 7,
+      base_content_sha256: contentSha256,
+      draft_markdown: "# Draft Plan\n\nScene content.",
+      draft_sha256: "d".repeat(64),
+      target_kind: "replace_playable_body" as const,
+      selected_text: "",
+      playable_target: target,
+      body_serialization_version: bodyTarget.bodySerializationVersion,
+      target_body_markdown: targetBodyMarkdown,
+      target_body_sha256: targetBodySha256,
+    },
+    from: bodyTarget.from,
+    to: bodyTarget.to,
+    editorJson: "{}",
+    selectionJson: "[]",
+    draftGeneration: 0,
+    selectionGeneration: 0,
+    playableTargetGeneration: 2,
+    playableBodyTarget: bodyTarget,
+  };
+}
+
+function mockCardBodyProposal(replacementMarkdown = "The revised scene opens.") {
+  return vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) => ({
+    schema_version: "dmb_world_plan_document_edit_proposal_v2",
+    action_id: "00000000-0000-4000-8000-000000000099",
+    idempotency_key: request.idempotency_key,
+    document_id: request.document_id,
+    world_id: request.world_id,
+    base_revision: request.base_revision,
+    base_content_sha256: request.base_content_sha256,
+    draft_sha256: request.draft_sha256,
+    target_kind: request.target_kind,
+    selected_text_sha256: null,
+    playable_target: request.playable_target,
+    marker_grammar_version: "v2",
+    body_scope: "heading_body",
+    range_semantics_version: "plan-playable-ranges-v1",
+    body_serialization_version: "plan-playable-body-markdown-v1",
+    target_body_sha256: request.target_body_sha256,
+    replacement_markdown: replacementMarkdown,
+    summary: "Revise the arrival scene.",
+    assumptions: [],
+    model: "test-model",
+    model_observed: false,
+    model_latency_ms: 0,
+    wall_latency_ms: 0,
+    usage: null,
+  }) as any);
 }
 
 function setupApi(initialHistory: WorldAgentConversationHistoryResponse) {
@@ -3136,6 +3216,8 @@ describe("World Plan conversation consumer", () => {
     fireEvent.change(messageBox, { target: { value: "Add a lantern to the opening." } });
     fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
     const review = await screen.findByRole("region", { name: "Review proposed Plan edit" });
+    expect(review.querySelectorAll("pre")[0]?.textContent)
+      .toBe("Nothing selected · text will be inserted at the captured caret.");
     expect(screen.getAllByRole("textbox")).toHaveLength(1);
     expect(proposalRequest).toHaveBeenCalledTimes(1);
     expect(proposalRequest.mock.calls[0]![0]).toMatchObject({
@@ -3199,6 +3281,105 @@ describe("World Plan conversation consumer", () => {
     expect(screen.getByRole("region", { name: "Local Plan proposal activity" })).toHaveTextContent(
       "different World conversation",
     );
+  });
+
+  it.each([
+    ["non-empty", "The old arrival prose.\n", "The old arrival prose.\n"],
+    ["empty", "", "Empty card body"],
+  ] as const)("reviews a card-body replacement against its captured %s Before", async (_label, targetBodyMarkdown, expectedBefore) => {
+    setupApi(history("conversation-a", 4, []));
+    const captured = await capturedCardBodyEdit(targetBodyMarkdown);
+    const bridge = {
+      capture: vi.fn(async () => captured),
+      apply: vi.fn(async () => undefined),
+    };
+    const proposalRequest = mockCardBodyProposal();
+
+    mountComponent(7, bridge);
+    await screen.findByText(/No messages here yet/i);
+    fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
+      target: { value: "Revise the arrival scene." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
+
+    const review = await screen.findByRole("region", { name: "Review proposed Plan edit" });
+    expect(review.querySelectorAll("pre")[0]?.textContent).toBe(expectedBefore);
+    expect(review).toHaveTextContent("Card target · scene scene:arrival");
+    expect(review.querySelectorAll("pre")[1]?.textContent).toBe("The revised scene opens.\n");
+    expect(review).not.toHaveTextContent("Nothing selected · text will be inserted at the captured caret.");
+    expect(proposalRequest).toHaveBeenCalledTimes(1);
+    expect(proposalRequest.mock.calls[0]![0]).toMatchObject({
+      target_kind: "replace_playable_body",
+      selected_text: "",
+      target_body_markdown: targetBodyMarkdown,
+      target_body_sha256: captured.request.target_body_sha256,
+    });
+    expect(bridge.apply).not.toHaveBeenCalled();
+  });
+
+  it.each(["missing", "request-mismatch"] as const)(
+    "fails closed before proposal dispatch when the captured card Before is %s",
+    async (invalidCapture) => {
+      setupApi(history("conversation-a", 4, []));
+      const captured = await capturedCardBodyEdit("The old arrival prose.\n") as any;
+      if (invalidCapture === "missing") captured.playableBodyTarget = undefined;
+      else captured.request.target_body_markdown = "A different body.";
+      const bridge = {
+        capture: vi.fn(async () => captured),
+        apply: vi.fn(async () => undefined),
+      };
+      const proposalRequest = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockResolvedValue({} as any);
+
+      mountComponent(7, bridge);
+      await screen.findByText(/No messages here yet/i);
+      fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
+      fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
+        target: { value: "Revise the arrival scene." },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("no valid Before snapshot");
+      expect(screen.queryByRole("region", { name: "Review proposed Plan edit" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Apply changes" })).not.toBeInTheDocument();
+      expect(proposalRequest).not.toHaveBeenCalled();
+      expect(bridge.apply).not.toHaveBeenCalled();
+    },
+  );
+
+  it("retires a card review when its captured target goes stale", async () => {
+    setupApi(history("conversation-a", 4, []));
+    const captured = await capturedCardBodyEdit("The old arrival prose.\n");
+    const bridge = {
+      capture: vi.fn(async () => captured),
+      apply: vi.fn(async () => undefined),
+    };
+    mockCardBodyProposal();
+    const arrivalTarget = { kind: "scene" as const, id: "scene:arrival", generation: 2 };
+    const mounted = render(conversationElement({
+      editBridge: bridge,
+      playableEditTarget: arrivalTarget,
+      playableEditTargetGeneration: 2,
+    }));
+
+    await screen.findByText(/No messages here yet/i);
+    fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
+      target: { value: "Revise the arrival scene." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
+    await screen.findByRole("region", { name: "Review proposed Plan edit" });
+
+    mounted.rerender(conversationElement({
+      editBridge: bridge,
+      playableEditTarget: { kind: "scene", id: "scene:warehouse", generation: 3 },
+      playableEditTargetGeneration: 3,
+    }));
+    await waitFor(() => {
+      expect(screen.queryByRole("region", { name: "Review proposed Plan edit" })).not.toBeInTheDocument();
+    });
+    expect(screen.queryByRole("button", { name: "Apply changes" })).not.toBeInTheDocument();
+    expect(bridge.apply).not.toHaveBeenCalled();
   });
 
   it("keeps an auth-rejected Ask pending until the operator reconnects and explicitly retries", async () => {
@@ -3438,7 +3619,9 @@ describe("World Plan conversation consumer", () => {
         target: { value: "Add a distant bell." },
       });
       fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
-      expect(await screen.findByRole("region", { name: "Review proposed Plan edit" })).toBeInTheDocument();
+      const review = await screen.findByRole("region", { name: "Review proposed Plan edit" });
+      expect(review.querySelectorAll("pre")[0]?.textContent).toBe("Draft excerpt");
+      expect(review).not.toHaveTextContent("Nothing selected · text will be inserted at the captured caret.");
       fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
       await waitFor(() => expect(bridge.apply).toHaveBeenCalledTimes(1));
 
