@@ -9,7 +9,7 @@ pr_body_template: |
 
   ## Verification pointer
   - Exact cumulative base-to-head diff and test evidence are recorded in this handoff.
-  - Producer implementation paths are the six paths in §4.
+  - Producer paths are the six paths in §4; accepted consumer paths and assembled verification are in §4.1.
 ---
 
 # HANDOFF — World-scoped active Play Run V2
@@ -18,7 +18,7 @@ pr_body_template: |
 **Owner:** APP-STATE / Buddy Play Runtime.
 **Base:** `b41fc3898729acfe3518bceb0c03ab93f149e4f0` (current `main`, merged #951).
 **Branch:** `codex/play-world-active-run-v2`.
-**Topology:** serial; one producer capability PR. The UI consumer lease is coordinated separately and may be integrated only after producer-head acceptance.
+**Topology:** serial; one combined producer+consumer capability PR. The consumer was assembled only after independent acceptance of producer head `63af78136448b6a5aa44e7230bfce784af049dc7`.
 
 ## 1. Mission and invariant
 
@@ -66,6 +66,20 @@ This lane may modify only:
 6. `Docs/Plans/HANDOFF-PLAY-world-active-run-v2.md`
 
 No migration or other path is authorized. If implementation requires a path outside this list, stop and return to PRIME for a lease update.
+
+## 4.1 Accepted consumer lease and assembly
+
+After independent acceptance of producer head `63af78136448b6a5aa44e7230bfce784af049dc7` (based on `b41fc3898729acfe3518bceb0c03ab93f149e4f0`), the bounded consumer was assembled onto the same PR branch. Its exclusive five-path lease was:
+
+1. `apps/live-control-ui/src/api/types.ts`
+2. `apps/live-control-ui/src/api/liveApi.ts`
+3. `apps/live-control-ui/src/api/liveApi.test.ts`
+4. `apps/live-control-ui/src/playSurface/PlaySurfacePage.tsx`
+5. `apps/live-control-ui/src/playSurface/PlaySurfacePage.test.tsx`
+
+The World surface uses only the World-scoped v2 active pointer. An empty, malformed, or wrong-World selection remains at the explicit chooser. Reentry validates the active state and exact World Run detail before navigation, then suppresses the subsequent read-time active-pointer write. An explicitly selected exact World Run writes the v2 pointer only after normal admission reaches READY. Campaign mode retains the campaign-only v1 GET/PUT path.
+
+Assembled consumer verification at exact consumer commit `85db86aba168b7c0af461a9c374713e9a4081106`: `liveApi.test.ts` + `PlaySurfacePage.test.tsx`, 135 passed; `git diff --check` passed. Typecheck retains the known baseline `ThreatPublicationPanel.tsx:553` `TS2503: Cannot find namespace 'JSX'`; the consumer paths add no type errors. The cumulative base-to-head diff is 11 paths: five producer implementation files, this handoff, and the five consumer paths. Producer implementation/test blobs are unchanged from accepted head `63af78136448b6a5aa44e7230bfce784af049dc7`.
 
 ## 5. Acceptance evidence
 
