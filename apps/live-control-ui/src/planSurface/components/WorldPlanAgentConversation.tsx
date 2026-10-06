@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 
-import { getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlanDocumentEditProposal, setNativeGraphAccessToken, LiveApiError } from "../../api/liveApi";
+import { getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlanDocumentEditProposal, connectNativeGraphSession, revokeNativeGraphSession, LiveApiError } from "../../api/liveApi";
 import type {
   AgentInteractionThread,
   AgentInteractionTurn,
@@ -531,7 +531,7 @@ function isPositiveRevision(value: unknown): value is number {
 
 function localOperatorCredentialFailure(reason: unknown, nextStep: string): string | null {
   if (!(reason instanceof LiveApiError) || (reason.status !== 401 && reason.status !== 403)) return null;
-  return `The local operator Agent/Graph credential is missing or was rejected (HTTP ${reason.status}). Set or verify it above, then ${nextStep}.`;
+  return `The local Agent and Graph session is missing or was rejected (HTTP ${reason.status}). Reconnect in Settings, then ${nextStep}.`;
 }
 
 function graphContextPreDispatchFailure(reason: unknown): string | null {
@@ -1348,7 +1348,6 @@ export function WorldPlanAgentConversation({
   const [composerMessage, setComposerMessage] = useState("");
   const [composerIntent, setComposerIntent] = useState<"discuss" | "propose">("discuss");
   const [useWorldGraphForAsk, setUseWorldGraphForAsk] = useState(false);
-  const [graphCredential, setGraphCredential] = useState("");
   const [graphCredentialStatus, setGraphCredentialStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
@@ -1757,20 +1756,14 @@ export function WorldPlanAgentConversation({
     }
   }
 
-  function saveGraphCredential(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const credential = graphCredential.trim();
-    setNativeGraphAccessToken(credential || null);
-    setGraphCredential("");
-    setGraphCredentialStatus(credential
-      ? "Credential is held in this tab's memory and checked by the server for local Agent and Graph requests."
-      : "Local operator Agent/Graph credential cleared.");
+  function connectGraphSession() {
+    void connectNativeGraphSession().then(() => setGraphCredentialStatus("Local Agent and Graph session active."))
+      .catch(() => setGraphCredentialStatus("Local Agent and Graph session unavailable."));
   }
 
-  function clearGraphCredential() {
-    setNativeGraphAccessToken(null);
-    setGraphCredential("");
-    setGraphCredentialStatus("Local operator Agent/Graph credential cleared.");
+  function clearGraphSession() {
+    void revokeNativeGraphSession().then(() => setGraphCredentialStatus("Local Agent and Graph session revoked."))
+      .catch(() => setGraphCredentialStatus("Local Agent and Graph session could not be revoked."));
   }
 
   function toggleTraceVisibility() {
@@ -2566,7 +2559,7 @@ export function WorldPlanAgentConversation({
     ? editReview
     : null;
   const authorizationBlocked = [historyError, error, editError].some((message) =>
-    message?.includes("local operator Agent/Graph credential is missing or was rejected"));
+    message?.includes("local Agent and Graph session is missing or was rejected"));
   const pendingGraphAsk = pendingAsks.some((item) => item.envelope?.request.plan_context_policy);
   const intentBusy = sending || composing || saveInFlight || !scopeMatches || currentReview !== null;
   const composerBusy = intentBusy || (composerIntent === "discuss"
@@ -2657,26 +2650,15 @@ export function WorldPlanAgentConversation({
       {authorizationBlocked ? (
         <section className="world-plan-agent-conversation__auth-notice" role="alert">
           <p>{pendingGraphAsk
-            ? "Local authorization was rejected. Check the credential in Settings, then refresh World history before taking another action."
-            : "Local authorization was rejected. Check the credential in Settings, then refresh history or retry the saved request."}</p>
+            ? "Local authorization was rejected. Reconnect in Settings, then refresh World history before taking another action."
+            : "Local authorization was rejected. Reconnect in Settings, then refresh history or retry the saved request."}</p>
           <button type="button" onClick={() => setSettingsOpen(true)}>Open Settings</button>
         </section>
       ) : null}
       <section id="world-plan-agent-settings" className="world-plan-agent-conversation__settings" aria-label="Local operator Agent and Graph authorization" hidden={!settingsOpen}>
-        <form onSubmit={(event) => { void saveGraphCredential(event); }}>
-          <label htmlFor="world-plan-agent-graph-credential">Local operator credential</label>
-          <input
-            id="world-plan-agent-graph-credential"
-            type="password"
-            autoComplete="off"
-            value={graphCredential}
-            onChange={(event) => setGraphCredential(event.currentTarget.value)}
-            maxLength={4096}
-          />
-          <button type="submit">Set authorization</button>
-          <button type="button" onClick={clearGraphCredential}>Clear authorization</button>
-        </form>
-        <p role="note">This credential stays in this tab’s memory. Local Agent requests use it, and other surfaces may use it for native Graph requests. A Plan Ask requests World Graph context only when you select that option. It is never stored in recovery data or exports.</p>
+        <button type="button" onClick={connectGraphSession}>Connect local session</button>
+        <button type="button" onClick={clearGraphSession}>Revoke local session</button>
+        <p role="note">The local Agent and Graph session persists across reloads. A Plan Ask requests World Graph context only when you select that option.</p>
         {graphCredentialStatus ? <p role="status">{graphCredentialStatus}</p> : null}
       </section>
       <p className="world-plan-agent-conversation__notice" role="note">

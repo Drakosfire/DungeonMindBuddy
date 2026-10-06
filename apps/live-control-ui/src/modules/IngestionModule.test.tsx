@@ -567,29 +567,29 @@ describe("IngestionModule", () => {
     expect(new URLSearchParams(window.location.search).has("recapReviewRunId")).toBe(false);
   });
 
-  it("sets tab-local Graph access, clears the password and retries only recap reads", async () => {
+  it("connects and revokes local Graph access while retrying only recap reads", async () => {
     const user = setupIngestUser();
     const ingest = vi.mocked(recapIngestApi.postRecapIngest).mockResolvedValue(makeStatus({ status: "breadcrumb_required", states: ["normalized_reused", "recap_reused", "graph_candidate_ready"], ingest_report: { graph_preview: { status: "candidate_validation_ready", extraction_run_id: "saved-run" } } }));
     vi.spyOn(liveApi, "getHistoricalRecapInspection").mockResolvedValue({ schema: "dmb_historical_recap_inspection_v1", runId: "saved-run", runStatus: "reviewable", sourceDomain: "recap", sourceArtifactId: "source", campaignId: "longmont-c2", sessionId: "session-22", sourceStatus: "available", sourceProse: "Saved source" });
-    const credential = vi.spyOn(liveApi, "setNativeGraphAccessToken");
+    const connect = vi.spyOn(liveApi, "connectNativeGraphSession").mockResolvedValue("test-csrf");
+    const revoke = vi.spyOn(liveApi, "revokeNativeGraphSession").mockResolvedValue();
+    vi.spyOn(liveApi, "ensureNativeGraphSession").mockResolvedValue("test-csrf");
     vi.mocked(liveApi.postWorldGraphRecapProjection).mockRejectedValueOnce(new Error("A valid local operator credential is required for native Graph access."));
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
     await user.click(await screen.findByRole("button", { name: "Review recap canvas" }));
-    expect(await screen.findByText(/Open Advanced → Native Graph access/)).toBeInTheDocument();
+    expect(await screen.findByText(/Open Advanced → Native Graph access to connect the local Graph session/)).toBeInTheDocument();
     const ingestCalls = ingest.mock.calls.length;
     await user.click(screen.getByText("Advanced", { exact: true }));
-    const input = screen.getByLabelText("Local operator Graph credential");
-    expect(input).toHaveAttribute("type", "password");
-    await user.type(input, "test-local-credential");
-    await user.click(screen.getByRole("button", { name: "Set Graph access" }));
-    expect(credential).toHaveBeenLastCalledWith("test-local-credential");
-    expect(input).toHaveValue("");
+    expect(screen.queryByLabelText("Local operator Graph credential")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Connect local Graph session" }));
+    expect(connect).toHaveBeenCalledOnce();
+    expect(await screen.findByText("Local Graph session active.")).toBeInTheDocument();
     expect(await screen.findByText("Current World Graph context. This extraction is awaiting Graph admission.")).toBeInTheDocument();
     expect(ingest.mock.calls).toHaveLength(ingestCalls);
-    expect(JSON.stringify(window.localStorage)).not.toContain("test-local-credential");
-    expect(JSON.stringify(window.sessionStorage)).not.toContain("test-local-credential");
-    await user.click(screen.getByRole("button", { name: "Clear Graph access" }));
-    expect(credential).toHaveBeenLastCalledWith(null);
+    expect(JSON.stringify(window.localStorage)).not.toContain("test-csrf");
+    expect(JSON.stringify(window.sessionStorage)).not.toContain("test-csrf");
+    await user.click(screen.getByRole("button", { name: "Revoke local Graph session" }));
+    expect(revoke).toHaveBeenCalledOnce();
     expect(screen.queryByText("Current World Graph context. This extraction is awaiting Graph admission.")).not.toBeInTheDocument();
     expect(ingest.mock.calls).toHaveLength(ingestCalls);
   });

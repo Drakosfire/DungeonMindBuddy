@@ -176,13 +176,66 @@ import { withProjectionRequestCache } from "../planSurface/reference/projectionR
 
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
 let nativeGraphAccessToken: string | null = null;
+let nativeGraphCsrf: string | null = null;
+let nativeGraphSessionRequest: Promise<string> | null = null;
+let nativeGraphSessionRevoked = false;
 export const NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT = "dmb:native-graph-access-token-changed";
+
+function localGraphSessionTarget(): string {
+  if (baseUrl) throw new LiveApiError("Local Graph sessions require the same-origin /api proxy.", 0);
+  if (!isLoopbackApiDestination("/api/live/agent/local-session")) {
+    throw new LiveApiError("Local Graph sessions require a loopback UI origin.", 0);
+  }
+  return "/api/live/agent/local-session";
+}
+
+async function graphSessionFetch(method: "GET" | "POST" | "DELETE", csrf?: string): Promise<Response> {
+  return fetch(localGraphSessionTarget(), {
+    method, credentials: "same-origin", redirect: "error", cache: "no-store",
+    headers: csrf ? { "X-DMB-Graph-CSRF": csrf } : undefined,
+  });
+}
+
+export async function ensureNativeGraphSession(): Promise<string> {
+  if (nativeGraphSessionRevoked) throw new LiveApiError("Local Graph session was revoked. Reconnect explicitly.", 401);
+  if (nativeGraphCsrf) return nativeGraphCsrf;
+  if (!nativeGraphSessionRequest) {
+    nativeGraphSessionRequest = (async () => {
+      let response = await graphSessionFetch("GET");
+      if (response.status === 401) response = await graphSessionFetch("POST");
+      if (!response.ok) throw new LiveApiError("Local Graph session is unavailable.", response.status);
+      const body = await response.json() as { status?: unknown; csrf_token?: unknown };
+      if (body.status !== "active" || typeof body.csrf_token !== "string" || !body.csrf_token) {
+        throw new LiveApiError("Local Graph session response is invalid.", response.status);
+      }
+      nativeGraphCsrf = body.csrf_token;
+      if (typeof window !== "undefined") window.dispatchEvent(new Event(NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT));
+      return body.csrf_token;
+    })().finally(() => { nativeGraphSessionRequest = null; });
+  }
+  return nativeGraphSessionRequest;
+}
+
+export async function connectNativeGraphSession(): Promise<string> {
+  nativeGraphSessionRevoked = false;
+  return ensureNativeGraphSession();
+}
+
+export async function revokeNativeGraphSession(): Promise<void> {
+  const csrf = await ensureNativeGraphSession();
+  const response = await graphSessionFetch("DELETE", csrf);
+  if (!response.ok) throw new LiveApiError("Local Graph session could not be revoked.", response.status);
+  nativeGraphCsrf = null;
+  nativeGraphSessionRevoked = true;
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT));
+}
 
 /** Keep the local operator credential in this module's memory only. */
 export function setNativeGraphAccessToken(token: string | null): void {
   const normalized = token?.trim() ?? "";
   const changed = normalized !== (nativeGraphAccessToken ?? "");
   nativeGraphAccessToken = normalized || null;
+  if (!nativeGraphAccessToken) nativeGraphCsrf = null;
   if (changed && typeof window !== "undefined") {
     window.dispatchEvent(new Event(NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT));
   }
@@ -386,13 +439,17 @@ function parsePlanWorldGraphContextFailure(body: unknown): WorldPlanGraphContext
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const target = apiRequestTarget(path, init?.body);
+  const csrf = target.localGraphRequest && !nativeGraphAccessToken
+    ? await ensureNativeGraphSession() : null;
   const headers = nativeGraphHeaders(path, init?.body, {
     "Content-Type": "application/json",
     ...headerRecord(init?.headers),
+    ...(csrf && (init?.method ?? "GET").toUpperCase() !== "GET" ? { "X-DMB-Graph-CSRF": csrf } : {}),
   });
   const response = await fetch(target.url, {
     ...init,
     ...(target.localGraphRequest ? { redirect: "error" as const } : {}),
+    ...(target.localGraphRequest ? { credentials: "same-origin" as const } : {}),
     headers,
   });
   if (!response.ok) {
@@ -863,12 +920,16 @@ async function publicationFetch<T extends { schema: string; result_label: string
   validate: (body: unknown, status: number) => T | null,
 ): Promise<T> {
   const target = apiRequestTarget(path, init?.body);
+  const csrf = target.localGraphRequest && !nativeGraphAccessToken
+    ? await ensureNativeGraphSession() : null;
   const response = await fetch(target.url, {
     ...init,
     ...(target.localGraphRequest ? { redirect: "error" as const } : {}),
+    ...(target.localGraphRequest ? { credentials: "same-origin" as const } : {}),
     headers: nativeGraphHeaders(path, init?.body, {
       "Content-Type": "application/json",
       ...headerRecord(init?.headers),
+      ...(csrf && (init?.method ?? "GET").toUpperCase() !== "GET" ? { "X-DMB-Graph-CSRF": csrf } : {}),
     }),
   });
 

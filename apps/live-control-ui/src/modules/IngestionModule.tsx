@@ -2310,7 +2310,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
         </section>
 
         <aside className="ingestion-evidence-pane" aria-label="Ingestion evidence and proof">
-          {reviewError ? <p role="alert" className="module-error">{reviewError} {reviewError.includes("credential") || reviewError.includes("graph_auth_required") ? "Open Advanced → Native Graph access to set the local operator credential." : ""}</p> : null}
+          {reviewError ? <p role="alert" className="module-error">{reviewError} {reviewError.includes("credential") || reviewError.includes("graph_auth_required") ? "Open Advanced → Native Graph access to connect the local Graph session." : ""}</p> : null}
           {reviewSource !== null && reviewSource.identity === reviewIdentity ? (
             <section aria-label="Saved extraction source review">
               {reviewSource.projection ? <>

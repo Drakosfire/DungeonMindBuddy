@@ -574,9 +574,10 @@ it("keeps the submitted card identity fixed while selection changes during basis
   expect(await within(conversation).findByText(/Playable target: scene scene:arrival · marker grammar v1/)).toBeInTheDocument();
 });
 
-it("accepts a local Graph credential in a password field and clears it from the form", async () => {
+it("connects and revokes the local Agent and Graph session from Settings", async () => {
   mockSavedPlanForAgent();
-  const setCredential = vi.spyOn(liveApi, "setNativeGraphAccessToken");
+  const connect = vi.spyOn(liveApi, "connectNativeGraphSession").mockResolvedValue("test-csrf");
+  const revoke = vi.spyOn(liveApi, "revokeNativeGraphSession").mockResolvedValue();
   render(
     <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}>
       <AgentEnabledPlanPage />
@@ -585,17 +586,13 @@ it("accepts a local Graph credential in a password field and clears it from the 
 
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
   fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
-  const input = await screen.findByLabelText("Local operator credential");
-  expect(input).toHaveAttribute("type", "password");
-  fireEvent.change(input, { target: { value: "test-only-local-operator-credential-value" } });
-  fireEvent.click(screen.getByRole("button", { name: "Set authorization" }));
-
-  expect(setCredential).toHaveBeenCalledWith("test-only-local-operator-credential-value");
-  expect(input).toHaveValue("");
-  expect(await screen.findByText(/Credential is held in this tab's memory/)).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Clear authorization" }));
-  expect(setCredential).toHaveBeenLastCalledWith(null);
-  expect(await screen.findByText("Local operator Agent/Graph credential cleared.")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Local operator credential")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Connect local session" }));
+  expect(connect).toHaveBeenCalledOnce();
+  expect(await screen.findByText("Local Agent and Graph session active.")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Revoke local session" }));
+  expect(revoke).toHaveBeenCalledOnce();
+  expect(await screen.findByText("Local Agent and Graph session revoked.")).toBeInTheDocument();
 });
 
 it("keeps completed server Ask transcripts and provider trace payloads out of browser storage", async () => {

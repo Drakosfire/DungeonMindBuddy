@@ -1520,6 +1520,7 @@ describe("World Plan conversation consumer", () => {
 
   it("tells the GM when a Graph-context Ask failed before provider dispatch", async () => {
     setupApi(history("conversation-a", 4, []));
+    liveApi.setNativeGraphAccessToken("test-only-local-operator-credential-value");
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: false,
       status: 409,
@@ -1549,9 +1550,9 @@ describe("World Plan conversation consumer", () => {
     expect(screen.queryByText(/outcome of this Graph-context Ask is uncertain/)).not.toBeInTheDocument();
     expect(await screen.findByText(/This Graph-context Ask is not replayed from browser recovery/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Retry saved Ask" })).not.toBeInTheDocument();
-    expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe("/api/live/agent/turn");
-    expect(JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))).toHaveProperty(
+    const turnCall = fetchSpy.mock.calls.find(([url]) => String(url) === "/api/live/agent/turn");
+    expect(turnCall).toBeDefined();
+    expect(JSON.parse(String(turnCall?.[1]?.body))).toHaveProperty(
       "plan_context_policy",
       { schema: "dmb_plan_context_policy_v1", policy: "auto_plan_world" },
     );
@@ -1583,7 +1584,7 @@ describe("World Plan conversation consumer", () => {
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Check the north gate." } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
-    expect(await screen.findByText(/Check the credential in Settings, then refresh World history before taking another action/)).toBeInTheDocument();
+    expect(await screen.findByText(/Reconnect in Settings, then refresh World history before taking another action/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Retry saved Ask" })).not.toBeInTheDocument();
     expect(postAsk).toHaveBeenCalledTimes(1);
     expect(pendingAskKeys()).toHaveLength(1);
@@ -2448,7 +2449,7 @@ describe("World Plan conversation consumer", () => {
     );
   });
 
-  it("keeps an auth-rejected Ask pending until the operator sets a credential and explicitly retries", async () => {
+  it("keeps an auth-rejected Ask pending until the operator reconnects and explicitly retries", async () => {
     const api = setupApi(history("conversation-a", 4, []));
     const requests: WorldPlanAgentTurnRequestV1[] = [];
     const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
@@ -2471,15 +2472,12 @@ describe("World Plan conversation consumer", () => {
     const savedRequest = JSON.parse(localStorage.getItem(pendingAskKeys()[0]!)!).request;
 
     expect(screen.getByRole("button", { name: "Open Settings" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Local operator credential")).not.toBeVisible();
+    expect(screen.getByRole("button", { name: "Connect local session", hidden: true })).not.toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Open Settings" }));
-    expect(screen.getByLabelText("Local operator credential")).toBeVisible();
-
-    fireEvent.change(screen.getByLabelText("Local operator credential"), {
-      target: { value: "test-only-local-operator-credential-value" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Set authorization" }));
-    expect(await screen.findByText(/This credential stays in this tab’s memory/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Connect local session" })).toBeVisible();
+    vi.spyOn(liveApi, "connectNativeGraphSession").mockResolvedValue("test-csrf");
+    fireEvent.click(screen.getByRole("button", { name: "Connect local session" }));
+    expect(await screen.findByText(/Local Agent and Graph session active/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Retry saved Ask" }));
 
     expect(await screen.findByText("Authorized retry answer")).toBeInTheDocument();
