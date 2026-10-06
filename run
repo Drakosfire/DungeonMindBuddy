@@ -12,6 +12,8 @@
 #   BUDDY_API_PORT            default 8000
 #   BUDDY_UI_PORT             default 5173
 #   RUN_NO_RELOAD=1           disable --reload / Vite HMR extras
+#   DMB_AGENT_GRAPH_LOCAL_PROFILE  opt in to an owner-private local Graph profile
+#   DMB_MANAGED_WORLD_DATA_ROOT    existing stable managed-World root for that profile
 #
 # Ctrl+C stops everything started by this script.
 
@@ -23,7 +25,11 @@ cd "$ROOT"
 DMS_ROOT="${DUNGEONMIND_SERVER_ROOT:-$ROOT/../DungeonMindServer}"
 DMS_PORT="${DUNGEONMIND_SERVER_PORT:-7860}"
 API_PORT="${BUDDY_API_PORT:-8000}"
-UI_PORT="${BUDDY_UI_PORT:-5173}"
+if [[ -n "${DMB_AGENT_GRAPH_LOCAL_PROFILE:-}" ]]; then
+  UI_PORT="${BUDDY_UI_PORT:-5202}"
+else
+  UI_PORT="${BUDDY_UI_PORT:-5173}"
+fi
 
 RUN_DIR="$ROOT/.run"
 mkdir -p "$RUN_DIR"
@@ -74,9 +80,28 @@ require_cmd npm
 [[ -f "$ROOT/apps/live_control_server/main.py" ]] || die "not a DungeonMindBuddy checkout: $ROOT"
 [[ -d "$ROOT/apps/live-control-ui" ]] || die "missing apps/live-control-ui"
 
+if [[ -n "${DMB_AGENT_GRAPH_LOCAL_PROFILE:-}" ]]; then
+  [[ -n "${DUNGEONMIND_SERVER_ROOT:-}" ]] || die "local Graph profile requires explicit DUNGEONMIND_SERVER_ROOT"
+  [[ -n "${DMB_MANAGED_WORLD_DATA_ROOT:-}" ]] || die "local Graph profile requires DMB_MANAGED_WORLD_DATA_ROOT"
+  # An occupied product port may be a different checkout or profile. Do not
+  # kill it or claim that this launcher's code/configuration is serving it.
+  if port_listening "$API_PORT" || port_listening "$UI_PORT"; then
+    die "local Graph profile cannot verify an existing API/UI listener; stop its owning launcher first"
+  fi
+  profile_args=(
+    --ui-port "$UI_PORT" --api-port "$API_PORT" --server-root "$DMS_ROOT"
+  )
+  if [[ -n "${DMB_AGENT_GRAPH_REQUIRED_WORLD_ID:-}" ]]; then
+    profile_args+=(--require-world "$DMB_AGENT_GRAPH_REQUIRED_WORLD_ID")
+  fi
+  if ! uv run python scripts/preflight_local_graph_profile.py "${profile_args[@]}"; then
+    die "local Graph access is not configured; no service was started"
+  fi
+fi
+
 start_dms() {
   if port_listening "$DMS_PORT"; then
-    log "DungeonMindServer already listening on :$DMS_PORT — leaving it alone"
+    log "DungeonMindServer already listening on :$DMS_PORT — leaving it alone (revision unverified)"
     return 0
   fi
   log "starting DungeonMindServer in $DMS_ROOT on :$DMS_PORT"
@@ -162,13 +187,23 @@ start_dms
 start_buddy_api
 start_buddy_ui
 
-wait_http "http://127.0.0.1:${DMS_PORT}/docs" "DungeonMindServer" 60 || true
-wait_http "http://127.0.0.1:${API_PORT}/docs" "DungeonBuddy API" 60 || true
-wait_http "http://127.0.0.1:${UI_PORT}/" "DungeonBuddy UI" 60 || true
+if [[ -n "${DMB_AGENT_GRAPH_LOCAL_PROFILE:-}" ]]; then
+  wait_http "http://127.0.0.1:${DMS_PORT}/docs" "DungeonMindServer API health" 60 || die "DungeonMindServer API health unavailable"
+  wait_http "http://127.0.0.1:${API_PORT}/docs" "DungeonBuddy API health" 60 || die "DungeonBuddy API health unavailable"
+  wait_http "http://127.0.0.1:${UI_PORT}/" "DungeonBuddy UI" 60 || die "DungeonBuddy UI unavailable"
+else
+  wait_http "http://127.0.0.1:${DMS_PORT}/docs" "DungeonMindServer" 60 || true
+  wait_http "http://127.0.0.1:${API_PORT}/docs" "DungeonBuddy API" 60 || true
+  wait_http "http://127.0.0.1:${UI_PORT}/" "DungeonBuddy UI" 60 || true
+fi
 
+stack_status="local stack up"
+if [[ -n "${DMB_AGENT_GRAPH_LOCAL_PROFILE:-}" ]]; then
+  stack_status="local stack health checks passed"
+fi
 cat <<EOF
 
-[run] local stack up
+[run] $stack_status
 
   DungeonMindServer  http://127.0.0.1:${DMS_PORT}/docs
   DungeonBuddy API   http://127.0.0.1:${API_PORT}/docs
@@ -177,6 +212,10 @@ cat <<EOF
   logs: $RUN_DIR/*.log
 
 EOF
+
+if [[ -n "${DMB_AGENT_GRAPH_LOCAL_PROFILE:-}" ]]; then
+  log "local Graph access configured; Graph-backed answer not yet accepted by this launch"
+fi
 
 if [[ ${#PIDS[@]} -eq 0 ]]; then
   log "nothing new started (all ports already occupied); exiting"

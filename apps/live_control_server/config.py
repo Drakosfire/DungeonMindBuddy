@@ -33,10 +33,32 @@ WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV = (
 # Cache root leftover from the retired DungeonMind-hydrated read model.
 # Mounted product must not consume it; env/function remain for unmounted names.
 WORLD_GRAPH_AUTHORITY_CACHE_ROOT_ENV = "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_CACHE_ROOT"
+MANAGED_WORLD_DATA_ROOT_ENV = "DMB_MANAGED_WORLD_DATA_ROOT"
 
 
 def repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
+
+
+class ManagedWorldDataRootError(RuntimeError):
+    """An explicitly selected operator World root cannot be used."""
+
+
+def managed_world_data_root(default: Path | None = None) -> Path:
+    """Select only managed-World files; code and other product roots stay put."""
+    raw = os.environ.get(MANAGED_WORLD_DATA_ROOT_ENV, "").strip()
+    if not raw:
+        return default if default is not None else repo_root()
+    path = Path(raw)
+    if not path.is_absolute():
+        raise ManagedWorldDataRootError("managed_world_root_not_absolute")
+    try:
+        root = path.resolve(strict=True)
+    except OSError as exc:
+        raise ManagedWorldDataRootError("managed_world_root_unavailable") from exc
+    if not root.is_dir() or not (root / "out/registries/world_containers.json").is_file():
+        raise ManagedWorldDataRootError("managed_world_registry_unavailable")
+    return root
 
 
 def session_dir() -> Path:

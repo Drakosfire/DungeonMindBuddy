@@ -101,6 +101,32 @@ def test_service_create_visible_to_http_list(client: TestClient, root: Path) -> 
     assert body["records"][0]["name"] == "Seeded"
 
 
+def test_http_list_uses_explicit_operator_root_across_checkouts(
+    client: TestClient, root: Path, tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    operator = tmp_path / "operator"
+    create_world_container(operator, name="Operator World")
+    monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(operator))
+
+    response = client.get("/api/live/world-containers")
+
+    assert response.status_code == 200
+    assert [record["world_id"] for record in response.json()["records"]] == ["operator-world"]
+    assert not world_containers_path(root).exists()
+
+
+def test_http_list_fails_closed_for_invalid_explicit_root(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(tmp_path / "missing"))
+
+    response = client.get("/api/live/world-containers")
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Managed World storage is unavailable."
+
+
 def test_list_reads_legacy_registry_without_migration_or_mind_call(
     root: Path,
     monkeypatch: pytest.MonkeyPatch,

@@ -119,7 +119,13 @@ def project_managed_world_graph(
 ) -> ManagedWorldGraphProjectionResponse:
     """Read through a stable active Buddy binding, failing closed on change."""
 
-    registry_root = root if root is not None else config.repo_root()
+    try:
+        registry_root = root if root is not None else config.managed_world_data_root()
+    except config.ManagedWorldDataRootError as exc:
+        raise WorldGraphProjectionServiceError(
+            "Managed World storage is unavailable.",
+            code="managed_world_unavailable", status_code=503,
+        ) from exc
     initial = _verified_managed_record(registry_root, request.managed_world_id)
     native_world_id, binding_version = _active_binding(initial)
 

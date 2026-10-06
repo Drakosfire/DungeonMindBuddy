@@ -885,6 +885,38 @@ def test_graph_auth_denial_precedes_world_receipt_reconciliation(
     assert receipt_spy.called is False
 
 
+def test_unconfigured_graph_auth_stops_before_receipt_or_runtime(
+    monkeypatch: Any,
+) -> None:
+    from fastapi import HTTPException
+
+    from apps.live_control_server.routes import agent as agent_route
+    from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+
+    class ReceiptSpy:
+        def reconcile_turn(self, *_args: Any, **_kwargs: Any) -> Any:
+            raise AssertionError("unconfigured Graph auth reached receipts")
+
+    for name in (
+        "DMB_AGENT_GRAPH_AUTH_MODE",
+        "DMB_AGENT_GRAPH_AUTH_ENVIRONMENT",
+        "DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(agent_route, "enforce_native_graph_gm", enforce_native_graph_gm)
+    body = AgentTurnRequest.model_validate({
+        **_payload(),
+        "owner_scope": {"kind": "world", "world_id": "world-auth-test"},
+    })
+    app = SimpleNamespace(state=SimpleNamespace(agent_conversation_service=ReceiptSpy()))
+
+    with pytest.raises(HTTPException) as exc_info:
+        agent_route.post_agent_turn(body, SimpleNamespace(app=app))
+
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.detail["code"] == "graph_auth_unavailable"
+
+
 def test_unverified_world_is_rejected_before_turn_receipt_reconciliation(
     tmp_path: Path,
 ) -> None:
