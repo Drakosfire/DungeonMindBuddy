@@ -206,6 +206,7 @@ def _error_result(
     tool_events: list[HermesGraphToolEvent] | None = None,
     model_calls: list[dict[str, Any]] | None = None,
     telemetry_warnings: list[str] | None = None,
+    observed_model_call_count: int | None = None,
 ) -> HermesGraphAgentTurnResult:
     return HermesGraphAgentTurnResult(
         status="error",
@@ -218,6 +219,7 @@ def _error_result(
         process_isolation=PROCESS_ISOLATION_MODE,
         model_calls=list(model_calls or []),
         telemetry_warnings=list(telemetry_warnings or []),
+        observed_model_call_count=observed_model_call_count,
     )
 
 
@@ -1012,9 +1014,11 @@ def _request_budget_guard(
 
     authorization_sequence = 0
     agent_ref: list[Any] = []
+    guard_state: dict[str, str | None] = {"last_rejection_reason": None}
 
     def allow(view: Any) -> bool:
         nonlocal authorization_sequence
+        guard_state["last_rejection_reason"] = "request_guard_rejected"
         if (
             view.provider != expected_provider
             or view.model != expected_model
@@ -1337,21 +1341,28 @@ def _request_budget_guard(
         # This is explicitly an upper-bound guard, not an exact token count.
         input_upper_bound = view.payload_utf8_bytes + 64 * (1 + count_nodes(payload))
         if input_upper_bound + output_reserve > context_limit:
+            guard_state["last_rejection_reason"] = "context_budget_exceeded"
             return False
         if on_provider_authorization is None:
+            guard_state["last_rejection_reason"] = None
             return True
         try:
             authorized = on_provider_authorization(view) is True
         except Exception:
+            guard_state["last_rejection_reason"] = "provider_authorization_unavailable"
             return False
         if authorized:
+            guard_state["last_rejection_reason"] = None
             authorization_sequence += 1
             if agent_ref:
                 agent_ref[0]._api_request_budget_authorization_sequence = authorization_sequence
+        else:
+            guard_state["last_rejection_reason"] = "provider_authorization_denied"
         return authorized
 
     allow.bind_agent = agent_ref  # type: ignore[attr-defined]
     allow.provider_lifecycle = on_provider_lifecycle  # type: ignore[attr-defined]
+    allow.guard_state = guard_state  # type: ignore[attr-defined]
 
     return allow
 
@@ -1933,6 +1944,8 @@ def run_hermes_graph_agent_turn(
                     "request_budget_guard_invalid",
                     "request_budget_guard_error",
                     "provider_lifecycle_unavailable",
+                    "provider_authorization_denied",
+                    "provider_authorization_unavailable",
                 }
                 if raw.get("failure_reason") == "request_budget_veto" and raw.get(
                     "failure_code"
@@ -1942,22 +1955,45 @@ def run_hermes_graph_agent_turn(
                         request_id if isinstance(request_id, str) else ""
                     )
                     failure_code = str(raw["failure_code"])
+                    guard = getattr(agent, "api_request_budget_guard", None)
+                    guard_state = getattr(guard, "guard_state", None)
+                    rejection_reason = (
+                        guard_state.get("last_rejection_reason")
+                        if isinstance(guard_state, Mapping)
+                        else None
+                    )
+                    if failure_code == "request_budget_exceeded":
+                        if rejection_reason == "provider_authorization_denied":
+                            failure_code = "provider_authorization_denied"
+                        elif rejection_reason == "provider_authorization_unavailable":
+                            failure_code = "provider_authorization_unavailable"
+                        elif rejection_reason == "request_guard_rejected":
+                            failure_code = "request_budget_guard_invalid"
                     prior_calls, prior_warnings = api_observer.finish()
                     prior_attempts = bool(prior_calls)
-                    return _error_result(
-                        hermes_session_id=session_id,
-                        error_code=failure_code,
-                        error_message=(
+                    if failure_code.startswith("provider_authorization_"):
+                        failure_message = (
+                            "The parent did not authorize this provider request before dispatch."
+                            if failure_code == "provider_authorization_denied"
+                            else "Parent authorization could not be confirmed before dispatch."
+                        )
+                    else:
+                        failure_message = (
                             "The current provider request was denied before dispatch by "
                             "the local request-budget guard."
                             if not prior_attempts
                             else "The current provider request was denied before dispatch; "
                             "one or more earlier provider attempts occurred."
-                        ),
+                        )
+                    return _error_result(
+                        hermes_session_id=session_id,
+                        error_code=failure_code,
+                        error_message=failure_message,
                         messages=[dict(item) for item in messages if isinstance(item, Mapping)],
                         tool_events=collector.events,
                         model_calls=prior_calls,
                         telemetry_warnings=prior_warnings,
+                        observed_model_call_count=len(prior_calls),
                     )
 
                 final_response = raw.get("final_response")

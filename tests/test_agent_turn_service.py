@@ -733,6 +733,7 @@ def test_plan_graph_budget_fails_closed_for_unverified_model(
 def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     monkeypatch: Any,
     plan_markdown: str,
+    caplog: Any,
 ) -> None:
     from datetime import timedelta
     from application_state.agent_conversation import types as graph_types
@@ -1059,18 +1060,23 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     class BudgetVetoRuntime:
         descriptor = AgentRuntimeDescriptor("budget-veto", "fake", "test", "graph")
 
+        def __init__(self, result: AgentRuntimeResult, *, authorize_first: bool = False) -> None:
+            self.result = result
+            self.authorize_first = authorize_first
+
         def run_with_provider_authorization(
-            self, _invocation: Any, _authorize: Any, *, request_budget: Any,
+            self, _invocation: Any, authorize: Any, *, request_budget: Any,
             on_graph_operation: Any, on_provider_lifecycle: Any,
         ) -> AgentRuntimeResult:
             assert request_budget["contextLimitTokens"] == 1_050_000
-            return AgentRuntimeResult(
-                status="error", error_code="request_budget_exceeded",
-                observed_model_call_count=0,
-            )
+            if self.authorize_first:
+                adjusted = dict(view)
+                adjusted["model"] = request_budget["model"]
+                assert authorize(adjusted) is True
+            return self.result
 
-    with pytest.raises(AgentTurnServiceError) as veto:
-        execute_agent_turn(
+    def execute_budget_result(result: AgentRuntimeResult, *, authorize_first: bool = False):
+        return execute_agent_turn(
             request, root=Path("/tmp"),
             pointer_store=HermesSessionPointerStore(Path("/tmp") / f"plan-veto-{uuid4()}"),
             owner_resolver=lambda _request: {
@@ -1079,13 +1085,93 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
             work_resolver=lambda _request, _owner: work,
             graph_resolver=lambda *_args: pytest.fail("generic Graph resolver was used"),
             plan_graph_resolver=lambda *_args: bootstrap,
-            runtime=BudgetVetoRuntime(), conversation_service=fake,
+            runtime=BudgetVetoRuntime(result, authorize_first=authorize_first),
+            conversation_service=fake,
         )
+
+    caplog.clear()
+    with pytest.raises(AgentTurnServiceError) as veto:
+        execute_budget_result(AgentRuntimeResult(
+            status="error", error_code="request_budget_exceeded",
+            error_message="PRIVATE_PLAN_BODY api_key=sk-secret-shaped",
+            observed_model_call_count=0,
+            runtime_metadata={"host_phase_spans": [{"name": "rung3_plugin_discovery"}]},
+        ))
     assert veto.value.code == "provider_envelope_over_budget"
     assert veto.value.status_code == 413
     assert veto.value.provider_dispatched is False
+    assert "PRIVATE_PLAN_BODY" not in caplog.text
+    assert "sk-secret-shaped" not in caplog.text
+    assert "rung3_plugin_discovery" in caplog.text
     assert fake.accepted_count == 0
     assert fake.authorize_count == 0
+
+    for uncertain in (
+        AgentRuntimeResult(status="error", error_code="request_budget_exceeded"),
+        AgentRuntimeResult(
+            status="error", error_code="request_budget_exceeded",
+            observed_model_call_count=1,
+        ),
+        AgentRuntimeResult(
+            status="error", error_code="request_budget_exceeded",
+            model_calls=[{"provider": "openai-api"}],
+            observed_model_call_count=1,
+        ),
+    ):
+        with pytest.raises(AgentTurnServiceError) as caught:
+            execute_budget_result(uncertain)
+        assert caught.value.code == "plan_context_delivery_failure"
+        assert caught.value.provider_dispatched is None
+        assert fake.accepted_count == 0
+
+    with pytest.raises(AgentTurnServiceError) as denied_by_parent:
+        execute_budget_result(AgentRuntimeResult(
+            status="error", error_code="provider_authorization_denied",
+            observed_model_call_count=0,
+        ))
+    assert denied_by_parent.value.code == "provider_authorization_denied"
+    assert denied_by_parent.value.status_code == 503
+    assert denied_by_parent.value.provider_dispatched is False
+    assert fake.accepted_count == 0
+
+    for ambiguous_denial in (
+        AgentRuntimeResult(status="error", error_code="provider_authorization_denied"),
+        AgentRuntimeResult(
+            status="error", error_code="provider_authorization_denied",
+            observed_model_call_count=1,
+        ),
+        AgentRuntimeResult(
+            status="error", error_code="provider_authorization_unavailable",
+            observed_model_call_count=0,
+        ),
+    ):
+        with pytest.raises(AgentTurnServiceError) as uncertain:
+            execute_budget_result(ambiguous_denial)
+        assert uncertain.value.code == "plan_context_delivery_failure"
+        assert uncertain.value.status_code == 503
+        assert uncertain.value.provider_dispatched is None
+        assert fake.accepted_count == 0
+
+    with pytest.raises(AgentTurnServiceError) as after_authorization:
+        execute_budget_result(AgentRuntimeResult(
+            status="error", error_code="request_budget_exceeded",
+            observed_model_call_count=0,
+        ), authorize_first=True)
+    assert after_authorization.value.code == "plan_context_delivery_failure"
+    assert after_authorization.value.provider_dispatched is None
+    assert fake.authorize_count == 1
+
+    with pytest.raises(AgentTurnServiceError) as denial_after_authorization:
+        execute_budget_result(AgentRuntimeResult(
+            status="error", error_code="provider_authorization_denied",
+            observed_model_call_count=0,
+        ), authorize_first=True)
+    assert denial_after_authorization.value.code == "plan_context_delivery_failure"
+    assert denial_after_authorization.value.status_code == 503
+    assert denial_after_authorization.value.provider_dispatched is None
+    assert fake.authorize_count == 2
+
+    fake = FakeExecutionPort()
 
     response = execute_agent_turn(
         request,

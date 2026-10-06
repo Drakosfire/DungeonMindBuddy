@@ -121,7 +121,11 @@ def test_auto_plan_world_rejects_generic_graph_reads_and_non_plan_surface() -> N
 
 @pytest.mark.parametrize(
     ("failure_code", "status_code"),
-    [("graph_revision_unavailable", 409), ("provider_envelope_over_budget", 413)],
+    [
+        ("graph_revision_unavailable", 409),
+        ("provider_envelope_over_budget", 413),
+        ("provider_authorization_denied", 503),
+    ],
 )
 def test_policy_predispatch_failure_has_strict_typed_projection(
     monkeypatch: Any, failure_code: str, status_code: int
@@ -153,6 +157,7 @@ def test_policy_predispatch_failure_has_strict_typed_projection(
     with pytest.raises(HTTPException) as caught:
         agent_route.post_agent_turn(body, SimpleNamespace(app=SimpleNamespace()))
     assert caught.value.status_code == status_code
+    assert caught.value.detail["code"] == failure_code
     assert caught.value.detail["plan_context_failure"] == {
         "schema": "dmb_agent_plan_world_graph_context_failure_v1",
         "status": "pre_dispatch_failed",

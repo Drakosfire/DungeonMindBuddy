@@ -5,11 +5,14 @@ from dataclasses import replace
 import pytest
 
 from apps.live_control_server.services.hermes_graph_agent_contract import (
+    HermesGraphAgentTurnResult,
     HermesGraphAgentTurnRequest,
+    deserialize_hermes_graph_agent_turn_result,
     decode_turn_request_wire,
     deserialize_hermes_graph_agent_turn_request,
     encode_turn_request_wire,
     serialize_hermes_graph_agent_turn_request,
+    serialize_hermes_graph_agent_turn_result,
 )
 
 
@@ -51,6 +54,22 @@ def test_request_budget_policy_round_trips_strictly():
 
     restored = deserialize_hermes_graph_agent_turn_request(payload)
     assert restored.request_budget == _budget()
+
+
+def test_explicit_zero_model_call_count_survives_result_wire_round_trip():
+    result = HermesGraphAgentTurnResult(
+        status="error", final_response=None, messages=[], hermes_session_id="session-1",
+        tool_events=[], error_code="request_budget_exceeded",
+        observed_model_call_count=0,
+    )
+    wire = serialize_hermes_graph_agent_turn_result(result)
+    assert wire["observedModelCallCount"] == 0
+    assert deserialize_hermes_graph_agent_turn_result(wire).observed_model_call_count == 0
+
+    unknown = serialize_hermes_graph_agent_turn_result(
+        replace(result, observed_model_call_count=None)
+    )
+    assert "observedModelCallCount" not in unknown
 
 
 def test_legacy_request_omits_budget_field_byte_for_byte():
@@ -266,6 +285,13 @@ def test_plan_sized_envelope_with_production_prompt_reaches_parent_gate(
         on_parent_graph_operation=lambda *_args: pytest.fail("provider gate not reached"),
     )
     assert result.status == "error"
+    assert result.error_code == "provider_authorization_denied"
+    assert result.observed_model_call_count == 0
+    wire_result = serialize_hermes_graph_agent_turn_result(result)
+    assert wire_result["errorCode"] == "provider_authorization_denied"
+    assert wire_result["observedModelCallCount"] == 0
+    restored_result = deserialize_hermes_graph_agent_turn_result(wire_result)
+    assert restored_result.error_code == "provider_authorization_denied"
     assert len(observed) == 1, (result.error_code, result.error_message)
     assert observed[0][2] + budget["outputReserveTokens"] <= budget["contextLimitTokens"]
     assert observed[0][3] is True
@@ -281,6 +307,7 @@ def test_plan_sized_envelope_with_production_prompt_reaches_parent_gate(
     )
     assert result.status == "error"
     assert result.error_code == "request_budget_exceeded"
+    assert result.observed_model_call_count == 0
     assert observed == []
     assert network_attempts == []
 

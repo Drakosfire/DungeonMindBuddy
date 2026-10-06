@@ -2828,7 +2828,16 @@ def execute_agent_turn(
             and policy_result.error_code == "request_budget_exceeded"
             and adapter.last_provider_attempt_id is None
             and not policy_result.model_calls
-            and policy_result.observed_model_call_count in (None, 0)
+            and policy_result.observed_model_call_count == 0
+        )
+        predispatch_authorization_denial = (
+            policy_turn is None
+            and policy_result.status == "error"
+            and policy_result.error_code == "provider_authorization_denied"
+            and adapter.failure is None
+            and adapter.last_provider_attempt_id is None
+            and not policy_result.model_calls
+            and policy_result.observed_model_call_count == 0
         )
         if policy_result.status != "ok" or policy_turn is None:
             safe_code = policy_result.error_code or "none"
@@ -2863,6 +2872,13 @@ def execute_agent_turn(
             raise AgentTurnServiceError(
                 "The Plan Graph provider envelope exceeds the verified model window.",
                 code="provider_envelope_over_budget", status_code=413,
+                provider_dispatched=False,
+            )
+        if predispatch_authorization_denial:
+            trace.complete_phase(span_id, status="error")
+            raise AgentTurnServiceError(
+                "The parent denied provider authorization before dispatch.",
+                code="provider_authorization_denied", status_code=503,
                 provider_dispatched=False,
             )
         if (
