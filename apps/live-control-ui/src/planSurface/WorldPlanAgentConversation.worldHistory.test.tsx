@@ -1559,21 +1559,21 @@ describe("World Plan conversation consumer", () => {
     expect(pendingAskKeys()).toHaveLength(1);
   });
 
-  it("tells the GM when a Graph-context Ask failed before provider dispatch", async () => {
+  it("clears a definitive pre-dispatch failure from pending recovery", async () => {
     setupApi(history("conversation-a", 4, []));
     liveApi.setNativeGraphAccessToken("test-only-local-operator-credential-value");
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: false,
-      status: 409,
-      statusText: "Conflict",
+      status: 413,
+      statusText: "Payload Too Large",
       text: async () => JSON.stringify({
         detail: {
-          code: "native_binding_invalid",
-          message: "No active Graph binding is available.",
+          code: "provider_envelope_over_budget",
+          message: "The selected model context cannot contain this request.",
           plan_context_failure: {
             schema: "dmb_plan_world_graph_context_failure_v1",
             status: "pre_dispatch_failed",
-            failure_code: "native_binding_invalid",
+            failure_code: "provider_envelope_over_budget",
             provider_dispatched: false,
             automatic_downgrade: false,
           },
@@ -1587,9 +1587,9 @@ describe("World Plan conversation consumer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
     expect(await screen.findByText(/server confirmed provider dispatch did not begin/)).toBeInTheDocument();
-    expect(screen.getByText(/No active Graph binding is available/)).toBeInTheDocument();
+    expect(screen.getByText(/provider_envelope_over_budget/)).toBeInTheDocument();
+    expect(screen.getByText(/no answer was saved/)).toBeInTheDocument();
     expect(screen.queryByText(/outcome of this Graph-context Ask is uncertain/)).not.toBeInTheDocument();
-    expect(await screen.findByText(/This Graph-context Ask is not replayed from browser recovery/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Retry saved Ask" })).not.toBeInTheDocument();
     const turnCall = fetchSpy.mock.calls.find(([url]) => String(url) === "/api/live/agent/turn");
     expect(turnCall).toBeDefined();
@@ -1597,7 +1597,57 @@ describe("World Plan conversation consumer", () => {
       "plan_context_policy",
       { schema: "dmb_plan_context_policy_v1", policy: "auto_plan_world" },
     );
-    expect(pendingAskKeys()).toHaveLength(1);
+    expect(pendingAskKeys()).toEqual([]);
+    expect(screen.queryByRole("region", { name: "Pending Ask recovery" })).not.toBeInTheDocument();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("allows a fresh Graph Ask after clearing a definitive pre-dispatch failure", async () => {
+    const api = setupApi(history("conversation-a", 4, []));
+    const failure = new liveApi.LiveApiError("The selected model context cannot contain this request.", 413, {
+      planContextFailure: {
+        schema: "dmb_plan_world_graph_context_failure_v1",
+        status: "pre_dispatch_failed",
+        failure_code: "provider_envelope_over_budget",
+        provider_dispatched: false,
+        automatic_downgrade: false,
+      },
+    });
+    const requests: WorldPlanAgentTurnRequestV1[] = [];
+    const answer = "The fresh Graph Ask was answered.";
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
+      requests.push(request);
+      if (requests.length === 1) throw failure;
+      const response = await policyResponse(request, "conversation-a", answer);
+      const completedTurn = {
+        ...historyTurnForAsk(request, answer),
+        plan_context: response.plan_context,
+      };
+      api.setCurrent(await historyV2("conversation-a", 4, [completedTurn]));
+      return response;
+    });
+    render(conversationElement());
+    await screen.findByText(/No messages here yet/);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
+      target: { value: "Ask once before fixing the budget." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByText(/no answer was saved/)).toBeInTheDocument();
+    expect(pendingAskKeys()).toEqual([]);
+    expect(postAsk).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
+      target: { value: "Ask again after fixing the request budget." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByText(answer)).toBeInTheDocument();
+    expect(postAsk).toHaveBeenCalledTimes(2);
+    expect(requests[1]!.turn_id).not.toBe(requests[0]!.turn_id);
+    expect(pendingAskKeys()).toEqual([]);
   });
 
   it("does not repost an uncertain Graph-context Ask from browser recovery", async () => {
@@ -1614,6 +1664,39 @@ describe("World Plan conversation consumer", () => {
     expect(screen.queryByRole("button", { name: "Retry saved Ask" })).not.toBeInTheDocument();
     expect(postAsk).toHaveBeenCalledTimes(1);
     expect(pendingAskKeys()).toHaveLength(1);
+  });
+
+  it("keeps a Graph Ask pending when a purported pre-dispatch failure says the provider was dispatched", async () => {
+    setupApi(history("conversation-a", 4, []));
+    liveApi.setNativeGraphAccessToken("test-only-local-operator-credential-value");
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 503,
+      statusText: "Service Unavailable",
+      text: async () => JSON.stringify({
+        detail: {
+          code: "provider_outcome_unknown",
+          message: "The provider outcome is unknown.",
+          plan_context_failure: {
+            schema: "dmb_plan_world_graph_context_failure_v1",
+            status: "pre_dispatch_failed",
+            failure_code: "provider_outcome_unknown",
+            provider_dispatched: true,
+            automatic_downgrade: false,
+          },
+        },
+      }),
+    } as Response);
+    render(conversationElement());
+    await screen.findByText(/No messages here yet/);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Check the north gate." } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByText(/outcome of this Graph-context Ask is uncertain/)).toBeInTheDocument();
+    expect(screen.queryByText(/server confirmed provider dispatch did not begin/)).not.toBeInTheDocument();
+    expect(pendingAskKeys()).toHaveLength(1);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
   it("reconciles a lost Graph Ask from its exact completed history after remount without using the new card selection", async () => {
