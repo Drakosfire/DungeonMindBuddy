@@ -2,10 +2,13 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  box-sizing: border-box;
   min-height: 0;
   height: 100%;
   padding: 1rem;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   color: var(--ui-text-primary);
   background: var(--ui-background-ops);
 }
@@ -120,10 +123,10 @@
 
 .world-plan-agent-conversation__turns {
   display: grid;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   align-content: start;
   gap: 0.7rem;
-  min-height: 4rem;
+  min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
   padding: 0.1rem 0.2rem 0.2rem 0;
@@ -314,8 +317,6 @@
 @media (max-width: 42rem) {
   .world-plan-agent-conversation {
     padding: 0.75rem;
-    overflow-x: hidden;
-    overflow-y: auto;
   }
 
   .world-plan-agent-conversation__header {
