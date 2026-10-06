@@ -460,7 +460,7 @@ it("pins Ask to the exact committed World Plan revision and excludes editor text
   expect(renderedTurns[0]).toHaveTextContent("What Plan metadata can you see?");
   expect(renderedTurns[1]).toHaveTextContent("And what is its saved revision?");
   expect(renderedTurns.every((turn) => turn.textContent?.includes(`plan ${savedAgentPlanId} · revision 4`))).toBe(true);
-  expect(liveApi.getWorldAgentConversationHistory).toHaveBeenCalledWith(worldId, { limit: 50 });
+  expect(liveApi.getWorldAgentConversationHistory).toHaveBeenCalledWith(worldId, { limit: 50, includeTurnCorrelation: true });
   expect(liveApi.getWorldOwnedPlanCommittedRevision).toHaveBeenCalledTimes(2);
   expect(serverHistoryTurns.map((turn) => turn.user_text)).toEqual([
     "What Plan metadata can you see?", "And what is its saved revision?",
@@ -2067,6 +2067,164 @@ it("does not bind an unbound recovery to the empty-ID blank Plan while editing i
   expect(screen.getByRole("button", { name: "Save Plan" })).toBeDisabled();
 });
 
+it("preserves a blank recovery journal and keeps Plan actions locked after context failure", async () => {
+  const documentId = "plan-b-context-retry";
+  const draftKey = `dmb:world-plan-local-draft:v2:${worldId}`;
+  const journal = {
+    schema_version: "dmb_plan_promotion_recovery_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    document_id: null,
+    title: "Plan A working draft",
+    markdown: "# A private draft\n",
+    revision: null,
+    edit_generation: 9,
+    create_uncertain: true,
+    uncertain_create_draft: {
+      title: "Uncertain create recovery",
+      markdown: "# Keep this separate\n",
+      edit_generation: 9,
+      bound_document_id: null,
+    },
+  };
+  const originalJournal = JSON.stringify(journal);
+  localStorage.setItem(draftKey, originalJournal);
+  const record = worldPlanRecord(documentId, worldId, 3);
+  record.title = "Plan B";
+  const planSnapshot = {
+    schema_version: "dmb_workspace_document_snapshot_v2" as const,
+    record,
+    markdown: "# B saved body\n",
+    content_sha256: "b".repeat(64),
+    file_fingerprint: "postgres",
+    file_exists: true,
+    loaded_revision: 3,
+  };
+  window.history.replaceState({}, "", `/plan?world=${worldId}&documentId=${documentId}`);
+  const getContext = vi.spyOn(liveApi, "getManagedWorldPlanContext")
+    .mockRejectedValueOnce(new Error("Context unavailable"))
+    .mockResolvedValue(managedContext(worldId));
+  vi.spyOn(liveApi, "getWorkspaceDocumentAny").mockResolvedValue(record);
+  vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+    schema_version: "dmb_world_container_registry_v1",
+    records: [{ schema_version: "dmb_world_container_record_v1", world_id: worldId, name: "Of Conks", source_root_relpath: "corpus/of-conks-cons-demo-markdown", created_at: "2026-01-01T00:00:00Z" }],
+  });
+  vi.spyOn(liveApi, "listWorldOwnedPlans").mockResolvedValue({
+    schema_version: "dmb_workspace_document_registry_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    records: [record],
+  });
+  vi.spyOn(liveApi, "getWorldOwnedPlanSnapshot").mockResolvedValue(planSnapshot);
+
+  render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${documentId}`}>
+      <VerifiedPlanPage />
+    </SelectedWorldProvider>,
+  );
+
+  expect(await screen.findByText("Context unavailable")).toBeInTheDocument();
+  expect(localStorage.getItem(draftKey)).toBe(originalJournal);
+  expect(screen.queryByText("A private draft")).not.toBeInTheDocument();
+  const editor = screen.getByTestId("world-owned-plan-markdown-editor").querySelector("[contenteditable]");
+  expect(editor).not.toBeNull();
+  expect(editor).toHaveAttribute("contenteditable", "false");
+  expect(screen.queryByRole("button", { name: "Save Plan" })).not.toBeInTheDocument();
+  expect(screen.getByLabelText("Plan document")).toBeDisabled();
+  expect(screen.getByRole("button", { name: "New blank Plan" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Restore recovered draft into this Plan" })).toBeDisabled();
+  const discardButtons = screen.getAllByRole("button", { name: "Discard recovered draft" });
+  expect(discardButtons.length).toBeGreaterThan(0);
+  for (const button of discardButtons) expect(button).toBeDisabled();
+  const retry = screen.getByRole("button", { name: "Retry Plan load" });
+  expect(retry).toBeEnabled();
+
+  fireEvent.click(screen.getByRole("button", { name: "New blank Plan" }));
+  fireEvent.click(screen.getByRole("button", { name: "Restore recovered draft into this Plan" }));
+  fireEvent.click(discardButtons[0]);
+  expect(localStorage.getItem(draftKey)).toBe(originalJournal);
+
+  fireEvent.click(retry);
+  await screen.findByText("B saved body");
+  expect(getContext).toHaveBeenCalledTimes(2);
+  expect(screen.queryByText("A private draft")).not.toBeInTheDocument();
+  expect(screen.getByLabelText("Plan document")).toBeEnabled();
+});
+
+it("keeps another Plan's draft out of a failed document load and retries without changing its journal", async () => {
+  const firstId = "plan-a-document-retry";
+  const documentId = "plan-b-document-retry";
+  const draftKey = `dmb:world-plan-local-draft:v2:${worldId}`;
+  const originalJournal = JSON.stringify({
+    schema_version: "dmb_plan_promotion_recovery_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    document_id: firstId,
+    local_draft_id: `local-plan:${worldId}:draft-a`,
+    title: "Plan A private title",
+    markdown: "# A private draft body\n",
+    revision: 2,
+    edit_generation: 7,
+    pending_write: {
+      phase: "commit",
+      base_revision: 2,
+      prepared_revision: 3,
+      base_markdown: "# A saved body\n",
+      markdown: "# A private draft body\n",
+      edit_generation: 7,
+    },
+  });
+  localStorage.setItem(draftKey, originalJournal);
+  const record = worldPlanRecord(documentId, worldId, 4);
+  record.title = "Plan B";
+  const planSnapshot = {
+    schema_version: "dmb_workspace_document_snapshot_v2" as const,
+    record,
+    markdown: "# B saved body\n",
+    content_sha256: "c".repeat(64),
+    file_fingerprint: "postgres",
+    file_exists: true,
+    loaded_revision: 4,
+  };
+  window.history.replaceState({}, "", `/plan?world=${worldId}&documentId=${documentId}`);
+  const getContext = vi.spyOn(liveApi, "getManagedWorldPlanContext").mockResolvedValue(managedContext(worldId));
+  vi.spyOn(liveApi, "getWorkspaceDocumentAny").mockResolvedValue(record);
+  vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+    schema_version: "dmb_world_container_registry_v1",
+    records: [{ schema_version: "dmb_world_container_record_v1", world_id: worldId, name: "Of Conks", source_root_relpath: "corpus/of-conks-cons-demo-markdown", created_at: "2026-01-01T00:00:00Z" }],
+  });
+  vi.spyOn(liveApi, "listWorldOwnedPlans").mockResolvedValue({
+    schema_version: "dmb_workspace_document_registry_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    records: [worldPlanRecord(firstId, worldId, 2), record],
+  });
+  const getSnapshot = vi.spyOn(liveApi, "getWorldOwnedPlanSnapshot")
+    .mockRejectedValueOnce(new Error("Plan B snapshot unavailable"))
+    .mockResolvedValue(planSnapshot);
+
+  render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${documentId}`}>
+      <VerifiedPlanPage />
+    </SelectedWorldProvider>,
+  );
+
+  expect(await screen.findByText("Plan B snapshot unavailable")).toBeInTheDocument();
+  expect(localStorage.getItem(draftKey)).toBe(originalJournal);
+  expect(screen.queryByText("A private draft body")).not.toBeInTheDocument();
+  expect(screen.queryByText("Plan A private title")).not.toBeInTheDocument();
+  expect(screen.getByLabelText("Plan document")).toBeDisabled();
+  expect(screen.getByRole("button", { name: "New blank Plan" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Retry Plan load" })).toBeEnabled();
+
+  fireEvent.click(screen.getByRole("button", { name: "Retry Plan load" }));
+  await screen.findByText("B saved body");
+  expect(localStorage.getItem(draftKey)).not.toBe(originalJournal);
+  expect(getContext).toHaveBeenCalledTimes(2);
+  expect(getSnapshot).toHaveBeenCalledTimes(2);
+  expect(screen.queryByText("A private draft body")).not.toBeInTheDocument();
+});
+
 it("retires outgoing Plan editing and canvas identity through pending and failed saved-document loads", async () => {
   const firstId = "plan-a";
   const secondId = "plan-b";
@@ -2167,6 +2325,14 @@ it("retires outgoing Plan editing and canvas identity through pending and failed
   expect(screen.getByTestId("world-plan-context-identity")).toHaveTextContent(secondIdentity!);
   expect(screen.getByTestId("world-plan-context-identity")).not.toHaveTextContent(firstIdentity!);
   expect(screen.getByLabelText("Plan document")).toHaveValue(secondId);
+  expect(screen.getByLabelText("Plan document")).toBeDisabled();
+  expect(screen.queryByLabelText("Plan title")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Retry Plan load" })).toBeEnabled();
+
+  fireEvent.click(screen.getByRole("button", { name: "Retry Plan load" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Save Plan" })).toBeEnabled());
+  expect(screen.getByLabelText("Plan document")).toHaveValue(firstId);
+  expect(screen.getByTestId("world-plan-publication")).toHaveAttribute("data-work-object", `document:${firstId}`);
 });
 
 it("migrates a legacy blank World draft to one stable canvas and context identity", async () => {

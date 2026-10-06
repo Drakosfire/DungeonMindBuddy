@@ -262,13 +262,6 @@ function readWorldPlanLocalDraft(worldId: string): WorldPlanLocalDraftV2 | null 
         }
         : null,
     };
-    if (documentId === null && existingLocalId === null) {
-      try {
-        localStorage.setItem(worldPlanLocalDraftKey(worldId), JSON.stringify(draft));
-      } catch {
-        // Keep the recovered content usable for this mount if local storage is full.
-      }
-    }
     return draft;
   } catch {
     return null;
@@ -338,13 +331,14 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const [initialDocumentId] = useState(() =>
     new URLSearchParams(window.location.search).get("documentId")?.trim() || localDraft?.document_id || null,
   );
+  const initialLocalDraft = localDraft?.document_id === initialDocumentId ? localDraft : null;
   const [records, setRecords] = useState<WorldOwnedPlanRecordV2[]>([]);
   const [documentId, setDocumentId] = useState<string | null>(initialDocumentId);
-  const [localDraftId, setLocalDraftId] = useState(() => localDraft?.local_draft_id ?? createWorldPlanLocalDraftId(worldId));
-  const [title, setTitle] = useState(localDraft?.title ?? "Plan");
-  const [markdown, setMarkdown] = useState(localDraft?.markdown ?? "");
+  const [localDraftId, setLocalDraftId] = useState(() => initialLocalDraft?.local_draft_id ?? createWorldPlanLocalDraftId(worldId));
+  const [title, setTitle] = useState(initialLocalDraft?.title ?? "Plan");
+  const [markdown, setMarkdown] = useState(initialLocalDraft?.markdown ?? "");
   const [savedBasis, setSavedBasis] = useState<WorldPlanCardBasis>({ status: "unavailable" });
-  const [createUncertain, setCreateUncertain] = useState(localDraft?.create_uncertain ?? false);
+  const [createUncertain, setCreateUncertain] = useState(initialLocalDraft?.create_uncertain ?? false);
   const [uncertainCreateDraft, setUncertainCreateDraft] = useState(localDraft?.uncertain_create_draft ?? null);
   const [recoveryConflict, setRecoveryConflict] = useState(false);
   const [serverDraft, setServerDraft] = useState<{
@@ -369,6 +363,10 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   );
   const fidelityBlocked = fidelityWarnings.length > 0;
   const [status, setStatus] = useState<LoadStatus>("loading");
+  const [initialLoadAttempt, setInitialLoadAttempt] = useState(0);
+  const [retryTarget, setRetryTarget] = useState<
+    { kind: "initial" } | { kind: "document"; documentId: string } | null
+  >(null);
   const [saving, setSaving] = useState(false);
   const [startingPlay, setStartingPlay] = useState(false);
   const [startPlayError, setStartPlayError] = useState<string | null>(null);
@@ -378,17 +376,17 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const selectionEpochRef = useRef(0);
   const documentIdRef = useRef(initialDocumentId);
   const localDraftIdRef = useRef(localDraftId);
-  const revisionRef = useRef<number | null>(localDraft?.revision ?? null);
-  const titleRef = useRef(localDraft?.title ?? "Plan");
-  const markdownRef = useRef(localDraft?.markdown ?? "");
+  const revisionRef = useRef<number | null>(initialLocalDraft?.revision ?? null);
+  const titleRef = useRef(initialLocalDraft?.title ?? "Plan");
+  const markdownRef = useRef(initialLocalDraft?.markdown ?? "");
   const serverDigestRef = useRef<string | null>(null);
-  const editGenerationRef = useRef(localDraft?.edit_generation ?? 0);
+  const editGenerationRef = useRef(initialLocalDraft?.edit_generation ?? 0);
   const selectionGenerationRef = useRef(0);
   const selectedPlayableEditTargetRef = useRef<SelectedWorldPlanPlayableEditTarget | null>(null);
   const playableEditTargetGenerationRef = useRef(0);
   const playableEditTargetStaleRef = useRef(false);
   selectedPlayableEditTargetRef.current = selectedPlayableEditTarget;
-  const pendingWriteRef = useRef(localDraft?.pending_write ?? null);
+  const pendingWriteRef = useRef(initialLocalDraft?.pending_write ?? null);
   const uncertainCreateDraftRef = useRef(localDraft?.uncertain_create_draft ?? null);
   const savingRef = useRef(false);
   const startPlayRequestRef = useRef(0);
@@ -618,7 +616,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             title: nextTitle,
             markdown: nextMarkdown,
             revision: snapshot.loaded_revision,
-            edit_generation: localDraft?.edit_generation ?? 0,
+            edit_generation: initialLocalDraft?.edit_generation ?? 0,
             pending_write: pendingWriteRef.current,
             create_uncertain: false,
           });
@@ -630,19 +628,23 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           setSavedBasis({ status: "unavailable" });
           persistWorldPlanLocalDraft(worldId, localDraft);
         }
-        if (!cancelled) setStatus("ready");
+        if (!cancelled) {
+          setRetryTarget(null);
+          setStatus("ready");
+        }
       } catch (reason) {
         if (!cancelled) {
           setError(reason instanceof Error ? reason.message : "World Plan could not be loaded.");
+          setRetryTarget({ kind: "initial" });
           setStatus("error");
         }
       }
     })();
     return () => { cancelled = true; };
-  }, [initialDocumentId, localDraft, worldId]);
+  }, [initialDocumentId, initialLoadAttempt, localDraft, worldId]);
 
-  const openPlan = async (nextDocumentId: string) => {
-    if (savingRef.current) return;
+  const openPlan = async (nextDocumentId: string, allowRetry = false) => {
+    if (savingRef.current || (statusRef.current !== "ready" && !allowRetry)) return;
     const epoch = ++selectionEpochRef.current;
     const priorDocumentId = documentIdRef.current;
     startPlayRequestRef.current += 1;
@@ -656,6 +658,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     editorRef.current = null;
     setEditor(null);
     setStatus("loading");
+    setRetryTarget({ kind: "document", documentId: nextDocumentId });
     setError(null);
     try {
       const snapshot = await getWorldOwnedPlanSnapshot(nextDocumentId);
@@ -698,6 +701,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       });
       setMessage(null);
       switchingDocumentRef.current = false;
+      setRetryTarget(null);
       setStatus("ready");
     } catch (reason) {
       if (!selectedViewIsCurrent(epoch, priorDocumentId)) return;
@@ -706,8 +710,19 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     }
   };
 
+  const retryPlanLoad = () => {
+    if (statusRef.current !== "error" || !retryTarget) return;
+    if (retryTarget.kind === "document") {
+      void openPlan(retryTarget.documentId, true);
+      return;
+    }
+    setStatus("loading");
+    setError(null);
+    setInitialLoadAttempt((attempt) => attempt + 1);
+  };
+
   const resetBlankPlan = () => {
-    if (savingRef.current) return;
+    if (statusRef.current !== "ready" || savingRef.current) return;
     ++selectionEpochRef.current;
     startPlayRequestRef.current += 1;
     setStartingPlay(false);
@@ -755,6 +770,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   };
 
   const save = async () => {
+    if (statusRef.current !== "ready") return;
     const fidelityIssues = getLiveFidelityWarnings(editorRef.current?.getJSON());
     if (fidelityIssues.length) {
       if (!fidelityBlocked) setError(markdownFidelityWarningText(fidelityIssues));
@@ -1145,7 +1161,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   };
 
   const useServerVersion = () => {
-    if (!serverDraft) return;
+    if (statusRef.current !== "ready" || !serverDraft) return;
     titleRef.current = serverDraft.title;
     markdownRef.current = serverDraft.markdown;
     serverTitleRef.current = serverDraft.title;
@@ -1179,7 +1195,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const restoreUncertainDraftIntoSelectedPlan = () => {
     const recovery = uncertainCreateDraftRef.current;
     const selectedId = documentIdRef.current;
-    if (!recovery || !selectedId || savingRef.current) return;
+    if (statusRef.current !== "ready" || !recovery || !selectedId || savingRef.current) return;
     const generation = Math.max(editGenerationRef.current, recovery.edit_generation) + 1;
     const boundRecovery = { ...recovery, edit_generation: generation, bound_document_id: selectedId };
     uncertainCreateDraftRef.current = boundRecovery;
@@ -1205,7 +1221,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   };
 
   const discardUncertainDraft = () => {
-    if (!uncertainCreateDraftRef.current || savingRef.current) return;
+    if (statusRef.current !== "ready" || !uncertainCreateDraftRef.current || savingRef.current) return;
     uncertainCreateDraftRef.current = null;
     setUncertainCreateDraft(null);
     setCreateUncertain(false);
@@ -1236,6 +1252,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   };
 
   const persistEditorDraft = (nextTitle: string, nextMarkdown: string, generation: number) => {
+    if (statusRef.current !== "ready") return;
     const saved = readWorldPlanLocalDraft(worldId);
     const existingRecovery = saved?.uncertain_create_draft ?? uncertainCreateDraftRef.current;
     const isPendingCreate = createUncertain || saved?.create_uncertain === true;
@@ -1535,7 +1552,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         documentId={documentId}
         localDraftId={localDraftId}
         records={records}
-        disabled={saving || status === "loading"}
+        disabled={saving || status !== "ready"}
         onSelect={(nextId) => { void openPlan(nextId); }}
         onNewPlan={resetBlankPlan}
       />
@@ -1569,15 +1586,15 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         {createUncertain ? (
           <section role="alert">
             <p>Plan creation may have succeeded, but its response was lost. Refresh Saved Plans and open a candidate if one appears. Its identity is not assumed; the recovered text stays separate until you explicitly restore it into a Plan or discard it. Automatic creation retry is blocked to avoid duplicates.</p>
-            <button type="button" onClick={() => void refreshSavedPlans()} disabled={saving}>Refresh Saved Plans</button>
-            <button type="button" onClick={discardUncertainDraft} disabled={saving}>Discard recovered draft</button>
+            <button type="button" onClick={() => void refreshSavedPlans()} disabled={saving || status !== "ready"}>Refresh Saved Plans</button>
+            <button type="button" onClick={discardUncertainDraft} disabled={saving || status !== "ready"}>Discard recovered draft</button>
           </section>
         ) : null}
         {uncertainCreateDraft && !createUncertain ? (
           <section role="status" aria-label="Recovered Plan draft">
             <p>An unsaved draft from an uncertain Plan creation is preserved separately. It has not been assumed to belong to the selected Plan.</p>
-            {documentId ? <button type="button" onClick={restoreUncertainDraftIntoSelectedPlan} disabled={saving}>Restore recovered draft into this Plan</button> : null}
-            <button type="button" onClick={discardUncertainDraft} disabled={saving}>Discard recovered draft</button>
+            {documentId ? <button type="button" onClick={restoreUncertainDraftIntoSelectedPlan} disabled={saving || status !== "ready"}>Restore recovered draft into this Plan</button> : null}
+            <button type="button" onClick={discardUncertainDraft} disabled={saving || status !== "ready"}>Discard recovered draft</button>
           </section>
         ) : null}
         {recoveryConflict && serverDraft ? (
@@ -1678,6 +1695,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         {status === "loading" ? <p role="status">Loading World Plan…</p> : null}
         {message ? <p role="status">{message}</p> : null}
         {error ? <p role="alert">{error}</p> : null}
+        {status === "error" ? <button type="button" onClick={retryPlanLoad}>Retry Plan load</button> : null}
       </main>
       <WorldPlanAgentConversation
         worldId={worldId}
