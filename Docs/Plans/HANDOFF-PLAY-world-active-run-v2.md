@@ -8,17 +8,22 @@ pr_body_template: |
   - Branch: `codex/play-world-active-run-v2`
 
   ## Verification pointer
-  - Exact cumulative base-to-head diff and test evidence are recorded in this handoff.
-  - Producer paths are the six paths in §4; accepted consumer paths and assembled verification are in §4.1.
+  - Accepted producer head: `63af78136448b6a5aa44e7230bfce784af049dc7`.
+  - Assembled PR head: `f5f47acd836ce2cd658343e707dd320de1d26c9a`.
+  - PR #952 merge: `b234cf407da7ef7bd6fc58e541106066e90e5229`.
+  - Final producer and consumer evidence are recorded in §§4.1 and 5.
 ---
 
 # HANDOFF — World-scoped active Play Run V2
 
-**Status:** ACTIVE — implementation authorized under the accepted PRIME delegation.
+**Status:** MERGED / HISTORICAL — PR #952 merged at `b234cf407da7ef7bd6fc58e541106066e90e5229`; production QC remains open under ROOT.
 **Owner:** APP-STATE / Buddy Play Runtime.
-**Base:** `b41fc3898729acfe3518bceb0c03ab93f149e4f0` (current `main`, merged #951).
-**Branch:** `codex/play-world-active-run-v2`.
-**Topology:** serial; one combined producer+consumer capability PR. The consumer was assembled only after independent acceptance of producer head `63af78136448b6a5aa44e7230bfce784af049dc7`.
+**Implementation base:** `b41fc3898729acfe3518bceb0c03ab93f149e4f0` (after merged #951).
+**Accepted producer head:** `63af78136448b6a5aa44e7230bfce784af049dc7`.
+**Assembled PR head:** `f5f47acd836ce2cd658343e707dd320de1d26c9a`.
+**Merge commit:** `b234cf407da7ef7bd6fc58e541106066e90e5229` (PR #952).
+**Additional main predecessor:** PR #953 merged at `9952737a0a31937f43e0dd52818671374af5b8a4`.
+**Topology:** serial; one combined producer+consumer capability PR. The consumer was assembled only after independent acceptance of the producer head.
 
 ## 1. Mission and invariant
 
@@ -56,7 +61,7 @@ Reuse the current single-row `play.active_run` store. Derive World ownership fro
 
 ## 4. Exclusive producer write lease
 
-This lane may modify only:
+The completed implementation lane modified only:
 
 1. `src/application_state/play/service.py`
 2. `tests/application_state/test_play_active_run_postgres.py`
@@ -65,7 +70,7 @@ This lane may modify only:
 5. `tests/test_world_play_runs_v2.py`
 6. `Docs/Plans/HANDOFF-PLAY-world-active-run-v2.md`
 
-No migration or other path is authorized. If implementation requires a path outside this list, stop and return to PRIME for a lease update.
+No migration or other path was changed. This implementation write lease closed when PR #952 merged.
 
 ## 4.1 Accepted consumer lease and assembly
 
@@ -81,6 +86,8 @@ The World surface uses only the World-scoped v2 active pointer. An empty, malfor
 
 The active-Run deduplication repair is at exact consumer commit `72e2b0bd70fb387c211563b943294f3b9752043a`. `liveApi.test.ts` + `PlaySurfacePage.test.tsx`: 139 passed, including A→external B→reentry B→explicit A, failed A selection→explicit retry, late stale A failure while B is selected, and same-Run progress re-admission without a duplicate PUT. Reentry still performs no PUT. `git diff --check` passed. Typecheck retains the known baseline `ThreatPublicationPanel.tsx:553` `TS2503: Cannot find namespace 'JSX'`; the consumer paths add no type errors. The cumulative base-to-head diff remains 11 paths: five producer implementation files, this handoff, and the five consumer paths. Producer implementation/test blobs remain unchanged from accepted head `63af78136448b6a5aa44e7230bfce784af049dc7`.
 
+PR #952 was independently accepted and merged at `b234cf407da7ef7bd6fc58e541106066e90e5229`. The merged implementation branch writer lease is closed. PR #953's layout repair, merged at `9952737a0a31937f43e0dd52818671374af5b8a4`, is also present in current `main` at `b234cf407da7ef7bd6fc58e541106066e90e5229`.
+
 ## 5. Acceptance evidence
 
 - Select a World Run, read it back for the same World, and preserve timestamp on idempotent selection.
@@ -94,3 +101,7 @@ The active-Run deduplication repair is at exact consumer commit `72e2b0bd70fb387
 ## 6. Operational limits
 
 Use only the disposable PostgreSQL 16 test container `dmb-world-active-run-v2-test-pg16` on `127.0.0.1:54329`. Never touch the operator databases on ports 54330/54331. Do not restart listeners or mutate operator Runs. ROOT owns any runtime restart. Session28 Apply remains held pending its separate trusted human reply.
+
+## 7. Post-merge settlement
+
+At current `main` `b234cf407da7ef7bd6fc58e541106066e90e5229`, the producer and accepted UI consumer are merged and their slice write leases are closed. ROOT owns deployment of the matching stable runtime and the remaining production QC. This handoff records no production-QC pass, rollout completion, or operator Run mutation. Session28 Apply remains held pending trusted human approval.
