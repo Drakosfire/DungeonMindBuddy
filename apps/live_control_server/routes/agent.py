@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import Any, Mapping
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import ValidationError
@@ -22,8 +22,11 @@ from apps.live_control_server.config import (
 from apps.live_control_server.models.agent_turn import (
     AgentConversationHistoryResponse,
     AgentConversationHistoryResponseV2,
+    AgentConversationHistoryResponseV3,
+    AgentConversationHistoryPlanTurnV3,
     AgentConversationHistoryTurn,
     AgentConversationHistoryTurnV2,
+    AgentConversationHistoryTurnV3,
     AgentNewConversationRequest,
     AgentNewConversationResponse,
     AgentTurnContentBasis,
@@ -755,14 +758,23 @@ def _verified_world_id(world_id: str) -> str:
     "/worlds/{world_id}/conversation",
     # The response is selected per snapshot when it contains a policy turn.
     # A fixed v1 model would reject the additive plan_context payload.
-    response_model=AgentConversationHistoryResponse | AgentConversationHistoryResponseV2,
+    response_model=(
+        AgentConversationHistoryResponse
+        | AgentConversationHistoryResponseV2
+        | AgentConversationHistoryResponseV3
+    ),
 )
 def get_world_conversation_history(
     world_id: str,
     request: Request,
     limit: int = Query(default=50, ge=1, le=100),
     before_sequence: int | None = Query(default=None, gt=0),
-) -> AgentConversationHistoryResponse | AgentConversationHistoryResponseV2:
+    include_turn_correlation: bool = False,
+) -> (
+    AgentConversationHistoryResponse
+    | AgentConversationHistoryResponseV2
+    | AgentConversationHistoryResponseV3
+):
     # Authenticate before managed World lookup and every APP-STATE read.
     enforce_native_graph_gm(request)
     verified_world_id = _verified_world_id(world_id)
@@ -809,7 +821,11 @@ def get_world_conversation_history(
         ) from exc
     pointer, conversation, turns = snapshot
     if conversation is None:
-        return AgentConversationHistoryResponse(
+        absent_model = (
+            AgentConversationHistoryResponseV3
+            if include_turn_correlation else AgentConversationHistoryResponse
+        )
+        return absent_model(
             world_id=verified_world_id,
             conversation_state="absent",
             conversation_id=None,
@@ -830,9 +846,23 @@ def get_world_conversation_history(
             "assistant_text": turn.assistant_text,
             "provenance": turn.provenance,
         }
+        if include_turn_correlation:
+            persisted_key = getattr(turn, "idempotency_key", None)
+            if not isinstance(persisted_key, UUID):
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "code": "turn_correlation_unavailable",
+                        "message": "A historical turn has no persisted correlation key.",
+                    },
+                )
+            values["idempotency_key"] = persisted_key
         if turn.graph_context_receipt is not None:
             history_turns.append(
-                AgentConversationHistoryTurnV2(
+                (
+                    AgentConversationHistoryPlanTurnV3
+                    if include_turn_correlation else AgentConversationHistoryTurnV2
+                )(
                     **values,
                     plan_context=project_plan_turn_context(
                         turn, delivery_replay=False
@@ -840,12 +870,17 @@ def get_world_conversation_history(
                 )
             )
         else:
-            history_turns.append(AgentConversationHistoryTurn(**values))
-    response_model = (
-        AgentConversationHistoryResponseV2
-        if contains_plan_context
-        else AgentConversationHistoryResponse
-    )
+            turn_model = (
+                AgentConversationHistoryTurnV3
+                if include_turn_correlation else AgentConversationHistoryTurn
+            )
+            history_turns.append(turn_model(**values))
+    if include_turn_correlation:
+        response_model = AgentConversationHistoryResponseV3
+    elif contains_plan_context:
+        response_model = AgentConversationHistoryResponseV2
+    else:
+        response_model = AgentConversationHistoryResponse
     return response_model(
         world_id=verified_world_id,
         conversation_state="active",

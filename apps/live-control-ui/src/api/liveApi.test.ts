@@ -627,6 +627,20 @@ describe("local operator API destination policy", () => {
     expect(String(fetchSpy.mock.calls[1]?.[1]?.body)).not.toContain("test-only-local-operator-credential-value");
   });
 
+  it("opts into persisted turn correlation only when requested", async () => {
+    const api = await importLiveApiForBaseUrl("");
+    api.setNativeGraphAccessToken("test-only-local-operator-credential-value");
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ schema: "dmb_agent_conversation_history_v3" }),
+    );
+
+    await api.getWorldAgentConversationHistory("world-a", { limit: 25, includeTurnCorrelation: true });
+
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe(
+      "/api/live/agent/worlds/world-a/conversation?limit=25&include_turn_correlation=true",
+    );
+  });
+
   it("blocks World Agent history and New Conversation at a non-loopback API base", async () => {
     const api = await importLiveApiForBaseUrl("https://api.example.invalid");
     api.setNativeGraphAccessToken("test-only-local-operator-credential-value");

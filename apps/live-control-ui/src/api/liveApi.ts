@@ -1540,6 +1540,7 @@ export async function postWorldPlanAgentTurn(
 export interface WorldAgentConversationHistoryOptions {
   limit?: number;
   beforeSequence?: number;
+  includeTurnCorrelation?: boolean;
 }
 
 export async function getWorldAgentConversationHistory(
@@ -1549,6 +1550,7 @@ export async function getWorldAgentConversationHistory(
   const query = new URLSearchParams();
   if (options.limit !== undefined) query.set("limit", String(options.limit));
   if (options.beforeSequence !== undefined) query.set("before_sequence", String(options.beforeSequence));
+  if (options.includeTurnCorrelation === true) query.set("include_turn_correlation", "true");
   const suffix = query.size ? `?${query.toString()}` : "";
   return apiFetch<WorldAgentConversationHistoryResponse>(
     `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation${suffix}`,

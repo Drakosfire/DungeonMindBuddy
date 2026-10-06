@@ -1070,13 +1070,32 @@ export interface WorldAgentConversationHistoryResponseV2 extends Omit<WorldAgent
   turns: WorldAgentConversationHistoryTurnV2[];
 }
 
+/** Opt-in history projection carrying the persisted server idempotency key. */
+export interface WorldAgentConversationHistoryTurnV3 extends WorldAgentConversationHistoryTurnV1 {
+  idempotency_key: string;
+}
+
+export interface WorldAgentConversationHistoryPlanTurnV3 extends WorldAgentConversationHistoryTurnV3 {
+  plan_context: Omit<WorldPlanAgentPlanContextV1, "delivery_replay"> & {
+    delivery_replay?: boolean;
+  };
+}
+
+export interface WorldAgentConversationHistoryResponseV3 extends Omit<WorldAgentConversationHistoryResponseV1, "schema" | "turns"> {
+  schema: "dmb_agent_conversation_history_v3";
+  turns: (WorldAgentConversationHistoryPlanTurnV3 | WorldAgentConversationHistoryTurnV3)[];
+}
+
 export type WorldAgentConversationHistoryTurn =
   | WorldAgentConversationHistoryTurnV1
-  | WorldAgentConversationHistoryTurnV2;
+  | WorldAgentConversationHistoryTurnV2
+  | WorldAgentConversationHistoryTurnV3
+  | WorldAgentConversationHistoryPlanTurnV3;
 
 export type WorldAgentConversationHistoryResponse =
   | WorldAgentConversationHistoryResponseV1
-  | WorldAgentConversationHistoryResponseV2;
+  | WorldAgentConversationHistoryResponseV2
+  | WorldAgentConversationHistoryResponseV3;
 
 export interface WorldAgentNewConversationRequestV1 {
   schema: "dmb_agent_new_conversation_v1";

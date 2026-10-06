@@ -556,12 +556,15 @@ def test_completed_policy_replay_returns_v2_from_stored_receipt_only() -> None:
     assert response.plan_context.completion == turn.completion
     assert response.plan_context.execution is None
     assert response.plan_context.delivery_replay is True
+    assert response.primary_work.revision_used == 7
+    assert isinstance(response.primary_work.revision_used, int)
+    assert response.primary_work.content_basis is None
     assert response.answer.text == "The keeper waits below the arch."
     assert response.answer.graph_grounded is False
 
 
 def _serialized_card_a_history_body(
-    monkeypatch: Any,
+    monkeypatch: Any, *, include_turn_correlation: bool = False,
 ) -> dict[str, Any]:
     """Exercise FastAPI's response serialization for additive policy history."""
     import asyncio
@@ -580,6 +583,7 @@ def _serialized_card_a_history_body(
         assistant_text="A legacy answer",
         provenance=policy_turn.provenance,
         graph_context_receipt=None,
+        idempotency_key=UUID("00000000-0000-4000-8000-000000000044"),
     )
     policy_turn = policy_turn.model_copy(update={"sequence": 2})
     conversation_id = policy_turn.conversation_id
@@ -606,6 +610,7 @@ def _serialized_card_a_history_body(
     assert route.response_model == (
         agent_route.AgentConversationHistoryResponse
         | agent_route.AgentConversationHistoryResponseV2
+        | agent_route.AgentConversationHistoryResponseV3
     )
     request = SimpleNamespace(
         app=SimpleNamespace(state=SimpleNamespace(
@@ -613,7 +618,8 @@ def _serialized_card_a_history_body(
         ))
     )
     response = agent_route.get_world_conversation_history(
-        "world-conversation-test", request, limit=50, before_sequence=None
+        "world-conversation-test", request, limit=50, before_sequence=None,
+        include_turn_correlation=include_turn_correlation,
     )
     serialized = asyncio.run(
         serialize_response(
@@ -666,6 +672,113 @@ def test_history_http_route_serializes_mixed_v1_and_v2_turns(
     }
     assert body["turns"][1]["assistant_text"] == "A legacy answer"
     assert "plan_context" not in body["turns"][1]
+    assert all("idempotency_key" not in turn for turn in body["turns"])
+
+
+def test_opted_in_history_serializes_persisted_correlation_keys(
+    monkeypatch: Any,
+) -> None:
+    body = _serialized_card_a_history_body(
+        monkeypatch, include_turn_correlation=True,
+    )
+
+    assert body["schema"] == "dmb_agent_conversation_history_v3"
+    assert [turn["sequence"] for turn in body["turns"]] == [2, 1]
+    assert all("idempotency_key" in turn for turn in body["turns"])
+    assert body["turns"][1]["idempotency_key"] == "00000000-0000-4000-8000-000000000044"
+    assert "plan_context" in body["turns"][0]
+    assert "plan_context" not in body["turns"][1]
+
+
+def test_history_http_opt_in_uses_persisted_key_not_durable_turn_id(
+    monkeypatch: Any,
+) -> None:
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from uuid import NAMESPACE_URL, uuid5
+
+    from apps.live_control_server.routes import agent as agent_route
+
+    client_turn_id = uuid4()
+    persisted_key = uuid5(
+        NAMESPACE_URL, f"dmb-agent-turn:world:one:{client_turn_id}"
+    )
+    policy_turn = _policy_turn().model_copy(update={
+        "idempotency_key": persisted_key,
+    })
+    assert policy_turn.turn_id != client_turn_id
+
+    class HistoryService:
+        def get_world_pointer(self, _world_id: str) -> Any:
+            return type("Pointer", (), {
+                "revision": 1,
+                "active_conversation_id": policy_turn.conversation_id,
+            })()
+
+        def get_active_conversation(self, _world_id: str) -> Any:
+            return type("Conversation", (), {
+                "conversation_id": policy_turn.conversation_id,
+            })()
+
+        def list_turns(self, *_args: Any, **_kwargs: Any) -> list[Turn]:
+            return [policy_turn]
+
+    monkeypatch.setattr(agent_route, "_verified_world_id", lambda value: value)
+    monkeypatch.setattr(agent_route, "enforce_native_graph_gm", lambda _request: None)
+    app = FastAPI()
+    app.include_router(agent_route.router, prefix="/api/live")
+    app.state.agent_conversation_service = HistoryService()
+
+    with TestClient(app) as client:
+        legacy = client.get("/api/live/agent/worlds/world:one/conversation")
+        correlated = client.get(
+            "/api/live/agent/worlds/world:one/conversation",
+            params={"include_turn_correlation": "true"},
+        )
+        correlated_retry = client.get(
+            "/api/live/agent/worlds/world:one/conversation",
+            params={"include_turn_correlation": "true"},
+        )
+        original_turn = policy_turn
+        policy_turn = policy_turn.model_copy(update={"idempotency_key": None})
+        uncorrelatable = client.get(
+            "/api/live/agent/worlds/world:one/conversation",
+            params={"include_turn_correlation": "true"},
+        )
+        legacy_without_key = client.get(
+            "/api/live/agent/worlds/world:one/conversation"
+        )
+        policy_turn = original_turn
+        app.state.agent_conversation_service = type("EmptyHistoryService", (), {
+            "get_world_pointer": lambda _self, _world_id: type("Pointer", (), {
+                "revision": 1, "active_conversation_id": None,
+            })(),
+            "get_active_conversation": lambda _self, _world_id: None,
+        })()
+        absent = client.get(
+            "/api/live/agent/worlds/world:one/conversation",
+            params={"include_turn_correlation": "true"},
+        )
+
+    assert legacy.status_code == 200
+    assert correlated.status_code == 200
+    assert correlated_retry.status_code == 200
+    assert correlated_retry.content == correlated.content
+    assert len(correlated_retry.json()["turns"]) == 1
+    assert legacy.json()["schema"] == "dmb_agent_conversation_history_v2"
+    assert "idempotency_key" not in legacy.json()["turns"][0]
+    assert correlated.json()["schema"] == "dmb_agent_conversation_history_v3"
+    row = correlated.json()["turns"][0]
+    assert row["idempotency_key"] == str(persisted_key)
+    assert row["turn_id"] == str(policy_turn.turn_id)
+    assert row["turn_id"] != str(client_turn_id)
+    assert row["plan_context"]["receipt"]["plan_basis"]["object_revision"] == 7
+    assert uncorrelatable.status_code == 409
+    assert uncorrelatable.json()["detail"]["code"] == "turn_correlation_unavailable"
+    assert legacy_without_key.status_code == 200
+    assert absent.status_code == 200
+    assert absent.json()["schema"] == "dmb_agent_conversation_history_v3"
+    assert absent.json()["turns"] == []
 
 
 def test_execution_claim_fence_serializes_appends_with_latest_revision() -> None:
@@ -1077,6 +1190,7 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
             assert authorize(adjusted) is True
             assert on_provider_lifecycle({"transition": "sdk_entered"}) is True
             assert on_provider_lifecycle({"transition": "response_received"}) is True
+            basis.has_divergent_working_copy = True
             return AgentRuntimeResult(
                 status="ok", final_text=typed_answer,
                 runtime_session_id="synthetic-plan-session",
@@ -1243,6 +1357,10 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     )
     assert response.schema_ == "dmb_agent_turn_response_v2"
     assert response.plan_context.delivery_replay is False
+    assert response.primary_work.revision_used == 7
+    assert response.primary_work.content_basis is not None
+    assert response.primary_work.content_basis.has_divergent_working_copy is False
+    assert basis.has_divergent_working_copy is True
     assert response.plan_context.completion is not None
     assert response.answer.text == "The keeper waits."
     assert fake.turn is not None and fake.turn.status == "completed"

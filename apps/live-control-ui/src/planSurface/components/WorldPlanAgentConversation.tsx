@@ -11,6 +11,7 @@ import type {
   WorldPlanAgentTurnResolvedSummary,
   WorldPlanActionProjection,
   WorldAgentConversationHistoryResponse,
+  WorldAgentConversationHistoryResponseV3,
   WorldAgentConversationHistoryTurn,
   WorldAgentConversationHistoryTurnV1,
   WorldAgentNewConversationRequestV1,
@@ -932,19 +933,26 @@ function isHistoryReference(value: unknown): boolean {
 
 function isHistoryTurn(
   value: unknown,
-  schema: "dmb_agent_conversation_history_v1" | "dmb_agent_conversation_history_v2",
+  schema: "dmb_agent_conversation_history_v1" | "dmb_agent_conversation_history_v2" | "dmb_agent_conversation_history_v3",
   worldId: string,
 ): boolean {
   if (!isRecord(value)) return false;
   const hasPlanContext = Object.prototype.hasOwnProperty.call(value, "plan_context");
   const keys = ["turn_id", "sequence", "lifecycle_status", "user_text", "assistant_text", "provenance"];
   if (schema === "dmb_agent_conversation_history_v2" && hasPlanContext) keys.push("plan_context");
+  if (schema === "dmb_agent_conversation_history_v3") {
+    keys.push("idempotency_key");
+    if (hasPlanContext) keys.push("plan_context");
+  }
   if (!hasExactKeys(value, keys)
     || typeof value.turn_id !== "string" || !value.turn_id.trim()
     || !isPositiveRevision(value.sequence)
     || !["accepted", "running", "completed", "failed", "interrupted"].includes(String(value.lifecycle_status))
     || typeof value.user_text !== "string"
-    || !isNullableString(value.assistant_text)) return false;
+    || !isNullableString(value.assistant_text)
+    || (schema === "dmb_agent_conversation_history_v3"
+      && (typeof value.idempotency_key !== "string"
+        || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.idempotency_key)))) return false;
   const provenance = value.provenance;
   if (!hasExactKeys(provenance, [
     "world_id", "surface_resolution", "surface_id", "surface_instance_id", "primary_work", "supporting_work", "selected_object",
@@ -957,7 +965,8 @@ function isHistoryTurn(
     || !Array.isArray(provenance.supporting_work)
     || !provenance.supporting_work.every(isHistoryReference)
     || !isHistoryReference(provenance.selected_object)) return false;
-  if (schema !== "dmb_agent_conversation_history_v2" || !hasPlanContext) return !hasPlanContext;
+  if (!hasPlanContext) return true;
+  if (schema === "dmb_agent_conversation_history_v1") return false;
   if (!isWorldPlanContextProjection(value.plan_context, undefined, true)
     || !isHistoryPlanContextBound(value.plan_context, provenance, worldId)) return false;
   const hasCompletion = value.plan_context.completion !== null;
@@ -1008,7 +1017,9 @@ function isHistoryPlanContextBound(value: unknown, provenance: unknown, worldId:
 function isWorldConversationHistory(value: unknown): value is WorldAgentConversationHistoryResponse {
   if (!isRecord(value)) return false;
   const schema = value.schema;
-  if (schema !== "dmb_agent_conversation_history_v1" && schema !== "dmb_agent_conversation_history_v2") return false;
+  if (schema !== "dmb_agent_conversation_history_v1"
+    && schema !== "dmb_agent_conversation_history_v2"
+    && schema !== "dmb_agent_conversation_history_v3") return false;
   if (!hasExactKeys(value, [
     "schema", "world_id", "conversation_state", "conversation_id", "active_conversation_id", "pointer_revision", "turns", "next_before_sequence",
   ])
@@ -1093,19 +1104,51 @@ function historyPageMatchesPendingAskConversation(
     && page.pointer_revision === origin.pointerRevision + 1;
 }
 
+const URL_NAMESPACE_UUID = "6ba7b811-9dad-11d1-80b4-00c04fd430c8";
+
+function uuidBytes(value: string): Uint8Array {
+  return Uint8Array.from(value.replaceAll("-", "").match(/.{2}/g) ?? [], (pair) => Number.parseInt(pair, 16));
+}
+
+async function pendingGraphAskIdempotencyKey(stored: StoredPendingAsk): Promise<string | null> {
+  const envelope = stored.envelope;
+  if (!envelope?.request.plan_context_policy) return null;
+  const worldId = envelope.origin.worldId;
+  const turnId = envelope.request.turn_id;
+  if (!worldId || !turnId) return null;
+  try {
+    const namespace = uuidBytes(URL_NAMESPACE_UUID);
+    if (namespace.length !== 16) return null;
+    const name = new TextEncoder().encode(`dmb-agent-turn:${worldId}:${turnId}`);
+    const input = new Uint8Array(namespace.length + name.length);
+    input.set(namespace);
+    input.set(name, namespace.length);
+    const digest = new Uint8Array(await crypto.subtle.digest("SHA-1", input));
+    digest[6] = (digest[6]! & 0x0f) | 0x50;
+    digest[8] = (digest[8]! & 0x3f) | 0x80;
+    const hex = Array.from(digest.slice(0, 16), (byte) => byte.toString(16).padStart(2, "0")).join("");
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  } catch {
+    return null;
+  }
+}
+
 function completedHistoryTurnMatchesPendingGraphAsk(
   page: WorldAgentConversationHistoryResponse,
   turn: WorldAgentConversationHistoryTurn,
   stored: StoredPendingAsk,
+  idempotencyKey: string,
 ): boolean {
   const envelope = stored.envelope;
   if (!envelope) return false;
   const { request, origin } = envelope;
-  if (!request.plan_context_policy
+  if (page.schema !== "dmb_agent_conversation_history_v3"
+    || !("idempotency_key" in turn)
+    || turn.idempotency_key !== idempotencyKey
+    || !request.plan_context_policy
     || page.world_id !== origin.worldId
     || !historyPageMatchesPendingAskConversation(page, origin)
     || turn.lifecycle_status !== "completed"
-    || turn.turn_id !== request.turn_id
     || turn.user_text !== request.message
     || typeof turn.assistant_text !== "string"
     || !turn.assistant_text.trim()
@@ -1138,33 +1181,46 @@ function reconcileCompletedGraphPendingAsks(
   page: WorldAgentConversationHistoryResponse,
   worldId: string,
   documentId: string,
-): { refreshPendingList: boolean; storageError: string | null } {
+  isCurrent: () => boolean,
+): Promise<{ refreshPendingList: boolean; storageError: string | null }> {
+  if (page.schema !== "dmb_agent_conversation_history_v3") {
+    return Promise.resolve({ refreshPendingList: false, storageError: null });
+  }
   const pending = readPendingAsks(worldId, documentId)
     .filter((stored) => stored.envelope?.request.plan_context_policy);
-  const candidates = pending.flatMap((stored) => {
-    const matchingTurns = page.turns.filter((turn) =>
-      completedHistoryTurnMatchesPendingGraphAsk(page, turn, stored));
-    return matchingTurns.length === 1 ? [{ stored, turnId: matchingTurns[0]!.turn_id }] : [];
-  });
-  const matchesByTurnId = new Map<string, number>();
-  for (const candidate of candidates) {
-    matchesByTurnId.set(candidate.turnId, (matchesByTurnId.get(candidate.turnId) ?? 0) + 1);
-  }
+  return Promise.all(pending.map(async (stored) => ({
+    stored,
+    key: await pendingGraphAskIdempotencyKey(stored),
+  }))).then((correlated) => {
+    if (!isCurrent()) return { refreshPendingList: false, storageError: null };
+    const candidates = correlated.flatMap(({ stored, key }) => {
+      if (!key) return [];
+      const matchingRows = page.turns.filter((turn) => "idempotency_key" in turn && turn.idempotency_key === key);
+      if (matchingRows.length !== 1) return [];
+      const turn = matchingRows[0]!;
+      return completedHistoryTurnMatchesPendingGraphAsk(page, turn, stored, key)
+        ? [{ stored, key }]
+        : [];
+    });
+    const matchesByKey = new Map<string, number>();
+    for (const candidate of candidates) matchesByKey.set(candidate.key, (matchesByKey.get(candidate.key) ?? 0) + 1);
 
   let refreshPendingList = false;
   let storageError: string | null = null;
-  for (const candidate of candidates) {
-    if (matchesByTurnId.get(candidate.turnId) !== 1) continue;
-    const result = clearPendingAskIfUnchanged(candidate.stored);
-    if (result.kind === "cleared") {
-      dispatchPendingAskSettlement(candidate.stored, result);
-    } else {
-      // A replacement envelope or storage failure stays visible and intact.
-      refreshPendingList = true;
-      if (result.kind === "unavailable") storageError = result.message;
+    for (const candidate of candidates) {
+      if (!isCurrent()) break;
+      if (matchesByKey.get(candidate.key) !== 1) continue;
+      const result = clearPendingAskIfUnchanged(candidate.stored);
+      if (result.kind === "cleared") {
+        dispatchPendingAskSettlement(candidate.stored, result);
+      } else {
+        // A replacement envelope or storage failure stays visible and intact.
+        refreshPendingList = true;
+        if (result.kind === "unavailable") storageError = result.message;
+      }
     }
-  }
-  return { refreshPendingList, storageError };
+    return { refreshPendingList, storageError };
+  });
 }
 
 async function validateWorldPlanResponse(
@@ -1625,7 +1681,10 @@ export function WorldPlanAgentConversation({
     }
 
     setHistoryLoading(true);
-    void getWorldAgentConversationHistory(verifiedWorldId, { limit: WORLD_HISTORY_PAGE_SIZE })
+    void getWorldAgentConversationHistory(verifiedWorldId, {
+      limit: WORLD_HISTORY_PAGE_SIZE,
+      includeTurnCorrelation: true,
+    })
       .then(async (page) => {
         if (!active || generation !== historyGenerationRef.current) return;
         const validState = isWorldConversationHistory(page)
@@ -1637,7 +1696,13 @@ export function WorldPlanAgentConversation({
         }
         if (!active || generation !== historyGenerationRef.current) return;
         try {
-          const reconciliation = reconcileCompletedGraphPendingAsks(page, verifiedWorldId, documentId);
+          const reconciliation = await reconcileCompletedGraphPendingAsks(
+            page,
+            verifiedWorldId,
+            documentId,
+            () => active && generation === historyGenerationRef.current,
+          );
+          if (!active || generation !== historyGenerationRef.current) return;
           if (reconciliation.refreshPendingList) refreshPendingAskList();
           if (reconciliation.storageError) setPendingAskLoadError(reconciliation.storageError);
         } catch (reason) {
@@ -2113,6 +2178,7 @@ export function WorldPlanAgentConversation({
       const page = await getWorldAgentConversationHistory(current.world_id, {
         limit: WORLD_HISTORY_PAGE_SIZE,
         beforeSequence: cursor,
+        includeTurnCorrelation: true,
       });
       const latest = historySnapshotRef.current;
       if (generation !== historyGenerationRef.current) return;
@@ -2128,7 +2194,7 @@ export function WorldPlanAgentConversation({
       }
       const merged: WorldAgentConversationHistoryResponse = {
         ...latest,
-        turns: mergeHistoryTurns(page.turns, latest.turns),
+        turns: (mergeHistoryTurns(page.turns, latest.turns) as WorldAgentConversationHistoryResponseV3["turns"]),
         next_before_sequence: page.next_before_sequence,
       };
       historySnapshotRef.current = merged;
@@ -2911,26 +2977,39 @@ export function WorldPlanAgentConversation({
         </section>
       ) : null}
       {pendingAsks.some((item) => item.envelope) ? (
-        <section aria-label="Pending Ask recovery">
-          <h3>Pending Ask recovery</h3>
-          <p>These saved requests are not transcript turns. Legacy Ask retries keep the exact original request; Graph-context Asks require a World-history refresh and are never automatically reposted.</p>
+        <section className="world-plan-agent-conversation__recovery" aria-label="Pending Ask recovery">
+          <h3>Pending recovery · {pendingAsks.filter((item) => item.envelope !== null).length}</h3>
+          {pendingAsks.some((item) => item.envelope?.request.plan_context_policy) ? (
+            <>
+              <p>Graph Asks stay saved until exact server history confirms completion. They are never reposted automatically.</p>
+              <button type="button" onClick={refreshWorldHistory} disabled={historyLoading || !scopeMatches}>
+                Refresh World history
+              </button>
+            </>
+          ) : null}
           {pendingAsks.filter((item): item is StoredPendingAsk & { envelope: WorldPlanPendingAskEnvelope } => item.envelope !== null)
-            .map((item) => (
-              <div key={item.storageKey}>
-                <p>Turn {item.envelope.request.turn_id} · committed revision {item.envelope.origin.revisionN} · origin conversation {item.envelope.origin.conversationId ?? "not yet active"}</p>
-                {item.envelope.request.plan_context_policy ? (
-                  <p role="status">This Graph-context Ask is not replayed from browser recovery. Refresh World history to check its outcome before taking another action.</p>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={sending || composing || requestRef.current !== null}
-                    onClick={() => { void sendPendingAsk(item); }}
-                  >
-                    Retry saved Ask
-                  </button>
-                )}
-              </div>
-            ))}
+            .map((item) => {
+              const graphAsk = Boolean(item.envelope.request.plan_context_policy);
+              return (
+                <details key={item.storageKey}>
+                  <summary>{graphAsk ? "Graph Ask" : "Ask"} · {item.envelope.request.turn_id}</summary>
+                  <p>Turn ID · <code>{item.envelope.request.turn_id}</code></p>
+                  <p>Status · {graphAsk ? "awaiting exact completed history match" : "saved for exact-ID retry"}</p>
+                  <p>Plan object revision {item.envelope.origin.objectRevision} · content revision {item.envelope.origin.revisionN} · conversation {item.envelope.origin.conversationId ?? "not yet active"}</p>
+                  {graphAsk ? (
+                    <p role="status">Refresh checks the original World conversation and exact Plan basis. The saved Ask is not sent again.</p>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={sending || composing || requestRef.current !== null}
+                      onClick={() => { void sendPendingAsk(item); }}
+                    >
+                      Retry saved Ask
+                    </button>
+                  )}
+                </details>
+              );
+            })}
         </section>
       ) : null}
       <details className="world-plan-agent-conversation__advanced">
