@@ -1884,7 +1884,9 @@ describe("World Plan conversation consumer", () => {
   });
 
   it("refreshes World history without reposting or clearing an unmatched Graph Ask", async () => {
-    const { api, postAsk } = await leavePendingGraphAsk({ kind: "scene", id: "scene:opening" });
+    const playableTarget = { kind: "scene" as const, id: "scene:opening" };
+    const { api, mounted, postAsk } = await leavePendingGraphAsk(playableTarget);
+    mounted.rerender(conversationElement({ playableTarget, selectionGeneration: 0, editBridge: {} }));
     const beforeRefresh = api.historyCalls.length;
 
     fireEvent.click(screen.getByRole("button", { name: "Refresh World history" }));
@@ -1893,7 +1895,19 @@ describe("World Plan conversation consumer", () => {
     expect(api.historyCalls.at(-1)).toMatchObject({ includeTurnCorrelation: true });
     expect(pendingAskKeys()).toHaveLength(1);
     expect(postAsk).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("region", { name: "Pending Ask recovery" })).toHaveTextContent("Pending recovery · 1");
+    const conversation = screen.getByRole("region", { name: "Saved World Plan conversation" });
+    const body = conversation.querySelector(".world-plan-agent-conversation__body");
+    const transcript = screen.getByRole("region", { name: "World conversation transcript" });
+    const recovery = screen.getByRole("region", { name: "Pending Ask recovery" });
+    const composer = screen.getByRole("region", { name: "Conversation composer" });
+    expect(recovery).toHaveTextContent("Pending recovery · 1");
+    expect(body).not.toBeNull();
+    expect(body).toContainElement(transcript);
+    expect(body).toContainElement(recovery);
+    expect(body).not.toContainElement(composer);
+    expect(composer?.parentElement).toBe(conversation);
+    expect(composer).toContainElement(screen.getByRole("radio", { name: "Discuss" }));
+    expect(composer).toContainElement(screen.getByRole("radio", { name: "Propose edit" }));
   });
 
   it("does not heuristically clear a text-matching v2 history row without persisted correlation", async () => {

@@ -2828,6 +2828,7 @@ export function WorldPlanAgentConversation({
           </button>
         </div>
       </header>
+      <div className="world-plan-agent-conversation__body">
       {authorizationBlocked ? (
         <section className="world-plan-agent-conversation__auth-notice" role="alert">
           <p>{pendingGraphAsk
@@ -3109,6 +3110,7 @@ export function WorldPlanAgentConversation({
           ) : null}
         </div>
       </details>
+      </div>
       {editBridge ? (
         <section className="world-plan-agent-conversation__composer" aria-label="Conversation composer">
           <form onSubmit={submitComposer}>

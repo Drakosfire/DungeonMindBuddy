@@ -6,11 +6,21 @@
   min-height: 0;
   height: 100%;
   padding: 1rem;
+  overflow: hidden;
+  color: var(--ui-text-primary);
+  background: var(--ui-background-ops);
+}
+
+.world-plan-agent-conversation__body {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+  min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  color: var(--ui-text-primary);
-  background: var(--ui-background-ops);
 }
 
 .world-plan-agent-conversation__header {
@@ -123,12 +133,11 @@
 
 .world-plan-agent-conversation__turns {
   display: grid;
-  flex: 1 1 0;
+  flex: 0 0 auto;
   align-content: start;
   gap: 0.7rem;
-  min-height: 8rem;
-  overflow: auto;
-  overscroll-behavior: contain;
+  min-height: 0;
+  overflow: visible;
   padding: 0.1rem 0.2rem 0.2rem 0;
 }
 
@@ -258,14 +267,11 @@
 }
 
 .world-plan-agent-conversation__composer {
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
   flex: 0 0 auto;
   padding: 0.8rem;
   border: 1px solid var(--ui-border-strong);
   border-radius: var(--ui-radius-sm);
-  background: var(--ui-background-surface);
+  background: var(--ui-background-ops);
 }
 
 .world-plan-agent-conversation__composer form {
@@ -351,6 +357,12 @@
 @media (max-width: 42rem) {
   .world-plan-agent-conversation {
     padding: 0.75rem;
+  }
+
+  .world-plan-agent-conversation__composer {
+    max-height: min(48dvh, 22rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   .world-plan-agent-conversation__header {
