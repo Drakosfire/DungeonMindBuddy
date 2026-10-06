@@ -477,6 +477,8 @@ export function PlaySurfacePage() {
   const loadSerialRef = useRef(0);
   const rebaseRequestRef = useRef(0);
   const activeWriteRunRef = useRef<string | null>(null);
+  const activeWorldWriteFenceRef = useRef<{ key: string } | null>(null);
+  const settledWorldWriteIntentRef = useRef<{ key: string; status: "succeeded" | "failed" } | null>(null);
   const skipWorldActiveWriteRunRef = useRef<string | null>(null);
   const activeWriteQueueRef = useRef<Promise<void>>(Promise.resolve());
   const isCurrentRoute = useCallback((route: PlayRouteIdentity) => (
@@ -602,27 +604,62 @@ export function PlaySurfacePage() {
         setLoadStatus("ready");
         setDetail(null);
         setMutationStatus("idle");
-        if (!skipWorldActiveWrite && activeWriteRunRef.current !== loaded.run_id) {
-          activeWriteRunRef.current = loaded.run_id;
-          activeWriteQueueRef.current = activeWriteQueueRef.current
-            .catch(() => undefined)
-            .then(async () => {
-              if (loadSerialRef.current !== serial) return;
-              try {
-                if (selectedWorldId) {
-                  await putWorldPlayActiveRun(selectedWorldId, loaded.run_id);
-                } else {
-                  await putPlayActiveRun(loaded.run_id);
+        if (selectedWorldId) {
+          const intentKey = JSON.stringify([
+            routeIdentityRef.current.generation,
+            selectedWorldId,
+            loaded.run_id,
+          ]);
+          const sameIntentInFlight = activeWorldWriteFenceRef.current?.key === intentKey;
+          const sameIntentSettled = settledWorldWriteIntentRef.current?.key === intentKey;
+          if (!skipWorldActiveWrite && !sameIntentInFlight && !sameIntentSettled) {
+            activeWorldWriteFenceRef.current = { key: intentKey };
+            activeWriteQueueRef.current = activeWriteQueueRef.current
+              .catch(() => undefined)
+              .then(async () => {
+                if (loadSerialRef.current !== serial) {
+                  if (activeWorldWriteFenceRef.current?.key === intentKey) {
+                    activeWorldWriteFenceRef.current = null;
+                  }
+                  return;
                 }
-              } catch (error) {
-                if (loadSerialRef.current !== serial) return;
-                setDetail(
-                  error instanceof Error
-                    ? `Run is open, but Resume state could not be saved: ${error.message}`
-                    : "Run is open, but Resume state could not be saved.",
-                );
-              }
-            });
+                try {
+                  await putWorldPlayActiveRun(selectedWorldId, loaded.run_id);
+                  if (activeWorldWriteFenceRef.current?.key === intentKey) {
+                    activeWorldWriteFenceRef.current = null;
+                    settledWorldWriteIntentRef.current = { key: intentKey, status: "succeeded" };
+                  }
+                } catch (error) {
+                  if (activeWorldWriteFenceRef.current?.key === intentKey) {
+                    activeWorldWriteFenceRef.current = null;
+                    settledWorldWriteIntentRef.current = { key: intentKey, status: "failed" };
+                  }
+                  if (loadSerialRef.current !== serial) return;
+                  setDetail(
+                    error instanceof Error
+                      ? `Run is open, but Resume state could not be saved: ${error.message}`
+                      : "Run is open, but Resume state could not be saved.",
+                  );
+                }
+              });
+        }
+      } else if (!skipWorldActiveWrite && activeWriteRunRef.current !== loaded.run_id) {
+        activeWriteRunRef.current = loaded.run_id;
+        activeWriteQueueRef.current = activeWriteQueueRef.current
+          .catch(() => undefined)
+          .then(async () => {
+            if (loadSerialRef.current !== serial) return;
+            try {
+              await putPlayActiveRun(loaded.run_id);
+            } catch (error) {
+              if (loadSerialRef.current !== serial) return;
+              setDetail(
+                error instanceof Error
+                  ? `Run is open, but Resume state could not be saved: ${error.message}`
+                  : "Run is open, but Resume state could not be saved.",
+              );
+            }
+          });
         }
       } else {
         setLoadStatus(nextAdmission.status);

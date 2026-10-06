@@ -15,6 +15,7 @@ import {
   listWorldPlayRuns,
   putPlayActiveRun,
   putWorldPlayActiveRun,
+  putWorldPlayRunProgress,
   putWorldPlayRunRebase,
 } from "../api/liveApi";
 import { LiveApiError } from "../api/liveApi";
@@ -39,6 +40,7 @@ vi.mock("../api/liveApi", async (importOriginal) => ({
   putWorldPlayRunRebase: vi.fn(),
   putPlayActiveRun: vi.fn(),
   putWorldPlayActiveRun: vi.fn(),
+  putWorldPlayRunProgress: vi.fn(),
 }));
 vi.mock("../selectedWorld/SelectedWorldContext", () => ({
   useSelectedWorld: () => ({
@@ -55,6 +57,7 @@ vi.mock("../graphLens", () => ({ useOptionalWorldGraphLens: () => null }));
 vi.mock("./StartRunPanel", () => ({ StartRunPanel: () => <div>Start Run</div> }));
 
 const runId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const secondRunId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const artifactId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const workRevisionId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const newerWorkRevisionId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
@@ -138,6 +141,29 @@ const worldPlayableMarkdown = [
   "The wardens wait.",
   "",
 ].join("\n");
+
+function mockReadyWorldRuns(runIds: string[] = [runId]) {
+  vi.mocked(listWorldPlayRuns).mockResolvedValue({
+    schema_version: "dmb_world_play_runs_list_v2",
+    records: runIds.map((selectedRunId) => worldRun({ run_id: selectedRunId })),
+  });
+  vi.mocked(getWorldPlayRun).mockImplementation(async (selectedRunId) => worldRun({ run_id: selectedRunId }));
+  vi.mocked(getWorldPlayRunReferenceManifest).mockImplementation(async (selectedRunId) => ({
+    schema_version: "dmb_play_run_reference_manifest_v1",
+    run_id: selectedRunId,
+    playable_artifact_id: artifactId,
+    playable_revision: 1,
+    playable_content_sha256: shaA,
+    elements: [
+      { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
+      { kind: "scene", element_id: "scene:gate" },
+    ],
+    sealed_at: "2026-09-30T00:00:00Z",
+  }));
+  vi.mocked(getWorldOwnedRunbookCommittedRevision).mockResolvedValue(
+    worldCommitted({ markdown: worldPlayableMarkdown }),
+  );
+}
 
 describe("Play selected-World admission", () => {
   beforeEach(() => {
@@ -235,6 +261,111 @@ describe("Play selected-World admission", () => {
     expect(putWorldPlayActiveRun).not.toHaveBeenCalled();
     expect(getPlayActiveRun).not.toHaveBeenCalled();
     expect(putPlayActiveRun).not.toHaveBeenCalled();
+  });
+
+  it("selects the same Run again after another World pointer is read and the chooser is reopened", async () => {
+    mockReadyWorldRuns([runId, secondRunId]);
+    vi.mocked(getWorldPlayActiveRun).mockResolvedValueOnce(worldActiveRun(secondRunId));
+    window.history.replaceState({}, "", `/play?world=world-b&run=${runId}`);
+    const user = userEvent.setup();
+    render(<PlaySurfacePage />);
+
+    expect(await screen.findByTestId("play-surface-ready")).toBeInTheDocument();
+    await waitFor(() => expect(putWorldPlayActiveRun).toHaveBeenCalledExactlyOnceWith("world-b", runId));
+
+    await act(async () => {
+      window.history.pushState({}, "", "/play?world=world-b");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    await waitFor(() => expect(window.location.search).toBe(`?world=world-b&run=${secondRunId}`));
+    expect(await screen.findByTestId("play-surface-ready")).toBeInTheDocument();
+    expect(putWorldPlayActiveRun).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByTestId("play-start-new-run"));
+    const firstRun = await screen.findByRole("link", { name: new RegExp(runId) });
+    await user.click(firstRun);
+    expect(await screen.findByTestId("play-surface-ready")).toBeInTheDocument();
+
+    await waitFor(() => expect(putWorldPlayActiveRun).toHaveBeenCalledTimes(2));
+    expect(putWorldPlayActiveRun).toHaveBeenLastCalledWith("world-b", runId);
+  });
+
+  it("allows an explicit same-Run selection to retry after the active-pointer PUT fails", async () => {
+    mockReadyWorldRuns([runId]);
+    vi.mocked(putWorldPlayActiveRun)
+      .mockRejectedValueOnce(new Error("pointer write failed"))
+      .mockResolvedValue(worldActiveRun());
+    window.history.replaceState({}, "", `/play?world=world-b&run=${runId}`);
+    const user = userEvent.setup();
+    render(<PlaySurfacePage />);
+
+    expect(await screen.findByTestId("play-surface-ready")).toBeInTheDocument();
+    expect(await screen.findByTestId("play-active-run-save-warning")).toHaveTextContent("pointer write failed");
+    expect(putWorldPlayActiveRun).toHaveBeenCalledExactlyOnceWith("world-b", runId);
+
+    await user.click(screen.getByTestId("play-start-new-run"));
+    await user.click(await screen.findByRole("link", { name: new RegExp(runId) }));
+    expect(await screen.findByTestId("play-surface-ready")).toBeInTheDocument();
+
+    await waitFor(() => expect(putWorldPlayActiveRun).toHaveBeenCalledTimes(2));
+    expect(putWorldPlayActiveRun).toHaveBeenLastCalledWith("world-b", runId);
+  });
+
+  it("does not repeat the active-pointer PUT when a same-Run progress update triggers re-admission", async () => {
+    mockReadyWorldRuns([runId]);
+    vi.mocked(putWorldPlayRunProgress).mockResolvedValue(worldRun({
+      run_revision: 2,
+      playable_revision: 2,
+      playable_work_revision_id: newerWorkRevisionId,
+      playable_content_sha256: shaB,
+    }));
+    window.history.replaceState({}, "", `/play?world=world-b&run=${runId}`);
+    const user = userEvent.setup();
+    render(<PlaySurfacePage />);
+
+    expect(await screen.findByTestId("play-surface-ready")).toBeInTheDocument();
+    await waitFor(() => expect(putWorldPlayActiveRun).toHaveBeenCalledExactlyOnceWith("world-b", runId));
+    await user.click(screen.getByRole("button", { name: "Set current Scene" }));
+
+    await waitFor(() => expect(getWorldPlayRun).toHaveBeenCalledTimes(2));
+    expect(await screen.findByTestId("play-surface-ready")).toBeInTheDocument();
+    expect(putWorldPlayRunProgress).toHaveBeenCalledTimes(1);
+    expect(putWorldPlayActiveRun).toHaveBeenCalledExactlyOnceWith("world-b", runId);
+  });
+
+  it("keeps a newer World selection fence when an older active-pointer PUT fails late", async () => {
+    mockReadyWorldRuns([runId, secondRunId]);
+    const firstSelection = deferred<Awaited<ReturnType<typeof putWorldPlayActiveRun>>>();
+    vi.mocked(putWorldPlayActiveRun).mockImplementation(async (_worldId, selectedRunId) => {
+      if (selectedRunId === runId) return firstSelection.promise;
+      return worldActiveRun(selectedRunId);
+    });
+    vi.mocked(putWorldPlayRunProgress).mockResolvedValue(worldRun({
+      run_id: secondRunId,
+      run_revision: 2,
+      playable_revision: 2,
+      playable_work_revision_id: newerWorkRevisionId,
+      playable_content_sha256: shaB,
+    }));
+    window.history.replaceState({}, "", `/play?world=world-b&run=${runId}`);
+    const user = userEvent.setup();
+    render(<PlaySurfacePage />);
+
+    expect(await screen.findByTestId("play-surface-ready")).toBeInTheDocument();
+    await waitFor(() => expect(putWorldPlayActiveRun).toHaveBeenCalledExactlyOnceWith("world-b", runId));
+    await user.click(screen.getByTestId("play-start-new-run"));
+    await user.click(await screen.findByRole("link", { name: new RegExp(secondRunId) }));
+    expect(await screen.findByTestId("play-surface-ready")).toBeInTheDocument();
+
+    await act(async () => {
+      firstSelection.reject(new Error("stale pointer PUT failed"));
+    });
+    await waitFor(() => expect(putWorldPlayActiveRun).toHaveBeenCalledTimes(2));
+    expect(putWorldPlayActiveRun).toHaveBeenLastCalledWith("world-b", secondRunId);
+
+    await user.click(screen.getByRole("button", { name: "Set current Scene" }));
+    await waitFor(() => expect(getWorldPlayRun).toHaveBeenCalledTimes(3));
+    expect(putWorldPlayActiveRun).toHaveBeenCalledTimes(2);
   });
 
   it("reopens an exact discarded World Plan revision without requiring the Plan to remain active or current", async () => {
