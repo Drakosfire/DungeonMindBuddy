@@ -21,6 +21,7 @@ import {
   DEFAULT_PLANNING_MANIFEST_PATH,
   getArtifact,
   getPlayActiveRun,
+  getWorldPlayActiveRun,
   getBuildSourceNavigation,
   getCapabilities,
   getGraphIngestRuns,
@@ -36,6 +37,7 @@ import {
   putPlayRun,
   getPlayRun,
   putPlayActiveRun,
+  putWorldPlayActiveRun,
   putPlayRunReferenceManifest,
   getWorldPlayRun,
   getWorldPlayRunReferenceManifest,
@@ -3318,6 +3320,31 @@ describe("Play Run start API", () => {
     expect(String(fetchSpy.mock.calls[0]?.[0])).toBe("/api/live/play-active-run");
     expect(fetchSpy.mock.calls[0]?.[1]?.method).toBeUndefined();
     expect(String(fetchSpy.mock.calls[1]?.[0])).toBe("/api/live/play-active-run");
+    expect(fetchSpy.mock.calls[1]?.[1]?.method).toBe("PUT");
+    expect(JSON.parse(String(fetchSpy.mock.calls[1]?.[1]?.body))).toEqual({ run_id: runId });
+  });
+
+  it("reads and writes the World-scoped active Run through the v2 endpoint", async () => {
+    const active = {
+      schema_version: "dmb_world_play_active_run_v2" as const,
+      world_id: "world-b",
+      run_id: runId,
+      selected_at: "2026-10-06T00:00:00Z",
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(mockJsonResponse(active))
+      .mockResolvedValueOnce(mockJsonResponse(active));
+
+    await expect(getWorldPlayActiveRun("world-b")).resolves.toEqual(active);
+    await expect(putWorldPlayActiveRun("world-b", runId)).resolves.toEqual(active);
+
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe(
+      "/api/live/world-play-runs/v2/active?world_id=world-b",
+    );
+    expect(fetchSpy.mock.calls[0]?.[1]?.method).toBeUndefined();
+    expect(String(fetchSpy.mock.calls[1]?.[0])).toBe(
+      "/api/live/world-play-runs/v2/active?world_id=world-b",
+    );
     expect(fetchSpy.mock.calls[1]?.[1]?.method).toBe("PUT");
     expect(JSON.parse(String(fetchSpy.mock.calls[1]?.[1]?.body))).toEqual({ run_id: runId });
   });

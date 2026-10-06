@@ -14,6 +14,7 @@ from application_state.errors import ApplicationStateError
 from application_state.play import service as play_service
 
 PLAY_ACTIVE_RUN_SCHEMA = "dmb_play_active_run_v1"
+WORLD_PLAY_ACTIVE_RUN_SCHEMA = "dmb_world_play_active_run_v2"
 _UTC_TIMESTAMP_RE = re.compile(r".*Z$")
 
 
@@ -100,6 +101,44 @@ class PlayActiveRunState(BaseModel):
         return self
 
 
+class WorldPlayActiveRunState(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    schema_version: Literal["dmb_world_play_active_run_v2"] = (
+        WORLD_PLAY_ACTIVE_RUN_SCHEMA
+    )
+    world_id: str
+    run_id: str | None
+    selected_at: str | None
+
+    @field_validator("world_id")
+    @classmethod
+    def _validate_world_id(cls, value: str) -> str:
+        if not value.strip() or value != value.strip():
+            raise ValueError("world_id must be non-empty and canonical")
+        return value
+
+    @field_validator("run_id")
+    @classmethod
+    def _validate_run_id(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _canonical_uuid(value, field_name="run_id")
+
+    @field_validator("selected_at")
+    @classmethod
+    def _validate_selected_at(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _utc_iso(value)
+
+    @model_validator(mode="after")
+    def _validate_selection_pair(self) -> "WorldPlayActiveRunState":
+        if (self.run_id is None) != (self.selected_at is None):
+            raise ValueError("run_id and selected_at must both be present or both be null")
+        return self
+
+
 def _empty_state() -> PlayActiveRunState:
     return PlayActiveRunState(run_id=None, selected_at=None)
 
@@ -121,6 +160,25 @@ def get_play_active_run(root: Path) -> PlayActiveRunState:
     return _state_from_row(row)
 
 
+def get_world_play_active_run(
+    root: Path, *, world_id: str
+) -> WorldPlayActiveRunState:
+    """Read the singleton selection only when it belongs to this exact World."""
+
+    del root
+    try:
+        row = play_service.get_world_play_active_run(world_id=world_id)
+    except ApplicationStateError as exc:
+        raise _map_application_state(exc) from exc
+    if row is None:
+        return WorldPlayActiveRunState(world_id=world_id, run_id=None, selected_at=None)
+    return WorldPlayActiveRunState(
+        world_id=world_id,
+        run_id=str(row.run_id),
+        selected_at=_iso_z(row.selected_at),
+    )
+
+
 def set_play_active_run(root: Path, *, run_id: str) -> PlayActiveRunState:
     """Persist focus on an existing PostgreSQL Run after proving its sealed identity."""
 
@@ -134,6 +192,27 @@ def set_play_active_run(root: Path, *, run_id: str) -> PlayActiveRunState:
     except ApplicationStateError as exc:
         raise _map_application_state(exc) from exc
     return _state_from_row(row)
+
+
+def set_world_play_active_run(
+    root: Path, *, world_id: str, run_id: str
+) -> WorldPlayActiveRunState:
+    """Select an exact World-owned Run through the existing singleton pointer."""
+
+    del root
+    try:
+        canonical_run_id = _canonical_uuid(run_id, field_name="run_id")
+    except ValueError as exc:
+        raise PlayActiveRunError(str(exc), status_code=422) from exc
+    try:
+        row = play_service.set_world_play_active_run(world_id, canonical_run_id)
+    except ApplicationStateError as exc:
+        raise _map_application_state(exc) from exc
+    return WorldPlayActiveRunState(
+        world_id=world_id,
+        run_id=str(row.run_id),
+        selected_at=_iso_z(row.selected_at),
+    )
 
 
 def clear_play_active_run(root: Path) -> PlayActiveRunState:

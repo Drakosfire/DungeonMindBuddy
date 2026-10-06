@@ -75,6 +75,7 @@ import type {
   WorldOwnedCommittedRevisionV2,
   WorldOwnedRunbookCommittedRevisionV2,
   PlayActiveRunState,
+  WorldPlayActiveRunStateV2,
   PlayRunRecord,
   WorldPlayRunRecordV2,
   WorldPlayRunsListResponseV2,
@@ -2131,6 +2132,35 @@ function assertWorldPlayRun(
   }
 }
 
+function assertWorldPlayActiveRunState(
+  value: unknown,
+  worldId: string,
+  expectedRunId?: string,
+): asserts value is WorldPlayActiveRunStateV2 {
+  if (typeof value !== "object" || value === null) {
+    throw new TypeError("World active-Run response is not an object.");
+  }
+  const state = value as Partial<WorldPlayActiveRunStateV2>;
+  if (
+    Object.keys(value).sort().join(",") !== "run_id,schema_version,selected_at,world_id"
+    || state.schema_version !== "dmb_world_play_active_run_v2"
+    || state.world_id !== worldId
+    || !(state.run_id === null || (
+      typeof state.run_id === "string"
+      && CANONICAL_API_UUID.test(state.run_id)
+      && (expectedRunId === undefined || state.run_id === expectedRunId)
+    ))
+    || !(state.selected_at === null || (
+      typeof state.selected_at === "string"
+      && state.selected_at.trim() !== ""
+      && Number.isFinite(Date.parse(state.selected_at))
+    ))
+    || ((state.run_id === null) !== (state.selected_at === null))
+  ) {
+    throw new TypeError("World active-Run response does not match the scoped V2 contract.");
+  }
+}
+
 function worldQuery(worldId: string): string {
   const cleaned = worldId.trim();
   if (!cleaned || cleaned !== worldId) throw new TypeError("World ID must be non-empty and canonical.");
@@ -2585,6 +2615,26 @@ export async function putPlayActiveRun(runId: string): Promise<PlayActiveRunStat
     method: "PUT",
     body: JSON.stringify({ run_id: runId }),
   });
+}
+
+export async function getWorldPlayActiveRun(worldId: string): Promise<WorldPlayActiveRunStateV2> {
+  const state = await apiFetch<WorldPlayActiveRunStateV2>(
+    `/api/live/world-play-runs/v2/active?${worldQuery(worldId)}`,
+  );
+  assertWorldPlayActiveRunState(state, worldId);
+  return state;
+}
+
+export async function putWorldPlayActiveRun(
+  worldId: string,
+  runId: string,
+): Promise<WorldPlayActiveRunStateV2> {
+  const state = await apiFetch<WorldPlayActiveRunStateV2>(
+    `/api/live/world-play-runs/v2/active?${worldQuery(worldId)}`,
+    { method: "PUT", body: JSON.stringify({ run_id: runId }) },
+  );
+  assertWorldPlayActiveRunState(state, worldId, runId);
+  return state;
 }
 
 export async function listPlayRuns(args: {

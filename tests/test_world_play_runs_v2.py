@@ -784,6 +784,103 @@ def test_world_v2_create_replay_progress_manifest_and_campaign_v1_fence(
     assert client.get("/api/live/play-runs").json()["records"] == []
 
 
+def test_world_v2_active_run_routes_are_world_scoped_and_static(
+    application_state_dsn: str, client: TestClient
+) -> None:
+    world_id = f"active-world-{uuid4()}"
+    other_world_id = f"other-world-{uuid4()}"
+    run_id = str(uuid4())
+    work_object, revision = _create_world_runbook(world_id)
+    created = client.put(
+        f"/api/live/world-play-runs/v2/{run_id}",
+        params={"world_id": world_id},
+        json=_create_body(work_object, revision),
+    )
+    assert created.status_code == 200, created.text
+
+    active_path = "/api/live/world-play-runs/v2/active"
+    empty = client.get(active_path, params={"world_id": world_id})
+    assert empty.status_code == 200, empty.text
+    assert empty.json() == {
+        "schema_version": "dmb_world_play_active_run_v2",
+        "world_id": world_id,
+        "run_id": None,
+        "selected_at": None,
+    }
+
+    selected = client.put(
+        active_path,
+        params={"world_id": world_id},
+        json={"run_id": run_id},
+    )
+    assert selected.status_code == 200, selected.text
+    selection = selected.json()
+    assert selection["schema_version"] == "dmb_world_play_active_run_v2"
+    assert selection["world_id"] == world_id
+    assert selection["run_id"] == run_id
+    assert selection["selected_at"].endswith("Z")
+    assert client.get(active_path, params={"world_id": world_id}).json() == selection
+
+    other_world = client.get(active_path, params={"world_id": other_world_id})
+    assert other_world.status_code == 200
+    assert other_world.json() == {
+        "schema_version": "dmb_world_play_active_run_v2",
+        "world_id": other_world_id,
+        "run_id": None,
+        "selected_at": None,
+    }
+    rejected = client.put(
+        active_path,
+        params={"world_id": other_world_id},
+        json={"run_id": run_id},
+    )
+    assert rejected.status_code == 404
+    assert client.get(active_path, params={"world_id": world_id}).json() == selection
+
+    # The legacy singleton adapter only exposes campaign selections.
+    assert client.get("/api/live/play-active-run").json() == {
+        "schema_version": "dmb_play_active_run_v1",
+        "run_id": None,
+        "selected_at": None,
+    }
+    assert (
+        client.put(
+            "/api/live/play-active-run", json={"run_id": run_id}
+        ).status_code
+        == 404
+    )
+    assert (
+        client.put(
+            active_path,
+            params={"world_id": world_id},
+            json={"run_id": run_id, "extra": "forbidden"},
+        ).status_code
+        == 422
+    )
+
+
+def test_world_active_run_response_requires_null_pair_and_strict_fields() -> None:
+    from pydantic import ValidationError
+
+    from apps.live_control_server.services.play_active_run import (
+        WorldPlayActiveRunState,
+    )
+
+    with pytest.raises(ValidationError):
+        WorldPlayActiveRunState(
+            world_id="world-a",
+            run_id=None,
+            selected_at="2026-10-06T00:00:00Z",
+        )
+    with pytest.raises(ValidationError):
+        WorldPlayActiveRunState(
+            world_id="world-a",
+            run_id=None,
+            selected_at=None,
+            campaign_id="campaign",
+        )
+
+
 def test_create_rejects_wrong_world_and_bad_sha_without_persisting(
     application_state_dsn: str, client: TestClient
 ) -> None:

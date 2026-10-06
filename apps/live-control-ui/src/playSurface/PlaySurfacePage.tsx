@@ -5,6 +5,7 @@ import {
   getWorldOwnedPlanCommittedRevision,
   getWorldOwnedRunbookCommittedRevision,
   getWorldPlayRun,
+  getWorldPlayActiveRun,
   getWorldPlayRunReferenceManifest,
   getPlayActiveRun,
   getPlayRun,
@@ -14,12 +15,14 @@ import {
   listPlayRuns,
   putWorldPlayRunRebase,
   putPlayActiveRun,
+  putWorldPlayActiveRun,
 } from "../api/liveApi";
 import type {
   AnyPlayRunRecord,
   WorldOwnedCommittedRevisionV2,
   WorldOwnedRunbookCommittedRevisionV2,
   WorldPlayRunRecordV2,
+  WorldPlayActiveRunStateV2,
 } from "../api/types";
 import { usePublishAgentSurfaceContext } from "../agentInteraction/usePublishAgentSurfaceContext";
 import { usePublishSurfaceInteraction } from "../agentInteraction/usePublishSurfaceInteraction";
@@ -186,6 +189,22 @@ function classifyLoadError(error: unknown): Extract<PlayLoadStatus, "miss" | "un
     if (error.status === 422 || error.status === 409) return "integrity_failure";
   }
   return "unavailable";
+}
+
+function isWorldPlayActiveRunState(value: unknown, worldId: string): value is WorldPlayActiveRunStateV2 {
+  if (typeof value !== "object" || value === null) return false;
+  const state = value as Partial<WorldPlayActiveRunStateV2>;
+  if (
+    state.schema_version !== "dmb_world_play_active_run_v2"
+    || state.world_id !== worldId
+    || !(state.run_id === null || (typeof state.run_id === "string" && isCanonicalUuid(state.run_id)))
+    || !(state.selected_at === null || (
+      typeof state.selected_at === "string"
+      && state.selected_at.trim() !== ""
+      && Number.isFinite(Date.parse(state.selected_at))
+    ))
+  ) return false;
+  return (state.run_id === null) === (state.selected_at === null);
 }
 
 type PlayPublicationAuthority = {
@@ -458,12 +477,19 @@ export function PlaySurfacePage() {
   const loadSerialRef = useRef(0);
   const rebaseRequestRef = useRef(0);
   const activeWriteRunRef = useRef<string | null>(null);
+  const activeWorldWriteFenceRef = useRef<{ key: string } | null>(null);
+  const settledWorldWriteIntentRef = useRef<{ key: string; status: "succeeded" | "failed" } | null>(null);
+  const skipWorldActiveWriteRunRef = useRef<string | null>(null);
   const activeWriteQueueRef = useRef<Promise<void>>(Promise.resolve());
   const isCurrentRoute = useCallback((route: PlayRouteIdentity) => (
     routeIdentityRef.current.generation === route.generation
   ), []);
 
   const loadExactRun = useCallback(async (runId: string) => {
+    const skipWorldActiveWrite = Boolean(
+      selectedWorldId && skipWorldActiveWriteRunRef.current === runId,
+    );
+    if (skipWorldActiveWrite) skipWorldActiveWriteRunRef.current = null;
     const serial = loadSerialRef.current + 1;
     loadSerialRef.current = serial;
     setLoadStatus("loading");
@@ -578,23 +604,62 @@ export function PlaySurfacePage() {
         setLoadStatus("ready");
         setDetail(null);
         setMutationStatus("idle");
-        if (activeWriteRunRef.current !== loaded.run_id) {
-          activeWriteRunRef.current = loaded.run_id;
-          activeWriteQueueRef.current = activeWriteQueueRef.current
-            .catch(() => undefined)
-            .then(async () => {
+        if (selectedWorldId) {
+          const intentKey = JSON.stringify([
+            routeIdentityRef.current.generation,
+            selectedWorldId,
+            loaded.run_id,
+          ]);
+          const sameIntentInFlight = activeWorldWriteFenceRef.current?.key === intentKey;
+          const sameIntentSettled = settledWorldWriteIntentRef.current?.key === intentKey;
+          if (!skipWorldActiveWrite && !sameIntentInFlight && !sameIntentSettled) {
+            activeWorldWriteFenceRef.current = { key: intentKey };
+            activeWriteQueueRef.current = activeWriteQueueRef.current
+              .catch(() => undefined)
+              .then(async () => {
+                if (loadSerialRef.current !== serial) {
+                  if (activeWorldWriteFenceRef.current?.key === intentKey) {
+                    activeWorldWriteFenceRef.current = null;
+                  }
+                  return;
+                }
+                try {
+                  await putWorldPlayActiveRun(selectedWorldId, loaded.run_id);
+                  if (activeWorldWriteFenceRef.current?.key === intentKey) {
+                    activeWorldWriteFenceRef.current = null;
+                    settledWorldWriteIntentRef.current = { key: intentKey, status: "succeeded" };
+                  }
+                } catch (error) {
+                  if (activeWorldWriteFenceRef.current?.key === intentKey) {
+                    activeWorldWriteFenceRef.current = null;
+                    settledWorldWriteIntentRef.current = { key: intentKey, status: "failed" };
+                  }
+                  if (loadSerialRef.current !== serial) return;
+                  setDetail(
+                    error instanceof Error
+                      ? `Run is open, but Resume state could not be saved: ${error.message}`
+                      : "Run is open, but Resume state could not be saved.",
+                  );
+                }
+              });
+        }
+      } else if (!skipWorldActiveWrite && activeWriteRunRef.current !== loaded.run_id) {
+        activeWriteRunRef.current = loaded.run_id;
+        activeWriteQueueRef.current = activeWriteQueueRef.current
+          .catch(() => undefined)
+          .then(async () => {
+            if (loadSerialRef.current !== serial) return;
+            try {
+              await putPlayActiveRun(loaded.run_id);
+            } catch (error) {
               if (loadSerialRef.current !== serial) return;
-              try {
-                await putPlayActiveRun(loaded.run_id);
-              } catch (error) {
-                if (loadSerialRef.current !== serial) return;
-                setDetail(
-                  error instanceof Error
-                    ? `Run is open, but Resume state could not be saved: ${error.message}`
-                    : "Run is open, but Resume state could not be saved.",
-                );
-              }
-            });
+              setDetail(
+                error instanceof Error
+                  ? `Run is open, but Resume state could not be saved: ${error.message}`
+                  : "Run is open, but Resume state could not be saved.",
+              );
+            }
+          });
         }
       } else {
         setLoadStatus(nextAdmission.status);
@@ -709,8 +774,35 @@ export function PlaySurfacePage() {
       setMutationStatus("idle");
       void (async () => {
         try {
-          const active = await getPlayActiveRun();
+          const active = selectedWorldId
+            ? await getWorldPlayActiveRun(selectedWorldId)
+            : await getPlayActiveRun();
           if (loadSerialRef.current !== serial) return;
+          if (selectedWorldId) {
+            if (!isWorldPlayActiveRunState(active, selectedWorldId)) {
+              setLoadStatus("chooser");
+              setDetail("World Resume state is malformed or belongs to another World. Choose a Run explicitly.");
+              return;
+            }
+            if (active.run_id === null) {
+              setLoadStatus("chooser");
+              return;
+            }
+            const activeRun = await getWorldPlayRun(active.run_id, selectedWorldId);
+            if (loadSerialRef.current !== serial) return;
+            if (
+              activeRun.schema_version !== "dmb_world_play_run_record_v2"
+              || activeRun.run_id !== active.run_id
+              || activeRun.world_id !== selectedWorldId
+            ) {
+              setLoadStatus("chooser");
+              setDetail("Resume state points to another World. Choose a Run explicitly.");
+              return;
+            }
+            skipWorldActiveWriteRunRef.current = activeRun.run_id;
+            replaceToRun(activeRun.run_id);
+            return;
+          }
           if (active.run_id == null) {
             setLoadStatus("chooser");
             return;
@@ -719,15 +811,6 @@ export function PlaySurfacePage() {
             setLoadStatus("chooser");
             setDetail("Resume state is malformed. Choose a Run explicitly.");
             return;
-          }
-          if (selectedWorldId) {
-            const activeRun = await getWorldPlayRun(active.run_id, selectedWorldId);
-            if (loadSerialRef.current !== serial) return;
-            if (activeRun.world_id !== selectedWorldId) {
-              setLoadStatus("chooser");
-              setDetail("Resume state points to another World. Choose a Run explicitly.");
-              return;
-            }
           }
           replaceToRun(active.run_id);
         } catch (error) {

@@ -2278,6 +2278,13 @@ export interface PlayActiveRunState {
   selected_at: string | null;
 }
 
+export interface WorldPlayActiveRunStateV2 {
+  schema_version: "dmb_world_play_active_run_v2";
+  world_id: string;
+  run_id: string | null;
+  selected_at: string | null;
+}
+
 export interface SetPlayActiveRunRequest {
   run_id: string;
 }

@@ -1,11 +1,22 @@
 from __future__ import annotations
 
 from pathlib import Path
-from threading import Thread
+from threading import Event, Thread, current_thread
+from time import monotonic, sleep
+from uuid import uuid4
 
+import psycopg
 import pytest
 from fastapi.testclient import TestClient
 
+from application_state.content.service import commit_runbook, create_world_runbook
+from application_state.errors import ApplicationStateError
+from application_state.play.service import (
+    create_world_play_run,
+    get_world_play_active_run,
+    get_world_play_run_aggregate,
+    set_world_play_active_run,
+)
 from apps.live_control_server.main import create_app
 from apps.live_control_server.services.play_active_run import (
     PlayActiveRunError,
@@ -59,6 +70,179 @@ def test_missing_row_is_public_null_and_set_is_idempotent(
     assert second == first
     assert fetch_play_active_run_row(application_state_dsn)["run_id"] == RUN_ID_A
     assert not leftover_active_run_path(tmp_path).exists()
+
+
+def _create_world_run(*, world_id: str, run_id: str):
+    created = create_world_runbook(title=f"Active Run {world_id}", world_id=world_id)
+    work_object, revision = commit_runbook(
+        str(created.work_object_id),
+        "<!-- dmb-playable-element:v2 kind=beat id=beat:opening -->\n## Opening\n",
+        expected_revision=created.object_revision,
+    )
+    return create_world_play_run(
+        world_id=world_id,
+        run_id=run_id,
+        playable_artifact_id=work_object.work_object_id,
+        expected_playable_revision=revision.revision_n,
+        expected_playable_content_sha256=revision.content_sha256,
+    )
+
+
+def test_world_selection_resumes_and_projects_empty_without_mutation(
+    application_state_dsn: str, tmp_path: Path
+) -> None:
+    world_a = f"world-a-{uuid4()}"
+    world_b = f"world-b-{uuid4()}"
+    world_run = _create_world_run(world_id=world_a, run_id=RUN_ID_A)
+    _create_world_run(world_id=world_b, run_id=RUN_ID_B)
+
+    assert set_world_play_active_run(world_a, RUN_ID_A).run_id == world_run.run.run_id
+    selected = set_world_play_active_run(world_a, RUN_ID_A)
+    assert selected == set_world_play_active_run(world_a, RUN_ID_A)
+    assert get_world_play_active_run(world_id=world_a) == selected
+
+    before = fetch_play_active_run_row(application_state_dsn)
+    assert get_world_play_active_run(world_id=world_b) is None
+    assert get_play_active_run(tmp_path).run_id is None
+    assert fetch_play_active_run_row(application_state_dsn) == before
+
+    with pytest.raises(ApplicationStateError) as wrong_owner:
+        set_world_play_active_run(world_b, RUN_ID_A)
+    assert wrong_owner.value.status_code == 404
+    assert fetch_play_active_run_row(application_state_dsn) == before
+    assert get_world_play_active_run(world_id=world_a) == selected
+
+
+def test_concurrent_same_world_selection_waits_for_first_commit_and_is_idempotent(
+    application_state_dsn: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import application_state.play.service as play_service
+
+    world_id = f"world-same-run-race-{uuid4()}"
+    _create_world_run(world_id=world_id, run_id=RUN_ID_A)
+
+    first_upsert_complete = Event()
+    release_first = Event()
+    second_lock_attempted = Event()
+    second_lock_acquired = Event()
+    second_pid: list[int] = []
+    upsert_callers: list[str] = []
+    results: dict[str, object] = {}
+    errors: list[BaseException] = []
+    original_lock_run = play_service.repo.lock_run
+    original_upsert_active_run = play_service.repo.upsert_active_run
+
+    def observe_run_lock(conn, run_id):
+        if current_thread().name == "same-run-selection-second":
+            second_pid.append(conn.execute("SELECT pg_backend_pid()").fetchone()[0])
+            second_lock_attempted.set()
+            row = original_lock_run(conn, run_id)
+            second_lock_acquired.set()
+            return row
+        return original_lock_run(conn, run_id)
+
+    def hold_first_transaction(conn, *, run_id, selected_at):
+        upsert_callers.append(current_thread().name)
+        row = original_upsert_active_run(conn, run_id=run_id, selected_at=selected_at)
+        if current_thread().name == "same-run-selection-first":
+            first_upsert_complete.set()
+            if not release_first.wait(timeout=10):
+                raise TimeoutError("test did not release the first selection transaction")
+        return row
+
+    monkeypatch.setattr(play_service.repo, "lock_run", observe_run_lock)
+    monkeypatch.setattr(play_service.repo, "upsert_active_run", hold_first_transaction)
+
+    def select(name: str) -> None:
+        try:
+            results[name] = set_world_play_active_run(world_id, RUN_ID_A)
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    first = Thread(target=select, args=("first",), name="same-run-selection-first")
+    second = Thread(target=select, args=("second",), name="same-run-selection-second")
+    first.start()
+    second_started = False
+    observed_lock_wait = False
+    try:
+        assert first_upsert_complete.wait(timeout=5)
+        second.start()
+        second_started = True
+        assert second_lock_attempted.wait(timeout=5)
+        deadline = monotonic() + 5
+        with psycopg.connect(application_state_dsn, autocommit=True) as observer:
+            while monotonic() < deadline:
+                row = observer.execute(
+                    "SELECT wait_event_type FROM pg_stat_activity WHERE pid = %s",
+                    (second_pid[0],),
+                ).fetchone()
+                if row is not None and row[0] == "Lock":
+                    observed_lock_wait = True
+                    break
+                sleep(0.01)
+        assert observed_lock_wait, "second selector never waited on PostgreSQL's Run lock"
+        assert not second_lock_acquired.is_set()
+    finally:
+        release_first.set()
+        first.join(timeout=10)
+        if second_started:
+            second.join(timeout=10)
+
+    assert not first.is_alive()
+    assert not second.is_alive()
+    assert errors == []
+    assert second_lock_acquired.is_set()
+    assert upsert_callers == ["same-run-selection-first"]
+    assert results["first"] == results["second"]
+    persisted = fetch_play_active_run_row(application_state_dsn)
+    assert persisted is not None
+    assert persisted["run_id"] == RUN_ID_A
+    assert persisted["selected_at"] == getattr(results["first"], "selected_at")
+
+
+def test_campaign_active_run_remains_legacy_and_world_projection_is_empty(
+    application_state_dsn: str, tmp_path: Path
+) -> None:
+    snapshot = create_committed_runbook(tmp_path, name="active-campaign-control")
+    create_run(tmp_path, snapshot, run_id=RUN_ID_A)
+    selected = set_play_active_run(tmp_path, run_id=RUN_ID_A)
+    assert get_play_active_run(tmp_path) == selected
+    assert get_world_play_active_run(world_id="unrelated-world") is None
+
+    world_id = f"world-v2-{uuid4()}"
+    _create_world_run(world_id=world_id, run_id=RUN_ID_B)
+    set_world_play_active_run(world_id, RUN_ID_B)
+    assert get_play_active_run(tmp_path).run_id is None
+    assert fetch_play_active_run_row(application_state_dsn)["run_id"] == RUN_ID_B
+
+
+def test_corrupt_world_aggregate_cannot_be_selected_or_healed(
+    application_state_dsn: str,
+) -> None:
+    from tests.application_state.play_runtime_helpers import (
+        corrupt_play_run_manifest_document,
+        unknown_schema_manifest,
+    )
+
+    world_id = f"world-corrupt-{uuid4()}"
+    _create_world_run(world_id=world_id, run_id=RUN_ID_A)
+    set_world_play_active_run(world_id, RUN_ID_A)
+    manifest = get_world_play_run_aggregate(
+        RUN_ID_A, world_id=world_id
+    ).manifest.manifest
+    corrupt_play_run_manifest_document(
+        application_state_dsn,
+        RUN_ID_A,
+        unknown_schema_manifest(manifest),
+    )
+    before = fetch_play_active_run_row(application_state_dsn)
+    with pytest.raises(ApplicationStateError) as corrupt:
+        set_world_play_active_run(world_id, RUN_ID_A)
+    assert corrupt.value.status_code == 500
+    assert fetch_play_active_run_row(application_state_dsn) == before
+    with pytest.raises(ApplicationStateError) as read_corrupt:
+        get_world_play_active_run(world_id=world_id)
+    assert read_corrupt.value.status_code == 500
 
 
 def test_clear_removes_row_and_failed_set_does_not_clear(
