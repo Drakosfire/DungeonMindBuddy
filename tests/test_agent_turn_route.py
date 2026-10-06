@@ -124,7 +124,6 @@ def test_auto_plan_world_rejects_generic_graph_reads_and_non_plan_surface() -> N
     [
         ("graph_revision_unavailable", 409),
         ("provider_envelope_over_budget", 413),
-        ("provider_authorization_denied", 503),
     ],
 )
 def test_policy_predispatch_failure_has_strict_typed_projection(
@@ -176,7 +175,16 @@ def test_real_user_question_still_has_the_public_8000_character_limit() -> None:
         AgentTurnRequest.model_validate(payload)
 
 
-def test_policy_unknown_outcome_never_projects_as_predispatch(monkeypatch: Any) -> None:
+@pytest.mark.parametrize(
+    ("failure_code", "provider_dispatched"),
+    [
+        ("graph_revision_unavailable", None),
+        ("provider_authorization_denied", False),
+    ],
+)
+def test_policy_unproven_or_unmapped_failure_stays_generic(
+    monkeypatch: Any, failure_code: str, provider_dispatched: bool | None,
+) -> None:
     from fastapi import HTTPException
     from apps.live_control_server.routes import agent as agent_route
     from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
@@ -196,14 +204,15 @@ def test_policy_unknown_outcome_never_projects_as_predispatch(monkeypatch: Any) 
     monkeypatch.setattr(agent_route, "enforce_native_graph_gm", lambda _request: None)
     monkeypatch.setattr(agent_route, "execute_agent_turn", lambda *_args, **_kwargs: (_ for _ in ()).throw(
         AgentTurnServiceError(
-            "SDK entry could not be ruled out.",
-            code="graph_revision_unavailable", status_code=503,
-            provider_dispatched=None,
+            "No typed public projection is established.",
+            code=failure_code, status_code=503,
+            provider_dispatched=provider_dispatched,
         )
     ))
     with pytest.raises(HTTPException) as caught:
         agent_route.post_agent_turn(body, SimpleNamespace(app=SimpleNamespace()))
     assert caught.value.status_code == 503
+    assert caught.value.detail["code"] == failure_code
     assert "plan_context_failure" not in caught.value.detail
 
 

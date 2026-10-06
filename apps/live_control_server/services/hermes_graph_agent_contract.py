@@ -1279,7 +1279,8 @@ def serialize_hermes_graph_agent_turn_result(
         "modelCalls": [_serialize_model_call(call) for call in model_calls],
         "telemetryWarnings": telemetry_warnings,
     }
-    if result.observed_model_call_count is not None:
+    # Explicit zero is proof of no call; truncation also requires the full count.
+    if result.observed_model_call_count is not None or observed_model_call_count > len(model_calls):
         payload["observedModelCallCount"] = observed_model_call_count
     return payload
 

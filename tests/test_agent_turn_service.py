@@ -1060,9 +1060,13 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     class BudgetVetoRuntime:
         descriptor = AgentRuntimeDescriptor("budget-veto", "fake", "test", "graph")
 
-        def __init__(self, result: AgentRuntimeResult, *, authorize_first: bool = False) -> None:
+        def __init__(
+            self, result: AgentRuntimeResult, *, authorize_first: bool = False,
+            reject_at_adapter: bool = False,
+        ) -> None:
             self.result = result
             self.authorize_first = authorize_first
+            self.reject_at_adapter = reject_at_adapter
 
         def run_with_provider_authorization(
             self, _invocation: Any, authorize: Any, *, request_budget: Any,
@@ -1073,9 +1077,16 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
                 adjusted = dict(view)
                 adjusted["model"] = request_budget["model"]
                 assert authorize(adjusted) is True
+            if self.reject_at_adapter:
+                adjusted = dict(view)
+                adjusted["model"] = request_budget["model"]
+                assert authorize(adjusted) is False
             return self.result
 
-    def execute_budget_result(result: AgentRuntimeResult, *, authorize_first: bool = False):
+    def execute_budget_result(
+        result: AgentRuntimeResult, *, authorize_first: bool = False,
+        reject_at_adapter: bool = False,
+    ):
         return execute_agent_turn(
             request, root=Path("/tmp"),
             pointer_store=HermesSessionPointerStore(Path("/tmp") / f"plan-veto-{uuid4()}"),
@@ -1085,7 +1096,10 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
             work_resolver=lambda _request, _owner: work,
             graph_resolver=lambda *_args: pytest.fail("generic Graph resolver was used"),
             plan_graph_resolver=lambda *_args: bootstrap,
-            runtime=BudgetVetoRuntime(result, authorize_first=authorize_first),
+            runtime=BudgetVetoRuntime(
+                result, authorize_first=authorize_first,
+                reject_at_adapter=reject_at_adapter,
+            ),
             conversation_service=fake,
         )
 
@@ -1124,18 +1138,12 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         assert caught.value.provider_dispatched is None
         assert fake.accepted_count == 0
 
-    with pytest.raises(AgentTurnServiceError) as denied_by_parent:
-        execute_budget_result(AgentRuntimeResult(
-            status="error", error_code="provider_authorization_denied",
-            observed_model_call_count=0,
-        ))
-    assert denied_by_parent.value.code == "provider_authorization_denied"
-    assert denied_by_parent.value.status_code == 503
-    assert denied_by_parent.value.provider_dispatched is False
-    assert fake.accepted_count == 0
-
     for ambiguous_denial in (
         AgentRuntimeResult(status="error", error_code="provider_authorization_denied"),
+        AgentRuntimeResult(
+            status="error", error_code="provider_authorization_denied",
+            observed_model_call_count=0,
+        ),
         AgentRuntimeResult(
             status="error", error_code="provider_authorization_denied",
             observed_model_call_count=1,
@@ -1151,6 +1159,28 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         assert uncertain.value.status_code == 503
         assert uncertain.value.provider_dispatched is None
         assert fake.accepted_count == 0
+
+    persistence_denial_calls: list[bool] = []
+
+    def refuse_accept(_service: Any, _request: Any, **_kwargs: Any) -> Turn:
+        persistence_denial_calls.append(True)
+        raise ValueError("PRIVATE_PERSISTENCE_DIAGNOSTIC")
+
+    with monkeypatch.context() as rejected_persistence:
+        rejected_persistence.setattr(service_module, "_accept_world_turn", refuse_accept)
+        with pytest.raises(AgentTurnServiceError) as denied_by_adapter:
+            execute_budget_result(AgentRuntimeResult(
+                status="error", error_code="provider_authorization_denied",
+                observed_model_call_count=0,
+            ), reject_at_adapter=True)
+    assert denied_by_adapter.value.code == "turn_persistence_indeterminate"
+    assert denied_by_adapter.value.status_code == 503
+    assert denied_by_adapter.value.provider_dispatched is None
+    assert "PRIVATE_PERSISTENCE_DIAGNOSTIC" not in str(denied_by_adapter.value)
+    assert "PRIVATE_PERSISTENCE_DIAGNOSTIC" not in caplog.text
+    assert persistence_denial_calls == [True]
+    assert fake.accepted_count == 0
+    assert fake.authorize_count == 0
 
     with pytest.raises(AgentTurnServiceError) as after_authorization:
         execute_budget_result(AgentRuntimeResult(

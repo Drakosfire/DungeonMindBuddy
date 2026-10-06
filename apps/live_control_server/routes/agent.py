@@ -64,7 +64,6 @@ _PLAN_PREDISPATCH_FAILURES = {
     "graph_unavailable": ("graph_read_failed", 503),
     "graph_evidence_invalid": ("graph_evidence_invalid", 502),
     "provider_envelope_over_budget": ("provider_envelope_over_budget", 413),
-    "provider_authorization_denied": ("provider_authorization_denied", 503),
     "receipt_freeze_failed": ("receipt_freeze_failed", 503),
 }
 
