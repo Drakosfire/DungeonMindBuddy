@@ -8,7 +8,12 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, ValidationError
 
 from apps.live_control_server.routes.agent import router as agent_turn_router
-from apps.live_control_server.config import repo_root, session_dir
+from apps.live_control_server.config import (
+    ManagedWorldDataRootError,
+    managed_world_data_root,
+    repo_root,
+    session_dir,
+)
 from apps.live_control_server.services.world_container_registry import (
     WorldContainerRegistryError,
     get_world_container,
@@ -1145,11 +1150,17 @@ def get_live_plan_view(
     if scope_mode == "world" and world_id is None:
         raise HTTPException(status_code=422, detail="world_id is required for World Plan context.")
     if world_id is not None:
+        try:
+            world_root = managed_world_data_root(repo_root())
+        except ManagedWorldDataRootError as exc:
+            raise HTTPException(
+                status_code=503, detail="Managed World storage is unavailable."
+            ) from exc
+        try:
+            world = get_world_container(world_root, world_id)
+        except WorldContainerRegistryError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
         if scope_mode == "world":
-            try:
-                world = get_world_container(repo_root(), world_id)
-            except WorldContainerRegistryError as exc:
-                raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
             return {
                 "schema_version": "dmb_managed_world_plan_context_v2",
                 "scope_mode": "world",
@@ -1161,10 +1172,6 @@ def get_live_plan_view(
                 "derived_from": ["managed_world_container"],
                 "timeline": [],
             }
-        try:
-            world = get_world_container(repo_root(), world_id)
-        except WorldContainerRegistryError as exc:
-            raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
         return {
             "schema_version": "dmb_managed_world_plan_context_v1",
             "campaign_id": world.world_id,
