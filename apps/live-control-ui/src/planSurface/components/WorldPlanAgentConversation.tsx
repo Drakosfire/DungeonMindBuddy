@@ -2358,6 +2358,9 @@ export function WorldPlanAgentConversation({
     hasCompletion: boolean,
     terminalFailureConfirmed = false,
   ): string {
+    if (terminalFailureConfirmed) {
+      return `Exact V3 World history records this turn as failed. ${confirmedFailureExecutionGuidance(execution)}`;
+    }
     const guidance = (() => {
       if (!execution) return "No execution recovery status was recorded. Refresh World history before taking another action.";
       if (execution.claimability === "completed") {
@@ -2387,18 +2390,66 @@ export function WorldPlanAgentConversation({
       }
       return "The attempt may have been sent or its outcome is unknown. Refresh World history; this turn will not be automatically resent.";
     })();
-    return terminalFailureConfirmed
-      ? `Exact V3 World history records this turn as failed. ${guidance}`
-      : guidance;
+    return guidance;
+  }
+
+  function confirmedFailureExecutionGuidance(execution: WorldPlanGraphExecutionProjectionV1 | null): string {
+    const noDispatchPair = execution?.claimability === "safe_to_reclaim_without_dispatch"
+      && ["none", "known_not_sent"].includes(execution.authorization_state);
+    const explicitAttemptPair = execution?.claimability === "explicit_new_attempt_required"
+      && execution.authorization_state === "known_not_sent";
+    const blockedAttemptPair = execution?.claimability === "blocked_unknown_or_sent"
+      && ["authorized", "sdk_entered", "response_received", "outcome_unknown"].includes(execution.authorization_state);
+
+    if (!execution) return "The execution disposition was not recorded. The saved turn is not automatically reposted; this view offers no retry.";
+    if (!noDispatchPair && !explicitAttemptPair && !blockedAttemptPair) {
+      const claimabilityLabel: Record<WorldPlanGraphExecutionProjectionV1["claimability"], string> = {
+        safe_to_reclaim_without_dispatch: "safe to reclaim without dispatch",
+        explicit_new_attempt_required: "explicit new attempt required",
+        blocked_unknown_or_sent: "blocked because it may have been sent",
+        completed: "completed",
+      };
+      const authorizationLabel: Record<WorldPlanGraphExecutionProjectionV1["authorization_state"], string> = {
+        none: "no authorization event",
+        authorized: "authorization granted",
+        sdk_entered: "provider call entered",
+        response_received: "provider response received",
+        known_not_sent: "request known not sent",
+        outcome_unknown: "execution outcome unknown",
+      };
+      return `Execution projection conflicts: claimability is ${claimabilityLabel[execution.claimability]} while authorization state is ${authorizationLabel[execution.authorization_state]}. The saved turn is not automatically reposted; this view offers no retry.`;
+    }
+
+    const disposition = noDispatchPair
+      ? "Execution disposition: provider dispatch did not begin."
+      : explicitAttemptPair
+        ? "Execution disposition requires a separate new Ask for any new attempt."
+        : execution.authorization_state === "response_received"
+          ? "The provider returned a response; no final Graph-context completion was recorded."
+          : execution.authorization_state === "sdk_entered"
+            ? "The provider call was entered; its final outcome was not recorded."
+            : execution.authorization_state === "authorized"
+              ? "The server authorized this attempt; later provider execution is not established."
+              : "The provider execution outcome remains unknown.";
+    return `${disposition} The saved turn is not automatically reposted; this view offers no retry.`;
+  }
+
+  function isPendingAskFailureConfirmed(item: StoredPendingAsk, historyTurnId?: string): boolean {
+    return Boolean(item.envelope?.request.plan_context_policy)
+      && confirmedTerminalFailureAsks.some((classification) =>
+        classification.storageKey === item.storageKey
+        && classification.serialized === item.serialized
+        && (historyTurnId === undefined || classification.historyTurnId === historyTurnId));
+  }
+
+  function isHistoryTurnFailureConfirmed(historyTurnId: string): boolean {
+    return pendingAsks.some((item) => isPendingAskFailureConfirmed(item, historyTurnId));
   }
 
   function renderGraphContextHistory(turn: WorldAgentConversationHistoryTurn) {
     if (!("plan_context" in turn) || !turn.plan_context) return null;
     const { completion, execution } = turn.plan_context;
-    const terminalFailureConfirmed = confirmedTerminalFailureAsks.some((classification) =>
-      classification.historyTurnId === turn.turn_id
-      && pendingAsks.some((item) => item.storageKey === classification.storageKey
-        && item.serialized === classification.serialized));
+    const terminalFailureConfirmed = isHistoryTurnFailureConfirmed(turn.turn_id);
     const claims = completion?.answer_segments.filter((segment) => segment.kind === "graph_claim") ?? [];
     const citations = completion?.citation_map?.entries ?? [];
     const citationByClaim = new Map(citations.map((entry) => [entry.claim_id, entry]));
@@ -2406,7 +2457,9 @@ export function WorldPlanAgentConversation({
       <section className="world-plan-agent-conversation__graph-context" aria-label="World Graph evidence and recovery">
         <p><strong>Graph context:</strong> {completion
           ? graphContextStatusLabel(completion.answer_context_status)
-          : "No final Graph-context completion has been recorded for this turn yet."}</p>
+          : terminalFailureConfirmed
+            ? "This World history turn failed; no final Graph-context completion was recorded."
+            : "No final Graph-context completion has been recorded for this turn yet."}</p>
         {claims.map((claim, index) => {
           const citation = citationByClaim.get(claim.claim_id);
           if (!citation) return null;
@@ -2845,6 +2898,11 @@ export function WorldPlanAgentConversation({
   const authorizationBlocked = [historyError, error, editError].some((message) =>
     message?.includes("local Agent and Graph session is missing or was rejected"));
   const pendingGraphAsk = pendingAsks.some((item) => item.envelope?.request.plan_context_policy);
+  const savedAskRecords = pendingAsks.filter((item): item is StoredPendingAsk & { envelope: WorldPlanPendingAskEnvelope } =>
+    item.envelope !== null);
+  const pendingGraphAskRecords = savedAskRecords.filter((item) => item.envelope.request.plan_context_policy);
+  const confirmedFailureCount = pendingGraphAskRecords.filter((item) => isPendingAskFailureConfirmed(item)).length;
+  const unconfirmedGraphAskCount = pendingGraphAskRecords.length - confirmedFailureCount;
   const intentBusy = sending || composing || saveInFlight || !scopeMatches || currentReview !== null;
   const composerBusy = intentBusy || (composerIntent === "discuss"
     && (historyLoading || !history || Boolean(historyError)));
@@ -3022,9 +3080,11 @@ export function WorldPlanAgentConversation({
             {event.turn.assistant_text ? (
               <p><strong>DungeonBuddy:</strong> {event.turn.assistant_text}</p>
             ) : (
-              <p role="status">{event.turn.lifecycle_status === "failed" || event.turn.lifecycle_status === "interrupted"
-                ? "This server turn did not complete."
-                : "DungeonBuddy is still working on this server turn."}</p>
+              <p role="status">{isHistoryTurnFailureConfirmed(event.turn.turn_id)
+                ? "This World history turn is recorded as failed."
+                : event.turn.lifecycle_status === "failed" || event.turn.lifecycle_status === "interrupted"
+                  ? "This server turn did not complete."
+                  : "DungeonBuddy is still working on this server turn."}</p>
             )}
             {renderGraphContextHistory(event.turn)}
           </article>
@@ -3081,11 +3141,18 @@ export function WorldPlanAgentConversation({
         </section>
       ) : null}
       {pendingAsks.some((item) => item.envelope) ? (
-        <section className="world-plan-agent-conversation__recovery" aria-label="Pending Ask recovery">
-          <h3>Pending recovery · {pendingAsks.filter((item) => item.envelope !== null).length}</h3>
+        <section
+          className="world-plan-agent-conversation__recovery"
+          aria-label={confirmedFailureCount > 0 ? "Saved Ask recovery records" : "Pending Ask recovery"}
+        >
+          <h3>{confirmedFailureCount > 0
+            ? `Ask recovery · ${unconfirmedGraphAskCount} Graph outcome${unconfirmedGraphAskCount === 1 ? "" : "s"} unconfirmed · ${confirmedFailureCount} recorded failure${confirmedFailureCount === 1 ? "" : "s"} · ${savedAskRecords.length} saved`
+            : `Pending recovery · ${savedAskRecords.length}`}</h3>
           {pendingAsks.some((item) => item.envelope?.request.plan_context_policy) ? (
             <>
-              <p>Saved Graph Asks stay in browser storage. Exact V3 World history may confirm completion or record a failure; Refresh never reposts them.</p>
+              <p>{confirmedFailureCount > 0
+                ? `${unconfirmedGraphAskCount} Graph Ask outcome${unconfirmedGraphAskCount === 1 ? " remains" : "s remain"} unconfirmed in exact V3 World history; ${confirmedFailureCount} failed turn${confirmedFailureCount === 1 ? " is" : "s are"} already recorded. All ${pendingGraphAskRecords.length} Graph Ask records remain saved. Refresh never reposts them.`
+                : "Saved Graph Asks stay in browser storage. Exact V3 World history may confirm completion or record a failure; Refresh never reposts them."}</p>
               <button type="button" onClick={refreshWorldHistory} disabled={historyLoading || !scopeMatches}>
                 Refresh World history
               </button>
@@ -3094,8 +3161,7 @@ export function WorldPlanAgentConversation({
           {pendingAsks.filter((item): item is StoredPendingAsk & { envelope: WorldPlanPendingAskEnvelope } => item.envelope !== null)
             .map((item) => {
               const graphAsk = Boolean(item.envelope.request.plan_context_policy);
-              const terminalFailureConfirmed = graphAsk && confirmedTerminalFailureAsks.some((classification) =>
-                classification.storageKey === item.storageKey && classification.serialized === item.serialized);
+              const terminalFailureConfirmed = graphAsk && isPendingAskFailureConfirmed(item);
               return (
                 <details key={item.storageKey}>
                   <summary>
