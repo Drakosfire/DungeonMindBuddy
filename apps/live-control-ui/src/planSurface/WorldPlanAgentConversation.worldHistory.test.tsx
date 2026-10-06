@@ -1969,8 +1969,13 @@ describe("World Plan conversation consumer", () => {
 
     const graphRecovery = await screen.findByRole("region", { name: "World Graph evidence and recovery" });
     expect(graphRecovery).toHaveTextContent("Exact V3 World history records this turn as failed.");
-    expect(graphRecovery).toHaveTextContent("The provider returned a response. Refresh World history before taking another action; this turn will not be automatically resent.");
-    expect(await screen.findByText("This server turn did not complete.")).toBeInTheDocument();
+    expect(graphRecovery).toHaveTextContent("This World history turn failed; no final Graph-context completion was recorded.");
+    expect(graphRecovery).toHaveTextContent("The provider returned a response; no final Graph-context completion was recorded.");
+    expect(graphRecovery).toHaveTextContent("The saved turn is not automatically reposted; this view offers no retry.");
+    expect(graphRecovery).not.toHaveTextContent("No final Graph-context completion has been recorded for this turn yet.");
+    expect(graphRecovery).not.toHaveTextContent("Refresh World history before taking another action");
+    expect(graphRecovery).not.toHaveTextContent("This saved turn will not be automatically reposted");
+    expect(await screen.findByText("This World history turn is recorded as failed.")).toBeInTheDocument();
     expect(screen.queryByText(/awaiting exact completed history match/)).not.toBeInTheDocument();
     const failedSummary = screen.getByText(`Graph Ask · ${clientTurnId} · failure confirmed`);
     fireEvent.click(failedSummary);
@@ -1978,8 +1983,9 @@ describe("World Plan conversation consumer", () => {
     for (const record of unknownRecords) fireEvent.click(screen.getByText(`Graph Ask · ${record.turnId}`));
     expect(screen.getAllByText("Status · outcome not confirmed in exact V3 World history")).toHaveLength(3);
 
-    const pending = screen.getByRole("region", { name: "Pending Ask recovery" });
-    expect(pending).toHaveTextContent("Pending recovery · 4");
+    const pending = screen.getByRole("region", { name: "Saved Ask recovery records" });
+    expect(pending).toHaveTextContent("Ask recovery · 3 Graph outcomes unconfirmed · 1 recorded failure · 4 saved");
+    expect(pending).toHaveTextContent("3 Graph Ask outcomes remain unconfirmed in exact V3 World history; 1 failed turn is already recorded. All 4 Graph Ask records remain saved. Refresh never reposts them.");
     const body = screen.getByRole("region", { name: "Saved World Plan conversation" })
       .querySelector(".world-plan-agent-conversation__body");
     const composer = screen.getByRole("region", { name: "Conversation composer" });
@@ -2021,11 +2027,57 @@ describe("World Plan conversation consumer", () => {
 
     const graphRecovery = await screen.findByRole("region", { name: "World Graph evidence and recovery" });
     expect(graphRecovery).toHaveTextContent("Exact V3 World history records this turn as failed.");
-    expect(graphRecovery).toHaveTextContent("A new attempt requires a new Ask. This saved turn will not be automatically reposted.");
+    expect(graphRecovery).toHaveTextContent("Execution disposition requires a separate new Ask for any new attempt.");
+    expect(graphRecovery).toHaveTextContent("The saved turn is not automatically reposted; this view offers no retry.");
+    expect(graphRecovery).not.toHaveTextContent("Refresh World history before taking another action");
+    expect(screen.queryByRole("button", { name: "Retry saved Ask" })).not.toBeInTheDocument();
     expect(screen.getByText(`Graph Ask · ${request.turn_id} · failure confirmed`)).toBeInTheDocument();
     expect(localStorage.getItem(storageKey)).toBe(originalBytes);
     expect(pendingAskKeys()).toEqual([storageKey]);
     expect(postAsk).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["none", "Execution disposition: provider dispatch did not begin.", false],
+    ["known_not_sent", "Execution disposition: provider dispatch did not begin.", false],
+    ["response_received", "Execution projection conflicts: claimability is safe to reclaim without dispatch while authorization state is provider response received.", true],
+    ["sdk_entered", "Execution projection conflicts: claimability is safe to reclaim without dispatch while authorization state is provider call entered.", true],
+  ] as const)("gates a safe-to-reclaim execution statement on %s authorization", async (authorizationState, expectedDisposition, isConflict) => {
+    const playableTarget = { kind: "scene" as const, id: "scene:opening" };
+    const { api, mounted, postAsk, request } = await leavePendingGraphAsk(playableTarget);
+    const storageKey = pendingAskKeys()[0]!;
+    const originalBytes = localStorage.getItem(storageKey);
+    mounted.unmount();
+
+    const failedTurn = await failedV3HistoryTurn(request, {
+      execution: {
+        schema: "dmb_agent_plan_world_graph_execution_projection_v1",
+        claimability: "safe_to_reclaim_without_dispatch",
+        authorization_state: authorizationState,
+        automatic_redispatch: false,
+      },
+    });
+    api.setCurrent(await historyV3("conversation-a", 10, [failedTurn]));
+    render(conversationElement({ playableTarget, editBridge: {} }));
+
+    expect(await screen.findByText(`Graph Ask · ${request.turn_id} · failure confirmed`)).toBeInTheDocument();
+    const graphRecovery = screen.getByRole("region", { name: "World Graph evidence and recovery" });
+    expect(graphRecovery).toHaveTextContent(expectedDisposition);
+    if (isConflict) expect(graphRecovery).not.toHaveTextContent("provider dispatch did not begin");
+    expect(graphRecovery).toHaveTextContent("Exact V3 World history records this turn as failed.");
+    expect(graphRecovery).toHaveTextContent("The saved turn is not automatically reposted; this view offers no retry.");
+    expect(graphRecovery).not.toHaveTextContent("Refresh World history before taking another action");
+    expect(screen.queryByRole("button", { name: "Retry saved Ask" })).not.toBeInTheDocument();
+    expect(localStorage.getItem(storageKey)).toBe(originalBytes);
+    expect(pendingAskKeys()).toEqual([storageKey]);
+    expect(postAsk).toHaveBeenCalledTimes(1);
+
+    const historyCallCount = api.historyCalls.length;
+    fireEvent.click(screen.getByRole("button", { name: "Refresh World history" }));
+    await waitFor(() => expect(api.historyCalls.length).toBeGreaterThan(historyCallCount));
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem(storageKey)).toBe(originalBytes);
+    expect(pendingAskKeys()).toEqual([storageKey]);
   });
 
   it.each([
@@ -2100,6 +2152,19 @@ describe("World Plan conversation consumer", () => {
 
     render(conversationElement({ playableTarget, editBridge: {} }));
     expect(await screen.findByText("Pending recovery · 1")).toBeInTheDocument();
+    if (historyCase !== "receipt-digest-mismatch") {
+      await waitFor(() => {
+        expect(screen.getAllByRole("region", { name: "World Graph evidence and recovery" }).length).toBeGreaterThan(0);
+      });
+      const graphRecovery = screen.getAllByRole("region", { name: "World Graph evidence and recovery" })[0]!;
+      expect(graphRecovery).not.toHaveTextContent("Exact V3 World history records this turn as failed.");
+      expect(graphRecovery).toHaveTextContent("No final Graph-context completion has been recorded for this turn yet.");
+      if (historyCase === "completed-without-completion") {
+        expect(graphRecovery).toHaveTextContent("Execution history is inconsistent: claimability is completed, but no completion was recorded.");
+      } else {
+        expect(graphRecovery).toHaveTextContent("Refresh World history before taking another action");
+      }
+    }
     expect(screen.queryByText(`Graph Ask · ${request.turn_id} · failure confirmed`)).not.toBeInTheDocument();
     fireEvent.click(screen.getByText(`Graph Ask · ${request.turn_id}`));
     expect(screen.getByText("Status · outcome not confirmed in exact V3 World history")).toBeInTheDocument();
