@@ -671,6 +671,7 @@ function validateFragment(
     throw new PlanEditGuardError("Agent returned an empty or oversized edit.");
   }
   const sectionMode = sectionInventory !== undefined;
+  const startsWithFrontmatter = /^---[ \t]*\r?\n[\s\S]*?\r?\n(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/.test(markdown.trimStart());
   const graphLinkFreeText = markdown.replace(/\[[^\]]*\]\(dmb-node:[^)]+\)/g, "");
   const referenceFreeText = sectionMode ? graphLinkFreeText : markdown;
   const comments = Array.from(markdown.matchAll(/<!--[\s\S]*?-->/g), (match) => match[0]);
@@ -681,7 +682,8 @@ function validateFragment(
     JSON.parse(reference).type === "graphNodeReference").length ?? 0;
   const graphLinks = Array.from(markdown.matchAll(/\[[^\]]*\]\(dmb-node:[^)]+\)/gi));
   if (
-    (!sectionMode && /^---\s*$/m.test(markdown))
+    (!sectionMode && !playableBodyMode && /^---\s*$/m.test(markdown))
+    || (playableBodyMode && startsWithFrontmatter)
     || (playableBodyMode && /<!--\s*dmb-playable-element:/i.test(markdown))
     || /<\/?[A-Za-z][^>]*>/.test(markdown)
     || (sectionMode

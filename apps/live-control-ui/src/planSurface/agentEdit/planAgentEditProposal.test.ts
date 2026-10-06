@@ -717,6 +717,27 @@ describe("reviewed World-only Plan edit admission and Apply", () => {
     expect(editor.getJSON()).toEqual(before);
   });
 
+  it("admits and applies a Scene body with an existing divider while rejecting frontmatter and changed references", async () => {
+    const source = "# Plan\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:recovery -->\n### Recovery\n\nAsk [the guide](dmb-node:node:guide) what needs doing.\n\n---\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:later -->\n### Later\n\nUnchanged later scene.\n";
+    const { editor, state } = mountedState(source);
+    const current: WorldPlanEditEditorState = { ...worldState(state), playableTarget: { kind: "scene", id: "scene:recovery" }, playableTargetGeneration: 1 };
+    const captured = await captureWorldPlanEditTarget(current, () => current);
+    const key = "00000000-0000-4000-8000-000000000002";
+    const replacement = captured.request.target_body_markdown! + "\nGM reminder: Invite a recovery priority.\n";
+    const frontmatter = await worldResponseFor(captured, "---\ntitle: hidden\n---\n" + replacement, key);
+    await expect(admitWorldPlanEditProposal(captured, frontmatter, key)).rejects.toThrow(/unsupported markup/);
+    const changedReference = await worldResponseFor(captured, replacement.replace("node:guide", "node:other"), key);
+    await expect(admitWorldPlanEditProposal(captured, changedReference, key)).rejects.toThrow(/protected card-body link/);
+    const admitted = await admitWorldPlanEditProposal(captured, await worldResponseFor(captured, replacement, key), key);
+    await applyWorldPlanEditProposal({ captured, admitted, getCurrent: () => current, expectedAgentBinding: expectedAgentBinding(), getAgentBinding: matchingAgentBinding });
+    const saved = tiptapJsonToSemanticMarkdown(editor.getJSON());
+    expect(saved).toContain("Ask [the guide](dmb-node:node:guide) what needs doing.\n\n---\n\nGM reminder: Invite a recovery priority.");
+    expect(saved).toContain("id=scene:later");
+    expect(saved).toContain("Unchanged later scene.");
+    expect(state.sourceMarkdown).toBe(source);
+    expect(tiptapJsonToSemanticMarkdown(markdownToTiptapDoc(saved).doc)).toBe(saved);
+  });
+
   it("reviews and applies only one Option body, then saves and freshly reopens with its edges and references intact", async () => {
     const sourceMarkdown = [
       "# Plan",
