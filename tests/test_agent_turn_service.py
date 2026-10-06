@@ -710,21 +710,39 @@ def test_duplicate_execution_event_never_acknowledges_harness_progress() -> None
     assert caught.value.code == "turn_persistence_indeterminate"
 
 
+def test_plan_graph_budget_fails_closed_for_unverified_model(
+    monkeypatch: Any,
+) -> None:
+    from apps.live_control_server.services import agent_turn_service as service_module
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference",
+        lambda **_kwargs: ("openai-api", "unverified-model", "https://api.openai.com/v1"),
+    )
+    with pytest.raises(AgentTurnServiceError) as caught:
+        service_module._policy_request_budget()
+    assert caught.value.code == "provider_envelope_over_budget"
+    assert caught.value.provider_dispatched is False
+
+
 @pytest.mark.parametrize(
-    ("plan_markdown", "context_limit"),
-    [("The keeper waits.", 32768), ("The keeper waits.\n" + "x" * 50_000, 65536)],
+    "plan_markdown",
+    ["The keeper waits.", "The keeper waits.\n" + "x" * 50_000],
     ids=["short", "long-committed-plan"],
 )
 def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     monkeypatch: Any,
     plan_markdown: str,
-    context_limit: int,
 ) -> None:
     from datetime import timedelta
     from application_state.agent_conversation import types as graph_types
     if not hasattr(graph_types, "PlanWorldGraphExecutionV1"):
         pytest.skip("run with pinned APP-STATE candidate")
     from apps.live_control_server.services import agent_turn_service as service_module
+    monkeypatch.setattr(
+        "apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference",
+        lambda **_kwargs: ("openai-api", "gpt-6-luna", "https://api.openai.com/v1"),
+    )
     from apps.live_control_server.services.agent_runtime import AgentWorldScope
     from graph_memory.interaction.session import (
         CoverageState, GraphRetrievalSession, SessionSnapshot,
@@ -799,17 +817,13 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     }
     payload_json = json.dumps(provider_body, sort_keys=True, separators=(",", ":"))
     view = {
-        "provider": "openai-api", "model": "test-model",
+        "provider": "openai-api", "model": "gpt-6-luna",
         "apiMode": "codex_responses", "payloadJson": payload_json,
         "payloadSha256": sha256(payload_json.encode()).hexdigest(),
         "payloadUtf8Bytes": len(payload_json.encode()),
     }
-    budget = {
-        "provider": "openai-api", "model": "test-model",
-        "apiMode": "codex_responses",
-        "estimator": "utf8_json_bytes_plus_64_per_node_v1",
-        "contextLimitTokens": context_limit, "outputReserveTokens": 2048,
-    }
+    budget = service_module._policy_request_budget()
+    assert budget["contextLimitTokens"] == 65536
 
     class FakeExecutionPort:
         turn: Turn | None = None
@@ -1042,7 +1056,6 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
                 runtime_session_id="synthetic-plan-session",
             )
 
-    monkeypatch.setattr(service_module, "_policy_request_budget", lambda: budget)
     response = execute_agent_turn(
         request,
         root=Path("/tmp"),

@@ -80,6 +80,111 @@ def test_exact_committed_plan_message_survives_host_round_trip() -> None:
         )
 
 
+def test_large_plan_reaches_offline_real_worker_provider_gate(
+    tmp_path, monkeypatch
+) -> None:
+    import json
+
+    from apps.live_control_server.services.agent_turn_service import (
+        _json_node_count,
+        _plan_message,
+        _policy_request_budget,
+    )
+    from apps.live_control_server.services.hermes_graph_agent_host import (
+        HermesGraphAgentHost,
+    )
+    from graph_memory.hermes_graph_plugin import (
+        HermesGraphScope,
+        parent_brokered_graph_expansion_policy,
+    )
+    from graph_memory.retrieval.models import WorldGraphRetrievalResult
+    from tests.test_hermes_graph_agent_host import _tool_using_aiagent_host_worker
+
+    witness = tmp_path / "offline-worker-witness.json"
+    monkeypatch.setenv("DMB_HERMES_HOST_OFFLINE_WITNESS", str(witness))
+    monkeypatch.setenv("DUNGEONMIND_HERMES_GRAPH_MODEL", "gpt-6-luna")
+    monkeypatch.setenv("OPENAI_API_KEY", "offline-test-key")
+    budget = _policy_request_budget()
+    assert budget["contextLimitTokens"] == 65536
+    markdown = "# Committed Plan\n" + "x" * 50_000
+    message = _plan_message("Where is Tripod?", markdown)
+    scope = HermesGraphScope(
+        world_id="world:eldyrwild",
+        campaign_id="",
+        focus={"kind": "none", "sessionId": None},
+        admissibility="gm",
+        revision_pin="revision:test",
+        scope_mode="world",
+    )
+    request = HermesGraphAgentTurnRequest(
+        question=message,
+        world_id=scope.world_id,
+        campaign_id="",
+        scope_mode="world",
+        focus=dict(scope.focus),
+        admissibility="gm",
+        revision_pin=scope.revision_pin,
+        root=tmp_path / "graph",
+        capability_policy=parent_brokered_graph_expansion_policy(scope),
+        retrieval_session_id="sess:SPOOF",
+        retrieval_session={
+            "retrieval_session_id": "sess:SPOOF",
+            "candidates": [],
+            "claim_ledger": [],
+            "intent_hint": None,
+            "available_expansions": ["search"],
+        },
+        request_budget=budget,
+        provider_authorization_required=True,
+        parent_graph_broker_required=True,
+        plan_continuity_turn=True,
+    )
+    authorized = []
+
+    def authorize(view):
+        authorized.append(view)
+        assert "x" * 50_000 in view["payloadJson"]
+        body = json.loads(view["payloadJson"])
+        upper_bound = view["payloadUtf8Bytes"] + 64 * (1 + _json_node_count(body))
+        assert upper_bound + budget["outputReserveTokens"] <= budget["contextLimitTokens"]
+        return True
+
+    def broker(_operation):
+        result = WorldGraphRetrievalResult(
+            operation="search", outcome="enough", matched_node_ids=[]
+        )
+        return {
+            "resultJson": result.model_dump_json(by_alias=True),
+            "retrievalSession": request.retrieval_session,
+        }
+
+    host = HermesGraphAgentHost(
+        worker_target=_tool_using_aiagent_host_worker,
+        turn_timeout_s=120.0,
+        ready_timeout_s=90.0,
+        accept_timeout_s=30.0,
+        session_profiles_root=tmp_path / "profiles",
+    )
+    try:
+        result = host.execute(
+            request,
+            on_provider_authorization=authorize,
+            on_provider_lifecycle=lambda _event: True,
+            on_graph_operation=broker,
+        )
+        assert result.status == "ok", (result.error_code, result.error_message)
+    finally:
+        host.shutdown()
+    assert len(authorized) == 2
+    offline = json.loads(witness.read_text(encoding="utf-8"))
+    assert offline["network_attempts"] == []
+    assert offline["responses_stub_calls"] == 2
+    for view, body in zip(
+        authorized, offline["provider_request_bodies"][0], strict=True
+    ):
+        assert json.loads(view["payloadJson"]) == body
+
+
 def test_provider_authorization_gate_is_opt_in_and_round_trips():
     legacy = serialize_hermes_graph_agent_turn_request(_request())
     assert "providerAuthorizationRequired" not in legacy
