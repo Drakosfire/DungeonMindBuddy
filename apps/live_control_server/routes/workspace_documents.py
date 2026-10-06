@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
 
-from apps.live_control_server.config import repo_root
+from apps.live_control_server.config import (
+    ManagedWorldDataRootError,
+    managed_world_data_root,
+    repo_root,
+)
 from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import (
     NativeWorldSourceAdmissionError,
     NativeWorldSourceAdmissionStatus,
@@ -57,6 +62,17 @@ from apps.live_control_server.services.tiptap_markdown_write import (
 )
 
 router = APIRouter(prefix="/api/live", tags=["workspace-documents"])
+
+
+def _managed_world_root() -> Path:
+    """Resolve file-backed World authority independently from code resources."""
+    try:
+        return managed_world_data_root(repo_root())
+    except ManagedWorldDataRootError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Managed World storage is unavailable.",
+        ) from exc
 
 
 class NativeWorldSourceAdmissionRequest(BaseModel):
@@ -125,7 +141,9 @@ def get_world_owned_plans(
             detail=f"World Plan inventory accepts only world_id; unsupported selectors: {', '.join(unsupported)}",
         )
     try:
-        return list_world_owned_plans_v2(repo_root(), world_id=world_id).model_dump(
+        return list_world_owned_plans_v2(
+            _managed_world_root(), world_id=world_id
+        ).model_dump(
             mode="json"
         )
     except WorkspaceDocumentRegistryError as exc:
@@ -136,7 +154,7 @@ def get_world_owned_plans(
 def post_world_owned_plan(body: CreateWorldOwnedPlanRequestV2) -> dict[str, Any]:
     try:
         record = create_world_owned_plan_v2(
-            repo_root(), world_id=body.world_id, title=body.title
+            _managed_world_root(), world_id=body.world_id, title=body.title
         )
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc

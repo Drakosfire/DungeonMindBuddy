@@ -7,6 +7,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
+from application_state.content.service import create_world_plan
+from apps.live_control_server.config import MANAGED_WORLD_DATA_ROOT_ENV
 from apps.live_control_server.routes import live
 from apps.live_control_server.routes import workspace_documents
 from apps.live_control_server.services.workspace_document_registry import (
@@ -100,6 +102,102 @@ def test_world_plan_inventory_rejects_campaign_selector(
     )
 
     assert response.status_code == 422
+
+
+def test_world_plan_inventory_and_create_use_managed_root_with_app_state_identity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    application_state_dsn: str,
+) -> None:
+    code_root = tmp_path / "code"
+    managed_root = tmp_path / "operator-data"
+    code_root.mkdir()
+    managed_root.mkdir()
+    monkeypatch.setenv(MANAGED_WORLD_DATA_ROOT_ENV, str(managed_root))
+
+    world = create_world_container(managed_root, name="Split Root Plan World")
+    registry_path = managed_root / "out/registries/world_containers.json"
+    registry_bytes_before = registry_path.read_bytes()
+    existing = create_world_plan(title="Existing saved Plan", world_id=world.world_id)
+    client = _client(monkeypatch, code_root)
+
+    listed = client.get(
+        "/api/live/workspace-documents/world-plans",
+        params={"world_id": world.world_id},
+    )
+    assert listed.status_code == 200, listed.text
+    assert [row["document_id"] for row in listed.json()["records"]] == [
+        str(existing.work_object_id)
+    ]
+
+    created = client.post(
+        "/api/live/workspace-documents/world-plans",
+        json={
+            "schema_version": "dmb_workspace_document_create_v2",
+            "scope_mode": "world",
+            "world_id": world.world_id,
+            "title": "Created from split-root checkout",
+        },
+    )
+    assert created.status_code == 200, created.text
+    assert created.json()["world_id"] == world.world_id
+
+    listed_after_create = client.get(
+        "/api/live/workspace-documents/world-plans",
+        params={"world_id": world.world_id},
+    )
+    assert listed_after_create.status_code == 200, listed_after_create.text
+    assert {row["document_id"] for row in listed_after_create.json()["records"]} == {
+        str(existing.work_object_id),
+        created.json()["document_id"],
+    }
+    assert registry_path.read_bytes() == registry_bytes_before
+    assert not (code_root / "out/registries/world_containers.json").exists()
+
+    unknown = client.get(
+        "/api/live/workspace-documents/world-plans",
+        params={"world_id": "missing-world"},
+    )
+    assert unknown.status_code == 404
+
+
+def test_world_plan_inventory_rejects_unavailable_managed_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    code_root = tmp_path / "code"
+    code_root.mkdir()
+    monkeypatch.setenv(
+        MANAGED_WORLD_DATA_ROOT_ENV, str(tmp_path / "missing-operator-data")
+    )
+    client = _client(monkeypatch, code_root)
+
+    response = client.get(
+        "/api/live/workspace-documents/world-plans",
+        params={"world_id": "known-world"},
+    )
+
+    assert response.status_code == 503
+
+
+def test_world_plan_inventory_defaults_to_code_root_when_managed_root_is_unset(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    application_state_dsn: str,
+) -> None:
+    monkeypatch.delenv(MANAGED_WORLD_DATA_ROOT_ENV, raising=False)
+    world = create_world_container(tmp_path, name="Default Root Plan World")
+    plan = create_world_plan(title="Default-root Plan", world_id=world.world_id)
+    client = _client(monkeypatch, tmp_path)
+
+    response = client.get(
+        "/api/live/workspace-documents/world-plans",
+        params={"world_id": world.world_id},
+    )
+
+    assert response.status_code == 200, response.text
+    assert [row["document_id"] for row in response.json()["records"]] == [
+        str(plan.work_object_id)
+    ]
 
 
 def test_create_world_owned_plan_request_forbids_ignored_fields() -> None:
