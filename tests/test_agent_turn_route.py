@@ -661,6 +661,12 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
             history = client.get(f"/api/live/agent/worlds/{managed.world_id}/conversation")
             assert history.status_code == 200, history.text
             assert history.json()["schema"] == "dmb_agent_conversation_history_v2"
+            assert any(
+                turn["lifecycle_status"] == "completed"
+                and turn["assistant_text"] == graph_claim["text"]
+                and turn["plan_context"]["completion"] is not None
+                for turn in history.json()["turns"]
+            )
             assert len(graph_reads) == before_history_reads
             replay = client.post("/api/live/agent/turn", json=http_payload)
             assert replay.status_code == 200, replay.text
@@ -702,6 +708,14 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     assert sdk_witness["responses_stub_calls"] == 2
     sdk_bodies = sdk_witness["provider_request_bodies"][0]
     assert len(sdk_bodies) == 2
+    for provider_body in sdk_bodies:
+        final_user_input = provider_body["input"][0]["content"]
+        assert "Allowed answer_context_status values are graph_grounded" in final_user_input
+        assert '"kind":"graph_claim"' in final_user_input
+        assert '"kind":"plan_claim"' in final_user_input
+        assert "use kind, not type" in final_user_input.lower()
+        assert "Each entry has exactly claim_id, target_kind, target_id" in final_user_input
+        assert '"citation_map":null' in final_user_input
     assert '"claimLedger": []' in sdk_bodies[0]["instructions"]
     assert graph_claim["claim_id"] not in json.dumps(sdk_bodies[0])
     followup_output = sdk_bodies[1]["input"][-1]
