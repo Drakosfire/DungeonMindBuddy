@@ -89,6 +89,10 @@ interface WorldPlanEditReview {
   fenceKey: string;
 }
 
+type WorldPlanEditReviewBefore =
+  | { kind: "captured-text"; markdown: string; target?: { kind: string; id: string } }
+  | { kind: "caret" };
+
 interface PlanSectionScan {
   captured: CapturedWorldPlanEditTarget;
   worldId: string;
@@ -110,6 +114,39 @@ type ValidationResult =
 
 const RESPONSE_MISMATCH = "DungeonBuddy's response did not match this saved Plan. Try again.";
 const POINTER_STATUSES = ["absent", "accepted", "recovered", "rejected", "reused"] as const;
+
+function worldPlanEditReviewBefore(captured: CapturedWorldPlanEditTarget): WorldPlanEditReviewBefore | null {
+  const { request } = captured;
+  if (request.target_kind === "insert_at_caret") return { kind: "caret" };
+  if (request.target_kind !== "replace_playable_body") {
+    return typeof request.selected_text === "string"
+      ? { kind: "captured-text", markdown: request.selected_text }
+      : null;
+  }
+
+  const target = captured.playableBodyTarget;
+  const requestTarget = request.playable_target;
+  if (!target || !requestTarget
+    || !target.target || target.target.kind !== requestTarget.kind || target.target.id !== requestTarget.id
+    || typeof target.targetBodyMarkdown !== "string"
+    || !/^[0-9a-f]{64}$/.test(target.targetBodySha256)
+    || request.target_body_markdown !== target.targetBodyMarkdown
+    || request.target_body_sha256 !== target.targetBodySha256
+    || request.body_serialization_version !== target.bodySerializationVersion
+    || target.bodySerializationVersion !== "plan-playable-body-markdown-v1"
+    || target.rangeSemanticsVersion !== "plan-playable-ranges-v1"
+    || !Number.isSafeInteger(target.from) || !Number.isSafeInteger(target.to)
+    || target.from !== captured.from || target.to !== captured.to
+    || !Number.isSafeInteger(captured.playableTargetGeneration)) {
+    return null;
+  }
+
+  return {
+    kind: "captured-text",
+    markdown: target.targetBodyMarkdown,
+    target: target.target,
+  };
+}
 
 const WORLD_HISTORY_PAGE_SIZE = 50;
 const WORLD_PLAN_LOCAL_PROPOSAL_HISTORY = "world_plan_proposals_v1" as const;
@@ -2735,6 +2772,9 @@ export function WorldPlanAgentConversation({
     try {
       const captured = await editBridge.capture();
       if (!isCurrent()) return;
+      if (worldPlanEditReviewBefore(captured) === null) {
+        throw new Error("The captured Plan target has no valid Before snapshot. Reselect it and compose the proposal again.");
+      }
       const conversationHistory: WorldPlanDocumentEditProposalRequest["conversation_history"] = [];
       const requestWithoutKey = {
         ...captured.request,
@@ -2850,6 +2890,11 @@ export function WorldPlanAgentConversation({
   }
 
   async function applyEditReview(review: WorldPlanEditReview) {
+    if (worldPlanEditReviewBefore(review.captured) === null) {
+      discardEditReview();
+      setEditError("The captured Plan target no longer has a valid Before snapshot. Reselect it and compose the proposal again.");
+      return;
+    }
     if (!editBridge || editReviewRef.current !== review
       || latestRef.current.proposalFenceKey !== review.fenceKey
       || !latestRef.current.scopeMatches
@@ -2890,7 +2935,9 @@ export function WorldPlanAgentConversation({
   }
   if (!planReady || !askSlot?.hostElement || !agent.paneState.isOpen || !scopeMatches) return null;
 
+  const currentReviewBefore = editReview ? worldPlanEditReviewBefore(editReview.captured) : null;
   const currentReview = editReview
+    && currentReviewBefore !== null
     && editReview.fenceKey === proposalFenceKey
     && editReview.threadId === activeThread?.threadId
     ? editReview
@@ -2951,7 +2998,16 @@ export function WorldPlanAgentConversation({
           <div className="world-plan-agent-conversation__preview">
             <div>
               <h5>Before</h5>
-              <pre>{currentReview.captured.request.selected_text || "Nothing selected · text will be inserted at the captured caret."}</pre>
+              {currentReviewBefore?.kind === "captured-text" && currentReviewBefore.target ? (
+                <p className="world-plan-agent-conversation__context">
+                  Card target · {currentReviewBefore.target.kind} {currentReviewBefore.target.id}
+                </p>
+              ) : null}
+              <pre>{currentReviewBefore?.kind === "caret"
+                ? "Nothing selected · text will be inserted at the captured caret."
+                : currentReviewBefore?.kind === "captured-text" && currentReviewBefore.markdown === "" && currentReviewBefore.target
+                  ? "Empty card body"
+                  : currentReviewBefore?.kind === "captured-text" ? currentReviewBefore.markdown : ""}</pre>
             </div>
             <div>
               <h5>After</h5>
