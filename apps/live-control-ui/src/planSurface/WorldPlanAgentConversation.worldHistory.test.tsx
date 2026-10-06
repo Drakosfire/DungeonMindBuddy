@@ -1605,6 +1605,7 @@ describe("World Plan conversation consumer", () => {
   it("allows a fresh Graph Ask after clearing a definitive pre-dispatch failure", async () => {
     const api = setupApi(history("conversation-a", 4, []));
     const failure = new liveApi.LiveApiError("The selected model context cannot contain this request.", 413, {
+      code: "provider_envelope_over_budget",
       planContextFailure: {
         schema: "dmb_plan_world_graph_context_failure_v1",
         status: "pre_dispatch_failed",
@@ -1689,23 +1690,79 @@ describe("World Plan conversation consumer", () => {
     expect(pendingAskKeys()).toHaveLength(1);
   });
 
-  it("keeps a Graph Ask pending when a purported pre-dispatch failure says the provider was dispatched", async () => {
+  it.each([
+    {
+      label: "provider dispatch is reported",
+      status: 503,
+      code: "provider_outcome_unknown",
+      failureCode: "provider_outcome_unknown",
+      providerDispatched: true,
+      extraFailureField: false,
+    },
+    {
+      label: "the failure code is unrecognized",
+      status: 413,
+      code: "unknown_pre_dispatch_failure",
+      failureCode: "unknown_pre_dispatch_failure",
+      providerDispatched: false,
+      extraFailureField: false,
+    },
+    {
+      label: "the response and failure codes contradict each other",
+      status: 413,
+      code: "provider_envelope_over_budget",
+      failureCode: "native_binding_invalid",
+      providerDispatched: false,
+      extraFailureField: false,
+    },
+    {
+      label: "the HTTP status contradicts the failure code",
+      status: 413,
+      code: "native_binding_invalid",
+      failureCode: "native_binding_invalid",
+      providerDispatched: false,
+      extraFailureField: false,
+    },
+    {
+      label: "the top-level response code is missing",
+      status: 413,
+      code: null,
+      failureCode: "provider_envelope_over_budget",
+      providerDispatched: false,
+      extraFailureField: false,
+    },
+    {
+      label: "the failure contains unrecognized fields",
+      status: 413,
+      code: "provider_envelope_over_budget",
+      failureCode: "provider_envelope_over_budget",
+      providerDispatched: false,
+      extraFailureField: true,
+    },
+  ] as const)("keeps a Graph Ask pending when $label", async ({
+    status,
+    code,
+    failureCode,
+    providerDispatched,
+    extraFailureField,
+  }) => {
     setupApi(history("conversation-a", 4, []));
     liveApi.setNativeGraphAccessToken("test-only-local-operator-credential-value");
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: false,
-      status: 503,
-      statusText: "Service Unavailable",
+      status,
+      statusText: "Injected failure",
       text: async () => JSON.stringify({
         detail: {
-          code: "provider_outcome_unknown",
-          message: "The provider outcome is unknown.",
+          ...(code === null ? {} : { code }),
+          message: `The injected failure is ${code}.`,
           plan_context_failure: {
             schema: "dmb_plan_world_graph_context_failure_v1",
             status: "pre_dispatch_failed",
-            failure_code: "provider_outcome_unknown",
-            provider_dispatched: true,
+            failure_code: failureCode,
+            provider_dispatched: providerDispatched,
             automatic_downgrade: false,
+            ...(extraFailureField ? { retryable: true } : {}),
           },
         },
       }),

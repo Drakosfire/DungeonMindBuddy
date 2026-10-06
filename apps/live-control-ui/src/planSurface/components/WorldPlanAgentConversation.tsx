@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 
-import { getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlanDocumentEditProposal, connectNativeGraphSession, revokeNativeGraphSession, LiveApiError } from "../../api/liveApi";
+import { getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlanDocumentEditProposal, connectNativeGraphSession, revokeNativeGraphSession, isValidWorldPlanGraphContextFailure, LiveApiError } from "../../api/liveApi";
 import type {
   AgentInteractionThread,
   AgentInteractionTurn,
@@ -19,7 +19,6 @@ import type {
   WorldPlanGraphAnswerSegmentV1,
   WorldPlanGraphCitationMapV1,
   WorldPlanGraphCompletionV1,
-  WorldPlanGraphContextFailureV1,
   WorldPlanGraphContextReceiptV1,
   WorldPlanGraphExecutionProjectionV1,
   WorldPlanContextPolicyV1,
@@ -538,16 +537,8 @@ function localOperatorCredentialFailure(reason: unknown, nextStep: string): stri
 function graphContextPreDispatchFailure(reason: unknown): string | null {
   if (!(reason instanceof LiveApiError)) return null;
   const failure: unknown = reason.planContextFailure;
-  if (!hasExactKeys(failure, [
-    "schema", "status", "failure_code", "provider_dispatched", "automatic_downgrade",
-  ])
-    || failure.schema !== "dmb_plan_world_graph_context_failure_v1"
-    || failure.status !== "pre_dispatch_failed"
-    || typeof failure.failure_code !== "string" || !failure.failure_code.trim()
-    || failure.provider_dispatched !== false
-    || failure.automatic_downgrade !== false) return null;
-  const validatedFailure = failure as unknown as WorldPlanGraphContextFailureV1;
-  return `The server confirmed provider dispatch did not begin (${validatedFailure.failure_code}). ${reason.message} This Ask did not start and no answer was saved. Resolve the issue, then submit a new Ask if you want another attempt.`;
+  if (!isValidWorldPlanGraphContextFailure(failure, reason.code, reason.status)) return null;
+  return `The server confirmed provider dispatch did not begin (${failure.failure_code}). ${reason.message} This Ask did not start and no answer was saved. Resolve the issue, then submit a new Ask if you want another attempt.`;
 }
 
 function readCommittedPlanBasis(
