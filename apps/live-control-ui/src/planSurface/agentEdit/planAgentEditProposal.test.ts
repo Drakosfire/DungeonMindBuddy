@@ -530,15 +530,19 @@ describe("reviewed World-only Plan edit admission and Apply", () => {
     await expect(captureWorldSection(oversized, "Large")).rejects.toThrow(/8,000-character proposal limit/);
   });
 
-  it("refuses a selected Session 29 parent Beat before the proposal call can be made", async () => {
+  it("captures a selected Session 29 parent Beat without changing its marked draft", async () => {
     const { editor, state } = mountedState(SESSION_29_MARKDOWN);
     const parentBeat = planSectionTargets(editor).find((target) => target.heading === "The Hours They Bought");
     expect(parentBeat).toBeDefined();
     editor.commands.setTextSelection({ from: parentBeat!.from, to: parentBeat!.to });
 
-    await expect(captureWorldPlanEditTarget(worldState(state))).rejects.toThrow(
-      /changes editor structure during Markdown round-trip, so it is unavailable for Agent proposals/,
-    );
+    const before = editor.getJSON();
+    const captured = await captureWorldPlanEditTarget(worldState(state));
+    expect(captured.request.target_kind).toBe("replace_selection");
+    expect(captured.from).toBe(parentBeat!.from);
+    expect(captured.to).toBe(parentBeat!.to);
+    expect(captured.request.selected_text).toContain("Mireward After the Attack");
+    expect(editor.getJSON()).toEqual(before);
   });
 
   it("captures a session-free World target and applies only to the same mounted editor", async () => {

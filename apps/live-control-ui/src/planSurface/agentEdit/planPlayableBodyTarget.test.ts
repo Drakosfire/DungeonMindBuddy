@@ -54,8 +54,10 @@ describe("shared Playable body codec vectors", () => {
   }
 });
 
-it("allows only schema-empty heading content to normalize across protected Markdown reload", async () => {
+it("allows schema-empty headings and list attrs to normalize across protected Markdown reload", async () => {
   const markdown = [
+    "- An earlier ordinary list item.",
+    "",
     "# ",
     "",
     "<!-- dmb-playable-element:v2 kind=beat id=beat:smoke beat_kind=spine -->",
@@ -64,13 +66,15 @@ it("allows only schema-empty heading content to normalize across protected Markd
     "<!-- dmb-playable-element:v2 kind=scene id=scene:smoke -->",
     "### Quiet scene",
     "",
-    "The original body.",
+    "The original body with [the guide](dmb-node:node:guide).",
     "",
     "<!-- dmb-playable-element:v2 kind=choice id=choice:smoke scene=scene:smoke -->",
     "### Choose",
     "",
     "<!-- dmb-playable-element:v2 kind=option id=option:smoke -->",
     "- Continue.",
+    "",
+    "- A later ordinary list item.",
     "",
   ].join("\n");
   const imported = markdownToTiptapDoc(markdown);
@@ -80,10 +84,25 @@ it("allows only schema-empty heading content to normalize across protected Markd
   const before = editor.getJSON();
   const reloaded = markdownToTiptapDoc(tiptapJsonToSemanticMarkdown(before)).doc;
 
-  expect(before.content?.[0]).toMatchObject({ type: "heading" });
-  expect(before.content?.[0]?.content).toBeUndefined();
-  expect(reloaded.content?.[0]).toMatchObject({ type: "heading", content: [] });
+  expect(before.content?.[0]).toMatchObject({ type: "bulletList" });
+  const earlierListItem = before.content?.[0]?.content?.[0];
+  expect(earlierListItem?.attrs).toMatchObject({
+    playableActivates: null,
+    playableElementId: null,
+    playableElementKind: null,
+    playableElementVersion: null,
+    playableSuppresses: null,
+  });
+  expect(reloaded.content?.[0]?.content?.[0]?.attrs).toBeUndefined();
+  expect(before.content?.some((node) => node.type === "heading" && node.content === undefined)).toBe(true);
+  expect(reloaded.content?.some((node) => node.type === "heading" && node.content?.length === 0)).toBe(true);
   expect(playableBodyProtectedStructureMatches(before, reloaded, target)).toBe(true);
+
+  const changedListAttribute = structuredClone(reloaded);
+  const ordinaryItem = changedListAttribute.content?.[0]?.content?.[0];
+  if (!ordinaryItem || ordinaryItem.type !== "listItem") throw new Error("Expected a protected ordinary list item.");
+  ordinaryItem.attrs = { playableActivates: ["beat:changed"] };
+  expect(playableBodyProtectedStructureMatches(before, changedListAttribute, target)).toBe(false);
 
   const changedSibling = structuredClone(reloaded);
   const choiceHeading = changedSibling.content?.[target.rootEndIndex];
@@ -96,4 +115,25 @@ it("allows only schema-empty heading content to normalize across protected Markd
   if (!sceneHeading?.attrs) throw new Error("Expected the protected Scene marker attributes.");
   sceneHeading.attrs.playableElementId = "scene:changed";
   expect(playableBodyProtectedStructureMatches(before, changedMarker, target)).toBe(false);
+
+  const changedMark = structuredClone(reloaded);
+  const changedChoice = changedMark.content?.[target.rootEndIndex];
+  if (!changedChoice?.content?.[0]) throw new Error("Expected the protected sibling heading text node.");
+  changedChoice.content[0].marks = [{ type: "bold" }];
+  expect(playableBodyProtectedStructureMatches(before, changedMark, target)).toBe(false);
+
+  const lostReference = structuredClone(reloaded);
+  const sceneBody = lostReference.content?.[target.rootStartIndex];
+  if (!sceneBody?.content) throw new Error("Expected the Scene body containing a protected Graph reference.");
+  sceneBody.content = sceneBody.content.filter((node) => node.type !== "graphNodeReference");
+  expect(playableBodyProtectedStructureMatches(before, lostReference, target)).toBe(false);
+
+  const movedSibling = structuredClone(reloaded);
+  const movedRoot = movedSibling.content;
+  if (!movedRoot?.[target.rootEndIndex + 1]) throw new Error("Expected a protected sibling list after the Choice heading.");
+  [movedRoot[target.rootEndIndex], movedRoot[target.rootEndIndex + 1]] = [
+    movedRoot[target.rootEndIndex + 1]!,
+    movedRoot[target.rootEndIndex]!,
+  ];
+  expect(playableBodyProtectedStructureMatches(before, movedSibling, target)).toBe(false);
 });

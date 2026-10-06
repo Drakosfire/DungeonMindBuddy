@@ -200,21 +200,29 @@ function indentLines(value: string, prefix: string): string {
 }
 
 function serializeListItem(node: JsonNode, marker: string): string {
-  const parts = childNodes(node).map(serializeNode).filter(Boolean);
-  if (parts.length === 0) return marker.trimEnd();
+  const blocks = childNodes(node)
+    .map((child) => ({ child, markdown: serializeNode(child) }))
+    .filter((block) => Boolean(block.markdown));
+  if (blocks.length === 0) return marker.trimEnd();
   const indent = " ".repeat(marker.length);
   const serializeFirst = (text: string): string => {
     const lines = text.split("\n");
     if (lines.length <= 1) return `${marker}${text}`;
     return `${marker}${lines[0]}\n${indentLines(lines.slice(1).join("\n"), indent)}`;
   };
-  const [first, ...rest] = parts;
-  const head = serializeFirst(first);
-  // Sibling blocks need a true blank line between them so MDAST parses adjacent
-  // callouts/D/C as separate blockquotes. Indent each block first, then join
-  // with `\n\n` — indenting after join would turn the blank into spaces.
+  const [first, ...rest] = blocks;
+  const head = serializeFirst(first!.markdown);
+  // Two paragraphs need a blank line here or Markdown joins the continuation
+  // into the first paragraph. Other first continuations (such as nested lists
+  // and callouts) remain on the existing single-line boundary.
+  const firstContinuationSeparator = first!.child.type === "paragraph" && rest[0]?.child.type === "paragraph"
+    ? "\n\n"
+    : "\n";
+  // Later sibling blocks need a true blank line so MDAST keeps callouts/D/C
+  // separate. Indent each block first, then join blank lines to avoid spaces on
+  // otherwise empty separators.
   const continuation = rest.length > 0
-    ? `\n${rest.map((part) => indentLines(part, indent)).join("\n\n")}`
+    ? `${firstContinuationSeparator}${rest.map((part) => indentLines(part.markdown, indent)).join("\n\n")}`
     : "";
   return `${head}${continuation}`;
 }

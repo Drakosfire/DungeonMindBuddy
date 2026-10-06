@@ -46,14 +46,18 @@ function canonicalJsonValue(value: unknown, parentKey?: string): unknown {
   if (Array.isArray(value)) return value.map((item) => canonicalJsonValue(item));
   if (value !== null && typeof value === "object") {
     const record = value as Record<string, unknown>;
-    return Object.fromEntries(
-      Object.entries(record)
+    const entries = Object.entries(record)
         .filter(([key, item]) => item !== undefined
           && !(parentKey === "attrs" && item === null)
           && !(key === "content" && Array.isArray(item) && item.length === 0 && record.type === "heading"))
         .sort(([left], [right]) => left.localeCompare(right))
-        .map(([key, item]) => [key, canonicalJsonValue(item, key)]),
-    );
+        .map(([key, item]) => [key, canonicalJsonValue(item, key)] as const)
+        .filter(([key, item]) => !(record.type === "listItem" && key === "attrs"
+          && item !== null
+          && typeof item === "object"
+          && !Array.isArray(item)
+          && Object.keys(item).length === 0));
+    return Object.fromEntries(entries);
   }
   return value;
 }
@@ -323,6 +327,9 @@ export async function resolvePlayableBodyTarget(
     const item = root.content?.[match.itemIndex];
     const bodyContent = item?.content ?? [];
     if (!bodyContent.length) throw new PlayableBodyTargetError("This Option has no editable body content.");
+    if (bodyContent.filter((node) => node.type === "paragraph").length > 1) {
+      throw new PlayableBodyTargetError("This Option has multiple paragraphs and is unavailable for edit proposals.");
+    }
     const rootNode = editor.state.doc.child(match.rootIndex);
     let itemPosition = roots[match.rootIndex]!.position + 1;
     for (let index = 0; index < match.itemIndex; index += 1) itemPosition += editorNodeSize(rootNode.child(index).toJSON() as JSONContent);
