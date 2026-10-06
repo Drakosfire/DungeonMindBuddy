@@ -733,6 +733,7 @@ def test_plan_graph_budget_fails_closed_for_unverified_model(
 def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     monkeypatch: Any,
     plan_markdown: str,
+    caplog: Any,
 ) -> None:
     from datetime import timedelta
     from application_state.agent_conversation import types as graph_types
@@ -823,7 +824,7 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         "payloadUtf8Bytes": len(payload_json.encode()),
     }
     budget = service_module._policy_request_budget()
-    assert budget["contextLimitTokens"] == 65536
+    assert budget["contextLimitTokens"] == 1_050_000
 
     class FakeExecutionPort:
         turn: Turn | None = None
@@ -1055,6 +1056,152 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
                 status="ok", final_text=typed_answer,
                 runtime_session_id="synthetic-plan-session",
             )
+
+    class BudgetVetoRuntime:
+        descriptor = AgentRuntimeDescriptor("budget-veto", "fake", "test", "graph")
+
+        def __init__(
+            self, result: AgentRuntimeResult, *, authorize_first: bool = False,
+            reject_at_adapter: bool = False,
+        ) -> None:
+            self.result = result
+            self.authorize_first = authorize_first
+            self.reject_at_adapter = reject_at_adapter
+
+        def run_with_provider_authorization(
+            self, _invocation: Any, authorize: Any, *, request_budget: Any,
+            on_graph_operation: Any, on_provider_lifecycle: Any,
+        ) -> AgentRuntimeResult:
+            assert request_budget["contextLimitTokens"] == 1_050_000
+            if self.authorize_first:
+                adjusted = dict(view)
+                adjusted["model"] = request_budget["model"]
+                assert authorize(adjusted) is True
+            if self.reject_at_adapter:
+                adjusted = dict(view)
+                adjusted["model"] = request_budget["model"]
+                assert authorize(adjusted) is False
+            return self.result
+
+    def execute_budget_result(
+        result: AgentRuntimeResult, *, authorize_first: bool = False,
+        reject_at_adapter: bool = False,
+    ):
+        return execute_agent_turn(
+            request, root=Path("/tmp"),
+            pointer_store=HermesSessionPointerStore(Path("/tmp") / f"plan-veto-{uuid4()}"),
+            owner_resolver=lambda _request: {
+                "kind": "world", "id": "world:one", "name": "World One",
+            },
+            work_resolver=lambda _request, _owner: work,
+            graph_resolver=lambda *_args: pytest.fail("generic Graph resolver was used"),
+            plan_graph_resolver=lambda *_args: bootstrap,
+            runtime=BudgetVetoRuntime(
+                result, authorize_first=authorize_first,
+                reject_at_adapter=reject_at_adapter,
+            ),
+            conversation_service=fake,
+        )
+
+    caplog.clear()
+    with pytest.raises(AgentTurnServiceError) as veto:
+        execute_budget_result(AgentRuntimeResult(
+            status="error", error_code="request_budget_exceeded",
+            error_message="PRIVATE_PLAN_BODY api_key=sk-secret-shaped",
+            observed_model_call_count=0,
+            runtime_metadata={"host_phase_spans": [{"name": "rung3_plugin_discovery"}]},
+        ))
+    assert veto.value.code == "provider_envelope_over_budget"
+    assert veto.value.status_code == 413
+    assert veto.value.provider_dispatched is False
+    assert "PRIVATE_PLAN_BODY" not in caplog.text
+    assert "sk-secret-shaped" not in caplog.text
+    assert "rung3_plugin_discovery" in caplog.text
+    assert fake.accepted_count == 0
+    assert fake.authorize_count == 0
+
+    for uncertain in (
+        AgentRuntimeResult(status="error", error_code="request_budget_exceeded"),
+        AgentRuntimeResult(
+            status="error", error_code="request_budget_exceeded",
+            observed_model_call_count=1,
+        ),
+        AgentRuntimeResult(
+            status="error", error_code="request_budget_exceeded",
+            model_calls=[{"provider": "openai-api"}],
+            observed_model_call_count=1,
+        ),
+    ):
+        with pytest.raises(AgentTurnServiceError) as caught:
+            execute_budget_result(uncertain)
+        assert caught.value.code == "plan_context_delivery_failure"
+        assert caught.value.provider_dispatched is None
+        assert fake.accepted_count == 0
+
+    for ambiguous_denial in (
+        AgentRuntimeResult(status="error", error_code="provider_authorization_denied"),
+        AgentRuntimeResult(
+            status="error", error_code="provider_authorization_denied",
+            observed_model_call_count=0,
+        ),
+        AgentRuntimeResult(
+            status="error", error_code="provider_authorization_denied",
+            observed_model_call_count=1,
+        ),
+        AgentRuntimeResult(
+            status="error", error_code="provider_authorization_unavailable",
+            observed_model_call_count=0,
+        ),
+    ):
+        with pytest.raises(AgentTurnServiceError) as uncertain:
+            execute_budget_result(ambiguous_denial)
+        assert uncertain.value.code == "plan_context_delivery_failure"
+        assert uncertain.value.status_code == 503
+        assert uncertain.value.provider_dispatched is None
+        assert fake.accepted_count == 0
+
+    persistence_denial_calls: list[bool] = []
+
+    def refuse_accept(_service: Any, _request: Any, **_kwargs: Any) -> Turn:
+        persistence_denial_calls.append(True)
+        raise ValueError("PRIVATE_PERSISTENCE_DIAGNOSTIC")
+
+    with monkeypatch.context() as rejected_persistence:
+        rejected_persistence.setattr(service_module, "_accept_world_turn", refuse_accept)
+        with pytest.raises(AgentTurnServiceError) as denied_by_adapter:
+            execute_budget_result(AgentRuntimeResult(
+                status="error", error_code="provider_authorization_denied",
+                observed_model_call_count=0,
+            ), reject_at_adapter=True)
+    assert denied_by_adapter.value.code == "turn_persistence_indeterminate"
+    assert denied_by_adapter.value.status_code == 503
+    assert denied_by_adapter.value.provider_dispatched is None
+    assert "PRIVATE_PERSISTENCE_DIAGNOSTIC" not in str(denied_by_adapter.value)
+    assert "PRIVATE_PERSISTENCE_DIAGNOSTIC" not in caplog.text
+    assert persistence_denial_calls == [True]
+    assert fake.accepted_count == 0
+    assert fake.authorize_count == 0
+
+    with pytest.raises(AgentTurnServiceError) as after_authorization:
+        execute_budget_result(AgentRuntimeResult(
+            status="error", error_code="request_budget_exceeded",
+            observed_model_call_count=0,
+        ), authorize_first=True)
+    assert after_authorization.value.code == "plan_context_delivery_failure"
+    assert after_authorization.value.provider_dispatched is None
+    assert fake.authorize_count == 1
+
+    with pytest.raises(AgentTurnServiceError) as denial_after_authorization:
+        execute_budget_result(AgentRuntimeResult(
+            status="error", error_code="provider_authorization_denied",
+            observed_model_call_count=0,
+        ), authorize_first=True)
+    assert denial_after_authorization.value.code == "plan_context_delivery_failure"
+    assert denial_after_authorization.value.status_code == 503
+    assert denial_after_authorization.value.provider_dispatched is None
+    assert fake.authorize_count == 2
+
+    fake = FakeExecutionPort()
 
     response = execute_agent_turn(
         request,
