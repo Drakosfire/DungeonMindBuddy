@@ -916,9 +916,14 @@ function policyHistoryTurn(
   answer: string | null,
   context: WorldPlanAgentPlanContextV1,
   lifecycle: WorldAgentConversationHistoryTurnV2["lifecycle_status"] = "completed",
+  request?: WorldPlanAgentTurnRequestV1,
 ): WorldAgentConversationHistoryTurnV2 {
   const turn = makeTurn(sequence, turnId, question, answer);
   const basis = context.receipt.plan_basis;
+  if (request) {
+    turn.provenance.surface_id = request.surface.surface_id;
+    turn.provenance.surface_instance_id = request.surface.instance_id;
+  }
   turn.provenance.primary_work = {
     resolution: "resolved",
     kind: "plan",
@@ -929,6 +934,17 @@ function policyHistoryTurn(
     work_revision_id: basis.work_revision_id,
     revision_n: basis.revision_n,
   };
+  const target = context.receipt.playable_target;
+  turn.provenance.supporting_work = target ? [{
+    resolution: "resolved",
+    kind: "dmb_plan_playable_target_v1",
+    object_id: target.id,
+    revision: target.marker_grammar_version,
+    content_sha256: null,
+    object_revision: null,
+    work_revision_id: null,
+    revision_n: null,
+  }] : [];
   return { ...turn, lifecycle_status: lifecycle, plan_context: context };
 }
 
@@ -1052,6 +1068,31 @@ function setupApi(initialHistory: WorldAgentConversationHistoryResponse) {
 function pendingAskKeys(): string[] {
   return Object.keys(localStorage).filter((key) =>
     key.startsWith(`dmb:world-plan-pending-ask:v1:${encodeURIComponent(worldId)}:${encodeURIComponent(documentId)}:`));
+}
+
+async function leavePendingGraphAsk(
+  playableTarget: { kind: "scene" | "beat" | "choice" | "option"; id: string },
+  initialHistory: WorldAgentConversationHistoryResponseV1 = history("conversation-a", 10, []),
+) {
+  const api = setupApi(initialHistory);
+  const sent: WorldPlanAgentTurnRequestV1[] = [];
+  const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
+    sent.push(request);
+    throw new Error("connection reset after dispatch");
+  });
+  const mounted = render(conversationElement({ playableTarget, selectionGeneration: 0 }));
+
+  await screen.findByText(/No messages here yet/);
+  fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+  fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
+    target: { value: "Who watches the western gate?" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+  expect(await screen.findByText(/outcome of this Graph-context Ask is uncertain/)).toBeInTheDocument();
+  expect(await screen.findByText(/This Graph-context Ask is not replayed from browser recovery/)).toBeInTheDocument();
+  expect(postAsk).toHaveBeenCalledTimes(1);
+  expect(pendingAskKeys()).toHaveLength(1);
+  return { api, mounted, postAsk, request: sent[0]! };
 }
 
 function capturePendingAskEvents(eventName: string): CustomEvent<unknown>[] {
@@ -1518,21 +1559,21 @@ describe("World Plan conversation consumer", () => {
     expect(pendingAskKeys()).toHaveLength(1);
   });
 
-  it("tells the GM when a Graph-context Ask failed before provider dispatch", async () => {
+  it("clears a definitive pre-dispatch failure from pending recovery", async () => {
     setupApi(history("conversation-a", 4, []));
     liveApi.setNativeGraphAccessToken("test-only-local-operator-credential-value");
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: false,
-      status: 409,
-      statusText: "Conflict",
+      status: 413,
+      statusText: "Payload Too Large",
       text: async () => JSON.stringify({
         detail: {
-          code: "native_binding_invalid",
-          message: "No active Graph binding is available.",
+          code: "provider_envelope_over_budget",
+          message: "The selected model context cannot contain this request.",
           plan_context_failure: {
             schema: "dmb_plan_world_graph_context_failure_v1",
             status: "pre_dispatch_failed",
-            failure_code: "native_binding_invalid",
+            failure_code: "provider_envelope_over_budget",
             provider_dispatched: false,
             automatic_downgrade: false,
           },
@@ -1546,9 +1587,9 @@ describe("World Plan conversation consumer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
     expect(await screen.findByText(/server confirmed provider dispatch did not begin/)).toBeInTheDocument();
-    expect(screen.getByText(/No active Graph binding is available/)).toBeInTheDocument();
+    expect(screen.getByText(/provider_envelope_over_budget/)).toBeInTheDocument();
+    expect(screen.getByText(/no answer was saved/)).toBeInTheDocument();
     expect(screen.queryByText(/outcome of this Graph-context Ask is uncertain/)).not.toBeInTheDocument();
-    expect(await screen.findByText(/This Graph-context Ask is not replayed from browser recovery/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Retry saved Ask" })).not.toBeInTheDocument();
     const turnCall = fetchSpy.mock.calls.find(([url]) => String(url) === "/api/live/agent/turn");
     expect(turnCall).toBeDefined();
@@ -1556,7 +1597,58 @@ describe("World Plan conversation consumer", () => {
       "plan_context_policy",
       { schema: "dmb_plan_context_policy_v1", policy: "auto_plan_world" },
     );
-    expect(pendingAskKeys()).toHaveLength(1);
+    expect(pendingAskKeys()).toEqual([]);
+    expect(screen.queryByRole("region", { name: "Pending Ask recovery" })).not.toBeInTheDocument();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("allows a fresh Graph Ask after clearing a definitive pre-dispatch failure", async () => {
+    const api = setupApi(history("conversation-a", 4, []));
+    const failure = new liveApi.LiveApiError("The selected model context cannot contain this request.", 413, {
+      code: "provider_envelope_over_budget",
+      planContextFailure: {
+        schema: "dmb_plan_world_graph_context_failure_v1",
+        status: "pre_dispatch_failed",
+        failure_code: "provider_envelope_over_budget",
+        provider_dispatched: false,
+        automatic_downgrade: false,
+      },
+    });
+    const requests: WorldPlanAgentTurnRequestV1[] = [];
+    const answer = "The fresh Graph Ask was answered.";
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
+      requests.push(request);
+      if (requests.length === 1) throw failure;
+      const response = await policyResponse(request, "conversation-a", answer);
+      const completedTurn = {
+        ...historyTurnForAsk(request, answer),
+        plan_context: response.plan_context,
+      };
+      api.setCurrent(await historyV2("conversation-a", 4, [completedTurn]));
+      return response;
+    });
+    render(conversationElement());
+    await screen.findByText(/No messages here yet/);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
+      target: { value: "Ask once before fixing the budget." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByText(/no answer was saved/)).toBeInTheDocument();
+    expect(pendingAskKeys()).toEqual([]);
+    expect(postAsk).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
+      target: { value: "Ask again after fixing the request budget." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByText(answer)).toBeInTheDocument();
+    expect(postAsk).toHaveBeenCalledTimes(2);
+    expect(requests[1]!.turn_id).not.toBe(requests[0]!.turn_id);
+    expect(pendingAskKeys()).toEqual([]);
   });
 
   it("does not repost an uncertain Graph-context Ask from browser recovery", async () => {
@@ -1574,6 +1666,256 @@ describe("World Plan conversation consumer", () => {
     expect(postAsk).toHaveBeenCalledTimes(1);
     expect(pendingAskKeys()).toHaveLength(1);
   });
+
+  it("keeps Hermes initialization 503 unresolved without a dispatch receipt", async () => {
+    setupApi(history("conversation-a", 4, []));
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockRejectedValue(
+      new liveApi.LiveApiError("Hermes runtime initialization failed.", 503, {
+        code: "hermes_agent_init_error",
+      }),
+    );
+    render(conversationElement());
+    await screen.findByText(/No messages here yet/);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
+      target: { value: "Ask about the northern gate." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByText(/outcome of this Graph-context Ask is uncertain/)).toBeInTheDocument();
+    expect(screen.getByText(/Hermes runtime initialization failed\./)).toBeInTheDocument();
+    expect(screen.queryByText(/provider dispatch did not begin/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no answer was saved/)).not.toBeInTheDocument();
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    expect(pendingAskKeys()).toHaveLength(1);
+  });
+
+  it.each([
+    {
+      label: "provider dispatch is reported",
+      status: 503,
+      code: "provider_outcome_unknown",
+      failureCode: "provider_outcome_unknown",
+      providerDispatched: true,
+      extraFailureField: false,
+    },
+    {
+      label: "the failure code is unrecognized",
+      status: 413,
+      code: "unknown_pre_dispatch_failure",
+      failureCode: "unknown_pre_dispatch_failure",
+      providerDispatched: false,
+      extraFailureField: false,
+    },
+    {
+      label: "the response and failure codes contradict each other",
+      status: 413,
+      code: "provider_envelope_over_budget",
+      failureCode: "native_binding_invalid",
+      providerDispatched: false,
+      extraFailureField: false,
+    },
+    {
+      label: "the HTTP status contradicts the failure code",
+      status: 413,
+      code: "native_binding_invalid",
+      failureCode: "native_binding_invalid",
+      providerDispatched: false,
+      extraFailureField: false,
+    },
+    {
+      label: "the top-level response code is missing",
+      status: 413,
+      code: null,
+      failureCode: "provider_envelope_over_budget",
+      providerDispatched: false,
+      extraFailureField: false,
+    },
+    {
+      label: "the failure contains unrecognized fields",
+      status: 413,
+      code: "provider_envelope_over_budget",
+      failureCode: "provider_envelope_over_budget",
+      providerDispatched: false,
+      extraFailureField: true,
+    },
+  ] as const)("keeps a Graph Ask pending when $label", async ({
+    status,
+    code,
+    failureCode,
+    providerDispatched,
+    extraFailureField,
+  }) => {
+    setupApi(history("conversation-a", 4, []));
+    liveApi.setNativeGraphAccessToken("test-only-local-operator-credential-value");
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status,
+      statusText: "Injected failure",
+      text: async () => JSON.stringify({
+        detail: {
+          ...(code === null ? {} : { code }),
+          message: `The injected failure is ${code}.`,
+          plan_context_failure: {
+            schema: "dmb_plan_world_graph_context_failure_v1",
+            status: "pre_dispatch_failed",
+            failure_code: failureCode,
+            provider_dispatched: providerDispatched,
+            automatic_downgrade: false,
+            ...(extraFailureField ? { retryable: true } : {}),
+          },
+        },
+      }),
+    } as Response);
+    render(conversationElement());
+    await screen.findByText(/No messages here yet/);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Check the north gate." } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByText(/outcome of this Graph-context Ask is uncertain/)).toBeInTheDocument();
+    expect(screen.queryByText(/server confirmed provider dispatch did not begin/)).not.toBeInTheDocument();
+    expect(pendingAskKeys()).toHaveLength(1);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("reconciles a lost Graph Ask from its exact completed history after remount without using the new card selection", async () => {
+    const cardA = { kind: "scene" as const, id: "scene:opening" };
+    const cardB = { kind: "scene" as const, id: "scene:ending" };
+    const { api, mounted, postAsk, request } = await leavePendingGraphAsk(cardA);
+    const storageKey = pendingAskKeys()[0]!;
+    const originalEnvelope = localStorage.getItem(storageKey);
+    mounted.unmount();
+
+    const context = await planGraphContext("graph_grounded", { request, execution: null });
+    const answer = "The western gate is watched.";
+    const completedTurn = policyHistoryTurn(
+      1, request.turn_id, request.message, answer, context, "completed", request,
+    );
+    api.setCurrent(await historyV2("conversation-a", 10, [completedTurn]));
+
+    render(conversationElement({ playableTarget: cardB, selectionGeneration: 1 }));
+
+    expect(await screen.findAllByText(answer)).toHaveLength(2);
+    expect(await screen.findByText("Grounded in complete World Graph evidence.")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Selected Playable card for Ask" })).toHaveTextContent(cardB.id);
+    const transcript = screen.getByRole("region", { name: "World conversation transcript" });
+    const answerTurn = transcript.querySelector("article");
+    expect(answerTurn).toHaveTextContent(cardA.id);
+    expect(answerTurn).not.toHaveTextContent(cardB.id);
+    await waitFor(() => expect(pendingAskKeys()).toEqual([]));
+    expect(localStorage.getItem(storageKey)).toBeNull();
+    expect(screen.queryByRole("region", { name: "Pending Ask recovery" })).not.toBeInTheDocument();
+    expect(JSON.parse(originalEnvelope ?? "{}").request.playable_target.id).toBe(cardA.id);
+    expect(postAsk).toHaveBeenCalledTimes(1);
+  });
+
+  it("reconciles the first Ask when its completed turn opened the World conversation", async () => {
+    const cardA = { kind: "scene" as const, id: "scene:opening" };
+    const { api, mounted, postAsk, request } = await leavePendingGraphAsk(cardA, history(null, 0, []));
+    const storageKey = pendingAskKeys()[0]!;
+    expect(JSON.parse(localStorage.getItem(storageKey) ?? "{}").origin).toMatchObject({
+      pointerRevision: 0,
+      conversationId: null,
+    });
+    mounted.unmount();
+
+    const context = await planGraphContext("graph_grounded", { request, execution: null });
+    const answer = "The western gate is watched.";
+    const completedTurn = policyHistoryTurn(
+      1, request.turn_id, request.message, answer, context, "completed", request,
+    );
+    api.setCurrent(await historyV2("first-conversation", 1, [completedTurn]));
+
+    render(conversationElement({ playableTarget: cardA, selectionGeneration: 1 }));
+
+    expect(await screen.findAllByText(answer)).toHaveLength(2);
+    await waitFor(() => expect(pendingAskKeys()).toEqual([]));
+    expect(screen.queryByRole("region", { name: "Pending Ask recovery" })).not.toBeInTheDocument();
+    expect(postAsk).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["target-mismatch", "conversation-mismatch", "unfinished", "execution-not-completed", "ambiguous", "replacement-bytes"] as const)(
+    "keeps the Graph Ask pending when history is %s",
+    async (historyCase) => {
+      const cardA = { kind: "scene" as const, id: "scene:opening" };
+      const cardB = { kind: "scene" as const, id: "scene:ending" };
+      const { api, mounted, postAsk, request } = await leavePendingGraphAsk(cardA);
+      const storageKey = pendingAskKeys()[0]!;
+      const originalEnvelope = localStorage.getItem(storageKey);
+      mounted.unmount();
+      let expectedEnvelope = originalEnvelope;
+      if (historyCase === "replacement-bytes") {
+        const replacement = JSON.parse(originalEnvelope ?? "{}") as { createdAt?: string };
+        replacement.createdAt = "replacement-after-history-read";
+        expectedEnvelope = JSON.stringify(replacement);
+        const originalGetItem = Storage.prototype.getItem;
+        let matchingReads = 0;
+        vi.spyOn(Storage.prototype, "getItem").mockImplementation(function (this: Storage, key: string) {
+          if (key === storageKey && ++matchingReads === 3) {
+            this.setItem(key, expectedEnvelope!);
+            return expectedEnvelope!;
+          }
+          return originalGetItem.call(this, key);
+        });
+      }
+
+      let receiptRequest = request;
+      let context: WorldPlanAgentPlanContextV1;
+      let lifecycle: WorldAgentConversationHistoryTurnV2["lifecycle_status"] = "completed";
+      let answer: string | null = "The western gate is watched.";
+      if (historyCase === "target-mismatch") {
+        receiptRequest = {
+          ...request,
+          playable_target: { schema: "dmb_plan_playable_target_v1", ...cardB },
+        };
+        context = await planGraphContext("graph_grounded", { request: receiptRequest, execution: null });
+      } else if (historyCase === "conversation-mismatch") {
+        context = await planGraphContext("graph_grounded", { request, execution: null });
+      } else if (historyCase === "unfinished") {
+        lifecycle = "running";
+        answer = null;
+        context = await planGraphContext("graph_grounded", { request, completion: false, execution: null });
+      } else if (historyCase === "execution-not-completed") {
+        context = await planGraphContext("graph_grounded", {
+          request,
+          execution: {
+            schema: "dmb_agent_plan_world_graph_execution_projection_v1",
+            claimability: "blocked_unknown_or_sent",
+            authorization_state: "outcome_unknown",
+            automatic_redispatch: false,
+          },
+        });
+      } else {
+        context = await planGraphContext("graph_grounded", { request, execution: null });
+      }
+
+      const completedTurn = policyHistoryTurn(
+        1, request.turn_id, request.message, answer, context, lifecycle, receiptRequest,
+      );
+      const turns = historyCase === "ambiguous"
+        ? [completedTurn, { ...completedTurn, sequence: 2 }]
+        : [completedTurn];
+      const conversationId = historyCase === "conversation-mismatch" ? "conversation-b" : "conversation-a";
+      const pointerRevision = historyCase === "conversation-mismatch" ? 11 : 10;
+      api.setCurrent(await historyV2(conversationId, pointerRevision, turns));
+
+      render(conversationElement({ playableTarget: cardB, selectionGeneration: 1 }));
+
+      if (historyCase === "ambiguous") {
+        expect(await screen.findByText(/invalid Graph-context receipt/)).toBeInTheDocument();
+      } else if (historyCase === "unfinished") {
+        expect(await screen.findByText("No final Graph-context completion has been recorded for this turn yet.")).toBeInTheDocument();
+      } else {
+        expect(await screen.findAllByText(answer!)).toHaveLength(2);
+      }
+      await waitFor(() => expect(pendingAskKeys()).toEqual([storageKey]));
+      expect(localStorage.getItem(storageKey)).toBe(expectedEnvelope);
+      expect(screen.getByRole("region", { name: "Pending Ask recovery" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Retry saved Ask" })).not.toBeInTheDocument();
+      expect(postAsk).toHaveBeenCalledTimes(1);
+    },
+  );
 
   it("directs an authorization-rejected Graph Ask to refresh history before another action", async () => {
     setupApi(history("conversation-a", 4, []));

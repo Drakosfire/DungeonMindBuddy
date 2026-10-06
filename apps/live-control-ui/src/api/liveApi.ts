@@ -468,23 +468,50 @@ function parseWorldGraphErrorFields(body: {
   return { code, diagnostics };
 }
 
-function parsePlanWorldGraphContextFailure(body: unknown): WorldPlanGraphContextFailureV1 | null {
-  if (!isRecord(body)) return null;
-  const detail = isRecord(body.detail) ? body.detail : body;
-  const failure = detail.plan_context_failure;
-  if (!isRecord(failure)) return null;
+const PLAN_GRAPH_PREDISPATCH_FAILURE_HTTP_STATUS: Readonly<Record<string, number>> = Object.freeze({
+  managed_world_unresolved: 404,
+  native_binding_invalid: 409,
+  graph_revision_unavailable: 409,
+  graph_read_failed: 503,
+  graph_evidence_invalid: 502,
+  provider_envelope_over_budget: 413,
+  receipt_freeze_failed: 503,
+});
+
+export function isValidWorldPlanGraphContextFailure(
+  value: unknown,
+  responseCode: unknown,
+  responseStatus: number,
+): value is WorldPlanGraphContextFailureV1 {
+  if (!isRecord(value)) return false;
   const expectedKeys = [
     "schema", "status", "failure_code", "provider_dispatched", "automatic_downgrade",
   ].sort();
-  const actualKeys = Object.keys(failure).sort();
+  const actualKeys = Object.keys(value).sort();
   if (actualKeys.length !== expectedKeys.length
     || actualKeys.some((key, index) => key !== expectedKeys[index])
-    || failure.schema !== "dmb_plan_world_graph_context_failure_v1"
-    || failure.status !== "pre_dispatch_failed"
-    || typeof failure.failure_code !== "string" || !failure.failure_code.trim()
-    || failure.provider_dispatched !== false
-    || failure.automatic_downgrade !== false) return null;
-  return failure as unknown as WorldPlanGraphContextFailureV1;
+    || value.schema !== "dmb_plan_world_graph_context_failure_v1"
+    || value.status !== "pre_dispatch_failed"
+    || typeof value.failure_code !== "string" || !value.failure_code.trim()
+    || value.provider_dispatched !== false
+    || value.automatic_downgrade !== false) return false;
+
+  const expectedStatus = PLAN_GRAPH_PREDISPATCH_FAILURE_HTTP_STATUS[value.failure_code];
+  return typeof expectedStatus === "number"
+    && responseCode === value.failure_code
+    && responseStatus === expectedStatus;
+}
+
+function parsePlanWorldGraphContextFailure(
+  body: unknown,
+  responseStatus: number,
+): WorldPlanGraphContextFailureV1 | null {
+  if (!isRecord(body)) return null;
+  const detail = isRecord(body.detail) ? body.detail : body;
+  const failure = detail.plan_context_failure;
+  return isValidWorldPlanGraphContextFailure(failure, detail.code, responseStatus)
+    ? failure
+    : null;
 }
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -519,13 +546,13 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
         detail = body.message;
         errorOptions = {
           ...parseWorldGraphErrorFields(body),
-          planContextFailure: parsePlanWorldGraphContextFailure(body),
+          planContextFailure: parsePlanWorldGraphContextFailure(body, response.status),
         };
       } else if (typeof body.detail === "string") {
         detail = body.detail;
         errorOptions = {
           ...parseWorldGraphErrorFields(body),
-          planContextFailure: parsePlanWorldGraphContextFailure(body),
+          planContextFailure: parsePlanWorldGraphContextFailure(body, response.status),
         };
       } else if (body.detail != null && typeof body.detail === "object") {
         const detailObj = body.detail as {
@@ -544,7 +571,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
             ...body,
             ...detailObj,
           }),
-          planContextFailure: parsePlanWorldGraphContextFailure(body),
+          planContextFailure: parsePlanWorldGraphContextFailure(body, response.status),
         };
         if (!errorOptions.code && typeof detailObj.code === "string") {
           errorOptions = { ...errorOptions, code: detailObj.code, diagnostics: null };
@@ -553,7 +580,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
         detail = JSON.stringify(body.detail);
         errorOptions = {
           ...parseWorldGraphErrorFields(body),
-          planContextFailure: parsePlanWorldGraphContextFailure(body),
+          planContextFailure: parsePlanWorldGraphContextFailure(body, response.status),
         };
       }
     } catch (parseError) {

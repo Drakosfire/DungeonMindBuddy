@@ -29,6 +29,7 @@ import {
   getLatestGraphIngestRun,
   getUnionSupergraphProjection,
   LiveApiError,
+  isValidWorldPlanGraphContextFailure,
   NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT,
   listWorldContainers,
   listWorkspaceDocuments,
@@ -174,6 +175,92 @@ describe("Index Agent turn transport", () => {
 
 describe("World Plan Agent turn transport", () => {
   afterEach(() => vi.restoreAllMocks());
+
+  it.each([
+    ["managed_world_unresolved", 404],
+    ["native_binding_invalid", 409],
+    ["graph_revision_unavailable", 409],
+    ["graph_read_failed", 503],
+    ["graph_evidence_invalid", 502],
+    ["provider_envelope_over_budget", 413],
+    ["receipt_freeze_failed", 503],
+  ] as const)("accepts the mapped pre-dispatch failure %s at HTTP %s", (failureCode, status) => {
+    const failure = {
+      schema: "dmb_plan_world_graph_context_failure_v1",
+      status: "pre_dispatch_failed",
+      failure_code: failureCode,
+      provider_dispatched: false,
+      automatic_downgrade: false,
+    } as const;
+
+    expect(isValidWorldPlanGraphContextFailure(failure, failureCode, status)).toBe(true);
+  });
+
+  it.each([
+    {
+      label: "unknown failure codes",
+      failure: {
+        schema: "dmb_plan_world_graph_context_failure_v1",
+        status: "pre_dispatch_failed",
+        failure_code: "unknown_pre_dispatch_failure",
+        provider_dispatched: false,
+        automatic_downgrade: false,
+      },
+      responseCode: "unknown_pre_dispatch_failure",
+      responseStatus: 413,
+    },
+    {
+      label: "contradictory response codes",
+      failure: {
+        schema: "dmb_plan_world_graph_context_failure_v1",
+        status: "pre_dispatch_failed",
+        failure_code: "native_binding_invalid",
+        provider_dispatched: false,
+        automatic_downgrade: false,
+      },
+      responseCode: "provider_envelope_over_budget",
+      responseStatus: 413,
+    },
+    {
+      label: "an HTTP status outside the mapped pair",
+      failure: {
+        schema: "dmb_plan_world_graph_context_failure_v1",
+        status: "pre_dispatch_failed",
+        failure_code: "provider_envelope_over_budget",
+        provider_dispatched: false,
+        automatic_downgrade: false,
+      },
+      responseCode: "provider_envelope_over_budget",
+      responseStatus: 503,
+    },
+    {
+      label: "missing response codes",
+      failure: {
+        schema: "dmb_plan_world_graph_context_failure_v1",
+        status: "pre_dispatch_failed",
+        failure_code: "provider_envelope_over_budget",
+        provider_dispatched: false,
+        automatic_downgrade: false,
+      },
+      responseCode: null,
+      responseStatus: 413,
+    },
+    {
+      label: "malformed failures with extra fields",
+      failure: {
+        schema: "dmb_plan_world_graph_context_failure_v1",
+        status: "pre_dispatch_failed",
+        failure_code: "provider_envelope_over_budget",
+        provider_dispatched: false,
+        automatic_downgrade: false,
+        retryable: true,
+      },
+      responseCode: "provider_envelope_over_budget",
+      responseStatus: 413,
+    },
+  ] as const)("rejects $label", ({ failure, responseCode, responseStatus }) => {
+    expect(isValidWorldPlanGraphContextFailure(failure, responseCode, responseStatus)).toBe(false);
+  });
 
   it("posts the exact saved-Plan no-graph request to the accepted endpoint", async () => {
     setNativeGraphAccessToken("test-only-local-operator-credential-value");

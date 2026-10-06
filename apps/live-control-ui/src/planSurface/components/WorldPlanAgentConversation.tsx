@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 
-import { getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlanDocumentEditProposal, connectNativeGraphSession, revokeNativeGraphSession, LiveApiError } from "../../api/liveApi";
+import { getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlanDocumentEditProposal, connectNativeGraphSession, revokeNativeGraphSession, isValidWorldPlanGraphContextFailure, LiveApiError } from "../../api/liveApi";
 import type {
   AgentInteractionThread,
   AgentInteractionTurn,
@@ -535,8 +535,10 @@ function localOperatorCredentialFailure(reason: unknown, nextStep: string): stri
 }
 
 function graphContextPreDispatchFailure(reason: unknown): string | null {
-  if (!(reason instanceof LiveApiError) || !reason.planContextFailure) return null;
-  return `The server confirmed provider dispatch did not begin. ${reason.message} This saved Graph-context Ask will not be resent. Resolve the issue and submit a new Ask if you want another attempt.`;
+  if (!(reason instanceof LiveApiError)) return null;
+  const failure: unknown = reason.planContextFailure;
+  if (!isValidWorldPlanGraphContextFailure(failure, reason.code, reason.status)) return null;
+  return `The server confirmed provider dispatch did not begin (${failure.failure_code}). ${reason.message} This Ask did not start and no answer was saved. Resolve the issue, then submit a new Ask if you want another attempt.`;
 }
 
 function readCommittedPlanBasis(
@@ -1072,6 +1074,99 @@ async function areHistoryReceiptDigestsBound(page: WorldAgentConversationHistory
   return checked.every(Boolean);
 }
 
+function historyPageMatchesPendingAskConversation(
+  page: WorldAgentConversationHistoryResponse,
+  origin: WorldPlanPendingAskOrigin,
+): boolean {
+  if (page.conversation_state !== "active"
+    || !page.conversation_id
+    || page.active_conversation_id !== page.conversation_id) return false;
+
+  if (origin.conversationId !== null) {
+    return page.conversation_id === origin.conversationId
+      && page.pointer_revision === origin.pointerRevision;
+  }
+
+  // The first accepted turn opens the World conversation and advances its
+  // pointer exactly once. Any later pointer change makes the page ambiguous.
+  return origin.pointerRevision < Number.MAX_SAFE_INTEGER
+    && page.pointer_revision === origin.pointerRevision + 1;
+}
+
+function completedHistoryTurnMatchesPendingGraphAsk(
+  page: WorldAgentConversationHistoryResponse,
+  turn: WorldAgentConversationHistoryTurn,
+  stored: StoredPendingAsk,
+): boolean {
+  const envelope = stored.envelope;
+  if (!envelope) return false;
+  const { request, origin } = envelope;
+  if (!request.plan_context_policy
+    || page.world_id !== origin.worldId
+    || !historyPageMatchesPendingAskConversation(page, origin)
+    || turn.lifecycle_status !== "completed"
+    || turn.turn_id !== request.turn_id
+    || turn.user_text !== request.message
+    || typeof turn.assistant_text !== "string"
+    || !turn.assistant_text.trim()
+    || turn.provenance.world_id !== origin.worldId
+    || turn.provenance.surface_resolution !== "resolved"
+    || turn.provenance.surface_id !== request.surface.surface_id
+    || typeof request.surface.instance_id !== "string"
+    || turn.provenance.surface_instance_id !== request.surface.instance_id) return false;
+
+  const context = "plan_context" in turn ? turn.plan_context : undefined;
+  if (!context
+    || !isWorldPlanContextProjection(context, request, true)
+    || context.completion === null
+    || (context.execution !== null && context.execution.claimability !== "completed")
+    || !isHistoryPlanContextBound(context, turn.provenance, origin.worldId)) return false;
+
+  const basis = context.receipt.plan_basis;
+  if (basis.world_id !== origin.worldId
+    || basis.document_id !== origin.documentId
+    || basis.object_revision !== origin.objectRevision
+    || basis.work_revision_id !== origin.workRevisionId
+    || basis.revision_n !== origin.revisionN
+    || basis.content_sha256 !== origin.contentSha256) return false;
+
+  const completedText = context.completion.answer_segments.map((segment) => segment.text).join("\n");
+  return turn.assistant_text === completedText;
+}
+
+function reconcileCompletedGraphPendingAsks(
+  page: WorldAgentConversationHistoryResponse,
+  worldId: string,
+  documentId: string,
+): { refreshPendingList: boolean; storageError: string | null } {
+  const pending = readPendingAsks(worldId, documentId)
+    .filter((stored) => stored.envelope?.request.plan_context_policy);
+  const candidates = pending.flatMap((stored) => {
+    const matchingTurns = page.turns.filter((turn) =>
+      completedHistoryTurnMatchesPendingGraphAsk(page, turn, stored));
+    return matchingTurns.length === 1 ? [{ stored, turnId: matchingTurns[0]!.turn_id }] : [];
+  });
+  const matchesByTurnId = new Map<string, number>();
+  for (const candidate of candidates) {
+    matchesByTurnId.set(candidate.turnId, (matchesByTurnId.get(candidate.turnId) ?? 0) + 1);
+  }
+
+  let refreshPendingList = false;
+  let storageError: string | null = null;
+  for (const candidate of candidates) {
+    if (matchesByTurnId.get(candidate.turnId) !== 1) continue;
+    const result = clearPendingAskIfUnchanged(candidate.stored);
+    if (result.kind === "cleared") {
+      dispatchPendingAskSettlement(candidate.stored, result);
+    } else {
+      // A replacement envelope or storage failure stays visible and intact.
+      refreshPendingList = true;
+      if (result.kind === "unavailable") storageError = result.message;
+    }
+  }
+  return { refreshPendingList, storageError };
+}
+
 async function validateWorldPlanResponse(
   value: unknown,
   request: WorldPlanAgentTurnRequestV1,
@@ -1540,6 +1635,16 @@ export function WorldPlanAgentConversation({
           setHistoryError("The World conversation response did not match the selected World or contained an invalid Graph-context receipt. Refresh history before continuing.");
           return;
         }
+        if (!active || generation !== historyGenerationRef.current) return;
+        try {
+          const reconciliation = reconcileCompletedGraphPendingAsks(page, verifiedWorldId, documentId);
+          if (reconciliation.refreshPendingList) refreshPendingAskList();
+          if (reconciliation.storageError) setPendingAskLoadError(reconciliation.storageError);
+        } catch (reason) {
+          setPendingAskLoadError(reason instanceof Error
+            ? reason.message
+            : "Browser storage is unavailable for pending Ask recovery.");
+        }
         historySnapshotRef.current = page;
         setHistory(page);
       })
@@ -1852,10 +1957,20 @@ export function WorldPlanAgentConversation({
       }
       setComposerMessage("");
     } catch (reason) {
-      if (isCurrent()) {
+      const definitivePreDispatchFailure = envelope.request.plan_context_policy
+        ? graphContextPreDispatchFailure(reason)
+        : null;
+      if (definitivePreDispatchFailure) {
+        const clearResult = clearPendingAskIfUnchanged(stored);
+        if (clearResult.kind === "cleared") dispatchPendingAskSettlement(stored, clearResult);
+        if (isCurrent()) {
+          if (clearResult.kind === "unavailable") setPendingAskLoadError(clearResult.message);
+          else if (clearResult.kind === "changed") refreshPendingAskList();
+          setError(definitivePreDispatchFailure);
+        }
+      } else if (isCurrent()) {
         setError(envelope.request.plan_context_policy
           ? localOperatorCredentialFailure(reason, "refresh World history to inspect this turn; do not resend it")
-            ?? graphContextPreDispatchFailure(reason)
             ?? `The outcome of this Graph-context Ask is uncertain. Refresh World history before taking another action. This saved turn will not be reposted. ${reason instanceof Error ? reason.message : ""}`
           : localOperatorCredentialFailure(reason, "retry the saved Ask; its exact request and turn ID are preserved")
             ?? (reason instanceof Error
