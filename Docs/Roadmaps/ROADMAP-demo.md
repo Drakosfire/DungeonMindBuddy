@@ -1244,23 +1244,26 @@ that their foundations are absent. Historical slices retain their IDs.
 
 ### 2026-10-06 — DEMO-J5 saved World Plan to Play Run (#931)
 
-- **State: active; implementation committed, independent review pending.** The
+- **State: active; implementation committed, ten-path UI review accepted, final
+  cumulative handoff/activation review pending.** The
   serial PR is [#931](https://github.com/Drakosfire/DungeonMindBuddy/pull/931),
   based on `08e8cbe1207b74b0e15c6f95070899c5cc7c69fd` after PR #935 merged.
   DEMO's ten leased UI paths are in rebased code commit
   `ef2bf4054e065a98d0d0bf3253fa891be35383ac`; their file blobs are unchanged
-  from code commit `655edf9615dc3514b54755b4ac24562023cf1164`, which PRIME's
-  independent UI review is checking;
+  from code commit `655edf9615dc3514b54755b4ac24562023cf1164`, which PRIME
+  independently accepted for the ten-path UI implementation;
   the current handoff and exact write lease are
   [`HANDOFF-world-plan-playable-adoption.md`](../Plans/HANDOFF-world-plan-playable-adoption.md).
-- **Evidence:** the five assigned mounted/UI suites passed 148/148; APP-STATE's
-  isolated PostgreSQL suite passed 11/11; SERVER's World V2/manifest suites
-  passed 31/31 with 11 existing Pydantic shadow warnings. The disposable
-  fixture catalog was empty after tests. UI typecheck retains only the inherited
+- **Evidence:** PRIME accepted the ten-path UI review at code commit `655edf9`
+  with the assigned mounted/UI suites passing 148/148 and its typecheck passing;
+  the post-rebase UI blobs are identical. APP-STATE's isolated PostgreSQL suite
+  passed 11/11; SERVER's World V2/manifest suites passed 31/31 with 11 existing
+  Pydantic shadow warnings. The disposable fixture catalog was empty after
+  tests. This checkout's repository-wide typecheck retains only the inherited
   `ThreatPublicationPanel.tsx(553,77)` JSX namespace error outside the lease.
-- **Next:** PRIME independently reviews the exact cumulative PR head and owning
-  evidence. Keep the lease ACTIVE through that review and merge; do not treat
-  these author checks as independent acceptance.
+- **Next:** PRIME reviews the exact cumulative PR head for handoff/activation
+  settlement. Keep the lease ACTIVE through that review and merge; the accepted
+  UI review does not settle the full cross-owner PR.
 
 ### 2026-09-26 — PLAY-1 integration and DEMO preflight
 

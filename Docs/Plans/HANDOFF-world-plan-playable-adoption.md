@@ -37,12 +37,14 @@ APP-STATE `6eae57016aa03ebac4e3135928a90eab4295fc7a` followed by SERVER
 `ef2bf4054e065a98d0d0bf3253fa891be35383ac`. The activation pin was published
 at `f00859c0a7bf1b9c907b0ba7472cce14787ade80` before DEMO product edits. The
 rebased ten UI file blobs are identical to pre-rebase code commit
-`655edf9615dc3514b54755b4ac24562023cf1164`, which PRIME is independently
-reviewing. The APP-STATE and SERVER owner code/test blobs also match their
+`655edf9615dc3514b54755b4ac24562023cf1164`. PRIME independently ACCEPTED that
+exact ten-path UI implementation, including the mounted 148/148 suite; the
+post-rebase UI blobs are unchanged. The APP-STATE and SERVER owner code/test blobs also match their
 pre-rebase commits `f644dfc61dc2531eac6a77416cf4c49dcbf51258` and
 `7375b52b1b59353b605c56f22ec6d79999b576a8`; no conflict resolution changed
-those files. The handoff remains ACTIVE while PRIME's final cumulative-head
-review and the PR merge are pending; the write lease has not been released.
+those files. PRIME's final cumulative handoff/activation settlement review and
+the PR merge are pending; the handoff remains ACTIVE and the write lease has not
+been released.
 
 The accepted request/replay contract needs no migration or schema addition.
 The existing create_world_play_run arguments remain World ID, Run ID, Plan
@@ -383,10 +385,13 @@ SERVER's World V2/manifest suites passed 31/31 with 11 existing Pydantic
 source commit `7c69e447f6d4acc963ac09c6fb9cb48cc1c5b9cc` from a temporary source
 archive because the installed test package was stale; no dependency or lockfile
 was changed. The post-run catalog check found no test databases. The cumulative
-`git diff --check` passed. UI typecheck retains the inherited unrelated
+`git diff --check` passed. PRIME's independent UI review reported its typecheck
+passing; this checkout's repository-wide typecheck retains the inherited unrelated
 `ThreatPublicationPanel.tsx(553,77): Cannot find namespace 'JSX'` diagnostic;
 the affected file is outside this lease and has no changed-file diagnostics.
-PRIME's independent exact-head review and PR merge remain pending.
+PRIME independently ACCEPTED the UI implementation at pre-rebase code commit
+`655edf9615dc3514b54755b4ac24562023cf1164`; final cumulative handoff/activation
+settlement review and PR merge remain pending.
 
 Do not connect to, restart, reseed or reconfigure operator UI 5202, API 8000,
 DOGFOOD 5203, the prototype backend or any operator/shared database. Do not
