@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import psycopg
 from dataclasses import dataclass, replace
@@ -78,6 +79,8 @@ from apps.live_control_server.services.hermes_session_store import (
     HermesSessionPointerStore,
     HermesStructuredPointerResolution,
 )
+
+_LOG = logging.getLogger(__name__)
 
 
 _PLAN_MESSAGE_INSTRUCTIONS = (
@@ -1396,9 +1399,8 @@ def _policy_request_budget() -> dict[str, Any]:
         )
     provider, model, _base_url = selected
     # GPT-6 Luna's documented API context window is 1,050,000 tokens.
-    # Keep a smaller operational ceiling until the final-envelope accounting
-    # and multi-attempt behavior are exercised at larger sizes. Unknown model
-    # overrides must not inherit this capacity assertion.
+    # The final-envelope estimator and output reserve still gate every attempt.
+    # Unknown model overrides must not inherit this capacity assertion.
     # https://developers.openai.com/api/docs/models/gpt-6-luna
     if provider != "openai-api" or model != "gpt-6-luna":
         raise AgentTurnServiceError(
@@ -1412,7 +1414,7 @@ def _policy_request_budget() -> dict[str, Any]:
         "model": model,
         "apiMode": "codex_responses",
         "estimator": "utf8_json_bytes_plus_64_per_node_v1",
-        "contextLimitTokens": 65536,
+        "contextLimitTokens": 1_050_000,
         "outputReserveTokens": 2048,
     }
 
@@ -2820,6 +2822,34 @@ def execute_agent_turn(
             )
         finally:
             policy_turn = adapter.stop()
+        predispatch_budget_veto = (
+            policy_turn is None
+            and policy_result.status == "error"
+            and policy_result.error_code == "request_budget_exceeded"
+            and adapter.last_provider_attempt_id is None
+            and not policy_result.model_calls
+            and policy_result.observed_model_call_count in (None, 0)
+        )
+        if policy_result.status != "ok" or policy_turn is None:
+            safe_code = policy_result.error_code or "none"
+            if not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", safe_code):
+                safe_code = "invalid"
+            phase = "none"
+            spans = policy_result.runtime_metadata.get("host_phase_spans")
+            if isinstance(spans, list) and spans and isinstance(spans[-1], Mapping):
+                candidate = spans[-1].get("name")
+                if isinstance(candidate, str) and re.fullmatch(
+                    r"[a-z][a-z0-9_]{0,63}", candidate
+                ):
+                    phase = candidate
+            _LOG.warning(
+                "plan_graph_runtime_failure status=%s error_code=%s phase=%s parent_authorized=%s turn_exists=%s",
+                policy_result.status if policy_result.status in ("ok", "error") else "invalid",
+                safe_code,
+                phase,
+                adapter.last_provider_attempt_id is not None,
+                policy_turn is not None,
+            )
         if adapter.failure is not None:
             trace.complete_phase(span_id, status="error")
             if policy_turn is None:
@@ -2828,6 +2858,13 @@ def execute_agent_turn(
                 "Plan Graph delivery stopped after its receipt was frozen.",
                 code="plan_context_delivery_failure", status_code=503,
             ) from adapter.failure
+        if predispatch_budget_veto:
+            trace.complete_phase(span_id, status="error")
+            raise AgentTurnServiceError(
+                "The Plan Graph provider envelope exceeds the verified model window.",
+                code="provider_envelope_over_budget", status_code=413,
+                provider_dispatched=False,
+            )
         if (
             policy_turn is None
             or policy_result.status != "ok"

@@ -823,7 +823,7 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         "payloadUtf8Bytes": len(payload_json.encode()),
     }
     budget = service_module._policy_request_budget()
-    assert budget["contextLimitTokens"] == 65536
+    assert budget["contextLimitTokens"] == 1_050_000
 
     class FakeExecutionPort:
         turn: Turn | None = None
@@ -1055,6 +1055,37 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
                 status="ok", final_text=typed_answer,
                 runtime_session_id="synthetic-plan-session",
             )
+
+    class BudgetVetoRuntime:
+        descriptor = AgentRuntimeDescriptor("budget-veto", "fake", "test", "graph")
+
+        def run_with_provider_authorization(
+            self, _invocation: Any, _authorize: Any, *, request_budget: Any,
+            on_graph_operation: Any, on_provider_lifecycle: Any,
+        ) -> AgentRuntimeResult:
+            assert request_budget["contextLimitTokens"] == 1_050_000
+            return AgentRuntimeResult(
+                status="error", error_code="request_budget_exceeded",
+                observed_model_call_count=0,
+            )
+
+    with pytest.raises(AgentTurnServiceError) as veto:
+        execute_agent_turn(
+            request, root=Path("/tmp"),
+            pointer_store=HermesSessionPointerStore(Path("/tmp") / f"plan-veto-{uuid4()}"),
+            owner_resolver=lambda _request: {
+                "kind": "world", "id": "world:one", "name": "World One",
+            },
+            work_resolver=lambda _request, _owner: work,
+            graph_resolver=lambda *_args: pytest.fail("generic Graph resolver was used"),
+            plan_graph_resolver=lambda *_args: bootstrap,
+            runtime=BudgetVetoRuntime(), conversation_service=fake,
+        )
+    assert veto.value.code == "provider_envelope_over_budget"
+    assert veto.value.status_code == 413
+    assert veto.value.provider_dispatched is False
+    assert fake.accepted_count == 0
+    assert fake.authorize_count == 0
 
     response = execute_agent_turn(
         request,

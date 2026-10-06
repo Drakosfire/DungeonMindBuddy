@@ -105,7 +105,7 @@ def test_large_plan_reaches_offline_real_worker_provider_gate(
     monkeypatch.setenv("DUNGEONMIND_HERMES_GRAPH_MODEL", "gpt-6-luna")
     monkeypatch.setenv("OPENAI_API_KEY", "offline-test-key")
     budget = _policy_request_budget()
-    assert budget["contextLimitTokens"] == 65536
+    assert budget["contextLimitTokens"] == 1_050_000
     markdown = "# Committed Plan\n" + "x" * 50_000
     message = _plan_message("Where is Tripod?", markdown)
     scope = HermesGraphScope(
@@ -183,6 +183,106 @@ def test_large_plan_reaches_offline_real_worker_provider_gate(
         authorized, offline["provider_request_bodies"][0], strict=True
     ):
         assert json.loads(view["payloadJson"]) == body
+
+
+def test_plan_sized_envelope_with_production_prompt_reaches_parent_gate(
+    tmp_path, monkeypatch
+) -> None:
+    import json
+    import socket
+
+    from apps.live_control_server.services.agent_turn_service import (
+        _json_node_count,
+        _plan_message,
+        _policy_request_budget,
+    )
+    from apps.live_control_server.services.hermes_graph_agent import (
+        run_hermes_graph_agent_turn,
+    )
+    from graph_memory.hermes_graph_plugin import (
+        HermesGraphScope,
+        parent_brokered_graph_expansion_policy,
+    )
+
+    monkeypatch.setenv("DUNGEONMIND_HERMES_GRAPH_MODEL", "gpt-6-luna")
+    monkeypatch.setenv("OPENAI_API_KEY", "offline-test-key")
+    monkeypatch.setenv(
+        "DMB_HERMES_GRAPH_AGENT_SESSION_PROFILES_ROOT", str(tmp_path / "profiles")
+    )
+    network_attempts = []
+
+    def deny_network(*_args, **_kwargs):
+        network_attempts.append(True)
+        raise AssertionError("provider network must not be called")
+
+    class Metadata:
+        status_code = 200
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"data": []}
+
+    monkeypatch.setattr("requests.get", lambda *_args, **_kwargs: Metadata())
+    monkeypatch.setattr(socket, "getaddrinfo", deny_network)
+    monkeypatch.setattr(socket, "create_connection", deny_network)
+    monkeypatch.setattr(socket.socket, "connect", deny_network)
+    scope = HermesGraphScope(
+        world_id="world:eldyrwild", campaign_id="",
+        focus={"kind": "none", "sessionId": None}, admissibility="gm",
+        revision_pin="revision:test", scope_mode="world",
+    )
+    budget = _policy_request_budget()
+    markdown = ('# Committed Plan\nA quoted "name".\n' * 1700)[:50_000]
+    request = HermesGraphAgentTurnRequest(
+        question=_plan_message("Where is Tripod?", markdown),
+        world_id=scope.world_id, campaign_id="", scope_mode="world",
+        focus=dict(scope.focus), admissibility="gm",
+        revision_pin=scope.revision_pin, root=tmp_path / "graph",
+        capability_policy=parent_brokered_graph_expansion_policy(scope),
+        retrieval_session_id="sess:SPOOF",
+        retrieval_session={
+            "retrieval_session_id": "sess:SPOOF", "candidates": [],
+            "claim_ledger": [], "intent_hint": None,
+            "available_expansions": ["search"],
+        },
+        request_budget=budget, provider_authorization_required=True,
+        parent_graph_broker_required=True, plan_continuity_turn=True,
+    )
+    observed = []
+
+    def reject(view):
+        body = json.loads(view.payload_json)
+        upper_bound = view.payload_utf8_bytes + 64 * (1 + _json_node_count(body))
+        observed.append((
+            view.payload_sha256, view.payload_utf8_bytes, upper_bound,
+            "committed_plan_markdown" in view.payload_json,
+        ))
+        return False
+
+    result = run_hermes_graph_agent_turn(
+        request, on_provider_authorization=reject,
+        on_parent_graph_operation=lambda *_args: pytest.fail("provider gate not reached"),
+    )
+    assert result.status == "error"
+    assert len(observed) == 1, (result.error_code, result.error_message)
+    assert observed[0][2] + budget["outputReserveTokens"] <= budget["contextLimitTokens"]
+    assert observed[0][3] is True
+    assert network_attempts == []
+
+    # An actually smaller provider window must still stop before the parent
+    # permit or any SDK entry for the same production-shaped request.
+    observed.clear()
+    result = run_hermes_graph_agent_turn(
+        replace(request, request_budget={**budget, "contextLimitTokens": 65_536}),
+        on_provider_authorization=reject,
+        on_parent_graph_operation=lambda *_args: pytest.fail("provider gate not reached"),
+    )
+    assert result.status == "error"
+    assert result.error_code == "request_budget_exceeded"
+    assert observed == []
+    assert network_attempts == []
 
 
 def test_provider_authorization_gate_is_opt_in_and_round_trips():
