@@ -240,6 +240,18 @@ function playPublicationAuthority(input: {
   };
 }
 
+function pinnedSourceCue(
+  run: AnyPlayRunRecord,
+  snapshot: NativeRunbookReadyDeck["snapshot"] | NativeRunbookReadyV2["snapshot"],
+): string {
+  const sourceKind = "kind" in snapshot ? snapshot.kind : "record" in snapshot ? snapshot.record.kind : null;
+  const version = run.playable_revision;
+  if (sourceKind === "plan") return `Created from saved Plan version ${version}`;
+  if (sourceKind === "runbook") return `Created from saved Runbook version ${version}`;
+  if (sourceKind === "worldbuilding_source") return `Created from saved Worldbuilding source version ${version}`;
+  return `Created from saved source version ${version}`;
+}
+
 function PlaySurfacePublisher({
   admittedRun,
   runQuery,
@@ -882,6 +894,9 @@ export function PlaySurfacePage() {
               Start New Run
             </button>
           </div>
+          <p className="play-source-cue" data-testid="play-source-cue" aria-label="Run source">
+            {pinnedSourceCue(v1Deck.run, v1Deck.snapshot)}
+          </p>
           <RunbookTableDeck
             key={v1Deck.run.run_id}
             deck={v1Deck}
@@ -917,6 +932,9 @@ export function PlaySurfacePage() {
               Start New Run
             </button>
           </div>
+          <p className="play-source-cue" data-testid="play-source-cue" aria-label="Run source">
+            {pinnedSourceCue(v2Deck.run, v2Deck.snapshot)}
+          </p>
           <PlayCurrentMomentCockpit
             key={v2Deck.run.run_id}
             deck={v2Deck}
