@@ -989,6 +989,41 @@ function policyHistoryTurn(
   return { ...turn, lifecycle_status: lifecycle, plan_context: context };
 }
 
+async function failedV3HistoryTurn(
+  correlatedRequest: WorldPlanAgentTurnRequestV1,
+  options: {
+    rowRequest?: WorldPlanAgentTurnRequestV1;
+    durableTurnId?: string;
+    execution?: WorldPlanGraphExecutionProjectionV1;
+  } = {},
+): Promise<WorldAgentConversationHistoryPlanTurnV3> {
+  const rowRequest = options.rowRequest ?? correlatedRequest;
+  const context = await planGraphContext("plan_only_graph_unused", {
+    request: rowRequest,
+    completion: false,
+    execution: options.execution ?? {
+      schema: "dmb_agent_plan_world_graph_execution_projection_v1",
+      claimability: "blocked_unknown_or_sent",
+      authorization_state: "response_received",
+      automatic_redispatch: false,
+    },
+  });
+  const turn = policyHistoryTurn(
+    1,
+    correlatedRequest.turn_id,
+    correlatedRequest.message,
+    null,
+    context,
+    "failed",
+    rowRequest,
+  );
+  return withPersistedCorrelation(
+    turn,
+    await expectedHistoryCorrelationKey(worldId, correlatedRequest.turn_id),
+    options.durableTurnId ?? "ce97be5a-18b5-4fb5-a820-8161716fe516",
+  );
+}
+
 function legacyThread(): AgentInteractionThread {
   const turn: AgentInteractionTurn = {
     turnId: "legacy-turn-1",
@@ -1115,6 +1150,7 @@ async function leavePendingGraphAsk(
   playableTarget: { kind: "scene" | "beat" | "choice" | "option"; id: string },
   initialHistory: WorldAgentConversationHistoryResponseV1 = history("conversation-a", 10, []),
   revisionN = 1,
+  requestIds?: { clientThreadId: string; turnId: string },
 ) {
   const api = setupApi(initialHistory);
   if (revisionN !== 1) api.setPlanBasis({ ...committedRevision(), revision_n: revisionN });
@@ -1130,9 +1166,14 @@ async function leavePendingGraphAsk(
   fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
     target: { value: "Who watches the western gate?" },
   });
+  if (requestIds) {
+    vi.spyOn(crypto, "randomUUID")
+      .mockReturnValueOnce(requestIds.clientThreadId)
+      .mockReturnValueOnce(requestIds.turnId);
+  }
   fireEvent.click(screen.getByRole("button", { name: "Send message" }));
   expect(await screen.findByText(/outcome of this Graph-context Ask is uncertain/)).toBeInTheDocument();
-  expect(await screen.findByText(/Graph Asks stay saved until exact server history confirms completion/)).toBeInTheDocument();
+  expect(await screen.findByText(/Saved Graph Asks stay in browser storage/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Refresh World history" })).toBeEnabled();
   expect(postAsk).toHaveBeenCalledTimes(1);
   expect(pendingAskKeys()).toHaveLength(1);
@@ -1705,7 +1746,7 @@ describe("World Plan conversation consumer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
     expect(await screen.findByText(/outcome of this Graph-context Ask is uncertain/)).toBeInTheDocument();
-    expect(await screen.findByText(/Graph Asks stay saved until exact server history confirms completion/)).toBeInTheDocument();
+    expect(await screen.findByText(/Saved Graph Asks stay in browser storage/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Retry saved Ask" })).not.toBeInTheDocument();
     expect(postAsk).toHaveBeenCalledTimes(1);
     expect(pendingAskKeys()).toHaveLength(1);
@@ -1880,6 +1921,190 @@ describe("World Plan conversation consumer", () => {
     expect(await screen.findAllByText(answer)).toHaveLength(2);
     await waitFor(() => expect(pendingAskKeys()).toEqual([]));
     expect(screen.queryByRole("region", { name: "Pending Ask recovery" })).not.toBeInTheDocument();
+    expect(postAsk).toHaveBeenCalledTimes(1);
+  });
+
+  it("classifies an exact v3 failed turn while preserving the failed and unmatched local Ask records", async () => {
+    const playableTarget = { kind: "scene" as const, id: "scene:opening" };
+    const clientTurnId = "55e38574-2d69-429e-9f91-e593e96b7830";
+    const durableTurnId = "ce97be5a-18b5-4fb5-a820-8161716fe516";
+    const { api, mounted, postAsk, request } = await leavePendingGraphAsk(
+      playableTarget,
+      history("conversation-a", 10, []),
+      1,
+      { clientThreadId: "2d7c2e17-5525-43a8-824c-adc54d4b0470", turnId: clientTurnId },
+    );
+    expect(request.turn_id).toBe(clientTurnId);
+    const failedStorageKey = pendingAskKeys()[0]!;
+    const failedBytes = localStorage.getItem(failedStorageKey)!;
+    const failedEnvelope = JSON.parse(failedBytes);
+    const unknownIds = [
+      "9e316000-0000-4000-8000-000000000001",
+      "5f700000-0000-4000-8000-000000000002",
+      "b1f59500-0000-4000-8000-000000000003",
+    ];
+    const unknownRecords = unknownIds.map((turnId, index) => {
+      const envelope = {
+        ...failedEnvelope,
+        request: {
+          ...failedEnvelope.request,
+          client_thread_id: `2d7c2e17-5525-43a8-824c-adc54d4b000${index + 1}`,
+          turn_id: turnId,
+          message: `Unmatched saved question ${index + 1}`,
+        },
+      };
+      const origin = envelope.origin;
+      const basis = [origin.objectRevision, origin.workRevisionId, origin.revisionN, origin.contentSha256, turnId].join("|");
+      const storageKey = `dmb:world-plan-pending-ask:v1:${encodeURIComponent(worldId)}:${encodeURIComponent(documentId)}:${encodeURIComponent(basis)}`;
+      const serialized = JSON.stringify(envelope);
+      localStorage.setItem(storageKey, serialized);
+      return { storageKey, serialized, turnId };
+    });
+    mounted.unmount();
+
+    const failedTurn = await failedV3HistoryTurn(request, { durableTurnId });
+    expect(failedTurn.turn_id).toBe(durableTurnId);
+    api.setCurrent(await historyV3("conversation-a", 10, [failedTurn]));
+    render(conversationElement({ playableTarget, editBridge: {} }));
+
+    const graphRecovery = await screen.findByRole("region", { name: "World Graph evidence and recovery" });
+    expect(graphRecovery).toHaveTextContent("Exact V3 World history records this turn as failed.");
+    expect(graphRecovery).toHaveTextContent("The provider returned a response. Refresh World history before taking another action; this turn will not be automatically resent.");
+    expect(await screen.findByText("This server turn did not complete.")).toBeInTheDocument();
+    expect(screen.queryByText(/awaiting exact completed history match/)).not.toBeInTheDocument();
+    const failedSummary = screen.getByText(`Graph Ask · ${clientTurnId} · failure confirmed`);
+    fireEvent.click(failedSummary);
+    expect(screen.getByText("Status · terminal failure confirmed in exact V3 World history")).toBeInTheDocument();
+    for (const record of unknownRecords) fireEvent.click(screen.getByText(`Graph Ask · ${record.turnId}`));
+    expect(screen.getAllByText("Status · outcome not confirmed in exact V3 World history")).toHaveLength(3);
+
+    const pending = screen.getByRole("region", { name: "Pending Ask recovery" });
+    expect(pending).toHaveTextContent("Pending recovery · 4");
+    const body = screen.getByRole("region", { name: "Saved World Plan conversation" })
+      .querySelector(".world-plan-agent-conversation__body");
+    const composer = screen.getByRole("region", { name: "Conversation composer" });
+    expect(body).not.toContainElement(composer);
+    expect(composer).toContainElement(screen.getByLabelText("Message DungeonBuddy"));
+    expect(composer).toContainElement(screen.getByRole("radio", { name: "Discuss" }));
+    expect(composer).toContainElement(screen.getByRole("radio", { name: "Propose edit" }));
+    expect(localStorage.getItem(failedStorageKey)).toBe(failedBytes);
+    for (const record of unknownRecords) expect(localStorage.getItem(record.storageKey)).toBe(record.serialized);
+    expect(pendingAskKeys()).toHaveLength(4);
+    expect(postAsk).toHaveBeenCalledTimes(1);
+
+    const historyCallCount = api.historyCalls.length;
+    fireEvent.click(screen.getByRole("button", { name: "Refresh World history" }));
+    await waitFor(() => expect(api.historyCalls.length).toBeGreaterThan(historyCallCount));
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem(failedStorageKey)).toBe(failedBytes);
+    for (const record of unknownRecords) expect(localStorage.getItem(record.storageKey)).toBe(record.serialized);
+    expect(pendingAskKeys()).toHaveLength(4);
+  });
+
+  it("preserves the explicit-new-attempt disposition alongside an exact failed V3 turn", async () => {
+    const playableTarget = { kind: "scene" as const, id: "scene:opening" };
+    const { api, mounted, postAsk, request } = await leavePendingGraphAsk(playableTarget);
+    const storageKey = pendingAskKeys()[0]!;
+    const originalBytes = localStorage.getItem(storageKey);
+    mounted.unmount();
+
+    const failedTurn = await failedV3HistoryTurn(request, {
+      execution: {
+        schema: "dmb_agent_plan_world_graph_execution_projection_v1",
+        claimability: "explicit_new_attempt_required",
+        authorization_state: "known_not_sent",
+        automatic_redispatch: false,
+      },
+    });
+    api.setCurrent(await historyV3("conversation-a", 10, [failedTurn]));
+    render(conversationElement({ playableTarget, editBridge: {} }));
+
+    const graphRecovery = await screen.findByRole("region", { name: "World Graph evidence and recovery" });
+    expect(graphRecovery).toHaveTextContent("Exact V3 World history records this turn as failed.");
+    expect(graphRecovery).toHaveTextContent("A new attempt requires a new Ask. This saved turn will not be automatically reposted.");
+    expect(screen.getByText(`Graph Ask · ${request.turn_id} · failure confirmed`)).toBeInTheDocument();
+    expect(localStorage.getItem(storageKey)).toBe(originalBytes);
+    expect(pendingAskKeys()).toEqual([storageKey]);
+    expect(postAsk).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    "ambiguous",
+    "target-mismatch",
+    "conversation-mismatch",
+    "surface-mismatch",
+    "plan-basis-mismatch",
+    "receipt-digest-mismatch",
+    "completed-without-completion",
+    "legacy-v2",
+  ] as const)("leaves a failed Ask unclassified when history is %s", async (historyCase) => {
+    const playableTarget = { kind: "scene" as const, id: "scene:opening" };
+    const { api, mounted, postAsk, request } = await leavePendingGraphAsk(playableTarget);
+    const storageKey = pendingAskKeys()[0]!;
+    const originalBytes = localStorage.getItem(storageKey);
+    mounted.unmount();
+
+    let rowRequest = request;
+    if (historyCase === "target-mismatch") {
+      rowRequest = { ...request, playable_target: { schema: "dmb_plan_playable_target_v1", kind: "scene", id: "scene:ending" } };
+    } else if (historyCase === "surface-mismatch") {
+      rowRequest = { ...request, surface: { surface_id: "build", instance_id: "build-instance" } };
+    } else if (historyCase === "plan-basis-mismatch") {
+      rowRequest = {
+        ...request,
+        primary_work: {
+          ...request.primary_work,
+          expected_revision_n: request.primary_work.expected_revision_n + 1,
+          expected_content_sha256: "b".repeat(64),
+        },
+      };
+    }
+
+    if (historyCase === "legacy-v2") {
+      const context = await planGraphContext("plan_only_graph_unused", {
+        request: rowRequest,
+        completion: false,
+        execution: {
+          schema: "dmb_agent_plan_world_graph_execution_projection_v1",
+          claimability: "blocked_unknown_or_sent",
+          authorization_state: "response_received",
+          automatic_redispatch: false,
+        },
+      });
+      api.setCurrent(await historyV2("conversation-a", 10, [policyHistoryTurn(
+        1, request.turn_id, request.message, null, context, "failed", rowRequest,
+      )]));
+    } else {
+      const failedTurn = await failedV3HistoryTurn(request, {
+        rowRequest,
+        durableTurnId: "ce97be5a-18b5-4fb5-a820-8161716fe517",
+        execution: historyCase === "completed-without-completion" ? {
+          schema: "dmb_agent_plan_world_graph_execution_projection_v1",
+          claimability: "completed",
+          authorization_state: "response_received",
+          automatic_redispatch: false,
+        } : undefined,
+      });
+      if (historyCase === "receipt-digest-mismatch") {
+        failedTurn.plan_context.receipt.context_receipt_sha256 = "f".repeat(64);
+      }
+      if (historyCase === "ambiguous") {
+        const duplicate = { ...failedTurn, sequence: 2, turn_id: "ce97be5a-18b5-4fb5-a820-8161716fe518" };
+        api.setCurrent(await historyV3("conversation-a", 10, [failedTurn, duplicate]));
+      } else {
+        const conversationId = historyCase === "conversation-mismatch" ? "conversation-b" : "conversation-a";
+        const pointerRevision = historyCase === "conversation-mismatch" ? 11 : 10;
+        api.setCurrent(await historyV3(conversationId, pointerRevision, [failedTurn]));
+      }
+    }
+
+    render(conversationElement({ playableTarget, editBridge: {} }));
+    expect(await screen.findByText("Pending recovery · 1")).toBeInTheDocument();
+    expect(screen.queryByText(`Graph Ask · ${request.turn_id} · failure confirmed`)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText(`Graph Ask · ${request.turn_id}`));
+    expect(screen.getByText("Status · outcome not confirmed in exact V3 World history")).toBeInTheDocument();
+    expect(localStorage.getItem(storageKey)).toBe(originalBytes);
+    expect(pendingAskKeys()).toEqual([storageKey]);
     expect(postAsk).toHaveBeenCalledTimes(1);
   });
 
