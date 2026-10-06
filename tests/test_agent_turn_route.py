@@ -580,6 +580,17 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     assert attempts[0].included_assertion_ids == []
     assert attempts[0].included_graph_event_ids == []
     assert attempts[1].included_graph_event_ids == [operations[0].event_id]
+    from apps.live_control_server.services.agent_turn_service import (
+        AgentTurnServiceError, _parse_policy_completion,
+    )
+
+    with pytest.raises(AgentTurnServiceError) as wrong_status:
+        _parse_policy_completion(json.dumps({
+            "answer_context_status": "plan_only_insufficient_evidence",
+            "answer_segments": [{"kind": "plan_claim", "text": "The keeper waits by the tavern."}],
+            "citation_map": None,
+        }), stored, attempts[1].provider_attempt_id)
+    assert wrong_status.value.code == "answer_validation_failed"
 
     from fastapi.testclient import TestClient
     from apps.live_control_server.services.hermes_agent_runtime import (
@@ -711,6 +722,7 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     for provider_body in sdk_bodies:
         final_user_input = provider_body["input"][0]["content"]
         assert "Allowed answer_context_status values are graph_grounded" in final_user_input
+        assert "Relevance to the question does not turn available evidence" in final_user_input
         assert '"kind":"graph_claim"' in final_user_input
         assert '"kind":"plan_claim"' in final_user_input
         assert "use kind, not type" in final_user_input.lower()
@@ -721,6 +733,11 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     followup_output = sdk_bodies[1]["input"][-1]
     assert followup_output["type"] == "function_call_output"
     assert followup_output["call_id"] == sdk_bodies[1]["input"][-2]["call_id"]
+    expanded = json.loads(followup_output["output"])
+    assert expanded["schema"] == "dmb_world_graph_retrieval_result_v1"
+    assert expanded["outcome"] == "enough"
+    assert expanded["claimLedger"]
+    assert expanded["sourceAnchors"]
     assert graph_claim["claim_id"] in followup_output["output"]
     stored_http = next(
         turn for turn in AgentConversationService().list_turns(

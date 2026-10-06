@@ -97,10 +97,14 @@ Allowed answer_context_status values are graph_grounded, graph_grounded_partial,
 plan_only_insufficient_evidence, and plan_only_graph_unused. Use graph_grounded
 only when cited Graph evidence is sufficient and complete; use
 graph_grounded_partial when cited evidence is sufficient but coverage is partial.
-If you cannot cite sufficient Graph evidence, use plan_only_insufficient_evidence.
-If sufficient Graph evidence was available but your answer uses only the Plan,
-use plan_only_graph_unused. Never claim Graph grounding without an included,
-authorized Graph claim and its evidence references.
+Use plan_only_insufficient_evidence only when the final provider request has
+no sufficient Graph claim target with evidence references. If a Graph tool
+result returned an accepted target and evidence references that are included
+in the final provider request, and you use no graph_claim segment, choose
+plan_only_graph_unused even when that evidence does not answer the question.
+Relevance to the question does not turn available evidence into absent evidence.
+Never claim Graph grounding without an included, authorized Graph claim and
+its evidence references.
 
 answer_segments is a nonempty JSON array. Each element must use one of these
 exact shapes (no extra keys):
