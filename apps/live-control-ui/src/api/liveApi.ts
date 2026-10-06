@@ -178,7 +178,9 @@ const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?
 let nativeGraphAccessToken: string | null = null;
 let nativeGraphCsrf: string | null = null;
 let nativeGraphSessionRequest: Promise<string> | null = null;
+let nativeGraphRevocationRequest: Promise<void> | null = null;
 let nativeGraphSessionRevoked = false;
+let nativeGraphSessionEpoch = 0;
 export const NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT = "dmb:native-graph-access-token-changed";
 
 function localGraphSessionTarget(): string {
@@ -200,31 +202,79 @@ export async function ensureNativeGraphSession(): Promise<string> {
   if (nativeGraphSessionRevoked) throw new LiveApiError("Local Graph session was revoked. Reconnect explicitly.", 401);
   if (nativeGraphCsrf) return nativeGraphCsrf;
   if (!nativeGraphSessionRequest) {
-    nativeGraphSessionRequest = (async () => {
+    const epoch = nativeGraphSessionEpoch;
+    const request = (async () => {
       let response = await graphSessionFetch("GET");
-      if (response.status === 401) response = await graphSessionFetch("POST");
+      if (response.status === 401) {
+        if (epoch !== nativeGraphSessionEpoch || nativeGraphSessionRevoked) {
+          throw new LiveApiError("Local Graph session changed. Reconnect explicitly.", 401);
+        }
+        response = await graphSessionFetch("POST");
+      }
       if (!response.ok) throw new LiveApiError("Local Graph session is unavailable.", response.status);
       const body = await response.json() as { status?: unknown; csrf_token?: unknown };
       if (body.status !== "active" || typeof body.csrf_token !== "string" || !body.csrf_token) {
         throw new LiveApiError("Local Graph session response is invalid.", response.status);
       }
+      if (epoch !== nativeGraphSessionEpoch || nativeGraphSessionRevoked) {
+        throw new LiveApiError("Local Graph session changed. Reconnect explicitly.", 401);
+      }
       nativeGraphCsrf = body.csrf_token;
       if (typeof window !== "undefined") window.dispatchEvent(new Event(NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT));
       return body.csrf_token;
-    })().finally(() => { nativeGraphSessionRequest = null; });
+    })();
+    nativeGraphSessionRequest = request;
+    void request.then(
+      () => { if (nativeGraphSessionRequest === request) nativeGraphSessionRequest = null; },
+      () => { if (nativeGraphSessionRequest === request) nativeGraphSessionRequest = null; },
+    );
   }
   return nativeGraphSessionRequest;
 }
 
 export async function connectNativeGraphSession(): Promise<string> {
+  if (nativeGraphRevocationRequest) await nativeGraphRevocationRequest.catch(() => undefined);
+  if (nativeGraphSessionRequest) await nativeGraphSessionRequest.catch(() => undefined);
+  nativeGraphSessionEpoch += 1;
+  nativeGraphCsrf = null;
   nativeGraphSessionRevoked = false;
   return ensureNativeGraphSession();
 }
 
-export async function revokeNativeGraphSession(): Promise<void> {
-  const csrf = await ensureNativeGraphSession();
-  const response = await graphSessionFetch("DELETE", csrf);
-  if (!response.ok) throw new LiveApiError("Local Graph session could not be revoked.", response.status);
+export function revokeNativeGraphSession(): Promise<void> {
+  if (!nativeGraphRevocationRequest) {
+    const cachedCsrf = nativeGraphCsrf;
+    nativeGraphSessionEpoch += 1;
+    nativeGraphSessionRevoked = true;
+    nativeGraphCsrf = null;
+    const request = (async () => {
+      if (nativeGraphSessionRequest) await nativeGraphSessionRequest.catch(() => undefined);
+      let csrf = cachedCsrf;
+      if (!csrf) {
+        const status = await graphSessionFetch("GET");
+        if (!status.ok) throw new LiveApiError("Local Graph session could not be revoked.", status.status);
+        const body = await status.json() as { csrf_token?: unknown };
+        if (typeof body.csrf_token !== "string" || !body.csrf_token) {
+          throw new LiveApiError("Local Graph session response is invalid.", status.status);
+        }
+        csrf = body.csrf_token;
+      }
+      const response = await graphSessionFetch("DELETE", csrf);
+      if (!response.ok) throw new LiveApiError("Local Graph session could not be revoked.", response.status);
+      if (typeof window !== "undefined") window.dispatchEvent(new Event(NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT));
+    })();
+    nativeGraphRevocationRequest = request;
+    void request.then(
+      () => { if (nativeGraphRevocationRequest === request) nativeGraphRevocationRequest = null; },
+      () => { if (nativeGraphRevocationRequest === request) nativeGraphRevocationRequest = null; },
+    );
+  }
+  return nativeGraphRevocationRequest;
+}
+
+function blockStaleNativeGraphSession(status: number, usedCsrf: string | null, requestEpoch: number): void {
+  if (!usedCsrf || requestEpoch !== nativeGraphSessionEpoch || (status !== 401 && status !== 403)) return;
+  nativeGraphSessionEpoch += 1;
   nativeGraphCsrf = null;
   nativeGraphSessionRevoked = true;
   if (typeof window !== "undefined") window.dispatchEvent(new Event(NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT));
@@ -441,6 +491,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const target = apiRequestTarget(path, init?.body);
   const csrf = target.localGraphRequest && !nativeGraphAccessToken
     ? await ensureNativeGraphSession() : null;
+  const requestEpoch = nativeGraphSessionEpoch;
   const headers = nativeGraphHeaders(path, init?.body, {
     "Content-Type": "application/json",
     ...headerRecord(init?.headers),
@@ -453,6 +504,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     headers,
   });
   if (!response.ok) {
+    blockStaleNativeGraphSession(response.status, csrf, requestEpoch);
     let detail = response.statusText;
     let errorOptions: LiveApiErrorOptions | undefined;
     try {
@@ -922,6 +974,7 @@ async function publicationFetch<T extends { schema: string; result_label: string
   const target = apiRequestTarget(path, init?.body);
   const csrf = target.localGraphRequest && !nativeGraphAccessToken
     ? await ensureNativeGraphSession() : null;
+  const requestEpoch = nativeGraphSessionEpoch;
   const response = await fetch(target.url, {
     ...init,
     ...(target.localGraphRequest ? { redirect: "error" as const } : {}),
@@ -932,6 +985,7 @@ async function publicationFetch<T extends { schema: string; result_label: string
       ...(csrf && (init?.method ?? "GET").toUpperCase() !== "GET" ? { "X-DMB-Graph-CSRF": csrf } : {}),
     }),
   });
+  blockStaleNativeGraphSession(response.status, csrf, requestEpoch);
 
   let body: unknown;
   try {
