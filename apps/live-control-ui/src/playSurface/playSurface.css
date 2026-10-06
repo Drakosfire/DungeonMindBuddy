@@ -71,6 +71,13 @@
   font-size: 0.95rem;
 }
 
+.play-source-cue {
+  align-self: flex-start;
+  margin: -0.7rem 0 0;
+  color: var(--play-muted);
+  font-size: 0.9rem;
+}
+
 .play-status {
   margin: 0;
   padding: 1.5rem;

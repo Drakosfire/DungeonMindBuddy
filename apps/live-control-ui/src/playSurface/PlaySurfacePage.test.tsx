@@ -219,6 +219,7 @@ describe("Play selected-World admission", () => {
     const ready = await screen.findByTestId("play-surface-ready");
     expect(ready).toHaveAttribute("data-play-campaign-id", "");
     expect(await screen.findByRole("heading", { name: "Gate" })).toBeInTheDocument();
+    expect(screen.getByTestId("play-source-cue")).toHaveTextContent("Created from saved Runbook version 1");
     expect(getWorldPlayRun).toHaveBeenCalledWith(runId, "world-b");
     expect(listWorldPlayRuns).toHaveBeenCalledExactlyOnceWith("world-b");
     expect(listPlayRuns).not.toHaveBeenCalled();
@@ -368,8 +369,8 @@ describe("Play selected-World admission", () => {
     expect(putWorldPlayActiveRun).toHaveBeenCalledTimes(2);
   });
 
-  it("reopens an exact discarded World Plan revision without requiring the Plan to remain active or current", async () => {
-    const planRun = worldRun({ playable_work_revision_id: workRevisionId });
+  it("keeps the exact saved Plan source cue at version 3 after the current Plan advances to 4", async () => {
+    const planRun = worldRun({ playable_revision: 3, run_revision: 2, playable_work_revision_id: workRevisionId });
     const committedPlan: WorldOwnedCommittedRevisionV2 = {
       schema_version: "dmb_workspace_committed_revision_v2",
       scope_mode: "world",
@@ -381,7 +382,7 @@ describe("Play selected-World admission", () => {
       status: "discarded",
       object_revision: 9,
       work_revision_id: workRevisionId,
-      revision_n: 1,
+      revision_n: 3,
       markdown: worldPlayableMarkdown,
       content_sha256: shaA,
       has_divergent_working_copy: true,
@@ -392,7 +393,7 @@ describe("Play selected-World admission", () => {
       schema_version: "dmb_play_run_reference_manifest_v1",
       run_id: runId,
       playable_artifact_id: artifactId,
-      playable_revision: 1,
+      playable_revision: 3,
       playable_content_sha256: shaA,
       elements: [
         { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
@@ -400,13 +401,25 @@ describe("Play selected-World admission", () => {
       ],
       sealed_at: "2026-09-30T00:00:00Z",
     });
-    vi.mocked(getWorldOwnedPlanCommittedRevision).mockResolvedValue(committedPlan);
+    const currentPlan = {
+      ...committedPlan,
+      status: "active" as const,
+      object_revision: 10,
+      work_revision_id: newerWorkRevisionId,
+      revision_n: 4,
+      content_sha256: shaB,
+    };
+    vi.mocked(getWorldOwnedPlanCommittedRevision).mockImplementation(async (_documentId, revisionN) => (
+      revisionN === undefined ? currentPlan : committedPlan
+    ));
 
     render(<PlaySurfacePage />);
 
     expect(await screen.findByTestId("play-surface-ready")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Gate" })).toBeInTheDocument();
-    expect(getWorldOwnedPlanCommittedRevision).toHaveBeenCalledExactlyOnceWith(artifactId, 1);
+    expect(screen.getByTestId("play-source-cue")).toHaveTextContent("Created from saved Plan version 3");
+    expect(screen.queryByText(/version 4/)).not.toBeInTheDocument();
+    expect(getWorldOwnedPlanCommittedRevision).toHaveBeenCalledExactlyOnceWith(artifactId, 3);
     expect(getWorldOwnedRunbookCommittedRevision).not.toHaveBeenCalled();
     expect(putWorldPlayRunRebase).not.toHaveBeenCalled();
     expect(putWorldPlayActiveRun).toHaveBeenCalledExactlyOnceWith("world-b", runId);
