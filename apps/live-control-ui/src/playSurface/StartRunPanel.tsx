@@ -407,6 +407,10 @@ export function StartRunPanel({
     && selectedDocumentId === initialPlanId
     && selectedPlan.world_id === verifiedWorldId
     && initialPlanRevisionPin != null;
+  const blockedPlanAttempt = attemptStatus === "blocked"
+    && attempt != null
+    && "playableKind" in attempt
+    && attempt.playableKind === "plan";
   const campaignMismatchReason = selectedRunbook == null
     ? null
     : verifiedWorldId
@@ -658,7 +662,7 @@ export function StartRunPanel({
         <button
           type="button"
           data-testid="play-start-run-submit"
-          disabled={selectedDocumentId == null || attemptStatus === "starting" || (planMode && !selectedPlanReady)}
+          disabled={selectedDocumentId == null || attemptStatus === "starting" || blockedPlanAttempt || (planMode && !selectedPlanReady)}
           onClick={() => {
             void runAttempt("fresh", null);
           }}

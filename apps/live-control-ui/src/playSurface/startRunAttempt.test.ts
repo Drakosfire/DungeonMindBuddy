@@ -133,7 +133,11 @@ function worldPlanCommitted(
     object_revision: 9,
     work_revision_id: WORLD_WORK_REVISION_ID,
     revision_n: 7,
-    markdown: "# Plan\n",
+    markdown: [
+      "<!-- dmb-playable-element:v2 kind=beat id=beat:opening beat_kind=spine -->",
+      "## Opening",
+      "",
+    ].join("\n"),
     content_sha256: SHA_A,
     has_divergent_working_copy: false,
     target_relpath: null,
@@ -450,6 +454,15 @@ describe("World Start Run binding and attempt", () => {
   it("starts from the exact selected World Plan revision and retains its source kind", async () => {
     const api = worldDeps({
       getCommittedRevision: vi.fn(async () => worldPlanCommitted()),
+      putRun: vi.fn(async () => worldRun({
+        progress: {
+          current_scene_id: null,
+          current_beat_id: "beat:opening",
+          resolved_beat_ids: [],
+          selections: {},
+          notes_by_element_id: {},
+        },
+      })),
     });
     const result = await executeStartWorldRunAttempt({
       selectedDocumentId: DOCUMENT_ID,
@@ -469,6 +482,8 @@ describe("World Start Run binding and attempt", () => {
       outcome: "ready",
       binding: {
         playableKind: "plan",
+        planGrammar: "v2",
+        expectedOpeningBeatId: "beat:opening",
         expectedPlayableRevision: 7,
         expectedPlayableWorkRevisionId: WORLD_WORK_REVISION_ID,
         expectedPlayableContentSha256: SHA_A,
@@ -479,6 +494,91 @@ describe("World Start Run binding and attempt", () => {
       expected_playable_revision: 7,
       expected_playable_content_sha256: SHA_A,
     });
+  });
+
+  it("keeps valid Scene-first v1 World Plans startable with empty initial progress", async () => {
+    const api = worldDeps({
+      getCommittedRevision: vi.fn(async () => worldPlanCommitted({
+        markdown: [
+          "<!-- dmb-playable-element:v1 kind=scene id=scene:opening -->",
+          "## Opening",
+          "",
+        ].join("\n"),
+      })),
+      putRun: vi.fn(async () => worldRun()),
+    });
+    const result = await executeStartWorldRunAttempt({
+      selectedDocumentId: DOCUMENT_ID,
+      worldId: WORLD_ID,
+      expectedKind: "plan",
+      expectedSourcePin: {
+        revisionN: 7,
+        workRevisionId: WORLD_WORK_REVISION_ID,
+        contentSha256: SHA_A,
+      },
+      attempt: null,
+      phase: "fresh",
+      deps: api,
+    });
+
+    expect(result).toMatchObject({ outcome: "ready", binding: { playableKind: "plan", planGrammar: "v1" } });
+    if (result.outcome === "ready") {
+      expect(result.run.progress).toMatchObject({
+        current_scene_id: null,
+        current_beat_id: null,
+        resolved_beat_ids: [],
+        selections: {},
+        notes_by_element_id: {},
+      });
+    }
+    expect(api.putManifest).toHaveBeenCalledWith(RUN_ID, WORLD_ID);
+  });
+
+  it("blocks a World Plan with no authored opening Beat before creating a Run", async () => {
+    const api = worldDeps({
+      getCommittedRevision: vi.fn(async () => worldPlanCommitted({ markdown: "# Empty Plan\n" })),
+    });
+    const result = await executeStartWorldRunAttempt({
+      selectedDocumentId: DOCUMENT_ID,
+      worldId: WORLD_ID,
+      expectedKind: "plan",
+      expectedSourcePin: {
+        revisionN: 7,
+        workRevisionId: WORLD_WORK_REVISION_ID,
+        contentSha256: SHA_A,
+      },
+      attempt: null,
+      phase: "fresh",
+      deps: api,
+    });
+
+    expect(result).toMatchObject({ outcome: "blocked", detail: expect.stringMatching(/opening Beat/) });
+    expect(api.putRun).not.toHaveBeenCalled();
+    expect(api.putManifest).not.toHaveBeenCalled();
+  });
+
+  it("does not seal a World Plan Run unless its current Beat is the exact opening Beat", async () => {
+    const api = worldDeps({
+      getCommittedRevision: vi.fn(async () => worldPlanCommitted()),
+      putRun: vi.fn(async () => worldRun()),
+    });
+    const result = await executeStartWorldRunAttempt({
+      selectedDocumentId: DOCUMENT_ID,
+      worldId: WORLD_ID,
+      expectedKind: "plan",
+      expectedSourcePin: {
+        revisionN: 7,
+        workRevisionId: WORLD_WORK_REVISION_ID,
+        contentSha256: SHA_A,
+      },
+      attempt: null,
+      phase: "fresh",
+      deps: api,
+    });
+
+    expect(result).toMatchObject({ outcome: "blocked", detail: expect.stringMatching(/current Beat/) });
+    expect(api.putRun).toHaveBeenCalledTimes(1);
+    expect(api.putManifest).not.toHaveBeenCalled();
   });
 
   it("refuses a changed saved Plan pin before creating a Run", async () => {

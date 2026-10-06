@@ -8,7 +8,16 @@ import type {
   WorldOwnedRunbookCommittedRevisionV2,
   WorldPlayRunRecordV2,
 } from "../api/types";
+import {
+  hasBlockingMarkdownImportDiagnostics,
+  markdownToTiptapDoc,
+} from "../tiptap/markdown/markdownToTiptap";
+import {
+  indexPlayableStructure,
+  indexPlayableStructureV2,
+} from "../tiptap/playable/playableStructureIndex";
 import { CANONICAL_SHA256_RE, isCanonicalUuid } from "./runbook/nativeRunbookProjection";
+import { deriveV2OpeningBeatId } from "./runbook/v2RuntimeProjection";
 
 export type StartRunBinding = {
   runId: string;
@@ -296,15 +305,20 @@ export async function executeStartRunAttempt(input: {
   return sealExactRun(binding, confirmed.run, deps);
 }
 
-export type WorldStartRunBinding = {
+type WorldStartRunBindingBase = {
   runId: string;
   worldId: string;
   playableArtifactId: string;
-  playableKind: "plan" | "runbook";
   expectedPlayableRevision: number;
   expectedPlayableWorkRevisionId: string;
   expectedPlayableContentSha256: string;
 };
+
+export type WorldStartRunBinding = WorldStartRunBindingBase & (
+  | { playableKind: "plan"; planGrammar: "v1" }
+  | { playableKind: "plan"; planGrammar: "v2"; expectedOpeningBeatId: string }
+  | { playableKind: "runbook" }
+);
 
 export type WorldStartRunExpectedSourcePin = {
   revisionN: number;
@@ -338,6 +352,30 @@ export type WorldStartRunResult =
   | { outcome: "blocked"; binding?: WorldStartRunBinding; detail: string }
   | { outcome: "incomplete"; binding: WorldStartRunBinding; run: WorldPlayRunRecordV2; detail: string }
   | { outcome: "replay_create"; binding: WorldStartRunBinding; detail: string };
+
+type WorldPlanStartReadiness =
+  | { grammar: "v1" }
+  | { grammar: "v2"; openingBeatId: string };
+
+function worldPlanStartReadiness(markdown: string): WorldPlanStartReadiness | null {
+  if (hasBlockingMarkdownImportDiagnostics(markdown)) return null;
+  try {
+    const imported = markdownToTiptapDoc(markdown);
+    const indexedV2 = indexPlayableStructureV2(imported.doc);
+    if (indexedV2.status === "ready") {
+      const openingBeatId = deriveV2OpeningBeatId(indexedV2.index);
+      return openingBeatId == null ? null : { grammar: "v2", openingBeatId };
+    }
+
+    const indexedV1 = indexPlayableStructure(imported.doc);
+    if (indexedV1.status === "ready" && indexedV1.index.sceneOrder.length > 0) {
+      return { grammar: "v1" };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 export function bindWorldStartRunAttempt(
   runId: string,
@@ -374,17 +412,35 @@ export function bindWorldStartRunAttempt(
   if (!CANONICAL_SHA256_RE.test(committed.content_sha256)) {
     return { ok: false, detail: "World Runbook has no exact committed content SHA." };
   }
+  const binding: WorldStartRunBindingBase = {
+    runId,
+    worldId,
+    playableArtifactId: selectedDocumentId,
+    expectedPlayableRevision: committed.revision_n,
+    expectedPlayableWorkRevisionId: committed.work_revision_id,
+    expectedPlayableContentSha256: committed.content_sha256,
+  };
+  if (expectedKind === "plan") {
+    const plan = worldPlanStartReadiness(committed.markdown);
+    if (plan == null) {
+      return { ok: false, detail: "The selected World Plan is not ready: it has no valid Scene or authored opening Beat." };
+    }
+    if (plan.grammar === "v1") {
+      return { ok: true, binding: { ...binding, playableKind: "plan", planGrammar: "v1" } };
+    }
+    return {
+      ok: true,
+      binding: {
+        ...binding,
+        playableKind: "plan",
+        planGrammar: "v2",
+        expectedOpeningBeatId: plan.openingBeatId,
+      },
+    };
+  }
   return {
     ok: true,
-    binding: {
-      runId,
-      worldId,
-      playableArtifactId: selectedDocumentId,
-      playableKind: expectedKind,
-      expectedPlayableRevision: committed.revision_n,
-      expectedPlayableWorkRevisionId: committed.work_revision_id,
-      expectedPlayableContentSha256: committed.content_sha256,
-    },
+    binding: { ...binding, playableKind: "runbook" },
   };
 }
 
@@ -410,6 +466,16 @@ function confirmCreatedWorldRun(
 ): { status: "continue_seal"; run: WorldPlayRunRecordV2 } | { status: "block"; detail: string } {
   if (!sameIntendedWorldRunBinding(run, binding)) {
     return { status: "block", detail: "returned World Run binding does not match this Start Run attempt" };
+  }
+  if (
+    binding.playableKind === "plan"
+    && binding.planGrammar === "v2"
+    && run.progress?.current_beat_id !== binding.expectedOpeningBeatId
+  ) {
+    return {
+      status: "block",
+      detail: "World Run " + run.run_id + " was created but its current Beat does not match the Plan's exact opening Beat. No reference manifest was sealed.",
+    };
   }
   return { status: "continue_seal", run };
 }
