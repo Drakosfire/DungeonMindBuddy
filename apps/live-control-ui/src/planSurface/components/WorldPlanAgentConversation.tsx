@@ -1211,6 +1211,7 @@ function failedHistoryTurnMatchesPendingGraphAsk(
     || !isWorldPlanContextProjection(context, request, true)
     || context.completion !== null
     || context.execution === null
+    || context.execution.claimability === "completed"
     || !isHistoryPlanContextBound(context, turn.provenance, origin.worldId)) return false;
 
   const basis = context.receipt.plan_basis;
@@ -2357,36 +2358,38 @@ export function WorldPlanAgentConversation({
     hasCompletion: boolean,
     terminalFailureConfirmed = false,
   ): string {
-    if (terminalFailureConfirmed) {
-      return "Exact V3 World history records this turn as failed. It will not be automatically resent.";
-    }
-    if (!execution) return "No execution recovery status was recorded. Refresh World history before taking another action.";
-    if (execution.claimability === "completed") {
-      return hasCompletion
-        ? "The server recorded this Ask as complete. Its structured outcome is shown above; this turn will not be automatically resent."
-        : "The server marked this attempt terminal, but no completion was recorded. Refresh World history before taking another action.";
-    }
-    if (["authorized", "sdk_entered", "response_received", "outcome_unknown"].includes(execution.authorization_state)) {
-      const detail = execution.authorization_state === "authorized"
-        ? "The server authorized this attempt."
-        : execution.authorization_state === "sdk_entered"
-          ? "The provider call was entered."
-          : execution.authorization_state === "response_received"
-            ? "The provider returned a response."
-            : "The attempt outcome is unknown.";
-      return `${detail} Refresh World history before taking another action; this turn will not be automatically resent.`;
-    }
-    if (execution.claimability === "safe_to_reclaim_without_dispatch"
-      && ["none", "known_not_sent"].includes(execution.authorization_state)) {
-      return "The server confirms provider dispatch did not begin. Submit a new Ask if you want another attempt; recovery will not repost this turn.";
-    }
-    if (execution.claimability === "explicit_new_attempt_required") {
-      return "A new attempt requires a new Ask. This saved turn will not be automatically reposted.";
-    }
-    if (execution.authorization_state === "known_not_sent") {
-      return "The server confirms the provider was not sent this request. Follow the execution state above and use a new Ask if another attempt is needed.";
-    }
-    return "The attempt may have been sent or its outcome is unknown. Refresh World history; this turn will not be automatically resent.";
+    const guidance = (() => {
+      if (!execution) return "No execution recovery status was recorded. Refresh World history before taking another action.";
+      if (execution.claimability === "completed") {
+        return hasCompletion
+          ? "The server recorded this Ask as complete. Its structured outcome is shown above; this turn will not be automatically resent."
+          : "Execution history is inconsistent: claimability is completed, but no completion was recorded. Refresh World history before taking another action.";
+      }
+      if (["authorized", "sdk_entered", "response_received", "outcome_unknown"].includes(execution.authorization_state)) {
+        const detail = execution.authorization_state === "authorized"
+          ? "The server authorized this attempt."
+          : execution.authorization_state === "sdk_entered"
+            ? "The provider call was entered."
+            : execution.authorization_state === "response_received"
+              ? "The provider returned a response."
+              : "The attempt outcome is unknown.";
+        return `${detail} Refresh World history before taking another action; this turn will not be automatically resent.`;
+      }
+      if (execution.claimability === "safe_to_reclaim_without_dispatch"
+        && ["none", "known_not_sent"].includes(execution.authorization_state)) {
+        return "The server confirms provider dispatch did not begin. Submit a new Ask if you want another attempt; recovery will not repost this turn.";
+      }
+      if (execution.claimability === "explicit_new_attempt_required") {
+        return "A new attempt requires a new Ask. This saved turn will not be automatically reposted.";
+      }
+      if (execution.authorization_state === "known_not_sent") {
+        return "The server confirms the provider was not sent this request. Follow the execution state above and use a new Ask if another attempt is needed.";
+      }
+      return "The attempt may have been sent or its outcome is unknown. Refresh World history; this turn will not be automatically resent.";
+    })();
+    return terminalFailureConfirmed
+      ? `Exact V3 World history records this turn as failed. ${guidance}`
+      : guidance;
   }
 
   function renderGraphContextHistory(turn: WorldAgentConversationHistoryTurn) {

@@ -991,15 +991,19 @@ function policyHistoryTurn(
 
 async function failedV3HistoryTurn(
   correlatedRequest: WorldPlanAgentTurnRequestV1,
-  options: { rowRequest?: WorldPlanAgentTurnRequestV1; durableTurnId?: string } = {},
+  options: {
+    rowRequest?: WorldPlanAgentTurnRequestV1;
+    durableTurnId?: string;
+    execution?: WorldPlanGraphExecutionProjectionV1;
+  } = {},
 ): Promise<WorldAgentConversationHistoryPlanTurnV3> {
   const rowRequest = options.rowRequest ?? correlatedRequest;
   const context = await planGraphContext("plan_only_graph_unused", {
     request: rowRequest,
     completion: false,
-    execution: {
+    execution: options.execution ?? {
       schema: "dmb_agent_plan_world_graph_execution_projection_v1",
-      claimability: "completed",
+      claimability: "blocked_unknown_or_sent",
       authorization_state: "response_received",
       automatic_redispatch: false,
     },
@@ -1963,9 +1967,10 @@ describe("World Plan conversation consumer", () => {
     api.setCurrent(await historyV3("conversation-a", 10, [failedTurn]));
     render(conversationElement({ playableTarget, editBridge: {} }));
 
-    expect(await screen.findByText("Exact V3 World history records this turn as failed. It will not be automatically resent.")).toBeInTheDocument();
+    const graphRecovery = await screen.findByRole("region", { name: "World Graph evidence and recovery" });
+    expect(graphRecovery).toHaveTextContent("Exact V3 World history records this turn as failed.");
+    expect(graphRecovery).toHaveTextContent("The provider returned a response. Refresh World history before taking another action; this turn will not be automatically resent.");
     expect(await screen.findByText("This server turn did not complete.")).toBeInTheDocument();
-    expect(screen.queryByText(/Refresh World history before taking another action/)).not.toBeInTheDocument();
     expect(screen.queryByText(/awaiting exact completed history match/)).not.toBeInTheDocument();
     const failedSummary = screen.getByText(`Graph Ask · ${clientTurnId} · failure confirmed`);
     fireEvent.click(failedSummary);
@@ -1996,6 +2001,33 @@ describe("World Plan conversation consumer", () => {
     expect(pendingAskKeys()).toHaveLength(4);
   });
 
+  it("preserves the explicit-new-attempt disposition alongside an exact failed V3 turn", async () => {
+    const playableTarget = { kind: "scene" as const, id: "scene:opening" };
+    const { api, mounted, postAsk, request } = await leavePendingGraphAsk(playableTarget);
+    const storageKey = pendingAskKeys()[0]!;
+    const originalBytes = localStorage.getItem(storageKey);
+    mounted.unmount();
+
+    const failedTurn = await failedV3HistoryTurn(request, {
+      execution: {
+        schema: "dmb_agent_plan_world_graph_execution_projection_v1",
+        claimability: "explicit_new_attempt_required",
+        authorization_state: "known_not_sent",
+        automatic_redispatch: false,
+      },
+    });
+    api.setCurrent(await historyV3("conversation-a", 10, [failedTurn]));
+    render(conversationElement({ playableTarget, editBridge: {} }));
+
+    const graphRecovery = await screen.findByRole("region", { name: "World Graph evidence and recovery" });
+    expect(graphRecovery).toHaveTextContent("Exact V3 World history records this turn as failed.");
+    expect(graphRecovery).toHaveTextContent("A new attempt requires a new Ask. This saved turn will not be automatically reposted.");
+    expect(screen.getByText(`Graph Ask · ${request.turn_id} · failure confirmed`)).toBeInTheDocument();
+    expect(localStorage.getItem(storageKey)).toBe(originalBytes);
+    expect(pendingAskKeys()).toEqual([storageKey]);
+    expect(postAsk).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     "ambiguous",
     "target-mismatch",
@@ -2003,6 +2035,7 @@ describe("World Plan conversation consumer", () => {
     "surface-mismatch",
     "plan-basis-mismatch",
     "receipt-digest-mismatch",
+    "completed-without-completion",
     "legacy-v2",
   ] as const)("leaves a failed Ask unclassified when history is %s", async (historyCase) => {
     const playableTarget = { kind: "scene" as const, id: "scene:opening" };
@@ -2033,7 +2066,7 @@ describe("World Plan conversation consumer", () => {
         completion: false,
         execution: {
           schema: "dmb_agent_plan_world_graph_execution_projection_v1",
-          claimability: "completed",
+          claimability: "blocked_unknown_or_sent",
           authorization_state: "response_received",
           automatic_redispatch: false,
         },
@@ -2045,6 +2078,12 @@ describe("World Plan conversation consumer", () => {
       const failedTurn = await failedV3HistoryTurn(request, {
         rowRequest,
         durableTurnId: "ce97be5a-18b5-4fb5-a820-8161716fe517",
+        execution: historyCase === "completed-without-completion" ? {
+          schema: "dmb_agent_plan_world_graph_execution_projection_v1",
+          claimability: "completed",
+          authorization_state: "response_received",
+          automatic_redispatch: false,
+        } : undefined,
       });
       if (historyCase === "receipt-digest-mismatch") {
         failedTurn.plan_context.receipt.context_receipt_sha256 = "f".repeat(64);
