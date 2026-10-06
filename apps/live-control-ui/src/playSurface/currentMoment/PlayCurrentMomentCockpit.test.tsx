@@ -243,6 +243,95 @@ describe("PlayCurrentMomentCockpit", () => {
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
   });
 
+  it("renders admitted Scene body AST with references and authored block structure", () => {
+    const markdown = MARKDOWN.replace(
+      "Tunnel unique body.",
+      [
+        "A long warehouse paragraph names [Lysandra Ironveil](dmb-node:lysandra-ironveil) and preserves its inline reference.",
+        "",
+        "A second paragraph remains separate.",
+        "",
+        "- Inspect the loading bay",
+        "- Check the upper windows",
+        "",
+        "> Read this aloud before the guards arrive.",
+      ].join("\n"),
+    );
+    render(
+      <Harness
+        markdown={markdown}
+        initialRun={runRecord({ progress: progress({ current_scene_id: "scene:tunnel" }) })}
+      />,
+    );
+    const body = screen.getByTestId("play-workspace-current").querySelector(".play-scene-board-body");
+    expect(body).toBeInTheDocument();
+    expect(body?.querySelectorAll(":scope > p")).toHaveLength(2);
+    expect(body?.querySelectorAll(":scope > ul > li")).toHaveLength(2);
+    expect(body?.querySelector(":scope > blockquote")).toHaveTextContent(
+      "Read this aloud before the guards arrive.",
+    );
+    const reference = body?.querySelector('[data-plan-card-reference="graph"]');
+    expect(reference).toHaveTextContent("Lysandra Ironveil");
+    expect(reference).toHaveAttribute("data-graph-node-id", "lysandra-ironveil");
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("fails closed for unsafe or unknown captured body nodes and keeps legacy plain text readable", () => {
+    const unsafeDeck = readyDeck(runRecord({
+      progress: progress({ current_scene_id: "scene:tunnel" }),
+    }));
+    const scene = unsafeDeck.beats[0]?.scenes.find((entry) => entry.id === "scene:tunnel");
+    if (!scene) throw new Error("expected fixture Scene");
+    scene.bodyContent = [{
+      type: "paragraph",
+      content: [{
+        type: "text",
+        text: "unsafe link",
+        marks: [{ type: "link", attrs: { href: "javascript:alert(1)" } }],
+      }],
+    }];
+    scene.bodyText = "must not fall back when captured content is unsafe";
+    const renderDeck = (deck: ReturnType<typeof readyDeck>) => (
+      <PlayCurrentMomentCockpit
+        deck={deck}
+        mutationStatus="idle"
+        onMutationStatus={() => undefined}
+        onAuthoritativeRun={() => undefined}
+      />
+    );
+    const { rerender } = render(renderDeck(unsafeDeck));
+    expect(screen.getByRole("status")).toHaveTextContent("cannot be displayed safely");
+    expect(screen.queryByText("must not fall back when captured content is unsafe")).not.toBeInTheDocument();
+
+    const unknownDeck = readyDeck(runRecord({
+      progress: progress({ current_scene_id: "scene:tunnel" }),
+    }));
+    const unknownScene = unknownDeck.beats[0]?.scenes.find((entry) => entry.id === "scene:tunnel");
+    if (!unknownScene) throw new Error("expected fixture Scene");
+    unknownScene.bodyContent = [{ type: "paragraph", content: [{ type: "unregisteredAuthoredNode", text: "unknown" }] }];
+    rerender(renderDeck(unknownDeck));
+    expect(screen.getByRole("status")).toHaveTextContent("cannot be displayed safely");
+    expect(screen.queryByText("unknown")).not.toBeInTheDocument();
+
+    unknownScene.bodyContent = [{
+      type: "paragraph",
+      content: [{ type: "text", text: "unknown mark", marks: [{ type: "unregisteredMark" }] }],
+    }];
+    rerender(renderDeck(unknownDeck));
+    expect(screen.getByRole("status")).toHaveTextContent("cannot be displayed safely");
+    expect(screen.queryByText("unknown mark")).not.toBeInTheDocument();
+
+    const legacyDeck = readyDeck(runRecord({
+      progress: progress({ current_scene_id: "scene:tunnel" }),
+    }));
+    const legacyScene = legacyDeck.beats[0]?.scenes.find((entry) => entry.id === "scene:tunnel");
+    if (!legacyScene) throw new Error("expected fixture Scene");
+    delete legacyScene.bodyContent;
+    legacyScene.bodyText = "Legacy plain body remains readable.";
+    rerender(renderDeck(legacyDeck));
+    expect(screen.getByText("Legacy plain body remains readable.")).toBeInTheDocument();
+  });
+
   it("does not fabricate a Scene when none is current", () => {
     render(<Harness />);
     expect(screen.getByTestId("play-workspace-beat-only")).toBeInTheDocument();

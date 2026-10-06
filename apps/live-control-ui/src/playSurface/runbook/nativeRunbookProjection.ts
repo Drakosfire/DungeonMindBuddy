@@ -103,6 +103,8 @@ export type NativeRunbookOptionV2 = {
   id: string;
   title: string;
   bodyText: string;
+  /** Exact captured authored body AST; optional for legacy constructed decks. */
+  bodyContent?: JSONContent[];
   choiceId: string;
 };
 
@@ -111,6 +113,8 @@ export type NativeRunbookChoiceV2 = {
   id: string;
   title: string;
   bodyText: string;
+  /** Exact captured authored body AST; optional for legacy constructed decks. */
+  bodyContent?: JSONContent[];
   beatId: string;
   sceneId: string | null;
   options: NativeRunbookOptionV2[];
@@ -121,6 +125,8 @@ export type NativeRunbookSceneV2 = {
   id: string;
   title: string;
   bodyText: string;
+  /** Exact captured authored body AST; optional for legacy constructed decks. */
+  bodyContent?: JSONContent[];
   beatId: string;
   relevance: AuthoredRelevance;
 };
@@ -130,6 +136,8 @@ export type NativeRunbookBeatV2 = {
   id: string;
   title: string;
   bodyText: string;
+  /** Exact captured authored body AST; optional for legacy constructed decks. */
+  bodyContent?: JSONContent[];
   beatKind: PlayableBeatKind | null;
   relevance: AuthoredRelevance;
   scenes: NativeRunbookSceneV2[];
@@ -692,6 +700,7 @@ function projectV2Beats(
         beatId: scene?.beatId ?? beat.beatId,
         title: slice?.title ?? sceneId,
         bodyText: slice?.bodyText ?? "",
+        bodyContent: slice?.bodyContent ?? [],
         relevance: relevanceByTargetId[sceneId] ?? "default",
       };
     });
@@ -706,6 +715,7 @@ function projectV2Beats(
           choiceId,
           title: optionSlice?.title ?? optionId,
           bodyText: optionSlice?.bodyText ?? "",
+          bodyContent: optionSlice?.bodyContent ?? [],
         };
       });
       return {
@@ -715,6 +725,7 @@ function projectV2Beats(
         sceneId: choice?.sceneId ?? null,
         title: slice?.title ?? choiceId,
         bodyText: slice?.bodyText ?? "",
+        bodyContent: slice?.bodyContent ?? [],
         options,
       };
     });
@@ -724,6 +735,7 @@ function projectV2Beats(
       beatKind: beat.beatKind,
       title: beatSlice?.title ?? beat.beatId,
       bodyText: beatSlice?.bodyText ?? "",
+      bodyContent: beatSlice?.bodyContent ?? [],
       relevance: relevanceByTargetId[beat.beatId] ?? "default",
       scenes,
       choices,
