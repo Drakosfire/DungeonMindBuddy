@@ -21,6 +21,7 @@ import { PlanSurfaceShell } from "./PlanSurfaceShell";
 import { markdownToTiptapDoc, type MarkdownImportDiagnostic } from "../tiptap/markdown/markdownToTiptap";
 import { semanticMarkdownSerializationDiagnostics } from "../tiptap/markdown/semanticMarkdownSafety";
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
+import { isCanonicalUuid, CANONICAL_SHA256_RE } from "../playSurface/runbook/nativeRunbookProjection";
 import { WorldPlanSurfaceContext } from "./components/PlanSurfaceContext";
 import { PlanSurfaceCanvasFrame } from "./components/PlanSurfaceCanvas";
 import { WorldPlanAgentConversation } from "./components/WorldPlanAgentConversation";
@@ -369,6 +370,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const fidelityBlocked = fidelityWarnings.length > 0;
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [saving, setSaving] = useState(false);
+  const [startingPlay, setStartingPlay] = useState(false);
+  const [startPlayError, setStartPlayError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(false);
@@ -388,6 +391,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const pendingWriteRef = useRef(localDraft?.pending_write ?? null);
   const uncertainCreateDraftRef = useRef(localDraft?.uncertain_create_draft ?? null);
   const savingRef = useRef(false);
+  const startPlayRequestRef = useRef(0);
   const statusRef = useRef(status);
   statusRef.current = status;
   const switchingDocumentRef = useRef(false);
@@ -641,6 +645,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     if (savingRef.current) return;
     const epoch = ++selectionEpochRef.current;
     const priorDocumentId = documentIdRef.current;
+    startPlayRequestRef.current += 1;
+    setStartingPlay(false);
+    setStartPlayError(null);
     // Close the outgoing edit lease before React paints the loading state.
     switchingDocumentRef.current = true;
     setSavedBasis({ status: "unavailable" });
@@ -702,6 +709,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const resetBlankPlan = () => {
     if (savingRef.current) return;
     ++selectionEpochRef.current;
+    startPlayRequestRef.current += 1;
+    setStartingPlay(false);
+    setStartPlayError(null);
     switchingDocumentRef.current = false;
     editorIdentityRef.current = `${worldId}:blank:${editorGeneration + 1}`;
     editorRef.current = null;
@@ -1295,6 +1305,91 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const cardProjectionDocument = editor?.getJSON() ?? editorContent;
   const cardProjectionDirty = documentId !== null
     && (markdown !== serverMarkdownRef.current || title !== serverTitleRef.current);
+  const canStartPlayFromSavedPlan = Boolean(
+    documentId
+    && documentIdRef.current === documentId
+    && status === "ready"
+    && savedBasis.status === "verified"
+    && !cardProjectionDirty
+    && !saving
+    && !savingRef.current
+    && pendingWriteRef.current === null
+    && !createUncertain
+    && !recoveryConflict
+    && !fidelityBlocked
+    && !startingPlay
+  );
+  const startPlayFromSavedPlan = async () => {
+    if (!canStartPlayFromSavedPlan || !documentId || savedBasis.status !== "verified") return;
+    const selectedDocumentId = documentId;
+    const selectedBasis = savedBasis;
+    const selectionEpoch = selectionEpochRef.current;
+    const editGeneration = editGenerationRef.current;
+    const request = startPlayRequestRef.current + 1;
+    startPlayRequestRef.current = request;
+    setStartingPlay(true);
+    setStartPlayError(null);
+    try {
+      const committed = await getWorldOwnedPlanCommittedRevision(selectedDocumentId);
+      if (
+        startPlayRequestRef.current !== request
+        || !selectedViewIsCurrent(selectionEpoch, selectedDocumentId)
+      ) return;
+      if (
+        committed.schema_version !== "dmb_workspace_committed_revision_v2"
+        || committed.scope_mode !== "world"
+        || committed.world_id !== worldId
+        || committed.document_id !== selectedDocumentId
+        || committed.kind !== "plan"
+        || committed.campaign_id !== null
+        || committed.status !== "active"
+        || committed.has_divergent_working_copy
+        || committed.object_revision !== selectedBasis.revision
+        || committed.content_sha256 !== selectedBasis.contentSha256
+        || committed.markdown !== serverMarkdownRef.current
+        || revisionRef.current !== selectedBasis.revision
+        || serverDigestRef.current !== selectedBasis.contentSha256
+        || !isCanonicalUuid(committed.work_revision_id)
+        || !CANONICAL_SHA256_RE.test(committed.content_sha256)
+        || editGenerationRef.current !== editGeneration
+        || markdownRef.current !== serverMarkdownRef.current
+        || titleRef.current !== serverTitleRef.current
+        || pendingWriteRef.current !== null
+        || savingRef.current
+      ) {
+        throw new Error("The selected Plan no longer matches its verified saved revision. Save and reopen the Plan before starting Play.");
+      }
+      const location = new URLSearchParams(window.location.search);
+      if (
+        location.get("world") !== worldId
+        || location.get("documentId") !== selectedDocumentId
+        || documentIdRef.current !== selectedDocumentId
+      ) {
+        throw new Error("The selected Plan or World changed before Play could start. Reopen the Plan and try again.");
+      }
+      const params = new URLSearchParams({
+        world: worldId,
+        plan: selectedDocumentId,
+        plan_revision: String(committed.revision_n),
+        plan_work_revision_id: committed.work_revision_id,
+        plan_sha256: committed.content_sha256,
+      });
+      window.history.pushState({}, "", `/play?${params.toString()}`);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    } catch (reason) {
+      if (
+        startPlayRequestRef.current === request
+        && selectedViewIsCurrent(selectionEpoch, selectedDocumentId)
+      ) {
+        setStartPlayError(reason instanceof Error ? reason.message : "The saved Plan could not be verified for Play.");
+      }
+    } finally {
+      if (
+        startPlayRequestRef.current === request
+        && selectedViewIsCurrent(selectionEpoch, selectedDocumentId)
+      ) setStartingPlay(false);
+    }
+  };
   const currentCardProjection = useMemo(
     () => buildWorldPlanCardProjectionModel({
       document: cardProjectionDocument,
@@ -1451,6 +1546,22 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         <p className="world-owned-plan__intro">
           Plan changes stay local until you choose Save Plan.
         </p>
+        <div className="world-plan-start-play">
+          <button
+            type="button"
+            data-testid="world-plan-start-play"
+            disabled={!canStartPlayFromSavedPlan}
+            onClick={() => { void startPlayFromSavedPlan(); }}
+          >
+            {startingPlay ? "Verifying saved Plan…" : "Start Play from this Plan"}
+          </button>
+          {startPlayError ? <p role="alert" data-testid="world-plan-start-play-error">{startPlayError}</p> : null}
+          {status === "ready" && documentId && !canStartPlayFromSavedPlan && !startingPlay ? (
+            <p role="status" data-testid="world-plan-start-play-disabled">
+              Save and reopen a clean, committed Plan before starting Play.
+            </p>
+          ) : null}
+        </div>
         {createUncertain ? (
           <section role="alert">
             <p>Plan creation may have succeeded, but its response was lost. Refresh Saved Plans and open a candidate if one appears. Its identity is not assumed; the recovered text stays separate until you explicitly restore it into a Plan or discard it. Automatic creation retry is blocked to avoid duplicates.</p>

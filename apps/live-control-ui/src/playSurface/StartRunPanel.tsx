@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
+  getWorldOwnedPlanCommittedRevision,
   getWorldOwnedRunbookCommittedRevision,
   getWorldPlayRun,
   getWorldPlayRunReferenceManifest,
   getPlayRun,
   getPlayRunReferenceManifest,
   getCommittedWorkspaceRevision,
+  listWorldOwnedPlans,
   listWorldOwnedRunbooks,
   listWorkspaceDocuments,
   putWorldPlayRun,
@@ -14,7 +16,11 @@ import {
   putPlayRun,
   putPlayRunReferenceManifest,
 } from "../api/liveApi";
-import type { WorldOwnedRunbookRecordV2, WorkspaceDocumentRecord } from "../api/types";
+import type {
+  WorldOwnedPlanRecordV2,
+  WorldOwnedRunbookRecordV2,
+  WorkspaceDocumentRecord,
+} from "../api/types";
 import {
   executeStartWorldRunAttempt,
   executeStartRunAttempt,
@@ -23,6 +29,7 @@ import {
   type StartRunPhase,
   type WorldStartRunBinding,
   type WorldStartRunDeps,
+  type WorldStartRunExpectedSourcePin,
 } from "./startRunAttempt";
 import {
   BlankRunbookCreateError,
@@ -70,14 +77,21 @@ export function StartRunPanel({
   onStarted,
   productCampaignId = null,
   verifiedWorldId = null,
+  initialPlanId = null,
+  initialPlanRevisionPin = null,
 }: {
   onStarted: (runId: string) => void;
   productCampaignId?: string | null;
   verifiedWorldId?: string | null;
+  initialPlanId?: string | null;
+  initialPlanRevisionPin?: WorldStartRunExpectedSourcePin | null;
 }) {
   const [listStatus, setListStatus] = useState<ListStatus>("loading");
   const [listDetail, setListDetail] = useState<string | null>(null);
   const [runbooks, setRunbooks] = useState<StartRunbookRecord[]>([]);
+  const [selectedPlan, setSelectedPlan] = useState<WorldOwnedPlanRecordV2 | null>(null);
+  const [planStatus, setPlanStatus] = useState<ListStatus>(initialPlanId ? "loading" : "empty");
+  const [planDetail, setPlanDetail] = useState<string | null>(null);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [attemptStatus, setAttemptStatus] = useState<AttemptStatus>("idle");
   const [attemptDetail, setAttemptDetail] = useState<string | null>(null);
@@ -89,6 +103,7 @@ export function StartRunPanel({
   const [blankAttempt, setBlankAttempt] = useState<BlankRunbookAttempt | null>(null);
   const [worldBlankAttempt, setWorldBlankAttempt] = useState<WorldBlankRunbookAttempt | null>(null);
   const startedRef = useRef<string | null>(null);
+  const mountedRef = useRef(true);
   const scopeRef = useRef<StartRunPanelScope>({
     worldId: verifiedWorldId,
     campaignId: productCampaignId,
@@ -124,9 +139,11 @@ export function StartRunPanel({
     setSelectedDocumentId(documentId);
   }, []);
   const runbookListRequestRef = useRef(0);
+  const planListRequestRef = useRef(0);
   const worldBlankAttemptsRef = useRef(new Map<string, WorldBlankRunbookAttempt>());
   const isCurrentScope = useCallback((scope: StartRunPanelScope) => (
-    scopeRef.current.generation === scope.generation
+    mountedRef.current
+    && scopeRef.current.generation === scope.generation
     && scopeRef.current.worldId === scope.worldId
     && scopeRef.current.campaignId === scope.campaignId
   ), []);
@@ -169,14 +186,22 @@ export function StartRunPanel({
   }, [isCurrentScope, renderedScope]);
 
   useEffect(() => {
+    if (initialPlanId != null) {
+      setListStatus("empty");
+      setRunbooks([]);
+      return;
+    }
     void refreshRunbooks(renderedScope).catch(() => undefined);
-  }, [refreshRunbooks, renderedScope]);
+  }, [initialPlanId, refreshRunbooks, renderedScope]);
 
   useEffect(() => {
     selectionGenerationRef.current += 1;
     selectedDocumentRef.current = null;
     selectedDocumentScopeGenerationRef.current = renderedScope.generation;
     setSelectedDocumentId(null);
+    setSelectedPlan(null);
+    setPlanStatus(initialPlanId ? "loading" : "empty");
+    setPlanDetail(null);
     setAttempt(null);
     setAttemptStatus("idle");
     setAttemptDetail(null);
@@ -190,7 +215,72 @@ export function StartRunPanel({
     setCreateBlankError(null);
     setListRefreshWarning(null);
     startedRef.current = null;
-  }, [renderedScope]);
+  }, [initialPlanId, renderedScope]);
+
+  useEffect(() => {
+    if (initialPlanId == null) {
+      setSelectedPlan(null);
+      setPlanStatus("empty");
+      setPlanDetail(null);
+      return;
+    }
+    const scope = renderedScope;
+    if (scope.worldId == null) {
+      setSelectedPlan(null);
+      setPlanStatus("unavailable");
+      setPlanDetail("A saved Plan can only start Play from its selected managed World.");
+      return;
+    }
+    const request = planListRequestRef.current + 1;
+    planListRequestRef.current = request;
+    setPlanStatus("loading");
+    setPlanDetail(null);
+    void listWorldOwnedPlans(scope.worldId).then((inventory) => {
+      if (!isCurrentScope(scope) || planListRequestRef.current !== request) return;
+      if (
+        inventory.schema_version !== "dmb_workspace_document_registry_v2"
+        || inventory.scope_mode !== "world"
+        || inventory.world_id !== scope.worldId
+      ) {
+        throw new TypeError("World Plan inventory does not match the selected World.");
+      }
+      const record = inventory.records.find((candidate) => candidate.document_id === initialPlanId);
+      if (
+        record == null
+        || record.schema_version !== "dmb_world_owned_plan_record_v2"
+        || record.world_id !== scope.worldId
+        || record.campaign_id !== null
+        || record.kind !== "plan"
+      ) {
+        throw new TypeError("Selected Plan does not belong to the selected World.");
+      }
+      if (record.status !== "active") {
+        throw new TypeError("Selected World Plan is discarded.");
+      }
+      setSelectedPlan(record);
+      setPlanStatus("ready");
+      setSelectedDocumentId(record.document_id);
+      selectedDocumentRef.current = record.document_id;
+      selectedDocumentScopeGenerationRef.current = scope.generation;
+      selectionGenerationRef.current += 1;
+    }).catch((error: unknown) => {
+      if (!isCurrentScope(scope) || planListRequestRef.current !== request) return;
+      setSelectedPlan(null);
+      setPlanStatus("unavailable");
+      setPlanDetail(error instanceof Error ? error.message : "Selected World Plan is unavailable.");
+    });
+    return () => {
+      if (planListRequestRef.current === request) planListRequestRef.current += 1;
+    };
+  }, [initialPlanId, isCurrentScope, renderedScope]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      selectionGenerationRef.current += 1;
+    };
+  }, []);
 
   const runAttempt = useCallback(async (phase: StartRunPhase, currentAttempt: StartRunAttemptBinding | null) => {
     const scope = renderedScope;
@@ -198,7 +288,22 @@ export function StartRunPanel({
     const selectionGeneration = selectionGenerationRef.current;
     if (documentId == null || !isCurrentSelection(scope, documentId, selectionGeneration)) return;
     const selected = runbooks.find((record) => record.document_id === documentId);
-    if (scope.worldId && (
+    const plan = selectedPlan?.document_id === documentId ? selectedPlan : null;
+    const expectedKind = initialPlanId != null ? "plan" : "runbook";
+    if (expectedKind === "plan" && (
+      scope.worldId == null
+      || plan == null
+      || plan.document_id !== initialPlanId
+      || plan.world_id !== scope.worldId
+      || plan.campaign_id !== null
+      || plan.kind !== "plan"
+      || plan.status !== "active"
+    )) {
+      setAttemptStatus("blocked");
+      setAttemptDetail("Selected Plan does not belong to the selected World.");
+      return;
+    }
+    if (expectedKind === "runbook" && scope.worldId && (
       selected == null
       || selected.schema_version !== "dmb_world_owned_runbook_record_v2"
       || selected.world_id !== scope.worldId
@@ -225,13 +330,31 @@ export function StartRunPanel({
     }
     setAttemptStatus("starting");
     setAttemptDetail(null);
+    const worldDeps: WorldStartRunDeps = expectedKind === "plan"
+      ? {
+        ...liveWorldStartRunDeps,
+        getCommittedRevision: async (requestedDocumentId, requestedWorldId) => {
+          const committed = await getWorldOwnedPlanCommittedRevision(requestedDocumentId);
+          if (
+            committed.world_id !== requestedWorldId
+            || committed.document_id !== requestedDocumentId
+            || committed.kind !== "plan"
+          ) {
+            throw new TypeError("Committed Plan does not belong to the selected World.");
+          }
+          return committed;
+        },
+      }
+      : liveWorldStartRunDeps;
     const result = scope.worldId
       ? await executeStartWorldRunAttempt({
         selectedDocumentId: documentId,
         worldId: scope.worldId,
+        expectedKind,
+        expectedSourcePin: expectedKind === "plan" ? initialPlanRevisionPin : null,
         attempt: currentAttempt as WorldStartRunBinding | null,
         phase,
-        deps: liveWorldStartRunDeps,
+        deps: worldDeps,
       })
       : await executeStartRunAttempt({
         selectedDocumentId: documentId,
@@ -262,21 +385,28 @@ export function StartRunPanel({
     setAttempt(result.binding ?? currentAttempt);
     setAttemptStatus("blocked");
     setAttemptDetail(result.detail);
-  }, [isCurrentSelection, onStarted, renderedScope, runbooks, selectedDocumentId]);
+  }, [initialPlanId, initialPlanRevisionPin, isCurrentSelection, onStarted, renderedScope, runbooks, selectedDocumentId, selectedPlan]);
 
   const resolvedCampaignId = resolveBlankRunbookCampaignId(productCampaignId, campaignDraft);
   const currentWorldBlankAttempt = renderedScope.worldId != null
     && worldBlankAttempt?.worldId === renderedScope.worldId
     ? worldBlankAttempt
     : null;
-  const showCreate = listStatus === "empty" || listStatus === "ready";
-  const canCreateBlank = blankAttempt != null
+  const showCreate = initialPlanId == null && (listStatus === "empty" || listStatus === "ready");
+  const canCreateBlank = initialPlanId == null && (blankAttempt != null
     || currentWorldBlankAttempt != null
     || verifiedWorldId != null
-    || resolvedCampaignId != null;
+    || resolvedCampaignId != null);
   const selectedRunbook = selectedDocumentId == null
     ? null
     : runbooks.find((record) => record.document_id === selectedDocumentId) ?? null;
+  const planMode = initialPlanId != null;
+  const selectedPlanReady = planMode
+    && planStatus === "ready"
+    && selectedPlan?.document_id === initialPlanId
+    && selectedDocumentId === initialPlanId
+    && selectedPlan.world_id === verifiedWorldId
+    && initialPlanRevisionPin != null;
   const campaignMismatchReason = selectedRunbook == null
     ? null
     : verifiedWorldId
@@ -375,18 +505,46 @@ export function StartRunPanel({
 
   return (
     <section className="play-start-run" data-testid="play-start-run">
-      <h2>Start a Run</h2>
-      <p className="play-muted">Choose one active Runbook, then start an exact Run from its current committed revision.</p>
-      {listStatus === "loading" ? <p>Loading Runbooks…</p> : null}
-      {listStatus === "unavailable" ? (
-        <p role="alert" data-testid="play-start-run-unavailable">
-          {listDetail ?? "Runbooks are unavailable."}
-        </p>
-      ) : null}
-      {listStatus === "empty" ? (
-        <p className="play-muted" data-testid="play-start-run-empty">No active Runbooks are available.</p>
-      ) : null}
-      {listStatus === "ready" ? (
+      <h2>{planMode ? "Start from a saved Plan" : "Start a Run"}</h2>
+      <p className="play-muted">
+        {planMode
+          ? "Start an exact World Run from this saved Plan's current committed revision."
+          : "Choose one active Runbook, then start an exact Run from its current committed revision."}
+      </p>
+      {planMode ? (
+        <>
+          {planStatus === "loading" ? <p>Loading selected World Plan…</p> : null}
+          {planStatus === "unavailable" ? (
+            <p role="alert" data-testid="play-start-plan-unavailable">
+              {planDetail ?? "Selected World Plan is unavailable."}
+            </p>
+          ) : null}
+          {planStatus === "ready" && selectedPlan ? (
+            <div data-testid="play-start-selected-plan">
+              <strong>{selectedPlan.title || "Untitled Plan"}</strong>
+              <span className="play-muted"> · World {selectedPlan.world_id} · {selectedPlan.document_id}</span>
+            </div>
+          ) : null}
+          {planStatus === "ready" && initialPlanRevisionPin == null ? (
+            <p role="alert" data-testid="play-start-plan-pin-unavailable">
+              The exact saved Plan revision is missing from the handoff. Reopen the Plan before starting.
+            </p>
+          ) : null}
+        </>
+      ) : (
+        <>
+          {listStatus === "loading" ? <p>Loading Runbooks…</p> : null}
+          {listStatus === "unavailable" ? (
+            <p role="alert" data-testid="play-start-run-unavailable">
+              {listDetail ?? "Runbooks are unavailable."}
+            </p>
+          ) : null}
+          {listStatus === "empty" ? (
+            <p className="play-muted" data-testid="play-start-run-empty">No active Runbooks are available.</p>
+          ) : null}
+        </>
+      )}
+      {!planMode && listStatus === "ready" ? (
         <ul className="play-run-list">
           {runbooks.map((runbook) => {
             const selected = selectedDocumentId === runbook.document_id;
@@ -463,7 +621,7 @@ export function StartRunPanel({
         </div>
       ) : null}
       <div className="play-controls">
-        <div className="play-edit-runbook-control">
+        {!planMode ? <div className="play-edit-runbook-control">
           {canOpenRunbookAuthoring && selectedDocumentId ? (
             <a
               className="play-edit-runbook"
@@ -496,16 +654,16 @@ export function StartRunPanel({
               {campaignMismatchReason}
             </p>
           ) : null}
-        </div>
+        </div> : null}
         <button
           type="button"
           data-testid="play-start-run-submit"
-          disabled={selectedDocumentId == null || attemptStatus === "starting"}
+          disabled={selectedDocumentId == null || attemptStatus === "starting" || (planMode && !selectedPlanReady)}
           onClick={() => {
             void runAttempt("fresh", null);
           }}
         >
-          Start exact Run
+          {planMode ? "Start Run from Plan" : "Start exact Run"}
         </button>
         {attemptStatus === "replay_create" && attempt ? (
           <button

@@ -6,6 +6,8 @@ import { LiveApiError } from "../api/liveApi";
 import type {
   PlayRunRecord,
   PlayRunReferenceManifest,
+  WorldOwnedCommittedRevisionV2,
+  WorldOwnedPlanRecordV2,
   WorldOwnedRunbookCommittedRevisionV2,
   WorldOwnedRunbookRecordV2,
   WorldPlayRunRecordV2,
@@ -20,7 +22,9 @@ vi.mock("../api/liveApi", async (importOriginal) => {
     ...actual,
     listWorkspaceDocuments: vi.fn(),
     getCommittedWorkspaceRevision: vi.fn(),
+    getWorldOwnedPlanCommittedRevision: vi.fn(),
     getWorldOwnedRunbookCommittedRevision: vi.fn(),
+    listWorldOwnedPlans: vi.fn(),
     listWorldOwnedRunbooks: vi.fn(),
     putWorldPlayRun: vi.fn(),
     putWorldPlayRunReferenceManifest: vi.fn(),
@@ -149,6 +153,45 @@ function worldRunbook(documentId: string = DOC_A, worldId: string = WORLD_ID): W
   };
 }
 
+function worldPlanRecord(documentId: string = DOC_A, worldId: string = WORLD_ID): WorldOwnedPlanRecordV2 {
+  return {
+    schema_version: "dmb_world_owned_plan_record_v2",
+    scope_mode: "world",
+    document_id: documentId,
+    title: "World Plan",
+    campaign_id: null,
+    world_id: worldId,
+    target_session: null,
+    kind: "plan",
+    target_relpath: null,
+    status: "active",
+    content_status: "committed",
+    revision: 7,
+    created_at: "2026-10-06T00:00:00Z",
+    updated_at: "2026-10-06T00:00:00Z",
+  };
+}
+
+function worldPlanCommittedFor(documentId: string = DOC_A, worldId: string = WORLD_ID): WorldOwnedCommittedRevisionV2 {
+  return {
+    schema_version: "dmb_workspace_committed_revision_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    document_id: documentId,
+    kind: "plan",
+    campaign_id: null,
+    title: "World Plan",
+    status: "active",
+    object_revision: 8,
+    work_revision_id: WORLD_WORK_REVISION_ID,
+    revision_n: 7,
+    markdown: "# Plan\n",
+    content_sha256: SHA_A,
+    has_divergent_working_copy: false,
+    target_relpath: null,
+  };
+}
+
 function worldCommittedFor(documentId: string, worldId: string = WORLD_ID): WorldOwnedRunbookCommittedRevisionV2 {
   return {
     schema_version: "dmb_workspace_committed_revision_v2",
@@ -219,6 +262,15 @@ describe("StartRunPanel", () => {
       world_id: WORLD_ID,
       records: [],
     });
+    vi.mocked(liveApi.listWorldOwnedPlans).mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v2",
+      scope_mode: "world",
+      world_id: WORLD_ID,
+      records: [],
+    });
+    vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockImplementation(
+      async (documentId) => worldPlanCommittedFor(documentId),
+    );
     vi.mocked(liveApi.getWorldOwnedRunbookCommittedRevision).mockImplementation(
       async (documentId, worldId = WORLD_ID) => worldCommittedFor(documentId, worldId),
     );
@@ -581,6 +633,122 @@ describe("StartRunPanel", () => {
     expect(liveApi.putWorldPlayRunReferenceManifest).toHaveBeenCalledWith(RUN_ID, WORLD_ID);
     expect(liveApi.putPlayRun).not.toHaveBeenCalled();
     expect(liveApi.putPlayRunReferenceManifest).not.toHaveBeenCalled();
+  });
+
+
+  it("starts only from the exact saved World Plan selected on the Plan surface", async () => {
+    const onStarted = vi.fn();
+    vi.mocked(liveApi.listWorldOwnedPlans).mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v2",
+      scope_mode: "world",
+      world_id: WORLD_ID,
+      records: [worldPlanRecord()],
+    });
+    const user = userEvent.setup();
+    render(
+      <StartRunPanel
+        onStarted={onStarted}
+        verifiedWorldId={WORLD_ID}
+        initialPlanId={DOC_A}
+        initialPlanRevisionPin={{
+          revisionN: 7,
+          workRevisionId: WORLD_WORK_REVISION_ID,
+          contentSha256: SHA_A,
+        }}
+      />,
+    );
+
+    expect(await screen.findByTestId("play-start-selected-plan")).toHaveTextContent(DOC_A);
+    expect(screen.getByTestId("play-start-run-submit")).toHaveTextContent("Start Run from Plan");
+    await user.click(screen.getByTestId("play-start-run-submit"));
+
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith(RUN_ID));
+    expect(liveApi.listWorldOwnedPlans).toHaveBeenCalledExactlyOnceWith(WORLD_ID);
+    expect(liveApi.getWorldOwnedPlanCommittedRevision).toHaveBeenCalledExactlyOnceWith(DOC_A);
+    expect(liveApi.getWorldOwnedRunbookCommittedRevision).not.toHaveBeenCalled();
+    expect(liveApi.listWorldOwnedRunbooks).not.toHaveBeenCalled();
+    expect(liveApi.putWorldPlayRun).toHaveBeenCalledWith(RUN_ID, WORLD_ID, {
+      playable_artifact_id: DOC_A,
+      expected_playable_revision: 7,
+      expected_playable_content_sha256: SHA_A,
+    });
+    expect(liveApi.putWorldPlayRunReferenceManifest).toHaveBeenCalledWith(RUN_ID, WORLD_ID);
+  });
+
+  it("blocks Plan start when its exact WorkRevision pin changed after Plan reopen", async () => {
+    const onStarted = vi.fn();
+    vi.mocked(liveApi.listWorldOwnedPlans).mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v2",
+      scope_mode: "world",
+      world_id: WORLD_ID,
+      records: [worldPlanRecord()],
+    });
+    vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockResolvedValue({
+      ...worldPlanCommittedFor(),
+      revision_n: 8,
+      work_revision_id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+      content_sha256: "b".repeat(64),
+    });
+    const user = userEvent.setup();
+    render(
+      <StartRunPanel
+        onStarted={onStarted}
+        verifiedWorldId={WORLD_ID}
+        initialPlanId={DOC_A}
+        initialPlanRevisionPin={{
+          revisionN: 7,
+          workRevisionId: WORLD_WORK_REVISION_ID,
+          contentSha256: SHA_A,
+        }}
+      />,
+    );
+
+    await screen.findByTestId("play-start-selected-plan");
+    await user.click(screen.getByTestId("play-start-run-submit"));
+    expect(await screen.findByTestId("play-start-run-blocked")).toHaveTextContent("changed after it was opened");
+    expect(liveApi.putWorldPlayRun).not.toHaveBeenCalled();
+    expect(liveApi.putWorldPlayRunReferenceManifest).not.toHaveBeenCalled();
+    expect(onStarted).not.toHaveBeenCalled();
+  });
+
+  it("does not navigate after a Plan-start response arrives for an unmounted source selection", async () => {
+    const onStarted = vi.fn();
+    const pendingRun = deferred<WorldPlayRunRecordV2>();
+    vi.mocked(liveApi.listWorldOwnedPlans).mockImplementation(async (worldId) => ({
+      schema_version: "dmb_workspace_document_registry_v2",
+      scope_mode: "world",
+      world_id: worldId,
+      records: [worldPlanRecord(DOC_A, worldId), worldPlanRecord(DOC_B, worldId)],
+    }));
+    vi.mocked(liveApi.putWorldPlayRun).mockReturnValue(pendingRun.promise);
+    function Source({ documentId }: { documentId: string }) {
+      return (
+        <StartRunPanel
+          key={documentId}
+          onStarted={onStarted}
+          verifiedWorldId={WORLD_ID}
+          initialPlanId={documentId}
+          initialPlanRevisionPin={{
+            revisionN: 7,
+            workRevisionId: WORLD_WORK_REVISION_ID,
+            contentSha256: SHA_A,
+          }}
+        />
+      );
+    }
+    const view = render(<Source documentId={DOC_A} />);
+    const user = userEvent.setup();
+    await screen.findByTestId("play-start-selected-plan");
+    await user.click(screen.getByTestId("play-start-run-submit"));
+    await waitFor(() => expect(liveApi.putWorldPlayRun).toHaveBeenCalledWith(RUN_ID, WORLD_ID, expect.any(Object)));
+
+    view.rerender(<Source documentId={DOC_B} />);
+    await screen.findByText("World Plan");
+    await act(async () => {
+      pendingRun.resolve(worldPlayRun());
+      await pendingRun.promise;
+    });
+    expect(onStarted).not.toHaveBeenCalled();
   });
 
   it("keeps World Runbook discovery failures on the World route without V1 fallback", async () => {

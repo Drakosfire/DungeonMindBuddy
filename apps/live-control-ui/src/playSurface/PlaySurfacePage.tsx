@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 
 import {
   LiveApiError,
+  getWorldOwnedPlanCommittedRevision,
   getWorldOwnedRunbookCommittedRevision,
   getWorldPlayRun,
   getWorldPlayRunReferenceManifest,
@@ -16,6 +17,7 @@ import {
 } from "../api/liveApi";
 import type {
   AnyPlayRunRecord,
+  WorldOwnedCommittedRevisionV2,
   WorldOwnedRunbookCommittedRevisionV2,
   WorldPlayRunRecordV2,
 } from "../api/types";
@@ -72,9 +74,64 @@ function playRunQuery(search: string): string | null {
   return params.get("run");
 }
 
+function playPlanQuery(search: string): string | null {
+  const params = new URLSearchParams(search);
+  return params.has("run") ? null : params.get("plan");
+}
+
+function playPlanRevisionPin(search: string): {
+  revisionN: number;
+  workRevisionId: string;
+  contentSha256: string;
+} | null {
+  const params = new URLSearchParams(search);
+  const revisionN = Number(params.get("plan_revision"));
+  const workRevisionId = params.get("plan_work_revision_id") ?? "";
+  const contentSha256 = params.get("plan_sha256") ?? "";
+  if (
+    !Number.isInteger(revisionN)
+    || revisionN <= 0
+    || !isCanonicalUuid(workRevisionId)
+    || !/^[0-9a-f]{64}$/.test(contentSha256)
+  ) return null;
+  return { revisionN, workRevisionId, contentSha256 };
+}
+
 function playChooserQuery(search: string): boolean {
   const params = new URLSearchParams(search);
-  return params.get("choose") === "1" && !params.has("run");
+  return !params.has("run") && (params.get("choose") === "1" || params.has("plan"));
+}
+
+async function getWorldOwnedPinnedPlayableRevision(
+  documentId: string,
+  worldId: string,
+  revisionN: number,
+  expectedSha256: string,
+): Promise<WorldOwnedCommittedRevisionV2 | WorldOwnedRunbookCommittedRevisionV2> {
+  try {
+    const committed = await getWorldOwnedPlanCommittedRevision(documentId, revisionN);
+    if (
+      committed.schema_version !== "dmb_workspace_committed_revision_v2"
+      || committed.scope_mode !== "world"
+      || committed.world_id !== worldId
+      || committed.document_id !== documentId
+      || committed.kind !== "plan"
+    ) {
+      throw new TypeError("Exact committed World Plan does not match the selected Run source.");
+    }
+    if (committed.revision_n !== revisionN || committed.content_sha256 !== expectedSha256) {
+      throw new TypeError("Exact committed World Plan does not match the Run's revision and digest.");
+    }
+    return committed;
+  } catch (error) {
+    if (!(error instanceof LiveApiError && error.status === 404)) throw error;
+  }
+  return getWorldOwnedRunbookCommittedRevision(
+    documentId,
+    worldId,
+    revisionN,
+    expectedSha256,
+  );
 }
 
 function playHref(query: Record<string, string>): string {
@@ -218,7 +275,15 @@ function PlaySurfacePublisher({
   return null;
 }
 
-function PlayChooser({ continuityWarning }: { continuityWarning?: string | null }) {
+function PlayChooser({
+  continuityWarning,
+  initialPlanId,
+  initialPlanRevisionPin,
+}: {
+  continuityWarning?: string | null;
+  initialPlanId: string | null;
+  initialPlanRevisionPin: ReturnType<typeof playPlanRevisionPin>;
+}) {
   const selectedWorld = useSelectedWorld();
   const selectedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const world = useOptionalWorldGraphLens();
@@ -264,7 +329,11 @@ function PlayChooser({ continuityWarning }: { continuityWarning?: string | null 
       <header>
         <p className="play-kicker">Play</p>
         <h1>Choose a Run</h1>
-        <p className="play-muted">Open one exact durable Run, or start a new exact Run from a committed Runbook. Nothing is selected until you choose it.</p>
+        <p className="play-muted">
+          {initialPlanId
+            ? "Open one exact durable Run, or start a new exact Run from the selected Plan."
+            : "Open one exact durable Run, or start a new exact Run from a committed Runbook. Nothing is selected until you choose it."}
+        </p>
         {continuityWarning ? (
           <p role="alert" className="play-continuity-warning" data-testid="play-active-run-warning">
             {continuityWarning}
@@ -308,7 +377,14 @@ function PlayChooser({ continuityWarning }: { continuityWarning?: string | null 
           </ul>
         ) : null}
       </section>
-      <StartRunPanel onStarted={navigateToRun} productCampaignId={productCampaignId} verifiedWorldId={selectedWorldId} />
+      <StartRunPanel
+        key={`${selectedWorldId ?? "campaign"}:${initialPlanId ?? "runbook-chooser"}`}
+        onStarted={navigateToRun}
+        productCampaignId={productCampaignId}
+        verifiedWorldId={selectedWorldId}
+        initialPlanId={selectedWorldId ? initialPlanId : null}
+        initialPlanRevisionPin={selectedWorldId ? initialPlanRevisionPin : null}
+      />
     </main>
   );
 }
@@ -344,6 +420,8 @@ export function PlaySurfacePage() {
   const selectedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const locationSearch = useSyncExternalStore(subscribeLocation, playLocationSearch, () => "");
   const runQuery = playRunQuery(locationSearch);
+  const initialPlanId = playPlanQuery(locationSearch);
+  const initialPlanRevisionPin = playPlanRevisionPin(locationSearch);
   const chooserQuery = playChooserQuery(locationSearch);
   const routeIdentityRef = useRef<PlayRouteIdentity>({
     worldId: selectedWorldId,
@@ -431,7 +509,7 @@ export function PlaySurfacePage() {
       let committed;
       try {
         committed = selectedWorldId && loaded.schema_version === "dmb_world_play_run_record_v2"
-          ? await getWorldOwnedRunbookCommittedRevision(
+          ? await getWorldOwnedPinnedPlayableRevision(
             loaded.playable_artifact_id,
             selectedWorldId,
             loaded.playable_revision,
@@ -455,7 +533,11 @@ export function PlaySurfacePage() {
         setAdmission(null);
         return;
       }
-      if (selectedWorldId && loaded.schema_version === "dmb_world_play_run_record_v2") {
+      if (
+        selectedWorldId
+        && loaded.schema_version === "dmb_world_play_run_record_v2"
+        && committed?.kind === "runbook"
+      ) {
         const current = await getWorldOwnedRunbookCommittedRevision(
           loaded.playable_artifact_id,
           selectedWorldId,
@@ -689,7 +771,11 @@ export function PlaySurfacePage() {
     <AppChrome activeRoute="play">
       <PlaySurfacePublisher admittedRun={admittedRun} runQuery={runQuery} />
       {loadStatus === "chooser" ? (
-        <PlayChooser continuityWarning={detail} />
+        <PlayChooser
+          continuityWarning={detail}
+          initialPlanId={initialPlanId}
+          initialPlanRevisionPin={initialPlanRevisionPin}
+        />
       ) : null}
       {loadStatus === "loading" ? (
         <main

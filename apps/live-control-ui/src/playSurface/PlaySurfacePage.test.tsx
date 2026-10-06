@@ -6,6 +6,7 @@ import {
   getPlayActiveRun,
   getPlayRun,
   getCommittedWorkspaceRevision,
+  getWorldOwnedPlanCommittedRevision,
   getWorldOwnedRunbookCommittedRevision,
   getWorldPlayRun,
   getWorldPlayRunReferenceManifest,
@@ -14,7 +15,8 @@ import {
   putPlayActiveRun,
   putWorldPlayRunRebase,
 } from "../api/liveApi";
-import type { WorldOwnedRunbookCommittedRevisionV2, WorldPlayRunRecordV2 } from "../api/types";
+import { LiveApiError } from "../api/liveApi";
+import type { WorldOwnedCommittedRevisionV2, WorldOwnedRunbookCommittedRevisionV2, WorldPlayRunRecordV2 } from "../api/types";
 import { PlaySurfacePage } from "./PlaySurfacePage";
 
 const selectedWorldHarness = vi.hoisted(() => ({ worldId: "world-b" }));
@@ -25,6 +27,7 @@ vi.mock("../api/liveApi", async (importOriginal) => ({
   getPlayRun: vi.fn(),
   getPlayRunReferenceManifest: vi.fn(),
   getCommittedWorkspaceRevision: vi.fn(),
+  getWorldOwnedPlanCommittedRevision: vi.fn(),
   listPlayRuns: vi.fn(),
   getWorldOwnedRunbookCommittedRevision: vi.fn(),
   getWorldPlayRun: vi.fn(),
@@ -127,6 +130,7 @@ describe("Play selected-World admission", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     selectedWorldHarness.worldId = "world-b";
+    vi.mocked(getWorldOwnedPlanCommittedRevision).mockRejectedValue(new LiveApiError("Plan revision not found", 404));
     vi.mocked(listPlayRuns).mockResolvedValue({ records: [] } as Awaited<ReturnType<typeof listPlayRuns>>);
     vi.mocked(listWorldPlayRuns).mockResolvedValue({
       schema_version: "dmb_world_play_runs_list_v2",
@@ -184,6 +188,50 @@ describe("Play selected-World admission", () => {
     expect(getWorldOwnedRunbookCommittedRevision).toHaveBeenCalledWith(artifactId, "world-b");
     expect(getPlayRun).not.toHaveBeenCalled();
     expect(putPlayActiveRun).toHaveBeenCalledWith(runId);
+  });
+
+  it("reopens an exact discarded World Plan revision without requiring the Plan to remain active or current", async () => {
+    const planRun = worldRun({ playable_work_revision_id: workRevisionId });
+    const committedPlan: WorldOwnedCommittedRevisionV2 = {
+      schema_version: "dmb_workspace_committed_revision_v2",
+      scope_mode: "world",
+      world_id: "world-b",
+      campaign_id: null,
+      document_id: artifactId,
+      kind: "plan",
+      title: "North Gate Plan",
+      status: "discarded",
+      object_revision: 9,
+      work_revision_id: workRevisionId,
+      revision_n: 1,
+      markdown: worldPlayableMarkdown,
+      content_sha256: shaA,
+      has_divergent_working_copy: true,
+      target_relpath: null,
+    };
+    vi.mocked(getWorldPlayRun).mockResolvedValue(planRun);
+    vi.mocked(getWorldPlayRunReferenceManifest).mockResolvedValue({
+      schema_version: "dmb_play_run_reference_manifest_v1",
+      run_id: runId,
+      playable_artifact_id: artifactId,
+      playable_revision: 1,
+      playable_content_sha256: shaA,
+      elements: [
+        { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
+        { kind: "scene", element_id: "scene:gate" },
+      ],
+      sealed_at: "2026-09-30T00:00:00Z",
+    });
+    vi.mocked(getWorldOwnedPlanCommittedRevision).mockResolvedValue(committedPlan);
+
+    render(<PlaySurfacePage />);
+
+    expect(await screen.findByTestId("play-surface-ready")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Gate" })).toBeInTheDocument();
+    expect(getWorldOwnedPlanCommittedRevision).toHaveBeenCalledExactlyOnceWith(artifactId, 1);
+    expect(getWorldOwnedRunbookCommittedRevision).not.toHaveBeenCalled();
+    expect(putWorldPlayRunRebase).not.toHaveBeenCalled();
+    expect(putPlayActiveRun).toHaveBeenCalledExactlyOnceWith(runId);
   });
 
   it("does not follow a global active Run from another World", async () => {

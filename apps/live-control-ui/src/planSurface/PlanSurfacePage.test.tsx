@@ -2224,6 +2224,85 @@ it("keeps the checked-in Session 29 linked Plan safely editable after root-quote
   expect(JSON.parse(localStorage.getItem(`dmb:world-plan-local-draft:v2:${worldId}`) ?? "null").markdown).toBe(session29Plan);
 });
 
+it("starts Play from the exact clean committed World Plan revision", async () => {
+  const record = mockSavedPlanForAgent();
+  const committed = {
+    schema_version: "dmb_workspace_committed_revision_v2" as const,
+    scope_mode: "world" as const,
+    world_id: worldId,
+    campaign_id: null,
+    document_id: record.document_id,
+    kind: "plan" as const,
+    title: "Of Conks Session Plan",
+    status: "active" as const,
+    object_revision: 7,
+    work_revision_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    revision_n: 4,
+    markdown: savedAgentPlanText,
+    content_sha256: "b".repeat(64),
+    has_divergent_working_copy: false,
+    target_relpath: record.target_relpath,
+  } satisfies WorldOwnedCommittedRevisionV2;
+  const getCommitted = vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision)
+    .mockResolvedValue(committed);
+  const location = `/plan?world=${worldId}&documentId=${record.document_id}`;
+  window.history.replaceState({}, "", location);
+  render(
+    <SelectedWorldProvider locationSnapshot={location}>
+      <VerifiedPlanPage />
+    </SelectedWorldProvider>,
+  );
+
+  const start = await screen.findByTestId("world-plan-start-play");
+  await waitFor(() => expect(start).toBeEnabled());
+  fireEvent.click(start);
+
+  await waitFor(() => expect(window.location.pathname).toBe("/play"));
+  const params = new URLSearchParams(window.location.search);
+  expect(params.get("world")).toBe(worldId);
+  expect(params.get("plan")).toBe(record.document_id);
+  expect(params.get("plan_revision")).toBe("4");
+  expect(params.get("plan_work_revision_id")).toBe(committed.work_revision_id);
+  expect(params.get("plan_sha256")).toBe(committed.content_sha256);
+  expect(getCommitted).toHaveBeenCalledWith(record.document_id);
+});
+
+it("keeps Start Play disabled while the selected World Plan has unsaved edits", async () => {
+  const record = mockSavedPlanForAgent();
+  const committed = {
+    schema_version: "dmb_workspace_committed_revision_v2" as const,
+    scope_mode: "world" as const,
+    world_id: worldId,
+    campaign_id: null,
+    document_id: record.document_id,
+    kind: "plan" as const,
+    title: "Of Conks Session Plan",
+    status: "active" as const,
+    object_revision: 7,
+    work_revision_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    revision_n: 4,
+    markdown: savedAgentPlanText,
+    content_sha256: "b".repeat(64),
+    has_divergent_working_copy: false,
+    target_relpath: record.target_relpath,
+  } satisfies WorldOwnedCommittedRevisionV2;
+  vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockResolvedValue(committed);
+  const location = `/plan?world=${worldId}&documentId=${record.document_id}`;
+  window.history.replaceState({}, "", location);
+  render(
+    <SelectedWorldProvider locationSnapshot={location}>
+      <VerifiedPlanPage />
+    </SelectedWorldProvider>,
+  );
+
+  const start = await screen.findByTestId("world-plan-start-play");
+  await waitFor(() => expect(start).toBeEnabled());
+  act(() => capturedPlanControls().changeTitle({ target: { value: "Unsaved title" } }));
+
+  expect(start).toBeDisabled();
+  expect(screen.getByTestId("world-plan-start-play-disabled")).toHaveTextContent(/clean, committed Plan/i);
+});
+
 it("preserves unsupported source and recovery bytes and refuses Save before prepare or commit", async () => {
   const record = mockSavedPlanForAgent();
   const unsupportedMarkdown = "# Plan\n\nRead [the rules](https://example.com/rules) before continuing.\n";
