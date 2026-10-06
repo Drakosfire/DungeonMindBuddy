@@ -16,6 +16,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from apps.live_control_server.config import MANAGED_WORLD_DATA_ROOT_ENV
 from apps.live_control_server.models.plan_document_edit_proposal import (
     WorldPlanDocumentEditProposalRequest,
 )
@@ -24,7 +25,10 @@ from apps.live_control_server.services import plan_document_edit_proposal as ser
 from apps.live_control_server.services.workspace_document_registry import (
     WorldOwnedCommittedRevisionV2,
 )
-from apps.live_control_server.services.world_container_registry import create_world_container
+from apps.live_control_server.services.world_container_registry import (
+    create_world_container,
+    world_containers_path,
+)
 from application_state.agent_conversation.types import (
     CompletedPlanAskPair,
     ConversationCommand,
@@ -1381,12 +1385,20 @@ def test_world_plan_route_uses_real_saved_world_plan_and_never_writes(
     typed_request = WorldPlanDocumentEditProposalRequest.model_validate(request)
     resolved_basis = service._validate_world_authority(tmp_path, typed_request)
     _seed_completed_proposal_context(application_state_dsn, resolved_basis)
+    code_root = tmp_path / "clean-code-checkout"
+    code_root.mkdir()
+    registry = world_containers_path(tmp_path)
+    original_registry = registry.read_bytes()
+    monkeypatch.setattr(live, "repo_root", lambda: code_root)
+    monkeypatch.setenv(MANAGED_WORLD_DATA_ROOT_ENV, str(tmp_path))
     response = client.post("/api/live/world-plan-edit/propose", json=request)
     assert response.status_code == 200, response.text
     assert response.json()["schema_version"] == "dmb_world_plan_document_edit_proposal_v1"
     assert response.json()["world_id"] == world.world_id
     assert response.json()["document_id"] == document_id
     assert response.json()["idempotency_key"] == request["idempotency_key"]
+    assert response.json()["base_revision"] == resolved_basis.object_revision
+    assert response.json()["base_content_sha256"] == resolved_basis.content_sha256
     assert "session" not in response.json()
     assert len(fake.requests) == 1
     assert "Explicit unsaved editor draft" in fake.requests[0].user_prompt
@@ -1433,6 +1445,29 @@ def test_world_plan_route_uses_real_saved_world_plan_and_never_writes(
     assert saved_after["loaded_revision"] == saved_before["loaded_revision"]
     assert saved_after["content_sha256"] == saved_before["content_sha256"]
     assert saved_after["markdown"] == committed_markdown
+    assert registry.read_bytes() == original_registry
+    assert not world_containers_path(code_root).exists()
+
+
+def test_world_plan_edit_routes_reject_invalid_explicit_world_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _client(monkeypatch, tmp_path)
+    monkeypatch.setenv(MANAGED_WORLD_DATA_ROOT_ENV, str(tmp_path / "missing"))
+
+    proposed = client.post(
+        "/api/live/world-plan-edit/propose",
+        json=_request().model_dump(mode="json"),
+    )
+    actions = client.get(
+        "/api/live/world-plan-edit/actions",
+        params={"world_id": "world-1", "document_id": "plan-1"},
+    )
+
+    assert proposed.status_code == 503
+    assert proposed.json()["detail"] == "Managed World storage is unavailable."
+    assert actions.status_code == 503
+    assert actions.json()["detail"] == "Managed World storage is unavailable."
 
 
 def test_late_provider_result_loses_expired_action_fence_without_payload(
