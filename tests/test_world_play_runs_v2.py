@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from application_state.content.service import (
@@ -13,7 +15,7 @@ from application_state.content.service import (
     update_plan_metadata,
     update_runbook_metadata,
 )
-from apps.live_control_server.main import create_app
+from apps.live_control_server.routes.play_runs import router as play_runs_router
 from apps.live_control_server.services.world_container_registry import create_world_container
 from tests.application_state.play_runtime_helpers import (
     SOURCE_MARKDOWN,
@@ -31,6 +33,8 @@ WORLD_RUN_ID_2 = "ffffffff-ffff-4fff-8fff-ffffffffffff"
 
 @pytest.fixture
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    from apps.live_control_server.main import create_app
+
     monkeypatch.setattr(
         "apps.live_control_server.routes.play_runs.repo_root",
         lambda: tmp_path,
@@ -40,6 +44,8 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
 
 @pytest.fixture
 def world_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    from apps.live_control_server.main import create_app
+
     for module in (
         "apps.live_control_server.routes.play_runs",
         "apps.live_control_server.routes.workspace_documents",
@@ -47,6 +53,17 @@ def world_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     ):
         monkeypatch.setattr(f"{module}.repo_root", lambda: tmp_path)
     return TestClient(create_app())
+
+
+@pytest.fixture
+def play_runs_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    monkeypatch.setattr(
+        "apps.live_control_server.routes.play_runs.repo_root",
+        lambda: tmp_path,
+    )
+    app = FastAPI()
+    app.include_router(play_runs_router)
+    return TestClient(app)
 
 
 def _create_world_runbook(world_id: str, *, markdown: str = SOURCE_MARKDOWN):
@@ -115,6 +132,52 @@ def test_world_plan_http_run_reopens_exact_pin_after_save_and_discard(
     )
     assert replayed.status_code == 200, replayed.text
     assert replayed.json() == pinned_run
+
+
+def test_world_v2_create_and_get_return_initial_opening_beat(
+    application_state_dsn: str, play_runs_client: TestClient
+) -> None:
+    world_id = f"world-v2-http-opening-{uuid4()}"
+    run_id = str(uuid4())
+    markdown = "\n".join(
+        [
+            "<!-- dmb-playable-element:v2 kind=beat id=beat:z-optional beat_kind=optional -->",
+            "## Optional first in document order",
+            "",
+            "<!-- dmb-playable-element:v2 kind=beat id=beat:a-spine beat_kind=spine -->",
+            "## Opening spine beat",
+        ]
+    )
+    plan = create_world_plan(title="V2 opening", world_id=world_id)
+    plan, revision = commit_plan(
+        str(plan.work_object_id),
+        markdown,
+        expected_world_id=world_id,
+        expected_revision=plan.object_revision,
+    )
+    path = f"/api/live/world-play-runs/v2/{run_id}"
+    created = play_runs_client.put(
+        path,
+        params={"world_id": world_id},
+        json=_create_body(plan, revision),
+    )
+    assert created.status_code == 200, created.text
+    record = created.json()
+    assert record["run_revision"] == 1
+    assert record["progress"] == {
+        "current_scene_id": None,
+        "current_beat_id": "beat:a-spine",
+        "resolved_beat_ids": [],
+        "selections": {},
+        "notes_by_element_id": {},
+    }
+
+    before_get = fetch_play_runtime_state(application_state_dsn, run_id)
+    reopened = play_runs_client.get(path, params={"world_id": world_id})
+    assert reopened.status_code == 200, reopened.text
+    assert reopened.json() == record
+    assert reopened.json()["run_revision"] == 1
+    assert fetch_play_runtime_state(application_state_dsn, run_id) == before_get
 
 
 def test_world_runbook_v2_crud_tiptap_and_exact_revision(

@@ -185,7 +185,11 @@ function worldPlanCommittedFor(documentId: string = DOC_A, worldId: string = WOR
     object_revision: 8,
     work_revision_id: WORLD_WORK_REVISION_ID,
     revision_n: 7,
-    markdown: "# Plan\n",
+    markdown: [
+      "<!-- dmb-playable-element:v2 kind=beat id=beat:opening beat_kind=spine -->",
+      "## Opening",
+      "",
+    ].join("\n"),
     content_sha256: SHA_A,
     has_divergent_working_copy: false,
     target_relpath: null,
@@ -231,6 +235,14 @@ function worldPlayRun(worldId: string = WORLD_ID): WorldPlayRunRecordV2 {
       selections: {},
       notes_by_element_id: {},
     },
+  };
+}
+
+function worldPlanPlayRun(currentBeatId = "beat:opening"): WorldPlayRunRecordV2 {
+  const run = worldPlayRun();
+  return {
+    ...run,
+    progress: { ...run.progress, current_beat_id: currentBeatId },
   };
 }
 
@@ -644,6 +656,7 @@ describe("StartRunPanel", () => {
       world_id: WORLD_ID,
       records: [worldPlanRecord()],
     });
+    vi.mocked(liveApi.putWorldPlayRun).mockResolvedValue(worldPlanPlayRun());
     const user = userEvent.setup();
     render(
       <StartRunPanel
@@ -673,6 +686,115 @@ describe("StartRunPanel", () => {
       expected_playable_content_sha256: SHA_A,
     });
     expect(liveApi.putWorldPlayRunReferenceManifest).toHaveBeenCalledWith(RUN_ID, WORLD_ID);
+  });
+
+  it("starts a valid Scene-first v1 World Plan with its existing empty progress", async () => {
+    vi.mocked(liveApi.listWorldOwnedPlans).mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v2",
+      scope_mode: "world",
+      world_id: WORLD_ID,
+      records: [worldPlanRecord()],
+    });
+    const sceneFirstRun = worldPlayRun();
+    vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockResolvedValue({
+      ...worldPlanCommittedFor(),
+      markdown: [
+        "<!-- dmb-playable-element:v1 kind=scene id=scene:opening -->",
+        "## Opening",
+        "",
+      ].join("\n"),
+    });
+    vi.mocked(liveApi.putWorldPlayRun).mockResolvedValue(sceneFirstRun);
+    const onStarted = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <StartRunPanel
+        onStarted={onStarted}
+        verifiedWorldId={WORLD_ID}
+        initialPlanId={DOC_A}
+        initialPlanRevisionPin={{
+          revisionN: 7,
+          workRevisionId: WORLD_WORK_REVISION_ID,
+          contentSha256: SHA_A,
+        }}
+      />,
+    );
+
+    await screen.findByTestId("play-start-selected-plan");
+    await user.click(screen.getByTestId("play-start-run-submit"));
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith(RUN_ID));
+    expect(sceneFirstRun.progress).toMatchObject({ current_scene_id: null, current_beat_id: null });
+    expect(liveApi.putWorldPlayRunReferenceManifest).toHaveBeenCalledWith(RUN_ID, WORLD_ID);
+  });
+
+  it("blocks a saved World Plan without an authored Beat before calling the Run API", async () => {
+    vi.mocked(liveApi.listWorldOwnedPlans).mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v2",
+      scope_mode: "world",
+      world_id: WORLD_ID,
+      records: [worldPlanRecord()],
+    });
+    vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockResolvedValue({
+      ...worldPlanCommittedFor(),
+      markdown: [
+        "<!-- dmb-playable-element:v2 kind=scene id=scene:orphan -->",
+        "## Orphan Scene",
+        "",
+      ].join("\n"),
+    });
+    const onStarted = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <StartRunPanel
+        onStarted={onStarted}
+        verifiedWorldId={WORLD_ID}
+        initialPlanId={DOC_A}
+        initialPlanRevisionPin={{
+          revisionN: 7,
+          workRevisionId: WORLD_WORK_REVISION_ID,
+          contentSha256: SHA_A,
+        }}
+      />,
+    );
+
+    await screen.findByTestId("play-start-selected-plan");
+    await user.click(screen.getByTestId("play-start-run-submit"));
+    expect(await screen.findByTestId("play-start-run-blocked")).toHaveTextContent("authored opening Beat");
+    expect(liveApi.putWorldPlayRun).not.toHaveBeenCalled();
+    expect(liveApi.putWorldPlayRunReferenceManifest).not.toHaveBeenCalled();
+    expect(onStarted).not.toHaveBeenCalled();
+  });
+
+  it("does not seal or navigate a World Plan Run that lacks its exact current opening Beat", async () => {
+    vi.mocked(liveApi.listWorldOwnedPlans).mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v2",
+      scope_mode: "world",
+      world_id: WORLD_ID,
+      records: [worldPlanRecord()],
+    });
+    vi.mocked(liveApi.putWorldPlayRun).mockResolvedValue(worldPlanPlayRun("beat:later"));
+    const onStarted = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <StartRunPanel
+        onStarted={onStarted}
+        verifiedWorldId={WORLD_ID}
+        initialPlanId={DOC_A}
+        initialPlanRevisionPin={{
+          revisionN: 7,
+          workRevisionId: WORLD_WORK_REVISION_ID,
+          contentSha256: SHA_A,
+        }}
+      />,
+    );
+
+    await screen.findByTestId("play-start-selected-plan");
+    await user.click(screen.getByTestId("play-start-run-submit"));
+    expect(await screen.findByTestId("play-start-run-blocked")).toHaveTextContent("current Beat does not match");
+    expect(liveApi.putWorldPlayRun).toHaveBeenCalledTimes(1);
+    expect(liveApi.putWorldPlayRunReferenceManifest).not.toHaveBeenCalled();
+    expect(onStarted).not.toHaveBeenCalled();
+    expect(screen.getByTestId("play-start-run-submit")).toBeDisabled();
   });
 
   it("blocks Plan start when its exact WorkRevision pin changed after Plan reopen", async () => {
@@ -745,7 +867,7 @@ describe("StartRunPanel", () => {
     view.rerender(<Source documentId={DOC_B} />);
     await screen.findByText("World Plan");
     await act(async () => {
-      pendingRun.resolve(worldPlayRun());
+      pendingRun.resolve(worldPlanPlayRun());
       await pendingRun.promise;
     });
     expect(onStarted).not.toHaveBeenCalled();
