@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 
 from apps.live_control_server.services.hermes_graph_agent_contract import (
     HermesGraphAgentTurnRequest,
+    decode_turn_request_wire,
     deserialize_hermes_graph_agent_turn_request,
+    encode_turn_request_wire,
     serialize_hermes_graph_agent_turn_request,
 )
 
@@ -54,6 +58,26 @@ def test_legacy_request_omits_budget_field_byte_for_byte():
     assert "requestBudget" not in payload
     assert "providerAuthorizationRequired" not in payload
     assert "parentGraphBrokerRequired" not in payload
+
+
+def test_exact_committed_plan_message_survives_host_round_trip() -> None:
+    markdown = "# Committed Plan\n" + "x" * 50_000
+    message = markdown
+    request = _request(request_budget=_budget())
+    request = replace(request, question=message, plan_continuity_turn=True)
+    payload = serialize_hermes_graph_agent_turn_request(request)
+    assert payload["question"] == message
+    assert deserialize_hermes_graph_agent_turn_request(payload).question == message
+    assert decode_turn_request_wire(encode_turn_request_wire(request)).question == message
+
+    with pytest.raises(ValueError, match="question"):
+        serialize_hermes_graph_agent_turn_request(
+            replace(request, plan_continuity_turn=False)
+        )
+    with pytest.raises(ValueError, match="question"):
+        deserialize_hermes_graph_agent_turn_request(
+            {**payload, "planContinuityTurn": False}
+        )
 
 
 def test_provider_authorization_gate_is_opt_in_and_round_trips():

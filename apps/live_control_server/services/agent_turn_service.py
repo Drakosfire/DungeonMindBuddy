@@ -78,9 +78,6 @@ from apps.live_control_server.services.hermes_session_store import (
     HermesSessionPointerStore,
     HermesStructuredPointerResolution,
 )
-from apps.live_control_server.services.hermes_graph_agent_contract import (
-    MAX_QUESTION_CHARS,
-)
 
 
 _PLAN_MESSAGE_INSTRUCTIONS = (
@@ -1476,12 +1473,6 @@ def _plan_message(
         separators=(",", ":"),
     )
     message = f"{_PLAN_MESSAGE_INSTRUCTIONS}\n{payload}"
-    if len(message) > MAX_QUESTION_CHARS:
-        raise AgentTurnServiceError(
-            "The committed Plan is too large to include in one Agent turn. Shorten the Plan and try again.",
-            code="plan_content_over_budget",
-            status_code=413,
-        )
     return message
 
 

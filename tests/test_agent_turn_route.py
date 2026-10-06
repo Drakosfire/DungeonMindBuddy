@@ -119,7 +119,13 @@ def test_auto_plan_world_rejects_generic_graph_reads_and_non_plan_surface() -> N
         AgentTurnRequest.model_validate(payload)
 
 
-def test_policy_predispatch_failure_has_strict_typed_projection(monkeypatch: Any) -> None:
+@pytest.mark.parametrize(
+    ("failure_code", "status_code"),
+    [("graph_revision_unavailable", 409), ("provider_envelope_over_budget", 413)],
+)
+def test_policy_predispatch_failure_has_strict_typed_projection(
+    monkeypatch: Any, failure_code: str, status_code: int
+) -> None:
     from fastapi import HTTPException
     from apps.live_control_server.routes import agent as agent_route
     from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
@@ -140,20 +146,29 @@ def test_policy_predispatch_failure_has_strict_typed_projection(monkeypatch: Any
     monkeypatch.setattr(agent_route, "execute_agent_turn", lambda *_args, **_kwargs: (_ for _ in ()).throw(
         AgentTurnServiceError(
             "The frozen Graph revision could not be reopened.",
-            code="graph_revision_unavailable", status_code=409,
+            code=failure_code, status_code=status_code,
             provider_dispatched=False,
         )
     ))
     with pytest.raises(HTTPException) as caught:
         agent_route.post_agent_turn(body, SimpleNamespace(app=SimpleNamespace()))
-    assert caught.value.status_code == 409
+    assert caught.value.status_code == status_code
     assert caught.value.detail["plan_context_failure"] == {
         "schema": "dmb_agent_plan_world_graph_context_failure_v1",
         "status": "pre_dispatch_failed",
-        "failure_code": "graph_revision_unavailable",
+        "failure_code": failure_code,
         "provider_dispatched": False,
         "automatic_downgrade": False,
     }
+
+
+def test_real_user_question_still_has_the_public_8000_character_limit() -> None:
+    from pydantic import ValidationError
+
+    payload = _payload()
+    payload["message"] = "x" * 8_001
+    with pytest.raises(ValidationError, match="message"):
+        AgentTurnRequest.model_validate(payload)
 
 
 def test_policy_unknown_outcome_never_projects_as_predispatch(monkeypatch: Any) -> None:
