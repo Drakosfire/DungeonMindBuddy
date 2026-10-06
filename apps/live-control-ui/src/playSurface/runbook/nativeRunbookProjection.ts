@@ -275,8 +275,30 @@ type AuthoredSlice = {
   kind: PlayableElementKind;
   id: string;
   title: string;
+  titleContent: JSONContent[];
   bodyText: string;
+  bodyContent: JSONContent[];
 };
+
+const UNSUPPORTED_PLAYABLE_BODY_NODE = "unsupportedPlayableBodyNode";
+
+function asJsonContent(node: unknown): JSONContent {
+  if (node == null || typeof node !== "object" || Array.isArray(node)) {
+    return { type: UNSUPPORTED_PLAYABLE_BODY_NODE };
+  }
+  return node as JSONContent;
+}
+
+function jsonContentChildren(node: unknown): JSONContent[] {
+  if (node == null) return [];
+  if (typeof node !== "object" || Array.isArray(node)) {
+    return [{ type: UNSUPPORTED_PLAYABLE_BODY_NODE }];
+  }
+  const children = (node as { content?: unknown }).content;
+  if (children === undefined) return [];
+  if (!Array.isArray(children)) return [{ type: UNSUPPORTED_PLAYABLE_BODY_NODE }];
+  return children.map(asJsonContent);
+}
 
 function playableOptionListItemIdentity(node: unknown): { id: string } | null {
   if (node == null || typeof node !== "object") return null;
@@ -293,6 +315,8 @@ function optionSliceFromListItem(node: unknown, id: string): AuthoredSlice {
   const record = node as { content?: unknown };
   const children = Array.isArray(record.content) ? record.content : [];
   const title = collectNodeText(children[0]).replace(/\s+/g, " ").trim();
+  const titleContent = jsonContentChildren(children[0]);
+  const bodyContent = children.slice(1).map(asJsonContent);
   const bodyText = children
     .slice(1)
     .map((child) => collectNodeText(child).replace(/\s+/g, " ").trim())
@@ -302,7 +326,9 @@ function optionSliceFromListItem(node: unknown, id: string): AuthoredSlice {
     kind: "option",
     id,
     title: title.length > 0 ? title : id,
+    titleContent,
     bodyText,
+    bodyContent,
   };
 }
 
@@ -331,8 +357,14 @@ export function slicePlayableBodies(document: unknown): Map<string, AuthoredSlic
   const content = (document as { content?: unknown }).content;
   if (!Array.isArray(content)) return slices;
 
-  let current: { kind: PlayableElementKind; id: string; title: string; bodyNodes: unknown[] } | null =
-    null;
+  let current: {
+    kind: PlayableElementKind;
+    id: string;
+    title: string;
+    titleContent: JSONContent[];
+    bodyNodes: unknown[];
+    bodyContentNodes: JSONContent[];
+  } | null = null;
 
   const flush = () => {
     if (!current) return;
@@ -340,7 +372,9 @@ export function slicePlayableBodies(document: unknown): Map<string, AuthoredSlic
       kind: current.kind,
       id: current.id,
       title: current.title,
+      titleContent: [...current.titleContent],
       bodyText: authoredTextFromNodes(current.bodyNodes),
+      bodyContent: [...current.bodyContentNodes],
     });
   };
 
@@ -352,7 +386,9 @@ export function slicePlayableBodies(document: unknown): Map<string, AuthoredSlic
         kind: identity.kind,
         id: identity.id,
         title: collectNodeText(node).replace(/\s+/g, " ").trim(),
+        titleContent: jsonContentChildren(node),
         bodyNodes: [],
+        bodyContentNodes: [],
       };
       continue;
     }
@@ -381,12 +417,19 @@ export function slicePlayableBodies(document: unknown): Map<string, AuthoredSlic
         if (sawOption) {
           if (current && unmarkedItems.length > 0) {
             current.bodyNodes.push(...unmarkedItems);
+            current.bodyContentNodes.push({
+              ...asJsonContent(node),
+              content: unmarkedItems.map(asJsonContent),
+            });
           }
           continue;
         }
       }
     }
-    if (current) current.bodyNodes.push(node);
+    if (current) {
+      current.bodyNodes.push(node);
+      current.bodyContentNodes.push(asJsonContent(node));
+    }
   }
   flush();
   return slices;
