@@ -1295,9 +1295,11 @@ that their foundations are absent. Historical slices retain their IDs.
 
 ### 2026-10-06 — DEMO focused Plan scene reader
 
-- **State: active; implementation committed and owning-boundary tests complete,
-  PR not yet opened.** Serial branch `codex/demo-focused-card-reader` is based on
-  `c714c7c6b5f5504590ae5e000de530c079ea9f17` (main after #940). Its ACTIVE contract
+- **State: active; implementation committed, PR open for PRIME review.** The
+  serial PR is [#941](https://github.com/Drakosfire/DungeonMindBuddy/pull/941)
+  on branch `codex/demo-focused-card-reader`, based on
+  `c714c7c6b5f5504590ae5e000de530c079ea9f17` (main after #940). The product
+  implementation commit is `1ecba7d9b068a59c3b2362c5dce2df79477a2158`. Its ACTIVE contract
   is [`HANDOFF-DEMO-focused-scene-reader.md`](../Plans/HANDOFF-DEMO-focused-scene-reader.md)
   and the exclusive lease is exactly the seven paths listed in §4 there.
   PRIME transferred the projection/CSS/integration paths and roadmap entry
@@ -1314,8 +1316,9 @@ that their foundations are absent. Historical slices retain their IDs.
   `ThreatPublicationPanel.tsx(553,77): TS2503 Cannot find namespace 'JSX'`
   error outside the lease. Connected operator acceptance is not claimed by
   these code tests.
-- **Next:** push the tested branch and open the single assigned PR for PRIME
-  review. Do not merge or claim J1–J6/operator acceptance.
+- **Next:** PRIME reviews the exact cumulative PR head. DOGFOOD visual quality
+  control and connected operator acceptance remain separate; do not merge or
+  claim J1–J6 acceptance.
 
 ### 2026-09-26 — PLAY-1 integration and DEMO preflight
 
