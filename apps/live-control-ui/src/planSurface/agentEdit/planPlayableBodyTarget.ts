@@ -45,9 +45,12 @@ type OptionIdentity = { kind: "option"; id: string; version: "v2" };
 function canonicalJsonValue(value: unknown, parentKey?: string): unknown {
   if (Array.isArray(value)) return value.map((item) => canonicalJsonValue(item));
   if (value !== null && typeof value === "object") {
+    const record = value as Record<string, unknown>;
     return Object.fromEntries(
-      Object.entries(value)
-        .filter(([, item]) => item !== undefined && !(parentKey === "attrs" && item === null))
+      Object.entries(record)
+        .filter(([key, item]) => item !== undefined
+          && !(parentKey === "attrs" && item === null)
+          && !(key === "content" && Array.isArray(item) && item.length === 0 && record.type === "heading"))
         .sort(([left], [right]) => left.localeCompare(right))
         .map(([key, item]) => [key, canonicalJsonValue(item, key)]),
     );
