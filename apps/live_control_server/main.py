@@ -6,6 +6,9 @@ from collections.abc import AsyncIterator
 from fastapi import FastAPI
 
 from apps.live_control_server.routes.graph_authoring import router as graph_authoring_router
+from apps.live_control_server.routes.agent_graph_local_session import (
+    router as agent_graph_local_session_router,
+)
 from apps.live_control_server.routes.graph_preview import router as graph_preview_router
 from apps.live_control_server.routes.live import router as live_router
 from apps.live_control_server.routes.party_registry import router as party_registry_router
@@ -83,6 +86,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     application.include_router(live_router)
+    application.include_router(agent_graph_local_session_router)
     application.include_router(graph_preview_router)
     application.include_router(graph_authoring_router)
     application.include_router(recap_ingest_router)

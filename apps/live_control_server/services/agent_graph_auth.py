@@ -21,7 +21,7 @@ _ALLOWED_ENVIRONMENTS = frozenset({"local", "development", "dev"})
 class NativeGraphPrincipal:
     subject: str
     role: Literal["gm", "player"]
-    auth_method: Literal["local_operator"]
+    auth_method: Literal["local_operator", "local_session"]
 
 
 def _unavailable() -> HTTPException:
@@ -83,6 +83,18 @@ def authenticate_native_graph_principal(request: Request) -> NativeGraphPrincipa
         )
 
     authorization = request.headers.get("authorization", "")
+    if not authorization:
+        from apps.live_control_server.services.agent_graph_local_session import (
+            COOKIE_NAME,
+            require_session,
+        )
+
+        if not request.cookies.get(COOKIE_NAME):
+            raise _unauthorized()
+        require_session(request, unsafe=request.method not in {"GET", "HEAD", "OPTIONS"})
+        return NativeGraphPrincipal(
+            subject="local_operator", role="gm", auth_method="local_session"
+        )
     scheme, separator, candidate = authorization.partition(" ")
     if (
         not separator
