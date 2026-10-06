@@ -998,6 +998,31 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     assert bindings == {}
     assert answer == "The keeper waits."
 
+    # The one public synthetic provider witness returned this exact shape.
+    # It must remain rejected at the owning completion boundary rather than
+    # being silently coerced into a Graph claim or an invented citation.
+    malformed_live_answer = json.dumps({
+        "answer_context_status": "graph_used_insufficient_evidence",
+        "answer_segments": [{
+            "type": "graph_claim",
+            "text": "The graph identifies the tavern as The Prancing Tavern, but provides no information about where it is.",
+            "claim_ids": ["identity:obj:tavern"],
+            "evidence_ids": [],
+        }, {
+            "type": "plan_claim",
+            "text": "The committed Plan says the keeper waits by the tavern.",
+        }],
+        "citation_map": {
+            "graph_claims": [{"segment_index": 0, "claim_ids": ["identity:obj:tavern"], "evidence_ids": []}],
+            "plan_claims": [{"segment_index": 1}],
+        },
+    })
+    with pytest.raises(AgentTurnServiceError, match="pinned Plan/Graph evidence contract") as malformed:
+        service_module._parse_policy_completion(
+            malformed_live_answer, turn, adapter.producing_provider_attempt_id,
+        )
+    assert malformed.value.code == "answer_validation_failed"
+
     duplicate_payload = '{"schema":"dmb_world_graph_retrieval_result_v1","claim":"same"}'
     operation_event = graph_types.ValidatedGraphOperationEventV1(
         event_id=uuid4(), sequence=len(turn.graph_context_execution.events),

@@ -80,8 +80,12 @@ def test_legacy_request_omits_budget_field_byte_for_byte():
 
 
 def test_exact_committed_plan_message_survives_host_round_trip() -> None:
+    from apps.live_control_server.services.agent_turn_service import (
+        _PLAN_GRAPH_ANSWER_INSTRUCTIONS,
+    )
+
     markdown = "# Committed Plan\n" + "x" * 50_000
-    message = markdown
+    message = markdown + "\n\n" + _PLAN_GRAPH_ANSWER_INSTRUCTIONS
     request = _request(request_budget=_budget())
     request = replace(request, question=message, plan_continuity_turn=True)
     payload = serialize_hermes_graph_agent_turn_request(request)
