@@ -6,8 +6,11 @@ import pytest
 from fastapi.testclient import TestClient
 
 from application_state.content.service import (
+    commit_plan,
     commit_runbook,
+    create_world_plan,
     create_world_runbook,
+    update_plan_metadata,
     update_runbook_metadata,
 )
 from apps.live_control_server.main import create_app
@@ -15,6 +18,8 @@ from apps.live_control_server.services.world_container_registry import create_wo
 from tests.application_state.play_runtime_helpers import (
     SOURCE_MARKDOWN,
     SURVIVING_TARGET_MARKDOWN,
+    corrupt_play_run_manifest_document,
+    fetch_play_runtime_state,
     gate_progress,
 )
 
@@ -60,6 +65,56 @@ def _create_body(work_object, revision) -> dict[str, object]:
         "expected_playable_revision": revision.revision_n,
         "expected_playable_content_sha256": revision.content_sha256,
     }
+
+
+def test_world_plan_http_run_reopens_exact_pin_after_save_and_discard(
+    application_state_dsn: str, client: TestClient
+) -> None:
+    world_id = "world-plan-http-pin"
+    plan = create_world_plan(title="World Plan", world_id=world_id)
+    plan, pinned_revision = commit_plan(
+        str(plan.work_object_id),
+        SOURCE_MARKDOWN,
+        expected_world_id=world_id,
+        expected_revision=plan.object_revision,
+    )
+    path = f"/api/live/world-play-runs/v2/{WORLD_RUN_ID}"
+    created = client.put(
+        path, params={"world_id": world_id}, json=_create_body(plan, pinned_revision)
+    )
+    assert created.status_code == 200, created.text
+    pinned_run = created.json()
+    assert pinned_run["playable_work_revision_id"] == str(
+        pinned_revision.work_revision_id
+    )
+    manifest_path = f"{path}/reference-manifest"
+    initial_manifest = client.get(manifest_path, params={"world_id": world_id})
+    assert initial_manifest.status_code == 200, initial_manifest.text
+    assert (
+        initial_manifest.json()["playable_content_sha256"]
+        == pinned_revision.content_sha256
+    )
+
+    plan, _new_revision = commit_plan(
+        str(plan.work_object_id),
+        SURVIVING_TARGET_MARKDOWN,
+        expected_world_id=world_id,
+        expected_revision=plan.object_revision,
+    )
+    update_plan_metadata(
+        str(plan.work_object_id),
+        status="discarded",
+        expected_revision=plan.object_revision,
+    )
+    assert client.get(path, params={"world_id": world_id}).json() == pinned_run
+    reopened_manifest = client.get(manifest_path, params={"world_id": world_id})
+    assert reopened_manifest.status_code == 200, reopened_manifest.text
+    assert reopened_manifest.json() == initial_manifest.json()
+    replayed = client.put(
+        path, params={"world_id": world_id}, json=_create_body(plan, pinned_revision)
+    )
+    assert replayed.status_code == 200, replayed.text
+    assert replayed.json() == pinned_run
 
 
 def test_world_runbook_v2_crud_tiptap_and_exact_revision(
@@ -355,6 +410,10 @@ def test_live_query_world_play_context_v2_is_world_run_and_pin_bound(
     monkeypatch.setattr(
         "apps.live_control_server.routes.live.process_live_query", process_stub
     )
+    monkeypatch.setattr(
+        "apps.live_control_server.routes.live.enforce_native_graph_gm",
+        lambda _request: None,
+    )
 
     def query(*, outer_world_id: str, context: dict[str, object]):
         return world_client.post(
@@ -443,6 +502,28 @@ def test_live_query_world_play_context_v2_is_world_run_and_pin_bound(
     )
     assert matched_string.status_code == 409, matched_string.text
     assert len(captured) == 1
+
+    # Stored corruption blocks World reads and Play context before inference.
+    corrupt_manifest = seal.json()
+    corrupt_manifest["edges"].append(dict(corrupt_manifest["edges"][0]))
+    corrupt_play_run_manifest_document(
+        application_state_dsn, world_run_id, corrupt_manifest
+    )
+    corrupted_state = fetch_play_runtime_state(application_state_dsn, world_run_id)
+    assert world_client.get(
+        f"/api/live/world-play-runs/v2/{world_run_id}",
+        params={"world_id": world_a.world_id},
+    ).status_code == 500
+    assert world_client.get(
+        manifest_path, params={"world_id": world_a.world_id}
+    ).status_code == 500
+    rejected = query(outer_world_id=world_a.world_id, context=valid_context)
+    assert rejected.status_code == 409, rejected.text
+    assert len(captured) == 1
+    assert (
+        fetch_play_runtime_state(application_state_dsn, world_run_id)
+        == corrupted_state
+    )
 
 
 def test_world_v2_create_replay_progress_manifest_and_campaign_v1_fence(

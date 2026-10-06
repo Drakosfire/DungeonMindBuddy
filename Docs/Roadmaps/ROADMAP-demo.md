@@ -272,14 +272,15 @@ proposals remain unchanged. PRIME activated the bounded single DEMO implementati
 
 PR #917 remains prototype evidence, not a production prerequisite or code predecessor; PRIME withdrew its overlapping production reservation for the active DEMO consumer. #887 remains prototype evidence. The 2026-10-04 DOGFOOD Cards consultation informs later bounded adoption and adds no gate to the Graph slice. PR #914's synthetic desktop/narrow visual hold is independent and does not block Graph. Preserve its evidence without restoring the stale priority wording.
 
-**Current capability priority:** Graph-backed World conversation through Buddy's runtime-neutral Agent Harness integration is the first production capability, ahead of focused-card prepare/run, durable Run state, multimedia and further presentation expansion. The contract covers conversation execution, tools/context, authorization, lifecycle, evidence, and replay. Hermes is the current concrete adapter behind the existing seam. The synthetic DEMO consumer is ACTIVE on deterministic fixtures against the accepted wire contract. It proves request, response/history, citations and recovery presentation only; parent-brokered traversal through the current Hermes adapter and connected acceptance remain producer-owned evidence. The integrated witness must record admitted evidence and exact Plan/Graph basis in the canonical conversation, then survive navigation and replay without duplicate provider work. Retain compact typed citations and disclose that source content was not opened. Source opening and governed Graph writes remain later slices.
+**Current capability priority:** Graph-backed World conversation through Buddy's runtime-neutral Agent Harness integration is the first production capability, ahead of focused-card prepare/run, durable Run state, multimedia and further presentation expansion. The contract covers conversation execution, tools/context, authorization, lifecycle, evidence, and replay. Hermes is the current concrete adapter behind the existing seam. The synthetic DEMO consumer is integrated in Buddy #925 at `6507fd4a2ec00b5b9f6f9ee1ec2d7600e0b75121`; its deterministic fixtures prove request, response/history, citations and recovery presentation only. Parent-brokered traversal through the current Hermes adapter and connected acceptance remain producer-owned evidence. The integrated witness must record admitted evidence and exact Plan/Graph basis in the canonical conversation, then survive navigation and replay without duplicate provider work. Retain compact typed citations and disclose that source content was not opened. Source opening and governed Graph writes remain later slices.
 
 **SERVER and APP-STATE producer settlement (2026-10-05):** PRIME accepted SERVER #926 at head `746711815577e022e6961b32c135395e00d36531`; #926 merged at `711b652399c2298da5bd6db34f77dcb6a488e212`, including later parent-brokered function-output membership and typed `plan_context_failure`. SERVER #930's card-target/history consistency correction merged at `3bb57f8288c54090ee5b7aba36d6de4186b4e790`. APP-STATE contract #928 and implementation #929 merged at `38ba7b1dcdde44508f123b606d156d2b381f4522` and `940bfbf890064de96c4cd845850d4b5018869b61`; #929's merged tree `b757d7236fafb27a4d8da70d7b6b1066c6e72010` is tree-identical to accepted ref `7a8365a5a354e9d3c85e788112f7904f1e517cce` and passed 62 PostgreSQL tests. These merges settle producer implementation and persistence code; DEMO's joined fixtures remain serialized consumer evidence, not live provider/Graph execution, connected acceptance, or rollout.
 
 **DEMO history projection settlement (2026-10-05):** Buddy #926 merged at
 `711b652399c2298da5bd6db34f77dcb6a488e212`, then SERVER #930 merged at
-`3bb57f8288c54090ee5b7aba36d6de4186b4e790`. DEMO #925 remains open on current
-base `main@3bb57f8288c54090ee5b7aba36d6de4186b4e790`. The exact
+`3bb57f8288c54090ee5b7aba36d6de4186b4e790`. DEMO #925 merged at
+`6507fd4a2ec00b5b9f6f9ee1ec2d7600e0b75121` from reviewed head
+`c92db60e740a1542492930df079fe707e80ef63f`. The exact
 FastAPI history body emitted by reviewed #930 head
 `e232984385b3bbc08bf82e6fcb692aa9aa778999` binds card A in both receipt and durable
 provenance and retains the cited Graph completion. DEMO mounts that unchanged
@@ -290,7 +291,8 @@ separately. DEMO validates either consistently ordered page direction and
 renders transcript turns chronologically. This remains synthetic consumer
 evidence from the exact producer head now merged through #930: it does not
 claim live provider/Graph execution or runtime integration. PRIME retains
-independent DEMO review and merge authority.
+independent DEMO review and merge authority. This is code integration only:
+live provider/Graph behavior, connected acceptance, and rollout remain open.
 
 **Shared interface adoption target:** use the successful Conks prototypes (including the original Con-ready presentation), A Wild Sheep Chase and campaign Session 29 as joint examples of one prepare/run interface. Preserve focused central cards, lenses, readable semantic content and connections while allowing chronological, location and choice navigation appropriate to each source. Current production Cards is infrastructure, not full prototype adoption. Its observed loss of atomic reference labels and paragraph/list structure is now an ACTIVE bounded [projection-fidelity repair](../Plans/HANDOFF-DEMO-plan-card-projection-fidelity.md), after #913 released the overlapping paths. This independent UI lane can proceed alongside Graph owner work; it does not include focused scene/lens or aesthetic adoption. Durable Run decisions, rolls and notes remain separate contracts.
 
@@ -1198,6 +1200,12 @@ once the view-model/action contract is agreed.
 initiative and HP belong to the Run. A full PC character-builder, universal rules
 evaluator, pagination convergence or spatial workspace is not a prerequisite.
 
+For the assigned Plan-to-Run transition, start only from a clean, saved World
+Plan bound to its exact committed WorkRevision ID, `revision_n`, and digest.
+Dirty or stale Plan state blocks Start. Reopening an existing Run after its Plan
+is edited or discarded must load the originally pinned historical revision
+without rebasing the Run or copying the Plan.
+
 ## DEMO-J6 — act, record and resume
 
 **Acceptance:** Record a choice, modify combat HP, enter a physical roll, resolve
@@ -1233,6 +1241,29 @@ Next action or delegated dependency + return contract
 
 The initial state of J1–J6 is **unverified as a connected journey**, not an assertion
 that their foundations are absent. Historical slices retain their IDs.
+
+### 2026-10-06 — DEMO-J5 saved World Plan to Play Run (#931)
+
+- **State: active; implementation committed, ten-path UI review accepted, final
+  cumulative handoff/activation review pending.** The
+  serial PR is [#931](https://github.com/Drakosfire/DungeonMindBuddy/pull/931),
+  based on `08e8cbe1207b74b0e15c6f95070899c5cc7c69fd` after PR #935 merged.
+  DEMO's ten leased UI paths are in rebased code commit
+  `ef2bf4054e065a98d0d0bf3253fa891be35383ac`; their file blobs are unchanged
+  from code commit `655edf9615dc3514b54755b4ac24562023cf1164`, which PRIME
+  independently accepted for the ten-path UI implementation;
+  the current handoff and exact write lease are
+  [`HANDOFF-world-plan-playable-adoption.md`](../Plans/HANDOFF-world-plan-playable-adoption.md).
+- **Evidence:** PRIME accepted the ten-path UI review at code commit `655edf9`
+  with the assigned mounted/UI suites passing 148/148 and its typecheck passing;
+  the post-rebase UI blobs are identical. APP-STATE's isolated PostgreSQL suite
+  passed 11/11; SERVER's World V2/manifest suites passed 31/31 with 11 existing
+  Pydantic shadow warnings. The disposable fixture catalog was empty after
+  tests. This checkout's repository-wide typecheck retains only the inherited
+  `ThreatPublicationPanel.tsx(553,77)` JSX namespace error outside the lease.
+- **Next:** PRIME reviews the exact cumulative PR head for handoff/activation
+  settlement. Keep the lease ACTIVE through that review and merge; the accepted
+  UI review does not settle the full cross-owner PR.
 
 ### 2026-09-26 — PLAY-1 integration and DEMO preflight
 

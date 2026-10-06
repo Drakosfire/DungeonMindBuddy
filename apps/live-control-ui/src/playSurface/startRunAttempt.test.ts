@@ -4,6 +4,7 @@ import { LiveApiError } from "../api/liveApi";
 import type {
   PlayRunRecord,
   PlayRunReferenceManifest,
+  WorldOwnedCommittedRevisionV2,
   WorldOwnedRunbookCommittedRevisionV2,
   WorldPlayRunRecordV2,
   WorkspaceCommittedRevision,
@@ -110,6 +111,29 @@ function worldCommitted(
     work_revision_id: WORLD_WORK_REVISION_ID,
     revision_n: 7,
     markdown: "# Gate\\n",
+    content_sha256: SHA_A,
+    has_divergent_working_copy: false,
+    target_relpath: null,
+    ...overrides,
+  };
+}
+
+function worldPlanCommitted(
+  overrides: Partial<WorldOwnedCommittedRevisionV2> = {},
+): WorldOwnedCommittedRevisionV2 {
+  return {
+    schema_version: "dmb_workspace_committed_revision_v2",
+    scope_mode: "world",
+    world_id: WORLD_ID,
+    document_id: DOCUMENT_ID,
+    kind: "plan",
+    campaign_id: null,
+    title: "World Plan",
+    status: "active",
+    object_revision: 9,
+    work_revision_id: WORLD_WORK_REVISION_ID,
+    revision_n: 7,
+    markdown: "# Plan\n",
     content_sha256: SHA_A,
     has_divergent_working_copy: false,
     target_relpath: null,
@@ -420,6 +444,97 @@ describe("World Start Run binding and attempt", () => {
         expectedPlayableContentSha256: SHA_A,
       },
     });
+  });
+
+
+  it("starts from the exact selected World Plan revision and retains its source kind", async () => {
+    const api = worldDeps({
+      getCommittedRevision: vi.fn(async () => worldPlanCommitted()),
+    });
+    const result = await executeStartWorldRunAttempt({
+      selectedDocumentId: DOCUMENT_ID,
+      worldId: WORLD_ID,
+      expectedKind: "plan",
+      expectedSourcePin: {
+        revisionN: 7,
+        workRevisionId: WORLD_WORK_REVISION_ID,
+        contentSha256: SHA_A,
+      },
+      attempt: null,
+      phase: "fresh",
+      deps: api,
+    });
+
+    expect(result).toMatchObject({
+      outcome: "ready",
+      binding: {
+        playableKind: "plan",
+        expectedPlayableRevision: 7,
+        expectedPlayableWorkRevisionId: WORLD_WORK_REVISION_ID,
+        expectedPlayableContentSha256: SHA_A,
+      },
+    });
+    expect(api.putRun).toHaveBeenCalledWith(RUN_ID, WORLD_ID, {
+      playable_artifact_id: DOCUMENT_ID,
+      expected_playable_revision: 7,
+      expected_playable_content_sha256: SHA_A,
+    });
+  });
+
+  it("refuses a changed saved Plan pin before creating a Run", async () => {
+    const api = worldDeps({
+      getCommittedRevision: vi.fn(async () => worldPlanCommitted({
+        revision_n: 8,
+        work_revision_id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+        content_sha256: SHA_B,
+      })),
+    });
+    const result = await executeStartWorldRunAttempt({
+      selectedDocumentId: DOCUMENT_ID,
+      worldId: WORLD_ID,
+      expectedKind: "plan",
+      expectedSourcePin: {
+        revisionN: 7,
+        workRevisionId: WORLD_WORK_REVISION_ID,
+        contentSha256: SHA_A,
+      },
+      attempt: null,
+      phase: "fresh",
+      deps: api,
+    });
+
+    expect(result).toMatchObject({ outcome: "blocked", detail: expect.stringMatching(/changed after it was opened/) });
+    expect(api.putRun).not.toHaveBeenCalled();
+    expect(api.putManifest).not.toHaveBeenCalled();
+  });
+
+  it("requires an explicit selected revision pin for Plan starts and still keeps Runbooks separate", async () => {
+    const planWithoutPin = await executeStartWorldRunAttempt({
+      selectedDocumentId: DOCUMENT_ID,
+      worldId: WORLD_ID,
+      expectedKind: "plan",
+      attempt: null,
+      phase: "fresh",
+      deps: worldDeps({ getCommittedRevision: vi.fn(async () => worldPlanCommitted()) }),
+    });
+    expect(planWithoutPin.outcome).toBe("blocked");
+
+    const runbookApi = worldDeps();
+    const runbookForPlan = await executeStartWorldRunAttempt({
+      selectedDocumentId: DOCUMENT_ID,
+      worldId: WORLD_ID,
+      expectedKind: "plan",
+      expectedSourcePin: {
+        revisionN: 7,
+        workRevisionId: WORLD_WORK_REVISION_ID,
+        contentSha256: SHA_A,
+      },
+      attempt: null,
+      phase: "fresh",
+      deps: runbookApi,
+    });
+    expect(runbookForPlan.outcome).toBe("blocked");
+    expect(runbookApi.putRun).not.toHaveBeenCalled();
   });
 
   it("keeps one World and UUID after a lost create response, then replays the exact binding", async () => {

@@ -469,14 +469,14 @@ def compare_v2_sealed_structure(markdown: str, manifest: object) -> str | None:
     }
     if derived_options != manifest_options:
         return "sealed v2 manifest disagrees with pinned WorkRevision on Option membership"
-    derived_edges = {
+    derived_edges = sorted(
         (edge.option_id, edge.effect, edge.target_kind, edge.target_id)
         for edge in derived.edges
-    }
-    manifest_edges = {
+    )
+    manifest_edges = sorted(
         (edge.option_id, edge.effect, edge.target_kind, edge.target_id)
         for edge in getattr(manifest, "edges", ())
-    }
+    )
     if derived_edges != manifest_edges:
         return "sealed v2 manifest disagrees with pinned WorkRevision on authored transition edges"
     return None

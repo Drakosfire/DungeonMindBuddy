@@ -6,6 +6,8 @@ import type {
   PlayRunReferenceElement,
   PlayRunReferenceManifest,
   PlayRunReferenceManifestV2,
+  WorldOwnedCommittedRevisionV2,
+  WorldPlayRunRecordV2,
   WorkspaceCommittedRevision,
 } from "../../api/types";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
@@ -108,6 +110,44 @@ function committed(overrides: Partial<WorkspaceCommittedRevision> = {}): Workspa
     content_sha256: CONTENT_SHA,
     has_divergent_working_copy: false,
     target_relpath: "out/workspace/runbooks/north-gate.md",
+    ...overrides,
+  };
+}
+
+function worldPlanCommitted(overrides: Partial<WorldOwnedCommittedRevisionV2> = {}): WorldOwnedCommittedRevisionV2 {
+  return {
+    schema_version: "dmb_workspace_committed_revision_v2",
+    scope_mode: "world",
+    world_id: "world-test",
+    document_id: ARTIFACT_ID,
+    kind: "plan",
+    campaign_id: null,
+    title: "North Gate Plan",
+    status: "discarded",
+    object_revision: 9,
+    work_revision_id: "11111111-1111-4111-8111-111111111111",
+    revision_n: 3,
+    markdown: SIBLING_MARKDOWN,
+    content_sha256: CONTENT_SHA,
+    has_divergent_working_copy: true,
+    target_relpath: null,
+    ...overrides,
+  };
+}
+
+function worldRunRecord(overrides: Partial<WorldPlayRunRecordV2> = {}): WorldPlayRunRecordV2 {
+  return {
+    schema_version: "dmb_world_play_run_record_v2",
+    run_id: RUN_ID,
+    world_id: "world-test",
+    playable_artifact_id: ARTIFACT_ID,
+    playable_revision: 3,
+    playable_work_revision_id: "11111111-1111-4111-8111-111111111111",
+    playable_content_sha256: CONTENT_SHA,
+    run_revision: 4,
+    created_at: "2026-08-17T00:00:00Z",
+    updated_at: "2026-08-17T00:00:00Z",
+    progress: progress(),
     ...overrides,
   };
 }
@@ -330,6 +370,22 @@ describe("admitNativeRunbook", () => {
     expect(admitted.status).toBe("integrity_failure");
     if (admitted.status === "ready") throw new Error("discarded Runbook must not reach READY");
     expect(admitted.reason).toMatch(/discarded/i);
+  });
+
+  it("admits a World Plan's exact bound revision after the Plan is discarded and its working copy diverges", () => {
+    const admitted = admitNativeRunbook({
+      run: worldRunRecord(),
+      manifest: manifest(),
+      committed: worldPlanCommitted(),
+    });
+    expect(admitted.status).toBe("ready");
+    if (!isNativeRunbookReadyV1(admitted)) throw new Error("exact World Plan revision must remain playable");
+    expect(admitted.snapshot).toEqual(expect.objectContaining({
+      kind: "plan",
+      status: "discarded",
+      has_divergent_working_copy: true,
+      revision_n: 3,
+    }));
   });
 
   it("admits the bound revision even when a divergent WorkingCopy exists", () => {

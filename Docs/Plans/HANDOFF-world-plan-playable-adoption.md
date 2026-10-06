@@ -1,343 +1,427 @@
 ---
 title: Saved World Plan → Playable Run adoption
 document_class: implementation_handoff
-status: BLOCKED
+status: ACTIVE
 created_at: "2026-10-04"
+activated_at: "2026-10-06"
 workstream: DEMO
 design_authority: "../Design/DESIGN-world-plan-playable-adoption.md"
-design_base: "Buddy main 0f42fec0812655bb37c87b6be9a7fe5741d7f25f"
+design_base: "Buddy main 04bd667d7f57a3c7b8b35f49d20a15562811a45f"
 pr_topology: serial
-implementation_branch: not_assigned
-implementation_pr: not_authorized
+implementation_base: "08e8cbe1207b74b0e15c6f95070899c5cc7c69fd"
+implementation_branch: codex/demo-plan-run-activation-contract
+implementation_pr: "https://github.com/Drakosfire/DungeonMindBuddy/pull/931"
+app_state_commit: "6eae57016aa03ebac4e3135928a90eab4295fc7a"
+server_commit: "96a75cf48e83e8f3cf49e2cc0d235476a3820209"
+demo_code_commit: "ef2bf4054e065a98d0d0bf3253fa891be35383ac"
 ---
 
-# HANDOFF — Start a Run from the exact saved World Plan
+# HANDOFF — Start and reopen a Run from the exact saved World Plan
 
-> This is durable design authority only. It is BLOCKED and holds no
-> implementation write lease.
+> This ACTIVE handoff pins the serial owner sequence, exact write lease,
+> implementation PR, and isolated test resource described below.
 
-## Status and activation gate
+## Status and activation record
 
-**Status: BLOCKED — PRIME accepted final PR #907 head
-7d44c33cc6e240bd711b6e202bc4042ea52ea9b7 and merged it at
-d8e861661716d2fa8c1fb1e3e56ef08268d32da8. The design-review gate is satisfied;
-product sequencing, card-projection predecessor proof, and implementation
-resource/path gates remain outstanding.**
+**Status: ACTIVE — PRIME explicitly activated the #931 DEMO stage and
+authorized reconciling this handoff on the same branch and PR.** The accepted
+design is PR #907 head 7d44c33cc6e240bd711b6e202bc4042ea52ea9b7, merged at
+d8e861661716d2fa8c1fb1e3e56ef08268d32da8. At activation, Buddy main was
+`04bd667d7f57a3c7b8b35f49d20a15562811a45f`. After SERVER PR #935 merged,
+current main advanced to `08e8cbe1207b74b0e15c6f95070899c5cc7c69fd`, and #931
+was re-anchored there before final review. This serial PR is
+[DEMO: pin Plan-to-Run activation contract](https://github.com/Drakosfire/DungeonMindBuddy/pull/931)
+on `codex/demo-plan-run-activation-contract`. Its rebased owner commits are
+APP-STATE `6eae57016aa03ebac4e3135928a90eab4295fc7a` followed by SERVER
+`96a75cf48e83e8f3cf49e2cc0d235476a3820209`, then DEMO
+`ef2bf4054e065a98d0d0bf3253fa891be35383ac`. The activation pin was published
+at `f00859c0a7bf1b9c907b0ba7472cce14787ade80` before DEMO product edits. The
+rebased ten UI file blobs are identical to pre-rebase code commit
+`655edf9615dc3514b54755b4ac24562023cf1164`. PRIME independently ACCEPTED that
+exact ten-path UI implementation, including the mounted 148/148 suite; the
+post-rebase UI blobs are unchanged. The APP-STATE and SERVER owner code/test blobs also match their
+pre-rebase commits `f644dfc61dc2531eac6a77416cf4c49dcbf51258` and
+`7375b52b1b59353b605c56f22ec6d79999b576a8`; no conflict resolution changed
+those files. PRIME's final cumulative handoff/activation settlement review and
+the PR merge are pending; the handoff remains ACTIVE and the write lease has not
+been released.
 
-This handoff was prepared against Buddy main
-0f42fec0812655bb37c87b6be9a7fe5741d7f25f. Re-anchor against live main and
-current open PRs before any implementation dispatch; the base above is a
-design-time reference, not an implementation pin.
+The accepted request/replay contract needs no migration or schema addition.
+The existing create_world_play_run arguments remain World ID, Run ID, Plan
+WorkObject ID, expected current revision number and digest. APP-STATE resolves
+and stores the WorkRevision ID atomically and reads historical Run aggregates
+from the stored source pin. Its Plan-backed rebase guard runs before the
+same-target early return. SERVER confirms the existing World V2 route and
+response are sufficient and owns the manifest-integrity requirements below.
 
-Implementation may be activated only after all of the following are true:
+PRIME confirmed these sequencing and path dispositions:
 
-1. PRIME's acceptance of the companion design's source identity, admission,
-   revision, audience, and Runtime ownership decisions is recorded at final
-   PR #907 head 7d44c33cc6e240bd711b6e202bc4042ea52ea9b7, merged at
-   d8e861661716d2fa8c1fb1e3e56ef08268d32da8. This design-review gate is
-   satisfied; it does not activate implementation or waive the remaining gates.
-2. PRIME has re-anchored the Demo roadmap and confirmed the prerequisites and
-   ordering for the saved-Plan card projection and shared World-conversation
-   work. The current roadmap places same-content-to-Run after those steps; do
-   not skip or silently resequence them. Before the card projection is treated
-   as a satisfied predecessor, its owner must prove:
-   - The exact saved World Plan WorkRevision and digest are projection
-     authority. Cards derive from the existing versioned Markdown markers;
-     there is no parallel card store and no minted Playable identity for
-     unmarked prose.
-   - The initial projection is GM-only. Unsupported or malformed authored
-     Markdown remains readable in the Plan authoring surface but is never
-     silently admitted as playable structure.
-   - Marker identity, links, and card/document order remain equivalent through
-     one supported editor transaction, ordinary Save, and fresh reopen at the
-     resulting exact committed revision and digest.
-   These are card-projection predecessor proofs, not card implementation work
-   or paths leased by this handoff.
-3. Re-anchor current UI ownership before allocating any Plan/Play entry path.
-   #906's mounted-harness repair lease is closed. Buddy PR #904 merged at
-   fb1c48d622c9d8d404b1dddb5d5f618e03cc7ef0; its temporary
-   UI-integration/mounted-test lease is in post-merge settlement. #886 retains
-   production Plan Page/shell paths pending its own accepted settlement or
-   explicit handback. Do not infer that a path is available merely because
-   #904 merged; PRIME must re-check active PRs and resolve a nonoverlapping
-   lease.
-4. Preserve the APP-STATE-confirmed supported Content mutation invariant:
-   WorkObject kind is fixed at creation, mutation guards check the locked kind,
-   and supported update SQL does not write kind. The implementation must
-   include or retain an owning regression for attempts to retag kind. This is
-   an application contract, not a database-trigger guarantee; privileged
-   direct SQL outside the supported API is not an activation blocker. If a new
-   supported writer can retag kind, stop and review the smallest versioned
-   source-kind receipt with APP-STATE before admitting that writer.
-5. DEMO, SERVER, and APP-STATE agree on the exact API/service contract and
-   individually owned paths. PRIME records the exact implementation path
-   allowlist, path owners, active PR/lease conflicts, and completion sync set.
-6. Runtime/test resources are named and isolated. No active operator or
-   dogfood runtime is reused or restarted.
+- PR #927 stays a separate queued Plan↔Play conversation lane. It is not a
+  predecessor for this slice.
+- PR #914's visual review hold is not a global product gate. PRIME transferred
+  the native Run projection files listed in §4 to this slice; freeze those
+  paths on #914 while this lease is active.
+- PR #917 remains prototype evidence, not a product predecessor. DOGFOOD
+  withdrew its production reservation; PRIME transferred the production Plan
+  Page and mounted test paths listed in §4 to this slice. Freeze those paths
+  on #917 while this lease is active.
+- PRs #886 and #904 are merged and their leases are closed. Their historical
+  handoffs are not current reservations.
+- PRIME transferred only the assigned Plan→Run roadmap entries from #914 to
+  #931. Freeze those entries on #914 while this lease is active.
 
-Until all gates are satisfied, do not create an implementation branch, PR,
-schema migration, or runtime write.
+Activation record:
 
-## §1 Mission and merge-ready invariant
+1. **Authority and topology:** PRIME authorized the exact §4 path lease and
+   the serial APP-STATE → SERVER → DEMO sequence on the existing #931 branch
+   and PR. The #914 projection and roadmap entries and #917 Plan Page paths
+   are exclusive to this slice until released or transferred.
+2. **Current base and owner sequence:** remote `main` is
+   `08e8cbe1207b74b0e15c6f95070899c5cc7c69fd` after #935 merged. PR #931 was
+   re-anchored on this main, retaining APP-STATE → SERVER → DEMO order. The
+   refreshed #935 paths are SERVER-only; the file inventories show no overlap
+   between #935 and the leased #931 paths.
+3. **Test resource:** use only PRIME's pinned disposable PostgreSQL 16
+   container `8d01d8b8c07ab6712e522bcba62e975df10d98185f6302c9f708b417d5a8b508`,
+   with its inspected loopback mapping and per-test fixture recorded in §7.
+   The live mapping is `127.0.0.1:32768 → 5432`; PRIME confirmed that this
+   supersedes the earlier `32782` note. `pg_isready` succeeds. DEMO ran the
+   assigned PostgreSQL fixtures: APP-STATE passed 11/11 and SERVER passed
+   31/31; a read-only post-run catalog check found no remaining test databases.
+   Full test and UI verification details are recorded in §7.
 
-Deliver one explicit GM action that starts a new managed-World Play Run from
-the selected World Plan's exact current committed WorkRevision, without
-converting, cloning, or rewriting that Plan.
+## §1 Mission and invariant
 
-The Run must remain bound to the same World ID, WorkObject ID, WorkRevision ID,
-revision number, and content SHA-256 accepted at creation. Its sealed manifest
-must be derived from that exact immutable Markdown in the owning
-application-state transaction. Future Plan edits create a new WorkRevision and
-cannot change or retarget an already-created Run.
+Provide one explicit GM action to start a new managed-World Play Run from the
+selected saved World Plan's exact current committed WorkRevision, then reopen
+that Run using the same immutable source revision.
+
+The source identity is the selected World ID, existing Plan WorkObject ID,
+exact WorkRevision ID, revision number and content SHA-256. WorkObject kind
+remains plan. The Run has its own Run ID and Run revision. Its sealed reference
+manifest is derived atomically from the same exact Plan WorkRevision. Starting
+or reopening must not convert, clone, retag, or rewrite the Plan.
+
+A later Plan Save creates a new WorkRevision and never retargets an existing
+Run. Opening an old Run reads its retained revision even if the Plan is later
+edited, dirty, or discarded. A separate new Run may bind the newer current
+revision.
 
 ## §2 Current contract and owning boundaries
 
-Read these authorities after re-anchoring:
+Read these authorities at activation:
 
 1. **DESIGN-world-plan-playable-adoption.md**.
 2. **ARCHITECTURE-playable-material-and-runtime.md**.
-3. **ROADMAP-demo.md**, especially the delivery order and active DEMO handoffs.
+3. **Docs/Roadmaps/ROADMAP-demo.md**, including its active entries.
 4. The accepted World Plan/editor and World PlayRun V2 contracts.
-5. The current APP-STATE Content and Play admission/identity contracts.
+5. Current APP-STATE Content and Play admission, replay, read, and rebase
+   implementations.
 
-Current implementation evidence at design time:
+Re-anchored source findings:
 
-- **get_committed_playable_revision** can resolve an exact World Plan revision.
-- UI Start Run preflight rejects documents whose kind is not **runbook**.
-- APP-STATE **admit_playable_revision** and
-  **resolve_pinned_playable_revision** require **runbook**; both new-Run
-  admission and existing-Run resume therefore need deliberate owner-reviewed
-  widening.
-- At the Buddy main 6feb3059b2da4d2ec29966ce9723f0effc70108f re-anchor,
-  APP-STATE confirmed that supported Content
-  mutations preserve WorkObject kind (locked-kind mutation guard, update SQL
-  does not write kind, import assigns kind at creation). This is an API
-  invariant, not a database trigger; unsupported privileged SQL is not a
-  product mutation gate. Evidence is in
-  **src/application_state/content/service.py**,
-  **src/application_state/content/repository.py**,
-  **src/application_state/content/import_plans.py**,
-  **src/application_state/content/import_runbooks.py**, and the existing
-  wrong-kind regression in
-  **tests/application_state/test_runbook_work_object_postgres.py**.
-- Content retains exact WorkRevisions. Existing-Run resolution can read the
-  exact historical revision after edits or discard; a current Plan read still
-  requires an active object. New-Run current/active/clean admission and
-  existing-Run exact historical read are distinct paths.
-- Server manifest derivation already recognizes v1 Scene-first and v2
-  Beat-first structures. Preserve both forms' current parser/readiness
-  behavior; the existing v2 nonzero-Beat readiness check must not silently
-  become a blanket v2-only Plan filter. Relevant evidence is in
-  **apps/live_control_server/services/play_run_reference_manifest.py**,
-  **apps/live_control_server/services/play_run_registry.py**, and
-  **tests/test_live_play_run_reference_manifest.py**.
-- World Play Run persistence already records World, WorkObject ID, exact
-  WorkRevision ID, revision number, and digest, and seals a manifest. Reuse
-  this identity path if possible; do not create a parallel source store.
+- The existing World V2 create/replay request already carries
+  playable_artifact_id, expected_playable_revision and
+  expected_playable_content_sha256. Its response carries
+  playable_work_revision_id. SERVER reports no need to edit routes, workspace
+  document registry, API types or schema for this slice.
+- The exact current Plan revision can be read through the existing generic
+  committed-revision boundary. DEMO must verify the returned World, WorkObject,
+  WorkRevision ID, revision number and digest against the selected Plan or Run.
+- APP-STATE confirms new-Run admission requires the active World-owned Plan,
+  exact current committed revision and a clean working-copy boundary.
+  Same-binding replay of an existing Run precedes current/clean re-admission.
+  Existing Run read resolves its stored historical WorkRevision after Plan
+  edit or discard.
+- **Preimplementation finding, now addressed by pinned APP-STATE commit
+  `6eae57016aa03ebac4e3135928a90eab4295fc7a`:** the original admission path
+  rejected kind plan in admit_playable_revision and
+  resolve_pinned_playable_revision. The contribution now admits World-owned
+  Plans only on the World V2 path, preserves Campaign V1 Runbook-only behavior,
+  and rejects Plan-backed rebase before the same-target retry.
+- APP-STATE must reject Plan-backed rebase before any same-target no-op return.
+  Starting a separate Run from a newer Plan revision remains allowed.
+- **Preimplementation finding, now addressed by DEMO code commit
+  `ef2bf4054e065a98d0d0bf3253fa891be35383ac`:** PlaySurfacePage loaded every
+  World Run through the Runbook-specific exact-revision read, checked that the
+  current Runbook remained active/current, and offered Runbook rebase when a
+  newer revision appeared. That behavior remains for Runbook Runs. A Plan-backed
+  Run now resolves its exact historical Plan revision and reopens read-only
+  without a rebase prompt, latest-revision fallback, or Plan-active requirement.
+- **Preimplementation finding, now addressed by the same DEMO code commit:**
+  the native Run projection rejected a World revision whose kind was `plan`.
+  The existing projection seam now allows an exact historical Plan revision
+  for World V2 Play while preserving Campaign V1 Runbook-only behavior. PRIME
+  transferred this seam and its focused owning test from #914; no parallel
+  parser/projection or Runbook cast was added.
+- **Preimplementation finding, now addressed by pinned SERVER commit
+  `96a75cf48e83e8f3cf49e2cc0d235476a3820209`:** ensure_v2_native_ready read a
+  Runbook kind and the v2 sealed-structure comparison converted edge
+  collections to sets. The contribution admits the intended World Plan source
+  and rejects duplicate persisted edge tuples before READY or Play context.
+- Existing World V2 persistence already records World, WorkObject ID,
+  WorkRevision ID, revision number and digest and seals the manifest. Reuse
+  that identity path.
 
-Owner boundaries:
-
-- **DEMO** owns the GM Start Play affordance and mounted UI proof.
-- **SERVER** owns typed World-scoped route/preflight integration and fail-closed
-  error behavior.
-- **APP-STATE** owns atomic source admission, immutable exact-revision
-  resolution, Run persistence, and database-level evidence.
-- **PRIME** owns activation, path/lease arbitration, cross-lane sequencing,
-  and exact-head review.
-- DungeonMind Graph remains untouched; this work does not publish or authorize
-  Graph claims.
+APP-STATE owns atomic source admission, replay, historical resolution,
+Run persistence and database evidence. SERVER owns World V2 preflight,
+manifest validation/READY and route-boundary evidence. DEMO owns Start Play,
+Plan/Play navigation and mounted product evidence. PRIME owns activation,
+path arbitration, cross-owner order and independent exact-head review. No
+DungeonMind Graph read, publication or canon write is included.
 
 ## §3 Observable contract and required evidence
 
-The implementation PR must prove, at the owning boundaries:
+The one implementation PR must prove these behaviors at their owning
+boundaries:
 
 | Sequence | Required result |
 | --- | --- |
-| Active World Plan, current committed revision, no divergent working copy, valid existing Playable markers | One explicit Start Play creates one World Run bound to the exact source identity and sealed manifest. |
-| Save the Plan after Run creation | Plan gets a new WorkRevision; existing Run and manifest remain pinned to the old WorkRevision and bytes. |
-| Start a second Run after the new save | The new Run can bind the new current revision without modifying the first Run. |
-| Retry the existing Run ID with the original binding after the Plan changes, becomes dirty, or is discarded | Return the same historical Run/manifest binding without current/clean re-admission or receipt rewrite. |
-| New Run requested from the wrong World, a Runbook, Campaign-owned/discarded Plan, dirty working copy, stale expected revision, or wrong SHA | Fail closed; no Run, manifest, copy, or cross-World fallback is created. |
-| Valid existing v1 Scene-first Plan structure | Preserve current parser and Run-readiness behavior; do not silently reject it for not being v2 Beat-first. |
-| Missing/unsupported/mixed/malformed markers, duplicate IDs, orphan/invalid edges, or no runnable structure under the existing readiness rule | Fail closed before partial Run creation; no inferred headings or auto-added markers. |
-| Existing Run opened after Plan edit/discard | Reads its exact historical Plan revision; never substitutes the latest Plan. |
-| Runtime choice and note mutation | Persists only to that Run; source Plan Markdown and WorkRevision remain byte-for-byte unchanged. |
-| Plan includes Graph/source refs | No implicit Graph read, publication, or canon mutation. |
+| Active World Plan, current committed revision, clean working-copy boundary, valid admitted Playable structure | Explicit Start Play creates one World Run and sealed manifest atomically from the selected Plan revision. |
+| Start response | World, WorkObject ID, WorkRevision ID, revision number and digest agree with the exact Plan revision used for admission. |
+| Plan Save after Run creation | The Plan receives a new WorkRevision; the existing Run and manifest remain pinned to the earlier ID, revision number and bytes. |
+| Reopen after Plan edit, dirty working copy or discard | Play reads the Run's exact historical Plan revision and manifest. It does not require the Plan to remain active/current, show rebase_required, call Run rebase/progress mutation, or follow the Plan's latest pointer. |
+| Same-binding replay for an existing Run ID after Plan changes | Return the stored Run and manifest without current/clean re-admission or receipt rewrite. A changed binding conflicts. |
+| Start a second Run after a later Plan Save | The second Run can bind the new current revision; the first Run remains unchanged. |
+| Wrong World, Runbook/Campaign source, discarded or dirty Plan, stale revision, wrong SHA, or invalid structure on new Run | Fail closed before Run/manifest creation. No fallback, inferred marker, partial Run, or content copy is created. |
+| Existing valid v1 Scene-first and v2 Beat-first structures | Preserve their current parser and readiness behavior. Do not impose a new grammar or reject valid v1 solely for not being v2. |
+| Missing, mixed, malformed, duplicate-ID, orphan-edge, invalid-edge, or non-runnable structure | Fail closed under the existing admission/readiness rules. Do not infer headings or insert markers. |
+| Editor Save and fresh Plan reopen before Start | The same World and Plan WorkObject reopen at the exact committed WorkRevision ID, revision number and digest. Authored marker identity, links and document order remain intact. Start sends that exact current revision number and digest. |
+| Successful read-only Run reopen | No Plan content/WorkRevision, sealed manifest, Run revision/progress or Graph mutation occurs. The existing active-Run focus pointer may be set after verified load; failed, foreign or corrupt loads must not update it or display READY. |
+| Plan contains Graph/source references | No implicit Graph read, publication, or canon mutation occurs. |
 
-### Persisted v2 manifest integrity gate
+### Persisted v2 manifest integrity
 
 Read-only review at Buddy main
-`271e15177b5675c686b32f6ea1cfcd6fa25735a6` found a separate persisted-receipt
-validation gap: `PlayRunReferenceManifestV2._validate_membership()` validates
-edge references but does not require unique edge tuples, while
-`compare_v2_sealed_structure()` converts persisted and derived edges to sets.
-An extra identical persisted tuple can therefore disappear during comparison.
-The source Markdown parser already rejects duplicate targets within one Option
-edge list; ordinary derivation does not establish evidence of corrupted stored
-manifests. This persisted integrity gap is separate from the current editor
-source-admission repair and does not block the read-only card lens.
+271e15177b5675c686b32f6ea1cfcd6fa25735a6 found that
+PlayRunReferenceManifestV2._validate_membership does not require unique edge
+tuples and compare_v2_sealed_structure converts edge collections to sets. A
+duplicate otherwise-valid persisted tuple can therefore disappear in
+comparison.
 
-Before this future Plan-to-Run implementation is accepted, each persisted
-`(option_id, effect, target_kind, target_id)` tuple must occur exactly once,
-and the duplicate-free tuples must match derivation from the exact pinned
-WorkRevision. Validation/comparison must not erase duplicate receipt tuples
-through set conversion. An owning regression must inject an otherwise-valid
-duplicate edge into the stored manifest and prove failure before READY or Play
-context, without rebuilding or rewriting the manifest, Run, source revision,
-or progress. A helper-only test is insufficient for that boundary claim.
+Before READY or Play context, reject every duplicate persisted
+(option_id, effect, target_kind, target_id) tuple and compare the preserved
+multiplicities against derivation from the exact pinned WorkRevision. Do not
+rebuild or rewrite a corrupt manifest, Run, source revision or progress. Prove
+this through stored-manifest corruption at the owning PostgreSQL and
+World-V2/Play boundary; a helper-only test is insufficient.
 
-Re-check the future implementation lease before assigning manifest validation,
-registry/READY, Play context, or persistence-corruption test paths. This gate
-adds no current code lease, migration, v1 contract change, or card dependency.
+### Required owner evidence
 
-Required evidence includes:
+- APP-STATE PostgreSQL: Plan-kind and World-owner admission; current/clean
+  fences for a new Run; atomic Run+manifest creation; supported no-retag
+  invariant; exact WorkRevision retention; same-binding replay after source
+  change/discard without receipt rewrite; conflict on changed binding; and
+  Plan-backed rebase rejection before the same-target return.
+- SERVER: explicit World-scoped new-Run preflight and failure mapping; no
+  Run/manifest on invalid new admission; stored duplicate-edge corruption
+  rejected before READY/Play context; exact GET/read of the Run and sealed
+  manifest remains bound to the stored revision.
+- DEMO mounted path: selected Plan identity persists through Start; dirty,
+  stale, source-switch, World-switch and late-response cases cannot retarget an
+  attempt or show false success. Save/reopen the source before Start and prove
+  exact WorkRevision identity, digest, marker identity, links and order.
+  After Plan edit/discard, reopen the existing Run against its original pinned
+  source; preserve Runbook behavior and do not call Plan rebase.
+- Verify that opening the Run leaves the Plan bytes, Run revision/progress and
+  sealed manifest unchanged. The existing active-Run focus pointer may update
+  only after successful verified load.
+- Re-run the exact cumulative base-to-head diff and all assigned owner suites.
+  A helper test cannot substitute for transaction, READY/Play-context, or
+  mounted product evidence.
 
-- APP-STATE PostgreSQL transaction tests for exact Plan admission, owner/kind,
-  the supported API's no-retag invariant, current-revision and
-  clean-working-copy fences for a new Run, atomic Run+manifest creation,
-  same-binding replay after current Plan state changes without rewriting the
-  original receipt, conflict on changed binding, and exact pinned historical
-  reads after later Plan saves and discard.
-- Server/API tests for explicit World scoping, stale/dirty/unsupported Plan
-  failure behavior, and no fallback to Campaign or Runbook routes.
-- Mounted UI tests proving selected Plan identity is retained through Start
-  Play, source changes/World switches cannot retarget an in-flight attempt, and
-  failures leave no false “started” state.
-- A mounted Play/Plan owning-boundary test that proves Runtime notes/selections
-  do not mutate the Plan.
-- Fresh exact-head verification and an isolated end-to-end witness if required
-  by PRIME at activation. A helper-only test is not evidence for persistence or
-  mounted-flow claims.
+## §4 Exclusive write sets — ACTIVE lease
 
-## §4 Candidate implementation paths — not a write lease
+These exact path sets are PRIME's active, exclusive write lease for PR #931,
+branch `codex/demo-plan-run-activation-contract`, re-anchored on Buddy main
+`08e8cbe1207b74b0e15c6f95070899c5cc7c69fd` after #935. The single PR is serial and the
+owner sets are disjoint. APP-STATE and SERVER have contributed their listed
+paths in order; DEMO owns the final ten product paths below.
 
-These are reconnaissance candidates only. None is currently reserved by this
-BLOCKED handoff. PRIME and the owning teams must re-check all active PRs and
-explicitly authorize the final path set at activation.
+**APP-STATE**
 
-**DEMO UI candidates**
+- src/application_state/content/playable_admission.py
+- src/application_state/play/service.py
+- tests/application_state/test_play_runtime_world_runs_postgres.py
 
-- **apps/live-control-ui/src/playSurface/startRunAttempt.ts** and its focused
-  test: allow an explicitly typed World Plan source while preserving exact
-  current/nondivergent preflight.
-- World Plan/Play navigation entry point and its mounted tests: provide the
-  explicit Start Play action. **PlanSurfacePage.tsx** and the mounted
-  **PlanSurfacePage.test.tsx** are not implicitly available; reconcile the
-  former against #886's production Page/shell lease and the latter against the
-  PRIME-assigned mounted-harness repair lane before allocating either path.
-- Any necessary API wrapper/type files: inspect active leases first; do not
-  assume **liveApi.ts** or shared types are free.
+Rebase rejection and the current/clean/replay distinctions belong in the
+existing World Runs PostgreSQL test path. No additional APP-STATE test path is
+leased. If another test file proves necessary, stop and get a single-owner path
+transfer before editing it.
 
-**SERVER route candidates**
+**SERVER**
 
-- **apps/live_control_server/routes/play_runs.py**
-- **apps/live_control_server/routes/workspace_documents.py**
-- **apps/live_control_server/services/workspace_document_registry.py**
-- **apps/live_control_server/services/play_run_registry.py**
-- **apps/live_control_server/services/play_run_reference_manifest.py**
+- apps/live_control_server/services/play_run_reference_manifest.py
+- apps/live_control_server/services/play_run_registry.py
+- tests/test_play_run_reference_manifest.py
+- tests/test_world_play_runs_v2.py
 
-**APP-STATE transaction candidates**
+Test persisted duplicate-edge corruption at the SERVER-owned manifest and
+World V2/Play boundary. If an additional test under tests/application_state is
+needed to prove READY behavior, SERVER must document the concrete boundary gap
+and obtain an explicit single-owner path transfer before editing it. Do not
+double-lease or silently expand the APP-STATE set.
 
-- **src/application_state/content/playable_admission.py**
-- **src/application_state/play/service.py**
-- Owning Content/Play tests, including **tests/test_world_play_runs_v2.py**
-  and focused exact-pin/admission tests
+**DEMO**
 
-Do not add a database column, migration, alternate content copy, or new
-source-kind receipt unless APP-STATE proves the identity invariant cannot be
-met with current durable fields and PRIME re-reviews the changed contract.
+- apps/live-control-ui/src/playSurface/startRunAttempt.ts
+- apps/live-control-ui/src/playSurface/startRunAttempt.test.ts
+- apps/live-control-ui/src/playSurface/StartRunPanel.tsx
+- apps/live-control-ui/src/playSurface/StartRunPanel.test.tsx
+- apps/live-control-ui/src/playSurface/PlaySurfacePage.tsx
+- apps/live-control-ui/src/playSurface/PlaySurfacePage.test.tsx
+- apps/live-control-ui/src/planSurface/PlanSurfacePage.tsx
+- apps/live-control-ui/src/planSurface/PlanSurfacePage.test.tsx
+- apps/live-control-ui/src/playSurface/runbook/nativeRunbookProjection.ts
+- apps/live-control-ui/src/playSurface/runbook/nativeRunbookProjection.test.ts
 
-The final ACTIVE handoff must replace this candidate inventory with an exact
-exclusive write allowlist and explicitly name any transferred/shared paths.
-#906's mounted-harness repair lease is closed. #904 merged at
-fb1c48d622c9d8d404b1dddb5d5f618e03cc7ef0, placing its temporary mounted-test
-lease in post-merge settlement; re-check the current owner of
-**PlanSurfacePage.test.tsx** at activation. #886 retains production Plan
-Page/shell paths pending its own accepted settlement or explicit handback.
-Do not rely on Git conflicts to arbitrate either path.
+PRIME transferred the production projection and owning-test paths from #914
+to this slice. Freeze those paths on the #914 branch; retain its evidence and
+reconcile/rebase after this slice changes production. The visual review hold
+remains on #914 and does not block this slice.
 
-## §5 PR topology and state-authority sync
+PRIME transferred PlanSurfacePage.tsx and PlanSurfacePage.test.tsx from the
+#917 prototype reservation to this production slice. Freeze those paths on the
+prototype branch and reconcile them later. #917 remains prototype evidence,
+not a production predecessor. Do not read, update, or restart its runtime as
+part of this handoff.
 
-**Topology: serial.** One implementation PR only. No stacked/successor PR is
-authorized by this handoff. A separate repair or newly discovered capability
-returns to PRIME for decomposition and a new BLOCKED handoff.
+No routes, workspace registry, public API type, shared API wrapper, schema,
+migration, dependency, Graph, Agent conversation, native corpus, provider, or
+operator-runtime path is included. The current World V2 request/response is
+sufficient unless an owner demonstrates a concrete missing fact and PRIME
+reviews a changed contract before edits.
 
-At activation, identify the mutable DEMO state authorities that need to record
-completed predecessors. The implementation PR must carry that backward-looking
-sync in its authorized lease, likely including **Docs/Roadmaps/ROADMAP-demo.md**
-and this handoff, plus any current DEMO tracker/status authority found during
-re-anchor. It must not claim this slice complete before its own merge or
-invent its final merge SHA/review-cycle count.
+## §5 Topology and state-authority sync
+
+**Topology: serial, one cross-owner implementation PR, #931.** The pinned
+branch is `codex/demo-plan-run-activation-contract`, based on
+`08e8cbe1207b74b0e15c6f95070899c5cc7c69fd`. Owner commits are APP-STATE
+`6eae57016aa03ebac4e3135928a90eab4295fc7a`, SERVER
+`96a75cf48e83e8f3cf49e2cc0d235476a3820209`, then DEMO
+`ef2bf4054e065a98d0d0bf3253fa891be35383ac`. Each owner writes only
+its §4 paths; later contributors consume the prior exact commits and do not
+edit earlier-owner paths without an explicit transfer. No parallel or stacked
+implementation PR is authorized. If a new capability or public contract is
+needed, preserve the work and return to PRIME for a split or revised handoff.
+
+PRIME also authorized this same PR's documentation sync set:
+
+- `Docs/Roadmaps/ROADMAP-demo.md`: update only the assigned Plan→Run entries
+  transferred from #914. Record the #925 Graph code integration merge and
+  keep remaining live Graph/provider acceptance distinct when updating the
+  next action. Mark this slice complete only after its actual evidence.
+- This handoff: record the exact implementation head, review and merge
+  evidence, and release owner/path/resource leases only after completion.
+- `Docs/Plans/HANDOFF-DEMO-world-owned-play-runs.md`: make only the verified
+  #820 C2 completion correction. The current ROADMAP-demo ledger records PR
+  #820 merged at bfa741261e715eadb48d873f87fccc1764417da8 with the independent
+  mounted Play/Start Run witness; correct the stale C2 ACTIVE header without
+  redesigning C1/C2 semantics.
+
+Do not pre-mark the in-flight slice complete, invent its merge SHA or review
+count, or create a separate status-only PR.
 
 ## §6 Scope boundaries
 
 Included:
 
-- one explicit Start Play action from an existing saved World Plan;
-- reuse of the same Plan WorkObject and exact immutable WorkRevision;
-- fail-closed Plan-kind, World-owner, current/clean, digest, and supported
-  structure admission;
-- Run-local choices/selections and notes through existing Run ownership;
-- exact historical read after later Plan edits.
+- One explicit Start Play action for an existing saved World Plan.
+- Reuse of the same Plan WorkObject and exact immutable WorkRevision.
+- Fail-closed kind, World-owner, current/clean, revision, digest and structure
+  admission for a new Run.
+- Read-only reopen of the historical pinned Plan revision after later Plan
+  edits or discard.
+- Existing Runbook starts and rebase behavior remain unchanged.
+- Source Save/reopen proof before Start and exact read-only reopened source.
 
-Explicitly excluded:
+Excluded:
 
-- Plan-to-Runbook conversion, content copying, or second authored store;
-- local-draft or stale-revision starts;
-- automatic or silent Run rebase; Plan-backed rebase requires a separate
-  reviewed contract;
-- automatic playable marker generation or new grammar;
-- player-facing projection/audience classification; first projection is
-  GM-only;
-- Graph reads/writes, evidence publication, DungeonMind API mutation, or
-  Runtime-to-World canon promotion;
-- new roll/outcome model, provider/model call, new credentials, or
-  GenerationEngine changes;
-- changes to GenerationEngine parity sequencing or any E5 write lease;
-- changes to live operator UI 5202/API 8000, DOGFOOD 5203, or private corpus
-  contents.
+- Plan-to-Runbook conversion, content copying, second authored store, or
+  source-kind receipt.
+- Draft/stale-revision starts, inferred playable markers, or new grammar.
+- Plan-backed Run rebase. APP-STATE rejects it even when the requested target
+  matches the stored Plan pin; a newer Plan may start a separate Run.
+- New Run choices, notes, rolls, selected results, combat outcomes or any
+  additional durable Run actions. Existing Run behavior and source separation
+  must remain unchanged.
+- Player-facing audience classification; the first projection is GM-only.
+- Graph reads/writes, evidence publication, DungeonMind mutation, or
+  Runtime-to-World canon promotion.
+- Provider/model calls, new credentials, private corpus changes, Generation
+  Engine changes, or any E5 write lease.
+- Operator UI/API/database, DOGFOOD runtime, prototype runtime, or changes to
+  ports 5202, 8000 or 5203.
 
 ## §7 Runtime and resource ownership
 
-**No runtime mutation is authorized while BLOCKED.**
+**No operator, provider, or shared-runtime mutation is authorized.** Do not
+start a manual product server or use an operator/DOGFOOD endpoint for this
+contract.
 
-For a future implementation lane:
+The assigned test resource is PRIME's disposable PostgreSQL 16 container
+`8d01d8b8c07ab6712e522bcba62e975df10d98185f6302c9f708b417d5a8b508`. On
+2026-10-06, `docker inspect` verified it was running, had tmpfs
+`/var/lib/postgresql/data` with `size=1g`, no mounts, and only the loopback
+mapping `127.0.0.1:32768 → 5432`; `pg_isready` succeeded. PRIME confirmed
+that port `32768` is authoritative for this exact container, superseding the
+earlier `32782` note. `docker ps` found no published container on `32782`.
+Configure `DMB_APPLICATION_STATE_TEST_DATABASE_URL` to
+use database `postgres` on `127.0.0.1:32768` with the container's disposable
+fixture credentials from local configuration; do not store or echo those
+credentials here.
 
-- Use isolated mounted tests and the repository's disposable PostgreSQL
-  application-state fixture. It creates a uniquely named test database from
-  the configured test-admin DSN and drops it after the test; prove the DSN and
-  target are the disposable fixture before any database write.
-- Do not connect to, restart, reseed, or reconfigure the operator's live UI
-  5202, API 8000, or DOGFOOD 5203.
-- Any manual browser witness must use a separately assigned UI/API port pair
-  and isolated test World/data, not private corpus content unless the operator
-  explicitly directs that exact private fixture.
-- Do not call model providers or expose credentials; no provider work is needed
-  for this contract.
+Use that variable with the repository's disposable per-test fixture and
+TestClient. The fixture source in `tests/application_state/conftest.py`
+confirms each test generates a unique
+`dungeonbuddy_app_state_test_{uuid}` database, applies migrations to it, then
+clears the fixture DSN, terminates its connections, and drops it in `finally`.
+Do not use the fixture's default admin endpoint or any other database.
 
-If the existing test fixture cannot isolate the required PostgreSQL state,
-stop and return the exact resource gap to PRIME rather than borrowing a live
-database.
+**DEMO verification checkpoint (2026-10-06):** the assigned mounted UI suites
+passed 148/148 tests. APP-STATE's PostgreSQL owner suite passed 11/11, and
+SERVER's World V2/manifest suites passed 31/31 with 11 existing Pydantic
+`schema`-shadow warnings. Those database runs used the exact pinned DungeonMind
+source commit `7c69e447f6d4acc963ac09c6fb9cb48cc1c5b9cc` from a temporary source
+archive because the installed test package was stale; no dependency or lockfile
+was changed. The post-run catalog check found no test databases. The cumulative
+`git diff --check` passed. PRIME's independent UI review reported its typecheck
+passing; this checkout's repository-wide typecheck retains the inherited unrelated
+`ThreatPublicationPanel.tsx(553,77): Cannot find namespace 'JSX'` diagnostic;
+the affected file is outside this lease and has no changed-file diagnostics.
+PRIME independently ACCEPTED the UI implementation at pre-rebase code commit
+`655edf9615dc3514b54755b4ac24562023cf1164`; final cumulative handoff/activation
+settlement review and PR merge remain pending.
+
+Do not connect to, restart, reseed or reconfigure operator UI 5202, API 8000,
+DOGFOOD 5203, the prototype backend or any operator/shared database. Do not
+call providers, use private corpus content, or expose credentials. A manual
+browser witness is outside this contract unless PRIME separately assigns an
+isolated synthetic environment.
+
+If the assigned fixture cannot prove database isolation, stop and return the
+exact resource gap to PRIME. Never borrow the operator or DOGFOOD runtime.
 
 ## §8 Required review and stop conditions
 
-Before merge, PRIME independently reviews one exact implementation head and
-requires all of §3 evidence. Block and return to design if:
+PRIME independently reviews one exact implementation head and the cumulative
+base-to-head diff. Block and return to design if:
 
-- a supported Content writer can retag WorkObject kind, or exact Plan source
-  kind cannot be proven from the stable WorkObject identity; privileged
-  out-of-contract direct SQL alone is not a stop condition;
-- a WorkRevision is not retained/readable by exact ID after later edits;
-- storage cannot atomically bind the Run and manifest to the Plan revision;
-- Plan structure cannot be validated through the existing owning parser;
-- persisted v2 manifest duplicates are hidden by set comparison or accepted
-  before READY/Play context;
-- serving the full pinned Plan would require a content copy or latest-pointer
-  fallback;
-- preserving Run/Plan separation requires a schema/public contract not reviewed
-  here;
-- implementation needs a path or runtime resource owned by another active lane
-  and no explicit split/transfer is approved.
+- A supported Content writer can retag WorkObject kind or the exact Plan source
+  cannot be proven from stable WorkObject identity. Privileged out-of-contract
+  direct SQL alone is not a product mutation blocker.
+- The exact WorkRevision is not retained/readable after later Plan edits or
+  discard, or the Run/manifest cannot be atomically bound to it.
+- A Plan-backed rebase can pass, including an identical-target replay.
+- Plan structure cannot be validated by the existing owning parser while
+  preserving v1 and v2 readiness behavior.
+- Duplicate persisted v2 manifest edges disappear during comparison or reach
+  READY/Play context.
+- Reopen requires a content copy, latest-pointer fallback, Plan-active check,
+  Run rebase, or mutation of the sealed manifest or Run progress.
+- A new schema/public API contract, additional path or runtime resource proves
+  necessary. Preserve evidence and return the exact expansion to PRIME.
+- The slice adds any Run action or Graph behavior outside §6.
 
-No acceptance claim may exceed the concrete tests and isolated operator
-witness actually completed.
+No acceptance claim may exceed the concrete tests, isolated resource and
+operator-facing evidence actually completed.

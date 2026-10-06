@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from threading import Thread
 
 import psycopg
 import pytest
 
 from apps.live_control_server.services.play_run_registry import (
     PlayRunRegistryError,
+    compare_v2_sealed_structure,
     create_or_replay_play_run,
+    ensure_v2_native_ready,
     get_play_run,
 )
 from apps.live_control_server.services.play_run_reference_manifest import (
@@ -19,6 +20,7 @@ from apps.live_control_server.services.play_run_reference_manifest import (
     derive_play_run_reference_elements_v2,
     detect_playable_grammar_version,
     get_play_run_reference_manifest,
+    parse_manifest_payload,
     seal_or_replay_play_run_reference_manifest,
 )
 from apps.live_control_server.services.tiptap_markdown_write import (
@@ -29,7 +31,6 @@ from apps.live_control_server.services.tiptap_markdown_write import (
 )
 from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRecord,
-    WorkspaceDocumentRegistryError,
     WorkspaceDocumentSnapshot,
     create_workspace_document,
     get_committed_playable_revision,
@@ -37,11 +38,14 @@ from apps.live_control_server.services.workspace_document_registry import (
     update_workspace_document_metadata,
 )
 
-pytest_plugins = ["tests.application_state.conftest"]
-
 from tests.application_state.play_runtime_helpers import (
+    corrupt_play_run_manifest_document,
+    fetch_play_runtime_state,
     leftover_manifest_path,
 )
+
+pytest_plugins = ["tests.application_state.conftest"]
+
 _PLAYABLE_BY_SHA: dict[tuple[str, str], int] = {}
 
 
@@ -789,6 +793,38 @@ def test_v2_seal_replay_and_binding(tmp_path: Path) -> None:
     _advance_runbook(tmp_path, snapshot, ADVANCED_MARKDOWN)
     loaded = get_play_run_reference_manifest(tmp_path, record.run_id)
     assert loaded == manifest
+
+
+def test_v2_duplicate_persisted_edge_blocks_native_ready_without_repair(
+    tmp_path: Path, application_state_dsn: str
+) -> None:
+    snapshot = _create_committed_runbook(
+        tmp_path, name="v2-duplicate-edge", markdown=C2S27_SHAPED_V2_MARKDOWN
+    )
+    record = _create_run(tmp_path, snapshot)
+    manifest = get_play_run_reference_manifest(tmp_path, record.run_id)
+    assert isinstance(manifest, PlayRunReferenceManifestV2)
+    assert len(manifest.edges) == 2
+    payload = manifest.model_dump(mode="json", exclude_none=True)
+    payload["edges"].append(dict(payload["edges"][0]))
+
+    with pytest.raises(
+        PlayRunReferenceManifestError, match="transition edges must be unique"
+    ):
+        parse_manifest_payload(payload, run_id=record.run_id)
+    unchecked = manifest.model_copy(
+        update={"edges": [*manifest.edges, manifest.edges[0]]}
+    )
+    assert compare_v2_sealed_structure(C2S27_SHAPED_V2_MARKDOWN, unchecked) is not None
+
+    corrupt_play_run_manifest_document(application_state_dsn, record.run_id, payload)
+    corrupted_state = fetch_play_runtime_state(application_state_dsn, record.run_id)
+    with pytest.raises(PlayRunRegistryError, match="transition edges must be unique"):
+        ensure_v2_native_ready(tmp_path, record.run_id)
+    assert (
+        fetch_play_runtime_state(application_state_dsn, record.run_id)
+        == corrupted_state
+    )
 
 
 def test_v2_first_seal_still_seals_bound_revision_when_workspace_advanced(tmp_path: Path) -> None:

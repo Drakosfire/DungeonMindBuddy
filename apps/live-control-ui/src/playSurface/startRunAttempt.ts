@@ -4,6 +4,7 @@ import type {
   PlayRunRecord,
   PlayRunReferenceManifest,
   WorkspaceCommittedRevision,
+  WorldOwnedCommittedRevisionV2,
   WorldOwnedRunbookCommittedRevisionV2,
   WorldPlayRunRecordV2,
 } from "../api/types";
@@ -299,9 +300,16 @@ export type WorldStartRunBinding = {
   runId: string;
   worldId: string;
   playableArtifactId: string;
+  playableKind: "plan" | "runbook";
   expectedPlayableRevision: number;
   expectedPlayableWorkRevisionId: string;
   expectedPlayableContentSha256: string;
+};
+
+export type WorldStartRunExpectedSourcePin = {
+  revisionN: number;
+  workRevisionId: string;
+  contentSha256: string;
 };
 
 export type WorldStartRunDeps = {
@@ -309,7 +317,7 @@ export type WorldStartRunDeps = {
   getCommittedRevision: (
     documentId: string,
     worldId: string,
-  ) => Promise<WorldOwnedRunbookCommittedRevisionV2>;
+  ) => Promise<WorldOwnedCommittedRevisionV2 | WorldOwnedRunbookCommittedRevisionV2>;
   putRun: (
     runId: string,
     worldId: string,
@@ -335,7 +343,8 @@ export function bindWorldStartRunAttempt(
   runId: string,
   worldId: string,
   selectedDocumentId: string,
-  committed: WorldOwnedRunbookCommittedRevisionV2,
+  committed: WorldOwnedCommittedRevisionV2 | WorldOwnedRunbookCommittedRevisionV2,
+  expectedKind: "plan" | "runbook" = "runbook",
 ): { ok: true; binding: WorldStartRunBinding } | { ok: false; detail: string } {
   if (!isCanonicalUuid(runId) || !isCanonicalUuid(selectedDocumentId)) {
     return { ok: false, detail: "Start Run identities must be canonical UUIDs." };
@@ -346,15 +355,15 @@ export function bindWorldStartRunAttempt(
     || committed.world_id !== worldId
     || committed.campaign_id !== null
     || committed.document_id !== selectedDocumentId
-    || committed.kind !== "runbook"
+    || committed.kind !== expectedKind
   ) {
-    return { ok: false, detail: "Committed Runbook does not belong to the selected World." };
+    return { ok: false, detail: `Committed ${expectedKind === "plan" ? "Plan" : "Runbook"} does not belong to the selected World.` };
   }
   if (committed.status !== "active") {
-    return { ok: false, detail: "World Runbook is discarded." };
+    return { ok: false, detail: `World ${expectedKind === "plan" ? "Plan" : "Runbook"} is discarded.` };
   }
   if (committed.has_divergent_working_copy) {
-    return { ok: false, detail: "World Runbook has uncommitted changes." };
+    return { ok: false, detail: `World ${expectedKind === "plan" ? "Plan" : "Runbook"} has uncommitted changes.` };
   }
   if (!Number.isInteger(committed.revision_n) || committed.revision_n <= 0) {
     return { ok: false, detail: "World Runbook has no exact committed revision." };
@@ -371,6 +380,7 @@ export function bindWorldStartRunAttempt(
       runId,
       worldId,
       playableArtifactId: selectedDocumentId,
+      playableKind: expectedKind,
       expectedPlayableRevision: committed.revision_n,
       expectedPlayableWorkRevisionId: committed.work_revision_id,
       expectedPlayableContentSha256: committed.content_sha256,
@@ -491,33 +501,54 @@ async function sealExactWorldRun(
 export async function executeStartWorldRunAttempt(input: {
   selectedDocumentId: string;
   worldId: string;
+  expectedKind?: "plan" | "runbook";
+  expectedSourcePin?: WorldStartRunExpectedSourcePin | null;
   attempt: WorldStartRunBinding | null;
   phase: StartRunPhase;
   deps: WorldStartRunDeps;
 }): Promise<WorldStartRunResult> {
   const { selectedDocumentId, worldId, deps } = input;
+  const expectedKind = input.expectedKind ?? "runbook";
   let binding = input.attempt;
+
+  if (expectedKind === "plan" && input.expectedSourcePin == null) {
+    return { outcome: "blocked", detail: "The selected Plan's exact saved revision pin is unavailable. Reopen the Plan and start again." };
+  }
 
   if (input.phase === "fresh") {
     const allocated = allocateStartRunId(deps.generateRunId);
     if (!allocated.ok) return { outcome: "blocked", detail: allocated.detail };
-    let committed: WorldOwnedRunbookCommittedRevisionV2;
+    let committed: WorldOwnedCommittedRevisionV2 | WorldOwnedRunbookCommittedRevisionV2;
     try {
       committed = await deps.getCommittedRevision(selectedDocumentId, worldId);
     } catch (error) {
       return {
         outcome: "blocked",
-        detail: errorDetail(error, "Could not load the selected World's exact committed Runbook revision."),
+        detail: errorDetail(error, `Could not load the selected World's exact committed ${expectedKind === "plan" ? "Plan" : "Runbook"} revision.`),
       };
     }
-    const bound = bindWorldStartRunAttempt(allocated.runId, worldId, selectedDocumentId, committed);
+    if (input.expectedSourcePin != null && (
+      committed.revision_n !== input.expectedSourcePin.revisionN
+      || committed.work_revision_id !== input.expectedSourcePin.workRevisionId
+      || committed.content_sha256 !== input.expectedSourcePin.contentSha256
+    )) {
+      return {
+        outcome: "blocked",
+        detail: "The selected Plan changed after it was opened. Reopen it and start from its current saved revision.",
+      };
+    }
+    const bound = bindWorldStartRunAttempt(allocated.runId, worldId, selectedDocumentId, committed, expectedKind);
     if (!bound.ok) return { outcome: "blocked", detail: bound.detail };
     binding = bound.binding;
   }
 
   if (binding == null) return { outcome: "blocked", detail: "World Start Run attempt is missing its Run UUID." };
-  if (binding.worldId !== worldId || binding.playableArtifactId !== selectedDocumentId) {
-    return { outcome: "blocked", binding, detail: "this attempt is bound to a different World or Runbook" };
+  if (
+    binding.worldId !== worldId
+    || binding.playableArtifactId !== selectedDocumentId
+    || binding.playableKind !== expectedKind
+  ) {
+    return { outcome: "blocked", binding, detail: `this attempt is bound to a different World or ${expectedKind === "plan" ? "Plan" : "Runbook"}` };
   }
 
   if (input.phase === "retry_seal") {

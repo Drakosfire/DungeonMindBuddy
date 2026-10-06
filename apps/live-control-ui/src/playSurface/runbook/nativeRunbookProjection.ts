@@ -9,6 +9,7 @@ import type {
   PlayRunReferenceManifestV2,
   WorkspaceDocumentSnapshot,
   WorkspaceCommittedRevisionAny,
+  WorldOwnedCommittedRevisionV2,
   WorldOwnedRunbookSnapshotV2,
   WorldOwnedRunbookCommittedRevisionV2,
 } from "../../api/types";
@@ -86,7 +87,7 @@ export type NativeRunbookReadyDeck = {
   grammar: "v1";
   run: AnyPlayRunRecord;
   manifest: PlayRunReferenceManifestV1;
-  snapshot: WorkspaceDocumentSnapshot | WorldOwnedRunbookSnapshotV2 | WorldOwnedRunbookCommittedRevisionV2;
+  snapshot: WorkspaceDocumentSnapshot | WorldOwnedRunbookSnapshotV2 | WorldOwnedCommittedRevisionV2 | WorldOwnedRunbookCommittedRevisionV2;
   importedDoc: JSONContent;
   structure: PlayableStructureIndex;
   scenes: NativeRunbookScene[];
@@ -140,7 +141,7 @@ export type NativeRunbookReadyV2 = {
   grammar: "v2";
   run: AnyPlayRunRecord;
   manifest: PlayRunReferenceManifestV2;
-  snapshot: WorkspaceDocumentSnapshot | WorldOwnedRunbookSnapshotV2 | WorldOwnedRunbookCommittedRevisionV2;
+  snapshot: WorkspaceDocumentSnapshot | WorldOwnedRunbookSnapshotV2 | WorldOwnedCommittedRevisionV2 | WorldOwnedRunbookCommittedRevisionV2;
   importedDoc: JSONContent;
   structure: PlayableStructureIndexV2;
   beats: NativeRunbookBeatV2[];
@@ -462,10 +463,13 @@ function workspaceBindingFailure(
       "committed revision document ID does not match run.playable_artifact_id",
     );
   }
-  if (committed.kind !== "runbook") {
-    return failed("integrity_failure", "committed revision kind is not the admitted Runbook kind");
+  const worldPlanSource = run.schema_version === "dmb_world_play_run_record_v2"
+    && committed.schema_version === "dmb_workspace_committed_revision_v2"
+    && committed.kind === "plan";
+  if (committed.kind !== "runbook" && !worldPlanSource) {
+    return failed("integrity_failure", "committed revision kind is not admitted for this Play Run scope");
   }
-  if (committed.status !== "active") {
+  if (committed.kind === "runbook" && committed.status !== "active") {
     return failed("integrity_failure", "runbook workspace document is discarded");
   }
   if (committed.revision_n !== run.playable_revision) {
@@ -488,11 +492,8 @@ function workspaceBindingFailure(
 
 function snapshotFromCommitted(
   committed: WorkspaceCommittedRevisionAny,
-): WorkspaceDocumentSnapshot | WorldOwnedRunbookSnapshotV2 | WorldOwnedRunbookCommittedRevisionV2 {
-  if (committed.schema_version === "dmb_workspace_committed_revision_v2") {
-    if (committed.kind !== "runbook") throw new TypeError("Expected a committed World Runbook revision.");
-    return committed;
-  }
+): WorkspaceDocumentSnapshot | WorldOwnedRunbookSnapshotV2 | WorldOwnedCommittedRevisionV2 | WorldOwnedRunbookCommittedRevisionV2 {
+  if (committed.schema_version === "dmb_workspace_committed_revision_v2") return committed;
   return {
     schema_version: "dmb_workspace_document_snapshot_v1",
     record: {
