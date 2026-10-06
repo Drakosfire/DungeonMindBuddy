@@ -1666,6 +1666,29 @@ describe("World Plan conversation consumer", () => {
     expect(pendingAskKeys()).toHaveLength(1);
   });
 
+  it("keeps Hermes initialization 503 unresolved without a dispatch receipt", async () => {
+    setupApi(history("conversation-a", 4, []));
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockRejectedValue(
+      new liveApi.LiveApiError("Hermes runtime initialization failed.", 503, {
+        code: "hermes_agent_init_error",
+      }),
+    );
+    render(conversationElement());
+    await screen.findByText(/No messages here yet/);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
+      target: { value: "Ask about the northern gate." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByText(/outcome of this Graph-context Ask is uncertain/)).toBeInTheDocument();
+    expect(screen.getByText(/Hermes runtime initialization failed\./)).toBeInTheDocument();
+    expect(screen.queryByText(/provider dispatch did not begin/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no answer was saved/)).not.toBeInTheDocument();
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    expect(pendingAskKeys()).toHaveLength(1);
+  });
+
   it("keeps a Graph Ask pending when a purported pre-dispatch failure says the provider was dispatched", async () => {
     setupApi(history("conversation-a", 4, []));
     liveApi.setNativeGraphAccessToken("test-only-local-operator-credential-value");
