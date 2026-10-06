@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from threading import Thread
+from threading import Event, Thread, current_thread
+from time import monotonic, sleep
 from uuid import uuid4
 
+import psycopg
 import pytest
 from fastapi.testclient import TestClient
 
@@ -109,6 +111,93 @@ def test_world_selection_resumes_and_projects_empty_without_mutation(
     assert wrong_owner.value.status_code == 404
     assert fetch_play_active_run_row(application_state_dsn) == before
     assert get_world_play_active_run(world_id=world_a) == selected
+
+
+def test_concurrent_same_world_selection_waits_for_first_commit_and_is_idempotent(
+    application_state_dsn: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import application_state.play.service as play_service
+
+    world_id = f"world-same-run-race-{uuid4()}"
+    _create_world_run(world_id=world_id, run_id=RUN_ID_A)
+
+    first_upsert_complete = Event()
+    release_first = Event()
+    second_lock_attempted = Event()
+    second_lock_acquired = Event()
+    second_pid: list[int] = []
+    upsert_callers: list[str] = []
+    results: dict[str, object] = {}
+    errors: list[BaseException] = []
+    original_lock_run = play_service.repo.lock_run
+    original_upsert_active_run = play_service.repo.upsert_active_run
+
+    def observe_run_lock(conn, run_id):
+        if current_thread().name == "same-run-selection-second":
+            second_pid.append(conn.execute("SELECT pg_backend_pid()").fetchone()[0])
+            second_lock_attempted.set()
+            row = original_lock_run(conn, run_id)
+            second_lock_acquired.set()
+            return row
+        return original_lock_run(conn, run_id)
+
+    def hold_first_transaction(conn, *, run_id, selected_at):
+        upsert_callers.append(current_thread().name)
+        row = original_upsert_active_run(conn, run_id=run_id, selected_at=selected_at)
+        if current_thread().name == "same-run-selection-first":
+            first_upsert_complete.set()
+            if not release_first.wait(timeout=10):
+                raise TimeoutError("test did not release the first selection transaction")
+        return row
+
+    monkeypatch.setattr(play_service.repo, "lock_run", observe_run_lock)
+    monkeypatch.setattr(play_service.repo, "upsert_active_run", hold_first_transaction)
+
+    def select(name: str) -> None:
+        try:
+            results[name] = set_world_play_active_run(world_id, RUN_ID_A)
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    first = Thread(target=select, args=("first",), name="same-run-selection-first")
+    second = Thread(target=select, args=("second",), name="same-run-selection-second")
+    first.start()
+    second_started = False
+    observed_lock_wait = False
+    try:
+        assert first_upsert_complete.wait(timeout=5)
+        second.start()
+        second_started = True
+        assert second_lock_attempted.wait(timeout=5)
+        deadline = monotonic() + 5
+        with psycopg.connect(application_state_dsn, autocommit=True) as observer:
+            while monotonic() < deadline:
+                row = observer.execute(
+                    "SELECT wait_event_type FROM pg_stat_activity WHERE pid = %s",
+                    (second_pid[0],),
+                ).fetchone()
+                if row is not None and row[0] == "Lock":
+                    observed_lock_wait = True
+                    break
+                sleep(0.01)
+        assert observed_lock_wait, "second selector never waited on PostgreSQL's Run lock"
+        assert not second_lock_acquired.is_set()
+    finally:
+        release_first.set()
+        first.join(timeout=10)
+        if second_started:
+            second.join(timeout=10)
+
+    assert not first.is_alive()
+    assert not second.is_alive()
+    assert errors == []
+    assert second_lock_acquired.is_set()
+    assert upsert_callers == ["same-run-selection-first"]
+    assert results["first"] == results["second"]
+    persisted = fetch_play_active_run_row(application_state_dsn)
+    assert persisted is not None
+    assert persisted["run_id"] == RUN_ID_A
+    assert persisted["selected_at"] == getattr(results["first"], "selected_at")
 
 
 def test_campaign_active_run_remains_legacy_and_world_projection_is_empty(
