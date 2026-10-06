@@ -2,10 +2,19 @@ from __future__ import annotations
 
 from pathlib import Path
 from threading import Thread
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 
+from application_state.content.service import commit_runbook, create_world_runbook
+from application_state.errors import ApplicationStateError
+from application_state.play.service import (
+    create_world_play_run,
+    get_world_play_active_run,
+    get_world_play_run_aggregate,
+    set_world_play_active_run,
+)
 from apps.live_control_server.main import create_app
 from apps.live_control_server.services.play_active_run import (
     PlayActiveRunError,
@@ -59,6 +68,92 @@ def test_missing_row_is_public_null_and_set_is_idempotent(
     assert second == first
     assert fetch_play_active_run_row(application_state_dsn)["run_id"] == RUN_ID_A
     assert not leftover_active_run_path(tmp_path).exists()
+
+
+def _create_world_run(*, world_id: str, run_id: str):
+    created = create_world_runbook(title=f"Active Run {world_id}", world_id=world_id)
+    work_object, revision = commit_runbook(
+        str(created.work_object_id),
+        "<!-- dmb-playable-element:v2 kind=beat id=beat:opening -->\n## Opening\n",
+        expected_revision=created.object_revision,
+    )
+    return create_world_play_run(
+        world_id=world_id,
+        run_id=run_id,
+        playable_artifact_id=work_object.work_object_id,
+        expected_playable_revision=revision.revision_n,
+        expected_playable_content_sha256=revision.content_sha256,
+    )
+
+
+def test_world_selection_resumes_and_projects_empty_without_mutation(
+    application_state_dsn: str, tmp_path: Path
+) -> None:
+    world_a = f"world-a-{uuid4()}"
+    world_b = f"world-b-{uuid4()}"
+    world_run = _create_world_run(world_id=world_a, run_id=RUN_ID_A)
+    _create_world_run(world_id=world_b, run_id=RUN_ID_B)
+
+    assert set_world_play_active_run(world_a, RUN_ID_A).run_id == world_run.run.run_id
+    selected = set_world_play_active_run(world_a, RUN_ID_A)
+    assert selected == set_world_play_active_run(world_a, RUN_ID_A)
+    assert get_world_play_active_run(world_id=world_a) == selected
+
+    before = fetch_play_active_run_row(application_state_dsn)
+    assert get_world_play_active_run(world_id=world_b) is None
+    assert get_play_active_run(tmp_path).run_id is None
+    assert fetch_play_active_run_row(application_state_dsn) == before
+
+    with pytest.raises(ApplicationStateError) as wrong_owner:
+        set_world_play_active_run(world_b, RUN_ID_A)
+    assert wrong_owner.value.status_code == 404
+    assert fetch_play_active_run_row(application_state_dsn) == before
+    assert get_world_play_active_run(world_id=world_a) == selected
+
+
+def test_campaign_active_run_remains_legacy_and_world_projection_is_empty(
+    application_state_dsn: str, tmp_path: Path
+) -> None:
+    snapshot = create_committed_runbook(tmp_path, name="active-campaign-control")
+    create_run(tmp_path, snapshot, run_id=RUN_ID_A)
+    selected = set_play_active_run(tmp_path, run_id=RUN_ID_A)
+    assert get_play_active_run(tmp_path) == selected
+    assert get_world_play_active_run(world_id="unrelated-world") is None
+
+    world_id = f"world-v2-{uuid4()}"
+    _create_world_run(world_id=world_id, run_id=RUN_ID_B)
+    set_world_play_active_run(world_id, RUN_ID_B)
+    assert get_play_active_run(tmp_path).run_id is None
+    assert fetch_play_active_run_row(application_state_dsn)["run_id"] == RUN_ID_B
+
+
+def test_corrupt_world_aggregate_cannot_be_selected_or_healed(
+    application_state_dsn: str,
+) -> None:
+    from tests.application_state.play_runtime_helpers import (
+        corrupt_play_run_manifest_document,
+        unknown_schema_manifest,
+    )
+
+    world_id = f"world-corrupt-{uuid4()}"
+    _create_world_run(world_id=world_id, run_id=RUN_ID_A)
+    set_world_play_active_run(world_id, RUN_ID_A)
+    manifest = get_world_play_run_aggregate(
+        RUN_ID_A, world_id=world_id
+    ).manifest.manifest
+    corrupt_play_run_manifest_document(
+        application_state_dsn,
+        RUN_ID_A,
+        unknown_schema_manifest(manifest),
+    )
+    before = fetch_play_active_run_row(application_state_dsn)
+    with pytest.raises(ApplicationStateError) as corrupt:
+        set_world_play_active_run(world_id, RUN_ID_A)
+    assert corrupt.value.status_code == 500
+    assert fetch_play_active_run_row(application_state_dsn) == before
+    with pytest.raises(ApplicationStateError) as read_corrupt:
+        get_world_play_active_run(world_id=world_id)
+    assert read_corrupt.value.status_code == 500
 
 
 def test_clear_removes_row_and_failed_set_does_not_clear(

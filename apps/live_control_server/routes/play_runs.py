@@ -11,8 +11,11 @@ from apps.live_control_server.services.play_active_run import (
     PlayActiveRunError,
     PlayActiveRunState,
     SetPlayActiveRunRequest,
+    WorldPlayActiveRunState,
     get_play_active_run,
+    get_world_play_active_run,
     set_play_active_run,
+    set_world_play_active_run,
 )
 from apps.live_control_server.services.play_run_rebase import (
     PlayRunRebaseError,
@@ -202,6 +205,35 @@ def get_world_play_runs_v2(
     except PlayRunRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return WorldPlayRunsListResponse(records=records).model_dump(mode="json")
+
+
+@router.get(
+    "/world-play-runs/v2/active", response_model=WorldPlayActiveRunState
+)
+def get_world_play_active_run_v2(
+    world_id: Annotated[str, Query(min_length=1)],
+) -> dict[str, Any]:
+    try:
+        state = get_world_play_active_run(repo_root(), world_id=world_id)
+    except PlayActiveRunError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return state.model_dump(mode="json")
+
+
+@router.put(
+    "/world-play-runs/v2/active", response_model=WorldPlayActiveRunState
+)
+def put_world_play_active_run_v2(
+    body: SetPlayActiveRunRequest,
+    world_id: Annotated[str, Query(min_length=1)],
+) -> dict[str, Any]:
+    try:
+        state = set_world_play_active_run(
+            repo_root(), world_id=world_id, run_id=body.run_id
+        )
+    except PlayActiveRunError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return state.model_dump(mode="json")
 
 
 @router.put("/world-play-runs/v2/{run_id}", response_model=WorldPlayRunRecord)

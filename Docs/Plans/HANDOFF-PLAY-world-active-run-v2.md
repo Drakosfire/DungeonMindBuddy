@@ -1,0 +1,82 @@
+---
+pr_body_template: |
+  ## Handoff pointer
+  - Workstream: PLAY / World active Run selection
+  - Flow: PLAY
+  - Handoff: `Docs/Plans/HANDOFF-PLAY-world-active-run-v2.md`
+  - Base: `b41fc3898729acfe3518bceb0c03ab93f149e4f0`
+  - Branch: `codex/play-world-active-run-v2`
+
+  ## Verification pointer
+  - Exact cumulative base-to-head diff and test evidence are recorded in this handoff.
+  - Producer implementation paths are the six paths in §4.
+---
+
+# HANDOFF — World-scoped active Play Run V2
+
+**Status:** ACTIVE — implementation authorized under the accepted PRIME delegation.
+**Owner:** APP-STATE / Buddy Play Runtime.
+**Base:** `b41fc3898729acfe3518bceb0c03ab93f149e4f0` (current `main`, merged #951).
+**Branch:** `codex/play-world-active-run-v2`.
+**Topology:** serial; one producer capability PR. The UI consumer lease is coordinated separately and may be integrated only after producer-head acceptance.
+
+## 1. Mission and invariant
+
+Allow a World Play surface to select and resume its exact World-owned Play Run through the existing singleton `play.active_run` pointer. A pointer to a campaign Run or a Run owned by another World projects as empty for the requested World. A failed selection never overwrites the existing pointer. Reads do not heal or mutate state.
+
+Keep the campaign V1 API and owner fence. V1 reads project an empty state while the shared pointer references a World Run; V1 writes continue to reject World Runs. Do not add a table, migration, fallback selection, or implicit Run creation.
+
+## 2. API contract
+
+Add static routes before `/world-play-runs/v2/{run_id}`:
+
+```text
+GET /api/live/world-play-runs/v2/active?world_id=<canonical-world-id>
+PUT /api/live/world-play-runs/v2/active?world_id=<canonical-world-id>
+Content-Type: application/json
+{"run_id":"<canonical-uuid>"}
+```
+
+The strict response shape is:
+
+```json
+{
+  "schema_version": "dmb_world_play_active_run_v2",
+  "world_id": "<world-id>",
+  "run_id": null,
+  "selected_at": null
+}
+```
+
+For a selection, both `run_id` and `selected_at` are present. GET returns the null pair when the singleton pointer is empty, points to a campaign Run, or points to a different World. If it points to a Run in the requested World, validate exact owner, pinned revision and sealed manifest before returning it. Integrity failures remain errors. PUT validates the exact World owner and readable aggregate before changing the singleton pointer; selecting the same Run is idempotent and preserves `selected_at`.
+
+## 3. Storage and compatibility
+
+Reuse the current single-row `play.active_run` store. Derive World ownership from the exact `play.run` row and pinned committed revision. Do not alter Run progress, source pins, manifest, active-pointer schema, or migrations. V1 campaign selection remains available and campaign-owned Run data keeps its existing response shape.
+
+## 4. Exclusive producer write lease
+
+This lane may modify only:
+
+1. `src/application_state/play/service.py`
+2. `tests/application_state/test_play_active_run_postgres.py`
+3. `apps/live_control_server/services/play_active_run.py`
+4. `apps/live_control_server/routes/play_runs.py`
+5. `tests/test_world_play_runs_v2.py`
+6. `Docs/Plans/HANDOFF-PLAY-world-active-run-v2.md`
+
+No migration or other path is authorized. If implementation requires a path outside this list, stop and return to PRIME for a lease update.
+
+## 5. Acceptance evidence
+
+- Select a World Run, read it back for the same World, and preserve timestamp on idempotent selection.
+- A mismatched-World GET returns empty and leaves the singleton row unchanged.
+- A mismatched-World PUT rejects without replacing the existing selection.
+- Corrupt pinned aggregate integrity blocks selection without changing the pointer; same-owner GET reports integrity failure.
+- V1 GET projects empty for a selected World Run; V1 PUT continues to reject it; campaign legacy selection remains intact.
+- Route tests prove `/active` is registered before the dynamic `{run_id}` route and strict request/response validation rejects malformed fields and partial-null pairs.
+- Focused owning-boundary PostgreSQL suites, Ruff, and cumulative `git diff --check` pass.
+
+## 6. Operational limits
+
+Use only the disposable PostgreSQL 16 test container `dmb-world-active-run-v2-test-pg16` on `127.0.0.1:54329`. Never touch the operator databases on ports 54330/54331. Do not restart listeners or mutate operator Runs. ROOT owns any runtime restart. Session28 Apply remains held pending its separate trusted human reply.

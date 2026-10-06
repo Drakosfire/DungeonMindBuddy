@@ -862,7 +862,46 @@ def get_play_active_run() -> PlayActiveRun | None:
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
-        return repo.get_active_run(conn)
+        active = repo.get_active_run(conn)
+        if active is None:
+            return None
+        run = repo.get_run(conn, active.run_id)
+        if run is None:
+            raise ApplicationStateIntegrityError(
+                "active Play Run pointer references a missing Run"
+            )
+        if run.world_id is not None:
+            if run.campaign_id is not None:
+                raise ApplicationStateIntegrityError(
+                    "active Play Run has inconsistent owner columns"
+                )
+            return None
+        if run.campaign_id is None or not run.campaign_id.strip():
+            raise ApplicationStateIntegrityError(
+                "active campaign Play Run is missing its required campaign owner"
+            )
+        return active
+
+
+def get_world_play_active_run(*, world_id: str) -> PlayActiveRun | None:
+    canonical_world_id = _require_world_id(world_id)
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    with unit_of_work(dsn) as conn:
+        active = repo.get_active_run(conn)
+        if active is None:
+            return None
+        run = repo.get_run(conn, active.run_id)
+        if run is None:
+            raise ApplicationStateIntegrityError(
+                "active Play Run pointer references a missing Run"
+            )
+        try:
+            _resolve_world_run_owner(conn, run, world_id=canonical_world_id)
+        except ApplicationStateNotFoundError:
+            return None
+        _readable_aggregate(run, repo.get_manifest(conn, active.run_id))
+        return active
 
 
 def set_play_active_run(run_id: UUID | str) -> PlayActiveRun:
@@ -883,6 +922,31 @@ def set_play_active_run(run_id: UUID | str) -> PlayActiveRun:
             run_id=canonical_run_id,
             selected_at=repo.now_utc(),
         )
+
+
+def set_world_play_active_run(
+    world_id: str, run_id: UUID | str
+) -> PlayActiveRun:
+    canonical_world_id = _require_world_id(world_id)
+    canonical_run_id = _as_uuid(run_id, field_name="run_id")
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    with unit_of_work(dsn) as conn:
+        run = repo.lock_run(conn, canonical_run_id)
+        if run is None:
+            raise ApplicationStateNotFoundError(f"Play Run not found: {canonical_run_id}")
+        _resolve_world_run_owner(conn, run, world_id=canonical_world_id)
+        _readable_aggregate(run, repo.get_manifest(conn, canonical_run_id))
+        current = repo.lock_active_run(conn)
+        if current is not None and current.run_id == canonical_run_id:
+            active = current
+        else:
+            active = repo.upsert_active_run(
+                conn,
+                run_id=canonical_run_id,
+                selected_at=repo.now_utc(),
+            )
+        return active
 
 
 def clear_play_active_run() -> None:
