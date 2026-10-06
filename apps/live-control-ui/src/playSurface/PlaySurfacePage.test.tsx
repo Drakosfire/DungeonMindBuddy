@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   getPlayActiveRun,
+  getWorldPlayActiveRun,
   getPlayRun,
   getCommittedWorkspaceRevision,
   getWorldOwnedPlanCommittedRevision,
@@ -13,6 +14,7 @@ import {
   listPlayRuns,
   listWorldPlayRuns,
   putPlayActiveRun,
+  putWorldPlayActiveRun,
   putWorldPlayRunRebase,
 } from "../api/liveApi";
 import { LiveApiError } from "../api/liveApi";
@@ -24,6 +26,7 @@ const selectedWorldHarness = vi.hoisted(() => ({ worldId: "world-b" }));
 vi.mock("../api/liveApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/liveApi")>()),
   getPlayActiveRun: vi.fn(),
+  getWorldPlayActiveRun: vi.fn(),
   getPlayRun: vi.fn(),
   getPlayRunReferenceManifest: vi.fn(),
   getCommittedWorkspaceRevision: vi.fn(),
@@ -35,6 +38,7 @@ vi.mock("../api/liveApi", async (importOriginal) => ({
   listWorldPlayRuns: vi.fn(),
   putWorldPlayRunRebase: vi.fn(),
   putPlayActiveRun: vi.fn(),
+  putWorldPlayActiveRun: vi.fn(),
 }));
 vi.mock("../selectedWorld/SelectedWorldContext", () => ({
   useSelectedWorld: () => ({
@@ -56,6 +60,15 @@ const workRevisionId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const newerWorkRevisionId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const shaA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const shaB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+function worldActiveRun(run: string | null = runId, worldId = "world-b") {
+  return {
+    schema_version: "dmb_world_play_active_run_v2" as const,
+    world_id: worldId,
+    run_id: run,
+    selected_at: run === null ? null : "2026-10-06T00:00:00Z",
+  };
+}
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -187,7 +200,41 @@ describe("Play selected-World admission", () => {
     expect(getWorldOwnedRunbookCommittedRevision).toHaveBeenCalledWith(artifactId, "world-b", 1, shaA);
     expect(getWorldOwnedRunbookCommittedRevision).toHaveBeenCalledWith(artifactId, "world-b");
     expect(getPlayRun).not.toHaveBeenCalled();
-    expect(putPlayActiveRun).toHaveBeenCalledWith(runId);
+    expect(putWorldPlayActiveRun).toHaveBeenCalledWith("world-b", runId);
+    expect(putPlayActiveRun).not.toHaveBeenCalled();
+  });
+
+  it("reenters the exact World Run through the scoped active pointer and validates its detail", async () => {
+    const committed = worldCommitted({ markdown: worldPlayableMarkdown });
+    window.history.replaceState({}, "", "/play?world=world-b");
+    vi.mocked(getWorldPlayActiveRun).mockResolvedValue(worldActiveRun());
+    vi.mocked(getWorldPlayRun).mockResolvedValue(worldRun());
+    vi.mocked(getWorldPlayRunReferenceManifest).mockResolvedValue({
+      schema_version: "dmb_play_run_reference_manifest_v1",
+      run_id: runId,
+      playable_artifact_id: artifactId,
+      playable_revision: 1,
+      playable_content_sha256: shaA,
+      elements: [
+        { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
+        { kind: "scene", element_id: "scene:gate" },
+      ],
+      sealed_at: "2026-09-30T00:00:00Z",
+    });
+    vi.mocked(getWorldOwnedRunbookCommittedRevision).mockResolvedValue(committed);
+
+    render(<PlaySurfacePage />);
+
+    expect(await screen.findByTestId("play-surface-ready")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Gate" })).toBeInTheDocument();
+    expect(getWorldPlayActiveRun).toHaveBeenCalledExactlyOnceWith("world-b");
+    expect(getWorldPlayRun).toHaveBeenCalledTimes(2);
+    expect(getWorldPlayRun).toHaveBeenNthCalledWith(1, runId, "world-b");
+    expect(getWorldPlayRun).toHaveBeenNthCalledWith(2, runId, "world-b");
+    expect(window.location.search).toBe(`?world=world-b&run=${runId}`);
+    expect(putWorldPlayActiveRun).not.toHaveBeenCalled();
+    expect(getPlayActiveRun).not.toHaveBeenCalled();
+    expect(putPlayActiveRun).not.toHaveBeenCalled();
   });
 
   it("reopens an exact discarded World Plan revision without requiring the Plan to remain active or current", async () => {
@@ -231,33 +278,66 @@ describe("Play selected-World admission", () => {
     expect(getWorldOwnedPlanCommittedRevision).toHaveBeenCalledExactlyOnceWith(artifactId, 1);
     expect(getWorldOwnedRunbookCommittedRevision).not.toHaveBeenCalled();
     expect(putWorldPlayRunRebase).not.toHaveBeenCalled();
-    expect(putPlayActiveRun).toHaveBeenCalledExactlyOnceWith(runId);
+    expect(putWorldPlayActiveRun).toHaveBeenCalledExactlyOnceWith("world-b", runId);
+    expect(putPlayActiveRun).not.toHaveBeenCalled();
   });
 
-  it("does not follow a global active Run from another World", async () => {
+  it("keeps a chooser when World active detail belongs to another World", async () => {
     window.history.replaceState({}, "", "/play?world=world-b");
-    vi.mocked(getPlayActiveRun).mockResolvedValue({ run_id: runId } as Awaited<ReturnType<typeof getPlayActiveRun>>);
+    vi.mocked(getWorldPlayActiveRun).mockResolvedValue(worldActiveRun());
     vi.mocked(getWorldPlayRun).mockResolvedValue(worldRun({ world_id: "world-a" }));
     render(<PlaySurfacePage />);
     await waitFor(() => expect(screen.getByTestId("play-run-chooser")).toBeInTheDocument());
     expect(window.location.search).toBe("?world=world-b");
+    expect(getWorldPlayActiveRun).toHaveBeenCalledExactlyOnceWith("world-b");
     expect(getWorldPlayRun).toHaveBeenCalledWith(runId, "world-b");
     expect(getPlayRun).not.toHaveBeenCalled();
+    expect(getPlayActiveRun).not.toHaveBeenCalled();
     expect(putPlayActiveRun).not.toHaveBeenCalled();
+    expect(putWorldPlayActiveRun).not.toHaveBeenCalled();
+  });
+
+  it("uses the empty World v2 pointer as an explicit chooser state", async () => {
+    window.history.replaceState({}, "", "/play?world=world-b");
+    vi.mocked(getWorldPlayActiveRun).mockResolvedValue(worldActiveRun(null));
+    render(<PlaySurfacePage />);
+
+    expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
+    expect(window.location.search).toBe("?world=world-b");
+    expect(getWorldPlayRun).not.toHaveBeenCalled();
+    expect(getPlayActiveRun).not.toHaveBeenCalled();
+    expect(putWorldPlayActiveRun).not.toHaveBeenCalled();
+  });
+
+  it("does not navigate through an invalid World active pointer", async () => {
+    window.history.replaceState({}, "", "/play?world=world-b");
+    vi.mocked(getWorldPlayActiveRun).mockResolvedValue({
+      ...worldActiveRun(),
+      run_id: "not-a-canonical-run-id",
+    });
+    render(<PlaySurfacePage />);
+
+    expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
+    expect(await screen.findByTestId("play-active-run-warning")).toHaveTextContent("malformed");
+    expect(window.location.search).toBe("?world=world-b");
+    expect(getWorldPlayRun).not.toHaveBeenCalled();
+    expect(putWorldPlayActiveRun).not.toHaveBeenCalled();
   });
 
   it("keeps the World chooser when the active pointer cannot be resolved in World V2", async () => {
     window.history.replaceState({}, "", "/play?world=world-b");
-    vi.mocked(getPlayActiveRun).mockResolvedValue({ run_id: runId } as Awaited<ReturnType<typeof getPlayActiveRun>>);
+    vi.mocked(getWorldPlayActiveRun).mockResolvedValue(worldActiveRun());
     vi.mocked(getWorldPlayRun).mockRejectedValue(new Error("World detail unavailable"));
     render(<PlaySurfacePage />);
 
     expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
     expect(await screen.findByTestId("play-active-run-warning")).toHaveTextContent("Choose a Run explicitly");
     expect(window.location.search).toBe("?world=world-b");
+    expect(getWorldPlayActiveRun).toHaveBeenCalledExactlyOnceWith("world-b");
     expect(getWorldPlayRun).toHaveBeenCalledWith(runId, "world-b");
     expect(getPlayRun).not.toHaveBeenCalled();
     expect(putPlayActiveRun).not.toHaveBeenCalled();
+    expect(putWorldPlayActiveRun).not.toHaveBeenCalled();
   });
 
   it("ignores a late World V2 detail after navigation returns to the chooser", async () => {
@@ -265,6 +345,7 @@ describe("Play selected-World admission", () => {
     vi.mocked(getWorldPlayRun).mockImplementation(() => new Promise((resolve) => {
       resolveWorldRun = resolve;
     }));
+    vi.mocked(getWorldPlayActiveRun).mockResolvedValue(worldActiveRun());
     render(<PlaySurfacePage />);
     expect(await screen.findByTestId("play-status-loading")).toBeInTheDocument();
 
