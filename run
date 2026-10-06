@@ -83,8 +83,11 @@ require_cmd npm
 if [[ -n "${DMB_AGENT_GRAPH_LOCAL_PROFILE:-}" ]]; then
   [[ -n "${DUNGEONMIND_SERVER_ROOT:-}" ]] || die "local Graph profile requires explicit DUNGEONMIND_SERVER_ROOT"
   [[ -n "${DMB_MANAGED_WORLD_DATA_ROOT:-}" ]] || die "local Graph profile requires DMB_MANAGED_WORLD_DATA_ROOT"
-  # An occupied product port may be a different checkout or profile. Do not
+  # An occupied service port may be a different checkout or profile. Do not
   # kill it or claim that this launcher's code/configuration is serving it.
+  if port_listening "$DMS_PORT"; then
+    die "local Graph profile cannot verify an existing DungeonMindServer listener; stop its owning launcher first"
+  fi
   if port_listening "$API_PORT" || port_listening "$UI_PORT"; then
     die "local Graph profile cannot verify an existing API/UI listener; stop its owning launcher first"
   fi

@@ -132,30 +132,46 @@ def test_preflight_reports_configuration_not_answer_acceptance(
     ) == "managed_world_binding_unavailable"
 
 
-def test_opted_in_launcher_refuses_unowned_api_listener(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize(
+    ("occupied_port_env", "expected_error"),
+    [
+        ("DUNGEONMIND_SERVER_PORT", "existing DungeonMindServer listener"),
+        ("BUDDY_API_PORT", "existing API/UI listener"),
+        ("BUDDY_UI_PORT", "existing API/UI listener"),
+    ],
+)
+def test_opted_in_launcher_refuses_unowned_service_listener(
+    tmp_path: Path, occupied_port_env: str, expected_error: str,
 ) -> None:
     operator = _operator_root(tmp_path)
     private = _private_profile(tmp_path)
     server = tmp_path / "server"
     server.mkdir()
     (server / "dev_server.py").write_text("# synthetic\n")
-    with socket.socket() as listener:
+    with socket.socket() as listener, socket.socket() as unused_a, socket.socket() as unused_b:
         listener.bind(("127.0.0.1", 0))
         listener.listen()
         port = listener.getsockname()[1]
+        unused_a.bind(("127.0.0.1", 0))
+        unused_b.bind(("127.0.0.1", 0))
+        spare_a = unused_a.getsockname()[1]
+        spare_b = unused_b.getsockname()[1]
+        unused_a.close()
+        unused_b.close()
         env = dict(os.environ)
         env.update({
             LOCAL_GRAPH_PROFILE_ENV: str(private),
             MANAGED_WORLD_DATA_ROOT_ENV: str(operator),
             "DUNGEONMIND_SERVER_ROOT": str(server),
-            "BUDDY_API_PORT": str(port),
-            "BUDDY_UI_PORT": "5202",
+            "BUDDY_API_PORT": str(spare_a),
+            "BUDDY_UI_PORT": str(spare_b),
+            "DUNGEONMIND_SERVER_PORT": str(spare_b),
+            occupied_port_env: str(port),
         })
         result = subprocess.run(
             ["bash", "run"], cwd=Path(__file__).resolve().parents[1],
             env=env, capture_output=True, text=True, timeout=10, check=False,
         )
     assert result.returncode != 0
-    assert "cannot verify an existing API/UI listener" in result.stderr
+    assert f"cannot verify an {expected_error}" in result.stderr
     assert "local stack up" not in result.stdout
