@@ -666,6 +666,11 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
             assert http_turn.status_code == 200, http_turn.text
             http_answer = http_turn.json()
             assert http_answer["schema"] == "dmb_agent_turn_response_v2"
+            assert http_answer["primary_work"]["revision_used"] == 7
+            assert isinstance(http_answer["primary_work"]["revision_used"], int)
+            assert http_answer["primary_work"]["content_basis"] == work.content_basis.model_dump(mode="json")
+            assert http_answer["primary_work"]["content_basis"]["revision_n"] == 3
+            assert http_answer["primary_work"]["content_basis"]["object_revision"] == 7
             assert http_answer["answer"]["graph_grounded"] is True
             assert http_answer["answer"]["text"] == graph_claim["text"]
             before_history_reads = len(graph_reads)
@@ -682,6 +687,8 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
             replay = client.post("/api/live/agent/turn", json=http_payload)
             assert replay.status_code == 200, replay.text
             assert replay.json()["plan_context"]["delivery_replay"] is True
+            assert replay.json()["primary_work"]["revision_used"] == 7
+            assert replay.json()["primary_work"]["content_basis"] is None
             assert len(graph_reads) == before_history_reads
             monkeypatch.setattr(
                 world_container_registry, "get_world_container",

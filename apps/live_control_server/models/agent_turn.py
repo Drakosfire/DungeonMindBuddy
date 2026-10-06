@@ -446,6 +446,14 @@ class AgentConversationHistoryTurnV2(AgentConversationHistoryTurn):
     plan_context: AgentPlanWorldGraphContextResponseV1
 
 
+class AgentConversationHistoryTurnV3(AgentConversationHistoryTurn):
+    idempotency_key: UUID
+
+
+class AgentConversationHistoryPlanTurnV3(AgentConversationHistoryTurnV3):
+    plan_context: AgentPlanWorldGraphContextResponseV1
+
+
 class AgentConversationHistoryResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -482,6 +490,13 @@ class AgentConversationHistoryResponseV2(AgentConversationHistoryResponse):
         default="dmb_agent_conversation_history_v2", alias="schema"
     )
     turns: list[AgentConversationHistoryTurnV2 | AgentConversationHistoryTurn]
+
+
+class AgentConversationHistoryResponseV3(AgentConversationHistoryResponse):
+    schema_: Literal["dmb_agent_conversation_history_v3"] = Field(
+        default="dmb_agent_conversation_history_v3", alias="schema"
+    )
+    turns: list[AgentConversationHistoryPlanTurnV3 | AgentConversationHistoryTurnV3]
 
 
 class AgentNewConversationRequest(BaseModel):

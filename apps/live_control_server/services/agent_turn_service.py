@@ -1916,6 +1916,16 @@ def _completed_turn_replay(
         if primary.resolution == "resolved"
         else "unavailable"
     )
+    if primary.kind == "plan" and primary.object_revision is None:
+        raise AgentTurnServiceError(
+            "The completed Plan receipt has no frozen numeric object revision.",
+            code="turn_receipt_unverifiable", status_code=409,
+        )
+    revision_used = (
+        primary.object_revision
+        if primary.kind == "plan" and primary.object_revision is not None
+        else primary.revision
+    )
     completion = turn.completion
     answer_text = turn.assistant_text
     graph_grounded = False
@@ -1954,7 +1964,7 @@ def _completed_turn_replay(
             "status": primary_status,
             "kind": primary.kind,
             "object_id": primary.object_id,
-            "revision_used": primary.revision,
+            "revision_used": revision_used,
             "expected_revision": (
                 None
                 if request.primary_work is None
@@ -2468,6 +2478,25 @@ def execute_agent_turn(
             code="plan_content_unavailable",
             status_code=503,
         )
+    policy_content_basis: AgentTurnContentBasis | None = None
+    if request.plan_context_policy is not None:
+        locator = request.primary_work
+        basis = None if work is None else work.content_basis
+        if (
+            locator is None or basis is None or work is None
+            or basis.world_id != canonical_world_id
+            or basis.document_id != locator.object_id
+            or basis.object_revision != locator.expected_revision
+            or basis.revision_n != locator.expected_revision_n
+            or basis.content_sha256 != locator.expected_content_sha256
+            or work.changed_since_expected
+        ):
+            raise AgentTurnServiceError(
+                "The exact resolved Plan basis is unavailable for this policy turn.",
+                code="plan_content_unavailable", status_code=409,
+                provider_dispatched=False,
+            )
+        policy_content_basis = basis.model_copy(deep=True)
     playable_target_receipt = stored_playable_target
     if request.playable_target is not None:
         basis = None if work is None else work.content_basis
@@ -2986,6 +3015,33 @@ def execute_agent_turn(
             )
         response = _completed_turn_replay(request, owner=owner or {}, turn=completed_turn)
         payload = response.model_dump(mode="json", by_alias=True)
+        basis = policy_content_basis
+        receipt = completed_turn.graph_context_receipt
+        locator = request.primary_work
+        stored = completed_turn.provenance.primary_work
+        if (
+            basis is None or receipt is None or locator is None
+            or basis.world_id != canonical_world_id
+            or basis.world_id != receipt.plan_basis.world_id
+            or basis.document_id != locator.object_id
+            or basis.document_id != receipt.plan_basis.document_id
+            or basis.object_revision != locator.expected_revision
+            or basis.object_revision != receipt.plan_basis.object_revision
+            or basis.object_revision != stored.object_revision
+            or str(basis.work_revision_id) != str(receipt.plan_basis.work_revision_id)
+            or str(basis.work_revision_id) != str(stored.work_revision_id)
+            or basis.revision_n != locator.expected_revision_n
+            or basis.revision_n != receipt.plan_basis.revision_n
+            or basis.content_sha256 != locator.expected_content_sha256
+            or basis.content_sha256 != receipt.plan_basis.content_sha256
+            or basis.content_sha256 != stored.content_sha256
+        ):
+            raise AgentTurnServiceError(
+                "The original resolved Plan basis does not match the completed receipt.",
+                code="turn_receipt_unverifiable", status_code=409,
+            )
+        payload["primary_work"]["revision_used"] = basis.object_revision
+        payload["primary_work"]["content_basis"] = basis.model_dump(mode="json")
         payload["answer"]["trace"] = final_trace
         payload["plan_context"]["delivery_replay"] = False
         payload["conversation"]["pointer_status"] = (
