@@ -15,6 +15,7 @@ from application_state.content.service import (
     update_plan_metadata,
     update_runbook_metadata,
 )
+from apps.live_control_server.config import MANAGED_WORLD_DATA_ROOT_ENV
 from apps.live_control_server.routes.play_runs import router as play_runs_router
 from apps.live_control_server.services.world_container_registry import create_world_container
 from tests.application_state.play_runtime_helpers import (
@@ -53,6 +54,26 @@ def world_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     ):
         monkeypatch.setattr(f"{module}.repo_root", lambda: tmp_path)
     return TestClient(create_app())
+
+
+@pytest.fixture
+def split_root_world_client(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[TestClient, Path, Path]:
+    from apps.live_control_server.main import create_app
+
+    code_root = tmp_path / "code"
+    managed_root = tmp_path / "operator-data"
+    code_root.mkdir()
+    managed_root.mkdir()
+    monkeypatch.setenv(MANAGED_WORLD_DATA_ROOT_ENV, str(managed_root))
+    for module in (
+        "apps.live_control_server.routes.play_runs",
+        "apps.live_control_server.routes.workspace_documents",
+        "apps.live_control_server.routes.live",
+    ):
+        monkeypatch.setattr(f"{module}.repo_root", lambda: code_root)
+    return TestClient(create_app()), code_root, managed_root
 
 
 @pytest.fixture
@@ -375,6 +396,95 @@ def test_world_runbook_v2_crud_tiptap_and_exact_revision(
     )
     assert unchanged.status_code == 200, unchanged.text
     assert unchanged.json()["content_sha256"] == snapshot.json()["content_sha256"]
+
+
+def test_world_runbook_routes_use_managed_root_with_separate_code_root(
+    application_state_dsn: str,
+    split_root_world_client: tuple[TestClient, Path, Path],
+) -> None:
+    client, code_root, managed_root = split_root_world_client
+    world = create_world_container(managed_root, name="Split Root Runbook World")
+    other_world = create_world_container(managed_root, name="Other Split Root World")
+    registry_path = managed_root / "out/registries/world_containers.json"
+    registry_bytes_before = registry_path.read_bytes()
+    code_resource = code_root / "out/config/keep.txt"
+    code_resource.parent.mkdir(parents=True)
+    code_resource.write_text("code-root resource\n", encoding="utf-8")
+
+    created = client.post(
+        "/api/live/workspace-documents/world-runbooks",
+        json={
+            "schema_version": "dmb_workspace_document_create_v2",
+            "scope_mode": "world",
+            "world_id": world.world_id,
+            "title": "Managed-root Runbook",
+        },
+    )
+    assert created.status_code == 200, created.text
+    document_id = created.json()["document_id"]
+
+    listed = client.get(
+        "/api/live/workspace-documents/world-runbooks",
+        params={"world_id": world.world_id},
+    )
+    assert listed.status_code == 200, listed.text
+    assert [row["document_id"] for row in listed.json()["records"]] == [document_id]
+    assert client.get(
+        f"/api/live/workspace-documents/world-runbooks/{document_id}",
+        params={"world_id": other_world.world_id},
+    ).status_code == 404
+
+    path = f"/api/live/workspace-documents/world-runbooks/{document_id}"
+    prepare = client.post(
+        f"{path}/tiptap/prepare",
+        params={"world_id": world.world_id},
+        json={
+            "schema_version": "dmb_tiptap_markdown_write_prepare_v2",
+            "scope_mode": "world",
+            "world_id": world.world_id,
+            "document_id": document_id,
+            "markdown": SOURCE_MARKDOWN,
+            "expected_revision": created.json()["revision"],
+        },
+    )
+    assert prepare.status_code == 200, prepare.text
+    commit = client.post(
+        f"{path}/tiptap/commit",
+        params={"world_id": world.world_id},
+        json={
+            "schema_version": "dmb_tiptap_markdown_write_commit_v2",
+            "scope_mode": "world",
+            "world_id": world.world_id,
+            "document_id": document_id,
+            "markdown": SOURCE_MARKDOWN,
+            "expected_revision": prepare.json()["registry_revision"],
+            "writer_confirm_token": prepare.json()["writer_confirm_token"],
+        },
+    )
+    assert commit.status_code == 200, commit.text
+
+    snapshot = client.get(
+        f"{path}/snapshot", params={"world_id": world.world_id}
+    )
+    assert snapshot.status_code == 200, snapshot.text
+    assert snapshot.json()["markdown"] == SOURCE_MARKDOWN.rstrip("\n") + "\n"
+    current = client.get(
+        f"{path}/committed-revision", params={"world_id": world.world_id}
+    )
+    assert current.status_code == 200, current.text
+    exact = client.get(
+        f"{path}/committed-revision/{current.json()['revision_n']}",
+        params={
+            "world_id": world.world_id,
+            "expected_sha256": current.json()["content_sha256"],
+        },
+    )
+    assert exact.status_code == 200, exact.text
+    assert exact.json() == current.json()
+
+    assert registry_path.read_bytes() == registry_bytes_before
+    assert not (code_root / "out/registries/world_containers.json").exists()
+    assert code_resource.read_text(encoding="utf-8") == "code-root resource\n"
 
 
 def test_live_query_world_play_context_v2_is_world_run_and_pin_bound(
