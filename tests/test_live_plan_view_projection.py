@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from jsonschema import Draft202012Validator
 
-from apps.live_control_server.config import SESSION_DIR_ENV
+from apps.live_control_server.config import MANAGED_WORLD_DATA_ROOT_ENV, SESSION_DIR_ENV
 from apps.live_control_server.main import create_app
 from apps.live_control_server.session_store import load_session
 from src.live_play.projections import build_session_plan_projection
@@ -123,6 +123,61 @@ def test_managed_world_plan_context_v2_has_no_campaign_or_session_sentinel(
 def test_managed_world_plan_context_v2_rejects_missing_world_id(client: TestClient) -> None:
     response = client.get("/api/live/plan-view", params={"scope_mode": "world"})
     assert response.status_code == 422
+
+
+def test_plan_view_reopens_operator_world_from_separate_code_checkout(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.routes import live
+    from apps.live_control_server.services.world_container_registry import (
+        create_world_container,
+        world_containers_path,
+    )
+
+    code_root = tmp_path / "clean-checkout"
+    code_root.mkdir()
+    operator_root = tmp_path / "operator-data"
+    world = create_world_container(operator_root, name="Existing World")
+    registry = world_containers_path(operator_root)
+    original = registry.read_bytes()
+    monkeypatch.setattr(live, "repo_root", lambda: code_root)
+    monkeypatch.setenv(MANAGED_WORLD_DATA_ROOT_ENV, str(operator_root))
+
+    scoped = client.get(
+        "/api/live/plan-view",
+        params={"scope_mode": "world", "world_id": world.world_id},
+    )
+    compatible = client.get(
+        "/api/live/plan-view", params={"world_id": world.world_id},
+    )
+    unknown = client.get(
+        "/api/live/plan-view",
+        params={"scope_mode": "world", "world_id": "unknown-world"},
+    )
+
+    assert scoped.status_code == 200
+    assert scoped.json()["schema_version"] == "dmb_managed_world_plan_context_v2"
+    assert scoped.json()["world_id"] == world.world_id
+    assert compatible.status_code == 200
+    assert compatible.json()["schema_version"] == "dmb_managed_world_plan_context_v1"
+    assert compatible.json()["world_id"] == world.world_id
+    assert unknown.status_code == 404
+    assert registry.read_bytes() == original
+    assert not world_containers_path(code_root).exists()
+
+
+def test_plan_view_invalid_explicit_world_root_fails_closed(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(MANAGED_WORLD_DATA_ROOT_ENV, str(tmp_path / "missing"))
+
+    response = client.get(
+        "/api/live/plan-view",
+        params={"scope_mode": "world", "world_id": "existing-world"},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Managed World storage is unavailable."
 
 
 def test_builder_uses_planning_beats_when_present(tmp_path: Path) -> None:
