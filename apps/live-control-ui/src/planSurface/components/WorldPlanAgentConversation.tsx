@@ -172,6 +172,12 @@ interface StoredPendingAsk {
   error: string | null;
 }
 
+interface ConfirmedTerminalFailureAsk {
+  storageKey: string;
+  serialized: string;
+  historyTurnId: string;
+}
+
 interface WorldPlanPendingNewConversation {
   schema: "dmb_world_pending_new_conversation_v1";
   worldId: string;
@@ -1177,6 +1183,80 @@ function completedHistoryTurnMatchesPendingGraphAsk(
   return turn.assistant_text === completedText;
 }
 
+function failedHistoryTurnMatchesPendingGraphAsk(
+  page: WorldAgentConversationHistoryResponse,
+  turn: WorldAgentConversationHistoryTurn,
+  stored: StoredPendingAsk,
+  idempotencyKey: string,
+): boolean {
+  const envelope = stored.envelope;
+  if (!envelope) return false;
+  const { request, origin } = envelope;
+  if (page.schema !== "dmb_agent_conversation_history_v3"
+    || !("idempotency_key" in turn)
+    || turn.idempotency_key !== idempotencyKey
+    || !request.plan_context_policy
+    || page.world_id !== origin.worldId
+    || !historyPageMatchesPendingAskConversation(page, origin)
+    || turn.lifecycle_status !== "failed"
+    || turn.user_text !== request.message
+    || turn.provenance.world_id !== origin.worldId
+    || turn.provenance.surface_resolution !== "resolved"
+    || turn.provenance.surface_id !== request.surface.surface_id
+    || typeof request.surface.instance_id !== "string"
+    || turn.provenance.surface_instance_id !== request.surface.instance_id) return false;
+
+  const context = "plan_context" in turn ? turn.plan_context : undefined;
+  if (!context
+    || !isWorldPlanContextProjection(context, request, true)
+    || context.completion !== null
+    || context.execution === null
+    || !isHistoryPlanContextBound(context, turn.provenance, origin.worldId)) return false;
+
+  const basis = context.receipt.plan_basis;
+  return basis.world_id === origin.worldId
+    && basis.document_id === origin.documentId
+    && basis.object_revision === origin.objectRevision
+    && basis.work_revision_id === origin.workRevisionId
+    && basis.revision_n === origin.revisionN
+    && basis.content_sha256 === origin.contentSha256;
+}
+
+async function classifyTerminalFailedGraphPendingAsks(
+  page: WorldAgentConversationHistoryResponse,
+  worldId: string,
+  documentId: string,
+  isCurrent: () => boolean,
+): Promise<ConfirmedTerminalFailureAsk[]> {
+  if (page.schema !== "dmb_agent_conversation_history_v3") return [];
+  const pending = readPendingAsks(worldId, documentId)
+    .filter((stored) => stored.envelope?.request.plan_context_policy);
+  const correlated = await Promise.all(pending.map(async (stored) => ({
+    stored,
+    key: await pendingGraphAskIdempotencyKey(stored),
+  })));
+  if (!isCurrent()) return [];
+
+  const candidates = correlated.flatMap(({ stored, key }) => {
+    if (!key) return [];
+    const matchingRows = page.turns.filter((turn) => "idempotency_key" in turn && turn.idempotency_key === key);
+    if (matchingRows.length !== 1) return [];
+    const turn = matchingRows[0]!;
+    return failedHistoryTurnMatchesPendingGraphAsk(page, turn, stored, key)
+      ? [{ stored, key, historyTurnId: turn.turn_id }]
+      : [];
+  });
+  const matchesByKey = new Map<string, number>();
+  for (const candidate of candidates) matchesByKey.set(candidate.key, (matchesByKey.get(candidate.key) ?? 0) + 1);
+  return candidates
+    .filter((candidate) => matchesByKey.get(candidate.key) === 1)
+    .map(({ stored, historyTurnId }) => ({
+      storageKey: stored.storageKey,
+      serialized: stored.serialized,
+      historyTurnId,
+    }));
+}
+
 function reconcileCompletedGraphPendingAsks(
   page: WorldAgentConversationHistoryResponse,
   worldId: string,
@@ -1513,6 +1593,7 @@ export function WorldPlanAgentConversation({
   const [historyRefreshNonce, setHistoryRefreshNonce] = useState(0);
   const [proposalOrderRevision, setProposalOrderRevision] = useState(0);
   const [pendingAsks, setPendingAsks] = useState<StoredPendingAsk[]>([]);
+  const [confirmedTerminalFailureAsks, setConfirmedTerminalFailureAsks] = useState<ConfirmedTerminalFailureAsk[]>([]);
   const [pendingAskLoadError, setPendingAskLoadError] = useState<string | null>(null);
   const [pendingCommands, setPendingCommands] = useState<StoredPendingNewConversation[]>([]);
   const [pendingCommandLoadError, setPendingCommandLoadError] = useState<string | null>(null);
@@ -1675,6 +1756,7 @@ export function WorldPlanAgentConversation({
     setOlderLoading(false);
     setHistory(null);
     setHistoryError(null);
+    setConfirmedTerminalFailureAsks([]);
     if (!scopeMatches || !verifiedWorldId || !documentId) {
       setHistoryLoading(false);
       return () => { active = false; };
@@ -1705,6 +1787,14 @@ export function WorldPlanAgentConversation({
           if (!active || generation !== historyGenerationRef.current) return;
           if (reconciliation.refreshPendingList) refreshPendingAskList();
           if (reconciliation.storageError) setPendingAskLoadError(reconciliation.storageError);
+          const terminalFailures = await classifyTerminalFailedGraphPendingAsks(
+            page,
+            verifiedWorldId,
+            documentId,
+            () => active && generation === historyGenerationRef.current,
+          );
+          if (!active || generation !== historyGenerationRef.current) return;
+          setConfirmedTerminalFailureAsks(terminalFailures);
         } catch (reason) {
           setPendingAskLoadError(reason instanceof Error
             ? reason.message
@@ -2265,7 +2355,11 @@ export function WorldPlanAgentConversation({
   function graphExecutionGuidance(
     execution: WorldPlanGraphExecutionProjectionV1 | null,
     hasCompletion: boolean,
+    terminalFailureConfirmed = false,
   ): string {
+    if (terminalFailureConfirmed) {
+      return "Exact V3 World history records this turn as failed. It will not be automatically resent.";
+    }
     if (!execution) return "No execution recovery status was recorded. Refresh World history before taking another action.";
     if (execution.claimability === "completed") {
       return hasCompletion
@@ -2298,6 +2392,10 @@ export function WorldPlanAgentConversation({
   function renderGraphContextHistory(turn: WorldAgentConversationHistoryTurn) {
     if (!("plan_context" in turn) || !turn.plan_context) return null;
     const { completion, execution } = turn.plan_context;
+    const terminalFailureConfirmed = confirmedTerminalFailureAsks.some((classification) =>
+      classification.historyTurnId === turn.turn_id
+      && pendingAsks.some((item) => item.storageKey === classification.storageKey
+        && item.serialized === classification.serialized));
     const claims = completion?.answer_segments.filter((segment) => segment.kind === "graph_claim") ?? [];
     const citations = completion?.citation_map?.entries ?? [];
     const citationByClaim = new Map(citations.map((entry) => [entry.claim_id, entry]));
@@ -2325,7 +2423,9 @@ export function WorldPlanAgentConversation({
             </div>
           );
         })}
-        <p className="world-plan-agent-conversation__context">{graphExecutionGuidance(execution, completion !== null)}</p>
+        <p className="world-plan-agent-conversation__context">
+          {graphExecutionGuidance(execution, completion !== null, terminalFailureConfirmed)}
+        </p>
       </section>
     );
   }
@@ -2982,7 +3082,7 @@ export function WorldPlanAgentConversation({
           <h3>Pending recovery · {pendingAsks.filter((item) => item.envelope !== null).length}</h3>
           {pendingAsks.some((item) => item.envelope?.request.plan_context_policy) ? (
             <>
-              <p>Graph Asks stay saved until exact server history confirms completion. They are never reposted automatically.</p>
+              <p>Saved Graph Asks stay in browser storage. Exact V3 World history may confirm completion or record a failure; Refresh never reposts them.</p>
               <button type="button" onClick={refreshWorldHistory} disabled={historyLoading || !scopeMatches}>
                 Refresh World history
               </button>
@@ -2991,14 +3091,25 @@ export function WorldPlanAgentConversation({
           {pendingAsks.filter((item): item is StoredPendingAsk & { envelope: WorldPlanPendingAskEnvelope } => item.envelope !== null)
             .map((item) => {
               const graphAsk = Boolean(item.envelope.request.plan_context_policy);
+              const terminalFailureConfirmed = graphAsk && confirmedTerminalFailureAsks.some((classification) =>
+                classification.storageKey === item.storageKey && classification.serialized === item.serialized);
               return (
                 <details key={item.storageKey}>
-                  <summary>{graphAsk ? "Graph Ask" : "Ask"} · {item.envelope.request.turn_id}</summary>
+                  <summary>
+                    {graphAsk ? "Graph Ask" : "Ask"} · {item.envelope.request.turn_id}
+                    {terminalFailureConfirmed ? " · failure confirmed" : ""}
+                  </summary>
                   <p>Turn ID · <code>{item.envelope.request.turn_id}</code></p>
-                  <p>Status · {graphAsk ? "awaiting exact completed history match" : "saved for exact-ID retry"}</p>
+                  <p>Status · {graphAsk
+                    ? terminalFailureConfirmed
+                      ? "terminal failure confirmed in exact V3 World history"
+                      : "outcome not confirmed in exact V3 World history"
+                    : "saved for exact-ID retry"}</p>
                   <p>Plan object revision {item.envelope.origin.objectRevision} · content revision {item.envelope.origin.revisionN} · conversation {item.envelope.origin.conversationId ?? "not yet active"}</p>
                   {graphAsk ? (
-                    <p role="status">Refresh checks the original World conversation and exact Plan basis. The saved Ask is not sent again.</p>
+                    <p role="status">{terminalFailureConfirmed
+                      ? "Exact V3 World history records this turn as failed. The saved recovery record is preserved; Refresh will not repost it."
+                      : "Exact V3 World history has not confirmed this Ask. Refresh checks its original conversation and Plan basis without reposting it."}</p>
                   ) : (
                     <button
                       type="button"
