@@ -159,7 +159,7 @@ def test_policy_predispatch_failure_has_strict_typed_projection(
     assert caught.value.status_code == status_code
     assert caught.value.detail["code"] == failure_code
     assert caught.value.detail["plan_context_failure"] == {
-        "schema": "dmb_agent_plan_world_graph_context_failure_v1",
+        "schema": "dmb_plan_world_graph_context_failure_v1",
         "status": "pre_dispatch_failed",
         "failure_code": failure_code,
         "provider_dispatched": False,

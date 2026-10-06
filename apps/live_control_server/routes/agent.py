@@ -901,7 +901,7 @@ def post_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, Any]:
                         "code": failure_code,
                         "message": str(exc),
                         "plan_context_failure": {
-                            "schema": "dmb_agent_plan_world_graph_context_failure_v1",
+                            "schema": "dmb_plan_world_graph_context_failure_v1",
                             "status": "pre_dispatch_failed",
                             "failure_code": failure_code,
                             "provider_dispatched": False,
