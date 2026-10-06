@@ -1313,6 +1313,55 @@ describe("World Plan conversation consumer", () => {
     expect(api.getHistory).toHaveBeenCalledWith(worldId, { limit: 50, includeTurnCorrelation: true });
   });
 
+  it("renders SERVER answer prose as readable rich text while preserving its evidence details", async () => {
+    const segments = [
+      "**Saved Plan:** The western gate is watched.",
+      "**Evidence:** One graph reference.",
+      "**Next:** Keep A sealed gate and a watchful guard on duty.",
+    ];
+    const answer = segments.join("\n");
+    const projection = {
+      ...serverHistoryProjection,
+      turns: serverHistoryProjection.turns.map((turn, index) => index === 0
+        ? {
+          ...turn,
+          assistant_text: answer,
+          plan_context: {
+            ...turn.plan_context,
+            completion: {
+              ...turn.plan_context.completion!,
+              answer_segments: [
+                { ...turn.plan_context.completion!.answer_segments[0]!, text: segments[0]! },
+                {
+                  kind: "plan_claim" as const,
+                  text: segments[1]!,
+                  plan_content_sha256: turn.plan_context.receipt.plan_basis.content_sha256,
+                },
+                { kind: "connective" as const, text: segments[2]! },
+              ],
+            },
+          },
+        }
+        : turn),
+    } satisfies WorldAgentConversationHistoryResponseV2;
+    setupApi(projection);
+
+    render(conversationElement());
+
+    const transcript = await screen.findByRole("region", { name: "World conversation transcript" });
+    expect(await within(transcript).findByText("Saved Plan:", { selector: "strong" })).toBeInTheDocument();
+    expect(within(transcript).getByText("Evidence:", { selector: "strong" })).toBeInTheDocument();
+    expect(within(transcript).getByText("Next:", { selector: "strong" })).toBeInTheDocument();
+    expect(within(transcript).getByText("Keep A sealed gate and a watchful guard on duty.")).toBeInTheDocument();
+    const renderedAnswer = transcript.querySelector(".world-plan-agent-answer")!;
+    expect(renderedAnswer).not.toHaveTextContent("**Saved Plan:**");
+    expect(renderedAnswer.querySelectorAll(":scope > div")).toHaveLength(3);
+    expect(screen.getByText("Grounded in complete World Graph evidence.")).toBeInTheDocument();
+    const evidenceSummary = screen.getByText("1 evidence reference");
+    fireEvent.click(evidenceSummary);
+    expect(within(evidenceSummary.closest("details")!).getByText("evidence-internal-test")).toBeInTheDocument();
+  });
+
   it("keeps SERVER's card-A receipt and provenance after selection changes and history reloads", async () => {
     const api = setupApi(serverCardTargetHistoryProjection);
     const cardA = { kind: "scene" as const, id: "scene:opening" };
@@ -3621,7 +3670,7 @@ describe("World Plan conversation consumer", () => {
         target_kind: request.target_kind,
         selected_text_sha256: await sha256Hex(request.selected_text),
         replacement_markdown: "A distant bell rings.",
-        summary: "Add a distant bell.",
+        summary: "**Saved Plan:** Add a distant bell.\n\n**Evidence:** Draft excerpt.\n\n- The opening scene gains a bell",
         assumptions: [],
         model: "test-model",
         model_observed: false,
@@ -3666,6 +3715,12 @@ describe("World Plan conversation consumer", () => {
       expect(review).not.toHaveTextContent("Nothing selected · text will be inserted at the captured caret.");
       fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
       await waitFor(() => expect(bridge.apply).toHaveBeenCalledTimes(1));
+
+      const proposalEvent = document.querySelector(".world-plan-agent-conversation__proposal-event")!;
+      expect(within(proposalEvent).getByText("Saved Plan:", { selector: "strong" })).toBeInTheDocument();
+      expect(within(proposalEvent).getByText("Evidence:", { selector: "strong" })).toBeInTheDocument();
+      expect(within(proposalEvent).getByText("The opening scene gains a bell")).toBeInTheDocument();
+      expect(proposalEvent).not.toHaveTextContent("**Saved Plan:**");
 
       const activeThreadId = localStorage.getItem(activeThreadStorageKey(namespace, "plan", documentId));
       expect(activeThreadId).toBeTruthy();

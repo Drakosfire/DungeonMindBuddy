@@ -39,6 +39,7 @@ import {
   worldPlanSectionUnavailableReason,
 } from "../agentEdit/planAgentEditProposal";
 import { planSectionTargets, type PlanSectionTarget } from "../agentEdit/planSectionTarget";
+import { WorldPlanAgentAnswer } from "./WorldPlanAgentAnswer";
 import {
   AGENT_TURN_HISTORY_CAP,
   createAgentInteractionThread,
@@ -2996,7 +2997,7 @@ export function WorldPlanAgentConversation({
         </p>
       ) : null}
       <p><strong>You:</strong> {turn.question}</p>
-      <p><strong>DungeonBuddy:</strong> {turn.answer}</p>
+      <div><strong>DungeonBuddy:</strong><WorldPlanAgentAnswer answer={turn.answer} /></div>
       {turn.planEdit?.applied ? (
         <p className="world-plan-agent-conversation__context">Apply changes your draft. Save keeps the changes.</p>
       ) : null}
@@ -3146,7 +3147,12 @@ export function WorldPlanAgentConversation({
             })()}
             <p><strong>You:</strong> {event.turn.user_text}</p>
             {event.turn.assistant_text ? (
-              <p><strong>DungeonBuddy:</strong> {event.turn.assistant_text}</p>
+              <div><strong>DungeonBuddy:</strong><WorldPlanAgentAnswer
+                answer={event.turn.assistant_text}
+                displaySegments={"plan_context" in event.turn && event.turn.plan_context?.completion
+                  ? event.turn.plan_context.completion.answer_segments.map((segment) => segment.text)
+                  : undefined}
+              /></div>
             ) : (
               <p role="status">{isHistoryTurnFailureConfirmed(event.turn.turn_id)
                 ? "This World history turn is recorded as failed."
@@ -3330,7 +3336,7 @@ export function WorldPlanAgentConversation({
                 {[...legacyThreadForDisplay.turns].reverse().map((turn) => (
                   <li key={turn.turnId}>
                     <p><strong>You:</strong> {turn.question}</p>
-                    <p><strong>Local response{turn.planEdit ? " · Plan proposal" : ""}:</strong> {turn.answer}</p>
+                    <div><strong>Local response{turn.planEdit ? " · Plan proposal" : ""}:</strong><WorldPlanAgentAnswer answer={turn.answer} /></div>
                     {turn.planEdit ? (
                       <p className="world-plan-agent-conversation__context">
                         Plan proposal · {turn.planEdit.applied ? "Applied to the local draft" : "Not applied"}
