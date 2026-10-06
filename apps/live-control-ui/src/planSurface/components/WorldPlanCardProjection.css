@@ -155,21 +155,17 @@
   line-height: 1.2;
 }
 
+.world-plan-scene-reader__title {
+  width: 100%;
+}
+
 .world-plan-scene-reader__heading > code {
   overflow-wrap: anywhere;
   color: var(--text-secondary, #bec9c2);
 }
 
-.world-plan-scene-reader__beat,
 .world-plan-scene-reader__target {
   margin: 0;
-}
-
-.world-plan-scene-reader__beat {
-  color: var(--text-secondary, #bec9c2);
-}
-
-.world-plan-scene-reader__target {
   width: 100%;
   padding: 0.7rem 0.85rem;
   border-left: 3px solid var(--accent, #c58b49);
@@ -177,6 +173,9 @@
 }
 
 .world-plan-scene-reader__context {
+  display: grid;
+  gap: 0.45rem;
+  width: 100%;
   max-width: 58rem;
   padding: 0.8rem 1rem;
   border: 1px solid var(--surface-border, #53635d);
@@ -184,14 +183,41 @@
   background: var(--surface-raised, #18211e);
 }
 
-.world-plan-scene-reader__context h3,
+.world-plan-scene-reader__context-title h3,
 .world-plan-scene-reader__context p {
   margin: 0;
 }
 
-.world-plan-scene-reader__context p {
+.world-plan-scene-reader__context-title h3 {
+  font-size: 1.05rem;
+}
+
+.world-plan-scene-reader__beat-details {
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--surface-border, #53635d);
+}
+
+.world-plan-scene-reader__beat-details summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.world-plan-scene-reader__details-content {
+  margin-top: 0.55rem;
+}
+
+.world-plan-scene-reader__details-content > :first-child,
+.world-plan-scene-reader__objective > :first-child {
+  margin-top: 0;
+}
+
+.world-plan-scene-reader__details-content > p + p {
   margin-top: 0.45rem;
-  white-space: pre-wrap;
+}
+
+.world-plan-scene-reader__details-content > :last-child,
+.world-plan-scene-reader__objective > :last-child {
+  margin-bottom: 0;
 }
 
 .world-plan-scene-reader__content .world-plan-card-roots {
@@ -202,7 +228,7 @@
   padding: clamp(1rem, 3vw, 1.5rem);
 }
 
-.world-plan-cards--reader .world-plan-card__body {
+.world-plan-cards--reader .world-plan-card__content {
   max-width: 68ch;
   line-height: 1.65;
 }
@@ -247,7 +273,7 @@
   border-top: 3px solid var(--accent, #c58b49);
 }
 
-.world-plan-card__header h3 {
+.world-plan-card__title h3 {
   margin: 0.1rem 0 0.35rem;
 }
 
@@ -278,13 +304,47 @@
   font-size: 0.82em;
 }
 
-.world-plan-card__relationship,
-.world-plan-card__body {
+.world-plan-card__relationship {
   margin: 0.65rem 0 0;
 }
 
-.world-plan-card__body {
-  white-space: pre-wrap;
+.world-plan-card__content {
+  max-width: 68ch;
+  margin: 0.65rem 0 0;
+  line-height: 1.6;
+}
+
+.world-plan-card__content > * {
+  margin-block: 0 0.7rem;
+}
+
+.world-plan-card__content > :first-child {
+  margin-top: 0;
+}
+
+.world-plan-card__content > :last-child {
+  margin-bottom: 0;
+}
+
+.world-plan-card__content ul,
+.world-plan-card__content ol {
+  padding-inline-start: 1.45rem;
+}
+
+.world-plan-card__content li + li {
+  margin-top: 0.25rem;
+}
+
+.world-plan-card__content li > p {
+  margin-block: 0.25rem;
+}
+
+.world-plan-card__content [data-plan-card-reference="graph"] {
+  border: 1px solid var(--accent, #c58b49);
+  border-radius: 999px;
+  padding: 0.04rem 0.38rem;
+  color: var(--text-primary, #f5f4ec);
+  font-size: 0.92em;
 }
 
 .world-plan-card__edges {

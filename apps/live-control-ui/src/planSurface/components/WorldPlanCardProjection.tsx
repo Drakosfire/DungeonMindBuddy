@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { JSONContent } from "@tiptap/core";
+import { generateHTML, mergeAttributes, type JSONContent } from "@tiptap/core";
+import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from "../../tiptap/MarkdownEditorCore";
+import { GraphNodeReferenceNode } from "../../tiptap/extensions/GraphNodeReferenceNode";
+import { classifyImageUrl, classifyLinkUrl } from "../../markdownReader/markdownReaderUrlPolicy";
 import {
   indexPlayableStructure,
   indexPlayableStructureV2,
@@ -32,7 +35,9 @@ export type WorldPlanCardNode = {
   id: string;
   kind: "scene" | "beat" | "choice" | "option";
   title: string;
+  titleContent: JSONContent[];
   bodyText: string;
+  bodyContent: JSONContent[];
   order: number;
   parentId: string | null;
   children: WorldPlanCardNode[];
@@ -41,6 +46,156 @@ export type WorldPlanCardNode = {
   activates?: string[];
   suppresses?: string[];
 };
+
+const StaticGraphNodeReferenceNode = GraphNodeReferenceNode.extend({
+  renderHTML({ node, HTMLAttributes }) {
+    const attrs = node.attrs as { nodeId?: unknown; label?: unknown };
+    const nodeId = typeof attrs.nodeId === "string" ? attrs.nodeId : "";
+    const label = typeof attrs.label === "string" ? attrs.label : "";
+    return [
+      "span",
+      mergeAttributes(HTMLAttributes, {
+        class: "graph-node-reference-pill recap-node-token",
+        "data-graph-node-id": nodeId,
+        "data-plan-card-reference": "graph",
+        contenteditable: "false",
+      }),
+      label,
+    ];
+  },
+});
+
+const PLAN_CARD_SCHEMA_EXTENSIONS = DEFAULT_MARKDOWN_EDITOR_EXTENSIONS.map((extension) => (
+  extension.name === GraphNodeReferenceNode.name ? StaticGraphNodeReferenceNode : extension
+));
+
+function unsupportedCardContentReason(content: readonly JSONContent[]): string | null {
+  const inspect = (node: unknown): string | null => {
+    if (node == null || typeof node !== "object" || Array.isArray(node)) return "malformed content";
+    const record = node as { type?: unknown; attrs?: unknown; marks?: unknown; content?: unknown };
+    if (typeof record.type !== "string" || record.type.length === 0) return "missing node type";
+    const attrs = record.attrs == null
+      ? {}
+      : typeof record.attrs === "object" && !Array.isArray(record.attrs)
+        ? record.attrs as Record<string, unknown>
+        : null;
+    if (attrs == null) return "malformed node attributes";
+
+    if (["image", "video", "audio", "iframe", "embed"].includes(record.type)) {
+      const src = typeof attrs.src === "string" ? attrs.src : "";
+      return classifyImageUrl(src) === "unsafe"
+        ? "unsafe embedded media"
+        : "embedded media is not supported in Cards";
+    }
+    if ("src" in attrs || "href" in attrs) return "unsupported URL-bearing node";
+
+    if (record.type === "graphNodeReference") {
+      if (typeof attrs.nodeId !== "string" || attrs.nodeId.length === 0
+        || typeof attrs.label !== "string" || attrs.label.length === 0) {
+        return "malformed Graph reference";
+      }
+    }
+    if (record.type === "runbookReference") {
+      if ((attrs.kind !== undefined && attrs.kind !== "ref" && attrs.kind !== "action")
+        || typeof attrs.refType !== "string" || attrs.refType.length === 0
+        || typeof attrs.refId !== "string" || attrs.refId.length === 0
+        || typeof attrs.label !== "string" || attrs.label.length === 0) {
+        return "malformed Runbook reference";
+      }
+    }
+
+    if (record.marks !== undefined && !Array.isArray(record.marks)) return "malformed marks";
+    if (Array.isArray(record.marks)) {
+      for (const mark of record.marks) {
+        if (mark == null || typeof mark !== "object" || Array.isArray(mark)) return "malformed mark";
+        const markRecord = mark as { type?: unknown; attrs?: unknown };
+        const markAttrs = markRecord.attrs == null
+          ? {}
+          : typeof markRecord.attrs === "object" && !Array.isArray(markRecord.attrs)
+            ? markRecord.attrs as Record<string, unknown>
+            : null;
+        if (typeof markRecord.type !== "string" || markAttrs == null) return "malformed mark";
+        if (markRecord.type === "link") {
+          if (typeof markAttrs.href !== "string") return "malformed link";
+          const linkKind = classifyLinkUrl(markAttrs.href);
+          if (linkKind === "unsafe" || linkKind === "relative_visible") {
+            return "link destination is not safe to navigate from Cards";
+          }
+        } else if ("href" in markAttrs || "src" in markAttrs) {
+          return "unsupported URL-bearing mark";
+        }
+      }
+    }
+
+    if (record.content !== undefined && !Array.isArray(record.content)) return "malformed child content";
+    if (Array.isArray(record.content)) {
+      for (const child of record.content) {
+        const reason = inspect(child);
+        if (reason) return reason;
+      }
+    }
+    return null;
+  };
+
+  for (const node of content) {
+    const reason = inspect(node);
+    if (reason) return reason;
+  }
+  return null;
+}
+
+function cardTitleContent(node: WorldPlanCardNode, level: number): JSONContent {
+  const titleContent = node.titleContent.length > 0
+    ? node.titleContent
+    : node.title === node.id || node.title.length === 0
+      ? [{ type: "text", text: node.title || "Untitled marked element" }]
+      : [{ type: "unsupportedPlayableTitle" }];
+  return {
+    type: "heading",
+    attrs: { level },
+    content: titleContent,
+  };
+}
+
+function authoredInlineText(nodes: readonly JSONContent[]): string {
+  return nodes.map((node) => {
+    if (node.type === "text") return typeof node.text === "string" ? node.text : "";
+    if (node.type === "graphNodeReference" || node.type === "runbookReference") {
+      return typeof node.attrs?.label === "string" ? node.attrs.label : "";
+    }
+    return authoredInlineText(node.content ?? []);
+  }).join("");
+}
+
+function StaticPlanCardContent({
+  identity,
+  content,
+  className,
+}: {
+  identity: string;
+  content: JSONContent[];
+  className: string;
+}) {
+  const contentKey = useMemo(() => JSON.stringify([identity, content]), [identity, content]);
+  const html = useMemo(() => {
+    if (unsupportedCardContentReason(content)) return null;
+    try {
+      return generateHTML({ type: "doc", content }, PLAN_CARD_SCHEMA_EXTENSIONS);
+    } catch {
+      return null;
+    }
+  }, [contentKey]);
+
+  if (html === null) {
+    return (
+      <p className={`${className} world-plan-card__content-unavailable`} role="status">
+        This authored content cannot be displayed safely in Cards. Open Document to view it.
+      </p>
+    );
+  }
+  if (!html) return null;
+  return <div className={className} dangerouslySetInnerHTML={{ __html: html }} />;
+}
 
 export type WorldPlanCardProjectionModel =
   | { status: "empty" }
@@ -132,7 +287,9 @@ function createNodes(
       id: element.id,
       kind: element.kind,
       title: slice.title,
+      titleContent: slice.titleContent,
       bodyText: slice.bodyText,
+      bodyContent: slice.bodyContent,
       order: element.order,
       parentId: null,
       children: [],
@@ -226,6 +383,8 @@ export function buildWorldPlanCardProjectionModel(input: {
 
 function CardNodeView({
   node,
+  worldId,
+  documentId,
   selectableTargetKeys,
   editableTargetKeys,
   selectedTarget,
@@ -235,6 +394,8 @@ function CardNodeView({
   onFocusScene,
 }: {
   node: WorldPlanCardNode;
+  worldId: string;
+  documentId: string;
   selectableTargetKeys: ReadonlySet<string>;
   editableTargetKeys: ReadonlySet<string>;
   selectedTarget: WorldPlanCardTarget | null;
@@ -253,7 +414,11 @@ function CardNodeView({
       <article className="world-plan-card">
         <header className="world-plan-card__header">
           <p className="world-plan-card__kind">{node.kind}{node.beatKind ? ` · ${node.beatKind}` : ""}</p>
-          <h3>{node.title || "Untitled marked element"}</h3>
+          <StaticPlanCardContent
+            identity={`${worldId}\u001f${documentId}\u001f${node.kind}\u001f${node.id}\u001ftitle`}
+            content={[cardTitleContent(node, 3)]}
+            className="world-plan-card__title"
+          />
           <code>{node.id}</code>
           {onSelectTarget ? (
             <button
@@ -274,7 +439,7 @@ function CardNodeView({
               type="button"
               className="world-plan-card__focus-scene"
               data-focus-scene-id={node.id}
-              aria-label={`Read scene: ${node.title || "Untitled marked scene"}`}
+              aria-label={`Read scene: ${authoredInlineText(node.titleContent).trim() || node.title || node.id}`}
               onClick={() => onFocusScene(node)}
             >Read scene</button>
           ) : null}
@@ -292,7 +457,13 @@ function CardNodeView({
           </button>
         </header>
         {node.sceneId ? <p className="world-plan-card__relationship">Associated scene: <code>{node.sceneId}</code></p> : null}
-        {node.bodyText ? <p className="world-plan-card__body">{node.bodyText}</p> : null}
+        {node.bodyContent.length ? (
+          <StaticPlanCardContent
+            identity={`${worldId}\u001f${documentId}\u001f${node.kind}\u001f${node.id}\u001fbody`}
+            content={node.bodyContent}
+            className="world-plan-card__content"
+          />
+        ) : null}
         {node.activates?.length || node.suppresses?.length ? (
           <ul className="world-plan-card__edges" aria-label="Authored relationships">
             {node.activates?.map((target) => <li key={`activates:${target}`}>Authored activates: <code>{target}</code></li>)}
@@ -306,6 +477,8 @@ function CardNodeView({
             <CardNodeView
               key={child.id}
               node={child}
+              worldId={worldId}
+              documentId={documentId}
               selectableTargetKeys={selectableTargetKeys}
               editableTargetKeys={editableTargetKeys}
               selectedTarget={selectedTarget}
@@ -438,9 +611,6 @@ export function WorldPlanCardProjection({
       ? "Uncommitted server draft"
   : "Unavailable";
   if (focusedScene) {
-    const selectedSceneParent = focusedScene.parentId
-      ? nodes.find((node) => node.id === focusedScene.parentId) ?? null
-      : null;
     const previousScene = focusedSceneIndex > 0 ? scenes[focusedSceneIndex - 1] : null;
     const nextScene = focusedSceneIndex >= 0 && focusedSceneIndex < scenes.length - 1
       ? scenes[focusedSceneIndex + 1]
@@ -454,10 +624,37 @@ export function WorldPlanCardProjection({
         </nav>
         <header className="world-plan-scene-reader__heading">
           <p className="world-plan-card__kind">Focused Scene · {model.version}</p>
-          <h2>{focusedScene.title || "Untitled marked scene"}</h2>
+          <StaticPlanCardContent
+            identity={`${worldId}\u001f${documentId}\u001f${focusedScene.kind}\u001f${focusedScene.id}\u001ftitle-reader`}
+            content={[cardTitleContent(focusedScene, 2)]}
+            className="world-plan-scene-reader__title"
+          />
           <code>{focusedScene.id}</code>
-          {selectedSceneParent && selectedSceneParent.kind === "beat" ? (
-            <p className="world-plan-scene-reader__beat">Part of {selectedSceneParent.title || selectedSceneParent.id}</p>
+          {parentBeat ? (
+            <section className="world-plan-scene-reader__context" aria-label="Authored Beat context">
+              <StaticPlanCardContent
+                identity={`${worldId}\u001f${documentId}\u001f${parentBeat.kind}\u001f${parentBeat.id}\u001ftitle-context`}
+                content={[cardTitleContent(parentBeat, 3)]}
+                className="world-plan-scene-reader__context-title"
+              />
+              {parentBeat.bodyContent[0] ? (
+                <StaticPlanCardContent
+                  identity={`${worldId}\u001f${documentId}\u001f${parentBeat.kind}\u001f${parentBeat.id}\u001fobjective`}
+                  content={[parentBeat.bodyContent[0]]}
+                  className="world-plan-scene-reader__objective"
+                />
+              ) : null}
+              {parentBeat.bodyContent.length > 1 ? (
+                <details className="world-plan-scene-reader__beat-details">
+                  <summary>Beat details</summary>
+                  <StaticPlanCardContent
+                    identity={`${worldId}\u001f${documentId}\u001f${parentBeat.kind}\u001f${parentBeat.id}\u001fdetails`}
+                    content={parentBeat.bodyContent.slice(1)}
+                    className="world-plan-scene-reader__details-content"
+                  />
+                </details>
+              ) : null}
+            </section>
           ) : null}
           <p className="world-plan-scene-reader__target" role="status">
             {focusedTargetSelectable && focusedTargetSelected
@@ -468,15 +665,11 @@ export function WorldPlanCardProjection({
           </p>
         </header>
         <div className="world-plan-scene-reader__content">
-          {parentBeat?.bodyText ? (
-            <section className="world-plan-scene-reader__context" aria-label="Authored Beat context">
-              <h3>{parentBeat.title || parentBeat.id}</h3>
-              <p>{parentBeat.bodyText}</p>
-            </section>
-          ) : null}
           <ol className="world-plan-card-roots">
             <CardNodeView
               node={focusedScene}
+              worldId={worldId}
+              documentId={documentId}
               selectableTargetKeys={selectableTargetKeys}
               editableTargetKeys={editableTargetKeys}
               selectedTarget={selectedTarget}
@@ -487,6 +680,8 @@ export function WorldPlanCardProjection({
               <CardNodeView
                 key={choice.id}
                 node={choice}
+                worldId={worldId}
+                documentId={documentId}
                 selectableTargetKeys={selectableTargetKeys}
                 editableTargetKeys={editableTargetKeys}
                 selectedTarget={selectedTarget}
@@ -550,6 +745,8 @@ export function WorldPlanCardProjection({
           <CardNodeView
             key={node.id}
             node={node}
+            worldId={worldId}
+            documentId={documentId}
             selectableTargetKeys={selectableTargetKeys}
             editableTargetKeys={editableTargetKeys}
             selectedTarget={selectedTarget}

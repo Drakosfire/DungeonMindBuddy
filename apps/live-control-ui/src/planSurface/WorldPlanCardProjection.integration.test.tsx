@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
+import type { JSONContent } from "@tiptap/core";
 
 import * as liveApi from "../api/liveApi";
 import type { WorldOwnedPlanRecordV2 } from "../api/types";
@@ -8,6 +9,7 @@ import { SelectedWorldProvider } from "../selectedWorld/SelectedWorldContext";
 import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
 import { PeekRegionProvider } from "../surfaceInteraction/peekHost";
 import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
+import { slicePlayableBodies } from "../playSurface/runbook/nativeRunbookProjection";
 import { PlanSurfacePage } from "./PlanSurfacePage";
 import {
   buildWorldPlanCardProjectionModel,
@@ -56,6 +58,34 @@ const initialV2Markdown = [
   "<!-- dmb-playable-element:v2 kind=beat id=beat:panic-breaks beat_kind=optional -->",
   "## Panic breaks",
   "The line starts to move.",
+].join("\n") + "\n";
+const readerFidelityV2Markdown = [
+  "<!-- dmb-playable-element:v2 kind=beat id=beat:gate-call beat_kind=spine -->",
+  "## Hold the gate",
+  "The objective is to keep the gate open.",
+  "",
+  "Pressure: rain is filling the lower street.",
+  "",
+  "Role: the scout handles the signal.",
+  "",
+  "The bell rings twice before the courier arrives.",
+  "<!-- dmb-playable-element:v2 kind=scene id=scene:gate-call -->",
+  "### Arrival at [North Gate](dmb-node:loc_north_gate)",
+  "The wet stones shine beneath the wall.",
+  "",
+  "A **brass** bell hangs beside the gate.",
+  "",
+  "Speak with [Caelynn](dmb-node:pc_caelynn) and review [Gate procedure](#dmb-ref:citation:gate-procedure).",
+  "",
+  "- Inspect the north hinge",
+  "  - Ask the keeper for the iron key",
+  "",
+  "1. Sound the bell",
+  "2. Raise the lantern",
+  "   - Keep the shutter closed",
+  "",
+  "## General Runbook direction",
+  "Do not show this ordinary section in Cards.",
 ].join("\n") + "\n";
 const initialDigest = "a".repeat(64);
 const committedDigest = "b".repeat(64);
@@ -192,6 +222,162 @@ it("makes duplicate marker identities unavailable to target selection", () => {
 
   expect(model.status).toBe("blocked");
   expect(worldPlanCardTargetKeys(model)).toEqual(new Set());
+});
+
+it("preserves authored blocks and renders inert references with a compact Beat disclosure", async () => {
+  const imported = markdownToTiptapDoc(readerFidelityV2Markdown);
+  expect(imported.diagnostics).toEqual([]);
+  const slices = slicePlayableBodies(imported.doc);
+  const beat = slices.get("beat:gate-call");
+  const scene = slices.get("scene:gate-call");
+  expect(beat).toBeDefined();
+  expect(scene).toBeDefined();
+  expect(scene?.titleContent).toContainEqual({
+    type: "graphNodeReference",
+    attrs: { nodeId: "loc_north_gate", label: "North Gate" },
+  });
+  expect(scene?.bodyContent.map((node) => node.type)).toEqual([
+    "paragraph",
+    "paragraph",
+    "paragraph",
+    "bulletList",
+    "orderedList",
+  ]);
+  expect(scene?.bodyContent[2]?.content).toContainEqual({
+    type: "graphNodeReference",
+    attrs: { nodeId: "pc_caelynn", label: "Caelynn" },
+  });
+  expect(scene?.bodyContent[2]?.content).toContainEqual({
+    type: "runbookReference",
+    attrs: { kind: "ref", refType: "citation", refId: "gate-procedure", label: "Gate procedure" },
+  });
+  expect(JSON.stringify(scene?.bodyContent)).not.toContain("Do not show this ordinary section");
+
+  const apis = installApiMocks(readerFidelityV2Markdown);
+  window.history.replaceState({}, "", `/plan?world=${worldId}&documentId=${documentId}`);
+  renderPlan();
+  const page = await screen.findByTestId("world-owned-plan");
+  const cardsButton = within(page).getByRole("button", { name: "Cards" });
+  await waitFor(() => expect(cardsButton).toBeEnabled());
+  fireEvent.click(cardsButton);
+
+  const cards = screen.getByTestId("world-plan-cards");
+  const sceneCard = cards.querySelector<HTMLElement>('[data-element-id="scene:gate-call"]');
+  expect(sceneCard).not.toBeNull();
+  const title = sceneCard?.querySelector(".world-plan-card__title");
+  expect(title?.querySelector("h3")).toHaveTextContent("Arrival at North Gate");
+  expect(title?.querySelector('[data-plan-card-reference="graph"][data-graph-node-id="loc_north_gate"]')?.tagName).toBe("SPAN");
+
+  const body = sceneCard?.querySelector<HTMLElement>(".world-plan-card__content");
+  expect(body).not.toBeNull();
+  expect(Array.from(body!.children).map((element) => element.tagName)).toEqual([
+    "P",
+    "P",
+    "P",
+    "UL",
+    "OL",
+  ]);
+  expect(body?.querySelector("strong")).toHaveTextContent("brass");
+  expect(body?.querySelector("ul > li > ul")).not.toBeNull();
+  expect(body?.querySelector("ol > li > ul")).not.toBeNull();
+  const graphPill = body?.querySelector('[data-plan-card-reference="graph"][data-graph-node-id="pc_caelynn"]');
+  expect(graphPill?.tagName).toBe("SPAN");
+  expect(graphPill).toHaveTextContent("Caelynn");
+  expect(body?.querySelector('[data-md-ref-id="gate-procedure"]')).toHaveTextContent("Gate procedure");
+  expect(body?.querySelector("button[data-graph-node-id], script")).toBeNull();
+  expect(cards).not.toHaveTextContent("Do not show this ordinary section in Cards.");
+
+  fireEvent.click(within(sceneCard!).getByRole("button", { name: /Read scene:/ }));
+  const reader = screen.getByTestId("world-plan-scene-reader");
+  expect(reader.querySelector(".world-plan-scene-reader__title h2")).toHaveTextContent("Arrival at North Gate");
+  const context = reader.querySelector<HTMLElement>('[aria-label="Authored Beat context"]');
+  expect(context).not.toBeNull();
+  expect(context?.querySelector(".world-plan-scene-reader__context-title h3")).toHaveTextContent("Hold the gate");
+  const objective = context?.querySelector(".world-plan-scene-reader__objective");
+  expect(objective).toHaveTextContent("The objective is to keep the gate open.");
+  expect(objective).not.toHaveTextContent("Pressure:");
+  const details = context?.querySelector("details");
+  expect(details).not.toHaveAttribute("open");
+  const summary = context?.querySelector("summary");
+  expect(summary?.tagName).toBe("SUMMARY");
+  expect(summary).toHaveTextContent("Beat details");
+  fireEvent.click(summary!);
+  expect(details).toHaveAttribute("open");
+  expect(details).toHaveTextContent("Pressure: rain is filling the lower street.");
+  expect(details).toHaveTextContent("Role: the scout handles the signal.");
+  expect(details).toHaveTextContent("The bell rings twice before the courier arrives.");
+  expect(apis.prepare).not.toHaveBeenCalled();
+  expect(apis.commit).not.toHaveBeenCalled();
+});
+
+it("escapes markup-like reference labels and mounts no editor or reference NodeView in Cards", () => {
+  const imported = markdownToTiptapDoc(readerFidelityV2Markdown);
+  const escapedDoc = JSON.parse(JSON.stringify(imported.doc)) as JSONContent;
+  const markupLabel = "<img src=x onerror=alert(1)>";
+  const replaceReferenceLabels = (node: JSONContent) => {
+    if (node.type === "graphNodeReference") {
+      node.attrs = { ...node.attrs, label: markupLabel };
+    }
+    node.content?.forEach(replaceReferenceLabels);
+  };
+  escapedDoc.content?.forEach(replaceReferenceLabels);
+
+  render(
+    <WorldPlanCardProjection
+      worldId={worldId}
+      documentId={documentId}
+      document={escapedDoc}
+      markdown={readerFidelityV2Markdown}
+      sourceWarnings={[]}
+      basis={{ status: "verified", revision: 4, contentSha256: initialDigest }}
+      isDirty={false}
+      onReturnToDocument={vi.fn()}
+    />,
+  );
+
+  const cards = screen.getByTestId("world-plan-cards");
+  const graphPills = cards.querySelectorAll<HTMLElement>('[data-plan-card-reference="graph"]');
+  expect(graphPills.length).toBe(2);
+  for (const pill of graphPills) {
+    expect(pill.textContent).toBe(markupLabel);
+    expect(pill.innerHTML).toContain("&lt;img");
+    expect(pill.querySelector("img")).toBeNull();
+  }
+  expect(cards.querySelectorAll(".ProseMirror, [data-node-view-wrapper], .react-renderer")).toHaveLength(0);
+  expect(cards.querySelectorAll("button[data-graph-node-id]")).toHaveLength(0);
+});
+
+it("shows unsafe authored links as unavailable instead of serializing them", () => {
+  const imported = markdownToTiptapDoc(readerFidelityV2Markdown);
+  const unsafeDoc = JSON.parse(JSON.stringify(imported.doc)) as JSONContent;
+  let changed = false;
+  const injectUnsafeLink = (node: JSONContent) => {
+    if (!changed && node.type === "text" && node.text === "The wet stones shine beneath the wall.") {
+      node.marks = [{ type: "link", attrs: { href: "javascript:alert(1)" } }];
+      changed = true;
+    }
+    node.content?.forEach(injectUnsafeLink);
+  };
+  unsafeDoc.content?.forEach(injectUnsafeLink);
+  expect(changed).toBe(true);
+
+  render(
+    <WorldPlanCardProjection
+      worldId={worldId}
+      documentId={documentId}
+      document={unsafeDoc}
+      markdown={readerFidelityV2Markdown}
+      sourceWarnings={[]}
+      basis={{ status: "verified", revision: 4, contentSha256: initialDigest }}
+      isDirty={false}
+      onReturnToDocument={vi.fn()}
+    />,
+  );
+
+  const cards = screen.getByTestId("world-plan-cards");
+  const sceneCard = cards.querySelector('[data-element-id="scene:gate-call"]');
+  expect(sceneCard).toHaveTextContent("cannot be displayed safely in Cards");
+  expect(sceneCard?.querySelector('a[href^="javascript:"]')).toBeNull();
 });
 
 it("clears focused Scene and Ask context when the verified Plan basis changes", async () => {
