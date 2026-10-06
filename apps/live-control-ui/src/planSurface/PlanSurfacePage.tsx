@@ -1482,7 +1482,11 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     }
   }, [documentId, editableTargetKeys, savedBasis, selectedEditTargetBasisMatches, selectedPlayableEditTarget, worldId]);
 
-  const selectPlayableTarget = useCallback((target: WorldPlanCardTarget) => {
+  const selectPlayableTarget = useCallback((target: WorldPlanCardTarget | null) => {
+    if (target === null) {
+      setSelectedPlayableTarget(null);
+      return;
+    }
     if (savedBasis.status !== "verified" || !documentId
       || !selectableTargetKeys.has(worldPlanCardTargetKey(target))) return;
     setSelectedPlayableTarget({

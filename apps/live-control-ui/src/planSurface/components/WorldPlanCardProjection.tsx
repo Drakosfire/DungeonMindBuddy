@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { JSONContent } from "@tiptap/core";
 import {
   indexPlayableStructure,
@@ -46,6 +46,14 @@ export type WorldPlanCardProjectionModel =
   | { status: "empty" }
   | { status: "blocked"; diagnostics: ProjectionDiagnostic[] }
   | { status: "ready"; version: ProjectionVersion; roots: WorldPlanCardNode[] };
+
+function flattenNodes(nodes: readonly WorldPlanCardNode[]): WorldPlanCardNode[] {
+  return nodes.flatMap((node) => [node, ...flattenNodes(node.children)]);
+}
+
+function descendantsOf(node: WorldPlanCardNode): WorldPlanCardNode[] {
+  return flattenNodes(node.children);
+}
 
 export function worldPlanCardTargetKeys(model: WorldPlanCardProjectionModel): Set<string> {
   if (model.status !== "ready") return new Set();
@@ -224,6 +232,7 @@ function CardNodeView({
   selectedEditTarget,
   onSelectTarget,
   onSelectEditTarget,
+  onFocusScene,
 }: {
   node: WorldPlanCardNode;
   selectableTargetKeys: ReadonlySet<string>;
@@ -232,6 +241,7 @@ function CardNodeView({
   selectedEditTarget: WorldPlanCardTarget | null;
   onSelectTarget?: (target: WorldPlanCardTarget) => void;
   onSelectEditTarget?: (target: WorldPlanCardTarget) => void;
+  onFocusScene?: (scene: WorldPlanCardNode) => void;
 }) {
   const target = { kind: node.kind, id: node.id };
   const selected = selectedTarget?.kind === target.kind && selectedTarget.id === target.id;
@@ -245,18 +255,29 @@ function CardNodeView({
           <p className="world-plan-card__kind">{node.kind}{node.beatKind ? ` · ${node.beatKind}` : ""}</p>
           <h3>{node.title || "Untitled marked element"}</h3>
           <code>{node.id}</code>
-          <button
-            type="button"
-            className="world-plan-card__ask-target"
-            data-target-kind={node.kind}
-            data-target-id={node.id}
-            aria-pressed={selected}
-            disabled={!selectable || !onSelectTarget}
-            title={selectable ? "Use this exact card from the committed Plan for Ask" : "A unique matching card is not available in both the saved Plan and this view"}
-            onClick={() => onSelectTarget?.(target)}
-          >
-            {selected ? "Selected for Ask" : "Select for Ask"}
-          </button>
+          {onSelectTarget ? (
+            <button
+              type="button"
+              className="world-plan-card__ask-target"
+              data-target-kind={node.kind}
+              data-target-id={node.id}
+              aria-pressed={selected}
+              disabled={!selectable}
+              title={selectable ? "Use this exact card from the committed Plan for Ask" : "A unique matching card is not available in both the saved Plan and this view"}
+              onClick={() => onSelectTarget(target)}
+            >
+              {selected ? "Selected for Ask" : "Select for Ask"}
+            </button>
+          ) : null}
+          {node.kind === "scene" && onFocusScene ? (
+            <button
+              type="button"
+              className="world-plan-card__focus-scene"
+              data-focus-scene-id={node.id}
+              aria-label={`Read scene: ${node.title || "Untitled marked scene"}`}
+              onClick={() => onFocusScene(node)}
+            >Read scene</button>
+          ) : null}
           <button
             type="button"
             className="world-plan-card__edit-target"
@@ -291,6 +312,7 @@ function CardNodeView({
               selectedEditTarget={selectedEditTarget}
               onSelectTarget={onSelectTarget}
               onSelectEditTarget={onSelectEditTarget}
+              onFocusScene={onFocusScene}
             />
           ))}
         </ol>
@@ -328,11 +350,62 @@ export function WorldPlanCardProjection({
   editableTargetKeys?: ReadonlySet<string>;
   selectedTarget?: WorldPlanCardTarget | null;
   selectedEditTarget?: WorldPlanCardTarget | null;
-  onSelectTarget?: (target: WorldPlanCardTarget) => void;
+  onSelectTarget?: (target: WorldPlanCardTarget | null) => void;
   onSelectEditTarget?: (target: WorldPlanCardTarget) => void;
   selectionStale?: boolean;
 }) {
   const model = useMemo(() => buildWorldPlanCardProjectionModel({ document, markdown, sourceWarnings }), [document, markdown, sourceWarnings]);
+  const nodes = useMemo(() => model.status === "ready" ? flattenNodes(model.roots) : [], [model]);
+  const scenes = useMemo(() => nodes.filter((node) => node.kind === "scene"), [nodes]);
+  const [focusedSceneId, setFocusedSceneId] = useState<string | null>(null);
+  const basisIdentity = basis.status === "verified"
+    ? `verified:${basis.revision}:${basis.contentSha256}`
+    : basis.status;
+  const focusIdentity = `${worldId}\u001f${documentId}\u001f${basisIdentity}`;
+  const focusIdentityRef = useRef(focusIdentity);
+  const focusedScene = scenes.find((scene) => scene.id === focusedSceneId) ?? null;
+  const focusedSceneIndex = focusedScene ? scenes.findIndex((scene) => scene.id === focusedScene.id) : -1;
+  const parentBeat = focusedScene?.parentId
+    ? nodes.find((node) => node.id === focusedScene.parentId && node.kind === "beat") ?? null
+    : null;
+  const focusedDescendantIds = focusedScene
+    ? new Set([focusedScene.id, ...descendantsOf(focusedScene).map((node) => node.id)])
+    : new Set<string>();
+  const associatedChoices = focusedScene
+    ? nodes.filter((node) => node.kind === "choice"
+      && node.sceneId === focusedScene.id
+      && !focusedDescendantIds.has(node.id))
+    : [];
+  const focusedTarget = focusedScene ? { kind: focusedScene.kind, id: focusedScene.id } : null;
+  const focusedTargetSelectable = Boolean(focusedTarget
+    && basis.status === "verified"
+    && selectableTargetKeys.has(worldPlanCardTargetKey(focusedTarget)));
+  const focusedTargetSelected = Boolean(focusedTarget
+    && selectedTarget?.kind === focusedTarget.kind
+    && selectedTarget.id === focusedTarget.id);
+
+  useEffect(() => {
+    if (focusIdentityRef.current === focusIdentity) return;
+    focusIdentityRef.current = focusIdentity;
+    setFocusedSceneId(null);
+    onSelectTarget?.(null);
+  }, [focusIdentity, onSelectTarget]);
+
+  useEffect(() => {
+    if (!focusedSceneId || focusedScene) return;
+    setFocusedSceneId(null);
+    onSelectTarget?.(null);
+  }, [focusedScene, focusedSceneId, onSelectTarget]);
+
+  const focusScene = (scene: WorldPlanCardNode) => {
+    setFocusedSceneId(scene.id);
+    const target = { kind: scene.kind, id: scene.id } satisfies WorldPlanCardTarget;
+    onSelectTarget?.(basis.status === "verified"
+      && selectableTargetKeys.has(worldPlanCardTargetKey(target))
+      ? target
+      : null);
+  };
+
   if (model.status === "blocked") {
     return (
       <section className="world-plan-cards world-plan-cards--blocked" data-testid="world-plan-cards" role="alert" aria-label="Cards unavailable">
@@ -363,7 +436,69 @@ export function WorldPlanCardProjection({
     ? "Committed snapshot"
     : basis.status === "server-draft"
       ? "Uncommitted server draft"
-      : "Unavailable";
+  : "Unavailable";
+  if (focusedScene) {
+    const selectedSceneParent = focusedScene.parentId
+      ? nodes.find((node) => node.id === focusedScene.parentId) ?? null
+      : null;
+    const previousScene = focusedSceneIndex > 0 ? scenes[focusedSceneIndex - 1] : null;
+    const nextScene = focusedSceneIndex >= 0 && focusedSceneIndex < scenes.length - 1
+      ? scenes[focusedSceneIndex + 1]
+      : null;
+    return (
+      <section className="world-plan-cards world-plan-cards--reader" data-testid="world-plan-scene-reader" aria-label="Focused Plan scene">
+        <nav className="world-plan-scene-reader__navigation" aria-label="Scene navigation">
+          <button type="button" disabled={!previousScene} onClick={() => previousScene && focusScene(previousScene)}>Previous scene</button>
+          <button type="button" onClick={() => setFocusedSceneId(null)}>Back to outline</button>
+          <button type="button" disabled={!nextScene} onClick={() => nextScene && focusScene(nextScene)}>Next scene</button>
+        </nav>
+        <header className="world-plan-scene-reader__heading">
+          <p className="world-plan-card__kind">Focused Scene · {model.version}</p>
+          <h2>{focusedScene.title || "Untitled marked scene"}</h2>
+          <code>{focusedScene.id}</code>
+          {selectedSceneParent && selectedSceneParent.kind === "beat" ? (
+            <p className="world-plan-scene-reader__beat">Part of {selectedSceneParent.title || selectedSceneParent.id}</p>
+          ) : null}
+          <p className="world-plan-scene-reader__target" role="status">
+            {focusedTargetSelectable && focusedTargetSelected
+              ? `New Ask uses this Scene from committed Plan revision ${basis.status === "verified" ? basis.revision : ""}. Submitted requests keep their original target.`
+              : focusedTargetSelectable
+                ? "This Scene is available in the verified saved Plan, but it is not the selected Ask target. Return to the outline to set it again."
+                : "This Scene is not available in the verified saved Plan. The default Ask card target is cleared; no draft content will be sent."}
+          </p>
+        </header>
+        <div className="world-plan-scene-reader__content">
+          {parentBeat?.bodyText ? (
+            <section className="world-plan-scene-reader__context" aria-label="Authored Beat context">
+              <h3>{parentBeat.title || parentBeat.id}</h3>
+              <p>{parentBeat.bodyText}</p>
+            </section>
+          ) : null}
+          <ol className="world-plan-card-roots">
+            <CardNodeView
+              node={focusedScene}
+              selectableTargetKeys={selectableTargetKeys}
+              editableTargetKeys={editableTargetKeys}
+              selectedTarget={selectedTarget}
+              selectedEditTarget={selectedEditTarget}
+              onSelectEditTarget={onSelectEditTarget}
+            />
+            {associatedChoices.map((choice) => (
+              <CardNodeView
+                key={choice.id}
+                node={choice}
+                selectableTargetKeys={selectableTargetKeys}
+                editableTargetKeys={editableTargetKeys}
+                selectedTarget={selectedTarget}
+                selectedEditTarget={selectedEditTarget}
+                onSelectEditTarget={onSelectEditTarget}
+              />
+            ))}
+          </ol>
+        </div>
+      </section>
+    );
+  }
   return (
     <section className="world-plan-cards" data-testid="world-plan-cards" aria-label="Plan cards">
       <header className="world-plan-cards__heading">
@@ -397,6 +532,19 @@ export function WorldPlanCardProjection({
           The selected card is no longer uniquely present in both this view and the committed Plan. Select a card again or clear the target before asking.
         </p>
       ) : null}
+      {scenes.length ? (
+        <nav className="world-plan-scene-outline" aria-label="Scene outline">
+          <h3>Scenes</h3>
+          <ol>
+            {scenes.map((scene) => (
+              <li key={scene.id}>
+                <button type="button" onClick={() => focusScene(scene)}>Open scene: {scene.title || "Untitled marked scene"}</button>
+                <code>{scene.id}</code>
+              </li>
+            ))}
+          </ol>
+        </nav>
+      ) : null}
       <ol className="world-plan-card-roots">
         {model.roots.map((node) => (
           <CardNodeView
@@ -406,8 +554,9 @@ export function WorldPlanCardProjection({
             editableTargetKeys={editableTargetKeys}
             selectedTarget={selectedTarget}
             selectedEditTarget={selectedEditTarget}
-            onSelectTarget={onSelectTarget}
+            onSelectTarget={onSelectTarget ? (target) => onSelectTarget(target) : undefined}
             onSelectEditTarget={onSelectEditTarget}
+            onFocusScene={focusScene}
           />
         ))}
       </ol>

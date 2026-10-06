@@ -154,6 +154,16 @@ function openAdvancedDetails(conversation = savedWorldPlanConversation()) {
 
 const savedAgentPlanId = "saved-plan-agent-test";
 const savedAgentPlanText = "# Private Plan prose\nThe keeper waits beneath the black arch.\n";
+const twoScenePlanMarkdown = [
+  "# Saved Plan",
+  "",
+  "<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->",
+  "## Arrival",
+  "The keeper waits beneath the black arch.",
+  "<!-- dmb-playable-element:v1 kind=scene id=scene:warehouse -->",
+  "## Warehouse",
+  "A lantern moves behind the loading door.",
+].join("\n") + "\n";
 
 function planAgentNamespace(documentId = savedAgentPlanId) {
   return `world-plan-agent:world:${encodeURIComponent(worldId)}:document:${encodeURIComponent(documentId)}`;
@@ -572,6 +582,103 @@ it("keeps the submitted card identity fixed while selection changes during basis
     id: "scene:arrival",
   });
   expect(await within(conversation).findByText(/Playable target: scene scene:arrival · marker grammar v1/)).toBeInTheDocument();
+});
+
+it("follows focused Scene for a new Ask while a pending Ask and Edit target stay on their original cards", async () => {
+  mockSavedPlanForAgent(savedAgentPlanId, 7, 7, twoScenePlanMarkdown);
+  const finishTurns: Array<(response: WorldPlanAgentTurnResponseV1) => void> = [];
+  const postTurn = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(() => (
+    new Promise((resolve) => { finishTurns.push(resolve); })
+  ));
+  render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}>
+      <AgentEnabledPlanPage />
+    </SelectedWorldProvider>,
+  );
+
+  const page = await screen.findByTestId("world-owned-plan");
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
+  fireEvent.click(within(screen.getByTestId("world-plan-cards")).getByRole("button", { name: "Open scene: Arrival" }));
+
+  const reader = screen.getByTestId("world-plan-scene-reader");
+  const conversation = savedWorldPlanConversation();
+  expect(await within(conversation).findByRole("group", { name: "Selected Playable card for Ask" })).toHaveTextContent("scene · scene:arrival");
+  expect(within(conversation).getByText(/Committed Plan revision 7 · SHA-256/)).toBeInTheDocument();
+  fireEvent.click(within(reader).getByRole("button", { name: "Select for Edit" }));
+  expect(within(conversation).getByRole("group", { name: "Selected Playable card for edit" })).toHaveTextContent("scene · scene:arrival");
+
+  fireEvent.change(messageDungeonBuddyField(conversation), { target: { value: "What happens at the arrival?" } });
+  sendDiscussMessage(conversation);
+  await waitFor(() => expect(postTurn).toHaveBeenCalledTimes(1));
+  const request = postTurn.mock.calls[0]![0];
+  expect(request.playable_target).toEqual({ schema: "dmb_plan_playable_target_v1", kind: "scene", id: "scene:arrival" });
+  expect(request.primary_work).toMatchObject({ expected_revision: 7, expected_content_sha256: "b".repeat(64) });
+
+  fireEvent.click(within(reader).getByRole("button", { name: "Next scene" }));
+  expect(within(savedWorldPlanConversation()).getByRole("group", { name: "Selected Playable card for Ask" })).toHaveTextContent("scene · scene:warehouse");
+  expect(within(savedWorldPlanConversation()).getByRole("group", { name: "Selected Playable card for edit" })).toHaveTextContent("scene · scene:arrival");
+  expect(postTurn).toHaveBeenCalledTimes(1);
+
+  await act(async () => finishTurns[0]!(worldPlanAgentResponse(request)));
+  expect(await within(conversation).findByText(/Playable target: scene scene:arrival · marker grammar v1/)).toBeInTheDocument();
+  expect(within(conversation).getByRole("group", { name: "Selected Playable card for Ask" })).toHaveTextContent("scene · scene:warehouse");
+  expect(within(conversation).getByRole("group", { name: "Selected Playable card for edit" })).toHaveTextContent("scene · scene:arrival");
+  expect(postTurn).toHaveBeenCalledTimes(1);
+
+  fireEvent.change(messageDungeonBuddyField(conversation), { target: { value: "What is happening at the warehouse?" } });
+  sendDiscussMessage(conversation);
+  await waitFor(() => expect(postTurn).toHaveBeenCalledTimes(2));
+  const warehouseRequest = postTurn.mock.calls[1]![0];
+  expect(warehouseRequest.playable_target).toEqual({ schema: "dmb_plan_playable_target_v1", kind: "scene", id: "scene:warehouse" });
+  expect(warehouseRequest.primary_work).toMatchObject({ expected_revision: 7, expected_content_sha256: "b".repeat(64) });
+  await act(async () => finishTurns[1]!(worldPlanAgentResponse(warehouseRequest)));
+  expect(await within(conversation).findByText(/Playable target: scene scene:warehouse · marker grammar v1/)).toBeInTheDocument();
+  expect(postTurn).toHaveBeenCalledTimes(2);
+});
+
+it("clears the previous saved Ask target when focus moves to a draft-only Scene", async () => {
+  const committedMarkdown = twoScenePlanMarkdown.replace(
+    /<!-- dmb-playable-element:v1 kind=scene id=scene:warehouse -->[\s\S]*$/,
+    "",
+  );
+  mockSavedPlanForAgent(savedAgentPlanId, 7, 7, committedMarkdown);
+  localStorage.setItem(`dmb:world-plan-local-draft:v2:${worldId}`, JSON.stringify({
+    schema_version: "dmb_plan_promotion_recovery_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    document_id: savedAgentPlanId,
+    title: "Of Conks Session Plan",
+    markdown: twoScenePlanMarkdown,
+    revision: 7,
+    edit_generation: 1,
+  }));
+  const postTurn = vi.spyOn(liveApi, "postWorldPlanAgentTurn");
+  const committedRevision = vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision);
+  render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}>
+      <AgentEnabledPlanPage />
+    </SelectedWorldProvider>,
+  );
+
+  const page = await screen.findByTestId("world-owned-plan");
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
+  const cards = screen.getByTestId("world-plan-cards");
+  expect(within(cards).getByText("Draft / unsaved")).toBeInTheDocument();
+  fireEvent.click(within(cards).getByRole("button", { name: "Open scene: Arrival" }));
+  const reader = screen.getByTestId("world-plan-scene-reader");
+  const conversation = savedWorldPlanConversation();
+  expect(within(conversation).getByRole("group", { name: "Selected Playable card for Ask" })).toHaveTextContent("scene · scene:arrival");
+  fireEvent.change(messageDungeonBuddyField(conversation), { target: { value: "A question not yet sent" } });
+
+  fireEvent.click(within(reader).getByRole("button", { name: "Next scene" }));
+  expect(screen.getByTestId("world-plan-scene-reader")).toHaveTextContent("The default Ask card target is cleared");
+  expect(within(conversation).queryByRole("group", { name: "Selected Playable card for Ask" })).not.toBeInTheDocument();
+  expect(messageDungeonBuddyField(conversation)).toHaveValue("A question not yet sent");
+  expect(postTurn).not.toHaveBeenCalled();
+  expect(committedRevision).not.toHaveBeenCalled();
+  expect(window.location.pathname + window.location.search).toBe(`/plan?world=${worldId}&documentId=${savedAgentPlanId}`);
 });
 
 it("connects and revokes the local Agent and Graph session from Settings", async () => {
