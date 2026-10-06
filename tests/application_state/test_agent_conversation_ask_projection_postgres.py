@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -10,17 +12,30 @@ from application_state.agent_conversation import repository as repo
 from application_state.agent_conversation import service as service_module
 from application_state.agent_conversation.types import (
     ConversationCommand,
+    PlanContextPolicyV1,
+    PlanPlayableTargetReceiptV1,
+    PlanWorldGraphCitationMapV1,
+    PlanWorldGraphCitationV1,
+    PlanWorldGraphClaimSegmentV1,
+    PlanWorldGraphCompletionV1,
+    PlanWorldGraphContextReceiptV1,
     HistoricalReference,
     PlanAskContextBasis,
-    SubmittedGraphRequestIntentV1,
+    SubmittedPlanPlayableTargetV1,
     SubmittedPrimaryWorkIntentV1,
+    SubmittedTurnIntentV2,
+    SubmittedGraphRequestIntentV1,
     SubmittedTurnIntentV1,
     TurnFailure,
     TurnProvenance,
     TurnResult,
     TurnSubmission,
+    encode_plan_playable_target_reference,
 )
-from application_state.errors import ApplicationStateValidationError
+from application_state.errors import (
+    ApplicationStateIntegrityError,
+    ApplicationStateValidationError,
+)
 
 
 def _basis(world_id: str = "ask-projection-world") -> PlanAskContextBasis:
@@ -147,6 +162,200 @@ def _add_turn(
     return turn
 
 
+def _graph_receipt(
+    basis: PlanAskContextBasis,
+    target: PlanPlayableTargetReceiptV1,
+    *,
+    assertion_id: str,
+    evidence_ref_id: str,
+) -> PlanWorldGraphContextReceiptV1:
+    payload = {
+        "schema": "dmb_agent_plan_world_graph_context_receipt_v1",
+        "receipt_serializer_version": "canonical-json-utf8-v1",
+        "context_receipt_sha256": "0" * 64,
+        "plan_context_policy": {
+            "schema": "dmb_plan_context_policy_v1",
+            "policy": "auto_plan_world",
+        },
+        "plan_basis": basis.model_dump(mode="json"),
+        "playable_target": target.model_dump(mode="json", by_alias=True),
+        "graph_authority": {
+            "managed_world_id": basis.world_id,
+            "native_world_id": "native-world-ask-history",
+            "binding_version": 1,
+            "scope_mode": "world",
+            "campaign_id": None,
+            "admissibility_version": "ask-history-test-v1",
+            "graph_revision": "ask-history-graph-rev-1",
+        },
+        "graph_packet": {
+            "schema": "dmb_plan_world_graph_packet_v1",
+            "packet_serializer_version": "canonical-json-utf8-v1",
+            "selection_policy_version": "ask-history-selection-v1",
+            "evidence_sufficiency_policy_version": "ask-history-sufficiency-v1",
+            "retrieval_packet_sha256": "1" * 64,
+            "candidate_assertion_ids": [assertion_id],
+            "candidate_relationship_ids": [],
+            "candidate_evidence_ref_ids": [evidence_ref_id],
+            "retrieval_status": "complete",
+            "evidence_sufficiency_status": "sufficient",
+            "result_limit": 8,
+            "coverage_status": "incomplete",
+            "truncated": False,
+            "omission_reasons": [],
+        },
+        "assembled_input": {
+            "assembler_version": "ask-history-assembler-v1",
+            "budget_policy_version": "ask-history-budget-v1",
+            "provider_model_name": "synthetic-model",
+            "provider_model_version": "1",
+            "tokenizer_name": "synthetic-tokenizer",
+            "tokenizer_version": "1",
+            "provider_envelope_input_tokens": 10,
+            "output_token_reserve": 8,
+            "context_window_limit": 100,
+            "packet_disposition": "included",
+            "packet_disposition_reason": None,
+            "dispatched_packet_sha256": "2" * 64,
+            "dispatched_assertion_ids": [assertion_id],
+            "dispatched_relationship_ids": [],
+            "dispatched_evidence_ref_ids": [evidence_ref_id],
+            "source_token_accounting": [],
+            "included_history": [],
+            "assembled_input_sha256": "3" * 64,
+        },
+        "evidence_mode": "metadata_only",
+        "source_opened": False,
+    }
+    encoded = json.dumps(
+        {
+            key: value
+            for key, value in payload.items()
+            if key != "context_receipt_sha256"
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    payload["context_receipt_sha256"] = hashlib.sha256(encoded).hexdigest()
+    return PlanWorldGraphContextReceiptV1.model_validate(payload)
+
+
+def _add_graph_ask(
+    service: AgentConversationService,
+    basis: PlanAskContextBasis,
+    conversation_id,
+    *,
+    sequence: int,
+    target_id: str,
+    question: str,
+    answer: str,
+):
+    target = PlanPlayableTargetReceiptV1(
+        schema="dmb_plan_playable_target_receipt_v1",
+        kind="beat",
+        id=target_id,
+        marker_grammar_version="v2",
+    )
+    assertion_id = f"assertion-{sequence}"
+    evidence_ref_id = f"evidence-{sequence}"
+    receipt = _graph_receipt(
+        basis,
+        target,
+        assertion_id=assertion_id,
+        evidence_ref_id=evidence_ref_id,
+    )
+    surface_instance_id = f"plan-ask-pane-{sequence}"
+    intent = SubmittedTurnIntentV2(
+        world_id=basis.world_id,
+        client_thread_id="ask-history-test-thread",
+        message=question,
+        surface_id="plan",
+        surface_instance_id=surface_instance_id,
+        client_work_state="saved_clean",
+        primary_work=SubmittedPrimaryWorkIntentV1(
+            kind="plan",
+            object_id=basis.document_id,
+            expected_revision=basis.object_revision,
+            expected_revision_n=basis.revision_n,
+            expected_content_sha256=basis.content_sha256,
+        ),
+        plan_context_policy=PlanContextPolicyV1(policy="auto_plan_world"),
+        playable_target=SubmittedPlanPlayableTargetV1(
+            schema="dmb_plan_playable_target_v1", kind="beat", id=target_id
+        ),
+        graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+        graph_selection=None,
+    )
+    provenance = TurnProvenance(
+        world_id=basis.world_id,
+        surface_resolution="resolved",
+        surface_id="plan",
+        surface_instance_id=surface_instance_id,
+        primary_work=_reference(basis),
+        supporting_work=[encode_plan_playable_target_reference(target)],
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    accepted = service.accept_turn(
+        TurnSubmission(
+            world_id=basis.world_id,
+            conversation_id=conversation_id,
+            idempotency_key=uuid4(),
+            expected_conversation_revision=sequence,
+            user_text=question,
+            provenance=provenance,
+            submitted_intent_v2=intent,
+            graph_context_receipt=receipt,
+        )
+    )
+    claimed = service.claim_turn(
+        basis.world_id,
+        conversation_id,
+        accepted.turn_id,
+        expected_revision=accepted.revision,
+    ).turn
+    completion = PlanWorldGraphCompletionV1(
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        answer_basis="committed_plan_plus_world_graph",
+        answer_context_status="graph_grounded_partial",
+        answer_segments=[
+            PlanWorldGraphClaimSegmentV1(
+                kind="graph_claim",
+                claim_id=f"claim-{sequence}",
+                text=answer,
+                target_kind="assertion",
+                target_id=assertion_id,
+                graph_revision="ask-history-graph-rev-1",
+                evidence_ref_ids=[evidence_ref_id],
+            )
+        ],
+        citation_map=PlanWorldGraphCitationMapV1(
+            context_receipt_sha256=receipt.context_receipt_sha256,
+            entries=[
+                PlanWorldGraphCitationV1(
+                    claim_id=f"claim-{sequence}",
+                    target_kind="assertion",
+                    target_id=assertion_id,
+                    graph_revision="ask-history-graph-rev-1",
+                    evidence_ref_ids=[evidence_ref_id],
+                    source_opened=False,
+                )
+            ],
+        ),
+    )
+    return service.complete_turn(
+        TurnResult(
+            world_id=basis.world_id,
+            conversation_id=conversation_id,
+            turn_id=accepted.turn_id,
+            expected_revision=claimed.revision,
+            assistant_text=answer,
+            completion=completion,
+        )
+    )
+
+
 def _set_accepted_at(application_state_dsn: str, turn_id, accepted_at: datetime) -> None:
     import psycopg
 
@@ -208,7 +417,130 @@ def test_exact_basis_filters_every_field_before_limit_and_returns_safe_pairs(
         "accepted_at",
         "question",
         "answer",
+        "history_attribution",
     }
+    assert pairs[0].history_attribution is None
+
+
+def test_scene_a_graph_ask_stays_attributed_when_next_proposal_targets_scene_b(
+    application_state_dsn: str,
+) -> None:
+    service = AgentConversationService()
+    basis = _basis()
+    conversation = _new_conversation(service, basis.world_id)
+    scene_a = _add_graph_ask(
+        service,
+        basis,
+        conversation.conversation_id,
+        sequence=1,
+        target_id="beat:scene-a",
+        question="What happened in scene A?",
+        answer="Scene A exposed the hidden route.",
+    )
+    next_proposal_target = "beat:scene-b"
+
+    pairs = AgentConversationService().list_completed_plan_ask_context(
+        basis.world_id, basis
+    )
+
+    assert len(pairs) == 1
+    pair = pairs[0]
+    assert pair.source_record_id == scene_a.turn_id
+    assert pair.question == "What happened in scene A?"
+    assert pair.answer == "Scene A exposed the hidden route."
+    attribution = pair.history_attribution
+    assert attribution is not None
+    assert attribution.source_turn_id == scene_a.turn_id
+    assert attribution.source_conversation_id == conversation.conversation_id
+    assert attribution.surface_id == "plan"
+    assert attribution.surface_instance_id == "plan-ask-pane-1"
+    assert attribution.plan_basis == basis
+    assert attribution.playable_target is not None
+    assert attribution.playable_target.id == "beat:scene-a"
+    assert attribution.playable_target.id != next_proposal_target
+    assert attribution.answer_basis == "committed_plan_plus_world_graph"
+    assert attribution.answer_context_status == "graph_grounded_partial"
+    assert attribution.answer_segments[0].text == pair.answer
+    assert attribution.citation_map is not None
+    assert (
+        attribution.citation_map.context_receipt_sha256
+        == attribution.context_receipt_sha256
+    )
+    assert attribution.citation_map.entries[0].target_id == "assertion-1"
+
+
+@pytest.mark.parametrize("corruption", ["receipt_plan_basis", "target_identity"])
+def test_invalid_graph_ask_authority_fails_closed(
+    application_state_dsn: str, corruption: str
+) -> None:
+    import psycopg
+
+    service = AgentConversationService()
+    basis = _basis()
+    conversation = _new_conversation(service, basis.world_id)
+    turn = _add_graph_ask(
+        service,
+        basis,
+        conversation.conversation_id,
+        sequence=1,
+        target_id="beat:scene-a",
+        question="What happened in scene A?",
+        answer="Scene A exposed the hidden route.",
+    )
+    with psycopg.connect(application_state_dsn, autocommit=True) as conn:
+        if corruption == "receipt_plan_basis":
+            from psycopg.types.json import Jsonb
+
+            receipt, completion = conn.execute(
+                """
+                SELECT graph_context_receipt, completion
+                FROM agent.turn
+                WHERE turn_id = %s
+                """,
+                (turn.turn_id,),
+            ).fetchone()
+            receipt["plan_basis"]["document_id"] = "another-plan-document"
+            canonical_receipt = {
+                key: value
+                for key, value in receipt.items()
+                if key != "context_receipt_sha256"
+            }
+            new_receipt_digest = hashlib.sha256(
+                json.dumps(
+                    canonical_receipt,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    allow_nan=False,
+                ).encode("utf-8")
+            ).hexdigest()
+            receipt["context_receipt_sha256"] = new_receipt_digest
+            completion["context_receipt_sha256"] = new_receipt_digest
+            completion["citation_map"]["context_receipt_sha256"] = new_receipt_digest
+            conn.execute(
+                """
+                UPDATE agent.turn
+                SET graph_context_receipt = %s, completion = %s
+                WHERE turn_id = %s
+                """,
+                (Jsonb(receipt), Jsonb(completion), turn.turn_id),
+            )
+        else:
+            conn.execute(
+                """
+                UPDATE agent.turn_reference
+                SET object_id = %s
+                WHERE turn_id = %s
+                  AND reference_role = 'supporting'
+                  AND kind = 'dmb_plan_playable_target_v1'
+                """,
+                ("beat:scene-b", turn.turn_id),
+            )
+
+    with pytest.raises(ApplicationStateIntegrityError):
+        AgentConversationService().list_completed_plan_ask_context(
+            basis.world_id, basis
+        )
 
 
 def test_newer_exact_basis_rows_in_another_world_do_not_consume_source_cap(

@@ -269,25 +269,6 @@ class PlanAskContextBasis(StrictModel):
         return self
 
 
-class CompletedPlanAskPair(StrictModel):
-    """Visible, safe Ask pair with stable source-local merge metadata."""
-
-    source_kind: Literal["ask"] = "ask"
-    source_sequence: int = Field(strict=True, ge=1)
-    source_record_id: UUID
-    accepted_at: datetime
-    question: str = Field(min_length=1)
-    answer: str = Field(min_length=1)
-
-    @model_validator(mode="after")
-    def validate_visible_text(self) -> "CompletedPlanAskPair":
-        if not self.question.strip() or not self.answer.strip():
-            raise ValueError(
-                "completed Plan Ask pairs require visible question and answer"
-            )
-        return self
-
-
 class TurnProvenance(StrictModel):
     world_id: str
     surface_resolution: Resolution
@@ -997,6 +978,79 @@ def _reject_graph_completion(
 ) -> NoReturn:
     """Raise a backward-compatible ValueError classified by a closed code."""
     raise GraphCompletionValidationError(rejection_code, message)
+class PlanAskHistoryAttributionV1(StrictModel):
+    """Validated provenance accompanying one completed Plan Graph Ask."""
+
+    schema_: Literal["dmb_plan_ask_history_attribution_v1"] = Field(
+        default="dmb_plan_ask_history_attribution_v1", alias="schema"
+    )
+    source_turn_id: UUID
+    source_conversation_id: UUID
+    source_sequence: int = Field(strict=True, ge=1)
+    source_turn_status: Literal["completed"] = "completed"
+    surface_resolution: Literal["resolved"] = "resolved"
+    surface_id: Literal["plan"] = "plan"
+    surface_instance_id: str = Field(min_length=1, max_length=128)
+    plan_basis: PlanAskContextBasis
+    playable_target: PlanPlayableTargetReceiptV1 | None
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    answer_basis: Literal["committed_plan", "committed_plan_plus_world_graph"]
+    answer_context_status: Literal[
+        "graph_grounded",
+        "graph_grounded_partial",
+        "plan_only_insufficient_evidence",
+        "plan_only_graph_unused",
+    ]
+    answer_segments: list[PlanWorldGraphAnswerSegmentV1] = Field(
+        min_length=1, max_length=128
+    )
+    citation_map: PlanWorldGraphCitationMap | None
+
+    @model_validator(mode="after")
+    def validate_attribution(self) -> "PlanAskHistoryAttributionV1":
+        if (
+            self.citation_map is not None
+            and self.citation_map.context_receipt_sha256 != self.context_receipt_sha256
+        ):
+            raise ValueError(
+                "Ask history citations must bind the exact context receipt"
+            )
+        return self
+
+
+class CompletedPlanAskPair(StrictModel):
+    """Visible Ask pair with optional validated Graph attribution."""
+
+    source_kind: Literal["ask"] = "ask"
+    source_sequence: int = Field(strict=True, ge=1)
+    source_record_id: UUID
+    accepted_at: datetime
+    question: str = Field(min_length=1)
+    answer: str = Field(min_length=1)
+    history_attribution: PlanAskHistoryAttributionV1 | None = None
+
+    @model_validator(mode="after")
+    def validate_visible_text(self) -> "CompletedPlanAskPair":
+        if not self.question.strip() or not self.answer.strip():
+            raise ValueError(
+                "completed Plan Ask pairs require visible question and answer"
+            )
+        if self.history_attribution is not None:
+            if (
+                self.history_attribution.source_turn_id != self.source_record_id
+                or self.history_attribution.source_sequence != self.source_sequence
+            ):
+                raise ValueError("Ask history attribution must match its source turn")
+            if (
+                "\n".join(
+                    segment.text for segment in self.history_attribution.answer_segments
+                )
+                != self.answer
+            ):
+                raise ValueError(
+                    "Ask history completion segments must match its answer"
+                )
+        return self
 
 
 class GraphExecutionAccountingV1(StrictModel):
