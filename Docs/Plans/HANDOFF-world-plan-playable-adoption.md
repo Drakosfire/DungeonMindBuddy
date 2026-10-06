@@ -13,6 +13,7 @@ implementation_branch: codex/demo-plan-run-activation-contract
 implementation_pr: "https://github.com/Drakosfire/DungeonMindBuddy/pull/931"
 app_state_commit: "f644dfc61dc2531eac6a77416cf4c49dcbf51258"
 server_commit: "7375b52b1b59353b605c56f22ec6d79999b576a8"
+demo_code_commit: "655edf9615dc3514b54755b4ac24562023cf1164"
 ---
 
 # HANDOFF — Start and reopen a Run from the exact saved World Plan
@@ -31,8 +32,12 @@ same main commit. This serial PR is
 [DEMO: pin Plan-to-Run activation contract](https://github.com/Drakosfire/DungeonMindBuddy/pull/931)
 on `codex/demo-plan-run-activation-contract`. Its rebased owner commits are
 APP-STATE `f644dfc61dc2531eac6a77416cf4c49dcbf51258` followed by SERVER
-`7375b52b1b59353b605c56f22ec6d79999b576a8`. Publish this ACTIVE handoff
-commit before changing DEMO product files.
+`7375b52b1b59353b605c56f22ec6d79999b576a8`. The activation pin was published
+at `f00859c0a7bf1b9c907b0ba7472cce14787ade80` before DEMO product edits.
+DEMO's ten leased product files are implemented in code commit
+`655edf9615dc3514b54755b4ac24562023cf1164`. The handoff remains ACTIVE while
+PRIME's independent exact-cumulative-head review and the PR merge are pending;
+the write lease has not been released.
 
 The accepted request/replay contract needs no migration or schema addition.
 The existing create_world_play_run arguments remain World ID, Run ID, Plan
@@ -68,12 +73,13 @@ Activation record:
    `04bd667d7f57a3c7b8b35f49d20a15562811a45f`; APP-STATE and SERVER were
    rebased in order before this DEMO stage.
 3. **Test resource:** use only PRIME's pinned disposable PostgreSQL 16
-   container `8d01d8b8c07ab6712e522bcba62e975df10d98185f6302c9f708b417d5a8`,
+   container `8d01d8b8c07ab6712e522bcba62e975df10d98185f6302c9f708b417d5a8b508`,
    with its inspected loopback mapping and per-test fixture recorded in §7.
-   The live mapping is `127.0.0.1:32768 → 5432`; the earlier activation note
-   said `32782`, but inspection of this exact container shows `32768` is its
-   only published port. `pg_isready` succeeds. No test database writes have
-   been performed by DEMO yet.
+   The live mapping is `127.0.0.1:32768 → 5432`; PRIME confirmed that this
+   supersedes the earlier `32782` note. `pg_isready` succeeds. DEMO ran the
+   assigned PostgreSQL fixtures: APP-STATE passed 11/11 and SERVER passed
+   31/31; a read-only post-run catalog check found no remaining test databases.
+   Full test and UI verification details are recorded in §7.
 
 ## §1 Mission and invariant
 
@@ -118,25 +124,32 @@ Re-anchored source findings:
   Same-binding replay of an existing Run precedes current/clean re-admission.
   Existing Run read resolves its stored historical WorkRevision after Plan
   edit or discard.
-- APP-STATE currently rejects kind plan in admit_playable_revision and
-  resolve_pinned_playable_revision. Its new-Run path must widen only the
-  intended World V2 boundary while preserving Campaign V1 and Runbook behavior.
+- **Preimplementation finding, now addressed by pinned APP-STATE commit
+  `f644dfc61dc2531eac6a77416cf4c49dcbf51258`:** the original admission path
+  rejected kind plan in admit_playable_revision and
+  resolve_pinned_playable_revision. The contribution now admits World-owned
+  Plans only on the World V2 path, preserves Campaign V1 Runbook-only behavior,
+  and rejects Plan-backed rebase before the same-target retry.
 - APP-STATE must reject Plan-backed rebase before any same-target no-op return.
   Starting a separate Run from a newer Plan revision remains allowed.
-- PlaySurfacePage currently loads every World Run through the Runbook-specific
-  exact-revision read, checks that the current Runbook remains active/current,
-  and offers Runbook rebase when a newer revision appears. That behavior must
-  remain for Runbook Runs. A Plan-backed Run instead resolves its exact
-  historical Plan revision and reopens read-only without a rebase prompt,
-  latest-revision fallback, or Plan-active requirement.
-- The current native Run projection rejects a World revision whose kind is
-  plan. PRIME has transferred that projection seam and its focused owning test
-  from #914 to this slice. Extend the existing seam; do not add a parallel
-  parser/projection or cast a Plan record to Runbook.
-- SERVER's ensure_v2_native_ready currently reads a Runbook kind, and its v2
-  sealed-structure comparison converts edge collections to sets. The Run
-  contract must admit a Plan source and reject duplicate persisted edge tuples
-  before READY or Play context.
+- **Preimplementation finding, now addressed by DEMO code commit
+  `655edf9615dc3514b54755b4ac24562023cf1164`:** PlaySurfacePage loaded every
+  World Run through the Runbook-specific exact-revision read, checked that the
+  current Runbook remained active/current, and offered Runbook rebase when a
+  newer revision appeared. That behavior remains for Runbook Runs. A Plan-backed
+  Run now resolves its exact historical Plan revision and reopens read-only
+  without a rebase prompt, latest-revision fallback, or Plan-active requirement.
+- **Preimplementation finding, now addressed by the same DEMO code commit:**
+  the native Run projection rejected a World revision whose kind was `plan`.
+  The existing projection seam now allows an exact historical Plan revision
+  for World V2 Play while preserving Campaign V1 Runbook-only behavior. PRIME
+  transferred this seam and its focused owning test from #914; no parallel
+  parser/projection or Runbook cast was added.
+- **Preimplementation finding, now addressed by pinned SERVER commit
+  `7375b52b1b59353b605c56f22ec6d79999b576a8`:** ensure_v2_native_ready read a
+  Runbook kind and the v2 sealed-structure comparison converted edge
+  collections to sets. The contribution admits the intended World Plan source
+  and rejects duplicate persisted edge tuples before READY or Play context.
 - Existing World V2 persistence already records World, WorkObject ID,
   WorkRevision ID, revision number and digest and seals the manifest. Reuse
   that identity path.
@@ -340,10 +353,10 @@ The assigned test resource is PRIME's disposable PostgreSQL 16 container
 `8d01d8b8c07ab6712e522bcba62e975df10d98185f6302c9f708b417d5a8b508`. On
 2026-10-06, `docker inspect` verified it was running, had tmpfs
 `/var/lib/postgresql/data` with `size=1g`, no mounts, and only the loopback
-mapping `127.0.0.1:32768 → 5432`; `pg_isready` succeeded. PRIME's activation
-message listed port `32782`; inspection of the exact pinned container shows
-`32768` is the actual mapped endpoint, and `docker ps` found no published
-container on `32782`. Configure `DMB_APPLICATION_STATE_TEST_DATABASE_URL` to
+mapping `127.0.0.1:32768 → 5432`; `pg_isready` succeeded. PRIME confirmed
+that port `32768` is authoritative for this exact container, superseding the
+earlier `32782` note. `docker ps` found no published container on `32782`.
+Configure `DMB_APPLICATION_STATE_TEST_DATABASE_URL` to
 use database `postgres` on `127.0.0.1:32768` with the container's disposable
 fixture credentials from local configuration; do not store or echo those
 credentials here.
@@ -354,6 +367,18 @@ confirms each test generates a unique
 `dungeonbuddy_app_state_test_{uuid}` database, applies migrations to it, then
 clears the fixture DSN, terminates its connections, and drops it in `finally`.
 Do not use the fixture's default admin endpoint or any other database.
+
+**DEMO verification checkpoint (2026-10-06):** the assigned mounted UI suites
+passed 148/148 tests. APP-STATE's PostgreSQL owner suite passed 11/11, and
+SERVER's World V2/manifest suites passed 31/31 with 11 existing Pydantic
+`schema`-shadow warnings. Those database runs used the exact pinned DungeonMind
+source commit `7c69e447f6d4acc963ac09c6fb9cb48cc1c5b9cc` from a temporary source
+archive because the installed test package was stale; no dependency or lockfile
+was changed. The post-run catalog check found no test databases. The cumulative
+`git diff --check` passed. UI typecheck retains the inherited unrelated
+`ThreatPublicationPanel.tsx(553,77): Cannot find namespace 'JSX'` diagnostic;
+the affected file is outside this lease and has no changed-file diagnostics.
+PRIME's independent exact-head review and PR merge remain pending.
 
 Do not connect to, restart, reseed or reconfigure operator UI 5202, API 8000,
 DOGFOOD 5203, the prototype backend or any operator/shared database. Do not
