@@ -426,6 +426,18 @@ def create_world_play_run(
             playable_content_sha256=admitted.work_revision.content_sha256,
             sealed_at=now,
         )
+        initial_progress = dict(EMPTY_PROGRESS)
+        if document.get("schema_version") == "dmb_play_run_reference_manifest_v2":
+            from apps.live_control_server.services.play_run_registry import (
+                derive_v2_opening_beat_id,
+            )
+
+            opening_beat_id = derive_v2_opening_beat_id(admitted.work_revision.markdown)
+            if opening_beat_id is None:
+                raise ApplicationStateValidationError(
+                    "v2 World Playable has no authored Beat; Run creation is fail-closed"
+                )
+            initial_progress["current_beat_id"] = opening_beat_id
         run = repo.insert_run(
             conn,
             PlayRun(
@@ -437,7 +449,7 @@ def create_world_play_run(
                 playable_work_revision_id=admitted.work_revision.work_revision_id,
                 playable_content_sha256=admitted.work_revision.content_sha256,
                 run_revision=1,
-                progress=dict(EMPTY_PROGRESS),
+                progress=initial_progress,
                 created_at=now,
                 updated_at=now,
             ),

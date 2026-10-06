@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import psycopg
 import pytest
@@ -30,6 +30,7 @@ from tests.application_state.play_runtime_helpers import (
     RUN_ID_B,
     SOURCE_MARKDOWN,
     SURVIVING_TARGET_MARKDOWN,
+    count_play_rows,
     create_committed_runbook,
     create_run,
     fetch_play_runtime_state,
@@ -89,6 +90,13 @@ def test_create_replay_list_and_campaign_inventory_are_owner_fenced(
     assert created.world_id == "demo-world-a"
     assert created.run.world_id == "demo-world-a"
     assert created.run.campaign_id is None
+    assert created.run.progress == {
+        "current_scene_id": None,
+        "current_beat_id": None,
+        "resolved_beat_ids": [],
+        "selections": {},
+        "notes_by_element_id": {},
+    }
 
     listed = list_world_play_run_aggregates(world_id="demo-world-a")
     assert [item.run.run_id for item in listed] == [UUID(RUN_ID_A)]
@@ -270,6 +278,121 @@ def test_world_plan_can_start_run_and_reopen_exact_pin_after_save_and_discard(
     assert replayed == first
     assert reopened.run.playable_work_revision_id == first_revision.work_revision_id
     assert reopened.manifest == first.manifest
+
+
+def test_world_v2_create_uses_first_authored_spine_and_replay_keeps_progress(
+    application_state_dsn: str,
+) -> None:
+    world_id = f"world-v2-opening-{uuid4()}"
+    markdown = "\n".join(
+        [
+            "<!-- dmb-playable-element:v2 kind=beat id=beat:z-optional beat_kind=optional -->",
+            "## Optional appears first in document order",
+            "",
+            "<!-- dmb-playable-element:v2 kind=beat id=beat:a-spine beat_kind=spine -->",
+            "## First spine beat",
+            "",
+            "<!-- dmb-playable-element:v2 kind=beat id=beat:b-spine beat_kind=spine -->",
+            "## Second spine beat",
+        ]
+    )
+    plan, first_revision = _create_world_plan(world_id, markdown=markdown)
+    run_id = str(uuid4())
+    first = create_world_play_run(
+        world_id=world_id,
+        run_id=run_id,
+        playable_artifact_id=plan.work_object_id,
+        expected_playable_revision=first_revision.revision_n,
+        expected_playable_content_sha256=first_revision.content_sha256,
+    )
+
+    assert first.run.progress == {
+        "current_scene_id": None,
+        "current_beat_id": "beat:a-spine",
+        "resolved_beat_ids": [],
+        "selections": {},
+        "notes_by_element_id": {},
+    }
+    assert first.run.run_revision == 1
+
+    progressed = replace_world_play_run_progress(
+        world_id=world_id,
+        run_id=run_id,
+        expected_run_revision=1,
+        progress={
+            "current_scene_id": None,
+            "current_beat_id": "beat:z-optional",
+            "resolved_beat_ids": ["beat:z-optional"],
+            "selections": {},
+            "notes_by_element_id": {},
+        },
+    )
+    saved, _new_revision = commit_plan(
+        str(plan.work_object_id),
+        SURVIVING_TARGET_MARKDOWN,
+        expected_world_id=world_id,
+        expected_revision=plan.object_revision,
+    )
+    update_plan_metadata(
+        str(plan.work_object_id),
+        status="discarded",
+        expected_revision=saved.object_revision,
+    )
+
+    replayed = create_world_play_run(
+        world_id=world_id,
+        run_id=run_id,
+        playable_artifact_id=plan.work_object_id,
+        expected_playable_revision=first_revision.revision_n,
+        expected_playable_content_sha256=first_revision.content_sha256,
+    )
+    assert replayed == progressed
+    assert replayed.run.progress["current_beat_id"] == "beat:z-optional"
+    assert replayed.run.run_revision == 2
+
+
+def test_world_v2_create_falls_back_to_first_authored_beat(
+    application_state_dsn: str,
+) -> None:
+    world_id = f"world-v2-opening-fallback-{uuid4()}"
+    markdown = "\n".join(
+        [
+            "<!-- dmb-playable-element:v2 kind=beat id=beat:z-first beat_kind=optional -->",
+            "## First authored",
+            "",
+            "<!-- dmb-playable-element:v2 kind=beat id=beat:a-second beat_kind=interrupt -->",
+            "## Second authored",
+        ]
+    )
+    plan, revision = _create_world_plan(world_id, markdown=markdown)
+    created = create_world_play_run(
+        world_id=world_id,
+        run_id=str(uuid4()),
+        playable_artifact_id=plan.work_object_id,
+        expected_playable_revision=revision.revision_n,
+        expected_playable_content_sha256=revision.content_sha256,
+    )
+    assert created.run.progress["current_beat_id"] == "beat:z-first"
+
+
+def test_invalid_world_v2_source_rolls_back_run_and_manifest(
+    application_state_dsn: str,
+) -> None:
+    world_id = f"world-v2-invalid-{uuid4()}"
+    malformed_markdown = "<!-- dmb-playable-element:v2 kind=beat id=not-canonical -->\n## Broken\n"
+    plan, revision = _create_world_plan(world_id, markdown=malformed_markdown)
+    before = count_play_rows(application_state_dsn)
+
+    with pytest.raises(ApplicationStateError):
+        create_world_play_run(
+            world_id=world_id,
+            run_id=str(uuid4()),
+            playable_artifact_id=plan.work_object_id,
+            expected_playable_revision=revision.revision_n,
+            expected_playable_content_sha256=revision.content_sha256,
+        )
+
+    assert count_play_rows(application_state_dsn) == before
 
 
 def test_world_plan_new_run_requires_clean_current_revision(
