@@ -1,67 +1,79 @@
 ---
 title: Saved World Plan → Playable Run adoption
 document_class: implementation_handoff
-status: BLOCKED
+status: ACTIVE
 created_at: "2026-10-04"
+activated_at: "2026-10-06"
 workstream: DEMO
 design_authority: "../Design/DESIGN-world-plan-playable-adoption.md"
-design_base: "Buddy main 6507fd4a2ec00b5b9f6f9ee1ec2d7600e0b75121"
+design_base: "Buddy main 04bd667d7f57a3c7b8b35f49d20a15562811a45f"
 pr_topology: serial
-implementation_branch: not_assigned
-implementation_pr: not_authorized
+implementation_base: "04bd667d7f57a3c7b8b35f49d20a15562811a45f"
+implementation_branch: codex/demo-plan-run-activation-contract
+implementation_pr: "https://github.com/Drakosfire/DungeonMindBuddy/pull/931"
+app_state_commit: "f644dfc61dc2531eac6a77416cf4c49dcbf51258"
+server_commit: "7375b52b1b59353b605c56f22ec6d79999b576a8"
 ---
 
 # HANDOFF — Start and reopen a Run from the exact saved World Plan
 
-> This is durable contract authority only. It remains BLOCKED and grants no
-> implementation or runtime write lease.
+> This ACTIVE handoff pins the serial owner sequence, exact write lease,
+> implementation PR, and isolated test resource described below.
 
-## Status and activation gate
+## Status and activation record
 
-**Status: BLOCKED — PRIME accepted the design at PR #907 head
-7d44c33cc6e240bd711b6e202bc4042ea52ea9b7, merged at
-d8e861661716d2fa8c1fb1e3e56ef08268d32da8. Buddy main is re-anchored at
-6507fd4a2ec00b5b9f6f9ee1ec2d7600e0b75121, including merged PR #925. PRIME
-confirmed the next functional slice is saved World Plan → exact pinned Run →
-read-only reopen. The remaining gates are the exact disposable test-resource
-pin and PRIME publishing ACTIVE with the final allowlist.**
+**Status: ACTIVE — PRIME explicitly activated the #931 DEMO stage and
+authorized reconciling this handoff on the same branch and PR.** The accepted
+design is PR #907 head 7d44c33cc6e240bd711b6e202bc4042ea52ea9b7, merged at
+d8e861661716d2fa8c1fb1e3e56ef08268d32da8. Buddy main was re-anchored at
+04bd667d7f57a3c7b8b35f49d20a15562811a45f. The implementation base is that
+same main commit. This serial PR is
+[DEMO: pin Plan-to-Run activation contract](https://github.com/Drakosfire/DungeonMindBuddy/pull/931)
+on `codex/demo-plan-run-activation-contract`. Its rebased owner commits are
+APP-STATE `f644dfc61dc2531eac6a77416cf4c49dcbf51258` followed by SERVER
+`7375b52b1b59353b605c56f22ec6d79999b576a8`. Publish this ACTIVE handoff
+commit before changing DEMO product files.
 
-APP-STATE confirmed the #907 request/replay contract on main 6507: no
-migration or schema addition; the existing create_world_play_run arguments
-remain World ID, Run ID, Plan WorkObject ID, expected current revision number
-and digest. The service resolves and stores the WorkRevision ID atomically.
-Historical Run aggregate reads resolve the stored source pin. APP-STATE also
-confirmed the Plan-backed rebase guard must run before the same-target early
-return. SERVER confirmed the existing World V2 route and response are
-sufficient and provided the manifest-integrity requirements below.
+The accepted request/replay contract needs no migration or schema addition.
+The existing create_world_play_run arguments remain World ID, Run ID, Plan
+WorkObject ID, expected current revision number and digest. APP-STATE resolves
+and stores the WorkRevision ID atomically and reads historical Run aggregates
+from the stored source pin. Its Plan-backed rebase guard runs before the
+same-target early return. SERVER confirms the existing World V2 route and
+response are sufficient and owns the manifest-integrity requirements below.
 
 PRIME confirmed these sequencing and path dispositions:
 
 - PR #927 stays a separate queued Plan↔Play conversation lane. It is not a
   predecessor for this slice.
-- PR #914's visual review hold is not a global product gate. PRIME transfers
-  the existing native Run projection files listed in §4 to this slice before
-  activation; #914 does not need to merge first.
+- PR #914's visual review hold is not a global product gate. PRIME transferred
+  the native Run projection files listed in §4 to this slice; freeze those
+  paths on #914 while this lease is active.
 - PR #917 remains prototype evidence, not a product predecessor. DOGFOOD
-  withdrew its production reservation; PRIME transfers the production Plan
-  Page and mounted test paths listed in §4 to this slice. #917 does not need to
-  merge first.
+  withdrew its production reservation; PRIME transferred the production Plan
+  Page and mounted test paths listed in §4 to this slice. Freeze those paths
+  on #917 while this lease is active.
 - PRs #886 and #904 are merged and their leases are closed. Their historical
   handoffs are not current reservations.
+- PRIME transferred only the assigned Plan→Run roadmap entries from #914 to
+  #931. Freeze those entries on #914 while this lease is active.
 
-Implementation may be activated only after all of the following are true:
+Activation record:
 
-1. PRIME pins the exact §4 allowlist and one serial owner sequence:
-   APP-STATE → SERVER → DEMO. The transfers from #914 and #917 remain
-   exclusive to this slice while active.
-2. PRIME pins the test-resource identity: use only the disposable,
-   per-test database fixture configured by DMB_APPLICATION_STATE_TEST_DATABASE_URL
-   and TestClient. Prove the fixture creates a unique database for each test
-   and never targets operator or DOGFOOD state.
-3. PRIME changes this handoff to ACTIVE with the exact implementation branch,
-   verified fixture configuration and PR topology. Until then, do not start
-   product implementation, runtime services, provider work, or
-   operator-database changes.
+1. **Authority and topology:** PRIME authorized the exact §4 path lease and
+   the serial APP-STATE → SERVER → DEMO sequence on the existing #931 branch
+   and PR. The #914 projection and roadmap entries and #917 Plan Page paths
+   are exclusive to this slice until released or transferred.
+2. **Current base and owner sequence:** remote `main` is
+   `04bd667d7f57a3c7b8b35f49d20a15562811a45f`; APP-STATE and SERVER were
+   rebased in order before this DEMO stage.
+3. **Test resource:** use only PRIME's pinned disposable PostgreSQL 16
+   container `8d01d8b8c07ab6712e522bcba62e975df10d98185f6302c9f708b417d5a8`,
+   with its inspected loopback mapping and per-test fixture recorded in §7.
+   The live mapping is `127.0.0.1:32768 → 5432`; the earlier activation note
+   said `32782`, but inspection of this exact container shows `32768` is its
+   only published port. `pg_isready` succeeds. No test database writes have
+   been performed by DEMO yet.
 
 ## §1 Mission and invariant
 
@@ -196,12 +208,13 @@ World-V2/Play boundary; a helper-only test is insufficient.
   A helper test cannot substitute for transaction, READY/Play-context, or
   mounted product evidence.
 
-## §4 Proposed exclusive write sets — BLOCKED, not an active lease
+## §4 Exclusive write sets — ACTIVE lease
 
-The following exact path sets are proposed for PRIME activation from Buddy
-main 6507fd4a2ec00b5b9f6f9ee1ec2d7600e0b75121. They are not writable until
-PRIME publishes the ACTIVE handoff. The single PR is serial and the owner sets
-are disjoint.
+These exact path sets are PRIME's active, exclusive write lease for PR #931,
+branch `codex/demo-plan-run-activation-contract`, based on Buddy main
+`04bd667d7f57a3c7b8b35f49d20a15562811a45f`. The single PR is serial and the
+owner sets are disjoint. APP-STATE and SERVER have contributed their listed
+paths in order; DEMO owns the final ten product paths below.
 
 **APP-STATE**
 
@@ -240,13 +253,13 @@ double-lease or silently expand the APP-STATE set.
 - apps/live-control-ui/src/playSurface/runbook/nativeRunbookProjection.ts
 - apps/live-control-ui/src/playSurface/runbook/nativeRunbookProjection.test.ts
 
-PRIME transfers the production projection and owning-test paths from #914 to
-this slice, effective before activation. Freeze those paths on the #914 branch;
-retain its evidence and reconcile/rebase after this slice changes production.
-The visual review hold remains on #914 and does not block this slice.
+PRIME transferred the production projection and owning-test paths from #914
+to this slice. Freeze those paths on the #914 branch; retain its evidence and
+reconcile/rebase after this slice changes production. The visual review hold
+remains on #914 and does not block this slice.
 
-PRIME transfers PlanSurfacePage.tsx and PlanSurfacePage.test.tsx from the #917
-prototype reservation to this production slice. Freeze those paths on the
+PRIME transferred PlanSurfacePage.tsx and PlanSurfacePage.test.tsx from the
+#917 prototype reservation to this production slice. Freeze those paths on the
 prototype branch and reconcile them later. #917 remains prototype evidence,
 not a production predecessor. Do not read, update, or restart its runtime as
 part of this handoff.
@@ -259,21 +272,25 @@ reviews a changed contract before edits.
 
 ## §5 Topology and state-authority sync
 
-**Topology: serial, one cross-owner implementation PR.** APP-STATE contributes
-first, SERVER second, DEMO last. Each owner writes only its §4 paths; later
-contributors consume the prior exact commits and do not edit earlier-owner
-paths without an explicit transfer. No parallel or stacked implementation PR
-is authorized. If a new capability or public contract is needed, preserve the
-work and return to PRIME for a split/revised handoff.
+**Topology: serial, one cross-owner implementation PR, #931.** The pinned
+branch is `codex/demo-plan-run-activation-contract`, based on
+`04bd667d7f57a3c7b8b35f49d20a15562811a45f`. Owner commits are APP-STATE
+`f644dfc61dc2531eac6a77416cf4c49dcbf51258`, SERVER
+`7375b52b1b59353b605c56f22ec6d79999b576a8`, then DEMO. Each owner writes only
+its §4 paths; later contributors consume the prior exact commits and do not
+edit earlier-owner paths without an explicit transfer. No parallel or stacked
+implementation PR is authorized. If a new capability or public contract is
+needed, preserve the work and return to PRIME for a split or revised handoff.
 
-The eventual implementation PR's authorized documentation sync set is:
+PRIME also authorized this same PR's documentation sync set:
 
-- Docs/Roadmaps/ROADMAP-demo.md: record #925 Graph code integration as merged,
-  keep any remaining live Graph/provider acceptance distinct, and update the
-  next action and this slice's completion only after its real evidence.
-- This handoff: record its exact implementation head, review/merge evidence and
-  released owner/path/resource leases after completion.
-- Docs/Plans/HANDOFF-DEMO-world-owned-play-runs.md: make only the verified
+- `Docs/Roadmaps/ROADMAP-demo.md`: update only the assigned Plan→Run entries
+  transferred from #914. Record the #925 Graph code integration merge and
+  keep remaining live Graph/provider acceptance distinct when updating the
+  next action. Mark this slice complete only after its actual evidence.
+- This handoff: record the exact implementation head, review and merge
+  evidence, and release owner/path/resource leases only after completion.
+- `Docs/Plans/HANDOFF-DEMO-world-owned-play-runs.md`: make only the verified
   #820 C2 completion correction. The current ROADMAP-demo ledger records PR
   #820 merged at bfa741261e715eadb48d873f87fccc1764417da8 with the independent
   mounted Play/Start Run witness; correct the stale C2 ACTIVE header without
@@ -315,14 +332,28 @@ Excluded:
 
 ## §7 Runtime and resource ownership
 
-**No runtime or operator-database mutation is authorized while BLOCKED.**
-
-At activation, use only the disposable per-test database fixture configured by
-DMB_APPLICATION_STATE_TEST_DATABASE_URL with TestClient. Prove that the fixture
-creates a unique database for each test before the first database write.
-Record the fixture identity and cleanup behavior in the ACTIVE handoff. Do not
+**No operator, provider, or shared-runtime mutation is authorized.** Do not
 start a manual product server or use an operator/DOGFOOD endpoint for this
 contract.
+
+The assigned test resource is PRIME's disposable PostgreSQL 16 container
+`8d01d8b8c07ab6712e522bcba62e975df10d98185f6302c9f708b417d5a8b508`. On
+2026-10-06, `docker inspect` verified it was running, had tmpfs
+`/var/lib/postgresql/data` with `size=1g`, no mounts, and only the loopback
+mapping `127.0.0.1:32768 → 5432`; `pg_isready` succeeded. PRIME's activation
+message listed port `32782`; inspection of the exact pinned container shows
+`32768` is the actual mapped endpoint, and `docker ps` found no published
+container on `32782`. Configure `DMB_APPLICATION_STATE_TEST_DATABASE_URL` to
+use database `postgres` on `127.0.0.1:32768` with the container's disposable
+fixture credentials from local configuration; do not store or echo those
+credentials here.
+
+Use that variable with the repository's disposable per-test fixture and
+TestClient. The fixture source in `tests/application_state/conftest.py`
+confirms each test generates a unique
+`dungeonbuddy_app_state_test_{uuid}` database, applies migrations to it, then
+clears the fixture DSN, terminates its connections, and drops it in `finally`.
+Do not use the fixture's default admin endpoint or any other database.
 
 Do not connect to, restart, reseed or reconfigure operator UI 5202, API 8000,
 DOGFOOD 5203, the prototype backend or any operator/shared database. Do not
