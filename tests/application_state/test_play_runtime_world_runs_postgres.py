@@ -351,6 +351,33 @@ def test_world_v2_create_uses_first_authored_spine_and_replay_keeps_progress(
     assert replayed.run.run_revision == 2
 
 
+def test_world_v1_plan_create_and_read_keeps_scene_first_progress_empty(
+    application_state_dsn: str,
+) -> None:
+    world_id = f"world-v1-scene-first-{uuid4()}"
+    plan, revision = _create_world_plan(world_id, markdown=SOURCE_MARKDOWN)
+    run_id = str(uuid4())
+
+    created = create_world_play_run(
+        world_id=world_id,
+        run_id=run_id,
+        playable_artifact_id=plan.work_object_id,
+        expected_playable_revision=revision.revision_n,
+        expected_playable_content_sha256=revision.content_sha256,
+    )
+    reopened = get_world_play_run_aggregate(run_id, world_id=world_id)
+
+    assert created.manifest.manifest["schema_version"] == "dmb_play_run_reference_manifest_v1"
+    assert created.run.progress == {
+        "current_scene_id": None,
+        "current_beat_id": None,
+        "resolved_beat_ids": [],
+        "selections": {},
+        "notes_by_element_id": {},
+    }
+    assert reopened == created
+
+
 def test_world_v2_create_falls_back_to_first_authored_beat(
     application_state_dsn: str,
 ) -> None:
