@@ -8,6 +8,7 @@ import {
   putWorldPlayRunProgress,
 } from "../../api/liveApi";
 import type { AnyPlayRunRecord, PlayRunProgress } from "../../api/types";
+import { ReadOnlyBodyContent } from "../../markdownReader/ReadOnlyBodyContent";
 import {
   canonicalizePlayRunProgress,
   type NativeRunbookChoiceV2,
@@ -77,7 +78,11 @@ function DecisionBlock({
               <h3 id={groupId} data-testid="play-decision-prompt">
                 {choice.title}
               </h3>
-              {choice.bodyText ? <p className="play-decision-framing">{choice.bodyText}</p> : null}
+              <ReadOnlyBodyContent
+                content={choice.bodyContent}
+                fallbackText={choice.bodyText}
+                className="play-body play-decision-framing"
+              />
             </header>
             <div className="play-decision-options" role="radiogroup" aria-labelledby={groupId}>
               {choice.options.map((option) => {
@@ -101,11 +106,12 @@ function DecisionBlock({
             </div>
             {selected ? (
               <div className="play-decision-result">
-                {selected.bodyText ? (
-                  <p className="play-decision-consequence" data-testid="play-decision-consequence">
-                    {selected.bodyText}
-                  </p>
-                ) : null}
+                <ReadOnlyBodyContent
+                  content={selected.bodyContent}
+                  fallbackText={selected.bodyText}
+                  className="play-body play-decision-consequence"
+                  testId="play-decision-consequence"
+                />
                 {branch.length > 0 ? (
                   <ul className="play-decision-relevance" data-testid="play-decision-relevance">
                     {branch.map((row) => (
@@ -383,7 +389,11 @@ export function PlayCurrentMomentCockpit({
                   {run.progress.resolved_beat_ids.includes(currentBeat.id) ? (
                     <p className="play-muted">resolved</p>
                   ) : null}
-                  {currentBeat.bodyText ? <p className="play-body">{currentBeat.bodyText}</p> : null}
+                  <ReadOnlyBodyContent
+                    content={currentBeat.bodyContent}
+                    fallbackText={currentBeat.bodyText}
+                    className="play-body"
+                  />
                 </>
               ) : (
                 <p className="play-muted">Current Beat is unavailable.</p>
@@ -405,7 +415,11 @@ export function PlayCurrentMomentCockpit({
             >
               <p className="play-kicker">Current Scene</p>
               <h2 id="play-workspace-heading">{currentScene.title}</h2>
-              {currentScene.bodyText ? <p className="play-body play-scene-board-body">{currentScene.bodyText}</p> : null}
+              <ReadOnlyBodyContent
+                content={currentScene.bodyContent}
+                fallbackText={currentScene.bodyText}
+                className="play-body play-scene-board-body"
+              />
               <DecisionBlock
                 deck={deck}
                 decisions={decisions}
@@ -421,7 +435,11 @@ export function PlayCurrentMomentCockpit({
             <article data-testid="play-workspace-beat-only" aria-labelledby="play-workspace-heading">
               <p className="play-kicker">Current Beat</p>
               <h2 id="play-workspace-heading">{currentBeat.title}</h2>
-              {currentBeat.bodyText ? <p className="play-body">{currentBeat.bodyText}</p> : null}
+              <ReadOnlyBodyContent
+                content={currentBeat.bodyContent}
+                fallbackText={currentBeat.bodyText}
+                className="play-body"
+              />
               <h3>Scenes in this Beat</h3>
               {currentBeat.scenes.length === 0 ? (
                 <p className="play-muted" data-testid="play-scenes-empty">
@@ -544,7 +562,11 @@ export function PlayCurrentMomentCockpit({
                   </button>
                 ) : null}
               </div>
-              {inspectedScene.bodyText ? <p className="play-body">{inspectedScene.bodyText}</p> : null}
+              <ReadOnlyBodyContent
+                content={inspectedScene.bodyContent}
+                fallbackText={inspectedScene.bodyText}
+                className="play-body"
+              />
             </article>
           ) : null}
         </div>

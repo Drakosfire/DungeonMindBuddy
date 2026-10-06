@@ -613,16 +613,52 @@ describe("admitNativeRunbook v2", () => {
     expect(admitted.beats[0]?.choices[0]?.title).toBe("Decision X");
     expect(admitted.beats[0]?.choices[0]?.bodyText).toBe("Choice X unique prose.");
     expect(admitted.beats[0]?.choices[0]?.bodyText).not.toContain("Option X1 unique text");
+    expect(admitted.beats[0]?.choices[0]?.bodyContent).toEqual([{
+      type: "paragraph",
+      content: [{ type: "text", text: "Choice X unique prose." }],
+    }]);
     expect(admitted.beats[0]?.choices[0]?.options[0]).toEqual(expect.objectContaining({
       id: "option:x1",
       title: "Option X1 unique text",
       bodyText: "",
+      bodyContent: [],
     }));
     expect(admitted.beats[0]?.choices[0]?.options[1]?.title).toBe("Option X2 unique text");
     expect(admitted.beats[0]?.choices[1]?.bodyText).toBe("Choice Y unique prose.");
     expect(admitted.beats[0]?.choices[1]?.options[0]?.title).toBe("Option Y1 unique text");
     expect(admitted.run.progress).not.toHaveProperty("relevance");
     expect(admitted.relevanceByTargetId["beat:two"]).toBe("default");
+  });
+
+  it("carries captured authored body AST through V2 admission without flattening labels or blocks", () => {
+    const richMarkdown = V2_MARKDOWN.replace(
+      "### Scene A\n\n",
+      [
+        "### Scene A",
+        "",
+        "A lengthy opening paragraph with [Lysandra Ironveil](#dmb-ref:npc:lysandra-ironveil) still attached.",
+        "",
+        "A second paragraph stays separate.",
+        "",
+        "- first authored list item",
+        "- second authored list item",
+        "",
+        "> A quoted table-read passage remains quoted.",
+        "",
+      ].join("\n"),
+    );
+    const admitted = admitNativeRunbook({
+      run: runRecord({ progress: progress({ current_beat_id: "beat:one", current_scene_id: "scene:a" }) }),
+      manifest: v2Manifest(),
+      committed: committed({ markdown: richMarkdown }),
+    });
+    if (!isNativeRunbookReadyV2(admitted)) throw new Error("expected v2 ready");
+
+    const body = admitted.beats[0]?.scenes[0]?.bodyContent;
+    expect(body?.map((node) => node.type)).toEqual(["paragraph", "paragraph", "bulletList", "blockquote"]);
+    expect(JSON.stringify(body)).toContain("Lysandra Ironveil");
+    expect(JSON.stringify(body)).toContain("second authored list item");
+    expect(JSON.stringify(body)).toContain("quoted table-read passage");
   });
 
   it("refuses READY when v2 progress has not been seeded", () => {
