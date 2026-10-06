@@ -78,9 +78,6 @@ from apps.live_control_server.services.hermes_session_store import (
     HermesSessionPointerStore,
     HermesStructuredPointerResolution,
 )
-from apps.live_control_server.services.hermes_graph_agent_contract import (
-    MAX_QUESTION_CHARS,
-)
 
 
 _PLAN_MESSAGE_INSTRUCTIONS = (
@@ -1398,13 +1395,24 @@ def _policy_request_budget() -> dict[str, Any]:
             provider_dispatched=False,
         )
     provider, model, _base_url = selected
+    # GPT-6 Luna's documented API context window is 1,050,000 tokens.
+    # Keep a smaller operational ceiling until the final-envelope accounting
+    # and multi-attempt behavior are exercised at larger sizes. Unknown model
+    # overrides must not inherit this capacity assertion.
+    # https://developers.openai.com/api/docs/models/gpt-6-luna
+    if provider != "openai-api" or model != "gpt-6-luna":
+        raise AgentTurnServiceError(
+            "The selected Plan Graph model has no verified context capacity.",
+            code="provider_envelope_over_budget", status_code=503,
+            provider_dispatched=False,
+        )
     return {
         "schema": "dmb_hermes_request_budget_policy_v1",
         "provider": provider,
         "model": model,
         "apiMode": "codex_responses",
         "estimator": "utf8_json_bytes_plus_64_per_node_v1",
-        "contextLimitTokens": 32768,
+        "contextLimitTokens": 65536,
         "outputReserveTokens": 2048,
     }
 
@@ -1476,12 +1484,6 @@ def _plan_message(
         separators=(",", ":"),
     )
     message = f"{_PLAN_MESSAGE_INSTRUCTIONS}\n{payload}"
-    if len(message) > MAX_QUESTION_CHARS:
-        raise AgentTurnServiceError(
-            "The committed Plan is too large to include in one Agent turn. Shorten the Plan and try again.",
-            code="plan_content_over_budget",
-            status_code=413,
-        )
     return message
 
 

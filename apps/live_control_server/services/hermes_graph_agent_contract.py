@@ -741,7 +741,14 @@ def serialize_hermes_graph_agent_turn_request(
     request: HermesGraphAgentTurnRequest,
 ) -> dict[str, Any]:
     """Serialize a Rung 3 turn request for host IPC (no callables)."""
-    question = _require_str(request.question, label="question", max_chars=MAX_QUESTION_CHARS)
+    # A Plan turn carries exact committed Markdown in this internal field.
+    # The public user question remains bounded by AgentTurnRequest; the host
+    # wire limit and final provider-envelope budget bound the assembled input.
+    question = _require_str(
+        request.question,
+        label="question",
+        max_chars=MAX_WIRE_BYTES if request.plan_continuity_turn else MAX_QUESTION_CHARS,
+    )
     policy = request.capability_policy
     conversation_only = policy is not None and policy.mode == "conversation_only"
     if conversation_only:
@@ -916,7 +923,11 @@ def deserialize_hermes_graph_agent_turn_request(
             raise ValueError("campaignId is required when scopeMode is campaign")
         world_id = _require_str(payload.get("worldId") or "", label="worldId", max_chars=MAX_ID_CHARS)
     return HermesGraphAgentTurnRequest(
-        question=_require_str(payload.get("question") or "", label="question", max_chars=MAX_QUESTION_CHARS),
+        question=_require_str(
+            payload.get("question") or "",
+            label="question",
+            max_chars=MAX_WIRE_BYTES if plan_continuity_turn else MAX_QUESTION_CHARS,
+        ),
         world_id=world_id,
         campaign_id=campaign_id,
         scope_mode=scope_mode,

@@ -710,14 +710,39 @@ def test_duplicate_execution_event_never_acknowledges_harness_progress() -> None
     assert caught.value.code == "turn_persistence_indeterminate"
 
 
+def test_plan_graph_budget_fails_closed_for_unverified_model(
+    monkeypatch: Any,
+) -> None:
+    from apps.live_control_server.services import agent_turn_service as service_module
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference",
+        lambda **_kwargs: ("openai-api", "unverified-model", "https://api.openai.com/v1"),
+    )
+    with pytest.raises(AgentTurnServiceError) as caught:
+        service_module._policy_request_budget()
+    assert caught.value.code == "provider_envelope_over_budget"
+    assert caught.value.provider_dispatched is False
+
+
+@pytest.mark.parametrize(
+    "plan_markdown",
+    ["The keeper waits.", "The keeper waits.\n" + "x" * 50_000],
+    ids=["short", "long-committed-plan"],
+)
 def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     monkeypatch: Any,
+    plan_markdown: str,
 ) -> None:
     from datetime import timedelta
     from application_state.agent_conversation import types as graph_types
     if not hasattr(graph_types, "PlanWorldGraphExecutionV1"):
         pytest.skip("run with pinned APP-STATE candidate")
     from apps.live_control_server.services import agent_turn_service as service_module
+    monkeypatch.setattr(
+        "apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference",
+        lambda **_kwargs: ("openai-api", "gpt-6-luna", "https://api.openai.com/v1"),
+    )
     from apps.live_control_server.services.agent_runtime import AgentWorldScope
     from graph_memory.interaction.session import (
         CoverageState, GraphRetrievalSession, SessionSnapshot,
@@ -743,7 +768,7 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     work = AgentTurnResolvedWork(
         kind="plan", object_id="plan:one", revision=7,
         changed_since_expected=False, owner_kind="world", owner_id="world:one",
-        world_id="world:one", content_basis=basis, plan_markdown="The keeper waits.",
+        world_id="world:one", content_basis=basis, plan_markdown=plan_markdown,
     )
     session = GraphRetrievalSession(
         snapshot=SessionSnapshot(
@@ -792,17 +817,13 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     }
     payload_json = json.dumps(provider_body, sort_keys=True, separators=(",", ":"))
     view = {
-        "provider": "openai-api", "model": "test-model",
+        "provider": "openai-api", "model": "gpt-6-luna",
         "apiMode": "codex_responses", "payloadJson": payload_json,
         "payloadSha256": sha256(payload_json.encode()).hexdigest(),
         "payloadUtf8Bytes": len(payload_json.encode()),
     }
-    budget = {
-        "provider": "openai-api", "model": "test-model",
-        "apiMode": "codex_responses",
-        "estimator": "utf8_json_bytes_plus_64_per_node_v1",
-        "contextLimitTokens": 32768, "outputReserveTokens": 2048,
-    }
+    budget = service_module._policy_request_budget()
+    assert budget["contextLimitTokens"] == 65536
 
     class FakeExecutionPort:
         turn: Turn | None = None
@@ -924,6 +945,25 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         return fake.turn
 
     monkeypatch.setattr(service_module, "_accept_world_turn", accept)
+    if len(plan_markdown) > 50_000:
+        over_budget = service_module._PolicyExecutionAdapter(
+            service=fake,
+            request=request,
+            world_id="world:one",
+            work=work,
+            bootstrap=bootstrap,
+            playable_target=None,
+            submitted_intent=_submitted_turn_intent(request, world_id="world:one"),
+            existing_turn=None,
+            budget={**budget, "contextLimitTokens": 32768},
+        )
+        assert over_budget.authorize(view) is False
+        assert over_budget.failure is not None
+        assert over_budget.failure.code == "provider_envelope_over_budget"
+        assert over_budget.failure.provider_dispatched is False
+        assert fake.accepted_count == 0
+        assert fake.authorize_count == 0
+        over_budget.stop()
     adapter = service_module._PolicyExecutionAdapter(
         service=fake, request=request, world_id="world:one", work=work,
         bootstrap=bootstrap, playable_target=None,
@@ -931,6 +971,10 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         existing_turn=None, budget=budget,
     )
     assert adapter.authorize(view) is True
+    user_content = json.loads(view["payloadJson"])["input"][1]["content"]
+    assert json.loads(user_content.split("\n", 1)[1])[
+        "committed_plan_markdown"
+    ] == plan_markdown
     assert fake.accepted_count == 1
     assert fake.authorize_count == 1
     assert adapter.record_lifecycle({"transition": "sdk_entered"}) is True
@@ -1012,7 +1056,6 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
                 runtime_session_id="synthetic-plan-session",
             )
 
-    monkeypatch.setattr(service_module, "_policy_request_budget", lambda: budget)
     response = execute_agent_turn(
         request,
         root=Path("/tmp"),
@@ -1368,33 +1411,31 @@ def test_target_absent_from_committed_revision_stops_before_runtime_dispatch(
     assert runtime.invocations == []
 
 
-def test_over_budget_committed_plan_stops_before_pointer_or_runtime_dispatch(
+def test_large_committed_plan_is_not_rejected_as_a_short_user_question(
     tmp_path: Path,
 ) -> None:
     runtime = FakeRuntime()
     pointer_dir = tmp_path / "pointers"
-
-    with pytest.raises(AgentTurnServiceError) as exc_info:
-        execute_agent_turn(
-            _pinned_plan_request(),
-            root=tmp_path,
-            pointer_store=HermesSessionPointerStore(pointer_dir),
-            owner_resolver=lambda _request: {
-                "kind": "world",
-                "id": "world:one",
-                "name": "The Glass Orchard",
-            },
-            work_resolver=lambda _request, _owner: _pinned_plan_work("x" * 8_000),
-            graph_resolver=lambda *_args: pytest.fail(
-                "Plan content turn must not resolve graph"
-            ),
-            runtime=runtime,
-        )
-
-    assert exc_info.value.code == "plan_content_over_budget"
-    assert exc_info.value.status_code == 413
-    assert runtime.invocations == []
-    assert not (pointer_dir / "hermes_thread_pointers.json").exists()
+    markdown = "# Committed Plan\n" + "x" * 50_000
+    execute_agent_turn(
+        _pinned_plan_request(),
+        root=tmp_path,
+        pointer_store=HermesSessionPointerStore(pointer_dir),
+        owner_resolver=lambda _request: {
+            "kind": "world",
+            "id": "world:one",
+            "name": "The Glass Orchard",
+        },
+        work_resolver=lambda _request, _owner: _pinned_plan_work(markdown),
+        graph_resolver=lambda *_args: pytest.fail(
+            "Plan content turn must not resolve graph"
+        ),
+        runtime=runtime,
+    )
+    assert len(runtime.invocations) == 1
+    assert json.loads(runtime.invocations[0].message.split("\n", 1)[1])[
+        "committed_plan_markdown"
+    ] == markdown
 
 
 def test_no_graph_turn_uses_no_scope_runtime_and_only_structured_pointer_store(
