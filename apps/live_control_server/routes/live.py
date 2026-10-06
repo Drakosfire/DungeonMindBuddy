@@ -1088,7 +1088,13 @@ def post_world_plan_document_edit_proposal(
     body: WorldPlanDocumentEditProposalRequest,
 ) -> WorldPlanDocumentEditProposalResponse:
     try:
-        return propose_world_plan_document_edit(root=repo_root(), request=body)
+        world_root = managed_world_data_root(repo_root())
+    except ManagedWorldDataRootError as exc:
+        raise HTTPException(
+            status_code=503, detail="Managed World storage is unavailable."
+        ) from exc
+    try:
+        return propose_world_plan_document_edit(root=world_root, request=body)
     except PlanDocumentEditProposalError as exc:
         raise HTTPException(
             status_code=exc.status_code,
@@ -1102,8 +1108,14 @@ def get_world_plan_document_edit_actions(
     document_id: str = Query(min_length=1, max_length=128),
 ) -> dict[str, Any]:
     try:
+        world_root = managed_world_data_root(repo_root())
+    except ManagedWorldDataRootError as exc:
+        raise HTTPException(
+            status_code=503, detail="Managed World storage is unavailable."
+        ) from exc
+    try:
         return get_world_plan_action_projection(
-            root=repo_root(), world_id=world_id, document_id=document_id
+            root=world_root, world_id=world_id, document_id=document_id
         ).model_dump(mode="json")
     except PlanDocumentEditProposalError as exc:
         raise HTTPException(
