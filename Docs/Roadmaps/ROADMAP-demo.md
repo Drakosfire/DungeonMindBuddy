@@ -60,27 +60,30 @@ production implementation or independently frozen gold.
 
 ### Delivery order
 
-1. Complete Graph-backed Ask in the shared canonical World conversation through
-   Buddy's Agent Harness integration contract. It covers conversation execution,
-   tools/context, authorization, lifecycle, evidence, and replay; the current
-   Hermes adapter stays behind the existing seam. Do not add a new runtime
-   abstraction or replace the current adapter in this slice. The synthetic
-   DEMO consumer is ACTIVE under the pinned seven-path lease and
-   consumes the accepted opt-in request/v2 response/history contract. No-policy
-   requests stay byte-compatible v1. This fixture work does not prove parent-
-   brokered traversal or live provider behavior; integrated acceptance, merge,
-   and rollout wait for accepted APP-STATE and SERVER producer implementations.
-2. After Graph acceptance, deliver one shared focused-card prepare/run experience
-   across Session 29, Conks, and Sheep. Preserve source identity and evidence
-   separately from navigation choices such as chronology, location, and scene
-   focus. Reuse existing document and Playable authority; do not copy prototype
-   persistence or add a second retrieval path.
-3. Add durable Run choices, notes, submitted rolls, selected results, and combat
+1. Graph-backed World Plan conversation integration is merged through Buddy
+   #938. Its controlled normal-route witness proves a cited Graph fact absent
+   from the Plan, a durable completed answer, and exactly one completion after
+   history reopen. This is a bounded route witness; production Elderwyld
+   usefulness, the missing Session 29 database identity, and full connected
+   J1–J6 acceptance remain open. Do not reopen consumer code without new
+   evidence.
+2. The next ACTIVE DEMO product slice is one focused Plan Scene reader over the
+   existing Cards projection. Keep the outline, authored-order previous/next,
+   readable Scene/Choice/Option content, Document access, exact Start Play pin,
+   and truthful default Agent Ask context. A newly submitted Ask follows the
+   focused saved Scene; a pending Ask remains pinned to its submitted target.
+   Reuse the existing Plan/Playable authority and do not add Play conversation
+   backend work, prototype persistence, or a second retrieval path. The exact
+   Buddy lease is
+   [`HANDOFF-DEMO-focused-scene-reader.md`](../Plans/HANDOFF-DEMO-focused-scene-reader.md).
+3. Continue the shared prepare/run adoption across Session 29, Conks, and Sheep.
+   Preserve source identity and evidence separately from navigation choices
+   such as chronology, location, and scene focus.
+4. Add durable Run choices, notes, submitted rolls, selected results, and combat
    outcomes, then complete the remaining J1–J6 journey. Keep rehearsal/preparation
    distinct from actual session outcomes and graph canon, and prove survival across
-   navigation, restart, and resume at the owning boundary.
-4. Advance J4 assets and reviewed COMPOSITOR packages through their own bounded
-   lanes. They do not block Graph acceptance or the focused-card/run slice.
+   navigation, restart, and resume at the owning boundary. Advance J4 assets and
+   reviewed COMPOSITOR packages through their own bounded lanes.
 
 ### Existing milestones retain their meaning
 
@@ -92,15 +95,21 @@ production implementation or independently frozen gold.
 - J6: choices, rolls, combat state and outcomes survive navigation/restart/resume.
 
 No J1–J6 gate is closed by prototype screenshots or this reprioritization. The
-#886 geometry repair is merged and its bounded technical gate passed; #869
-movement and independent Graph/auth acceptance holds remain.
-The operator's live 5202 session is reserved; coordinate any replacement with
-SERVER and PRIME rather than restarting it for a fixture.
+#938 witness proves one controlled Graph-dependent turn, not production
+Elderwyld usefulness or full J3 acceptance. The #886 geometry repair is merged
+and its bounded technical gate passed; #869 movement and production rollout
+remain independent holds. SERVER's synthetic witness receipt and answer
+evidence are preserved in the post-merge report delivered by #940 at main
+`c714c7c6`; it records the bounded synthetic outcomes and does not certify
+production Elderwyld behavior or cost. The operator's live 5202 session is
+reserved; coordinate any replacement with SERVER and PRIME rather than
+restarting it for a fixture.
 
 ### Ownership and next dispatch
 
-DEMO owns the product contract, first bounded production card handoff and
-implementation sequence. ARCHITECTURE critiques reuse of document/Playable,
+DEMO owns the product contract and current bounded reader under
+[`HANDOFF-DEMO-focused-scene-reader.md`](../Plans/HANDOFF-DEMO-focused-scene-reader.md).
+ARCHITECTURE critiques reuse of document/Playable,
 surface targeting, media and presentation contracts. APP-STATE owns any required
 durable Run/notes/action-state change after the relevant contract is bounded;
 no schema implementation is activated by this direction. SERVER owns runtime,
@@ -155,7 +164,7 @@ lease is released. The inherited UI typecheck failure at
   [HANDOFF-DEMO-saved-plan-card-projection.md](../Plans/HANDOFF-DEMO-saved-plan-card-projection.md).
   Its own model tests must fail closed for malformed, mixed, unknown, and orphan
   structures. No full parser equivalence or Run admission is claimed.
-- **Graph-grounded saved-World Plan Ask — synthetic consumer ACTIVE (2026-10-05).**
+- **Graph-grounded saved-World Plan Ask — integrated (Buddy #938, 2026-10-06).**
   The canonical route is the server-owned `/api/live/agent/turn` World
   conversation; the legacy Plan `/api/live/query` path remains outside this
   capability. The initial design/roadmap handoff merged as Buddy #921 at
@@ -180,7 +189,10 @@ lease is released. The inherited UI typecheck failure at
   current concrete adapter behind the existing seam. It must never redispatch
   an authorized/unknown attempt or expose the raw execution ledger.
   #917 remains prototype evidence only; it is not a predecessor or code source.
-  #914's visual hold is independent. APP-STATE contract #928 and implementation
+  #914's synthetic visual hold remains preserved. PRIME transferred its
+  projection/CSS/integration paths and reader-specific roadmap entry to the
+  focused-reader lane; #914 is not a Graph gate or merge predecessor.
+  APP-STATE contract #928 and implementation
   #929 merged in order at `38ba7b1dcdde44508f123b606d156d2b381f4522` and
   `940bfbf890064de96c4cd845850d4b5018869b61`; the merged implementation head
   `b757d7236fafb27a4d8da70d7b6b1066c6e72010` is tree-identical to accepted ref
@@ -188,9 +200,14 @@ lease is released. The inherited UI typecheck failure at
   SERVER #926 merged at `711b652399c2298da5bd6db34f77dcb6a488e212`, then the
   target/history correction #930 merged at `3bb57f8288c54090ee5b7aba36d6de4186b4e790`.
   DEMO's mounted history fixtures separately cover the execution sidecar and
-  card-A target/citation projection. Producer code and persistence have merged;
-  live provider/Graph behavior, connected acceptance and rollout remain open.
-  The fixtures use no live Graph, provider, service or database.
+  card-A target/citation projection; those fixtures use no live Graph, provider,
+  service or database. Buddy #938 merged at
+  `b92e950cdbc68b47e202822515b13a4ba4228469` after a controlled normal-route
+  witness cited a Graph fact absent from the Plan, persisted a completed answer,
+  and showed exactly one completed turn after history reopen in 19.5 seconds.
+  This proves that bounded route only. Production Elderwyld usefulness, the
+  refreshed runtime's Session 29 Plan identity, and the connected J1–J6 demo
+  remain unverified.
 - #887 remains DOGFOOD's prototype-only evidence lane. Its private corpus,
   media, and state snapshots are not production data or sources to copy.
 - #869, head `23d76f4d4f4f223b62067024e152e8cb2dde37b8`, remains
@@ -294,7 +311,20 @@ claim live provider/Graph execution or runtime integration. PRIME retains
 independent DEMO review and merge authority. This is code integration only:
 live provider/Graph behavior, connected acceptance, and rollout remain open.
 
-**Shared interface adoption target:** use the successful Conks prototypes (including the original Con-ready presentation), A Wild Sheep Chase and campaign Session 29 as joint examples of one prepare/run interface. Preserve focused central cards, lenses, readable semantic content and connections while allowing chronological, location and choice navigation appropriate to each source. Current production Cards is infrastructure, not full prototype adoption. Its observed loss of atomic reference labels and paragraph/list structure is now an ACTIVE bounded [projection-fidelity repair](../Plans/HANDOFF-DEMO-plan-card-projection-fidelity.md), after #913 released the overlapping paths. This independent UI lane can proceed alongside Graph owner work; it does not include focused scene/lens or aesthetic adoption. Durable Run decisions, rolls and notes remain separate contracts.
+**Shared interface adoption target:** use the successful Conks prototypes (including
+the original Con-ready presentation), A Wild Sheep Chase and campaign Session 29
+as joint examples of one prepare/run interface. Preserve focused central cards,
+lenses, readable content and connections while allowing chronology, location and
+choice navigation appropriate to each source. Current production Cards is
+infrastructure, not full prototype adoption.
+
+PRIME transferred #914's projection, CSS, integration-test and reader-specific
+roadmap paths into the ACTIVE
+[focused-scene reader](../Plans/HANDOFF-DEMO-focused-scene-reader.md). The #914
+draft, visual hold and evidence branch remain preserved; its merge and gold
+status are not prerequisites. The reader consumes authored content already
+present in the validated projection and does not infer location or chronology.
+Durable Run decisions, rolls and notes remain separate contracts.
 
 **Prior DEMO lane checkpoint (2026-09-28):** three bounded predecessors are now merged.
 #785 / J4 World-scoped statblock drafts merged at
@@ -1244,26 +1274,51 @@ that their foundations are absent. Historical slices retain their IDs.
 
 ### 2026-10-06 — DEMO-J5 saved World Plan to Play Run (#931)
 
-- **State: active; implementation committed, ten-path UI review accepted, final
-  cumulative handoff/activation review pending.** The
-  serial PR is [#931](https://github.com/Drakosfire/DungeonMindBuddy/pull/931),
-  based on `08e8cbe1207b74b0e15c6f95070899c5cc7c69fd` after PR #935 merged.
-  DEMO's ten leased UI paths are in rebased code commit
-  `ef2bf4054e065a98d0d0bf3253fa891be35383ac`; their file blobs are unchanged
-  from code commit `655edf9615dc3514b54755b4ac24562023cf1164`, which PRIME
-  independently accepted for the ten-path UI implementation;
-  the current handoff and exact write lease are
-  [`HANDOFF-world-plan-playable-adoption.md`](../Plans/HANDOFF-world-plan-playable-adoption.md).
+- **State: integrated; PR merged, handoff and lease settled.** The serial PR is
+  [#931](https://github.com/Drakosfire/DungeonMindBuddy/pull/931), based on
+  `08e8cbe1207b74b0e15c6f95070899c5cc7c69fd` after PR #935 merged. Its exact
+  accepted cumulative head was `0c27f0e0d34d9e77501ba7775a6c70807406e022`;
+  it merged at `27337116bbbbe039fac1387f1a9135edac22ddf9` on 2026-10-06.
+  The handoff lease is closed. The accepted ten-path UI implementation and
+  cross-owner integration are code evidence, not connected J5 or J1–J6
+  acceptance.
 - **Evidence:** PRIME accepted the ten-path UI review at code commit `655edf9`
   with the assigned mounted/UI suites passing 148/148 and its typecheck passing;
-  the post-rebase UI blobs are identical. APP-STATE's isolated PostgreSQL suite
+  the rebased UI blobs were identical. APP-STATE's isolated PostgreSQL suite
   passed 11/11; SERVER's World V2/manifest suites passed 31/31 with 11 existing
   Pydantic shadow warnings. The disposable fixture catalog was empty after
-  tests. This checkout's repository-wide typecheck retains only the inherited
-  `ThreatPublicationPanel.tsx(553,77)` JSX namespace error outside the lease.
-- **Next:** PRIME reviews the exact cumulative PR head for handoff/activation
-  settlement. Keep the lease ACTIVE through that review and merge; the accepted
-  UI review does not settle the full cross-owner PR.
+  tests. The connected journey, DOGFOOD production QC, and exact-pin Start Run
+  witness remain open.
+- **Next:** preserve the merged capability as a predecessor; finish focused
+  scene reading under the separate ACTIVE handoff below. Do not infer operator
+  acceptance from merge or technical evidence.
+
+### 2026-10-06 — DEMO focused Plan scene reader
+
+- **State: active; implementation committed, PR open for PRIME review.** The
+  serial PR is [#941](https://github.com/Drakosfire/DungeonMindBuddy/pull/941)
+  on branch `codex/demo-focused-card-reader`, based on
+  `c714c7c6b5f5504590ae5e000de530c079ea9f17` (main after #940). The product
+  implementation commit is `1ecba7d9b068a59c3b2362c5dce2df79477a2158`. Its ACTIVE contract
+  is [`HANDOFF-DEMO-focused-scene-reader.md`](../Plans/HANDOFF-DEMO-focused-scene-reader.md)
+  and the exclusive lease is exactly the seven paths listed in §4 there.
+  PRIME transferred the projection/CSS/integration paths and roadmap entry
+  from open #914; its visual hold/evidence branch remain preserved. #927 stays
+  queued design-only. The intervening #940 main change adds only the independent
+  synthetic witness report, outside this reader's seven-path lease.
+- **Evidence:** focused projection, mounted Plan page, and existing reviewed
+  Edit/Apply regression suites pass 83/83. The changed paths are limited to the
+  lease. Synthetic browser inspection covered the focused reader at the desktop
+  default viewport and 390×844; content and controls remained readable, with no
+  horizontal overflow (390px viewport, 375px document width). DOGFOOD's separate
+  visual quality control is still required before operator acceptance. The
+  scoped TypeScript build retains the inherited
+  `ThreatPublicationPanel.tsx(553,77): TS2503 Cannot find namespace 'JSX'`
+  error outside the lease. Connected operator acceptance is not claimed by
+  these code tests.
+- **Next:** PRIME reviews the exact cumulative PR head. DOGFOOD visual quality
+  control and connected operator acceptance remain separate; do not merge or
+  claim J1–J6 acceptance.
 
 ### 2026-09-26 — PLAY-1 integration and DEMO preflight
 

@@ -194,6 +194,39 @@ it("makes duplicate marker identities unavailable to target selection", () => {
   expect(worldPlanCardTargetKeys(model)).toEqual(new Set());
 });
 
+it("clears focused Scene and Ask context when the verified Plan basis changes", async () => {
+  const imported = markdownToTiptapDoc(initialMarkdown);
+  const model = buildWorldPlanCardProjectionModel({ document: imported.doc, markdown: initialMarkdown, sourceWarnings: [] });
+  expect(model.status).toBe("ready");
+  const targetKeys = worldPlanCardTargetKeys(model);
+  const onSelectTarget = vi.fn();
+  const props = {
+    worldId,
+    document: imported.doc,
+    markdown: initialMarkdown,
+    sourceWarnings: [] as string[],
+    isDirty: false,
+    onReturnToDocument: vi.fn(),
+    selectableTargetKeys: targetKeys,
+    editableTargetKeys: targetKeys,
+    selectedTarget: { kind: "scene" as const, id: "scene:arrival" },
+    onSelectTarget,
+  };
+  const mounted = render(
+    <WorldPlanCardProjection {...props} documentId={documentId} basis={{ status: "verified", revision: 4, contentSha256: initialDigest }} />,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Open scene: Arrival" }));
+  expect(screen.getByTestId("world-plan-scene-reader")).toBeInTheDocument();
+  expect(onSelectTarget).toHaveBeenLastCalledWith({ kind: "scene", id: "scene:arrival" });
+
+  mounted.rerender(
+    <WorldPlanCardProjection {...props} documentId={documentId} basis={{ status: "verified", revision: 5, contentSha256: committedDigest }} />,
+  );
+  await waitFor(() => expect(screen.queryByTestId("world-plan-scene-reader")).not.toBeInTheDocument());
+  expect(onSelectTarget).toHaveBeenLastCalledWith(null);
+});
+
 it("keeps current-draft Edit selection separate from committed-Plan Ask selection", () => {
   const imported = markdownToTiptapDoc(initialMarkdown);
   const model = buildWorldPlanCardProjectionModel({
@@ -237,6 +270,92 @@ it("keeps current-draft Edit selection separate from committed-Plan Ask selectio
   fireEvent.click(askButton!);
   expect(selectForAsk).toHaveBeenCalledWith({ kind: "scene", id: "scene:arrival" });
   expect(selectForEdit).toHaveBeenCalledTimes(1);
+});
+
+it("opens one authored v2 Scene with its associated Choice and Options, then navigates by Plan order", () => {
+  const markdown = [
+    "<!-- dmb-playable-element:v2 kind=beat id=beat:main beat_kind=spine -->",
+    "## Main beat",
+    "Beat overview and location notes.",
+    "<!-- dmb-playable-element:v2 kind=scene id=scene:gate -->",
+    "### The gate",
+    "The guard waits beside the north gate.",
+    "<!-- dmb-playable-element:v2 kind=choice id=choice:gate scene=scene:gate -->",
+    "### How do you enter?",
+    "The guard asks for a response.",
+    "<!-- dmb-playable-element:v2 kind=option id=option:talk -->",
+    "- Talk to the guard",
+    "  Explain your reason for entering.",
+    "<!-- dmb-playable-element:v2 kind=scene id=scene:warehouse -->",
+    "### The warehouse",
+    "A lantern moves behind the loading door.",
+  ].join("\n") + "\n";
+  const imported = markdownToTiptapDoc(markdown);
+  const model = buildWorldPlanCardProjectionModel({ document: imported.doc, markdown, sourceWarnings: [] });
+  expect(model.status).toBe("ready");
+  const targetKeys = worldPlanCardTargetKeys(model);
+  const onSelectTarget = vi.fn();
+  render(
+    <WorldPlanCardProjection
+      worldId={worldId}
+      documentId={documentId}
+      document={imported.doc}
+      markdown={markdown}
+      sourceWarnings={[]}
+      basis={{ status: "verified", revision: 9, contentSha256: committedDigest }}
+      isDirty={false}
+      onReturnToDocument={vi.fn()}
+      selectableTargetKeys={targetKeys}
+      editableTargetKeys={targetKeys}
+      onSelectTarget={onSelectTarget}
+    />,
+  );
+
+  const cards = screen.getByTestId("world-plan-cards");
+  fireEvent.click(within(cards).getByRole("button", { name: "Open scene: The gate" }));
+  const reader = screen.getByTestId("world-plan-scene-reader");
+  expect(reader).toHaveTextContent("The guard waits beside the north gate.");
+  expect(reader).toHaveTextContent("Beat overview and location notes.");
+  expect(reader).toHaveTextContent("How do you enter?");
+  expect(reader).toHaveTextContent("Talk to the guard");
+  expect(reader).toHaveTextContent("Explain your reason for entering.");
+  expect(reader.querySelector('[data-element-id="scene:warehouse"]')).toBeNull();
+  expect(onSelectTarget).toHaveBeenLastCalledWith({ kind: "scene", id: "scene:gate" });
+
+  fireEvent.click(within(reader).getByRole("button", { name: "Next scene" }));
+  const warehouseReader = screen.getByTestId("world-plan-scene-reader");
+  expect(warehouseReader).toHaveTextContent("A lantern moves behind the loading door.");
+  expect(warehouseReader.querySelector('[data-element-id="scene:gate"]')).toBeNull();
+  expect(onSelectTarget).toHaveBeenLastCalledWith({ kind: "scene", id: "scene:warehouse" });
+
+  fireEvent.click(within(warehouseReader).getByRole("button", { name: "Back to outline" }));
+  expect(screen.queryByTestId("world-plan-scene-reader")).not.toBeInTheDocument();
+  expect(screen.getByTestId("world-plan-cards")).toBeInTheDocument();
+});
+
+it("clears an earlier Ask target when a focused Scene is outside the verified saved selection", () => {
+  const imported = markdownToTiptapDoc(initialMarkdown);
+  const model = buildWorldPlanCardProjectionModel({ document: imported.doc, markdown: initialMarkdown, sourceWarnings: [] });
+  expect(model.status).toBe("ready");
+  const onSelectTarget = vi.fn();
+  render(
+    <WorldPlanCardProjection
+      worldId={worldId}
+      documentId={documentId}
+      document={imported.doc}
+      markdown={initialMarkdown}
+      sourceWarnings={[]}
+      basis={{ status: "verified", revision: 4, contentSha256: committedDigest }}
+      isDirty
+      onReturnToDocument={vi.fn()}
+      selectableTargetKeys={new Set()}
+      onSelectTarget={onSelectTarget}
+    />,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Open scene: Arrival" }));
+  expect(onSelectTarget).toHaveBeenLastCalledWith(null);
+  expect(screen.getByTestId("world-plan-scene-reader")).toHaveTextContent("default Ask card target is cleared");
 });
 
 it("keeps one editor draft through Cards, ordinary Save, and fresh reopen at the exact committed revision", async () => {
