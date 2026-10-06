@@ -8,12 +8,12 @@ workstream: DEMO
 design_authority: "../Design/DESIGN-world-plan-playable-adoption.md"
 design_base: "Buddy main 04bd667d7f57a3c7b8b35f49d20a15562811a45f"
 pr_topology: serial
-implementation_base: "04bd667d7f57a3c7b8b35f49d20a15562811a45f"
+implementation_base: "08e8cbe1207b74b0e15c6f95070899c5cc7c69fd"
 implementation_branch: codex/demo-plan-run-activation-contract
 implementation_pr: "https://github.com/Drakosfire/DungeonMindBuddy/pull/931"
-app_state_commit: "f644dfc61dc2531eac6a77416cf4c49dcbf51258"
-server_commit: "7375b52b1b59353b605c56f22ec6d79999b576a8"
-demo_code_commit: "655edf9615dc3514b54755b4ac24562023cf1164"
+app_state_commit: "6eae57016aa03ebac4e3135928a90eab4295fc7a"
+server_commit: "96a75cf48e83e8f3cf49e2cc0d235476a3820209"
+demo_code_commit: "ef2bf4054e065a98d0d0bf3253fa891be35383ac"
 ---
 
 # HANDOFF — Start and reopen a Run from the exact saved World Plan
@@ -26,18 +26,23 @@ demo_code_commit: "655edf9615dc3514b54755b4ac24562023cf1164"
 **Status: ACTIVE — PRIME explicitly activated the #931 DEMO stage and
 authorized reconciling this handoff on the same branch and PR.** The accepted
 design is PR #907 head 7d44c33cc6e240bd711b6e202bc4042ea52ea9b7, merged at
-d8e861661716d2fa8c1fb1e3e56ef08268d32da8. Buddy main was re-anchored at
-04bd667d7f57a3c7b8b35f49d20a15562811a45f. The implementation base is that
-same main commit. This serial PR is
+d8e861661716d2fa8c1fb1e3e56ef08268d32da8. At activation, Buddy main was
+`04bd667d7f57a3c7b8b35f49d20a15562811a45f`. After SERVER PR #935 merged,
+current main advanced to `08e8cbe1207b74b0e15c6f95070899c5cc7c69fd`, and #931
+was re-anchored there before final review. This serial PR is
 [DEMO: pin Plan-to-Run activation contract](https://github.com/Drakosfire/DungeonMindBuddy/pull/931)
 on `codex/demo-plan-run-activation-contract`. Its rebased owner commits are
-APP-STATE `f644dfc61dc2531eac6a77416cf4c49dcbf51258` followed by SERVER
-`7375b52b1b59353b605c56f22ec6d79999b576a8`. The activation pin was published
-at `f00859c0a7bf1b9c907b0ba7472cce14787ade80` before DEMO product edits.
-DEMO's ten leased product files are implemented in code commit
-`655edf9615dc3514b54755b4ac24562023cf1164`. The handoff remains ACTIVE while
-PRIME's independent exact-cumulative-head review and the PR merge are pending;
-the write lease has not been released.
+APP-STATE `6eae57016aa03ebac4e3135928a90eab4295fc7a` followed by SERVER
+`96a75cf48e83e8f3cf49e2cc0d235476a3820209`, then DEMO
+`ef2bf4054e065a98d0d0bf3253fa891be35383ac`. The activation pin was published
+at `f00859c0a7bf1b9c907b0ba7472cce14787ade80` before DEMO product edits. The
+rebased ten UI file blobs are identical to pre-rebase code commit
+`655edf9615dc3514b54755b4ac24562023cf1164`, which PRIME is independently
+reviewing. The APP-STATE and SERVER owner code/test blobs also match their
+pre-rebase commits `f644dfc61dc2531eac6a77416cf4c49dcbf51258` and
+`7375b52b1b59353b605c56f22ec6d79999b576a8`; no conflict resolution changed
+those files. The handoff remains ACTIVE while PRIME's final cumulative-head
+review and the PR merge are pending; the write lease has not been released.
 
 The accepted request/replay contract needs no migration or schema addition.
 The existing create_world_play_run arguments remain World ID, Run ID, Plan
@@ -70,8 +75,10 @@ Activation record:
    and PR. The #914 projection and roadmap entries and #917 Plan Page paths
    are exclusive to this slice until released or transferred.
 2. **Current base and owner sequence:** remote `main` is
-   `04bd667d7f57a3c7b8b35f49d20a15562811a45f`; APP-STATE and SERVER were
-   rebased in order before this DEMO stage.
+   `08e8cbe1207b74b0e15c6f95070899c5cc7c69fd` after #935 merged. PR #931 was
+   re-anchored on this main, retaining APP-STATE → SERVER → DEMO order. The
+   refreshed #935 paths are SERVER-only; the file inventories show no overlap
+   between #935 and the leased #931 paths.
 3. **Test resource:** use only PRIME's pinned disposable PostgreSQL 16
    container `8d01d8b8c07ab6712e522bcba62e975df10d98185f6302c9f708b417d5a8b508`,
    with its inspected loopback mapping and per-test fixture recorded in §7.
@@ -125,7 +132,7 @@ Re-anchored source findings:
   Existing Run read resolves its stored historical WorkRevision after Plan
   edit or discard.
 - **Preimplementation finding, now addressed by pinned APP-STATE commit
-  `f644dfc61dc2531eac6a77416cf4c49dcbf51258`:** the original admission path
+  `6eae57016aa03ebac4e3135928a90eab4295fc7a`:** the original admission path
   rejected kind plan in admit_playable_revision and
   resolve_pinned_playable_revision. The contribution now admits World-owned
   Plans only on the World V2 path, preserves Campaign V1 Runbook-only behavior,
@@ -133,7 +140,7 @@ Re-anchored source findings:
 - APP-STATE must reject Plan-backed rebase before any same-target no-op return.
   Starting a separate Run from a newer Plan revision remains allowed.
 - **Preimplementation finding, now addressed by DEMO code commit
-  `655edf9615dc3514b54755b4ac24562023cf1164`:** PlaySurfacePage loaded every
+  `ef2bf4054e065a98d0d0bf3253fa891be35383ac`:** PlaySurfacePage loaded every
   World Run through the Runbook-specific exact-revision read, checked that the
   current Runbook remained active/current, and offered Runbook rebase when a
   newer revision appeared. That behavior remains for Runbook Runs. A Plan-backed
@@ -146,7 +153,7 @@ Re-anchored source findings:
   transferred this seam and its focused owning test from #914; no parallel
   parser/projection or Runbook cast was added.
 - **Preimplementation finding, now addressed by pinned SERVER commit
-  `7375b52b1b59353b605c56f22ec6d79999b576a8`:** ensure_v2_native_ready read a
+  `96a75cf48e83e8f3cf49e2cc0d235476a3820209`:** ensure_v2_native_ready read a
   Runbook kind and the v2 sealed-structure comparison converted edge
   collections to sets. The contribution admits the intended World Plan source
   and rejects duplicate persisted edge tuples before READY or Play context.
@@ -224,8 +231,8 @@ World-V2/Play boundary; a helper-only test is insufficient.
 ## §4 Exclusive write sets — ACTIVE lease
 
 These exact path sets are PRIME's active, exclusive write lease for PR #931,
-branch `codex/demo-plan-run-activation-contract`, based on Buddy main
-`04bd667d7f57a3c7b8b35f49d20a15562811a45f`. The single PR is serial and the
+branch `codex/demo-plan-run-activation-contract`, re-anchored on Buddy main
+`08e8cbe1207b74b0e15c6f95070899c5cc7c69fd` after #935. The single PR is serial and the
 owner sets are disjoint. APP-STATE and SERVER have contributed their listed
 paths in order; DEMO owns the final ten product paths below.
 
@@ -287,9 +294,10 @@ reviews a changed contract before edits.
 
 **Topology: serial, one cross-owner implementation PR, #931.** The pinned
 branch is `codex/demo-plan-run-activation-contract`, based on
-`04bd667d7f57a3c7b8b35f49d20a15562811a45f`. Owner commits are APP-STATE
-`f644dfc61dc2531eac6a77416cf4c49dcbf51258`, SERVER
-`7375b52b1b59353b605c56f22ec6d79999b576a8`, then DEMO. Each owner writes only
+`08e8cbe1207b74b0e15c6f95070899c5cc7c69fd`. Owner commits are APP-STATE
+`6eae57016aa03ebac4e3135928a90eab4295fc7a`, SERVER
+`96a75cf48e83e8f3cf49e2cc0d235476a3820209`, then DEMO
+`ef2bf4054e065a98d0d0bf3253fa891be35383ac`. Each owner writes only
 its §4 paths; later contributors consume the prior exact commits and do not
 edit earlier-owner paths without an explicit transfer. No parallel or stacked
 implementation PR is authorized. If a new capability or public contract is

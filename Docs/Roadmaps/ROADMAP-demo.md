@@ -1246,8 +1246,11 @@ that their foundations are absent. Historical slices retain their IDs.
 
 - **State: active; implementation committed, independent review pending.** The
   serial PR is [#931](https://github.com/Drakosfire/DungeonMindBuddy/pull/931),
-  based on `04bd667d7f57a3c7b8b35f49d20a15562811a45f`. DEMO's ten leased UI
-  paths are in code commit `655edf9615dc3514b54755b4ac24562023cf1164`;
+  based on `08e8cbe1207b74b0e15c6f95070899c5cc7c69fd` after PR #935 merged.
+  DEMO's ten leased UI paths are in rebased code commit
+  `ef2bf4054e065a98d0d0bf3253fa891be35383ac`; their file blobs are unchanged
+  from code commit `655edf9615dc3514b54755b4ac24562023cf1164`, which PRIME's
+  independent UI review is checking;
   the current handoff and exact write lease are
   [`HANDOFF-world-plan-playable-adoption.md`](../Plans/HANDOFF-world-plan-playable-adoption.md).
 - **Evidence:** the five assigned mounted/UI suites passed 148/148; APP-STATE's
