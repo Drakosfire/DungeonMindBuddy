@@ -2394,9 +2394,13 @@ export function WorldPlanAgentConversation({
     execution: WorldPlanGraphExecutionProjectionV1 | null,
     hasCompletion: boolean,
     terminalFailureConfirmed = false,
+    terminalFailureRecorded = false,
   ): string {
     if (terminalFailureConfirmed) {
       return `Exact V3 World history records this turn as failed. ${confirmedFailureExecutionGuidance(execution)}`;
+    }
+    if (terminalFailureRecorded) {
+      return `World history records this turn as failed. ${confirmedFailureExecutionGuidance(execution)}`;
     }
     const guidance = (() => {
       if (!execution) return "No execution recovery status was recorded. Refresh World history before taking another action.";
@@ -2483,10 +2487,18 @@ export function WorldPlanAgentConversation({
     return pendingAsks.some((item) => isPendingAskFailureConfirmed(item, historyTurnId));
   }
 
+  function isWorldHistoryTurnFailed(historyTurnId: string): boolean {
+    const page = historySnapshotRef.current;
+    if (!page || page.world_id !== verifiedWorldId) return false;
+    const matchingTurns = page.turns.filter((turn) => turn.turn_id === historyTurnId);
+    return matchingTurns.length === 1 && matchingTurns[0]!.lifecycle_status === "failed";
+  }
+
   function renderGraphContextHistory(turn: WorldAgentConversationHistoryTurn) {
     if (!("plan_context" in turn) || !turn.plan_context) return null;
     const { completion, execution } = turn.plan_context;
     const terminalFailureConfirmed = isHistoryTurnFailureConfirmed(turn.turn_id);
+    const terminalFailureRecorded = isWorldHistoryTurnFailed(turn.turn_id);
     const claims = completion?.answer_segments.filter((segment) => segment.kind === "graph_claim") ?? [];
     const citations = completion?.citation_map?.entries ?? [];
     const citationByClaim = new Map(citations.map((entry) => [entry.claim_id, entry]));
@@ -2494,7 +2506,7 @@ export function WorldPlanAgentConversation({
       <section className="world-plan-agent-conversation__graph-context" aria-label="World Graph evidence and recovery">
         <p><strong>Graph context:</strong> {completion
           ? graphContextStatusLabel(completion.answer_context_status)
-          : terminalFailureConfirmed
+          : terminalFailureRecorded
             ? "This World history turn failed; no final Graph-context completion was recorded."
             : "No final Graph-context completion has been recorded for this turn yet."}</p>
         {claims.map((claim, index) => {
@@ -2517,7 +2529,7 @@ export function WorldPlanAgentConversation({
           );
         })}
         <p className="world-plan-agent-conversation__context">
-          {graphExecutionGuidance(execution, completion !== null, terminalFailureConfirmed)}
+          {graphExecutionGuidance(execution, completion !== null, terminalFailureConfirmed, terminalFailureRecorded)}
         </p>
       </section>
     );
@@ -3138,7 +3150,9 @@ export function WorldPlanAgentConversation({
             ) : (
               <p role="status">{isHistoryTurnFailureConfirmed(event.turn.turn_id)
                 ? "This World history turn is recorded as failed."
-                : event.turn.lifecycle_status === "failed" || event.turn.lifecycle_status === "interrupted"
+                : isWorldHistoryTurnFailed(event.turn.turn_id)
+                  ? "World history records this turn as failed."
+                  : event.turn.lifecycle_status === "failed" || event.turn.lifecycle_status === "interrupted"
                   ? "This server turn did not complete."
                   : "DungeonBuddy is still working on this server turn."}</p>
             )}
