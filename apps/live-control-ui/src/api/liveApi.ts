@@ -475,6 +475,7 @@ const PLAN_GRAPH_PREDISPATCH_FAILURE_HTTP_STATUS: Readonly<Record<string, number
   graph_read_failed: 503,
   graph_evidence_invalid: 502,
   provider_envelope_over_budget: 413,
+  provider_authorization_denied: 503,
   receipt_freeze_failed: 503,
 });
 

@@ -183,6 +183,7 @@ describe("World Plan Agent turn transport", () => {
     ["graph_read_failed", 503],
     ["graph_evidence_invalid", 502],
     ["provider_envelope_over_budget", 413],
+    ["provider_authorization_denied", 503],
     ["receipt_freeze_failed", 503],
   ] as const)("accepts the mapped pre-dispatch failure %s at HTTP %s", (failureCode, status) => {
     const failure = {
@@ -232,6 +233,30 @@ describe("World Plan Agent turn transport", () => {
       },
       responseCode: "provider_envelope_over_budget",
       responseStatus: 503,
+    },
+    {
+      label: "the producer schema differs from the documented contract",
+      failure: {
+        schema: "dmb_agent_plan_world_graph_context_failure_v1",
+        status: "pre_dispatch_failed",
+        failure_code: "provider_authorization_denied",
+        provider_dispatched: false,
+        automatic_downgrade: false,
+      },
+      responseCode: "provider_authorization_denied",
+      responseStatus: 503,
+    },
+    {
+      label: "the authorization-denial HTTP status does not match its pair",
+      failure: {
+        schema: "dmb_plan_world_graph_context_failure_v1",
+        status: "pre_dispatch_failed",
+        failure_code: "provider_authorization_denied",
+        provider_dispatched: false,
+        automatic_downgrade: false,
+      },
+      responseCode: "provider_authorization_denied",
+      responseStatus: 413,
     },
     {
       label: "missing response codes",

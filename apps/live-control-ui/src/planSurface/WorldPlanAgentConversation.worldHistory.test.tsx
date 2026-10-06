@@ -1602,6 +1602,45 @@ describe("World Plan conversation consumer", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
+
+  it("clears an exact provider-authorization denial from pending recovery without reposting", async () => {
+    setupApi(history("conversation-a", 4, []));
+    liveApi.setNativeGraphAccessToken("test-only-local-operator-credential-value");
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: false,
+      status: 503,
+      statusText: "Service Unavailable",
+      text: async () => JSON.stringify({
+        detail: {
+          code: "provider_authorization_denied",
+          message: "The parent denied provider authorization before dispatch.",
+          plan_context_failure: {
+            schema: "dmb_plan_world_graph_context_failure_v1",
+            status: "pre_dispatch_failed",
+            failure_code: "provider_authorization_denied",
+            provider_dispatched: false,
+            automatic_downgrade: false,
+          },
+        },
+      }),
+    } as Response);
+    render(conversationElement());
+    await screen.findByText(/No messages here yet/);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Check the north gate." } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByText(/server confirmed provider dispatch did not begin/)).toBeInTheDocument();
+    expect(screen.getByText(/provider_authorization_denied/)).toBeInTheDocument();
+    expect(screen.getByText(/no answer was saved/)).toBeInTheDocument();
+    expect(screen.queryByText(/outcome of this Graph-context Ask is uncertain/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry saved Ask" })).not.toBeInTheDocument();
+    expect(fetchSpy.mock.calls.filter(([url]) => String(url) === "/api/live/agent/turn")).toHaveLength(1);
+    expect(pendingAskKeys()).toEqual([]);
+    expect(screen.queryByRole("region", { name: "Pending Ask recovery" })).not.toBeInTheDocument();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
   it("allows a fresh Graph Ask after clearing a definitive pre-dispatch failure", async () => {
     const api = setupApi(history("conversation-a", 4, []));
     const failure = new liveApi.LiveApiError("The selected model context cannot contain this request.", 413, {
@@ -1700,6 +1739,14 @@ describe("World Plan conversation consumer", () => {
       extraFailureField: false,
     },
     {
+      label: "the producer schema differs from the documented contract",
+      status: 503,
+      code: "provider_authorization_denied",
+      failureCode: "provider_authorization_denied",
+      providerDispatched: false,
+      extraFailureField: false,
+    },
+    {
       label: "the failure code is unrecognized",
       status: 413,
       code: "unknown_pre_dispatch_failure",
@@ -1740,6 +1787,7 @@ describe("World Plan conversation consumer", () => {
       extraFailureField: true,
     },
   ] as const)("keeps a Graph Ask pending when $label", async ({
+    label,
     status,
     code,
     failureCode,
@@ -1757,7 +1805,9 @@ describe("World Plan conversation consumer", () => {
           ...(code === null ? {} : { code }),
           message: `The injected failure is ${code}.`,
           plan_context_failure: {
-            schema: "dmb_plan_world_graph_context_failure_v1",
+            schema: label === "the producer schema differs from the documented contract"
+              ? "dmb_agent_plan_world_graph_context_failure_v1"
+              : "dmb_plan_world_graph_context_failure_v1",
             status: "pre_dispatch_failed",
             failure_code: failureCode,
             provider_dispatched: providerDispatched,
