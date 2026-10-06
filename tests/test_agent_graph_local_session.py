@@ -11,6 +11,7 @@ from starlette.requests import Request
 
 from apps.live_control_server.main import create_app
 from apps.live_control_server.services.agent_graph_auth import authenticate_native_graph_principal
+from src import bootstrap_env
 
 
 ORIGIN = "http://127.0.0.1:5202"
@@ -99,6 +100,33 @@ def test_bootstrap_reload_status_and_revoke_are_durable(local_config: Path) -> N
     revoked = reloaded.delete(URL, headers={**HEADERS, "X-DMB-Graph-CSRF": csrf})
     assert revoked.status_code == 200, revoked.text
     assert reloaded.get(URL, headers={"Host": HOST}).status_code == 401
+
+
+def test_private_profile_configures_real_local_session_boundary(
+    local_config: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    private_dir = tmp_path / "profile"
+    private_dir.mkdir(mode=0o700)
+    profile = private_dir / "local-operator.env"
+    profile.write_text(
+        "DMB_AGENT_GRAPH_AUTH_MODE=local_operator\n"
+        "DMB_AGENT_GRAPH_AUTH_ENVIRONMENT=development\n"
+        f"DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN={SECRET}\n"
+        f"DMB_AGENT_GRAPH_LOCAL_UI_ORIGIN={ORIGIN}\n"
+        f"DMB_AGENT_GRAPH_LOCAL_API_HOST={HOST}\n"
+        f"DMB_AGENT_GRAPH_SESSION_STORE={local_config}\n",
+        encoding="utf-8",
+    )
+    profile.chmod(0o600)
+    monkeypatch.setenv(bootstrap_env.LOCAL_GRAPH_PROFILE_ENV, str(profile))
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "disabled")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_UI_ORIGIN", "https://wrong.invalid")
+    monkeypatch.setattr(bootstrap_env, "_REPO_ROOT", tmp_path / "empty-checkout")
+
+    bootstrap_env.load_dungeonmindbuddy_dotenv(override=False)
+
+    assert _client().post(URL, headers=HEADERS).status_code == 200
+    assert _client().post(URL, headers={**HEADERS, "Host": "wrong.invalid"}).status_code == 403
 
 
 def test_cross_origin_host_and_forwarded_claims_cannot_bootstrap() -> None:

@@ -12,7 +12,13 @@ from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation.types import ConversationCommand, TurnProvenance
 from application_state.errors import ApplicationStateError
 
-from apps.live_control_server.config import repo_root, session_dir, world_graph_root
+from apps.live_control_server.config import (
+    ManagedWorldDataRootError,
+    managed_world_data_root,
+    repo_root,
+    session_dir,
+    world_graph_root,
+)
 from apps.live_control_server.models.agent_turn import (
     AgentConversationHistoryResponse,
     AgentConversationHistoryResponseV2,
@@ -54,6 +60,15 @@ from apps.live_control_server.services.world_container_registry import (
 
 router = APIRouter(prefix="/agent", tags=["agent-turn"])
 
+
+def _managed_world_root():
+    try:
+        return managed_world_data_root(repo_root())
+    except ManagedWorldDataRootError as exc:
+        raise WorldContainerRegistryError(
+            "Managed World storage is unavailable.", status_code=503,
+        ) from exc
+
 _PLAN_PREDISPATCH_FAILURES = {
     "managed_world_unresolved": ("managed_world_unresolved", 404),
     "world_owner_unavailable": ("managed_world_unresolved", 404),
@@ -81,11 +96,11 @@ def _owner_resolver(body: AgentTurnRequest) -> Mapping[str, Any] | None:
             status_code=422,
         )
     try:
-        record = get_world_container(repo_root(), owner.world_id)
+        record = get_world_container(_managed_world_root(), owner.world_id)
     except WorldContainerRegistryError as exc:
         raise AgentTurnServiceError(
             str(exc),
-            code="world_owner_unavailable",
+            code=("graph_unavailable" if exc.status_code == 503 else "world_owner_unavailable"),
             status_code=exc.status_code,
         ) from exc
     return {"kind": "world", "id": record.world_id, "name": record.name}
@@ -394,7 +409,7 @@ def _graph_resolver(
                     status_code=422,
                 )
         try:
-            get_world_container(repo_root(), requested_world_id)
+            get_world_container(_managed_world_root(), requested_world_id)
         except WorldContainerRegistryError as exc:
             raise AgentTurnServiceError(
                 str(exc), code="world_owner_unavailable", status_code=exc.status_code
@@ -503,7 +518,14 @@ def _plan_context_resolver(
             code="plan_context_scope_rejected",
             status_code=403,
         )
-    registry_root = repo_root()
+    try:
+        registry_root = _managed_world_root()
+    except WorldContainerRegistryError as exc:
+        raise AgentTurnServiceError(
+            "Managed World storage is unavailable.",
+            code="graph_unavailable", status_code=503,
+            provider_dispatched=False,
+        ) from exc
     expected_root = world_source_root_relpath(managed_world_id)
     try:
         initial = get_world_container(registry_root, managed_world_id)
@@ -515,9 +537,14 @@ def _plan_context_resolver(
             provider_dispatched=False,
         ) from exc
     binding = initial.native_graph_binding
+    try:
+        source_root = (registry_root / expected_root).resolve(strict=True)
+        source_root_present = source_root.is_relative_to(registry_root.resolve()) and source_root.is_dir()
+    except (OSError, RuntimeError):
+        source_root_present = False
     if (
         initial.source_root_relpath != expected_root
-        or not (registry_root / expected_root).is_dir()
+        or not source_root_present
         or binding is None
         or binding.status != "active"
         or binding.binding_version <= 0
@@ -716,7 +743,7 @@ def _conversation_service(request: Request) -> AgentConversationService:
 
 def _verified_world_id(world_id: str) -> str:
     try:
-        return get_world_container(repo_root(), world_id).world_id
+        return get_world_container(_managed_world_root(), world_id).world_id
     except WorldContainerRegistryError as exc:
         raise HTTPException(
             status_code=exc.status_code,
