@@ -177,7 +177,7 @@ def get_world_owned_runbooks(
         )
     try:
         return list_world_owned_runbooks_v2(
-            repo_root(), world_id=world_id
+            _managed_world_root(), world_id=world_id
         ).model_dump(mode="json")
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
@@ -192,7 +192,7 @@ def post_world_owned_runbook(
 ) -> dict[str, Any]:
     try:
         record = create_world_owned_runbook_v2(
-            repo_root(), world_id=body.world_id, title=body.title
+            _managed_world_root(), world_id=body.world_id, title=body.title
         )
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
@@ -216,7 +216,7 @@ def get_world_owned_runbook(
         )
     try:
         record = get_world_owned_runbook_v2(
-            repo_root(), world_id=world_id, document_id=document_id
+            _managed_world_root(), world_id=world_id, document_id=document_id
         )
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
@@ -240,7 +240,7 @@ def get_world_owned_runbook_snapshot(
         )
     try:
         snapshot = get_world_owned_runbook_snapshot_v2(
-            repo_root(), world_id=world_id, document_id=document_id
+            _managed_world_root(), world_id=world_id, document_id=document_id
         )
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
@@ -267,10 +267,11 @@ def post_world_owned_runbook_tiptap_prepare(
             detail="World Runbook prepare requires matching V2 World scope and document identity",
         )
     try:
+        world_root = _managed_world_root()
         get_world_owned_runbook_v2(
-            repo_root(), world_id=world_id, document_id=document_id
+            world_root, world_id=world_id, document_id=document_id
         )
-        response = prepare_tiptap_markdown_write(root=repo_root(), request=body)
+        response = prepare_tiptap_markdown_write(root=world_root, request=body)
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except TiptapMarkdownWriteError as exc:
@@ -298,10 +299,11 @@ def post_world_owned_runbook_tiptap_commit(
             detail="World Runbook commit requires matching V2 World scope and document identity",
         )
     try:
+        world_root = _managed_world_root()
         get_world_owned_runbook_v2(
-            repo_root(), world_id=world_id, document_id=document_id
+            world_root, world_id=world_id, document_id=document_id
         )
-        response = commit_tiptap_markdown_write(root=repo_root(), request=body)
+        response = commit_tiptap_markdown_write(root=world_root, request=body)
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     except TiptapMarkdownWriteError as exc:
@@ -326,7 +328,7 @@ def get_world_owned_runbook_current_revision(
         )
     try:
         get_world_owned_runbook_v2(
-            repo_root(), world_id=world_id, document_id=document_id
+            _managed_world_root(), world_id=world_id, document_id=document_id
         )
         committed = get_committed_playable_revision(
             document_id, expected_world_id=world_id, kind="runbook"
@@ -359,7 +361,7 @@ def get_world_owned_runbook_exact_revision(
         )
     try:
         get_world_owned_runbook_v2(
-            repo_root(), world_id=world_id, document_id=document_id
+            _managed_world_root(), world_id=world_id, document_id=document_id
         )
         committed = get_committed_playable_revision(
             document_id,
