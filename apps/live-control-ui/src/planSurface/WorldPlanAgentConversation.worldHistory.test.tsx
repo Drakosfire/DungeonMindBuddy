@@ -12,6 +12,7 @@ import type {
   WorldAgentConversationHistoryResponseV2,
   WorldAgentConversationHistoryTurnV1,
   WorldAgentConversationHistoryTurnV2,
+  WorldAgentConversationHistoryPlanTurnV3,
   WorldPlanAgentPlanContextV1,
   WorldPlanAgentTurnResponseV2,
   WorldPlanAgentTurnRequestV1,
@@ -681,6 +682,46 @@ async function historyV2(
   };
 }
 
+async function expectedHistoryCorrelationKey(frozenWorldId: string, clientTurnId: string): Promise<string> {
+  const namespace = Uint8Array.from("6ba7b8119dad11d180b400c04fd430c8".match(/.{2}/g)!, (pair) => Number.parseInt(pair, 16));
+  const name = new TextEncoder().encode(`dmb-agent-turn:${frozenWorldId}:${clientTurnId}`);
+  const input = new Uint8Array(namespace.length + name.length);
+  input.set(namespace);
+  input.set(name, namespace.length);
+  const hash = new Uint8Array(await crypto.subtle.digest("SHA-1", input));
+  hash[6] = (hash[6]! & 0x0f) | 0x50;
+  hash[8] = (hash[8]! & 0x3f) | 0x80;
+  const hex = Array.from(hash.slice(0, 16), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+async function historyV3(
+  conversationId: string | null,
+  pointerRevision: number,
+  turns: WorldAgentConversationHistoryPlanTurnV3[],
+): Promise<WorldAgentConversationHistoryResponse> {
+  const absent = conversationId === null;
+  return {
+    schema: "dmb_agent_conversation_history_v3",
+    world_id: worldId,
+    conversation_state: absent ? "absent" : "active",
+    conversation_id: conversationId,
+    active_conversation_id: conversationId,
+    pointer_revision: pointerRevision,
+    turns,
+    next_before_sequence: null,
+  };
+}
+
+function withPersistedCorrelation(
+  turn: WorldAgentConversationHistoryTurnV2,
+  idempotencyKey: string,
+  durableTurnId = "00000000-0000-4000-8000-000000000090",
+): WorldAgentConversationHistoryPlanTurnV3 {
+  if (!turn.plan_context) throw new Error("The synthetic v3 history row must include the producer's Plan receipt/completion projection.");
+  return { ...turn, turn_id: durableTurnId, idempotency_key: idempotencyKey };
+}
+
 async function policyResponse(
   request: WorldPlanAgentTurnRequestV1,
   conversationId: string,
@@ -1073,8 +1114,10 @@ function pendingAskKeys(): string[] {
 async function leavePendingGraphAsk(
   playableTarget: { kind: "scene" | "beat" | "choice" | "option"; id: string },
   initialHistory: WorldAgentConversationHistoryResponseV1 = history("conversation-a", 10, []),
+  revisionN = 1,
 ) {
   const api = setupApi(initialHistory);
+  if (revisionN !== 1) api.setPlanBasis({ ...committedRevision(), revision_n: revisionN });
   const sent: WorldPlanAgentTurnRequestV1[] = [];
   const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
     sent.push(request);
@@ -1089,7 +1132,8 @@ async function leavePendingGraphAsk(
   });
   fireEvent.click(screen.getByRole("button", { name: "Send message" }));
   expect(await screen.findByText(/outcome of this Graph-context Ask is uncertain/)).toBeInTheDocument();
-  expect(await screen.findByText(/This Graph-context Ask is not replayed from browser recovery/)).toBeInTheDocument();
+  expect(await screen.findByText(/Graph Asks stay saved until exact server history confirms completion/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Refresh World history" })).toBeEnabled();
   expect(postAsk).toHaveBeenCalledTimes(1);
   expect(pendingAskKeys()).toHaveLength(1);
   return { api, mounted, postAsk, request: sent[0]! };
@@ -1144,7 +1188,7 @@ describe("World Plan conversation consumer", () => {
     const evidenceDetails = evidenceSummary.closest("details")!;
     fireEvent.click(evidenceSummary);
     expect(within(evidenceDetails).getByText("evidence-internal-test")).toBeInTheDocument();
-    expect(api.getHistory).toHaveBeenCalledWith(worldId, { limit: 50 });
+    expect(api.getHistory).toHaveBeenCalledWith(worldId, { limit: 50, includeTurnCorrelation: true });
   });
 
   it("keeps SERVER's card-A receipt and provenance after selection changes and history reloads", async () => {
@@ -1661,7 +1705,7 @@ describe("World Plan conversation consumer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
     expect(await screen.findByText(/outcome of this Graph-context Ask is uncertain/)).toBeInTheDocument();
-    expect(await screen.findByText(/This Graph-context Ask is not replayed from browser recovery/)).toBeInTheDocument();
+    expect(await screen.findByText(/Graph Asks stay saved until exact server history confirms completion/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Retry saved Ask" })).not.toBeInTheDocument();
     expect(postAsk).toHaveBeenCalledTimes(1);
     expect(pendingAskKeys()).toHaveLength(1);
@@ -1782,17 +1826,20 @@ describe("World Plan conversation consumer", () => {
   it("reconciles a lost Graph Ask from its exact completed history after remount without using the new card selection", async () => {
     const cardA = { kind: "scene" as const, id: "scene:opening" };
     const cardB = { kind: "scene" as const, id: "scene:ending" };
-    const { api, mounted, postAsk, request } = await leavePendingGraphAsk(cardA);
+    const { api, mounted, postAsk, request } = await leavePendingGraphAsk(cardA, history("conversation-a", 10, []), 3);
     const storageKey = pendingAskKeys()[0]!;
     const originalEnvelope = localStorage.getItem(storageKey);
     mounted.unmount();
 
     const context = await planGraphContext("graph_grounded", { request, execution: null });
     const answer = "The western gate is watched.";
-    const completedTurn = policyHistoryTurn(
+    const correlationKey = await expectedHistoryCorrelationKey(worldId, request.turn_id);
+    const completedTurn = withPersistedCorrelation(policyHistoryTurn(
       1, request.turn_id, request.message, answer, context, "completed", request,
-    );
-    api.setCurrent(await historyV2("conversation-a", 10, [completedTurn]));
+    ), correlationKey, "00000000-0000-4000-8000-000000000091");
+    expect(completedTurn.turn_id).not.toBe(request.turn_id);
+    expect(completedTurn.plan_context.receipt.plan_basis).toMatchObject({ object_revision: 7, revision_n: 3 });
+    api.setCurrent(await historyV3("conversation-a", 10, [completedTurn]));
 
     render(conversationElement({ playableTarget: cardB, selectionGeneration: 1 }));
 
@@ -1812,7 +1859,7 @@ describe("World Plan conversation consumer", () => {
 
   it("reconciles the first Ask when its completed turn opened the World conversation", async () => {
     const cardA = { kind: "scene" as const, id: "scene:opening" };
-    const { api, mounted, postAsk, request } = await leavePendingGraphAsk(cardA, history(null, 0, []));
+    const { api, mounted, postAsk, request } = await leavePendingGraphAsk(cardA, history(null, 0, []), 3);
     const storageKey = pendingAskKeys()[0]!;
     expect(JSON.parse(localStorage.getItem(storageKey) ?? "{}").origin).toMatchObject({
       pointerRevision: 0,
@@ -1822,16 +1869,74 @@ describe("World Plan conversation consumer", () => {
 
     const context = await planGraphContext("graph_grounded", { request, execution: null });
     const answer = "The western gate is watched.";
-    const completedTurn = policyHistoryTurn(
+    const correlationKey = await expectedHistoryCorrelationKey(worldId, request.turn_id);
+    const completedTurn = withPersistedCorrelation(policyHistoryTurn(
       1, request.turn_id, request.message, answer, context, "completed", request,
-    );
-    api.setCurrent(await historyV2("first-conversation", 1, [completedTurn]));
+    ), correlationKey, "00000000-0000-4000-8000-000000000092");
+    api.setCurrent(await historyV3("first-conversation", 1, [completedTurn]));
 
     render(conversationElement({ playableTarget: cardA, selectionGeneration: 1 }));
 
     expect(await screen.findAllByText(answer)).toHaveLength(2);
     await waitFor(() => expect(pendingAskKeys()).toEqual([]));
     expect(screen.queryByRole("region", { name: "Pending Ask recovery" })).not.toBeInTheDocument();
+    expect(postAsk).toHaveBeenCalledTimes(1);
+  });
+
+  it("refreshes World history without reposting or clearing an unmatched Graph Ask", async () => {
+    const { api, postAsk } = await leavePendingGraphAsk({ kind: "scene", id: "scene:opening" });
+    const beforeRefresh = api.historyCalls.length;
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh World history" }));
+
+    await waitFor(() => expect(api.historyCalls.length).toBeGreaterThan(beforeRefresh));
+    expect(api.historyCalls.at(-1)).toMatchObject({ includeTurnCorrelation: true });
+    expect(pendingAskKeys()).toHaveLength(1);
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("region", { name: "Pending Ask recovery" })).toHaveTextContent("Pending recovery · 1");
+  });
+
+  it("does not heuristically clear a text-matching v2 history row without persisted correlation", async () => {
+    const cardA = { kind: "scene" as const, id: "scene:opening" };
+    const { api, mounted, postAsk, request } = await leavePendingGraphAsk(cardA);
+    const storageKey = pendingAskKeys()[0]!;
+    mounted.unmount();
+    const context = await planGraphContext("graph_grounded", { request, execution: null });
+    const answer = "The western gate is watched.";
+    // This deliberately resembles the legacy heuristic fields, including a coincident turn UUID.
+    const matchingTextOnlyRow = policyHistoryTurn(
+      1, request.turn_id, request.message, answer, context, "completed", request,
+    );
+    api.setCurrent(await historyV2("conversation-a", 10, [matchingTextOnlyRow]));
+
+    render(conversationElement({ playableTarget: cardA }));
+
+    await screen.findAllByText(answer);
+    await waitFor(() => expect(pendingAskKeys()).toEqual([storageKey]));
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Refresh World history" })).toBeInTheDocument();
+  });
+
+  it("keeps a pending Graph Ask when more than one v3 row has its persisted key", async () => {
+    const cardA = { kind: "scene" as const, id: "scene:opening" };
+    const { api, mounted, postAsk, request } = await leavePendingGraphAsk(cardA);
+    const storageKey = pendingAskKeys()[0]!;
+    mounted.unmount();
+    const context = await planGraphContext("graph_grounded", { request, execution: null });
+    const answer = "The western gate is watched.";
+    const correlationKey = await expectedHistoryCorrelationKey(worldId, request.turn_id);
+    const first = withPersistedCorrelation(
+      policyHistoryTurn(1, request.turn_id, request.message, answer, context, "completed", request),
+      correlationKey,
+      "00000000-0000-4000-8000-000000000093",
+    );
+    const duplicate = { ...first, sequence: 2, turn_id: "00000000-0000-4000-8000-000000000094" };
+    api.setCurrent(await historyV3("conversation-a", 10, [first, duplicate]));
+
+    render(conversationElement({ playableTarget: cardA }));
+
+    await screen.findAllByText(answer);
+    await waitFor(() => expect(pendingAskKeys()).toEqual([storageKey]));
     expect(postAsk).toHaveBeenCalledTimes(1);
   });
 
@@ -1890,20 +1995,21 @@ describe("World Plan conversation consumer", () => {
         context = await planGraphContext("graph_grounded", { request, execution: null });
       }
 
-      const completedTurn = policyHistoryTurn(
+      const correlationKey = await expectedHistoryCorrelationKey(worldId, request.turn_id);
+      const completedTurn = withPersistedCorrelation(policyHistoryTurn(
         1, request.turn_id, request.message, answer, context, lifecycle, receiptRequest,
-      );
+      ), correlationKey, "00000000-0000-4000-8000-000000000095");
       const turns = historyCase === "ambiguous"
-        ? [completedTurn, { ...completedTurn, sequence: 2 }]
+        ? [completedTurn, { ...completedTurn, sequence: 2, turn_id: "00000000-0000-4000-8000-000000000096" }]
         : [completedTurn];
       const conversationId = historyCase === "conversation-mismatch" ? "conversation-b" : "conversation-a";
       const pointerRevision = historyCase === "conversation-mismatch" ? 11 : 10;
-      api.setCurrent(await historyV2(conversationId, pointerRevision, turns));
+      api.setCurrent(await historyV3(conversationId, pointerRevision, turns));
 
       render(conversationElement({ playableTarget: cardB, selectionGeneration: 1 }));
 
       if (historyCase === "ambiguous") {
-        expect(await screen.findByText(/invalid Graph-context receipt/)).toBeInTheDocument();
+        expect(await screen.findAllByText(answer!)).toHaveLength(4);
       } else if (historyCase === "unfinished") {
         expect(await screen.findByText("No final Graph-context completion has been recorded for this turn yet.")).toBeInTheDocument();
       } else {
@@ -2416,8 +2522,8 @@ describe("World Plan conversation consumer", () => {
     expect(await screen.findByText("Oldest question")).toBeInTheDocument();
     await waitFor(() => expect(screen.getAllByText("Middle question")).toHaveLength(1));
     expect(api.historyCalls).toEqual([
-      { limit: 50 },
-      { limit: 50, beforeSequence: 2 },
+      { limit: 50, includeTurnCorrelation: true },
+      { limit: 50, beforeSequence: 2, includeTurnCorrelation: true },
     ]);
     const transcript = screen.getByRole("region", { name: "World conversation transcript" });
     const renderedTurns = Array.from(transcript.querySelectorAll("article"))
@@ -2489,7 +2595,7 @@ describe("World Plan conversation consumer", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
     expect(await screen.findByText("Fresh B turn")).toBeInTheDocument();
-    expect(api.historyCalls).toContainEqual({ limit: 50 });
+    expect(api.historyCalls).toContainEqual({ limit: 50, includeTurnCorrelation: true });
 
     await act(async () => {
       releaseStalePage(history("conversation-a", 5, [
@@ -2505,7 +2611,7 @@ describe("World Plan conversation consumer", () => {
     ], null));
     fireEvent.click(olderButton);
     expect(await screen.findByText("Fresh older B turn")).toBeInTheDocument();
-    expect(api.historyCalls).toContainEqual({ limit: 50, beforeSequence: 2 });
+    expect(api.historyCalls).toContainEqual({ limit: 50, beforeSequence: 2, includeTurnCorrelation: true });
   });
 
   it("replays the exact Ask receipt across Plan and conversation changes without injecting it into the active transcript", async () => {

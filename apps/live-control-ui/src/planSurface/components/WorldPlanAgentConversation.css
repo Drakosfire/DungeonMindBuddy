@@ -126,7 +126,7 @@
   flex: 1 1 0;
   align-content: start;
   gap: 0.7rem;
-  min-height: 0;
+  min-height: 8rem;
   overflow: auto;
   overscroll-behavior: contain;
   padding: 0.1rem 0.2rem 0.2rem 0;
@@ -226,7 +226,41 @@
   gap: 0.5rem;
 }
 
+.world-plan-agent-conversation__recovery {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-background-surface);
+}
+
+.world-plan-agent-conversation__recovery h3,
+.world-plan-agent-conversation__recovery p {
+  margin: 0;
+}
+
+.world-plan-agent-conversation__recovery details {
+  border-top: 1px solid var(--ui-border-strong);
+  padding-top: 0.35rem;
+}
+
+.world-plan-agent-conversation__recovery summary {
+  width: fit-content;
+  max-width: 100%;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.world-plan-agent-conversation__recovery details > p {
+  margin-top: 0.35rem;
+  overflow-wrap: anywhere;
+}
+
 .world-plan-agent-conversation__composer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
   flex: 0 0 auto;
   padding: 0.8rem;
   border: 1px solid var(--ui-border-strong);
