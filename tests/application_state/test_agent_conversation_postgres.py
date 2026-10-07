@@ -1021,6 +1021,28 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
         expected_revision=accepted.revision,
     ).turn == completed
 
+    # A populated V1 execution row must satisfy the V1 check while 0018 is
+    # removed and restored; this exercises the 0017 -> 0018 upgrade path.
+    with psycopg.connect(application_state_dsn, autocommit=True) as conn:
+        v1_execution_before = conn.execute(
+            "SELECT graph_context_execution FROM agent.turn WHERE turn_id = %s",
+            (accepted.turn_id,),
+        ).fetchone()[0]
+    assert v1_execution_before is not None
+    command.downgrade(alembic_config(), "20261005_0017")
+    assert _current_and_head(application_state_dsn) == (
+        "20261005_0017", "20261007_0018"
+    )
+    command.upgrade(alembic_config(), "head")
+    assert _current_and_head(application_state_dsn) == (
+        "20261007_0018", "20261007_0018"
+    )
+    with psycopg.connect(application_state_dsn, autocommit=True) as conn:
+        assert conn.execute(
+            "SELECT graph_context_execution FROM agent.turn WHERE turn_id = %s",
+            (accepted.turn_id,),
+        ).fetchone()[0] == v1_execution_before
+
     # Model a populated 0016 row: receipt/completion and legacy fingerprints
     # exist, while the newly introduced execution column is still NULL.
     with psycopg.connect(application_state_dsn, autocommit=True) as conn:
