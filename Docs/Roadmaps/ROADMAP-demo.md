@@ -67,15 +67,12 @@ production implementation or independently frozen gold.
    usefulness, the missing Session 29 database identity, and full connected
    J1–J6 acceptance remain open. Do not reopen consumer code without new
    evidence.
-2. The next ACTIVE DEMO product slice is one focused Plan Scene reader over the
-   existing Cards projection. Keep the outline, authored-order previous/next,
-   readable Scene/Choice/Option content, Document access, exact Start Play pin,
-   and truthful default Agent Ask context. A newly submitted Ask follows the
-   focused saved Scene; a pending Ask remains pinned to its submitted target.
-   Reuse the existing Plan/Playable authority and do not add Play conversation
-   backend work, prototype persistence, or a second retrieval path. The exact
-   Buddy lease is
-   [`HANDOFF-DEMO-focused-scene-reader.md`](../Plans/HANDOFF-DEMO-focused-scene-reader.md).
+2. The focused Plan Scene reader integrated through #941, and #972 closed the
+   bounded Plan Agent panel clipping defect. These checks do not close J1–J6 or
+   the final bottom-chat design acceptance. The active source follow-up is #979:
+   verified World Plan asks default to the existing #938 Graph-backed context,
+   while preserving explicit same-World opt-out. Its bounded UI/turn witness
+   remains pending.
 3. Continue the shared prepare/run adoption across Session 29, Conks, and Sheep.
    Preserve source identity and evidence separately from navigation choices
    such as chronology, location, and scene focus.
@@ -1295,13 +1292,16 @@ that their foundations are absent. Historical slices retain their IDs.
 
 ### 2026-10-06 — DEMO focused Plan scene reader
 
-- **State: active; implementation committed, PR open for PRIME review.** The
-  serial PR is [#941](https://github.com/Drakosfire/DungeonMindBuddy/pull/941)
+- **State: integrated; PR #941 merged to `main` at
+  `facb73dbd3b11cfe2ea4f8c80e4963acd3e2eab3` from final head
+  `8813673f65f699084b88fb5d2cabac4a8b837e6e`.** The serial PR is
+  [#941](https://github.com/Drakosfire/DungeonMindBuddy/pull/941)
   on branch `codex/demo-focused-card-reader`, based on
   `c714c7c6b5f5504590ae5e000de530c079ea9f17` (main after #940). The product
-  implementation commit is `1ecba7d9b068a59c3b2362c5dce2df79477a2158`. Its ACTIVE contract
-  is [`HANDOFF-DEMO-focused-scene-reader.md`](../Plans/HANDOFF-DEMO-focused-scene-reader.md)
-  and the exclusive lease is exactly the seven paths listed in §4 there.
+  implementation commit is `1ecba7d9b068a59c3b2362c5dce2df79477a2158`. Its
+  implementation contract was
+  [`HANDOFF-DEMO-focused-scene-reader.md`](../Plans/HANDOFF-DEMO-focused-scene-reader.md);
+  its seven-path write lease was settled with the merge.
   PRIME transferred the projection/CSS/integration paths and roadmap entry
   from open #914; its visual hold/evidence branch remain preserved. #927 stays
   queued design-only. The intervening #940 main change adds only the independent
@@ -1310,15 +1310,53 @@ that their foundations are absent. Historical slices retain their IDs.
   Edit/Apply regression suites pass 83/83. The changed paths are limited to the
   lease. Synthetic browser inspection covered the focused reader at the desktop
   default viewport and 390×844; content and controls remained readable, with no
-  horizontal overflow (390px viewport, 375px document width). DOGFOOD's separate
-  visual quality control is still required before operator acceptance. The
+  horizontal overflow (390px viewport, 375px document width). DOGFOOD's bounded
+  desktop/mobile geometry QC later passed in #972; final bottom-chat design and
+  operator acceptance remain open. The
   scoped TypeScript build retains the inherited
   `ThreatPublicationPanel.tsx(553,77): TS2503 Cannot find namespace 'JSX'`
   error outside the lease. Connected operator acceptance is not claimed by
   these code tests.
-- **Next:** PRIME reviews the exact cumulative PR head. DOGFOOD visual quality
-  control and connected operator acceptance remain separate; do not merge or
-  claim J1–J6 acceptance.
+- **Next:** the bounded clipping defect is recorded in #972. DOGFOOD's final
+  bottom-chat design review and connected operator acceptance remain separate;
+  the active default-Graph follow-up is tracked in #979 below.
+
+### 2026-10-06 — DEMO Plan Agent geometry repair (#972)
+
+- **State: integrated.** Buddy #972 merged to `main` at
+  `521a63518a1dd0188b76244c5382d8fb897878d4` from final source head
+  `4722ac5b82b81970ef2a66eb21e28e9ee1f874fa`. It closes the bounded Plan
+  Agent panel and target-clipping defect.
+- **Evidence:** the four owning UI suites passed 123/123; `tsconfig.node.json`
+  typecheck and the production build passed, with the existing large-chunk
+  warning; `git diff --check` passed. PRIME source review and DOGFOOD's bounded
+  desktop/mobile geometry QC passed. This does not approve final bottom-chat
+  design or close J1–J6. DEMO made no runtime changes.
+
+### 2026-10-06 — DEMO Plan Graph-context default (#979)
+
+- **State: open/draft; source review PASS at exact code head
+  `0456354f884e1f5667fdce6e11abd6f7be52aac7`.** The serial PR is
+  [#979](https://github.com/Drakosfire/DungeonMindBuddy/pull/979), rebased onto
+  `main@a869c27a7b4b3d6e77048bbb80a55984d709e705`. Its source commit
+  `379b41e98230b0efef719f7bdb51a90dd7401d83` retains identical content in both
+  leased source/test files. A newly selected verified managed World starts with
+  Graph context on; the choice persists across Plan/card changes for that World
+  and resets on World change. Clearing it preserves the Plan-only v1 request.
+  This continues #938's Graph-backed Ask foundation without a new route,
+  durable preference, schema, provider, or Graph write.
+- **Evidence:** the owning mounted history suite passed 88/88 on the reviewed
+  source head; `git diff --check` passes. The full typecheck retains the
+  inherited `ThreatPublicationPanel.tsx(553,77): TS2503 Cannot find namespace
+  'JSX'` error outside the lease. The rebase changed no source-file content, so
+  no broad test rerun was needed for this documentation increment.
+- **Runtime and next:** PRIME reports the merged-main runtime rollout completed
+  with state preserved at `521a63518a1dd0188b76244c5382d8fb897878d4`; DEMO made
+  no runtime change. PRIME is running the bounded #979 UI/default-Graph turn
+  witness against reviewed code head `0456354f884e1f5667fdce6e11abd6f7be52aac7`;
+  its result is pending. Both source/test blobs are unchanged at rebased source
+  commit `379b41e98230b0efef719f7bdb51a90dd7401d83`, so no second model turn is
+  planned. Do not infer full J1–J6 or operator acceptance.
 
 ### 2026-09-26 — PLAY-1 integration and DEMO preflight
 
