@@ -561,7 +561,7 @@ def test_v2_completion_opens_citation_only_from_producing_source_envelope() -> N
         source_opened=False,
         source_read_scope=graph_types.GraphSourceReadScopeV2(
             retrieval_session_id="session:one",
-            world_id=receipt.graph_authority.native_world_id,
+            world_id=receipt.graph_authority.managed_world_id,
             campaign_id=None,
             graph_revision=receipt.graph_authority.graph_revision,
             admitted_anchors=[scope_anchor],
@@ -581,7 +581,7 @@ def test_v2_completion_opens_citation_only_from_producing_source_envelope() -> N
         context_receipt_sha256=receipt.context_receipt_sha256,
         execution_policy_sha256=policy_digest,
         retrieval_session_id="session:one",
-        world_id=receipt.graph_authority.native_world_id,
+        world_id=receipt.graph_authority.managed_world_id,
         campaign_id=None, graph_revision=receipt.graph_authority.graph_revision,
         anchors=[scope_anchor], max_chars=4000,
     )
@@ -1042,7 +1042,7 @@ def test_parent_source_broker_persists_authorization_before_content_and_result_b
         ),
         source_opened=False,
         source_read_scope=graph_types.GraphSourceReadScopeV2(
-            retrieval_session_id=session.id, world_id="native:one", campaign_id=None,
+            retrieval_session_id=session.id, world_id="world:one", campaign_id=None,
             graph_revision="graph-revision-3", admitted_anchors=[
                 scope_anchor,
                 graph_types.GraphSourceScopeAnchorV2(
@@ -1098,14 +1098,17 @@ def test_parent_source_broker_persists_authorization_before_content_and_result_b
     )
     # A retry may re-resolve a fresh search session. Recover the exact frozen
     # session before the provider gate, and reject changed metadata pins.
-    fresh = replace(bootstrap, retrieval_session=session.model_copy(update={
-        "id": "grs:fresh-retry",
-    }))
+    frozen_pins = tuple(anchor.model_dump() for anchor in policy.source_read_scope.admitted_anchors)
+    fresh = replace(
+        bootstrap,
+        retrieval_session=session.model_copy(update={"id": "grs:fresh-retry"}),
+        source_scope_anchors=frozen_pins,
+    )
     restored = service_module._restore_v2_retry_bootstrap(fresh, turn)
     assert restored.retrieval_session.id == session.id
     assert len(restored.source_scope_anchors) == 2
     assert service_module._restore_v2_retry_bootstrap(
-        bootstrap, turn,
+        replace(bootstrap, source_scope_anchors=frozen_pins), turn,
     ).retrieval_session.id == session.id
     legacy_retry = service_module._restore_v2_retry_bootstrap(
         fresh, _policy_turn(status="accepted", completion_present=False),
@@ -1117,6 +1120,20 @@ def test_parent_source_broker_persists_authorization_before_content_and_result_b
     with pytest.raises(AgentTurnServiceError) as changed_pin:
         service_module._restore_v2_retry_bootstrap(changed, turn)
     assert changed_pin.value.code == "turn_receipt_unverifiable"
+    for invalid_pins in (
+        frozen_pins[:1],
+        (*frozen_pins, {
+            "anchor_id": "anchor:extra", "evidence_ref_id": "evidence:extra",
+            "source_artifact_id": "artifact:extra",
+            "source_revision_id": "source-revision:extra",
+        }),
+        (frozen_pins[0], frozen_pins[0]),
+    ):
+        with pytest.raises(AgentTurnServiceError) as changed_scope:
+            service_module._restore_v2_retry_bootstrap(
+                replace(fresh, source_scope_anchors=invalid_pins), turn,
+            )
+        assert changed_scope.value.code == "turn_receipt_unverifiable"
 
     provider_body = json.dumps({"input": [], "tools": []})
     budget = service_module._policy_request_budget()
@@ -1371,6 +1388,7 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         },)), None, view, budget,
     )
     assert isinstance(source_execution, graph_types.PlanWorldGraphExecutionV2)
+    assert source_execution.policy.source_read_scope.world_id == "world:one"
     assert source_execution.policy.source_read_scope.admitted_anchors[0].source_revision_id == (
         "source-revision:one"
     )

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import nullcontext
+from hashlib import sha256
 from typing import Any, Mapping
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
@@ -486,9 +487,9 @@ def _graph_resolver(
 
 
 def _source_session_handles(
-    managed_world_id: str, turn_id: str, graph_revision: str,
+    managed_world_id: str, turn_id: str, graph_revision: str, request_digest: str,
 ) -> tuple[str, str]:
-    identity = f"{managed_world_id}:{turn_id}:{graph_revision}"
+    identity = f"{managed_world_id}:{turn_id}:{graph_revision}:{request_digest}"
     return (
         f"grs:{uuid5(NAMESPACE_URL, f'dmb-plan-source-session:{identity}').hex[:16]}",
         f"op:{uuid5(NAMESPACE_URL, f'dmb-plan-source-search:{identity}').hex[:12]}",
@@ -801,7 +802,10 @@ def _plan_context_resolver(
     # A safely reclaimed V2 turn must reconstruct the same initial provider
     # envelope after process restart; both handles appear in that envelope.
     source_session_id, initial_operation_id = (
-        _source_session_handles(managed_world_id, body.turn_id, revision_id)
+        _source_session_handles(
+            managed_world_id, body.turn_id, revision_id,
+            sha256(body.model_dump_json(by_alias=True).encode("utf-8")).hexdigest(),
+        )
         if source_scope_anchors else (None, f"op:{uuid4().hex[:12]}")
     )
     session = GraphRetrievalSession(

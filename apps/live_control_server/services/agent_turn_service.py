@@ -570,7 +570,8 @@ def _restore_v2_retry_bootstrap(
     if (
         receipt is None
         or execution.context_receipt_sha256 != receipt.context_receipt_sha256
-        or scope.world_id != bootstrap.world_scope.world_id
+        or scope.world_id != receipt.graph_authority.managed_world_id
+        or receipt.graph_authority.native_world_id != bootstrap.world_scope.world_id
         or (scope.campaign_id or "") != bootstrap.world_scope.campaign_id
         or scope.graph_revision != bootstrap.world_scope.revision_id
         or any(_is_provider_authorization(event) for event in execution.events)
@@ -580,11 +581,10 @@ def _restore_v2_retry_bootstrap(
             code="turn_receipt_unverifiable", status_code=409,
             provider_dispatched=False,
         )
-    frozen = {
-        anchor.anchor_id: anchor.model_dump(mode="python")
-        for anchor in scope.admitted_anchors
-    }
-    if any(frozen.get(pin["anchor_id"]) != dict(pin) for pin in bootstrap.source_scope_anchors):
+    frozen_pins = tuple(
+        anchor.model_dump(mode="python") for anchor in scope.admitted_anchors
+    )
+    if tuple(dict(pin) for pin in bootstrap.source_scope_anchors) != frozen_pins:
         raise AgentTurnServiceError(
             "The pinned source metadata differs from the frozen read scope.",
             code="turn_receipt_unverifiable", status_code=409,
@@ -624,9 +624,7 @@ def _restore_v2_retry_bootstrap(
     return replace(
         bootstrap,
         retrieval_session=session,
-        source_scope_anchors=tuple(
-            anchor.model_dump(mode="python") for anchor in scope.admitted_anchors
-        ),
+        source_scope_anchors=frozen_pins,
     )
 
 
@@ -810,7 +808,7 @@ def _freeze_policy_receipt(
         if bootstrap.source_scope_anchors:
             scope = graph_types.GraphSourceReadScopeV2(
                 retrieval_session_id=bootstrap.retrieval_session.id,
-                world_id=bootstrap.world_scope.world_id,
+                world_id=basis.world_id,
                 campaign_id=None,
                 graph_revision=bootstrap.world_scope.revision_id,
                 admitted_anchors=[
@@ -1242,7 +1240,7 @@ class _PolicyExecutionAdapter:
                 scope = execution.policy.source_read_scope
                 if (
                     scope.retrieval_session_id != self.bootstrap.retrieval_session.id
-                    or scope.world_id != self.bootstrap.world_scope.world_id
+                    or scope.world_id != self.world_id
                     or scope.graph_revision != self.bootstrap.world_scope.revision_id
                 ):
                     raise AgentTurnServiceError(
@@ -1653,7 +1651,8 @@ class _PolicyExecutionAdapter:
             session = get_session(scope.retrieval_session_id)
             if (
                 request.retrieval_session_id != scope.retrieval_session_id
-                or session.snapshot.world_id != scope.world_id
+                or session.snapshot.world_id
+                != self.fence.turn.graph_context_receipt.graph_authority.native_world_id
                 or session.snapshot.campaign_id != (scope.campaign_id or "")
                 or session.snapshot.revision_id != scope.graph_revision
             ):
