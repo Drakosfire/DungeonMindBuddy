@@ -64,9 +64,9 @@ function projection(options: {
   };
 }
 
-function ActivationButton({ nodeId = "loc:ironveil-warehouse" }: { nodeId?: string }) {
+function ActivationButton({ nodeId = "loc:ironveil-warehouse", label = "Ironveil Warehouse" }: { nodeId?: string; label?: string }) {
   const { activateNode } = useWorldPlanGraphReferenceActivation();
-  return <button type="button" onClick={() => activateNode(nodeId)}>Ironveil Warehouse</button>;
+  return <button type="button" onClick={() => activateNode(nodeId)}>{label}</button>;
 }
 
 function RuntimeReadout() {
@@ -177,10 +177,68 @@ describe("WorldPlanGraphReferenceActivationProvider", () => {
     expect(screen.getByTestId("runtime-readout")).toHaveAttribute("data-node-count", "0");
   });
 
+  it("freezes native World binding on the first ready projection after opening while loading", async () => {
+    const view = mount(projection(), "loading");
+    fireEvent.click(screen.getByRole("button", { name: "Ironveil Warehouse" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("is loading");
+
+    mockGraphLens.mockReturnValue({
+      request: {
+        schema: "dmb_world_graph_projection_request_v1",
+        worldId: "elderwyld",
+        campaignId: "",
+        scopeMode: "world",
+        focus: { kind: "none", sessionId: null },
+        admissibility: "gm",
+      },
+      requestKey: "managed:elderwyld:world",
+      projection: projection(),
+      projectionState: "ready",
+      projectionError: null,
+      nodeCount: 1,
+      lastProjectionLoadMs: null,
+      lastProjectionLoadOutcome: "ready",
+    });
+    view.rerender(
+      <WorldPlanGraphReferenceActivationProvider worldId="elderwyld">
+        <ActivationButton />
+        <RuntimeReadout />
+      </WorldPlanGraphReferenceActivationProvider>,
+    );
+    expect(await screen.findByTestId("resolved-object")).toHaveAttribute("data-world-id", "eldyrwild");
+
+    mockGraphLens.mockReturnValue({
+      request: {
+        schema: "dmb_world_graph_projection_request_v1",
+        worldId: "elderwyld",
+        campaignId: "",
+        scopeMode: "world",
+        focus: { kind: "none", sessionId: null },
+        admissibility: "gm",
+      },
+      requestKey: "managed:elderwyld:world",
+      projection: projection({ worldId: "another-native-world" }),
+      projectionState: "ready",
+      projectionError: null,
+      nodeCount: 1,
+      lastProjectionLoadMs: null,
+      lastProjectionLoadOutcome: "ready",
+    });
+    view.rerender(
+      <WorldPlanGraphReferenceActivationProvider worldId="elderwyld">
+        <ActivationButton />
+        <RuntimeReadout />
+      </WorldPlanGraphReferenceActivationProvider>,
+    );
+    expect(await screen.findByRole("status")).toHaveTextContent("binding changed");
+    expect(screen.queryByTestId("resolved-object")).not.toBeInTheDocument();
+  });
+
   it.each([
-    ["request", "managed:elderwyld:world:focus-change", "world-rev-17", /request changed/],
-    ["head", "managed:elderwyld:world", "world-rev-18", /head changed/],
-  ] as const)("fails visibly if the open inspector's %s changes", async (_kind, nextKey, nextRevision, message) => {
+    ["request", "managed:elderwyld:world:focus-change", "world-rev-17", "eldyrwild", /request changed/],
+    ["head", "managed:elderwyld:world", "world-rev-18", "eldyrwild", /head changed/],
+    ["native binding", "managed:elderwyld:world", "world-rev-17", "changed-native-world", /binding changed/],
+  ] as const)("fails visibly if the open inspector's %s changes", async (_kind, nextKey, nextRevision, nextNativeWorldId, message) => {
     const view = mount(projection());
     fireEvent.click(screen.getByRole("button", { name: "Ironveil Warehouse" }));
     expect(await screen.findByTestId("resolved-object")).toBeInTheDocument();
@@ -195,7 +253,7 @@ describe("WorldPlanGraphReferenceActivationProvider", () => {
         admissibility: "gm",
       },
       requestKey: nextKey,
-      projection: projection({ revisionId: nextRevision }),
+      projection: projection({ revisionId: nextRevision, worldId: nextNativeWorldId }),
       projectionState: "ready",
       projectionError: null,
       nodeCount: 1,
@@ -211,6 +269,46 @@ describe("WorldPlanGraphReferenceActivationProvider", () => {
 
     expect(await screen.findByRole("status")).toHaveTextContent(message);
     expect(screen.queryByTestId("resolved-object")).not.toBeInTheDocument();
+  });
+
+  it("captures the new Plan reference and returns focus there after the selected managed World changes", async () => {
+    const view = mount(projection());
+    const oldTrigger = screen.getByRole("button", { name: "Ironveil Warehouse" });
+    oldTrigger.focus();
+    fireEvent.click(oldTrigger);
+    expect(await screen.findByRole("dialog", { name: "World Graph object" })).toBeInTheDocument();
+
+    mockGraphLens.mockReturnValue({
+      request: {
+        schema: "dmb_world_graph_projection_request_v1",
+        worldId: "new-managed-world",
+        campaignId: "",
+        scopeMode: "world",
+        focus: { kind: "none", sessionId: null },
+        admissibility: "gm",
+      },
+      requestKey: "managed:new-managed-world:world",
+      projection: projection({ worldId: "new-native-world" }),
+      projectionState: "ready",
+      projectionError: null,
+      nodeCount: 1,
+      lastProjectionLoadMs: null,
+      lastProjectionLoadOutcome: "ready",
+    });
+    view.rerender(
+      <WorldPlanGraphReferenceActivationProvider worldId="new-managed-world">
+        <ActivationButton key="new-world-trigger" label="New World warehouse reference" />
+        <RuntimeReadout />
+      </WorldPlanGraphReferenceActivationProvider>,
+    );
+    expect(screen.queryByRole("dialog", { name: "World Graph object" })).not.toBeInTheDocument();
+    const newTrigger = screen.getByRole("button", { name: "New World warehouse reference" });
+    newTrigger.focus();
+    fireEvent.click(newTrigger);
+    expect(await screen.findByRole("dialog", { name: "World Graph object" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(newTrigger).toHaveFocus());
+    expect(oldTrigger).not.toHaveFocus();
   });
 
   it.each([

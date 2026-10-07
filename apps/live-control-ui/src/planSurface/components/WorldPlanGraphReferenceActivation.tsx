@@ -24,6 +24,7 @@ interface ActivationRequest {
   nodeId: string;
   ownerWorldId: string;
   projectionRequestKey: string | null;
+  nativeWorldId: string | null;
   revisionId: string | null;
 }
 
@@ -106,6 +107,12 @@ function resolutionForRequest(
       message: "The selected World Graph head changed while this reference was open. Close and reopen it to inspect the new head.",
     };
   }
+  if (request.nativeWorldId && scope.worldId !== request.nativeWorldId) {
+    return {
+      kind: "error", locator: nodeId, reference: ref, projectionState,
+      message: "The selected World Graph binding changed while this reference was open. Close and reopen it to inspect the current object.",
+    };
+  }
 
   const resolution = resolveGraphReference({ ref, projection, projectionState: "ready" });
   if (resolution.kind === "unresolved") {
@@ -117,6 +124,16 @@ function resolutionForRequest(
   return resolution;
 }
 
+function nativeScopeForManagedRequest(
+  worldId: string,
+  graph: WorldGraphLensProjectionValue | null,
+): ReturnType<typeof extractExactGraphReferenceScope> {
+  if (graph?.projectionState !== "ready" || graph.request?.worldId !== worldId
+    || graph.request.scopeMode !== "world" || graph.request.campaignId !== "" || !graph.projection) return null;
+  const scope = extractExactGraphReferenceScope(graph.projection);
+  return scope?.scopeMode === "world" && scope.campaignId === "" ? scope : null;
+}
+
 export function WorldPlanGraphReferenceActivationProvider({
   worldId,
   children,
@@ -126,25 +143,33 @@ export function WorldPlanGraphReferenceActivationProvider({
 }) {
   const graph = useOptionalWorldGraphLensProjection();
   const [request, setRequest] = useState<ActivationRequest | null>(null);
+  const requestRef = useRef<ActivationRequest | null>(request);
+  requestRef.current = request;
   const triggerRef = useRef<HTMLElement | null>(null);
   const triggerNodeIdRef = useRef<string | null>(null);
+  const triggerOwnerWorldIdRef = useRef<string | null>(null);
+  const currentOwnerWorldIdRef = useRef(worldId);
+  currentOwnerWorldIdRef.current = worldId;
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const hadRequestRef = useRef(false);
 
   const activateNode = useCallback((nodeId: string) => {
-    if (!request) {
+    if (!request || request.ownerWorldId !== worldId) {
       triggerRef.current = typeof document !== "undefined" && document.activeElement instanceof HTMLElement
         ? document.activeElement
         : null;
       triggerNodeIdRef.current = nodeId;
+      triggerOwnerWorldIdRef.current = worldId;
     }
+    const nativeScope = nativeScopeForManagedRequest(worldId, graph);
     setRequest({
       nodeId,
       ownerWorldId: worldId,
       projectionRequestKey: graph?.requestKey ?? null,
-      revisionId: graph?.projectionState === "ready" ? graph.projection?.snapshot.revisionId ?? null : null,
+      nativeWorldId: nativeScope?.worldId ?? null,
+      revisionId: nativeScope?.revisionId ?? null,
     });
-  }, [graph?.projection?.snapshot.revisionId, graph?.projectionState, graph?.requestKey, request, worldId]);
+  }, [graph?.projection, graph?.projectionState, graph?.requestKey, request, worldId]);
 
   const currentRequest = request?.ownerWorldId === worldId ? request : null;
   const resolution = useMemo(
@@ -155,11 +180,16 @@ export function WorldPlanGraphReferenceActivationProvider({
   );
 
   useEffect(() => {
-    if (!currentRequest || currentRequest.revisionId || resolution?.kind !== "resolved_graph") return;
+    if (!currentRequest || resolution?.kind !== "resolved_graph"
+      || (currentRequest.revisionId && currentRequest.nativeWorldId)) return;
     setRequest((previous) => previous && previous.nodeId === currentRequest.nodeId
       && previous.ownerWorldId === currentRequest.ownerWorldId
       && previous.projectionRequestKey === currentRequest.projectionRequestKey
-      ? { ...previous, revisionId: resolution.graphScope.revisionId }
+      ? {
+        ...previous,
+        nativeWorldId: previous.nativeWorldId ?? resolution.graphScope.worldId,
+        revisionId: previous.revisionId ?? resolution.graphScope.revisionId,
+      }
       : previous);
   }, [currentRequest, resolution]);
 
@@ -171,16 +201,20 @@ export function WorldPlanGraphReferenceActivationProvider({
     }
     if (hadRequestRef.current) {
       hadRequestRef.current = false;
+      const triggerOwnerWorldId = triggerOwnerWorldIdRef.current;
+      if (triggerOwnerWorldId !== worldId) return;
       let trigger = triggerRef.current;
       if (!trigger?.isConnected && triggerNodeIdRef.current) {
         trigger = Array.from(document.querySelectorAll<HTMLElement>("[data-graph-node-id]"))
           .find((candidate) => candidate.dataset.graphNodeId === triggerNodeIdRef.current) ?? null;
       }
       window.setTimeout(() => {
-        if (trigger?.isConnected) trigger.focus({ preventScroll: true });
+        if (currentOwnerWorldIdRef.current === triggerOwnerWorldId && requestRef.current === null && trigger?.isConnected) {
+          trigger.focus({ preventScroll: true });
+        }
       }, 0);
     }
-  }, [currentRequest]);
+  }, [currentRequest, worldId]);
 
   const close = useCallback(() => setRequest(null), []);
   const requestMatchesOwner = graph?.request?.worldId === worldId
