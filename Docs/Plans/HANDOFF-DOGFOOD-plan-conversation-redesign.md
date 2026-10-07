@@ -4,8 +4,8 @@ Status: ACTIVE implementation slice, authorized by the user and PRIME on 2026-10
 
 Branch: `codex/dogfood-plan-chat-adopter-stack`
 
-Base: stacked on `codex/plan-graph-source-read-adapter-v2@5ab7f79182cf1212691a1318a38c14b57556418b` (PR #1008), as PRIME directed. The initial adopter commit is `ed9877cd8ca78d41176fc527d22a9807fafc0665`.
-Topology: stacked child of #1008; keep #1008 as the exact parent until PRIME changes the sequence. #1007 is the single adopter PR. The earlier bottom-dock predecessor (#1000) is merged. PRIME transferred the WorldPlanAgentConversation/history presentation paths from the parked #979 proposal into the bounded adopter lane. #979 remains open as historical review context; it is not the current write lease.
+Review base: `codex/demo-focused-scene-entry@060e7c3b3ab7a92d93f2deac9e66284d74e2854b`, with the same tree as main merge `0c83cb7a8a2f41440f31ef5944fd111913999f67` (#1009). SERVER #1008 and DEMO #1009 are merged. Main later advanced through #1010 (`228bbe6c4b41cce9323d71614153b7e69c6f0c2d`), which adds a native Core SDK pin and source index; PRIME directed this UX-only inspection candidate to stay on the reviewed #1009 tree so that unrelated dependency/migration work is not pulled into its runtime.
+Topology: serial, standalone UX-only PR #1007 against the merged #1009 tree. The earlier bottom-dock predecessor (#1000) is merged. PRIME transferred the WorldPlanAgentConversation/history presentation paths from the parked #979 proposal into this bounded adopter lane. #979 remains open as historical review context; it is not the current write lease.
 
 ## Outcome
 
@@ -41,6 +41,12 @@ No other paths are leased. Do not edit API types, validators, adapters, schema, 
 
 ## Verification and handback
 
-Run the focused World Plan history tests, typecheck/build, and `git diff --check` when dependencies are available. Exercise newest-turn visibility, earlier-history disclosure/paging, failed/uncertain recovery disclosure, unified intent routing, graph context default/switch, and exact no-repost behavior. A full history suite on the candidate currently reports 41 failed / 65 passed; most failures assert the previous record-heavy markup (labels and always-visible recovery details), while two tests time out. Compare against the exact original adopter head before attributing them to the stack or treating them as harmless presentation-test updates. Visually verify on the candidate runtime and capture a screenshot; AX output alone is not visual evidence. Review the exact cumulative base-to-head diff, commit, push, update the existing #1007 PR base to #1008, and send PRIME the exact head for independent review. No merge or operator runtime action is authorized here.
+Verification at candidate code head `94f078c2b5e15399870fed67a3dd82955d355bcf` (before the documentation-only handoff update):
 
-The local `npm ci --offline` attempt failed because the cache lacks `react@19.1.0` (`ENOTCACHED`). This is an environment limitation, not a passing check; report any verification still unavailable.
+- `npm --prefix apps/live-control-ui test -- src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx --reporter=dot`: **107 passed, 0 failed**. Includes the exact-ID Graph recovery case across a changed Plan basis; it verifies the saved request stays unresent, exact bytes remain in storage, recovery is inspectable under its disclosures, and the active conversation is not contaminated by the recovered answer.
+- `npm --prefix apps/live-control-ui run typecheck`: passed.
+- `npm --prefix apps/live-control-ui run build -- --outDir /tmp/plan-chat-rebased-dist`: passed; 671 modules transformed. Vite reports the existing large-chunk warning. Build artifacts were directed to `/tmp`.
+- Cumulative `git diff --check 0c83cb7a...HEAD`: passed before the final handoff text update. The feature-base tree and #1009 merge tree were compared and have no diff.
+- CUA visual inspection of the 5204 candidate at 701×900: the saved Plan remains above a resizable bottom Buddy dock; the composer is pinned at the bottom. The dock currently shows a local authorization rejection and disables the composer; no Agent request was sent. The screenshot is visible inline in the Codex thread but has no exported local path. This proves the rendered failure state and layout only, not a successful Agent conversation.
+
+Operator runtime 5202 remains untouched. The local `npm ci --offline` attempt earlier failed because the cache lacks `react@19.1.0` (`ENOTCACHED`); the existing app dependencies were available in the candidate worktree for the passing checks above. PR #1007 remains draft pending independent review and operator inspection. No merge or production adoption is claimed or authorized here.
