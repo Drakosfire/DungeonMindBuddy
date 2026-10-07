@@ -94,6 +94,7 @@ from dungeonmind.application.world_graph_retrieval import (
     NeighborhoodResult,
     ObjectLookupResult,
     RetrievalBounds,
+    SourceAnchorIndexRequest,
     SourceAnchorMetadata,
     SourceAnchorResolution,
     WorldGraphRetrievalService,
@@ -2245,6 +2246,80 @@ class ResolvedWorldGraphSearchV2:
 
     result: WorldGraphRetrievalResult
     source_pins: tuple[ResolvedSourceAnchorMetadataV2, ...]
+
+
+@dataclass(frozen=True)
+class ResolvedWorldGraphSourceIndexV2:
+    """Complete pinned native source identities, or an explicit overflow."""
+
+    status: Literal["complete", "overflow"]
+    eligible_count: int
+    source_pins: tuple[ResolvedSourceAnchorMetadataV2, ...]
+
+
+def list_source_anchor_index_direct_v2(
+    services: DirectWorldGraphReadServices,
+    request: WorldGraphSearchRequest,
+    *,
+    revision_id: str,
+) -> ResolvedWorldGraphSourceIndexV2:
+    """Map Core's bounded metadata index without opening source content."""
+    try:
+        if not revision_id or (request.revision_pin and request.revision_pin != revision_id):
+            raise ValueError("source index revision differs from the pinned search")
+        pinned = request.model_copy(update={"revision_pin": revision_id})
+        projection = _map_retrieval_context(pinned, services.binding)
+        result = services.retrieval.list_source_anchor_index(
+            SourceAnchorIndexRequest(projection=projection, max_entries=512)
+        )
+        snapshot = result.snapshot
+        if (
+            snapshot.world_id != projection.world_id
+            or snapshot.campaign_id != projection.campaign_id
+            or snapshot.focus != projection.focus
+            or snapshot.admissibility != projection.admissibility
+            or snapshot.scope_mode != projection.scope_mode
+            or snapshot.revision_id != revision_id
+        ):
+            raise ValueError("source index snapshot differs from the pinned search")
+        if result.max_entries != 512:
+            raise ValueError("source index changed its requested bound")
+        if result.status == "overflow":
+            if result.eligible_count <= 512 or result.entries:
+                raise ValueError("source index overflow is not explicit")
+            return ResolvedWorldGraphSourceIndexV2(
+                status="overflow", eligible_count=result.eligible_count,
+                source_pins=(),
+            )
+        if result.status != "complete" or result.eligible_count > 512:
+            raise ValueError("source index is not complete")
+        for entry in result.entries:
+            if any(
+                not isinstance(value, str) or not value or value != value.strip()
+                for value in (
+                    entry.anchor_id, entry.evidence_ref_id,
+                    entry.source_artifact_id, entry.source_revision_id,
+                )
+            ):
+                raise ValueError("source index contains an invalid authority tuple")
+        pins = tuple(sorted((
+            ResolvedSourceAnchorMetadataV2(
+                anchor_id=_buddy_anchor_id(entry.anchor_id),
+                graph_revision=snapshot.revision_id,
+                evidence_ref_id=entry.evidence_ref_id,
+                source_artifact_id=entry.source_artifact_id,
+                source_revision_id=entry.source_revision_id,
+            )
+            for entry in result.entries
+        ), key=lambda pin: pin.anchor_id))
+        if len(pins) != result.eligible_count or len({pin.anchor_id for pin in pins}) != len(pins):
+            raise ValueError("source index identities are incomplete or ambiguous")
+        return ResolvedWorldGraphSourceIndexV2(
+            status="complete", eligible_count=result.eligible_count,
+            source_pins=pins,
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise _map_direct_error(exc) from exc
 
 
 def search_world_graph_direct_v2(
