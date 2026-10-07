@@ -262,6 +262,42 @@ def test_rejected_semantic_decision_is_single_use(application_state_dsn: str) ->
         )
 
 
+def test_recap_decision_rejects_matching_unknown_profile(application_state_dsn: str) -> None:
+    parent, child, basis = _recap_basis_and_pair(application_state_dsn)
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute(
+            "UPDATE ingest.run SET profile_id = 'unknown_profile@1.0' WHERE run_id = ANY(%s)",
+            ([parent.run_id, child.run_id],),
+        )
+        conn.commit()
+    decision = RecapSemanticDispositionCommandV1(
+        state="accepted", review_decision_ref="review:profile", reviewer_id="local_operator"
+    )
+    with pytest.raises(ApplicationStateConflictError):
+        record_recap_semantic_disposition(
+            child.run_id, expected_revision=child.revision,
+            basis=basis.model_copy(update={"profile_id": "unknown_profile@1.0"}),
+            decision=decision,
+        )
+
+
+def test_recap_decision_rejects_mutable_parent(application_state_dsn: str) -> None:
+    parent, child, basis = _recap_basis_and_pair(application_state_dsn)
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute(
+            "UPDATE ingest.run SET status = 'draft' WHERE run_id = %s",
+            (parent.run_id,),
+        )
+        conn.commit()
+    decision = RecapSemanticDispositionCommandV1(
+        state="accepted", review_decision_ref="review:parent", reviewer_id="local_operator"
+    )
+    with pytest.raises(ApplicationStateConflictError):
+        record_recap_semantic_disposition(
+            child.run_id, expected_revision=child.revision, basis=basis, decision=decision
+        )
+
+
 def _model_valid_terminal_run(status: ExtractionRunStatus) -> ExtractionRun:
     extras: dict = {"status": status}
     if status == ExtractionRunStatus.PROMOTED:

@@ -32,7 +32,10 @@ from graph_memory.ingestion.extraction_run import (
     assert_allowed_extraction_run_transition,
     validate_extraction_run_lineage,
 )
-from src.graph_memory.extraction.recap_extraction_profile import RECAP_PROFILE_VERSION
+from src.graph_memory.extraction.recap_extraction_profile import (
+    RECAP_PROFILE_ID,
+    RECAP_PROFILE_VERSION,
+)
 
 _RECAP_CORRECTION_DERIVATION = "operator_recap_literal_evidence_correction_v1"
 _RECAP_BASIS_SCHEMA = "dmb_recap_semantic_basis_v1"
@@ -288,6 +291,8 @@ def _assert_recap_semantic_basis(
         or child.status != ExtractionRunStatus.REVIEWABLE
         or child.source_domain != "recap"
         or parent.source_domain != "recap"
+        or parent.status not in FROZEN_COMPONENT_STATUSES
+        or not parent.has_required_review_components()
         or lineage.get("derivation") != _RECAP_CORRECTION_DERIVATION
         or lineage.get("parent_run_id") != parent.run_id
         or basis.parent_run_id != parent.run_id
@@ -296,7 +301,8 @@ def _assert_recap_semantic_basis(
         or child.source_artifact_id != basis.source_artifact_id
         or child.profile_id != parent.profile_id
         or child.profile_id != basis.profile_id
-        or not child.profile_id.endswith("@" + basis.profile_version)
+        or child.profile_id != f"{RECAP_PROFILE_ID}@{RECAP_PROFILE_VERSION}"
+        or basis.profile_version != RECAP_PROFILE_VERSION
         or child.campaign_id != parent.campaign_id
         or child.campaign_id != basis.campaign_id
         or child.session_id != parent.session_id
