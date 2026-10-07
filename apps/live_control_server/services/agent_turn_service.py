@@ -702,10 +702,15 @@ def _freeze_policy_receipt(
             policy=graph_types.GraphExecutionPolicyV1(
                 policy_version="plan_world_graph_execution_v1",
                 allowed_graph_operations=["expand_graph_retrieval"],
-                max_provider_attempts=4, max_graph_operations=8,
+                max_provider_attempts=budget["maxProviderAttempts"],
+                max_graph_operations=budget["maxGraphOperations"],
                 max_results_per_operation=512,
-                max_total_provider_input_tokens=budget["contextLimitTokens"] * 4,
-                max_total_provider_output_tokens=budget["outputReserveTokens"] * 4,
+                max_total_provider_input_tokens=(
+                    budget["contextLimitTokens"] * budget["maxProviderAttempts"]
+                ),
+                max_total_provider_output_tokens=(
+                    budget["outputReserveTokens"] * budget["maxProviderAttempts"]
+                ),
                 provider_input_accounting=graph_types.GraphExecutionAccountingV1(
                     kind="conservative_upper_bound", estimator=budget["estimator"],
                 ),
@@ -1059,6 +1064,14 @@ class _PolicyExecutionAdapter:
                     "The Graph execution ledger is unavailable after claim.",
                     code="turn_persistence_indeterminate", status_code=503,
                 )
+            if (
+                execution.policy.max_provider_attempts != self.budget["maxProviderAttempts"]
+                or execution.policy.max_graph_operations != self.budget["maxGraphOperations"]
+            ):
+                raise AgentTurnServiceError(
+                    "The Graph execution policy differs from the provider budget.",
+                    code="turn_persistence_indeterminate", status_code=503,
+                )
             attempts = [
                 event for event in execution.events
                 if getattr(event, "kind", None) == "provider_attempt_authorized"
@@ -1228,6 +1241,12 @@ class _PolicyExecutionAdapter:
         try:
             if self.fence is None or self.last_provider_attempt_id is None:
                 return denied("graph_operation_before_authorization", 409)
+            execution = self.fence.turn.graph_context_execution
+            if execution is None or sum(
+                getattr(event, "kind", None) == "validated_graph_operation"
+                for event in execution.events
+            ) >= execution.policy.max_graph_operations:
+                return denied("graph_operation_over_budget", 413)
             arguments = message.get("arguments")
             if message.get("toolName") != "expand_graph_retrieval" or not isinstance(arguments, Mapping):
                 return denied("plan_graph_tool_not_permitted", 403)
@@ -1542,6 +1561,9 @@ def _policy_request_budget() -> dict[str, Any]:
         "estimator": "utf8_json_bytes_plus_64_per_node_v1",
         "contextLimitTokens": 1_050_000,
         "outputReserveTokens": 2048,
+        "maxProviderAttempts": 4,
+        "maxToolCapableAttempts": 3,
+        "maxGraphOperations": 8,
     }
 
 

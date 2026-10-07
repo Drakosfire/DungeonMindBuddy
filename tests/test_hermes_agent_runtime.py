@@ -33,6 +33,40 @@ from graph_memory.hermes_graph_plugin import (
 )
 
 
+def test_guarded_adapter_passes_final_answer_limits_unchanged() -> None:
+    budget = {
+        "schema": "dmb_hermes_request_budget_policy_v1",
+        "provider": "openai-api", "model": "gpt-6-luna", "apiMode": "codex_responses",
+        "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+        "contextLimitTokens": 1_050_000, "outputReserveTokens": 2048,
+        "maxProviderAttempts": 4, "maxToolCapableAttempts": 3,
+        "maxGraphOperations": 8,
+    }
+    result = HermesGraphAgentTurnResult(
+        status="error", error_code="provider_authorization_denied",
+        final_response=None, messages=[], hermes_session_id="test",
+        tool_events=[], answer_scope=None,
+    )
+
+    class CapturingHost(_FakeHost):
+        def execute(self, request: HermesGraphAgentTurnRequest, **kwargs: Any) -> HermesGraphAgentTurnResult:
+            self.calls.append(request)
+            assert callable(kwargs["on_provider_authorization"])
+            assert callable(kwargs["on_graph_operation"])
+            return self.result
+
+    host = CapturingHost(result)
+    adapter = HermesAgentRuntimeAdapter(host_factory=lambda: host)
+    adapter.run_with_provider_authorization(
+        _invocation(), lambda _view: False, request_budget=budget,
+        on_graph_operation=lambda _message: {},
+    )
+    assert len(host.calls) == 1
+    assert host.calls[0].request_budget == budget
+    assert host.calls[0].provider_authorization_required is True
+    assert host.calls[0].parent_graph_broker_required is True
+
+
 class _FakeHost:
     def __init__(self, result: HermesGraphAgentTurnResult) -> None:
         self.result = result
