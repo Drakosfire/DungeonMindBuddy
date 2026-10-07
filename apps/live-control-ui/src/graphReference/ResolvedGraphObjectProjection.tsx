@@ -39,6 +39,39 @@ export interface ResolvedGraphObjectProjectionProps {
   "aria-label"?: string;
 }
 
+function withPinnedSourceExcerpts(
+  model: GraphObjectCardViewModel,
+  bindings: unknown[] | undefined,
+): GraphObjectCardViewModel {
+  if (!bindings?.length || !model.evidence?.length) return model;
+  const byEvidence = new Map<string, {
+    artifactId: string; spanId: string; domain: string; excerpt: string;
+  }>();
+  for (const candidate of bindings) {
+    if (!candidate || typeof candidate !== "object") continue;
+    const row = candidate as Record<string, unknown>;
+    if (row.provenanceStatus !== "excerpt_ready" || typeof row.contentSha256 !== "string"
+      || !/^[a-f0-9]{64}$/i.test(row.contentSha256) || typeof row.evidenceRefId !== "string"
+      || typeof row.sourceArtifactId !== "string" || typeof row.sourceSpanRefId !== "string"
+      || typeof row.sourceDomain !== "string" || typeof row.excerpt !== "string" || !row.excerpt.trim()) continue;
+    byEvidence.set(row.evidenceRefId, {
+      artifactId: row.sourceArtifactId,
+      spanId: row.sourceSpanRefId,
+      domain: row.sourceDomain,
+      excerpt: row.excerpt,
+    });
+  }
+  return {
+    ...model,
+    evidence: model.evidence.map((evidence) => {
+      const binding = byEvidence.get(evidence.id);
+      if (!binding || binding.artifactId !== evidence.sourceArtifactId
+        || binding.spanId !== evidence.sourceSpanRefId || binding.domain !== evidence.sourceDomain) return evidence;
+      return { ...evidence, excerpt: binding.excerpt };
+    }),
+  };
+}
+
 /**
  * Surface-agnostic resolved-graph content: authored Threats → campaign Threat sheet;
  * everything else → GraphObjectProjectionCard backed by the complete World-object read.
@@ -96,6 +129,9 @@ export function ResolvedGraphObjectProjection({
     usesCompleteWorldObjectPayload(complete.status) && completeModel
       ? completeModel
       : glanceModel;
+  const readableCardModel = onReadSourceEvidence && complete.result
+    ? withPinnedSourceExcerpts(cardModel, complete.result.sourceBindings)
+    : cardModel;
 
   return (
     <div data-complete-object-status={complete.status}>
@@ -109,9 +145,9 @@ export function ResolvedGraphObjectProjection({
       ) : null}
       <CompleteObjectPartialWarning result={complete.result} />
       <GraphObjectProjectionCard
-        model={cardModel}
+        model={readableCardModel}
         mode={mode}
-        aria-label={ariaLabel ?? `${cardModel.label} graph object`}
+        aria-label={ariaLabel ?? `${readableCardModel.label} graph object`}
         showRelationshipProvenance={showRelationshipProvenance}
         onSelectRelationship={onSelectRelationship}
         selectedRelationshipId={selectedRelationshipId}

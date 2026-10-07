@@ -114,6 +114,91 @@ describe("ResolvedGraphObjectProjection partial completeness", () => {
     expect(screen.queryByTestId("complete-object-partial-warning")).not.toBeInTheDocument();
   });
 
+  it("offers a Plan source passage only from an exact digest-pinned evidence binding", async () => {
+    const onReadSourceEvidence = vi.fn();
+    const evidenceNode = {
+      ...caelynn,
+      evidenceBadges: [{
+        evidenceRefId: "ev:s25",
+        sourceArtifactId: "artifact:s25",
+        sourceSpanRefId: "span:s25",
+        sourceDomain: "session_recap",
+        evidenceRole: "supporting",
+        isFocusSessionEvidence: false,
+        canOpenSource: true,
+        canHighlightSpan: false,
+        label: "S25 recap passage",
+      }],
+    };
+    vi.mocked(liveApi.postWorldGraphCompleteObject).mockResolvedValue({
+      ...completeObject("complete"),
+      node: evidenceNode,
+      sourceBindings: [{
+        evidenceRefId: "ev:s25",
+        sourceArtifactId: "artifact:s25",
+        sourceRevisionId: "artifact-rev:s25",
+        contentSha256: "a".repeat(64),
+        sourceSpanRefId: "span:s25",
+        sourceDomain: "session_recap",
+        provenanceStatus: "excerpt_ready",
+        excerpt: "Lysandra led the warehouse watch through the storm.",
+      }],
+    });
+
+    render(<ResolvedGraphObjectProjection
+      resolution={resolvedCaelynn()}
+      originSurface="plan"
+      onReadSourceEvidence={onReadSourceEvidence}
+    />);
+    const readSource = await screen.findByRole("button", { name: "Read source" });
+    await userEvent.setup().click(readSource);
+    expect(onReadSourceEvidence).toHaveBeenCalledWith(expect.objectContaining({
+      id: "ev:s25",
+      sourceArtifactId: "artifact:s25",
+      sourceSpanRefId: "span:s25",
+      excerpt: "Lysandra led the warehouse watch through the storm.",
+    }));
+    expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not offer a source action for a missing, mismatched, or unverified excerpt", async () => {
+    const evidenceNode = {
+      ...caelynn,
+      evidenceBadges: [{
+        evidenceRefId: "ev:s25",
+        sourceArtifactId: "artifact:s25",
+        sourceSpanRefId: "span:s25",
+        sourceDomain: "session_recap",
+        evidenceRole: "supporting",
+        isFocusSessionEvidence: false,
+        canOpenSource: true,
+        canHighlightSpan: false,
+        label: "S25 recap passage",
+      }],
+    };
+    vi.mocked(liveApi.postWorldGraphCompleteObject).mockResolvedValue({
+      ...completeObject("complete"),
+      node: evidenceNode,
+      sourceBindings: [{
+        evidenceRefId: "ev:s25",
+        sourceArtifactId: "artifact-other",
+        contentSha256: "bad-digest",
+        sourceSpanRefId: "span:s25",
+        sourceDomain: "session_recap",
+        provenanceStatus: "source_not_durable",
+        excerpt: "This text must not be exposed.",
+      }],
+    });
+    render(<ResolvedGraphObjectProjection
+      resolution={resolvedCaelynn()}
+      originSurface="plan"
+      onReadSourceEvidence={vi.fn()}
+    />);
+    await screen.findByText("Caelynn");
+    expect(screen.queryByRole("button", { name: "Read source" })).not.toBeInTheDocument();
+    expect(screen.queryByText("This text must not be exposed.")).not.toBeInTheDocument();
+  });
+
   it("keeps exact World identity behind Advanced without another request", async () => {
     const user = userEvent.setup();
     vi.mocked(liveApi.postWorldGraphCompleteObject).mockResolvedValue(completeObject("complete"));

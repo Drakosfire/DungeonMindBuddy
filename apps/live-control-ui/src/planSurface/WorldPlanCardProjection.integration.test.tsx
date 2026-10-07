@@ -285,7 +285,7 @@ it("preserves authored blocks and renders inert references with a compact Beat d
   expect(sceneCard).not.toBeNull();
   const title = sceneCard?.querySelector(".world-plan-card__title");
   expect(title?.querySelector("h3")).toHaveTextContent("Arrival at North Gate");
-  expect(title?.querySelector('[data-plan-card-reference="graph"][data-graph-node-id="loc_north_gate"]')?.tagName).toBe("SPAN");
+  expect(title?.querySelector('[data-plan-card-reference="graph"][data-graph-node-id="loc_north_gate"]')?.tagName).toBe("BUTTON");
 
   const body = sceneCard?.querySelector<HTMLElement>(".world-plan-card__content");
   expect(body).not.toBeNull();
@@ -300,10 +300,11 @@ it("preserves authored blocks and renders inert references with a compact Beat d
   expect(body?.querySelector("ul > li > ul")).not.toBeNull();
   expect(body?.querySelector("ol > li > ul")).not.toBeNull();
   const graphPill = body?.querySelector('[data-plan-card-reference="graph"][data-graph-node-id="pc_caelynn"]');
-  expect(graphPill?.tagName).toBe("SPAN");
+  expect(graphPill?.tagName).toBe("BUTTON");
+  expect(graphPill).toHaveAttribute("data-graph-node-activation", "enabled");
   expect(graphPill).toHaveTextContent("Caelynn");
   expect(body?.querySelector('[data-md-ref-id="gate-procedure"]')).toHaveTextContent("Gate procedure");
-  expect(body?.querySelector("button[data-graph-node-id], script")).toBeNull();
+  expect(body?.querySelector("script")).toBeNull();
   expect(cards).not.toHaveTextContent("Do not show this ordinary section in Cards.");
 
   fireEvent.click(within(sceneCard!).getByRole("button", { name: /Read scene:/ }));
@@ -327,6 +328,33 @@ it("preserves authored blocks and renders inert references with a compact Beat d
   expect(details).toHaveTextContent("The bell rings twice before the courier arrives.");
   expect(apis.prepare).not.toHaveBeenCalled();
   expect(apis.commit).not.toHaveBeenCalled();
+});
+
+it("opts into exact Graph reference activation in Cards without changing authored content", () => {
+  const onActivateGraphNode = vi.fn();
+  const imported = markdownToTiptapDoc(readerFidelityV2Markdown);
+  render(
+    <WorldPlanCardProjection
+      worldId={worldId}
+      documentId={documentId}
+      document={imported.doc}
+      markdown={readerFidelityV2Markdown}
+      sourceWarnings={[]}
+      basis={{ status: "verified", revision: 4, contentSha256: initialDigest }}
+      isDirty={false}
+      onReturnToDocument={vi.fn()}
+      onActivateGraphNode={onActivateGraphNode}
+    />,
+  );
+
+  const cards = screen.getByTestId("world-plan-cards");
+  const reference = within(cards).getByRole("button", { name: "Caelynn" });
+  expect(reference).toHaveAttribute("data-graph-node-id", "pc_caelynn");
+  fireEvent.click(reference);
+
+  expect(onActivateGraphNode).toHaveBeenCalledTimes(1);
+  expect(onActivateGraphNode).toHaveBeenCalledWith("pc_caelynn");
+  expect(cards).toHaveTextContent("Speak with Caelynn and review Gate procedure.");
 });
 
 it("escapes markup-like reference labels and mounts no editor or reference NodeView in Cards", () => {
@@ -659,7 +687,7 @@ it("keeps one editor draft through Cards, ordinary Save, and fresh reopen at the
   const reopenedCardsButton = within(reopenedPage).getByRole("button", { name: "Cards" });
   await waitFor(() => expect(reopenedCardsButton).toBeEnabled());
   fireEvent.click(reopenedCardsButton);
-  expect(screen.getByText("Saved Plan")).toBeInTheDocument();
+  expect(screen.getByText("Saved snapshot verified")).toBeInTheDocument();
   fireEvent.click(screen.getByText("Plan basis details"));
   expect(screen.getByText("6", { selector: "dd" })).toBeInTheDocument();
   expect(screen.getByText(committedDigest)).toBeInTheDocument();
@@ -685,7 +713,7 @@ it("keeps a persisted server draft uncommitted until ordinary Save and fresh reo
   expect(cards).toHaveTextContent("Uncommitted server draft");
   expect(within(cards).getAllByText("Unavailable")).toHaveLength(2);
   expect(within(cards).getByText("Persisted server draft prose.")).toBeInTheDocument();
-  expect(within(cards).queryByText("Saved Plan")).not.toBeInTheDocument();
+  expect(within(cards).queryByText("Saved snapshot verified")).not.toBeInTheDocument();
 
   const editHost = await openPlanEditHost();
   const saveButton = await within(editHost).findByRole("button", { name: "Save Plan" });
@@ -704,7 +732,7 @@ it("keeps a persisted server draft uncommitted until ordinary Save and fresh reo
   await waitFor(() => expect(within(reopenedPage).getByRole("button", { name: "Cards" })).toBeEnabled());
   fireEvent.click(within(reopenedPage).getByRole("button", { name: "Cards" }));
   const reopenedCards = screen.getByTestId("world-plan-cards");
-  expect(within(reopenedCards).getByText("Saved Plan")).toBeInTheDocument();
+  expect(within(reopenedCards).getByText("Saved snapshot verified")).toBeInTheDocument();
   fireEvent.click(within(reopenedCards).getByText("Plan basis details"));
   expect(within(reopenedCards).getByText("Committed snapshot")).toBeInTheDocument();
   expect(within(reopenedCards).getByText("6", { selector: "dd" })).toBeInTheDocument();
@@ -722,10 +750,10 @@ it("keeps the card basis unavailable when the loaded snapshot status is unknown"
 
   const cards = screen.getByTestId("world-plan-cards");
   expect(within(cards).getByText("Saved basis unavailable")).toBeInTheDocument();
-  expect(within(cards).queryByText("Saved Plan")).not.toBeInTheDocument();
+  expect(within(cards).queryByText("Saved snapshot verified")).not.toBeInTheDocument();
   fireEvent.click(within(cards).getByText("Plan basis details"));
   expect(within(cards).getByText("Basis", { selector: "dt" }).nextElementSibling).toHaveTextContent("Unavailable");
-  expect(within(cards).getByText("Revision", { selector: "dt" }).nextElementSibling).toHaveTextContent("Unavailable");
+  expect(within(cards).getByText("Object revision", { selector: "dt" }).nextElementSibling).toHaveTextContent("Unavailable");
   expect(within(cards).getByText("Content SHA-256", { selector: "dt" }).nextElementSibling).toHaveTextContent("Unavailable");
   expect(apis.prepare).not.toHaveBeenCalled();
   expect(apis.commit).not.toHaveBeenCalled();

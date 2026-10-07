@@ -263,6 +263,7 @@ function CardNodeView({
   onSelectTarget,
   onSelectEditTarget,
   onFocusScene,
+  onActivateGraphNode,
 }: {
   node: WorldPlanCardNode;
   worldId: string;
@@ -274,6 +275,7 @@ function CardNodeView({
   onSelectTarget?: (target: WorldPlanCardTarget) => void;
   onSelectEditTarget?: (target: WorldPlanCardTarget) => void;
   onFocusScene?: (scene: WorldPlanCardNode) => void;
+  onActivateGraphNode?: (nodeId: string, trigger?: HTMLElement) => void;
 }) {
   const target = { kind: node.kind, id: node.id };
   const selected = selectedTarget?.kind === target.kind && selectedTarget.id === target.id;
@@ -303,6 +305,7 @@ function CardNodeView({
           <ReadOnlyBodyContent
             content={[cardTitleContent(node, 3)]}
             className="world-plan-card__title"
+            onActivateGraphNode={onActivateGraphNode}
             unsupportedMessage="This authored content cannot be displayed safely in Cards. Open Document to view it."
           />
           <code>{node.id}</code>
@@ -347,6 +350,7 @@ function CardNodeView({
           <ReadOnlyBodyContent
             content={node.bodyContent}
             className="world-plan-card__content"
+            onActivateGraphNode={onActivateGraphNode}
             unsupportedMessage="This authored content cannot be displayed safely in Cards. Open Document to view it."
           />
         ) : null}
@@ -372,6 +376,7 @@ function CardNodeView({
               onSelectTarget={onSelectTarget}
               onSelectEditTarget={onSelectEditTarget}
               onFocusScene={onFocusScene}
+              onActivateGraphNode={onActivateGraphNode}
             />
           ))}
         </ol>
@@ -396,6 +401,7 @@ export function WorldPlanCardProjection({
   onSelectTarget,
   onSelectEditTarget,
   selectionStale = false,
+  onActivateGraphNode,
 }: {
   worldId: string;
   documentId: string;
@@ -412,6 +418,7 @@ export function WorldPlanCardProjection({
   onSelectTarget?: (target: WorldPlanCardTarget | null) => void;
   onSelectEditTarget?: (target: WorldPlanCardTarget) => void;
   selectionStale?: boolean;
+  onActivateGraphNode?: (nodeId: string, trigger?: HTMLElement) => void;
 }) {
   const model = useMemo(() => buildWorldPlanCardProjectionModel({ document, markdown, sourceWarnings }), [document, markdown, sourceWarnings]);
   const nodes = useMemo(() => model.status === "ready" ? flattenNodes(model.roots) : [], [model]);
@@ -493,7 +500,7 @@ export function WorldPlanCardProjection({
   const cardState = isDirty
     ? "Draft / unsaved"
     : basis.status === "verified"
-      ? "Saved Plan"
+      ? "Saved snapshot verified"
       : basis.status === "server-draft"
         ? "Server draft / uncommitted"
         : "Saved basis unavailable";
@@ -519,6 +526,7 @@ export function WorldPlanCardProjection({
           <ReadOnlyBodyContent
             content={[cardTitleContent(focusedScene, 2)]}
             className="world-plan-scene-reader__title"
+            onActivateGraphNode={onActivateGraphNode}
             unsupportedMessage="This authored content cannot be displayed safely in Cards. Open Document to view it."
           />
           <code>{focusedScene.id}</code>
@@ -527,12 +535,14 @@ export function WorldPlanCardProjection({
               <ReadOnlyBodyContent
                 content={[cardTitleContent(parentBeat, 3)]}
                 className="world-plan-scene-reader__context-title"
+                onActivateGraphNode={onActivateGraphNode}
                 unsupportedMessage="This authored content cannot be displayed safely in Cards. Open Document to view it."
               />
               {parentBeat.bodyContent[0] ? (
                 <ReadOnlyBodyContent
                   content={[parentBeat.bodyContent[0]]}
                   className="world-plan-scene-reader__objective"
+                  onActivateGraphNode={onActivateGraphNode}
                   unsupportedMessage="This authored content cannot be displayed safely in Cards. Open Document to view it."
                 />
               ) : null}
@@ -542,6 +552,7 @@ export function WorldPlanCardProjection({
                   <ReadOnlyBodyContent
                     content={parentBeat.bodyContent.slice(1)}
                     className="world-plan-scene-reader__details-content"
+                    onActivateGraphNode={onActivateGraphNode}
                     unsupportedMessage="This authored content cannot be displayed safely in Cards. Open Document to view it."
                   />
                 </details>
@@ -550,7 +561,7 @@ export function WorldPlanCardProjection({
           ) : null}
           <p className="world-plan-scene-reader__target" role="status">
             {focusedTargetSelectable && focusedTargetSelected
-              ? `New Ask uses this Scene from committed Plan revision ${basis.status === "verified" ? basis.revision : ""}. Submitted requests keep their original target.`
+              ? "New Ask uses this Scene from the verified saved Plan snapshot. Submitted requests keep their original target."
               : focusedTargetSelectable
                 ? "This Scene is available in the verified saved Plan, but it is not the selected Ask target. Return to the outline to set it again."
                 : "This Scene is not available in the verified saved Plan. The default Ask card target is cleared; no draft content will be sent."}
@@ -571,6 +582,7 @@ export function WorldPlanCardProjection({
               selectedTarget={selectedTarget}
               selectedEditTarget={selectedEditTarget}
               onSelectEditTarget={onSelectEditTarget}
+              onActivateGraphNode={onActivateGraphNode}
             />
             {associatedChoices.map((choice) => (
               <CardNodeView
@@ -583,6 +595,7 @@ export function WorldPlanCardProjection({
                 selectedTarget={selectedTarget}
                 selectedEditTarget={selectedEditTarget}
                 onSelectEditTarget={onSelectEditTarget}
+                onActivateGraphNode={onActivateGraphNode}
               />
             ))}
           </ol>
@@ -602,7 +615,7 @@ export function WorldPlanCardProjection({
           <dt>World</dt><dd><code>{worldId}</code></dd>
           <dt>Document</dt><dd><code>{documentId}</code></dd>
           <dt>Basis</dt><dd>{basisLabel}</dd>
-          <dt>Revision</dt><dd>{basis.status === "verified" ? basis.revision : "Unavailable"}</dd>
+          <dt>Object revision</dt><dd>{basis.status === "verified" ? basis.revision : "Unavailable"}</dd>
           <dt>Content SHA-256</dt><dd><code>{basis.status === "verified" ? basis.contentSha256 : "Unavailable"}</code></dd>
         </dl>
       </details>
@@ -650,6 +663,7 @@ export function WorldPlanCardProjection({
             onSelectTarget={onSelectTarget ? (target) => onSelectTarget(target) : undefined}
             onSelectEditTarget={onSelectEditTarget}
             onFocusScene={focusScene}
+            onActivateGraphNode={onActivateGraphNode}
           />
         ))}
       </ol>
