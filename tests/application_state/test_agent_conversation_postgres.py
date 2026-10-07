@@ -377,7 +377,12 @@ def _provider_authorization_event(
     )
 
 
-def _execution_completion_fixture():
+def _execution_completion_fixture(
+    *,
+    evidence_sufficiency_status: str = "sufficient",
+    coverage_status: str = "incomplete",
+    truncated: bool = False,
+):
     from application_state.agent_conversation.types import (
         GraphExecutionAccountingV1,
         GraphExecutionPolicyV1,
@@ -387,15 +392,19 @@ def _execution_completion_fixture():
     )
 
     attempt_id = uuid4()
+    has_evidence = evidence_sufficiency_status == "sufficient"
+    assertion_ids = ["assertion-classification"] if has_evidence else []
+    evidence_ref_ids = ["evidence-classification"] if has_evidence else []
     receipt = _graph_receipt(
         "completion-classification-world",
         uuid4(),
-        evidence_sufficiency_status="sufficient",
-        candidate_assertion_ids=["assertion-classification"],
-        candidate_evidence_ref_ids=["evidence-classification"],
-        dispatched_assertion_ids=["assertion-classification"],
-        dispatched_evidence_ref_ids=["evidence-classification"],
-        coverage_status="incomplete",
+        evidence_sufficiency_status=evidence_sufficiency_status,
+        candidate_assertion_ids=assertion_ids,
+        candidate_evidence_ref_ids=evidence_ref_ids,
+        dispatched_assertion_ids=assertion_ids,
+        dispatched_evidence_ref_ids=evidence_ref_ids,
+        coverage_status=coverage_status,
+        truncated=truncated,
     )
     claim = PlanWorldGraphClaimSegmentV1(
         kind="graph_claim",
@@ -428,8 +437,8 @@ def _execution_completion_fixture():
     authorized = _provider_authorization_event(
         attempt_id=attempt_id,
         sequence=0,
-        assertions=[claim.target_id],
-        evidence_refs=claim.evidence_ref_ids,
+        assertions=assertion_ids,
+        evidence_refs=evidence_ref_ids,
     )
     execution = PlanWorldGraphExecutionV1(
         schema="dmb_agent_plan_world_graph_execution_v1",
@@ -611,6 +620,166 @@ def test_completion_validation_codes_are_closed_safe_and_valueerror_compatible()
     assert (
         receipt_rejected.value.rejection_code
         is GraphCompletionRejectionCode.RECEIPT_BINDING
+    )
+
+
+def test_execution_answer_status_derives_from_validated_producing_evidence() -> None:
+    from inspect import signature
+
+    from pydantic import ValidationError
+
+    from application_state.agent_conversation.types import (
+        GraphCompletionRejectionCode,
+        GraphCompletionValidationError,
+        PlanWorldGraphPlanClaimSegmentV1,
+        derive_execution_answer_context_status,
+        validate_execution_completion,
+    )
+
+    receipt, completion, execution, attempt_id, _ = _execution_completion_fixture()
+    bindings = {"claim-classification": []}
+    model_status_values = (
+        "graph_grounded",
+        "graph_grounded_partial",
+        "plan_only_insufficient_evidence",
+        "plan_only_graph_unused",
+    )
+    assert "answer_context_status" not in signature(
+        derive_execution_answer_context_status
+    ).parameters
+
+    def derive(candidate, candidate_receipt, candidate_execution, candidate_attempt, bindings):
+        # The status is deliberately excluded from the helper input fields.
+        return derive_execution_answer_context_status(
+            context_receipt_sha256=candidate.context_receipt_sha256,
+            answer_segments=candidate.answer_segments,
+            citation_map=candidate.citation_map,
+            receipt=candidate_receipt,
+            execution=candidate_execution,
+            producing_provider_attempt_id=candidate_attempt,
+            claim_graph_event_ids=bindings,
+        )
+
+    assert (
+        derive(completion, receipt, execution, attempt_id, bindings)
+        == "graph_grounded_partial"
+    )
+
+    for model_status in model_status_values:
+        status_variant = completion.model_copy(
+            update={"answer_context_status": model_status}
+        )
+        assert (
+            derive(status_variant, receipt, execution, attempt_id, bindings)
+            == "graph_grounded_partial"
+        )
+
+    mislabeled_graph_completion = completion.model_copy(
+        update={"answer_context_status": "graph_grounded"}
+    )
+    with pytest.raises(GraphCompletionValidationError) as graph_status_mismatch:
+        validate_execution_completion(
+            mislabeled_graph_completion, receipt, execution, attempt_id, bindings
+        )
+    assert (
+        graph_status_mismatch.value.rejection_code
+        is GraphCompletionRejectionCode.GROUNDED_STATUS_MISMATCH
+    )
+    assert (
+        str(graph_status_mismatch.value)
+        == "Graph grounded status does not match cited execution evidence"
+    )
+
+    complete_receipt, complete_completion, complete_execution, complete_attempt, _ = (
+        _execution_completion_fixture(coverage_status="complete")
+    )
+    assert (
+        derive(
+            complete_completion,
+            complete_receipt,
+            complete_execution,
+            complete_attempt,
+            bindings,
+        )
+        == "graph_grounded"
+    )
+
+    truncated_receipt, truncated_completion, truncated_execution, truncated_attempt, _ = (
+        _execution_completion_fixture(coverage_status="incomplete", truncated=True)
+    )
+    assert (
+        derive(
+            truncated_completion,
+            truncated_receipt,
+            truncated_execution,
+            truncated_attempt,
+            bindings,
+        )
+        == "graph_grounded_partial"
+    )
+
+    malformed_status = "graph_grounded_unverified"
+    with pytest.raises(ValidationError):
+        PlanWorldGraphCompletionV1(
+            context_receipt_sha256=receipt.context_receipt_sha256,
+            answer_basis=completion.answer_basis,
+            answer_context_status=malformed_status,
+            answer_segments=completion.answer_segments,
+            citation_map=completion.citation_map,
+        )
+
+    for sufficiency, expected_status, supplied_status in (
+        ("sufficient", "plan_only_graph_unused", "plan_only_insufficient_evidence"),
+        ("insufficient", "plan_only_insufficient_evidence", "plan_only_graph_unused"),
+    ):
+        plan_receipt, _, plan_execution, plan_attempt, _ = _execution_completion_fixture(
+            evidence_sufficiency_status=sufficiency
+        )
+        plan_only = PlanWorldGraphCompletionV1(
+            context_receipt_sha256=plan_receipt.context_receipt_sha256,
+            answer_basis="committed_plan",
+            answer_context_status=supplied_status,
+            answer_segments=[
+                PlanWorldGraphPlanClaimSegmentV1(
+                    kind="plan_claim",
+                    text="Fixed Plan status test segment.",
+                    plan_content_sha256=plan_receipt.plan_basis.content_sha256,
+                )
+            ],
+            citation_map=None,
+        )
+        for model_status in model_status_values:
+            status_variant = plan_only.model_copy(
+                update={"answer_context_status": model_status}
+            )
+            assert (
+                derive(status_variant, plan_receipt, plan_execution, plan_attempt, {})
+                == expected_status
+            )
+        with pytest.raises(GraphCompletionValidationError) as plan_status_mismatch:
+            validate_execution_completion(
+                plan_only, plan_receipt, plan_execution, plan_attempt, {}
+            )
+        assert (
+            plan_status_mismatch.value.rejection_code
+            is GraphCompletionRejectionCode.PLAN_ONLY_STATUS_MISMATCH
+        )
+        assert (
+            str(plan_status_mismatch.value)
+            == "Plan-only status does not match evidence in the producing envelope"
+        )
+
+    with pytest.raises(GraphCompletionValidationError) as invalid_support:
+        derive(
+            completion,
+            receipt,
+            execution,
+            attempt_id,
+            {"claim-classification": [uuid4()]},
+        )
+    assert (
+        invalid_support.value.rejection_code
+        is GraphCompletionRejectionCode.BINDING_EVENT_NOT_IN_ENVELOPE
     )
 
 
