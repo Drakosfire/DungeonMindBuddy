@@ -690,6 +690,9 @@ it.each(session29SectionCases)("targets a Session 29 $label and keeps Apply with
   expect(targetSummary.closest("details")).toHaveAttribute("open");
   fireEvent.click(screen.getByRole("button", { name: "Refresh sections" }));
   const sectionSelect = await screen.findByRole("combobox", { name: "Plan section (optional)" }) as HTMLSelectElement;
+  expect(sectionSelect).toHaveAttribute("aria-describedby", "world-plan-agent-target-help");
+  expect(screen.getByText(/Choosing a Plan section selects its text in the editor/)).toHaveClass("sr-only");
+  expect(screen.getByRole("button", { name: "Refresh sections" })).toHaveTextContent("Refresh");
   await waitFor(() => expect(sectionSelect.options.length).toBeGreaterThan(1));
   const option = Array.from(sectionSelect.options).find((candidate) => candidate.textContent?.includes(sectionCase.heading));
   expect(option).toBeDefined();

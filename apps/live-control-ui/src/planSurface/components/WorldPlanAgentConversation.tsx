@@ -3474,9 +3474,10 @@ export function WorldPlanAgentConversation({
                     <span className="world-plan-agent-conversation__target-action">Change target</span>
                   </summary>
                   <div className="world-plan-agent-conversation__target" role="group" aria-label="Choose where the proposed edit applies">
-                    <label htmlFor="world-plan-agent-plan-section">Plan section (optional)</label>
                     <select
                       id="world-plan-agent-plan-section"
+                      aria-label="Plan section (optional)"
+                      aria-describedby="world-plan-agent-target-help"
                       value={selectedSectionTargetId}
                       disabled={intentBusy || sectionTargets.length === 0 || Boolean(playableEditTarget)}
                       onChange={(event) => { void selectPlanSection(event.currentTarget.value); }}
@@ -3495,10 +3496,12 @@ export function WorldPlanAgentConversation({
                         </option>
                       ))}
                     </select>
-                    <button type="button" onClick={() => { void refreshPlanSections(); }} disabled={intentBusy}>
-                      Refresh sections
+                    <button type="button" aria-label="Refresh sections" onClick={() => { void refreshPlanSections(); }} disabled={intentBusy}>
+                      Refresh
                     </button>
-                    <p role="note">Choosing a section selects it in the editor. A direct editor selection takes precedence. With no selected text, the proposal inserts at the caret.</p>
+                    <span id="world-plan-agent-target-help" className="sr-only">
+                      Choosing a Plan section selects its text in the editor. A direct editor text selection takes precedence. With no selected text, the proposal inserts at the cursor.
+                    </span>
                     {sectionTargetStatus?.kind === "status" ? (
                       <p role="status">{sectionTargetStatus.message}</p>
                     ) : null}

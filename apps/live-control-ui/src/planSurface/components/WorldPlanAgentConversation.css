@@ -417,13 +417,13 @@
 .world-plan-agent-conversation__target {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
+  align-items: center;
   gap: 0.3rem;
 }
 
 .world-plan-agent-conversation__target-disclosure[open] > .world-plan-agent-conversation__target {
-  max-height: min(18vh, 8rem);
-  margin-top: 0.3rem;
+  max-height: min(10vh, 3.5rem);
+  margin-top: 0.2rem;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -435,19 +435,23 @@
   overflow-wrap: anywhere;
 }
 
-.world-plan-agent-conversation__target label,
 .world-plan-agent-conversation__target p {
   grid-column: 1 / -1;
-}
-
-.world-plan-agent-conversation__target label {
-  font-size: 0.78rem;
 }
 
 .world-plan-agent-conversation__target select,
 .world-plan-agent-conversation__target button {
   min-height: 2rem;
   padding: 0.3rem 0.45rem;
+}
+
+.world-plan-agent-conversation__target select {
+  width: 100%;
+  min-width: 0;
+}
+
+.world-plan-agent-conversation__target button {
+  white-space: nowrap;
 }
 
 .world-plan-agent-conversation__target p {
@@ -544,7 +548,7 @@
   }
 
   .world-plan-agent-conversation__target {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .world-plan-agent-conversation__review-actions > button {
