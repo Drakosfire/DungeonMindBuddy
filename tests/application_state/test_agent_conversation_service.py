@@ -1511,6 +1511,414 @@ def _v2_graph_execution_fixture():
     return execution, scope, policy_digest
 
 
+def _indexed_graph_completion_fixture(
+    *,
+    selection_policy: str = "parent_initial_retrieval_with_bounded_source_index_v1",
+    include_read: bool = True,
+    include_read_in_attempt: bool = True,
+    cite_read: bool = True,
+    read_outcome: str = "enough",
+    read_truncated: bool = False,
+    packet_coverage: str = "complete",
+    packet_truncated: bool = False,
+    read_anchor_id: str = "anchor-indexed",
+    read_revision: str = "source-revision-indexed",
+    graph_target: str = "assertion-1",
+    graph_evidence_ref: str = "evidence-indexed",
+):
+    from application_state.agent_conversation.types import (
+        GraphExecutionAccountingV1,
+        GraphExecutionPolicyV2,
+        GraphSourceReadScopeV2,
+        GraphSourceScopeAnchorV2,
+        PlanAskContextBasis,
+        PlanContextPolicyV1,
+        PlanWorldGraphAssembledInputV1,
+        PlanWorldGraphAuthorityV1,
+        PlanWorldGraphCitationMapV2,
+        PlanWorldGraphCitationV2,
+        PlanWorldGraphClaimSegmentV1,
+        PlanWorldGraphCompletionV2,
+        PlanWorldGraphContextReceiptV1,
+        PlanWorldGraphPacketV1,
+        PlanWorldGraphExecutionV2,
+        ProviderAttemptAuthorizedEventV2,
+        ProviderOutcomeEventV1,
+        SourceReadAnchorReceiptV2,
+        SourceReadAuthorizationEventV2,
+        ValidatedGraphOperationEventV1,
+        ValidatedSourceReadEventV2,
+        plan_world_graph_context_receipt_digest,
+        graph_execution_policy_digest_v2,
+    )
+
+    initial_ref = "evidence-initial"
+    indexed_ref = "evidence-indexed"
+    indexed_anchor = GraphSourceScopeAnchorV2(
+        anchor_id="anchor-indexed",
+        evidence_ref_id=indexed_ref,
+        source_artifact_id="artifact-indexed",
+        source_revision_id="source-revision-indexed",
+    )
+    packet = PlanWorldGraphPacketV1(
+        packet_serializer_version="canonical-json-utf8-v1",
+        selection_policy_version=selection_policy,
+        evidence_sufficiency_policy_version="test-sufficiency-v1",
+        retrieval_packet_sha256="a" * 64,
+        candidate_assertion_ids=["assertion-1"],
+        candidate_relationship_ids=[],
+        candidate_evidence_ref_ids=sorted([initial_ref, indexed_ref]),
+        retrieval_status="complete",
+        evidence_sufficiency_status="sufficient",
+        result_limit=8,
+        coverage_status=packet_coverage,
+        truncated=packet_truncated,
+        omission_reasons=[],
+    )
+    assembled = PlanWorldGraphAssembledInputV1(
+        assembler_version="test-assembler-v1",
+        budget_policy_version="test-budget-v1",
+        provider_model_name="test-model",
+        provider_model_version="test-model-v1",
+        tokenizer_name="test-tokenizer",
+        tokenizer_version="test-tokenizer-v1",
+        provider_envelope_input_tokens=10,
+        output_token_reserve=10,
+        context_window_limit=100,
+        packet_disposition="included",
+        dispatched_packet_sha256="b" * 64,
+        dispatched_assertion_ids=["assertion-1"],
+        dispatched_relationship_ids=[],
+        dispatched_evidence_ref_ids=[initial_ref],
+        source_token_accounting=[],
+        included_history=[],
+        assembled_input_sha256="c" * 64,
+    )
+    receipt_without_digest = PlanWorldGraphContextReceiptV1.model_construct(
+        schema_="dmb_agent_plan_world_graph_context_receipt_v1",
+        receipt_serializer_version="canonical-json-utf8-v1",
+        context_receipt_sha256="0" * 64,
+        plan_context_policy=PlanContextPolicyV1(policy="auto_plan_world"),
+        plan_basis=PlanAskContextBasis(
+            world_id="indexed-world",
+            document_id="plan-main",
+            object_revision=1,
+            work_revision_id=uuid4(),
+            revision_n=1,
+            content_sha256="d" * 64,
+        ),
+        playable_target=None,
+        graph_authority=PlanWorldGraphAuthorityV1(
+            managed_world_id="indexed-world",
+            native_world_id="native-indexed-world",
+            binding_version=1,
+            scope_mode="world",
+            campaign_id=None,
+            admissibility_version="test-admissibility-v1",
+            graph_revision="graph-revision-1",
+        ),
+        graph_packet=packet,
+        assembled_input=assembled,
+        evidence_mode="metadata_only",
+        source_opened=False,
+    )
+    receipt_digest = plan_world_graph_context_receipt_digest(receipt_without_digest)
+    receipt = PlanWorldGraphContextReceiptV1.model_validate(
+        receipt_without_digest.model_dump(mode="json", by_alias=True)
+        | {"context_receipt_sha256": receipt_digest}
+    )
+
+    scope = GraphSourceReadScopeV2(
+        retrieval_session_id="indexed-session",
+        world_id="indexed-world",
+        campaign_id=None,
+        graph_revision="graph-revision-1",
+        admitted_anchors=[indexed_anchor],
+    )
+    policy = GraphExecutionPolicyV2(
+        policy_version="test-policy-v2",
+        allowed_graph_operations=["search_assertions"],
+        max_provider_attempts=1,
+        max_graph_operations=1,
+        max_results_per_operation=8,
+        max_total_provider_input_tokens=100,
+        max_total_provider_output_tokens=50,
+        provider_input_accounting=GraphExecutionAccountingV1(
+            kind="exact_token_count", estimator="synthetic-tokenizer"
+        ),
+        source_opened=False,
+        source_read_scope=scope,
+        max_source_read_calls=1,
+        max_source_read_anchors=1,
+        max_source_read_chars=12000,
+        max_chars_per_source_read=12000,
+    )
+    policy_digest = graph_execution_policy_digest_v2(receipt_digest, policy)
+    read_auth_id = uuid4()
+    read_event_id = uuid4()
+    graph_event_id = uuid4()
+    attempt_id = uuid4()
+    read_auth = SourceReadAuthorizationEventV2(
+        event_id=read_auth_id,
+        sequence=0,
+        kind="source_read_authorized_v2",
+        read_call_id=uuid4(),
+        context_receipt_sha256=receipt_digest,
+        execution_policy_sha256=policy_digest,
+        retrieval_session_id=scope.retrieval_session_id,
+        world_id=scope.world_id,
+        campaign_id=None,
+        graph_revision=scope.graph_revision,
+        anchors=[indexed_anchor],
+        max_chars=100,
+    )
+    read_event = ValidatedSourceReadEventV2(
+        event_id=read_event_id,
+        sequence=1,
+        kind="validated_source_read_v2",
+        read_call_id=read_auth.read_call_id,
+        receipts=[SourceReadAnchorReceiptV2(
+            source_read_id="indexed-read-1",
+            anchor_id=read_anchor_id,
+            evidence_ref_id=indexed_ref,
+            source_artifact_id="artifact-indexed",
+            source_revision_id=read_revision,
+            outcome=read_outcome,
+            content_sha256="e" * 64,
+            line_start=1,
+            line_end=2,
+            returned_chars=20,
+            truncated=read_truncated,
+            evidence_sufficiency_status="sufficient",
+        )],
+    )
+    graph_event = ValidatedGraphOperationEventV1(
+        event_id=graph_event_id,
+        sequence=2,
+        kind="validated_graph_operation",
+        operation_id=uuid4(),
+        operation="search_assertions",
+        request_arguments_sha256="f" * 64,
+        graph_revision="graph-revision-1",
+        result_packet_sha256="1" * 64,
+        assertion_ids=[graph_target],
+        relationship_ids=[],
+        evidence_ref_ids=[graph_evidence_ref],
+        evidence_sufficiency_status="sufficient",
+        coverage_status="complete",
+        truncated=False,
+        source_opened=False,
+    )
+    attempt = ProviderAttemptAuthorizedEventV2(
+        event_id=uuid4(),
+        sequence=3,
+        kind="provider_attempt_authorized_v2",
+        provider_attempt_id=attempt_id,
+        envelope_sha256="2" * 64,
+        serializer_version="canonical-json-utf8-v1",
+        provider="test-provider",
+        model="test-model",
+        api_mode="messages",
+        tool_schema_sha256="3" * 64,
+        input_accounting_kind="exact_token_count",
+        input_estimator="synthetic-tokenizer",
+        input_tokens=5,
+        output_token_reserve=5,
+        included_assertion_ids=["assertion-1"],
+        included_relationship_ids=[],
+        included_evidence_ref_ids=[],
+        included_graph_event_ids=[graph_event_id],
+        included_source_read_event_ids=(
+            [read_event_id] if include_read and include_read_in_attempt else []
+        ),
+    )
+    outcome = ProviderOutcomeEventV1(
+        event_id=uuid4(),
+        sequence=4,
+        kind="provider_outcome",
+        provider_attempt_id=attempt_id,
+        outcome="sdk_entered",
+    )
+    response = ProviderOutcomeEventV1(
+        event_id=uuid4(),
+        sequence=5,
+        kind="provider_outcome",
+        provider_attempt_id=attempt_id,
+        outcome="response_received",
+        response_sha256="4" * 64,
+    )
+    execution_events = [read_auth, read_event, graph_event, attempt, outcome, response]
+    if not include_read:
+        execution_events.remove(read_auth)
+        execution_events.remove(read_event)
+        # Keep contiguous event numbering after removing the source read events.
+        execution_events = [event.model_copy(update={"sequence": i}) for i, event in enumerate(execution_events)]
+    execution = PlanWorldGraphExecutionV2(
+        schema="dmb_agent_plan_world_graph_execution_v2",
+        context_receipt_sha256=receipt_digest,
+        execution_policy_sha256=policy_digest,
+        policy=policy,
+        events=execution_events,
+    )
+    claim = PlanWorldGraphClaimSegmentV1(
+        kind="graph_claim",
+        claim_id="claim-indexed",
+        text="The indexed source supports this claim.",
+        target_kind="assertion",
+        target_id="assertion-1",
+        graph_revision="graph-revision-1",
+        evidence_ref_ids=[indexed_ref],
+    )
+    citation = PlanWorldGraphCitationV2(
+        claim_id=claim.claim_id,
+        target_kind=claim.target_kind,
+        target_id=claim.target_id,
+        graph_revision=claim.graph_revision,
+        evidence_ref_ids=claim.evidence_ref_ids,
+        source_read_ids=["indexed-read-1"] if cite_read else [],
+        source_opened=cite_read,
+    )
+    completion = PlanWorldGraphCompletionV2(
+        context_receipt_sha256=receipt_digest,
+        answer_basis="committed_plan_plus_world_graph",
+        answer_context_status="graph_grounded_partial",
+        answer_segments=[claim],
+        citation_map=PlanWorldGraphCitationMapV2(
+            context_receipt_sha256=receipt_digest,
+            entries=[citation],
+        ),
+    )
+    return receipt, execution, completion, attempt_id, graph_event_id
+
+
+def test_source_index_completion_requires_read_and_target_bound_graph_event() -> None:
+    from application_state.agent_conversation.types import (
+        GraphCompletionValidationError,
+        PlanWorldGraphCitationMapV1,
+        PlanWorldGraphCitationV1,
+        PlanWorldGraphCompletionV1,
+        validate_completion_against_receipt,
+        validate_execution_completion,
+    )
+
+    receipt, execution, completion, attempt_id, graph_event_id = (
+        _indexed_graph_completion_fixture()
+    )
+    assert validate_execution_completion(
+        completion.model_copy(update={"answer_context_status": "graph_grounded"}),
+        receipt,
+        execution,
+        attempt_id,
+        {"claim-indexed": [graph_event_id]},
+    ) is None
+    with pytest.raises(GraphCompletionValidationError, match="lack included validated support"):
+        validate_execution_completion(
+            completion,
+            receipt,
+            execution,
+            attempt_id,
+            {"claim-indexed": []},
+        )
+
+    v1_completion = PlanWorldGraphCompletionV1(
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        answer_basis="committed_plan_plus_world_graph",
+        answer_context_status="graph_grounded",
+        answer_segments=completion.answer_segments,
+        citation_map=PlanWorldGraphCitationMapV1(
+            context_receipt_sha256=receipt.context_receipt_sha256,
+            entries=[PlanWorldGraphCitationV1(
+                claim_id="claim-indexed",
+                target_kind="assertion",
+                target_id="assertion-1",
+                graph_revision="graph-revision-1",
+                evidence_ref_ids=["evidence-indexed"],
+                source_opened=False,
+            )],
+        ),
+    )
+    with pytest.raises(GraphCompletionValidationError, match="producing execution envelope"):
+        validate_completion_against_receipt(v1_completion, receipt)
+
+    partial_receipt, partial_execution, partial_completion, partial_attempt, partial_graph = (
+        _indexed_graph_completion_fixture(read_outcome="truncated", read_truncated=True)
+    )
+    assert validate_execution_completion(
+        partial_completion,
+        partial_receipt,
+        partial_execution,
+        partial_attempt,
+        {"claim-indexed": [partial_graph]},
+    ) is None
+    with pytest.raises(GraphCompletionValidationError):
+        validate_execution_completion(
+            partial_completion.model_copy(update={"answer_context_status": "graph_grounded"}),
+            partial_receipt,
+            partial_execution,
+            partial_attempt,
+            {"claim-indexed": [partial_graph]},
+        )
+
+    incomplete_receipt, incomplete_execution, incomplete_completion, incomplete_attempt, incomplete_graph = (
+        _indexed_graph_completion_fixture(packet_coverage="incomplete")
+    )
+    with pytest.raises(GraphCompletionValidationError):
+        validate_execution_completion(
+            incomplete_completion.model_copy(update={"answer_context_status": "graph_grounded"}),
+            incomplete_receipt,
+            incomplete_execution,
+            incomplete_attempt,
+            {"claim-indexed": [incomplete_graph]},
+        )
+    assert validate_execution_completion(
+        incomplete_completion,
+        incomplete_receipt,
+        incomplete_execution,
+        incomplete_attempt,
+        {"claim-indexed": [incomplete_graph]},
+    ) is None
+
+    missing_read = _indexed_graph_completion_fixture(include_read=False, cite_read=False)
+    with pytest.raises(GraphCompletionValidationError, match="indexed evidence requires sufficient content"):
+        validate_execution_completion(
+            missing_read[2], missing_read[0], missing_read[1], missing_read[3],
+            {"claim-indexed": [missing_read[4]]},
+        )
+
+    nonproducing_read = _indexed_graph_completion_fixture(include_read_in_attempt=False)
+    with pytest.raises(GraphCompletionValidationError, match="source-opened state"):
+        validate_execution_completion(
+            nonproducing_read[2], nonproducing_read[0], nonproducing_read[1], nonproducing_read[3],
+            {"claim-indexed": [nonproducing_read[4]]},
+        )
+
+    wrong_target = _indexed_graph_completion_fixture(graph_target="assertion-other")
+    with pytest.raises(GraphCompletionValidationError, match="does not support its claim"):
+        validate_execution_completion(
+            wrong_target[2], wrong_target[0], wrong_target[1], wrong_target[3],
+            {"claim-indexed": [wrong_target[4]]},
+        )
+
+    wrong_ref = _indexed_graph_completion_fixture(graph_evidence_ref="evidence-other")
+    with pytest.raises(GraphCompletionValidationError, match="does not support its claim"):
+        validate_execution_completion(
+            wrong_ref[2], wrong_ref[0], wrong_ref[1], wrong_ref[3],
+            {"claim-indexed": [wrong_ref[4]]},
+        )
+
+    with pytest.raises(ValidationError, match="pins differ"):
+        _indexed_graph_completion_fixture(read_anchor_id="anchor-other")
+    with pytest.raises(ValidationError, match="source revision differs"):
+        _indexed_graph_completion_fixture(read_revision="source-revision-other")
+
+    unknown_policy = _indexed_graph_completion_fixture(selection_policy="future-policy-v9")
+    with pytest.raises(GraphCompletionValidationError, match="selected source-index policy"):
+        validate_execution_completion(
+            unknown_policy[2], unknown_policy[0], unknown_policy[1], unknown_policy[3],
+            {"claim-indexed": [unknown_policy[4]]},
+        )
+
+
 def test_graph_execution_v2_source_read_scope_receipt_and_budget_are_strict() -> None:
     from application_state.agent_conversation.types import (
         PlanWorldGraphExecutionV2,

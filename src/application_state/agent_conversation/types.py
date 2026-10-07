@@ -1488,6 +1488,11 @@ def graph_execution_policy_digest_v2(
 PlanWorldGraphExecution = PlanWorldGraphExecutionV1 | PlanWorldGraphExecutionV2
 
 
+_BOUNDED_SOURCE_INDEX_SELECTION_POLICY_V1 = (
+    "parent_initial_retrieval_with_bounded_source_index_v1"
+)
+
+
 def validate_completion_against_receipt(
     completion: PlanWorldGraphCompletion,
     receipt: PlanWorldGraphContextReceiptV1,
@@ -1601,6 +1606,12 @@ def validate_completion_against_receipt(
                     GraphCompletionRejectionCode.EVIDENCE_NOT_CANDIDATE,
                     "Graph claim evidence refs must be in the frozen candidate set",
                 )
+            indexed_refs = set(claim.evidence_ref_ids) - dispatched_evidence
+            if indexed_refs and packet.selection_policy_version == _BOUNDED_SOURCE_INDEX_SELECTION_POLICY_V1:
+                _reject_graph_completion(
+                    GraphCompletionRejectionCode.EVIDENCE_NOT_DISPATCHED,
+                    "indexed Graph evidence requires a producing execution envelope",
+                )
             if not set(claim.evidence_ref_ids).issubset(dispatched_evidence):
                 _reject_graph_completion(
                     GraphCompletionRejectionCode.EVIDENCE_NOT_DISPATCHED,
@@ -1677,6 +1688,29 @@ def derive_execution_answer_context_status(
         "relationship": set(receipt.assembled_input.dispatched_relationship_ids),
     }
     claims = [s for s in answer_segments if isinstance(s, PlanWorldGraphClaimSegmentV1)]
+    indexed_policy = (
+        receipt.graph_packet.selection_policy_version
+        == _BOUNDED_SOURCE_INDEX_SELECTION_POLICY_V1
+    )
+    source_scope = (
+        execution.policy.source_read_scope
+        if isinstance(execution, PlanWorldGraphExecutionV2)
+        else None
+    )
+    scope_anchors: dict[str, list[GraphSourceScopeAnchorV2]] = {}
+    if source_scope is not None:
+        for anchor in source_scope.admitted_anchors:
+            scope_anchors.setdefault(anchor.evidence_ref_id, []).append(anchor)
+    source_reads_by_id: dict[str, SourceReadAnchorReceiptV2] = {}
+    if isinstance(producing, ProviderAttemptAuthorizedEventV2):
+        included_read_events = set(producing.included_source_read_event_ids)
+        source_reads_by_id = {
+            read.source_read_id: read
+            for event in execution.events
+            if isinstance(event, ValidatedSourceReadEventV2)
+            and event.event_id in included_read_events
+            for read in event.receipts
+        }
     for segment in answer_segments:
         if isinstance(segment, PlanWorldGraphPlanClaimSegmentV1) and segment.plan_content_sha256 != receipt.plan_basis.content_sha256:
             _reject_graph_completion(
@@ -1720,6 +1754,57 @@ def derive_execution_answer_context_status(
                 "Graph claim evidence refs must be sorted and unique",
             )
         refs = set(claim.evidence_ref_ids)
+        indexed_refs = refs - set(receipt.assembled_input.dispatched_evidence_ref_ids)
+        indexed_reads: dict[str, SourceReadAnchorReceiptV2] = {}
+        citation_for_claim = citation_entries.get(claim.claim_id)
+        if indexed_refs:
+            if (
+                not indexed_policy
+                or not indexed_refs.issubset(set(receipt.graph_packet.candidate_evidence_ref_ids))
+                or not isinstance(producing, ProviderAttemptAuthorizedEventV2)
+                or not isinstance(citation_for_claim, PlanWorldGraphCitationV2)
+            ):
+                _reject_graph_completion(
+                    GraphCompletionRejectionCode.EVIDENCE_NOT_DISPATCHED,
+                    "out-of-dispatch evidence requires the selected source-index policy and a producing V2 read",
+                )
+            if not indexed_refs.issubset(scope_anchors):
+                _reject_graph_completion(
+                    GraphCompletionRejectionCode.EVIDENCE_NOT_DISPATCHED,
+                    "out-of-dispatch evidence must be admitted by the frozen source scope",
+                )
+            for ref in indexed_refs:
+                matching = [
+                    source_reads_by_id[read_id]
+                    for read_id in citation_for_claim.source_read_ids
+                    if read_id in source_reads_by_id
+                    and source_reads_by_id[read_id].evidence_ref_id == ref
+                ]
+                matching = [
+                    read for read in matching
+                    if any(
+                        read.anchor_id == anchor.anchor_id
+                        and read.source_artifact_id == anchor.source_artifact_id
+                        and read.source_revision_id == anchor.source_revision_id
+                        for anchor in scope_anchors[ref]
+                    )
+                    and read.outcome in {"enough", "partial", "truncated"}
+                    and read.content_sha256 is not None
+                    and read.returned_chars > 0
+                    and read.evidence_sufficiency_status == "sufficient"
+                ]
+                if not matching:
+                    _reject_graph_completion(
+                        GraphCompletionRejectionCode.CITATION_CLAIM_MISMATCH,
+                        "indexed evidence requires sufficient content from a matching producing-attempt source read",
+                    )
+                indexed_reads[ref] = matching[0]
+            included_targets = included_assertions if claim.target_kind == "assertion" else included_relationships
+            if claim.target_id not in included_targets:
+                _reject_graph_completion(
+                    GraphCompletionRejectionCode.CLAIM_TARGET_NOT_IN_ENVELOPE,
+                    "indexed evidence requires a target included by the producing attempt",
+                )
         mapped_ids = claim_graph_event_ids[claim.claim_id]
         if len(mapped_ids) != len(set(mapped_ids)):
             _reject_graph_completion(
@@ -1739,11 +1824,13 @@ def derive_execution_answer_context_status(
                 )
             targets = set(event.assertion_ids if claim.target_kind == "assertion" else event.relationship_ids)
             included_targets = included_assertions if claim.target_kind == "assertion" else included_relationships
+            indexed_event_support = bool(indexed_refs) and indexed_refs.issubset(set(event.evidence_ref_ids))
             if (
                 claim.target_id in targets
                 and claim.target_id in included_targets
                 and refs.issubset(set(event.evidence_ref_ids))
-                and refs.issubset(included_evidence)
+                and (refs - indexed_refs).issubset(included_evidence)
+                and (not indexed_refs or indexed_event_support)
             ):
                 support_packets.append((targets, set(event.evidence_ref_ids), event.evidence_sufficiency_status, event.coverage_status, event.truncated))
             else:
@@ -1762,6 +1849,13 @@ def derive_execution_answer_context_status(
                 "Graph grounded claims require sufficient cited evidence",
             )
         sufficient_sources.extend((status, coverage == "complete" and not truncated) for _, _, status, coverage, truncated in support_packets)
+        if indexed_refs and (
+            receipt.graph_packet.coverage_status != "complete"
+            or receipt.graph_packet.truncated
+        ):
+            sufficient_sources.append(("sufficient", False))
+        if any(read.outcome != "enough" or read.truncated for read in indexed_reads.values()):
+            sufficient_sources.append(("sufficient", False))
         if citation_map is None:
             _reject_graph_completion(
                 GraphCompletionRejectionCode.CITATION_MAP_MISSING,
