@@ -397,11 +397,42 @@
   margin: 0;
 }
 
+.world-plan-agent-conversation__target-disclosure {
+  min-width: 0;
+}
+
+.world-plan-agent-conversation__target-disclosure > summary {
+  cursor: pointer;
+  font-size: 0.74rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.world-plan-agent-conversation__target-action {
+  margin-left: 0.35rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .world-plan-agent-conversation__target {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
   gap: 0.3rem;
+}
+
+.world-plan-agent-conversation__target-disclosure[open] > .world-plan-agent-conversation__target {
+  max-height: min(18vh, 8rem);
+  margin-top: 0.3rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.world-plan-agent-conversation__target-error {
+  margin: 0.25rem 0 0;
+  font-size: 0.74rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .world-plan-agent-conversation__target label,

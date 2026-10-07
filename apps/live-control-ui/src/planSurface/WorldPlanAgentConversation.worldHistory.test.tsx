@@ -1338,6 +1338,7 @@ describe("World Plan conversation consumer", () => {
     const composer = screen.getByRole("region", { name: "Conversation composer" });
     expect(within(composer).queryByRole("combobox", { name: "Plan section (optional)" })).not.toBeInTheDocument();
     expect(within(composer).queryByRole("button", { name: "Refresh sections" })).not.toBeInTheDocument();
+    expect(within(composer).queryByText(/Use selection; otherwise insert at cursor/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Talk through the saved Plan, or choose Propose edit/)).not.toBeInTheDocument();
     expect(within(composer).getByRole("button", { name: "Propose edit" })).toBeInTheDocument();
   });

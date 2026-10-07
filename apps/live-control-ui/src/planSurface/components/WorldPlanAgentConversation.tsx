@@ -1649,6 +1649,9 @@ export function WorldPlanAgentConversation({
   const [sectionTargets, setSectionTargets] = useState<PlanSectionOption[]>([]);
   const [selectedSectionTargetId, setSelectedSectionTargetId] = useState("");
   const [sectionTargetStatus, setSectionTargetStatus] = useState<PlanSectionTargetStatus | null>(null);
+  const selectedSectionTargetLabel = sectionTargets
+    .find((target) => target.id === selectedSectionTargetId)
+    ?.label.replace(/^#{1,6}\s+/, "") ?? null;
   const [actionHistory, setActionHistory] = useState<WorldPlanActionProjection[]>([]);
   const [actionHistoryError, setActionHistoryError] = useState<string | null>(null);
   const requestRef = useRef<{ token: symbol; scopeKey: string; fenceKey: string } | null>(null);
@@ -3462,36 +3465,49 @@ export function WorldPlanAgentConversation({
               </label>
             </fieldset>
             {composerIntent === "propose" && !playableEditTarget ? (
-              <div className="world-plan-agent-conversation__target" role="group" aria-label="Choose where the proposed edit applies">
-                <label htmlFor="world-plan-agent-plan-section">Plan section (optional)</label>
-                <select
-                  id="world-plan-agent-plan-section"
-                  value={selectedSectionTargetId}
-                  disabled={intentBusy || sectionTargets.length === 0 || Boolean(playableEditTarget)}
-                  onChange={(event) => { void selectPlanSection(event.currentTarget.value); }}
-                >
-                  <option value="">Use the editor selection or caret</option>
-                  {sectionTargets.map((target) => (
-                    <option
-                      key={target.id}
-                      value={target.id}
-                      disabled={Boolean(target.unavailableReason)}
-                      title={target.unavailableReason ?? undefined}
+              <>
+                <details className="world-plan-agent-conversation__target-disclosure">
+                  <summary>
+                    {selectedSectionTargetLabel
+                      ? `Chosen section: ${selectedSectionTargetLabel}`
+                      : "Use selection; otherwise insert at cursor"}
+                    <span className="world-plan-agent-conversation__target-action">Change target</span>
+                  </summary>
+                  <div className="world-plan-agent-conversation__target" role="group" aria-label="Choose where the proposed edit applies">
+                    <label htmlFor="world-plan-agent-plan-section">Plan section (optional)</label>
+                    <select
+                      id="world-plan-agent-plan-section"
+                      value={selectedSectionTargetId}
+                      disabled={intentBusy || sectionTargets.length === 0 || Boolean(playableEditTarget)}
+                      onChange={(event) => { void selectPlanSection(event.currentTarget.value); }}
                     >
-                      {target.unavailableReason
-                        ? `${target.label} — unavailable (Markdown round-trip not safe)`
-                        : target.label}
-                    </option>
-                  ))}
-                </select>
-                <button type="button" onClick={() => { void refreshPlanSections(); }} disabled={intentBusy}>
-                  Refresh sections
-                </button>
-                <p role="note">Choosing a section selects it in the editor. A direct editor selection takes precedence. With no selected text, the proposal inserts at the caret.</p>
-                {sectionTargetStatus ? (
-                  <p role={sectionTargetStatus.kind === "error" ? "alert" : "status"}>{sectionTargetStatus.message}</p>
+                      <option value="">Use the editor selection or caret</option>
+                      {sectionTargets.map((target) => (
+                        <option
+                          key={target.id}
+                          value={target.id}
+                          disabled={Boolean(target.unavailableReason)}
+                          title={target.unavailableReason ?? undefined}
+                        >
+                          {target.unavailableReason
+                            ? `${target.label} — unavailable (Markdown round-trip not safe)`
+                            : target.label}
+                        </option>
+                      ))}
+                    </select>
+                    <button type="button" onClick={() => { void refreshPlanSections(); }} disabled={intentBusy}>
+                      Refresh sections
+                    </button>
+                    <p role="note">Choosing a section selects it in the editor. A direct editor selection takes precedence. With no selected text, the proposal inserts at the caret.</p>
+                    {sectionTargetStatus?.kind === "status" ? (
+                      <p role="status">{sectionTargetStatus.message}</p>
+                    ) : null}
+                  </div>
+                </details>
+                {sectionTargetStatus?.kind === "error" ? (
+                  <p className="world-plan-agent-conversation__target-error" role="alert">{sectionTargetStatus.message}</p>
                 ) : null}
-              </div>
+              </>
             ) : null}
             <label htmlFor="world-plan-agent-message">Message DungeonBuddy</label>
             <textarea

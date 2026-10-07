@@ -684,6 +684,10 @@ it.each(session29SectionCases)("targets a Session 29 $label and keeps Apply with
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
 
   fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
+  const targetSummary = await screen.findByText(/Use selection; otherwise insert at cursor/);
+  expect(targetSummary.closest("details")).not.toHaveAttribute("open");
+  fireEvent.click(targetSummary);
+  expect(targetSummary.closest("details")).toHaveAttribute("open");
   fireEvent.click(screen.getByRole("button", { name: "Refresh sections" }));
   const sectionSelect = await screen.findByRole("combobox", { name: "Plan section (optional)" }) as HTMLSelectElement;
   await waitFor(() => expect(sectionSelect.options.length).toBeGreaterThan(1));
@@ -693,6 +697,7 @@ it.each(session29SectionCases)("targets a Session 29 $label and keeps Apply with
   expect(option!.disabled).toBe(false);
   fireEvent.change(sectionSelect, { target: { value: option!.value } });
   await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(`${option!.textContent} selected`));
+  expect(targetSummary).toHaveTextContent(`Chosen section: ${sectionCase.heading}`);
   const beforeProposalText = editorSurface.textContent;
   expect(proposal).not.toHaveBeenCalled();
   expect(prepare).not.toHaveBeenCalled();
@@ -850,6 +855,10 @@ it("reviews, applies, saves, and reloads rich content inside one selected World 
   const editorSurface = await screen.findByTestId("world-owned-plan-markdown-editor");
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
   fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
+  const targetSummary = await screen.findByText(/Use selection; otherwise insert at cursor/);
+  expect(targetSummary.closest("details")).not.toHaveAttribute("open");
+  fireEvent.click(targetSummary);
+  expect(targetSummary.closest("details")).toHaveAttribute("open");
   const sectionSelect = await screen.findByRole("combobox", { name: "Plan section (optional)" }) as HTMLSelectElement;
   fireEvent.click(screen.getByRole("button", { name: "Refresh sections" }));
   await waitFor(() => expect(sectionSelect.options.length).toBeGreaterThan(1));
@@ -857,6 +866,7 @@ it("reviews, applies, saves, and reloads rich content inside one selected World 
   expect(option).toBeDefined();
   fireEvent.change(sectionSelect, { target: { value: option!.value } });
   await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(`${option!.textContent} selected`));
+  expect(targetSummary).toHaveTextContent("Chosen section: Mireward");
   fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
   fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
     target: { value: "Add the reviewed multi-paragraph witnesses, read-aloud, and decision consequence." },
