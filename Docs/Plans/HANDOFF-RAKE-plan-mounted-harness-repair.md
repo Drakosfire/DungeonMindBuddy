@@ -25,7 +25,6 @@ Branch `codex/rake-plan-mounted-harness`, checkout `/tmp/dmb-rake-mounted-repair
 | --- | --- |
 | apps/live-control-ui/src/planSurface/PlanSurfacePage.tsx | #886 lease |
 | apps/live-control-ui/src/planSurface/WorldPlanAgentConversation.tsx | #904 lease |
-| RTK.md | Preserve existing file |
 
 All other source, APIs, types and configuration remain outside this lease.
 
