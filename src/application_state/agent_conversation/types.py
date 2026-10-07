@@ -1810,7 +1810,10 @@ def derive_execution_answer_context_status(
                 "Graph claim evidence refs must be sorted and unique",
             )
         refs = set(claim.evidence_ref_ids)
-        indexed_refs = refs - set(receipt.assembled_input.dispatched_evidence_ref_ids)
+        indexed_refs = (
+            refs - set(receipt.assembled_input.dispatched_evidence_ref_ids)
+            if indexed_policy else set()
+        )
         indexed_reads: dict[str, SourceReadAnchorReceiptV2] = {}
         citation_for_claim = citation_entries.get(claim.claim_id)
         if indexed_refs:

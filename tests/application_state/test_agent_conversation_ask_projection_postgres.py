@@ -19,6 +19,11 @@ from application_state.agent_conversation.types import (
     GraphSourceReadScopeV2,
     GraphSourceScopeAnchorV2,
     PlanWorldGraphExecutionV2,
+    PlanWorldGraphExecutionV1,
+    GraphExecutionPolicyV1,
+    ProviderAttemptAuthorizedEventV1,
+    ValidatedGraphOperationEventV1,
+    plan_world_graph_context_receipt_digest,
     PlanWorldGraphCitationMapV2,
     PlanWorldGraphCompletionV2,
     ProviderAttemptAuthorizedEventV2,
@@ -267,6 +272,8 @@ def _add_graph_ask(
     answer: str,
     source_opened: bool | None = None,
     completion_version: int = 2,
+    historical_graph_operation: bool = False,
+    execution_version: int = 2,
 ):
     target = PlanPlayableTargetReceiptV1(
         schema="dmb_plan_playable_target_receipt_v1",
@@ -275,13 +282,38 @@ def _add_graph_ask(
         marker_grammar_version="v2",
     )
     assertion_id = f"assertion-{sequence}"
-    evidence_ref_id = f"evidence-{sequence}"
+    evidence_ref_id = "ev:016" if historical_graph_operation else f"evidence-{sequence}"
+    claim_id = "rel:004" if historical_graph_operation else f"claim-{sequence}"
+    claim_kind = "relationship" if historical_graph_operation else "assertion"
+    claim_target = "rel:004" if historical_graph_operation else assertion_id
+    historical_targets = ["rel:004", "rel:014", "rel:017", "rel:018", "rel:019", "rel:020"]
+    historical_refs = [f"ev:{n:03d}" for n in [2, 3, 4, 5, 10, 11, 12, 13, 14, 16, 18, 19, 20, 21, 22, 23, 24]]
     receipt = _graph_receipt(
         basis,
         target,
         assertion_id=assertion_id,
         evidence_ref_id=evidence_ref_id,
     )
+    if historical_graph_operation:
+        # Sanitized seq5 structure: empty insufficient initial dispatch, then a producing
+        # Graph operation with six relationships and seventeen refs, including rel:004/ev:016.
+        unsealed = receipt.model_copy(update={
+            "graph_packet": receipt.graph_packet.model_copy(update={
+                "selection_policy_version": "parent_initial_retrieval_v1", "candidate_assertion_ids": [],
+                "candidate_relationship_ids": [f"rel:{n:03d}" for n in range(1, 17)],
+                "candidate_evidence_ref_ids": [f"ev:{n:03d}" for n in range(1, 18)],
+                "evidence_sufficiency_status": "insufficient", "result_limit": 32,
+                "omission_reasons": ["insufficient_evidence"],
+            }),
+            "assembled_input": receipt.assembled_input.model_copy(update={
+                "packet_disposition": "omitted_insufficient", "packet_disposition_reason": "insufficient_evidence",
+                "dispatched_packet_sha256": None, "dispatched_assertion_ids": [],
+                "dispatched_relationship_ids": [], "dispatched_evidence_ref_ids": [],
+            }),
+        })
+        receipt = PlanWorldGraphContextReceiptV1.model_validate(
+            unsealed.model_dump(mode="json", by_alias=True) | {"context_receipt_sha256": plan_world_graph_context_receipt_digest(unsealed)}
+        )
     execution = None
     if source_opened is not None:
         scope = GraphSourceReadScopeV2(
@@ -293,19 +325,26 @@ def _add_graph_ask(
             )],
         )
         policy = GraphExecutionPolicyV2(
-            policy_version="ask-history-policy-v2", allowed_graph_operations=["search_assertions"],
-            max_provider_attempts=1, max_graph_operations=0, max_results_per_operation=0,
+            policy_version="ask-history-policy-v2", allowed_graph_operations=["expand_graph_retrieval"] if historical_graph_operation else ["search_assertions"],
+            max_provider_attempts=2 if historical_graph_operation else 1, max_graph_operations=1 if historical_graph_operation else 0, max_results_per_operation=32 if historical_graph_operation else 0,
             max_total_provider_input_tokens=100, max_total_provider_output_tokens=40,
             provider_input_accounting=GraphExecutionAccountingV1(kind="exact_token_count", estimator="synthetic-tokenizer"),
             source_opened=False, source_read_scope=scope,
             max_source_read_calls=1, max_source_read_anchors=1,
             max_source_read_chars=100, max_chars_per_source_read=100,
         )
-        execution = PlanWorldGraphExecutionV2(
-            context_receipt_sha256=receipt.context_receipt_sha256,
-            execution_policy_sha256=graph_execution_policy_digest_v2(receipt.context_receipt_sha256, policy),
-            policy=policy, events=[],
-        )
+        if execution_version == 1:
+            policy = GraphExecutionPolicyV1.model_validate({
+                key: value for key, value in policy.model_dump(mode="json").items()
+                if key not in {"source_read_scope", "max_source_read_calls", "max_source_read_anchors", "max_source_read_chars", "max_chars_per_source_read"}
+            })
+            execution = PlanWorldGraphExecutionV1(context_receipt_sha256=receipt.context_receipt_sha256, policy=policy, events=[])
+        else:
+            execution = PlanWorldGraphExecutionV2(
+                context_receipt_sha256=receipt.context_receipt_sha256,
+                execution_policy_sha256=graph_execution_policy_digest_v2(receipt.context_receipt_sha256, policy),
+                policy=policy, events=[],
+            )
     surface_instance_id = f"plan-ask-pane-{sequence}"
     intent = SubmittedTurnIntentV2(
         world_id=basis.world_id,
@@ -358,8 +397,9 @@ def _add_graph_ask(
     ).turn
     producing_attempt = None
     source_read_ids = []
+    graph_event_ids = []
     if execution is not None:
-        scope = execution.policy.source_read_scope
+        scope = getattr(execution.policy, "source_read_scope", None)
         read_event_ids = []
         if source_opened:
             authorization = SourceReadAuthorizationEventV2(
@@ -389,6 +429,48 @@ def _add_graph_ask(
             )
             read_event_ids = [read.event_id]
             source_read_ids = [read_id]
+        if historical_graph_operation:
+            first_fields = dict(
+                event_id=uuid4(), sequence=0, kind="provider_attempt_authorized", provider_attempt_id=uuid4(),
+                envelope_sha256=receipt.assembled_input.assembled_input_sha256, serializer_version="canonical-json-utf8-v1",
+                provider="synthetic-provider", model="synthetic-model", api_mode="messages", tool_schema_sha256="c" * 64,
+                input_accounting_kind="exact_token_count", input_estimator="synthetic-tokenizer",
+                input_tokens=10, output_token_reserve=8, included_assertion_ids=[],
+                included_relationship_ids=[], included_evidence_ref_ids=[], included_graph_event_ids=[],
+            )
+            if execution_version == 2:
+                first_fields.update(kind="provider_attempt_authorized_v2", included_source_read_event_ids=[])
+                first_provider = ProviderAttemptAuthorizedEventV2(**first_fields)
+                authorize = service.authorize_provider_attempt_v2
+            else:
+                first_provider = ProviderAttemptAuthorizedEventV1(**first_fields)
+                authorize = service.authorize_provider_attempt
+            claimed, _ = authorize(
+                basis.world_id, conversation_id, accepted.turn_id,
+                expected_revision=claimed.revision, expected_attempt=claimed.attempt, provider_attempt_event=first_provider,
+            )
+            for outcome in ["sdk_entered", "response_received"]:
+                claimed, _ = service.record_provider_outcome(
+                    basis.world_id, conversation_id, accepted.turn_id,
+                    expected_revision=claimed.revision, expected_attempt=claimed.attempt,
+                    outcome=ProviderOutcomeEventV1(
+                        event_id=uuid4(), sequence=len(claimed.graph_context_execution.events), kind="provider_outcome",
+                        provider_attempt_id=first_provider.provider_attempt_id, outcome=outcome,
+                        response_sha256="e" * 64 if outcome == "response_received" else None,
+                    ),
+                )
+            graph_event = ValidatedGraphOperationEventV1(
+                event_id=uuid4(), sequence=len(claimed.graph_context_execution.events), kind="validated_graph_operation",
+                operation_id=uuid4(), operation="expand_graph_retrieval", request_arguments_sha256="f" * 64,
+                graph_revision=receipt.graph_authority.graph_revision, result_packet_sha256="a" * 64,
+                assertion_ids=[], relationship_ids=historical_targets, evidence_ref_ids=historical_refs,
+                evidence_sufficiency_status="sufficient", coverage_status="incomplete", truncated=True, source_opened=False,
+            )
+            claimed, _ = service.append_validated_graph_operation(
+                basis.world_id, conversation_id, accepted.turn_id,
+                expected_revision=claimed.revision, expected_attempt=claimed.attempt, operation_event=graph_event,
+            )
+            graph_event_ids = [graph_event.event_id]
         producing_attempt = uuid4()
         provider = ProviderAttemptAuthorizedEventV2(
             event_id=uuid4(), sequence=len(claimed.graph_context_execution.events),
@@ -396,11 +478,20 @@ def _add_graph_ask(
             envelope_sha256=receipt.assembled_input.assembled_input_sha256, serializer_version="canonical-json-utf8-v1",
             provider="synthetic-provider", model="synthetic-model", api_mode="messages", tool_schema_sha256="c" * 64,
             input_accounting_kind="exact_token_count", input_estimator="synthetic-tokenizer",
-            input_tokens=10, output_token_reserve=8, included_assertion_ids=[assertion_id],
-            included_relationship_ids=[], included_evidence_ref_ids=[evidence_ref_id],
-            included_graph_event_ids=[], included_source_read_event_ids=read_event_ids,
+            input_tokens=10, output_token_reserve=8, included_assertion_ids=[] if historical_graph_operation else [assertion_id],
+            included_relationship_ids=historical_targets if historical_graph_operation else [],
+            included_evidence_ref_ids=historical_refs if historical_graph_operation else [evidence_ref_id],
+            included_graph_event_ids=graph_event_ids, included_source_read_event_ids=read_event_ids,
         )
-        claimed, _ = service.authorize_provider_attempt_v2(
+        if execution_version == 1:
+            fields = provider.model_dump(mode="json", by_alias=True)
+            fields.pop("included_source_read_event_ids")
+            fields["kind"] = "provider_attempt_authorized"
+            provider = ProviderAttemptAuthorizedEventV1.model_validate(fields)
+            authorize_provider = service.authorize_provider_attempt
+        else:
+            authorize_provider = service.authorize_provider_attempt_v2
+        claimed, _ = authorize_provider(
             basis.world_id, conversation_id, accepted.turn_id,
             expected_revision=claimed.revision, expected_attempt=claimed.attempt, provider_attempt_event=provider,
         )
@@ -421,10 +512,10 @@ def _add_graph_ask(
         answer_segments=[
             PlanWorldGraphClaimSegmentV1(
                 kind="graph_claim",
-                claim_id=f"claim-{sequence}",
+                claim_id=claim_id,
                 text=answer,
-                target_kind="assertion",
-                target_id=assertion_id,
+                target_kind=claim_kind,
+                target_id=claim_target,
                 graph_revision="ask-history-graph-rev-1",
                 evidence_ref_ids=[evidence_ref_id],
             )
@@ -433,9 +524,9 @@ def _add_graph_ask(
             context_receipt_sha256=receipt.context_receipt_sha256,
             entries=[
                 PlanWorldGraphCitationV1(
-                    claim_id=f"claim-{sequence}",
-                    target_kind="assertion",
-                    target_id=assertion_id,
+                    claim_id=claim_id,
+                    target_kind=claim_kind,
+                    target_id=claim_target,
                     graph_revision="ask-history-graph-rev-1",
                     evidence_ref_ids=[evidence_ref_id],
                     source_opened=False,
@@ -458,7 +549,7 @@ def _add_graph_ask(
             assistant_text=answer,
             completion=completion,
             producing_provider_attempt_id=producing_attempt,
-            claim_graph_event_ids={f"claim-{sequence}": []} if execution is not None else None,
+            claim_graph_event_ids={claim_id: graph_event_ids} if execution is not None else None,
         )
     )
 
@@ -1057,3 +1148,68 @@ def test_v1_completion_history_remains_typed_with_persisted_execution(
     assert attribution.citation_map.entries[0].source_opened is False
     assert "source_read_ids" not in attribution.citation_map.entries[0].model_dump()
     assert PlanAskHistoryAttributionV1.model_validate_json(attribution.model_dump_json(by_alias=True)) == attribution
+
+
+@pytest.mark.parametrize("version", [1, 2])
+def test_historical_graph_operation_ask_reads_and_replays_unchanged(
+    application_state_dsn: str, monkeypatch: pytest.MonkeyPatch, version: int,
+) -> None:
+    service = AgentConversationService()
+    basis = _basis()
+    conversation = _new_conversation(service, basis.world_id)
+    for sequence in range(1, 5):
+        _add_turn(service, basis.world_id, conversation.conversation_id, basis,
+                  sequence=sequence, question=f"Synthetic prior question {sequence}")
+    completed = _add_graph_ask(
+        service, basis, conversation.conversation_id, sequence=5,
+        target_id="beat:historical-card", question="Synthetic historical Graph question",
+        answer="Synthetic historical Graph answer.", source_opened=False,
+        historical_graph_operation=True, execution_version=version, completion_version=version,
+    )
+    frozen = completed.model_dump(mode="json", by_alias=True)
+    assert completed.graph_context_receipt.graph_packet.selection_policy_version == "parent_initial_retrieval_v1"
+    assert completed.graph_context_receipt.graph_packet.evidence_sufficiency_status == "insufficient"
+    assert completed.graph_context_receipt.assembled_input.packet_disposition == "omitted_insufficient"
+    assert completed.graph_context_receipt.assembled_input.dispatched_assertion_ids == []
+    assert completed.graph_context_receipt.assembled_input.dispatched_relationship_ids == []
+    assert completed.graph_context_receipt.assembled_input.dispatched_evidence_ref_ids == []
+    operation = completed.graph_context_execution.events[3]
+    assert len(operation.relationship_ids) == 6 and len(operation.evidence_ref_ids) == 17
+    assert operation.truncated and operation.coverage_status == "incomplete"
+    assert completed.completion.answer_context_status == "graph_grounded_partial"
+    assert completed.completion.citation_map.entries[0].target_id == "rel:004"
+    assert completed.completion.citation_map.entries[0].evidence_ref_ids == ["ev:016"]
+    assert "evidence-1" not in completed.graph_context_receipt.assembled_input.dispatched_evidence_ref_ids
+    assert completed.completion.citation_map.entries[0].source_opened is False
+    fresh = AgentConversationService()
+    assert fresh.list_turns(basis.world_id, conversation.conversation_id)[-1].model_dump(mode="json", by_alias=True) == frozen
+    pair = next(pair for pair in fresh.list_completed_plan_ask_context(basis.world_id, basis) if pair.source_record_id == completed.turn_id)
+    assert pair.source_sequence == 5
+    assert pair.answer == completed.assistant_text
+    assert pair.history_attribution.source_turn_id == completed.turn_id
+    assert pair.history_attribution.plan_basis == basis
+    assert pair.history_attribution.playable_target.id == "beat:historical-card"
+    assert pair.history_attribution.citation_map == completed.completion.citation_map
+    assert PlanAskHistoryAttributionV1.model_validate_json(pair.history_attribution.model_dump_json(by_alias=True)) == pair.history_attribution
+    submission = TurnSubmission(
+        world_id=basis.world_id, conversation_id=conversation.conversation_id,
+        idempotency_key=completed.idempotency_key, expected_conversation_revision=5,
+        user_text=completed.user_text, provenance=completed.provenance,
+        submitted_intent_v2=SubmittedTurnIntentV2(
+            world_id=basis.world_id, client_thread_id="ask-history-test-thread", message=completed.user_text,
+            surface_id="plan", surface_instance_id="plan-ask-pane-5", client_work_state="saved_clean",
+            primary_work=SubmittedPrimaryWorkIntentV1(
+                kind="plan", object_id=basis.document_id, expected_revision=basis.object_revision,
+                expected_revision_n=basis.revision_n, expected_content_sha256=basis.content_sha256,
+            ),
+            plan_context_policy=PlanContextPolicyV1(policy="auto_plan_world"),
+            playable_target=SubmittedPlanPlayableTargetV1(schema="dmb_plan_playable_target_v1", kind="beat", id="beat:historical-card"),
+            graph_request=SubmittedGraphRequestIntentV1(mode="none"), graph_selection=None,
+        ),
+        graph_context_receipt=completed.graph_context_receipt,
+        graph_context_execution=completed.graph_context_execution.model_copy(update={"events": []}),
+    )
+    monkeypatch.setattr(service_module, "_lock_pointer", lambda *_args: pytest.fail("completed replay touched mutable acceptance state"))
+    replayed = fresh.accept_turn(submission)
+    assert replayed.model_dump(mode="json", by_alias=True) == frozen
+    assert fresh.list_turns(basis.world_id, conversation.conversation_id)[-1].model_dump(mode="json", by_alias=True) == frozen
