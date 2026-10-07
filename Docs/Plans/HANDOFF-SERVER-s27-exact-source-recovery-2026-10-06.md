@@ -1,6 +1,6 @@
 # SERVER — exact Session 27 source review recovery
 
-**Status:** ACTIVE, bounded file-restoration lease authorized by PRIME after the PR #966 deployment handback. This Buddy branch/PR head pins the operational handoff; a docs merge is not a prerequisite.
+**Status:** COMPLETE; bounded file-restoration lease released. PRIME authorized this work after the PR #966 deployment handback. This Buddy branch/PR head pins the operational handoff; a docs merge was not a prerequisite.
 
 **Runtime:** `/home/drakosfire/.local/state/dungeonmindbuddy/runtime`, clean detached at `b9d9ff05eb7c7d6ae3fa8ab4c547cd55a7bbc710`. **Verified original:** `/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy`. **Independent audit:** DOGFOOD `dogfood-2026-10-06/source-recovery-audit.json` under its 2026-10-02 visualization workspace. Do not infer availability from a stored `exists` flag; check bytes and SHA-256 again before mutation.
 
@@ -24,3 +24,9 @@
 2. Restore only byte-verified components and minimally register the exact existing SourceArtifact record. Add only the new exact path/SHA inventory entries. Verify destination bytes/digests and registry parser readback.
 3. Repeat the exact run review-package GET. Pass only if it returns the legitimate review package with frozen source/candidate/span identity and evidence. If it reports another true blocker, record it without broadening this lease.
 4. Compare Plan/Run metadata and all pre-existing inventory entries, keep checkout clean at the deployed SHA, and record how the restored files persist through the current deployment procedure. Report concrete evidence to PRIME. This is review restoration, not native Graph admission or a live answer acceptance claim.
+
+## Settlement
+
+The exact S27 review-package GET changed from HTTP 422 `run_not_promotable` to HTTP 200 `dmb_extract_promote_exact_run_review_v1` for run `084b3237-1fce-4a40-b8eb-eed7846a5bc4` and its original SourceArtifact ID. It projects 58 assertions. The two restored frozen components and pre-existing source Markdown match their declared SHA-256 values; the one-record registry parses and resolves the same artifact. The inventory grew from 1,608 to 1,611 unique path/SHA entries, preserving its existing entries and adding only registry, candidate, and span paths. All restored `out/` files remain ignored by Git in the clean detached runtime at `b9d9ff05eb7c7d6ae3fa8ab4c547cd55a7bbc710`; the external runtime artifact inventory now records their digests for future provisioning. Plan/revision/Run/active-Run database metadata matched the pre-deployment baseline exactly.
+
+The package's `inspectionStatus` is `invalid_evidence`, `promotable=false`, with six nonliteral anchor quotes. This is a separate real review finding; publication remains blocked. No correction, Graph admission, or model/provider turn was performed in this restoration.
