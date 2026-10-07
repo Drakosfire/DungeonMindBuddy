@@ -29,6 +29,8 @@ The source-copy dumps have SHA-256 `1d289c9e575b65c4d5ec8596eab17ae489c965969893
 
 The Core migrations add authority tables; they do not alter existing corpus tables. This observation is from the exact pinned Core migration source and the disposable clone, not a claim that a future live upgrade is risk-free.
 
+Known product limits remain outside this rollout: a live known-NPC Ask retrieved an unsupported Lysandra-to-`commandsGuards` edge from existing Graph data, and the user had to manually refresh World history after the Working/recovery banner to see the completed answer. MIND owns the separate immutable adoption-membership recovery before safe withdrawal. This rollout must preserve that corpus and must not attempt a live Graph repair; the UI witness must report the manual-refresh behavior honestly rather than claim seamless delivery.
+
 ## Backup and rollback contract for a funded execution lease
 
 1. Re-anchor Buddy main, #1007, relevant open PRs, exact Core pin, live process/code identity, both live schema heads, database identities, and all open application-state turns/actions. If any differs, stop and revise this packet before touching live state. The #1011 indexed-completion design is merged, but its implementation successor is separate; a new schema or runtime change in that lane invalidates this exact candidate.
