@@ -21,8 +21,11 @@ PR #998 merged.
 ## User outcome and contract
 
 On Ingest, a verified selected managed World is accepted when the server-resolved
-Plan view names that exact `world_id`, even when its `campaign_id` context differs.
-Do not treat a campaign identifier as the publication World identity.
+Plan view names that exact `world_id`. Do not treat a campaign identifier as the
+publication World identity. The caller remains compatible with a Plan view whose
+`campaign_id` differs, but the current server PlanView v1 returns the managed
+World ID in both fields. The test's distinct PlanView campaign is a simulated
+forward-compatibility response, not evidence of current server behavior.
 
 Use the existing `getPlanView(managedWorldId)` resolution. Require
 `response.world_id === managedWorldId`; reject a missing or foreign `world_id`
@@ -49,8 +52,11 @@ Retain the existing source and target guards:
 1. Legacy, loading or failed World selection performs no plan/run reads.
 2. A Plan view with missing or foreign `world_id` shows an actionable error and
    does not mount Graph Review, even if `campaign_id` equals the selected ID.
-3. An exact managed World response is accepted when `campaign_id` differs; this
-   includes the source campaign `longmont-c2` with selected World `elderwyld`.
+3. An exact managed World response is accepted when `campaign_id` differs in a
+   simulated forward-compatibility response; current server PlanView v1 returns
+   the managed World ID in both fields. Separately, the recap source campaign
+   `longmont-c2` remains distinct from selected World `elderwyld` in read-only
+   source review.
 4. A foreign non-recap Run remains rejected when its source campaign differs
    from the selected World.
 5. Recap source review keeps source identity distinct from the selected target
@@ -107,12 +113,12 @@ does not grant permission to edit that path.
 ## Owning-boundary acceptance
 
 Run the mounted `MemoryIngestPage` suite. It must prove both sides of the
-identity rule: an exact selected `world_id` with a distinct campaign context is
-accepted, while a foreign/missing `world_id` and a foreign non-recap Run remain
-blocked before Graph Review. Preserve the recap read-only source review, no-World
-no-read checks, and stale-load fencing. Run the production UI build or typecheck,
-`git diff --check`, and inspect the exact cumulative base-to-head diff for this
-four-path lease.
+identity rule: an exact selected `world_id` with a distinct simulated campaign
+context is accepted, while a foreign/missing `world_id` and a foreign non-recap
+Run remain blocked before Graph Review. Preserve the recap read-only source
+review, no-World no-read checks, and stale-load fencing. Run the production UI
+build or typecheck, `git diff --check`, and inspect the exact cumulative
+base-to-head diff for this four-path lease.
 
 No runtime/provider request, recap prepare, confirm, source mutation, AppState
 write, or native Graph write is part of this slice. The change is a Buddy caller
