@@ -525,6 +525,10 @@ def _assert_recap_semantic_basis(
                         item["expected_source_span_ref_id"] == item["replacement_source_span_ref_id"]
                         and item["expected_anchor_quotes"] == item["replacement_anchor_quotes"]
                     )
+                    or (
+                        isinstance(basis, RecapSemanticBasisV5)
+                        and item["expected_source_span_ref_id"] == item["replacement_source_span_ref_id"]
+                    )
                     or any(
                         not isinstance(item.get(key), list) or not 1 <= len(item[key]) <= 16
                         or any(not isinstance(quote, str) or not quote or quote != quote.strip() or len(quote) > 4096 for quote in item[key])
