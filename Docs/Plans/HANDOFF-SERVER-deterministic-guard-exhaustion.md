@@ -1,0 +1,16 @@
+# HANDOFF — SERVER: deterministic Plan Graph guard exhaustion
+
+**Status:** ACTIVE — PRIME explicitly funded Source A after the one-turn expired-claim recovery settled on 2026-10-06. SERVER owns implementation to a new draft PR; PRIME owns independent review and merge authority.
+**Pinned authority:** Buddy `origin/main@7f429fa63680bbaef91316132cfe02dc46c072fd`; recovery evidence is Buddy PR #982 head `398f2fe4` and its single-turn lease is released. Branch `codex/server-deterministic-guard-terminalization`, isolated checkout `/tmp/dmb-deterministic-guard-terminalization`, based on the pinned main. Independent PR to `main`, not stacked on #982. Open #979 DEMO and #917 prototype are read-only; neither owns this active SERVER service path.
+**Primary question:** When the frozen Plan Graph execution has already consumed its provider-attempt allowance, can SERVER refuse the next authorization locally, without appending or dispatching that attempt, and terminalize the owned running turn exactly once through APP-STATE?
+**Write lease:** `apps/live_control_server/services/agent_turn_service.py`; focused owning service, route, and APP-STATE seam tests under `tests/`; this handoff. No runtime checkout, database, provider, harness, policy-cap, parser, schema, public API, native Graph, or other repository changes.
+
+## Invariant and stop conditions
+
+The active execution policy's `max_provider_attempts` is authoritative. Before constructing or appending a new authorization, count durable `provider_attempt_authorized` events in the current claimed execution. When the allowance is exhausted, mark a typed, fixed, safe local refusal with `provider_dispatched=False`; preserve the public 503 delivery behavior. After stopping and joining the claim renewer, use the latest owned turn revision to call existing `fail_turn` exactly once with a fixed failure code. A failed/fenced finalization must remain explicitly indeterminate; never claim terminal success. A previous authorized provider outcome that is unknown, missing, or otherwise ambiguous is not eligible for this deterministic path. Do not broaden the rule to unrelated adapter failures or guess from the Harness's generic denial result.
+
+Stop and return to PRIME if the required terminalization needs a new public contract or APP-STATE schema, if the claim cannot be fenced safely, if the provider attempt limit is not available on the durable execution policy, or if another live lane changes this source path before the PR is ready. Source B final-answer reservation remains a separate later design; this slice does not alter the total provider budget or give Harness a final-only ceiling.
+
+## Acceptance witness
+
+Focused service and seam tests prove a four-attempt ledger rejects the fifth before APP-STATE append or provider dispatch, records exactly one fixed terminal failure under the current claim revision, and leaves the ledger unchanged. Test at least one renewal-moving revision and an ambiguous/unknown outcome that remains nonterminal and indeterminate. Verify the public route still returns the established 503 shape. Run focused tests and relevant repository lint/type/test gates, review exact cumulative `origin/main`→head diff, and record actual outcomes and head SHA here before review. Acceptance token: `SERVER_PLAN_GRAPH_GUARD_EXHAUSTION_TERMINALIZATION_READY`.
