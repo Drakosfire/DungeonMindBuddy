@@ -940,6 +940,7 @@ class _PolicyExecutionAdapter:
         self.last_provider_attempt_id: UUID | None = None
         self.producing_provider_attempt_id: UUID | None = None
         self.failure: AgentTurnServiceError | None = None
+        self.deterministic_guard_exhausted = False
         self.operation_payloads: dict[UUID, str] = {}
 
     def _ensure_claimed(
@@ -1057,6 +1058,28 @@ class _PolicyExecutionAdapter:
                 raise AgentTurnServiceError(
                     "The Graph execution ledger is unavailable after claim.",
                     code="turn_persistence_indeterminate", status_code=503,
+                )
+            attempts = [
+                event for event in execution.events
+                if getattr(event, "kind", None) == "provider_attempt_authorized"
+            ]
+            if len(attempts) >= execution.policy.max_provider_attempts:
+                latest_id = attempts[-1].provider_attempt_id
+                outcomes = [
+                    event.outcome for event in execution.events
+                    if getattr(event, "kind", None) == "provider_outcome"
+                    and event.provider_attempt_id == latest_id
+                ]
+                if not outcomes or outcomes[-1] not in {"response_received", "known_not_sent"}:
+                    raise AgentTurnServiceError(
+                        "The last provider attempt has an uncertain outcome.",
+                        code="turn_persistence_indeterminate", status_code=503,
+                    )
+                self.deterministic_guard_exhausted = True
+                raise AgentTurnServiceError(
+                    "The Plan Graph provider attempt allowance is exhausted.",
+                    code="provider_attempt_limit_exhausted", status_code=503,
+                    provider_dispatched=False,
                 )
             body = json.loads(view["payloadJson"])
             upper_bound = view["payloadUtf8Bytes"] + 64 * (1 + _json_node_count(body))
@@ -2976,6 +2999,23 @@ def execute_agent_turn(
             trace.complete_phase(span_id, status="error")
             if policy_turn is None:
                 raise adapter.failure
+            if (
+                adapter.deterministic_guard_exhausted
+                and adapter.failure.code == "provider_attempt_limit_exhausted"
+            ):
+                try:
+                    conversation_service.fail_turn(TurnFailure(
+                        world_id=policy_turn.world_id,
+                        conversation_id=policy_turn.conversation_id,
+                        turn_id=policy_turn.turn_id,
+                        expected_revision=policy_turn.revision,
+                        failure_code="provider_attempt_limit_exhausted",
+                    ))
+                except (ApplicationStateError, psycopg.OperationalError) as exc:
+                    raise AgentTurnServiceError(
+                        "The Plan Graph guard failure could not be durably confirmed.",
+                        code="turn_persistence_indeterminate", status_code=503,
+                    ) from exc
             raise AgentTurnServiceError(
                 "Plan Graph delivery stopped after its receipt was frozen.",
                 code="plan_context_delivery_failure", status_code=503,

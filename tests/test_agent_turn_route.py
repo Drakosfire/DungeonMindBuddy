@@ -181,6 +181,7 @@ def test_real_user_question_still_has_the_public_8000_character_limit() -> None:
     [
         ("graph_revision_unavailable", None),
         ("provider_authorization_denied", False),
+        ("plan_context_delivery_failure", None),
     ],
 )
 def test_policy_unproven_or_unmapped_failure_stays_generic(
