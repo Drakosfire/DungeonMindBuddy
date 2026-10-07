@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import hashlib
 from pathlib import Path
 from types import SimpleNamespace
 
+import httpx
 import pytest
 from pydantic import ValidationError
 
@@ -526,6 +528,89 @@ def test_semantic_decision_route_requires_gm_and_owns_reviewer(
     )
     assert seen == [("child", "accepted", "server_operator")]
     assert valid["reviewerId"] == "server_operator"
+
+
+def test_semantic_decision_http_auth_csrf_body_and_principal(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Exercise actual ASGI routing and Depends with an inert decision seam."""
+    import fastapi.dependencies.utils as dependency_utils
+    import fastapi.routing as fastapi_routing
+    from apps.live_control_server.main import create_app
+    from apps.live_control_server.services.agent_graph_auth import (
+        authenticate_native_graph_principal,
+    )
+
+    # This test host cannot execute even a minimal synchronous FastAPI route
+    # through AnyIO's worker pool. Keep full ASGI/Depends dispatch and execute
+    # synchronous callables inline; the decision seam remains synthetic.
+    async def inline_sync(function, *args, **kwargs):
+        return function(*args, **kwargs)
+
+    monkeypatch.setattr(fastapi_routing, "run_in_threadpool", inline_sync)
+    monkeypatch.setattr(dependency_utils, "run_in_threadpool", inline_sync)
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "development")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", "synthetic-local-operator-capability-32-characters")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_UI_ORIGIN", "http://127.0.0.1:5202")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_API_HOST", "127.0.0.1:8000")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_SESSION_STORE", str(tmp_path / "private" / "sessions.json"))
+    calls = []
+
+    def decide(run_id, request, *, reviewer_id):
+        calls.append((run_id, reviewer_id, request.decision))
+        return RecapSemanticDecisionResponse(
+            run_id=run_id, revision=7, candidate_sha256=request.candidate_sha256,
+            state=request.decision, basis_sha256="a" * 64,
+            review_decision_ref=request.review_decision_ref,
+            reviewer_id=reviewer_id, decided_at="2026-10-06T00:00:00Z",
+        )
+
+    monkeypatch.setattr(extract_promote_routes, "decide_recap_semantic_disposition", decide)
+    app = create_app()
+    url = "/api/live/extract-promote/runs/child/semantic-disposition"
+    body = {
+        "expectedRevision": 6, "candidateSha256": "d" * 64,
+        "decision": "accepted", "reviewDecisionRef": "review:accept",
+    }
+    async def exercise() -> None:
+        transport = httpx.ASGITransport(app=app, client=("127.0.0.1", 50000))
+        async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:8000") as client:
+            no_auth = await client.post(url, json=body)
+            assert no_auth.status_code == 401
+            assert no_auth.json()["detail"]["code"] == "graph_auth_required"
+            assert calls == []
+
+            app.dependency_overrides[authenticate_native_graph_principal] = lambda: NativeGraphPrincipal(
+                subject="player", role="player", auth_method="local_operator"
+            )
+            player = await client.post(url, json=body)
+            assert player.status_code == 403
+            assert player.json()["detail"]["code"] == "graph_gm_required"
+            assert calls == []
+            app.dependency_overrides.clear()
+
+            boot = await client.post(
+                "/api/live/agent/local-session",
+                headers={"Origin": "http://127.0.0.1:5202", "Sec-Fetch-Site": "same-origin"},
+            )
+            assert boot.status_code == 200, boot.text
+            csrf = boot.json()["csrf_token"]
+            no_csrf = await client.post(url, json=body, headers={"Origin": "http://127.0.0.1:5202"})
+            assert no_csrf.status_code == 403
+            assert no_csrf.json()["detail"]["code"] == "graph_auth_csrf_rejected"
+            assert calls == []
+
+            headers = {"Origin": "http://127.0.0.1:5202", "X-DMB-Graph-CSRF": csrf}
+            forged = await client.post(url, json={**body, "reviewerId": "forged"}, headers=headers)
+            assert forged.status_code == 422
+            assert calls == []
+            accepted = await client.post(url, json=body, headers=headers)
+            assert accepted.status_code == 200, accepted.text
+            assert accepted.json()["reviewerId"] == "local_operator"
+            assert calls == [("child", "local_operator", "accepted")]
+
+    asyncio.run(exercise())
 
 
 def test_decision_service_uses_canonical_basis_and_appstate_cas(
