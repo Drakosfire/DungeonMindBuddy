@@ -459,13 +459,13 @@ it("opens exact managed World Graph references from Document and Cards without c
     relatedNodes: [],
     semanticFingerprint: "graph-object-fingerprint",
     sourceBindings: [{
-      evidence_ref_id: "ev:s25",
-      source_artifact_id: "artifact:s25",
-      source_revision_id: "artifact-rev:s25",
-      content_sha256: "a".repeat(64),
-      source_span_ref_id: "span:s25",
-      source_domain: "session_recap",
-      provenance_status: "excerpt_ready",
+      evidenceRefId: "ev:s25",
+      sourceArtifactId: "artifact:s25",
+      sourceRevisionId: "artifact-rev:s25",
+      contentSha256: "a".repeat(64),
+      sourceSpanRefId: "span:s25",
+      sourceDomain: "session_recap",
+      provenanceStatus: "excerpt_ready",
       excerpt: "Lysandra led the warehouse watch through the storm.",
     }],
   });
@@ -480,7 +480,7 @@ it("opens exact managed World Graph references from Document and Cards without c
   const page = await screen.findByTestId("world-owned-plan");
   await waitFor(() => expect(projectionRequest).toHaveBeenCalledWith(expect.objectContaining({ managedWorldId: owner })));
   const documentReference = await screen.findByRole("button", { name: "Ironveil Warehouse" });
-  documentReference.focus();
+  expect(documentReference).not.toHaveFocus();
   fireEvent.click(documentReference);
   const inspector = await screen.findByRole("dialog", { name: "World Graph object" });
   expect(inspector).toHaveClass("world-plan-graph-reference-inspector");
@@ -497,21 +497,36 @@ it("opens exact managed World Graph references from Document and Cards without c
   expect(screen.getByText("Lysandra led the warehouse watch through the storm.")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Back to World Graph object" }));
   expect(await screen.findByRole("dialog", { name: "World Graph object" })).toBeInTheDocument();
+  expect(documentReference.isConnected).toBe(true);
   expect(document.querySelector(".world-plan-agent-conversation")).toBe(agentConversation);
   expect(agentConversation?.textContent).toBe(conversationText);
-  fireEvent.click(within(inspector).getByRole("button", { name: "Close" }));
+  fireEvent.click(within(inspector).getByRole("button", { name: "Close Ironveil Warehouse" }));
   await waitFor(() => expect(documentReference).toHaveFocus());
 
   fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
   const cards = await screen.findByTestId("world-plan-cards");
+  expect(documentReference.closest(".world-plan-document-view")).toHaveAttribute("hidden");
   expect(cards).toHaveTextContent("Read Ironveil Warehouse before entering.");
   const cardReference = await within(cards).findByRole("button", { name: "Ironveil Warehouse" });
-  cardReference.focus();
+  expect(cardReference).not.toHaveFocus();
   fireEvent.click(cardReference);
   const cardInspector = await screen.findByRole("dialog", { name: "World Graph object" });
+  expect(cardReference.isConnected).toBe(false);
+  expect(cards.querySelectorAll('button.recap-node-token[data-graph-node-id="loc:ironveil-warehouse"]')).toHaveLength(1);
   await waitFor(() => expect(completeRead).toHaveBeenCalledTimes(2));
   expect(within(cardInspector).getByRole("article", { name: "Ironveil Warehouse World Graph object" })).toBeInTheDocument();
   expect(within(cards).getByText(/before entering\./)).toBeInTheDocument();
+  fireEvent.click(await within(cardInspector).findByRole("button", { name: "Read source" }));
+  expect(await screen.findByRole("dialog", { name: "Pinned source passage" })).toBeInTheDocument();
+  expect(cardReference.isConnected).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "Back to World Graph object" }));
+  expect(await screen.findByRole("dialog", { name: "World Graph object" })).toBeInTheDocument();
+  expect(cardReference.isConnected).toBe(false);
+  fireEvent.click(within(cardInspector).getByRole("button", { name: "Close Ironveil Warehouse" }));
+  const restoredCardReference = within(cards).getByRole("button", { name: "Ironveil Warehouse" });
+  expect(restoredCardReference).not.toBe(cardReference);
+  await waitFor(() => expect(restoredCardReference).toHaveFocus());
+  expect(documentReference).not.toHaveFocus();
   expect(save).not.toHaveBeenCalled();
   expect(prepare).not.toHaveBeenCalled();
 });

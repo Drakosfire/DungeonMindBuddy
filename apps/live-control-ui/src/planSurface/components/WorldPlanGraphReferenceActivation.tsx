@@ -148,8 +148,12 @@ export function WorldPlanGraphReferenceActivationProvider({
   const requestRef = useRef<ActivationRequest | null>(request);
   requestRef.current = request;
   const triggerRef = useRef<HTMLElement | null>(null);
+  const triggerScopeRef = useRef<HTMLElement | null>(null);
+  const triggerNodeIdRef = useRef<string | null>(null);
+  const triggerOrdinalRef = useRef<number>(0);
   const triggerOwnerWorldIdRef = useRef<string | null>(null);
   const readerScrollRef = useRef<number | null>(null);
+  const clickedReferenceRef = useRef<HTMLElement | null>(null);
   const sourceTriggerRef = useRef<HTMLElement | null>(null);
   const currentOwnerWorldIdRef = useRef(worldId);
   currentOwnerWorldIdRef.current = worldId;
@@ -160,12 +164,27 @@ export function WorldPlanGraphReferenceActivationProvider({
   const [sourceEvidence, setSourceEvidence] = useState<GraphObjectEvidenceViewModel | null>(null);
 
   const activateNode = useCallback((nodeId: string, trigger?: HTMLElement) => {
+    const clickedReference = clickedReferenceRef.current;
+    clickedReferenceRef.current = null;
     if (!request || request.ownerWorldId !== worldId) {
-      triggerRef.current = trigger?.isConnected
+      const origin = trigger?.isConnected
         ? trigger
-        : typeof document !== "undefined" && document.activeElement instanceof HTMLElement
-          ? document.activeElement
-          : null;
+        : clickedReference?.isConnected
+          ? clickedReference
+          : typeof document !== "undefined" && document.activeElement instanceof HTMLElement
+            ? document.activeElement
+            : null;
+      triggerRef.current = origin;
+      const scope = origin?.closest<HTMLElement>(
+        ".world-plan-cards, .world-plan-document-view",
+      ) ?? null;
+      triggerScopeRef.current = scope;
+      triggerNodeIdRef.current = nodeId;
+      const matchingReferences = scope
+        ? Array.from(scope.querySelectorAll<HTMLElement>("button.recap-node-token[data-graph-node-id]"))
+          .filter((candidate) => candidate.dataset.graphNodeId === nodeId)
+        : [];
+      triggerOrdinalRef.current = Math.max(0, origin ? matchingReferences.indexOf(origin) : 0);
       triggerOwnerWorldIdRef.current = worldId;
       readerScrollRef.current = window.scrollY;
     }
@@ -179,6 +198,32 @@ export function WorldPlanGraphReferenceActivationProvider({
       revisionId: nativeScope?.revisionId ?? null,
     });
   }, [graph?.projection, graph?.projectionState, graph?.requestKey, request, worldId]);
+
+  useEffect(() => {
+    const captureClickedReference = (event: MouseEvent) => {
+      const target = event.target;
+      const reference = target instanceof Element
+        ? target.closest<HTMLElement>("button.recap-node-token[data-graph-node-id]")
+        : null;
+      const scope = reference?.closest<HTMLElement>(".world-plan-cards, .world-plan-document-view") ?? null;
+      const visibleScope = scope && !scope.closest("[hidden]") && scope.getAttribute("aria-hidden") !== "true"
+        ? scope
+        : null;
+      const capturedReference = reference && typeof reference.dataset.graphNodeId === "string"
+        && isValidGraphNodeId(reference.dataset.graphNodeId)
+        && visibleScope
+        ? reference
+        : null;
+      clickedReferenceRef.current = capturedReference;
+      if (capturedReference) {
+        window.setTimeout(() => {
+          if (clickedReferenceRef.current === capturedReference) clickedReferenceRef.current = null;
+        }, 0);
+      }
+    };
+    document.addEventListener("click", captureClickedReference, true);
+    return () => document.removeEventListener("click", captureClickedReference, true);
+  }, []);
 
   const currentRequest = request?.ownerWorldId === worldId ? request : null;
   const resolution = useMemo(
@@ -213,7 +258,16 @@ export function WorldPlanGraphReferenceActivationProvider({
       hadRequestRef.current = false;
       const triggerOwnerWorldId = triggerOwnerWorldIdRef.current;
       if (triggerOwnerWorldId !== worldId) return;
-      const trigger = triggerRef.current;
+      let trigger = triggerRef.current;
+      if (!trigger?.isConnected) {
+        const scope = triggerScopeRef.current;
+        const isHidden = Boolean(scope?.closest("[hidden]")) || scope?.getAttribute("aria-hidden") === "true";
+        if (scope?.isConnected && !isHidden && triggerNodeIdRef.current) {
+          const matchingReferences = Array.from(scope.querySelectorAll<HTMLElement>("button.recap-node-token[data-graph-node-id]"))
+            .filter((candidate) => candidate.dataset.graphNodeId === triggerNodeIdRef.current)
+          trigger = matchingReferences[triggerOrdinalRef.current] ?? null;
+        }
+      }
       window.setTimeout(() => {
         if (currentOwnerWorldIdRef.current === triggerOwnerWorldId && requestRef.current === null && trigger?.isConnected) {
           if (readerScrollRef.current !== null && readerScrollRef.current !== window.scrollY) {
