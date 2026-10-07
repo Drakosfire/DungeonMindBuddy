@@ -327,7 +327,7 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     ))
     sources = InMemorySourceRepository()
     seeded = _seed_sources()
-    sign_text = "# Crossroads Sign\n\nThe sign points toward the old watchtower.\n"
+    sign_text = "# Crossroads Sign\n\nThe sign stands at the old watchtower.\n"
     (tmp_path / "corpus").mkdir(exist_ok=True)
     (tmp_path / "corpus" / "sign.md").write_text(sign_text, encoding="utf-8")
     for artifact_id in ("src:world-lore", "src:one-notes", "src:one-recap", "src:player-sign"):
@@ -1098,7 +1098,7 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
                     "answer_context_status": "graph_grounded",
                     "answer_segments": [{
                         "kind": "graph_claim", "claim_id": "rel:sign-watchtower",
-                        "text": "The sign points toward the old watchtower.",
+                        "text": "The sign stands at the old watchtower.",
                         "target_kind": "relationship", "target_id": "rel:sign-watchtower",
                         "graph_revision": published.revision_id,
                         "evidence_ref_ids": ["ev:sign"],
