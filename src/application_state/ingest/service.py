@@ -41,6 +41,7 @@ _RECAP_CORRECTION_DERIVATION = "operator_recap_literal_evidence_correction_v1"
 _RECAP_CANDIDATE_DERIVATION = "operator_recap_semantic_candidate_correction_v1"
 _RECAP_CANDIDATE_DERIVATION_V2 = "operator_recap_semantic_candidate_correction_v2"
 _RECAP_CANDIDATE_DERIVATION_V3 = "operator_recap_semantic_candidate_correction_v3"
+_RECAP_CANDIDATE_DERIVATION_V4 = "operator_recap_semantic_candidate_correction_v4"
 _RECAP_BASIS_SCHEMA = "dmb_recap_semantic_basis_v1"
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 
@@ -163,6 +164,16 @@ class RecapSemanticBasisV4(RecapSemanticBasisV2):
     )
     derivation: Literal["operator_recap_semantic_candidate_correction_v3"]
     manifest_schema: Literal["dmb_recap_semantic_candidate_manifest_v3"]
+
+
+class RecapSemanticBasisV5(RecapSemanticBasisV2):
+    """Bind the exact evidence-span relocation derivation and manifest version."""
+
+    schema_: Literal["dmb_recap_semantic_basis_v5"] = Field(
+        default="dmb_recap_semantic_basis_v5", alias="schema"
+    )
+    derivation: Literal["operator_recap_semantic_candidate_correction_v4"]
+    manifest_schema: Literal["dmb_recap_semantic_candidate_manifest_v4"]
 
 
 class RecapSemanticDispositionCommandV1(BaseModel):
@@ -356,7 +367,7 @@ def lookup_extraction_run_by_candidate_component(
 def _assert_recap_semantic_basis(
     child: ExtractionRun,
     parent: ExtractionRun,
-    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4,
+    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4 | RecapSemanticBasisV5,
 ) -> None:
     """Prove every basis field against stored child/parent identity and refs."""
     lineage = child.lineage
@@ -368,7 +379,8 @@ def _assert_recap_semantic_basis(
         or parent.status not in FROZEN_COMPONENT_STATUSES
         or not parent.has_required_review_components()
         or lineage.get("derivation") != (
-            _RECAP_CANDIDATE_DERIVATION_V3 if isinstance(basis, RecapSemanticBasisV4)
+            _RECAP_CANDIDATE_DERIVATION_V4 if isinstance(basis, RecapSemanticBasisV5)
+            else _RECAP_CANDIDATE_DERIVATION_V3 if isinstance(basis, RecapSemanticBasisV4)
             else _RECAP_CANDIDATE_DERIVATION_V2 if isinstance(basis, RecapSemanticBasisV3)
             else _RECAP_CANDIDATE_DERIVATION if isinstance(basis, RecapSemanticBasisV2)
             else _RECAP_CORRECTION_DERIVATION
@@ -420,7 +432,11 @@ def _assert_recap_semantic_basis(
         manifest = lineage.get("semantic_candidate_manifest")
         action_manifest = isinstance(basis, RecapSemanticBasisV3)
         tuple_manifest = isinstance(basis, RecapSemanticBasisV4)
+        span_manifest = isinstance(basis, RecapSemanticBasisV5)
         expected_manifest_keys = (
+            {"schema", "evidence_span_replacements"}
+            if span_manifest
+            else
             {"schema", "edge_tuple_replacements"}
             if tuple_manifest
             else {"schema", "node_description_replacements", "omitted_edge_ids", "session_action_replacements"}
@@ -428,24 +444,25 @@ def _assert_recap_semantic_basis(
             else {"schema", "node_description_replacements", "omitted_edge_ids"}
         )
         expected_manifest_schema = (
-            basis.manifest_schema if action_manifest or tuple_manifest
+            basis.manifest_schema if action_manifest or tuple_manifest or span_manifest
             else "dmb_recap_semantic_candidate_manifest_v1"
         )
         if (
             not isinstance(manifest, dict)
             or set(manifest) != expected_manifest_keys
             or manifest.get("schema") != expected_manifest_schema
-            or ((action_manifest or tuple_manifest) and lineage.get("derivation") != basis.derivation)
-            or (not tuple_manifest and not isinstance(manifest.get("node_description_replacements"), list))
-            or (not tuple_manifest and not isinstance(manifest.get("omitted_edge_ids"), list))
+            or ((action_manifest or tuple_manifest or span_manifest) and lineage.get("derivation") != basis.derivation)
+            or (not (tuple_manifest or span_manifest) and not isinstance(manifest.get("node_description_replacements"), list))
+            or (not (tuple_manifest or span_manifest) and not isinstance(manifest.get("omitted_edge_ids"), list))
             or (action_manifest and (not isinstance(manifest.get("session_action_replacements"), list) or len(manifest["session_action_replacements"]) != 1))
-            or (not tuple_manifest and len(manifest["node_description_replacements"]) > 1)
-            or (not tuple_manifest and len(manifest["omitted_edge_ids"]) > 1)
-            or (not tuple_manifest and not (manifest["node_description_replacements"] or manifest["omitted_edge_ids"] or (action_manifest and manifest["session_action_replacements"])))
+            or (not (tuple_manifest or span_manifest) and len(manifest["node_description_replacements"]) > 1)
+            or (not (tuple_manifest or span_manifest) and len(manifest["omitted_edge_ids"]) > 1)
+            or (not (tuple_manifest or span_manifest) and not (manifest["node_description_replacements"] or manifest["omitted_edge_ids"] or (action_manifest and manifest["session_action_replacements"])))
             or (tuple_manifest and (not isinstance(manifest.get("edge_tuple_replacements"), list) or not 1 <= len(manifest["edge_tuple_replacements"]) <= 7))
+            or (span_manifest and (not isinstance(manifest.get("evidence_span_replacements"), list) or len(manifest["evidence_span_replacements"]) != 1))
         ):
             raise ApplicationStateConflictError("recap semantic candidate manifest is missing")
-        if not tuple_manifest:
+        if not (tuple_manifest or span_manifest):
             for item in manifest["node_description_replacements"]:
                 if (
                     not isinstance(item, dict)
@@ -469,6 +486,33 @@ def _assert_recap_semantic_basis(
                 or (manifest["node_description_replacements"] and manifest["node_description_replacements"][0]["node_id"] != item["node_id"])
             ):
                 raise ApplicationStateConflictError("recap semantic session action manifest is malformed")
+        if span_manifest:
+            item = manifest["evidence_span_replacements"][0]
+            string_fields = (
+                "record_id", "expected_source_ref_id", "expected_source_artifact_id",
+                "expected_source_span_ref_id", "replacement_source_span_ref_id",
+            )
+            quote_fields = ("expected_anchor_quotes", "replacement_anchor_quotes")
+            if (
+                not isinstance(item, dict)
+                or set(item) != {"record_kind", "evidence_index", *string_fields, *quote_fields}
+                or not isinstance(item.get("record_kind"), str)
+                or item.get("record_kind") not in {"node", "edge"}
+                or type(item.get("evidence_index")) is not int or item["evidence_index"] < 0
+                or item.get("expected_source_artifact_id") != basis.source_artifact_id
+                or any(
+                    not isinstance(item.get(key), str) or not item[key].strip()
+                    or item[key] != item[key].strip() or len(item[key]) > 256
+                    for key in string_fields
+                )
+                or item["expected_source_span_ref_id"] == item["replacement_source_span_ref_id"]
+                or any(
+                    not isinstance(item.get(key), list) or not 1 <= len(item[key]) <= 16
+                    or any(not isinstance(quote, str) or not quote or quote != quote.strip() or len(quote) > 4096 for quote in item[key])
+                    for key in quote_fields
+                )
+            ):
+                raise ApplicationStateConflictError("recap semantic evidence span manifest is malformed")
         if tuple_manifest:
             edge_ids: set[str] = set()
             target_tuples: set[tuple[str, str, str, str]] = set()
@@ -518,7 +562,7 @@ def record_recap_semantic_disposition(
     run_id: str,
     *,
     expected_revision: int,
-    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4,
+    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4 | RecapSemanticBasisV5,
     decision: RecapSemanticDispositionCommandV1,
 ) -> ExtractionRun:
     """Single-use metadata-only CAS for a held recap correction child.

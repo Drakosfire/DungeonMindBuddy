@@ -26,6 +26,8 @@ RECAP_CANDIDATE_CORRECTION_REQUEST_SCHEMA = "dmb_recap_candidate_correction_requ
 RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA = "dmb_recap_candidate_correction_response_v1"
 RECAP_CANDIDATE_CORRECTION_REQUEST_SCHEMA_V3 = "dmb_recap_candidate_correction_request_v3"
 RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA_V3 = "dmb_recap_candidate_correction_response_v3"
+RECAP_CANDIDATE_CORRECTION_REQUEST_SCHEMA_V4 = "dmb_recap_candidate_correction_request_v4"
+RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA_V4 = "dmb_recap_candidate_correction_response_v4"
 RECAP_SEMANTIC_DECISION_REQUEST_SCHEMA = "dmb_recap_semantic_decision_request_v1"
 RECAP_SEMANTIC_DECISION_RESPONSE_SCHEMA = "dmb_recap_semantic_decision_response_v1"
 WORLD_BUILDING_WRITE_PLAN_REQUEST_SCHEMA = (
@@ -667,6 +669,84 @@ class RecapCandidateCorrectionRequestV3(_ExtractPromoteModel):
 class RecapCandidateCorrectionResponseV3(RecapCandidateCorrectionResponse):
     schema_: Literal[RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA_V3] = Field(
         default=RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA_V3, alias="schema"
+    )
+
+
+class RecapCandidateEvidenceSpanReplacement(_ExtractPromoteModel):
+    """One exact-preimage move of an evidence ref within its frozen source."""
+
+    record_kind: Literal["node", "edge"]
+    record_id: str
+    evidence_index: int = Field(ge=0)
+    expected_source_ref_id: str
+    expected_source_artifact_id: str
+    expected_source_span_ref_id: str
+    replacement_source_span_ref_id: str
+    expected_anchor_quotes: list[str] = Field(min_length=1, max_length=16)
+    replacement_anchor_quotes: list[str] | None = Field(default=None, max_length=16)
+
+    @field_validator(
+        "record_id", "expected_source_ref_id", "expected_source_artifact_id",
+        "expected_source_span_ref_id", "replacement_source_span_ref_id",
+    )
+    @classmethod
+    def _identity(cls, value: str, info) -> str:
+        return _nonblank(value, field_name=info.field_name)
+
+    @field_validator("expected_anchor_quotes", "replacement_anchor_quotes")
+    @classmethod
+    def _quotes(cls, value: list[str] | None, info) -> list[str] | None:
+        if value is None and info.field_name == "replacement_anchor_quotes":
+            return None
+        if not isinstance(value, list) or not value:
+            raise ValueError(f"{info.field_name} must contain at least one quote")
+        if any(
+            not isinstance(item, str) or not item or item != item.strip() or len(item) > 4096
+            for item in value
+        ):
+            raise ValueError(f"{info.field_name} entries must be nonblank, trimmed and bounded")
+        return value
+
+    @model_validator(mode="after")
+    def _changed_span(self) -> "RecapCandidateEvidenceSpanReplacement":
+        if self.expected_source_span_ref_id == self.replacement_source_span_ref_id:
+            raise ValueError("replacement span must differ from the preimage")
+        return self
+
+    @field_validator("evidence_index")
+    @classmethod
+    def _evidence_index(cls, value: int) -> int:
+        if type(value) is not int:
+            raise ValueError("evidence_index must be an integer")
+        return value
+
+
+class RecapCandidateCorrectionRequestV4(_ExtractPromoteModel):
+    """A bounded same-source evidence span relocation for one frozen candidate."""
+
+    schema_: Literal[RECAP_CANDIDATE_CORRECTION_REQUEST_SCHEMA_V4] = Field(alias="schema")
+    parent_run_id: str
+    parent_candidate_sha256: str
+    evidence_span_replacements: list[RecapCandidateEvidenceSpanReplacement] = Field(
+        min_length=1, max_length=1
+    )
+
+    @field_validator("parent_run_id")
+    @classmethod
+    def _parent_run_id(cls, value: str) -> str:
+        return _nonblank(value, field_name="parent_run_id")
+
+    @field_validator("parent_candidate_sha256")
+    @classmethod
+    def _parent_candidate_sha256(cls, value: str) -> str:
+        if len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
+            raise ValueError("parent_candidate_sha256 must be lowercase SHA-256 hex")
+        return value
+
+
+class RecapCandidateCorrectionResponseV4(RecapCandidateCorrectionResponse):
+    schema_: Literal[RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA_V4] = Field(
+        default=RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA_V4, alias="schema"
     )
 
 
