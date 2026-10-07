@@ -12,10 +12,13 @@ import pytest
 import httpx
 from fastapi import FastAPI
 
-from application_state.ingest.service import RecapSemanticBasisV2
+from application_state.ingest.service import RecapSemanticBasisV2, RecapSemanticBasisV3
 from apps.live_control_server.models.extract_promote import (
     RecapCandidateCorrectionRequest,
+    RecapCandidateCorrectionRequestV2,
     RecapNodeDescriptionReplacement,
+    RecapSessionActionReplacement,
+    RecapSemanticDecisionRequest,
 )
 from apps.live_control_server.services import recap_semantic_candidate_correction as service
 from apps.live_control_server.services import extract_promote, graph_run_registry
@@ -39,7 +42,7 @@ def _sha(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
-def _fixture(monkeypatch: pytest.MonkeyPatch, root: Path):
+def _fixture(monkeypatch: pytest.MonkeyPatch, root: Path, *, actions: bool = False):
     source = root / "source.md"
     source.write_text("Mira found the key under the bridge.\n", encoding="utf-8")
     spans = root / "spans.json"
@@ -62,6 +65,8 @@ def _fixture(monkeypatch: pytest.MonkeyPatch, root: Path):
             "anchor_quotes": ["Mira found the key under the bridge."],
         }],
     }
+    if actions:
+        node["session_actions"] = ["Mira crossed the bridge.", "Mira dodged the key.", "Mira went home."]
     payload = {
         "schema": "dmb_candidate_graph_preview_v0", "version": "0.1",
         "preview_id": "preview:recap-semantic-test", "campaign_id": "c",
@@ -149,6 +154,59 @@ def _request(parent_bytes: bytes) -> RecapCandidateCorrectionRequest:
             replacement_description="Mira found the key under the bridge.",
         )],
     )
+
+
+def _action_request(parent_bytes: bytes) -> RecapCandidateCorrectionRequestV2:
+    return RecapCandidateCorrectionRequestV2(
+        schema="dmb_recap_candidate_correction_request_v2",
+        parent_run_id="parent", parent_candidate_sha256=_sha(parent_bytes),
+        session_action_replacements=[RecapSessionActionReplacement(
+            node_id="mira", action_index=1,
+            expected_old_text="Mira dodged the key.",
+            replacement_text="Mira found the key under the bridge.",
+        )],
+    )
+
+
+def test_v3_session_action_child_replays_and_stays_held(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    parent, parent_bytes, runs = _fixture(monkeypatch, tmp_path, actions=True)
+    original = json.loads(parent_bytes)
+    response = service.correct_recap_candidate(_action_request(parent_bytes))
+    child = runs[response.run_id]
+    assert response.schema_ == "dmb_recap_candidate_correction_response_v2"
+    assert child.lineage["derivation"] == service.DERIVATION_V2
+    assert child.lineage["semantic_disposition"]["state"] == "held"
+    assert service.verify_child_replay(child, parent, tmp_path)
+    assert (tmp_path / "parent.json").read_bytes() == parent_bytes
+    assessment = assess_recap_semantics(
+        child, parent=parent, source_revision_id=_sha((tmp_path / "source.md").read_bytes()), root=tmp_path,
+    )
+    assert assessment.marked and not assessment.accepted
+    assert RecapSemanticBasisV3.model_validate(assessment.basis).digest() == response.semantic_basis_sha256
+    candidate = json.loads((tmp_path / child.components["candidate_graph"].uri).read_text())
+    assert candidate["nodes"][0]["session_actions"] == [
+        "Mira crossed the bridge.", "Mira found the key under the bridge.", "Mira went home.",
+    ]
+    assert candidate["nodes"][0]["description"] == original["nodes"][0]["description"]
+
+
+def test_v3_replay_rejects_stale_cross_node_and_unbounded_actions() -> None:
+    parent = {"nodes": [{"node_id": "mira", "description": "old", "session_actions": ["first", "second"]}]}
+    action = {"node_id": "mira", "action_index": 1, "expected_old_text": "second", "replacement_text": "new"}
+    manifest = {"schema": service.MANIFEST_SCHEMA_V2, "node_description_replacements": [], "omitted_edge_ids": [], "session_action_replacements": [action]}
+    assert service.replay_candidate(parent, manifest)["nodes"][0]["session_actions"] == ["first", "new"]
+    assert parent["nodes"][0]["session_actions"] == ["first", "second"]
+    for bad in ({**action, "expected_old_text": "wrong"}, {**action, "action_index": 2}, {**action, "action_index": True}):
+        with pytest.raises(ValueError):
+            service.replay_candidate(parent, {**manifest, "session_action_replacements": [bad]})
+    with pytest.raises(ValueError):
+        service.replay_candidate(parent, {**manifest, "session_action_replacements": [action, action]})
+    with pytest.raises(ValueError):
+        service.replay_candidate(parent, {**manifest, "node_description_replacements": [{"node_id": "other", "original_description": "old", "replacement_description": "new"}]})
+    with pytest.raises(ValueError):
+        service.replay_candidate(parent, {**manifest, "schema": service.MANIFEST_SCHEMA})
 
 
 def test_immutable_child_replays_and_stays_held(
@@ -258,11 +316,163 @@ def test_http_route_creates_held_child_and_rejects_wrong_path(
     assert parent_bytes == (tmp_path / parent.components["candidate_graph"].uri).read_bytes()
 
 
-def test_v2_hold_and_confirm_binding_guard_world_writer(
+def test_http_v2_route_preserves_auth_and_rejects_cross_node_and_extra_patch(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    parent, parent_bytes, runs = _fixture(monkeypatch, tmp_path)
-    response = service.correct_recap_candidate(_request(parent_bytes))
+    parent, parent_bytes, runs = _fixture(monkeypatch, tmp_path, actions=True)
+    import fastapi.dependencies.utils as dependency_utils
+    import fastapi.routing as fastapi_routing
+
+    async def inline_sync(function, *args, **kwargs):
+        return function(*args, **kwargs)
+
+    monkeypatch.setattr(fastapi_routing, "run_in_threadpool", inline_sync)
+    monkeypatch.setattr(dependency_utils, "run_in_threadpool", inline_sync)
+    app = FastAPI()
+    app.include_router(routes.router)
+    app.dependency_overrides[native_graph_gm_dependency] = lambda: NativeGraphPrincipal(
+        subject="test_gm", role="gm", auth_method="local_session",
+    )
+    body = _action_request(parent_bytes).model_dump(mode="json", by_alias=True)
+    url = "/api/live/extract-promote/runs/parent/recap-candidate-corrections"
+
+    async def exercise() -> None:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            for invalid in (
+                {**body, "arbitraryPatch": {"label": "forged"}},
+                {**body, "sessionActionReplacements": [*body["sessionActionReplacements"], *body["sessionActionReplacements"]]},
+                {**body, "nodeDescriptionReplacements": [{"nodeId": "other", "originalDescription": "old", "replacementDescription": "new"}]},
+                {key: value for key, value in body.items() if key != "schema"},
+            ):
+                response = await client.post(url, json=invalid)
+                assert response.status_code == 422, response.text
+            created = await client.post(url, json=body)
+            assert created.status_code == 200, created.text
+            assert created.json()["schema"] == "dmb_recap_candidate_correction_response_v2"
+            assert created.json()["semanticState"] == "held"
+            assert created.json()["runId"] in runs
+
+    asyncio.run(exercise())
+    assert parent_bytes == (tmp_path / parent.components["candidate_graph"].uri).read_bytes()
+
+
+def test_full_app_v2_route_requires_gm_and_csrf(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import fastapi.dependencies.utils as dependency_utils
+    import fastapi.routing as fastapi_routing
+    from apps.live_control_server.main import create_app
+    from apps.live_control_server.services.agent_graph_auth import authenticate_native_graph_principal
+    from apps.live_control_server.models.extract_promote import RecapCandidateCorrectionResponseV2
+
+    async def inline_sync(function, *args, **kwargs):
+        return function(*args, **kwargs)
+
+    monkeypatch.setattr(fastapi_routing, "run_in_threadpool", inline_sync)
+    monkeypatch.setattr(dependency_utils, "run_in_threadpool", inline_sync)
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "development")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", "synthetic-local-operator-capability-32-characters")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_UI_ORIGIN", "http://127.0.0.1:5202")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_API_HOST", "127.0.0.1:8000")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_SESSION_STORE", str(tmp_path / "sessions.json"))
+    seen = []
+
+    def correct(request):
+        seen.append(request)
+        return RecapCandidateCorrectionResponseV2(
+            run_id="child", parent_run_id="parent", parent_candidate_sha256="a" * 64,
+            candidate_sha256="b" * 64, manifest_sha256="c" * 64,
+            semantic_basis_sha256="d" * 64, semantic_state="held",
+        )
+
+    monkeypatch.setattr(routes, "correct_recap_candidate", correct)
+    app = create_app()
+    body = RecapCandidateCorrectionRequestV2(
+        schema="dmb_recap_candidate_correction_request_v2",
+        parent_run_id="parent", parent_candidate_sha256="a" * 64,
+        session_action_replacements=[RecapSessionActionReplacement(
+            node_id="mira", action_index=0, expected_old_text="wrong", replacement_text="right",
+        )],
+    ).model_dump(mode="json", by_alias=True)
+    url = "/api/live/extract-promote/runs/parent/recap-candidate-corrections"
+
+    async def exercise() -> None:
+        transport = httpx.ASGITransport(app=app, client=("127.0.0.1", 50000))
+        async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:8000") as client:
+            assert (await client.post(url, json=body)).status_code == 401
+            app.dependency_overrides[authenticate_native_graph_principal] = lambda: NativeGraphPrincipal(
+                subject="player", role="player", auth_method="local_operator",
+            )
+            assert (await client.post(url, json=body)).status_code == 403
+            app.dependency_overrides.clear()
+            boot = await client.post(
+                "/api/live/agent/local-session",
+                headers={"Origin": "http://127.0.0.1:5202", "Sec-Fetch-Site": "same-origin"},
+            )
+            assert boot.status_code == 200, boot.text
+            origin = {"Origin": "http://127.0.0.1:5202"}
+            assert (await client.post(url, json=body, headers=origin)).status_code == 403
+            headers = {**origin, "X-DMB-Graph-CSRF": boot.json()["csrf_token"]}
+            assert (await client.post(url, json={**body, "schema": "dmb_recap_candidate_correction_request_v1"}, headers=headers)).status_code == 422
+            accepted = await client.post(url, json=body, headers=headers)
+            assert accepted.status_code == 200, accepted.text
+            assert accepted.json()["schema"] == "dmb_recap_candidate_correction_response_v2"
+            assert accepted.json()["semanticState"] == "held"
+
+    asyncio.run(exercise())
+    assert len(seen) == 1 and isinstance(seen[0], RecapCandidateCorrectionRequestV2)
+
+
+def test_v3_decision_dispatches_exact_basis_to_appstate_cas(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from application_state.ingest import service as ingest_service
+    from apps.live_control_server.services import source_artifact_registry
+
+    parent, parent_bytes, runs = _fixture(monkeypatch, tmp_path, actions=True)
+    response = service.correct_recap_candidate(_action_request(parent_bytes))
+    child = runs[response.run_id]
+    monkeypatch.setattr(extract_promote, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(graph_run_registry, "get_reviewable_extraction_run", lambda _root, _id: child)
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, _id: parent)
+    monkeypatch.setattr(source_artifact_registry, "get_source_artifact", lambda _root, _id: SimpleNamespace(content_sha256=_sha((tmp_path / "source.md").read_bytes())))
+    seen = []
+
+    def record(run_id, *, expected_revision, basis, decision):
+        assert isinstance(basis, RecapSemanticBasisV3)
+        assert basis.digest() == response.semantic_basis_sha256
+        seen.append((run_id, expected_revision, decision.reviewer_id))
+        decided = child.model_copy(deep=True, update={"revision": expected_revision + 1})
+        decided.lineage["semantic_disposition"] = {
+            "version": 1, "state": decision.state, "basis_sha256": basis.digest(),
+            "review_decision_ref": decision.review_decision_ref,
+            "reviewer_id": decision.reviewer_id,
+            "decided_at": "2026-10-06T00:00:00Z", "from_revision": expected_revision,
+        }
+        return decided
+
+    monkeypatch.setattr(ingest_service, "record_recap_semantic_disposition", record)
+    receipt = extract_promote.decide_recap_semantic_disposition(
+        child.run_id,
+        RecapSemanticDecisionRequest(
+            expected_revision=child.revision, candidate_sha256=response.candidate_sha256,
+            decision="accepted", review_decision_ref="review:v3",
+        ),
+        reviewer_id="gm",
+    )
+    assert receipt.state == "accepted" and receipt.basis_sha256 == response.semantic_basis_sha256
+    assert seen == [(child.run_id, child.revision, "gm")]
+
+
+@pytest.mark.parametrize("action_v2", [False, True])
+def test_v2_hold_and_confirm_binding_guard_world_writer(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, action_v2: bool
+) -> None:
+    parent, parent_bytes, runs = _fixture(monkeypatch, tmp_path, actions=action_v2)
+    request = _action_request(parent_bytes) if action_v2 else _request(parent_bytes)
+    response = service.correct_recap_candidate(request)
     child = runs[response.run_id]
     monkeypatch.setattr(extract_promote, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", service.resolve_promotable_ingest_run)
@@ -287,6 +497,9 @@ def test_v2_hold_and_confirm_binding_guard_world_writer(
     )
     assert assessment.accepted
     binding = accepted_effect_binding(child, assessment)
+    if action_v2:
+        assert binding["derivation"] == service.DERIVATION_V2
+        assert binding["manifest_schema"] == service.MANIFEST_SCHEMA_V2
     locator = str(tmp_path / child.components["candidate_graph"].uri)
     extract_promote._assert_recap_semantics_at_confirm(locator, {"effect": {EFFECT_KEY: binding}})
     with pytest.raises(extract_promote.ExtractPromoteError):

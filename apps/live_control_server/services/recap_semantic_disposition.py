@@ -24,6 +24,8 @@ from src.graph_memory.extraction.recap_extraction_profile import (
 
 DERIVATION = "operator_recap_literal_evidence_correction_v1"
 CANDIDATE_DERIVATION = "operator_recap_semantic_candidate_correction_v1"
+CANDIDATE_DERIVATION_V2 = "operator_recap_semantic_candidate_correction_v2"
+MANIFEST_SCHEMA_V2 = "dmb_recap_semantic_candidate_manifest_v2"
 DISPOSITION_VERSION = 1
 EFFECT_KEY = "recap_semantic_disposition"
 HOLD_REASON = "Corrected recap evidence awaits an explicit semantic review decision."
@@ -47,7 +49,7 @@ def _sha(value: object) -> str | None:
 
 
 def is_recap_correction(run: ExtractionRun) -> bool:
-    return run.lineage.get("derivation") in {DERIVATION, CANDIDATE_DERIVATION}
+    return run.lineage.get("derivation") in {DERIVATION, CANDIDATE_DERIVATION, CANDIDATE_DERIVATION_V2}
 
 
 @dataclass(frozen=True)
@@ -119,7 +121,11 @@ def assess_recap_semantics(
     parent_sha = _sha(parent_candidate.sha256)
     source_sha = _sha(source.sha256)
     span_sha = _sha(spans.sha256)
-    candidate_correction = lineage.get("derivation") == CANDIDATE_DERIVATION
+    candidate_v2 = lineage.get("derivation") == CANDIDATE_DERIVATION_V2
+    candidate_correction = lineage.get("derivation") in {CANDIDATE_DERIVATION, CANDIDATE_DERIVATION_V2}
+    v2_manifest = lineage.get("semantic_candidate_manifest")
+    if candidate_v2 and (not isinstance(v2_manifest, dict) or v2_manifest.get("schema") != MANIFEST_SCHEMA_V2):
+        return held()
     correction_sha = _sha(lineage.get("manifest_sha256" if candidate_correction else "correction_digest"))
     if (
         not all((child_sha, parent_sha, source_sha, span_sha, correction_sha))
@@ -139,7 +145,7 @@ def assess_recap_semantics(
         if not verify_child_replay(run, parent, root):
             return held()
     basis_fields = {
-        "schema": "dmb_recap_semantic_basis_v2" if candidate_correction else "dmb_recap_semantic_basis_v1",
+        "schema": "dmb_recap_semantic_basis_v3" if candidate_v2 else "dmb_recap_semantic_basis_v2" if candidate_correction else "dmb_recap_semantic_basis_v1",
         "parent_run_id": parent.run_id,
         "parent_candidate_sha256": parent_sha,
         "child_run_id": run.run_id,
@@ -156,6 +162,9 @@ def assess_recap_semantics(
         "session_id": run.session_id,
     }
     basis_fields["manifest_sha256" if candidate_correction else "correction_digest"] = correction_sha
+    if candidate_v2:
+        basis_fields["derivation"] = CANDIDATE_DERIVATION_V2
+        basis_fields["manifest_schema"] = MANIFEST_SCHEMA_V2
     basis = _digest(basis_fields)
     raw = lineage.get("semantic_disposition")
     if (
@@ -215,6 +224,10 @@ def accepted_effect_binding(
     }
     if run.lineage.get("derivation") == CANDIDATE_DERIVATION:
         binding["manifest_sha256"] = _sha(run.lineage.get("manifest_sha256"))
+    if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V2:
+        binding["manifest_sha256"] = _sha(run.lineage.get("manifest_sha256"))
+        binding["derivation"] = CANDIDATE_DERIVATION_V2
+        binding["manifest_schema"] = MANIFEST_SCHEMA_V2
     return binding
 
 
@@ -233,6 +246,7 @@ def assert_current_effect_binding(
 __all__ = [
     "DERIVATION",
     "CANDIDATE_DERIVATION",
+    "CANDIDATE_DERIVATION_V2",
     "DISPOSITION_VERSION",
     "EFFECT_KEY",
     "HOLD_REASON",
