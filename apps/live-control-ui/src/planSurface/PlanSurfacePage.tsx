@@ -1568,6 +1568,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       <main
         className="app-status world-owned-plan"
         data-testid="world-owned-plan"
+        data-plan-surface-identity={editorIdentity}
         aria-labelledby="world-owned-plan-title"
       >
         <h1 id="world-owned-plan-title" className="sr-only">

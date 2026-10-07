@@ -500,12 +500,14 @@ it("opens exact managed World Graph references from Document and Cards without c
   expect(documentReference.isConnected).toBe(true);
   expect(document.querySelector(".world-plan-agent-conversation")).toBe(agentConversation);
   expect(agentConversation?.textContent).toBe(conversationText);
-  fireEvent.click(within(inspector).getByRole("button", { name: "Close Ironveil Warehouse" }));
-  await waitFor(() => expect(documentReference).toHaveFocus());
-
-  fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
+  const cardsTab = within(page).getByRole("button", { name: "Cards" });
+  fireEvent.click(cardsTab);
   const cards = await screen.findByTestId("world-plan-cards");
   expect(documentReference.closest(".world-plan-document-view")).toHaveAttribute("hidden");
+  fireEvent.click(within(inspector).getByRole("button", { name: "Close Ironveil Warehouse" }));
+  await waitFor(() => expect(cardsTab).toHaveFocus());
+  expect(documentReference).not.toHaveFocus();
+
   expect(cards).toHaveTextContent("Read Ironveil Warehouse before entering.");
   const cardReference = await within(cards).findByRole("button", { name: "Ironveil Warehouse" });
   expect(cardReference).not.toHaveFocus();
@@ -527,6 +529,20 @@ it("opens exact managed World Graph references from Document and Cards without c
   expect(restoredCardReference).not.toBe(cardReference);
   await waitFor(() => expect(restoredCardReference).toHaveFocus());
   expect(documentReference).not.toHaveFocus();
+
+  fireEvent.click(restoredCardReference);
+  const reverseInspector = await screen.findByRole("dialog", { name: "World Graph object" });
+  fireEvent.click(await within(reverseInspector).findByRole("button", { name: "Read source" }));
+  expect(await screen.findByRole("dialog", { name: "Pinned source passage" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Back to World Graph object" }));
+  expect(await screen.findByRole("dialog", { name: "World Graph object" })).toBeInTheDocument();
+  const documentTab = within(page).getByRole("button", { name: "Document" });
+  fireEvent.click(documentTab);
+  expect(screen.getByTestId("world-plan-document-view")).not.toHaveAttribute("hidden");
+  fireEvent.click(within(reverseInspector).getByRole("button", { name: "Close Ironveil Warehouse" }));
+  await waitFor(() => expect(documentTab).toHaveFocus());
+  expect(restoredCardReference).not.toHaveFocus();
+  expect(screen.queryByTestId("world-plan-cards")).not.toBeInTheDocument();
   expect(save).not.toHaveBeenCalled();
   expect(prepare).not.toHaveBeenCalled();
 });

@@ -149,6 +149,8 @@ export function WorldPlanGraphReferenceActivationProvider({
   requestRef.current = request;
   const triggerRef = useRef<HTMLElement | null>(null);
   const triggerScopeRef = useRef<HTMLElement | null>(null);
+  const triggerPageRef = useRef<HTMLElement | null>(null);
+  const triggerPageIdentityRef = useRef<string | null>(null);
   const triggerNodeIdRef = useRef<string | null>(null);
   const triggerOrdinalRef = useRef<number>(0);
   const triggerOwnerWorldIdRef = useRef<string | null>(null);
@@ -179,6 +181,9 @@ export function WorldPlanGraphReferenceActivationProvider({
         ".world-plan-cards, .world-plan-document-view",
       ) ?? null;
       triggerScopeRef.current = scope;
+      const page = scope?.closest<HTMLElement>(".world-owned-plan") ?? null;
+      triggerPageRef.current = page;
+      triggerPageIdentityRef.current = page?.dataset.planSurfaceIdentity ?? null;
       triggerNodeIdRef.current = nodeId;
       const matchingReferences = scope
         ? Array.from(scope.querySelectorAll<HTMLElement>("button.recap-node-token[data-graph-node-id]"))
@@ -259,13 +264,24 @@ export function WorldPlanGraphReferenceActivationProvider({
       const triggerOwnerWorldId = triggerOwnerWorldIdRef.current;
       if (triggerOwnerWorldId !== worldId) return;
       let trigger = triggerRef.current;
-      if (!trigger?.isConnected) {
-        const scope = triggerScopeRef.current;
-        const isHidden = Boolean(scope?.closest("[hidden]")) || scope?.getAttribute("aria-hidden") === "true";
-        if (scope?.isConnected && !isHidden && triggerNodeIdRef.current) {
+      const scope = triggerScopeRef.current;
+      if (!scope) {
+        if (!trigger?.isConnected) trigger = null;
+      } else if (scope.isConnected && !scope.closest("[hidden]") && scope.getAttribute("aria-hidden") !== "true") {
+        if (!trigger?.isConnected && scope && triggerNodeIdRef.current) {
           const matchingReferences = Array.from(scope.querySelectorAll<HTMLElement>("button.recap-node-token[data-graph-node-id]"))
             .filter((candidate) => candidate.dataset.graphNodeId === triggerNodeIdRef.current)
           trigger = matchingReferences[triggerOrdinalRef.current] ?? null;
+        }
+      } else {
+        const page = triggerPageRef.current;
+        const pageIdentity = triggerPageIdentityRef.current;
+        if (page?.isConnected && pageIdentity && page.dataset.planSurfaceIdentity === pageIdentity) {
+          trigger = page.querySelector<HTMLElement>(
+            '.world-plan-view-switch button[aria-pressed="true"]',
+          );
+        } else {
+          trigger = null;
         }
       }
       window.setTimeout(() => {
