@@ -3,6 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
+        ResolvedSourceAnchorReadV2,
+    )
 
 from apps.live_control_server.config import (
     WorldGraphAuthorityConfigurationError,
@@ -197,11 +203,34 @@ def read_source_anchor(
         raise _map_direct_error(exc) from None
 
 
+def read_source_anchor_internal_v2(
+    request: WorldGraphSourceAnchorReadRequest,
+    *,
+    root: Path | None = None,
+    repo_root: Path | None = None,
+) -> "ResolvedSourceAnchorReadV2":
+    """Return the authoritative revision alongside the unchanged V1 read view."""
+    _require_mounted_native_read(root)
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as direct,
+    )
+
+    try:
+        return direct.read_source_anchor_direct_v2(
+            direct.direct_services_from_config(request.world_id),
+            request,
+            repo_root=_resolved_repo_root(root=root, repo_root=repo_root),
+        )
+    except direct.DirectWorldGraphReadError as exc:
+        raise _map_direct_error(exc) from None
+
+
 __all__ = [
     "WorldGraphRetrievalServiceError",
     "get_campaign_object",
     "get_object_evidence",
     "get_object_neighborhood",
     "read_source_anchor",
+    "read_source_anchor_internal_v2",
     "search_campaign_graph",
 ]

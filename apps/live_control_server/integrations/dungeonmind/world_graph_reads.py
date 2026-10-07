@@ -2398,12 +2398,79 @@ def read_source_anchor_direct(
     repo_root: Path,
 ) -> WorldGraphSourceAnchorReadResult:
     """Opaque anchor revalidation (DungeonMind) + product-local content join."""
+    return _read_source_anchor_resolved(services, request, repo_root=repo_root).result
+
+
+@dataclass(frozen=True)
+class ResolvedSourceAnchorReadV2:
+    """Internal binding from the same authoritative resolution and content read."""
+
+    result: WorldGraphSourceAnchorReadResult
+    source_revision_id: str | None
+    source_revision_sha256: str | None
+    evidence_ref_id: str | None
+    source_artifact_id: str | None
+    source_span_ref_id: str | None
+    locator_kind: str | None
+    locator_identity: str | None
+    graph_revision: str | None
+
+
+def read_source_anchor_direct_v2(
+    services: DirectWorldGraphReadServices,
+    request: WorldGraphSourceAnchorReadRequest,
+    *,
+    repo_root: Path,
+) -> ResolvedSourceAnchorReadV2:
+    """Internal-only revision binding; the public V1 result stays unchanged."""
+    return _read_source_anchor_resolved(services, request, repo_root=repo_root)
+
+
+def _read_source_anchor_resolved(
+    services: DirectWorldGraphReadServices,
+    request: WorldGraphSourceAnchorReadRequest,
+    *,
+    repo_root: Path,
+) -> ResolvedSourceAnchorReadV2:
     try:
         dnd_request = _map_retrieval_context(request, services.binding)
         resolution = services.retrieval.resolve_source_anchor(
             dnd_request, anchor_id=_dnd_anchor_id(request.anchor_id)
         )
-        return _anchor_read_view(services, resolution, request=request, repo_root=repo_root)
+        revision_id = (
+            resolution.anchor.source_revision_id
+            if resolution.found and resolution.anchor is not None else None
+        )
+        anchor = resolution.anchor if resolution.found else None
+        revision_digest = (
+            _source_revision_digest(services, revision_id)
+            if resolution.found and resolution.anchor is not None
+            and resolution.anchor.can_open_source
+            and _classify_locator_kind(resolution.anchor) != "unsupported"
+            else None
+        )
+        return ResolvedSourceAnchorReadV2(
+            result=_anchor_read_view(
+                services, resolution, request=request, repo_root=repo_root,
+                revision_digest=revision_digest,
+            ),
+            source_revision_id=revision_id,
+            source_revision_sha256=revision_digest,
+            evidence_ref_id=anchor.evidence_ref_id if anchor is not None else None,
+            source_artifact_id=(
+                anchor.source_artifact_id if anchor is not None else None
+            ),
+            source_span_ref_id=(
+                _product_source_span_ref_id(anchor) if anchor is not None else None
+            ),
+            locator_kind=(
+                _classify_locator_kind(anchor) if anchor is not None else None
+            ),
+            locator_identity=(
+                anchor.locator_identity if anchor is not None else None
+            ),
+            graph_revision=resolution.snapshot.revision_id,
+        )
     except Exception as exc:  # noqa: BLE001
         raise _map_direct_error(exc) from exc
 
@@ -2481,6 +2548,7 @@ def _read_admitted_repo_span(
     request: WorldGraphSourceAnchorReadRequest,
     repo_root: Path,
     base: dict[str, Any],
+    revision_digest: str | None = None,
 ) -> WorldGraphSourceAnchorReadResult:
     """Digest-pinned recap/other repo:// span join after DungeonMind revalidation.
 
@@ -2493,7 +2561,10 @@ def _read_admitted_repo_span(
     uri = getattr(anchor.artifact, "uri", None) or ""
     relative_path = parse_repo_uri(uri)
     span_id = (_product_source_span_ref_id(anchor) or "").strip()
-    digest = _source_revision_digest(services, anchor.source_revision_id)
+    digest = (
+        revision_digest if revision_digest is not None
+        else _source_revision_digest(services, anchor.source_revision_id)
+    )
     expected = (digest or "").removeprefix("sha256:").strip().lower()
     if relative_path is None or not span_id or not expected:
         return _unavailable_anchor_result(
@@ -2560,6 +2631,7 @@ def _anchor_read_view(
     *,
     request: WorldGraphSourceAnchorReadRequest,
     repo_root: Path,
+    revision_digest: str | None,
 ) -> WorldGraphSourceAnchorReadResult:
     snapshot = _retrieval_snapshot_view(
         resolution.snapshot, focus=request.focus.to_projection_focus()
@@ -2620,7 +2692,7 @@ def _anchor_read_view(
                 read_admitted_worldbuilding_span,
             )
 
-            digest = _source_revision_digest(services, anchor.source_revision_id)
+            digest = revision_digest
             try:
                 return read_admitted_worldbuilding_span(
                     root=repo_root,
@@ -2652,8 +2724,9 @@ def _anchor_read_view(
             request=request,
             repo_root=repo_root,
             base=base,
+            revision_digest=revision_digest,
         )
-    digest = _source_revision_digest(services, anchor.source_revision_id)
+    digest = revision_digest
     if digest is None:
         raise DirectWorldGraphReadError(
             "Source artifact is missing a revision-bound content digest.",

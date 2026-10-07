@@ -489,7 +489,10 @@ def execute_read_graph_source(
     arguments: Mapping[str, Any],
     *,
     root: Path | None = None,
+    receipt_version: Literal[1, 2] = 1,
 ) -> dict[str, Any]:
+    if receipt_version not in (1, 2):
+        raise ValueError("unsupported internal source-read receipt version")
     try:
         request = ReadGraphSourceRequest.model_validate(
             _normalize_interaction_arguments(arguments)
@@ -507,10 +510,10 @@ def execute_read_graph_source(
     admitted = {anchor.anchor_id: anchor for anchor in session.source_anchors}
     focus = _focus_for_request(session.snapshot.focus)
     reads: list[dict[str, Any]] = []
+    internal_reads: list[dict[str, Any]] = []
     for anchor_id in request.anchor_ids:
         if anchor_id not in admitted:
-            reads.append(
-                {
+            denied_read = {
                     "schema": "dmb_world_graph_source_anchor_read_v1",
                     "outcome": "denied",
                     "anchorId": anchor_id,
@@ -522,7 +525,11 @@ def execute_read_graph_source(
                         }
                     ],
                 }
-            )
+            reads.append(denied_read)
+            if receipt_version == 2:
+                internal_reads.append({
+                    "sourceReadId": None, "result": denied_read, "receipt": None,
+                })
             continue
         try:
             read_req = WorldGraphSourceAnchorReadRequest.model_validate(
@@ -533,10 +540,16 @@ def execute_read_graph_source(
                     "maxChars": request.max_chars,
                 }
             )
-            result = retrieval_service.read_source_anchor(read_req, root=root)
+            resolved = (
+                retrieval_service.read_source_anchor_internal_v2(read_req, root=root)
+                if receipt_version == 2 else None
+            )
+            result = (
+                resolved.result if resolved is not None
+                else retrieval_service.read_source_anchor(read_req, root=root)
+            )
         except WorldGraphRetrievalServiceError as exc:
-            reads.append(
-                {
+            failed_read = {
                     "schema": "dmb_world_graph_retrieval_error_v1",
                     "code": getattr(exc, "code", None) or "world_graph_retrieval_error",
                     "message": str(exc),
@@ -551,14 +564,92 @@ def execute_read_graph_source(
                         }
                     ],
                 }
-            )
+            reads.append(failed_read)
+            if receipt_version == 2:
+                internal_reads.append({
+                    "sourceReadId": None, "result": failed_read, "receipt": None,
+                })
             continue
         result_dict = result.model_dump(mode="json", by_alias=True)
-        reads.append(result_dict)
         source_read_id = f"source-read:{uuid.uuid4().hex[:12]}"
         opened = result_dict.get("outcome") in {"enough", "partial", "truncated"} and (
             result_dict.get("content") is not None
         )
+        receipt_v2 = None
+        if receipt_version == 2 and opened:
+            from graph_memory.interaction.session import SourceReadReceiptV2
+
+            snapshot = result.snapshot
+            source_digest = str(
+                resolved.source_revision_sha256 if resolved is not None else ""
+            ).removeprefix("sha256:").lower()
+            read_digest = str(result.content_sha256 or "").removeprefix("sha256:").lower()
+            if (
+                resolved is None or snapshot is None
+                or snapshot.world_id != session.snapshot.world_id
+                or snapshot.campaign_id != session.snapshot.campaign_id
+                or snapshot.revision_id != session.snapshot.revision_id
+                or resolved.graph_revision != session.snapshot.revision_id
+                or result.anchor_id != anchor_id
+                or not result.evidence_ref_id
+                or result.evidence_ref_id != resolved.evidence_ref_id
+                or not result.source_artifact_id
+                or result.source_artifact_id != resolved.source_artifact_id
+                or result.source_span_ref_id != resolved.source_span_ref_id
+                or resolved.locator_kind not in {"source_span", "heading", "json_pointer"}
+                or result.locator_kind != resolved.locator_kind
+                or not resolved.locator_identity
+                or (
+                    resolved.locator_kind == "source_span"
+                    and not result.source_span_ref_id
+                )
+                or not resolved.source_revision_id
+                or not resolved.source_revision_sha256
+                or not result.content_sha256
+                or len(source_digest) != 64
+                or any(character not in "0123456789abcdef" for character in source_digest)
+                or len(read_digest) != 64
+                or any(character not in "0123456789abcdef" for character in read_digest)
+                or (resolved.locator_kind != "json_pointer" and read_digest != source_digest)
+            ):
+                result_dict = {
+                    "schema": "dmb_world_graph_retrieval_error_v1",
+                    "code": "source_receipt_unverifiable",
+                    "message": "The admitted source read has no verifiable binding.",
+                    "statusCode": 409,
+                    "anchorId": anchor_id,
+                    "diagnostics": [],
+                }
+                opened = False
+            else:
+                receipt_v2 = SourceReadReceiptV2(
+                    source_read_id=source_read_id,
+                    retrieval_session_id=session.id,
+                    graph_revision=snapshot.revision_id,
+                    anchor_id=anchor_id,
+                    evidence_ref_id=result.evidence_ref_id,
+                    source_artifact_id=result.source_artifact_id,
+                    source_revision_id=resolved.source_revision_id,
+                    source_revision_sha256=resolved.source_revision_sha256,
+                    source_span_ref_id=result.source_span_ref_id,
+                    locator_kind=resolved.locator_kind,
+                    locator_identity=resolved.locator_identity,
+                    outcome=result.outcome,
+                    read_content_sha256=result.content_sha256,
+                    line_start=result.line_start,
+                    line_end=result.line_end,
+                    truncated=result.truncated,
+                )
+        reads.append(result_dict)
+        if receipt_version == 2:
+            internal_reads.append({
+                "sourceReadId": source_read_id,
+                "result": result_dict,
+                "receipt": (
+                    receipt_v2.model_dump(mode="json", by_alias=True)
+                    if receipt_v2 is not None else None
+                ),
+            })
         session.source_reads.append(
             SourceReadEntry(
                 source_read_id=source_read_id,
@@ -577,6 +668,7 @@ def execute_read_graph_source(
                     if result_dict.get("sourceArtifactId") is None
                     else str(result_dict.get("sourceArtifactId"))
                 ),
+                receipt_v2=receipt_v2,
             )
         )
         for anchor in session.source_anchors:
@@ -601,6 +693,12 @@ def execute_read_graph_source(
         )
 
     replace_session(session)
+    if receipt_version == 2:
+        return {
+            "schema": "dmb_internal_read_graph_source_batch_v2",
+            "retrievalSessionId": session.id,
+            "reads": internal_reads,
+        }
     if len(reads) == 1:
         return {**reads[0], "retrievalSessionId": session.id}
     return {
