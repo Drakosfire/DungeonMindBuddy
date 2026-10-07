@@ -564,7 +564,7 @@ def _restore_v2_retry_bootstrap(
     execution = turn.graph_context_execution
     if not isinstance(execution, graph_types.PlanWorldGraphExecutionV2):
         # A legacy frozen execution cannot gain the V2 source tool on replay.
-        return replace(bootstrap, source_scope_anchors=())
+        return replace(bootstrap, source_scope_anchors=(), source_index_commitment=None)
     receipt = turn.graph_context_receipt
     scope = execution.policy.source_read_scope
     if (
@@ -677,6 +677,37 @@ def _freeze_policy_receipt(
         bootstrap,
     )
     assertions, relationships, evidence = _initial_packet_membership(packet, bootstrap)
+    index_commitment = bootstrap.source_index_commitment
+    selection_policy = (
+        "parent_initial_retrieval_with_bounded_source_index_v1"
+        if index_commitment is not None else "parent_initial_retrieval_v1"
+    )
+    if index_commitment is not None:
+        if (
+            index_commitment.get("schema")
+            != "dmb_bounded_source_anchor_index_commitment_v1"
+            or index_commitment.get("world_id") != bootstrap.world_scope.world_id
+            or index_commitment.get("graph_revision")
+            != bootstrap.world_scope.revision_id
+            or index_commitment.get("status") != "complete"
+            or index_commitment.get("max_entries") != 512
+            or index_commitment.get("eligible_count") != len(bootstrap.source_scope_anchors)
+            or index_commitment.get("source_pins")
+            != list(bootstrap.source_scope_anchors)
+        ):
+            raise AgentTurnServiceError(
+                "The bounded source index differs from the frozen source scope.",
+                code="graph_evidence_invalid", status_code=502,
+                provider_dispatched=False,
+            )
+        retrieval_packet_sha256 = _canonical_sha256({
+            "schema": "dmb_plan_retrieval_composite_v1",
+            "selection_policy_version": selection_policy,
+            "initial_claim_packet": packet,
+            "source_index": index_commitment,
+        })
+    else:
+        retrieval_packet_sha256 = _canonical_sha256(packet)
     basis = work.content_basis
     if basis is None or request.plan_context_policy is None:
         raise AgentTurnServiceError(
@@ -718,9 +749,9 @@ def _freeze_policy_receipt(
             },
             "graph_packet": {
                 "packet_serializer_version": "canonical-json-utf8-v1",
-                "selection_policy_version": "parent_initial_retrieval_v1",
+                "selection_policy_version": selection_policy,
                 "evidence_sufficiency_policy_version": "accepted_fact_with_evidence_v1",
-                "retrieval_packet_sha256": _canonical_sha256(packet),
+                "retrieval_packet_sha256": retrieval_packet_sha256,
                 "candidate_assertion_ids": list(bootstrap.candidate_assertion_ids),
                 "candidate_relationship_ids": list(bootstrap.candidate_relationship_ids),
                 "candidate_evidence_ref_ids": list(bootstrap.candidate_evidence_ref_ids),
@@ -882,6 +913,7 @@ class AgentPlanWorldGraphBootstrap:
     candidate_evidence_ref_ids: tuple[str, ...]
     evidence_by_anchor_id: Mapping[str, str]
     source_scope_anchors: tuple[Mapping[str, str], ...] = ()
+    source_index_commitment: Mapping[str, Any] | None = None
 
 
 OwnerResolver = Callable[[AgentTurnRequest], Mapping[str, Any] | None]
