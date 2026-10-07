@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 
 import { getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlanDocumentEditProposal, connectNativeGraphSession, revokeNativeGraphSession, isValidWorldPlanGraphContextFailure, LiveApiError } from "../../api/liveApi";
@@ -1583,6 +1583,7 @@ export function WorldPlanAgentConversation({
     planReady,
     saveInFlight,
   });
+  const committedPlanVersionKey = JSON.stringify([verifiedWorldId, documentId, revision]);
   const askPresentationFenceKey = JSON.stringify({
     requestFenceKey,
     playableTarget: playableTarget ? {
@@ -1639,6 +1640,11 @@ export function WorldPlanAgentConversation({
   const [newConversationSending, setNewConversationSending] = useState(false);
   const [newConversationError, setNewConversationError] = useState<string | null>(null);
   const [conversationNotice, setConversationNotice] = useState<string | null>(null);
+  const [savedPlanVersion, setSavedPlanVersion] = useState<{
+    key: string;
+    revisionN: number | null;
+    status: "checking" | "verified" | "unavailable";
+  } | null>(null);
   const [editReview, setEditReview] = useState<WorldPlanEditReview | null>(null);
   const [sectionTargets, setSectionTargets] = useState<PlanSectionOption[]>([]);
   const [selectedSectionTargetId, setSelectedSectionTargetId] = useState("");
@@ -1738,6 +1744,32 @@ export function WorldPlanAgentConversation({
     documentId: agent.scope.documentId ?? null,
   } : null;
   latestRef.current.askVisible = Boolean(askSlot?.hostElement && agent.paneState.isOpen);
+
+  useEffect(() => {
+    if (!agent.paneState.isOpen) return;
+    let active = true;
+    setSavedPlanVersion({ key: committedPlanVersionKey, revisionN: null, status: "checking" });
+    if (!scopeMatches || !verifiedWorldId || !documentId || !isPositiveRevision(revision)) {
+      setSavedPlanVersion({ key: committedPlanVersionKey, revisionN: null, status: "unavailable" });
+      return () => { active = false; };
+    }
+
+    void getWorldOwnedPlanCommittedRevision(documentId)
+      .then((value: unknown) => {
+        if (!active) return;
+        const basis = readCommittedPlanBasis(value, verifiedWorldId, documentId, revision);
+        setSavedPlanVersion({
+          key: committedPlanVersionKey,
+          revisionN: basis?.revision_n ?? null,
+          status: basis ? "verified" : "unavailable",
+        });
+      })
+      .catch(() => {
+        if (active) setSavedPlanVersion({ key: committedPlanVersionKey, revisionN: null, status: "unavailable" });
+      });
+
+    return () => { active = false; };
+  }, [agent.paneState.isOpen, committedPlanVersionKey, documentId, revision, scopeMatches, verifiedWorldId]);
 
   useLayoutEffect(() => {
     latestRef.current.mounted = true;
@@ -2381,7 +2413,7 @@ export function WorldPlanAgentConversation({
   function graphContextStatusLabel(status: WorldPlanGraphAnswerContextStatusV1): string {
     switch (status) {
       case "graph_grounded":
-        return "Grounded in complete World Graph evidence.";
+        return "Grounded in World Graph evidence.";
       case "graph_grounded_partial":
         return "Partially grounded in World Graph evidence; coverage was incomplete.";
       case "plan_only_insufficient_evidence":
@@ -2946,7 +2978,7 @@ export function WorldPlanAgentConversation({
   if (!documentId) {
     return <p className="world-plan-agent-draft-note" role="status">Save this Plan to start an Agent conversation.</p>;
   }
-  if (!planReady || !askSlot?.hostElement || !agent.paneState.isOpen || !scopeMatches) return null;
+  if (!planReady || !askSlot?.hostElement || !scopeMatches) return null;
 
   const currentReviewBefore = editReview ? worldPlanEditReviewBefore(editReview.captured) : null;
   const currentReview = editReview
@@ -2968,6 +3000,20 @@ export function WorldPlanAgentConversation({
     && (historyLoading || !history || Boolean(historyError)));
   const messageLimit = composerIntent === "discuss" ? 8000 : 4000;
   const messageTooLong = composerMessage.length > messageLimit;
+  const displayedSavedPlanVersion = savedPlanVersion?.key === committedPlanVersionKey
+    ? savedPlanVersion
+    : null;
+
+  function handleComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key !== "Enter" || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+    if (composerBusy || requestRef.current !== null || proposalRequestRef.current !== null) return;
+
+    event.preventDefault();
+    if (!composerMessage.trim() || messageTooLong
+      || (composerIntent === "discuss" && playableTargetStale)) return;
+    event.currentTarget.form?.requestSubmit();
+  }
   const localProposalPositionsByTurnId = new Map(
     (proposalOrderForDisplay?.positions ?? []).map((position) => [position.turnId, position]),
   );
@@ -3042,7 +3088,35 @@ export function WorldPlanAgentConversation({
       <header className="world-plan-agent-conversation__header">
         <div>
           <h2>Plan conversation</h2>
-          <p>{worldName} · Saved Plan</p>
+          <p>{worldName} · {displayedSavedPlanVersion?.status === "verified"
+            ? `Saved Plan · version ${displayedSavedPlanVersion.revisionN}`
+            : displayedSavedPlanVersion?.status === "unavailable"
+              ? "Saved Plan version unavailable"
+              : "Checking saved Plan version…"}</p>
+          <div className="world-plan-agent-conversation__header-context" aria-label="Current Plan context">
+            {playableTarget ? (
+              <div role="group" aria-label="Selected Playable card for Ask" className="world-plan-agent-conversation__target-chip">
+                <span>Ask target · {playableTarget.kind} {playableTarget.id}</span>
+                <button type="button" onClick={onClearPlayableTarget}>Clear Ask target</button>
+              </div>
+            ) : <span>Ask target · whole Plan</span>}
+            {playableEditTarget ? (
+              <div role="group" aria-label="Selected Playable card for edit" className="world-plan-agent-conversation__target-chip">
+                <span>Edit target · {playableEditTarget.kind} {playableEditTarget.id}</span>
+                <button type="button" onClick={onClearPlayableEditTarget}>Clear edit target</button>
+              </div>
+            ) : <span>Edit target · editor context</span>}
+          </div>
+          {playableTargetStale ? (
+            <p className="world-plan-agent-conversation__target-warning" role="alert">
+              The Ask target is stale. Select it again or clear the target before asking.
+            </p>
+          ) : null}
+          {playableEditTargetStale ? (
+            <p className="world-plan-agent-conversation__target-warning" role="alert">
+              The edit target is stale. Select it again before composing a proposal.
+            </p>
+          ) : null}
         </div>
         <div className="world-plan-agent-conversation__actions">
           <button type="button" aria-expanded={settingsOpen} aria-controls="world-plan-agent-settings" onClick={() => setSettingsOpen((open) => !open)}>
@@ -3078,34 +3152,6 @@ export function WorldPlanAgentConversation({
       </p>
       {saveInFlight ? (
         <p className="world-plan-agent-conversation__saving" role="status">Conversation paused while the Plan is saving.</p>
-      ) : null}
-      {playableTarget ? (
-        <section role="group" aria-label="Selected Playable card for Ask">
-          <h3>Selected card for Ask</h3>
-          <p><code>{playableTarget.kind} · {playableTarget.id}</code></p>
-          {playableTargetBasis ? (
-            <p>Committed Plan revision {playableTargetBasis.revision} · SHA-256 <code>{playableTargetBasis.contentSha256}</code></p>
-          ) : null}
-          <p role="note">Ask uses the committed Plan revision; unsaved edits are not included.</p>
-          {playableTargetStale ? (
-            <p role="alert">This card is stale or no longer uniquely matches the committed Plan. Select a card again or clear the target before asking.</p>
-          ) : null}
-          <button type="button" onClick={onClearPlayableTarget}>Clear selected card</button>
-        </section>
-      ) : null}
-      {playableEditTarget ? (
-        <section role="group" aria-label="Selected Playable card for edit">
-          <h3>Selected card for edit</h3>
-          <p><code>{playableEditTarget.kind} · {playableEditTarget.id}</code></p>
-          <p role={playableEditTargetStale ? "alert" : "note"}>
-            {playableEditTargetStale
-              ? "This card is stale or no longer unique in the current draft. Select it again before composing."
-              : playableEditTargetDirty
-                ? "This proposal uses the unsaved Plan draft. Apply changes only the mounted draft; Save remains separate."
-                : "This proposal uses the current Plan draft. Apply changes only the mounted draft; Save remains separate."}
-          </p>
-          <button type="button" onClick={onClearPlayableEditTarget}>Clear edit target</button>
-        </section>
       ) : null}
       <section className="world-plan-agent-conversation__turns" aria-label="World conversation transcript" aria-live="polite">
         <h3>Conversation</h3>
@@ -3272,6 +3318,24 @@ export function WorldPlanAgentConversation({
       <details className="world-plan-agent-conversation__advanced">
         <summary>Advanced details</summary>
         <div className="world-plan-agent-conversation__advanced-content">
+          {playableTarget ? (
+            <section aria-label="Ask target details">
+              <h3>Ask source</h3>
+              <p>Ask uses the committed Plan. Unsaved editor changes are excluded; the selected card identifies the Ask target.</p>
+              {playableTargetBasis ? (
+                <p>Card basis · object revision {playableTargetBasis.revision} · SHA-256 <code>{playableTargetBasis.contentSha256}</code></p>
+              ) : <p>The selected card basis is still being verified.</p>}
+            </section>
+          ) : null}
+          {playableEditTarget ? (
+            <section aria-label="Edit target details">
+              <h3>Edit source</h3>
+              <p>
+                This proposal uses the {playableEditTargetDirty ? "unsaved Plan draft" : "current Plan draft"}.
+                Apply changes only the mounted draft; Save keeps the changes.
+              </p>
+            </section>
+          ) : null}
           <button
             type="button"
             aria-pressed={traceVisible}
@@ -3433,6 +3497,7 @@ export function WorldPlanAgentConversation({
               id="world-plan-agent-message"
               value={composerMessage}
               onChange={(event) => setComposerMessage(event.currentTarget.value)}
+              onKeyDown={handleComposerKeyDown}
               maxLength={messageLimit}
               disabled={composerBusy}
               placeholder={composerIntent === "discuss" ? "Ask about this Plan…" : "Describe the change you want…"}
@@ -3463,7 +3528,7 @@ export function WorldPlanAgentConversation({
       ) : (
         <form className="world-plan-agent-conversation__composer" onSubmit={submitComposer}>
           <label htmlFor="world-plan-agent-message">Message DungeonBuddy</label>
-          <textarea id="world-plan-agent-message" value={composerMessage} onChange={(event) => setComposerMessage(event.currentTarget.value)} maxLength={8000} disabled={composerBusy} />
+          <textarea id="world-plan-agent-message" value={composerMessage} onChange={(event) => setComposerMessage(event.currentTarget.value)} onKeyDown={handleComposerKeyDown} maxLength={8000} disabled={composerBusy} />
           <label className="world-plan-agent-conversation__graph-context-opt-in">
             <input
               type="checkbox"

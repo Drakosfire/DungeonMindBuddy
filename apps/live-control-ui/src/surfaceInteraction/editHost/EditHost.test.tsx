@@ -150,6 +150,27 @@ describe("EditHost", () => {
     expect(screen.queryByRole("button", { name: "Close Edit" })).not.toBeInTheDocument();
   });
 
+  it("keeps Plan Edit closed by default while other dock surfaces stay open", () => {
+    const planPublication = makePublication({
+      surfaceId: "plan",
+      identity: buildSurfaceInteractionIdentity({ surfaceId: "plan", instanceParts: ["edit-host"] }),
+      editCommands: [makeEdit({ id: "save", label: "Save" })],
+    });
+
+    const planView = renderEditHost(<Publisher publication={planPublication} />, { layout: "dock" });
+    expect(screen.getByRole("button", { name: "Edit" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: "Close Edit" })).not.toBeInTheDocument();
+    planView.unmount();
+
+    const buildPublication = makePublication({
+      surfaceId: "build",
+      identity: buildSurfaceInteractionIdentity({ surfaceId: "build", instanceParts: ["edit-host"] }),
+      editCommands: [makeEdit({ id: "save", label: "Save" })],
+    });
+    renderEditHost(<Publisher publication={buildPublication} />, { layout: "dock" });
+    expect(screen.getByRole("button", { name: "Close Edit" })).toBeInTheDocument();
+  });
+
   it("exposes aria-pressed and disabled reasons from contribution fields", async () => {
     const user = userEvent.setup();
     const publication = makePublication({

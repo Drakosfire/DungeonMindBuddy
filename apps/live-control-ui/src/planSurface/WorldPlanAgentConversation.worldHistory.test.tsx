@@ -893,6 +893,7 @@ interface ConversationTestProps {
   playableTarget?: { kind: "scene" | "beat" | "choice" | "option"; id: string } | null;
   playableEditTarget?: { kind: "scene" | "beat" | "choice" | "option"; id: string; generation: number } | null;
   playableEditTargetGeneration?: number;
+  playableEditTargetDirty?: boolean;
   playableEditTargetStale?: boolean;
   playableTargetBasis?: { revision: number; contentSha256: string } | null;
   playableTargetStale?: boolean;
@@ -924,6 +925,7 @@ function conversationElement(props: ConversationTestProps = {}) {
       playableTarget={playableTarget}
       playableEditTarget={props.playableEditTarget}
       playableEditTargetGeneration={props.playableEditTargetGeneration}
+      playableEditTargetDirty={props.playableEditTargetDirty ?? false}
       playableEditTargetStale={props.playableEditTargetStale ?? false}
       playableTargetBasis={playableTargetBasis}
       playableTargetStale={props.playableTargetStale ?? false}
@@ -1295,13 +1297,68 @@ afterEach(() => {
 });
 
 describe("World Plan conversation consumer", () => {
+  it("shows the verified content version and keeps Ask and Edit targets distinct", async () => {
+    setupApi(history("conversation-a", 1, []));
+    render(conversationElement({
+      playableTarget: { kind: "scene", id: "scene:arrival" },
+      playableEditTarget: { kind: "choice", id: "choice:retreat", generation: 2 },
+      playableEditTargetDirty: true,
+    }));
+
+    const header = document.querySelector(".world-plan-agent-conversation__header")!;
+    expect(await within(header).findByText(/Saved Plan · version 1/)).toBeInTheDocument();
+    expect(header).not.toHaveTextContent("version 7");
+    expect(within(header).getByText("Ask target · scene scene:arrival")).toBeInTheDocument();
+    expect(within(header).getByText("Edit target · choice choice:retreat")).toBeInTheDocument();
+    expect(within(header).getByRole("button", { name: "Clear Ask target" })).toBeInTheDocument();
+    expect(within(header).getByRole("button", { name: "Clear edit target" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Advanced details"));
+    expect(screen.getByRole("region", { name: "Ask target details" })).toHaveTextContent(
+      "Ask uses the committed Plan. Unsaved editor changes are excluded",
+    );
+    expect(screen.getByRole("region", { name: "Edit target details" })).toHaveTextContent(
+      "This proposal uses the unsaved Plan draft. Apply changes only the mounted draft; Save keeps the changes.",
+    );
+  });
+
+  it("submits on plain Enter, preserves newline and IME keys, and blocks a duplicate while busy", async () => {
+    const api = setupApi(history("conversation-a", 4, []));
+    let releaseResponse: ((response: any) => void) | null = null;
+    const response = new Promise<any>((resolve) => { releaseResponse = resolve; });
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockReturnValue(response);
+    render(conversationElement());
+    await screen.findByText(/No messages here yet/);
+    const textarea = screen.getByLabelText("Message DungeonBuddy");
+    fireEvent.change(textarea, { target: { value: "What happens at the opening?" } });
+
+    expect(fireEvent.keyDown(textarea, { key: "Enter", code: "Enter", shiftKey: true })).toBe(true);
+    expect(fireEvent.keyDown(textarea, { key: "Enter", code: "Enter", isComposing: true })).toBe(true);
+    expect(fireEvent.keyDown(textarea, { key: "Enter", code: "Enter", ctrlKey: true })).toBe(true);
+    expect(postAsk).not.toHaveBeenCalled();
+
+    expect(fireEvent.keyDown(textarea, { key: "Enter", code: "Enter" })).toBe(false);
+    await waitFor(() => expect(postAsk).toHaveBeenCalledTimes(1));
+    expect(fireEvent.keyDown(textarea, { key: "Enter", code: "Enter" })).toBe(true);
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    expect(postAsk.mock.calls[0]![0].message).toBe("What happens at the opening?");
+
+    const request = postAsk.mock.calls[0]![0];
+    api.setCurrent(history("conversation-a", 5, [historyTurnForAsk(request, "The path opens quietly.")]));
+    await act(async () => {
+      releaseResponse?.(agentResponse(request, "conversation-a", "The path opens quietly."));
+      await response;
+    });
+    expect(await screen.findByText("The path opens quietly.")).toBeInTheDocument();
+  });
+
   it("mounts the exact SERVER history projection and renders its validated citation", async () => {
     const api = setupApi(serverHistoryProjection);
 
     render(conversationElement());
 
     expect(await screen.findAllByText("The western gate is watched.")).toHaveLength(2);
-    expect(screen.getByText("Grounded in complete World Graph evidence.")).toBeInTheDocument();
+    expect(screen.getByText("Grounded in World Graph evidence.")).toBeInTheDocument();
     expect(screen.getByText("graph-revision-test")).toBeInTheDocument();
     expect(screen.getByText(
       "The server recorded this Ask as complete. Its structured outcome is shown above; this turn will not be automatically resent.",
@@ -1356,7 +1413,7 @@ describe("World Plan conversation consumer", () => {
     const renderedAnswer = transcript.querySelector(".world-plan-agent-answer")!;
     expect(renderedAnswer).not.toHaveTextContent("**Saved Plan:**");
     expect(renderedAnswer.querySelectorAll(":scope > div")).toHaveLength(3);
-    expect(screen.getByText("Grounded in complete World Graph evidence.")).toBeInTheDocument();
+    expect(screen.getByText("Grounded in World Graph evidence.")).toBeInTheDocument();
     const evidenceSummary = screen.getByText("1 evidence reference");
     fireEvent.click(evidenceSummary);
     expect(within(evidenceSummary.closest("details")!).getByText("evidence-internal-test")).toBeInTheDocument();
@@ -1370,7 +1427,7 @@ describe("World Plan conversation consumer", () => {
     const mounted = render(conversationElement({ playableTarget: cardA, selectionGeneration: 0 }));
 
     expect(await screen.findAllByText("The western gate is watched.")).toHaveLength(2);
-    expect(screen.getByText("Grounded in complete World Graph evidence.")).toBeInTheDocument();
+    expect(screen.getByText("Grounded in World Graph evidence.")).toBeInTheDocument();
     expect(screen.getAllByText(/Playable target: scene scene:opening/)).toHaveLength(2);
     expect(screen.getByText("graph-revision-3")).toBeInTheDocument();
     const evidenceSummary = screen.getByText("1 evidence reference");
@@ -1389,7 +1446,7 @@ describe("World Plan conversation consumer", () => {
     render(conversationElement({ playableTarget: cardB, selectionGeneration: 1 }));
 
     expect(await screen.findAllByText("The western gate is watched.")).toHaveLength(2);
-    expect(screen.getByText("Grounded in complete World Graph evidence.")).toBeInTheDocument();
+    expect(screen.getByText("Grounded in World Graph evidence.")).toBeInTheDocument();
     expect(screen.getAllByText(/Playable target: scene scene:opening/)).toHaveLength(2);
     expect(screen.getByText("evidence-internal-test")).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Selected Playable card for Ask" })).toHaveTextContent("scene:ending");
@@ -1463,7 +1520,7 @@ describe("World Plan conversation consumer", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
-    expect(await screen.findByText("Grounded in complete World Graph evidence.")).toBeInTheDocument();
+    expect(await screen.findByText("Grounded in World Graph evidence.")).toBeInTheDocument();
     expect(await screen.findByText("graph-revision-test")).toBeInTheDocument();
     const evidenceSummary = screen.getByText("1 evidence reference");
     const evidenceDetails = evidenceSummary.closest("details")!;
@@ -1471,7 +1528,10 @@ describe("World Plan conversation consumer", () => {
     fireEvent.click(evidenceSummary);
     expect(within(evidenceDetails).getByText("evidence-internal-test")).toBeInTheDocument();
     expect(screen.getByText(/Playable target: scene scene:opening · marker grammar v1/)).toBeInTheDocument();
-    expect(screen.getByText("Ask uses the committed Plan revision; unsaved edits are not included.")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Advanced details"));
+    expect(screen.getByRole("region", { name: "Ask target details" })).toHaveTextContent(
+      "Ask uses the committed Plan. Unsaved editor changes are excluded",
+    );
     expect(postAsk).toHaveBeenCalledTimes(1);
     expect(captured).toMatchObject({
       schema: "dmb_agent_turn_request_v1",
@@ -1504,7 +1564,7 @@ describe("World Plan conversation consumer", () => {
       ["graph_grounded", {
         schema: "dmb_agent_plan_world_graph_execution_projection_v1",
         claimability: "completed", authorization_state: "response_received", automatic_redispatch: false,
-      }, "Grounded in complete World Graph evidence."],
+      }, "Grounded in World Graph evidence."],
       ["graph_grounded_partial", {
         schema: "dmb_agent_plan_world_graph_execution_projection_v1",
         claimability: "blocked_unknown_or_sent", authorization_state: "outcome_unknown", automatic_redispatch: false,
@@ -1579,7 +1639,7 @@ describe("World Plan conversation consumer", () => {
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Check the northern gate." } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
-    expect(await screen.findByText("Grounded in complete World Graph evidence.")).toBeInTheDocument();
+    expect(await screen.findByText("Grounded in World Graph evidence.")).toBeInTheDocument();
     expect(await screen.findByText("The tool found a watched gate.")).toBeInTheDocument();
     const details = screen.getByText("1 evidence reference").closest("details")!;
     fireEvent.click(screen.getByText("1 evidence reference"));
@@ -1683,7 +1743,7 @@ describe("World Plan conversation consumer", () => {
     render(conversationElement());
 
     expect(await screen.findByText("A watch patrol circles the gate.")).toBeInTheDocument();
-    expect(screen.getByText("Grounded in complete World Graph evidence.")).toBeInTheDocument();
+    expect(screen.getByText("Grounded in World Graph evidence.")).toBeInTheDocument();
   });
 
   it("rejects internally valid history receipts for a foreign World or mismatched Plan revision", async () => {
@@ -2017,7 +2077,7 @@ describe("World Plan conversation consumer", () => {
     render(conversationElement({ playableTarget: cardB, selectionGeneration: 1 }));
 
     expect(await screen.findAllByText(answer)).toHaveLength(2);
-    expect(await screen.findByText("Grounded in complete World Graph evidence.")).toBeInTheDocument();
+    expect(await screen.findByText("Grounded in World Graph evidence.")).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Selected Playable card for Ask" })).toHaveTextContent(cardB.id);
     const transcript = screen.getByRole("region", { name: "World conversation transcript" });
     const answerTurn = transcript.querySelector("article");
@@ -2886,7 +2946,11 @@ describe("World Plan conversation consumer", () => {
       savedDirty: true,
     }));
     const selectedCardAfterBasisChange = screen.getByRole("group", { name: "Selected Playable card for Ask" });
-    expect(selectedCardAfterBasisChange).toHaveTextContent(`Committed Plan revision 8 · SHA-256 ${newDigest}`);
+    expect(selectedCardAfterBasisChange).toHaveTextContent("Ask target · scene scene:arrival");
+    fireEvent.click(screen.getByText("Advanced details"));
+    const askTargetDetails = screen.getByRole("region", { name: "Ask target details" });
+    expect(await within(askTargetDetails).findByText(/Card basis · object revision 8/)).toBeInTheDocument();
+    expect(askTargetDetails).toHaveTextContent(newDigest);
 
     const answer = "The arrival now has a verified historical answer.";
     const acceptedTurn = historyTurnForAsk(originalRequest, answer);
@@ -2899,7 +2963,7 @@ describe("World Plan conversation consumer", () => {
     expect(await screen.findByText(answer)).toBeInTheDocument();
     expect(await screen.findByText(/original selected card scene:arrival at committed Plan object revision 7/)).toBeInTheDocument();
     expect(screen.getByText(new RegExp(`Playable target: scene scene:arrival · marker grammar v1 · committed Plan ${documentId}, object revision 7, WorkRevision ${workRevisionId}, revision 1, SHA-256 ${contentSha256}`))).toBeInTheDocument();
-    expect(selectedCardAfterBasisChange).toHaveTextContent(`Committed Plan revision 8 · SHA-256 ${newDigest}`);
+    expect(selectedCardAfterBasisChange).toHaveTextContent("Ask target · scene scene:arrival");
     expect(selectedCardAfterBasisChange).not.toHaveTextContent(contentSha256);
     expect(postAsk).toHaveBeenCalledTimes(1);
     expect(sent[0]).toEqual(originalRequest);
@@ -3031,11 +3095,11 @@ describe("World Plan conversation consumer", () => {
     ]));
 
     render(conversationElement());
-    expect(await screen.findByText("Grounded in complete World Graph evidence.")).toBeInTheDocument();
+    expect(await screen.findByText("Grounded in World Graph evidence.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Older turns" }));
     expect(await screen.findByText("A saved-plan opening.")).toBeInTheDocument();
     await waitFor(() => expect(screen.getAllByText("The western gate is watched.")).toHaveLength(2));
-    expect(screen.getByText("Grounded in complete World Graph evidence.")).toBeInTheDocument();
+    expect(screen.getByText("Grounded in World Graph evidence.")).toBeInTheDocument();
     expect(screen.queryByText(/No sufficient World Graph evidence was available/)).not.toBeInTheDocument();
     const transcript = screen.getByRole("region", { name: "World conversation transcript" });
     expect(transcript.querySelectorAll('[data-sequence="2"]')).toHaveLength(1);
@@ -3168,7 +3232,8 @@ describe("World Plan conversation consumer", () => {
     expect(replayReceipt?.conversation.conversation_id).toBe("conversation-b");
     expect(replayReceipt?.answer.trace.model_calls).toEqual([]);
     expect(replayReceipt?.answer.trace.conversation_context).toBe("durable_replay");
-    expect(api.getPlanBasis).toHaveBeenCalledTimes(1);
+    // Header verification on both mounts plus the exact replay basis check.
+    expect(api.getPlanBasis).toHaveBeenCalledTimes(3);
     expect(pendingAskKeys()).toHaveLength(0);
     expect(await screen.findByText(/confirmed this Ask under conversation conversation-b\. It was not inserted into the currently active conversation/)).toBeInTheDocument();
     expect(await screen.findByText("Current C question")).toBeInTheDocument();
