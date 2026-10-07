@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 from dataclasses import replace
@@ -297,6 +298,24 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     for evidence_row in indexed_payload["evidence_refs"]:
         if evidence_row["evidence_ref_id"] == "ev:sign":
             evidence_row["locator"] = "heading:Crossroads Sign"
+    indexed_payload["objects"].append({
+        **indexed_payload["objects"][-1],
+        "object_id": "obj:watchtower", "label": "Old Watchtower",
+        "assertion_metadata": {
+            **indexed_payload["objects"][-1]["assertion_metadata"],
+            "assertion_id": "asrt:obj:watchtower",
+        },
+    })
+    indexed_payload["relationships"].append({
+        "relationship_id": "rel:sign-watchtower",
+        "source_object_id": "obj:road-sign",
+        "target_object_id": "obj:watchtower",
+        "predicate": "dnd5e:located_in",
+        "assertion_metadata": {
+            **indexed_payload["objects"][-1]["assertion_metadata"],
+            "assertion_id": "asrt:rel:sign-watchtower",
+        },
+    })
     published = world_graph.publish_revision(PublishRevisionCommand(
         world_id=NATIVE_ID,
         parent_revision_id=None,
@@ -308,12 +327,21 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     ))
     sources = InMemorySourceRepository()
     seeded = _seed_sources()
+    sign_text = "# Crossroads Sign\n\nThe sign stands at the old watchtower.\n"
+    (tmp_path / "corpus").mkdir(exist_ok=True)
+    (tmp_path / "corpus" / "sign.md").write_text(sign_text, encoding="utf-8")
     for artifact_id in ("src:world-lore", "src:one-notes", "src:one-recap", "src:player-sign"):
         artifact = seeded.get_artifact(artifact_id)
         assert artifact is not None
+        if artifact_id == "src:player-sign":
+            artifact = artifact.model_copy(update={"uri": "repo://corpus/sign.md"})
         sources.put_artifact(artifact)
         revision = seeded.get_revision(artifact.current_revision_id)
         assert revision is not None
+        if artifact_id == "src:player-sign":
+            revision = revision.model_copy(update={
+                "content_sha256": hashlib.sha256(sign_text.encode("utf-8")).hexdigest(),
+            })
         sources.put_revision(revision)
     services = direct.direct_services_from_bundle(
         _FakeBundle(world_graph, sources, _receipt(NATIVE_ID, published.revision_id)),
@@ -404,7 +432,9 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
 
     # A generic question has no lexical Graph match. The selected committed
     # card's typed link supplies an exact, same-revision seed and citations.
-    selected_payload = {**payload, "message": "What do you know?", "playable_target": {
+    selected_payload = {**payload, "message": "What do you know?",
+        "client_thread_id": "thread-indexed-source",
+        "turn_id": "turn-indexed-source", "playable_target": {
         "schema": "dmb_plan_playable_target_v1", "kind": "scene", "id": "scene:arrival",
     }}
     selected_body = AgentTurnRequest.model_validate(selected_payload)
@@ -938,6 +968,213 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     }), stored, attempts[1].provider_attempt_id)
     assert derived.answer_context_status == "plan_only_graph_unused"
 
+    # The sign is absent from the initial retrieval but present in the exact
+    # bounded index. Its metadata alone cannot become a claim or a citation.
+    from graph_memory.interaction.session_store import clear_sessions
+
+    clear_sessions()
+    selected = agent_route._plan_context_resolver(
+        selected_body, {"kind": "world", "id": managed.world_id}, selected_work, None,
+    )
+    sign_pin = next(
+        pin for pin in selected.source_scope_anchors
+        if pin["evidence_ref_id"] == "ev:sign"
+    )
+    assert sign_pin["anchor_id"] not in selected.evidence_by_anchor_id
+    from apps.live_control_server.services import world_graph_retrieval
+
+    monkeypatch.setattr(world_graph_retrieval, "default_repo_root", lambda: tmp_path)
+    selected_safe = service_module._admitted_initial_policy_bootstrap(selected)
+    selected_projected = selected_safe.retrieval_session.project_for_hermes()
+    selected_first_packet = {
+        "candidates": selected_projected["candidates"][:8],
+        "claimLedger": selected_projected["claim_ledger"][:24],
+        "intentHint": selected_projected["intent_hint"],
+        "availableExpansions": selected_projected["available_expansions"],
+    }
+    from apps.live_control_server.services.agent_plan_playable_target import (
+        resolve_agent_plan_playable_target,
+    )
+
+    selected_target = resolve_agent_plan_playable_target(
+        selected_body.playable_target, selected_work.plan_markdown,
+    )
+    selected_first_body = {
+        "input": [{
+            "role": "system",
+            "content": "Turn capability policy (runtime-enforced; also required on tool calls):\n"
+            + json.dumps({"initialClaimPacket": selected_first_packet}),
+        }, {
+            "role": "user",
+            "content": _plan_message(
+                selected_body.message, selected_work.plan_markdown,
+                playable_target=selected_target,
+                content_basis=selected_work.content_basis,
+            ),
+        }],
+        "tools": [],
+    }
+
+    def provider_view(body: dict[str, Any]) -> dict[str, Any]:
+        encoded = json.dumps(body, sort_keys=True, separators=(",", ":"))
+        return {
+            **first_view,
+            "payloadJson": encoded,
+            "payloadSha256": hashlib.sha256(encoded.encode()).hexdigest(),
+            "payloadUtf8Bytes": len(encoded.encode()),
+        }
+
+    class IndexedSourceRuntime:
+        descriptor = AgentRuntimeDescriptor("indexed-source", "fake", "test", "graph")
+        calls = 0
+
+        def run_with_provider_authorization(
+            self, _invocation: Any, authorize: Any, *, request_budget: Any,
+            on_graph_operation: Any, on_provider_lifecycle: Any,
+            source_read_enabled: bool = False,
+        ) -> AgentRuntimeResult:
+            assert source_read_enabled is True
+            assert request_budget["model"] == "test-model"
+            assert "ev:sign" not in json.dumps(selected_first_packet)
+            assert authorize(provider_view(selected_first_body)) is True, (
+                getattr(authorize.__self__.failure, "code", None),
+                str(authorize.__self__.failure),
+            )
+            self.calls += 1
+            assert on_provider_lifecycle({"transition": "sdk_entered"}) is True
+            assert on_provider_lifecycle({"transition": "response_received"}) is True
+            operation = on_graph_operation({
+                "toolName": "expand_graph_retrieval",
+                "arguments": {
+                    "schema": "dmb_expand_graph_retrieval_request_v1",
+                    "retrievalSessionId": selected.retrieval_session.id,
+                    "operation": "search", "queryText": "Crossroads Sign",
+                    "historicalRevisionId": published.revision_id,
+                },
+            })
+            operation_result = json.loads(operation["resultJson"])
+            assert operation_result["snapshot"]["revisionId"] == published.revision_id
+            assert any(
+                relation["edgeId"] == "rel:sign-watchtower"
+                for relation in operation_result["relationships"]
+            )
+            assert any(
+                anchor["anchorId"] == sign_pin["anchor_id"]
+                for anchor in operation_result["sourceAnchors"]
+            )
+            opened = on_graph_operation({
+                "toolName": "read_graph_source",
+                "arguments": {
+                    "retrievalSessionId": selected.retrieval_session.id,
+                    "anchorIds": [sign_pin["anchor_id"]],
+                },
+            })
+            opened_result = json.loads(opened["resultJson"])
+            assert opened_result["outcome"] == "enough", opened_result
+            assert "old watchtower" in opened_result["content"]
+            followup_body = {
+                **selected_first_body,
+                "input": [
+                    *selected_first_body["input"],
+                    {"type": "function_call", "call_id": "call-graph-index",
+                     "name": "expand_graph_retrieval", "arguments": "{}"},
+                    {"type": "function_call_output", "call_id": "call-graph-index",
+                     "output": operation["resultJson"]},
+                    {"type": "function_call", "call_id": "call-source-index",
+                     "name": "read_graph_source", "arguments": "{}"},
+                    {"type": "function_call_output", "call_id": "call-source-index",
+                     "output": opened["resultJson"]},
+                ],
+            }
+            assert authorize(provider_view(followup_body)) is True, getattr(
+                authorize.__self__.failure, "code", None,
+            )
+            self.calls += 1
+            assert on_provider_lifecycle({"transition": "sdk_entered"}) is True
+            assert on_provider_lifecycle({"transition": "response_received"}) is True
+            return AgentRuntimeResult(
+                status="ok",
+                final_text=json.dumps({
+                    "answer_context_status": "graph_grounded",
+                    "answer_segments": [{
+                        "kind": "graph_claim", "claim_id": "rel:sign-watchtower",
+                        "text": "The sign stands at the old watchtower.",
+                        "target_kind": "relationship", "target_id": "rel:sign-watchtower",
+                        "graph_revision": published.revision_id,
+                        "evidence_ref_ids": ["ev:sign"],
+                    }],
+                    "citation_map": {"entries": [{
+                        "claim_id": "rel:sign-watchtower", "target_kind": "relationship",
+                        "target_id": "rel:sign-watchtower", "graph_revision": published.revision_id,
+                        "evidence_ref_ids": ["ev:sign"], "source_opened": False,
+                    }]},
+                }),
+                runtime_session_id="indexed-source-session",
+            )
+
+    indexed_runtime = IndexedSourceRuntime()
+    indexed_pointer_store = HermesSessionPointerStore(tmp_path / "indexed-sessions")
+    indexed_conversation_service = AgentConversationService()
+    indexed_response = execute_agent_turn(
+        selected_body, root=tmp_path,
+        pointer_store=indexed_pointer_store,
+        owner_resolver=lambda _body: {
+            "kind": "world", "id": managed.world_id, "name": managed.name,
+        },
+        work_resolver=lambda _body, _owner: selected_work,
+        graph_resolver=lambda *_args: pytest.fail("generic Graph path used"),
+        plan_graph_resolver=lambda *_args: selected,
+        runtime=indexed_runtime,
+        conversation_service=indexed_conversation_service,
+    )
+    assert indexed_runtime.calls == 2
+    assert indexed_response.plan_context.completion is not None
+    assert indexed_response.plan_context.completion.citation_map.entries[0].source_opened is True
+    indexed_turn = next(
+        turn for turn in AgentConversationService().list_turns(
+            managed.world_id, indexed_response.conversation.conversation_id,
+        ) if turn.user_text == selected_body.message
+    )
+    indexed_events = indexed_turn.graph_context_execution.events
+    producing = [
+        event for event in indexed_events
+        if event.kind == "provider_attempt_authorized_v2"
+    ][-1]
+    graph_event = next(
+        event for event in indexed_events if event.kind == "validated_graph_operation"
+    )
+    read_event = next(
+        event for event in indexed_events if event.kind == "validated_source_read_v2"
+    )
+    assert producing.included_graph_event_ids == [graph_event.event_id]
+    assert producing.included_source_read_event_ids == [read_event.event_id]
+    assert indexed_turn.completion.citation_map.entries[0].source_read_ids == [
+        read_event.receipts[0].source_read_id
+    ]
+    stored_before_replay = indexed_turn.model_dump(mode="json")
+    reads_before_replay = len(graph_reads)
+    replayed_indexed = execute_agent_turn(
+        selected_body, root=tmp_path,
+        pointer_store=indexed_pointer_store,
+        owner_resolver=lambda _body: {
+            "kind": "world", "id": managed.world_id, "name": managed.name,
+        },
+        work_resolver=lambda _body, _owner: selected_work,
+        graph_resolver=lambda *_args: pytest.fail("generic Graph path used"),
+        plan_graph_resolver=lambda *_args: pytest.fail("completed turn resolved Graph again"),
+        runtime=indexed_runtime,
+        conversation_service=indexed_conversation_service,
+    )
+    assert replayed_indexed.plan_context.delivery_replay is True
+    assert replayed_indexed.plan_context.completion == indexed_response.plan_context.completion
+    assert indexed_runtime.calls == 2
+    assert len(graph_reads) == reads_before_replay
+    assert next(
+        turn for turn in indexed_conversation_service.list_turns(
+            managed.world_id, indexed_response.conversation.conversation_id,
+        ) if turn.user_text == selected_body.message
+    ).model_dump(mode="json") == stored_before_replay
+
     from fastapi.testclient import TestClient
     from apps.live_control_server.services.hermes_agent_runtime import (
         HermesAgentRuntimeAdapter,
@@ -985,17 +1222,14 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         "graph_revision": published.revision_id,
         "evidence_ref_ids": ["ev:cellar"],
     }
+    # The separate offline host witness expands Graph metadata but does not
+    # open its out-of-dispatch source. #1015 correctly forbids citing it.
     monkeypatch.setenv("DMB_HERMES_TEST_FINAL_TEXT", json.dumps({
-        "answer_context_status": "graph_grounded",
-        "answer_segments": [graph_claim],
-        "citation_map": {"entries": [{
-            "claim_id": graph_claim["claim_id"],
-            "target_kind": "relationship",
-            "target_id": graph_claim["target_id"],
-            "graph_revision": published.revision_id,
-            "evidence_ref_ids": ["ev:cellar"],
-            "source_opened": False,
-        }]},
+        "answer_context_status": "plan_only_graph_unused",
+        "answer_segments": [{
+            "kind": "plan_claim", "text": "The keeper waits by the tavern.",
+        }],
+        "citation_map": None,
     }))
     host = HermesGraphAgentHost(
         worker_target=_tool_using_aiagent_host_worker,
@@ -1017,15 +1251,15 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
             assert http_answer["primary_work"]["content_basis"] == work.content_basis.model_dump(mode="json")
             assert http_answer["primary_work"]["content_basis"]["revision_n"] == 3
             assert http_answer["primary_work"]["content_basis"]["object_revision"] == 7
-            assert http_answer["answer"]["graph_grounded"] is True
-            assert http_answer["answer"]["text"] == graph_claim["text"]
+            assert http_answer["answer"]["graph_grounded"] is False
+            assert http_answer["answer"]["text"] == "The keeper waits by the tavern."
             before_history_reads = len(graph_reads)
             history = client.get(f"/api/live/agent/worlds/{managed.world_id}/conversation")
             assert history.status_code == 200, history.text
             assert history.json()["schema"] == "dmb_agent_conversation_history_v2"
             assert any(
                 turn["lifecycle_status"] == "completed"
-                and turn["assistant_text"] == graph_claim["text"]
+                and turn["assistant_text"] == "The keeper waits by the tavern."
                 and turn["plan_context"]["completion"] is not None
                 for turn in history.json()["turns"]
             )
