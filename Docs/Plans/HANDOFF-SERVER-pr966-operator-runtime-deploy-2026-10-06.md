@@ -1,6 +1,6 @@
 # SERVER — PR #966 operator runtime deployment
 
-**Status:** ACTIVE, bounded operator deployment lease. PRIME authorized the coordinated restart; PRIME owns review. This handoff is pinned by its branch/PR head and need not merge before execution.
+**Status:** COMPLETE; operator deployment lease released. PRIME authorized the coordinated restart and owns review. This handoff is pinned by its branch/PR head and did not need to merge before execution.
 
 **Source authority:** Buddy `main` merge `b9d9ff05eb7c7d6ae3fa8ab4c547cd55a7bbc710` for PR #966. Deploy that exact commit to the clean detached checkout at `/home/drakosfire/.local/state/dungeonmindbuddy/runtime`. Predecessor operator checkout: `1d558057ebc40711f745e30d9f07a0db6fe8ba70`.
 
@@ -21,3 +21,5 @@
 4. Report the exact deployed revision, PIDs, checks, and any limitation to PRIME and hand the runtime back to DOGFOOD for its separately authorized live selected-Plan retrieval QC. Backend tests alone do not establish a live Graph-backed answer.
 
 **Implementation evidence before deployment:** PR #966 corrected head `c6b10d92937f092299897f8a25c9cd7af6931360` merged as the source authority above. Its six-path cumulative diff passed owning PostgreSQL tests (68), targeted Ruff, and diff check. DOGFOOD separately verified the parser/helper against current Plan Options.
+
+**Deployment settlement:** The permanent checkout is clean and detached at exact `b9d9ff05eb7c7d6ae3fa8ab4c547cd55a7bbc710`; 5202/8000/7860 health checks passed with launcher PID 569891, preserved Node 24/stable venv/live-session profile, active local session, authorized read, and unchanged pre-restart Plan/Run and live-file baselines. DOGFOOD received runtime handback for its separate live answer QC; no live Graph-backed answer acceptance is claimed here.
