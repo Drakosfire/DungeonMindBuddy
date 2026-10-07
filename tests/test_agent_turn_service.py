@@ -1210,6 +1210,21 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     )
     assert fresh is True
     adapter.operation_payloads[operation_event.event_id] = duplicate_payload
+    limited_execution = turn.graph_context_execution.model_copy(update={
+        "policy": turn.graph_context_execution.policy.model_copy(update={
+            "max_graph_operations": 1,
+        }),
+    })
+    with adapter.fence.renewer._lock:
+        adapter.fence.renewer._turn = turn.model_copy(update={
+            "graph_context_execution": limited_execution,
+        })
+    exhausted_graph = adapter.broker_graph_operation({
+        "toolName": "expand_graph_retrieval", "arguments": {},
+    })
+    assert json.loads(exhausted_graph["resultJson"])["code"] == "graph_operation_over_budget"
+    with adapter.fence.renewer._lock:
+        adapter.fence.renewer._turn = turn
     repeated_body = json.loads(payload_json)
     repeated_body["input"].extend([
         {"type": "function_call", "call_id": "call-a", "name": "expand_graph_retrieval", "arguments": "{}"},
