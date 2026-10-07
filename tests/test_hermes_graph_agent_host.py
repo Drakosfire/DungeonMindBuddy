@@ -357,8 +357,12 @@ def _graph_broker_worker_main(request_queue: Any, response_queue: Any) -> None:
             "type": "graph_operation_request",
             "requestId": request_id,
             "operationId": operation_id,
-            "toolName": "expand_graph_retrieval",
-            "arguments": {"retrievalSessionId": "parent-session", "query": "gate"},
+            "toolName": os.environ.get("DMB_TEST_BROKER_TOOL_NAME", "expand_graph_retrieval"),
+            "arguments": (
+                {"retrievalSessionId": "parent-session", "anchorIds": ["anchor:one"]}
+                if os.environ.get("DMB_TEST_BROKER_TOOL_NAME") == "read_graph_source" else
+                {"retrievalSessionId": "parent-session", "query": "gate"}
+            ),
         })
         broker_response = decode_json_wire(request_queue.get(timeout=10))
         ok = (
@@ -2100,6 +2104,45 @@ def test_graph_operation_round_trips_through_correlated_parent_broker() -> None:
         assert len(observed) == 1
         assert observed[0]["toolName"] == "expand_graph_retrieval"
         assert observed[0]["arguments"]["retrievalSessionId"] == "parent-session"
+    finally:
+        host.shutdown()
+
+
+def test_source_read_round_trips_through_correlated_parent_broker(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DMB_TEST_BROKER_TOOL_NAME", "read_graph_source")
+    host = HermesGraphAgentHost(worker_target=_graph_broker_worker_main)
+    observed: list[dict[str, Any]] = []
+    try:
+        result = host.execute(
+            _request(
+                provider_authorization_required=True,
+                request_budget={
+                    "schema": "dmb_hermes_request_budget_policy_v1",
+                    "provider": "openai-api", "model": "synthetic-model",
+                    "apiMode": "chat_completions",
+                    "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+                    "contextLimitTokens": 32768, "outputReserveTokens": 2048,
+                    "maxProviderAttempts": 4, "maxToolCapableAttempts": 3,
+                    "maxGraphOperations": 8,
+                },
+                parent_graph_broker_required=True,
+                retrieval_session_id="parent-session",
+                retrieval_session={"retrieval_session_id": "parent-session"},
+            ),
+            on_provider_authorization=lambda _view: True,
+            on_graph_operation=lambda request: (
+                observed.append(dict(request)) or {
+                    "resultJson": '{"schema":"dmb_world_graph_source_anchor_read_v1","outcome":"enough"}',
+                    "retrievalSession": {"retrieval_session_id": "parent-session"},
+                }
+            ),
+        )
+        assert result.status == "ok"
+        assert len(observed) == 1
+        assert observed[0]["toolName"] == "read_graph_source"
+        assert observed[0]["arguments"]["anchorIds"] == ["anchor:one"]
     finally:
         host.shutdown()
 

@@ -2679,6 +2679,61 @@ def test_request_budget_guard_reserves_fourth_attempt_for_toolless_final():
     assert len(authorized) == 4
 
 
+def test_full_saved_plan_and_source_excerpt_fit_reserved_final_envelope() -> None:
+    from apps.live_control_server.services.agent_turn_service import _json_node_count
+
+    policy = {
+        "provider": "openai-api", "model": "gpt-6-luna",
+        "apiMode": "codex_responses",
+        "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+        "contextLimitTokens": 1_050_000, "outputReserveTokens": 2048,
+        "maxProviderAttempts": 4, "maxToolCapableAttempts": 3,
+        "maxGraphOperations": 8,
+    }
+    plan = "# Committed Plan\n" + "P" * 50_000
+    source_excerpt = "S" * 12_000
+    read_tool = {
+        "type": "function", "name": "read_graph_source",
+        "parameters": {"type": "object"},
+    }
+    input_items = [
+        {"role": "user", "content": plan},
+        {"type": "function_call", "call_id": "read-1", "name": "read_graph_source",
+         "arguments": '{"anchorIds":["anchor:one"]}'},
+        {"type": "function_call_output", "call_id": "read-1", "output": source_excerpt},
+    ]
+
+    def view(tools: list[dict[str, Any]]) -> Any:
+        payload = {
+            "model": "gpt-6-luna", "input": input_items,
+            "tools": tools, "max_output_tokens": 2048,
+        }
+        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        return SimpleNamespace(
+            provider="openai-api", model="gpt-6-luna", api_mode="codex_responses",
+            payload_json=encoded, payload_utf8_bytes=len(encoded.encode()),
+        )
+
+    authorized: list[Any] = []
+    guard = _request_budget_guard(
+        policy, on_provider_authorization=lambda item: authorized.append(item) or True,
+        on_provider_lifecycle=lambda _event: True,
+    )
+    agent = SimpleNamespace(tools=[read_tool])
+    guard.bind_agent.append(agent)
+    for _ in range(3):
+        assert guard(view([read_tool])) is True
+        assert guard.provider_lifecycle({"transition": "response_received"}) is True
+    assert agent.tools == []
+    assert guard(view([])) is True
+    assert len(authorized) == 4
+    assert all(
+        item.payload_utf8_bytes + 64 * (1 + _json_node_count(json.loads(item.payload_json)))
+        + policy["outputReserveTokens"] <= policy["contextLimitTokens"]
+        for item in authorized
+    )
+
+
 def test_graph_operation_reservation_preflights_remaining_budget():
     broker_calls: list[str] = []
 

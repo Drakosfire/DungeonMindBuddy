@@ -226,16 +226,27 @@ def default_conversation_only_capability_policy() -> HermesCapabilityPolicy:
 def parent_brokered_graph_expansion_policy(
     scope: HermesGraphScope,
 ) -> HermesCapabilityPolicy:
-    """Expose only the parent-brokered expansion operation for Plan grounding."""
+    """Expose only parent-brokered expansion for metadata-only Plan grounding."""
     policy = default_graph_only_capability_policy(scope)
-    rule = policy.rule_for("expand_graph_retrieval")
-    if rule is None:
-        raise ValueError("Graph expansion rule is not present in the plugin catalog")
+    names = ("expand_graph_retrieval",)
+    rules = tuple(policy.rule_for(name) for name in names)
+    if any(rule is None for rule in rules):
+        raise ValueError("Graph interaction rule is not present in the plugin catalog")
     return replace(
         policy,
-        enabled_tool_names=("expand_graph_retrieval",),
-        tool_rules=(rule,),
+        enabled_tool_names=names,
+        tool_rules=rules,
     )
+
+
+def parent_brokered_graph_source_policy(scope: HermesGraphScope) -> HermesCapabilityPolicy:
+    """Expose parent-brokered expansion and source reading for a V2 Plan turn."""
+    policy = default_graph_only_capability_policy(scope)
+    names = ("expand_graph_retrieval", "read_graph_source")
+    rules = tuple(policy.rule_for(name) for name in names)
+    if any(rule is None for rule in rules):
+        raise ValueError("Graph interaction rule is not present in the plugin catalog")
+    return replace(policy, enabled_tool_names=names, tool_rules=rules)
 
 
 def set_active_retrieval_session_id(session_id: str | None) -> Any:
@@ -435,10 +446,10 @@ def _handler_for(tool_name: str):
                 return denied
             assert payload is not None
             if _parent_graph_broker_required.get():
-                if tool_name != "expand_graph_retrieval":
+                if tool_name not in {"expand_graph_retrieval", "read_graph_source"}:
                     return _policy_denied_error(
                         code="plan_graph_tool_not_permitted",
-                        message="Only parent-brokered Graph expansion is permitted.",
+                        message="Only parent-brokered Graph interactions are permitted.",
                     )
                 broker = _active_parent_graph_broker.get()
                 if not callable(broker):
@@ -518,6 +529,7 @@ __all__ = [
     "default_conversation_only_capability_policy",
     "default_graph_only_capability_policy",
     "parent_brokered_graph_expansion_policy",
+    "parent_brokered_graph_source_policy",
     "get_active_capability_policy",
     "get_active_retrieval_session_id",
     "register",

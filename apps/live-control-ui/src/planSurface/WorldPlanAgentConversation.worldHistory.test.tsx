@@ -1687,10 +1687,31 @@ describe("World Plan conversation consumer", () => {
 
     expect(await screen.findByText("Grounded in World Graph evidence.")).toBeInTheDocument();
     expect(await screen.findByText("The tool found a watched gate.")).toBeInTheDocument();
+    expect(screen.getByText(/source text not opened\./)).toBeInTheDocument();
     const details = screen.getByText("1 evidence reference").closest("details")!;
     fireEvent.click(screen.getByText("1 evidence reference"));
     expect(within(details).getByText("tool-evidence-test")).toBeInTheDocument();
     expect(postAsk).toHaveBeenCalledTimes(1);
+  });
+
+  it("accepts a V2 source-opened citation in ordinary saved history", async () => {
+    const context = await planGraphContext("graph_grounded");
+    const completion = context.completion! as unknown as Record<string, unknown>;
+    const citationMap = completion.citation_map as Record<string, unknown>;
+    const entries = citationMap.entries as Array<Record<string, unknown>>;
+    completion.schema = "dmb_plan_world_graph_completion_v2";
+    citationMap.schema = "dmb_graph_citation_map_v2";
+    entries[0]!.source_opened = true;
+    entries[0]!.source_read_ids = ["source-read:one"];
+    setupApi(await historyV2("conversation-a", 5, [policyHistoryTurn(
+      1, "v2-read-turn", "What does the source say?", "The western gate is watched.", context,
+    )]));
+
+    render(conversationElement());
+    expect((await screen.findAllByText("The western gate is watched.")).length).toBeGreaterThan(0);
+    expect(screen.getByText(/source passage read\./)).toBeInTheDocument();
+    expect(screen.queryByText(/source text not opened\./)).not.toBeInTheDocument();
+    expect(screen.queryByText(/invalid Graph-context receipt/)).not.toBeInTheDocument();
   });
 
   it("accepts mixed initial and tool citations for a partial completion with truncated retrieval", async () => {

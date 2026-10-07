@@ -315,6 +315,48 @@ def test_internal_source_read_uses_the_same_resolved_revision_and_v1_view(
     assert direct.read_source_anchor_direct(services, request, repo_root=REPO_ROOT) is result
 
 
+def test_selected_source_pins_share_one_search_without_opening_content(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+
+    native = SimpleNamespace(
+        anchors=[SimpleNamespace(
+            anchor_id="dnd-anchor:one",
+            source_revision_id="source-revision:one", can_open_source=True,
+            evidence_ref_id="evidence:one", source_artifact_id="artifact:one",
+        )],
+        snapshot=SimpleNamespace(revision_id="graph:one"),
+    )
+    calls: list[str] = []
+    services = SimpleNamespace(
+        binding=object(),
+        retrieval=SimpleNamespace(search=lambda *_args, **_kwargs: (calls.append("search") or native)),
+    )
+    monkeypatch.setattr(direct, "_map_retrieval_context", lambda *_args: object())
+    monkeypatch.setattr(direct, "_retrieval_bounds", lambda *_args: object())
+    monkeypatch.setattr(direct, "_classify_locator_kind", lambda _anchor: "source_span")
+    monkeypatch.setattr(direct, "_search_result_view", lambda *_args, **_kwargs: "public-v1")
+    monkeypatch.setattr(
+        direct, "_anchor_read_view",
+        lambda *_args, **_kwargs: pytest.fail("metadata resolution opened content"),
+    )
+    monkeypatch.setattr(
+        direct, "_source_revision_digest",
+        lambda *_args: pytest.fail("metadata resolution read source bytes"),
+    )
+    resolved = direct.search_world_graph_direct_v2(
+        services, SimpleNamespace(query_text="question", seed_node_ids=[], bounds=object()),
+    )
+    assert resolved.result == "public-v1"
+    assert resolved.source_pins == (direct.ResolvedSourceAnchorMetadataV2(
+        anchor_id=direct._buddy_anchor_id("dnd-anchor:one"), graph_revision="graph:one",
+        evidence_ref_id="evidence:one", source_artifact_id="artifact:one",
+        source_revision_id="source-revision:one",
+    ),)
+    assert calls == ["search"]
+
+
 def test_internal_source_read_receipt_binds_executors_id_and_rejects_forgery(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

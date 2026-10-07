@@ -58,6 +58,53 @@ def _payload() -> dict[str, Any]:
     }
 
 
+def test_source_session_handles_reconstruct_only_for_the_same_frozen_turn() -> None:
+    from apps.live_control_server.routes.agent import _source_session_handles
+
+    handles = _source_session_handles("world:one", "turn:one", "graph:one", "request:one")
+    assert handles == _source_session_handles("world:one", "turn:one", "graph:one", "request:one")
+    assert handles[0].startswith("grs:") and handles[1].startswith("op:")
+    assert handles != _source_session_handles("world:one", "turn:one", "graph:two", "request:one")
+    assert handles != _source_session_handles("world:one", "turn:two", "graph:one", "request:one")
+    assert handles != _source_session_handles("world:two", "turn:one", "graph:one", "request:one")
+    assert handles != _source_session_handles("world:one", "turn:one", "graph:one", "request:two")
+
+
+def test_source_session_retry_never_overwrites_existing_inflight_state() -> None:
+    from apps.live_control_server.routes.agent import _store_plan_retrieval_session
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    from graph_memory.interaction.session import (
+        GraphRetrievalSession, SessionSnapshot, SourceAnchorState,
+    )
+    from graph_memory.interaction.session_store import clear_sessions, create_session
+
+    original = GraphRetrievalSession(
+        id="grs:stable-source", question="Where is the gate?",
+        snapshot=SessionSnapshot(
+            world_id="native:one", campaign_id="", focus={"kind": "none"},
+            admissibility="gm", revision_id="graph:one", scope_mode="world",
+        ),
+        source_anchors=[SourceAnchorState(anchor_id="anchor:one", readable=True)],
+    )
+    clear_sessions()
+    try:
+        create_session(original)
+        fresh = original.model_copy(deep=True)
+        original.source_anchors[0].opened = True
+        assert _store_plan_retrieval_session(
+            fresh, reusable_source_session=True,
+        ) is original
+        assert original.source_anchors[0].opened is True
+        changed = fresh.model_copy(update={"question": "A different question"})
+        with pytest.raises(AgentTurnServiceError) as caught:
+            _store_plan_retrieval_session(
+                changed, reusable_source_session=True,
+            )
+        assert caught.value.code == "turn_receipt_unverifiable"
+    finally:
+        clear_sessions()
+
+
 def test_auto_plan_world_request_requires_exact_saved_world_plan_pin() -> None:
     payload = _payload()
     payload.update(
@@ -388,6 +435,10 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     )
     assert replayed.graph_envelope["revision_id"] == selected.graph_envelope["revision_id"]
     assert replayed.graph_envelope["matched_node_ids"] == selected.graph_envelope["matched_node_ids"]
+    assert selected.source_scope_anchors
+    assert replayed.source_scope_anchors == selected.source_scope_anchors
+    assert replayed.retrieval_session.id == selected.retrieval_session.id
+    assert replayed.retrieval_session.operations == selected.retrieval_session.operations
 
     option_work = replace(selected_work, plan_markdown="""# Plan
 <!-- dmb-playable-element:v2 kind=beat id=beat:first -->
@@ -472,7 +523,8 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     budget = {
         "estimator": "utf8_json_bytes_plus_64_per_node_v1",
         "contextLimitTokens": 32768, "outputReserveTokens": 2048,
-        "maxProviderAttempts": 4, "maxGraphOperations": 8,
+        "maxProviderAttempts": 4, "maxToolCapableAttempts": 3,
+        "maxGraphOperations": 8,
     }
     receipt, execution, membership = _freeze_policy_receipt(
         body, work, bootstrap, None, view, budget,
@@ -522,7 +574,7 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
             assert event_name == "operation_event"
             current = self.turn.graph_context_execution
             assert current is not None
-            updated = graph_types.PlanWorldGraphExecutionV1.model_validate({
+            updated = type(current).model_validate({
                 **current.model_dump(mode="json", by_alias=True),
                 "events": [event.model_dump(mode="json", by_alias=True)],
             })
@@ -609,14 +661,18 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         def run_with_provider_authorization(
             self, _invocation: Any, authorize: Any, *, request_budget: Any,
             on_graph_operation: Any, on_provider_lifecycle: Any,
+            source_read_enabled: bool = False,
         ) -> AgentRuntimeResult:
             assert request_budget["model"] == "test-model"
+            assert source_read_enabled is True
             assert first_packet["claimLedger"] == []
             assert all(
                 claim.claim_id not in first_view["payloadJson"]
                 for claim in bootstrap.retrieval_session.claims
             )
-            assert authorize(first_view) is True
+            assert authorize(first_view) is True, getattr(
+                authorize.__self__.failure, "code", None,
+            )
             self.calls += 1
             assert on_provider_lifecycle({"transition": "sdk_entered"}) is True
             assert on_provider_lifecycle({"transition": "response_received"}) is True
@@ -651,7 +707,9 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
                 "payloadSha256": __import__("hashlib").sha256(followup_json.encode()).hexdigest(),
                 "payloadUtf8Bytes": len(followup_json.encode()),
             }
-            assert authorize(followup_view) is True
+            assert authorize(followup_view) is True, getattr(
+                authorize.__self__.failure, "code", None,
+            )
             self.calls += 1
             assert on_provider_lifecycle({"transition": "sdk_entered"}) is True
             assert on_provider_lifecycle({"transition": "response_received"}) is True
@@ -692,24 +750,21 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     )[0]
     assert stored.graph_context_receipt.assembled_input.packet_disposition == "omitted_insufficient"
     events = stored.graph_context_execution.events
-    attempts = [event for event in events if event.kind == "provider_attempt_authorized"]
+    attempts = [event for event in events if event.kind == "provider_attempt_authorized_v2"]
     operations = [event for event in events if event.kind == "validated_graph_operation"]
     assert len(attempts) == 2
     assert len(operations) == 1
     assert attempts[0].included_assertion_ids == []
     assert attempts[0].included_graph_event_ids == []
     assert attempts[1].included_graph_event_ids == [operations[0].event_id]
-    from apps.live_control_server.services.agent_turn_service import (
-        AgentTurnServiceError, _parse_policy_completion,
-    )
+    from apps.live_control_server.services.agent_turn_service import _parse_policy_completion
 
-    with pytest.raises(AgentTurnServiceError) as wrong_status:
-        _parse_policy_completion(json.dumps({
-            "answer_context_status": "plan_only_insufficient_evidence",
-            "answer_segments": [{"kind": "plan_claim", "text": "The keeper waits by the tavern."}],
-            "citation_map": None,
-        }), stored, attempts[1].provider_attempt_id)
-    assert wrong_status.value.code == "answer_validation_failed"
+    derived, _, _ = _parse_policy_completion(json.dumps({
+        "answer_context_status": "plan_only_insufficient_evidence",
+        "answer_segments": [{"kind": "plan_claim", "text": "The keeper waits by the tavern."}],
+        "citation_map": None,
+    }), stored, attempts[1].provider_attempt_id)
+    assert derived.answer_context_status == "plan_only_graph_unused"
 
     from fastapi.testclient import TestClient
     from apps.live_control_server.services.hermes_agent_runtime import (

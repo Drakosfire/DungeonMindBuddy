@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from application_state.agent_conversation.types import (
     PlanWorldGraphCompletionV1,
+    PlanWorldGraphCompletionV2,
     PlanWorldGraphContextReceiptV1,
     PlanContextPolicyV1,
     SubmittedPlanPlayableTargetV1,
@@ -417,7 +418,7 @@ class AgentPlanWorldGraphContextResponseV1(BaseModel):
         default="dmb_agent_plan_world_graph_context_response_v1", alias="schema"
     )
     receipt: PlanWorldGraphContextReceiptV1
-    completion: PlanWorldGraphCompletionV1 | None
+    completion: PlanWorldGraphCompletionV1 | PlanWorldGraphCompletionV2 | None
     execution: AgentPlanWorldGraphExecutionProjectionV1 | None
     delivery_replay: bool
 
