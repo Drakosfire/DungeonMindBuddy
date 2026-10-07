@@ -3,12 +3,25 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from pydantic import ValidationError
 
-from apps.live_control_server.models.extract_promote import ExtractPromotePrepareRequest
+from application_state.ingest.service import RecapSemanticBasisV1
+from apps.live_control_server.models.extract_promote import (
+    ExtractPromoteConfirmRequest,
+    ExtractPromotePrepareRequest,
+    RecapSemanticDecisionRequest,
+    RecapSemanticDecisionResponse,
+)
+from apps.live_control_server.routes import extract_promote as extract_promote_routes
+from apps.live_control_server.services.agent_graph_auth import (
+    NativeGraphPrincipal,
+    native_graph_gm_dependency,
+)
 from apps.live_control_server.services import (
     candidate_graph_admission,
     extract_promote,
@@ -89,6 +102,7 @@ def test_marked_child_is_held_until_exact_basis_is_accepted() -> None:
     parent, child = _runs()
     held = _assessment(parent, child)
     assert held.marked and not held.accepted and held.basis_sha256
+    assert RecapSemanticBasisV1.model_validate(held.basis).digest() == held.basis_sha256
     child.lineage["semantic_disposition"] = {
         "version": 1,
         "state": "accepted",
@@ -170,6 +184,11 @@ def test_basis_rejects_drift_and_malformed_disposition() -> None:
     assert not assess_recap_semantics(
         child, parent=parent, source_revision_id="f" * 64
     ).accepted
+    wrong_parent = parent.model_copy(deep=True, update={"status": ExtractionRunStatus.DRAFT})
+    assert not _assessment(wrong_parent, child).accepted
+    wrong_parent = parent.model_copy(deep=True, update={"profile_id": "unknown_profile@1.0"})
+    wrong_child = child.model_copy(deep=True, update={"profile_id": "unknown_profile@1.0"})
+    assert not _assessment(wrong_parent, wrong_child).accepted
 
 
 def test_unmarked_recap_and_worldbuilding_do_not_gain_this_gate() -> None:
@@ -281,3 +300,125 @@ def test_held_review_package_remains_readable(
     assert review.semantic_disposition["state"] == "held"
     assert review.promotable is False
     assert "semantic review" in review.promotable_reason
+
+
+@pytest.mark.parametrize("case", ["missing_binding", "status_drift", "domain_drift"])
+def test_confirm_never_reaches_world_writer_for_held_or_changed_child(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, case: str
+) -> None:
+    parent, child = _runs()
+    held = _assessment(parent, child)
+    child.lineage["semantic_disposition"] = {
+        "version": 1, "state": "accepted", "basis_sha256": held.basis_sha256,
+        "review_decision_ref": "review:1", "reviewer_id": "local_operator",
+        "decided_at": "2026-10-06T00:00:00Z", "from_revision": 5,
+    }
+    accepted = _assessment(parent, child)
+    candidate = tmp_path / "child.json"
+    candidate.write_text("{}")
+    resolved = SimpleNamespace(
+        run_id=child.run_id, source_revision_id="a" * 64,
+        source_span_index_path=tmp_path / "spans.json",
+        candidate_graph_path=candidate,
+    )
+    if case == "status_drift":
+        child.status = ExtractionRunStatus.REJECTED
+    if case == "domain_drift":
+        child.source_domain = "worldbuilding"
+        child.session_id = None
+    monkeypatch.setattr(extract_promote, "_candidate_owner_for_locator", lambda _loc: child)
+    monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", lambda *_a, **_k: resolved)
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, run_id: {"parent": parent, "child": child}[run_id])
+    from apps.live_control_server import config
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+
+    monkeypatch.setattr(config, "world_graph_authority_mode", lambda: config.WORLD_GRAPH_AUTHORITY_DUNGEONMIND)
+    monkeypatch.setattr(
+        candidate_graph_admission, "confirm_candidate_graph_admission",
+        lambda **kwargs: kwargs["governed_confirm"](),
+    )
+    monkeypatch.setattr(
+        world_graph_writes, "confirm_extract_promote_via_dungeonmind",
+        lambda *_a, **_k: pytest.fail("semantic gate reached World writer"),
+    )
+    binding = accepted_effect_binding(child, accepted) if case != "missing_binding" else None
+    request = ExtractPromoteConfirmRequest(
+        review_package={
+            "effect": {"candidate_admission": {"candidate_locator": str(candidate)},
+                       **({EFFECT_KEY: binding} if binding else {})},
+        },
+        assertion_ids=["mira"],
+    )
+    with pytest.raises(extract_promote.ExtractPromoteError) as error:
+        extract_promote.confirm(request)
+    assert error.value.status_code == 409
+
+
+def test_confirm_candidate_owner_uses_exact_uri_and_bytes_not_path_identity(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from application_state.ingest import service as ingest_service
+
+    parent, child = _runs()
+    candidate = tmp_path / "out" / "candidate.json"
+    candidate.parent.mkdir()
+    candidate.write_bytes(b'{"nodes":[]}')
+    digest = hashlib.sha256(candidate.read_bytes()).hexdigest()
+    child.components["candidate_graph"].sha256 = digest
+    seen = []
+
+    def lookup(*, uri, sha256):
+        seen.append((uri, sha256))
+        return ingest_service.CandidateRunLookup(
+            "unique", child
+        ) if uri == "repo://out/candidate.json" and sha256 == digest else ingest_service.CandidateRunLookup("not_found")
+
+    monkeypatch.setattr(extract_promote, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(ingest_service, "lookup_extraction_run_by_candidate_component", lookup)
+    assert extract_promote._candidate_owner_for_locator(str(candidate)).run_id == child.run_id
+    assert seen == [("out/candidate.json", digest), ("repo://out/candidate.json", digest)]
+    assert parent.run_id != child.run_id
+
+
+def test_semantic_decision_route_requires_gm_and_owns_reviewer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    route = next(
+        route for route in extract_promote_routes.router.routes
+        if route.path.endswith("/semantic-disposition")
+    )
+    assert any(
+        dependency.call is native_graph_gm_dependency
+        for dependency in route.dependant.dependencies
+    )
+    with pytest.raises(ValidationError):
+        RecapSemanticDecisionRequest.model_validate({
+            "expectedRevision": 6, "candidateSha256": "d" * 64,
+            "decision": "accepted", "reviewDecisionRef": "review:1",
+            "reviewerId": "forged",
+        })
+    seen = []
+
+    def decide(run_id, request, *, reviewer_id):
+        seen.append((run_id, request.decision, reviewer_id))
+        return RecapSemanticDecisionResponse(
+            run_id=run_id, revision=7, candidate_sha256=request.candidate_sha256,
+            state=request.decision, basis_sha256="a" * 64,
+            review_decision_ref=request.review_decision_ref,
+            reviewer_id=reviewer_id, decided_at="2026-10-06T00:00:00Z",
+        )
+
+    monkeypatch.setattr(extract_promote_routes, "decide_recap_semantic_disposition", decide)
+    valid = extract_promote_routes.post_recap_semantic_disposition(
+        SimpleNamespace(query_params={}),
+        "child",
+        RecapSemanticDecisionRequest(
+            expected_revision=6, candidate_sha256="d" * 64,
+            decision="accepted", review_decision_ref="review:1",
+        ),
+        principal=NativeGraphPrincipal(
+            subject="server_operator", role="gm", auth_method="local_session"
+        ),
+    )
+    assert seen == [("child", "accepted", "server_operator")]
+    assert valid["reviewerId"] == "server_operator"

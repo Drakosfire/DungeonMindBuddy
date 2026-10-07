@@ -21,6 +21,8 @@ ERROR_SCHEMA = "dmb_extract_promote_error_v1"
 EXACT_RUN_REVIEW_SCHEMA = "dmb_extract_promote_exact_run_review_v1"
 EVIDENCE_CORRECTION_REQUEST_SCHEMA = "dmb_exact_run_evidence_correction_request_v1"
 EVIDENCE_CORRECTION_RESPONSE_SCHEMA = "dmb_exact_run_evidence_correction_response_v1"
+RECAP_SEMANTIC_DECISION_REQUEST_SCHEMA = "dmb_recap_semantic_decision_request_v1"
+RECAP_SEMANTIC_DECISION_RESPONSE_SCHEMA = "dmb_recap_semantic_decision_response_v1"
 WORLD_BUILDING_WRITE_PLAN_REQUEST_SCHEMA = (
     "dmb_worldbuilding_write_plan_prepare_request_v1"
 )
@@ -479,6 +481,42 @@ class ExactRunReviewPackage(_ExtractPromoteModel):
     world_state: FirstWorldGraphState | None = None
     first_world_publish_eligible: bool = False
     first_world_publish_reason: str | None = None
+
+
+class RecapSemanticDecisionRequest(_ExtractPromoteModel):
+    schema_: Literal["dmb_recap_semantic_decision_request_v1"] = Field(
+        default=RECAP_SEMANTIC_DECISION_REQUEST_SCHEMA, alias="schema"
+    )
+    expected_revision: int = Field(ge=1)
+    candidate_sha256: str
+    decision: Literal["accepted", "rejected"]
+    review_decision_ref: str
+
+    @field_validator("candidate_sha256")
+    @classmethod
+    def _candidate_sha256(cls, value: str) -> str:
+        if len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
+            raise ValueError("candidate_sha256 must be lowercase SHA-256 hex")
+        return value
+
+    @field_validator("review_decision_ref")
+    @classmethod
+    def _review_decision_ref(cls, value: str) -> str:
+        return _nonblank(value, field_name="review_decision_ref")
+
+
+class RecapSemanticDecisionResponse(_ExtractPromoteModel):
+    schema_: Literal["dmb_recap_semantic_decision_response_v1"] = Field(
+        default=RECAP_SEMANTIC_DECISION_RESPONSE_SCHEMA, alias="schema"
+    )
+    run_id: str
+    revision: int
+    candidate_sha256: str
+    state: Literal["accepted", "rejected"]
+    basis_sha256: str
+    review_decision_ref: str
+    reviewer_id: str
+    decided_at: str
 
 
 FirstWorldDecision = Literal["create_new", "reject", "accept"]

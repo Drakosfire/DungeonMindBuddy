@@ -6,7 +6,7 @@ import logging
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
@@ -18,6 +18,8 @@ from apps.live_control_server.models.extract_promote import (
     ExtractPromotePrepareRequest,
     ExtractPromotePrepareResponse,
     ExactRunReviewPackage,
+    RecapSemanticDecisionRequest,
+    RecapSemanticDecisionResponse,
     ExactRunEvidenceCorrectionRequest,
     ExactRunEvidenceCorrectionResponse,
     ExtractPromoteStatusResponse,
@@ -35,6 +37,7 @@ from apps.live_control_server.services.extract_promote import (
     confirm,
     confirm_first_world,
     confirm_worldbuilding,
+    decide_recap_semantic_disposition,
     get_exact_run_review_package,
     get_status,
     prepare,
@@ -43,6 +46,10 @@ from apps.live_control_server.services.extract_promote import (
 )
 from apps.live_control_server.services.exact_run_evidence_correction import (
     correct_exact_run_evidence,
+)
+from apps.live_control_server.services.agent_graph_auth import (
+    NativeGraphPrincipal,
+    native_graph_gm_dependency,
 )
 
 logger = logging.getLogger(__name__)
@@ -190,6 +197,35 @@ def post_exact_run_evidence_corrections(
                 "The exact-run evidence correction failed unexpectedly.",
                 code="extract_promote_internal_error",
                 status_code=500,
+            )
+        )
+    return response.model_dump(mode="json", by_alias=True)
+
+
+@router.post(
+    "/runs/{run_id}/semantic-disposition",
+    response_model=RecapSemanticDecisionResponse,
+)
+def post_recap_semantic_disposition(
+    request_context: Request,
+    run_id: str,
+    request: RecapSemanticDecisionRequest,
+    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+) -> dict[str, Any] | JSONResponse:
+    """GM-only exact-child decision; caller cannot supply reviewer or time."""
+    try:
+        _reject_selector_query(request_context)
+        response = decide_recap_semantic_disposition(
+            run_id, request, reviewer_id=principal.subject
+        )
+    except ExtractPromoteError as exc:
+        return _error_response(exc)
+    except Exception:
+        logger.exception("recap semantic decision failed unexpectedly")
+        return _error_response(
+            ExtractPromoteError(
+                "The recap semantic decision failed unexpectedly.",
+                code="extract_promote_internal_error", status_code=500,
             )
         )
     return response.model_dump(mode="json", by_alias=True)

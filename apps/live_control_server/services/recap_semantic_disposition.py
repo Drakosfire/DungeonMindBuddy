@@ -11,7 +11,15 @@ import json
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from graph_memory.ingestion.extraction_run import ExtractionRun, ExtractionRunStatus
+from graph_memory.ingestion.extraction_run import (
+    FROZEN_COMPONENT_STATUSES,
+    ExtractionRun,
+    ExtractionRunStatus,
+)
+from src.graph_memory.extraction.recap_extraction_profile import (
+    RECAP_PROFILE_ID,
+    RECAP_PROFILE_VERSION,
+)
 
 DERIVATION = "operator_recap_literal_evidence_correction_v1"
 DISPOSITION_VERSION = 1
@@ -76,9 +84,12 @@ def assess_recap_semantics(
         or run.status != ExtractionRunStatus.REVIEWABLE
         or run.source_domain != "recap"
         or parent.source_domain != "recap"
+        or parent.status not in FROZEN_COMPONENT_STATUSES
+        or not parent.has_required_review_components()
         or parent.run_id != lineage.get("parent_run_id")
         or parent.run_id == run.run_id
         or not run.profile_id
+        or run.profile_id != f"{RECAP_PROFILE_ID}@{RECAP_PROFILE_VERSION}"
         or run.profile_id != parent.profile_id
         or not run.campaign_id
         or not run.session_id
