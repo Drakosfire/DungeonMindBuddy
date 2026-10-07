@@ -258,6 +258,47 @@
   border-left: 3px solid var(--ui-border-strong);
 }
 
+.world-plan-agent-conversation__new-reply {
+  position: sticky;
+  bottom: 0.35rem;
+  justify-self: center;
+  z-index: 1;
+  min-height: 2rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  box-shadow: 0 2px 10px rgb(0 0 0 / 22%);
+}
+
+.world-plan-agent-conversation__route-correction {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: end;
+  font-size: 0.7rem;
+}
+
+.world-plan-agent-conversation__route-correction > summary {
+  cursor: pointer;
+  color: var(--ui-text-secondary);
+}
+
+.world-plan-agent-conversation__route-correction > div {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.35rem);
+  z-index: 2;
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.35rem;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-background-surface);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 24%);
+}
+
+.world-plan-agent-conversation__route-correction button {
+  white-space: nowrap;
+}
+
 .world-plan-agent-conversation__turns .world-plan-agent-conversation__proposal-event {
   border-left: 3px solid var(--ui-accent, #879fdf);
 }
@@ -748,6 +789,7 @@
 }
 
 .plan-conversation-dock .world-plan-agent-conversation__composer form {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
