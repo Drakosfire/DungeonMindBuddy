@@ -63,3 +63,35 @@ At the repair source head, the following serial Node 24 run passed: `vitest run 
 ## Current evidence
 
 The previous live witness showed the object body and passage but an uncontained, unreachable Close. Runtime state was restored after that witness; this source repair does not touch or restart it. Current source work is based on the fetched Buddy main recorded above.
+
+## §6 Preview authorization — read-only UI witness
+
+PRIME authorizes a temporary clean runtime source checkout at the following immutable UI-only candidate for the remaining desktop/mobile interaction witness:
+
+```text
+candidate commit: ce3f49a334e3abb102b8a9644cc68e04cc22c5c4
+candidate parent: 1cddad85ce4b4f157cbcc1ee3d18e7ad3bf967ac
+source reviewed:  PR #970 head 248038c6182e3125afa09cefede6e467719357e4
+```
+
+The candidate overlays exactly these 13 reviewed UI source/test/style blobs from #970:
+
+```text
+apps/live-control-ui/src/graphObjectCard/GraphObjectCard.test.tsx
+apps/live-control-ui/src/graphObjectCard/GraphObjectCard.tsx
+apps/live-control-ui/src/graphReference/ResolvedGraphObjectProjection.test.tsx
+apps/live-control-ui/src/graphReference/ResolvedGraphObjectProjection.tsx
+apps/live-control-ui/src/markdownReader/ReadOnlyBodyContent.test.tsx
+apps/live-control-ui/src/markdownReader/ReadOnlyBodyContent.tsx
+apps/live-control-ui/src/planSurface/PlanSurfacePage.test.tsx
+apps/live-control-ui/src/planSurface/PlanSurfacePage.tsx
+apps/live-control-ui/src/planSurface/WorldPlanCardProjection.integration.test.tsx
+apps/live-control-ui/src/planSurface/components/WorldPlanCardProjection.tsx
+apps/live-control-ui/src/planSurface/components/WorldPlanGraphReferenceActivation.css
+apps/live-control-ui/src/planSurface/components/WorldPlanGraphReferenceActivation.test.tsx
+apps/live-control-ui/src/planSurface/components/WorldPlanGraphReferenceActivation.tsx
+```
+
+All other paths, including backend and dependency trees, are byte-identical to deployed parent `1cddad85`; `apps/live_control_server/services/agent_turn_service.py` remains blob `e39e43febcdc0899f613ad9fce3c0d510f006f1d`. The candidate is isolated and clean. The temporary source checkout may be used only to inspect the existing Plan Reader's object Peek, pinned source passage, Back, Close, focus return, and scroll return on desktop and mobile. After the witness, restore the runtime source checkout to `1cddad85ce4b4f157cbcc1ee3d18e7ad3bf967ac` and verify its saved hashes.
+
+This witness is read-only. Do not restart services, invoke providers/models, send or retry a live Ask, edit/save a Plan, save a Run, or write registry/native graph state. The recovery turn is durably interrupted at revision 19; the independently reviewed recovery invariants and zero-live-turn state have been confirmed. This paragraph authorizes only the temporary source preview and UI readback described above. It does not authorize runtime changes, writes, or merge.
