@@ -17,8 +17,10 @@ describe('SceneLensReader',()=>{
     await user.tab();
     expect(screen.getByRole('tabpanel')).toHaveFocus();
     expect(screen.getByRole('tabpanel')).toHaveAttribute('aria-labelledby',screen.getByRole('tab',{name:'Situation'}).id);
+    await user.tab({shift:true});
+    expect(screen.getByRole('tab',{name:'Situation'})).toHaveFocus();
     await user.tab();
-    expect(screen.getByText('Choices',{exact:true})).toHaveFocus();
+    expect(screen.getByRole('tabpanel')).toHaveFocus();
   });
   it('shows only the chosen caller section and provides the unmodified full view',async()=>{
     const user=userEvent.setup();render(<Fixture />);
