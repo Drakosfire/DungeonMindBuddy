@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
+import type { PlanConversationPresentationHosts } from "./PlanConversationDockAdapter";
 
 import { getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlanDocumentEditProposal, connectNativeGraphSession, revokeNativeGraphSession, isValidWorldPlanGraphContextFailure, LiveApiError } from "../../api/liveApi";
 import type {
@@ -51,6 +52,7 @@ import {
 import "./WorldPlanAgentConversation.css";
 
 interface WorldPlanAgentConversationProps {
+  presentationHosts?: PlanConversationPresentationHosts;
   worldId: string;
   worldName: string;
   documentId: string | null;
@@ -1522,6 +1524,7 @@ function isScopedPlanThread(
 }
 
 export function WorldPlanAgentConversation({
+  presentationHosts,
   worldId,
   worldName,
   documentId,
@@ -2977,11 +2980,15 @@ export function WorldPlanAgentConversation({
     }
   }
 
-  if (!pageReady) return null;
+  const presentAvailability = (message: string) => presentationHosts?.composer
+    ? createPortal(<p className="world-plan-agent-draft-note" role="status">{message}</p>, presentationHosts.composer)
+    : null;
+  if (!pageReady) return presentAvailability("Loading Plan conversation context…");
   if (!documentId) {
+    if (presentationHosts) return presentAvailability("Save this Plan to start an Agent conversation.");
     return <p className="world-plan-agent-draft-note" role="status">Save this Plan to start an Agent conversation.</p>;
   }
-  if (!planReady || !askSlot?.hostElement || !scopeMatches) return null;
+  if (!planReady || !askSlot?.hostElement || !scopeMatches) return presentAvailability("Verifying saved Plan conversation context…");
 
   const currentReviewBefore = editReview ? worldPlanEditReviewBefore(editReview.captured) : null;
   const currentReview = editReview
@@ -3086,19 +3093,8 @@ export function WorldPlanAgentConversation({
     </article>
   );
 
-  return createPortal(
-    <section className="world-plan-agent-conversation" aria-label="Saved World Plan conversation">
-      <header className="world-plan-agent-conversation__header">
-        <div className="world-plan-agent-conversation__header-main">
-          <div className="world-plan-agent-conversation__header-title">
-            <h2>Plan conversation</h2>
-            <p>{worldName} · {displayedSavedPlanVersion?.status === "verified"
-              ? `Saved Plan · version ${displayedSavedPlanVersion.revisionN}`
-              : displayedSavedPlanVersion?.status === "unavailable"
-                ? "Saved Plan version unavailable"
-                : "Checking saved Plan version…"}</p>
-          </div>
-          <div className="world-plan-agent-conversation__actions">
+  const headerActions = (
+    <div className="world-plan-agent-conversation__actions">
             <button type="button" aria-expanded={settingsOpen} aria-controls="world-plan-agent-settings" onClick={() => setSettingsOpen((open) => !open)}>
               {settingsOpen ? "Close settings" : "Settings"}
             </button>
@@ -3111,8 +3107,9 @@ export function WorldPlanAgentConversation({
               {newConversationSending ? "Starting…" : "New conversation"}
             </button>
           </div>
-        </div>
-        <div className="world-plan-agent-conversation__header-context" role="group" aria-label="Current Plan context">
+  );
+  const contextDetails = (
+    <div className="world-plan-agent-conversation__header-context" role="group" aria-label="Current Plan context">
           {playableTarget ? (
             <div role="group" aria-label="Selected Playable card for Ask" className="world-plan-agent-conversation__target-chip">
               <span>Ask target · {playableTarget.kind} {playableTarget.id}</span>
@@ -3136,8 +3133,11 @@ export function WorldPlanAgentConversation({
             </p>
           ) : null}
         </div>
-      </header>
-      <div className="world-plan-agent-conversation__body">
+  );
+  const messages = (
+    <div className="world-plan-agent-conversation__body">
+      {presentationHosts && playableTargetStale ? <p role="alert">The Ask target is stale. Select it again before asking.</p> : null}
+      {presentationHosts && playableEditTargetStale ? <p role="alert">The edit target is stale. Select it again before composing a proposal.</p> : null}
       {authorizationBlocked ? (
         <section className="world-plan-agent-conversation__auth-notice" role="alert">
           <p>{pendingGraphAsk
@@ -3189,6 +3189,9 @@ export function WorldPlanAgentConversation({
         ) : null}
         {conversationDisplay.events.map((event) => event.kind === "world" ? (
           <article key={`world:${event.turn.turn_id}`} data-sequence={event.turn.sequence}>
+            {presentationHosts ? <>
+              <p className="world-plan-agent-conversation__context">Turn {event.turn.sequence} · {event.turn.lifecycle_status}</p>
+              <details><summary>Turn details</summary>
             <p className="world-plan-agent-conversation__context">
               Turn {event.turn.sequence} · {event.turn.lifecycle_status} · {historyTurnProvenanceLabel(event.turn)}
             </p>
@@ -3198,6 +3201,21 @@ export function WorldPlanAgentConversation({
                 <p role={targetReceipt.startsWith("Target receipt unavailable") ? "alert" : "note"}>{targetReceipt}</p>
               ) : null;
             })()}
+
+              {renderGraphContextHistory(event.turn)}
+              </details>
+            </> : <>
+            <p className="world-plan-agent-conversation__context">
+              Turn {event.turn.sequence} · {event.turn.lifecycle_status} · {historyTurnProvenanceLabel(event.turn)}
+            </p>
+            {(() => {
+              const targetReceipt = historyTurnPlayableTargetLabel(event.turn);
+              return targetReceipt ? (
+                <p role={targetReceipt.startsWith("Target receipt unavailable") ? "alert" : "note"}>{targetReceipt}</p>
+              ) : null;
+            })()}
+
+            </>}
             <p><strong>You:</strong> {event.turn.user_text}</p>
             {event.turn.assistant_text ? (
               <div><strong>DungeonBuddy:</strong><WorldPlanAgentAnswer
@@ -3215,7 +3233,7 @@ export function WorldPlanAgentConversation({
                   ? "This server turn did not complete."
                   : "DungeonBuddy is still working on this server turn."}</p>
             )}
-            {renderGraphContextHistory(event.turn)}
+            {!presentationHosts && renderGraphContextHistory(event.turn)}
           </article>
         ) : renderProposalEvent(event.turn, event.position, false))}
         {conversationNotice ? <p role="status">{conversationNotice}</p> : null}
@@ -3438,7 +3456,9 @@ export function WorldPlanAgentConversation({
         </div>
       </details>
       </div>
-      {editBridge ? (
+  );
+  const composer = (
+    editBridge ? (
         <section className="world-plan-agent-conversation__composer" aria-label="Conversation composer">
           <form onSubmit={submitComposer}>
             <fieldset className="world-plan-agent-conversation__intent" disabled={intentBusy}>
@@ -3522,7 +3542,7 @@ export function WorldPlanAgentConversation({
               disabled={composerBusy}
               placeholder={composerIntent === "discuss" ? "Ask about this Plan…" : "Describe the change you want…"}
             />
-            {composerIntent === "discuss" ? (
+            {!presentationHosts && composerIntent === "discuss" ? (
               <label className="world-plan-agent-conversation__graph-context-opt-in">
                 <input
                   type="checkbox"
@@ -3549,7 +3569,7 @@ export function WorldPlanAgentConversation({
         <form className="world-plan-agent-conversation__composer" onSubmit={submitComposer}>
           <label htmlFor="world-plan-agent-message">Message DungeonBuddy</label>
           <textarea id="world-plan-agent-message" value={composerMessage} onChange={(event) => setComposerMessage(event.currentTarget.value)} onKeyDown={handleComposerKeyDown} maxLength={8000} disabled={composerBusy} />
-          <label className="world-plan-agent-conversation__graph-context-opt-in">
+{!presentationHosts && (          <label className="world-plan-agent-conversation__graph-context-opt-in">
             <input
               type="checkbox"
               checked={useWorldGraphForAsk}
@@ -3557,11 +3577,48 @@ export function WorldPlanAgentConversation({
               onChange={(event) => setUseWorldGraphForAsk(event.currentTarget.checked)}
             />
             Use this World’s Graph context for this question
-          </label>
+          </label>)}
           {error ? <p role="alert">{error}</p> : null}
           <button type="submit" disabled={composerBusy || !composerMessage.trim() || playableTargetStale}>{sending ? "Sending…" : "Send message"}</button>
         </form>
-      )}
+      )
+  );
+  if (presentationHosts) {
+    return <>
+      {presentationHosts.header && createPortal(headerActions, presentationHosts.header)}
+      {presentationHosts.context && createPortal(<>{contextDetails}<p>{displayedSavedPlanVersion?.status === "verified" ? `Saved Plan · version ${displayedSavedPlanVersion.revisionN}` : "Saved Plan version is being verified."}</p>{composerIntent === "discuss" ? (
+              <label className="world-plan-agent-conversation__graph-context-opt-in">
+                <input
+                  type="checkbox"
+                  checked={useWorldGraphForAsk}
+                  disabled={composerBusy || !scopeMatches || !verifiedWorldId}
+                  onChange={(event) => setUseWorldGraphForAsk(event.currentTarget.checked)}
+                />
+                Use this World’s Graph context for this question
+              </label>
+            ) : null}<p>Includes the full committed Plan; unsaved changes are excluded.</p></>, presentationHosts.context)}
+      {presentationHosts.messages && createPortal(messages, presentationHosts.messages)}
+      {presentationHosts.composer && createPortal(composer, presentationHosts.composer)}
+    </>;
+  }
+  return createPortal(
+    <section className="world-plan-agent-conversation" aria-label="Saved World Plan conversation">
+      <header className="world-plan-agent-conversation__header">
+        <div className="world-plan-agent-conversation__header-main">
+          <div className="world-plan-agent-conversation__header-title">
+            <h2>Plan conversation</h2>
+            <p>{worldName} · {displayedSavedPlanVersion?.status === "verified"
+              ? `Saved Plan · version ${displayedSavedPlanVersion.revisionN}`
+              : displayedSavedPlanVersion?.status === "unavailable"
+                ? "Saved Plan version unavailable"
+                : "Checking saved Plan version…"}</p>
+          </div>
+          {headerActions}
+        </div>
+        {contextDetails}
+      </header>
+      {messages}
+      {composer}
     </section>,
     askSlot.hostElement,
   );

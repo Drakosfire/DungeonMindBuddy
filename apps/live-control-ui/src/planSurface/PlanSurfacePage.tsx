@@ -28,6 +28,7 @@ import {
   WorldPlanGraphReferenceActivationProvider,
 } from "./components/WorldPlanGraphReferenceActivation";
 import { PlanSurfaceCanvasFrame } from "./components/PlanSurfaceCanvas";
+import { PlanConversationDockAdapter } from "./components/PlanConversationDockAdapter";
 import { WorldPlanAgentConversation } from "./components/WorldPlanAgentConversation";
 import {
   buildWorldPlanCardProjectionModel,
@@ -36,6 +37,7 @@ import {
   worldPlanCardTargetKeys,
   type WorldPlanCardBasis,
   type WorldPlanCardTarget,
+  type WorldPlanCardNode,
 } from "./components/WorldPlanCardProjection";
 import "./components/WorldPlanCardProjection.css";
 import {
@@ -1553,8 +1555,19 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     setSelectedPlayableEditTarget(null);
   }, []);
 
+  const focusTitle = (() => {
+    if (!selectedPlayableTarget || savedCardProjection?.status !== "ready") return null;
+    const find = (nodes: WorldPlanCardNode[]): string | null => {
+      for (const node of nodes) {
+        if (node.id === selectedPlayableTarget.target.id && node.kind === selectedPlayableTarget.target.kind) return node.title;
+        const child = find(node.children); if (child) return child;
+      }
+      return null;
+    };
+    return find(savedCardProjection.roots);
+  })();
   return (
-    <AppChrome activeRoute="plan" editorTools={editorToolsGeneration} editToolboxLayout="dock">
+    <AppChrome activeRoute="plan" editorTools={editorToolsGeneration} editToolboxLayout="dock" workspaceLayout="bounded">
       <WorldPlanSurfaceContext
         worldId={worldId}
         worldName={worldName}
@@ -1565,6 +1578,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         onSelect={(nextId) => { void openPlan(nextId); }}
         onNewPlan={resetBlankPlan}
       />
+      <PlanConversationDockAdapter contextLabel={focusTitle ? `${focusTitle} · Full saved Plan` : `${worldName} · Full saved Plan`} reader={(
       <main
         className="app-status world-owned-plan"
         data-testid="world-owned-plan"
@@ -1708,7 +1722,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         {error ? <p role="alert">{error}</p> : null}
         {status === "error" ? <button type="button" onClick={retryPlanLoad}>Retry Plan load</button> : null}
       </main>
-      <WorldPlanAgentConversation
+      )}>
+      {(presentationHosts) => <WorldPlanAgentConversation
+        presentationHosts={presentationHosts}
         worldId={worldId}
         worldName={worldName}
         documentId={documentId}
@@ -1735,7 +1751,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         playableEditTargetStale={selectedPlayableEditTargetStale}
         playableEditTargetDirty={cardProjectionDirty}
         onClearPlayableEditTarget={clearPlayableEditTarget}
-      />
+      />}
+      </PlanConversationDockAdapter>
     </AppChrome>
   );
 }
