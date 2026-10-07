@@ -1,6 +1,6 @@
 # SERVER — merged-main operator runtime rollout
 
-**Status:** PREPARED / BLOCKED pending PRIME's exact rollout activation and final review. This document grants no restart authority.
+**Status:** ACTIVE. PRIME reviewed draft PR #978 at head `1c8c14c75f16a2bbe2ba3288e4ddd01c32a7b9db` and explicitly activated this bounded operational lease on 2026-10-06, conditional on every fresh preflight and stop condition below. This activation authorizes only the owned-group restart to exact target `521a63518a1dd0188b76244c5382d8fb897878d4`.
 **Source authority:** Buddy `origin/main@521a63518a1dd0188b76244c5382d8fb897878d4`, merge of accepted UI PR #972. The current runtime is clean and detached at #972 head `4722ac5b82b81970ef2a66eb21e28e9ee1f874fa`; `git diff 4722ac5b..521a6351` is empty. The target changes the deployed Git identity, not the source tree.
 **Predecessor protocol:** completed [PR #966 operator deployment](HANDOFF-SERVER-pr966-operator-runtime-deploy-2026-10-06.md). Do not rewrite its historical settlement. PR #977's recap correction is draft and is outside this rollout target.
 **Topology:** one operational rollout after PRIME releases all live QA/authoring leases. No source implementation or migration.
