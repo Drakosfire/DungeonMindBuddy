@@ -40,7 +40,7 @@ The primitive is not yet mounted in the product. It does not establish Graph-con
 
 ## Author verification packet
 
-- Nine owning interaction tests pass, including mounted draft identity, context scope, message scroll restoration, pointer ownership/cancel, keyboard bounds, container resize/observer cleanup and unavailable-context transitions.
+- Ten owning interaction tests pass, including caller-labelled reading landmarks, mounted draft identity, context scope, message scroll restoration, pointer ownership/cancel, keyboard bounds, container resize/observer cleanup and unavailable-context transitions.
 - The four isolated Ladle states build successfully: Compact, Expanded, Paper and Failed turn. No application/provider decorators are loaded; the author server uses only this story glob on5203.
 - Full UI typecheck remains red at `ThreatPublicationPanel.tsx:553` (`TS2503: Cannot find namespace JSX`). Exact-base source with the same dependencies reproduces the same error. An initially incomplete baseline archive also missed a fixture JSON; including that base fixture removed the setup error. No new dock type errors were reported.
 - At1280×720 and390×844, full44px composer/31px Send visible. Expanded message region209.44px, context-open171.84px. Native pointer opening leaves outer page at0; semantic helper actions that center fields can move the oversized Ladle wrapper, so those offsets are not counted as component behavior. Initial host allocation clipped the composer and was fixed before final screenshots.

@@ -18,6 +18,11 @@ function Fixture({ expanded = false, onExpandedChange = vi.fn() } = {}) {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("ConversationDock", () => {
+  it("lets each surface name its reading landmark without assuming a document", () => {
+    render(<ConversationDock reader={<p>Encounter</p>} readerLabel="Encounter canvas" messages="Messages" composer={<input aria-label="Draft" />} />);
+    expect(screen.getByRole("region", {name:"Encounter canvas"})).toHaveTextContent("Encounter");
+    expect(screen.queryByLabelText("Document workspace")).toBeNull();
+  });
   it("keeps reader and composer mounted while opening and collapsing conversation", async () => {
     const user = userEvent.setup();
     render(<Fixture />);
@@ -118,6 +123,7 @@ describe("ConversationDock", () => {
     render(<ConversationDock reader="Reader" messages="Messages" composer={<input aria-label="Draft" />} />);
     expect(screen.queryByRole("button", {name:/Context/})).toBeNull();
     expect(screen.getByLabelText("Draft")).toBeInTheDocument();
+    expect(screen.getByRole("region", {name:"Workspace content"})).toHaveTextContent("Reader");
   });
 
   it("updates bounds on container resize and disconnects its observer", () => {

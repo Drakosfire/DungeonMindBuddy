@@ -3,6 +3,7 @@ import "./ConversationDock.css";
 
 export interface ConversationDockProps {
   reader: ReactNode;
+  readerLabel?: string;
   messages: ReactNode;
   composer: ReactNode;
   title?: string;
@@ -27,7 +28,7 @@ export interface ConversationDockProps {
  * Paint through --conversation-dock-* variables; no application providers.
  */
 export function ConversationDock({
-  reader, messages, composer, title = "Buddy", contextLabel = "Context",
+  reader, readerLabel = "Workspace content", messages, composer, title = "Buddy", contextLabel = "Context",
   contextDetails, collapsedPreview, headerActions, initialExpanded = false,
   initialHeight = 340, minHeight = 280, maxHeight = 520,
   minimumReaderHeight = 160, onExpandedChange, className = "", style,
@@ -127,7 +128,7 @@ export function ConversationDock({
 
   return (
     <div ref={root} className={`conversation-dock ${expanded ? "is-expanded" : ""} ${resizing ? "is-resizing" : ""} ${className}`.trim()} style={variables}>
-      <div className="conversation-dock__reader" aria-label="Document workspace">{reader}</div>
+      <div className="conversation-dock__reader" role="region" aria-label={readerLabel}>{reader}</div>
       <section className="conversation-dock__conversation" aria-label={`${title} conversation`}>
         <button type="button" role="separator" aria-label={`Resize ${title} conversation`} aria-orientation="horizontal"
           aria-controls={`${id}-messages`} aria-valuemin={floor} aria-valuemax={ceiling} aria-valuenow={height}
