@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any, Literal, Mapping
@@ -22,6 +23,8 @@ from apps.live_control_server.models.extract_promote import (
     ExactRunReviewAssertion,
     ExactRunReviewEvidence,
     ExactRunReviewPackage,
+    RecapSemanticDecisionRequest,
+    RecapSemanticDecisionResponse,
     ExtractPromoteConfirmReceipt,
     ExtractPromoteConfirmRequest,
     ExtractPromoteDiagnostic,
@@ -731,6 +734,253 @@ def _assert_and_project_candidate_evidence(
     return assertions
 
 
+def _recap_semantic_assessment(resolved, run_record=None):
+    """Read canonical child and parent; legacy manifest runs have no gate."""
+    canonical = (
+        getattr(resolved, "source_span_index_path", None) is not None
+        or "resolved via canonical ExtractionRun registry" in getattr(resolved, "diagnostics", ())
+    )
+    if not canonical:
+        return None, None
+    if getattr(resolved, "source_span_index_path", None) is None:
+        raise ExtractPromoteError(
+            "canonical extraction run lost its span-index binding",
+            code="run_not_promotable", status_code=409,
+        )
+    from apps.live_control_server.services.graph_run_registry import (
+        GraphRunRegistryError,
+        get_extraction_run,
+    )
+    from apps.live_control_server.services.recap_semantic_disposition import (
+        assess_recap_semantics,
+        is_recap_correction,
+    )
+
+    try:
+        run = run_record or get_extraction_run(repo_root(), resolved.run_id)
+    except GraphRunRegistryError as exc:
+        raise ExtractPromoteError(
+            "canonical extraction run could not be re-read",
+            code="run_not_promotable", status_code=409,
+        ) from exc
+    if not is_recap_correction(run):
+        return run, None
+    parent = None
+    parent_id = run.lineage.get("parent_run_id")
+    if isinstance(parent_id, str) and parent_id.strip():
+        try:
+            parent = get_extraction_run(repo_root(), parent_id)
+        except GraphRunRegistryError as exc:
+            if exc.status_code != 404:
+                raise ExtractPromoteError(
+                    "canonical extraction parent is unavailable",
+                    code="run_not_promotable", status_code=exc.status_code,
+                ) from exc
+            # The child's own exact source package remains inspectable. A
+            # missing parent makes its semantic basis invalid and keeps it held.
+    return run, assess_recap_semantics(
+        run, parent=parent, source_revision_id=resolved.source_revision_id
+    )
+
+
+def _bind_recap_semantic_effect(package, run, assessment):
+    """Add the exact accepted child pin before the final proposal seal."""
+    from apps.live_control_server.services.recap_semantic_disposition import (
+        EFFECT_KEY,
+        accepted_effect_binding,
+    )
+    from graph_memory.extract_promote_proposal import compute_proposal_digest
+
+    bound = dict(package)
+    effect = dict(bound.get("effect") or {})
+    if not effect or EFFECT_KEY in effect:
+        raise PromoteProposalError("recap semantic gate cannot be bound")
+    effect[EFFECT_KEY] = accepted_effect_binding(run, assessment)
+    bound["effect"] = effect
+    bound["proposal_digest"] = compute_proposal_digest(effect)
+    return bound
+
+
+def _candidate_owner_for_locator(locator: str):
+    """Ask APP-STATE for exact component ownership, including changed statuses."""
+    from application_state.errors import ApplicationStateError
+    from application_state.ingest.service import (
+        lookup_extraction_run_by_candidate_component,
+    )
+
+    path = _parse_source_uri_to_path(locator)
+    if not path.is_file():
+        raise ExtractPromoteError(
+            "sealed candidate could not be resolved at confirm",
+            code="candidate_binding_invalid", status_code=409,
+        )
+    try:
+        relative = path.relative_to(repo_root().resolve()).as_posix()
+    except ValueError:
+        return None
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    owners = {}
+    try:
+        # Both spellings are accepted by the canonical component URI resolver.
+        # Two distinct matches are ambiguous even if each lookup is unique.
+        for uri in (relative, f"repo://{relative}"):
+            result = lookup_extraction_run_by_candidate_component(
+                uri=uri, sha256=digest
+            )
+            if result.kind == "ambiguous":
+                raise ExtractPromoteError(
+                    "candidate component belongs to multiple extraction runs",
+                    code="candidate_binding_invalid", status_code=409,
+                )
+            if result.kind == "unique":
+                owners[result.run.run_id] = result.run
+    except ApplicationStateError as exc:
+        raise ExtractPromoteError(
+            "candidate owner lookup is unavailable",
+            code="candidate_binding_invalid", status_code=exc.status_code,
+        ) from exc
+    if len(owners) > 1:
+        raise ExtractPromoteError(
+            "candidate component belongs to multiple extraction runs",
+            code="candidate_binding_invalid", status_code=409,
+        )
+    if not owners and path.is_relative_to(
+        (repo_root().resolve() / "out" / "graph_memory" / "derived_candidates").resolve()
+    ):
+        raise ExtractPromoteError(
+            "derived candidate has no exact canonical run binding",
+            code="candidate_binding_invalid", status_code=409,
+        )
+    return next(iter(owners.values()), None)
+
+
+def _assert_recap_semantics_at_confirm(locator: str, review_package) -> None:
+    """Re-prove a marked child immediately before the governed World writer."""
+    from apps.live_control_server.services.recap_semantic_disposition import (
+        EFFECT_KEY,
+        assert_current_effect_binding,
+        is_recap_correction,
+    )
+
+    effect = (review_package or {}).get("effect") or {}
+    binding = effect.get(EFFECT_KEY)
+    owner = _candidate_owner_for_locator(locator)
+    if owner is None or not is_recap_correction(owner):
+        if binding is not None:
+            raise ExtractPromoteError(
+                "recap semantic gate has no matching canonical child",
+                code="candidate_binding_invalid", status_code=409,
+            )
+        return
+    if owner.status.value != "reviewable" or owner.source_domain != "recap":
+        raise ExtractPromoteError(
+            "corrected recap child is no longer reviewable",
+            code="recap_semantic_hold", status_code=409,
+        )
+    try:
+        resolved = resolve_promotable_ingest_run(owner.run_id, root=repo_root())
+    except PromotableIngestRunError as exc:
+        raise _promotable_run_error(exc) from exc
+    if resolved.candidate_graph_path.resolve() != _parse_source_uri_to_path(locator):
+        raise ExtractPromoteError(
+            "candidate locator disagrees with canonical child",
+            code="candidate_binding_invalid", status_code=409,
+        )
+    current, assessment = _recap_semantic_assessment(resolved)
+    if current is None or assessment is None or not assessment.accepted:
+        raise ExtractPromoteError(
+            "corrected recap child is held for semantic review",
+            code="recap_semantic_hold", status_code=409,
+        )
+    try:
+        assert_current_effect_binding(current, assessment, binding)
+    except ValueError as exc:
+        raise ExtractPromoteError(
+            str(exc), code="candidate_binding_invalid", status_code=409,
+        ) from exc
+
+
+def decide_recap_semantic_disposition(
+    run_id: str,
+    request: RecapSemanticDecisionRequest,
+    *,
+    reviewer_id: str,
+) -> RecapSemanticDecisionResponse:
+    """Record an explicit operator decision without altering evidence or World."""
+    from application_state.errors import ApplicationStateError
+    from application_state.ingest.service import (
+        RecapSemanticBasisV1,
+        RecapSemanticDispositionCommandV1,
+        record_recap_semantic_disposition,
+    )
+    from apps.live_control_server.services.graph_run_registry import (
+        GraphRunRegistryError,
+        get_extraction_run,
+        get_reviewable_extraction_run,
+    )
+    from apps.live_control_server.services.recap_semantic_disposition import (
+        assess_recap_semantics,
+        is_recap_correction,
+    )
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryError,
+        get_source_artifact,
+    )
+
+    try:
+        run = get_reviewable_extraction_run(repo_root(), run_id)
+        if not is_recap_correction(run):
+            raise ExtractPromoteError(
+                "run is not a corrected recap child",
+                code="recap_semantic_decision_invalid", status_code=409,
+            )
+        parent_id = run.lineage.get("parent_run_id")
+        parent = get_extraction_run(repo_root(), parent_id) if isinstance(parent_id, str) else None
+        artifact = get_source_artifact(repo_root(), run.source_artifact_id)
+    except (GraphRunRegistryError, SourceArtifactRegistryError) as exc:
+        raise ExtractPromoteError(
+            "canonical corrected recap evidence is unavailable",
+            code="recap_semantic_decision_invalid", status_code=409,
+        ) from exc
+    assessment = assess_recap_semantics(
+        run, parent=parent, source_revision_id=artifact.content_sha256
+    )
+    if assessment.basis is None or assessment.basis_sha256 is None:
+        raise ExtractPromoteError(
+            "corrected recap semantic basis is invalid",
+            code="recap_semantic_decision_invalid", status_code=409,
+        )
+    if request.candidate_sha256 != assessment.basis["candidate_sha256"]:
+        raise ExtractPromoteError(
+            "candidate digest does not match corrected recap child",
+            code="recap_semantic_decision_conflict", status_code=409,
+        )
+    try:
+        basis = RecapSemanticBasisV1.model_validate(assessment.basis)
+        decision = RecapSemanticDispositionCommandV1(
+            state=request.decision,
+            review_decision_ref=request.review_decision_ref,
+            reviewer_id=reviewer_id,
+        )
+        decided = record_recap_semantic_disposition(
+            run_id, expected_revision=request.expected_revision,
+            basis=basis, decision=decision,
+        )
+    except ApplicationStateError as exc:
+        raise ExtractPromoteError(
+            "corrected recap decision conflicts with canonical run",
+            code="recap_semantic_decision_conflict", status_code=exc.status_code,
+        ) from exc
+    receipt = decided.lineage["semantic_disposition"]
+    return RecapSemanticDecisionResponse(
+        run_id=decided.run_id, revision=decided.revision,
+        candidate_sha256=assessment.basis["candidate_sha256"],
+        state=receipt["state"], basis_sha256=receipt["basis_sha256"],
+        review_decision_ref=receipt["review_decision_ref"],
+        reviewer_id=receipt["reviewer_id"], decided_at=receipt["decided_at"],
+    )
+
+
 def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
     """Build a source/evidence review projection for one exact ExtractionRun.
 
@@ -823,13 +1073,22 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
         )
 
         derived_from_run_id: str | None = None
+        semantic_assessment = None
         try:
             run_record = get_extraction_run(repo_root(), resolved.run_id)
             if run_record.lineage.get("derivation") == "operator_literal_evidence_correction_v1":
                 derived_from_run_id = str(run_record.lineage.get("parent_run_id") or "") or None
+            from apps.live_control_server.services.recap_semantic_disposition import (
+                is_recap_correction,
+            )
+
+            if is_recap_correction(run_record):
+                derived_from_run_id = str(run_record.lineage.get("parent_run_id") or "") or None
+                _, semantic_assessment = _recap_semantic_assessment(resolved, run_record)
         except GraphRunRegistryError as exc:
             if exc.status_code != 404:
                 raise
+        semantic_held = semantic_assessment is not None and not semantic_assessment.accepted
         return ExactRunReviewPackage(
             run_id=resolved.run_id,
             derived_from_run_id=derived_from_run_id,
@@ -843,18 +1102,34 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
             inspection_status="invalid_evidence" if invalid_evidence_count else "ready",
             invalid_evidence_count=invalid_evidence_count,
             diagnostics=list(resolved.diagnostics),
-            promotable=not inspect_only and invalid_evidence_count == 0,
+            promotable=not inspect_only and invalid_evidence_count == 0 and not semantic_held,
             promotable_reason=(
                 "Candidate evidence contains nonliteral anchor quotes; publication is blocked."
                 if invalid_evidence_count
-                else _WORLDBUILDING_INSPECT_ONLY_REASON if inspect_only else None
+                else _WORLDBUILDING_INSPECT_ONLY_REASON if inspect_only
+                else semantic_assessment.reason if semantic_held else None
+            ),
+            semantic_disposition=(
+                {
+                    "version": 1,
+                    "state": (
+                        semantic_assessment.disposition["state"]
+                        if semantic_assessment.disposition is not None else "held"
+                    ),
+                    "basisSha256": semantic_assessment.basis_sha256,
+                    "reason": semantic_assessment.reason,
+                }
+                if semantic_assessment is not None else None
             ),
             world_id=capability.world_id,
             world_state=capability.world_state,
-            first_world_publish_eligible=capability.eligible and invalid_evidence_count == 0,
+            first_world_publish_eligible=(
+                capability.eligible and invalid_evidence_count == 0 and not semantic_held
+            ),
             first_world_publish_reason=(
                 "Candidate evidence contains nonliteral anchor quotes; publication is blocked."
-                if invalid_evidence_count else capability.reason
+                if invalid_evidence_count else semantic_assessment.reason if semantic_held
+                else capability.reason
             ),
         )
     except ExtractPromoteError as exc:
@@ -892,6 +1167,14 @@ def prepare(
         resolved = resolve_promotable_ingest_run(request.run_id, root=repo_root())
     except PromotableIngestRunError as exc:
         raise _promotable_run_error(exc) from exc
+
+    canonical_run, semantic_assessment = _recap_semantic_assessment(resolved)
+    if semantic_assessment is not None and not semantic_assessment.accepted:
+        raise ExtractPromoteError(
+            semantic_assessment.reason or "recap semantic review is required",
+            code="recap_semantic_hold",
+            status_code=409,
+        )
 
 
     # Defense in depth: registry seal must still pass confirm-time rules.
@@ -1103,6 +1386,16 @@ def prepare(
             )
             from dataclasses import replace
 
+            if semantic_assessment is not None:
+                assert canonical_run is not None
+                package = _bind_recap_semantic_effect(
+                    result.review_package, canonical_run, semantic_assessment
+                )
+                result = replace(
+                    result,
+                    review_package=package,
+                    proposal_digest=str(package["proposal_digest"]),
+                )
 
             sealed = world_graph_writes.bind_identity_ledger_to_package(
                 result.review_package, mutation_context
@@ -1121,6 +1414,18 @@ def prepare(
                 **prepare_kwargs,
                 world_root=world_graph_root(),
             )
+            if semantic_assessment is not None:
+                from dataclasses import replace
+
+                assert canonical_run is not None
+                package = _bind_recap_semantic_effect(
+                    result.review_package, canonical_run, semantic_assessment
+                )
+                result = replace(
+                    result,
+                    review_package=package,
+                    proposal_digest=str(package["proposal_digest"]),
+                )
     except CandidateAdmissionIntegrityError as exc:
         raise ExtractPromoteError(
             str(exc),
@@ -1569,7 +1874,13 @@ def confirm(
                     code="candidate_binding_invalid",
                     status_code=409,
                 )
-            assert_sealed_source_uri_allowed(locator)
+            from apps.live_control_server.services.recap_semantic_disposition import (
+                is_recap_correction,
+            )
+
+            initial_owner = _candidate_owner_for_locator(locator)
+            if initial_owner is None or not is_recap_correction(initial_owner):
+                assert_sealed_source_uri_allowed(locator)
             try:
                 candidate_payload = json.loads(Path(locator).read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError) as exc:
@@ -1585,16 +1896,21 @@ def confirm(
                     code="candidate_binding_invalid",
                     status_code=409,
                 )
-            payload = confirm_candidate_graph_admission(
-                review_package=request.review_package,
-                candidate_graph=candidate_payload,
-                governed_confirm=lambda: world_graph_writes.confirm_extract_promote_via_dungeonmind(
+
+            def _governed_confirm():
+                _assert_recap_semantics_at_confirm(locator, request.review_package)
+                return world_graph_writes.confirm_extract_promote_via_dungeonmind(
                     request,
                     database_url=_config.world_graph_authority_database_url() or "",
                     confirming_principal=SERVER_CONFIRMING_PRINCIPAL,
                     assertion_ids=normalized_assertion_ids,
                     repo_root=repo_root(),
-                ),
+                )
+
+            payload = confirm_candidate_graph_admission(
+                review_package=request.review_package,
+                candidate_graph=candidate_payload,
+                governed_confirm=_governed_confirm,
             )
         except CandidateGraphMappingError as exc:
             raise ExtractPromoteError(
