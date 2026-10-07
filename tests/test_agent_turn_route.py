@@ -293,13 +293,17 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         parents=True, exist_ok=True
     )
     world_graph = InMemoryWorldGraphRepository()
+    indexed_payload = graph_payload()
+    for evidence_row in indexed_payload["evidence_refs"]:
+        if evidence_row["evidence_ref_id"] == "ev:sign":
+            evidence_row["locator"] = "heading:Crossroads Sign"
     published = world_graph.publish_revision(PublishRevisionCommand(
         world_id=NATIVE_ID,
         parent_revision_id=None,
         expected_parent_revision_id=None,
         operation_ids=["op:policy-real-graph"],
         graph_schema="dm_union_graph_v6",
-        graph_payload=graph_payload(),
+        graph_payload=indexed_payload,
         created_at=NOW,
     ))
     sources = InMemorySourceRepository()
@@ -365,6 +369,38 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     assert bootstrap.retrieval_session.snapshot.world_id == NATIVE_ID
     assert bootstrap.retrieval_session.snapshot.revision_id == published.revision_id
     assert bootstrap.retrieval_session.claims
+    assert bootstrap.source_index_commitment is not None
+    assert bootstrap.source_index_commitment["eligible_count"] == len(
+        bootstrap.source_scope_anchors
+    )
+
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    with monkeypatch.context() as index_patch:
+        index_patch.setattr(
+            direct, "list_source_anchor_index_direct_v2",
+            lambda *_args, **_kwargs: direct.ResolvedWorldGraphSourceIndexV2(
+                status="overflow", eligible_count=513, source_pins=(),
+            ),
+        )
+        with pytest.raises(AgentTurnServiceError) as overflow:
+            agent_route._plan_context_resolver(
+                body, {"kind": "world", "id": managed.world_id}, work, None,
+            )
+        assert overflow.value.code == "graph_evidence_invalid"
+        assert overflow.value.provider_dispatched is False
+    with monkeypatch.context() as mismatch_patch:
+        mismatch_patch.setattr(
+            direct, "list_source_anchor_index_direct_v2",
+            lambda *_args, **_kwargs: direct.ResolvedWorldGraphSourceIndexV2(
+                status="complete", eligible_count=0, source_pins=(),
+            ),
+        )
+        with pytest.raises(AgentTurnServiceError) as mismatch:
+            agent_route._plan_context_resolver(
+                body, {"kind": "world", "id": managed.world_id}, work, None,
+            )
+        assert mismatch.value.code == "graph_evidence_invalid"
+        assert mismatch.value.provider_dispatched is False
 
     # A generic question has no lexical Graph match. The selected committed
     # card's typed link supplies an exact, same-revision seed and citations.
@@ -397,7 +433,11 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     assert "obj:tavern" in selected.graph_envelope["matched_node_ids"]
     assert selected.retrieval_session.claims
     assert selected.graph_envelope["source_anchors"]
-    assert graph_reads == [NATIVE_ID, NATIVE_ID]
+    initial_anchor_ids = {
+        anchor.anchor_id for anchor in selected.retrieval_session.source_anchors
+    }
+    assert {pin["anchor_id"] for pin in selected.source_scope_anchors} - initial_anchor_ids
+    assert graph_reads == [NATIVE_ID] * 4
     phase_order = [span["name"] for span in trace.spans]
     assert phase_order == [
         "plan_graph_seed_selection",
@@ -488,7 +528,9 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     from application_state.agent_conversation import types as graph_types
     if not hasattr(graph_types, "PlanWorldGraphExecutionV1"):
         pytest.skip("run with the pinned APP-STATE candidate to verify receipt freeze")
-    from apps.live_control_server.services.agent_turn_service import _freeze_policy_receipt
+    from apps.live_control_server.services.agent_turn_service import (
+        _canonical_sha256, _freeze_policy_receipt,
+    )
     from apps.live_control_server.services.agent_turn_service import _plan_message
 
     projected = bootstrap.retrieval_session.project_for_hermes()
@@ -532,6 +574,55 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     assert receipt.assembled_input.assembled_input_sha256 == view["payloadSha256"]
     assert receipt.graph_authority.native_world_id == NATIVE_ID
     assert receipt.graph_authority.managed_world_id == managed.world_id
+    assert (
+        receipt.graph_packet.selection_policy_version
+        == "parent_initial_retrieval_with_bounded_source_index_v1"
+    )
+    assert set(receipt.graph_packet.candidate_evidence_ref_ids) == ({
+        pin["evidence_ref_id"] for pin in bootstrap.source_scope_anchors
+    } | set(bootstrap.evidence_by_anchor_id.values()))
+    assert set(receipt.assembled_input.dispatched_evidence_ref_ids).issubset(
+        set(bootstrap.evidence_by_anchor_id.values())
+    )
+    assert bootstrap.source_index_commitment is not None
+    assert receipt.graph_packet.retrieval_packet_sha256 == _canonical_sha256({
+        "schema": "dmb_plan_retrieval_composite_v1",
+        "selection_policy_version": receipt.graph_packet.selection_policy_version,
+        "initial_claim_packet": initial_packet,
+        "source_index": bootstrap.source_index_commitment,
+    })
+    assert receipt.graph_packet.evidence_sufficiency_status == "insufficient"
+    assert receipt.assembled_input.packet_disposition == "omitted_insufficient"
+    assert receipt.assembled_input.dispatched_packet_sha256 is None
+    changed_pins = [dict(pin) for pin in bootstrap.source_scope_anchors]
+    changed_pins[0]["source_revision_id"] += "-changed"
+    changed_bootstrap = replace(
+        bootstrap,
+        source_scope_anchors=tuple(changed_pins),
+        source_index_commitment={
+            **bootstrap.source_index_commitment,
+            "source_pins": changed_pins,
+        },
+    )
+    changed_receipt, _, _ = _freeze_policy_receipt(
+        body, work, changed_bootstrap, None, view, budget,
+    )
+    assert (
+        changed_receipt.graph_packet.retrieval_packet_sha256
+        != receipt.graph_packet.retrieval_packet_sha256
+    )
+    assert (
+        changed_receipt.assembled_input.dispatched_packet_sha256
+        == receipt.assembled_input.dispatched_packet_sha256
+    )
+    with pytest.raises(AgentTurnServiceError) as wrong_index_version:
+        _freeze_policy_receipt(
+            body, work, replace(bootstrap, source_index_commitment={
+                **bootstrap.source_index_commitment,
+                "schema": "dmb_bounded_source_anchor_index_commitment_v2",
+            }), None, view, budget,
+        )
+    assert wrong_index_version.value.code == "graph_evidence_invalid"
     assert execution.context_receipt_sha256 == receipt.context_receipt_sha256
     assert tuple(receipt.assembled_input.dispatched_assertion_ids) == tuple(membership[0])
 
@@ -886,6 +977,9 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
                 def authorize_provider_attempt(self, *_args: Any, **_kwargs: Any) -> Any:
                     raise ApplicationStateError("synthetic authorization persistence refusal")
 
+                def authorize_provider_attempt_v2(self, *_args: Any, **_kwargs: Any) -> Any:
+                    raise ApplicationStateError("synthetic authorization persistence refusal")
+
             route_service["value"] = DenyAuthorizationService()
             before_persistence_reads = len(graph_reads)
             persistence_denied = client.post("/api/live/agent/turn", json={
@@ -926,7 +1020,10 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         ) if turn.user_text == http_payload["message"]
     )
     http_events = stored_http.graph_context_execution.events
-    http_attempts = [e for e in http_events if e.kind == "provider_attempt_authorized"]
+    http_attempts = [
+        e for e in http_events
+        if e.kind in {"provider_attempt_authorized", "provider_attempt_authorized_v2"}
+    ]
     http_operations = [e for e in http_events if e.kind == "validated_graph_operation"]
     assert len(http_attempts) == 2
     assert len(http_operations) == 1

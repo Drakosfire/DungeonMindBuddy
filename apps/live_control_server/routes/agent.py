@@ -537,6 +537,7 @@ def _plan_context_resolver(
     from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
         direct_services_from_config,
         get_object_direct,
+        list_source_anchor_index_direct_v2,
         search_world_graph_direct_v2,
     )
     from apps.live_control_server.services.agent_plan_playable_target import (
@@ -775,24 +776,40 @@ def _plan_context_resolver(
         if anchor.anchor_id and anchor.evidence_ref_id
     }
     source_scope_anchors: list[dict[str, str]] = []
+    source_index_commitment: dict[str, Any] | None = None
     try:
-        by_id = {anchor.anchor_id: anchor for anchor in result.source_anchors}
+        index = list_source_anchor_index_direct_v2(
+            services, request, revision_id=revision_id,
+        )
+        if index.status != "complete":
+            raise AgentTurnServiceError(
+                "The pinned source-anchor index exceeds the 512-anchor limit.",
+                code="graph_evidence_invalid", status_code=502,
+                provider_dispatched=False,
+            )
+        index_by_id = {pin.anchor_id: pin for pin in index.source_pins}
         for pin in resolved_search.source_pins:
-            anchor = by_id.get(pin.anchor_id)
-            if (
-                anchor is None
-                or not anchor.readable
-                or pin.graph_revision != revision_id
-                or pin.evidence_ref_id != anchor.evidence_ref_id
-                or pin.source_artifact_id != anchor.source_artifact_id
-            ):
-                raise ValueError("source anchor metadata differs from the admitted Graph result")
+            if index_by_id.get(pin.anchor_id) != pin:
+                raise ValueError("initial search source pin differs from the complete native index")
+        for pin in index.source_pins:
             source_scope_anchors.append({
                 "anchor_id": pin.anchor_id,
                 "evidence_ref_id": pin.evidence_ref_id,
                 "source_artifact_id": pin.source_artifact_id,
                 "source_revision_id": pin.source_revision_id,
             })
+        if source_scope_anchors:
+            source_index_commitment = {
+                "schema": "dmb_bounded_source_anchor_index_commitment_v1",
+                "world_id": native_world_id,
+                "graph_revision": revision_id,
+                "status": index.status,
+                "max_entries": 512,
+                "eligible_count": index.eligible_count,
+                "source_pins": [dict(pin) for pin in source_scope_anchors],
+            }
+    except AgentTurnServiceError:
+        raise
     except Exception as exc:
         raise AgentTurnServiceError(
             "The pinned source-anchor metadata could not be resolved.",
@@ -804,7 +821,11 @@ def _plan_context_resolver(
     source_session_id, initial_operation_id = (
         _source_session_handles(
             managed_world_id, body.turn_id, revision_id,
-            sha256(body.model_dump_json(by_alias=True).encode("utf-8")).hexdigest(),
+            sha256(
+                body.model_dump_json(by_alias=True).encode("utf-8")
+                + b"\x00"
+                + (work.plan_markdown or "").encode("utf-8")
+            ).hexdigest(),
         )
         if source_scope_anchors else (None, f"op:{uuid4().hex[:12]}")
     )
@@ -894,9 +915,14 @@ def _plan_context_resolver(
         source_root_relpath=initial.source_root_relpath,
         candidate_assertion_ids=tuple(sorted({item.assertion_id for item in result.attributes})),
         candidate_relationship_ids=tuple(sorted({item.edge_id for item in result.relationships})),
-        candidate_evidence_ref_ids=tuple(sorted({item.evidence_ref_id for item in result.source_anchors})),
+        candidate_evidence_ref_ids=tuple(sorted({
+            item["evidence_ref_id"] for item in source_scope_anchors
+        } | {
+            item.evidence_ref_id for item in result.source_anchors
+        })),
         evidence_by_anchor_id=evidence_by_anchor,
         source_scope_anchors=tuple(source_scope_anchors),
+        source_index_commitment=source_index_commitment,
     )
     if trace is not None and projection_span is not None:
         trace.complete_phase(
