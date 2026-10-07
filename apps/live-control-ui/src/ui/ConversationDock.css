@@ -5,6 +5,8 @@
   --conversation-dock-muted: var(--ui-text-secondary, #b8c0ce);
   --conversation-dock-border: var(--ui-border-subtle, #343d4d);
   --conversation-dock-color-scheme: dark;
+  --conversation-dock-resize-hit-size: max(24px, 1.5rem);
+  --conversation-dock-control-hit-size: max(32px, 2rem);
   color-scheme: var(--conversation-dock-color-scheme);
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
@@ -37,7 +39,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 0.65rem;
+  flex: 0 0 var(--conversation-dock-resize-hit-size);
   inline-size: 100%;
   padding: 0;
   border: 0;
@@ -54,7 +56,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  min-block-size: 2rem;
+  min-block-size: var(--conversation-dock-control-hit-size);
   padding: 0.25rem 0.45rem;
   border: 1px solid transparent;
   border-radius: var(--ui-radius-sm, 0.375rem);
@@ -83,5 +85,5 @@
 .conversation-dock button:focus-visible { outline: 2px solid var(--ui-accent-action, #d9a441); outline-offset: 2px; }
 
 @media (pointer: coarse) {
-  .conversation-dock__header button { min-block-size: 2.75rem; }
+  .conversation-dock { --conversation-dock-resize-hit-size: max(44px, 2.75rem); --conversation-dock-control-hit-size: max(44px, 2.75rem); }
 }

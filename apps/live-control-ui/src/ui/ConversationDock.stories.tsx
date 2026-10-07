@@ -19,17 +19,20 @@ const fixtureStyle = `
 @media(max-width:520px) { .dock-fixture-paper { margin:12px; padding:18px; } }
 `;
 
-function DockFixture({ expanded = false, paper = false, failed = false }: {expanded?:boolean;paper?:boolean;failed?:boolean}) {
+function DockFixture({ expanded = false, paper = false, failed = false, touch = false }: {expanded?:boolean;paper?:boolean;failed?:boolean;touch?:boolean}) {
   const [draft, setDraft] = useState("");
   const [scope, setScope] = useState("This scene");
   const [messages, setMessages] = useState<string[]>([]);
-  const theme = paper ? {
+  const theme = {
+    ...(paper ? {
     "--conversation-dock-chat-background": "#f7ebd7",
     "--conversation-dock-foreground": "#332d25",
     "--conversation-dock-muted": "#6b614f",
     "--conversation-dock-border": "#c0ad6a",
     "--conversation-dock-color-scheme": "light",
-  } as CSSProperties : undefined;
+    } : {}),
+    ...(touch ? {"--conversation-dock-resize-hit-size": "max(44px, 2.75rem)", "--conversation-dock-control-hit-size": "max(44px, 2.75rem)"} : {}),
+  } as CSSProperties;
   return <div className="dock-fixture"><style>{fixtureStyle}</style>
     <ConversationDock initialExpanded={expanded} contextLabel={scope} style={theme}
       reader={<article className="dock-fixture-paper"><h1>Something Is Still Moving</h1><p>The main assault has broken.</p><p>Smoke, churned mud, broken wall timbers, burned flesh, and exhausted townsfolk fill the <button type="button">Ironveil Warehouse</button> yard.</p><p>Two transformed refugees remain active. Each is dragging an unconscious victim away from the warehouse and toward broken ground or a tunnel route.</p><p>The document keeps its own reading space when chat opens. This is an isolated composition fixture, with no campaign or provider connection.</p><label>Reader note <input aria-label="Reader note" defaultValue="Keep the rescue brief" /></label></article>}
@@ -44,3 +47,4 @@ export const Compact = () => <DockFixture />;
 export const Expanded = () => <DockFixture expanded />;
 export const Paper = () => <DockFixture expanded paper />;
 export const FailedTurn = () => <DockFixture expanded failed />;
+export const TouchTarget = () => <DockFixture expanded touch />;
