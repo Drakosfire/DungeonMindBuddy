@@ -292,6 +292,9 @@ def _serialize_request_budget(value: Any) -> dict[str, Any] | None:
         "estimator",
         "contextLimitTokens",
         "outputReserveTokens",
+        "maxProviderAttempts",
+        "maxToolCapableAttempts",
+        "maxGraphOperations",
     }
     _reject_unknown_keys(value, frozenset(allowed), label="requestBudget")
     schema = _require_str(value.get("schema"), label="requestBudget.schema", max_chars=64)
@@ -317,7 +320,33 @@ def _serialize_request_budget(value: Any) -> dict[str, Any] | None:
         result[key] = raw
     if result["outputReserveTokens"] >= result["contextLimitTokens"]:
         raise ValueError("requestBudget output reserve must be below the context limit")
+    reservation_keys = (
+        "maxProviderAttempts", "maxToolCapableAttempts", "maxGraphOperations",
+    )
+    if any(key in value for key in reservation_keys):
+        if not all(key in value for key in reservation_keys):
+            raise ValueError("requestBudget final-answer reservation is incomplete")
+        for key, maximum in (
+            ("maxProviderAttempts", 128),
+            ("maxToolCapableAttempts", 127),
+            ("maxGraphOperations", 128),
+        ):
+            raw = value[key]
+            if isinstance(raw, bool) or not isinstance(raw, int) or not 1 <= raw <= maximum:
+                raise ValueError(f"requestBudget.{key} is outside its supported range")
+            result[key] = raw
+        if result["maxToolCapableAttempts"] >= result["maxProviderAttempts"]:
+            raise ValueError("requestBudget must reserve a final provider attempt")
     return result
+
+
+def _require_final_answer_reservation(budget: Mapping[str, Any] | None) -> None:
+    if budget is None or not all(
+        key in budget for key in (
+            "maxProviderAttempts", "maxToolCapableAttempts", "maxGraphOperations",
+        )
+    ):
+        raise ValueError("parent Graph broker requires final-answer reservation limits")
 
 
 def _scope_mode(value: Any) -> Literal["campaign", "world"]:
@@ -818,6 +847,8 @@ def serialize_hermes_graph_agent_turn_request(
         raise ValueError(
             "provider authorization requires an explicit request budget"
         )
+    if request.parent_graph_broker_required:
+        _require_final_answer_reservation(request_budget)
     payload = {
         "question": question,
         "worldId": world_id,
@@ -891,6 +922,8 @@ def deserialize_hermes_graph_agent_turn_request(
         raise ValueError(
             "provider authorization requires an explicit request budget"
         )
+    if parent_graph_broker_required:
+        _require_final_answer_reservation(request_budget)
     if parent_graph_broker_required and (
         not provider_authorization_required
         or not payload.get("retrievalSessionId")
