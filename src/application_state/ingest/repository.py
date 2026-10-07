@@ -121,6 +121,30 @@ def get_run(conn: psycopg.Connection, run_id: str) -> ExtractionRun | None:
     return None if row is None else _run_from_row(row)
 
 
+def find_runs_by_candidate_component(
+    conn: psycopg.Connection, *, uri: str, sha256: str
+) -> list[ExtractionRun]:
+    """Return at most two exact candidates, across every status and domain.
+
+    Two rows are enough to distinguish unique identity from ambiguity. The
+    caller-claimed component ``exists`` flag has no bearing on this lookup.
+    """
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""
+            SELECT {_RUN_COLUMNS} FROM ingest.run
+            WHERE components -> 'candidate_graph' ->> 'uri' = %s
+              AND lower(components -> 'candidate_graph' ->> 'sha256')
+                  IN (%s, %s)
+            ORDER BY run_id ASC
+            LIMIT 2
+            """,
+            (uri, sha256, f"sha256:{sha256}"),
+        )
+        rows = cur.fetchall()
+    return [_run_from_row(row) for row in rows]
+
+
 def lock_run(conn: psycopg.Connection, run_id: str) -> ExtractionRun | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
@@ -220,6 +244,28 @@ def cas_update_run(
             RETURNING {_RUN_COLUMNS}
             """,
             params,
+        )
+        row = cur.fetchone()
+    return None if row is None else _run_from_row(row)
+
+
+def cas_update_run_lineage(
+    conn: psycopg.Connection,
+    *,
+    run_id: str,
+    expected_revision: int,
+    lineage: dict[str, Any],
+) -> ExtractionRun | None:
+    """Update only the metadata permitted by a disposition decision."""
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""
+            UPDATE ingest.run
+            SET lineage = %s, revision = revision + 1, updated_at = %s
+            WHERE run_id = %s AND revision = %s AND status = 'reviewable'
+            RETURNING {_RUN_COLUMNS}
+            """,
+            (Jsonb(lineage), now_utc(), run_id, expected_revision),
         )
         row = cur.fetchone()
     return None if row is None else _run_from_row(row)

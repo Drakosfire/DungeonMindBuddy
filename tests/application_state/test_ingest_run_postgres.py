@@ -14,13 +14,19 @@ from application_state.errors import (
     ApplicationStateValidationError,
 )
 from application_state.ingest.service import (
+    RecapSemanticBasisV1,
+    RecapSemanticDispositionCommandV1,
     create_extraction_run,
     get_extraction_run,
     inspect_ingest_authority,
     list_extraction_runs,
+    lookup_extraction_run_by_candidate_component,
+    record_recap_semantic_disposition,
     supersede_extraction_run,
     update_extraction_run,
 )
+from application_state.ingest import repository as ingest_repo
+from application_state.unit_of_work import unit_of_work
 from graph_memory.ingestion.extraction_run import (
     ExtractionRun,
     ExtractionRunComponentKind,
@@ -66,6 +72,196 @@ def _review_components() -> dict[str, ExtractionRunComponentRef]:
     }
 
 
+def _recap_basis_and_pair(application_state_dsn: str):
+    parent_components = _review_components()
+    parent_components["candidate_graph"] = ExtractionRunComponentRef(
+        kind=ExtractionRunComponentKind.CANDIDATE_GRAPH,
+        uri="repo://parent.json", sha256="c" * 64,
+    )
+    child_components = dict(parent_components)
+    child_components["candidate_graph"] = ExtractionRunComponentRef(
+        kind=ExtractionRunComponentKind.CANDIDATE_GRAPH,
+        uri="repo://child.json", sha256="d" * 64,
+    )
+    parent = _run(
+        run_id="recap_parent", source_artifact_id="artifact:recap:c:s:source",
+        source_domain="recap", session_id="s", campaign_id="c",
+        profile_id="recap_category_v1@1.0", status=ExtractionRunStatus.REVIEWABLE,
+        components=parent_components,
+    )
+    basis = RecapSemanticBasisV1(
+        parent_run_id=parent.run_id, parent_candidate_sha256="c" * 64,
+        correction_digest="e" * 64, child_run_id="recap_child",
+        candidate_uri="repo://child.json", candidate_sha256="d" * 64,
+        source_artifact_id=parent.source_artifact_id,
+        source_uri="repo://source.md", source_revision_sha256="a" * 64,
+        span_index_uri="repo://spans.json", span_index_sha256="b" * 64,
+        profile_id="recap_category_v1@1.0", profile_version="1.0",
+        campaign_id="c", session_id="s",
+    )
+    child = parent.model_copy(deep=True, update={
+        "run_id": "recap_child", "components": child_components,
+        "lineage": {
+            "derivation": "operator_recap_literal_evidence_correction_v1",
+            "parent_run_id": parent.run_id,
+            "parent_candidate_sha256": "c" * 64,
+            "correction_digest": "e" * 64,
+            "semantic_disposition": {
+                "version": 1, "state": "held", "basis_sha256": basis.digest(),
+                "hold_code": "s27_semantic_selection", "hold_ref": "review:s27",
+            },
+        },
+    })
+    with unit_of_work(application_state_dsn) as conn:
+        ingest_repo.insert_run(conn, parent)
+        ingest_repo.insert_run(conn, child)
+    return parent, child, basis
+
+
+def test_exact_candidate_lookup_covers_all_statuses_and_domains(application_state_dsn: str) -> None:
+    assert lookup_extraction_run_by_candidate_component(
+        uri="repo://graph.json", sha256="c" * 64
+    ).kind == "not_found"
+    world = _run(
+        run_id="world_draft", components=_review_components(),
+        status=ExtractionRunStatus.DRAFT,
+    )
+    with unit_of_work(application_state_dsn) as conn:
+        ingest_repo.insert_run(conn, world)
+    found = lookup_extraction_run_by_candidate_component(
+        uri="repo://graph.json", sha256="sha256:" + "c" * 64
+    )
+    assert found.kind == "unique" and found.run.run_id == "world_draft"
+    rejected = _run(
+        run_id="world_rejected", components=_review_components(),
+        status=ExtractionRunStatus.REJECTED,
+    )
+    with unit_of_work(application_state_dsn) as conn:
+        ingest_repo.insert_run(conn, rejected)
+    assert lookup_extraction_run_by_candidate_component(
+        uri="repo://graph.json", sha256="c" * 64
+    ).kind == "ambiguous"
+    assert lookup_extraction_run_by_candidate_component(
+        uri="repo://other.json", sha256="c" * 64
+    ).kind == "not_found"
+
+
+def test_recap_disposition_cas_preserves_run_and_exact_retry(application_state_dsn: str) -> None:
+    parent, child, basis = _recap_basis_and_pair(application_state_dsn)
+    decision = RecapSemanticDispositionCommandV1(
+        state="accepted", review_decision_ref="review:1", reviewer_id="local_operator"
+    )
+    accepted = record_recap_semantic_disposition(
+        child.run_id, expected_revision=child.revision, basis=basis, decision=decision
+    )
+    assert accepted.revision == child.revision + 1
+    assert accepted.status == child.status
+    assert accepted.components == child.components
+    assert accepted.source_artifact_id == child.source_artifact_id
+    assert accepted.source_domain == child.source_domain
+    assert accepted.profile_id == child.profile_id
+    assert accepted.campaign_id == child.campaign_id
+    assert accepted.session_id == child.session_id
+    assert accepted.diagnostics == child.diagnostics
+    assert accepted.superseded_by_run_id == child.superseded_by_run_id
+    assert accepted.supersedes_run_id == child.supersedes_run_id
+    receipt = accepted.lineage["semantic_disposition"]
+    assert receipt["state"] == "accepted"
+    assert receipt["basis_sha256"] == basis.digest()
+    assert receipt["hold_code"] == "s27_semantic_selection"
+    assert receipt["from_revision"] == child.revision
+    assert receipt["decided_at"]
+    assert record_recap_semantic_disposition(
+        child.run_id, expected_revision=child.revision, basis=basis, decision=decision
+    ) == accepted
+    assert get_extraction_run(parent.run_id) == parent
+    with pytest.raises(ApplicationStateConflictError):
+        record_recap_semantic_disposition(
+            child.run_id, expected_revision=child.revision, basis=basis,
+            decision=decision.model_copy(update={"state": "rejected"}),
+        )
+    with pytest.raises(ApplicationStateConflictError):
+        record_recap_semantic_disposition(
+            child.run_id, expected_revision=accepted.revision, basis=basis, decision=decision
+        )
+
+
+def test_recap_disposition_rejects_changed_basis_and_unmarked(application_state_dsn: str) -> None:
+    _parent, child, basis = _recap_basis_and_pair(application_state_dsn)
+    decision = RecapSemanticDispositionCommandV1(
+        state="rejected", review_decision_ref="review:2", reviewer_id="local_operator"
+    )
+    with pytest.raises(ApplicationStateConflictError):
+        record_recap_semantic_disposition(
+            child.run_id, expected_revision=child.revision,
+            basis=basis.model_copy(update={"candidate_sha256": "f" * 64}),
+            decision=decision,
+        )
+    assert get_extraction_run(child.run_id).revision == child.revision
+    world = _run(run_id="ordinary", components=_review_components(), status=ExtractionRunStatus.REVIEWABLE)
+    with unit_of_work(application_state_dsn) as conn:
+        ingest_repo.insert_run(conn, world)
+    with pytest.raises(ApplicationStateConflictError):
+        record_recap_semantic_disposition(
+            world.run_id, expected_revision=world.revision,
+            basis=basis.model_copy(update={"child_run_id": world.run_id}),
+            decision=decision,
+        )
+
+
+def test_marked_child_remains_findable_after_status_or_domain_drift(
+    application_state_dsn: str,
+) -> None:
+    _parent, child, basis = _recap_basis_and_pair(application_state_dsn)
+    decision = RecapSemanticDispositionCommandV1(
+        state="accepted", review_decision_ref="review:3", reviewer_id="local_operator"
+    )
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("UPDATE ingest.run SET status = 'rejected' WHERE run_id = %s", (child.run_id,))
+        conn.commit()
+    lookup = lookup_extraction_run_by_candidate_component(
+        uri=basis.candidate_uri, sha256=basis.candidate_sha256
+    )
+    assert lookup.kind == "unique" and lookup.run.status == ExtractionRunStatus.REJECTED
+    with pytest.raises(ApplicationStateConflictError):
+        record_recap_semantic_disposition(
+            child.run_id, expected_revision=child.revision, basis=basis, decision=decision
+        )
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute(
+            "UPDATE ingest.run SET status = 'reviewable', source_domain = 'worldbuilding', session_id = NULL WHERE run_id = %s",
+            (child.run_id,),
+        )
+        conn.commit()
+    lookup = lookup_extraction_run_by_candidate_component(
+        uri=basis.candidate_uri, sha256=basis.candidate_sha256
+    )
+    assert lookup.kind == "unique" and lookup.run.source_domain == "worldbuilding"
+    with pytest.raises(ApplicationStateConflictError):
+        record_recap_semantic_disposition(
+            child.run_id, expected_revision=child.revision, basis=basis, decision=decision
+        )
+
+
+def test_rejected_semantic_decision_is_single_use(application_state_dsn: str) -> None:
+    _parent, child, basis = _recap_basis_and_pair(application_state_dsn)
+    decision = RecapSemanticDispositionCommandV1(
+        state="rejected", review_decision_ref="review:reject", reviewer_id="local_operator"
+    )
+    result = record_recap_semantic_disposition(
+        child.run_id, expected_revision=child.revision, basis=basis, decision=decision
+    )
+    assert result.lineage["semantic_disposition"]["state"] == "rejected"
+    assert record_recap_semantic_disposition(
+        child.run_id, expected_revision=child.revision, basis=basis, decision=decision
+    ) == result
+    with pytest.raises(ApplicationStateConflictError):
+        record_recap_semantic_disposition(
+            child.run_id, expected_revision=child.revision, basis=basis,
+            decision=decision.model_copy(update={"review_decision_ref": "different"}),
+        )
+
+
 def _model_valid_terminal_run(status: ExtractionRunStatus) -> ExtractionRun:
     extras: dict = {"status": status}
     if status == ExtractionRunStatus.PROMOTED:
@@ -75,9 +271,9 @@ def _model_valid_terminal_run(status: ExtractionRunStatus) -> ExtractionRun:
     return _run(**extras)
 
 
-def test_alembic_head_is_source_0006(application_state_dsn: str) -> None:
+def test_alembic_is_at_current_head(application_state_dsn: str) -> None:
     current, head = _current_and_head(application_state_dsn)
-    assert current == head == "20260906_0006"
+    assert current == head
 
 
 @pytest.mark.parametrize(
