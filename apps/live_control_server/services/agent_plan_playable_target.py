@@ -19,7 +19,7 @@ from apps.live_control_server.services.play_run_reference_manifest import (
 from apps.live_control_server.services.plan_playable_body_target import (
     PlayableBodyTargetError,
     PlayableTarget,
-    resolve_playable_body_target,
+    selected_playable_source_for_read,
 )
 
 _GRAPH_LINK = re.compile(
@@ -85,17 +85,17 @@ def selected_plan_graph_seed_candidates(
 ) -> list[str]:
     """Read typed Graph links only from the selected committed Playable body.
 
-    The editing body codec can decline some read-only Plan bodies. That must
-    never make an otherwise valid Ask fail; it simply supplies no seeds.
-    Graph existence and the native revision are checked by the caller.
+    The read-only source range shares canonical marker attachment, without
+    imposing the editing serializer's content limits. Graph existence and the
+    native revision are checked by the caller.
     """
     if target is None:
         return []
     resolve_agent_plan_playable_target(target, committed_markdown)
     try:
-        body = resolve_playable_body_target(
+        body = selected_playable_source_for_read(
             committed_markdown, PlayableTarget(kind=target.kind, id=target.id)
-        ).target_body_markdown
+        )
     except PlayableBodyTargetError:
         return []
     seeds: list[str] = []

@@ -348,6 +348,33 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     assert replayed.graph_envelope["revision_id"] == selected.graph_envelope["revision_id"]
     assert replayed.graph_envelope["matched_node_ids"] == selected.graph_envelope["matched_node_ids"]
 
+    option_work = replace(selected_work, plan_markdown="""# Plan
+<!-- dmb-playable-element:v2 kind=beat id=beat:first -->
+## First
+<!-- dmb-playable-element:v2 kind=scene id=scene:first -->
+### First scene
+<!-- dmb-playable-element:v2 kind=choice id=choice:first -->
+### Choose
+<!-- dmb-playable-element:v2 kind=option id=option:first -->
+- [Tavern](dmb-node:obj:tavern)
+
+  A second paragraph.
+<!-- dmb-playable-element:v2 kind=option id=option:second -->
+- [Cellar](dmb-node:obj:hidden-cellar)
+""")
+    option_body = AgentTurnRequest.model_validate({
+        **selected_payload,
+        "playable_target": {
+            "schema": "dmb_plan_playable_target_v1", "kind": "option", "id": "option:first",
+        },
+    })
+    option_seeded = agent_route._plan_context_resolver(
+        option_body, {"kind": "world", "id": managed.world_id}, option_work, None,
+    )
+    assert "obj:tavern" in option_seeded.graph_envelope["matched_node_ids"]
+    assert "obj:hidden-cellar" not in option_seeded.graph_envelope["matched_node_ids"]
+    assert option_seeded.graph_envelope["source_anchors"]
+
     missing_work = replace(
         selected_work,
         plan_markdown=selected_work.plan_markdown.replace("obj:tavern", "obj:foreign"),

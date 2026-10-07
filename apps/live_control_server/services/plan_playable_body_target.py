@@ -183,7 +183,6 @@ def _heading_text(tokens: list[object], block: _Block) -> str:
 def _attached_heading(
     tokens: list[object], blocks: list[_Block], markers: list[_Marker], lines: list[str]
 ) -> dict[int, _Marker]:
-    by_token = {marker.token_index: marker for marker in markers}
     attached: dict[int, _Marker] = {}
     for marker in markers:
         marker_position = next((i for i, block in enumerate(blocks) if block.token_index == marker.token_index), None)
@@ -320,6 +319,55 @@ def _option_body(lines: list[str], list_block: _Block, list_token_index: int, to
     if sum(block.kind == "paragraph_open" for block in body_blocks) > 1:
         raise PlayableBodyTargetError("This Option has multiple paragraphs that the current editor serializer cannot preserve safely.")
     return _canonical_body(body_source, body_parser)
+
+
+def selected_playable_source_for_read(
+    committed_markdown: str, target: PlayableTarget,
+) -> str:
+    """Return only the selected canonical source range for read-only consumers.
+
+    Marker attachment and boundaries are structural. Editing serializer limits
+    (link shapes, paragraph count, body size) deliberately do not apply here.
+    """
+    if not _ID.fullmatch(target.id) or target.id.split(":", 1)[0] != target.kind:
+        raise PlayableBodyTargetError("Playable target kind and canonical ID do not match.")
+    source = _strip_frontmatter(committed_markdown).replace("\r\n", "\n").replace("\r", "\n")
+    lines = source.split("\n")
+    tokens = MarkdownIt("commonmark", {"html": True}).parse(source)
+    blocks = _line_blocks(tokens)
+    markers = _root_markers(tokens, blocks, lines)
+    attached = _attached_heading(tokens, blocks, markers, lines)
+    matches = [marker for marker in markers if (marker.kind, marker.id) == (target.kind, target.id)]
+    if len(matches) != 1:
+        raise PlayableBodyTargetError("Playable target is missing or duplicated in the committed Plan.")
+    marker = matches[0]
+    block = next((item for item in blocks if attached.get(item.token_index) == marker), None)
+    if block is None:
+        raise PlayableBodyTargetError("Playable target has no canonical top-level source range.")
+    if marker.kind == "option" and marker.version == "v2":
+        items = [
+            token for token in tokens[block.token_index + 1 :]
+            if getattr(token, "type", "") == "list_item_open"
+            and getattr(token, "level", -1) == 1
+            and getattr(token, "map", None)
+            and int(token.map[0]) < block.end
+        ]
+        if len(items) != 1:
+            raise PlayableBodyTargetError("v2 Option has no unique list item source range.")
+        return "\n".join(lines[int(items[0].map[0]) : int(items[0].map[1])])
+
+    boundary = len(lines)
+    for following in blocks[blocks.index(block) + 1 :]:
+        next_marker = attached.get(following.token_index)
+        if following.kind == "heading" and (
+            next_marker is not None or (following.level is not None and following.level <= 2)
+        ):
+            boundary = next_marker.line if next_marker is not None else following.start
+            break
+        if marker.version == "v2" and marker.kind == "choice" and next_marker is not None and next_marker.kind == "option":
+            boundary = next_marker.line
+            break
+    return "\n".join(lines[block.end:boundary])
 
 
 def resolve_playable_body_target(

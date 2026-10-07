@@ -14,6 +14,11 @@ from apps.live_control_server.services.agent_plan_playable_target import (
     resolve_agent_plan_playable_target,
     selected_plan_graph_seed_candidates,
 )
+from apps.live_control_server.services.plan_playable_body_target import (
+    PlayableBodyTargetError,
+    PlayableTarget,
+    resolve_playable_body_target,
+)
 
 
 V1_PLAN = """# Plan
@@ -119,7 +124,7 @@ Visit [Cellar](dmb-node:obj:hidden-cellar).
     ]
 
 
-def test_read_only_ask_does_not_reject_body_codec_limitations() -> None:
+def test_read_only_option_seeds_across_paragraphs_without_loosening_editor_codec() -> None:
     markdown = """# Plan
 <!-- dmb-playable-element:v2 kind=beat id=beat:first -->
 ## First
@@ -131,8 +136,19 @@ def test_read_only_ask_does_not_reject_body_codec_limitations() -> None:
 - [Tavern](dmb-node:obj:tavern)
 
   Another paragraph.
+<!-- dmb-playable-element:v2 kind=option id=option:second -->
+- [Cellar](dmb-node:obj:hidden-cellar)
 """
-    assert selected_plan_graph_seed_candidates(target("option", "option:first"), markdown) == []
+    assert selected_plan_graph_seed_candidates(target("option", "option:first"), markdown) == [
+        "obj:tavern"
+    ]
+    assert selected_plan_graph_seed_candidates(target("option", "option:second"), markdown) == [
+        "obj:hidden-cellar"
+    ]
+    with pytest.raises(PlayableBodyTargetError, match="multiple paragraphs"):
+        resolve_playable_body_target(
+            markdown, PlayableTarget(kind="option", id="option:first")
+        )
 
 
 def test_graph_seed_candidates_keep_the_existing_eight_node_budget() -> None:
