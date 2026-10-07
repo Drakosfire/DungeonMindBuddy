@@ -1,6 +1,6 @@
 # HANDOFF — SERVER: bind extract-promote publication to an explicit managed World
 
-**Status:** ACTIVE — PRIME explicitly activated the bounded source implementation on 2026-10-06 after reviewing the proposed scope. No runtime or S27 publication is authorized.
+**Status:** MERGED — PRIME and APP-STATE accepted exact source head `7010dba072407bcee76db91b0f815689f3266646`; Buddy PR #980 merged at `a92371b7b2e727d1d45bef1c8e1d7a3d01b58193` on 2026-10-06. No runtime rollout or S27 publication was authorized by the merge.
 **Owner:** DungeonMindBuddy SERVER. PRIME owns activation, collision arbitration, and independent review.
 **Topology:** serial implementation on branch `codex/server-managed-world-publication-target-handoff`, based on `a869c27a7b4b3d6e77048bbb80a55984d709e705`, updating draft PR #980. Separate from annotation and any real S27 publication operation.
 **Inspected base:** Buddy `origin/main@a869c27a7b4b3d6e77048bbb80a55984d709e705` on 2026-10-06, containing merged #977 and #978. Re-fetch before activation.
@@ -44,7 +44,7 @@ PRIME approved the source scope, but APP-STATE/PRIME independent review remains 
 
 At the owning boundary, prove: explicit valid managed-to-native targeting with different IDs; legacy run-only rejection or a genuinely revalidated run-sealed binding; missing/inactive/foreign/unverified bindings; declared source-World mismatch; prepare/confirm remap or version/source-root change; no governed write on each rejection; and successful receipt/native readback against the sealed native ID. Exercise HTTP request/error behavior as well as service behavior. Run focused tests, relevant full repository test/lint/type gates, inspect the exact cumulative base-to-head diff, and record the implementation head and evidence here before review.
 
-**Proposed acceptance token:** `SERVER_MANAGED_WORLD_PUBLICATION_TARGET_BINDING_ACCEPTED` — available only after PRIME's independent exact-head review, never from this design PR alone.
+**Accepted token:** `SERVER_MANAGED_WORLD_PUBLICATION_TARGET_BINDING_ACCEPTED` — PRIME and APP-STATE accepted the exact source head before #980 merged.
 
 ## Implementation handback, pending independent review
 
