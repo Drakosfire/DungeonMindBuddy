@@ -129,18 +129,25 @@ lease above. Typecheck/build failures already present at
 
 - Mounted cockpit suite: 52 passed. The production build passed; Vite reported
   a large-chunk advisory.
-- The existing route/progress suite was attempted. `uv run` could not resolve
-  the local `out/hermes-agent` source in this worktree. Using the installed
-  Python test environment then reached the tests, but 35 cases errored before
-  execution because disposable PostgreSQL at `127.0.0.1:54329` was not
-  running; one case passed. No database service was started.
+- The existing World Play route and progress validation suites passed 36/36
+  serially: `tests/test_world_play_runs_v2.py` and
+  `tests/test_play_run_progress.py`. The stable Python test environment used
+  this lane's `src` on `PYTHONPATH` and PRIME's private DSN for the existing
+  disposable PostgreSQL container. Per-test UUID databases were created and
+  dropped; no database service was started. Pytest reported 11 Pydantic
+  `schema`-field shadowing warnings.
+- An initial run against the repository's stale default port 54329 failed at
+  setup (35 errors and one test passed). PRIME supplied the current private
+  test endpoint; the passing 36-test run above supersedes that environment
+  failure. `uv run` itself could not resolve the local `out/hermes-agent`
+  source in this worktree, so the installed test interpreter was used.
 - The database-independent response/schema selection ran 19 tests successfully;
   one repository artifact check failed because the base checkout lacks
   `Docs/Plans/HANDOFF-s22-live-play-agent.md`. No code or tests in this slice
   touch that path.
-- Thus the server persistence boundary remains unverified in this local
-  environment. No server/API/schema code changed; the exact World writer and
-  note-anchor validation contract remain owned by the existing backend.
+- The World Play server route and note-anchor validation boundary is verified
+  by the passing existing suites. No server/API/schema code changed; the exact
+  World writer and validation contract remain owned by the existing backend.
 
 No server/schema/API code changes are proposed. The existing owning server
 contract remains the durable source of acknowledged note state; browser recovery
