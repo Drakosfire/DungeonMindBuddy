@@ -74,6 +74,9 @@ interface WorldPlanAgentConversationProps {
   playableEditTargetGeneration?: number;
   playableEditTargetStale?: boolean;
   playableEditTargetDirty?: boolean;
+  editorSelectionActive?: boolean;
+  playableTargetLabel?: string;
+  playableEditTargetLabel?: string;
   onClearPlayableEditTarget?: () => void;
 }
 
@@ -1607,6 +1610,9 @@ export function WorldPlanAgentConversation({
   playableEditTargetGeneration = 0,
   playableEditTargetStale = false,
   playableEditTargetDirty = false,
+  editorSelectionActive = false,
+  playableTargetLabel,
+  playableEditTargetLabel,
   onClearPlayableEditTarget = () => undefined,
 }: WorldPlanAgentConversationProps) {
   const selectedWorld = useSelectedWorld();
@@ -1665,6 +1671,10 @@ export function WorldPlanAgentConversation({
     draftGeneration,
     savedDirty,
   });
+  const effectiveEditTarget = editorSelectionActive ? null
+    : playableEditTarget ?? (playableTarget?.kind === "scene" ? playableTarget : null);
+  const effectiveEditTargetStale = !editorSelectionActive && (playableEditTarget
+    ? playableEditTargetStale : playableTarget?.kind === "scene" && playableTargetStale);
   const proposalFenceKey = JSON.stringify({
     requestFenceKey,
     draftGeneration,
@@ -1673,6 +1683,10 @@ export function WorldPlanAgentConversation({
     playableEditTarget,
     playableEditTargetGeneration,
     playableEditTargetStale,
+    editorSelectionActive,
+    effectiveEditTarget,
+    effectiveEditTargetStale,
+    sceneBasis: !editorSelectionActive && !playableEditTarget && playableTarget?.kind === "scene" ? playableTargetBasis : null,
     paneOpen: agent.paneState.isOpen,
     hasAskHost: Boolean(askSlot?.hostElement),
     agentScope: agent.scope ? {
@@ -2939,6 +2953,15 @@ export function WorldPlanAgentConversation({
     }
   }
 
+  async function verifySceneCommittedBasis(captured: CapturedWorldPlanEditTarget) {
+    const request = captured.request;
+    const committed = await getWorldOwnedPlanCommittedRevision(request.document_id);
+    const basis = readCommittedPlanBasis(committed, request.world_id, request.document_id, request.base_revision);
+    if (!basis || basis.content_sha256 !== request.base_content_sha256) {
+      throw new Error("The committed Plan changed. Refresh the Plan and select the scene again before editing.");
+    }
+  }
+
   async function composeEdit(event: FormEvent<HTMLFormElement>, intent = composerIntent) {
     event.preventDefault();
     const composerSnapshotAtSubmit = composerMessage;
@@ -2946,7 +2969,7 @@ export function WorldPlanAgentConversation({
     if (intent !== "propose" || !planReady || !scopeMatches || !namespace || !documentId || !editBridge
       || !isPositiveRevision(revision) || saveInFlight || !instruction
       || composing || sending || requestRef.current || proposalRequestRef.current) return;
-    if (playableEditTarget && playableEditTargetStale) {
+    if (effectiveEditTarget && effectiveEditTargetStale) {
       setEditError("The selected card is stale or no longer unique in this draft. Select it again before composing.");
       return;
     }
@@ -3002,8 +3025,15 @@ export function WorldPlanAgentConversation({
     try {
       const captured = await editBridge.capture();
       if (!isCurrent()) return;
+      if (captured.request.target_kind === "insert_at_caret" && /\b(?:current|selected|this)\s+(?:[\w-]+\s+){0,4}scene\b/i.test(instruction)) {
+        throw new Error("Select the scene or an explicit text range before requesting a scene edit.");
+      }
       if (worldPlanEditReviewBefore(captured) === null) {
         throw new Error("The captured Plan target has no valid Before snapshot. Reselect it and compose the proposal again.");
+      }
+      if (captured.playableTargetSource === "scene") {
+        await verifySceneCommittedBasis(captured);
+        if (!isCurrent()) return;
       }
       const conversationHistory: WorldPlanDocumentEditProposalRequest["conversation_history"] = [];
       const requestWithoutKey = {
@@ -3134,6 +3164,13 @@ export function WorldPlanAgentConversation({
       return;
     }
     try {
+      if (review.captured.playableTargetSource === "scene") {
+        await verifySceneCommittedBasis(review.captured);
+        if (editReviewRef.current !== review || latestRef.current.proposalFenceKey !== review.fenceKey
+          || !latestRef.current.scopeMatches || latestRef.current.threadId !== review.threadId) {
+          throw new Error("World Plan or selected scene changed. Compose the proposal again.");
+        }
+      }
       await editBridge.apply(
         review.captured,
         review.admitted,
@@ -3258,7 +3295,7 @@ export function WorldPlanAgentConversation({
               <h5>Before</h5>
               {currentReviewBefore?.kind === "captured-text" && currentReviewBefore.target ? (
                 <p className="world-plan-agent-conversation__context">
-                  Card target · {currentReviewBefore.target.kind} {currentReviewBefore.target.id}
+                  Card target · {currentReview.captured.playableTargetLabel ? `${currentReview.captured.playableTargetLabel} · ` : ""}{currentReviewBefore.target.kind} {currentReviewBefore.target.id}
                 </p>
               ) : null}
               <pre>{currentReviewBefore?.kind === "caret"
@@ -3369,18 +3406,18 @@ export function WorldPlanAgentConversation({
               <button type="button" aria-label="Clear Ask target" onClick={onClearPlayableTarget}>Clear</button>
             </div>
           ) : <span>Question · full Plan</span>}
-          {playableEditTarget ? (
+          {effectiveEditTarget ? (
             <div role="group" aria-label="Selected Playable card for edit" className="world-plan-agent-conversation__target-chip">
-              <span>Change · {playableEditTarget.id.replace(/^[^:]+:/, "")}</span>
-              <button type="button" aria-label="Clear edit target" onClick={onClearPlayableEditTarget}>Clear</button>
+              <span>Change · {(playableEditTarget ? playableEditTargetLabel : playableTargetLabel) || effectiveEditTarget.id.replace(/^[^:]+:/, "")}</span>
+              {playableEditTarget ? <button type="button" aria-label="Clear edit target" onClick={onClearPlayableEditTarget}>Clear</button> : null}
             </div>
-          ) : <span>Change · selected text or cursor</span>}
+          ) : <span>{editorSelectionActive ? "Change · selected text" : "Change · selected text or cursor"}</span>}
           {playableTargetStale ? (
             <p className="world-plan-agent-conversation__target-warning" role="alert">
               The Ask target is stale. Select it again or clear the target before asking.
             </p>
           ) : null}
-          {playableEditTargetStale ? (
+          {effectiveEditTargetStale ? (
             <p className="world-plan-agent-conversation__target-warning" role="alert">
               The edit target is stale. Select it again before composing a proposal.
             </p>
@@ -3390,7 +3427,7 @@ export function WorldPlanAgentConversation({
   const messages = (
     <div className="world-plan-agent-conversation__body">
       {presentationHosts && playableTargetStale ? <p role="alert">The Ask target is stale. Select it again before asking.</p> : null}
-      {presentationHosts && playableEditTargetStale ? <p role="alert">The edit target is stale. Select it again before composing a proposal.</p> : null}
+      {presentationHosts && effectiveEditTargetStale ? <p role="alert">The edit target is stale. Select it again before composing a proposal.</p> : null}
       {authorizationBlocked ? (
         <section className="world-plan-agent-conversation__auth-notice" role="alert">
           <p>{pendingGraphAsk
@@ -3682,7 +3719,7 @@ export function WorldPlanAgentConversation({
   const composer = (
     <section className="world-plan-agent-conversation__composer" aria-label="Conversation composer">
       <form onSubmit={submitComposer}>
-        {detectedComposerIntent === "propose" && !playableEditTarget ? (
+        {detectedComposerIntent === "propose" && !effectiveEditTarget && !editorSelectionActive ? (
           <details className="world-plan-agent-conversation__target-disclosure">
             <summary>
               {selectedSectionTargetLabel
@@ -3738,7 +3775,7 @@ export function WorldPlanAgentConversation({
         <div className="world-plan-agent-conversation__composer-footer">
           <p id="world-plan-agent-composer-hint">
             {detectedComposerIntent === "propose"
-              ? "Plan change · Buddy will show a preview before anything is applied."
+              ? `Plan change${effectiveEditTarget ? ` · ${(playableEditTarget ? playableEditTargetLabel : playableTargetLabel) || effectiveEditTarget.id}` : editorSelectionActive ? " · selected text" : ""} · Buddy will show a preview before anything is applied.`
               : "Enter to send · Shift+Enter for a new line."}
           </p>
           {composerMessage.trim() ? (
@@ -3759,7 +3796,7 @@ export function WorldPlanAgentConversation({
             aria-label={detectedComposerIntent === "propose" ? "Propose edit" : "Send message"}
             disabled={composerBusy || !composerMessage.trim() || messageTooLong
             || (detectedComposerIntent === "discuss" && playableTargetStale)
-            || (detectedComposerIntent === "propose" && (playableEditTargetStale || !editBridge))}
+            || (detectedComposerIntent === "propose" && (effectiveEditTargetStale || !editBridge))}
           >
             {sending || composing ? "Working…" : saveInFlight ? "Saving…" : "Send"}
           </button>
