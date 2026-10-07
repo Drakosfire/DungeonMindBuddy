@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useMemo, type CSSProperties } from "react";
+import { useMemo } from "react";
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { URL as NodeURL } from "node:url";
@@ -149,37 +149,44 @@ describe("AgentInteractionChrome", () => {
     const user = userEvent.setup();
     const originalInnerWidth = window.innerWidth;
     const style = document.createElement("style");
-    style.textContent = readFileSync(new NodeURL("../styles.css", import.meta.url), "utf8")
-      .match(/\.app-shell--edit-dock:has\(\.plan-agent-shell\.agent-interaction-shell--plan\.open\)\s+\.app-wrap\s+:is\(\.plan-surface-root,\s*\.world-owned-plan\)\s*\{[^}]*\}/s)?.[0] ?? "";
+    const planPanelRule = readFileSync(new NodeURL("../styles.css", import.meta.url), "utf8")
+      .match(/#root:has\(\.plan-agent-shell\.agent-interaction-shell--plan\.open\)\s+\.app-shell--edit-dock\s+\.app-wrap\s+:is\(\.plan-surface-root,\s*\.world-owned-plan\)\s*\{[^}]*\}/s)?.[0];
+    expect(planPanelRule).toBeTruthy();
+    style.textContent = planPanelRule ?? "";
     document.head.appendChild(style);
+    const appRoot = document.createElement("div");
+    appRoot.id = "root";
+    appRoot.style.setProperty("--agent-plan-panel-width", "512px");
+    document.body.appendChild(appRoot);
     const renderPlanChrome = (present = true, surfaceId: "plan" | "build" = "plan") => (
-      <div
-        className="app-shell--edit-dock"
-        style={{ "--agent-plan-panel-width": "512px" } as CSSProperties}
-      >
-        <div className="app-wrap">
-          <div className="plan-surface-root" data-testid="plan-surface-content" />
-          <AgentInteractionProvider>
-            <AskPluginSlotProvider>
+      <AgentInteractionProvider>
+        <AskPluginSlotProvider>
+          <div className="app-shell--edit-dock" data-testid="plan-app-shell">
+            <div className="app-wrap">
+              <div className="plan-surface-root" data-testid="plan-surface-content" />
               {surfaceId === "plan" ? <PublishPlanContext /> : <PublishBuildContext />}
               <RegisterAsk present={present} />
-              <AgentInteractionChrome />
-            </AskPluginSlotProvider>
-          </AgentInteractionProvider>
-        </div>
-      </div>
+            </div>
+          </div>
+          <AgentInteractionChrome />
+        </AskPluginSlotProvider>
+      </AgentInteractionProvider>
     );
-    const view = render(renderPlanChrome());
+    const view = render(renderPlanChrome(), { container: appRoot });
 
     try {
-      const appShell = screen.getByTestId("agent-interaction-chrome").closest(".app-shell--edit-dock") as HTMLElement;
+      const appShell = screen.getByTestId("plan-app-shell");
+      const chrome = screen.getByTestId("agent-interaction-chrome");
       const planContent = screen.getByTestId("plan-surface-content");
       const host = screen.getByTestId("agent-interaction-ask-host");
+      expect(appShell.parentElement).toBe(appRoot);
+      expect(chrome.parentElement).toBe(appRoot);
+      expect(appShell).not.toContainElement(chrome);
       expect(host).toHaveAttribute("hidden");
-      expect(appShell.style.getPropertyValue("--agent-plan-panel-width")).toBe("512px");
+      expect(appRoot.style.getPropertyValue("--agent-plan-panel-width")).toBe("512px");
       await user.click(screen.getByRole("button", { name: "Open" }));
       expect(host).not.toHaveAttribute("hidden");
-      expect(appShell.style.getPropertyValue("--agent-plan-panel-width")).toBe("440px");
+      expect(appRoot.style.getPropertyValue("--agent-plan-panel-width")).toBe("440px");
       expect(getComputedStyle(planContent).width).toContain("var(--agent-plan-panel-width");
 
       const panelResizer = screen.getByRole("separator", { name: "Resize Buddy panel" });
@@ -187,40 +194,41 @@ describe("AgentInteractionChrome", () => {
       panelResizer.focus();
       await user.keyboard("{ArrowLeft}");
       expect(Number(panelResizer.getAttribute("aria-valuenow"))).toBe(startingWidth + 24);
-      expect(appShell.style.getPropertyValue("--agent-plan-panel-width")).toBe("464px");
+      expect(appRoot.style.getPropertyValue("--agent-plan-panel-width")).toBe("464px");
 
       Object.defineProperty(window, "innerWidth", { configurable: true, value: 500 });
       fireEvent.resize(window);
-      expect(appShell.style.getPropertyValue("--agent-plan-panel-width")).toBe("360px");
+      expect(appRoot.style.getPropertyValue("--agent-plan-panel-width")).toBe("360px");
       Object.defineProperty(window, "innerWidth", { configurable: true, value: originalInnerWidth });
       fireEvent.resize(window);
-      expect(appShell.style.getPropertyValue("--agent-plan-panel-width")).toBe("464px");
+      expect(appRoot.style.getPropertyValue("--agent-plan-panel-width")).toBe("464px");
 
       await user.click(screen.getByRole("button", { name: "Close chat" }));
       expect(screen.getByTestId("agent-interaction-ask-host")).toBe(host);
       expect(host).toHaveAttribute("hidden");
-      expect(appShell.style.getPropertyValue("--agent-plan-panel-width")).toBe("512px");
+      expect(appRoot.style.getPropertyValue("--agent-plan-panel-width")).toBe("512px");
       await user.click(screen.getByRole("button", { name: "Open" }));
       expect(screen.getByTestId("agent-interaction-ask-host")).toBe(host);
       expect(host).not.toHaveAttribute("hidden");
-      expect(appShell.style.getPropertyValue("--agent-plan-panel-width")).toBe("464px");
+      expect(appRoot.style.getPropertyValue("--agent-plan-panel-width")).toBe("464px");
 
       view.rerender(renderPlanChrome(false));
       expect(screen.queryByTestId("agent-interaction-chrome")).not.toBeInTheDocument();
-      expect(appShell.style.getPropertyValue("--agent-plan-panel-width")).toBe("512px");
+      expect(appRoot.style.getPropertyValue("--agent-plan-panel-width")).toBe("512px");
       view.rerender(renderPlanChrome(true));
-      await waitFor(() => expect(appShell.style.getPropertyValue("--agent-plan-panel-width")).toBe("464px"));
+      await waitFor(() => expect(appRoot.style.getPropertyValue("--agent-plan-panel-width")).toBe("464px"));
 
       view.rerender(renderPlanChrome(true, "build"));
       await waitFor(() => expect(screen.getByTestId("agent-interaction-chrome")).not.toHaveClass("agent-interaction-shell--plan"));
-      expect(appShell.style.getPropertyValue("--agent-plan-panel-width")).toBe("512px");
+      expect(appRoot.style.getPropertyValue("--agent-plan-panel-width")).toBe("512px");
       view.rerender(renderPlanChrome(true, "plan"));
-      await waitFor(() => expect(appShell.style.getPropertyValue("--agent-plan-panel-width")).toBe("464px"));
+      await waitFor(() => expect(appRoot.style.getPropertyValue("--agent-plan-panel-width")).toBe("464px"));
       view.unmount();
-      expect(appShell.style.getPropertyValue("--agent-plan-panel-width")).toBe("512px");
+      expect(appRoot.style.getPropertyValue("--agent-plan-panel-width")).toBe("512px");
     } finally {
       view.unmount();
       style.remove();
+      appRoot.remove();
       Object.defineProperty(window, "innerWidth", { configurable: true, value: originalInnerWidth });
     }
   });

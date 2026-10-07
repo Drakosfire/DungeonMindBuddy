@@ -708,16 +708,17 @@ code {
   margin-left: var(--app-edit-host-dock-width);
 }
 
-.app-shell--edit-dock:has(.plan-agent-shell.agent-interaction-shell--plan.open)
-  .app-wrap :is(.plan-surface-root, .world-owned-plan) {
+/* AgentInteractionChrome is a #root sibling of the app shell. */
+#root:has(.plan-agent-shell.agent-interaction-shell--plan.open)
+  .app-shell--edit-dock .app-wrap :is(.plan-surface-root, .world-owned-plan) {
   width: calc(100% - var(--agent-plan-panel-width, 440px));
   max-width: none;
   margin-left: 0;
   margin-right: var(--agent-plan-panel-width, 440px);
 }
 
-.app-shell--edit-dock:has(.app-edit-toolbox--docked.open):has(.plan-agent-shell.agent-interaction-shell--plan.open)
-  .app-wrap :is(.plan-surface-root, .world-owned-plan) {
+#root:has(.plan-agent-shell.agent-interaction-shell--plan.open)
+  .app-shell--edit-dock:has(.app-edit-toolbox--docked.open) .app-wrap :is(.plan-surface-root, .world-owned-plan) {
   width: calc(100% - var(--app-edit-host-dock-width) - var(--agent-plan-panel-width, 440px));
   margin-left: var(--app-edit-host-dock-width);
   margin-right: var(--agent-plan-panel-width, 440px);
@@ -3150,10 +3151,10 @@ button:disabled {
 }
 
 @media (max-width: 42rem) {
-  .app-shell--edit-dock:has(.plan-agent-shell.agent-interaction-shell--plan.open)
-    .app-wrap :is(.plan-surface-root, .world-owned-plan),
-  .app-shell--edit-dock:has(.app-edit-toolbox--docked.open):has(.plan-agent-shell.agent-interaction-shell--plan.open)
-    .app-wrap :is(.plan-surface-root, .world-owned-plan) {
+  #root:has(.plan-agent-shell.agent-interaction-shell--plan.open)
+    .app-shell--edit-dock .app-wrap :is(.plan-surface-root, .world-owned-plan),
+  #root:has(.plan-agent-shell.agent-interaction-shell--plan.open)
+    .app-shell--edit-dock:has(.app-edit-toolbox--docked.open) .app-wrap :is(.plan-surface-root, .world-owned-plan) {
     width: 100%;
     max-width: none;
     margin-left: 0;
