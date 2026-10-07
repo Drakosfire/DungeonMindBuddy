@@ -425,7 +425,7 @@ export function WorldPlanCardProjection({
   const scenes = useMemo(() => nodes.filter((node) => node.kind === "scene"), [nodes]);
   const [focusedSceneId, setFocusedSceneId] = useState<string | null>(null);
   const defaultFocusAttemptedRef = useRef(false);
-  const focusedSceneContentRef = useRef<HTMLDivElement | null>(null);
+  const focusedSceneHeadingRef = useRef<HTMLElement | null>(null);
   const basisIdentity = basis.status === "verified"
     ? `verified:${basis.revision}:${basis.contentSha256}`
     : basis.status;
@@ -489,7 +489,7 @@ export function WorldPlanCardProjection({
 
   useLayoutEffect(() => {
     if (!focusedSceneId) return;
-    focusedSceneContentRef.current?.scrollIntoView?.({ block: "start" });
+    focusedSceneHeadingRef.current?.scrollIntoView?.({ block: "start" });
   }, [focusedSceneId]);
 
   if (model.status === "blocked") {
@@ -535,7 +535,7 @@ export function WorldPlanCardProjection({
           <button type="button" onClick={() => setFocusedSceneId(null)}>Back to outline</button>
           <button type="button" disabled={!nextScene} onClick={() => nextScene && focusScene(nextScene)}>Next scene</button>
         </nav>
-        <header className="world-plan-scene-reader__heading">
+        <header ref={focusedSceneHeadingRef} className="world-plan-scene-reader__heading">
           <p className="world-plan-card__kind">Focused Scene · {model.version}</p>
           <ReadOnlyBodyContent
             content={[cardTitleContent(focusedScene, 2)]}
@@ -581,11 +581,7 @@ export function WorldPlanCardProjection({
                 : "This Scene is not available in the verified saved Plan. The default Ask card target is cleared; no draft content will be sent."}
           </p>
         </header>
-        <div
-          className="world-plan-scene-reader__content"
-          ref={focusedSceneContentRef}
-          style={{ scrollMarginTop: "calc(var(--app-chrome-top, 0px) + 0.75rem)" }}
-        >
+        <div className="world-plan-scene-reader__content">
           <ol className="world-plan-card-roots">
             <CardNodeView
               node={focusedScene}
