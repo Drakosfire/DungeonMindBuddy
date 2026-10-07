@@ -1,0 +1,76 @@
+.graph-review-exact-run-projection {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  width: 100%;
+  max-width: min(100%, 100vw);
+  min-width: 0;
+}
+
+.graph-review-exact-run-projection > *,
+.graph-review-exact-run-source,
+.graph-review-exact-run-assertions,
+.graph-review-exact-run-evidence {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.graph-review-exact-run-source-meta,
+.graph-review-exact-run-source-meta code,
+.graph-review-exact-run-evidence p,
+.graph-review-exact-run-evidence code,
+.graph-review-exact-run-evidence blockquote {
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.graph-review-exact-run-source-prose {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.graph-review-exact-run-assertion-list,
+.graph-review-exact-run-evidence ul {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+  padding-inline-start: 1.25rem;
+}
+
+.graph-review-exact-run-assertion-list li,
+.graph-review-exact-run-evidence li {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.graph-review-exact-run-assertion {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  white-space: normal;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.graph-review-exact-run-assertion > * {
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.graph-review-exact-run-evidence blockquote {
+  white-space: pre-wrap;
+}
