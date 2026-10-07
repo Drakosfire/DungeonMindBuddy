@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useState } from "react";
 
 import * as extractPromoteApi from "../../api/extractPromoteApi";
 import * as liveApi from "../../api/liveApi";
@@ -8,12 +9,13 @@ import { AgentInteractionProvider } from "../../agentInteraction/AgentInteractio
 import type { PlanContextDescriptor } from "../types";
 import { createSurfaceInformationChannel } from "../../surfaceInformation";
 import type { ExtractionRunCatalogResponse } from "../../ingestSurface/ingestRunCatalogApi";
-import type { ExtractionRunRecord } from "../../api/types";
+import type { ExtractionRunRecord, WorldContainerRecord } from "../../api/types";
 import {
   INGEST_RUN_CATALOG_DESCRIPTOR,
   mapIngestRunCatalogObservation,
 } from "../../ingestSurface/ingestRunCatalogSurfaceInformation";
 import { GraphReviewWorkbenchModule } from "./GraphReviewWorkbenchModule";
+import { SelectedWorldProvider } from "../../selectedWorld/SelectedWorldContext";
 
 const context: PlanContextDescriptor = {
   campaignId: "longmont-c2",
@@ -21,6 +23,23 @@ const context: PlanContextDescriptor = {
   ingestSession: 23,
   headerLabel: "Ingest",
 };
+
+const managedWorlds: WorldContainerRecord[] = [
+  {
+    schema_version: "dmb_world_container_record_v1",
+    world_id: "managed-world-a",
+    name: "World A",
+    source_root_relpath: "corpus/managed-world-a-markdown",
+    created_at: "2026-01-01T00:00:00Z",
+  },
+  {
+    schema_version: "dmb_world_container_record_v1",
+    world_id: "managed-world-b",
+    name: "World B",
+    source_root_relpath: "corpus/managed-world-b-markdown",
+    created_at: "2026-01-01T00:00:00Z",
+  },
+];
 
 const exactRun = {
   schema_version: "dmb_extraction_run_v1" as const,
@@ -136,19 +155,25 @@ function mockExactRunReviewPackage(
 // requires the provider exactly as production composition does.
 function renderModule(runs: ExtractionRunRecord[] = []) {
   return render(
-    <AgentInteractionProvider>
-      <GraphReviewWorkbenchModule
-        context={context}
-        catalogChannel={readyCatalogChannel(runs)}
-        onCatalogRefresh={() => undefined}
-      />
-    </AgentInteractionProvider>,
+    <SelectedWorldProvider locationSnapshot="/ingest?world=managed-world-a">
+      <AgentInteractionProvider>
+        <GraphReviewWorkbenchModule
+          context={context}
+          catalogChannel={readyCatalogChannel(runs)}
+          onCatalogRefresh={() => undefined}
+        />
+      </AgentInteractionProvider>
+    </SelectedWorldProvider>,
   );
 }
 
 describe("GraphReviewGenericRun", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+      schema_version: "dmb_world_container_registry_v1",
+      records: managedWorlds,
+    });
     window.history.replaceState(
       {},
       "",
@@ -486,8 +511,109 @@ describe("GraphReviewGenericRun", () => {
     });
     await userEvent.click(screen.getByTestId("graph-review-exact-run-prepare"));
     await waitFor(() => {
-      expect(prepare).toHaveBeenCalledWith({ runId: "extraction-run-recap-1" });
+      expect(prepare).toHaveBeenCalledWith({
+        runId: "extraction-run-recap-1",
+        managedWorldId: "managed-world-a",
+      });
     });
+  });
+
+  it("ignores an exact-run prepare response after switching to another managed World", async () => {
+    const user = userEvent.setup();
+    mockCatalogApis();
+    const recapRun = {
+      ...exactRun,
+      run_id: "extraction-run-world-switch",
+      source_domain: "recap" as const,
+      session_id: "session-22",
+    };
+    const recapReview = {
+      ...reviewPackage,
+      runId: recapRun.run_id,
+      sourceDomain: "recap",
+      sourceArtifactId: recapRun.source_artifact_id,
+      sessionId: recapRun.session_id,
+      promotable: true,
+      promotableReason: null,
+    };
+    window.history.replaceState(
+      {},
+      "",
+      `/ingest?extractionRunId=${recapRun.run_id}`
+        + "&sourceArtifactId=artifact:recap:longmont-c2:session-22:abcdef123456",
+    );
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(recapRun);
+    vi.spyOn(liveApi, "getExtractionRunStatus").mockResolvedValue({
+      ...buildContext,
+      run: recapRun,
+      source_artifact_id: recapRun.source_artifact_id,
+    });
+    mockExactRunReviewPackage(recapReview);
+    let resolvePrepare!: (value: Awaited<ReturnType<typeof extractPromoteApi.prepareExtractPromote>>) => void;
+    const pending = new Promise<Awaited<ReturnType<typeof extractPromoteApi.prepareExtractPromote>>>(
+      (resolve) => { resolvePrepare = resolve; },
+    );
+    const prepare = vi.spyOn(extractPromoteApi, "prepareExtractPromote").mockReturnValue(pending);
+
+    function SwitchableWorldWorkbench() {
+      const [worldId, setWorldId] = useState("managed-world-a");
+      return (
+        <>
+          <button type="button" data-testid="switch-managed-world" onClick={() => setWorldId("managed-world-b")}>
+            Switch World
+          </button>
+          <SelectedWorldProvider locationSnapshot={`/ingest?world=${worldId}`}>
+            <AgentInteractionProvider>
+              <GraphReviewWorkbenchModule
+                context={context}
+                catalogChannel={readyCatalogChannel([])}
+                onCatalogRefresh={() => undefined}
+              />
+            </AgentInteractionProvider>
+          </SelectedWorldProvider>
+        </>
+      );
+    }
+
+    render(<SwitchableWorldWorkbench />);
+    const prepareButton = await screen.findByTestId("graph-review-exact-run-prepare");
+    await waitFor(() => expect(prepareButton).not.toBeDisabled());
+    await user.click(prepareButton);
+    expect(prepare).toHaveBeenCalledWith({
+      runId: recapRun.run_id,
+      managedWorldId: "managed-world-a",
+    });
+
+    await user.click(screen.getByTestId("switch-managed-world"));
+    await waitFor(() => expect(prepareButton).not.toBeDisabled());
+
+    await resolvePrepare({
+      schema: "dmb_extract_promote_prepare_v1",
+      proposalId: "proposal-for-world-a",
+      proposalDigest: "digest-world-a",
+      parentRevisionId: "revision-world-a",
+      worldId: "native-world-a",
+      acceptedProposalsCount: 1,
+      unresolvedMentionsCount: 0,
+      rejectedAssertionsCount: 0,
+      reviewPackage: { effect: { world_id: "native-world-a" } },
+      reviewItems: [],
+      reviewSummary: {
+        newObjectCount: 1,
+        connectExistingCount: 0,
+        relationshipCount: 0,
+        unresolvedMentionCount: 0,
+        rejectedAssertionCount: 0,
+      },
+      runId: recapRun.run_id,
+      campaignId: "longmont-c2",
+      sessionId: "session-22",
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("graph-review-extract-promote-sheet")).not.toBeInTheDocument();
+    });
+    expect(screen.queryByText(/digest-world-a/)).not.toBeInTheDocument();
   });
 
   it("campaignless worldbuilding exact-run stays inspect-only without campaign projection", async () => {

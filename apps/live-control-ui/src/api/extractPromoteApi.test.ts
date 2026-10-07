@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { confirmExtractPromote, confirmFirstWorldGraph, prepareFirstWorldGraph } from "./extractPromoteApi";
+import {
+  confirmExtractPromote,
+  confirmFirstWorldGraph,
+  prepareExtractPromote,
+  prepareFirstWorldGraph,
+} from "./extractPromoteApi";
 
 function mockJsonResponse(payload: unknown): Response {
   return {
@@ -163,5 +168,33 @@ describe("extractPromoteApi confirm", () => {
       plan,
     });
     expect(Object.keys(body)).toEqual(["schema", "plan"]);
+  });
+});
+
+describe("extractPromoteApi prepare", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("posts the explicit managed World with the exact run and optional node selection", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({}),
+    );
+
+    await prepareExtractPromote({
+      runId: "run-recap-1",
+      managedWorldId: "managed-world-a",
+      nodeIds: ["node-a", "node-b"],
+    });
+
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toContain("/api/live/extract-promote/prepare");
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(String(init?.body))).toEqual({
+      schema: "dmb_extract_promote_prepare_request_v2",
+      runId: "run-recap-1",
+      managedWorldId: "managed-world-a",
+      nodeIds: ["node-a", "node-b"],
+    });
   });
 });

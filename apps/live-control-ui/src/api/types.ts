@@ -4403,6 +4403,7 @@ export interface FirstWorldGraphConfirmReceipt {
 export interface ExtractPromotePrepareRequest {
   schema: "dmb_extract_promote_prepare_request_v2";
   runId: string;
+  managedWorldId: string;
   nodeIds?: string[] | null;
 }
 

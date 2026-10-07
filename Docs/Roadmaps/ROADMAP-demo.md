@@ -131,15 +131,38 @@ operator use; visual polish alone does not establish durable or Graph behavior.
 The end-to-end demo remains unaccepted. Several integration and rehearsal steps
 are now proven; J1–J6 have not passed as a connected journey.
 
+**Recap publication target and Graph Ask witness (2026-10-06):** Buddy #980
+merged at `a92371b7b2e727d1d45bef1c8e1d7a3d01b58193` and now requires recap
+prepare to name an explicit managed World; the server seals and revalidates its
+verified native binding. SERVER #981's bounded, content-free terminal failure
+diagnostics merged at `87308f996289e5c3fde5c82d29c24a6203b95302`. The #979
+live witness confirmed the selected-World Plan default but its one authorized
+Graph question ended in `answer_validation_failed` after the provider returned
+a response; reload retained one terminal failed turn and did not retry. #979
+remains open/draft and held, with source unchanged. No runtime was changed and
+the question was not repeated. PRIME transferred this roadmap path to the new
+DEMO lane in
+[`HANDOFF-DEMO-selected-world-recap-prepare.md`](../Plans/HANDOFF-DEMO-selected-world-recap-prepare.md),
+which now owns the Buddy callers and selected-target usability. It sends the
+verified selected managed World through both recap prepare callers, disables
+the action without that selection, and fences stale responses after a World
+switch. This is UI integration work only; no rollout, recap publication, or
+J1–J6 acceptance is claimed. Before a later #979 merge, its older roadmap hunk
+must be dropped or reconciled against this checkpoint.
+
 **Plan conversation integration update (2026-10-03):** Buddy #900 and #902 are
 merged at `f8712198848598c5ce83248eb66a54d93c1fd044` and
 `3d27a0550cb0ffa74fb7ce9cb301435fcaef1eb2`. Saved-World Plan now consumes the
 canonical World conversation for visible history/Ask recovery, and Compose/Revise
 proposal context is assembled server-side from exact-basis completed Ask and
 PlanAction pairs. This is code integration, not the missing live Graph-backed
-Plan witness or full J2 acceptance. The Graph-backed product witness remains
-unleased; the independent Agent composer usability slice merged as #904 and its
-lease is closed. See the execution ledger entry below for the Graph witness and
+Plan witness or full J2 acceptance. The Graph-backed product witness was
+attempted in #979; its checkbox default passed a bounded UI witness, but its
+single Graph-context question failed at the answer-validation boundary. SERVER
+#981 has merged terminal failure diagnostics, while the underlying useful-answer
+failure remains unresolved and #979 remains held pending PRIME's disposition.
+The independent Agent composer usability slice merged as #904 and its lease is
+closed. See the execution ledger entry below for the Graph witness and
 owner/resource questions.
 
 **Serial settlement at #909 activation (2026-10-04):** Buddy `origin/main` was

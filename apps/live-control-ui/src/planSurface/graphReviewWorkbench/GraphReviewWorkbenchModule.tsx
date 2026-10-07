@@ -31,6 +31,8 @@ import { requestedSessionFromLocation } from "../graphGoldReview/graphGoldReview
 import { createIngestSurfaceConfig } from "../config/ingestSurfaceConfig";
 import { useAgentInteraction } from "../../agentInteraction/AgentInteractionProvider";
 import { buildIngestSurfaceIdentity } from "../../agentInteraction/projectionSurfacePublication";
+import { useSelectedWorld } from "../../selectedWorld/SelectedWorldContext";
+import type { SelectedWorldState } from "../../selectedWorld/SelectedWorldContext";
 import type { PlanContextDescriptor } from "../types";
 import { resolveInitialReviewCampaignId } from "../sessionCampaignContext";
 import type { SurfaceInformationChannel } from "../../surfaceInformation";
@@ -89,6 +91,19 @@ interface GraphReviewWorkbenchModuleProps {
 
 const EMPTY_EXTRACTION_RUNS: ExtractionRunRecord[] = [];
 
+function selectedWorldGuidance(selection: SelectedWorldState): string | null {
+  switch (selection.kind) {
+    case "managed":
+      return null;
+    case "loading":
+      return "Wait for the selected World to finish verification before preparing this recap.";
+    case "error":
+      return `Selected World could not be verified: ${selection.message}`;
+    case "legacy":
+      return "Select a verified managed World before preparing this recap.";
+  }
+}
+
 function buildDefaultDraft(
   sessions: GraphReviewCatalogSession[],
   campaignId: string,
@@ -142,6 +157,11 @@ export function GraphReviewWorkbenchModule({
   locationSearch,
   onLocationSearchChange,
 }: GraphReviewWorkbenchModuleProps) {
+  const selectedWorld = useSelectedWorld();
+  const managedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
+  const targetGuidance = selectedWorldGuidance(selectedWorld);
+  const managedWorldIdRef = useRef<string | null>(managedWorldId);
+  managedWorldIdRef.current = managedWorldId;
   const fallbackSessionId = `session-${context.ingestSession}`;
   const requestedSessionId = requestedSessionFromLocation();
   const browseContext = resolvePublishedMemoryBrowseContext({
@@ -274,6 +294,7 @@ export function GraphReviewWorkbenchModule({
     exactHandoff?.extractionRunId ?? null,
     context.campaignId,
     effectiveSourceReviewOnly,
+    managedWorldId,
   ]);
   const operationScopeRef = useRef({ key: operationScopeKey, generation: 0 });
   if (operationScopeRef.current.key !== operationScopeKey) {
@@ -782,16 +803,22 @@ export function GraphReviewWorkbenchModule({
   const onPrepareExactRun = useCallback(async () => {
     if (effectiveSourceReviewOnly) return;
     const runId = exactHandoff?.extractionRunId ?? exactRun?.run_id;
-    if (!runId || !exactRunPromotable || exactPreparing || exactConfirmInFlight) return;
+    if (!runId || !managedWorldId || !exactRunPromotable || exactPreparing || exactConfirmInFlight) return;
     const operationGeneration = operationScopeRef.current.generation;
     setExactPreparing(true);
     setExactPrepareError(null);
     try {
-      const response = await prepareExtractPromote({ runId });
-      if (operationScopeRef.current.generation !== operationGeneration) return;
+      const response = await prepareExtractPromote({ runId, managedWorldId });
+      if (
+        operationScopeRef.current.generation !== operationGeneration
+        || managedWorldIdRef.current !== managedWorldId
+      ) return;
       setExactPrepared(response);
     } catch (error) {
-      if (operationScopeRef.current.generation !== operationGeneration) return;
+      if (
+        operationScopeRef.current.generation !== operationGeneration
+        || managedWorldIdRef.current !== managedWorldId
+      ) return;
       setExactPrepared(null);
       if (error instanceof ExtractPromoteApiError) {
         const diagnosticTail = (error.body?.diagnostics ?? [])
@@ -816,11 +843,14 @@ export function GraphReviewWorkbenchModule({
         setExactPrepareError("Failed to prepare promotion for exact run.");
       }
     } finally {
-      if (operationScopeRef.current.generation === operationGeneration) {
+      if (
+        operationScopeRef.current.generation === operationGeneration
+        && managedWorldIdRef.current === managedWorldId
+      ) {
         setExactPreparing(false);
       }
     }
-  }, [exactConfirmInFlight, exactHandoff?.extractionRunId, exactPreparing, exactRun?.run_id, exactRunPromotable, effectiveSourceReviewOnly]);
+  }, [exactConfirmInFlight, exactHandoff?.extractionRunId, exactPreparing, exactRun?.run_id, exactRunPromotable, effectiveSourceReviewOnly, managedWorldId]);
 
   useEffect(() => {
     setExactPrepared(null);
@@ -962,6 +992,7 @@ export function GraphReviewWorkbenchModule({
               exactPreparing={exactPreparing}
               exactConfirmInFlight={exactConfirmInFlight}
               exactPrepareError={exactPrepareError}
+              selectedWorldGuidance={targetGuidance}
               exactPrepared={effectiveSourceReviewOnly ? null : exactPrepared}
               exactCorrecting={exactCorrecting}
               exactCorrectionError={exactCorrectionError}
@@ -995,6 +1026,7 @@ function GraphReviewExactRunBranch(props: {
   exactPreparing: boolean;
   exactConfirmInFlight: boolean;
   exactPrepareError: string | null;
+  selectedWorldGuidance: string | null;
   exactPrepared: ExtractPromotePrepareResponse | null;
   exactCorrecting: boolean;
   exactCorrectionError: string | null;
@@ -1101,6 +1133,7 @@ function GraphReviewExactRunBranch(props: {
           exactConfirmInFlight={props.exactConfirmInFlight}
           exactReviewReady={props.exactReviewStatus === "ready" && Boolean(props.exactReview)}
           exactPrepareError={props.exactPrepareError}
+          selectedWorldGuidance={props.selectedWorldGuidance}
           onPrepare={props.onPrepare}
         />
       )}
@@ -1121,6 +1154,7 @@ function GraphReviewExactRunPromoteChrome(props: {
   exactConfirmInFlight: boolean;
   exactReviewReady: boolean;
   exactPrepareError: string | null;
+  selectedWorldGuidance: string | null;
   onPrepare: () => void;
 }) {
   const { committedPhase, committedReceipt } = useGraphReviewLiveState();
@@ -1147,12 +1181,23 @@ function GraphReviewExactRunPromoteChrome(props: {
         disabled={
           props.exactPreparing ||
           props.exactConfirmInFlight ||
-          !props.exactReviewReady
+          !props.exactReviewReady ||
+          Boolean(props.selectedWorldGuidance)
         }
+        title={props.selectedWorldGuidance ?? undefined}
         onClick={props.onPrepare}
       >
         {props.exactPreparing ? "Preparing…" : "Review & merge"}
       </button>
+      {props.selectedWorldGuidance ? (
+        <p
+          className="module-muted"
+          data-testid="graph-review-selected-world-guidance"
+          role="status"
+        >
+          {props.selectedWorldGuidance}
+        </p>
+      ) : null}
       {props.exactPrepareError ? (
         <p className="graph-review-error">{props.exactPrepareError}</p>
       ) : null}
