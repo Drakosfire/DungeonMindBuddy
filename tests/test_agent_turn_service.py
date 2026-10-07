@@ -1299,8 +1299,9 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     )
     from apps.live_control_server.services.agent_runtime import AgentWorldScope
     from graph_memory.interaction.session import (
-        CoverageState, GraphRetrievalSession, SessionSnapshot,
+        CoverageState, GraphRetrievalSession, SessionSnapshot, SourceAnchorState,
     )
+    from graph_memory.interaction.claims import GraphClaim, ClaimSupport
     from application_state.agent_conversation.types import TurnClaimReceipt
 
     request = _request(
@@ -1332,6 +1333,14 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         ),
         question=request.message,
         coverage=CoverageState(state="empty"),
+        claims=[GraphClaim(
+            claim_id="rel:seed", claim_kind="relationship",
+            revision_id="graph-revision-3", authority_class="accepted_relationship",
+            support=ClaimSupport(
+                state="source_anchor_available", source_anchor_ids=["anchor:one"],
+            ),
+        )],
+        source_anchors=[SourceAnchorState(anchor_id="anchor:one", readable=True)],
     )
     bootstrap = service_module.AgentPlanWorldGraphBootstrap(
             graph_envelope={
@@ -1345,8 +1354,9 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         retrieval_session=session,
         binding_version=2,
         source_root_relpath="corpus/world-one-markdown",
-        candidate_assertion_ids=(), candidate_relationship_ids=(),
-        candidate_evidence_ref_ids=(), evidence_by_anchor_id={},
+        candidate_assertion_ids=(), candidate_relationship_ids=("rel:seed",),
+        candidate_evidence_ref_ids=("ev:one",),
+        evidence_by_anchor_id={"anchor:one": "ev:one"},
     )
     projected = session.project_for_hermes()
     initial_packet = {
@@ -1382,7 +1392,7 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
             budget["maxGraphOperations"]) == (4, 3, 8)
     _source_receipt, source_execution, _membership = service_module._freeze_policy_receipt(
         request, work, replace(bootstrap, source_scope_anchors=({
-            "anchor_id": "anchor:one", "evidence_ref_id": "evidence:one",
+            "anchor_id": "anchor:one", "evidence_ref_id": "ev:one",
             "source_artifact_id": "artifact:one",
             "source_revision_id": "source-revision:one",
         },)), None, view, budget,
@@ -1601,7 +1611,7 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     completion, bindings, answer = service_module._parse_policy_completion(
         typed_answer, turn, adapter.producing_provider_attempt_id,
     )
-    assert completion.answer_context_status == "plan_only_insufficient_evidence"
+    assert completion.answer_context_status == "plan_only_graph_unused"
     assert bindings == {}
     assert answer == "The keeper waits."
     for model_status in (
@@ -1613,7 +1623,7 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
             json.dumps(mislabeled_plan_answer), turn,
             adapter.producing_provider_attempt_id,
         )
-        assert derived.answer_context_status == "plan_only_insufficient_evidence"
+        assert derived.answer_context_status == "plan_only_graph_unused"
         assert derived_bindings == {}
 
     # The one public synthetic provider witness returned this exact shape.
@@ -2165,10 +2175,10 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         conversation_service=fake,
     )
     assert derived_response.plan_context.completion.answer_context_status == (
-        "plan_only_insufficient_evidence"
+        "plan_only_graph_unused"
     )
     assert fake.turn is not None and fake.turn.status == "completed"
-    assert fake.turn.completion.answer_context_status == "plan_only_insufficient_evidence"
+    assert fake.turn.completion.answer_context_status == "plan_only_graph_unused"
     assert fake.turn.assistant_text == "PRIVATE_PROVIDER_FINAL_BODY"
     execution_events = fake.turn.graph_context_execution.events
     assert execution_events[-1].kind == "completion_binding"
