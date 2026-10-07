@@ -40,6 +40,7 @@ from src.graph_memory.extraction.recap_extraction_profile import (
 _RECAP_CORRECTION_DERIVATION = "operator_recap_literal_evidence_correction_v1"
 _RECAP_CANDIDATE_DERIVATION = "operator_recap_semantic_candidate_correction_v1"
 _RECAP_CANDIDATE_DERIVATION_V2 = "operator_recap_semantic_candidate_correction_v2"
+_RECAP_CANDIDATE_DERIVATION_V3 = "operator_recap_semantic_candidate_correction_v3"
 _RECAP_BASIS_SCHEMA = "dmb_recap_semantic_basis_v1"
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 
@@ -152,6 +153,16 @@ class RecapSemanticBasisV3(RecapSemanticBasisV2):
     )
     derivation: Literal["operator_recap_semantic_candidate_correction_v2"]
     manifest_schema: Literal["dmb_recap_semantic_candidate_manifest_v2"]
+
+
+class RecapSemanticBasisV4(RecapSemanticBasisV2):
+    """Bind the exact edge-tuple correction derivation and manifest version."""
+
+    schema_: Literal["dmb_recap_semantic_basis_v4"] = Field(
+        default="dmb_recap_semantic_basis_v4", alias="schema"
+    )
+    derivation: Literal["operator_recap_semantic_candidate_correction_v3"]
+    manifest_schema: Literal["dmb_recap_semantic_candidate_manifest_v3"]
 
 
 class RecapSemanticDispositionCommandV1(BaseModel):
@@ -343,7 +354,9 @@ def lookup_extraction_run_by_candidate_component(
 
 
 def _assert_recap_semantic_basis(
-    child: ExtractionRun, parent: ExtractionRun, basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3
+    child: ExtractionRun,
+    parent: ExtractionRun,
+    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4,
 ) -> None:
     """Prove every basis field against stored child/parent identity and refs."""
     lineage = child.lineage
@@ -355,7 +368,8 @@ def _assert_recap_semantic_basis(
         or parent.status not in FROZEN_COMPONENT_STATUSES
         or not parent.has_required_review_components()
         or lineage.get("derivation") != (
-            _RECAP_CANDIDATE_DERIVATION_V2 if isinstance(basis, RecapSemanticBasisV3)
+            _RECAP_CANDIDATE_DERIVATION_V3 if isinstance(basis, RecapSemanticBasisV4)
+            else _RECAP_CANDIDATE_DERIVATION_V2 if isinstance(basis, RecapSemanticBasisV3)
             else _RECAP_CANDIDATE_DERIVATION if isinstance(basis, RecapSemanticBasisV2)
             else _RECAP_CORRECTION_DERIVATION
         )
@@ -404,33 +418,47 @@ def _assert_recap_semantic_basis(
         raise ApplicationStateConflictError("recap semantic basis components changed")
     if isinstance(basis, RecapSemanticBasisV2):
         manifest = lineage.get("semantic_candidate_manifest")
-        v3 = isinstance(basis, RecapSemanticBasisV3)
+        action_manifest = isinstance(basis, RecapSemanticBasisV3)
+        tuple_manifest = isinstance(basis, RecapSemanticBasisV4)
+        expected_manifest_keys = (
+            {"schema", "edge_tuple_replacements"}
+            if tuple_manifest
+            else {"schema", "node_description_replacements", "omitted_edge_ids", "session_action_replacements"}
+            if action_manifest
+            else {"schema", "node_description_replacements", "omitted_edge_ids"}
+        )
+        expected_manifest_schema = (
+            basis.manifest_schema if action_manifest or tuple_manifest
+            else "dmb_recap_semantic_candidate_manifest_v1"
+        )
         if (
             not isinstance(manifest, dict)
-            or set(manifest) != ({"schema", "node_description_replacements", "omitted_edge_ids", "session_action_replacements"} if v3 else {"schema", "node_description_replacements", "omitted_edge_ids"})
-            or manifest.get("schema") != (basis.manifest_schema if v3 else "dmb_recap_semantic_candidate_manifest_v1")
-            or (v3 and lineage.get("derivation") != basis.derivation)
-            or not isinstance(manifest.get("node_description_replacements"), list)
-            or not isinstance(manifest.get("omitted_edge_ids"), list)
-            or (v3 and (not isinstance(manifest.get("session_action_replacements"), list) or len(manifest["session_action_replacements"]) != 1))
-            or len(manifest["node_description_replacements"]) > 1
-            or len(manifest["omitted_edge_ids"]) > 1
-            or not (manifest["node_description_replacements"] or manifest["omitted_edge_ids"] or (v3 and manifest["session_action_replacements"]))
+            or set(manifest) != expected_manifest_keys
+            or manifest.get("schema") != expected_manifest_schema
+            or ((action_manifest or tuple_manifest) and lineage.get("derivation") != basis.derivation)
+            or (not tuple_manifest and not isinstance(manifest.get("node_description_replacements"), list))
+            or (not tuple_manifest and not isinstance(manifest.get("omitted_edge_ids"), list))
+            or (action_manifest and (not isinstance(manifest.get("session_action_replacements"), list) or len(manifest["session_action_replacements"]) != 1))
+            or (not tuple_manifest and len(manifest["node_description_replacements"]) > 1)
+            or (not tuple_manifest and len(manifest["omitted_edge_ids"]) > 1)
+            or (not tuple_manifest and not (manifest["node_description_replacements"] or manifest["omitted_edge_ids"] or (action_manifest and manifest["session_action_replacements"])))
+            or (tuple_manifest and (not isinstance(manifest.get("edge_tuple_replacements"), list) or not 1 <= len(manifest["edge_tuple_replacements"]) <= 7))
         ):
             raise ApplicationStateConflictError("recap semantic candidate manifest is missing")
-        for item in manifest["node_description_replacements"]:
-            if (
-                not isinstance(item, dict)
-                or set(item) != {"node_id", "original_description", "replacement_description"}
-                or not all(isinstance(item[key], str) for key in item)
-                or not item["node_id"].strip()
-                or not item["replacement_description"].strip()
-                or item["original_description"] == item["replacement_description"]
-            ):
+        if not tuple_manifest:
+            for item in manifest["node_description_replacements"]:
+                if (
+                    not isinstance(item, dict)
+                    or set(item) != {"node_id", "original_description", "replacement_description"}
+                    or not all(isinstance(item[key], str) for key in item)
+                    or not item["node_id"].strip()
+                    or not item["replacement_description"].strip()
+                    or item["original_description"] == item["replacement_description"]
+                ):
+                    raise ApplicationStateConflictError("recap semantic candidate manifest is malformed")
+            if any(not isinstance(item, str) or not item.strip() for item in manifest["omitted_edge_ids"]):
                 raise ApplicationStateConflictError("recap semantic candidate manifest is malformed")
-        if any(not isinstance(item, str) or not item.strip() for item in manifest["omitted_edge_ids"]):
-            raise ApplicationStateConflictError("recap semantic candidate manifest is malformed")
-        if v3:
+        if action_manifest:
             item = manifest["session_action_replacements"][0]
             if (
                 not isinstance(item, dict)
@@ -441,6 +469,44 @@ def _assert_recap_semantic_basis(
                 or (manifest["node_description_replacements"] and manifest["node_description_replacements"][0]["node_id"] != item["node_id"])
             ):
                 raise ApplicationStateConflictError("recap semantic session action manifest is malformed")
+        if tuple_manifest:
+            edge_ids: set[str] = set()
+            target_tuples: set[tuple[str, str, str, str]] = set()
+            tuple_fields = {"from_node_id", "relationship_type", "to_node_id", "label"}
+            for item in manifest["edge_tuple_replacements"]:
+                if (
+                    not isinstance(item, dict)
+                    or set(item) != {"edge_id", "expected_tuple", "replacement_tuple"}
+                    or not isinstance(item.get("edge_id"), str)
+                    or not item["edge_id"].strip()
+                    or item["edge_id"] != item["edge_id"].strip()
+                    or len(item["edge_id"]) > 256
+                    or any(ch in item["edge_id"] for ch in ("\r", "\n", "\t"))
+                    or item["edge_id"] in edge_ids
+                ):
+                    raise ApplicationStateConflictError("recap semantic edge tuple manifest is malformed")
+                edge_ids.add(item["edge_id"])
+                tuples = []
+                for key in ("expected_tuple", "replacement_tuple"):
+                    value = item.get(key)
+                    if (
+                        not isinstance(value, dict)
+                        or set(value) != tuple_fields
+                        or any(
+                            not isinstance(value[field], str)
+                            or not value[field].strip()
+                            or value[field] != value[field].strip()
+                            or len(value[field]) > (4096 if field == "label" else 128 if field == "relationship_type" else 256)
+                            or any(ch in value[field] for ch in ("\r", "\n", "\t"))
+                            or (field == "relationship_type" and value[field] != value[field].lower())
+                            for field in tuple_fields
+                        )
+                    ):
+                        raise ApplicationStateConflictError("recap semantic edge tuple manifest is malformed")
+                    tuples.append(tuple(value[field] for field in ("from_node_id", "relationship_type", "to_node_id", "label")))
+                if tuples[0] == tuples[1] or tuples[1] in target_tuples:
+                    raise ApplicationStateConflictError("recap semantic edge tuple targets conflict")
+                target_tuples.add(tuples[1])
         canonical = json.dumps(
             manifest, sort_keys=True, ensure_ascii=False, separators=(",", ":")
         ).encode("utf-8") + b"\n"
@@ -452,7 +518,7 @@ def record_recap_semantic_disposition(
     run_id: str,
     *,
     expected_revision: int,
-    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3,
+    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4,
     decision: RecapSemanticDispositionCommandV1,
 ) -> ExtractionRun:
     """Single-use metadata-only CAS for a held recap correction child.
