@@ -17,6 +17,69 @@ const aldenNode: GraphProjectionNodeView = {
 };
 
 describe("GraphProjectionReader", () => {
+  it("renders admitted tables without blanking the surrounding document", async () => {
+    render(<GraphProjectionReader markdown={"# Supplies\n\n| Item | Count |\n| --- | --- |\n| Bandages | 16 |\n\nKeep these dry."} nodeViews={{}} sourceSpans={[]} />);
+    await waitFor(() => expect(screen.getByRole("table")).toBeInTheDocument());
+    expect(screen.getByRole("heading", { name: "Supplies" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: "Bandages" })).toBeInTheDocument();
+    expect(screen.getByText("Keep these dry.")).toBeInTheDocument();
+  });
+
+  it("renders admitted read-aloud callouts and surrounding prose", async () => {
+    render(<GraphProjectionReader markdown={"Before the gate.\n\n> [!READ-ALOUD]\n> Wet timber creaks underfoot.\n\nAfter the gate."} nodeViews={{}} sourceSpans={[]} />);
+    await waitFor(() => expect(screen.getByText("Wet timber creaks underfoot.")).toBeInTheDocument());
+    expect(screen.getByText("Wet timber creaks underfoot.").closest("aside[data-md-callout]")).not.toBeNull();
+    expect(screen.getByText("Before the gate.")).toBeInTheDocument();
+    expect(screen.getByText("After the gate.")).toBeInTheDocument();
+  });
+
+  it("keeps graph pills operable inside a formatted table", async () => {
+    const onInspectNode = vi.fn();
+    render(<GraphProjectionReader markdown={"| Person | Duty |\n| --- | --- |\n| [Alden](dmb-node:alden) | **Gate watch** |"} nodeViews={{ alden: aldenNode }} sourceSpans={[]} onInspectNode={onInspectNode} />);
+    const pill = await screen.findByRole("button", { name: "Alden" });
+    fireEvent.click(pill);
+    expect(onInspectNode).toHaveBeenCalledWith("alden");
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    expect(screen.getByText("Gate watch").tagName).toBe("STRONG");
+    expect(screen.queryByLabelText("Graph node explorer")).not.toBeInTheDocument();
+  });
+
+  it("retains nested lists and emphasis in the shared admitted structure", async () => {
+    render(<GraphProjectionReader markdown={"- **Watch the gate**\n  - Keep the *sleepers* safe.\n- Count survivors."} nodeViews={{}} sourceSpans={[]} />);
+    await screen.findByText("Watch the gate");
+    expect(screen.getByText("Watch the gate").tagName).toBe("STRONG");
+    expect(screen.getByText("sleepers").tagName).toBe("EM");
+    expect(screen.getAllByRole("list")).toHaveLength(2);
+  });
+
+  it("retains source-span identity in rich content at the mounted reader boundary", async () => {
+    render(<GraphProjectionReader markdown={"> [!READ-ALOUD]\n> Wet timber creaks underfoot."} nodeViews={{}}
+      sourceSpans={[{ span_id: "callout-source", kind: "paragraph", text_excerpt: "Wet timber creaks underfoot." }]} />);
+    await waitFor(() => expect(screen.getByText("Wet timber creaks underfoot.")).toHaveAttribute("data-source-span-id", "callout-source"));
+  });
+
+  it("does not make rich recap content editable through keyboard input", async () => {
+    render(<GraphProjectionReader markdown={"> [!READ-ALOUD]\n> Keep the gate closed."} nodeViews={{}} sourceSpans={[]} />);
+    await screen.findByText("Keep the gate closed.");
+    const reader = screen.getByRole("textbox");
+    expect(reader).toHaveAttribute("contenteditable", "false");
+    const before = reader.innerHTML;
+    fireEvent.keyDown(reader, { key: "Enter", code: "Enter", keyCode: 13 });
+    fireEvent.keyDown(reader, { key: "Backspace", code: "Backspace", keyCode: 8 });
+    expect(reader.innerHTML).toBe(before);
+  });
+
+  it("keeps unsupported links and media as source text instead of activating them", async () => {
+    const { container } = render(<GraphProjectionReader markdown={"[Unsafe](javascript:alert(1))\n\n![Map](https://example.test/map.png)"} nodeViews={{}} sourceSpans={[]} />);
+    await waitFor(() => expect(container.textContent).toContain("![Map]"));
+    expect(container.querySelector("img, iframe, a[href]")).toBeNull();
+    const details = screen.getByLabelText("Source formatting details");
+    expect(details).not.toHaveAttribute("open");
+    fireEvent.click(screen.getByText("Source formatting", { exact: true }));
+    expect(screen.getByText("Markdown images are not supported yet.")).toBeVisible();
+    expect(screen.getByText("Ordinary Markdown links are not supported by the mounted editor schema.")).toBeVisible();
+  });
+
   it("does not render graph authoring UI when authoring is disabled", async () => {
     render(
       <GraphProjectionReader

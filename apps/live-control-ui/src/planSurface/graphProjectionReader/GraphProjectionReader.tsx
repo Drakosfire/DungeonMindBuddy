@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Content } from "@tiptap/core";
 import { EditorContent, useEditor } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
 
 import type { GraphProjectionNodeView, RecapProjectionSourceSpan } from "../../api/types";
 import {
   GraphNodeChipRuntimeProvider,
   type GraphNodeChipDeltaPresentation,
 } from "../../graphReference";
-import { GraphNodeReferenceNode } from "../../tiptap/extensions/GraphNodeReferenceNode";
+import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from "../../tiptap/MarkdownEditorCore";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { GraphNodeExplorer } from "../graphPreview/GraphNodePresentation";
 import type { RecapGraphNodeDeltaPresentation } from "../graphPreview/recapGraphNodeRuntime";
@@ -82,14 +81,13 @@ function ReadOnlyTiptapRecap({
     () => stripLeadingYamlFrontmatter(markdown).markdown,
     [markdown],
   );
-  const content = useMemo(
-    () =>
-      markdownToTiptapDoc(projectionMarkdown, { parseGraphNodeLinks: true })
-        .doc as Content,
+  const imported = useMemo(
+    () => markdownToTiptapDoc(projectionMarkdown, { parseGraphNodeLinks: true }),
     [projectionMarkdown],
   );
+  const content = imported.doc as Content;
   const editor = useEditor({
-    extensions: [StarterKit, GraphNodeReferenceNode],
+    extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,
     content,
     editable: false,
     immediatelyRender: false,
@@ -123,13 +121,21 @@ function ReadOnlyTiptapRecap({
     if (highlighted && typeof highlighted.scrollIntoView === "function") {
       highlighted.scrollIntoView({ block: "center", behavior: "smooth" });
     }
-  }, [content, sourceSpans, selectedEvidenceSpanId, sourceSpanDeltaOverlays]);
+  }, [content, editor, sourceSpans, selectedEvidenceSpanId, sourceSpanDeltaOverlays]);
 
   return (
     <GraphNodeChipRuntimeProvider value={chipRuntime}>
       <div className="union-supergraph-tiptap-reader" ref={readerRef}>
         <EditorContent editor={editor} />
       </div>
+      {imported.diagnostics.length > 0 ? (
+        <details aria-label="Source formatting details">
+          <summary>Source formatting</summary>
+          <ul>{imported.diagnostics.map((diagnostic, index) => (
+            <li key={`${diagnostic.message}:${index}`}>{diagnostic.message}</li>
+          ))}</ul>
+        </details>
+      ) : null}
     </GraphNodeChipRuntimeProvider>
   );
 }
