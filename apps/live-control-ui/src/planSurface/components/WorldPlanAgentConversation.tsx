@@ -1644,6 +1644,12 @@ export function WorldPlanAgentConversation({
   });
   const [composerMessage, setComposerMessage] = useState("");
   const [composerIntent, setComposerIntent] = useState<"discuss" | "propose">("discuss");
+  const [composerIntentCorrection, setComposerIntentCorrection] = useState<{
+    message: string;
+    intent: "discuss" | "propose";
+  } | null>(null);
+  const [newReplyAvailable, setNewReplyAvailable] = useState(false);
+  const followsLatestRef = useRef(true);
   const previousVerifiedWorldIdRef = useRef(verifiedWorldId);
   const [useWorldGraphForAsk, setUseWorldGraphForAsk] = useState(true);
   useLayoutEffect(() => {
@@ -1774,12 +1780,29 @@ export function WorldPlanAgentConversation({
       })()
       : null;
   useLayoutEffect(() => {
+    if (!presentationHosts || !agent.paneState.isOpen) return;
+    const viewport = presentationHosts.messages?.parentElement;
+    if (!viewport) return;
+    const nearBottom = () => viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= 48;
+    const updateFollowState = () => {
+      followsLatestRef.current = nearBottom();
+      if (followsLatestRef.current) setNewReplyAvailable(false);
+    };
+    updateFollowState();
+    viewport.addEventListener("scroll", updateFollowState, { passive: true });
+    return () => viewport.removeEventListener("scroll", updateFollowState);
+  }, [agent.paneState.isOpen, presentationHosts]);
+  useLayoutEffect(() => {
     if (!presentationHosts || !agent.paneState.isOpen || !latestConversationEventKey) return;
     const viewport = presentationHosts.messages?.parentElement;
     if (!viewport) return;
     const scrollToLatest = () => {
-      viewport.scrollTop = viewport.scrollHeight;
-      viewport.dispatchEvent(new Event("scroll"));
+      if (followsLatestRef.current) {
+        viewport.scrollTop = viewport.scrollHeight;
+        setNewReplyAvailable(false);
+      } else {
+        setNewReplyAvailable(true);
+      }
     };
     if (typeof window.requestAnimationFrame !== "function") {
       scrollToLatest();
@@ -1788,6 +1811,14 @@ export function WorldPlanAgentConversation({
     const frame = window.requestAnimationFrame(scrollToLatest);
     return () => window.cancelAnimationFrame(frame);
   }, [agent.paneState.isOpen, latestConversationEventKey, presentationHosts]);
+
+  function jumpToLatestReply() {
+    const viewport = presentationHosts?.messages?.parentElement;
+    if (!viewport) return;
+    followsLatestRef.current = true;
+    viewport.scrollTop = viewport.scrollHeight;
+    setNewReplyAvailable(false);
+  }
 
   latestRef.current.fenceKey = requestFenceKey;
   latestRef.current.presentationFenceKey = askPresentationFenceKey;
@@ -2381,7 +2412,7 @@ export function WorldPlanAgentConversation({
   }
 
   function submitComposer(event: FormEvent<HTMLFormElement>) {
-    const intent = classifyPlanComposerIntent(composerMessage);
+    const intent = detectedComposerIntent;
     setComposerIntent(intent);
     setError(null);
     setEditError(null);
@@ -3061,7 +3092,10 @@ export function WorldPlanAgentConversation({
   const confirmedFailureCount = pendingGraphAskRecords.filter((item) => isPendingAskFailureConfirmed(item)).length;
   const unconfirmedGraphAskCount = pendingGraphAskRecords.length - confirmedFailureCount;
   const intentBusy = sending || composing || saveInFlight || !scopeMatches || currentReview !== null;
-  const detectedComposerIntent = classifyPlanComposerIntent(composerMessage);
+  const inferredComposerIntent = classifyPlanComposerIntent(composerMessage);
+  const detectedComposerIntent = composerIntentCorrection?.message === composerMessage
+    ? composerIntentCorrection.intent
+    : inferredComposerIntent;
   const composerBusy = intentBusy || (detectedComposerIntent === "discuss"
     && (historyLoading || !history || Boolean(historyError)));
   const messageLimit = detectedComposerIntent === "discuss" ? 8000 : 4000;
@@ -3311,6 +3345,11 @@ export function WorldPlanAgentConversation({
           <p className="world-plan-agent-conversation__empty">No messages yet. Ask about this Plan or describe a change.</p>
         ) : null}
         {conversationNotice ? <p role="status">{conversationNotice}</p> : null}
+        {presentationHosts && newReplyAvailable ? (
+          <button type="button" className="world-plan-agent-conversation__new-reply" onClick={jumpToLatestReply}>
+            New reply · jump to latest
+          </button>
+        ) : null}
       </section>
       {conversationDisplay.localActivity.length ? (
         <details className="world-plan-agent-conversation__local-activity" aria-label="Other local Plan proposals">
@@ -3593,6 +3632,7 @@ export function WorldPlanAgentConversation({
           value={composerMessage}
           onChange={(event) => {
             setComposerMessage(event.currentTarget.value);
+            setComposerIntentCorrection(null);
             setError(null);
             setEditError(null);
           }}
@@ -3608,6 +3648,19 @@ export function WorldPlanAgentConversation({
               ? "Plan change · Buddy will show a preview before anything is applied."
               : "Enter to send · Shift+Enter for a new line."}
           </p>
+          {composerMessage.trim() ? (
+            <details className="world-plan-agent-conversation__route-correction">
+              <summary>{detectedComposerIntent === "propose" ? "Plan change · Change" : "Question · Change"}</summary>
+              <div role="group" aria-label="Choose how Buddy handles this message">
+                <button type="button" onClick={() => setComposerIntentCorrection({ message: composerMessage, intent: "discuss" })}>
+                  Answer as a question
+                </button>
+                <button type="button" onClick={() => setComposerIntentCorrection({ message: composerMessage, intent: "propose" })}>
+                  Request a Plan change
+                </button>
+              </div>
+            </details>
+          ) : null}
           <button
             type="submit"
             aria-label={detectedComposerIntent === "propose" ? "Propose edit" : "Send message"}

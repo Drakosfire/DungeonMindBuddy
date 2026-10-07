@@ -2,10 +2,10 @@
 
 Status: ACTIVE implementation slice, authorized by the user and PRIME on 2026-10-07. No merge authority.
 
-Branch: `codex/dogfood-plan-proposal-scope`
+Branch: `codex/dogfood-plan-chat-adopter-stack`
 
-Base: `main@dae1a57f4be64ce3809aa1bf8c9a87fd642d51fb`, verified as GitHub’s latest default-branch commit on 2026-10-07
-Topology: serial, one adopter PR; no unmerged parent. The earlier bottom-dock predecessor (#1000) is merged. PRIME transferred the WorldPlanAgentConversation/history presentation paths from the parked #979 proposal into the bounded adopter lane. #979 remains open as historical review context; it is not the current write lease.
+Base: stacked on `codex/plan-graph-source-read-adapter-v2@5ab7f79182cf1212691a1318a38c14b57556418b` (PR #1008), as PRIME directed. The initial adopter commit is `ed9877cd8ca78d41176fc527d22a9807fafc0665`.
+Topology: stacked child of #1008; keep #1008 as the exact parent until PRIME changes the sequence. #1007 is the single adopter PR. The earlier bottom-dock predecessor (#1000) is merged. PRIME transferred the WorldPlanAgentConversation/history presentation paths from the parked #979 proposal into the bounded adopter lane. #979 remains open as historical review context; it is not the current write lease.
 
 ## Outcome
 
@@ -20,7 +20,9 @@ Replace the Plan conversation’s record-heavy, multi-box reading path with a co
 - Editing language routes to the existing proposal/review/apply flow. Questions route to the existing durable discussion flow. No classifier policy changes to Agent/server APIs.
 - Default context control starts at “Plan + World” and resets when the verified World changes. The user asked to remove the per-question Graph checkbox gate. Keep Plan-only available as an explicit scope switch; do not claim the known Graph completion failure is repaired.
 - Keep the resizable dock and its single composer. Do not add another chat state/store or move the composer out of the existing dock.
-- Citation presentation must not claim source text was opened unless the validated server contract can represent that state. On this base `WorldPlanGraphCitationV1.source_opened` is literally `false`; the UI cannot implement a true branch until SERVER updates the owning type/validator contract.
+- Citation presentation must not claim source text was opened unless the validated server contract can represent that state. The stacked SERVER V2 contract supports the boolean only when source-read IDs match the validated reads; preserve the strict V1 false and V2 binding checks.
+- In dock presentation, arriving replies must not pull a reader away from older turns. Show a small “New reply · jump to latest” affordance and move only when the reader chooses it.
+- Keep classifier routing as the default, but expose a compact correction for the current message so an ambiguous request can be switched between question and Plan change without adding a second composer or persistent mode state.
 
 ## Exclusive expected write set
 
@@ -39,6 +41,6 @@ No other paths are leased. Do not edit API types, validators, adapters, schema, 
 
 ## Verification and handback
 
-Run the focused World Plan history tests, typecheck/build, and `git diff --check` when dependencies are available. Exercise newest-turn visibility, earlier-history disclosure/paging, failed/uncertain recovery disclosure, unified intent routing, graph context default/switch, and exact no-repost behavior. Review the exact cumulative base-to-head diff, commit, push, open one PR, attach it to the task, and send PRIME the exact head for independent review. No merge or operator runtime action is authorized here.
+Run the focused World Plan history tests, typecheck/build, and `git diff --check` when dependencies are available. Exercise newest-turn visibility, earlier-history disclosure/paging, failed/uncertain recovery disclosure, unified intent routing, graph context default/switch, and exact no-repost behavior. A full history suite on the candidate currently reports 41 failed / 65 passed; most failures assert the previous record-heavy markup (labels and always-visible recovery details), while two tests time out. Compare against the exact original adopter head before attributing them to the stack or treating them as harmless presentation-test updates. Visually verify on the candidate runtime and capture a screenshot; AX output alone is not visual evidence. Review the exact cumulative base-to-head diff, commit, push, update the existing #1007 PR base to #1008, and send PRIME the exact head for independent review. No merge or operator runtime action is authorized here.
 
 The local `npm ci --offline` attempt failed because the cache lacks `react@19.1.0` (`ENOTCACHED`). This is an environment limitation, not a passing check; report any verification still unavailable.

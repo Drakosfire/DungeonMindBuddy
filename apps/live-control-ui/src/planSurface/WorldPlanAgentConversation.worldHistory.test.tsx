@@ -48,6 +48,7 @@ import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionPr
 import { activeThreadStorageKey, persistAgentThread } from "../agentInteraction/agentInteractionStorage";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
 import { classifyPlanComposerIntent, WorldPlanAgentConversation } from "./components/WorldPlanAgentConversation";
+import type { PlanConversationPresentationHosts } from "./components/PlanConversationDockAdapter";
 import { AGENT_TURN_HISTORY_CAP, threadStorageKey } from "./components/agentInteractionHistory";
 
 const worldId = "world-conversation-test";
@@ -922,6 +923,7 @@ interface ConversationTestProps {
   selectionGeneration?: number;
   draftGeneration?: number;
   savedDirty?: boolean;
+  presentationHosts?: PlanConversationPresentationHosts;
 }
 
 function conversationElement(props: ConversationTestProps = {}) {
@@ -944,6 +946,7 @@ function conversationElement(props: ConversationTestProps = {}) {
       savedDirty={props.savedDirty ?? false}
       pageReady
       saveInFlight={false}
+      presentationHosts={props.presentationHosts}
       playableTarget={playableTarget}
       playableEditTarget={props.playableEditTarget}
       playableEditTargetGeneration={props.playableEditTargetGeneration}
@@ -1331,8 +1334,52 @@ describe("World Plan conversation consumer", () => {
     ["I want to add a sensory detail.", "propose"],
     ["Could we add a choice here?", "propose"],
     ["Why did the scene move to the warehouse?", "discuss"],
+    ["This scene needs a location.", "discuss"],
+    ["Could this include a sensory detail?", "discuss"],
+    ["Use your second idea.", "discuss"],
   ] as const)("routes a single composer message by its intent: %s", (message, intent) => {
     expect(classifyPlanComposerIntent(message)).toBe(intent);
+  });
+
+  it("lets the user correct an inferred route for the current message", async () => {
+    setupApi(history("conversation-a", 1, []));
+    render(conversationElement({ editBridge: {} }));
+    await screen.findByText(/No messages yet/i);
+
+    const input = screen.getByRole("textbox", { name: "Message DungeonBuddy" });
+    fireEvent.change(input, { target: { value: "This scene needs a location." } });
+    expect(screen.getByRole("button", { name: "Send message" })).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Question · Change"));
+    fireEvent.click(screen.getByRole("button", { name: "Request a Plan change" }));
+    expect(screen.getByRole("button", { name: "Propose edit" })).toBeInTheDocument();
+    expect(screen.getByText(/Buddy will show a preview/)).toBeInTheDocument();
+
+    fireEvent.change(input, { target: { value: "Why is the location important?" } });
+    expect(screen.getByRole("button", { name: "Send message" })).toBeInTheDocument();
+  });
+
+  it("does not pull the reader away from older messages when a new reply arrives", async () => {
+    setupApi(history("conversation-a", 1, [makeTurn(1, "turn-a", "First question", "First answer")]));
+    const viewport = document.createElement("div");
+    Object.defineProperties(viewport, {
+      clientHeight: { configurable: true, value: 100 },
+      scrollHeight: { configurable: true, value: 500 },
+    });
+    viewport.scrollTop = 0;
+    const messageHost = document.createElement("div");
+    viewport.append(messageHost);
+    document.body.append(viewport);
+
+    render(conversationElement({
+      presentationHosts: { header: null, context: null, messages: messageHost, composer: null },
+    }));
+
+    expect(await screen.findByText("First answer")).toBeInTheDocument();
+    expect(viewport.scrollTop).toBe(0);
+    const jumpButton = await screen.findByRole("button", { name: "New reply · jump to latest" });
+    fireEvent.click(jumpButton);
+    expect(viewport.scrollTop).toBe(500);
+    expect(screen.queryByRole("button", { name: "New reply · jump to latest" })).not.toBeInTheDocument();
   });
 
   it("keeps Plan scope, edit intent, and Graph source explicit in the conversation controls", async () => {
