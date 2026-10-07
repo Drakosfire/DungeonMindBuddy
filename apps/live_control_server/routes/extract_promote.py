@@ -23,6 +23,8 @@ from apps.live_control_server.models.extract_promote import (
     ExactRunEvidenceCorrectionRequest,
     ExactRunEvidenceCorrectionResponse,
     RecapEvidenceCorrectionResponse,
+    RecapCandidateCorrectionRequest,
+    RecapCandidateCorrectionResponse,
     ExtractPromoteStatusResponse,
     FirstWorldGraphConfirmReceipt,
     FirstWorldGraphConfirmRequest,
@@ -49,6 +51,7 @@ from apps.live_control_server.services.exact_run_evidence_correction import (
     correct_exact_run_evidence,
     correct_recap_run_evidence,
 )
+from apps.live_control_server.services.recap_semantic_candidate_correction import correct_recap_candidate
 from apps.live_control_server.services.agent_graph_auth import (
     NativeGraphPrincipal,
     native_graph_gm_dependency,
@@ -233,6 +236,36 @@ def post_recap_evidence_corrections(
                 code="extract_promote_internal_error", status_code=500,
             )
         )
+    return response.model_dump(mode="json", by_alias=True)
+
+
+@router.post(
+    "/runs/{run_id}/recap-candidate-corrections",
+    response_model=RecapCandidateCorrectionResponse,
+)
+def post_recap_candidate_corrections(
+    request_context: Request,
+    run_id: str,
+    request: RecapCandidateCorrectionRequest,
+    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+) -> dict[str, Any] | JSONResponse:
+    """GM-only bounded semantic candidate child; no World publication."""
+    try:
+        _reject_selector_query(request_context)
+        if run_id != request.parent_run_id:
+            raise ExtractPromoteError(
+                "path run ID does not match parentRunId",
+                code="invalid_request", status_code=422,
+            )
+        response = correct_recap_candidate(request)
+    except ExtractPromoteError as exc:
+        return _error_response(exc)
+    except Exception:
+        logger.exception("recap candidate correction failed unexpectedly")
+        return _error_response(ExtractPromoteError(
+            "The recap candidate correction failed unexpectedly.",
+            code="extract_promote_internal_error", status_code=500,
+        ))
     return response.model_dump(mode="json", by_alias=True)
 
 

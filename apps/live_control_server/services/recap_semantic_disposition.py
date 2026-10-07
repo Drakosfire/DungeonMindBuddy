@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Mapping
 
 from graph_memory.ingestion.extraction_run import (
@@ -22,6 +23,7 @@ from src.graph_memory.extraction.recap_extraction_profile import (
 )
 
 DERIVATION = "operator_recap_literal_evidence_correction_v1"
+CANDIDATE_DERIVATION = "operator_recap_semantic_candidate_correction_v1"
 DISPOSITION_VERSION = 1
 EFFECT_KEY = "recap_semantic_disposition"
 HOLD_REASON = "Corrected recap evidence awaits an explicit semantic review decision."
@@ -45,7 +47,7 @@ def _sha(value: object) -> str | None:
 
 
 def is_recap_correction(run: ExtractionRun) -> bool:
-    return run.lineage.get("derivation") == DERIVATION
+    return run.lineage.get("derivation") in {DERIVATION, CANDIDATE_DERIVATION}
 
 
 @dataclass(frozen=True)
@@ -63,6 +65,7 @@ def assess_recap_semantics(
     *,
     parent: ExtractionRun | None,
     source_revision_id: str,
+    root: Path | None = None,
 ) -> RecapSemanticAssessment:
     """Validate a marked child's canonical basis and recorded decision.
 
@@ -116,7 +119,8 @@ def assess_recap_semantics(
     parent_sha = _sha(parent_candidate.sha256)
     source_sha = _sha(source.sha256)
     span_sha = _sha(spans.sha256)
-    correction_sha = _sha(lineage.get("correction_digest"))
+    candidate_correction = lineage.get("derivation") == CANDIDATE_DERIVATION
+    correction_sha = _sha(lineage.get("manifest_sha256" if candidate_correction else "correction_digest"))
     if (
         not all((child_sha, parent_sha, source_sha, span_sha, correction_sha))
         or _sha(lineage.get("parent_candidate_sha256")) != parent_sha
@@ -127,11 +131,17 @@ def assess_recap_semantics(
         or _sha(source_revision_id) != source_sha
     ):
         return held()
+    if candidate_correction:
+        if root is None:
+            return held()
+        from apps.live_control_server.services.recap_semantic_candidate_correction import verify_child_replay
+
+        if not verify_child_replay(run, parent, root):
+            return held()
     basis_fields = {
-        "schema": "dmb_recap_semantic_basis_v1",
+        "schema": "dmb_recap_semantic_basis_v2" if candidate_correction else "dmb_recap_semantic_basis_v1",
         "parent_run_id": parent.run_id,
         "parent_candidate_sha256": parent_sha,
-        "correction_digest": correction_sha,
         "child_run_id": run.run_id,
         "candidate_uri": candidate.uri,
         "candidate_sha256": child_sha,
@@ -145,6 +155,7 @@ def assess_recap_semantics(
         "campaign_id": run.campaign_id,
         "session_id": run.session_id,
     }
+    basis_fields["manifest_sha256" if candidate_correction else "correction_digest"] = correction_sha
     basis = _digest(basis_fields)
     raw = lineage.get("semantic_disposition")
     if (
@@ -184,7 +195,7 @@ def accepted_effect_binding(
     source = run.components["source_artifact"]
     spans = run.components["source_span_index"]
     _, _, profile_version = run.profile_id.rpartition("@")
-    return {
+    binding = {
         "version": DISPOSITION_VERSION,
         "run_id": run.run_id,
         "run_revision": run.revision,
@@ -202,6 +213,9 @@ def accepted_effect_binding(
         "basis_sha256": assessment.basis_sha256,
         "disposition_sha256": _digest(assessment.disposition),
     }
+    if run.lineage.get("derivation") == CANDIDATE_DERIVATION:
+        binding["manifest_sha256"] = _sha(run.lineage.get("manifest_sha256"))
+    return binding
 
 
 def assert_current_effect_binding(
@@ -218,6 +232,7 @@ def assert_current_effect_binding(
 
 __all__ = [
     "DERIVATION",
+    "CANDIDATE_DERIVATION",
     "DISPOSITION_VERSION",
     "EFFECT_KEY",
     "HOLD_REASON",

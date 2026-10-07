@@ -38,6 +38,7 @@ from src.graph_memory.extraction.recap_extraction_profile import (
 )
 
 _RECAP_CORRECTION_DERIVATION = "operator_recap_literal_evidence_correction_v1"
+_RECAP_CANDIDATE_DERIVATION = "operator_recap_semantic_candidate_correction_v1"
 _RECAP_BASIS_SCHEMA = "dmb_recap_semantic_basis_v1"
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 
@@ -84,6 +85,55 @@ class RecapSemanticBasisV1(BaseModel):
         if not value or value != value.strip():
             raise ValueError("basis identity field must be non-blank and trimmed")
         return value
+
+    def digest(self) -> str:
+        encoded = json.dumps(
+            self.model_dump(mode="json", by_alias=True), sort_keys=True,
+            separators=(",", ":"), ensure_ascii=True,
+        ).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()
+
+
+class RecapSemanticBasisV2(BaseModel):
+    """Distinct whole-candidate basis; V1 quote-only pins remain unchanged."""
+
+    model_config = ConfigDict(extra="forbid", strict=True, populate_by_name=True)
+    schema_: Literal["dmb_recap_semantic_basis_v2"] = Field(
+        default="dmb_recap_semantic_basis_v2", alias="schema"
+    )
+    parent_run_id: str
+    parent_candidate_sha256: str
+    manifest_sha256: str
+    child_run_id: str
+    candidate_uri: str
+    candidate_sha256: str
+    source_artifact_id: str
+    source_uri: str
+    source_revision_sha256: str
+    span_index_uri: str
+    span_index_sha256: str
+    profile_id: str
+    profile_version: Literal[RECAP_PROFILE_VERSION]
+    campaign_id: str
+    session_id: str
+
+    @field_validator(
+        "parent_candidate_sha256", "manifest_sha256", "candidate_sha256",
+        "source_revision_sha256", "span_index_sha256",
+    )
+    @classmethod
+    def _valid_manifest_sha(cls, value: str) -> str:
+        if not _SHA256.fullmatch(value):
+            raise ValueError("basis SHA-256 must be lowercase hex")
+        return value
+
+    @field_validator(
+        "parent_run_id", "child_run_id", "candidate_uri", "source_artifact_id",
+        "source_uri", "span_index_uri", "profile_id", "campaign_id", "session_id",
+    )
+    @classmethod
+    def _nonblank(cls, value: str) -> str:
+        return RecapSemanticBasisV1._nonblank(value)
 
     def digest(self) -> str:
         encoded = json.dumps(
@@ -282,7 +332,7 @@ def lookup_extraction_run_by_candidate_component(
 
 
 def _assert_recap_semantic_basis(
-    child: ExtractionRun, parent: ExtractionRun, basis: RecapSemanticBasisV1
+    child: ExtractionRun, parent: ExtractionRun, basis: RecapSemanticBasisV1 | RecapSemanticBasisV2
 ) -> None:
     """Prove every basis field against stored child/parent identity and refs."""
     lineage = child.lineage
@@ -293,7 +343,10 @@ def _assert_recap_semantic_basis(
         or parent.source_domain != "recap"
         or parent.status not in FROZEN_COMPONENT_STATUSES
         or not parent.has_required_review_components()
-        or lineage.get("derivation") != _RECAP_CORRECTION_DERIVATION
+        or lineage.get("derivation") != (
+            _RECAP_CANDIDATE_DERIVATION if isinstance(basis, RecapSemanticBasisV2)
+            else _RECAP_CORRECTION_DERIVATION
+        )
         or lineage.get("parent_run_id") != parent.run_id
         or basis.parent_run_id != parent.run_id
         or parent.run_id == child.run_id
@@ -322,7 +375,11 @@ def _assert_recap_semantic_basis(
         or _sha(candidate.sha256) != basis.candidate_sha256
         or _sha(parent_candidate.sha256) != basis.parent_candidate_sha256
         or _sha(lineage.get("parent_candidate_sha256")) != basis.parent_candidate_sha256
-        or _sha(lineage.get("correction_digest")) != basis.correction_digest
+        or (
+            _sha(lineage.get("manifest_sha256")) != basis.manifest_sha256
+            if isinstance(basis, RecapSemanticBasisV2)
+            else _sha(lineage.get("correction_digest")) != basis.correction_digest
+        )
         or source.uri != basis.source_uri
         or source.uri != parent_source.uri
         or _sha(source.sha256) != basis.source_revision_sha256
@@ -333,13 +390,43 @@ def _assert_recap_semantic_basis(
         or _sha(parent_spans.sha256) != basis.span_index_sha256
     ):
         raise ApplicationStateConflictError("recap semantic basis components changed")
+    if isinstance(basis, RecapSemanticBasisV2):
+        manifest = lineage.get("semantic_candidate_manifest")
+        if (
+            not isinstance(manifest, dict)
+            or set(manifest) != {"schema", "node_description_replacements", "omitted_edge_ids"}
+            or manifest.get("schema") != "dmb_recap_semantic_candidate_manifest_v1"
+            or not isinstance(manifest.get("node_description_replacements"), list)
+            or not isinstance(manifest.get("omitted_edge_ids"), list)
+            or len(manifest["node_description_replacements"]) > 1
+            or len(manifest["omitted_edge_ids"]) > 1
+            or not (manifest["node_description_replacements"] or manifest["omitted_edge_ids"])
+        ):
+            raise ApplicationStateConflictError("recap semantic candidate manifest is missing")
+        for item in manifest["node_description_replacements"]:
+            if (
+                not isinstance(item, dict)
+                or set(item) != {"node_id", "original_description", "replacement_description"}
+                or not all(isinstance(item[key], str) for key in item)
+                or not item["node_id"].strip()
+                or not item["replacement_description"].strip()
+                or item["original_description"] == item["replacement_description"]
+            ):
+                raise ApplicationStateConflictError("recap semantic candidate manifest is malformed")
+        if any(not isinstance(item, str) or not item.strip() for item in manifest["omitted_edge_ids"]):
+            raise ApplicationStateConflictError("recap semantic candidate manifest is malformed")
+        canonical = json.dumps(
+            manifest, sort_keys=True, ensure_ascii=False, separators=(",", ":")
+        ).encode("utf-8") + b"\n"
+        if hashlib.sha256(canonical).hexdigest() != basis.manifest_sha256:
+            raise ApplicationStateConflictError("recap semantic candidate manifest changed")
 
 
 def record_recap_semantic_disposition(
     run_id: str,
     *,
     expected_revision: int,
-    basis: RecapSemanticBasisV1,
+    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2,
     decision: RecapSemanticDispositionCommandV1,
 ) -> ExtractionRun:
     """Single-use metadata-only CAS for a held recap correction child.

@@ -779,7 +779,8 @@ def _recap_semantic_assessment(resolved, run_record=None):
             # The child's own exact source package remains inspectable. A
             # missing parent makes its semantic basis invalid and keeps it held.
     return run, assess_recap_semantics(
-        run, parent=parent, source_revision_id=resolved.source_revision_id
+        run, parent=parent, source_revision_id=resolved.source_revision_id,
+        root=repo_root(),
     )
 
 
@@ -910,6 +911,7 @@ def decide_recap_semantic_disposition(
     from application_state.errors import ApplicationStateError
     from application_state.ingest.service import (
         RecapSemanticBasisV1,
+        RecapSemanticBasisV2,
         RecapSemanticDispositionCommandV1,
         record_recap_semantic_disposition,
     )
@@ -920,6 +922,7 @@ def decide_recap_semantic_disposition(
     )
     from apps.live_control_server.services.recap_semantic_disposition import (
         assess_recap_semantics,
+        CANDIDATE_DERIVATION,
         is_recap_correction,
     )
     from apps.live_control_server.services.source_artifact_registry import (
@@ -943,7 +946,8 @@ def decide_recap_semantic_disposition(
             code="recap_semantic_decision_invalid", status_code=409,
         ) from exc
     assessment = assess_recap_semantics(
-        run, parent=parent, source_revision_id=artifact.content_sha256
+        run, parent=parent, source_revision_id=artifact.content_sha256,
+        root=repo_root(),
     )
     if assessment.basis is None or assessment.basis_sha256 is None:
         raise ExtractPromoteError(
@@ -956,7 +960,11 @@ def decide_recap_semantic_disposition(
             code="recap_semantic_decision_conflict", status_code=409,
         )
     try:
-        basis = RecapSemanticBasisV1.model_validate(assessment.basis)
+        basis_type = (
+            RecapSemanticBasisV2 if run.lineage.get("derivation") == CANDIDATE_DERIVATION
+            else RecapSemanticBasisV1
+        )
+        basis = basis_type.model_validate(assessment.basis)
         decision = RecapSemanticDispositionCommandV1(
             state=request.decision,
             review_decision_ref=request.review_decision_ref,

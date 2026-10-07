@@ -22,6 +22,8 @@ EXACT_RUN_REVIEW_SCHEMA = "dmb_extract_promote_exact_run_review_v1"
 EVIDENCE_CORRECTION_REQUEST_SCHEMA = "dmb_exact_run_evidence_correction_request_v1"
 EVIDENCE_CORRECTION_RESPONSE_SCHEMA = "dmb_exact_run_evidence_correction_response_v1"
 RECAP_EVIDENCE_CORRECTION_RESPONSE_SCHEMA = "dmb_recap_evidence_correction_response_v1"
+RECAP_CANDIDATE_CORRECTION_REQUEST_SCHEMA = "dmb_recap_candidate_correction_request_v1"
+RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA = "dmb_recap_candidate_correction_response_v1"
 RECAP_SEMANTIC_DECISION_REQUEST_SCHEMA = "dmb_recap_semantic_decision_request_v1"
 RECAP_SEMANTIC_DECISION_RESPONSE_SCHEMA = "dmb_recap_semantic_decision_response_v1"
 WORLD_BUILDING_WRITE_PLAN_REQUEST_SCHEMA = (
@@ -461,6 +463,62 @@ class RecapEvidenceCorrectionResponse(_ExtractPromoteModel):
     status: Literal["reviewable"] = "reviewable"
     semantic_state: Literal["held", "accepted", "rejected"]
     semantic_basis_sha256: str
+
+
+class RecapNodeDescriptionReplacement(_ExtractPromoteModel):
+    node_id: str
+    original_description: str
+    replacement_description: str
+
+    @field_validator("node_id")
+    @classmethod
+    def _node_id(cls, value: str) -> str:
+        return _nonblank(value, field_name="node_id")
+
+    @field_validator("replacement_description")
+    @classmethod
+    def _description(cls, value: str) -> str:
+        if not value.strip() or value != value.strip() or len(value) > 4096:
+            raise ValueError("replacement_description must be nonblank, trimmed and bounded")
+        return value
+
+
+class RecapCandidateCorrectionRequest(_ExtractPromoteModel):
+    schema_: Literal["dmb_recap_candidate_correction_request_v1"] = Field(
+        default=RECAP_CANDIDATE_CORRECTION_REQUEST_SCHEMA, alias="schema"
+    )
+    parent_run_id: str
+    parent_candidate_sha256: str
+    node_description_replacements: list[RecapNodeDescriptionReplacement] = Field(default_factory=list, max_length=1)
+    omitted_edge_ids: list[str] = Field(default_factory=list, max_length=1)
+
+    @model_validator(mode="after")
+    def _bounded(self) -> "RecapCandidateCorrectionRequest":
+        if not self.node_description_replacements and not self.omitted_edge_ids:
+            raise ValueError("at least one candidate correction is required")
+        if len({v.node_id for v in self.node_description_replacements}) != len(self.node_description_replacements):
+            raise ValueError("duplicate node correction")
+        if len(set(self.omitted_edge_ids)) != len(self.omitted_edge_ids):
+            raise ValueError("duplicate omitted edge")
+        if any(not value.strip() or value != value.strip() for value in self.omitted_edge_ids):
+            raise ValueError("omitted edge IDs must be nonblank and trimmed")
+        if len(self.parent_candidate_sha256) != 64 or any(c not in "0123456789abcdef" for c in self.parent_candidate_sha256):
+            raise ValueError("parent_candidate_sha256 must be lowercase SHA-256 hex")
+        return self
+
+
+class RecapCandidateCorrectionResponse(_ExtractPromoteModel):
+    schema_: Literal["dmb_recap_candidate_correction_response_v1"] = Field(
+        default=RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA, alias="schema"
+    )
+    run_id: str
+    parent_run_id: str
+    parent_candidate_sha256: str
+    candidate_sha256: str
+    manifest_sha256: str
+    semantic_basis_sha256: str
+    semantic_state: Literal["held", "accepted", "rejected"]
+    status: Literal["reviewable"] = "reviewable"
 
 
 class ExactRunReviewPackage(_ExtractPromoteModel):
