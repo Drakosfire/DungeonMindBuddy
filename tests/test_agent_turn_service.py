@@ -1343,8 +1343,30 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
             json.dumps(wrong_binding_status), final_turn, final_attempt,
         )
     assert (binding_rejection.value.stage, binding_rejection.value.reason) == (
-        "binding", "completion_binding",
+        "binding", "grounded_status_mismatch",
     )
+    for unclassified_error in (
+        ValueError("PRIVATE_UNCLASSIFIED_BINDING_BODY"),
+        graph_types.GraphCompletionValidationError(
+            "PRIVATE_UNCLOSED_REASON", "PRIVATE_UNCLASSIFIED_BINDING_BODY",
+        ),
+    ):
+        with monkeypatch.context() as unknown_binding:
+            def reject_without_code(*_args: Any) -> None:
+                raise unclassified_error
+
+            unknown_binding.setattr(
+                graph_types, "validate_execution_completion", reject_without_code,
+            )
+            with pytest.raises(AgentTurnServiceError) as generic_binding:
+                service_module._parse_policy_completion(
+                    graph_answer, final_turn, final_attempt,
+                )
+        assert (generic_binding.value.stage, generic_binding.value.reason) == (
+            "binding", "completion_binding",
+        )
+        assert "PRIVATE_UNCLASSIFIED_BINDING_BODY" not in str(generic_binding.value)
+        assert "PRIVATE_UNCLOSED_REASON" not in str(generic_binding.value)
     completed_graph_turn = fake.complete_turn(graph_types.TurnResult(
         world_id=final_turn.world_id,
         conversation_id=final_turn.conversation_id,
@@ -1602,6 +1624,50 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         assert "PRIVATE_PROVIDER_FINAL_BODY" not in diagnostic
         assert "Expecting property name" not in diagnostic
         assert chr(0xD800) not in diagnostic
+
+    fake = FakeExecutionPort()
+    failed_codes = []
+
+    def record_binding_failure(failure: Any, *, interrupted: bool = False) -> Turn:
+        assert interrupted is False
+        failed_codes.append(failure.failure_code)
+        assert fake.turn is not None
+        return fake.turn
+
+    fake.fail_turn = record_binding_failure
+    private_binding_answer = json.dumps({
+        "answer_context_status": "plan_only_graph_unused",
+        "answer_segments": [{
+            "kind": "plan_claim", "text": "PRIVATE_PROVIDER_FINAL_BODY",
+        }],
+        "citation_map": None,
+    })
+    caplog.clear()
+    with pytest.raises(AgentTurnServiceError) as rejected_binding_answer:
+        execute_agent_turn(
+            request, root=Path("/tmp"),
+            pointer_store=HermesSessionPointerStore(
+                Path("/tmp") / f"plan-binding-rejected-{uuid4()}"
+            ),
+            owner_resolver=lambda _request: {
+                "kind": "world", "id": "world:one", "name": "World One",
+            },
+            work_resolver=lambda _request, _owner: work,
+            graph_resolver=lambda *_args: pytest.fail("generic Graph resolver was used"),
+            plan_graph_resolver=lambda *_args: bootstrap,
+            runtime=GuardedRuntime(private_binding_answer),
+            conversation_service=fake,
+        )
+    assert rejected_binding_answer.value.code == "answer_validation_failed"
+    assert failed_codes == ["answer_validation_failed"]
+    assert fake.turn is not None and fake.turn.completion is None
+    binding_diagnostic = next(
+        record.getMessage() for record in caplog.records
+        if record.getMessage().startswith("plan_graph_answer_validation_failed ")
+    )
+    assert "stage=binding reason=plan_only_status_mismatch" in binding_diagnostic
+    assert "PRIVATE_PROVIDER_FINAL_BODY" not in binding_diagnostic
+    assert "Plan-only status does not match evidence" not in binding_diagnostic
 
     for uncertain_last, fail_finalization in ((False, False), (True, False), (False, True)):
         fake = FakeExecutionPort()

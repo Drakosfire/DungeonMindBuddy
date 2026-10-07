@@ -1527,6 +1527,10 @@ def _parse_policy_completion(
             "typed", "completion_schema"
         ):
             stage, reason = _typed_answer_rejection(exc)
+        elif (stage, reason) == ("binding", "completion_binding") and isinstance(
+            exc, graph_types.GraphCompletionValidationError
+        ) and isinstance(exc.rejection_code, graph_types.GraphCompletionRejectionCode):
+            reason = exc.rejection_code.value
         raise _AnswerValidationFailure(stage=stage, reason=reason) from exc
 
 
