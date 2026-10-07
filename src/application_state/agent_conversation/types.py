@@ -978,6 +978,8 @@ def _reject_graph_completion(
 ) -> NoReturn:
     """Raise a backward-compatible ValueError classified by a closed code."""
     raise GraphCompletionValidationError(rejection_code, message)
+
+
 class PlanAskHistoryAttributionV1(StrictModel):
     """Validated provenance accompanying one completed Plan Graph Ask."""
 
