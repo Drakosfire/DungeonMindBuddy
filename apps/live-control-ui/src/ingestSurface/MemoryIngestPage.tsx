@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { getExtractionRun, getPlanView } from "../api/liveApi";
-import type { PlanViewProjection } from "../api/types";
+import type { ExtractionRunRecord, PlanViewProjection } from "../api/types";
 import { usePublishAgentSurfaceContext } from "../agentInteraction/usePublishAgentSurfaceContext";
 import { IngestionModule } from "../modules/IngestionModule";
 import { AppChrome } from "../chrome/AppChrome";
@@ -11,6 +11,7 @@ import { parseGraphReviewRunHandoff } from "../planSurface/graphReviewWorkbench/
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import { useIngestRunCatalogInformation } from "./useIngestRunCatalogInformation";
 import "../planSurface/planSurface.css";
+import "./MemoryIngestPage.css";
 
 type LoadStatus = "loading" | "ready" | "error";
 
@@ -52,20 +53,55 @@ function SelectedWorldMemoryIngestPage() {
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [error, setError] = useState<string | null>(null);
   const [planView, setPlanView] = useState<PlanViewProjection | null>(null);
+  const [locationSearch, setLocationSearch] = useState(() => window.location.search);
+  const locationSearchRef = useRef(locationSearch);
+  locationSearchRef.current = locationSearch;
+  const [sourceReview, setSourceReview] = useState<Pick<
+    ExtractionRunRecord,
+    "run_id" | "source_artifact_id" | "campaign_id" | "session_id"
+  > | null>(null);
 
-  const refresh = useCallback(async () => {
-    const params = new URLSearchParams(window.location.search);
+  const refresh = useCallback(async (searchSnapshot: string) => {
+    const params = new URLSearchParams(searchSnapshot);
     const claimedCampaign = params.get("campaign")?.trim();
-    const handoff = parseGraphReviewRunHandoff(window.location.search);
+    const handoff = parseGraphReviewRunHandoff(searchSnapshot);
     const isExistingRecapCampaign = !handoff && managedWorldId === "elderwyld" &&
       (claimedCampaign === "longmont-c1" || claimedCampaign === "longmont-c2");
-    if (managedWorldId && claimedCampaign && claimedCampaign !== managedWorldId && !isExistingRecapCampaign) {
+    if (
+      managedWorldId
+      && claimedCampaign
+      && claimedCampaign !== managedWorldId
+      && !isExistingRecapCampaign
+      && !handoff
+    ) {
       throw new Error(`Ingest campaign ${claimedCampaign} does not match selected World ${managedWorldId}.`);
     }
+    let nextSourceReview: typeof sourceReview = null;
     if (managedWorldId && handoff?.extractionRunId && handoff.errors.length === 0) {
       const run = await getExtractionRun(handoff.extractionRunId);
-      if (run.campaign_id !== managedWorldId) {
-        throw new Error(`Extraction Run does not belong to World ${managedWorldId}.`);
+      if (run.run_id !== handoff.extractionRunId) {
+        throw new Error("handoff extractionRunId does not match the loaded run");
+      }
+      if (run.source_domain === "recap") {
+        // A recap's campaign identifies its source. The selected managed World
+        // is a destination intent; it does not establish recap ownership.
+        nextSourceReview = {
+          run_id: run.run_id,
+          source_artifact_id: run.source_artifact_id,
+          campaign_id: run.campaign_id,
+          session_id: run.session_id,
+        };
+      } else {
+        if (
+          claimedCampaign
+          && claimedCampaign !== managedWorldId
+          && !isExistingRecapCampaign
+        ) {
+          throw new Error(`Ingest campaign ${claimedCampaign} does not match selected World ${managedWorldId}.`);
+        }
+        if (run.campaign_id !== managedWorldId) {
+          throw new Error(`Extraction Run does not belong to World ${managedWorldId}.`);
+        }
       }
     }
     const response = await getPlanView(managedWorldId);
@@ -74,19 +110,25 @@ function SelectedWorldMemoryIngestPage() {
     )) {
       throw new Error(`Ingest context does not match selected World ${managedWorldId}.`);
     }
-    setPlanView(response);
+    return { planView: response, sourceReview: nextSourceReview };
   }, [managedWorldId]);
 
   useEffect(() => {
     let cancelled = false;
+    const searchSnapshot = locationSearch;
     (async () => {
       setStatus("loading");
       setError(null);
+      setSourceReview(null);
+      setPlanView(null);
       try {
-        await refresh();
-        if (!cancelled) setStatus("ready");
+        const loaded = await refresh(searchSnapshot);
+        if (cancelled || locationSearchRef.current !== searchSnapshot) return;
+        setPlanView(loaded.planView);
+        setSourceReview(loaded.sourceReview);
+        setStatus("ready");
       } catch (loadError) {
-        if (!cancelled) {
+        if (!cancelled && locationSearchRef.current === searchSnapshot) {
           setStatus("error");
           setError(loadError instanceof Error ? loadError.message : "Failed to load ingest context");
         }
@@ -95,7 +137,17 @@ function SelectedWorldMemoryIngestPage() {
     return () => {
       cancelled = true;
     };
-  }, [refresh]);
+  }, [locationSearch, refresh]);
+
+  useEffect(() => {
+    const syncLocationSearch = () => setLocationSearch(window.location.search);
+    window.addEventListener("popstate", syncLocationSearch);
+    return () => window.removeEventListener("popstate", syncLocationSearch);
+  }, []);
+
+  const onLocationSearchChange = useCallback((search: string) => {
+    setLocationSearch(search);
+  }, []);
 
   const context = useMemo(
     () => (planView ? buildIngestContextFromPlanView(planView) : null),
@@ -183,10 +235,38 @@ function SelectedWorldMemoryIngestPage() {
   return (
     <AppChrome activeRoute="ingest">
       <main className="ingest-surface-root" aria-label="Memory Ingest">
+        {sourceReview ? (
+          <section
+            className="ingest-source-review"
+            aria-label="Read-only source review"
+            data-testid="source-review-scope"
+          >
+            <h1>Read-only source review</h1>
+            <dl className="ingest-source-review-metadata">
+              <dt>Source artifact</dt>
+              <dd>
+                <details>
+                  <summary>Show exact artifact ID</summary>
+                  <code>{sourceReview.source_artifact_id}</code>
+                </details>
+              </dd>
+              <dt>Source campaign</dt><dd>{sourceReview.campaign_id ?? "Not declared"}</dd>
+              <dt>Source session</dt><dd>{sourceReview.session_id ?? "Not declared"}</dd>
+              <dt>Selected target World</dt><dd>{managedWorldId}</dd>
+            </dl>
+            <p className="ingest-source-review-notice">
+              Reviewing this source does not import it or associate it with the selected World.
+            </p>
+          </section>
+        ) : null}
         <GraphReviewWorkbenchModule
           context={context}
           catalogChannel={catalog.channel}
           onCatalogRefresh={catalog.refresh}
+          sourceReviewOnly={sourceReview !== null}
+          sourceReviewRunId={sourceReview?.run_id ?? null}
+          locationSearch={locationSearch}
+          onLocationSearchChange={onLocationSearchChange}
         />
       </main>
     </AppChrome>
