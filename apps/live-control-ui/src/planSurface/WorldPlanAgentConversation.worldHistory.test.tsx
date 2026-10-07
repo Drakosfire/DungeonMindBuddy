@@ -1298,6 +1298,7 @@ async function leavePendingGraphAsk(
   fireEvent.click(screen.getByRole("button", { name: "Send message" }));
   expect(await screen.findByText(/outcome of this Graph-context Ask is uncertain/)).toBeInTheDocument();
   expect(await screen.findByText(/Saved Graph Asks stay in browser storage/)).toBeInTheDocument();
+  expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("Who watches the western gate?");
   expect(screen.getByRole("button", { name: "Refresh World history" })).toBeEnabled();
   expect(postAsk).toHaveBeenCalledTimes(1);
   expect(pendingAskKeys()).toHaveLength(1);
@@ -1496,7 +1497,7 @@ describe("World Plan conversation consumer", () => {
     await screen.findByText(/No messages yet/i);
     ensureWorldGraphAskDisabled();
     const textarea = screen.getByLabelText("Message DungeonBuddy");
-    fireEvent.change(textarea, { target: { value: "What happens at the opening?" } });
+    fireEvent.change(textarea, { target: { value: "  What happens at the opening?  " } });
 
     expect(fireEvent.keyDown(textarea, { key: "Enter", code: "Enter", shiftKey: true })).toBe(true);
     expect(fireEvent.keyDown(textarea, { key: "Enter", code: "Enter", isComposing: true })).toBe(true);
@@ -1516,6 +1517,36 @@ describe("World Plan conversation consumer", () => {
       await response;
     });
     expect(await screen.findByText("The path opens quietly.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("");
+    const transcript = screen.getByRole("region", { name: "World conversation transcript" });
+    expect(within(transcript).getByText("What happens at the opening?").closest(".world-plan-agent-conversation__message"))
+      .toHaveClass("world-plan-agent-conversation__message--user");
+    expect(within(transcript).getByText("The path opens quietly.").closest(".world-plan-agent-conversation__message"))
+      .toHaveClass("world-plan-agent-conversation__message--assistant");
+  });
+
+  it("preserves a newer draft when the previous Ask completes", async () => {
+    const api = setupApi(history("conversation-a", 4, []));
+    let releaseResponse: ((response: any) => void) | null = null;
+    const response = new Promise<any>((resolve) => { releaseResponse = resolve; });
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockReturnValue(response);
+    render(conversationElement());
+    await screen.findByText(/No messages yet/i);
+    ensureWorldGraphAskDisabled();
+    const textarea = screen.getByLabelText("Message DungeonBuddy");
+    fireEvent.change(textarea, { target: { value: "First question" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await waitFor(() => expect(postAsk).toHaveBeenCalledTimes(1));
+    fireEvent.change(textarea, { target: { value: "A newer draft" } });
+
+    const request = postAsk.mock.calls[0]![0];
+    api.setCurrent(history("conversation-a", 5, [historyTurnForAsk(request, "The answer arrives.")]));
+    await act(async () => {
+      releaseResponse?.(agentResponse(request, "conversation-a", "The answer arrives."));
+      await response;
+    });
+    expect(await screen.findByText("The answer arrives.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("A newer draft");
   });
 
   it("mounts the exact SERVER history projection and renders its validated citation", async () => {
@@ -3717,8 +3748,9 @@ describe("World Plan conversation consumer", () => {
 
     mountComponent(7, bridge);
     await screen.findByText(/No messages yet/i);
-        fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
-      target: { value: "Revise the arrival scene." },
+    const textarea = screen.getByLabelText("Message DungeonBuddy");
+    fireEvent.change(textarea, {
+      target: { value: "  Revise the arrival scene.  " },
     });
     fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
 
@@ -3729,12 +3761,47 @@ describe("World Plan conversation consumer", () => {
     expect(review).not.toHaveTextContent("Nothing selected · text will be inserted at the captured caret.");
     expect(proposalRequest).toHaveBeenCalledTimes(1);
     expect(proposalRequest.mock.calls[0]![0]).toMatchObject({
+      instruction: "Revise the arrival scene.",
       target_kind: "replace_playable_body",
       selected_text: "",
       target_body_markdown: targetBodyMarkdown,
       target_body_sha256: captured.request.target_body_sha256,
     });
+    expect(textarea).toHaveValue("");
     expect(bridge.apply).not.toHaveBeenCalled();
+  });
+
+  it("preserves a newer draft when a pending proposal succeeds", async () => {
+    setupApi(history("conversation-a", 4, []));
+    const captured = await capturedCardBodyEdit("The old arrival prose.\n");
+    const bridge = {
+      capture: vi.fn(async () => captured),
+      apply: vi.fn(async () => undefined),
+    };
+    let releaseProposal: (() => void) | null = null;
+    const pending = new Promise<void>((resolve) => { releaseProposal = resolve; });
+    const proposalRequest = mockCardBodyProposal();
+    const createResponse = proposalRequest.getMockImplementation()!;
+    proposalRequest.mockImplementation(async (request) => {
+      await pending;
+      return createResponse(request);
+    });
+
+    mountComponent(7, bridge);
+    await screen.findByText(/No messages yet/i);
+    const textarea = screen.getByLabelText("Message DungeonBuddy");
+    fireEvent.change(textarea, { target: { value: "Revise this excerpt" } });
+    fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
+    await waitFor(() => expect(proposalRequest).toHaveBeenCalledTimes(1));
+    expect(textarea).toBeDisabled();
+    fireEvent.change(textarea, { target: { value: "A newer proposal draft" } });
+
+    await act(async () => {
+      releaseProposal?.();
+      await pending;
+    });
+    expect(await screen.findByRole("region", { name: "Review proposed Plan edit" })).toBeInTheDocument();
+    expect(textarea).toHaveValue("A newer proposal draft");
   });
 
   it.each(["missing", "request-mismatch"] as const)(

@@ -60,3 +60,9 @@ GitHub publication recovered after service errors. The reviewed code is publishe
 Intent routing is a heuristic with a per-message correction control, not complete semantic intent understanding. Indirect requests such as “This scene needs a location,” “Could this include a sensory detail?” and “Use your second idea” default to discussion. Keep this limitation explicit during inspection and evaluate whether the correction is discoverable; do not describe the candidate as fully natural conversational editing.
 
 The 701×900 preview showed the document above the bottom dock and a pinned composer, but local authorization was rejected there and no Agent request was sent. The real 5202 discussion → edit → review/Apply → Save/reopen witness and operator design inspection remain outstanding after coordinated rollout.
+
+## Composer clearing follow-up — 2026-10-07
+
+The operator asked that a sent message leave the composer clear. Both Discuss and Propose capture the exact raw composer value at dispatch, normalize only the request text, and clear after a valid successful response only when the field still matches the submitted snapshot. Failed or uncertain requests retain the original draft; changed composer content is not cleared. The composer tests cover trimmed input on successful Discuss and Propose, preservation of a newer draft after each succeeds, and draft retention for uncertain Discuss recovery. The textarea remains disabled while a proposal is composing.
+
+Verification after this follow-up: WorldPlanAgentConversation.worldHistory.test.tsx 109/109 passed; UI typecheck passed; production build passed (671 modules, existing large-chunk warning); git diff --check passed. Runtime 5202 still needs an identified rollout and operator recheck; this commit does not claim it is current.

@@ -255,7 +255,9 @@
 }
 
 .world-plan-agent-conversation__turns article[data-sequence] {
-  border-left: 3px solid var(--ui-border-strong);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .world-plan-agent-conversation__new-reply {
@@ -650,18 +652,22 @@
 }
 
 .world-plan-agent-conversation__message--user {
-  justify-self: end;
+  justify-self: start;
   inline-size: fit-content;
   max-inline-size: min(88%, 46rem);
-  background: var(--ui-background-surface, #202a33);
-  border: 1px solid var(--ui-border-subtle, #3c4b54);
+  background: transparent;
+  border: 0;
+  padding-inline: 0;
 }
 
 .world-plan-agent-conversation__message--assistant {
-  inline-size: 100%;
-  padding-inline-start: 0.7rem;
-  border-inline-start: 2px solid var(--ui-accent, #73968d);
-  background: transparent;
+  justify-self: end;
+  inline-size: fit-content;
+  max-inline-size: min(92%, 52rem);
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--ui-border-subtle, #3c4b54);
+  border-radius: 0.8rem;
+  background: color-mix(in srgb, var(--ui-background-surface, #202a33) 72%, transparent);
 }
 
 .world-plan-agent-conversation__message--assistant > *:last-child {

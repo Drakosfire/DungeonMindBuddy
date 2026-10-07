@@ -2206,7 +2206,7 @@ export function WorldPlanAgentConversation({
     setTraceVisible((current) => !current);
   }
 
-  async function sendPendingAsk(stored: StoredPendingAsk, initialDispatch = false) {
+  async function sendPendingAsk(stored: StoredPendingAsk, initialDispatch = false, composerSnapshotAtSubmit?: string) {
     const envelope = stored.envelope;
     if (!envelope || !scopeMatches || verifiedWorldId !== envelope.origin.worldId
       || documentId !== envelope.origin.documentId || requestRef.current) return;
@@ -2285,7 +2285,7 @@ export function WorldPlanAgentConversation({
           ? `The server confirmed this Ask under conversation ${validation.value.conversationId}. It was not inserted into the currently active conversation; refreshing World history.`
           : "The server confirmed this Ask. Refreshing World history.");
       }
-      setComposerMessage("");
+      setComposerMessage((current) => composerSnapshotAtSubmit !== undefined && current === composerSnapshotAtSubmit ? "" : current);
     } catch (reason) {
       const definitivePreDispatchFailure = envelope.request.plan_context_policy
         ? graphContextPreDispatchFailure(reason)
@@ -2317,7 +2317,8 @@ export function WorldPlanAgentConversation({
 
   async function submit(event: FormEvent<HTMLFormElement>, intent = composerIntent) {
     event.preventDefault();
-    const message = composerMessage.trim();
+    const composerSnapshotAtSubmit = composerMessage;
+    const message = composerSnapshotAtSubmit.trim();
     const pointerSnapshot = historySnapshotRef.current;
     const targetAtSubmit = playableTarget;
     const targetBasisAtSubmit = playableTargetBasis;
@@ -2413,7 +2414,7 @@ export function WorldPlanAgentConversation({
       refreshPendingAskList();
       requestRef.current = null;
       setSending(false);
-      await sendPendingAsk({ storageKey, serialized, envelope, error: null }, true);
+      await sendPendingAsk({ storageKey, serialized, envelope, error: null }, true, composerSnapshotAtSubmit);
     } catch (reason) {
       if (requestRef.current?.token === preparationToken) {
         requestRef.current = null;
@@ -2869,7 +2870,8 @@ export function WorldPlanAgentConversation({
 
   async function composeEdit(event: FormEvent<HTMLFormElement>, intent = composerIntent) {
     event.preventDefault();
-    const instruction = composerMessage.trim();
+    const composerSnapshotAtSubmit = composerMessage;
+    const instruction = composerSnapshotAtSubmit.trim();
     if (intent !== "propose" || !planReady || !scopeMatches || !namespace || !documentId || !editBridge
       || !isPositiveRevision(revision) || saveInFlight || !instruction
       || composing || sending || requestRef.current || proposalRequestRef.current) return;
@@ -3013,7 +3015,7 @@ export function WorldPlanAgentConversation({
       };
       editReviewRef.current = nextReview;
       setEditReview(nextReview);
-      setComposerMessage("");
+      setComposerMessage((current) => current === composerSnapshotAtSubmit ? "" : current);
       setComposerIntent("discuss");
       proposalIntentRef.current = null;
       void getWorldPlanDocumentEditActions(worldId, documentId)
