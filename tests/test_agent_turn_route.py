@@ -1113,9 +1113,11 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
             )
 
     indexed_runtime = IndexedSourceRuntime()
+    indexed_pointer_store = HermesSessionPointerStore(tmp_path / "indexed-sessions")
+    indexed_conversation_service = AgentConversationService()
     indexed_response = execute_agent_turn(
         selected_body, root=tmp_path,
-        pointer_store=HermesSessionPointerStore(tmp_path / "indexed-sessions"),
+        pointer_store=indexed_pointer_store,
         owner_resolver=lambda _body: {
             "kind": "world", "id": managed.world_id, "name": managed.name,
         },
@@ -1123,7 +1125,7 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         graph_resolver=lambda *_args: pytest.fail("generic Graph path used"),
         plan_graph_resolver=lambda *_args: selected,
         runtime=indexed_runtime,
-        conversation_service=AgentConversationService(),
+        conversation_service=indexed_conversation_service,
     )
     assert indexed_runtime.calls == 2
     assert indexed_response.plan_context.completion is not None
@@ -1149,6 +1151,29 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     assert indexed_turn.completion.citation_map.entries[0].source_read_ids == [
         read_event.receipts[0].source_read_id
     ]
+    stored_before_replay = indexed_turn.model_dump(mode="json")
+    reads_before_replay = len(graph_reads)
+    replayed_indexed = execute_agent_turn(
+        selected_body, root=tmp_path,
+        pointer_store=indexed_pointer_store,
+        owner_resolver=lambda _body: {
+            "kind": "world", "id": managed.world_id, "name": managed.name,
+        },
+        work_resolver=lambda _body, _owner: selected_work,
+        graph_resolver=lambda *_args: pytest.fail("generic Graph path used"),
+        plan_graph_resolver=lambda *_args: pytest.fail("completed turn resolved Graph again"),
+        runtime=indexed_runtime,
+        conversation_service=indexed_conversation_service,
+    )
+    assert replayed_indexed.plan_context.delivery_replay is True
+    assert replayed_indexed.plan_context.completion == indexed_response.plan_context.completion
+    assert indexed_runtime.calls == 2
+    assert len(graph_reads) == reads_before_replay
+    assert next(
+        turn for turn in indexed_conversation_service.list_turns(
+            managed.world_id, indexed_response.conversation.conversation_id,
+        ) if turn.user_text == selected_body.message
+    ).model_dump(mode="json") == stored_before_replay
 
     from fastapi.testclient import TestClient
     from apps.live_control_server.services.hermes_agent_runtime import (
