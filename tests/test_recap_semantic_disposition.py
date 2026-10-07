@@ -406,9 +406,56 @@ def test_held_review_package_remains_readable(
     assert malformed.semantic_disposition["state"] == "held"
     assert malformed.promotable is False
 
+    child.lineage["semantic_disposition"] = {
+        "version": 1, "state": "held", "basis_sha256": _assessment(parent, child).basis_sha256,
+    }
+
+    def missing_parent(_root, run_id):
+        if run_id == "child":
+            return child
+        raise graph_run_registry.GraphRunRegistryError("parent missing", status_code=404)
+
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", missing_parent)
+    import fastapi.dependencies.utils as dependency_utils
+    import fastapi.routing as fastapi_routing
+    from apps.live_control_server.main import create_app
+
+    async def inline_sync(function, *args, **kwargs):
+        return function(*args, **kwargs)
+
+    monkeypatch.setattr(fastapi_routing, "run_in_threadpool", inline_sync)
+    monkeypatch.setattr(dependency_utils, "run_in_threadpool", inline_sync)
+
+    async def get_review():
+        transport = httpx.ASGITransport(app=create_app(), client=("127.0.0.1", 50000))
+        async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:8000") as client:
+            return await client.get("/api/live/extract-promote/runs/child/review-package")
+
+    missing_parent_review = asyncio.run(get_review())
+    assert missing_parent_review.status_code == 200, missing_parent_review.text
+    body = missing_parent_review.json()
+    assert body["inspectionStatus"] == "ready"
+    assert body["sourceProse"] == "Mira found the silver key.\n"
+    assert body["semanticDisposition"]["state"] == "held"
+    assert body["promotable"] is False
+    assert body["firstWorldPublishEligible"] is False
+    with pytest.raises(extract_promote.ExtractPromoteError) as error:
+        extract_promote.prepare(ExtractPromotePrepareRequest(run_id="child"))
+    assert error.value.code == "recap_semantic_hold"
+
+    def unavailable_parent(_root, run_id):
+        if run_id == "child":
+            return child
+        raise graph_run_registry.GraphRunRegistryError("database unavailable", status_code=503)
+
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", unavailable_parent)
+    with pytest.raises(extract_promote.ExtractPromoteError) as error:
+        extract_promote.get_exact_run_review_package("child")
+    assert error.value.status_code == 503
+
 
 @pytest.mark.parametrize(
-    "case", ["missing_binding", "forged_binding", "held_disposition", "rejected_disposition", "revision_drift", "status_drift", "domain_drift"]
+    "case", ["missing_binding", "forged_binding", "held_disposition", "rejected_disposition", "missing_parent", "revision_drift", "status_drift", "domain_drift"]
 )
 def test_confirm_never_reaches_world_writer_for_held_or_changed_child(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, case: str
@@ -444,7 +491,12 @@ def test_confirm_never_reaches_world_writer_for_held_or_changed_child(
         child.session_id = None
     monkeypatch.setattr(extract_promote, "_candidate_owner_for_locator", lambda _loc: child)
     monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", lambda *_a, **_k: resolved)
-    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, run_id: {"parent": parent, "child": child}[run_id])
+    def get_run(_root, run_id):
+        if case == "missing_parent" and run_id == "parent":
+            raise graph_run_registry.GraphRunRegistryError("parent missing", status_code=404)
+        return {"parent": parent, "child": child}[run_id]
+
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", get_run)
     from apps.live_control_server import config
     from apps.live_control_server.integrations.dungeonmind import world_graph_writes
 

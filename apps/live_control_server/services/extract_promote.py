@@ -771,13 +771,13 @@ def _recap_semantic_assessment(resolved, run_record=None):
         try:
             parent = get_extraction_run(repo_root(), parent_id)
         except GraphRunRegistryError as exc:
-            if getattr(resolved, "source_span_index_path", None) is not None:
-                raise ExtractPromoteError(
-                    "canonical extraction run could not be re-read",
-                    code="run_not_promotable", status_code=409,
-                ) from exc
             if exc.status_code != 404:
-                raise
+                raise ExtractPromoteError(
+                    "canonical extraction parent is unavailable",
+                    code="run_not_promotable", status_code=exc.status_code,
+                ) from exc
+            # The child's own exact source package remains inspectable. A
+            # missing parent makes its semantic basis invalid and keeps it held.
     return run, assess_recap_semantics(
         run, parent=parent, source_revision_id=resolved.source_revision_id
     )
