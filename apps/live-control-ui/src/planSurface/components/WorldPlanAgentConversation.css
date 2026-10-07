@@ -56,6 +56,52 @@
   color: var(--ui-text-secondary);
 }
 
+.world-plan-agent-conversation__header-context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+  color: var(--ui-text-secondary);
+  font-size: 0.78rem;
+}
+
+.world-plan-agent-conversation__header-context > span {
+  padding: 0.2rem 0.45rem;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: 999px;
+  background: var(--ui-background-surface);
+}
+
+.world-plan-agent-conversation__target-chip {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.35rem 0.2rem 0.45rem;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: 999px;
+  background: var(--ui-background-surface);
+}
+
+.world-plan-agent-conversation__header-context > button,
+.world-plan-agent-conversation__target-chip > button {
+  min-height: 1.75rem;
+  padding: 0.2rem 0.45rem;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ui-text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.world-plan-agent-conversation__target-warning {
+  margin: 0.35rem 0 0;
+  color: var(--ui-text-danger, #ffb6a6);
+  font-size: 0.82rem;
+}
+
 .world-plan-agent-conversation__graph-context {
   display: grid;
   gap: 0.35rem;
@@ -144,11 +190,8 @@
 }
 
 .world-plan-agent-conversation__local-activity {
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
-  max-height: min(28vh, 16rem);
-  overflow-y: auto;
-  overscroll-behavior: contain;
 }
 
 .world-plan-agent-conversation__turns article {
@@ -159,6 +202,11 @@
   border: 1px solid var(--ui-border-strong);
   border-radius: var(--ui-radius-sm);
   background: var(--ui-background-surface);
+}
+
+.world-plan-agent-conversation__turns article > div {
+  font-size: 1rem;
+  line-height: 1.6;
 }
 
 .world-plan-agent-conversation__turns p {
@@ -214,8 +262,6 @@
 
 .world-plan-agent-conversation__advanced {
   flex: 0 0 auto;
-  max-height: 35vh;
-  overflow: auto;
   border-top: 1px solid var(--ui-border-strong);
   color: var(--ui-text-secondary);
   font-size: 0.9rem;
@@ -359,13 +405,17 @@
 
 @media (max-width: 42rem) {
   .world-plan-agent-conversation {
-    padding: 0.75rem;
+    gap: 0.5rem;
+    padding: 0.55rem 0.7rem max(0.55rem, env(safe-area-inset-bottom));
   }
 
   .world-plan-agent-conversation__composer {
-    max-height: min(48dvh, 22rem);
-    overflow-y: auto;
-    overscroll-behavior: contain;
+    padding: 0.55rem;
+  }
+
+  .world-plan-agent-conversation__composer textarea {
+    min-height: 3.6rem;
+    max-height: 6rem;
   }
 
   .world-plan-agent-conversation__header {

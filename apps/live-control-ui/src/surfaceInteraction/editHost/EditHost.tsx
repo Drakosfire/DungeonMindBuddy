@@ -54,8 +54,8 @@ function targetsMatch(
   return left.kind === right.kind && left.id === right.id;
 }
 
-function layoutDefaultOpen(layout: "overlay" | "dock"): boolean {
-  return layout === "dock";
+function layoutDefaultOpen(layout: "overlay" | "dock", surfaceId: string | null): boolean {
+  return layout === "dock" && surfaceId !== "plan";
 }
 
 function mergeGroupsWithPanels(
@@ -122,7 +122,7 @@ export function EditHost({
     : [];
   const hasInventory = matchingCommands.length > 0 || matchingPanels.length > 0;
 
-  const defaultOpen = layoutDefaultOpen(layout);
+  const defaultOpen = layoutDefaultOpen(layout, identity?.surfaceId ?? null);
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const toggleRef = useRef<HTMLButtonElement | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);

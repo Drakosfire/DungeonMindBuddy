@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { JSONContent } from "@tiptap/core";
 import { ReadOnlyBodyContent } from "../../markdownReader/ReadOnlyBodyContent";
 import {
@@ -402,6 +402,7 @@ export function WorldPlanCardProjection({
   const nodes = useMemo(() => model.status === "ready" ? flattenNodes(model.roots) : [], [model]);
   const scenes = useMemo(() => nodes.filter((node) => node.kind === "scene"), [nodes]);
   const [focusedSceneId, setFocusedSceneId] = useState<string | null>(null);
+  const focusedSceneContentRef = useRef<HTMLDivElement | null>(null);
   const basisIdentity = basis.status === "verified"
     ? `verified:${basis.revision}:${basis.contentSha256}`
     : basis.status;
@@ -440,6 +441,11 @@ export function WorldPlanCardProjection({
     setFocusedSceneId(null);
     onSelectTarget?.(null);
   }, [focusedScene, focusedSceneId, onSelectTarget]);
+
+  useLayoutEffect(() => {
+    if (!focusedSceneId) return;
+    focusedSceneContentRef.current?.scrollIntoView?.({ block: "start" });
+  }, [focusedSceneId]);
 
   const focusScene = (scene: WorldPlanCardNode) => {
     setFocusedSceneId(scene.id);
@@ -535,7 +541,11 @@ export function WorldPlanCardProjection({
                 : "This Scene is not available in the verified saved Plan. The default Ask card target is cleared; no draft content will be sent."}
           </p>
         </header>
-        <div className="world-plan-scene-reader__content">
+        <div
+          className="world-plan-scene-reader__content"
+          ref={focusedSceneContentRef}
+          style={{ scrollMarginTop: "calc(var(--app-chrome-top, 0px) + 0.75rem)" }}
+        >
           <ol className="world-plan-card-roots">
             <CardNodeView
               node={focusedScene}

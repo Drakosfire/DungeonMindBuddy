@@ -89,6 +89,8 @@ const readerFidelityV2Markdown = [
 ].join("\n") + "\n";
 const initialDigest = "a".repeat(64);
 const committedDigest = "b".repeat(64);
+let originalScrollIntoViewDescriptor: PropertyDescriptor | undefined;
+let scrollIntoViewWasPatched = false;
 
 const record: WorldOwnedPlanRecordV2 = {
   schema_version: "dmb_world_owned_plan_record_v2",
@@ -117,6 +119,13 @@ function renderPlan(selectedWorldId = worldId) {
       </AgentInteractionProvider>
     </SelectedWorldProvider>,
   );
+}
+
+async function openPlanEditHost() {
+  const editHost = await screen.findByTestId("surface-edit-host");
+  const editToggle = within(editHost).queryByRole("button", { name: "Edit" });
+  if (editToggle) fireEvent.click(editToggle);
+  return editHost;
 }
 
 type FixtureContentStatus = WorldOwnedPlanRecordV2["content_status"] | "unknown";
@@ -206,6 +215,15 @@ function installApiMocks(
 }
 
 afterEach(() => {
+  if (scrollIntoViewWasPatched) {
+    if (originalScrollIntoViewDescriptor) {
+      Object.defineProperty(HTMLElement.prototype, "scrollIntoView", originalScrollIntoViewDescriptor);
+    } else {
+      Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
+    }
+    originalScrollIntoViewDescriptor = undefined;
+    scrollIntoViewWasPatched = false;
+  }
   vi.restoreAllMocks();
   localStorage.clear();
   window.history.replaceState({}, "", "/");
@@ -479,6 +497,13 @@ it("opens one authored v2 Scene with its associated Choice and Options, then nav
   const imported = markdownToTiptapDoc(markdown);
   const model = buildWorldPlanCardProjectionModel({ document: imported.doc, markdown, sourceWarnings: [] });
   expect(model.status).toBe("ready");
+  const scrollIntoView = vi.fn();
+  originalScrollIntoViewDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollIntoView");
+  scrollIntoViewWasPatched = true;
+  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+    configurable: true,
+    value: scrollIntoView,
+  });
   const targetKeys = worldPlanCardTargetKeys(model);
   const onSelectTarget = vi.fn();
   render(
@@ -500,6 +525,9 @@ it("opens one authored v2 Scene with its associated Choice and Options, then nav
   const cards = screen.getByTestId("world-plan-cards");
   fireEvent.click(within(cards).getByRole("button", { name: "Open scene: The gate" }));
   const reader = screen.getByTestId("world-plan-scene-reader");
+  const readerContent = reader.querySelector(".world-plan-scene-reader__content");
+  expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
+  expect(scrollIntoView.mock.contexts[0]).toBe(readerContent);
   expect(reader).toHaveTextContent("The guard waits beside the north gate.");
   expect(reader).toHaveTextContent("Beat overview and location notes.");
   expect(reader).toHaveTextContent("How do you enter?");
@@ -510,6 +538,7 @@ it("opens one authored v2 Scene with its associated Choice and Options, then nav
 
   fireEvent.click(within(reader).getByRole("button", { name: "Next scene" }));
   const warehouseReader = screen.getByTestId("world-plan-scene-reader");
+  expect(scrollIntoView.mock.contexts[1]).toBe(warehouseReader.querySelector(".world-plan-scene-reader__content"));
   expect(warehouseReader).toHaveTextContent("A lantern moves behind the loading door.");
   expect(warehouseReader.querySelector('[data-element-id="scene:gate"]')).toBeNull();
   expect(onSelectTarget).toHaveBeenLastCalledWith({ kind: "scene", id: "scene:warehouse" });
@@ -591,7 +620,7 @@ it("keeps one editor draft through Cards, ordinary Save, and fresh reopen at the
   expect(selection.anchorNode).toBe(selectionTextNode);
   expect(selection.anchorOffset).toBe(5);
   expect(screen.getByTestId("world-owned-plan-markdown-editor").querySelector(".ProseMirror")).toBe(editorElement);
-  const editHost = await screen.findByTestId("surface-edit-host");
+  const editHost = await openPlanEditHost();
   const saveButton = await within(editHost).findByRole("button", { name: "Save Plan" });
   await waitFor(() => expect(saveButton).toBeEnabled());
   fireEvent.click(saveButton);
@@ -649,7 +678,7 @@ it("keeps a persisted server draft uncommitted until ordinary Save and fresh reo
   expect(within(cards).getByText("Persisted server draft prose.")).toBeInTheDocument();
   expect(within(cards).queryByText("Saved Plan")).not.toBeInTheDocument();
 
-  const editHost = await screen.findByTestId("surface-edit-host");
+  const editHost = await openPlanEditHost();
   const saveButton = await within(editHost).findByRole("button", { name: "Save Plan" });
   await waitFor(() => expect(saveButton).toBeEnabled());
   fireEvent.click(saveButton);
@@ -718,7 +747,7 @@ it("round-trips the mounted v2 writer boundary from Document edit through Cards,
   expect(apis.prepare).not.toHaveBeenCalled();
   expect(apis.commit).not.toHaveBeenCalled();
 
-  const editHost = await screen.findByTestId("surface-edit-host");
+  const editHost = await openPlanEditHost();
   const saveButton = await within(editHost).findByRole("button", { name: "Save Plan" });
   await waitFor(() => expect(saveButton).toBeEnabled());
   fireEvent.click(saveButton);
@@ -798,7 +827,7 @@ it("hides the saved basis while a commit is uncertain and preserves the draft wi
   fireEvent.click(detailsSummary);
   expect(within(cards).getByText(initialDigest)).toBeInTheDocument();
 
-  const editHost = await screen.findByTestId("surface-edit-host");
+  const editHost = await openPlanEditHost();
   fireEvent.click(within(editHost).getByRole("button", { name: "Save Plan" }));
   await waitFor(() => expect(apis.commit).toHaveBeenCalledTimes(1));
   expect(apis.prepare).toHaveBeenCalledTimes(1);
