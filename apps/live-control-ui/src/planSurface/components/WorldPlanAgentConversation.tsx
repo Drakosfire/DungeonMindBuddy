@@ -121,9 +121,11 @@ const RESPONSE_MISMATCH = "DungeonBuddy's response did not match this saved Plan
 const POINTER_STATUSES = ["absent", "accepted", "recovered", "rejected", "reused"] as const;
 
 export function classifyPlanComposerIntent(message: string): "discuss" | "propose" {
-  const normalized = message.trim().replace(/^(?:please\s+)?(?:buddy[,!]?\s*)/i, "");
+  const normalized = message.trim()
+    .replace(/^(?:please\s+)?(?:buddy[,!]?\s*)/i, "")
+    .replace(/^for (?:this|the|our|my) [^,?.!]+,\s*/i, "");
   if (!normalized) return "discuss";
-  const changeVerb = "(?:edit|revise|rewrite|replace|update|add|remove|delete|change|insert|draft|write|shorten|expand|move|reorder|make)";
+  const changeVerb = "(?:propose|append|edit|revise|rewrite|replace|update|add|remove|delete|change|insert|draft|write|shorten|expand|move|reorder|make)";
   // Explicit change requests take precedence over interrogative phrasing (e.g. "Could you rewrite…?").
   if (new RegExp(`^(?:(?:please|can you|could you|would you|can we|could we|i want you to|i'd like you to|i want to|i'd like to)\\s+)?${changeVerb}\\b`, "i").test(normalized)) return "propose";
   if (new RegExp(`^(?:(?:can|could|would) you|(?:can|could) we|i want you to|i'd like you to|i want to|i'd like to)\\s+(?:please\\s+)?${changeVerb}\\b`, "i").test(normalized)) return "propose";
