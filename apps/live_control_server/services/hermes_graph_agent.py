@@ -428,6 +428,14 @@ def _build_ephemeral_system_prompt(
         retrieval_session=retrieval_session_packet,
     )
     parts = [_GRAPH_SYSTEM_POLICY, scope_part]
+    if request.parent_graph_broker_required and request.request_budget is not None:
+        parts.append(
+            "This turn permits at most "
+            f"{request.request_budget['maxToolCapableAttempts']} tool-capable model requests "
+            f"and {request.request_budget['maxProviderAttempts']} model requests total. "
+            "The final request has no tools. Complete the required typed answer "
+            "from admitted evidence before the last request is spent."
+        )
     if request.surface_context_block:
         parts.append(request.surface_context_block)
     return "\n\n".join(parts)
@@ -1007,6 +1015,8 @@ def _request_budget_guard(
     expected_estimator = str(policy["estimator"])
     context_limit = int(policy["contextLimitTokens"])
     output_reserve = int(policy["outputReserveTokens"])
+    max_attempts = policy.get("maxProviderAttempts")
+    max_tool_attempts = policy.get("maxToolCapableAttempts")
 
     protocol_by_provider = {
         "openai-api": frozenset({"codex_responses", "chat_completions"}),
@@ -1343,6 +1353,13 @@ def _request_budget_guard(
         if input_upper_bound + output_reserve > context_limit:
             guard_state["last_rejection_reason"] = "context_budget_exceeded"
             return False
+        if max_attempts is not None and authorization_sequence >= max_attempts:
+            guard_state["last_rejection_reason"] = "provider_attempt_limit_exhausted"
+            return False
+        if max_tool_attempts is not None and authorization_sequence >= max_tool_attempts:
+            if tools or payload.get("tool_choice") not in (None, "none"):
+                guard_state["last_rejection_reason"] = "final_answer_requires_no_tools"
+                return False
         if on_provider_authorization is None:
             guard_state["last_rejection_reason"] = None
             return True
@@ -1361,10 +1378,78 @@ def _request_budget_guard(
         return authorized
 
     allow.bind_agent = agent_ref  # type: ignore[attr-defined]
-    allow.provider_lifecycle = on_provider_lifecycle  # type: ignore[attr-defined]
+    def provider_lifecycle(event: Mapping[str, Any]) -> bool:
+        if on_provider_lifecycle is None or on_provider_lifecycle(event) is not True:
+            return False
+        if (
+            event.get("transition") == "response_received"
+            and max_tool_attempts is not None
+            and authorization_sequence >= max_tool_attempts
+        ):
+            for agent in agent_ref:
+                agent.tools = []
+        return True
+
+    allow.provider_lifecycle = (  # type: ignore[attr-defined]
+        provider_lifecycle if on_provider_lifecycle is not None else None
+    )
     allow.guard_state = guard_state  # type: ignore[attr-defined]
 
     return allow
+
+
+class _GraphOperationReservation:
+    """Bound parent Graph calls and retire the model-visible tool surface."""
+
+    def __init__(
+        self,
+        limit: int,
+        broker: Callable[[str, Mapping[str, Any]], tuple[str, Mapping[str, Any] | None]],
+    ) -> None:
+        self.limit = limit
+        self.broker = broker
+        self.count = 0
+        self.agents: list[Any] = []
+        self._lock = threading.Lock()
+
+    def _retire_tools(self) -> None:
+        for agent in self.agents:
+            agent.tools = []
+
+    def __call__(
+        self, tool_name: str, arguments: Mapping[str, Any],
+    ) -> tuple[str, Mapping[str, Any] | None]:
+        with self._lock:
+            return self._call_locked(tool_name, arguments)
+
+    def _call_locked(
+        self, tool_name: str, arguments: Mapping[str, Any],
+    ) -> tuple[str, Mapping[str, Any] | None]:
+        if self.count >= self.limit:
+            self._retire_tools()
+            return json.dumps({
+                "schema": "dmb_world_graph_retrieval_error_v1",
+                "code": "graph_operation_over_budget",
+                "message": "Parent Graph expansion could not be admitted.",
+                "statusCode": 413,
+                "diagnostics": [],
+            }, separators=(",", ":")), None
+        try:
+            result_json, session_packet = self.broker(tool_name, arguments)
+        except Exception:
+            # Parent admission may have committed before the broker failed.
+            self.count = self.limit
+            self._retire_tools()
+            raise
+        try:
+            result = json.loads(result_json)
+        except (TypeError, ValueError):
+            result = None
+        if not isinstance(result, Mapping) or result.get("schema") != "dmb_world_graph_retrieval_error_v1":
+            self.count += 1
+            if self.count >= self.limit:
+                self._retire_tools()
+        return result_json, session_packet
 
 
 def run_hermes_graph_agent_turn(
@@ -1447,6 +1532,22 @@ def run_hermes_graph_agent_turn(
             error_code="parent_graph_broker_unavailable",
             error_message="This turn requires a parent Graph-operation broker.",
         )
+    if request.parent_graph_broker_required:
+        budget = request.request_budget or {}
+        total = budget.get("maxProviderAttempts")
+        tool_capable = budget.get("maxToolCapableAttempts")
+        graph_limit = budget.get("maxGraphOperations")
+        if (
+            any(isinstance(value, bool) or not isinstance(value, int)
+                for value in (total, tool_capable, graph_limit))
+            or not (1 <= tool_capable < total <= 128)
+            or not (1 <= graph_limit <= 128)
+        ):
+            return _error_result(
+                hermes_session_id=session_id,
+                error_code="request_budget_guard_invalid",
+                error_message="Parent Graph execution requires a valid final-answer reservation.",
+            )
     try:
         policy = _resolve_capability_policy(request)
     except ValueError:
@@ -1645,8 +1746,16 @@ def run_hermes_graph_agent_turn(
         root_token = set_graph_root_override(request.root)
         policy_token = set_active_capability_policy(policy)
         session_token = set_active_retrieval_session_id(request.retrieval_session_id)
+        graph_reservation = (
+            _GraphOperationReservation(
+                request.request_budget["maxGraphOperations"], on_parent_graph_operation,
+            )
+            if request.parent_graph_broker_required and on_parent_graph_operation is not None
+            else None
+        )
+
         parent_broker_token = set_parent_graph_broker(
-            on_parent_graph_operation,
+            graph_reservation if graph_reservation is not None else on_parent_graph_operation,
             required=request.parent_graph_broker_required,
         )
         collector = _ToolEventCollector(policy)
@@ -1837,6 +1946,8 @@ def run_hermes_graph_agent_turn(
                                 ),
                             )
                             agent.api_request_budget_guard.bind_agent.append(agent)
+                            if graph_reservation is not None:
+                                graph_reservation.agents.append(agent)
                             lifecycle_callback = agent.api_request_budget_guard.provider_lifecycle
                             agent.api_provider_lifecycle_callback = (
                                 lambda transition: lifecycle_callback({

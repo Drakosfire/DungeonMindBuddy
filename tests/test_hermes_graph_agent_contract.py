@@ -25,6 +25,9 @@ def _budget() -> dict[str, object]:
         "estimator": "utf8_json_bytes_plus_64_per_node_v1",
         "contextLimitTokens": 32768,
         "outputReserveTokens": 2048,
+        "maxProviderAttempts": 4,
+        "maxToolCapableAttempts": 3,
+        "maxGraphOperations": 8,
     }
 
 
@@ -368,6 +371,10 @@ def test_parent_graph_broker_is_opt_in_and_requires_exact_retrieval_session():
         lambda policy: policy.update(contextLimitTokens=True),
         lambda policy: policy.update(outputReserveTokens=32768),
         lambda policy: policy.update(unrecognized=True),
+        lambda policy: policy.update(maxProviderAttempts=True),
+        lambda policy: policy.update(maxToolCapableAttempts=4),
+        lambda policy: policy.update(maxGraphOperations=0),
+        lambda policy: policy.pop("maxGraphOperations"),
     ],
 )
 def test_invalid_request_budget_policy_is_rejected(mutate):
@@ -375,3 +382,18 @@ def test_invalid_request_budget_policy_is_rejected(mutate):
     mutate(policy)
     with pytest.raises(ValueError):
         serialize_hermes_graph_agent_turn_request(_request(request_budget=policy))
+
+
+def test_parent_broker_requires_final_answer_reservation_limits():
+    request = _request(
+        request_budget={
+            key: value for key, value in _budget().items()
+            if key not in {"maxProviderAttempts", "maxToolCapableAttempts", "maxGraphOperations"}
+        },
+        provider_authorization_required=True,
+        parent_graph_broker_required=True,
+        retrieval_session_id="session:one",
+        retrieval_session={"retrieval_session_id": "session:one"},
+    )
+    with pytest.raises(ValueError, match="final-answer reservation"):
+        serialize_hermes_graph_agent_turn_request(request)

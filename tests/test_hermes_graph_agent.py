@@ -20,6 +20,7 @@ import apps.live_control_server.services.hermes_graph_agent as hermes_graph_agen
 from apps.live_control_server.services.hermes_graph_agent import (
     HermesGraphAgentTurnRequest,
     _ApiObserverCollector,
+    _GraphOperationReservation,
     _derive_answer_scope,
     _request_budget_guard,
     _summarize_tool_result,
@@ -2497,6 +2498,89 @@ def test_request_budget_guard_accepts_codex_responses_envelope():
     assert _request_budget_guard(policy)(view) is True
 
 
+def test_request_budget_guard_reserves_fourth_attempt_for_toolless_final():
+    policy = {
+        "provider": "openai-api", "model": "synthetic-model",
+        "apiMode": "codex_responses",
+        "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+        "contextLimitTokens": 32768, "outputReserveTokens": 100,
+        "maxProviderAttempts": 4, "maxToolCapableAttempts": 3,
+        "maxGraphOperations": 8,
+    }
+    tool = {"type": "function", "name": "expand_graph", "parameters": {"type": "object"}}
+    def view(tools: list[dict[str, Any]]) -> Any:
+        payload = {
+            "model": "synthetic-model", "input": [{"role": "user", "content": "question"}],
+            "tools": tools, "max_output_tokens": 100,
+        }
+        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        return SimpleNamespace(
+            provider="openai-api", model="synthetic-model", api_mode="codex_responses",
+            payload_json=encoded, payload_utf8_bytes=len(encoded.encode()),
+        )
+
+    authorized: list[Any] = []
+    guard = _request_budget_guard(
+        policy,
+        on_provider_authorization=lambda item: authorized.append(item) or True,
+        on_provider_lifecycle=lambda _event: True,
+    )
+    agent = SimpleNamespace(tools=[tool])
+    guard.bind_agent.append(agent)
+    for sequence in range(1, 4):
+        assert guard(view([tool])) is True
+        assert guard.provider_lifecycle({"transition": "response_received"}) is True
+        assert agent.tools == ([] if sequence == 3 else [tool])
+    assert guard(view([tool])) is False
+    assert guard.guard_state["last_rejection_reason"] == "final_answer_requires_no_tools"
+    assert len(authorized) == 3
+    assert guard(view([])) is True
+    assert guard(view([])) is False
+    assert guard.guard_state["last_rejection_reason"] == "provider_attempt_limit_exhausted"
+    assert len(authorized) == 4
+
+
+def test_graph_operation_reservation_preflights_remaining_budget():
+    broker_calls: list[str] = []
+
+    def broker(name: str, _arguments: Any) -> tuple[str, None]:
+        broker_calls.append(name)
+        if len(broker_calls) == 1:
+            return '{"schema":"dmb_world_graph_retrieval_error_v1"}', None
+        return '{"schema":"dmb_world_graph_retrieval_result_v1"}', None
+
+    reservation = _GraphOperationReservation(2, broker)
+    agent = SimpleNamespace(tools=[{"name": "expand_graph_retrieval"}])
+    reservation.agents.append(agent)
+    assert json.loads(reservation("expand_graph_retrieval", {})[0])["schema"] == (
+        "dmb_world_graph_retrieval_error_v1"
+    )
+    assert reservation.count == 0
+    assert agent.tools
+    reservation("expand_graph_retrieval", {})
+    assert reservation.count == 1
+    reservation("expand_graph_retrieval", {})
+    assert reservation.count == 2
+    assert agent.tools == []
+    denied = json.loads(reservation("expand_graph_retrieval", {})[0])
+    assert denied["code"] == "graph_operation_over_budget"
+    assert len(broker_calls) == 3
+
+    uncertain_agent = SimpleNamespace(tools=[{"name": "expand_graph_retrieval"}])
+
+    def uncertain_broker(_name: str, _arguments: Any) -> tuple[str, None]:
+        raise RuntimeError("parent admission outcome unknown")
+
+    uncertain = _GraphOperationReservation(2, uncertain_broker)
+    uncertain.agents.append(uncertain_agent)
+    with pytest.raises(RuntimeError, match="outcome unknown"):
+        uncertain("expand_graph_retrieval", {})
+    assert uncertain_agent.tools == []
+    assert json.loads(uncertain("expand_graph_retrieval", {})[0])["code"] == (
+        "graph_operation_over_budget"
+    )
+
+
 @pytest.mark.parametrize(
     "change",
     [
@@ -2670,7 +2754,6 @@ def test_request_budget_guard_accepts_actual_buddy_provider_protocol(
         }
     )(view)
 
-
 @pytest.mark.parametrize("assistant_phase", ["final_answer", "final"])
 def test_guarded_request_budget_uses_actual_responses_builder_with_assistant_tool_continuation(
     assistant_phase: str,
@@ -2760,6 +2843,48 @@ def test_guarded_request_budget_uses_actual_responses_builder_with_assistant_too
             "outputReserveTokens": 100,
         }
     )(view)
+
+    # The pinned Hermes Responses builder reads agent.tools for each request.
+    # After the third acknowledged attempt it emits a tool-free final envelope.
+    with hermes_import_namespace():
+        agent.tools = [{
+            "type": "function", "function": {
+                "name": "expand_graph", "description": "Read Graph evidence",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        }]
+        final_guard = _request_budget_guard(
+            {
+                "provider": "openai-api", "model": "gpt-6-luna",
+                "apiMode": "codex_responses",
+                "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+                "contextLimitTokens": 100_000, "outputReserveTokens": 100,
+                "maxProviderAttempts": 4, "maxToolCapableAttempts": 3,
+                "maxGraphOperations": 8,
+            },
+            on_provider_authorization=lambda _view: True,
+            on_provider_lifecycle=lambda _event: True,
+        )
+        final_guard.bind_agent.append(agent)
+        for _ in range(3):
+            tool_request = agent._build_api_kwargs(messages)
+            assert tool_request["tools"]
+            tool_view = budget_module.build_api_request_budget_view(
+                provider=agent.provider, model=agent.model,
+                api_mode=agent.api_mode, base_url=agent.base_url,
+                request=tool_request,
+            )
+            assert final_guard(tool_view) is True
+            assert final_guard.provider_lifecycle({"transition": "response_received"}) is True
+        final_request = agent._build_api_kwargs(messages)
+        assert "tools" not in final_request
+        assert "tool_choice" not in final_request
+        final_view = budget_module.build_api_request_budget_view(
+            provider=agent.provider, model=agent.model,
+            api_mode=agent.api_mode, base_url=agent.base_url,
+            request=final_request,
+        )
+        assert final_guard(final_view) is True
 
 
 def test_pre_dispatch_veto_is_not_reported_as_a_provider_inference_call():

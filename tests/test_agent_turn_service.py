@@ -939,6 +939,8 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     }
     budget = service_module._policy_request_budget()
     assert budget["contextLimitTokens"] == 1_050_000
+    assert (budget["maxProviderAttempts"], budget["maxToolCapableAttempts"],
+            budget["maxGraphOperations"]) == (4, 3, 8)
 
     class FakeExecutionPort:
         turn: Turn | None = None
@@ -1356,6 +1358,9 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
             on_graph_operation: Any, on_provider_lifecycle: Any,
         ) -> AgentRuntimeResult:
             assert request_budget["contextLimitTokens"] == 1_050_000
+            assert (request_budget["maxProviderAttempts"],
+                    request_budget["maxToolCapableAttempts"],
+                    request_budget["maxGraphOperations"]) == (4, 3, 8)
             if self.authorize_first:
                 adjusted = dict(view)
                 adjusted["model"] = request_budget["model"]
