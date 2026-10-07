@@ -1508,48 +1508,53 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     assert response.answer.text == "The keeper waits."
     assert fake.turn is not None and fake.turn.status == "completed"
 
-    fake = FakeExecutionPort()
-    failed_codes: list[str] = []
+    for private_final_text in (
+        "PRIVATE_PROVIDER_FINAL_BODY {",
+        chr(0xD800) + " PRIVATE_PROVIDER_FINAL_BODY {",
+    ):
+        fake = FakeExecutionPort()
+        failed_codes: list[str] = []
 
-    def record_failure(failure: Any, *, interrupted: bool = False) -> Turn:
-        assert interrupted is False
-        failed_codes.append(failure.failure_code)
-        assert fake.turn is not None
-        return fake.turn
+        def record_failure(failure: Any, *, interrupted: bool = False) -> Turn:
+            assert interrupted is False
+            failed_codes.append(failure.failure_code)
+            assert fake.turn is not None
+            return fake.turn
 
-    fake.fail_turn = record_failure
-    private_final_text = "PRIVATE_PROVIDER_FINAL_BODY {"
-    caplog.clear()
-    with pytest.raises(AgentTurnServiceError) as rejected_service_answer:
-        execute_agent_turn(
-            request, root=Path("/tmp"),
-            pointer_store=HermesSessionPointerStore(Path("/tmp") / f"plan-rejected-{uuid4()}"),
-            owner_resolver=lambda _request: {
-                "kind": "world", "id": "world:one", "name": "World One",
-            },
-            work_resolver=lambda _request, _owner: work,
-            graph_resolver=lambda *_args: pytest.fail("generic Graph resolver was used"),
-            plan_graph_resolver=lambda *_args: bootstrap,
-            runtime=GuardedRuntime(private_final_text),
-            conversation_service=fake,
+        fake.fail_turn = record_failure
+        caplog.clear()
+        with pytest.raises(AgentTurnServiceError) as rejected_service_answer:
+            execute_agent_turn(
+                request, root=Path("/tmp"),
+                pointer_store=HermesSessionPointerStore(Path("/tmp") / f"plan-rejected-{uuid4()}"),
+                owner_resolver=lambda _request: {
+                    "kind": "world", "id": "world:one", "name": "World One",
+                },
+                work_resolver=lambda _request, _owner: work,
+                graph_resolver=lambda *_args: pytest.fail("generic Graph resolver was used"),
+                plan_graph_resolver=lambda *_args: bootstrap,
+                runtime=GuardedRuntime(private_final_text),
+                conversation_service=fake,
+            )
+        assert rejected_service_answer.value.code == "answer_validation_failed"
+        assert failed_codes == ["answer_validation_failed"]
+        assert fake.authorize_count == 1
+        assert fake.turn is not None and fake.turn.completion is None
+        diagnostic = next(
+            record.getMessage() for record in caplog.records
+            if record.getMessage().startswith("plan_graph_answer_validation_failed ")
         )
-    assert rejected_service_answer.value.code == "answer_validation_failed"
-    assert failed_codes == ["answer_validation_failed"]
-    assert fake.authorize_count == 1
-    assert fake.turn is not None and fake.turn.completion is None
-    diagnostic = next(
-        record.getMessage() for record in caplog.records
-        if record.getMessage().startswith("plan_graph_answer_validation_failed ")
-    )
-    assert "stage=json reason=invalid_json" in diagnostic
-    assert f"request_turn_sha256={sha256(request.turn_id.encode()).hexdigest()}" in diagnostic
-    assert f"idempotency_key={fake.turn.idempotency_key}" in diagnostic
-    assert f"durable_turn_id={fake.turn.turn_id}" in diagnostic
-    assert f"final_text_sha256={sha256(private_final_text.encode()).hexdigest()}" in diagnostic
-    assert f"final_text_utf8_bytes={len(private_final_text.encode())}" in diagnostic
-    assert "producing_provider_attempt_id=" in diagnostic
-    assert "PRIVATE_PROVIDER_FINAL_BODY" not in diagnostic
-    assert "Expecting property name" not in diagnostic
+        encoded = private_final_text.encode("utf-8", "surrogatepass")
+        assert "stage=json reason=invalid_json" in diagnostic
+        assert f"request_turn_sha256={sha256(request.turn_id.encode()).hexdigest()}" in diagnostic
+        assert f"idempotency_key={fake.turn.idempotency_key}" in diagnostic
+        assert f"durable_turn_id={fake.turn.turn_id}" in diagnostic
+        assert f"final_text_sha256={sha256(encoded).hexdigest()}" in diagnostic
+        assert f"final_text_utf8_bytes={len(encoded)}" in diagnostic
+        assert "producing_provider_attempt_id=" in diagnostic
+        assert "PRIVATE_PROVIDER_FINAL_BODY" not in diagnostic
+        assert "Expecting property name" not in diagnostic
+        assert chr(0xD800) not in diagnostic
 
 
 @pytest.mark.parametrize(

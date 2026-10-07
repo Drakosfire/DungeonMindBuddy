@@ -3016,13 +3016,15 @@ def execute_agent_turn(
         except AgentTurnServiceError as exc:
             trace.complete_phase(span_id, status="error")
             if isinstance(exc, _AnswerValidationFailure):
-                final_bytes = policy_result.final_text.encode("utf-8")
+                # Surrogate-pass keeps diagnostics total for arbitrary provider
+                # strings while preserving ordinary UTF-8 hashes byte-for-byte.
+                final_bytes = policy_result.final_text.encode("utf-8", "surrogatepass")
                 _LOG.warning(
                     "plan_graph_answer_validation_failed stage=%s reason=%s "
                     "request_turn_sha256=%s idempotency_key=%s durable_turn_id=%s "
                     "producing_provider_attempt_id=%s final_text_sha256=%s final_text_utf8_bytes=%d",
                     exc.stage, exc.reason,
-                    sha256(request.turn_id.encode("utf-8")).hexdigest(),
+                    sha256(request.turn_id.encode("utf-8", "surrogatepass")).hexdigest(),
                     policy_turn.idempotency_key, policy_turn.turn_id,
                     adapter.producing_provider_attempt_id,
                     sha256(final_bytes).hexdigest(), len(final_bytes),
