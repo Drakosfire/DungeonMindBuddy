@@ -353,10 +353,10 @@ const sessionWithRun = {
 };
 
 function mockWorkbenchApis() {
-  vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+  vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(JSON.stringify({
     schema_version: "dmb_world_container_registry_v1",
     records: [selectedManagedWorld],
-  });
+  }), { headers: { "Content-Type": "application/json" } }));
   vi.spyOn(liveApi, "getGoldReviewSessions").mockResolvedValue({
     schema_version: "dmb_graph_gold_review_sessions_v1",
     version: "0.1",
@@ -1320,6 +1320,15 @@ describe("GraphReviewWorkbenchModule", () => {
     const confirmSpy = vi.spyOn(extractPromoteApi, "confirmExtractPromote");
     window.history.replaceState({}, "", `/ingest?extractionRunId=${run.run_id}`);
 
+    const unverifiedView = renderWorkbench([], context, { sourceReviewOnly: false });
+    const unverifiedPrepare = await screen.findByTestId("graph-review-exact-run-prepare");
+    expect(unverifiedPrepare).toBeDisabled();
+    expect(screen.getByTestId("graph-review-selected-world-guidance")).toHaveTextContent(
+      "Select a verified managed World",
+    );
+    expect(prepareSpy).not.toHaveBeenCalled();
+    unverifiedView.unmount();
+
     const view = renderWorkbench([], context, {
       sourceReviewOnly: false,
       selectedWorldId: "managed-world-a",
@@ -2265,7 +2274,7 @@ describe("GraphReviewWorkbenchModule exact-run primary after confirm", () => {
       diagnostics: [],
     }));
 
-    renderWorkbench();
+    renderWorkbench([], context, { selectedWorldId: "managed-world-a" });
 
     await waitFor(() => {
       expect(screen.getByTestId("graph-review-exact-run-source-prose")).toBeInTheDocument();

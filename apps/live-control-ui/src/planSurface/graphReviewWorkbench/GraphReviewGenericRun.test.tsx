@@ -153,27 +153,33 @@ function mockExactRunReviewPackage(
 
 // The app projection host owns projection state; mounting the workbench
 // requires the provider exactly as production composition does.
-function renderModule(runs: ExtractionRunRecord[] = []) {
+function renderModule(
+  runs: ExtractionRunRecord[] = [],
+  selectedWorldId: string | null = "managed-world-a",
+) {
+  const workbench = (
+    <AgentInteractionProvider>
+      <GraphReviewWorkbenchModule
+        context={context}
+        catalogChannel={readyCatalogChannel(runs)}
+        onCatalogRefresh={() => undefined}
+      />
+    </AgentInteractionProvider>
+  );
   return render(
-    <SelectedWorldProvider locationSnapshot="/ingest?world=managed-world-a">
-      <AgentInteractionProvider>
-        <GraphReviewWorkbenchModule
-          context={context}
-          catalogChannel={readyCatalogChannel(runs)}
-          onCatalogRefresh={() => undefined}
-        />
-      </AgentInteractionProvider>
-    </SelectedWorldProvider>,
+    selectedWorldId
+      ? <SelectedWorldProvider locationSnapshot={`/ingest?world=${selectedWorldId}`}>{workbench}</SelectedWorldProvider>
+      : workbench,
   );
 }
 
 describe("GraphReviewGenericRun", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(JSON.stringify({
       schema_version: "dmb_world_container_registry_v1",
       records: managedWorlds,
-    });
+    }), { headers: { "Content-Type": "application/json" } }));
     window.history.replaceState(
       {},
       "",
@@ -426,7 +432,7 @@ describe("GraphReviewGenericRun", () => {
     expect(firstWorldPrepare).not.toHaveBeenCalled();
   });
 
-  it("prepares promotion with exact runId only for promotable recap runs", async () => {
+  it("requires a verified managed World before preparing a promotable recap run", async () => {
     mockCatalogApis();
     const recapRun = {
       ...exactRun,
@@ -505,6 +511,15 @@ describe("GraphReviewGenericRun", () => {
       sessionId: "session-22",
     });
 
+    const legacyView = renderModule([], null);
+    const legacyPrepareButton = await screen.findByTestId("graph-review-exact-run-prepare");
+    expect(legacyPrepareButton).toBeDisabled();
+    expect(screen.getByTestId("graph-review-selected-world-guidance")).toHaveTextContent(
+      "Select a verified managed World",
+    );
+    expect(prepare).not.toHaveBeenCalled();
+
+    legacyView.unmount();
     renderModule();
     await waitFor(() => {
       expect(screen.getByTestId("graph-review-exact-run-prepare")).toBeInTheDocument();
@@ -524,6 +539,7 @@ describe("GraphReviewGenericRun", () => {
     const recapRun = {
       ...exactRun,
       run_id: "extraction-run-world-switch",
+      source_artifact_id: "artifact:recap:longmont-c2:session-22:abcdef123456",
       source_domain: "recap" as const,
       session_id: "session-22",
     };
@@ -547,6 +563,14 @@ describe("GraphReviewGenericRun", () => {
       ...buildContext,
       run: recapRun,
       source_artifact_id: recapRun.source_artifact_id,
+      graph_review_handoff: {
+        ...buildContext.graph_review_handoff,
+        href:
+          `/ingest?extractionRunId=${recapRun.run_id}`
+          + "&sourceArtifactId=artifact:recap:longmont-c2:session-22:abcdef123456",
+        extraction_run_id: recapRun.run_id,
+        source_artifact_id: recapRun.source_artifact_id,
+      },
     });
     mockExactRunReviewPackage(recapReview);
     let resolvePrepare!: (value: Awaited<ReturnType<typeof extractPromoteApi.prepareExtractPromote>>) => void;

@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { useMemo, useState, type ComponentProps, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -22,6 +23,7 @@ import {
   GraphReviewLiveStateProvider,
   useGraphReviewLiveState,
 } from "./GraphReviewLiveStateContext";
+import * as graphReviewLiveStateContext from "./GraphReviewLiveStateContext";
 import { catalogRunBindingKey } from "./graphReviewCommittedAuthority";
 import { GraphReviewSessionToolbar } from "./GraphReviewSessionToolbar";
 import { toCatalogRun, type GraphReviewCatalogRun } from "./graphReviewWorkbenchUtils";
@@ -872,10 +874,10 @@ describe("GraphReviewExtractPromoteSheet", () => {
 
 describe("GraphReviewSessionToolbar", () => {
   beforeEach(() => {
-    vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(JSON.stringify({
       schema_version: "dmb_world_container_registry_v1",
       records: managedWorlds,
-    });
+    }), { headers: { "Content-Type": "application/json" } }));
     vi.mocked(getUnionSupergraphProjection).mockReset();
     vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projection);
     vi.mocked(extractPromoteApi.getExtractPromoteStatus).mockReset();
@@ -888,10 +890,22 @@ describe("GraphReviewSessionToolbar", () => {
       headRevisionId: "rev:head",
       diagnostics: [],
     });
+    const useLiveState = graphReviewLiveStateContext.useGraphReviewLiveState;
+    vi.spyOn(graphReviewLiveStateContext, "useGraphReviewLiveState").mockImplementation(
+      () => ({
+        ...useLiveState(),
+        projection,
+        projectionStatus: "ready",
+      }),
+    );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("disables prepare with guidance when no managed World is verified", async () => {
-    renderWithLiveRun(baseRun(), <GraphReviewSessionToolbar />);
+    renderWithLiveRun(baseRun(), <GraphReviewSessionToolbar />, "/ingest");
 
     const button = await screen.findByTestId("graph-review-review-and-merge");
     expect(button).toBeDisabled();
@@ -1180,6 +1194,7 @@ describe("GraphReviewSessionToolbar", () => {
           onClose={() => undefined}
         />
       </>,
+      "/ingest?world=managed-world-a",
     );
 
     await waitFor(() =>
@@ -1227,6 +1242,7 @@ describe("GraphReviewSessionToolbar", () => {
           onClose={() => undefined}
         />
       </>,
+      "/ingest?world=managed-world-a",
     );
 
     await waitFor(() =>
