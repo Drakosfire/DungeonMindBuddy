@@ -21,6 +21,12 @@
   --app-chrome-bottom: var(--app-ask-open-height);
 }
 
+/* Plan Buddy occupies a side panel/sheet, so other Plan chrome must not reserve
+   the full-height Ask band from its available viewport. */
+:root:has(.plan-agent-shell.agent-interaction-shell--plan.open) {
+  --app-chrome-bottom: 0rem;
+}
+
 * {
   box-sizing: border-box;
 }

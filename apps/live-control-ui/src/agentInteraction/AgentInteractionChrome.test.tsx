@@ -148,6 +148,7 @@ describe("AgentInteractionChrome", () => {
   it("keeps the Plan conversation host mounted through close and reopen and exposes keyboard resize", async () => {
     const user = userEvent.setup();
     const originalInnerWidth = window.innerWidth;
+    const originalInnerHeight = window.innerHeight;
     const style = document.createElement("style");
     const planPanelRule = readFileSync(new NodeURL("../styles.css", import.meta.url), "utf8")
       .match(/#root:has\(\.plan-agent-shell\.agent-interaction-shell--plan\.open\)\s+\.app-shell--edit-dock\s+\.app-wrap\s+:is\(\.plan-surface-root,\s*\.world-owned-plan\)\s*\{[^}]*\}/s)?.[0];
@@ -172,6 +173,7 @@ describe("AgentInteractionChrome", () => {
         </AskPluginSlotProvider>
       </AgentInteractionProvider>
     );
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 844 });
     const view = render(renderPlanChrome(), { container: appRoot });
 
     try {
@@ -188,6 +190,12 @@ describe("AgentInteractionChrome", () => {
       expect(host).not.toHaveAttribute("hidden");
       expect(appRoot.style.getPropertyValue("--agent-plan-panel-width")).toBe("440px");
       expect(getComputedStyle(planContent).width).toContain("var(--agent-plan-panel-width");
+
+      const sheetResizer = screen.getByRole("separator", { name: "Resize Buddy sheet" });
+      expect(Number(sheetResizer.getAttribute("aria-valuenow"))).toBe(Math.round(844 * 0.64));
+      sheetResizer.focus();
+      await user.keyboard("{ArrowUp}");
+      expect(Number(sheetResizer.getAttribute("aria-valuenow"))).toBe(Math.round(844 * 0.64) + 24);
 
       const panelResizer = screen.getByRole("separator", { name: "Resize Buddy panel" });
       const startingWidth = Number(panelResizer.getAttribute("aria-valuenow"));
@@ -230,6 +238,7 @@ describe("AgentInteractionChrome", () => {
       style.remove();
       appRoot.remove();
       Object.defineProperty(window, "innerWidth", { configurable: true, value: originalInnerWidth });
+      Object.defineProperty(window, "innerHeight", { configurable: true, value: originalInnerHeight });
     }
   });
 });

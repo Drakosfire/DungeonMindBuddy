@@ -1,11 +1,11 @@
 .world-plan-agent-conversation {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.45rem;
   box-sizing: border-box;
   min-height: 0;
   height: 100%;
-  padding: 1rem;
+  padding: 0.65rem 0.85rem;
   overflow: hidden;
   color: var(--ui-text-primary);
   background: var(--ui-background-ops);
@@ -25,11 +25,27 @@
 
 .world-plan-agent-conversation__header {
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
+  padding-right: 4.5rem;
+}
+
+.world-plan-agent-conversation__header-main {
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.65rem;
-  padding-right: 5.5rem;
+  gap: 0.25rem 0.45rem;
+  min-width: 0;
+}
+
+.world-plan-agent-conversation__header-title {
+  display: flex;
+  flex: 1 1 15rem;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.1rem 0.45rem;
+  min-width: 0;
 }
 
 .world-plan-agent-conversation__header h2,
@@ -40,14 +56,28 @@
 }
 
 .world-plan-agent-conversation__header h2 {
-  font-size: 1.2rem;
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.world-plan-agent-conversation__header-title p {
+  font-size: 0.76rem;
+  line-height: 1.2;
 }
 
 .world-plan-agent-conversation__actions {
   display: flex;
+  flex: 0 1 auto;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.3rem;
+}
+
+.world-plan-agent-conversation__actions button {
+  min-height: 1.85rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.78rem;
+  line-height: 1.1;
 }
 
 .world-plan-agent-conversation__header p,
@@ -60,14 +90,15 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.35rem;
-  margin-top: 0.45rem;
+  gap: 0.2rem;
   color: var(--ui-text-secondary);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  min-width: 0;
 }
 
 .world-plan-agent-conversation__header-context > span {
-  padding: 0.2rem 0.45rem;
+  padding: 0.14rem 0.35rem;
   border: 1px solid var(--ui-border-strong);
   border-radius: 999px;
   background: var(--ui-background-surface);
@@ -75,19 +106,25 @@
 
 .world-plan-agent-conversation__target-chip {
   display: inline-flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.2rem 0.35rem 0.2rem 0.45rem;
+  gap: 0.2rem;
+  max-width: 100%;
+  padding: 0.12rem 0.25rem 0.12rem 0.35rem;
   border: 1px solid var(--ui-border-strong);
   border-radius: 999px;
   background: var(--ui-background-surface);
 }
 
+.world-plan-agent-conversation__target-chip > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .world-plan-agent-conversation__header-context > button,
 .world-plan-agent-conversation__target-chip > button {
-  min-height: 1.75rem;
-  padding: 0.2rem 0.45rem;
+  min-height: 1.5rem;
+  padding: 0.12rem 0.35rem;
   border: 1px solid var(--ui-border-strong);
   border-radius: 999px;
   background: transparent;
@@ -97,9 +134,10 @@
 }
 
 .world-plan-agent-conversation__target-warning {
-  margin: 0.35rem 0 0;
+  flex: 1 1 100%;
+  margin: 0.1rem 0 0;
   color: var(--ui-text-danger, #ffb6a6);
-  font-size: 0.82rem;
+  font-size: 0.75rem;
 }
 
 .world-plan-agent-conversation__graph-context {
@@ -143,8 +181,10 @@
   display: flex;
   align-items: flex-start;
   gap: 0.55rem;
-  padding: 0.25rem 0;
+  padding: 0;
   color: var(--ui-text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.2;
 }
 
 .world-plan-agent-conversation__notice {
@@ -317,7 +357,7 @@
 
 .world-plan-agent-conversation__composer {
   flex: 0 0 auto;
-  padding: 0.8rem;
+  padding: 0.55rem;
   border: 1px solid var(--ui-border-strong);
   border-radius: var(--ui-radius-sm);
   background: var(--ui-background-ops);
@@ -325,30 +365,31 @@
 
 .world-plan-agent-conversation__composer form {
   display: grid;
-  gap: 0.6rem;
+  gap: 0.35rem;
 }
 
 .world-plan-agent-conversation__intent {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem 0.8rem;
+  gap: 0.25rem 0.55rem;
   margin: 0;
   padding: 0;
   border: 0;
 }
 
 .world-plan-agent-conversation__intent legend {
-  width: 100%;
-  margin-bottom: 0.2rem;
-  font-size: 0.9rem;
+  margin: 0;
+  font-size: 0.76rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .world-plan-agent-conversation__intent label {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.3rem;
+  font-size: 0.8rem;
   cursor: pointer;
 }
 
@@ -360,7 +401,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
-  gap: 0.5rem;
+  gap: 0.3rem;
 }
 
 .world-plan-agent-conversation__target label,
@@ -368,18 +409,33 @@
   grid-column: 1 / -1;
 }
 
+.world-plan-agent-conversation__target label {
+  font-size: 0.78rem;
+}
+
+.world-plan-agent-conversation__target select,
+.world-plan-agent-conversation__target button {
+  min-height: 2rem;
+  padding: 0.3rem 0.45rem;
+}
+
+.world-plan-agent-conversation__target p {
+  font-size: 0.74rem;
+  line-height: 1.25;
+}
+
 .world-plan-agent-conversation__composer textarea {
   width: 100%;
-  min-height: 5rem;
-  max-height: 12rem;
+  min-height: 3.25rem;
+  max-height: 8rem;
   resize: vertical;
-  padding: 0.7rem;
+  padding: 0.45rem 0.55rem;
   border: 1px solid var(--ui-border-strong);
   border-radius: var(--ui-radius-sm);
   background: var(--ui-background-ops);
   color: var(--ui-text-primary);
   font: inherit;
-  line-height: 1.45;
+  line-height: 1.3;
 }
 
 .world-plan-agent-conversation__composer-footer {
@@ -387,7 +443,19 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.35rem;
+}
+
+.world-plan-agent-conversation__composer-footer p {
+  flex: 1 1 10rem;
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+.world-plan-agent-conversation__composer-footer button {
+  min-height: 2rem;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.8rem;
 }
 
 .world-plan-agent-conversation__composer-footer p {
@@ -405,21 +473,29 @@
 
 @media (max-width: 42rem) {
   .world-plan-agent-conversation {
-    gap: 0.5rem;
-    padding: 0.55rem 0.7rem max(0.55rem, env(safe-area-inset-bottom));
+    gap: 0.35rem;
+    padding: 0.5rem 0.55rem max(0.45rem, env(safe-area-inset-bottom));
+  }
+
+  .world-plan-agent-conversation__header-main {
+    align-items: flex-start;
+  }
+
+  .world-plan-agent-conversation__header-title {
+    flex-basis: 100%;
   }
 
   .world-plan-agent-conversation__composer {
-    padding: 0.55rem;
+    padding: 0.45rem;
   }
 
   .world-plan-agent-conversation__composer textarea {
-    min-height: 3.6rem;
-    max-height: 6rem;
+    min-height: 3.25rem;
+    max-height: 5rem;
   }
 
   .world-plan-agent-conversation__header {
-    align-items: flex-start;
+    align-items: stretch;
   }
 
   .world-plan-agent-conversation__actions {

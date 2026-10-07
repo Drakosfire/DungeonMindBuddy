@@ -1297,6 +1297,30 @@ afterEach(() => {
 });
 
 describe("World Plan conversation consumer", () => {
+  it("keeps Plan scope, edit intent, and Graph source explicit in the conversation controls", async () => {
+    setupApi(history("conversation-a", 1, []));
+    render(conversationElement({
+      playableTarget: { kind: "scene", id: "scene:arrival" },
+      playableEditTarget: { kind: "choice", id: "choice:retreat", generation: 2 },
+      editBridge: {},
+    }));
+    await screen.findByText(/No messages here yet/);
+
+    const context = screen.getByRole("group", { name: "Current Plan context" });
+    expect(context).toHaveTextContent("Ask target · scene scene:arrival");
+    expect(context).toHaveTextContent("Edit target · choice choice:retreat");
+    expect(within(context).getByRole("button", { name: "Clear Ask target" })).toBeInTheDocument();
+    expect(within(context).getByRole("button", { name: "Clear edit target" })).toBeInTheDocument();
+
+    const composer = screen.getByRole("region", { name: "Conversation composer" });
+    const intent = within(composer).getByRole("group", { name: "What would you like to do?" });
+    expect(intent).toHaveTextContent("Discuss");
+    expect(intent).toHaveTextContent("Propose edit");
+    expect(within(composer).getByRole("checkbox", {
+      name: "Use this World’s Graph context for this question",
+    })).toBeInTheDocument();
+  });
+
   it("shows the verified content version and keeps Ask and Edit targets distinct", async () => {
     setupApi(history("conversation-a", 1, []));
     render(conversationElement({
