@@ -369,6 +369,62 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         "source_anchor_count": len(selected.graph_envelope["source_anchors"]),
     }
     assert all(span["duration_ms"] >= 0 for span in spans_by_name.values())
+
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+
+    def fail_seed_lookup(*_args: Any, **_kwargs: Any) -> Any:
+        raise RuntimeError("synthetic lookup failure")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(direct, "get_object_direct", fail_seed_lookup)
+        failed_trace = AgentTurnTraceBuilder(
+            agent_thread_id=None,
+            turn_id=selected_body.turn_id,
+            runtime="test",
+            backend="test",
+            mode="test",
+        )
+        with pytest.raises(AgentTurnServiceError) as lookup_error:
+            agent_route._plan_context_resolver(
+                selected_body, {"kind": "world", "id": managed.world_id},
+                selected_work, None, trace=failed_trace,
+            )
+    assert lookup_error.value.code == "graph_unavailable"
+    assert lookup_error.value.status_code == 503
+    assert lookup_error.value.provider_dispatched is False
+    failed_lookup_span = next(
+        span for span in failed_trace.spans
+        if span["name"] == "plan_graph_seed_object_lookups"
+    )
+    assert failed_lookup_span["status"] == "error"
+    assert failed_lookup_span["attributes"] == {"candidate_count": 1, "lookup_count": 1}
+
+    from graph_memory.interaction import session_store
+
+    def fail_projection(_session: Any) -> Any:
+        raise RuntimeError("synthetic projection failure")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(session_store, "create_session", fail_projection)
+        failed_projection_trace = AgentTurnTraceBuilder(
+            agent_thread_id=None,
+            turn_id=selected_body.turn_id,
+            runtime="test",
+            backend="test",
+            mode="test",
+        )
+        with pytest.raises(RuntimeError, match="synthetic projection failure"):
+            agent_route._plan_context_resolver(
+                selected_body, {"kind": "world", "id": managed.world_id},
+                selected_work, None, trace=failed_projection_trace,
+            )
+    failed_projection_span = next(
+        span for span in failed_projection_trace.spans
+        if span["name"] == "plan_graph_projection"
+    )
+    assert failed_projection_span["status"] == "error"
+    assert failed_projection_span["attributes"] == projection["attributes"]
+
     frozen = SimpleNamespace(graph_authority=SimpleNamespace(
         managed_world_id=managed.world_id,
         native_world_id=NATIVE_ID,
