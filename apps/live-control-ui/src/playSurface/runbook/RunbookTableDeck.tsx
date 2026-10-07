@@ -38,7 +38,10 @@ export function RunbookTableDeck({
   const [viewSceneId, setViewSceneId] = useState<string | null>(deck.displayedSceneId);
   const [viewBeatId, setViewBeatId] = useState<string | null>(deck.displayedBeatId);
   const [viewMode, setViewMode] = useState<"table" | "runbook">("table");
-  const [noteDraft, setNoteDraft] = useState("");
+  const [noteDrafts, setNoteDrafts] = useState<{ runId: string; values: Record<string, string> }>({
+    runId: run.run_id,
+    values: {},
+  });
   const mountedRef = useRef(true);
   const liveRunIdRef = useRef(run.run_id);
   const requestSerialRef = useRef(0);
@@ -59,21 +62,24 @@ export function RunbookTableDeck({
 
   useEffect(() => {
     setViewMode("table");
+    setNoteDrafts({ runId: run.run_id, values: {} });
   }, [run.run_id]);
 
   const viewScene = sceneById(deck, viewSceneId);
   const viewBeat = viewScene?.beats.find((beat) => beat.id === viewBeatId) ?? viewScene?.beats[0] ?? null;
   const noteElementId = viewBeat?.id ?? viewScene?.id ?? null;
 
-  useEffect(() => {
-    if (!noteElementId) {
-      setNoteDraft("");
-      return;
-    }
-    setNoteDraft(run.progress.notes_by_element_id[noteElementId] ?? "");
-  }, [noteElementId, run.progress.notes_by_element_id, run.run_revision]);
+  const noteIsDraft = noteElementId != null
+    && noteDrafts.runId === run.run_id
+    && Object.prototype.hasOwnProperty.call(noteDrafts.values, noteElementId);
+  const noteDraft = noteElementId == null ? "" : noteIsDraft
+    ? noteDrafts.values[noteElementId]
+    : run.progress.notes_by_element_id[noteElementId] ?? "";
 
-  const replaceProgress = async (next: PlayRunProgress) => {
+  const replaceProgress = async (
+    next: PlayRunProgress,
+    onAcknowledged?: (updated: AnyPlayRunRecord) => void,
+  ) => {
     if (!mutationsOpen) return;
     const boundRunId = run.run_id;
     const expected = run.run_revision;
@@ -91,6 +97,7 @@ export function RunbookTableDeck({
       if (!mountedRef.current || liveRunIdRef.current !== boundRunId || requestSerialRef.current !== serial) {
         return;
       }
+      onAcknowledged?.(updated);
       onAuthoritativeRun(updated);
       onMutationStatus("idle");
     } catch (error) {
@@ -156,12 +163,31 @@ export function RunbookTableDeck({
 
   const saveNote = () => {
     if (!noteElementId) return;
+    const boundRunId = run.run_id;
+    const boundElementId = noteElementId;
+    const submittedText = noteDraft;
     void replaceProgress({
       ...run.progress,
       notes_by_element_id: {
         ...run.progress.notes_by_element_id,
-        [noteElementId]: noteDraft,
+        [boundElementId]: submittedText,
       },
+    }, (updated) => {
+      if (updated.run_id !== boundRunId || updated.schema_version !== run.schema_version
+        || updated.playable_artifact_id !== run.playable_artifact_id
+        || updated.playable_revision !== run.playable_revision
+        || updated.playable_content_sha256 !== run.playable_content_sha256
+        || updated.run_revision <= run.run_revision) return;
+      if (run.schema_version === "dmb_world_play_run_record_v2"
+        && (updated.schema_version !== "dmb_world_play_run_record_v2" || updated.world_id !== run.world_id
+          || updated.playable_work_revision_id !== run.playable_work_revision_id)) return;
+      if (updated.progress.notes_by_element_id[boundElementId] !== submittedText) return;
+      setNoteDrafts((current) => {
+        if (current.runId !== boundRunId || current.values[boundElementId] !== submittedText) return current;
+        const values = { ...current.values };
+        delete values[boundElementId];
+        return { runId: current.runId, values };
+      });
     });
   };
 
@@ -342,16 +368,30 @@ export function RunbookTableDeck({
                 </div>
               ))}
 
-              {noteElementId && mutationsOpen ? (
+              {noteElementId ? (
                 <div className="play-notes">
                   <label htmlFor={`play-note-${noteElementId}`}>Note</label>
                   <textarea
                     id={`play-note-${noteElementId}`}
                     value={noteDraft}
                     disabled={mutationStatus === "saving"}
-                    onChange={(event) => setNoteDraft(event.target.value)}
+                    readOnly={!mutationsOpen}
+                    onChange={(event) => {
+                      const text = event.target.value;
+                      setNoteDrafts((current) => ({
+                        runId: run.run_id,
+                        values: {
+                          ...(current.runId === run.run_id ? current.values : {}),
+                          [noteElementId]: text,
+                        },
+                      }));
+                    }}
                   />
-                  <button type="button" disabled={mutationStatus === "saving"} onClick={saveNote}>
+                  <p className="play-muted" role="status">
+                    {noteIsDraft ? "Unsaved note" : Object.prototype.hasOwnProperty.call(run.progress.notes_by_element_id, noteElementId)
+                      ? "Saved in this Run" : "No saved note"}
+                  </p>
+                  <button type="button" disabled={!mutationsOpen || mutationStatus === "saving"} onClick={saveNote}>
                     Save note
                   </button>
                 </div>

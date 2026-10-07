@@ -267,6 +267,133 @@ describe("RunbookTableDeck", () => {
     vi.clearAllMocks();
   });
 
+  it("retains an unsaved note across an unrelated acknowledged Beat resolution", async () => {
+    const user = userEvent.setup();
+    vi.mocked(liveApi.putPlayRunProgress).mockResolvedValue(runRecord({
+      run_revision: 5,
+      progress: progress({ resolved_beat_ids: ["beat:approach"] }),
+    }));
+    render(<Harness />);
+    await user.type(screen.getByLabelText("Note"), "The refugees chose to help.");
+    await user.click(screen.getByRole("checkbox", { name: "Resolved" }));
+    await waitFor(() => expect(screen.getByLabelText("Note")).not.toBeDisabled());
+    expect(screen.getByLabelText("Note")).toHaveValue("The refugees chose to help.");
+    expect(screen.getByText("Unsaved note")).toBeInTheDocument();
+    expect(vi.mocked(liveApi.putPlayRunProgress).mock.calls[0]?.[1].progress.notes_by_element_id).toEqual({});
+  });
+
+  it("retains separate element drafts across local navigation without saving them", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    await user.type(screen.getByLabelText("Note"), "Approach draft");
+    await user.click(screen.getByRole("button", { name: "Inside", exact: true }));
+    await user.type(screen.getByLabelText("Note"), "Inside draft");
+    await user.click(screen.getByRole("button", { name: "Approach", exact: true }));
+    expect(screen.getByLabelText("Note")).toHaveValue("Approach draft");
+    await user.click(screen.getByRole("button", { name: "Inside", exact: true }));
+    expect(screen.getByLabelText("Note")).toHaveValue("Inside draft");
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it.each([409, 0])("keeps the draft visible and locked after failed progress write %s", async (status) => {
+    const user = userEvent.setup();
+    vi.mocked(liveApi.putPlayRunProgress).mockRejectedValue(status
+      ? new LiveApiError("conflict", status) : new Error("network down"));
+    vi.mocked(liveApi.getPlayRun).mockResolvedValue(runRecord({ run_revision: 6 }));
+    render(<Harness />);
+    await user.type(screen.getByLabelText("Note"), "Recover this draft");
+    await user.click(screen.getByRole("button", { name: "Save note" }));
+    await screen.findByTestId(status ? "play-cas-conflict" : "play-unknown-outcome");
+    expect(screen.getByLabelText("Note")).toHaveValue("Recover this draft");
+    expect(screen.getByLabelText("Note")).toHaveAttribute("readonly");
+    expect(screen.getByLabelText("Note")).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save note" })).toBeDisabled();
+    expect(screen.getByText("Unsaved note")).toBeInTheDocument();
+    expect(liveApi.putPlayRunProgress).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears only an exactly acknowledged saved draft", async () => {
+    const user = userEvent.setup();
+    vi.mocked(liveApi.putPlayRunProgress).mockResolvedValue(runRecord({
+      run_revision: 5,
+      progress: progress({ notes_by_element_id: { "beat:approach": "Saved text" } }),
+    }));
+    render(<Harness />);
+    await user.type(screen.getByLabelText("Note"), "Saved text");
+    await user.click(screen.getByRole("button", { name: "Save note" }));
+    await screen.findByText("Saved in this Run");
+    expect(screen.getByLabelText("Note")).toHaveValue("Saved text");
+    expect(screen.queryByText("Unsaved note")).not.toBeInTheDocument();
+  });
+
+  it("saves and acknowledges a World-owned note through the World route", async () => {
+    const user = userEvent.setup();
+    vi.mocked(liveApi.putWorldPlayRunProgress).mockResolvedValue(worldRunRecord({
+      run_revision: 5,
+      progress: progress({ notes_by_element_id: { "beat:approach": "World note" } }),
+    }));
+    render(<WorldHarness />);
+    await user.type(screen.getByLabelText("Note"), "World note");
+    await user.click(screen.getByRole("button", { name: "Save note" }));
+    await screen.findByText("Saved in this Run");
+    expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledWith(RUN_ID, "longmont-c2", {
+      expected_run_revision: 4,
+      progress: expect.objectContaining({ notes_by_element_id: { "beat:approach": "World note" } }),
+    });
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { run_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc" },
+    { playable_revision: 4 },
+    { run_revision: 4 },
+  ])("does not acknowledge text from an inconsistent receipt %j", async (binding) => {
+    const user = userEvent.setup();
+    vi.mocked(liveApi.putPlayRunProgress).mockResolvedValue(runRecord({
+      run_revision: 5,
+      ...binding,
+      progress: progress({ notes_by_element_id: { "beat:approach": "Local text" } }),
+    }));
+    render(<Harness />);
+    await user.type(screen.getByLabelText("Note"), "Local text");
+    await user.click(screen.getByRole("button", { name: "Save note" }));
+    await waitFor(() => expect(screen.getByLabelText("Note")).not.toBeDisabled());
+    expect(screen.getByLabelText("Note")).toHaveValue("Local text");
+    expect(screen.getByText("Unsaved note")).toBeInTheDocument();
+  });
+
+  it("preserves the local draft when the receipt contains different saved text", async () => {
+    const user = userEvent.setup();
+    vi.mocked(liveApi.putPlayRunProgress).mockResolvedValue(runRecord({
+      run_revision: 5,
+      progress: progress({ notes_by_element_id: { "beat:approach": "Different text" } }),
+    }));
+    render(<Harness />);
+    await user.type(screen.getByLabelText("Note"), "Local text");
+    await user.click(screen.getByRole("button", { name: "Save note" }));
+    await waitFor(() => expect(screen.getByLabelText("Note")).not.toBeDisabled());
+    expect(screen.getByLabelText("Note")).toHaveValue("Local text");
+    expect(screen.getByText("Unsaved note")).toBeInTheDocument();
+  });
+
+  it("uses authoritative notes for clean fields and never carries drafts into another Run", async () => {
+    const user = userEvent.setup();
+    const props = { onAuthoritativeRun: vi.fn(), onMutationStatus: vi.fn(), mutationStatus: "idle" as const };
+    const { rerender } = render(<RunbookTableDeck {...props} deck={readyDeck(runRecord())} />);
+    rerender(<RunbookTableDeck {...props} deck={readyDeck(runRecord({ run_revision: 5,
+      progress: progress({ notes_by_element_id: { "beat:approach": "Remote saved note" } }),
+    }))} />);
+    expect(screen.getByLabelText("Note")).toHaveValue("Remote saved note");
+    await user.clear(screen.getByLabelText("Note"));
+    await user.type(screen.getByLabelText("Note"), "Old Run draft");
+    rerender(<RunbookTableDeck {...props} deck={readyDeck(runRecord({
+      run_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      progress: progress({ notes_by_element_id: { "beat:approach": "New Run saved note" } }),
+    }))} />);
+    expect(screen.getByLabelText("Note")).toHaveValue("New Run saved note");
+    expect(screen.queryByText("Unsaved note")).not.toBeInTheDocument();
+  });
+
   it("previews the first Scene without writing current_scene_id", async () => {
     render(<Harness />);
     expect(screen.getByTestId("play-preview-flag")).toBeInTheDocument();
