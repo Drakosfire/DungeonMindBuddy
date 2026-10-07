@@ -1240,15 +1240,31 @@ def validate_completion_against_receipt(
                 )
 
 
-def validate_execution_completion(
-    completion: PlanWorldGraphCompletionV1,
+def derive_execution_answer_context_status(
+    *,
+    context_receipt_sha256: str,
+    answer_segments: list[PlanWorldGraphAnswerSegmentV1],
+    citation_map: PlanWorldGraphCitationMapV1 | None,
     receipt: PlanWorldGraphContextReceiptV1,
     execution: PlanWorldGraphExecutionV1,
     producing_provider_attempt_id: UUID,
     claim_graph_event_ids: dict[str, list[UUID]],
-) -> None:
-    """Validate citations against packets included in the final provider envelope."""
-    if completion.context_receipt_sha256 != receipt.context_receipt_sha256:
+) -> Literal[
+    "graph_grounded",
+    "graph_grounded_partial",
+    "plan_only_insufficient_evidence",
+    "plan_only_graph_unused",
+]:
+    """Validate producing-envelope evidence and derive its answer context status.
+
+    This accepts the typed completion fields separately so callers can derive a
+    status before constructing the final status-bearing completion model.
+
+    ``graph_grounded`` means every cited support packet in the producing envelope
+    is sufficient, complete, and untruncated. It does not assert corpus-wide
+    completeness.
+    """
+    if context_receipt_sha256 != receipt.context_receipt_sha256:
         _reject_graph_completion(
             GraphCompletionRejectionCode.RECEIPT_BINDING,
             "completion must bind the exact stored Graph receipt",
@@ -1282,8 +1298,8 @@ def validate_execution_completion(
         "assertion": set(receipt.assembled_input.dispatched_assertion_ids),
         "relationship": set(receipt.assembled_input.dispatched_relationship_ids),
     }
-    claims = [s for s in completion.answer_segments if isinstance(s, PlanWorldGraphClaimSegmentV1)]
-    for segment in completion.answer_segments:
+    claims = [s for s in answer_segments if isinstance(s, PlanWorldGraphClaimSegmentV1)]
+    for segment in answer_segments:
         if isinstance(segment, PlanWorldGraphPlanClaimSegmentV1) and segment.plan_content_sha256 != receipt.plan_basis.content_sha256:
             _reject_graph_completion(
                 GraphCompletionRejectionCode.PLAN_BASIS_ATTRIBUTION,
@@ -1294,13 +1310,13 @@ def validate_execution_completion(
             GraphCompletionRejectionCode.CLAIM_BINDING_SET,
             "completion binding must map each Graph claim exactly once",
         )
-    if claims and completion.citation_map is None:
+    if claims and citation_map is None:
         _reject_graph_completion(
             GraphCompletionRejectionCode.CITATION_MAP_MISSING,
             "Graph claims require a citation map",
         )
-    citation_entries = {} if completion.citation_map is None else {entry.claim_id: entry for entry in completion.citation_map.entries}
-    if claims and (len(citation_entries) != len(completion.citation_map.entries) or set(citation_entries) != {claim.claim_id for claim in claims}):
+    citation_entries = {} if citation_map is None else {entry.claim_id: entry for entry in citation_map.entries}
+    if claims and (len(citation_entries) != len(citation_map.entries) or set(citation_entries) != {claim.claim_id for claim in claims}):
         _reject_graph_completion(
             GraphCompletionRejectionCode.CITATION_MAP_CLAIM_SET,
             "citation map must correspond one-to-one with Graph claims",
@@ -1368,7 +1384,7 @@ def validate_execution_completion(
                 "Graph grounded claims require sufficient cited evidence",
             )
         sufficient_sources.extend((status, coverage == "complete" and not truncated) for _, _, status, coverage, truncated in support_packets)
-        if completion.citation_map is None:
+        if citation_map is None:
             _reject_graph_completion(
                 GraphCompletionRejectionCode.CITATION_MAP_MISSING,
                 "Graph claims require a citation map",
@@ -1380,43 +1396,62 @@ def validate_execution_completion(
                 "citation map entry must match its Graph claim",
             )
     if claims:
-        expected = (
+        return (
             "graph_grounded"
             if all(complete for _, complete in sufficient_sources)
             else "graph_grounded_partial"
         )
-        if completion.answer_context_status != expected:
-            _reject_graph_completion(
-                GraphCompletionRejectionCode.GROUNDED_STATUS_MISMATCH,
-                "Graph grounded status does not match cited execution evidence",
-            )
-    else:
-        initial_ids_in_envelope = bool(
-            set(receipt.assembled_input.dispatched_assertion_ids).intersection(included_assertions)
-            or set(receipt.assembled_input.dispatched_relationship_ids).intersection(included_relationships)
-            or set(receipt.assembled_input.dispatched_evidence_ref_ids).intersection(included_evidence)
+    initial_ids_in_envelope = bool(
+        set(receipt.assembled_input.dispatched_assertion_ids).intersection(included_assertions)
+        or set(receipt.assembled_input.dispatched_relationship_ids).intersection(included_relationships)
+        or set(receipt.assembled_input.dispatched_evidence_ref_ids).intersection(included_evidence)
+    )
+    sufficient = (
+        receipt.graph_packet.evidence_sufficiency_status == "sufficient"
+        and receipt.assembled_input.packet_disposition == "included"
+        and initial_ids_in_envelope
+    )
+    sufficient = sufficient or any(
+        event.event_id in included_event_ids
+        and event.evidence_sufficiency_status == "sufficient"
+        and (
+            set(event.assertion_ids).intersection(included_assertions)
+            or set(event.relationship_ids).intersection(included_relationships)
+            or set(event.evidence_ref_ids).intersection(included_evidence)
         )
-        sufficient = (
-            receipt.graph_packet.evidence_sufficiency_status == "sufficient"
-            and receipt.assembled_input.packet_disposition == "included"
-            and initial_ids_in_envelope
+        for event in events.values()
+    )
+    return "plan_only_graph_unused" if sufficient else "plan_only_insufficient_evidence"
+
+
+def validate_execution_completion(
+    completion: PlanWorldGraphCompletionV1,
+    receipt: PlanWorldGraphContextReceiptV1,
+    execution: PlanWorldGraphExecutionV1,
+    producing_provider_attempt_id: UUID,
+    claim_graph_event_ids: dict[str, list[UUID]],
+) -> None:
+    """Validate supplied status against the derived producing-envelope status."""
+    expected_status = derive_execution_answer_context_status(
+        context_receipt_sha256=completion.context_receipt_sha256,
+        answer_segments=completion.answer_segments,
+        citation_map=completion.citation_map,
+        receipt=receipt,
+        execution=execution,
+        producing_provider_attempt_id=producing_provider_attempt_id,
+        claim_graph_event_ids=claim_graph_event_ids,
+    )
+    if completion.answer_context_status == expected_status:
+        return
+    if expected_status in {"graph_grounded", "graph_grounded_partial"}:
+        _reject_graph_completion(
+            GraphCompletionRejectionCode.GROUNDED_STATUS_MISMATCH,
+            "Graph grounded status does not match cited execution evidence",
         )
-        sufficient = sufficient or any(
-            event.event_id in included_event_ids
-            and event.evidence_sufficiency_status == "sufficient"
-            and (
-                set(event.assertion_ids).intersection(included_assertions)
-                or set(event.relationship_ids).intersection(included_relationships)
-                or set(event.evidence_ref_ids).intersection(included_evidence)
-            )
-            for event in events.values()
-        )
-        expected = "plan_only_graph_unused" if sufficient else "plan_only_insufficient_evidence"
-        if completion.answer_context_status != expected:
-            _reject_graph_completion(
-                GraphCompletionRejectionCode.PLAN_ONLY_STATUS_MISMATCH,
-                "Plan-only status does not match evidence in the producing envelope",
-            )
+    _reject_graph_completion(
+        GraphCompletionRejectionCode.PLAN_ONLY_STATUS_MISMATCH,
+        "Plan-only status does not match evidence in the producing envelope",
+    )
 
 
 class WorldPointer(StrictModel):
