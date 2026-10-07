@@ -1,7 +1,7 @@
 ---
 title: Separate source campaign and selected World in Ingest
 document_class: implementation_handoff
-status: ACTIVE
+status: COMPLETE
 created_at: "2026-10-07"
 workstream: DEMO
 pr_topology: serial
@@ -11,7 +11,7 @@ base_ref: 3026f21bfff0c293159e3f5fe5f3ff328b15bcf5
 
 # HANDOFF — DEMO: separate campaign and World scope in Ingest
 
-**Status:** ACTIVE — PRIME authorized this bounded Buddy caller correction.
+**Status:** COMPLETE — PR #1001 merged the authorized Buddy caller correction.
 **Owner:** DEMO. PRIME owns independent review and merge coordination.
 **Base:** current Buddy `main@3026f21bfff0c293159e3f5fe5f3ff328b15bcf5`, after
 PR #998 merged.
@@ -123,3 +123,15 @@ base-to-head diff for this four-path lease.
 No runtime/provider request, recap prepare, confirm, source mutation, AppState
 write, or native Graph write is part of this slice. The change is a Buddy caller
 correction and does not establish recap publication, rollout or J1 acceptance.
+
+
+## Completion — PR #1001
+
+- Accepted head: `73ad21e00e335f68c66f3d345b84ed2dfcd6fd26`.
+- Merge: `b06040f16e95da8411d0a93d19710285a84e6236`.
+- The mounted `MemoryIngestPage` suite passed 13/13.
+- The production UI build passed before the final test/documentation-only
+  increment; `git diff --check` passed on the completed PR.
+- This handoff's caller lease is closed. The separate recap-prepare handoff
+  settlement was carried by #1001. No roadmap status or recap publication
+  acceptance is claimed.

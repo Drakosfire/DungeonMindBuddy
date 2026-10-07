@@ -7,7 +7,7 @@ import {
   putPlayRunProgress,
   putWorldPlayRunProgress,
 } from "../../api/liveApi";
-import type { AnyPlayRunRecord, PlayRunProgress } from "../../api/types";
+import type { AnyPlayRunRecord, PlayRunProgress, WorldPlayRunRecordV2 } from "../../api/types";
 import { ReadOnlyBodyContent } from "../../markdownReader/ReadOnlyBodyContent";
 import {
   canonicalizePlayRunProgress,
@@ -34,6 +34,153 @@ export interface PlayCurrentMomentCockpitProps {
   mutationStatus: RunbookMutationStatus;
   onMutationStatus: (status: RunbookMutationStatus) => void;
   onAuthoritativeRun: (run: AnyPlayRunRecord) => void;
+}
+
+type SceneNoteFailure = "conflict" | "unknown" | "rejected" | "unconfirmed" | "recovered";
+
+interface SceneNoteDraft {
+  scopeKey: string;
+  worldId: string;
+  runId: string;
+  sceneId: string;
+  noteElementId: string;
+  playableArtifactId: string;
+  playableRevision: number;
+  playableWorkRevisionId: string;
+  playableContentSha256: string;
+  text: string;
+  basisText: string;
+  basisPresent: boolean;
+  basisRevision: number;
+  state: "editing" | "saving" | "failed";
+  sentText?: string;
+  sentRevision?: number;
+  sentRequestId?: string;
+  failure?: SceneNoteFailure;
+  recovered?: boolean;
+}
+
+interface SceneNoteDraftCacheV1 extends SceneNoteDraft {
+  schema_version: "dmb_play_scene_note_draft_v1";
+}
+
+interface ProgressReplacementOptions {
+  allowExplicitRetry?: boolean;
+  onSaved?: (updated: AnyPlayRunRecord, expectedRevision: number) => void;
+  onFailure?: (failure: SceneNoteFailure, reloaded: AnyPlayRunRecord | null) => void;
+}
+
+function sceneNoteScopeKey(run: WorldPlayRunRecordV2, sceneId: string): string {
+  return JSON.stringify([
+    "dmb_play_scene_note_draft_v1",
+    run.world_id,
+    run.run_id,
+    sceneId,
+    run.playable_artifact_id,
+    run.playable_revision,
+    run.playable_work_revision_id,
+    run.playable_content_sha256,
+  ]);
+}
+
+function sceneNoteStorageKey(scopeKey: string): string {
+  return `dmb.play.scene-note-draft.v1:${encodeURIComponent(scopeKey)}`;
+}
+
+function isSceneNoteFailure(value: unknown): value is SceneNoteFailure {
+  return value === "conflict" || value === "unknown" || value === "rejected"
+    || value === "unconfirmed" || value === "recovered";
+}
+
+function readSceneNoteDraftCache(
+  scopeKey: string,
+  run: WorldPlayRunRecordV2,
+  sceneId: string,
+): { draft?: SceneNoteDraft; issue?: string } {
+  let raw: string | null;
+  try {
+    raw = window.localStorage.getItem(sceneNoteStorageKey(scopeKey));
+  } catch {
+    return { issue: "Browser recovery storage is unavailable. This tab's note draft remains editable." };
+  }
+  if (raw == null) return {};
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    return { issue: "A browser note draft could not be read. This tab's note draft remains editable." };
+  }
+  if (typeof value !== "object" || value == null) {
+    return { issue: "A browser note draft could not be read. This tab's note draft remains editable." };
+  }
+  const cache = value as Partial<SceneNoteDraftCacheV1>;
+  const validState = cache.state === "editing" || cache.state === "saving" || cache.state === "failed";
+  const validSent = cache.sentText === undefined && cache.sentRevision === undefined && cache.sentRequestId === undefined
+    || typeof cache.sentText === "string" && typeof cache.sentRevision === "number"
+      && Number.isFinite(cache.sentRevision) && typeof cache.sentRequestId === "string";
+  const exactBinding = cache.schema_version === "dmb_play_scene_note_draft_v1"
+    && cache.scopeKey === scopeKey
+    && cache.worldId === run.world_id
+    && cache.runId === run.run_id
+    && cache.sceneId === sceneId
+    && cache.noteElementId === sceneId
+    && cache.playableArtifactId === run.playable_artifact_id
+    && cache.playableRevision === run.playable_revision
+    && cache.playableWorkRevisionId === run.playable_work_revision_id
+    && cache.playableContentSha256 === run.playable_content_sha256;
+  const validDraft = typeof cache.text === "string"
+    && typeof cache.basisText === "string"
+    && typeof cache.basisPresent === "boolean"
+    && typeof cache.basisRevision === "number" && Number.isFinite(cache.basisRevision)
+    && validState && validSent
+    && (cache.state !== "saving" || typeof cache.sentRequestId === "string")
+    && (cache.failure === undefined || isSceneNoteFailure(cache.failure));
+  if (!exactBinding || !validDraft) {
+    return { issue: "A browser note draft belongs to a different or unreadable Run version and was not restored." };
+  }
+  return {
+    draft: {
+      ...(cache as SceneNoteDraftCacheV1),
+      state: "failed",
+      failure: cache.failure ?? (cache.sentRequestId ? "unknown" : "recovered"),
+      recovered: true,
+    },
+  };
+}
+
+function writeSceneNoteDraftCache(draft: SceneNoteDraft): void {
+  const cache: SceneNoteDraftCacheV1 = {
+    schema_version: "dmb_play_scene_note_draft_v1",
+    ...draft,
+  };
+  window.localStorage.setItem(sceneNoteStorageKey(draft.scopeKey), JSON.stringify(cache));
+}
+
+function removeSceneNoteDraftCache(scopeKey: string): void {
+  window.localStorage.removeItem(sceneNoteStorageKey(scopeKey));
+}
+
+function sameWorldRunBinding(original: AnyPlayRunRecord, candidate: AnyPlayRunRecord): boolean {
+  return original.schema_version === "dmb_world_play_run_record_v2"
+    && candidate.schema_version === "dmb_world_play_run_record_v2"
+    && candidate.world_id === original.world_id
+    && candidate.run_id === original.run_id
+    && candidate.playable_artifact_id === original.playable_artifact_id
+    && candidate.playable_revision === original.playable_revision
+    && candidate.playable_work_revision_id === original.playable_work_revision_id
+    && candidate.playable_content_sha256 === original.playable_content_sha256;
+}
+
+function isExactSceneNoteAcknowledgement(
+  original: AnyPlayRunRecord,
+  updated: AnyPlayRunRecord,
+  sceneId: string,
+  submittedText: string,
+  expectedRevision: number,
+): boolean {
+  return sameWorldRunBinding(original, updated)
+    && updated.run_revision > expectedRevision
+    && updated.progress.notes_by_element_id[sceneId] === submittedText;
 }
 
 function relevanceLabel(relevance: NativeRunbookSceneV2["relevance"]): string | null {
@@ -149,22 +296,41 @@ export function PlayCurrentMomentCockpit({
   onAuthoritativeRun,
 }: PlayCurrentMomentCockpitProps) {
   const run = deck.run;
+  const runIdentity = run.schema_version === "dmb_world_play_run_record_v2"
+    ? JSON.stringify([
+      run.schema_version,
+      run.world_id,
+      run.run_id,
+      run.playable_artifact_id,
+      run.playable_revision,
+      run.playable_work_revision_id,
+      run.playable_content_sha256,
+    ])
+    : JSON.stringify([run.schema_version, run.run_id]);
   const mutationsOpen = mutationStatus === "idle" || mutationStatus === "saving";
   const [workspace, setWorkspace] = useState<PlayWorkspace>({ kind: "current" });
   const [beatCollapsed, setBeatCollapsed] = useState(false);
   const [glanceCollapsed, setGlanceCollapsed] = useState(false);
   const [progressRejection, setProgressRejection] = useState<string | null>(null);
   const [exactRereadSucceeded, setExactRereadSucceeded] = useState(false);
+  const [sceneNoteDrafts, setSceneNoteDrafts] = useState<Record<string, SceneNoteDraft>>({});
+  const [sceneNoteStorageWarnings, setSceneNoteStorageWarnings] = useState<Record<string, string>>({});
   const mountedRef = useRef(true);
   const liveRunIdRef = useRef(run.run_id);
+  const liveRunIdentityRef = useRef(runIdentity);
   const requestSerialRef = useRef(0);
   const scenesLauncherRef = useRef<HTMLButtonElement | null>(null);
   const glanceToggleRef = useRef<HTMLButtonElement | null>(null);
   const inFlightRef = useRef(false);
+  const saveSceneNoteRef = useRef<(scope: string) => void>(() => undefined);
+  const sceneNoteDraftsRef = useRef(sceneNoteDrafts);
+  const sceneNoteRequestCounterRef = useRef(0);
+  sceneNoteDraftsRef.current = sceneNoteDrafts;
 
   useEffect(() => {
     mountedRef.current = true;
     liveRunIdRef.current = run.run_id;
+    liveRunIdentityRef.current = runIdentity;
     setWorkspace({ kind: "current" });
     setBeatCollapsed(false);
     setGlanceCollapsed(false);
@@ -175,7 +341,7 @@ export function PlayCurrentMomentCockpit({
       mountedRef.current = false;
       requestSerialRef.current += 1;
     };
-  }, [run.run_id]);
+  }, [runIdentity]);
 
   const moment = resolveCurrentMoment(deck);
   const currentBeat = moment.status === "ok" ? moment.beat : null;
@@ -183,10 +349,27 @@ export function PlayCurrentMomentCockpit({
   const inspectedScene = workspace.kind === "scene-inspect"
     ? sceneInCurrentBeat(deck, workspace.sceneId)
     : null;
+  const worldOwnedRun = run.schema_version === "dmb_world_play_run_record_v2";
+  const sceneNoteId = worldOwnedRun ? currentScene?.id ?? null : null;
+  const sceneNoteScope = sceneNoteId && worldOwnedRun
+    ? sceneNoteScopeKey(run, sceneNoteId)
+    : null;
+  const activeSceneNoteDraft = sceneNoteScope ? sceneNoteDrafts[sceneNoteScope] : undefined;
+  const activeSceneNoteStorageWarning = sceneNoteScope ? sceneNoteStorageWarnings[sceneNoteScope] : undefined;
+  const serverSceneNote = sceneNoteId ? run.progress.notes_by_element_id[sceneNoteId] ?? "" : "";
+  const sceneNoteValue = activeSceneNoteDraft?.text ?? serverSceneNote;
+  const sceneNoteSaved = sceneNoteId != null
+    && Object.prototype.hasOwnProperty.call(run.progress.notes_by_element_id, sceneNoteId);
+  const sceneNoteChangedOnServer = activeSceneNoteDraft != null
+    && (activeSceneNoteDraft.basisPresent !== sceneNoteSaved
+      || activeSceneNoteDraft.basisText !== serverSceneNote);
 
-  const replaceProgress = async (next: PlayRunProgress) => {
-    if (!mutationsOpen || mutationStatus === "saving" || inFlightRef.current) return;
+  const replaceProgress = async (next: PlayRunProgress, options?: ProgressReplacementOptions) => {
+    const explicitRetryIsCurrent = options?.allowExplicitRetry === true
+      && (mutationStatus === "idle" || exactRereadSucceeded);
+    if ((!mutationsOpen && !explicitRetryIsCurrent) || mutationStatus === "saving" || inFlightRef.current) return;
     const boundRunId = run.run_id;
+    const boundRunIdentity = runIdentity;
     const expected = run.run_revision;
     const serial = requestSerialRef.current + 1;
     requestSerialRef.current = serial;
@@ -202,14 +385,17 @@ export function PlayCurrentMomentCockpit({
       const updated = run.schema_version === "dmb_world_play_run_record_v2"
         ? await putWorldPlayRunProgress(boundRunId, run.world_id, request)
         : await putPlayRunProgress(boundRunId, request);
-      if (!mountedRef.current || liveRunIdRef.current !== boundRunId || requestSerialRef.current !== serial) {
+      if (!mountedRef.current || liveRunIdRef.current !== boundRunId
+        || liveRunIdentityRef.current !== boundRunIdentity || requestSerialRef.current !== serial) {
         return;
       }
+      options?.onSaved?.(updated, expected);
       onAuthoritativeRun(updated);
       onMutationStatus("idle");
       setWorkspace({ kind: "current" });
     } catch (error) {
-      if (!mountedRef.current || liveRunIdRef.current !== boundRunId || requestSerialRef.current !== serial) {
+      if (!mountedRef.current || liveRunIdRef.current !== boundRunId
+        || liveRunIdentityRef.current !== boundRunIdentity || requestSerialRef.current !== serial) {
         return;
       }
       const status = error instanceof LiveApiError ? error.status : 0;
@@ -221,13 +407,15 @@ export function PlayCurrentMomentCockpit({
       } catch {
         reconciled = null;
       }
-      if (!mountedRef.current || liveRunIdRef.current !== boundRunId || requestSerialRef.current !== serial) {
+      if (!mountedRef.current || liveRunIdRef.current !== boundRunId
+        || liveRunIdentityRef.current !== boundRunIdentity || requestSerialRef.current !== serial) {
         return;
       }
       if (reconciled) onAuthoritativeRun(reconciled);
       setExactRereadSucceeded(reconciled != null);
       if (status === 409) {
         onMutationStatus(reconciled ? "conflict" : "unknown");
+        options?.onFailure?.(reconciled ? "conflict" : "unknown", reconciled);
         return;
       }
       if (status === 422) {
@@ -236,18 +424,182 @@ export function PlayCurrentMomentCockpit({
           setProgressRejection(
             "The Run rejected that change. Reloaded the exact Run. The write was not retried or treated as a conflict.",
           );
+          options?.onFailure?.("rejected", reconciled);
         } else {
           onMutationStatus("unknown");
+          options?.onFailure?.("unknown", null);
         }
         return;
       }
       onMutationStatus("unknown");
+      options?.onFailure?.("unknown", reconciled);
     } finally {
       if (requestSerialRef.current === serial) {
         inFlightRef.current = false;
       }
     }
   };
+
+  const updateSceneNoteDraft = (
+    scope: string,
+    update: (current: SceneNoteDraft | undefined) => SceneNoteDraft | null,
+  ) => {
+    const current = sceneNoteDraftsRef.current;
+    const next = update(current[scope]);
+    let updated: Record<string, SceneNoteDraft>;
+    if (next == null) {
+      if (!Object.prototype.hasOwnProperty.call(current, scope)) {
+        updated = current;
+      } else {
+        updated = { ...current };
+        delete updated[scope];
+      }
+    } else {
+      updated = { ...current, [scope]: next };
+    }
+    sceneNoteDraftsRef.current = updated;
+    setSceneNoteDrafts(updated);
+    try {
+      if (next == null) removeSceneNoteDraftCache(scope);
+      else writeSceneNoteDraftCache(next);
+      setSceneNoteStorageWarnings((warnings) => {
+        if (!Object.prototype.hasOwnProperty.call(warnings, scope)) return warnings;
+        const copy = { ...warnings };
+        delete copy[scope];
+        return copy;
+      });
+    } catch {
+      setSceneNoteStorageWarnings((warnings) => ({
+        ...warnings,
+        [scope]: "Browser recovery storage is unavailable. This tab's note draft remains editable.",
+      }));
+    }
+  };
+
+  useEffect(() => {
+    if (!sceneNoteScope || !sceneNoteId || run.schema_version !== "dmb_world_play_run_record_v2") return;
+    const result = readSceneNoteDraftCache(sceneNoteScope, run, sceneNoteId);
+    if (result.issue) {
+      setSceneNoteStorageWarnings((warnings) => ({ ...warnings, [sceneNoteScope]: result.issue! }));
+      return;
+    }
+    if (result.draft) {
+      updateSceneNoteDraft(sceneNoteScope, (current) => current ?? result.draft!);
+    }
+  }, [sceneNoteScope]);
+
+  const saveSceneNote = (scope: string, allowExplicitRetry = false) => {
+    if (run.schema_version !== "dmb_world_play_run_record_v2" || !sceneNoteId || scope !== sceneNoteScope) return;
+    const draft = sceneNoteDrafts[scope];
+    if (!draft || draft.state === "saving" || (draft.state === "failed" && !allowExplicitRetry)) return;
+    const submittedText = draft.text;
+    const expectedRevision = run.run_revision;
+    const sentRequestId = `${Date.now()}:${sceneNoteRequestCounterRef.current + 1}`;
+    sceneNoteRequestCounterRef.current += 1;
+    updateSceneNoteDraft(scope, (current) => current ? {
+      ...current,
+      state: "saving",
+      sentText: submittedText,
+      sentRevision: expectedRevision,
+      sentRequestId,
+      failure: undefined,
+    } : null);
+    void replaceProgress({
+      ...run.progress,
+      notes_by_element_id: {
+        ...run.progress.notes_by_element_id,
+        [sceneNoteId]: submittedText,
+      },
+    }, {
+      allowExplicitRetry,
+      onSaved: (updated, sentRevision) => {
+        if (!isExactSceneNoteAcknowledgement(run, updated, sceneNoteId, submittedText, sentRevision)) {
+          updateSceneNoteDraft(scope, (current) => current ? {
+            ...current,
+            state: "failed",
+            sentText: submittedText,
+            sentRevision,
+            failure: "unconfirmed",
+          } : null);
+          return;
+        }
+        updateSceneNoteDraft(scope, (current) => {
+          if (!current) return null;
+          const exactSentDraft = current.sentText === submittedText
+            && current.sentRevision === sentRevision;
+          if (exactSentDraft && current.text === submittedText) return null;
+          return {
+            ...current,
+            basisText: submittedText,
+            basisPresent: true,
+            basisRevision: updated.run_revision,
+            state: "editing",
+            sentText: undefined,
+            sentRevision: undefined,
+            sentRequestId: undefined,
+            failure: undefined,
+          };
+        });
+      },
+      onFailure: (failure, reloaded) => {
+        updateSceneNoteDraft(scope, (current) => {
+          if (!current) return null;
+          const exactReload = reloaded != null && sameWorldRunBinding(run, reloaded);
+          const reloadedHasNote = exactReload
+            && Object.prototype.hasOwnProperty.call(reloaded.progress.notes_by_element_id, sceneNoteId);
+          return {
+            ...current,
+            basisText: exactReload ? reloaded.progress.notes_by_element_id[sceneNoteId] ?? "" : current.basisText,
+            basisPresent: exactReload ? reloadedHasNote : current.basisPresent,
+            basisRevision: exactReload ? reloaded.run_revision : current.basisRevision,
+            state: "failed",
+            sentText: submittedText,
+            sentRevision: expectedRevision,
+            sentRequestId,
+            failure,
+          };
+        });
+      },
+    });
+  };
+
+  const changeSceneNote = (text: string) => {
+    if (!worldOwnedRun || !sceneNoteId || !sceneNoteScope) return;
+    updateSceneNoteDraft(sceneNoteScope, (current) => {
+      const draft = current ?? {
+        scopeKey: sceneNoteScope,
+        worldId: run.world_id,
+        runId: run.run_id,
+        sceneId: sceneNoteId,
+        noteElementId: sceneNoteId,
+        playableArtifactId: run.playable_artifact_id,
+        playableRevision: run.playable_revision,
+        playableWorkRevisionId: run.playable_work_revision_id,
+        playableContentSha256: run.playable_content_sha256,
+        text: serverSceneNote,
+        basisText: serverSceneNote,
+        basisPresent: sceneNoteSaved,
+        basisRevision: run.run_revision,
+        state: "editing" as const,
+      };
+      return {
+        ...draft,
+        text,
+        state: draft.state === "failed" ? "failed" : "editing",
+      };
+    });
+  };
+
+  saveSceneNoteRef.current = (scope) => saveSceneNote(scope);
+
+  useEffect(() => {
+    if (!sceneNoteScope || activeSceneNoteDraft?.state !== "editing"
+      || sceneNoteChangedOnServer || mutationStatus !== "idle") return;
+    const scope = sceneNoteScope;
+    const timer = window.setTimeout(() => saveSceneNoteRef.current(scope), 450);
+    return () => window.clearTimeout(timer);
+  }, [sceneNoteScope, activeSceneNoteDraft?.state, activeSceneNoteDraft?.text,
+    sceneNoteChangedOnServer, mutationStatus, run.run_revision]);
 
   const makeSceneCurrent = (scene: NativeRunbookSceneV2) => {
     if (scene.beatId !== deck.currentBeatId) return;
@@ -428,6 +780,67 @@ export function PlayCurrentMomentCockpit({
                 onSelect={selectOption}
                 onClear={clearSelection}
               />
+              {worldOwnedRun && sceneNoteScope && sceneNoteId ? (
+                <section className="play-notes" data-testid="play-scene-note">
+                  <label htmlFor={`play-scene-note-${run.run_id}-${sceneNoteId}`}>Scene note</label>
+                  <textarea
+                    id={`play-scene-note-${run.run_id}-${sceneNoteId}`}
+                    value={sceneNoteValue}
+                    aria-describedby="play-scene-note-status"
+                    onChange={(event) => changeSceneNote(event.target.value)}
+                  />
+                  <p
+                    className="play-muted"
+                    role="status"
+                    aria-live="polite"
+                    data-testid="play-scene-note-status"
+                  >
+                    {activeSceneNoteDraft?.state === "saving"
+                      ? "Saving note to this Run…"
+                      : sceneNoteChangedOnServer || activeSceneNoteDraft?.failure === "conflict"
+                        ? "Not saved. Another update changed this Run; your draft is kept. Review before retrying."
+                        : activeSceneNoteDraft?.failure === "unknown"
+                          ? "Not saved. The previous save result is unknown; your draft is kept and was not resent."
+                          : activeSceneNoteDraft?.failure === "rejected"
+                            ? "Not saved. The Run rejected this note; your draft is kept. Retry is manual."
+                            : activeSceneNoteDraft?.failure === "unconfirmed"
+                              ? "Not saved. The Run did not confirm this note; your draft is kept. Retry is manual."
+                              : activeSceneNoteDraft?.recovered
+                                ? "Recovered browser draft; unsaved in this Run. Save it when ready."
+                                : activeSceneNoteDraft
+                                  ? "Unsaved draft; autosave starts after a pause."
+                                  : sceneNoteSaved
+                                    ? "Saved in this Run."
+                                    : "No saved note."}
+                  </p>
+                  {activeSceneNoteDraft ? (
+                    <button
+                      type="button"
+                      disabled={saving || (mutationStatus !== "idle" && !exactRereadSucceeded)}
+                      onClick={() => saveSceneNote(sceneNoteScope, true)}
+                    >
+                      {activeSceneNoteDraft.state === "saving"
+                        ? "Saving note…"
+                        : sceneNoteChangedOnServer
+                          ? "Save note after review"
+                          : activeSceneNoteDraft.state === "failed"
+                          ? activeSceneNoteDraft.recovered && activeSceneNoteDraft.failure === "recovered"
+                            ? "Save recovered note"
+                            : "Retry note save"
+                            : "Save note now"}
+                    </button>
+                  ) : null}
+                  {activeSceneNoteStorageWarning ? (
+                    <p
+                      className="play-banner"
+                      role="alert"
+                      data-testid="play-scene-note-storage-warning"
+                    >
+                      {activeSceneNoteStorageWarning}
+                    </p>
+                  ) : null}
+                </section>
+              ) : null}
             </article>
           ) : null}
 
