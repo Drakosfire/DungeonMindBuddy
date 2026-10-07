@@ -28,6 +28,8 @@ RECAP_CANDIDATE_CORRECTION_REQUEST_SCHEMA_V3 = "dmb_recap_candidate_correction_r
 RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA_V3 = "dmb_recap_candidate_correction_response_v3"
 RECAP_CANDIDATE_CORRECTION_REQUEST_SCHEMA_V4 = "dmb_recap_candidate_correction_request_v4"
 RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA_V4 = "dmb_recap_candidate_correction_response_v4"
+RECAP_CANDIDATE_CORRECTION_REQUEST_SCHEMA_V5 = "dmb_recap_candidate_correction_request_v5"
+RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA_V5 = "dmb_recap_candidate_correction_response_v5"
 RECAP_SEMANTIC_DECISION_REQUEST_SCHEMA = "dmb_recap_semantic_decision_request_v1"
 RECAP_SEMANTIC_DECISION_RESPONSE_SCHEMA = "dmb_recap_semantic_decision_response_v1"
 WORLD_BUILDING_WRITE_PLAN_REQUEST_SCHEMA = (
@@ -747,6 +749,90 @@ class RecapCandidateCorrectionRequestV4(_ExtractPromoteModel):
 class RecapCandidateCorrectionResponseV4(RecapCandidateCorrectionResponse):
     schema_: Literal[RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA_V4] = Field(
         default=RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA_V4, alias="schema"
+    )
+
+
+class RecapCandidateEvidenceReplacementV5(_ExtractPromoteModel):
+    """One exact-preimage source evidence replacement in a bounded batch."""
+
+    record_kind: Literal["node", "edge"]
+    record_id: str
+    evidence_index: int = Field(ge=0)
+    expected_source_ref_id: str
+    expected_source_artifact_id: str
+    expected_source_span_ref_id: str
+    replacement_source_span_ref_id: str
+    expected_anchor_quotes: list[str] = Field(min_length=1, max_length=16)
+    replacement_anchor_quotes: list[str] = Field(min_length=1, max_length=16)
+
+    @field_validator(
+        "record_id", "expected_source_ref_id", "expected_source_artifact_id",
+        "expected_source_span_ref_id", "replacement_source_span_ref_id",
+    )
+    @classmethod
+    def _identity(cls, value: str, info) -> str:
+        return _nonblank(value, field_name=info.field_name)
+
+    @field_validator("evidence_index")
+    @classmethod
+    def _evidence_index(cls, value: int) -> int:
+        if type(value) is not int:
+            raise ValueError("evidence_index must be an integer")
+        return value
+
+    @field_validator("expected_anchor_quotes", "replacement_anchor_quotes")
+    @classmethod
+    def _quotes(cls, value: list[str]) -> list[str]:
+        if any(not item or item != item.strip() or len(item) > 4096 for item in value):
+            raise ValueError("anchor quotes must be nonblank, trimmed and bounded")
+        return value
+
+    @model_validator(mode="after")
+    def _changed_evidence(self) -> "RecapCandidateEvidenceReplacementV5":
+        if (
+            self.expected_source_span_ref_id == self.replacement_source_span_ref_id
+            and self.expected_anchor_quotes == self.replacement_anchor_quotes
+        ):
+            raise ValueError("evidence replacement must change span or anchor quotes")
+        return self
+
+
+class RecapCandidateCorrectionRequestV5(_ExtractPromoteModel):
+    """An atomic bounded evidence replacement batch for one frozen candidate."""
+
+    schema_: Literal[RECAP_CANDIDATE_CORRECTION_REQUEST_SCHEMA_V5] = Field(alias="schema")
+    parent_run_id: str
+    parent_candidate_sha256: str
+    evidence_replacements: list[RecapCandidateEvidenceReplacementV5] = Field(
+        min_length=1, max_length=7
+    )
+
+    @field_validator("parent_run_id")
+    @classmethod
+    def _parent_run_id(cls, value: str) -> str:
+        return _nonblank(value, field_name="parent_run_id")
+
+    @field_validator("parent_candidate_sha256")
+    @classmethod
+    def _parent_candidate_sha256(cls, value: str) -> str:
+        if len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
+            raise ValueError("parent_candidate_sha256 must be lowercase SHA-256 hex")
+        return value
+
+    @model_validator(mode="after")
+    def _unique_targets(self) -> "RecapCandidateCorrectionRequestV5":
+        keys = [
+            (item.record_kind, item.record_id, item.evidence_index)
+            for item in self.evidence_replacements
+        ]
+        if len(set(keys)) != len(keys):
+            raise ValueError("duplicate evidence replacement target")
+        return self
+
+
+class RecapCandidateCorrectionResponseV5(RecapCandidateCorrectionResponse):
+    schema_: Literal[RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA_V5] = Field(
+        default=RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA_V5, alias="schema"
     )
 
 
