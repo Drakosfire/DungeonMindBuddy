@@ -1,6 +1,6 @@
 # SERVER: immutable recap semantic-candidate correction
 
-**Status:** ACTIVE, source implementation authorized by PRIME on 2026-10-06.
+**Status:** MERGED as Buddy PR #976 at `4599888d3cbcf7c28170d10ba03b6497837e1502`; V1 candidate correction is current source behavior. Independent review and merge were settled before the separate V2 session-action handoff activated.
 **Pinned base:** Buddy `origin/main@6fbf87f7035b6d17ffeb2d7aa8b35b2bc670cba8` after #975.
 **Branch:** `codex/recap-semantic-candidate-correction`; isolated checkout `/tmp/dmb-recap-semantic-candidate`.
 **Topology:** serial, independent source PR against `main`; no merge authority.
@@ -42,4 +42,4 @@ The exact three previously excluded full-app HTTP tests were run at the pinned b
 
 The repository's `scripts/prepare_patched_hermes.py` prepared the pinned ignored Hermes source in this isolated checkout, then `UV_CACHE_DIR=/tmp/dmb-uv-cache uv sync --locked` installed the exact locked dependencies, including DungeonMind at `7c69e447f6d4acc963ac09c6fb9cb48cc1c5b9cc`. No tracked dependency pin or running service changed. The same three HTTP tests then passed. The complete focused command, `.venv/bin/python -m pytest -q tests/test_recap_semantic_candidate_correction.py tests/test_recap_semantic_disposition.py tests/test_recap_literal_evidence_correction.py tests/application_state/test_ingest_run_postgres.py::test_semantic_candidate_basis_cas_is_distinct_and_single_use tests/application_state/test_ingest_run_postgres.py::test_recap_disposition_cas_preserves_run_and_exact_retry`, passed **36 tests** with 11 nonfatal Pydantic field-name warnings. The two APP-STATE tests used disposable real PostgreSQL on port 54329. Focused Ruff on all changed Python files and cumulative `git diff --check` passed. Full repository Ruff still reports 1,434 pre-existing errors outside this write lease; changed Python paths pass.
 
-PRIME and APP-STATE exact-head source review remains required before merge. No real S27 correction request, semantic decision, native publication, runtime deployment, or WorldGraph readback occurred. The acceptance token remains **PENDING**.
+PRIME and APP-STATE exact-head source review was settled before PR #976 merged at `4599888d3cbcf7c28170d10ba03b6497837e1502`. The V1 source capability is established. No real S27 correction request, semantic decision, native publication, runtime deployment, or WorldGraph readback occurred in that source slice.

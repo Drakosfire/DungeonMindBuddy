@@ -10,7 +10,9 @@ from uuid import NAMESPACE_URL, uuid5
 from apps.live_control_server.config import repo_root
 from apps.live_control_server.models.extract_promote import (
     RecapCandidateCorrectionRequest,
+    RecapCandidateCorrectionRequestV2,
     RecapCandidateCorrectionResponse,
+    RecapCandidateCorrectionResponseV2,
 )
 from apps.live_control_server.services.exact_run_evidence_correction import (
     _LIFECYCLE,
@@ -48,6 +50,8 @@ from graph_memory.ingestion.extraction_run import (
 
 DERIVATION = "operator_recap_semantic_candidate_correction_v1"
 MANIFEST_SCHEMA = "dmb_recap_semantic_candidate_manifest_v1"
+DERIVATION_V2 = "operator_recap_semantic_candidate_correction_v2"
+MANIFEST_SCHEMA_V2 = "dmb_recap_semantic_candidate_manifest_v2"
 PROFILE = "recap_category_v1@1.0"
 
 
@@ -61,17 +65,29 @@ def _contains(value: object, target: str) -> bool:
 
 def replay_candidate(parent: dict, manifest: dict) -> dict:
     """Reconstruct exactly one bounded edit; never patch arbitrary JSON."""
-    if set(manifest) != {"schema", "node_description_replacements", "omitted_edge_ids"} or manifest.get("schema") != MANIFEST_SCHEMA:
+    if not isinstance(parent, dict) or not isinstance(manifest, dict):
+        raise _reject("semantic candidate replay input is malformed")
+    v2 = manifest.get("schema") == MANIFEST_SCHEMA_V2
+    expected_keys = {"schema", "node_description_replacements", "omitted_edge_ids"}
+    if v2:
+        expected_keys.add("session_action_replacements")
+    if set(manifest) != expected_keys or manifest.get("schema") not in {MANIFEST_SCHEMA, MANIFEST_SCHEMA_V2}:
         raise _reject("semantic candidate manifest is malformed")
     replacements = manifest["node_description_replacements"]
     omitted = manifest["omitted_edge_ids"]
+    actions = manifest["session_action_replacements"] if v2 else []
     if (
         not isinstance(replacements, list) or len(replacements) > 1
         or not isinstance(omitted, list) or len(omitted) > 1
-        or not replacements and not omitted
+        or not isinstance(actions, list) or (len(actions) != 1 if v2 else bool(actions))
+        or not replacements and not omitted and not actions
     ):
         raise _reject("semantic candidate manifest exceeds bounded scope")
     child = copy.deepcopy(parent)
+    for key in ("nodes", "edges"):
+        records = child.get(key, [])
+        if not isinstance(records, list) or any(not isinstance(record, dict) for record in records):
+            raise _reject(f"candidate {key} records are malformed")
     for item in replacements:
         if not isinstance(item, dict) or set(item) != {"node_id", "original_description", "replacement_description"}:
             raise _reject("node replacement manifest is malformed")
@@ -90,6 +106,31 @@ def replay_candidate(parent: dict, manifest: dict) -> dict:
         if not isinstance(item["replacement_description"], str) or not item["replacement_description"].strip() or item["replacement_description"] == item["original_description"]:
             raise _reject("node description replacement is empty or unchanged")
         matches[0]["description"] = item["replacement_description"]
+    for item in actions:
+        if not isinstance(item, dict) or set(item) != {"node_id", "action_index", "expected_old_text", "replacement_text"}:
+            raise _reject("session action manifest is malformed")
+        node_id = item["node_id"]
+        index = item["action_index"]
+        old = item["expected_old_text"]
+        replacement = item["replacement_text"]
+        if (
+            not isinstance(node_id, str) or not node_id.strip() or node_id != node_id.strip()
+            or type(index) is not int or index < 0
+            or not isinstance(old, str) or not old.strip() or old != old.strip()
+            or not isinstance(replacement, str) or not replacement.strip()
+            or replacement != replacement.strip() or len(replacement) > 4096
+            or replacement == old
+        ):
+            raise _reject("session action manifest is malformed")
+        if replacements and replacements[0].get("node_id") != node_id:
+            raise _reject("session action and description must target the same node")
+        matches = [node for node in child.get("nodes", []) if node.get("node_id") == node_id]
+        if len(matches) != 1 or not isinstance(matches[0].get("session_actions"), list):
+            raise _reject("session action target is missing or ambiguous", status_code=409)
+        entries = matches[0]["session_actions"]
+        if index >= len(entries) or entries[index] != old:
+            raise _reject("session action target is missing or stale", status_code=409)
+        entries[index] = replacement
     for edge_id in omitted:
         if not isinstance(edge_id, str) or not edge_id.strip() or edge_id != edge_id.strip():
             raise _reject("omitted edge ID is invalid")
@@ -129,13 +170,13 @@ def verify_child_replay(run, parent, root: Path) -> bool:
         child_bytes = material["child:candidate_graph"]
         expected = replay_candidate(json.loads(parent_bytes), manifest)
         return child_bytes == _canonical_bytes(expected)
-    except (KeyError, OSError, ValueError, TypeError, json.JSONDecodeError):
+    except (AttributeError, KeyError, OSError, ValueError, TypeError, json.JSONDecodeError):
         return False
 
 
-def correct_recap_candidate(request: RecapCandidateCorrectionRequest) -> RecapCandidateCorrectionResponse:
+def correct_recap_candidate(request: RecapCandidateCorrectionRequest | RecapCandidateCorrectionRequestV2) -> RecapCandidateCorrectionResponse | RecapCandidateCorrectionResponseV2:
     """Create one held reviewable child without altering parent or WorldGraph."""
-    from application_state.ingest.service import RecapSemanticBasisV2
+    from application_state.ingest.service import RecapSemanticBasisV2, RecapSemanticBasisV3
 
     root = repo_root()
     try:
@@ -175,13 +216,19 @@ def correct_recap_candidate(request: RecapCandidateCorrectionRequest) -> RecapCa
         raise _reject("parent candidate is unreadable") from exc
     if not isinstance(parent_payload, dict):
         raise _reject("parent candidate root must be an object")
+    v2 = isinstance(request, RecapCandidateCorrectionRequestV2)
+    derivation = DERIVATION_V2 if v2 else DERIVATION
     manifest = {
-        "schema": MANIFEST_SCHEMA,
+        "schema": MANIFEST_SCHEMA_V2 if v2 else MANIFEST_SCHEMA,
         "node_description_replacements": [
             item.model_dump(mode="json") for item in sorted(request.node_description_replacements, key=lambda value: value.node_id)
         ],
         "omitted_edge_ids": sorted(request.omitted_edge_ids),
     }
+    if v2:
+        manifest["session_action_replacements"] = [
+            item.model_dump(mode="json") for item in request.session_action_replacements
+        ]
     payload = replay_candidate(parent_payload, manifest)
     _assert_candidate_scope_matches_run(payload, campaign_id=parent.campaign_id, session_id=parent.session_id)
     _assert_and_project_candidate_evidence(
@@ -199,12 +246,12 @@ def correct_recap_candidate(request: RecapCandidateCorrectionRequest) -> RecapCa
     except CandidateGraphMappingError as exc:
         raise _reject("corrected candidate failed typed validation") from exc
     manifest_sha = _sha(_canonical_bytes(manifest))
-    child_id = str(uuid5(NAMESPACE_URL, f"dmb:{DERIVATION}:{parent.run_id}:{parent_sha}:{manifest_sha}"))
+    child_id = str(uuid5(NAMESPACE_URL, f"dmb:{derivation}:{parent.run_id}:{parent_sha}:{manifest_sha}"))
     child_bytes = _canonical_bytes(payload)
     child_sha = _sha(child_bytes)
     child_path = root / "out" / "graph_memory" / "derived_candidates" / child_id / "candidate_graph.json"
     child_uri = child_path.relative_to(root).as_posix()
-    basis = RecapSemanticBasisV2(
+    basis_fields = dict(
         parent_run_id=parent.run_id, parent_candidate_sha256=parent_sha,
         manifest_sha256=manifest_sha, child_run_id=child_id,
         candidate_uri=child_uri, candidate_sha256=child_sha,
@@ -214,8 +261,12 @@ def correct_recap_candidate(request: RecapCandidateCorrectionRequest) -> RecapCa
         profile_id=parent.profile_id, profile_version="1.0",
         campaign_id=parent.campaign_id, session_id=parent.session_id,
     )
+    basis = (
+        RecapSemanticBasisV3(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V2)
+        if v2 else RecapSemanticBasisV2(**basis_fields)
+    )
     lineage = {
-        "derivation": DERIVATION,
+        "derivation": derivation,
         "parent_run_id": parent.run_id,
         "parent_candidate_sha256": parent_sha,
         "manifest_sha256": manifest_sha,
@@ -287,7 +338,8 @@ def correct_recap_candidate(request: RecapCandidateCorrectionRequest) -> RecapCa
         )
         if assessment.disposition is None or assessment.disposition.get("state") != semantic_state:
             raise _reject("derived run semantic decision conflicts", status_code=409)
-    return RecapCandidateCorrectionResponse(
+    response_type = RecapCandidateCorrectionResponseV2 if v2 else RecapCandidateCorrectionResponse
+    return response_type(
         run_id=child_id, parent_run_id=parent.run_id,
         parent_candidate_sha256=parent_sha, candidate_sha256=child_sha,
         manifest_sha256=manifest_sha, semantic_basis_sha256=basis.digest(),

@@ -24,7 +24,9 @@ from apps.live_control_server.models.extract_promote import (
     ExactRunEvidenceCorrectionResponse,
     RecapEvidenceCorrectionResponse,
     RecapCandidateCorrectionRequest,
+    RecapCandidateCorrectionRequestV2,
     RecapCandidateCorrectionResponse,
+    RecapCandidateCorrectionResponseV2,
     ExtractPromoteStatusResponse,
     FirstWorldGraphConfirmReceipt,
     FirstWorldGraphConfirmRequest,
@@ -241,12 +243,12 @@ def post_recap_evidence_corrections(
 
 @router.post(
     "/runs/{run_id}/recap-candidate-corrections",
-    response_model=RecapCandidateCorrectionResponse,
+    response_model=RecapCandidateCorrectionResponse | RecapCandidateCorrectionResponseV2,
 )
 def post_recap_candidate_corrections(
     request_context: Request,
     run_id: str,
-    request: RecapCandidateCorrectionRequest,
+    request: RecapCandidateCorrectionRequest | RecapCandidateCorrectionRequestV2,
     principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
 ) -> dict[str, Any] | JSONResponse:
     """GM-only bounded semantic candidate child; no World publication."""

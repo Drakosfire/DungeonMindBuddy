@@ -912,6 +912,7 @@ def decide_recap_semantic_disposition(
     from application_state.ingest.service import (
         RecapSemanticBasisV1,
         RecapSemanticBasisV2,
+        RecapSemanticBasisV3,
         RecapSemanticDispositionCommandV1,
         record_recap_semantic_disposition,
     )
@@ -923,6 +924,7 @@ def decide_recap_semantic_disposition(
     from apps.live_control_server.services.recap_semantic_disposition import (
         assess_recap_semantics,
         CANDIDATE_DERIVATION,
+        CANDIDATE_DERIVATION_V2,
         is_recap_correction,
     )
     from apps.live_control_server.services.source_artifact_registry import (
@@ -961,7 +963,8 @@ def decide_recap_semantic_disposition(
         )
     try:
         basis_type = (
-            RecapSemanticBasisV2 if run.lineage.get("derivation") == CANDIDATE_DERIVATION
+            RecapSemanticBasisV3 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V2
+            else RecapSemanticBasisV2 if run.lineage.get("derivation") == CANDIDATE_DERIVATION
             else RecapSemanticBasisV1
         )
         basis = basis_type.model_validate(assessment.basis)

@@ -521,6 +521,54 @@ class RecapCandidateCorrectionResponse(_ExtractPromoteModel):
     status: Literal["reviewable"] = "reviewable"
 
 
+class RecapSessionActionReplacement(_ExtractPromoteModel):
+    node_id: str
+    action_index: int = Field(ge=0)
+    expected_old_text: str
+    replacement_text: str
+
+    @field_validator("node_id", "expected_old_text", "replacement_text")
+    @classmethod
+    def _text(cls, value: str) -> str:
+        if not value.strip() or value != value.strip() or len(value) > 4096:
+            raise ValueError("session action text and node ID must be nonblank, trimmed and bounded")
+        return value
+
+    @field_validator("action_index")
+    @classmethod
+    def _index(cls, value: int) -> int:
+        if type(value) is not int:
+            raise ValueError("action_index must be an integer")
+        return value
+
+
+class RecapCandidateCorrectionRequestV2(_ExtractPromoteModel):
+    schema_: Literal["dmb_recap_candidate_correction_request_v2"] = Field(
+        alias="schema"
+    )
+    parent_run_id: str
+    parent_candidate_sha256: str
+    node_description_replacements: list[RecapNodeDescriptionReplacement] = Field(default_factory=list, max_length=1)
+    omitted_edge_ids: list[str] = Field(default_factory=list, max_length=1)
+    session_action_replacements: list[RecapSessionActionReplacement] = Field(min_length=1, max_length=1)
+
+    @model_validator(mode="after")
+    def _bounded(self) -> "RecapCandidateCorrectionRequestV2":
+        if self.node_description_replacements and self.node_description_replacements[0].node_id != self.session_action_replacements[0].node_id:
+            raise ValueError("description and session action corrections must target the same node")
+        if any(not value.strip() or value != value.strip() for value in self.omitted_edge_ids):
+            raise ValueError("omitted edge IDs must be nonblank and trimmed")
+        if len(self.parent_candidate_sha256) != 64 or any(c not in "0123456789abcdef" for c in self.parent_candidate_sha256):
+            raise ValueError("parent_candidate_sha256 must be lowercase SHA-256 hex")
+        return self
+
+
+class RecapCandidateCorrectionResponseV2(RecapCandidateCorrectionResponse):
+    schema_: Literal["dmb_recap_candidate_correction_response_v2"] = Field(
+        default="dmb_recap_candidate_correction_response_v2", alias="schema"
+    )
+
+
 class ExactRunReviewPackage(_ExtractPromoteModel):
     """Server-owned exact-run review projection — source prose + assertion evidence.
 
