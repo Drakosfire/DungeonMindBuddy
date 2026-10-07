@@ -505,7 +505,7 @@ it("opens exact managed World Graph references from Document and Cards without c
   expect(agentConversation?.textContent).toBe(conversationText);
   const cardsTab = within(page).getByRole("button", { name: "Cards" });
   fireEvent.click(cardsTab);
-  const cards = await screen.findByTestId("world-plan-cards");
+  const cards = await screen.findByTestId("world-plan-scene-reader");
   expect(documentReference.closest(".world-plan-document-view")).toHaveAttribute("hidden");
   fireEvent.click(within(inspector).getByRole("button", { name: "Close Ironveil Warehouse" }));
   await waitFor(() => expect(cardsTab).toHaveFocus());
@@ -545,7 +545,7 @@ it("opens exact managed World Graph references from Document and Cards without c
   fireEvent.click(within(reverseInspector).getByRole("button", { name: "Close Ironveil Warehouse" }));
   await waitFor(() => expect(documentTab).toHaveFocus());
   expect(restoredCardReference).not.toHaveFocus();
-  expect(screen.queryByTestId("world-plan-cards")).not.toBeInTheDocument();
+  expect(screen.queryByTestId("world-plan-scene-reader")).not.toBeInTheDocument();
   expect(save).not.toHaveBeenCalled();
   expect(prepare).not.toHaveBeenCalled();
 });
@@ -595,7 +595,8 @@ it("retains the mounted Plan and typed question across Cards, Document and dock 
   fireEvent.change(input, {target:{value:"Remember the warehouse"}});
   expect(screen.getByRole("log")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", {name:"Cards",exact:true}));
-  expect(await screen.findByRole("region", {name:"Plan cards"})).toBeInTheDocument();
+  const focusedScene = await screen.findByRole("region", {name:"Focused Plan scene"});
+  expect(focusedScene).toHaveTextContent("Arrival");
   fireEvent.click(screen.getByRole("button", {name:"Collapse",exact:true}));
   fireEvent.click(screen.getByRole("button", {name:"Document",exact:true}));
   fireEvent.click(screen.getByRole("button", {name:"Open",exact:true}));
@@ -710,8 +711,10 @@ it.each([
   const page = await screen.findByTestId("world-owned-plan");
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
   fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
+  const reader = screen.queryByTestId("world-plan-scene-reader");
+  if (reader) fireEvent.click(within(reader).getByRole("button", { name: "Back to outline" }));
   const cards = await screen.findByTestId("world-plan-cards");
-  const cardButtons = within(cards).getAllByRole("button", { name: "Select for Ask" });
+  const cardButtons = within(cards).getAllByRole("button", { name: /Select for Ask|Selected for Ask/ });
   const card = cardButtons.find((button) => button.getAttribute("data-target-id") === id)!;
   await waitFor(() => expect(card).toBeEnabled());
   fireEvent.click(card);
@@ -760,6 +763,8 @@ it("keeps the submitted card identity fixed while selection changes during basis
   const page = await screen.findByTestId("world-owned-plan");
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
   fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
+  const reader = screen.queryByTestId("world-plan-scene-reader");
+  if (reader) fireEvent.click(within(reader).getByRole("button", { name: "Back to outline" }));
   const cards = await screen.findByTestId("world-plan-cards");
   const selectById = (id: string) => within(cards).getAllByRole("button", { name: /Select for Ask|Selected for Ask/ })
     .find((button) => button.getAttribute("data-target-id") === id)!;
@@ -813,9 +818,8 @@ it("follows focused Scene for a new Ask while a pending Ask and Edit target stay
   const page = await screen.findByTestId("world-owned-plan");
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
   fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
-  fireEvent.click(within(screen.getByTestId("world-plan-cards")).getByRole("button", { name: "Open scene: Arrival" }));
 
-  const reader = screen.getByTestId("world-plan-scene-reader");
+  const reader = await screen.findByTestId("world-plan-scene-reader");
   const conversation = savedWorldPlanConversation();
   expect(await within(conversation).findByRole("group", { name: "Selected Playable card for Ask" })).toHaveTextContent("scene scene:arrival");
   expect(within(conversation).getByText(/Card basis · object revision 7 · SHA-256/)).toBeInTheDocument();
@@ -878,10 +882,7 @@ it("clears the previous saved Ask target when focus moves to a draft-only Scene"
   const page = await screen.findByTestId("world-owned-plan");
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
   fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
-  const cards = screen.getByTestId("world-plan-cards");
-  expect(within(cards).getByText("Draft / unsaved")).toBeInTheDocument();
-  fireEvent.click(within(cards).getByRole("button", { name: "Open scene: Arrival" }));
-  const reader = screen.getByTestId("world-plan-scene-reader");
+  const reader = await screen.findByTestId("world-plan-scene-reader");
   const conversation = savedWorldPlanConversation();
   expect(within(conversation).getByRole("group", { name: "Selected Playable card for Ask" })).toHaveTextContent("scene scene:arrival");
   fireEvent.change(messageDungeonBuddyField(conversation), { target: { value: "A question not yet sent" } });
@@ -2713,7 +2714,7 @@ it("keeps the checked-in Session 29 linked Plan safely editable after root-quote
 });
 
 it("starts Play from the exact clean committed World Plan revision", async () => {
-  const record = mockSavedPlanForAgent();
+  const record = mockSavedPlanForAgent(savedAgentPlanId, 7, 7, twoScenePlanMarkdown);
   const committed = {
     schema_version: "dmb_workspace_committed_revision_v2" as const,
     scope_mode: "world" as const,
@@ -2726,7 +2727,7 @@ it("starts Play from the exact clean committed World Plan revision", async () =>
     object_revision: 7,
     work_revision_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
     revision_n: 4,
-    markdown: savedAgentPlanText,
+    markdown: twoScenePlanMarkdown,
     content_sha256: "b".repeat(64),
     has_divergent_working_copy: false,
     target_relpath: record.target_relpath,
@@ -2743,6 +2744,13 @@ it("starts Play from the exact clean committed World Plan revision", async () =>
 
   const start = await screen.findByTestId("world-plan-start-play");
   await waitFor(() => expect(start).toBeEnabled());
+  const page = screen.getByTestId("world-owned-plan");
+  fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
+  const reader = await screen.findByTestId("world-plan-scene-reader");
+  expect(reader.querySelector(".world-plan-scene-reader__title h2")).toHaveTextContent("Arrival");
+  expect(reader).not.toHaveTextContent("A lantern moves behind the loading door.");
+  fireEvent.click(within(reader).getByRole("button", { name: "Next scene" }));
+  expect(screen.getByTestId("world-plan-scene-reader").querySelector(".world-plan-scene-reader__title h2")).toHaveTextContent("Warehouse");
   fireEvent.click(start);
 
   await waitFor(() => expect(window.location.pathname).toBe("/play"));

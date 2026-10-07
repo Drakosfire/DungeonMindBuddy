@@ -88,6 +88,12 @@ const readerFidelityV2Markdown = [
   "Do not show this ordinary section in Cards.",
 ].join("\n") + "\n";
 const initialDigest = "a".repeat(64);
+
+function returnToCardOutline() {
+  const reader = screen.queryByTestId("world-plan-scene-reader");
+  if (reader) fireEvent.click(within(reader).getByRole("button", { name: "Back to outline" }));
+  return screen.getByTestId("world-plan-cards");
+}
 const committedDigest = "b".repeat(64);
 let originalScrollIntoViewDescriptor: PropertyDescriptor | undefined;
 let scrollIntoViewWasPatched = false;
@@ -280,7 +286,7 @@ it("preserves authored blocks and renders inert references with a compact Beat d
   await waitFor(() => expect(cardsButton).toBeEnabled());
   fireEvent.click(cardsButton);
 
-  const cards = screen.getByTestId("world-plan-cards");
+  const cards = returnToCardOutline();
   const sceneCard = cards.querySelector<HTMLElement>('[data-element-id="scene:gate-call"]');
   expect(sceneCard).not.toBeNull();
   const title = sceneCard?.querySelector(".world-plan-card__title");
@@ -353,7 +359,7 @@ it("opts into exact Graph reference activation in Cards without changing authore
   fireEvent.click(reference);
 
   expect(onActivateGraphNode).toHaveBeenCalledTimes(1);
-  expect(onActivateGraphNode).toHaveBeenCalledWith("pc_caelynn");
+  expect(onActivateGraphNode).toHaveBeenCalledWith("pc_caelynn", reference);
   expect(cards).toHaveTextContent("Speak with Caelynn and review Gate procedure.");
 });
 
@@ -449,7 +455,6 @@ it("clears focused Scene and Ask context when the verified Plan basis changes", 
     <WorldPlanCardProjection {...props} documentId={documentId} basis={{ status: "verified", revision: 4, contentSha256: initialDigest }} />,
   );
 
-  fireEvent.click(screen.getByRole("button", { name: "Open scene: Arrival" }));
   expect(screen.getByTestId("world-plan-scene-reader")).toBeInTheDocument();
   expect(onSelectTarget).toHaveBeenLastCalledWith({ kind: "scene", id: "scene:arrival" });
 
@@ -491,6 +496,11 @@ it("keeps current-draft Edit selection separate from committed-Plan Ask selectio
       onSelectEditTarget={selectForEdit}
     />,
   );
+
+  expect(screen.getByTestId("world-plan-scene-reader")).toBeInTheDocument();
+  expect(selectForAsk).toHaveBeenLastCalledWith({ kind: "scene", id: "scene:arrival" });
+  fireEvent.click(within(screen.getByTestId("world-plan-scene-reader")).getByRole("button", { name: "Back to outline" }));
+  selectForAsk.mockClear();
 
   const cards = screen.getByTestId("world-plan-cards");
   const scene = cards.querySelector('[data-element-id="scene:arrival"]');
@@ -559,9 +569,8 @@ it("opens one authored v2 Scene with its associated Choice and Options, then nav
     />,
   );
 
-  const cards = screen.getByTestId("world-plan-cards");
-  fireEvent.click(within(cards).getByRole("button", { name: "Open scene: The gate" }));
   const reader = screen.getByTestId("world-plan-scene-reader");
+  expect(reader.querySelector(".world-plan-scene-reader__title h2")).toHaveTextContent("The gate");
   const readerContent = reader.querySelector(".world-plan-scene-reader__content");
   expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
   expect(scrollIntoView.mock.contexts[0]).toBe(readerContent);
@@ -580,7 +589,9 @@ it("opens one authored v2 Scene with its associated Choice and Options, then nav
   expect(warehouseReader.querySelector('[data-element-id="scene:gate"]')).toBeNull();
   expect(onSelectTarget).toHaveBeenLastCalledWith({ kind: "scene", id: "scene:warehouse" });
 
-  fireEvent.click(within(warehouseReader).getByRole("button", { name: "Back to outline" }));
+  fireEvent.click(within(warehouseReader).getByRole("button", { name: "Previous scene" }));
+  expect(screen.getByTestId("world-plan-scene-reader").querySelector(".world-plan-scene-reader__title h2")).toHaveTextContent("The gate");
+  fireEvent.click(within(screen.getByTestId("world-plan-scene-reader")).getByRole("button", { name: "Back to outline" }));
   expect(screen.queryByTestId("world-plan-scene-reader")).not.toBeInTheDocument();
   expect(screen.getByTestId("world-plan-cards")).toBeInTheDocument();
 });
@@ -625,8 +636,9 @@ it("keeps one editor draft through Cards, ordinary Save, and fresh reopen at the
   const editorElement = screen.getByTestId("world-owned-plan-markdown-editor").querySelector(".ProseMirror");
   expect(editorElement).not.toBeNull();
   fireEvent.click(cardsButton);
-  expect(screen.getByTestId("world-plan-cards")).toBeInTheDocument();
-  expect(within(screen.getByTestId("world-plan-cards")).getByText("Scene overview.")).toBeInTheDocument();
+  const cards = returnToCardOutline();
+  expect(cards).toBeInTheDocument();
+  expect(within(cards).getByText("Scene overview.")).toBeInTheDocument();
   expect(screen.getByTestId("world-owned-plan-markdown-editor").querySelector(".ProseMirror")).toBe(editorElement);
   // Return through the explicit Document view control while retaining the same editor node.
   fireEvent.click(within(page).getByRole("button", { name: "Document" }));
@@ -638,8 +650,9 @@ it("keeps one editor draft through Cards, ordinary Save, and fresh reopen at the
   expect(apis.commit).not.toHaveBeenCalled();
 
   fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
+  const editedCards = returnToCardOutline();
   expect(screen.getByText("Draft / unsaved")).toBeInTheDocument();
-  expect(within(screen.getByTestId("world-plan-cards")).getByText("Scene overview revised.")).toBeInTheDocument();
+  expect(within(editedCards).getByText("Scene overview revised.")).toBeInTheDocument();
   expect(screen.getByTestId("world-owned-plan-markdown-editor").querySelector(".ProseMirror")).toBe(editorElement);
   expect(apis.prepare).not.toHaveBeenCalled();
   expect(apis.commit).not.toHaveBeenCalled();
@@ -687,11 +700,12 @@ it("keeps one editor draft through Cards, ordinary Save, and fresh reopen at the
   const reopenedCardsButton = within(reopenedPage).getByRole("button", { name: "Cards" });
   await waitFor(() => expect(reopenedCardsButton).toBeEnabled());
   fireEvent.click(reopenedCardsButton);
+  const reopenedOutline = returnToCardOutline();
   expect(screen.getByText("Saved snapshot verified")).toBeInTheDocument();
-  fireEvent.click(screen.getByText("Plan basis details"));
+  fireEvent.click(within(reopenedOutline).getByText("Plan basis details"));
   expect(screen.getByText("6", { selector: "dd" })).toBeInTheDocument();
   expect(screen.getByText(committedDigest)).toBeInTheDocument();
-  expect(within(screen.getByTestId("world-plan-cards")).getByText("Scene overview revised.")).toBeInTheDocument();
+  expect(within(reopenedOutline).getByText("Scene overview revised.")).toBeInTheDocument();
   expect(screen.getByTestId("world-owned-plan-markdown-editor").querySelector(".ProseMirror")).not.toBe(editorElement);
   expect(apis.commit).toHaveBeenCalledTimes(1);
 });
@@ -708,7 +722,7 @@ it("keeps a persisted server draft uncommitted until ordinary Save and fresh reo
   expect(apis.commit).not.toHaveBeenCalled();
 
   fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
-  const cards = screen.getByTestId("world-plan-cards");
+  const cards = returnToCardOutline();
   expect(within(cards).getByText("Server draft / uncommitted")).toBeInTheDocument();
   expect(cards).toHaveTextContent("Uncommitted server draft");
   expect(within(cards).getAllByText("Unavailable")).toHaveLength(2);
@@ -731,7 +745,7 @@ it("keeps a persisted server draft uncommitted until ordinary Save and fresh reo
   const reopenedPage = await screen.findByTestId("world-owned-plan");
   await waitFor(() => expect(within(reopenedPage).getByRole("button", { name: "Cards" })).toBeEnabled());
   fireEvent.click(within(reopenedPage).getByRole("button", { name: "Cards" }));
-  const reopenedCards = screen.getByTestId("world-plan-cards");
+  const reopenedCards = returnToCardOutline();
   expect(within(reopenedCards).getByText("Saved snapshot verified")).toBeInTheDocument();
   fireEvent.click(within(reopenedCards).getByText("Plan basis details"));
   expect(within(reopenedCards).getByText("Committed snapshot")).toBeInTheDocument();
@@ -775,7 +789,7 @@ it("round-trips the mounted v2 writer boundary from Document edit through Cards,
   expect(apis.commit).not.toHaveBeenCalled();
 
   fireEvent.click(cardsButton);
-  const cards = screen.getByTestId("world-plan-cards");
+  const cards = returnToCardOutline();
   expect(within(cards).getByText("Draft / unsaved")).toBeInTheDocument();
   expect(within(cards).getByText("The queue is moving.")).toBeInTheDocument();
   expect(cards).toHaveTextContent("Associated scene: scene:gate-line");
@@ -822,7 +836,7 @@ it("round-trips the mounted v2 writer boundary from Document edit through Cards,
   const reopenedCardsButton = within(reopenedPage).getByRole("button", { name: "Cards" });
   await waitFor(() => expect(reopenedCardsButton).toBeEnabled());
   fireEvent.click(reopenedCardsButton);
-  const reopenedCards = screen.getByTestId("world-plan-cards");
+  const reopenedCards = returnToCardOutline();
   const reopenedRoots = reopenedCards.querySelector(":scope > .world-plan-card-roots")!;
   expect([...reopenedRoots.querySelectorAll(":scope > li")].map((node) => node.getAttribute("data-element-id")))
     .toEqual(["beat:hold-the-gate", "beat:panic-breaks"]);
@@ -859,7 +873,7 @@ it("hides the saved basis while a commit is uncertain and preserves the draft wi
   fireEvent.input(sceneBody);
   await waitFor(() => expect(within(screen.getByTestId("world-plan-document-view")).getByText("Scene overview pending.")).toBeInTheDocument());
   fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
-  const cards = screen.getByTestId("world-plan-cards");
+  const cards = returnToCardOutline();
   const detailsSummary = within(cards).getByText("Plan basis details");
   fireEvent.click(detailsSummary);
   expect(within(cards).getByText(initialDigest)).toBeInTheDocument();
@@ -961,15 +975,18 @@ it("invalidates the selected card projection when the saved document or World ch
   const cardsButton = within(page).getByRole("button", { name: "Cards" });
   await waitFor(() => expect(cardsButton).toBeEnabled());
   fireEvent.click(cardsButton);
-  expect(within(screen.getByTestId("world-plan-cards")).getByText("Scene overview.")).toBeInTheDocument();
+  const initialCards = returnToCardOutline();
+  expect(within(initialCards).getByText("Scene overview.")).toBeInTheDocument();
 
   fireEvent.change(screen.getByLabelText("Plan document"), { target: { value: secondDocumentId } });
   await waitFor(() => expect(screen.getByLabelText("Plan document")).toHaveValue(secondDocumentId));
   await waitFor(() => expect(screen.queryByTestId("world-plan-cards")).not.toBeInTheDocument());
   expect(within(screen.getByTestId("world-plan-document-view")).getByText("Second document prose.")).toBeInTheDocument();
   fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
-  expect(within(screen.getByTestId("world-plan-cards")).getByText("Second document prose.")).toBeInTheDocument();
-  expect(within(screen.getByTestId("world-plan-cards")).queryByText("Scene overview.")).not.toBeInTheDocument();
+  const secondReader = await screen.findByTestId("world-plan-scene-reader");
+  expect(secondReader).toHaveTextContent("Second document prose.");
+  expect(secondReader).not.toHaveTextContent("Scene overview.");
+  expect(secondReader.querySelector('[data-element-id="scene:arrival"]')).toBeNull();
 
   mounted.unmount();
   window.history.replaceState({}, "", `/plan?world=${secondWorldId}&documentId=${thirdDocumentId}`);
@@ -979,8 +996,8 @@ it("invalidates the selected card projection when the saved document or World ch
   expect(screen.queryByTestId("world-plan-cards")).not.toBeInTheDocument();
   expect(within(screen.getByTestId("world-plan-document-view")).getByText("Other World prose.")).toBeInTheDocument();
   fireEvent.click(within(otherWorldPage).getByRole("button", { name: "Cards" }));
-  const otherWorldCards = screen.getByTestId("world-plan-cards");
-  expect(within(otherWorldCards).getByText("Other World prose.")).toBeInTheDocument();
+  expect(await screen.findByTestId("world-plan-scene-reader")).toHaveTextContent("Other World prose.");
+  const otherWorldCards = returnToCardOutline();
   fireEvent.click(within(otherWorldCards).getByText("Plan basis details"));
   expect(within(otherWorldCards).getByText(secondWorldId)).toBeInTheDocument();
   expect(within(otherWorldCards).getByText(thirdDocumentId)).toBeInTheDocument();

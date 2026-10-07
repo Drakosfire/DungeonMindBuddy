@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { JSONContent } from "@tiptap/core";
 import { ReadOnlyBodyContent } from "../../markdownReader/ReadOnlyBodyContent";
 import {
@@ -424,6 +424,7 @@ export function WorldPlanCardProjection({
   const nodes = useMemo(() => model.status === "ready" ? flattenNodes(model.roots) : [], [model]);
   const scenes = useMemo(() => nodes.filter((node) => node.kind === "scene"), [nodes]);
   const [focusedSceneId, setFocusedSceneId] = useState<string | null>(null);
+  const defaultFocusAttemptedRef = useRef(false);
   const focusedSceneContentRef = useRef<HTMLDivElement | null>(null);
   const basisIdentity = basis.status === "verified"
     ? `verified:${basis.revision}:${basis.contentSha256}`
@@ -451,6 +452,16 @@ export function WorldPlanCardProjection({
     && selectedTarget?.kind === focusedTarget.kind
     && selectedTarget.id === focusedTarget.id);
 
+  const focusScene = useCallback((scene: WorldPlanCardNode) => {
+    defaultFocusAttemptedRef.current = true;
+    setFocusedSceneId(scene.id);
+    const target = { kind: scene.kind, id: scene.id } satisfies WorldPlanCardTarget;
+    onSelectTarget?.(basis.status === "verified"
+      && selectableTargetKeys.has(worldPlanCardTargetKey(target))
+      ? target
+      : null);
+  }, [basis.status, onSelectTarget, selectableTargetKeys]);
+
   useEffect(() => {
     if (focusIdentityRef.current === focusIdentity) return;
     focusIdentityRef.current = focusIdentity;
@@ -464,19 +475,22 @@ export function WorldPlanCardProjection({
     onSelectTarget?.(null);
   }, [focusedScene, focusedSceneId, onSelectTarget]);
 
+  useEffect(() => {
+    if (defaultFocusAttemptedRef.current || basis.status !== "verified") return;
+    const selectableScenes = scenes.filter((scene) => selectableTargetKeys.has(
+      worldPlanCardTargetKey({ kind: scene.kind, id: scene.id }),
+    ));
+    const selectedScene = selectedTarget?.kind === "scene"
+      ? selectableScenes.find((scene) => scene.id === selectedTarget.id)
+      : null;
+    const initialScene = selectedScene ?? selectableScenes[0];
+    if (initialScene) focusScene(initialScene);
+  }, [basis.status, focusScene, scenes, selectableTargetKeys, selectedTarget]);
+
   useLayoutEffect(() => {
     if (!focusedSceneId) return;
     focusedSceneContentRef.current?.scrollIntoView?.({ block: "start" });
   }, [focusedSceneId]);
-
-  const focusScene = (scene: WorldPlanCardNode) => {
-    setFocusedSceneId(scene.id);
-    const target = { kind: scene.kind, id: scene.id } satisfies WorldPlanCardTarget;
-    onSelectTarget?.(basis.status === "verified"
-      && selectableTargetKeys.has(worldPlanCardTargetKey(target))
-      ? target
-      : null);
-  };
 
   if (model.status === "blocked") {
     return (
