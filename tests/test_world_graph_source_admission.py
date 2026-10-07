@@ -9,6 +9,7 @@ import textwrap
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -355,6 +356,113 @@ def test_selected_source_pins_share_one_search_without_opening_content(
         source_revision_id="source-revision:one",
     ),)
     assert calls == ["search"]
+
+
+def test_complete_native_source_index_maps_full_pins_without_source_io(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from dungeonmind.application.world_graph_retrieval import (
+        SourceAnchorIndexEntry,
+        SourceAnchorIndexResult,
+    )
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+
+    focus = object()
+    projection = SimpleNamespace(
+        world_id="native:one", campaign_id=None, focus=focus,
+        admissibility=SimpleNamespace(value="gm"), scope_mode="world_cross_campaign",
+        revision_pin="graph:one",
+    )
+    snapshot = SimpleNamespace(
+        world_id=projection.world_id, campaign_id=None, focus=focus,
+        admissibility=projection.admissibility, scope_mode=projection.scope_mode,
+        revision_id="graph:one",
+    )
+    initial = SourceAnchorIndexEntry(
+        anchor_id="dm-source-anchor:v1:initial", evidence_ref_id="evidence:one",
+        source_artifact_id="artifact:one", source_revision_id="source-revision:one",
+    )
+    discovered = SourceAnchorIndexEntry(
+        anchor_id="dm-source-anchor:v1:later", evidence_ref_id="evidence:two",
+        source_artifact_id="artifact:two", source_revision_id="source-revision:two",
+    )
+    calls: list[int] = []
+
+    def index(request: Any) -> SourceAnchorIndexResult:
+        calls.append(request.max_entries)
+        assert request.projection is projection
+        return SourceAnchorIndexResult(
+            snapshot=snapshot, eligible_count=2, max_entries=512,
+            status="complete", entries=(discovered, initial),
+        )
+
+    services = SimpleNamespace(
+        binding=object(), retrieval=SimpleNamespace(list_source_anchor_index=index),
+    )
+    monkeypatch.setattr(direct, "_map_retrieval_context", lambda *_args: projection)
+    monkeypatch.setattr(
+        direct, "_anchor_read_view",
+        lambda *_args, **_kwargs: pytest.fail("index opened source content"),
+    )
+    request = SimpleNamespace(
+        revision_pin="graph:one",
+        model_copy=lambda **_kwargs: object(),
+    )
+    resolved = direct.list_source_anchor_index_direct_v2(
+        services, request, revision_id="graph:one",
+    )
+    assert resolved.status == "complete"
+    assert resolved.eligible_count == 2
+    assert [pin.evidence_ref_id for pin in resolved.source_pins] == [
+        "evidence:one", "evidence:two",
+    ]
+    assert calls == [512]
+
+    services.retrieval.list_source_anchor_index = lambda _request: SourceAnchorIndexResult(
+        snapshot=snapshot, eligible_count=513, max_entries=512,
+        status="overflow", entries=(),
+    )
+    overflow = direct.list_source_anchor_index_direct_v2(
+        services, request, revision_id="graph:one",
+    )
+    assert overflow.status == "overflow"
+    assert overflow.eligible_count == 513
+    assert overflow.source_pins == ()
+
+    services.retrieval.list_source_anchor_index = lambda _request: SourceAnchorIndexResult(
+        snapshot=SimpleNamespace(**{**vars(snapshot), "revision_id": "graph:foreign"}),
+        eligible_count=2, max_entries=512, status="complete",
+        entries=(initial, discovered),
+    )
+    with pytest.raises(direct.DirectWorldGraphReadError):
+        direct.list_source_anchor_index_direct_v2(
+            services, request, revision_id="graph:one",
+        )
+
+    services.retrieval.list_source_anchor_index = lambda _request: SourceAnchorIndexResult(
+        snapshot=snapshot, eligible_count=2, max_entries=512,
+        status="complete", entries=(
+            initial,
+            SourceAnchorIndexEntry(
+                anchor_id=initial.anchor_id, evidence_ref_id="evidence:other",
+                source_artifact_id="artifact:other",
+                source_revision_id="source-revision:other",
+            ),
+        ),
+    )
+    with pytest.raises(direct.DirectWorldGraphReadError):
+        direct.list_source_anchor_index_direct_v2(
+            services, request, revision_id="graph:one",
+        )
+
+    services.retrieval.list_source_anchor_index = lambda _request: SourceAnchorIndexResult(
+        snapshot=snapshot, eligible_count=2, max_entries=256,
+        status="complete", entries=(initial, discovered),
+    )
+    with pytest.raises(direct.DirectWorldGraphReadError):
+        direct.list_source_anchor_index_direct_v2(
+            services, request, revision_id="graph:one",
+        )
 
 
 def test_internal_source_read_receipt_binds_executors_id_and_rejects_forgery(
