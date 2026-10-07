@@ -780,6 +780,7 @@ PlanGraphResolver = Callable[
         Mapping[str, Any] | None,
         AgentTurnResolvedWork | None,
         PlanWorldGraphContextReceiptV1 | None,
+        str,
     ],
     AgentPlanWorldGraphBootstrap,
 ]
@@ -2743,12 +2744,13 @@ def execute_agent_turn(
     policy_bootstrap: AgentPlanWorldGraphBootstrap | None = None
     if request.plan_context_policy is not None:
         try:
-            with trace.phase("plan_graph_context_resolution"):
+            with trace.phase("plan_graph_context_resolution") as parent_span_id:
                 policy_bootstrap = plan_graph_resolver(
                     request,
                     owner,
                     work,
                     None if durable_turn is None else durable_turn.graph_context_receipt,
+                    parent_span_id,
                 )
                 policy_bootstrap = _admitted_initial_policy_bootstrap(policy_bootstrap)
         except AgentTurnServiceError:

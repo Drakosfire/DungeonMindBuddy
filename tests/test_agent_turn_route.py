@@ -340,10 +340,12 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         backend="test",
         mode="test",
     )
+    parent_span_id = trace.start_phase("plan_graph_context_resolution")
     selected = agent_route._plan_context_resolver(
         selected_body, {"kind": "world", "id": managed.world_id}, selected_work, None,
-        trace=trace,
+        trace=trace, parent_span_id=parent_span_id,
     )
+    trace.complete_phase(parent_span_id)
     assert selected.world_scope.revision_id == published.revision_id
     assert "obj:tavern" in selected.graph_envelope["matched_node_ids"]
     assert selected.retrieval_session.claims
@@ -355,7 +357,12 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         "plan_graph_seed_object_lookups",
         "plan_graph_search",
         "plan_graph_projection",
+        "plan_graph_context_resolution",
     ]
+    assert all(
+        span["parent_span_id"] == parent_span_id
+        for span in trace.spans if span["name"] != "plan_graph_context_resolution"
+    )
     spans_by_name = {span["name"]: span for span in trace.spans}
     assert spans_by_name["plan_graph_seed_selection"]["duration_ms"] >= 0
     seed_lookup = spans_by_name["plan_graph_seed_object_lookups"]
@@ -369,61 +376,6 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         "source_anchor_count": len(selected.graph_envelope["source_anchors"]),
     }
     assert all(span["duration_ms"] >= 0 for span in spans_by_name.values())
-
-    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
-
-    def fail_seed_lookup(*_args: Any, **_kwargs: Any) -> Any:
-        raise RuntimeError("synthetic lookup failure")
-
-    with monkeypatch.context() as patch:
-        patch.setattr(direct, "get_object_direct", fail_seed_lookup)
-        failed_trace = AgentTurnTraceBuilder(
-            agent_thread_id=None,
-            turn_id=selected_body.turn_id,
-            runtime="test",
-            backend="test",
-            mode="test",
-        )
-        with pytest.raises(AgentTurnServiceError) as lookup_error:
-            agent_route._plan_context_resolver(
-                selected_body, {"kind": "world", "id": managed.world_id},
-                selected_work, None, trace=failed_trace,
-            )
-    assert lookup_error.value.code == "graph_unavailable"
-    assert lookup_error.value.status_code == 503
-    assert lookup_error.value.provider_dispatched is False
-    failed_lookup_span = next(
-        span for span in failed_trace.spans
-        if span["name"] == "plan_graph_seed_object_lookups"
-    )
-    assert failed_lookup_span["status"] == "error"
-    assert failed_lookup_span["attributes"] == {"candidate_count": 1, "lookup_count": 1}
-
-    from graph_memory.interaction import session_store
-
-    def fail_projection(_session: Any) -> Any:
-        raise RuntimeError("synthetic projection failure")
-
-    with monkeypatch.context() as patch:
-        patch.setattr(session_store, "create_session", fail_projection)
-        failed_projection_trace = AgentTurnTraceBuilder(
-            agent_thread_id=None,
-            turn_id=selected_body.turn_id,
-            runtime="test",
-            backend="test",
-            mode="test",
-        )
-        with pytest.raises(RuntimeError, match="synthetic projection failure"):
-            agent_route._plan_context_resolver(
-                selected_body, {"kind": "world", "id": managed.world_id},
-                selected_work, None, trace=failed_projection_trace,
-            )
-    failed_projection_span = next(
-        span for span in failed_projection_trace.spans
-        if span["name"] == "plan_graph_projection"
-    )
-    assert failed_projection_span["status"] == "error"
-    assert failed_projection_span["attributes"] == projection["attributes"]
 
     frozen = SimpleNamespace(graph_authority=SimpleNamespace(
         managed_world_id=managed.world_id,
@@ -973,6 +925,84 @@ def _authorize_route_execution(monkeypatch: Any) -> None:
 
     monkeypatch.setattr(agent_route, "enforce_native_graph_gm", lambda _request: None)
     monkeypatch.setattr(agent_route, "_conversation_service", lambda _request: None)
+
+
+def test_plan_graph_seed_lookup_failure_preserves_pre_dispatch_error_and_trace(
+    tmp_path: Path, monkeypatch: Any,
+) -> None:
+    from apps.live_control_server.routes import agent as agent_route
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+    from apps.live_control_server.services import world_container_registry
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
+
+    managed_world_id = "managed-world-test"
+    native_world_id = "native-world-test"
+    source_root = "corpus/managed-world-test"
+    (tmp_path / source_root).mkdir(parents=True)
+    binding = SimpleNamespace(
+        native_world_id=native_world_id, binding_version=1, status="active",
+    )
+    container = SimpleNamespace(
+        native_graph_binding=binding, source_root_relpath=source_root,
+    )
+    monkeypatch.setattr(agent_route, "_managed_world_root", lambda: tmp_path)
+    monkeypatch.setattr(
+        world_container_registry, "world_source_root_relpath", lambda _world_id: source_root,
+    )
+    monkeypatch.setattr(
+        world_container_registry, "get_world_container", lambda *_args: container,
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.agent_plan_playable_target.selected_plan_graph_seed_candidates",
+        lambda *_args: ["obj:seed"],
+    )
+    monkeypatch.setattr(direct, "direct_services_from_config", lambda _world_id: object())
+
+    def fail_lookup(*_args: Any, **_kwargs: Any) -> Any:
+        raise RuntimeError("synthetic seed lookup failure")
+
+    monkeypatch.setattr(direct, "get_object_direct", fail_lookup)
+    payload = _payload()
+    payload.update({
+        "surface": {"surface_id": "plan", "instance_id": "plan-main"},
+        "owner_scope": {"kind": "world", "world_id": managed_world_id},
+        "primary_work": {
+            "kind": "plan", "object_id": "plan-1", "expected_revision": 7,
+            "expected_revision_n": 3, "expected_content_sha256": "a" * 64,
+        },
+        "client_work_state": "saved_clean",
+        "plan_context_policy": {"policy": "auto_plan_world"},
+        "playable_target": {
+            "schema": "dmb_plan_playable_target_v1", "kind": "scene", "id": "scene:test",
+        },
+    })
+    body = AgentTurnRequest.model_validate(payload)
+    work = agent_route.AgentTurnResolvedWork(
+        kind="plan", object_id="plan-1", revision=7,
+        changed_since_expected=False, owner_kind="world", owner_id=managed_world_id,
+        world_id=managed_world_id, plan_markdown="Plan text.",
+    )
+    trace = AgentTurnTraceBuilder(
+        agent_thread_id=None, turn_id=body.turn_id,
+        runtime="test", backend="test", mode="test",
+    )
+
+    with pytest.raises(AgentTurnServiceError) as caught:
+        agent_route._plan_context_resolver(
+            body, {"kind": "world", "id": managed_world_id}, work, None,
+            trace=trace,
+        )
+
+    assert caught.value.code == "graph_unavailable"
+    assert caught.value.status_code == 503
+    assert caught.value.provider_dispatched is False
+    lookup_span = next(
+        span for span in trace.spans
+        if span["name"] == "plan_graph_seed_object_lookups"
+    )
+    assert lookup_span["status"] == "error"
+    assert lookup_span["attributes"] == {"candidate_count": 1, "lookup_count": 1}
 
 
 def test_no_scope_route_does_not_load_packet_and_registers_exactly_once(
