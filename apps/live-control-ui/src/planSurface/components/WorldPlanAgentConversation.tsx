@@ -1650,6 +1650,11 @@ export function WorldPlanAgentConversation({
   } | null>(null);
   const [newReplyAvailable, setNewReplyAvailable] = useState(false);
   const followsLatestRef = useRef(true);
+  const olderPageScrollAnchorRef = useRef<{
+    viewport: HTMLElement;
+    scrollTop: number;
+    scrollHeight: number;
+  } | null>(null);
   const previousVerifiedWorldIdRef = useRef(verifiedWorldId);
   const [useWorldGraphForAsk, setUseWorldGraphForAsk] = useState(true);
   useLayoutEffect(() => {
@@ -1792,6 +1797,13 @@ export function WorldPlanAgentConversation({
     viewport.addEventListener("scroll", updateFollowState, { passive: true });
     return () => viewport.removeEventListener("scroll", updateFollowState);
   }, [agent.paneState.isOpen, presentationHosts]);
+  useLayoutEffect(() => {
+    const anchor = olderPageScrollAnchorRef.current;
+    if (!anchor) return;
+    olderPageScrollAnchorRef.current = null;
+    const addedHeight = Math.max(0, anchor.viewport.scrollHeight - anchor.scrollHeight);
+    anchor.viewport.scrollTop = anchor.scrollTop + addedHeight;
+  }, [history]);
   useLayoutEffect(() => {
     if (!presentationHosts || !agent.paneState.isOpen || !latestConversationEventKey) return;
     const viewport = presentationHosts.messages?.parentElement;
@@ -2451,6 +2463,14 @@ export function WorldPlanAgentConversation({
         next_before_sequence: page.next_before_sequence,
       };
       historySnapshotRef.current = merged;
+      const viewport = presentationHosts?.messages?.parentElement;
+      if (viewport) {
+        olderPageScrollAnchorRef.current = {
+          viewport,
+          scrollTop: viewport.scrollTop,
+          scrollHeight: viewport.scrollHeight,
+        };
+      }
       setHistory(merged);
     } catch (reason) {
       if (generation === historyGenerationRef.current) {
