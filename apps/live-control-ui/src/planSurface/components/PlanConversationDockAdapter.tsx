@@ -43,7 +43,8 @@ function MountedPlanDock({reader,contextLabel,children,slot}:AdapterProps & {slo
     <ConversationDock className="plan-conversation-dock" reader={reader} readerLabel="Plan workspace"
       conversationLabel="Saved World Plan conversation"
       title="Buddy" contextLabel={contextLabel} expanded={paneState.isOpen} onExpandedChange={setPaneOpen}
-      headerActions={<><div ref={header}/><div ref={setLauncherHost} className="plan-conversation-dock__launcher"/></>}
+      initialHeight={220} minHeight={180}
+      headerActions={<><details className="plan-conversation-dock__management"><summary>More</summary><div ref={header}/></details><div ref={setLauncherHost} className="plan-conversation-dock__launcher"/></>}
       contextDetails={<div ref={context}/>}
       messages={<div ref={messages} className="plan-conversation-dock__messages"/>}
       composer={<div ref={composer} className="plan-conversation-dock__composer"/>}/>

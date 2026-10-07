@@ -2,7 +2,7 @@
 
 Status: ACTIVE, implementation submitted for independent review; no merge authority.
 
-Branch: `codex/dogfood-plan-bottom-dock`. Base: merged `25914c4d9e944f3f951053a7b1ac5656bc0c5ceb`. Topology: serial; no unmerged parent inherited. PRIME explicitly activated this bounded frontend design and exclusive write lease on 2026-10-07. #970 merged with controlled focus acceptance and released Page/test ownership; parked #979 conversation paths were explicitly transferred. No further operator or architecture design gate applies.
+Branch: `codex/dogfood-plan-bottom-dock`. Base: merged `de22fdefd5b3d8265f85c6b1109f5edd67db660f`. Topology: serial; no unmerged parent inherited. PRIME explicitly activated this bounded frontend design and exclusive write lease on 2026-10-07. #970 merged with controlled focus acceptance and released Page/test ownership; parked #979 conversation paths were explicitly transferred. No further operator or architecture design gate applies.
 
 The unpublished terminal recovery repair `2bdfb4050ab1bc235c6022741d43a5d99cfac1db` is excluded. This implementation neither copies nor inherits it and preserves merged-main request/recovery semantics, including current stale warnings. Source acceptance and runtime adoption remain separate.
 
@@ -18,7 +18,7 @@ World Plan has one readable document/card workspace above one resizable bottom c
 4. AskPluginSlot gains a bounded layout-owner discriminator: chrome or plan-workspace. It does not hold chat payloads or commands. While plan-workspace owns presentation, AgentInteractionChrome preserves the existing dragon launcher and pane state but does not mount a duplicate Plan Ask overlay, resize rail or root-width reservation. Cleanup restores legacy ownership when leaving the adopted Plan.
 5. AppChrome gains an opt-in bounded workspace mode requested only by this World Plan adopter. Inspection correction: current AppChrome center/Peek workspace wrapper is mounted for Ingest, not automatically for Plan. The adopter therefore needs an explicit Plan height-owning center below existing navigation; it must not assume that wrapper already exists. Do not add a competing Graph inspector or reroute #970's inspection controller in this slice.
 6. styles.css changes are limited to the opted-in Plan workspace's height/scroll composition and suppressing obsolete agent-width reservation for that owner. Existing edit-toolbox and legacy other-surface behavior stay supported. No guessed fixed navigation offsets.
-7. Normal composer presentation is one controlled text box and Send with a compact existing intent control. Graph policy, exact IDs and target metadata are inspectable context. Settings/recovery/proposal review use the existing scrollable message region when opened, not another floating panel. Defaults and request/retry rules are unchanged. Current card focus still includes the saved Plan; do not label it scene-only context.
+7. Normal composer presentation is one controlled text box and Send with a compact existing intent control. Initial open conversation height is220px; users may deliberately resize. Settings/New Conversation remain existing controller actions under a closed More disclosure. Graph policy, exact IDs and target metadata are inspectable context. Settings/recovery/proposal review use the existing scrollable message region when opened, not another floating panel. Defaults and request/retry rules are unchanged. Current card focus still includes the saved Plan; do not label it scene-only context.
 
 ## Exact expected write set for activation
 

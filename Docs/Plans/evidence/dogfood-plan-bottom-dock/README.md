@@ -1,6 +1,6 @@
 # Plan bottom conversation — integration evidence
 
-Base: merged `25914c4d9e944f3f951053a7b1ac5656bc0c5ceb`. Branch: `codex/dogfood-plan-bottom-dock`. Review the cumulative base-to-head diff; this evidence is source/fixture verification, not operator-runtime acceptance.
+Base: merged `de22fdefd5b3d8265f85c6b1109f5edd67db660f`. Branch: `codex/dogfood-plan-bottom-dock`. Review the cumulative base-to-head diff; this evidence is source/fixture verification, not operator-runtime acceptance.
 
 ## Actual composition
 
@@ -20,3 +20,9 @@ The first narrow inspection caught inherited `.app-shell-layout { display:block 
 ## Limits
 
 This adopts bottom conversation layout, not the complete successful prototype. Cards remain the existing production cards. Discuss/Propose intent, Graph opt-in, full committed-Plan context and backend request limits are unchanged. Existing recovery warnings remain visible; the unpublished terminal recovery repair was not copied, inherited or recreated. No source entitlement, native chronology or statblock linkage is established by this UI fixture.
+
+## Independent geometry correction
+
+PRIME held the first head's open allocation: the conversation dominated the reader. The correction starts open chat at 220px (resizing remains deliberate); actual default desktop reader is272.67px and narrow reader263.83px. The composer is visible inside both viewports with one launcher and no horizontal overflow. `geometry.json` captures full measured rectangles. Closed management controls are under More, normal transcript heading/caught-up copy is reduced, and turn metadata shares one compact row. Settings/context were opened and closed with a retained draft and enabled Send; no request was submitted. A pointer drag expanded chat to310px, shown separately in `deliberately-expanded.png`; this is a user-selected allocation, not the default.
+
+After the correction, the affected adapter and owning Page suites pass64tests. Unchanged boundary suites remain as previously verified. The actual branch parent/mergebase is merged de22fdefd5b3d8265f85c6b1109f5edd67db660f (includes #996); the earlier25914 label was incorrect and is corrected here and in the handoff. No unpublished recovery repair was inherited.

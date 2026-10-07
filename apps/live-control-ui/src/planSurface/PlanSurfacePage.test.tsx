@@ -906,6 +906,7 @@ it("connects and revokes the local Agent and Graph session from Settings", async
   );
 
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  fireEvent.click(screen.getByText("More", {exact:true}));
   fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
   expect(screen.queryByLabelText("Local operator credential")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Connect local session" }));

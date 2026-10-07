@@ -1,0 +1,98 @@
+{
+  "desktop": {
+    "composer": {
+      "bottom": 685.609375,
+      "height": 68.140625,
+      "left": 58.390625,
+      "right": 1221.609375,
+      "top": 617.46875,
+      "width": 1163.21875,
+      "x": 58.390625,
+      "y": 617.46875
+    },
+    "conversation": {
+      "bottom": 696,
+      "height": 220,
+      "left": 44,
+      "right": 1236,
+      "top": 476,
+      "width": 1192,
+      "x": 44,
+      "y": 476
+    },
+    "horizontalOverflow": false,
+    "launchers": 1,
+    "messages": {
+      "bottom": 611.875,
+      "height": 63.5,
+      "left": 58.390625,
+      "right": 1221.609375,
+      "top": 548.375,
+      "width": 1163.21875,
+      "x": 58.390625,
+      "y": 548.375
+    },
+    "reader": {
+      "bottom": 476,
+      "height": 272.671875,
+      "left": 44,
+      "right": 1236,
+      "top": 203.328125,
+      "width": 1192,
+      "x": 44,
+      "y": 203.328125
+    },
+    "viewport": {
+      "height": 720,
+      "width": 1280
+    }
+  },
+  "mobile": {
+    "composer": {
+      "bottom": 809.609375,
+      "height": 68.140625,
+      "left": 58.390625,
+      "right": 331.609375,
+      "top": 741.46875,
+      "width": 273.21875,
+      "x": 58.390625,
+      "y": 741.46875
+    },
+    "conversation": {
+      "bottom": 820,
+      "height": 220,
+      "left": 44,
+      "right": 346,
+      "top": 600,
+      "width": 302,
+      "x": 44,
+      "y": 600
+    },
+    "horizontalOverflow": false,
+    "launchers": 1,
+    "messages": {
+      "bottom": 735.875,
+      "height": 63.5,
+      "left": 58.390625,
+      "right": 331.609375,
+      "top": 672.375,
+      "width": 273.21875,
+      "x": 58.390625,
+      "y": 672.375
+    },
+    "reader": {
+      "bottom": 600,
+      "height": 263.828125,
+      "left": 44,
+      "right": 346,
+      "top": 336.171875,
+      "width": 302,
+      "x": 44,
+      "y": 336.171875
+    },
+    "viewport": {
+      "height": 844,
+      "width": 390
+    }
+  }
+}

@@ -31,6 +31,7 @@ describe("PlanConversationDockAdapter",()=>{
     const input=await screen.findByLabelText("Message Buddy"),reader=screen.getByLabelText("Plan draft");
     await user.type(input,"Remember the sleepers");
     await waitFor(()=>expect(screen.getByRole("log")).toBeVisible());
+    expect(screen.getByRole("separator", {name:"Resize Buddy conversation"})).toHaveAttribute("aria-valuenow", "220");
     await user.click(screen.getByRole("button",{name:"Collapse",exact:true}));
     expect(screen.getByLabelText("Message Buddy")).toBe(input);
     expect(input).toHaveValue("Remember the sleepers");
