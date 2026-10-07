@@ -1,0 +1,32 @@
+# HANDOFF — SERVER: Graph binding diagnostic operator transition
+
+**Status:** PROPOSED for PRIME review; no runtime lease activated.
+**Predecessors:** APP-STATE [#992](https://github.com/Drakosfire/DungeonMindBuddy/pull/992) merged at `04b4bee5dda0951a707bf26dc1be74f45d355e98`; SERVER mapper [#993](https://github.com/Drakosfire/DungeonMindBuddy/pull/993) merged at `78760713f0b1bd80fe4b114362f83c4302896a37`. This docs-only PR starts from that exact `main` head. The prior operator handoff [#982](https://github.com/Drakosfire/DungeonMindBuddy/pull/982) is merged history, so this handoff pins only the next candidate and transition.
+**Primary question:** Can the current local operator runtime gain only the accepted closed APP-STATE completion rejection codes and SERVER binding mapper, preserving its existing UI, dependencies, product state, and historical failed turns?
+
+## Reviewed candidate and write boundary
+
+The proposed candidate is `origin/codex/server-graph-binding-diagnostic-runtime-candidate@0f5c96d5d50918d0b365ce8e76849264038ab737`, tree `c6435c37629b03315a4e7f64a46b679aae225305`, a direct child of deployed `437d50281fae9def1a557d169e8b9808794ba6c2` (tree `787ddd392758cfb2aeb7bee18d2829814939df2b`). Its entire parent→candidate diff is exactly two files:
+
+- `apps/live_control_server/services/agent_turn_service.py` blob `5576efa009e7e7d9eee72d857456e161fca1ba01`, identical to merged #993.
+- `src/application_state/agent_conversation/types.py` blob `5a1d67883f4222b482691fe26e729bb6de4cfe89`, identical to merged #992 and current main.
+
+The UI tree, `pyproject.toml`, `uv.lock`, `package-lock.json`, and `hermes_agent_runtime.py` stay identical to the **deployed parent**. The UI intentionally remains at the operator runtime basis rather than taking current main's later UI changes. Candidate checkout is clean; two-file Ruff and parent→candidate `git diff --check` passed. The accepted source PRs own their behavior tests: APP-STATE's focused validator test passed, and SERVER's owning test file passed 51. SERVER's adjacent batch had 49 passed and five failures reproduced identically on its exact clean base; none is introduced by the mapper.
+
+If PRIME activates this transition, the only operational writes are the permanent runtime checkout Git state and its owned `.run` launcher/PID/log lifecycle files. Do not edit source, install or sync dependencies, migrate, republish, alter the database or native Graph, change source artifacts, invoke a provider, or send/replay an Ask. The failed witness turn `013fda69-296e-4202-bee1-9543faba6454` stays fixed evidence; its rejected answer was not retained, so deployment alone cannot reveal its subtype. PRIME owns any later separately authorized **one fresh Ask**.
+
+## Read-only proposal basis, 2026-10-07
+
+The permanent runtime is clean detached at `437d5028`, with owned launcher PGID `1113468`: API listener `1113509`, UI `1113585`, and DungeonMindServer `1113504/1113529`. All 5202/8000/7860 health probes returned HTTP 200. Read-only proposal snapshot `/tmp/dmb-binding-diagnostic-proposal-20261007.json` has SHA-256 `194e972f866e84ccb129af3b872ebfb1fd3840c2f38fe2ff95a336695e929b1b`, zero open Agent turns/actions, ten Plan/Run/Agent table digests, ten turns, and 33 live-session files. This is a planning observation only; revalidate all facts and capture a **fresh activation-time** before snapshot under PRIME's exclusive runtime lease. No PID or snapshot in this paragraph is standing permission to act later.
+
+## Activation, acceptance, and rollback
+
+1. PRIME independently reviews the candidate commit/tree and two blob identities, confirms no competing runtime/QA lease, then explicitly activates this bounded operational lease. Immediately re-fetch the candidate ref; confirm exact parent, tree, two-file diff, clean permanent `437d` checkout, unchanged operator profile/dependency/symlink targets, owned listeners and health, zero open Agent turns/actions, and fixed failed-turn metadata. Stop if any basis moved.
+2. Capture a fresh read-only before snapshot using the same ordered table metadata digests/counts and file/symlink hashes as `/tmp/dmb-rollout-snapshot.py`. Include the local Graph session registry, runtime artifact inventory, all live-session files, and S27 source/candidate/span files. Record only hashes, IDs, counts, statuses, and revisions; never print credentials, user text, provider text, or raw sessions. This **fresh** snapshot, not the planning snapshot above, is the acceptance baseline.
+3. TERM only the freshly verified owned launcher PGID and wait for all three ports to close. Move only the clean permanent checkout to detached candidate `0f5c96d5`; verify exact tree/blobs and clean status. Restart through the existing `nohup setsid ./run` profile with the unchanged local Graph operator profile, bundled Node 24, stable `.venv`, `RUN_NO_RELOAD=1`, `UV_NO_SYNC=1`, managed data roots, and required World `elderwyld`. Do not install, migrate, or send a model request.
+4. Verify the new owned launcher group and 5202/8000/7860 listeners, three HTTP 200 health checks, exact detached candidate tree, unchanged UI/dependencies/profile/symlinks, and authorized read-only `elderwyld` history. Capture an after snapshot with the identical method. Acceptance requires every database count/digest and preserved file/symlink digest to match the fresh before snapshot byte-for-byte; historical failed/interrupted turns and execution digests remain fixed. Only runtime Git identity and owned PID/log lifecycle may differ. Report exact evidence to PRIME and release the lease only after PRIME accepts it.
+5. On failed switch/start/health/preservation, send no Ask. Stop only the newly verified owned group; if the checkout is clean and state unchanged, restore detached `437d`, restart the prior profile, and verify health plus the same before snapshot. If ownership or state is uncertain, stop and report to PRIME; no blind rollback, replay, retry, or ad-hoc SQL repair.
+
+**Stop conditions:** candidate ref/tree/blob drift; unowned or changed listeners; dirty checkout; active turn/action or competing lease; unexpected profile/symlink/dependency/UI/state delta; failing health/history; unavailable fresh snapshot; or a needed write beyond this operational boundary.
+
+**Acceptance token, only after PRIME's independent post-transition review:** `SERVER_GRAPH_BINDING_DIAGNOSTIC_RUNTIME_ACCEPTED`.
