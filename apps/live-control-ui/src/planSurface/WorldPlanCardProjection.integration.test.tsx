@@ -523,7 +523,7 @@ it("keeps current-draft Edit selection separate from committed-Plan Ask selectio
   expect(selectForEdit).toHaveBeenCalledTimes(1);
 });
 
-it("opens one authored v2 Scene with its associated Choice and Options, then navigates by Plan order", () => {
+it("scrolls the focused Scene heading into view on open and Plan-order navigation", () => {
   const markdown = [
     "<!-- dmb-playable-element:v2 kind=beat id=beat:main beat_kind=spine -->",
     "## Main beat",
@@ -571,9 +571,9 @@ it("opens one authored v2 Scene with its associated Choice and Options, then nav
 
   const reader = screen.getByTestId("world-plan-scene-reader");
   expect(reader.querySelector(".world-plan-scene-reader__title h2")).toHaveTextContent("The gate");
-  const readerContent = reader.querySelector(".world-plan-scene-reader__content");
+  const readerHeading = reader.querySelector(".world-plan-scene-reader__heading");
   expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
-  expect(scrollIntoView.mock.contexts[0]).toBe(readerContent);
+  expect(scrollIntoView.mock.contexts[0]).toBe(readerHeading);
   expect(reader).toHaveTextContent("The guard waits beside the north gate.");
   expect(reader).toHaveTextContent("Beat overview and location notes.");
   expect(reader).toHaveTextContent("How do you enter?");
@@ -584,13 +584,15 @@ it("opens one authored v2 Scene with its associated Choice and Options, then nav
 
   fireEvent.click(within(reader).getByRole("button", { name: "Next scene" }));
   const warehouseReader = screen.getByTestId("world-plan-scene-reader");
-  expect(scrollIntoView.mock.contexts[1]).toBe(warehouseReader.querySelector(".world-plan-scene-reader__content"));
+  expect(scrollIntoView.mock.contexts[1]).toBe(warehouseReader.querySelector(".world-plan-scene-reader__heading"));
   expect(warehouseReader).toHaveTextContent("A lantern moves behind the loading door.");
   expect(warehouseReader.querySelector('[data-element-id="scene:gate"]')).toBeNull();
   expect(onSelectTarget).toHaveBeenLastCalledWith({ kind: "scene", id: "scene:warehouse" });
 
   fireEvent.click(within(warehouseReader).getByRole("button", { name: "Previous scene" }));
-  expect(screen.getByTestId("world-plan-scene-reader").querySelector(".world-plan-scene-reader__title h2")).toHaveTextContent("The gate");
+  const gateReader = screen.getByTestId("world-plan-scene-reader");
+  expect(gateReader.querySelector(".world-plan-scene-reader__title h2")).toHaveTextContent("The gate");
+  expect(scrollIntoView.mock.contexts[2]).toBe(gateReader.querySelector(".world-plan-scene-reader__heading"));
   fireEvent.click(within(screen.getByTestId("world-plan-scene-reader")).getByRole("button", { name: "Back to outline" }));
   expect(screen.queryByTestId("world-plan-scene-reader")).not.toBeInTheDocument();
   expect(screen.getByTestId("world-plan-cards")).toBeInTheDocument();
