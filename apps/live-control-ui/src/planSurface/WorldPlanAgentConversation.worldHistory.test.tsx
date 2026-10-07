@@ -975,6 +975,8 @@ function historyTurnForAsk(
   answer: string,
 ): WorldAgentConversationHistoryTurnV1 {
   const turn = makeTurn(1, request.turn_id, request.message, answer);
+  turn.provenance.surface_id = request.surface.surface_id;
+  turn.provenance.surface_instance_id = request.surface.instance_id;
   turn.provenance.primary_work = {
     ...turn.provenance.primary_work,
     revision: String(request.primary_work.expected_revision),
@@ -2905,6 +2907,8 @@ describe("World Plan conversation consumer", () => {
 
     expect(await screen.findByText(answer)).toBeInTheDocument();
     expect(await screen.findByText(/original selected card scene:opening at committed Plan object revision 7/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/original selected card scene:opening at committed Plan object revision 7/))
+      .toHaveTextContent("World history refreshed."));
     expect(screen.getByText(new RegExp(`Playable target: scene scene:opening · marker grammar v1 · committed Plan ${documentId}, object revision 7, WorkRevision ${workRevisionId}, revision 1, SHA-256 ${contentSha256}`))).toBeInTheDocument();
     expect(selectedCardForB.textContent).toBe(selectedCardForBBeforeSettlement);
     expect(screen.getByRole("region", { name: "World conversation transcript" }).querySelector("article"))
@@ -2919,6 +2923,85 @@ describe("World Plan conversation consumer", () => {
     render(conversationElement({ playableTarget: cardA, selectionGeneration: 2 }));
     expect(await screen.findByText(answer)).toBeInTheDocument();
     expect(screen.getByText(/Playable target: scene scene:opening · marker grammar v1/)).toBeInTheDocument();
+  });
+
+  it("settles a confirmed Graph Ask only after its correlated V3 receipt loads", async () => {
+    const api = setupApi(history("conversation-a", 10, []));
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
+      const response = await policyResponse(request, "conversation-a", "The western gate is watched.");
+      const turn = withPersistedCorrelation(policyHistoryTurn(
+        1, request.turn_id, request.message, "The western gate is watched.", response.plan_context, "completed", request,
+      ), await expectedHistoryCorrelationKey(worldId, request.turn_id));
+      api.setCurrent(await historyV3("conversation-a", 10, [turn]));
+      return response;
+    });
+    render(conversationElement());
+    await screen.findByText(/No messages yet/i);
+    ensureWorldGraphAskEnabled();
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Who watches the western gate?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await waitFor(() => expect(screen.getByText("The server confirmed this Ask. World history refreshed.")).toBeInTheDocument());
+    expect(screen.getAllByText("The western gate is watched.")).toHaveLength(2);
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    expect(pendingAskKeys()).toHaveLength(0);
+  });
+
+  it("distinguishes a confirmed Ask from a failed history refresh and settles after a matching retry", async () => {
+    const api = setupApi(history("conversation-a", 10, []));
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
+      api.setCurrent(history("conversation-a", 11, [historyTurnForAsk(request, "Confirmed answer.")]));
+      return agentResponse(request, "conversation-a", "Confirmed answer.") as any;
+    });
+    render(conversationElement());
+    await screen.findByText(/No messages yet/i);
+    ensureWorldGraphAskDisabled();
+    api.getHistory.mockRejectedValueOnce(new Error("History transport failed"));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "What happens next?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    expect(await screen.findByText(/World history refresh failed/)).toHaveTextContent("The server confirmed this Ask.");
+    expect(screen.getByText("History transport failed")).toBeInTheDocument();
+    expect(pendingAskKeys()).toHaveLength(0);
+    fireEvent.click(screen.getAllByRole("button", { name: "Refresh World history" }).find((button) => !button.hasAttribute("disabled"))!);
+    expect(await screen.findByText("Confirmed answer.")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/The server confirmed this Ask. World history refreshed/)).toBeInTheDocument());
+    expect(postAsk).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["conversation", "request"] as const)("does not settle a notice from a superseded history generation or another %s", async (mismatch) => {
+    const api = setupApi(history("conversation-a", 10, []));
+    const staleHistory = deferred<WorldAgentConversationHistoryResponse>();
+    const events = capturePendingAskEvents(pendingAskClearedEventName);
+    let request!: WorldPlanAgentTurnRequestV1;
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (value) => {
+      request = value;
+      return agentResponse(value, "conversation-a", "Original answer.") as any;
+    });
+    render(conversationElement());
+    await screen.findByText(/No messages yet/i);
+    ensureWorldGraphAskDisabled();
+    api.getHistory.mockReturnValueOnce(staleHistory.promise);
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Keep this request pinned." } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await screen.findByText("The server confirmed this Ask. Refreshing World history.");
+    await waitFor(() => expect(events).toHaveLength(1));
+    const unrelatedTurn = historyTurnForAsk(request, "Original answer.");
+    if (mismatch === "request") unrelatedTurn.turn_id = "another-request";
+    api.setCurrent(history(mismatch === "conversation" ? "conversation-b" : "conversation-a", 12, [unrelatedTurn]));
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent(pendingAskClearedEventName, { detail: events[0]!.detail }));
+    });
+    await screen.findByText("Original answer.");
+    await act(async () => {
+      staleHistory.resolve(history("conversation-a", 11, [historyTurnForAsk(request, "Original answer.")]));
+      await staleHistory.promise;
+    });
+    expect(screen.getByText("The server confirmed this Ask. Refreshing World history.")).toBeInTheDocument();
+    api.setCurrent(history("conversation-a", 11, [historyTurnForAsk(request, "Original answer.")]));
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent(pendingAskClearedEventName, { detail: events[0]!.detail }));
+    });
+    await waitFor(() => expect(screen.getByText("The server confirmed this Ask. World history refreshed.")).toBeInTheDocument());
+    expect(postAsk).toHaveBeenCalledTimes(1);
   });
 
   it("settles an accepted Ask across SPA unmount and remount", async () => {
