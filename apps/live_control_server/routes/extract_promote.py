@@ -22,6 +22,7 @@ from apps.live_control_server.models.extract_promote import (
     RecapSemanticDecisionResponse,
     ExactRunEvidenceCorrectionRequest,
     ExactRunEvidenceCorrectionResponse,
+    RecapEvidenceCorrectionResponse,
     ExtractPromoteStatusResponse,
     FirstWorldGraphConfirmReceipt,
     FirstWorldGraphConfirmRequest,
@@ -46,6 +47,7 @@ from apps.live_control_server.services.extract_promote import (
 )
 from apps.live_control_server.services.exact_run_evidence_correction import (
     correct_exact_run_evidence,
+    correct_recap_run_evidence,
 )
 from apps.live_control_server.services.agent_graph_auth import (
     NativeGraphPrincipal,
@@ -197,6 +199,38 @@ def post_exact_run_evidence_corrections(
                 "The exact-run evidence correction failed unexpectedly.",
                 code="extract_promote_internal_error",
                 status_code=500,
+            )
+        )
+    return response.model_dump(mode="json", by_alias=True)
+
+
+@router.post(
+    "/runs/{run_id}/recap-evidence-corrections",
+    response_model=RecapEvidenceCorrectionResponse,
+)
+def post_recap_evidence_corrections(
+    request_context: Request,
+    run_id: str,
+    request: ExactRunEvidenceCorrectionRequest,
+    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+) -> dict[str, Any] | JSONResponse:
+    """GM-only literal evidence child; semantic disposition starts held."""
+    try:
+        _reject_selector_query(request_context)
+        if run_id != request.parent_run_id:
+            raise ExtractPromoteError(
+                "path run ID does not match parentRunId",
+                code="invalid_request", status_code=422,
+            )
+        response = correct_recap_run_evidence(request)
+    except ExtractPromoteError as exc:
+        return _error_response(exc)
+    except Exception:
+        logger.exception("recap evidence correction failed unexpectedly")
+        return _error_response(
+            ExtractPromoteError(
+                "The recap evidence correction failed unexpectedly.",
+                code="extract_promote_internal_error", status_code=500,
             )
         )
     return response.model_dump(mode="json", by_alias=True)
