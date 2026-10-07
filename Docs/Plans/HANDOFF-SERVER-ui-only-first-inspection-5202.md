@@ -1,0 +1,29 @@
+# HANDOFF — SERVER: UI-only first inspection on 5202
+
+**Status:** REVIEW READY; no runtime activation. **Topology:** isolated release candidate from the deployed Buddy `81ff1bacf233b6fa466e45c9cbe007590522c710` (tree `fc624117c3ed3a271dccdfc564b49f7e33acee84`), separate from the APP-STATE `0018` backend rollout. PRIME owns exact-head review and the exclusive 5202 activation lease. This branch is not a successor implementation PR to #1007 or #1009 and must not be merged into current `main` as a whole.
+
+## Purpose and exact source
+
+Bring the first inspection's Plan conversation and saved-Scene focus onto the existing 5202 UI without changing the API/8000, DMS/7860, database, provider calls, application state schema, runtime profile, dependency locks, or backend code. The candidate's production diff from `81ff1bac` is exactly five UI paths:
+
+- `apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.tsx`
+- `apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.css`
+- `apps/live-control-ui/src/planSurface/components/PlanConversationDockAdapter.css`
+- `apps/live-control-ui/src/planSurface/components/WorldPlanCardProjection.tsx`
+- `apps/live-control-ui/src/api/types.ts` (type declarations only)
+
+The three conversation production blobs are byte-identical to reviewed DOGFOOD #1007 head `aeda767c6c9dd785ce2e4344e17615e9efd439c7`. The Cards edit applies only #1009's saved-Scene default-focus behavior to the deployed reader; it omits #1009's unrelated Graph-reference rendering and label edits, and resets the one-shot focus guard when the exact Plan basis changes. #1009 head `060e7c3b3ab7a92d93f2deac9e66284d74e2854b` is merged in current main. The type-only V2 completion/citation declarations come from the `81ff`→`0c83cb7a` UI type diff; the unrelated extract-promote request change is excluded. The `liveApi.ts` blob, package lock, and every other runtime/dependency file equal deployed `81ff`.
+
+The deployed 81ff server's read-only history route emits the V1 history DTO when no Plan context is present. The #1007 consumer accepts V1, V2, and V3 and continues to validate exact turn fields; the UI-only candidate requires no new API endpoint or response behavior. This is an inspection checkpoint, not a claim that APP-STATE V2 Graph/corpus completion is available.
+
+## Candidate evidence
+
+**Exact code commit:** `ae974aeca00bd5d47032971b7ae8a57f605842fe`, tree `14c9ed9fee6e9a71a6a6d12cbc235502cd018cb4`, direct parent `81ff1bac`. Its cumulative base→code diff changes only the five listed paths; `git diff --check` passed. TypeScript and Vite production build passed with bundled Node `v24.19.0`, the checked-in UI lock, and the installed matching dependency tree. The reviewed #1007 conversation test overlay passed `109/109`; the #1009 focused saved-Scene clearing test passed `1/1` after updating historical text assertions to the #1007 presentation. Test overlays were restored and are absent from the candidate. A broader UI test attempt hit older presentation assertions and was stopped; no full-suite pass is claimed. No live API, database, provider, or runtime request occurred in candidate preparation.
+
+## Proposed exclusive UI activation lease — not yet granted
+
+1. PRIME independently reviews this exact candidate and confirms the still-open #1007 head/source is accepted for inspection. On the actual runtime host, revalidate that the permanent Buddy checkout is clean detached `81ff1bac`, its tree and dependency lock match the pinned base, and that the 5202 Vite, 8000 API, and 7860 DMS listener owners, process command lines, and current health are known. Confirm no other UI writer or QA session is active. Preserve any unsaved editor/composer draft before HMR; stop if it cannot be preserved. Confirm zero open Agent turns/actions and take a fresh read-only profile/state baseline.
+2. Fetch the exact reviewed release candidate commit into the permanent clone and verify its parent is `81ff1bac`, its tree, five-file production diff, and clean checkout. Switch only that checkout to the candidate detached commit while keeping all three existing processes alive. Let Vite HMR/reload serve the UI. Do not run `./run`, a package install, a migration, a backend restart, or a provider call. A surprise process exit, Vite reload failure, file collision, changed profile or stored data, or loss of unsaved draft is a stop.
+3. Verify the 5202 UI against the exact candidate, read-only V1 conversation history presentation, saved-Scene focus, composer behavior, and browser state preservation. Recheck that 8000 and 7860 PIDs/import paths and API responses did not change, application schema remains `20261005_0017`, and preserved app data/profile/symlinks match the fresh baseline. If the UI fails before any user work, return the clean checkout to pinned `81ff1bac` under the same owner lease and verify HMR and state again. Do not auto-restart or signal processes to repair an uncertain outcome.
+
+The old full-backend `0018` backup/migration plan remains separate. This UI lease gives no authority for that migration or for an Ask/usefulness witness. PRIME reviews the candidate and activation plan before any permanent runtime write.
