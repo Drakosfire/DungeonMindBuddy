@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
+from application_state.errors import ApplicationStateConflictError
 from application_state.agent_conversation.types import (
     HistoricalReference,
     PlanWorldGraphCompletionV1,
@@ -1555,6 +1556,81 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         assert "PRIVATE_PROVIDER_FINAL_BODY" not in diagnostic
         assert "Expecting property name" not in diagnostic
         assert chr(0xD800) not in diagnostic
+
+    for uncertain_last, fail_finalization in ((False, False), (True, False), (False, True)):
+        fake = FakeExecutionPort()
+        terminal_failures: list[tuple[str, int]] = []
+
+        def record_guard_failure(failure: Any, *, interrupted: bool = False) -> Turn:
+            assert interrupted is False
+            assert fake.turn is not None
+            assert failure.expected_revision == fake.turn.revision
+            terminal_failures.append((failure.failure_code, failure.expected_revision))
+            if fail_finalization:
+                raise ApplicationStateConflictError("claim fence changed")
+            fake.turn = fake.turn.model_copy(update={
+                "status": "failed", "failure_code": failure.failure_code,
+                "revision": fake.turn.revision + 1, "claim_expires_at": None,
+            })
+            return fake.turn
+
+        fake.fail_turn = record_guard_failure
+
+        class ExhaustedRuntime:
+            descriptor = AgentRuntimeDescriptor("guard-exhausted", "fake", "test", "graph")
+
+            def run_with_provider_authorization(
+                self, _invocation: Any, authorize: Any, *, request_budget: Any,
+                on_graph_operation: Any, on_provider_lifecycle: Any,
+            ) -> AgentRuntimeResult:
+                adjusted = {**view, "model": request_budget["model"]}
+                for index in range(4):
+                    assert authorize(adjusted) is True
+                    assert on_provider_lifecycle({"transition": "sdk_entered"}) is True
+                    if index < 3 or not uncertain_last:
+                        assert on_provider_lifecycle({"transition": "response_received"}) is True
+                assert authorize(adjusted) is False
+                return AgentRuntimeResult(
+                    status="error", error_code="provider_authorization_denied",
+                )
+
+        original_stop = service_module._ClaimFence.stop
+
+        def stop_after_renewal(fence: Any) -> tuple[Turn, Exception | None]:
+            turn, error = original_stop(fence)
+            if not uncertain_last:
+                turn = turn.model_copy(update={"revision": turn.revision + 1})
+                fake.turn = turn
+            return turn, error
+
+        with monkeypatch.context() as moving_fence:
+            moving_fence.setattr(service_module._ClaimFence, "stop", stop_after_renewal)
+            with pytest.raises(AgentTurnServiceError) as exhausted:
+                execute_agent_turn(
+                    request, root=Path("/tmp"),
+                    pointer_store=HermesSessionPointerStore(Path("/tmp") / f"plan-exhausted-{uuid4()}"),
+                    owner_resolver=lambda _request: {
+                        "kind": "world", "id": "world:one", "name": "World One",
+                    },
+                    work_resolver=lambda _request, _owner: work,
+                    graph_resolver=lambda *_args: pytest.fail("generic Graph resolver was used"),
+                    plan_graph_resolver=lambda *_args: bootstrap,
+                    runtime=ExhaustedRuntime(), conversation_service=fake,
+                )
+        assert exhausted.value.code == (
+            "turn_persistence_indeterminate" if fail_finalization
+            else "plan_context_delivery_failure"
+        )
+        assert exhausted.value.status_code == 503
+        assert fake.authorize_count == 4
+        assert fake.turn is not None
+        assert len(fake.turn.graph_context_execution.events) == (11 if uncertain_last else 12)
+        if uncertain_last:
+            assert terminal_failures == []
+            assert fake.turn.status == "running"
+        else:
+            assert terminal_failures == [("provider_attempt_limit_exhausted", 15)]
+            assert fake.turn.status == ("running" if fail_finalization else "failed")
 
 
 @pytest.mark.parametrize(
