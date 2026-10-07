@@ -65,6 +65,8 @@ def _contains(value: object, target: str) -> bool:
 
 def replay_candidate(parent: dict, manifest: dict) -> dict:
     """Reconstruct exactly one bounded edit; never patch arbitrary JSON."""
+    if not isinstance(parent, dict) or not isinstance(manifest, dict):
+        raise _reject("semantic candidate replay input is malformed")
     v2 = manifest.get("schema") == MANIFEST_SCHEMA_V2
     expected_keys = {"schema", "node_description_replacements", "omitted_edge_ids"}
     if v2:
@@ -82,6 +84,28 @@ def replay_candidate(parent: dict, manifest: dict) -> dict:
     ):
         raise _reject("semantic candidate manifest exceeds bounded scope")
     child = copy.deepcopy(parent)
+    for key in ("nodes", "edges"):
+        records = child.get(key, [])
+        if not isinstance(records, list) or any(not isinstance(record, dict) for record in records):
+            raise _reject(f"candidate {key} records are malformed")
+    for item in replacements:
+        if not isinstance(item, dict) or set(item) != {"node_id", "original_description", "replacement_description"}:
+            raise _reject("node replacement manifest is malformed")
+        if (
+            not isinstance(item["node_id"], str) or not item["node_id"].strip()
+            or item["node_id"] != item["node_id"].strip()
+            or not isinstance(item["original_description"], str)
+            or not isinstance(item["replacement_description"], str)
+            or len(item["replacement_description"]) > 4096
+            or item["replacement_description"] != item["replacement_description"].strip()
+        ):
+            raise _reject("node replacement manifest is malformed")
+        matches = [node for node in child.get("nodes", []) if node.get("node_id") == item["node_id"]]
+        if len(matches) != 1 or matches[0].get("description") != item["original_description"]:
+            raise _reject("node description target is missing or stale", status_code=409)
+        if not isinstance(item["replacement_description"], str) or not item["replacement_description"].strip() or item["replacement_description"] == item["original_description"]:
+            raise _reject("node description replacement is empty or unchanged")
+        matches[0]["description"] = item["replacement_description"]
     for item in actions:
         if not isinstance(item, dict) or set(item) != {"node_id", "action_index", "expected_old_text", "replacement_text"}:
             raise _reject("session action manifest is malformed")
@@ -107,24 +131,6 @@ def replay_candidate(parent: dict, manifest: dict) -> dict:
         if index >= len(entries) or entries[index] != old:
             raise _reject("session action target is missing or stale", status_code=409)
         entries[index] = replacement
-    for item in replacements:
-        if not isinstance(item, dict) or set(item) != {"node_id", "original_description", "replacement_description"}:
-            raise _reject("node replacement manifest is malformed")
-        if (
-            not isinstance(item["node_id"], str) or not item["node_id"].strip()
-            or item["node_id"] != item["node_id"].strip()
-            or not isinstance(item["original_description"], str)
-            or not isinstance(item["replacement_description"], str)
-            or len(item["replacement_description"]) > 4096
-            or item["replacement_description"] != item["replacement_description"].strip()
-        ):
-            raise _reject("node replacement manifest is malformed")
-        matches = [node for node in child.get("nodes", []) if node.get("node_id") == item["node_id"]]
-        if len(matches) != 1 or matches[0].get("description") != item["original_description"]:
-            raise _reject("node description target is missing or stale", status_code=409)
-        if not isinstance(item["replacement_description"], str) or not item["replacement_description"].strip() or item["replacement_description"] == item["original_description"]:
-            raise _reject("node description replacement is empty or unchanged")
-        matches[0]["description"] = item["replacement_description"]
     for edge_id in omitted:
         if not isinstance(edge_id, str) or not edge_id.strip() or edge_id != edge_id.strip():
             raise _reject("omitted edge ID is invalid")
@@ -164,7 +170,7 @@ def verify_child_replay(run, parent, root: Path) -> bool:
         child_bytes = material["child:candidate_graph"]
         expected = replay_candidate(json.loads(parent_bytes), manifest)
         return child_bytes == _canonical_bytes(expected)
-    except (KeyError, OSError, ValueError, TypeError, json.JSONDecodeError):
+    except (AttributeError, KeyError, OSError, ValueError, TypeError, json.JSONDecodeError):
         return False
 
 

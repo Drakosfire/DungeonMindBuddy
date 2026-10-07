@@ -198,6 +198,12 @@ def test_v3_replay_rejects_stale_cross_node_and_unbounded_actions() -> None:
     manifest = {"schema": service.MANIFEST_SCHEMA_V2, "node_description_replacements": [], "omitted_edge_ids": [], "session_action_replacements": [action]}
     assert service.replay_candidate(parent, manifest)["nodes"][0]["session_actions"] == ["first", "new"]
     assert parent["nodes"][0]["session_actions"] == ["first", "second"]
+    combined = {**manifest, "node_description_replacements": [{
+        "node_id": "mira", "original_description": "old", "replacement_description": "new description",
+    }]}
+    assert service.replay_candidate(parent, combined)["nodes"][0] == {
+        "node_id": "mira", "description": "new description", "session_actions": ["first", "new"],
+    }
     for bad in ({**action, "expected_old_text": "wrong"}, {**action, "action_index": 2}, {**action, "action_index": True}):
         with pytest.raises(ValueError):
             service.replay_candidate(parent, {**manifest, "session_action_replacements": [bad]})
@@ -207,6 +213,32 @@ def test_v3_replay_rejects_stale_cross_node_and_unbounded_actions() -> None:
         service.replay_candidate(parent, {**manifest, "node_description_replacements": [{"node_id": "other", "original_description": "old", "replacement_description": "new"}]})
     with pytest.raises(ValueError):
         service.replay_candidate(parent, {**manifest, "schema": service.MANIFEST_SCHEMA})
+
+
+def test_malformed_stored_v2_manifest_remains_held(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    parent, parent_bytes, runs = _fixture(monkeypatch, tmp_path, actions=True)
+    response = service.correct_recap_candidate(_action_request(parent_bytes))
+    child = runs[response.run_id]
+    manifest = child.lineage["semantic_candidate_manifest"]
+    manifest["node_description_replacements"] = [None]
+    child.lineage["manifest_sha256"] = _sha(service._canonical_bytes(manifest))
+
+    with pytest.raises(extract_promote.ExtractPromoteError, match="node replacement manifest is malformed"):
+        service.replay_candidate(json.loads(parent_bytes), manifest)
+    assert not service.verify_child_replay(child, parent, tmp_path)
+    assessment = assess_recap_semantics(
+        child, parent=parent,
+        source_revision_id=_sha((tmp_path / "source.md").read_bytes()), root=tmp_path,
+    )
+    assert assessment.marked and not assessment.accepted
+    assert assessment.disposition is None
+
+    valid_manifest = {**manifest, "node_description_replacements": []}
+    for malformed_parent in (None, {"nodes": [None]}, {"nodes": "not a list"}, {"nodes": [], "edges": [None]}):
+        with pytest.raises(extract_promote.ExtractPromoteError, match="malformed"):
+            service.replay_candidate(malformed_parent, valid_manifest)
 
 
 def test_immutable_child_replays_and_stays_held(
