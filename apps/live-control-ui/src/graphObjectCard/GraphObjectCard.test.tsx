@@ -343,10 +343,19 @@ describe("GraphObjectCard", () => {
           sourceDomain: "recap",
           canOpenSource: true,
         },
+        {
+          id: "ev-recap-bound",
+          label: "Verified recap passage",
+          sourceArtifactId: "artifact-recap",
+          sourceSpanRefId: "span-recap-bound",
+          sourceDomain: "session_recap",
+          excerpt: "A passage already verified against the pinned source digest.",
+          canOpenSource: true,
+        },
       ],
       details: {
         ...planModel.details!,
-        evidenceCount: 3,
+        evidenceCount: 4,
       },
     };
 
@@ -362,9 +371,9 @@ describe("GraphObjectCard", () => {
     await user.click(within(card).getByText("Details"));
 
     const readButtons = within(card).getAllByRole("button", { name: "Read source" });
-    expect(readButtons).toHaveLength(2);
+    expect(readButtons).toHaveLength(3);
     expect(within(card).queryByText("Recap only · recap")).toBeInTheDocument();
-    expect(within(card).queryAllByRole("button", { name: "Read source" })).toHaveLength(2);
+    expect(within(card).queryAllByRole("button", { name: "Read source" })).toHaveLength(3);
 
     const recapRow = within(card).getByText("Recap only · recap").closest(".graph-object-card__evidence-row");
     expect(recapRow).not.toBeNull();
@@ -378,6 +387,32 @@ describe("GraphObjectCard", () => {
         sourceSpanRefId: "span-2",
       }),
     );
+    await user.click(readButtons[2]!);
+    expect(onReadSourceEvidence).toHaveBeenCalledTimes(2);
+    expect(onReadSourceEvidence).toHaveBeenLastCalledWith(expect.objectContaining({
+      id: "ev-recap-bound",
+      excerpt: "A passage already verified against the pinned source digest.",
+    }));
+  });
+
+  it("keeps recap source actions opt-in to the Plan reader", async () => {
+    const user = userEvent.setup();
+    const model: GraphObjectCardViewModel = {
+      ...planModel,
+      evidence: [{
+        id: "ev-recap",
+        label: "Pinned recap",
+        sourceArtifactId: "artifact-recap",
+        sourceSpanRefId: "span-recap",
+        sourceDomain: "session_recap",
+        excerpt: "This exact source excerpt is already verified.",
+        canOpenSource: true,
+      }],
+    };
+    render(<GraphObjectCard mode="review" model={model} onReadSourceEvidence={vi.fn()} />);
+    const card = screen.getByLabelText(/Inn \(Mireward Reach\) game card/i);
+    await user.click(within(card).getByText("Details"));
+    expect(within(card).queryByRole("button", { name: "Read source" })).not.toBeInTheDocument();
   });
 
   it("renders campaign-memory rows as subject-aware facts without World-object chrome", async () => {

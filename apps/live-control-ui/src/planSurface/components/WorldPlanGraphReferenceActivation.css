@@ -1,0 +1,100 @@
+.world-plan-graph-reference-inspector {
+  position: fixed;
+  z-index: 875;
+  top: var(--app-chrome-top, 5.5rem);
+  right: 1rem;
+  bottom: calc(var(--app-chrome-bottom, 0rem) + 1rem);
+  width: min(24rem, calc(100vw - 2rem));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--ui-border-strong, #536174);
+  border-radius: 0.85rem;
+  background: #171e29;
+  color: var(--ui-text-primary, #f0f2f5);
+  box-shadow: 0 16px 44px rgb(0 0 0 / 48%);
+}
+
+.world-plan-graph-reference-inspector > header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 3.5rem;
+  padding: 0.65rem 0.8rem;
+  border-bottom: 1px solid var(--ui-border, #384353);
+  background: #202a38;
+}
+
+.world-plan-graph-reference-inspector > header h2 {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: 1rem;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+}
+
+.world-plan-graph-reference-inspector > header button {
+  flex: 0 0 auto;
+  min-height: 2.35rem;
+  border: 1px solid #65758b;
+  border-radius: 0.45rem;
+  background: #29384a;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.world-plan-graph-reference-inspector > header .world-plan-graph-reference-back {
+  max-width: 8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.world-plan-graph-reference-inspector > [data-complete-object-status],
+.world-plan-graph-reference-inspector > .world-plan-graph-reference-source {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 0.8rem;
+}
+
+.world-plan-graph-reference-source blockquote {
+  margin: 0;
+  padding: 0.8rem 0.9rem;
+  border-left: 3px solid #8aa9c9;
+  border-radius: 0.25rem;
+  background: #222d3a;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.world-plan-graph-reference-source details {
+  margin-top: 1rem;
+}
+
+.world-plan-graph-reference-source dl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.35rem 0.75rem;
+}
+
+.world-plan-graph-reference-source dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  .world-plan-graph-reference-inspector {
+    top: var(--app-chrome-top, 10rem);
+    right: 0.75rem;
+    bottom: calc(var(--app-chrome-bottom, 0rem) + 0.75rem);
+    left: 0.75rem;
+    width: auto;
+    border-radius: 0.75rem;
+  }
+}

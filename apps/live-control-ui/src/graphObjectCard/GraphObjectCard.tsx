@@ -51,12 +51,13 @@ export interface GraphObjectCardProps {
   "aria-label"?: string;
 }
 
-function evidenceRowCanReadSource(item: GraphObjectEvidenceViewModel): boolean {
+function evidenceRowCanReadSource(item: GraphObjectEvidenceViewModel, mode: GraphObjectCardMode): boolean {
   return Boolean(
     item.canOpenSource
       && item.sourceArtifactId
       && item.sourceSpanRefId
-      && item.sourceDomain === "worldbuilding",
+      && (item.sourceDomain === "worldbuilding"
+        || (mode === "plan" && (item.sourceDomain === "recap" || item.sourceDomain === "session_recap") && item.excerpt?.trim())),
   );
 }
 
@@ -65,16 +66,18 @@ export function GraphObjectEvidenceRows({
   onReadSourceEvidence,
   resolvingEvidenceId = null,
   evidenceErrors = {},
+  mode = "plan",
 }: {
   evidence: GraphObjectEvidenceViewModel[];
   onReadSourceEvidence?: (evidence: GraphObjectEvidenceViewModel) => void;
   resolvingEvidenceId?: string | null;
   evidenceErrors?: Record<string, string>;
+  mode?: GraphObjectCardMode;
 }) {
   return (
     <>
       {evidence.map((item) => {
-        const canRead = evidenceRowCanReadSource(item);
+        const canRead = evidenceRowCanReadSource(item, mode);
         const isResolving = resolvingEvidenceId === item.id;
         const error = evidenceErrors[item.id];
 
@@ -478,12 +481,14 @@ function DefaultDetails({
   onReadSourceEvidence,
   resolvingEvidenceId,
   evidenceErrors,
+  mode,
   bare = false,
 }: {
   model: GraphObjectCardViewModel;
   onReadSourceEvidence?: (evidence: GraphObjectEvidenceViewModel) => void;
   resolvingEvidenceId?: string | null;
   evidenceErrors?: Record<string, string>;
+  mode: GraphObjectCardMode;
   bare?: boolean;
 }) {
   const details = model.details;
@@ -534,6 +539,7 @@ function DefaultDetails({
           onReadSourceEvidence={onReadSourceEvidence}
           resolvingEvidenceId={resolvingEvidenceId}
           evidenceErrors={evidenceErrors}
+          mode={mode}
         />
       </section>
       {details?.lines?.length ? (
@@ -592,6 +598,7 @@ export function GraphObjectCard({
       onReadSourceEvidence={onReadSourceEvidence}
       resolvingEvidenceId={resolvingEvidenceId}
       evidenceErrors={evidenceErrors}
+      mode={mode}
       bare={campaignMemory}
     />
   );

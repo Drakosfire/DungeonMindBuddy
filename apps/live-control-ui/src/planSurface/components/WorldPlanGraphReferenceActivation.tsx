@@ -17,8 +17,10 @@ import { GraphNodeChipRuntimeProvider } from "../../graphReference/GraphNodeChip
 import { ResolvedGraphObjectProjection } from "../../graphReference/ResolvedGraphObjectProjection";
 import { extractExactGraphReferenceScope, resolveGraphReference } from "../../graphReference/resolveGraphReference";
 import type { GraphReferenceResolution } from "../../graphReference/types";
+import type { GraphObjectEvidenceViewModel } from "../../graphObjectCard/types";
 import { GRAPH_NODE_REF_TYPE, isValidGraphNodeId } from "../../tiptap/references/runbookReferences";
 import { adaptWorldGraphNodeViewMap } from "../../worldGraph/worldGraphNodeViewAdapter";
+import "./WorldPlanGraphReferenceActivation.css";
 
 interface ActivationRequest {
   nodeId: string;
@@ -148,10 +150,15 @@ export function WorldPlanGraphReferenceActivationProvider({
   const triggerRef = useRef<HTMLElement | null>(null);
   const triggerNodeIdRef = useRef<string | null>(null);
   const triggerOwnerWorldIdRef = useRef<string | null>(null);
+  const readerScrollRef = useRef<number | null>(null);
+  const sourceTriggerRef = useRef<HTMLElement | null>(null);
   const currentOwnerWorldIdRef = useRef(worldId);
   currentOwnerWorldIdRef.current = worldId;
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const headingRef = useRef<HTMLHeadingElement | null>(null);
+  const inspectorRef = useRef<HTMLElement | null>(null);
   const hadRequestRef = useRef(false);
+  const [sourceEvidence, setSourceEvidence] = useState<GraphObjectEvidenceViewModel | null>(null);
 
   const activateNode = useCallback((nodeId: string) => {
     if (!request || request.ownerWorldId !== worldId) {
@@ -160,7 +167,9 @@ export function WorldPlanGraphReferenceActivationProvider({
         : null;
       triggerNodeIdRef.current = nodeId;
       triggerOwnerWorldIdRef.current = worldId;
+      readerScrollRef.current = window.scrollY;
     }
+    setSourceEvidence(null);
     const nativeScope = nativeScopeForManagedRequest(worldId, graph);
     setRequest({
       nodeId,
@@ -178,6 +187,7 @@ export function WorldPlanGraphReferenceActivationProvider({
       : null,
     [currentRequest, graph, worldId],
   );
+  const visibleSourceEvidence = resolution?.kind === "resolved_graph" ? sourceEvidence : null;
 
   useEffect(() => {
     if (!currentRequest || resolution?.kind !== "resolved_graph"
@@ -196,7 +206,7 @@ export function WorldPlanGraphReferenceActivationProvider({
   useEffect(() => {
     if (currentRequest) {
       hadRequestRef.current = true;
-      closeButtonRef.current?.focus();
+      (visibleSourceEvidence ? headingRef.current : closeButtonRef.current)?.focus({ preventScroll: true });
       return;
     }
     if (hadRequestRef.current) {
@@ -210,13 +220,43 @@ export function WorldPlanGraphReferenceActivationProvider({
       }
       window.setTimeout(() => {
         if (currentOwnerWorldIdRef.current === triggerOwnerWorldId && requestRef.current === null && trigger?.isConnected) {
+          if (readerScrollRef.current !== null && readerScrollRef.current !== window.scrollY) {
+            window.scrollTo({ top: readerScrollRef.current, behavior: "auto" });
+          }
           trigger.focus({ preventScroll: true });
         }
       }, 0);
+      sourceTriggerRef.current = null;
+      setSourceEvidence(null);
     }
-  }, [currentRequest, worldId]);
+  }, [currentRequest, visibleSourceEvidence, worldId]);
 
   const close = useCallback(() => setRequest(null), []);
+  const readSource = useCallback((evidence: GraphObjectEvidenceViewModel) => {
+    sourceTriggerRef.current = typeof document !== "undefined" && document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    setSourceEvidence(evidence);
+  }, []);
+  const backToObject = useCallback(() => {
+    setSourceEvidence(null);
+    window.setTimeout(() => {
+      const trigger = sourceTriggerRef.current;
+      (trigger?.isConnected ? trigger : headingRef.current)?.focus({ preventScroll: true });
+    }, 0);
+  }, []);
+
+  useEffect(() => {
+    if (!currentRequest) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || !inspectorRef.current?.contains(document.activeElement)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      close();
+    };
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
+  }, [close, currentRequest, visibleSourceEvidence]);
   const requestMatchesOwner = graph?.request?.worldId === worldId
     && graph.request.scopeMode === "world"
     && graph.request.campaignId === "";
@@ -244,21 +284,44 @@ export function WorldPlanGraphReferenceActivationProvider({
       <GraphNodeChipRuntimeProvider value={runtime}>
         {children}
         {currentRequest && resolution ? (
-          <section className="world-plan-graph-reference-inspector" role="dialog" aria-modal="false" aria-label="World Graph object">
+          <section ref={inspectorRef} className="world-plan-graph-reference-inspector" role="dialog" aria-modal="false" aria-label={visibleSourceEvidence ? "Pinned source passage" : "World Graph object"}>
             <header>
-              <h2>{resolution.kind === "resolved_graph" ? resolution.graphObject.label : currentRequest.nodeId}</h2>
-              <button ref={closeButtonRef} type="button" onClick={close}>Close</button>
+              {visibleSourceEvidence ? (
+                <button type="button" className="world-plan-graph-reference-back" onClick={backToObject} aria-label="Back to World Graph object">
+                  ‹ {resolution.kind === "resolved_graph" ? resolution.graphObject.label : "World Graph object"}
+                </button>
+              ) : null}
+              <h2 ref={headingRef} tabIndex={-1}>
+                {visibleSourceEvidence ? visibleSourceEvidence.label || "Pinned source passage" : resolution.kind === "resolved_graph" ? resolution.graphObject.label : currentRequest.nodeId}
+              </h2>
+              <button ref={closeButtonRef} type="button" onClick={close} aria-label="Close">Close</button>
             </header>
             {resolution.kind === "resolved_graph" ? (
-              <ResolvedGraphObjectProjection
-                resolution={resolution}
-                originSurface="plan"
-                mode="plan"
-                aria-label={`${resolution.graphObject.label} World Graph object`}
-              />
-            ) : (
+              <div data-complete-object-status="reader" hidden={Boolean(visibleSourceEvidence)}>
+                <ResolvedGraphObjectProjection
+                  resolution={resolution}
+                  originSurface="plan"
+                  mode="plan"
+                  aria-label={`${resolution.graphObject.label} World Graph object`}
+                  onReadSourceEvidence={readSource}
+                />
+              </div>
+            ) : null}
+            {visibleSourceEvidence ? (
+              <div className="world-plan-graph-reference-source" data-testid="world-plan-graph-reference-source">
+                {visibleSourceEvidence.excerpt?.trim() ? <blockquote>{visibleSourceEvidence.excerpt}</blockquote> : <p role="status">This pinned object does not include a readable source passage.</p>}
+                <details>
+                  <summary>Source details</summary>
+                  <dl>
+                    <dt>Source</dt><dd>{visibleSourceEvidence.label || visibleSourceEvidence.sourceArtifactId || "Unavailable"}</dd>
+                    <dt>Passage</dt><dd>{visibleSourceEvidence.sourceSpanRefId || "Unavailable"}</dd>
+                    <dt>Evidence</dt><dd>{visibleSourceEvidence.id}</dd>
+                  </dl>
+                </details>
+              </div>
+            ) : resolution.kind !== "resolved_graph" ? (
               <p role="status">{resolution.message ?? "This Graph reference could not be resolved in the selected World."}</p>
-            )}
+            ) : null}
           </section>
         ) : null}
       </GraphNodeChipRuntimeProvider>

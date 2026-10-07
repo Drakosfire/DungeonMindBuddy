@@ -11,7 +11,7 @@ vi.mock("../../graphLens/useWorldGraphLensProjection", () => ({
 }));
 
 vi.mock("../../graphReference/ResolvedGraphObjectProjection", () => ({
-  ResolvedGraphObjectProjection: ({ resolution }: { resolution: { graphNodeId: string; graphScope: { worldId: string; revisionId: string } } }) => {
+  ResolvedGraphObjectProjection: ({ resolution, onReadSourceEvidence }: { resolution: { graphNodeId: string; graphScope: { worldId: string; revisionId: string } }; onReadSourceEvidence?: (evidence: { id: string; label: string; sourceArtifactId: string; sourceSpanRefId: string; excerpt: string }) => void }) => {
     function NestedReference() {
       const { activateNode } = useWorldPlanGraphReferenceActivation();
       return <button type="button" onClick={() => activateNode("loc:nested")}>Open related node</button>;
@@ -19,6 +19,7 @@ vi.mock("../../graphReference/ResolvedGraphObjectProjection", () => ({
     return (
       <div data-testid="resolved-object" data-node-id={resolution.graphNodeId} data-world-id={resolution.graphScope.worldId} data-revision={resolution.graphScope.revisionId}>
         <NestedReference />
+        {onReadSourceEvidence ? <button type="button" onClick={() => onReadSourceEvidence({ id: "ev-s25", label: "S25 recap passage", sourceArtifactId: "artifact:s25", sourceSpanRefId: "span:s25", excerpt: "Lysandra led the warehouse watch through the storm." })}>Read source</button> : null}
       </div>
     );
   },
@@ -137,6 +138,80 @@ describe("WorldPlanGraphReferenceActivationProvider", () => {
     expect(await screen.findByRole("dialog", { name: "World Graph object" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
+  it("shows a pinned source excerpt with a Back path, then closes to the original trigger without moving the reader", async () => {
+    const originalScrollY = window.scrollY;
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 720 });
+    mount(projection());
+    const trigger = screen.getByRole("button", { name: "Ironveil Warehouse" });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const dialog = await screen.findByRole("dialog", { name: "World Graph object" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Read source" }));
+    expect(await screen.findByRole("dialog", { name: "Pinned source passage" })).toBeInTheDocument();
+    expect(screen.getByText("Lysandra led the warehouse watch through the storm.")).toBeInTheDocument();
+    expect(screen.getByText("Source details")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Back to World Graph object" }));
+    expect(await screen.findByRole("dialog", { name: "World Graph object" })).toBeInTheDocument();
+    fireEvent.click(within(screen.getByRole("dialog", { name: "World Graph object" })).getByRole("button", { name: "Read source" }));
+    expect(await screen.findByRole("dialog", { name: "Pinned source passage" })).toBeInTheDocument();
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 0 });
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(trigger).toHaveFocus());
+    expect(scrollTo).toHaveBeenCalledWith({ top: 720, behavior: "auto" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    Object.defineProperty(window, "scrollY", { configurable: true, value: originalScrollY });
+    scrollTo.mockRestore();
+  });
+
+  it("hides an opened excerpt when the selected Graph head changes under the reader", async () => {
+    const view = mount(projection());
+    fireEvent.click(screen.getByRole("button", { name: "Ironveil Warehouse" }));
+    const dialog = await screen.findByRole("dialog", { name: "World Graph object" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Read source" }));
+    expect(await screen.findByRole("dialog", { name: "Pinned source passage" })).toBeInTheDocument();
+
+    mockGraphLens.mockReturnValue({
+      request: {
+        schema: "dmb_world_graph_projection_request_v1",
+        worldId: "elderwyld",
+        campaignId: "",
+        scopeMode: "world",
+        focus: { kind: "none", sessionId: null },
+        admissibility: "gm",
+      },
+      requestKey: "managed:elderwyld:world",
+      projection: projection({ revisionId: "world-rev-18" }),
+      projectionState: "ready",
+      projectionError: null,
+      nodeCount: 1,
+      lastProjectionLoadMs: null,
+      lastProjectionLoadOutcome: "ready",
+    });
+    view.rerender(
+      <WorldPlanGraphReferenceActivationProvider worldId="elderwyld">
+        <ActivationButton />
+        <RuntimeReadout />
+      </WorldPlanGraphReferenceActivationProvider>,
+    );
+    expect(await screen.findByRole("status")).toHaveTextContent("head changed");
+    expect(screen.queryByRole("dialog", { name: "Pinned source passage" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Lysandra led the warehouse watch through the storm.")).not.toBeInTheDocument();
+  });
+
+  it("does not consume Escape while focus is in the underlying reader", async () => {
+    mount(projection());
+    const trigger = screen.getByRole("button", { name: "Ironveil Warehouse" });
+    fireEvent.click(trigger);
+    const dialog = await screen.findByRole("dialog", { name: "World Graph object" });
+    trigger.focus();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.getByRole("dialog", { name: "World Graph object" })).toBeInTheDocument();
+    within(dialog).getByRole("button", { name: "Close" }).focus();
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
   it("reports a ready exact-ID miss even when another node has the displayed label", async () => {
