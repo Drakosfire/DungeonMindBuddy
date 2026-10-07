@@ -5,7 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime
-from typing import Annotated, Literal
+from enum import Enum
+from typing import Annotated, Literal, NoReturn
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -873,6 +874,55 @@ class PlanWorldGraphCompletionV1(StrictModel):
         return self
 
 
+class GraphCompletionRejectionCode(str, Enum):
+    """Closed internal categories for fixed completion-validation failures."""
+
+    RECEIPT_BINDING = "completion_receipt_binding"
+    PLAN_BASIS_ATTRIBUTION = "plan_basis_attribution"
+    STATUS_EVIDENCE_MISMATCH = "status_evidence_mismatch"
+    GRAPH_PACKET_NOT_INCLUDED = "graph_packet_not_included"
+    CITATION_MAP_MISSING = "citation_map_missing"
+    CITATION_MAP_CLAIM_SET = "citation_map_claim_set"
+    CITATION_ENTRY_MISSING = "citation_entry_missing"
+    CLAIM_TARGET_NOT_DISPATCHED = "claim_target_not_dispatched"
+    GRAPH_REVISION_MISMATCH = "graph_revision_mismatch"
+    EVIDENCE_NOT_CANDIDATE = "evidence_not_candidate"
+    EVIDENCE_NOT_DISPATCHED = "evidence_not_dispatched"
+    EVIDENCE_ORDER = "evidence_order"
+    CITATION_EVIDENCE_MISMATCH = "citation_evidence_mismatch"
+    PRODUCING_RESPONSE_MISSING = "producing_response_missing"
+    CLAIM_BINDING_SET = "claim_binding_set"
+    CLAIM_TARGET_NOT_IN_ENVELOPE = "claim_target_not_in_envelope"
+    BINDING_EVENT_DUPLICATE = "binding_event_duplicate"
+    BINDING_EVENT_NOT_IN_ENVELOPE = "binding_event_not_in_envelope"
+    BINDING_EVENT_SUPPORT_MISMATCH = "binding_event_support_mismatch"
+    CLAIM_SUPPORT_MISSING = "claim_support_missing"
+    CITED_EVIDENCE_INSUFFICIENT = "cited_evidence_insufficient"
+    CITATION_CLAIM_MISMATCH = "citation_claim_mismatch"
+    GROUNDED_STATUS_MISMATCH = "grounded_status_mismatch"
+    PLAN_ONLY_STATUS_MISMATCH = "plan_only_status_mismatch"
+
+
+class GraphCompletionValidationError(ValueError):
+    """A ValueError with a fixed, non-content-bearing internal rejection code."""
+
+    def __init__(
+        self,
+        rejection_code: GraphCompletionRejectionCode,
+        message: str,
+    ) -> None:
+        self.rejection_code = rejection_code
+        super().__init__(message)
+
+
+def _reject_graph_completion(
+    rejection_code: GraphCompletionRejectionCode,
+    message: str,
+) -> NoReturn:
+    """Raise a backward-compatible ValueError classified by a closed code."""
+    raise GraphCompletionValidationError(rejection_code, message)
+
+
 class GraphExecutionAccountingV1(StrictModel):
     kind: Literal["exact_token_count", "conservative_upper_bound"]
     estimator: str = Field(min_length=1, max_length=128)
@@ -1077,7 +1127,10 @@ def validate_completion_against_receipt(
     receipt: PlanWorldGraphContextReceiptV1,
 ) -> None:
     if completion.context_receipt_sha256 != receipt.context_receipt_sha256:
-        raise ValueError("completion must bind the exact stored Graph receipt")
+        _reject_graph_completion(
+            GraphCompletionRejectionCode.RECEIPT_BINDING,
+            "completion must bind the exact stored Graph receipt",
+        )
     packet = receipt.graph_packet
     assembled = receipt.assembled_input
     claims = [
@@ -1089,31 +1142,40 @@ def validate_completion_against_receipt(
         if isinstance(segment, PlanWorldGraphPlanClaimSegmentV1) and (
             segment.plan_content_sha256 != receipt.plan_basis.content_sha256
         ):
-            raise ValueError("Plan claim attribution must match the frozen Plan digest")
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.PLAN_BASIS_ATTRIBUTION,
+                "Plan claim attribution must match the frozen Plan digest",
+            )
 
     if completion.answer_context_status == "plan_only_insufficient_evidence":
         if packet.evidence_sufficiency_status != "insufficient":
-            raise ValueError(
-                "insufficient Plan-only status requires insufficient receipt evidence"
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.STATUS_EVIDENCE_MISMATCH,
+                "insufficient Plan-only status requires insufficient receipt evidence",
             )
     elif completion.answer_context_status == "plan_only_graph_unused":
         if packet.evidence_sufficiency_status != "sufficient":
-            raise ValueError("unused Graph status requires sufficient receipt evidence")
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.STATUS_EVIDENCE_MISMATCH,
+                "unused Graph status requires sufficient receipt evidence",
+            )
     elif completion.answer_context_status == "graph_grounded":
         if (
             packet.evidence_sufficiency_status != "sufficient"
             or packet.coverage_status != "complete"
             or packet.truncated
         ):
-            raise ValueError(
-                "fully grounded status requires sufficient complete untruncated evidence"
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.STATUS_EVIDENCE_MISMATCH,
+                "fully grounded status requires sufficient complete untruncated evidence",
             )
     elif completion.answer_context_status == "graph_grounded_partial":
         if packet.evidence_sufficiency_status != "sufficient" or (
             packet.coverage_status == "complete" and not packet.truncated
         ):
-            raise ValueError(
-                "partially grounded status requires incomplete or truncated evidence"
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.STATUS_EVIDENCE_MISMATCH,
+                "partially grounded status requires incomplete or truncated evidence",
             )
 
     dispatched = {
@@ -1124,34 +1186,58 @@ def validate_completion_against_receipt(
     dispatched_evidence = set(assembled.dispatched_evidence_ref_ids)
     if claims:
         if assembled.packet_disposition != "included":
-            raise ValueError("Graph claims require an included Graph packet")
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.GRAPH_PACKET_NOT_INCLUDED,
+                "Graph claims require an included Graph packet",
+            )
         if completion.citation_map is None:
-            raise ValueError("Graph claims require a citation map")
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.CITATION_MAP_MISSING,
+                "Graph claims require a citation map",
+            )
         entries = {entry.claim_id: entry for entry in completion.citation_map.entries}
         if len(entries) != len(completion.citation_map.entries):
-            raise ValueError("citation map claim IDs must be unique")
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.CITATION_MAP_CLAIM_SET,
+                "citation map claim IDs must be unique",
+            )
         for claim in claims:
             entry = entries.get(claim.claim_id)
             if entry is None:
-                raise ValueError(
-                    "every Graph claim requires exactly one citation entry"
+                _reject_graph_completion(
+                    GraphCompletionRejectionCode.CITATION_ENTRY_MISSING,
+                    "every Graph claim requires exactly one citation entry",
                 )
             if claim.target_id not in dispatched[claim.target_kind]:
-                raise ValueError("Graph claim target must be in the dispatched packet")
+                _reject_graph_completion(
+                    GraphCompletionRejectionCode.CLAIM_TARGET_NOT_DISPATCHED,
+                    "Graph claim target must be in the dispatched packet",
+                )
             if claim.graph_revision != receipt.graph_authority.graph_revision:
-                raise ValueError("Graph claim must use the frozen Graph revision")
+                _reject_graph_completion(
+                    GraphCompletionRejectionCode.GRAPH_REVISION_MISMATCH,
+                    "Graph claim must use the frozen Graph revision",
+                )
             if not set(claim.evidence_ref_ids).issubset(candidate_evidence):
-                raise ValueError(
-                    "Graph claim evidence refs must be in the frozen candidate set"
+                _reject_graph_completion(
+                    GraphCompletionRejectionCode.EVIDENCE_NOT_CANDIDATE,
+                    "Graph claim evidence refs must be in the frozen candidate set",
                 )
             if not set(claim.evidence_ref_ids).issubset(dispatched_evidence):
-                raise ValueError(
-                    "Graph claim evidence refs must be in the dispatched packet"
+                _reject_graph_completion(
+                    GraphCompletionRejectionCode.EVIDENCE_NOT_DISPATCHED,
+                    "Graph claim evidence refs must be in the dispatched packet",
                 )
             if claim.evidence_ref_ids != sorted(set(claim.evidence_ref_ids)):
-                raise ValueError("Graph claim evidence refs must be sorted and unique")
+                _reject_graph_completion(
+                    GraphCompletionRejectionCode.EVIDENCE_ORDER,
+                    "Graph claim evidence refs must be sorted and unique",
+                )
             if set(entry.evidence_ref_ids) != set(claim.evidence_ref_ids):
-                raise ValueError("citation refs must match the Graph claim refs")
+                _reject_graph_completion(
+                    GraphCompletionRejectionCode.CITATION_EVIDENCE_MISMATCH,
+                    "citation refs must match the Graph claim refs",
+                )
 
 
 def validate_execution_completion(
@@ -1163,7 +1249,10 @@ def validate_execution_completion(
 ) -> None:
     """Validate citations against packets included in the final provider envelope."""
     if completion.context_receipt_sha256 != receipt.context_receipt_sha256:
-        raise ValueError("completion must bind the exact stored Graph receipt")
+        _reject_graph_completion(
+            GraphCompletionRejectionCode.RECEIPT_BINDING,
+            "completion must bind the exact stored Graph receipt",
+        )
     auths = {
         event.provider_attempt_id: event
         for event in execution.events
@@ -1176,7 +1265,10 @@ def validate_execution_completion(
     ]
     producing = auths.get(producing_provider_attempt_id)
     if producing is None or not outcomes or outcomes[-1].outcome != "response_received":
-        raise ValueError("completion requires a durable response from its producing attempt")
+        _reject_graph_completion(
+            GraphCompletionRejectionCode.PRODUCING_RESPONSE_MISSING,
+            "completion requires a durable response from its producing attempt",
+        )
     events = {
         event.event_id: event
         for event in execution.events
@@ -1193,29 +1285,53 @@ def validate_execution_completion(
     claims = [s for s in completion.answer_segments if isinstance(s, PlanWorldGraphClaimSegmentV1)]
     for segment in completion.answer_segments:
         if isinstance(segment, PlanWorldGraphPlanClaimSegmentV1) and segment.plan_content_sha256 != receipt.plan_basis.content_sha256:
-            raise ValueError("Plan claim attribution must match the frozen Plan digest")
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.PLAN_BASIS_ATTRIBUTION,
+                "Plan claim attribution must match the frozen Plan digest",
+            )
     if set(claim_graph_event_ids) != {claim.claim_id for claim in claims}:
-        raise ValueError("completion binding must map each Graph claim exactly once")
+        _reject_graph_completion(
+            GraphCompletionRejectionCode.CLAIM_BINDING_SET,
+            "completion binding must map each Graph claim exactly once",
+        )
     if claims and completion.citation_map is None:
-        raise ValueError("Graph claims require a citation map")
+        _reject_graph_completion(
+            GraphCompletionRejectionCode.CITATION_MAP_MISSING,
+            "Graph claims require a citation map",
+        )
     citation_entries = {} if completion.citation_map is None else {entry.claim_id: entry for entry in completion.citation_map.entries}
     if claims and (len(citation_entries) != len(completion.citation_map.entries) or set(citation_entries) != {claim.claim_id for claim in claims}):
-        raise ValueError("citation map must correspond one-to-one with Graph claims")
+        _reject_graph_completion(
+            GraphCompletionRejectionCode.CITATION_MAP_CLAIM_SET,
+            "citation map must correspond one-to-one with Graph claims",
+        )
     sufficient_sources: list[tuple[str, bool]] = []
     for claim in claims:
         if claim.graph_revision != receipt.graph_authority.graph_revision:
-            raise ValueError("Graph claim must use the frozen Graph revision")
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.GRAPH_REVISION_MISMATCH,
+                "Graph claim must use the frozen Graph revision",
+            )
         target_ids = dispatched[claim.target_kind] | (
             included_assertions if claim.target_kind == "assertion" else included_relationships
         )
         if claim.target_id not in target_ids:
-            raise ValueError("Graph claim target is absent from the final producing envelope")
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.CLAIM_TARGET_NOT_IN_ENVELOPE,
+                "Graph claim target is absent from the final producing envelope",
+            )
         if claim.evidence_ref_ids != sorted(set(claim.evidence_ref_ids)):
-            raise ValueError("Graph claim evidence refs must be sorted and unique")
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.EVIDENCE_ORDER,
+                "Graph claim evidence refs must be sorted and unique",
+            )
         refs = set(claim.evidence_ref_ids)
         mapped_ids = claim_graph_event_ids[claim.claim_id]
         if len(mapped_ids) != len(set(mapped_ids)):
-            raise ValueError("completion binding event IDs must be unique per claim")
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.BINDING_EVENT_DUPLICATE,
+                "completion binding event IDs must be unique per claim",
+            )
         support_packets: list[tuple[set[str], set[str], str, str, bool]] = []
         if claim.target_id in dispatched[claim.target_kind] and refs.issubset(set(receipt.assembled_input.dispatched_evidence_ref_ids)):
             if claim.target_id in (included_assertions if claim.target_kind == "assertion" else included_relationships) and refs.issubset(included_evidence):
@@ -1223,7 +1339,10 @@ def validate_execution_completion(
         for event_id in mapped_ids:
             event = events.get(event_id)
             if event is None or event_id not in included_event_ids:
-                raise ValueError("citation event must be validated and present in the final producing envelope")
+                _reject_graph_completion(
+                    GraphCompletionRejectionCode.BINDING_EVENT_NOT_IN_ENVELOPE,
+                    "citation event must be validated and present in the final producing envelope",
+                )
             targets = set(event.assertion_ids if claim.target_kind == "assertion" else event.relationship_ids)
             included_targets = included_assertions if claim.target_kind == "assertion" else included_relationships
             if (
@@ -1234,17 +1353,32 @@ def validate_execution_completion(
             ):
                 support_packets.append((targets, set(event.evidence_ref_ids), event.evidence_sufficiency_status, event.coverage_status, event.truncated))
             else:
-                raise ValueError("completion binding names an event that does not support its claim")
+                _reject_graph_completion(
+                    GraphCompletionRejectionCode.BINDING_EVENT_SUPPORT_MISMATCH,
+                    "completion binding names an event that does not support its claim",
+                )
         if not support_packets:
-            raise ValueError("Graph claim target and evidence refs lack included validated support")
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.CLAIM_SUPPORT_MISSING,
+                "Graph claim target and evidence refs lack included validated support",
+            )
         if any(status != "sufficient" for _, _, status, _, _ in support_packets):
-            raise ValueError("Graph grounded claims require sufficient cited evidence")
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.CITED_EVIDENCE_INSUFFICIENT,
+                "Graph grounded claims require sufficient cited evidence",
+            )
         sufficient_sources.extend((status, coverage == "complete" and not truncated) for _, _, status, coverage, truncated in support_packets)
         if completion.citation_map is None:
-            raise ValueError("Graph claims require a citation map")
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.CITATION_MAP_MISSING,
+                "Graph claims require a citation map",
+            )
         entry = citation_entries.get(claim.claim_id)
         if entry is None or entry.target_kind != claim.target_kind or entry.target_id != claim.target_id or entry.graph_revision != claim.graph_revision or entry.evidence_ref_ids != claim.evidence_ref_ids:
-            raise ValueError("citation map entry must match its Graph claim")
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.CITATION_CLAIM_MISMATCH,
+                "citation map entry must match its Graph claim",
+            )
     if claims:
         expected = (
             "graph_grounded"
@@ -1252,7 +1386,10 @@ def validate_execution_completion(
             else "graph_grounded_partial"
         )
         if completion.answer_context_status != expected:
-            raise ValueError("Graph grounded status does not match cited execution evidence")
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.GROUNDED_STATUS_MISMATCH,
+                "Graph grounded status does not match cited execution evidence",
+            )
     else:
         initial_ids_in_envelope = bool(
             set(receipt.assembled_input.dispatched_assertion_ids).intersection(included_assertions)
@@ -1276,7 +1413,10 @@ def validate_execution_completion(
         )
         expected = "plan_only_graph_unused" if sufficient else "plan_only_insufficient_evidence"
         if completion.answer_context_status != expected:
-            raise ValueError("Plan-only status does not match evidence in the producing envelope")
+            _reject_graph_completion(
+                GraphCompletionRejectionCode.PLAN_ONLY_STATUS_MISMATCH,
+                "Plan-only status does not match evidence in the producing envelope",
+            )
 
 
 class WorldPointer(StrictModel):

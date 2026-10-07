@@ -377,11 +377,241 @@ def _provider_authorization_event(
     )
 
 
+def _execution_completion_fixture():
+    from application_state.agent_conversation.types import (
+        GraphExecutionAccountingV1,
+        GraphExecutionPolicyV1,
+        PlanWorldGraphExecutionV1,
+        ProviderOutcomeEventV1,
+        validate_execution_completion,
+    )
+
+    attempt_id = uuid4()
+    receipt = _graph_receipt(
+        "completion-classification-world",
+        uuid4(),
+        evidence_sufficiency_status="sufficient",
+        candidate_assertion_ids=["assertion-classification"],
+        candidate_evidence_ref_ids=["evidence-classification"],
+        dispatched_assertion_ids=["assertion-classification"],
+        dispatched_evidence_ref_ids=["evidence-classification"],
+        coverage_status="incomplete",
+    )
+    claim = PlanWorldGraphClaimSegmentV1(
+        kind="graph_claim",
+        claim_id="claim-classification",
+        text="Fixed test claim.",
+        target_kind="assertion",
+        target_id="assertion-classification",
+        graph_revision=receipt.graph_authority.graph_revision,
+        evidence_ref_ids=["evidence-classification"],
+    )
+    completion = PlanWorldGraphCompletionV1(
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        answer_basis="committed_plan_plus_world_graph",
+        answer_context_status="graph_grounded_partial",
+        answer_segments=[claim],
+        citation_map=PlanWorldGraphCitationMapV1(
+            context_receipt_sha256=receipt.context_receipt_sha256,
+            entries=[
+                PlanWorldGraphCitationV1(
+                    claim_id=claim.claim_id,
+                    target_kind=claim.target_kind,
+                    target_id=claim.target_id,
+                    graph_revision=claim.graph_revision,
+                    evidence_ref_ids=claim.evidence_ref_ids,
+                    source_opened=False,
+                )
+            ],
+        ),
+    )
+    authorized = _provider_authorization_event(
+        attempt_id=attempt_id,
+        sequence=0,
+        assertions=[claim.target_id],
+        evidence_refs=claim.evidence_ref_ids,
+    )
+    execution = PlanWorldGraphExecutionV1(
+        schema="dmb_agent_plan_world_graph_execution_v1",
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        policy=GraphExecutionPolicyV1(
+            policy_version="completion-classification-test-v1",
+            allowed_graph_operations=["search_assertions"],
+            max_provider_attempts=1,
+            max_graph_operations=0,
+            max_results_per_operation=8,
+            max_total_provider_input_tokens=100,
+            max_total_provider_output_tokens=100,
+            provider_input_accounting=GraphExecutionAccountingV1(
+                kind="exact_token_count",
+                estimator="synthetic-tokenizer",
+            ),
+            source_opened=False,
+        ),
+        events=[
+            authorized,
+            ProviderOutcomeEventV1(
+                event_id=uuid4(),
+                sequence=1,
+                kind="provider_outcome",
+                provider_attempt_id=attempt_id,
+                outcome="sdk_entered",
+            ),
+            ProviderOutcomeEventV1(
+                event_id=uuid4(),
+                sequence=2,
+                kind="provider_outcome",
+                provider_attempt_id=attempt_id,
+                outcome="response_received",
+                response_sha256="9" * 64,
+            ),
+        ],
+    )
+    return receipt, completion, execution, attempt_id, validate_execution_completion
+
+
 def test_agent_conversation_migration_is_single_current_head(
     application_state_dsn: str,
 ) -> None:
     current, head = _current_and_head(application_state_dsn)
     assert current == head == "20261005_0017"
+
+
+def test_completion_validation_codes_are_closed_safe_and_valueerror_compatible() -> (
+    None
+):
+    from application_state.agent_conversation.types import (
+        GraphCompletionRejectionCode,
+        GraphCompletionValidationError,
+        PlanWorldGraphPlanClaimSegmentV1,
+        validate_completion_against_receipt,
+    )
+
+    receipt, completion, execution, attempt_id, validate_execution = (
+        _execution_completion_fixture()
+    )
+    assert (
+        validate_execution(
+            completion,
+            receipt,
+            execution,
+            attempt_id,
+            {"claim-classification": []},
+        )
+        is None
+    )
+    assert validate_completion_against_receipt(completion, receipt) is None
+
+    cases = [
+        (
+            completion.model_copy(update={"context_receipt_sha256": "f" * 64}),
+            receipt,
+            execution,
+            attempt_id,
+            {"claim-classification": []},
+            GraphCompletionRejectionCode.RECEIPT_BINDING,
+            "completion must bind the exact stored Graph receipt",
+        ),
+        (
+            completion,
+            receipt,
+            execution,
+            uuid4(),
+            {"claim-classification": []},
+            GraphCompletionRejectionCode.PRODUCING_RESPONSE_MISSING,
+            "completion requires a durable response from its producing attempt",
+        ),
+        (
+            completion,
+            receipt,
+            execution,
+            attempt_id,
+            {},
+            GraphCompletionRejectionCode.CLAIM_BINDING_SET,
+            "completion binding must map each Graph claim exactly once",
+        ),
+        (
+            completion.model_copy(update={"citation_map": None}),
+            receipt,
+            execution,
+            attempt_id,
+            {"claim-classification": []},
+            GraphCompletionRejectionCode.CITATION_MAP_MISSING,
+            "Graph claims require a citation map",
+        ),
+        (
+            completion.model_copy(update={"answer_context_status": "graph_grounded"}),
+            receipt,
+            execution,
+            attempt_id,
+            {"claim-classification": []},
+            GraphCompletionRejectionCode.GROUNDED_STATUS_MISMATCH,
+            "Graph grounded status does not match cited execution evidence",
+        ),
+    ]
+    for (
+        candidate,
+        candidate_receipt,
+        candidate_execution,
+        producing_id,
+        bindings,
+        code,
+        message,
+    ) in cases:
+        with pytest.raises(GraphCompletionValidationError) as rejected:
+            validate_execution(
+                candidate,
+                candidate_receipt,
+                candidate_execution,
+                producing_id,
+                bindings,
+            )
+        assert isinstance(rejected.value, ValueError)
+        assert str(rejected.value) == message
+        assert rejected.value.rejection_code is code
+        assert "assertion-classification" not in rejected.value.rejection_code.value
+        assert "evidence-classification" not in rejected.value.rejection_code.value
+
+    plan_only_completion = PlanWorldGraphCompletionV1(
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        answer_basis="committed_plan",
+        answer_context_status="plan_only_insufficient_evidence",
+        answer_segments=[
+            PlanWorldGraphPlanClaimSegmentV1(
+                kind="plan_claim",
+                text="Fixed Plan test segment.",
+                plan_content_sha256=receipt.plan_basis.content_sha256,
+            )
+        ],
+        citation_map=None,
+    )
+    with pytest.raises(GraphCompletionValidationError) as wrong_plan_only_status:
+        validate_execution(
+            plan_only_completion,
+            receipt,
+            execution,
+            attempt_id,
+            {},
+        )
+    assert (
+        wrong_plan_only_status.value.rejection_code
+        is GraphCompletionRejectionCode.PLAN_ONLY_STATUS_MISMATCH
+    )
+
+    with pytest.raises(GraphCompletionValidationError) as receipt_rejected:
+        validate_completion_against_receipt(
+            completion.model_copy(update={"context_receipt_sha256": "f" * 64}),
+            receipt,
+        )
+    assert isinstance(receipt_rejected.value, ValueError)
+    assert (
+        str(receipt_rejected.value)
+        == "completion must bind the exact stored Graph receipt"
+    )
+    assert (
+        receipt_rejected.value.rejection_code
+        is GraphCompletionRejectionCode.RECEIPT_BINDING
+    )
 
 
 def test_graph_receipt_and_completion_round_trip_through_fresh_service(
