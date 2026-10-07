@@ -6,6 +6,7 @@ import json
 import logging
 import re
 import psycopg
+from pydantic import ValidationError
 from dataclasses import dataclass, replace
 from datetime import datetime
 from hashlib import sha256
@@ -255,6 +256,34 @@ class AgentTurnServiceError(ValueError):
         self.code = code
         self.status_code = status_code
         self.provider_dispatched = provider_dispatched
+
+
+class _AnswerValidationFailure(AgentTurnServiceError):
+    """A fixed, content-free classification of a rejected provider answer."""
+
+    def __init__(
+        self, *, stage: str, reason: str,
+        message: str = "The provider answer did not satisfy the pinned Plan/Graph evidence contract.",
+    ) -> None:
+        super().__init__(
+            message,
+            code="answer_validation_failed", status_code=502,
+        )
+        self.stage = stage
+        self.reason = reason
+
+
+def _typed_answer_rejection(exc: ValidationError) -> tuple[str, str]:
+    """Use only schema error locations; never expose Pydantic input or messages."""
+    roots = {
+        str(error["loc"][0]) for error in exc.errors(include_input=False)
+        if error["loc"]
+    }
+    if "answer_segments" in roots:
+        return "typed", "segment_schema"
+    if "citation_map" in roots:
+        return "typed", "citation_schema"
+    return "typed", "completion_schema"
 
 
 def project_plan_graph_execution_state(
@@ -1344,17 +1373,21 @@ def _parse_policy_completion(
     receipt = turn.graph_context_receipt
     execution = getattr(turn, "graph_context_execution", None)
     if receipt is None or execution is None:
-        raise AgentTurnServiceError(
-            "The provider answer has no durable Graph execution authority.",
-            code="answer_validation_failed", status_code=502,
+        raise _AnswerValidationFailure(
+            stage="authority", reason="missing_execution",
+            message="The provider answer has no durable Graph execution authority.",
         )
+    stage, reason = "unknown", "unknown"
     try:
+        stage, reason = "json", "invalid_json"
         candidate = json.loads(final_text)
+        stage, reason = "shape", "top_level_shape"
         if not isinstance(candidate, dict) or set(candidate) != {
             "answer_context_status", "answer_segments", "citation_map"
         }:
             raise ValueError("provider answer must be a strict typed JSON object")
         segments = candidate["answer_segments"]
+        stage, reason = "shape", "segment_shape"
         if not isinstance(segments, list):
             raise ValueError("answer segments must be a list")
         normalized_segments = []
@@ -1363,12 +1396,14 @@ def _parse_policy_completion(
                 raise ValueError("answer segment must be an object")
             normalized = dict(segment)
             if normalized.get("kind") == "plan_claim":
+                stage, reason = "typed", "segment_attribution"
                 if normalized.get("plan_content_sha256") not in {
                     None, receipt.plan_basis.content_sha256
                 }:
                     raise ValueError("Plan claim used another content digest")
                 normalized["plan_content_sha256"] = receipt.plan_basis.content_sha256
             if normalized.get("kind") == "graph_claim":
+                stage, reason = "typed", "segment_attribution"
                 if normalized.get("graph_revision") not in {
                     None, receipt.graph_authority.graph_revision
                 }:
@@ -1376,6 +1411,7 @@ def _parse_policy_completion(
                 normalized["graph_revision"] = receipt.graph_authority.graph_revision
             normalized_segments.append(normalized)
         citations = candidate["citation_map"]
+        stage, reason = "typed", "citation_shape"
         if citations is not None:
             if not isinstance(citations, dict) or set(citations) != {"entries"}:
                 raise ValueError("citation map must contain only entries")
@@ -1385,6 +1421,7 @@ def _parse_policy_completion(
                 "entries": citations["entries"],
             }
         has_graph = any(s.get("kind") == "graph_claim" for s in normalized_segments)
+        stage, reason = "typed", "completion_schema"
         completion = graph_types.PlanWorldGraphCompletionV1.model_validate({
             "schema": "dmb_plan_world_graph_completion_v1",
             "context_receipt_sha256": receipt.context_receipt_sha256,
@@ -1395,6 +1432,7 @@ def _parse_policy_completion(
             "answer_segments": normalized_segments,
             "citation_map": citations,
         })
+        stage, reason = "evidence", "producing_attempt_missing"
         auth = next(
             event for event in execution.events
             if getattr(event, "kind", None) == "provider_attempt_authorized"
@@ -1432,18 +1470,21 @@ def _parse_policy_completion(
                 )
             ]
             if not initial_support and not supporting:
+                stage, reason = "evidence", "producing_envelope_support"
                 raise ValueError("Graph claim lacks producing-envelope support")
             bindings[segment.claim_id] = [] if initial_support else supporting[:1]
+        stage, reason = "binding", "completion_binding"
         graph_types.validate_execution_completion(
             completion, receipt, execution, producing_provider_attempt_id, bindings
         )
         answer_text = "\n".join(segment.text for segment in completion.answer_segments)
         return completion, bindings, answer_text
     except (ValueError, KeyError, StopIteration, TypeError) as exc:
-        raise AgentTurnServiceError(
-            "The provider answer did not satisfy the pinned Plan/Graph evidence contract.",
-            code="answer_validation_failed", status_code=502,
-        ) from exc
+        if isinstance(exc, ValidationError) and (stage, reason) == (
+            "typed", "completion_schema"
+        ):
+            stage, reason = _typed_answer_rejection(exc)
+        raise _AnswerValidationFailure(stage=stage, reason=reason) from exc
 
 
 def _policy_request_budget() -> dict[str, Any]:
@@ -2973,6 +3014,18 @@ def execute_agent_turn(
             ))
         except AgentTurnServiceError as exc:
             trace.complete_phase(span_id, status="error")
+            if isinstance(exc, _AnswerValidationFailure):
+                final_bytes = policy_result.final_text.encode("utf-8")
+                _LOG.warning(
+                    "plan_graph_answer_validation_failed stage=%s reason=%s "
+                    "request_turn_sha256=%s idempotency_key=%s durable_turn_id=%s "
+                    "producing_provider_attempt_id=%s final_text_sha256=%s final_text_utf8_bytes=%d",
+                    exc.stage, exc.reason,
+                    sha256(request.turn_id.encode("utf-8")).hexdigest(),
+                    policy_turn.idempotency_key, policy_turn.turn_id,
+                    adapter.producing_provider_attempt_id,
+                    sha256(final_bytes).hexdigest(), len(final_bytes),
+                )
             try:
                 conversation_service.fail_turn(TurnFailure(
                     world_id=policy_turn.world_id,

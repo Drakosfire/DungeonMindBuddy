@@ -1135,6 +1135,41 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
             malformed_live_answer, turn, adapter.producing_provider_attempt_id,
         )
     assert malformed.value.code == "answer_validation_failed"
+    assert (malformed.value.stage, malformed.value.reason) == (
+        "typed", "citation_shape",
+    )
+
+    for rejected_text, expected in (
+        ('PRIVATE_INVALID_JSON {', ("json", "invalid_json")),
+        (json.dumps({"answer_segments": []}), ("shape", "top_level_shape")),
+        (json.dumps({
+            "answer_context_status": "plan_only_insufficient_evidence",
+            "answer_segments": ["PRIVATE_NOT_AN_OBJECT"], "citation_map": None,
+        }), ("shape", "segment_shape")),
+        (json.dumps({
+            "answer_context_status": "plan_only_insufficient_evidence",
+            "answer_segments": [{"kind": "plan_claim", "text": "PRIVATE_EXTRA_FIELD", "extra": 1}],
+            "citation_map": None,
+        }), ("typed", "segment_schema")),
+        (json.dumps({
+            "answer_context_status": "plan_only_insufficient_evidence",
+            "answer_segments": [{"kind": "plan_claim", "text": "Plan fact."}],
+            "citation_map": {"entries": "PRIVATE_BAD_ENTRIES"},
+        }), ("typed", "citation_schema")),
+    ):
+        with pytest.raises(AgentTurnServiceError) as rejected:
+            service_module._parse_policy_completion(
+                rejected_text, turn, adapter.producing_provider_attempt_id,
+            )
+        assert rejected.value.code == "answer_validation_failed"
+        assert (rejected.value.stage, rejected.value.reason) == expected
+        assert "PRIVATE_" not in str(rejected.value)
+
+    with pytest.raises(AgentTurnServiceError) as missing_attempt:
+        service_module._parse_policy_completion(typed_answer, turn, uuid4())
+    assert (missing_attempt.value.stage, missing_attempt.value.reason) == (
+        "evidence", "producing_attempt_missing",
+    )
 
     duplicate_payload = '{"schema":"dmb_world_graph_retrieval_result_v1","claim":"same"}'
     operation_event = graph_types.ValidatedGraphOperationEventV1(
@@ -1175,10 +1210,100 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     assert adapter.fence.turn.graph_context_execution.events[-1].kind == "validated_graph_operation"
     adapter.stop()
 
+    # A fresh turn carries the valid two-attempt expansion through final admission.
+    fake = FakeExecutionPort()
+    adapter = service_module._PolicyExecutionAdapter(
+        service=fake, request=request, world_id="world:one", work=work,
+        bootstrap=bootstrap, playable_target=None,
+        submitted_intent=_submitted_turn_intent(request, world_id="world:one"),
+        existing_turn=None, budget=budget,
+    )
+    assert adapter.authorize(view) is True
+    assert adapter.record_lifecycle({"transition": "sdk_entered"}) is True
+    assert adapter.record_lifecycle({"transition": "response_received"}) is True
+    turn, fresh = adapter.fence.append(
+        "append_validated_graph_operation", "operation_event", operation_event,
+    )
+    assert fresh is True
+    adapter.operation_payloads[operation_event.event_id] = duplicate_payload
+    graph_claim = {
+        "kind": "graph_claim", "claim_id": "claim:one", "text": "The keeper waits nearby.",
+        "target_kind": "relationship", "target_id": "rel:one",
+        "graph_revision": "graph-revision-3", "evidence_ref_ids": ["ev:one"],
+    }
+    graph_answer = json.dumps({
+        "answer_context_status": "graph_grounded",
+        "answer_segments": [graph_claim],
+        "citation_map": {"entries": [{
+            **{key: value for key, value in graph_claim.items() if key not in {"kind", "text"}},
+            "source_opened": False,
+        }]},
+    })
+    with pytest.raises(AgentTurnServiceError) as unsupported:
+        service_module._parse_policy_completion(
+            graph_answer, adapter.fence.turn, adapter.producing_provider_attempt_id,
+        )
+    assert (unsupported.value.stage, unsupported.value.reason) == (
+        "evidence", "producing_envelope_support",
+    )
+
+    followup_body = json.loads(payload_json)
+    followup_body["input"].extend([
+        {"type": "function_call", "call_id": "call-a", "name": "expand_graph_retrieval", "arguments": "{}"},
+        {"type": "function_call_output", "call_id": "call-a", "output": duplicate_payload},
+    ])
+    followup_json = json.dumps(followup_body, sort_keys=True, separators=(",", ":"))
+    followup_view = {
+        **view, "payloadJson": followup_json,
+        "payloadSha256": sha256(followup_json.encode()).hexdigest(),
+        "payloadUtf8Bytes": len(followup_json.encode()),
+    }
+    assert adapter.authorize(followup_view) is True
+    assert adapter.record_lifecycle({"transition": "sdk_entered"}) is True
+    assert adapter.record_lifecycle({"transition": "response_received"}) is True
+    final_turn = adapter.fence.turn
+    final_attempt = adapter.producing_provider_attempt_id
+    assert final_turn is not None and final_attempt is not None
+    graph_completion, graph_bindings, graph_text = service_module._parse_policy_completion(
+        graph_answer, final_turn, final_attempt,
+    )
+    assert graph_completion.answer_context_status == "graph_grounded"
+    assert graph_bindings == {"claim:one": [operation_event.event_id]}
+    assert graph_text == "The keeper waits nearby."
+    assert fake.authorize_count == 2
+    assert len([event for event in final_turn.graph_context_execution.events if event.kind == "provider_attempt_authorized"]) == 2
+    assert final_turn.graph_context_execution.events[-1].kind == "provider_outcome"
+
+    wrong_binding_status = json.loads(graph_answer)
+    wrong_binding_status["answer_context_status"] = "graph_grounded_partial"
+    with pytest.raises(AgentTurnServiceError) as binding_rejection:
+        service_module._parse_policy_completion(
+            json.dumps(wrong_binding_status), final_turn, final_attempt,
+        )
+    assert (binding_rejection.value.stage, binding_rejection.value.reason) == (
+        "binding", "completion_binding",
+    )
+    completed_graph_turn = fake.complete_turn(graph_types.TurnResult(
+        world_id=final_turn.world_id,
+        conversation_id=final_turn.conversation_id,
+        turn_id=final_turn.turn_id,
+        expected_revision=final_turn.revision,
+        assistant_text=graph_text,
+        completion=graph_completion,
+        producing_provider_attempt_id=final_attempt,
+        claim_graph_event_ids=graph_bindings,
+    ))
+    assert completed_graph_turn.status == "completed"
+    assert completed_graph_turn.graph_context_execution.events[-1].kind == "completion_binding"
+    adapter.stop()
+
     fake = FakeExecutionPort()
 
     class GuardedRuntime:
         descriptor = AgentRuntimeDescriptor("fake-guarded", "fake", "test", "graph")
+
+        def __init__(self, final_text: str = typed_answer) -> None:
+            self.final_text = final_text
 
         def run_with_provider_authorization(
             self, _invocation: Any, authorize: Any, *, request_budget: Any,
@@ -1192,7 +1317,7 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
             assert on_provider_lifecycle({"transition": "response_received"}) is True
             basis.has_divergent_working_copy = True
             return AgentRuntimeResult(
-                status="ok", final_text=typed_answer,
+                status="ok", final_text=self.final_text,
                 runtime_session_id="synthetic-plan-session",
             )
 
@@ -1364,6 +1489,49 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     assert response.plan_context.completion is not None
     assert response.answer.text == "The keeper waits."
     assert fake.turn is not None and fake.turn.status == "completed"
+
+    fake = FakeExecutionPort()
+    failed_codes: list[str] = []
+
+    def record_failure(failure: Any, *, interrupted: bool = False) -> Turn:
+        assert interrupted is False
+        failed_codes.append(failure.failure_code)
+        assert fake.turn is not None
+        return fake.turn
+
+    fake.fail_turn = record_failure
+    private_final_text = "PRIVATE_PROVIDER_FINAL_BODY {"
+    caplog.clear()
+    with pytest.raises(AgentTurnServiceError) as rejected_service_answer:
+        execute_agent_turn(
+            request, root=Path("/tmp"),
+            pointer_store=HermesSessionPointerStore(Path("/tmp") / f"plan-rejected-{uuid4()}"),
+            owner_resolver=lambda _request: {
+                "kind": "world", "id": "world:one", "name": "World One",
+            },
+            work_resolver=lambda _request, _owner: work,
+            graph_resolver=lambda *_args: pytest.fail("generic Graph resolver was used"),
+            plan_graph_resolver=lambda *_args: bootstrap,
+            runtime=GuardedRuntime(private_final_text),
+            conversation_service=fake,
+        )
+    assert rejected_service_answer.value.code == "answer_validation_failed"
+    assert failed_codes == ["answer_validation_failed"]
+    assert fake.authorize_count == 1
+    assert fake.turn is not None and fake.turn.completion is None
+    diagnostic = next(
+        record.getMessage() for record in caplog.records
+        if record.getMessage().startswith("plan_graph_answer_validation_failed ")
+    )
+    assert "stage=json reason=invalid_json" in diagnostic
+    assert f"request_turn_sha256={sha256(request.turn_id.encode()).hexdigest()}" in diagnostic
+    assert f"idempotency_key={fake.turn.idempotency_key}" in diagnostic
+    assert f"durable_turn_id={fake.turn.turn_id}" in diagnostic
+    assert f"final_text_sha256={sha256(private_final_text.encode()).hexdigest()}" in diagnostic
+    assert f"final_text_utf8_bytes={len(private_final_text.encode())}" in diagnostic
+    assert "producing_provider_attempt_id=" in diagnostic
+    assert "PRIVATE_PROVIDER_FINAL_BODY" not in diagnostic
+    assert "Expecting property name" not in diagnostic
 
 
 @pytest.mark.parametrize(
