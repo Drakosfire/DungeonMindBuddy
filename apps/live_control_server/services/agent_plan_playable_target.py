@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import re
+
+from markdown_it import MarkdownIt
+
 from application_state.agent_conversation.types import (
     PlanPlayableTargetReceiptV1,
     SubmittedPlanPlayableTargetV1,
@@ -12,6 +16,17 @@ from apps.live_control_server.services.play_run_reference_manifest import (
     derive_play_run_reference_elements_v2,
     detect_playable_grammar_version,
 )
+from apps.live_control_server.services.plan_playable_body_target import (
+    PlayableBodyTargetError,
+    PlayableTarget,
+    selected_playable_source_for_read,
+)
+
+_GRAPH_LINK = re.compile(
+    r"^(?:dmb-node:|#dmb-ref:graph-node:)([a-z0-9][a-z0-9_.:-]*)$",
+    re.IGNORECASE,
+)
+_MAX_INITIAL_GRAPH_SEEDS = 8
 
 
 class AgentPlanPlayableTargetError(ValueError):
@@ -62,3 +77,35 @@ def resolve_agent_plan_playable_target(
         id=target.id,
         marker_grammar_version=f"v{grammar_version}",
     )
+
+
+def selected_plan_graph_seed_candidates(
+    target: SubmittedPlanPlayableTargetV1 | None,
+    committed_markdown: str,
+) -> list[str]:
+    """Read typed Graph links only from the selected committed Playable body.
+
+    The read-only source range shares canonical marker attachment, without
+    imposing the editing serializer's content limits. Graph existence and the
+    native revision are checked by the caller.
+    """
+    if target is None:
+        return []
+    resolve_agent_plan_playable_target(target, committed_markdown)
+    try:
+        body = selected_playable_source_for_read(
+            committed_markdown, PlayableTarget(kind=target.kind, id=target.id)
+        )
+    except PlayableBodyTargetError:
+        return []
+    seeds: list[str] = []
+    for token in MarkdownIt("commonmark", {"html": True}).parse(body):
+        for child in token.children or []:
+            if child.type != "link_open":
+                continue
+            match = _GRAPH_LINK.fullmatch((child.attrs or {}).get("href", ""))
+            if match and child.attrs.get("title") is None and match.group(1) not in seeds:
+                seeds.append(match.group(1))
+                if len(seeds) == _MAX_INITIAL_GRAPH_SEEDS:
+                    return seeds
+    return seeds

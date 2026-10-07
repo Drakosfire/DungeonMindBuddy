@@ -495,11 +495,16 @@ def _plan_context_resolver(
         SourceAnchorState,
     )
     from graph_memory.interaction.session_store import create_session
-    from graph_memory.retrieval.models import WorldGraphSearchRequest
+    from graph_memory.retrieval.models import WorldGraphObjectRequest, WorldGraphSearchRequest
 
     from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
         direct_services_from_config,
+        get_object_direct,
         search_world_graph_direct,
+    )
+    from apps.live_control_server.services.agent_plan_playable_target import (
+        AgentPlanPlayableTargetError,
+        selected_plan_graph_seed_candidates,
     )
     from apps.live_control_server.services.world_container_registry import (
         get_world_container,
@@ -571,6 +576,47 @@ def _plan_context_resolver(
             provider_dispatched=False,
         )
     try:
+        candidates = selected_plan_graph_seed_candidates(
+            body.playable_target, work.plan_markdown or ""
+        )
+    except AgentPlanPlayableTargetError as exc:
+        raise AgentTurnServiceError(
+            str(exc), code="plan_playable_target_unavailable", status_code=422,
+            provider_dispatched=False,
+        ) from exc
+    try:
+        services = direct_services_from_config(native_world_id)
+        revision_pin = (
+            None if frozen_receipt is None
+            else frozen_receipt.graph_authority.graph_revision
+        )
+        valid_seeds: list[str] = []
+        for candidate in candidates:
+            lookup = get_object_direct(
+                services,
+                WorldGraphObjectRequest.model_validate({
+                    "schema": "dmb_world_graph_object_request_v1",
+                    "worldId": native_world_id,
+                    "campaignId": "",
+                    "focus": {"kind": "none", "sessionId": None, "campaignId": None},
+                    "admissibility": "gm",
+                    "revisionPin": revision_pin,
+                    "scopeMode": "world",
+                    "nodeId": candidate,
+                    "bounds": {
+                        "maxNodes": 1, "maxRelationships": 1,
+                        "maxAttributes": 1, "maxSourceAnchors": 1,
+                    },
+                }),
+            )
+            if lookup.snapshot is None or lookup.snapshot.world_id != native_world_id:
+                raise ValueError("Graph seed lookup did not return the bound World snapshot")
+            if revision_pin is None:
+                revision_pin = lookup.snapshot.revision_id
+            elif lookup.snapshot.revision_id != revision_pin:
+                raise ValueError("Graph seed lookup changed revision")
+            if lookup.resolved_node_id == candidate:
+                valid_seeds.append(candidate)
         request = WorldGraphSearchRequest.model_validate(
             {
                 "schema": "dmb_world_graph_search_request_v1",
@@ -578,13 +624,10 @@ def _plan_context_resolver(
                 "campaignId": "",
                 "focus": {"kind": "none", "sessionId": None, "campaignId": None},
                 "admissibility": "gm",
-                "revisionPin": (
-                    None if frozen_receipt is None
-                    else frozen_receipt.graph_authority.graph_revision
-                ),
+                "revisionPin": revision_pin,
                 "scopeMode": "world",
                 "queryText": body.message,
-                "seedNodeIds": [],
+                "seedNodeIds": valid_seeds,
                 "bounds": {
                     "maxNodes": 8,
                     "maxRelationships": 16,
@@ -593,7 +636,6 @@ def _plan_context_resolver(
                 },
             }
         )
-        services = direct_services_from_config(native_world_id)
         result = search_world_graph_direct(services, request)
     except Exception as exc:
         raise AgentTurnServiceError(
