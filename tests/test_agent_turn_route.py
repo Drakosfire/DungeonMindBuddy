@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 from dataclasses import replace
@@ -293,23 +294,54 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         parents=True, exist_ok=True
     )
     world_graph = InMemoryWorldGraphRepository()
+    indexed_payload = graph_payload()
+    for evidence_row in indexed_payload["evidence_refs"]:
+        if evidence_row["evidence_ref_id"] == "ev:sign":
+            evidence_row["locator"] = "heading:Crossroads Sign"
+    indexed_payload["objects"].append({
+        **indexed_payload["objects"][-1],
+        "object_id": "obj:watchtower", "label": "Old Watchtower",
+        "assertion_metadata": {
+            **indexed_payload["objects"][-1]["assertion_metadata"],
+            "assertion_id": "asrt:obj:watchtower",
+        },
+    })
+    indexed_payload["relationships"].append({
+        "relationship_id": "rel:sign-watchtower",
+        "source_object_id": "obj:road-sign",
+        "target_object_id": "obj:watchtower",
+        "predicate": "dnd5e:located_in",
+        "assertion_metadata": {
+            **indexed_payload["objects"][-1]["assertion_metadata"],
+            "assertion_id": "asrt:rel:sign-watchtower",
+        },
+    })
     published = world_graph.publish_revision(PublishRevisionCommand(
         world_id=NATIVE_ID,
         parent_revision_id=None,
         expected_parent_revision_id=None,
         operation_ids=["op:policy-real-graph"],
         graph_schema="dm_union_graph_v6",
-        graph_payload=graph_payload(),
+        graph_payload=indexed_payload,
         created_at=NOW,
     ))
     sources = InMemorySourceRepository()
     seeded = _seed_sources()
+    sign_text = "# Crossroads Sign\n\nThe sign stands at the old watchtower.\n"
+    (tmp_path / "corpus").mkdir(exist_ok=True)
+    (tmp_path / "corpus" / "sign.md").write_text(sign_text, encoding="utf-8")
     for artifact_id in ("src:world-lore", "src:one-notes", "src:one-recap", "src:player-sign"):
         artifact = seeded.get_artifact(artifact_id)
         assert artifact is not None
+        if artifact_id == "src:player-sign":
+            artifact = artifact.model_copy(update={"uri": "repo://corpus/sign.md"})
         sources.put_artifact(artifact)
         revision = seeded.get_revision(artifact.current_revision_id)
         assert revision is not None
+        if artifact_id == "src:player-sign":
+            revision = revision.model_copy(update={
+                "content_sha256": hashlib.sha256(sign_text.encode("utf-8")).hexdigest(),
+            })
         sources.put_revision(revision)
     services = direct.direct_services_from_bundle(
         _FakeBundle(world_graph, sources, _receipt(NATIVE_ID, published.revision_id)),
@@ -365,10 +397,44 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     assert bootstrap.retrieval_session.snapshot.world_id == NATIVE_ID
     assert bootstrap.retrieval_session.snapshot.revision_id == published.revision_id
     assert bootstrap.retrieval_session.claims
+    assert bootstrap.source_index_commitment is not None
+    assert bootstrap.source_index_commitment["eligible_count"] == len(
+        bootstrap.source_scope_anchors
+    )
+
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    with monkeypatch.context() as index_patch:
+        index_patch.setattr(
+            direct, "list_source_anchor_index_direct_v2",
+            lambda *_args, **_kwargs: direct.ResolvedWorldGraphSourceIndexV2(
+                status="overflow", eligible_count=513, source_pins=(),
+            ),
+        )
+        with pytest.raises(AgentTurnServiceError) as overflow:
+            agent_route._plan_context_resolver(
+                body, {"kind": "world", "id": managed.world_id}, work, None,
+            )
+        assert overflow.value.code == "graph_evidence_invalid"
+        assert overflow.value.provider_dispatched is False
+    with monkeypatch.context() as mismatch_patch:
+        mismatch_patch.setattr(
+            direct, "list_source_anchor_index_direct_v2",
+            lambda *_args, **_kwargs: direct.ResolvedWorldGraphSourceIndexV2(
+                status="complete", eligible_count=0, source_pins=(),
+            ),
+        )
+        with pytest.raises(AgentTurnServiceError) as mismatch:
+            agent_route._plan_context_resolver(
+                body, {"kind": "world", "id": managed.world_id}, work, None,
+            )
+        assert mismatch.value.code == "graph_evidence_invalid"
+        assert mismatch.value.provider_dispatched is False
 
     # A generic question has no lexical Graph match. The selected committed
     # card's typed link supplies an exact, same-revision seed and citations.
-    selected_payload = {**payload, "message": "What do you know?", "playable_target": {
+    selected_payload = {**payload, "message": "What do you know?",
+        "client_thread_id": "thread-indexed-source",
+        "turn_id": "turn-indexed-source", "playable_target": {
         "schema": "dmb_plan_playable_target_v1", "kind": "scene", "id": "scene:arrival",
     }}
     selected_body = AgentTurnRequest.model_validate(selected_payload)
@@ -397,7 +463,11 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     assert "obj:tavern" in selected.graph_envelope["matched_node_ids"]
     assert selected.retrieval_session.claims
     assert selected.graph_envelope["source_anchors"]
-    assert graph_reads == [NATIVE_ID, NATIVE_ID]
+    initial_anchor_ids = {
+        anchor.anchor_id for anchor in selected.retrieval_session.source_anchors
+    }
+    assert {pin["anchor_id"] for pin in selected.source_scope_anchors} - initial_anchor_ids
+    assert graph_reads == [NATIVE_ID] * 4
     phase_order = [span["name"] for span in trace.spans]
     assert phase_order == [
         "plan_graph_seed_selection",
@@ -429,6 +499,8 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         native_world_id=NATIVE_ID,
         binding_version=1,
         graph_revision=published.revision_id,
+    ), graph_packet=SimpleNamespace(
+        selection_policy_version="parent_initial_retrieval_with_bounded_source_index_v1",
     ))
     replayed = agent_route._plan_context_resolver(
         selected_body, {"kind": "world", "id": managed.world_id}, selected_work, frozen,
@@ -488,7 +560,9 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     from application_state.agent_conversation import types as graph_types
     if not hasattr(graph_types, "PlanWorldGraphExecutionV1"):
         pytest.skip("run with the pinned APP-STATE candidate to verify receipt freeze")
-    from apps.live_control_server.services.agent_turn_service import _freeze_policy_receipt
+    from apps.live_control_server.services.agent_turn_service import (
+        _canonical_sha256, _freeze_policy_receipt,
+    )
     from apps.live_control_server.services.agent_turn_service import _plan_message
 
     projected = bootstrap.retrieval_session.project_for_hermes()
@@ -532,6 +606,112 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     assert receipt.assembled_input.assembled_input_sha256 == view["payloadSha256"]
     assert receipt.graph_authority.native_world_id == NATIVE_ID
     assert receipt.graph_authority.managed_world_id == managed.world_id
+    assert (
+        receipt.graph_packet.selection_policy_version
+        == "parent_initial_retrieval_with_bounded_source_index_v1"
+    )
+    assert set(receipt.graph_packet.candidate_evidence_ref_ids) == ({
+        pin["evidence_ref_id"] for pin in bootstrap.source_scope_anchors
+    } | set(bootstrap.evidence_by_anchor_id.values()))
+    assert set(receipt.assembled_input.dispatched_evidence_ref_ids).issubset(
+        set(bootstrap.evidence_by_anchor_id.values())
+    )
+    assert bootstrap.source_index_commitment is not None
+    assert receipt.graph_packet.retrieval_packet_sha256 == _canonical_sha256({
+        "schema": "dmb_plan_retrieval_composite_v1",
+        "selection_policy_version": receipt.graph_packet.selection_policy_version,
+        "initial_claim_packet": initial_packet,
+        "source_index": bootstrap.source_index_commitment,
+    })
+    assert receipt.graph_packet.evidence_sufficiency_status == "insufficient"
+    assert receipt.assembled_input.packet_disposition == "omitted_insufficient"
+    assert receipt.assembled_input.dispatched_packet_sha256 is None
+    changed_pins = [dict(pin) for pin in bootstrap.source_scope_anchors]
+    changed_pins[0]["source_revision_id"] += "-changed"
+    changed_bootstrap = replace(
+        bootstrap,
+        source_scope_anchors=tuple(changed_pins),
+        source_index_commitment={
+            **bootstrap.source_index_commitment,
+            "source_pins": changed_pins,
+        },
+    )
+    changed_receipt, _, _ = _freeze_policy_receipt(
+        body, work, changed_bootstrap, None, view, budget,
+    )
+    assert (
+        changed_receipt.graph_packet.retrieval_packet_sha256
+        != receipt.graph_packet.retrieval_packet_sha256
+    )
+    assert (
+        changed_receipt.assembled_input.dispatched_packet_sha256
+        == receipt.assembled_input.dispatched_packet_sha256
+    )
+    with pytest.raises(AgentTurnServiceError) as wrong_index_version:
+        _freeze_policy_receipt(
+            body, work, replace(bootstrap, source_index_commitment={
+                **bootstrap.source_index_commitment,
+                "schema": "dmb_bounded_source_anchor_index_commitment_v2",
+            }), None, view, budget,
+        )
+    assert wrong_index_version.value.code == "graph_evidence_invalid"
+    legacy_initial_ids = set(bootstrap.evidence_by_anchor_id)
+    legacy_pins = tuple(
+        pin for pin in bootstrap.source_scope_anchors
+        if pin["anchor_id"] in legacy_initial_ids
+    )
+    assert legacy_pins and len(legacy_pins) < len(bootstrap.source_scope_anchors)
+    legacy_bootstrap = replace(
+        bootstrap,
+        source_scope_anchors=legacy_pins,
+        source_index_commitment=None,
+        candidate_evidence_ref_ids=tuple(sorted(set(bootstrap.evidence_by_anchor_id.values()))),
+    )
+    legacy_receipt, legacy_execution, _ = _freeze_policy_receipt(
+        body, work, legacy_bootstrap, None, view, budget,
+    )
+    assert legacy_receipt.graph_packet.selection_policy_version == "parent_initial_retrieval_v1"
+    assert legacy_receipt.graph_packet.retrieval_packet_sha256 == _canonical_sha256(
+        initial_packet
+    )
+    v1_receipt, v1_execution, _ = _freeze_policy_receipt(
+        body, work, replace(legacy_bootstrap, source_scope_anchors=()),
+        None, view, budget,
+    )
+    with monkeypatch.context() as legacy_patch:
+        def unexpected_index(*_args: Any, **_kwargs: Any) -> Any:
+            raise AssertionError("historical replay must not query the full index")
+
+        legacy_patch.setattr(direct, "list_source_anchor_index_direct_v2", unexpected_index)
+        legacy_v2_replay = agent_route._plan_context_resolver(
+            body, {"kind": "world", "id": managed.world_id}, work, legacy_receipt,
+        )
+        legacy_v1_replay = agent_route._plan_context_resolver(
+            body, {"kind": "world", "id": managed.world_id}, work, v1_receipt,
+        )
+        unknown_policy_receipt = v1_receipt.model_copy(update={
+            "graph_packet": v1_receipt.graph_packet.model_copy(update={
+                "selection_policy_version": "future_selection_policy_v2",
+            }),
+        })
+        with pytest.raises(AgentTurnServiceError) as unknown_policy:
+            agent_route._plan_context_resolver(
+                body, {"kind": "world", "id": managed.world_id},
+                work, unknown_policy_receipt,
+            )
+        assert unknown_policy.value.code == "turn_receipt_unverifiable"
+        assert unknown_policy.value.provider_dispatched is False
+    assert legacy_v2_replay.source_scope_anchors == legacy_pins
+    assert legacy_v2_replay.source_index_commitment is None
+    assert legacy_v1_replay.source_index_commitment is None
+    request_identity = body.model_dump_json(by_alias=True).encode("utf-8")
+    legacy_session_id, _ = agent_route._source_session_handles(
+        managed.world_id, body.turn_id, published.revision_id,
+        __import__("hashlib").sha256(request_identity).hexdigest(),
+    )
+    assert legacy_v2_replay.retrieval_session.id == legacy_session_id
+    assert legacy_v1_replay.retrieval_session.id == legacy_session_id
+    assert bootstrap.retrieval_session.id != legacy_session_id
     assert execution.context_receipt_sha256 == receipt.context_receipt_sha256
     assert tuple(receipt.assembled_input.dispatched_assertion_ids) == tuple(membership[0])
 
@@ -564,6 +744,28 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         claim_expires_at=now + timedelta(minutes=2),
         accepted_at=now, completed_at=None, updated_at=now,
     )
+    from apps.live_control_server.services.agent_turn_service import (
+        _restore_v2_retry_bootstrap,
+    )
+
+    restored_legacy_v2 = _restore_v2_retry_bootstrap(
+        legacy_v2_replay,
+        turn.model_copy(update={
+            "graph_context_receipt": legacy_receipt,
+            "graph_context_execution": legacy_execution,
+        }),
+    )
+    assert restored_legacy_v2.source_scope_anchors == legacy_pins
+    assert restored_legacy_v2.source_index_commitment is None
+    restored_legacy_v1 = _restore_v2_retry_bootstrap(
+        legacy_v1_replay,
+        turn.model_copy(update={
+            "graph_context_receipt": v1_receipt,
+            "graph_context_execution": v1_execution,
+        }),
+    )
+    assert restored_legacy_v1.source_scope_anchors == ()
+    assert restored_legacy_v1.source_index_commitment is None
 
     class FakeFence:
         def __init__(self, value: Turn) -> None:
@@ -766,6 +968,213 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     }), stored, attempts[1].provider_attempt_id)
     assert derived.answer_context_status == "plan_only_graph_unused"
 
+    # The sign is absent from the initial retrieval but present in the exact
+    # bounded index. Its metadata alone cannot become a claim or a citation.
+    from graph_memory.interaction.session_store import clear_sessions
+
+    clear_sessions()
+    selected = agent_route._plan_context_resolver(
+        selected_body, {"kind": "world", "id": managed.world_id}, selected_work, None,
+    )
+    sign_pin = next(
+        pin for pin in selected.source_scope_anchors
+        if pin["evidence_ref_id"] == "ev:sign"
+    )
+    assert sign_pin["anchor_id"] not in selected.evidence_by_anchor_id
+    from apps.live_control_server.services import world_graph_retrieval
+
+    monkeypatch.setattr(world_graph_retrieval, "default_repo_root", lambda: tmp_path)
+    selected_safe = service_module._admitted_initial_policy_bootstrap(selected)
+    selected_projected = selected_safe.retrieval_session.project_for_hermes()
+    selected_first_packet = {
+        "candidates": selected_projected["candidates"][:8],
+        "claimLedger": selected_projected["claim_ledger"][:24],
+        "intentHint": selected_projected["intent_hint"],
+        "availableExpansions": selected_projected["available_expansions"],
+    }
+    from apps.live_control_server.services.agent_plan_playable_target import (
+        resolve_agent_plan_playable_target,
+    )
+
+    selected_target = resolve_agent_plan_playable_target(
+        selected_body.playable_target, selected_work.plan_markdown,
+    )
+    selected_first_body = {
+        "input": [{
+            "role": "system",
+            "content": "Turn capability policy (runtime-enforced; also required on tool calls):\n"
+            + json.dumps({"initialClaimPacket": selected_first_packet}),
+        }, {
+            "role": "user",
+            "content": _plan_message(
+                selected_body.message, selected_work.plan_markdown,
+                playable_target=selected_target,
+                content_basis=selected_work.content_basis,
+            ),
+        }],
+        "tools": [],
+    }
+
+    def provider_view(body: dict[str, Any]) -> dict[str, Any]:
+        encoded = json.dumps(body, sort_keys=True, separators=(",", ":"))
+        return {
+            **first_view,
+            "payloadJson": encoded,
+            "payloadSha256": hashlib.sha256(encoded.encode()).hexdigest(),
+            "payloadUtf8Bytes": len(encoded.encode()),
+        }
+
+    class IndexedSourceRuntime:
+        descriptor = AgentRuntimeDescriptor("indexed-source", "fake", "test", "graph")
+        calls = 0
+
+        def run_with_provider_authorization(
+            self, _invocation: Any, authorize: Any, *, request_budget: Any,
+            on_graph_operation: Any, on_provider_lifecycle: Any,
+            source_read_enabled: bool = False,
+        ) -> AgentRuntimeResult:
+            assert source_read_enabled is True
+            assert request_budget["model"] == "test-model"
+            assert "ev:sign" not in json.dumps(selected_first_packet)
+            assert authorize(provider_view(selected_first_body)) is True, (
+                getattr(authorize.__self__.failure, "code", None),
+                str(authorize.__self__.failure),
+            )
+            self.calls += 1
+            assert on_provider_lifecycle({"transition": "sdk_entered"}) is True
+            assert on_provider_lifecycle({"transition": "response_received"}) is True
+            operation = on_graph_operation({
+                "toolName": "expand_graph_retrieval",
+                "arguments": {
+                    "schema": "dmb_expand_graph_retrieval_request_v1",
+                    "retrievalSessionId": selected.retrieval_session.id,
+                    "operation": "search", "queryText": "Crossroads Sign",
+                    "historicalRevisionId": published.revision_id,
+                },
+            })
+            operation_result = json.loads(operation["resultJson"])
+            assert operation_result["snapshot"]["revisionId"] == published.revision_id
+            assert any(
+                relation["edgeId"] == "rel:sign-watchtower"
+                for relation in operation_result["relationships"]
+            )
+            assert any(
+                anchor["anchorId"] == sign_pin["anchor_id"]
+                for anchor in operation_result["sourceAnchors"]
+            )
+            opened = on_graph_operation({
+                "toolName": "read_graph_source",
+                "arguments": {
+                    "retrievalSessionId": selected.retrieval_session.id,
+                    "anchorIds": [sign_pin["anchor_id"]],
+                },
+            })
+            opened_result = json.loads(opened["resultJson"])
+            assert opened_result["outcome"] == "enough", opened_result
+            assert "old watchtower" in opened_result["content"]
+            followup_body = {
+                **selected_first_body,
+                "input": [
+                    *selected_first_body["input"],
+                    {"type": "function_call", "call_id": "call-graph-index",
+                     "name": "expand_graph_retrieval", "arguments": "{}"},
+                    {"type": "function_call_output", "call_id": "call-graph-index",
+                     "output": operation["resultJson"]},
+                    {"type": "function_call", "call_id": "call-source-index",
+                     "name": "read_graph_source", "arguments": "{}"},
+                    {"type": "function_call_output", "call_id": "call-source-index",
+                     "output": opened["resultJson"]},
+                ],
+            }
+            assert authorize(provider_view(followup_body)) is True, getattr(
+                authorize.__self__.failure, "code", None,
+            )
+            self.calls += 1
+            assert on_provider_lifecycle({"transition": "sdk_entered"}) is True
+            assert on_provider_lifecycle({"transition": "response_received"}) is True
+            return AgentRuntimeResult(
+                status="ok",
+                final_text=json.dumps({
+                    "answer_context_status": "graph_grounded",
+                    "answer_segments": [{
+                        "kind": "graph_claim", "claim_id": "rel:sign-watchtower",
+                        "text": "The sign stands at the old watchtower.",
+                        "target_kind": "relationship", "target_id": "rel:sign-watchtower",
+                        "graph_revision": published.revision_id,
+                        "evidence_ref_ids": ["ev:sign"],
+                    }],
+                    "citation_map": {"entries": [{
+                        "claim_id": "rel:sign-watchtower", "target_kind": "relationship",
+                        "target_id": "rel:sign-watchtower", "graph_revision": published.revision_id,
+                        "evidence_ref_ids": ["ev:sign"], "source_opened": False,
+                    }]},
+                }),
+                runtime_session_id="indexed-source-session",
+            )
+
+    indexed_runtime = IndexedSourceRuntime()
+    indexed_pointer_store = HermesSessionPointerStore(tmp_path / "indexed-sessions")
+    indexed_conversation_service = AgentConversationService()
+    indexed_response = execute_agent_turn(
+        selected_body, root=tmp_path,
+        pointer_store=indexed_pointer_store,
+        owner_resolver=lambda _body: {
+            "kind": "world", "id": managed.world_id, "name": managed.name,
+        },
+        work_resolver=lambda _body, _owner: selected_work,
+        graph_resolver=lambda *_args: pytest.fail("generic Graph path used"),
+        plan_graph_resolver=lambda *_args: selected,
+        runtime=indexed_runtime,
+        conversation_service=indexed_conversation_service,
+    )
+    assert indexed_runtime.calls == 2
+    assert indexed_response.plan_context.completion is not None
+    assert indexed_response.plan_context.completion.citation_map.entries[0].source_opened is True
+    indexed_turn = next(
+        turn for turn in AgentConversationService().list_turns(
+            managed.world_id, indexed_response.conversation.conversation_id,
+        ) if turn.user_text == selected_body.message
+    )
+    indexed_events = indexed_turn.graph_context_execution.events
+    producing = [
+        event for event in indexed_events
+        if event.kind == "provider_attempt_authorized_v2"
+    ][-1]
+    graph_event = next(
+        event for event in indexed_events if event.kind == "validated_graph_operation"
+    )
+    read_event = next(
+        event for event in indexed_events if event.kind == "validated_source_read_v2"
+    )
+    assert producing.included_graph_event_ids == [graph_event.event_id]
+    assert producing.included_source_read_event_ids == [read_event.event_id]
+    assert indexed_turn.completion.citation_map.entries[0].source_read_ids == [
+        read_event.receipts[0].source_read_id
+    ]
+    stored_before_replay = indexed_turn.model_dump(mode="json")
+    reads_before_replay = len(graph_reads)
+    replayed_indexed = execute_agent_turn(
+        selected_body, root=tmp_path,
+        pointer_store=indexed_pointer_store,
+        owner_resolver=lambda _body: {
+            "kind": "world", "id": managed.world_id, "name": managed.name,
+        },
+        work_resolver=lambda _body, _owner: selected_work,
+        graph_resolver=lambda *_args: pytest.fail("generic Graph path used"),
+        plan_graph_resolver=lambda *_args: pytest.fail("completed turn resolved Graph again"),
+        runtime=indexed_runtime,
+        conversation_service=indexed_conversation_service,
+    )
+    assert replayed_indexed.plan_context.delivery_replay is True
+    assert replayed_indexed.plan_context.completion == indexed_response.plan_context.completion
+    assert indexed_runtime.calls == 2
+    assert len(graph_reads) == reads_before_replay
+    assert next(
+        turn for turn in indexed_conversation_service.list_turns(
+            managed.world_id, indexed_response.conversation.conversation_id,
+        ) if turn.user_text == selected_body.message
+    ).model_dump(mode="json") == stored_before_replay
+
     from fastapi.testclient import TestClient
     from apps.live_control_server.services.hermes_agent_runtime import (
         HermesAgentRuntimeAdapter,
@@ -813,17 +1222,14 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         "graph_revision": published.revision_id,
         "evidence_ref_ids": ["ev:cellar"],
     }
+    # The separate offline host witness expands Graph metadata but does not
+    # open its out-of-dispatch source. #1015 correctly forbids citing it.
     monkeypatch.setenv("DMB_HERMES_TEST_FINAL_TEXT", json.dumps({
-        "answer_context_status": "graph_grounded",
-        "answer_segments": [graph_claim],
-        "citation_map": {"entries": [{
-            "claim_id": graph_claim["claim_id"],
-            "target_kind": "relationship",
-            "target_id": graph_claim["target_id"],
-            "graph_revision": published.revision_id,
-            "evidence_ref_ids": ["ev:cellar"],
-            "source_opened": False,
-        }]},
+        "answer_context_status": "plan_only_graph_unused",
+        "answer_segments": [{
+            "kind": "plan_claim", "text": "The keeper waits by the tavern.",
+        }],
+        "citation_map": None,
     }))
     host = HermesGraphAgentHost(
         worker_target=_tool_using_aiagent_host_worker,
@@ -845,15 +1251,15 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
             assert http_answer["primary_work"]["content_basis"] == work.content_basis.model_dump(mode="json")
             assert http_answer["primary_work"]["content_basis"]["revision_n"] == 3
             assert http_answer["primary_work"]["content_basis"]["object_revision"] == 7
-            assert http_answer["answer"]["graph_grounded"] is True
-            assert http_answer["answer"]["text"] == graph_claim["text"]
+            assert http_answer["answer"]["graph_grounded"] is False
+            assert http_answer["answer"]["text"] == "The keeper waits by the tavern."
             before_history_reads = len(graph_reads)
             history = client.get(f"/api/live/agent/worlds/{managed.world_id}/conversation")
             assert history.status_code == 200, history.text
             assert history.json()["schema"] == "dmb_agent_conversation_history_v2"
             assert any(
                 turn["lifecycle_status"] == "completed"
-                and turn["assistant_text"] == graph_claim["text"]
+                and turn["assistant_text"] == "The keeper waits by the tavern."
                 and turn["plan_context"]["completion"] is not None
                 for turn in history.json()["turns"]
             )
@@ -884,6 +1290,9 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
 
             class DenyAuthorizationService(AgentConversationService):
                 def authorize_provider_attempt(self, *_args: Any, **_kwargs: Any) -> Any:
+                    raise ApplicationStateError("synthetic authorization persistence refusal")
+
+                def authorize_provider_attempt_v2(self, *_args: Any, **_kwargs: Any) -> Any:
                     raise ApplicationStateError("synthetic authorization persistence refusal")
 
             route_service["value"] = DenyAuthorizationService()
@@ -926,7 +1335,10 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         ) if turn.user_text == http_payload["message"]
     )
     http_events = stored_http.graph_context_execution.events
-    http_attempts = [e for e in http_events if e.kind == "provider_attempt_authorized"]
+    http_attempts = [
+        e for e in http_events
+        if e.kind in {"provider_attempt_authorized", "provider_attempt_authorized_v2"}
+    ]
     http_operations = [e for e in http_events if e.kind == "validated_graph_operation"]
     assert len(http_attempts) == 2
     assert len(http_operations) == 1

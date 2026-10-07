@@ -14,10 +14,12 @@ from apps.live_control_server.models.extract_promote import (
     RecapCandidateCorrectionRequestV2,
     RecapCandidateCorrectionRequestV3,
     RecapCandidateCorrectionRequestV4,
+    RecapCandidateCorrectionRequestV5,
     RecapCandidateCorrectionResponse,
     RecapCandidateCorrectionResponseV2,
     RecapCandidateCorrectionResponseV3,
     RecapCandidateCorrectionResponseV4,
+    RecapCandidateCorrectionResponseV5,
     RecapCandidateEdgeTuple,
     ExtractPromoteDiagnostic,
 )
@@ -70,6 +72,8 @@ DERIVATION_V3 = "operator_recap_semantic_candidate_correction_v3"
 MANIFEST_SCHEMA_V3 = "dmb_recap_semantic_candidate_manifest_v3"
 DERIVATION_V4 = "operator_recap_semantic_candidate_correction_v4"
 MANIFEST_SCHEMA_V4 = "dmb_recap_semantic_candidate_manifest_v4"
+DERIVATION_V5 = "operator_recap_semantic_candidate_correction_v5"
+MANIFEST_SCHEMA_V5 = "dmb_recap_semantic_candidate_manifest_v5"
 PROFILE = "recap_category_v1@1.0"
 MAX_EDGE_TUPLE_REPLACEMENTS = 7
 EDGE_TUPLE_FIELDS = ("from_node_id", "relationship_type", "to_node_id", "label")
@@ -252,77 +256,95 @@ def _plan_edge_tuple_replacements(parent: dict, replacements: object) -> dict[st
     return plans
 
 
-def _plan_evidence_span_replacements(parent: dict, replacements: object) -> list[dict[str, Any]]:
-    """Validate one exact evidence-ref preimage before changing candidate bytes."""
-    if not isinstance(replacements, list) or len(replacements) != 1:
-        raise _reject("evidence span replacement must contain exactly one operation")
-    operation = replacements[0]
+def _plan_evidence_span_replacements(
+    parent: dict,
+    replacements: object,
+    *,
+    max_operations: int = 1,
+    allow_quote_only: bool = False,
+) -> list[dict[str, Any]]:
+    """Validate every exact evidence preimage before changing candidate bytes."""
+    if (
+        not isinstance(replacements, list)
+        or not 1 <= len(replacements) <= max_operations
+    ):
+        raise _reject("evidence replacement batch exceeds bounded scope")
     expected_keys = {
         "record_kind", "record_id", "evidence_index", "expected_source_ref_id", "expected_source_artifact_id",
         "expected_source_span_ref_id", "replacement_source_span_ref_id",
         "expected_anchor_quotes", "replacement_anchor_quotes",
     }
-    if not isinstance(operation, dict) or set(operation) != expected_keys:
-        raise _reject("evidence span replacement is malformed")
-    record_kind = operation.get("record_kind")
-    record_id = operation.get("record_id")
-    evidence_index = operation.get("evidence_index")
-    expected_source_ref_id = operation.get("expected_source_ref_id")
-    expected_artifact = operation.get("expected_source_artifact_id")
-    expected_span = operation.get("expected_source_span_ref_id")
-    replacement_span = operation.get("replacement_source_span_ref_id")
-    expected_quotes = operation.get("expected_anchor_quotes")
-    replacement_quotes = operation.get("replacement_anchor_quotes")
-    string_values = (record_id, expected_source_ref_id, expected_artifact, expected_span, replacement_span)
-    if (
-        not isinstance(record_kind, str) or record_kind not in {"node", "edge"}
-        or type(evidence_index) is not int or evidence_index < 0
-        or any(not isinstance(value, str) or not value or value != value.strip() or len(value) > 256 for value in string_values)
-        or expected_span == replacement_span
-        or not isinstance(expected_quotes, list) or not 1 <= len(expected_quotes) <= 16
-        or not isinstance(replacement_quotes, list) or not 1 <= len(replacement_quotes) <= 16
-        or any(not isinstance(quote, str) or not quote or quote != quote.strip() or len(quote) > 4096 for quote in [*expected_quotes, *replacement_quotes])
-    ):
-        raise _reject("evidence span replacement is malformed")
-    collection_key, id_key = ("nodes", "node_id") if record_kind == "node" else ("edges", "edge_id")
-    records = parent.get(collection_key)
-    if not isinstance(records, list):
-        raise _reject("candidate evidence holder collection is malformed")
-    holders = [record for record in records if isinstance(record, dict) and record.get(id_key) == record_id]
-    if len(holders) != 1:
-        raise _reject("evidence span holder is missing or ambiguous", status_code=409)
-    refs = holders[0].get("evidence_refs")
-    if not isinstance(refs, list) or any(not isinstance(ref, dict) for ref in refs):
-        raise _reject("candidate evidence refs are malformed")
-    if evidence_index >= len(refs):
-        raise _reject("evidence span ref is missing", status_code=409)
-    evidence = refs[evidence_index]
-    if (
-        evidence.get("source_ref_id") != expected_source_ref_id
-        or evidence.get("source_artifact_id") != expected_artifact
-        or evidence.get("source_span_ref_id") != expected_span
-        or evidence.get("anchor_quotes") != expected_quotes
-    ):
-        raise _reject("evidence span preimage is stale", status_code=409)
-    return [{
-        "record_kind": record_kind,
-        "record_id": record_id,
-        "evidence_index": evidence_index,
-        "replacement_source_span_ref_id": replacement_span,
-        "replacement_anchor_quotes": replacement_quotes,
-    }]
+    plans: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, int]] = set()
+    for operation in replacements:
+        if not isinstance(operation, dict) or set(operation) != expected_keys:
+            raise _reject("evidence replacement is malformed")
+        record_kind = operation.get("record_kind")
+        record_id = operation.get("record_id")
+        evidence_index = operation.get("evidence_index")
+        expected_source_ref_id = operation.get("expected_source_ref_id")
+        expected_artifact = operation.get("expected_source_artifact_id")
+        expected_span = operation.get("expected_source_span_ref_id")
+        replacement_span = operation.get("replacement_source_span_ref_id")
+        expected_quotes = operation.get("expected_anchor_quotes")
+        replacement_quotes = operation.get("replacement_anchor_quotes")
+        string_values = (record_id, expected_source_ref_id, expected_artifact, expected_span, replacement_span)
+        if (
+            not isinstance(record_kind, str) or record_kind not in {"node", "edge"}
+            or type(evidence_index) is not int or evidence_index < 0
+            or any(not isinstance(value, str) or not value or value != value.strip() or len(value) > 256 for value in string_values)
+            or (expected_span == replacement_span and not allow_quote_only)
+            or not isinstance(expected_quotes, list) or not 1 <= len(expected_quotes) <= 16
+            or not isinstance(replacement_quotes, list) or not 1 <= len(replacement_quotes) <= 16
+            or any(not isinstance(quote, str) or not quote or quote != quote.strip() or len(quote) > 4096 for quote in [*expected_quotes, *replacement_quotes])
+            or (expected_span == replacement_span and expected_quotes == replacement_quotes)
+        ):
+            raise _reject("evidence replacement is malformed or unchanged")
+        key = (record_kind, record_id, evidence_index)
+        if key in seen:
+            raise _reject("duplicate evidence replacement target")
+        seen.add(key)
+        collection_key, id_key = ("nodes", "node_id") if record_kind == "node" else ("edges", "edge_id")
+        records = parent.get(collection_key)
+        if not isinstance(records, list):
+            raise _reject("candidate evidence holder collection is malformed")
+        holders = [record for record in records if isinstance(record, dict) and record.get(id_key) == record_id]
+        if len(holders) != 1:
+            raise _reject("evidence holder is missing or ambiguous", status_code=409)
+        refs = holders[0].get("evidence_refs")
+        if not isinstance(refs, list) or any(not isinstance(ref, dict) for ref in refs):
+            raise _reject("candidate evidence refs are malformed")
+        if evidence_index >= len(refs):
+            raise _reject("evidence ref is missing", status_code=409)
+        evidence = refs[evidence_index]
+        if (
+            evidence.get("source_ref_id") != expected_source_ref_id
+            or evidence.get("source_artifact_id") != expected_artifact
+            or evidence.get("source_span_ref_id") != expected_span
+            or evidence.get("anchor_quotes") != expected_quotes
+        ):
+            raise _reject("evidence preimage is stale", status_code=409)
+        plans.append({
+            "record_kind": record_kind,
+            "record_id": record_id,
+            "evidence_index": evidence_index,
+            "replacement_source_span_ref_id": replacement_span,
+            "replacement_anchor_quotes": replacement_quotes,
+        })
+    return plans
 
 
 def replay_candidate(parent: dict, manifest: dict) -> dict:
-    """Reconstruct exactly one bounded edit; never patch arbitrary JSON."""
+    """Reconstruct one bounded correction request; never patch arbitrary JSON."""
     if not isinstance(parent, dict) or not isinstance(manifest, dict):
         raise _reject("semantic candidate replay input is malformed")
     v3 = manifest.get("schema") == MANIFEST_SCHEMA_V3
+    v5 = manifest.get("schema") == MANIFEST_SCHEMA_V5
     v4 = manifest.get("schema") == MANIFEST_SCHEMA_V4
     v2 = manifest.get("schema") == MANIFEST_SCHEMA_V2
     expected_keys = (
         {"schema", "evidence_span_replacements"}
-        if v4
+        if v4 or v5
         else {"schema", "edge_tuple_replacements"}
         if v3
         else {"schema", "node_description_replacements", "omitted_edge_ids"}
@@ -331,6 +353,7 @@ def replay_candidate(parent: dict, manifest: dict) -> dict:
         expected_keys.add("session_action_replacements")
     if set(manifest) != expected_keys or manifest.get("schema") not in {
         MANIFEST_SCHEMA, MANIFEST_SCHEMA_V2, MANIFEST_SCHEMA_V3, MANIFEST_SCHEMA_V4,
+        MANIFEST_SCHEMA_V5,
     }:
         raise _reject("semantic candidate manifest is malformed")
     replacements = manifest.get("node_description_replacements", [])
@@ -344,7 +367,8 @@ def replay_candidate(parent: dict, manifest: dict) -> dict:
         or not isinstance(actions, list) or (len(actions) != 1 if v2 else bool(actions))
         or (v3 and (not isinstance(edge_tuple_replacements, list) or not 1 <= len(edge_tuple_replacements) <= MAX_EDGE_TUPLE_REPLACEMENTS))
         or (v4 and (not isinstance(evidence_span_replacements, list) or len(evidence_span_replacements) != 1))
-        or (not (v3 or v4) and not replacements and not omitted and not actions)
+        or (v5 and (not isinstance(evidence_span_replacements, list) or not 1 <= len(evidence_span_replacements) <= 7))
+        or (not (v3 or v4 or v5) and not replacements and not omitted and not actions)
     ):
         raise _reject("semantic candidate manifest exceeds bounded scope")
     child = copy.deepcopy(parent)
@@ -352,8 +376,12 @@ def replay_candidate(parent: dict, manifest: dict) -> dict:
         records = child.get(key, [])
         if not isinstance(records, list) or any(not isinstance(record, dict) for record in records):
             raise _reject(f"candidate {key} records are malformed")
-    if v4:
-        plans = _plan_evidence_span_replacements(parent, evidence_span_replacements)
+    if v4 or v5:
+        plans = _plan_evidence_span_replacements(
+            parent, evidence_span_replacements,
+            max_operations=7 if v5 else 1,
+            allow_quote_only=v5,
+        )
         collection_by_kind = {"node": "nodes", "edge": "edges"}
         id_key_by_kind = {"node": "node_id", "edge": "edge_id"}
         for plan in plans:
@@ -458,14 +486,15 @@ def verify_child_replay(run, parent, root: Path) -> bool:
 
 
 def correct_recap_candidate(
-    request: RecapCandidateCorrectionRequest | RecapCandidateCorrectionRequestV2 | RecapCandidateCorrectionRequestV3 | RecapCandidateCorrectionRequestV4,
-) -> RecapCandidateCorrectionResponse | RecapCandidateCorrectionResponseV2 | RecapCandidateCorrectionResponseV3 | RecapCandidateCorrectionResponseV4:
+    request: RecapCandidateCorrectionRequest | RecapCandidateCorrectionRequestV2 | RecapCandidateCorrectionRequestV3 | RecapCandidateCorrectionRequestV4 | RecapCandidateCorrectionRequestV5,
+) -> RecapCandidateCorrectionResponse | RecapCandidateCorrectionResponseV2 | RecapCandidateCorrectionResponseV3 | RecapCandidateCorrectionResponseV4 | RecapCandidateCorrectionResponseV5:
     """Create one held reviewable child without altering parent or WorldGraph."""
     from application_state.ingest.service import (
         RecapSemanticBasisV2,
         RecapSemanticBasisV3,
         RecapSemanticBasisV4,
         RecapSemanticBasisV5,
+        RecapSemanticBasisV6,
     )
 
     root = repo_root()
@@ -506,11 +535,19 @@ def correct_recap_candidate(
         raise _reject("parent candidate is unreadable") from exc
     if not isinstance(parent_payload, dict):
         raise _reject("parent candidate root must be an object")
+    v5 = isinstance(request, RecapCandidateCorrectionRequestV5)
     v3 = isinstance(request, RecapCandidateCorrectionRequestV3)
     v4 = isinstance(request, RecapCandidateCorrectionRequestV4)
     v2 = isinstance(request, RecapCandidateCorrectionRequestV2)
-    derivation = DERIVATION_V4 if v4 else DERIVATION_V3 if v3 else DERIVATION_V2 if v2 else DERIVATION
-    if v4:
+    derivation = DERIVATION_V5 if v5 else DERIVATION_V4 if v4 else DERIVATION_V3 if v3 else DERIVATION_V2 if v2 else DERIVATION
+    if v5:
+        manifest = {
+            "schema": MANIFEST_SCHEMA_V5,
+            "evidence_span_replacements": [
+                item.model_dump(mode="json") for item in request.evidence_replacements
+            ],
+        }
+    elif v4:
         manifest = {
             "schema": MANIFEST_SCHEMA_V4,
             "evidence_span_replacements": [
@@ -573,6 +610,8 @@ def correct_recap_candidate(
         campaign_id=parent.campaign_id, session_id=parent.session_id,
     )
     basis = (
+        RecapSemanticBasisV6(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V5)
+        if v5 else
         RecapSemanticBasisV5(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V4)
         if v4 else RecapSemanticBasisV4(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V3)
         if v3 else RecapSemanticBasisV3(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V2)
@@ -652,7 +691,8 @@ def correct_recap_candidate(
         if assessment.disposition is None or assessment.disposition.get("state") != semantic_state:
             raise _reject("derived run semantic decision conflicts", status_code=409)
     response_type = (
-        RecapCandidateCorrectionResponseV4 if v4
+        RecapCandidateCorrectionResponseV5 if v5
+        else RecapCandidateCorrectionResponseV4 if v4
         else RecapCandidateCorrectionResponseV3 if v3
         else RecapCandidateCorrectionResponseV2 if v2
         else RecapCandidateCorrectionResponse

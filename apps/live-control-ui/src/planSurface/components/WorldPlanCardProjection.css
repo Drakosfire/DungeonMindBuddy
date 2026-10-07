@@ -147,6 +147,7 @@
   justify-items: start;
   gap: 0.35rem;
   padding: 0.2rem 0 0.4rem;
+  scroll-margin-top: calc(var(--app-chrome-top, 0px) + 0.75rem);
 }
 
 .world-plan-scene-reader__heading h2 {
