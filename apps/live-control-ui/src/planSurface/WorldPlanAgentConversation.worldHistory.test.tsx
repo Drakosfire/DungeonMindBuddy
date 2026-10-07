@@ -1356,6 +1356,15 @@ describe("World Plan conversation consumer", () => {
     ["This scene needs a location.", "discuss"],
     ["Could this include a sensory detail?", "discuss"],
     ["Use your second idea.", "discuss"],
+    ["For this disposable synthetic Plan only, propose appending exactly this line to the selected Quiet test scene body: Optional GM cue: Ask each player what they notice first. Preserve all existing text and playable markers; make no other change.", "propose"],
+    ["Please propose appending a GM cue to this scene.", "propose"],
+    ["Could you propose to edit the scene opening?", "propose"],
+    ["Propose three ways to resolve the siege", "discuss"],
+    ["For this Plan, please propose three ways to resolve the siege.", "discuss"],
+    ["For this Plan, could you please append a GM cue?", "propose"],
+    ["For this disposable synthetic Plan only, what would appending a GM cue change?", "discuss"],
+    ["For this Plan, if we propose appending a GM cue, would that help?", "discuss"],
+    ["Should we propose appending a GM cue?", "discuss"],
   ] as const)("routes a single composer message by its intent: %s", (message, intent) => {
     expect(classifyPlanComposerIntent(message)).toBe(intent);
   });
@@ -1374,6 +1383,19 @@ describe("World Plan conversation consumer", () => {
     expect(screen.getByText(/Buddy will show a preview/)).toBeInTheDocument();
 
     fireEvent.change(input, { target: { value: "Why is the location important?" } });
+    expect(screen.getByRole("button", { name: "Send message" })).toBeInTheDocument();
+  });
+
+  it("lets the user correct the scoped proposal imperative back to discussion", async () => {
+    setupApi(history("conversation-a", 1, []));
+    render(conversationElement({ editBridge: {} }));
+    await screen.findByText(/No messages yet/i);
+    fireEvent.change(screen.getByRole("textbox", { name: "Message DungeonBuddy" }), {
+      target: { value: "For this disposable synthetic Plan only, propose appending exactly this line to the selected Quiet test scene body: Optional GM cue: Ask each player what they notice first. Preserve all existing text and playable markers; make no other change." },
+    });
+    expect(screen.getByRole("button", { name: "Propose edit" })).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Plan change · Change"));
+    fireEvent.click(screen.getByRole("button", { name: "Answer as a question" }));
     expect(screen.getByRole("button", { name: "Send message" })).toBeInTheDocument();
   });
 
