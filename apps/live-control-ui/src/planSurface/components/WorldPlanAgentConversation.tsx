@@ -3149,9 +3149,11 @@ export function WorldPlanAgentConversation({
         <p role="note">The local Agent and Graph session persists across reloads. A Plan Ask requests World Graph context only when you select that option.</p>
         {graphCredentialStatus ? <p role="status">{graphCredentialStatus}</p> : null}
       </section>
-      <p className="world-plan-agent-conversation__notice" role="note">
-        Talk through the saved Plan, or choose Propose edit to request a change. You’ll review it before it touches the draft.
-      </p>
+      {composerIntent === "discuss" ? (
+        <p className="world-plan-agent-conversation__notice" role="note">
+          Talk through the saved Plan, or choose Propose edit to request a change. You’ll review it before it touches the draft.
+        </p>
+      ) : null}
       {saveInFlight ? (
         <p className="world-plan-agent-conversation__saving" role="status">Conversation paused while the Plan is saving.</p>
       ) : null}
@@ -3459,11 +3461,8 @@ export function WorldPlanAgentConversation({
                 Propose edit
               </label>
             </fieldset>
-            {composerIntent === "propose" ? (
+            {composerIntent === "propose" && !playableEditTarget ? (
               <div className="world-plan-agent-conversation__target" role="group" aria-label="Choose where the proposed edit applies">
-                {playableEditTarget ? (
-                  <p role="note">The selected card body takes precedence over editor selection and Plan section. Clear the card target to use a different proposal target.</p>
-                ) : null}
                 <label htmlFor="world-plan-agent-plan-section">Plan section (optional)</label>
                 <select
                   id="world-plan-agent-plan-section"

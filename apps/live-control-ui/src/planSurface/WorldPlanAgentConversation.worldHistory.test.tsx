@@ -1321,6 +1321,27 @@ describe("World Plan conversation consumer", () => {
     })).toBeInTheDocument();
   });
 
+  it("uses the selected card as the Propose target without showing overridden section controls", async () => {
+    setupApi(history("conversation-a", 1, []));
+    render(conversationElement({
+      playableEditTarget: { kind: "scene", id: "scene:recovery", generation: 2 },
+      editBridge: {},
+    }));
+    await screen.findByText(/No messages here yet/);
+
+    fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
+
+    const context = screen.getByRole("group", { name: "Current Plan context" });
+    expect(within(context).getByText("Edit target · scene scene:recovery")).toBeInTheDocument();
+    expect(within(context).getByRole("button", { name: "Clear edit target" })).toBeInTheDocument();
+
+    const composer = screen.getByRole("region", { name: "Conversation composer" });
+    expect(within(composer).queryByRole("combobox", { name: "Plan section (optional)" })).not.toBeInTheDocument();
+    expect(within(composer).queryByRole("button", { name: "Refresh sections" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Talk through the saved Plan, or choose Propose edit/)).not.toBeInTheDocument();
+    expect(within(composer).getByRole("button", { name: "Propose edit" })).toBeInTheDocument();
+  });
+
   it("shows the verified content version and keeps Ask and Edit targets distinct", async () => {
     setupApi(history("conversation-a", 1, []));
     render(conversationElement({
