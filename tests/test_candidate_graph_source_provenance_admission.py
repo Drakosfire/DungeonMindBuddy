@@ -559,6 +559,9 @@ def test_product_prepare_fails_closed_when_canonical_source_artifact_missing(
     )
     from apps.live_control_server.services import extract_promote as extract_promote_service
     from apps.live_control_server.services.extract_promote import ExtractPromoteError
+    from apps.live_control_server.services.managed_world_graph_projection import (
+        VerifiedManagedWorldBinding,
+    )
     from apps.live_control_server.services.source_artifact_registry import (
         SourceArtifactRegistryError,
     )
@@ -594,6 +597,16 @@ def test_product_prepare_fails_closed_when_canonical_source_artifact_missing(
     )
     monkeypatch.setattr(
         extract_promote_service,
+        "_resolve_publication_target",
+        lambda _managed_id: VerifiedManagedWorldBinding(
+            managed_world_id="managed-world",
+            native_world_id=WORLD_ID,
+            binding_version=1,
+            source_root_relpath="corpus/managed-world-markdown",
+        ),
+    )
+    monkeypatch.setattr(
+        extract_promote_service,
         "assert_sealed_source_uri_allowed",
         lambda *_args, **_kwargs: None,
     )
@@ -604,7 +617,7 @@ def test_product_prepare_fails_closed_when_canonical_source_artifact_missing(
         ),
     )
     with pytest.raises(ExtractPromoteError) as excinfo:
-        extract_promote_service.prepare(ExtractPromotePrepareRequest(run_id="run:missing-source"))
+        extract_promote_service.prepare(ExtractPromotePrepareRequest(run_id="run:missing-source", managed_world_id="managed-world"))
     assert excinfo.value.code == "invalid_request"
     assert "source_artifact_missing" in {item.code for item in excinfo.value.diagnostics}
 

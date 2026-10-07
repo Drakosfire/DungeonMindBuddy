@@ -508,10 +508,18 @@ def test_v2_hold_and_confirm_binding_guard_world_writer(
     child = runs[response.run_id]
     monkeypatch.setattr(extract_promote, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", service.resolve_promotable_ingest_run)
+    from apps.live_control_server.services.managed_world_graph_projection import VerifiedManagedWorldBinding
+    monkeypatch.setattr(
+        extract_promote, "_resolve_publication_target",
+        lambda _id: VerifiedManagedWorldBinding(
+            managed_world_id="managed-world", native_world_id="eldyrwild",
+            binding_version=1, source_root_relpath="corpus/managed-world-markdown",
+        ),
+    )
     monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, run_id: runs[run_id])
     monkeypatch.setattr(extract_promote, "_candidate_owner_for_locator", lambda _loc: runs[response.run_id])
     with pytest.raises(extract_promote.ExtractPromoteError, match="semantic review") as held:
-        extract_promote.prepare(ExtractPromotePrepareRequest(run_id=child.run_id))
+        extract_promote.prepare(ExtractPromotePrepareRequest(run_id=child.run_id, managed_world_id="managed-world"))
     assert held.value.code == "recap_semantic_hold"
     source_sha = _sha((tmp_path / "source.md").read_bytes())
     child.lineage["semantic_disposition"] = {
@@ -521,7 +529,7 @@ def test_v2_hold_and_confirm_binding_guard_world_writer(
     }
     child.revision += 1
     with pytest.raises(extract_promote.ExtractPromoteError) as rejected:
-        extract_promote.prepare(ExtractPromotePrepareRequest(run_id=child.run_id))
+        extract_promote.prepare(ExtractPromotePrepareRequest(run_id=child.run_id, managed_world_id="managed-world"))
     assert rejected.value.code == "recap_semantic_hold"
     child.lineage["semantic_disposition"]["state"] = "accepted"
     assessment = assess_recap_semantics(

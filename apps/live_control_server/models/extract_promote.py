@@ -96,18 +96,24 @@ class ExtractPromoteStatusResponse(_ExtractPromoteModel):
 
 
 class ExtractPromotePrepareRequest(_ExtractPromoteModel):
-    """Product prepare: ``{runId, nodeIds?}`` only — world is server-owned."""
+    """Product prepare selects a managed World; native target stays server-owned."""
 
     schema_: Literal["dmb_extract_promote_prepare_request_v2"] = Field(
         default=PREPARE_REQUEST_SCHEMA, alias="schema"
     )
     run_id: str
+    managed_world_id: str | None = None
     node_ids: list[str] | None = None
 
     @field_validator("run_id")
     @classmethod
     def _run_id(cls, value: str) -> str:
         return _nonblank(value, field_name="run_id")
+
+    @field_validator("managed_world_id")
+    @classmethod
+    def _managed_world_id(cls, value: str | None) -> str | None:
+        return _nonblank(value, field_name="managed_world_id") if value is not None else None
 
 
 class ExtractPromotionReviewItem(_ExtractPromoteModel):

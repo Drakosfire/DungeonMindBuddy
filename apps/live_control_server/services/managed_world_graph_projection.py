@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
@@ -59,6 +60,16 @@ class ManagedWorldGraphProjectionResponse(BaseModel):
     projection: WorldGraphProjection
 
 
+@dataclass(frozen=True)
+class VerifiedManagedWorldBinding:
+    """Private source-root proof and active native publication/read identity."""
+
+    managed_world_id: str
+    native_world_id: str
+    binding_version: int
+    source_root_relpath: str
+
+
 def _verified_managed_record(root: Path, managed_world_id: str) -> WorldContainerRecord:
     try:
         record = get_world_container(root, managed_world_id)
@@ -112,12 +123,10 @@ def _active_binding(record: WorldContainerRecord) -> tuple[str, int]:
     return native_world_id, binding.binding_version
 
 
-def project_managed_world_graph(
-    request: ManagedWorldGraphProjectionRequest,
-    *,
-    root: Path | None = None,
-) -> ManagedWorldGraphProjectionResponse:
-    """Read through a stable active Buddy binding, failing closed on change."""
+def resolve_managed_world_binding(
+    managed_world_id: str, *, root: Path | None = None
+) -> VerifiedManagedWorldBinding:
+    """Resolve the existing verified managed World and active native binding."""
 
     try:
         registry_root = root if root is not None else config.managed_world_data_root()
@@ -126,13 +135,29 @@ def project_managed_world_graph(
             "Managed World storage is unavailable.",
             code="managed_world_unavailable", status_code=503,
         ) from exc
-    initial = _verified_managed_record(registry_root, request.managed_world_id)
-    native_world_id, binding_version = _active_binding(initial)
+    record = _verified_managed_record(registry_root, managed_world_id)
+    native_world_id, binding_version = _active_binding(record)
+    return VerifiedManagedWorldBinding(
+        managed_world_id=record.world_id,
+        native_world_id=native_world_id,
+        binding_version=binding_version,
+        source_root_relpath=record.source_root_relpath,
+    )
+
+
+def project_managed_world_graph(
+    request: ManagedWorldGraphProjectionRequest,
+    *,
+    root: Path | None = None,
+) -> ManagedWorldGraphProjectionResponse:
+    """Read through a stable active Buddy binding, failing closed on change."""
+
+    initial = resolve_managed_world_binding(request.managed_world_id, root=root)
 
     native_request = WorldGraphProjectionRequest.model_validate(
         {
             "schema": "dmb_world_graph_projection_request_v1",
-            "worldId": native_world_id,
+            "worldId": initial.native_world_id,
             "campaignId": "",
             "focus": {"kind": "none", "sessionId": None},
             "admissibility": "gm",
@@ -143,13 +168,8 @@ def project_managed_world_graph(
     )
     projection = project_world_graph(native_request)
 
-    current = _verified_managed_record(registry_root, request.managed_world_id)
-    current_native_world_id, current_binding_version = _active_binding(current)
-    if (
-        current_native_world_id != native_world_id
-        or current_binding_version != binding_version
-        or current.source_root_relpath != initial.source_root_relpath
-    ):
+    current = resolve_managed_world_binding(request.managed_world_id, root=root)
+    if current != initial:
         raise WorldGraphProjectionServiceError(
             "Managed World native Graph binding changed during projection; retry the read.",
             code="native_graph_binding_changed",
@@ -158,9 +178,9 @@ def project_managed_world_graph(
 
     return ManagedWorldGraphProjectionResponse(
         schema_="dmb_managed_world_graph_projection_v1",
-        managed_world_id=initial.world_id,
-        native_world_id=native_world_id,
-        binding_version=binding_version,
+        managed_world_id=initial.managed_world_id,
+        native_world_id=initial.native_world_id,
+        binding_version=initial.binding_version,
         projection=projection,
     )
 
@@ -168,5 +188,7 @@ def project_managed_world_graph(
 __all__ = [
     "ManagedWorldGraphProjectionRequest",
     "ManagedWorldGraphProjectionResponse",
+    "VerifiedManagedWorldBinding",
     "project_managed_world_graph",
+    "resolve_managed_world_binding",
 ]

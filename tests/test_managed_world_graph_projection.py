@@ -117,6 +117,27 @@ def test_active_binding_reads_native_world_and_returns_unchanged_projection(
     assert result.projection.snapshot.revision_id == "rev:read"
 
 
+def test_shared_binding_resolver_does_not_read_native_graph(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    managed = create_world_container(tmp_path, name="The Glass Orchard")
+    bound = _record_with_binding(managed)
+    monkeypatch.setattr(
+        managed_projection, "get_world_container", lambda _root, _world_id: bound
+    )
+    monkeypatch.setattr(
+        managed_projection, "project_world_graph",
+        lambda _request: pytest.fail("binding resolution read the native Graph"),
+    )
+    binding = managed_projection.resolve_managed_world_binding(
+        managed.world_id, root=tmp_path
+    )
+    assert binding.managed_world_id == managed.world_id
+    assert binding.native_world_id == "eldyrwild"
+    assert binding.binding_version == 1
+    assert binding.source_root_relpath == f"corpus/{managed.world_id}-markdown"
+
+
 @pytest.mark.parametrize(
     "state", ["missing-record", "unbound", "inactive", "unverified"]
 )
