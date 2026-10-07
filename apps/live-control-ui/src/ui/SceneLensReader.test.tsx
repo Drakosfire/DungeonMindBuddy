@@ -10,6 +10,16 @@ function Fixture(){const [active,setActive]=useState<string|null>('situation');r
 afterEach(()=>vi.restoreAllMocks());
 
 describe('SceneLensReader',()=>{
+  it('lets keyboard readers tab from the selected lens into its prose panel',async()=>{
+    const user=userEvent.setup();render(<Fixture />);
+    await user.tab();
+    expect(screen.getByRole('tab',{name:'Situation'})).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole('tabpanel')).toHaveFocus();
+    expect(screen.getByRole('tabpanel')).toHaveAttribute('aria-labelledby',screen.getByRole('tab',{name:'Situation'}).id);
+    await user.tab();
+    expect(screen.getByText('Choices',{exact:true})).toHaveFocus();
+  });
   it('shows only the chosen caller section and provides the unmodified full view',async()=>{
     const user=userEvent.setup();render(<Fixture />);
     expect(screen.getByRole('tabpanel')).toHaveTextContent('Authored situation');

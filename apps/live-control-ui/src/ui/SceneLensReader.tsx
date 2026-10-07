@@ -72,6 +72,7 @@ export function SceneLensReader({
         onKeyDown={event=>navigate(event,uniqueLenses.length)}>Full scene</button>
     </div>}
     <div id={`${id}-content`} className="scene-lens-reader__content" role={uniqueLenses.length>0?"tabpanel":undefined}
+      tabIndex={uniqueLenses.length>0?0:undefined}
       aria-labelledby={uniqueLenses.length>0?(selected?`${id}-lens-${selectedIndex}`:`${id}-full`):undefined}>
       {selected ? selected.content : fullScene}
     </div>
