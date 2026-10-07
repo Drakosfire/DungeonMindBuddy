@@ -23,7 +23,9 @@ export function AgentInteractionChrome() {
   const surfaceSubtitle = surfaceContextSubtitle(activeSurfaceContext);
   const isPlan = surfaceId === "plan";
   const [planPanelWidth, setPlanPanelWidth] = useState(440);
-  const [planSheetHeight, setPlanSheetHeight] = useState(440);
+  const [planSheetHeight, setPlanSheetHeight] = useState(() => (
+    typeof window === "undefined" ? 440 : Math.round(window.innerHeight * 0.64)
+  ));
   const shellElement = useRef<HTMLElement | null>(null);
   const planWidthOwner = useRef<{
     element: HTMLElement;
@@ -43,22 +45,23 @@ export function AgentInteractionChrome() {
 
   useLayoutEffect(() => {
     if (!isPlan || !open || !askPluginPresent) return;
-    const appShell = shellElement.current?.closest<HTMLElement>(".app-shell--edit-dock");
-    if (!appShell) return;
+    // Agent chrome is a sibling of the app shell, so publish its width at #root.
+    const appRoot = shellElement.current?.closest<HTMLElement>("#root");
+    if (!appRoot) return;
 
     const property = "--agent-plan-panel-width";
     planWidthOwner.current = {
-      element: appShell,
-      previousValue: appShell.style.getPropertyValue(property),
-      previousPriority: appShell.style.getPropertyPriority(property),
+      element: appRoot,
+      previousValue: appRoot.style.getPropertyValue(property),
+      previousPriority: appRoot.style.getPropertyPriority(property),
     };
     return () => {
       const owner = planWidthOwner.current;
-      if (!owner || owner.element !== appShell) return;
+      if (!owner || owner.element !== appRoot) return;
       if (owner.previousValue) {
-        appShell.style.setProperty(property, owner.previousValue, owner.previousPriority);
+        appRoot.style.setProperty(property, owner.previousValue, owner.previousPriority);
       } else {
-        appShell.style.removeProperty(property);
+        appRoot.style.removeProperty(property);
       }
       planWidthOwner.current = null;
     };
@@ -66,13 +69,13 @@ export function AgentInteractionChrome() {
 
   useLayoutEffect(() => {
     if (!isPlan || !open || !askPluginPresent) return;
-    const appShell = shellElement.current?.closest<HTMLElement>(".app-shell--edit-dock");
-    if (!appShell) return;
+    const appRoot = shellElement.current?.closest<HTMLElement>("#root");
+    if (!appRoot) return;
 
     const syncEffectivePanelWidth = () => {
       const viewportLimit = Math.round(window.innerWidth * 0.72);
       const effectiveWidth = Math.max(320, Math.min(planPanelWidth, viewportLimit));
-      appShell.style.setProperty("--agent-plan-panel-width", `${effectiveWidth}px`);
+      appRoot.style.setProperty("--agent-plan-panel-width", `${effectiveWidth}px`);
     };
     syncEffectivePanelWidth();
     window.addEventListener("resize", syncEffectivePanelWidth);

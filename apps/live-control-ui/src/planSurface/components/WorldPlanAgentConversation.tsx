@@ -1649,6 +1649,9 @@ export function WorldPlanAgentConversation({
   const [sectionTargets, setSectionTargets] = useState<PlanSectionOption[]>([]);
   const [selectedSectionTargetId, setSelectedSectionTargetId] = useState("");
   const [sectionTargetStatus, setSectionTargetStatus] = useState<PlanSectionTargetStatus | null>(null);
+  const selectedSectionTargetLabel = sectionTargets
+    .find((target) => target.id === selectedSectionTargetId)
+    ?.label.replace(/^#{1,6}\s+/, "") ?? null;
   const [actionHistory, setActionHistory] = useState<WorldPlanActionProjection[]>([]);
   const [actionHistoryError, setActionHistoryError] = useState<string | null>(null);
   const requestRef = useRef<{ token: symbol; scopeKey: string; fenceKey: string } | null>(null);
@@ -3086,27 +3089,42 @@ export function WorldPlanAgentConversation({
   return createPortal(
     <section className="world-plan-agent-conversation" aria-label="Saved World Plan conversation">
       <header className="world-plan-agent-conversation__header">
-        <div>
-          <h2>Plan conversation</h2>
-          <p>{worldName} · {displayedSavedPlanVersion?.status === "verified"
-            ? `Saved Plan · version ${displayedSavedPlanVersion.revisionN}`
-            : displayedSavedPlanVersion?.status === "unavailable"
-              ? "Saved Plan version unavailable"
-              : "Checking saved Plan version…"}</p>
-          <div className="world-plan-agent-conversation__header-context" aria-label="Current Plan context">
-            {playableTarget ? (
-              <div role="group" aria-label="Selected Playable card for Ask" className="world-plan-agent-conversation__target-chip">
-                <span>Ask target · {playableTarget.kind} {playableTarget.id}</span>
-                <button type="button" onClick={onClearPlayableTarget}>Clear Ask target</button>
-              </div>
-            ) : <span>Ask target · whole Plan</span>}
-            {playableEditTarget ? (
-              <div role="group" aria-label="Selected Playable card for edit" className="world-plan-agent-conversation__target-chip">
-                <span>Edit target · {playableEditTarget.kind} {playableEditTarget.id}</span>
-                <button type="button" onClick={onClearPlayableEditTarget}>Clear edit target</button>
-              </div>
-            ) : <span>Edit target · editor context</span>}
+        <div className="world-plan-agent-conversation__header-main">
+          <div className="world-plan-agent-conversation__header-title">
+            <h2>Plan conversation</h2>
+            <p>{worldName} · {displayedSavedPlanVersion?.status === "verified"
+              ? `Saved Plan · version ${displayedSavedPlanVersion.revisionN}`
+              : displayedSavedPlanVersion?.status === "unavailable"
+                ? "Saved Plan version unavailable"
+                : "Checking saved Plan version…"}</p>
           </div>
+          <div className="world-plan-agent-conversation__actions">
+            <button type="button" aria-expanded={settingsOpen} aria-controls="world-plan-agent-settings" onClick={() => setSettingsOpen((open) => !open)}>
+              {settingsOpen ? "Close settings" : "Settings"}
+            </button>
+            <button
+              type="button"
+              onClick={startNewConversation}
+              disabled={sending || composing || historyLoading || !history || newConversationSending
+                || pendingCommands.some((item) => item.envelope !== null)}
+            >
+              {newConversationSending ? "Starting…" : "New conversation"}
+            </button>
+          </div>
+        </div>
+        <div className="world-plan-agent-conversation__header-context" role="group" aria-label="Current Plan context">
+          {playableTarget ? (
+            <div role="group" aria-label="Selected Playable card for Ask" className="world-plan-agent-conversation__target-chip">
+              <span>Ask target · {playableTarget.kind} {playableTarget.id}</span>
+              <button type="button" onClick={onClearPlayableTarget}>Clear Ask target</button>
+            </div>
+          ) : <span>Ask target · whole Plan</span>}
+          {playableEditTarget ? (
+            <div role="group" aria-label="Selected Playable card for edit" className="world-plan-agent-conversation__target-chip">
+              <span>Edit target · {playableEditTarget.kind} {playableEditTarget.id}</span>
+              <button type="button" onClick={onClearPlayableEditTarget}>Clear edit target</button>
+            </div>
+          ) : <span>Edit target · editor context</span>}
           {playableTargetStale ? (
             <p className="world-plan-agent-conversation__target-warning" role="alert">
               The Ask target is stale. Select it again or clear the target before asking.
@@ -3117,19 +3135,6 @@ export function WorldPlanAgentConversation({
               The edit target is stale. Select it again before composing a proposal.
             </p>
           ) : null}
-        </div>
-        <div className="world-plan-agent-conversation__actions">
-          <button type="button" aria-expanded={settingsOpen} aria-controls="world-plan-agent-settings" onClick={() => setSettingsOpen((open) => !open)}>
-            {settingsOpen ? "Close settings" : "Settings"}
-          </button>
-          <button
-            type="button"
-            onClick={startNewConversation}
-            disabled={sending || composing || historyLoading || !history || newConversationSending
-              || pendingCommands.some((item) => item.envelope !== null)}
-          >
-            {newConversationSending ? "Starting…" : "New conversation"}
-          </button>
         </div>
       </header>
       <div className="world-plan-agent-conversation__body">
@@ -3147,9 +3152,11 @@ export function WorldPlanAgentConversation({
         <p role="note">The local Agent and Graph session persists across reloads. A Plan Ask requests World Graph context only when you select that option.</p>
         {graphCredentialStatus ? <p role="status">{graphCredentialStatus}</p> : null}
       </section>
-      <p className="world-plan-agent-conversation__notice" role="note">
-        Talk through the saved Plan, or choose Propose edit to request a change. You’ll review it before it touches the draft.
-      </p>
+      {composerIntent === "discuss" ? (
+        <p className="world-plan-agent-conversation__notice" role="note">
+          Talk through the saved Plan, or choose Propose edit to request a change. You’ll review it before it touches the draft.
+        </p>
+      ) : null}
       {saveInFlight ? (
         <p className="world-plan-agent-conversation__saving" role="status">Conversation paused while the Plan is saving.</p>
       ) : null}
@@ -3457,40 +3464,53 @@ export function WorldPlanAgentConversation({
                 Propose edit
               </label>
             </fieldset>
-            {composerIntent === "propose" ? (
-              <div className="world-plan-agent-conversation__target" role="group" aria-label="Choose where the proposed edit applies">
-                {playableEditTarget ? (
-                  <p role="note">The selected card body takes precedence over editor selection and Plan section. Clear the card target to use a different proposal target.</p>
-                ) : null}
-                <label htmlFor="world-plan-agent-plan-section">Plan section (optional)</label>
-                <select
-                  id="world-plan-agent-plan-section"
-                  value={selectedSectionTargetId}
-                  disabled={intentBusy || sectionTargets.length === 0 || Boolean(playableEditTarget)}
-                  onChange={(event) => { void selectPlanSection(event.currentTarget.value); }}
-                >
-                  <option value="">Use the editor selection or caret</option>
-                  {sectionTargets.map((target) => (
-                    <option
-                      key={target.id}
-                      value={target.id}
-                      disabled={Boolean(target.unavailableReason)}
-                      title={target.unavailableReason ?? undefined}
+            {composerIntent === "propose" && !playableEditTarget ? (
+              <>
+                <details className="world-plan-agent-conversation__target-disclosure">
+                  <summary>
+                    {selectedSectionTargetLabel
+                      ? `Chosen section: ${selectedSectionTargetLabel}`
+                      : "Use selection; otherwise insert at cursor"}
+                    <span className="world-plan-agent-conversation__target-action">Change target</span>
+                  </summary>
+                  <div className="world-plan-agent-conversation__target" role="group" aria-label="Choose where the proposed edit applies">
+                    <select
+                      id="world-plan-agent-plan-section"
+                      aria-label="Plan section (optional)"
+                      aria-describedby="world-plan-agent-target-help"
+                      value={selectedSectionTargetId}
+                      disabled={intentBusy || sectionTargets.length === 0 || Boolean(playableEditTarget)}
+                      onChange={(event) => { void selectPlanSection(event.currentTarget.value); }}
                     >
-                      {target.unavailableReason
-                        ? `${target.label} — unavailable (Markdown round-trip not safe)`
-                        : target.label}
-                    </option>
-                  ))}
-                </select>
-                <button type="button" onClick={() => { void refreshPlanSections(); }} disabled={intentBusy}>
-                  Refresh sections
-                </button>
-                <p role="note">Choosing a section selects it in the editor. A direct editor selection takes precedence. With no selected text, the proposal inserts at the caret.</p>
-                {sectionTargetStatus ? (
-                  <p role={sectionTargetStatus.kind === "error" ? "alert" : "status"}>{sectionTargetStatus.message}</p>
+                      <option value="">Use the editor selection or caret</option>
+                      {sectionTargets.map((target) => (
+                        <option
+                          key={target.id}
+                          value={target.id}
+                          disabled={Boolean(target.unavailableReason)}
+                          title={target.unavailableReason ?? undefined}
+                        >
+                          {target.unavailableReason
+                            ? `${target.label} — unavailable (Markdown round-trip not safe)`
+                            : target.label}
+                        </option>
+                      ))}
+                    </select>
+                    <button type="button" aria-label="Refresh sections" onClick={() => { void refreshPlanSections(); }} disabled={intentBusy}>
+                      Refresh
+                    </button>
+                    <span id="world-plan-agent-target-help" className="sr-only">
+                      Choosing a Plan section selects its text in the editor. A direct editor text selection takes precedence. With no selected text, the proposal inserts at the cursor.
+                    </span>
+                    {sectionTargetStatus?.kind === "status" ? (
+                      <p role="status">{sectionTargetStatus.message}</p>
+                    ) : null}
+                  </div>
+                </details>
+                {sectionTargetStatus?.kind === "error" ? (
+                  <p className="world-plan-agent-conversation__target-error" role="alert">{sectionTargetStatus.message}</p>
                 ) : null}
-              </div>
+              </>
             ) : null}
             <label htmlFor="world-plan-agent-message">Message DungeonBuddy</label>
             <textarea

@@ -280,6 +280,21 @@ function CardNodeView({
   const selectedForEdit = selectedEditTarget?.kind === target.kind && selectedEditTarget.id === target.id;
   const selectable = selectableTargetKeys.has(worldPlanCardTargetKey(target));
   const editable = editableTargetKeys.has(worldPlanCardTargetKey(target));
+  const selectEditTarget = (button: HTMLButtonElement) => {
+    onSelectEditTarget?.(target);
+    if (!(window.matchMedia?.("(max-width: 42rem)").matches ?? false)) return;
+
+    const card = button.closest<HTMLElement>(".world-plan-card");
+    if (!card) return;
+
+    const cardTop = card.getBoundingClientRect().top;
+    const chromeTop = Number.parseFloat(getComputedStyle(card).getPropertyValue("--app-chrome-top")) || 0;
+    const readingTop = chromeTop + 12;
+    const nextScrollTop = Math.max(0, window.scrollY + cardTop - readingTop);
+    if (Math.abs(nextScrollTop - window.scrollY) > 4) {
+      window.scrollTo({ top: nextScrollTop, behavior: "auto" });
+    }
+  };
   return (
     <li className={`world-plan-card-node world-plan-card-node--${node.kind}`} data-element-id={node.id} data-element-kind={node.kind}>
       <article className="world-plan-card">
@@ -322,7 +337,7 @@ function CardNodeView({
             aria-pressed={selectedForEdit}
             disabled={!editable || !onSelectEditTarget}
             title={editable ? "Use this exact current card body for a Compose proposal" : "This card is not a unique editable target in the current Plan draft"}
-            onClick={() => onSelectEditTarget?.(target)}
+            onClick={(event) => selectEditTarget(event.currentTarget)}
           >
             {selectedForEdit ? "Selected for Edit" : "Select for Edit"}
           </button>

@@ -637,10 +637,11 @@ body.surface-projection-open .plan-agent-shell {
   display: none !important;
 }
 
+/* The app reserves the Ask band for its content; the Plan panel fills its own viewport slot. */
 .plan-agent-shell.agent-interaction-shell--plan.open {
   top: var(--app-chrome-top, 0px);
   right: 0;
-  bottom: var(--app-chrome-bottom, 0px);
+  bottom: 0;
   left: auto;
   width: var(--agent-plan-panel-width, 440px);
   min-width: 20rem;
@@ -8066,14 +8067,14 @@ body.surface-projection-open .plan-agent-shell {
   .plan-agent-shell.agent-interaction-shell--plan.open {
     top: auto;
     right: 0;
-    bottom: var(--app-chrome-bottom, 0px);
+    bottom: 0;
     left: 0;
     width: 100vw;
     min-width: 0;
     max-width: 100vw;
     height: var(--agent-plan-sheet-height, 440px);
     min-height: 15rem;
-    max-height: min(78dvh, calc(100dvh - var(--app-chrome-top, 0px) - var(--app-chrome-bottom, 0px) - 3rem));
+    max-height: min(78dvh, calc(100dvh - var(--app-chrome-top, 0px) - 3rem));
     border: 1px solid var(--ui-border-strong, #414e61);
     border-bottom: 0;
     border-radius: 1rem 1rem 0 0;

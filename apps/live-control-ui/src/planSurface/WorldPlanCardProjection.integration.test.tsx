@@ -225,6 +225,7 @@ afterEach(() => {
     scrollIntoViewWasPatched = false;
   }
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   localStorage.clear();
   window.history.replaceState({}, "", "/");
 });
@@ -442,6 +443,10 @@ it("keeps current-draft Edit selection separate from committed-Plan Ask selectio
   const targetKeys = worldPlanCardTargetKeys(model);
   const selectForAsk = vi.fn();
   const selectForEdit = vi.fn();
+  const scrollTo = vi.fn();
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true })));
+  vi.stubGlobal("scrollY", 100);
+  vi.stubGlobal("scrollTo", scrollTo);
   render(
     <WorldPlanCardProjection
       worldId={worldId}
@@ -464,12 +469,16 @@ it("keeps current-draft Edit selection separate from committed-Plan Ask selectio
   expect(scene).not.toBeNull();
   const askButton = scene!.querySelector<HTMLButtonElement>('button[data-target-id="scene:arrival"]');
   const editButton = scene!.querySelector<HTMLButtonElement>('button[data-edit-target-id="scene:arrival"]');
+  const editCard = scene!.querySelector<HTMLElement>(".world-plan-card");
   expect(askButton).not.toBeNull();
   expect(editButton).not.toBeNull();
+  expect(editCard).not.toBeNull();
   expect(askButton).toBeEnabled();
   expect(editButton).toBeEnabled();
+  vi.spyOn(editCard!, "getBoundingClientRect").mockReturnValue({ top: 260 } as DOMRect);
   fireEvent.click(editButton!);
   expect(selectForEdit).toHaveBeenCalledWith({ kind: "scene", id: "scene:arrival" });
+  expect(scrollTo).toHaveBeenCalledWith({ top: 348, behavior: "auto" });
   expect(selectForAsk).not.toHaveBeenCalled();
   fireEvent.click(askButton!);
   expect(selectForAsk).toHaveBeenCalledWith({ kind: "scene", id: "scene:arrival" });
