@@ -864,6 +864,7 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     if not hasattr(graph_types, "PlanWorldGraphExecutionV1"):
         pytest.skip("run with pinned APP-STATE candidate")
     from apps.live_control_server.services import agent_turn_service as service_module
+    from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
     monkeypatch.setattr(
         "apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference",
         lambda **_kwargs: ("openai-api", "gpt-6-luna", "https://api.openai.com/v1"),
@@ -1091,13 +1092,26 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         assert fake.accepted_count == 0
         assert fake.authorize_count == 0
         over_budget.stop()
+    trace = AgentTurnTraceBuilder(
+        agent_thread_id=None,
+        turn_id=request.turn_id,
+        runtime="test",
+        backend="test",
+        mode="test",
+    )
+    admission_span_id = trace.start_phase("runtime_to_admission")
     adapter = service_module._PolicyExecutionAdapter(
         service=fake, request=request, world_id="world:one", work=work,
         bootstrap=bootstrap, playable_target=None,
         submitted_intent=_submitted_turn_intent(request, world_id="world:one"),
-        existing_turn=None, budget=budget,
+        existing_turn=None, budget=budget, trace=trace,
+        admission_span_id=admission_span_id,
     )
     assert adapter.authorize(view) is True
+    adapter_trace_names = {span["name"] for span in trace.spans}
+    assert {"runtime_to_admission", "durable_turn_accept", "durable_turn_claim"} <= adapter_trace_names
+    assert all(span["duration_ms"] >= 0 for span in trace.spans)
+    assert "PRIVATE" not in json.dumps(trace.spans)
     user_content = json.loads(view["payloadJson"])["input"][1]["content"]
     assert json.loads(user_content.split("\n", 1)[1])[
         "committed_plan_markdown"
@@ -2766,6 +2780,13 @@ def test_successful_plan_turn_returns_one_sanitized_trace_event(
     assert len(trace_events) == 1
     logged_trace = json.loads(trace_events[0].removeprefix("dmb_agent_turn_trace "))
     assert logged_trace["trace_id"] == trace["trace_id"]
+    trace_spans = trace["spans"]
+    trace_names = {span["name"] for span in trace_spans}
+    assert {
+        "turn_owner_resolution", "committed_plan_resolution", "context_assembly",
+        "runtime_creation",
+    } <= trace_names
+    assert all(span["duration_ms"] >= 0 for span in trace_spans)
     runtime_span = next(
         span for span in trace["spans"] if span["name"] == "runtime_dispatch"
     )

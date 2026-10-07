@@ -780,6 +780,7 @@ PlanGraphResolver = Callable[
         Mapping[str, Any] | None,
         AgentTurnResolvedWork | None,
         PlanWorldGraphContextReceiptV1 | None,
+        str,
     ],
     AgentPlanWorldGraphBootstrap,
 ]
@@ -928,6 +929,8 @@ class _PolicyExecutionAdapter:
         submitted_intent: SubmittedTurnIntentV2,
         existing_turn: Turn | None,
         budget: Mapping[str, Any],
+        trace: AgentTurnTraceBuilder | None = None,
+        admission_span_id: str | None = None,
     ) -> None:
         self.service = service
         self.request = request
@@ -942,6 +945,8 @@ class _PolicyExecutionAdapter:
         self.submitted_intent = submitted_intent
         self.turn = existing_turn
         self.budget = budget
+        self.trace = trace
+        self.admission_span_id = admission_span_id
         self.fence: _ClaimFence | None = None
         self.last_provider_attempt_id: UUID | None = None
         self.producing_provider_attempt_id: UUID | None = None
@@ -986,12 +991,21 @@ class _PolicyExecutionAdapter:
                 work=self.work,
                 playable_target=self.playable_target,
             )
-            accepted = _accept_world_turn(
-                self.service, self.request, world_id=self.world_id,
-                provenance=provenance, submitted_intent=self.submitted_intent,
-                graph_context_receipt=receipt,
-                graph_context_execution=execution,
-            )
+            if self.trace is None:
+                accepted = _accept_world_turn(
+                    self.service, self.request, world_id=self.world_id,
+                    provenance=provenance, submitted_intent=self.submitted_intent,
+                    graph_context_receipt=receipt,
+                    graph_context_execution=execution,
+                )
+            else:
+                with self.trace.phase("durable_turn_accept"):
+                    accepted = _accept_world_turn(
+                        self.service, self.request, world_id=self.world_id,
+                        provenance=provenance, submitted_intent=self.submitted_intent,
+                        graph_context_receipt=receipt,
+                        graph_context_execution=execution,
+                    )
             if accepted.provenance != provenance or accepted.graph_context_receipt != receipt:
                 raise AgentTurnServiceError(
                     "A concurrent Plan Graph receipt won admission with another basis.",
@@ -1031,10 +1045,17 @@ class _PolicyExecutionAdapter:
             list(receipt.assembled_input.dispatched_evidence_ref_ids),
         )
         assert self.turn is not None
-        claim = self.service.claim_turn(
-            self.turn.world_id, self.turn.conversation_id, self.turn.turn_id,
-            expected_revision=self.turn.revision, lease_seconds=120,
-        )
+        if self.trace is None:
+            claim = self.service.claim_turn(
+                self.turn.world_id, self.turn.conversation_id, self.turn.turn_id,
+                expected_revision=self.turn.revision, lease_seconds=120,
+            )
+        else:
+            with self.trace.phase("durable_turn_claim"):
+                claim = self.service.claim_turn(
+                    self.turn.world_id, self.turn.conversation_id, self.turn.turn_id,
+                    expected_revision=self.turn.revision, lease_seconds=120,
+                )
         if claim.disposition != "claimed":
             raise AgentTurnServiceError(
                 "The Plan Graph turn could not acquire a fresh claim.",
@@ -1043,6 +1064,9 @@ class _PolicyExecutionAdapter:
             )
         self.turn = claim.turn
         self.fence = _ClaimFence(self.service, claim.turn)
+        if self.trace is not None and self.admission_span_id is not None:
+            self.trace.complete_phase(self.admission_span_id)
+            self.admission_span_id = None
         return claim.turn, *membership
 
     def authorize(self, view: Mapping[str, Any]) -> bool:
@@ -1965,19 +1989,24 @@ def _completed_turn_replay(
     *,
     owner: Mapping[str, Any],
     turn: Turn,
+    trace_builder: AgentTurnTraceBuilder | None = None,
 ) -> AgentTurnResponse:
     """Project a completed durable receipt without loading runtime/current state."""
     _require_playable_target_receipt_matches_request(request, turn.provenance)
     segment_thread_id = _provider_segment_thread_id(
         turn.provenance, conversation_id=turn.conversation_id
     )
-    trace = AgentTurnTraceBuilder(
+    trace = trace_builder or AgentTurnTraceBuilder(
         agent_thread_id=segment_thread_id,
         turn_id=request.turn_id,
         runtime="durable_receipt",
         backend="application_state",
         mode="replay",
     )
+    trace.agent_thread_id = segment_thread_id
+    trace.runtime = "durable_receipt"
+    trace.backend = "application_state"
+    trace.mode = "replay"
     final_trace = trace.finalize_and_log(
         status="ok",
         model_calls=0,
@@ -2413,22 +2442,31 @@ def execute_agent_turn(
     runtime: AgentRuntime | None = None,
     runtime_factory: Callable[[], AgentRuntime | None] | None = None,
     conversation_service: AgentConversationService | None = None,
+    trace_builder: AgentTurnTraceBuilder | None = None,
 ) -> AgentTurnResponse:
     """Resolve authority on each call, then execute one read-only conversation turn.
 
     Resolver callbacks are deliberately explicit: each identity channel has its own
     authority and cannot silently inherit a value from another request field.
     """
-    try:
-        owner = owner_resolver(request)
-    except AgentTurnServiceError:
-        raise
-    except Exception as exc:
-        raise AgentTurnServiceError(
-            "Could not resolve the supplied owner identity.",
-            code="authority_unavailable",
-            status_code=503,
-        ) from exc
+    trace = trace_builder or AgentTurnTraceBuilder(
+        agent_thread_id=None,
+        turn_id=request.turn_id,
+        runtime="unresolved",
+        backend="unresolved",
+        mode="unresolved",
+    )
+    with trace.phase("turn_owner_resolution"):
+        try:
+            owner = owner_resolver(request)
+        except AgentTurnServiceError:
+            raise
+        except Exception as exc:
+            raise AgentTurnServiceError(
+                "Could not resolve the supplied owner identity.",
+                code="authority_unavailable",
+                status_code=503,
+            ) from exc
 
     if request.plan_context_policy is not None and conversation_service is None:
         raise AgentTurnServiceError(
@@ -2460,29 +2498,30 @@ def execute_agent_turn(
             idempotency_key = _turn_idempotency_key(
                 canonical_world_id, request.turn_id
             )
-            try:
-                durable_turn = conversation_service.reconcile_turn(
-                    canonical_world_id, idempotency_key, submitted_intent
-                )
-            except ApplicationStateConflictError as exc:
-                message = str(exc)
-                code = (
-                    "turn_receipt_unverifiable"
-                    if "legacy-receipt-unverifiable" in message
-                    else "turn_idempotency_conflict"
-                )
-                raise AgentTurnServiceError(
-                    message, code=code, status_code=409
-                ) from exc
-            except ApplicationStateError as exc:
-                raise AgentTurnServiceError(
-                    "The durable World turn receipt could not be checked.",
-                    code="conversation_unavailable",
-                    status_code=503,
-                ) from exc
+            with trace.phase("durable_turn_reconciliation"):
+                try:
+                    durable_turn = conversation_service.reconcile_turn(
+                        canonical_world_id, idempotency_key, submitted_intent
+                    )
+                except ApplicationStateConflictError as exc:
+                    message = str(exc)
+                    code = (
+                        "turn_receipt_unverifiable"
+                        if "legacy-receipt-unverifiable" in message
+                        else "turn_idempotency_conflict"
+                    )
+                    raise AgentTurnServiceError(
+                        message, code=code, status_code=409
+                    ) from exc
+                except ApplicationStateError as exc:
+                    raise AgentTurnServiceError(
+                        "The durable World turn receipt could not be checked.",
+                        code="conversation_unavailable",
+                        status_code=503,
+                    ) from exc
             if durable_turn is not None and durable_turn.status == "completed":
                 return _completed_turn_replay(
-                    request, owner=owner, turn=durable_turn
+                    request, owner=owner, turn=durable_turn, trace_builder=trace
                 )
 
     if request.plan_context_policy is not None:
@@ -2557,30 +2596,31 @@ def execute_agent_turn(
                 )
             }
         )
-    try:
-        if durable_turn is not None:
-            if historical_work_resolver is not None:
-                work = historical_work_resolver(
-                    request, owner, durable_turn.provenance
-                )
-            elif durable_turn.provenance.primary_work.resolution == "absent":
-                work = None
+    with trace.phase("committed_plan_resolution"):
+        try:
+            if durable_turn is not None:
+                if historical_work_resolver is not None:
+                    work = historical_work_resolver(
+                        request, owner, durable_turn.provenance
+                    )
+                elif durable_turn.provenance.primary_work.resolution == "absent":
+                    work = None
+                else:
+                    raise AgentTurnServiceError(
+                        "The retry receipt requires an owning historical work resolver.",
+                        code="historical_work_unavailable",
+                        status_code=503,
+                    )
             else:
-                raise AgentTurnServiceError(
-                    "The retry receipt requires an owning historical work resolver.",
-                    code="historical_work_unavailable",
-                    status_code=503,
-                )
-        else:
-            work = work_resolver(request, owner)
-    except AgentTurnServiceError:
-        raise
-    except Exception as exc:
-        raise AgentTurnServiceError(
-            "Could not resolve the supplied saved-work identity.",
-            code="authority_unavailable",
-            status_code=503,
-        ) from exc
+                work = work_resolver(request, owner)
+        except AgentTurnServiceError:
+            raise
+        except Exception as exc:
+            raise AgentTurnServiceError(
+                "Could not resolve the supplied saved-work identity.",
+                code="authority_unavailable",
+                status_code=503,
+            ) from exc
 
     plan_content_required = (
         request.surface.surface_id == "plan"
@@ -2704,13 +2744,15 @@ def execute_agent_turn(
     policy_bootstrap: AgentPlanWorldGraphBootstrap | None = None
     if request.plan_context_policy is not None:
         try:
-            policy_bootstrap = plan_graph_resolver(
-                request,
-                owner,
-                work,
-                None if durable_turn is None else durable_turn.graph_context_receipt,
-            )
-            policy_bootstrap = _admitted_initial_policy_bootstrap(policy_bootstrap)
+            with trace.phase("plan_graph_context_resolution") as parent_span_id:
+                policy_bootstrap = plan_graph_resolver(
+                    request,
+                    owner,
+                    work,
+                    None if durable_turn is None else durable_turn.graph_context_receipt,
+                    parent_span_id,
+                )
+                policy_bootstrap = _admitted_initial_policy_bootstrap(policy_bootstrap)
         except AgentTurnServiceError:
             raise
         except Exception as exc:
@@ -2824,13 +2866,14 @@ def execute_agent_turn(
                 graph_scope=scope,
                 graph_envelope=envelope,
             )
-            durable_turn = _accept_world_turn(
-                conversation_service,
-                request,
-                world_id=canonical_world_id,
-                provenance=provenance,
-                submitted_intent=submitted_intent,
-            )
+            with trace.phase("durable_turn_accept"):
+                durable_turn = _accept_world_turn(
+                    conversation_service,
+                    request,
+                    world_id=canonical_world_id,
+                    provenance=provenance,
+                    submitted_intent=submitted_intent,
+                )
             if durable_turn.provenance != provenance:
                 # A concurrent identical submission may win acceptance after
                 # this request's early reconciliation missed. Its immutable
@@ -2852,59 +2895,67 @@ def execute_agent_turn(
             pointer_work_id = segment_thread_id
             pointer_thread_id = segment_thread_id
 
-    pointer = pointer_store.resolve_structured_for_request(
-        owner_kind=pointer_owner_kind,
-        owner_id=pointer_owner_id,
-        work_kind=pointer_work_kind,
-        work_id=pointer_work_id,
-        agent_thread_id=pointer_thread_id,
-        pointer_id=None,
-    )
-    if pointer.pointer_status == "rejected" and plan_continuity:
-        if running_turn is not None and conversation_service is not None:
-            conversation_service.fail_turn(
-                TurnFailure(
-                    world_id=running_turn.world_id,
-                    conversation_id=running_turn.conversation_id,
-                    turn_id=running_turn.turn_id,
-                    expected_revision=running_turn.revision,
-                    failure_code="hermes_continuity_unavailable",
+    context_assembly_span = trace.start_phase("context_assembly")
+    context_assembly_status = "ok"
+    try:
+        pointer = pointer_store.resolve_structured_for_request(
+            owner_kind=pointer_owner_kind,
+            owner_id=pointer_owner_id,
+            work_kind=pointer_work_kind,
+            work_id=pointer_work_id,
+            agent_thread_id=pointer_thread_id,
+            pointer_id=None,
+        )
+        if pointer.pointer_status == "rejected" and plan_continuity:
+            if running_turn is not None and conversation_service is not None:
+                conversation_service.fail_turn(
+                    TurnFailure(
+                        world_id=running_turn.world_id,
+                        conversation_id=running_turn.conversation_id,
+                        turn_id=running_turn.turn_id,
+                        expected_revision=running_turn.revision,
+                        failure_code="hermes_continuity_unavailable",
+                    )
                 )
+            raise AgentTurnServiceError(
+                "Saved conversation continuity is unavailable or expired. "
+                "Choose New conversation to start fresh; the saved work was not changed.",
+                code="hermes_continuity_unavailable",
+                status_code=409,
             )
-        raise AgentTurnServiceError(
-            "Saved conversation continuity is unavailable or expired. "
-            "Choose New conversation to start fresh; the saved work was not changed.",
-            code="hermes_continuity_unavailable",
-            status_code=409,
-        )
-    if pointer.pointer_status == "rejected" or (plan_binding and not plan_continuity):
-        pointer = HermesStructuredPointerResolution(
-            continuity_session_id=None,
-            pointer_status="recovered",
-            pointer_in_request=pointer.pointer_in_request,
-            recovery_message=pointer.recovery_message,
-        )
-    if envelope is None:
-        assembly = assemble_agent_conversation_context(
-            question=runtime_message,
-            runtime_session_id=pointer.continuity_session_id,
-            thread_id=pointer_thread_id,
-            turn_id=request.turn_id,
-            surface_context=surface_context,
-        )
-    else:
-        assembly = assemble_agent_graph_context(
-            question=runtime_message,
-            graph_envelope=envelope,
-            root=root,
-            thread_id=pointer_thread_id,
-            turn_id=request.turn_id,
-            runtime_session_id=pointer.continuity_session_id,
-            surface_context=surface_context,
-            retrieval_session=(
-                None if policy_bootstrap is None else policy_bootstrap.retrieval_session
-            ),
-        )
+        if pointer.pointer_status == "rejected" or (plan_binding and not plan_continuity):
+            pointer = HermesStructuredPointerResolution(
+                continuity_session_id=None,
+                pointer_status="recovered",
+                pointer_in_request=pointer.pointer_in_request,
+                recovery_message=pointer.recovery_message,
+            )
+        if envelope is None:
+            assembly = assemble_agent_conversation_context(
+                question=runtime_message,
+                runtime_session_id=pointer.continuity_session_id,
+                thread_id=pointer_thread_id,
+                turn_id=request.turn_id,
+                surface_context=surface_context,
+            )
+        else:
+            assembly = assemble_agent_graph_context(
+                question=runtime_message,
+                graph_envelope=envelope,
+                root=root,
+                thread_id=pointer_thread_id,
+                turn_id=request.turn_id,
+                runtime_session_id=pointer.continuity_session_id,
+                surface_context=surface_context,
+                retrieval_session=(
+                    None if policy_bootstrap is None else policy_bootstrap.retrieval_session
+                ),
+            )
+    except Exception:
+        context_assembly_status = "error"
+        raise
+    finally:
+        trace.complete_phase(context_assembly_span, status=context_assembly_status)
 
     renewer: _TurnClaimRenewer | None = None
     if (
@@ -2913,13 +2964,14 @@ def execute_agent_turn(
         and request.plan_context_policy is None
     ):
         try:
-            claim = conversation_service.claim_turn(
-                durable_turn.world_id,
-                durable_turn.conversation_id,
-                durable_turn.turn_id,
-                expected_revision=durable_turn.revision,
-                lease_seconds=120,
-            )
+            with trace.phase("durable_turn_claim"):
+                claim = conversation_service.claim_turn(
+                    durable_turn.world_id,
+                    durable_turn.conversation_id,
+                    durable_turn.turn_id,
+                    expected_revision=durable_turn.revision,
+                    lease_seconds=120,
+                )
         except ApplicationStateConflictError as exc:
             raise AgentTurnServiceError(
                 str(exc), code="turn_lifecycle_conflict", status_code=409
@@ -2937,17 +2989,20 @@ def execute_agent_turn(
                 status_code=409,
             )
         if claim.disposition == "completed":
-            return _completed_turn_replay(request, owner=owner or {}, turn=claim.turn)
+            return _completed_turn_replay(
+                request, owner=owner or {}, turn=claim.turn, trace_builder=trace
+            )
         running_turn = claim.turn
         renewer = _TurnClaimRenewer(conversation_service, running_turn)
 
     # Delay runtime lookup/construction until authorization, receipt replay,
     # current work, pointer, and graph validation have all succeeded.
     try:
-        selected_runtime = runtime or (
-            runtime_factory() if runtime_factory is not None else None
-        ) or default_hermes_agent_runtime()
-        descriptor = descriptor_for_runtime(selected_runtime)
+        with trace.phase("runtime_creation"):
+            selected_runtime = runtime or (
+                runtime_factory() if runtime_factory is not None else None
+            ) or default_hermes_agent_runtime()
+            descriptor = descriptor_for_runtime(selected_runtime)
     except Exception as exc:
         running_turn = _stop_claim_renewer(renewer, running_turn)
         if running_turn is not None and conversation_service is not None:
@@ -2972,13 +3027,10 @@ def execute_agent_turn(
             code="runtime_unavailable",
             status_code=503,
         ) from exc
-    trace = AgentTurnTraceBuilder(
-        agent_thread_id=pointer_thread_id,
-        turn_id=request.turn_id,
-        runtime=descriptor.trace_runtime,
-        backend=descriptor.trace_backend,
-        mode=descriptor.trace_mode,
-    )
+    trace.agent_thread_id = pointer_thread_id
+    trace.runtime = descriptor.trace_runtime
+    trace.backend = descriptor.trace_backend
+    trace.mode = descriptor.trace_mode
     trace.context_summary = dict(assembly.trace_summary)
     if request.plan_context_policy is not None:
         if (
@@ -2997,6 +3049,7 @@ def execute_agent_turn(
                 code="plan_graph_execution_unavailable", status_code=503,
             )
         budget = _policy_request_budget()
+        admission_span_id = trace.start_phase("runtime_to_admission")
         adapter = _PolicyExecutionAdapter(
             service=conversation_service,
             request=request,
@@ -3007,6 +3060,8 @@ def execute_agent_turn(
             submitted_intent=submitted_intent,
             existing_turn=durable_turn,
             budget=budget,
+            trace=trace,
+            admission_span_id=admission_span_id,
         )
         span_id = trace.start_phase("runtime_dispatch")
         try:

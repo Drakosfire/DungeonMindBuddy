@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -330,13 +331,52 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
             "## Arrival\nConsult [the tavern](dmb-node:obj:tavern).\n"
         ),
     )
+    from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
+
+    trace = AgentTurnTraceBuilder(
+        agent_thread_id=None,
+        turn_id=selected_body.turn_id,
+        runtime="test",
+        backend="test",
+        mode="test",
+    )
+    parent_span_id = trace.start_phase("plan_graph_context_resolution")
     selected = agent_route._plan_context_resolver(
         selected_body, {"kind": "world", "id": managed.world_id}, selected_work, None,
+        trace=trace, parent_span_id=parent_span_id,
     )
+    trace.complete_phase(parent_span_id)
     assert selected.world_scope.revision_id == published.revision_id
     assert "obj:tavern" in selected.graph_envelope["matched_node_ids"]
     assert selected.retrieval_session.claims
     assert selected.graph_envelope["source_anchors"]
+    assert graph_reads == [NATIVE_ID, NATIVE_ID]
+    phase_order = [span["name"] for span in trace.spans]
+    assert phase_order == [
+        "plan_graph_seed_selection",
+        "plan_graph_seed_object_lookups",
+        "plan_graph_search",
+        "plan_graph_projection",
+        "plan_graph_context_resolution",
+    ]
+    assert all(
+        span["parent_span_id"] == parent_span_id
+        for span in trace.spans if span["name"] != "plan_graph_context_resolution"
+    )
+    spans_by_name = {span["name"]: span for span in trace.spans}
+    assert spans_by_name["plan_graph_seed_selection"]["duration_ms"] >= 0
+    seed_lookup = spans_by_name["plan_graph_seed_object_lookups"]
+    assert seed_lookup["attributes"] == {"candidate_count": 1, "lookup_count": 1}
+    search = spans_by_name["plan_graph_search"]
+    assert search["attributes"] == {"seed_count": 1}
+    projection = spans_by_name["plan_graph_projection"]
+    assert projection["attributes"] == {
+        "node_count": len(selected.graph_envelope["nodes"]),
+        "relationship_count": len(selected.graph_envelope["relationships"]),
+        "source_anchor_count": len(selected.graph_envelope["source_anchors"]),
+    }
+    assert all(span["duration_ms"] >= 0 for span in spans_by_name.values())
+
     frozen = SimpleNamespace(graph_authority=SimpleNamespace(
         managed_world_id=managed.world_id,
         native_world_id=NATIVE_ID,
@@ -432,6 +472,7 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     budget = {
         "estimator": "utf8_json_bytes_plus_64_per_node_v1",
         "contextLimitTokens": 32768, "outputReserveTokens": 2048,
+        "maxProviderAttempts": 4, "maxGraphOperations": 8,
     }
     receipt, execution, membership = _freeze_policy_receipt(
         body, work, bootstrap, None, view, budget,
@@ -886,6 +927,84 @@ def _authorize_route_execution(monkeypatch: Any) -> None:
     monkeypatch.setattr(agent_route, "_conversation_service", lambda _request: None)
 
 
+def test_plan_graph_seed_lookup_failure_preserves_pre_dispatch_error_and_trace(
+    tmp_path: Path, monkeypatch: Any,
+) -> None:
+    from apps.live_control_server.routes import agent as agent_route
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+    from apps.live_control_server.services import world_container_registry
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
+
+    managed_world_id = "managed-world-test"
+    native_world_id = "native-world-test"
+    source_root = "corpus/managed-world-test"
+    (tmp_path / source_root).mkdir(parents=True)
+    binding = SimpleNamespace(
+        native_world_id=native_world_id, binding_version=1, status="active",
+    )
+    container = SimpleNamespace(
+        native_graph_binding=binding, source_root_relpath=source_root,
+    )
+    monkeypatch.setattr(agent_route, "_managed_world_root", lambda: tmp_path)
+    monkeypatch.setattr(
+        world_container_registry, "world_source_root_relpath", lambda _world_id: source_root,
+    )
+    monkeypatch.setattr(
+        world_container_registry, "get_world_container", lambda *_args: container,
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.agent_plan_playable_target.selected_plan_graph_seed_candidates",
+        lambda *_args: ["obj:seed"],
+    )
+    monkeypatch.setattr(direct, "direct_services_from_config", lambda _world_id: object())
+
+    def fail_lookup(*_args: Any, **_kwargs: Any) -> Any:
+        raise RuntimeError("synthetic seed lookup failure")
+
+    monkeypatch.setattr(direct, "get_object_direct", fail_lookup)
+    payload = _payload()
+    payload.update({
+        "surface": {"surface_id": "plan", "instance_id": "plan-main"},
+        "owner_scope": {"kind": "world", "world_id": managed_world_id},
+        "primary_work": {
+            "kind": "plan", "object_id": "plan-1", "expected_revision": 7,
+            "expected_revision_n": 3, "expected_content_sha256": "a" * 64,
+        },
+        "client_work_state": "saved_clean",
+        "plan_context_policy": {"policy": "auto_plan_world"},
+        "playable_target": {
+            "schema": "dmb_plan_playable_target_v1", "kind": "scene", "id": "scene:test",
+        },
+    })
+    body = AgentTurnRequest.model_validate(payload)
+    work = agent_route.AgentTurnResolvedWork(
+        kind="plan", object_id="plan-1", revision=7,
+        changed_since_expected=False, owner_kind="world", owner_id=managed_world_id,
+        world_id=managed_world_id, plan_markdown="Plan text.",
+    )
+    trace = AgentTurnTraceBuilder(
+        agent_thread_id=None, turn_id=body.turn_id,
+        runtime="test", backend="test", mode="test",
+    )
+
+    with pytest.raises(AgentTurnServiceError) as caught:
+        agent_route._plan_context_resolver(
+            body, {"kind": "world", "id": managed_world_id}, work, None,
+            trace=trace,
+        )
+
+    assert caught.value.code == "graph_unavailable"
+    assert caught.value.status_code == 503
+    assert caught.value.provider_dispatched is False
+    lookup_span = next(
+        span for span in trace.spans
+        if span["name"] == "plan_graph_seed_object_lookups"
+    )
+    assert lookup_span["status"] == "error"
+    assert lookup_span["attributes"] == {"candidate_count": 1, "lookup_count": 1}
+
+
 def test_no_scope_route_does_not_load_packet_and_registers_exactly_once(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
@@ -927,6 +1046,12 @@ def test_no_scope_route_does_not_load_packet_and_registers_exactly_once(
     assert body["answer"]["text"] == "A simple answer."
     assert body["answer"]["graph_grounded"] is False
     assert body["graph"]["status"] == "not_requested"
+    trace_spans = body["answer"]["trace"]["spans"]
+    trace_names = {span["name"] for span in trace_spans}
+    assert {"route_auth", "turn_owner_resolution", "committed_plan_resolution",
+            "context_assembly", "runtime_creation"} <= trace_names
+    assert all(span["duration_ms"] >= 0 for span in trace_spans)
+    assert "What can you help me with?" not in json.dumps(trace_spans)
     assert len(runtime.invocations) == 1
     assert runtime.invocations[0].context_packet.world_scope is None
     assert runtime.invocations[0].context_packet.retrieval_session is None
@@ -934,7 +1059,7 @@ def test_no_scope_route_does_not_load_packet_and_registers_exactly_once(
 
 
 def test_graph_auth_denial_precedes_world_receipt_reconciliation(
-    monkeypatch: Any,
+    monkeypatch: Any, caplog: pytest.LogCaptureFixture,
 ) -> None:
     from fastapi import HTTPException
 
@@ -963,11 +1088,21 @@ def test_graph_auth_denial_precedes_world_receipt_reconciliation(
         state=SimpleNamespace(agent_conversation_service=receipt_spy)
     )
 
-    with pytest.raises(HTTPException) as exc_info:
-        agent_route.post_agent_turn(body, SimpleNamespace(app=app))
+    with caplog.at_level(logging.INFO, logger="dmb.agent.turn_trace"):
+        with pytest.raises(HTTPException) as exc_info:
+            agent_route.post_agent_turn(body, SimpleNamespace(app=app))
 
     assert exc_info.value.status_code == 403
     assert receipt_spy.called is False
+    trace_event = next(
+        record.getMessage() for record in caplog.records
+        if record.name == "dmb.agent.turn_trace"
+        and record.getMessage().startswith("dmb_agent_turn_trace ")
+    )
+    logged_trace = json.loads(trace_event.removeprefix("dmb_agent_turn_trace "))
+    route_auth = next(span for span in logged_trace["spans"] if span["name"] == "route_auth")
+    assert route_auth["status"] == "error"
+    assert "denied" not in trace_event
 
 
 def test_unconfigured_graph_auth_stops_before_receipt_or_runtime(
