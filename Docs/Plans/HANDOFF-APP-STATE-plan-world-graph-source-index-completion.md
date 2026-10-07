@@ -35,7 +35,10 @@ Define the composite retrieval digest as SHA-256 over canonical JSON UTF-8 using
     "status": "complete",
     "max_entries": 512,
     "eligible_count": 2,
-    "source_pins": [{"anchor_id": "...", "evidence_ref_id": "...", "source_artifact_id": "...", "source_revision_id": "..."}]
+    "source_pins": [
+      {"anchor_id": "anchor-initial", "evidence_ref_id": "ev-initial", "source_artifact_id": "artifact-initial", "source_revision_id": "source-revision-initial"},
+      {"anchor_id": "anchor-index-9", "evidence_ref_id": "ev-source-9", "source_artifact_id": "artifact-9", "source_revision_id": "src-rev-3"}
+    ]
   }
 }
 ```
@@ -56,7 +59,7 @@ For this exact policy version only, an otherwise valid Graph claim may use an ev
 4. The source read was authorized against the frozen aggregate V2 scope and actually executed through the existing active retrieval session/readable-anchor path. Membership in the aggregate scope or source index alone does not grant read access. SERVER revalidates live World/Graph/source revision and readability at the source reader.
 5. APP-STATE derives `source_opened` from those successful receipt links, and derives answer-context status from the cited producing-envelope evidence under existing sufficiency/coverage/truncation rules. Partial or truncated support is not silently upgraded to complete support.
 
-Evidence refs already in the initial dispatched set retain the existing completion path. For each out-of-dispatched evidence ref, require both the successful read proof above and an included validated Graph-operation event in `claim_graph_event_ids[claim_id]` that binds the claim's exact target and that exact evidence ref. That operation event must itself be included in the same producing provider attempt's `included_graph_event_ids`; the target must also be included in that attempt's assertion/relationship IDs. The source read receipt and Graph-operation binding must be in the same producing attempt. A source read by itself never establishes a target/evidence relation. A claim with out-of-dispatched refs cannot have an empty Graph-operation binding list. Citation-map refs continue to equal the complete claim ref list. Aggregate candidate refs may appear in `graph_packet.candidate_evidence_ref_ids`, but must not alter initial assertion/relationship candidates, retrieval/sufficiency/coverage/truncation status, omission reasons, result limit, or assembled/dispatched Graph IDs.
+Evidence refs already in the initial dispatched set retain the existing completion path. For each out-of-dispatched evidence ref, require both the successful read proof above and an included validated Graph-operation event in `claim_graph_event_ids[claim_id]` that binds the claim's exact target and that exact evidence ref. That operation event must itself be included in the same producing provider attempt's `included_graph_event_ids`; the target must also be included in that attempt's assertion/relationship IDs. The source read receipt and Graph-operation binding must be in the same producing attempt. A source read by itself never establishes a target/evidence relation. A claim with out-of-dispatched refs cannot have an empty Graph-operation binding list. Citation-map refs continue to equal the complete claim ref list. Aggregate candidate refs may appear in `graph_packet.candidate_evidence_ref_ids`, but must not alter the initial claim packet's assertion/relationship candidates, sufficiency/coverage/truncation, omission reasons, result limit, or assembled/dispatched Graph IDs. The final aggregate packet's `retrieval_status` may reflect the candidate union as described above.
 
 For status derivation, keep the initial packet's frozen coverage/sufficiency semantics. A cited read receipt must itself have sufficient evidence status to ground that support; a `partial` or `truncated` receipt makes the resulting status partial, and a read receipt never upgrades incomplete/truncated initial packet coverage to complete. A full-corpus coverage claim remains invalid.
 
