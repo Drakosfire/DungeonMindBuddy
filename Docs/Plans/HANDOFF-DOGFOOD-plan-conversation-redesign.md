@@ -2,10 +2,10 @@
 
 Status: ACTIVE implementation slice, authorized by the user and PRIME on 2026-10-07. No merge authority.
 
-Branch: `codex/dogfood-plan-chat-adopter-stack`
+Branch: `codex/dogfood-plan-proposal-scope` (PR #1007).
 
-Review base: `codex/demo-focused-scene-entry@060e7c3b3ab7a92d93f2deac9e66284d74e2854b`, with the same tree as main merge `0c83cb7a8a2f41440f31ef5944fd111913999f67` (#1009). SERVER #1008 and DEMO #1009 are merged. Main later advanced through #1010 (`228bbe6c4b41cce9323d71614153b7e69c6f0c2d`), which adds a native Core SDK pin and source index; PRIME directed this UX-only inspection candidate to stay on the reviewed #1009 tree so that unrelated dependency/migration work is not pulled into its runtime.
-Topology: serial, standalone UX-only PR #1007 against the merged #1009 tree. The earlier bottom-dock predecessor (#1000) is merged. PRIME transferred the WorldPlanAgentConversation/history presentation paths from the parked #979 proposal into this bounded adopter lane. #979 remains open as historical review context; it is not the current write lease.
+Published source pin: `01ebe8ef6079b5e234aba88fba50686f1ff13569`, against `main@228bbe6c4b41cce9323d71614153b7e69c6f0c2d`. Its tree equals the owner’s final local `30ea09ffd7647cd27398c9658aa28cae331a8710`; the functional code is unchanged from independently reviewed `94f078c2b5e15399870fed67a3dd82955d355bcf`. Later publication settlement is documentation only; obtain the latest head from PR #1007.
+Topology: #1008 and #1009 are merged. #1007 is the single production adopter PR against main; its five-path diff contains no backend or SDK reversion. The first inspection release deliberately uses reviewed #1009 base plus this UX increment, excluding #1010’s Core dependency upgrade. It is not a claim that the runtime equals current main. #979 remains historical context without an active write lease.
 
 ## Outcome
 
@@ -52,3 +52,11 @@ Verification at candidate code head `94f078c2b5e15399870fed67a3dd82955d355bcf` (
 Operator runtime 5202 remains untouched. The local `npm ci --offline` attempt earlier failed because the cache lacks `react@19.1.0` (`ENOTCACHED`); the existing app dependencies were available in the candidate worktree for the passing checks above. PR #1007 remains draft pending independent review and operator inspection. No merge or production adoption is claimed or authorized here.
 
 Publication status: local branch head `77cc1acf` contains the verified code plus this handoff update. The existing PR #1007 still points to remote head `b4cd1a6f` and its former #1008 base because three guarded Git pushes returned GitHub `Internal Server Error`; a GitHub blob API fallback also returned an internal error. The PR was re-read after the failed pushes and remained unchanged. Do not represent this local candidate as published until the remote head/base and PR body are verified.
+
+## Publication settlement and remaining inspection
+
+GitHub publication recovered after service errors. The reviewed code is published at the pin above; no merge, rollout, successful connected conversation, or operator acceptance is claimed here. The earlier offline dependency-cache failure is historical and superseded by the verified dependency setup and final checks.
+
+Intent routing is a heuristic with a per-message correction control, not complete semantic intent understanding. Indirect requests such as “This scene needs a location,” “Could this include a sensory detail?” and “Use your second idea” default to discussion. Keep this limitation explicit during inspection and evaluate whether the correction is discoverable; do not describe the candidate as fully natural conversational editing.
+
+The 701×900 preview showed the document above the bottom dock and a pinned composer, but local authorization was rejected there and no Agent request was sent. The real 5202 discussion → edit → review/Apply → Save/reopen witness and operator design inspection remain outstanding after coordinated rollout.
