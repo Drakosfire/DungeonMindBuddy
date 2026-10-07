@@ -23,6 +23,10 @@ import { semanticMarkdownSerializationDiagnostics } from "../tiptap/markdown/sem
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import { isCanonicalUuid, CANONICAL_SHA256_RE } from "../playSurface/runbook/nativeRunbookProjection";
 import { WorldPlanSurfaceContext } from "./components/PlanSurfaceContext";
+import {
+  useWorldPlanGraphReferenceActivation,
+  WorldPlanGraphReferenceActivationProvider,
+} from "./components/WorldPlanGraphReferenceActivation";
 import { PlanSurfaceCanvasFrame } from "./components/PlanSurfaceCanvas";
 import { WorldPlanAgentConversation } from "./components/WorldPlanAgentConversation";
 import {
@@ -146,7 +150,11 @@ export function PlanSurfacePage() {
   if (selectedWorld.kind === "error") {
     return <AppChrome activeRoute="plan"><main className="app-status app-error"><h1>Plan</h1><p>{selectedWorld.message}</p></main></AppChrome>;
   }
-  if (managedWorldId) return <WorldOwnedPlanPage key={managedWorldId} worldId={managedWorldId} worldName={selectedWorld.kind === "managed" ? selectedWorld.name : managedWorldId} />;
+  if (managedWorldId) return (
+    <WorldPlanGraphReferenceActivationProvider worldId={managedWorldId}>
+      <WorldOwnedPlanPage key={managedWorldId} worldId={managedWorldId} worldName={selectedWorld.kind === "managed" ? selectedWorld.name : managedWorldId} />
+    </WorldPlanGraphReferenceActivationProvider>
+  );
 
   if (status === "loading") {
     return (
@@ -311,6 +319,7 @@ function worldPlanCardBasisFromSnapshot(
 }
 
 function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName: string }) {
+  const { activateNode } = useWorldPlanGraphReferenceActivation();
   const [localDraft] = useState(() => {
     const existing = readWorldPlanLocalDraft(worldId);
     const requestedDocumentId = new URLSearchParams(window.location.search).get("documentId")?.trim();
@@ -1690,6 +1699,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             onSelectTarget={selectPlayableTarget}
             onSelectEditTarget={selectPlayableEditTarget}
             selectionStale={selectedPlayableTargetStale}
+            onActivateGraphNode={activateNode}
           />
         ) : null}
         {status === "loading" ? <p role="status">Loading World Plan…</p> : null}

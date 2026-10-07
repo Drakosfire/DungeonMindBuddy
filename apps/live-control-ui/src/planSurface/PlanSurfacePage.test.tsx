@@ -7,6 +7,8 @@ import * as liveApi from "../api/liveApi";
 import { SelectedWorldProvider, useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import type { AgentInteractionTrace, WorldOwnedCommittedRevisionV2, WorldOwnedPlanRecordV2, WorldAgentConversationHistoryTurnV1 } from "../api/types";
 import { PlanSurfacePage } from "./PlanSurfacePage";
+import { WorldGraphLensProvider } from "../graphLens/WorldGraphLensContext";
+import { WorldGraphLensProjectionProvider } from "../graphLens/useWorldGraphLensProjection";
 import { AgentInteractionProvider, useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
 import { AgentInteractionChrome } from "../agentInteraction/AgentInteractionChrome";
 import { AskPluginSlotProvider } from "../agentInteraction/AskPluginSlot";
@@ -134,6 +136,16 @@ function AgentEnabledPlanPage() {
   ) : <span>{selected.kind}</span>;
 }
 
+function GraphEnabledAgentPlanPage({ owner }: { owner: string }) {
+  return (
+    <WorldGraphLensProvider planCampaignId={owner} managedWorldId={owner} focusOptions={[]}>
+      <WorldGraphLensProjectionProvider defaultCampaignId={owner}>
+        <AgentEnabledPlanPage />
+      </WorldGraphLensProjectionProvider>
+    </WorldGraphLensProvider>
+  );
+}
+
 function savedWorldPlanConversation() {
   return screen.getByRole("region", { name: "Saved World Plan conversation" });
 }
@@ -174,18 +186,19 @@ function mockSavedPlanForAgent(
   revision = 7,
   committedObjectRevision = revision,
   markdown = savedAgentPlanText,
+  ownerWorldId = worldId,
 ) {
-  window.history.replaceState({}, "", `/plan?world=${worldId}&documentId=${documentId}`);
-  const record = worldPlanRecord(documentId, worldId, revision);
+  window.history.replaceState({}, "", `/plan?world=${ownerWorldId}&documentId=${documentId}`);
+  const record = worldPlanRecord(documentId, ownerWorldId, revision);
   record.title = "Of Conks Session Plan";
   record.target_relpath = `out/workspace/plan/${documentId}.md`;
   vi.spyOn(liveApi, "getWorkspaceDocumentAny").mockResolvedValue(record);
-  vi.spyOn(liveApi, "getManagedWorldPlanContext").mockResolvedValue(managedContext(worldId));
+  vi.spyOn(liveApi, "getManagedWorldPlanContext").mockResolvedValue(managedContext(ownerWorldId));
   vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
     schema_version: "dmb_world_container_registry_v1",
     records: [{
       schema_version: "dmb_world_container_record_v1",
-      world_id: worldId,
+      world_id: ownerWorldId,
       name: "Of Conks",
       source_root_relpath: "corpus/of-conks-cons-demo-markdown",
       created_at: "2026-01-01T00:00:00Z",
@@ -194,7 +207,7 @@ function mockSavedPlanForAgent(
   vi.spyOn(liveApi, "listWorldOwnedPlans").mockResolvedValue({
     schema_version: "dmb_workspace_document_registry_v2",
     scope_mode: "world",
-    world_id: worldId,
+    world_id: ownerWorldId,
     records: [record],
   });
   vi.spyOn(liveApi, "getWorldOwnedPlanSnapshot").mockResolvedValue({
@@ -209,7 +222,7 @@ function mockSavedPlanForAgent(
   vi.spyOn(liveApi, "getWorldOwnedPlanCommittedRevision").mockResolvedValue({
     schema_version: "dmb_workspace_committed_revision_v2",
     scope_mode: "world",
-    world_id: worldId,
+    world_id: ownerWorldId,
     campaign_id: null,
     document_id: documentId,
     kind: "plan",
@@ -224,6 +237,53 @@ function mockSavedPlanForAgent(
     target_relpath: record.target_relpath,
   } satisfies WorldOwnedCommittedRevisionV2);
   return record;
+}
+
+const graphActivationMarkdown = [
+  "# Saved Plan",
+  "",
+  "<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->",
+  "## Arrival",
+  "Read [Ironveil Warehouse](dmb-node:loc:ironveil-warehouse) before entering.",
+].join("\n") + "\n";
+
+function managedGraphProjectionFixture() {
+  const node = {
+    nodeId: "loc:ironveil-warehouse",
+    label: "Ironveil Warehouse",
+    kind: "Location",
+    role: "location",
+    aliases: [],
+    sourceDomains: [],
+    anchoredToFocusSession: false,
+    evidenceBadges: [],
+    adjacency: [],
+    suggestedExpansions: [],
+    evidenceRefIds: [],
+    sourceArtifactIds: [],
+  };
+  const snapshot = {
+    worldId: "eldyrwild",
+    campaignId: "",
+    revisionId: "managed-head-3",
+    headRevisionId: "managed-head-3",
+    isHead: true,
+    focus: { kind: "none" as const },
+    admissibility: "gm" as const,
+    scopeMode: "world" as const,
+  };
+  return {
+    schema: "dmb_managed_world_graph_projection_v1" as const,
+    managedWorldId: "elderwyld",
+    nativeWorldId: "eldyrwild",
+    bindingVersion: 1,
+    projection: {
+      schema: "dmb_world_graph_projection_v1" as const,
+      snapshot,
+      summary: { nodeCount: 1, relationshipCount: 0, attributeCount: 0, evidenceCount: 0, sourceArtifactCount: 0, projectionTruncated: false },
+      nodes: [node], relationships: [], attributes: [], evidence: [], sourceArtifacts: [], diagnostics: [],
+    },
+  };
 }
 
 let serverHistoryTurns: WorldAgentConversationHistoryTurnV1[] = [];
@@ -358,6 +418,57 @@ afterEach(() => {
   localStorage.clear();
   window.history.replaceState({}, "", "/");
   chromeCapture.editorTools = null;
+});
+
+it("opens exact managed World Graph references from Document and Cards without changing Plan content", async () => {
+  const owner = "elderwyld";
+  const record = mockSavedPlanForAgent("saved-plan-graph-activation", 7, 7, graphActivationMarkdown, owner);
+  const managedProjection = managedGraphProjectionFixture();
+  const projectionRequest = vi.spyOn(liveApi, "postManagedWorldGraphProjection").mockResolvedValue(managedProjection);
+  const completeRead = vi.spyOn(liveApi, "postWorldGraphCompleteObject").mockResolvedValue({
+    schema: "dmb_world_graph_object_projection_v1",
+    found: true,
+    completeness: { status: "complete", reason: null, truncatedFields: [] },
+    snapshot: managedProjection.projection.snapshot,
+    requestedNodeId: "loc:ironveil-warehouse",
+    resolvedNodeId: "loc:ironveil-warehouse",
+    node: managedProjection.projection.nodes[0],
+    relatedNodes: [],
+    semanticFingerprint: "graph-object-fingerprint",
+  });
+  const save = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite");
+  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite");
+  render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${owner}&documentId=${record.document_id}`}>
+      <GraphEnabledAgentPlanPage owner={owner} />
+    </SelectedWorldProvider>,
+  );
+
+  const page = await screen.findByTestId("world-owned-plan");
+  await waitFor(() => expect(projectionRequest).toHaveBeenCalledWith(expect.objectContaining({ managedWorldId: owner })));
+  const documentReference = await screen.findByRole("button", { name: "Ironveil Warehouse" });
+  documentReference.focus();
+  fireEvent.click(documentReference);
+  const inspector = await screen.findByRole("dialog", { name: "World Graph object" });
+  await waitFor(() => expect(completeRead).toHaveBeenCalledWith(expect.objectContaining({
+    worldId: "eldyrwild", campaignId: "", scopeMode: "world", nodeId: "loc:ironveil-warehouse", revisionPin: "managed-head-3",
+  })));
+  expect(within(inspector).getByRole("article", { name: "Ironveil Warehouse World Graph object" })).toBeInTheDocument();
+  fireEvent.click(within(inspector).getByRole("button", { name: "Close" }));
+  await waitFor(() => expect(documentReference).toHaveFocus());
+
+  fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
+  const cards = await screen.findByTestId("world-plan-cards");
+  expect(cards).toHaveTextContent("Read Ironveil Warehouse before entering.");
+  const cardReference = await within(cards).findByRole("button", { name: "Ironveil Warehouse" });
+  cardReference.focus();
+  fireEvent.click(cardReference);
+  const cardInspector = await screen.findByRole("dialog", { name: "World Graph object" });
+  await waitFor(() => expect(completeRead).toHaveBeenCalledTimes(2));
+  expect(within(cardInspector).getByRole("article", { name: "Ironveil Warehouse World Graph object" })).toBeInTheDocument();
+  expect(within(cards).getByText(/before entering\./)).toBeInTheDocument();
+  expect(save).not.toHaveBeenCalled();
+  expect(prepare).not.toHaveBeenCalled();
 });
 
 it("keeps the local blank Plan out of Agent scope until it has been saved", async () => {

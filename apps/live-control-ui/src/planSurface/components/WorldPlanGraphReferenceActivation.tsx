@@ -127,20 +127,24 @@ export function WorldPlanGraphReferenceActivationProvider({
   const graph = useOptionalWorldGraphLensProjection();
   const [request, setRequest] = useState<ActivationRequest | null>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
+  const triggerNodeIdRef = useRef<string | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const hadRequestRef = useRef(false);
 
   const activateNode = useCallback((nodeId: string) => {
-    triggerRef.current = typeof document !== "undefined" && document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null;
+    if (!request) {
+      triggerRef.current = typeof document !== "undefined" && document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+      triggerNodeIdRef.current = nodeId;
+    }
     setRequest({
       nodeId,
       ownerWorldId: worldId,
       projectionRequestKey: graph?.requestKey ?? null,
       revisionId: graph?.projectionState === "ready" ? graph.projection?.snapshot.revisionId ?? null : null,
     });
-  }, [graph?.projection?.snapshot.revisionId, graph?.projectionState, graph?.requestKey, worldId]);
+  }, [graph?.projection?.snapshot.revisionId, graph?.projectionState, graph?.requestKey, request, worldId]);
 
   const currentRequest = request?.ownerWorldId === worldId ? request : null;
   const resolution = useMemo(
@@ -167,7 +171,14 @@ export function WorldPlanGraphReferenceActivationProvider({
     }
     if (hadRequestRef.current) {
       hadRequestRef.current = false;
-      triggerRef.current?.focus({ preventScroll: true });
+      let trigger = triggerRef.current;
+      if (!trigger?.isConnected && triggerNodeIdRef.current) {
+        trigger = Array.from(document.querySelectorAll<HTMLElement>("[data-graph-node-id]"))
+          .find((candidate) => candidate.dataset.graphNodeId === triggerNodeIdRef.current) ?? null;
+      }
+      window.setTimeout(() => {
+        if (trigger?.isConnected) trigger.focus({ preventScroll: true });
+      }, 0);
     }
   }, [currentRequest]);
 

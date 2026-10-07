@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { WorldGraphProjection } from "../../api/types";
@@ -11,9 +11,17 @@ vi.mock("../../graphLens/useWorldGraphLensProjection", () => ({
 }));
 
 vi.mock("../../graphReference/ResolvedGraphObjectProjection", () => ({
-  ResolvedGraphObjectProjection: ({ resolution }: { resolution: { graphNodeId: string; graphScope: { worldId: string; revisionId: string } } }) => (
-    <div data-testid="resolved-object" data-node-id={resolution.graphNodeId} data-world-id={resolution.graphScope.worldId} data-revision={resolution.graphScope.revisionId} />
-  ),
+  ResolvedGraphObjectProjection: ({ resolution }: { resolution: { graphNodeId: string; graphScope: { worldId: string; revisionId: string } } }) => {
+    function NestedReference() {
+      const { activateNode } = useWorldPlanGraphReferenceActivation();
+      return <button type="button" onClick={() => activateNode("loc:nested")}>Open related node</button>;
+    }
+    return (
+      <div data-testid="resolved-object" data-node-id={resolution.graphNodeId} data-world-id={resolution.graphScope.worldId} data-revision={resolution.graphScope.revisionId}>
+        <NestedReference />
+      </div>
+    );
+  },
 }));
 
 const mockGraphLens = vi.mocked(useOptionalWorldGraphLensProjection);
@@ -117,6 +125,18 @@ describe("WorldPlanGraphReferenceActivationProvider", () => {
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     await waitFor(() => expect(trigger).toHaveFocus());
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("keeps the original Plan trigger as the close focus target after opening a related reference", async () => {
+    mount(projection());
+    const trigger = screen.getByRole("button", { name: "Ironveil Warehouse" });
+    trigger.focus();
+    fireEvent.click(trigger);
+    const dialog = await screen.findByRole("dialog", { name: "World Graph object" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Open related node" }));
+    expect(await screen.findByRole("dialog", { name: "World Graph object" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 
   it("reports a ready exact-ID miss even when another node has the displayed label", async () => {

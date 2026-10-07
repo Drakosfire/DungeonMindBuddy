@@ -1,30 +1,39 @@
-import { useMemo } from "react";
+import { useMemo, type MouseEvent } from "react";
 import { generateHTML, mergeAttributes, type JSONContent } from "@tiptap/core";
 import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from "../tiptap/MarkdownEditorCore";
 import { GraphNodeReferenceNode } from "../tiptap/extensions/GraphNodeReferenceNode";
 import { classifyImageUrl, classifyLinkUrl } from "./markdownReaderUrlPolicy";
 
-const StaticGraphNodeReferenceNode = GraphNodeReferenceNode.extend({
-  renderHTML({ node, HTMLAttributes }) {
-    const attrs = node.attrs as { nodeId?: unknown; label?: unknown };
-    const nodeId = typeof attrs.nodeId === "string" ? attrs.nodeId : "";
-    const label = typeof attrs.label === "string" ? attrs.label : "";
-    return [
-      "span",
-      mergeAttributes(HTMLAttributes, {
-        class: "graph-node-reference-pill recap-node-token",
-        "data-graph-node-id": nodeId,
-        "data-plan-card-reference": "graph",
-        contenteditable: "false",
-      }),
-      label,
-    ];
-  },
-});
+function graphNodeReferenceExtension(activatable: boolean) {
+  return GraphNodeReferenceNode.extend({
+    renderHTML({ node, HTMLAttributes }) {
+      const attrs = node.attrs as { nodeId?: unknown; label?: unknown };
+      const nodeId = typeof attrs.nodeId === "string" ? attrs.nodeId : "";
+      const label = typeof attrs.label === "string" ? attrs.label : "";
+      return [
+        activatable ? "button" : "span",
+        mergeAttributes(HTMLAttributes, {
+          class: "graph-node-reference-pill recap-node-token",
+          "data-graph-node-id": nodeId,
+          "data-plan-card-reference": "graph",
+          ...(activatable ? { type: "button", "data-graph-node-activation": "enabled" } : {}),
+          contenteditable: "false",
+        }),
+        label,
+      ];
+    },
+  });
+}
 
-const READ_ONLY_BODY_EXTENSIONS = DEFAULT_MARKDOWN_EDITOR_EXTENSIONS.map((extension) => (
-  extension.name === GraphNodeReferenceNode.name ? StaticGraphNodeReferenceNode : extension
-));
+function readOnlyBodyExtensions(activatable: boolean) {
+  const graphReferenceExtension = graphNodeReferenceExtension(activatable);
+  return DEFAULT_MARKDOWN_EDITOR_EXTENSIONS.map((extension) => (
+    extension.name === GraphNodeReferenceNode.name ? graphReferenceExtension : extension
+  ));
+}
+
+const READ_ONLY_BODY_EXTENSIONS = readOnlyBodyExtensions(false);
+const ACTIVATABLE_READ_ONLY_BODY_EXTENSIONS = readOnlyBodyExtensions(true);
 const SUPPORTED_BODY_MARKS = new Set(["bold", "italic", "strike", "code", "link"]);
 
 function unsupportedBodyContentReason(content: readonly JSONContent[]): string | null {
@@ -109,23 +118,40 @@ export function ReadOnlyBodyContent({
   className,
   unsupportedMessage,
   testId,
+  onActivateGraphNode,
 }: {
   content?: readonly JSONContent[];
   fallbackText?: string;
   className?: string;
   unsupportedMessage?: string;
   testId?: string;
+  /** Opt-in only; callers without a World-scoped handler retain inert reference spans. */
+  onActivateGraphNode?: (nodeId: string) => void;
 }) {
+  const activatable = typeof onActivateGraphNode === "function";
   const contentKey = useMemo(() => JSON.stringify(content), [content]);
   const html = useMemo(() => {
     if (!content?.length) return null;
     if (unsupportedBodyContentReason(content)) return "";
     try {
-      return generateHTML({ type: "doc", content: [...content] }, READ_ONLY_BODY_EXTENSIONS);
+      return generateHTML(
+        { type: "doc", content: [...content] },
+        activatable ? ACTIVATABLE_READ_ONLY_BODY_EXTENSIONS : READ_ONLY_BODY_EXTENSIONS,
+      );
     } catch {
       return "";
     }
-  }, [contentKey]);
+  }, [activatable, contentKey]);
+
+  const handleClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (!onActivateGraphNode || !(event.target instanceof Element)) return;
+    const reference = event.target.closest<HTMLButtonElement>(
+      'button[data-plan-card-reference="graph"][data-graph-node-activation="enabled"]',
+    );
+    if (!reference || !event.currentTarget.contains(reference)) return;
+    const nodeId = reference.dataset.graphNodeId;
+    if (nodeId) onActivateGraphNode(nodeId);
+  };
 
   if (html === null && content !== undefined && fallbackText) {
     return (
@@ -141,7 +167,14 @@ export function ReadOnlyBodyContent({
       </p>
     );
   }
-  if (html) return <div className={className} data-testid={testId} dangerouslySetInnerHTML={{ __html: html }} />;
+  if (html) return (
+    <div
+      className={className}
+      data-testid={testId}
+      onClick={activatable ? handleClick : undefined}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
   if (fallbackText) return <p className={className} data-testid={testId}>{fallbackText}</p>;
   return null;
 }
