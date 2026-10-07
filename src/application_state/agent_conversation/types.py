@@ -874,6 +874,82 @@ class PlanWorldGraphCompletionV1(StrictModel):
         return self
 
 
+class PlanWorldGraphCitationV2(StrictModel):
+    claim_id: str = Field(min_length=1, max_length=128)
+    target_kind: Literal["assertion", "relationship"]
+    target_id: str = Field(min_length=1, max_length=256)
+    graph_revision: str = Field(min_length=1, max_length=256)
+    evidence_ref_ids: list[str] = Field(min_length=1, max_length=64)
+    source_read_ids: list[str] = Field(max_length=8)
+    source_opened: bool
+
+    @model_validator(mode="after")
+    def validate_source_opened(self) -> PlanWorldGraphCitationV2:
+        if self.source_opened != bool(self.source_read_ids):
+            raise ValueError("source_opened must be derived from source read IDs")
+        if any(not value.strip() or value != value.strip() for value in self.source_read_ids):
+            raise ValueError("source read IDs must be nonblank and trimmed")
+        if self.source_read_ids != sorted(set(self.source_read_ids)):
+            raise ValueError("source read IDs must be sorted and unique")
+        if any(not value.strip() or value != value.strip() for value in self.evidence_ref_ids):
+            raise ValueError("citation refs must be nonblank and trimmed")
+        if self.evidence_ref_ids != sorted(set(self.evidence_ref_ids)):
+            raise ValueError("citation refs must be sorted and unique")
+        return self
+
+
+class PlanWorldGraphCitationMapV2(StrictModel):
+    schema_: Literal["dmb_graph_citation_map_v2"] = Field(
+        default="dmb_graph_citation_map_v2", alias="schema"
+    )
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    entries: list[PlanWorldGraphCitationV2] = Field(max_length=128)
+
+
+class PlanWorldGraphCompletionV2(StrictModel):
+    schema_: Literal["dmb_plan_world_graph_completion_v2"] = Field(
+        default="dmb_plan_world_graph_completion_v2", alias="schema"
+    )
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    answer_basis: Literal["committed_plan", "committed_plan_plus_world_graph"]
+    answer_context_status: Literal[
+        "graph_grounded", "graph_grounded_partial",
+        "plan_only_insufficient_evidence", "plan_only_graph_unused",
+    ]
+    answer_segments: list[PlanWorldGraphAnswerSegmentV1] = Field(min_length=1, max_length=128)
+    citation_map: PlanWorldGraphCitationMapV2 | None
+
+    @model_validator(mode="after")
+    def validate_completion_shape(self) -> PlanWorldGraphCompletionV2:
+        graph_claims = [s for s in self.answer_segments if isinstance(s, PlanWorldGraphClaimSegmentV1)]
+        if self.answer_basis != ("committed_plan_plus_world_graph" if graph_claims else "committed_plan"):
+            raise ValueError("answer basis must follow the typed answer segments")
+        if self.citation_map is not None and self.citation_map.context_receipt_sha256 != self.context_receipt_sha256:
+            raise ValueError("citation map must bind the completion receipt digest")
+        plan_only = self.answer_context_status in {"plan_only_insufficient_evidence", "plan_only_graph_unused"}
+        if plan_only and (graph_claims or self.citation_map is not None):
+            raise ValueError("Plan-only completion cannot carry Graph claims or citations")
+        if not plan_only:
+            if not graph_claims or self.citation_map is None or not self.citation_map.entries:
+                raise ValueError("Graph-grounded completion requires claims and citations")
+            claims = {s.claim_id: s for s in graph_claims}
+            entries = self.citation_map.entries
+            if len(claims) != len(graph_claims) or len(entries) != len(graph_claims) or len({e.claim_id for e in entries}) != len(entries):
+                raise ValueError("Graph citation map must correspond one-to-one with claims")
+            for entry in entries:
+                claim = claims.get(entry.claim_id)
+                if claim is None or (claim.target_kind != entry.target_kind or claim.target_id != entry.target_id or claim.graph_revision != entry.graph_revision or claim.evidence_ref_ids != entry.evidence_ref_ids):
+                    raise ValueError("citation map entry must match its Graph claim")
+        if len(self.model_dump_json(by_alias=True).encode("utf-8")) > 1_048_576:
+            raise ValueError("Graph completion record exceeds the storage size limit")
+        return self
+
+
+PlanWorldGraphCitation = PlanWorldGraphCitationV1 | PlanWorldGraphCitationV2
+PlanWorldGraphCitationMap = PlanWorldGraphCitationMapV1 | PlanWorldGraphCitationMapV2
+PlanWorldGraphCompletion = PlanWorldGraphCompletionV1 | PlanWorldGraphCompletionV2
+
+
 class GraphCompletionRejectionCode(str, Enum):
     """Closed internal categories for fixed completion-validation failures."""
 
@@ -954,6 +1030,63 @@ class GraphExecutionPolicyV1(StrictModel):
         return self
 
 
+class GraphSourceScopeAnchorV2(StrictModel):
+    anchor_id: str = Field(min_length=1, max_length=256)
+    evidence_ref_id: str = Field(min_length=1, max_length=256)
+    source_artifact_id: str = Field(min_length=1, max_length=256)
+    source_revision_id: str = Field(min_length=1, max_length=256)
+
+    @model_validator(mode="after")
+    def validate_pins(self) -> GraphSourceScopeAnchorV2:
+        if any(
+            not value.strip() or value != value.strip()
+            for value in (self.anchor_id, self.evidence_ref_id, self.source_artifact_id, self.source_revision_id)
+        ):
+            raise ValueError("source scope pins must be nonblank and trimmed")
+        return self
+
+
+class GraphSourceReadScopeV2(StrictModel):
+    schema_: Literal["dmb_graph_source_read_scope_v2"] = Field(
+        default="dmb_graph_source_read_scope_v2", alias="schema"
+    )
+    retrieval_session_id: str = Field(min_length=1, max_length=128)
+    world_id: str = Field(min_length=1, max_length=256)
+    campaign_id: str | None = Field(default=None, max_length=256)
+    graph_revision: str = Field(min_length=1, max_length=256)
+    admitted_anchors: list[GraphSourceScopeAnchorV2] = Field(max_length=512)
+
+    @model_validator(mode="after")
+    def validate_scope(self) -> GraphSourceReadScopeV2:
+        if any(
+            not value.strip() or value != value.strip()
+            for value in (self.retrieval_session_id, self.world_id, self.graph_revision)
+        ) or (self.campaign_id is not None and (not self.campaign_id.strip() or self.campaign_id != self.campaign_id.strip())):
+            raise ValueError("source-read scope identifiers must be nonblank and trimmed")
+        ids = [a.anchor_id for a in self.admitted_anchors]
+        if ids != sorted(set(ids)):
+            raise ValueError("source scope anchors must be sorted and unique")
+        return self
+
+
+class GraphExecutionPolicyV2(GraphExecutionPolicyV1):
+    source_read_scope: GraphSourceReadScopeV2
+    max_source_read_calls: int = Field(strict=True, ge=0, le=8)
+    max_source_read_anchors: int = Field(strict=True, ge=0, le=8)
+    max_source_read_chars: int = Field(strict=True, ge=0, le=96000)
+    max_chars_per_source_read: int = Field(strict=True, ge=1, le=12000)
+
+    @model_validator(mode="after")
+    def validate_source_budgets(self) -> GraphExecutionPolicyV2:
+        if (self.max_source_read_calls == 0) != (self.max_source_read_anchors == 0):
+            raise ValueError("disabled source-read budgets must set call and anchor limits to zero")
+        if (self.max_source_read_calls == 0) != (self.max_source_read_chars == 0):
+            raise ValueError("disabled source-read budgets must set call and character limits to zero")
+        if self.max_source_read_calls > 0 and not self.source_read_scope.admitted_anchors:
+            raise ValueError("enabled source reads require admitted source anchors")
+        return self
+
+
 class GraphExecutionEventBaseV1(StrictModel):
     event_id: UUID
     sequence: int = Field(strict=True, ge=0, le=2047)
@@ -1027,6 +1160,98 @@ class CompletionBindingEventV1(GraphExecutionEventBaseV1):
     provider_attempt_id: UUID
     completion_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     claim_graph_event_ids: dict[str, list[UUID]] = Field(max_length=256)
+
+
+class SourceReadAuthorizationEventV2(GraphExecutionEventBaseV1):
+    kind: Literal["source_read_authorized_v2"]
+    read_call_id: UUID
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    execution_policy_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    retrieval_session_id: str = Field(min_length=1, max_length=128)
+    world_id: str = Field(min_length=1, max_length=256)
+    campaign_id: str | None = Field(default=None, max_length=256)
+    graph_revision: str = Field(min_length=1, max_length=256)
+    anchors: list[GraphSourceScopeAnchorV2] = Field(min_length=1, max_length=8)
+    max_chars: int = Field(strict=True, ge=1, le=12000)
+
+    @model_validator(mode="after")
+    def validate_context_ids(self) -> SourceReadAuthorizationEventV2:
+        if any(
+            not value.strip() or value != value.strip()
+            for value in (self.retrieval_session_id, self.world_id, self.graph_revision)
+        ) or (self.campaign_id is not None and (not self.campaign_id.strip() or self.campaign_id != self.campaign_id.strip())):
+            raise ValueError("source-read authorization identifiers must be nonblank and trimmed")
+        return self
+
+
+class SourceReadAnchorReceiptV2(StrictModel):
+    source_read_id: str = Field(min_length=1, max_length=128)
+    anchor_id: str = Field(min_length=1, max_length=256)
+    evidence_ref_id: str = Field(min_length=1, max_length=256)
+    source_artifact_id: str = Field(min_length=1, max_length=256)
+    source_revision_id: str | None = Field(default=None, max_length=256)
+    outcome: Literal["enough", "partial", "empty", "denied", "truncated", "unavailable"]
+    content_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    line_start: int | None = Field(default=None, strict=True, ge=1)
+    line_end: int | None = Field(default=None, strict=True, ge=1)
+    returned_chars: int = Field(strict=True, ge=0, le=12000)
+    truncated: bool
+    evidence_sufficiency_status: Literal["sufficient", "insufficient"]
+
+    @model_validator(mode="after")
+    def validate_content(self) -> SourceReadAnchorReceiptV2:
+        if any(
+            not value.strip() or value != value.strip()
+            for value in (self.source_read_id, self.anchor_id, self.evidence_ref_id, self.source_artifact_id)
+        ) or (self.source_revision_id is not None and (not self.source_revision_id.strip() or self.source_revision_id != self.source_revision_id.strip())):
+            raise ValueError("source-read receipt identifiers must be nonblank and trimmed")
+        if (self.line_start is None) != (self.line_end is None):
+            raise ValueError("source-read line bounds must be supplied together")
+        if self.line_start is not None and self.line_end < self.line_start:
+            raise ValueError("source-read line range is reversed")
+        has_content = self.returned_chars > 0
+        if has_content != (self.content_sha256 is not None):
+            raise ValueError("source-read content length and digest must agree")
+        if has_content and self.source_revision_id is None:
+            raise ValueError("content-bearing source reads require the trusted source revision")
+        if not has_content and self.outcome == "enough":
+            raise ValueError("enough source-read outcome requires returned content")
+        if has_content and self.outcome in {"empty", "denied", "unavailable"}:
+            raise ValueError("failed source-read outcomes cannot carry content")
+        if self.outcome == "truncated" and not self.truncated:
+            raise ValueError("truncated outcome must carry the truncation marker")
+        return self
+
+
+class ValidatedSourceReadEventV2(GraphExecutionEventBaseV1):
+    kind: Literal["validated_source_read_v2"]
+    read_call_id: UUID
+    receipts: list[SourceReadAnchorReceiptV2] = Field(min_length=1, max_length=8)
+
+
+class ProviderAttemptAuthorizedEventV2(ProviderAttemptAuthorizedEventV1):
+    kind: Literal["provider_attempt_authorized_v2"]
+    included_source_read_event_ids: list[UUID] = Field(max_length=8)
+
+    @model_validator(mode="after")
+    def validate_source_event_ids(self) -> ProviderAttemptAuthorizedEventV2:
+        if len(set(self.included_source_read_event_ids)) != len(self.included_source_read_event_ids):
+            raise ValueError("included source-read event IDs must be unique")
+        return self
+
+
+
+
+GraphExecutionEventV2 = Annotated[
+    ValidatedGraphOperationEventV1
+    | ProviderAttemptAuthorizedEventV1
+    | ProviderAttemptAuthorizedEventV2
+    | ProviderOutcomeEventV1
+    | CompletionBindingEventV1
+    | SourceReadAuthorizationEventV2
+    | ValidatedSourceReadEventV2,
+    Field(discriminator="kind"),
+]
 
 
 GraphExecutionEventV1 = Annotated[
@@ -1122,14 +1347,167 @@ class PlanWorldGraphExecutionV1(StrictModel):
         return self
 
 
+class PlanWorldGraphExecutionV2(StrictModel):
+    schema_: Literal["dmb_agent_plan_world_graph_execution_v2"] = Field(
+        default="dmb_agent_plan_world_graph_execution_v2", alias="schema"
+    )
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    execution_policy_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    policy: GraphExecutionPolicyV2
+    events: list[GraphExecutionEventV2] = Field(max_length=2048)
+
+    @model_validator(mode="after")
+    def validate_execution(self) -> PlanWorldGraphExecutionV2:
+        expected_policy_digest = _canonical_sha256({
+            "schema": self.schema_,
+            "context_receipt_sha256": self.context_receipt_sha256,
+            "policy": self.policy.model_dump(mode="json", by_alias=True),
+        })
+        if self.execution_policy_sha256 != expected_policy_digest:
+            raise ValueError("Graph execution policy digest does not match its frozen scope and budgets")
+        if [event.sequence for event in self.events] != list(range(len(self.events))):
+            raise ValueError("Graph execution events must have contiguous sequence numbers")
+        if len({event.event_id for event in self.events}) != len(self.events):
+            raise ValueError("Graph execution event IDs must be unique")
+        scope = self.policy.source_read_scope
+        scope_by_anchor = {anchor.anchor_id: anchor for anchor in scope.admitted_anchors}
+        auths: dict[UUID, SourceReadAuthorizationEventV2] = {}
+        receipts_by_event: dict[UUID, ValidatedSourceReadEventV2] = {}
+        receipts_by_call: set[UUID] = set()
+        all_read_ids: set[str] = set()
+        authorized_chars = authorized_anchors = 0
+        latest_attempt_id: UUID | None = None
+        latest_outcome: str | None = None
+        for event in self.events:
+            if isinstance(event, (SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2)) and latest_outcome == "outcome_unknown":
+                raise ValueError("source reads cannot continue after an unknown provider outcome")
+            if isinstance(event, CompletionBindingEventV1) and event.sequence != len(self.events) - 1:
+                raise ValueError("completion binding must be the final V2 execution event")
+            if isinstance(event, (ProviderAttemptAuthorizedEventV1, ProviderAttemptAuthorizedEventV2)):
+                latest_attempt_id = event.provider_attempt_id
+                latest_outcome = None
+            elif isinstance(event, ProviderOutcomeEventV1) and event.provider_attempt_id == latest_attempt_id:
+                latest_outcome = event.outcome
+            if isinstance(event, SourceReadAuthorizationEventV2):
+                if event.read_call_id in auths:
+                    raise ValueError("source-read call ID was authorized more than once")
+                if (
+                    event.context_receipt_sha256 != self.context_receipt_sha256
+                    or event.execution_policy_sha256 != self.execution_policy_sha256
+                    or event.retrieval_session_id != scope.retrieval_session_id
+                    or event.world_id != scope.world_id
+                    or event.campaign_id != scope.campaign_id
+                    or event.graph_revision != scope.graph_revision
+                ):
+                    raise ValueError("source-read authorization differs from the frozen source scope")
+                anchor_ids = [anchor.anchor_id for anchor in event.anchors]
+                if len(anchor_ids) != len(set(anchor_ids)):
+                    raise ValueError("source-read authorization anchor IDs must be unique")
+                if any(scope_by_anchor.get(anchor.anchor_id) != anchor for anchor in event.anchors):
+                    raise ValueError("source-read authorization contains an unadmitted or changed anchor")
+                if event.max_chars > self.policy.max_chars_per_source_read:
+                    raise ValueError("source-read per-call character limit exceeded")
+                auths[event.read_call_id] = event
+                authorized_chars += event.max_chars * len(event.anchors)
+                authorized_anchors += len(event.anchors)
+            elif isinstance(event, ValidatedSourceReadEventV2):
+                auth = auths.get(event.read_call_id)
+                if auth is None or event.sequence <= auth.sequence:
+                    raise ValueError("validated source read requires an earlier authorization")
+                if event.read_call_id in receipts_by_call:
+                    raise ValueError("source-read authorization already has a receipt")
+                if len(event.receipts) != len(auth.anchors):
+                    raise ValueError("source-read receipt count must match its authorization")
+                for expected, result in zip(auth.anchors, event.receipts, strict=True):
+                    if (
+                        result.anchor_id != expected.anchor_id
+                        or result.evidence_ref_id != expected.evidence_ref_id
+                        or result.source_artifact_id != expected.source_artifact_id
+                    ):
+                        raise ValueError("source-read receipt pins differ from the authorized anchor")
+                    if result.source_revision_id is not None and result.source_revision_id != expected.source_revision_id:
+                        raise ValueError("source-read receipt source revision differs from the admitted revision")
+                    if result.returned_chars > auth.max_chars:
+                        raise ValueError("source-read returned characters exceed the authorization")
+                    if result.source_read_id in all_read_ids:
+                        raise ValueError("source-read ID must be unique within the turn")
+                    all_read_ids.add(result.source_read_id)
+                receipts_by_event[event.event_id] = event
+                receipts_by_call.add(event.read_call_id)
+            elif isinstance(event, ProviderAttemptAuthorizedEventV2):
+                if any(event_id not in receipts_by_event for event_id in event.included_source_read_event_ids):
+                    raise ValueError("provider envelope references an unknown or later source-read receipt")
+        if len(auths) > self.policy.max_source_read_calls:
+            raise ValueError("source-read call budget exceeded")
+        if authorized_anchors > self.policy.max_source_read_anchors:
+            raise ValueError("source-read anchor budget exceeded")
+        if authorized_chars > self.policy.max_source_read_chars:
+            raise ValueError("source-read character budget exceeded")
+
+        # Reuse the V1 execution validator for the unchanged Graph/provider state machine.
+        legacy_events: list[dict[str, object]] = []
+        for event in self.events:
+            if isinstance(event, (SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2)):
+                continue
+            payload = event.model_dump(mode="json", by_alias=True)
+            if isinstance(event, ProviderAttemptAuthorizedEventV2):
+                payload["kind"] = "provider_attempt_authorized"
+                payload.pop("included_source_read_event_ids", None)
+            payload["sequence"] = len(legacy_events)
+            legacy_events.append(payload)
+        legacy_policy = {
+            key: value for key, value in self.policy.model_dump(mode="json", by_alias=True).items()
+            if key in {
+                "policy_version", "allowed_graph_operations", "max_provider_attempts",
+                "max_graph_operations", "max_results_per_operation",
+                "max_total_provider_input_tokens", "max_total_provider_output_tokens",
+                "provider_input_accounting", "source_opened",
+            }
+        }
+        PlanWorldGraphExecutionV1.model_validate({
+            "schema": "dmb_agent_plan_world_graph_execution_v1",
+            "context_receipt_sha256": self.context_receipt_sha256,
+            "policy": legacy_policy,
+            "events": legacy_events,
+        })
+        if len(self.model_dump_json(by_alias=True).encode("utf-8")) > 1_048_576:
+            raise ValueError("Graph execution record exceeds the storage size limit")
+        return self
+
+
+def graph_execution_policy_digest_v2(
+    context_receipt_sha256: str, policy: GraphExecutionPolicyV2
+) -> str:
+    return _canonical_sha256({
+        "schema": "dmb_agent_plan_world_graph_execution_v2",
+        "context_receipt_sha256": context_receipt_sha256,
+        "policy": policy.model_dump(mode="json", by_alias=True),
+    })
+
+
+PlanWorldGraphExecution = PlanWorldGraphExecutionV1 | PlanWorldGraphExecutionV2
+
+
 def validate_completion_against_receipt(
-    completion: PlanWorldGraphCompletionV1,
+    completion: PlanWorldGraphCompletion,
     receipt: PlanWorldGraphContextReceiptV1,
 ) -> None:
     if completion.context_receipt_sha256 != receipt.context_receipt_sha256:
         _reject_graph_completion(
             GraphCompletionRejectionCode.RECEIPT_BINDING,
             "completion must bind the exact stored Graph receipt",
+        )
+    if (
+        isinstance(completion, PlanWorldGraphCompletionV2)
+        and completion.citation_map is not None
+        and any(
+            entry.source_opened or entry.source_read_ids
+            for entry in completion.citation_map.entries
+        )
+    ):
+        _reject_graph_completion(
+            GraphCompletionRejectionCode.CITATION_CLAIM_MISMATCH,
+            "source-opened citations require a V2 execution envelope",
         )
     packet = receipt.graph_packet
     assembled = receipt.assembled_input
@@ -1246,7 +1624,7 @@ def derive_execution_answer_context_status(
     answer_segments: list[PlanWorldGraphAnswerSegmentV1],
     citation_map: PlanWorldGraphCitationMapV1 | None,
     receipt: PlanWorldGraphContextReceiptV1,
-    execution: PlanWorldGraphExecutionV1,
+    execution: PlanWorldGraphExecution,
     producing_provider_attempt_id: UUID,
     claim_graph_event_ids: dict[str, list[UUID]],
 ) -> Literal[
@@ -1425,13 +1803,17 @@ def derive_execution_answer_context_status(
 
 
 def validate_execution_completion(
-    completion: PlanWorldGraphCompletionV1,
+    completion: PlanWorldGraphCompletion,
     receipt: PlanWorldGraphContextReceiptV1,
-    execution: PlanWorldGraphExecutionV1,
+    execution: PlanWorldGraphExecution,
     producing_provider_attempt_id: UUID,
     claim_graph_event_ids: dict[str, list[UUID]],
 ) -> None:
     """Validate supplied status against the derived producing-envelope status."""
+    if isinstance(completion, PlanWorldGraphCompletionV2):
+        if not isinstance(execution, PlanWorldGraphExecutionV2):
+            raise ValueError("V2 completion requires a V2 execution record")  # noqa: TRY004
+        _validate_v2_completion_source_reads(completion, execution, producing_provider_attempt_id)
     expected_status = derive_execution_answer_context_status(
         context_receipt_sha256=completion.context_receipt_sha256,
         answer_segments=completion.answer_segments,
@@ -1452,6 +1834,21 @@ def validate_execution_completion(
         GraphCompletionRejectionCode.PLAN_ONLY_STATUS_MISMATCH,
         "Plan-only status does not match evidence in the producing envelope",
     )
+
+
+def _validate_v2_completion_source_reads(completion: PlanWorldGraphCompletionV2, execution: PlanWorldGraphExecutionV2, producing_provider_attempt_id: UUID) -> None:
+    if completion.citation_map is None:
+        return
+    attempt = next((e for e in execution.events if isinstance(e, (ProviderAttemptAuthorizedEventV1, ProviderAttemptAuthorizedEventV2)) and e.provider_attempt_id == producing_provider_attempt_id), None)
+    included = set(attempt.included_source_read_event_ids) if isinstance(attempt, ProviderAttemptAuthorizedEventV2) else set()
+    reads = {read.source_read_id: read for event in execution.events if isinstance(event, ValidatedSourceReadEventV2) and event.event_id in included for read in event.receipts}
+    for citation in completion.citation_map.entries:
+        if citation.source_opened != bool(citation.source_read_ids) or not set(citation.source_read_ids).issubset(reads):
+            _reject_graph_completion(GraphCompletionRejectionCode.CITATION_CLAIM_MISMATCH, "citation source-opened state must bind source reads in the producing envelope")
+        for read_id in citation.source_read_ids:
+            read = reads[read_id]
+            if read.outcome not in {"enough", "partial", "truncated"} or read.content_sha256 is None or read.returned_chars == 0 or read.source_revision_id is None or read.evidence_ref_id not in citation.evidence_ref_ids:
+                _reject_graph_completion(GraphCompletionRejectionCode.CITATION_CLAIM_MISMATCH, "citation source read must contain validated content for cited evidence")
 
 
 class WorldPointer(StrictModel):
@@ -1512,7 +1909,7 @@ class TurnSubmission(StrictModel):
     submitted_intent_v1: SubmittedTurnIntentV1 | None = None
     submitted_intent_v2: SubmittedTurnIntentV2 | None = None
     graph_context_receipt: PlanWorldGraphContextReceiptV1 | None = None
-    graph_context_execution: PlanWorldGraphExecutionV1 | None = None
+    graph_context_execution: PlanWorldGraphExecution | None = None
 
     @model_validator(mode="after")
     def validate_submission(self) -> "TurnSubmission":
@@ -1580,6 +1977,15 @@ class TurnSubmission(StrictModel):
                 if execution.context_receipt_sha256 != receipt.context_receipt_sha256:
                     raise ValueError("Graph execution policy must bind the frozen receipt")
                 accounting = execution.policy.provider_input_accounting
+                if isinstance(execution, PlanWorldGraphExecutionV2):
+                    scope = execution.policy.source_read_scope
+                    if (
+                        scope.world_id != receipt.graph_authority.managed_world_id
+                        or scope.campaign_id != receipt.graph_authority.campaign_id
+                        or scope.graph_revision != receipt.graph_authority.graph_revision
+                        or any(a.evidence_ref_id not in receipt.graph_packet.candidate_evidence_ref_ids for a in scope.admitted_anchors)
+                    ):
+                        raise ValueError("V2 source-read scope must match the frozen Graph receipt")
                 if accounting.estimator != receipt.assembled_input.tokenizer_name:
                     raise ValueError("receipt tokenizer metadata differs from Graph execution policy")
                 if (
@@ -1628,8 +2034,8 @@ class Turn(StrictModel):
         default=None, pattern=r"^[0-9a-f]{64}$"
     )
     graph_context_receipt: PlanWorldGraphContextReceiptV1 | None = None
-    graph_context_execution: PlanWorldGraphExecutionV1 | None = None
-    completion: PlanWorldGraphCompletionV1 | None = None
+    graph_context_execution: PlanWorldGraphExecution | None = None
+    completion: PlanWorldGraphCompletion | None = None
     attempt: int = Field(ge=0)
     claim_expires_at: datetime | None = None
     accepted_at: datetime
@@ -1693,7 +2099,7 @@ class TurnResult(StrictModel):
     turn_id: UUID
     expected_revision: int = Field(ge=1)
     assistant_text: str
-    completion: PlanWorldGraphCompletionV1 | None = None
+    completion: PlanWorldGraphCompletion | None = None
     producing_provider_attempt_id: UUID | None = None
     claim_graph_event_ids: dict[str, list[UUID]] | None = None
 

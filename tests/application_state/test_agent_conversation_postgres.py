@@ -4,10 +4,10 @@ import hashlib
 import json
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any
-from types import SimpleNamespace
 from threading import Barrier
 from time import sleep
+from types import SimpleNamespace
+from typing import Any
 from uuid import uuid4
 
 import pytest
@@ -19,23 +19,23 @@ from application_state.agent_conversation.types import (
     DraftSave,
     HistoricalReference,
     PlanContextPolicyV1,
-    PlanWorldGraphCompletionV1,
-    PlanWorldGraphContextReceiptV1,
+    PlanPlayableTargetReceiptV1,
     PlanWorldGraphCitationMapV1,
     PlanWorldGraphCitationV1,
-    PlanWorldGraphConnectiveSegmentV1,
     PlanWorldGraphClaimSegmentV1,
+    PlanWorldGraphCompletionV1,
+    PlanWorldGraphConnectiveSegmentV1,
+    PlanWorldGraphContextReceiptV1,
     PlanWorldGraphPlanClaimSegmentV1,
-    PlanPlayableTargetReceiptV1,
     SubmittedGraphRequestIntentV1,
     SubmittedPlanPlayableTargetV1,
     SubmittedPrimaryWorkIntentV1,
     SubmittedTurnIntentV1,
     SubmittedTurnIntentV2,
-    TurnProvenance,
-    TurnSubmission,
     TurnFailure,
+    TurnProvenance,
     TurnResult,
+    TurnSubmission,
     encode_plan_playable_target_reference,
 )
 from application_state.cli import _current_and_head
@@ -353,7 +353,9 @@ def _provider_authorization_event(
     evidence_refs: list[str] | None = None,
     graph_event_ids: list[Any] | None = None,
 ):
-    from application_state.agent_conversation.types import ProviderAttemptAuthorizedEventV1
+    from application_state.agent_conversation.types import (
+        ProviderAttemptAuthorizedEventV1,
+    )
 
     return ProviderAttemptAuthorizedEventV1(
         event_id=uuid4(),
@@ -483,7 +485,7 @@ def test_agent_conversation_migration_is_single_current_head(
     application_state_dsn: str,
 ) -> None:
     current, head = _current_and_head(application_state_dsn)
-    assert current == head == "20261005_0017"
+    assert current == head == "20261007_0018"
 
 
 def test_completion_validation_codes_are_closed_safe_and_valueerror_compatible() -> (
@@ -789,6 +791,7 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
     import psycopg
     from alembic import command
     from pydantic import ValidationError
+
     from application_state.agent_conversation.types import (
         GraphExecutionAccountingV1,
         GraphExecutionPolicyV1,
@@ -796,7 +799,6 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
         ProviderAttemptAuthorizedEventV1,
         ProviderOutcomeEventV1,
     )
-
     from application_state.cli import alembic_config
 
     service = AgentConversationService()
@@ -1035,7 +1037,7 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
     command.downgrade(alembic_config(), "20261004_0016")
     command.upgrade(alembic_config(), "head")
     assert _current_and_head(application_state_dsn) == (
-        "20261005_0017", "20261005_0017"
+        "20261007_0018", "20261007_0018"
     )
     with psycopg.connect(application_state_dsn, autocommit=True) as conn:
         assert conn.execute(
@@ -1060,8 +1062,8 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
     with pytest.raises(RuntimeError, match="refusing to drop non-null Agent Graph context"):
         command.downgrade(alembic_config(), "20261004_0015")
     assert _current_and_head(application_state_dsn) == (
-        "20261005_0017",
-        "20261005_0017",
+        "20261007_0018",
+        "20261007_0018",
     )
 
 
@@ -1472,6 +1474,7 @@ def test_completion_requires_final_attempt_evidence_membership_and_is_atomic(
     application_state_dsn: str,
 ) -> None:
     import psycopg
+
     from application_state.agent_conversation.types import (
         ProviderOutcomeEventV1,
         ValidatedGraphOperationEventV1,
@@ -2985,3 +2988,152 @@ def test_turn_claim_renewal_expiry_reclaim_and_stale_fences(
     )
     assert completed.status == "completed"
     assert completed.assistant_text == stale_result.assistant_text
+
+
+def test_graph_execution_v2_source_read_receipt_round_trip_through_fresh_service(
+    application_state_dsn: str,
+) -> None:
+    from application_state.agent_conversation.types import (
+        GraphExecutionAccountingV1,
+        GraphExecutionPolicyV2,
+        GraphSourceReadScopeV2,
+        GraphSourceScopeAnchorV2,
+        PlanWorldGraphExecution,
+        PlanWorldGraphExecutionV2,
+        SourceReadAnchorReceiptV2,
+        SourceReadAuthorizationEventV2,
+        ValidatedSourceReadEventV2,
+        graph_execution_policy_digest_v2,
+    )
+
+    service = AgentConversationService()
+    world_id = "graph-source-read-v2-roundtrip-world"
+    conversation = _new(service, world_id)
+    plan_revision_id = uuid4()
+    playable_target = PlanPlayableTargetReceiptV1(
+        schema="dmb_plan_playable_target_receipt_v1",
+        kind="beat", id="beat:a", marker_grammar_version="v2",
+    )
+    submitted_target = SubmittedPlanPlayableTargetV1(
+        schema="dmb_plan_playable_target_v1", kind="beat", id="beat:a"
+    )
+    receipt = _graph_receipt(
+        world_id, plan_revision_id, playable_target,
+        candidate_evidence_ref_ids=["evidence-1"],
+    )
+    intent = SubmittedTurnIntentV2(
+        world_id=world_id, client_thread_id="source-read-v2-thread",
+        message="Read the admitted Graph source.", surface_id="plan",
+        surface_instance_id="plan-pane-source-read", client_work_state="saved_clean",
+        primary_work=SubmittedPrimaryWorkIntentV1(
+            kind="plan", object_id="graph-receipt-plan", expected_revision=3,
+            expected_revision_n=2, expected_content_sha256="a" * 64,
+        ),
+        plan_context_policy=PlanContextPolicyV1(policy="auto_plan_world"),
+        playable_target=submitted_target,
+        graph_request=SubmittedGraphRequestIntentV1(mode="none"), graph_selection=None,
+    )
+    provenance = TurnProvenance(
+        world_id=world_id, surface_resolution="resolved", surface_id="plan",
+        surface_instance_id="plan-pane-source-read",
+        primary_work=HistoricalReference(
+            resolution="resolved", kind="plan", object_id="graph-receipt-plan",
+            content_sha256="a" * 64, object_revision=3,
+            work_revision_id=plan_revision_id, revision_n=2,
+        ),
+        supporting_work=[encode_plan_playable_target_reference(playable_target)],
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    scope = GraphSourceReadScopeV2(
+        retrieval_session_id="retrieval-source-read-1", world_id=world_id,
+        campaign_id=None, graph_revision="graph-rev-11",
+        admitted_anchors=[GraphSourceScopeAnchorV2(
+            anchor_id="anchor-1", evidence_ref_id="evidence-1",
+            source_artifact_id="artifact-1", source_revision_id="source-revision-1",
+        )],
+    )
+    policy = GraphExecutionPolicyV2(
+        policy_version="test-policy-v2", allowed_graph_operations=["search_assertions"],
+        max_provider_attempts=2, max_graph_operations=0, max_results_per_operation=0,
+        max_total_provider_input_tokens=100, max_total_provider_output_tokens=40,
+        provider_input_accounting=GraphExecutionAccountingV1(
+            kind="exact_token_count", estimator="synthetic-tokenizer",
+        ), source_opened=False, source_read_scope=scope,
+        max_source_read_calls=2, max_source_read_anchors=2,
+        max_source_read_chars=24000, max_chars_per_source_read=12000,
+    )
+    execution = PlanWorldGraphExecutionV2(
+        schema="dmb_agent_plan_world_graph_execution_v2",
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        execution_policy_sha256=graph_execution_policy_digest_v2(
+            receipt.context_receipt_sha256, policy
+        ), policy=policy, events=[],
+    )
+    submission = TurnSubmission(
+        world_id=world_id, conversation_id=conversation.conversation_id,
+        idempotency_key=uuid4(), expected_conversation_revision=1,
+        user_text=intent.message, provenance=provenance, submitted_intent_v2=intent,
+        graph_context_receipt=receipt, graph_context_execution=execution,
+    )
+    accepted = service.accept_turn(submission)
+    fresh = AgentConversationService()
+    loaded = fresh.list_turns(world_id, conversation.conversation_id)[0]
+    assert isinstance(loaded.graph_context_execution, PlanWorldGraphExecution)
+    assert loaded.graph_context_execution == execution
+
+    claimed = fresh.claim_turn(
+        world_id, conversation.conversation_id, accepted.turn_id,
+        expected_revision=accepted.revision, lease_seconds=60,
+    )
+    call_id = uuid4()
+    authorization = SourceReadAuthorizationEventV2(
+        event_id=uuid4(), sequence=0, kind="source_read_authorized_v2",
+        read_call_id=call_id, context_receipt_sha256=receipt.context_receipt_sha256,
+        execution_policy_sha256=execution.execution_policy_sha256,
+        retrieval_session_id=scope.retrieval_session_id, world_id=world_id,
+        campaign_id=None, graph_revision=scope.graph_revision,
+        anchors=scope.admitted_anchors, max_chars=12000,
+    )
+    authorized, fresh_auth = fresh.authorize_source_read(
+        world_id, conversation.conversation_id, accepted.turn_id,
+        expected_revision=claimed.turn.revision, expected_attempt=claimed.turn.attempt,
+        authorization=authorization,
+    )
+    assert fresh_auth is True
+    result_event = ValidatedSourceReadEventV2(
+        event_id=uuid4(), sequence=1, kind="validated_source_read_v2",
+        read_call_id=call_id, receipts=[SourceReadAnchorReceiptV2(
+            source_read_id="source-read:round-trip", anchor_id="anchor-1",
+            evidence_ref_id="evidence-1", source_artifact_id="artifact-1",
+            source_revision_id="source-revision-1", outcome="partial",
+            content_sha256="b" * 64, line_start=3, line_end=7,
+            returned_chars=41, truncated=True,
+            evidence_sufficiency_status="insufficient",
+        )],
+    )
+    recorded, fresh_result = fresh.record_validated_source_read(
+        world_id, conversation.conversation_id, accepted.turn_id,
+        expected_revision=authorized.revision, expected_attempt=claimed.turn.attempt,
+        receipt=result_event,
+    )
+    assert fresh_result is True
+    duplicate, inserted = fresh.record_validated_source_read(
+        world_id, conversation.conversation_id, accepted.turn_id,
+        expected_revision=recorded.revision, expected_attempt=claimed.turn.attempt,
+        receipt=result_event,
+    )
+    assert inserted is False
+    assert duplicate.graph_context_execution == recorded.graph_context_execution
+    reload = AgentConversationService().list_turns(world_id, conversation.conversation_id)[0]
+    assert reload.graph_context_execution == recorded.graph_context_execution
+    assert reload.graph_context_execution.events[-1] == result_event
+    serialized_read = reload.graph_context_execution.model_dump(mode="json", by_alias=True)["events"][-1]["receipts"][0]
+    assert "content" not in serialized_read
+
+    from alembic import command
+
+    from application_state.cli import alembic_config
+    with pytest.raises(RuntimeError, match="refusing to downgrade while V2 Graph execution"):
+        command.downgrade(alembic_config(), "20261005_0017")
+    assert _current_and_head(application_state_dsn) == ("20261007_0018", "20261007_0018")
+    assert AgentConversationService().list_turns(world_id, conversation.conversation_id)[0] == reload

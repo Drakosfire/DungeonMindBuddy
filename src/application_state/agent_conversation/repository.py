@@ -11,20 +11,22 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 from application_state.agent_conversation.types import (
+    CompletedPlanAskPair,
     Conversation,
     ConversationCommandReceipt,
-    CompletedPlanAskPair,
     Draft,
     HistoricalReference,
     LegacyImportReceipt,
     PlanAskContextBasis,
-    PlanWorldGraphCompletionV1,
-    PlanWorldGraphExecutionV1,
+    PlanWorldGraphCompletion,
+    PlanWorldGraphExecution,
     Turn,
     TurnProvenance,
     WorldPointer,
-    request_fingerprint as model_fingerprint,
     turn_idempotency_fingerprint,
+)
+from application_state.agent_conversation.types import (
+    request_fingerprint as model_fingerprint,
 )
 from application_state.errors import ApplicationStateIntegrityError
 
@@ -792,8 +794,8 @@ def complete_claimed_turn(
     turn_id: UUID,
     expected_revision: int,
     assistant_text: str,
-    completion: PlanWorldGraphCompletionV1 | None,
-    graph_context_execution: PlanWorldGraphExecutionV1 | None = None,
+    completion: PlanWorldGraphCompletion | None,
+    graph_context_execution: PlanWorldGraphExecution | None = None,
 ) -> Turn | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
@@ -834,7 +836,7 @@ def update_graph_execution(
     world_id: str,
     turn_id: UUID,
     expected_revision: int,
-    execution: PlanWorldGraphExecutionV1,
+    execution: PlanWorldGraphExecution,
 ) -> Turn | None:
     """Persist one validated execution append under the caller's locked row."""
     with conn.cursor(row_factory=dict_row) as cur:
@@ -864,7 +866,7 @@ def interrupt_expired_graph_execution(
     world_id: str,
     turn_id: UUID,
     expected_revision: int,
-    execution: PlanWorldGraphExecutionV1,
+    execution: PlanWorldGraphExecution,
     failure_code: str,
 ) -> Turn | None:
     with conn.cursor(row_factory=dict_row) as cur:

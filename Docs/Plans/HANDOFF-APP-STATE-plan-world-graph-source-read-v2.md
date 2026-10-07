@@ -13,6 +13,7 @@ Add a strict V2 saved-Plan Graph execution contract for admitted source reads. K
 APP-STATE validates and persists typed receipts, policy budgets, operation ordering, and citation-to-receipt membership. It does not open sources, resolve Graph/source authority, make provider calls, or write live database data. Reuse the existing `ReadGraphSourceRequest` boundary: active retrieval session, 1–8 admitted anchor IDs, `maxChars` 1–12,000.
 
 V2 freezes a `source_read_scope` with retrieval session, World, nullable campaign, exact Graph revision, and admitted anchor/evidence/source-artifact/source-revision tuples. The immutable execution-policy digest covers that scope and budget. Each V2 source-read authorization binds the context-receipt digest and execution-policy digest, pins, exact admitted tuples, per-call anchor IDs and requested max characters. A following validated receipt binds read IDs, outcomes, content SHA-256, line bounds, returned character count, truncation, and evidence sufficiency separately from read completeness. Do not persist source text, excerpts, filesystem paths, or caller-supplied artifact authority.
+The authoritative source revision comes from the server's pinned admitted-anchor resolution in `world_graph_reads.read_source_anchor_direct`; the adapter validates bytes against that resolved revision. APP-STATE requires the trusted revision on content-bearing receipts and never derives it from the Graph revision or content digest. The SERVER adapter owns adding the internal read ID and resolved source revision to its read receipt; public retrieval V1 stays unchanged.
 
 Budget policy is per turn: at most 8 read calls, 8 total anchors, and 96,000 requested characters, with `maxChars` at most 12,000 per call. Charge the requested maximum before a source read; unresolved authorizations consume budget and cannot produce citations or source-opened state. Reject wrong session/World/campaign/revision, unadmitted IDs, duplicate IDs, malformed or unsuccessful receipts that claim content, forged source-opened claims, and cumulative budget overflow. Partial/truncated outcomes remain distinct from evidence sufficiency.
 
@@ -26,6 +27,7 @@ V2 completion citations carry validated source-read receipt IDs; their serialize
 - `src/application_state/migrations/versions/20261007_0018_agent_turn_graph_context_execution_v2.py` (`down_revision=20261005_0017`)
 - `tests/application_state/test_agent_conversation_service.py`
 - `tests/application_state/test_agent_conversation_postgres.py`
+- `tests/application_state/test_plan_action_dialogue_postgres.py` (PRIME-approved mechanical migration-head assertion only; preserve its Plan Action behavior assertions)
 - This handoff only.
 
 No SERVER route/service, worker, UI, source repository, live migration/data write, provider, or runtime path is included. If another path becomes necessary, stop and obtain an explicit lease amendment before editing it.
