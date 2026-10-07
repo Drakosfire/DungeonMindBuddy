@@ -257,3 +257,307 @@ def test_prove_or_admit_works_when_legacy_graph_engine_imports_are_blocked() -> 
         f"fresh-import tripwire failed\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"
     )
     assert "ok" in result.stdout
+
+
+def test_internal_source_read_uses_the_same_resolved_revision_and_v1_view(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+    from graph_memory.retrieval.models import WorldGraphSourceAnchorReadResult
+
+    result = WorldGraphSourceAnchorReadResult(
+        outcome="enough", anchor_id="anchor:one", evidence_ref_id="evidence:one",
+        source_artifact_id="artifact:one", source_span_ref_id="span:one",
+        content="bound text", content_sha256="a" * 64,
+    )
+    resolution = SimpleNamespace(
+        found=True, anchor=SimpleNamespace(
+            source_revision_id="source-revision:one", can_open_source=True,
+            evidence_ref_id="evidence:one", source_artifact_id="artifact:one",
+            locator_identity="span:one",
+        ), snapshot=SimpleNamespace(revision_id="graph:one"),
+    )
+    services = SimpleNamespace(
+        binding=object(),
+        retrieval=SimpleNamespace(resolve_source_anchor=lambda *_args, **_kwargs: resolution),
+    )
+    digests: list[str] = []
+    monkeypatch.setattr(direct, "_map_retrieval_context", lambda *_args: object())
+    monkeypatch.setattr(direct, "_dnd_anchor_id", lambda anchor_id: anchor_id)
+    monkeypatch.setattr(direct, "_classify_locator_kind", lambda _anchor: "source_span")
+    monkeypatch.setattr(direct, "_product_source_span_ref_id", lambda _anchor: "span:one")
+
+    def digest(_services: object, revision_id: str) -> str:
+        digests.append(revision_id)
+        return "a" * 64
+
+    monkeypatch.setattr(direct, "_source_revision_digest", digest)
+    monkeypatch.setattr(
+        direct, "_anchor_read_view",
+        lambda *_args, revision_digest, **_kwargs: (
+            result if revision_digest == "a" * 64 else pytest.fail("wrong digest")
+        ),
+    )
+    request = SimpleNamespace(anchor_id="anchor:one")
+    internal = direct.read_source_anchor_direct_v2(
+        services, request, repo_root=REPO_ROOT,
+    )
+    assert internal.result is result
+    assert internal.source_revision_id == "source-revision:one"
+    assert internal.source_revision_sha256 == "a" * 64
+    assert internal.evidence_ref_id == "evidence:one"
+    assert internal.source_artifact_id == "artifact:one"
+    assert internal.source_span_ref_id == "span:one"
+    assert internal.locator_kind == "source_span"
+    assert internal.locator_identity == "span:one"
+    assert internal.graph_revision == "graph:one"
+    assert digests == ["source-revision:one"]
+    assert direct.read_source_anchor_direct(services, request, repo_root=REPO_ROOT) is result
+
+
+def test_internal_source_read_receipt_binds_executors_id_and_rejects_forgery(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from graph_memory.interaction import expansion_executor as executor
+    from graph_memory.interaction.session import (
+        GraphRetrievalSession, SessionSnapshot, SourceAnchorState,
+    )
+    from graph_memory.interaction.session_store import clear_sessions, create_session
+    from graph_memory.retrieval.models import WorldGraphSourceAnchorReadResult
+
+    clear_sessions()
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="world:one", campaign_id="", revision_id="graph:one",
+            scope_mode="world",
+        ),
+        source_anchors=[SourceAnchorState(anchor_id="anchor:one", readable=True)],
+    )
+    create_session(session)
+    result = WorldGraphSourceAnchorReadResult.model_validate({
+        "outcome": "truncated", "anchorId": "anchor:one",
+        "evidenceRefId": "evidence:one", "sourceArtifactId": "artifact:one",
+        "sourceSpanRefId": "span:one", "locatorKind": "source_span",
+        "content": "bound text",
+        "contentSha256": "a" * 64, "truncated": True,
+        "snapshot": {
+            "worldId": "world:one", "campaignId": "", "revisionId": "graph:one",
+            "headRevisionId": "graph:one", "isHead": True,
+            "focus": {"kind": "none"}, "admissibility": "gm", "scopeMode": "world",
+        },
+    })
+    resolved = SimpleNamespace(
+        result=result, source_revision_id="source-revision:one",
+        source_revision_sha256="a" * 64,
+        evidence_ref_id="evidence:one", source_artifact_id="artifact:one",
+        source_span_ref_id="span:one", locator_kind="source_span",
+        locator_identity="span:one", graph_revision="graph:one",
+    )
+    monkeypatch.setattr(
+        executor.retrieval_service, "read_source_anchor_internal_v2",
+        lambda *_args, **_kwargs: resolved,
+    )
+    request = {
+        "retrievalSessionId": session.id, "anchorIds": ["anchor:one"],
+        "maxChars": 12,
+    }
+    output = executor.execute_read_graph_source(request, receipt_version=2)
+    item = output["reads"][0]
+    receipt = item["receipt"]
+    assert output["schema"] == "dmb_internal_read_graph_source_batch_v2"
+    assert receipt["source_read_id"] == item["sourceReadId"]
+    assert receipt["source_revision_id"] == "source-revision:one"
+    assert receipt["source_revision_sha256"] == "a" * 64
+    assert receipt["read_content_sha256"] == "a" * 64
+    assert receipt["retrieval_session_id"] == session.id
+    assert receipt["graph_revision"] == "graph:one"
+    assert receipt["evidence_ref_id"] == "evidence:one"
+    assert receipt["source_span_ref_id"] == "span:one"
+    assert receipt["locator_kind"] == "source_span"
+    assert receipt["locator_identity"] == "span:one"
+    assert receipt["truncated"] is True
+    assert session.source_reads[-1].receipt_v2 is not None
+    assert session.source_reads[-1].receipt_v2.source_read_id == item["sourceReadId"]
+    assert session.source_anchors[0].opened is True
+    forged = executor.execute_read_graph_source({**request, "sourceRevisionId": "forged"})
+    assert forged["code"] == "invalid_arguments"
+    monkeypatch.setattr(
+        executor.retrieval_service, "read_source_anchor",
+        lambda *_args, **_kwargs: result,
+    )
+    legacy = executor.execute_read_graph_source(request)
+    assert legacy == {
+        **result.model_dump(mode="json", by_alias=True),
+        "retrievalSessionId": session.id,
+    }
+    assert "receipt_v2" not in session.source_reads[-1].model_dump()
+    clear_sessions()
+
+
+@pytest.mark.parametrize(
+    "tamper",
+    ["graph_revision", "evidence_ref_id", "source_artifact_id", "source_span_ref_id", "source_revision_id", "locator_identity", "content_sha256"],
+)
+def test_internal_source_read_rejects_mismatched_authoritative_binding(
+    monkeypatch: pytest.MonkeyPatch, tamper: str,
+) -> None:
+    from graph_memory.interaction import expansion_executor as executor
+    from graph_memory.interaction.session import (
+        GraphRetrievalSession, SessionSnapshot, SourceAnchorState,
+    )
+    from graph_memory.interaction.session_store import clear_sessions, create_session
+    from graph_memory.retrieval.models import WorldGraphSourceAnchorReadResult
+
+    clear_sessions()
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="world:one", campaign_id="", revision_id="graph:one",
+            scope_mode="world",
+        ),
+        source_anchors=[SourceAnchorState(anchor_id="anchor:one", readable=True)],
+    )
+    create_session(session)
+    result = WorldGraphSourceAnchorReadResult.model_validate({
+        "outcome": "enough", "anchorId": "anchor:one",
+        "evidenceRefId": "evidence:one", "sourceArtifactId": "artifact:one",
+        "sourceSpanRefId": "span:one", "locatorKind": "source_span",
+        "content": "bound text",
+        "contentSha256": "a" * 64,
+        "snapshot": {
+            "worldId": "world:one", "campaignId": "", "revisionId": "graph:one",
+            "headRevisionId": "graph:one", "isHead": True,
+            "focus": {"kind": "none"}, "admissibility": "gm", "scopeMode": "world",
+        },
+    })
+    resolved = {
+        "result": result, "source_revision_id": "source-revision:one",
+        "source_revision_sha256": "a" * 64,
+        "evidence_ref_id": "evidence:one", "source_artifact_id": "artifact:one",
+        "source_span_ref_id": "span:one", "locator_kind": "source_span",
+        "locator_identity": "span:one", "graph_revision": "graph:one",
+    }
+    if tamper == "content_sha256":
+        resolved["result"] = result.model_copy(update={"content_sha256": "b" * 64})
+    else:
+        resolved[tamper] = (
+            None if tamper in {"source_revision_id", "locator_identity"} else "foreign"
+        )
+    monkeypatch.setattr(
+        executor.retrieval_service, "read_source_anchor_internal_v2",
+        lambda *_args, **_kwargs: SimpleNamespace(**resolved),
+    )
+    output = executor.execute_read_graph_source({
+        "retrievalSessionId": session.id, "anchorIds": ["anchor:one"],
+    }, receipt_version=2)
+    assert output["reads"][0]["receipt"] is None
+    assert output["reads"][0]["result"]["code"] == "source_receipt_unverifiable"
+    assert session.source_anchors[0].opened is False
+    clear_sessions()
+
+
+def test_internal_json_pointer_read_keeps_revision_and_excerpt_digests_distinct(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from graph_memory.interaction import expansion_executor as executor
+    from graph_memory.interaction.session import (
+        GraphRetrievalSession, SessionSnapshot, SourceAnchorState,
+    )
+    from graph_memory.interaction.session_store import clear_sessions, create_session
+    from graph_memory.retrieval.models import WorldGraphSourceAnchorReadResult
+
+    clear_sessions()
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="world:one", campaign_id="", revision_id="graph:one",
+            scope_mode="world",
+        ),
+        source_anchors=[SourceAnchorState(anchor_id="anchor:json", readable=True)],
+    )
+    create_session(session)
+    result = WorldGraphSourceAnchorReadResult.model_validate({
+        "outcome": "enough", "anchorId": "anchor:json",
+        "evidenceRefId": "evidence:json", "sourceArtifactId": "artifact:json",
+        "locatorKind": "json_pointer", "content": '{"fact": true}',
+        "contentSha256": "b" * 64,
+        "snapshot": {
+            "worldId": "world:one", "campaignId": "", "revisionId": "graph:one",
+            "headRevisionId": "graph:one", "isHead": True,
+            "focus": {"kind": "none"}, "admissibility": "gm", "scopeMode": "world",
+        },
+    })
+    monkeypatch.setattr(
+        executor.retrieval_service, "read_source_anchor_internal_v2",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            result=result, source_revision_id="source-revision:json",
+            source_revision_sha256="a" * 64,
+            evidence_ref_id="evidence:json", source_artifact_id="artifact:json",
+            source_span_ref_id=None, locator_kind="json_pointer",
+            locator_identity="/fact", graph_revision="graph:one",
+        ),
+    )
+    output = executor.execute_read_graph_source({
+        "retrievalSessionId": session.id, "anchorIds": ["anchor:json"],
+    }, receipt_version=2)
+    receipt = output["reads"][0]["receipt"]
+    assert receipt["source_revision_sha256"] == "a" * 64
+    assert receipt["read_content_sha256"] == "b" * 64
+    assert receipt["source_span_ref_id"] is None
+    assert receipt["locator_identity"] == "/fact"
+    clear_sessions()
+
+
+def test_internal_source_read_fails_closed_on_missing_or_stale_binding(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from graph_memory.interaction import expansion_executor as executor
+    from graph_memory.interaction.session import (
+        GraphRetrievalSession, SessionSnapshot, SourceAnchorState,
+    )
+    from graph_memory.interaction.session_store import clear_sessions, create_session
+    from graph_memory.retrieval.models import WorldGraphSourceAnchorReadResult
+
+    clear_sessions()
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="world:one", campaign_id="", revision_id="graph:one",
+            scope_mode="world",
+        ),
+        source_anchors=[SourceAnchorState(anchor_id="anchor:one", readable=True)],
+    )
+    create_session(session)
+    result = WorldGraphSourceAnchorReadResult.model_validate({
+        "outcome": "enough", "anchorId": "anchor:one", "content": "text",
+        "contentSha256": "b" * 64, "locatorKind": "source_span",
+        "snapshot": {
+            "worldId": "world:one", "campaignId": "", "revisionId": "graph:stale",
+            "headRevisionId": "graph:stale", "isHead": False,
+            "focus": {"kind": "none"}, "admissibility": "gm", "scopeMode": "world",
+        },
+    })
+    monkeypatch.setattr(
+        executor.retrieval_service, "read_source_anchor_internal_v2",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            result=result, source_revision_id=None, source_revision_sha256=None,
+            evidence_ref_id=None, source_artifact_id=None,
+            source_span_ref_id=None, locator_kind="source_span",
+            locator_identity="span:one", graph_revision="graph:stale",
+        ),
+    )
+    output = executor.execute_read_graph_source({
+        "retrievalSessionId": session.id, "anchorIds": ["anchor:one"],
+    }, receipt_version=2)
+    assert output["reads"][0]["receipt"] is None
+    assert output["reads"][0]["result"]["code"] == "source_receipt_unverifiable"
+    assert session.source_anchors[0].opened is False
+    assert session.source_reads[-1].receipt_v2 is None
+    assert "receipt_v2" not in session.source_reads[-1].model_dump()
+    denied = executor.execute_read_graph_source({
+        "retrievalSessionId": session.id, "anchorIds": ["anchor:foreign"],
+    }, receipt_version=2)
+    assert denied["reads"][0]["receipt"] is None
+    assert denied["reads"][0]["sourceReadId"] is None
+    with pytest.raises(ValueError, match="unknown retrieval session"):
+        executor.execute_read_graph_source({
+            "retrievalSessionId": "grs:stale", "anchorIds": ["anchor:one"],
+        }, receipt_version=2)
+    clear_sessions()
