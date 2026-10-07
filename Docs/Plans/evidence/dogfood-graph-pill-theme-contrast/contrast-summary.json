@@ -1,0 +1,91 @@
+{
+  "method": "Browser getComputedStyle foreground/background; translucent ancestor colors composited over actual opaque backgrounds; sRGB relative-luminance ratio. Fixture-only, not full accessibility audit.",
+  "surfaces": {
+    "paper": [
+      {
+        "label": "Ironveil Warehouse",
+        "before": 1,
+        "after": 10.79
+      },
+      {
+        "label": "Lysandra",
+        "before": 1.01,
+        "after": 11
+      },
+      {
+        "label": "Thrin",
+        "before": 1,
+        "after": 9.83
+      },
+      {
+        "label": "Questionable Company",
+        "before": 1.1,
+        "after": 10.56
+      },
+      {
+        "label": "Sleeping potion",
+        "before": 1.05,
+        "after": 11.14
+      },
+      {
+        "label": "Reference",
+        "before": 7.99,
+        "after": 6.05
+      },
+      {
+        "label": "Dark hover reference",
+        "before": 11.18,
+        "after": 11.18
+      },
+      {
+        "label": "Unthemed slate reference",
+        "before": 10.84,
+        "after": 10.84
+      }
+    ],
+    "slate": [
+      {
+        "label": "Ironveil Warehouse",
+        "before": 10.82,
+        "after": 11.33
+      },
+      {
+        "label": "Lysandra",
+        "before": 10.52,
+        "after": 10.88
+      },
+      {
+        "label": "Thrin",
+        "before": 10.67,
+        "after": 12.3
+      },
+      {
+        "label": "Questionable Company",
+        "before": 9.96,
+        "after": 11.76
+      },
+      {
+        "label": "Sleeping potion",
+        "before": 11.37,
+        "after": 10.99
+      },
+      {
+        "label": "Reference",
+        "before": 11.73,
+        "after": 11.73
+      },
+      {
+        "label": "Dark hover reference",
+        "before": 11.18,
+        "after": 11.18
+      },
+      {
+        "label": "Unthemed slate reference",
+        "before": 10.84,
+        "after": 10.84
+      }
+    ]
+  },
+  "unchanged_role_tints_borders_classes": true,
+  "dark_hover_and_unthemed_foregrounds_unchanged": true
+}
