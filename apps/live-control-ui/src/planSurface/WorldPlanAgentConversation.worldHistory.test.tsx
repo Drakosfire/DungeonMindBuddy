@@ -1399,6 +1399,37 @@ describe("World Plan conversation consumer", () => {
     expect(screen.getByRole("button", { name: "Send message" })).toBeInTheDocument();
   });
 
+  it("rejects a named scene edit when capture has only a caret", async () => {
+    setupApi(history("conversation-a", 1, []));
+    const captured = await capturedCardBodyEdit("Old body.\n") as any;
+    captured.request.target_kind = "insert_at_caret";
+    const bridge = { capture: vi.fn(async () => captured), apply: vi.fn() };
+    const post = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal");
+    mountComponent(7, bridge);
+    await screen.findByText(/No messages yet/i);
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the selected scene." } });
+    fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Select the scene or an explicit text range");
+    expect(post).not.toHaveBeenCalled();
+    expect(bridge.apply).not.toHaveBeenCalled();
+  });
+
+  it("preserves deliberate new-scene authoring at a captured caret", async () => {
+    setupApi(history("conversation-a", 1, []));
+    const captured = await capturedCardBodyEdit("Old body.\n") as any;
+    captured.request.target_kind = "insert_at_caret";
+    const bridge = { capture: vi.fn(async () => captured), apply: vi.fn() };
+    const post = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockRejectedValue(new Error("Proposal transport test"));
+    mountComponent(7, bridge);
+    await screen.findByText(/No messages yet/i);
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Add a new scene here." } });
+    fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Proposal transport test");
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post.mock.calls[0]![0].target_kind).toBe("insert_at_caret");
+    expect(bridge.apply).not.toHaveBeenCalled();
+  });
+
   it("does not pull the reader away from older messages when a new reply arrives", async () => {
     setupApi(history("conversation-a", 1, [makeTurn(1, "turn-a", "First question", "First answer")]));
     const viewport = document.createElement("div");
