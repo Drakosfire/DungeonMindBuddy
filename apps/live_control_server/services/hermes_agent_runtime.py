@@ -39,6 +39,7 @@ from graph_memory.hermes_graph_plugin import (
     default_conversation_only_capability_policy,
     default_graph_only_capability_policy,
     parent_brokered_graph_expansion_policy,
+    parent_brokered_graph_source_policy,
 )
 
 HostFactory = Callable[[], HermesGraphAgentHost]
@@ -220,6 +221,7 @@ class HermesAgentRuntimeAdapter:
         request_budget: Mapping[str, Any],
         on_graph_operation: Callable[[Mapping[str, Any]], Mapping[str, Any]],
         on_provider_lifecycle: Callable[[Mapping[str, Any]], bool] | None = None,
+        source_read_enabled: bool = False,
     ) -> AgentRuntimeResult:
         """Use the existing Hermes host with a per-request parent authorization gate."""
         return self._run(
@@ -229,6 +231,7 @@ class HermesAgentRuntimeAdapter:
             on_graph_operation=on_graph_operation,
             on_provider_lifecycle=on_provider_lifecycle,
             require_authorization=True,
+            source_read_enabled=source_read_enabled,
         )
 
     def _run(
@@ -240,6 +243,7 @@ class HermesAgentRuntimeAdapter:
         on_graph_operation: Callable[[Mapping[str, Any]], Mapping[str, Any]] | None = None,
         on_provider_lifecycle: Callable[[Mapping[str, Any]], bool] | None = None,
         require_authorization: bool = False,
+        source_read_enabled: bool = False,
     ) -> AgentRuntimeResult:
         policy_id = invocation.capability_policy.policy_id
         world_scope = invocation.context_packet.world_scope
@@ -261,8 +265,10 @@ class HermesAgentRuntimeAdapter:
                 provider_authorization_required=True,
                 request_budget=request_budget,
                 parent_graph_broker_required=True,
-                capability_policy=parent_brokered_graph_expansion_policy(
-                    request.capability_policy.graph_scope
+                capability_policy=(
+                    parent_brokered_graph_source_policy(request.capability_policy.graph_scope)
+                    if source_read_enabled else
+                    parent_brokered_graph_expansion_policy(request.capability_policy.graph_scope)
                 ),
             )
         host = self._host_factory()

@@ -1409,10 +1409,13 @@ class _GraphOperationReservation:
         self,
         limit: int,
         broker: Callable[[str, Mapping[str, Any]], tuple[str, Mapping[str, Any] | None]],
+        source_limit: int = 0,
     ) -> None:
         self.limit = limit
+        self.source_limit = source_limit
         self.broker = broker
         self.count = 0
+        self.source_count = 0
         self.indeterminate = False
         self.agents: list[Any] = []
         self._lock = threading.Lock()
@@ -1438,8 +1441,11 @@ class _GraphOperationReservation:
                 "statusCode": 503,
                 "diagnostics": [],
             }, separators=(",", ":")), None
-        if self.count >= self.limit:
-            self._retire_tools()
+        if (tool_name == "expand_graph_retrieval" and self.count >= self.limit) or (
+            tool_name == "read_graph_source" and self.source_count >= self.source_limit
+        ):
+            if self.count >= self.limit and self.source_count >= self.source_limit:
+                self._retire_tools()
             return json.dumps({
                 "schema": "dmb_world_graph_retrieval_error_v1",
                 "code": "graph_operation_over_budget",
@@ -1463,9 +1469,15 @@ class _GraphOperationReservation:
             if isinstance(status, bool) or not isinstance(status, int) or not 400 <= status < 500:
                 self.indeterminate = True
                 self._retire_tools()
-        elif isinstance(result, Mapping) and result.get("schema") == "dmb_world_graph_retrieval_result_v1":
+        elif tool_name == "expand_graph_retrieval" and isinstance(result, Mapping) and result.get("schema") == "dmb_world_graph_retrieval_result_v1":
             self.count += 1
-            if self.count >= self.limit:
+            if self.count >= self.limit and self.source_count >= self.source_limit:
+                self._retire_tools()
+        elif tool_name == "read_graph_source" and isinstance(result, Mapping) and result.get("schema") in {
+            "dmb_world_graph_source_anchor_read_v1", "dmb_read_graph_source_batch_v1",
+        }:
+            self.source_count += 1
+            if self.count >= self.limit and self.source_count >= self.source_limit:
                 self._retire_tools()
         else:
             self.indeterminate = True
@@ -1558,11 +1570,13 @@ def run_hermes_graph_agent_turn(
         total = budget.get("maxProviderAttempts")
         tool_capable = budget.get("maxToolCapableAttempts")
         graph_limit = budget.get("maxGraphOperations")
+        source_limit = 8
         if (
             any(isinstance(value, bool) or not isinstance(value, int)
-                for value in (total, tool_capable, graph_limit))
+                for value in (total, tool_capable, graph_limit, source_limit))
             or not (1 <= tool_capable < total <= 128)
             or not (1 <= graph_limit <= 128)
+            or not (0 <= source_limit <= 8)
         ):
             return _error_result(
                 hermes_session_id=session_id,
@@ -1770,6 +1784,7 @@ def run_hermes_graph_agent_turn(
         graph_reservation = (
             _GraphOperationReservation(
                 request.request_budget["maxGraphOperations"], on_parent_graph_operation,
+                source_limit=8,
             )
             if request.parent_graph_broker_required and on_parent_graph_operation is not None
             else None

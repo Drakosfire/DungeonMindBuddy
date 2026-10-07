@@ -106,6 +106,24 @@ def test_exact_committed_plan_message_survives_host_round_trip() -> None:
         )
 
 
+def test_parent_graph_source_policy_is_additive_to_legacy_expansion_only() -> None:
+    from graph_memory.hermes_graph_plugin import (
+        HermesGraphScope, parent_brokered_graph_expansion_policy,
+        parent_brokered_graph_source_policy,
+    )
+
+    scope = HermesGraphScope(
+        world_id="world:one", campaign_id="", focus={"kind": "none"},
+        admissibility="gm", revision_pin="revision:one", scope_mode="world",
+    )
+    assert parent_brokered_graph_expansion_policy(scope).enabled_tool_names == (
+        "expand_graph_retrieval",
+    )
+    assert parent_brokered_graph_source_policy(scope).enabled_tool_names == (
+        "expand_graph_retrieval", "read_graph_source",
+    )
+
+
 def test_large_plan_reaches_offline_real_worker_provider_gate(
     tmp_path, monkeypatch
 ) -> None:

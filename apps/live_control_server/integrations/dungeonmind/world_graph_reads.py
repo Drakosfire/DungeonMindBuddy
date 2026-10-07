@@ -2239,6 +2239,48 @@ def search_world_graph_direct(
         raise _map_direct_error(exc) from exc
 
 
+@dataclass(frozen=True)
+class ResolvedWorldGraphSearchV2:
+    """Internal source pins from the same native search as its public V1 view."""
+
+    result: WorldGraphRetrievalResult
+    source_pins: tuple[ResolvedSourceAnchorMetadataV2, ...]
+
+
+def search_world_graph_direct_v2(
+    services: DirectWorldGraphReadServices,
+    request: WorldGraphSearchRequest,
+) -> ResolvedWorldGraphSearchV2:
+    """Return selected readable anchor metadata without another projection or content IO."""
+    try:
+        dnd_request = _map_retrieval_context(request, services.binding)
+        native = services.retrieval.search(
+            dnd_request,
+            query_text=request.query_text or "",
+            seed_object_ids=request.seed_node_ids,
+            bounds=_retrieval_bounds(request.bounds),
+        )
+        public = _search_result_view(native, request=request)
+        pins = tuple(sorted((
+            ResolvedSourceAnchorMetadataV2(
+                anchor_id=_buddy_anchor_id(anchor.anchor_id),
+                graph_revision=native.snapshot.revision_id,
+                evidence_ref_id=anchor.evidence_ref_id,
+                source_artifact_id=anchor.source_artifact_id,
+                source_revision_id=anchor.source_revision_id,
+            )
+            for anchor in native.anchors
+            if anchor.can_open_source
+            and _classify_locator_kind(anchor) != "unsupported"
+            and anchor.source_revision_id
+            and anchor.evidence_ref_id
+            and anchor.source_artifact_id
+        ), key=lambda pin: pin.anchor_id))
+        return ResolvedWorldGraphSearchV2(result=public, source_pins=pins)
+    except Exception as exc:  # noqa: BLE001
+        raise _map_direct_error(exc) from exc
+
+
 def _search_result_view(
     result: GraphSearchResult,
     *,
@@ -2414,6 +2456,17 @@ class ResolvedSourceAnchorReadV2:
     locator_kind: str | None
     locator_identity: str | None
     graph_revision: str | None
+
+
+@dataclass(frozen=True)
+class ResolvedSourceAnchorMetadataV2:
+    """Native anchor pins resolved without opening source content."""
+
+    anchor_id: str
+    graph_revision: str
+    evidence_ref_id: str
+    source_artifact_id: str
+    source_revision_id: str
 
 
 def read_source_anchor_direct_v2(

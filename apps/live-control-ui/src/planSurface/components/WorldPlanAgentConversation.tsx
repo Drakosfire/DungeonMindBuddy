@@ -20,7 +20,9 @@ import type {
   WorldPlanGraphAnswerContextStatusV1,
   WorldPlanGraphAnswerSegmentV1,
   WorldPlanGraphCitationMapV1,
+  WorldPlanGraphCitationMapV2,
   WorldPlanGraphCompletionV1,
+  WorldPlanGraphCompletionV2,
   WorldPlanGraphContextReceiptV1,
   WorldPlanGraphExecutionProjectionV1,
   WorldPlanContextPolicyV1,
@@ -846,11 +848,12 @@ function isWorldPlanGraphReceipt(
 function isWorldPlanGraphCompletion(
   value: unknown,
   receipt: WorldPlanGraphContextReceiptV1,
-): value is WorldPlanGraphCompletionV1 {
+): value is WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 {
+  const version = isRecord(value) && value.schema === "dmb_plan_world_graph_completion_v2" ? 2 : 1;
   if (!hasExactKeys(value, [
     "schema", "context_receipt_sha256", "answer_basis", "answer_context_status", "answer_segments", "citation_map",
   ])
-    || value.schema !== "dmb_plan_world_graph_completion_v1"
+    || value.schema !== `dmb_plan_world_graph_completion_v${version}`
     || value.context_receipt_sha256 !== receipt.context_receipt_sha256
     || !["committed_plan", "committed_plan_plus_world_graph"].includes(String(value.answer_basis))
     || !["graph_grounded", "graph_grounded_partial", "plan_only_insufficient_evidence", "plan_only_graph_unused"]
@@ -891,22 +894,31 @@ function isWorldPlanGraphCompletion(
     if (graphClaims.length > 0) return false;
   } else {
     if (!hasExactKeys(citationMap, ["schema", "context_receipt_sha256", "entries"])
-      || citationMap.schema !== "dmb_graph_citation_map_v1"
+      || citationMap.schema !== `dmb_graph_citation_map_v${version}`
       || citationMap.context_receipt_sha256 !== receipt.context_receipt_sha256
       || !Array.isArray(citationMap.entries)
       || citationMap.entries.length > 128
       || citationMap.entries.length !== graphClaims.length) return false;
-    const entriesByClaimId = new Map<string, WorldPlanGraphCitationMapV1["entries"][number]>();
+    const entriesByClaimId = new Map<string, (WorldPlanGraphCitationMapV1 | WorldPlanGraphCitationMapV2)["entries"][number]>();
     for (const entry of citationMap.entries) {
-      if (!hasExactKeys(entry, ["claim_id", "target_kind", "target_id", "graph_revision", "evidence_ref_ids", "source_opened"])
+      const readIds = isRecord(entry) ? entry.source_read_ids : undefined;
+      if (!hasExactKeys(entry, ["claim_id", "target_kind", "target_id", "graph_revision", "evidence_ref_ids", "source_opened", ...(version === 2 ? ["source_read_ids"] : [])])
         || typeof entry.claim_id !== "string" || !entry.claim_id.trim()
         || !["assertion", "relationship"].includes(String(entry.target_kind))
         || typeof entry.target_id !== "string" || !entry.target_id.trim()
         || entry.graph_revision !== receipt.graph_authority.graph_revision
         || !isNonEmptyStringList(entry.evidence_ref_ids) || entry.evidence_ref_ids.length > 64
-        || entry.source_opened !== false
+        || (version === 1 && entry.source_opened !== false)
+        || (version === 2 && (
+          typeof entry.source_opened !== "boolean"
+          || !Array.isArray(readIds)
+          || readIds.length > 8
+          || readIds.some((id: unknown) => typeof id !== "string" || !id.trim() || id !== id.trim())
+          || readIds.some((id: string, index: number) => index > 0 && id <= readIds[index - 1])
+          || entry.source_opened !== (readIds.length > 0)
+        ))
         || entriesByClaimId.has(entry.claim_id)) return false;
-      entriesByClaimId.set(entry.claim_id, entry as unknown as WorldPlanGraphCitationMapV1["entries"][number]);
+      entriesByClaimId.set(entry.claim_id, entry as unknown as (WorldPlanGraphCitationMapV1 | WorldPlanGraphCitationMapV2)["entries"][number]);
     }
     for (const claim of graphClaims) {
       const entry = entriesByClaimId.get(claim.claim_id);

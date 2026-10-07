@@ -512,7 +512,7 @@ def _plan_context_resolver(
     from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
         direct_services_from_config,
         get_object_direct,
-        search_world_graph_direct,
+        search_world_graph_direct_v2,
     )
     from apps.live_control_server.services.agent_plan_playable_target import (
         AgentPlanPlayableTargetError,
@@ -687,7 +687,8 @@ def _plan_context_resolver(
                 attributes={"seed_count": len(valid_seeds)},
             ) if trace else nullcontext()
         ):
-            result = search_world_graph_direct(services, request)
+            resolved_search = search_world_graph_direct_v2(services, request)
+            result = resolved_search.result
     except Exception as exc:
         raise AgentTurnServiceError(
             "The pinned DungeonMind Graph retrieval could not be resolved.",
@@ -748,6 +749,32 @@ def _plan_context_resolver(
         for anchor in result.source_anchors
         if anchor.anchor_id and anchor.evidence_ref_id
     }
+    source_scope_anchors: list[dict[str, str]] = []
+    if frozen_receipt is None:
+        try:
+            by_id = {anchor.anchor_id: anchor for anchor in result.source_anchors}
+            for pin in resolved_search.source_pins:
+                anchor = by_id.get(pin.anchor_id)
+                if (
+                    anchor is None
+                    or not anchor.readable
+                    or pin.graph_revision != revision_id
+                    or pin.evidence_ref_id != anchor.evidence_ref_id
+                    or pin.source_artifact_id != anchor.source_artifact_id
+                ):
+                    raise ValueError("source anchor metadata differs from the admitted Graph result")
+                source_scope_anchors.append({
+                    "anchor_id": pin.anchor_id,
+                    "evidence_ref_id": pin.evidence_ref_id,
+                    "source_artifact_id": pin.source_artifact_id,
+                    "source_revision_id": pin.source_revision_id,
+                })
+        except Exception as exc:
+            raise AgentTurnServiceError(
+                "The pinned source-anchor metadata could not be resolved.",
+                code="graph_evidence_invalid", status_code=502,
+                provider_dispatched=False,
+            ) from exc
     session = GraphRetrievalSession(
         snapshot=SessionSnapshot(
             world_id=native_world_id,
@@ -833,6 +860,7 @@ def _plan_context_resolver(
         candidate_relationship_ids=tuple(sorted({item.edge_id for item in result.relationships})),
         candidate_evidence_ref_ids=tuple(sorted({item.evidence_ref_id for item in result.source_anchors})),
         evidence_by_anchor_id=evidence_by_anchor,
+        source_scope_anchors=tuple(source_scope_anchors),
     )
     if trace is not None and projection_span is not None:
         trace.complete_phase(
