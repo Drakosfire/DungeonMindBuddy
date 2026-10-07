@@ -1,6 +1,6 @@
 # HANDOFF — SERVER: Graph binding diagnostic operator transition
 
-**Status:** PROPOSED for PRIME review; no runtime lease activated.
+**Status:** ACTIVE — PRIME independently reviewed exact handoff head `5fcb25e57eba46dc391f91b47aea08b5f4d5272c` and activated only the bounded operational stop/switch/restart/preservation lease on 2026-10-07. No Ask or provider call is authorized.
 **Predecessors:** APP-STATE [#992](https://github.com/Drakosfire/DungeonMindBuddy/pull/992) merged at `04b4bee5dda0951a707bf26dc1be74f45d355e98`; SERVER mapper [#993](https://github.com/Drakosfire/DungeonMindBuddy/pull/993) merged at `78760713f0b1bd80fe4b114362f83c4302896a37`. This docs-only PR starts from that exact `main` head. The prior operator handoff [#982](https://github.com/Drakosfire/DungeonMindBuddy/pull/982) is merged history, so this handoff pins only the next candidate and transition.
 **Primary question:** Can the current local operator runtime gain only the accepted closed APP-STATE completion rejection codes and SERVER binding mapper, preserving its existing UI, dependencies, product state, and historical failed turns?
 
@@ -18,6 +18,8 @@ If PRIME activates this transition, the only operational writes are the permanen
 ## Read-only proposal basis, 2026-10-07
 
 The permanent runtime is clean detached at `437d5028`, with owned launcher PGID `1113468`: API listener `1113509`, UI `1113585`, and DungeonMindServer `1113504/1113529`. All 5202/8000/7860 health probes returned HTTP 200. Read-only proposal snapshot `/tmp/dmb-binding-diagnostic-proposal-20261007.json` has SHA-256 `194e972f866e84ccb129af3b872ebfb1fd3840c2f38fe2ff95a336695e929b1b`, zero open Agent turns/actions, ten Plan/Run/Agent table digests, ten turns, and 33 live-session files. This is a planning observation only; revalidate all facts and capture a **fresh activation-time** before snapshot under PRIME's exclusive runtime lease. No PID or snapshot in this paragraph is standing permission to act later.
+
+**Activation pin before runtime mutation:** PRIME re-fetched and accepted candidate `0f5c96d5`, parent `437d`, tree `c6435c37`, and the exact accepted service/types blobs above, with no UI/dependency diff. PRIME's fresh read-only baseline `/tmp/prime-binding-diagnostic-activation-before.json` has SHA-256 `194e972f866e84ccb129af3b872ebfb1fd3840c2f38fe2ff95a336695e929b1b`, zero open turns/actions, ten turns, and 33 live-session files. Root released its temporary UI QA lease; DOGFOOD has no live runtime lease. SERVER must capture an immediate read-only snapshot equal to PRIME's, reverify clean detached `437d` and owned listeners, then fetch the exact candidate into the permanent clone **before** stopping its launcher. Any mismatch stops before the process transition. This ACTIVE pin grants no provider call, Ask, database/native/source write, or unrelated deploy.
 
 ## Activation, acceptance, and rollback
 
