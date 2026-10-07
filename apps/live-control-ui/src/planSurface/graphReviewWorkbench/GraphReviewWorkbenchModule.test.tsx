@@ -812,12 +812,28 @@ describe("GraphReviewWorkbenchModule", () => {
       expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
     );
 
+    const projectionRequestCount = vi.mocked(
+      liveApi.postWorldGraphRecapProjection,
+    ).mock.calls.length;
     await user.selectOptions(screen.getByLabelText("Focus session"), "session-22");
+    expect(window.location.search).toContain("session=session-23");
+    expect(window.location.search).toContain("tool=graph-review-diagnostics");
+    expect(liveApi.postWorldGraphRecapProjection).toHaveBeenCalledTimes(projectionRequestCount);
+
+    await user.click(screen.getByRole("button", { name: "Load" }));
 
     await waitFor(() =>
       expect(window.location.search).toContain("session=session-22"),
     );
     expect(window.location.search).toContain("tool=graph-review-diagnostics");
+    await waitFor(() =>
+      expect(liveApi.postWorldGraphRecapProjection).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          campaignId: "longmont-c2",
+          focus: expect.objectContaining({ sessionId: "session-22" }),
+        }),
+      ),
+    );
   });
 
   it("loads a run-only session without calling gold compare", async () => {
