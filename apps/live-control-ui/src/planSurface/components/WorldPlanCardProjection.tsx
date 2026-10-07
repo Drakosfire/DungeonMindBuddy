@@ -458,7 +458,6 @@ export function WorldPlanCardProjection({
   useEffect(() => {
     if (focusIdentityRef.current === focusIdentity) return;
     focusIdentityRef.current = focusIdentity;
-    defaultFocusAttemptedRef.current = false;
     setFocusedSceneId(null);
     onSelectTarget?.(null);
   }, [focusIdentity, onSelectTarget]);

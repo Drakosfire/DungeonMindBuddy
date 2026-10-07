@@ -421,8 +421,7 @@ it("clears focused Scene and Ask context when the verified Plan basis changes", 
     <WorldPlanCardProjection {...props} documentId={documentId} basis={{ status: "verified", revision: 4, contentSha256: initialDigest }} />,
   );
 
-  fireEvent.click(screen.getByRole("button", { name: "Open scene: Arrival" }));
-  expect(screen.getByTestId("world-plan-scene-reader")).toBeInTheDocument();
+  expect(await screen.findByTestId("world-plan-scene-reader")).toBeInTheDocument();
   expect(onSelectTarget).toHaveBeenLastCalledWith({ kind: "scene", id: "scene:arrival" });
 
   mounted.rerender(
@@ -430,6 +429,36 @@ it("clears focused Scene and Ask context when the verified Plan basis changes", 
   );
   await waitFor(() => expect(screen.queryByTestId("world-plan-scene-reader")).not.toBeInTheDocument());
   expect(onSelectTarget).toHaveBeenLastCalledWith(null);
+
+  mounted.rerender(
+    <WorldPlanCardProjection {...props} selectableTargetKeys={new Set(targetKeys)} documentId={documentId} basis={{ status: "verified", revision: 5, contentSha256: committedDigest }} />,
+  );
+  expect(screen.queryByTestId("world-plan-scene-reader")).not.toBeInTheDocument();
+  expect(onSelectTarget).toHaveBeenLastCalledWith(null);
+});
+
+it("focuses the first selectable saved Scene on initial entry", async () => {
+  const imported = markdownToTiptapDoc(initialMarkdown);
+  const model = buildWorldPlanCardProjectionModel({ document: imported.doc, markdown: initialMarkdown, sourceWarnings: [] });
+  expect(model.status).toBe("ready");
+  const onSelectTarget = vi.fn();
+  render(
+    <WorldPlanCardProjection
+      worldId={worldId}
+      documentId={documentId}
+      document={imported.doc}
+      markdown={initialMarkdown}
+      sourceWarnings={[]}
+      basis={{ status: "verified", revision: 4, contentSha256: initialDigest }}
+      isDirty={false}
+      onReturnToDocument={vi.fn()}
+      selectableTargetKeys={worldPlanCardTargetKeys(model)}
+      onSelectTarget={onSelectTarget}
+    />,
+  );
+
+  expect(await screen.findByTestId("world-plan-scene-reader")).toHaveTextContent("Arrival");
+  expect(onSelectTarget).toHaveBeenCalledWith({ kind: "scene", id: "scene:arrival" });
 });
 
 it("keeps current-draft Edit selection separate from committed-Plan Ask selection", () => {
