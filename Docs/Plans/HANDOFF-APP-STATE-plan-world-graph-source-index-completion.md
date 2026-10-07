@@ -1,17 +1,18 @@
 # HANDOFF — APP-STATE: source-index-backed Graph completion evidence
 
-**Status:** BLOCKED — design only; no implementation lease or migration authorization.
-**Base:** Buddy `main@be21c33f2afd86c263815212c5a01b47bf5e37af` (#1012).
-**Predecessors:** APP-STATE Graph execution V2 #1004, SERVER source-read adapter #1008, bounded native source-anchor index SDK seam #1010, and SERVER bootstrap aggregate #1012 are merged. Preserve their V1/V2 history and behavior.
-**Topology:** serial follow-on to SERVER #1012. This PR is design-only; a separate APP-STATE lease may start only after PRIME/ARCHITECTURE accepts the contract. No SERVER or UI work is in this slice.
+**Status:** ACTIVE — implementation authorized by PRIME on 2026-10-07.
+**Base:** Buddy `main@3d59386fd4868e5b365fd8b6210cfa8ea909e78b` (#1011 merged).
+**Predecessors:** APP-STATE Graph execution V2 #1004, SERVER source-read adapter #1008, bounded native source-anchor index SDK seam #1010, SERVER bootstrap aggregate #1012, and accepted design #1011 are merged. Preserve their V1/V2 history and behavior.
+**Topology:** serial, one APP-STATE implementation PR after SERVER #1012 and design #1011. Branch `codex/app-state-index-completion` in the isolated `app-state-index-completion` worktree. Do not merge; PRIME requires independent review before merge.
+**Write lease:** `src/application_state/agent_conversation/types.py`; `tests/application_state/test_agent_conversation_service.py`; this handoff. `tests/application_state/test_agent_conversation_postgres.py` may be added only if required to prove unchanged JSON persistence. No other paths are authorized.
 
 ## Mission
 
 Define the narrow APP-STATE completion rule that lets a claim cite a source discovered through an explicitly selected source-index aggregate, while preserving the frozen initial Graph packet and V2 source-read receipt model. A source-index entry is metadata for selecting an admitted read scope. It is never itself evidence, a claim, an access grant, a Graph operation result, or proof of corpus-wide coverage.
 
-This handoff does not authorize code, migrations, UI changes, provider calls, production data writes, a new retriever/store, or a new source-index/execution schema. No PR should implement this contract before PRIME accepts it and issues an ACTIVE lease.
+This ACTIVE handoff authorizes only the APP-STATE completion validation branch and its owning service tests within the write lease above. It does not authorize migrations, UI changes, provider calls, production data writes, a new retriever/store, a new source-index/execution schema, or changes to SERVER aggregate construction.
 
-## Contract decision proposed for PRIME
+## Accepted contract
 
 Use the existing Graph packet V1 receipt and V2 execution scope to represent the aggregate candidate set. Introduce the exact selection-policy literal already named by the SDK predecessor contract:
 
@@ -136,11 +137,11 @@ The example is valid only if SERVER resolved and admitted `assertion-17` indepen
 
 Use existing V2 caps: at most 512 frozen scope tuples; 8 source-read calls; 8 total read anchors; 96,000 requested characters total; 12,000 characters per call; and current provider/context limits. Preserve charging the requested maximum before a read and existing partial/truncated semantics. The 512 tuple cap applies to the selected bounded scope, not to a claim about index completeness.
 
-## Ownership and future write sets
+## Ownership and active write set
 
-### APP-STATE (future lease only)
+### APP-STATE (active implementation lease)
 
-Expected paths, subject to exact-head re-anchor and renewed lease:
+Authorized paths for this implementation:
 
 - `src/application_state/agent_conversation/types.py` — select the new completion branch only under the exact packet selection-policy literal; retain the V2 scope subset validator; validate exact producing-attempt read receipt plus target-binding Graph event for out-of-dispatched evidence; derive status/source-opened from receipts. Do not change aggregate packet construction owned by SERVER #1012.
 - `tests/application_state/test_agent_conversation_service.py` — positive and negative completion witnesses and legacy policy compatibility.
@@ -148,7 +149,7 @@ Expected paths, subject to exact-head re-anchor and renewed lease:
 
 No migration is expected. `service.py`, repositories, source providers, Plan Action, SERVER route/service code, UI, and database schema are outside this APP-STATE candidate lease unless review proves a required path; obtain a lease amendment before touching anything else. SERVER aggregate/bootstrap behavior is the merged predecessor #1012. Any defect in its owning paths requires a separate SERVER authorization, not this APP-STATE lease.
 
-## Required witnesses before activation
+## Required implementation witnesses
 
 - Golden V1 bytes/digests and stored V1 replay remain unchanged.
 - Old V2 policy receipts/completions round-trip and validate identically; existing policy digest is unchanged.
@@ -160,12 +161,10 @@ No migration is expected. `service.py`, repositories, source providers, Plan Act
 - Scope selection at exactly 512 is valid; 513, conflicting duplicate pins, nondeterministic/ambiguous selection, truncation, and each existing read/provider budget overflow fail closed.
 - No test claims full-corpus completeness or changes initial packet coverage/sufficiency semantics.
 
-## Open gates for PRIME review
+## Activation and handback
 
-1. Accept or amend the exact policy literal `parent_initial_retrieval_with_bounded_source_index_v1`, aggregate candidate-union semantics, and the canonical `dmb_plan_retrieval_composite_v1` digest payload.
-2. Confirm the producing-attempt target source and inclusion proof can be checked from existing V2 authorized-attempt plus validated operation-event fields.
-3. Confirm source-index anchor metadata remains metadata-only and authoritative SERVER revalidation is sufficient for active session/readability.
-4. Confirm no persistence migration is needed because current V1 packet/V2 execution/completion JSON retains the candidate union, composite retrieval digest, scope, and receipt proof; if not, return for an amended storage design.
-5. Confirm merged SERVER #1012 bootstrap and the active-session source-read path supply the frozen candidate/scope and attempt inclusion facts required by APP-STATE validation.
+PRIME accepted the exact contract and activated this bounded APP-STATE implementation after Buddy #1011 merged at `3d59386fd4868e5b365fd8b6210cfa8ea909e78b`. The implementation must preserve the packet/scope/source-read JSON shape, legacy completion behavior, and the existing V2 policy digest. No migration is expected. The implementation and verification record below is backward-looking and makes no claim of independent review or merge completion.
 
-Until PRIME accepts these gates and pins an ACTIVE handoff with an exact write lease and PR topology, this document is design-only and grants no implementation authority.
+Implementation handback: the V2 validator now admits out-of-dispatch refs only for the exact source-index policy, with a sufficient producing-attempt read bound to frozen scope pins and an included Graph event binding the same target and ref. Missing/non-producing reads, wrong target/ref/pins, unknown policy, receipt-only V1 claims, and unsupported bindings fail closed. Partial/truncated reads and incomplete initial packet coverage remain partial. No envelope or persistence schema changed.
+
+Verification: the indexed-completion witness plus the adjacent V2 source-read scope and source-opened compatibility tests passed (`3 passed`); Ruff check and Python syntax compilation passed. The root pytest conftest could not provision its disposable PostgreSQL instance on this host, so the APP-STATE PostgreSQL suite was not run. The focused tests were executed without the root PostgreSQL autouse fixture; no persistence change required a PostgreSQL witness for this slice.
