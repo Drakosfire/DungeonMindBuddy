@@ -1,10 +1,10 @@
 # HANDOFF — SERVER: recap candidate edge tuple correction
 
-**Status:** ACTIVE — PRIME authorized this relation-only implementation after the APP-STATE basis contract and ARCHITECTURE relation review.  
-**Base:** `main@78760713f0b1bd80fe4b114362f83c4302896a37`  
-**Branch:** `codex/demo-recap-relation-correction`  
-**Checkout:** `/tmp/dmb-demo-relation`  
-**Topology:** Serial. RAKE's source-authority repair is the predecessor sharing `apps/live_control_server/services/extract_promote.py`; re-anchor after it merges and PRIME returns that file. One implementation PR for this slice. PRIME owns review and merge.
+**Status:** ACTIVE — PRIME authorized this relation-only implementation after the APP-STATE basis contract and ARCHITECTURE relation review.
+**Base:** `main@75b30f0b196a16dfc46e6406490052686f3a8a79`
+**Branch:** `codex/demo-recap-relation-correction`
+**Checkout:** `/tmp/dmb-demo-relation`
+**Topology:** Serial, one implementation PR for this slice. PRIME returned `apps/live_control_server/services/extract_promote.py` on merged main, so DEMO may complete the independent V4 basis/CAS dispatch. RAKE's source-authority repair remains frozen and unpublished pending its separate approval; no RAKE adapter code is included. Source-authority/runtime availability remains a separate acceptance limitation. PRIME owns review and merge.
 
 ## Primary question
 
@@ -25,6 +25,7 @@ DEMO's current write set is this handoff plus:
 ~~~text
 apps/live_control_server/models/extract_promote.py
 apps/live_control_server/routes/extract_promote.py
+apps/live_control_server/services/extract_promote.py
 apps/live_control_server/services/recap_semantic_candidate_correction.py
 apps/live_control_server/services/recap_semantic_disposition.py
 src/application_state/ingest/service.py
@@ -32,7 +33,7 @@ tests/application_state/test_ingest_run_postgres.py
 tests/test_recap_semantic_candidate_correction.py
 ~~~
 
-`apps/live_control_server/services/extract_promote.py` is temporarily excluded from DEMO's write set and exclusively leased to RAKE for frozen-source/span and review-package metadata resolution. DEMO's four-line V4 basis/CAS dispatch hunk is preserved in `/tmp/dmb-demo-extract-promote-dispatch.patch`; edit or apply it only after PRIME returns the file lease. RAKE also owns `apps/live_control_server/services/promotable_ingest_run.py` and its focused tests.
+PRIME returned `apps/live_control_server/services/extract_promote.py` to DEMO on merged main. DEMO applies only the preserved V4 basis/CAS dispatch hunk from `/tmp/dmb-demo-extract-promote-dispatch.patch`. RAKE's separately reviewed source-authority head `40d8c068499e6f20ba9f60c6d48aace5ad38f46b` remains frozen with no active writer and no PR; it is not copied, recreated or exported into this branch. Its publication is pending direct human authorization, and its source/runtime availability is outside this slice's verification. RAKE continues to own `apps/live_control_server/services/promotable_ingest_run.py` and its focused tests. If the source-authority repair is later approved, integrate and review it through its owner using normal merge/rebase order.
 
 This slice does not change source artifacts, corpus content, provider behavior, runtime configuration, persistent runtime state, native Graph data, database schema or migrations. Synthetic test fixtures use temporary directories.
 
@@ -54,9 +55,9 @@ After the Session 26/27 correction mechanism settles, preserve and resume the se
 
 Before opening the PR:
 
-1. Re-anchor to current `main` after the serialized RAKE repair and obtain PRIME's return of `extract_promote.py`; reapply and inspect the preserved CAS-dispatch hunk.
+1. Re-anchor to current `main`, inspect open PRs/leases, and apply the preserved dispatch hunk only after PRIME returns `extract_promote.py`.
 2. Pass the relation replay, all-or-nothing rejection, endpoint/catalog/native-admission, held-child and exact-basis dispatch tests. The AppState V4 CAS test must pass against its authorized disposable PostgreSQL boundary.
 3. Run scoped Ruff and `git diff --check`; inspect the exact cumulative base-to-head diff and AppState basis boundary. PRIME routes the independent AppState review on the exact head.
-4. Open one PR after the serialized predecessor settles. Do not merge from this lane.
+4. Open one PR for this bounded slice. Do not merge from this lane.
 
-Evidence at `78760713` so far: relation-correction tests pass **17**, with only the temporarily leased V4 dispatch test deselected; semantic-disposition tests pass **19**; the AppState V4 CAS/manifest allowlist test passes **1** against the existing disposable `127.0.0.1:54329` target with host access; scoped Ruff and `git diff --check` pass. Both Python suites use the pinned DungeonMind source archive at commit `7c69e447f6d4acc963ac09c6fb9cb48cc1c5b9cc`, verified against its Git blob. The direct AppState basis validator positive, malformed-manifest and overlong-manifest checks pass in the relation suite. Remaining implementation verification is the V4 dispatch test after file return, followed by final cumulative diff review and PRIME/AppState review; these are not acceptance claims.
+Evidence at merged main `75b30f0b`: relation-correction and V4 dispatch tests pass **18**; semantic-disposition tests pass **19**; the AppState V4 CAS/manifest allowlist test passes **1** against the authorized disposable `127.0.0.1:54329` boundary; scoped Ruff and `git diff --check` pass. Both Python suites use the pinned DungeonMind source archive at commit `7c69e447f6d4acc963ac09c6fb9cb48cc1c5b9cc`, verified against its Git blob. The direct AppState basis validator positive, malformed-manifest and overlong-manifest checks pass in the relation suite. PRIME must route the independent AppState review against the final integrated head. Source-authority/runtime component availability remains a separate limitation; no candidate or source artifact was modified.
