@@ -1912,7 +1912,7 @@ def test_source_index_completion_requires_read_and_target_bound_graph_event() ->
         _indexed_graph_completion_fixture(read_revision="source-revision-other")
 
     unknown_policy = _indexed_graph_completion_fixture(selection_policy="future-policy-v9")
-    with pytest.raises(GraphCompletionValidationError, match="selected source-index policy"):
+    with pytest.raises(GraphCompletionValidationError, match="does not support its claim"):
         validate_execution_completion(
             unknown_policy[2], unknown_policy[0], unknown_policy[1], unknown_policy[3],
             {"claim-indexed": [unknown_policy[4]]},
@@ -2175,3 +2175,48 @@ def test_graph_execution_v2_enforces_each_aggregate_source_budget() -> None:
             {"max_source_read_chars": 10000},
             [make_auth(0, uuid4())],
         )
+
+
+@pytest.mark.parametrize("version", [1, 2])
+@pytest.mark.parametrize("corruption", [None, "missing", "nonproducing", "wrong_target", "wrong_ref", "excluded_ref"])
+def test_historical_graph_operation_evidence_outside_initial_dispatch(
+    version: int, corruption: str | None,
+) -> None:
+    from application_state.agent_conversation.types import (
+        PlanWorldGraphCompletionV1, PlanWorldGraphExecutionV1, PlanWorldGraphExecutionV2,
+        GraphCompletionValidationError, validate_execution_completion,
+    )
+    receipt, execution, completion, attempt_id, graph_event_id = _indexed_graph_completion_fixture(
+        selection_policy="historical-graph-metadata-v1", include_read=False, cite_read=False,
+        graph_target="assertion-other" if corruption == "wrong_target" else "assertion-1",
+        graph_evidence_ref="evidence-other" if corruption == "wrong_ref" else "evidence-indexed",
+    )
+    payload = execution.model_dump(mode="json", by_alias=True)
+    attempt = next(event for event in payload["events"] if event["kind"] == "provider_attempt_authorized_v2")
+    attempt["included_evidence_ref_ids"] = [] if corruption == "excluded_ref" else ["evidence-indexed"]
+    if corruption == "nonproducing":
+        attempt["included_graph_event_ids"] = []
+    if version == 1:
+        payload["schema"] = "dmb_agent_plan_world_graph_execution_v1"
+        for field in ["source_read_scope", "max_source_read_calls", "max_source_read_anchors", "max_source_read_chars", "max_chars_per_source_read"]:
+            payload["policy"].pop(field)
+        attempt["kind"] = "provider_attempt_authorized"
+        attempt.pop("included_source_read_event_ids")
+        payload.pop("execution_policy_sha256")
+        execution = PlanWorldGraphExecutionV1.model_validate(payload)
+        completion_payload = completion.model_dump(mode="json", by_alias=True)
+        completion_payload["schema"] = "dmb_plan_world_graph_completion_v1"
+        completion_payload["citation_map"]["schema"] = "dmb_graph_citation_map_v1"
+        completion_payload["citation_map"]["entries"][0].pop("source_read_ids")
+        completion = PlanWorldGraphCompletionV1.model_validate(completion_payload)
+    else:
+        execution = PlanWorldGraphExecutionV2.model_validate(payload)
+    completion = completion.model_copy(update={"answer_context_status": "graph_grounded"})
+    mapping = {"claim-indexed": [] if corruption == "missing" else [graph_event_id]}
+    assert "evidence-indexed" not in receipt.assembled_input.dispatched_evidence_ref_ids
+    assert completion.citation_map.entries[0].source_opened is False
+    if corruption is None:
+        assert validate_execution_completion(completion, receipt, execution, attempt_id, mapping) is None
+    else:
+        with pytest.raises(GraphCompletionValidationError):
+            validate_execution_completion(completion, receipt, execution, attempt_id, mapping)

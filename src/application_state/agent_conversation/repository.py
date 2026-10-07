@@ -9,6 +9,7 @@ from uuid import UUID
 import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
+from pydantic import ValidationError
 
 from application_state.agent_conversation.types import (
     CompletedPlanAskPair,
@@ -18,12 +19,17 @@ from application_state.agent_conversation.types import (
     HistoricalReference,
     LegacyImportReceipt,
     PlanAskContextBasis,
+    PlanAskHistoryAttributionV1,
+    CompletionBindingEventV1,
     PlanWorldGraphCompletion,
     PlanWorldGraphExecution,
     Turn,
     TurnProvenance,
     WorldPointer,
+    decode_plan_playable_target_reference,
     turn_idempotency_fingerprint,
+    validate_completion_against_receipt,
+    validate_execution_completion,
 )
 from application_state.agent_conversation.types import (
     request_fingerprint as model_fingerprint,
@@ -43,6 +49,7 @@ _TURN_COLS = """
     graph_context_execution,
     claim_expires_at, accepted_at, completed_at, updated_at
 """
+_TURN_COLS_T = ", ".join(f"t.{column.strip()}" for column in _TURN_COLS.split(","))
 _DRAFT_COLS = """
     world_id, conversation_id, draft_id, revision, body, request_fingerprint,
     surface_resolution, surface_id, surface_instance_id,
@@ -568,8 +575,8 @@ def list_completed_plan_ask_context(
 
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
-            """
-            SELECT t.turn_id, t.sequence, t.accepted_at, t.user_text, t.assistant_text
+            f"""
+            SELECT {_TURN_COLS_T}
             FROM agent.world_state AS w
             JOIN agent.conversation AS c
               ON c.world_id = w.world_id
@@ -606,16 +613,130 @@ def list_completed_plan_ask_context(
             ),
         )
         rows = cur.fetchall()
-    return [
-        CompletedPlanAskPair(
-            source_sequence=row["sequence"],
-            source_record_id=row["turn_id"],
-            accepted_at=row["accepted_at"],
-            question=row["user_text"],
-            answer=row["assistant_text"],
+    pairs: list[CompletedPlanAskPair] = []
+    for row in reversed(rows):
+        try:
+            turn = _turn_from_row(conn, row)
+            history_attribution = _plan_ask_history_attribution(turn)
+        except ApplicationStateIntegrityError:
+            raise
+        except (KeyError, TypeError, ValueError, ValidationError) as exc:
+            raise ApplicationStateIntegrityError(
+                "stored Plan Ask provenance or Graph completion is malformed"
+            ) from exc
+        pairs.append(
+            CompletedPlanAskPair(
+                source_sequence=turn.sequence,
+                source_record_id=turn.turn_id,
+                accepted_at=turn.accepted_at,
+                question=turn.user_text,
+                answer=turn.assistant_text or "",
+                history_attribution=history_attribution,
+            )
         )
-        for row in reversed(rows)
+    return pairs
+
+
+def _plan_ask_history_attribution(
+    turn: Turn,
+) -> PlanAskHistoryAttributionV1 | None:
+    """Project validated receipt/completion metadata without inferring legacy provenance."""
+    receipt = turn.graph_context_receipt
+    completion = turn.completion
+    if receipt is None and completion is None:
+        return None
+    if receipt is None or completion is None:
+        raise ApplicationStateIntegrityError(
+            "completed Plan Ask has an incomplete Graph receipt/completion pair"
+        )
+    if (
+        turn.status != "completed"
+        or turn.provenance.surface_resolution != "resolved"
+        or turn.provenance.surface_id != "plan"
+        or not turn.provenance.surface_instance_id
+    ):
+        raise ApplicationStateIntegrityError(
+            "Graph Ask provenance does not identify its completed Plan surface"
+        )
+
+    primary = turn.provenance.primary_work
+    try:
+        turn_basis = PlanAskContextBasis(
+            world_id=turn.world_id,
+            document_id=primary.object_id,
+            object_revision=primary.object_revision,
+            work_revision_id=primary.work_revision_id,
+            revision_n=primary.revision_n,
+            content_sha256=primary.content_sha256,
+        )
+    except (ValidationError, TypeError, ValueError) as exc:
+        raise ApplicationStateIntegrityError(
+            "Graph Ask primary Plan basis is incomplete"
+        ) from exc
+    if (
+        primary.resolution != "resolved"
+        or primary.kind != "plan"
+        or receipt.plan_basis != turn_basis
+    ):
+        raise ApplicationStateIntegrityError(
+            "Graph Ask receipt basis does not match its persisted Plan provenance"
+        )
+
+    stored_targets = [
+        reference
+        for reference in turn.provenance.supporting_work
+        if reference.kind == "dmb_plan_playable_target_v1"
     ]
+    try:
+        stored_target = (
+            decode_plan_playable_target_reference(stored_targets[0])
+            if stored_targets
+            else None
+        )
+        if turn.graph_context_execution is None:
+            validate_completion_against_receipt(completion, receipt)
+        else:
+            bindings = [
+                event for event in turn.graph_context_execution.events
+                if isinstance(event, CompletionBindingEventV1)
+            ]
+            if len(bindings) != 1:
+                raise ValueError("Graph Ask execution requires one completion binding")
+            binding = bindings[0]
+            validate_execution_completion(
+                completion, receipt, turn.graph_context_execution,
+                binding.provider_attempt_id, binding.claim_graph_event_ids,
+            )
+    except (ValidationError, TypeError, ValueError) as exc:
+        raise ApplicationStateIntegrityError(
+            "Graph Ask receipt or completion failed integrity validation"
+        ) from exc
+    if stored_target != receipt.playable_target:
+        raise ApplicationStateIntegrityError(
+            "Graph Ask receipt target does not match persisted Plan target provenance"
+        )
+    expected_answer = "\n".join(segment.text for segment in completion.answer_segments)
+    if turn.assistant_text != expected_answer:
+        raise ApplicationStateIntegrityError(
+            "Graph Ask completion segments do not match the stored answer text"
+        )
+
+    return PlanAskHistoryAttributionV1(
+        source_turn_id=turn.turn_id,
+        source_conversation_id=turn.conversation_id,
+        source_sequence=turn.sequence,
+        source_turn_status="completed",
+        surface_resolution="resolved",
+        surface_id="plan",
+        surface_instance_id=turn.provenance.surface_instance_id,
+        plan_basis=receipt.plan_basis,
+        playable_target=receipt.playable_target,
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        answer_basis=completion.answer_basis,
+        answer_context_status=completion.answer_context_status,
+        answer_segments=completion.answer_segments,
+        citation_map=completion.citation_map,
+    )
 
 
 def insert_turn(
