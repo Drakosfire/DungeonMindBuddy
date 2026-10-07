@@ -29,6 +29,9 @@ from apps.live_control_server.services import (
     extract_promote,
     graph_run_registry,
 )
+from apps.live_control_server.services.managed_world_graph_projection import (
+    VerifiedManagedWorldBinding,
+)
 from apps.live_control_server.services.recap_semantic_disposition import (
     DERIVATION,
     EFFECT_KEY,
@@ -44,6 +47,25 @@ from graph_memory.ingestion.extraction_run import (
     ExtractionRunComponentRef,
     ExtractionRunStatus,
 )
+
+
+@pytest.fixture(autouse=True)
+def _verified_publication_target(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        extract_promote, "_resolve_publication_target",
+        lambda _managed_id: VerifiedManagedWorldBinding(
+            managed_world_id="managed-w",
+            native_world_id="w",
+            binding_version=1,
+            source_root_relpath="corpus/managed-w-markdown",
+        ),
+    )
+
+
+def _sealed_test_package(effect: dict) -> dict:
+    package = {"effect": {"world_id": "w", **effect}}
+    binding = extract_promote._resolve_publication_target("managed-w")
+    return extract_promote._seal_publication_target(package, binding)
 
 
 def _component(
@@ -224,7 +246,7 @@ def test_held_prepare_rejects_before_candidate_admission(
         lambda **_kwargs: pytest.fail("held child reached candidate admission"),
     )
     with pytest.raises(extract_promote.ExtractPromoteError) as error:
-        extract_promote.prepare(ExtractPromotePrepareRequest(run_id="child"))
+        extract_promote.prepare(ExtractPromotePrepareRequest(run_id="child", managed_world_id="managed-w"))
     assert error.value.code == "recap_semantic_hold"
     assert error.value.status_code == 409
 
@@ -257,7 +279,11 @@ def test_accepted_prepare_seals_exact_semantic_binding(
     from apps.live_control_server.integrations.dungeonmind import world_graph_writes
 
     monkeypatch.setattr(config, "world_graph_authority_mode", lambda: config.WORLD_GRAPH_AUTHORITY_DUNGEONMIND)
-    monkeypatch.setattr(world_graph_writes, "load_production_mutation_context", lambda _id: object())
+    targets: list[str] = []
+    monkeypatch.setattr(
+        world_graph_writes, "load_production_mutation_context",
+        lambda world_id: targets.append(world_id) or object(),
+    )
     monkeypatch.setattr(
         candidate_graph_admission, "prepare_candidate_graph_admission",
         lambda **_kwargs: ExtractPromotePrepareResult(
@@ -273,7 +299,15 @@ def test_accepted_prepare_seals_exact_semantic_binding(
         return package
 
     monkeypatch.setattr(world_graph_writes, "bind_identity_ledger_to_package", seal)
-    response = extract_promote.prepare(ExtractPromotePrepareRequest(run_id="child"))
+    response = extract_promote.prepare(ExtractPromotePrepareRequest(run_id="child", managed_world_id="managed-w"))
+    assert targets == ["w"]
+    assert response.world_id == "w"
+    assert response.review_package["effect"]["managed_world_publication_target"] == {
+        "schema": "dmb_managed_world_publication_target_v1",
+        "managed_world_id": "managed-w",
+        "native_world_id": "w",
+        "binding_version": 1,
+    }
     assert response.review_package["effect"][EFFECT_KEY]["run_revision"] == 6
     assert response.proposal_digest == compute_proposal_digest(response.review_package["effect"])
 
@@ -398,7 +432,7 @@ def test_held_review_package_remains_readable(
     assert rejected.promotable is False
     assert rejected.first_world_publish_eligible is False
     with pytest.raises(extract_promote.ExtractPromoteError) as error:
-        extract_promote.prepare(ExtractPromotePrepareRequest(run_id="child"))
+        extract_promote.prepare(ExtractPromotePrepareRequest(run_id="child", managed_world_id="managed-w"))
     assert error.value.code == "recap_semantic_hold"
     assert "rejected" in str(error.value)
     child.lineage["semantic_disposition"]["basis_sha256"] = "f" * 64
@@ -440,7 +474,7 @@ def test_held_review_package_remains_readable(
     assert body["promotable"] is False
     assert body["firstWorldPublishEligible"] is False
     with pytest.raises(extract_promote.ExtractPromoteError) as error:
-        extract_promote.prepare(ExtractPromotePrepareRequest(run_id="child"))
+        extract_promote.prepare(ExtractPromotePrepareRequest(run_id="child", managed_world_id="managed-w"))
     assert error.value.code == "recap_semantic_hold"
 
     def unavailable_parent(_root, run_id):
@@ -511,10 +545,10 @@ def test_confirm_never_reaches_world_writer_for_held_or_changed_child(
     )
     binding = binding if case != "missing_binding" else None
     request = ExtractPromoteConfirmRequest(
-        review_package={
-            "effect": {"candidate_admission": {"candidate_locator": str(candidate)},
-                       **({EFFECT_KEY: binding} if binding else {})},
-        },
+        review_package=_sealed_test_package({
+            "candidate_admission": {"candidate_locator": str(candidate)},
+            **({EFFECT_KEY: binding} if binding else {}),
+        }),
         assertion_ids=["mira"],
     )
     with pytest.raises(extract_promote.ExtractPromoteError) as error:
@@ -551,10 +585,10 @@ def test_exact_accepted_child_reaches_governed_writer_once(
     monkeypatch.setattr(world_graph_writes, "confirm_extract_promote_via_dungeonmind", lambda *_a, **_k: calls.append("write") or {"ok": True})
     monkeypatch.setattr(extract_promote, "_build_confirm_receipt", lambda **_kwargs: "receipt")
     request = ExtractPromoteConfirmRequest(
-        review_package={"effect": {
+        review_package=_sealed_test_package({
             "candidate_admission": {"candidate_locator": str(candidate)},
             EFFECT_KEY: accepted_effect_binding(child, accepted),
-        }},
+        }),
         assertion_ids=["mira"],
     )
     assert extract_promote.confirm(request) == "receipt"

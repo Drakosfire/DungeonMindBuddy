@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Literal, Mapping
 
@@ -49,6 +50,13 @@ from apps.live_control_server.models.candidate_graph_admission import (
 from apps.live_control_server.services.first_world_graph import (
     resolve_first_world_capability,
 )
+from apps.live_control_server.services.managed_world_graph_projection import (
+    VerifiedManagedWorldBinding,
+    resolve_managed_world_binding,
+)
+from apps.live_control_server.services.world_graph_projection import (
+    WorldGraphProjectionServiceError,
+)
 from apps.live_control_server.services.promotable_ingest_run import (
     PromotableIngestRunError,
     is_under_ingest_runs,
@@ -65,7 +73,87 @@ from graph_memory.extract_promote_ops import (
     get_extract_promote_status,
     resolve_merged_contribution_from_package,
 )
-from graph_memory.extract_promote_proposal import PromoteProposalError
+from graph_memory.extract_promote_proposal import (
+    PromoteProposalError,
+    compute_proposal_digest,
+)
+
+
+_PUBLICATION_TARGET_KEY = "managed_world_publication_target"
+_PUBLICATION_TARGET_SCHEMA = "dmb_managed_world_publication_target_v1"
+
+
+def _resolve_publication_target(managed_world_id: str) -> VerifiedManagedWorldBinding:
+    try:
+        return resolve_managed_world_binding(managed_world_id)
+    except WorldGraphProjectionServiceError as exc:
+        raise ExtractPromoteError(
+            "Selected managed World has no verified active native Graph binding; reselect and prepare again.",
+            code="publication_target_unavailable",
+            status_code=exc.status_code,
+            diagnostics=[_diagnostic(exc.code, str(exc))],
+        ) from exc
+
+
+def _target_basis(binding: VerifiedManagedWorldBinding) -> dict[str, Any]:
+    return {
+        "schema": _PUBLICATION_TARGET_SCHEMA,
+        "managed_world_id": binding.managed_world_id,
+        "native_world_id": binding.native_world_id,
+        "binding_version": binding.binding_version,
+    }
+
+
+def _seal_publication_target(
+    package: Mapping[str, Any], binding: VerifiedManagedWorldBinding
+) -> dict[str, Any]:
+    sealed = dict(package)
+    effect = dict(sealed.get("effect") or {})
+    if str(effect.get("world_id") or "").strip() != binding.native_world_id:
+        raise ExtractPromoteError(
+            "Prepared proposal target differs from the verified native World.",
+            code="publication_target_mismatch", status_code=409,
+        )
+    effect[_PUBLICATION_TARGET_KEY] = _target_basis(binding)
+    sealed["effect"] = effect
+    sealed["proposal_digest"] = compute_proposal_digest(effect)
+    return sealed
+
+
+def _assert_current_publication_target(
+    package: Mapping[str, Any]
+) -> VerifiedManagedWorldBinding:
+    effect = package.get("effect")
+    if not isinstance(effect, dict) or package.get("proposal_digest") != compute_proposal_digest(effect):
+        raise ExtractPromoteError(
+            "Publication proposal seal is missing or changed; prepare again.",
+            code="publication_target_changed", status_code=409,
+        )
+    sealed = effect.get(_PUBLICATION_TARGET_KEY)
+    if not isinstance(sealed, dict) or sealed.get("schema") != _PUBLICATION_TARGET_SCHEMA:
+        raise ExtractPromoteError(
+            "Publication target is not sealed; prepare again.",
+            code="publication_target_required", status_code=409,
+        )
+    managed_world_id = sealed.get("managed_world_id")
+    if not isinstance(managed_world_id, str) or not managed_world_id.strip():
+        raise ExtractPromoteError(
+            "Publication target is invalid; prepare again.",
+            code="publication_target_changed", status_code=409,
+        )
+    try:
+        current = _resolve_publication_target(managed_world_id)
+    except ExtractPromoteError as exc:
+        raise ExtractPromoteError(
+            "Publication target binding is unavailable; prepare again.",
+            code="publication_target_changed", status_code=409,
+        ) from exc
+    if sealed != _target_basis(current) or effect.get("world_id") != current.native_world_id:
+        raise ExtractPromoteError(
+            "Publication target binding changed; prepare again.",
+            code="publication_target_changed", status_code=409,
+        )
+    return current
 
 
 class WorldGraphNotFoundError(Exception):
@@ -1174,10 +1262,23 @@ def _require_canonical_source_artifact(source_artifact_id: str):
 def prepare(
     request: ExtractPromotePrepareRequest,
 ) -> ExtractPromotePrepareResponse:
+    if request.managed_world_id is None:
+        raise ExtractPromoteError(
+            "Select a managed World publication target before preparing.",
+            code="publication_target_required", status_code=422,
+        )
+    target = _resolve_publication_target(request.managed_world_id)
     try:
         resolved = resolve_promotable_ingest_run(request.run_id, root=repo_root())
     except PromotableIngestRunError as exc:
         raise _promotable_run_error(exc) from exc
+
+    declared_world_id = str(getattr(resolved, "world_id", None) or "").strip()
+    if declared_world_id and declared_world_id != target.native_world_id:
+        raise ExtractPromoteError(
+            "Run source World declaration differs from selected native World.",
+            code="source_world_mismatch", status_code=409,
+        )
 
     canonical_run, semantic_assessment = _recap_semantic_assessment(resolved)
     if semantic_assessment is not None and not semantic_assessment.accepted:
@@ -1348,13 +1449,19 @@ def prepare(
 
 
     source_artifact = _require_canonical_source_artifact(resolved.source_artifact_id)
+    artifact_world_id = str(getattr(source_artifact, "world_id", None) or "").strip()
+    if artifact_world_id and artifact_world_id != target.native_world_id:
+        raise ExtractPromoteError(
+            "SourceArtifact World declaration differs from selected native World.",
+            code="source_world_mismatch", status_code=409,
+        )
 
     prepare_kwargs = dict(
         candidate_graph=payload,
         source_uri=resolved.sealed_source_uri,
         source_revision_id=resolved.source_revision_id,
         prepared_by=SERVER_PREPARED_BY,
-        world_id=DEFAULT_WORLD_ID,
+        world_id=target.native_world_id,
         source_artifact_id=resolved.source_artifact_id,
         source_artifact=source_artifact,
         campaign_scope=resolved.campaign_id,
@@ -1378,7 +1485,7 @@ def prepare(
 
             try:
                 mutation_context = world_graph_writes.load_production_mutation_context(
-                    DEFAULT_WORLD_ID
+                    target.native_world_id
                 )
             except world_graph_writes.WorldGraphWriteError as exc:
                 raise ExtractPromoteError(
@@ -1395,8 +1502,6 @@ def prepare(
                 **prepare_kwargs,
                 mutation_context=mutation_context,
             )
-            from dataclasses import replace
-
             if semantic_assessment is not None:
                 assert canonical_run is not None
                 package = _bind_recap_semantic_effect(
@@ -1426,8 +1531,6 @@ def prepare(
                 world_root=world_graph_root(),
             )
             if semantic_assessment is not None:
-                from dataclasses import replace
-
                 assert canonical_run is not None
                 package = _bind_recap_semantic_effect(
                     result.review_package, canonical_run, semantic_assessment
@@ -1467,16 +1570,25 @@ def prepare(
         # expected operator state, not extract_promote_internal_error.
         raise ExtractPromoteError(
             "The World Graph is not initialized. Bootstrap or restore an "
-            "eldyrwild head under the configured world root before merging.",
+            "active head for the selected native World before merging.",
             code="world_not_initialized",
             status_code=409,
             diagnostics=[
                 _diagnostic(
                     "world_not_initialized",
-                    "no world graph head for world_id='eldyrwild'",
+                    f"no world graph head for world_id={target.native_world_id!r}",
                 )
             ],
         ) from exc
+
+    sealed_target = _seal_publication_target(result.review_package, target)
+    # A prepare spanning a binding edit must not return a reviewable stale target.
+    _assert_current_publication_target(sealed_target)
+    result = replace(
+        result,
+        review_package=sealed_target,
+        proposal_digest=str(sealed_target["proposal_digest"]),
+    )
 
 
     return ExtractPromotePrepareResponse(
@@ -1686,7 +1798,7 @@ def _project_assertion_fields(
     try:
         world_id_hint = str(
             ((review_package or {}).get("effect") or {}).get("world_id")
-            or DEFAULT_WORLD_ID
+            or ""
         )
         _verified, contribution = resolve_merged_contribution_from_package(
             review_package=review_package,
@@ -1795,9 +1907,17 @@ def _build_confirm_receipt(
             code="extract_promote_internal_error",
             status_code=500,
         )
+    sealed_world_id = str(
+        ((request.review_package or {}).get("effect") or {}).get("world_id") or ""
+    ).strip()
+    if not sealed_world_id or str(payload.get("world_id") or "").strip() != sealed_world_id:
+        raise ExtractPromoteError(
+            "Governed publication receipt does not match the sealed native World.",
+            code="publication_target_mismatch", status_code=500,
+        )
     return ExtractPromoteConfirmReceipt(
         outcome=outcome,
-        world_id=str(payload.get("world_id") or DEFAULT_WORLD_ID),
+        world_id=sealed_world_id,
         proposal_id=str(payload.get("proposal_id") or ""),
         proposal_digest=str(payload.get("proposal_digest") or ""),
         parent_revision_id=str(payload.get("parent_revision_id") or ""),
@@ -1842,6 +1962,8 @@ def confirm(
                 )
             ],
         )
+
+    _assert_current_publication_target(request.review_package)
 
 
     normalized_assertion_ids = tuple(request.assertion_ids)
@@ -1910,6 +2032,7 @@ def confirm(
 
             def _governed_confirm():
                 _assert_recap_semantics_at_confirm(locator, request.review_package)
+                _assert_current_publication_target(request.review_package)
                 return world_graph_writes.confirm_extract_promote_via_dungeonmind(
                     request,
                     database_url=_config.world_graph_authority_database_url() or "",
