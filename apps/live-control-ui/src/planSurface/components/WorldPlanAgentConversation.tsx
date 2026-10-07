@@ -1618,7 +1618,13 @@ export function WorldPlanAgentConversation({
   });
   const [composerMessage, setComposerMessage] = useState("");
   const [composerIntent, setComposerIntent] = useState<"discuss" | "propose">("discuss");
-  const [useWorldGraphForAsk, setUseWorldGraphForAsk] = useState(false);
+  const previousVerifiedWorldIdRef = useRef(verifiedWorldId);
+  const [useWorldGraphForAsk, setUseWorldGraphForAsk] = useState(true);
+  useLayoutEffect(() => {
+    if (previousVerifiedWorldIdRef.current === verifiedWorldId) return;
+    previousVerifiedWorldIdRef.current = verifiedWorldId;
+    setUseWorldGraphForAsk(true);
+  }, [verifiedWorldId]);
   const [graphCredentialStatus, setGraphCredentialStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
@@ -2309,7 +2315,6 @@ export function WorldPlanAgentConversation({
       } catch (reason) {
         throw new Error(`The Ask was not sent because its recovery envelope could not be saved. ${reason instanceof Error ? reason.message : "Browser storage is unavailable."}`);
       }
-      setUseWorldGraphForAsk(false);
       refreshPendingAskList();
       requestRef.current = null;
       setSending(false);
@@ -3149,7 +3154,7 @@ export function WorldPlanAgentConversation({
       <section id="world-plan-agent-settings" className="world-plan-agent-conversation__settings" aria-label="Local operator Agent and Graph authorization" hidden={!settingsOpen}>
         <button type="button" onClick={connectGraphSession}>Connect local session</button>
         <button type="button" onClick={clearGraphSession}>Revoke local session</button>
-        <p role="note">The local Agent and Graph session persists across reloads. A Plan Ask requests World Graph context only when you select that option.</p>
+        <p role="note">The local Agent and Graph session persists across reloads. Plan Asks use this World’s Graph context by default; clear the option to ask from the saved Plan alone.</p>
         {graphCredentialStatus ? <p role="status">{graphCredentialStatus}</p> : null}
       </section>
       {composerIntent === "discuss" ? (

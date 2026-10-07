@@ -60,6 +60,17 @@ const legacyThreadId = "legacy-thread-test";
 const pendingAskClearedEventName = "dmb:world-plan-pending-ask-cleared:v1";
 const pendingAskAcceptedEventName = "dmb:world-plan-ask-accepted:v1";
 const pendingAskEventListeners: { eventName: string; listener: EventListener }[] = [];
+const graphContextCheckboxName = "Use this World’s Graph context for this question";
+
+function ensureWorldGraphAskEnabled() {
+  const checkbox = screen.getByRole("checkbox", { name: graphContextCheckboxName }) as HTMLInputElement;
+  if (!checkbox.checked) fireEvent.click(checkbox);
+}
+
+function ensureWorldGraphAskDisabled() {
+  const checkbox = screen.getByRole("checkbox", { name: graphContextCheckboxName }) as HTMLInputElement;
+  if (checkbox.checked) fireEvent.click(checkbox);
+}
 
 function makeTurn(
   sequence: number,
@@ -887,6 +898,8 @@ function deferred<T>() {
 }
 
 interface ConversationTestProps {
+  worldId?: string;
+  worldName?: string;
   documentId?: string;
   revision?: number;
   editBridge?: any;
@@ -911,8 +924,8 @@ function conversationElement(props: ConversationTestProps = {}) {
     : playableTarget ? { revision: 7, contentSha256 } : null;
   return (
     <WorldPlanAgentConversation
-      worldId={worldId}
-      worldName="Test World"
+      worldId={props.worldId ?? worldId}
+      worldName={props.worldName ?? "Test World"}
       documentId={props.documentId ?? documentId}
       surfaceInstanceId={surfaceInstanceId}
       revision={revision}
@@ -1245,7 +1258,7 @@ async function leavePendingGraphAsk(
   const mounted = render(conversationElement({ playableTarget, selectionGeneration: 0 }));
 
   await screen.findByText(/No messages here yet/);
-  fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+  ensureWorldGraphAskEnabled();
   fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
     target: { value: "Who watches the western gate?" },
   });
@@ -1375,6 +1388,7 @@ describe("World Plan conversation consumer", () => {
     const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockReturnValue(response);
     render(conversationElement());
     await screen.findByText(/No messages here yet/);
+    ensureWorldGraphAskDisabled();
     const textarea = screen.getByLabelText("Message DungeonBuddy");
     fireEvent.change(textarea, { target: { value: "What happens at the opening?" } });
 
@@ -1560,7 +1574,7 @@ describe("World Plan conversation consumer", () => {
     render(conversationElement({ playableTarget: card, savedDirty: true }));
     await screen.findByText(/No messages here yet/);
     const checkbox = screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" });
-    fireEvent.click(checkbox);
+    expect(checkbox).toBeChecked();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "Who watches the western gate?" },
     });
@@ -1601,7 +1615,7 @@ describe("World Plan conversation consumer", () => {
     expect(JSON.stringify(captured)).not.toContain("unsaved editor bytes");
     expect(JSON.stringify(captured)).not.toContain("native_world_id");
     expect(JSON.stringify(captured)).not.toContain("graph_revision");
-    expect(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" })).toBeChecked();
     expect(screen.queryByText(/assertion-internal-test|native-world-internal-test/)).not.toBeInTheDocument();
   });
 
@@ -1681,7 +1695,7 @@ describe("World Plan conversation consumer", () => {
 
     render(conversationElement());
     await screen.findByText(/No messages here yet/);
-    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    ensureWorldGraphAskEnabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Check the northern gate." } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
@@ -1727,7 +1741,7 @@ describe("World Plan conversation consumer", () => {
 
     render(conversationElement());
     await screen.findByText(/No messages here yet/);
-    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    ensureWorldGraphAskEnabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Describe the gate patrol." } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
@@ -1853,7 +1867,7 @@ describe("World Plan conversation consumer", () => {
     });
     render(conversationElement());
     await screen.findByText(/No messages here yet/);
-    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    ensureWorldGraphAskEnabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Ask for a grounded answer." } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
@@ -1872,7 +1886,7 @@ describe("World Plan conversation consumer", () => {
     });
     render(conversationElement());
     await screen.findByText(/No messages here yet/);
-    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    ensureWorldGraphAskEnabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Ask with a malformed map." } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
@@ -1905,7 +1919,7 @@ describe("World Plan conversation consumer", () => {
     } as Response);
     render(conversationElement());
     await screen.findByText(/No messages here yet/);
-    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    ensureWorldGraphAskEnabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Check the north gate." } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
@@ -1952,7 +1966,7 @@ describe("World Plan conversation consumer", () => {
     });
     render(conversationElement());
     await screen.findByText(/No messages here yet/);
-    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    expect(screen.getByRole("checkbox", { name: graphContextCheckboxName })).toBeChecked();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "Ask once before fixing the budget." },
     });
@@ -1961,8 +1975,8 @@ describe("World Plan conversation consumer", () => {
     expect(await screen.findByText(/no answer was saved/)).toBeInTheDocument();
     expect(pendingAskKeys()).toEqual([]);
     expect(postAsk).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("checkbox", { name: graphContextCheckboxName })).toBeChecked();
 
-    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "Ask again after fixing the request budget." },
     });
@@ -1979,7 +1993,7 @@ describe("World Plan conversation consumer", () => {
     const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockRejectedValue(new Error("connection reset after dispatch"));
     render(conversationElement());
     await screen.findByText(/No messages here yet/);
-    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    ensureWorldGraphAskEnabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Check the north gate." } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
@@ -1999,7 +2013,7 @@ describe("World Plan conversation consumer", () => {
     );
     render(conversationElement());
     await screen.findByText(/No messages here yet/);
-    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    ensureWorldGraphAskEnabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "Ask about the northern gate." },
     });
@@ -2092,7 +2106,7 @@ describe("World Plan conversation consumer", () => {
     } as Response);
     render(conversationElement());
     await screen.findByText(/No messages here yet/);
-    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    ensureWorldGraphAskEnabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Check the north gate." } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
@@ -2609,7 +2623,7 @@ describe("World Plan conversation consumer", () => {
     const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockRejectedValue(new liveApi.LiveApiError("Unauthorized", 401));
     render(conversationElement());
     await screen.findByText(/No messages here yet/);
-    fireEvent.click(screen.getByRole("checkbox", { name: "Use this World’s Graph context for this question" }));
+    ensureWorldGraphAskEnabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Check the north gate." } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
@@ -2629,6 +2643,10 @@ describe("World Plan conversation consumer", () => {
     });
     render(conversationElement());
     await screen.findByText(/No messages here yet/);
+    const graphContextCheckbox = screen.getByRole("checkbox", { name: graphContextCheckboxName });
+    expect(graphContextCheckbox).toBeChecked();
+    fireEvent.click(graphContextCheckbox);
+    expect(graphContextCheckbox).not.toBeChecked();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Ask without Graph context" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     expect(await screen.findByText("A saved-Plan answer.")).toBeInTheDocument();
@@ -2638,6 +2656,64 @@ describe("World Plan conversation consumer", () => {
       "client_thread_id", "client_work_state", "graph_request", "graph_selection", "message", "owner_scope",
       "primary_work", "schema", "surface", "turn_id",
     ]);
+  });
+
+  it("keeps the World’s choice across Plan changes and resets it for a newly selected World", async () => {
+    setupApi(history("conversation-a", 4, []));
+    const view = render(conversationElement());
+    await screen.findByText(/No messages here yet/);
+    const graphContextCheckbox = screen.getByRole("checkbox", { name: graphContextCheckboxName });
+    expect(graphContextCheckbox).toBeChecked();
+    fireEvent.click(graphContextCheckbox);
+    expect(graphContextCheckbox).not.toBeChecked();
+
+    const nextDocumentId = "another-saved-plan-test";
+    harness.documentId = nextDocumentId;
+    harness.agent.scope = {
+      campaignId: `world-plan-agent:world:${encodeURIComponent(worldId)}:document:${encodeURIComponent(nextDocumentId)}`,
+      surfaceId: "plan",
+      sessionNumber: null,
+      documentId: nextDocumentId,
+    };
+    await act(async () => {
+      view.rerender(conversationElement({
+        documentId: nextDocumentId,
+        playableTarget: { kind: "scene", id: "scene:another-plan" },
+        selectionGeneration: 1,
+      }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(screen.getByRole("checkbox", { name: graphContextCheckboxName })).not.toBeChecked();
+
+    const nextWorldId = "another-managed-world-test";
+    harness.worldId = nextWorldId;
+    harness.agent.scope = {
+      campaignId: `world-plan-agent:world:${encodeURIComponent(nextWorldId)}:document:${encodeURIComponent(nextDocumentId)}`,
+      surfaceId: "plan",
+      sessionNumber: null,
+      documentId: nextDocumentId,
+    };
+    await act(async () => {
+      view.rerender(conversationElement({ worldId: nextWorldId, documentId: nextDocumentId }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const nextWorldCheckbox = screen.getByRole("checkbox", { name: graphContextCheckboxName });
+    expect(nextWorldCheckbox).toBeChecked();
+    fireEvent.click(nextWorldCheckbox);
+    expect(nextWorldCheckbox).not.toBeChecked();
+
+    harness.worldId = worldId;
+    harness.agent.scope = {
+      campaignId: `world-plan-agent:world:${encodeURIComponent(worldId)}:document:${encodeURIComponent(nextDocumentId)}`,
+      surfaceId: "plan",
+      sessionNumber: null,
+      documentId: nextDocumentId,
+    };
+    await act(async () => {
+      view.rerender(conversationElement({ worldId, documentId: nextDocumentId }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(screen.getByRole("checkbox", { name: graphContextCheckboxName })).toBeChecked();
   });
 
   it("renders the immutable target, grammar, and exact WorkRevision from history", async () => {
@@ -2681,6 +2757,7 @@ describe("World Plan conversation consumer", () => {
     const mounted = render(conversationElement({ playableTarget: cardA, selectionGeneration: 0 }));
 
     await screen.findByText(/No messages here yet/);
+    ensureWorldGraphAskDisabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "What happens at the opening?" },
     });
@@ -2739,6 +2816,7 @@ describe("World Plan conversation consumer", () => {
     const mounted = render(conversationElement());
 
     await screen.findByText(/No messages here yet/);
+    ensureWorldGraphAskDisabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "What is the saved Plan's opening?" },
     });
@@ -2857,6 +2935,7 @@ describe("World Plan conversation consumer", () => {
     const mounted = render(conversationElement());
 
     await screen.findByText(/No messages here yet/);
+    ensureWorldGraphAskDisabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "Original captured request" },
     });
@@ -2920,6 +2999,7 @@ describe("World Plan conversation consumer", () => {
       const mounted = render(conversationElement());
 
       await screen.findByText(/No messages here yet/);
+      ensureWorldGraphAskDisabled();
       fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
         target: { value: "Keep this exact request recoverable" },
       });
@@ -2975,6 +3055,7 @@ describe("World Plan conversation consumer", () => {
     const mounted = render(conversationElement({ playableTarget: sameCard, selectionGeneration: 0 }));
 
     await screen.findByText(/No messages here yet/);
+    ensureWorldGraphAskDisabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "What changes at arrival?" },
     });
@@ -3028,6 +3109,7 @@ describe("World Plan conversation consumer", () => {
     const mounted = render(conversationElement({ playableTarget: cardA, selectionGeneration: 0 }));
 
     await screen.findByText(/No messages here yet/);
+    ensureWorldGraphAskDisabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "What happens at the opening?" },
     });
@@ -3231,6 +3313,8 @@ describe("World Plan conversation consumer", () => {
     });
 
     const first = mountComponent();
+    await screen.findByText(/No messages here yet/i);
+    ensureWorldGraphAskDisabled();
     fireEvent.click(screen.getByText("Advanced details"));
     expect(await screen.findByRole("region", { name: "Local-only legacy Plan history" })).toBeInTheDocument();
     expect(screen.getByText("Legacy only fact")).toBeInTheDocument();
@@ -3399,6 +3483,7 @@ describe("World Plan conversation consumer", () => {
 
     const mounted = mountComponent(7, bridge);
     await screen.findByText(/No messages here yet/i);
+    ensureWorldGraphAskDisabled();
     expect(screen.getAllByRole("textbox")).toHaveLength(1);
     const messageBox = screen.getByLabelText("Message DungeonBuddy");
     expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument();
@@ -3598,6 +3683,7 @@ describe("World Plan conversation consumer", () => {
 
     mountComponent();
     await screen.findByText(/No messages here yet/i);
+    ensureWorldGraphAskDisabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Keep this exact ask" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
@@ -3682,6 +3768,7 @@ describe("World Plan conversation consumer", () => {
 
     mountComponent();
     await screen.findByText(/No messages here yet/i);
+    ensureWorldGraphAskDisabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Keep this in conversation A" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     expect(await screen.findByText(/Ask outcome is uncertain/)).toBeInTheDocument();
