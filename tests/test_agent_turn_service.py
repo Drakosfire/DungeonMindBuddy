@@ -202,6 +202,16 @@ def test_plan_context_policy_fails_after_replay_preflight_before_mutable_reads(
     assert runtime_lookups == []
 
 
+def test_plan_graph_requires_status_derivation_contract(monkeypatch: Any) -> None:
+    from application_state.agent_conversation import types as graph_types
+    from apps.live_control_server.services import agent_turn_service as service_module
+
+    monkeypatch.delattr(graph_types, "derive_execution_answer_context_status")
+    with pytest.raises(AgentTurnServiceError) as caught:
+        service_module._app_state_graph_execution_types()
+    assert caught.value.code == "plan_graph_execution_unavailable"
+
+
 @pytest.mark.parametrize(
     ("authorization", "completed", "claimability", "projected_authorization"),
     [
@@ -1139,6 +1149,17 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     assert completion.answer_context_status == "plan_only_insufficient_evidence"
     assert bindings == {}
     assert answer == "The keeper waits."
+    for model_status in (
+        "plan_only_graph_unused", "graph_grounded", "graph_grounded_partial",
+    ):
+        mislabeled_plan_answer = json.loads(typed_answer)
+        mislabeled_plan_answer["answer_context_status"] = model_status
+        derived, derived_bindings, _ = service_module._parse_policy_completion(
+            json.dumps(mislabeled_plan_answer), turn,
+            adapter.producing_provider_attempt_id,
+        )
+        assert derived.answer_context_status == "plan_only_insufficient_evidence"
+        assert derived_bindings == {}
 
     # The one public synthetic provider witness returned this exact shape.
     # It must remain rejected at the owning completion boundary rather than
@@ -1336,15 +1357,55 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     assert len([event for event in final_turn.graph_context_execution.events if event.kind == "provider_attempt_authorized"]) == 2
     assert final_turn.graph_context_execution.events[-1].kind == "provider_outcome"
 
-    wrong_binding_status = json.loads(graph_answer)
-    wrong_binding_status["answer_context_status"] = "graph_grounded_partial"
-    with pytest.raises(AgentTurnServiceError) as binding_rejection:
-        service_module._parse_policy_completion(
+    for model_status in (
+        "graph_grounded_partial", "plan_only_graph_unused",
+        "plan_only_insufficient_evidence",
+    ):
+        wrong_binding_status = json.loads(graph_answer)
+        wrong_binding_status["answer_context_status"] = model_status
+        derived, derived_bindings, _ = service_module._parse_policy_completion(
             json.dumps(wrong_binding_status), final_turn, final_attempt,
         )
-    assert (binding_rejection.value.stage, binding_rejection.value.reason) == (
-        "binding", "grounded_status_mismatch",
+        assert derived.answer_context_status == "graph_grounded"
+        assert derived_bindings == graph_bindings
+    plan_only_with_graph_available = json.loads(typed_answer)
+    plan_only_with_graph_available["answer_context_status"] = "graph_grounded"
+    derived_plan, derived_plan_bindings, _ = service_module._parse_policy_completion(
+        json.dumps(plan_only_with_graph_available), final_turn, final_attempt,
     )
+    assert derived_plan.answer_context_status == "plan_only_graph_unused"
+    assert derived_plan_bindings == {}
+    for coverage, truncated in (("incomplete", False), ("complete", True)):
+        partial_operation = operation_event.model_copy(update={
+            "coverage_status": coverage, "truncated": truncated,
+        })
+        partial_execution = graph_types.PlanWorldGraphExecutionV1.model_validate({
+            **final_turn.graph_context_execution.model_dump(mode="json", by_alias=True),
+            "events": [
+                (partial_operation if event.event_id == operation_event.event_id else event)
+                .model_dump(mode="json", by_alias=True)
+                for event in final_turn.graph_context_execution.events
+            ],
+        })
+        partial_turn = final_turn.model_copy(update={
+            "graph_context_execution": partial_execution,
+        })
+        partial_completion, partial_bindings, _ = service_module._parse_policy_completion(
+            graph_answer, partial_turn, final_attempt,
+        )
+        assert partial_completion.answer_context_status == "graph_grounded_partial"
+        assert partial_bindings == graph_bindings
+    for malformed_label in ("PRIVATE_INVALID_STATUS", None, False, 3):
+        malformed_status = json.loads(graph_answer)
+        malformed_status["answer_context_status"] = malformed_label
+        with pytest.raises(AgentTurnServiceError) as invalid_status:
+            service_module._parse_policy_completion(
+                json.dumps(malformed_status), final_turn, final_attempt,
+            )
+        assert (invalid_status.value.stage, invalid_status.value.reason) == (
+            "typed", "completion_schema",
+        )
+        assert "PRIVATE_INVALID_STATUS" not in str(invalid_status.value)
     for unclassified_error in (
         ValueError("PRIVATE_UNCLASSIFIED_BINDING_BODY"),
         graph_types.GraphCompletionValidationError(
@@ -1626,15 +1687,6 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         assert chr(0xD800) not in diagnostic
 
     fake = FakeExecutionPort()
-    failed_codes = []
-
-    def record_binding_failure(failure: Any, *, interrupted: bool = False) -> Turn:
-        assert interrupted is False
-        failed_codes.append(failure.failure_code)
-        assert fake.turn is not None
-        return fake.turn
-
-    fake.fail_turn = record_binding_failure
     private_binding_answer = json.dumps({
         "answer_context_status": "plan_only_graph_unused",
         "answer_segments": [{
@@ -1643,31 +1695,34 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         "citation_map": None,
     })
     caplog.clear()
-    with pytest.raises(AgentTurnServiceError) as rejected_binding_answer:
-        execute_agent_turn(
-            request, root=Path("/tmp"),
-            pointer_store=HermesSessionPointerStore(
-                Path("/tmp") / f"plan-binding-rejected-{uuid4()}"
-            ),
-            owner_resolver=lambda _request: {
-                "kind": "world", "id": "world:one", "name": "World One",
-            },
-            work_resolver=lambda _request, _owner: work,
-            graph_resolver=lambda *_args: pytest.fail("generic Graph resolver was used"),
-            plan_graph_resolver=lambda *_args: bootstrap,
-            runtime=GuardedRuntime(private_binding_answer),
-            conversation_service=fake,
-        )
-    assert rejected_binding_answer.value.code == "answer_validation_failed"
-    assert failed_codes == ["answer_validation_failed"]
-    assert fake.turn is not None and fake.turn.completion is None
-    binding_diagnostic = next(
-        record.getMessage() for record in caplog.records
-        if record.getMessage().startswith("plan_graph_answer_validation_failed ")
+    derived_response = execute_agent_turn(
+        request, root=Path("/tmp"),
+        pointer_store=HermesSessionPointerStore(
+            Path("/tmp") / f"plan-binding-derived-{uuid4()}"
+        ),
+        owner_resolver=lambda _request: {
+            "kind": "world", "id": "world:one", "name": "World One",
+        },
+        work_resolver=lambda _request, _owner: work,
+        graph_resolver=lambda *_args: pytest.fail("generic Graph resolver was used"),
+        plan_graph_resolver=lambda *_args: bootstrap,
+        runtime=GuardedRuntime(private_binding_answer),
+        conversation_service=fake,
     )
-    assert "stage=binding reason=plan_only_status_mismatch" in binding_diagnostic
-    assert "PRIVATE_PROVIDER_FINAL_BODY" not in binding_diagnostic
-    assert "Plan-only status does not match evidence" not in binding_diagnostic
+    assert derived_response.plan_context.completion.answer_context_status == (
+        "plan_only_insufficient_evidence"
+    )
+    assert fake.turn is not None and fake.turn.status == "completed"
+    assert fake.turn.completion.answer_context_status == "plan_only_insufficient_evidence"
+    assert fake.turn.assistant_text == "PRIVATE_PROVIDER_FINAL_BODY"
+    execution_events = fake.turn.graph_context_execution.events
+    assert execution_events[-1].kind == "completion_binding"
+    assert execution_events[-1].provider_attempt_id in {
+        event.provider_attempt_id for event in execution_events
+        if event.kind == "provider_attempt_authorized"
+    }
+    assert "plan_graph_answer_validation_failed" not in caplog.text
+    assert "PRIVATE_PROVIDER_FINAL_BODY" not in caplog.text
 
     for uncertain_last, fail_finalization in ((False, False), (True, False), (False, True)):
         fake = FakeExecutionPort()

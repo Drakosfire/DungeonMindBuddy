@@ -6,13 +6,13 @@ import json
 import logging
 import re
 import psycopg
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 from dataclasses import dataclass, replace
 from datetime import datetime
 from hashlib import sha256
 from pathlib import Path
 from threading import Event, Lock, Thread
-from typing import Any, Callable, Mapping, Protocol
+from typing import Annotated, Any, Callable, Mapping, Protocol
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from application_state.agent_conversation import AgentConversationService
@@ -324,6 +324,7 @@ def _app_state_graph_execution_types() -> Any:
         "ProviderAttemptAuthorizedEventV1",
         "ProviderOutcomeEventV1",
         "ValidatedGraphOperationEventV1",
+        "derive_execution_answer_context_status",
     )
     if any(not hasattr(graph_types, name) for name in required):
         raise AgentTurnServiceError(
@@ -1463,18 +1464,24 @@ def _parse_policy_completion(
                 "context_receipt_sha256": receipt.context_receipt_sha256,
                 "entries": citations["entries"],
             }
-        has_graph = any(s.get("kind") == "graph_claim" for s in normalized_segments)
         stage, reason = "typed", "completion_schema"
-        completion = graph_types.PlanWorldGraphCompletionV1.model_validate({
-            "schema": "dmb_plan_world_graph_completion_v1",
-            "context_receipt_sha256": receipt.context_receipt_sha256,
-            "answer_basis": (
-                "committed_plan_plus_world_graph" if has_graph else "committed_plan"
-            ),
-            "answer_context_status": candidate["answer_context_status"],
-            "answer_segments": normalized_segments,
-            "citation_map": citations,
-        })
+        completion_fields = graph_types.PlanWorldGraphCompletionV1.model_fields
+        TypeAdapter(completion_fields["answer_context_status"].annotation).validate_python(
+            candidate["answer_context_status"]
+        )
+        stage, reason = "typed", "segment_schema"
+        segment_field = completion_fields["answer_segments"]
+        typed_segments = TypeAdapter(
+            Annotated[segment_field.annotation, *segment_field.metadata]
+        ).validate_python(normalized_segments)
+        stage, reason = "typed", "citation_schema"
+        typed_citations = TypeAdapter(
+            completion_fields["citation_map"].annotation
+        ).validate_python(citations)
+        has_graph = any(
+            isinstance(segment, graph_types.PlanWorldGraphClaimSegmentV1)
+            for segment in typed_segments
+        )
         stage, reason = "evidence", "producing_attempt_missing"
         auth = next(
             event for event in execution.events
@@ -1486,7 +1493,7 @@ def _parse_policy_completion(
             if getattr(event, "kind", None) == "validated_graph_operation"
         }
         bindings: dict[str, list[UUID]] = {}
-        for segment in completion.answer_segments:
+        for segment in typed_segments:
             if not isinstance(segment, graph_types.PlanWorldGraphClaimSegmentV1):
                 continue
             initial_targets = (
@@ -1516,6 +1523,27 @@ def _parse_policy_completion(
                 stage, reason = "evidence", "producing_envelope_support"
                 raise ValueError("Graph claim lacks producing-envelope support")
             bindings[segment.claim_id] = [] if initial_support else supporting[:1]
+        stage, reason = "binding", "completion_binding"
+        derived_status = graph_types.derive_execution_answer_context_status(
+            context_receipt_sha256=receipt.context_receipt_sha256,
+            answer_segments=typed_segments,
+            citation_map=typed_citations,
+            receipt=receipt,
+            execution=execution,
+            producing_provider_attempt_id=producing_provider_attempt_id,
+            claim_graph_event_ids=bindings,
+        )
+        stage, reason = "typed", "completion_schema"
+        completion = graph_types.PlanWorldGraphCompletionV1.model_validate({
+            "schema": "dmb_plan_world_graph_completion_v1",
+            "context_receipt_sha256": receipt.context_receipt_sha256,
+            "answer_basis": (
+                "committed_plan_plus_world_graph" if has_graph else "committed_plan"
+            ),
+            "answer_context_status": derived_status,
+            "answer_segments": typed_segments,
+            "citation_map": typed_citations,
+        })
         stage, reason = "binding", "completion_binding"
         graph_types.validate_execution_completion(
             completion, receipt, execution, producing_provider_attempt_id, bindings
