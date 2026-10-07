@@ -2568,7 +2568,7 @@ export function WorldPlanAgentConversation({
             <div key={`${turn.turn_id}-graph-claim-${index}`} className="world-plan-agent-conversation__graph-citation">
               <p>
                 <q>{claim.text}</q>
-                <span> · World Graph {citation.target_kind} · Graph revision <code>{citation.graph_revision}</code> · source text not opened.</span>
+                <span> · World Graph {citation.target_kind} · Graph revision <code>{citation.graph_revision}</code> · {citation.source_opened ? "source passage read." : "source text not opened."}</span>
               </p>
               <details>
                 <summary>{count} evidence reference{count === 1 ? "" : "s"}</summary>

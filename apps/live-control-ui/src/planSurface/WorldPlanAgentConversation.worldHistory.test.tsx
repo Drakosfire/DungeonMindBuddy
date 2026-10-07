@@ -1687,6 +1687,7 @@ describe("World Plan conversation consumer", () => {
 
     expect(await screen.findByText("Grounded in World Graph evidence.")).toBeInTheDocument();
     expect(await screen.findByText("The tool found a watched gate.")).toBeInTheDocument();
+    expect(screen.getByText(/source text not opened\./)).toBeInTheDocument();
     const details = screen.getByText("1 evidence reference").closest("details")!;
     fireEvent.click(screen.getByText("1 evidence reference"));
     expect(within(details).getByText("tool-evidence-test")).toBeInTheDocument();
@@ -1708,6 +1709,8 @@ describe("World Plan conversation consumer", () => {
 
     render(conversationElement());
     expect((await screen.findAllByText("The western gate is watched.")).length).toBeGreaterThan(0);
+    expect(screen.getByText(/source passage read\./)).toBeInTheDocument();
+    expect(screen.queryByText(/source text not opened\./)).not.toBeInTheDocument();
     expect(screen.queryByText(/invalid Graph-context receipt/)).not.toBeInTheDocument();
   });
 
