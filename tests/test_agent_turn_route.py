@@ -469,6 +469,8 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         native_world_id=NATIVE_ID,
         binding_version=1,
         graph_revision=published.revision_id,
+    ), graph_packet=SimpleNamespace(
+        selection_policy_version="parent_initial_retrieval_with_bounded_source_index_v1",
     ))
     replayed = agent_route._plan_context_resolver(
         selected_body, {"kind": "world", "id": managed.world_id}, selected_work, frozen,
@@ -623,6 +625,63 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
             }), None, view, budget,
         )
     assert wrong_index_version.value.code == "graph_evidence_invalid"
+    legacy_initial_ids = set(bootstrap.evidence_by_anchor_id)
+    legacy_pins = tuple(
+        pin for pin in bootstrap.source_scope_anchors
+        if pin["anchor_id"] in legacy_initial_ids
+    )
+    assert legacy_pins and len(legacy_pins) < len(bootstrap.source_scope_anchors)
+    legacy_bootstrap = replace(
+        bootstrap,
+        source_scope_anchors=legacy_pins,
+        source_index_commitment=None,
+        candidate_evidence_ref_ids=tuple(sorted(set(bootstrap.evidence_by_anchor_id.values()))),
+    )
+    legacy_receipt, legacy_execution, _ = _freeze_policy_receipt(
+        body, work, legacy_bootstrap, None, view, budget,
+    )
+    assert legacy_receipt.graph_packet.selection_policy_version == "parent_initial_retrieval_v1"
+    assert legacy_receipt.graph_packet.retrieval_packet_sha256 == _canonical_sha256(
+        initial_packet
+    )
+    v1_receipt, v1_execution, _ = _freeze_policy_receipt(
+        body, work, replace(legacy_bootstrap, source_scope_anchors=()),
+        None, view, budget,
+    )
+    with monkeypatch.context() as legacy_patch:
+        def unexpected_index(*_args: Any, **_kwargs: Any) -> Any:
+            raise AssertionError("historical replay must not query the full index")
+
+        legacy_patch.setattr(direct, "list_source_anchor_index_direct_v2", unexpected_index)
+        legacy_v2_replay = agent_route._plan_context_resolver(
+            body, {"kind": "world", "id": managed.world_id}, work, legacy_receipt,
+        )
+        legacy_v1_replay = agent_route._plan_context_resolver(
+            body, {"kind": "world", "id": managed.world_id}, work, v1_receipt,
+        )
+        unknown_policy_receipt = v1_receipt.model_copy(update={
+            "graph_packet": v1_receipt.graph_packet.model_copy(update={
+                "selection_policy_version": "future_selection_policy_v2",
+            }),
+        })
+        with pytest.raises(AgentTurnServiceError) as unknown_policy:
+            agent_route._plan_context_resolver(
+                body, {"kind": "world", "id": managed.world_id},
+                work, unknown_policy_receipt,
+            )
+        assert unknown_policy.value.code == "turn_receipt_unverifiable"
+        assert unknown_policy.value.provider_dispatched is False
+    assert legacy_v2_replay.source_scope_anchors == legacy_pins
+    assert legacy_v2_replay.source_index_commitment is None
+    assert legacy_v1_replay.source_index_commitment is None
+    request_identity = body.model_dump_json(by_alias=True).encode("utf-8")
+    legacy_session_id, _ = agent_route._source_session_handles(
+        managed.world_id, body.turn_id, published.revision_id,
+        __import__("hashlib").sha256(request_identity).hexdigest(),
+    )
+    assert legacy_v2_replay.retrieval_session.id == legacy_session_id
+    assert legacy_v1_replay.retrieval_session.id == legacy_session_id
+    assert bootstrap.retrieval_session.id != legacy_session_id
     assert execution.context_receipt_sha256 == receipt.context_receipt_sha256
     assert tuple(receipt.assembled_input.dispatched_assertion_ids) == tuple(membership[0])
 
@@ -655,6 +714,28 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         claim_expires_at=now + timedelta(minutes=2),
         accepted_at=now, completed_at=None, updated_at=now,
     )
+    from apps.live_control_server.services.agent_turn_service import (
+        _restore_v2_retry_bootstrap,
+    )
+
+    restored_legacy_v2 = _restore_v2_retry_bootstrap(
+        legacy_v2_replay,
+        turn.model_copy(update={
+            "graph_context_receipt": legacy_receipt,
+            "graph_context_execution": legacy_execution,
+        }),
+    )
+    assert restored_legacy_v2.source_scope_anchors == legacy_pins
+    assert restored_legacy_v2.source_index_commitment is None
+    restored_legacy_v1 = _restore_v2_retry_bootstrap(
+        legacy_v1_replay,
+        turn.model_copy(update={
+            "graph_context_receipt": v1_receipt,
+            "graph_context_execution": v1_execution,
+        }),
+    )
+    assert restored_legacy_v1.source_scope_anchors == ()
+    assert restored_legacy_v1.source_index_commitment is None
 
     class FakeFence:
         def __init__(self, value: Turn) -> None:

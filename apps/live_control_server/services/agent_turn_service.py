@@ -564,7 +564,7 @@ def _restore_v2_retry_bootstrap(
     execution = turn.graph_context_execution
     if not isinstance(execution, graph_types.PlanWorldGraphExecutionV2):
         # A legacy frozen execution cannot gain the V2 source tool on replay.
-        return replace(bootstrap, source_scope_anchors=())
+        return replace(bootstrap, source_scope_anchors=(), source_index_commitment=None)
     receipt = turn.graph_context_receipt
     scope = execution.policy.source_read_scope
     if (

@@ -775,30 +775,64 @@ def _plan_context_resolver(
         for anchor in result.source_anchors
         if anchor.anchor_id and anchor.evidence_ref_id
     }
+    stored_selection_policy = (
+        None if frozen_receipt is None
+        else frozen_receipt.graph_packet.selection_policy_version
+    )
+    if stored_selection_policy not in {
+        None,
+        "parent_initial_retrieval_v1",
+        "parent_initial_retrieval_with_bounded_source_index_v1",
+    }:
+        raise AgentTurnServiceError(
+            "The stored Graph selection policy cannot be safely reconstructed.",
+            code="turn_receipt_unverifiable", status_code=409,
+            provider_dispatched=False,
+        )
+    use_bounded_index = (
+        stored_selection_policy is None
+        or stored_selection_policy
+        == "parent_initial_retrieval_with_bounded_source_index_v1"
+    )
     source_scope_anchors: list[dict[str, str]] = []
     source_index_commitment: dict[str, Any] | None = None
     try:
-        index = list_source_anchor_index_direct_v2(
-            services, request, revision_id=revision_id,
-        )
-        if index.status != "complete":
-            raise AgentTurnServiceError(
-                "The pinned source-anchor index exceeds the 512-anchor limit.",
-                code="graph_evidence_invalid", status_code=502,
-                provider_dispatched=False,
+        if use_bounded_index:
+            index = list_source_anchor_index_direct_v2(
+                services, request, revision_id=revision_id,
             )
-        index_by_id = {pin.anchor_id: pin for pin in index.source_pins}
-        for pin in resolved_search.source_pins:
-            if index_by_id.get(pin.anchor_id) != pin:
-                raise ValueError("initial search source pin differs from the complete native index")
-        for pin in index.source_pins:
+            if index.status != "complete":
+                raise AgentTurnServiceError(
+                    "The pinned source-anchor index exceeds the 512-anchor limit.",
+                    code="graph_evidence_invalid", status_code=502,
+                    provider_dispatched=False,
+                )
+            index_by_id = {pin.anchor_id: pin for pin in index.source_pins}
+            for pin in resolved_search.source_pins:
+                if index_by_id.get(pin.anchor_id) != pin:
+                    raise ValueError("initial search source pin differs from the complete native index")
+            source_pins = index.source_pins
+        else:
+            by_id = {anchor.anchor_id: anchor for anchor in result.source_anchors}
+            for pin in resolved_search.source_pins:
+                anchor = by_id.get(pin.anchor_id)
+                if (
+                    anchor is None
+                    or not anchor.readable
+                    or pin.graph_revision != revision_id
+                    or pin.evidence_ref_id != anchor.evidence_ref_id
+                    or pin.source_artifact_id != anchor.source_artifact_id
+                ):
+                    raise ValueError("source anchor metadata differs from the admitted Graph result")
+            source_pins = resolved_search.source_pins
+        for pin in source_pins:
             source_scope_anchors.append({
                 "anchor_id": pin.anchor_id,
                 "evidence_ref_id": pin.evidence_ref_id,
                 "source_artifact_id": pin.source_artifact_id,
                 "source_revision_id": pin.source_revision_id,
             })
-        if source_scope_anchors:
+        if use_bounded_index and source_scope_anchors:
             source_index_commitment = {
                 "schema": "dmb_bounded_source_anchor_index_commitment_v1",
                 "world_id": native_world_id,
@@ -818,14 +852,13 @@ def _plan_context_resolver(
         ) from exc
     # A safely reclaimed V2 turn must reconstruct the same initial provider
     # envelope after process restart; both handles appear in that envelope.
+    request_identity = body.model_dump_json(by_alias=True).encode("utf-8")
+    if use_bounded_index:
+        request_identity += b"\x00" + (work.plan_markdown or "").encode("utf-8")
     source_session_id, initial_operation_id = (
         _source_session_handles(
             managed_world_id, body.turn_id, revision_id,
-            sha256(
-                body.model_dump_json(by_alias=True).encode("utf-8")
-                + b"\x00"
-                + (work.plan_markdown or "").encode("utf-8")
-            ).hexdigest(),
+            sha256(request_identity).hexdigest(),
         )
         if source_scope_anchors else (None, f"op:{uuid4().hex[:12]}")
     )
