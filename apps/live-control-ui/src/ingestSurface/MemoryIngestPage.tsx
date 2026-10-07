@@ -105,9 +105,9 @@ function SelectedWorldMemoryIngestPage() {
       }
     }
     const response = await getPlanView(managedWorldId);
-    if (managedWorldId && (
-      response.world_id !== managedWorldId || response.campaign_id !== managedWorldId
-    )) {
+    // The server-resolved World ID pins this view to the selected managed
+    // World. Campaign scope is separate context and is not a World identity.
+    if (managedWorldId && response.world_id !== managedWorldId) {
       throw new Error(`Ingest context does not match selected World ${managedWorldId}.`);
     }
     return { planView: response, sourceReview: nextSourceReview };

@@ -114,6 +114,28 @@ describe("managed-World Ingest boundary", () => {
     expect(getPlanView).not.toHaveBeenCalled();
   });
 
+  it("rejects a plan-view basis resolved for a different managed World", async () => {
+    vi.mocked(getPlanView).mockResolvedValue({
+      ...planView,
+      world_id: "world-a",
+      campaign_id: "world-b",
+    });
+    render(<MemoryIngestPage />);
+    expect(await screen.findByText("Ingest context does not match selected World world-b.")).toBeInTheDocument();
+    expect(screen.queryByTestId("exact-graph-review")).not.toBeInTheDocument();
+  });
+
+  it("rejects a plan view without a resolved World even when its campaign matches", async () => {
+    vi.mocked(getPlanView).mockResolvedValue({
+      ...planView,
+      world_id: undefined as unknown as string,
+      campaign_id: "world-b",
+    });
+    render(<MemoryIngestPage />);
+    expect(await screen.findByText("Ingest context does not match selected World world-b.")).toBeInTheDocument();
+    expect(screen.queryByTestId("exact-graph-review")).not.toBeInTheDocument();
+  });
+
   it("admits a matching exact run to the existing review controller", async () => {
     window.history.replaceState({}, "", "/ingest?world=world-b&extractionRunId=run-b");
     vi.mocked(getExtractionRun).mockResolvedValue({
@@ -128,10 +150,12 @@ describe("managed-World Ingest boundary", () => {
   it("opens an exact recap as read-only source review with the selected World shown as target", async () => {
     const user = userEvent.setup();
     selection.current = { kind: "managed", worldId: "elderwyld", name: "Elderwyld", documentId: null };
+    // Simulate a future PlanView response where campaign and World context
+    // differ; current server PlanView v1 returns the World ID in both fields.
     vi.mocked(getPlanView).mockResolvedValue({
       ...planView,
       world_id: "elderwyld",
-      campaign_id: "elderwyld",
+      campaign_id: "longmont-c2",
     });
     vi.mocked(getExtractionRun).mockResolvedValue({
       run_id: "s27-run",

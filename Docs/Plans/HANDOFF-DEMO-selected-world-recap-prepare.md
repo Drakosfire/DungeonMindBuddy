@@ -1,11 +1,15 @@
 # HANDOFF — DEMO: bind recap prepare to the selected managed World
 
-**Status:** ACTIVE — PRIME authorized the Buddy caller implementation on 2026-10-06.
+**Status:** SETTLED — Buddy PR #985 merged at `c49bde2fb91a5e7722f4332c1792e3267cf337cd` from reviewed head `490be0fdf99a127fccfb78268cc8e78f2bde10a0` on 2026-10-07. Its ten-path caller lease is closed.
 **Owner:** DEMO. PRIME owns independent review, merge coordination, and runtime rollout.
 **Base:** `origin/main@7f429fa63680bbaef91316132cfe02dc46c072fd` (after SERVER #983 merged).
 **Branch:** `codex/demo-managed-world-recap-target`.
 **Topology:** parallel-independent from PRIME's #979 interrupted-turn recovery lane, #970 Plan readers, and SERVER #982 diagnostics-only rollout; their active code paths do not overlap this slice. PRIME explicitly transferred the roadmap path below from #979 to this lane.
 **Test-path addition:** PRIME explicitly added `GraphReviewWorkbenchModule.test.tsx` alongside `GraphReviewGenericRun.test.tsx`; both contain existing run-only prepare expectations and are in this same single capability lease.
+
+PR #985's merge completed this caller slice without preparing or publishing a
+recap, writing runtime/database/Graph state, or accepting the connected demo.
+The historical branch and base below identify the reviewed implementation.
 
 ## User outcome
 
@@ -20,9 +24,9 @@ Review a recap for the currently selected verified managed World before confirm.
 - `GraphReviewSessionToolbar` currently consults a status endpoint that has no selected-target input. PRIME authorized removing this global/default-World preflight from the caller; let selected-target prepare determine readiness and show its typed failure. Do not expand or change the endpoint.
 - Keep confirm-time server checks authoritative. This UI slice does not publish, confirm, change runtime state, or exercise a provider.
 
-## Exclusive write lease
+## Historical write lease (released at #985 merge)
 
-The only expected write paths are:
+The original implementation allowlist was:
 
 - `Docs/Plans/HANDOFF-DEMO-selected-world-recap-prepare.md`
 - `Docs/Roadmaps/ROADMAP-demo.md`
@@ -65,3 +69,13 @@ Prove all of the following with mounted/UI and transport tests:
 5. A target-specific prepare rejection leaves the review/confirm sheet closed and displays the server's typed message. A default status response for another World cannot gate the selected-target request.
 
 The four owning test files and `git diff --check` passed on the recorded source/test head. The UI build/typecheck retains the recorded inherited JSX namespace failure. Inspect the exact cumulative base-to-head diff before publication; do not claim rollout, publication, operator acceptance, or J1–J6 completion. Push and open/update the assigned PR under repository policy; PRIME retains merge authority.
+
+## Post-merge settlement
+
+Buddy PR #985 merged at `c49bde2fb91a5e7722f4332c1792e3267cf337cd` from exact
+reviewed head `490be0fdf99a127fccfb78268cc8e78f2bde10a0` on 2026-10-07. The
+ten-path lease is released. Its four owning suites passed 85 tests and
+`git diff --check` passed. The JSX namespace build failure recorded above was
+subsequently fixed by Buddy #991; DOGFOOD #1000's production build passed on
+current main with the existing bundle-size warning. These checks do not claim
+recap publication, production rollout, operator acceptance, or J1–J6 completion.
