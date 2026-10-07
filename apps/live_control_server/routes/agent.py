@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from typing import Any, Mapping
 from uuid import UUID, uuid4
 
@@ -37,6 +38,7 @@ from apps.live_control_server.services.agent_runtime import (
     AgentSurfaceContext,
 )
 from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
 from apps.live_control_server.services.agent_turn_service import (
     AgentPlanWorldGraphBootstrap,
     AgentTurnResolvedWork,
@@ -62,6 +64,13 @@ from apps.live_control_server.services.world_container_registry import (
 
 
 router = APIRouter(prefix="/agent", tags=["agent-turn"])
+
+
+def _finalize_unlogged_agent_trace(
+    trace: AgentTurnTraceBuilder, *, status: str,
+) -> None:
+    if not trace.logged:
+        trace.finalize_and_log(status=status, model_calls=0)
 
 
 def _managed_world_root():
@@ -481,6 +490,8 @@ def _plan_context_resolver(
     owner: Mapping[str, Any] | None,
     work: AgentTurnResolvedWork | None,
     frozen_receipt: Any | None,
+    *,
+    trace: AgentTurnTraceBuilder | None = None,
 ) -> AgentPlanWorldGraphBootstrap:
     """Resolve one source-free, revision-pinned DungeonMind retrieval packet."""
     from graph_memory.interaction.authority_classifier import (
@@ -576,14 +587,24 @@ def _plan_context_resolver(
             provider_dispatched=False,
         )
     try:
-        candidates = selected_plan_graph_seed_candidates(
-            body.playable_target, work.plan_markdown or ""
-        )
+        with (trace.phase("plan_graph_seed_selection") if trace else nullcontext()):
+            candidates = selected_plan_graph_seed_candidates(
+                body.playable_target, work.plan_markdown or ""
+            )
     except AgentPlanPlayableTargetError as exc:
         raise AgentTurnServiceError(
             str(exc), code="plan_playable_target_unavailable", status_code=422,
             provider_dispatched=False,
         ) from exc
+    lookup_count = 0
+    lookup_status = "ok"
+    lookup_span = (
+        trace.start_phase(
+            "plan_graph_seed_object_lookups",
+            attributes={"candidate_count": len(candidates)},
+        )
+        if trace else None
+    )
     try:
         services = direct_services_from_config(native_world_id)
         revision_pin = (
@@ -592,6 +613,7 @@ def _plan_context_resolver(
         )
         valid_seeds: list[str] = []
         for candidate in candidates:
+            lookup_count += 1
             lookup = get_object_direct(
                 services,
                 WorldGraphObjectRequest.model_validate({
@@ -617,6 +639,17 @@ def _plan_context_resolver(
                 raise ValueError("Graph seed lookup changed revision")
             if lookup.resolved_node_id == candidate:
                 valid_seeds.append(candidate)
+    except Exception:
+        lookup_status = "error"
+        raise
+    finally:
+        if trace is not None and lookup_span is not None:
+            trace.complete_phase(
+                lookup_span,
+                status=lookup_status,
+                attributes={"lookup_count": lookup_count},
+            )
+    try:
         request = WorldGraphSearchRequest.model_validate(
             {
                 "schema": "dmb_world_graph_search_request_v1",
@@ -636,7 +669,10 @@ def _plan_context_resolver(
                 },
             }
         )
-        result = search_world_graph_direct(services, request)
+        with (trace.phase("plan_graph_search", attributes={
+            "seed_count": len(valid_seeds),
+        }) if trace else nullcontext()):
+            result = search_world_graph_direct(services, request)
     except Exception as exc:
         raise AgentTurnServiceError(
             "The pinned DungeonMind Graph retrieval could not be resolved.",
@@ -644,6 +680,7 @@ def _plan_context_resolver(
             status_code=503,
             provider_dispatched=False,
         ) from exc
+    projection_span = trace.start_phase("plan_graph_projection") if trace else None
     try:
         current = get_world_container(registry_root, managed_world_id)
     except WorldContainerRegistryError as exc:
@@ -746,7 +783,7 @@ def _plan_context_resolver(
         )
     )
     session = create_session(session)
-    return AgentPlanWorldGraphBootstrap(
+    bootstrap = AgentPlanWorldGraphBootstrap(
         graph_envelope={
             "world_id": native_world_id,
             "campaign_id": "",
@@ -779,6 +816,16 @@ def _plan_context_resolver(
         candidate_evidence_ref_ids=tuple(sorted({item.evidence_ref_id for item in result.source_anchors})),
         evidence_by_anchor_id=evidence_by_anchor,
     )
+    if trace is not None and projection_span is not None:
+        trace.complete_phase(
+            projection_span,
+            attributes={
+                "node_count": len(result.nodes),
+                "relationship_count": len(result.relationships),
+                "source_anchor_count": len(result.source_anchors),
+            },
+        )
+    return bootstrap
 
 
 def _conversation_service(request: Request) -> AgentConversationService:
@@ -976,8 +1023,22 @@ def post_new_world_conversation(
 def post_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, Any]:
     # Authorization is a prerequisite for every turn, including Graph none.
     # It runs before World/receipt/DB resolution and before runtime lookup.
-    enforce_native_graph_gm(request)
+    trace = AgentTurnTraceBuilder(
+        agent_thread_id=None,
+        turn_id=body.turn_id,
+        runtime="unresolved",
+        backend="unresolved",
+        mode="unresolved",
+    )
+    auth_span = trace.start_phase("route_auth")
     try:
+        try:
+            enforce_native_graph_gm(request)
+        except Exception:
+            trace.complete_phase(auth_span, status="error")
+            raise
+        trace.complete_phase(auth_span)
+
         result = execute_agent_turn(
             body,
             root=repo_root(),
@@ -986,14 +1047,19 @@ def post_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, Any]:
             work_resolver=_work_resolver,
             historical_work_resolver=_historical_work_resolver,
             graph_resolver=_graph_resolver,
-            plan_graph_resolver=_plan_context_resolver,
+            plan_graph_resolver=lambda turn, owner, work, receipt: _plan_context_resolver(
+                turn, owner, work, receipt, trace=trace,
+            ),
             runtime_factory=lambda: getattr(
                 request.app.state, "agent_turn_runtime", None
             ),
             conversation_service=_conversation_service(request),
+            trace_builder=trace,
         )
+        _finalize_unlogged_agent_trace(trace, status="ok")
         return result.model_dump(mode="json", by_alias=True)
     except AgentTurnServiceError as exc:
+        _finalize_unlogged_agent_trace(trace, status="error")
         if body.plan_context_policy is not None and exc.provider_dispatched is False:
             mapping = _PLAN_PREDISPATCH_FAILURES.get(exc.code)
             if mapping is not None:
@@ -1017,9 +1083,17 @@ def post_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, Any]:
             detail={"code": exc.code, "message": str(exc)},
         ) from exc
     except ValidationError as exc:
+        _finalize_unlogged_agent_trace(trace, status="error")
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except ApplicationStateError as exc:
+        _finalize_unlogged_agent_trace(trace, status="error")
         raise HTTPException(
             status_code=exc.status_code,
             detail={"code": "conversation_unavailable", "message": str(exc)},
         ) from exc
+    except HTTPException:
+        _finalize_unlogged_agent_trace(trace, status="error")
+        raise
+    except Exception:
+        _finalize_unlogged_agent_trace(trace, status="error")
+        raise
