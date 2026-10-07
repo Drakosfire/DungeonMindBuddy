@@ -126,7 +126,7 @@ export function ReadOnlyBodyContent({
   unsupportedMessage?: string;
   testId?: string;
   /** Opt-in only; callers without a World-scoped handler retain inert reference spans. */
-  onActivateGraphNode?: (nodeId: string) => void;
+  onActivateGraphNode?: (nodeId: string, trigger?: HTMLElement) => void;
 }) {
   const activatable = typeof onActivateGraphNode === "function";
   const contentKey = useMemo(() => JSON.stringify(content), [content]);
@@ -150,7 +150,7 @@ export function ReadOnlyBodyContent({
     );
     if (!reference || !event.currentTarget.contains(reference)) return;
     const nodeId = reference.dataset.graphNodeId;
-    if (nodeId) onActivateGraphNode(nodeId);
+    if (nodeId) onActivateGraphNode(nodeId, reference);
   };
 
   if (html === null && content !== undefined && fallbackText) {

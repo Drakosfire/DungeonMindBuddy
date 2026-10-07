@@ -50,14 +50,14 @@ function withPinnedSourceExcerpts(
   for (const candidate of bindings) {
     if (!candidate || typeof candidate !== "object") continue;
     const row = candidate as Record<string, unknown>;
-    if (row.provenance_status !== "excerpt_ready" || typeof row.content_sha256 !== "string"
-      || !/^[a-f0-9]{64}$/i.test(row.content_sha256) || typeof row.evidence_ref_id !== "string"
-      || typeof row.source_artifact_id !== "string" || typeof row.source_span_ref_id !== "string"
-      || typeof row.source_domain !== "string" || typeof row.excerpt !== "string" || !row.excerpt.trim()) continue;
-    byEvidence.set(row.evidence_ref_id, {
-      artifactId: row.source_artifact_id,
-      spanId: row.source_span_ref_id,
-      domain: row.source_domain,
+    if (row.provenanceStatus !== "excerpt_ready" || typeof row.contentSha256 !== "string"
+      || !/^[a-f0-9]{64}$/i.test(row.contentSha256) || typeof row.evidenceRefId !== "string"
+      || typeof row.sourceArtifactId !== "string" || typeof row.sourceSpanRefId !== "string"
+      || typeof row.sourceDomain !== "string" || typeof row.excerpt !== "string" || !row.excerpt.trim()) continue;
+    byEvidence.set(row.evidenceRefId, {
+      artifactId: row.sourceArtifactId,
+      spanId: row.sourceSpanRefId,
+      domain: row.sourceDomain,
       excerpt: row.excerpt,
     });
   }

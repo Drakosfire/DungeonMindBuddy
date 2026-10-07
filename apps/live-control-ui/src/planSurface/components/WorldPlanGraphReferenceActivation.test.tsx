@@ -67,7 +67,7 @@ function projection(options: {
 
 function ActivationButton({ nodeId = "loc:ironveil-warehouse", label = "Ironveil Warehouse" }: { nodeId?: string; label?: string }) {
   const { activateNode } = useWorldPlanGraphReferenceActivation();
-  return <button type="button" onClick={() => activateNode(nodeId)}>{label}</button>;
+  return <button type="button" onClick={(event) => activateNode(nodeId, event.currentTarget)}>{label}</button>;
 }
 
 function RuntimeReadout() {
@@ -112,7 +112,6 @@ describe("WorldPlanGraphReferenceActivationProvider", () => {
   it("opens the exact selected-World node through the existing complete-object inspector and restores trigger focus", async () => {
     mount(projection());
     const trigger = screen.getByRole("button", { name: "Ironveil Warehouse" });
-    trigger.focus();
     fireEvent.click(trigger);
 
     expect(await screen.findByRole("dialog", { name: "World Graph object" })).toBeInTheDocument();
@@ -121,9 +120,9 @@ describe("WorldPlanGraphReferenceActivationProvider", () => {
     expect(object).toHaveAttribute("data-world-id", "eldyrwild");
     expect(screen.getByTestId("runtime-readout")).toHaveAttribute("data-scope-world", "eldyrwild");
     expect(object).toHaveAttribute("data-revision", "world-rev-17");
-    expect(screen.getByRole("button", { name: "Close" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Close Ironveil Warehouse" })).toHaveFocus();
 
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close Ironveil Warehouse" }));
     await waitFor(() => expect(trigger).toHaveFocus());
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
@@ -136,7 +135,7 @@ describe("WorldPlanGraphReferenceActivationProvider", () => {
     const dialog = await screen.findByRole("dialog", { name: "World Graph object" });
     fireEvent.click(within(dialog).getByRole("button", { name: "Open related node" }));
     expect(await screen.findByRole("dialog", { name: "World Graph object" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close loc:nested" }));
     await waitFor(() => expect(trigger).toHaveFocus());
   });
 
@@ -209,7 +208,7 @@ describe("WorldPlanGraphReferenceActivationProvider", () => {
     trigger.focus();
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.getByRole("dialog", { name: "World Graph object" })).toBeInTheDocument();
-    within(dialog).getByRole("button", { name: "Close" }).focus();
+    within(dialog).getByRole("button", { name: "Close Ironveil Warehouse" }).focus();
     fireEvent.keyDown(document, { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
@@ -381,7 +380,7 @@ describe("WorldPlanGraphReferenceActivationProvider", () => {
     newTrigger.focus();
     fireEvent.click(newTrigger);
     expect(await screen.findByRole("dialog", { name: "World Graph object" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close Ironveil Warehouse" }));
     await waitFor(() => expect(newTrigger).toHaveFocus());
     expect(oldTrigger).not.toHaveFocus();
   });

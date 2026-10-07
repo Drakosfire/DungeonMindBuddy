@@ -31,7 +31,7 @@ interface ActivationRequest {
 }
 
 interface WorldPlanGraphReferenceActivationValue {
-  activateNode: (nodeId: string) => void;
+  activateNode: (nodeId: string, trigger?: HTMLElement) => void;
 }
 
 const ActivationContext = createContext<WorldPlanGraphReferenceActivationValue | null>(null);
@@ -148,7 +148,6 @@ export function WorldPlanGraphReferenceActivationProvider({
   const requestRef = useRef<ActivationRequest | null>(request);
   requestRef.current = request;
   const triggerRef = useRef<HTMLElement | null>(null);
-  const triggerNodeIdRef = useRef<string | null>(null);
   const triggerOwnerWorldIdRef = useRef<string | null>(null);
   const readerScrollRef = useRef<number | null>(null);
   const sourceTriggerRef = useRef<HTMLElement | null>(null);
@@ -160,12 +159,13 @@ export function WorldPlanGraphReferenceActivationProvider({
   const hadRequestRef = useRef(false);
   const [sourceEvidence, setSourceEvidence] = useState<GraphObjectEvidenceViewModel | null>(null);
 
-  const activateNode = useCallback((nodeId: string) => {
+  const activateNode = useCallback((nodeId: string, trigger?: HTMLElement) => {
     if (!request || request.ownerWorldId !== worldId) {
-      triggerRef.current = typeof document !== "undefined" && document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
-      triggerNodeIdRef.current = nodeId;
+      triggerRef.current = trigger?.isConnected
+        ? trigger
+        : typeof document !== "undefined" && document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
       triggerOwnerWorldIdRef.current = worldId;
       readerScrollRef.current = window.scrollY;
     }
@@ -213,11 +213,7 @@ export function WorldPlanGraphReferenceActivationProvider({
       hadRequestRef.current = false;
       const triggerOwnerWorldId = triggerOwnerWorldIdRef.current;
       if (triggerOwnerWorldId !== worldId) return;
-      let trigger = triggerRef.current;
-      if (!trigger?.isConnected && triggerNodeIdRef.current) {
-        trigger = Array.from(document.querySelectorAll<HTMLElement>("[data-graph-node-id]"))
-          .find((candidate) => candidate.dataset.graphNodeId === triggerNodeIdRef.current) ?? null;
-      }
+      const trigger = triggerRef.current;
       window.setTimeout(() => {
         if (currentOwnerWorldIdRef.current === triggerOwnerWorldId && requestRef.current === null && trigger?.isConnected) {
           if (readerScrollRef.current !== null && readerScrollRef.current !== window.scrollY) {
@@ -294,7 +290,7 @@ export function WorldPlanGraphReferenceActivationProvider({
               <h2 ref={headingRef} tabIndex={-1}>
                 {visibleSourceEvidence ? visibleSourceEvidence.label || "Pinned source passage" : resolution.kind === "resolved_graph" ? resolution.graphObject.label : currentRequest.nodeId}
               </h2>
-              <button ref={closeButtonRef} type="button" onClick={close} aria-label="Close">Close</button>
+              <button ref={closeButtonRef} type="button" onClick={close} aria-label={`Close ${visibleSourceEvidence ? "pinned source passage" : resolution.kind === "resolved_graph" ? resolution.graphObject.label : currentRequest.nodeId}`}>Close</button>
             </header>
             {resolution.kind === "resolved_graph" ? (
               <div data-complete-object-status="reader" hidden={Boolean(visibleSourceEvidence)}>

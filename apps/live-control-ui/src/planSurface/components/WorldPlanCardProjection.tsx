@@ -275,7 +275,7 @@ function CardNodeView({
   onSelectTarget?: (target: WorldPlanCardTarget) => void;
   onSelectEditTarget?: (target: WorldPlanCardTarget) => void;
   onFocusScene?: (scene: WorldPlanCardNode) => void;
-  onActivateGraphNode?: (nodeId: string) => void;
+  onActivateGraphNode?: (nodeId: string, trigger?: HTMLElement) => void;
 }) {
   const target = { kind: node.kind, id: node.id };
   const selected = selectedTarget?.kind === target.kind && selectedTarget.id === target.id;
@@ -418,7 +418,7 @@ export function WorldPlanCardProjection({
   onSelectTarget?: (target: WorldPlanCardTarget | null) => void;
   onSelectEditTarget?: (target: WorldPlanCardTarget) => void;
   selectionStale?: boolean;
-  onActivateGraphNode?: (nodeId: string) => void;
+  onActivateGraphNode?: (nodeId: string, trigger?: HTMLElement) => void;
 }) {
   const model = useMemo(() => buildWorldPlanCardProjectionModel({ document, markdown, sourceWarnings }), [document, markdown, sourceWarnings]);
   const nodes = useMemo(() => model.status === "ready" ? flattenNodes(model.roots) : [], [model]);

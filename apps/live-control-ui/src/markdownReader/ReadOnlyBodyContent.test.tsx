@@ -36,7 +36,16 @@ describe("ReadOnlyBodyContent Graph-reference activation", () => {
     await user.keyboard("{Enter}");
 
     expect(onActivateGraphNode).toHaveBeenCalledTimes(1);
-    expect(onActivateGraphNode).toHaveBeenCalledWith("loc:ironveil-warehouse");
+    expect(onActivateGraphNode).toHaveBeenCalledWith("loc:ironveil-warehouse", reference);
+  });
+
+  it("passes the clicked reference as the origin even when it was not focused first", () => {
+    const onActivateGraphNode = vi.fn();
+    render(<ReadOnlyBodyContent content={graphContent} onActivateGraphNode={onActivateGraphNode} />);
+    const reference = screen.getByRole("button", { name: "Ironveil Warehouse" });
+    expect(reference).not.toHaveFocus();
+    fireEvent.click(reference);
+    expect(onActivateGraphNode).toHaveBeenCalledWith("loc:ironveil-warehouse", reference);
   });
 
   it("does not activate references when authored content fails the safe-rendering checks", () => {
