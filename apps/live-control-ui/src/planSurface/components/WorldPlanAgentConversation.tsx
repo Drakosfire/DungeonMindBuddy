@@ -1246,6 +1246,43 @@ function completedHistoryTurnMatchesPendingGraphAsk(
   return turn.assistant_text === completedText;
 }
 
+async function confirmedAskHistoryMatches(
+  page: WorldAgentConversationHistoryResponse,
+  stored: StoredPendingAsk,
+  conversationId: string,
+  answer: string,
+): Promise<boolean> {
+  const envelope = stored.envelope;
+  if (!envelope || page.world_id !== envelope.origin.worldId
+    || page.conversation_state !== "active" || page.conversation_id !== conversationId
+    || page.active_conversation_id !== conversationId) return false;
+  const { request, origin } = envelope;
+  if (request.plan_context_policy) {
+    const idempotencyKey = await pendingGraphAskIdempotencyKey(stored);
+    return Boolean(idempotencyKey && page.turns.filter((turn) =>
+      completedHistoryTurnMatchesPendingGraphAsk(page, turn, stored, idempotencyKey)
+      && turn.assistant_text === answer).length === 1);
+  }
+  return page.turns.filter((turn) => {
+    const provenance = turn.provenance;
+    const basis = provenance.primary_work;
+    const targets = provenance.supporting_work.filter((work) => work.kind === "dmb_plan_playable_target_v1");
+    return turn.turn_id === request.turn_id && turn.lifecycle_status === "completed"
+      && turn.user_text === request.message && turn.assistant_text === answer
+      && provenance.world_id === origin.worldId && provenance.surface_resolution === "resolved"
+      && provenance.surface_id === request.surface.surface_id
+      && provenance.surface_instance_id === request.surface.instance_id
+      && basis.resolution === "resolved" && basis.kind === "plan"
+      && basis.object_id === origin.documentId && basis.object_revision === origin.objectRevision
+      && basis.work_revision_id === origin.workRevisionId && basis.revision_n === origin.revisionN
+      && basis.content_sha256 === origin.contentSha256
+      && (request.playable_target
+        ? targets.length === 1 && targets[0]?.resolution === "resolved"
+          && targets[0].object_id === request.playable_target.id && targets[0].revision === "v1"
+        : targets.length === 0);
+  }).length === 1;
+}
+
 function failedHistoryTurnMatchesPendingGraphAsk(
   page: WorldAgentConversationHistoryResponse,
   turn: WorldAgentConversationHistoryTurn,
@@ -1683,6 +1720,12 @@ export function WorldPlanAgentConversation({
   const [newConversationSending, setNewConversationSending] = useState(false);
   const [newConversationError, setNewConversationError] = useState<string | null>(null);
   const [conversationNotice, setConversationNotice] = useState<string | null>(null);
+  const confirmedAskNoticeRef = useRef<{
+    stored: StoredPendingAsk;
+    conversationId: string;
+    answer: string;
+    notice: string;
+  } | null>(null);
   const [savedPlanVersion, setSavedPlanVersion] = useState<{
     key: string;
     revisionN: number | null;
@@ -1927,6 +1970,15 @@ export function WorldPlanAgentConversation({
   useEffect(() => {
     let active = true;
     const generation = ++historyGenerationRef.current;
+    const confirmedAskNotice = confirmedAskNoticeRef.current;
+    const settleRefreshFailure = () => {
+      if (!active || generation !== historyGenerationRef.current || !confirmedAskNotice
+        || confirmedAskNoticeRef.current !== confirmedAskNotice) return;
+      const notice = confirmedAskNotice.notice.replace(/Refreshing World history[^.]*\.|refreshing World history\./,
+        "World history refresh failed. Refresh history to check this confirmed Ask.");
+      confirmedAskNoticeRef.current = { ...confirmedAskNotice, notice };
+      setConversationNotice((current) => current === confirmedAskNotice.notice ? notice : current);
+    };
     historySnapshotRef.current = null;
     setOlderLoading(false);
     setHistory(null);
@@ -1949,6 +2001,7 @@ export function WorldPlanAgentConversation({
           && await areHistoryReceiptDigestsBound(page);
         if (!validState) {
           setHistoryError("The World conversation response did not match the selected World or contained an invalid Graph-context receipt. Refresh history before continuing.");
+          settleRefreshFailure();
           return;
         }
         if (!active || generation !== historyGenerationRef.current) return;
@@ -1975,13 +2028,25 @@ export function WorldPlanAgentConversation({
             ? reason.message
             : "Browser storage is unavailable for pending Ask recovery.");
         }
+        const matchingNotice = confirmedAskNotice && confirmedAskNoticeRef.current === confirmedAskNotice
+          && await confirmedAskHistoryMatches(page, confirmedAskNotice.stored,
+            confirmedAskNotice.conversationId, confirmedAskNotice.answer);
+        if (!active || generation !== historyGenerationRef.current) return;
         historySnapshotRef.current = page;
         setHistory(page);
+        if (matchingNotice && confirmedAskNotice
+          && confirmedAskNoticeRef.current === confirmedAskNotice) {
+          const settledNotice = confirmedAskNotice.notice.replace(/Refreshing World history[^.]*\.|refreshing World history\.|World history refresh failed\. Refresh history to check this confirmed Ask\./,
+            "World history refreshed.");
+          confirmedAskNoticeRef.current = null;
+          setConversationNotice((current) => current === confirmedAskNotice.notice ? settledNotice : current);
+        }
       })
       .catch((reason: unknown) => {
         if (active && generation === historyGenerationRef.current) {
           setHistoryError(localOperatorCredentialFailure(reason, "refresh World history")
             ?? (reason instanceof Error ? reason.message : "Could not load the World conversation."));
+          settleRefreshFailure();
         }
       })
       .finally(() => {
@@ -2049,6 +2114,7 @@ export function WorldPlanAgentConversation({
     setComposerIntent("discuss");
     setError(null);
     setConversationNotice(null);
+    confirmedAskNoticeRef.current = null;
   }, [scopeKey]);
 
   function refreshPendingAskList() {
@@ -2277,13 +2343,15 @@ export function WorldPlanAgentConversation({
             : `${target.kind} ${target.id}`;
           originalContext = `selected card ${targetLabel}`;
         }
-        setConversationNotice(
-          `The server confirmed this Ask for its original ${originalContext} at committed Plan object revision ${envelope.origin.objectRevision}. Refreshing World history with that submitted provenance.`,
-        );
+        const notice = `The server confirmed this Ask for its original ${originalContext} at committed Plan object revision ${envelope.origin.objectRevision}. Refreshing World history with that submitted provenance.`;
+        confirmedAskNoticeRef.current = { stored, conversationId: validation.value.conversationId, answer: validation.value.answer, notice };
+        setConversationNotice(notice);
       } else {
-        setConversationNotice(belongsToPreviousConversation
+        const notice = belongsToPreviousConversation
           ? `The server confirmed this Ask under conversation ${validation.value.conversationId}. It was not inserted into the currently active conversation; refreshing World history.`
-          : "The server confirmed this Ask. Refreshing World history.");
+          : "The server confirmed this Ask. Refreshing World history.";
+        confirmedAskNoticeRef.current = { stored, conversationId: validation.value.conversationId, answer: validation.value.answer, notice };
+        setConversationNotice(notice);
       }
       setComposerMessage((current) => composerSnapshotAtSubmit !== undefined && current === composerSnapshotAtSubmit ? "" : current);
     } catch (reason) {
