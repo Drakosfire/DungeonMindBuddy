@@ -26,7 +26,7 @@ pr_body_template: |
 # HANDOFF — Scene-owned Decision interaction dogfood (BF3B recut)
 
 **Created / recut:** 2026-08-30  
-**Status:** CURRENT / IN FLIGHT  
+**Status:** COMPLETE — BF3B accepted and merged by PR #673
 **Canonical handoff:** `Docs/Plans/HANDOFF-PLAY-SURFACE-decision-interaction.md`  
 **Workstream:** `PLAY-SURFACE / BF3B`  
 **Owner:** `PLAY-SURFACE`  
@@ -814,8 +814,12 @@ Docs/Plans/STEWARDS-ANCHOR-con-ready.md
 Docs/Sources/design-agent/ACTIVE_AUTHORITY/STEWARDS-ANCHOR-con-ready.md
 ```
 
-Record #670 as CLOSED / UNMERGED exploratory evidence with 0 review cycles.
-Record BF3B recut as IN FLIGHT until accepted merge. Keep mirrors byte-identical.
+PR #673 settled this lease: #670 remains CLOSED / UNMERGED exploratory
+evidence with 0 review cycles; BF3B recut completed at accepted head
+`111d68160b074335058c6ad12f77a7499665bb7e`, merged as
+`24f7c25b49fdab8271b0d84d36e4a609b9832d69`. The exact-head report records three
+formal review cycles. The original authority mirrors were synchronized in that
+consuming work; this handoff's BF3B implementation lease is closed.
 
 ### 9.4 Explicitly unleased
 
@@ -1105,3 +1109,14 @@ remain later capabilities.
 
 Formal review is against one exact head SHA at a time. Count each distinct-head
 review judgment as one review cycle.
+
+
+## Settlement — 2026-10-07
+
+PR #673 is merged. The accepted BF3B implementation head is
+`111d68160b074335058c6ad12f77a7499665bb7e`; merge commit is
+`24f7c25b49fdab8271b0d84d36e4a609b9832d69`. The exact-head report records
+three formal review cycles, required visual witnesses, and production build
+evidence. The exploratory #670 remains closed and unmerged. This settlement
+releases the superseded BF3B lease; it does not alter its historical design
+contract.

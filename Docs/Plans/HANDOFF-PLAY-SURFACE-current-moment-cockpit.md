@@ -19,7 +19,7 @@ pr_body_template: |
 # HANDOFF — Scene-centered Current Moment cockpit (BF3A)
 
 **Created:** 2026-08-26
-**Status:** READY FOR DISPATCH
+**Status:** COMPLETE — BF3A accepted and merged by PR #655
 **Canonical handoff path:** `Docs/Plans/HANDOFF-PLAY-SURFACE-current-moment-cockpit.md`
 **Workstream:** `PLAY-SURFACE / BF3A`
 **Flow / owner:** `PLAY-SURFACE`
@@ -1216,5 +1216,7 @@ Dogfood discovery:
 Successor:
   DF0 — Local Play dogfood bootstrap/readiness
 
-BF3B remains intentionally deferred until DF0 proves the merged cockpit is
-reachable through the supported local operator path.
+DF0 completed through PR #657. BF3B was subsequently implemented under the
+separate recut and accepted by PR #673 at head
+`111d68160b074335058c6ad12f77a7499665bb7e`, merged as
+`24f7c25b49fdab8271b0d84d36e4a609b9832d69`.

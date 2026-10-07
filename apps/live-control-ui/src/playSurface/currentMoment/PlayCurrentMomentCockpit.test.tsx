@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
 import { LiveApiError } from "../../api/liveApi";
@@ -107,6 +107,20 @@ function worldRunRecord(overrides: Partial<WorldPlayRunRecordV2> = {}): WorldPla
   };
 }
 
+function currentWorldRun(progressOverrides: Partial<PlayRunProgress> = {}): WorldPlayRunRecordV2 {
+  return worldRunRecord({
+    progress: progress({ current_scene_id: "scene:north-gate", ...progressOverrides }),
+  });
+}
+
+function storedSceneNoteCache(): { key: string; value: Record<string, unknown> } | null {
+  const key = Object.keys(localStorage).find((candidate) => candidate.startsWith("dmb.play.scene-note-draft.v1:"));
+  if (!key) return null;
+  const raw = localStorage.getItem(key);
+  if (!raw) return null;
+  return { key, value: JSON.parse(raw) as Record<string, unknown> };
+}
+
 function v2Manifest(scenes: PlayRunReferenceManifestV2["scenes"]): PlayRunReferenceManifestV2 {
   return {
     schema_version: "dmb_play_run_reference_manifest_v2",
@@ -163,7 +177,13 @@ function readyWorldDeck(run: WorldPlayRunRecordV2 = worldRunRecord()) {
   ];
   const admitted = admitNativeRunbook({
     run,
-    manifest: { ...v2Manifest(scenes), run_id: run.run_id },
+    manifest: {
+      ...v2Manifest(scenes),
+      run_id: run.run_id,
+      playable_artifact_id: run.playable_artifact_id,
+      playable_revision: run.playable_revision,
+      playable_content_sha256: run.playable_content_sha256,
+    },
     committed: {
       schema_version: "dmb_workspace_committed_revision_v2",
       scope_mode: "world",
@@ -227,6 +247,11 @@ function WorldHarness({ initialRun = worldRunRecord() }: { initialRun?: WorldPla
 describe("PlayCurrentMomentCockpit", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("renders the persisted Scene as the central workspace", () => {
@@ -568,6 +593,384 @@ describe("PlayCurrentMomentCockpit", () => {
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
     expect(liveApi.getPlayRun).not.toHaveBeenCalled();
     expect(screen.getByTestId("play-current-scene")).toHaveTextContent("Tunnel Breach");
+  });
+
+  it("autosaves and acknowledges a World-owned marker-v2 Scene note through the fenced writer", async () => {
+    const user = userEvent.setup();
+    const updated = worldRunRecord({
+      run_revision: 5,
+      progress: progress({
+        current_scene_id: "scene:north-gate",
+        selections: { "choice:keep": "option:hold" },
+        notes_by_element_id: {
+          "scene:tunnel": "Keep the other Scene note.",
+          "scene:north-gate": "Gate held until dawn.",
+        },
+      }),
+    });
+    vi.mocked(liveApi.putWorldPlayRunProgress).mockResolvedValue(updated);
+    render(<WorldHarness initialRun={currentWorldRun({
+      selections: { "choice:keep": "option:hold" },
+      notes_by_element_id: { "scene:tunnel": "Keep the other Scene note." },
+    })} />);
+
+    await user.type(screen.getByLabelText("Scene note"), "Gate held until dawn.");
+
+    await waitFor(() => expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1));
+    expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledWith(RUN_ID, "longmont-c2", {
+      expected_run_revision: 4,
+      progress: expect.objectContaining({
+        current_scene_id: "scene:north-gate",
+        selections: { "choice:keep": "option:hold" },
+        notes_by_element_id: {
+          "scene:tunnel": "Keep the other Scene note.",
+          "scene:north-gate": "Gate held until dawn.",
+        },
+      }),
+    });
+    expect(await screen.findByText("Saved in this Run.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Scene note")).toHaveValue("Gate held until dawn.");
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+    expect(storedSceneNoteCache()).toBeNull();
+  });
+
+  it("hydrates the Scene note from canonical Run progress without writing on mount", async () => {
+    render(<WorldHarness initialRun={currentWorldRun({
+      notes_by_element_id: { "scene:north-gate": "Canonical Run note." },
+    })} />);
+
+    expect(screen.getByLabelText("Scene note")).toHaveValue("Canonical Run note.");
+    expect(screen.getByText("Saved in this Run.")).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(liveApi.putWorldPlayRunProgress).not.toHaveBeenCalled();
+    expect(storedSceneNoteCache()).toBeNull();
+  });
+
+  it("keeps the draft when a successful response does not contain the exact submitted note", async () => {
+    const user = userEvent.setup();
+    vi.mocked(liveApi.putWorldPlayRunProgress).mockResolvedValue(worldRunRecord({
+      run_revision: 5,
+      progress: progress({
+        current_scene_id: "scene:north-gate",
+        notes_by_element_id: { "scene:north-gate": "Different server note" },
+      }),
+    }));
+    render(<WorldHarness initialRun={currentWorldRun()} />);
+    await user.type(screen.getByLabelText("Scene note"), "Submitted draft");
+
+    await waitFor(() => expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1));
+    expect(screen.getByLabelText("Scene note")).toHaveValue("Submitted draft");
+    expect(screen.getByTestId("play-scene-note-status")).toHaveTextContent(
+      "Not saved. Another update changed this Run",
+    );
+    expect(screen.queryByText("Saved in this Run.")).not.toBeInTheDocument();
+    expect(storedSceneNoteCache()?.value.failure).toBe("unconfirmed");
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1);
+  });
+
+  it("retains a newer edit while an earlier Scene note snapshot is in flight", async () => {
+    const user = userEvent.setup();
+    const pending: Array<(run: WorldPlayRunRecordV2) => void> = [];
+    vi.mocked(liveApi.putWorldPlayRunProgress).mockImplementation(() => new Promise((resolve) => {
+      pending.push(resolve);
+    }));
+    render(<WorldHarness initialRun={currentWorldRun()} />);
+    const note = screen.getByLabelText("Scene note");
+
+    await user.type(note, "First");
+    await waitFor(() => expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1));
+    await user.type(note, " newer edit");
+    expect(note).toHaveValue("First newer edit");
+    expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1);
+
+    const firstResponse = pending.shift();
+    if (!firstResponse) throw new Error("expected the first note save to be pending");
+    firstResponse(worldRunRecord({
+      run_revision: 5,
+      progress: progress({
+        current_scene_id: "scene:north-gate",
+        notes_by_element_id: { "scene:north-gate": "First" },
+      }),
+    }));
+
+    await waitFor(() => expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(liveApi.putWorldPlayRunProgress).mock.calls[1]?.[2]).toEqual({
+      expected_run_revision: 5,
+      progress: expect.objectContaining({
+        notes_by_element_id: { "scene:north-gate": "First newer edit" },
+      }),
+    });
+    const secondResponse = pending.shift();
+    if (!secondResponse) throw new Error("expected the newer note save to be pending");
+    secondResponse(worldRunRecord({
+      run_revision: 6,
+      progress: progress({
+        current_scene_id: "scene:north-gate",
+        notes_by_element_id: { "scene:north-gate": "First newer edit" },
+      }),
+    }));
+    expect(await screen.findByText("Saved in this Run.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Scene note")).toHaveValue("First newer edit");
+  });
+
+  it("restores a newer draft as unknown when reloaded during an older in-flight save", async () => {
+    const user = userEvent.setup();
+    vi.mocked(liveApi.putWorldPlayRunProgress).mockImplementation(
+      () => new Promise(() => undefined),
+    );
+    const firstMount = render(<WorldHarness initialRun={currentWorldRun()} />);
+    const note = screen.getByLabelText("Scene note");
+    await user.type(note, "First");
+    await waitFor(() => expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1));
+    await user.type(note, " newer edit");
+    expect(note).toHaveValue("First newer edit");
+    expect(storedSceneNoteCache()?.value.text).toBe("First newer edit");
+    expect(storedSceneNoteCache()?.value.sentText).toBe("First");
+    firstMount.unmount();
+
+    render(<WorldHarness initialRun={currentWorldRun()} />);
+    expect(screen.getByLabelText("Scene note")).toHaveValue("First newer edit");
+    expect(screen.getByTestId("play-scene-note-status")).toHaveTextContent(
+      "previous save result is unknown",
+    );
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores a late Scene note response after the Run's pinned Playable changes", async () => {
+    const user = userEvent.setup();
+    let resolveWrite: ((run: WorldPlayRunRecordV2) => void) | undefined;
+    const onAuthoritativeRun = vi.fn();
+    vi.mocked(liveApi.putWorldPlayRunProgress).mockImplementation(() => new Promise((resolve) => {
+      resolveWrite = resolve;
+    }));
+    const initial = currentWorldRun();
+    const view = render(
+      <PlayCurrentMomentCockpit
+        deck={readyWorldDeck(initial)}
+        mutationStatus="idle"
+        onMutationStatus={vi.fn()}
+        onAuthoritativeRun={onAuthoritativeRun}
+      />,
+    );
+    await user.type(screen.getByLabelText("Scene note"), "Bound to old Playable");
+    await waitFor(() => expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1));
+
+    const rebound = worldRunRecord({
+      playable_revision: 4,
+      playable_work_revision_id: "22222222-2222-4222-8222-222222222222",
+      run_revision: 5,
+      progress: progress({ current_scene_id: "scene:north-gate" }),
+    });
+    view.rerender(
+      <PlayCurrentMomentCockpit
+        deck={readyWorldDeck(rebound)}
+        mutationStatus="idle"
+        onMutationStatus={vi.fn()}
+        onAuthoritativeRun={onAuthoritativeRun}
+      />,
+    );
+    const acknowledge = resolveWrite;
+    if (!acknowledge) throw new Error("expected the old-binding note write to be pending");
+    acknowledge(worldRunRecord({
+      run_revision: 5,
+      progress: progress({
+        current_scene_id: "scene:north-gate",
+        notes_by_element_id: { "scene:north-gate": "Bound to old Playable" },
+      }),
+    }));
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(onAuthoritativeRun).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Scene note")).toHaveValue("");
+    expect(screen.queryByText("Saved in this Run.")).not.toBeInTheDocument();
+  });
+
+  it("recovers an intentional empty browser draft without replaying it after reload", async () => {
+    const user = userEvent.setup();
+    const initial = currentWorldRun();
+    const firstMount = render(<WorldHarness initialRun={initial} />);
+    const note = screen.getByLabelText("Scene note");
+    await user.type(note, "temporary");
+    await user.clear(note);
+
+    const cached = storedSceneNoteCache();
+    expect(cached?.value.text).toBe("");
+    expect(cached?.value.basisPresent).toBe(false);
+    firstMount.unmount();
+
+    const updated = worldRunRecord({
+      run_revision: 5,
+      progress: progress({ current_scene_id: "scene:north-gate", notes_by_element_id: { "scene:north-gate": "" } }),
+    });
+    vi.mocked(liveApi.putWorldPlayRunProgress).mockResolvedValue(updated);
+    render(<WorldHarness initialRun={initial} />);
+    expect(screen.getByLabelText("Scene note")).toHaveValue("");
+    expect(await screen.findByText("Recovered browser draft; unsaved in this Run. Save it when ready.")).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(liveApi.putWorldPlayRunProgress).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Save recovered note" }));
+    await waitFor(() => expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(liveApi.putWorldPlayRunProgress).mock.calls[0]?.[2].progress.notes_by_element_id)
+      .toEqual({ "scene:north-gate": "" });
+    expect(await screen.findByText("Saved in this Run.")).toBeInTheDocument();
+  });
+
+  it.each([
+    ["409 conflict", "conflict", new LiveApiError("CAS conflict", 409), true],
+    ["422 rejection", "rejected", new LiveApiError("invalid progress", 422), true],
+    ["unknown outcome", "unknown", new Error("network down"), true],
+    ["unknown outcome with failed reread", "unknown", new Error("network down"), false],
+  ] as const)("keeps a %s Scene note draft across reload without automatic replay", async (_label, failure, error, rereadSucceeds) => {
+    const user = userEvent.setup();
+    const serverRun = currentWorldRun({
+      run_revision: 9,
+      notes_by_element_id: { "scene:north-gate": "Server version" },
+    });
+    vi.mocked(liveApi.putWorldPlayRunProgress).mockRejectedValueOnce(error);
+    if (rereadSucceeds) {
+      vi.mocked(liveApi.getWorldPlayRun).mockResolvedValue(serverRun);
+    } else {
+      vi.mocked(liveApi.getWorldPlayRun).mockRejectedValue(new Error("Run reload failed"));
+    }
+    const firstMount = render(<WorldHarness initialRun={currentWorldRun()} />);
+    await user.type(screen.getByLabelText("Scene note"), "Keep this local draft");
+    await user.click(screen.getByRole("button", { name: "Save note now" }));
+    await waitFor(() => expect(storedSceneNoteCache()?.value.failure).toBe(failure));
+    expect(screen.getByLabelText("Scene note")).toHaveValue("Keep this local draft");
+    expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1);
+    firstMount.unmount();
+
+    render(<WorldHarness initialRun={serverRun} />);
+    expect(screen.getByLabelText("Scene note")).toHaveValue("Keep this local draft");
+    expect(screen.getByTestId("play-scene-note-status")).toHaveTextContent(
+      failure === "conflict" || !rereadSucceeds
+        ? "Another update changed this Run"
+        : failure === "unknown"
+          ? "previous save result is unknown"
+          : "Run rejected this note",
+    );
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1);
+  });
+
+  it("quarantines a browser draft whose pinned Playable binding no longer matches", async () => {
+    const user = userEvent.setup();
+    const initial = currentWorldRun();
+    const firstMount = render(<WorldHarness initialRun={initial} />);
+    await user.type(screen.getByLabelText("Scene note"), "Old binding draft");
+    const cached = storedSceneNoteCache();
+    if (!cached) throw new Error("expected the browser draft cache");
+    firstMount.unmount();
+    localStorage.setItem(cached.key, JSON.stringify({ ...cached.value, playableRevision: 2 }));
+
+    render(<WorldHarness initialRun={initial} />);
+    expect(screen.getByLabelText("Scene note")).toHaveValue("");
+    expect(await screen.findByTestId("play-scene-note-storage-warning")).toHaveTextContent(
+      "belongs to a different or unreadable Run version and was not restored",
+    );
+    expect(liveApi.putWorldPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("keeps a local draft unsaved when the server note changed before autosave", async () => {
+    const user = userEvent.setup();
+    const initial = currentWorldRun({
+      notes_by_element_id: { "scene:north-gate": "Original server note" },
+    });
+    const concurrent = worldRunRecord({
+      run_revision: 5,
+      progress: progress({
+        current_scene_id: "scene:north-gate",
+        notes_by_element_id: { "scene:north-gate": "Concurrent server note" },
+      }),
+    });
+    const view = render(
+      <PlayCurrentMomentCockpit
+        deck={readyWorldDeck(initial)}
+        mutationStatus="idle"
+        onMutationStatus={vi.fn()}
+        onAuthoritativeRun={vi.fn()}
+      />,
+    );
+    await user.clear(screen.getByLabelText("Scene note"));
+    await user.type(screen.getByLabelText("Scene note"), "Local note draft");
+
+    view.rerender(
+      <PlayCurrentMomentCockpit
+        deck={readyWorldDeck(concurrent)}
+        mutationStatus="idle"
+        onMutationStatus={vi.fn()}
+        onAuthoritativeRun={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText("Scene note")).toHaveValue("Local note draft");
+    expect(screen.getByTestId("play-scene-note-status")).toHaveTextContent(
+      "Another update changed this Run",
+    );
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(liveApi.putWorldPlayRunProgress).not.toHaveBeenCalled();
+
+    const acknowledged = worldRunRecord({
+      run_revision: 6,
+      progress: progress({
+        current_scene_id: "scene:north-gate",
+        notes_by_element_id: { "scene:north-gate": "Local note draft" },
+      }),
+    });
+    vi.mocked(liveApi.putWorldPlayRunProgress).mockResolvedValue(acknowledged);
+    await user.click(screen.getByRole("button", { name: "Save note after review" }));
+    await waitFor(() => expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(liveApi.putWorldPlayRunProgress).mock.calls[0]?.[2]).toEqual({
+      expected_run_revision: 5,
+      progress: expect.objectContaining({
+        notes_by_element_id: { "scene:north-gate": "Local note draft" },
+      }),
+    });
+    expect(await screen.findByText("Saved in this Run.")).toBeInTheDocument();
+  });
+
+  it("warns on a corrupt recovery cache and keeps canonical progress editable", async () => {
+    const user = userEvent.setup();
+    const initial = currentWorldRun({
+      notes_by_element_id: { "scene:north-gate": "Canonical note" },
+    });
+    const firstMount = render(<WorldHarness initialRun={initial} />);
+    await user.clear(screen.getByLabelText("Scene note"));
+    await user.type(screen.getByLabelText("Scene note"), "Local draft");
+    const cached = storedSceneNoteCache();
+    if (!cached) throw new Error("expected the browser draft cache");
+    firstMount.unmount();
+    localStorage.setItem(cached.key, "{invalid json");
+
+    render(<WorldHarness initialRun={initial} />);
+    expect(screen.getByLabelText("Scene note")).toHaveValue("Canonical note");
+    expect(await screen.findByTestId("play-scene-note-storage-warning")).toHaveTextContent(
+      "A browser note draft could not be read",
+    );
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(liveApi.putWorldPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("keeps the in-memory Scene note editable when browser recovery storage fails", async () => {
+    const user = userEvent.setup();
+    vi.mocked(liveApi.putWorldPlayRunProgress).mockImplementation(
+      () => new Promise(() => undefined),
+    );
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("quota exceeded");
+    });
+    const firstMount = render(<WorldHarness initialRun={currentWorldRun()} />);
+    const note = screen.getByLabelText("Scene note");
+    await user.type(note, "In-memory note");
+    expect(note).toHaveValue("In-memory note");
+    expect(screen.getByTestId("play-scene-note-storage-warning")).toHaveTextContent(
+      "Browser recovery storage is unavailable",
+    );
+    await waitFor(() => expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId("play-scene-note-status")).toHaveTextContent("Saving note to this Run");
+    firstMount.unmount();
   });
 
   it("reconciles an unknown mutation outcome from the exact Run", async () => {
