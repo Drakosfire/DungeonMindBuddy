@@ -362,6 +362,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const [editorGeneration, setEditorGeneration] = useState(0);
   const [selectionGeneration, setSelectionGeneration] = useState(0);
   const [editor, setEditor] = useState<Editor | null>(null);
+  const [routeCardsViewRequested, setRouteCardsViewRequested] = useState(
+    () => new URLSearchParams(window.location.search).get("view") === "cards",
+  );
   const [selectedCardViewIdentity, setSelectedCardViewIdentity] = useState<string | null>(null);
   const [selectedPlayableTarget, setSelectedPlayableTarget] = useState<SelectedWorldPlanPlayableTarget | null>(null);
   const [selectedPlayableEditTarget, setSelectedPlayableEditTarget] = useState<SelectedWorldPlanPlayableEditTarget | null>(null);
@@ -682,7 +685,10 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       const url = new URL(window.location.href);
       url.searchParams.set("world", worldId);
       url.searchParams.set("documentId", nextDocumentId);
+      url.searchParams.delete("view");
       window.history.pushState({}, "", `${url.pathname}${url.search}`);
+      setRouteCardsViewRequested(false);
+      setSelectedCardViewIdentity(null);
       documentIdRef.current = nextDocumentId;
       revisionRef.current = snapshot.loaded_revision;
       titleRef.current = snapshot.record.title;
@@ -760,7 +766,10 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     const url = new URL(window.location.href);
     url.searchParams.set("world", worldId);
     url.searchParams.delete("documentId");
+    url.searchParams.delete("view");
     window.history.pushState({}, "", `${url.pathname}${url.search}`);
+    setRouteCardsViewRequested(false);
+    setSelectedCardViewIdentity(null);
     setDocumentId(null);
     setTitle("Plan");
     setMarkdown("");
@@ -1329,7 +1338,16 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   }, workObject) : null, [status, saving, fidelityBlocked, createUncertain, recoveryConflict, uncertainCreateDraft,
     documentId, markdown, title, documentActions, toolbarModel, workObject]);
   const cardsViewActive = Boolean(documentId) && status === "ready"
-    && selectedCardViewIdentity === editorIdentity;
+    && (selectedCardViewIdentity === editorIdentity
+      || (routeCardsViewRequested && documentId === initialDocumentId));
+  const selectPlanView = (view: "cards" | "document") => {
+    const url = new URL(window.location.href);
+    if (view === "cards") url.searchParams.set("view", "cards");
+    else url.searchParams.delete("view");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    setRouteCardsViewRequested(false);
+    setSelectedCardViewIdentity(view === "cards" ? editorIdentity : null);
+  };
   const cardProjectionDocument = editor?.getJSON() ?? editorContent;
   const cardProjectionDirty = documentId !== null
     && (markdown !== serverMarkdownRef.current || title !== serverTitleRef.current);
@@ -1637,13 +1655,13 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           <button
             type="button"
             aria-pressed={!cardsViewActive}
-            onClick={() => setSelectedCardViewIdentity(null)}
+            onClick={() => selectPlanView("document")}
           >Document</button>
           <button
             type="button"
             aria-pressed={cardsViewActive}
             disabled={!documentId || status !== "ready" || !editor}
-            onClick={() => setSelectedCardViewIdentity(editorIdentity)}
+            onClick={() => selectPlanView("cards")}
           >Cards</button>
         </nav>
         <div
@@ -1706,7 +1724,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             sourceWarnings={fidelityWarnings}
             basis={savedBasis}
             isDirty={cardProjectionDirty}
-            onReturnToDocument={() => setSelectedCardViewIdentity(null)}
+            onReturnToDocument={() => selectPlanView("document")}
             selectableTargetKeys={selectableTargetKeys}
             editableTargetKeys={editableTargetKeys}
             selectedTarget={selectedPlayableTarget?.target ?? null}

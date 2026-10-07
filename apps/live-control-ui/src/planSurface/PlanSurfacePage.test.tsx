@@ -608,6 +608,94 @@ it("retains the mounted Plan and typed question across Cards, Document and dock 
   expect(postTurn).not.toHaveBeenCalled();
 });
 
+it("restores Cards from the matching Plan URL after reopen and keeps the local editor draft", async () => {
+  const record = mockSavedPlanForAgent(savedAgentPlanId, 7, 7, twoScenePlanMarkdown);
+  const location = `/plan?world=${worldId}&documentId=${record.document_id}&view=cards`;
+  window.history.replaceState({}, "", location);
+  const pageTree = (
+    <SelectedWorldProvider locationSnapshot={location}>
+      <VerifiedPlanPage />
+    </SelectedWorldProvider>
+  );
+  const firstMount = render(pageTree);
+  const page = await screen.findByTestId("world-owned-plan");
+  const cards = within(page).getByRole("button", { name: "Cards" });
+  const document = within(page).getByRole("button", { name: "Document" });
+  await waitFor(() => expect(cards).toHaveAttribute("aria-pressed", "true"));
+  expect(screen.getByTestId("world-plan-document-view")).toHaveAttribute("hidden");
+  const contextIdentity = screen.getByTestId("world-plan-context-identity").textContent;
+  expect(contextIdentity).not.toBe("none");
+
+  fireEvent.click(document);
+  expect(new URLSearchParams(window.location.search).get("view")).toBeNull();
+  const editorSurface = screen.getByTestId("world-owned-plan-markdown-editor");
+  const editor = editorSurface.querySelector("[contenteditable]");
+  expect(editor).not.toBeNull();
+  fireEvent.input(editor!, { target: { textContent: "Draft survives Cards and reload" } });
+  const draftKey = `dmb:world-plan-local-draft:v2:${worldId}`;
+  await waitFor(() => expect(JSON.parse(localStorage.getItem(draftKey) ?? "null").markdown)
+    .toContain("Draft survives Cards and reload"));
+
+  fireEvent.click(cards);
+  expect(new URLSearchParams(window.location.search).get("view")).toBe("cards");
+  expect(cards).toHaveAttribute("aria-pressed", "true");
+  const savedDraft = JSON.parse(localStorage.getItem(draftKey) ?? "null").markdown;
+  firstMount.unmount();
+
+  render(pageTree);
+  const reopenedPage = await screen.findByTestId("world-owned-plan");
+  const reopenedCards = within(reopenedPage).getByRole("button", { name: "Cards" });
+  await waitFor(() => expect(reopenedCards).toHaveAttribute("aria-pressed", "true"));
+  expect(screen.getByTestId("world-plan-document-view")).toHaveAttribute("hidden");
+  expect(screen.getByTestId("world-plan-context-identity").textContent).toBe(contextIdentity);
+  fireEvent.click(within(reopenedPage).getByRole("button", { name: "Document" }));
+  expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent("Draft survives Cards and reload");
+  expect(JSON.parse(localStorage.getItem(draftKey) ?? "null").markdown).toBe(savedDraft);
+});
+
+it("clears the Cards route when opening a different saved Plan identity", async () => {
+  const documentA = savedAgentPlanId;
+  const documentB = "saved-plan-card-route-b";
+  const recordA = mockSavedPlanForAgent(documentA, 7, 7, twoScenePlanMarkdown);
+  const recordB = worldPlanRecord(documentB, worldId, 3);
+  recordB.title = "Second Plan";
+  vi.mocked(liveApi.listWorldOwnedPlans).mockResolvedValue({
+    schema_version: "dmb_workspace_document_registry_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    records: [recordA, recordB],
+  });
+  const snapshot = (record: WorldOwnedPlanRecordV2, markdown: string) => ({
+    schema_version: "dmb_workspace_document_snapshot_v2" as const,
+    record,
+    markdown,
+    content_sha256: "c".repeat(64),
+    file_fingerprint: "postgres",
+    file_exists: true,
+    loaded_revision: record.revision,
+  });
+  vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockImplementation(async (id) =>
+    id === documentB ? snapshot(recordB, "# Second Plan\n") : snapshot(recordA, twoScenePlanMarkdown));
+  const location = `/plan?world=${worldId}&documentId=${documentA}&view=cards`;
+  window.history.replaceState({}, "", location);
+  render(
+    <SelectedWorldProvider locationSnapshot={location}>
+      <VerifiedPlanPage />
+    </SelectedWorldProvider>,
+  );
+  const page = await screen.findByTestId("world-owned-plan");
+  await waitFor(() => expect(within(page).getByRole("button", { name: "Cards" })).toHaveAttribute("aria-pressed", "true"));
+
+  fireEvent.change(screen.getByLabelText("Plan document"), { target: { value: documentB } });
+  await waitFor(() => expect(screen.getByLabelText("Plan title")).toHaveValue("Second Plan"));
+  expect(new URLSearchParams(window.location.search).get("documentId")).toBe(documentB);
+  expect(new URLSearchParams(window.location.search).get("view")).toBeNull();
+  expect(within(page).getByRole("button", { name: "Document" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByTestId("world-plan-document-view")).not.toHaveAttribute("hidden");
+  expect(screen.queryByTestId("world-plan-scene-reader")).not.toBeInTheDocument();
+  expect(screen.getByTestId("world-plan-publication")).toHaveAttribute("data-work-object", `document:${documentB}`);
+});
+
 it("pins Ask to the exact committed World Plan revision and excludes editor text", async () => {
   mockSavedPlanForAgent();
   const postTurn = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => worldPlanAgentResponse(request));
@@ -893,7 +981,7 @@ it("clears the previous saved Ask target when focus moves to a draft-only Scene"
   expect(messageDungeonBuddyField(conversation)).toHaveValue("A question not yet sent");
   expect(postTurn).not.toHaveBeenCalled();
   expect(committedRevision).toHaveBeenCalledTimes(1);
-  expect(window.location.pathname + window.location.search).toBe(`/plan?world=${worldId}&documentId=${savedAgentPlanId}`);
+  expect(window.location.pathname + window.location.search).toBe(`/plan?world=${worldId}&documentId=${savedAgentPlanId}&view=cards`);
 });
 
 it("connects and revokes the local Agent and Graph session from Settings", async () => {
