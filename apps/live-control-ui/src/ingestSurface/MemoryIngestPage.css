@@ -1,0 +1,76 @@
+.ingest-source-review {
+  box-sizing: border-box;
+  display: grid;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: min(100%, 100vw);
+  min-width: 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+}
+
+.ingest-source-review > * {
+  max-width: 100%;
+  min-width: 0;
+  margin-block: 0;
+}
+
+.ingest-source-review h1 {
+  font-size: 1.1rem;
+}
+
+.ingest-source-review-metadata {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.25rem 0.75rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+
+.ingest-source-review-metadata dt {
+  color: var(--fg-mute);
+  font-weight: 600;
+}
+
+.ingest-source-review-metadata dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ingest-source-review details > summary {
+  width: fit-content;
+  max-width: 100%;
+  cursor: pointer;
+  color: var(--fg-mute);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.ingest-source-review details > code {
+  display: block;
+  max-width: 100%;
+  margin-block-start: 0.25rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ingest-source-review-notice {
+  line-height: 1.4;
+}
+
+@media (max-width: 40rem) {
+  .ingest-source-review-metadata {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.1rem;
+  }
+
+  .ingest-source-review-metadata dd {
+    margin-block-end: 0.35rem;
+  }
+}

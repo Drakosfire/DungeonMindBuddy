@@ -1,4 +1,5 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getExtractionRun, getPlanView } from "../api/liveApi";
@@ -125,6 +126,7 @@ describe("managed-World Ingest boundary", () => {
   });
 
   it("opens an exact recap as read-only source review with the selected World shown as target", async () => {
+    const user = userEvent.setup();
     selection.current = { kind: "managed", worldId: "elderwyld", name: "Elderwyld", documentId: null };
     vi.mocked(getPlanView).mockResolvedValue({
       ...planView,
@@ -146,10 +148,16 @@ describe("managed-World Ingest boundary", () => {
 
     render(<MemoryIngestPage />);
 
-    expect(await screen.findByTestId("source-review-scope")).toHaveTextContent("s27-source");
-    expect(screen.getByTestId("source-review-scope")).toHaveTextContent("longmont-c2");
+    const sourceScope = await screen.findByTestId("source-review-scope");
+    expect(sourceScope).toHaveTextContent("longmont-c2");
     expect(screen.getByTestId("source-review-scope")).toHaveTextContent("session-27");
     expect(screen.getByTestId("source-review-scope")).toHaveTextContent("elderwyld");
+    const artifactDetails = screen.getByText("Show exact artifact ID").closest("details");
+    expect(artifactDetails).not.toHaveAttribute("open");
+    expect(screen.getByText("s27-source")).not.toBeVisible();
+    await user.click(screen.getByText("Show exact artifact ID"));
+    expect(artifactDetails).toHaveAttribute("open");
+    expect(screen.getByText("s27-source")).toBeVisible();
     expect(screen.getByTestId("exact-graph-review")).toHaveAttribute(
       "data-source-review-only",
       "true",

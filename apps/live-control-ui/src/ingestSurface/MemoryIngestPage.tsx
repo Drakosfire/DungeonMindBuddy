@@ -11,6 +11,7 @@ import { parseGraphReviewRunHandoff } from "../planSurface/graphReviewWorkbench/
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import { useIngestRunCatalogInformation } from "./useIngestRunCatalogInformation";
 import "../planSurface/planSurface.css";
+import "./MemoryIngestPage.css";
 
 type LoadStatus = "loading" | "ready" | "error";
 
@@ -235,15 +236,27 @@ function SelectedWorldMemoryIngestPage() {
     <AppChrome activeRoute="ingest">
       <main className="ingest-surface-root" aria-label="Memory Ingest">
         {sourceReview ? (
-          <section aria-label="Read-only source review" data-testid="source-review-scope">
+          <section
+            className="ingest-source-review"
+            aria-label="Read-only source review"
+            data-testid="source-review-scope"
+          >
             <h1>Read-only source review</h1>
-            <dl>
-              <dt>Source artifact</dt><dd>{sourceReview.source_artifact_id}</dd>
+            <dl className="ingest-source-review-metadata">
+              <dt>Source artifact</dt>
+              <dd>
+                <details>
+                  <summary>Show exact artifact ID</summary>
+                  <code>{sourceReview.source_artifact_id}</code>
+                </details>
+              </dd>
               <dt>Source campaign</dt><dd>{sourceReview.campaign_id ?? "Not declared"}</dd>
               <dt>Source session</dt><dd>{sourceReview.session_id ?? "Not declared"}</dd>
               <dt>Selected target World</dt><dd>{managedWorldId}</dd>
             </dl>
-            <p>Reviewing this source does not import it or associate it with the selected World.</p>
+            <p className="ingest-source-review-notice">
+              Reviewing this source does not import it or associate it with the selected World.
+            </p>
           </section>
         ) : null}
         <GraphReviewWorkbenchModule
