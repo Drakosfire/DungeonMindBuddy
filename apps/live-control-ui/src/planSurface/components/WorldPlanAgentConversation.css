@@ -555,3 +555,260 @@
     flex: 1 1 auto;
   }
 }
+
+/* The dock keeps the document in front. Chat should read like an exchange,
+   with older turns and operational records available only when asked for. */
+.world-plan-agent-conversation__body {
+  display: grid;
+  align-content: start;
+  gap: 0.55rem;
+}
+
+.world-plan-agent-conversation__turns {
+  display: grid;
+  gap: 0.55rem;
+  align-content: start;
+  padding: 0;
+}
+
+.world-plan-agent-conversation__turns > h3 {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  clip-path: inset(50%);
+  overflow: hidden;
+}
+
+.world-plan-agent-conversation__turns article.world-plan-agent-conversation__turn {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.2rem 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.world-plan-agent-conversation__turns article.world-plan-agent-conversation__proposal-event {
+  gap: 0.4rem;
+  padding: 0.2rem 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.world-plan-agent-conversation__message {
+  display: grid;
+  gap: 0.25rem;
+  min-inline-size: 0;
+  padding: 0.55rem 0.72rem;
+  border-radius: 0.75rem;
+}
+
+.world-plan-agent-conversation__message p {
+  margin: 0;
+}
+
+.world-plan-agent-conversation__message--user {
+  justify-self: end;
+  inline-size: fit-content;
+  max-inline-size: min(88%, 46rem);
+  background: var(--ui-background-surface, #202a33);
+  border: 1px solid var(--ui-border-subtle, #3c4b54);
+}
+
+.world-plan-agent-conversation__message--assistant {
+  inline-size: 100%;
+  padding-inline-start: 0.7rem;
+  border-inline-start: 2px solid var(--ui-accent, #73968d);
+  background: transparent;
+}
+
+.world-plan-agent-conversation__message--assistant > *:last-child {
+  min-inline-size: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.world-plan-agent-conversation__speaker {
+  color: var(--ui-text-secondary, #b8c0ce);
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.035em;
+}
+
+.world-plan-agent-conversation__turn-status {
+  margin: 0;
+  padding-inline-start: 0.7rem;
+  color: var(--ui-text-secondary, #b8c0ce);
+  font-size: 0.82rem;
+}
+
+.world-plan-agent-conversation__turn--failed .world-plan-agent-conversation__turn-status,
+.world-plan-agent-conversation__turn--interrupted .world-plan-agent-conversation__turn-status {
+  color: var(--ui-text-danger, #ffb6a6);
+}
+
+.world-plan-agent-conversation__turn-details,
+.world-plan-agent-conversation__earlier,
+.world-plan-agent-conversation__local-activity,
+.world-plan-agent-conversation__recovery-details {
+  min-inline-size: 0;
+  color: var(--ui-text-secondary, #b8c0ce);
+  font-size: 0.76rem;
+}
+
+.world-plan-agent-conversation__turn-details > summary,
+.world-plan-agent-conversation__earlier > summary,
+.world-plan-agent-conversation__local-activity > summary,
+.world-plan-agent-conversation__recovery-details > summary {
+  width: fit-content;
+  max-inline-size: 100%;
+  cursor: pointer;
+}
+
+.world-plan-agent-conversation__turn-details > p {
+  margin: 0.35rem 0 0;
+}
+
+.world-plan-agent-conversation__earlier,
+.world-plan-agent-conversation__local-activity,
+.world-plan-agent-conversation__recovery-details {
+  padding-block-start: 0.45rem;
+  border-block-start: 1px solid var(--ui-border-subtle, #343d4d);
+}
+
+.world-plan-agent-conversation__earlier > article,
+.world-plan-agent-conversation__local-activity > article {
+  margin-block-start: 0.35rem;
+}
+
+.world-plan-agent-conversation__earlier > button,
+.world-plan-agent-conversation__recovery-details > button {
+  margin-block-start: 0.4rem;
+}
+
+.world-plan-agent-conversation__recovery-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 0.65rem;
+  padding: 0.4rem 0.55rem;
+  border-inline-start: 2px solid var(--ui-text-danger, #ffb6a6);
+  color: var(--ui-text-secondary, #b8c0ce);
+  font-size: 0.76rem;
+}
+
+.world-plan-agent-conversation__recovery-notice button {
+  min-block-size: 2rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.world-plan-agent-conversation__empty,
+.world-plan-agent-conversation__loading {
+  margin: 0;
+  color: var(--ui-text-secondary, #b8c0ce);
+  font-size: 0.82rem;
+}
+
+.world-plan-agent-conversation__context-mode {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  min-inline-size: 0;
+}
+
+.world-plan-agent-conversation__context-mode > button {
+  min-block-size: 2rem;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--ui-border-strong, #536375);
+  border-radius: 999px;
+  color: var(--ui-text-primary, #e8eaef);
+  background: var(--ui-background-surface, #202a33);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.world-plan-agent-conversation__context-mode > button[aria-pressed="true"] {
+  border-color: var(--ui-accent, #73968d);
+  background: color-mix(in srgb, var(--ui-accent, #73968d) 18%, transparent);
+}
+
+.world-plan-agent-conversation__context-mode > span {
+  color: var(--ui-text-secondary, #b8c0ce);
+  font-size: 0.76rem;
+}
+
+.plan-conversation-dock .world-plan-agent-conversation__composer {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.plan-conversation-dock .world-plan-agent-conversation__composer form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 0.35rem 0.5rem;
+}
+
+.plan-conversation-dock .world-plan-agent-conversation__composer textarea {
+  grid-column: 1;
+  inline-size: 100%;
+  min-block-size: 3.15rem;
+  max-block-size: 8rem;
+  height: auto;
+  padding: 0.6rem 0.7rem;
+  resize: vertical;
+  font-size: 0.9rem;
+}
+
+.plan-conversation-dock .world-plan-agent-conversation__composer-footer {
+  display: contents;
+}
+
+.plan-conversation-dock .world-plan-agent-conversation__composer-footer p {
+  grid-column: 1;
+  grid-row: 2;
+  align-self: center;
+  margin: 0;
+  font-size: 0.68rem;
+}
+
+.plan-conversation-dock .world-plan-agent-conversation__composer-footer button {
+  grid-column: 2;
+  grid-row: 1;
+  min-block-size: 3.15rem;
+  min-inline-size: 4rem;
+  padding-inline: 0.75rem;
+}
+
+.plan-conversation-dock .world-plan-agent-conversation__composer [role="alert"],
+.plan-conversation-dock .world-plan-agent-conversation__target-disclosure {
+  grid-column: 1 / -1;
+  max-block-size: 4rem;
+  overflow: auto;
+  margin: 0;
+  font-size: 0.78rem;
+}
+
+.world-plan-agent-conversation__review {
+  margin-block-start: 0.45rem;
+}
+
+@media (max-width: 42rem) {
+  .world-plan-agent-conversation__message--user {
+    max-inline-size: 96%;
+  }
+
+  .plan-conversation-dock .world-plan-agent-conversation__composer form {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .plan-conversation-dock .world-plan-agent-conversation__composer textarea {
+    min-block-size: 3.15rem;
+    max-block-size: 7rem;
+  }
+}
