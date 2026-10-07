@@ -1097,6 +1097,32 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     assert adapter.record_lifecycle({"transition": "sdk_entered"}) is True
     assert adapter.record_lifecycle({"transition": "response_received"}) is True
     assert adapter.fence is not None
+    def unavailable_graph(_world: str) -> Any:
+        raise RuntimeError("private Graph admission failure")
+
+    with monkeypatch.context() as graph_down:
+        graph_down.setattr(
+            "apps.live_control_server.integrations.dungeonmind.world_graph_reads.direct_services_from_config",
+            unavailable_graph,
+        )
+        normalized_failure = adapter.broker_graph_operation({
+            "toolName": "expand_graph_retrieval",
+            "arguments": {
+                "schema": "dmb_expand_graph_retrieval_request_v1",
+                "retrievalSessionId": session.id, "operation": "search",
+            },
+        })
+    assert json.loads(normalized_failure["resultJson"])["code"] == "graph_operation_unavailable"
+    assert json.loads(normalized_failure["resultJson"])["statusCode"] == 503
+    assert adapter.failure is not None and adapter.failure.code == "graph_operation_indeterminate"
+    from apps.live_control_server.services.hermes_graph_agent import _GraphOperationReservation
+
+    reservation = _GraphOperationReservation(
+        8, lambda _name, _args: (normalized_failure["resultJson"], None),
+    )
+    reservation("expand_graph_retrieval", {})
+    assert reservation.indeterminate is True
+    adapter.failure = None
     turn = adapter.fence.turn
     assert turn is not None
     assert adapter.producing_provider_attempt_id is not None

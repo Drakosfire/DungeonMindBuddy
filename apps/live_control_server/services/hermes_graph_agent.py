@@ -1007,6 +1007,7 @@ def _request_budget_guard(
     *,
     on_provider_authorization: Callable[[Any], bool] | None = None,
     on_provider_lifecycle: Callable[[Mapping[str, Any]], bool] | None = None,
+    graph_outcome_indeterminate: Callable[[], bool] | None = None,
 ) -> Callable[[Any], bool]:
     """Build the strict local request-envelope guard for one resolved model."""
     expected_provider = str(policy["provider"])
@@ -1029,6 +1030,9 @@ def _request_budget_guard(
     def allow(view: Any) -> bool:
         nonlocal authorization_sequence
         guard_state["last_rejection_reason"] = "request_guard_rejected"
+        if graph_outcome_indeterminate is not None and graph_outcome_indeterminate():
+            guard_state["last_rejection_reason"] = "graph_operation_indeterminate"
+            return False
         if (
             view.provider != expected_provider
             or view.model != expected_model
@@ -1409,6 +1413,7 @@ class _GraphOperationReservation:
         self.limit = limit
         self.broker = broker
         self.count = 0
+        self.indeterminate = False
         self.agents: list[Any] = []
         self._lock = threading.Lock()
 
@@ -1425,6 +1430,14 @@ class _GraphOperationReservation:
     def _call_locked(
         self, tool_name: str, arguments: Mapping[str, Any],
     ) -> tuple[str, Mapping[str, Any] | None]:
+        if self.indeterminate:
+            return json.dumps({
+                "schema": "dmb_world_graph_retrieval_error_v1",
+                "code": "graph_operation_indeterminate",
+                "message": "Parent Graph expansion outcome is uncertain.",
+                "statusCode": 503,
+                "diagnostics": [],
+            }, separators=(",", ":")), None
         if self.count >= self.limit:
             self._retire_tools()
             return json.dumps({
@@ -1438,17 +1451,25 @@ class _GraphOperationReservation:
             result_json, session_packet = self.broker(tool_name, arguments)
         except Exception:
             # Parent admission may have committed before the broker failed.
-            self.count = self.limit
+            self.indeterminate = True
             self._retire_tools()
             raise
         try:
             result = json.loads(result_json)
         except (TypeError, ValueError):
             result = None
-        if not isinstance(result, Mapping) or result.get("schema") != "dmb_world_graph_retrieval_error_v1":
+        if isinstance(result, Mapping) and result.get("schema") == "dmb_world_graph_retrieval_error_v1":
+            status = result.get("statusCode")
+            if isinstance(status, bool) or not isinstance(status, int) or not 400 <= status < 500:
+                self.indeterminate = True
+                self._retire_tools()
+        elif isinstance(result, Mapping) and result.get("schema") == "dmb_world_graph_retrieval_result_v1":
             self.count += 1
             if self.count >= self.limit:
                 self._retire_tools()
+        else:
+            self.indeterminate = True
+            self._retire_tools()
         return result_json, session_packet
 
 
@@ -1931,6 +1952,10 @@ def run_hermes_graph_agent_turn(
                         if request.request_budget is not None:
                             agent.api_request_budget_guard = _request_budget_guard(
                                 request.request_budget,
+                                graph_outcome_indeterminate=(
+                                    (lambda: graph_reservation.indeterminate)
+                                    if graph_reservation is not None else None
+                                ),
                                 on_provider_authorization=(
                                     (
                                         on_provider_authorization
