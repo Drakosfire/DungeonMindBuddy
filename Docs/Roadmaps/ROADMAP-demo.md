@@ -143,12 +143,17 @@ remains open/draft and held, with source unchanged. No runtime was changed and
 the question was not repeated. PRIME transferred this roadmap path to the new
 DEMO lane in
 [`HANDOFF-DEMO-selected-world-recap-prepare.md`](../Plans/HANDOFF-DEMO-selected-world-recap-prepare.md),
-which now owns the Buddy callers and selected-target usability. It sends the
-verified selected managed World through both recap prepare callers, disables
-the action without that selection, and fences stale responses after a World
-switch. This is UI integration work only; no rollout, recap publication, or
-J1–J6 acceptance is claimed. Before a later #979 merge, its older roadmap hunk
-must be dropped or reconciled against this checkpoint.
+which now owns the Buddy caller and selected-target usability. On source/test
+head `9dcc7c5cc06e5fdf05ac5a6499c733365719d099`, the active
+`GraphReviewWorkbenchModule` caller sends the verified selected managed World,
+disables prepare without that selection, and fences stale responses after a
+World switch. The separately leased `GraphReviewSessionToolbar` component has
+the same direct-mount coverage, but no current production callsite. All four
+owning files passed (85 tests). The UI build/typecheck remains blocked by the existing
+`ThreatPublicationPanel.tsx:553` JSX namespace error, outside this lane. This is
+UI integration work only; no rollout, recap publication, or J1–J6 acceptance is
+claimed. Before a later #979 merge, its older roadmap hunk must be dropped or
+reconciled against this checkpoint.
 
 **Plan conversation integration update (2026-10-03):** Buddy #900 and #902 are
 merged at `f8712198848598c5ce83248eb66a54d93c1fd044` and
