@@ -19,7 +19,12 @@ vi.mock("./useIngestRunCatalogInformation", () => ({
   useIngestRunCatalogInformation: () => ({ channel: {}, refresh: () => undefined }),
 }));
 vi.mock("../planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule", () => ({
-  GraphReviewWorkbenchModule: () => <div data-testid="exact-graph-review" />,
+  GraphReviewWorkbenchModule: ({ sourceReviewOnly }: { sourceReviewOnly?: boolean }) => (
+    <div
+      data-testid="exact-graph-review"
+      data-source-review-only={sourceReviewOnly ? "true" : "false"}
+    />
+  ),
 }));
 
 vi.mock("../modules/IngestionModule", () => ({
@@ -87,6 +92,7 @@ describe("managed-World Ingest boundary", () => {
     window.history.replaceState({}, "", "/ingest?world=world-b&extractionRunId=run-a");
     vi.mocked(getExtractionRun).mockResolvedValue({
       run_id: "run-a",
+      source_domain: "worldbuilding",
       campaign_id: "world-a",
     } as Awaited<ReturnType<typeof getExtractionRun>>);
     render(<MemoryIngestPage />);
@@ -104,5 +110,38 @@ describe("managed-World Ingest boundary", () => {
     render(<MemoryIngestPage />);
     expect(await screen.findByTestId("exact-graph-review")).toBeInTheDocument();
     expect(getPlanView).toHaveBeenCalledWith("world-b");
+  });
+
+  it("opens an exact recap as read-only source review with the selected World shown as target", async () => {
+    selection.current = { kind: "managed", worldId: "elderwyld", name: "Elderwyld", documentId: null };
+    vi.mocked(getPlanView).mockResolvedValue({
+      ...planView,
+      world_id: "elderwyld",
+      campaign_id: "elderwyld",
+    });
+    vi.mocked(getExtractionRun).mockResolvedValue({
+      run_id: "s27-run",
+      source_domain: "recap",
+      source_artifact_id: "s27-source",
+      campaign_id: "longmont-c2",
+      session_id: "session-27",
+    } as Awaited<ReturnType<typeof getExtractionRun>>);
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?world=elderwyld&campaign=longmont-c2&extractionRunId=s27-run",
+    );
+
+    render(<MemoryIngestPage />);
+
+    expect(await screen.findByTestId("source-review-scope")).toHaveTextContent("s27-source");
+    expect(screen.getByTestId("source-review-scope")).toHaveTextContent("longmont-c2");
+    expect(screen.getByTestId("source-review-scope")).toHaveTextContent("session-27");
+    expect(screen.getByTestId("source-review-scope")).toHaveTextContent("elderwyld");
+    expect(screen.getByTestId("exact-graph-review")).toHaveAttribute(
+      "data-source-review-only",
+      "true",
+    );
+    expect(screen.getByText(/does not import it or associate it/)).toBeInTheDocument();
   });
 });

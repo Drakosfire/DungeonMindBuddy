@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { getExtractionRun, getPlanView } from "../api/liveApi";
-import type { PlanViewProjection } from "../api/types";
+import type { ExtractionRunRecord, PlanViewProjection } from "../api/types";
 import { usePublishAgentSurfaceContext } from "../agentInteraction/usePublishAgentSurfaceContext";
 import { IngestionModule } from "../modules/IngestionModule";
 import { AppChrome } from "../chrome/AppChrome";
@@ -52,20 +52,52 @@ function SelectedWorldMemoryIngestPage() {
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [error, setError] = useState<string | null>(null);
   const [planView, setPlanView] = useState<PlanViewProjection | null>(null);
+  const [sourceReview, setSourceReview] = useState<Pick<
+    ExtractionRunRecord,
+    "run_id" | "source_artifact_id" | "campaign_id" | "session_id"
+  > | null>(null);
 
   const refresh = useCallback(async () => {
+    setSourceReview(null);
     const params = new URLSearchParams(window.location.search);
     const claimedCampaign = params.get("campaign")?.trim();
     const handoff = parseGraphReviewRunHandoff(window.location.search);
     const isExistingRecapCampaign = !handoff && managedWorldId === "elderwyld" &&
       (claimedCampaign === "longmont-c1" || claimedCampaign === "longmont-c2");
-    if (managedWorldId && claimedCampaign && claimedCampaign !== managedWorldId && !isExistingRecapCampaign) {
+    if (
+      managedWorldId
+      && claimedCampaign
+      && claimedCampaign !== managedWorldId
+      && !isExistingRecapCampaign
+      && !handoff
+    ) {
       throw new Error(`Ingest campaign ${claimedCampaign} does not match selected World ${managedWorldId}.`);
     }
     if (managedWorldId && handoff?.extractionRunId && handoff.errors.length === 0) {
       const run = await getExtractionRun(handoff.extractionRunId);
-      if (run.campaign_id !== managedWorldId) {
-        throw new Error(`Extraction Run does not belong to World ${managedWorldId}.`);
+      if (run.run_id !== handoff.extractionRunId) {
+        throw new Error("handoff extractionRunId does not match the loaded run");
+      }
+      if (run.source_domain === "recap") {
+        // A recap's campaign identifies its source. The selected managed World
+        // is a destination intent; it does not establish recap ownership.
+        setSourceReview({
+          run_id: run.run_id,
+          source_artifact_id: run.source_artifact_id,
+          campaign_id: run.campaign_id,
+          session_id: run.session_id,
+        });
+      } else {
+        if (
+          claimedCampaign
+          && claimedCampaign !== managedWorldId
+          && !isExistingRecapCampaign
+        ) {
+          throw new Error(`Ingest campaign ${claimedCampaign} does not match selected World ${managedWorldId}.`);
+        }
+        if (run.campaign_id !== managedWorldId) {
+          throw new Error(`Extraction Run does not belong to World ${managedWorldId}.`);
+        }
       }
     }
     const response = await getPlanView(managedWorldId);
@@ -183,10 +215,23 @@ function SelectedWorldMemoryIngestPage() {
   return (
     <AppChrome activeRoute="ingest">
       <main className="ingest-surface-root" aria-label="Memory Ingest">
+        {sourceReview ? (
+          <section aria-label="Read-only source review" data-testid="source-review-scope">
+            <h1>Read-only source review</h1>
+            <dl>
+              <dt>Source artifact</dt><dd>{sourceReview.source_artifact_id}</dd>
+              <dt>Source campaign</dt><dd>{sourceReview.campaign_id ?? "Not declared"}</dd>
+              <dt>Source session</dt><dd>{sourceReview.session_id ?? "Not declared"}</dd>
+              <dt>Selected target World</dt><dd>{managedWorldId}</dd>
+            </dl>
+            <p>Reviewing this source does not import it or associate it with the selected World.</p>
+          </section>
+        ) : null}
         <GraphReviewWorkbenchModule
           context={context}
           catalogChannel={catalog.channel}
           onCatalogRefresh={catalog.refresh}
+          sourceReviewOnly={sourceReview !== null}
         />
       </main>
     </AppChrome>

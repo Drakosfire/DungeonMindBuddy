@@ -258,6 +258,7 @@ function renderWorkbench(
       typeof createSurfaceInformationChannel<ExtractionRunCatalogResponse>
     >;
     onCatalogRefresh?: () => void | Promise<void>;
+    sourceReviewOnly?: boolean;
   },
 ) {
   return render(
@@ -268,6 +269,7 @@ function renderWorkbench(
             context={moduleContext}
             catalogChannel={options?.catalogChannel ?? readyCatalogChannel(runs)}
             onCatalogRefresh={options?.onCatalogRefresh ?? (() => undefined)}
+            sourceReviewOnly={options?.sourceReviewOnly}
           />
           <PeekRegionSlot />
           <ToolHost />
@@ -1127,6 +1129,165 @@ describe("GraphReviewWorkbenchModule", () => {
     );
     expect(reviewPackageSpy).not.toHaveBeenCalled();
     expect(screen.queryByTestId("graph-review-exact-run-review-error")).not.toBeInTheDocument();
+  });
+
+  it("opens an unbound exact recap for source review without target write authority", async () => {
+    const run = canonicalRun({
+      run_id: "s27-run",
+      source_artifact_id: "s27-source",
+      campaign_id: "longmont-c2",
+      session_id: "session-27",
+    });
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(run);
+    vi.spyOn(extractPromoteApi, "getExactRunReviewPackage").mockResolvedValue({
+      ...exactReviewPackageForRun(run),
+      sourceProse: "# Session 27 source prose",
+      worldId: null,
+      firstWorldPublishEligible: true,
+    });
+    const prepareSpy = vi.spyOn(extractPromoteApi, "prepareExtractPromote");
+    const confirmSpy = vi.spyOn(extractPromoteApi, "confirmExtractPromote");
+    const correctionSpy = vi.spyOn(extractPromoteApi, "correctExactRunEvidence");
+    window.history.replaceState({}, "", "/ingest?extractionRunId=s27-run&sourceArtifactId=s27-source");
+
+    renderWorkbench([], { ...context, campaignId: "elderwyld" }, { sourceReviewOnly: true });
+
+    expect(await screen.findByText("# Session 27 source prose")).toBeInTheDocument();
+    expect(screen.getByTestId("graph-review-workbench")).toHaveAttribute("data-write-authority", "none");
+    expect(screen.queryByTestId("graph-review-first-world-publish-sheet")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-extract-promote-sheet")).not.toBeInTheDocument();
+    expect(prepareSpy).not.toHaveBeenCalled();
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(correctionSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejects a declared source World that differs from the selected target", async () => {
+    const run = canonicalRun({ run_id: "s27-foreign-world" });
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(run);
+    vi.spyOn(extractPromoteApi, "getExactRunReviewPackage").mockResolvedValue({
+      ...exactReviewPackageForRun(run),
+      worldId: "other-world",
+    });
+    window.history.replaceState({}, "", "/ingest?extractionRunId=s27-foreign-world");
+
+    renderWorkbench([], { ...context, campaignId: "elderwyld" }, { sourceReviewOnly: true });
+
+    expect(await screen.findByText(
+      "exact-run review package declares a different World from the selected target",
+    )).toBeInTheDocument();
+    expect(screen.queryByText("# Exact recap prose for catalog load")).not.toBeInTheDocument();
+  });
+
+  it("rejects a historical source projection that declares a different World", async () => {
+    const run = canonicalRun({ run_id: "s27-foreign-projection", status: "validated" });
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(run);
+    vi.spyOn(liveApi, "getHistoricalRecapWorldProjection").mockResolvedValue(
+      historicalProjection({ runId: run.run_id, worldId: "other-world" }),
+    );
+    window.history.replaceState({}, "", `/ingest?extractionRunId=${run.run_id}`);
+
+    renderWorkbench([], { ...context, campaignId: "elderwyld" }, { sourceReviewOnly: true });
+
+    expect(await screen.findByText(
+      "historical recap projection World does not match the selected target World",
+    )).toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-historical-recap-projection")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    {
+      label: "campaign",
+      runId: "s27-campaign-mismatch",
+      campaignId: "longmont-c1",
+      sessionId: "session-23",
+    },
+    {
+      label: "session",
+      runId: "s27-session-mismatch",
+      campaignId: "longmont-c2",
+      sessionId: "session-26",
+    },
+  ])(
+    "rejects exact source $label mismatch before rendering the source",
+    async ({ runId, campaignId, sessionId }) => {
+      const run = canonicalRun({ run_id: runId });
+      vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(run);
+      vi.spyOn(extractPromoteApi, "getExactRunReviewPackage").mockResolvedValue({
+        ...exactReviewPackageForRun(run),
+        campaignId,
+        sessionId,
+      });
+      window.history.replaceState({}, "", `/ingest?extractionRunId=${run.run_id}`);
+
+      renderWorkbench([], { ...context, campaignId: "elderwyld" }, { sourceReviewOnly: true });
+
+      expect(await screen.findByText(
+        "exact-run review package identity does not match the loaded ExtractionRun",
+      )).toBeInTheDocument();
+      expect(screen.queryByText("# Exact recap prose for catalog load")).not.toBeInTheDocument();
+    },
+  );
+
+  it("dismisses a prepared write sheet when the exact run becomes source-review-only", async () => {
+    const user = userEvent.setup();
+    const run = canonicalRun({ run_id: "s27-mode-change" });
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(run);
+    vi.spyOn(extractPromoteApi, "getExactRunReviewPackage").mockResolvedValue(
+      exactReviewPackageForRun(run),
+    );
+    vi.spyOn(extractPromoteApi, "prepareExtractPromote").mockResolvedValue({
+      schema: "dmb_extract_promote_prepare_v1",
+      proposalId: "proposal-1",
+      proposalDigest: "digest-1",
+      parentRevisionId: "revision-1",
+      worldId: "longmont-c2",
+      acceptedProposalsCount: 0,
+      unresolvedMentionsCount: 0,
+      rejectedAssertionsCount: 0,
+      reviewPackage: {},
+      reviewItems: [],
+      reviewSummary: {
+        newObjectCount: 0,
+        connectExistingCount: 0,
+        relationshipCount: 0,
+        unresolvedMentionCount: 0,
+        rejectedAssertionCount: 0,
+      },
+      runId: run.run_id,
+      campaignId: run.campaign_id,
+      sessionId: run.session_id,
+    });
+    const confirmSpy = vi.spyOn(extractPromoteApi, "confirmExtractPromote");
+    window.history.replaceState({}, "", `/ingest?extractionRunId=${run.run_id}`);
+
+    const view = renderWorkbench([], context, { sourceReviewOnly: false });
+    await user.click(await screen.findByTestId("graph-review-exact-run-prepare"));
+    expect(await screen.findByTestId("graph-review-extract-promote-sheet")).toBeInTheDocument();
+
+    await act(async () => {
+      view.rerender(
+        <AgentInteractionProvider>
+          <SurfaceContextProvider>
+            <PeekRegionProvider>
+              <GraphReviewWorkbenchModule
+                context={{ ...context, campaignId: "elderwyld" }}
+                catalogChannel={readyCatalogChannel([])}
+                onCatalogRefresh={() => undefined}
+                sourceReviewOnly
+              />
+              <PeekRegionSlot />
+              <ToolHost />
+              <LegacyProjectionHostAdapter />
+            </PeekRegionProvider>
+          </SurfaceContextProvider>
+        </AgentInteractionProvider>,
+      );
+    });
+
+    expect(screen.queryByTestId("graph-review-extract-promote-sheet")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
+    expect(confirmSpy).not.toHaveBeenCalled();
   });
 
   it("keeps a false-anchor exact run inspectable but hides publication controls", async () => {

@@ -79,6 +79,8 @@ interface GraphReviewWorkbenchModuleProps {
   context: PlanContextDescriptor;
   catalogChannel: SurfaceInformationChannel<ExtractionRunCatalogResponse>;
   onCatalogRefresh: () => void;
+  /** Opens exact recap evidence without granting writes against the selected target World. */
+  sourceReviewOnly?: boolean;
 }
 
 const EMPTY_EXTRACTION_RUNS: ExtractionRunRecord[] = [];
@@ -131,6 +133,7 @@ export function GraphReviewWorkbenchModule({
   context,
   catalogChannel,
   onCatalogRefresh,
+  sourceReviewOnly = false,
 }: GraphReviewWorkbenchModuleProps) {
   const fallbackSessionId = `session-${context.ingestSession}`;
   const requestedSessionId = requestedSessionFromLocation();
@@ -434,6 +437,14 @@ export function GraphReviewWorkbenchModule({
               "historical recap projection identity does not match the loaded ExtractionRun",
             );
           }
+          if (
+            sourceReviewOnly
+            && projection.worldId.trim() !== context.campaignId.trim()
+          ) {
+            throw new Error(
+              "historical recap projection World does not match the selected target World",
+            );
+          }
           setHistoricalRecapProjection(projection);
           setHistoricalRecapProjectionStatus("ready");
         } catch (error) {
@@ -470,6 +481,18 @@ export function GraphReviewWorkbenchModule({
           );
           return;
         }
+        if (
+          sourceReviewOnly
+          && packageResponse.worldId?.trim()
+          && packageResponse.worldId.trim() !== context.campaignId.trim()
+        ) {
+          setExactReview(null);
+          setExactReviewStatus("error");
+          setExactReviewError(
+            "exact-run review package declares a different World from the selected target",
+          );
+          return;
+        }
         setExactReview(packageResponse);
         setExactReviewStatus("ready");
       } catch (error) {
@@ -503,7 +526,7 @@ export function GraphReviewWorkbenchModule({
     return () => {
       cancelled = true;
     };
-  }, [exactHandoff, exactHandoffErrors]);
+  }, [context.campaignId, exactHandoff, exactHandoffErrors, sourceReviewOnly]);
 
   // Catalog recap is the published World Graph recap reader
   // (same RecapGraphModule as Plan → Recap). Extract-promote review-package
@@ -678,6 +701,7 @@ export function GraphReviewWorkbenchModule({
   const onCorrectExactEvidence = useCallback(async (
     corrections: ExactRunEvidenceQuoteCorrection[],
   ) => {
+    if (sourceReviewOnly) return;
     const parentRunId = exactRun?.run_id;
     const parentCandidateSha256 = exactRun?.components?.candidate_graph?.sha256;
     if (!parentRunId || !parentCandidateSha256 || exactReview?.inspectionStatus !== "invalid_evidence") {
@@ -707,9 +731,10 @@ export function GraphReviewWorkbenchModule({
     } finally {
       setExactCorrecting(false);
     }
-  }, [exactRun, exactReview]);
+  }, [exactRun, exactReview, sourceReviewOnly]);
 
   const onPrepareExactRun = useCallback(async () => {
+    if (sourceReviewOnly) return;
     const runId = exactHandoff?.extractionRunId ?? exactRun?.run_id;
     if (!runId || !exactRunPromotable || exactPreparing || exactConfirmInFlight) return;
     setExactPreparing(true);
@@ -744,7 +769,13 @@ export function GraphReviewWorkbenchModule({
     } finally {
       setExactPreparing(false);
     }
-  }, [exactConfirmInFlight, exactHandoff?.extractionRunId, exactPreparing, exactRun?.run_id, exactRunPromotable]);
+  }, [exactConfirmInFlight, exactHandoff?.extractionRunId, exactPreparing, exactRun?.run_id, exactRunPromotable, sourceReviewOnly]);
+
+  useEffect(() => {
+    if (!sourceReviewOnly) return;
+    setExactPrepared(null);
+    setExactPrepareError(null);
+  }, [sourceReviewOnly]);
 
   const hasExactRunLoad = Boolean(
     exactHandoff
@@ -757,6 +788,7 @@ export function GraphReviewWorkbenchModule({
     exactRun,
     exactRunStatus,
   });
+  const effectiveWriteAuthority = sourceReviewOnly ? null : writeAuthority;
   // Keep live-state (and the Tools drawer) mounted even before a session is loaded so
   // Diagnostics remains reachable from the empty /ingest landing state.
   // Exact campaignless runs must not inherit applied/draft/context campaign lenses.
@@ -764,19 +796,19 @@ export function GraphReviewWorkbenchModule({
     ? (exactRun?.campaign_id ?? "").trim()
     : null;
   const reviewCampaignId =
-    writeAuthority?.kind === "exact_run"
-      ? (writeAuthority.campaignId ?? "")
+    effectiveWriteAuthority?.kind === "exact_run"
+      ? (effectiveWriteAuthority.campaignId ?? "")
       : browseContext.campaignId;
   // Exact worldbuilding runs keep session null — never invent a session lens.
   // A rejected or unresolved handoff must not degrade into browse while write
   // controls remain mounted.
   const reviewSessionId =
-    writeAuthority?.kind === "exact_run"
-      ? writeAuthority.sessionId ?? ""
+    effectiveWriteAuthority?.kind === "exact_run"
+      ? effectiveWriteAuthority.sessionId ?? ""
       : browseContext.sessionId;
 
   const committedBinding = useMemo<GraphReviewCommittedBinding | null>(() => {
-    if (writeAuthority?.kind !== "exact_run" || !exactRun?.run_id) return null;
+    if (effectiveWriteAuthority?.kind !== "exact_run" || !exactRun?.run_id) return null;
     const sourceArtifactId =
       exactRun.source_artifact_id?.trim()
       || exactHandoff?.sourceArtifactId?.trim()
@@ -805,7 +837,7 @@ export function GraphReviewWorkbenchModule({
     exactRun?.session_id,
     exactRun?.source_artifact_id,
     exactRunCampaignId,
-    writeAuthority,
+    effectiveWriteAuthority,
   ]);
 
   const showPublishedMemoryBrowse = !exactHandoff;
@@ -841,7 +873,7 @@ export function GraphReviewWorkbenchModule({
         <div
           className="graph-review-workbench-root"
           data-testid="graph-review-workbench"
-          data-write-authority={writeAuthority?.kind ?? "none"}
+          data-write-authority={effectiveWriteAuthority?.kind ?? "none"}
           data-browse-campaign={browseContext.campaignId}
           data-browse-session={browseContext.sessionId}
         >
@@ -872,11 +904,12 @@ export function GraphReviewWorkbenchModule({
               exactRunReviewable={exactRunReviewable}
               exactRunPromotable={exactRunPromotable}
               exactRunFirstWorldEligible={exactRunFirstWorldEligible}
+              sourceReviewOnly={sourceReviewOnly}
               exactRunNonPromotableReason={exactRunNonPromotableReason}
               exactPreparing={exactPreparing}
               exactConfirmInFlight={exactConfirmInFlight}
               exactPrepareError={exactPrepareError}
-              exactPrepared={exactPrepared}
+              exactPrepared={sourceReviewOnly ? null : exactPrepared}
               exactCorrecting={exactCorrecting}
               exactCorrectionError={exactCorrectionError}
               onCorrectEvidence={(corrections) => { void onCorrectExactEvidence(corrections); }}
@@ -904,6 +937,7 @@ function GraphReviewExactRunBranch(props: {
   exactRunReviewable: boolean;
   exactRunPromotable: boolean;
   exactRunFirstWorldEligible: boolean;
+  sourceReviewOnly: boolean;
   exactRunNonPromotableReason: string | null;
   exactPreparing: boolean;
   exactConfirmInFlight: boolean;
@@ -962,6 +996,7 @@ function GraphReviewExactRunBranch(props: {
         <GraphReviewExactRunProjection
           review={props.exactReview}
           correctionEnabled={props.exactRun.source_domain === "worldbuilding"
+            && !props.sourceReviewOnly
             && props.exactRun.profile_id === "worldbuilding_shepherds_flock_v0@0.1"
             && Boolean(props.exactRun.components?.candidate_graph?.sha256)
             && props.exactReview.inspectionStatus === "invalid_evidence"}
@@ -999,7 +1034,7 @@ function GraphReviewExactRunBranch(props: {
               </>
             )}
         </p>
-      ) : props.exactRunFirstWorldEligible && props.exactReview ? (
+      ) : !props.sourceReviewOnly && props.exactRunFirstWorldEligible && props.exactReview ? (
         props.exactReviewStatus === "error" ? null : (
           <GraphReviewFirstWorldPublishSheet
             review={props.exactReview}
@@ -1007,7 +1042,7 @@ function GraphReviewExactRunBranch(props: {
             onCatalogRefresh={props.onCatalogRefresh}
           />
         )
-      ) : !props.exactRunPromotable ? null : props.exactReviewStatus === "error" ? null : (
+      ) : props.sourceReviewOnly || !props.exactRunPromotable ? null : props.exactReviewStatus === "error" ? null : (
         <GraphReviewExactRunPromoteChrome
           exactPreparing={props.exactPreparing}
           exactConfirmInFlight={props.exactConfirmInFlight}
@@ -1016,7 +1051,7 @@ function GraphReviewExactRunBranch(props: {
           onPrepare={props.onPrepare}
         />
       )}
-      {props.exactPrepared ? (
+      {!props.sourceReviewOnly && props.exactPrepared ? (
         <GraphReviewExtractPromoteSheet
           prepared={props.exactPrepared}
           onClose={props.onClosePrepared}
