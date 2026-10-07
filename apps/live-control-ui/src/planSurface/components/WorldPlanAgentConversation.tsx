@@ -125,7 +125,8 @@ export function classifyPlanComposerIntent(message: string): "discuss" | "propos
     .replace(/^(?:please\s+)?(?:buddy[,!]?\s*)/i, "")
     .replace(/^for (?:this|the|our|my) [^,?.!]+,\s*/i, "");
   if (!normalized) return "discuss";
-  const changeVerb = "(?:propose|append|edit|revise|rewrite|replace|update|add|remove|delete|change|insert|draft|write|shorten|expand|move|reorder|make)";
+  const proposedEdit = "propose\\s+(?:to\\s+(?:append|edit|revise|rewrite|replace|update|add|remove|delete|change|insert|shorten|expand|move|reorder)|(?:appending|editing|revising|rewriting|replacing|updating|adding|removing|deleting|changing|inserting|shortening|expanding|moving|reordering))";
+  const changeVerb = `(?:${proposedEdit}|append|edit|revise|rewrite|replace|update|add|remove|delete|change|insert|draft|write|shorten|expand|move|reorder|make)`;
   // Explicit change requests take precedence over interrogative phrasing (e.g. "Could you rewrite…?").
   if (new RegExp(`^(?:(?:please|can you|could you|would you|can we|could we|i want you to|i'd like you to|i want to|i'd like to)\\s+)?${changeVerb}\\b`, "i").test(normalized)) return "propose";
   if (new RegExp(`^(?:(?:can|could|would) you|(?:can|could) we|i want you to|i'd like you to|i want to|i'd like to)\\s+(?:please\\s+)?${changeVerb}\\b`, "i").test(normalized)) return "propose";
