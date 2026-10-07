@@ -25,6 +25,7 @@ DERIVATION = "operator_recap_literal_evidence_correction_v1"
 DISPOSITION_VERSION = 1
 EFFECT_KEY = "recap_semantic_disposition"
 HOLD_REASON = "Corrected recap evidence awaits an explicit semantic review decision."
+REJECTED_REASON = "Corrected recap evidence was rejected by semantic review."
 
 
 def _digest(value: Mapping[str, Any]) -> str:
@@ -155,13 +156,17 @@ def assess_recap_semantics(
     disposition = dict(raw)
     if _sha(disposition.get("basis_sha256")) != basis:
         return held(basis_sha256=basis, basis=basis_fields)
-    if disposition.get("state") != "accepted":
+    if disposition.get("state") not in {"accepted", "rejected"}:
         return held(basis_sha256=basis, basis=basis_fields)
     if not all(
         isinstance(disposition.get(key), str) and disposition[key].strip()
         for key in ("review_decision_ref", "reviewer_id", "decided_at")
     ):
         return held(basis_sha256=basis, basis=basis_fields)
+    if disposition["state"] == "rejected":
+        return RecapSemanticAssessment(
+            True, False, basis, REJECTED_REASON, disposition, basis_fields
+        )
     return RecapSemanticAssessment(True, True, basis, None, disposition, basis_fields)
 
 
@@ -216,6 +221,7 @@ __all__ = [
     "DISPOSITION_VERSION",
     "EFFECT_KEY",
     "HOLD_REASON",
+    "REJECTED_REASON",
     "RecapSemanticAssessment",
     "accepted_effect_binding",
     "assert_current_effect_binding",

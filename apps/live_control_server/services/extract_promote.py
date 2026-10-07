@@ -1112,7 +1112,10 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
             semantic_disposition=(
                 {
                     "version": 1,
-                    "state": "accepted" if semantic_assessment.accepted else "held",
+                    "state": (
+                        semantic_assessment.disposition["state"]
+                        if semantic_assessment.disposition is not None else "held"
+                    ),
                     "basisSha256": semantic_assessment.basis_sha256,
                     "reason": semantic_assessment.reason,
                 }

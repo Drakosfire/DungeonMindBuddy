@@ -353,9 +353,62 @@ def test_held_review_package_remains_readable(
     assert review.promotable is False
     assert "semantic review" in review.promotable_reason
 
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+
+    monkeypatch.setattr(
+        world_graph_writes, "confirm_extract_promote_via_dungeonmind",
+        lambda *_a, **_k: pytest.fail("review projection reached World writer"),
+    )
+    from application_state.ingest import service as ingest_service
+    from apps.live_control_server.services import source_artifact_registry
+
+    monkeypatch.setattr(graph_run_registry, "get_reviewable_extraction_run", lambda _root, _id: child)
+    monkeypatch.setattr(
+        source_artifact_registry, "get_source_artifact",
+        lambda _root, _id: SimpleNamespace(content_sha256="a" * 64),
+    )
+
+    def record_rejection(run_id, *, expected_revision, basis, decision):
+        assert run_id == "child" and expected_revision == 6
+        assert decision.state == "rejected"
+        child.lineage["semantic_disposition"] = {
+            "version": 1, "state": decision.state,
+            "basis_sha256": basis.digest(),
+            "review_decision_ref": decision.review_decision_ref,
+            "reviewer_id": decision.reviewer_id,
+            "decided_at": "2026-10-06T00:00:00Z", "from_revision": expected_revision,
+        }
+        child.revision += 1
+        return child
+
+    monkeypatch.setattr(ingest_service, "record_recap_semantic_disposition", record_rejection)
+    receipt = extract_promote.decide_recap_semantic_disposition(
+        "child",
+        RecapSemanticDecisionRequest(
+            expected_revision=6, candidate_sha256="d" * 64,
+            decision="rejected", review_decision_ref="review:reject",
+        ),
+        reviewer_id="local_operator",
+    )
+    assert receipt.state == "rejected" and receipt.revision == 7
+    rejected = extract_promote.get_exact_run_review_package("child")
+    assert rejected.semantic_disposition["state"] == "rejected"
+    assert rejected.semantic_disposition["reason"] == rejected.promotable_reason
+    assert "rejected by semantic review" in rejected.promotable_reason
+    assert rejected.promotable is False
+    assert rejected.first_world_publish_eligible is False
+    with pytest.raises(extract_promote.ExtractPromoteError) as error:
+        extract_promote.prepare(ExtractPromotePrepareRequest(run_id="child"))
+    assert error.value.code == "recap_semantic_hold"
+    assert "rejected" in str(error.value)
+    child.lineage["semantic_disposition"]["basis_sha256"] = "f" * 64
+    malformed = extract_promote.get_exact_run_review_package("child")
+    assert malformed.semantic_disposition["state"] == "held"
+    assert malformed.promotable is False
+
 
 @pytest.mark.parametrize(
-    "case", ["missing_binding", "forged_binding", "held_disposition", "revision_drift", "status_drift", "domain_drift"]
+    "case", ["missing_binding", "forged_binding", "held_disposition", "rejected_disposition", "revision_drift", "status_drift", "domain_drift"]
 )
 def test_confirm_never_reaches_world_writer_for_held_or_changed_child(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, case: str
@@ -382,6 +435,8 @@ def test_confirm_never_reaches_world_writer_for_held_or_changed_child(
         child.status = ExtractionRunStatus.REJECTED
     if case == "held_disposition":
         child.lineage["semantic_disposition"]["state"] = "held"
+    if case == "rejected_disposition":
+        child.lineage["semantic_disposition"]["state"] = "rejected"
     if case == "revision_drift":
         child.revision += 1
     if case == "domain_drift":
