@@ -22,3 +22,11 @@ The existing immutable child creator and status transitions produce a new child.
 ## Stop conditions and acceptance
 
 Stop if the creator cannot preserve frozen components or source authority without an unleased migration, if profile/candidate qualification needs a new generic contract, or if a second product capability is needed. Acceptance requires tests for the HTTP GM boundary, literal correction and stale/nonliteral rejection, parent/child immutability and idempotence, held basis exactness, and no World writer. Run focused and relevant full repository gates, inspect the cumulative base-to-head diff, then push and open a draft PR for PRIME review. Do not merge.
+
+## Implementation evidence for review
+
+- Implementation commit: `3cc29434002c4a490169d91047470a308bc876e7` on the branch above. The final PR head also includes this evidence note.
+- Focused recap, prior worldbuilding correction, semantic gate, candidate admission, and provenance suite: 80 passed against disposable PostgreSQL at 54329. This includes an actual APP-STATE run-registry lifecycle round trip with a synthetic recap source and candidate. No live S27 request was sent.
+- Scoped Ruff and cumulative diff whitespace check passed. Repository-wide Ruff retains 1,434 existing errors outside this lease.
+- HTTP test proves missing auth 401, player 403, path/body mismatch 422, and a GM success with an inert service seam. The test host hangs on even a minimal sync FastAPI route under the default worker pool, so that test executes sync callables inline while retaining ASGI routing and dependency dispatch.
+- The existing worldbuilding correction tests passed without modifying the worldbuilding route or contract. No real semantic decision, World writer, backend restart, or source draft change occurred.
