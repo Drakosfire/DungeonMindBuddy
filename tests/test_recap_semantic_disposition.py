@@ -35,6 +35,7 @@ from apps.live_control_server.services.recap_semantic_disposition import (
     assess_recap_semantics,
 )
 from graph_memory.extract_promote_proposal import compute_proposal_digest
+from graph_memory.extract_promote_ops import ExtractPromotePrepareResult
 from graph_memory.ingestion.extraction_run import (
     ExtractionRun,
     ExtractionRunComponentKind,
@@ -226,6 +227,55 @@ def test_held_prepare_rejects_before_candidate_admission(
     assert error.value.status_code == 409
 
 
+def test_accepted_prepare_seals_exact_semantic_binding(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    parent, child = _runs()
+    basis_sha = _assessment(parent, child).basis_sha256
+    child.lineage["semantic_disposition"] = {
+        "version": 1, "state": "accepted", "basis_sha256": basis_sha,
+        "review_decision_ref": "review:accept", "reviewer_id": "local_operator",
+        "decided_at": "2026-10-06T00:00:00Z", "from_revision": 5,
+    }
+    candidate = tmp_path / "candidate.json"
+    candidate.write_text(json.dumps({"campaign_id": "c", "session_id": "s"}))
+    resolved = SimpleNamespace(
+        run_id="child", source_revision_id="a" * 64,
+        source_span_index_path=tmp_path / "spans.json",
+        candidate_graph_path=candidate, campaign_id="c", session_id="s",
+        source_artifact_id=child.source_artifact_id,
+        sealed_source_uri="repo://source.md", extraction_profile="recap_category_v1@1.0",
+        registry_context_graph_path=None, diagnostics=[], source_domain="recap",
+    )
+    monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", lambda *_a, **_k: resolved)
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, run_id: {"parent": parent, "child": child}[run_id])
+    monkeypatch.setattr(extract_promote, "assert_sealed_source_uri_allowed", lambda _uri: None)
+    monkeypatch.setattr(extract_promote, "_require_canonical_source_artifact", lambda _id: object())
+    from apps.live_control_server import config
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+
+    monkeypatch.setattr(config, "world_graph_authority_mode", lambda: config.WORLD_GRAPH_AUTHORITY_DUNGEONMIND)
+    monkeypatch.setattr(world_graph_writes, "load_production_mutation_context", lambda _id: object())
+    monkeypatch.setattr(
+        candidate_graph_admission, "prepare_candidate_graph_admission",
+        lambda **_kwargs: ExtractPromotePrepareResult(
+            review_package={"effect": {"world_id": "w"}, "proposal_digest": "old"},
+            proposal_id="proposal", proposal_digest="old", parent_revision_id="parent-rev",
+            world_id="w", accepted_proposals_count=0, unresolved_mentions_count=0,
+            rejected_assertions_count=0,
+        ),
+    )
+
+    def seal(package, _context):
+        assert package["effect"][EFFECT_KEY] == accepted_effect_binding(child, _assessment(parent, child))
+        return package
+
+    monkeypatch.setattr(world_graph_writes, "bind_identity_ledger_to_package", seal)
+    response = extract_promote.prepare(ExtractPromotePrepareRequest(run_id="child"))
+    assert response.review_package["effect"][EFFECT_KEY]["run_revision"] == 6
+    assert response.proposal_digest == compute_proposal_digest(response.review_package["effect"])
+
+
 def test_held_review_package_remains_readable(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -302,7 +352,9 @@ def test_held_review_package_remains_readable(
     assert "semantic review" in review.promotable_reason
 
 
-@pytest.mark.parametrize("case", ["missing_binding", "status_drift", "domain_drift"])
+@pytest.mark.parametrize(
+    "case", ["missing_binding", "forged_binding", "held_disposition", "revision_drift", "status_drift", "domain_drift"]
+)
 def test_confirm_never_reaches_world_writer_for_held_or_changed_child(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, case: str
 ) -> None:
@@ -314,6 +366,9 @@ def test_confirm_never_reaches_world_writer_for_held_or_changed_child(
         "decided_at": "2026-10-06T00:00:00Z", "from_revision": 5,
     }
     accepted = _assessment(parent, child)
+    binding = accepted_effect_binding(child, accepted)
+    if case == "forged_binding":
+        binding["basis_sha256"] = "f" * 64
     candidate = tmp_path / "child.json"
     candidate.write_text("{}")
     resolved = SimpleNamespace(
@@ -323,6 +378,10 @@ def test_confirm_never_reaches_world_writer_for_held_or_changed_child(
     )
     if case == "status_drift":
         child.status = ExtractionRunStatus.REJECTED
+    if case == "held_disposition":
+        child.lineage["semantic_disposition"]["state"] = "held"
+    if case == "revision_drift":
+        child.revision += 1
     if case == "domain_drift":
         child.source_domain = "worldbuilding"
         child.session_id = None
@@ -341,7 +400,7 @@ def test_confirm_never_reaches_world_writer_for_held_or_changed_child(
         world_graph_writes, "confirm_extract_promote_via_dungeonmind",
         lambda *_a, **_k: pytest.fail("semantic gate reached World writer"),
     )
-    binding = accepted_effect_binding(child, accepted) if case != "missing_binding" else None
+    binding = binding if case != "missing_binding" else None
     request = ExtractPromoteConfirmRequest(
         review_package={
             "effect": {"candidate_admission": {"candidate_locator": str(candidate)},
@@ -352,6 +411,45 @@ def test_confirm_never_reaches_world_writer_for_held_or_changed_child(
     with pytest.raises(extract_promote.ExtractPromoteError) as error:
         extract_promote.confirm(request)
     assert error.value.status_code == 409
+
+
+def test_exact_accepted_child_reaches_governed_writer_once(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    parent, child = _runs()
+    basis_sha = _assessment(parent, child).basis_sha256
+    child.lineage["semantic_disposition"] = {
+        "version": 1, "state": "accepted", "basis_sha256": basis_sha,
+        "review_decision_ref": "review:accept", "reviewer_id": "local_operator",
+        "decided_at": "2026-10-06T00:00:00Z", "from_revision": 5,
+    }
+    accepted = _assessment(parent, child)
+    candidate = tmp_path / "child.json"
+    candidate.write_text("{}")
+    resolved = SimpleNamespace(
+        run_id=child.run_id, source_revision_id="a" * 64,
+        source_span_index_path=tmp_path / "spans.json", candidate_graph_path=candidate,
+    )
+    monkeypatch.setattr(extract_promote, "_candidate_owner_for_locator", lambda _loc: child)
+    monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", lambda *_a, **_k: resolved)
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, run_id: {"parent": parent, "child": child}[run_id])
+    from apps.live_control_server import config
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+
+    monkeypatch.setattr(config, "world_graph_authority_mode", lambda: config.WORLD_GRAPH_AUTHORITY_DUNGEONMIND)
+    monkeypatch.setattr(candidate_graph_admission, "confirm_candidate_graph_admission", lambda **kwargs: kwargs["governed_confirm"]())
+    calls = []
+    monkeypatch.setattr(world_graph_writes, "confirm_extract_promote_via_dungeonmind", lambda *_a, **_k: calls.append("write") or {"ok": True})
+    monkeypatch.setattr(extract_promote, "_build_confirm_receipt", lambda **_kwargs: "receipt")
+    request = ExtractPromoteConfirmRequest(
+        review_package={"effect": {
+            "candidate_admission": {"candidate_locator": str(candidate)},
+            EFFECT_KEY: accepted_effect_binding(child, accepted),
+        }},
+        assertion_ids=["mira"],
+    )
+    assert extract_promote.confirm(request) == "receipt"
+    assert calls == ["write"]
 
 
 def test_confirm_candidate_owner_uses_exact_uri_and_bytes_not_path_identity(
@@ -378,6 +476,12 @@ def test_confirm_candidate_owner_uses_exact_uri_and_bytes_not_path_identity(
     assert extract_promote._candidate_owner_for_locator(str(candidate)).run_id == child.run_id
     assert seen == [("out/candidate.json", digest), ("repo://out/candidate.json", digest)]
     assert parent.run_id != child.run_id
+    unmatched = tmp_path / "out" / "graph_memory" / "derived_candidates" / "child" / "candidate_graph.json"
+    unmatched.parent.mkdir(parents=True)
+    unmatched.write_text("{}")
+    with pytest.raises(extract_promote.ExtractPromoteError) as error:
+        extract_promote._candidate_owner_for_locator(str(unmatched))
+    assert error.value.code == "candidate_binding_invalid"
 
 
 def test_semantic_decision_route_requires_gm_and_owns_reviewer(
@@ -422,3 +526,44 @@ def test_semantic_decision_route_requires_gm_and_owns_reviewer(
     )
     assert seen == [("child", "accepted", "server_operator")]
     assert valid["reviewerId"] == "server_operator"
+
+
+def test_decision_service_uses_canonical_basis_and_appstate_cas(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from application_state.ingest import service as ingest_service
+    from apps.live_control_server.services import source_artifact_registry
+
+    parent, child = _runs()
+    held = _assessment(parent, child)
+    child.lineage["semantic_disposition"] = {
+        "version": 1, "state": "held", "basis_sha256": held.basis_sha256,
+    }
+    monkeypatch.setattr(graph_run_registry, "get_reviewable_extraction_run", lambda _root, _id: child)
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, _id: parent)
+    monkeypatch.setattr(source_artifact_registry, "get_source_artifact", lambda _root, _id: SimpleNamespace(content_sha256="a" * 64))
+    calls = []
+
+    def record(run_id, *, expected_revision, basis, decision):
+        calls.append((run_id, expected_revision, basis.digest(), decision.reviewer_id))
+        decided = child.model_copy(deep=True, update={"revision": child.revision + 1})
+        decided.lineage["semantic_disposition"] = {
+            "version": 1, "state": decision.state,
+            "basis_sha256": basis.digest(),
+            "review_decision_ref": decision.review_decision_ref,
+            "reviewer_id": decision.reviewer_id,
+            "decided_at": "2026-10-06T00:00:00Z", "from_revision": expected_revision,
+        }
+        return decided
+
+    monkeypatch.setattr(ingest_service, "record_recap_semantic_disposition", record)
+    response = extract_promote.decide_recap_semantic_disposition(
+        "child",
+        RecapSemanticDecisionRequest(
+            expected_revision=6, candidate_sha256="d" * 64,
+            decision="accepted", review_decision_ref="review:accept",
+        ),
+        reviewer_id="server_operator",
+    )
+    assert calls == [("child", 6, held.basis_sha256, "server_operator")]
+    assert response.state == "accepted" and response.revision == 7

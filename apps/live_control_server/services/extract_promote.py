@@ -844,6 +844,13 @@ def _candidate_owner_for_locator(locator: str):
             "candidate component belongs to multiple extraction runs",
             code="candidate_binding_invalid", status_code=409,
         )
+    if not owners and path.is_relative_to(
+        (repo_root().resolve() / "out" / "graph_memory" / "derived_candidates").resolve()
+    ):
+        raise ExtractPromoteError(
+            "derived candidate has no exact canonical run binding",
+            code="candidate_binding_invalid", status_code=409,
+        )
     return next(iter(owners.values()), None)
 
 
