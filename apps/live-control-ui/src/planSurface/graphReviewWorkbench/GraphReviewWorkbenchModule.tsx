@@ -268,8 +268,7 @@ export function GraphReviewWorkbenchModule({
     exactHandoff?.extractionRunId
     && (!exactRunMatchesHandoff || exactRunStatus !== "ready"),
   );
-  const sourceReviewOnlyForCurrentRun = parentSourceReviewOnly
-    || (exactRunMatchesHandoff && exactRun?.source_domain === "recap");
+  const sourceReviewOnlyForCurrentRun = parentSourceReviewOnly;
   const effectiveSourceReviewOnly = sourceReviewOnlyForCurrentRun || awaitingCurrentExactRun;
   const operationScopeKey = JSON.stringify([
     exactHandoff?.extractionRunId ?? null,
