@@ -18,6 +18,27 @@ function Fixture({ expanded = false, onExpandedChange = vi.fn() } = {}) {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("ConversationDock", () => {
+  it("follows external launcher state without replacing the reader, draft or message position", () => {
+    const change = vi.fn();
+    const props = {reader:<input aria-label="Retained reader" defaultValue="Plan" />, messages:<p>Answer</p>, composer:<input aria-label="Retained draft" defaultValue="Question" />, onExpandedChange:change};
+    const view = render(<ConversationDock {...props} expanded />);
+    const reader = screen.getByLabelText("Retained reader");
+    const draft = screen.getByLabelText("Retained draft");
+    const messages = screen.getByRole("log");
+    messages.scrollTop = 137;
+    fireEvent.scroll(messages);
+    fireEvent.click(screen.getByRole("button", {name:"Collapse"}));
+    expect(change).toHaveBeenCalledWith(false);
+    expect(screen.getByRole("log")).toBe(messages);
+    view.rerender(<ConversationDock {...props} expanded={false} />);
+    expect(screen.queryByRole("log")).toBeNull();
+    messages.scrollTop = 0;
+    view.rerender(<ConversationDock {...props} expanded />);
+    expect(screen.getByLabelText("Retained reader")).toBe(reader);
+    expect(screen.getByLabelText("Retained draft")).toBe(draft);
+    expect(screen.getByRole("log")).toBe(messages);
+    expect(messages.scrollTop).toBe(137);
+  });
   it("lets each surface name its reading landmark without assuming a document", () => {
     render(<ConversationDock reader={<p>Encounter</p>} readerLabel="Encounter canvas" messages="Messages" composer={<input aria-label="Draft" />} />);
     expect(screen.getByRole("region", {name:"Encounter canvas"})).toHaveTextContent("Encounter");

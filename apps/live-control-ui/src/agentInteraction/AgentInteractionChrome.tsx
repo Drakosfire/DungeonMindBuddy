@@ -1,5 +1,6 @@
 import { agentSurfaceLabel, surfaceContextSubtitle } from "./surfaceContextDisplay";
 import { useAskPluginSlot } from "./AskPluginSlot";
+import { createPortal } from "react-dom";
 import { useAgentInteraction } from "./useAgentInteraction";
 import dungeonBuddyAgentImage from "../assets/dungeonbuddy-agent.png";
 import { useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type KeyboardEvent } from "react";
@@ -15,7 +16,8 @@ import { useLayoutEffect, useRef, useState, type CSSProperties, type PointerEven
  */
 export function AgentInteractionChrome() {
   const { paneState, setPaneOpen, activeThread, activeSurfaceContext } = useAgentInteraction();
-  const { setHostElement, askPluginPresent } = useAskPluginSlot();
+  const { setHostElement, askPluginPresent, layoutOwner, launcherHost } = useAskPluginSlot();
+  const workspaceOwned = layoutOwner === "plan-workspace";
   const open = paneState.isOpen;
   const threadTitle = activeThread?.title?.trim() || "New thread";
   const surfaceId = activeSurfaceContext?.surfaceId ?? null;
@@ -44,7 +46,7 @@ export function AgentInteractionChrome() {
   } as CSSProperties;
 
   useLayoutEffect(() => {
-    if (!isPlan || !open || !askPluginPresent) return;
+    if (!isPlan || !open || !askPluginPresent || workspaceOwned) return;
     // Agent chrome is a sibling of the app shell, so publish its width at #root.
     const appRoot = shellElement.current?.closest<HTMLElement>("#root");
     if (!appRoot) return;
@@ -65,10 +67,10 @@ export function AgentInteractionChrome() {
       }
       planWidthOwner.current = null;
     };
-  }, [askPluginPresent, isPlan, open]);
+  }, [askPluginPresent, isPlan, open, workspaceOwned]);
 
   useLayoutEffect(() => {
-    if (!isPlan || !open || !askPluginPresent) return;
+    if (!isPlan || !open || !askPluginPresent || workspaceOwned) return;
     const appRoot = shellElement.current?.closest<HTMLElement>("#root");
     if (!appRoot) return;
 
@@ -80,7 +82,7 @@ export function AgentInteractionChrome() {
     syncEffectivePanelWidth();
     window.addEventListener("resize", syncEffectivePanelWidth);
     return () => window.removeEventListener("resize", syncEffectivePanelWidth);
-  }, [askPluginPresent, isPlan, open, planPanelWidth]);
+  }, [askPluginPresent, isPlan, open, planPanelWidth, workspaceOwned]);
 
   function handleResizePointerDown(
     event: PointerEvent<HTMLButtonElement>,
@@ -151,6 +153,7 @@ export function AgentInteractionChrome() {
   );
 
   if (!askPluginPresent) return null;
+  if (workspaceOwned) return launcherHost ? createPortal(launcher, launcherHost) : null;
 
   return (
     <section

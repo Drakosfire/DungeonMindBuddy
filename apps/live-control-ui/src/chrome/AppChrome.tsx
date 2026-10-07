@@ -72,6 +72,7 @@ export interface AppChromeToolsGeneration {
 }
 
 interface AppChromeProps {
+  workspaceLayout?: "content" | "bounded";
   activeRoute: AppRouteKey;
   pageActions?: AppChromeAction[];
   editorTools?: AppChromeToolsGeneration | null;
@@ -131,6 +132,7 @@ export function AppChrome({
   pageActions = [],
   editorTools,
   editToolboxLayout = "overlay",
+  workspaceLayout = "content",
   children,
 }: AppChromeProps) {
   const selectedWorld = useSelectedWorld();
@@ -351,7 +353,7 @@ export function AppChrome({
   );
 
   const mainContent = (
-    <div className="app-wrap">
+    <div className="app-wrap" data-workspace-layout={workspaceLayout}>
       <header ref={chromeHeaderRef} className="app-chrome-header" data-testid="app-chrome-header">
         <nav className="app-site-nav" aria-label="Command board navigation">
           <div className="app-site-nav__routes">
@@ -374,12 +376,12 @@ export function AppChrome({
         <SurfaceContextHost />
       </header>
 
-      {activeRoute === "ingest" ? (
+      {activeRoute === "ingest" || workspaceLayout === "bounded" ? (
         <div className="app-chrome-workspace">
           <div ref={centerRef} className="app-chrome-center" data-testid="app-chrome-center">
             {children}
           </div>
-          <PeekRegionSlot />
+          {activeRoute === "ingest" ? <PeekRegionSlot /> : null}
         </div>
       ) : children}
     </div>

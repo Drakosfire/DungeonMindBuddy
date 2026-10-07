@@ -3167,3 +3167,10 @@ button:disabled {
     margin-right: 0;
   }
 }
+
+/* Opted-in Plan workspace: navigation owns its height, dock fills the remainder. */
+.app-shell-layout:has(> .app-wrap[data-workspace-layout="bounded"]) { display:flex; flex-direction:column; overflow:hidden; }
+.app-wrap[data-workspace-layout="bounded"] { flex:1; min-height:0; width:100%; display:flex; flex-direction:column; overflow:hidden; padding-bottom:0; }
+.app-wrap[data-workspace-layout="bounded"] > .app-chrome-header { flex:0 0 auto; }
+.app-wrap[data-workspace-layout="bounded"] > .app-chrome-workspace { flex:1; min-height:0; display:flex; align-items:stretch; overflow:hidden; }
+.app-wrap[data-workspace-layout="bounded"] .app-chrome-center { flex:1; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
