@@ -553,6 +553,83 @@ def _admitted_initial_policy_bootstrap(
     return replace(bootstrap, retrieval_session=session)
 
 
+def _restore_v2_retry_bootstrap(
+    bootstrap: AgentPlanWorldGraphBootstrap,
+    turn: Turn | None,
+) -> AgentPlanWorldGraphBootstrap:
+    """Bind a safe reclaim to its frozen source session and metadata pins."""
+    if turn is None:
+        return bootstrap
+    graph_types = _app_state_graph_execution_types()
+    execution = turn.graph_context_execution
+    if not isinstance(execution, graph_types.PlanWorldGraphExecutionV2):
+        # A legacy frozen execution cannot gain the V2 source tool on replay.
+        return replace(bootstrap, source_scope_anchors=())
+    receipt = turn.graph_context_receipt
+    scope = execution.policy.source_read_scope
+    if (
+        receipt is None
+        or execution.context_receipt_sha256 != receipt.context_receipt_sha256
+        or scope.world_id != bootstrap.world_scope.world_id
+        or (scope.campaign_id or "") != bootstrap.world_scope.campaign_id
+        or scope.graph_revision != bootstrap.world_scope.revision_id
+        or any(_is_provider_authorization(event) for event in execution.events)
+    ):
+        raise AgentTurnServiceError(
+            "The frozen source-read authority cannot be safely reclaimed.",
+            code="turn_receipt_unverifiable", status_code=409,
+            provider_dispatched=False,
+        )
+    frozen = {
+        anchor.anchor_id: anchor.model_dump(mode="python")
+        for anchor in scope.admitted_anchors
+    }
+    if any(frozen.get(pin["anchor_id"]) != dict(pin) for pin in bootstrap.source_scope_anchors):
+        raise AgentTurnServiceError(
+            "The pinned source metadata differs from the frozen read scope.",
+            code="turn_receipt_unverifiable", status_code=409,
+            provider_dispatched=False,
+        )
+    session = bootstrap.retrieval_session
+    if session.id != scope.retrieval_session_id:
+        from graph_memory.interaction.session_store import get_session
+
+        original = get_session(scope.retrieval_session_id)
+        if original is None:
+            raise AgentTurnServiceError(
+                "The original source session is unavailable for this retry.",
+                code="turn_receipt_unverifiable", status_code=409,
+                provider_dispatched=False,
+            )
+        fresh_data = session.model_dump(mode="json", by_alias=True)
+        original_data = original.model_dump(mode="json", by_alias=True)
+        fresh_data["id"] = original_data["id"]
+        if len(fresh_data["operations"]) != len(original_data["operations"]):
+            raise AgentTurnServiceError(
+                "The original source session differs from the pinned retrieval.",
+                code="turn_receipt_unverifiable", status_code=409,
+                provider_dispatched=False,
+            )
+        for fresh_event, old_event in zip(
+            fresh_data["operations"], original_data["operations"], strict=True,
+        ):
+            fresh_event["operation_id"] = old_event["operation_id"]
+        if fresh_data != original_data:
+            raise AgentTurnServiceError(
+                "The original source session differs from the pinned retrieval.",
+                code="turn_receipt_unverifiable", status_code=409,
+                provider_dispatched=False,
+            )
+        session = original
+    return replace(
+        bootstrap,
+        retrieval_session=session,
+        source_scope_anchors=tuple(
+            anchor.model_dump(mode="python") for anchor in scope.admitted_anchors
+        ),
+    )
+
+
 def _verify_policy_plan_payload(
     view: Mapping[str, Any],
     request: AgentTurnRequest,
@@ -3093,6 +3170,9 @@ def execute_agent_turn(
                     work,
                     None if durable_turn is None else durable_turn.graph_context_receipt,
                     parent_span_id,
+                )
+                policy_bootstrap = _restore_v2_retry_bootstrap(
+                    policy_bootstrap, durable_turn,
                 )
                 policy_bootstrap = _admitted_initial_policy_bootstrap(policy_bootstrap)
         except AgentTurnServiceError:

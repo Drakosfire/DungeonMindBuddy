@@ -1096,6 +1096,66 @@ def test_parent_source_broker_persists_authorization_before_content_and_result_b
         candidate_evidence_ref_ids=(), evidence_by_anchor_id={},
         source_scope_anchors=(scope_anchor.model_dump(),),
     )
+    # A retry may re-resolve a fresh search session. Recover the exact frozen
+    # session before the provider gate, and reject changed metadata pins.
+    fresh = replace(bootstrap, retrieval_session=session.model_copy(update={
+        "id": "grs:fresh-retry",
+    }))
+    restored = service_module._restore_v2_retry_bootstrap(fresh, turn)
+    assert restored.retrieval_session.id == session.id
+    assert len(restored.source_scope_anchors) == 2
+    assert service_module._restore_v2_retry_bootstrap(
+        bootstrap, turn,
+    ).retrieval_session.id == session.id
+    legacy_retry = service_module._restore_v2_retry_bootstrap(
+        fresh, _policy_turn(status="accepted", completion_present=False),
+    )
+    assert legacy_retry.source_scope_anchors == ()
+    changed = replace(fresh, source_scope_anchors=({
+        **scope_anchor.model_dump(), "source_revision_id": "source-revision:changed",
+    },))
+    with pytest.raises(AgentTurnServiceError) as changed_pin:
+        service_module._restore_v2_retry_bootstrap(changed, turn)
+    assert changed_pin.value.code == "turn_receipt_unverifiable"
+
+    provider_body = json.dumps({"input": [], "tools": []})
+    budget = service_module._policy_request_budget()
+    view = {
+        "provider": budget["provider"], "model": budget["model"],
+        "apiMode": budget["apiMode"], "payloadJson": provider_body,
+        "payloadSha256": sha256(provider_body.encode()).hexdigest(),
+        "payloadUtf8Bytes": len(provider_body.encode()),
+    }
+    denied_retry = service_module._PolicyExecutionAdapter(
+        service=object(), request=_request(), world_id="world:one", work=None,
+        bootstrap=fresh, playable_target=None, submitted_intent=None,
+        existing_turn=turn, budget=budget,
+    )
+    denied_retry.fence = Fence()
+    denied_retry._ensure_claimed = lambda _view: (denied_retry.fence.turn, [], [], [])
+    assert denied_retry.authorize(view) is False
+    assert denied_retry.failure is not None
+    assert denied_retry.failure.code == "turn_receipt_unverifiable"
+
+    safe_retry = service_module._PolicyExecutionAdapter(
+        service=object(), request=_request(), world_id="world:one", work=None,
+        bootstrap=restored, playable_target=None, submitted_intent=None,
+        existing_turn=turn, budget=budget,
+    )
+    safe_retry.fence = Fence()
+    safe_retry._ensure_claimed = lambda _view: (safe_retry.fence.turn, [], [], [])
+    assert safe_retry.authorize(view) is True
+    assert safe_retry.last_provider_attempt_id is not None
+    assert safe_retry.fence.turn.graph_context_execution.events[-1].kind == (
+        "provider_attempt_authorized_v2"
+    )
+    with pytest.raises(AgentTurnServiceError) as already_authorized:
+        service_module._restore_v2_retry_bootstrap(
+            fresh, safe_retry.fence.turn,
+        )
+    assert already_authorized.value.code == "turn_receipt_unverifiable"
+    order.clear()
+
     adapter = service_module._PolicyExecutionAdapter(
         service=object(), request=_request(), world_id="world:one", work=None,
         bootstrap=bootstrap, playable_target=None, submitted_intent=None,

@@ -58,6 +58,52 @@ def _payload() -> dict[str, Any]:
     }
 
 
+def test_source_session_handles_reconstruct_only_for_the_same_frozen_turn() -> None:
+    from apps.live_control_server.routes.agent import _source_session_handles
+
+    handles = _source_session_handles("world:one", "turn:one", "graph:one")
+    assert handles == _source_session_handles("world:one", "turn:one", "graph:one")
+    assert handles[0].startswith("grs:") and handles[1].startswith("op:")
+    assert handles != _source_session_handles("world:one", "turn:one", "graph:two")
+    assert handles != _source_session_handles("world:one", "turn:two", "graph:one")
+    assert handles != _source_session_handles("world:two", "turn:one", "graph:one")
+
+
+def test_source_session_retry_never_overwrites_existing_inflight_state() -> None:
+    from apps.live_control_server.routes.agent import _store_plan_retrieval_session
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    from graph_memory.interaction.session import (
+        GraphRetrievalSession, SessionSnapshot, SourceAnchorState,
+    )
+    from graph_memory.interaction.session_store import clear_sessions, create_session
+
+    original = GraphRetrievalSession(
+        id="grs:stable-source", question="Where is the gate?",
+        snapshot=SessionSnapshot(
+            world_id="native:one", campaign_id="", focus={"kind": "none"},
+            admissibility="gm", revision_id="graph:one", scope_mode="world",
+        ),
+        source_anchors=[SourceAnchorState(anchor_id="anchor:one", readable=True)],
+    )
+    clear_sessions()
+    try:
+        create_session(original)
+        fresh = original.model_copy(deep=True)
+        original.source_anchors[0].opened = True
+        assert _store_plan_retrieval_session(
+            fresh, reusable_source_session=True,
+        ) is original
+        assert original.source_anchors[0].opened is True
+        changed = fresh.model_copy(update={"question": "A different question"})
+        with pytest.raises(AgentTurnServiceError) as caught:
+            _store_plan_retrieval_session(
+                changed, reusable_source_session=True,
+            )
+        assert caught.value.code == "turn_receipt_unverifiable"
+    finally:
+        clear_sessions()
+
+
 def test_auto_plan_world_request_requires_exact_saved_world_plan_pin() -> None:
     payload = _payload()
     payload.update(
@@ -388,6 +434,10 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     )
     assert replayed.graph_envelope["revision_id"] == selected.graph_envelope["revision_id"]
     assert replayed.graph_envelope["matched_node_ids"] == selected.graph_envelope["matched_node_ids"]
+    assert selected.source_scope_anchors
+    assert replayed.source_scope_anchors == selected.source_scope_anchors
+    assert replayed.retrieval_session.id == selected.retrieval_session.id
+    assert replayed.retrieval_session.operations == selected.retrieval_session.operations
 
     option_work = replace(selected_work, plan_markdown="""# Plan
 <!-- dmb-playable-element:v2 kind=beat id=beat:first -->
