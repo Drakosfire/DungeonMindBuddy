@@ -21,6 +21,7 @@ ERROR_SCHEMA = "dmb_extract_promote_error_v1"
 EXACT_RUN_REVIEW_SCHEMA = "dmb_extract_promote_exact_run_review_v1"
 EVIDENCE_CORRECTION_REQUEST_SCHEMA = "dmb_exact_run_evidence_correction_request_v1"
 EVIDENCE_CORRECTION_RESPONSE_SCHEMA = "dmb_exact_run_evidence_correction_response_v1"
+RECAP_EVIDENCE_CORRECTION_RESPONSE_SCHEMA = "dmb_recap_evidence_correction_response_v1"
 RECAP_SEMANTIC_DECISION_REQUEST_SCHEMA = "dmb_recap_semantic_decision_request_v1"
 RECAP_SEMANTIC_DECISION_RESPONSE_SCHEMA = "dmb_recap_semantic_decision_response_v1"
 WORLD_BUILDING_WRITE_PLAN_REQUEST_SCHEMA = (
@@ -446,6 +447,20 @@ class ExactRunEvidenceCorrectionResponse(_ExtractPromoteModel):
     candidate_sha256: str
     correction_digest: str
     status: Literal["reviewable"] = "reviewable"
+
+
+class RecapEvidenceCorrectionResponse(_ExtractPromoteModel):
+    schema_: Literal["dmb_recap_evidence_correction_response_v1"] = Field(
+        default=RECAP_EVIDENCE_CORRECTION_RESPONSE_SCHEMA, alias="schema"
+    )
+    run_id: str
+    parent_run_id: str
+    parent_candidate_sha256: str
+    candidate_sha256: str
+    correction_digest: str
+    status: Literal["reviewable"] = "reviewable"
+    semantic_state: Literal["held", "accepted", "rejected"]
+    semantic_basis_sha256: str
 
 
 class ExactRunReviewPackage(_ExtractPromoteModel):

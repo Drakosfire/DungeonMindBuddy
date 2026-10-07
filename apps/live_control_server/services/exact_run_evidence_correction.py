@@ -13,6 +13,7 @@ from apps.live_control_server.config import repo_root
 from apps.live_control_server.models.extract_promote import (
     ExactRunEvidenceCorrectionRequest,
     ExactRunEvidenceCorrectionResponse,
+    RecapEvidenceCorrectionResponse,
 )
 from apps.live_control_server.services.extract_promote import (
     ExtractPromoteError,
@@ -41,6 +42,8 @@ from graph_memory.ingestion.extraction_run import (
 
 _PROFILE = "worldbuilding_shepherds_flock_v0@0.1"
 _DERIVATION = "operator_literal_evidence_correction_v1"
+_RECAP_DERIVATION = "operator_recap_literal_evidence_correction_v1"
+_RECAP_PROFILE = "recap_category_v1@1.0"
 _LIFECYCLE = (
     ExtractionRunStatus.DRAFT,
     ExtractionRunStatus.PREPARED,
@@ -118,6 +121,54 @@ def _write_child_candidate(path: Path, data: bytes, *, repo: Path) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def _apply_literal_quote_corrections(
+    payload: dict,
+    request: ExactRunEvidenceCorrectionRequest,
+    *,
+    source_prose: str,
+    span_index: object,
+) -> list:
+    """Change only selected false quotes against the frozen source paragraphs."""
+    spans = {span.source_span_id: span for span in span_index.spans}
+    source_lines = source_prose.splitlines()
+    keyed: dict[tuple[str, int, int], object] = {}
+    for correction in request.corrections:
+        key = (correction.assertion_id, correction.evidence_index, correction.quote_index)
+        if key in keyed:
+            raise _reject("duplicate correction target")
+        keyed[key] = correction
+    ordered = [keyed[key] for key in sorted(keyed)]
+    for correction in ordered:
+        holders = [
+            item for kind in ("nodes", "edges") for item in (payload.get(kind) or [])
+            if str(item.get("node_id") or item.get("edge_id") or "") == correction.assertion_id
+        ]
+        if len(holders) != 1:
+            raise _reject("correction assertion ID is missing or ambiguous")
+        refs = holders[0].get("evidence_refs") or []
+        if correction.evidence_index >= len(refs):
+            raise _reject("correction evidence index is not present")
+        ref = refs[correction.evidence_index]
+        if ref.get("source_span_ref_id") != correction.source_span_ref_id:
+            raise _reject("correction source span does not match the frozen candidate", status_code=409)
+        quotes = ref.get("anchor_quotes") or []
+        if correction.quote_index >= len(quotes) or quotes[correction.quote_index] != correction.original_quote:
+            raise _reject("correction original quote/index is stale", status_code=409)
+        span = spans.get(correction.source_span_ref_id)
+        if span is None:
+            raise _reject("correction references an unknown frozen source span")
+        paragraph = _paragraph_for_span(
+            source_lines, start_line=int(span.start_line), end_line=int(span.end_line)
+        ).strip()
+        if find_anchor_quote_matches(paragraph, [correction.original_quote]):
+            raise _reject("correction target is already literal")
+        replacement = correction.replacement_quote.strip()
+        if not replacement or not find_anchor_quote_matches(paragraph, [replacement]):
+            raise _reject("replacement quote is not literal in the exact source paragraph")
+        quotes[correction.quote_index] = replacement
+    return ordered
+
+
 def correct_exact_run_evidence(
     request: ExactRunEvidenceCorrectionRequest,
 ) -> ExactRunEvidenceCorrectionResponse:
@@ -163,43 +214,9 @@ def correct_exact_run_evidence(
         span_index=span_index,
         inspect_false_anchor_quotes=True,
     )
-    spans = {span.source_span_id: span for span in span_index.spans}
-    source_lines = source_prose.splitlines()
-    keyed: dict[tuple[str, int, int], object] = {}
-    for correction in request.corrections:
-        key = (correction.assertion_id, correction.evidence_index, correction.quote_index)
-        if key in keyed:
-            raise _reject("duplicate correction target")
-        keyed[key] = correction
-    ordered = [keyed[key] for key in sorted(keyed)]
-    for correction in ordered:
-        holders = [
-            item for kind in ("nodes", "edges") for item in (payload.get(kind) or [])
-            if str(item.get("node_id") or item.get("edge_id") or "") == correction.assertion_id
-        ]
-        if len(holders) != 1:
-            raise _reject("correction assertion ID is missing or ambiguous")
-        refs = holders[0].get("evidence_refs") or []
-        if correction.evidence_index >= len(refs):
-            raise _reject("correction evidence index is not present")
-        ref = refs[correction.evidence_index]
-        if ref.get("source_span_ref_id") != correction.source_span_ref_id:
-            raise _reject("correction source span does not match the frozen candidate", status_code=409)
-        quotes = ref.get("anchor_quotes") or []
-        if correction.quote_index >= len(quotes) or quotes[correction.quote_index] != correction.original_quote:
-            raise _reject("correction original quote/index is stale", status_code=409)
-        span = spans.get(correction.source_span_ref_id)
-        if span is None:
-            raise _reject("correction references an unknown frozen source span")
-        paragraph = _paragraph_for_span(
-            source_lines, start_line=int(span.start_line), end_line=int(span.end_line)
-        ).strip()
-        if find_anchor_quote_matches(paragraph, [correction.original_quote]):
-            raise _reject("correction target is already literal")
-        replacement = correction.replacement_quote.strip()
-        if not replacement or not find_anchor_quote_matches(paragraph, [replacement]):
-            raise _reject("replacement quote is not literal in the exact source paragraph")
-        quotes[correction.quote_index] = replacement
+    ordered = _apply_literal_quote_corrections(
+        payload, request, source_prose=source_prose, span_index=span_index
+    )
     _qualify_payload(payload=payload, resolved=resolved, source_prose=source_prose, span_index=span_index)
 
     canonical_corrections = [item.model_dump(mode="json", by_alias=True) for item in ordered]
@@ -284,4 +301,218 @@ def correct_exact_run_evidence(
         parent_candidate_sha256=parent_sha,
         candidate_sha256=child_sha,
         correction_digest=correction_digest,
+    )
+
+
+def correct_recap_run_evidence(
+    request: ExactRunEvidenceCorrectionRequest,
+) -> RecapEvidenceCorrectionResponse:
+    """Create one literal-only recap child with a canonical semantic hold."""
+    from application_state.ingest.service import RecapSemanticBasisV1
+    from apps.live_control_server.services.recap_semantic_disposition import (
+        assess_recap_semantics,
+    )
+
+    repo = repo_root()
+    try:
+        resolved = resolve_promotable_ingest_run(request.parent_run_id, root=repo)
+        parent = get_extraction_run(repo, request.parent_run_id)
+    except (PromotableIngestRunError, GraphRunRegistryError) as exc:
+        raise _reject(f"parent run is not reviewable: {exc}") from exc
+    if (
+        resolved.source_domain != "recap"
+        or parent.source_domain != "recap"
+        or resolved.extraction_profile != _RECAP_PROFILE
+        or parent.profile_id != _RECAP_PROFILE
+        or parent.status != ExtractionRunStatus.REVIEWABLE
+        or not parent.has_required_review_components()
+        or not parent.campaign_id
+        or not parent.session_id
+        or resolved.campaign_id != parent.campaign_id
+        or resolved.session_id != parent.session_id
+        or resolved.source_artifact_id != parent.source_artifact_id
+        or getattr(resolved, "source_span_index_path", None) is None
+    ):
+        raise _reject("correction requires an exact frozen recap review bundle")
+
+    try:
+        parent_bytes = resolved.candidate_graph_path.read_bytes()
+    except OSError as exc:
+        raise _reject("parent candidate is unreadable") from exc
+    parent_sha = _sha(parent_bytes)
+    parent_candidate = parent.components[ExtractionRunComponentKind.CANDIDATE_GRAPH.value]
+    source = parent.components[ExtractionRunComponentKind.SOURCE_ARTIFACT.value]
+    spans = parent.components[ExtractionRunComponentKind.SOURCE_SPAN_INDEX.value]
+    source_sha = source.sha256.removeprefix("sha256:").lower()
+    span_sha = spans.sha256.removeprefix("sha256:").lower()
+    if (
+        parent_sha != request.parent_candidate_sha256
+        or parent_sha != parent_candidate.sha256.removeprefix("sha256:").lower()
+        or source_sha != resolved.source_revision_id.removeprefix("sha256:").lower()
+    ):
+        raise _reject("parent candidate or source digest changed", status_code=409)
+    try:
+        payload = json.loads(parent_bytes)
+        source_prose = resolved.normalized_recap_path.read_text(encoding="utf-8")
+    except (OSError, json.JSONDecodeError) as exc:
+        raise _reject("parent candidate or source is unreadable") from exc
+    if not isinstance(payload, dict):
+        raise _reject("parent candidate root must be an object")
+    span_index = _load_frozen_span_index_for_resolved_run(resolved)
+    _assert_and_project_candidate_evidence(
+        candidate_payload=payload,
+        source_prose=source_prose,
+        source_artifact_id=resolved.source_artifact_id,
+        span_index=span_index,
+        inspect_false_anchor_quotes=True,
+    )
+    ordered = _apply_literal_quote_corrections(
+        payload, request, source_prose=source_prose, span_index=span_index
+    )
+    _assert_candidate_scope_matches_run(
+        payload, campaign_id=parent.campaign_id, session_id=parent.session_id
+    )
+    _assert_and_project_candidate_evidence(
+        candidate_payload=payload,
+        source_prose=source_prose,
+        source_artifact_id=resolved.source_artifact_id,
+        span_index=span_index,
+    )
+
+    correction_digest = _sha(_canonical_bytes({
+        "parentRunId": request.parent_run_id,
+        "parentCandidateSha256": parent_sha,
+        "corrections": [item.model_dump(mode="json", by_alias=True) for item in ordered],
+    }))
+    child_id = str(uuid5(NAMESPACE_URL, f"dmb:{_RECAP_DERIVATION}:{correction_digest}"))
+    child_bytes = _canonical_bytes(payload)
+    child_sha = _sha(child_bytes)
+    child_path = repo / "out" / "graph_memory" / "derived_candidates" / child_id / "candidate_graph.json"
+    child_uri = child_path.relative_to(repo).as_posix()
+    basis = RecapSemanticBasisV1(
+        parent_run_id=parent.run_id,
+        parent_candidate_sha256=parent_sha,
+        correction_digest=correction_digest,
+        child_run_id=child_id,
+        candidate_uri=child_uri,
+        candidate_sha256=child_sha,
+        source_artifact_id=parent.source_artifact_id,
+        source_uri=source.uri,
+        source_revision_sha256=source_sha,
+        span_index_uri=spans.uri,
+        span_index_sha256=span_sha,
+        profile_id=parent.profile_id,
+        profile_version="1.0",
+        campaign_id=parent.campaign_id,
+        session_id=parent.session_id,
+    )
+    lineage = {
+        "derivation": _RECAP_DERIVATION,
+        "parent_run_id": parent.run_id,
+        "parent_candidate_sha256": parent_sha,
+        "correction_digest": correction_digest,
+        "semantic_disposition": {
+            "version": 1, "state": "held", "basis_sha256": basis.digest(),
+        },
+    }
+    components = dict(parent.components)
+    components[ExtractionRunComponentKind.CANDIDATE_GRAPH.value] = ExtractionRunComponentRef(
+        kind=ExtractionRunComponentKind.CANDIDATE_GRAPH,
+        uri=child_uri,
+        sha256=child_sha,
+        exists=True,
+    )
+    existing = True
+    try:
+        child = get_extraction_run(repo, child_id)
+    except GraphRunRegistryError as exc:
+        if exc.status_code != 404:
+            raise _reject(f"derived run lookup failed: {exc}") from exc
+        existing = False
+        try:
+            child = create_extraction_run(
+                repo,
+                run_id=child_id,
+                source_artifact_id=parent.source_artifact_id,
+                source_domain="recap",
+                campaign_id=parent.campaign_id,
+                session_id=parent.session_id,
+                profile_id=parent.profile_id,
+                components=components,
+                status=ExtractionRunStatus.DRAFT,
+                lineage=lineage,
+            )
+        except GraphRunRegistryError:
+            existing = True
+            child = get_extraction_run(repo, child_id)
+    identity_lineage = {
+        key: child.lineage.get(key)
+        for key in ("derivation", "parent_run_id", "parent_candidate_sha256", "correction_digest")
+    }
+    expected_identity_lineage = {
+        key: lineage[key] for key in identity_lineage
+    }
+    raw_disposition = child.lineage.get("semantic_disposition")
+    semantic_state = "held"
+    if isinstance(raw_disposition, dict) and raw_disposition.get("state") in {"accepted", "rejected"}:
+        assessment = assess_recap_semantics(
+            child, parent=parent, source_revision_id=source_sha
+        )
+        if (
+            child.status != ExtractionRunStatus.REVIEWABLE
+            or set(child.lineage) != set(lineage)
+            or set(raw_disposition) != {
+                "version", "state", "basis_sha256", "review_decision_ref",
+                "reviewer_id", "decided_at", "from_revision",
+            }
+            or type(raw_disposition.get("from_revision")) is not int
+            or raw_disposition["from_revision"] != child.revision - 1
+            or assessment.disposition is None
+            or assessment.disposition.get("state") != raw_disposition["state"]
+            or assessment.basis_sha256 != basis.digest()
+        ):
+            raise _reject("derived run semantic decision conflicts with exact basis", status_code=409)
+        semantic_state = raw_disposition["state"]
+    elif child.lineage != lineage:
+        raise _reject("derived run identity conflicts with existing run", status_code=409)
+    if (
+        identity_lineage != expected_identity_lineage
+        or child.components != components
+        or child.source_artifact_id != parent.source_artifact_id
+        or child.source_domain != "recap"
+        or child.profile_id != parent.profile_id
+        or child.campaign_id != parent.campaign_id
+        or child.session_id != parent.session_id
+    ):
+        raise _reject("derived run identity conflicts with existing run", status_code=409)
+    if existing and child.status == ExtractionRunStatus.REVIEWABLE:
+        if child_path.is_symlink() or not child_path.is_file() or child_path.read_bytes() != child_bytes:
+            raise _reject("derived candidate changed after seal", status_code=409)
+    else:
+        _write_child_candidate(child_path, child_bytes, repo=repo)
+    for _ in range(8):
+        child = get_extraction_run(repo, child_id)
+        if child.status == ExtractionRunStatus.REVIEWABLE:
+            break
+        if child.status not in _LIFECYCLE:
+            raise _reject("derived run is not in a sealable lifecycle state", status_code=409)
+        next_status = _LIFECYCLE[_LIFECYCLE.index(child.status) + 1]
+        try:
+            child = update_extraction_run_status(
+                repo, child_id, status=next_status, expected_revision=child.revision
+            )
+        except GraphRunRegistryError as exc:
+            if exc.status_code != 409:
+                raise _reject(f"derived run seal failed: {exc}") from exc
+    if child.status != ExtractionRunStatus.REVIEWABLE or child_path.read_bytes() != child_bytes:
+        raise _reject("derived recap child could not be sealed", status_code=409)
+    resolve_promotable_ingest_run(child_id, root=repo)
+    return RecapEvidenceCorrectionResponse(
+        run_id=child_id,
+        parent_run_id=parent.run_id,
+        parent_candidate_sha256=parent_sha,
+        candidate_sha256=child_sha,
+        correction_digest=correction_digest,
+        semantic_state=semantic_state,
+        semantic_basis_sha256=basis.digest(),
     )
