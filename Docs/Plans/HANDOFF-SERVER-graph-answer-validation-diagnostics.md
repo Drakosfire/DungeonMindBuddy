@@ -1,6 +1,6 @@
 # HANDOFF — SERVER: safe Plan Graph answer-validation diagnostics
 
-**Status:** ACTIVE — PRIME authorized this bounded source slice on 2026-10-06. Independent APP-STATE/PRIME review is required before merge; no runtime rollout is authorized.
+**Status:** MERGED — Buddy PR #981 merged at `87308f996289e5c3fde5c82d29c24a6203b95302` from APP-STATE/PRIME accepted source head `09e579d55384b3322ff7f54dbd3503b4e915598d`. Runtime rollout remains separate and is not authorized by this merge.
 **Owner:** DungeonMindBuddy SERVER.
 **Base:** fetched Buddy `origin/main@a92371b7b2e727d1d45bef1c8e1d7a3d01b58193`, including merged #980.
 **Branch/topology:** `codex/server-graph-answer-validation-diagnostics`, serial independent draft PR against `main`. #980 managed-World target binding merged from reviewed head `7010dba072407bcee76db91b0f815689f3266646` at `a92371b7b2e727d1d45bef1c8e1d7a3d01b58193` and has no runtime rollout authority.
@@ -29,7 +29,7 @@ Do not change APP-STATE schema/contracts, provider/Hermes execution, retries, re
 - A valid two-attempt expansion still binds the final Graph claim to the second producing envelope and completes normally, with no rejection diagnostic.
 - Run focused owning tests and relevant repository checks; inspect the exact cumulative base-to-head diff; update this handoff with implementation head, results, and any limits before requesting independent review.
 
-**Acceptance token:** `SERVER_GRAPH_ANSWER_VALIDATION_DIAGNOSTICS_ACCEPTED` — PRIME/APP-STATE may grant it only after exact-head review.
+**Accepted token:** `SERVER_GRAPH_ANSWER_VALIDATION_DIAGNOSTICS_ACCEPTED` — PRIME and APP-STATE accepted exact head `09e579d55384b3322ff7f54dbd3503b4e915598d` before merge. This source acceptance does not authorize runtime rollout.
 
 ## Implementation handback — 2026-10-06
 
@@ -41,7 +41,7 @@ Do not change APP-STATE schema/contracts, provider/Hermes execution, retries, re
 - `tests/test_agent_turn_route.py -k 'policy_predispatch_failure or policy_unproven_or_unmapped_failure'`: 4 passed. A broader sandboxed route selection produced those 4 passes and a PostgreSQL fixture setup error for `test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id`; the sandbox cannot reach the host's disposable PostgreSQL. The same test passed (1 passed, 16.63 seconds) when rerun with host access against the repository's uniquely named, created-and-dropped test database. No route file changed.
 - Focused Ruff and Python compilation passed; `git diff --check` passed. The cumulative base-to-source-commit diff is limited to this handoff, the predecessor handoff's merged-status settlement, the SERVER parser/logging code, and its owning service test.
 
-No deterministic prompt/schema mismatch was established from the checked-in prompt and typed completion contract. The original production answer body was intentionally not persisted, so this source-only change cannot identify its exact rejection reason retroactively. Independent exact-head review and any later diagnostics-only rollout remain with PRIME; this handoff does not grant the acceptance token.
+No deterministic prompt/schema mismatch was established from the checked-in prompt and typed completion contract. The original production answer body was intentionally not persisted, so this source-only change cannot identify its exact rejection reason retroactively. At handback time, independent exact-head review and any later diagnostics-only rollout remained with PRIME; this handoff had not yet granted the acceptance token. The later review and merge are recorded below.
 
 ### PRIME review correction — 2026-10-06
 
@@ -49,4 +49,11 @@ PRIME found that the parser could retain `typed/segment_attribution` from an ear
 
 ### APP-STATE review correction — 2026-10-06
 
-APP-STATE found that strict UTF-8 encoding in the rejection logger could itself fail on an unpaired surrogate in an arbitrary provider string, bypassing the normal `answer_validation_failed`/`fail_turn` path. Source correction `0c9b09a6aaaecc1bc8e874ef81b74407c566a70a` uses UTF-8 with `surrogatepass` for diagnostic hash/byte length and request-turn hash. Ordinary valid-UTF-8 digests remain identical. A service-boundary fixture with an actual unpaired surrogate proves one failure recording, one provider authorization, no completion, the same 502 code, and content-free log fields. The owning service suite passed again: 49 passed, 2 unrelated history HTTP tests deselected. Focused Ruff, Python compilation, and diff check passed. No runtime rollout or acceptance token is claimed.
+APP-STATE found that strict UTF-8 encoding in the rejection logger could itself fail on an unpaired surrogate in an arbitrary provider string, bypassing the normal `answer_validation_failed`/`fail_turn` path. Source correction `0c9b09a6aaaecc1bc8e874ef81b74407c566a70a` uses UTF-8 with `surrogatepass` for diagnostic hash/byte length and request-turn hash. Ordinary valid-UTF-8 digests remain identical. A service-boundary fixture with an actual unpaired surrogate proves one failure recording, one provider authorization, no completion, the same 502 code, and content-free log fields. The owning service suite passed again: 49 passed, 2 unrelated history HTTP tests deselected. Focused Ruff, Python compilation, and diff check passed. At the time of this correction, no runtime rollout or acceptance token was claimed; the subsequent acceptance and merge are recorded below.
+
+
+## Merge settlement
+
+Buddy PR #981 merged at `87308f996289e5c3fde5c82d29c24a6203b95302` from accepted source head `09e579d55384b3322ff7f54dbd3503b4e915598d`. PRIME and APP-STATE accepted `SERVER_GRAPH_ANSWER_VALIDATION_DIAGNOSTICS_ACCEPTED` for that exact head. PRIME reported its owning service rerun passed 49 tests with 2 unrelated history HTTP tests deselected. The focused route and host-backed PostgreSQL evidence above are author-reported; APP-STATE did not rerun tests. No GitHub status checks were present at review. This does not establish full-suite coverage.
+
+The historical failed Ask remains failed. It was not replayed, and no provider call or runtime rollout is authorized by this merge. PRIME directed a separate SERVER diagnostics-only portable-candidate/handoff that preserves the current UI code `0456354f884e1f5667fdce6e11abd6f7be52aac7` and backend/runtime `521a63518a1dd0188b76244c5382d8fb897878d4`, and excludes #980 publication-target changes until DEMO callers are ready. That follow-on is not yet pinned or activated; Root retains review/activation.
