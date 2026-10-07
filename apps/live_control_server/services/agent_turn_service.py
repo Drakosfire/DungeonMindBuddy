@@ -1392,6 +1392,7 @@ def _parse_policy_completion(
             raise ValueError("answer segments must be a list")
         normalized_segments = []
         for segment in segments:
+            stage, reason = "shape", "segment_shape"
             if not isinstance(segment, dict):
                 raise ValueError("answer segment must be an object")
             normalized = dict(segment)

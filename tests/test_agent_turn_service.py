@@ -1148,6 +1148,24 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         }), ("shape", "segment_shape")),
         (json.dumps({
             "answer_context_status": "plan_only_insufficient_evidence",
+            "answer_segments": [
+                {"kind": "plan_claim", "text": "Plan fact."},
+                "PRIVATE_LATER_NOT_AN_OBJECT",
+            ],
+            "citation_map": None,
+        }), ("shape", "segment_shape")),
+        (json.dumps({
+            "answer_context_status": "graph_grounded",
+            "answer_segments": [
+                {"kind": "graph_claim", "claim_id": "claim:one", "text": "Graph fact.",
+                 "target_kind": "relationship", "target_id": "rel:one",
+                 "graph_revision": "graph-revision-3", "evidence_ref_ids": ["ev:one"]},
+                "PRIVATE_LATER_NOT_AN_OBJECT",
+            ],
+            "citation_map": None,
+        }), ("shape", "segment_shape")),
+        (json.dumps({
+            "answer_context_status": "plan_only_insufficient_evidence",
             "answer_segments": [{"kind": "plan_claim", "text": "PRIVATE_EXTRA_FIELD", "extra": 1}],
             "citation_map": None,
         }), ("typed", "segment_schema")),
