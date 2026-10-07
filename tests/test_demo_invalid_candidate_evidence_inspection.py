@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from apps.live_control_server.services import candidate_graph_admission, extract_promote
+from apps.live_control_server.services import candidate_graph_admission, extract_promote, graph_run_registry
 
 
 def _fixture(
@@ -62,6 +62,10 @@ def _fixture(
     monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", lambda *_args, **_kwargs: resolved)
     monkeypatch.setattr(extract_promote, "_load_frozen_span_index_for_resolved_run", lambda _: span_index)
     monkeypatch.setattr(extract_promote, "resolve_first_world_capability", lambda **_kwargs: capability)
+    monkeypatch.setattr(
+        graph_run_registry, "get_extraction_run",
+        lambda *_args, **_kwargs: SimpleNamespace(lineage={}),
+    )
     return span_id
 
 

@@ -471,6 +471,8 @@ class ExactRunReviewPackage(_ExtractPromoteModel):
     # remains reserved for promote-eligible (played_canon) recap paths.
     promotable: bool = True
     promotable_reason: str | None = None
+    # Present only for a recap child made by operator literal-evidence correction.
+    semantic_disposition: dict[str, Any] | None = None
     # Additive first-world publish capability (CR02A). Generic promotable stays
     # false for worldbuilding; eligibility is a separate explicit path.
     world_id: str | None = None

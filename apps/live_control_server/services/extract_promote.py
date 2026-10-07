@@ -731,6 +731,73 @@ def _assert_and_project_candidate_evidence(
     return assertions
 
 
+def _recap_semantic_assessment(resolved, run_record=None):
+    """Read canonical child and parent; legacy manifest runs have no gate."""
+    canonical = (
+        getattr(resolved, "source_span_index_path", None) is not None
+        or "resolved via canonical ExtractionRun registry" in getattr(resolved, "diagnostics", ())
+    )
+    if not canonical:
+        return None, None
+    if getattr(resolved, "source_span_index_path", None) is None:
+        raise ExtractPromoteError(
+            "canonical extraction run lost its span-index binding",
+            code="run_not_promotable", status_code=409,
+        )
+    from apps.live_control_server.services.graph_run_registry import (
+        GraphRunRegistryError,
+        get_extraction_run,
+    )
+    from apps.live_control_server.services.recap_semantic_disposition import (
+        assess_recap_semantics,
+        is_recap_correction,
+    )
+
+    try:
+        run = run_record or get_extraction_run(repo_root(), resolved.run_id)
+    except GraphRunRegistryError as exc:
+        raise ExtractPromoteError(
+            "canonical extraction run could not be re-read",
+            code="run_not_promotable", status_code=409,
+        ) from exc
+    if not is_recap_correction(run):
+        return run, None
+    parent = None
+    parent_id = run.lineage.get("parent_run_id")
+    if isinstance(parent_id, str) and parent_id.strip():
+        try:
+            parent = get_extraction_run(repo_root(), parent_id)
+        except GraphRunRegistryError as exc:
+            if getattr(resolved, "source_span_index_path", None) is not None:
+                raise ExtractPromoteError(
+                    "canonical extraction run could not be re-read",
+                    code="run_not_promotable", status_code=409,
+                ) from exc
+            if exc.status_code != 404:
+                raise
+    return run, assess_recap_semantics(
+        run, parent=parent, source_revision_id=resolved.source_revision_id
+    )
+
+
+def _bind_recap_semantic_effect(package, run, assessment):
+    """Add the exact accepted child pin before the final proposal seal."""
+    from apps.live_control_server.services.recap_semantic_disposition import (
+        EFFECT_KEY,
+        accepted_effect_binding,
+    )
+    from graph_memory.extract_promote_proposal import compute_proposal_digest
+
+    bound = dict(package)
+    effect = dict(bound.get("effect") or {})
+    if not effect or EFFECT_KEY in effect:
+        raise PromoteProposalError("recap semantic gate cannot be bound")
+    effect[EFFECT_KEY] = accepted_effect_binding(run, assessment)
+    bound["effect"] = effect
+    bound["proposal_digest"] = compute_proposal_digest(effect)
+    return bound
+
+
 def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
     """Build a source/evidence review projection for one exact ExtractionRun.
 
@@ -823,13 +890,22 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
         )
 
         derived_from_run_id: str | None = None
+        semantic_assessment = None
         try:
             run_record = get_extraction_run(repo_root(), resolved.run_id)
             if run_record.lineage.get("derivation") == "operator_literal_evidence_correction_v1":
                 derived_from_run_id = str(run_record.lineage.get("parent_run_id") or "") or None
+            from apps.live_control_server.services.recap_semantic_disposition import (
+                is_recap_correction,
+            )
+
+            if is_recap_correction(run_record):
+                derived_from_run_id = str(run_record.lineage.get("parent_run_id") or "") or None
+                _, semantic_assessment = _recap_semantic_assessment(resolved, run_record)
         except GraphRunRegistryError as exc:
             if exc.status_code != 404:
                 raise
+        semantic_held = semantic_assessment is not None and not semantic_assessment.accepted
         return ExactRunReviewPackage(
             run_id=resolved.run_id,
             derived_from_run_id=derived_from_run_id,
@@ -843,18 +919,31 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
             inspection_status="invalid_evidence" if invalid_evidence_count else "ready",
             invalid_evidence_count=invalid_evidence_count,
             diagnostics=list(resolved.diagnostics),
-            promotable=not inspect_only and invalid_evidence_count == 0,
+            promotable=not inspect_only and invalid_evidence_count == 0 and not semantic_held,
             promotable_reason=(
                 "Candidate evidence contains nonliteral anchor quotes; publication is blocked."
                 if invalid_evidence_count
-                else _WORLDBUILDING_INSPECT_ONLY_REASON if inspect_only else None
+                else _WORLDBUILDING_INSPECT_ONLY_REASON if inspect_only
+                else semantic_assessment.reason if semantic_held else None
+            ),
+            semantic_disposition=(
+                {
+                    "version": 1,
+                    "state": "accepted" if semantic_assessment.accepted else "held",
+                    "basisSha256": semantic_assessment.basis_sha256,
+                    "reason": semantic_assessment.reason,
+                }
+                if semantic_assessment is not None else None
             ),
             world_id=capability.world_id,
             world_state=capability.world_state,
-            first_world_publish_eligible=capability.eligible and invalid_evidence_count == 0,
+            first_world_publish_eligible=(
+                capability.eligible and invalid_evidence_count == 0 and not semantic_held
+            ),
             first_world_publish_reason=(
                 "Candidate evidence contains nonliteral anchor quotes; publication is blocked."
-                if invalid_evidence_count else capability.reason
+                if invalid_evidence_count else semantic_assessment.reason if semantic_held
+                else capability.reason
             ),
         )
     except ExtractPromoteError as exc:
@@ -892,6 +981,14 @@ def prepare(
         resolved = resolve_promotable_ingest_run(request.run_id, root=repo_root())
     except PromotableIngestRunError as exc:
         raise _promotable_run_error(exc) from exc
+
+    canonical_run, semantic_assessment = _recap_semantic_assessment(resolved)
+    if semantic_assessment is not None and not semantic_assessment.accepted:
+        raise ExtractPromoteError(
+            semantic_assessment.reason or "recap semantic review is required",
+            code="recap_semantic_hold",
+            status_code=409,
+        )
 
 
     # Defense in depth: registry seal must still pass confirm-time rules.
@@ -1103,6 +1200,16 @@ def prepare(
             )
             from dataclasses import replace
 
+            if semantic_assessment is not None:
+                assert canonical_run is not None
+                package = _bind_recap_semantic_effect(
+                    result.review_package, canonical_run, semantic_assessment
+                )
+                result = replace(
+                    result,
+                    review_package=package,
+                    proposal_digest=str(package["proposal_digest"]),
+                )
 
             sealed = world_graph_writes.bind_identity_ledger_to_package(
                 result.review_package, mutation_context
@@ -1121,6 +1228,18 @@ def prepare(
                 **prepare_kwargs,
                 world_root=world_graph_root(),
             )
+            if semantic_assessment is not None:
+                from dataclasses import replace
+
+                assert canonical_run is not None
+                package = _bind_recap_semantic_effect(
+                    result.review_package, canonical_run, semantic_assessment
+                )
+                result = replace(
+                    result,
+                    review_package=package,
+                    proposal_digest=str(package["proposal_digest"]),
+                )
     except CandidateAdmissionIntegrityError as exc:
         raise ExtractPromoteError(
             str(exc),

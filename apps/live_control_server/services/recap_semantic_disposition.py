@@ -1,0 +1,213 @@
+"""Exact-run semantic hold for operator-corrected recap evidence.
+
+This is a SERVER interpretation of canonical APP-STATE run metadata. Evidence
+validity and lifecycle REVIEWABLE do not imply semantic acceptance.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from dataclasses import dataclass
+from typing import Any, Mapping
+
+from graph_memory.ingestion.extraction_run import ExtractionRun, ExtractionRunStatus
+
+DERIVATION = "operator_recap_literal_evidence_correction_v1"
+DISPOSITION_VERSION = 1
+EFFECT_KEY = "recap_semantic_disposition"
+HOLD_REASON = "Corrected recap evidence awaits an explicit semantic review decision."
+
+
+def _digest(value: Mapping[str, Any]) -> str:
+    encoded = json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    )
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _sha(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    cleaned = value.removeprefix("sha256:").lower()
+    if len(cleaned) != 64 or any(char not in "0123456789abcdef" for char in cleaned):
+        return None
+    return cleaned
+
+
+def is_recap_correction(run: ExtractionRun) -> bool:
+    return run.lineage.get("derivation") == DERIVATION
+
+
+@dataclass(frozen=True)
+class RecapSemanticAssessment:
+    marked: bool
+    accepted: bool
+    basis_sha256: str | None = None
+    reason: str | None = None
+    disposition: dict[str, Any] | None = None
+    basis: dict[str, Any] | None = None
+
+
+def assess_recap_semantics(
+    run: ExtractionRun,
+    *,
+    parent: ExtractionRun | None,
+    source_revision_id: str,
+) -> RecapSemanticAssessment:
+    """Validate a marked child's canonical basis and recorded decision.
+
+    A damaged or missing disposition stays held. Caller data never contributes
+    to the basis; ``source_revision_id`` must come from registry resolution.
+    """
+    if not is_recap_correction(run):
+        return RecapSemanticAssessment(marked=False, accepted=True)
+
+    def held(
+        reason: str = HOLD_REASON,
+        basis_sha256: str | None = None,
+        basis: dict[str, Any] | None = None,
+    ) -> RecapSemanticAssessment:
+        return RecapSemanticAssessment(True, False, basis_sha256, reason, None, basis)
+
+    lineage = run.lineage
+    if (
+        parent is None
+        or run.status != ExtractionRunStatus.REVIEWABLE
+        or run.source_domain != "recap"
+        or parent.source_domain != "recap"
+        or parent.run_id != lineage.get("parent_run_id")
+        or parent.run_id == run.run_id
+        or not run.profile_id
+        or run.profile_id != parent.profile_id
+        or not run.campaign_id
+        or not run.session_id
+        or run.campaign_id != parent.campaign_id
+        or run.session_id != parent.session_id
+        or run.source_artifact_id != parent.source_artifact_id
+    ):
+        return held()
+    profile_name, separator, profile_version = run.profile_id.rpartition("@")
+    if not separator or not profile_name or not profile_version:
+        return held()
+    candidate = run.components.get("candidate_graph")
+    parent_candidate = parent.components.get("candidate_graph")
+    source = run.components.get("source_artifact")
+    parent_source = parent.components.get("source_artifact")
+    spans = run.components.get("source_span_index")
+    parent_spans = parent.components.get("source_span_index")
+    if not all(
+        (candidate, parent_candidate, source, parent_source, spans, parent_spans)
+    ):
+        return held()
+    child_sha = _sha(candidate.sha256)
+    parent_sha = _sha(parent_candidate.sha256)
+    source_sha = _sha(source.sha256)
+    span_sha = _sha(spans.sha256)
+    correction_sha = _sha(lineage.get("correction_digest"))
+    if (
+        not all((child_sha, parent_sha, source_sha, span_sha, correction_sha))
+        or _sha(lineage.get("parent_candidate_sha256")) != parent_sha
+        or _sha(parent_source.sha256) != source_sha
+        or _sha(parent_spans.sha256) != span_sha
+        or source.uri != parent_source.uri
+        or spans.uri != parent_spans.uri
+        or _sha(source_revision_id) != source_sha
+    ):
+        return held()
+    basis_fields = {
+        "schema": "dmb_recap_semantic_basis_v1",
+        "parent_run_id": parent.run_id,
+        "parent_candidate_sha256": parent_sha,
+        "correction_digest": correction_sha,
+        "child_run_id": run.run_id,
+        "candidate_uri": candidate.uri,
+        "candidate_sha256": child_sha,
+        "source_artifact_id": run.source_artifact_id,
+        "source_revision_sha256": source_sha,
+        "source_uri": source.uri,
+        "span_index_uri": spans.uri,
+        "span_index_sha256": span_sha,
+        "profile_id": run.profile_id,
+        "profile_version": profile_version,
+        "campaign_id": run.campaign_id,
+        "session_id": run.session_id,
+    }
+    basis = _digest(basis_fields)
+    raw = lineage.get("semantic_disposition")
+    if (
+        not isinstance(raw, Mapping)
+        or type(raw.get("version")) is not int
+        or raw.get("version") != DISPOSITION_VERSION
+    ):
+        return held(basis_sha256=basis, basis=basis_fields)
+    disposition = dict(raw)
+    if _sha(disposition.get("basis_sha256")) != basis:
+        return held(basis_sha256=basis, basis=basis_fields)
+    if disposition.get("state") != "accepted":
+        return held(basis_sha256=basis, basis=basis_fields)
+    if not all(
+        isinstance(disposition.get(key), str) and disposition[key].strip()
+        for key in ("review_decision_ref", "reviewer_id", "decided_at")
+    ):
+        return held(basis_sha256=basis, basis=basis_fields)
+    return RecapSemanticAssessment(True, True, basis, None, disposition, basis_fields)
+
+
+def accepted_effect_binding(
+    run: ExtractionRun, assessment: RecapSemanticAssessment
+) -> dict[str, Any]:
+    """Pin the accepted canonical child inside the proposal effect digest."""
+    if (
+        not assessment.marked
+        or not assessment.accepted
+        or assessment.disposition is None
+    ):
+        raise ValueError("recap semantic disposition is not accepted")
+    candidate = run.components["candidate_graph"]
+    source = run.components["source_artifact"]
+    spans = run.components["source_span_index"]
+    _, _, profile_version = run.profile_id.rpartition("@")
+    return {
+        "version": DISPOSITION_VERSION,
+        "run_id": run.run_id,
+        "run_revision": run.revision,
+        "candidate_uri": candidate.uri,
+        "candidate_sha256": _sha(candidate.sha256),
+        "source_artifact_id": run.source_artifact_id,
+        "source_uri": source.uri,
+        "source_revision_sha256": _sha(source.sha256),
+        "span_index_uri": spans.uri,
+        "span_index_sha256": _sha(spans.sha256),
+        "profile_id": run.profile_id,
+        "profile_version": profile_version,
+        "campaign_id": run.campaign_id,
+        "session_id": run.session_id,
+        "basis_sha256": assessment.basis_sha256,
+        "disposition_sha256": _digest(assessment.disposition),
+    }
+
+
+def assert_current_effect_binding(
+    run: ExtractionRun,
+    assessment: RecapSemanticAssessment,
+    raw_binding: object,
+) -> None:
+    """Reject missing, stale, or forged pins against the current canonical run."""
+    if not isinstance(raw_binding, Mapping) or dict(
+        raw_binding
+    ) != accepted_effect_binding(run, assessment):
+        raise ValueError("recap semantic disposition binding is missing or stale")
+
+
+__all__ = [
+    "DERIVATION",
+    "DISPOSITION_VERSION",
+    "EFFECT_KEY",
+    "HOLD_REASON",
+    "RecapSemanticAssessment",
+    "accepted_effect_binding",
+    "assert_current_effect_binding",
+    "assess_recap_semantics",
+    "is_recap_correction",
+]
