@@ -9,6 +9,7 @@ import type {
   ExtractPromoteConfirmReceipt,
   ExactRunReviewPackage,
   HistoricalRecapWorldProjectionResponse,
+  WorldContainerRecord,
   WorldGraphProjection,
 } from "../../api/types";
 import * as agentInteractionProvider from "../../agentInteraction/AgentInteractionProvider";
@@ -38,12 +39,21 @@ import { GraphReviewCommittedProjectionPanel } from "./GraphReviewCommittedProje
 import { session23WorldGraphRecapFixture } from "../graphPreview/worldGraphRecapFixture";
 import { AgentInteractionProjectionTestHost } from "../projection/projectionTestHost";
 import { createIngestSurfaceConfig } from "../config/ingestSurfaceConfig";
+import { SelectedWorldProvider } from "../../selectedWorld/SelectedWorldContext";
 
 const context: PlanContextDescriptor = {
   campaignId: "longmont-c2",
   liveSession: 24,
   ingestSession: 23,
   headerLabel: "Ingest",
+};
+
+const selectedManagedWorld: WorldContainerRecord = {
+  schema_version: "dmb_world_container_record_v1",
+  world_id: "managed-world-a",
+  name: "World A",
+  source_root_relpath: "corpus/managed-world-a-markdown",
+  created_at: "2026-01-01T00:00:00Z",
 };
 
 function canonicalRun(overrides: Partial<ExtractionRunRecord> = {}): ExtractionRunRecord {
@@ -268,11 +278,12 @@ function renderWorkbench(
     onCatalogRefresh?: () => void | Promise<void>;
     sourceReviewOnly?: boolean;
     sourceReviewRunId?: string | null;
+    selectedWorldId?: string;
     locationSearch?: string;
     onLocationSearchChange?: (search: string) => void;
   },
 ) {
-  return render(
+  const workbench = (
     <AgentInteractionProvider>
       <SurfaceContextProvider>
         <PeekRegionProvider>
@@ -290,7 +301,16 @@ function renderWorkbench(
           <LegacyProjectionHostAdapter />
         </PeekRegionProvider>
       </SurfaceContextProvider>
-    </AgentInteractionProvider>,
+    </AgentInteractionProvider>
+  );
+  return render(
+    options?.selectedWorldId
+      ? (
+        <SelectedWorldProvider locationSnapshot={`/ingest?world=${options.selectedWorldId}`}>
+          {workbench}
+        </SelectedWorldProvider>
+      )
+      : workbench,
   );
 }
 
@@ -333,6 +353,10 @@ const sessionWithRun = {
 };
 
 function mockWorkbenchApis() {
+  vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(JSON.stringify({
+    schema_version: "dmb_world_container_registry_v1",
+    records: [selectedManagedWorld],
+  }), { headers: { "Content-Type": "application/json" } }));
   vi.spyOn(liveApi, "getGoldReviewSessions").mockResolvedValue({
     schema_version: "dmb_graph_gold_review_sessions_v1",
     version: "0.1",
@@ -1285,6 +1309,7 @@ describe("GraphReviewWorkbenchModule", () => {
         rejectedAssertionCount: 0,
       },
       runId: run.run_id,
+      managedWorldId: "managed-world-a",
       campaignId: run.campaign_id,
       sessionId: run.session_id,
     } satisfies Awaited<ReturnType<typeof extractPromoteApi.prepareExtractPromote>>;
@@ -1295,28 +1320,45 @@ describe("GraphReviewWorkbenchModule", () => {
     const confirmSpy = vi.spyOn(extractPromoteApi, "confirmExtractPromote");
     window.history.replaceState({}, "", `/ingest?extractionRunId=${run.run_id}`);
 
-    const view = renderWorkbench([], context, { sourceReviewOnly: false });
+    const unverifiedView = renderWorkbench([], context, { sourceReviewOnly: false });
+    const unverifiedPrepare = await screen.findByTestId("graph-review-exact-run-prepare");
+    expect(unverifiedPrepare).toBeDisabled();
+    expect(screen.getByTestId("graph-review-selected-world-guidance")).toHaveTextContent(
+      "Select a verified managed World",
+    );
+    expect(prepareSpy).not.toHaveBeenCalled();
+    unverifiedView.unmount();
+
+    const view = renderWorkbench([], context, {
+      sourceReviewOnly: false,
+      selectedWorldId: "managed-world-a",
+    });
     await user.click(await screen.findByTestId("graph-review-exact-run-prepare"));
-    expect(prepareSpy).toHaveBeenCalledWith({ runId: run.run_id });
+    expect(prepareSpy).toHaveBeenCalledWith({
+      runId: run.run_id,
+      managedWorldId: "managed-world-a",
+    });
 
     await act(async () => {
       view.rerender(
-        <AgentInteractionProvider>
-          <SurfaceContextProvider>
-            <PeekRegionProvider>
-              <GraphReviewWorkbenchModule
-                context={{ ...context, campaignId: "elderwyld" }}
-                catalogChannel={readyCatalogChannel([])}
-                onCatalogRefresh={() => undefined}
-                sourceReviewOnly
-                sourceReviewRunId={run.run_id}
-              />
-              <PeekRegionSlot />
-              <ToolHost />
-              <LegacyProjectionHostAdapter />
-            </PeekRegionProvider>
-          </SurfaceContextProvider>
-        </AgentInteractionProvider>,
+        <SelectedWorldProvider locationSnapshot="/ingest?world=managed-world-a">
+          <AgentInteractionProvider>
+            <SurfaceContextProvider>
+              <PeekRegionProvider>
+                <GraphReviewWorkbenchModule
+                  context={{ ...context, campaignId: "elderwyld" }}
+                  catalogChannel={readyCatalogChannel([])}
+                  onCatalogRefresh={() => undefined}
+                  sourceReviewOnly
+                  sourceReviewRunId={run.run_id}
+                />
+                <PeekRegionSlot />
+                <ToolHost />
+                <LegacyProjectionHostAdapter />
+              </PeekRegionProvider>
+            </SurfaceContextProvider>
+          </AgentInteractionProvider>
+        </SelectedWorldProvider>,
       );
     });
 
@@ -2232,7 +2274,7 @@ describe("GraphReviewWorkbenchModule exact-run primary after confirm", () => {
       diagnostics: [],
     }));
 
-    renderWorkbench();
+    renderWorkbench([], context, { selectedWorldId: "managed-world-a" });
 
     await waitFor(() => {
       expect(screen.getByTestId("graph-review-exact-run-source-prose")).toBeInTheDocument();

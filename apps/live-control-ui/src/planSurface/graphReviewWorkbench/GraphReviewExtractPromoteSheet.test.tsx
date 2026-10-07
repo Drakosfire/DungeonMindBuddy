@@ -1,15 +1,19 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { useMemo, useState, type ComponentProps, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as extractPromoteApi from "../../api/extractPromoteApi";
+import * as liveApi from "../../api/liveApi";
 import { getUnionSupergraphProjection, postWorldGraphProjection } from "../../api/liveApi";
 import type {
   ExtractPromoteConfirmReceipt,
   ExtractPromotePrepareResponse,
   ExtractionRunRecord,
   UnionSupergraphProjectionResponse,
+  WorldContainerRecord,
 } from "../../api/types";
+import { SelectedWorldProvider } from "../../selectedWorld/SelectedWorldContext";
 import { createIngestSurfaceConfig } from "../config/ingestSurfaceConfig";
 import type { PlanContextDescriptor } from "../types";
 import { AgentInteractionProjectionTestHost } from "../projection/projectionTestHost";
@@ -19,6 +23,7 @@ import {
   GraphReviewLiveStateProvider,
   useGraphReviewLiveState,
 } from "./GraphReviewLiveStateContext";
+import * as graphReviewLiveStateContext from "./GraphReviewLiveStateContext";
 import { catalogRunBindingKey } from "./graphReviewCommittedAuthority";
 import { GraphReviewSessionToolbar } from "./GraphReviewSessionToolbar";
 import { toCatalogRun, type GraphReviewCatalogRun } from "./graphReviewWorkbenchUtils";
@@ -53,6 +58,23 @@ const planContext: PlanContextDescriptor = {
   ingestSession: 25,
   headerLabel: "Ingest",
 };
+
+const managedWorlds: WorldContainerRecord[] = [
+  {
+    schema_version: "dmb_world_container_record_v1",
+    world_id: "managed-world-a",
+    name: "World A",
+    source_root_relpath: "corpus/managed-world-a-markdown",
+    created_at: "2026-01-01T00:00:00Z",
+  },
+  {
+    schema_version: "dmb_world_container_record_v1",
+    world_id: "managed-world-b",
+    name: "World B",
+    source_root_relpath: "corpus/managed-world-b-markdown",
+    created_at: "2026-01-01T00:00:00Z",
+  },
+];
 
 const projection: UnionSupergraphProjectionResponse = {
   campaign_id: "longmont-c2",
@@ -203,9 +225,13 @@ function confirmReceipt(
   };
 }
 
-function renderWithLiveRun(liveRun: GraphReviewCatalogRun, children: ReactNode) {
+function renderWithLiveRun(
+  liveRun: GraphReviewCatalogRun,
+  children: ReactNode,
+  selectedWorldSnapshot?: string,
+) {
   const config = createIngestSurfaceConfig(planContext);
-  return render(
+  const surface = (
     <AgentInteractionProjectionTestHost config={config}>
       <GraphReviewLiveStateProvider
         campaignId="longmont-c2"
@@ -220,7 +246,12 @@ function renderWithLiveRun(liveRun: GraphReviewCatalogRun, children: ReactNode) 
       >
         {children}
       </GraphReviewLiveStateProvider>
-    </AgentInteractionProjectionTestHost>,
+    </AgentInteractionProjectionTestHost>
+  );
+  return render(
+    selectedWorldSnapshot
+      ? <SelectedWorldProvider locationSnapshot={selectedWorldSnapshot}>{surface}</SelectedWorldProvider>
+      : surface,
   );
 }
 
@@ -843,6 +874,10 @@ describe("GraphReviewExtractPromoteSheet", () => {
 
 describe("GraphReviewSessionToolbar", () => {
   beforeEach(() => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(JSON.stringify({
+      schema_version: "dmb_world_container_registry_v1",
+      records: managedWorlds,
+    }), { headers: { "Content-Type": "application/json" } }));
     vi.mocked(getUnionSupergraphProjection).mockReset();
     vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projection);
     vi.mocked(extractPromoteApi.getExtractPromoteStatus).mockReset();
@@ -855,6 +890,80 @@ describe("GraphReviewSessionToolbar", () => {
       headRevisionId: "rev:head",
       diagnostics: [],
     });
+    const useLiveState = graphReviewLiveStateContext.useGraphReviewLiveState;
+    vi.spyOn(graphReviewLiveStateContext, "useGraphReviewLiveState").mockImplementation(
+      () => ({
+        ...useLiveState(),
+        projection,
+        projectionStatus: "ready",
+      }),
+    );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("disables prepare with guidance when no managed World is verified", async () => {
+    renderWithLiveRun(baseRun(), <GraphReviewSessionToolbar />, "/ingest");
+
+    const button = await screen.findByTestId("graph-review-review-and-merge");
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute(
+      "title",
+      "Select a verified managed World before preparing this recap.",
+    );
+    expect(screen.getByTestId("graph-review-selected-world-guidance")).toHaveTextContent(
+      "Select a verified managed World",
+    );
+    expect(extractPromoteApi.prepareExtractPromote).not.toHaveBeenCalled();
+  });
+
+  it("uses the selected target when the global default-World status is unready", async () => {
+    vi.mocked(extractPromoteApi.getExtractPromoteStatus).mockResolvedValue({
+      schema: "dmb_extract_promote_status_v1",
+      worldId: "eldyrwild",
+      initialized: false,
+      worldState: "uninitialized",
+      headRevisionId: null,
+      diagnostics: [],
+    });
+    vi.mocked(extractPromoteApi.prepareExtractPromote).mockResolvedValue(prepareResponse());
+
+    renderWithLiveRun(baseRun(), <GraphReviewSessionToolbar />, "/ingest?world=managed-world-a");
+
+    const button = await screen.findByTestId("graph-review-review-and-merge");
+    await waitFor(() => expect(button).not.toBeDisabled());
+    fireEvent.click(button);
+
+    expect(await screen.findByTestId("graph-review-extract-promote-sheet")).toBeInTheDocument();
+    expect(extractPromoteApi.prepareExtractPromote).toHaveBeenCalledWith({
+      runId: "graph-ingest:longmont-c2:session-25:run-a",
+      managedWorldId: "managed-world-a",
+    });
+    expect(extractPromoteApi.getExtractPromoteStatus).not.toHaveBeenCalled();
+  });
+
+  it("keeps a target-specific prepare rejection out of the review sheet", async () => {
+    vi.mocked(extractPromoteApi.prepareExtractPromote).mockRejectedValue(
+      new extractPromoteApi.ExtractPromoteApiError(
+        "Selected managed World has no verified active native Graph binding.",
+        409,
+        "publication_target_unavailable",
+      ),
+    );
+
+    renderWithLiveRun(baseRun(), <GraphReviewSessionToolbar />, "/ingest?world=managed-world-a");
+
+    const button = await screen.findByTestId("graph-review-review-and-merge");
+    await waitFor(() => expect(button).not.toBeDisabled());
+    fireEvent.click(button);
+
+    expect(await screen.findByTestId("graph-review-extract-promote-error")).toHaveTextContent(
+      "Selected managed World has no verified active native Graph binding.",
+    );
+    expect(screen.queryByTestId("graph-review-extract-promote-sheet")).not.toBeInTheDocument();
+    expect(extractPromoteApi.confirmExtractPromote).not.toHaveBeenCalled();
   });
 
   it("disables Review & merge when the server marks the run non-promotable", async () => {
@@ -864,6 +973,7 @@ describe("GraphReviewSessionToolbar", () => {
         promotable_reason: "candidate graph is not valid",
       }),
       <GraphReviewSessionToolbar />,
+      "/ingest?world=managed-world-a",
     );
 
     const button = await screen.findByTestId("graph-review-review-and-merge");
@@ -879,6 +989,7 @@ describe("GraphReviewSessionToolbar", () => {
     vi.mocked(extractPromoteApi.prepareExtractPromote).mockReturnValue(deferred);
 
     function StatefulToolbar() {
+      const [worldId, setWorldId] = useState("managed-world-a");
       const [run, setRun] = useState(
         baseRun({
           run_id: "run-a",
@@ -887,6 +998,13 @@ describe("GraphReviewSessionToolbar", () => {
       );
       return (
         <>
+          <button
+            type="button"
+            data-testid="switch-world"
+            onClick={() => setWorldId("managed-world-b")}
+          >
+            Switch World
+          </button>
           <button
             type="button"
             data-testid="switch-run"
@@ -901,21 +1019,23 @@ describe("GraphReviewSessionToolbar", () => {
           >
             Switch
           </button>
-          <AgentInteractionProjectionTestHost config={createIngestSurfaceConfig(planContext)}>
-            <GraphReviewLiveStateProvider
-              campaignId="longmont-c2"
-              sessionId="session-25"
-              liveRun={run}
-              hasGold={false}
-              compare={null}
-              compareStatus="idle"
-              compareError={null}
-              selection={null}
-              onSelectSelection={() => undefined}
-            >
-              <GraphReviewSessionToolbar />
-            </GraphReviewLiveStateProvider>
-          </AgentInteractionProjectionTestHost>
+          <SelectedWorldProvider locationSnapshot={`/ingest?world=${worldId}`}>
+            <AgentInteractionProjectionTestHost config={createIngestSurfaceConfig(planContext)}>
+              <GraphReviewLiveStateProvider
+                campaignId="longmont-c2"
+                sessionId="session-25"
+                liveRun={run}
+                hasGold={false}
+                compare={null}
+                compareStatus="idle"
+                compareError={null}
+                selection={null}
+                onSelectSelection={() => undefined}
+              >
+                <GraphReviewSessionToolbar />
+              </GraphReviewLiveStateProvider>
+            </AgentInteractionProjectionTestHost>
+          </SelectedWorldProvider>
         </>
       );
     }
@@ -925,7 +1045,10 @@ describe("GraphReviewSessionToolbar", () => {
     const reviewButton = await screen.findByTestId("graph-review-review-and-merge");
     await waitFor(() => expect(reviewButton).not.toBeDisabled());
     fireEvent.click(reviewButton);
-    expect(extractPromoteApi.prepareExtractPromote).toHaveBeenCalledWith({ runId: "run-a" });
+    expect(extractPromoteApi.prepareExtractPromote).toHaveBeenCalledWith({
+      runId: "run-a",
+      managedWorldId: "managed-world-a",
+    });
 
     fireEvent.click(screen.getByTestId("switch-run"));
     expect(screen.queryByTestId("graph-review-extract-promote-sheet")).toBeNull();
@@ -944,12 +1067,66 @@ describe("GraphReviewSessionToolbar", () => {
     expect(screen.queryByText(/digest-stale-a/)).toBeNull();
   });
 
+  it("ignores a stale prepare response after switching managed Worlds", async () => {
+    const user = userEvent.setup();
+    let resolvePrepare!: (value: ExtractPromotePrepareResponse) => void;
+    vi.mocked(extractPromoteApi.prepareExtractPromote).mockReturnValue(
+      new Promise((resolve) => { resolvePrepare = resolve; }),
+    );
+
+    function StatefulWorldToolbar() {
+      const [worldId, setWorldId] = useState("managed-world-a");
+      return (
+        <>
+          <button type="button" data-testid="switch-world" onClick={() => setWorldId("managed-world-b")}>
+            Switch World
+          </button>
+          <SelectedWorldProvider locationSnapshot={`/ingest?world=${worldId}`}>
+            <AgentInteractionProjectionTestHost config={createIngestSurfaceConfig(planContext)}>
+              <GraphReviewLiveStateProvider
+                campaignId="longmont-c2"
+                sessionId="session-25"
+                liveRun={baseRun()}
+                hasGold={false}
+                compare={null}
+                compareStatus="idle"
+                compareError={null}
+                selection={null}
+                onSelectSelection={() => undefined}
+              >
+                <GraphReviewSessionToolbar />
+              </GraphReviewLiveStateProvider>
+            </AgentInteractionProjectionTestHost>
+          </SelectedWorldProvider>
+        </>
+      );
+    }
+
+    render(<StatefulWorldToolbar />);
+    const button = await screen.findByTestId("graph-review-review-and-merge");
+    await waitFor(() => expect(button).not.toBeDisabled());
+    await user.click(button);
+    expect(extractPromoteApi.prepareExtractPromote).toHaveBeenCalledWith({
+      runId: "graph-ingest:longmont-c2:session-25:run-a",
+      managedWorldId: "managed-world-a",
+    });
+
+    await user.click(screen.getByTestId("switch-world"));
+    await waitFor(() => expect(button).not.toBeDisabled());
+    resolvePrepare(prepareResponse({ proposalDigest: "digest-for-world-a" }));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("graph-review-extract-promote-sheet")).not.toBeInTheDocument();
+    });
+    expect(screen.queryByText(/digest-for-world-a/)).not.toBeInTheDocument();
+  });
+
   it("opens the review sheet for a successful prepare on the current run", async () => {
     vi.mocked(extractPromoteApi.prepareExtractPromote).mockResolvedValue(
       prepareResponse(),
     );
 
-    renderWithLiveRun(baseRun(), <GraphReviewSessionToolbar />);
+    renderWithLiveRun(baseRun(), <GraphReviewSessionToolbar />, "/ingest?world=managed-world-a");
 
     const reviewButton = await screen.findByTestId("graph-review-review-and-merge");
     await waitFor(() => expect(reviewButton).not.toBeDisabled());
@@ -1017,6 +1194,7 @@ describe("GraphReviewSessionToolbar", () => {
           onClose={() => undefined}
         />
       </>,
+      "/ingest?world=managed-world-a",
     );
 
     await waitFor(() =>
@@ -1064,6 +1242,7 @@ describe("GraphReviewSessionToolbar", () => {
           onClose={() => undefined}
         />
       </>,
+      "/ingest?world=managed-world-a",
     );
 
     await waitFor(() =>

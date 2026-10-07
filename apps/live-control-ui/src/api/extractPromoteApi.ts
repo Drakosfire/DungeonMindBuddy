@@ -111,6 +111,7 @@ export async function prepareExtractPromote(
   const payload: ExtractPromotePrepareRequest = {
     schema: "dmb_extract_promote_prepare_request_v2",
     runId: body.runId,
+    managedWorldId: body.managedWorldId,
     ...(body.nodeIds != null ? { nodeIds: body.nodeIds } : {}),
   };
   return extractPromoteFetch<ExtractPromotePrepareResponse>("/api/live/extract-promote/prepare", {

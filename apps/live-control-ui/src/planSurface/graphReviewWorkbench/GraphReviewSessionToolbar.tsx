@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   ExtractPromoteApiError,
-  getExtractPromoteStatus,
   prepareExtractPromote,
 } from "../../api/extractPromoteApi";
 import type { ExtractPromotePrepareResponse } from "../../api/types";
+import { useSelectedWorld } from "../../selectedWorld/SelectedWorldContext";
+import type { SelectedWorldState } from "../../selectedWorld/SelectedWorldContext";
 import { GraphAuthoredOverlaySummary } from "./GraphAuthoredOverlaySummary";
 import { GraphReviewExtractPromoteSheet } from "./GraphReviewExtractPromoteSheet";
 import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
@@ -29,6 +30,19 @@ function promoteErrorMessage(error: unknown): string {
   return "Failed to prepare promotion.";
 }
 
+function selectedWorldGuidance(selection: SelectedWorldState): string | null {
+  switch (selection.kind) {
+    case "managed":
+      return null;
+    case "loading":
+      return "Wait for the selected World to finish verification before preparing this recap.";
+    case "error":
+      return `Selected World could not be verified: ${selection.message}`;
+    case "legacy":
+      return "Select a verified managed World before preparing this recap.";
+  }
+}
+
 export function GraphReviewSessionToolbar({
   onConfirmInFlightChange,
 }: {
@@ -36,16 +50,19 @@ export function GraphReviewSessionToolbar({
 } = {}) {
   const { projection, projectionStatus, liveRun, committedPhase, committedReceipt } =
     useGraphReviewLiveState();
-  const [worldInitialized, setWorldInitialized] = useState(false);
-  const [worldStatusError, setWorldStatusError] = useState<string | null>(null);
+  const selectedWorld = useSelectedWorld();
+  const managedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
+  const targetGuidance = selectedWorldGuidance(selectedWorld);
   const [preparing, setPreparing] = useState(false);
   const [prepareError, setPrepareError] = useState<string | null>(null);
   const [prepared, setPrepared] = useState<ExtractPromotePrepareResponse | null>(null);
   const [confirmInFlight, setConfirmInFlight] = useState(false);
   const prepareGenerationRef = useRef(0);
   const liveRunIdRef = useRef<string | null>(liveRun?.run_id?.trim() || null);
+  const managedWorldIdRef = useRef<string | null>(managedWorldId);
 
   liveRunIdRef.current = liveRun?.run_id?.trim() || null;
+  managedWorldIdRef.current = managedWorldId;
   const hasTerminalCommittedReceipt =
     committedPhase !== "candidate" && committedReceipt != null;
 
@@ -57,26 +74,6 @@ export function GraphReviewSessionToolbar({
     [onConfirmInFlightChange],
   );
 
-  useEffect(() => {
-    let cancelled = false;
-    setWorldStatusError(null);
-    void getExtractPromoteStatus()
-      .then((status) => {
-        if (cancelled) return;
-        setWorldInitialized(status.initialized && status.worldState === "initialized");
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        setWorldInitialized(false);
-        setWorldStatusError(
-          error instanceof Error ? error.message : "Could not read World Graph status.",
-        );
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [liveRun?.run_id, liveRun?.manifest_path]);
-
   // Clear a prior sheet when the selected run changes; bump generation so
   // in-flight prepare responses for the previous run cannot repopulate it.
   useEffect(() => {
@@ -85,23 +82,23 @@ export function GraphReviewSessionToolbar({
     setPrepared(null);
     setPrepareError(null);
     setPreparing(false);
-  }, [confirmInFlight, liveRun?.run_id, liveRun?.manifest_path]);
+  }, [confirmInFlight, liveRun?.run_id, liveRun?.manifest_path, managedWorldId]);
 
   const canReviewAndMerge = useMemo(() => {
     if (hasTerminalCommittedReceipt) return false;
     if (projectionStatus !== "ready" || !projection) return false;
     if (!liveRun?.run_id || !liveRun.run_id.trim()) return false;
     if (liveRun.promotable !== true) return false;
-    if (!worldInitialized) return false;
+    if (!managedWorldId) return false;
     if (confirmInFlight) return false;
     return true;
   }, [
     confirmInFlight,
     hasTerminalCommittedReceipt,
     liveRun,
+    managedWorldId,
     projection,
     projectionStatus,
-    worldInitialized,
   ]);
 
   const disabledReason = useMemo(() => {
@@ -110,6 +107,9 @@ export function GraphReviewSessionToolbar({
     }
     if (confirmInFlight) {
       return "Merge confirmation is in progress.";
+    }
+    if (targetGuidance) {
+      return targetGuidance;
     }
     if (projectionStatus !== "ready" || !projection) {
       return "Load a preview-ready run first.";
@@ -120,34 +120,28 @@ export function GraphReviewSessionToolbar({
     if (liveRun.promotable !== true) {
       return liveRun.promotable_reason?.trim() || "Selected run is not promotable.";
     }
-    if (worldStatusError) {
-      return worldStatusError;
-    }
-    if (!worldInitialized) {
-      return "World Graph is not initialized.";
-    }
     return null;
   }, [
     confirmInFlight,
     hasTerminalCommittedReceipt,
     liveRun,
+    targetGuidance,
     projection,
     projectionStatus,
-    worldInitialized,
-    worldStatusError,
   ]);
 
   const onReviewAndMerge = useCallback(async () => {
     const runId = liveRun?.run_id?.trim();
-    if (!runId || preparing || confirmInFlight || hasTerminalCommittedReceipt) return;
+    if (!runId || !managedWorldId || preparing || confirmInFlight || hasTerminalCommittedReceipt) return;
     const generation = prepareGenerationRef.current;
     setPreparing(true);
     setPrepareError(null);
     try {
-      const response = await prepareExtractPromote({ runId });
+      const response = await prepareExtractPromote({ runId, managedWorldId });
       const stillCurrent =
         generation === prepareGenerationRef.current &&
         liveRunIdRef.current === runId &&
+        managedWorldIdRef.current === managedWorldId &&
         (response.runId == null || response.runId === runId);
       if (!stillCurrent) {
         return;
@@ -155,7 +149,9 @@ export function GraphReviewSessionToolbar({
       setPrepared(response);
     } catch (error) {
       const stillCurrent =
-        generation === prepareGenerationRef.current && liveRunIdRef.current === runId;
+        generation === prepareGenerationRef.current &&
+        liveRunIdRef.current === runId &&
+        managedWorldIdRef.current === managedWorldId;
       if (!stillCurrent) {
         return;
       }
@@ -166,7 +162,7 @@ export function GraphReviewSessionToolbar({
         setPreparing(false);
       }
     }
-  }, [confirmInFlight, hasTerminalCommittedReceipt, liveRun?.run_id, preparing]);
+  }, [confirmInFlight, hasTerminalCommittedReceipt, liveRun?.run_id, managedWorldId, preparing]);
 
   if (projectionStatus !== "ready" || !projection) {
     if (committedPhase === "candidate") {
@@ -201,6 +197,15 @@ export function GraphReviewSessionToolbar({
             )}
           </div>
         </div>
+      ) : null}
+      {targetGuidance ? (
+        <p
+          className="module-muted"
+          data-testid="graph-review-selected-world-guidance"
+          role="status"
+        >
+          {targetGuidance}
+        </p>
       ) : null}
       {prepareError ? (
         <p
