@@ -81,6 +81,10 @@ interface GraphReviewWorkbenchModuleProps {
   onCatalogRefresh: () => void;
   /** Opens exact recap evidence without granting writes against the selected target World. */
   sourceReviewOnly?: boolean;
+  sourceReviewRunId?: string | null;
+  /** Current page URL snapshot; keeps exact-run selection in sync on same-World navigation. */
+  locationSearch?: string;
+  onLocationSearchChange?: (search: string) => void;
 }
 
 const EMPTY_EXTRACTION_RUNS: ExtractionRunRecord[] = [];
@@ -134,6 +138,9 @@ export function GraphReviewWorkbenchModule({
   catalogChannel,
   onCatalogRefresh,
   sourceReviewOnly = false,
+  sourceReviewRunId = null,
+  locationSearch,
+  onLocationSearchChange,
 }: GraphReviewWorkbenchModuleProps) {
   const fallbackSessionId = `session-${context.ingestSession}`;
   const requestedSessionId = requestedSessionFromLocation();
@@ -160,10 +167,16 @@ export function GraphReviewWorkbenchModule({
   const projectionInstanceKey = projectionPublication.identity.instanceKey;
   const projectionPublicationRef = useRef(projectionPublication);
   projectionPublicationRef.current = projectionPublication;
-  const [exactHandoff, setExactHandoff] = useState<GraphReviewExactRunHandoff | null>(() =>
+  const [internalExactHandoff, setInternalExactHandoff] = useState<GraphReviewExactRunHandoff | null>(() =>
     parseGraphReviewRunHandoff(
-      typeof window !== "undefined" ? window.location.search : "",
+      locationSearch ?? (typeof window !== "undefined" ? window.location.search : ""),
     ),
+  );
+  const exactHandoff = useMemo(
+    () => locationSearch === undefined
+      ? internalExactHandoff
+      : parseGraphReviewRunHandoff(locationSearch),
+    [internalExactHandoff, locationSearch],
   );
   const exactHandoffErrors = useMemo(
     () => (exactHandoff ? assertExactRunHandoff(exactHandoff) : []),
@@ -242,6 +255,34 @@ export function GraphReviewWorkbenchModule({
   const [historicalRecapProjectionError, setHistoricalRecapProjectionError] = useState<
     string | null
   >(null);
+  const exactRunMatchesHandoff = Boolean(
+    exactHandoff
+    && exactRun
+    && exactRun.run_id === exactHandoff.extractionRunId,
+  );
+  const parentSourceReviewOnly = sourceReviewOnly && (
+    sourceReviewRunId === null
+    || sourceReviewRunId === exactHandoff?.extractionRunId
+  );
+  const awaitingCurrentExactRun = Boolean(
+    exactHandoff?.extractionRunId
+    && (!exactRunMatchesHandoff || exactRunStatus !== "ready"),
+  );
+  const sourceReviewOnlyForCurrentRun = parentSourceReviewOnly
+    || (exactRunMatchesHandoff && exactRun?.source_domain === "recap");
+  const effectiveSourceReviewOnly = sourceReviewOnlyForCurrentRun || awaitingCurrentExactRun;
+  const operationScopeKey = JSON.stringify([
+    exactHandoff?.extractionRunId ?? null,
+    context.campaignId,
+    effectiveSourceReviewOnly,
+  ]);
+  const operationScopeRef = useRef({ key: operationScopeKey, generation: 0 });
+  if (operationScopeRef.current.key !== operationScopeKey) {
+    operationScopeRef.current = {
+      key: operationScopeKey,
+      generation: operationScopeRef.current.generation + 1,
+    };
+  }
   const appliedCampaignSessions = useMemo(
     () =>
       appliedSelection
@@ -438,7 +479,7 @@ export function GraphReviewWorkbenchModule({
             );
           }
           if (
-            sourceReviewOnly
+            sourceReviewOnlyForCurrentRun
             && projection.worldId.trim() !== context.campaignId.trim()
           ) {
             throw new Error(
@@ -482,7 +523,7 @@ export function GraphReviewWorkbenchModule({
           return;
         }
         if (
-          sourceReviewOnly
+          sourceReviewOnlyForCurrentRun
           && packageResponse.worldId?.trim()
           && packageResponse.worldId.trim() !== context.campaignId.trim()
         ) {
@@ -526,7 +567,7 @@ export function GraphReviewWorkbenchModule({
     return () => {
       cancelled = true;
     };
-  }, [context.campaignId, exactHandoff, exactHandoffErrors, sourceReviewOnly]);
+  }, [context.campaignId, exactHandoff, exactHandoffErrors, sourceReviewOnlyForCurrentRun]);
 
   // Catalog recap is the published World Graph recap reader
   // (same RecapGraphModule as Plan → Recap). Extract-promote review-package
@@ -701,13 +742,14 @@ export function GraphReviewWorkbenchModule({
   const onCorrectExactEvidence = useCallback(async (
     corrections: ExactRunEvidenceQuoteCorrection[],
   ) => {
-    if (sourceReviewOnly) return;
+    if (effectiveSourceReviewOnly) return;
     const parentRunId = exactRun?.run_id;
     const parentCandidateSha256 = exactRun?.components?.candidate_graph?.sha256;
     if (!parentRunId || !parentCandidateSha256 || exactReview?.inspectionStatus !== "invalid_evidence") {
       setExactCorrectionError("Exact parent candidate identity is unavailable.");
       return;
     }
+    const operationGeneration = operationScopeRef.current.generation;
     setExactCorrecting(true);
     setExactCorrectionError(null);
     try {
@@ -719,30 +761,38 @@ export function GraphReviewWorkbenchModule({
       if (child.parentRunId !== parentRunId || child.parentCandidateSha256 !== parentCandidateSha256) {
         throw new Error("Corrected child identity does not match the exact parent run.");
       }
+      if (operationScopeRef.current.generation !== operationGeneration) return;
       const url = new URL(window.location.href);
       url.searchParams.set("extractionRunId", child.runId);
       window.history.replaceState(window.history.state, "", url);
+      onLocationSearchChange?.(url.search);
       setExactPrepared(null);
-      setExactHandoff((current) => current ? { ...current, extractionRunId: child.runId } : current);
+      setInternalExactHandoff((current) => current ? { ...current, extractionRunId: child.runId } : current);
     } catch (error) {
+      if (operationScopeRef.current.generation !== operationGeneration) return;
       setExactCorrectionError(
         error instanceof Error ? error.message : "Could not create a reviewed child candidate.",
       );
     } finally {
-      setExactCorrecting(false);
+      if (operationScopeRef.current.generation === operationGeneration) {
+        setExactCorrecting(false);
+      }
     }
-  }, [exactRun, exactReview, sourceReviewOnly]);
+  }, [exactRun, exactReview, effectiveSourceReviewOnly, onLocationSearchChange]);
 
   const onPrepareExactRun = useCallback(async () => {
-    if (sourceReviewOnly) return;
+    if (effectiveSourceReviewOnly) return;
     const runId = exactHandoff?.extractionRunId ?? exactRun?.run_id;
     if (!runId || !exactRunPromotable || exactPreparing || exactConfirmInFlight) return;
+    const operationGeneration = operationScopeRef.current.generation;
     setExactPreparing(true);
     setExactPrepareError(null);
     try {
       const response = await prepareExtractPromote({ runId });
+      if (operationScopeRef.current.generation !== operationGeneration) return;
       setExactPrepared(response);
     } catch (error) {
+      if (operationScopeRef.current.generation !== operationGeneration) return;
       setExactPrepared(null);
       if (error instanceof ExtractPromoteApiError) {
         const diagnosticTail = (error.body?.diagnostics ?? [])
@@ -767,20 +817,24 @@ export function GraphReviewWorkbenchModule({
         setExactPrepareError("Failed to prepare promotion for exact run.");
       }
     } finally {
-      setExactPreparing(false);
+      if (operationScopeRef.current.generation === operationGeneration) {
+        setExactPreparing(false);
+      }
     }
-  }, [exactConfirmInFlight, exactHandoff?.extractionRunId, exactPreparing, exactRun?.run_id, exactRunPromotable, sourceReviewOnly]);
+  }, [exactConfirmInFlight, exactHandoff?.extractionRunId, exactPreparing, exactRun?.run_id, exactRunPromotable, effectiveSourceReviewOnly]);
 
   useEffect(() => {
-    if (!sourceReviewOnly) return;
     setExactPrepared(null);
     setExactPrepareError(null);
-  }, [sourceReviewOnly]);
+    setExactPreparing(false);
+    setExactCorrecting(false);
+  }, [operationScopeKey]);
 
   const hasExactRunLoad = Boolean(
     exactHandoff
     && exactRunStatus === "ready"
     && exactRun
+    && exactRun.run_id === exactHandoff.extractionRunId
   );
   const writeAuthority = resolveGraphReviewWriteAuthority({
     exactHandoff,
@@ -788,7 +842,7 @@ export function GraphReviewWorkbenchModule({
     exactRun,
     exactRunStatus,
   });
-  const effectiveWriteAuthority = sourceReviewOnly ? null : writeAuthority;
+  const effectiveWriteAuthority = effectiveSourceReviewOnly ? null : writeAuthority;
   // Keep live-state (and the Tools drawer) mounted even before a session is loaded so
   // Diagnostics remains reachable from the empty /ingest landing state.
   // Exact campaignless runs must not inherit applied/draft/context campaign lenses.
@@ -904,12 +958,12 @@ export function GraphReviewWorkbenchModule({
               exactRunReviewable={exactRunReviewable}
               exactRunPromotable={exactRunPromotable}
               exactRunFirstWorldEligible={exactRunFirstWorldEligible}
-              sourceReviewOnly={sourceReviewOnly}
+              sourceReviewOnly={effectiveSourceReviewOnly}
               exactRunNonPromotableReason={exactRunNonPromotableReason}
               exactPreparing={exactPreparing}
               exactConfirmInFlight={exactConfirmInFlight}
               exactPrepareError={exactPrepareError}
-              exactPrepared={sourceReviewOnly ? null : exactPrepared}
+              exactPrepared={effectiveSourceReviewOnly ? null : exactPrepared}
               exactCorrecting={exactCorrecting}
               exactCorrectionError={exactCorrectionError}
               onCorrectEvidence={(corrections) => { void onCorrectExactEvidence(corrections); }}

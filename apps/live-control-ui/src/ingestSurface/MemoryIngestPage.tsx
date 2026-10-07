@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { getExtractionRun, getPlanView } from "../api/liveApi";
 import type { ExtractionRunRecord, PlanViewProjection } from "../api/types";
@@ -52,16 +52,18 @@ function SelectedWorldMemoryIngestPage() {
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [error, setError] = useState<string | null>(null);
   const [planView, setPlanView] = useState<PlanViewProjection | null>(null);
+  const [locationSearch, setLocationSearch] = useState(() => window.location.search);
+  const locationSearchRef = useRef(locationSearch);
+  locationSearchRef.current = locationSearch;
   const [sourceReview, setSourceReview] = useState<Pick<
     ExtractionRunRecord,
     "run_id" | "source_artifact_id" | "campaign_id" | "session_id"
   > | null>(null);
 
-  const refresh = useCallback(async () => {
-    setSourceReview(null);
-    const params = new URLSearchParams(window.location.search);
+  const refresh = useCallback(async (searchSnapshot: string) => {
+    const params = new URLSearchParams(searchSnapshot);
     const claimedCampaign = params.get("campaign")?.trim();
-    const handoff = parseGraphReviewRunHandoff(window.location.search);
+    const handoff = parseGraphReviewRunHandoff(searchSnapshot);
     const isExistingRecapCampaign = !handoff && managedWorldId === "elderwyld" &&
       (claimedCampaign === "longmont-c1" || claimedCampaign === "longmont-c2");
     if (
@@ -73,6 +75,7 @@ function SelectedWorldMemoryIngestPage() {
     ) {
       throw new Error(`Ingest campaign ${claimedCampaign} does not match selected World ${managedWorldId}.`);
     }
+    let nextSourceReview: typeof sourceReview = null;
     if (managedWorldId && handoff?.extractionRunId && handoff.errors.length === 0) {
       const run = await getExtractionRun(handoff.extractionRunId);
       if (run.run_id !== handoff.extractionRunId) {
@@ -81,12 +84,12 @@ function SelectedWorldMemoryIngestPage() {
       if (run.source_domain === "recap") {
         // A recap's campaign identifies its source. The selected managed World
         // is a destination intent; it does not establish recap ownership.
-        setSourceReview({
+        nextSourceReview = {
           run_id: run.run_id,
           source_artifact_id: run.source_artifact_id,
           campaign_id: run.campaign_id,
           session_id: run.session_id,
-        });
+        };
       } else {
         if (
           claimedCampaign
@@ -106,19 +109,25 @@ function SelectedWorldMemoryIngestPage() {
     )) {
       throw new Error(`Ingest context does not match selected World ${managedWorldId}.`);
     }
-    setPlanView(response);
+    return { planView: response, sourceReview: nextSourceReview };
   }, [managedWorldId]);
 
   useEffect(() => {
     let cancelled = false;
+    const searchSnapshot = locationSearch;
     (async () => {
       setStatus("loading");
       setError(null);
+      setSourceReview(null);
+      setPlanView(null);
       try {
-        await refresh();
-        if (!cancelled) setStatus("ready");
+        const loaded = await refresh(searchSnapshot);
+        if (cancelled || locationSearchRef.current !== searchSnapshot) return;
+        setPlanView(loaded.planView);
+        setSourceReview(loaded.sourceReview);
+        setStatus("ready");
       } catch (loadError) {
-        if (!cancelled) {
+        if (!cancelled && locationSearchRef.current === searchSnapshot) {
           setStatus("error");
           setError(loadError instanceof Error ? loadError.message : "Failed to load ingest context");
         }
@@ -127,7 +136,17 @@ function SelectedWorldMemoryIngestPage() {
     return () => {
       cancelled = true;
     };
-  }, [refresh]);
+  }, [locationSearch, refresh]);
+
+  useEffect(() => {
+    const syncLocationSearch = () => setLocationSearch(window.location.search);
+    window.addEventListener("popstate", syncLocationSearch);
+    return () => window.removeEventListener("popstate", syncLocationSearch);
+  }, []);
+
+  const onLocationSearchChange = useCallback((search: string) => {
+    setLocationSearch(search);
+  }, []);
 
   const context = useMemo(
     () => (planView ? buildIngestContextFromPlanView(planView) : null),
@@ -232,6 +251,9 @@ function SelectedWorldMemoryIngestPage() {
           catalogChannel={catalog.channel}
           onCatalogRefresh={catalog.refresh}
           sourceReviewOnly={sourceReview !== null}
+          sourceReviewRunId={sourceReview?.run_id ?? null}
+          locationSearch={locationSearch}
+          onLocationSearchChange={onLocationSearchChange}
         />
       </main>
     </AppChrome>

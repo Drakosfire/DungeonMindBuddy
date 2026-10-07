@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getExtractionRun, getPlanView } from "../api/liveApi";
@@ -19,10 +19,14 @@ vi.mock("./useIngestRunCatalogInformation", () => ({
   useIngestRunCatalogInformation: () => ({ channel: {}, refresh: () => undefined }),
 }));
 vi.mock("../planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule", () => ({
-  GraphReviewWorkbenchModule: ({ sourceReviewOnly }: { sourceReviewOnly?: boolean }) => (
+  GraphReviewWorkbenchModule: ({
+    sourceReviewOnly,
+    locationSearch,
+  }: { sourceReviewOnly?: boolean; locationSearch?: string }) => (
     <div
       data-testid="exact-graph-review"
       data-source-review-only={sourceReviewOnly ? "true" : "false"}
+      data-location-search={locationSearch}
     />
   ),
 }));
@@ -38,6 +42,14 @@ const planView = {
   world_id: "world-b",
   session: 0,
 };
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
 
 describe("managed-World Ingest boundary", () => {
   beforeEach(() => {
@@ -143,5 +155,89 @@ describe("managed-World Ingest boundary", () => {
       "true",
     );
     expect(screen.getByText(/does not import it or associate it/)).toBeInTheDocument();
+  });
+
+  it("tracks same-World handoff changes and ignores stale exact-run loads", async () => {
+    selection.current = { kind: "managed", worldId: "elderwyld", name: "Elderwyld", documentId: null };
+    vi.mocked(getPlanView).mockResolvedValue({
+      ...planView,
+      world_id: "elderwyld",
+      campaign_id: "elderwyld",
+    });
+    const runA = deferred<Awaited<ReturnType<typeof getExtractionRun>>>();
+    const runB = deferred<Awaited<ReturnType<typeof getExtractionRun>>>();
+    const runC = deferred<Awaited<ReturnType<typeof getExtractionRun>>>();
+    vi.mocked(getExtractionRun).mockImplementation((runId) => {
+      if (runId === "run-a") return runA.promise;
+      if (runId === "run-b") return runB.promise;
+      if (runId === "run-c") return runC.promise;
+      throw new Error(`unexpected run ${runId}`);
+    });
+    window.history.replaceState({}, "", "/ingest?world=elderwyld");
+    render(<MemoryIngestPage />);
+    expect(await screen.findByTestId("recap-workbench")).toBeInTheDocument();
+
+    const navigate = async (runId: string) => {
+      await act(async () => {
+        window.history.replaceState({}, "", `/ingest?world=elderwyld&extractionRunId=${runId}`);
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      });
+      await waitFor(() => expect(getExtractionRun).toHaveBeenCalledWith(runId));
+    };
+
+    await navigate("run-a");
+    await navigate("run-b");
+    await act(async () => {
+      runB.resolve({
+        run_id: "run-b",
+        source_domain: "worldbuilding",
+        source_artifact_id: "source-b",
+        campaign_id: "elderwyld",
+      } as Awaited<ReturnType<typeof getExtractionRun>>);
+      await runB.promise;
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId("exact-graph-review")).toHaveAttribute(
+        "data-source-review-only",
+        "false",
+      );
+      expect(screen.getByTestId("exact-graph-review")).toHaveAttribute(
+        "data-location-search",
+        "?world=elderwyld&extractionRunId=run-b",
+      );
+    });
+
+    await act(async () => {
+      runA.resolve({
+        run_id: "run-a",
+        source_domain: "recap",
+        source_artifact_id: "source-a",
+        campaign_id: "longmont-c2",
+        session_id: "session-27",
+      } as Awaited<ReturnType<typeof getExtractionRun>>);
+      await runA.promise;
+    });
+    expect(screen.queryByTestId("source-review-scope")).not.toBeInTheDocument();
+    expect(screen.getByTestId("exact-graph-review")).toHaveAttribute(
+      "data-source-review-only",
+      "false",
+    );
+
+    await navigate("run-c");
+    await act(async () => {
+      runC.resolve({
+        run_id: "run-c",
+        source_domain: "recap",
+        source_artifact_id: "source-c",
+        campaign_id: "longmont-c2",
+        session_id: "session-27",
+      } as Awaited<ReturnType<typeof getExtractionRun>>);
+      await runC.promise;
+    });
+    expect(await screen.findByTestId("source-review-scope")).toHaveTextContent("source-c");
+    expect(screen.getByTestId("exact-graph-review")).toHaveAttribute(
+      "data-source-review-only",
+      "true",
+    );
   });
 });

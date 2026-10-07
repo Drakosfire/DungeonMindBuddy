@@ -250,6 +250,14 @@ function mockExactRunReviewPackage(run: ExtractionRunRecord = canonicalRun()) {
     .mockResolvedValue(exactReviewPackageForRun(run));
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 function renderWorkbench(
   runs?: ExtractionRunRecord[],
   moduleContext: PlanContextDescriptor = context,
@@ -259,6 +267,9 @@ function renderWorkbench(
     >;
     onCatalogRefresh?: () => void | Promise<void>;
     sourceReviewOnly?: boolean;
+    sourceReviewRunId?: string | null;
+    locationSearch?: string;
+    onLocationSearchChange?: (search: string) => void;
   },
 ) {
   return render(
@@ -270,6 +281,9 @@ function renderWorkbench(
             catalogChannel={options?.catalogChannel ?? readyCatalogChannel(runs)}
             onCatalogRefresh={options?.onCatalogRefresh ?? (() => undefined)}
             sourceReviewOnly={options?.sourceReviewOnly}
+            sourceReviewRunId={options?.sourceReviewRunId}
+            locationSearch={options?.locationSearch}
+            onLocationSearchChange={options?.onLocationSearchChange}
           />
           <PeekRegionSlot />
           <ToolHost />
@@ -1231,12 +1245,12 @@ describe("GraphReviewWorkbenchModule", () => {
 
   it("dismisses a prepared write sheet when the exact run becomes source-review-only", async () => {
     const user = userEvent.setup();
-    const run = canonicalRun({ run_id: "s27-mode-change" });
+    const run = canonicalRun({ run_id: "run-mode-change", source_domain: "other" });
     vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(run);
     vi.spyOn(extractPromoteApi, "getExactRunReviewPackage").mockResolvedValue(
       exactReviewPackageForRun(run),
     );
-    vi.spyOn(extractPromoteApi, "prepareExtractPromote").mockResolvedValue({
+    const prepared = {
       schema: "dmb_extract_promote_prepare_v1",
       proposalId: "proposal-1",
       proposalDigest: "digest-1",
@@ -1257,13 +1271,17 @@ describe("GraphReviewWorkbenchModule", () => {
       runId: run.run_id,
       campaignId: run.campaign_id,
       sessionId: run.session_id,
-    });
+    } satisfies Awaited<ReturnType<typeof extractPromoteApi.prepareExtractPromote>>;
+    const pendingPrepare = deferred<Awaited<ReturnType<typeof extractPromoteApi.prepareExtractPromote>>>();
+    const prepareSpy = vi.spyOn(extractPromoteApi, "prepareExtractPromote").mockReturnValue(
+      pendingPrepare.promise,
+    );
     const confirmSpy = vi.spyOn(extractPromoteApi, "confirmExtractPromote");
     window.history.replaceState({}, "", `/ingest?extractionRunId=${run.run_id}`);
 
     const view = renderWorkbench([], context, { sourceReviewOnly: false });
     await user.click(await screen.findByTestId("graph-review-exact-run-prepare"));
-    expect(await screen.findByTestId("graph-review-extract-promote-sheet")).toBeInTheDocument();
+    expect(prepareSpy).toHaveBeenCalledWith({ runId: run.run_id });
 
     await act(async () => {
       view.rerender(
@@ -1275,6 +1293,7 @@ describe("GraphReviewWorkbenchModule", () => {
                 catalogChannel={readyCatalogChannel([])}
                 onCatalogRefresh={() => undefined}
                 sourceReviewOnly
+                sourceReviewRunId={run.run_id}
               />
               <PeekRegionSlot />
               <ToolHost />
@@ -1285,8 +1304,34 @@ describe("GraphReviewWorkbenchModule", () => {
       );
     });
 
+    await act(async () => {
+      pendingPrepare.resolve(prepared);
+      await pendingPrepare.promise;
+    });
     expect(screen.queryByTestId("graph-review-extract-promote-sheet")).not.toBeInTheDocument();
     expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
+
+    await act(async () => {
+      view.rerender(
+        <AgentInteractionProvider>
+          <SurfaceContextProvider>
+            <PeekRegionProvider>
+              <GraphReviewWorkbenchModule
+                context={{ ...context, campaignId: "elderwyld" }}
+                catalogChannel={readyCatalogChannel([])}
+                onCatalogRefresh={() => undefined}
+                sourceReviewOnly={false}
+              />
+              <PeekRegionSlot />
+              <ToolHost />
+              <LegacyProjectionHostAdapter />
+            </PeekRegionProvider>
+          </SurfaceContextProvider>
+        </AgentInteractionProvider>,
+      );
+    });
+    expect(await screen.findByTestId("graph-review-exact-run-prepare")).toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-extract-promote-sheet")).not.toBeInTheDocument();
     expect(confirmSpy).not.toHaveBeenCalled();
   });
 
