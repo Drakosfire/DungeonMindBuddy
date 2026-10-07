@@ -1,0 +1,16 @@
+# HANDOFF — SERVER: reserve the final Plan Graph provider attempt
+
+**Status:** ACTIVE — PRIME funded Source B on 2026-10-07 after Source A #984 merged at `main@d7e32dbc0fee4d658c61221bfc21f13fe9bb4660` from reviewed head `bab9edb0e4b6a41b1c6c581374b1ad5dc1d7470d`.
+**Branch and topology:** `codex/server-final-answer-reservation` in `/tmp/dmb-final-answer-reservation`, based on that exact main. One independent draft PR to `main`; PRIME owns review, merge, and rollout. #982 diagnostics rollout, #979 DEMO, and #917 prototype remain separate. Runtime `1cddad85` is read-only for this lane.
+**Primary question:** Can the existing four-attempt Plan Graph budget allow at most three tool-capable provider requests and make the last allowed request a no-tools final answer, with the final envelope checked before SDK entry?
+**Exclusive write lease:** `apps/live_control_server/services/agent_turn_service.py`, `apps/live_control_server/services/hermes_graph_agent_contract.py`, `apps/live_control_server/services/hermes_graph_agent.py`, `apps/live_control_server/services/hermes_agent_runtime.py`; `tests/test_agent_turn_service.py`, `tests/test_hermes_graph_agent_contract.py`, `tests/test_hermes_graph_agent.py`, `tests/test_hermes_agent_runtime.py`; this handoff. No other source, policy cap, parser, provider, APP-STATE schema, runtime checkout, or live state writes.
+
+## Invariant and stop conditions
+
+SERVER freezes four **total** provider attempts including final and eight maximum Graph operations. The strict parent-to-Harness request-budget contract carries those existing limits and reserves the fourth authorization for an envelope with no callable tools; the Harness must remove its model-visible tool surface after at most three tool-capable requests, or earlier when the Graph-operation allowance is exhausted. The request guard must verify a no-tools final envelope before parent authorization and SDK entry. Tool-capable fourth requests and requests beyond the total limit fail closed without SDK entry. No automatic retry, arbitrary cap increase, or answer-parser relaxation.
+
+Preflight remaining Graph-operation budget before a tool-capable request; never let a zero-remaining Graph allowance produce another tool-capable envelope. Preserve typed APP-STATE authorization and the Source A terminalization fence. Stop and return to PRIME if this requires a genuinely new public contract, a dependency/Hermes patch, or an extra owner path; do not silently broaden the lease.
+
+## Acceptance witness
+
+Focused contract tests prove strict round-trip and malformed limit rejection. Harness guard tests prove requests one through three may carry the allowed Graph tool, the fourth carries no tools, a tool-capable fourth is denied before parent authorization/SDK, and zero remaining Graph operations forces final-only early. Runtime adapter tests prove exact limit propagation. SERVER service tests prove budget/frozen policy consistency and Source A behavior. Run changed-file Ruff, affected full modules and focused seam tests; inspect the exact cumulative base→head diff, commit, push, and open the draft PR. Record actual evidence and implementation head here. Proposed acceptance token: `SERVER_PLAN_GRAPH_FINAL_ANSWER_RESERVATION_READY`.
