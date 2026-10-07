@@ -35,6 +35,8 @@ RUN_DIR="$ROOT/.run"
 mkdir -p "$RUN_DIR"
 
 PIDS=()
+OWNED_PIDS=()
+OWNED_STARTS=()
 
 log() { printf '[run] %s\n' "$*"; }
 die() { printf '[run] ERROR: %s\n' "$*" >&2; exit 1; }
@@ -52,26 +54,81 @@ require_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "missing required command: $1"
 }
 
+# Process birth identities distinguish our children from a reused PID. Keep
+# descendants after reparenting; never infer ownership from a port or group.
+process_identity() {
+  local line rest
+  local fields=()
+  if [[ ! -d /proc/$$ ]]; then
+    # Preserve non-Linux launcher support using ps's process birth timestamp.
+    local observed_pid state
+    read -r observed_pid PROCESS_PARENT state PROCESS_START <<<"$(ps -p "$1" -o pid=,ppid=,stat=,lstart=)"
+    [[ "$observed_pid" == "$1" && -n "$PROCESS_START" && "$state" != Z* ]]
+    return
+  fi
+  [[ -r "/proc/$1/stat" ]] || return 1
+  IFS= read -r line <"/proc/$1/stat" || return 1
+  rest="${line##*) }"
+  read -r -a fields <<<"$rest"
+  [[ ${#fields[@]} -gt 19 && "${fields[0]}" != "Z" ]] || return 1
+  PROCESS_PARENT="${fields[1]}"
+  PROCESS_START="${fields[19]}"
+}
+
+remember_started_process() {
+  local pid="$1"
+  PIDS+=("$pid")
+  if process_identity "$pid" && [[ "$PROCESS_PARENT" == "$$" ]]; then
+    OWNED_PIDS+=("$pid")
+    OWNED_STARTS+=("$PROCESS_START")
+  fi
+}
+
+capture_owned_descendants() {
+  local snapshot pid parent i j known
+  snapshot="$(ps -eo pid=,ppid=)" || return 0
+  # Appending children while walking this list also discovers grandchildren.
+  for ((i = 0; i < ${#OWNED_PIDS[@]}; i++)); do
+    process_identity "${OWNED_PIDS[i]}" || continue
+    [[ "$PROCESS_START" == "${OWNED_STARTS[i]}" ]] || continue
+    while read -r pid parent; do
+      [[ "$parent" == "${OWNED_PIDS[i]}" ]] || continue
+      known=0
+      for ((j = 0; j < ${#OWNED_PIDS[@]}; j++)); do
+        [[ "${OWNED_PIDS[j]}" == "$pid" ]] && known=1 && break
+      done
+      [[ "$known" == "0" ]] || continue
+      process_identity "$pid" || continue
+      [[ "$PROCESS_PARENT" == "$parent" ]] || continue
+      OWNED_PIDS+=("$pid")
+      OWNED_STARTS+=("$PROCESS_START")
+    done <<<"$snapshot"
+  done
+}
+
+signal_owned_processes() {
+  local signal="$1" i
+  # Descendants first, while their parents can still reap them.
+  for ((i = ${#OWNED_PIDS[@]} - 1; i >= 0; i--)); do
+    process_identity "${OWNED_PIDS[i]}" || continue
+    [[ "$PROCESS_START" == "${OWNED_STARTS[i]}" ]] || continue
+    kill "-$signal" "${OWNED_PIDS[i]}" 2>/dev/null || true
+  done
+}
+
 cleanup() {
-  local pid
+  trap - EXIT INT TERM
   log "stopping services…"
-  for pid in "${PIDS[@]:-}"; do
-    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
-      kill "$pid" 2>/dev/null || true
-    fi
-  done
-  # Give children a moment; then force if needed.
+  capture_owned_descendants
+  signal_owned_processes TERM
   sleep 1
-  for pid in "${PIDS[@]:-}"; do
-    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
-      kill -9 "$pid" 2>/dev/null || true
-    fi
-  done
+  signal_owned_processes KILL
   rm -f "$RUN_DIR"/*.pid
   log "stopped"
 }
 
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 0' INT TERM
 
 require_cmd uv
 require_cmd npm
@@ -118,7 +175,7 @@ start_dms() {
     fi
   ) >"$RUN_DIR/dungeonmind-server.log" 2>&1 &
   local pid=$!
-  PIDS+=("$pid")
+  remember_started_process "$pid"
   echo "$pid" >"$RUN_DIR/dungeonmind-server.pid"
 }
 
@@ -140,7 +197,7 @@ start_buddy_api() {
       "${reload_args[@]}"
   ) >"$RUN_DIR/buddy-api.log" 2>&1 &
   local pid=$!
-  PIDS+=("$pid")
+  remember_started_process "$pid"
   echo "$pid" >"$RUN_DIR/buddy-api.pid"
 }
 
@@ -163,7 +220,7 @@ start_buddy_ui() {
     exec npm run dev -- --host 127.0.0.1 --port "$UI_PORT"
   ) >"$RUN_DIR/buddy-ui.log" 2>&1 &
   local pid=$!
-  PIDS+=("$pid")
+  remember_started_process "$pid"
   echo "$pid" >"$RUN_DIR/buddy-ui.pid"
 }
 
@@ -173,6 +230,7 @@ wait_http() {
   local tries="${3:-40}"
   local i
   for ((i = 1; i <= tries; i++)); do
+    capture_owned_descendants
     if curl -fsS -o /dev/null "$url" 2>/dev/null; then
       log "$label ready ($url)"
       return 0
@@ -229,6 +287,7 @@ fi
 log "Ctrl+C to stop processes started by this script"
 # Keep the launcher alive while children run.
 while true; do
+  capture_owned_descendants
   for pid in "${PIDS[@]:-}"; do
     if [[ -n "$pid" ]] && ! kill -0 "$pid" 2>/dev/null; then
       die "process $pid exited early — check $RUN_DIR/*.log"
