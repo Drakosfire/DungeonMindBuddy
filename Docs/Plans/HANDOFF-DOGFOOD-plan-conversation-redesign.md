@@ -4,9 +4,9 @@ Status: ACTIVE implementation slice, authorized by the user and PRIME on 2026-10
 
 Branch: `codex/dogfood-plan-proposal-scope` (PR #1007).
 
-Reviewed presentation source pin: `aeda767c6c9dd785ce2e4344e17615e9efd439c7`. The APP-STATE reconciliation integrates exact `main@6837baa9ac4d1d17c777c95c3c93ebc73773dd06` into that published history. The three production presentation blobs remain byte-identical to the reviewed pin; obtain the publication head from PR #1007.
+Reviewed presentation source pin: `aeda767c6c9dd785ce2e4344e17615e9efd439c7`. The APP-STATE reconciliation at `c842648ce2d055a9ec7502a7864183011bb60e30` preserves its three production blobs. The current DEMO preparation merges that portable candidate with exact `main@049ecb5f718d7be5e14ced6f15dd033f40420128`, then adds the independently reviewed notice-settlement code at `edd0daa7d53b7491ed98ec281be2f2d9dd5a0d44`. Both CSS blobs remain unchanged; the conversation TSX and owning history test contain the bounded notice repair. Obtain the final publication head from PR #1007.
 
-Topology: #1007 remains the single production adopter PR against main. APP-STATE has the explicit temporary reconciliation/publication transfer for `PlanSurfacePage.test.tsx` and this existing handoff only. The original DOGFOOD checkout remains untouched. The integration uses a merge because rebasing the duplicated publication commits conflicted; it preserves all published ancestors. The current candidate includes current main, including the Core dependency upgrade. Historical preview evidence below describes its original candidate rather than the current runtime. #979 remains historical context without an active write lease.
+Topology: #1007 remains the single production adopter PR against main. APP-STATE's completed temporary reconciliation covered the page test and handoff. PRIME transferred the conversation TSX, owning history test, and this handoff to DEMO for the bounded notice repair and publication settlement. The prepared merge preserves all published #1007 ancestors, including `c842648c`; publication uses a normal guarded fast-forward of the existing branch. The original DOGFOOD checkout remains untouched. Historical preview evidence below describes its original candidate rather than the current runtime. #979 remains historical context without an active write lease.
 
 ## Outcome
 
@@ -38,7 +38,7 @@ Create:
 
 - `Docs/Plans/HANDOFF-DOGFOOD-plan-conversation-redesign.md`
 
-Temporary APP-STATE transfer additionally leases `apps/live-control-ui/src/planSurface/PlanSurfacePage.test.tsx` and this existing handoff for current-main test reconciliation and publication settlement. The three production UI files are frozen at `aeda767c`; their original DOGFOOD implementation lease does not authorize APP-STATE changes. No other paths are leased. Do not edit API types, validators, adapters, schema, backend/provider, shared Graph policy, lockfiles, runtime services, or database state in this slice. If a source-read status branch is required, SERVER owns that contract and can consume or narrowly lease its phrase after the type/validator lands.
+The completed APP-STATE transfer covered `apps/live-control-ui/src/planSurface/PlanSurfacePage.test.tsx` and this handoff for test reconciliation. PRIME's current DEMO transfer leases only `WorldPlanAgentConversation.tsx`, `WorldPlanAgentConversation.worldHistory.test.tsx`, and this handoff for confirmed-Ask notice settlement and publication. Both production CSS blobs remain frozen at `aeda767c`. No other paths are leased. Do not edit API types, existing strict validators, adapters, schema, backend/provider, shared Graph policy, lockfiles, runtime services, or database state in this slice. If a source-read status branch is required, SERVER owns that contract and can consume or narrowly lease its phrase after the type/validator lands.
 
 ## Verification and handback
 
@@ -81,3 +81,13 @@ Verification on exact main `6837baa9` plus the reviewed #1007 blobs and this tes
 - All three production UI blobs are unchanged from `aeda767c`: conversation TSX `86cebbbb55d22b9da01ccdd7cab0b94fc66f349d`, conversation CSS `01fff6ce457f3b92a90d4ac24791c4cd49b1be4f`, dock CSS `34b104cada058c14930e317cef90e9af91840b72`.
 
 The combined run emits React act warnings for existing async page interactions; it has no test failures. Only the two owning suites were run for this reconciliation. Earlier typecheck/build and visual evidence remain tied to their recorded candidates. Independent review of the publication head and the real connected operator discussion → edit → review/Apply → Save/reopen witness remain required. PR #1007 stays draft; no merge, rollout, or operator acceptance is claimed.
+
+## DEMO confirmed-Ask notice settlement — 2026-10-07
+
+The server-confirmed Ask notice previously continued to say history was refreshing after matching history had loaded. Reviewed code `edd0daa7d53b7491ed98ec281be2f2d9dd5a0d44` changes that notice to a completed status only after validated history matches the submitted World, conversation, request, original target, and committed Plan basis. Graph requests reuse the strict V3 idempotency correlation and receipt/completion checks. A history refresh failure is distinguished from the already confirmed Ask. Superseded history generations and another current notice cannot be settled by the old refresh. The original target/basis attribution remains intact, and no uncertain request is resent.
+
+Preparation base `d6d3bd4192cd3fe3b98e87f23b74444ae483c8a0` merges `main@049ecb5f` with portable #1007 `c842648c`. The notice commit changes only the conversation TSX and owning history test. Independent PASS was received for that exact code commit: **113/113 conversation tests**, UI TypeScript, and diff checks passed. The inherited **63 page tests** passed on `c842648c`; they were not rerun for this notice repair. Earlier build and visual evidence remains tied to its recorded candidates.
+
+Current production blobs: conversation TSX `ecd283463a9a4d2e9794e4086764c0d2a0805d21`, conversation CSS `01fff6ce457f3b92a90d4ac24791c4cd49b1be4f`, dock CSS `34b104cada058c14930e317cef90e9af91840b72`. Owning conversation-test blob: `514f2239c773f409f960f1c0f3e48981a08395f8`.
+
+PRIME authorized publication after reporting the actual full `./run` startup/stop checkpoint passed for frozen SERVER `4e4bb74a`, DMS `c386`, and Core `5d`. That checkpoint is operational evidence; this notice publication makes no live adoption or operator usefulness claim. #1007 remains draft under the operator-inspection merge hold. The connected discussion → edit → review/Apply → Save/reopen witness and design inspection remain pending.
