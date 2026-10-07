@@ -1,6 +1,6 @@
 # SERVER — Core withdrawal V2 consumer adoption
 
-Status: implementation preparation authorized; independent review pending. Base: Buddy `main@049ecb5f718d7be5e14ced6f15dd033f40420128`. Serial topology: one new dependency-consumer PR on `codex/server-core-withdrawal-v2-adoption`; it is independent of held #1014's UI/runtime rollout. PRIME owns review and merge. Existing #826/#763 dependency edits are suspended and must re-anchor when revived.
+Status: source accepted by PRIME at `849a1cfda5eb686267891cc34569678afed134d3`, merged as #1019 `804a9d38b877ad931f64ebbb015632d5f69010ce`; runtime adoption remains separately unactivated. Base: Buddy `main@049ecb5f718d7be5e14ced6f15dd033f40420128`. Serial topology: one new dependency-consumer PR on `codex/server-core-withdrawal-v2-adoption`; it is independent of held #1014's UI/runtime rollout. PRIME owns review and merge. Existing #826/#763 dependency edits are suspended and must re-anchor when revived.
 
 **Question:** Can Buddy consume accepted Core `a501784f21aaafb46d7561f46397a3afdc42f125` (#100), including a governed locator-null withdrawn child and durable V4 adoption receipt, through its existing projection/source/history boundaries?
 
@@ -24,6 +24,6 @@ Automatic approval review rejected a proposed new full live-Core snapshot and pr
 
 ## Acceptance and future gates
 
-Acceptance requires the exact locked Core pin, inactive imports, synthetic governed V4/V2 adapter proof, relevant existing read/source/index/history gates, changed-file Ruff and cumulative base→head review. No acceptance token is asserted before PRIME's independent review.
+Acceptance requires the exact locked Core pin, inactive imports, synthetic governed V4/V2 adapter proof, relevant existing read/source/index/history gates, changed-file Ruff and cumulative base→head review. PRIME independently accepted this source capability; that acceptance does not activate any runtime or data operation.
 
 Future live readiness remains separate: prepare an exact composed consumer source/environment; re-anchor current source and data; own a new 0013→0014 migration/backup/preservation/rollback lease; respect downgrade refusal once V2 receipts exist; and obtain separate authority for durable V4 repair or withdrawal. Do not reuse #1014's 0007-specific backup helper as that authority. No live withdrawal, V4 promotion, deployment, model call, receipt rewrite, or Graph coverage improvement is authorized by this PR.
