@@ -21,11 +21,12 @@ parent_initial_retrieval_with_bounded_source_index_v1
 
 For this exact `PlanWorldGraphPacketV1.selection_policy_version` only, the packet's `candidate_evidence_ref_ids` is the sorted unique union of the initial packet evidence refs and the complete bounded index evidence refs. The exact initial claim packet remains an input to a new canonical `retrieval_packet_sha256` composite; initial assertion/relationship candidate IDs, sufficiency, coverage, truncation, omission reasons, result limit, and assembled/dispatched IDs retain their initial retrieval meaning. The final aggregate packet's `retrieval_status` may be `complete` when index candidates are present, while `evidence_sufficiency_status` and packet dispatch remain based on the initial retrieval. An aggregate candidate is not permission to dispatch index evidence or admit a Graph target.
 
-Define the composite retrieval digest as SHA-256 over canonical JSON UTF-8 (`sort_keys=true`, compact separators, no NaN) with this payload:
+Define the composite retrieval digest as SHA-256 over canonical JSON UTF-8 using `ensure_ascii=False`, `sort_keys=True`, `separators=(",", ":")`, and `allow_nan=False`, with this payload:
 
 ```json
 {
   "schema": "dmb_plan_retrieval_composite_v1",
+  "selection_policy_version": "parent_initial_retrieval_with_bounded_source_index_v1",
   "initial_claim_packet": {"...": "the exact initial claim packet before candidate aggregation"},
   "source_index": {
     "schema": "dmb_bounded_source_anchor_index_commitment_v1",
@@ -100,7 +101,7 @@ producing attempt A:
 
 completion claim:
   target = assertion-17
-  evidence_ref_ids = ["ev-source-9"]  # remains absent from R's original packet
+  evidence_ref_ids = ["ev-source-9"]  # aggregate candidate; not initially dispatched
   citation source_read_ids = ["read-9"]
   source_opened = true                 # derived by APP-STATE
   claim_graph_event_ids[claim] = [G]   # event binds target and exact indexed evidence
@@ -148,7 +149,7 @@ No migration is expected. `service.py`, repositories, source providers, Plan Act
 
 - Golden V1 bytes/digests and stored V1 replay remain unchanged.
 - Old V2 policy receipts/completions round-trip and validate identically; existing policy digest is unchanged.
-- New composite retrieval digest changes when the complete initial packet, index contract/version/projection/pins, or exact selection policy changes; normal V2 execution-policy digest still changes with scope/budget/receipt changes.
+- New composite retrieval digest changes when the initial claim packet, any persisted source-index commitment field/pin, or exact selection policy changes; normal V2 execution-policy digest still changes with scope/budget/receipt changes.
 - Positive claim with an independently admitted producing-attempt target, a successful read included in that same attempt, and an included validated Graph event binding the exact target/ref is accepted; the indexed ref is in aggregate candidates but absent from initial dispatched IDs.
 - A prior/non-included read, a receipt without a target/ref-binding Graph event, a wrong-target event, or an event that omits the exact ref is rejected.
 - Index-only, failed/empty read, wrong revision/evidence/anchor, missing attempt inclusion, and stale session/readability witnesses are rejected.
