@@ -30,3 +30,15 @@ Do not change APP-STATE schema/contracts, provider/Hermes execution, retries, re
 - Run focused owning tests and relevant repository checks; inspect the exact cumulative base-to-head diff; update this handoff with implementation head, results, and any limits before requesting independent review.
 
 **Acceptance token:** `SERVER_GRAPH_ANSWER_VALIDATION_DIAGNOSTICS_ACCEPTED` — PRIME/APP-STATE may grant it only after exact-head review.
+
+## Implementation handback — 2026-10-06
+
+**Source implementation commit:** `86ea2cba6776a522fa41a0197404dc010bb02639`; final PR head also includes this evidence update. Base remains `a92371b7b2e727d1d45bef1c8e1d7a3d01b58193`.
+
+- SERVER wraps the existing fail-closed parser errors with fixed stage/reason values and emits one safe warning on answer rejection. It records the request turn's SHA-256 (the untrusted client turn string is not logged), durable idempotency key, durable turn UUID, producing provider attempt UUID, final-text SHA-256, and UTF-8 byte count. The public code/status and admission rules are unchanged.
+- Deterministic fixtures cover malformed JSON, top-level and segment shapes, typed segment/citation failures, missing producing attempt, unsupported Graph claim in the producing envelope, and completion-binding rejection. A fresh two-attempt Graph expansion admits a cited claim through the owning completion boundary and records its final binding. The service-boundary rejection witness proves one provider authorization, no typed completion, unchanged failure code, and no raw final text or validation exception in its diagnostic.
+- `tests/test_agent_turn_service.py -k 'not history_http'`: 49 passed, 2 deselected. The two `history_http` tests were excluded because the local AnyIO/FastAPI worker-pool harness stalled at `test_history_http_opt_in_uses_persisted_key_not_durable_turn_id` after 18 preceding passes; the run was interrupted without a test assertion failure.
+- `tests/test_agent_turn_route.py -k 'policy_predispatch_failure or policy_unproven_or_unmapped_failure'`: 4 passed. A broader sandboxed route selection produced those 4 passes and a PostgreSQL fixture setup error for `test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id`; the sandbox cannot reach the host's disposable PostgreSQL. The same test passed (1 passed, 16.63 seconds) when rerun with host access against the repository's uniquely named, created-and-dropped test database. No route file changed.
+- Focused Ruff and Python compilation passed; `git diff --check` passed. The cumulative base-to-source-commit diff is limited to this handoff, the predecessor handoff's merged-status settlement, the SERVER parser/logging code, and its owning service test.
+
+No deterministic prompt/schema mismatch was established from the checked-in prompt and typed completion contract. The original production answer body was intentionally not persisted, so this source-only change cannot identify its exact rejection reason retroactively. Independent exact-head review and any later diagnostics-only rollout remain with PRIME; this handoff does not grant the acceptance token.
