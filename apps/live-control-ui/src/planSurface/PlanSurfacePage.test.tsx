@@ -2654,3 +2654,46 @@ it("reverts an editor transaction that the semantic Markdown serializer cannot p
   expect(prepare).not.toHaveBeenCalled();
   expect(commit).not.toHaveBeenCalled();
 });
+
+// UI-only rollout compatibility probes: accepted-runtime baseline, no provider traffic.
+it("DOGFOOD rollout preserves the experimental Graph default and one retained composer", async () => {
+  mockSavedPlanForAgent(savedAgentPlanId,7,7,twoScenePlanMarkdown);
+  const post=vi.spyOn(liveApi,"postWorldPlanAgentTurn");
+  render(<SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}><AgentEnabledPlanPage/></SelectedWorldProvider>);
+  const input=await screen.findByLabelText("Message DungeonBuddy");
+  await waitFor(()=>expect(input).toBeEnabled());
+  const reader=screen.getByRole("region",{name:"Plan workspace"});
+  fireEvent.focusIn(input);
+  fireEvent.change(input,{target:{value:"Retained candidate question"}});
+  const conversation=screen.getByRole("region",{name:"Saved World Plan conversation"});
+  fireEvent.click(within(conversation).getByRole("button",{name:/Full saved Plan/}));
+  expect(within(conversation).getByRole("checkbox",{name:/Use this World/})).toBeChecked();
+  fireEvent.click(screen.getByRole("button",{name:"Cards",exact:true}));
+  expect(await screen.findByRole("region",{name:"Plan cards"})).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button",{name:"Collapse",exact:true}));
+  fireEvent.click(screen.getByRole("button",{name:"Document",exact:true}));
+  fireEvent.click(screen.getByRole("button",{name:"Open",exact:true}));
+  expect(screen.getByRole("region",{name:"Plan workspace"})).toBe(reader);
+  expect(screen.getByLabelText("Message DungeonBuddy")).toBe(input);
+  expect(input).toHaveValue("Retained candidate question");
+  expect(screen.getAllByTestId("agent-interaction-open")).toHaveLength(1);
+  expect(screen.queryByTestId("agent-interaction-chrome")).toBeNull();
+  expect(post).not.toHaveBeenCalled();
+});
+it("DOGFOOD rollout sends the exact Plan-only envelope after explicit Graph opt-out", async () => {
+  mockSavedPlanForAgent();
+  const post=vi.spyOn(liveApi,"postWorldPlanAgentTurn").mockImplementation(async request=>worldPlanAgentResponse(request));
+  render(<SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}><AgentEnabledPlanPage/></SelectedWorldProvider>);
+  const input=await screen.findByLabelText("Message DungeonBuddy");
+  await waitFor(()=>expect(input).toBeEnabled());
+  fireEvent.focusIn(input);
+  const conversation=screen.getByRole("region",{name:"Saved World Plan conversation"});
+  fireEvent.click(within(conversation).getByRole("button",{name:/Full saved Plan/}));
+  const graph=within(conversation).getByRole("checkbox",{name:/Use this World/});
+  expect(graph).toBeChecked();fireEvent.click(graph);
+  fireEvent.change(input,{target:{value:"Discuss this saved Plan only"}});
+  fireEvent.click(within(conversation).getByRole("button",{name:"Send message",exact:true}));
+  await waitFor(()=>expect(post).toHaveBeenCalledTimes(1));
+  expect(post.mock.calls[0][0]).toMatchObject({message:"Discuss this saved Plan only",graph_request:{mode:"none"},primary_work:{object_id:savedAgentPlanId,expected_revision:7,expected_revision_n:4,expected_content_sha256:"b".repeat(64)}});
+  expect(await screen.findByText(/The keeper is below the black arch/)).toBeInTheDocument();
+});

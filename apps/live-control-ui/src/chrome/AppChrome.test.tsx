@@ -45,6 +45,20 @@ function ResponsiveHarness() {
 }
 
 describe("AppChrome Ingest peek composition", () => {
+  it("opts Plan into a bounded center without creating an Ingest peek or moving navigation into it", () => {
+    render(<AgentInteractionProvider><PeekRegionProvider><AppChrome activeRoute="plan" workspaceLayout="bounded"><main>Plan dock</main></AppChrome></PeekRegionProvider></AgentInteractionProvider>);
+    const workspace = document.querySelector(".app-chrome-workspace");
+    expect(document.querySelector('.app-wrap')).toHaveAttribute("data-workspace-layout", "bounded");
+    expect(workspace).toContainElement(screen.getByText("Plan dock"));
+    expect(workspace).not.toContainElement(screen.getByTestId("app-chrome-header"));
+    expect(screen.queryByTestId("app-peek-region")).toBeNull();
+  });
+  it("leaves ordinary non-Plan chrome in content flow", () => {
+    render(<AgentInteractionProvider><PeekRegionProvider><AppChrome activeRoute="build"><main>Build source</main></AppChrome></PeekRegionProvider></AgentInteractionProvider>);
+    expect(document.querySelector('.app-wrap')).toHaveAttribute("data-workspace-layout", "content");
+    expect(document.querySelector('.app-chrome-workspace')).toBeNull();
+    expect(screen.getByText("Build source")).toBeInTheDocument();
+  });
   afterEach(() => vi.unstubAllGlobals());
   it("keeps Nav outside the CENTER/PEEK workspace and collapses an empty Peek", () => {
     renderIngestChrome(false);

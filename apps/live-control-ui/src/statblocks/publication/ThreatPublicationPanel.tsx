@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { type ReactElement, useEffect, useMemo, useReducer, useRef, useState } from "react";
 
 import type {
   CreateThreatIdentityResolutionRequestV1,
@@ -550,7 +550,7 @@ function reducer(state: PanelState, action: Action): PanelState {
   }
 }
 
-export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): JSX.Element {
+export function ThreatPublicationPanel(props: ThreatPublicationPanelProps): ReactElement {
   const {
     draft,
     expectedParentRevisionId,
