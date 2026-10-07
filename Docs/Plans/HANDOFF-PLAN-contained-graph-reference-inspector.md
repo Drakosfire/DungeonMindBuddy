@@ -69,9 +69,9 @@ The previous live witness showed the object body and passage but an uncontained,
 PRIME authorizes a temporary clean runtime source checkout at the following immutable UI-only candidate for the remaining desktop/mobile interaction witness:
 
 ```text
-candidate commit: 5af3615472ec790b90feafe127b5fff510db4431
-candidate parent: 1cddad85ce4b4f157cbcc1ee3d18e7ad3bf967ac
-source reviewed:  PR #970 head 8489f19a55b947ad44a7316d41151e75be8dbbdb
+candidate commit: ffa9e5251d7c3b0a2c21a45995eacb9d17998418
+candidate parent: 437d50281fae9def1a557d169e8b9808794ba6c2
+source reviewed:  PR #970 head 7ba7a0204269eb1c351f623d199d13891ad34507
 ```
 
 The candidate overlays exactly these 13 reviewed UI source/test/style blobs from #970:
@@ -92,6 +92,6 @@ apps/live-control-ui/src/planSurface/components/WorldPlanGraphReferenceActivatio
 apps/live-control-ui/src/planSurface/components/WorldPlanGraphReferenceActivation.tsx
 ```
 
-Every candidate blob for those 13 paths matches the source-reviewed PR #970 head exactly. All other paths, including backend and dependency trees, are byte-identical to deployed parent `1cddad85`; `apps/live_control_server/services/agent_turn_service.py` remains blob `e39e43febcdc0899f613ad9fce3c0d510f006f1d`. The candidate is isolated and clean. It supersedes the earlier candidate `ce3f49a334e3abb102b8a9644cc68e04cc22c5c4`. The temporary source checkout may be used only to inspect the existing Plan Reader's object Peek, pinned source passage, Back, Close, focus return, and scroll return on desktop and mobile, including the camelCase excerpt-ready response and clicked-origin focus return. After the witness, restore the runtime source checkout to `1cddad85ce4b4f157cbcc1ee3d18e7ad3bf967ac` and verify its saved hashes.
+Every candidate blob for those 13 paths matches the source-reviewed PR #970 head exactly. All other paths, including backend and dependency trees, are byte-identical to deployed parent `437d5028`; `apps/live_control_server/services/agent_turn_service.py` remains blob `0587e33f4af1743d4ada9db8d98a1f82b77d57d4`. The candidate is isolated and clean. It supersedes the earlier candidates `ce3f49a334e3abb102b8a9644cc68e04cc22c5c4` and `5af3615472ec790b90feafe127b5fff510db4431`. The temporary source checkout may be used only to inspect the existing Plan Reader's object Peek, pinned source passage, Back, Close, focus return, and scroll return on desktop and mobile, including the camelCase excerpt-ready response and clicked-origin focus return. Verify Document→Cards and Cards→Document pane changes while the Peek remains open; Close must return to the visible active Plan tab when the originating pane is hidden. Capture fresh before/after snapshots and restore the runtime source checkout to `437d50281fae9def1a557d169e8b9808794ba6c2`, verifying saved hashes. The earlier recovery turn remains durably interrupted at revision 19; Root reports the latest Graph Ask terminal-failed with zero open turns. No further Ask is authorized by this preview.
 
 This witness is read-only. Do not restart services, invoke providers/models, send or retry a live Ask, edit/save a Plan, save a Run, or write registry/native graph state. The recovery turn is durably interrupted at revision 19; the independently reviewed recovery invariants and zero-live-turn state have been confirmed. This paragraph authorizes only the temporary source preview and UI readback described above. It does not authorize runtime changes, writes, or merge.
