@@ -11,8 +11,12 @@ from apps.live_control_server.config import repo_root
 from apps.live_control_server.models.extract_promote import (
     RecapCandidateCorrectionRequest,
     RecapCandidateCorrectionRequestV2,
+    RecapCandidateCorrectionRequestV3,
     RecapCandidateCorrectionResponse,
     RecapCandidateCorrectionResponseV2,
+    RecapCandidateCorrectionResponseV3,
+    RecapCandidateEdgeTuple,
+    ExtractPromoteDiagnostic,
 )
 from apps.live_control_server.services.exact_run_evidence_correction import (
     _LIFECYCLE,
@@ -22,6 +26,7 @@ from apps.live_control_server.services.exact_run_evidence_correction import (
     _write_child_candidate,
 )
 from apps.live_control_server.services.extract_promote import (
+    ExtractPromoteError,
     _assert_and_project_candidate_evidence,
     _assert_candidate_scope_matches_run,
     _load_frozen_span_index_for_resolved_run,
@@ -40,7 +45,13 @@ from apps.live_control_server.services.candidate_graph_admission import validate
 from apps.live_control_server.models.candidate_graph_admission import CandidateAdmissionIntegrityError
 from graph_memory.candidate_graph_to_contribution import (
     CandidateGraphMappingError,
+    kernel_kind_for_node_type,
     load_typed_candidate_graph,
+)
+from graph_memory.predicate_catalog import validate_edge_predicate
+from apps.live_control_server.integrations.dungeonmind.assertion_qualification import (
+    CURRENT_V5_TARGET,
+    edge_endpoint_kind_admission_reason,
 )
 from graph_memory.ingestion.extraction_run import (
     ExtractionRunComponentKind,
@@ -52,7 +63,11 @@ DERIVATION = "operator_recap_semantic_candidate_correction_v1"
 MANIFEST_SCHEMA = "dmb_recap_semantic_candidate_manifest_v1"
 DERIVATION_V2 = "operator_recap_semantic_candidate_correction_v2"
 MANIFEST_SCHEMA_V2 = "dmb_recap_semantic_candidate_manifest_v2"
+DERIVATION_V3 = "operator_recap_semantic_candidate_correction_v3"
+MANIFEST_SCHEMA_V3 = "dmb_recap_semantic_candidate_manifest_v3"
 PROFILE = "recap_category_v1@1.0"
+MAX_EDGE_TUPLE_REPLACEMENTS = 7
+EDGE_TUPLE_FIELDS = ("from_node_id", "relationship_type", "to_node_id", "label")
 
 
 def _contains(value: object, target: str) -> bool:
@@ -63,24 +78,202 @@ def _contains(value: object, target: str) -> bool:
     return value == target
 
 
+def _tuple_replacement_rejected(
+    issues: list[tuple[int, str]],
+) -> None:
+    messages = {
+        "malformed_operation": "operation shape is malformed",
+        "malformed_tuple": "expected and replacement tuples must contain exactly four bounded string fields",
+        "duplicate_edge_id": "edge ID is repeated in this request",
+        "duplicate_target": "replacement creates a duplicate edge tuple",
+        "unchanged_tuple": "replacement tuple is unchanged",
+        "edge_missing_or_ambiguous": "edge ID is missing or ambiguous in the frozen candidate",
+        "stale_preimage": "expected tuple does not match the frozen candidate",
+        "endpoint_missing_or_ambiguous": "replacement endpoint must name one existing candidate node",
+        "unknown_predicate": "relationship type is outside the candidate predicate catalog",
+        "unmapped_predicate": "relationship type has no admitted native mapping",
+        "predicate_vocabulary_missing": "relationship type is absent from the native vocabulary",
+        "endpoint_kind_not_admitted": "native predicate does not admit these endpoint kinds",
+        "native_vocabulary_unavailable": "native predicate vocabulary could not be verified",
+    }
+    stale_codes = {
+        "duplicate_edge_id", "duplicate_target", "edge_missing_or_ambiguous", "stale_preimage",
+    }
+    status_code = 409 if any(code in stale_codes for _, code in issues) else 422
+    diagnostics = [
+        ExtractPromoteDiagnostic(
+            code=f"edge_tuple_{code}",
+            message=f"edgeTupleReplacements[{index}] {messages.get(code, 'operation is invalid')}",
+            severity="error",
+        )
+        for index, code in issues
+    ]
+    raise ExtractPromoteError(
+        "one or more edge tuple replacements were rejected; no child was created",
+        code="recap_candidate_tuple_conflict" if status_code == 409 else "recap_candidate_tuple_invalid",
+        status_code=status_code,
+        diagnostics=diagnostics,
+    )
+
+
+def _plan_edge_tuple_replacements(parent: dict, replacements: object) -> dict[str, dict[str, str]]:
+    """Validate a complete tuple batch before returning any candidate edits."""
+    if (
+        not isinstance(replacements, list)
+        or not 1 <= len(replacements) <= MAX_EDGE_TUPLE_REPLACEMENTS
+    ):
+        raise _reject("edge tuple replacement batch exceeds bounded scope")
+    edges = parent.get("edges")
+    nodes = parent.get("nodes")
+    if (
+        not isinstance(edges, list)
+        or any(not isinstance(edge, dict) for edge in edges)
+        or not isinstance(nodes, list)
+        or any(not isinstance(node, dict) for node in nodes)
+    ):
+        raise _reject("candidate edge tuple records are malformed")
+
+    node_matches: dict[str, list[dict]] = {}
+    for node in nodes:
+        node_id = node.get("node_id")
+        if isinstance(node_id, str):
+            node_matches.setdefault(node_id, []).append(node)
+    edge_matches: dict[str, list[dict]] = {}
+    for edge in edges:
+        edge_id = edge.get("edge_id")
+        if isinstance(edge_id, str):
+            edge_matches.setdefault(edge_id, []).append(edge)
+
+    operation_indexes: dict[str, list[int]] = {}
+    for index, operation in enumerate(replacements):
+        if isinstance(operation, dict) and isinstance(operation.get("edge_id"), str):
+            operation_indexes.setdefault(operation["edge_id"], []).append(index)
+    duplicate_indexes = {
+        index
+        for indexes in operation_indexes.values()
+        if len(indexes) > 1
+        for index in indexes
+    }
+
+    try:
+        vocabulary = CURRENT_V5_TARGET.world_object_loader()
+    except Exception:
+        vocabulary = None
+
+    issues: list[tuple[int, str]] = []
+    plans: dict[str, dict[str, str]] = {}
+    plan_indexes: dict[str, int] = {}
+    for index, operation in enumerate(replacements):
+        if (
+            not isinstance(operation, dict)
+            or set(operation) != {"edge_id", "expected_tuple", "replacement_tuple"}
+            or not isinstance(operation.get("edge_id"), str)
+            or not operation["edge_id"].strip()
+            or operation["edge_id"] != operation["edge_id"].strip()
+        ):
+            issues.append((index, "malformed_operation"))
+            continue
+        edge_id = operation["edge_id"]
+        if index in duplicate_indexes:
+            issues.append((index, "duplicate_edge_id"))
+
+        try:
+            expected = RecapCandidateEdgeTuple.model_validate(operation["expected_tuple"]).model_dump()
+            target = RecapCandidateEdgeTuple.model_validate(operation["replacement_tuple"]).model_dump()
+        except (TypeError, ValueError):
+            issues.append((index, "malformed_tuple"))
+            continue
+        if expected == target:
+            issues.append((index, "unchanged_tuple"))
+            continue
+        edge_records = edge_matches.get(edge_id, [])
+        if len(edge_records) != 1:
+            issues.append((index, "edge_missing_or_ambiguous"))
+            continue
+        edge = edge_records[0]
+        if {field: edge.get(field) for field in EDGE_TUPLE_FIELDS} != expected:
+            issues.append((index, "stale_preimage"))
+
+        endpoint_nodes: list[dict] = []
+        for field in ("from_node_id", "to_node_id"):
+            matches = node_matches.get(target[field], [])
+            if len(matches) != 1:
+                issues.append((index, "endpoint_missing_or_ambiguous"))
+                endpoint_nodes = []
+                break
+            endpoint_nodes.append(matches[0])
+
+        predicate_issues = validate_edge_predicate(target["relationship_type"], None)
+        if predicate_issues:
+            issues.append((index, "unknown_predicate"))
+        elif vocabulary is None:
+            issues.append((index, "native_vocabulary_unavailable"))
+        elif endpoint_nodes:
+            reason = edge_endpoint_kind_admission_reason(
+                buddy_predicate=target["relationship_type"],
+                from_buddy_kind=kernel_kind_for_node_type(endpoint_nodes[0].get("node_type")),
+                to_buddy_kind=kernel_kind_for_node_type(endpoint_nodes[1].get("node_type")),
+                vocabulary=vocabulary,
+            )
+            reason_to_code = {
+                "unmapped_predicate": "unmapped_predicate",
+                "vocabulary_missing_predicate": "predicate_vocabulary_missing",
+                "endpoint_kind_not_admitted": "endpoint_kind_not_admitted",
+            }
+            if reason is not None:
+                issues.append((index, reason_to_code.get(reason, "endpoint_kind_not_admitted")))
+
+        if index not in duplicate_indexes:
+            plans[edge_id] = target
+            plan_indexes[edge_id] = index
+
+    # A rewrite batch may not create duplicate full tuples, including against
+    # an unchanged edge in the same frozen candidate.
+    final_tuples: dict[tuple[str, str, str, str], list[str]] = {}
+    for edge in edges:
+        edge_id = edge.get("edge_id")
+        values = plans.get(edge_id, {field: edge.get(field) for field in EDGE_TUPLE_FIELDS})
+        if all(isinstance(values.get(field), str) for field in EDGE_TUPLE_FIELDS):
+            key = tuple(values[field] for field in EDGE_TUPLE_FIELDS)
+            final_tuples.setdefault(key, []).append(edge_id if isinstance(edge_id, str) else "")
+    for edge_ids in final_tuples.values():
+        changed = [edge_id for edge_id in edge_ids if edge_id in plans]
+        if len(edge_ids) > 1:
+            for edge_id in changed:
+                issues.append((plan_indexes[edge_id], "duplicate_target"))
+
+    if issues:
+        _tuple_replacement_rejected(issues)
+    return plans
+
+
 def replay_candidate(parent: dict, manifest: dict) -> dict:
     """Reconstruct exactly one bounded edit; never patch arbitrary JSON."""
     if not isinstance(parent, dict) or not isinstance(manifest, dict):
         raise _reject("semantic candidate replay input is malformed")
+    v3 = manifest.get("schema") == MANIFEST_SCHEMA_V3
     v2 = manifest.get("schema") == MANIFEST_SCHEMA_V2
-    expected_keys = {"schema", "node_description_replacements", "omitted_edge_ids"}
+    expected_keys = (
+        {"schema", "edge_tuple_replacements"}
+        if v3
+        else {"schema", "node_description_replacements", "omitted_edge_ids"}
+    )
     if v2:
         expected_keys.add("session_action_replacements")
-    if set(manifest) != expected_keys or manifest.get("schema") not in {MANIFEST_SCHEMA, MANIFEST_SCHEMA_V2}:
+    if set(manifest) != expected_keys or manifest.get("schema") not in {
+        MANIFEST_SCHEMA, MANIFEST_SCHEMA_V2, MANIFEST_SCHEMA_V3,
+    }:
         raise _reject("semantic candidate manifest is malformed")
-    replacements = manifest["node_description_replacements"]
-    omitted = manifest["omitted_edge_ids"]
-    actions = manifest["session_action_replacements"] if v2 else []
+    replacements = manifest.get("node_description_replacements", [])
+    omitted = manifest.get("omitted_edge_ids", [])
+    actions = manifest.get("session_action_replacements", [])
+    edge_tuple_replacements = manifest.get("edge_tuple_replacements", [])
     if (
-        not isinstance(replacements, list) or len(replacements) > 1
-        or not isinstance(omitted, list) or len(omitted) > 1
+        not isinstance(replacements, list) or (not v3 and len(replacements) > 1)
+        or not isinstance(omitted, list) or (not v3 and len(omitted) > 1)
         or not isinstance(actions, list) or (len(actions) != 1 if v2 else bool(actions))
-        or not replacements and not omitted and not actions
+        or (v3 and (not isinstance(edge_tuple_replacements, list) or not 1 <= len(edge_tuple_replacements) <= MAX_EDGE_TUPLE_REPLACEMENTS))
+        or (not v3 and not replacements and not omitted and not actions)
     ):
         raise _reject("semantic candidate manifest exceeds bounded scope")
     child = copy.deepcopy(parent)
@@ -88,6 +281,14 @@ def replay_candidate(parent: dict, manifest: dict) -> dict:
         records = child.get(key, [])
         if not isinstance(records, list) or any(not isinstance(record, dict) for record in records):
             raise _reject(f"candidate {key} records are malformed")
+    if v3:
+        plans = _plan_edge_tuple_replacements(parent, edge_tuple_replacements)
+        for edge in child["edges"]:
+            replacement = plans.get(edge.get("edge_id"))
+            if replacement is not None:
+                for field in EDGE_TUPLE_FIELDS:
+                    edge[field] = replacement[field]
+        return child
     for item in replacements:
         if not isinstance(item, dict) or set(item) != {"node_id", "original_description", "replacement_description"}:
             raise _reject("node replacement manifest is malformed")
@@ -174,9 +375,15 @@ def verify_child_replay(run, parent, root: Path) -> bool:
         return False
 
 
-def correct_recap_candidate(request: RecapCandidateCorrectionRequest | RecapCandidateCorrectionRequestV2) -> RecapCandidateCorrectionResponse | RecapCandidateCorrectionResponseV2:
+def correct_recap_candidate(
+    request: RecapCandidateCorrectionRequest | RecapCandidateCorrectionRequestV2 | RecapCandidateCorrectionRequestV3,
+) -> RecapCandidateCorrectionResponse | RecapCandidateCorrectionResponseV2 | RecapCandidateCorrectionResponseV3:
     """Create one held reviewable child without altering parent or WorldGraph."""
-    from application_state.ingest.service import RecapSemanticBasisV2, RecapSemanticBasisV3
+    from application_state.ingest.service import (
+        RecapSemanticBasisV2,
+        RecapSemanticBasisV3,
+        RecapSemanticBasisV4,
+    )
 
     root = repo_root()
     try:
@@ -216,15 +423,24 @@ def correct_recap_candidate(request: RecapCandidateCorrectionRequest | RecapCand
         raise _reject("parent candidate is unreadable") from exc
     if not isinstance(parent_payload, dict):
         raise _reject("parent candidate root must be an object")
+    v3 = isinstance(request, RecapCandidateCorrectionRequestV3)
     v2 = isinstance(request, RecapCandidateCorrectionRequestV2)
-    derivation = DERIVATION_V2 if v2 else DERIVATION
-    manifest = {
-        "schema": MANIFEST_SCHEMA_V2 if v2 else MANIFEST_SCHEMA,
-        "node_description_replacements": [
-            item.model_dump(mode="json") for item in sorted(request.node_description_replacements, key=lambda value: value.node_id)
-        ],
-        "omitted_edge_ids": sorted(request.omitted_edge_ids),
-    }
+    derivation = DERIVATION_V3 if v3 else DERIVATION_V2 if v2 else DERIVATION
+    if v3:
+        manifest = {
+            "schema": MANIFEST_SCHEMA_V3,
+            "edge_tuple_replacements": [
+                item.model_dump(mode="json") for item in request.edge_tuple_replacements
+            ],
+        }
+    else:
+        manifest = {
+            "schema": MANIFEST_SCHEMA_V2 if v2 else MANIFEST_SCHEMA,
+            "node_description_replacements": [
+                item.model_dump(mode="json") for item in sorted(request.node_description_replacements, key=lambda value: value.node_id)
+            ],
+            "omitted_edge_ids": sorted(request.omitted_edge_ids),
+        }
     if v2:
         manifest["session_action_replacements"] = [
             item.model_dump(mode="json") for item in request.session_action_replacements
@@ -262,7 +478,8 @@ def correct_recap_candidate(request: RecapCandidateCorrectionRequest | RecapCand
         campaign_id=parent.campaign_id, session_id=parent.session_id,
     )
     basis = (
-        RecapSemanticBasisV3(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V2)
+        RecapSemanticBasisV4(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V3)
+        if v3 else RecapSemanticBasisV3(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V2)
         if v2 else RecapSemanticBasisV2(**basis_fields)
     )
     lineage = {
@@ -338,7 +555,11 @@ def correct_recap_candidate(request: RecapCandidateCorrectionRequest | RecapCand
         )
         if assessment.disposition is None or assessment.disposition.get("state") != semantic_state:
             raise _reject("derived run semantic decision conflicts", status_code=409)
-    response_type = RecapCandidateCorrectionResponseV2 if v2 else RecapCandidateCorrectionResponse
+    response_type = (
+        RecapCandidateCorrectionResponseV3 if v3
+        else RecapCandidateCorrectionResponseV2 if v2
+        else RecapCandidateCorrectionResponse
+    )
     return response_type(
         run_id=child_id, parent_run_id=parent.run_id,
         parent_candidate_sha256=parent_sha, candidate_sha256=child_sha,

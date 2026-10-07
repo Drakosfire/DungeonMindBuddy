@@ -24,6 +24,8 @@ EVIDENCE_CORRECTION_RESPONSE_SCHEMA = "dmb_exact_run_evidence_correction_respons
 RECAP_EVIDENCE_CORRECTION_RESPONSE_SCHEMA = "dmb_recap_evidence_correction_response_v1"
 RECAP_CANDIDATE_CORRECTION_REQUEST_SCHEMA = "dmb_recap_candidate_correction_request_v1"
 RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA = "dmb_recap_candidate_correction_response_v1"
+RECAP_CANDIDATE_CORRECTION_REQUEST_SCHEMA_V3 = "dmb_recap_candidate_correction_request_v3"
+RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA_V3 = "dmb_recap_candidate_correction_response_v3"
 RECAP_SEMANTIC_DECISION_REQUEST_SCHEMA = "dmb_recap_semantic_decision_request_v1"
 RECAP_SEMANTIC_DECISION_RESPONSE_SCHEMA = "dmb_recap_semantic_decision_response_v1"
 WORLD_BUILDING_WRITE_PLAN_REQUEST_SCHEMA = (
@@ -572,6 +574,99 @@ class RecapCandidateCorrectionRequestV2(_ExtractPromoteModel):
 class RecapCandidateCorrectionResponseV2(RecapCandidateCorrectionResponse):
     schema_: Literal["dmb_recap_candidate_correction_response_v2"] = Field(
         default="dmb_recap_candidate_correction_response_v2", alias="schema"
+    )
+
+
+class RecapCandidateEdgeTuple(_ExtractPromoteModel):
+    """The four candidate-owned fields changed by one atomic tuple rewrite."""
+
+    from_node_id: str
+    relationship_type: str
+    to_node_id: str
+    label: str
+
+    @field_validator("from_node_id", "to_node_id")
+    @classmethod
+    def _endpoint_id(cls, value: str, info) -> str:
+        if (
+            not value or value != value.strip() or len(value) > 256
+            or any(ch in value for ch in ("\r", "\n", "\t"))
+        ):
+            raise ValueError(f"{info.field_name} must be nonblank, trimmed and bounded")
+        return value
+
+    @field_validator("relationship_type")
+    @classmethod
+    def _relationship_type(cls, value: str) -> str:
+        if (
+            not value or value != value.strip() or value != value.lower()
+            or len(value) > 128
+            or any(ch in value for ch in ("\r", "\n", "\t"))
+        ):
+            raise ValueError("relationship_type must be lowercase, trimmed and bounded")
+        return value
+
+    @field_validator("label")
+    @classmethod
+    def _label(cls, value: str) -> str:
+        if (
+            not value or value != value.strip() or len(value) > 4096
+            or any(ch in value for ch in ("\r", "\n", "\t"))
+        ):
+            raise ValueError("label must be nonblank, trimmed and bounded")
+        return value
+
+
+class RecapCandidateEdgeTupleReplacement(_ExtractPromoteModel):
+    edge_id: str
+    expected_tuple: RecapCandidateEdgeTuple
+    replacement_tuple: RecapCandidateEdgeTuple
+
+    @field_validator("edge_id")
+    @classmethod
+    def _edge_id(cls, value: str) -> str:
+        if (
+            not value or value != value.strip() or len(value) > 256
+            or any(ch in value for ch in ("\r", "\n", "\t"))
+        ):
+            raise ValueError("edge_id must be nonblank, trimmed and bounded")
+        return value
+
+    @model_validator(mode="after")
+    def _changed_tuple(self) -> "RecapCandidateEdgeTupleReplacement":
+        if self.expected_tuple == self.replacement_tuple:
+            raise ValueError("replacement tuple must differ from its preimage")
+        return self
+
+
+class RecapCandidateCorrectionRequestV3(_ExtractPromoteModel):
+    """A bounded, exact-preimage relation correction for one frozen candidate."""
+
+    schema_: Literal[RECAP_CANDIDATE_CORRECTION_REQUEST_SCHEMA_V3] = Field(
+        alias="schema"
+    )
+    parent_run_id: str
+    parent_candidate_sha256: str
+    edge_tuple_replacements: list[RecapCandidateEdgeTupleReplacement] = Field(
+        min_length=1, max_length=7
+    )
+
+    @field_validator("parent_run_id")
+    @classmethod
+    def _parent_run_id(cls, value: str) -> str:
+        return _nonblank(value, field_name="parent_run_id")
+
+    @field_validator("parent_candidate_sha256")
+    @classmethod
+    def _parent_candidate_sha256(cls, value: str) -> str:
+        if len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
+            raise ValueError("parent_candidate_sha256 must be lowercase SHA-256 hex")
+        return value
+
+
+class RecapCandidateCorrectionResponseV3(RecapCandidateCorrectionResponse):
+    schema_: Literal[RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA_V3] = Field(
+        default=RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA_V3, alias="schema"
     )
 
 

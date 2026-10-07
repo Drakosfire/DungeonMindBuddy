@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import copy
 import hashlib
 import json
 from uuid import uuid4
@@ -19,6 +20,7 @@ from application_state.ingest.service import (
     RecapSemanticBasisV1,
     RecapSemanticBasisV2,
     RecapSemanticBasisV3,
+    RecapSemanticBasisV4,
     RecapSemanticDispositionCommandV1,
     create_extraction_run,
     get_extraction_run,
@@ -361,6 +363,100 @@ def test_semantic_action_basis_v3_cas_and_version_seal(application_state_dsn: st
             basis=basis.model_copy(update={"manifest_sha256": "f" * 64}),
             decision=decision,
         )
+
+
+def test_semantic_edge_tuple_basis_v4_cas_and_manifest_allowlist(
+    application_state_dsn: str,
+) -> None:
+    parent_components = _review_components()
+    parent_components["candidate_graph"] = ExtractionRunComponentRef(
+        kind=ExtractionRunComponentKind.CANDIDATE_GRAPH,
+        uri="repo://tuple-parent.json", sha256="c" * 64,
+    )
+    child_components = dict(parent_components)
+    child_components["candidate_graph"] = ExtractionRunComponentRef(
+        kind=ExtractionRunComponentKind.CANDIDATE_GRAPH,
+        uri="repo://tuple-child.json", sha256="d" * 64,
+    )
+    operation = {
+        "edge_id": "edge-1",
+        "expected_tuple": {
+            "from_node_id": "chamber", "relationship_type": "located_in",
+            "to_node_id": "tunnel", "label": "inside",
+        },
+        "replacement_tuple": {
+            "from_node_id": "tunnel", "relationship_type": "leads_to",
+            "to_node_id": "chamber", "label": "opens into",
+        },
+    }
+    manifest = {
+        "schema": "dmb_recap_semantic_candidate_manifest_v3",
+        "edge_tuple_replacements": [operation],
+    }
+    manifest_sha = hashlib.sha256((json.dumps(
+        manifest, sort_keys=True, ensure_ascii=False, separators=(",", ":")
+    ) + "\n").encode()).hexdigest()
+    parent = _run(
+        run_id="tuple_parent", source_artifact_id="artifact:recap:c:s:source",
+        source_domain="recap", session_id="s", campaign_id="c",
+        profile_id="recap_category_v1@1.0", status=ExtractionRunStatus.REVIEWABLE,
+        components=parent_components,
+    )
+    basis = RecapSemanticBasisV4(
+        parent_run_id=parent.run_id, parent_candidate_sha256="c" * 64,
+        manifest_sha256=manifest_sha, child_run_id="tuple_child",
+        candidate_uri="repo://tuple-child.json", candidate_sha256="d" * 64,
+        source_artifact_id=parent.source_artifact_id,
+        source_uri="repo://source.md", source_revision_sha256="a" * 64,
+        span_index_uri="repo://spans.json", span_index_sha256="b" * 64,
+        profile_id="recap_category_v1@1.0", profile_version="1.0",
+        campaign_id="c", session_id="s",
+        derivation="operator_recap_semantic_candidate_correction_v3",
+        manifest_schema="dmb_recap_semantic_candidate_manifest_v3",
+    )
+    child = parent.model_copy(deep=True, update={
+        "run_id": "tuple_child", "components": child_components,
+        "lineage": {
+            "derivation": basis.derivation, "parent_run_id": parent.run_id,
+            "parent_candidate_sha256": "c" * 64,
+            "manifest_sha256": manifest_sha, "semantic_candidate_manifest": manifest,
+            "semantic_disposition": {"version": 1, "state": "held", "basis_sha256": basis.digest()},
+        },
+    })
+    with unit_of_work(application_state_dsn) as conn:
+        ingest_repo.insert_run(conn, parent)
+        ingest_repo.insert_run(conn, child)
+    decision = RecapSemanticDispositionCommandV1(
+        state="accepted", review_decision_ref="review:tuple", reviewer_id="local_operator",
+    )
+    accepted = record_recap_semantic_disposition(
+        child.run_id, expected_revision=child.revision, basis=basis, decision=decision,
+    )
+    assert accepted.revision == child.revision + 1
+    assert accepted.components == child.components
+    assert accepted.lineage["semantic_candidate_manifest"] == manifest
+    assert record_recap_semantic_disposition(
+        child.run_id, expected_revision=child.revision, basis=basis, decision=decision,
+    ) == accepted
+    with pytest.raises(ApplicationStateConflictError):
+        record_recap_semantic_disposition(
+            child.run_id, expected_revision=accepted.revision, basis=basis,
+            decision=decision,
+        )
+
+    bad_manifest = copy.deepcopy(manifest)
+    bad_manifest["edge_tuple_replacements"][0]["arbitrary_patch"] = {"label": "forged"}
+    bad_sha = hashlib.sha256((json.dumps(
+        bad_manifest, sort_keys=True, ensure_ascii=False, separators=(",", ":")
+    ) + "\n").encode()).hexdigest()
+    bad_basis = basis.model_copy(update={"manifest_sha256": bad_sha})
+    bad_child = child.model_copy(deep=True, update={
+        "lineage": {**child.lineage, "manifest_sha256": bad_sha,
+                    "semantic_candidate_manifest": bad_manifest},
+    })
+    from application_state.ingest.service import _assert_recap_semantic_basis
+    with pytest.raises(ApplicationStateConflictError, match="edge tuple manifest is malformed"):
+        _assert_recap_semantic_basis(bad_child, parent, bad_basis)
 
 
 def test_recap_disposition_rejects_changed_basis_and_unmarked(application_state_dsn: str) -> None:
