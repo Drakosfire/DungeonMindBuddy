@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -315,6 +316,55 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     assert bootstrap.retrieval_session.snapshot.world_id == NATIVE_ID
     assert bootstrap.retrieval_session.snapshot.revision_id == published.revision_id
     assert bootstrap.retrieval_session.claims
+
+    # A generic question has no lexical Graph match. The selected committed
+    # card's typed link supplies an exact, same-revision seed and citations.
+    selected_payload = {**payload, "message": "What do you know?", "playable_target": {
+        "schema": "dmb_plan_playable_target_v1", "kind": "scene", "id": "scene:arrival",
+    }}
+    selected_body = AgentTurnRequest.model_validate(selected_payload)
+    selected_work = replace(
+        work, plan_markdown=(
+            "# Plan\n<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->\n"
+            "## Arrival\nConsult [the tavern](dmb-node:obj:tavern).\n"
+        ),
+    )
+    selected = agent_route._plan_context_resolver(
+        selected_body, {"kind": "world", "id": managed.world_id}, selected_work, None,
+    )
+    assert selected.world_scope.revision_id == published.revision_id
+    assert "obj:tavern" in selected.graph_envelope["matched_node_ids"]
+    assert selected.retrieval_session.claims
+    assert selected.graph_envelope["source_anchors"]
+    frozen = SimpleNamespace(graph_authority=SimpleNamespace(
+        managed_world_id=managed.world_id,
+        native_world_id=NATIVE_ID,
+        binding_version=1,
+        graph_revision=published.revision_id,
+    ))
+    replayed = agent_route._plan_context_resolver(
+        selected_body, {"kind": "world", "id": managed.world_id}, selected_work, frozen,
+    )
+    assert replayed.graph_envelope["revision_id"] == selected.graph_envelope["revision_id"]
+    assert replayed.graph_envelope["matched_node_ids"] == selected.graph_envelope["matched_node_ids"]
+
+    missing_work = replace(
+        selected_work,
+        plan_markdown=selected_work.plan_markdown.replace("obj:tavern", "obj:foreign"),
+    )
+    missing = agent_route._plan_context_resolver(
+        selected_body, {"kind": "world", "id": managed.world_id}, missing_work, None,
+    )
+    assert missing.graph_envelope["matched_node_ids"] == []
+    assert missing.retrieval_session.claims == []
+
+    unselected_body = AgentTurnRequest.model_validate({
+        **selected_payload, "playable_target": None,
+    })
+    unselected = agent_route._plan_context_resolver(
+        unselected_body, {"kind": "world", "id": managed.world_id}, selected_work, None,
+    )
+    assert unselected.graph_envelope["matched_node_ids"] == []
 
     from application_state.agent_conversation import types as graph_types
     if not hasattr(graph_types, "PlanWorldGraphExecutionV1"):

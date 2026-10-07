@@ -12,6 +12,7 @@ from application_state.agent_conversation.types import (
 from apps.live_control_server.services.agent_plan_playable_target import (
     AgentPlanPlayableTargetError,
     resolve_agent_plan_playable_target,
+    selected_plan_graph_seed_candidates,
 )
 
 
@@ -97,6 +98,52 @@ def test_shortest_beat_identity_resolves_and_round_trips_receipt_codec(
 
 def test_no_target_does_not_scan_or_change_the_ordinary_ask_path() -> None:
     assert resolve_agent_plan_playable_target(None, "unmarked Plan prose") is None
+    assert selected_plan_graph_seed_candidates(None, "[x](dmb-node:obj:x)") == []
+
+
+def test_graph_seed_candidates_are_typed_deduplicated_and_selected_body_only() -> None:
+    markdown = """# Plan
+<!-- dmb-playable-element:v1 kind=scene id=scene:first -->
+## First
+Visit [Tavern](dmb-node:obj:tavern) and [again](dmb-node:obj:tavern).
+The name `dmb-node:obj:code` is not a link.
+<!-- dmb-playable-element:v1 kind=scene id=scene:second -->
+## Second
+Visit [Cellar](dmb-node:obj:hidden-cellar).
+"""
+    assert selected_plan_graph_seed_candidates(target("scene", "scene:first"), markdown) == [
+        "obj:tavern"
+    ]
+    assert selected_plan_graph_seed_candidates(target("scene", "scene:second"), markdown) == [
+        "obj:hidden-cellar"
+    ]
+
+
+def test_read_only_ask_does_not_reject_body_codec_limitations() -> None:
+    markdown = """# Plan
+<!-- dmb-playable-element:v2 kind=beat id=beat:first -->
+## First
+<!-- dmb-playable-element:v2 kind=scene id=scene:first -->
+### First scene
+<!-- dmb-playable-element:v2 kind=choice id=choice:first -->
+### Choose
+<!-- dmb-playable-element:v2 kind=option id=option:first -->
+- [Tavern](dmb-node:obj:tavern)
+
+  Another paragraph.
+"""
+    assert selected_plan_graph_seed_candidates(target("option", "option:first"), markdown) == []
+
+
+def test_graph_seed_candidates_keep_the_existing_eight_node_budget() -> None:
+    links = " ".join(f"[Node {index}](dmb-node:obj:n{index})" for index in range(12))
+    markdown = (
+        "# Plan\n<!-- dmb-playable-element:v1 kind=scene id=scene:first -->\n"
+        f"## First\n{links}\n"
+    )
+    assert selected_plan_graph_seed_candidates(target("scene", "scene:first"), markdown) == [
+        f"obj:n{index}" for index in range(8)
+    ]
 
 
 @pytest.mark.parametrize(
