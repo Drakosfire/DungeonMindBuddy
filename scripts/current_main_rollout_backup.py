@@ -15,6 +15,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 import tarfile
 import tempfile
 
@@ -27,6 +28,7 @@ STATE = Path("/home/drakosfire/.local/state/dungeonmindbuddy")
 RUNTIME = STATE / "runtime"
 CONFIG = Path("/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/.env")
 BACKUP_ROOT = STATE / "rollout-backups"
+IDENTITY_FILE = STATE / "rollout-candidates/current-main-db-identities.json"
 BUDDY_DATABASE_NAME = "dungeonbuddy_application_state"
 CORE_DATABASE_NAME = "dungeonmind_cutover_live"
 BUDDY_SCHEMA = "20261005_0017"
@@ -60,6 +62,21 @@ def _configured_dsn(key: str, database_name: str) -> str:
     return raw
 
 
+def _expected_identities() -> dict[str, dict[str, str]]:
+    stat = IDENTITY_FILE.stat()
+    if stat.st_uid != os.getuid() or stat.st_mode & 0o077:
+        raise RuntimeError("database identity inventory must be owner-only")
+    data = json.loads(IDENTITY_FILE.read_text(encoding="utf-8"))
+    if set(data) != {"buddy", "core"}:
+        raise RuntimeError("database identity inventory must name Buddy and Core")
+    for item in data.values():
+        if set(item) != {"host", "port", "system_identifier"}:
+            raise RuntimeError("database identity inventory has unexpected fields")
+        if not all(isinstance(value, str) and value for value in item.values()):
+            raise RuntimeError("database identity inventory has invalid fields")
+    return data
+
+
 def _pg_environment(dsn: str) -> dict[str, str]:
     fields = conninfo_to_dict(dsn)
     names = {
@@ -85,17 +102,26 @@ def _pg_environment(dsn: str) -> dict[str, str]:
 
 def _database_preflight(
     dsn: str, database_name: str, version_table: str, expected_schema: str,
-) -> tuple[str, int]:
+    expected_identity: dict[str, str],
+) -> tuple[str, int, dict[str, str]]:
+    fields = conninfo_to_dict(dsn)
+    if fields.get("host") != expected_identity["host"] or fields.get("port") != expected_identity["port"]:
+        raise RuntimeError("configured database endpoint differs from the reviewed lease")
     with psycopg.connect(dsn, options="-c default_transaction_read_only=on") as conn:
         database = conn.execute("SELECT current_database()").fetchone()[0]
         schema = conn.execute(f"SELECT version_num FROM {version_table}").fetchone()[0]
         version = conn.execute("SHOW server_version_num").fetchone()[0]
         size = conn.execute("SELECT pg_database_size(current_database())").fetchone()[0]
+        system_identifier = str(
+            conn.execute("SELECT system_identifier FROM pg_control_system()").fetchone()[0]
+        )
     if database != database_name or schema != expected_schema:
         raise RuntimeError("database identity or pre-migration schema differs from the lease")
+    if system_identifier != expected_identity["system_identifier"]:
+        raise RuntimeError("PostgreSQL cluster identity differs from the reviewed lease")
     if not str(version).startswith("16"):
         raise RuntimeError("PostgreSQL server major differs from the reviewed 16.x backup tool")
-    return str(schema), int(size)
+    return str(schema), int(size), expected_identity
 
 
 def _state_subjects() -> tuple[tuple[Path, str], ...]:
@@ -143,19 +169,20 @@ def main() -> None:
     if not args.execute:
         parser.error("backup writes require --execute under PRIME's activated lease")
     os.umask(0o077)
+    identities = _expected_identities()
     buddy_dsn = _configured_dsn(
         "DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL", BUDDY_DATABASE_NAME,
     )
     core_dsn = _configured_dsn(
         "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", CORE_DATABASE_NAME,
     )
-    buddy_schema, buddy_size = _database_preflight(
+    buddy_schema, buddy_size, buddy_identity = _database_preflight(
         buddy_dsn, BUDDY_DATABASE_NAME,
-        "application_state.schema_migrations", BUDDY_SCHEMA,
+        "application_state.schema_migrations", BUDDY_SCHEMA, identities["buddy"],
     )
-    core_schema, core_size = _database_preflight(
+    core_schema, core_size, core_identity = _database_preflight(
         core_dsn, CORE_DATABASE_NAME,
-        "dungeonmind.alembic_version", CORE_SCHEMA,
+        "dungeonmind.alembic_version", CORE_SCHEMA, identities["core"],
     )
     version_output = subprocess.run(
         ["/usr/bin/pg_dump", "--version"], check=True,
@@ -167,43 +194,50 @@ def main() -> None:
     if shutil.disk_usage(STATE).free < required_bytes:
         raise RuntimeError("backup destination has insufficient free space for both databases and preserved files")
     destination = _private_root()
+    incomplete = destination / "INCOMPLETE"
+    incomplete.write_text("Backup is not valid for rollback until manifest is complete.\n")
     buddy_dump = destination / "buddy-application-state.dump"
     core_dump = destination / "dungeonmind-graph-authority.dump"
     state_archive = destination / "buddy-preserved-files.tar"
     inventories: list[Path] = []
-    for dsn, dump in ((buddy_dsn, buddy_dump), (core_dsn, core_dump)):
-        subprocess.run(
-            ["/usr/bin/pg_dump", "--format=custom", "--file", str(dump)],
-            env=_pg_environment(dsn), check=True,
-        )
-        inventory = destination / f"{dump.stem}.inventory.txt"
-        with inventory.open("x", encoding="utf-8") as stream:
+    try:
+        for dsn, dump in ((buddy_dsn, buddy_dump), (core_dsn, core_dump)):
             subprocess.run(
-                ["/usr/bin/pg_restore", "--list", str(dump)],
-                stdout=stream, check=True,
+                ["/usr/bin/pg_dump", "--format=custom", "--file", str(dump)],
+                env=_pg_environment(dsn), check=True,
             )
-        inventories.append(inventory)
-    archived_entries = _archive_state(state_archive)
-    manifest = {
-        "schema": "dmb_current_main_rollout_backup_v1",
-        "created_at_utc": datetime.now(timezone.utc).isoformat(),
-        "databases": {
-            "buddy": {"name": BUDDY_DATABASE_NAME, "schema_before": buddy_schema,
-                      "size_bytes_before": buddy_size},
-            "core": {"name": CORE_DATABASE_NAME, "schema_before": core_schema,
-                     "size_bytes_before": core_size},
-        },
-        "pg_dump_version": version_output,
-        "free_space_bytes_required": required_bytes,
-        "archived_entries": archived_entries,
-        "files": {
-            path.name: {"bytes": path.stat().st_size, "sha256": _sha256(path)}
-            for path in (buddy_dump, core_dump, state_archive, *inventories)
-        },
-    }
-    with (destination / "manifest.json").open("x", encoding="utf-8") as stream:
-        json.dump(manifest, stream, sort_keys=True, indent=2)
-        stream.write("\n")
+            inventory = destination / f"{dump.stem}.inventory.txt"
+            with inventory.open("x", encoding="utf-8") as stream:
+                subprocess.run(
+                    ["/usr/bin/pg_restore", "--list", str(dump)],
+                    stdout=stream, check=True,
+                )
+            inventories.append(inventory)
+        archived_entries = _archive_state(state_archive)
+        manifest = {
+            "schema": "dmb_current_main_rollout_backup_v1",
+            "created_at_utc": datetime.now(timezone.utc).isoformat(),
+            "databases": {
+                "buddy": {"name": BUDDY_DATABASE_NAME, "schema_before": buddy_schema,
+                          "size_bytes_before": buddy_size, "identity": buddy_identity},
+                "core": {"name": CORE_DATABASE_NAME, "schema_before": core_schema,
+                         "size_bytes_before": core_size, "identity": core_identity},
+            },
+            "pg_dump_version": version_output,
+            "free_space_bytes_required": required_bytes,
+            "archived_entries": archived_entries,
+            "files": {
+                path.name: {"bytes": path.stat().st_size, "sha256": _sha256(path)}
+                for path in (buddy_dump, core_dump, state_archive, *inventories)
+            },
+        }
+        with (destination / "manifest.json").open("x", encoding="utf-8") as stream:
+            json.dump(manifest, stream, sort_keys=True, indent=2)
+            stream.write("\n")
+        incomplete.unlink()
+    except Exception:
+        print(f"incomplete_backup_directory {destination}", file=sys.stderr)
+        raise
     print("backup_directory", destination)
     print("database_schemas_before", buddy_schema, core_schema)
     print("archived_entries", archived_entries)
