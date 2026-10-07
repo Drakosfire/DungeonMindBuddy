@@ -983,6 +983,17 @@ export interface WorldPlanGraphCitationMapV1 {
   entries: WorldPlanGraphCitationV1[];
 }
 
+export interface WorldPlanGraphCitationV2 extends Omit<WorldPlanGraphCitationV1, "source_opened"> {
+  source_opened: boolean;
+  source_read_ids: string[];
+}
+
+export interface WorldPlanGraphCitationMapV2 {
+  schema: "dmb_graph_citation_map_v2";
+  context_receipt_sha256: string;
+  entries: WorldPlanGraphCitationV2[];
+}
+
 export interface WorldPlanGraphCompletionV1 {
   schema: "dmb_plan_world_graph_completion_v1";
   context_receipt_sha256: string;
@@ -992,11 +1003,16 @@ export interface WorldPlanGraphCompletionV1 {
   citation_map: WorldPlanGraphCitationMapV1 | null;
 }
 
+export interface WorldPlanGraphCompletionV2 extends Omit<WorldPlanGraphCompletionV1, "schema" | "citation_map"> {
+  schema: "dmb_plan_world_graph_completion_v2";
+  citation_map: WorldPlanGraphCitationMapV2 | null;
+}
+
 /** Exact policy-only response envelope defined by SERVER's accepted wire contract. */
 export interface WorldPlanAgentPlanContextV1 {
   schema: "dmb_agent_plan_world_graph_context_response_v1";
   receipt: WorldPlanGraphContextReceiptV1;
-  completion: WorldPlanGraphCompletionV1 | null;
+  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | null;
   execution: WorldPlanGraphExecutionProjectionV1 | null;
   delivery_replay: boolean;
 }
