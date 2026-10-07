@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
+from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 from uuid import uuid4
 
@@ -900,8 +900,8 @@ def test_claim_recovery_migration_preserves_completed_legacy_turn(
     command.downgrade(alembic_config(), "20261002_0012")
     command.upgrade(alembic_config(), "head")
     assert _current_and_head(application_state_dsn) == (
-        "20261005_0017",
-        "20261005_0017",
+        "20261007_0018",
+        "20261007_0018",
     )
 
     loaded = AgentConversationService().list_turns(
@@ -1455,3 +1455,315 @@ def test_storage_boundary_requires_nonblank_world_and_fails_closed_when_db_is_do
         ApplicationStateUnavailableError, match="PostgreSQL is unavailable"
     ):
         service.get_world_pointer("unavailable-world")
+
+
+def _v2_graph_execution_fixture():
+    from application_state.agent_conversation.types import (
+        GraphExecutionAccountingV1,
+        GraphExecutionPolicyV2,
+        GraphSourceReadScopeV2,
+        GraphSourceScopeAnchorV2,
+        PlanWorldGraphExecutionV2,
+        graph_execution_policy_digest_v2,
+    )
+
+    context_digest = "a" * 64
+    scope = GraphSourceReadScopeV2(
+        retrieval_session_id="retrieval-session-1",
+        world_id="source-read-world",
+        campaign_id=None,
+        graph_revision="graph-revision-1",
+        admitted_anchors=[
+            GraphSourceScopeAnchorV2(
+                anchor_id="anchor-1",
+                evidence_ref_id="evidence-1",
+                source_artifact_id="artifact-1",
+                source_revision_id="source-revision-1",
+            )
+        ],
+    )
+    policy = GraphExecutionPolicyV2(
+        policy_version="test-policy-v2",
+        allowed_graph_operations=["search_assertions"],
+        max_provider_attempts=2,
+        max_graph_operations=2,
+        max_results_per_operation=8,
+        max_total_provider_input_tokens=100,
+        max_total_provider_output_tokens=50,
+        provider_input_accounting=GraphExecutionAccountingV1(
+            kind="exact_token_count", estimator="synthetic-tokenizer"
+        ),
+        source_opened=False,
+        source_read_scope=scope,
+        max_source_read_calls=2,
+        max_source_read_anchors=2,
+        max_source_read_chars=24000,
+        max_chars_per_source_read=12000,
+    )
+    policy_digest = graph_execution_policy_digest_v2(context_digest, policy)
+    execution = PlanWorldGraphExecutionV2(
+        schema="dmb_agent_plan_world_graph_execution_v2",
+        context_receipt_sha256=context_digest,
+        execution_policy_sha256=policy_digest,
+        policy=policy,
+        events=[],
+    )
+    return execution, scope, policy_digest
+
+
+def test_graph_execution_v2_source_read_scope_receipt_and_budget_are_strict() -> None:
+    from application_state.agent_conversation.types import (
+        PlanWorldGraphExecutionV2,
+        SourceReadAnchorReceiptV2,
+        SourceReadAuthorizationEventV2,
+        ValidatedSourceReadEventV2,
+    )
+
+    execution, scope, policy_digest = _v2_graph_execution_fixture()
+    auth = SourceReadAuthorizationEventV2(
+        event_id=uuid4(), sequence=0, kind="source_read_authorized_v2",
+        read_call_id=uuid4(), context_receipt_sha256=execution.context_receipt_sha256,
+        execution_policy_sha256=policy_digest,
+        retrieval_session_id=scope.retrieval_session_id,
+        world_id=scope.world_id, campaign_id=scope.campaign_id,
+        graph_revision=scope.graph_revision, anchors=scope.admitted_anchors,
+        max_chars=12000,
+    )
+    result = ValidatedSourceReadEventV2(
+        event_id=uuid4(), sequence=1, kind="validated_source_read_v2",
+        read_call_id=auth.read_call_id,
+        receipts=[SourceReadAnchorReceiptV2(
+            source_read_id="source-read:one", anchor_id="anchor-1",
+            evidence_ref_id="evidence-1", source_artifact_id="artifact-1",
+            source_revision_id="source-revision-1", outcome="partial",
+            content_sha256="b" * 64, line_start=2, line_end=4,
+            returned_chars=17, truncated=False,
+            evidence_sufficiency_status="insufficient",
+        )],
+    )
+    stored = execution.model_copy(update={"events": [auth, result]})
+    restored = PlanWorldGraphExecutionV2.model_validate(
+        stored.model_dump(mode="json", by_alias=True)
+    )
+    assert restored == stored
+    serialized_receipt = restored.model_dump(mode="json", by_alias=True)["events"][1]["receipts"][0]
+    assert "content" not in serialized_receipt
+    assert SourceReadAnchorReceiptV2(
+        source_read_id="source-read:empty", anchor_id="anchor-1",
+        evidence_ref_id="evidence-1", source_artifact_id="artifact-1",
+        outcome="empty", returned_chars=0, truncated=False,
+        evidence_sufficiency_status="insufficient",
+    ).content_sha256 is None
+
+    with pytest.raises(ValidationError, match="frozen source scope"):
+        PlanWorldGraphExecutionV2.model_validate(
+            execution.model_dump(mode="json", by_alias=True)
+            | {"events": [auth.model_dump(mode="json", by_alias=True) | {"retrieval_session_id": "other-session"}]}
+        )
+    with pytest.raises(ValidationError, match="unadmitted or changed anchor"):
+        PlanWorldGraphExecutionV2.model_validate(
+            execution.model_dump(mode="json", by_alias=True)
+            | {"events": [auth.model_dump(mode="json", by_alias=True) | {"anchors": [scope.admitted_anchors[0].model_dump(mode="json") | {"source_revision_id": "other-revision"}]}]}
+        )
+    with pytest.raises(ValidationError, match="frozen source scope"):
+        PlanWorldGraphExecutionV2.model_validate(
+            execution.model_dump(mode="json", by_alias=True)
+            | {"events": [auth.model_dump(mode="json", by_alias=True) | {"graph_revision": "other-graph-revision"}]}
+        )
+    with pytest.raises(ValidationError, match="unadmitted or changed anchor"):
+        PlanWorldGraphExecutionV2.model_validate(
+            execution.model_dump(mode="json", by_alias=True)
+            | {"events": [auth.model_dump(mode="json", by_alias=True) | {"anchors": [scope.admitted_anchors[0].model_dump(mode="json") | {"anchor_id": "not-admitted"}]}]}
+        )
+    with pytest.raises(ValidationError):
+        PlanWorldGraphExecutionV2.model_validate(
+            execution.model_dump(mode="json", by_alias=True)
+            | {"events": [auth.model_dump(mode="json", by_alias=True) | {"max_chars": 12001}]}
+        )
+    with pytest.raises(ValidationError, match="trusted source revision"):
+        SourceReadAnchorReceiptV2(
+            source_read_id="source-read:missing-revision", anchor_id="anchor-1",
+            evidence_ref_id="evidence-1", source_artifact_id="artifact-1",
+            outcome="enough", content_sha256="c" * 64,
+            line_start=1, line_end=1, returned_chars=1, truncated=False,
+            evidence_sufficiency_status="sufficient",
+        )
+
+
+def test_graph_execution_v2_source_opened_requires_included_successful_read() -> None:
+    from application_state.agent_conversation.types import (
+        PlanWorldGraphCitationMapV2,
+        PlanWorldGraphCitationV2,
+        PlanWorldGraphClaimSegmentV1,
+        PlanWorldGraphCompletionV2,
+        PlanWorldGraphExecutionV2,
+        ProviderAttemptAuthorizedEventV2,
+        SourceReadAnchorReceiptV2,
+        SourceReadAuthorizationEventV2,
+        ValidatedSourceReadEventV2,
+        _validate_v2_completion_source_reads,
+    )
+
+    execution, scope, policy_digest = _v2_graph_execution_fixture()
+    auth = SourceReadAuthorizationEventV2(
+        event_id=uuid4(), sequence=0, kind="source_read_authorized_v2",
+        read_call_id=uuid4(), context_receipt_sha256=execution.context_receipt_sha256,
+        execution_policy_sha256=policy_digest,
+        retrieval_session_id=scope.retrieval_session_id, world_id=scope.world_id,
+        campaign_id=None, graph_revision=scope.graph_revision,
+        anchors=scope.admitted_anchors, max_chars=12000,
+    )
+    read_event = ValidatedSourceReadEventV2(
+        event_id=uuid4(), sequence=1, kind="validated_source_read_v2",
+        read_call_id=auth.read_call_id,
+        receipts=[SourceReadAnchorReceiptV2(
+            source_read_id="source-read:opened", anchor_id="anchor-1",
+            evidence_ref_id="evidence-1", source_artifact_id="artifact-1",
+            source_revision_id="source-revision-1", outcome="partial",
+            content_sha256="d" * 64, line_start=1, line_end=2,
+            returned_chars=20, truncated=True,
+            evidence_sufficiency_status="insufficient",
+        )],
+    )
+    attempt = ProviderAttemptAuthorizedEventV2(
+        event_id=uuid4(), sequence=2, kind="provider_attempt_authorized_v2",
+        provider_attempt_id=uuid4(), envelope_sha256="e" * 64,
+        serializer_version="canonical-json-utf8-v1", provider="test-provider",
+        model="test-model", api_mode="messages", tool_schema_sha256="f" * 64,
+        input_accounting_kind="exact_token_count", input_estimator="synthetic-tokenizer",
+        input_tokens=5, output_token_reserve=5, included_assertion_ids=[],
+        included_relationship_ids=[], included_evidence_ref_ids=[],
+        included_graph_event_ids=[], included_source_read_event_ids=[read_event.event_id],
+    )
+    stored = execution.model_copy(update={"events": [auth, read_event, attempt]})
+    stored = PlanWorldGraphExecutionV2.model_validate(stored.model_dump(mode="json", by_alias=True))
+    citation = PlanWorldGraphCitationV2(
+        claim_id="claim-1", target_kind="assertion", target_id="assertion-1",
+        graph_revision=scope.graph_revision, evidence_ref_ids=["evidence-1"],
+        source_read_ids=["source-read:opened"], source_opened=True,
+    )
+    completion = PlanWorldGraphCompletionV2(
+        context_receipt_sha256=execution.context_receipt_sha256,
+        answer_basis="committed_plan_plus_world_graph",
+        answer_context_status="graph_grounded_partial",
+        answer_segments=[PlanWorldGraphClaimSegmentV1(
+            kind="graph_claim", claim_id="claim-1", text="A supported claim.",
+            target_kind="assertion", target_id="assertion-1",
+            graph_revision=scope.graph_revision, evidence_ref_ids=["evidence-1"],
+        )],
+        citation_map=PlanWorldGraphCitationMapV2(
+            context_receipt_sha256=execution.context_receipt_sha256, entries=[citation]
+        ),
+    )
+    _validate_v2_completion_source_reads(completion, stored, attempt.provider_attempt_id)
+
+    failed_read_event = ValidatedSourceReadEventV2(
+        event_id=uuid4(), sequence=1, kind="validated_source_read_v2",
+        read_call_id=auth.read_call_id, receipts=[SourceReadAnchorReceiptV2(
+            source_read_id="source-read:empty", anchor_id="anchor-1",
+            evidence_ref_id="evidence-1", source_artifact_id="artifact-1",
+            outcome="empty", returned_chars=0, truncated=False,
+            evidence_sufficiency_status="insufficient",
+        )],
+    )
+    failed_attempt = attempt.model_copy(
+        update={"sequence": 2, "included_source_read_event_ids": [failed_read_event.event_id]}
+    )
+    failed_execution = PlanWorldGraphExecutionV2.model_validate(
+        execution.model_dump(mode="json", by_alias=True)
+        | {"events": [
+            auth.model_dump(mode="json", by_alias=True),
+            failed_read_event.model_dump(mode="json", by_alias=True),
+            failed_attempt.model_dump(mode="json", by_alias=True),
+        ]}
+    )
+    closed_citation = PlanWorldGraphCitationV2(
+        claim_id="claim-1", target_kind="assertion", target_id="assertion-1",
+        graph_revision=scope.graph_revision, evidence_ref_ids=["evidence-1"],
+        source_read_ids=[], source_opened=False,
+    )
+    closed_completion = PlanWorldGraphCompletionV2.model_validate(
+        completion.model_dump(mode="json", by_alias=True)
+        | {"citation_map": {
+            "schema": "dmb_graph_citation_map_v2",
+            "context_receipt_sha256": execution.context_receipt_sha256,
+            "entries": [closed_citation.model_dump(mode="json", by_alias=True)],
+        }}
+    )
+    _validate_v2_completion_source_reads(
+        closed_completion, failed_execution, failed_attempt.provider_attempt_id
+    )
+    failed_citation = closed_citation.model_copy(
+        update={"source_read_ids": ["source-read:empty"], "source_opened": True}
+    )
+    opened_failed_completion = PlanWorldGraphCompletionV2.model_validate(
+        completion.model_dump(mode="json", by_alias=True)
+        | {"citation_map": {
+            "schema": "dmb_graph_citation_map_v2",
+            "context_receipt_sha256": execution.context_receipt_sha256,
+            "entries": [failed_citation.model_dump(mode="json", by_alias=True)],
+        }}
+    )
+    with pytest.raises(ValueError, match="validated content"):
+        _validate_v2_completion_source_reads(
+            opened_failed_completion, failed_execution, failed_attempt.provider_attempt_id
+        )
+    with pytest.raises(ValidationError, match="derived from source read IDs"):
+        PlanWorldGraphCitationV2(
+            claim_id="claim-1", target_kind="assertion", target_id="assertion-1",
+            graph_revision=scope.graph_revision, evidence_ref_ids=["evidence-1"],
+            source_read_ids=[], source_opened=True,
+        )
+
+
+def test_graph_execution_v2_enforces_each_aggregate_source_budget() -> None:
+    from application_state.agent_conversation.types import (
+        GraphExecutionPolicyV2,
+        PlanWorldGraphExecutionV2,
+        SourceReadAuthorizationEventV2,
+        graph_execution_policy_digest_v2,
+    )
+
+    base, scope, _ = _v2_graph_execution_fixture()
+    base_policy = base.policy.model_dump(mode="json", by_alias=True)
+
+    def make_auth(sequence: int, call_id):
+        return SourceReadAuthorizationEventV2(
+            event_id=uuid4(), sequence=sequence, kind="source_read_authorized_v2",
+            read_call_id=call_id, context_receipt_sha256=base.context_receipt_sha256,
+            execution_policy_sha256="0" * 64,
+            retrieval_session_id=scope.retrieval_session_id, world_id=scope.world_id,
+            campaign_id=None, graph_revision=scope.graph_revision,
+            anchors=scope.admitted_anchors, max_chars=12000,
+        )
+
+    def execution_with(policy_fields, auths):
+        policy = GraphExecutionPolicyV2.model_validate(base_policy | policy_fields)
+        policy_digest = graph_execution_policy_digest_v2(base.context_receipt_sha256, policy)
+        events = [
+            auth.model_copy(update={"execution_policy_sha256": policy_digest})
+            for auth in auths
+        ]
+        return PlanWorldGraphExecutionV2.model_validate({
+            "schema": "dmb_agent_plan_world_graph_execution_v2",
+            "context_receipt_sha256": base.context_receipt_sha256,
+            "execution_policy_sha256": policy_digest,
+            "policy": policy.model_dump(mode="json", by_alias=True),
+            "events": [event.model_dump(mode="json", by_alias=True) for event in events],
+        })
+
+    with pytest.raises(ValidationError, match="call budget exceeded"):
+        execution_with(
+            {"max_source_read_calls": 1},
+            [make_auth(0, uuid4()), make_auth(1, uuid4())],
+        )
+    with pytest.raises(ValidationError, match="anchor budget exceeded"):
+        execution_with(
+            {"max_source_read_anchors": 1},
+            [make_auth(0, uuid4()), make_auth(1, uuid4())],
+        )
+    with pytest.raises(ValidationError, match="character budget exceeded"):
+        execution_with(
+            {"max_source_read_chars": 10000},
+            [make_auth(0, uuid4())],
+        )

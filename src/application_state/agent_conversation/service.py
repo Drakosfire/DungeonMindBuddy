@@ -10,31 +10,36 @@ from uuid import UUID, uuid4
 from application_state.agent_conversation import repository as repo
 from application_state.agent_conversation.types import (
     ArchiveCommand,
+    CompletedPlanAskPair,
+    CompletionBindingEventV1,
     Conversation,
     ConversationCommand,
     ConversationCommandReceipt,
-    CompletedPlanAskPair,
     Draft,
     DraftSave,
     DraftSubmit,
     DraftSubmitReceipt,
-    CompletionBindingEventV1,
     GraphExecutionEventV1,
+    GraphExecutionEventV2,
     LegacyImport,
     LegacyImportReceipt,
     PlanAskContextBasis,
+    PlanWorldGraphExecutionV1,
+    PlanWorldGraphExecutionV2,
+    ProviderAttemptAuthorizedEventV1,
+    ProviderAttemptAuthorizedEventV2,
+    ProviderOutcomeEventV1,
     ReopenCommand,
-    SubmittedTurnIntentV2,
+    SourceReadAuthorizationEventV2,
     SubmittedTurnIntentV1,
+    SubmittedTurnIntentV2,
     Turn,
     TurnClaimReceipt,
     TurnFailure,
     TurnResult,
     TurnSubmission,
-    PlanWorldGraphExecutionV1,
-    ProviderAttemptAuthorizedEventV1,
-    ProviderOutcomeEventV1,
     ValidatedGraphOperationEventV1,
+    ValidatedSourceReadEventV2,
     WorldPointer,
     request_fingerprint,
     submitted_turn_intent_fingerprint_v1,
@@ -600,7 +605,12 @@ class AgentConversationService:
                             kind="provider_outcome", provider_attempt_id=latest.provider_attempt_id,
                             outcome="outcome_unknown",
                         )
-                        execution = PlanWorldGraphExecutionV1.model_validate(
+                        execution_type = (
+                            PlanWorldGraphExecutionV2
+                            if isinstance(execution, PlanWorldGraphExecutionV2)
+                            else PlanWorldGraphExecutionV1
+                        )
+                        execution = execution_type.model_validate(
                             execution.model_dump(mode="json", by_alias=True)
                             | {"events": [*[e.model_dump(mode="json", by_alias=True) for e in execution.events], unknown.model_dump(mode="json", by_alias=True)]}
                         )
@@ -646,7 +656,7 @@ class AgentConversationService:
         *,
         expected_revision: int,
         expected_attempt: int,
-        event: GraphExecutionEventV1,
+        event: GraphExecutionEventV1 | GraphExecutionEventV2,
         duplicate_key: str,
     ) -> tuple[Turn, bool]:
         world_id = _world_id(world_id)
@@ -710,7 +720,12 @@ class AgentConversationService:
                     raise ApplicationStateValidationError("Graph operation event must use the frozen Graph revision")
             events = [*execution.events, event]
             try:
-                updated_execution = PlanWorldGraphExecutionV1.model_validate(
+                execution_type = (
+                    PlanWorldGraphExecutionV2
+                    if isinstance(execution, PlanWorldGraphExecutionV2)
+                    else PlanWorldGraphExecutionV1
+                )
+                updated_execution = execution_type.model_validate(
                     execution.model_dump(mode="json", by_alias=True) | {"events": [e.model_dump(mode="json", by_alias=True) for e in events]}
                 )
             except ValueError as exc:
@@ -753,6 +768,42 @@ class AgentConversationService:
         return self._append_graph_execution_event(
             world_id, conversation_id, turn_id, expected_revision=expected_revision,
             expected_attempt=expected_attempt, event=outcome, duplicate_key="event_id",
+        )
+
+    def authorize_source_read(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int,
+        authorization: SourceReadAuthorizationEventV2,
+    ) -> tuple[Turn, bool]:
+        """Persist the one-shot source-read authorization before the external read."""
+        return self._append_graph_execution_event(
+            world_id, conversation_id, turn_id, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, event=authorization,
+            duplicate_key="read_call_id",
+        )
+
+    def record_validated_source_read(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int,
+        receipt: ValidatedSourceReadEventV2,
+    ) -> tuple[Turn, bool]:
+        """Persist the server-validated source read result without source text."""
+        return self._append_graph_execution_event(
+            world_id, conversation_id, turn_id, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, event=receipt,
+            duplicate_key="event_id",
+        )
+
+    def authorize_provider_attempt_v2(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int,
+        provider_attempt_event: ProviderAttemptAuthorizedEventV2,
+    ) -> tuple[Turn, bool]:
+        """Authorize a V2 provider envelope that may include validated source reads."""
+        return self._append_graph_execution_event(
+            world_id, conversation_id, turn_id, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, event=provider_attempt_event,
+            duplicate_key="provider_attempt_id",
         )
 
     def renew_turn_claim(
@@ -836,7 +887,12 @@ class AgentConversationService:
                     claim_graph_event_ids=result.claim_graph_event_ids,
                 )
                 try:
-                    execution = PlanWorldGraphExecutionV1.model_validate(
+                    execution_type = (
+                        PlanWorldGraphExecutionV2
+                        if isinstance(execution, PlanWorldGraphExecutionV2)
+                        else PlanWorldGraphExecutionV1
+                    )
+                    execution = execution_type.model_validate(
                         execution.model_dump(mode="json", by_alias=True)
                         | {"events": [*[e.model_dump(mode="json", by_alias=True) for e in execution.events], binding.model_dump(mode="json", by_alias=True)]}
                     )
