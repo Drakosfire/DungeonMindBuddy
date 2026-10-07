@@ -1,10 +1,10 @@
 # SERVER: immutable recap semantic-candidate correction
 
-**Status:** ACTIVE, source implementation authorized by PRIME on 2026-10-06.  
-**Pinned base:** Buddy `origin/main@6fbf87f7035b6d17ffeb2d7aa8b35b2bc670cba8` after #975.  
-**Branch:** `codex/recap-semantic-candidate-correction`; isolated checkout `/tmp/dmb-recap-semantic-candidate`.  
-**Topology:** serial, independent source PR against `main`; no merge authority.  
-**Predecessor:** #975 quote-only child and #973 held semantic gate are merged.  
+**Status:** ACTIVE, source implementation authorized by PRIME on 2026-10-06.
+**Pinned base:** Buddy `origin/main@6fbf87f7035b6d17ffeb2d7aa8b35b2bc670cba8` after #975.
+**Branch:** `codex/recap-semantic-candidate-correction`; isolated checkout `/tmp/dmb-recap-semantic-candidate`.
+**Topology:** serial, independent source PR against `main`; no merge authority.
+**Predecessor:** #975 quote-only child and #973 held semantic gate are merged.
 **Authority:** PRIME accepted ARCHITECTURE's distinct immutable correction ruling and explicitly assigned this one source slice, including the enumerated APP-STATE basis/CAS implementation, to SERVER. APP-STATE retains contract/review ownership and must independently review before merge.
 
 ## Primary question
