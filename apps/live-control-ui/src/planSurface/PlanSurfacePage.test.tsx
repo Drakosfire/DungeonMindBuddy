@@ -149,7 +149,7 @@ function GraphEnabledAgentPlanPage({ owner }: { owner: string }) {
 
 function savedWorldPlanConversation() {
   const region = screen.getByRole("region", { name: "Saved World Plan conversation" });
-  const context = within(region).getByRole("button", { name: "Context" });
+  const context = within(region).getByRole("button", { name: "What Buddy sees" });
   if (context.getAttribute("aria-expanded") !== "true") fireEvent.click(context);
   return region;
 }
@@ -165,7 +165,7 @@ function sendDiscussMessage(conversation = savedWorldPlanConversation()) {
 }
 
 function openAdvancedDetails(conversation = savedWorldPlanConversation()) {
-  const more = within(conversation).queryByText("More", { exact: true })?.closest("details");
+  const more = within(conversation).getByText("Conversation options", { exact: true }).closest("details");
   if (more && !more.open) fireEvent.click(more.querySelector("summary")!);
   fireEvent.click(within(conversation).getByText("Advanced details"));
 }
@@ -231,11 +231,11 @@ it.each([false, true, "stale-apply", "save", "save-clean"] as const)("captures t
   const reader = await screen.findByTestId("world-plan-scene-reader");
   expect(within(reader).getByRole("button", { name: "Select for Edit" })).toHaveAttribute("aria-pressed", "false");
   const conversation = savedWorldPlanConversation();
-  expect(within(conversation).getByText("Change · Quiet test scene")).toBeInTheDocument();
+  expect(within(conversation).getByRole("group", { name: "Selected change target" })).toHaveTextContent("Target: Quiet test scene");
   if (selectText === true) {
     const editor = (screen.getByTestId("world-owned-plan-markdown-editor").querySelector(".ProseMirror") as any).editor;
     act(() => editor.commands.setTextSelection({ from: 2, to: 6 }));
-    expect(within(conversation).getByText("Change · selected text")).toBeInTheDocument();
+    expect(within(conversation).getByLabelText("Actual Plan change target")).toHaveTextContent("Replace selected editor text");
   }
   fireEvent.change(messageDungeonBuddyField(conversation), { target: { value: "For this disposable synthetic Plan only, propose appending exactly this line to the selected Quiet test scene body: Optional GM cue: Ask each player what they notice first. Preserve all existing text and playable markers; make no other change." } });
   fireEvent.click(within(conversation).getByRole("button", { name: "Propose edit" }));
@@ -1123,7 +1123,7 @@ it.each([
   fireEvent.click(card);
 
   const conversation = savedWorldPlanConversation();
-  expect(within(conversation).getByRole("group", { name: "Selected Playable card for Ask" })).toHaveTextContent(`Question · ${id.replace(/^[^:]+:/, "")}`);
+  expect(within(conversation).getByRole("group", { name: "Question focus" })).toHaveTextContent("Focus: Arrival");
   openAdvancedDetails(conversation);
   expect(within(conversation).getByText("Ask uses the committed Plan. Unsaved editor changes are excluded; the selected card identifies the Ask target.")).toBeInTheDocument();
   act(() => capturedPlanControls().changeTitle({ target: { value: "Unsaved local title" } }));
@@ -1179,7 +1179,7 @@ it("keeps the submitted card identity fixed while selection changes during basis
   await waitFor(() => expect(getCommitted).toHaveBeenCalledTimes(2));
 
   fireEvent.click(selectById("choice:route"));
-  expect(within(conversation).getByText("Question · route")).toBeInTheDocument();
+  expect(within(conversation).getByRole("group", { name: "Question focus" })).toHaveTextContent("Focus: Choose a route");
   await act(async () => releaseBasis({
     schema_version: "dmb_workspace_committed_revision_v2",
     scope_mode: "world",
@@ -1225,11 +1225,11 @@ it("follows focused Scene for a new Ask while a pending Ask and Edit target stay
 
   const reader = await screen.findByTestId("world-plan-scene-reader");
   const conversation = savedWorldPlanConversation();
-  expect(await within(conversation).findByRole("group", { name: "Selected Playable card for Ask" })).toHaveTextContent("arrival");
+  expect(await within(conversation).findByRole("group", { name: "Question focus" })).toHaveTextContent("Arrival");
   openAdvancedDetails(conversation);
   expect(within(conversation).getByText(/Card basis · object revision 7 · SHA-256/)).toBeInTheDocument();
   fireEvent.click(within(reader).getByRole("button", { name: "Select for Edit" }));
-  expect(within(conversation).getByRole("group", { name: "Selected Playable card for edit" })).toHaveTextContent("Arrival");
+  expect(within(conversation).getByRole("group", { name: "Selected change target" })).toHaveTextContent("Arrival");
 
   fireEvent.change(messageDungeonBuddyField(conversation), { target: { value: "What happens at the arrival?" } });
   sendDiscussMessage(conversation);
@@ -1239,14 +1239,14 @@ it("follows focused Scene for a new Ask while a pending Ask and Edit target stay
   expect(request.primary_work).toMatchObject({ expected_revision: 7, expected_content_sha256: "b".repeat(64) });
 
   fireEvent.click(within(reader).getByRole("button", { name: "Next scene" }));
-  expect(within(savedWorldPlanConversation()).getByRole("group", { name: "Selected Playable card for Ask" })).toHaveTextContent("warehouse");
-  expect(within(savedWorldPlanConversation()).getByRole("group", { name: "Selected Playable card for edit" })).toHaveTextContent("Arrival");
+  expect(within(savedWorldPlanConversation()).getByRole("group", { name: "Question focus" })).toHaveTextContent("Warehouse");
+  expect(within(savedWorldPlanConversation()).getByRole("group", { name: "Selected change target" })).toHaveTextContent("Arrival");
   expect(postTurn).toHaveBeenCalledTimes(1);
 
   await act(async () => finishTurns[0]!(worldPlanAgentResponse(request)));
   expect(await within(conversation).findByText(/Playable target: scene scene:arrival · marker grammar v1/)).toBeInTheDocument();
-  expect(within(conversation).getByRole("group", { name: "Selected Playable card for Ask" })).toHaveTextContent("warehouse");
-  expect(within(conversation).getByRole("group", { name: "Selected Playable card for edit" })).toHaveTextContent("Arrival");
+  expect(within(conversation).getByRole("group", { name: "Question focus" })).toHaveTextContent("Warehouse");
+  expect(within(conversation).getByRole("group", { name: "Selected change target" })).toHaveTextContent("Arrival");
   expect(postTurn).toHaveBeenCalledTimes(1);
 
   fireEvent.change(messageDungeonBuddyField(conversation), { target: { value: "What is happening at the warehouse?" } });
@@ -1289,12 +1289,12 @@ it("clears the previous saved Ask target when focus moves to a draft-only Scene"
   fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
   const reader = await screen.findByTestId("world-plan-scene-reader");
   const conversation = savedWorldPlanConversation();
-  expect(within(conversation).getByRole("group", { name: "Selected Playable card for Ask" })).toHaveTextContent("arrival");
+  expect(within(conversation).getByRole("group", { name: "Question focus" })).toHaveTextContent("Arrival");
   fireEvent.change(messageDungeonBuddyField(conversation), { target: { value: "A question not yet sent" } });
 
   fireEvent.click(within(reader).getByRole("button", { name: "Next scene" }));
   expect(screen.getByTestId("world-plan-scene-reader")).toHaveTextContent("The default Ask card target is cleared");
-  expect(within(conversation).queryByRole("group", { name: "Selected Playable card for Ask" })).not.toBeInTheDocument();
+  expect(within(conversation).queryByRole("group", { name: "Question focus" })).not.toBeInTheDocument();
   expect(messageDungeonBuddyField(conversation)).toHaveValue("A question not yet sent");
   expect(postTurn).not.toHaveBeenCalled();
   expect(committedRevision).toHaveBeenCalledTimes(1);
@@ -1312,7 +1312,7 @@ it("connects and revokes the local Agent and Graph session from Settings", async
   );
 
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  fireEvent.click(screen.getByText("More", {exact:true}));
+  fireEvent.click(screen.getByText("Conversation options", {exact:true}));
   fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
   expect(screen.queryByLabelText("Local operator credential")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Connect local session" }));
