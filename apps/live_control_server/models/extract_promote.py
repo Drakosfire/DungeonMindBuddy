@@ -495,6 +495,27 @@ class RecapNodeDescriptionReplacement(_ExtractPromoteModel):
         return value
 
 
+class RecapCandidateNodeOmission(_ExtractPromoteModel):
+    """Remove one isolated node, pinned to its complete canonical record."""
+
+    node_id: str
+    expected_node_sha256: str
+
+    @field_validator("node_id")
+    @classmethod
+    def _node_id(cls, value: str) -> str:
+        if not value or value != value.strip() or len(value) > 256 or any(ch in value for ch in ("\r", "\n", "\t")):
+            raise ValueError("node_id must be nonblank, trimmed and bounded")
+        return value
+
+    @field_validator("expected_node_sha256")
+    @classmethod
+    def _digest(cls, value: str) -> str:
+        if len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
+            raise ValueError("expected_node_sha256 must be lowercase SHA-256 hex")
+        return value
+
+
 class RecapCandidateCorrectionRequest(_ExtractPromoteModel):
     schema_: Literal["dmb_recap_candidate_correction_request_v1"] = Field(
         default=RECAP_CANDIDATE_CORRECTION_REQUEST_SCHEMA, alias="schema"
@@ -504,9 +525,13 @@ class RecapCandidateCorrectionRequest(_ExtractPromoteModel):
     node_description_replacements: list[RecapNodeDescriptionReplacement] = Field(default_factory=list, max_length=1)
     omitted_edge_ids: list[str] = Field(default_factory=list, max_length=1)
 
+    node_omissions: list[RecapCandidateNodeOmission] = Field(default_factory=list, max_length=1)
+
     @model_validator(mode="after")
     def _bounded(self) -> "RecapCandidateCorrectionRequest":
-        if not self.node_description_replacements and not self.omitted_edge_ids:
+        if self.node_omissions and (self.node_description_replacements or self.omitted_edge_ids):
+            raise ValueError("node omission must be the only candidate correction")
+        if not self.node_description_replacements and not self.omitted_edge_ids and not self.node_omissions:
             raise ValueError("at least one candidate correction is required")
         if len({v.node_id for v in self.node_description_replacements}) != len(self.node_description_replacements):
             raise ValueError("duplicate node correction")

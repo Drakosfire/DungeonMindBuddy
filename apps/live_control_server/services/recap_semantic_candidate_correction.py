@@ -24,6 +24,7 @@ from apps.live_control_server.models.extract_promote import (
     RecapCandidateCorrectionResponseV5,
     RecapCandidateCorrectionResponseV6,
     RecapCandidateEdgeTuple,
+    RecapCandidateNodeOmission,
     ExtractPromoteDiagnostic,
 )
 from apps.live_control_server.services.exact_run_evidence_correction import (
@@ -339,6 +340,35 @@ def _plan_evidence_span_replacements(
     return plans
 
 
+def _plan_node_omission(parent: dict, operations: object) -> str:
+    """Validate the full preimage and every dependency before any child write."""
+    if not isinstance(operations, list) or len(operations) != 1:
+        raise _reject("node omission exceeds bounded scope")
+    if not isinstance(operations[0], dict) or set(operations[0]) != {"node_id", "expected_node_sha256"}:
+        raise _reject("node omission is malformed")
+    try:
+        operation = RecapCandidateNodeOmission.model_validate(operations[0])
+    except (TypeError, ValueError) as exc:
+        raise _reject("node omission is malformed") from exc
+    nodes = parent.get("nodes")
+    edges = parent.get("edges")
+    if not isinstance(nodes, list) or any(not isinstance(node, dict) for node in nodes):
+        raise _reject("candidate nodes records are malformed")
+    if not isinstance(edges, list) or any(not isinstance(edge, dict) for edge in edges):
+        raise _reject("candidate edges records are malformed")
+    matches = [node for node in nodes if node.get("node_id") == operation.node_id]
+    if len(matches) != 1:
+        raise _reject("omitted node is missing or ambiguous", status_code=409)
+    if _sha(_canonical_bytes(matches[0])) != operation.expected_node_sha256:
+        raise _reject("omitted node preimage is stale", status_code=409)
+    if any(operation.node_id in (edge.get("from_node_id"), edge.get("to_node_id")) for edge in edges):
+        raise _reject("omitted node has an incident edge", status_code=409)
+    for key in ("beats", "proposed_writes", "ignored_items", "deferred_items"):
+        if _contains(parent.get(key, []), operation.node_id):
+            raise _reject("omitted node has a dependent candidate record", status_code=409)
+    return operation.node_id
+
+
 def _replay_evidence_ref_split(parent: dict, manifest: dict, source_bytes: bytes | None, span_bytes: bytes | None) -> dict:
     """Re-prove source pins, full-ref preimage, and each quote occurrence."""
     from graph_memory.anchor_quotes import find_anchor_quote_matches
@@ -448,6 +478,9 @@ def replay_candidate(parent: dict, manifest: dict, *, source_bytes: bytes | None
     )
     if v2:
         expected_keys.add("session_action_replacements")
+    node_omission = "node_omissions" in manifest
+    if node_omission and manifest.get("schema") == MANIFEST_SCHEMA:
+        expected_keys.add("node_omissions")
     if set(manifest) != expected_keys or manifest.get("schema") not in {
         MANIFEST_SCHEMA, MANIFEST_SCHEMA_V2, MANIFEST_SCHEMA_V3, MANIFEST_SCHEMA_V4,
         MANIFEST_SCHEMA_V5,
@@ -465,7 +498,7 @@ def replay_candidate(parent: dict, manifest: dict, *, source_bytes: bytes | None
         or (v3 and (not isinstance(edge_tuple_replacements, list) or not 1 <= len(edge_tuple_replacements) <= MAX_EDGE_TUPLE_REPLACEMENTS))
         or (v4 and (not isinstance(evidence_span_replacements, list) or len(evidence_span_replacements) != 1))
         or (v5 and (not isinstance(evidence_span_replacements, list) or not 1 <= len(evidence_span_replacements) <= 7))
-        or (not (v3 or v4 or v5) and not replacements and not omitted and not actions)
+        or (not (v3 or v4 or v5) and not replacements and not omitted and not actions and not node_omission)
     ):
         raise _reject("semantic candidate manifest exceeds bounded scope")
     child = copy.deepcopy(parent)
@@ -473,6 +506,12 @@ def replay_candidate(parent: dict, manifest: dict, *, source_bytes: bytes | None
         records = child.get(key, [])
         if not isinstance(records, list) or any(not isinstance(record, dict) for record in records):
             raise _reject(f"candidate {key} records are malformed")
+    if node_omission:
+        if replacements or omitted or actions:
+            raise _reject("node omission must be the only candidate correction")
+        node_id = _plan_node_omission(parent, manifest["node_omissions"])
+        child["nodes"] = [node for node in child["nodes"] if node.get("node_id") != node_id]
+        return child
     if v4 or v5:
         plans = _plan_evidence_span_replacements(
             parent, evidence_span_replacements,
@@ -681,6 +720,8 @@ def correct_recap_candidate(
             ],
             "omitted_edge_ids": sorted(request.omitted_edge_ids),
         }
+    if isinstance(request, RecapCandidateCorrectionRequest) and request.node_omissions:
+        manifest["node_omissions"] = [item.model_dump(mode="json") for item in request.node_omissions]
     if v2:
         manifest["session_action_replacements"] = [
             item.model_dump(mode="json") for item in request.session_action_replacements

@@ -522,6 +522,9 @@ def _assert_recap_semantic_basis(
             if action_manifest
             else {"schema", "node_description_replacements", "omitted_edge_ids"}
         )
+        node_omission = isinstance(manifest, dict) and "node_omissions" in manifest
+        if node_omission and not (action_manifest or tuple_manifest or span_manifest):
+            expected_manifest_keys.add("node_omissions")
         expected_manifest_schema = (
             basis.manifest_schema if action_manifest or tuple_manifest or span_manifest
             else "dmb_recap_semantic_candidate_manifest_v1"
@@ -536,7 +539,7 @@ def _assert_recap_semantic_basis(
             or (action_manifest and (not isinstance(manifest.get("session_action_replacements"), list) or len(manifest["session_action_replacements"]) != 1))
             or (not (tuple_manifest or span_manifest) and len(manifest["node_description_replacements"]) > 1)
             or (not (tuple_manifest or span_manifest) and len(manifest["omitted_edge_ids"]) > 1)
-            or (not (tuple_manifest or span_manifest) and not (manifest["node_description_replacements"] or manifest["omitted_edge_ids"] or (action_manifest and manifest["session_action_replacements"])))
+            or (not (tuple_manifest or span_manifest) and not (manifest["node_description_replacements"] or manifest["omitted_edge_ids"] or (action_manifest and manifest["session_action_replacements"]) or node_omission))
             or (tuple_manifest and (not isinstance(manifest.get("edge_tuple_replacements"), list) or not 1 <= len(manifest["edge_tuple_replacements"]) <= 7))
             or (span_manifest and (
                 not isinstance(manifest.get("evidence_span_replacements"), list)
@@ -544,6 +547,26 @@ def _assert_recap_semantic_basis(
             ))
         ):
             raise ApplicationStateConflictError("recap semantic candidate manifest is missing")
+        if node_omission:
+            operations = manifest["node_omissions"]
+            if (
+                not isinstance(operations, list) or len(operations) != 1
+                or manifest["node_description_replacements"] or manifest["omitted_edge_ids"]
+            ):
+                raise ApplicationStateConflictError("recap semantic node omission manifest is malformed")
+            operation = operations[0]
+            if (
+                not isinstance(operation, dict)
+                or set(operation) != {"node_id", "expected_node_sha256"}
+                or not isinstance(operation.get("node_id"), str)
+                or not operation["node_id"] or operation["node_id"] != operation["node_id"].strip()
+                or len(operation["node_id"]) > 256
+                or any(ch in operation["node_id"] for ch in ("\r", "\n", "\t"))
+                or not isinstance(operation.get("expected_node_sha256"), str)
+                or len(operation["expected_node_sha256"]) != 64
+                or any(ch not in "0123456789abcdef" for ch in operation["expected_node_sha256"])
+            ):
+                raise ApplicationStateConflictError("recap semantic node omission manifest is malformed")
         if not (tuple_manifest or span_manifest):
             for item in manifest["node_description_replacements"]:
                 if (

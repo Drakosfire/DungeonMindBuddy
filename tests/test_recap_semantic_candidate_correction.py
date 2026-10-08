@@ -20,6 +20,7 @@ from application_state.ingest.service import (
 from application_state.errors import ApplicationStateConflictError
 from apps.live_control_server.models.extract_promote import (
     RecapCandidateCorrectionRequest,
+    RecapCandidateNodeOmission,
     RecapCandidateCorrectionRequestV2,
     RecapCandidateCorrectionRequestV3,
     RecapCandidateCorrectionRequestV4,
@@ -1684,3 +1685,147 @@ def test_split_keeps_main_v1_through_v5_manifest_and_child_identity(monkeypatch,
     assert response.run_id == child_id
     assert service.verify_child_replay(runs[child_id], parent, tmp_path)
     assert (tmp_path / "parent.json").read_bytes() == raw
+
+
+def _omission_fixture(monkeypatch, root, fault=None):
+    parent, _, runs = _fixture(monkeypatch, root)
+    payload = json.loads((root / "parent.json").read_bytes())
+    retained = copy.deepcopy(payload["nodes"][0])
+    retained["node_id"] = "retained"
+    payload["nodes"].append(retained)
+    if fault == "ambiguous":
+        payload["nodes"].append(copy.deepcopy(payload["nodes"][0]))
+    if fault == "missing":
+        payload["nodes"] = [retained]
+    if fault in ("incoming", "outgoing", "self_loop"):
+        payload["edges"] = [{
+            "edge_id": "incident",
+            "from_node_id": "retained" if fault == "incoming" else "mira",
+            "to_node_id": "retained" if fault == "outgoing" else "mira",
+        }]
+    if fault in ("beats", "proposed_writes", "ignored_items", "deferred_items"):
+        payload[fault] = [{"nested": [{"target": "mira"}]}]
+    raw = service._canonical_bytes(payload)
+    (root / "parent.json").write_bytes(raw)
+    components = dict(parent.components)
+    components["candidate_graph"] = components["candidate_graph"].model_copy(update={"sha256": _sha(raw)})
+    parent = parent.model_copy(update={"components": components})
+    runs["parent"] = parent
+    request = RecapCandidateCorrectionRequest(
+        parent_run_id="parent", parent_candidate_sha256=_sha(raw),
+        node_omissions=[RecapCandidateNodeOmission(
+            node_id="mira", expected_node_sha256=_sha(service._canonical_bytes(payload["nodes"][0])),
+        )],
+    )
+    if fault == "stale":
+        request.node_omissions[0].expected_node_sha256 = "0" * 64
+    return parent, raw, runs, request
+
+
+def test_http_node_omission_creates_exact_held_child(monkeypatch, tmp_path):
+    parent, raw, runs, request = _omission_fixture(monkeypatch, tmp_path)
+    import fastapi.dependencies.utils as dependency_utils
+    import fastapi.routing as fastapi_routing
+
+    async def inline_sync(function, *args, **kwargs):
+        return function(*args, **kwargs)
+
+    monkeypatch.setattr(fastapi_routing, "run_in_threadpool", inline_sync)
+    monkeypatch.setattr(dependency_utils, "run_in_threadpool", inline_sync)
+    app = FastAPI()
+    app.include_router(routes.router)
+    app.dependency_overrides[native_graph_gm_dependency] = lambda: NativeGraphPrincipal(
+        subject="test_gm", role="gm", auth_method="local_session",
+    )
+    body = request.model_dump(mode="json", by_alias=True)
+    url = "/api/live/extract-promote/runs/parent/recap-candidate-corrections"
+
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            mismatch = await client.post(url, json={**body, "parentRunId": "other"})
+            assert mismatch.status_code == 422
+            wrong_parent = await client.post(url, json={**body, "parentCandidateSha256": "0" * 64})
+            assert wrong_parent.status_code == 409
+            assert set(runs) == {"parent"}
+            response = await client.post(url, json=body)
+            assert response.status_code == 200, response.text
+            assert response.json()["semanticState"] == "held"
+            assert (await client.post(url, json=body)).json() == response.json()
+            return response.json()["runId"]
+
+    child = runs[asyncio.run(exercise())]
+    original = json.loads(raw)
+    expected = copy.deepcopy(original)
+    expected["nodes"] = [original["nodes"][1]]
+    assert (tmp_path / child.components["candidate_graph"].uri).read_bytes() == service._canonical_bytes(expected)
+    assert (tmp_path / "parent.json").read_bytes() == raw
+    assert child.components["source_artifact"] == parent.components["source_artifact"]
+    assert child.components["source_span_index"] == parent.components["source_span_index"]
+    assert service.verify_child_replay(child, parent, tmp_path)
+    assessment = assess_recap_semantics(child, parent=parent, source_revision_id=_sha((tmp_path / "source.md").read_bytes()), root=tmp_path)
+    assert assessment.marked and not assessment.accepted
+    basis = RecapSemanticBasisV2.model_validate(assessment.basis)
+    _assert_recap_semantic_basis(child, parent, basis)
+    # Stored manifests must enforce the same operation shape as the route/replay.
+    manifest = copy.deepcopy(child.lineage["semantic_candidate_manifest"])
+    manifest["node_omissions"][0]["cascade"] = True
+    digest = _sha(service._canonical_bytes(manifest))
+    malformed = child.model_copy(update={"lineage": {**child.lineage, "semantic_candidate_manifest": manifest, "manifest_sha256": digest}})
+    with pytest.raises(ApplicationStateConflictError, match="node omission manifest"):
+        _assert_recap_semantic_basis(malformed, parent, basis.model_copy(update={"manifest_sha256": digest}))
+    assert not service.verify_child_replay(malformed, parent, tmp_path)
+
+
+@pytest.mark.parametrize("fault", ["ambiguous", "missing", "stale", "incoming", "outgoing", "self_loop", "beats", "proposed_writes", "ignored_items", "deferred_items"])
+def test_node_omission_rejects_before_any_write(monkeypatch, tmp_path, fault):
+    parent, raw, runs, request = _omission_fixture(monkeypatch, tmp_path, fault)
+    from apps.live_control_server.services.extract_promote import ExtractPromoteError
+
+    def forbidden_write(*args, **kwargs):
+        pytest.fail("invalid omission reached a child write")
+
+    monkeypatch.setattr(service, "_write_child_candidate", forbidden_write)
+    monkeypatch.setattr(service, "create_extraction_run", forbidden_write)
+    with pytest.raises(ExtractPromoteError) as error:
+        service.correct_recap_candidate(request)
+    assert error.value.status_code == 409
+    assert set(runs) == {"parent"}
+    assert not (tmp_path / "out").exists()
+    assert (tmp_path / "parent.json").read_bytes() == raw
+
+
+def test_node_omission_contract_is_bounded_and_exact():
+    operation = {"node_id": "n", "expected_node_sha256": "a" * 64}
+    body = {"parent_run_id": "p", "parent_candidate_sha256": "b" * 64, "node_omissions": [operation]}
+    for changes in (
+        {"node_omissions": [operation, operation]},
+        {"node_omissions": [{**operation, "expected_node_sha256": "wrong"}]},
+        {"node_omissions": [{**operation, "cascade": True}]},
+        {"omitted_edge_ids": ["e"]},
+    ):
+        with pytest.raises(ValueError):
+            RecapCandidateCorrectionRequest.model_validate({**body, **changes})
+    parent = {"nodes": [{"node_id": "n"}], "edges": []}
+    manifest = {"schema": service.MANIFEST_SCHEMA, "node_description_replacements": [], "omitted_edge_ids": [], "node_omissions": [operation]}
+    for operations in ([], [operation, operation], [{**operation, "cascade": True}]):
+        with pytest.raises(ValueError):
+            service.replay_candidate(parent, {**manifest, "node_omissions": operations})
+
+
+def test_legacy_manifest_identity_ignores_unused_node_omission(monkeypatch, tmp_path):
+    from uuid import NAMESPACE_URL, uuid5
+    parent, raw, runs = _fixture(monkeypatch, tmp_path)
+    request = _request(raw)
+    response = service.correct_recap_candidate(request)
+    manifest = {
+        "schema": "dmb_recap_semantic_candidate_manifest_v1",
+        "node_description_replacements": [{"node_id": "mira", "original_description": "Mira carried an uncertain object.", "replacement_description": "Mira found the key under the bridge."}],
+        "omitted_edge_ids": [],
+    }
+    digest = _sha(service._canonical_bytes(manifest))
+    assert runs[response.run_id].lineage["semantic_candidate_manifest"] == manifest
+    assert digest == "53c547b5bee2ba5de80c04c17134c9f4d5a8d47fb7651b6c17f7878596b400a4"
+    assert response.manifest_sha256 == digest
+    assert response.run_id == "61a59049-3686-5680-b569-5b8816497b19"
+    assert response.run_id == str(uuid5(NAMESPACE_URL, f"dmb:{service.DERIVATION}:parent:{_sha(raw)}:{digest}"))
+    assert service.verify_child_replay(runs[response.run_id], parent, tmp_path)
