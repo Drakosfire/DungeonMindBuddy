@@ -1,10 +1,10 @@
 # HANDOFF — APP-STATE: reset receipt recovery v1
 
-**Status:** ACTIVE — PRIME authorized this authority-only PR on 2026-10-08. Implementation dispatch requires this handoff's merge and explicit controller lease release.
+**Status:** ACTIVE — PRIME authorized this authority-only PR on 2026-10-08. Implementation dispatch requires this handoff's merge. PRIME explicitly transferred the controller/history-test lease from idle DOGFOOD at the pinned #1007 head.
 **Owner/steward:** APP-STATE / PRIME.
 **Repository:** Drakosfire/DungeonMindBuddy.
 **Fresh design base:** `3c8ad79a2008a20b75bd7d8791d139ad1404c75b` (fetched remote main).
-**Topology:** serial: docs-only authority PR → separate RECOVERY implementation PR → independent review/merge. No runtime activation is authorized.
+**Topology:** docs-only authority PR on main first, then a separate stacked RECOVERY implementation PR parented on exact #1007 head `65571f526df5eb69ab104bd49f3440c24ca676ef`. Merge order: operator-accepted #1007 → RECOVERY retargeted to main and independently reviewed at its exact cumulative head. No runtime activation is authorized.
 **Lane:** `codex/reset-receipt-recovery-contract`, isolated `/tmp/dmb-plan-ask-history`; this PR writes only this file. No ports, services, databases or live browser state are owned.
 
 ## Mission and current facts
@@ -35,14 +35,14 @@ Confirmation clears only the matching local recovery envelope and refreshes cano
 
 ## Implementation activation and exclusive expected write lease
 
-Re-fetch main and inspect open PRs/leases at dispatch. DOGFOOD still owns the controller and history-test presentation lease under #1007 head `65571f526df5eb69ab104bd49f3440c24ca676ef`; PRIME must explicitly record its release before implementation writes those paths. This docs PR grants no overlapping write permission.
+Re-fetch main and inspect open PRs/leases at dispatch. PRIME explicitly transferred the controller and history-test exclusive lease from idle DOGFOOD, whose #1007 head remains stable at `65571f526df5eb69ab104bd49f3440c24ca676ef`. Authority-doc merge is the remaining implementation activation gate.
 
-Preferred implementation base is then-current fetched main. If #1007 remains unmerged and its presentation code is required, PRIME must pin a stacked implementation parent at exactly `65571f526df5eb69ab104bd49f3440c24ca676ef`, record refreshed base/head, and merge #1007 before rebasing/merging RECOVERY. Do not silently consume the live UI/backend composition as a source base. If no presentation dependency exists, use main and name the released lease; serial RECOVERY authority/implementation order remains required.
+Implementation is explicitly stacked on that exact #1007 parent; its PR base is `codex/dogfood-plan-proposal-scope`. Integrate the landed handoff merge into the isolated stack without altering accepted #1007 UI. Preparation and owning tests may proceed before #1007 merges once this handoff lands. Merge order is operator-accepted #1007 first, then retarget RECOVERY to main and independently review the exact cumulative base→head diff. Do not silently consume the live UI/backend composition or a different parent as source authority. Pin the actual authority merge and isolated branch at activation; no runtime activation is granted.
 
 Closed candidate implementation set, activated only after these gates:
 
 - `src/application_state/agent_conversation/service.py`
-- `src/application_state/agent_conversation/types.py` only if needed for strict lookup outcome
+- `src/application_state/agent_conversation/types.py` for strict lookup outcome if needed
 - `apps/live_control_server/models/agent_turn.py`
 - `apps/live_control_server/routes/agent.py`
 - `apps/live-control-ui/src/api/types.ts`
@@ -51,7 +51,7 @@ Closed candidate implementation set, activated only after these gates:
 - `tests/application_state/test_agent_conversation_service.py`
 - `tests/application_state/test_agent_conversation_postgres.py`
 - `tests/test_agent_conversation_world_retry.py`
-- `tests/test_agent_turn_route.py` only for existing owning route fixtures
+- `tests/test_agent_turn_route.py`
 - `apps/live-control-ui/src/api/liveApi.worldConversation.test.ts`
 - `apps/live-control-ui/src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx`
 - This handoff for truthful activation/predecessor settlement only
