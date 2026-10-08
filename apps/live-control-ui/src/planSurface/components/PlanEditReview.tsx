@@ -1,4 +1,5 @@
-import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { parsePlayableHtmlComment } from "../../tiptap/playable/playableElementIdentity";
 import { MarkdownDocumentReader } from "../../markdownReader/MarkdownDocumentReader";
 import type { WorldPlanEditContextualPreview } from "../agentEdit/planAgentEditProposal";
 import "./PlanEditReview.css";
@@ -15,12 +16,37 @@ export interface PlanEditReviewProps {
   details?: ReactNode;
 }
 
+/** Derive display coordinates only; the controller's frozen source is never rewritten. */
+function changedSourceRanges(before: PlanEditReviewPreview, after: PlanEditReviewPreview) {
+  const oldLines = before.markdown.split("\n"), newLines = after.markdown.split("\n");
+  let prefix = 0;
+  while (prefix < oldLines.length && prefix < newLines.length && oldLines[prefix] === newLines[prefix]) prefix++;
+  let suffix = 0;
+  while (suffix < oldLines.length - prefix && suffix < newLines.length - prefix
+    && oldLines[oldLines.length - suffix - 1] === newLines[newLines.length - suffix - 1]) suffix++;
+  const target = (preview: PlanEditReviewPreview, lines: string[], end: number, side: string) => {
+    const changed = end > prefix;
+    if (prefix === oldLines.length && prefix === newLines.length) return { target: null, changed: false, unchanged: true };
+    let start = prefix;
+    if (!changed) {
+      // Pure insertions/deletions show their adjacent context on the unchanged side.
+      start = Math.min(prefix, lines.length - 1);
+      while (start < lines.length - 1 && (!lines[start].trim() || parsePlayableHtmlComment(lines[start]).status === "canonical")) start++;
+    }
+    return { target: { startLine: start + 1, endLine: changed ? end : start + 1,
+      targetKey: `${preview.sourceLineTarget?.targetKey ?? side}:change:${prefix}:${end}` }, changed, unchanged: false };
+  };
+  return { before: target(before, oldLines, oldLines.length - suffix, "before"),
+    after: target(after, newLines, newLines.length - suffix, "after") };
+}
+
 /** Presentation only: the owning controller supplies frozen Apply-equivalent previews and guarded actions. */
 export function PlanEditReview({ targetLabel, before, after, status, onApply, onDiscard, saveAction, details }: PlanEditReviewProps) {
   const id = useId();
   const [large, setLarge] = useState(false);
   const expand = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLElement>(null);
+  const changes = useMemo(() => changedSourceRanges(before, after), [before, after]);
   function restore() { setLarge(false); expand.current?.focus({ preventScroll: true }); }
   function keys(event: KeyboardEvent<HTMLElement>) {
     if (!large) return;
@@ -43,9 +69,9 @@ export function PlanEditReview({ targetLabel, before, after, status, onApply, on
       <button ref={expand} type="button" aria-expanded={large} onClick={() => setLarge(!large)}>{large ? "Restore inline review" : "Expand review"}</button>
     </header>
     <div className="plan-edit-review__comparison">
-      {([ ["Before", before], ["After", after] ] as const).map(([label, preview]) => <section key={label} aria-label={`${label} ${targetLabel}`} className="plan-edit-review__version">
-        <h5>{label}</h5>{preview.placementLabel && <p className="plan-edit-review__placement">{preview.placementLabel}</p>}
-        <MarkdownDocumentReader markdown={preview.markdown} sourceLineTarget={preview.sourceLineTarget} hidePlayableMarkers />
+      {([ ["Before", before, changes.before], ["After", after, changes.after] ] as const).map(([label, preview, change]) => <section key={label} aria-label={`${label} ${targetLabel}`} className="plan-edit-review__version" data-change-kind={change.unchanged ? "unchanged" : change.changed ? label === "Before" ? "removed" : "added" : "context"}>
+        <h5>{label} <span className="plan-edit-review__change-label">{change.unchanged ? "Unchanged" : change.changed ? label === "Before" ? "Removed / replaced" : "Added / replaced" : label === "Before" ? "Insertion point · no text removed" : "Deletion point · no text added"}</span></h5>{preview.placementLabel && <p className="plan-edit-review__placement">{preview.placementLabel}</p>}
+        <MarkdownDocumentReader markdown={preview.markdown} sourceLineTarget={change.target ? { ...change.target, targetKey: `${change.target.targetKey}:${large ? "expanded" : "inline"}` } : change.target} hidePlayableMarkers />
       </section>)}
     </div>
     {details && <details className="plan-edit-review__details"><summary>Details</summary>{details}</details>}

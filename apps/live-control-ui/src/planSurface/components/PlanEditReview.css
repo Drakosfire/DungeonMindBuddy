@@ -15,3 +15,13 @@
 .plan-edit-review__details { font-size:.85rem; color:var(--ui-text-secondary,#b8c3bf); }
 .plan-edit-review.is-large { position:fixed; inset:1rem; z-index:120; box-shadow:0 0 0 2rem #0009; }.plan-edit-review.is-large .plan-edit-review__comparison { flex:1; }
 @media(max-width:45rem) { .plan-edit-review__comparison { grid-template-columns:minmax(0,1fr); }.plan-edit-review__heading { flex-wrap:wrap; }.plan-edit-review.is-large { inset:.5rem; } }
+
+/* Scroll the comparison, keeping the target and guarded actions outside it. */
+.plan-edit-review__comparison { max-block-size: 22rem; }
+.plan-edit-review__heading, .plan-edit-review__actions { flex-shrink: 0; }
+.plan-edit-review__change-label { display: block; margin-block-start: .25rem; font-size: .75rem; font-weight: normal; }
+.plan-edit-review__version[data-change-kind="added"] [data-source-block="true"] { background: #d9e5cb; border-color: #597753; }
+.plan-edit-review__version[data-change-kind="removed"] [data-source-block="true"] { background: #f1d8cc; border-color: #9c5c44; }
+.plan-edit-review__version[data-change-kind="context"] [data-source-block="true"] { background: #e3e7e5; border-color: #71827e; }
+.plan-edit-review.is-large { overflow: hidden; }
+.plan-edit-review.is-large .plan-edit-review__comparison { max-block-size: none; }
