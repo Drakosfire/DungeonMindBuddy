@@ -29,11 +29,11 @@ dependencies = [
     "httpx>=0.27.0",
     "uvicorn>=0.30.0",
     "hermes-agent==0.18.2",
-    # Exact runtime pin: DungeonMind PR #85 native text/evidence admission,
-    # including empty-space initialization and persistent source receipts.
+    # Exact runtime pin: DungeonMind PR #100 locator-null withdrawal V2.
+    # Retains reviewed native evidence, source-index and V4 receipt surfaces.
     # The postgres extra carries the in-process PostgreSQL adapter
     # dependencies used by the DungeonMind-backed World Graph authority.
-    "dungeonmind[postgres] @ git+https://github.com/Drakosfire/DungeonMind.git@5d4e98963991995bdc280e57df52b8d0fe8de79e",
+    "dungeonmind[postgres] @ git+https://github.com/Drakosfire/DungeonMind.git@a501784f21aaafb46d7561f46397a3afdc42f125",
     # PLAY-1 consumer seam: reviewed WorldKeeper #8 V3-compatible head.
     "worldkeeper @ git+https://github.com/Drakosfire/WorldKeeper.git@49a8620f066ce7ef8972a699020c012f50af9158",
     # Exact pin: GenerationEngine PR #10 merge (E5L deterministic client cleanup).
@@ -83,7 +83,7 @@ hermes-agent = { path = "out/hermes-agent", editable = false }
 # WorldKeeper's pinned metadata names an older DungeonMind Git commit. Normalize
 # only that dependency name so this repository's exact direct source below is
 # selected consistently at the Buddy-owned DungeonMind pin above.
-dungeonmind = { git = "https://github.com/Drakosfire/DungeonMind.git", rev = "5d4e98963991995bdc280e57df52b8d0fe8de79e" }
+dungeonmind = { git = "https://github.com/Drakosfire/DungeonMind.git", rev = "a501784f21aaafb46d7561f46397a3afdc42f125" }
 
 # The pinned WorldKeeper release has one dependency, DungeonMind. Its package
 # metadata override drops the conflicting URL; tool.uv.sources above retains
