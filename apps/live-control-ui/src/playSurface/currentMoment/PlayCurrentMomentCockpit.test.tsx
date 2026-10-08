@@ -251,6 +251,7 @@ describe("PlayCurrentMomentCockpit", () => {
   });
 
   afterEach(() => {
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
@@ -454,6 +455,43 @@ describe("PlayCurrentMomentCockpit", () => {
     expect(screen.getByTestId("play-beat-context")).toHaveClass("is-collapsed");
     expect(screen.getByTestId("play-at-a-glance")).toHaveClass("is-collapsed");
     expect(screen.getByTestId("play-workspace-current")).toHaveTextContent("Tunnel unique body.");
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("keeps compact panel controls reachable and opens only one panel at a time", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("ResizeObserver", undefined);
+    vi.stubGlobal("matchMedia", vi.fn(() => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })));
+
+    render(
+      <Harness
+        initialRun={runRecord({
+          progress: progress({ current_scene_id: "scene:tunnel" }),
+        })}
+      />,
+    );
+
+    const shell = screen.getByTestId("play-cockpit-shell");
+    const scenes = screen.getByTestId("play-compact-outline-toggle");
+    const runRecordToggle = screen.getByTestId("play-compact-outcomes-toggle");
+    expect(scenes).toHaveAttribute("aria-expanded", "false");
+    expect(runRecordToggle).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(scenes);
+    expect(scenes).toHaveAttribute("aria-expanded", "true");
+    expect(runRecordToggle).toHaveAttribute("aria-expanded", "false");
+    expect(shell).toHaveAttribute("data-beat-collapsed", "false");
+    expect(shell).toHaveAttribute("data-glance-collapsed", "true");
+
+    await user.click(runRecordToggle);
+    expect(scenes).toHaveAttribute("aria-expanded", "false");
+    expect(runRecordToggle).toHaveAttribute("aria-expanded", "true");
+    expect(shell).toHaveAttribute("data-beat-collapsed", "true");
+    expect(shell).toHaveAttribute("data-glance-collapsed", "false");
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
   });
 
