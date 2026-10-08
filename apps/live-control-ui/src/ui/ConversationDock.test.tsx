@@ -18,6 +18,11 @@ function Fixture({ expanded = false, onExpandedChange = vi.fn() } = {}) {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("ConversationDock", () => {
+  it("allows the conversation to grow beyond the old half-screen ceiling", () => {
+    render(<ConversationDock reader={<p>Plan</p>} messages={<p>Conversation</p>} composer={<textarea aria-label="Message Buddy" />} expanded />);
+    expect(screen.getByRole("separator", { name: "Resize Buddy conversation" })).toHaveAttribute("aria-valuemax", "1440");
+  });
+
   it("follows external launcher state without replacing the reader, draft or message position", () => {
     const change = vi.fn();
     const props = {reader:<input aria-label="Retained reader" defaultValue="Plan" />, messages:<p>Answer</p>, composer:<input aria-label="Retained draft" defaultValue="Question" />, onExpandedChange:change};
