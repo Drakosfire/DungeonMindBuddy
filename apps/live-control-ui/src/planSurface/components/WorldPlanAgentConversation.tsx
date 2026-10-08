@@ -1714,6 +1714,10 @@ export function WorldPlanAgentConversation({
     } : null,
   });
   const [composerMessage, setComposerMessage] = useState("");
+  const composerEditGenerationRef = useRef(0);
+  function restoreSubmittedDraft(snapshot: string, generation: number) {
+    setComposerMessage((current) => current === "" && composerEditGenerationRef.current === generation ? snapshot : current);
+  }
   const [submittedMessage, setSubmittedMessage] = useState<{
     id: string; scopeKey: string; conversationId: string | null; pointerRevision: number | null;
     message: string; kind: "discuss" | "propose";
@@ -2382,7 +2386,7 @@ export function WorldPlanAgentConversation({
     setTraceVisible((current) => !current);
   }
 
-  async function sendPendingAsk(stored: StoredPendingAsk, initialDispatch = false, composerSnapshotAtSubmit?: string) {
+  async function sendPendingAsk(stored: StoredPendingAsk, initialDispatch = false, composerSnapshotAtSubmit?: string, composerGenerationAtSubmit?: number) {
     const envelope = stored.envelope;
     if (!envelope || !scopeMatches || verifiedWorldId !== envelope.origin.worldId
       || documentId !== envelope.origin.documentId || requestRef.current) return;
@@ -2463,8 +2467,13 @@ export function WorldPlanAgentConversation({
         confirmedAskNoticeRef.current = { stored, conversationId: validation.value.conversationId, answer: validation.value.answer, notice };
         setConversationNotice(notice);
       }
-      setComposerMessage((current) => composerSnapshotAtSubmit !== undefined && current === composerSnapshotAtSubmit ? "" : current);
     } catch (reason) {
+      if (isCurrent() && composerSnapshotAtSubmit !== undefined && composerGenerationAtSubmit !== undefined
+        && latestRef.current.presentationFenceKey === submittedPresentationFenceKey
+        && historySnapshotRef.current?.pointer_revision === envelope.origin.pointerRevision
+        && historySnapshotRef.current?.active_conversation_id === envelope.origin.conversationId) {
+        restoreSubmittedDraft(composerSnapshotAtSubmit, composerGenerationAtSubmit);
+      }
       const definitivePreDispatchFailure = envelope.request.plan_context_policy
         ? graphContextPreDispatchFailure(reason)
         : null;
@@ -2508,8 +2517,11 @@ export function WorldPlanAgentConversation({
     const startingFenceKey = requestFenceKey;
     const submittedClientThreadId = crypto.randomUUID();
     const submittedTurnId = crypto.randomUUID();
+    const composerGenerationAtSubmit = composerEditGenerationRef.current;
+    const submittedPresentationFenceKey = askPresentationFenceKey;
     setSubmittedMessage({ id: submittedTurnId, scopeKey, conversationId: pointerSnapshot.conversation_id,
       pointerRevision: pointerSnapshot.pointer_revision, message, kind: "discuss" });
+    setComposerMessage((current) => current === composerSnapshotAtSubmit ? "" : current);
     setSending(true);
     setError(null);
     setConversationNotice(null);
@@ -2596,9 +2608,10 @@ export function WorldPlanAgentConversation({
       refreshPendingAskList();
       requestRef.current = null;
       setSending(false);
-      await sendPendingAsk({ storageKey, serialized, envelope, error: null }, true, composerSnapshotAtSubmit);
+      await sendPendingAsk({ storageKey, serialized, envelope, error: null }, true, composerSnapshotAtSubmit, composerGenerationAtSubmit);
     } catch (reason) {
       if (requestRef.current?.token === preparationToken) {
+        if (latestRef.current.presentationFenceKey === submittedPresentationFenceKey) restoreSubmittedDraft(composerSnapshotAtSubmit, composerGenerationAtSubmit);
         requestRef.current = null;
         setSending(false);
         setError(reason instanceof Error ? reason.message : "The Ask could not be prepared.");
@@ -3071,8 +3084,10 @@ export function WorldPlanAgentConversation({
       return;
     }
     const submittedEditId = crypto.randomUUID();
+    const composerGenerationAtSubmit = composerEditGenerationRef.current;
     setSubmittedMessage({ id: submittedEditId, scopeKey, conversationId: historySnapshotRef.current?.conversation_id ?? null,
       pointerRevision: historySnapshotRef.current?.pointer_revision ?? null, message: instruction, kind: "propose" });
+    setComposerMessage((current) => current === composerSnapshotAtSubmit ? "" : current);
 
     const dispatchHistory = historySnapshotRef.current;
     const canAnchorProposal = !historyLoading && !historyError
@@ -3227,7 +3242,6 @@ export function WorldPlanAgentConversation({
       }
       editReviewRef.current = nextReview;
       setEditReview(nextReview);
-      setComposerMessage((current) => current === composerSnapshotAtSubmit ? "" : current);
       setComposerIntent("discuss");
       proposalIntentRef.current = null;
       void getWorldPlanDocumentEditActions(worldId, documentId)
@@ -3245,7 +3259,10 @@ export function WorldPlanAgentConversation({
         })
         .catch(() => undefined);
     } catch (reason) {
-      if (isCurrent()) setEditError(reason instanceof Error ? reason.message : "The Plan edit proposal failed. Try again.");
+      if (isCurrent()) {
+        restoreSubmittedDraft(composerSnapshotAtSubmit, composerGenerationAtSubmit);
+        setEditError(reason instanceof Error ? reason.message : "The Plan edit proposal failed. Try again.");
+      }
     } finally {
       if (isCurrent()) {
         proposalRequestRef.current = null;
@@ -3917,6 +3934,7 @@ export function WorldPlanAgentConversation({
           id="world-plan-agent-message"
           value={composerMessage}
           onChange={(event) => {
+            composerEditGenerationRef.current += 1;
             setComposerMessage(event.currentTarget.value);
             setComposerIntentCorrection(null);
             setError(null);

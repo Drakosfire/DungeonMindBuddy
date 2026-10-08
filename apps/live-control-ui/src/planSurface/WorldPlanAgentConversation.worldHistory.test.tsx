@@ -1346,6 +1346,40 @@ afterEach(() => {
 });
 
 describe("World Plan conversation consumer", () => {
+  it.each([
+    ["discuss", "original"], ["discuss", "newer"], ["discuss", "cleared"],
+    ["propose", "original"], ["propose", "newer"], ["propose", "cleared"],
+  ] as const)("clears accepted %s immediately and preserves %s draft after failure without resending", async (kind, draft) => {
+    setupApi(history("conversation-a", 4, []));
+    const captured = await capturedCardBodyEdit("Original body.\n");
+    const bridge = { capture: vi.fn(async () => captured), apply: vi.fn() };
+    let reject!: (reason: Error) => void;
+    const pending = new Promise<any>((_resolve, fail) => { reject = fail; });
+    const post = kind === "discuss"
+      ? vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockReturnValue(pending)
+      : vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockReturnValue(pending);
+    mountComponent(7, bridge);
+    await screen.findByText(/No messages yet/i);
+    const input = screen.getByLabelText("Message DungeonBuddy");
+    const raw = kind === "discuss" ? "  What follows?  " : "  Revise the opening.  ";
+    fireEvent.change(input, { target: { value: raw } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(input).toHaveValue("");
+    expect(screen.getAllByRole("article", { name: "Submitted message awaiting confirmation" })).toHaveLength(1);
+    expect(screen.getByRole("article", { name: "Submitted message awaiting confirmation" })).toHaveTextContent(raw.trim());
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+    if (draft !== "original") fireEvent.change(input, { target: { value: "Newer typed draft" } });
+    if (draft === "cleared") fireEvent.change(input, { target: { value: "" } });
+    await act(async () => reject(new Error("Transport failed")));
+    await screen.findByText(/Transport failed/);
+    expect(input).toHaveValue(draft === "original" ? raw : draft === "newer" ? "Newer typed draft" : "");
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(bridge.apply).not.toHaveBeenCalled();
+    if (kind === "discuss") {
+      const envelope = JSON.parse(localStorage.getItem(pendingAskKeys()[0]!)!);
+      expect(envelope.request.message).toBe(raw.trim());
+    }
+  });
   it("isolates an old Apply rejection from a newer review and its in-flight Apply", async () => {
     setupApi(history("conversation-a", 4, []));
     const captured = await capturedCardBodyEdit("Original body.\n");
@@ -1461,6 +1495,7 @@ describe("World Plan conversation consumer", () => {
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "What happens next?" } });
     fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
     expect(screen.getByRole("article", { name: "Submitted message awaiting confirmation" })).toHaveTextContent("What happens next?");
+    expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("");
     expect(post).not.toHaveBeenCalled();
     await act(async () => release(committedRevision()));
     await screen.findByText("Durable reply");
@@ -1480,6 +1515,7 @@ describe("World Plan conversation consumer", () => {
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the opening." } });
     fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
     expect(screen.getByRole("article", { name: "Submitted message awaiting confirmation" })).toHaveTextContent("Revise the opening.");
+    expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("");
     await act(async () => releaseCapture(captured));
     await screen.findByRole("region", { name: "Review proposed Plan edit" });
     expect(screen.queryByRole("article", { name: "Submitted message awaiting confirmation" })).not.toBeInTheDocument();
@@ -1813,7 +1849,7 @@ describe("World Plan conversation consumer", () => {
       .toHaveClass("world-plan-agent-conversation__message--assistant");
   });
 
-  it("preserves a newer draft when the previous Ask completes", async () => {
+  it.each(["A newer draft", "First question"])("preserves newly typed %s when the previous Ask completes", async (newDraft) => {
     const api = setupApi(history("conversation-a", 4, []));
     let releaseResponse: ((response: any) => void) | null = null;
     const response = new Promise<any>((resolve) => { releaseResponse = resolve; });
@@ -1825,7 +1861,8 @@ describe("World Plan conversation consumer", () => {
     fireEvent.change(textarea, { target: { value: "First question" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     await waitFor(() => expect(postAsk).toHaveBeenCalledTimes(1));
-    fireEvent.change(textarea, { target: { value: "A newer draft" } });
+    expect(textarea).toHaveValue("");
+    fireEvent.change(textarea, { target: { value: newDraft } });
 
     const request = postAsk.mock.calls[0]![0];
     api.setCurrent(history("conversation-a", 5, [historyTurnForAsk(request, "The answer arrives.")]));
@@ -1834,7 +1871,7 @@ describe("World Plan conversation consumer", () => {
       await response;
     });
     expect(await screen.findByText("The answer arrives.")).toBeInTheDocument();
-    expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("A newer draft");
+    expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue(newDraft);
   });
 
   it("mounts the exact SERVER history projection and renders its validated citation", async () => {
@@ -4140,7 +4177,7 @@ describe("World Plan conversation consumer", () => {
     expect(bridge.apply).not.toHaveBeenCalled();
   });
 
-  it("preserves a newer draft when a pending proposal succeeds", async () => {
+  it.each(["A newer proposal draft", "Revise this excerpt"])("preserves newly typed %s when a pending proposal succeeds", async (newDraft) => {
     setupApi(history("conversation-a", 4, []));
     const captured = await capturedCardBodyEdit("The old arrival prose.\n");
     const bridge = {
@@ -4163,14 +4200,15 @@ describe("World Plan conversation consumer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
     await waitFor(() => expect(proposalRequest).toHaveBeenCalledTimes(1));
     expect(textarea).toBeDisabled();
-    fireEvent.change(textarea, { target: { value: "A newer proposal draft" } });
+    expect(textarea).toHaveValue("");
+    fireEvent.change(textarea, { target: { value: newDraft } });
 
     await act(async () => {
       releaseProposal?.();
       await pending;
     });
     expect(await screen.findByRole("region", { name: "Review proposed Plan edit" })).toBeInTheDocument();
-    expect(textarea).toHaveValue("A newer proposal draft");
+    expect(textarea).toHaveValue(newDraft);
   });
 
   it.each(["missing", "request-mismatch"] as const)(
