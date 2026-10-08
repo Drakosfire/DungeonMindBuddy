@@ -13,6 +13,7 @@ Bring the current-moment Play surface closer to the table-tested prototype: a sc
 ## Product invariants
 
 - The scene card remains the primary workspace, with its paper treatment and authored content preserved.
+- The active Scene keeps its parent Beat’s authored prose, kind, and resolved/in-progress state available in a compact read-only disclosure. Inspecting a Scene in another Beat shows the authoritative Run Beat/Scene separately from the viewed Beat/Scene and that Beat’s context.
 - Avoid repeating the current Beat/Scene in a separate status strip; the grouped outline marks the current position and the card names its Scene.
 - The left outline groups all admitted Beats and their Scenes. It highlights the authoritative current Scene and separately indicates a transiently inspected Scene.
 - The outline is the single scene navigator; do not add a duplicate scene-list launcher or inventory step. Selecting an outline Scene is inspection only. The card clearly identifies inspection and shows the authoritative current Beat/Scene. **Make current** is explicit and writes the target Scene’s Beat and ID through the existing progress CAS, preserving decisions, resolved Beats, and notes.
@@ -37,7 +38,7 @@ No other paths are in the lease.
 
 ## Verification
 
-- Unit/component tests prove inspection is transient across Beats, Make current uses exact Beat/Scene IDs and preserves unrelated Run progress, and the outcome panel reflects persisted choices/notes without writes.
+- Unit/component tests prove Beat context remains available on active and cross-Beat inspection, inspection is transient across Beats, Make current uses exact Beat/Scene IDs and preserves unrelated Run progress, and the outcome panel reflects persisted choices/notes without writes.
 - Run the focused current-moment cockpit tests and the UI production build.
 - Render the story at desktop, tablet/narrow panel, and phone widths; inspect screenshots for clipping, scene-card prominence, and rail behavior.
 - Review exact cumulative `main@12134e7` → PR head diff and report verification limits.

@@ -11,6 +11,7 @@ import type { AnyPlayRunRecord, PlayRunProgress, WorldPlayRunRecordV2 } from "..
 import { ReadOnlyBodyContent } from "../../markdownReader/ReadOnlyBodyContent";
 import {
   canonicalizePlayRunProgress,
+  type NativeRunbookBeatV2,
   type NativeRunbookChoiceV2,
   type NativeRunbookReadyV2,
   type NativeRunbookSceneV2,
@@ -20,7 +21,7 @@ import {
   resolveCurrentMoment,
   type PlayWorkspace,
 } from "./currentMomentModel";
-import { PlayRecordedOutcomes, PlaySceneOutline, sceneInAnyBeat } from "./PlayCockpitPanels";
+import { beatForScene, PlayRecordedOutcomes, PlaySceneOutline, sceneInAnyBeat } from "./PlayCockpitPanels";
 import {
   choiceBranchRelevance,
   operableDecisions,
@@ -289,6 +290,38 @@ function DecisionBlock({
   );
 }
 
+function BeatContext({
+  beat,
+  resolved,
+  relation,
+}: {
+  beat: NativeRunbookBeatV2;
+  resolved: boolean;
+  relation: "Current Beat" | "Viewing Beat";
+}) {
+  return (
+    <details
+      className="play-beat-context"
+      data-testid="play-beat-context-disclosure"
+      data-beat-id={beat.id}
+      data-beat-resolved={resolved ? "true" : "false"}
+    >
+      <summary>
+        <span>{relation}</span>
+        <strong>{beat.title}</strong>
+        <span className="play-beat-context-state">
+          {beat.beatKind ? `${beat.beatKind} · ` : ""}{resolved ? "Resolved" : "In progress"}
+        </span>
+      </summary>
+      <ReadOnlyBodyContent
+        content={beat.bodyContent}
+        fallbackText={beat.bodyText}
+        className="play-body play-beat-context-body"
+      />
+    </details>
+  );
+}
+
 export function PlayCurrentMomentCockpit({
   deck,
   mutationStatus,
@@ -362,6 +395,9 @@ export function PlayCurrentMomentCockpit({
   const currentScene = moment.status === "ok" ? moment.scene : null;
   const inspectedScene = workspace.kind === "scene-inspect"
     ? sceneInAnyBeat(deck, workspace.sceneId)
+    : null;
+  const inspectedBeat = workspace.kind === "scene-inspect"
+    ? beatForScene(deck, workspace.sceneId)
     : null;
   const worldOwnedRun = run.schema_version === "dmb_world_play_run_record_v2";
   const sceneNoteId = worldOwnedRun ? currentScene?.id ?? null : null;
@@ -724,6 +760,11 @@ export function PlayCurrentMomentCockpit({
             >
               <p className="play-kicker">Current Scene</p>
               <h2 id="play-workspace-heading">{currentScene.title}</h2>
+              <BeatContext
+                beat={currentBeat}
+                resolved={run.progress.resolved_beat_ids.includes(currentBeat.id)}
+                relation="Current Beat"
+              />
               <ReadOnlyBodyContent
                 content={currentScene.bodyContent}
                 fallbackText={currentScene.bodyText}
@@ -860,10 +901,19 @@ export function PlayCurrentMomentCockpit({
                   ? inspectedScene.title
                   : `Inspecting ${inspectedScene.title}`}
               </h2>
-              <p data-testid="play-inspect-current">
-                Current: {currentScene ? currentScene.title : currentBeat.title}
+              <p className="play-inspect-position" data-testid="play-inspect-current">
+                Run position: {currentBeat.title} · {currentScene?.title ?? "No current Scene"}
               </p>
-              <p data-testid="play-inspect-scene">Inspecting: {inspectedScene.title}</p>
+              <p className="play-inspect-position" data-testid="play-inspect-scene">
+                Viewing: {inspectedBeat?.title ?? "Unknown Beat"} · {inspectedScene.title}
+              </p>
+              {inspectedBeat ? (
+                <BeatContext
+                  beat={inspectedBeat}
+                  resolved={run.progress.resolved_beat_ids.includes(inspectedBeat.id)}
+                  relation="Viewing Beat"
+                />
+              ) : null}
               <div className="play-controls">
                 <button type="button" data-testid="play-workspace-back" onClick={closeToCurrent}>
                   Back

@@ -14,6 +14,10 @@ export function sceneInAnyBeat(deck: NativeRunbookReadyV2, sceneId: string): Nat
   return null;
 }
 
+export function beatForScene(deck: NativeRunbookReadyV2, sceneId: string): NativeRunbookReadyV2["beats"][number] | null {
+  return deck.beats.find((beat) => beat.scenes.some((scene) => scene.id === sceneId)) ?? null;
+}
+
 export function PlaySceneOutline({
   deck,
   currentSceneId,
@@ -139,16 +143,16 @@ export function PlayRecordedOutcomes({
         data-testid="play-at-a-glance-toggle"
         aria-expanded={!collapsed}
         aria-controls="play-recorded-outcomes-body"
-        aria-label={`${collapsed ? "Expand" : "Collapse"} Recorded outcomes`}
+        aria-label={`${collapsed ? "Expand" : "Collapse"} saved choices and notes`}
         onClick={onToggle}
       >
-        {collapsed ? "Outcomes" : "Recorded outcomes"}
+        {collapsed ? "Run notes" : "Saved choices & notes"}
       </button>
       {collapsed ? null : (
         <div id="play-recorded-outcomes-body" className="play-rail-body" data-testid="play-recorded-outcomes-body">
-          <p className="play-outcomes-caveat">Saved direction in this Run</p>
+          <p className="play-outcomes-caveat">Current selections and notes in this Run</p>
           <section aria-labelledby="play-recorded-decisions-heading">
-            <h2 id="play-recorded-decisions-heading">Player choices</h2>
+            <h2 id="play-recorded-decisions-heading">Saved choices</h2>
             {decisions.length === 0 ? (
               <p className="play-muted" data-testid="play-recorded-choices-empty">No choices recorded yet.</p>
             ) : (
