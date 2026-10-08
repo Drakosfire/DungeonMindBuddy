@@ -2,7 +2,7 @@
 
 **Created:** 2026-10-08
 
-**Status:** ACTIVE-CODE-PREPARATION / EXECUTION-HOLD
+**Status:** CODE-PREPARATION COMPLETE / EXECUTION-HOLD
 
 **Canonical handoff path:** `Docs/Plans/HANDOFF-MIND-full-corpus-durable-replay-v1.md`
 
@@ -16,7 +16,7 @@
 
 **PR topology:** serial
 
-**Activation gate:** this authority PR must merge to current `main` and be re-read before endpoint implementation. No endpoint code changes are authorized while this file exists only on a PR branch.
+**Code-preparation activation gate:** satisfied by authority #1031 merge `3c8ad79a2008a20b75bd7d8791d139ad1404c75b`; endpoint implementation #1032 is now merged. A new exact execution lease is still required before any replay or storage write.
 
 **Dispatch base rule:** fresh current `main` containing this handoff; record the exact dispatch base and reconfirm path ownership.
 
@@ -24,6 +24,14 @@
 **Implementation PR title:** `MIND: pin isolated full-corpus replay endpoint`
 
 This is a new authority contract, not a revival of an old replay lease. The operator's full-graph reuse/replacement goal and PRIME's explicit bounded adoption authorize code preparation only. The authority PR is a steward-designated design exception under `AGENTS.md`; its sole changed path is this file. Repository operating law and `Docs/Process/STEWARD-CYCLE.md` continue to govern dispatch and review.
+
+### Completed code-preparation checkpoint — 2026-10-08
+
+Endpoint PR #1032 reviewed implementation head `9aab67aeef92a316c4b0dd2d4aa0196ab746fb80` merged as `f687ecef54dd508e3fdff0c85cba21792bfa3b7f`. Final runner SHA-256: `c0d9e3c26e016d6784bd03a9cbebad0d9ba446c004aa42a6c67c050b5e4ef54e`.
+
+The source invariant is delivered: exact host/port/database path, rejection of query/service/host-address redirects, and guard enforcement before every entry point's database seams. Independent review found that leading-slash normalization admitted a different libpq database; the final repair requires exact raw `parsed.path` and tests raw/encoded slash cases across all four entry points. Author-local full replay cohort on the prior head: 149 passed under installed Core `a501784f21aaafb46d7561f46397a3afdc42f125`. Final repair head: 139 focused guard tests passed, 20 unchanged tests deselected; inherited Pydantic schema-shadow warning only. These are author-local synthetic results, not replay or product-readiness evidence. Canonical PR fetch confirmed exactly the two leased paths and passing allowlist/denylist checks.
+
+The §4 code-preparation lease is released. No implementation successor or runtime write is dispatched by this completed handoff. PRIME owns a separately reviewed concrete isolated execution contract; storage/replay/migration/provider/live-binding/deletion all remain HOLD. The agreed full selected-World corpus, including Session 28 and relevant worldbuilding, must be accounted for before readiness claims or operator journey/provider QA under DungeonOverMind #35 merge `cfb9cd821fa48d2f1ecc0f6e5eb510e0002f7aad`. The frozen 44 sessions alone are not full current World integration.
 
 ## §1 Mission and merge-ready invariant
 
@@ -63,7 +71,7 @@ This capability does not execute replay, reserve storage, prove a completed grap
 
 ## §4 Files in scope — write lease
 
-This authority PR may create only this handoff. After its merge and re-anchor, ACTIVE-CODE-PREPARATION leases exactly the following two implementation paths to MIND; it gives no runtime/data-write lease.
+This authority PR originally created only this handoff. The following two-path CODE-PREPARATION lease delivered #1032 and is now released; it gives no further source or runtime/data-write authority. Retain the table as the completed implementation's diff contract, not an active reservation.
 
 | Action | Path | Purpose |
 |---|---|---|
