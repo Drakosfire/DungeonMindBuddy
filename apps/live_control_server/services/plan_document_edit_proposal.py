@@ -128,7 +128,9 @@ def _resolve_model() -> str:
         raise PlanDocumentEditProposalError(
             "model_policy_unavailable", "Structured-generation model policy is unavailable.", status_code=503
         )
-    role = actions.get("structured_generation")
+    role = actions.get(
+        "hermes_graph_agent" if "hermes_graph_agent" in actions else "structured_generation"
+    )
     model = models.get(role) if isinstance(role, str) else None
     if not isinstance(model, str) or not model.strip():
         raise PlanDocumentEditProposalError(
