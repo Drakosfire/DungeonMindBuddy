@@ -710,50 +710,6 @@ export function PlayCurrentMomentCockpit({
         data-beat-collapsed={beatCollapsed ? "true" : "false"}
         data-glance-collapsed={glanceCollapsed ? "true" : "false"}
       >
-        <aside
-          className={`play-cockpit-rail play-beat-context${beatCollapsed ? " is-collapsed" : ""}`}
-          data-testid="play-beat-context"
-        >
-          <button
-            type="button"
-            className="play-rail-toggle"
-            data-testid="play-beat-context-toggle"
-            aria-expanded={!beatCollapsed}
-            aria-controls="play-beat-context-body"
-            aria-label={
-              currentBeat
-                ? `${beatCollapsed ? "Expand" : "Collapse"} Beat Context: ${currentBeat.title}`
-                : undefined
-            }
-            onClick={() => setBeatCollapsed((current) => !current)}
-          >
-            Beat Context
-            {!beatCollapsed && currentBeat ? `: ${currentBeat.title}` : ""}
-          </button>
-          {beatCollapsed ? null : (
-            <div id="play-beat-context-body" className="play-rail-body">
-              {currentBeat ? (
-                <>
-                  <h2 data-testid="play-beat-context-title">{currentBeat.title}</h2>
-                  {currentBeat.beatKind ? (
-                    <p className="play-muted">{currentBeat.beatKind}</p>
-                  ) : null}
-                  {run.progress.resolved_beat_ids.includes(currentBeat.id) ? (
-                    <p className="play-muted">resolved</p>
-                  ) : null}
-                  <ReadOnlyBodyContent
-                    content={currentBeat.bodyContent}
-                    fallbackText={currentBeat.bodyText}
-                    className="play-body"
-                  />
-                </>
-              ) : (
-                <p className="play-muted">Current Beat is unavailable.</p>
-              )}
-            </div>
-          )}
-        </aside>
-
         <div
           className="play-cockpit-center"
           data-testid="play-central-workspace"
@@ -983,6 +939,50 @@ export function PlayCurrentMomentCockpit({
             </article>
           ) : null}
         </div>
+
+        <aside
+          className={`play-cockpit-rail play-beat-context${beatCollapsed ? " is-collapsed" : ""}`}
+          data-testid="play-beat-context"
+        >
+          <button
+            type="button"
+            className="play-rail-toggle"
+            data-testid="play-beat-context-toggle"
+            aria-expanded={!beatCollapsed}
+            aria-controls="play-beat-context-body"
+            aria-label={
+              currentBeat
+                ? `${beatCollapsed ? "Expand" : "Collapse"} Beat Context: ${currentBeat.title}`
+                : undefined
+            }
+            onClick={() => setBeatCollapsed((current) => !current)}
+          >
+            Beat Context
+            {!beatCollapsed && currentBeat ? `: ${currentBeat.title}` : ""}
+          </button>
+          {beatCollapsed ? null : (
+            <div id="play-beat-context-body" className="play-rail-body">
+              {currentBeat ? (
+                <>
+                  <h2 data-testid="play-beat-context-title">{currentBeat.title}</h2>
+                  {currentBeat.beatKind ? (
+                    <p className="play-muted">{currentBeat.beatKind}</p>
+                  ) : null}
+                  {run.progress.resolved_beat_ids.includes(currentBeat.id) ? (
+                    <p className="play-muted">resolved</p>
+                  ) : null}
+                  <ReadOnlyBodyContent
+                    content={currentBeat.bodyContent}
+                    fallbackText={currentBeat.bodyText}
+                    className="play-body"
+                  />
+                </>
+              ) : (
+                <p className="play-muted">Current Beat is unavailable.</p>
+              )}
+            </div>
+          )}
+        </aside>
 
         <aside
           className={`play-cockpit-rail play-at-a-glance${glanceCollapsed ? " is-collapsed" : ""}`}

@@ -3,6 +3,15 @@
   max-width: min(1440px, calc(100% - 2rem));
 }
 
+@media (max-width: 40rem) {
+  .app-wrap:has(.play-surface),
+  .app-wrap:has(.play-chooser) {
+    max-width: 100%;
+    margin-inline: 0;
+    padding-inline: 0;
+  }
+}
+
 .play-surface,
 .play-chooser,
 .play-status {
@@ -526,6 +535,7 @@
   --play-glance-rail: minmax(8.5rem, 12rem);
   display: grid;
   grid-template-columns: var(--play-beat-rail) minmax(0, 1fr) var(--play-glance-rail);
+  grid-template-areas: "beat center glance";
   gap: 0.85rem;
   align-items: start;
 }
@@ -545,6 +555,18 @@
   border-radius: 0.5rem;
   background: var(--play-surface);
   color: var(--play-muted);
+}
+
+.play-beat-context {
+  grid-area: beat;
+}
+
+.play-cockpit-center {
+  grid-area: center;
+}
+
+.play-at-a-glance {
+  grid-area: glance;
 }
 
 .play-cockpit-rail.is-collapsed {
@@ -902,18 +924,10 @@
   .play-cockpit-shell[data-beat-collapsed="true"],
   .play-cockpit-shell[data-glance-collapsed="true"] {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .play-cockpit-center {
-    order: -1;
-  }
-
-  .play-beat-context {
-    order: 0;
-  }
-
-  .play-at-a-glance {
-    order: 1;
+    grid-template-areas:
+      "center"
+      "beat"
+      "glance";
   }
 
   .play-cockpit-rail.is-collapsed {
