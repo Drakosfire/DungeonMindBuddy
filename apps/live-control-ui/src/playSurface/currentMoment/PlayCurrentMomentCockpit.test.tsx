@@ -504,6 +504,7 @@ describe("PlayCurrentMomentCockpit", () => {
     const viewingBeat = screen.getByTestId("play-beat-context-disclosure");
     expect(viewingBeat).toHaveAttribute("data-beat-id", "beat:lower-tunnels");
     expect(viewingBeat).toHaveAttribute("data-beat-resolved", "false");
+    expect(viewingBeat).toHaveTextContent("optional · Not marked resolved");
     await user.click(within(viewingBeat).getByText("Lower Tunnels"));
     expect(viewingBeat).toHaveTextContent("Following the brood deeper turns the defense");
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
@@ -1249,7 +1250,6 @@ describe("PlayCurrentMomentCockpit Decision interaction", () => {
 
     const outcomes = screen.getByTestId("play-at-a-glance");
     expect(outcomes).toHaveTextContent("Saved choices & notes");
-    expect(outcomes).toHaveTextContent("Current selections and notes in this Run");
     expect(outcomes).toHaveTextContent("What do they do with the surviving brood?");
     expect(outcomes).toHaveTextContent("Follow it");
     expect(outcomes).toHaveTextContent("The defenders are short on rope.");

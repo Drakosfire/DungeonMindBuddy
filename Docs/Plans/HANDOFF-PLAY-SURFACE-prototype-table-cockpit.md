@@ -13,7 +13,7 @@ Bring the current-moment Play surface closer to the table-tested prototype: a sc
 ## Product invariants
 
 - The scene card remains the primary workspace, with its paper treatment and authored content preserved.
-- The active Scene keeps its parent Beat’s authored prose, kind, and resolved/in-progress state available in a compact read-only disclosure. Inspecting a Scene in another Beat shows the authoritative Run Beat/Scene separately from the viewed Beat/Scene and that Beat’s context.
+- The active Scene keeps its parent Beat’s authored prose, kind, and resolved/not-marked-resolved state available in a compact read-only disclosure. Inspecting a Scene in another Beat shows the authoritative Run Beat/Scene separately from the viewed Beat/Scene and that Beat’s context.
 - Avoid repeating the current Beat/Scene in a separate status strip; the grouped outline marks the current position and the card names its Scene.
 - The left outline groups all admitted Beats and their Scenes. It highlights the authoritative current Scene and separately indicates a transiently inspected Scene.
 - The outline is the single scene navigator; do not add a duplicate scene-list launcher or inventory step. Selecting an outline Scene is inspection only. The card clearly identifies inspection and shows the authoritative current Beat/Scene. **Make current** is explicit and writes the target Scene’s Beat and ID through the existing progress CAS, preserving decisions, resolved Beats, and notes.

@@ -310,7 +310,7 @@ function BeatContext({
         <span>{relation}</span>
         <strong>{beat.title}</strong>
         <span className="play-beat-context-state">
-          {beat.beatKind ? `${beat.beatKind} · ` : ""}{resolved ? "Resolved" : "In progress"}
+          {beat.beatKind ? `${beat.beatKind} · ` : ""}{resolved ? "Resolved" : "Not marked resolved"}
         </span>
       </summary>
       <ReadOnlyBodyContent
