@@ -524,7 +524,7 @@ function parsePlanWorldGraphContextFailure(
 function canRetryLocalSessionRequest(path: string, init?: RequestInit): boolean {
   const method = (init?.method ?? "GET").toUpperCase();
   if (method === "GET" || method === "HEAD") return true;
-  if (typeof init?.body !== "string") return false;
+  if (method !== "POST" || typeof init?.body !== "string") return false;
   const pathname = path.split("?", 1)[0];
   const body = requestBodyRecord(init.body);
   if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/new$/.test(pathname)) {
@@ -539,7 +539,8 @@ function canRetryLocalSessionRequest(path: string, init?: RequestInit): boolean 
   return pathname === "/api/live/world-graph/projection"
     || pathname === "/api/live/world-graph/managed-projection"
     || pathname === "/api/live/world-graph/recap-projection"
-    || pathname.startsWith("/api/live/world-graph/retrieval/")
+    || ["search", "object", "complete-object", "neighborhood", "evidence", "source-anchor/read"]
+      .some((read) => pathname === `/api/live/world-graph/retrieval/${read}`)
     || pathname === "/api/live/threats/query-hydration"
     || /^\/api\/live\/threat-drafts\/[^/]+\/publication-operations\/[^/]+\/identity-candidates\/prepare$/.test(pathname);
 }
@@ -556,7 +557,8 @@ async function trustedLocalSessionRejection(response: Response): Promise<boolean
   }
 }
 
-async function authenticatedApiFetch(path: string, init?: RequestInit): Promise<{
+/** @internal Shared transport for API wrappers and transport-boundary verification. */
+export async function authenticatedApiFetch(path: string, init?: RequestInit): Promise<{
   response: Response; csrf: string | null; requestEpoch: number;
 }> {
   const target = apiRequestTarget(path, init?.body);

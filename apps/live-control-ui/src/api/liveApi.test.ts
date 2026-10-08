@@ -3484,3 +3484,22 @@ it("renews auth but never replays an uncorrelated unsafe turn", async () => {
   expect(fetchSpy).toHaveBeenCalledTimes(3);
   vi.restoreAllMocks(); vi.unstubAllEnvs();
 });
+
+
+it.each([
+  ["/api/live/world-graph/retrieval/unknown-write", "POST"],
+  ["/api/live/world-graph/retrieval/complete-object", "PATCH"],
+  ["/api/live/agent/worlds/world-a/conversation/new", "PUT"],
+])("renews but never replays unsupported %s %s", async (path, method) => {
+  const api = await importLiveApiForBaseUrl("");
+  const fetchSpy = vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "old" }))
+    .mockResolvedValueOnce(Response.json({ detail: { code: "graph_auth_required" } }, { status: 401 }))
+    .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "new" }));
+  const body = JSON.stringify({ command_id: "fixed", expected_pointer_revision: 4, expected_active_conversation_id: null });
+  const result = await api.authenticatedApiFetch(path, { method, body });
+  expect(result.response.status).toBe(401);
+  expect(fetchSpy.mock.calls.filter(([url]) => String(url) === path)).toHaveLength(1);
+  expect(fetchSpy).toHaveBeenCalledTimes(3);
+  vi.restoreAllMocks(); vi.unstubAllEnvs();
+});
