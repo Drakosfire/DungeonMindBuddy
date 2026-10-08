@@ -39,6 +39,8 @@ from apps.live_control_server.models.world_graph_contributions import (
 from apps.live_control_server.models.world_graph_identity_models import IdentityCandidate
 from apps.live_control_server.models.world_graph_mutation_context import (
     WorldGraphMutationContext,
+    MutationObject,
+    _norm_kind,
     classify_edge_against_parent,
     durable_relationship_id,
     endpoint_available,
@@ -235,6 +237,53 @@ def _infer_object_kind(
     return base
 
 
+def _known_party_anchor(
+    node: CandidateNode,
+    context: WorldGraphMutationContext,
+    *,
+    world_id: str,
+) -> MutationObject | None:
+    """Bind a party reference by its exact normalized ID, never its label alone."""
+    ref = node.corpus_ref
+    party_reference = ref is not None and ref.type in {"pc", "npc"}
+    if not (party_reference or (node.node_type == "character" and node.proposed_action == "anchor")):
+        return None
+    if node.node_type != "character":
+        raise CandidateGraphMappingError("known party reference requires character node type")
+    if context.world_id != world_id:
+        raise CandidateGraphMappingError("known party anchor requires its pinned World")
+    if ref is None or ref.type not in {"pc", "npc"} or ref.resolution != "resolved":
+        raise CandidateGraphMappingError("known party anchor requires a resolved PC/NPC corpus reference")
+    reference_key = ir.corpus_ref_identity(node)
+    if reference_key is None or not reference_key[1]:
+        raise CandidateGraphMappingError("known party anchor reference ID is missing")
+    matches = []
+    for object_id, obj in context.objects.items():
+        namespace, separator, identifier = object_id.partition(":")
+        if not separator or namespace not in {"pc", "npc", "node"}:
+            continue
+        key = ir.corpus_ref_identity({"corpus_ref": {"type": ref.type, "ref_id": identifier}})
+        if key == reference_key:
+            matches.append((object_id, obj))
+    if len(matches) != 1:
+        raise CandidateGraphMappingError("known party anchor reference must identify exactly one pinned object")
+    object_id, target = matches[0]
+    if (
+        target.object_id != object_id
+        or object_id in context.identity_redirects
+        or target.canon_state != "canonical"
+        or target.memory_state in {"merged_away", "rejected"}
+    ):
+        raise CandidateGraphMappingError("known party anchor target is not active canonical identity")
+    expected_kind = "player_character" if ref.type == "pc" else "npc"
+    if _norm_kind(target.kind) != expected_kind:
+        raise CandidateGraphMappingError("known party anchor reference kind does not match its pinned object")
+    terms = {ir.normalize_label(target.label), *(ir.normalize_label(alias) for alias in target.aliases)}
+    if not ir.normalize_label(node.label) or ir.normalize_label(node.label) not in terms:
+        raise CandidateGraphMappingError("known party anchor label does not match its referenced identity")
+    return target
+
+
 def _durable_node_id(resolution: Any, extract_node_id: str) -> str | None:
     outcome = resolution.outcome
     if outcome == "resolved_existing":
@@ -350,7 +399,11 @@ def gate_candidate_graph_against_head(
         extract_id = node.node_id
         label = node.label or extract_id
         node_aliases = _candidate_aliases(node)
-        object_kind = _infer_object_kind(node, mutation_context)
+        known_anchor = _known_party_anchor(node, mutation_context, world_id=world_id)
+        object_kind = (
+            known_anchor.kind if known_anchor is not None
+            else _infer_object_kind(node, mutation_context)
+        )
         evidence_refs = [
             str(ref.source_span_ref_id or "")
             for ref in node.evidence_refs
@@ -365,11 +418,16 @@ def gate_candidate_graph_against_head(
             evidence_ref_ids=evidence_refs,
             campaign_scope=scope,
             source_artifact_id=artifact_id,
-            proposed_node_id=extract_id,
+            proposed_node_id=known_anchor.object_id if known_anchor is not None else extract_id,
         )
         resolution = resolve_identity_against_context(
             mutation_context, identity_candidate
         )
+        if known_anchor is not None and (
+            resolution.outcome not in _CONNECT_EXISTING_OUTCOMES
+            or resolution.target_node_id != known_anchor.object_id
+        ):
+            raise CandidateGraphMappingError("known party anchor resolution changed its verified pinned identity")
         identity_outcome_snapshot[extract_id] = resolution.outcome
         diagnostics.append(
             f"identity:{extract_id}:{resolution.outcome}:{resolution.target_node_id or resolution.created_node_id or resolution.provisional_node_id}"
@@ -452,6 +510,7 @@ def gate_candidate_graph_against_head(
                     source_uri=source_uri,
                     identity_resolution_outcome=resolution.outcome,
                     alias_owners=mutation_context.alias_owner_map(),
+                    kind_override=known_anchor.kind if known_anchor is not None else None,
                 )
             )
             accepted_proposals.extend(support_assertions)
