@@ -1860,10 +1860,21 @@ describe("World Plan conversation consumer", () => {
     const messageHost = document.createElement("div");
     const composerHost = document.createElement("div");
     const contextHost = document.createElement("div");
+    const refreshedContextHost = document.createElement("div");
+    let nextFrameId = 0;
+    const pendingFrames = new Map<number, FrameRequestCallback>();
+    const requestFrame = vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      const frameId = ++nextFrameId;
+      pendingFrames.set(frameId, callback);
+      return frameId;
+    });
+    const cancelFrame = vi.spyOn(window, "cancelAnimationFrame").mockImplementation((frameId) => {
+      pendingFrames.delete(frameId);
+    });
     viewport.append(messageHost);
     document.body.append(viewport, composerHost, contextHost);
 
-    render(conversationElement({
+    const { rerender } = render(conversationElement({
       presentationHosts: { header: null, context: contextHost, messages: messageHost, composer: composerHost },
     }));
 
@@ -1875,9 +1886,46 @@ describe("World Plan conversation consumer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
     expect(await screen.findByText("Second answer")).toBeInTheDocument();
+    await waitFor(() => expect(requestFrame).toHaveBeenCalledTimes(1));
+    const canceledFrameId = [...pendingFrames.keys()][0]!;
+    rerender(conversationElement({
+      presentationHosts: { header: null, context: refreshedContextHost, messages: messageHost, composer: composerHost },
+    }));
+    await waitFor(() => expect(requestFrame).toHaveBeenCalledTimes(2));
+    expect(cancelFrame).toHaveBeenCalledWith(canceledFrameId);
+    const [latestFrameId, latestFrame] = [...pendingFrames.entries()][0]!;
+    expect(latestFrameId).not.toBe(canceledFrameId);
+    act(() => latestFrame(0));
     const jumpButton = await screen.findByRole("button", { name: "Jump to latest reply" });
     fireEvent.click(jumpButton);
     expect(viewport.scrollTop).toBe(500);
+    expect(screen.queryByRole("button", { name: "Jump to latest reply" })).not.toBeInTheDocument();
+  });
+
+  it("does not offer a jump to a failed turn that includes error text", async () => {
+    const api = setupApi(history("conversation-a", 1, [makeTurn(1, "turn-a", "First question", "First answer")]));
+    const failedTurn = makeTurn(2, "turn-b", "Second question", "Provider failed before answering");
+    failedTurn.lifecycle_status = "failed";
+    api.setCurrent(history("conversation-a", 2, [
+      makeTurn(1, "turn-a", "First question", "First answer"),
+      failedTurn,
+    ]));
+    const viewport = document.createElement("div");
+    Object.defineProperties(viewport, {
+      clientHeight: { configurable: true, value: 100 },
+      scrollHeight: { configurable: true, value: 500 },
+    });
+    viewport.scrollTop = 0;
+    const messageHost = document.createElement("div");
+    const composerHost = document.createElement("div");
+    const contextHost = document.createElement("div");
+    viewport.append(messageHost);
+    document.body.append(viewport, composerHost, contextHost);
+    render(conversationElement({
+      presentationHosts: { header: null, context: contextHost, messages: messageHost, composer: composerHost },
+    }));
+
+    expect(await screen.findByText("Provider failed before answering")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Jump to latest reply" })).not.toBeInTheDocument();
   });
 

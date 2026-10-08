@@ -1901,7 +1901,9 @@ export function WorldPlanAgentConversation({
   }, [namespace, documentId, activeThread?.threadId, proposalOrderRevision]);
   const latestAssistantReplyKey = (() => {
     const event = [...conversationDisplay.events].reverse().find((candidate) =>
-      candidate.kind === "world" && Boolean(candidate.turn.assistant_text));
+      candidate.kind === "world"
+      && candidate.turn.lifecycle_status === "completed"
+      && Boolean(candidate.turn.assistant_text?.trim()));
     return event?.kind === "world" ? `${event.turn.turn_id}:${event.turn.assistant_text}` : null;
   })();
   useLayoutEffect(() => {
@@ -1936,8 +1938,11 @@ export function WorldPlanAgentConversation({
       return;
     }
     if (!latestAssistantReplyKey || latestAssistantReplyKey === observedAssistantReplyKeyRef.current) return;
-    observedAssistantReplyKeyRef.current = latestAssistantReplyKey;
+    const conversationId = history.conversation_id;
+    const replyKey = latestAssistantReplyKey;
     const scrollToLatest = () => {
+      if (observedConversationIdRef.current !== conversationId || !agent.paneState.isOpen) return;
+      observedAssistantReplyKeyRef.current = replyKey;
       if (followsLatestRef.current) {
         viewport.scrollTop = viewport.scrollHeight;
         setNewReplyAvailable(false);
