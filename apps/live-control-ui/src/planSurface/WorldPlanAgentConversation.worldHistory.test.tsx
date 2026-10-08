@@ -48,6 +48,7 @@ import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionPr
 import { activeThreadStorageKey, persistAgentThread } from "../agentInteraction/agentInteractionStorage";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
 import { classifyPlanComposerIntent, WorldPlanAgentConversation } from "./components/WorldPlanAgentConversation";
+import { PlanEditGuardError } from "./agentEdit/planAgentEditProposal";
 import type { PlanConversationPresentationHosts } from "./components/PlanConversationDockAdapter";
 import { AGENT_TURN_HISTORY_CAP, threadStorageKey } from "./components/agentInteractionHistory";
 
@@ -1345,6 +1346,40 @@ afterEach(() => {
 });
 
 describe("World Plan conversation consumer", () => {
+  it("isolates an old Apply rejection from a newer review and its in-flight Apply", async () => {
+    setupApi(history("conversation-a", 4, []));
+    const captured = await capturedCardBodyEdit("Original body.\n");
+    let rejectOld!: (reason: Error) => void;
+    let releaseNew!: () => void;
+    const bridge = {
+      capture: vi.fn().mockResolvedValueOnce(captured).mockResolvedValueOnce({ ...captured, draftGeneration: 1 }),
+      preview: vi.fn(() => ({ before: { markdown: "# Opening\n\nOriginal body.\n" }, after: { markdown: "# Opening\n\nThe revised scene opens.\n" } })),
+      apply: vi.fn().mockImplementationOnce(() => new Promise<void>((_resolve, reject) => { rejectOld = reject; }))
+        .mockImplementationOnce(() => new Promise<void>((resolve) => { releaseNew = resolve; })),
+    };
+    const post = mockCardBodyProposal();
+    const mounted = render(conversationElement({ editBridge: bridge }));
+    await screen.findByText(/No messages yet/i);
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the old target." } });
+    fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
+    fireEvent.click(await screen.findByRole("button", { name: "Apply to draft" }));
+    expect(bridge.apply).toHaveBeenCalledTimes(1);
+    mounted.rerender(conversationElement({ editBridge: bridge, draftGeneration: 1 }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the new target." } });
+    fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
+    const newApply = await screen.findByRole("button", { name: "Apply to draft" });
+    const newReview = newApply.closest("section[aria-labelledby]")!;
+    fireEvent.click(newApply);
+    expect(bridge.apply).toHaveBeenCalledTimes(2);
+    await act(async () => rejectOld(new PlanEditGuardError("Old target guard failed")));
+    expect(within(newReview).getByRole("button", { name: "Applying…" })).toBeDisabled();
+    expect(screen.queryByText("Old target guard failed")).not.toBeInTheDocument();
+    await act(async () => releaseNew());
+    await within(newReview).findByText("Applied to your draft. Save Plan keeps this change.");
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(post.mock.calls[1]![0].instruction).toBe("Revise the new target.");
+    expect(bridge.apply).toHaveBeenCalledTimes(2);
+  });
   it("retains rendered frozen context after Apply and exposes only guarded explicit Save", async () => {
     setupApi(history("conversation-a", 4, []));
     const captured = await capturedCardBodyEdit("Original body.\n");
@@ -1355,7 +1390,7 @@ describe("World Plan conversation consumer", () => {
       apply: vi.fn(() => new Promise<void>((resolve) => { releaseApply = resolve; })) };
     const post = mockCardBodyProposal();
     const save = vi.fn();
-    const mounted = render(conversationElement({ editBridge: bridge, onSavePlan: save, savePlanEnabled: true }));
+    const mounted = render(conversationElement({ editBridge: bridge, onSavePlan: save, savePlanEnabled: true, savedDirty: true }));
     await screen.findByText(/No messages yet/i);
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the opening." } });
     fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
@@ -1375,10 +1410,11 @@ describe("World Plan conversation consumer", () => {
     fireEvent.click(within(review).getByRole("button", { name: "Save Plan" }));
     expect(save).toHaveBeenCalledTimes(1);
     bridge.preview.mockReturnValue({ before: { markdown: "Wrong live context" }, after: { markdown: "Wrong live edit" } });
-    mounted.rerender(conversationElement({ editBridge: bridge, onSavePlan: save, savePlanEnabled: false, draftGeneration: 1 }));
+    mounted.rerender(conversationElement({ editBridge: bridge, onSavePlan: save, savePlanEnabled: true, savedDirty: false, draftGeneration: 1 }));
     expect(review).toHaveTextContent("Other prose.");
     expect(review).not.toHaveTextContent("Wrong live context");
-    expect(within(review).getByRole("button", { name: "Save Plan" })).toBeDisabled();
+    expect(within(review).queryByRole("button", { name: "Save Plan" })).not.toBeInTheDocument();
+    expect(within(review).queryByText("Saved to your Plan.")).not.toBeInTheDocument();
     mounted.rerender(conversationElement({ documentId: "other-plan", editBridge: bridge, onSavePlan: save, savePlanEnabled: true }));
     expect(screen.queryByRole("button", { name: "Save Plan" })).not.toBeInTheDocument();
     expect(post).toHaveBeenCalledTimes(1);

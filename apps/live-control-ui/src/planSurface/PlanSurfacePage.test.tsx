@@ -183,9 +183,32 @@ const twoScenePlanMarkdown = [
   "A lantern moves behind the loading door.",
 ].join("\n") + "\n";
 
-it.each([false, true, "stale-apply", "save"] as const)("captures the current Ask scene without Select for Edit; editor selection precedence=%s", async (selectText) => {
-  mockSavedPlanForAgent(savedAgentPlanId, 7, 7, twoScenePlanMarkdown.replace("## Arrival", "## Quiet test scene"));
+it.each([false, true, "stale-apply", "save", "save-clean"] as const)("captures the current Ask scene without Select for Edit; editor selection precedence=%s", async (selectText) => {
+  const record = mockSavedPlanForAgent(savedAgentPlanId, 7, 7, twoScenePlanMarkdown.replace("## Arrival", "## Quiet test scene"));
   const prepareSave = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockRejectedValue(new Error("Explicit Save test stop"));
+  const commitSave = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite");
+  if (selectText === "save-clean") {
+    prepareSave.mockResolvedValue({ schema_version: "dmb_tiptap_markdown_write_prepare_v2", scope_mode: "world",
+      world_id: worldId, document_id: savedAgentPlanId, title: record.title, target_relpath: record.target_relpath!,
+      target_display_path: record.target_relpath!, registry_revision: 8, file_exists: true, writer_ok: true,
+      writer_confirm_token: "save-clean-token", warnings: [], diagnostics: [] });
+    commitSave.mockImplementation(async (request) => {
+      const digest = createHash("sha256").update(request.markdown).digest("hex");
+      const savedRecord = { ...record, revision: 9 };
+      const prior = await liveApi.getWorldOwnedPlanCommittedRevision(savedAgentPlanId);
+      vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockResolvedValue({ ...prior, object_revision: 9,
+        revision_n: 5, work_revision_id: "saved-plan-revision-5", markdown: request.markdown,
+        content_sha256: digest, has_divergent_working_copy: false });
+      vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockResolvedValue({ schema_version: "dmb_workspace_document_snapshot_v2",
+        record: savedRecord, markdown: request.markdown, content_sha256: digest, file_fingerprint: "postgres",
+        file_exists: true, loaded_revision: 9 });
+      return { schema_version: "dmb_tiptap_markdown_write_commit_v2", scope_mode: "world", world_id: worldId,
+        document_id: savedAgentPlanId, title: record.title, target_relpath: record.target_relpath!,
+        target_display_path: record.target_relpath!, registry_revision: 9, committed_revision: 9,
+        committed_record: savedRecord, normalized_content_sha256: digest, writer_ok: true,
+        writer_phase: "commit", diagnostics: [] };
+    });
+  }
   const post = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) => ({
     schema_version: request.playable_target ? "dmb_world_plan_document_edit_proposal_v2" : "dmb_world_plan_document_edit_proposal_v1",
     action_id: "00000000-0000-4000-8000-000000000099", idempotency_key: request.idempotency_key,
@@ -254,10 +277,21 @@ it.each([false, true, "stale-apply", "save"] as const)("captures the current Ask
     expect(draft).toContain("kind=scene id=scene:arrival");
     expect(draft).toContain("kind=scene id=scene:warehouse");
     expect(draft).toContain("A lantern moves behind the loading door.");
-    if (selectText === "save") {
-      fireEvent.click(within(review).getByRole("button", { name: "Save Plan" }));
+    if (selectText === "save" || selectText === "save-clean") {
+      const saveButton = within(review).getByRole("button", { name: "Save Plan" });
+      fireEvent.click(saveButton);
       await waitFor(() => expect(prepareSave).toHaveBeenCalledTimes(1));
       expect(prepareSave.mock.calls[0]![0]).toMatchObject({ world_id: worldId, document_id: savedAgentPlanId });
+      if (selectText === "save-clean") {
+        await screen.findByText("Saved to this World.");
+        expect(within(review).queryByRole("button", { name: "Save Plan" })).not.toBeInTheDocument();
+        expect(within(review).getByRole("region", { name: "Before Quiet test scene" })).toHaveTextContent("The keeper waits beneath the black arch.");
+        expect(within(review).getByRole("region", { name: "After Quiet test scene" })).toHaveTextContent("Optional GM cue:");
+        expect(within(review).queryByText("Saved to your Plan.")).not.toBeInTheDocument();
+        fireEvent.click(saveButton);
+        expect(prepareSave).toHaveBeenCalledTimes(1);
+        expect(commitSave).toHaveBeenCalledTimes(1);
+      }
       expect(post).toHaveBeenCalledTimes(1);
       return;
     }

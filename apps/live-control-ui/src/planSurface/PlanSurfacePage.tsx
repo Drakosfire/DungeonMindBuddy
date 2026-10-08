@@ -1357,6 +1357,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const cardProjectionDocument = editor?.getJSON() ?? editorContent;
   const cardProjectionDirty = documentId !== null
     && (markdown !== serverMarkdownRef.current || title !== serverTitleRef.current);
+  const savedPlanDirty = Boolean(documentId && (title !== serverTitleRef.current || markdown !== serverMarkdownRef.current));
   const canStartPlayFromSavedPlan = Boolean(
     documentId
     && documentIdRef.current === documentId
@@ -1767,7 +1768,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         editBridge={documentId ? worldPlanEditBridge : null}
         draftGeneration={editGenerationRef.current}
         selectionGeneration={selectionGeneration}
-        savedDirty={Boolean(documentId && (title !== serverTitleRef.current || markdown !== serverMarkdownRef.current))}
+        savedDirty={savedPlanDirty}
         pageReady={status === "ready"}
         saveInFlight={saving || pendingWriteRef.current !== null}
         playableTarget={selectedPlayableTarget?.target ?? null}
@@ -1789,9 +1790,10 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         playableEditTargetLabel={cardTargetLabel(selectedPlayableEditTarget?.target ?? null)}
         onSavePlan={() => {
           const current = worldEditStateGetterRef.current();
-          if (current.documentId === documentId && current.worldId === worldId) documentActions.onSave();
+          if (current.documentId === documentId && current.worldId === worldId
+            && (titleRef.current !== serverTitleRef.current || markdownRef.current !== serverMarkdownRef.current)) documentActions.onSave();
         }}
-        savePlanEnabled={!saving && !fidelityBlocked && !createUncertain && !recoveryConflict
+        savePlanEnabled={savedPlanDirty && !saving && !fidelityBlocked && !createUncertain && !recoveryConflict
           && !Boolean(uncertainCreateDraft && !documentId) && Boolean(markdown.trim())}
         onClearPlayableEditTarget={clearPlayableEditTarget}
       />}

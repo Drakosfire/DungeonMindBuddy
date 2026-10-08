@@ -1803,6 +1803,7 @@ export function WorldPlanAgentConversation({
     providerThreadId: agent.activeThread?.threadId ?? null,
     savePlanEnabled,
     saveInFlight,
+    savedDirty,
     scopeMatches,
     verifiedWorldId,
     documentId,
@@ -1952,6 +1953,7 @@ export function WorldPlanAgentConversation({
   latestRef.current.providerThreadId = agent.activeThread?.threadId ?? null;
   latestRef.current.savePlanEnabled = savePlanEnabled;
   latestRef.current.saveInFlight = saveInFlight;
+  latestRef.current.savedDirty = savedDirty;
   latestRef.current.scopeMatches = scopeMatches;
   latestRef.current.verifiedWorldId = verifiedWorldId;
   latestRef.current.documentId = documentId;
@@ -2033,6 +2035,10 @@ export function WorldPlanAgentConversation({
 
   useLayoutEffect(() => {
     proposalRequestRef.current = null;
+    if (applyingReviewRef.current?.fenceKey !== proposalFenceKey) {
+      applyingReviewRef.current = null;
+      setApplyingTurnId(null);
+    }
     editReviewRef.current = null;
     setComposing(false);
     setEditReview(null);
@@ -3299,6 +3305,8 @@ export function WorldPlanAgentConversation({
       });
       discardEditReview();
     } catch (reason) {
+      if (editReviewRef.current !== review || !latestRef.current.mounted
+        || latestRef.current.threadId !== review.threadId || !latestRef.current.scopeMatches) return;
       setComposerIntent("propose");
       if (reason instanceof PlanEditGuardError || (reason instanceof Error && reason.message.includes("committed Plan changed"))) discardEditReview();
       setEditError(reason instanceof Error ? reason.message : "The proposal could not be applied to this mounted Plan.");
@@ -3368,14 +3376,17 @@ export function WorldPlanAgentConversation({
     const executable = currentReview?.turnId === turn.turnId ? currentReview : null;
     const status = turn.planEdit?.applied ? "applied"
       : executable ? applyingTurnId === turn.turnId ? "applying" : "review" : "stale";
-    const canOfferSave = status === "applied" && snapshot.threadId === activeThread?.threadId
+    const canOfferSave = status === "applied" && savedDirty && snapshot.threadId === activeThread?.threadId
       && (!snapshot.conversationId || snapshot.conversationId === history?.conversation_id) && onSavePlan;
     return <PlanEditReview targetLabel={snapshot.targetLabel} before={snapshot.preview.before} after={snapshot.preview.after}
       status={status} onApply={() => { if (executable) void applyEditReview(executable); }}
       onDiscard={() => { if (executable && editReviewRef.current === executable) discardEditReview(); }}
-      saveAction={canOfferSave ? { disabled: !savePlanEnabled || saveInFlight, onSave: () => {
-        if (latestRef.current.verifiedWorldId === snapshot.worldId && latestRef.current.documentId === snapshot.documentId
-          && latestRef.current.scopeMatches && latestRef.current.savePlanEnabled && !latestRef.current.saveInFlight) onSavePlan?.();
+      saveAction={canOfferSave ? { disabled: !savedDirty || !savePlanEnabled || saveInFlight, onSave: () => {
+        if (latestRef.current.mounted && latestRef.current.verifiedWorldId === snapshot.worldId
+          && latestRef.current.documentId === snapshot.documentId && latestRef.current.threadId === snapshot.threadId
+          && (!snapshot.conversationId || historySnapshotRef.current?.conversation_id === snapshot.conversationId)
+          && latestRef.current.scopeMatches && latestRef.current.savedDirty && latestRef.current.savePlanEnabled
+          && !latestRef.current.saveInFlight) onSavePlan?.();
       } } : undefined}
       details={<p>{turn.planEdit?.proposalSummary}</p>} />;
   };
