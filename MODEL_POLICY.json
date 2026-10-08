@@ -10,7 +10,7 @@
   "actions": {
     "hermes_graph_agent": "agent_conversation",
     "default_text_generation": "fast_smart",
-    "structured_generation": "fast_smart",
+    "structured_generation": "agent_conversation",
     "ruleslawyer_response_synthesis": "retrieval_synthesis"
   },
   "notes": {
