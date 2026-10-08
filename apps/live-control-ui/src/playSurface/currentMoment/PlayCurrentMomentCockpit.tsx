@@ -348,6 +348,8 @@ export function PlayCurrentMomentCockpit({
   const [exactRereadSucceeded, setExactRereadSucceeded] = useState(false);
   const [sceneNoteDrafts, setSceneNoteDrafts] = useState<Record<string, SceneNoteDraft>>({});
   const [sceneNoteStorageWarnings, setSceneNoteStorageWarnings] = useState<Record<string, string>>({});
+  const cockpitRef = useRef<HTMLElement | null>(null);
+  const compactLayoutRef = useRef(narrowPlayViewport());
   const mountedRef = useRef(true);
   const liveRunIdRef = useRef(run.run_id);
   const liveRunIdentityRef = useRef(runIdentity);
@@ -364,7 +366,7 @@ export function PlayCurrentMomentCockpit({
     liveRunIdRef.current = run.run_id;
     liveRunIdentityRef.current = runIdentity;
     setWorkspace({ kind: "current" });
-    const compactPanels = narrowPlayViewport();
+    const compactPanels = compactLayoutRef.current;
     setBeatCollapsed(compactPanels);
     setGlanceCollapsed(compactPanels);
     setProgressRejection(null);
@@ -377,17 +379,32 @@ export function PlayCurrentMomentCockpit({
   }, [runIdentity]);
 
   useEffect(() => {
+    const cockpit = cockpitRef.current;
+    if (cockpit && typeof ResizeObserver !== "undefined") {
+      let previousCompact: boolean | null = null;
+      const observer = new ResizeObserver((entries) => {
+        const width = entries[0]?.contentRect.width ?? cockpit.getBoundingClientRect().width;
+        const compact = width <= 960;
+        compactLayoutRef.current = compact;
+        if (previousCompact === compact) return;
+        previousCompact = compact;
+        setBeatCollapsed(compact);
+        setGlanceCollapsed(compact);
+      });
+      observer.observe(cockpit);
+      return () => observer.disconnect();
+    }
+
     if (typeof window.matchMedia !== "function") return;
     const query = window.matchMedia("(max-width: 60rem)");
     const sync = () => {
+      compactLayoutRef.current = query.matches;
       setBeatCollapsed(query.matches);
       setGlanceCollapsed(query.matches);
     };
     sync();
     query.addEventListener?.("change", sync);
-    return () => {
-      query.removeEventListener?.("change", sync);
-    };
+    return () => query.removeEventListener?.("change", sync);
   }, []);
 
   const moment = resolveCurrentMoment(deck);
@@ -706,6 +723,7 @@ export function PlayCurrentMomentCockpit({
   return (
     <section
       className="play-cockpit"
+      ref={cockpitRef}
       data-testid="play-current-moment-cockpit"
       data-play-run-id={run.run_id}
       data-current-beat-id={deck.currentBeatId}
