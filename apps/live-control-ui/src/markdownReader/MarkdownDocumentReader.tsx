@@ -16,6 +16,7 @@ import type {
   TableRow,
 } from "mdast";
 
+import { parsePlayableHtmlComment } from "../tiptap/playable/playableElementIdentity";
 import { parseMarkdownAst } from "../tiptap/markdown/parseMarkdownAst";
 import { splitLeadingYamlFrontmatter, stripLeadingYamlFrontmatter } from "../tiptap/markdown/stripLeadingYamlFrontmatter";
 import { createHeadingIdRegistry, type HeadingIdRegistry } from "./markdownReaderHeadingId";
@@ -34,6 +35,8 @@ export interface MarkdownDocumentReaderProps {
   /** Exact saved Markdown (may include leading YAML frontmatter). */
   markdown: string;
   className?: string;
+  /** Hide canonical standalone Buddy structure comments in presentation only. */
+  hidePlayableMarkers?: boolean;
   /** When set, highlight rendered blocks intersecting the full-source line range. */
   sourceLineTarget?: MarkdownSourceLineTarget | null;
 }
@@ -41,6 +44,7 @@ export interface MarkdownDocumentReaderProps {
 type DefinitionMap = Map<string, Definition>;
 
 type RenderContext = {
+  hidePlayableMarkers: boolean;
   bodyMarkdown: string;
   definitions: DefinitionMap;
   headingIds: HeadingIdRegistry;
@@ -487,6 +491,7 @@ function renderNode(node: RootContent | Content | PhrasingContent, ctx: RenderCo
     case "imageReference":
       return renderImageReference(node, ctx, key);
     case "html": {
+      if (ctx.hidePlayableMarkers && parsePlayableHtmlComment(node.value).status === "canonical") return null;
       const highlight = highlightClass(key, ctx);
       return (
         <pre
@@ -516,6 +521,7 @@ export function MarkdownDocumentReader({
   markdown,
   className,
   sourceLineTarget = null,
+  hidePlayableMarkers = false,
 }: MarkdownDocumentReaderProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const scrolledTargetKeyRef = useRef<string | null>(null);
@@ -545,6 +551,7 @@ export function MarkdownDocumentReader({
   }, [sourceLineTarget, highlightKeys, markdown]);
 
   const ctx: RenderContext = {
+    hidePlayableMarkers,
     bodyMarkdown,
     definitions,
     headingIds: createHeadingIdRegistry(),

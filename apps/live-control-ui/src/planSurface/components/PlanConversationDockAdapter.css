@@ -1,41 +1,207 @@
-.plan-conversation-dock { inline-size:100%; min-block-size:0; }
-.plan-conversation-dock .world-owned-plan { width:100%; max-width:76rem; margin-block:0.75rem; padding-inline:0.5rem; }
-.plan-conversation-dock__messages .world-plan-agent-conversation__body { overflow:visible; gap:0.35rem; }
-.plan-conversation-dock__messages .world-plan-agent-conversation__advanced { margin:0; padding:0; border:0; }
-.plan-conversation-dock__messages .world-plan-agent-conversation__turns { overflow:visible; max-height:none; flex:none; }
-.plan-conversation-dock__messages .world-plan-agent-conversation__turns > h3 { position:absolute; inline-size:1px; block-size:1px; clip-path:inset(50%); overflow:hidden; }
-.plan-conversation-dock__messages .world-plan-agent-conversation__turns:has(> article) > p[role="note"] { display:none; }
-.plan-conversation-dock__messages .world-plan-agent-conversation__turns article[data-sequence] { grid-template-columns:minmax(0,1fr) auto; gap:0.4rem; padding:0.5rem; }
-.plan-conversation-dock__messages .world-plan-agent-conversation__turns article[data-sequence] > details { grid-column:2; grid-row:1; }
-.plan-conversation-dock__messages .world-plan-agent-conversation__turns article[data-sequence] > :not(.world-plan-agent-conversation__context):not(details) { grid-column:1 / -1; }
-.plan-conversation-dock__messages .world-plan-agent-conversation__notice { display:none; }
-.plan-conversation-dock__composer .world-plan-agent-conversation__composer { border:0; padding:0; }
-.plan-conversation-dock__composer .world-plan-agent-conversation__composer form { display:flex; flex-wrap:wrap; align-items:flex-end; }
-.plan-conversation-dock__composer .world-plan-agent-conversation__intent { flex:1 0 100%; }
-.plan-conversation-dock__composer label[for="world-plan-agent-message"] { position:absolute; inline-size:1px; block-size:1px; clip-path:inset(50%); overflow:hidden; }
-.plan-conversation-dock__composer .world-plan-agent-conversation__composer textarea { flex:1 1 calc(100% - 8rem); inline-size:auto; height:2.75rem; }
-.plan-conversation-dock__composer .world-plan-agent-conversation__composer-footer { flex:0 0 auto; }
-.plan-conversation-dock__composer .world-plan-agent-conversation__composer-footer button { min-block-size:2.75rem; }
+.plan-conversation-dock {
+  inline-size: 100%;
+  min-block-size: 0;
+}
+
+.plan-conversation-dock .world-owned-plan {
+  width: 100%;
+  max-width: 76rem;
+  margin-block: 0.75rem;
+  padding-inline: 0.5rem;
+}
+
+.plan-conversation-dock__messages .world-plan-agent-conversation__body {
+  overflow: visible;
+  gap: 0.4rem;
+}
+
+.plan-conversation-dock__messages .world-plan-agent-conversation__turns {
+  overflow: visible;
+  max-height: none;
+  flex: none;
+}
+
+.plan-conversation-dock__messages .world-plan-agent-conversation__turns > h3 {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  clip-path: inset(50%);
+  overflow: hidden;
+}
+
+.plan-conversation-dock__messages .world-plan-agent-conversation__notice {
+  display: none;
+}
+
+.plan-conversation-dock__composer .world-plan-agent-conversation__composer {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.plan-conversation-dock__composer .world-plan-agent-conversation__composer form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 0.35rem 0.5rem;
+}
+
+.plan-conversation-dock__composer label[for="world-plan-agent-message"] {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  clip-path: inset(50%);
+  overflow: hidden;
+}
+
+.plan-conversation-dock__composer .world-plan-agent-conversation__composer textarea {
+  grid-column: 1;
+  grid-row: var(--plan-composer-input-row, 1);
+  inline-size: 100%;
+  min-block-size: 3.15rem;
+  max-block-size: 8rem;
+  height: auto;
+}
+
+.plan-conversation-dock__composer .world-plan-agent-conversation__composer-footer {
+  display: contents;
+}
+
+.plan-conversation-dock__composer .world-plan-agent-conversation__composer-footer p {
+  grid-column: 1;
+  grid-row: 2;
+  align-self: center;
+  margin: 0;
+  font-size: 0.68rem;
+}
+
+.plan-conversation-dock__composer .world-plan-agent-conversation__composer-footer > button[type="submit"] {
+  align-self: stretch;
+  grid-column: 2;
+  grid-row: var(--plan-composer-input-row, 1);
+  min-block-size: 3.15rem;
+}
+
 .plan-conversation-dock__composer .world-plan-agent-conversation__target-disclosure,
-.plan-conversation-dock__composer [role="alert"] { flex:1 0 100%; }
-.plan-conversation-dock__composer .world-plan-agent-conversation__composer-footer > p { display:none; }
-.plan-conversation-dock__composer .world-plan-agent-conversation__intent legend { position:absolute; inline-size:1px; block-size:1px; clip-path:inset(50%); overflow:hidden; }
-.plan-conversation-dock__composer .world-plan-agent-conversation__composer textarea { min-height:2.75rem; max-height:5rem; }
-.plan-conversation-dock__composer [role=alert] { max-block-size:3rem; overflow:auto; margin-block:0.35rem; }
-.plan-conversation-dock .plan-conversation-dock__launcher .plan-agent-bar { position:static; height:auto; padding:0; background:transparent; border:0; min-height:0; }
-.plan-conversation-dock .plan-conversation-dock__launcher .plan-agent-bar button { inline-size:2rem; block-size:2rem; min-inline-size:var(--conversation-dock-control-hit-size); min-block-size:var(--conversation-dock-control-hit-size); padding:0; }
-.plan-conversation-dock .plan-conversation-dock__launcher .plan-agent-bar button img { inline-size:1.75rem; block-size:1.75rem; }
-.plan-conversation-dock__management { position:relative; }
-.plan-conversation-dock__management > summary { display:flex; align-items:center; min-block-size:var(--conversation-dock-control-hit-size); padding:0.25rem 0.45rem; font-size:0.8rem; }
-.plan-conversation-dock__management > summary::after { content:"▾"; margin-inline-start:0.3rem; }
-.plan-conversation-dock__management > div { position:absolute; bottom:100%; right:0; z-index:2; inline-size:15rem; max-block-size:10rem; overflow:auto; padding:0.5rem; border:1px solid var(--conversation-dock-border); border-radius:var(--ui-radius-sm); background:var(--conversation-dock-chat-background); }
-.plan-conversation-dock__management:not([open]) > div { display:none; }
-@media (max-width:42rem) {
-  .plan-conversation-dock .conversation-dock__header { display:grid; grid-template-columns:minmax(0,1fr) auto auto; }
-  .plan-conversation-dock .conversation-dock__header > strong { position:absolute; inline-size:1px; block-size:1px; clip-path:inset(50%); overflow:hidden; }
-  .plan-conversation-dock .conversation-dock__context-toggle { max-inline-size:100%; }
-  .plan-conversation-dock .conversation-dock__context-toggle span:first-child { position:absolute; inline-size:1px; block-size:1px; clip-path:inset(50%); overflow:hidden; }
-  .plan-conversation-dock .conversation-dock__context-toggle::before { content:"Context"; }
-  .plan-conversation-dock .conversation-dock__actions { grid-column:2; grid-row:1; margin-inline-start:0; align-items:center; }
-  .plan-conversation-dock .conversation-dock__toggle { grid-column:3; grid-row:1; }
+.plan-conversation-dock__composer [role="alert"] {
+  grid-column: 1 / -1;
+  max-block-size: 4rem;
+  overflow: auto;
+  margin: 0;
+}
+
+.plan-conversation-dock .plan-conversation-dock__launcher .plan-agent-bar {
+  position: static;
+  height: auto;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  min-height: 0;
+}
+
+.plan-conversation-dock .plan-conversation-dock__launcher .plan-agent-bar button {
+  inline-size: 2rem;
+  block-size: 2rem;
+  min-inline-size: var(--conversation-dock-control-hit-size);
+  min-block-size: var(--conversation-dock-control-hit-size);
+  padding: 0;
+}
+
+.plan-conversation-dock .plan-conversation-dock__launcher .plan-agent-bar button img {
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+}
+
+.plan-conversation-dock__management {
+  position: relative;
+}
+
+.plan-conversation-dock__management > summary {
+  display: flex;
+  align-items: center;
+  min-block-size: var(--conversation-dock-control-hit-size);
+  padding: 0.25rem 0.45rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.plan-conversation-dock__management > summary::after {
+  content: "▾";
+  margin-inline-start: 0.3rem;
+}
+
+.plan-conversation-dock__management > div {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  z-index: 2;
+  inline-size: 15rem;
+  max-block-size: 10rem;
+  overflow: auto;
+  padding: 0.5rem;
+  border: 1px solid var(--conversation-dock-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--conversation-dock-chat-background);
+}
+
+.plan-conversation-dock__management:not([open]) > div {
+  display: none;
+}
+
+@media (max-width: 42rem) {
+  .plan-conversation-dock .conversation-dock__header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+
+  .plan-conversation-dock .conversation-dock__header > strong {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    clip-path: inset(50%);
+    overflow: hidden;
+  }
+
+  .plan-conversation-dock .conversation-dock__context-toggle {
+    max-inline-size: 100%;
+  }
+
+  .plan-conversation-dock .conversation-dock__context-toggle span:first-child {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    clip-path: inset(50%);
+    overflow: hidden;
+  }
+
+  .plan-conversation-dock .conversation-dock__context-toggle::before {
+    content: "Context";
+  }
+
+  .plan-conversation-dock .conversation-dock__actions {
+    grid-column: 2;
+    grid-row: 1;
+    margin-inline-start: 0;
+    align-items: center;
+  }
+
+  .plan-conversation-dock .conversation-dock__toggle {
+    grid-column: 3;
+    grid-row: 1;
+  }
+}
+
+.plan-conversation-dock .conversation-dock__header > strong { position: static; inline-size: auto; block-size: auto; clip-path: none; overflow: visible; white-space: nowrap; }
+.plan-conversation-dock .conversation-dock__header { display: flex; }
+.plan-conversation-dock .conversation-dock__context-toggle { max-inline-size: 35%; }
+.plan-conversation-dock__scope { margin: .5rem 0; font-weight: 600; }
+.plan-conversation-dock__messages { max-inline-size:72rem; margin-inline:auto; }
+.plan-conversation-dock__management > div {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  bottom: auto;
+  right: 0;
+  z-index: 110;
+  inline-size: min(24rem, calc(100vw - 2rem));
+  max-block-size: min(20rem, 40dvh);
 }

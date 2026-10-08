@@ -1,18 +1,19 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { readFileSync } from "node:fs";
+import { createHash, webcrypto } from "node:crypto";
 import { StrictMode, type ReactElement, type ReactNode } from "react";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
 import { SelectedWorldProvider, useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
-import type { AgentInteractionTrace, WorldOwnedCommittedRevisionV2, WorldOwnedPlanRecordV2, WorldAgentConversationHistoryTurnV1 } from "../api/types";
+import type { AgentInteractionTrace, WorldOwnedCommittedRevisionV2, WorldOwnedPlanRecordV2, WorldAgentConversationHistoryTurnV3 } from "../api/types";
 import { PlanSurfacePage } from "./PlanSurfacePage";
 import { WorldGraphLensProvider } from "../graphLens/WorldGraphLensContext";
 import { WorldGraphLensProjectionProvider } from "../graphLens/useWorldGraphLensProjection";
 import { AgentInteractionProvider, useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
 import { AgentInteractionChrome } from "../agentInteraction/AgentInteractionChrome";
 import { AskPluginSlotProvider } from "../agentInteraction/AskPluginSlot";
-import type { WorldPlanAgentTurnRequestV1, WorldPlanAgentTurnResponseV1 } from "../api/types";
+import type { WorldPlanAgentTurnRequestV1, WorldPlanAgentTurnResponse, WorldPlanAgentPlanContextV1, WorldPlanGraphAnswerContextStatusV1, WorldPlanGraphExecutionProjectionV1 } from "../api/types";
 import {
   activeThreadStorageKey,
   createAgentInteractionThread,
@@ -148,7 +149,7 @@ function GraphEnabledAgentPlanPage({ owner }: { owner: string }) {
 
 function savedWorldPlanConversation() {
   const region = screen.getByRole("region", { name: "Saved World Plan conversation" });
-  const context = within(region).getByRole("button", { name: /Full saved Plan/ });
+  const context = within(region).getByRole("button", { name: "What Buddy sees" });
   if (context.getAttribute("aria-expanded") !== "true") fireEvent.click(context);
   return region;
 }
@@ -164,6 +165,8 @@ function sendDiscussMessage(conversation = savedWorldPlanConversation()) {
 }
 
 function openAdvancedDetails(conversation = savedWorldPlanConversation()) {
+  const more = within(conversation).getByText("Conversation options", { exact: true }).closest("details");
+  if (more && !more.open) fireEvent.click(more.querySelector("summary")!);
   fireEvent.click(within(conversation).getByText("Advanced details"));
 }
 
@@ -180,9 +183,148 @@ const twoScenePlanMarkdown = [
   "A lantern moves behind the loading door.",
 ].join("\n") + "\n";
 
+it.each([false, true, "stale-apply", "save", "save-clean"] as const)("captures the current Ask scene without Select for Edit; editor selection precedence=%s", async (selectText) => {
+  const record = mockSavedPlanForAgent(savedAgentPlanId, 7, 7, twoScenePlanMarkdown.replace("## Arrival", "## Quiet test scene"));
+  const prepareSave = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockRejectedValue(new Error("Explicit Save test stop"));
+  const commitSave = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite");
+  if (selectText === "save-clean") {
+    prepareSave.mockResolvedValue({ schema_version: "dmb_tiptap_markdown_write_prepare_v2", scope_mode: "world",
+      world_id: worldId, document_id: savedAgentPlanId, title: record.title, target_relpath: record.target_relpath!,
+      target_display_path: record.target_relpath!, registry_revision: 8, file_exists: true, writer_ok: true,
+      writer_confirm_token: "save-clean-token", warnings: [], diagnostics: [] });
+    commitSave.mockImplementation(async (request) => {
+      const digest = createHash("sha256").update(request.markdown).digest("hex");
+      const savedRecord = { ...record, revision: 9 };
+      const prior = await liveApi.getWorldOwnedPlanCommittedRevision(savedAgentPlanId);
+      vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockResolvedValue({ ...prior, object_revision: 9,
+        revision_n: 5, work_revision_id: "saved-plan-revision-5", markdown: request.markdown,
+        content_sha256: digest, has_divergent_working_copy: false });
+      vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockResolvedValue({ schema_version: "dmb_workspace_document_snapshot_v2",
+        record: savedRecord, markdown: request.markdown, content_sha256: digest, file_fingerprint: "postgres",
+        file_exists: true, loaded_revision: 9 });
+      return { schema_version: "dmb_tiptap_markdown_write_commit_v2", scope_mode: "world", world_id: worldId,
+        document_id: savedAgentPlanId, title: record.title, target_relpath: record.target_relpath!,
+        target_display_path: record.target_relpath!, registry_revision: 9, committed_revision: 9,
+        committed_record: savedRecord, normalized_content_sha256: digest, writer_ok: true,
+        writer_phase: "commit", diagnostics: [] };
+    });
+  }
+  const post = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) => ({
+    schema_version: request.playable_target ? "dmb_world_plan_document_edit_proposal_v2" : "dmb_world_plan_document_edit_proposal_v1",
+    action_id: "00000000-0000-4000-8000-000000000099", idempotency_key: request.idempotency_key,
+    document_id: request.document_id, world_id: request.world_id,
+    base_revision: request.base_revision, base_content_sha256: request.base_content_sha256,
+    draft_sha256: request.draft_sha256, target_kind: request.target_kind,
+    selected_text_sha256: request.playable_target ? null : createHash("sha256").update(request.selected_text).digest("hex"),
+    ...(request.playable_target ? { playable_target: request.playable_target, marker_grammar_version: "v1",
+      body_scope: "heading_body", range_semantics_version: "plan-playable-ranges-v1",
+      body_serialization_version: "plan-playable-body-markdown-v1", target_body_sha256: request.target_body_sha256 } : {}),
+    replacement_markdown: request.playable_target ? `${request.target_body_markdown}\nOptional GM cue: Ask each player what they notice first.\n` : "Revised selected text",
+    summary: "Append a GM cue", assumptions: [], model: "test", model_observed: false,
+    model_latency_ms: 0, wall_latency_ms: 0, usage: null,
+  }) as any);
+  render(<SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}><AgentEnabledPlanPage /></SelectedWorldProvider>);
+  const page = await screen.findByTestId("world-owned-plan");
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  expect(await screen.findByRole("region", { name: "Plan content" })).toBeInTheDocument();
+  fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
+  const reader = await screen.findByTestId("world-plan-scene-reader");
+  expect(within(reader).getByRole("button", { name: "Select for Edit" })).toHaveAttribute("aria-pressed", "false");
+  const conversation = savedWorldPlanConversation();
+  expect(within(conversation).getByRole("group", { name: "Selected change target" })).toHaveTextContent("Target: Quiet test scene");
+  if (selectText === true) {
+    const editor = (screen.getByTestId("world-owned-plan-markdown-editor").querySelector(".ProseMirror") as any).editor;
+    act(() => editor.commands.setTextSelection({ from: 2, to: 6 }));
+    expect(within(conversation).getByLabelText("Actual Plan change target")).toHaveTextContent("Replace selected editor text");
+  }
+  fireEvent.change(messageDungeonBuddyField(conversation), { target: { value: "For this disposable synthetic Plan only, propose appending exactly this line to the selected Quiet test scene body: Optional GM cue: Ask each player what they notice first. Preserve all existing text and playable markers; make no other change." } });
+  fireEvent.click(within(conversation).getByRole("button", { name: "Propose edit" }));
+  const review = await within(conversation).findByRole("region", { name: selectText === true ? "Change selected text" : "Change Quiet test scene" });
+  expect(post).toHaveBeenCalledTimes(1);
+  const request = post.mock.calls[0]![0];
+  expect(request).toMatchObject({ base_revision: 7, base_content_sha256: "b".repeat(64) });
+  expect(request.draft_sha256).toMatch(/^[a-f0-9]{64}$/);
+  if (selectText === true) {
+    expect(request.target_kind).toBe("replace_selection");
+    expect(request.playable_target).toBeUndefined();
+    expect(request.selected_text).toBe("aved");
+  } else {
+    expect(request.target_kind).toBe("replace_playable_body");
+    expect(request.playable_target).toEqual({ kind: "scene", id: "scene:arrival" });
+    expect(request.target_body_markdown).toBe("The keeper waits beneath the black arch.\n");
+    expect(request.target_body_sha256).toBe(createHash("sha256").update(request.target_body_markdown!).digest("hex"));
+    const before = within(review).getByRole("region", { name: "Before Quiet test scene" });
+    expect(within(before).getByText(request.target_body_markdown!.trim())).toBeInTheDocument();
+    expect(before).toHaveTextContent("A lantern moves behind the loading door.");
+    expect(within(before).getByRole("heading", { name: "Quiet test scene" })).toBeInTheDocument();
+    expect(within(before).queryByText("<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->")).not.toBeInTheDocument();
+    if (selectText === "stale-apply") {
+      const prior = await liveApi.getWorldOwnedPlanCommittedRevision(savedAgentPlanId);
+      vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockResolvedValue({ ...prior, object_revision: 8 });
+      fireEvent.click(within(review).getByRole("button", { name: "Apply to draft" }));
+      expect(await within(conversation).findByRole("alert")).toHaveTextContent("committed Plan changed");
+      expect(screen.getByTestId("world-owned-plan-markdown-editor")).not.toHaveTextContent("Optional GM cue:");
+      expect(post).toHaveBeenCalledTimes(1);
+      expect(within(review).queryByRole("button", { name: "Apply to draft" })).not.toBeInTheDocument();
+      return;
+    }
+    fireEvent.click(within(review).getByRole("button", { name: "Apply to draft" }));
+    await within(review).findByText("Applied to your draft. Save Plan keeps this change.");
+    expect(within(review).queryByRole("button", { name: "Apply to draft" })).not.toBeInTheDocument();
+    expect(prepareSave).not.toHaveBeenCalled();
+    expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent("Optional GM cue: Ask each player what they notice first.");
+    const draft = JSON.parse(localStorage.getItem(`dmb:world-plan-local-draft:v2:${worldId}`)!).markdown;
+    expect(draft).toContain("kind=scene id=scene:arrival");
+    expect(draft).toContain("kind=scene id=scene:warehouse");
+    expect(draft).toContain("A lantern moves behind the loading door.");
+    if (selectText === "save" || selectText === "save-clean") {
+      const saveButton = within(review).getByRole("button", { name: "Save Plan" });
+      fireEvent.click(saveButton);
+      await waitFor(() => expect(prepareSave).toHaveBeenCalledTimes(1));
+      expect(prepareSave.mock.calls[0]![0]).toMatchObject({ world_id: worldId, document_id: savedAgentPlanId });
+      if (selectText === "save-clean") {
+        await screen.findByText("Saved to this World.");
+        expect(within(review).queryByRole("button", { name: "Save Plan" })).not.toBeInTheDocument();
+        expect(within(review).getByRole("region", { name: "Before Quiet test scene" })).toHaveTextContent("The keeper waits beneath the black arch.");
+        expect(within(review).getByRole("region", { name: "After Quiet test scene" })).toHaveTextContent("Optional GM cue:");
+        expect(within(review).queryByText("Saved to your Plan.")).not.toBeInTheDocument();
+        fireEvent.click(saveButton);
+        expect(prepareSave).toHaveBeenCalledTimes(1);
+        expect(commitSave).toHaveBeenCalledTimes(1);
+      }
+      expect(post).toHaveBeenCalledTimes(1);
+      return;
+    }
+    fireEvent.change(messageDungeonBuddyField(conversation), { target: { value: "Append one more cue." } });
+    fireEvent.click(within(conversation).getByRole("button", { name: "Propose edit" }));
+    const nextApply = await within(conversation).findByRole("button", { name: "Apply to draft" });
+    const nextReview = nextApply.closest("section[aria-labelledby]")!;
+    expect(nextReview).toHaveAccessibleName("Change Quiet test scene");
+    fireEvent.click(within(reader).getByRole("button", { name: "Next scene" }));
+    await within(nextReview).findByText("This preview is no longer current. It cannot be applied.");
+    expect(within(nextReview).queryByRole("button", { name: "Apply to draft" })).not.toBeInTheDocument();
+  }
+});
+
 function planAgentNamespace(documentId = savedAgentPlanId) {
   return `world-plan-agent:world:${encodeURIComponent(worldId)}:document:${encodeURIComponent(documentId)}`;
 }
+
+it("does not send a scene proposal when the mounted snapshot has a stale committed basis", async () => {
+  mockSavedPlanForAgent(savedAgentPlanId, 7, 8, twoScenePlanMarkdown);
+  const post = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal");
+  render(<SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}><AgentEnabledPlanPage /></SelectedWorldProvider>);
+  const page = await screen.findByTestId("world-owned-plan");
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
+  await screen.findByTestId("world-plan-scene-reader");
+  const conversation = savedWorldPlanConversation();
+  fireEvent.change(messageDungeonBuddyField(conversation), { target: { value: "Append a cue to the current scene." } });
+  fireEvent.click(within(conversation).getByRole("button", { name: "Propose edit" }));
+  await waitFor(() => expect(within(conversation).getByRole("alert")).toHaveTextContent(/Select the scene|stale|changed/));
+  expect(post).not.toHaveBeenCalled();
+  expect(within(conversation).queryByRole("region", { name: "Review proposed Plan edit" })).not.toBeInTheDocument();
+});
 
 function mockSavedPlanForAgent(
   documentId = savedAgentPlanId,
@@ -289,10 +431,162 @@ function managedGraphProjectionFixture() {
   };
 }
 
-let serverHistoryTurns: WorldAgentConversationHistoryTurnV1[] = [];
+function canonicalFixtureJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalFixtureJson).join(",")}]`;
+  if (value !== null && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${canonicalFixtureJson(record[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
 
-function worldPlanAgentResponse(request: WorldPlanAgentTurnRequestV1): WorldPlanAgentTurnResponseV1 {
+function historyCorrelationKey(request: WorldPlanAgentTurnRequestV1): string {
+  const hash = createHash("sha1").update(Buffer.from("6ba7b8119dad11d180b400c04fd430c8", "hex"))
+    .update(`dmb-agent-turn:${request.owner_scope.world_id}:${request.turn_id}`).digest();
+  hash[6] = (hash[6]! & 0x0f) | 0x50;
+  hash[8] = (hash[8]! & 0x3f) | 0x80;
+  const hex = hash.subarray(0, 16).toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+function planGraphContext(
+  status: WorldPlanGraphAnswerContextStatusV1,
+  options: {
+    request?: WorldPlanAgentTurnRequestV1;
+    execution?: WorldPlanGraphExecutionProjectionV1 | null;
+    completion?: boolean;
+  } = {},
+): WorldPlanAgentPlanContextV1 {
+  const worldId = options.request!.owner_scope.world_id;
+  const documentId = options.request!.primary_work.object_id;
+  const workRevisionId = "work-revision-plan-4";
+  const contentSha256 = options.request!.primary_work.expected_content_sha256;
+  const graphClaimed = status === "graph_grounded" || status === "graph_grounded_partial";
+  const sufficient = status !== "plan_only_insufficient_evidence";
+  const graphRevision = "graph-revision-test";
+  const assertionIds = sufficient ? ["assertion-internal-test"] : [];
+  const evidenceIds = sufficient ? ["evidence-internal-test"] : [];
+  const receiptPayload = {
+    schema: "dmb_agent_plan_world_graph_context_receipt_v1" as const,
+    receipt_serializer_version: "canonical-json-utf8-v1" as const,
+    context_receipt_sha256: "0".repeat(64),
+    plan_context_policy: { schema: "dmb_plan_context_policy_v1" as const, policy: "auto_plan_world" as const },
+    plan_basis: {
+      world_id: worldId,
+      document_id: documentId,
+      object_revision: options.request?.primary_work.expected_revision ?? 7,
+      work_revision_id: workRevisionId,
+      revision_n: options.request?.primary_work.expected_revision_n ?? 1,
+      content_sha256: options.request?.primary_work.expected_content_sha256 ?? contentSha256,
+    },
+    playable_target: options.request?.playable_target ? {
+      schema: "dmb_plan_playable_target_receipt_v1" as const,
+      kind: options.request.playable_target.kind,
+      id: options.request.playable_target.id,
+      marker_grammar_version: options.request.playable_target.id.startsWith("beat:") ? "v2" as const : "v1" as const,
+    } : null,
+    graph_authority: {
+      managed_world_id: worldId,
+      native_world_id: "native-world-internal-test",
+      binding_version: 3,
+      scope_mode: "world" as const,
+      campaign_id: null,
+      admissibility_version: "admissibility-test-v1",
+      graph_revision: graphRevision,
+    },
+    graph_packet: {
+      schema: "dmb_plan_world_graph_packet_v1" as const,
+      packet_serializer_version: "canonical-json-utf8-v1" as const,
+      selection_policy_version: "selection-test-v1",
+      evidence_sufficiency_policy_version: "evidence-test-v1",
+      retrieval_packet_sha256: "b".repeat(64),
+      candidate_assertion_ids: assertionIds,
+      candidate_relationship_ids: [],
+      candidate_evidence_ref_ids: evidenceIds,
+      retrieval_status: sufficient ? "complete" as const : "empty" as const,
+      evidence_sufficiency_status: sufficient ? "sufficient" as const : "insufficient" as const,
+      result_limit: 10,
+      coverage_status: status === "graph_grounded_partial" ? "incomplete" as const : "complete" as const,
+      truncated: status === "graph_grounded_partial",
+      omission_reasons: sufficient ? [] : ["no_claim_ready_evidence"],
+    },
+    assembled_input: {
+      assembler_version: "assembler-test-v1",
+      budget_policy_version: "budget-test-v1",
+      provider_model_name: "test-model",
+      provider_model_version: "test-model-v1",
+      tokenizer_name: "test-tokenizer",
+      tokenizer_version: "test-tokenizer-v1",
+      provider_envelope_input_tokens: 400,
+      output_token_reserve: 100,
+      context_window_limit: 1000,
+      packet_disposition: sufficient ? "included" as const : "omitted_insufficient" as const,
+      packet_disposition_reason: sufficient ? null : "insufficient_evidence" as const,
+      dispatched_packet_sha256: sufficient ? "c".repeat(64) : null,
+      dispatched_assertion_ids: assertionIds,
+      dispatched_relationship_ids: [],
+      dispatched_evidence_ref_ids: evidenceIds,
+      source_token_accounting: [{ source_kind: "plan" as const, source_id: documentId, input_tokens: 200 }],
+      included_history: [],
+      assembled_input_sha256: "d".repeat(64),
+    },
+    evidence_mode: "metadata_only" as const,
+    source_opened: false as const,
+  };
+  const { context_receipt_sha256: _ignored, ...receiptForHash } = receiptPayload;
+  const receiptDigest = createHash("sha256").update(canonicalFixtureJson(receiptForHash)).digest("hex");
+  const receipt = { ...receiptPayload, context_receipt_sha256: receiptDigest };
+  const segments = graphClaimed
+    ? [{
+      kind: "graph_claim" as const,
+      claim_id: "claim-internal-test",
+      text: "The western gate is watched.",
+      target_kind: "assertion" as const,
+      target_id: assertionIds[0]!,
+      graph_revision: graphRevision,
+      evidence_ref_ids: evidenceIds,
+    }]
+    : [{ kind: "connective" as const, text: "The keeper is below the black arch." }];
+  const citationEntries = graphClaimed ? [{
+    claim_id: "claim-internal-test",
+    target_kind: "assertion" as const,
+    target_id: assertionIds[0]!,
+    graph_revision: graphRevision,
+    evidence_ref_ids: evidenceIds,
+    source_opened: false as const,
+  }] : [];
+  return {
+    schema: "dmb_agent_plan_world_graph_context_response_v1",
+    receipt,
+    completion: options.completion === false ? null : {
+      schema: "dmb_plan_world_graph_completion_v1",
+      context_receipt_sha256: receiptDigest,
+      answer_basis: graphClaimed ? "committed_plan_plus_world_graph" : "committed_plan",
+      answer_context_status: status,
+      answer_segments: segments,
+      citation_map: graphClaimed ? {
+        schema: "dmb_graph_citation_map_v1",
+        context_receipt_sha256: receiptDigest,
+        entries: citationEntries,
+      } : null,
+    },
+    execution: options.execution === undefined ? {
+      schema: "dmb_agent_plan_world_graph_execution_projection_v1",
+      claimability: "completed",
+      authorization_state: "response_received",
+      automatic_redispatch: false,
+    } : options.execution,
+    delivery_replay: false,
+  };
+}
+
+let serverHistoryTurns: WorldAgentConversationHistoryTurnV3[] = [];
+
+function worldPlanAgentResponse(request: WorldPlanAgentTurnRequestV1): WorldPlanAgentTurnResponse {
+  const planContext = request.plan_context_policy ? planGraphContext("plan_only_insufficient_evidence", { request }) : null;
   serverHistoryTurns.push({
+    ...(planContext ? { plan_context: planContext } : {}),
+    idempotency_key: historyCorrelationKey(request),
     turn_id: request.turn_id, sequence: serverHistoryTurns.length + 1,
     lifecycle_status: "completed", user_text: request.message,
     assistant_text: "The keeper is below the black arch.",
@@ -301,7 +595,7 @@ function worldPlanAgentResponse(request: WorldPlanAgentTurnRequestV1): WorldPlan
       surface_id: "plan", surface_instance_id: request.surface.instance_id,
       primary_work: {
         resolution: "resolved", kind: "plan", object_id: request.primary_work.object_id,
-        revision: null, content_sha256: request.primary_work.expected_content_sha256,
+        revision: String(request.primary_work.expected_revision), content_sha256: request.primary_work.expected_content_sha256,
         object_revision: request.primary_work.expected_revision,
         work_revision_id: "work-revision-plan-4", revision_n: request.primary_work.expected_revision_n,
       },
@@ -321,7 +615,7 @@ function worldPlanAgentResponse(request: WorldPlanAgentTurnRequestV1): WorldPlan
       },
     },
   });
-  return {
+  const response: WorldPlanAgentTurnResponse = {
     schema: "dmb_agent_turn_response_v1",
     client_thread_id: request.client_thread_id,
     turn_id: request.turn_id,
@@ -373,6 +667,7 @@ function worldPlanAgentResponse(request: WorldPlanAgentTurnRequestV1): WorldPlan
       trace: { raw_source: "MUST_NOT_BE_PERSISTED" },
     },
   };
+  return planContext ? { ...response, schema: "dmb_agent_turn_response_v2", plan_context: planContext } : response;
 }
 
 function PublicationProbe() {
@@ -386,10 +681,14 @@ function PublicationProbe() {
   );
 }
 
+beforeAll(() => {
+  Object.defineProperty(globalThis, "crypto", { configurable: true, value: webcrypto });
+});
+
 beforeEach(() => {
   serverHistoryTurns = [];
   vi.spyOn(liveApi, "getWorldAgentConversationHistory").mockImplementation(async (owner) => ({
-    schema: "dmb_agent_conversation_history_v1",
+    schema: "dmb_agent_conversation_history_v3",
     world_id: owner,
     conversation_state: serverHistoryTurns.length ? "active" : "absent",
     conversation_id: serverHistoryTurns.length ? "11111111-1111-4111-8111-111111111111" : null,
@@ -482,6 +781,7 @@ it("opens exact managed World Graph references from Document and Cards without c
 
   const page = await screen.findByTestId("world-owned-plan");
   await waitFor(() => expect(projectionRequest).toHaveBeenCalledWith(expect.objectContaining({ managedWorldId: owner })));
+  fireEvent.click(await screen.findByRole("button", { name: "Open", exact: true }));
   const documentReference = await screen.findByRole("button", { name: "Ironveil Warehouse" });
   expect(documentReference).not.toHaveFocus();
   fireEvent.click(documentReference);
@@ -591,17 +891,30 @@ it("retains the mounted Plan and typed question across Cards, Document and dock 
   await waitFor(() => expect(input).toBeEnabled());
   const reader = screen.getByRole("region", {name:"Plan workspace"});
   expect(screen.queryByRole("log")).toBeNull();
-  fireEvent.focusIn(input);
+  fireEvent.click(screen.getByRole("button", { name: "Open", exact: true }));
   fireEvent.change(input, {target:{value:"Remember the warehouse"}});
-  expect(screen.getByRole("log")).toBeInTheDocument();
+  const transcript = screen.getByRole("log");
+  fireEvent.click(screen.getByRole("button", { name: "Expand conversation fullscreen" }));
+  expect(reader.isConnected).toBe(true);
+  expect(reader).toHaveAttribute("hidden");
+  expect(screen.getByRole("log")).toBe(transcript);
+  expect(screen.getByLabelText("Message DungeonBuddy")).toBe(input);
+  expect(input).toHaveValue("Remember the warehouse");
+  fireEvent.click(screen.getByRole("button", { name: "Restore conversation dock" }));
+  expect(reader).not.toHaveAttribute("hidden");
+  expect(screen.getByRole("log")).toBe(transcript);
   fireEvent.click(screen.getByRole("button", {name:"Cards",exact:true}));
   const focusedScene = await screen.findByRole("region", {name:"Focused Plan scene"});
   expect(focusedScene).toHaveTextContent("Arrival");
-  fireEvent.click(screen.getByRole("button", {name:"Collapse",exact:true}));
+  fireEvent.click(screen.getByRole("button", {name:"Close conversation",exact:true}));
+  expect(transcript.isConnected).toBe(true);
+  expect(input.isConnected).toBe(true);
+  expect(screen.queryByRole("log")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", {name:"Document",exact:true}));
   fireEvent.click(screen.getByRole("button", {name:"Open",exact:true}));
   expect(screen.getByRole("region", {name:"Plan workspace"})).toBe(reader);
   expect(screen.getByLabelText("Message DungeonBuddy")).toBe(input);
+  expect(screen.getByRole("log")).toBe(transcript);
   expect(input).toHaveValue("Remember the warehouse");
   expect(screen.queryByTestId("agent-interaction-chrome")).toBeNull();
   expect(screen.getAllByTestId("agent-interaction-open")).toHaveLength(1);
@@ -708,7 +1021,7 @@ it("pins Ask to the exact committed World Plan revision and excludes editor text
   expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
   expect(await screen.findByRole("region", { name: "Saved World Plan conversation" })).toBeInTheDocument();
-  expect(screen.getByText(/Talk through the saved Plan, or choose Propose edit to request a change/)).toBeInTheDocument();
+  expect(screen.getByText("No messages yet. Ask about this Plan or describe a change.")).toBeInTheDocument();
 
   act(() => capturedPlanControls().changeTitle({ target: { value: "Unsaved local title" } }));
   fireEvent.change(messageDungeonBuddyField(), { target: { value: "What Plan metadata can you see?" } });
@@ -731,6 +1044,7 @@ it("pins Ask to the exact committed World Plan revision and excludes editor text
     "message",
     "owner_scope",
     "primary_work",
+    "plan_context_policy",
     "schema",
     "surface",
     "turn_id",
@@ -749,6 +1063,7 @@ it("pins Ask to the exact committed World Plan revision and excludes editor text
     client_work_state: "saved_dirty",
     graph_request: { mode: "none" },
     graph_selection: null,
+    plan_context_policy: { schema: "dmb_plan_context_policy_v1", policy: "auto_plan_world" },
     message: "What Plan metadata can you see?",
   });
   expect(JSON.stringify(request)).not.toContain(savedAgentPlanText);
@@ -808,8 +1123,9 @@ it.each([
   fireEvent.click(card);
 
   const conversation = savedWorldPlanConversation();
-  expect(within(conversation).getByText(`Ask target · ${kind} ${id}`)).toBeInTheDocument();
-  expect(within(conversation).getByText(/Includes the full committed Plan; unsaved changes are excluded/)).toBeInTheDocument();
+  expect(within(conversation).getByRole("group", { name: "Question focus" })).toHaveTextContent("Focus: Arrival");
+  openAdvancedDetails(conversation);
+  expect(within(conversation).getByText("Ask uses the committed Plan. Unsaved editor changes are excluded; the selected card identifies the Ask target.")).toBeInTheDocument();
   act(() => capturedPlanControls().changeTitle({ target: { value: "Unsaved local title" } }));
   fireEvent.change(messageDungeonBuddyField(conversation), { target: { value: "What happens at this card?" } });
   sendDiscussMessage(conversation);
@@ -863,7 +1179,7 @@ it("keeps the submitted card identity fixed while selection changes during basis
   await waitFor(() => expect(getCommitted).toHaveBeenCalledTimes(2));
 
   fireEvent.click(selectById("choice:route"));
-  expect(within(conversation).getByText("Ask target · choice choice:route")).toBeInTheDocument();
+  expect(within(conversation).getByRole("group", { name: "Question focus" })).toHaveTextContent("Focus: Choose a route");
   await act(async () => releaseBasis({
     schema_version: "dmb_workspace_committed_revision_v2",
     scope_mode: "world",
@@ -893,7 +1209,7 @@ it("keeps the submitted card identity fixed while selection changes during basis
 
 it("follows focused Scene for a new Ask while a pending Ask and Edit target stay on their original cards", async () => {
   mockSavedPlanForAgent(savedAgentPlanId, 7, 7, twoScenePlanMarkdown);
-  const finishTurns: Array<(response: WorldPlanAgentTurnResponseV1) => void> = [];
+  const finishTurns: Array<(response: WorldPlanAgentTurnResponse) => void> = [];
   const postTurn = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(() => (
     new Promise((resolve) => { finishTurns.push(resolve); })
   ));
@@ -909,10 +1225,11 @@ it("follows focused Scene for a new Ask while a pending Ask and Edit target stay
 
   const reader = await screen.findByTestId("world-plan-scene-reader");
   const conversation = savedWorldPlanConversation();
-  expect(await within(conversation).findByRole("group", { name: "Selected Playable card for Ask" })).toHaveTextContent("scene scene:arrival");
+  expect(await within(conversation).findByRole("group", { name: "Question focus" })).toHaveTextContent("Arrival");
+  openAdvancedDetails(conversation);
   expect(within(conversation).getByText(/Card basis · object revision 7 · SHA-256/)).toBeInTheDocument();
   fireEvent.click(within(reader).getByRole("button", { name: "Select for Edit" }));
-  expect(within(conversation).getByRole("group", { name: "Selected Playable card for edit" })).toHaveTextContent("scene scene:arrival");
+  expect(within(conversation).getByRole("group", { name: "Selected change target" })).toHaveTextContent("Arrival");
 
   fireEvent.change(messageDungeonBuddyField(conversation), { target: { value: "What happens at the arrival?" } });
   sendDiscussMessage(conversation);
@@ -922,14 +1239,14 @@ it("follows focused Scene for a new Ask while a pending Ask and Edit target stay
   expect(request.primary_work).toMatchObject({ expected_revision: 7, expected_content_sha256: "b".repeat(64) });
 
   fireEvent.click(within(reader).getByRole("button", { name: "Next scene" }));
-  expect(within(savedWorldPlanConversation()).getByRole("group", { name: "Selected Playable card for Ask" })).toHaveTextContent("scene scene:warehouse");
-  expect(within(savedWorldPlanConversation()).getByRole("group", { name: "Selected Playable card for edit" })).toHaveTextContent("scene scene:arrival");
+  expect(within(savedWorldPlanConversation()).getByRole("group", { name: "Question focus" })).toHaveTextContent("Warehouse");
+  expect(within(savedWorldPlanConversation()).getByRole("group", { name: "Selected change target" })).toHaveTextContent("Arrival");
   expect(postTurn).toHaveBeenCalledTimes(1);
 
   await act(async () => finishTurns[0]!(worldPlanAgentResponse(request)));
   expect(await within(conversation).findByText(/Playable target: scene scene:arrival · marker grammar v1/)).toBeInTheDocument();
-  expect(within(conversation).getByRole("group", { name: "Selected Playable card for Ask" })).toHaveTextContent("scene scene:warehouse");
-  expect(within(conversation).getByRole("group", { name: "Selected Playable card for edit" })).toHaveTextContent("scene scene:arrival");
+  expect(within(conversation).getByRole("group", { name: "Question focus" })).toHaveTextContent("Warehouse");
+  expect(within(conversation).getByRole("group", { name: "Selected change target" })).toHaveTextContent("Arrival");
   expect(postTurn).toHaveBeenCalledTimes(1);
 
   fireEvent.change(messageDungeonBuddyField(conversation), { target: { value: "What is happening at the warehouse?" } });
@@ -972,12 +1289,12 @@ it("clears the previous saved Ask target when focus moves to a draft-only Scene"
   fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
   const reader = await screen.findByTestId("world-plan-scene-reader");
   const conversation = savedWorldPlanConversation();
-  expect(within(conversation).getByRole("group", { name: "Selected Playable card for Ask" })).toHaveTextContent("scene scene:arrival");
+  expect(within(conversation).getByRole("group", { name: "Question focus" })).toHaveTextContent("Arrival");
   fireEvent.change(messageDungeonBuddyField(conversation), { target: { value: "A question not yet sent" } });
 
   fireEvent.click(within(reader).getByRole("button", { name: "Next scene" }));
   expect(screen.getByTestId("world-plan-scene-reader")).toHaveTextContent("The default Ask card target is cleared");
-  expect(within(conversation).queryByRole("group", { name: "Selected Playable card for Ask" })).not.toBeInTheDocument();
+  expect(within(conversation).queryByRole("group", { name: "Question focus" })).not.toBeInTheDocument();
   expect(messageDungeonBuddyField(conversation)).toHaveValue("A question not yet sent");
   expect(postTurn).not.toHaveBeenCalled();
   expect(committedRevision).toHaveBeenCalledTimes(1);
@@ -995,7 +1312,7 @@ it("connects and revokes the local Agent and Graph session from Settings", async
   );
 
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  fireEvent.click(screen.getByText("More", {exact:true}));
+  fireEvent.click(screen.getByText("Conversation options", {exact:true}));
   fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
   expect(screen.queryByLabelText("Local operator credential")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Connect local session" }));
@@ -1105,7 +1422,7 @@ it("lets a saved World Plan opt into diagnostics before its first Agent turn", a
 
 it("keeps the trace toggle disabled while the first World Plan Agent turn is pending", async () => {
   mockSavedPlanForAgent();
-  let finishTurn: ((response: WorldPlanAgentTurnResponseV1) => void) | undefined;
+  let finishTurn: ((response: WorldPlanAgentTurnResponse) => void) | undefined;
   const postTurn = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation((request) => (
     new Promise((resolve) => {
       finishTurn = resolve;
@@ -1276,7 +1593,7 @@ it("keeps Ask disabled for an unresolved pending write", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
   expect(await screen.findByText("Conversation paused while the Plan is saving.")).toBeInTheDocument();
   expect(messageDungeonBuddyField()).toBeDisabled();
-  expect(within(screen.getByRole("region", { name: "Saved World Plan conversation" })).getByRole("button", { name: "Saving…" })).toBeDisabled();
+  expect(within(screen.getByRole("region", { name: "Saved World Plan conversation" })).getByRole("button", { name: "Send message" })).toBeDisabled();
   expect(postTurn).not.toHaveBeenCalled();
 });
 
@@ -1375,8 +1692,8 @@ it("drops a pending turn when the selected saved Plan changes", async () => {
   vi.mocked(liveApi.getWorkspaceDocumentAny).mockResolvedValue(recordA);
   vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockImplementation(async (id) =>
     id === documentB ? snapshot(recordB, "# Second Plan text\n") : snapshot(recordA, savedAgentPlanText));
-  let resolveTurn!: (value: WorldPlanAgentTurnResponseV1) => void;
-  const pendingTurn = new Promise<WorldPlanAgentTurnResponseV1>((resolve) => { resolveTurn = resolve; });
+  let resolveTurn!: (value: WorldPlanAgentTurnResponse) => void;
+  const pendingTurn = new Promise<WorldPlanAgentTurnResponse>((resolve) => { resolveTurn = resolve; });
   const postTurn = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockReturnValue(pendingTurn);
 
   render(
@@ -1392,7 +1709,7 @@ it("drops a pending turn when the selected saved Plan changes", async () => {
   const request = postTurn.mock.calls[0][0];
 
   fireEvent.change(screen.getByLabelText("Plan document"), { target: { value: documentB } });
-  expect(await screen.findByText("No messages here yet. Start with a question about the saved Plan.")).toBeInTheDocument();
+  expect(await screen.findByText("No messages yet. Ask about this Plan or describe a change.")).toBeInTheDocument();
   await act(async () => resolveTurn(worldPlanAgentResponse(request)));
 
   expect(screen.queryByText("This answer belongs only to Plan A.")).not.toBeInTheDocument();
@@ -1427,7 +1744,7 @@ it("does not send the prepared revision while its Plan save is still committing"
   await waitFor(() => expect(prepare).toHaveBeenCalledTimes(1));
   expect(screen.getByText("Conversation paused while the Plan is saving.")).toBeInTheDocument();
   expect(messageDungeonBuddyField()).toBeDisabled();
-  expect(within(screen.getByRole("region", { name: "Saved World Plan conversation" })).getByRole("button", { name: "Saving…" })).toBeDisabled();
+  expect(within(screen.getByRole("region", { name: "Saved World Plan conversation" })).getByRole("button", { name: "Send message" })).toBeDisabled();
   expect(postTurn).not.toHaveBeenCalled();
 
   await act(async () => releasePrepare({
@@ -1468,7 +1785,7 @@ it("does not send the prepared revision while its Plan save is still committing"
   await screen.findByText("Saved to this World.");
 });
 
-const invalidWorldPlanResponses: Array<[string, (response: WorldPlanAgentTurnResponseV1) => void]> = [
+const invalidWorldPlanResponses: Array<[string, (response: WorldPlanAgentTurnResponse) => void]> = [
   ["a different Plan ID", (response) => { response.primary_work.object_id = "another-plan"; }],
   ["a different expected revision", (response) => { response.primary_work.expected_revision = 8; }],
   ["a missing committed content basis", (response) => { response.primary_work.content_basis = null; }],

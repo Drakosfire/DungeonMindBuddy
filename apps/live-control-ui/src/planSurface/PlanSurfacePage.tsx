@@ -43,6 +43,7 @@ import "./components/WorldPlanCardProjection.css";
 import {
   applyWorldPlanEditProposal,
   captureWorldPlanEditTarget,
+  previewWorldPlanEditProposal,
   type WorldPlanEditBridge,
   type WorldPlanEditEditorState,
 } from "./agentEdit/planAgentEditProposal";
@@ -503,6 +504,10 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     playableTarget: selectedPlayableEditTargetRef.current?.target ?? null,
     playableTargetGeneration: playableEditTargetGenerationRef.current,
     playableTargetStale: playableEditTargetStaleRef.current,
+    currentSceneTarget: selectedPlayableTarget?.target.kind === "scene" ? selectedPlayableTarget.target : null,
+    currentSceneTargetStale: selectedPlayableTargetStale,
+    currentSceneTargetLabel: cardTargetLabel(selectedPlayableTarget?.target ?? null),
+    playableTargetLabel: cardTargetLabel(selectedPlayableEditTargetRef.current?.target ?? null),
     canEdit: Boolean(
       documentIdRef.current
       && serverDigestRef.current
@@ -515,6 +520,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     ),
   });
   const worldPlanEditBridge = useMemo<WorldPlanEditBridge>(() => ({
+    preview: previewWorldPlanEditProposal,
     capture: () => captureWorldPlanEditTarget(
       worldEditStateGetterRef.current(),
       () => worldEditStateGetterRef.current(),
@@ -1351,6 +1357,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const cardProjectionDocument = editor?.getJSON() ?? editorContent;
   const cardProjectionDirty = documentId !== null
     && (markdown !== serverMarkdownRef.current || title !== serverTitleRef.current);
+  const savedPlanDirty = Boolean(documentId && (title !== serverTitleRef.current || markdown !== serverMarkdownRef.current));
   const canStartPlayFromSavedPlan = Boolean(
     documentId
     && documentIdRef.current === documentId
@@ -1453,6 +1460,16 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       sourceWarnings: markdownFidelityWarnings(imported.diagnostics, imported.doc),
     });
   }, [documentId, savedBasis]);
+  function cardTargetLabel(target: WorldPlanCardTarget | null): string | undefined {
+    if (!target || currentCardProjection.status !== "ready") return undefined;
+    const pending = [...currentCardProjection.roots];
+    while (pending.length) {
+      const node = pending.pop()!;
+      if (node.kind === target.kind && node.id === target.id) return node.title;
+      pending.push(...node.children);
+    }
+    return undefined;
+  }
   const selectableTargetKeys = useMemo(() => {
     if (savedBasis.status !== "verified" || !savedCardProjection) return new Set<string>();
     const currentKeys = worldPlanCardTargetKeys(currentCardProjection);
@@ -1494,7 +1511,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     if (savedBasis.status === "verified"
       && (selectedPlayableTarget.revision !== savedBasis.revision
         || selectedPlayableTarget.contentSha256 !== savedBasis.contentSha256)) {
-      setSelectedPlayableTarget(null);
+      if (!selectedPlayableTarget.stale) setSelectedPlayableTarget({ ...selectedPlayableTarget, stale: true });
       return;
     }
     if ((!selectedTargetBasisMatches || !selectableTargetKeys.has(worldPlanCardTargetKey(selectedPlayableTarget.target)))
@@ -1751,7 +1768,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         editBridge={documentId ? worldPlanEditBridge : null}
         draftGeneration={editGenerationRef.current}
         selectionGeneration={selectionGeneration}
-        savedDirty={Boolean(documentId && (title !== serverTitleRef.current || markdown !== serverMarkdownRef.current))}
+        savedDirty={savedPlanDirty}
         pageReady={status === "ready"}
         saveInFlight={saving || pendingWriteRef.current !== null}
         playableTarget={selectedPlayableTarget?.target ?? null}
@@ -1768,6 +1785,16 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         playableEditTargetGeneration={playableEditTargetGeneration}
         playableEditTargetStale={selectedPlayableEditTargetStale}
         playableEditTargetDirty={cardProjectionDirty}
+        editorSelectionActive={Boolean(editor && !editor.state.selection.empty)}
+        playableTargetLabel={cardTargetLabel(selectedPlayableTarget?.target ?? null)}
+        playableEditTargetLabel={cardTargetLabel(selectedPlayableEditTarget?.target ?? null)}
+        onSavePlan={() => {
+          const current = worldEditStateGetterRef.current();
+          if (current.documentId === documentId && current.worldId === worldId
+            && (titleRef.current !== serverTitleRef.current || markdownRef.current !== serverMarkdownRef.current)) documentActions.onSave();
+        }}
+        savePlanEnabled={savedPlanDirty && !saving && !fidelityBlocked && !createUncertain && !recoveryConflict
+          && !Boolean(uncertainCreateDraft && !documentId) && Boolean(markdown.trim())}
         onClearPlayableEditTarget={clearPlayableEditTarget}
       />}
       </PlanConversationDockAdapter>

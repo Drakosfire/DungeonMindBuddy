@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import type { PlanConversationPresentationHosts } from "./PlanConversationDockAdapter";
+import { PlanEditReview } from "./PlanEditReview";
 
 import { getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlanDocumentEditProposal, connectNativeGraphSession, revokeNativeGraphSession, isValidWorldPlanGraphContextFailure, LiveApiError } from "../../api/liveApi";
 import type {
@@ -39,6 +40,8 @@ import {
   type CapturedWorldPlanEditTarget,
   type ExpectedWorldPlanEditAgentBinding,
   type WorldPlanEditBridge,
+  type WorldPlanEditContextualPreview,
+  PlanEditGuardError,
   worldPlanSectionUnavailableReason,
 } from "../agentEdit/planAgentEditProposal";
 import { planSectionTargets, type PlanSectionTarget } from "../agentEdit/planSectionTarget";
@@ -74,7 +77,12 @@ interface WorldPlanAgentConversationProps {
   playableEditTargetGeneration?: number;
   playableEditTargetStale?: boolean;
   playableEditTargetDirty?: boolean;
+  editorSelectionActive?: boolean;
+  playableTargetLabel?: string;
+  playableEditTargetLabel?: string;
   onClearPlayableEditTarget?: () => void;
+  onSavePlan?: () => void;
+  savePlanEnabled?: boolean;
 }
 
 interface ValidatedWorldPlanResponse {
@@ -92,6 +100,16 @@ interface WorldPlanEditReview {
   threadId: string;
   turnId: string;
   fenceKey: string;
+}
+
+interface FrozenPlanEditReview {
+  scopeKey: string;
+  worldId: string;
+  documentId: string;
+  threadId: string;
+  conversationId: string | null;
+  targetLabel: string;
+  preview: WorldPlanEditContextualPreview;
 }
 
 type WorldPlanEditReviewBefore =
@@ -119,6 +137,20 @@ type ValidationResult =
 
 const RESPONSE_MISMATCH = "DungeonBuddy's response did not match this saved Plan. Try again.";
 const POINTER_STATUSES = ["absent", "accepted", "recovered", "rejected", "reused"] as const;
+
+export function classifyPlanComposerIntent(message: string): "discuss" | "propose" {
+  const normalized = message.trim()
+    .replace(/^(?:please\s+)?(?:buddy[,!]?\s*)/i, "")
+    .replace(/^for (?:this|the|our|my) [^,?.!]+,\s*/i, "");
+  if (!normalized) return "discuss";
+  const proposedEdit = "propose\\s+(?:to\\s+(?:append|edit|revise|rewrite|replace|update|add|remove|delete|change|insert|shorten|expand|move|reorder)|(?:appending|editing|revising|rewriting|replacing|updating|adding|removing|deleting|changing|inserting|shortening|expanding|moving|reordering))";
+  const changeVerb = `(?:${proposedEdit}|append|edit|revise|rewrite|replace|update|add|remove|delete|change|insert|draft|write|shorten|expand|move|reorder|make)`;
+  // Explicit change requests take precedence over interrogative phrasing (e.g. "Could you rewrite…?").
+  if (new RegExp(`^(?:(?:please|can you|could you|would you|can we|could we|i want you to|i'd like you to|i want to|i'd like to)\\s+)?${changeVerb}\\b`, "i").test(normalized)) return "propose";
+  if (new RegExp(`^(?:(?:can|could|would) you|(?:can|could) we|i want you to|i'd like you to|i want to|i'd like to)\\s+(?:please\\s+)?${changeVerb}\\b`, "i").test(normalized)) return "propose";
+  if (/^(?:what|why|when|where|who|how|should|could|would|can we discuss|can we talk|is it possible to)\b/i.test(normalized)) return "discuss";
+  return "discuss";
+}
 
 function worldPlanEditReviewBefore(captured: CapturedWorldPlanEditTarget): WorldPlanEditReviewBefore | null {
   const { request } = captured;
@@ -1235,6 +1267,43 @@ function completedHistoryTurnMatchesPendingGraphAsk(
   return turn.assistant_text === completedText;
 }
 
+async function confirmedAskHistoryMatches(
+  page: WorldAgentConversationHistoryResponse,
+  stored: StoredPendingAsk,
+  conversationId: string,
+  answer: string,
+): Promise<boolean> {
+  const envelope = stored.envelope;
+  if (!envelope || page.world_id !== envelope.origin.worldId
+    || page.conversation_state !== "active" || page.conversation_id !== conversationId
+    || page.active_conversation_id !== conversationId) return false;
+  const { request, origin } = envelope;
+  if (request.plan_context_policy) {
+    const idempotencyKey = await pendingGraphAskIdempotencyKey(stored);
+    return Boolean(idempotencyKey && page.turns.filter((turn) =>
+      completedHistoryTurnMatchesPendingGraphAsk(page, turn, stored, idempotencyKey)
+      && turn.assistant_text === answer).length === 1);
+  }
+  return page.turns.filter((turn) => {
+    const provenance = turn.provenance;
+    const basis = provenance.primary_work;
+    const targets = provenance.supporting_work.filter((work) => work.kind === "dmb_plan_playable_target_v1");
+    return turn.turn_id === request.turn_id && turn.lifecycle_status === "completed"
+      && turn.user_text === request.message && turn.assistant_text === answer
+      && provenance.world_id === origin.worldId && provenance.surface_resolution === "resolved"
+      && provenance.surface_id === request.surface.surface_id
+      && provenance.surface_instance_id === request.surface.instance_id
+      && basis.resolution === "resolved" && basis.kind === "plan"
+      && basis.object_id === origin.documentId && basis.object_revision === origin.objectRevision
+      && basis.work_revision_id === origin.workRevisionId && basis.revision_n === origin.revisionN
+      && basis.content_sha256 === origin.contentSha256
+      && (request.playable_target
+        ? targets.length === 1 && targets[0]?.resolution === "resolved"
+          && targets[0].object_id === request.playable_target.id && targets[0].revision === "v1"
+        : targets.length === 0);
+  }).length === 1;
+}
+
 function failedHistoryTurnMatchesPendingGraphAsk(
   page: WorldAgentConversationHistoryResponse,
   turn: WorldAgentConversationHistoryTurn,
@@ -1556,7 +1625,12 @@ export function WorldPlanAgentConversation({
   playableEditTargetGeneration = 0,
   playableEditTargetStale = false,
   playableEditTargetDirty = false,
+  editorSelectionActive = false,
+  playableTargetLabel,
+  playableEditTargetLabel,
   onClearPlayableEditTarget = () => undefined,
+  onSavePlan,
+  savePlanEnabled = false,
 }: WorldPlanAgentConversationProps) {
   const selectedWorld = useSelectedWorld();
   const agent = useAgentInteraction();
@@ -1614,6 +1688,15 @@ export function WorldPlanAgentConversation({
     draftGeneration,
     savedDirty,
   });
+  const effectiveEditTarget = editorSelectionActive ? null
+    : playableEditTarget ?? (playableTarget?.kind === "scene" ? playableTarget : null);
+  const effectiveEditTargetStale = !editorSelectionActive && (playableEditTarget
+    ? playableEditTargetStale : playableTarget?.kind === "scene" && playableTargetStale);
+  const displayedEditKind = editorSelectionActive ? "replace_selection"
+    : effectiveEditTarget ? "replace_playable_body" : "insert_at_caret";
+  const displayedEditScope = editorSelectionActive ? "Replace selected editor text"
+    : effectiveEditTarget ? `Replace ${effectiveEditTarget.kind} body: ${(playableEditTarget ? playableEditTargetLabel : playableTargetLabel) || effectiveEditTarget.id} (${effectiveEditTarget.id})`
+      : "Insert at editor cursor — no scene or text target selected";
   const proposalFenceKey = JSON.stringify({
     requestFenceKey,
     draftGeneration,
@@ -1622,6 +1705,10 @@ export function WorldPlanAgentConversation({
     playableEditTarget,
     playableEditTargetGeneration,
     playableEditTargetStale,
+    editorSelectionActive,
+    effectiveEditTarget,
+    effectiveEditTargetStale,
+    sceneBasis: !editorSelectionActive && !playableEditTarget && playableTarget?.kind === "scene" ? playableTargetBasis : null,
     paneOpen: agent.paneState.isOpen,
     hasAskHost: Boolean(askSlot?.hostElement),
     agentScope: agent.scope ? {
@@ -1632,8 +1719,40 @@ export function WorldPlanAgentConversation({
     } : null,
   });
   const [composerMessage, setComposerMessage] = useState("");
+  const composerEditGenerationRef = useRef(0);
+  function restoreSubmittedDraft(snapshot: string, generation: number) {
+    setComposerMessage((current) => current === "" && composerEditGenerationRef.current === generation ? snapshot : current);
+  }
+  const [submittedMessage, setSubmittedMessage] = useState<{
+    id: string; scopeKey: string; conversationId: string | null; pointerRevision: number | null;
+    message: string; kind: "discuss" | "propose";
+  } | null>(null);
+  const confirmedResetRef = useRef<{ commandId: string; worldId: string; conversationId: string; pointerRevision: number } | null>(null);
+  const [retiredProposalTurns, setRetiredProposalTurns] = useState<{
+    scopeKey: string; turns: AgentInteractionTurn[]; positions: WorldPlanLocalProposalPosition[];
+  } | null>(null);
   const [composerIntent, setComposerIntent] = useState<"discuss" | "propose">("discuss");
-  const [useWorldGraphForAsk, setUseWorldGraphForAsk] = useState(false);
+  const [composerIntentCorrection, setComposerIntentCorrection] = useState<{
+    message: string;
+    intent: "discuss" | "propose";
+  } | null>(null);
+  const [newReplyAvailable, setNewReplyAvailable] = useState(false);
+  const followsLatestRef = useRef(true);
+  const hasObservedConversationHistoryRef = useRef(false);
+  const observedConversationIdRef = useRef<string | null>(null);
+  const observedAssistantReplyKeyRef = useRef<string | null>(null);
+  const olderPageScrollAnchorRef = useRef<{
+    viewport: HTMLElement;
+    scrollTop: number;
+    scrollHeight: number;
+  } | null>(null);
+  const previousVerifiedWorldIdRef = useRef(verifiedWorldId);
+  const [useWorldGraphForAsk, setUseWorldGraphForAsk] = useState(true);
+  useLayoutEffect(() => {
+    if (previousVerifiedWorldIdRef.current === verifiedWorldId) return;
+    previousVerifiedWorldIdRef.current = verifiedWorldId;
+    setUseWorldGraphForAsk(true);
+  }, [verifiedWorldId]);
   const [graphCredentialStatus, setGraphCredentialStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
@@ -1655,12 +1774,21 @@ export function WorldPlanAgentConversation({
   const [newConversationSending, setNewConversationSending] = useState(false);
   const [newConversationError, setNewConversationError] = useState<string | null>(null);
   const [conversationNotice, setConversationNotice] = useState<string | null>(null);
+  const confirmedAskNoticeRef = useRef<{
+    stored: StoredPendingAsk;
+    conversationId: string;
+    answer: string;
+    notice: string;
+  } | null>(null);
   const [savedPlanVersion, setSavedPlanVersion] = useState<{
     key: string;
     revisionN: number | null;
     status: "checking" | "verified" | "unavailable";
   } | null>(null);
   const [editReview, setEditReview] = useState<WorldPlanEditReview | null>(null);
+  const [reviewSnapshots, setReviewSnapshots] = useState<Record<string, FrozenPlanEditReview>>({});
+  const [applyingTurnId, setApplyingTurnId] = useState<string | null>(null);
+  const applyingReviewRef = useRef<WorldPlanEditReview | null>(null);
   const [sectionTargets, setSectionTargets] = useState<PlanSectionOption[]>([]);
   const [selectedSectionTargetId, setSelectedSectionTargetId] = useState("");
   const [sectionTargetStatus, setSectionTargetStatus] = useState<PlanSectionTargetStatus | null>(null);
@@ -1685,6 +1813,9 @@ export function WorldPlanAgentConversation({
     proposalFenceKey,
     threadId: activeThread?.threadId ?? null,
     providerThreadId: agent.activeThread?.threadId ?? null,
+    savePlanEnabled,
+    saveInFlight,
+    savedDirty,
     scopeMatches,
     verifiedWorldId,
     documentId,
@@ -1745,12 +1876,104 @@ export function WorldPlanAgentConversation({
     ),
     [history, proposalOrderForDisplay, proposalThreadForDisplay?.turns],
   );
+  const archivedProposalTurns = useMemo(() => {
+    if (!namespace || !documentId) return [];
+    try {
+      return listAgentThreads(namespace, "plan", documentId)
+        .filter((summary) => summary.threadId !== activeThread?.threadId)
+        .flatMap((summary) => {
+          const thread = loadAgentThreadById(namespace, summary.threadId);
+          return thread?.worldPlanProposalHistory === WORLD_PLAN_LOCAL_PROPOSAL_HISTORY
+            ? thread.turns.filter((turn) => turn.planEdit) : [];
+        });
+    } catch { return []; }
+  }, [namespace, documentId, activeThread?.threadId, proposalOrderRevision]);
+  const otherLocalProposals = [...new Map([...conversationDisplay.localActivity, ...archivedProposalTurns,
+    ...(retiredProposalTurns?.scopeKey === scopeKey ? retiredProposalTurns.turns : [])]
+    .map((turn) => [turn.turnId, turn])).values()];
+  const archivedProposalPositions = useMemo(() => {
+    if (!namespace || !documentId) return [];
+    try {
+      return listAgentThreads(namespace, "plan", documentId)
+        .filter((summary) => summary.threadId !== activeThread?.threadId)
+        .flatMap((summary) => readLocalProposalOrder(localProposalOrderStorageKey(namespace, summary.threadId))?.positions ?? []);
+    } catch { return []; }
+  }, [namespace, documentId, activeThread?.threadId, proposalOrderRevision]);
+  const latestAssistantReplyKey = (() => {
+    const event = [...conversationDisplay.events].reverse().find((candidate) =>
+      candidate.kind === "world"
+      && candidate.turn.lifecycle_status === "completed"
+      && Boolean(candidate.turn.assistant_text?.trim()));
+    return event?.kind === "world" ? `${event.turn.turn_id}:${event.turn.assistant_text}` : null;
+  })();
+  useLayoutEffect(() => {
+    if (!presentationHosts || !agent.paneState.isOpen) return;
+    const viewport = presentationHosts.messages?.parentElement;
+    if (!viewport) return;
+    const nearBottom = () => viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= 48;
+    const updateFollowState = () => {
+      followsLatestRef.current = nearBottom();
+      if (followsLatestRef.current) setNewReplyAvailable(false);
+    };
+    updateFollowState();
+    viewport.addEventListener("scroll", updateFollowState, { passive: true });
+    return () => viewport.removeEventListener("scroll", updateFollowState);
+  }, [agent.paneState.isOpen, presentationHosts]);
+  useLayoutEffect(() => {
+    const anchor = olderPageScrollAnchorRef.current;
+    if (!anchor) return;
+    olderPageScrollAnchorRef.current = null;
+    const addedHeight = Math.max(0, anchor.viewport.scrollHeight - anchor.scrollHeight);
+    anchor.viewport.scrollTop = anchor.scrollTop + addedHeight;
+  }, [history]);
+  useLayoutEffect(() => {
+    if (!presentationHosts || !agent.paneState.isOpen || !history || historyLoading) return;
+    const viewport = presentationHosts.messages?.parentElement;
+    if (!viewport) return;
+    if (!hasObservedConversationHistoryRef.current || observedConversationIdRef.current !== history.conversation_id) {
+      hasObservedConversationHistoryRef.current = true;
+      observedConversationIdRef.current = history.conversation_id;
+      observedAssistantReplyKeyRef.current = latestAssistantReplyKey;
+      setNewReplyAvailable(false);
+      return;
+    }
+    if (!latestAssistantReplyKey || latestAssistantReplyKey === observedAssistantReplyKeyRef.current) return;
+    const conversationId = history.conversation_id;
+    const replyKey = latestAssistantReplyKey;
+    const scrollToLatest = () => {
+      if (observedConversationIdRef.current !== conversationId || !agent.paneState.isOpen) return;
+      observedAssistantReplyKeyRef.current = replyKey;
+      if (followsLatestRef.current) {
+        viewport.scrollTop = viewport.scrollHeight;
+        setNewReplyAvailable(false);
+      } else {
+        setNewReplyAvailable(true);
+      }
+    };
+    if (typeof window.requestAnimationFrame !== "function") {
+      scrollToLatest();
+      return;
+    }
+    const frame = window.requestAnimationFrame(scrollToLatest);
+    return () => window.cancelAnimationFrame(frame);
+  }, [agent.paneState.isOpen, history, historyLoading, latestAssistantReplyKey, presentationHosts]);
+
+  function jumpToLatestReply() {
+    const viewport = presentationHosts?.messages?.parentElement;
+    if (!viewport) return;
+    followsLatestRef.current = true;
+    viewport.scrollTop = viewport.scrollHeight;
+    setNewReplyAvailable(false);
+  }
 
   latestRef.current.fenceKey = requestFenceKey;
   latestRef.current.presentationFenceKey = askPresentationFenceKey;
   latestRef.current.proposalFenceKey = proposalFenceKey;
   latestRef.current.threadId = activeThread?.threadId ?? null;
   latestRef.current.providerThreadId = agent.activeThread?.threadId ?? null;
+  latestRef.current.savePlanEnabled = savePlanEnabled;
+  latestRef.current.saveInFlight = saveInFlight;
+  latestRef.current.savedDirty = savedDirty;
   latestRef.current.scopeMatches = scopeMatches;
   latestRef.current.verifiedWorldId = verifiedWorldId;
   latestRef.current.documentId = documentId;
@@ -1832,6 +2055,10 @@ export function WorldPlanAgentConversation({
 
   useLayoutEffect(() => {
     proposalRequestRef.current = null;
+    if (applyingReviewRef.current?.fenceKey !== proposalFenceKey) {
+      applyingReviewRef.current = null;
+      setApplyingTurnId(null);
+    }
     editReviewRef.current = null;
     setComposing(false);
     setEditReview(null);
@@ -1841,6 +2068,15 @@ export function WorldPlanAgentConversation({
   useEffect(() => {
     let active = true;
     const generation = ++historyGenerationRef.current;
+    const confirmedAskNotice = confirmedAskNoticeRef.current;
+    const settleRefreshFailure = () => {
+      if (!active || generation !== historyGenerationRef.current || !confirmedAskNotice
+        || confirmedAskNoticeRef.current !== confirmedAskNotice) return;
+      const notice = confirmedAskNotice.notice.replace(/Refreshing World history[^.]*\.|refreshing World history\./,
+        "World history refresh failed. Refresh history to check this confirmed Ask.");
+      confirmedAskNoticeRef.current = { ...confirmedAskNotice, notice };
+      setConversationNotice((current) => current === confirmedAskNotice.notice ? notice : current);
+    };
     historySnapshotRef.current = null;
     setOlderLoading(false);
     setHistory(null);
@@ -1863,6 +2099,7 @@ export function WorldPlanAgentConversation({
           && await areHistoryReceiptDigestsBound(page);
         if (!validState) {
           setHistoryError("The World conversation response did not match the selected World or contained an invalid Graph-context receipt. Refresh history before continuing.");
+          settleRefreshFailure();
           return;
         }
         if (!active || generation !== historyGenerationRef.current) return;
@@ -1889,13 +2126,33 @@ export function WorldPlanAgentConversation({
             ? reason.message
             : "Browser storage is unavailable for pending Ask recovery.");
         }
+        const matchingNotice = confirmedAskNotice && confirmedAskNoticeRef.current === confirmedAskNotice
+          && await confirmedAskHistoryMatches(page, confirmedAskNotice.stored,
+            confirmedAskNotice.conversationId, confirmedAskNotice.answer);
+        if (!active || generation !== historyGenerationRef.current) return;
+        const reset = confirmedResetRef.current;
+        if (reset?.worldId === verifiedWorldId && (page.pointer_revision < reset.pointerRevision
+          || (page.pointer_revision === reset.pointerRevision && page.conversation_id !== reset.conversationId))) {
+          setHistoryError("The refreshed transcript has not reached the confirmed new conversation. Refresh history again.");
+          return;
+        }
         historySnapshotRef.current = page;
         setHistory(page);
+        if (matchingNotice && confirmedAskNotice
+          && confirmedAskNoticeRef.current === confirmedAskNotice) {
+          const settledNotice = confirmedAskNotice.notice.replace(/Refreshing World history[^.]*\.|refreshing World history\.|World history refresh failed\. Refresh history to check this confirmed Ask\./,
+            "World history refreshed.");
+          confirmedAskNoticeRef.current = null;
+          setSubmittedMessage((current) => current?.kind === "discuss"
+            && current.id === confirmedAskNotice.stored.envelope?.request.turn_id ? null : current);
+          setConversationNotice((current) => current === confirmedAskNotice.notice ? settledNotice : current);
+        }
       })
       .catch((reason: unknown) => {
         if (active && generation === historyGenerationRef.current) {
           setHistoryError(localOperatorCredentialFailure(reason, "refresh World history")
             ?? (reason instanceof Error ? reason.message : "Could not load the World conversation."));
+          settleRefreshFailure();
         }
       })
       .finally(() => {
@@ -1963,6 +2220,7 @@ export function WorldPlanAgentConversation({
     setComposerIntent("discuss");
     setError(null);
     setConversationNotice(null);
+    confirmedAskNoticeRef.current = null;
   }, [scopeKey]);
 
   function refreshPendingAskList() {
@@ -2022,6 +2280,7 @@ export function WorldPlanAgentConversation({
     const stillCurrent = () => latestRef.current.mounted
       && latestRef.current.scopeMatches
       && latestRef.current.verifiedWorldId === envelope.worldId
+      && latestRef.current.documentId === documentId
       && newConversationRef.current === token;
     try {
       const response = await postWorldAgentNewConversation(envelope.worldId, envelope.request);
@@ -2033,6 +2292,30 @@ export function WorldPlanAgentConversation({
         || !Number.isSafeInteger(response.pointer_revision)
         || !(response.active_conversation_id === null || typeof response.active_conversation_id === "string")) {
         throw new Error("The New Conversation response did not match its saved command.");
+      }
+      if (response.active_conversation_id !== response.conversation_id
+        || response.conversation_id === envelope.request.expected_active_conversation_id
+        || response.pointer_revision <= envelope.request.expected_pointer_revision) {
+        throw new Error("The New Conversation response did not confirm an active fresh conversation.");
+      }
+      const freshReset = confirmedResetRef.current?.commandId !== envelope.request.command_id
+        && historySnapshotRef.current?.conversation_id !== response.conversation_id;
+      confirmedResetRef.current = { commandId: envelope.request.command_id, worldId: envelope.worldId, conversationId: response.conversation_id,
+        pointerRevision: response.pointer_revision };
+      if (freshReset) {
+        historyGenerationRef.current += 1;
+        historySnapshotRef.current = null;
+        setHistory(null);
+        setSubmittedMessage(null);
+        editReviewRef.current = null;
+        setEditReview(null);
+        if (namespace && documentId && activeThread?.worldPlanProposalHistory === WORLD_PLAN_LOCAL_PROPOSAL_HISTORY) {
+          setRetiredProposalTurns((current) => ({ scopeKey,
+            turns: [...activeThread.turns.filter((turn) => turn.planEdit), ...(current?.scopeKey === scopeKey ? current.turns : [])],
+            positions: [...(proposalOrderForDisplay?.positions ?? []), ...(current?.scopeKey === scopeKey ? current.positions : [])] }));
+          agent.updateThread({ ...createAgentInteractionThread(namespace, null, "plan", "hermes", "New conversation", documentId),
+            worldPlanProposalHistory: WORLD_PLAN_LOCAL_PROPOSAL_HISTORY });
+        }
       }
       try {
         window.localStorage.removeItem(stored.storageKey);
@@ -2094,7 +2377,6 @@ export function WorldPlanAgentConversation({
         throw new Error("Browser storage did not preserve the exact command envelope.");
       }
       refreshPendingCommandList();
-      setComposerMessage("");
       setError(null);
       setNewConversationError(null);
       void sendNewConversationCommand({ storageKey, envelope, error: null });
@@ -2120,7 +2402,7 @@ export function WorldPlanAgentConversation({
     setTraceVisible((current) => !current);
   }
 
-  async function sendPendingAsk(stored: StoredPendingAsk, initialDispatch = false) {
+  async function sendPendingAsk(stored: StoredPendingAsk, initialDispatch = false, composerSnapshotAtSubmit?: string, composerGenerationAtSubmit?: number) {
     const envelope = stored.envelope;
     if (!envelope || !scopeMatches || verifiedWorldId !== envelope.origin.worldId
       || documentId !== envelope.origin.documentId || requestRef.current) return;
@@ -2191,16 +2473,23 @@ export function WorldPlanAgentConversation({
             : `${target.kind} ${target.id}`;
           originalContext = `selected card ${targetLabel}`;
         }
-        setConversationNotice(
-          `The server confirmed this Ask for its original ${originalContext} at committed Plan object revision ${envelope.origin.objectRevision}. Refreshing World history with that submitted provenance.`,
-        );
+        const notice = `The server confirmed this Ask for its original ${originalContext} at committed Plan object revision ${envelope.origin.objectRevision}. Refreshing World history with that submitted provenance.`;
+        confirmedAskNoticeRef.current = { stored, conversationId: validation.value.conversationId, answer: validation.value.answer, notice };
+        setConversationNotice(notice);
       } else {
-        setConversationNotice(belongsToPreviousConversation
+        const notice = belongsToPreviousConversation
           ? `The server confirmed this Ask under conversation ${validation.value.conversationId}. It was not inserted into the currently active conversation; refreshing World history.`
-          : "The server confirmed this Ask. Refreshing World history.");
+          : "The server confirmed this Ask. Refreshing World history.";
+        confirmedAskNoticeRef.current = { stored, conversationId: validation.value.conversationId, answer: validation.value.answer, notice };
+        setConversationNotice(notice);
       }
-      setComposerMessage("");
     } catch (reason) {
+      if (isCurrent() && composerSnapshotAtSubmit !== undefined && composerGenerationAtSubmit !== undefined
+        && latestRef.current.presentationFenceKey === submittedPresentationFenceKey
+        && historySnapshotRef.current?.pointer_revision === envelope.origin.pointerRevision
+        && historySnapshotRef.current?.active_conversation_id === envelope.origin.conversationId) {
+        restoreSubmittedDraft(composerSnapshotAtSubmit, composerGenerationAtSubmit);
+      }
       const definitivePreDispatchFailure = envelope.request.plan_context_policy
         ? graphContextPreDispatchFailure(reason)
         : null;
@@ -2229,18 +2518,26 @@ export function WorldPlanAgentConversation({
     }
   }
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>, intent = composerIntent) {
     event.preventDefault();
-    const message = composerMessage.trim();
+    const composerSnapshotAtSubmit = composerMessage;
+    const message = composerSnapshotAtSubmit.trim();
     const pointerSnapshot = historySnapshotRef.current;
     const targetAtSubmit = playableTarget;
     const targetBasisAtSubmit = playableTargetBasis;
-    if (composerIntent !== "discuss" || !planReady || !scopeMatches || !namespace || !documentId || !surfaceInstanceId
+    if (intent !== "discuss" || !planReady || !scopeMatches || !namespace || !documentId || !surfaceInstanceId
       || !isPositiveRevision(revision) || saveInFlight || !message || sending || requestRef.current
       || historyLoading || historyError || !pointerSnapshot || playableTargetStale
       || (targetAtSubmit && (!targetBasisAtSubmit || targetBasisAtSubmit.revision !== revision))) return;
 
     const startingFenceKey = requestFenceKey;
+    const submittedClientThreadId = crypto.randomUUID();
+    const submittedTurnId = crypto.randomUUID();
+    const composerGenerationAtSubmit = composerEditGenerationRef.current;
+    const submittedPresentationFenceKey = askPresentationFenceKey;
+    setSubmittedMessage({ id: submittedTurnId, scopeKey, conversationId: pointerSnapshot.conversation_id,
+      pointerRevision: pointerSnapshot.pointer_revision, message, kind: "discuss" });
+    setComposerMessage((current) => current === composerSnapshotAtSubmit ? "" : current);
     setSending(true);
     setError(null);
     setConversationNotice(null);
@@ -2276,8 +2573,8 @@ export function WorldPlanAgentConversation({
       }
       const request: WorldPlanAgentTurnRequestV1 = {
         schema: "dmb_agent_turn_request_v1",
-        client_thread_id: crypto.randomUUID(),
-        turn_id: crypto.randomUUID(),
+        client_thread_id: submittedClientThreadId,
+        turn_id: submittedTurnId,
         surface: { surface_id: "plan", instance_id: surfaceInstanceId },
         owner_scope: { kind: "world", world_id: worldId },
         primary_work: {
@@ -2324,13 +2621,13 @@ export function WorldPlanAgentConversation({
       } catch (reason) {
         throw new Error(`The Ask was not sent because its recovery envelope could not be saved. ${reason instanceof Error ? reason.message : "Browser storage is unavailable."}`);
       }
-      setUseWorldGraphForAsk(false);
       refreshPendingAskList();
       requestRef.current = null;
       setSending(false);
-      await sendPendingAsk({ storageKey, serialized, envelope, error: null }, true);
+      await sendPendingAsk({ storageKey, serialized, envelope, error: null }, true, composerSnapshotAtSubmit, composerGenerationAtSubmit);
     } catch (reason) {
       if (requestRef.current?.token === preparationToken) {
+        if (latestRef.current.presentationFenceKey === submittedPresentationFenceKey) restoreSubmittedDraft(composerSnapshotAtSubmit, composerGenerationAtSubmit);
         requestRef.current = null;
         setSending(false);
         setError(reason instanceof Error ? reason.message : "The Ask could not be prepared.");
@@ -2339,11 +2636,12 @@ export function WorldPlanAgentConversation({
   }
 
   function submitComposer(event: FormEvent<HTMLFormElement>) {
-    if (composerIntent === "propose") {
-      void composeEdit(event);
-      return;
-    }
-    void submit(event);
+    const intent = detectedComposerIntent;
+    setComposerIntent(intent);
+    setError(null);
+    setEditError(null);
+    if (intent === "propose") void composeEdit(event, intent);
+    else void submit(event, intent);
   }
 
   async function loadOlderTurns() {
@@ -2377,6 +2675,14 @@ export function WorldPlanAgentConversation({
         next_before_sequence: page.next_before_sequence,
       };
       historySnapshotRef.current = merged;
+      const viewport = presentationHosts?.messages?.parentElement;
+      if (viewport) {
+        olderPageScrollAnchorRef.current = {
+          viewport,
+          scrollTop: viewport.scrollTop,
+          scrollHeight: viewport.scrollHeight,
+        };
+      }
       setHistory(merged);
     } catch (reason) {
       if (generation === historyGenerationRef.current) {
@@ -2773,16 +3079,31 @@ export function WorldPlanAgentConversation({
     }
   }
 
-  async function composeEdit(event: FormEvent<HTMLFormElement>) {
+  async function verifySceneCommittedBasis(captured: CapturedWorldPlanEditTarget) {
+    const request = captured.request;
+    const committed = await getWorldOwnedPlanCommittedRevision(request.document_id);
+    const basis = readCommittedPlanBasis(committed, request.world_id, request.document_id, request.base_revision);
+    if (!basis || basis.content_sha256 !== request.base_content_sha256) {
+      throw new Error("The committed Plan changed. Refresh the Plan and select the scene again before editing.");
+    }
+  }
+
+  async function composeEdit(event: FormEvent<HTMLFormElement>, intent = composerIntent) {
     event.preventDefault();
-    const instruction = composerMessage.trim();
-    if (composerIntent !== "propose" || !planReady || !scopeMatches || !namespace || !documentId || !editBridge
+    const composerSnapshotAtSubmit = composerMessage;
+    const instruction = composerSnapshotAtSubmit.trim();
+    if (intent !== "propose" || !planReady || !scopeMatches || !namespace || !documentId || !editBridge
       || !isPositiveRevision(revision) || saveInFlight || !instruction
       || composing || sending || requestRef.current || proposalRequestRef.current) return;
-    if (playableEditTarget && playableEditTargetStale) {
+    if (effectiveEditTarget && effectiveEditTargetStale) {
       setEditError("The selected card is stale or no longer unique in this draft. Select it again before composing.");
       return;
     }
+    const submittedEditId = crypto.randomUUID();
+    const composerGenerationAtSubmit = composerEditGenerationRef.current;
+    setSubmittedMessage({ id: submittedEditId, scopeKey, conversationId: historySnapshotRef.current?.conversation_id ?? null,
+      pointerRevision: historySnapshotRef.current?.pointer_revision ?? null, message: instruction, kind: "propose" });
+    setComposerMessage((current) => current === composerSnapshotAtSubmit ? "" : current);
 
     const dispatchHistory = historySnapshotRef.current;
     const canAnchorProposal = !historyLoading && !historyError
@@ -2835,8 +3156,24 @@ export function WorldPlanAgentConversation({
     try {
       const captured = await editBridge.capture();
       if (!isCurrent()) return;
+      if (captured.request.target_kind !== displayedEditKind
+        || (displayedEditKind !== "replace_playable_body" && captured.request.playable_target != null)
+        || captured.request.world_id !== worldId || captured.request.document_id !== documentId
+        || captured.request.base_revision !== revision
+        || captured.draftGeneration !== draftGeneration || captured.selectionGeneration !== selectionGeneration
+        || (effectiveEditTarget && (captured.request.playable_target?.kind !== effectiveEditTarget.kind
+          || captured.request.playable_target?.id !== effectiveEditTarget.id))
+        || (playableEditTarget && captured.playableTargetGeneration !== playableEditTargetGeneration)
+        || (!playableEditTarget && effectiveEditTarget && playableTargetBasis
+          && captured.request.base_content_sha256 !== playableTargetBasis.contentSha256)) {
+        throw new Error("The captured edit target no longer matches the displayed change target. Select the target again before proposing.");
+      }
       if (worldPlanEditReviewBefore(captured) === null) {
         throw new Error("The captured Plan target has no valid Before snapshot. Reselect it and compose the proposal again.");
+      }
+      if (captured.playableTargetSource === "scene") {
+        await verifySceneCommittedBasis(captured);
+        if (!isCurrent()) return;
       }
       const conversationHistory: WorldPlanDocumentEditProposalRequest["conversation_history"] = [];
       const requestWithoutKey = {
@@ -2892,6 +3229,7 @@ export function WorldPlanAgentConversation({
       }
       proposalRequestRef.current = null;
       setComposing(false);
+      setSubmittedMessage((current) => current?.id === submittedEditId ? null : current);
       agent.updateThread({
         ...currentThread,
         campaignId: namespace,
@@ -2917,9 +3255,18 @@ export function WorldPlanAgentConversation({
         turnId,
         fenceKey: latestRef.current.proposalFenceKey,
       };
+      if (editBridge.preview) {
+        const preview = editBridge.preview(captured, admitted);
+        setReviewSnapshots((current) => ({ ...current, [turnId]: {
+          scopeKey, worldId: captured.request.world_id, documentId: captured.request.document_id,
+          threadId: currentThread.threadId, conversationId: proposalAnchor?.conversationId ?? null,
+          targetLabel: captured.playableTargetLabel || captured.playableBodyTarget?.target.id
+            || captured.sectionTarget?.heading || (captured.request.target_kind === "insert_at_caret" ? "at the captured caret" : "selected text"),
+          preview,
+        } }));
+      }
       editReviewRef.current = nextReview;
       setEditReview(nextReview);
-      setComposerMessage("");
       setComposerIntent("discuss");
       proposalIntentRef.current = null;
       void getWorldPlanDocumentEditActions(worldId, documentId)
@@ -2937,7 +3284,10 @@ export function WorldPlanAgentConversation({
         })
         .catch(() => undefined);
     } catch (reason) {
-      if (isCurrent()) setEditError(reason instanceof Error ? reason.message : "The Plan edit proposal failed. Try again.");
+      if (isCurrent()) {
+        restoreSubmittedDraft(composerSnapshotAtSubmit, composerGenerationAtSubmit);
+        setEditError(reason instanceof Error ? reason.message : "The Plan edit proposal failed. Try again.");
+      }
     } finally {
       if (isCurrent()) {
         proposalRequestRef.current = null;
@@ -2953,6 +3303,7 @@ export function WorldPlanAgentConversation({
   }
 
   async function applyEditReview(review: WorldPlanEditReview) {
+    if (applyingReviewRef.current) return;
     if (worldPlanEditReviewBefore(review.captured) === null) {
       discardEditReview();
       setEditError("The captured Plan target no longer has a valid Before snapshot. Reselect it and compose the proposal again.");
@@ -2966,7 +3317,16 @@ export function WorldPlanAgentConversation({
       setEditError("World Plan or Agent thread changed. Compose the proposal again.");
       return;
     }
+    applyingReviewRef.current = review;
+    setApplyingTurnId(review.turnId);
     try {
+      if (review.captured.playableTargetSource === "scene") {
+        await verifySceneCommittedBasis(review.captured);
+        if (editReviewRef.current !== review || latestRef.current.proposalFenceKey !== review.fenceKey
+          || !latestRef.current.scopeMatches || latestRef.current.threadId !== review.threadId) {
+          throw new Error("World Plan or selected scene changed. Compose the proposal again.");
+        }
+      }
       await editBridge.apply(
         review.captured,
         review.admitted,
@@ -2987,8 +3347,16 @@ export function WorldPlanAgentConversation({
       });
       discardEditReview();
     } catch (reason) {
+      if (editReviewRef.current !== review || !latestRef.current.mounted
+        || latestRef.current.threadId !== review.threadId || !latestRef.current.scopeMatches) return;
       setComposerIntent("propose");
+      if (reason instanceof PlanEditGuardError || (reason instanceof Error && reason.message.includes("committed Plan changed"))) discardEditReview();
       setEditError(reason instanceof Error ? reason.message : "The proposal could not be applied to this mounted Plan.");
+    } finally {
+      if (applyingReviewRef.current === review) {
+        applyingReviewRef.current = null;
+        setApplyingTurnId(null);
+      }
     }
   }
 
@@ -3018,9 +3386,13 @@ export function WorldPlanAgentConversation({
   const confirmedFailureCount = pendingGraphAskRecords.filter((item) => isPendingAskFailureConfirmed(item)).length;
   const unconfirmedGraphAskCount = pendingGraphAskRecords.length - confirmedFailureCount;
   const intentBusy = sending || composing || saveInFlight || !scopeMatches || currentReview !== null;
-  const composerBusy = intentBusy || (composerIntent === "discuss"
+  const inferredComposerIntent = classifyPlanComposerIntent(composerMessage);
+  const detectedComposerIntent = composerIntentCorrection?.message === composerMessage
+    ? composerIntentCorrection.intent
+    : inferredComposerIntent;
+  const composerBusy = intentBusy || (detectedComposerIntent === "discuss"
     && (historyLoading || !history || Boolean(historyError)));
-  const messageLimit = composerIntent === "discuss" ? 8000 : 4000;
+  const messageLimit = detectedComposerIntent === "discuss" ? 8000 : 4000;
   const messageTooLong = composerMessage.length > messageLimit;
   const displayedSavedPlanVersion = savedPlanVersion?.key === committedPlanVersionKey
     ? savedPlanVersion
@@ -3033,12 +3405,33 @@ export function WorldPlanAgentConversation({
 
     event.preventDefault();
     if (!composerMessage.trim() || messageTooLong
-      || (composerIntent === "discuss" && playableTargetStale)) return;
+      || (detectedComposerIntent === "discuss" && playableTargetStale)) return;
     event.currentTarget.form?.requestSubmit();
   }
   const localProposalPositionsByTurnId = new Map(
-    (proposalOrderForDisplay?.positions ?? []).map((position) => [position.turnId, position]),
+    [...archivedProposalPositions, ...(retiredProposalTurns?.scopeKey === scopeKey ? retiredProposalTurns.positions : []),
+      ...(proposalOrderForDisplay?.positions ?? [])].map((position) => [position.turnId, position]),
   );
+  const renderFrozenReview = (turn: AgentInteractionTurn) => {
+    const snapshot = reviewSnapshots[turn.turnId];
+    if (!snapshot || snapshot.scopeKey !== scopeKey) return null;
+    const executable = currentReview?.turnId === turn.turnId ? currentReview : null;
+    const status = turn.planEdit?.applied ? "applied"
+      : executable ? applyingTurnId === turn.turnId ? "applying" : "review" : "stale";
+    const canOfferSave = status === "applied" && savedDirty && snapshot.threadId === activeThread?.threadId
+      && (!snapshot.conversationId || snapshot.conversationId === history?.conversation_id) && onSavePlan;
+    return <PlanEditReview targetLabel={snapshot.targetLabel} before={snapshot.preview.before} after={snapshot.preview.after}
+      status={status} onApply={() => { if (executable) void applyEditReview(executable); }}
+      onDiscard={() => { if (executable && editReviewRef.current === executable) discardEditReview(); }}
+      saveAction={canOfferSave ? { disabled: !savedDirty || !savePlanEnabled || saveInFlight, onSave: () => {
+        if (latestRef.current.mounted && latestRef.current.verifiedWorldId === snapshot.worldId
+          && latestRef.current.documentId === snapshot.documentId && latestRef.current.threadId === snapshot.threadId
+          && (!snapshot.conversationId || historySnapshotRef.current?.conversation_id === snapshot.conversationId)
+          && latestRef.current.scopeMatches && latestRef.current.savedDirty && latestRef.current.savePlanEnabled
+          && !latestRef.current.saveInFlight) onSavePlan?.();
+      } } : undefined}
+      />;
+  };
   const renderProposalEvent = (
     turn: AgentInteractionTurn,
     position: WorldPlanLocalProposalPosition | null,
@@ -3064,15 +3457,38 @@ export function WorldPlanAgentConversation({
             : "This proposal has no verified position in the active World conversation and stays in local activity."}
         </p>
       ) : null}
-      <p><strong>You:</strong> {turn.question}</p>
-      <div><strong>DungeonBuddy:</strong><WorldPlanAgentAnswer answer={turn.answer} /></div>
+      <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--user">
+        <span className="world-plan-agent-conversation__speaker">You</span>
+        <p>{turn.question}</p>
+      </div>
+      <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--assistant">
+        <span className="world-plan-agent-conversation__speaker">Buddy</span>
+        <WorldPlanAgentAnswer answer={turn.planEdit
+          ? `${turn.planEdit.applied ? "Applied to your draft" : "Proposal only; not applied"}. ${turn.planEdit.targetKind === "insert_at_caret"
+            ? "Scope: insertion at the captured caret; no scene target was selected."
+            : turn.planEdit.targetKind === "replace_selection" ? "Scope: replacement of the captured editor selection."
+              : "Scope: replacement of the captured card body."}`
+          : turn.answer} />
+        {turn.planEdit ? <details><summary>Model proposal explanation</summary>
+          <WorldPlanAgentAnswer answer={turn.planEdit.proposalSummary} />
+        </details> : null}
+      </div>
       {turn.planEdit?.applied ? (
         <p className="world-plan-agent-conversation__context">Apply changes your draft. Save keeps the changes.</p>
       ) : null}
-      {currentReview?.turnId === turn.turnId ? (
+      {turn.planEdit && !turn.planEdit.applied && reviewSnapshots[turn.turnId]?.scopeKey !== scopeKey
+        && currentReview?.turnId !== turn.turnId ? (
+        <>
+          <p role="status">Review expired after reload. This proposal was not applied; request a new proposal to review it.</p>
+          <details>
+            <summary>Stored proposed replacement</summary>
+            <WorldPlanAgentAnswer answer={turn.planEdit.replacementMarkdown} />
+          </details>
+        </>
+      ) : null}
+      {reviewSnapshots[turn.turnId]?.scopeKey === scopeKey ? renderFrozenReview(turn) : currentReview?.turnId === turn.turnId ? (
         <section className="world-plan-agent-conversation__review" aria-label="Review proposed Plan edit">
           <h4>Review this proposal</h4>
-          <p>{currentReview.admitted.response.summary}</p>
           {currentReview.admitted.response.assumptions.length ? (
             <ul>{currentReview.admitted.response.assumptions.map((assumption, index) => <li key={`${index}:${assumption}`}>{assumption}</li>)}</ul>
           ) : null}
@@ -3081,7 +3497,7 @@ export function WorldPlanAgentConversation({
               <h5>Before</h5>
               {currentReviewBefore?.kind === "captured-text" && currentReviewBefore.target ? (
                 <p className="world-plan-agent-conversation__context">
-                  Card target · {currentReviewBefore.target.kind} {currentReviewBefore.target.id}
+                  Card target · {currentReview.captured.playableTargetLabel ? `${currentReview.captured.playableTargetLabel} · ` : ""}{currentReviewBefore.target.kind} {currentReviewBefore.target.id}
                 </p>
               ) : null}
               <pre>{currentReviewBefore?.kind === "caret"
@@ -3104,6 +3520,73 @@ export function WorldPlanAgentConversation({
       ) : null}
     </article>
   );
+  const renderConversationEvent = (event: WorldConversationDisplayEvent) => {
+    if (event.kind === "proposal") return renderProposalEvent(event.turn, event.position, false);
+    const turn = event.turn;
+    const failed = isHistoryTurnFailureConfirmed(turn.turn_id) || isWorldHistoryTurnFailed(turn.turn_id)
+      || turn.lifecycle_status === "failed";
+    const interrupted = turn.lifecycle_status === "interrupted";
+    const targetReceipt = historyTurnPlayableTargetLabel(turn);
+    return (
+      <article
+        key={`world:${turn.turn_id}`}
+        className={`world-plan-agent-conversation__turn world-plan-agent-conversation__turn--${turn.assistant_text ? "complete" : failed ? "failed" : interrupted ? "interrupted" : "pending"}`}
+        data-sequence={turn.sequence}
+      >
+        <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--user">
+          <span className="world-plan-agent-conversation__speaker">You</span>
+          <p>{turn.user_text}</p>
+        </div>
+        {turn.assistant_text ? (
+          <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--assistant">
+            <span className="world-plan-agent-conversation__speaker">Buddy</span>
+            <WorldPlanAgentAnswer
+              answer={turn.assistant_text}
+              displaySegments={"plan_context" in turn && turn.plan_context?.completion
+                ? turn.plan_context.completion.answer_segments.map((segment) => segment.text)
+                : undefined}
+            />
+          </div>
+        ) : (
+          <p className="world-plan-agent-conversation__turn-status" role="status">
+            {failed
+              ? "Buddy couldn’t finish this reply. Your Plan was not changed."
+              : interrupted
+                ? "This reply stopped before it finished. Your Plan was not changed."
+                : "Buddy is working on this reply…"}
+          </p>
+        )}
+        <details className="world-plan-agent-conversation__turn-details">
+          <summary>{failed || interrupted ? "Why this reply stopped" : "Details"}</summary>
+          <p className="world-plan-agent-conversation__context">
+            Turn {turn.sequence} · {turn.lifecycle_status} · {historyTurnProvenanceLabel(turn)}
+          </p>
+          {targetReceipt ? (
+            <p role={targetReceipt.startsWith("Target receipt unavailable") ? "alert" : "note"}>{targetReceipt}</p>
+          ) : null}
+          {renderGraphContextHistory(turn)}
+        </details>
+      </article>
+    );
+  };
+  const latestConversationEvent = conversationDisplay.events.at(-1) ?? null;
+  const earlierConversationEvents = conversationDisplay.events.slice(0, -1);
+  const recoveryRecordCount = savedAskRecords.length + pendingCommands.filter((item) => item.envelope !== null || item.error).length
+    + pendingAsks.filter((item) => item.error).length;
+  const pendingNewConversation = pendingCommands.some((item) => item.envelope !== null);
+  const newConversationDisabledReason = newConversationSending
+    ? "A new conversation is already starting."
+    : pendingNewConversation
+      ? "A previous new-conversation request is awaiting confirmation. Check its status before starting another."
+      : sending || composing
+        ? "Wait for the current message to finish before starting a new conversation."
+        : historyLoading
+          ? "Conversation history is still loading."
+          : !history
+            ? historyError
+              ? "Conversation history is unavailable. Refresh it before starting a new conversation."
+              : "Conversation history is not ready yet."
+            : null;
 
   const headerActions = (
     <div className="world-plan-agent-conversation__actions">
@@ -3113,157 +3596,92 @@ export function WorldPlanAgentConversation({
             <button
               type="button"
               onClick={startNewConversation}
-              disabled={sending || composing || historyLoading || !history || newConversationSending
-                || pendingCommands.some((item) => item.envelope !== null)}
+              disabled={newConversationDisabledReason !== null}
+              aria-describedby={newConversationDisabledReason ? "world-plan-new-conversation-disabled-reason" : undefined}
             >
               {newConversationSending ? "Starting…" : "New conversation"}
             </button>
+            {newConversationDisabledReason ? (
+              <p id="world-plan-new-conversation-disabled-reason" className="world-plan-agent-conversation__management-reason" role="note">
+                Unavailable right now: {newConversationDisabledReason}
+              </p>
+            ) : null}
           </div>
   );
   const contextDetails = (
-    <div className="world-plan-agent-conversation__header-context" role="group" aria-label="Current Plan context">
-          {playableTarget ? (
-            <div role="group" aria-label="Selected Playable card for Ask" className="world-plan-agent-conversation__target-chip">
-              <span>Ask target · {playableTarget.kind} {playableTarget.id}</span>
-              <button type="button" onClick={onClearPlayableTarget}>Clear Ask target</button>
-            </div>
-          ) : <span>Ask target · whole Plan</span>}
-          {playableEditTarget ? (
-            <div role="group" aria-label="Selected Playable card for edit" className="world-plan-agent-conversation__target-chip">
-              <span>Edit target · {playableEditTarget.kind} {playableEditTarget.id}</span>
-              <button type="button" onClick={onClearPlayableEditTarget}>Clear edit target</button>
-            </div>
-          ) : <span>Edit target · editor context</span>}
+    <div className="world-plan-agent-conversation__header-context" role="group" aria-label="What Buddy uses and where changes go">
+          <section className="world-plan-agent-conversation__context-section" aria-label="Question sources">
+            <h3>Answers use</h3>
+            <p className="world-plan-agent-conversation__context-summary">
+              The saved Plan{playableTarget ? "" : " in full"}.
+            </p>
+            <button
+              className="world-plan-agent-conversation__world-context-toggle"
+              type="button"
+              aria-pressed={useWorldGraphForAsk}
+              disabled={!scopeMatches || !verifiedWorldId}
+              onClick={() => setUseWorldGraphForAsk((enabled) => !enabled)}
+              title={`Choose whether Buddy can use established facts from ${worldName} in a new question.`}
+            >
+              {`Use ${worldName} facts · ${useWorldGraphForAsk ? "On" : "Off"}`}
+            </button>
+            {playableTarget ? (
+              <div role="group" aria-label="Question focus" className="world-plan-agent-conversation__context-target">
+                <span>Focus: {playableTargetLabel || playableTarget.id.replace(/^[^:]+:/, "")}</span>
+                <button type="button" aria-label="Clear Ask target" onClick={onClearPlayableTarget}>Clear focus</button>
+              </div>
+            ) : null}
+          </section>
+          <section className="world-plan-agent-conversation__context-section" aria-label="Plan changes">
+            <h3>Plan changes</h3>
+            <p className="world-plan-agent-conversation__context-summary">
+              Buddy will propose changes to {effectiveEditTarget ? "the selected card" : editorSelectionActive ? "the selected text" : "the cursor in the Plan"} and show a preview before you apply them.
+            </p>
+            {effectiveEditTarget ? (
+              <div role="group" aria-label="Selected change target" className="world-plan-agent-conversation__context-target">
+                <span>Target: {(playableEditTarget ? playableEditTargetLabel : playableTargetLabel) || effectiveEditTarget.id.replace(/^[^:]+:/, "")}</span>
+                {playableEditTarget ? <button type="button" aria-label="Clear edit target" onClick={onClearPlayableEditTarget}>Clear target</button> : null}
+              </div>
+            ) : null}
+          </section>
           {playableTargetStale ? (
             <p className="world-plan-agent-conversation__target-warning" role="alert">
               The Ask target is stale. Select it again or clear the target before asking.
             </p>
           ) : null}
-          {playableEditTargetStale ? (
+          {effectiveEditTargetStale ? (
             <p className="world-plan-agent-conversation__target-warning" role="alert">
               The edit target is stale. Select it again before composing a proposal.
             </p>
           ) : null}
         </div>
   );
-  const messages = (
-    <div className="world-plan-agent-conversation__body">
-      {presentationHosts && playableTargetStale ? <p role="alert">The Ask target is stale. Select it again before asking.</p> : null}
-      {presentationHosts && playableEditTargetStale ? <p role="alert">The edit target is stale. Select it again before composing a proposal.</p> : null}
-      {authorizationBlocked ? (
-        <section className="world-plan-agent-conversation__auth-notice" role="alert">
-          <p>{pendingGraphAsk
-            ? "Local authorization was rejected. Reconnect in Settings, then refresh World history before taking another action."
-            : "Local authorization was rejected. Reconnect in Settings, then refresh history or retry the saved request."}</p>
-          <button type="button" onClick={() => setSettingsOpen(true)}>Open Settings</button>
-        </section>
-      ) : null}
-      <section id="world-plan-agent-settings" className="world-plan-agent-conversation__settings" aria-label="Local operator Agent and Graph authorization" hidden={!settingsOpen}>
-        <button type="button" onClick={connectGraphSession}>Connect local session</button>
-        <button type="button" onClick={clearGraphSession}>Revoke local session</button>
-        <p role="note">The local Agent and Graph session persists across reloads. A Plan Ask requests World Graph context only when you select that option.</p>
-        {graphCredentialStatus ? <p role="status">{graphCredentialStatus}</p> : null}
-      </section>
-      {composerIntent === "discuss" ? (
-        <p className="world-plan-agent-conversation__notice" role="note">
-          Talk through the saved Plan, or choose Propose edit to request a change. You’ll review it before it touches the draft.
-        </p>
-      ) : null}
-      {saveInFlight ? (
-        <p className="world-plan-agent-conversation__saving" role="status">Conversation paused while the Plan is saving.</p>
-      ) : null}
-      <section className="world-plan-agent-conversation__turns" aria-label="World conversation transcript" aria-live="polite">
-        <h3>Conversation</h3>
-        {historyLoading ? <p role="status">Loading the latest World conversation page…</p> : null}
-        {historyError ? (
-          <div role="group" aria-label="World history unavailable">
-            {authorizationBlocked
-              ? null
-              : <p>{historyError}</p>}
-            <button type="button" onClick={refreshWorldHistory} disabled={historyLoading}>Refresh World history</button>
-          </div>
-        ) : null}
-        {history ? (
-          <>
-            <p role="note">
-              {history.next_before_sequence !== null
-                ? "Recent messages. Older turns are available below."
-                : history.turns.length
-                  ? "You’re all caught up."
-                  : "No messages here yet. Start with a question about the saved Plan."}
-            </p>
-            {history.next_before_sequence !== null ? (
-              <button type="button" onClick={() => { void loadOlderTurns(); }} disabled={olderLoading || historyLoading}>
-                {olderLoading ? "Loading older turns…" : "Older turns"}
-              </button>
-            ) : null}
-          </>
-        ) : null}
-        {conversationDisplay.events.map((event) => event.kind === "world" ? (
-          <article key={`world:${event.turn.turn_id}`} data-sequence={event.turn.sequence}>
-            {presentationHosts ? <>
-              <p className="world-plan-agent-conversation__context">Turn {event.turn.sequence} · {event.turn.lifecycle_status}</p>
-              <details><summary>Turn details</summary>
-            <p className="world-plan-agent-conversation__context">
-              Turn {event.turn.sequence} · {event.turn.lifecycle_status} · {historyTurnProvenanceLabel(event.turn)}
-            </p>
-            {(() => {
-              const targetReceipt = historyTurnPlayableTargetLabel(event.turn);
-              return targetReceipt ? (
-                <p role={targetReceipt.startsWith("Target receipt unavailable") ? "alert" : "note"}>{targetReceipt}</p>
-              ) : null;
-            })()}
-
-              {renderGraphContextHistory(event.turn)}
-              </details>
-            </> : <>
-            <p className="world-plan-agent-conversation__context">
-              Turn {event.turn.sequence} · {event.turn.lifecycle_status} · {historyTurnProvenanceLabel(event.turn)}
-            </p>
-            {(() => {
-              const targetReceipt = historyTurnPlayableTargetLabel(event.turn);
-              return targetReceipt ? (
-                <p role={targetReceipt.startsWith("Target receipt unavailable") ? "alert" : "note"}>{targetReceipt}</p>
-              ) : null;
-            })()}
-
-            </>}
-            <p><strong>You:</strong> {event.turn.user_text}</p>
-            {event.turn.assistant_text ? (
-              <div><strong>DungeonBuddy:</strong><WorldPlanAgentAnswer
-                answer={event.turn.assistant_text}
-                displaySegments={"plan_context" in event.turn && event.turn.plan_context?.completion
-                  ? event.turn.plan_context.completion.answer_segments.map((segment) => segment.text)
-                  : undefined}
-              /></div>
-            ) : (
-              <p role="status">{isHistoryTurnFailureConfirmed(event.turn.turn_id)
-                ? "This World history turn is recorded as failed."
-                : isWorldHistoryTurnFailed(event.turn.turn_id)
-                  ? "World history records this turn as failed."
-                  : event.turn.lifecycle_status === "failed" || event.turn.lifecycle_status === "interrupted"
-                  ? "This server turn did not complete."
-                  : "DungeonBuddy is still working on this server turn."}</p>
-            )}
-            {!presentationHosts && renderGraphContextHistory(event.turn)}
-          </article>
-        ) : renderProposalEvent(event.turn, event.position, false))}
-        {conversationNotice ? <p role="status">{conversationNotice}</p> : null}
-      </section>
-      {conversationDisplay.localActivity.length ? (
-        <section className="world-plan-agent-conversation__local-activity" aria-label="Local Plan proposal activity">
-          <h3>Local proposal activity</h3>
+  const managementDetails = (<>
+      {otherLocalProposals.length ? (
+        <details className="world-plan-agent-conversation__local-activity" aria-label="Other local Plan proposals">
+          <summary>Other local proposals · {otherLocalProposals.length}</summary>
           <p className="world-plan-agent-conversation__context">
-            These proposal events are stored in this browser and are not server World-history turns. Their position could not be matched safely to the active conversation.
+            These browser-saved proposals could not be matched to this World conversation. They are kept separate and are not current Plan actions.
           </p>
-          {conversationDisplay.localActivity.map((turn) => renderProposalEvent(
+          {otherLocalProposals.map((turn) => renderProposalEvent(
             turn,
             localProposalPositionsByTurnId.get(turn.turnId) ?? null,
             true,
           ))}
-        </section>
+        </details>
       ) : null}
-      {newConversationError ? <p role="alert">{newConversationError}</p> : null}
+      {recoveryRecordCount ? (
+      <>
+      {unconfirmedGraphAskCount > 0 ? (
+        <div className="world-plan-agent-conversation__recovery-notice" role="status">
+          <span>{unconfirmedGraphAskCount} saved Graph Ask outcome{unconfirmedGraphAskCount === 1 ? " needs" : "s need"} a history check. Nothing will be resent.</span>
+          <button type="button" onClick={refreshWorldHistory} disabled={historyLoading || !scopeMatches}>Refresh World history</button>
+        </div>
+      ) : null}
+      <details className="world-plan-agent-conversation__recovery-details">
+        <summary>{unconfirmedGraphAskCount > 0
+          ? `Needs attention · ${unconfirmedGraphAskCount} outcome${unconfirmedGraphAskCount === 1 ? "" : "s"} unconfirmed`
+          : `Saved request recovery · ${recoveryRecordCount}`}</summary>
       {pendingCommandLoadError ? <p role="alert">{pendingCommandLoadError}</p> : null}
       {pendingCommands.some((item) => item.error) ? (
         <section aria-label="Unreadable New Conversation recovery">
@@ -3307,15 +3725,10 @@ export function WorldPlanAgentConversation({
           <h3>{confirmedFailureCount > 0
             ? `Ask recovery · ${unconfirmedGraphAskCount} Graph outcome${unconfirmedGraphAskCount === 1 ? "" : "s"} unconfirmed · ${confirmedFailureCount} recorded failure${confirmedFailureCount === 1 ? "" : "s"} · ${savedAskRecords.length} saved`
             : `Pending recovery · ${savedAskRecords.length}`}</h3>
-          {pendingAsks.some((item) => item.envelope?.request.plan_context_policy) ? (
-            <>
-              <p>{confirmedFailureCount > 0
-                ? `${unconfirmedGraphAskCount} Graph Ask outcome${unconfirmedGraphAskCount === 1 ? " remains" : "s remain"} unconfirmed in exact V3 World history; ${confirmedFailureCount} failed turn${confirmedFailureCount === 1 ? " is" : "s are"} already recorded. All ${pendingGraphAskRecords.length} Graph Ask records remain saved. Refresh never reposts them.`
-                : "Saved Graph Asks stay in browser storage. Exact V3 World history may confirm completion or record a failure; Refresh never reposts them."}</p>
-              <button type="button" onClick={refreshWorldHistory} disabled={historyLoading || !scopeMatches}>
-                Refresh World history
-              </button>
-            </>
+      {pendingAsks.some((item) => item.envelope?.request.plan_context_policy) ? (
+            <p>{confirmedFailureCount > 0
+              ? `${unconfirmedGraphAskCount} Graph Ask outcome${unconfirmedGraphAskCount === 1 ? " remains" : "s remain"} unconfirmed in exact V3 World history; ${confirmedFailureCount} failed turn${confirmedFailureCount === 1 ? " is" : "s are"} already recorded. All ${pendingGraphAskRecords.length} Graph Ask records remain saved. Refresh never reposts them.`
+              : "Saved Graph Asks stay in browser storage. Exact V3 World history may confirm completion or record a failure; Refresh never reposts them."}</p>
           ) : null}
           {pendingAsks.filter((item): item is StoredPendingAsk & { envelope: WorldPlanPendingAskEnvelope } => item.envelope !== null)
             .map((item) => {
@@ -3351,6 +3764,15 @@ export function WorldPlanAgentConversation({
               );
             })}
         </section>
+      ) : null}
+      </details>
+      </>
+      ) : pendingCommandLoadError || pendingAskLoadError ? (
+        <details className="world-plan-agent-conversation__recovery-details">
+          <summary>Saved request recovery · needs attention</summary>
+          {pendingCommandLoadError ? <p role="alert">{pendingCommandLoadError}</p> : null}
+          {pendingAskLoadError ? <p role="alert">{pendingAskLoadError}</p> : null}
+        </details>
       ) : null}
       <details className="world-plan-agent-conversation__advanced">
         <summary>Advanced details</summary>
@@ -3467,148 +3889,180 @@ export function WorldPlanAgentConversation({
           ) : null}
         </div>
       </details>
-      </div>
+    </>);
+  const messages = (
+    <div className="world-plan-agent-conversation__body">
+      {newConversationError ? <p role="alert">{newConversationError}</p> : null}
+      {presentationHosts && playableTargetStale ? <p role="alert">The Ask target is stale. Select it again before asking.</p> : null}
+      {presentationHosts && effectiveEditTargetStale ? <p role="alert">The edit target is stale. Select it again before composing a proposal.</p> : null}
+      {authorizationBlocked ? (
+        <section className="world-plan-agent-conversation__auth-notice" role="alert">
+          <p>{pendingGraphAsk
+            ? "Local authorization was rejected. Reconnect in Settings, then refresh World history before taking another action."
+            : "Local authorization was rejected. Reconnect in Settings, then refresh history or retry the saved request."}</p>
+          <button type="button" onClick={() => setSettingsOpen(true)}>Open Settings</button>
+        </section>
+      ) : null}
+      <section id="world-plan-agent-settings" className="world-plan-agent-conversation__settings" aria-label="Local operator Agent and Graph authorization" hidden={!settingsOpen}>
+        <button type="button" onClick={connectGraphSession}>Connect local session</button>
+        <button type="button" onClick={clearGraphSession}>Revoke local session</button>
+        <p role="note">Your local Agent and Graph session persists across reloads. Plan + World is the default; switch to Plan only for a question that needs that scope.</p>
+        {graphCredentialStatus ? <p role="status">{graphCredentialStatus}</p> : null}
+      </section>
+      {saveInFlight ? (
+        <p className="world-plan-agent-conversation__saving" role="status">Conversation paused while the Plan is saving.</p>
+      ) : null}
+      <section className="world-plan-agent-conversation__turns" aria-label="World conversation transcript" aria-live="polite">
+        <h3>Conversation</h3>
+        {historyLoading ? <p className="world-plan-agent-conversation__loading" role="status">Loading conversation…</p> : null}
+        {historyError ? (
+          <div role="group" aria-label="World history unavailable">
+            {authorizationBlocked
+              ? null
+              : <p>{historyError}</p>}
+            <button type="button" onClick={refreshWorldHistory} disabled={historyLoading}>Refresh World history</button>
+          </div>
+        ) : null}
+        {earlierConversationEvents.length ? (
+          <details className="world-plan-agent-conversation__earlier">
+            <summary>Earlier conversation · {earlierConversationEvents.length}</summary>
+            {history?.next_before_sequence !== null && history?.next_before_sequence !== undefined ? (
+              <button type="button" onClick={() => { void loadOlderTurns(); }} disabled={olderLoading || historyLoading}>
+                {olderLoading ? "Loading earlier messages…" : "Load earlier messages"}
+              </button>
+            ) : null}
+            {earlierConversationEvents.map(renderConversationEvent)}
+          </details>
+        ) : history?.next_before_sequence !== null && history?.next_before_sequence !== undefined ? (
+          <button type="button" onClick={() => { void loadOlderTurns(); }} disabled={olderLoading || historyLoading}>
+            {olderLoading ? "Loading earlier messages…" : "Load earlier messages"}
+          </button>
+        ) : null}
+        {latestConversationEvent ? renderConversationEvent(latestConversationEvent) : history && !historyLoading ? (
+          <p className="world-plan-agent-conversation__empty">No messages yet. Ask about this Plan or describe a change.</p>
+        ) : null}
+        {submittedMessage?.scopeKey === scopeKey
+          && (submittedMessage.conversationId === null
+            ? (submittedMessage.pointerRevision === (history?.pointer_revision ?? null))
+            : submittedMessage.conversationId === history?.conversation_id)
+          && !history?.turns.some((turn) => turn.turn_id === submittedMessage.id) ? (
+          <article aria-label="Submitted message awaiting confirmation">
+            <p><strong>You:</strong> {submittedMessage.message}</p>
+            <p role="status">{sending || composing ? "Waiting for Buddy…" : "Message not yet confirmed."}</p>
+          </article>
+        ) : null}
+        {conversationNotice ? <p role="status">{conversationNotice}</p> : null}
+        {presentationHosts && newReplyAvailable ? (
+          <button type="button" className="world-plan-agent-conversation__new-reply" onClick={jumpToLatestReply}>
+            Jump to latest reply
+          </button>
+        ) : null}
+      </section>
+      {!presentationHosts ? managementDetails : null}
+    </div>
   );
   const composer = (
-    editBridge ? (
-        <section className="world-plan-agent-conversation__composer" aria-label="Conversation composer">
-          <form onSubmit={submitComposer}>
-            <fieldset className="world-plan-agent-conversation__intent" disabled={intentBusy}>
-              <legend>What would you like to do?</legend>
-              <label>
-                <input
-                  type="radio"
-                  name="world-plan-agent-intent"
-                  value="discuss"
-                  checked={composerIntent === "discuss"}
-                  onChange={() => { setComposerIntent("discuss"); setError(null); setEditError(null); }}
-                />
-                Discuss
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  name="world-plan-agent-intent"
-                  value="propose"
-                  checked={composerIntent === "propose"}
-                  onChange={() => { setComposerIntent("propose"); setError(null); setEditError(null); }}
-                />
-                Propose edit
-              </label>
-            </fieldset>
-            {composerIntent === "propose" && !playableEditTarget ? (
-              <>
-                <details className="world-plan-agent-conversation__target-disclosure">
-                  <summary>
-                    {selectedSectionTargetLabel
-                      ? `Chosen section: ${selectedSectionTargetLabel}`
-                      : "Use selection; otherwise insert at cursor"}
-                    <span className="world-plan-agent-conversation__target-action">Change target</span>
-                  </summary>
-                  <div className="world-plan-agent-conversation__target" role="group" aria-label="Choose where the proposed edit applies">
-                    <select
-                      id="world-plan-agent-plan-section"
-                      aria-label="Plan section (optional)"
-                      aria-describedby="world-plan-agent-target-help"
-                      value={selectedSectionTargetId}
-                      disabled={intentBusy || sectionTargets.length === 0 || Boolean(playableEditTarget)}
-                      onChange={(event) => { void selectPlanSection(event.currentTarget.value); }}
-                    >
-                      <option value="">Use the editor selection or caret</option>
-                      {sectionTargets.map((target) => (
-                        <option
-                          key={target.id}
-                          value={target.id}
-                          disabled={Boolean(target.unavailableReason)}
-                          title={target.unavailableReason ?? undefined}
-                        >
-                          {target.unavailableReason
-                            ? `${target.label} — unavailable (Markdown round-trip not safe)`
-                            : target.label}
-                        </option>
-                      ))}
-                    </select>
-                    <button type="button" aria-label="Refresh sections" onClick={() => { void refreshPlanSections(); }} disabled={intentBusy}>
-                      Refresh
-                    </button>
-                    <span id="world-plan-agent-target-help" className="sr-only">
-                      Choosing a Plan section selects its text in the editor. A direct editor text selection takes precedence. With no selected text, the proposal inserts at the cursor.
-                    </span>
-                    {sectionTargetStatus?.kind === "status" ? (
-                      <p role="status">{sectionTargetStatus.message}</p>
-                    ) : null}
-                  </div>
-                </details>
-                {sectionTargetStatus?.kind === "error" ? (
-                  <p className="world-plan-agent-conversation__target-error" role="alert">{sectionTargetStatus.message}</p>
-                ) : null}
-              </>
-            ) : null}
-            <label htmlFor="world-plan-agent-message">Message DungeonBuddy</label>
-            <textarea
-              id="world-plan-agent-message"
-              value={composerMessage}
-              onChange={(event) => setComposerMessage(event.currentTarget.value)}
-              onKeyDown={handleComposerKeyDown}
-              maxLength={messageLimit}
-              disabled={composerBusy}
-              placeholder={composerIntent === "discuss" ? "Ask about this Plan…" : "Describe the change you want…"}
-            />
-            {!presentationHosts && composerIntent === "discuss" ? (
-              <label className="world-plan-agent-conversation__graph-context-opt-in">
-                <input
-                  type="checkbox"
-                  checked={useWorldGraphForAsk}
-                  disabled={composerBusy || !scopeMatches || !verifiedWorldId}
-                  onChange={(event) => setUseWorldGraphForAsk(event.currentTarget.checked)}
-                />
-                Use this World’s Graph context for this question
-              </label>
-            ) : null}
-            {messageTooLong ? <p role="alert">Edit requests can be at most 4,000 characters. Shorten this message to continue.</p> : null}
-            {composerIntent === "discuss" && error && !authorizationBlocked ? <p role="alert">{error}</p> : null}
-            {composerIntent === "propose" && editError && !authorizationBlocked ? <p role="alert">{editError}</p> : null}
-            <div className="world-plan-agent-conversation__composer-footer">
-              <p className="world-plan-agent-conversation__context">For proposed edits, Apply changes your draft. Save keeps the changes.</p>
-              <button type="submit" disabled={composerBusy || !composerMessage.trim() || messageTooLong
-                || (composerIntent === "discuss" && playableTargetStale)}>
-                {sending ? "Sending…" : composing ? "Preparing proposal…" : saveInFlight ? "Saving…" : composerIntent === "discuss" ? "Send message" : "Propose edit"}
+    <section className="world-plan-agent-conversation__composer" aria-label="Conversation composer">
+      <form onSubmit={submitComposer}>
+        <p className="world-plan-agent-conversation__context" aria-label="Actual Plan change target">{displayedEditScope}</p>
+        {detectedComposerIntent === "propose" && !effectiveEditTarget && !editorSelectionActive ? (
+          <details className="world-plan-agent-conversation__target-disclosure">
+            <summary>
+              {selectedSectionTargetLabel
+                ? `Change target · ${selectedSectionTargetLabel}`
+                : "Change target · selected text or cursor"}
+              <span className="world-plan-agent-conversation__target-action">Choose section</span>
+            </summary>
+            <div className="world-plan-agent-conversation__target" role="group" aria-label="Choose where the proposed edit applies">
+              <select
+                id="world-plan-agent-plan-section"
+                aria-label="Plan section (optional)"
+                aria-describedby="world-plan-agent-target-help"
+                value={selectedSectionTargetId}
+                disabled={intentBusy || sectionTargets.length === 0 || Boolean(playableEditTarget)}
+                onChange={(event) => { void selectPlanSection(event.currentTarget.value); }}
+              >
+                <option value="">Use the editor selection or caret</option>
+                {sectionTargets.map((target) => (
+                  <option key={target.id} value={target.id} disabled={Boolean(target.unavailableReason)} title={target.unavailableReason ?? undefined}>
+                    {target.unavailableReason ? `${target.label} — unavailable` : target.label}
+                  </option>
+                ))}
+              </select>
+              <button type="button" aria-label="Refresh sections" onClick={() => { void refreshPlanSections(); }} disabled={intentBusy}>
+                Refresh
               </button>
+              <span id="world-plan-agent-target-help" className="sr-only">
+                A selection in the editor takes precedence. With no selected text, the proposal inserts at the cursor.
+              </span>
+              {sectionTargetStatus?.kind === "status" ? <p role="status">{sectionTargetStatus.message}</p> : null}
             </div>
-          </form>
-        </section>
-      ) : (
-        <form className="world-plan-agent-conversation__composer" onSubmit={submitComposer}>
-          <label htmlFor="world-plan-agent-message">Message DungeonBuddy</label>
-          <textarea id="world-plan-agent-message" value={composerMessage} onChange={(event) => setComposerMessage(event.currentTarget.value)} onKeyDown={handleComposerKeyDown} maxLength={8000} disabled={composerBusy} />
-{!presentationHosts && (          <label className="world-plan-agent-conversation__graph-context-opt-in">
-            <input
-              type="checkbox"
-              checked={useWorldGraphForAsk}
-              disabled={composerBusy || !scopeMatches || !verifiedWorldId}
-              onChange={(event) => setUseWorldGraphForAsk(event.currentTarget.checked)}
-            />
-            Use this World’s Graph context for this question
-          </label>)}
-          {error ? <p role="alert">{error}</p> : null}
-          <button type="submit" disabled={composerBusy || !composerMessage.trim() || playableTargetStale}>{sending ? "Sending…" : "Send message"}</button>
-        </form>
-      )
+          </details>
+        ) : null}
+        {sectionTargetStatus?.kind === "error" && detectedComposerIntent === "propose" ? (
+          <p className="world-plan-agent-conversation__target-error" role="alert">{sectionTargetStatus.message}</p>
+        ) : null}
+        <label className="sr-only" htmlFor="world-plan-agent-message">Message DungeonBuddy</label>
+        <textarea
+          id="world-plan-agent-message"
+          value={composerMessage}
+          onChange={(event) => {
+            composerEditGenerationRef.current += 1;
+            setComposerMessage(event.currentTarget.value);
+            setComposerIntentCorrection(null);
+            setError(null);
+            setEditError(null);
+          }}
+          onKeyDown={handleComposerKeyDown}
+          maxLength={8000}
+          disabled={composerBusy}
+          placeholder="Ask Buddy, or tell it what to change…"
+          aria-describedby="world-plan-agent-composer-hint"
+        />
+        <div className="world-plan-agent-conversation__composer-footer">
+          <p id="world-plan-agent-composer-hint">
+            {detectedComposerIntent === "propose"
+              ? `Plan change${effectiveEditTarget ? ` · ${(playableEditTarget ? playableEditTargetLabel : playableTargetLabel) || effectiveEditTarget.id}` : editorSelectionActive ? " · selected text" : ""} · Buddy will show a preview before anything is applied.`
+              : "Enter to send · Shift+Enter for a new line."}
+          </p>
+          {composerMessage.trim() ? (
+            <details className="world-plan-agent-conversation__route-correction">
+              <summary>{detectedComposerIntent === "propose" ? "Plan change · Change" : "Question · Change"}</summary>
+              <div role="group" aria-label="Choose how Buddy handles this message">
+                <button type="button" onClick={() => setComposerIntentCorrection({ message: composerMessage, intent: "discuss" })}>
+                  Answer as a question
+                </button>
+                <button type="button" onClick={() => setComposerIntentCorrection({ message: composerMessage, intent: "propose" })}>
+                  Request a Plan change
+                </button>
+              </div>
+            </details>
+          ) : null}
+          <button
+            type="submit"
+            aria-label={detectedComposerIntent === "propose" ? "Propose edit" : "Send message"}
+            disabled={composerBusy || !composerMessage.trim() || messageTooLong
+            || (detectedComposerIntent === "discuss" && playableTargetStale)
+            || (detectedComposerIntent === "propose" && (effectiveEditTargetStale || !editBridge))}
+          >
+            {sending || composing ? "Working…" : saveInFlight ? "Saving…" : "Send"}
+          </button>
+        </div>
+        {messageTooLong ? <p role="alert">{detectedComposerIntent === "propose"
+          ? "Changes can be up to 4,000 characters. Shorten this request to continue."
+          : "Questions can be up to 8,000 characters. Shorten this message to continue."}</p> : null}
+        {error && !authorizationBlocked ? <p role="alert">{error}</p> : null}
+        {editError && !authorizationBlocked ? <p role="alert">{editError}</p> : null}
+        {detectedComposerIntent === "propose" && !editBridge ? (
+          <p className="world-plan-agent-conversation__context" role="note">Plan changes are unavailable on this surface.</p>
+        ) : null}
+      </form>
+    </section>
   );
   if (presentationHosts) {
     return <>
-      {presentationHosts.header && createPortal(headerActions, presentationHosts.header)}
-      {presentationHosts.context && createPortal(<>{contextDetails}<p>{displayedSavedPlanVersion?.status === "verified" ? `Saved Plan · version ${displayedSavedPlanVersion.revisionN}` : "Saved Plan version is being verified."}</p>{composerIntent === "discuss" ? (
-              <label className="world-plan-agent-conversation__graph-context-opt-in">
-                <input
-                  type="checkbox"
-                  checked={useWorldGraphForAsk}
-                  disabled={composerBusy || !scopeMatches || !verifiedWorldId}
-                  onChange={(event) => setUseWorldGraphForAsk(event.currentTarget.checked)}
-                />
-                Use this World’s Graph context for this question
-              </label>
-            ) : null}<p>Includes the full committed Plan; unsaved changes are excluded.</p></>, presentationHosts.context)}
+      {presentationHosts.header && createPortal(<>{headerActions}{managementDetails}</>, presentationHosts.header)}
+      {presentationHosts.context && createPortal(contextDetails, presentationHosts.context)}
       {presentationHosts.messages && createPortal(messages, presentationHosts.messages)}
       {presentationHosts.composer && createPortal(composer, presentationHosts.composer)}
     </>;
