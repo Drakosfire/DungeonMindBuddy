@@ -257,14 +257,21 @@ def _known_party_anchor(
     reference_key = ir.corpus_ref_identity(node)
     if reference_key is None or not reference_key[1]:
         raise CandidateGraphMappingError("known party anchor reference ID is missing")
+    expected_kind = "player_character" if ref.type == "pc" else "npc"
     matches = []
+    mismatched_kind = False
     for object_id, obj in context.objects.items():
         namespace, separator, identifier = object_id.partition(":")
         if not separator or namespace not in {"pc", "npc", "node"}:
             continue
         key = ir.corpus_ref_identity({"corpus_ref": {"type": ref.type, "ref_id": identifier}})
         if key == reference_key:
+            if _norm_kind(obj.kind) != expected_kind:
+                mismatched_kind = True
+                continue
             matches.append((object_id, obj))
+    if not matches and mismatched_kind:
+        raise CandidateGraphMappingError("known party anchor reference kind does not match its pinned object")
     if len(matches) != 1:
         raise CandidateGraphMappingError("known party anchor reference must identify exactly one pinned object")
     object_id, target = matches[0]
@@ -275,9 +282,6 @@ def _known_party_anchor(
         or target.memory_state in {"merged_away", "rejected"}
     ):
         raise CandidateGraphMappingError("known party anchor target is not active canonical identity")
-    expected_kind = "player_character" if ref.type == "pc" else "npc"
-    if _norm_kind(target.kind) != expected_kind:
-        raise CandidateGraphMappingError("known party anchor reference kind does not match its pinned object")
     terms = {ir.normalize_label(target.label), *(ir.normalize_label(alias) for alias in target.aliases)}
     if not ir.normalize_label(node.label) or ir.normalize_label(node.label) not in terms:
         raise CandidateGraphMappingError("known party anchor label does not match its referenced identity")

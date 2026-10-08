@@ -274,3 +274,15 @@ def test_prior_identity_decision_cannot_retarget_a_verified_party_reference() ->
         CandidateGraphMappingError, match="changed its verified pinned identity"
     ):
         _gate([_node("baergrom")], context)
+
+
+@pytest.mark.parametrize(
+    "ref_type,target_id", [("pc", "pc:shared"), ("npc", "npc:shared")]
+)
+def test_reference_type_disambiguates_pc_and_npc_with_the_same_slug(
+    ref_type: str, target_id: str
+) -> None:
+    context = _context([_actor("shared"), _actor("shared", kind="npc", prefix="npc")])
+    result = _gate([_node("shared", ref_type)], context)
+    assert result.node_id_map == {"node:shared": target_id}
+    assert all(a.assertion_kind != "node" for a in result.accepted_proposals)
