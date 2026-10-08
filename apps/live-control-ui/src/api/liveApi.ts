@@ -315,7 +315,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/threat-drafts\/[^/]+\/publication-operations\/[^/]+\/identity-candidates\/prepare$/.test(pathname)) {
     return true;
   }
-  if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversation(?:\/new)?$/.test(pathname)
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversation(?:\/new|\/commands\/[^/]+)?$/.test(pathname)
     || pathname === "/api/live/agent/turn"
     || pathname === "/api/live/world-graph/projection"
     || pathname === "/api/live/world-graph/managed-projection"
