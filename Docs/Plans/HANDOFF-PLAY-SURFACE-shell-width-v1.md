@@ -17,7 +17,7 @@ Make the existing Play shell occupy the width its parent gives it, so the curren
 ## Evidence and design basis
 
 - Current main includes PR #1028, which adds paper/ink Scene styling and container-responsive cockpit ordering.
-- After syncing merged main into the authorized 5202 dogfood runtime, a read-only visit at 1280px showed the warm Scene card, but its `.app-wrap` was only **809px** wide and the cockpit was **721px** wide. The container therefore used its narrow one-column composition and pushed Beat Context / At a Glance below the active Scene. The viewport was 1280px; the page had no horizontal overflow.
+- Historical observation recorded when this handoff was authored: a read-only 1280px visit to 5202 showed the warm Scene card, with `.app-wrap` at **809px** and the cockpit at **721px**. It indicated the shell-width defect, but is no longer current dogfood evidence.
 - Computed layout evidence: `.app-shell-layout` is a column flex container; `.app-wrap` had `width:auto` plus auto horizontal margins, so as a flex item it shrink-wrapped to about 809px despite its 1440px maximum. Existing full-App visual assertions checked the Scene width and overflow but did not assert that the wrapper filled available space.
 - Approved hierarchy: `Docs/Sources/design-agent/ACTIVE_REFERENCE/DESIGN-play-surface-gm-cockpit-target.md` — central Scene workspace with immediately reachable, secondary Beat Context and At a Glance.
 - Mobbin reference inspected: [Asana task detail](https://mobbin.com/screens/afea59a1-d470-437b-b8a2-712a8f83cf01). It keeps the working item legible while secondary information remains contained in a companion pane; this slice uses that hierarchy as a reference without copying its product styling.
@@ -43,7 +43,7 @@ No app-shell, global token, shared navigation, Agent, API, server, schema, datab
 3. No horizontal overflow at 1280, 960, 768, 390, or 320px. The scene remains visible and readable, rails remain keyboard-operable.
 4. Update and inspect the full-App desktop snapshot; leave narrow behavior intact unless a verified regression requires correction.
 5. Run the owning Play visual route, focused cockpit tests, UI typecheck, and `git diff --check`. Review the exact cumulative `7a6a5e12..HEAD` diff against this lease.
-6. Do not claim live dogfood for this unmerged branch. Keep the operator runtime at its current main-plus-dogfood state.
+6. Do not claim live dogfood for this unmerged branch. On 2026-10-08, read-only inspection of the active Run `4c57c533-660c-4c65-b8f8-46fadad8030b` at 5202 showed the older dark Scene card, not the paper treatment in #1028. The read-only runtime checkout at `/home/drakosfire/.local/state/dungeonmindbuddy/runtime` is `70a7ca08684829b0bfa6b89f273225c61c939f83`; neither #1028 nor this PR is verified as loaded in the live process. The process-to-checkout association has not been re-established. Do not restart, update, or mutate the operator runtime or Run under this UI lease.
 
 Commit intended changes, push this branch, open one PR, attach it, and send PRIME the exact head plus screenshot/test evidence. PRIME retains review and merge authority.
 
@@ -56,3 +56,9 @@ Commit intended changes, push this branch, open one PR, attach it, and send PRIM
 - Ladle production build: **passed**.
 - `git diff --check`: **passed**.
 - The screenshot fixture uses a synthetic Run and rejects every mutation except its intercepted in-memory active-Run selection; no persistent Run or operator data was changed.
+
+## Current live-state correction — 2026-10-08
+
+- The current 5202 page for the active Run still renders the older dark Scene card. The browser shows World Ready and the active Run content, but this visual inspection does not prove which checkout or frontend bundle served it.
+- The read-only runtime checkout resolves to `70a7ca08684829b0bfa6b89f273225c61c939f83`. Current 5202 dogfood therefore does not verify the merged #1028 paper styling or this unmerged width fix. The previous “main-plus-dogfood” statement is stale and withdrawn.
+- No runtime process, persistent Run, or database was changed during this inspection.
