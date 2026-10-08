@@ -67,8 +67,8 @@ const pendingAskAcceptedEventName = "dmb:world-plan-ask-accepted:v1";
 const pendingAskEventListeners: { eventName: string; listener: EventListener }[] = [];
 
 function getGraphContextToggle() {
-  return screen.queryByRole("button", { name: "Plan + World" })
-    ?? screen.getByRole("button", { name: "Plan only" });
+  return screen.queryByRole("button", { name: "World facts on" })
+    ?? screen.getByRole("button", { name: "World facts off" });
 }
 
 function ensureWorldGraphAskEnabled() {
@@ -1841,7 +1841,16 @@ describe("World Plan conversation consumer", () => {
   });
 
   it("does not pull the reader away from older messages when a new reply arrives", async () => {
-    setupApi(history("conversation-a", 1, [makeTurn(1, "turn-a", "First question", "First answer")]));
+    const api = setupApi(history("conversation-a", 1, [makeTurn(1, "turn-a", "First question", "First answer")]));
+    const post = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
+      const secondTurn = historyTurnForAsk(request, "Second answer");
+      secondTurn.sequence = 2;
+      api.setCurrent(history("conversation-a", 2, [
+        makeTurn(1, "turn-a", "First question", "First answer"),
+        secondTurn,
+      ]));
+      return agentResponse(request, "conversation-a", "Second answer") as any;
+    });
     const viewport = document.createElement("div");
     Object.defineProperties(viewport, {
       clientHeight: { configurable: true, value: 100 },
@@ -1849,19 +1858,27 @@ describe("World Plan conversation consumer", () => {
     });
     viewport.scrollTop = 0;
     const messageHost = document.createElement("div");
+    const composerHost = document.createElement("div");
+    const contextHost = document.createElement("div");
     viewport.append(messageHost);
-    document.body.append(viewport);
+    document.body.append(viewport, composerHost, contextHost);
 
     render(conversationElement({
-      presentationHosts: { header: null, context: null, messages: messageHost, composer: null },
+      presentationHosts: { header: null, context: contextHost, messages: messageHost, composer: composerHost },
     }));
 
     expect(await screen.findByText("First answer")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Jump to latest reply" })).not.toBeInTheDocument();
     expect(viewport.scrollTop).toBe(0);
-    const jumpButton = await screen.findByRole("button", { name: "New reply · jump to latest" });
+    ensureWorldGraphAskDisabled();
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "What comes next?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText("Second answer")).toBeInTheDocument();
+    const jumpButton = await screen.findByRole("button", { name: "Jump to latest reply" });
     fireEvent.click(jumpButton);
     expect(viewport.scrollTop).toBe(500);
-    expect(screen.queryByRole("button", { name: "New reply · jump to latest" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Jump to latest reply" })).not.toBeInTheDocument();
   });
 
   it("keeps Plan scope, edit intent, and Graph source explicit in the conversation controls", async () => {
@@ -1874,22 +1891,48 @@ describe("World Plan conversation consumer", () => {
     await screen.findByText(/No messages yet/i);
 
     const context = screen.getByRole("group", { name: "Current Plan context" });
-    expect(context).toHaveTextContent("Question · arrival");
-    expect(context).toHaveTextContent("Change · retreat");
+    expect(context).toHaveTextContent("Questions use the saved Plan, focused on arrival");
+    expect(context).toHaveTextContent("Ask focus · arrival");
+    expect(context).toHaveTextContent("Suggested changes target retreat");
+    expect(context).not.toHaveTextContent("Question · full Plan");
+    expect(context).not.toHaveTextContent("Change · selected text or cursor");
     expect(within(context).getByRole("button", { name: "Clear Ask target" })).toBeInTheDocument();
     expect(within(context).getByRole("button", { name: "Clear edit target" })).toBeInTheDocument();
 
     const composer = screen.getByRole("region", { name: "Conversation composer" });
     expect(within(composer).getByRole("textbox", { name: "Message DungeonBuddy" })).toBeInTheDocument();
     expect(within(composer).queryByRole("radio")).not.toBeInTheDocument();
-    expect(within(context).getByRole("button", { name: "Plan + World" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(context).getByRole("button", { name: "World facts on" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("defaults a fresh Plan conversation to its saved Plan and World context", async () => {
     setupApi(history("conversation-a", 1, []));
     render(conversationElement());
     await screen.findByText(/No messages yet/i);
-    expect(screen.getByRole("button", { name: "Plan + World" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "World facts on" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("explains why New conversation is disabled while a message is in progress", async () => {
+    setupApi(history("conversation-a", 1, []));
+    const header = document.createElement("div");
+    const messages = document.createElement("div");
+    const composer = document.createElement("div");
+    document.body.append(header, messages, composer);
+    const post = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(() => new Promise(() => undefined));
+    const view = render(conversationElement({
+      presentationHosts: { header, context: null, messages, composer },
+    }));
+    await screen.findByText(/No messages yet/i);
+    const input = screen.getByLabelText("Message DungeonBuddy");
+    fireEvent.change(input, { target: { value: "What happens next?" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(await screen.findByRole("button", { name: "New conversation" })).toBeDisabled();
+    expect(screen.getByText("Wait for the current message to finish before starting a new conversation.")).toBeVisible();
+    expect(screen.getByRole("button", { name: "New conversation" })).toHaveAttribute(
+      "aria-describedby", "world-plan-new-conversation-disabled-reason",
+    );
+    expect(post).toHaveBeenCalledTimes(1);
+    view.unmount();
   });
 
   it("keeps only the newest saved exchange in the reading path and folds prior turns", async () => {
@@ -1917,7 +1960,8 @@ describe("World Plan conversation consumer", () => {
     await screen.findByText(/No messages yet/i);
 
     const context = screen.getByRole("group", { name: "Current Plan context" });
-    expect(within(context).getByText("Change · recovery")).toBeInTheDocument();
+    expect(context).toHaveTextContent("Suggested changes target recovery");
+    expect(within(context).getByText("Change target · recovery")).toBeInTheDocument();
     expect(within(context).getByRole("button", { name: "Clear edit target" })).toBeInTheDocument();
 
     const composer = screen.getByRole("region", { name: "Conversation composer" });
@@ -1939,8 +1983,9 @@ describe("World Plan conversation consumer", () => {
     const header = document.querySelector(".world-plan-agent-conversation__header")!;
     expect(await within(header).findByText(/Saved Plan · version 1/)).toBeInTheDocument();
     expect(header).not.toHaveTextContent("version 7");
-    expect(within(header).getByText("Question · arrival")).toBeInTheDocument();
-    expect(within(header).getByText("Change · retreat")).toBeInTheDocument();
+    expect(header).toHaveTextContent("Questions use the saved Plan, focused on arrival");
+    expect(header).toHaveTextContent("Ask focus · arrival");
+    expect(header).toHaveTextContent("Suggested changes target retreat");
     expect(within(header).getByRole("button", { name: "Clear Ask target" })).toBeInTheDocument();
     expect(within(header).getByRole("button", { name: "Clear edit target" })).toBeInTheDocument();
 
@@ -3739,7 +3784,7 @@ describe("World Plan conversation consumer", () => {
       savedDirty: true,
     }));
     const selectedCardAfterBasisChange = screen.getByRole("group", { name: "Selected Playable card for Ask" });
-    expect(selectedCardAfterBasisChange).toHaveTextContent("Question · arrival");
+    expect(selectedCardAfterBasisChange).toHaveTextContent("Ask focus · arrival");
     fireEvent.click(screen.getByText("Advanced details"));
     const askTargetDetails = screen.getByRole("region", { name: "Ask target details" });
     expect(await within(askTargetDetails).findByText(/Card basis · object revision 8/)).toBeInTheDocument();
@@ -3756,7 +3801,7 @@ describe("World Plan conversation consumer", () => {
     expect(await screen.findByText(answer)).toBeInTheDocument();
     expect(await screen.findByText(/original selected card scene:arrival at committed Plan object revision 7/)).toBeInTheDocument();
     expect(screen.getByText(new RegExp(`Playable target: scene scene:arrival · marker grammar v1 · committed Plan ${documentId}, object revision 7, WorkRevision ${workRevisionId}, revision 1, SHA-256 ${contentSha256}`))).toBeInTheDocument();
-    expect(selectedCardAfterBasisChange).toHaveTextContent("Question · arrival");
+    expect(selectedCardAfterBasisChange).toHaveTextContent("Ask focus · arrival");
     expect(selectedCardAfterBasisChange).not.toHaveTextContent(contentSha256);
     expect(postAsk).toHaveBeenCalledTimes(1);
     expect(sent[0]).toEqual(originalRequest);

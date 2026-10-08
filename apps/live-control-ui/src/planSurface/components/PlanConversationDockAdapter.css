@@ -120,6 +120,7 @@
   min-block-size: var(--conversation-dock-control-hit-size);
   padding: 0.25rem 0.45rem;
   font-size: 0.8rem;
+  white-space: nowrap;
 }
 
 .plan-conversation-dock__management > summary::after {

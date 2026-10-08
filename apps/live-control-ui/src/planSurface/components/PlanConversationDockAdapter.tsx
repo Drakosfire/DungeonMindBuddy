@@ -59,7 +59,7 @@ function MountedPlanDock({reader,contextLabel,children,slot}:AdapterProps & {slo
       conversationLabel="Saved World Plan conversation"
       title="Conversation" contextLabel="Context" collapseMode="launcher" fullscreenEnabled expanded={paneState.isOpen} onExpandedChange={setPaneOpen}
       initialHeight={360} minHeight={240}
-      headerActions={<><details ref={management} className="plan-conversation-dock__management"><summary>More</summary><div ref={header}/></details></>}
+      headerActions={<details ref={management} className="plan-conversation-dock__management" aria-label="Conversation options"><summary>Conversation options</summary><div ref={header}/></details>}
       launcher={<><div ref={setLauncherHost} className="plan-conversation-dock__launcher"/><span>Conversation</span></>}
       contextDetails={<><p className="plan-conversation-dock__scope">{contextLabel.replace(/\s*·\s*Full saved Plan$/, "")}</p><div ref={context}/></>}
       messages={<div ref={messages} className="plan-conversation-dock__messages"/>}

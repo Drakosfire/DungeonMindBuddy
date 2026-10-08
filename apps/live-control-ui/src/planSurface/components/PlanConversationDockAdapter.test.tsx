@@ -81,7 +81,7 @@ it.each([false, true])("dismisses More by pointer and keeps Close reachable (ful
   const user = userEvent.setup(); render(<Fixture/>);
   await user.click(await screen.findByRole("button", {name:"Open",exact:true}));
   if (fullscreen) await user.click(screen.getByRole("button", {name:"Expand conversation fullscreen"}));
-  const summary = screen.getByText("More", {selector:"summary"});
+  const summary = screen.getByText("Conversation options", {selector:"summary"});
   const details = summary.parentElement as HTMLDetailsElement;
   await user.click(summary); expect(details.open).toBe(true);
   await user.click(summary); expect(details.open).toBe(false);

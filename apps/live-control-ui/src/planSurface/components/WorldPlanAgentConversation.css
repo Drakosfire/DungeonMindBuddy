@@ -97,6 +97,22 @@
   min-width: 0;
 }
 
+.world-plan-agent-conversation__context-summary {
+  flex: 1 0 100%;
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.world-plan-agent-conversation__management-reason {
+  flex: 1 0 100%;
+  inline-size: 100%;
+  margin: 0.25rem 0 0;
+  color: var(--ui-text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
 .world-plan-agent-conversation__header-context > span {
   padding: 0.14rem 0.35rem;
   border: 1px solid var(--ui-border-strong);

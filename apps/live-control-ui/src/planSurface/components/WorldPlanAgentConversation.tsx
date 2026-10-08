@@ -1738,6 +1738,9 @@ export function WorldPlanAgentConversation({
   } | null>(null);
   const [newReplyAvailable, setNewReplyAvailable] = useState(false);
   const followsLatestRef = useRef(true);
+  const hasObservedConversationHistoryRef = useRef(false);
+  const observedConversationIdRef = useRef<string | null>(null);
+  const observedAssistantReplyKeyRef = useRef<string | null>(null);
   const olderPageScrollAnchorRef = useRef<{
     viewport: HTMLElement;
     scrollTop: number;
@@ -1896,17 +1899,11 @@ export function WorldPlanAgentConversation({
         .flatMap((summary) => readLocalProposalOrder(localProposalOrderStorageKey(namespace, summary.threadId))?.positions ?? []);
     } catch { return []; }
   }, [namespace, documentId, activeThread?.threadId, proposalOrderRevision]);
-  const latestConversationEventKey = conversationDisplay.events.at(-1)?.kind === "world"
-    ? (() => {
-      const turn = conversationDisplay.events.at(-1)!.turn as WorldAgentConversationHistoryTurn;
-      return `${turn.turn_id}:${turn.lifecycle_status}:${turn.assistant_text ?? ""}`;
-    })()
-    : conversationDisplay.events.at(-1)?.kind === "proposal"
-      ? (() => {
-        const turn = conversationDisplay.events.at(-1)!.turn as AgentInteractionTurn;
-        return `${turn.turnId}:${turn.planEdit?.applied ? "applied" : "pending"}`;
-      })()
-      : null;
+  const latestAssistantReplyKey = (() => {
+    const event = [...conversationDisplay.events].reverse().find((candidate) =>
+      candidate.kind === "world" && Boolean(candidate.turn.assistant_text));
+    return event?.kind === "world" ? `${event.turn.turn_id}:${event.turn.assistant_text}` : null;
+  })();
   useLayoutEffect(() => {
     if (!presentationHosts || !agent.paneState.isOpen) return;
     const viewport = presentationHosts.messages?.parentElement;
@@ -1928,9 +1925,18 @@ export function WorldPlanAgentConversation({
     anchor.viewport.scrollTop = anchor.scrollTop + addedHeight;
   }, [history]);
   useLayoutEffect(() => {
-    if (!presentationHosts || !agent.paneState.isOpen || !latestConversationEventKey) return;
+    if (!presentationHosts || !agent.paneState.isOpen || !history || historyLoading) return;
     const viewport = presentationHosts.messages?.parentElement;
     if (!viewport) return;
+    if (!hasObservedConversationHistoryRef.current || observedConversationIdRef.current !== history.conversation_id) {
+      hasObservedConversationHistoryRef.current = true;
+      observedConversationIdRef.current = history.conversation_id;
+      observedAssistantReplyKeyRef.current = latestAssistantReplyKey;
+      setNewReplyAvailable(false);
+      return;
+    }
+    if (!latestAssistantReplyKey || latestAssistantReplyKey === observedAssistantReplyKeyRef.current) return;
+    observedAssistantReplyKeyRef.current = latestAssistantReplyKey;
     const scrollToLatest = () => {
       if (followsLatestRef.current) {
         viewport.scrollTop = viewport.scrollHeight;
@@ -1945,7 +1951,7 @@ export function WorldPlanAgentConversation({
     }
     const frame = window.requestAnimationFrame(scrollToLatest);
     return () => window.cancelAnimationFrame(frame);
-  }, [agent.paneState.isOpen, latestConversationEventKey, submittedMessage?.id, presentationHosts]);
+  }, [agent.paneState.isOpen, history, historyLoading, latestAssistantReplyKey, presentationHosts]);
 
   function jumpToLatestReply() {
     const viewport = presentationHosts?.messages?.parentElement;
@@ -3562,6 +3568,20 @@ export function WorldPlanAgentConversation({
   const earlierConversationEvents = conversationDisplay.events.slice(0, -1);
   const recoveryRecordCount = savedAskRecords.length + pendingCommands.filter((item) => item.envelope !== null || item.error).length
     + pendingAsks.filter((item) => item.error).length;
+  const pendingNewConversation = pendingCommands.some((item) => item.envelope !== null);
+  const newConversationDisabledReason = newConversationSending
+    ? "A new conversation is already starting."
+    : pendingNewConversation
+      ? "A previous new-conversation request is awaiting confirmation. Check its status before starting another."
+      : sending || composing
+        ? "Wait for the current message to finish before starting a new conversation."
+        : historyLoading
+          ? "Conversation history is still loading."
+          : !history
+            ? historyError
+              ? "Conversation history is unavailable. Refresh it before starting a new conversation."
+              : "Conversation history is not ready yet."
+            : null;
 
   const headerActions = (
     <div className="world-plan-agent-conversation__actions">
@@ -3571,38 +3591,51 @@ export function WorldPlanAgentConversation({
             <button
               type="button"
               onClick={startNewConversation}
-              disabled={sending || composing || historyLoading || !history || newConversationSending
-                || pendingCommands.some((item) => item.envelope !== null)}
+              disabled={newConversationDisabledReason !== null}
+              aria-describedby={newConversationDisabledReason ? "world-plan-new-conversation-disabled-reason" : undefined}
             >
               {newConversationSending ? "Starting…" : "New conversation"}
             </button>
+            {newConversationDisabledReason ? (
+              <p id="world-plan-new-conversation-disabled-reason" className="world-plan-agent-conversation__management-reason" role="note">
+                {newConversationDisabledReason}
+              </p>
+            ) : null}
           </div>
   );
   const contextDetails = (
     <div className="world-plan-agent-conversation__header-context" role="group" aria-label="Current Plan context">
+          <p className="world-plan-agent-conversation__context-summary">
+            Questions use the saved Plan{playableTarget ? `, focused on ${playableTargetLabel || playableTarget.id.replace(/^[^:]+:/, "")}` : " in full"}.
+          </p>
           <div className="world-plan-agent-conversation__context-mode">
             <button
               type="button"
               aria-pressed={useWorldGraphForAsk}
               disabled={!scopeMatches || !verifiedWorldId}
               onClick={() => setUseWorldGraphForAsk((enabled) => !enabled)}
-              title="Choose whether Buddy can use this World’s established Graph facts in a new question."
+              title="Choose whether Buddy can use established facts from this World in a new question."
             >
-              {useWorldGraphForAsk ? "Plan + World" : "Plan only"}
+              {useWorldGraphForAsk ? "World facts on" : "World facts off"}
             </button>
           </div>
           {playableTarget ? (
             <div role="group" aria-label="Selected Playable card for Ask" className="world-plan-agent-conversation__target-chip">
-              <span>Question · {playableTarget.id.replace(/^[^:]+:/, "")}</span>
+              <span>Ask focus · {playableTargetLabel || playableTarget.id.replace(/^[^:]+:/, "")}</span>
               <button type="button" aria-label="Clear Ask target" onClick={onClearPlayableTarget}>Clear</button>
             </div>
-          ) : <span>Question · full Plan</span>}
+          ) : null}
+          <p className="world-plan-agent-conversation__context-summary">
+            Suggested changes target {effectiveEditTarget
+              ? playableEditTargetLabel || playableTargetLabel || effectiveEditTarget.id.replace(/^[^:]+:/, "")
+              : editorSelectionActive ? "the selected text" : "the current cursor in the Plan"}.
+          </p>
           {effectiveEditTarget ? (
             <div role="group" aria-label="Selected Playable card for edit" className="world-plan-agent-conversation__target-chip">
-              <span>Change · {(playableEditTarget ? playableEditTargetLabel : playableTargetLabel) || effectiveEditTarget.id.replace(/^[^:]+:/, "")}</span>
+              <span>Change target · {(playableEditTarget ? playableEditTargetLabel : playableTargetLabel) || effectiveEditTarget.id.replace(/^[^:]+:/, "")}</span>
               {playableEditTarget ? <button type="button" aria-label="Clear edit target" onClick={onClearPlayableEditTarget}>Clear</button> : null}
             </div>
-          ) : <span>{editorSelectionActive ? "Change · selected text" : "Change · selected text or cursor"}</span>}
+          ) : null}
           {playableTargetStale ? (
             <p className="world-plan-agent-conversation__target-warning" role="alert">
               The Ask target is stale. Select it again or clear the target before asking.
@@ -3913,7 +3946,7 @@ export function WorldPlanAgentConversation({
         {conversationNotice ? <p role="status">{conversationNotice}</p> : null}
         {presentationHosts && newReplyAvailable ? (
           <button type="button" className="world-plan-agent-conversation__new-reply" onClick={jumpToLatestReply}>
-            New reply · jump to latest
+            Jump to latest reply
           </button>
         ) : null}
       </section>
