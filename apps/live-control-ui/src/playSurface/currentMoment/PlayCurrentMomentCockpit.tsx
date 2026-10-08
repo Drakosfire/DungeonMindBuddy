@@ -708,6 +708,18 @@ export function PlayCurrentMomentCockpit({
     restoreWorkspaceFocus();
   };
 
+  const toggleOutline = () => {
+    const nextCollapsed = !beatCollapsed;
+    if (compactLayoutRef.current && !nextCollapsed) setGlanceCollapsed(true);
+    setBeatCollapsed(nextCollapsed);
+  };
+
+  const toggleOutcomes = () => {
+    const nextCollapsed = !glanceCollapsed;
+    if (compactLayoutRef.current && !nextCollapsed) setBeatCollapsed(true);
+    setGlanceCollapsed(nextCollapsed);
+  };
+
   const openInspect = (scene: NativeRunbookSceneV2) => {
     setWorkspace({ kind: "scene-inspect", sceneId: scene.id });
   };
@@ -758,6 +770,29 @@ export function PlayCurrentMomentCockpit({
           Saving…
         </p>
       ) : null}
+
+      <nav className="play-compact-tools" aria-label="Play panels">
+        <button
+          type="button"
+          data-testid="play-compact-outline-toggle"
+          aria-expanded={!beatCollapsed}
+          aria-controls="play-outline-body"
+          onClick={toggleOutline}
+        >
+          <span>Scenes</span>
+          <span aria-hidden="true">{beatCollapsed ? "Browse" : "Close"}</span>
+        </button>
+        <button
+          type="button"
+          data-testid="play-compact-outcomes-toggle"
+          aria-expanded={!glanceCollapsed}
+          aria-controls="play-recorded-outcomes-body"
+          onClick={toggleOutcomes}
+        >
+          <span>Run record</span>
+          <span aria-hidden="true">{glanceCollapsed ? "Open" : "Close"}</span>
+        </button>
+      </nav>
 
       <div
         className="play-cockpit-shell"
@@ -962,14 +997,14 @@ export function PlayCurrentMomentCockpit({
           currentSceneId={currentScene?.id ?? null}
           inspectedSceneId={workspaceKind === "scene-inspect" ? inspectedScene?.id ?? null : null}
           collapsed={beatCollapsed}
-          onToggle={() => setBeatCollapsed((current) => !current)}
+          onToggle={toggleOutline}
           onInspect={openInspect}
           toggleRef={outlineToggleRef}
         />
         <PlayRecordedOutcomes
           deck={deck}
           collapsed={glanceCollapsed}
-          onToggle={() => setGlanceCollapsed((current) => !current)}
+          onToggle={toggleOutcomes}
           onInspect={openInspect}
         />
       </div>
