@@ -629,6 +629,32 @@ def _is_worldbuilding_inspect_only(resolved: Any) -> bool:
     return (getattr(resolved, "source_domain", None) or "").strip() == "worldbuilding"
 
 
+
+def _candidate_quote_occurrences(*, candidate_payload: dict[str, Any], source_prose: str,
+    source_artifact_id: str, span_index: Any) -> list[dict[str, Any]]:
+    """Inspect only literal quote failures; all other evidence checks remain strict."""
+    from graph_memory.anchor_quotes import find_anchor_quote_matches
+    projected = _assert_and_project_candidate_evidence(
+        candidate_payload=candidate_payload, source_prose=source_prose,
+        source_artifact_id=source_artifact_id, span_index=span_index,
+        inspect_false_anchor_quotes=True,
+    )
+    assertions = {item.assertion_id: item for item in projected}
+    failures = []
+    for collection, identifier in (("nodes", "node_id"), ("edges", "edge_id")):
+        for record in candidate_payload.get(collection, []):
+            assertion = assertions[record[identifier]]
+            for index, ref in enumerate(record.get("evidence_refs", [])):
+                paragraph = assertion.evidence[index].paragraph_text
+                for quote_index, quote in enumerate(ref.get("anchor_quotes", [])):
+                    if not find_anchor_quote_matches(paragraph, [quote]):
+                        failures.append({"record_kind": "node" if collection == "nodes" else "edge",
+                            "record_id": record[identifier], "evidence_index": index,
+                            "quote_index": quote_index, "quote": quote,
+                            "source_span_ref_id": ref.get("source_span_ref_id"),
+                            "diagnostic": "false_anchor_quote", "reference": ref})
+    return failures
+
 def _assert_and_project_candidate_evidence(
     *,
     candidate_payload: dict[str, Any],
@@ -1057,6 +1083,16 @@ def decide_recap_semantic_disposition(
             "candidate digest does not match corrected recap child",
             code="recap_semantic_decision_conflict", status_code=409,
         )
+    if request.decision == "accepted":
+        resolved = resolve_promotable_ingest_run(run_id, root=repo_root())
+        payload = json.loads(resolved.candidate_graph_path.read_text(encoding="utf-8"))
+        _assert_candidate_scope_matches_run(payload, campaign_id=run.campaign_id, session_id=run.session_id)
+        _assert_and_project_candidate_evidence(
+            candidate_payload=payload,
+            source_prose=resolved.normalized_recap_path.read_text(encoding="utf-8"),
+            source_artifact_id=run.source_artifact_id,
+            span_index=_load_frozen_span_index_for_resolved_run(resolved),
+        )
     try:
         basis_type = (
             RecapSemanticBasisV7 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V6
@@ -1212,7 +1248,17 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
             assertions=assertions,
             inspection_status="invalid_evidence" if invalid_evidence_count else "ready",
             invalid_evidence_count=invalid_evidence_count,
-            diagnostics=list(resolved.diagnostics),
+            diagnostics=[*resolved.diagnostics, *([
+                "unresolved_quote_binding:" + json.dumps({
+                    "candidate_sha256": hashlib.sha256(resolved.candidate_graph_path.read_bytes()).hexdigest(),
+                    "source_sha256": hashlib.sha256(resolved.normalized_recap_path.read_bytes()).hexdigest(),
+                    "span_index_sha256": hashlib.sha256(resolved.source_span_index_path.read_bytes()).hexdigest(),
+                    "occurrences": [{key: value for key, value in item.items() if key != "reference"}
+                        | {"reference_sha256": hashlib.sha256(json.dumps(item["reference"], ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()}
+                        for item in _candidate_quote_occurrences(candidate_payload=candidate_payload,
+                            source_prose=source_prose, source_artifact_id=resolved.source_artifact_id, span_index=span_index)],
+                }, ensure_ascii=False, sort_keys=True)
+            ] if invalid_evidence_count else [])],
             promotable=not inspect_only and invalid_evidence_count == 0 and not semantic_held,
             promotable_reason=(
                 "Candidate evidence contains nonliteral anchor quotes; publication is blocked."

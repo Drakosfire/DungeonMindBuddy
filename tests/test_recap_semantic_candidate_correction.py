@@ -154,6 +154,8 @@ def _fixture(
 
     monkeypatch.setattr(service, "repo_root", lambda: root)
     monkeypatch.setattr(service, "resolve_promotable_ingest_run", resolve)
+    monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", resolve)
+    monkeypatch.setattr(extract_promote, "_load_frozen_span_index_for_resolved_run", lambda resolved: service._load_frozen_span_index_for_resolved_run(resolved))
     monkeypatch.setattr(service, "get_extraction_run", get_run)
     monkeypatch.setattr(service, "create_extraction_run", create_run)
     monkeypatch.setattr(service, "update_extraction_run_status", update_run)
@@ -745,7 +747,7 @@ def test_v5_request_rejects_duplicate_evidence_target(
         )
 
 
-def test_v5_valid_batch_cannot_hide_an_inherited_invalid_anchor(
+def test_v5_valid_batch_preserves_inherited_invalid_anchor_as_held(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     parent, parent_bytes, runs, request = _evidence_batch_fixture(monkeypatch, tmp_path)
@@ -762,11 +764,12 @@ def test_v5_valid_batch_cannot_hide_an_inherited_invalid_anchor(
     runs["parent"] = parent
     request = request.model_copy(update={"parent_candidate_sha256": _sha(changed_parent_bytes)})
 
-    with pytest.raises(extract_promote.ExtractPromoteError):
-        service.correct_recap_candidate(request)
-    assert set(runs) == {"parent"}
+    response = service.correct_recap_candidate(request)
+    child = runs[response.run_id]
+    assert response.semantic_state == "held"
+    projected = json.loads((tmp_path / child.components["candidate_graph"].uri).read_bytes())
+    assert next(n for n in projected["nodes"] if n["node_id"] == "chamber")["evidence_refs"] == chamber["evidence_refs"]
     assert (tmp_path / "parent.json").read_bytes() == changed_parent_bytes
-    assert not (tmp_path / "out" / "graph_memory" / "derived_candidates").exists()
 
 
 def test_v3_session_action_child_replays_and_stays_held(
@@ -1829,3 +1832,124 @@ def test_legacy_manifest_identity_ignores_unused_node_omission(monkeypatch, tmp_
     assert response.run_id == "61a59049-3686-5680-b569-5b8816497b19"
     assert response.run_id == str(uuid5(NAMESPACE_URL, f"dmb:{service.DERIVATION}:parent:{_sha(raw)}:{digest}"))
     assert service.verify_child_replay(runs[response.run_id], parent, tmp_path)
+
+
+def _multiple_bad_quote_fixture(monkeypatch, root):
+    parent, raw, runs, split = _split_fixture(monkeypatch, root)
+    payload = json.loads(raw)
+    payload["nodes"][0]["evidence_refs"][0]["anchor_quotes"] = ["unchanged bad first quote"]
+    payload["nodes"][1]["evidence_refs"][0]["anchor_quotes"] = ["unchanged bad second quote"]
+    raw = service._canonical_bytes(payload)
+    (root / "parent.json").write_bytes(raw)
+    components = dict(parent.components)
+    components["candidate_graph"] = components["candidate_graph"].model_copy(update={"sha256": _sha(raw)})
+    parent = parent.model_copy(update={"components": components})
+    runs["parent"] = parent
+    split["parent_candidate_sha256"] = _sha(raw)
+    return parent, raw, runs, split
+
+
+def test_http_incremental_description_split_and_strict_acceptance(monkeypatch, tmp_path):
+    from application_state.ingest import service as ingest_service
+    from apps.live_control_server.services import source_artifact_registry
+    parent, raw, runs, split = _multiple_bad_quote_fixture(monkeypatch, tmp_path)
+    frozen = parent.model_dump(mode="json")
+    app = _split_http_app(monkeypatch)
+    monkeypatch.setattr(extract_promote, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(graph_run_registry, "get_reviewable_extraction_run", lambda _root, key: runs[key])
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, key: runs[key])
+    monkeypatch.setattr(source_artifact_registry, "get_source_artifact", lambda _root, _id: SimpleNamespace(content_sha256=parent.components["source_artifact"].sha256))
+    monkeypatch.setattr(extract_promote, "resolve_first_world_capability", lambda **_kwargs: SimpleNamespace(world_id="w", world_state="initialized", eligible=True, reason=None))
+    # Add only review metadata to the frozen-component resolver; quote validation stays real.
+    original_resolver = service.resolve_promotable_ingest_run
+    def resolve(key, **kwargs):
+        result = original_resolver(key, **kwargs)
+        result.status = runs[key].status.value
+        result.diagnostics = []
+        return result
+    monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", resolve)
+    calls = []
+    def record(key, *, expected_revision, basis, decision):
+        run = runs[key]
+        assert run.revision == expected_revision
+        _assert_recap_semantic_basis(run, runs[run.lineage["parent_run_id"]], basis)
+        calls.append(key)
+        updated = run.model_copy(deep=True, update={"revision": expected_revision + 1})
+        updated.lineage["semantic_disposition"] = {"version": 1, "state": decision.state,
+            "basis_sha256": basis.digest(), "review_decision_ref": decision.review_decision_ref,
+            "reviewer_id": decision.reviewer_id, "decided_at": "2026-10-07T00:00:00Z"}
+        runs[key] = updated
+        return updated
+    monkeypatch.setattr(ingest_service, "record_recap_semantic_disposition", record)
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            url = "/api/live/extract-promote/runs/parent/recap-candidate-corrections"
+            description = RecapCandidateCorrectionRequest(parent_run_id="parent", parent_candidate_sha256=_sha(raw),
+                node_description_replacements=[RecapNodeDescriptionReplacement(node_id="mira",
+                    original_description=json.loads(raw)["nodes"][0]["description"], replacement_description="Mira rests in the room.")])
+            desc = await client.post(url, json=description.model_dump(mode="json", by_alias=True))
+            assert desc.status_code == 200, desc.text
+            assert desc.json()["semanticState"] == "held"
+            assert (await client.post(url, json=description.model_dump(mode="json", by_alias=True))).json() == desc.json()
+            separated = await client.post(url, json=split)
+            assert separated.status_code == 200, separated.text
+            key = separated.json()["runId"]
+            child = runs[key]
+            assert service.verify_child_replay(child, parent, tmp_path)
+            assert child.components["source_artifact"] == parent.components["source_artifact"]
+            assert child.components["source_span_index"] == parent.components["source_span_index"]
+            view = await client.get(f"/api/live/extract-promote/runs/{key}/review-package")
+            assert view.status_code == 200, view.text
+            assert view.json()["invalidEvidenceCount"] == 2
+            binding = json.loads(next(d.split(":",1)[1] for d in view.json()["diagnostics"] if d.startswith("unresolved_quote_binding:")))
+            assert binding["candidate_sha256"] == separated.json()["candidateSha256"]
+            assert binding["source_sha256"] == parent.components["source_artifact"].sha256
+            assert binding["span_index_sha256"] == parent.components["source_span_index"].sha256
+            assert len(binding["occurrences"]) == 2
+            decision = {"expectedRevision": child.revision, "candidateSha256": separated.json()["candidateSha256"],
+                "decision": "accepted", "reviewDecisionRef": "review:test"}
+            refused = await client.post(f"/api/live/extract-promote/runs/{key}/semantic-disposition", json=decision)
+            assert refused.status_code == 422, refused.text
+            assert calls == []
+            payload = json.loads((tmp_path / child.components["candidate_graph"].uri).read_bytes())
+            replacements = []
+            for kind, identifier in [("node", "mira"), ("node", "room")]:
+                ref = next(n for n in payload["nodes"] if n["node_id"] == identifier)["evidence_refs"][0]
+                replacements.append(RecapCandidateEvidenceReplacementV5(record_kind=kind, record_id=identifier, evidence_index=0,
+                    expected_source_ref_id=ref["source_ref_id"], expected_source_artifact_id=ref["source_artifact_id"],
+                    expected_source_span_ref_id=ref["source_span_ref_id"], replacement_source_span_ref_id=ref["source_span_ref_id"],
+                    expected_anchor_quotes=ref["anchor_quotes"], replacement_anchor_quotes=["Mira rests in the room."]))
+            repaired = RecapCandidateCorrectionRequestV5(schema="dmb_recap_candidate_correction_request_v5",
+                parent_run_id=key, parent_candidate_sha256=separated.json()["candidateSha256"], evidence_replacements=replacements)
+            result = await client.post(f"/api/live/extract-promote/runs/{key}/recap-candidate-corrections", json=repaired.model_dump(mode="json",by_alias=True))
+            assert result.status_code == 200, result.text
+            ready_id = result.json()["runId"]
+            ready = runs[ready_id]
+            accepted = await client.post(f"/api/live/extract-promote/runs/{ready_id}/semantic-disposition",
+                json={**decision, "expectedRevision": ready.revision, "candidateSha256": result.json()["candidateSha256"]})
+            assert accepted.status_code == 200, accepted.text
+            assert calls == [ready_id]
+            assert parent.model_dump(mode="json") == frozen
+            assert (tmp_path / "parent.json").read_bytes() == raw
+    asyncio.run(exercise())
+
+
+def test_changed_invalid_reference_rejected_before_child_write(monkeypatch, tmp_path):
+    parent, raw, runs, split = _multiple_bad_quote_fixture(monkeypatch, tmp_path)
+    ref = json.loads(raw)["nodes"][0]["evidence_refs"][0]
+    request = RecapCandidateCorrectionRequestV5(schema="dmb_recap_candidate_correction_request_v5",
+        parent_run_id="parent", parent_candidate_sha256=_sha(raw), evidence_replacements=[RecapCandidateEvidenceReplacementV5(
+            record_kind="node", record_id="mira", evidence_index=0,
+            expected_source_ref_id=ref["source_ref_id"], expected_source_artifact_id=ref["source_artifact_id"],
+            expected_source_span_ref_id=ref["source_span_ref_id"], expected_anchor_quotes=ref["anchor_quotes"],
+            replacement_source_span_ref_id=split["evidence_ref_splits"][0]["parts"][0]["source_span_ref_id"],
+            replacement_anchor_quotes=ref["anchor_quotes"])])
+    app = _split_http_app(monkeypatch)
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url="http://test") as client:
+            response = await client.post("/api/live/extract-promote/runs/parent/recap-candidate-corrections",json=request.model_dump(mode="json",by_alias=True))
+            assert response.status_code == 422
+    asyncio.run(exercise())
+    assert set(runs) == {"parent"}
+    assert not (tmp_path / "out" / "graph_memory" / "derived_candidates").exists()
+    assert (tmp_path / "parent.json").read_bytes() == raw
