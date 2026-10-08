@@ -3603,44 +3603,47 @@ export function WorldPlanAgentConversation({
             </button>
             {newConversationDisabledReason ? (
               <p id="world-plan-new-conversation-disabled-reason" className="world-plan-agent-conversation__management-reason" role="note">
-                {newConversationDisabledReason}
+                Unavailable right now: {newConversationDisabledReason}
               </p>
             ) : null}
           </div>
   );
   const contextDetails = (
-    <div className="world-plan-agent-conversation__header-context" role="group" aria-label="Current Plan context">
-          <p className="world-plan-agent-conversation__context-summary">
-            Questions use the saved Plan{playableTarget ? `, focused on ${playableTargetLabel || playableTarget.id.replace(/^[^:]+:/, "")}` : " in full"}.
-          </p>
-          <div className="world-plan-agent-conversation__context-mode">
+    <div className="world-plan-agent-conversation__header-context" role="group" aria-label="What Buddy uses and where changes go">
+          <section className="world-plan-agent-conversation__context-section" aria-label="Question sources">
+            <h3>Answers use</h3>
+            <p className="world-plan-agent-conversation__context-summary">
+              The saved Plan{playableTarget ? "" : " in full"}.
+            </p>
             <button
+              className="world-plan-agent-conversation__world-context-toggle"
               type="button"
               aria-pressed={useWorldGraphForAsk}
               disabled={!scopeMatches || !verifiedWorldId}
               onClick={() => setUseWorldGraphForAsk((enabled) => !enabled)}
-              title="Choose whether Buddy can use established facts from this World in a new question."
+              title={`Choose whether Buddy can use established facts from ${worldName} in a new question.`}
             >
-              {useWorldGraphForAsk ? "World facts on" : "World facts off"}
+              {`Use ${worldName} facts · ${useWorldGraphForAsk ? "On" : "Off"}`}
             </button>
-          </div>
-          {playableTarget ? (
-            <div role="group" aria-label="Selected Playable card for Ask" className="world-plan-agent-conversation__target-chip">
-              <span>Ask focus · {playableTargetLabel || playableTarget.id.replace(/^[^:]+:/, "")}</span>
-              <button type="button" aria-label="Clear Ask target" onClick={onClearPlayableTarget}>Clear</button>
-            </div>
-          ) : null}
-          <p className="world-plan-agent-conversation__context-summary">
-            Suggested changes target {effectiveEditTarget
-              ? playableEditTargetLabel || playableTargetLabel || effectiveEditTarget.id.replace(/^[^:]+:/, "")
-              : editorSelectionActive ? "the selected text" : "the current cursor in the Plan"}.
-          </p>
-          {effectiveEditTarget ? (
-            <div role="group" aria-label="Selected Playable card for edit" className="world-plan-agent-conversation__target-chip">
-              <span>Change target · {(playableEditTarget ? playableEditTargetLabel : playableTargetLabel) || effectiveEditTarget.id.replace(/^[^:]+:/, "")}</span>
-              {playableEditTarget ? <button type="button" aria-label="Clear edit target" onClick={onClearPlayableEditTarget}>Clear</button> : null}
-            </div>
-          ) : null}
+            {playableTarget ? (
+              <div role="group" aria-label="Question focus" className="world-plan-agent-conversation__context-target">
+                <span>Focus: {playableTargetLabel || playableTarget.id.replace(/^[^:]+:/, "")}</span>
+                <button type="button" aria-label="Clear Ask target" onClick={onClearPlayableTarget}>Clear focus</button>
+              </div>
+            ) : null}
+          </section>
+          <section className="world-plan-agent-conversation__context-section" aria-label="Plan changes">
+            <h3>Plan changes</h3>
+            <p className="world-plan-agent-conversation__context-summary">
+              Buddy will propose changes to {effectiveEditTarget ? "the selected card" : editorSelectionActive ? "the selected text" : "the cursor in the Plan"} and show a preview before you apply them.
+            </p>
+            {effectiveEditTarget ? (
+              <div role="group" aria-label="Selected change target" className="world-plan-agent-conversation__context-target">
+                <span>Target: {(playableEditTarget ? playableEditTargetLabel : playableTargetLabel) || effectiveEditTarget.id.replace(/^[^:]+:/, "")}</span>
+                {playableEditTarget ? <button type="button" aria-label="Clear edit target" onClick={onClearPlayableEditTarget}>Clear target</button> : null}
+              </div>
+            ) : null}
+          </section>
           {playableTargetStale ? (
             <p className="world-plan-agent-conversation__target-warning" role="alert">
               The Ask target is stale. Select it again or clear the target before asking.

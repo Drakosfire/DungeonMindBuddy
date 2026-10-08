@@ -55,7 +55,7 @@ describe("PlanConversationDockAdapter",()=>{
   it("uses inspectable context without opening another overlay or submitting a request",async()=>{
     const user=userEvent.setup();render(<Fixture/>);
     await user.click(await screen.findByRole("button",{name:"Open",exact:true}));
-    await user.click(screen.getByRole("button",{name:"Context"}));
+    await user.click(screen.getByRole("button",{name:"What Buddy sees"}));
     expect(screen.getByText("Full committed Plan context")).toBeVisible();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });

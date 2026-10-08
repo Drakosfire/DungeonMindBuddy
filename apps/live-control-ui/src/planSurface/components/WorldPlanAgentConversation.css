@@ -87,10 +87,10 @@
 }
 
 .world-plan-agent-conversation__header-context {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.2rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+  align-items: start;
+  gap: 0.45rem;
   color: var(--ui-text-secondary);
   font-size: 0.72rem;
   line-height: 1.2;
@@ -98,54 +98,71 @@
 }
 
 .world-plan-agent-conversation__context-summary {
-  flex: 1 0 100%;
   margin: 0;
-  font-size: 0.82rem;
+  color: var(--ui-text-primary);
+  font-size: 0.8rem;
   line-height: 1.4;
 }
 
 .world-plan-agent-conversation__management-reason {
   flex: 1 0 100%;
   inline-size: 100%;
-  margin: 0.25rem 0 0;
-  color: var(--ui-text-secondary);
+  margin: 0.25rem 0 0.1rem;
+  padding: 0.35rem 0.5rem;
+  border-inline-start: 2px solid var(--ui-accent, #73968d);
+  background: color-mix(in srgb, var(--ui-accent, #73968d) 10%, transparent);
+  color: var(--ui-text-primary);
   font-size: 0.78rem;
   line-height: 1.35;
 }
 
-.world-plan-agent-conversation__header-context > span {
-  padding: 0.14rem 0.35rem;
-  border: 1px solid var(--ui-border-strong);
-  border-radius: 999px;
+.world-plan-agent-conversation__context-section {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  padding: 0.55rem 0.65rem;
+  border-inline-start: 2px solid var(--ui-border-strong);
+  border-radius: 0.35rem;
   background: var(--ui-background-surface);
 }
 
-.world-plan-agent-conversation__target-chip {
+.world-plan-agent-conversation__context-section h3 {
+  margin: 0;
+  color: var(--ui-text-secondary);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.world-plan-agent-conversation__context-target {
   display: inline-flex;
   flex-wrap: nowrap;
   align-items: center;
   gap: 0.2rem;
   max-width: 100%;
-  padding: 0.12rem 0.25rem 0.12rem 0.35rem;
-  border: 1px solid var(--ui-border-strong);
-  border-radius: 999px;
-  background: var(--ui-background-surface);
 }
 
-.world-plan-agent-conversation__target-chip > span {
+.world-plan-agent-conversation__context-target > span {
   min-width: 0;
   overflow-wrap: anywhere;
+  color: var(--ui-text-primary);
 }
 
-.world-plan-agent-conversation__header-context > button,
-.world-plan-agent-conversation__target-chip > button {
+.world-plan-agent-conversation__context-target > button {
   min-height: 1.5rem;
-  padding: 0.12rem 0.35rem;
-  border: 1px solid var(--ui-border-strong);
-  border-radius: 999px;
+  padding: 0.12rem 0.25rem;
+  border: 0;
+  border-radius: 0.2rem;
   background: transparent;
-  color: var(--ui-text-primary);
+  color: var(--ui-text-secondary);
   font: inherit;
+  font-size: 0.72rem;
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
   cursor: pointer;
 }
 
@@ -774,19 +791,11 @@
   font-size: 0.82rem;
 }
 
-.world-plan-agent-conversation__context-mode {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem;
-  min-inline-size: 0;
-}
-
-.world-plan-agent-conversation__context-mode > button {
+.world-plan-agent-conversation__world-context-toggle {
   min-block-size: 2rem;
   padding: 0.25rem 0.55rem;
   border: 1px solid var(--ui-border-strong, #536375);
-  border-radius: 999px;
+  border-radius: 0.35rem;
   color: var(--ui-text-primary, #e8eaef);
   background: var(--ui-background-surface, #202a33);
   font: inherit;
@@ -794,14 +803,9 @@
   cursor: pointer;
 }
 
-.world-plan-agent-conversation__context-mode > button[aria-pressed="true"] {
+.world-plan-agent-conversation__world-context-toggle[aria-pressed="true"] {
   border-color: var(--ui-accent, #73968d);
   background: color-mix(in srgb, var(--ui-accent, #73968d) 18%, transparent);
-}
-
-.world-plan-agent-conversation__context-mode > span {
-  color: var(--ui-text-secondary, #b8c0ce);
-  font-size: 0.76rem;
 }
 
 .plan-conversation-dock .world-plan-agent-conversation__composer {

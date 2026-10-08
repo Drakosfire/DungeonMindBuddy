@@ -67,8 +67,8 @@ const pendingAskAcceptedEventName = "dmb:world-plan-ask-accepted:v1";
 const pendingAskEventListeners: { eventName: string; listener: EventListener }[] = [];
 
 function getGraphContextToggle() {
-  return screen.queryByRole("button", { name: "World facts on" })
-    ?? screen.getByRole("button", { name: "World facts off" });
+  return screen.queryByRole("button", { name: "Use Test World facts · On" })
+    ?? screen.getByRole("button", { name: "Use Test World facts · Off" });
 }
 
 function ensureWorldGraphAskEnabled() {
@@ -1938,26 +1938,32 @@ describe("World Plan conversation consumer", () => {
     }));
     await screen.findByText(/No messages yet/i);
 
-    const context = screen.getByRole("group", { name: "Current Plan context" });
-    expect(context).toHaveTextContent("Questions use the saved Plan, focused on arrival");
-    expect(context).toHaveTextContent("Ask focus · arrival");
-    expect(context).toHaveTextContent("Suggested changes target retreat");
-    expect(context).not.toHaveTextContent("Question · full Plan");
-    expect(context).not.toHaveTextContent("Change · selected text or cursor");
+    const context = screen.getByRole("group", { name: "What Buddy uses and where changes go" });
+    expect(within(context).getByRole("region", { name: "Question sources" })).toHaveTextContent("The saved Plan.");
+    expect(within(context).getByRole("group", { name: "Question focus" })).toHaveTextContent("Focus: arrival");
+    expect(within(context).getByRole("region", { name: "Plan changes" })).toHaveTextContent(
+      "Buddy will propose changes to the selected card and show a preview before you apply them.",
+    );
+    expect(within(context).getByRole("group", { name: "Selected change target" })).toHaveTextContent("Target: retreat");
     expect(within(context).getByRole("button", { name: "Clear Ask target" })).toBeInTheDocument();
     expect(within(context).getByRole("button", { name: "Clear edit target" })).toBeInTheDocument();
 
     const composer = screen.getByRole("region", { name: "Conversation composer" });
     expect(within(composer).getByRole("textbox", { name: "Message DungeonBuddy" })).toBeInTheDocument();
     expect(within(composer).queryByRole("radio")).not.toBeInTheDocument();
-    expect(within(context).getByRole("button", { name: "World facts on" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(context).getByRole("button", { name: "Use Test World facts · On" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("defaults a fresh Plan conversation to its saved Plan and World context", async () => {
     setupApi(history("conversation-a", 1, []));
     render(conversationElement());
     await screen.findByText(/No messages yet/i);
-    expect(screen.getByRole("button", { name: "World facts on" })).toHaveAttribute("aria-pressed", "true");
+    const context = screen.getByRole("group", { name: "What Buddy uses and where changes go" });
+    expect(within(context).getByRole("region", { name: "Question sources" })).toHaveTextContent("The saved Plan in full.");
+    expect(within(context).getByRole("button", { name: "Use Test World facts · On" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(context).getByRole("region", { name: "Plan changes" })).toHaveTextContent(
+      "Buddy will propose changes to the cursor in the Plan and show a preview before you apply them.",
+    );
   });
 
   it("explains why New conversation is disabled while a message is in progress", async () => {
@@ -1975,7 +1981,7 @@ describe("World Plan conversation consumer", () => {
     fireEvent.change(input, { target: { value: "What happens next?" } });
     fireEvent.keyDown(input, { key: "Enter" });
     expect(await screen.findByRole("button", { name: "New conversation" })).toBeDisabled();
-    expect(screen.getByText("Wait for the current message to finish before starting a new conversation.")).toBeVisible();
+    expect(screen.getByText("Unavailable right now: Wait for the current message to finish before starting a new conversation.")).toBeVisible();
     expect(screen.getByRole("button", { name: "New conversation" })).toHaveAttribute(
       "aria-describedby", "world-plan-new-conversation-disabled-reason",
     );
@@ -2007,9 +2013,9 @@ describe("World Plan conversation consumer", () => {
     }));
     await screen.findByText(/No messages yet/i);
 
-    const context = screen.getByRole("group", { name: "Current Plan context" });
-    expect(context).toHaveTextContent("Suggested changes target recovery");
-    expect(within(context).getByText("Change target · recovery")).toBeInTheDocument();
+    const context = screen.getByRole("group", { name: "What Buddy uses and where changes go" });
+    expect(within(context).getByRole("region", { name: "Plan changes" })).toHaveTextContent("Buddy will propose changes to the selected card");
+    expect(within(context).getByRole("group", { name: "Selected change target" })).toHaveTextContent("Target: recovery");
     expect(within(context).getByRole("button", { name: "Clear edit target" })).toBeInTheDocument();
 
     const composer = screen.getByRole("region", { name: "Conversation composer" });
@@ -2031,9 +2037,9 @@ describe("World Plan conversation consumer", () => {
     const header = document.querySelector(".world-plan-agent-conversation__header")!;
     expect(await within(header).findByText(/Saved Plan · version 1/)).toBeInTheDocument();
     expect(header).not.toHaveTextContent("version 7");
-    expect(header).toHaveTextContent("Questions use the saved Plan, focused on arrival");
-    expect(header).toHaveTextContent("Ask focus · arrival");
-    expect(header).toHaveTextContent("Suggested changes target retreat");
+    expect(header).toHaveTextContent("The saved Plan.");
+    expect(header).toHaveTextContent("Focus: arrival");
+    expect(header).toHaveTextContent("Target: retreat");
     expect(within(header).getByRole("button", { name: "Clear Ask target" })).toBeInTheDocument();
     expect(within(header).getByRole("button", { name: "Clear edit target" })).toBeInTheDocument();
 
@@ -2193,7 +2199,7 @@ describe("World Plan conversation consumer", () => {
       .map((article) => article.getAttribute("data-sequence"))).toEqual(["1", "2"]);
 
     mounted.rerender(conversationElement({ playableTarget: cardB, selectionGeneration: 1 }));
-    expect(screen.getByRole("group", { name: "Selected Playable card for Ask" })).toHaveTextContent("ending");
+    expect(screen.getByRole("group", { name: "Question focus" })).toHaveTextContent("Focus: ending");
     expect(screen.getAllByText(/Playable target: scene scene:opening/)).toHaveLength(2);
     expect(screen.queryByText(/Playable target: scene scene:ending/)).not.toBeInTheDocument();
 
@@ -2205,7 +2211,7 @@ describe("World Plan conversation consumer", () => {
     expect(screen.getByText("Grounded in World Graph evidence.")).toBeInTheDocument();
     expect(screen.getAllByText(/Playable target: scene scene:opening/)).toHaveLength(2);
     expect(screen.getByText("evidence-internal-test")).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "Selected Playable card for Ask" })).toHaveTextContent("ending");
+    expect(screen.getByRole("group", { name: "Question focus" })).toHaveTextContent("Focus: ending");
     expect(api.historyCalls).toHaveLength(callsBeforeReload + 1);
     expect(postAsk).not.toHaveBeenCalled();
   });
@@ -2857,7 +2863,7 @@ describe("World Plan conversation consumer", () => {
 
     expect(await screen.findAllByText(answer)).toHaveLength(2);
     expect(await screen.findByText("Grounded in World Graph evidence.")).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "Selected Playable card for Ask" })).toHaveTextContent("ending");
+    expect(screen.getByRole("group", { name: "Question focus" })).toHaveTextContent("Focus: ending");
     const transcript = screen.getByRole("region", { name: "World conversation transcript" });
     const answerTurn = transcript.querySelector("article");
     expect(answerTurn).toHaveTextContent(cardA.id);
@@ -3451,7 +3457,7 @@ describe("World Plan conversation consumer", () => {
     expect(pendingAskKeys()).toHaveLength(1);
 
     mounted.rerender(conversationElement({ playableTarget: cardB, selectionGeneration: 1 }));
-    const selectedCardForB = screen.getByRole("group", { name: "Selected Playable card for Ask" });
+    const selectedCardForB = screen.getByRole("group", { name: "Question focus" });
     const selectedCardForBBeforeSettlement = selectedCardForB.textContent;
 
     const answer = "The opening is guarded by two sentries.";
@@ -3831,8 +3837,8 @@ describe("World Plan conversation consumer", () => {
       draftGeneration: 1,
       savedDirty: true,
     }));
-    const selectedCardAfterBasisChange = screen.getByRole("group", { name: "Selected Playable card for Ask" });
-    expect(selectedCardAfterBasisChange).toHaveTextContent("Ask focus · arrival");
+    const selectedCardAfterBasisChange = screen.getByRole("group", { name: "Question focus" });
+    expect(selectedCardAfterBasisChange).toHaveTextContent("Focus: arrival");
     fireEvent.click(screen.getByText("Advanced details"));
     const askTargetDetails = screen.getByRole("region", { name: "Ask target details" });
     expect(await within(askTargetDetails).findByText(/Card basis · object revision 8/)).toBeInTheDocument();
@@ -3849,7 +3855,7 @@ describe("World Plan conversation consumer", () => {
     expect(await screen.findByText(answer)).toBeInTheDocument();
     expect(await screen.findByText(/original selected card scene:arrival at committed Plan object revision 7/)).toBeInTheDocument();
     expect(screen.getByText(new RegExp(`Playable target: scene scene:arrival · marker grammar v1 · committed Plan ${documentId}, object revision 7, WorkRevision ${workRevisionId}, revision 1, SHA-256 ${contentSha256}`))).toBeInTheDocument();
-    expect(selectedCardAfterBasisChange).toHaveTextContent("Ask focus · arrival");
+    expect(selectedCardAfterBasisChange).toHaveTextContent("Focus: arrival");
     expect(selectedCardAfterBasisChange).not.toHaveTextContent(contentSha256);
     expect(postAsk).toHaveBeenCalledTimes(1);
     expect(sent[0]).toEqual(originalRequest);
