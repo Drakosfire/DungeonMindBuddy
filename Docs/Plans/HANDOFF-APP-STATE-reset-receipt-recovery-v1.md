@@ -72,3 +72,8 @@ Run only owning affected checks plus lint/typecheck as applicable, inspect exact
 ## Implementation activation — 2026-10-08
 
 PRIME merged authority #1033 at `0f8c4e018bed783cf9de7c32a880c2730bf1e8d8` and dispatched this exact lease. Isolated implementation branch `codex/reset-receipt-recovery` in `/tmp/dmb-plan-ask-history` is parented on `65571f526df5eb69ab104bd49f3440c24ca676ef`; this landed authority file is integrated explicitly. The implementation PR targets `codex/dogfood-plan-proposal-scope`. Controller/history-test transfer is effective. No implementation merge, operator acceptance, or runtime activation is claimed.
+
+
+## Parent settlement and retarget — 2026-10-08
+
+PRIME reports operator-accepted #1007 merged at `e50a1f0bb8c5fd294e1795f4e2e89620859ffe4a` (reviewed head `cb660`). RECOVERY integrates that exact main, preserving its latest production/layout and two test repairs; the sole conflict was this authority file's additive activation record, retained here. PR #1034 now targets main. The earlier #1007 merge-order gate is satisfied; RECOVERY still requires independent review of its resulting cumulative main→head diff and separate merge/runtime authority. Its original stack/activation record above remains historical evidence.

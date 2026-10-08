@@ -3,7 +3,7 @@ import type { Editor } from "@tiptap/core";
 import { webcrypto } from "node:crypto";
 import type { ComponentProps } from "react";
 import userEvent from "@testing-library/user-event";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./config/planSessionDescriptor", async (importOriginal) => {
@@ -22,15 +22,13 @@ vi.mock("../tiptap/MarkdownEditorCore", async (importOriginal) => {
     ...actual,
     MarkdownEditorCore: (
       props: ComponentProps<typeof actual.MarkdownEditorCore>,
-    ) => (
-      <actual.MarkdownEditorCore
-        {...props}
-        onEditorChange={(editor) => {
-          planShellTestEditor = editor;
-          props.onEditorChange?.(editor);
-        }}
-      />
-    ),
+    ) => {
+      const observeEditor = useCallback((editor: Editor | null) => {
+        planShellTestEditor = editor;
+        props.onEditorChange?.(editor);
+      }, [props.onEditorChange]);
+      return <actual.MarkdownEditorCore {...props} onEditorChange={observeEditor} />;
+    },
   };
 });
 
@@ -258,11 +256,17 @@ async function openWorldGraphLoadPanel(user: ReturnType<typeof userEvent.setup>)
   }
 }
 
+async function openPlanEditTools() {
+  if (!screen.queryByRole("button", { name: "Close Edit" })) fireEvent.click(screen.getByRole("button", { name: "Edit", exact: true }));
+  await screen.findByRole("button", { name: "Close Edit" });
+}
+
 async function waitForPlanSurfaceReady() {
-  await waitFor(() => {
-    expect(screen.getByTestId("plan-surface-canvas-editor")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Close Edit" })).toBeInTheDocument();
-  });
+  await screen.findByTestId("plan-surface-canvas-editor");
+  if (!screen.queryByRole("button", { name: "Close Edit" })) {
+    fireEvent.click(screen.getByRole("button", { name: "Edit", exact: true }));
+  }
+  await screen.findByRole("button", { name: "Close Edit" });
 }
 
 async function openAgentConfig(user: { click: (el: Element) => Promise<void> }) {
@@ -329,7 +333,7 @@ describe("PlanSurfaceShell", () => {
       .toBe(appChromeToolsPublicationSignature(tools(oldCopy)));
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     Object.defineProperty(globalThis, "crypto", { configurable: true, value: webcrypto });
     vi.restoreAllMocks();
     planShellTestEditor = null;
@@ -344,6 +348,12 @@ describe("PlanSurfaceShell", () => {
     vi.spyOn(liveApi, "createWorkspaceDocument").mockResolvedValue(fixtureWorkspaceDocumentRecord());
     vi.spyOn(liveApi, "getWorkspaceDocumentSnapshot").mockResolvedValue(fixtureWorkspaceDocumentSnapshot());
     localStorage.clear();
+    // Exercise the accepted local-session bootstrap before per-query fetch fixtures.
+    const sessionFetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(
+      JSON.stringify({ status: "active", csrf_token: "plan-shell-test-csrf" }), { status: 200 },
+    ));
+    await liveApi.connectNativeGraphSession();
+    sessionFetch.mockRestore();
     // Default multi-campaign lens matches Ask drawer expectations (Union · C1+C2).
     window.history.pushState({}, "", "/plan?campaigns=longmont-c1,longmont-c2");
   });
@@ -430,6 +440,7 @@ describe("PlanSurfaceShell", () => {
     );
     const user = userEvent.setup();
     await waitFor(() => expect(planShellTestEditor).not.toBeNull());
+    await openPlanEditTools();
     await user.click(screen.getByRole("button", { name: /Unlock editing/ }));
     await user.click(await screen.findByRole("button", { name: "Open" }));
     await user.click(screen.getByRole("button", { name: "Capture Plan target" }));
@@ -2068,6 +2079,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
+    await openPlanEditTools();
     await user.click(screen.getByRole("button", { name: "Save to Markdown" }));
 
     await waitFor(() => {
@@ -4786,6 +4798,7 @@ describe("PlanSurfaceShell", () => {
       expect(localAfterRetry?.document_id).toBe(localBeforeRetry?.document_id);
       expect(localAfterRetry?.exported_markdown).toBe(localBeforeRetry?.exported_markdown);
 
+      await openPlanEditTools();
       await waitFor(() => {
         const saveButtons = screen.getAllByRole("button", { name: "Save to Markdown" });
         expect(saveButtons.some((button) => !(button as HTMLButtonElement).disabled)).toBe(true);
@@ -4944,6 +4957,7 @@ describe("PlanSurfaceShell", () => {
       renderPlanSurface();
       await waitFor(() => expect(planShellTestEditor).not.toBeNull());
       const user = userEvent.setup();
+      await openPlanEditTools();
       await user.click(screen.getByRole("button", { name: "Save to Markdown" }));
 
       await waitFor(() =>
@@ -4962,6 +4976,7 @@ describe("PlanSurfaceShell", () => {
       expect(liveApi.getWorkspaceDocumentSnapshot).not.toHaveBeenCalled();
       expect(localStorage.getItem(planPromotionRecoveryKey("longmont-c2"))).toBeTruthy();
 
+      await openPlanEditTools();
       await user.click(screen.getByRole("button", { name: "Save to Markdown" }));
       await waitFor(() =>
         expect(screen.getByTestId("plan-markdown-save-error")).toHaveTextContent(
@@ -5161,6 +5176,7 @@ describe("PlanSurfaceShell", () => {
       act(() => {
         planShellTestEditor?.commands.insertContent(" Recovery survivor");
       });
+      await openPlanEditTools();
       await user.click(screen.getByRole("button", { name: "Save to Markdown" }));
 
       await waitFor(() =>
@@ -5184,6 +5200,7 @@ describe("PlanSurfaceShell", () => {
       });
       expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);
       const retryUser = userEvent.setup();
+      await openPlanEditTools();
       await retryUser.click(screen.getByRole("button", { name: "Save to Markdown" }));
 
       await waitFor(() => {
@@ -5236,6 +5253,7 @@ describe("PlanSurfaceShell", () => {
       act(() => {
         planShellTestEditor?.commands.insertContent(" Reload survivor");
       });
+      await openPlanEditTools();
       await user.click(screen.getByRole("button", { name: "Save to Markdown" }));
       await waitFor(() =>
         expect(screen.getByTestId("plan-markdown-save-error")).toHaveTextContent("Prepare failed"));
@@ -5301,6 +5319,7 @@ describe("PlanSurfaceShell", () => {
       await waitFor(() => expect(planShellTestEditor?.getText()).toContain("Reload survivor"));
       expect(screen.queryByTestId("plan-canvas-authoring-conflict")).not.toBeInTheDocument();
 
+      await openPlanEditTools();
       await user.click(screen.getByRole("button", { name: "Save to Markdown" }));
       await waitFor(() => expect(commitSpy).toHaveBeenCalledTimes(1));
       expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(1);

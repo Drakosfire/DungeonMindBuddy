@@ -18,6 +18,15 @@ function Fixture({ expanded = false, onExpandedChange = vi.fn() } = {}) {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("ConversationDock", () => {
+  it("allows the conversation to grow beyond the old half-screen ceiling", () => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({height:900} as DOMRect);
+    render(<ConversationDock reader={<p>Plan</p>} messages={<p>Conversation</p>} composer={<textarea aria-label="Message Buddy" />} expanded />);
+    const resize = screen.getByRole("separator", { name: "Resize Buddy conversation" });
+    fireEvent.keyDown(resize, {key:"End"});
+    expect(resize).toHaveAttribute("aria-valuemax", "740");
+    expect(resize).toHaveAttribute("aria-valuenow", "740");
+  });
+
   it("follows external launcher state without replacing the reader, draft or message position", () => {
     const change = vi.fn();
     const props = {reader:<input aria-label="Retained reader" defaultValue="Plan" />, messages:<p>Answer</p>, composer:<input aria-label="Retained draft" defaultValue="Question" />, onExpandedChange:change};

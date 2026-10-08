@@ -26,6 +26,25 @@ function Fixture() {
   </AskPluginSlotProvider></AgentInteractionProvider>;
 }
 describe("PlanConversationDockAdapter",()=>{
+  it("can resize to the entire Plan workspace without replacing its drafts", async()=>{
+    const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({height:720} as DOMRect);
+    try {
+      const user=userEvent.setup(); render(<Fixture/>);
+      const reader=screen.getByLabelText("Plan draft");
+      await user.click(await screen.findByRole("button",{name:"Open",exact:true}));
+      const input=await screen.findByLabelText("Message Buddy");
+      await user.type(input,"Unsent question");
+      const resize=screen.getByRole("separator",{name:"Resize conversation"});
+      fireEvent.keyDown(resize,{key:"End"});
+      expect(resize).toHaveAttribute("aria-valuemax","720");
+      expect(resize).toHaveAttribute("aria-valuenow","720");
+      fireEvent.keyDown(resize,{key:"Home"});
+      expect(resize).toHaveAttribute("aria-valuenow","240");
+      expect(screen.getByLabelText("Plan draft")).toBe(reader);
+      expect(reader).toHaveValue("Preparation");
+      expect(input).toHaveValue("Unsent question");
+    } finally { rect.mockRestore(); }
+  });
   it("keeps reader and typed composer mounted while existing pane state expands and collapses",async()=>{
     const user=userEvent.setup();render(<Fixture/>);
     await user.click(await screen.findByRole("button",{name:"Open",exact:true}));
