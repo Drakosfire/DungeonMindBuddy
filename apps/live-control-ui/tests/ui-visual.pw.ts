@@ -258,6 +258,42 @@ test("collapses supporting panels when the Play canvas is narrow inside a wide v
   ))).toBe(3);
 });
 
+test("keeps compact scene navigation and the Run record directly reachable", async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 900 });
+  await page.goto("/?story=play-current-moment-cockpit--app-shell-responsive-cockpit&mode=preview");
+  await expect(page.locator("html[data-storyloaded]")).toBeVisible();
+
+  const compactOutline = page.getByTestId("play-compact-outline-toggle");
+  const compactOutcomes = page.getByTestId("play-compact-outcomes-toggle");
+  const scene = page.getByTestId("play-central-workspace");
+  const outline = page.getByTestId("play-beat-context");
+  const outcomes = page.getByTestId("play-at-a-glance");
+  await expect(compactOutline).toBeVisible();
+  await expect(compactOutcomes).toBeVisible();
+  await expect(compactOutline).toHaveAttribute("aria-expanded", "false");
+  await expect(compactOutcomes).toHaveAttribute("aria-expanded", "false");
+
+  const sceneTopBefore = await scene.evaluate((element) => element.getBoundingClientRect().top);
+  await compactOutline.click();
+  await expect(outline).toBeVisible();
+  await expect(outcomes).toBeHidden();
+  await expect(compactOutline).toHaveAttribute("aria-expanded", "true");
+  const positions = await Promise.all([
+    scene.evaluate((element) => element.getBoundingClientRect().top),
+    outline.evaluate((element) => element.getBoundingClientRect().top),
+  ]);
+  expect(Math.abs(positions[0] - sceneTopBefore)).toBeLessThan(1);
+  expect(Math.abs(positions[1] - positions[0])).toBeLessThan(1);
+
+  await compactOutcomes.click();
+  await expect(outline).toBeHidden();
+  await expect(outcomes).toBeVisible();
+  await expect(compactOutline).toHaveAttribute("aria-expanded", "false");
+  await expect(compactOutcomes).toHaveAttribute("aria-expanded", "true");
+  await compactOutcomes.click();
+  await expect(outcomes).toBeHidden();
+});
+
 const mobileDockStories = [
   "visual-contract--edit-host-dock-responsive",
   "visual-contract--edit-host-dock-responsive-other-surface",
