@@ -399,7 +399,7 @@ describe("PlayCurrentMomentCockpit", () => {
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
   });
 
-  it("collapses At a Glance without writing progress", async () => {
+  it("collapses Recorded outcomes without writing progress", async () => {
     const user = userEvent.setup();
     render(<Harness />);
     const toggle = screen.getByTestId("play-at-a-glance-toggle");
@@ -409,7 +409,7 @@ describe("PlayCurrentMomentCockpit", () => {
     expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-glance-collapsed", "true");
     expect(screen.getByTestId("play-cockpit-shell")).toHaveAttribute("data-beat-collapsed", "false");
     expect(screen.getByTestId("play-at-a-glance")).toHaveClass("is-collapsed");
-    expect(screen.queryByTestId("play-at-a-glance-scenes")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("play-recorded-choices-empty")).not.toBeInTheDocument();
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
   });
 
@@ -435,13 +435,10 @@ describe("PlayCurrentMomentCockpit", () => {
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
   });
 
-  it("opens the Scenes category in the central workspace without writing progress", async () => {
-    const user = userEvent.setup();
+  it("shows scenes in the outline and keeps the current scene in the central workspace", () => {
     render(<Harness />);
-    expect(screen.getByTestId("play-at-a-glance-scenes")).toHaveTextContent("Scenes 3");
-    await user.click(screen.getByTestId("play-at-a-glance-scenes"));
-    expect(screen.getByTestId("play-workspace-scenes")).toBeInTheDocument();
-    expect(screen.getByTestId("play-scene-inventory")).toHaveTextContent("Tunnel Breach");
+    expect(screen.getByRole("navigation", { name: "Scenes in this Run" })).toHaveTextContent("Tunnel Breach");
+    expect(screen.getByTestId("play-workspace-beat-only")).toBeInTheDocument();
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
   });
 
@@ -454,14 +451,48 @@ describe("PlayCurrentMomentCockpit", () => {
         })}
       />,
     );
-    await user.click(screen.getByTestId("play-at-a-glance-scenes"));
-    await user.click(screen.getByRole("button", { name: "Inspect Courtyard" }));
+    await user.click(screen.getByRole("button", { name: /Courtyard/ }));
     expect(screen.getByTestId("play-workspace-inspect")).toBeInTheDocument();
     expect(screen.getByTestId("play-inspect-scene")).toHaveTextContent("Inspecting: Courtyard");
     expect(screen.getByTestId("play-inspect-current")).toHaveTextContent("Current: Tunnel Breach");
     expect(screen.getByRole("heading", { name: "Inspecting Courtyard" })).toBeInTheDocument();
     expect(screen.getByTestId("play-current-scene")).toHaveTextContent("Tunnel Breach");
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
+  it("lists Scenes from every Beat and only changes current position after explicit Make Current", async () => {
+    const user = userEvent.setup();
+    vi.mocked(liveApi.putPlayRunProgress).mockResolvedValue(
+      breachRun({
+        run_revision: 5,
+        progress: breachProgress({
+          current_beat_id: "beat:lower-tunnels",
+          current_scene_id: "scene:lower-cistern",
+        }),
+      }),
+    );
+    render(<BreachHarness />);
+
+    const lowerBeatScene = screen.getByRole("button", { name: /Lower Cistern/ });
+    expect(lowerBeatScene).toBeInTheDocument();
+    await user.click(lowerBeatScene);
+    expect(screen.getByTestId("play-workspace-inspect")).toHaveTextContent("Inspecting Lower Cistern");
+    expect(screen.getByTestId("play-current-scene")).toHaveTextContent("North Gate");
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Make Lower Cistern current" }));
+    await waitFor(() => expect(liveApi.putPlayRunProgress).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(liveApi.putPlayRunProgress).mock.calls[0]?.[1]).toEqual({
+      expected_run_revision: 4,
+      progress: expect.objectContaining({
+        current_beat_id: "beat:lower-tunnels",
+        current_scene_id: "scene:lower-cistern",
+        selections: {},
+        notes_by_element_id: {},
+      }),
+    });
+    expect(screen.getByTestId("play-current-scene")).toHaveTextContent("Lower Cistern");
+    expect(screen.getByTestId("play-workspace-current")).toHaveTextContent("Water echoes below the broken gate.");
   });
 
   it("returns from inspection to the authoritative current moment", async () => {
@@ -473,17 +504,16 @@ describe("PlayCurrentMomentCockpit", () => {
         })}
       />,
     );
-    await user.click(screen.getByTestId("play-at-a-glance-scenes"));
-    await user.click(screen.getByRole("button", { name: "Inspect Courtyard" }));
+    await user.click(screen.getByRole("button", { name: /Courtyard/ }));
     await user.click(screen.getByTestId("play-workspace-back"));
     expect(screen.getByTestId("play-workspace-current")).toHaveTextContent("Tunnel unique body.");
     expect(screen.queryByTestId("play-workspace-inspect")).not.toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByTestId("play-at-a-glance-scenes")).toHaveFocus();
+      expect(screen.getByTestId("play-beat-context-toggle")).toHaveFocus();
     });
   });
 
-  it("restores inspection focus to At a Glance when the Scenes launcher is unmounted", async () => {
+  it("restores inspection focus to the outline when the outline is collapsed", async () => {
     const user = userEvent.setup();
     render(
       <Harness
@@ -492,14 +522,13 @@ describe("PlayCurrentMomentCockpit", () => {
         })}
       />,
     );
-    await user.click(screen.getByTestId("play-at-a-glance-scenes"));
-    await user.click(screen.getByRole("button", { name: "Inspect Courtyard" }));
-    await user.click(screen.getByTestId("play-at-a-glance-toggle"));
-    expect(screen.queryByTestId("play-at-a-glance-scenes")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Courtyard/ }));
+    await user.click(screen.getByTestId("play-beat-context-toggle"));
+    expect(screen.getByTestId("play-beat-context-toggle")).toHaveAttribute("aria-expanded", "false");
     await user.click(screen.getByTestId("play-workspace-back"));
     expect(screen.getByTestId("play-workspace-current")).toHaveTextContent("Tunnel unique body.");
     await waitFor(() => {
-      expect(screen.getByTestId("play-at-a-glance-toggle")).toHaveFocus();
+      expect(screen.getByTestId("play-beat-context-toggle")).toHaveFocus();
     });
   });
 
@@ -1000,8 +1029,7 @@ describe("PlayCurrentMomentCockpit", () => {
         })}
       />,
     );
-    await user.click(screen.getByTestId("play-at-a-glance-scenes"));
-    await user.click(screen.getByRole("button", { name: "Inspect Courtyard" }));
+    await user.click(screen.getByRole("button", { name: /Courtyard/ }));
     await user.click(screen.getByRole("button", { name: "Make Courtyard current" }));
     expect(await screen.findByTestId("play-unknown-outcome")).toBeInTheDocument();
     expect(liveApi.putPlayRunProgress).toHaveBeenCalledTimes(1);
@@ -1049,8 +1077,7 @@ describe("PlayCurrentMomentCockpit", () => {
       );
     }
     render(<LiveHarness />);
-    await user.click(screen.getByTestId("play-at-a-glance-scenes"));
-    await user.click(screen.getByRole("button", { name: "Inspect Courtyard" }));
+    await user.click(screen.getByRole("button", { name: /Courtyard/ }));
     await user.click(screen.getByRole("button", { name: "Simulate writer" }));
     expect(screen.getByTestId("play-inspect-scene")).toHaveTextContent("Inspecting: Courtyard");
     await user.click(screen.getByTestId("play-workspace-back"));
@@ -1083,19 +1110,16 @@ describe("PlayCurrentMomentCockpit", () => {
       );
     }
     render(<SwitchHarness />);
-    await user.click(screen.getByTestId("play-at-a-glance-scenes"));
-    await user.click(screen.getByRole("button", { name: "Inspect North Gate" }));
+    await user.click(screen.getByRole("button", { name: /North Gate/ }));
     expect(screen.getByTestId("play-workspace-inspect")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Switch run" }));
     expect(screen.queryByTestId("play-workspace-inspect")).not.toBeInTheDocument();
     expect(screen.getByTestId("play-workspace-current")).toHaveTextContent("Courtyard unique body.");
   });
 
-  it("shows a truthful empty Scene inventory", async () => {
-    const user = userEvent.setup();
+  it("shows a truthful empty Scene outline", () => {
     render(<Harness markdown={EMPTY_BEAT_MARKDOWN} />);
-    expect(screen.getByTestId("play-at-a-glance-scenes")).toHaveTextContent("Scenes 0");
-    await user.click(screen.getByTestId("play-at-a-glance-scenes"));
+    expect(screen.getByRole("navigation", { name: "Scenes in this Run" })).toHaveTextContent("No scenes");
     expect(screen.getByTestId("play-scenes-empty")).toHaveTextContent(
       "No authored Scenes in this Beat.",
     );
@@ -1172,8 +1196,7 @@ describe("PlayCurrentMomentCockpit Decision interaction", () => {
     expect(screen.getByTestId("play-central-workspace")).toContainElement(decision);
     expect(screen.getByTestId("play-beat-context")).not.toContainElement(decision);
     expect(screen.getByTestId("play-at-a-glance")).not.toContainElement(decision);
-    expect(screen.getByTestId("play-at-a-glance")).toHaveTextContent("Around this moment");
-    expect(screen.getByTestId("play-at-a-glance-scenes")).toHaveTextContent("Scenes 2");
+    expect(screen.getByTestId("play-at-a-glance")).toHaveTextContent("Saved direction in this Run");
     expect(screen.getByRole("heading", { name: "North Gate" })).toBeInTheDocument();
     expect(screen.getByTestId("play-decision-prompt")).toHaveTextContent(
       "What do they do with the surviving brood?",
@@ -1182,6 +1205,27 @@ describe("PlayCurrentMomentCockpit Decision interaction", () => {
     expect(screen.getByRole("radio", { name: "Seal the breach" })).not.toBeChecked();
     expect(screen.queryByTestId("play-decision-consequence")).not.toBeInTheDocument();
     expect(screen.queryByTestId("play-decision-clear")).not.toBeInTheDocument();
+  });
+
+  it("projects saved choices and Scene notes into Recorded outcomes without writing progress", () => {
+    render(
+      <BreachHarness
+        initialRun={breachRun({
+          progress: breachProgress({
+            selections: { "choice:surviving-brood": "option:follow-brood" },
+            notes_by_element_id: { "scene:north-gate": "The defenders are short on rope." },
+          }),
+        })}
+      />,
+    );
+
+    const outcomes = screen.getByTestId("play-at-a-glance");
+    expect(outcomes).toHaveTextContent("Recorded outcomes");
+    expect(outcomes).toHaveTextContent("What do they do with the surviving brood?");
+    expect(outcomes).toHaveTextContent("Follow it");
+    expect(outcomes).toHaveTextContent("The defenders are short on rope.");
+    expect(outcomes).toHaveTextContent("Saved direction in this Run");
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
   });
 
   it("does not project the North Gate Decision when no Scene is current", () => {
@@ -1379,12 +1423,7 @@ describe("PlayCurrentMomentCockpit Decision interaction", () => {
         })}
       />,
     );
-    await user.click(screen.getByTestId("play-at-a-glance-scenes"));
-    const inventory = screen.getByTestId("play-scene-inventory").querySelector(
-      '[data-scene-id="scene:tunnel-pursuit"]',
-    );
-    expect(inventory).toHaveTextContent("de-emphasized");
-    const inspect = screen.getByRole("button", { name: "Inspect Tunnel Pursuit" });
+    const inspect = screen.getByRole("button", { name: /Tunnel Pursuit/ });
     expect(inspect).toBeEnabled();
     await user.click(inspect);
     expect(screen.getByTestId("play-inspect-scene")).toHaveTextContent("Inspecting: Tunnel Pursuit");
@@ -1396,8 +1435,7 @@ describe("PlayCurrentMomentCockpit Decision interaction", () => {
   it("returns from inspection to the authoritative North Gate Decision", async () => {
     const user = userEvent.setup();
     render(<BreachHarness />);
-    await user.click(screen.getByTestId("play-at-a-glance-scenes"));
-    await user.click(screen.getByRole("button", { name: "Inspect Tunnel Pursuit" }));
+    await user.click(screen.getByRole("button", { name: /Tunnel Pursuit/ }));
     await user.click(screen.getByTestId("play-workspace-back"));
     expect(screen.getByTestId("play-workspace-current")).toContainElement(
       screen.getByTestId("play-decision"),

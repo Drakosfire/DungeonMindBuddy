@@ -28,7 +28,7 @@ const run: WorldPlayRunRecordV2 = {
     current_scene_id: "scene:north-gate",
     current_beat_id: "beat:hold-breach",
     resolved_beat_ids: [],
-    selections: {},
+    selections: { "choice:surviving-brood": "option:seal-breach" },
     notes_by_element_id: {
       "scene:north-gate": "Keep the choice open. Ask what the group does before calling for initiative.",
     },
@@ -49,6 +49,7 @@ const manifest: PlayRunReferenceManifestV2 = {
   scenes: [
     { scene_id: "scene:north-gate", beat_id: "beat:hold-breach" },
     { scene_id: "scene:tunnel-pursuit", beat_id: "beat:hold-breach" },
+    { scene_id: "scene:lower-cistern", beat_id: "beat:lower-tunnels" },
   ],
   choices: [{
     choice_id: "choice:surviving-brood",

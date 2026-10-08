@@ -101,11 +101,12 @@ test("keeps the active Play scene primary across available widths", async ({ pag
 
     if (viewport.width === 320) {
       const beatToggle = page.getByTestId("play-beat-context-toggle");
+      await expect(beatToggle).toHaveAttribute("aria-expanded", "false");
       await beatToggle.focus();
       await page.keyboard.press("Enter");
-      await expect(beatToggle).toHaveAttribute("aria-expanded", "false");
-      await page.keyboard.press("Enter");
       await expect(beatToggle).toHaveAttribute("aria-expanded", "true");
+      await page.keyboard.press("Enter");
+      await expect(beatToggle).toHaveAttribute("aria-expanded", "false");
     }
   }
 });
@@ -200,10 +201,11 @@ test("keeps the full App Play route readable and keyboard-operable at narrow wid
       expect(firstControlAfterRunAction).not.toBe("play-beat-context-toggle");
 
       await beatToggle.focus();
-      await page.keyboard.press("Enter");
       await expect(beatToggle).toHaveAttribute("aria-expanded", "false");
       await page.keyboard.press("Enter");
       await expect(beatToggle).toHaveAttribute("aria-expanded", "true");
+      await page.keyboard.press("Enter");
+      await expect(beatToggle).toHaveAttribute("aria-expanded", "false");
     }
 
     await page.waitForFunction(() => (
