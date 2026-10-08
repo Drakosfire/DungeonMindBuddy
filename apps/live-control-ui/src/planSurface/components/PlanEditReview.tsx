@@ -1,4 +1,5 @@
 import { useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { splitLeadingYamlFrontmatter } from "../../tiptap/markdown/stripLeadingYamlFrontmatter";
 import { parsePlayableHtmlComment } from "../../tiptap/playable/playableElementIdentity";
 import { MarkdownDocumentReader } from "../../markdownReader/MarkdownDocumentReader";
 import type { WorldPlanEditContextualPreview } from "../agentEdit/planAgentEditProposal";
@@ -27,11 +28,23 @@ function changedSourceRanges(before: PlanEditReviewPreview, after: PlanEditRevie
   const target = (preview: PlanEditReviewPreview, lines: string[], end: number, side: string) => {
     const changed = end > prefix;
     if (prefix === oldLines.length && prefix === newLines.length) return { target: null, changed: false, unchanged: true };
+    const removedLength = splitLeadingYamlFrontmatter(preview.markdown).removedLength;
+    const firstBodyLine = (preview.markdown.slice(0, removedLength).match(/\n/g) ?? []).length;
+    const meaningful = (index: number) => index >= firstBodyLine && Boolean(lines[index]?.trim())
+      && parsePlayableHtmlComment(lines[index]).status !== "canonical";
     let start = prefix;
+    if (changed && !lines.slice(prefix, end).some((_, offset) => meaningful(prefix + offset))) {
+      return { target: null, changed: true, unchanged: false };
+    }
     if (!changed) {
       // Pure insertions/deletions show their adjacent context on the unchanged side.
       start = Math.min(prefix, lines.length - 1);
-      while (start < lines.length - 1 && (!lines[start].trim() || parsePlayableHtmlComment(lines[start]).status === "canonical")) start++;
+      while (start < lines.length && !meaningful(start)) start++;
+      if (start === lines.length) {
+        start = Math.min(prefix - 1, lines.length - 1);
+        while (start >= 0 && !meaningful(start)) start--;
+      }
+      if (start < 0) return { target: null, changed: false, unchanged: false };
     }
     return { target: { startLine: start + 1, endLine: changed ? end : start + 1,
       targetKey: `${preview.sourceLineTarget?.targetKey ?? side}:change:${prefix}:${end}` }, changed, unchanged: false };

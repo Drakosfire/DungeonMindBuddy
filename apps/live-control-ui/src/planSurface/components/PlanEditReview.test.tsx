@@ -88,3 +88,34 @@ it("shows identical frozen previews as unchanged without inventing a highlight",
   expect(container.querySelector('[data-source-block="true"]')).toBeNull();
   expect(props.onApply).not.toHaveBeenCalled();
 });
+
+
+it.each(["append", "delete"])("uses preceding visible context for EOF %s with trailing newline and original YAML/marker offsets", operation => {
+  const base = "---\ntitle: Saved\n---\n\n# Plan\n\n<!-- dmb-playable-element:v1 kind=scene id=scene:opening -->\nExisting.\n";
+  const extended = base + "New cue.\n";
+  const before = operation === "append" ? base : extended;
+  const after = operation === "append" ? extended : base;
+  render(<PlanEditReview {...props} before={{markdown:before}} after={{markdown:after}}/>);
+  const unchangedSide = screen.getByRole("region", {name: `${operation === "append" ? "Before" : "After"} Session title`});
+  const changedSide = screen.getByRole("region", {name: `${operation === "append" ? "After" : "Before"} Session title`});
+  expect(within(unchangedSide).getByText("Existing.").closest("p")).toHaveAttribute("data-source-block", "true");
+  expect(within(changedSide).getByText(/New cue\./).closest("p")).toHaveAttribute("data-source-block", "true");
+  expect(within(unchangedSide).queryByTestId("markdown-reader-source-no-highlight")).toBeNull();
+  expect(within(unchangedSide).queryByTestId("markdown-reader-html-literal")).toBeNull();
+});
+
+it("does not invent context when the unchanged side has no visible text", () => {
+  render(<PlanEditReview {...props} before={{markdown:"---\ntitle: Saved\n---\n\n"}} after={{markdown:"---\ntitle: Saved\n---\n\nNew cue.\n"}}/>);
+  const before = screen.getByRole("region", {name:"Before Session title"});
+  expect(before.querySelector('[data-source-block="true"]')).toBeNull();
+  expect(within(before).queryByTestId("markdown-reader-source-no-highlight")).toBeNull();
+});
+
+
+it("skips trailing blanks and canonical marker lines when finding preceding EOF context", () => {
+  const base = "---\ntitle: Saved\n---\n\n# Plan\n\nExisting.\n\n<!-- dmb-playable-element:v1 kind=scene id=scene:next -->\n\n";
+  render(<PlanEditReview {...props} before={{markdown:base}} after={{markdown:base + "New cue.\n"}}/>);
+  const before = screen.getByRole("region", {name:"Before Session title"});
+  expect(within(before).getByText("Existing.").closest("p")).toHaveAttribute("data-source-block", "true");
+  expect(within(before).queryByTestId("markdown-reader-source-no-highlight")).toBeNull();
+});
