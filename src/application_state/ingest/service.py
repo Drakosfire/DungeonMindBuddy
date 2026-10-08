@@ -513,6 +513,11 @@ def _assert_recap_semantic_basis(
         action_manifest = isinstance(basis, RecapSemanticBasisV3)
         tuple_manifest = isinstance(basis, RecapSemanticBasisV4)
         span_manifest = isinstance(basis, (RecapSemanticBasisV5, RecapSemanticBasisV6))
+        label_manifest = (
+            not (action_manifest or tuple_manifest or span_manifest)
+            and isinstance(manifest, dict)
+            and "node_label_replacements" in manifest
+        )
         expected_manifest_keys = (
             {"schema", "evidence_span_replacements"}
             if span_manifest
@@ -533,6 +538,8 @@ def _assert_recap_semantic_basis(
                 {"schema", "edge_tuple_replacements", "node_type_replacements"},
             )
         ) if tuple_manifest else True
+        if label_manifest:
+            expected_manifest_keys.add("node_label_replacements")
         expected_manifest_schema = (
             basis.manifest_schema if action_manifest or tuple_manifest or span_manifest
             else "dmb_recap_semantic_candidate_manifest_v1"
@@ -548,7 +555,8 @@ def _assert_recap_semantic_basis(
             or (action_manifest and (not isinstance(manifest.get("session_action_replacements"), list) or len(manifest["session_action_replacements"]) != 1))
             or (not (tuple_manifest or span_manifest) and len(manifest["node_description_replacements"]) > 1)
             or (not (tuple_manifest or span_manifest) and len(manifest["omitted_edge_ids"]) > 1)
-            or (not (tuple_manifest or span_manifest) and not (manifest["node_description_replacements"] or manifest["omitted_edge_ids"] or (action_manifest and manifest["session_action_replacements"]) or node_omission))
+            or (label_manifest and (not isinstance(manifest.get("node_label_replacements"), list) or len(manifest["node_label_replacements"]) > 1))
+            or (not (tuple_manifest or span_manifest) and not (manifest["node_description_replacements"] or manifest["omitted_edge_ids"] or (action_manifest and manifest["session_action_replacements"]) or (label_manifest and manifest["node_label_replacements"]) or node_omission))
             or (tuple_manifest and (not isinstance(manifest.get("edge_tuple_replacements"), list) or not 1 <= len(manifest["edge_tuple_replacements"]) <= 7))
             or (tuple_manifest and "node_type_replacements" in manifest and (
                 not isinstance(manifest.get("node_type_replacements"), list)
@@ -565,6 +573,7 @@ def _assert_recap_semantic_basis(
             if (
                 not isinstance(operations, list) or len(operations) != 1
                 or manifest["node_description_replacements"] or manifest["omitted_edge_ids"]
+                or manifest.get("node_label_replacements")
             ):
                 raise ApplicationStateConflictError("recap semantic node omission manifest is malformed")
             operation = operations[0]
@@ -593,6 +602,19 @@ def _assert_recap_semantic_basis(
                     raise ApplicationStateConflictError("recap semantic candidate manifest is malformed")
             if any(not isinstance(item, str) or not item.strip() for item in manifest["omitted_edge_ids"]):
                 raise ApplicationStateConflictError("recap semantic candidate manifest is malformed")
+            if label_manifest:
+                for item in manifest["node_label_replacements"]:
+                    if (
+                        not isinstance(item, dict)
+                        or set(item) != {"node_id", "original_label", "replacement_label"}
+                        or not all(isinstance(item[key], str) for key in item)
+                        or any(
+                            not item[key].strip() or item[key] != item[key].strip() or len(item[key]) > 4096
+                            for key in item
+                        )
+                        or item["original_label"] == item["replacement_label"]
+                    ):
+                        raise ApplicationStateConflictError("recap semantic node label manifest is malformed")
         if action_manifest:
             item = manifest["session_action_replacements"][0]
             if (

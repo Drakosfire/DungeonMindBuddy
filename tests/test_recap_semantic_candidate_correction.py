@@ -33,6 +33,7 @@ from apps.live_control_server.models.extract_promote import (
     RecapCandidateEdgeTupleReplacement,
     RecapCandidateNodeTypeReplacement,
     RecapNodeDescriptionReplacement,
+    RecapNodeLabelReplacement,
     RecapSessionActionReplacement,
     RecapSemanticDecisionRequest,
 )
@@ -64,6 +65,8 @@ def _fixture(
     *,
     actions: bool = False,
     source_text: str = "Mira found the key under the bridge.\n",
+    node_id: str = "mira",
+    node_label: str = "Mira",
 ):
     source = root / "source.md"
     source.write_text(source_text, encoding="utf-8")
@@ -72,7 +75,7 @@ def _fixture(
     artifact_id = "artifact:recap:c:s:source"
     span_id = f"{artifact_id}:span:abc:1-1"
     node = {
-        "node_id": "mira", "node_type": "character", "label": "Mira",
+        "node_id": node_id, "node_type": "character", "label": node_label,
         "description": "Mira carried an uncertain object.", "importance": "medium",
         "semantic_state": {
             "canon_state": "played_canon", "lifecycle_state": "candidate",
@@ -400,6 +403,17 @@ def _request(parent_bytes: bytes) -> RecapCandidateCorrectionRequest:
         node_description_replacements=[RecapNodeDescriptionReplacement(
             node_id="mira", original_description="Mira carried an uncertain object.",
             replacement_description="Mira found the key under the bridge.",
+        )],
+    )
+
+
+def _label_request(parent_bytes: bytes) -> RecapCandidateCorrectionRequest:
+    return RecapCandidateCorrectionRequest(
+        parent_run_id="parent", parent_candidate_sha256=_sha(parent_bytes),
+        node_label_replacements=[RecapNodeLabelReplacement(
+            node_id="node:location:locked-door-to-guard-room",
+            original_label="locked door to the guard room",
+            replacement_label="door used by guards",
         )],
     )
 
@@ -1070,6 +1084,22 @@ def test_immutable_child_replays_and_stays_held(
     assert service.correct_recap_candidate(_request(parent_bytes)) == response
     assert parent_bytes == (tmp_path / "parent.json").read_bytes()
     child = runs[response.run_id]
+    manifest = child.lineage["semantic_candidate_manifest"]
+    assert manifest == {
+        "schema": service.MANIFEST_SCHEMA,
+        "node_description_replacements": [{
+            "node_id": "mira",
+            "original_description": "Mira carried an uncertain object.",
+            "replacement_description": "Mira found the key under the bridge.",
+        }],
+        "omitted_edge_ids": [],
+    }
+    expected_manifest_sha = _sha(service._canonical_bytes(manifest))
+    assert response.manifest_sha256 == expected_manifest_sha
+    assert response.run_id == str(uuid5(
+        NAMESPACE_URL,
+        f"dmb:{service.DERIVATION}:parent:{_sha(parent_bytes)}:{expected_manifest_sha}",
+    ))
     assert child.status == ExtractionRunStatus.REVIEWABLE
     assert child.lineage["semantic_disposition"]["state"] == "held"
     assert service.verify_child_replay(child, parent, tmp_path)
@@ -1121,6 +1151,112 @@ def test_replay_refuses_stale_description_and_edge_dependency() -> None:
     assert parent["edges"] == [{"edge_id": "e"}]
 
 
+def test_v1_label_correction_changes_only_label_and_stays_held(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    source_text = "A locked door at the opposite end of the bridge is used by two guards.\n"
+    parent, parent_bytes, runs = _fixture(
+        monkeypatch, tmp_path, source_text=source_text,
+        node_id="node:location:locked-door-to-guard-room",
+        node_label="locked door to the guard room",
+    )
+    original = json.loads(parent_bytes)
+    request = _label_request(parent_bytes)
+    response = service.correct_recap_candidate(request)
+    child = runs[response.run_id]
+
+    manifest = child.lineage["semantic_candidate_manifest"]
+    assert set(manifest) == {"schema", "node_description_replacements", "omitted_edge_ids", "node_label_replacements"}
+    assert manifest["node_label_replacements"] == [{
+        "node_id": "node:location:locked-door-to-guard-room",
+        "original_label": "locked door to the guard room",
+        "replacement_label": "door used by guards",
+    }]
+    assert child.lineage["semantic_disposition"]["state"] == "held"
+    assert service.verify_child_replay(child, parent, tmp_path)
+    assert response == service.correct_recap_candidate(request)
+    assert (tmp_path / parent.components["candidate_graph"].uri).read_bytes() == parent_bytes
+
+    candidate = json.loads((tmp_path / child.components["candidate_graph"].uri).read_bytes())
+    expected = copy.deepcopy(original)
+    expected["nodes"][0]["label"] = "door used by guards"
+    assert candidate == expected
+    assert candidate["nodes"][0]["node_id"] == "node:location:locked-door-to-guard-room"
+    assert candidate["nodes"][0]["description"] == original["nodes"][0]["description"]
+    assert candidate["nodes"][0]["evidence_refs"] == original["nodes"][0]["evidence_refs"]
+    assert candidate["edges"] == original["edges"]
+    assessment = assess_recap_semantics(
+        child, parent=parent,
+        source_revision_id=_sha((tmp_path / "source.md").read_bytes()), root=tmp_path,
+    )
+    assert assessment.marked and not assessment.accepted
+    basis = RecapSemanticBasisV2.model_validate(assessment.basis)
+    _assert_recap_semantic_basis(child, parent, basis)
+    malformed_manifest = copy.deepcopy(manifest)
+    malformed_manifest["node_label_replacements"][0]["extra"] = "unbounded patch"
+    malformed_sha = _sha(service._canonical_bytes(malformed_manifest))
+    malformed_child = child.model_copy(update={
+        "lineage": {
+            **child.lineage,
+            "manifest_sha256": malformed_sha,
+            "semantic_candidate_manifest": malformed_manifest,
+        },
+    })
+    with pytest.raises(ApplicationStateConflictError, match="node label manifest is malformed"):
+        _assert_recap_semantic_basis(
+            malformed_child, parent, basis.model_copy(update={"manifest_sha256": malformed_sha}),
+        )
+
+
+def test_label_replay_rejects_stale_or_malformed_preimage_without_mutation() -> None:
+    parent = {"nodes": [{"node_id": "n", "label": "old", "description": "kept"}], "edges": []}
+    manifest = {
+        "schema": service.MANIFEST_SCHEMA,
+        "node_description_replacements": [],
+        "omitted_edge_ids": [],
+        "node_label_replacements": [{
+            "node_id": "n", "original_label": "old", "replacement_label": "new",
+        }],
+    }
+    replayed = service.replay_candidate(parent, manifest)
+    assert replayed == {"nodes": [{"node_id": "n", "label": "new", "description": "kept"}], "edges": []}
+    assert parent["nodes"][0]["label"] == "old"
+
+    stale = copy.deepcopy(manifest)
+    stale["node_label_replacements"][0]["original_label"] = "stale"
+    with pytest.raises(ValueError, match="stale"):
+        service.replay_candidate(parent, stale)
+    malformed = copy.deepcopy(manifest)
+    malformed["node_label_replacements"][0]["extra"] = "patch"
+    with pytest.raises(ValueError, match="malformed"):
+        service.replay_candidate(parent, malformed)
+    assert parent["nodes"][0]["label"] == "old"
+
+
+def test_stale_label_request_is_rejected_before_child_write(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    parent, parent_bytes, runs = _fixture(
+        monkeypatch, tmp_path,
+        source_text="A locked door at the opposite end of the bridge is used by two guards.\n",
+        node_id="node:location:locked-door-to-guard-room",
+        node_label="locked door to the guard room",
+    )
+    request = _label_request(parent_bytes).model_copy(update={
+        "node_label_replacements": [RecapNodeLabelReplacement(
+            node_id="node:location:locked-door-to-guard-room",
+            original_label="different stale label",
+            replacement_label="door used by guards",
+        )],
+    })
+
+    with pytest.raises(extract_promote.ExtractPromoteError, match="stale"):
+        service.correct_recap_candidate(request)
+    assert set(runs) == {"parent"}
+    assert (tmp_path / parent.components["candidate_graph"].uri).read_bytes() == parent_bytes
+    assert not (tmp_path / "out" / "graph_memory" / "derived_candidates").exists()
+
+
 def test_request_enforces_one_plus_one_bounded_shape() -> None:
     with pytest.raises(ValueError):
         RecapCandidateCorrectionRequest(parent_run_id="p", parent_candidate_sha256="a" * 64)
@@ -1129,6 +1265,16 @@ def test_request_enforces_one_plus_one_bounded_shape() -> None:
             parent_run_id="p", parent_candidate_sha256="a" * 64,
             omitted_edge_ids=["e1", "e2"],
         )
+    with pytest.raises(ValueError):
+        RecapCandidateCorrectionRequest(
+            parent_run_id="p", parent_candidate_sha256="a" * 64,
+            node_label_replacements=[
+                RecapNodeLabelReplacement(node_id="n1", original_label="old", replacement_label="new"),
+                RecapNodeLabelReplacement(node_id="n2", original_label="old", replacement_label="new"),
+            ],
+        )
+    with pytest.raises(ValueError):
+        RecapNodeLabelReplacement(node_id="n", original_label="same", replacement_label="same")
 
 
 def test_http_route_creates_held_child_and_rejects_wrong_path(
@@ -2170,3 +2316,46 @@ def test_changed_invalid_reference_rejected_before_child_write(monkeypatch, tmp_
     assert set(runs) == {"parent"}
     assert not (tmp_path / "out" / "graph_memory" / "derived_candidates").exists()
     assert (tmp_path / "parent.json").read_bytes() == raw
+
+
+@pytest.mark.parametrize("label_target", ["mira", "retained"])
+def test_node_omission_cannot_mix_with_label_correction(monkeypatch, tmp_path, label_target):
+    parent, raw, runs, omission = _omission_fixture(monkeypatch, tmp_path)
+    label = RecapNodeLabelReplacement(node_id=label_target, original_label="Mira", replacement_label="Corrected Mira")
+    body = omission.model_dump(mode="json", by_alias=True)
+    body["nodeLabelReplacements"] = [label.model_dump(mode="json", by_alias=True)]
+    with pytest.raises(ValueError, match="node omission must be the only"):
+        RecapCandidateCorrectionRequest.model_validate(body)
+    app = _split_http_app(monkeypatch)
+
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post("/api/live/extract-promote/runs/parent/recap-candidate-corrections", json=body)
+            assert response.status_code == 422, response.text
+
+    def forbidden_write(*args, **kwargs):
+        pytest.fail("mixed omission/label reached a child write")
+
+    with monkeypatch.context() as guarded:
+        guarded.setattr(service, "_write_child_candidate", forbidden_write)
+        guarded.setattr(service, "create_extraction_run", forbidden_write)
+        asyncio.run(exercise())
+        # Replay must enforce the same restriction even when model validation is bypassed.
+        with pytest.raises(ValueError, match="node omission must be the only"):
+            service.correct_recap_candidate(omission.model_copy(update={"node_label_replacements": [label]}))
+    assert set(runs) == {"parent"}
+    assert not (tmp_path / "out").exists()
+    assert (tmp_path / "parent.json").read_bytes() == raw
+
+    response = service.correct_recap_candidate(omission)
+    child = runs[response.run_id]
+    assessment = assess_recap_semantics(child, parent=parent, source_revision_id=_sha((tmp_path / "source.md").read_bytes()), root=tmp_path)
+    basis = RecapSemanticBasisV2.model_validate(assessment.basis)
+    _assert_recap_semantic_basis(child, parent, basis)
+    manifest = copy.deepcopy(child.lineage["semantic_candidate_manifest"])
+    manifest["node_label_replacements"] = [label.model_dump(mode="json")]
+    digest = _sha(service._canonical_bytes(manifest))
+    mixed_child = child.model_copy(update={"lineage": {**child.lineage, "semantic_candidate_manifest": manifest, "manifest_sha256": digest}})
+    assert not service.verify_child_replay(mixed_child, parent, tmp_path)
+    with pytest.raises(ApplicationStateConflictError, match="node omission manifest"):
+        _assert_recap_semantic_basis(mixed_child, parent, basis.model_copy(update={"manifest_sha256": digest}))

@@ -564,6 +564,7 @@ def replay_candidate(parent: dict, manifest: dict, *, source_bytes: bytes | None
     v5 = manifest.get("schema") == MANIFEST_SCHEMA_V5
     v4 = manifest.get("schema") == MANIFEST_SCHEMA_V4
     v2 = manifest.get("schema") == MANIFEST_SCHEMA_V2
+    v1_label_manifest = not (v2 or v3 or v4 or v5) and "node_label_replacements" in manifest
     expected_keys = (
         {"schema", "evidence_span_replacements"}
         if v4 or v5
@@ -578,6 +579,8 @@ def replay_candidate(parent: dict, manifest: dict, *, source_bytes: bytes | None
     node_omission = "node_omissions" in manifest
     if node_omission and manifest.get("schema") == MANIFEST_SCHEMA:
         expected_keys.add("node_omissions")
+    if v1_label_manifest:
+        expected_keys.add("node_label_replacements")
     manifest_keys_valid = (
         set(manifest) in (legacy_v3_keys, extended_v3_keys)
         if v3 else set(manifest) == expected_keys
@@ -590,18 +593,20 @@ def replay_candidate(parent: dict, manifest: dict, *, source_bytes: bytes | None
     replacements = manifest.get("node_description_replacements", [])
     omitted = manifest.get("omitted_edge_ids", [])
     actions = manifest.get("session_action_replacements", [])
+    label_replacements = manifest.get("node_label_replacements", [])
     edge_tuple_replacements = manifest.get("edge_tuple_replacements", [])
     node_type_replacements = manifest.get("node_type_replacements", [])
     evidence_span_replacements = manifest.get("evidence_span_replacements", [])
     if (
         not isinstance(replacements, list) or (not v3 and len(replacements) > 1)
+        or not isinstance(label_replacements, list) or len(label_replacements) > 1
         or not isinstance(omitted, list) or (not v3 and len(omitted) > 1)
         or not isinstance(actions, list) or (len(actions) != 1 if v2 else bool(actions))
         or (v3 and (not isinstance(edge_tuple_replacements, list) or not 1 <= len(edge_tuple_replacements) <= MAX_EDGE_TUPLE_REPLACEMENTS))
         or (v3 and "node_type_replacements" in manifest and (not isinstance(node_type_replacements, list) or len(node_type_replacements) != 1))
         or (v4 and (not isinstance(evidence_span_replacements, list) or len(evidence_span_replacements) != 1))
         or (v5 and (not isinstance(evidence_span_replacements, list) or not 1 <= len(evidence_span_replacements) <= 7))
-        or (not (v3 or v4 or v5) and not replacements and not omitted and not actions and not node_omission)
+        or (not (v3 or v4 or v5) and not replacements and not label_replacements and not omitted and not actions and not node_omission)
     ):
         raise _reject("semantic candidate manifest exceeds bounded scope")
     child = copy.deepcopy(parent)
@@ -610,7 +615,7 @@ def replay_candidate(parent: dict, manifest: dict, *, source_bytes: bytes | None
         if not isinstance(records, list) or any(not isinstance(record, dict) for record in records):
             raise _reject(f"candidate {key} records are malformed")
     if node_omission:
-        if replacements or omitted or actions:
+        if replacements or label_replacements or omitted or actions:
             raise _reject("node omission must be the only candidate correction")
         node_id = _plan_node_omission(parent, manifest["node_omissions"])
         child["nodes"] = [node for node in child["nodes"] if node.get("node_id") != node_id]
@@ -664,6 +669,24 @@ def replay_candidate(parent: dict, manifest: dict, *, source_bytes: bytes | None
             if replacement_type is not None:
                 node["node_type"] = replacement_type
         return child
+    for item in label_replacements:
+        if not isinstance(item, dict) or set(item) != {"node_id", "original_label", "replacement_label"}:
+            raise _reject("node label replacement manifest is malformed")
+        if (
+            not isinstance(item["node_id"], str) or not item["node_id"].strip()
+            or item["node_id"] != item["node_id"].strip()
+            or not isinstance(item["original_label"], str) or not item["original_label"].strip()
+            or item["original_label"] != item["original_label"].strip()
+            or not isinstance(item["replacement_label"], str) or not item["replacement_label"].strip()
+            or item["replacement_label"] != item["replacement_label"].strip()
+            or len(item["original_label"]) > 4096 or len(item["replacement_label"]) > 4096
+            or item["original_label"] == item["replacement_label"]
+        ):
+            raise _reject("node label replacement manifest is malformed")
+        matches = [node for node in child.get("nodes", []) if node.get("node_id") == item["node_id"]]
+        if len(matches) != 1 or matches[0].get("label") != item["original_label"]:
+            raise _reject("node label target is missing or stale", status_code=409)
+        matches[0]["label"] = item["replacement_label"]
     for item in replacements:
         if not isinstance(item, dict) or set(item) != {"node_id", "original_description", "replacement_description"}:
             raise _reject("node replacement manifest is malformed")
@@ -853,6 +876,10 @@ def correct_recap_candidate(
             ],
             "omitted_edge_ids": sorted(request.omitted_edge_ids),
         }
+        if not (v2 or v3 or v4 or v5) and request.node_label_replacements:
+            manifest["node_label_replacements"] = [
+                item.model_dump(mode="json") for item in sorted(request.node_label_replacements, key=lambda value: value.node_id)
+            ]
     if isinstance(request, RecapCandidateCorrectionRequest) and request.node_omissions:
         manifest["node_omissions"] = [item.model_dump(mode="json") for item in request.node_omissions]
     if v2:
