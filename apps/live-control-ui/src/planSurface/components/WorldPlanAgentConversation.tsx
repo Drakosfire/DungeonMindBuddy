@@ -1692,6 +1692,11 @@ export function WorldPlanAgentConversation({
     : playableEditTarget ?? (playableTarget?.kind === "scene" ? playableTarget : null);
   const effectiveEditTargetStale = !editorSelectionActive && (playableEditTarget
     ? playableEditTargetStale : playableTarget?.kind === "scene" && playableTargetStale);
+  const displayedEditKind = editorSelectionActive ? "replace_selection"
+    : effectiveEditTarget ? "replace_playable_body" : "insert_at_caret";
+  const displayedEditScope = editorSelectionActive ? "Replace selected editor text"
+    : effectiveEditTarget ? `Replace ${effectiveEditTarget.kind} body: ${(playableEditTarget ? playableEditTargetLabel : playableTargetLabel) || effectiveEditTarget.id} (${effectiveEditTarget.id})`
+      : "Insert at editor cursor — no scene or text target selected";
   const proposalFenceKey = JSON.stringify({
     requestFenceKey,
     draftGeneration,
@@ -3140,8 +3145,17 @@ export function WorldPlanAgentConversation({
     try {
       const captured = await editBridge.capture();
       if (!isCurrent()) return;
-      if (captured.request.target_kind === "insert_at_caret" && /\b(?:current|selected|this)\s+(?:[\w-]+\s+){0,4}scene\b/i.test(instruction)) {
-        throw new Error("Select the scene or an explicit text range before requesting a scene edit.");
+      if (captured.request.target_kind !== displayedEditKind
+        || (displayedEditKind !== "replace_playable_body" && captured.request.playable_target != null)
+        || captured.request.world_id !== worldId || captured.request.document_id !== documentId
+        || captured.request.base_revision !== revision
+        || captured.draftGeneration !== draftGeneration || captured.selectionGeneration !== selectionGeneration
+        || (effectiveEditTarget && (captured.request.playable_target?.kind !== effectiveEditTarget.kind
+          || captured.request.playable_target?.id !== effectiveEditTarget.id))
+        || (playableEditTarget && captured.playableTargetGeneration !== playableEditTargetGeneration)
+        || (!playableEditTarget && effectiveEditTarget && playableTargetBasis
+          && captured.request.base_content_sha256 !== playableTargetBasis.contentSha256)) {
+        throw new Error("The captured edit target no longer matches the displayed change target. Select the target again before proposing.");
       }
       if (worldPlanEditReviewBefore(captured) === null) {
         throw new Error("The captured Plan target has no valid Before snapshot. Reselect it and compose the proposal again.");
@@ -3405,7 +3419,7 @@ export function WorldPlanAgentConversation({
           && latestRef.current.scopeMatches && latestRef.current.savedDirty && latestRef.current.savePlanEnabled
           && !latestRef.current.saveInFlight) onSavePlan?.();
       } } : undefined}
-      details={<p>{turn.planEdit?.proposalSummary}</p>} />;
+      />;
   };
   const renderProposalEvent = (
     turn: AgentInteractionTurn,
@@ -3438,7 +3452,15 @@ export function WorldPlanAgentConversation({
       </div>
       <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--assistant">
         <span className="world-plan-agent-conversation__speaker">Buddy</span>
-        <WorldPlanAgentAnswer answer={turn.answer} />
+        <WorldPlanAgentAnswer answer={turn.planEdit
+          ? `${turn.planEdit.applied ? "Applied to your draft" : "Proposal only; not applied"}. ${turn.planEdit.targetKind === "insert_at_caret"
+            ? "Scope: insertion at the captured caret; no scene target was selected."
+            : turn.planEdit.targetKind === "replace_selection" ? "Scope: replacement of the captured editor selection."
+              : "Scope: replacement of the captured card body."}`
+          : turn.answer} />
+        {turn.planEdit ? <details><summary>Model proposal explanation</summary>
+          <WorldPlanAgentAnswer answer={turn.planEdit.proposalSummary} />
+        </details> : null}
       </div>
       {turn.planEdit?.applied ? (
         <p className="world-plan-agent-conversation__context">Apply changes your draft. Save keeps the changes.</p>
@@ -3456,7 +3478,6 @@ export function WorldPlanAgentConversation({
       {reviewSnapshots[turn.turnId]?.scopeKey === scopeKey ? renderFrozenReview(turn) : currentReview?.turnId === turn.turnId ? (
         <section className="world-plan-agent-conversation__review" aria-label="Review proposed Plan edit">
           <h4>Review this proposal</h4>
-          <p>{currentReview.admitted.response.summary}</p>
           {currentReview.admitted.response.assumptions.length ? (
             <ul>{currentReview.admitted.response.assumptions.map((assumption, index) => <li key={`${index}:${assumption}`}>{assumption}</li>)}</ul>
           ) : null}
@@ -3902,6 +3923,7 @@ export function WorldPlanAgentConversation({
   const composer = (
     <section className="world-plan-agent-conversation__composer" aria-label="Conversation composer">
       <form onSubmit={submitComposer}>
+        <p className="world-plan-agent-conversation__context" aria-label="Actual Plan change target">{displayedEditScope}</p>
         {detectedComposerIntent === "propose" && !effectiveEditTarget && !editorSelectionActive ? (
           <details className="world-plan-agent-conversation__target-disclosure">
             <summary>

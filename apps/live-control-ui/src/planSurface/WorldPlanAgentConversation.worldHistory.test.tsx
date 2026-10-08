@@ -1,5 +1,8 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useEffect } from "react";
+import { Editor } from "@tiptap/core";
+import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from "../tiptap/MarkdownEditorCore";
+import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
 import { webcrypto } from "node:crypto";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -48,7 +51,7 @@ import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionPr
 import { activeThreadStorageKey, loadAgentThreadById, persistAgentThread } from "../agentInteraction/agentInteractionStorage";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
 import { classifyPlanComposerIntent, WorldPlanAgentConversation } from "./components/WorldPlanAgentConversation";
-import { PlanEditGuardError } from "./agentEdit/planAgentEditProposal";
+import { PlanEditGuardError, captureWorldPlanEditTarget, previewWorldPlanEditProposal, type WorldPlanEditEditorState } from "./agentEdit/planAgentEditProposal";
 import type { PlanConversationPresentationHosts } from "./components/PlanConversationDockAdapter";
 import { AGENT_TURN_HISTORY_CAP, threadStorageKey } from "./components/agentInteractionHistory";
 
@@ -939,6 +942,9 @@ interface ConversationTestProps {
   presentationHosts?: PlanConversationPresentationHosts;
   onSavePlan?: () => void;
   savePlanEnabled?: boolean;
+  editorSelectionActive?: boolean;
+  playableTargetLabel?: string;
+  playableEditTargetLabel?: string;
 }
 
 function conversationElement(props: ConversationTestProps = {}) {
@@ -964,6 +970,9 @@ function conversationElement(props: ConversationTestProps = {}) {
       presentationHosts={props.presentationHosts}
       onSavePlan={props.onSavePlan}
       savePlanEnabled={props.savePlanEnabled}
+      editorSelectionActive={props.editorSelectionActive}
+      playableTargetLabel={props.playableTargetLabel}
+      playableEditTargetLabel={props.playableEditTargetLabel}
       playableTarget={playableTarget}
       playableEditTarget={props.playableEditTarget}
       playableEditTargetGeneration={props.playableEditTargetGeneration}
@@ -1128,8 +1137,10 @@ function mountComponent(
   editBridge: any = null,
   playableTarget: { kind: "scene" | "beat" | "choice" | "option"; id: string } | null = null,
   playableTargetStale = false,
+  editScope: Partial<ConversationTestProps> = {},
 ) {
   const mounted = render(conversationElement({
+    ...editScope,
     revision,
     editBridge,
     playableTarget,
@@ -1345,14 +1356,96 @@ afterEach(() => {
   harness.host = null;
 });
 
+const cardEditScope: Partial<ConversationTestProps> = {
+  playableEditTarget: { kind: "scene", id: "scene:arrival", generation: 2 },
+  playableEditTargetGeneration: 2,
+};
+
 describe("World Plan conversation consumer", () => {
+  it.each(["cursor", "scene", "selection", "missing", "stale", "late"])("shows actual target and fences real capture for %s", async (mode) => {
+    setupApi(history("conversation-a", 4, []));
+    const source = "# Breaking the Siege\n<!-- dmb-playable-element:v1 kind=scene id=scene:opening -->\n## Something Is Still Moving\nOpening body.\n<!-- dmb-playable-element:v1 kind=scene id=scene:next -->\n## Other Scene\nOther body.\n";
+    const digest = await sha256Hex(source);
+    const basis = { ...committedRevision(), markdown: source, content_sha256: digest };
+    vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockResolvedValue(basis as any);
+    const editor = new Editor({ element: document.createElement("div"), extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: markdownToTiptapDoc(source).doc });
+    try {
+      let state: WorldPlanEditEditorState = { editor, documentId, worldId, baseRevision: 7, baseContentSha256: digest,
+        sourceMarkdown: source, draftGeneration: 0, selectionGeneration: 0, canEdit: true };
+      const props: ConversationTestProps = {};
+      if (mode !== "cursor") {
+        props.playableTarget = { kind: "scene", id: "scene:opening" };
+        props.playableTargetLabel = "Something Is Still Moving";
+        props.playableTargetBasis = { revision: 7, contentSha256: digest };
+        if (mode !== "missing") state.currentSceneTarget = props.playableTarget;
+        state.currentSceneTargetLabel = "Something Is Still Moving";
+        if (mode === "stale") state.currentSceneTargetStale = true;
+      }
+      if (mode === "selection") {
+        let position = 0;
+        editor.state.doc.descendants((node, pos) => { if (node.isText && node.text === "Opening body.") position = pos; });
+        editor.commands.setTextSelection({ from: position, to: position + 7 });
+        state = { ...state, selectionGeneration: 1, playableTarget: { kind: "scene", id: "scene:opening" }, playableTargetGeneration: 2 };
+        Object.assign(props, { editorSelectionActive: true, selectionGeneration: 1,
+          playableEditTarget: { kind: "scene", id: "scene:opening", generation: 2 }, playableEditTargetGeneration: 2 });
+      }
+      let captured: any;
+      const bridge = { capture: vi.fn(async () => { captured = await captureWorldPlanEditTarget(state, () => state); return captured; }),
+        preview: previewWorldPlanEditProposal, apply: vi.fn() };
+      const post = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) => ({
+        schema_version: request.playable_target ? "dmb_world_plan_document_edit_proposal_v2" : "dmb_world_plan_document_edit_proposal_v1",
+        action_id: "00000000-0000-4000-8000-000000000099", idempotency_key: request.idempotency_key,
+        document_id: request.document_id, world_id: request.world_id, base_revision: request.base_revision,
+        base_content_sha256: request.base_content_sha256, draft_sha256: request.draft_sha256, target_kind: request.target_kind,
+        selected_text_sha256: request.playable_target ? null : await sha256Hex(request.selected_text),
+        ...(captured.playableBodyTarget ? { playable_target: request.playable_target, marker_grammar_version: captured.playableBodyTarget.markerGrammarVersion,
+          body_scope: captured.playableBodyTarget.bodyScope, range_semantics_version: captured.playableBodyTarget.rangeSemanticsVersion,
+          body_serialization_version: captured.playableBodyTarget.bodySerializationVersion, target_body_sha256: request.target_body_sha256 } : {}),
+        replacement_markdown: "Optional GM cue: Pause.", summary: "Updated Something Is Still Moving.", assumptions: [],
+        model: "test", model_observed: false, model_latency_ms: 0, wall_latency_ms: 0, usage: null,
+      }) as any);
+      const mounted = render(conversationElement({ ...props, editBridge: bridge }));
+      await screen.findByText(/No messages yet/i);
+      const target = screen.getByLabelText("Actual Plan change target");
+      expect(target).toBeVisible();
+      expect(target).toHaveTextContent(mode === "cursor" ? "Insert at editor cursor" : mode === "selection" ? "Replace selected editor text" : "Something Is Still Moving (scene:opening)");
+      let release!: (value: any) => void;
+      if (mode === "late") vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockImplementationOnce(() => new Promise((resolve) => { release = resolve; }));
+      const before = editor.getJSON();
+      fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "For this Plan, propose appending one cue to the opening scene, Something Is Still Moving." } });
+      fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
+      if (mode === "missing") {
+        expect(await screen.findByRole("alert")).toHaveTextContent("no longer matches the displayed change target");
+      } else if (mode === "stale") {
+        expect(await screen.findByRole("alert")).toHaveTextContent("selected card is stale");
+      } else if (mode === "late") {
+        await waitFor(() => expect(release).toBeDefined());
+        state = { ...state, currentSceneTarget: { kind: "scene", id: "scene:next" }, currentSceneTargetLabel: "Other Scene" };
+        mounted.rerender(conversationElement({ ...props, editBridge: bridge, playableTarget: state.currentSceneTarget, playableTargetLabel: "Other Scene" }));
+        await act(async () => release(basis));
+        expect(screen.getByLabelText("Actual Plan change target")).toHaveTextContent("Other Scene (scene:next)");
+      } else {
+        await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+        await screen.findByText(/Proposal only; not applied/);
+        const modelText = screen.getByText("Updated Something Is Still Moving.");
+        expect(modelText).not.toBeVisible();
+        fireEvent.click(screen.getByText("Model proposal explanation"));
+        expect(modelText).toBeVisible();
+        expect(post.mock.calls[0]![0].target_kind).toBe(mode === "cursor" ? "insert_at_caret" : mode === "selection" ? "replace_selection" : "replace_playable_body");
+        if (mode === "scene") expect(post.mock.calls[0]![0].playable_target).toEqual({ kind: "scene", id: "scene:opening" });
+      }
+      if (mode === "missing" || mode === "stale" || mode === "late") expect(post).not.toHaveBeenCalled();
+      expect(editor.getJSON()).toEqual(before);
+      expect(bridge.apply).not.toHaveBeenCalled();
+    } finally { editor.destroy(); }
+  });
   it.each([false, true])("rehydrates proposal history without executable review or dispatch; applied=%s", async (applied) => {
     setupApi(history("conversation-a", 4, []));
     const captured = await capturedCardBodyEdit("Original body.\n");
     const bridge = { capture: vi.fn(async () => captured), apply: vi.fn(async () => undefined),
       preview: vi.fn(() => ({ before: { markdown: "# Opening\n\nOriginal body.\n" }, after: { markdown: "# Opening\n\nThe revised scene opens.\n" } })) };
     const post = mockCardBodyProposal();
-    const first = render(conversationElement({ editBridge: bridge }));
+    const first = render(conversationElement({ ...cardEditScope, editBridge: bridge }));
     await screen.findByText(/No messages yet/i);
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the opening." } });
     fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
@@ -1372,7 +1465,7 @@ describe("World Plan conversation consumer", () => {
     localStorage.setItem(draftKey, draftBytes);
     first.unmount();
     harness.agent.activeThread = loadAgentThreadById(namespace, thread.threadId);
-    render(conversationElement({ editBridge: bridge }));
+    render(conversationElement({ ...cardEditScope, editBridge: bridge }));
     await screen.findByText("Revise the opening.");
     if (!applied) {
       const notice = await screen.findByText(expired);
@@ -1401,7 +1494,7 @@ describe("World Plan conversation consumer", () => {
     const post = kind === "discuss"
       ? vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockReturnValue(pending)
       : vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockReturnValue(pending);
-    mountComponent(7, bridge);
+    mountComponent(7, bridge, null, false, cardEditScope);
     await screen.findByText(/No messages yet/i);
     const input = screen.getByLabelText("Message DungeonBuddy");
     const raw = kind === "discuss" ? "  What follows?  " : "  Revise the opening.  ";
@@ -1435,13 +1528,13 @@ describe("World Plan conversation consumer", () => {
         .mockImplementationOnce(() => new Promise<void>((resolve) => { releaseNew = resolve; })),
     };
     const post = mockCardBodyProposal();
-    const mounted = render(conversationElement({ editBridge: bridge }));
+    const mounted = render(conversationElement({ ...cardEditScope, editBridge: bridge }));
     await screen.findByText(/No messages yet/i);
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the old target." } });
     fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
     fireEvent.click(await screen.findByRole("button", { name: "Apply to draft" }));
     expect(bridge.apply).toHaveBeenCalledTimes(1);
-    mounted.rerender(conversationElement({ editBridge: bridge, draftGeneration: 1 }));
+    mounted.rerender(conversationElement({ ...cardEditScope, editBridge: bridge, draftGeneration: 1 }));
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the new target." } });
     fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
     const newApply = await screen.findByRole("button", { name: "Apply to draft" });
@@ -1467,7 +1560,7 @@ describe("World Plan conversation consumer", () => {
       apply: vi.fn(() => new Promise<void>((resolve) => { releaseApply = resolve; })) };
     const post = mockCardBodyProposal();
     const save = vi.fn();
-    const mounted = render(conversationElement({ editBridge: bridge, onSavePlan: save, savePlanEnabled: true, savedDirty: true }));
+    const mounted = render(conversationElement({ ...cardEditScope, editBridge: bridge, onSavePlan: save, savePlanEnabled: true, savedDirty: true }));
     await screen.findByText(/No messages yet/i);
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the opening." } });
     fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
@@ -1487,7 +1580,7 @@ describe("World Plan conversation consumer", () => {
     fireEvent.click(within(review).getByRole("button", { name: "Save Plan" }));
     expect(save).toHaveBeenCalledTimes(1);
     bridge.preview.mockReturnValue({ before: { markdown: "Wrong live context" }, after: { markdown: "Wrong live edit" } });
-    mounted.rerender(conversationElement({ editBridge: bridge, onSavePlan: save, savePlanEnabled: true, savedDirty: false, draftGeneration: 1 }));
+    mounted.rerender(conversationElement({ ...cardEditScope, editBridge: bridge, onSavePlan: save, savePlanEnabled: true, savedDirty: false, draftGeneration: 1 }));
     expect(review).toHaveTextContent("Other prose.");
     expect(review).not.toHaveTextContent("Wrong live context");
     expect(within(review).queryByRole("button", { name: "Save Plan" })).not.toBeInTheDocument();
@@ -1505,7 +1598,7 @@ describe("World Plan conversation consumer", () => {
     const bridge = { capture: vi.fn(async () => captured), apply: vi.fn(),
       preview: vi.fn(() => ({ before: { markdown: "# Opening\n\nOriginal body.\n" }, after: { markdown: "# Opening\n\nThe revised scene opens.\n" } })) };
     const post = mockCardBodyProposal();
-    render(conversationElement({ editBridge: bridge }));
+    render(conversationElement({ ...cardEditScope, editBridge: bridge }));
     await screen.findByText(/No messages yet/i);
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the opening." } });
     fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
@@ -1553,7 +1646,7 @@ describe("World Plan conversation consumer", () => {
     let releaseCapture!: (value: any) => void;
     const bridge = { capture: vi.fn(() => new Promise<any>((resolve) => { releaseCapture = resolve; })), apply: vi.fn() };
     mockCardBodyProposal();
-    const mounted = mountComponent(7, bridge);
+    const mounted = mountComponent(7, bridge, null, false, cardEditScope);
     await screen.findByText(/No messages yet/i);
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the opening." } });
     fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
@@ -1583,7 +1676,7 @@ describe("World Plan conversation consumer", () => {
     for (const [key, value] of oldThreads) expect(localStorage.getItem(key)).toBe(value);
     expect(reset.mock.calls[0]![1]).toEqual(reset.mock.calls[1]![1]);
     mounted.unmount();
-    mountComponent(7, bridge);
+    mountComponent(7, bridge, null, false, cardEditScope);
     await screen.findByText(/No messages yet/i);
     expect(screen.getByRole("region", { name: "World conversation transcript" })).not.toHaveTextContent("Revise the opening.");
   });
@@ -1711,17 +1804,17 @@ describe("World Plan conversation consumer", () => {
     expect(screen.getByRole("button", { name: "Send message" })).toBeInTheDocument();
   });
 
-  it("rejects a named scene edit when capture has only a caret", async () => {
+  it("rejects a missing explicit scene capture instead of falling back to a caret", async () => {
     setupApi(history("conversation-a", 1, []));
     const captured = await capturedCardBodyEdit("Old body.\n") as any;
     captured.request.target_kind = "insert_at_caret";
     const bridge = { capture: vi.fn(async () => captured), apply: vi.fn() };
     const post = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal");
-    mountComponent(7, bridge);
+    mountComponent(7, bridge, null, false, cardEditScope);
     await screen.findByText(/No messages yet/i);
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the selected scene." } });
     fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Select the scene or an explicit text range");
+    expect(await screen.findByRole("alert")).toHaveTextContent("no longer matches the displayed change target");
     expect(post).not.toHaveBeenCalled();
     expect(bridge.apply).not.toHaveBeenCalled();
   });
@@ -1730,6 +1823,11 @@ describe("World Plan conversation consumer", () => {
     setupApi(history("conversation-a", 1, []));
     const captured = await capturedCardBodyEdit("Old body.\n") as any;
     captured.request.target_kind = "insert_at_caret";
+    delete captured.request.playable_target;
+    delete captured.request.body_serialization_version;
+    delete captured.request.target_body_markdown;
+    delete captured.request.target_body_sha256;
+    captured.playableBodyTarget = undefined;
     const bridge = { capture: vi.fn(async () => captured), apply: vi.fn() };
     const post = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockRejectedValue(new Error("Proposal transport test"));
     mountComponent(7, bridge);
@@ -4195,7 +4293,7 @@ describe("World Plan conversation consumer", () => {
     };
     const proposalRequest = mockCardBodyProposal();
 
-    mountComponent(7, bridge);
+    mountComponent(7, bridge, null, false, cardEditScope);
     await screen.findByText(/No messages yet/i);
     const textarea = screen.getByLabelText("Message DungeonBuddy");
     fireEvent.change(textarea, {
@@ -4236,7 +4334,7 @@ describe("World Plan conversation consumer", () => {
       return createResponse(request);
     });
 
-    mountComponent(7, bridge);
+    mountComponent(7, bridge, null, false, cardEditScope);
     await screen.findByText(/No messages yet/i);
     const textarea = screen.getByLabelText("Message DungeonBuddy");
     fireEvent.change(textarea, { target: { value: "Revise this excerpt" } });
@@ -4267,7 +4365,7 @@ describe("World Plan conversation consumer", () => {
       };
       const proposalRequest = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockResolvedValue({} as any);
 
-      mountComponent(7, bridge);
+      mountComponent(7, bridge, null, false, cardEditScope);
       await screen.findByText(/No messages yet/i);
             fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
         target: { value: "Revise the arrival scene." },
@@ -4533,6 +4631,7 @@ describe("World Plan conversation consumer", () => {
             surfaceInstanceId={surfaceInstanceId}
             revision={7}
             editBridge={bridge}
+            editorSelectionActive
             draftGeneration={0}
             selectionGeneration={0}
             savedDirty={false}
@@ -4642,7 +4741,7 @@ describe("World Plan conversation consumer", () => {
       apply: vi.fn(async () => undefined),
     };
 
-    const view = mountComponent(7, bridge);
+    const view = mountComponent(7, bridge, null, false, { editorSelectionActive: true });
     await screen.findByText(/No messages yet/i);
         fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "Revise this excerpt" },
@@ -4661,6 +4760,7 @@ describe("World Plan conversation consumer", () => {
         surfaceInstanceId={surfaceInstanceId}
         revision={8}
         editBridge={bridge}
+        editorSelectionActive
         draftGeneration={0}
         selectionGeneration={0}
         savedDirty={false}
