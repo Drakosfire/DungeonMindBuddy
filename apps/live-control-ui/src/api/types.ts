@@ -5421,3 +5421,22 @@ export interface BuildSourceNavigationResponse {
   message: string;
   diagnostics: string[];
 }
+
+
+export interface WorldAgentNewConversationStatusV1 {
+  schema: "dmb_agent_new_conversation_status_v1";
+  world_id: string;
+  command_id: string;
+  command_kind: "new";
+  expected_pointer_revision: number;
+  expected_active_conversation_id: string | null;
+  request_fingerprint: string;
+  status: "confirmed" | "absent";
+  receipt: null | {
+    schema: "dmb_agent_new_conversation_receipt_v1";
+    conversation_id: string;
+    active_conversation_id: string;
+    pointer_revision: number;
+    recorded_at: string;
+  };
+}

@@ -199,6 +199,21 @@ class AgentConversationService:
         with unit_of_work(dsn) as conn:
             return repo.list_conversations(conn, world_id, status=status, limit=limit)
 
+    def get_new_conversation_receipt(self, command: ConversationCommand) -> ConversationCommandReceipt | None:
+        """Read an exact original command receipt without creating World state."""
+        _world_id(command.world_id)
+        with unit_of_work(_ready_dsn()) as conn:
+            conn.execute("SET TRANSACTION READ ONLY")
+            receipt = _receipt_replay(conn, command, command_kind="new")
+        if receipt is not None and (
+            receipt.world_id != command.world_id or receipt.command_id != command.command_id
+            or receipt.active_conversation_id != receipt.conversation_id
+            or receipt.conversation_id == command.expected_active_conversation_id
+            or receipt.pointer_revision <= command.expected_pointer_revision
+        ):
+            raise ApplicationStateIntegrityError("stored new conversation receipt is invalid")
+        return receipt
+
     def new_conversation(self, command: ConversationCommand) -> ConversationCommandReceipt:
         world_id = _world_id(command.world_id)
         dsn = _ready_dsn()

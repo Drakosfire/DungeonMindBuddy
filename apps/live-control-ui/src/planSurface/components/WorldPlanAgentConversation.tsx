@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import type { PlanConversationPresentationHosts } from "./PlanConversationDockAdapter";
 import { PlanEditReview } from "./PlanEditReview";
 
-import { getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlanDocumentEditProposal, connectNativeGraphSession, revokeNativeGraphSession, isValidWorldPlanGraphContextFailure, LiveApiError } from "../../api/liveApi";
+import { getWorldAgentNewConversationStatus, getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlanDocumentEditProposal, connectNativeGraphSession, revokeNativeGraphSession, isValidWorldPlanGraphContextFailure, LiveApiError } from "../../api/liveApi";
 import type {
   AgentInteractionThread,
   AgentInteractionTurn,
@@ -1152,6 +1152,36 @@ function canonicalJson(value: unknown): string {
   return encoded;
 }
 
+export async function newConversationRequestFingerprint(worldId: string, request: WorldAgentNewConversationRequestV1): Promise<string> {
+  // Python's existing canonical JSON uses ensure_ascii=True, including surrogate pairs.
+  const bytes = canonicalJson({ world_id: worldId, expected_pointer_revision: request.expected_pointer_revision,
+    expected_active_conversation_id: request.expected_active_conversation_id })
+    .replace(/[\u007f-\uffff]/g, (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(bytes));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+export async function confirmedNewConversationStatus(value: unknown, worldId: string,
+  request: WorldAgentNewConversationRequestV1): Promise<boolean> {
+  if (!hasExactKeys(value, ["schema", "world_id", "command_id", "command_kind", "expected_pointer_revision",
+    "expected_active_conversation_id", "request_fingerprint", "status", "receipt"])
+    || value.schema !== "dmb_agent_new_conversation_status_v1" || value.world_id !== worldId
+    || value.command_id !== request.command_id || value.command_kind !== "new"
+    || value.expected_pointer_revision !== request.expected_pointer_revision
+    || value.expected_active_conversation_id !== request.expected_active_conversation_id
+    || value.request_fingerprint !== await newConversationRequestFingerprint(worldId, request)
+    || value.status !== "confirmed") return false;
+  const receipt = value.receipt;
+  return hasExactKeys(receipt, ["schema", "conversation_id", "active_conversation_id", "pointer_revision", "recorded_at"])
+    && receipt.schema === "dmb_agent_new_conversation_receipt_v1"
+    && typeof receipt.conversation_id === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(receipt.conversation_id)
+    && receipt.conversation_id !== request.expected_active_conversation_id
+    && receipt.active_conversation_id === receipt.conversation_id
+    && Number.isSafeInteger(receipt.pointer_revision) && typeof receipt.pointer_revision === "number"
+    && receipt.pointer_revision > request.expected_pointer_revision
+    && typeof receipt.recorded_at === "string" && Number.isFinite(Date.parse(receipt.recorded_at));
+}
+
 async function isReceiptDigestBound(receipt: WorldPlanGraphContextReceiptV1): Promise<boolean> {
   try {
     const { context_receipt_sha256: expected, ...payload } = receipt;
@@ -1799,6 +1829,8 @@ export function WorldPlanAgentConversation({
   const [actionHistoryError, setActionHistoryError] = useState<string | null>(null);
   const requestRef = useRef<{ token: symbol; scopeKey: string; fenceKey: string } | null>(null);
   const newConversationRef = useRef<symbol | null>(null);
+  const commandStatusRef = useRef<symbol | null>(null);
+  const [commandStatusChecking, setCommandStatusChecking] = useState(false);
   const historySnapshotRef = useRef<WorldAgentConversationHistoryResponse | null>(null);
   const historyGenerationRef = useRef(0);
   const legacyHistoryRef = useRef<{ scopeKey: string; thread: AgentInteractionThread; rawBytes: string | null } | null>(null);
@@ -2018,6 +2050,7 @@ export function WorldPlanAgentConversation({
       latestRef.current.mounted = false;
       requestRef.current = null;
       newConversationRef.current = null;
+      commandStatusRef.current = null;
       historyGenerationRef.current += 1;
       proposalRequestRef.current = null;
       editReviewRef.current = null;
@@ -2209,6 +2242,8 @@ export function WorldPlanAgentConversation({
   useLayoutEffect(() => {
     requestRef.current = null;
     newConversationRef.current = null;
+    commandStatusRef.current = null;
+    setCommandStatusChecking(false);
     historyGenerationRef.current += 1;
     historySnapshotRef.current = null;
     setOlderLoading(false);
@@ -2265,6 +2300,48 @@ export function WorldPlanAgentConversation({
       setPendingCommandLoadError(reason instanceof Error
         ? reason.message
         : "Browser storage is unavailable for New Conversation recovery.");
+    }
+  }
+
+  async function checkNewConversationCommand(stored: StoredPendingNewConversation) {
+    const envelope = stored.envelope;
+    if (!envelope || !scopeMatches || verifiedWorldId !== envelope.worldId
+      || documentId !== envelope.documentId || commandStatusRef.current !== null || newConversationRef.current !== null) return;
+    const token = Symbol("command-status");
+    commandStatusRef.current = token;
+    setCommandStatusChecking(true);
+    const stillCurrent = () => latestRef.current.mounted && latestRef.current.scopeMatches
+      && latestRef.current.verifiedWorldId === envelope.worldId && latestRef.current.documentId === envelope.documentId
+      && commandStatusRef.current === token;
+    try {
+      const raw = window.localStorage.getItem(stored.storageKey);
+      if (raw === null || JSON.stringify(parsePendingNewConversation(stored.storageKey, raw, envelope.worldId).envelope) !== JSON.stringify(envelope)) {
+        throw new Error("The saved command changed. Its recovery record was retained.");
+      }
+      const response = await getWorldAgentNewConversationStatus(envelope.worldId, envelope.request);
+      const confirmed = await confirmedNewConversationStatus(response, envelope.worldId, envelope.request);
+      if (!stillCurrent()) return;
+      if (!confirmed) {
+        setNewConversationError("This exact command has no verified confirmation. Its recovery record remains saved; no command was resent.");
+        return;
+      }
+      if (window.localStorage.getItem(stored.storageKey) !== raw) {
+        setNewConversationError("The saved command changed while status was checked. Its recovery record was retained.");
+        refreshPendingCommandList();
+        return;
+      }
+      window.localStorage.removeItem(stored.storageKey);
+      refreshPendingCommandList();
+      setNewConversationError(null);
+      setConversationNotice("The original New Conversation command is confirmed. Refreshing server history.");
+      setHistoryRefreshNonce((current) => current + 1);
+    } catch (reason) {
+      if (stillCurrent()) setNewConversationError(reason instanceof Error ? reason.message : "Status is unavailable; the saved command was retained.");
+    } finally {
+      if (commandStatusRef.current === token) {
+        commandStatusRef.current = null;
+        setCommandStatusChecking(false);
+      }
     }
   }
 
@@ -2347,6 +2424,7 @@ export function WorldPlanAgentConversation({
     } finally {
       if (newConversationRef.current === token) {
         newConversationRef.current = null;
+      commandStatusRef.current = null;
         setNewConversationSending(false);
       }
     }
@@ -3694,17 +3772,18 @@ export function WorldPlanAgentConversation({
       {pendingCommands.some((item) => item.envelope) ? (
         <section aria-label="Pending New Conversation recovery">
           <h3>Pending New Conversation</h3>
-          <p>A prior command has an uncertain outcome. Retry keeps its original command ID and pointer snapshot.</p>
+          <p>A prior command has an uncertain outcome. Check its saved receipt without resending. An explicit retry keeps its original command ID and pointer snapshot.</p>
           {pendingCommands.filter((item): item is StoredPendingNewConversation & { envelope: WorldPlanPendingNewConversation } => item.envelope !== null)
             .map((item) => (
-              <button
-                key={item.storageKey}
-                type="button"
-                disabled={newConversationSending || sending || composing}
-                onClick={() => { void sendNewConversationCommand(item); }}
-              >
-                Retry saved New Conversation command
-              </button>
+              <div key={item.storageKey}>
+                <p>Command {item.envelope.request.command_id} · original pointer revision {item.envelope.request.expected_pointer_revision}</p>
+                <button type="button" disabled={commandStatusChecking || newConversationSending || sending || composing}
+                  onClick={() => { void checkNewConversationCommand(item); }}>
+                  {commandStatusChecking ? "Checking status…" : "Check saved New Conversation status"}
+                </button>
+                <button type="button" disabled={commandStatusChecking || newConversationSending || sending || composing}
+                  onClick={() => { void sendNewConversationCommand(item); }}>Retry saved New Conversation command</button>
+              </div>
             ))}
         </section>
       ) : null}

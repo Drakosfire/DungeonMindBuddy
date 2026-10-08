@@ -21,6 +21,7 @@ import type {
   WorldAgentConversationHistoryResponse,
   WorldAgentNewConversationRequestV1,
   WorldAgentNewConversationResponseV1,
+  WorldAgentNewConversationStatusV1,
   LiveQueryBackend,
   LiveQueryOptions,
   PlanDocumentEditProposalRequest,
@@ -314,7 +315,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/threat-drafts\/[^/]+\/publication-operations\/[^/]+\/identity-candidates\/prepare$/.test(pathname)) {
     return true;
   }
-  if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversation(?:\/new)?$/.test(pathname)
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversation(?:\/new|\/commands\/[^/]+)?$/.test(pathname)
     || pathname === "/api/live/agent/turn"
     || pathname === "/api/live/world-graph/projection"
     || pathname === "/api/live/world-graph/managed-projection"
@@ -1634,6 +1635,18 @@ export async function getWorldAgentConversationHistory(
   const suffix = query.size ? `?${query.toString()}` : "";
   return apiFetch<WorldAgentConversationHistoryResponse>(
     `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation${suffix}`,
+  );
+}
+
+export async function getWorldAgentNewConversationStatus(
+  worldId: string, request: WorldAgentNewConversationRequestV1,
+): Promise<WorldAgentNewConversationStatusV1> {
+  const query = new URLSearchParams({
+    expected_pointer_revision: String(request.expected_pointer_revision),
+    expected_active_conversation_id: request.expected_active_conversation_id ?? "null",
+  });
+  return apiFetch<WorldAgentNewConversationStatusV1>(
+    `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/commands/${encodeURIComponent(request.command_id)}?${query}`,
   );
 }
 

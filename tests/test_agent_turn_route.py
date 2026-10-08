@@ -3244,3 +3244,17 @@ def test_verified_world_projection_reaches_runtime_through_full_http_route(
     assert invocation.context_packet.retrieval_session is not None
     packet_text = str(invocation.context_packet.retrieval_session.packet)
     assert "The Prancing Tavern" in packet_text
+
+
+def test_reset_receipt_status_auth_precedes_world_and_receipt_lookup(monkeypatch):
+    from fastapi import HTTPException
+    from starlette.requests import Request
+    from apps.live_control_server.routes import agent as route
+    def reject(_request):
+        raise HTTPException(status_code=403, detail="GM required")
+    monkeypatch.setattr(route, "enforce_native_graph_gm", reject)
+    monkeypatch.setattr(route, "_verified_world_id", lambda _world: pytest.fail("World lookup preceded authorization"))
+    monkeypatch.setattr(route, "_conversation_service", lambda _request: pytest.fail("receipt lookup preceded authorization"))
+    with pytest.raises(HTTPException) as error:
+        route.get_new_world_conversation_status("unknown-world", uuid4(), Request({"type": "http", "query_string": b""}), 0, "null")
+    assert error.value.status_code == 403

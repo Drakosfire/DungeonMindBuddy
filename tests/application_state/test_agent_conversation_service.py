@@ -2220,3 +2220,12 @@ def test_historical_graph_operation_evidence_outside_initial_dispatch(
     else:
         with pytest.raises(GraphCompletionValidationError):
             validate_execution_completion(completion, receipt, execution, attempt_id, mapping)
+
+
+def test_reset_fingerprint_full_canonical_unicode_vector():
+    from application_state.agent_conversation.types import request_fingerprint
+    command = ConversationCommand(world_id="wörld😀", command_id=uuid4(), expected_pointer_revision=0, expected_active_conversation_id=None)
+    encoded = json.dumps({"world_id": "wörld😀", "expected_pointer_revision": 0, "expected_active_conversation_id": None}, sort_keys=True, separators=(",", ":"))
+    assert request_fingerprint(command) == hashlib.sha256(encoded.encode()).hexdigest()
+    assert request_fingerprint(command.model_copy(update={"command_id": uuid4()})) == request_fingerprint(command)
+    assert request_fingerprint(command.model_copy(update={"expected_pointer_revision": 1})) != request_fingerprint(command)
