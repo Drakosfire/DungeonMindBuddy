@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import type { PlanConversationPresentationHosts } from "./PlanConversationDockAdapter";
+import { PlanEditReview } from "./PlanEditReview";
 
 import { getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlanDocumentEditProposal, connectNativeGraphSession, revokeNativeGraphSession, isValidWorldPlanGraphContextFailure, LiveApiError } from "../../api/liveApi";
 import type {
@@ -39,6 +40,8 @@ import {
   type CapturedWorldPlanEditTarget,
   type ExpectedWorldPlanEditAgentBinding,
   type WorldPlanEditBridge,
+  type WorldPlanEditContextualPreview,
+  PlanEditGuardError,
   worldPlanSectionUnavailableReason,
 } from "../agentEdit/planAgentEditProposal";
 import { planSectionTargets, type PlanSectionTarget } from "../agentEdit/planSectionTarget";
@@ -78,6 +81,8 @@ interface WorldPlanAgentConversationProps {
   playableTargetLabel?: string;
   playableEditTargetLabel?: string;
   onClearPlayableEditTarget?: () => void;
+  onSavePlan?: () => void;
+  savePlanEnabled?: boolean;
 }
 
 interface ValidatedWorldPlanResponse {
@@ -95,6 +100,16 @@ interface WorldPlanEditReview {
   threadId: string;
   turnId: string;
   fenceKey: string;
+}
+
+interface FrozenPlanEditReview {
+  scopeKey: string;
+  worldId: string;
+  documentId: string;
+  threadId: string;
+  conversationId: string | null;
+  targetLabel: string;
+  preview: WorldPlanEditContextualPreview;
 }
 
 type WorldPlanEditReviewBefore =
@@ -1614,6 +1629,8 @@ export function WorldPlanAgentConversation({
   playableTargetLabel,
   playableEditTargetLabel,
   onClearPlayableEditTarget = () => undefined,
+  onSavePlan,
+  savePlanEnabled = false,
 }: WorldPlanAgentConversationProps) {
   const selectedWorld = useSelectedWorld();
   const agent = useAgentInteraction();
@@ -1757,6 +1774,9 @@ export function WorldPlanAgentConversation({
     status: "checking" | "verified" | "unavailable";
   } | null>(null);
   const [editReview, setEditReview] = useState<WorldPlanEditReview | null>(null);
+  const [reviewSnapshots, setReviewSnapshots] = useState<Record<string, FrozenPlanEditReview>>({});
+  const [applyingTurnId, setApplyingTurnId] = useState<string | null>(null);
+  const applyingReviewRef = useRef<WorldPlanEditReview | null>(null);
   const [sectionTargets, setSectionTargets] = useState<PlanSectionOption[]>([]);
   const [selectedSectionTargetId, setSelectedSectionTargetId] = useState("");
   const [sectionTargetStatus, setSectionTargetStatus] = useState<PlanSectionTargetStatus | null>(null);
@@ -1781,6 +1801,8 @@ export function WorldPlanAgentConversation({
     proposalFenceKey,
     threadId: activeThread?.threadId ?? null,
     providerThreadId: agent.activeThread?.threadId ?? null,
+    savePlanEnabled,
+    saveInFlight,
     scopeMatches,
     verifiedWorldId,
     documentId,
@@ -1928,6 +1950,8 @@ export function WorldPlanAgentConversation({
   latestRef.current.proposalFenceKey = proposalFenceKey;
   latestRef.current.threadId = activeThread?.threadId ?? null;
   latestRef.current.providerThreadId = agent.activeThread?.threadId ?? null;
+  latestRef.current.savePlanEnabled = savePlanEnabled;
+  latestRef.current.saveInFlight = saveInFlight;
   latestRef.current.scopeMatches = scopeMatches;
   latestRef.current.verifiedWorldId = verifiedWorldId;
   latestRef.current.documentId = documentId;
@@ -3185,6 +3209,16 @@ export function WorldPlanAgentConversation({
         turnId,
         fenceKey: latestRef.current.proposalFenceKey,
       };
+      if (editBridge.preview) {
+        const preview = editBridge.preview(captured, admitted);
+        setReviewSnapshots((current) => ({ ...current, [turnId]: {
+          scopeKey, worldId: captured.request.world_id, documentId: captured.request.document_id,
+          threadId: currentThread.threadId, conversationId: proposalAnchor?.conversationId ?? null,
+          targetLabel: captured.playableTargetLabel || captured.playableBodyTarget?.target.id
+            || captured.sectionTarget?.heading || (captured.request.target_kind === "insert_at_caret" ? "at the captured caret" : "selected text"),
+          preview,
+        } }));
+      }
       editReviewRef.current = nextReview;
       setEditReview(nextReview);
       setComposerMessage((current) => current === composerSnapshotAtSubmit ? "" : current);
@@ -3221,6 +3255,7 @@ export function WorldPlanAgentConversation({
   }
 
   async function applyEditReview(review: WorldPlanEditReview) {
+    if (applyingReviewRef.current) return;
     if (worldPlanEditReviewBefore(review.captured) === null) {
       discardEditReview();
       setEditError("The captured Plan target no longer has a valid Before snapshot. Reselect it and compose the proposal again.");
@@ -3234,6 +3269,8 @@ export function WorldPlanAgentConversation({
       setEditError("World Plan or Agent thread changed. Compose the proposal again.");
       return;
     }
+    applyingReviewRef.current = review;
+    setApplyingTurnId(review.turnId);
     try {
       if (review.captured.playableTargetSource === "scene") {
         await verifySceneCommittedBasis(review.captured);
@@ -3263,7 +3300,13 @@ export function WorldPlanAgentConversation({
       discardEditReview();
     } catch (reason) {
       setComposerIntent("propose");
+      if (reason instanceof PlanEditGuardError || (reason instanceof Error && reason.message.includes("committed Plan changed"))) discardEditReview();
       setEditError(reason instanceof Error ? reason.message : "The proposal could not be applied to this mounted Plan.");
+    } finally {
+      if (applyingReviewRef.current === review) {
+        applyingReviewRef.current = null;
+        setApplyingTurnId(null);
+      }
     }
   }
 
@@ -3319,6 +3362,23 @@ export function WorldPlanAgentConversation({
     [...archivedProposalPositions, ...(retiredProposalTurns?.scopeKey === scopeKey ? retiredProposalTurns.positions : []),
       ...(proposalOrderForDisplay?.positions ?? [])].map((position) => [position.turnId, position]),
   );
+  const renderFrozenReview = (turn: AgentInteractionTurn) => {
+    const snapshot = reviewSnapshots[turn.turnId];
+    if (!snapshot || snapshot.scopeKey !== scopeKey) return null;
+    const executable = currentReview?.turnId === turn.turnId ? currentReview : null;
+    const status = turn.planEdit?.applied ? "applied"
+      : executable ? applyingTurnId === turn.turnId ? "applying" : "review" : "stale";
+    const canOfferSave = status === "applied" && snapshot.threadId === activeThread?.threadId
+      && (!snapshot.conversationId || snapshot.conversationId === history?.conversation_id) && onSavePlan;
+    return <PlanEditReview targetLabel={snapshot.targetLabel} before={snapshot.preview.before} after={snapshot.preview.after}
+      status={status} onApply={() => { if (executable) void applyEditReview(executable); }}
+      onDiscard={() => { if (executable && editReviewRef.current === executable) discardEditReview(); }}
+      saveAction={canOfferSave ? { disabled: !savePlanEnabled || saveInFlight, onSave: () => {
+        if (latestRef.current.verifiedWorldId === snapshot.worldId && latestRef.current.documentId === snapshot.documentId
+          && latestRef.current.scopeMatches && latestRef.current.savePlanEnabled && !latestRef.current.saveInFlight) onSavePlan?.();
+      } } : undefined}
+      details={<p>{turn.planEdit?.proposalSummary}</p>} />;
+  };
   const renderProposalEvent = (
     turn: AgentInteractionTurn,
     position: WorldPlanLocalProposalPosition | null,
@@ -3355,7 +3415,7 @@ export function WorldPlanAgentConversation({
       {turn.planEdit?.applied ? (
         <p className="world-plan-agent-conversation__context">Apply changes your draft. Save keeps the changes.</p>
       ) : null}
-      {currentReview?.turnId === turn.turnId ? (
+      {reviewSnapshots[turn.turnId]?.scopeKey === scopeKey ? renderFrozenReview(turn) : currentReview?.turnId === turn.turnId ? (
         <section className="world-plan-agent-conversation__review" aria-label="Review proposed Plan edit">
           <h4>Review this proposal</h4>
           <p>{currentReview.admitted.response.summary}</p>
@@ -3496,73 +3556,7 @@ export function WorldPlanAgentConversation({
           ) : null}
         </div>
   );
-  const messages = (
-    <div className="world-plan-agent-conversation__body">
-      {presentationHosts && playableTargetStale ? <p role="alert">The Ask target is stale. Select it again before asking.</p> : null}
-      {presentationHosts && effectiveEditTargetStale ? <p role="alert">The edit target is stale. Select it again before composing a proposal.</p> : null}
-      {authorizationBlocked ? (
-        <section className="world-plan-agent-conversation__auth-notice" role="alert">
-          <p>{pendingGraphAsk
-            ? "Local authorization was rejected. Reconnect in Settings, then refresh World history before taking another action."
-            : "Local authorization was rejected. Reconnect in Settings, then refresh history or retry the saved request."}</p>
-          <button type="button" onClick={() => setSettingsOpen(true)}>Open Settings</button>
-        </section>
-      ) : null}
-      <section id="world-plan-agent-settings" className="world-plan-agent-conversation__settings" aria-label="Local operator Agent and Graph authorization" hidden={!settingsOpen}>
-        <button type="button" onClick={connectGraphSession}>Connect local session</button>
-        <button type="button" onClick={clearGraphSession}>Revoke local session</button>
-        <p role="note">Your local Agent and Graph session persists across reloads. Plan + World is the default; switch to Plan only for a question that needs that scope.</p>
-        {graphCredentialStatus ? <p role="status">{graphCredentialStatus}</p> : null}
-      </section>
-      {saveInFlight ? (
-        <p className="world-plan-agent-conversation__saving" role="status">Conversation paused while the Plan is saving.</p>
-      ) : null}
-      <section className="world-plan-agent-conversation__turns" aria-label="World conversation transcript" aria-live="polite">
-        <h3>Conversation</h3>
-        {historyLoading ? <p className="world-plan-agent-conversation__loading" role="status">Loading conversation…</p> : null}
-        {historyError ? (
-          <div role="group" aria-label="World history unavailable">
-            {authorizationBlocked
-              ? null
-              : <p>{historyError}</p>}
-            <button type="button" onClick={refreshWorldHistory} disabled={historyLoading}>Refresh World history</button>
-          </div>
-        ) : null}
-        {earlierConversationEvents.length ? (
-          <details className="world-plan-agent-conversation__earlier">
-            <summary>Earlier conversation · {earlierConversationEvents.length}</summary>
-            {history?.next_before_sequence !== null && history?.next_before_sequence !== undefined ? (
-              <button type="button" onClick={() => { void loadOlderTurns(); }} disabled={olderLoading || historyLoading}>
-                {olderLoading ? "Loading earlier messages…" : "Load earlier messages"}
-              </button>
-            ) : null}
-            {earlierConversationEvents.map(renderConversationEvent)}
-          </details>
-        ) : history?.next_before_sequence !== null && history?.next_before_sequence !== undefined ? (
-          <button type="button" onClick={() => { void loadOlderTurns(); }} disabled={olderLoading || historyLoading}>
-            {olderLoading ? "Loading earlier messages…" : "Load earlier messages"}
-          </button>
-        ) : null}
-        {latestConversationEvent ? renderConversationEvent(latestConversationEvent) : history && !historyLoading ? (
-          <p className="world-plan-agent-conversation__empty">No messages yet. Ask about this Plan or describe a change.</p>
-        ) : null}
-        {submittedMessage?.scopeKey === scopeKey
-          && (submittedMessage.conversationId === null
-            ? (submittedMessage.pointerRevision === (history?.pointer_revision ?? null))
-            : submittedMessage.conversationId === history?.conversation_id)
-          && !history?.turns.some((turn) => turn.turn_id === submittedMessage.id) ? (
-          <article aria-label="Submitted message awaiting confirmation">
-            <p><strong>You:</strong> {submittedMessage.message}</p>
-            <p role="status">{sending || composing ? "Waiting for Buddy…" : "Message not yet confirmed."}</p>
-          </article>
-        ) : null}
-        {conversationNotice ? <p role="status">{conversationNotice}</p> : null}
-        {presentationHosts && newReplyAvailable ? (
-          <button type="button" className="world-plan-agent-conversation__new-reply" onClick={jumpToLatestReply}>
-            New reply · jump to latest
-          </button>
-        ) : null}
-      </section>
+  const managementDetails = (<>
       {otherLocalProposals.length ? (
         <details className="world-plan-agent-conversation__local-activity" aria-label="Other local Plan proposals">
           <summary>Other local proposals · {otherLocalProposals.length}</summary>
@@ -3576,7 +3570,6 @@ export function WorldPlanAgentConversation({
           ))}
         </details>
       ) : null}
-      {newConversationError ? <p role="alert">{newConversationError}</p> : null}
       {recoveryRecordCount ? (
       <>
       {unconfirmedGraphAskCount > 0 ? (
@@ -3796,7 +3789,77 @@ export function WorldPlanAgentConversation({
           ) : null}
         </div>
       </details>
-      </div>
+    </>);
+  const messages = (
+    <div className="world-plan-agent-conversation__body">
+      {newConversationError ? <p role="alert">{newConversationError}</p> : null}
+      {presentationHosts && playableTargetStale ? <p role="alert">The Ask target is stale. Select it again before asking.</p> : null}
+      {presentationHosts && effectiveEditTargetStale ? <p role="alert">The edit target is stale. Select it again before composing a proposal.</p> : null}
+      {authorizationBlocked ? (
+        <section className="world-plan-agent-conversation__auth-notice" role="alert">
+          <p>{pendingGraphAsk
+            ? "Local authorization was rejected. Reconnect in Settings, then refresh World history before taking another action."
+            : "Local authorization was rejected. Reconnect in Settings, then refresh history or retry the saved request."}</p>
+          <button type="button" onClick={() => setSettingsOpen(true)}>Open Settings</button>
+        </section>
+      ) : null}
+      <section id="world-plan-agent-settings" className="world-plan-agent-conversation__settings" aria-label="Local operator Agent and Graph authorization" hidden={!settingsOpen}>
+        <button type="button" onClick={connectGraphSession}>Connect local session</button>
+        <button type="button" onClick={clearGraphSession}>Revoke local session</button>
+        <p role="note">Your local Agent and Graph session persists across reloads. Plan + World is the default; switch to Plan only for a question that needs that scope.</p>
+        {graphCredentialStatus ? <p role="status">{graphCredentialStatus}</p> : null}
+      </section>
+      {saveInFlight ? (
+        <p className="world-plan-agent-conversation__saving" role="status">Conversation paused while the Plan is saving.</p>
+      ) : null}
+      <section className="world-plan-agent-conversation__turns" aria-label="World conversation transcript" aria-live="polite">
+        <h3>Conversation</h3>
+        {historyLoading ? <p className="world-plan-agent-conversation__loading" role="status">Loading conversation…</p> : null}
+        {historyError ? (
+          <div role="group" aria-label="World history unavailable">
+            {authorizationBlocked
+              ? null
+              : <p>{historyError}</p>}
+            <button type="button" onClick={refreshWorldHistory} disabled={historyLoading}>Refresh World history</button>
+          </div>
+        ) : null}
+        {earlierConversationEvents.length ? (
+          <details className="world-plan-agent-conversation__earlier">
+            <summary>Earlier conversation · {earlierConversationEvents.length}</summary>
+            {history?.next_before_sequence !== null && history?.next_before_sequence !== undefined ? (
+              <button type="button" onClick={() => { void loadOlderTurns(); }} disabled={olderLoading || historyLoading}>
+                {olderLoading ? "Loading earlier messages…" : "Load earlier messages"}
+              </button>
+            ) : null}
+            {earlierConversationEvents.map(renderConversationEvent)}
+          </details>
+        ) : history?.next_before_sequence !== null && history?.next_before_sequence !== undefined ? (
+          <button type="button" onClick={() => { void loadOlderTurns(); }} disabled={olderLoading || historyLoading}>
+            {olderLoading ? "Loading earlier messages…" : "Load earlier messages"}
+          </button>
+        ) : null}
+        {latestConversationEvent ? renderConversationEvent(latestConversationEvent) : history && !historyLoading ? (
+          <p className="world-plan-agent-conversation__empty">No messages yet. Ask about this Plan or describe a change.</p>
+        ) : null}
+        {submittedMessage?.scopeKey === scopeKey
+          && (submittedMessage.conversationId === null
+            ? (submittedMessage.pointerRevision === (history?.pointer_revision ?? null))
+            : submittedMessage.conversationId === history?.conversation_id)
+          && !history?.turns.some((turn) => turn.turn_id === submittedMessage.id) ? (
+          <article aria-label="Submitted message awaiting confirmation">
+            <p><strong>You:</strong> {submittedMessage.message}</p>
+            <p role="status">{sending || composing ? "Waiting for Buddy…" : "Message not yet confirmed."}</p>
+          </article>
+        ) : null}
+        {conversationNotice ? <p role="status">{conversationNotice}</p> : null}
+        {presentationHosts && newReplyAvailable ? (
+          <button type="button" className="world-plan-agent-conversation__new-reply" onClick={jumpToLatestReply}>
+            New reply · jump to latest
+          </button>
+        ) : null}
+      </section>
+      {!presentationHosts ? managementDetails : null}
+    </div>
   );
   const composer = (
     <section className="world-plan-agent-conversation__composer" aria-label="Conversation composer">
@@ -3896,7 +3959,7 @@ export function WorldPlanAgentConversation({
   );
   if (presentationHosts) {
     return <>
-      {presentationHosts.header && createPortal(headerActions, presentationHosts.header)}
+      {presentationHosts.header && createPortal(<>{headerActions}{managementDetails}</>, presentationHosts.header)}
       {presentationHosts.context && createPortal(contextDetails, presentationHosts.context)}
       {presentationHosts.messages && createPortal(messages, presentationHosts.messages)}
       {presentationHosts.composer && createPortal(composer, presentationHosts.composer)}

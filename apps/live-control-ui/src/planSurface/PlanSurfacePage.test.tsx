@@ -149,7 +149,7 @@ function GraphEnabledAgentPlanPage({ owner }: { owner: string }) {
 
 function savedWorldPlanConversation() {
   const region = screen.getByRole("region", { name: "Saved World Plan conversation" });
-  const context = within(region).getByRole("button", { name: /Full saved Plan/ });
+  const context = within(region).getByRole("button", { name: "Context" });
   if (context.getAttribute("aria-expanded") !== "true") fireEvent.click(context);
   return region;
 }
@@ -165,6 +165,8 @@ function sendDiscussMessage(conversation = savedWorldPlanConversation()) {
 }
 
 function openAdvancedDetails(conversation = savedWorldPlanConversation()) {
+  const more = within(conversation).queryByText("More", { exact: true })?.closest("details");
+  if (more && !more.open) fireEvent.click(more.querySelector("summary")!);
   fireEvent.click(within(conversation).getByText("Advanced details"));
 }
 
@@ -181,8 +183,9 @@ const twoScenePlanMarkdown = [
   "A lantern moves behind the loading door.",
 ].join("\n") + "\n";
 
-it.each([false, true, "stale-apply"] as const)("captures the current Ask scene without Select for Edit; editor selection precedence=%s", async (selectText) => {
+it.each([false, true, "stale-apply", "save"] as const)("captures the current Ask scene without Select for Edit; editor selection precedence=%s", async (selectText) => {
   mockSavedPlanForAgent(savedAgentPlanId, 7, 7, twoScenePlanMarkdown.replace("## Arrival", "## Quiet test scene"));
+  const prepareSave = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockRejectedValue(new Error("Explicit Save test stop"));
   const post = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) => ({
     schema_version: request.playable_target ? "dmb_world_plan_document_edit_proposal_v2" : "dmb_world_plan_document_edit_proposal_v1",
     action_id: "00000000-0000-4000-8000-000000000099", idempotency_key: request.idempotency_key,
@@ -200,7 +203,7 @@ it.each([false, true, "stale-apply"] as const)("captures the current Ask scene w
   render(<SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}><AgentEnabledPlanPage /></SelectedWorldProvider>);
   const page = await screen.findByTestId("world-owned-plan");
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  expect(await screen.findByLabelText("Plan workspace")).toBeInTheDocument();
+  expect(await screen.findByRole("region", { name: "Plan content" })).toBeInTheDocument();
   fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
   const reader = await screen.findByTestId("world-plan-scene-reader");
   expect(within(reader).getByRole("button", { name: "Select for Edit" })).toHaveAttribute("aria-pressed", "false");
@@ -213,7 +216,7 @@ it.each([false, true, "stale-apply"] as const)("captures the current Ask scene w
   }
   fireEvent.change(messageDungeonBuddyField(conversation), { target: { value: "For this disposable synthetic Plan only, propose appending exactly this line to the selected Quiet test scene body: Optional GM cue: Ask each player what they notice first. Preserve all existing text and playable markers; make no other change." } });
   fireEvent.click(within(conversation).getByRole("button", { name: "Propose edit" }));
-  const review = await within(conversation).findByRole("region", { name: "Review proposed Plan edit" });
+  const review = await within(conversation).findByRole("region", { name: selectText === true ? "Change selected text" : "Change Quiet test scene" });
   expect(post).toHaveBeenCalledTimes(1);
   const request = post.mock.calls[0]![0];
   expect(request).toMatchObject({ base_revision: 7, base_content_sha256: "b".repeat(64) });
@@ -227,30 +230,45 @@ it.each([false, true, "stale-apply"] as const)("captures the current Ask scene w
     expect(request.playable_target).toEqual({ kind: "scene", id: "scene:arrival" });
     expect(request.target_body_markdown).toBe("The keeper waits beneath the black arch.\n");
     expect(request.target_body_sha256).toBe(createHash("sha256").update(request.target_body_markdown!).digest("hex"));
-    expect(review.querySelector("pre")?.textContent).toBe(request.target_body_markdown);
-    expect(review).toHaveTextContent("Card target · Quiet test scene · scene scene:arrival");
+    const before = within(review).getByRole("region", { name: "Before Quiet test scene" });
+    expect(within(before).getByText(request.target_body_markdown!.trim())).toBeInTheDocument();
+    expect(before).toHaveTextContent("A lantern moves behind the loading door.");
+    expect(within(before).getByRole("heading", { name: "Quiet test scene" })).toBeInTheDocument();
+    expect(within(before).queryByText("<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->")).not.toBeInTheDocument();
     if (selectText === "stale-apply") {
       const prior = await liveApi.getWorldOwnedPlanCommittedRevision(savedAgentPlanId);
       vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockResolvedValue({ ...prior, object_revision: 8 });
-      fireEvent.click(within(review).getByRole("button", { name: "Apply changes" }));
+      fireEvent.click(within(review).getByRole("button", { name: "Apply to draft" }));
       expect(await within(conversation).findByRole("alert")).toHaveTextContent("committed Plan changed");
       expect(screen.getByTestId("world-owned-plan-markdown-editor")).not.toHaveTextContent("Optional GM cue:");
       expect(post).toHaveBeenCalledTimes(1);
+      expect(within(review).queryByRole("button", { name: "Apply to draft" })).not.toBeInTheDocument();
       return;
     }
-    fireEvent.click(within(review).getByRole("button", { name: "Apply changes" }));
-    await waitFor(() => expect(within(conversation).queryByRole("region", { name: "Review proposed Plan edit" })).not.toBeInTheDocument());
+    fireEvent.click(within(review).getByRole("button", { name: "Apply to draft" }));
+    await within(review).findByText("Applied to your draft. Save Plan keeps this change.");
+    expect(within(review).queryByRole("button", { name: "Apply to draft" })).not.toBeInTheDocument();
+    expect(prepareSave).not.toHaveBeenCalled();
     expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent("Optional GM cue: Ask each player what they notice first.");
     const draft = JSON.parse(localStorage.getItem(`dmb:world-plan-local-draft:v2:${worldId}`)!).markdown;
     expect(draft).toContain("kind=scene id=scene:arrival");
     expect(draft).toContain("kind=scene id=scene:warehouse");
     expect(draft).toContain("A lantern moves behind the loading door.");
+    if (selectText === "save") {
+      fireEvent.click(within(review).getByRole("button", { name: "Save Plan" }));
+      await waitFor(() => expect(prepareSave).toHaveBeenCalledTimes(1));
+      expect(prepareSave.mock.calls[0]![0]).toMatchObject({ world_id: worldId, document_id: savedAgentPlanId });
+      expect(post).toHaveBeenCalledTimes(1);
+      return;
+    }
     fireEvent.change(messageDungeonBuddyField(conversation), { target: { value: "Append one more cue." } });
     fireEvent.click(within(conversation).getByRole("button", { name: "Propose edit" }));
-    await within(conversation).findByRole("region", { name: "Review proposed Plan edit" });
+    const nextApply = await within(conversation).findByRole("button", { name: "Apply to draft" });
+    const nextReview = nextApply.closest("section[aria-labelledby]")!;
+    expect(nextReview).toHaveAccessibleName("Change Quiet test scene");
     fireEvent.click(within(reader).getByRole("button", { name: "Next scene" }));
-    await waitFor(() => expect(within(conversation).queryByRole("region", { name: "Review proposed Plan edit" })).not.toBeInTheDocument());
-    expect(within(conversation).queryByRole("button", { name: "Apply changes" })).not.toBeInTheDocument();
+    await within(nextReview).findByText("This preview is no longer current. It cannot be applied.");
+    expect(within(nextReview).queryByRole("button", { name: "Apply to draft" })).not.toBeInTheDocument();
   }
 });
 
@@ -729,6 +747,7 @@ it("opens exact managed World Graph references from Document and Cards without c
 
   const page = await screen.findByTestId("world-owned-plan");
   await waitFor(() => expect(projectionRequest).toHaveBeenCalledWith(expect.objectContaining({ managedWorldId: owner })));
+  fireEvent.click(await screen.findByRole("button", { name: "Open", exact: true }));
   const documentReference = await screen.findByRole("button", { name: "Ironveil Warehouse" });
   expect(documentReference).not.toHaveFocus();
   fireEvent.click(documentReference);
@@ -838,17 +857,30 @@ it("retains the mounted Plan and typed question across Cards, Document and dock 
   await waitFor(() => expect(input).toBeEnabled());
   const reader = screen.getByRole("region", {name:"Plan workspace"});
   expect(screen.queryByRole("log")).toBeNull();
-  fireEvent.focusIn(input);
+  fireEvent.click(screen.getByRole("button", { name: "Open", exact: true }));
   fireEvent.change(input, {target:{value:"Remember the warehouse"}});
-  expect(screen.getByRole("log")).toBeInTheDocument();
+  const transcript = screen.getByRole("log");
+  fireEvent.click(screen.getByRole("button", { name: "Expand conversation fullscreen" }));
+  expect(reader.isConnected).toBe(true);
+  expect(reader).toHaveAttribute("hidden");
+  expect(screen.getByRole("log")).toBe(transcript);
+  expect(screen.getByLabelText("Message DungeonBuddy")).toBe(input);
+  expect(input).toHaveValue("Remember the warehouse");
+  fireEvent.click(screen.getByRole("button", { name: "Restore conversation dock" }));
+  expect(reader).not.toHaveAttribute("hidden");
+  expect(screen.getByRole("log")).toBe(transcript);
   fireEvent.click(screen.getByRole("button", {name:"Cards",exact:true}));
   const focusedScene = await screen.findByRole("region", {name:"Focused Plan scene"});
   expect(focusedScene).toHaveTextContent("Arrival");
-  fireEvent.click(screen.getByRole("button", {name:"Collapse",exact:true}));
+  fireEvent.click(screen.getByRole("button", {name:"Close conversation",exact:true}));
+  expect(transcript.isConnected).toBe(true);
+  expect(input.isConnected).toBe(true);
+  expect(screen.queryByRole("log")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", {name:"Document",exact:true}));
   fireEvent.click(screen.getByRole("button", {name:"Open",exact:true}));
   expect(screen.getByRole("region", {name:"Plan workspace"})).toBe(reader);
   expect(screen.getByLabelText("Message DungeonBuddy")).toBe(input);
+  expect(screen.getByRole("log")).toBe(transcript);
   expect(input).toHaveValue("Remember the warehouse");
   expect(screen.queryByTestId("agent-interaction-chrome")).toBeNull();
   expect(screen.getAllByTestId("agent-interaction-open")).toHaveLength(1);

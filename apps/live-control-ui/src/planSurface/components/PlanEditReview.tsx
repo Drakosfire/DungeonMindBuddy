@@ -35,7 +35,7 @@ export function PlanEditReview({ targetLabel, before, after, status, onApply, on
   }
   const message = status === "applied" ? "Applied to your draft. Save Plan keeps this change."
     : status === "saved" ? "Saved to your Plan."
-    : status === "stale" ? "The Plan changed. This preview cannot be applied."
+    : status === "stale" ? "This preview is no longer current. It cannot be applied."
     : status === "applying" ? "Applying to your draft…" : "Review the highlighted change before applying it.";
   return <section ref={panel} className={`plan-edit-review ${large ? "is-large" : ""}`} role={large ? "dialog" : "region"} aria-modal={large || undefined} aria-labelledby={`${id}-title`} onKeyDown={keys}>
     <header className="plan-edit-review__heading">
@@ -45,7 +45,7 @@ export function PlanEditReview({ targetLabel, before, after, status, onApply, on
     <div className="plan-edit-review__comparison">
       {([ ["Before", before], ["After", after] ] as const).map(([label, preview]) => <section key={label} aria-label={`${label} ${targetLabel}`} className="plan-edit-review__version">
         <h5>{label}</h5>{preview.placementLabel && <p className="plan-edit-review__placement">{preview.placementLabel}</p>}
-        <MarkdownDocumentReader markdown={preview.markdown} sourceLineTarget={preview.sourceLineTarget} />
+        <MarkdownDocumentReader markdown={preview.markdown} sourceLineTarget={preview.sourceLineTarget} hidePlayableMarkers />
       </section>)}
     </div>
     {details && <details className="plan-edit-review__details"><summary>Details</summary>{details}</details>}

@@ -936,6 +936,8 @@ interface ConversationTestProps {
   draftGeneration?: number;
   savedDirty?: boolean;
   presentationHosts?: PlanConversationPresentationHosts;
+  onSavePlan?: () => void;
+  savePlanEnabled?: boolean;
 }
 
 function conversationElement(props: ConversationTestProps = {}) {
@@ -959,6 +961,8 @@ function conversationElement(props: ConversationTestProps = {}) {
       pageReady
       saveInFlight={false}
       presentationHosts={props.presentationHosts}
+      onSavePlan={props.onSavePlan}
+      savePlanEnabled={props.savePlanEnabled}
       playableTarget={playableTarget}
       playableEditTarget={props.playableEditTarget}
       playableEditTargetGeneration={props.playableEditTargetGeneration}
@@ -1341,6 +1345,73 @@ afterEach(() => {
 });
 
 describe("World Plan conversation consumer", () => {
+  it("retains rendered frozen context after Apply and exposes only guarded explicit Save", async () => {
+    setupApi(history("conversation-a", 4, []));
+    const captured = await capturedCardBodyEdit("Original body.\n");
+    let releaseApply!: () => void;
+    const bridge = { capture: vi.fn(async () => captured),
+      preview: vi.fn(() => ({ before: { markdown: "# Opening\n\nOriginal body.\n\n# Later\n\nOther prose.\n" },
+        after: { markdown: "# Opening\n\nThe revised scene opens.\n\n# Later\n\nOther prose.\n" } })),
+      apply: vi.fn(() => new Promise<void>((resolve) => { releaseApply = resolve; })) };
+    const post = mockCardBodyProposal();
+    const save = vi.fn();
+    const mounted = render(conversationElement({ editBridge: bridge, onSavePlan: save, savePlanEnabled: true }));
+    await screen.findByText(/No messages yet/i);
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the opening." } });
+    fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
+    const review = await screen.findByRole("region", { name: "Change scene:arrival" });
+    expect(within(review).getByRole("region", { name: "Before scene:arrival" })).toHaveTextContent("Other prose.");
+    expect(review.querySelector("pre")).toBeNull();
+    const apply = within(review).getByRole("button", { name: "Apply to draft" });
+    fireEvent.click(apply);
+    fireEvent.click(apply);
+    expect(within(review).getByRole("button", { name: "Applying…" })).toBeDisabled();
+    expect(bridge.apply).toHaveBeenCalledTimes(1);
+    expect(save).not.toHaveBeenCalled();
+    await act(async () => releaseApply());
+    await within(review).findByText("Applied to your draft. Save Plan keeps this change.");
+    expect(within(review).queryByRole("button", { name: "Apply to draft" })).not.toBeInTheDocument();
+    expect(within(review).queryByRole("button", { name: "Discard proposal" })).not.toBeInTheDocument();
+    fireEvent.click(within(review).getByRole("button", { name: "Save Plan" }));
+    expect(save).toHaveBeenCalledTimes(1);
+    bridge.preview.mockReturnValue({ before: { markdown: "Wrong live context" }, after: { markdown: "Wrong live edit" } });
+    mounted.rerender(conversationElement({ editBridge: bridge, onSavePlan: save, savePlanEnabled: false, draftGeneration: 1 }));
+    expect(review).toHaveTextContent("Other prose.");
+    expect(review).not.toHaveTextContent("Wrong live context");
+    expect(within(review).getByRole("button", { name: "Save Plan" })).toBeDisabled();
+    mounted.rerender(conversationElement({ documentId: "other-plan", editBridge: bridge, onSavePlan: save, savePlanEnabled: true }));
+    expect(screen.queryByRole("button", { name: "Save Plan" })).not.toBeInTheDocument();
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(bridge.apply).toHaveBeenCalledTimes(1);
+    expect(save).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps discarded snapshots read-only and out of the fresh reset transcript", async () => {
+    const api = setupApi(history("conversation-a", 4, []));
+    const captured = await capturedCardBodyEdit("Original body.\n");
+    const bridge = { capture: vi.fn(async () => captured), apply: vi.fn(),
+      preview: vi.fn(() => ({ before: { markdown: "# Opening\n\nOriginal body.\n" }, after: { markdown: "# Opening\n\nThe revised scene opens.\n" } })) };
+    const post = mockCardBodyProposal();
+    render(conversationElement({ editBridge: bridge }));
+    await screen.findByText(/No messages yet/i);
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the opening." } });
+    fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
+    const review = await screen.findByRole("region", { name: "Change scene:arrival" });
+    fireEvent.click(within(review).getByRole("button", { name: "Discard proposal" }));
+    expect(review).toHaveTextContent("Original body.");
+    expect(within(review).queryByRole("button", { name: "Apply to draft" })).not.toBeInTheDocument();
+    expect(within(review).queryByRole("button", { name: "Discard proposal" })).not.toBeInTheDocument();
+    vi.spyOn(liveApi, "postWorldAgentNewConversation").mockImplementation(async () => {
+      api.setCurrent(history("conversation-b", 5, []));
+      return { schema: "dmb_agent_new_conversation_response_v1", world_id: worldId,
+        conversation_id: "conversation-b", active_conversation_id: "conversation-b", pointer_revision: 5 } as any;
+    });
+    fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
+    await screen.findByText(/No messages yet/i);
+    expect(screen.getByRole("region", { name: "World conversation transcript" })).not.toHaveTextContent("Original body.");
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(bridge.apply).not.toHaveBeenCalled();
+  });
   it("echoes Discuss immediately before preparation completes and settles to one durable message", async () => {
     const api = setupApi(history("conversation-a", 4, []));
     mountComponent();

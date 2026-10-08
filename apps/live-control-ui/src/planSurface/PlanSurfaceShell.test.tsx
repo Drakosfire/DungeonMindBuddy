@@ -477,7 +477,7 @@ describe("PlanSurfaceShell", () => {
     // Projection host is body-only until a tool/content projection is active (SIH-04).
     expect(screen.queryByRole("navigation", { name: "Toolbox tools" })).not.toBeInTheDocument();
     expect(screen.queryByRole("complementary", { name: "Plan toolbox" })).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Plan workspace")).toBeInTheDocument();
+    expect(screen.getByLabelText("Plan content")).toBeInTheDocument();
     expect(screen.getByTestId("surface-context-host")).toHaveTextContent("PREP");
     expect(document.querySelector(".plan-canvas-heading")).toBeNull();
     expect(screen.getByTestId("app-chrome-world-graph-status")).toBeInTheDocument();
@@ -3780,7 +3780,7 @@ describe("PlanSurfaceShell", () => {
           "Workspace document not found",
         ));
       expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent("C2 Session 23 Prep");
-      expect(screen.getByLabelText("Plan workspace")).toBeInTheDocument();
+      expect(screen.getByLabelText("Plan content")).toBeInTheDocument();
       expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_A);
       expect(screen.getByTestId("plan-document-select")).toHaveValue(DOC_A);
     });

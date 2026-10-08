@@ -1787,6 +1787,12 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         editorSelectionActive={Boolean(editor && !editor.state.selection.empty)}
         playableTargetLabel={cardTargetLabel(selectedPlayableTarget?.target ?? null)}
         playableEditTargetLabel={cardTargetLabel(selectedPlayableEditTarget?.target ?? null)}
+        onSavePlan={() => {
+          const current = worldEditStateGetterRef.current();
+          if (current.documentId === documentId && current.worldId === worldId) documentActions.onSave();
+        }}
+        savePlanEnabled={!saving && !fidelityBlocked && !createUncertain && !recoveryConflict
+          && !Boolean(uncertainCreateDraft && !documentId) && Boolean(markdown.trim())}
         onClearPlayableEditTarget={clearPlayableEditTarget}
       />}
       </PlanConversationDockAdapter>

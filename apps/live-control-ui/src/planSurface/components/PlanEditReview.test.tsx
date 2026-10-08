@@ -5,7 +5,7 @@ import { PlanEditReview, type PlanEditReviewProps } from "./PlanEditReview";
 const props:PlanEditReviewProps = {
   targetLabel:"Session title", status:"review", onApply:vi.fn(), onDiscard:vi.fn(),
   before:{markdown:"# Campaign 2\n\nThe hours they bought.\n\n## Opening\n\nThe siege has broken."},
-  after:{markdown:"# Campaign 2\n\n## Breaking the Siege\n\nThe hours they bought.\n\n## Opening\n\nThe siege has broken.",placementLabel:"Inserted below Campaign 2",sourceLineTarget:{startLine:3,endLine:3,targetKey:"title-insertion"}},
+  after:{markdown:"# Campaign 2\n\n<!-- dmb-playable-element:v1 kind=scene id=scene:siege -->\n## Breaking the Siege\n\nThe hours they bought.\n\n## Opening\n\nThe siege has broken.",placementLabel:"Inserted below Campaign 2",sourceLineTarget:{startLine:4,endLine:4,targetKey:"title-insertion"}},
 };
 describe("PlanEditReview",()=>{
   it("renders surrounding document headings and the exact highlighted insertion without dispatching a mutation",()=>{
@@ -14,6 +14,7 @@ describe("PlanEditReview",()=>{
     const before=screen.getByRole("region",{name:"Before Session title"}),after=screen.getByRole("region",{name:"After Session title"});
     expect(within(before).getByRole("heading",{name:"Campaign 2"})).toBeVisible();
     expect(within(after).getByRole("heading",{name:"Breaking the Siege"})).toHaveAttribute("data-source-block","true");
+    expect(within(after).queryByText("<!-- dmb-playable-element:v1 kind=scene id=scene:siege -->")).not.toBeInTheDocument();
     expect(within(after).getByRole("heading",{name:"Opening"})).toBeVisible();
     expect(props.onApply).not.toHaveBeenCalled();expect(props.onDiscard).not.toHaveBeenCalled();
   });
