@@ -268,6 +268,18 @@ describe("PlayCurrentMomentCockpit", () => {
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
   });
 
+  it("places the active Scene before supporting rails in reading and keyboard order", () => {
+    render(<Harness initialRun={runRecord({
+      progress: progress({ current_scene_id: "scene:north-gate" }),
+    })} />);
+
+    const scene = screen.getByTestId("play-workspace-current");
+    const beatToggle = screen.getByTestId("play-beat-context-toggle");
+    const glanceToggle = screen.getByTestId("play-at-a-glance-toggle");
+    expect(scene.compareDocumentPosition(beatToggle) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+    expect(beatToggle.compareDocumentPosition(glanceToggle) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+  });
+
   it("renders admitted Scene body AST with references and authored block structure", () => {
     const markdown = MARKDOWN.replace(
       "Tunnel unique body.",

@@ -8,6 +8,7 @@ import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
+from uuid import NAMESPACE_URL, uuid5
 
 import pytest
 import httpx
@@ -15,20 +16,24 @@ from fastapi import FastAPI
 
 from application_state.ingest.service import (
     RecapSemanticBasisV2, RecapSemanticBasisV3, RecapSemanticBasisV4,
-    RecapSemanticBasisV5, RecapSemanticBasisV6, _assert_recap_semantic_basis,
+    RecapSemanticBasisV5, RecapSemanticBasisV6, RecapSemanticBasisV7, _assert_recap_semantic_basis,
 )
 from application_state.errors import ApplicationStateConflictError
 from apps.live_control_server.models.extract_promote import (
     RecapCandidateCorrectionRequest,
+    RecapCandidateNodeOmission,
     RecapCandidateCorrectionRequestV2,
     RecapCandidateCorrectionRequestV3,
     RecapCandidateCorrectionRequestV4,
     RecapCandidateCorrectionRequestV5,
+    RecapCandidateCorrectionRequestV6,
     RecapCandidateEvidenceReplacementV5,
     RecapCandidateEvidenceSpanReplacement,
     RecapCandidateEdgeTuple,
     RecapCandidateEdgeTupleReplacement,
+    RecapCandidateNodeTypeReplacement,
     RecapNodeDescriptionReplacement,
+    RecapNodeLabelReplacement,
     RecapSessionActionReplacement,
     RecapSemanticDecisionRequest,
 )
@@ -60,6 +65,8 @@ def _fixture(
     *,
     actions: bool = False,
     source_text: str = "Mira found the key under the bridge.\n",
+    node_id: str = "mira",
+    node_label: str = "Mira",
 ):
     source = root / "source.md"
     source.write_text(source_text, encoding="utf-8")
@@ -68,7 +75,7 @@ def _fixture(
     artifact_id = "artifact:recap:c:s:source"
     span_id = f"{artifact_id}:span:abc:1-1"
     node = {
-        "node_id": "mira", "node_type": "character", "label": "Mira",
+        "node_id": node_id, "node_type": "character", "label": node_label,
         "description": "Mira carried an uncertain object.", "importance": "medium",
         "semantic_state": {
             "canon_state": "played_canon", "lifecycle_state": "candidate",
@@ -152,6 +159,8 @@ def _fixture(
 
     monkeypatch.setattr(service, "repo_root", lambda: root)
     monkeypatch.setattr(service, "resolve_promotable_ingest_run", resolve)
+    monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", resolve)
+    monkeypatch.setattr(extract_promote, "_load_frozen_span_index_for_resolved_run", lambda resolved: service._load_frozen_span_index_for_resolved_run(resolved))
     monkeypatch.setattr(service, "get_extraction_run", get_run)
     monkeypatch.setattr(service, "create_extraction_run", create_run)
     monkeypatch.setattr(service, "update_extraction_run_status", update_run)
@@ -226,6 +235,83 @@ def _tuple_fixture(
     parent = parent.model_copy(update={"components": components})
     runs["parent"] = parent
     return parent, parent_bytes, runs
+
+
+def _sprite_fixture(
+    monkeypatch: pytest.MonkeyPatch,
+    root: Path,
+    *,
+    include_untouched_possession: bool = False,
+):
+    source_text = "Ephanna’s Sprite takes the lead and looks for traps, scouting with Ephanna to warn the party.\n"
+    parent, _parent_bytes, runs = _fixture(monkeypatch, root, source_text=source_text)
+    parent_path = root / parent.components["candidate_graph"].uri
+    payload = json.loads(parent_path.read_bytes())
+    mira = payload["nodes"][0]
+    state = mira["semantic_state"]
+    evidence = mira["evidence_refs"][0]
+
+    def node(node_id: str, node_type: str, label: str, description: str) -> dict:
+        return {
+            "node_id": node_id, "node_type": node_type, "label": label,
+            "description": description, "importance": "medium",
+            "semantic_state": state, "proposed_action": "create", "confidence": "medium",
+            "evidence_refs": [copy.deepcopy(evidence)],
+        }
+
+    payload["nodes"] = [
+        node("node:item:session14:sprite", "item", "Sprite", "Ephanna’s Sprite companion used to scout for traps and warn the party."),
+        node("node:ephanna", "character", "Ephanna", "Ephanna scouts with her Sprite companion."),
+    ]
+    if include_untouched_possession:
+        payload["nodes"].append(
+            node("node:character:karsemine", "character", "Karsemine", "Karsemine travels with Ephanna and her Sprite.")
+        )
+    payload["edges"] = [{
+        "edge_id": "edge:session14:023", "from_node_id": "node:ephanna",
+        "relationship_type": "possesses", "to_node_id": "node:item:session14:sprite",
+        "label": "has companion", "semantic_state": state,
+        "proposed_action": "create", "confidence": "medium",
+        "evidence_refs": [copy.deepcopy(evidence)],
+    }]
+    if include_untouched_possession:
+        payload["edges"].append({
+            "edge_id": "edge:session14:024", "from_node_id": "node:character:karsemine",
+            "relationship_type": "possesses", "to_node_id": "node:item:session14:sprite",
+            "label": "holds", "semantic_state": state,
+            "proposed_action": "create", "confidence": "medium",
+            "evidence_refs": [copy.deepcopy(evidence)],
+        })
+    parent_bytes = json.dumps(payload).encode()
+    parent_path.write_bytes(parent_bytes)
+    components = dict(parent.components)
+    components["candidate_graph"] = ExtractionRunComponentRef(
+        kind=ExtractionRunComponentKind.CANDIDATE_GRAPH,
+        uri=parent.components["candidate_graph"].uri,
+        sha256=_sha(parent_bytes), exists=True,
+    )
+    parent = parent.model_copy(update={"components": components})
+    runs["parent"] = parent
+    request = RecapCandidateCorrectionRequestV3(
+        schema="dmb_recap_candidate_correction_request_v3",
+        parent_run_id="parent", parent_candidate_sha256=_sha(parent_bytes),
+        node_type_replacements=[RecapCandidateNodeTypeReplacement(
+            node_id="node:item:session14:sprite",
+            expected_node_type="item", replacement_node_type="character",
+        )],
+        edge_tuple_replacements=[RecapCandidateEdgeTupleReplacement(
+            edge_id="edge:session14:023",
+            expected_tuple=RecapCandidateEdgeTuple(
+                from_node_id="node:ephanna", relationship_type="possesses",
+                to_node_id="node:item:session14:sprite", label="has companion",
+            ),
+            replacement_tuple=RecapCandidateEdgeTuple(
+                from_node_id="node:item:session14:sprite", relationship_type="cooperates_with",
+                to_node_id="node:ephanna", label="warns/scouts for",
+            ),
+        )],
+    )
+    return parent, parent_bytes, runs, request
 
 
 def _span_relocation_fixture(monkeypatch: pytest.MonkeyPatch, root: Path):
@@ -317,6 +403,17 @@ def _request(parent_bytes: bytes) -> RecapCandidateCorrectionRequest:
         node_description_replacements=[RecapNodeDescriptionReplacement(
             node_id="mira", original_description="Mira carried an uncertain object.",
             replacement_description="Mira found the key under the bridge.",
+        )],
+    )
+
+
+def _label_request(parent_bytes: bytes) -> RecapCandidateCorrectionRequest:
+    return RecapCandidateCorrectionRequest(
+        parent_run_id="parent", parent_candidate_sha256=_sha(parent_bytes),
+        node_label_replacements=[RecapNodeLabelReplacement(
+            node_id="node:location:locked-door-to-guard-room",
+            original_label="locked door to the guard room",
+            replacement_label="door used by guards",
         )],
     )
 
@@ -471,6 +568,144 @@ def test_edge_tuple_child_replays_atomically_and_stays_held(
     assert binding["manifest_sha256"] == child.lineage["manifest_sha256"]
     assert binding["derivation"] == service.DERIVATION_V3
     assert binding["manifest_schema"] == service.MANIFEST_SCHEMA_V3
+    assert child.lineage["manifest_sha256"] == "118f051572259d43b205e0f249b32e539c51619172e75f1dd3c2fe5240a8545c"
+    assert child.run_id == str(uuid5(
+        NAMESPACE_URL,
+        f"dmb:{service.DERIVATION_V3}:parent:{_sha(parent_bytes)}:{child.lineage['manifest_sha256']}",
+    ))
+
+
+def test_sprite_type_and_edge_tuple_change_replay_atomically_and_stay_held(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    parent, parent_bytes, runs, request = _sprite_fixture(monkeypatch, tmp_path)
+    original = json.loads(parent_bytes)
+    response = service.correct_recap_candidate(request)
+    child = runs[response.run_id]
+
+    assert child.lineage["semantic_disposition"]["state"] == "held"
+    assert service.verify_child_replay(child, parent, tmp_path)
+    manifest = child.lineage["semantic_candidate_manifest"]
+    assert set(manifest) == {"schema", "edge_tuple_replacements", "node_type_replacements"}
+    candidate = json.loads((tmp_path / child.components["candidate_graph"].uri).read_bytes())
+    expected = copy.deepcopy(original)
+    expected["nodes"][0]["node_type"] = "character"
+    expected["edges"][0].update({
+        "from_node_id": "node:item:session14:sprite",
+        "relationship_type": "cooperates_with",
+        "to_node_id": "node:ephanna",
+        "label": "warns/scouts for",
+    })
+    assert candidate == expected
+    before_sprite, after_sprite = original["nodes"][0], candidate["nodes"][0]
+    assert after_sprite["node_id"] == before_sprite["node_id"]
+    assert after_sprite["description"] == before_sprite["description"]
+    assert after_sprite["evidence_refs"] == before_sprite["evidence_refs"]
+    assert candidate["edges"][0]["edge_id"] == original["edges"][0]["edge_id"]
+    assert candidate["edges"][0]["evidence_refs"] == original["edges"][0]["evidence_refs"]
+    assert (tmp_path / parent.components["candidate_graph"].uri).read_bytes() == parent_bytes
+
+    assessment = assess_recap_semantics(
+        child, parent=parent, source_revision_id=_sha((tmp_path / "source.md").read_bytes()), root=tmp_path,
+    )
+    basis = RecapSemanticBasisV4.model_validate(assessment.basis)
+    assert assessment.marked and not assessment.accepted
+    _assert_recap_semantic_basis(child, parent, basis)
+
+
+@pytest.mark.parametrize(
+    ("expected_type", "replacement_type"),
+    [("npc", "character"), ("item", "dnd5e:item")],
+)
+def test_sprite_type_correction_rejects_stale_or_unsupported_type_before_child(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    expected_type: str,
+    replacement_type: str,
+) -> None:
+    parent, parent_bytes, runs, request = _sprite_fixture(monkeypatch, tmp_path)
+    replacement = request.node_type_replacements[0].model_copy(update={
+        "expected_node_type": expected_type,
+        "replacement_node_type": replacement_type,
+    })
+    bad_request = request.model_copy(update={"node_type_replacements": [replacement]})
+
+    with pytest.raises(extract_promote.ExtractPromoteError):
+        service.correct_recap_candidate(bad_request)
+    assert set(runs) == {"parent"}
+    assert (tmp_path / parent.components["candidate_graph"].uri).read_bytes() == parent_bytes
+    assert not (tmp_path / "out" / "graph_memory" / "derived_candidates").exists()
+
+
+def test_sprite_type_request_requires_paired_edge_and_supported_type() -> None:
+    edge = RecapCandidateEdgeTupleReplacement(
+        edge_id="edge:session14:023",
+        expected_tuple=RecapCandidateEdgeTuple(
+            from_node_id="node:ephanna", relationship_type="possesses",
+            to_node_id="node:item:session14:sprite", label="has companion",
+        ),
+        replacement_tuple=RecapCandidateEdgeTuple(
+            from_node_id="node:item:session14:sprite", relationship_type="cooperates_with",
+            to_node_id="node:ephanna", label="warns/scouts for",
+        ),
+    )
+    type_replacement = RecapCandidateNodeTypeReplacement(
+        node_id="node:item:session14:sprite",
+        expected_node_type="item", replacement_node_type="character",
+    )
+    with pytest.raises(ValueError, match="paired"):
+        RecapCandidateCorrectionRequestV3(
+            schema="dmb_recap_candidate_correction_request_v3",
+            parent_run_id="parent", parent_candidate_sha256="a" * 64,
+            edge_tuple_replacements=[edge.model_copy(update={
+                "expected_tuple": RecapCandidateEdgeTuple(
+                    from_node_id="ephanna", relationship_type="possesses",
+                    to_node_id="sprite", label="has companion",
+                ),
+                "replacement_tuple": RecapCandidateEdgeTuple(
+                    from_node_id="sprite", relationship_type="cooperates_with",
+                    to_node_id="ephanna", label="warns/scouts for",
+                ),
+            })],
+            node_type_replacements=[type_replacement],
+        )
+    with pytest.raises(extract_promote.ExtractPromoteError, match="malformed"):
+        service.replay_candidate(
+            {"nodes": [{"node_id": "sprite", "node_type": "item"}], "edges": []},
+            {
+                "schema": service.MANIFEST_SCHEMA_V3,
+                "edge_tuple_replacements": [{
+                    "edge_id": "edge", "expected_tuple": {
+                        "from_node_id": "sprite", "relationship_type": "located_in",
+                        "to_node_id": "sprite", "label": "same",
+                    }, "replacement_tuple": {
+                        "from_node_id": "sprite", "relationship_type": "located_in",
+                        "to_node_id": "sprite", "label": "different",
+                    },
+                }],
+                "node_type_replacements": [{
+                    "node_id": "sprite", "expected_node_type": "item",
+                    "replacement_node_type": "dnd5e:item",
+                }],
+            },
+        )
+
+
+def test_sprite_type_change_rejects_untouched_item_only_edge_before_child(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    parent, parent_bytes, runs, request = _sprite_fixture(
+        monkeypatch, tmp_path, include_untouched_possession=True,
+    )
+
+    with pytest.raises(extract_promote.ExtractPromoteError) as caught:
+        service.correct_recap_candidate(request)
+
+    assert caught.value.status_code == 422
+    assert "unchanged incident edge" in str(caught.value)
+    assert set(runs) == {"parent"}
+    assert (tmp_path / parent.components["candidate_graph"].uri).read_bytes() == parent_bytes
+    assert not (tmp_path / "out" / "graph_memory" / "derived_candidates").exists()
 
 
 def test_edge_tuple_batch_rejects_unmapped_entry_without_partial_child(
@@ -743,7 +978,7 @@ def test_v5_request_rejects_duplicate_evidence_target(
         )
 
 
-def test_v5_valid_batch_cannot_hide_an_inherited_invalid_anchor(
+def test_v5_valid_batch_preserves_inherited_invalid_anchor_as_held(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     parent, parent_bytes, runs, request = _evidence_batch_fixture(monkeypatch, tmp_path)
@@ -760,11 +995,12 @@ def test_v5_valid_batch_cannot_hide_an_inherited_invalid_anchor(
     runs["parent"] = parent
     request = request.model_copy(update={"parent_candidate_sha256": _sha(changed_parent_bytes)})
 
-    with pytest.raises(extract_promote.ExtractPromoteError):
-        service.correct_recap_candidate(request)
-    assert set(runs) == {"parent"}
+    response = service.correct_recap_candidate(request)
+    child = runs[response.run_id]
+    assert response.semantic_state == "held"
+    projected = json.loads((tmp_path / child.components["candidate_graph"].uri).read_bytes())
+    assert next(n for n in projected["nodes"] if n["node_id"] == "chamber")["evidence_refs"] == chamber["evidence_refs"]
     assert (tmp_path / "parent.json").read_bytes() == changed_parent_bytes
-    assert not (tmp_path / "out" / "graph_memory" / "derived_candidates").exists()
 
 
 def test_v3_session_action_child_replays_and_stays_held(
@@ -848,6 +1084,22 @@ def test_immutable_child_replays_and_stays_held(
     assert service.correct_recap_candidate(_request(parent_bytes)) == response
     assert parent_bytes == (tmp_path / "parent.json").read_bytes()
     child = runs[response.run_id]
+    manifest = child.lineage["semantic_candidate_manifest"]
+    assert manifest == {
+        "schema": service.MANIFEST_SCHEMA,
+        "node_description_replacements": [{
+            "node_id": "mira",
+            "original_description": "Mira carried an uncertain object.",
+            "replacement_description": "Mira found the key under the bridge.",
+        }],
+        "omitted_edge_ids": [],
+    }
+    expected_manifest_sha = _sha(service._canonical_bytes(manifest))
+    assert response.manifest_sha256 == expected_manifest_sha
+    assert response.run_id == str(uuid5(
+        NAMESPACE_URL,
+        f"dmb:{service.DERIVATION}:parent:{_sha(parent_bytes)}:{expected_manifest_sha}",
+    ))
     assert child.status == ExtractionRunStatus.REVIEWABLE
     assert child.lineage["semantic_disposition"]["state"] == "held"
     assert service.verify_child_replay(child, parent, tmp_path)
@@ -899,6 +1151,112 @@ def test_replay_refuses_stale_description_and_edge_dependency() -> None:
     assert parent["edges"] == [{"edge_id": "e"}]
 
 
+def test_v1_label_correction_changes_only_label_and_stays_held(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    source_text = "A locked door at the opposite end of the bridge is used by two guards.\n"
+    parent, parent_bytes, runs = _fixture(
+        monkeypatch, tmp_path, source_text=source_text,
+        node_id="node:location:locked-door-to-guard-room",
+        node_label="locked door to the guard room",
+    )
+    original = json.loads(parent_bytes)
+    request = _label_request(parent_bytes)
+    response = service.correct_recap_candidate(request)
+    child = runs[response.run_id]
+
+    manifest = child.lineage["semantic_candidate_manifest"]
+    assert set(manifest) == {"schema", "node_description_replacements", "omitted_edge_ids", "node_label_replacements"}
+    assert manifest["node_label_replacements"] == [{
+        "node_id": "node:location:locked-door-to-guard-room",
+        "original_label": "locked door to the guard room",
+        "replacement_label": "door used by guards",
+    }]
+    assert child.lineage["semantic_disposition"]["state"] == "held"
+    assert service.verify_child_replay(child, parent, tmp_path)
+    assert response == service.correct_recap_candidate(request)
+    assert (tmp_path / parent.components["candidate_graph"].uri).read_bytes() == parent_bytes
+
+    candidate = json.loads((tmp_path / child.components["candidate_graph"].uri).read_bytes())
+    expected = copy.deepcopy(original)
+    expected["nodes"][0]["label"] = "door used by guards"
+    assert candidate == expected
+    assert candidate["nodes"][0]["node_id"] == "node:location:locked-door-to-guard-room"
+    assert candidate["nodes"][0]["description"] == original["nodes"][0]["description"]
+    assert candidate["nodes"][0]["evidence_refs"] == original["nodes"][0]["evidence_refs"]
+    assert candidate["edges"] == original["edges"]
+    assessment = assess_recap_semantics(
+        child, parent=parent,
+        source_revision_id=_sha((tmp_path / "source.md").read_bytes()), root=tmp_path,
+    )
+    assert assessment.marked and not assessment.accepted
+    basis = RecapSemanticBasisV2.model_validate(assessment.basis)
+    _assert_recap_semantic_basis(child, parent, basis)
+    malformed_manifest = copy.deepcopy(manifest)
+    malformed_manifest["node_label_replacements"][0]["extra"] = "unbounded patch"
+    malformed_sha = _sha(service._canonical_bytes(malformed_manifest))
+    malformed_child = child.model_copy(update={
+        "lineage": {
+            **child.lineage,
+            "manifest_sha256": malformed_sha,
+            "semantic_candidate_manifest": malformed_manifest,
+        },
+    })
+    with pytest.raises(ApplicationStateConflictError, match="node label manifest is malformed"):
+        _assert_recap_semantic_basis(
+            malformed_child, parent, basis.model_copy(update={"manifest_sha256": malformed_sha}),
+        )
+
+
+def test_label_replay_rejects_stale_or_malformed_preimage_without_mutation() -> None:
+    parent = {"nodes": [{"node_id": "n", "label": "old", "description": "kept"}], "edges": []}
+    manifest = {
+        "schema": service.MANIFEST_SCHEMA,
+        "node_description_replacements": [],
+        "omitted_edge_ids": [],
+        "node_label_replacements": [{
+            "node_id": "n", "original_label": "old", "replacement_label": "new",
+        }],
+    }
+    replayed = service.replay_candidate(parent, manifest)
+    assert replayed == {"nodes": [{"node_id": "n", "label": "new", "description": "kept"}], "edges": []}
+    assert parent["nodes"][0]["label"] == "old"
+
+    stale = copy.deepcopy(manifest)
+    stale["node_label_replacements"][0]["original_label"] = "stale"
+    with pytest.raises(ValueError, match="stale"):
+        service.replay_candidate(parent, stale)
+    malformed = copy.deepcopy(manifest)
+    malformed["node_label_replacements"][0]["extra"] = "patch"
+    with pytest.raises(ValueError, match="malformed"):
+        service.replay_candidate(parent, malformed)
+    assert parent["nodes"][0]["label"] == "old"
+
+
+def test_stale_label_request_is_rejected_before_child_write(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    parent, parent_bytes, runs = _fixture(
+        monkeypatch, tmp_path,
+        source_text="A locked door at the opposite end of the bridge is used by two guards.\n",
+        node_id="node:location:locked-door-to-guard-room",
+        node_label="locked door to the guard room",
+    )
+    request = _label_request(parent_bytes).model_copy(update={
+        "node_label_replacements": [RecapNodeLabelReplacement(
+            node_id="node:location:locked-door-to-guard-room",
+            original_label="different stale label",
+            replacement_label="door used by guards",
+        )],
+    })
+
+    with pytest.raises(extract_promote.ExtractPromoteError, match="stale"):
+        service.correct_recap_candidate(request)
+    assert set(runs) == {"parent"}
+    assert (tmp_path / parent.components["candidate_graph"].uri).read_bytes() == parent_bytes
+    assert not (tmp_path / "out" / "graph_memory" / "derived_candidates").exists()
+
+
 def test_request_enforces_one_plus_one_bounded_shape() -> None:
     with pytest.raises(ValueError):
         RecapCandidateCorrectionRequest(parent_run_id="p", parent_candidate_sha256="a" * 64)
@@ -907,6 +1265,16 @@ def test_request_enforces_one_plus_one_bounded_shape() -> None:
             parent_run_id="p", parent_candidate_sha256="a" * 64,
             omitted_edge_ids=["e1", "e2"],
         )
+    with pytest.raises(ValueError):
+        RecapCandidateCorrectionRequest(
+            parent_run_id="p", parent_candidate_sha256="a" * 64,
+            node_label_replacements=[
+                RecapNodeLabelReplacement(node_id="n1", original_label="old", replacement_label="new"),
+                RecapNodeLabelReplacement(node_id="n2", original_label="old", replacement_label="new"),
+            ],
+        )
+    with pytest.raises(ValueError):
+        RecapNodeLabelReplacement(node_id="n", original_label="same", replacement_label="same")
 
 
 def test_http_route_creates_held_child_and_rejects_wrong_path(
@@ -1427,3 +1795,567 @@ def test_v2_hold_and_confirm_binding_guard_world_writer(
     with pytest.raises(extract_promote.ExtractPromoteError) as drifted:
         extract_promote._assert_recap_semantics_at_confirm(locator, {"effect": {EFFECT_KEY: binding}})
     assert drifted.value.code == "recap_semantic_hold"
+
+
+def _split_fixture(monkeypatch, root, *, duplicate_quotes=False, foreign_span=False, holder_kind="node"):
+    lines = [""] * 22
+    lines[15] = "Mira rests in the room."
+    lines[19] = "Mira breaks a tunnel and plants a shield. Echo."
+    lines[21] = "Mira activates a synthetic aura. Echo."
+    source_text = "\n".join(lines) + "\n"
+    parent, raw, runs = _fixture(monkeypatch, root, source_text=source_text)
+    payload = json.loads(raw)
+    source_sha = _sha(source_text.encode())
+    artifact = parent.source_artifact_id
+    spans = [{
+        "source_span_id": f"{artifact}:span:{source_sha[:12]}:{line}-{line}",
+        "source_ref_id": "ref:mira", "source_artifact_id": artifact,
+        "content_sha256": source_sha, "start_line": line, "end_line": line,
+    } for line in (16, 20, 22)]
+    if foreign_span:
+        spans[2]["source_artifact_id"] = "foreign-artifact"
+    index = {"schema": "dmb_source_span_index_v1", "version": "1.0", "source_artifact_id": artifact, "source_ref_id": "ref:mira", "content_sha256": source_sha, "spans": spans}
+    index_bytes = service._canonical_bytes(index)
+    (root / "spans.json").write_bytes(index_bytes)
+    original_ref = payload["nodes"][0]["evidence_refs"][0]
+    original_ref["source_span_ref_id"] = spans[0]["source_span_id"]
+    original_ref["anchor_quotes"] = [lines[15]]
+    target = copy.deepcopy(original_ref)
+    target.update({
+        "source_span_ref_id": spans[1]["source_span_id"],
+        "source_anchor_id": f"anchor:{spans[1]['source_span_id']}",
+        "label": spans[1]["source_span_id"],
+        "anchor_quotes": ["Echo."] * 3 if duplicate_quotes else ["breaks a tunnel", "plants a shield", "activates a synthetic aura"],
+    })
+    after = copy.deepcopy(original_ref)
+    after["source_span_ref_id"] = spans[2]["source_span_id"]
+    after["anchor_quotes"] = ["Echo."]
+    payload["nodes"][0]["evidence_refs"] = [original_ref, target, after]
+    retained = copy.deepcopy(payload["nodes"][0])
+    retained.update({"node_id": "room", "node_type": "location", "label": "Room", "evidence_refs": [copy.deepcopy(original_ref)]})
+    payload["nodes"].append(retained)
+    payload["edges"] = [{
+        "edge_id": "e", "from_node_id": "mira", "to_node_id": "room", "relationship_type": "located_in", "label": "rests in", "evidence_refs": [copy.deepcopy(original_ref)], "semantic_state": copy.deepcopy(payload["nodes"][0]["semantic_state"]), "proposed_action": "create", "confidence": "medium",
+    }]
+    if holder_kind == "edge":
+        payload["edges"][0]["evidence_refs"] = copy.deepcopy(payload["nodes"][0]["evidence_refs"])
+        payload["nodes"][0]["evidence_refs"] = [original_ref, after]
+    raw = service._canonical_bytes(payload)
+    (root / "parent.json").write_bytes(raw)
+    components = dict(parent.components)
+    for key, value in (("candidate_graph", raw), ("source_span_index", index_bytes)):
+        components[key] = components[key].model_copy(update={"sha256": _sha(value)})
+    parent = parent.model_copy(update={"components": components})
+    runs["parent"] = parent
+    monkeypatch.setattr(service, "_load_frozen_span_index_for_resolved_run", lambda _resolved: SimpleNamespace(spans=[SimpleNamespace(**span) for span in spans]))
+    body = {
+        "schema": "dmb_recap_candidate_correction_request_v6", "parent_run_id": "parent", "parent_candidate_sha256": _sha(raw),
+        "source_revision_sha256": source_sha, "span_index_sha256": _sha(index_bytes),
+        "evidence_ref_splits": [{
+            "record_kind": holder_kind, "record_id": "mira" if holder_kind == "node" else "e", "evidence_index": 1,
+            "expected_evidence_ref_sha256": _sha(service._canonical_bytes(target)),
+            "parts": [{"source_span_ref_id": spans[1]["source_span_id"], "quote_indices": [0, 1]}, {"source_span_ref_id": spans[2]["source_span_id"], "quote_indices": [2]}],
+        }],
+    }
+    return parent, raw, runs, body
+
+
+def _split_http_app(monkeypatch):
+    import fastapi.dependencies.utils as dependency_utils
+    import fastapi.routing as fastapi_routing
+
+    async def inline_sync(function, *args, **kwargs):
+        return function(*args, **kwargs)
+
+    monkeypatch.setattr(fastapi_routing, "run_in_threadpool", inline_sync)
+    monkeypatch.setattr(dependency_utils, "run_in_threadpool", inline_sync)
+    app = FastAPI()
+    app.include_router(routes.router)
+    app.dependency_overrides[native_graph_gm_dependency] = lambda: NativeGraphPrincipal(subject="test_gm", role="gm", auth_method="local_session")
+    return app
+
+
+@pytest.mark.parametrize("duplicate_quotes", [False, True])
+@pytest.mark.parametrize("holder_kind", ["node", "edge"])
+def test_http_evidence_ref_split_exact_child_is_marked_held(monkeypatch, tmp_path, duplicate_quotes, holder_kind):
+    parent, raw, runs, body = _split_fixture(monkeypatch, tmp_path, duplicate_quotes=duplicate_quotes, holder_kind=holder_kind)
+    source_before = (tmp_path / "source.md").read_bytes()
+    spans_before = (tmp_path / "spans.json").read_bytes()
+    app = _split_http_app(monkeypatch)
+
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            url = "/api/live/extract-promote/runs/parent/recap-candidate-corrections"
+            response = await client.post(url, json=body)
+            assert response.status_code == 200, response.text
+            assert response.json()["schema"] == "dmb_recap_candidate_correction_response_v6"
+            assert response.json()["semanticState"] == "held"
+            assert (await client.post(url, json=body)).json() == response.json()
+            return response.json()
+
+    response = asyncio.run(exercise())
+    child = runs[response["runId"]]
+    original = json.loads(raw)
+    expected = copy.deepcopy(original)
+    holder_collection = "nodes" if holder_kind == "node" else "edges"
+    before, target, after = original[holder_collection][0]["evidence_refs"]
+    outputs = []
+    for part in body["evidence_ref_splits"][0]["parts"]:
+        ref = copy.deepcopy(target)
+        ref.update({"source_span_ref_id": part["source_span_ref_id"], "source_anchor_id": f"anchor:{part['source_span_ref_id']}", "label": part["source_span_ref_id"], "anchor_quotes": [target["anchor_quotes"][i] for i in part["quote_indices"]]})
+        outputs.append(ref)
+    expected[holder_collection][0]["evidence_refs"] = [before, *outputs, after]
+    assert (tmp_path / child.components["candidate_graph"].uri).read_bytes() == service._canonical_bytes(expected)
+    assert (tmp_path / "parent.json").read_bytes() == raw
+    assert (tmp_path / "source.md").read_bytes() == source_before
+    assert (tmp_path / "spans.json").read_bytes() == spans_before
+    assert child.components["source_artifact"] == parent.components["source_artifact"]
+    assert child.components["source_span_index"] == parent.components["source_span_index"]
+    assert [quote for ref in outputs for quote in ref["anchor_quotes"]] == target["anchor_quotes"]
+    assert service.verify_child_replay(child, parent, tmp_path)
+    assessment = assess_recap_semantics(child, parent=parent, source_revision_id=_sha(source_before), root=tmp_path)
+    assert assessment.marked and not assessment.accepted
+    assert child.lineage["semantic_disposition"]["state"] == "held"
+    basis = RecapSemanticBasisV7.model_validate(assessment.basis)
+    assert basis.digest() == response["semanticBasisSha256"]
+    assert basis.manifest_sha256 == child.lineage["manifest_sha256"] == response["manifestSha256"]
+    _assert_recap_semantic_basis(child, parent, basis)
+    with pytest.raises(ValueError, match="not accepted"):
+        accepted_effect_binding(child, assessment)
+    accepted_lineage = copy.deepcopy(child.lineage)
+    accepted_lineage["semantic_disposition"] = {"version": 1, "state": "accepted", "basis_sha256": basis.digest(), "review_decision_ref": "review:split", "reviewer_id": "reviewer", "decided_at": "2026-10-07T00:00:00Z"}
+    accepted_child = child.model_copy(update={"lineage": accepted_lineage})
+    accepted = assess_recap_semantics(accepted_child, parent=parent, source_revision_id=_sha(source_before), root=tmp_path)
+    binding = accepted_effect_binding(accepted_child, accepted)
+    assert binding["derivation"] == service.DERIVATION_V6
+    assert binding["manifest_schema"] == service.MANIFEST_SCHEMA_V6
+    assert binding["manifest_sha256"] == basis.manifest_sha256
+    # A rehashed malformed stored manifest must fail replay and APP-STATE shape checks.
+    bad_manifest = copy.deepcopy(child.lineage["semantic_candidate_manifest"])
+    bad_manifest["evidence_ref_splits"][0]["parts"][0]["quote_indices"] = [1, 0]
+    bad_sha = _sha(service._canonical_bytes(bad_manifest))
+    bad_child = child.model_copy(update={"lineage": {**child.lineage, "semantic_candidate_manifest": bad_manifest, "manifest_sha256": bad_sha}})
+    assert not service.verify_child_replay(bad_child, parent, tmp_path)
+    with pytest.raises(ApplicationStateConflictError, match="split manifest"):
+        _assert_recap_semantic_basis(bad_child, parent, basis.model_copy(update={"manifest_sha256": bad_sha}))
+    assert not assess_recap_semantics(bad_child, parent=parent, source_revision_id=_sha(source_before), root=tmp_path).accepted
+
+
+@pytest.mark.parametrize("fault", ["stale_parent", "stale_ref", "source_pin", "index_pin", "lost", "added", "duplicate", "reordered", "same_span", "unindexed", "foreign", "bad_literal", "extra_json", "mixed", "too_many", "bool_index"])
+def test_http_evidence_ref_split_rejects_before_any_write(monkeypatch, tmp_path, fault):
+    parent, raw, runs, body = _split_fixture(monkeypatch, tmp_path, foreign_span=fault == "foreign")
+    operation = body["evidence_ref_splits"][0]
+    if fault == "stale_parent":
+        body["parent_candidate_sha256"] = "0" * 64
+    elif fault == "stale_ref":
+        operation["expected_evidence_ref_sha256"] = "0" * 64
+    elif fault == "source_pin":
+        body["source_revision_sha256"] = "0" * 64
+    elif fault == "index_pin":
+        body["span_index_sha256"] = "0" * 64
+    elif fault in ("lost", "added", "duplicate", "reordered"):
+        operation["parts"][0]["quote_indices"] = {"lost": [0], "added": [0, 1, 2], "duplicate": [0, 0], "reordered": [1, 0]}[fault]
+        if fault == "lost":
+            operation["parts"][1]["quote_indices"] = [1]
+        if fault == "added":
+            operation["parts"][1]["quote_indices"] = [3]
+    elif fault == "same_span":
+        operation["parts"][1]["source_span_ref_id"] = operation["parts"][0]["source_span_ref_id"]
+    elif fault == "unindexed":
+        operation["parts"][1]["source_span_ref_id"] = "span:missing"
+    elif fault == "bad_literal":
+        operation["parts"].reverse()
+        operation["parts"][0]["quote_indices"] = [0, 1]
+        operation["parts"][1]["quote_indices"] = [2]
+    elif fault == "extra_json":
+        operation["replacement_ref"] = {"anchor_quotes": ["fabricated"]}
+    elif fault == "mixed":
+        body["omitted_edge_ids"] = ["e"]
+    elif fault == "too_many":
+        body["evidence_ref_splits"] *= 2
+    elif fault == "bool_index":
+        operation["parts"][0]["quote_indices"] = [False, 1]
+
+    def forbidden_write(*args, **kwargs):
+        pytest.fail("invalid split reached a child write")
+
+    monkeypatch.setattr(service, "_write_child_candidate", forbidden_write)
+    monkeypatch.setattr(service, "create_extraction_run", forbidden_write)
+    app = _split_http_app(monkeypatch)
+
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post("/api/live/extract-promote/runs/parent/recap-candidate-corrections", json=body)
+            assert response.status_code in (409, 422), response.text
+
+    asyncio.run(exercise())
+    assert set(runs) == {"parent"}
+    assert (tmp_path / "parent.json").read_bytes() == raw
+    assert not (tmp_path / "out").exists()
+
+
+def test_split_decision_dispatches_exact_basis_to_appstate_cas(monkeypatch, tmp_path):
+    from application_state.ingest import service as ingest_service
+    from apps.live_control_server.services import source_artifact_registry
+
+    parent, _, runs, body = _split_fixture(monkeypatch, tmp_path)
+    response = service.correct_recap_candidate(RecapCandidateCorrectionRequestV6.model_validate(body))
+    child = runs[response.run_id]
+    monkeypatch.setattr(extract_promote, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(graph_run_registry, "get_reviewable_extraction_run", lambda _root, _id: child)
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, _id: parent)
+    monkeypatch.setattr(source_artifact_registry, "get_source_artifact", lambda _root, _id: SimpleNamespace(content_sha256=_sha((tmp_path / "source.md").read_bytes())))
+    seen = []
+
+    def record(run_id, *, expected_revision, basis, decision):
+        assert isinstance(basis, RecapSemanticBasisV7)
+        assert basis.digest() == response.semantic_basis_sha256
+        assert basis.derivation == service.DERIVATION_V6
+        assert basis.manifest_schema == service.MANIFEST_SCHEMA_V6
+        _assert_recap_semantic_basis(child, parent, basis)
+        seen.append((run_id, expected_revision))
+        decided = child.model_copy(deep=True, update={"revision": expected_revision + 1})
+        decided.lineage["semantic_disposition"] = {"version": 1, "state": decision.state, "basis_sha256": basis.digest(), "review_decision_ref": decision.review_decision_ref, "reviewer_id": decision.reviewer_id, "decided_at": "2026-10-07T00:00:00Z", "from_revision": expected_revision}
+        return decided
+
+    monkeypatch.setattr(ingest_service, "record_recap_semantic_disposition", record)
+    receipt = extract_promote.decide_recap_semantic_disposition(child.run_id, RecapSemanticDecisionRequest(expected_revision=child.revision, candidate_sha256=response.candidate_sha256, decision="accepted", review_decision_ref="review:split"), reviewer_id="gm")
+    assert receipt.state == "accepted" and receipt.basis_sha256 == response.semantic_basis_sha256
+    assert seen == [(child.run_id, child.revision)]
+
+
+@pytest.mark.parametrize("version,manifest_sha,child_id", [
+    (1, "53c547b5bee2ba5de80c04c17134c9f4d5a8d47fb7651b6c17f7878596b400a4", "61a59049-3686-5680-b569-5b8816497b19"),
+    (2, "7736364055515ab421783121fa7e7f76c8d42fd723393ad52e08475f8a3b6b24", "d268e534-22c9-5e3e-af92-6f8ef73d2117"),
+    (3, "118f051572259d43b205e0f249b32e539c51619172e75f1dd3c2fe5240a8545c", "3ab3a671-f8b5-5b42-b68d-f8c4d0d7b688"),
+    (4, "7816fd4a2bc04fb534c55cad4fc78a108dfd4dc7d5bdb6c4d67074632c562922", "2abce1ad-9326-5d4e-b39f-8e9e73963a9b"),
+    (5, "a8eba477c9e072d012d8660347abb56d13da0a0690b499cadc10581dfc8b7bca", "011fb4e0-6d73-583f-9754-757eb9e0ed61"),
+])
+def test_split_keeps_main_v1_through_v5_manifest_and_child_identity(monkeypatch, tmp_path, version, manifest_sha, child_id):
+    # Golden witnesses measured on the unchanged pinned main, not the held lanes.
+    if version == 1:
+        parent, raw, runs = _fixture(monkeypatch, tmp_path)
+        request = _request(raw)
+    elif version == 2:
+        parent, raw, runs = _fixture(monkeypatch, tmp_path, actions=True)
+        request = _action_request(raw)
+    elif version == 3:
+        parent, raw, runs = _tuple_fixture(monkeypatch, tmp_path)
+        request = _tuple_request(raw)
+    elif version == 4:
+        parent, raw, runs, request, _ = _span_relocation_fixture(monkeypatch, tmp_path)
+    else:
+        parent, raw, runs, request = _evidence_batch_fixture(monkeypatch, tmp_path)
+    response = service.correct_recap_candidate(request)
+    assert response.manifest_sha256 == manifest_sha
+    assert response.run_id == child_id
+    assert service.verify_child_replay(runs[child_id], parent, tmp_path)
+    assert (tmp_path / "parent.json").read_bytes() == raw
+
+
+def _omission_fixture(monkeypatch, root, fault=None):
+    parent, _, runs = _fixture(monkeypatch, root)
+    payload = json.loads((root / "parent.json").read_bytes())
+    retained = copy.deepcopy(payload["nodes"][0])
+    retained["node_id"] = "retained"
+    payload["nodes"].append(retained)
+    if fault == "ambiguous":
+        payload["nodes"].append(copy.deepcopy(payload["nodes"][0]))
+    if fault == "missing":
+        payload["nodes"] = [retained]
+    if fault in ("incoming", "outgoing", "self_loop"):
+        payload["edges"] = [{
+            "edge_id": "incident",
+            "from_node_id": "retained" if fault == "incoming" else "mira",
+            "to_node_id": "retained" if fault == "outgoing" else "mira",
+        }]
+    if fault in ("beats", "proposed_writes", "ignored_items", "deferred_items"):
+        payload[fault] = [{"nested": [{"target": "mira"}]}]
+    raw = service._canonical_bytes(payload)
+    (root / "parent.json").write_bytes(raw)
+    components = dict(parent.components)
+    components["candidate_graph"] = components["candidate_graph"].model_copy(update={"sha256": _sha(raw)})
+    parent = parent.model_copy(update={"components": components})
+    runs["parent"] = parent
+    request = RecapCandidateCorrectionRequest(
+        parent_run_id="parent", parent_candidate_sha256=_sha(raw),
+        node_omissions=[RecapCandidateNodeOmission(
+            node_id="mira", expected_node_sha256=_sha(service._canonical_bytes(payload["nodes"][0])),
+        )],
+    )
+    if fault == "stale":
+        request.node_omissions[0].expected_node_sha256 = "0" * 64
+    return parent, raw, runs, request
+
+
+def test_http_node_omission_creates_exact_held_child(monkeypatch, tmp_path):
+    parent, raw, runs, request = _omission_fixture(monkeypatch, tmp_path)
+    import fastapi.dependencies.utils as dependency_utils
+    import fastapi.routing as fastapi_routing
+
+    async def inline_sync(function, *args, **kwargs):
+        return function(*args, **kwargs)
+
+    monkeypatch.setattr(fastapi_routing, "run_in_threadpool", inline_sync)
+    monkeypatch.setattr(dependency_utils, "run_in_threadpool", inline_sync)
+    app = FastAPI()
+    app.include_router(routes.router)
+    app.dependency_overrides[native_graph_gm_dependency] = lambda: NativeGraphPrincipal(
+        subject="test_gm", role="gm", auth_method="local_session",
+    )
+    body = request.model_dump(mode="json", by_alias=True)
+    url = "/api/live/extract-promote/runs/parent/recap-candidate-corrections"
+
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            mismatch = await client.post(url, json={**body, "parentRunId": "other"})
+            assert mismatch.status_code == 422
+            wrong_parent = await client.post(url, json={**body, "parentCandidateSha256": "0" * 64})
+            assert wrong_parent.status_code == 409
+            assert set(runs) == {"parent"}
+            response = await client.post(url, json=body)
+            assert response.status_code == 200, response.text
+            assert response.json()["semanticState"] == "held"
+            assert (await client.post(url, json=body)).json() == response.json()
+            return response.json()["runId"]
+
+    child = runs[asyncio.run(exercise())]
+    original = json.loads(raw)
+    expected = copy.deepcopy(original)
+    expected["nodes"] = [original["nodes"][1]]
+    assert (tmp_path / child.components["candidate_graph"].uri).read_bytes() == service._canonical_bytes(expected)
+    assert (tmp_path / "parent.json").read_bytes() == raw
+    assert child.components["source_artifact"] == parent.components["source_artifact"]
+    assert child.components["source_span_index"] == parent.components["source_span_index"]
+    assert service.verify_child_replay(child, parent, tmp_path)
+    assessment = assess_recap_semantics(child, parent=parent, source_revision_id=_sha((tmp_path / "source.md").read_bytes()), root=tmp_path)
+    assert assessment.marked and not assessment.accepted
+    basis = RecapSemanticBasisV2.model_validate(assessment.basis)
+    _assert_recap_semantic_basis(child, parent, basis)
+    # Stored manifests must enforce the same operation shape as the route/replay.
+    manifest = copy.deepcopy(child.lineage["semantic_candidate_manifest"])
+    manifest["node_omissions"][0]["cascade"] = True
+    digest = _sha(service._canonical_bytes(manifest))
+    malformed = child.model_copy(update={"lineage": {**child.lineage, "semantic_candidate_manifest": manifest, "manifest_sha256": digest}})
+    with pytest.raises(ApplicationStateConflictError, match="node omission manifest"):
+        _assert_recap_semantic_basis(malformed, parent, basis.model_copy(update={"manifest_sha256": digest}))
+    assert not service.verify_child_replay(malformed, parent, tmp_path)
+
+
+@pytest.mark.parametrize("fault", ["ambiguous", "missing", "stale", "incoming", "outgoing", "self_loop", "beats", "proposed_writes", "ignored_items", "deferred_items"])
+def test_node_omission_rejects_before_any_write(monkeypatch, tmp_path, fault):
+    parent, raw, runs, request = _omission_fixture(monkeypatch, tmp_path, fault)
+    from apps.live_control_server.services.extract_promote import ExtractPromoteError
+
+    def forbidden_write(*args, **kwargs):
+        pytest.fail("invalid omission reached a child write")
+
+    monkeypatch.setattr(service, "_write_child_candidate", forbidden_write)
+    monkeypatch.setattr(service, "create_extraction_run", forbidden_write)
+    with pytest.raises(ExtractPromoteError) as error:
+        service.correct_recap_candidate(request)
+    assert error.value.status_code == 409
+    assert set(runs) == {"parent"}
+    assert not (tmp_path / "out").exists()
+    assert (tmp_path / "parent.json").read_bytes() == raw
+
+
+def test_node_omission_contract_is_bounded_and_exact():
+    operation = {"node_id": "n", "expected_node_sha256": "a" * 64}
+    body = {"parent_run_id": "p", "parent_candidate_sha256": "b" * 64, "node_omissions": [operation]}
+    for changes in (
+        {"node_omissions": [operation, operation]},
+        {"node_omissions": [{**operation, "expected_node_sha256": "wrong"}]},
+        {"node_omissions": [{**operation, "cascade": True}]},
+        {"omitted_edge_ids": ["e"]},
+    ):
+        with pytest.raises(ValueError):
+            RecapCandidateCorrectionRequest.model_validate({**body, **changes})
+    parent = {"nodes": [{"node_id": "n"}], "edges": []}
+    manifest = {"schema": service.MANIFEST_SCHEMA, "node_description_replacements": [], "omitted_edge_ids": [], "node_omissions": [operation]}
+    for operations in ([], [operation, operation], [{**operation, "cascade": True}]):
+        with pytest.raises(ValueError):
+            service.replay_candidate(parent, {**manifest, "node_omissions": operations})
+
+
+def test_legacy_manifest_identity_ignores_unused_node_omission(monkeypatch, tmp_path):
+    from uuid import NAMESPACE_URL, uuid5
+    parent, raw, runs = _fixture(monkeypatch, tmp_path)
+    request = _request(raw)
+    response = service.correct_recap_candidate(request)
+    manifest = {
+        "schema": "dmb_recap_semantic_candidate_manifest_v1",
+        "node_description_replacements": [{"node_id": "mira", "original_description": "Mira carried an uncertain object.", "replacement_description": "Mira found the key under the bridge."}],
+        "omitted_edge_ids": [],
+    }
+    digest = _sha(service._canonical_bytes(manifest))
+    assert runs[response.run_id].lineage["semantic_candidate_manifest"] == manifest
+    assert digest == "53c547b5bee2ba5de80c04c17134c9f4d5a8d47fb7651b6c17f7878596b400a4"
+    assert response.manifest_sha256 == digest
+    assert response.run_id == "61a59049-3686-5680-b569-5b8816497b19"
+    assert response.run_id == str(uuid5(NAMESPACE_URL, f"dmb:{service.DERIVATION}:parent:{_sha(raw)}:{digest}"))
+    assert service.verify_child_replay(runs[response.run_id], parent, tmp_path)
+
+
+def _multiple_bad_quote_fixture(monkeypatch, root):
+    parent, raw, runs, split = _split_fixture(monkeypatch, root)
+    payload = json.loads(raw)
+    payload["nodes"][0]["evidence_refs"][0]["anchor_quotes"] = ["unchanged bad first quote"]
+    payload["nodes"][1]["evidence_refs"][0]["anchor_quotes"] = ["unchanged bad second quote"]
+    raw = service._canonical_bytes(payload)
+    (root / "parent.json").write_bytes(raw)
+    components = dict(parent.components)
+    components["candidate_graph"] = components["candidate_graph"].model_copy(update={"sha256": _sha(raw)})
+    parent = parent.model_copy(update={"components": components})
+    runs["parent"] = parent
+    split["parent_candidate_sha256"] = _sha(raw)
+    return parent, raw, runs, split
+
+
+def test_http_incremental_description_split_and_strict_acceptance(monkeypatch, tmp_path):
+    from application_state.ingest import service as ingest_service
+    from apps.live_control_server.services import source_artifact_registry
+    parent, raw, runs, split = _multiple_bad_quote_fixture(monkeypatch, tmp_path)
+    frozen = parent.model_dump(mode="json")
+    app = _split_http_app(monkeypatch)
+    monkeypatch.setattr(extract_promote, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(graph_run_registry, "get_reviewable_extraction_run", lambda _root, key: runs[key])
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, key: runs[key])
+    monkeypatch.setattr(source_artifact_registry, "get_source_artifact", lambda _root, _id: SimpleNamespace(content_sha256=parent.components["source_artifact"].sha256))
+    monkeypatch.setattr(extract_promote, "resolve_first_world_capability", lambda **_kwargs: SimpleNamespace(world_id="w", world_state="initialized", eligible=True, reason=None))
+    # Add only review metadata to the frozen-component resolver; quote validation stays real.
+    original_resolver = service.resolve_promotable_ingest_run
+    def resolve(key, **kwargs):
+        result = original_resolver(key, **kwargs)
+        result.status = runs[key].status.value
+        result.diagnostics = []
+        return result
+    monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", resolve)
+    calls = []
+    def record(key, *, expected_revision, basis, decision):
+        run = runs[key]
+        assert run.revision == expected_revision
+        _assert_recap_semantic_basis(run, runs[run.lineage["parent_run_id"]], basis)
+        calls.append(key)
+        updated = run.model_copy(deep=True, update={"revision": expected_revision + 1})
+        updated.lineage["semantic_disposition"] = {"version": 1, "state": decision.state,
+            "basis_sha256": basis.digest(), "review_decision_ref": decision.review_decision_ref,
+            "reviewer_id": decision.reviewer_id, "decided_at": "2026-10-07T00:00:00Z"}
+        runs[key] = updated
+        return updated
+    monkeypatch.setattr(ingest_service, "record_recap_semantic_disposition", record)
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            url = "/api/live/extract-promote/runs/parent/recap-candidate-corrections"
+            description = RecapCandidateCorrectionRequest(parent_run_id="parent", parent_candidate_sha256=_sha(raw),
+                node_description_replacements=[RecapNodeDescriptionReplacement(node_id="mira",
+                    original_description=json.loads(raw)["nodes"][0]["description"], replacement_description="Mira rests in the room.")])
+            desc = await client.post(url, json=description.model_dump(mode="json", by_alias=True))
+            assert desc.status_code == 200, desc.text
+            assert desc.json()["semanticState"] == "held"
+            assert (await client.post(url, json=description.model_dump(mode="json", by_alias=True))).json() == desc.json()
+            separated = await client.post(url, json=split)
+            assert separated.status_code == 200, separated.text
+            key = separated.json()["runId"]
+            child = runs[key]
+            assert service.verify_child_replay(child, parent, tmp_path)
+            assert child.components["source_artifact"] == parent.components["source_artifact"]
+            assert child.components["source_span_index"] == parent.components["source_span_index"]
+            view = await client.get(f"/api/live/extract-promote/runs/{key}/review-package")
+            assert view.status_code == 200, view.text
+            assert view.json()["invalidEvidenceCount"] == 2
+            binding = json.loads(next(d.split(":",1)[1] for d in view.json()["diagnostics"] if d.startswith("unresolved_quote_binding:")))
+            assert binding["candidate_sha256"] == separated.json()["candidateSha256"]
+            assert binding["source_sha256"] == parent.components["source_artifact"].sha256
+            assert binding["span_index_sha256"] == parent.components["source_span_index"].sha256
+            assert len(binding["occurrences"]) == 2
+            decision = {"expectedRevision": child.revision, "candidateSha256": separated.json()["candidateSha256"],
+                "decision": "accepted", "reviewDecisionRef": "review:test"}
+            refused = await client.post(f"/api/live/extract-promote/runs/{key}/semantic-disposition", json=decision)
+            assert refused.status_code == 422, refused.text
+            assert calls == []
+            payload = json.loads((tmp_path / child.components["candidate_graph"].uri).read_bytes())
+            replacements = []
+            for kind, identifier in [("node", "mira"), ("node", "room")]:
+                ref = next(n for n in payload["nodes"] if n["node_id"] == identifier)["evidence_refs"][0]
+                replacements.append(RecapCandidateEvidenceReplacementV5(record_kind=kind, record_id=identifier, evidence_index=0,
+                    expected_source_ref_id=ref["source_ref_id"], expected_source_artifact_id=ref["source_artifact_id"],
+                    expected_source_span_ref_id=ref["source_span_ref_id"], replacement_source_span_ref_id=ref["source_span_ref_id"],
+                    expected_anchor_quotes=ref["anchor_quotes"], replacement_anchor_quotes=["Mira rests in the room."]))
+            repaired = RecapCandidateCorrectionRequestV5(schema="dmb_recap_candidate_correction_request_v5",
+                parent_run_id=key, parent_candidate_sha256=separated.json()["candidateSha256"], evidence_replacements=replacements)
+            result = await client.post(f"/api/live/extract-promote/runs/{key}/recap-candidate-corrections", json=repaired.model_dump(mode="json",by_alias=True))
+            assert result.status_code == 200, result.text
+            ready_id = result.json()["runId"]
+            ready = runs[ready_id]
+            accepted = await client.post(f"/api/live/extract-promote/runs/{ready_id}/semantic-disposition",
+                json={**decision, "expectedRevision": ready.revision, "candidateSha256": result.json()["candidateSha256"]})
+            assert accepted.status_code == 200, accepted.text
+            assert calls == [ready_id]
+            assert parent.model_dump(mode="json") == frozen
+            assert (tmp_path / "parent.json").read_bytes() == raw
+    asyncio.run(exercise())
+
+
+def test_changed_invalid_reference_rejected_before_child_write(monkeypatch, tmp_path):
+    parent, raw, runs, split = _multiple_bad_quote_fixture(monkeypatch, tmp_path)
+    ref = json.loads(raw)["nodes"][0]["evidence_refs"][0]
+    request = RecapCandidateCorrectionRequestV5(schema="dmb_recap_candidate_correction_request_v5",
+        parent_run_id="parent", parent_candidate_sha256=_sha(raw), evidence_replacements=[RecapCandidateEvidenceReplacementV5(
+            record_kind="node", record_id="mira", evidence_index=0,
+            expected_source_ref_id=ref["source_ref_id"], expected_source_artifact_id=ref["source_artifact_id"],
+            expected_source_span_ref_id=ref["source_span_ref_id"], expected_anchor_quotes=ref["anchor_quotes"],
+            replacement_source_span_ref_id=split["evidence_ref_splits"][0]["parts"][0]["source_span_ref_id"],
+            replacement_anchor_quotes=ref["anchor_quotes"])])
+    app = _split_http_app(monkeypatch)
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url="http://test") as client:
+            response = await client.post("/api/live/extract-promote/runs/parent/recap-candidate-corrections",json=request.model_dump(mode="json",by_alias=True))
+            assert response.status_code == 422
+    asyncio.run(exercise())
+    assert set(runs) == {"parent"}
+    assert not (tmp_path / "out" / "graph_memory" / "derived_candidates").exists()
+    assert (tmp_path / "parent.json").read_bytes() == raw
+
+
+@pytest.mark.parametrize("label_target", ["mira", "retained"])
+def test_node_omission_cannot_mix_with_label_correction(monkeypatch, tmp_path, label_target):
+    parent, raw, runs, omission = _omission_fixture(monkeypatch, tmp_path)
+    label = RecapNodeLabelReplacement(node_id=label_target, original_label="Mira", replacement_label="Corrected Mira")
+    body = omission.model_dump(mode="json", by_alias=True)
+    body["nodeLabelReplacements"] = [label.model_dump(mode="json", by_alias=True)]
+    with pytest.raises(ValueError, match="node omission must be the only"):
+        RecapCandidateCorrectionRequest.model_validate(body)
+    app = _split_http_app(monkeypatch)
+
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post("/api/live/extract-promote/runs/parent/recap-candidate-corrections", json=body)
+            assert response.status_code == 422, response.text
+
+    def forbidden_write(*args, **kwargs):
+        pytest.fail("mixed omission/label reached a child write")
+
+    with monkeypatch.context() as guarded:
+        guarded.setattr(service, "_write_child_candidate", forbidden_write)
+        guarded.setattr(service, "create_extraction_run", forbidden_write)
+        asyncio.run(exercise())
+        # Replay must enforce the same restriction even when model validation is bypassed.
+        with pytest.raises(ValueError, match="node omission must be the only"):
+            service.correct_recap_candidate(omission.model_copy(update={"node_label_replacements": [label]}))
+    assert set(runs) == {"parent"}
+    assert not (tmp_path / "out").exists()
+    assert (tmp_path / "parent.json").read_bytes() == raw
+
+    response = service.correct_recap_candidate(omission)
+    child = runs[response.run_id]
+    assessment = assess_recap_semantics(child, parent=parent, source_revision_id=_sha((tmp_path / "source.md").read_bytes()), root=tmp_path)
+    basis = RecapSemanticBasisV2.model_validate(assessment.basis)
+    _assert_recap_semantic_basis(child, parent, basis)
+    manifest = copy.deepcopy(child.lineage["semantic_candidate_manifest"])
+    manifest["node_label_replacements"] = [label.model_dump(mode="json")]
+    digest = _sha(service._canonical_bytes(manifest))
+    mixed_child = child.model_copy(update={"lineage": {**child.lineage, "semantic_candidate_manifest": manifest, "manifest_sha256": digest}})
+    assert not service.verify_child_replay(mixed_child, parent, tmp_path)
+    with pytest.raises(ApplicationStateConflictError, match="node omission manifest"):
+        _assert_recap_semantic_basis(mixed_child, parent, basis.model_copy(update={"manifest_sha256": digest}))

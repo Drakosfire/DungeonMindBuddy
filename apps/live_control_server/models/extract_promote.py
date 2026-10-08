@@ -495,6 +495,51 @@ class RecapNodeDescriptionReplacement(_ExtractPromoteModel):
         return value
 
 
+class RecapCandidateNodeOmission(_ExtractPromoteModel):
+    """Remove one isolated node, pinned to its complete canonical record."""
+
+    node_id: str
+    expected_node_sha256: str
+
+    @field_validator("node_id")
+    @classmethod
+    def _node_id(cls, value: str) -> str:
+        if not value or value != value.strip() or len(value) > 256 or any(ch in value for ch in ("\r", "\n", "\t")):
+            raise ValueError("node_id must be nonblank, trimmed and bounded")
+        return value
+
+    @field_validator("expected_node_sha256")
+    @classmethod
+    def _digest(cls, value: str) -> str:
+        if len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
+            raise ValueError("expected_node_sha256 must be lowercase SHA-256 hex")
+        return value
+
+
+class RecapNodeLabelReplacement(_ExtractPromoteModel):
+    node_id: str
+    original_label: str
+    replacement_label: str
+
+    @field_validator("node_id")
+    @classmethod
+    def _node_id(cls, value: str) -> str:
+        return _nonblank(value, field_name="node_id")
+
+    @field_validator("original_label", "replacement_label")
+    @classmethod
+    def _label(cls, value: str, info) -> str:
+        if not value.strip() or value != value.strip() or len(value) > 4096:
+            raise ValueError(f"{info.field_name} must be nonblank, trimmed and bounded")
+        return value
+
+    @model_validator(mode="after")
+    def _changed(self) -> "RecapNodeLabelReplacement":
+        if self.original_label == self.replacement_label:
+            raise ValueError("replacement_label must differ from original_label")
+        return self
+
+
 class RecapCandidateCorrectionRequest(_ExtractPromoteModel):
     schema_: Literal["dmb_recap_candidate_correction_request_v1"] = Field(
         default=RECAP_CANDIDATE_CORRECTION_REQUEST_SCHEMA, alias="schema"
@@ -502,13 +547,19 @@ class RecapCandidateCorrectionRequest(_ExtractPromoteModel):
     parent_run_id: str
     parent_candidate_sha256: str
     node_description_replacements: list[RecapNodeDescriptionReplacement] = Field(default_factory=list, max_length=1)
+    node_label_replacements: list[RecapNodeLabelReplacement] = Field(default_factory=list, max_length=1)
     omitted_edge_ids: list[str] = Field(default_factory=list, max_length=1)
+
+    node_omissions: list[RecapCandidateNodeOmission] = Field(default_factory=list, max_length=1)
 
     @model_validator(mode="after")
     def _bounded(self) -> "RecapCandidateCorrectionRequest":
-        if not self.node_description_replacements and not self.omitted_edge_ids:
+        if self.node_omissions and (self.node_description_replacements or self.node_label_replacements or self.omitted_edge_ids):
+            raise ValueError("node omission must be the only candidate correction")
+        if not self.node_description_replacements and not self.node_label_replacements and not self.omitted_edge_ids and not self.node_omissions:
             raise ValueError("at least one candidate correction is required")
-        if len({v.node_id for v in self.node_description_replacements}) != len(self.node_description_replacements):
+        targets = [v.node_id for v in (*self.node_description_replacements, *self.node_label_replacements)]
+        if len(set(targets)) != len(targets):
             raise ValueError("duplicate node correction")
         if len(set(self.omitted_edge_ids)) != len(self.omitted_edge_ids):
             raise ValueError("duplicate omitted edge")
@@ -643,6 +694,36 @@ class RecapCandidateEdgeTupleReplacement(_ExtractPromoteModel):
         return self
 
 
+class RecapCandidateNodeTypeReplacement(_ExtractPromoteModel):
+    """One exact-preimage type correction in a frozen recap candidate."""
+
+    node_id: str
+    expected_node_type: str
+    replacement_node_type: str
+
+    @field_validator("node_id")
+    @classmethod
+    def _node_id(cls, value: str) -> str:
+        return _nonblank(value, field_name="node_id")
+
+    @field_validator("expected_node_type", "replacement_node_type")
+    @classmethod
+    def _node_type(cls, value: str, info) -> str:
+        if (
+            not value or value != value.strip() or value != value.lower()
+            or len(value) > 64
+            or any(ch in value for ch in ("\r", "\n", "\t"))
+        ):
+            raise ValueError(f"{info.field_name} must be lowercase, trimmed and bounded")
+        return value
+
+    @model_validator(mode="after")
+    def _changed_type(self) -> "RecapCandidateNodeTypeReplacement":
+        if self.expected_node_type == self.replacement_node_type:
+            raise ValueError("replacement node type must differ from its preimage")
+        return self
+
+
 class RecapCandidateCorrectionRequestV3(_ExtractPromoteModel):
     """A bounded, exact-preimage relation correction for one frozen candidate."""
 
@@ -653,6 +734,9 @@ class RecapCandidateCorrectionRequestV3(_ExtractPromoteModel):
     parent_candidate_sha256: str
     edge_tuple_replacements: list[RecapCandidateEdgeTupleReplacement] = Field(
         min_length=1, max_length=7
+    )
+    node_type_replacements: list[RecapCandidateNodeTypeReplacement] = Field(
+        default_factory=list, max_length=1
     )
 
     @field_validator("parent_run_id")
@@ -666,6 +750,22 @@ class RecapCandidateCorrectionRequestV3(_ExtractPromoteModel):
         if len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
             raise ValueError("parent_candidate_sha256 must be lowercase SHA-256 hex")
         return value
+
+    @model_validator(mode="after")
+    def _node_type_correction_is_coordinated(self) -> "RecapCandidateCorrectionRequestV3":
+        if self.node_type_replacements:
+            node_id = self.node_type_replacements[0].node_id
+            if not any(
+                node_id in {
+                    replacement.expected_tuple.from_node_id,
+                    replacement.expected_tuple.to_node_id,
+                    replacement.replacement_tuple.from_node_id,
+                    replacement.replacement_tuple.to_node_id,
+                }
+                for replacement in self.edge_tuple_replacements
+            ):
+                raise ValueError("node type replacement must be paired with an edge tuple replacement for that node")
+        return self
 
 
 class RecapCandidateCorrectionResponseV3(RecapCandidateCorrectionResponse):
@@ -833,6 +933,74 @@ class RecapCandidateCorrectionRequestV5(_ExtractPromoteModel):
 class RecapCandidateCorrectionResponseV5(RecapCandidateCorrectionResponse):
     schema_: Literal[RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA_V5] = Field(
         default=RECAP_CANDIDATE_CORRECTION_RESPONSE_SCHEMA_V5, alias="schema"
+    )
+
+
+class RecapEvidenceRefSplitPart(_ExtractPromoteModel):
+    source_span_ref_id: str
+    quote_indices: list[int] = Field(min_length=1, max_length=16)
+
+    @field_validator("source_span_ref_id")
+    @classmethod
+    def _span_id(cls, value: str) -> str:
+        if not value or value != value.strip() or len(value) > 256 or any(ch in value for ch in ("\r", "\n", "\t")):
+            raise ValueError("span ID must be nonblank, trimmed and bounded")
+        return value
+
+
+class RecapEvidenceRefSplit(_ExtractPromoteModel):
+    record_kind: Literal["node", "edge"]
+    record_id: str
+    evidence_index: int = Field(ge=0)
+    expected_evidence_ref_sha256: str
+    parts: list[RecapEvidenceRefSplitPart] = Field(min_length=2, max_length=2)
+
+    @field_validator("record_id")
+    @classmethod
+    def _record_id(cls, value: str) -> str:
+        return RecapEvidenceRefSplitPart._span_id(value)
+
+    @field_validator("expected_evidence_ref_sha256")
+    @classmethod
+    def _digest(cls, value: str) -> str:
+        if len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
+            raise ValueError("evidence ref digest must be lowercase SHA-256 hex")
+        return value
+
+    @model_validator(mode="after")
+    def _partitions(self) -> "RecapEvidenceRefSplit":
+        if self.parts[0].source_span_ref_id == self.parts[1].source_span_ref_id:
+            raise ValueError("split spans must be distinct")
+        indices = [index for part in self.parts for index in part.quote_indices]
+        if indices != list(range(len(indices))):
+            raise ValueError("quote partitions must preserve every occurrence in order")
+        return self
+
+
+class RecapCandidateCorrectionRequestV6(_ExtractPromoteModel):
+    """Split one complete frozen evidence ref without changing quote text."""
+
+    schema_: Literal["dmb_recap_candidate_correction_request_v6"] = Field(alias="schema")
+    parent_run_id: str
+    parent_candidate_sha256: str
+    source_revision_sha256: str
+    span_index_sha256: str
+    evidence_ref_splits: list[RecapEvidenceRefSplit] = Field(min_length=1, max_length=1)
+
+    @field_validator("parent_run_id")
+    @classmethod
+    def _parent(cls, value: str) -> str:
+        return _nonblank(value, field_name="parent_run_id")
+
+    @field_validator("parent_candidate_sha256", "source_revision_sha256", "span_index_sha256")
+    @classmethod
+    def _sha(cls, value: str) -> str:
+        return RecapEvidenceRefSplit._digest(value)
+
+
+class RecapCandidateCorrectionResponseV6(RecapCandidateCorrectionResponse):
+    schema_: Literal["dmb_recap_candidate_correction_response_v6"] = Field(
+        default="dmb_recap_candidate_correction_response_v6", alias="schema"
     )
 
 

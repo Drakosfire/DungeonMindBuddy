@@ -1,6 +1,17 @@
 .app-wrap:has(.play-surface),
 .app-wrap:has(.play-chooser) {
+  width: 100%;
+  box-sizing: border-box;
   max-width: min(1440px, calc(100% - 2rem));
+}
+
+@media (max-width: 40rem) {
+  .app-wrap:has(.play-surface),
+  .app-wrap:has(.play-chooser) {
+    max-width: 100%;
+    margin-inline: 0;
+    padding-inline: 0;
+  }
 }
 
 .play-surface,
@@ -502,6 +513,7 @@
 }
 
 .play-cockpit {
+  container: play-cockpit / inline-size;
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
@@ -525,6 +537,7 @@
   --play-glance-rail: minmax(8.5rem, 12rem);
   display: grid;
   grid-template-columns: var(--play-beat-rail) minmax(0, 1fr) var(--play-glance-rail);
+  grid-template-areas: "beat center glance";
   gap: 0.85rem;
   align-items: start;
 }
@@ -544,6 +557,18 @@
   border-radius: 0.5rem;
   background: var(--play-surface);
   color: var(--play-muted);
+}
+
+.play-beat-context {
+  grid-area: beat;
+}
+
+.play-cockpit-center {
+  grid-area: center;
+}
+
+.play-at-a-glance {
+  grid-area: glance;
 }
 
 .play-cockpit-rail.is-collapsed {
@@ -620,13 +645,15 @@
 
 .play-cockpit-center {
   min-width: 0;
-  padding: 1.45rem 1.55rem 1.7rem;
-  border: 2px solid var(--play-border-strong);
-  border-radius: 0.7rem;
-  background:
-    linear-gradient(180deg, rgba(45, 59, 84, 0.42), transparent 8.5rem),
-    var(--play-surface-raised);
-  box-shadow: inset 0 1px 0 rgba(141, 180, 245, 0.22);
+  padding: clamp(1rem, 3cqi, 2rem);
+  border: 1px solid var(--ui-border-paper, #c0ad6a);
+  border-radius: var(--ui-radius-md, 0.75rem);
+  background: var(--ui-background-paper, #f7ebd7);
+  color: var(--ui-text-on-paper, #332d25);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.2);
+  font-family: Georgia, "Book Antiqua", "Times New Roman", serif;
+  line-height: 1.58;
+  overflow-wrap: anywhere;
 }
 
 .play-cockpit-center h2 {
@@ -634,10 +661,35 @@
   font-size: clamp(1.85rem, 2.8vw, 2.5rem);
   line-height: 1.12;
   letter-spacing: -0.02em;
+  color: inherit;
 }
 
 .play-cockpit-center h3 {
   margin: 1.1rem 0 0.5rem;
+  color: inherit;
+}
+
+.play-cockpit-center .play-kicker {
+  color: #456453;
+  font-family: var(--ui-font-body, system-ui, sans-serif);
+  font-size: 0.76rem;
+  letter-spacing: 0.09em;
+}
+
+.play-cockpit-center .play-muted {
+  color: #665e52;
+}
+
+.play-cockpit-center .play-body {
+  color: inherit;
+}
+
+.play-cockpit-center .play-body > :first-child {
+  margin-block-start: 0;
+}
+
+.play-cockpit-center .play-body > :last-child {
+  margin-block-end: 0;
 }
 
 .play-scene-board .play-kicker {
@@ -647,6 +699,7 @@
 .play-scene-board-body {
   max-width: 46rem;
   font-size: 1.05rem;
+  line-height: 1.65;
 }
 
 .play-decisions {
@@ -658,14 +711,15 @@
 
 .play-decision {
   padding: 0.95rem 1rem 1.05rem;
-  border: 1px solid var(--play-border);
+  border: 1px solid #bdc9b6;
   border-radius: 0.55rem;
-  background: rgba(18, 23, 32, 0.42);
+  background: #e4e9dc;
+  color: #2c4232;
 }
 
 .play-decision-kicker {
   margin: 0 0 0.2rem;
-  color: var(--play-subtle);
+  color: #66715e;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -680,7 +734,7 @@
 
 .play-decision-framing {
   margin: 0.45rem 0 0;
-  color: var(--play-muted);
+  color: #4b5147;
 }
 
 .play-decision-options {
@@ -691,12 +745,12 @@
 }
 
 .play-decision-option {
-  min-height: 3.1rem;
+  min-height: 3rem;
   padding: 0.7rem 0.85rem;
-  border: 1px solid var(--play-border);
+  border: 1px solid #aebda6;
   border-radius: 0.45rem;
-  background: var(--play-surface);
-  color: var(--play-text);
+  background: #f4eedf;
+  color: #332d25;
   font: inherit;
   font-size: 1.02rem;
   font-weight: 650;
@@ -705,15 +759,16 @@
 }
 
 .play-decision-option:hover:not(:disabled) {
-  border-color: var(--play-border-strong);
-  background: var(--play-surface-active);
+  border-color: #647d68;
+  background: #d6e0d0;
 }
 
 .play-decision-option.is-selected,
 .play-decision-option[aria-checked="true"] {
-  border-color: var(--play-border-strong);
-  background: var(--play-surface-active);
-  box-shadow: inset 0 0 0 1px rgba(141, 180, 245, 0.35);
+  border-color: #456453;
+  background: #c5d3be;
+  color: #24392b;
+  box-shadow: inset 0 0 0 1px rgba(69, 100, 83, 0.25);
 }
 
 .play-decision-option:disabled {
@@ -730,32 +785,32 @@
 
 .play-decision-consequence {
   margin: 0;
-  color: var(--play-text);
+  color: #332d25;
 }
 
 .play-decision-relevance {
   margin: 0;
   padding: 0;
   list-style: none;
-  color: var(--play-muted);
+  color: #4b5147;
 }
 
 .play-decision-relevance li[data-relevance="emphasized"] {
-  color: var(--play-accent);
+  color: #456453;
 }
 
 .play-decision-relevance li[data-relevance="de-emphasized"] {
-  color: var(--play-subtle);
+  color: #716b61;
 }
 
 .play-decision-clear {
   align-self: flex-start;
   min-height: 2.4rem;
   padding: 0.4rem 0.75rem;
-  border: 1px solid var(--play-border);
+  border: 1px solid #aebda6;
   border-radius: 0.35rem;
   background: transparent;
-  color: var(--play-muted);
+  color: #3d5141;
   font: inherit;
   cursor: pointer;
 }
@@ -781,12 +836,14 @@
   align-items: center;
   gap: 0.5rem 0.75rem;
   padding: 0.55rem 0.65rem;
-  border: 1px solid var(--play-border);
+  border: 1px solid #c0ad6a;
   border-radius: 0.4rem;
+  background: rgba(255, 255, 255, 0.32);
 }
 
 .play-scene-inventory li[data-current="true"] {
-  border-color: var(--play-border-strong);
+  border-color: #456453;
+  background: #e4e9dc;
 }
 
 .play-scene-actions button,
@@ -795,11 +852,11 @@
 .play-cockpit-center > article > button {
   min-height: 2.5rem;
   padding: 0.45rem 0.8rem;
-  border: 1px solid var(--play-border);
+  border: 1px solid #a99768;
   border-radius: 0.35rem;
-  background: var(--play-surface);
-  color: var(--play-text);
-  font: inherit;
+  background: #efe2c8;
+  color: #332d25;
+  font: 0.92rem/1.25 var(--ui-font-body, system-ui, sans-serif);
   cursor: pointer;
 }
 
@@ -807,8 +864,8 @@
 .play-scene-inventory button:hover,
 .play-cockpit-center .play-controls button:hover,
 .play-cockpit-center > article > button:hover {
-  border-color: var(--play-border-strong);
-  background: var(--play-surface-active);
+  border-color: #647d68;
+  background: #d6e0d0;
 }
 
 .play-scene-actions button:disabled,
@@ -818,30 +875,31 @@
   opacity: 0.62;
 }
 
+.play-cockpit-center .play-notes {
+  border-block-start-color: #c0ad6a;
+  color: #332d25;
+  font-family: var(--ui-font-body, system-ui, sans-serif);
+}
+
+.play-cockpit-center .play-notes label {
+  color: #456453;
+}
+
+.play-cockpit-center .play-notes textarea {
+  border-color: #a99768;
+  background: rgba(255, 255, 255, 0.38);
+  color: #332d25;
+  font: 0.95rem/1.5 var(--ui-font-body, system-ui, sans-serif);
+}
+
+.play-cockpit-center .play-notes textarea:focus-visible,
+.play-cockpit-center button:focus-visible {
+  outline-color: #8b5b12;
+}
+
 @media (max-width: 60rem) {
   .play-deck-columns {
     grid-template-columns: 1fr;
-  }
-
-  .play-cockpit-shell,
-  .play-cockpit-shell[data-beat-collapsed="true"],
-  .play-cockpit-shell[data-glance-collapsed="true"] {
-    grid-template-columns: 1fr;
-  }
-
-  .play-cockpit-rail.is-collapsed {
-    width: auto;
-    max-width: none;
-  }
-
-  .play-cockpit-rail.is-collapsed .play-rail-toggle {
-    writing-mode: horizontal-tb;
-    text-orientation: mixed;
-    width: 100%;
-    min-width: 0;
-    min-height: 2.75rem;
-    padding: 0.55rem 0.75rem;
-    text-align: left;
   }
 }
 
@@ -860,5 +918,50 @@
 
   .play-runbook-editor .ProseMirror {
     padding: 1rem;
+  }
+}
+
+@container play-cockpit (max-width: 60rem) {
+  .play-cockpit-shell,
+  .play-cockpit-shell[data-beat-collapsed="true"],
+  .play-cockpit-shell[data-glance-collapsed="true"] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "center"
+      "beat"
+      "glance";
+  }
+
+  .play-cockpit-rail.is-collapsed {
+    width: auto;
+    max-width: none;
+  }
+
+  .play-cockpit-rail.is-collapsed .play-rail-toggle {
+    writing-mode: horizontal-tb;
+    text-orientation: mixed;
+    width: 100%;
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: 0.55rem 0.75rem;
+    text-align: left;
+  }
+}
+
+@container play-cockpit (max-width: 40rem) {
+  .play-cockpit-center {
+    padding: 1rem;
+  }
+
+  .play-cockpit-center h2 {
+    font-size: clamp(1.55rem, 8cqi, 2rem);
+  }
+
+  .play-decision-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .play-cockpit-center .play-controls {
+    flex-wrap: wrap;
   }
 }

@@ -447,6 +447,7 @@ function mockJsonResponse(
     status,
     statusText,
     text: async () => JSON.stringify(payload),
+    clone: () => Response.json(payload, { status }),
   } as Response;
 }
 
@@ -719,30 +720,23 @@ describe("local operator API destination policy", () => {
     expect(fetchSpy.mock.calls[5]?.[1]?.method).toBe("POST");
   });
 
-  it("requires explicit Connect after a protected turn rejects an expired or rotated session, without replaying the turn", async () => {
+  it("renews an expired cookie and retries only the current correlated turn", async () => {
     const api = await importLiveApiForBaseUrl("");
+    let providerWork = 0;
     const fetchSpy = vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "stale-csrf" }))
-      .mockResolvedValueOnce(mockJsonResponse({ detail: { code: "graph_auth_required" } }, { ok: false, status: 401 }))
+      .mockResolvedValueOnce(Response.json({ detail: { code: "graph_auth_required" } }, { status: 401 }))
       .mockResolvedValueOnce(new Response(null, { status: 401 }))
       .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "fresh-csrf" }))
-      .mockResolvedValueOnce(mockJsonResponse({ schema: "dmb_agent_conversation_history_v1" }));
-
-    await expect(api.postIndexAgentTurn(
-      graphTurnRequest() as unknown as Parameters<DynamicLiveApi["postIndexAgentTurn"]>[0],
-    )).rejects.toMatchObject({ status: 401 });
-    expect(fetchSpy.mock.calls.filter(([url]) => String(url) === "/api/live/agent/turn")).toHaveLength(1);
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
-    await expect(api.getWorldAgentConversationHistory("world-a")).rejects.toMatchObject({ status: 401 });
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
-
-    await expect(api.connectNativeGraphSession()).resolves.toBe("fresh-csrf");
-    expect(fetchSpy.mock.calls[2]?.[1]?.method).toBe("GET");
-    expect(fetchSpy.mock.calls[3]?.[1]?.method).toBe("POST");
-    expect(fetchSpy.mock.calls.filter(([url]) => String(url) === "/api/live/agent/turn")).toHaveLength(1);
-    await api.getWorldAgentConversationHistory("world-a");
-    expect(fetchSpy.mock.calls[4]?.[1]?.credentials).toBe("same-origin");
-    expect(fetchSpy.mock.calls.filter(([url]) => String(url) === "/api/live/agent/turn")).toHaveLength(1);
+      .mockImplementationOnce(async () => { providerWork += 1; return mockJsonResponse({ schema: "dmb_agent_turn_response_v1" }); });
+    await api.postIndexAgentTurn(graphTurnRequest() as unknown as Parameters<DynamicLiveApi["postIndexAgentTurn"]>[0]);
+    const turns = fetchSpy.mock.calls.filter(([url]) => String(url) === "/api/live/agent/turn");
+    expect(turns).toHaveLength(2);
+    expect(turns[0][1]?.body).toBe(turns[1][1]?.body);
+    expect(new Headers(turns[1][1]?.headers).get("X-DMB-Graph-CSRF")).toBe("fresh-csrf");
+    expect(new Headers(turns[1][1]?.headers).get("Authorization")).toBeNull();
+    expect(fetchSpy).toHaveBeenCalledTimes(5);
+    expect(providerWork).toBe(1);
   });
 
   it("revalidates a cached session when Connect is pressed after server-side expiry", async () => {
@@ -3348,4 +3342,164 @@ describe("Play Run start API", () => {
     expect(fetchSpy.mock.calls[1]?.[1]?.method).toBe("PUT");
     expect(JSON.parse(String(fetchSpy.mock.calls[1]?.[1]?.body))).toEqual({ run_id: runId });
   });
+});
+
+
+describe("bounded local cookie recovery", () => {
+  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); });
+  const rejection = () => Response.json({ detail: { code: "graph_auth_required" } }, { status: 401 });
+
+  it("shares one renewal across concurrent history and command callers, preserving command CAS", async () => {
+    const api = await importLiveApiForBaseUrl("");
+    let booted = false;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const businessCommands = new Set<string>();
+    let commandWork = 0;
+    let statusCalls = 0;
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
+      if (String(url) === "/api/live/agent/local-session") {
+        if (init?.method === "POST") { await gate; booted = true; return Response.json({ status: "active", csrf_token: "fresh" }); }
+        statusCalls += 1;
+        return statusCalls === 1 ? Response.json({ status: "active", csrf_token: "old" }) : new Response(null, { status: 401 });
+      }
+      if (!booted) return rejection();
+      if (String(url).endsWith("/new")) {
+        const id = JSON.parse(String(init?.body)).command_id;
+        if (!businessCommands.has(id)) { businessCommands.add(id); commandWork += 1; }
+      }
+      return Response.json({ schema: "synthetic-success" });
+    });
+    await api.ensureNativeGraphSession();
+    const command = { schema: "dmb_agent_new_conversation_request_v1" as const, command_id: "frozen-command", expected_pointer_revision: 7, expected_active_conversation_id: "prior-conversation" };
+    const requests = [api.getWorldAgentConversationHistory("world-a"), api.postWorldAgentNewConversation("world-a", command)];
+    await vi.waitFor(() => expect(fetchSpy.mock.calls.filter(([url, init]) => String(url).endsWith("/local-session") && init?.method === "POST")).toHaveLength(1));
+    release();
+    await Promise.all(requests);
+    expect(commandWork).toBe(1);
+    expect(statusCalls).toBe(2);
+    const attempts = fetchSpy.mock.calls.filter(([url]) => String(url).endsWith("/new"));
+    expect(attempts).toHaveLength(2);
+    expect(attempts[0][1]?.body).toBe(attempts[1][1]?.body);
+    expect(JSON.parse(String(attempts[1][1]?.body))).toMatchObject(command);
+  });
+
+  it("stops after a failed renewal and performs no command/provider work", async () => {
+    const api = await importLiveApiForBaseUrl("");
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "old" }))
+      .mockResolvedValueOnce(rejection())
+      .mockResolvedValueOnce(new Response(null, { status: 401 }))
+      .mockResolvedValueOnce(new Response(null, { status: 503 }));
+    await expect(api.getWorldAgentConversationHistory("world-a")).rejects.toMatchObject({ code: "local_graph_session_recovery_failed", status: 503 });
+    expect(fetchSpy).toHaveBeenCalledTimes(4);
+    expect(fetchSpy.mock.calls.filter(([url]) => String(url).includes("/conversation"))).toHaveLength(1);
+  });
+
+  it("does not recover intentional invalid bearer credentials or untrusted 401 responses", async () => {
+    const api = await importLiveApiForBaseUrl("");
+    api.setNativeGraphAccessToken("synthetic-intentional-invalid-bearer");
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(rejection());
+    await expect(api.getWorldAgentConversationHistory("world-a")).rejects.toMatchObject({ status: 401 });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(new Headers(fetchSpy.mock.calls[0][1]?.headers).get("Authorization")).toBe("Bearer synthetic-intentional-invalid-bearer");
+    api.setNativeGraphAccessToken(null);
+    fetchSpy.mockReset().mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "old" }))
+      .mockResolvedValueOnce(Response.json({ detail: { code: "different_auth_failure" } }, { status: 401 }));
+    await expect(api.getWorldAgentConversationHistory("world-a")).rejects.toMatchObject({ status: 401 });
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("bounds a repeated protected rejection to one renewed retry", async () => {
+    const api = await importLiveApiForBaseUrl("");
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "old" }))
+      .mockResolvedValueOnce(rejection())
+      .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "new" }))
+      .mockResolvedValueOnce(rejection());
+    await expect(api.getWorldAgentConversationHistory("world-a")).rejects.toMatchObject({ status: 401 });
+    expect(fetchSpy).toHaveBeenCalledTimes(4);
+  });
+
+  it("refreshes stale CSRF for a read-only Graph POST without changing request bytes", async () => {
+    const api = await importLiveApiForBaseUrl("");
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "old" }))
+      .mockResolvedValueOnce(Response.json({ detail: { code: "graph_auth_csrf_rejected" } }, { status: 403 }))
+      .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "new" }))
+      .mockResolvedValueOnce(Response.json({ schema: "synthetic-graph" }));
+    await api.postManagedWorldGraphProjection({ world_id: "world-a" } as Parameters<DynamicLiveApi["postManagedWorldGraphProjection"]>[0]);
+    const calls = fetchSpy.mock.calls.filter(([url]) => String(url) === "/api/live/world-graph/managed-projection");
+    expect(calls).toHaveLength(2);
+    expect(calls[0][1]?.body).toBe(calls[1][1]?.body);
+  });
+});
+
+
+it("does not resurrect or replay an action when explicitly revoked during renewal", async () => {
+  const api = await importLiveApiForBaseUrl("");
+  let release!: (response: Response) => void;
+  const renewal = new Promise<Response>((resolve) => { release = resolve; });
+  const fetchSpy = vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "old" }))
+    .mockResolvedValueOnce(Response.json({ detail: { code: "graph_auth_required" } }, { status: 401 }))
+    .mockReturnValueOnce(renewal)
+    .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "revoke-csrf" }))
+    .mockResolvedValueOnce(Response.json({ status: "revoked" }));
+  const action = api.getWorldAgentConversationHistory("world-a");
+  const rejected = expect(action).rejects.toMatchObject({ code: "local_graph_session_recovery_failed" });
+  await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(3));
+  const revoke = api.revokeNativeGraphSession();
+  release(Response.json({ status: "active", csrf_token: "obsolete" }));
+  await rejected;
+  await revoke;
+  await expect(api.getWorldAgentConversationHistory("world-a")).rejects.toMatchObject({ status: 401 });
+  expect(fetchSpy.mock.calls.filter(([url]) => String(url).includes("conversation"))).toHaveLength(1);
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
+});
+
+
+it("does not renew an origin rejection", async () => {
+  const api = await importLiveApiForBaseUrl("");
+  const fetchSpy = vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "old" }))
+    .mockResolvedValueOnce(Response.json({ detail: { code: "graph_auth_origin_rejected" } }, { status: 403 }));
+  await expect(api.getWorldAgentConversationHistory("world-a")).rejects.toMatchObject({ status: 403 });
+  expect(fetchSpy).toHaveBeenCalledTimes(2);
+  vi.restoreAllMocks(); vi.unstubAllEnvs();
+});
+
+
+it("renews auth but never replays an uncorrelated unsafe turn", async () => {
+  const api = await importLiveApiForBaseUrl("");
+  const fetchSpy = vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "old" }))
+    .mockResolvedValueOnce(Response.json({ detail: { code: "graph_auth_required" } }, { status: 401 }))
+    .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "new" }));
+  const request = { ...graphTurnRequest(), turn_id: "" };
+  await expect(api.postIndexAgentTurn(request as unknown as Parameters<DynamicLiveApi["postIndexAgentTurn"]>[0]))
+    .rejects.toMatchObject({ status: 401 });
+  expect(fetchSpy.mock.calls.filter(([url]) => String(url) === "/api/live/agent/turn")).toHaveLength(1);
+  expect(fetchSpy).toHaveBeenCalledTimes(3);
+  vi.restoreAllMocks(); vi.unstubAllEnvs();
+});
+
+
+it.each([
+  ["/api/live/world-graph/retrieval/unknown-write", "POST"],
+  ["/api/live/world-graph/retrieval/complete-object", "PATCH"],
+  ["/api/live/agent/worlds/world-a/conversation/new", "PUT"],
+])("renews but never replays unsupported %s %s", async (path, method) => {
+  const api = await importLiveApiForBaseUrl("");
+  const fetchSpy = vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "old" }))
+    .mockResolvedValueOnce(Response.json({ detail: { code: "graph_auth_required" } }, { status: 401 }))
+    .mockResolvedValueOnce(Response.json({ status: "active", csrf_token: "new" }));
+  const body = JSON.stringify({ command_id: "fixed", expected_pointer_revision: 4, expected_active_conversation_id: null });
+  const result = await api.authenticatedApiFetch(path, { method, body });
+  expect(result.response.status).toBe(401);
+  expect(fetchSpy.mock.calls.filter(([url]) => String(url) === path)).toHaveLength(1);
+  expect(fetchSpy).toHaveBeenCalledTimes(3);
+  vi.restoreAllMocks(); vi.unstubAllEnvs();
 });

@@ -36,6 +36,7 @@ from src.graph_memory.extraction.recap_extraction_profile import (
     RECAP_PROFILE_ID,
     RECAP_PROFILE_VERSION,
 )
+from graph_memory.candidate_graph_preview import NODE_TYPES
 
 _RECAP_CORRECTION_DERIVATION = "operator_recap_literal_evidence_correction_v1"
 _RECAP_CANDIDATE_DERIVATION = "operator_recap_semantic_candidate_correction_v1"
@@ -43,6 +44,7 @@ _RECAP_CANDIDATE_DERIVATION_V2 = "operator_recap_semantic_candidate_correction_v
 _RECAP_CANDIDATE_DERIVATION_V3 = "operator_recap_semantic_candidate_correction_v3"
 _RECAP_CANDIDATE_DERIVATION_V4 = "operator_recap_semantic_candidate_correction_v4"
 _RECAP_CANDIDATE_DERIVATION_V5 = "operator_recap_semantic_candidate_correction_v5"
+_RECAP_CANDIDATE_DERIVATION_V6 = "operator_recap_semantic_candidate_correction_v6"
 _RECAP_BASIS_SCHEMA = "dmb_recap_semantic_basis_v1"
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 
@@ -185,6 +187,16 @@ class RecapSemanticBasisV6(RecapSemanticBasisV2):
     )
     derivation: Literal["operator_recap_semantic_candidate_correction_v5"]
     manifest_schema: Literal["dmb_recap_semantic_candidate_manifest_v5"]
+
+
+class RecapSemanticBasisV7(RecapSemanticBasisV2):
+    """Bind the one-to-two evidence ref split derivation and manifest."""
+
+    schema_: Literal["dmb_recap_semantic_basis_v7"] = Field(
+        default="dmb_recap_semantic_basis_v7", alias="schema"
+    )
+    derivation: Literal["operator_recap_semantic_candidate_correction_v6"]
+    manifest_schema: Literal["dmb_recap_semantic_candidate_manifest_v6"]
 
 
 class RecapSemanticDispositionCommandV1(BaseModel):
@@ -375,10 +387,62 @@ def lookup_extraction_run_by_candidate_component(
     return CandidateRunLookup("unique", rows[0])
 
 
+def _assert_recap_split_manifest(manifest: object, basis: RecapSemanticBasisV7) -> None:
+    """Validate the stored bounded split shape independently of the HTTP model."""
+    def invalid() -> None:
+        raise ApplicationStateConflictError("recap semantic evidence ref split manifest is malformed")
+
+    if (
+        not isinstance(manifest, dict)
+        or set(manifest) != {"schema", "source_revision_sha256", "span_index_sha256", "evidence_ref_splits"}
+        or manifest.get("schema") != basis.manifest_schema
+        or manifest.get("source_revision_sha256") != basis.source_revision_sha256
+        or manifest.get("span_index_sha256") != basis.span_index_sha256
+        or not isinstance(manifest.get("evidence_ref_splits"), list)
+        or len(manifest["evidence_ref_splits"]) != 1
+    ):
+        invalid()
+    operation = manifest["evidence_ref_splits"][0]
+    if (
+        not isinstance(operation, dict)
+        or set(operation) != {"record_kind", "record_id", "evidence_index", "expected_evidence_ref_sha256", "parts"}
+        or operation.get("record_kind") not in ("node", "edge")
+        or not isinstance(operation.get("record_id"), str)
+        or not operation["record_id"] or operation["record_id"] != operation["record_id"].strip()
+        or len(operation["record_id"]) > 256
+        or any(ch in operation["record_id"] for ch in ("\r", "\n", "\t"))
+        or type(operation.get("evidence_index")) is not int or operation["evidence_index"] < 0
+        or not isinstance(operation.get("expected_evidence_ref_sha256"), str)
+        or not _SHA256.fullmatch(operation["expected_evidence_ref_sha256"])
+        or not isinstance(operation.get("parts"), list) or len(operation["parts"]) != 2
+    ):
+        invalid()
+    span_ids = []
+    indices = []
+    for part in operation["parts"]:
+        if (
+            not isinstance(part, dict) or set(part) != {"source_span_ref_id", "quote_indices"}
+            or not isinstance(part.get("source_span_ref_id"), str)
+            or not part["source_span_ref_id"] or part["source_span_ref_id"] != part["source_span_ref_id"].strip()
+            or len(part["source_span_ref_id"]) > 256
+            or any(ch in part["source_span_ref_id"] for ch in ("\r", "\n", "\t"))
+            or not isinstance(part.get("quote_indices"), list) or not 1 <= len(part["quote_indices"]) <= 16
+            or any(type(index) is not int for index in part["quote_indices"])
+        ):
+            invalid()
+        span_ids.append(part["source_span_ref_id"])
+        indices.extend(part["quote_indices"])
+    if span_ids[0] == span_ids[1] or indices != list(range(len(indices))):
+        invalid()
+    canonical = json.dumps(manifest, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8") + b"\n"
+    if hashlib.sha256(canonical).hexdigest() != basis.manifest_sha256:
+        raise ApplicationStateConflictError("recap semantic candidate manifest changed")
+
+
 def _assert_recap_semantic_basis(
     child: ExtractionRun,
     parent: ExtractionRun,
-    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4 | RecapSemanticBasisV5 | RecapSemanticBasisV6,
+    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4 | RecapSemanticBasisV5 | RecapSemanticBasisV6 | RecapSemanticBasisV7,
 ) -> None:
     """Prove every basis field against stored child/parent identity and refs."""
     lineage = child.lineage
@@ -390,7 +454,8 @@ def _assert_recap_semantic_basis(
         or parent.status not in FROZEN_COMPONENT_STATUSES
         or not parent.has_required_review_components()
         or lineage.get("derivation") != (
-            _RECAP_CANDIDATE_DERIVATION_V5 if isinstance(basis, RecapSemanticBasisV6)
+            _RECAP_CANDIDATE_DERIVATION_V6 if isinstance(basis, RecapSemanticBasisV7)
+            else _RECAP_CANDIDATE_DERIVATION_V5 if isinstance(basis, RecapSemanticBasisV6)
             else _RECAP_CANDIDATE_DERIVATION_V4 if isinstance(basis, RecapSemanticBasisV5)
             else _RECAP_CANDIDATE_DERIVATION_V3 if isinstance(basis, RecapSemanticBasisV4)
             else _RECAP_CANDIDATE_DERIVATION_V2 if isinstance(basis, RecapSemanticBasisV3)
@@ -440,11 +505,19 @@ def _assert_recap_semantic_basis(
         or _sha(parent_spans.sha256) != basis.span_index_sha256
     ):
         raise ApplicationStateConflictError("recap semantic basis components changed")
+    if isinstance(basis, RecapSemanticBasisV7):
+        _assert_recap_split_manifest(lineage.get("semantic_candidate_manifest"), basis)
+        return
     if isinstance(basis, RecapSemanticBasisV2):
         manifest = lineage.get("semantic_candidate_manifest")
         action_manifest = isinstance(basis, RecapSemanticBasisV3)
         tuple_manifest = isinstance(basis, RecapSemanticBasisV4)
         span_manifest = isinstance(basis, (RecapSemanticBasisV5, RecapSemanticBasisV6))
+        label_manifest = (
+            not (action_manifest or tuple_manifest or span_manifest)
+            and isinstance(manifest, dict)
+            and "node_label_replacements" in manifest
+        )
         expected_manifest_keys = (
             {"schema", "evidence_span_replacements"}
             if span_manifest
@@ -455,13 +528,26 @@ def _assert_recap_semantic_basis(
             if action_manifest
             else {"schema", "node_description_replacements", "omitted_edge_ids"}
         )
+        node_omission = isinstance(manifest, dict) and "node_omissions" in manifest
+        if node_omission and not (action_manifest or tuple_manifest or span_manifest):
+            expected_manifest_keys.add("node_omissions")
+        tuple_manifest_keys_valid = (
+            isinstance(manifest, dict)
+            and set(manifest) in (
+                {"schema", "edge_tuple_replacements"},
+                {"schema", "edge_tuple_replacements", "node_type_replacements"},
+            )
+        ) if tuple_manifest else True
+        if label_manifest:
+            expected_manifest_keys.add("node_label_replacements")
         expected_manifest_schema = (
             basis.manifest_schema if action_manifest or tuple_manifest or span_manifest
             else "dmb_recap_semantic_candidate_manifest_v1"
         )
         if (
             not isinstance(manifest, dict)
-            or set(manifest) != expected_manifest_keys
+            or (not tuple_manifest and set(manifest) != expected_manifest_keys)
+            or not tuple_manifest_keys_valid
             or manifest.get("schema") != expected_manifest_schema
             or ((action_manifest or tuple_manifest or span_manifest) and lineage.get("derivation") != basis.derivation)
             or (not (tuple_manifest or span_manifest) and not isinstance(manifest.get("node_description_replacements"), list))
@@ -469,14 +555,40 @@ def _assert_recap_semantic_basis(
             or (action_manifest and (not isinstance(manifest.get("session_action_replacements"), list) or len(manifest["session_action_replacements"]) != 1))
             or (not (tuple_manifest or span_manifest) and len(manifest["node_description_replacements"]) > 1)
             or (not (tuple_manifest or span_manifest) and len(manifest["omitted_edge_ids"]) > 1)
-            or (not (tuple_manifest or span_manifest) and not (manifest["node_description_replacements"] or manifest["omitted_edge_ids"] or (action_manifest and manifest["session_action_replacements"])))
+            or (label_manifest and (not isinstance(manifest.get("node_label_replacements"), list) or len(manifest["node_label_replacements"]) > 1))
+            or (not (tuple_manifest or span_manifest) and not (manifest["node_description_replacements"] or manifest["omitted_edge_ids"] or (action_manifest and manifest["session_action_replacements"]) or (label_manifest and manifest["node_label_replacements"]) or node_omission))
             or (tuple_manifest and (not isinstance(manifest.get("edge_tuple_replacements"), list) or not 1 <= len(manifest["edge_tuple_replacements"]) <= 7))
+            or (tuple_manifest and "node_type_replacements" in manifest and (
+                not isinstance(manifest.get("node_type_replacements"), list)
+                or len(manifest["node_type_replacements"]) != 1
+            ))
             or (span_manifest and (
                 not isinstance(manifest.get("evidence_span_replacements"), list)
                 or not 1 <= len(manifest["evidence_span_replacements"]) <= (7 if isinstance(basis, RecapSemanticBasisV6) else 1)
             ))
         ):
             raise ApplicationStateConflictError("recap semantic candidate manifest is missing")
+        if node_omission:
+            operations = manifest["node_omissions"]
+            if (
+                not isinstance(operations, list) or len(operations) != 1
+                or manifest["node_description_replacements"] or manifest["omitted_edge_ids"]
+                or manifest.get("node_label_replacements")
+            ):
+                raise ApplicationStateConflictError("recap semantic node omission manifest is malformed")
+            operation = operations[0]
+            if (
+                not isinstance(operation, dict)
+                or set(operation) != {"node_id", "expected_node_sha256"}
+                or not isinstance(operation.get("node_id"), str)
+                or not operation["node_id"] or operation["node_id"] != operation["node_id"].strip()
+                or len(operation["node_id"]) > 256
+                or any(ch in operation["node_id"] for ch in ("\r", "\n", "\t"))
+                or not isinstance(operation.get("expected_node_sha256"), str)
+                or len(operation["expected_node_sha256"]) != 64
+                or any(ch not in "0123456789abcdef" for ch in operation["expected_node_sha256"])
+            ):
+                raise ApplicationStateConflictError("recap semantic node omission manifest is malformed")
         if not (tuple_manifest or span_manifest):
             for item in manifest["node_description_replacements"]:
                 if (
@@ -490,6 +602,19 @@ def _assert_recap_semantic_basis(
                     raise ApplicationStateConflictError("recap semantic candidate manifest is malformed")
             if any(not isinstance(item, str) or not item.strip() for item in manifest["omitted_edge_ids"]):
                 raise ApplicationStateConflictError("recap semantic candidate manifest is malformed")
+            if label_manifest:
+                for item in manifest["node_label_replacements"]:
+                    if (
+                        not isinstance(item, dict)
+                        or set(item) != {"node_id", "original_label", "replacement_label"}
+                        or not all(isinstance(item[key], str) for key in item)
+                        or any(
+                            not item[key].strip() or item[key] != item[key].strip() or len(item[key]) > 4096
+                            for key in item
+                        )
+                        or item["original_label"] == item["replacement_label"]
+                    ):
+                        raise ApplicationStateConflictError("recap semantic node label manifest is malformed")
         if action_manifest:
             item = manifest["session_action_replacements"][0]
             if (
@@ -578,6 +703,38 @@ def _assert_recap_semantic_basis(
                 if tuples[0] == tuples[1] or tuples[1] in target_tuples:
                     raise ApplicationStateConflictError("recap semantic edge tuple targets conflict")
                 target_tuples.add(tuples[1])
+            if "node_type_replacements" in manifest:
+                operation = manifest["node_type_replacements"][0]
+                if (
+                    not isinstance(operation, dict)
+                    or set(operation) != {"node_id", "expected_node_type", "replacement_node_type"}
+                    or not isinstance(operation.get("node_id"), str)
+                    or not operation["node_id"].strip()
+                    or operation["node_id"] != operation["node_id"].strip()
+                    or len(operation["node_id"]) > 256
+                    or any(ch in operation["node_id"] for ch in ("\r", "\n", "\t"))
+                    or any(
+                        not isinstance(operation.get(key), str)
+                        or operation[key] not in NODE_TYPES
+                        or operation[key] != operation[key].strip()
+                        or operation[key] != operation[key].lower()
+                        or len(operation[key]) > 64
+                        or any(ch in operation[key] for ch in ("\r", "\n", "\t"))
+                        for key in ("expected_node_type", "replacement_node_type")
+                    )
+                    or operation["expected_node_type"] == operation["replacement_node_type"]
+                ):
+                    raise ApplicationStateConflictError("recap semantic node type manifest is malformed")
+                node_id = operation["node_id"]
+                if not any(
+                    node_id in {
+                        tuple_operation[key][endpoint]
+                        for key in ("expected_tuple", "replacement_tuple")
+                        for endpoint in ("from_node_id", "to_node_id")
+                    }
+                    for tuple_operation in manifest["edge_tuple_replacements"]
+                ):
+                    raise ApplicationStateConflictError("recap semantic node type replacement is not paired with an edge tuple")
         canonical = json.dumps(
             manifest, sort_keys=True, ensure_ascii=False, separators=(",", ":")
         ).encode("utf-8") + b"\n"
@@ -589,7 +746,7 @@ def record_recap_semantic_disposition(
     run_id: str,
     *,
     expected_revision: int,
-    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4 | RecapSemanticBasisV5 | RecapSemanticBasisV6,
+    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4 | RecapSemanticBasisV5 | RecapSemanticBasisV6 | RecapSemanticBasisV7,
     decision: RecapSemanticDispositionCommandV1,
 ) -> ExtractionRun:
     """Single-use metadata-only CAS for a held recap correction child.
