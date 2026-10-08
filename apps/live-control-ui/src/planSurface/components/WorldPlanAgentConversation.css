@@ -824,6 +824,7 @@
 
 .plan-conversation-dock .world-plan-agent-conversation__composer textarea {
   grid-column: 1;
+  grid-row: var(--plan-composer-input-row, 1);
   inline-size: 100%;
   min-block-size: 3.15rem;
   max-block-size: 8rem;
@@ -837,15 +838,36 @@
   display: contents;
 }
 
-.plan-conversation-dock .world-plan-agent-conversation__composer-footer p {
-  grid-column: 1;
-  grid-row: 2;
-  align-self: center;
-  margin: 0;
-  font-size: 0.68rem;
+/* Keep the keyboard hint available through aria-describedby without taking
+   another composer row. Edit targeting is shown only for a proposed change. */
+.plan-conversation-dock .world-plan-agent-conversation__composer #world-plan-agent-composer-hint {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.plan-conversation-dock .world-plan-agent-conversation__composer form:has(button[type="submit"][aria-label="Propose edit"]) {
+  --plan-composer-input-row: 2;
+}
+
+.plan-conversation-dock .world-plan-agent-conversation__composer form:has(button[type="submit"][aria-label="Propose edit"]) [aria-label="Actual Plan change target"] {
+  display: block;
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+
+.plan-conversation-dock .world-plan-agent-conversation__composer .world-plan-agent-conversation__route-correction {
+  grid-column: 1 / -1;
+  grid-row: auto;
 }
 
 .plan-conversation-dock .world-plan-agent-conversation__composer [aria-label="Actual Plan change target"] {
+  display: none;
   min-inline-size: 0;
   max-block-size: 1.2rem;
   margin: 0;
@@ -857,9 +879,10 @@
   white-space: nowrap;
 }
 
-.plan-conversation-dock .world-plan-agent-conversation__composer-footer button {
+.plan-conversation-dock .world-plan-agent-conversation__composer-footer > button[type="submit"] {
+  align-self: stretch;
   grid-column: 2;
-  grid-row: 1;
+  grid-row: var(--plan-composer-input-row, 1);
   min-block-size: 3.15rem;
   min-inline-size: 4rem;
   padding-inline: 0.75rem;

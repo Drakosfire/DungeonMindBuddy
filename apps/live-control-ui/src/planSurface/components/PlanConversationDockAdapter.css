@@ -56,6 +56,7 @@
 
 .plan-conversation-dock__composer .world-plan-agent-conversation__composer textarea {
   grid-column: 1;
+  grid-row: var(--plan-composer-input-row, 1);
   inline-size: 100%;
   min-block-size: 3.15rem;
   max-block-size: 8rem;
@@ -74,9 +75,10 @@
   font-size: 0.68rem;
 }
 
-.plan-conversation-dock__composer .world-plan-agent-conversation__composer-footer button {
+.plan-conversation-dock__composer .world-plan-agent-conversation__composer-footer > button[type="submit"] {
+  align-self: stretch;
   grid-column: 2;
-  grid-row: 1;
+  grid-row: var(--plan-composer-input-row, 1);
   min-block-size: 3.15rem;
 }
 

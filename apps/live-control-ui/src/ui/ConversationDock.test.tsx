@@ -19,8 +19,12 @@ afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("ConversationDock", () => {
   it("allows the conversation to grow beyond the old half-screen ceiling", () => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({height:900} as DOMRect);
     render(<ConversationDock reader={<p>Plan</p>} messages={<p>Conversation</p>} composer={<textarea aria-label="Message Buddy" />} expanded />);
-    expect(screen.getByRole("separator", { name: "Resize Buddy conversation" })).toHaveAttribute("aria-valuemax", "1440");
+    const resize = screen.getByRole("separator", { name: "Resize Buddy conversation" });
+    fireEvent.keyDown(resize, {key:"End"});
+    expect(resize).toHaveAttribute("aria-valuemax", "740");
+    expect(resize).toHaveAttribute("aria-valuenow", "740");
   });
 
   it("follows external launcher state without replacing the reader, draft or message position", () => {
