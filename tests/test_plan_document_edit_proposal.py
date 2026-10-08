@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -17,6 +18,51 @@ from apps.live_control_server.services import plan_document_edit_proposal as ser
 
 
 _EMPTY_SHA = hashlib.sha256(b"").hexdigest()
+
+
+def test_plan_proposal_selects_current_conversation_model() -> None:
+    assert service._resolve_model() == "gpt-6-luna"
+
+
+@pytest.mark.parametrize(
+    ("actions", "expected"),
+    [
+        ({"hermes_graph_agent": "conversation", "structured_generation": "structured"}, "conversation-model"),
+        ({"structured_generation": "structured"}, "legacy-model"),
+    ],
+)
+def test_plan_proposal_selector_prefers_conversation_with_legacy_fallback(monkeypatch, actions, expected) -> None:
+    calls = []
+
+    def policy(*, strict):
+        calls.append(strict)
+        return {"actions": actions, "models": {"conversation": "conversation-model", "structured": "legacy-model"}}
+
+    monkeypatch.setattr(service, "load_buddy_model_policy", policy)
+    assert service._resolve_model() == expected
+    assert calls == [True]
+
+
+@pytest.mark.parametrize("role", [None, "missing-role", ""])
+def test_configured_invalid_conversation_role_does_not_fall_back(monkeypatch, role) -> None:
+    monkeypatch.setattr(service, "load_buddy_model_policy", lambda **_: {
+        "actions": {"hermes_graph_agent": role, "structured_generation": "structured"},
+        "models": {"structured": "legacy-model"},
+    })
+    with pytest.raises(service.PlanDocumentEditProposalError) as caught:
+        service._resolve_model()
+    assert caught.value.code == "model_policy_unavailable"
+
+
+def test_plan_proposal_missing_and_malformed_policy_remain_strict(monkeypatch, tmp_path) -> None:
+    path = tmp_path / "MODEL_POLICY.json"
+    monkeypatch.setattr("src.model_policy.buddy_model_policy_path", lambda: path)
+    with pytest.raises(service.PlanDocumentEditProposalError) as caught:
+        service._resolve_model()
+    assert caught.value.code == "model_policy_unavailable"
+    path.write_text("{ malformed", encoding="utf-8")
+    with pytest.raises(json.JSONDecodeError):
+        service._resolve_model()
 
 
 class _FakeGenerationClient:
