@@ -112,7 +112,13 @@ test("keeps the active Play scene primary across available widths", async ({ pag
 
 test("keeps the full App Play route readable and keyboard-operable at narrow widths", async ({ page }) => {
   const story = "play-current-moment-cockpit--app-shell-responsive-cockpit";
-  const viewports = [desktop, narrow, { width: 320, height: 844 }];
+  const viewports = [
+    desktop,
+    { width: 960, height: 844 },
+    { width: 768, height: 844 },
+    narrow,
+    { width: 320, height: 844 },
+  ];
 
   for (const viewport of viewports) {
     await page.setViewportSize(viewport);
@@ -147,11 +153,18 @@ test("keeps the full App Play route readable and keyboard-operable at narrow wid
       const scene = bounds("[data-testid='play-central-workspace']");
       const beat = bounds("[data-testid='play-beat-context']");
       const glance = bounds("[data-testid='play-at-a-glance']");
+      const appWrap = bounds(".app-wrap");
+      const cockpit = document.querySelector<HTMLElement>("[data-testid='play-cockpit-shell']");
+      const cockpitColumnCount = cockpit
+        ? getComputedStyle(cockpit).gridTemplateColumns.split(" ").filter(Boolean).length
+        : 0;
       const body = document.querySelector<HTMLElement>(".play-scene-board-body");
       return {
         scene,
         beat,
         glance,
+        appWrap,
+        cockpitColumnCount,
         titleVisibleInFirstViewport: Boolean(title && title.top >= 0 && title.bottom <= window.innerHeight),
         bodyFontSize: body ? Number.parseFloat(getComputedStyle(body).fontSize) : 0,
         documentWidth: document.documentElement.scrollWidth,
@@ -160,6 +173,13 @@ test("keeps the full App Play route readable and keyboard-operable at narrow wid
     expect(geometry.scene).not.toBeNull();
     expect(geometry.beat).not.toBeNull();
     expect(geometry.glance).not.toBeNull();
+    expect(geometry.appWrap).not.toBeNull();
+    expect(geometry.appWrap!.width).toBeGreaterThan(viewport.width * (viewport.width > 960 ? 0.9 : 0.8));
+    if (viewport.width > 960) {
+      expect(geometry.cockpitColumnCount).toBe(3);
+    } else {
+      expect(geometry.cockpitColumnCount).toBe(1);
+    }
     expect(geometry.scene!.left).toBeGreaterThanOrEqual(0);
     expect(geometry.scene!.right).toBeLessThanOrEqual(viewport.width);
     expect(geometry.scene!.width).toBeGreaterThan(viewport.width * (viewport.width <= 390 ? 0.7 : 0.5));

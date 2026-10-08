@@ -1,5 +1,7 @@
 .app-wrap:has(.play-surface),
 .app-wrap:has(.play-chooser) {
+  width: 100%;
+  box-sizing: border-box;
   max-width: min(1440px, calc(100% - 2rem));
 }
 

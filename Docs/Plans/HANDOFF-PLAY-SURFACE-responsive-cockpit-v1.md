@@ -1,6 +1,6 @@
 # HANDOFF — responsive Play cockpit presentation
 
-**Status:** ACTIVE — direct product-owner authorization in DOGFOOD thread.
+**Status:** SETTLED — PR #1028 merged at `7a6a5e1200f8a5d5a603fb55e8191f5c248521b1`. DOGFOOD later found a full-App flex sizing gap; see `HANDOFF-PLAY-SURFACE-shell-width-v1.md`.
 **Workstream:** PLAY-SURFACE / responsive current-moment presentation
 **Flow:** PLAY-SURFACE
 **Base:** `origin/main@97b029896bb1b6f44cf1f6278788bbe06cdb4615`
