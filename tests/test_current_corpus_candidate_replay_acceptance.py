@@ -5,7 +5,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, fields, replace
 from pathlib import Path
 from types import SimpleNamespace
 from collections.abc import Mapping
@@ -29,6 +29,156 @@ from evals.graph_memory_layer.run_current_corpus_candidate_replay_acceptance imp
     run_product_smoke_from_run,
     verify_entry_source_bytes,
 )
+
+
+@pytest.fixture(autouse=True)
+def clean_libpq_endpoint_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    for key in ("PGHOSTADDR", "PGSERVICE", "PGSERVICEFILE"):
+        monkeypatch.delenv(key, raising=False)
+
+
+LEASED_DSN = "postgresql://dungeonmind:x@127.0.0.1:54362/dmb_current_corpus_replay_v1"
+FORBIDDEN_DSNS = [
+    "postgresql://dungeonmind:x@127.0.0.1:54330/dmb_current_corpus_replay_v1",
+    "postgresql://dungeonmind:x@127.0.0.1:54330/dungeonmind_cutover_live",
+    "postgresql://dungeonmind:x@127.0.0.1:54362/dmb_current_corpus_acceptance_v1",
+    "postgresql://dungeonmind:x@127.0.0.1:54362/other",
+    "postgresql://dungeonmind:x@127.0.0.1:54362//dmb_current_corpus_replay_v1",
+    "postgresql://dungeonmind:x@127.0.0.1:54362/%2Fdmb_current_corpus_replay_v1",
+    "postgresql://dungeonmind:x@localhost:54362/dmb_current_corpus_replay_v1",
+    "postgresql://dungeonmind:x@127.0.0.2:54362/dmb_current_corpus_replay_v1",
+    "postgresql://dungeonmind:x@[::1]:54362/dmb_current_corpus_replay_v1",
+    "postgresql://dungeonmind:x@remote.invalid:54362/dmb_current_corpus_replay_v1",
+    "postgresql://dungeonmind:x@127.0.0.1:54361/dmb_current_corpus_replay_v1",
+    "postgresql://dungeonmind:x@127.0.0.1/dmb_current_corpus_replay_v1",
+    "postgresql://dungeonmind:x@127.0.0.1:invalid/dmb_current_corpus_replay_v1",
+    "host=127.0.0.1 port=54362 dbname=dmb_current_corpus_replay_v1",
+    LEASED_DSN + "?hostaddr=192.0.2.1",
+    LEASED_DSN + "?host=192.0.2.1",
+    LEASED_DSN + "?port=54330",
+    LEASED_DSN + "?host=127.0.0.1&port=54330",
+    LEASED_DSN + "?dbname=dungeonmind_cutover_live",
+    LEASED_DSN + "?service=live",
+    LEASED_DSN + "?servicefile=/synthetic/services",
+    LEASED_DSN + "?%68ostaddr=192.0.2.1",
+    LEASED_DSN + "#host=remote.invalid",
+    LEASED_DSN.replace("postgresql:", "https:"),
+]
+
+
+@pytest.mark.parametrize("scheme", ["postgresql", "postgres"])
+def test_only_exact_leased_endpoint_accepted(scheme: str) -> None:
+    assert EXPECTED_HOST == "127.0.0.1"
+    assert EXPECTED_PORT == 54362
+    assert DATABASE_NAME == "dmb_current_corpus_replay_v1"
+    assert assert_runtime_dsn(LEASED_DSN.replace("postgresql:", scheme + ":")) == (
+        "127.0.0.1", 54362, "dmb_current_corpus_replay_v1"
+    )
+
+
+@pytest.mark.parametrize("dsn", FORBIDDEN_DSNS)
+def test_forbidden_endpoint_and_connection_overrides_rejected(dsn: str) -> None:
+    with pytest.raises(ReplayStop) as exc:
+        assert_runtime_dsn(dsn)
+    assert exc.value.boundary == "runtime_guard"
+
+
+def _call_guarded_mode(
+    mode: str, seeded: dict[str, Any], seams: ReplaySeams, dsn: str | None,
+) -> None:
+    if mode == "product-smoke-direct":
+        run_product_smoke(
+            repo_root=seeded["repo"], dsn=dsn or "", terminal_head="rev:synthetic",
+            replay_ledger=[], seams=seams,
+        )
+    elif mode == "product-smoke":
+        run_root = seeded["repo"] / "completed-synthetic-run"
+        _write(run_root / "replay_report.json", json.dumps({
+            "replay_acceptance": "PASS", "terminal_head": "rev:synthetic", "stop": None,
+        }))
+        run_product_smoke_from_run(
+            completed_replay_run_root=run_root, repo_root=seeded["repo"], dsn=dsn, seams=seams,
+        )
+    else:
+        runner = run_preflight if mode == "preflight" else run_execute
+        runner(
+            accepted_artifact_root=seeded["artifact_root"], repo_root=seeded["repo"],
+            dsn=dsn, seams=seams, expected_count=2, expected_digest=seeded["digest"],
+        )
+
+
+def _forbidden_database_seams(monkeypatch: pytest.MonkeyPatch) -> tuple[ReplaySeams, list[str]]:
+    calls: list[str] = []
+
+    def forbidden(*args: Any, **kwargs: Any) -> None:
+        calls.append("probe-or-write")
+        pytest.fail("forbidden endpoint reached a database seam")
+
+    import psycopg
+    monkeypatch.setattr(psycopg, "connect", forbidden)
+    seams = ReplaySeams(**{item.name: forbidden for item in fields(ReplaySeams)})
+    return seams, calls
+
+
+@pytest.mark.parametrize("mode", ["preflight", "execute", "product-smoke", "product-smoke-direct"])
+@pytest.mark.parametrize("dsn", FORBIDDEN_DSNS)
+def test_every_entry_point_rejects_before_probe_or_write(
+    seeded: dict[str, Any], monkeypatch: pytest.MonkeyPatch, mode: str, dsn: str,
+) -> None:
+    seams, calls = _forbidden_database_seams(monkeypatch)
+    with pytest.raises(ReplayStop) as exc:
+        _call_guarded_mode(mode, seeded, seams, dsn)
+    assert exc.value.boundary == "runtime_guard"
+    assert calls == []
+
+
+@pytest.mark.parametrize("mode", ["preflight", "execute", "product-smoke"])
+def test_environment_selected_live_endpoint_is_rejected_without_fallback(
+    seeded: dict[str, Any], monkeypatch: pytest.MonkeyPatch, mode: str,
+) -> None:
+    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", FORBIDDEN_DSNS[0])
+    seams, calls = _forbidden_database_seams(monkeypatch)
+    with pytest.raises(ReplayStop) as exc:
+        _call_guarded_mode(mode, seeded, seams, None)
+    assert exc.value.boundary == "runtime_guard"
+    assert calls == []
+
+
+@pytest.mark.parametrize("mode", ["preflight", "execute", "product-smoke", "product-smoke-direct"])
+@pytest.mark.parametrize("key", ["PGHOSTADDR", "PGSERVICE", "PGSERVICEFILE"])
+def test_libpq_environment_cannot_redirect_leased_endpoint(
+    seeded: dict[str, Any], monkeypatch: pytest.MonkeyPatch, mode: str, key: str,
+) -> None:
+    monkeypatch.setenv(key, "synthetic-override")
+    seams, calls = _forbidden_database_seams(monkeypatch)
+    with pytest.raises(ReplayStop) as exc:
+        _call_guarded_mode(mode, seeded, seams, LEASED_DSN)
+    assert exc.value.boundary == "runtime_guard"
+    assert calls == []
+
+
+def test_default_dsn_is_leased_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+    from evals.graph_memory_layer.run_current_corpus_candidate_replay_acceptance import _default_dsn
+    monkeypatch.delenv("DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", raising=False)
+    assert assert_runtime_dsn(_default_dsn()) == (EXPECTED_HOST, EXPECTED_PORT, DATABASE_NAME)
+
+
+def test_saved_live_dsn_is_rejected_without_environment_fallback(
+    seeded: dict[str, Any], monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", LEASED_DSN)
+    run_root = seeded["repo"] / "saved-live-target"
+    _write(run_root / "replay_report.json", json.dumps({
+        "replay_acceptance": "PASS", "terminal_head": "rev:synthetic", "stop": None,
+        "dsn": FORBIDDEN_DSNS[0],
+    }))
+    seams, calls = _forbidden_database_seams(monkeypatch)
+    with pytest.raises(ReplayStop) as exc:
+        run_product_smoke_from_run(
+            completed_replay_run_root=run_root, repo_root=seeded["repo"], seams=seams,
+        )
+    assert exc.value.boundary == "runtime_guard"
+    assert calls == []
 
 
 def _write(path: Path, text: str) -> None:
