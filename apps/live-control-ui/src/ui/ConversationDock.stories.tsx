@@ -1,6 +1,7 @@
 import { useState, type CSSProperties } from "react";
 import { ConversationDock } from "./ConversationDock";
 import "./tokens.css";
+import { PlanEditReview } from "../planSurface/components/PlanEditReview";
 
 const fixtureStyle = `
 .dock-fixture { height: min(760px, calc(100dvh - 120px)); min-height: 320px; }
@@ -19,7 +20,7 @@ const fixtureStyle = `
 @media(max-width:520px) { .dock-fixture-paper { margin:12px; padding:18px; } }
 `;
 
-function DockFixture({ expanded = false, paper = false, failed = false, touch = false }: {expanded?:boolean;paper?:boolean;failed?:boolean;touch?:boolean}) {
+function DockFixture({ expanded = false, paper = false, failed = false, touch = false, fullClose = false }: {expanded?:boolean;paper?:boolean;failed?:boolean;touch?:boolean;fullClose?:boolean}) {
   const [draft, setDraft] = useState("");
   const [scope, setScope] = useState("This scene");
   const [messages, setMessages] = useState<string[]>([]);
@@ -34,7 +35,7 @@ function DockFixture({ expanded = false, paper = false, failed = false, touch = 
     ...(touch ? {"--conversation-dock-resize-hit-size": "max(44px, 2.75rem)", "--conversation-dock-control-hit-size": "max(44px, 2.75rem)"} : {}),
   } as CSSProperties;
   return <div className="dock-fixture"><style>{fixtureStyle}</style>
-    <ConversationDock initialExpanded={expanded} contextLabel={scope} style={theme}
+    <ConversationDock title={fullClose ? "Conversation" : "Buddy"} collapseMode={fullClose ? "launcher" : "composer"} fullscreenEnabled={fullClose} initialExpanded={expanded} contextLabel={scope} style={theme}
       reader={<article className="dock-fixture-paper"><h1>Something Is Still Moving</h1><p>The main assault has broken.</p><p>Smoke, churned mud, broken wall timbers, burned flesh, and exhausted townsfolk fill the <button type="button">Ironveil Warehouse</button> yard.</p><p>Two transformed refugees remain active. Each is dragging an unconscious victim away from the warehouse and toward broken ground or a tunnel route.</p><p>The document keeps its own reading space when chat opens. This is an isolated composition fixture, with no campaign or provider connection.</p><label>Reader note <input aria-label="Reader note" defaultValue="Keep the rescue brief" /></label></article>}
       messages={<div className="dock-fixture-messages"><p className="dock-fixture-question">How could I give this scene a quieter ending?</p>{failed?<div className="dock-fixture-failure" role="alert"><strong>Buddy couldn’t complete this answer.</strong><p>Your question is kept. It hasn’t been sent again.</p><details><summary>Details</summary><p>This fixture represents a terminal failed answer. A real caller must provide the exact diagnostic and captured source attribution without automatically replaying the request.</p></details><details><summary>Older recovery items · 4</summary><p>Saved recovery records remain inspectable; hiding them does not erase them.</p></details></div>:<><p>Let the sound of fighting fall away. Bring attention to the people the party saved: a blanket offered, someone counting survivors, a voice asking for water.</p><p>Then give the players room to decide what comes next.</p></>}{messages.map((m,i)=><p key={i}>{m}</p>)}</div>}
       collapsedPreview={<div className="dock-fixture-messages">{failed?'The last question couldn’t be completed.':'Give the players room to decide what comes next.'}</div>}
@@ -48,3 +49,9 @@ export const Expanded = () => <DockFixture expanded />;
 export const Paper = () => <DockFixture expanded paper />;
 export const FailedTurn = () => <DockFixture expanded failed />;
 export const TouchTarget = () => <DockFixture expanded touch />;
+
+export const FullConversation = () => <DockFixture expanded fullClose />;
+export const ContextualTitleReview = () => <div className="dock-fixture"><PlanEditReview targetLabel="Session title" status="review" onApply={()=>undefined} onDiscard={()=>undefined}
+  before={{markdown:"# Campaign 2\n\nThe hours they bought.\n\n## Opening\n\nThe siege has broken."}}
+  after={{markdown:"# Campaign 2\n\n## Breaking the Siege\n\nThe hours they bought.\n\n## Opening\n\nThe siege has broken.",placementLabel:"Inserted below Campaign 2",sourceLineTarget:{startLine:3,endLine:3,targetKey:"story-title"}}}
+  details={<p>This fixture is read-only: no Plan, storage or provider actions.</p>}/></div>;

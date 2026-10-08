@@ -33,19 +33,14 @@ function MountedPlanDock({reader,contextLabel,children,slot}:AdapterProps & {slo
   const messages=useCallback((node:HTMLDivElement|null)=>bind("messages",node),[bind]);
   const composer=useCallback((node:HTMLDivElement|null)=>{bind("composer",node);setHostElement(node);},[bind,setHostElement]);
   useLayoutEffect(()=>{setLayoutOwner("plan-workspace");return()=>{setLayoutOwner("chrome");setHostElement(null);setLauncherHost(null);};},[setLayoutOwner,setHostElement,setLauncherHost]);
-  useLayoutEffect(()=>{
-    const node=hosts.composer;if(!node)return;
-    const expand=()=>setPaneOpen(true);
-    node.addEventListener("focusin",expand);
-    return()=>node.removeEventListener("focusin",expand);
-  },[hosts.composer,setPaneOpen]);
   return <>
     <ConversationDock className="plan-conversation-dock" reader={reader} readerLabel="Plan workspace"
       conversationLabel="Saved World Plan conversation"
-      title="Buddy" contextLabel={contextLabel} expanded={paneState.isOpen} onExpandedChange={setPaneOpen}
-      initialHeight={220} minHeight={180}
-      headerActions={<><details className="plan-conversation-dock__management"><summary>More</summary><div ref={header}/></details><div ref={setLauncherHost} className="plan-conversation-dock__launcher"/></>}
-      contextDetails={<div ref={context}/>}
+      title="Conversation" contextLabel="Context" collapseMode="launcher" fullscreenEnabled expanded={paneState.isOpen} onExpandedChange={setPaneOpen}
+      initialHeight={360} minHeight={240}
+      headerActions={<><details className="plan-conversation-dock__management"><summary>More</summary><div ref={header}/></details></>}
+      launcher={<><div ref={setLauncherHost} className="plan-conversation-dock__launcher"/><span>Conversation</span></>}
+      contextDetails={<><p className="plan-conversation-dock__scope">{contextLabel.replace(/\s*·\s*Full saved Plan$/, "")}</p><div ref={context}/></>}
       messages={<div ref={messages} className="plan-conversation-dock__messages"/>}
       composer={<div ref={composer} className="plan-conversation-dock__composer"/>}/>
     {children(hosts)}

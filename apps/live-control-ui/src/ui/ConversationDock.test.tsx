@@ -175,3 +175,25 @@ describe("ConversationDock", () => {
     expect(screen.getByRole("log")).toBeInTheDocument();
   });
 });
+
+it("preserves mounted drafts and reading position through fullscreen, restore, full close and keyboard entrance", async () => {
+  const user = userEvent.setup();
+  render(<ConversationDock title="Conversation" initialExpanded collapseMode="launcher" fullscreenEnabled
+    reader={<input aria-label="Plan writing" defaultValue="Unsaved preparation" />}
+    messages={<p>Retained reply</p>} composer={<textarea aria-label="Conversation writing" defaultValue="Unsent question" />} />);
+  const reader = screen.getByLabelText("Plan writing"), draft = screen.getByLabelText("Conversation writing"), log = screen.getByRole("log");
+  log.scrollTop = 93; fireEvent.scroll(log);
+  await user.click(screen.getByRole("button", {name:"Expand conversation fullscreen"}));
+  expect(screen.getByRole("dialog")).toContainElement(draft);
+  expect(reader).not.toBeVisible(); expect(screen.getByRole("log")).toBe(log); expect(log.scrollTop).toBe(93);
+  await user.keyboard("{Escape}");
+  expect(screen.queryByRole("dialog")).toBeNull(); expect(reader).toBeVisible();
+  expect(screen.getByRole("button", {name:"Expand conversation fullscreen"})).toHaveFocus();
+  await user.click(screen.getByRole("button", {name:"Close conversation"}));
+  expect(screen.queryByRole("log")).toBeNull(); expect(draft).not.toBeVisible();
+  const entrance = screen.getByRole("button", {name:"Open conversation"}); expect(entrance).toHaveFocus();
+  reader.focus(); expect(screen.queryByRole("log")).toBeNull();
+  entrance.focus(); await user.keyboard("{Enter}");
+  expect(screen.getByLabelText("Conversation writing")).toBe(draft); expect(draft).toHaveValue("Unsent question"); expect(draft).toHaveFocus();
+  expect(screen.getByLabelText("Plan writing")).toBe(reader); expect(log.scrollTop).toBe(93);
+});

@@ -1,0 +1,17 @@
+.plan-edit-review { display:flex; flex-direction:column; gap:.8rem; min-inline-size:0; border:1px solid var(--ui-border-subtle,#40565d); border-radius:.65rem; padding:1rem; background:var(--ui-background-surface,#182329); color:var(--ui-text-primary,#e8ece8); }
+.plan-edit-review__heading { display:flex; align-items:flex-start; justify-content:space-between; gap:.8rem; }
+.plan-edit-review h4,.plan-edit-review h5,.plan-edit-review p { margin:0; }
+.plan-edit-review h4 { font-size:1rem; }.plan-edit-review h5 { font-size:.85rem; margin-block-end:.75rem; }
+.plan-edit-review__heading p,.plan-edit-review__placement { color:var(--ui-text-secondary,#b8c3bf); font-size:.85rem; }
+.plan-edit-review__heading p { margin-block-start:.25rem; }
+.plan-edit-review__comparison { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; min-block-size:0; overflow:auto; }
+.plan-edit-review__version { min-inline-size:0; padding:1rem; border:1px solid var(--ui-border-subtle,#40565d); border-radius:.5rem; background:var(--ui-background-paper,#efe6d1); color:var(--ui-text-on-paper,#302c24); overflow-wrap:anywhere; }
+.plan-edit-review__placement { margin-block-end:.7rem!important; color:inherit; }
+.plan-edit-review .markdown-document-reader { font:15px/1.5 Georgia,serif; }.plan-edit-review .markdown-document-reader p { margin-block:.5rem; }
+.plan-edit-review .markdown-document-reader h1,.plan-edit-review .markdown-document-reader h2,.plan-edit-review .markdown-document-reader h3 { margin-block:.75rem .4rem; line-height:1.25; }
+.plan-edit-review [data-source-block="true"] { background:#d9e5cb; border-inline-start:3px solid #597753; padding-inline-start:.5rem; }
+.plan-edit-review__actions { display:flex; justify-content:flex-end; align-items:center; gap:.5rem; flex-wrap:wrap; }
+.plan-edit-review button { min-block-size:2.5rem; padding:.45rem .7rem; font:inherit; cursor:pointer; }.plan-edit-review button:disabled { cursor:default; }
+.plan-edit-review__details { font-size:.85rem; color:var(--ui-text-secondary,#b8c3bf); }
+.plan-edit-review.is-large { position:fixed; inset:1rem; z-index:120; box-shadow:0 0 0 2rem #0009; }.plan-edit-review.is-large .plan-edit-review__comparison { flex:1; }
+@media(max-width:45rem) { .plan-edit-review__comparison { grid-template-columns:minmax(0,1fr); }.plan-edit-review__heading { flex-wrap:wrap; }.plan-edit-review.is-large { inset:.5rem; } }
