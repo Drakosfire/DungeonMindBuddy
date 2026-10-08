@@ -149,6 +149,7 @@ export interface ExpectedWorldPlanEditAgentBinding {
 
 export interface WorldPlanEditBridge {
   capture: () => Promise<CapturedWorldPlanEditTarget>;
+  preview?: (captured: CapturedWorldPlanEditTarget, admitted: AdmittedWorldPlanEditProposal) => WorldPlanEditContextualPreview;
   apply: (
     captured: CapturedWorldPlanEditTarget,
     admitted: AdmittedWorldPlanEditProposal,

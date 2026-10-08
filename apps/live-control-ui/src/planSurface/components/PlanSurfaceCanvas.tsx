@@ -100,7 +100,7 @@ export function PlanSurfaceCanvasFrame({
   return (
     <section
       className={`plan-surface-canvas${className ? ` ${className}` : ""}`}
-      aria-label="Plan canvas"
+      aria-label="Plan workspace"
       data-testid={testId ?? "plan-surface-canvas-frame"}
     >
       <p className="plan-surface-kicker" data-testid="plan-authoring-identity">
@@ -897,7 +897,7 @@ function PlanShellStatusSurfaceCanvas({
     );
 
   return (
-    <section className="plan-surface-canvas" aria-label="Plan canvas">
+    <section className="plan-surface-canvas" aria-label="Plan workspace">
       <div
         className={`tiptap-spike-editor md-content ${editorThemeClass}`}
         data-md-theme={theme.themeId}

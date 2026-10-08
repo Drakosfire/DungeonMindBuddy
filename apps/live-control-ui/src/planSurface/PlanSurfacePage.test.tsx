@@ -200,6 +200,7 @@ it.each([false, true, "stale-apply"] as const)("captures the current Ask scene w
   render(<SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}><AgentEnabledPlanPage /></SelectedWorldProvider>);
   const page = await screen.findByTestId("world-owned-plan");
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  expect(await screen.findByLabelText("Plan workspace")).toBeInTheDocument();
   fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
   const reader = await screen.findByTestId("world-plan-scene-reader");
   expect(within(reader).getByRole("button", { name: "Select for Edit" })).toHaveAttribute("aria-pressed", "false");
