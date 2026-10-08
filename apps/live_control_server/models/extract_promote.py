@@ -516,6 +516,30 @@ class RecapCandidateNodeOmission(_ExtractPromoteModel):
         return value
 
 
+class RecapNodeLabelReplacement(_ExtractPromoteModel):
+    node_id: str
+    original_label: str
+    replacement_label: str
+
+    @field_validator("node_id")
+    @classmethod
+    def _node_id(cls, value: str) -> str:
+        return _nonblank(value, field_name="node_id")
+
+    @field_validator("original_label", "replacement_label")
+    @classmethod
+    def _label(cls, value: str, info) -> str:
+        if not value.strip() or value != value.strip() or len(value) > 4096:
+            raise ValueError(f"{info.field_name} must be nonblank, trimmed and bounded")
+        return value
+
+    @model_validator(mode="after")
+    def _changed(self) -> "RecapNodeLabelReplacement":
+        if self.original_label == self.replacement_label:
+            raise ValueError("replacement_label must differ from original_label")
+        return self
+
+
 class RecapCandidateCorrectionRequest(_ExtractPromoteModel):
     schema_: Literal["dmb_recap_candidate_correction_request_v1"] = Field(
         default=RECAP_CANDIDATE_CORRECTION_REQUEST_SCHEMA, alias="schema"
@@ -523,17 +547,19 @@ class RecapCandidateCorrectionRequest(_ExtractPromoteModel):
     parent_run_id: str
     parent_candidate_sha256: str
     node_description_replacements: list[RecapNodeDescriptionReplacement] = Field(default_factory=list, max_length=1)
+    node_label_replacements: list[RecapNodeLabelReplacement] = Field(default_factory=list, max_length=1)
     omitted_edge_ids: list[str] = Field(default_factory=list, max_length=1)
 
     node_omissions: list[RecapCandidateNodeOmission] = Field(default_factory=list, max_length=1)
 
     @model_validator(mode="after")
     def _bounded(self) -> "RecapCandidateCorrectionRequest":
-        if self.node_omissions and (self.node_description_replacements or self.omitted_edge_ids):
+        if self.node_omissions and (self.node_description_replacements or self.node_label_replacements or self.omitted_edge_ids):
             raise ValueError("node omission must be the only candidate correction")
-        if not self.node_description_replacements and not self.omitted_edge_ids and not self.node_omissions:
+        if not self.node_description_replacements and not self.node_label_replacements and not self.omitted_edge_ids and not self.node_omissions:
             raise ValueError("at least one candidate correction is required")
-        if len({v.node_id for v in self.node_description_replacements}) != len(self.node_description_replacements):
+        targets = [v.node_id for v in (*self.node_description_replacements, *self.node_label_replacements)]
+        if len(set(targets)) != len(targets):
             raise ValueError("duplicate node correction")
         if len(set(self.omitted_edge_ids)) != len(self.omitted_edge_ids):
             raise ValueError("duplicate omitted edge")
