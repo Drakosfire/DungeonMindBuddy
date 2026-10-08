@@ -533,6 +533,37 @@ describe("PlayCurrentMomentCockpit", () => {
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
   });
 
+  it("dismisses an open compact panel before touching inspection and restores its trigger focus", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("ResizeObserver", undefined);
+    vi.stubGlobal("matchMedia", vi.fn(() => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })));
+    render(<Harness />);
+
+    const scenes = screen.getByTestId("play-compact-outline-toggle");
+    const runRecord = screen.getByTestId("play-compact-outcomes-toggle");
+    const central = screen.getByTestId("play-central-workspace");
+    await user.click(scenes);
+    expect(central).toHaveAttribute("inert");
+    expect(central).toHaveAttribute("aria-hidden", "true");
+    await user.keyboard("{Escape}");
+    expect(scenes).toHaveAttribute("aria-expanded", "false");
+    expect(central).not.toHaveAttribute("inert");
+    await waitFor(() => expect(scenes).toHaveFocus());
+    expect(screen.getByTestId("play-workspace-beat-only")).toBeInTheDocument();
+
+    await user.click(runRecord);
+    expect(central).toHaveAttribute("inert");
+    await user.keyboard("{Escape}");
+    expect(runRecord).toHaveAttribute("aria-expanded", "false");
+    await waitFor(() => expect(runRecord).toHaveFocus());
+    expect(screen.getByTestId("play-workspace-beat-only")).toBeInTheDocument();
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
   it("shows scenes in the outline and keeps the current scene in the central workspace", () => {
     render(<Harness />);
     expect(screen.getByRole("navigation", { name: "Scenes in this Run" })).toHaveTextContent("Tunnel Breach");

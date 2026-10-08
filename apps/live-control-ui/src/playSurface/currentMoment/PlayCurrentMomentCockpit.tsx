@@ -360,6 +360,8 @@ export function PlayCurrentMomentCockpit({
   const sceneNoteDraftsRef = useRef(sceneNoteDrafts);
   const sceneNoteRequestCounterRef = useRef(0);
   const compactOutlineToggleRef = useRef<HTMLButtonElement | null>(null);
+  const compactOutcomesToggleRef = useRef<HTMLButtonElement | null>(null);
+  const compactPanelFocusRef = useRef<"scenes" | "outcomes">("scenes");
   const workspaceHeadingRef = useRef<HTMLHeadingElement | null>(null);
   sceneNoteDraftsRef.current = sceneNoteDrafts;
 
@@ -719,13 +721,19 @@ export function PlayCurrentMomentCockpit({
 
   const toggleOutline = () => {
     const nextCollapsed = !beatCollapsed;
-    if (compactLayoutRef.current && !nextCollapsed) setGlanceCollapsed(true);
+    if (compactLayoutRef.current && !nextCollapsed) {
+      compactPanelFocusRef.current = "scenes";
+      setGlanceCollapsed(true);
+    }
     setBeatCollapsed(nextCollapsed);
   };
 
   const toggleOutcomes = () => {
     const nextCollapsed = !glanceCollapsed;
-    if (compactLayoutRef.current && !nextCollapsed) setBeatCollapsed(true);
+    if (compactLayoutRef.current && !nextCollapsed) {
+      compactPanelFocusRef.current = "outcomes";
+      setBeatCollapsed(true);
+    }
     setGlanceCollapsed(nextCollapsed);
   };
 
@@ -741,6 +749,7 @@ export function PlayCurrentMomentCockpit({
   const workspaceKind = workspace.kind === "scene-inspect" && inspectedScene == null
     ? "current"
     : workspace.kind;
+  const compactOverlayOpen = compactLayoutRef.current && (!beatCollapsed || !glanceCollapsed);
   const decisions = currentBeat
     ? operableDecisions(currentBeat, currentScene?.id ?? null)
     : [];
@@ -755,9 +764,18 @@ export function PlayCurrentMomentCockpit({
       data-current-scene-id={deck.currentSceneId ?? ""}
       aria-label="Current moment"
       onKeyDown={(event) => {
-        if (event.key !== "Escape" || workspaceKind !== "scene-inspect") return;
+        if (event.key !== "Escape") return;
         event.preventDefault();
-        closeToCurrent();
+        if (compactOverlayOpen) {
+          const focusTarget = compactPanelFocusRef.current === "scenes"
+            ? compactOutlineToggleRef
+            : compactOutcomesToggleRef;
+          setBeatCollapsed(true);
+          setGlanceCollapsed(true);
+          queueMicrotask(() => focusTarget.current?.focus());
+        } else if (workspaceKind === "scene-inspect") {
+          closeToCurrent();
+        }
       }}
     >
       {moment.status === "incoherent" ? (
@@ -804,6 +822,7 @@ export function PlayCurrentMomentCockpit({
         <button
           type="button"
           data-testid="play-compact-outcomes-toggle"
+          ref={compactOutcomesToggleRef}
           aria-expanded={!glanceCollapsed}
           aria-controls="play-recorded-outcomes-body"
           onClick={toggleOutcomes}
@@ -823,6 +842,8 @@ export function PlayCurrentMomentCockpit({
           className="play-cockpit-center"
           data-testid="play-central-workspace"
           data-workspace={workspaceKind}
+          inert={compactOverlayOpen}
+          aria-hidden={compactOverlayOpen ? true : undefined}
         >
           {workspaceKind === "current" && currentBeat && currentScene ? (
             <article

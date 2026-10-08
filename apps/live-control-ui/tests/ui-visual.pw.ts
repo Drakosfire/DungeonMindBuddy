@@ -321,6 +321,19 @@ test("keeps compact scene navigation and the Run record directly reachable", asy
   await expect(outcomes).toBeHidden();
 
   await compactOutline.click();
+  await expect(scene).toHaveAttribute("inert", "");
+  for (let tab = 0; tab < 3; tab += 1) {
+    await page.keyboard.press("Tab");
+    expect(await page.evaluate(() => (
+      document.activeElement?.closest("[data-testid='play-central-workspace']") != null
+    ))).toBe(false);
+  }
+  await page.keyboard.press("Escape");
+  await expect(outline).toBeHidden();
+  await expect(compactOutline).toBeFocused();
+  await expect(scene).not.toHaveAttribute("inert", "");
+
+  await compactOutline.click();
   await outline.getByRole("button", { name: /Lower Cistern/ }).click();
   const inspectedHeading = page.getByRole("heading", { name: "Inspecting Lower Cistern" });
   await expect(inspectedHeading).toBeFocused();
