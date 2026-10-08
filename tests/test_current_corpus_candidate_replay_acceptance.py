@@ -43,6 +43,8 @@ FORBIDDEN_DSNS = [
     "postgresql://dungeonmind:x@127.0.0.1:54330/dungeonmind_cutover_live",
     "postgresql://dungeonmind:x@127.0.0.1:54362/dmb_current_corpus_acceptance_v1",
     "postgresql://dungeonmind:x@127.0.0.1:54362/other",
+    "postgresql://dungeonmind:x@127.0.0.1:54362//dmb_current_corpus_replay_v1",
+    "postgresql://dungeonmind:x@127.0.0.1:54362/%2Fdmb_current_corpus_replay_v1",
     "postgresql://dungeonmind:x@localhost:54362/dmb_current_corpus_replay_v1",
     "postgresql://dungeonmind:x@127.0.0.2:54362/dmb_current_corpus_replay_v1",
     "postgresql://dungeonmind:x@[::1]:54362/dmb_current_corpus_replay_v1",

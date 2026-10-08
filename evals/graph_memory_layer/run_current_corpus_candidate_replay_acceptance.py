@@ -287,7 +287,7 @@ def assert_runtime_dsn(dsn: str) -> tuple[str, int, str]:
         raise ReplayStop("replay DSN must be a plain PostgreSQL URI", boundary="runtime_guard")
     if any(os.environ.get(key) for key in ("PGHOSTADDR", "PGSERVICE", "PGSERVICEFILE")):
         raise ReplayStop("libpq endpoint/service environment overrides are forbidden", boundary="runtime_guard")
-    database = (parsed.path or "").lstrip("/")
+    database = (parsed.path or "").removeprefix("/")
     if host != EXPECTED_HOST:
         raise ReplayStop(
             f"DSN host must be exact leased host {EXPECTED_HOST}, got {host!r}",
@@ -303,7 +303,7 @@ def assert_runtime_dsn(dsn: str) -> tuple[str, int, str]:
             f"historical database {HISTORICAL_DATABASE_NAME!r} is forbidden",
             boundary="runtime_guard",
         )
-    if database != DATABASE_NAME:
+    if parsed.path != f"/{DATABASE_NAME}":
         raise ReplayStop(
             f"DSN database must be {DATABASE_NAME}, got {database!r}",
             boundary="runtime_guard",
