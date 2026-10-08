@@ -519,6 +519,10 @@
   gap: 0.85rem;
 }
 
+.play-compact-tools {
+  display: none;
+}
+
 .play-cockpit-shell {
   --play-outline-rail: minmax(10rem, 13rem);
   --play-outcomes-rail: minmax(11rem, 14rem);
@@ -1109,6 +1113,51 @@
 }
 
 @container play-cockpit (max-width: 60rem) {
+  .play-compact-tools {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .play-compact-tools button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-width: 0;
+    min-height: 2.9rem;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--play-border);
+    border-radius: 0.5rem;
+    background: var(--play-surface);
+    color: var(--play-text);
+    font: inherit;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .play-compact-tools button[aria-expanded="true"] {
+    border-color: #788e70;
+    background: #dce5d5;
+    color: #2c4232;
+  }
+
+  .play-compact-tools button > span:last-child {
+    color: var(--play-subtle);
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+
+  .play-compact-tools button[aria-expanded="true"] > span:last-child {
+    color: #56654f;
+  }
+
+  .play-cockpit-shell {
+    position: relative;
+    grid-template-areas: "center";
+  }
+
   .play-cockpit-shell,
   .play-cockpit-shell[data-beat-collapsed="true"],
   .play-cockpit-shell[data-glance-collapsed="true"] {
@@ -1117,6 +1166,21 @@
       "center"
       "outline"
       "outcomes";
+  }
+
+  .play-cockpit-rail {
+    position: absolute;
+    z-index: 5;
+    inset: 0 0 auto;
+    max-height: min(70svh, 34rem);
+    overflow: auto;
+    border-color: #748197;
+    background: #1b202a;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.34);
+  }
+
+  .play-cockpit-rail.is-collapsed {
+    display: none;
   }
 
   .play-cockpit-rail.is-collapsed {
