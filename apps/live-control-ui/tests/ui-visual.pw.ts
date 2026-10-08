@@ -34,6 +34,82 @@ test.describe("fixed Buddy visual contract", () => {
   }
 });
 
+test("keeps the active Play scene primary across available widths", async ({ page, request }) => {
+  const metaResponse = await request.get("/meta.json");
+  expect(metaResponse.ok()).toBeTruthy();
+  const meta = (await metaResponse.json()) as { stories: Record<string, unknown> };
+  const story = "play-current-moment-cockpit--responsive-cockpit";
+  expect(Object.hasOwn(meta.stories, story)).toBeTruthy();
+
+  const viewports = [
+    desktop,
+    { width: 960, height: 844 },
+    { width: 768, height: 844 },
+    narrow,
+    { width: 320, height: 844 },
+  ];
+
+  for (const viewport of viewports) {
+    await page.setViewportSize(viewport);
+    await page.goto(`/?story=${story}&mode=preview`);
+    await expect(page.locator("html[data-storyloaded]")).toBeVisible();
+    const central = page.getByTestId("play-central-workspace");
+    const beat = page.getByTestId("play-beat-context");
+    const glance = page.getByTestId("play-at-a-glance");
+    await expect(central).toBeVisible();
+    await expect(beat).toBeVisible();
+    await expect(glance).toBeVisible();
+
+    const geometry = await page.evaluate(() => {
+      const top = (selector: string) => {
+        const element = document.querySelector<HTMLElement>(selector);
+        return element?.getBoundingClientRect().top ?? Number.NaN;
+      };
+      const scene = document.querySelector<HTMLElement>("[data-testid='play-central-workspace']")!;
+      const bounds = scene.getBoundingClientRect();
+      const title = document.querySelector<HTMLElement>("#play-workspace-heading")!;
+      const titleBounds = title.getBoundingClientRect();
+      return {
+        centralTop: bounds.top,
+        beatTop: top("[data-testid='play-beat-context']"),
+        glanceTop: top("[data-testid='play-at-a-glance']"),
+        sceneLeft: bounds.left,
+        sceneRight: bounds.right,
+        centralWithinViewport: bounds.top < window.innerHeight,
+        sceneTitleVisible: titleBounds.top >= 0 && titleBounds.bottom <= window.innerHeight,
+        documentWidth: document.documentElement.scrollWidth,
+      };
+    });
+    expect(geometry.centralWithinViewport).toBe(true);
+    expect(geometry.sceneTitleVisible).toBe(true);
+    expect(geometry.documentWidth).toBeLessThanOrEqual(viewport.width);
+    expect(geometry.sceneLeft).toBeGreaterThanOrEqual(0);
+    expect(geometry.sceneRight).toBeLessThanOrEqual(viewport.width);
+    if (viewport.width <= 960) {
+      expect(geometry.centralTop).toBeLessThan(geometry.beatTop);
+      expect(geometry.centralTop).toBeLessThan(geometry.glanceTop);
+    } else {
+      expect(geometry.centralTop).toBeLessThanOrEqual(geometry.beatTop);
+    }
+
+    if (viewport.width === 390 || viewport.width === desktop.width) {
+      const screenshot = viewport.width === 390
+        ? "play-cockpit-narrow.png"
+        : "play-cockpit-desktop.png";
+      await expect(page).toHaveScreenshot(screenshot);
+    }
+
+    if (viewport.width === 320) {
+      const beatToggle = page.getByTestId("play-beat-context-toggle");
+      await beatToggle.focus();
+      await page.keyboard.press("Enter");
+      await expect(beatToggle).toHaveAttribute("aria-expanded", "false");
+      await page.keyboard.press("Enter");
+      await expect(beatToggle).toHaveAttribute("aria-expanded", "true");
+    }
+  }
+});
+
 const mobileDockStories = [
   "visual-contract--edit-host-dock-responsive",
   "visual-contract--edit-host-dock-responsive-other-surface",
