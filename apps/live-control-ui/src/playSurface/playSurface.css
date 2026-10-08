@@ -1162,13 +1162,11 @@
   .play-cockpit-shell[data-beat-collapsed="true"],
   .play-cockpit-shell[data-glance-collapsed="true"] {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas:
-      "center"
-      "outline"
-      "outcomes";
+    grid-template-areas: "center";
   }
 
   .play-cockpit-rail {
+    grid-area: center;
     position: absolute;
     z-index: 5;
     inset: 0 0 auto;

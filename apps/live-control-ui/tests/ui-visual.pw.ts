@@ -57,8 +57,20 @@ test("keeps the active Play scene primary across available widths", async ({ pag
     const beat = page.getByTestId("play-beat-context");
     const glance = page.getByTestId("play-at-a-glance");
     await expect(central).toBeVisible();
-    await expect(beat).toBeVisible();
-    await expect(glance).toBeVisible();
+    const compact = viewport.width <= 960;
+    const beatToggle = page.getByTestId(compact ? "play-compact-outline-toggle" : "play-beat-context-toggle");
+    const glanceToggle = page.getByTestId(compact ? "play-compact-outcomes-toggle" : "play-at-a-glance-toggle");
+    if (compact) {
+      await expect(beatToggle).toBeVisible();
+      await expect(glanceToggle).toBeVisible();
+      await expect(beatToggle).toHaveAttribute("aria-expanded", "false");
+      await expect(glanceToggle).toHaveAttribute("aria-expanded", "false");
+      await expect(beat).toBeHidden();
+      await expect(glance).toBeHidden();
+    } else {
+      await expect(beat).toBeVisible();
+      await expect(glance).toBeVisible();
+    }
 
     const geometry = await page.evaluate(() => {
       const top = (selector: string) => {
@@ -85,9 +97,19 @@ test("keeps the active Play scene primary across available widths", async ({ pag
     expect(geometry.documentWidth).toBeLessThanOrEqual(viewport.width);
     expect(geometry.sceneLeft).toBeGreaterThanOrEqual(0);
     expect(geometry.sceneRight).toBeLessThanOrEqual(viewport.width);
-    if (viewport.width <= 960) {
-      expect(geometry.centralTop).toBeLessThan(geometry.beatTop);
-      expect(geometry.centralTop).toBeLessThan(geometry.glanceTop);
+    if (compact) {
+      const sceneTop = geometry.centralTop;
+      await beatToggle.click();
+      await expect(beat).toBeVisible();
+      await expect(glance).toBeHidden();
+      const [sceneAfterOpen, beatAfterOpen] = await Promise.all([
+        central.evaluate((element) => element.getBoundingClientRect().top),
+        beat.evaluate((element) => element.getBoundingClientRect().top),
+      ]);
+      expect(Math.abs(sceneAfterOpen - sceneTop)).toBeLessThan(1);
+      expect(Math.abs(beatAfterOpen - sceneAfterOpen)).toBeLessThan(1);
+      await beatToggle.click();
+      await expect(beat).toBeHidden();
     } else {
       expect(geometry.centralTop).toBeLessThanOrEqual(geometry.beatTop);
     }
@@ -100,7 +122,6 @@ test("keeps the active Play scene primary across available widths", async ({ pag
     }
 
     if (viewport.width === 320) {
-      const beatToggle = page.getByTestId("play-beat-context-toggle");
       await expect(beatToggle).toHaveAttribute("aria-expanded", "false");
       await beatToggle.focus();
       await page.keyboard.press("Enter");
@@ -127,7 +148,8 @@ test("keeps the full App Play route readable and keyboard-operable at narrow wid
     await expect(page.locator("html[data-storyloaded]")).toBeVisible();
     const scene = page.getByTestId("play-workspace-current");
     const sceneTitle = page.getByRole("heading", { name: "North Gate" });
-    const beatToggle = page.getByTestId("play-beat-context-toggle");
+    const compact = viewport.width <= 960;
+    const beatToggle = page.getByTestId(compact ? "play-compact-outline-toggle" : "play-beat-context-toggle");
     const note = page.getByRole("textbox", { name: "Scene note" });
     await expect(page.getByTestId("play-surface-ready")).toBeVisible();
     await expect(page.getByTestId("play-start-new-run")).toHaveText("Start New Run");
@@ -187,9 +209,10 @@ test("keeps the full App Play route readable and keyboard-operable at narrow wid
     expect(geometry.documentWidth).toBeLessThanOrEqual(viewport.width);
     expect(geometry.titleVisibleInFirstViewport).toBe(true);
     expect(geometry.bodyFontSize).toBeGreaterThanOrEqual(14);
-    if (viewport.width <= 960) {
-      expect(geometry.scene!.top).toBeLessThan(geometry.beat!.top);
-      expect(geometry.scene!.top).toBeLessThan(geometry.glance!.top);
+    if (compact) {
+      await expect(page.getByRole("navigation", { name: "Play panels" })).toBeVisible();
+      await expect(page.getByTestId("play-beat-context")).toBeHidden();
+      await expect(page.getByTestId("play-at-a-glance")).toBeHidden();
     }
 
     if (viewport.width === 320) {
@@ -232,6 +255,8 @@ test("collapses supporting panels when the Play canvas is narrow inside a wide v
   const shell = page.getByTestId("play-cockpit-shell");
   const outlineToggle = page.getByTestId("play-beat-context-toggle");
   const outcomesToggle = page.getByTestId("play-at-a-glance-toggle");
+  const compactOutlineToggle = page.getByTestId("play-compact-outline-toggle");
+  const compactOutcomesToggle = page.getByTestId("play-compact-outcomes-toggle");
   await expect(outlineToggle).toHaveAttribute("aria-expanded", "true");
   await expect(outcomesToggle).toHaveAttribute("aria-expanded", "true");
 
@@ -239,16 +264,18 @@ test("collapses supporting panels when the Play canvas is narrow inside a wide v
     element.style.width = "800px";
     element.style.marginInline = "auto";
   });
-  await expect(outlineToggle).toHaveAttribute("aria-expanded", "false");
-  await expect(outcomesToggle).toHaveAttribute("aria-expanded", "false");
+  await expect(compactOutlineToggle).toBeVisible();
+  await expect(compactOutcomesToggle).toBeVisible();
+  await expect(compactOutlineToggle).toHaveAttribute("aria-expanded", "false");
+  await expect(compactOutcomesToggle).toHaveAttribute("aria-expanded", "false");
   await expect.poll(() => shell.evaluate((element) => (
     getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean).length
   ))).toBe(1);
 
-  await outlineToggle.click();
-  await expect(outlineToggle).toHaveAttribute("aria-expanded", "true");
+  await compactOutlineToggle.click();
+  await expect(compactOutlineToggle).toHaveAttribute("aria-expanded", "true");
   await cockpit.evaluate((element) => { element.style.width = "760px"; });
-  await expect(outlineToggle).toHaveAttribute("aria-expanded", "true");
+  await expect(compactOutlineToggle).toHaveAttribute("aria-expanded", "true");
 
   await cockpit.evaluate((element) => { element.style.width = "1000px"; });
   await expect(outlineToggle).toHaveAttribute("aria-expanded", "true");
