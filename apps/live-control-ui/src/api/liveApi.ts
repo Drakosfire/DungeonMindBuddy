@@ -182,6 +182,11 @@ let nativeGraphSessionRequest: Promise<string> | null = null;
 let nativeGraphRevocationRequest: Promise<void> | null = null;
 let nativeGraphSessionRevoked = false;
 let nativeGraphSessionEpoch = 0;
+let nativeGraphSessionRecovery: {
+  fromEpoch: number;
+  connectedEpoch: number | null;
+  request: Promise<string>;
+} | null = null;
 export const NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT = "dmb:native-graph-access-token-changed";
 
 function localGraphSessionTarget(): string {
@@ -515,22 +520,107 @@ function parsePlanWorldGraphContextFailure(
     : null;
 }
 
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+
+function canRetryLocalSessionRequest(path: string, init?: RequestInit): boolean {
+  const method = (init?.method ?? "GET").toUpperCase();
+  if (method === "GET" || method === "HEAD") return true;
+  if (typeof init?.body !== "string") return false;
+  const pathname = path.split("?", 1)[0];
+  const body = requestBodyRecord(init.body);
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversation\/new$/.test(pathname)) {
+    return typeof body?.command_id === "string" && Boolean(body.command_id)
+      && Number.isSafeInteger(body.expected_pointer_revision)
+      && (body.expected_active_conversation_id === null || typeof body.expected_active_conversation_id === "string");
+  }
+  if (pathname === "/api/live/agent/turn") {
+    return typeof body?.client_thread_id === "string" && Boolean(body.client_thread_id)
+      && typeof body.turn_id === "string" && Boolean(body.turn_id);
+  }
+  return pathname === "/api/live/world-graph/projection"
+    || pathname === "/api/live/world-graph/managed-projection"
+    || pathname === "/api/live/world-graph/recap-projection"
+    || pathname.startsWith("/api/live/world-graph/retrieval/")
+    || pathname === "/api/live/threats/query-hydration"
+    || /^\/api\/live\/threat-drafts\/[^/]+\/publication-operations\/[^/]+\/identity-candidates\/prepare$/.test(pathname);
+}
+
+async function trustedLocalSessionRejection(response: Response): Promise<boolean> {
+  if (response.status !== 401 && response.status !== 403) return false;
+  try {
+    const body: unknown = await response.clone().json();
+    if (!isRecord(body) || !isRecord(body.detail)) return false;
+    return (response.status === 401 && body.detail.code === "graph_auth_required")
+      || (response.status === 403 && body.detail.code === "graph_auth_csrf_rejected");
+  } catch {
+    return false;
+  }
+}
+
+async function authenticatedApiFetch(path: string, init?: RequestInit): Promise<{
+  response: Response; csrf: string | null; requestEpoch: number;
+}> {
   const target = apiRequestTarget(path, init?.body);
-  const csrf = target.localGraphRequest && !nativeGraphAccessToken
-    ? await ensureNativeGraphSession() : null;
-  const requestEpoch = nativeGraphSessionEpoch;
-  const headers = nativeGraphHeaders(path, init?.body, {
-    "Content-Type": "application/json",
-    ...headerRecord(init?.headers),
-    ...(csrf && (init?.method ?? "GET").toUpperCase() !== "GET" ? { "X-DMB-Graph-CSRF": csrf } : {}),
-  });
-  const response = await fetch(target.url, {
-    ...init,
-    ...(target.localGraphRequest ? { redirect: "error" as const } : {}),
-    ...(target.localGraphRequest ? { credentials: "same-origin" as const } : {}),
-    headers,
-  });
+  // Keep immutable request bytes/CAS/correlation for the sole permitted retry.
+  const frozenInit = { ...init, headers: headerRecord(init?.headers) };
+  const dispatch = async (expectedEpoch?: number) => {
+    const csrf = target.localGraphRequest && !nativeGraphAccessToken
+      ? await ensureNativeGraphSession() : null;
+    if (expectedEpoch !== undefined && (nativeGraphSessionEpoch !== expectedEpoch
+      || nativeGraphSessionRevoked || nativeGraphAccessToken)) {
+      throw new LiveApiError("Local session changed during recovery. Retry deliberately.", 401,
+        { code: "local_graph_session_changed" });
+    }
+    const requestEpoch = nativeGraphSessionEpoch;
+    const usedBearer = Boolean(nativeGraphAccessToken);
+    const response = await fetch(target.url, {
+      ...frozenInit,
+      ...(target.localGraphRequest ? { redirect: "error" as const, credentials: "same-origin" as const } : {}),
+      headers: nativeGraphHeaders(path, frozenInit.body, {
+        "Content-Type": "application/json", ...frozenInit.headers,
+        ...(csrf && (frozenInit.method ?? "GET").toUpperCase() !== "GET" ? { "X-DMB-Graph-CSRF": csrf } : {}),
+      }),
+    });
+    return { response, csrf, requestEpoch, usedBearer };
+  };
+  const first = await dispatch();
+  if (!target.localGraphRequest || baseUrl || !first.csrf || first.usedBearer
+    || nativeGraphAccessToken || nativeGraphSessionRevoked || frozenInit.signal?.aborted
+    || !await trustedLocalSessionRejection(first.response)) return first;
+
+  let recovery = nativeGraphSessionRecovery;
+  if (!recovery || recovery.fromEpoch !== first.requestEpoch
+    || (recovery.connectedEpoch === null
+      ? first.requestEpoch !== nativeGraphSessionEpoch
+      : recovery.connectedEpoch !== nativeGraphSessionEpoch)) {
+    if (first.requestEpoch !== nativeGraphSessionEpoch) return first;
+    recovery = { fromEpoch: first.requestEpoch, connectedEpoch: null, request: Promise.resolve("") };
+    const owned = recovery;
+    owned.request = (async () => {
+      if (nativeGraphSessionRequest) await nativeGraphSessionRequest.catch(() => undefined);
+      if (nativeGraphSessionRevoked || nativeGraphAccessToken || nativeGraphSessionEpoch !== owned.fromEpoch) {
+        throw new LiveApiError("Local session changed during recovery.", 401, { code: "local_graph_session_changed" });
+      }
+      nativeGraphSessionEpoch += 1;
+      nativeGraphCsrf = null;
+      owned.connectedEpoch = nativeGraphSessionEpoch;
+      // Reuse the existing GET → bootstrap POST. Never clear explicit revocation.
+      return ensureNativeGraphSession();
+    })();
+    nativeGraphSessionRecovery = owned;
+  }
+  try {
+    await recovery.request;
+  } catch (reason) {
+    throw new LiveApiError("Local session recovery failed. Reconnect in Settings.",
+      reason instanceof LiveApiError ? reason.status : 0, { code: "local_graph_session_recovery_failed" });
+  }
+  if (!canRetryLocalSessionRequest(path, frozenInit) || nativeGraphSessionRevoked || nativeGraphAccessToken
+    || recovery.connectedEpoch !== nativeGraphSessionEpoch || frozenInit.signal?.aborted) return first;
+  return dispatch(recovery.connectedEpoch ?? undefined);
+}
+
+async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const { response, csrf, requestEpoch } = await authenticatedApiFetch(path, init);
   if (!response.ok) {
     blockStaleNativeGraphSession(response.status, csrf, requestEpoch);
     let detail = response.statusText;
@@ -999,20 +1089,7 @@ async function publicationFetch<T extends { schema: string; result_label: string
   init: RequestInit | undefined,
   validate: (body: unknown, status: number) => T | null,
 ): Promise<T> {
-  const target = apiRequestTarget(path, init?.body);
-  const csrf = target.localGraphRequest && !nativeGraphAccessToken
-    ? await ensureNativeGraphSession() : null;
-  const requestEpoch = nativeGraphSessionEpoch;
-  const response = await fetch(target.url, {
-    ...init,
-    ...(target.localGraphRequest ? { redirect: "error" as const } : {}),
-    ...(target.localGraphRequest ? { credentials: "same-origin" as const } : {}),
-    headers: nativeGraphHeaders(path, init?.body, {
-      "Content-Type": "application/json",
-      ...headerRecord(init?.headers),
-      ...(csrf && (init?.method ?? "GET").toUpperCase() !== "GET" ? { "X-DMB-Graph-CSRF": csrf } : {}),
-    }),
-  });
+  const { response, csrf, requestEpoch } = await authenticatedApiFetch(path, init);
   blockStaleNativeGraphSession(response.status, csrf, requestEpoch);
 
   let body: unknown;
