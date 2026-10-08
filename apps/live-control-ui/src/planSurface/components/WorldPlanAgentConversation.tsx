@@ -3443,6 +3443,16 @@ export function WorldPlanAgentConversation({
       {turn.planEdit?.applied ? (
         <p className="world-plan-agent-conversation__context">Apply changes your draft. Save keeps the changes.</p>
       ) : null}
+      {turn.planEdit && !turn.planEdit.applied && reviewSnapshots[turn.turnId]?.scopeKey !== scopeKey
+        && currentReview?.turnId !== turn.turnId ? (
+        <>
+          <p role="status">Review expired after reload. This proposal was not applied; request a new proposal to review it.</p>
+          <details>
+            <summary>Stored proposed replacement</summary>
+            <WorldPlanAgentAnswer answer={turn.planEdit.replacementMarkdown} />
+          </details>
+        </>
+      ) : null}
       {reviewSnapshots[turn.turnId]?.scopeKey === scopeKey ? renderFrozenReview(turn) : currentReview?.turnId === turn.turnId ? (
         <section className="world-plan-agent-conversation__review" aria-label="Review proposed Plan edit">
           <h4>Review this proposal</h4>

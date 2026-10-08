@@ -45,7 +45,7 @@ vi.mock("../agentInteraction/usePublishAgentSurfaceContext", () => ({
 }));
 
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
-import { activeThreadStorageKey, persistAgentThread } from "../agentInteraction/agentInteractionStorage";
+import { activeThreadStorageKey, loadAgentThreadById, persistAgentThread } from "../agentInteraction/agentInteractionStorage";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
 import { classifyPlanComposerIntent, WorldPlanAgentConversation } from "./components/WorldPlanAgentConversation";
 import { PlanEditGuardError } from "./agentEdit/planAgentEditProposal";
@@ -1346,6 +1346,49 @@ afterEach(() => {
 });
 
 describe("World Plan conversation consumer", () => {
+  it.each([false, true])("rehydrates proposal history without executable review or dispatch; applied=%s", async (applied) => {
+    setupApi(history("conversation-a", 4, []));
+    const captured = await capturedCardBodyEdit("Original body.\n");
+    const bridge = { capture: vi.fn(async () => captured), apply: vi.fn(async () => undefined),
+      preview: vi.fn(() => ({ before: { markdown: "# Opening\n\nOriginal body.\n" }, after: { markdown: "# Opening\n\nThe revised scene opens.\n" } })) };
+    const post = mockCardBodyProposal();
+    const first = render(conversationElement({ editBridge: bridge }));
+    await screen.findByText(/No messages yet/i);
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the opening." } });
+    fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
+    const review = await screen.findByRole("region", { name: "Change scene:arrival" });
+    const expired = "Review expired after reload. This proposal was not applied; request a new proposal to review it.";
+    expect(screen.queryByText(expired)).not.toBeInTheDocument();
+    if (applied) {
+      fireEvent.click(within(review).getByRole("button", { name: "Apply to draft" }));
+      await within(review).findByText("Applied to your draft. Save Plan keeps this change.");
+    }
+    const thread = harness.agent.activeThread;
+    persistAgentThread(thread);
+    const historyKey = threadStorageKey(namespace, thread.threadId);
+    const historyBytes = localStorage.getItem(historyKey);
+    const draftKey = `dmb:world-plan-local-draft:v2:${worldId}`;
+    const draftBytes = JSON.stringify({ document_id: documentId, markdown: "# Unsaved Plan\nKeep this draft.\n", title: "Unsaved title" });
+    localStorage.setItem(draftKey, draftBytes);
+    first.unmount();
+    harness.agent.activeThread = loadAgentThreadById(namespace, thread.threadId);
+    render(conversationElement({ editBridge: bridge }));
+    await screen.findByText("Revise the opening.");
+    if (!applied) {
+      const notice = await screen.findByText(expired);
+      const article = notice.closest("article")!;
+      fireEvent.click(within(article).getByText("Stored proposed replacement"));
+      expect(within(article).getByText("The revised scene opens.")).toBeVisible();
+    } else expect(screen.queryByText(expired)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Apply to draft" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Apply changes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save Plan" })).not.toBeInTheDocument();
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(bridge.capture).toHaveBeenCalledTimes(1);
+    expect(bridge.apply).toHaveBeenCalledTimes(applied ? 1 : 0);
+    expect(localStorage.getItem(draftKey)).toBe(draftBytes);
+    expect(localStorage.getItem(historyKey)).toBe(historyBytes);
+  });
   it.each([
     ["discuss", "original"], ["discuss", "newer"], ["discuss", "cleared"],
     ["propose", "original"], ["propose", "newer"], ["propose", "cleared"],
