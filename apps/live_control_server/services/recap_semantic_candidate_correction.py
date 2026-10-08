@@ -36,7 +36,7 @@ from apps.live_control_server.services.exact_run_evidence_correction import (
 )
 from apps.live_control_server.services.extract_promote import (
     ExtractPromoteError,
-    _assert_and_project_candidate_evidence,
+    _candidate_quote_occurrences,
     _assert_candidate_scope_matches_run,
     _load_frozen_span_index_for_resolved_run,
 )
@@ -728,12 +728,26 @@ def correct_recap_candidate(
         ]
     payload = replay_candidate(parent_payload, manifest, source_bytes=source_bytes, span_bytes=span_bytes)
     _assert_candidate_scope_matches_run(payload, campaign_id=parent.campaign_id, session_id=parent.session_id)
-    _assert_and_project_candidate_evidence(
-        candidate_payload=payload,
+    evidence_arguments = dict(
         source_prose=resolved.normalized_recap_path.read_text(encoding="utf-8"),
         source_artifact_id=parent.source_artifact_id,
         span_index=_load_frozen_span_index_for_resolved_run(resolved),
     )
+    parent_failures = _candidate_quote_occurrences(candidate_payload=parent_payload, **evidence_arguments)
+    child_failures = _candidate_quote_occurrences(candidate_payload=payload, **evidence_arguments)
+    split = manifest.get("evidence_ref_splits", [None])[0] if v6 else None
+    for failure in child_failures:
+        mapped = dict(failure)
+        if split and failure["record_kind"] == split["record_kind"] and failure["record_id"] == split["record_id"]:
+            index = failure["evidence_index"]
+            start = split["evidence_index"]
+            width = len(split["parts"])
+            if start <= index < start + width:
+                raise _reject("split output evidence must validate strictly")
+            if index >= start + width:
+                mapped["evidence_index"] -= width - 1
+        if mapped not in parent_failures:
+            raise _reject("corrected candidate introduces or changes invalid evidence; no child was created")
     try:
         validate_candidate_document_integrity(payload)
     except CandidateAdmissionIntegrityError as exc:

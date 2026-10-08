@@ -787,9 +787,9 @@ def test_decision_service_uses_canonical_basis_and_appstate_cas(
         "child",
         RecapSemanticDecisionRequest(
             expected_revision=6, candidate_sha256="d" * 64,
-            decision="accepted", review_decision_ref="review:accept",
+            decision="rejected", review_decision_ref="review:reject",
         ),
         reviewer_id="server_operator",
     )
     assert calls == [("child", 6, held.basis_sha256, "server_operator")]
-    assert response.state == "accepted" and response.revision == 7
+    assert response.state == "rejected" and response.revision == 7
