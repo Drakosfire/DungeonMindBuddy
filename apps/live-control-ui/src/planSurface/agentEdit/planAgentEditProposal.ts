@@ -74,6 +74,11 @@ export interface WorldPlanEditEditorState {
   playableTarget?: PlayableBodyTarget | null;
   playableTargetGeneration?: number;
   playableTargetStale?: boolean;
+  currentSceneTarget?: PlayableBodyTarget | null;
+  currentSceneTargetStale?: boolean;
+  playableTargetSource?: "manual" | "scene" | "selection";
+  playableTargetLabel?: string;
+  currentSceneTargetLabel?: string;
   canEdit: boolean;
 }
 
@@ -87,6 +92,8 @@ export interface CapturedWorldPlanEditTarget {
   draftGeneration: number;
   selectionGeneration: number;
   playableTargetGeneration?: number;
+  playableTargetSource?: "manual" | "scene" | "selection";
+  playableTargetLabel?: string;
   playableBodyTarget?: CapturedPlayableBodyRange;
   wholeBulletItem?: CapturedPlanEditTarget["wholeBulletItem"];
   sectionTarget?: CapturedWorldPlanSectionTarget;
@@ -189,10 +196,25 @@ function sameWorldPlanEditorBinding(
     && current.sourceMarkdown === captured.sourceMarkdown
     && current.draftGeneration === captured.draftGeneration
     && current.selectionGeneration === captured.selectionGeneration
+    && current.playableTargetSource === captured.playableTargetSource
     && (current.playableTarget?.kind ?? null) === (captured.playableTarget?.kind ?? null)
     && (current.playableTarget?.id ?? null) === (captured.playableTarget?.id ?? null)
     && (current.playableTargetGeneration ?? 0) === (captured.playableTargetGeneration ?? 0)
     && (current.playableTargetStale ?? false) === (captured.playableTargetStale ?? false);
+}
+
+function effectiveWorldPlanEditState(state: WorldPlanEditEditorState): WorldPlanEditEditorState {
+  const editor = currentWorldEditor(state);
+  if (!editor.state.selection.empty) {
+    return { ...state, playableTarget: null, playableTargetStale: false, playableTargetSource: "selection" };
+  }
+  if (state.playableTarget) return { ...state, playableTargetSource: state.playableTargetSource ?? "manual" };
+  if (state.currentSceneTarget) {
+    return { ...state, playableTarget: state.currentSceneTarget,
+      playableTargetStale: state.currentSceneTargetStale, playableTargetSource: "scene",
+      playableTargetLabel: state.currentSceneTargetLabel };
+  }
+  return state;
 }
 
 function assertWorldPlanAgentBinding(
@@ -498,6 +520,9 @@ export async function captureWorldPlanEditTarget(
   input: WorldPlanEditEditorState,
   getCurrent: () => WorldPlanEditEditorState = () => input,
 ): Promise<CapturedWorldPlanEditTarget> {
+  input = effectiveWorldPlanEditState(input);
+  const getRawCurrent = getCurrent;
+  getCurrent = () => effectiveWorldPlanEditState(getRawCurrent());
   const editor = currentWorldEditor(input);
   const { from, to } = editor.state.selection;
   const editorSelectedText = editor.state.doc.textBetween(from, to, "\n");
@@ -598,6 +623,8 @@ export async function captureWorldPlanEditTarget(
     draftGeneration: input.draftGeneration,
     selectionGeneration: input.selectionGeneration,
     playableTargetGeneration: input.playableTargetGeneration ?? 0,
+    playableTargetSource: input.playableTargetSource,
+    playableTargetLabel: input.playableTargetLabel,
     wholeBulletItem,
     sectionTarget,
     playableBodyTarget,
@@ -915,6 +942,8 @@ export async function applyWorldPlanEditProposal(args: {
   expectedAgentBinding: ExpectedWorldPlanEditAgentBinding;
   getAgentBinding: () => WorldPlanEditAgentBinding;
 }): Promise<void> {
+  const getRawCurrent = args.getCurrent;
+  args = { ...args, getCurrent: () => effectiveWorldPlanEditState(getRawCurrent()) };
   const { captured, admitted } = args;
   const initial = args.getCurrent();
   const editor = currentWorldEditor(initial);
@@ -941,6 +970,7 @@ export async function applyWorldPlanEditProposal(args: {
     || now.to !== captured.to
     || now.editorJson !== captured.editorJson
     || now.selectionJson !== captured.selectionJson
+    || now.playableTargetSource !== captured.playableTargetSource
     || (captured.playableBodyTarget !== undefined
       && (!now.playableBodyTarget || !samePlayableBodyTarget(captured.playableBodyTarget, now.playableBodyTarget)))
     || (captured.playableBodyTarget !== undefined
@@ -1061,6 +1091,8 @@ export async function applyWorldPlanEditProposal(args: {
     || finalState.baseContentSha256 !== captured.request.base_content_sha256
     || finalState.draftGeneration !== captured.draftGeneration
     || finalState.selectionGeneration !== captured.selectionGeneration
+    || finalState.playableTargetSource !== captured.playableTargetSource
+    || finalState.playableTargetStale === true
     || (finalState.playableTargetGeneration ?? 0) !== (captured.playableTargetGeneration ?? 0)
     || (finalState.playableTarget?.kind ?? null) !== (captured.playableBodyTarget?.target.kind ?? null)
     || (finalState.playableTarget?.id ?? null) !== (captured.playableBodyTarget?.target.id ?? null)

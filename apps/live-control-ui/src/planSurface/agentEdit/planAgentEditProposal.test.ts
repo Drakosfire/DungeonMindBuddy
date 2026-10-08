@@ -51,6 +51,33 @@ function mountedState(markdown = "# Plan\n\nOpening frame") {
   return { editor, state };
 }
 
+it.each(["stale", "missing", "duplicate"])("rejects a %s current scene before capture", async (failure) => {
+  const scene = "<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->\n## Arrival\nOriginal prose.\n";
+  const { state } = mountedState(failure === "missing" ? "# Plan\n" : failure === "duplicate" ? scene + scene : scene);
+  await expect(captureWorldPlanEditTarget({ ...worldState(state),
+    currentSceneTarget: { kind: "scene", id: "scene:arrival" }, currentSceneTargetStale: failure === "stale",
+  })).rejects.toThrow();
+});
+
+it.each(["basis", "scene", "mode", "stale"])("rejects %s change after capturing default scene and preserves editor bytes", async (change) => {
+  const { editor, state } = mountedState("# Plan\n<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->\n## Arrival\nOriginal prose.\n<!-- dmb-playable-element:v1 kind=scene id=scene:next -->\n## Next\nNext prose.\n");
+  let current: WorldPlanEditEditorState = { ...worldState(state), currentSceneTarget: { kind: "scene", id: "scene:arrival" } };
+  const captured = await captureWorldPlanEditTarget(current, () => current);
+  expect(captured.playableTargetSource).toBe("scene");
+  expect(editor.state.doc.textBetween(captured.from, captured.to, "\n")).toBe("Original prose.");
+  const key = "00000000-0000-4000-8000-000000000002";
+  const admitted = await admitWorldPlanEditProposal(captured, await worldResponseFor(captured, "Revised prose.\n", key), key);
+  const before = editor.getJSON();
+  current = change === "basis" ? { ...current, baseRevision: 3 }
+    : change === "scene" ? { ...current, currentSceneTarget: { kind: "scene", id: "scene:next" } }
+      : change === "stale" ? { ...current, currentSceneTargetStale: true }
+      : { ...current, playableTarget: { kind: "scene", id: "scene:arrival" } };
+  await expect(applyWorldPlanEditProposal({ captured, admitted, getCurrent: () => current,
+    expectedAgentBinding: expectedAgentBinding(), getAgentBinding: matchingAgentBinding,
+  })).rejects.toThrow();
+  expect(editor.getJSON()).toEqual(before);
+});
+
 function responseFor(
   captured: Awaited<ReturnType<typeof capturePlanEditTarget>>,
   replacement_markdown: string,
