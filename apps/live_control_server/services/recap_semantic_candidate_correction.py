@@ -57,6 +57,7 @@ from graph_memory.candidate_graph_to_contribution import (
     kernel_kind_for_node_type,
     load_typed_candidate_graph,
 )
+from graph_memory.candidate_graph_preview import NODE_TYPES
 from graph_memory.predicate_catalog import validate_edge_predicate
 from apps.live_control_server.integrations.dungeonmind.assertion_qualification import (
     CURRENT_V5_TARGET,
@@ -131,7 +132,48 @@ def _tuple_replacement_rejected(
     )
 
 
-def _plan_edge_tuple_replacements(parent: dict, replacements: object) -> dict[str, dict[str, str]]:
+def _plan_node_type_replacements(parent: dict, replacements: object) -> dict[str, str]:
+    if not isinstance(replacements, list) or len(replacements) != 1:
+        raise _reject("node type replacement batch exceeds bounded scope")
+    nodes = parent.get("nodes")
+    if not isinstance(nodes, list) or any(not isinstance(node, dict) for node in nodes):
+        raise _reject("candidate node type records are malformed")
+    operation = replacements[0]
+    expected_keys = {"node_id", "expected_node_type", "replacement_node_type"}
+    if (
+        not isinstance(operation, dict)
+        or set(operation) != expected_keys
+        or not isinstance(operation.get("node_id"), str)
+        or not operation["node_id"].strip()
+        or operation["node_id"] != operation["node_id"].strip()
+        or len(operation["node_id"]) > 256
+        or any(ch in operation["node_id"] for ch in ("\r", "\n", "\t"))
+        or any(
+            not isinstance(operation.get(key), str)
+            or operation[key] not in NODE_TYPES
+            or operation[key] != operation[key].strip()
+            or operation[key] != operation[key].lower()
+            or len(operation[key]) > 64
+            or any(ch in operation[key] for ch in ("\r", "\n", "\t"))
+            for key in ("expected_node_type", "replacement_node_type")
+        )
+        or operation["expected_node_type"] == operation["replacement_node_type"]
+    ):
+        raise _reject("node type replacement manifest is malformed")
+    matches = [node for node in nodes if node.get("node_id") == operation["node_id"]]
+    if len(matches) != 1:
+        raise _reject("node type target is missing or ambiguous", status_code=409)
+    if matches[0].get("node_type") != operation["expected_node_type"]:
+        raise _reject("node type preimage is stale", status_code=409)
+    return {operation["node_id"]: operation["replacement_node_type"]}
+
+
+def _plan_edge_tuple_replacements(
+    parent: dict,
+    replacements: object,
+    *,
+    projected_node_types: dict[str, str] | None = None,
+) -> dict[str, dict[str, str]]:
     """Validate a complete tuple batch before returning any candidate edits."""
     if (
         not isinstance(replacements, list)
@@ -226,8 +268,16 @@ def _plan_edge_tuple_replacements(parent: dict, replacements: object) -> dict[st
         elif endpoint_nodes:
             reason = edge_endpoint_kind_admission_reason(
                 buddy_predicate=target["relationship_type"],
-                from_buddy_kind=kernel_kind_for_node_type(endpoint_nodes[0].get("node_type")),
-                to_buddy_kind=kernel_kind_for_node_type(endpoint_nodes[1].get("node_type")),
+                from_buddy_kind=kernel_kind_for_node_type(
+                    (projected_node_types or {}).get(
+                        target["from_node_id"], endpoint_nodes[0].get("node_type")
+                    )
+                ),
+                to_buddy_kind=kernel_kind_for_node_type(
+                    (projected_node_types or {}).get(
+                        target["to_node_id"], endpoint_nodes[1].get("node_type")
+                    )
+                ),
                 vocabulary=vocabulary,
             )
             reason_to_code = {
@@ -251,6 +301,51 @@ def _plan_edge_tuple_replacements(parent: dict, replacements: object) -> dict[st
         if all(isinstance(values.get(field), str) for field in EDGE_TUPLE_FIELDS):
             key = tuple(values[field] for field in EDGE_TUPLE_FIELDS)
             final_tuples.setdefault(key, []).append(edge_id if isinstance(edge_id, str) else "")
+
+    projected_node_types = projected_node_types or {}
+    for edge in edges:
+        edge_id = edge.get("edge_id")
+        values = plans.get(edge_id, {field: edge.get(field) for field in EDGE_TUPLE_FIELDS})
+        incident_to_changed_node = any(
+            isinstance(values.get(endpoint), str)
+            and values[endpoint] in projected_node_types
+            for endpoint in ("from_node_id", "to_node_id")
+        )
+        if not incident_to_changed_node or (isinstance(edge_id, str) and edge_id in plans):
+            continue
+        try:
+            final_tuple = RecapCandidateEdgeTuple.model_validate(values).model_dump()
+        except (TypeError, ValueError) as exc:
+            raise _reject("an unchanged edge incident to a corrected node has a malformed final tuple") from exc
+        endpoint_nodes = []
+        for field in ("from_node_id", "to_node_id"):
+            matches = node_matches.get(final_tuple[field], [])
+            if len(matches) != 1:
+                raise _reject("an unchanged edge incident to a corrected node has a missing or ambiguous endpoint")
+            endpoint_nodes.append(matches[0])
+        if validate_edge_predicate(final_tuple["relationship_type"], None):
+            raise _reject("an unchanged edge incident to a corrected node has an unknown predicate")
+        if vocabulary is None:
+            raise _reject("native predicate vocabulary could not be verified for an unchanged incident edge")
+        reason = edge_endpoint_kind_admission_reason(
+            buddy_predicate=final_tuple["relationship_type"],
+            from_buddy_kind=kernel_kind_for_node_type(
+                projected_node_types.get(
+                    final_tuple["from_node_id"], endpoint_nodes[0].get("node_type")
+                )
+            ),
+            to_buddy_kind=kernel_kind_for_node_type(
+                projected_node_types.get(
+                    final_tuple["to_node_id"], endpoint_nodes[1].get("node_type")
+                )
+            ),
+            vocabulary=vocabulary,
+        )
+        if reason is not None:
+            raise _reject(
+                "node type correction makes an unchanged incident edge inadmissible to its native predicate"
+            )
+
     for edge_ids in final_tuples.values():
         changed = [edge_id for edge_id in edge_ids if edge_id in plans]
         if len(edge_ids) > 1:
@@ -476,12 +571,18 @@ def replay_candidate(parent: dict, manifest: dict, *, source_bytes: bytes | None
         if v3
         else {"schema", "node_description_replacements", "omitted_edge_ids"}
     )
+    legacy_v3_keys = {"schema", "edge_tuple_replacements"}
+    extended_v3_keys = legacy_v3_keys | {"node_type_replacements"}
     if v2:
         expected_keys.add("session_action_replacements")
     node_omission = "node_omissions" in manifest
     if node_omission and manifest.get("schema") == MANIFEST_SCHEMA:
         expected_keys.add("node_omissions")
-    if set(manifest) != expected_keys or manifest.get("schema") not in {
+    manifest_keys_valid = (
+        set(manifest) in (legacy_v3_keys, extended_v3_keys)
+        if v3 else set(manifest) == expected_keys
+    )
+    if not manifest_keys_valid or manifest.get("schema") not in {
         MANIFEST_SCHEMA, MANIFEST_SCHEMA_V2, MANIFEST_SCHEMA_V3, MANIFEST_SCHEMA_V4,
         MANIFEST_SCHEMA_V5,
     }:
@@ -490,12 +591,14 @@ def replay_candidate(parent: dict, manifest: dict, *, source_bytes: bytes | None
     omitted = manifest.get("omitted_edge_ids", [])
     actions = manifest.get("session_action_replacements", [])
     edge_tuple_replacements = manifest.get("edge_tuple_replacements", [])
+    node_type_replacements = manifest.get("node_type_replacements", [])
     evidence_span_replacements = manifest.get("evidence_span_replacements", [])
     if (
         not isinstance(replacements, list) or (not v3 and len(replacements) > 1)
         or not isinstance(omitted, list) or (not v3 and len(omitted) > 1)
         or not isinstance(actions, list) or (len(actions) != 1 if v2 else bool(actions))
         or (v3 and (not isinstance(edge_tuple_replacements, list) or not 1 <= len(edge_tuple_replacements) <= MAX_EDGE_TUPLE_REPLACEMENTS))
+        or (v3 and "node_type_replacements" in manifest and (not isinstance(node_type_replacements, list) or len(node_type_replacements) != 1))
         or (v4 and (not isinstance(evidence_span_replacements, list) or len(evidence_span_replacements) != 1))
         or (v5 and (not isinstance(evidence_span_replacements, list) or not 1 <= len(evidence_span_replacements) <= 7))
         or (not (v3 or v4 or v5) and not replacements and not omitted and not actions and not node_omission)
@@ -528,12 +631,38 @@ def replay_candidate(parent: dict, manifest: dict, *, source_bytes: bytes | None
             ref["anchor_quotes"] = plan["replacement_anchor_quotes"]
         return child
     if v3:
-        plans = _plan_edge_tuple_replacements(parent, edge_tuple_replacements)
+        node_type_plans = (
+            _plan_node_type_replacements(parent, node_type_replacements)
+            if "node_type_replacements" in manifest else {}
+        )
+        if node_type_plans:
+            node_id = next(iter(node_type_plans))
+            paired = any(
+                isinstance(operation, dict)
+                and any(
+                    isinstance(operation.get(key), dict)
+                    and node_id in {
+                        operation[key].get("from_node_id"),
+                        operation[key].get("to_node_id"),
+                    }
+                    for key in ("expected_tuple", "replacement_tuple")
+                )
+                for operation in edge_tuple_replacements
+            )
+            if not paired:
+                raise _reject("node type replacement must be paired with an edge tuple replacement")
+        plans = _plan_edge_tuple_replacements(
+            parent, edge_tuple_replacements, projected_node_types=node_type_plans,
+        )
         for edge in child["edges"]:
             replacement = plans.get(edge.get("edge_id"))
             if replacement is not None:
                 for field in EDGE_TUPLE_FIELDS:
                     edge[field] = replacement[field]
+        for node in child["nodes"]:
+            replacement_type = node_type_plans.get(node.get("node_id"))
+            if replacement_type is not None:
+                node["node_type"] = replacement_type
         return child
     for item in replacements:
         if not isinstance(item, dict) or set(item) != {"node_id", "original_description", "replacement_description"}:
@@ -712,6 +841,10 @@ def correct_recap_candidate(
                 item.model_dump(mode="json") for item in request.edge_tuple_replacements
             ],
         }
+        if request.node_type_replacements:
+            manifest["node_type_replacements"] = [
+                item.model_dump(mode="json") for item in request.node_type_replacements
+            ]
     else:
         manifest = {
             "schema": MANIFEST_SCHEMA_V2 if v2 else MANIFEST_SCHEMA,

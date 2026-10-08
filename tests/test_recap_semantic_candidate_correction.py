@@ -8,6 +8,7 @@ import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
+from uuid import NAMESPACE_URL, uuid5
 
 import pytest
 import httpx
@@ -30,6 +31,7 @@ from apps.live_control_server.models.extract_promote import (
     RecapCandidateEvidenceSpanReplacement,
     RecapCandidateEdgeTuple,
     RecapCandidateEdgeTupleReplacement,
+    RecapCandidateNodeTypeReplacement,
     RecapNodeDescriptionReplacement,
     RecapSessionActionReplacement,
     RecapSemanticDecisionRequest,
@@ -230,6 +232,83 @@ def _tuple_fixture(
     parent = parent.model_copy(update={"components": components})
     runs["parent"] = parent
     return parent, parent_bytes, runs
+
+
+def _sprite_fixture(
+    monkeypatch: pytest.MonkeyPatch,
+    root: Path,
+    *,
+    include_untouched_possession: bool = False,
+):
+    source_text = "Ephanna’s Sprite takes the lead and looks for traps, scouting with Ephanna to warn the party.\n"
+    parent, _parent_bytes, runs = _fixture(monkeypatch, root, source_text=source_text)
+    parent_path = root / parent.components["candidate_graph"].uri
+    payload = json.loads(parent_path.read_bytes())
+    mira = payload["nodes"][0]
+    state = mira["semantic_state"]
+    evidence = mira["evidence_refs"][0]
+
+    def node(node_id: str, node_type: str, label: str, description: str) -> dict:
+        return {
+            "node_id": node_id, "node_type": node_type, "label": label,
+            "description": description, "importance": "medium",
+            "semantic_state": state, "proposed_action": "create", "confidence": "medium",
+            "evidence_refs": [copy.deepcopy(evidence)],
+        }
+
+    payload["nodes"] = [
+        node("node:item:session14:sprite", "item", "Sprite", "Ephanna’s Sprite companion used to scout for traps and warn the party."),
+        node("node:ephanna", "character", "Ephanna", "Ephanna scouts with her Sprite companion."),
+    ]
+    if include_untouched_possession:
+        payload["nodes"].append(
+            node("node:character:karsemine", "character", "Karsemine", "Karsemine travels with Ephanna and her Sprite.")
+        )
+    payload["edges"] = [{
+        "edge_id": "edge:session14:023", "from_node_id": "node:ephanna",
+        "relationship_type": "possesses", "to_node_id": "node:item:session14:sprite",
+        "label": "has companion", "semantic_state": state,
+        "proposed_action": "create", "confidence": "medium",
+        "evidence_refs": [copy.deepcopy(evidence)],
+    }]
+    if include_untouched_possession:
+        payload["edges"].append({
+            "edge_id": "edge:session14:024", "from_node_id": "node:character:karsemine",
+            "relationship_type": "possesses", "to_node_id": "node:item:session14:sprite",
+            "label": "holds", "semantic_state": state,
+            "proposed_action": "create", "confidence": "medium",
+            "evidence_refs": [copy.deepcopy(evidence)],
+        })
+    parent_bytes = json.dumps(payload).encode()
+    parent_path.write_bytes(parent_bytes)
+    components = dict(parent.components)
+    components["candidate_graph"] = ExtractionRunComponentRef(
+        kind=ExtractionRunComponentKind.CANDIDATE_GRAPH,
+        uri=parent.components["candidate_graph"].uri,
+        sha256=_sha(parent_bytes), exists=True,
+    )
+    parent = parent.model_copy(update={"components": components})
+    runs["parent"] = parent
+    request = RecapCandidateCorrectionRequestV3(
+        schema="dmb_recap_candidate_correction_request_v3",
+        parent_run_id="parent", parent_candidate_sha256=_sha(parent_bytes),
+        node_type_replacements=[RecapCandidateNodeTypeReplacement(
+            node_id="node:item:session14:sprite",
+            expected_node_type="item", replacement_node_type="character",
+        )],
+        edge_tuple_replacements=[RecapCandidateEdgeTupleReplacement(
+            edge_id="edge:session14:023",
+            expected_tuple=RecapCandidateEdgeTuple(
+                from_node_id="node:ephanna", relationship_type="possesses",
+                to_node_id="node:item:session14:sprite", label="has companion",
+            ),
+            replacement_tuple=RecapCandidateEdgeTuple(
+                from_node_id="node:item:session14:sprite", relationship_type="cooperates_with",
+                to_node_id="node:ephanna", label="warns/scouts for",
+            ),
+        )],
+    )
+    return parent, parent_bytes, runs, request
 
 
 def _span_relocation_fixture(monkeypatch: pytest.MonkeyPatch, root: Path):
@@ -475,6 +554,144 @@ def test_edge_tuple_child_replays_atomically_and_stays_held(
     assert binding["manifest_sha256"] == child.lineage["manifest_sha256"]
     assert binding["derivation"] == service.DERIVATION_V3
     assert binding["manifest_schema"] == service.MANIFEST_SCHEMA_V3
+    assert child.lineage["manifest_sha256"] == "118f051572259d43b205e0f249b32e539c51619172e75f1dd3c2fe5240a8545c"
+    assert child.run_id == str(uuid5(
+        NAMESPACE_URL,
+        f"dmb:{service.DERIVATION_V3}:parent:{_sha(parent_bytes)}:{child.lineage['manifest_sha256']}",
+    ))
+
+
+def test_sprite_type_and_edge_tuple_change_replay_atomically_and_stay_held(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    parent, parent_bytes, runs, request = _sprite_fixture(monkeypatch, tmp_path)
+    original = json.loads(parent_bytes)
+    response = service.correct_recap_candidate(request)
+    child = runs[response.run_id]
+
+    assert child.lineage["semantic_disposition"]["state"] == "held"
+    assert service.verify_child_replay(child, parent, tmp_path)
+    manifest = child.lineage["semantic_candidate_manifest"]
+    assert set(manifest) == {"schema", "edge_tuple_replacements", "node_type_replacements"}
+    candidate = json.loads((tmp_path / child.components["candidate_graph"].uri).read_bytes())
+    expected = copy.deepcopy(original)
+    expected["nodes"][0]["node_type"] = "character"
+    expected["edges"][0].update({
+        "from_node_id": "node:item:session14:sprite",
+        "relationship_type": "cooperates_with",
+        "to_node_id": "node:ephanna",
+        "label": "warns/scouts for",
+    })
+    assert candidate == expected
+    before_sprite, after_sprite = original["nodes"][0], candidate["nodes"][0]
+    assert after_sprite["node_id"] == before_sprite["node_id"]
+    assert after_sprite["description"] == before_sprite["description"]
+    assert after_sprite["evidence_refs"] == before_sprite["evidence_refs"]
+    assert candidate["edges"][0]["edge_id"] == original["edges"][0]["edge_id"]
+    assert candidate["edges"][0]["evidence_refs"] == original["edges"][0]["evidence_refs"]
+    assert (tmp_path / parent.components["candidate_graph"].uri).read_bytes() == parent_bytes
+
+    assessment = assess_recap_semantics(
+        child, parent=parent, source_revision_id=_sha((tmp_path / "source.md").read_bytes()), root=tmp_path,
+    )
+    basis = RecapSemanticBasisV4.model_validate(assessment.basis)
+    assert assessment.marked and not assessment.accepted
+    _assert_recap_semantic_basis(child, parent, basis)
+
+
+@pytest.mark.parametrize(
+    ("expected_type", "replacement_type"),
+    [("npc", "character"), ("item", "dnd5e:item")],
+)
+def test_sprite_type_correction_rejects_stale_or_unsupported_type_before_child(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    expected_type: str,
+    replacement_type: str,
+) -> None:
+    parent, parent_bytes, runs, request = _sprite_fixture(monkeypatch, tmp_path)
+    replacement = request.node_type_replacements[0].model_copy(update={
+        "expected_node_type": expected_type,
+        "replacement_node_type": replacement_type,
+    })
+    bad_request = request.model_copy(update={"node_type_replacements": [replacement]})
+
+    with pytest.raises(extract_promote.ExtractPromoteError):
+        service.correct_recap_candidate(bad_request)
+    assert set(runs) == {"parent"}
+    assert (tmp_path / parent.components["candidate_graph"].uri).read_bytes() == parent_bytes
+    assert not (tmp_path / "out" / "graph_memory" / "derived_candidates").exists()
+
+
+def test_sprite_type_request_requires_paired_edge_and_supported_type() -> None:
+    edge = RecapCandidateEdgeTupleReplacement(
+        edge_id="edge:session14:023",
+        expected_tuple=RecapCandidateEdgeTuple(
+            from_node_id="node:ephanna", relationship_type="possesses",
+            to_node_id="node:item:session14:sprite", label="has companion",
+        ),
+        replacement_tuple=RecapCandidateEdgeTuple(
+            from_node_id="node:item:session14:sprite", relationship_type="cooperates_with",
+            to_node_id="node:ephanna", label="warns/scouts for",
+        ),
+    )
+    type_replacement = RecapCandidateNodeTypeReplacement(
+        node_id="node:item:session14:sprite",
+        expected_node_type="item", replacement_node_type="character",
+    )
+    with pytest.raises(ValueError, match="paired"):
+        RecapCandidateCorrectionRequestV3(
+            schema="dmb_recap_candidate_correction_request_v3",
+            parent_run_id="parent", parent_candidate_sha256="a" * 64,
+            edge_tuple_replacements=[edge.model_copy(update={
+                "expected_tuple": RecapCandidateEdgeTuple(
+                    from_node_id="ephanna", relationship_type="possesses",
+                    to_node_id="sprite", label="has companion",
+                ),
+                "replacement_tuple": RecapCandidateEdgeTuple(
+                    from_node_id="sprite", relationship_type="cooperates_with",
+                    to_node_id="ephanna", label="warns/scouts for",
+                ),
+            })],
+            node_type_replacements=[type_replacement],
+        )
+    with pytest.raises(extract_promote.ExtractPromoteError, match="malformed"):
+        service.replay_candidate(
+            {"nodes": [{"node_id": "sprite", "node_type": "item"}], "edges": []},
+            {
+                "schema": service.MANIFEST_SCHEMA_V3,
+                "edge_tuple_replacements": [{
+                    "edge_id": "edge", "expected_tuple": {
+                        "from_node_id": "sprite", "relationship_type": "located_in",
+                        "to_node_id": "sprite", "label": "same",
+                    }, "replacement_tuple": {
+                        "from_node_id": "sprite", "relationship_type": "located_in",
+                        "to_node_id": "sprite", "label": "different",
+                    },
+                }],
+                "node_type_replacements": [{
+                    "node_id": "sprite", "expected_node_type": "item",
+                    "replacement_node_type": "dnd5e:item",
+                }],
+            },
+        )
+
+
+def test_sprite_type_change_rejects_untouched_item_only_edge_before_child(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    parent, parent_bytes, runs, request = _sprite_fixture(
+        monkeypatch, tmp_path, include_untouched_possession=True,
+    )
+
+    with pytest.raises(extract_promote.ExtractPromoteError) as caught:
+        service.correct_recap_candidate(request)
+
+    assert caught.value.status_code == 422
+    assert "unchanged incident edge" in str(caught.value)
+    assert set(runs) == {"parent"}
+    assert (tmp_path / parent.components["candidate_graph"].uri).read_bytes() == parent_bytes
+    assert not (tmp_path / "out" / "graph_memory" / "derived_candidates").exists()
 
 
 def test_edge_tuple_batch_rejects_unmapped_entry_without_partial_child(

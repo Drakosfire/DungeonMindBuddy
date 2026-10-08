@@ -36,6 +36,7 @@ from src.graph_memory.extraction.recap_extraction_profile import (
     RECAP_PROFILE_ID,
     RECAP_PROFILE_VERSION,
 )
+from graph_memory.candidate_graph_preview import NODE_TYPES
 
 _RECAP_CORRECTION_DERIVATION = "operator_recap_literal_evidence_correction_v1"
 _RECAP_CANDIDATE_DERIVATION = "operator_recap_semantic_candidate_correction_v1"
@@ -525,13 +526,21 @@ def _assert_recap_semantic_basis(
         node_omission = isinstance(manifest, dict) and "node_omissions" in manifest
         if node_omission and not (action_manifest or tuple_manifest or span_manifest):
             expected_manifest_keys.add("node_omissions")
+        tuple_manifest_keys_valid = (
+            isinstance(manifest, dict)
+            and set(manifest) in (
+                {"schema", "edge_tuple_replacements"},
+                {"schema", "edge_tuple_replacements", "node_type_replacements"},
+            )
+        ) if tuple_manifest else True
         expected_manifest_schema = (
             basis.manifest_schema if action_manifest or tuple_manifest or span_manifest
             else "dmb_recap_semantic_candidate_manifest_v1"
         )
         if (
             not isinstance(manifest, dict)
-            or set(manifest) != expected_manifest_keys
+            or (not tuple_manifest and set(manifest) != expected_manifest_keys)
+            or not tuple_manifest_keys_valid
             or manifest.get("schema") != expected_manifest_schema
             or ((action_manifest or tuple_manifest or span_manifest) and lineage.get("derivation") != basis.derivation)
             or (not (tuple_manifest or span_manifest) and not isinstance(manifest.get("node_description_replacements"), list))
@@ -541,6 +550,10 @@ def _assert_recap_semantic_basis(
             or (not (tuple_manifest or span_manifest) and len(manifest["omitted_edge_ids"]) > 1)
             or (not (tuple_manifest or span_manifest) and not (manifest["node_description_replacements"] or manifest["omitted_edge_ids"] or (action_manifest and manifest["session_action_replacements"]) or node_omission))
             or (tuple_manifest and (not isinstance(manifest.get("edge_tuple_replacements"), list) or not 1 <= len(manifest["edge_tuple_replacements"]) <= 7))
+            or (tuple_manifest and "node_type_replacements" in manifest and (
+                not isinstance(manifest.get("node_type_replacements"), list)
+                or len(manifest["node_type_replacements"]) != 1
+            ))
             or (span_manifest and (
                 not isinstance(manifest.get("evidence_span_replacements"), list)
                 or not 1 <= len(manifest["evidence_span_replacements"]) <= (7 if isinstance(basis, RecapSemanticBasisV6) else 1)
@@ -668,6 +681,38 @@ def _assert_recap_semantic_basis(
                 if tuples[0] == tuples[1] or tuples[1] in target_tuples:
                     raise ApplicationStateConflictError("recap semantic edge tuple targets conflict")
                 target_tuples.add(tuples[1])
+            if "node_type_replacements" in manifest:
+                operation = manifest["node_type_replacements"][0]
+                if (
+                    not isinstance(operation, dict)
+                    or set(operation) != {"node_id", "expected_node_type", "replacement_node_type"}
+                    or not isinstance(operation.get("node_id"), str)
+                    or not operation["node_id"].strip()
+                    or operation["node_id"] != operation["node_id"].strip()
+                    or len(operation["node_id"]) > 256
+                    or any(ch in operation["node_id"] for ch in ("\r", "\n", "\t"))
+                    or any(
+                        not isinstance(operation.get(key), str)
+                        or operation[key] not in NODE_TYPES
+                        or operation[key] != operation[key].strip()
+                        or operation[key] != operation[key].lower()
+                        or len(operation[key]) > 64
+                        or any(ch in operation[key] for ch in ("\r", "\n", "\t"))
+                        for key in ("expected_node_type", "replacement_node_type")
+                    )
+                    or operation["expected_node_type"] == operation["replacement_node_type"]
+                ):
+                    raise ApplicationStateConflictError("recap semantic node type manifest is malformed")
+                node_id = operation["node_id"]
+                if not any(
+                    node_id in {
+                        tuple_operation[key][endpoint]
+                        for key in ("expected_tuple", "replacement_tuple")
+                        for endpoint in ("from_node_id", "to_node_id")
+                    }
+                    for tuple_operation in manifest["edge_tuple_replacements"]
+                ):
+                    raise ApplicationStateConflictError("recap semantic node type replacement is not paired with an edge tuple")
         canonical = json.dumps(
             manifest, sort_keys=True, ensure_ascii=False, separators=(",", ":")
         ).encode("utf-8") + b"\n"

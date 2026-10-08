@@ -668,6 +668,36 @@ class RecapCandidateEdgeTupleReplacement(_ExtractPromoteModel):
         return self
 
 
+class RecapCandidateNodeTypeReplacement(_ExtractPromoteModel):
+    """One exact-preimage type correction in a frozen recap candidate."""
+
+    node_id: str
+    expected_node_type: str
+    replacement_node_type: str
+
+    @field_validator("node_id")
+    @classmethod
+    def _node_id(cls, value: str) -> str:
+        return _nonblank(value, field_name="node_id")
+
+    @field_validator("expected_node_type", "replacement_node_type")
+    @classmethod
+    def _node_type(cls, value: str, info) -> str:
+        if (
+            not value or value != value.strip() or value != value.lower()
+            or len(value) > 64
+            or any(ch in value for ch in ("\r", "\n", "\t"))
+        ):
+            raise ValueError(f"{info.field_name} must be lowercase, trimmed and bounded")
+        return value
+
+    @model_validator(mode="after")
+    def _changed_type(self) -> "RecapCandidateNodeTypeReplacement":
+        if self.expected_node_type == self.replacement_node_type:
+            raise ValueError("replacement node type must differ from its preimage")
+        return self
+
+
 class RecapCandidateCorrectionRequestV3(_ExtractPromoteModel):
     """A bounded, exact-preimage relation correction for one frozen candidate."""
 
@@ -678,6 +708,9 @@ class RecapCandidateCorrectionRequestV3(_ExtractPromoteModel):
     parent_candidate_sha256: str
     edge_tuple_replacements: list[RecapCandidateEdgeTupleReplacement] = Field(
         min_length=1, max_length=7
+    )
+    node_type_replacements: list[RecapCandidateNodeTypeReplacement] = Field(
+        default_factory=list, max_length=1
     )
 
     @field_validator("parent_run_id")
@@ -691,6 +724,22 @@ class RecapCandidateCorrectionRequestV3(_ExtractPromoteModel):
         if len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
             raise ValueError("parent_candidate_sha256 must be lowercase SHA-256 hex")
         return value
+
+    @model_validator(mode="after")
+    def _node_type_correction_is_coordinated(self) -> "RecapCandidateCorrectionRequestV3":
+        if self.node_type_replacements:
+            node_id = self.node_type_replacements[0].node_id
+            if not any(
+                node_id in {
+                    replacement.expected_tuple.from_node_id,
+                    replacement.expected_tuple.to_node_id,
+                    replacement.replacement_tuple.from_node_id,
+                    replacement.replacement_tuple.to_node_id,
+                }
+                for replacement in self.edge_tuple_replacements
+            ):
+                raise ValueError("node type replacement must be paired with an edge tuple replacement for that node")
+        return self
 
 
 class RecapCandidateCorrectionResponseV3(RecapCandidateCorrectionResponse):
