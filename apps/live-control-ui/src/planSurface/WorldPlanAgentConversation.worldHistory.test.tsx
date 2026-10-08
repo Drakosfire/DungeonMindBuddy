@@ -50,7 +50,7 @@ vi.mock("../agentInteraction/usePublishAgentSurfaceContext", () => ({
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { activeThreadStorageKey, loadAgentThreadById, persistAgentThread } from "../agentInteraction/agentInteractionStorage";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
-import { classifyPlanComposerIntent, WorldPlanAgentConversation } from "./components/WorldPlanAgentConversation";
+import { confirmedNewConversationStatus, newConversationRequestFingerprint, classifyPlanComposerIntent, WorldPlanAgentConversation } from "./components/WorldPlanAgentConversation";
 import { PlanEditGuardError, captureWorldPlanEditTarget, previewWorldPlanEditProposal, type WorldPlanEditEditorState } from "./agentEdit/planAgentEditProposal";
 import type { PlanConversationPresentationHosts } from "./components/PlanConversationDockAdapter";
 import { AGENT_TURN_HISTORY_CAP, threadStorageKey } from "./components/agentInteractionHistory";
@@ -4879,4 +4879,52 @@ describe("World Plan conversation consumer", () => {
       releaseProposal?.({ idempotency_key: originalRequest.idempotency_key, action_id: "action-1" });
     });
   });
+  it.each(["confirmed", "absent", "conflict", "unavailable", "replacement", "unmount", "scope-change", "storage-failure"])("checks saved reset status without reposting: %s", async (mode) => {
+    setupApi(history("conversation-a", 10, [makeTurn(1, "turn-a", "Earlier question", "Earlier answer")]));
+    const commandId = "00000000-0000-0000-0000-000000000001";
+    const key = `dmb:world-agent-new-conversation:v1:${encodeURIComponent(worldId)}:${commandId}`;
+    const request = { schema: "dmb_agent_new_conversation_v1" as const, command_id: commandId,
+      expected_pointer_revision: 10, expected_active_conversation_id: "conversation-a" };
+    const raw = JSON.stringify({ schema: "dmb_world_pending_new_conversation_v1", worldId, documentId, request });
+    localStorage.setItem(key, raw);
+    const post = vi.spyOn(liveApi, "postWorldAgentNewConversation");
+    const result = deferred<any>();
+    vi.spyOn(liveApi, "getWorldAgentNewConversationStatus").mockReturnValue(result.promise);
+    const mounted = render(conversationElement());
+    await screen.findByText("Earlier question");
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Retain my active draft" } });
+    fireEvent.click(screen.getByRole("button", { name: "Check saved New Conversation status" }));
+    const response = { schema: "dmb_agent_new_conversation_status_v1", world_id: worldId, command_id: commandId,
+      command_kind: "new", expected_pointer_revision: 10, expected_active_conversation_id: "conversation-a",
+      request_fingerprint: await newConversationRequestFingerprint(worldId, request), status: "confirmed",
+      receipt: { schema: "dmb_agent_new_conversation_receipt_v1", conversation_id: "00000000-0000-0000-0000-000000000002",
+        active_conversation_id: "00000000-0000-0000-0000-000000000002", pointer_revision: 11, recorded_at: "2026-10-08T00:00:00Z" } };
+    if (mode === "absent") Object.assign(response, { status: "absent", receipt: null });
+    if (mode === "conflict") response.request_fingerprint = "f".repeat(64);
+    if (mode === "replacement") localStorage.setItem(key, raw + " ");
+    if (mode === "unmount") mounted.unmount();
+    if (mode === "scope-change") mounted.rerender(conversationElement({ documentId: "other-document" }));
+    if (mode === "storage-failure") vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => { throw new Error("storage unavailable"); });
+    await act(async () => {
+      if (mode === "unavailable") result.reject(new Error("status unavailable")); else result.resolve(response);
+      await result.promise.catch(() => {});
+    });
+    if (mode === "confirmed") await waitFor(() => expect(localStorage.getItem(key)).toBeNull());
+    else expect(localStorage.getItem(key)).not.toBeNull();
+    expect(post).not.toHaveBeenCalled();
+    expect(harness.agent.updateThread).not.toHaveBeenCalled();
+    expect(harness.agent.createThread).not.toHaveBeenCalled();
+    if (mode !== "unmount" && mode !== "scope-change") {
+      expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("Retain my active draft");
+      expect(screen.getByText("Earlier question")).toBeInTheDocument();
+    }
+  });
+
+  it("matches the Python full canonical command fingerprint including unicode and null", async () => {
+    const request = { schema: "dmb_agent_new_conversation_v1" as const, command_id: "00000000-0000-0000-0000-000000000001", expected_pointer_revision: 0, expected_active_conversation_id: null };
+    const bytes = '{"expected_active_conversation_id":null,"expected_pointer_revision":0,"world_id":"w\\u00f6rld\\ud83d\\ude00"}';
+    expect(await newConversationRequestFingerprint("wörld😀", request)).toBe(Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(bytes))), (byte) => byte.toString(16).padStart(2, "0")).join(""));
+    expect(await confirmedNewConversationStatus({ status: "confirmed" }, "wörld😀", request)).toBe(false);
+  });
+
 });

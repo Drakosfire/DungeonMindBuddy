@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import ValidationError
 
 from application_state.agent_conversation import AgentConversationService
-from application_state.agent_conversation.types import ConversationCommand, TurnProvenance
+from application_state.agent_conversation.types import ConversationCommand, TurnProvenance, request_fingerprint
 from application_state.errors import ApplicationStateError
 
 from apps.live_control_server.config import (
@@ -31,6 +31,8 @@ from apps.live_control_server.models.agent_turn import (
     AgentConversationHistoryTurnV3,
     AgentNewConversationRequest,
     AgentNewConversationResponse,
+    AgentNewConversationStatusV1,
+    AgentNewConversationReceiptV1,
     AgentTurnContentBasis,
     AgentTurnRequest,
 )
@@ -1124,6 +1126,36 @@ def get_world_conversation_history(
             turns[0].sequence if len(turns) == limit and turns else None
         ),
     )
+
+
+@router.get("/worlds/{world_id}/conversation/commands/{command_id}", response_model=AgentNewConversationStatusV1)
+def get_new_world_conversation_status(
+    world_id: str, command_id: UUID, request: Request,
+    expected_pointer_revision: int = Query(ge=0),
+    expected_active_conversation_id: str = Query(),
+) -> AgentNewConversationStatusV1:
+    enforce_native_graph_gm(request)
+    verified_world_id = _verified_world_id(world_id)
+    allowed = {"expected_pointer_revision", "expected_active_conversation_id"}
+    if set(request.query_params) != allowed or any(len(request.query_params.getlist(key)) != 1 for key in allowed):
+        raise HTTPException(status_code=422, detail="exact original command selectors are required")
+    try:
+        command = ConversationCommand(world_id=verified_world_id, command_id=command_id,
+            expected_pointer_revision=expected_pointer_revision,
+            expected_active_conversation_id=None if expected_active_conversation_id == "null" else UUID(expected_active_conversation_id))
+    except (ValueError, ValidationError) as exc:
+        raise HTTPException(status_code=422, detail="invalid original command binding") from exc
+    try:
+        receipt = _conversation_service(request).get_new_conversation_receipt(command)
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail={"code": "conversation_status_rejected", "message": str(exc)}) from exc
+    return AgentNewConversationStatusV1(world_id=verified_world_id, command_id=command_id,
+        expected_pointer_revision=command.expected_pointer_revision,
+        expected_active_conversation_id=command.expected_active_conversation_id,
+        request_fingerprint=request_fingerprint(command), status="confirmed" if receipt else "absent",
+        receipt=None if receipt is None else AgentNewConversationReceiptV1(
+            conversation_id=receipt.conversation_id, active_conversation_id=receipt.active_conversation_id,
+            pointer_revision=receipt.pointer_revision, recorded_at=receipt.recorded_at.isoformat()))
 
 
 @router.post(

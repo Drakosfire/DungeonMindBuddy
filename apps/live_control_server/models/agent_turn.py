@@ -521,3 +521,37 @@ class AgentNewConversationResponse(BaseModel):
     conversation_id: UUID
     active_conversation_id: UUID | None
     pointer_revision: int = Field(ge=0)
+
+
+class AgentNewConversationReceiptV1(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    schema_: Literal["dmb_agent_new_conversation_receipt_v1"] = Field(default="dmb_agent_new_conversation_receipt_v1", alias="schema")
+    conversation_id: UUID
+    active_conversation_id: UUID
+    pointer_revision: int = Field(ge=1)
+    recorded_at: str
+
+
+class AgentNewConversationStatusV1(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    schema_: Literal["dmb_agent_new_conversation_status_v1"] = Field(default="dmb_agent_new_conversation_status_v1", alias="schema")
+    world_id: str
+    command_id: UUID
+    command_kind: Literal["new"] = "new"
+    expected_pointer_revision: int = Field(ge=0)
+    expected_active_conversation_id: UUID | None
+    request_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    status: Literal["confirmed", "absent"]
+    receipt: AgentNewConversationReceiptV1 | None
+
+    @model_validator(mode="after")
+    def validate_receipt_binding(self) -> "AgentNewConversationStatusV1":
+        if (self.status == "confirmed") != (self.receipt is not None):
+            raise ValueError("status must match receipt presence")
+        if self.receipt is not None and (
+            self.receipt.active_conversation_id != self.receipt.conversation_id
+            or self.receipt.conversation_id == self.expected_active_conversation_id
+            or self.receipt.pointer_revision <= self.expected_pointer_revision
+        ):
+            raise ValueError("receipt must bind a committed fresh conversation")
+        return self

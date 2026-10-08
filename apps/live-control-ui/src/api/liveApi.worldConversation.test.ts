@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   getWorldAgentConversationHistory,
+  getWorldAgentNewConversationStatus,
   postWorldAgentNewConversation,
   setNativeGraphAccessToken,
 } from "./liveApi";
@@ -20,6 +21,7 @@ afterEach(() => {
 
 describe("World Agent conversation transport", () => {
   it("reads the exact bounded World history route and preserves the accepted response", async () => {
+    setNativeGraphAccessToken("test-token");
     const response = {
       schema: "dmb_agent_conversation_history_v1",
       world_id: "world/a",
@@ -45,6 +47,7 @@ describe("World Agent conversation transport", () => {
   });
 
   it("posts the exact New Conversation CAS envelope", async () => {
+    setNativeGraphAccessToken("test-token");
     const request = {
       schema: "dmb_agent_new_conversation_v1" as const,
       command_id: "00000000-0000-4000-8000-000000000001",
@@ -68,4 +71,14 @@ describe("World Agent conversation transport", () => {
     expect(fetchSpy.mock.calls[0]?.[1]?.method).toBe("POST");
     expect(JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))).toEqual(request);
   });
+});
+
+
+it("checks the exact saved reset binding with GET only", async () => {
+  setNativeGraphAccessToken("test-token");
+  const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ status: "absent" }));
+  await getWorldAgentNewConversationStatus("world/a", { schema: "dmb_agent_new_conversation_v1", command_id: "command-id", expected_pointer_revision: 0, expected_active_conversation_id: null });
+  expect(String(fetchSpy.mock.calls[0]?.[0])).toBe("/api/live/agent/worlds/world%2Fa/conversation/commands/command-id?expected_pointer_revision=0&expected_active_conversation_id=null");
+  expect(fetchSpy.mock.calls[0]?.[1]?.method).toBeUndefined();
+  expect(fetchSpy.mock.calls[0]?.[1]?.body).toBeUndefined();
 });

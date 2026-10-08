@@ -3159,3 +3159,49 @@ def test_graph_execution_v2_source_read_receipt_round_trip_through_fresh_service
         command.downgrade(alembic_config(), "20261005_0017")
     assert _current_and_head(application_state_dsn) == ("20261007_0018", "20261007_0018")
     assert AgentConversationService().list_turns(world_id, conversation.conversation_id)[0] == reload
+
+
+def test_read_only_reset_receipt_actual_repository_route(application_state_dsn, monkeypatch):
+    import asyncio
+    import httpx
+    import psycopg
+    from fastapi import FastAPI
+    from application_state.agent_conversation.types import ArchiveCommand, request_fingerprint
+    from apps.live_control_server.routes import agent as route
+    service = AgentConversationService()
+    command = ConversationCommand(world_id="status-world", command_id=uuid4(), expected_pointer_revision=0, expected_active_conversation_id=None)
+    first = service.new_conversation(command)
+    next_command = ConversationCommand(world_id=command.world_id, command_id=uuid4(), expected_pointer_revision=first.pointer_revision, expected_active_conversation_id=first.conversation_id)
+    later = service.new_conversation(next_command)
+    assert AgentConversationService().get_new_conversation_receipt(command) == first
+    missing = command.model_copy(update={"world_id": "status-missing"})
+    assert service.get_new_conversation_receipt(missing) is None
+    with psycopg.connect(application_state_dsn) as conn:
+        assert conn.execute("SELECT count(*) FROM agent.world_state WHERE world_id=%s", (missing.world_id,)).fetchone()[0] == 0
+    with pytest.raises(ApplicationStateConflictError):
+        service.get_new_conversation_receipt(command.model_copy(update={"expected_pointer_revision": 1}))
+    with pytest.raises(ApplicationStateConflictError):
+        service.get_new_conversation_receipt(command.model_copy(update={"expected_active_conversation_id": uuid4()}))
+    assert service.new_conversation(command) == first
+    assert service.get_world_pointer(command.world_id).active_conversation_id == later.conversation_id
+    archive_command = ArchiveCommand(world_id=command.world_id, command_id=uuid4(), expected_pointer_revision=later.pointer_revision, expected_active_conversation_id=later.conversation_id, conversation_id=later.conversation_id)
+    service.archive_conversation(archive_command)
+    with pytest.raises(ApplicationStateConflictError):
+        service.get_new_conversation_receipt(ConversationCommand(**archive_command.model_dump(exclude={"conversation_id"})))
+    monkeypatch.setattr(route, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(route, "_conversation_service", lambda request: AgentConversationService())
+    app = FastAPI()
+    app.include_router(route.router, prefix="/api/live")
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            url = f"/api/live/agent/worlds/{command.world_id}/conversation/commands/{command.command_id}"
+            query = "?expected_pointer_revision=0&expected_active_conversation_id=null"
+            response = await client.get(url + query)
+            assert response.status_code == 200, response.text
+            assert response.json()["request_fingerprint"] == request_fingerprint(command)
+            assert response.json()["receipt"]["conversation_id"] == str(first.conversation_id)
+            for suffix in ("", query+"&extra=x", query+"&expected_pointer_revision=0", query.replace("null", "invalid")):
+                assert (await client.get(url+suffix)).status_code == 422
+            assert (await client.get(url+query.replace("revision=0", "revision=1"))).status_code == 409
+            assert (await client.get(url.replace(command.world_id, missing.world_id)+query)).json()["status"] == "absent"
+    asyncio.run(exercise())
