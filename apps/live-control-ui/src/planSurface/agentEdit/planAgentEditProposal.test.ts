@@ -8,6 +8,7 @@ import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from "../../tiptap/MarkdownEditorC
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { tiptapJsonToSemanticMarkdown } from "../../tiptap/markdown/calloutMarkdown";
 import { resolvePlayableBodyTarget } from "./planPlayableBodyTarget";
+import { preserveLeadingYamlFrontmatter } from "../../tiptap/markdown/stripLeadingYamlFrontmatter";
 import {
   admitWorldPlanEditProposal,
   admitPlanEditProposal,
@@ -15,6 +16,7 @@ import {
   applyPlanEditProposal,
   capturePlanEditTarget,
   captureWorldPlanEditTarget,
+  previewWorldPlanEditProposal,
   type ExpectedWorldPlanEditAgentBinding,
   type PlanEditEditorState,
   type WorldPlanEditAgentBinding,
@@ -116,6 +118,45 @@ function worldState(state: PlanEditEditorState): WorldPlanEditEditorState {
     canEdit: state.canEdit,
   };
 }
+
+it.each(["caret", "selection", "list", "card", "frontmatter"])("previews frozen %s context without mutation and matches actual Apply", async (kind) => {
+  let source = kind === "card"
+    ? "# Plan\n<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->\n## Arrival\nFirst sentence. Second sentence.\n<!-- dmb-playable-element:v1 kind=scene id=scene:next -->\n## Next\nOther prose.\n"
+    : kind === "list" ? "# Opening\n\n- First item\n- Second item\n\n# Later\n\nOther prose.\n"
+      : "# Opening\n\nFirst sentence. Second sentence.\n\n# Later\n\nOther prose.\n";
+  if (kind === "frontmatter") source = "---\ntitle: Frozen Plan\n---\n" + source;
+  const { editor, state } = mountedState(source);
+  let textPosition = 0;
+  editor.state.doc.descendants((node, position) => {
+    if (node.isText && node.text?.startsWith(kind === "list" ? "First item" : "First sentence.")) textPosition = position;
+  });
+  editor.commands.setTextSelection(kind === "caret" || kind === "frontmatter" ? textPosition + "First sentence.".length
+    : kind === "card" ? 1 : { from: textPosition, to: textPosition + (kind === "list" ? "First item".length : "First sentence.".length) });
+  const current: WorldPlanEditEditorState = { ...worldState(state),
+    ...(kind === "card" ? { currentSceneTarget: { kind: "scene", id: "scene:arrival" }, currentSceneTargetLabel: "Arrival" } : {}) };
+  const captured = await captureWorldPlanEditTarget(current, () => current);
+  const key = "00000000-0000-4000-8000-000000000002";
+  const admitted = await admitWorldPlanEditProposal(captured, await worldResponseFor(captured, "New detail.", key), key);
+  const beforeJson = editor.getJSON();
+  const beforeSelection = editor.state.selection.toJSON();
+  const admittedBytes = JSON.stringify(admitted);
+  const storageWrite = vi.spyOn(Storage.prototype, "setItem");
+  const preview = previewWorldPlanEditProposal(captured, admitted);
+  expect(storageWrite).not.toHaveBeenCalled();
+  expect(editor.getJSON()).toEqual(beforeJson);
+  expect(editor.state.selection.toJSON()).toEqual(beforeSelection);
+  expect(JSON.stringify(admitted)).toBe(admittedBytes);
+  expect(preview.before.markdown).toBe(captured.request.draft_markdown);
+  expect(preview.before.sourceLineTarget).toBeDefined();
+  expect(preview.before.markdown.split("\n")[preview.before.sourceLineTarget!.startLine - 1]).toContain(kind === "list" ? "First item" : "First sentence.");
+  expect(preview.after.markdown).toContain(kind === "card" ? "## Arrival" : "# Opening");
+  expect(preview.after.markdown).toContain("Other prose.");
+  expect(preview.after.markdown).toContain("New detail.");
+  await applyWorldPlanEditProposal({ captured, admitted, getCurrent: () => current,
+    expectedAgentBinding: expectedAgentBinding(), getAgentBinding: matchingAgentBinding });
+  expect(preview.after.markdown).toBe(preserveLeadingYamlFrontmatter(captured.request.draft_markdown, tiptapJsonToSemanticMarkdown(editor.getJSON())));
+  expect(previewWorldPlanEditProposal(captured, admitted)).toEqual(preview);
+});
 
 async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));

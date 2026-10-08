@@ -1,4 +1,5 @@
 import { Editor, type JSONContent } from "@tiptap/core";
+import type { MarkdownSourceLineTarget } from "../../markdownReader/MarkdownDocumentReader";
 
 import type {
   PlanDocumentEditProposalRequest,
@@ -935,6 +936,55 @@ export async function applyPlanEditProposal(args: {
   }
 }
 
+function worldPlanEditInsertion(captured: CapturedWorldPlanEditTarget, content: JSONContent[]) {
+  return captured.playableBodyTarget
+    ? { range: { from: captured.playableBodyTarget.from, to: captured.playableBodyTarget.to }, content }
+    : captured.sectionTarget
+      ? { range: { from: captured.sectionTarget.applyFrom, to: captured.sectionTarget.applyTo }, content }
+      : insertionForTarget(captured, content);
+}
+
+export interface WorldPlanEditContextualPreview {
+  before: { markdown: string; sourceLineTarget?: MarkdownSourceLineTarget; placementLabel?: string };
+  after: { markdown: string; sourceLineTarget?: MarkdownSourceLineTarget; placementLabel?: string };
+}
+
+export function previewWorldPlanEditProposal(
+  captured: CapturedWorldPlanEditTarget,
+  admitted: AdmittedWorldPlanEditProposal,
+): WorldPlanEditContextualPreview {
+  const original = JSON.parse(captured.editorJson) as JSONContent;
+  const frozen = new Editor({ extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS, content: original });
+  try {
+    const frozenCapture = { ...captured, editor: frozen };
+    const insertion = worldPlanEditInsertion(frozenCapture, admitted.content);
+    let rootIndex = 0;
+    frozen.state.doc.forEach((_node, position, index) => {
+      if (position <= insertion.range.from) rootIndex = index;
+    });
+    const prefix = preserveLeadingYamlFrontmatter(captured.request.draft_markdown,
+      tiptapJsonToSemanticMarkdown({ type: "doc", content: (original.content ?? []).slice(0, rootIndex) }));
+    const before = preserveLeadingYamlFrontmatter(captured.request.draft_markdown, tiptapJsonToSemanticMarkdown(original));
+    const firstContent = before.slice(prefix.length).search(/\S/);
+    const startLine = before.startsWith(prefix)
+      ? before.slice(0, prefix.length + Math.max(firstContent, 0)).split("\n").length : undefined;
+    if (!frozen.commands.insertContentAt(insertion.range, insertion.content)) {
+      throw new PlanEditGuardError("Agent proposal cannot be previewed at this captured World Plan target.");
+    }
+    const after = preserveLeadingYamlFrontmatter(captured.request.draft_markdown, tiptapJsonToSemanticMarkdown(frozen.getJSON()));
+    const placementLabel = captured.playableBodyTarget
+      ? `Replace ${captured.playableTargetLabel || captured.playableBodyTarget.target.id} body`
+      : captured.request.target_kind === "insert_at_caret" ? "Insert at captured caret" : "Replace captured selection";
+    const targetKey = `plan-edit-preview:${captured.request.document_id}:${captured.request.draft_sha256}:${captured.from}:${captured.to}:${admitted.response.action_id}`;
+    return { before: { markdown: before, placementLabel,
+      ...(startLine ? { sourceLineTarget: { startLine, endLine: startLine, targetKey: `${targetKey}:before` } } : {}) },
+      after: { markdown: after, placementLabel,
+        ...(startLine ? { sourceLineTarget: { startLine, endLine: startLine, targetKey: `${targetKey}:after` } } : {}) } };
+  } finally {
+    frozen.destroy();
+  }
+}
+
 export async function applyWorldPlanEditProposal(args: {
   captured: CapturedWorldPlanEditTarget;
   admitted: AdmittedWorldPlanEditProposal;
@@ -992,14 +1042,7 @@ export async function applyWorldPlanEditProposal(args: {
     extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,
     content: editor.getJSON(),
   });
-  const insertion = captured.playableBodyTarget
-    ? { range: { from: captured.playableBodyTarget.from, to: captured.playableBodyTarget.to }, content: admitted.content }
-    : captured.sectionTarget
-    ? {
-      range: { from: captured.sectionTarget.applyFrom, to: captured.sectionTarget.applyTo },
-      content: admitted.content,
-    }
-    : insertionForTarget(captured, admitted.content);
+  const insertion = worldPlanEditInsertion(captured, admitted.content);
   try {
     if (!simulated.commands.insertContentAt(insertion.range, insertion.content)) {
       throw new PlanEditGuardError("Agent proposal cannot be inserted at this World Plan target.");
