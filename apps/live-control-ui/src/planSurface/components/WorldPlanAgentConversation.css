@@ -860,3 +860,11 @@
     max-block-size: 7rem;
   }
 }
+
+/* Conversation content stays readable; provenance belongs in deliberate disclosures. */
+.world-plan-agent-conversation__turns article { border:0; padding:.45rem 0; border-radius:0; background:transparent; }
+.world-plan-agent-conversation__message--user { max-inline-size:85%; margin-inline-end:auto; }
+.world-plan-agent-conversation__message--assistant { max-inline-size:85%; margin-inline-start:auto; }
+.world-plan-agent-conversation__review { padding:0; border:0; background:transparent; }
+.world-plan-agent-conversation__settings { font-size:.85rem; }
+.world-plan-agent-conversation__speaker { font-size:.72rem; color:var(--ui-text-secondary); }

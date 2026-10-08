@@ -28,13 +28,18 @@ function Fixture() {
 describe("PlanConversationDockAdapter",()=>{
   it("keeps reader and typed composer mounted while existing pane state expands and collapses",async()=>{
     const user=userEvent.setup();render(<Fixture/>);
+    await user.click(await screen.findByRole("button",{name:"Open",exact:true}));
     const input=await screen.findByLabelText("Message Buddy"),reader=screen.getByLabelText("Plan draft");
     await user.type(input,"Remember the sleepers");
     await waitFor(()=>expect(screen.getByRole("log")).toBeVisible());
-    expect(screen.getByRole("separator", {name:"Resize Buddy conversation"})).toHaveAttribute("aria-valuenow", "220");
-    await user.click(screen.getByRole("button",{name:"Collapse",exact:true}));
+    expect(screen.getByRole("separator", {name:"Resize conversation"})).toHaveAttribute("aria-valuenow", "360");
+    await user.click(screen.getByRole("button",{name:"Close conversation",exact:true}));
     expect(screen.getByLabelText("Message Buddy")).toBe(input);
     expect(input).toHaveValue("Remember the sleepers");
+    expect(input).not.toBeVisible();
+    expect(screen.queryByRole("log")).toBeNull();
+    reader.focus();
+    expect(screen.queryByRole("log")).toBeNull();
     expect(screen.getByLabelText("Plan draft")).toBe(reader);
     await user.click(screen.getByRole("button",{name:"Open",exact:true}));
     expect(screen.getByRole("log")).toHaveTextContent("Existing reply");
@@ -49,9 +54,24 @@ describe("PlanConversationDockAdapter",()=>{
   });
   it("uses inspectable context without opening another overlay or submitting a request",async()=>{
     const user=userEvent.setup();render(<Fixture/>);
-    await screen.findByLabelText("Message Buddy");
-    await user.click(screen.getByRole("button",{name:"Warehouse · Full saved Plan"}));
+    await user.click(await screen.findByRole("button",{name:"Open",exact:true}));
+    await user.click(screen.getByRole("button",{name:"Context"}));
     expect(screen.getByText("Full committed Plan context")).toBeVisible();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
+});
+
+
+it("uses the existing dragon entrance for fullscreen and full close without opening Edit or creating another composer", async()=>{
+  const user=userEvent.setup();render(<Fixture/>);
+  await user.click(await screen.findByRole("button",{name:"Open",exact:true}));
+  const draft=screen.getByLabelText("Message Buddy");await user.type(draft,"Unsent plan question");
+  await user.click(screen.getByRole("button",{name:"Expand conversation fullscreen"}));
+  expect(screen.getByRole("dialog",{name:"Saved World Plan conversation"})).toContainElement(draft);
+  await user.click(screen.getByRole("button",{name:"Restore conversation dock"}));
+  await user.click(screen.getByRole("button",{name:"Close conversation"}));
+  const entrance=screen.getByRole("button",{name:"Open",exact:true});expect(entrance).toHaveFocus();
+  await user.keyboard("{Enter}");expect(draft).toHaveValue("Unsent plan question");expect(draft).toHaveFocus();
+  expect(screen.getAllByLabelText("Message Buddy")).toHaveLength(1);
+  expect(screen.queryByRole("button",{name:"Close Edit"})).toBeNull();
 });
