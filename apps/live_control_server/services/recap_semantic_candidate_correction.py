@@ -15,11 +15,14 @@ from apps.live_control_server.models.extract_promote import (
     RecapCandidateCorrectionRequestV3,
     RecapCandidateCorrectionRequestV4,
     RecapCandidateCorrectionRequestV5,
+    RecapCandidateCorrectionRequestV6,
+    RecapEvidenceRefSplit,
     RecapCandidateCorrectionResponse,
     RecapCandidateCorrectionResponseV2,
     RecapCandidateCorrectionResponseV3,
     RecapCandidateCorrectionResponseV4,
     RecapCandidateCorrectionResponseV5,
+    RecapCandidateCorrectionResponseV6,
     RecapCandidateEdgeTuple,
     ExtractPromoteDiagnostic,
 )
@@ -74,6 +77,8 @@ DERIVATION_V4 = "operator_recap_semantic_candidate_correction_v4"
 MANIFEST_SCHEMA_V4 = "dmb_recap_semantic_candidate_manifest_v4"
 DERIVATION_V5 = "operator_recap_semantic_candidate_correction_v5"
 MANIFEST_SCHEMA_V5 = "dmb_recap_semantic_candidate_manifest_v5"
+DERIVATION_V6 = "operator_recap_semantic_candidate_correction_v6"
+MANIFEST_SCHEMA_V6 = "dmb_recap_semantic_candidate_manifest_v6"
 PROFILE = "recap_category_v1@1.0"
 MAX_EDGE_TUPLE_REPLACEMENTS = 7
 EDGE_TUPLE_FIELDS = ("from_node_id", "relationship_type", "to_node_id", "label")
@@ -334,10 +339,102 @@ def _plan_evidence_span_replacements(
     return plans
 
 
-def replay_candidate(parent: dict, manifest: dict) -> dict:
+def _replay_evidence_ref_split(parent: dict, manifest: dict, source_bytes: bytes | None, span_bytes: bytes | None) -> dict:
+    """Re-prove source pins, full-ref preimage, and each quote occurrence."""
+    from graph_memory.anchor_quotes import find_anchor_quote_matches
+
+    if set(manifest) != {"schema", "source_revision_sha256", "span_index_sha256", "evidence_ref_splits"}:
+        raise _reject("evidence ref split manifest is malformed")
+    operations = manifest["evidence_ref_splits"]
+    if not isinstance(operations, list) or len(operations) != 1:
+        raise _reject("evidence ref split exceeds bounded scope")
+    operation = operations[0]
+    if not isinstance(operation, dict) or set(operation) != {"record_kind", "record_id", "evidence_index", "expected_evidence_ref_sha256", "parts"}:
+        raise _reject("evidence ref split operation is malformed")
+    if not isinstance(operation["parts"], list) or any(not isinstance(part, dict) or set(part) != {"source_span_ref_id", "quote_indices"} for part in operation["parts"]):
+        raise _reject("evidence ref split parts are malformed")
+    try:
+        split = RecapEvidenceRefSplit.model_validate(operation)
+    except (TypeError, ValueError) as exc:
+        raise _reject("evidence ref split operation is malformed") from exc
+    if (
+        not isinstance(source_bytes, bytes) or not isinstance(span_bytes, bytes)
+        or _sha(source_bytes) != manifest["source_revision_sha256"]
+        or _sha(span_bytes) != manifest["span_index_sha256"]
+    ):
+        raise _reject("evidence ref split source/index pin changed", status_code=409)
+    try:
+        index = json.loads(span_bytes)
+        source_lines = source_bytes.decode("utf-8").splitlines()
+    except (ValueError, UnicodeError) as exc:
+        raise _reject("evidence ref split source/index is unreadable") from exc
+    collection_key, id_key = ("nodes", "node_id") if split.record_kind == "node" else ("edges", "edge_id")
+    records = parent.get(collection_key)
+    if not isinstance(records, list) or any(not isinstance(record, dict) for record in records):
+        raise _reject("evidence ref split holder collection is malformed")
+    matches = [record for record in records if record.get(id_key) == split.record_id]
+    if len(matches) != 1:
+        raise _reject("evidence ref split holder is missing or ambiguous", status_code=409)
+    refs = matches[0].get("evidence_refs")
+    if not isinstance(refs, list) or split.evidence_index >= len(refs) or not isinstance(refs[split.evidence_index], dict):
+        raise _reject("evidence ref split preimage is missing", status_code=409)
+    original = refs[split.evidence_index]
+    if _sha(_canonical_bytes(original)) != split.expected_evidence_ref_sha256:
+        raise _reject("evidence ref split preimage is stale", status_code=409)
+    quotes = original.get("anchor_quotes")
+    if not isinstance(quotes, list) or any(not isinstance(quote, str) or not quote.strip() for quote in quotes):
+        raise _reject("evidence ref split original quotes are malformed")
+    if [i for part in split.parts for i in part.quote_indices] != list(range(len(quotes))):
+        raise _reject("evidence ref split must partition every quote occurrence")
+    if (
+        not isinstance(index, dict) or index.get("schema") != "dmb_source_span_index_v1"
+        or index.get("content_sha256") != manifest["source_revision_sha256"]
+        or not isinstance(original.get("source_span_ref_id"), str) or not original["source_span_ref_id"].strip()
+        or any(not isinstance(index.get(key), str) or not index[key].strip() for key in ("source_artifact_id", "source_ref_id"))
+        or index.get("source_artifact_id") != original.get("source_artifact_id")
+        or index.get("source_ref_id") != original.get("source_ref_id")
+        or not isinstance(index.get("spans"), list)
+        or any(not isinstance(span, dict) for span in index["spans"])
+    ):
+        raise _reject("evidence ref split index authority changed", status_code=409)
+    outputs = []
+    # The original ref and both output spans must resolve uniquely in the same index.
+    for span_id in [original.get("source_span_ref_id"), *(part.source_span_ref_id for part in split.parts)]:
+        spans = [span for span in index["spans"] if span.get("source_span_id") == span_id]
+        if len(spans) != 1:
+            raise _reject("evidence ref split span is missing or ambiguous", status_code=409)
+        span = spans[0]
+        if any(span.get(key) != index.get(key) for key in ("content_sha256", "source_artifact_id", "source_ref_id")):
+            raise _reject("evidence ref split span has foreign authority", status_code=409)
+        start, end = span.get("start_line"), span.get("end_line")
+        if type(start) is not int or type(end) is not int or not 1 <= start <= end <= len(source_lines):
+            raise _reject("evidence ref split span bounds are invalid")
+    for part in split.parts:
+        span = next(span for span in index["spans"] if span.get("source_span_id") == part.source_span_ref_id)
+        paragraph = "\n".join(source_lines[span["start_line"] - 1:span["end_line"]])
+        selected = [quotes[i] for i in part.quote_indices]
+        if any(not find_anchor_quote_matches(paragraph, [quote]) for quote in selected):
+            raise _reject("evidence ref split quote is not literal in its assigned span")
+        output = copy.deepcopy(original)
+        output["source_span_ref_id"] = part.source_span_ref_id
+        output["anchor_quotes"] = selected
+        if "source_anchor_id" in output:
+            output["source_anchor_id"] = f"anchor:{part.source_span_ref_id}"
+        if "label" in output:
+            output["label"] = part.source_span_ref_id
+        outputs.append(output)
+    child = copy.deepcopy(parent)
+    holder = next(record for record in child[collection_key] if record[id_key] == split.record_id)
+    holder["evidence_refs"][split.evidence_index:split.evidence_index + 1] = outputs
+    return child
+
+
+def replay_candidate(parent: dict, manifest: dict, *, source_bytes: bytes | None = None, span_bytes: bytes | None = None) -> dict:
     """Reconstruct one bounded correction request; never patch arbitrary JSON."""
     if not isinstance(parent, dict) or not isinstance(manifest, dict):
         raise _reject("semantic candidate replay input is malformed")
+    if manifest.get("schema") == MANIFEST_SCHEMA_V6:
+        return _replay_evidence_ref_split(parent, manifest, source_bytes, span_bytes)
     v3 = manifest.get("schema") == MANIFEST_SCHEMA_V3
     v5 = manifest.get("schema") == MANIFEST_SCHEMA_V5
     v4 = manifest.get("schema") == MANIFEST_SCHEMA_V4
@@ -479,15 +576,15 @@ def verify_child_replay(run, parent, root: Path) -> bool:
                 material[f"{owner}:{key}"] = value
         parent_bytes = material["parent:candidate_graph"]
         child_bytes = material["child:candidate_graph"]
-        expected = replay_candidate(json.loads(parent_bytes), manifest)
+        expected = replay_candidate(json.loads(parent_bytes), manifest, source_bytes=material["parent:source_artifact"], span_bytes=material["parent:source_span_index"])
         return child_bytes == _canonical_bytes(expected)
     except (AttributeError, KeyError, OSError, ValueError, TypeError, json.JSONDecodeError):
         return False
 
 
 def correct_recap_candidate(
-    request: RecapCandidateCorrectionRequest | RecapCandidateCorrectionRequestV2 | RecapCandidateCorrectionRequestV3 | RecapCandidateCorrectionRequestV4 | RecapCandidateCorrectionRequestV5,
-) -> RecapCandidateCorrectionResponse | RecapCandidateCorrectionResponseV2 | RecapCandidateCorrectionResponseV3 | RecapCandidateCorrectionResponseV4 | RecapCandidateCorrectionResponseV5:
+    request: RecapCandidateCorrectionRequest | RecapCandidateCorrectionRequestV2 | RecapCandidateCorrectionRequestV3 | RecapCandidateCorrectionRequestV4 | RecapCandidateCorrectionRequestV5 | RecapCandidateCorrectionRequestV6,
+) -> RecapCandidateCorrectionResponse | RecapCandidateCorrectionResponseV2 | RecapCandidateCorrectionResponseV3 | RecapCandidateCorrectionResponseV4 | RecapCandidateCorrectionResponseV5 | RecapCandidateCorrectionResponseV6:
     """Create one held reviewable child without altering parent or WorldGraph."""
     from application_state.ingest.service import (
         RecapSemanticBasisV2,
@@ -495,6 +592,7 @@ def correct_recap_candidate(
         RecapSemanticBasisV4,
         RecapSemanticBasisV5,
         RecapSemanticBasisV6,
+        RecapSemanticBasisV7,
     )
 
     root = repo_root()
@@ -519,8 +617,10 @@ def correct_recap_candidate(
     parent_sha = _sha(parent_bytes)
     source_ref = parent.components["source_artifact"]
     span_ref = parent.components["source_span_index"]
-    source_sha = _sha(resolved.normalized_recap_path.read_bytes())
-    span_sha = _sha(resolved.source_span_index_path.read_bytes())
+    source_bytes = resolved.normalized_recap_path.read_bytes()
+    span_bytes = resolved.source_span_index_path.read_bytes()
+    source_sha = _sha(source_bytes)
+    span_sha = _sha(span_bytes)
     if (
         parent_sha != request.parent_candidate_sha256
         or parent_sha != parent.components["candidate_graph"].sha256.removeprefix("sha256:")
@@ -535,12 +635,20 @@ def correct_recap_candidate(
         raise _reject("parent candidate is unreadable") from exc
     if not isinstance(parent_payload, dict):
         raise _reject("parent candidate root must be an object")
+    v6 = isinstance(request, RecapCandidateCorrectionRequestV6)
     v5 = isinstance(request, RecapCandidateCorrectionRequestV5)
     v3 = isinstance(request, RecapCandidateCorrectionRequestV3)
     v4 = isinstance(request, RecapCandidateCorrectionRequestV4)
     v2 = isinstance(request, RecapCandidateCorrectionRequestV2)
-    derivation = DERIVATION_V5 if v5 else DERIVATION_V4 if v4 else DERIVATION_V3 if v3 else DERIVATION_V2 if v2 else DERIVATION
-    if v5:
+    derivation = DERIVATION_V6 if v6 else DERIVATION_V5 if v5 else DERIVATION_V4 if v4 else DERIVATION_V3 if v3 else DERIVATION_V2 if v2 else DERIVATION
+    if v6:
+        manifest = {
+            "schema": MANIFEST_SCHEMA_V6,
+            "source_revision_sha256": request.source_revision_sha256,
+            "span_index_sha256": request.span_index_sha256,
+            "evidence_ref_splits": [item.model_dump(mode="json") for item in request.evidence_ref_splits],
+        }
+    elif v5:
         manifest = {
             "schema": MANIFEST_SCHEMA_V5,
             "evidence_span_replacements": [
@@ -577,7 +685,7 @@ def correct_recap_candidate(
         manifest["session_action_replacements"] = [
             item.model_dump(mode="json") for item in request.session_action_replacements
         ]
-    payload = replay_candidate(parent_payload, manifest)
+    payload = replay_candidate(parent_payload, manifest, source_bytes=source_bytes, span_bytes=span_bytes)
     _assert_candidate_scope_matches_run(payload, campaign_id=parent.campaign_id, session_id=parent.session_id)
     _assert_and_project_candidate_evidence(
         candidate_payload=payload,
@@ -610,6 +718,8 @@ def correct_recap_candidate(
         campaign_id=parent.campaign_id, session_id=parent.session_id,
     )
     basis = (
+        RecapSemanticBasisV7(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V6)
+        if v6 else
         RecapSemanticBasisV6(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V5)
         if v5 else
         RecapSemanticBasisV5(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V4)
@@ -691,7 +801,8 @@ def correct_recap_candidate(
         if assessment.disposition is None or assessment.disposition.get("state") != semantic_state:
             raise _reject("derived run semantic decision conflicts", status_code=409)
     response_type = (
-        RecapCandidateCorrectionResponseV5 if v5
+        RecapCandidateCorrectionResponseV6 if v6
+        else RecapCandidateCorrectionResponseV5 if v5
         else RecapCandidateCorrectionResponseV4 if v4
         else RecapCandidateCorrectionResponseV3 if v3
         else RecapCandidateCorrectionResponseV2 if v2
