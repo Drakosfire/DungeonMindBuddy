@@ -223,6 +223,41 @@ test("keeps the full App Play route readable and keyboard-operable at narrow wid
   }
 });
 
+test("collapses supporting panels when the Play canvas is narrow inside a wide viewport", async ({ page }) => {
+  await page.setViewportSize(desktop);
+  await page.goto("/?story=play-current-moment-cockpit--app-shell-responsive-cockpit&mode=preview");
+  await expect(page.locator("html[data-storyloaded]")).toBeVisible();
+
+  const cockpit = page.getByTestId("play-current-moment-cockpit");
+  const shell = page.getByTestId("play-cockpit-shell");
+  const outlineToggle = page.getByTestId("play-beat-context-toggle");
+  const outcomesToggle = page.getByTestId("play-at-a-glance-toggle");
+  await expect(outlineToggle).toHaveAttribute("aria-expanded", "true");
+  await expect(outcomesToggle).toHaveAttribute("aria-expanded", "true");
+
+  await cockpit.evaluate((element) => {
+    element.style.width = "800px";
+    element.style.marginInline = "auto";
+  });
+  await expect(outlineToggle).toHaveAttribute("aria-expanded", "false");
+  await expect(outcomesToggle).toHaveAttribute("aria-expanded", "false");
+  await expect.poll(() => shell.evaluate((element) => (
+    getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean).length
+  ))).toBe(1);
+
+  await outlineToggle.click();
+  await expect(outlineToggle).toHaveAttribute("aria-expanded", "true");
+  await cockpit.evaluate((element) => { element.style.width = "760px"; });
+  await expect(outlineToggle).toHaveAttribute("aria-expanded", "true");
+
+  await cockpit.evaluate((element) => { element.style.width = "1000px"; });
+  await expect(outlineToggle).toHaveAttribute("aria-expanded", "true");
+  await expect(outcomesToggle).toHaveAttribute("aria-expanded", "true");
+  await expect.poll(() => shell.evaluate((element) => (
+    getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean).length
+  ))).toBe(3);
+});
+
 const mobileDockStories = [
   "visual-contract--edit-host-dock-responsive",
   "visual-contract--edit-host-dock-responsive-other-surface",
