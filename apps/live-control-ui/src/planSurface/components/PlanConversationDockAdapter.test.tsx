@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { createPortal } from "react-dom";
@@ -74,4 +74,24 @@ it("uses the existing dragon entrance for fullscreen and full close without open
   await user.keyboard("{Enter}");expect(draft).toHaveValue("Unsent plan question");expect(draft).toHaveFocus();
   expect(screen.getAllByLabelText("Message Buddy")).toHaveLength(1);
   expect(screen.queryByRole("button",{name:"Close Edit"})).toBeNull();
+});
+
+
+it.each([false, true])("dismisses More by pointer and keeps Close reachable (fullscreen=%s)", async fullscreen => {
+  const user = userEvent.setup(); render(<Fixture/>);
+  await user.click(await screen.findByRole("button", {name:"Open",exact:true}));
+  if (fullscreen) await user.click(screen.getByRole("button", {name:"Expand conversation fullscreen"}));
+  const summary = screen.getByText("More", {selector:"summary"});
+  const details = summary.parentElement as HTMLDetailsElement;
+  await user.click(summary); expect(details.open).toBe(true);
+  await user.click(summary); expect(details.open).toBe(false);
+  await user.click(summary);
+  await user.click(screen.getByLabelText("Message Buddy")); expect(details.open).toBe(false);
+  await user.click(summary);
+  await user.click(screen.getByRole("button", {name:"Close conversation"}));
+  expect(details.open).toBe(false); expect(screen.queryByRole("log")).toBeNull();
+  await user.click(screen.getByRole("button", {name:"Open",exact:true}));
+  expect(details.open).toBe(false);
+  await user.click(summary); fireEvent.keyDown(summary, {key:"Escape"});
+  expect(details.open).toBe(false); expect(summary).toHaveFocus();
 });
