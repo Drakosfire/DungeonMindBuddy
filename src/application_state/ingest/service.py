@@ -43,6 +43,7 @@ _RECAP_CANDIDATE_DERIVATION_V2 = "operator_recap_semantic_candidate_correction_v
 _RECAP_CANDIDATE_DERIVATION_V3 = "operator_recap_semantic_candidate_correction_v3"
 _RECAP_CANDIDATE_DERIVATION_V4 = "operator_recap_semantic_candidate_correction_v4"
 _RECAP_CANDIDATE_DERIVATION_V5 = "operator_recap_semantic_candidate_correction_v5"
+_RECAP_CANDIDATE_DERIVATION_V6 = "operator_recap_semantic_candidate_correction_v6"
 _RECAP_BASIS_SCHEMA = "dmb_recap_semantic_basis_v1"
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 
@@ -185,6 +186,16 @@ class RecapSemanticBasisV6(RecapSemanticBasisV2):
     )
     derivation: Literal["operator_recap_semantic_candidate_correction_v5"]
     manifest_schema: Literal["dmb_recap_semantic_candidate_manifest_v5"]
+
+
+class RecapSemanticBasisV7(RecapSemanticBasisV2):
+    """Bind the one-to-two evidence ref split derivation and manifest."""
+
+    schema_: Literal["dmb_recap_semantic_basis_v7"] = Field(
+        default="dmb_recap_semantic_basis_v7", alias="schema"
+    )
+    derivation: Literal["operator_recap_semantic_candidate_correction_v6"]
+    manifest_schema: Literal["dmb_recap_semantic_candidate_manifest_v6"]
 
 
 class RecapSemanticDispositionCommandV1(BaseModel):
@@ -375,10 +386,62 @@ def lookup_extraction_run_by_candidate_component(
     return CandidateRunLookup("unique", rows[0])
 
 
+def _assert_recap_split_manifest(manifest: object, basis: RecapSemanticBasisV7) -> None:
+    """Validate the stored bounded split shape independently of the HTTP model."""
+    def invalid() -> None:
+        raise ApplicationStateConflictError("recap semantic evidence ref split manifest is malformed")
+
+    if (
+        not isinstance(manifest, dict)
+        or set(manifest) != {"schema", "source_revision_sha256", "span_index_sha256", "evidence_ref_splits"}
+        or manifest.get("schema") != basis.manifest_schema
+        or manifest.get("source_revision_sha256") != basis.source_revision_sha256
+        or manifest.get("span_index_sha256") != basis.span_index_sha256
+        or not isinstance(manifest.get("evidence_ref_splits"), list)
+        or len(manifest["evidence_ref_splits"]) != 1
+    ):
+        invalid()
+    operation = manifest["evidence_ref_splits"][0]
+    if (
+        not isinstance(operation, dict)
+        or set(operation) != {"record_kind", "record_id", "evidence_index", "expected_evidence_ref_sha256", "parts"}
+        or operation.get("record_kind") not in ("node", "edge")
+        or not isinstance(operation.get("record_id"), str)
+        or not operation["record_id"] or operation["record_id"] != operation["record_id"].strip()
+        or len(operation["record_id"]) > 256
+        or any(ch in operation["record_id"] for ch in ("\r", "\n", "\t"))
+        or type(operation.get("evidence_index")) is not int or operation["evidence_index"] < 0
+        or not isinstance(operation.get("expected_evidence_ref_sha256"), str)
+        or not _SHA256.fullmatch(operation["expected_evidence_ref_sha256"])
+        or not isinstance(operation.get("parts"), list) or len(operation["parts"]) != 2
+    ):
+        invalid()
+    span_ids = []
+    indices = []
+    for part in operation["parts"]:
+        if (
+            not isinstance(part, dict) or set(part) != {"source_span_ref_id", "quote_indices"}
+            or not isinstance(part.get("source_span_ref_id"), str)
+            or not part["source_span_ref_id"] or part["source_span_ref_id"] != part["source_span_ref_id"].strip()
+            or len(part["source_span_ref_id"]) > 256
+            or any(ch in part["source_span_ref_id"] for ch in ("\r", "\n", "\t"))
+            or not isinstance(part.get("quote_indices"), list) or not 1 <= len(part["quote_indices"]) <= 16
+            or any(type(index) is not int for index in part["quote_indices"])
+        ):
+            invalid()
+        span_ids.append(part["source_span_ref_id"])
+        indices.extend(part["quote_indices"])
+    if span_ids[0] == span_ids[1] or indices != list(range(len(indices))):
+        invalid()
+    canonical = json.dumps(manifest, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8") + b"\n"
+    if hashlib.sha256(canonical).hexdigest() != basis.manifest_sha256:
+        raise ApplicationStateConflictError("recap semantic candidate manifest changed")
+
+
 def _assert_recap_semantic_basis(
     child: ExtractionRun,
     parent: ExtractionRun,
-    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4 | RecapSemanticBasisV5 | RecapSemanticBasisV6,
+    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4 | RecapSemanticBasisV5 | RecapSemanticBasisV6 | RecapSemanticBasisV7,
 ) -> None:
     """Prove every basis field against stored child/parent identity and refs."""
     lineage = child.lineage
@@ -390,7 +453,8 @@ def _assert_recap_semantic_basis(
         or parent.status not in FROZEN_COMPONENT_STATUSES
         or not parent.has_required_review_components()
         or lineage.get("derivation") != (
-            _RECAP_CANDIDATE_DERIVATION_V5 if isinstance(basis, RecapSemanticBasisV6)
+            _RECAP_CANDIDATE_DERIVATION_V6 if isinstance(basis, RecapSemanticBasisV7)
+            else _RECAP_CANDIDATE_DERIVATION_V5 if isinstance(basis, RecapSemanticBasisV6)
             else _RECAP_CANDIDATE_DERIVATION_V4 if isinstance(basis, RecapSemanticBasisV5)
             else _RECAP_CANDIDATE_DERIVATION_V3 if isinstance(basis, RecapSemanticBasisV4)
             else _RECAP_CANDIDATE_DERIVATION_V2 if isinstance(basis, RecapSemanticBasisV3)
@@ -440,6 +504,9 @@ def _assert_recap_semantic_basis(
         or _sha(parent_spans.sha256) != basis.span_index_sha256
     ):
         raise ApplicationStateConflictError("recap semantic basis components changed")
+    if isinstance(basis, RecapSemanticBasisV7):
+        _assert_recap_split_manifest(lineage.get("semantic_candidate_manifest"), basis)
+        return
     if isinstance(basis, RecapSemanticBasisV2):
         manifest = lineage.get("semantic_candidate_manifest")
         action_manifest = isinstance(basis, RecapSemanticBasisV3)
@@ -612,7 +679,7 @@ def record_recap_semantic_disposition(
     run_id: str,
     *,
     expected_revision: int,
-    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4 | RecapSemanticBasisV5 | RecapSemanticBasisV6,
+    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4 | RecapSemanticBasisV5 | RecapSemanticBasisV6 | RecapSemanticBasisV7,
     decision: RecapSemanticDispositionCommandV1,
 ) -> ExtractionRun:
     """Single-use metadata-only CAS for a held recap correction child.

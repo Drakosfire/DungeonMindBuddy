@@ -15,21 +15,22 @@ from fastapi import FastAPI
 
 from application_state.ingest.service import (
     RecapSemanticBasisV2, RecapSemanticBasisV3, RecapSemanticBasisV4,
-    RecapSemanticBasisV5, RecapSemanticBasisV6, _assert_recap_semantic_basis,
+    RecapSemanticBasisV5, RecapSemanticBasisV6, RecapSemanticBasisV7, _assert_recap_semantic_basis,
 )
 from application_state.errors import ApplicationStateConflictError
 from apps.live_control_server.models.extract_promote import (
     RecapCandidateCorrectionRequest,
+    RecapCandidateNodeOmission,
     RecapCandidateCorrectionRequestV2,
     RecapCandidateCorrectionRequestV3,
     RecapCandidateCorrectionRequestV4,
     RecapCandidateCorrectionRequestV5,
+    RecapCandidateCorrectionRequestV6,
     RecapCandidateEvidenceReplacementV5,
     RecapCandidateEvidenceSpanReplacement,
     RecapCandidateEdgeTuple,
     RecapCandidateEdgeTupleReplacement,
     RecapNodeDescriptionReplacement,
-    RecapCandidateNodeOmission,
     RecapSessionActionReplacement,
     RecapSemanticDecisionRequest,
 )
@@ -471,8 +472,6 @@ def test_edge_tuple_child_replays_atomically_and_stays_held(
     binding = accepted_effect_binding(accepted_child, accepted_assessment)
     assert binding["manifest_sha256"] == child.lineage["manifest_sha256"]
     assert binding["derivation"] == service.DERIVATION_V3
-    assert child.lineage["manifest_sha256"] == "118f051572259d43b205e0f249b32e539c51619172e75f1dd3c2fe5240a8545c"
-    assert child.run_id == "3ab3a671-f8b5-5b42-b68d-f8c4d0d7b688"
     assert binding["manifest_schema"] == service.MANIFEST_SCHEMA_V3
 
 
@@ -1430,6 +1429,262 @@ def test_v2_hold_and_confirm_binding_guard_world_writer(
     with pytest.raises(extract_promote.ExtractPromoteError) as drifted:
         extract_promote._assert_recap_semantics_at_confirm(locator, {"effect": {EFFECT_KEY: binding}})
     assert drifted.value.code == "recap_semantic_hold"
+
+
+def _split_fixture(monkeypatch, root, *, duplicate_quotes=False, foreign_span=False, holder_kind="node"):
+    lines = [""] * 22
+    lines[15] = "Mira rests in the room."
+    lines[19] = "Mira breaks a tunnel and plants a shield. Echo."
+    lines[21] = "Mira activates a synthetic aura. Echo."
+    source_text = "\n".join(lines) + "\n"
+    parent, raw, runs = _fixture(monkeypatch, root, source_text=source_text)
+    payload = json.loads(raw)
+    source_sha = _sha(source_text.encode())
+    artifact = parent.source_artifact_id
+    spans = [{
+        "source_span_id": f"{artifact}:span:{source_sha[:12]}:{line}-{line}",
+        "source_ref_id": "ref:mira", "source_artifact_id": artifact,
+        "content_sha256": source_sha, "start_line": line, "end_line": line,
+    } for line in (16, 20, 22)]
+    if foreign_span:
+        spans[2]["source_artifact_id"] = "foreign-artifact"
+    index = {"schema": "dmb_source_span_index_v1", "version": "1.0", "source_artifact_id": artifact, "source_ref_id": "ref:mira", "content_sha256": source_sha, "spans": spans}
+    index_bytes = service._canonical_bytes(index)
+    (root / "spans.json").write_bytes(index_bytes)
+    original_ref = payload["nodes"][0]["evidence_refs"][0]
+    original_ref["source_span_ref_id"] = spans[0]["source_span_id"]
+    original_ref["anchor_quotes"] = [lines[15]]
+    target = copy.deepcopy(original_ref)
+    target.update({
+        "source_span_ref_id": spans[1]["source_span_id"],
+        "source_anchor_id": f"anchor:{spans[1]['source_span_id']}",
+        "label": spans[1]["source_span_id"],
+        "anchor_quotes": ["Echo."] * 3 if duplicate_quotes else ["breaks a tunnel", "plants a shield", "activates a synthetic aura"],
+    })
+    after = copy.deepcopy(original_ref)
+    after["source_span_ref_id"] = spans[2]["source_span_id"]
+    after["anchor_quotes"] = ["Echo."]
+    payload["nodes"][0]["evidence_refs"] = [original_ref, target, after]
+    retained = copy.deepcopy(payload["nodes"][0])
+    retained.update({"node_id": "room", "node_type": "location", "label": "Room", "evidence_refs": [copy.deepcopy(original_ref)]})
+    payload["nodes"].append(retained)
+    payload["edges"] = [{
+        "edge_id": "e", "from_node_id": "mira", "to_node_id": "room", "relationship_type": "located_in", "label": "rests in", "evidence_refs": [copy.deepcopy(original_ref)], "semantic_state": copy.deepcopy(payload["nodes"][0]["semantic_state"]), "proposed_action": "create", "confidence": "medium",
+    }]
+    if holder_kind == "edge":
+        payload["edges"][0]["evidence_refs"] = copy.deepcopy(payload["nodes"][0]["evidence_refs"])
+        payload["nodes"][0]["evidence_refs"] = [original_ref, after]
+    raw = service._canonical_bytes(payload)
+    (root / "parent.json").write_bytes(raw)
+    components = dict(parent.components)
+    for key, value in (("candidate_graph", raw), ("source_span_index", index_bytes)):
+        components[key] = components[key].model_copy(update={"sha256": _sha(value)})
+    parent = parent.model_copy(update={"components": components})
+    runs["parent"] = parent
+    monkeypatch.setattr(service, "_load_frozen_span_index_for_resolved_run", lambda _resolved: SimpleNamespace(spans=[SimpleNamespace(**span) for span in spans]))
+    body = {
+        "schema": "dmb_recap_candidate_correction_request_v6", "parent_run_id": "parent", "parent_candidate_sha256": _sha(raw),
+        "source_revision_sha256": source_sha, "span_index_sha256": _sha(index_bytes),
+        "evidence_ref_splits": [{
+            "record_kind": holder_kind, "record_id": "mira" if holder_kind == "node" else "e", "evidence_index": 1,
+            "expected_evidence_ref_sha256": _sha(service._canonical_bytes(target)),
+            "parts": [{"source_span_ref_id": spans[1]["source_span_id"], "quote_indices": [0, 1]}, {"source_span_ref_id": spans[2]["source_span_id"], "quote_indices": [2]}],
+        }],
+    }
+    return parent, raw, runs, body
+
+
+def _split_http_app(monkeypatch):
+    import fastapi.dependencies.utils as dependency_utils
+    import fastapi.routing as fastapi_routing
+
+    async def inline_sync(function, *args, **kwargs):
+        return function(*args, **kwargs)
+
+    monkeypatch.setattr(fastapi_routing, "run_in_threadpool", inline_sync)
+    monkeypatch.setattr(dependency_utils, "run_in_threadpool", inline_sync)
+    app = FastAPI()
+    app.include_router(routes.router)
+    app.dependency_overrides[native_graph_gm_dependency] = lambda: NativeGraphPrincipal(subject="test_gm", role="gm", auth_method="local_session")
+    return app
+
+
+@pytest.mark.parametrize("duplicate_quotes", [False, True])
+@pytest.mark.parametrize("holder_kind", ["node", "edge"])
+def test_http_evidence_ref_split_exact_child_is_marked_held(monkeypatch, tmp_path, duplicate_quotes, holder_kind):
+    parent, raw, runs, body = _split_fixture(monkeypatch, tmp_path, duplicate_quotes=duplicate_quotes, holder_kind=holder_kind)
+    source_before = (tmp_path / "source.md").read_bytes()
+    spans_before = (tmp_path / "spans.json").read_bytes()
+    app = _split_http_app(monkeypatch)
+
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            url = "/api/live/extract-promote/runs/parent/recap-candidate-corrections"
+            response = await client.post(url, json=body)
+            assert response.status_code == 200, response.text
+            assert response.json()["schema"] == "dmb_recap_candidate_correction_response_v6"
+            assert response.json()["semanticState"] == "held"
+            assert (await client.post(url, json=body)).json() == response.json()
+            return response.json()
+
+    response = asyncio.run(exercise())
+    child = runs[response["runId"]]
+    original = json.loads(raw)
+    expected = copy.deepcopy(original)
+    holder_collection = "nodes" if holder_kind == "node" else "edges"
+    before, target, after = original[holder_collection][0]["evidence_refs"]
+    outputs = []
+    for part in body["evidence_ref_splits"][0]["parts"]:
+        ref = copy.deepcopy(target)
+        ref.update({"source_span_ref_id": part["source_span_ref_id"], "source_anchor_id": f"anchor:{part['source_span_ref_id']}", "label": part["source_span_ref_id"], "anchor_quotes": [target["anchor_quotes"][i] for i in part["quote_indices"]]})
+        outputs.append(ref)
+    expected[holder_collection][0]["evidence_refs"] = [before, *outputs, after]
+    assert (tmp_path / child.components["candidate_graph"].uri).read_bytes() == service._canonical_bytes(expected)
+    assert (tmp_path / "parent.json").read_bytes() == raw
+    assert (tmp_path / "source.md").read_bytes() == source_before
+    assert (tmp_path / "spans.json").read_bytes() == spans_before
+    assert child.components["source_artifact"] == parent.components["source_artifact"]
+    assert child.components["source_span_index"] == parent.components["source_span_index"]
+    assert [quote for ref in outputs for quote in ref["anchor_quotes"]] == target["anchor_quotes"]
+    assert service.verify_child_replay(child, parent, tmp_path)
+    assessment = assess_recap_semantics(child, parent=parent, source_revision_id=_sha(source_before), root=tmp_path)
+    assert assessment.marked and not assessment.accepted
+    assert child.lineage["semantic_disposition"]["state"] == "held"
+    basis = RecapSemanticBasisV7.model_validate(assessment.basis)
+    assert basis.digest() == response["semanticBasisSha256"]
+    assert basis.manifest_sha256 == child.lineage["manifest_sha256"] == response["manifestSha256"]
+    _assert_recap_semantic_basis(child, parent, basis)
+    with pytest.raises(ValueError, match="not accepted"):
+        accepted_effect_binding(child, assessment)
+    accepted_lineage = copy.deepcopy(child.lineage)
+    accepted_lineage["semantic_disposition"] = {"version": 1, "state": "accepted", "basis_sha256": basis.digest(), "review_decision_ref": "review:split", "reviewer_id": "reviewer", "decided_at": "2026-10-07T00:00:00Z"}
+    accepted_child = child.model_copy(update={"lineage": accepted_lineage})
+    accepted = assess_recap_semantics(accepted_child, parent=parent, source_revision_id=_sha(source_before), root=tmp_path)
+    binding = accepted_effect_binding(accepted_child, accepted)
+    assert binding["derivation"] == service.DERIVATION_V6
+    assert binding["manifest_schema"] == service.MANIFEST_SCHEMA_V6
+    assert binding["manifest_sha256"] == basis.manifest_sha256
+    # A rehashed malformed stored manifest must fail replay and APP-STATE shape checks.
+    bad_manifest = copy.deepcopy(child.lineage["semantic_candidate_manifest"])
+    bad_manifest["evidence_ref_splits"][0]["parts"][0]["quote_indices"] = [1, 0]
+    bad_sha = _sha(service._canonical_bytes(bad_manifest))
+    bad_child = child.model_copy(update={"lineage": {**child.lineage, "semantic_candidate_manifest": bad_manifest, "manifest_sha256": bad_sha}})
+    assert not service.verify_child_replay(bad_child, parent, tmp_path)
+    with pytest.raises(ApplicationStateConflictError, match="split manifest"):
+        _assert_recap_semantic_basis(bad_child, parent, basis.model_copy(update={"manifest_sha256": bad_sha}))
+    assert not assess_recap_semantics(bad_child, parent=parent, source_revision_id=_sha(source_before), root=tmp_path).accepted
+
+
+@pytest.mark.parametrize("fault", ["stale_parent", "stale_ref", "source_pin", "index_pin", "lost", "added", "duplicate", "reordered", "same_span", "unindexed", "foreign", "bad_literal", "extra_json", "mixed", "too_many", "bool_index"])
+def test_http_evidence_ref_split_rejects_before_any_write(monkeypatch, tmp_path, fault):
+    parent, raw, runs, body = _split_fixture(monkeypatch, tmp_path, foreign_span=fault == "foreign")
+    operation = body["evidence_ref_splits"][0]
+    if fault == "stale_parent":
+        body["parent_candidate_sha256"] = "0" * 64
+    elif fault == "stale_ref":
+        operation["expected_evidence_ref_sha256"] = "0" * 64
+    elif fault == "source_pin":
+        body["source_revision_sha256"] = "0" * 64
+    elif fault == "index_pin":
+        body["span_index_sha256"] = "0" * 64
+    elif fault in ("lost", "added", "duplicate", "reordered"):
+        operation["parts"][0]["quote_indices"] = {"lost": [0], "added": [0, 1, 2], "duplicate": [0, 0], "reordered": [1, 0]}[fault]
+        if fault == "lost":
+            operation["parts"][1]["quote_indices"] = [1]
+        if fault == "added":
+            operation["parts"][1]["quote_indices"] = [3]
+    elif fault == "same_span":
+        operation["parts"][1]["source_span_ref_id"] = operation["parts"][0]["source_span_ref_id"]
+    elif fault == "unindexed":
+        operation["parts"][1]["source_span_ref_id"] = "span:missing"
+    elif fault == "bad_literal":
+        operation["parts"].reverse()
+        operation["parts"][0]["quote_indices"] = [0, 1]
+        operation["parts"][1]["quote_indices"] = [2]
+    elif fault == "extra_json":
+        operation["replacement_ref"] = {"anchor_quotes": ["fabricated"]}
+    elif fault == "mixed":
+        body["omitted_edge_ids"] = ["e"]
+    elif fault == "too_many":
+        body["evidence_ref_splits"] *= 2
+    elif fault == "bool_index":
+        operation["parts"][0]["quote_indices"] = [False, 1]
+
+    def forbidden_write(*args, **kwargs):
+        pytest.fail("invalid split reached a child write")
+
+    monkeypatch.setattr(service, "_write_child_candidate", forbidden_write)
+    monkeypatch.setattr(service, "create_extraction_run", forbidden_write)
+    app = _split_http_app(monkeypatch)
+
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post("/api/live/extract-promote/runs/parent/recap-candidate-corrections", json=body)
+            assert response.status_code in (409, 422), response.text
+
+    asyncio.run(exercise())
+    assert set(runs) == {"parent"}
+    assert (tmp_path / "parent.json").read_bytes() == raw
+    assert not (tmp_path / "out").exists()
+
+
+def test_split_decision_dispatches_exact_basis_to_appstate_cas(monkeypatch, tmp_path):
+    from application_state.ingest import service as ingest_service
+    from apps.live_control_server.services import source_artifact_registry
+
+    parent, _, runs, body = _split_fixture(monkeypatch, tmp_path)
+    response = service.correct_recap_candidate(RecapCandidateCorrectionRequestV6.model_validate(body))
+    child = runs[response.run_id]
+    monkeypatch.setattr(extract_promote, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(graph_run_registry, "get_reviewable_extraction_run", lambda _root, _id: child)
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, _id: parent)
+    monkeypatch.setattr(source_artifact_registry, "get_source_artifact", lambda _root, _id: SimpleNamespace(content_sha256=_sha((tmp_path / "source.md").read_bytes())))
+    seen = []
+
+    def record(run_id, *, expected_revision, basis, decision):
+        assert isinstance(basis, RecapSemanticBasisV7)
+        assert basis.digest() == response.semantic_basis_sha256
+        assert basis.derivation == service.DERIVATION_V6
+        assert basis.manifest_schema == service.MANIFEST_SCHEMA_V6
+        _assert_recap_semantic_basis(child, parent, basis)
+        seen.append((run_id, expected_revision))
+        decided = child.model_copy(deep=True, update={"revision": expected_revision + 1})
+        decided.lineage["semantic_disposition"] = {"version": 1, "state": decision.state, "basis_sha256": basis.digest(), "review_decision_ref": decision.review_decision_ref, "reviewer_id": decision.reviewer_id, "decided_at": "2026-10-07T00:00:00Z", "from_revision": expected_revision}
+        return decided
+
+    monkeypatch.setattr(ingest_service, "record_recap_semantic_disposition", record)
+    receipt = extract_promote.decide_recap_semantic_disposition(child.run_id, RecapSemanticDecisionRequest(expected_revision=child.revision, candidate_sha256=response.candidate_sha256, decision="accepted", review_decision_ref="review:split"), reviewer_id="gm")
+    assert receipt.state == "accepted" and receipt.basis_sha256 == response.semantic_basis_sha256
+    assert seen == [(child.run_id, child.revision)]
+
+
+@pytest.mark.parametrize("version,manifest_sha,child_id", [
+    (1, "53c547b5bee2ba5de80c04c17134c9f4d5a8d47fb7651b6c17f7878596b400a4", "61a59049-3686-5680-b569-5b8816497b19"),
+    (2, "7736364055515ab421783121fa7e7f76c8d42fd723393ad52e08475f8a3b6b24", "d268e534-22c9-5e3e-af92-6f8ef73d2117"),
+    (3, "118f051572259d43b205e0f249b32e539c51619172e75f1dd3c2fe5240a8545c", "3ab3a671-f8b5-5b42-b68d-f8c4d0d7b688"),
+    (4, "7816fd4a2bc04fb534c55cad4fc78a108dfd4dc7d5bdb6c4d67074632c562922", "2abce1ad-9326-5d4e-b39f-8e9e73963a9b"),
+    (5, "a8eba477c9e072d012d8660347abb56d13da0a0690b499cadc10581dfc8b7bca", "011fb4e0-6d73-583f-9754-757eb9e0ed61"),
+])
+def test_split_keeps_main_v1_through_v5_manifest_and_child_identity(monkeypatch, tmp_path, version, manifest_sha, child_id):
+    # Golden witnesses measured on the unchanged pinned main, not the held lanes.
+    if version == 1:
+        parent, raw, runs = _fixture(monkeypatch, tmp_path)
+        request = _request(raw)
+    elif version == 2:
+        parent, raw, runs = _fixture(monkeypatch, tmp_path, actions=True)
+        request = _action_request(raw)
+    elif version == 3:
+        parent, raw, runs = _tuple_fixture(monkeypatch, tmp_path)
+        request = _tuple_request(raw)
+    elif version == 4:
+        parent, raw, runs, request, _ = _span_relocation_fixture(monkeypatch, tmp_path)
+    else:
+        parent, raw, runs, request = _evidence_batch_fixture(monkeypatch, tmp_path)
+    response = service.correct_recap_candidate(request)
+    assert response.manifest_sha256 == manifest_sha
+    assert response.run_id == child_id
+    assert service.verify_child_replay(runs[child_id], parent, tmp_path)
+    assert (tmp_path / "parent.json").read_bytes() == raw
 
 
 def _omission_fixture(monkeypatch, root, fault=None):

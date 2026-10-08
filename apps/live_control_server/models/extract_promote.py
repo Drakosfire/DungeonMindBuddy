@@ -861,6 +861,74 @@ class RecapCandidateCorrectionResponseV5(RecapCandidateCorrectionResponse):
     )
 
 
+class RecapEvidenceRefSplitPart(_ExtractPromoteModel):
+    source_span_ref_id: str
+    quote_indices: list[int] = Field(min_length=1, max_length=16)
+
+    @field_validator("source_span_ref_id")
+    @classmethod
+    def _span_id(cls, value: str) -> str:
+        if not value or value != value.strip() or len(value) > 256 or any(ch in value for ch in ("\r", "\n", "\t")):
+            raise ValueError("span ID must be nonblank, trimmed and bounded")
+        return value
+
+
+class RecapEvidenceRefSplit(_ExtractPromoteModel):
+    record_kind: Literal["node", "edge"]
+    record_id: str
+    evidence_index: int = Field(ge=0)
+    expected_evidence_ref_sha256: str
+    parts: list[RecapEvidenceRefSplitPart] = Field(min_length=2, max_length=2)
+
+    @field_validator("record_id")
+    @classmethod
+    def _record_id(cls, value: str) -> str:
+        return RecapEvidenceRefSplitPart._span_id(value)
+
+    @field_validator("expected_evidence_ref_sha256")
+    @classmethod
+    def _digest(cls, value: str) -> str:
+        if len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
+            raise ValueError("evidence ref digest must be lowercase SHA-256 hex")
+        return value
+
+    @model_validator(mode="after")
+    def _partitions(self) -> "RecapEvidenceRefSplit":
+        if self.parts[0].source_span_ref_id == self.parts[1].source_span_ref_id:
+            raise ValueError("split spans must be distinct")
+        indices = [index for part in self.parts for index in part.quote_indices]
+        if indices != list(range(len(indices))):
+            raise ValueError("quote partitions must preserve every occurrence in order")
+        return self
+
+
+class RecapCandidateCorrectionRequestV6(_ExtractPromoteModel):
+    """Split one complete frozen evidence ref without changing quote text."""
+
+    schema_: Literal["dmb_recap_candidate_correction_request_v6"] = Field(alias="schema")
+    parent_run_id: str
+    parent_candidate_sha256: str
+    source_revision_sha256: str
+    span_index_sha256: str
+    evidence_ref_splits: list[RecapEvidenceRefSplit] = Field(min_length=1, max_length=1)
+
+    @field_validator("parent_run_id")
+    @classmethod
+    def _parent(cls, value: str) -> str:
+        return _nonblank(value, field_name="parent_run_id")
+
+    @field_validator("parent_candidate_sha256", "source_revision_sha256", "span_index_sha256")
+    @classmethod
+    def _sha(cls, value: str) -> str:
+        return RecapEvidenceRefSplit._digest(value)
+
+
+class RecapCandidateCorrectionResponseV6(RecapCandidateCorrectionResponse):
+    schema_: Literal["dmb_recap_candidate_correction_response_v6"] = Field(
+        default="dmb_recap_candidate_correction_response_v6", alias="schema"
+    )
+
+
 class ExactRunReviewPackage(_ExtractPromoteModel):
     """Server-owned exact-run review projection — source prose + assertion evidence.
 

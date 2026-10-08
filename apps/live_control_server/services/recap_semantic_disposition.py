@@ -28,6 +28,8 @@ CANDIDATE_DERIVATION_V2 = "operator_recap_semantic_candidate_correction_v2"
 CANDIDATE_DERIVATION_V3 = "operator_recap_semantic_candidate_correction_v3"
 CANDIDATE_DERIVATION_V4 = "operator_recap_semantic_candidate_correction_v4"
 CANDIDATE_DERIVATION_V5 = "operator_recap_semantic_candidate_correction_v5"
+CANDIDATE_DERIVATION_V6 = "operator_recap_semantic_candidate_correction_v6"
+MANIFEST_SCHEMA_V6 = "dmb_recap_semantic_candidate_manifest_v6"
 MANIFEST_SCHEMA_V2 = "dmb_recap_semantic_candidate_manifest_v2"
 MANIFEST_SCHEMA_V3 = "dmb_recap_semantic_candidate_manifest_v3"
 MANIFEST_SCHEMA_V4 = "dmb_recap_semantic_candidate_manifest_v4"
@@ -62,6 +64,7 @@ def is_recap_correction(run: ExtractionRun) -> bool:
         CANDIDATE_DERIVATION_V3,
         CANDIDATE_DERIVATION_V4,
         CANDIDATE_DERIVATION_V5,
+        CANDIDATE_DERIVATION_V6,
     }
 
 
@@ -136,6 +139,7 @@ def assess_recap_semantics(
     span_sha = _sha(spans.sha256)
     candidate_v3 = lineage.get("derivation") == CANDIDATE_DERIVATION_V3
     candidate_v4 = lineage.get("derivation") == CANDIDATE_DERIVATION_V4
+    candidate_v6 = lineage.get("derivation") == CANDIDATE_DERIVATION_V6
     candidate_v5 = lineage.get("derivation") == CANDIDATE_DERIVATION_V5
     candidate_v2 = lineage.get("derivation") == CANDIDATE_DERIVATION_V2
     candidate_correction = lineage.get("derivation") in {
@@ -144,10 +148,11 @@ def assess_recap_semantics(
         CANDIDATE_DERIVATION_V3,
         CANDIDATE_DERIVATION_V4,
         CANDIDATE_DERIVATION_V5,
+        CANDIDATE_DERIVATION_V6,
     }
     candidate_manifest = lineage.get("semantic_candidate_manifest")
-    expected_manifest_schema = MANIFEST_SCHEMA_V5 if candidate_v5 else MANIFEST_SCHEMA_V4 if candidate_v4 else MANIFEST_SCHEMA_V3 if candidate_v3 else MANIFEST_SCHEMA_V2
-    if (candidate_v2 or candidate_v3 or candidate_v4 or candidate_v5) and (
+    expected_manifest_schema = MANIFEST_SCHEMA_V6 if candidate_v6 else MANIFEST_SCHEMA_V5 if candidate_v5 else MANIFEST_SCHEMA_V4 if candidate_v4 else MANIFEST_SCHEMA_V3 if candidate_v3 else MANIFEST_SCHEMA_V2
+    if (candidate_v2 or candidate_v3 or candidate_v4 or candidate_v5 or candidate_v6) and (
         not isinstance(candidate_manifest, dict)
         or candidate_manifest.get("schema") != expected_manifest_schema
     ):
@@ -172,7 +177,8 @@ def assess_recap_semantics(
             return held()
     basis_fields = {
         "schema": (
-            "dmb_recap_semantic_basis_v6" if candidate_v5
+            "dmb_recap_semantic_basis_v7" if candidate_v6
+            else "dmb_recap_semantic_basis_v6" if candidate_v5
             else "dmb_recap_semantic_basis_v5" if candidate_v4
             else "dmb_recap_semantic_basis_v4" if candidate_v3
             else "dmb_recap_semantic_basis_v3" if candidate_v2
@@ -207,6 +213,9 @@ def assess_recap_semantics(
     if candidate_v5:
         basis_fields["derivation"] = CANDIDATE_DERIVATION_V5
         basis_fields["manifest_schema"] = MANIFEST_SCHEMA_V5
+    if candidate_v6:
+        basis_fields["derivation"] = CANDIDATE_DERIVATION_V6
+        basis_fields["manifest_schema"] = MANIFEST_SCHEMA_V6
     basis = _digest(basis_fields)
     raw = lineage.get("semantic_disposition")
     if (
@@ -282,6 +291,10 @@ def accepted_effect_binding(
         binding["manifest_sha256"] = _sha(run.lineage.get("manifest_sha256"))
         binding["derivation"] = CANDIDATE_DERIVATION_V5
         binding["manifest_schema"] = MANIFEST_SCHEMA_V5
+    if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V6:
+        binding["manifest_sha256"] = _sha(run.lineage.get("manifest_sha256"))
+        binding["derivation"] = CANDIDATE_DERIVATION_V6
+        binding["manifest_schema"] = MANIFEST_SCHEMA_V6
     return binding
 
 
@@ -304,9 +317,11 @@ __all__ = [
     "CANDIDATE_DERIVATION_V3",
     "CANDIDATE_DERIVATION_V4",
     "CANDIDATE_DERIVATION_V5",
+    "CANDIDATE_DERIVATION_V6",
     "MANIFEST_SCHEMA_V3",
     "MANIFEST_SCHEMA_V4",
     "MANIFEST_SCHEMA_V5",
+    "MANIFEST_SCHEMA_V6",
     "DISPOSITION_VERSION",
     "EFFECT_KEY",
     "HOLD_REASON",
