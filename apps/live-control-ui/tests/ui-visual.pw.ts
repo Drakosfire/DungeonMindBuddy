@@ -319,6 +319,18 @@ test("keeps compact scene navigation and the Run record directly reachable", asy
   await expect(compactOutcomes).toHaveAttribute("aria-expanded", "true");
   await compactOutcomes.click();
   await expect(outcomes).toBeHidden();
+
+  await compactOutline.click();
+  await outline.getByRole("button", { name: /Lower Cistern/ }).click();
+  const inspectedHeading = page.getByRole("heading", { name: "Inspecting Lower Cistern" });
+  await expect(inspectedHeading).toBeFocused();
+  await expect(outline).toBeHidden();
+  await expect(outcomes).toBeHidden();
+  await page.getByTestId("play-workspace-back").click();
+  const currentHeading = page.getByRole("heading", { name: "North Gate" });
+  await expect(currentHeading).toBeVisible();
+  await expect(compactOutline).toBeFocused();
+  await expect(scene).toContainText("North Gate");
 });
 
 const mobileDockStories = [

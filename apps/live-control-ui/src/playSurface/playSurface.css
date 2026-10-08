@@ -43,6 +43,10 @@
   padding: 1.25rem 1.5rem 2rem;
 }
 
+.play-surface:has(.play-cockpit) {
+  gap: 0.75rem;
+}
+
 .play-surface-header h1,
 .play-chooser h1,
 .play-status h1 {
@@ -605,30 +609,12 @@
   font-size: 1.1rem;
 }
 
-.play-outline-current-beat {
-  display: grid;
-  gap: 0.15rem;
-  margin: 0 0 0.75rem;
-  padding: 0.65rem 0.7rem;
-  border-left: 3px solid #c18a31;
-  border-radius: 0.3rem;
-  background: #242c39;
-  color: var(--play-text);
-  font-size: 0.84rem;
-}
-
-.play-outline-current-beat span,
 .play-outcomes-caveat {
   margin: 0;
   color: var(--play-subtle);
   font-size: 0.75rem;
   letter-spacing: 0.035em;
   text-transform: uppercase;
-}
-
-.play-outline-current-beat strong {
-  font-size: 0.92rem;
-  line-height: 1.3;
 }
 
 .play-outline-scene:hover {
@@ -648,12 +634,28 @@
 }
 
 .play-outline-group h2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
   margin: 0 0 0.35rem;
   color: #d6a64e;
   font-size: 0.73rem;
   font-weight: 700;
   letter-spacing: 0.065em;
   line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.play-outline-beat-state {
+  flex: 0 0 auto;
+  padding: 0.12rem 0.35rem;
+  border: 1px solid #788e70;
+  border-radius: 999px;
+  color: #dce5d5;
+  font-size: 0.62rem;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
   text-transform: uppercase;
 }
 
@@ -1018,6 +1020,11 @@
 
 .play-cockpit-center h3 {
   margin: 1.1rem 0 0.5rem;
+}
+
+.play-cockpit-center h2:focus {
+  outline: 2px solid #8b5b12;
+  outline-offset: 0.3rem;
 }
 
 .play-scene-actions {

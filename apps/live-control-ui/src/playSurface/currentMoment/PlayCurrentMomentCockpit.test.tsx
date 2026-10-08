@@ -495,6 +495,44 @@ describe("PlayCurrentMomentCockpit", () => {
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
   });
 
+  it("closes compact overlays on scene inspection and restores the visible Scenes control", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("ResizeObserver", undefined);
+    vi.stubGlobal("matchMedia", vi.fn(() => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })));
+    render(
+      <Harness
+        initialRun={runRecord({
+          progress: progress({ current_scene_id: "scene:tunnel" }),
+        })}
+      />,
+    );
+
+    const scenes = screen.getByTestId("play-compact-outline-toggle");
+    await user.click(scenes);
+    await user.click(screen.getByRole("button", { name: /Courtyard/ }));
+
+    const inspectedHeading = screen.getByRole("heading", { name: "Inspecting Courtyard" });
+    await waitFor(() => expect(inspectedHeading).toHaveFocus());
+    expect(scenes).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByTestId("play-compact-outcomes-toggle")).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByTestId("play-workspace-inspect")).toBeInTheDocument();
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+
+    await user.keyboard("{Enter}");
+    expect(screen.getByTestId("play-workspace-inspect")).toBeInTheDocument();
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+
+    await user.keyboard("{Escape}");
+    expect(screen.getByTestId("play-workspace-current")).toHaveTextContent("Tunnel unique body.");
+    await waitFor(() => expect(scenes).toHaveFocus());
+    expect(scenes).toHaveAttribute("aria-expanded", "false");
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+  });
+
   it("shows scenes in the outline and keeps the current scene in the central workspace", () => {
     render(<Harness />);
     expect(screen.getByRole("navigation", { name: "Scenes in this Run" })).toHaveTextContent("Tunnel Breach");
@@ -1263,7 +1301,7 @@ describe("PlayCurrentMomentCockpit Decision interaction", () => {
     expect(screen.getByTestId("play-central-workspace")).toContainElement(decision);
     expect(screen.getByTestId("play-beat-context")).not.toContainElement(decision);
     expect(screen.getByTestId("play-at-a-glance")).not.toContainElement(decision);
-    expect(screen.getByTestId("play-at-a-glance")).toHaveTextContent("Current selections and notes in this Run");
+    expect(screen.getByTestId("play-at-a-glance")).toHaveTextContent("Current Run state");
     expect(screen.getByRole("heading", { name: "North Gate" })).toBeInTheDocument();
     expect(screen.getByTestId("play-decision-prompt")).toHaveTextContent(
       "What do they do with the surviving brood?",
@@ -1291,7 +1329,7 @@ describe("PlayCurrentMomentCockpit Decision interaction", () => {
     expect(outcomes).toHaveTextContent("What do they do with the surviving brood?");
     expect(outcomes).toHaveTextContent("Follow it");
     expect(outcomes).toHaveTextContent("The defenders are short on rope.");
-    expect(outcomes).toHaveTextContent("Current selections and notes in this Run");
+    expect(outcomes).toHaveTextContent("Current Run state");
     expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
   });
 

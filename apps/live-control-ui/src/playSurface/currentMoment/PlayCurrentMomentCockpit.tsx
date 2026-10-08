@@ -359,6 +359,8 @@ export function PlayCurrentMomentCockpit({
   const saveSceneNoteRef = useRef<(scope: string) => void>(() => undefined);
   const sceneNoteDraftsRef = useRef(sceneNoteDrafts);
   const sceneNoteRequestCounterRef = useRef(0);
+  const compactOutlineToggleRef = useRef<HTMLButtonElement | null>(null);
+  const workspaceHeadingRef = useRef<HTMLHeadingElement | null>(null);
   sceneNoteDraftsRef.current = sceneNoteDrafts;
 
   useEffect(() => {
@@ -406,6 +408,11 @@ export function PlayCurrentMomentCockpit({
     query.addEventListener?.("change", sync);
     return () => query.removeEventListener?.("change", sync);
   }, []);
+
+  useEffect(() => {
+    if (workspace.kind !== "scene-inspect") return;
+    queueMicrotask(() => workspaceHeadingRef.current?.focus());
+  }, [workspace]);
 
   const moment = resolveCurrentMoment(deck);
   const currentBeat = moment.status === "ok" ? moment.beat : null;
@@ -696,7 +703,9 @@ export function PlayCurrentMomentCockpit({
 
   const restoreWorkspaceFocus = () => {
     queueMicrotask(() => {
-      const outline = outlineToggleRef.current;
+      const outline = compactLayoutRef.current
+        ? compactOutlineToggleRef.current
+        : outlineToggleRef.current;
       if (outline?.isConnected) {
         outline.focus();
       }
@@ -721,6 +730,10 @@ export function PlayCurrentMomentCockpit({
   };
 
   const openInspect = (scene: NativeRunbookSceneV2) => {
+    if (compactLayoutRef.current) {
+      setBeatCollapsed(true);
+      setGlanceCollapsed(true);
+    }
     setWorkspace({ kind: "scene-inspect", sceneId: scene.id });
   };
 
@@ -741,6 +754,11 @@ export function PlayCurrentMomentCockpit({
       data-current-beat-id={deck.currentBeatId}
       data-current-scene-id={deck.currentSceneId ?? ""}
       aria-label="Current moment"
+      onKeyDown={(event) => {
+        if (event.key !== "Escape" || workspaceKind !== "scene-inspect") return;
+        event.preventDefault();
+        closeToCurrent();
+      }}
     >
       {moment.status === "incoherent" ? (
         <p role="alert" className="play-banner" data-testid="play-current-moment-incoherent">
@@ -775,6 +793,7 @@ export function PlayCurrentMomentCockpit({
         <button
           type="button"
           data-testid="play-compact-outline-toggle"
+          ref={compactOutlineToggleRef}
           aria-expanded={!beatCollapsed}
           aria-controls="play-outline-body"
           onClick={toggleOutline}
@@ -812,7 +831,7 @@ export function PlayCurrentMomentCockpit({
               aria-labelledby="play-workspace-heading"
             >
               <p className="play-kicker">Current Scene</p>
-              <h2 id="play-workspace-heading">{currentScene.title}</h2>
+              <h2 id="play-workspace-heading" ref={workspaceHeadingRef} tabIndex={-1}>{currentScene.title}</h2>
               <BeatContext
                 beat={currentBeat}
                 resolved={run.progress.resolved_beat_ids.includes(currentBeat.id)}
@@ -898,7 +917,7 @@ export function PlayCurrentMomentCockpit({
           {workspaceKind === "current" && currentBeat && currentScene == null ? (
             <article data-testid="play-workspace-beat-only" aria-labelledby="play-workspace-heading">
               <p className="play-kicker">Current Beat</p>
-              <h2 id="play-workspace-heading">{currentBeat.title}</h2>
+              <h2 id="play-workspace-heading" ref={workspaceHeadingRef} tabIndex={-1}>{currentBeat.title}</h2>
               <p className="play-muted" data-testid="play-current-scene">No Scene is current.</p>
               <ReadOnlyBodyContent
                 content={currentBeat.bodyContent}
@@ -949,7 +968,7 @@ export function PlayCurrentMomentCockpit({
               <p className="play-kicker">
                 {inspectedScene.id === currentScene?.id ? "Current Scene" : "Inspecting Scene · no Run change"}
               </p>
-              <h2 id="play-workspace-heading">
+              <h2 id="play-workspace-heading" ref={workspaceHeadingRef} tabIndex={-1}>
                 {inspectedScene.id === currentScene?.id
                   ? inspectedScene.title
                   : `Inspecting ${inspectedScene.title}`}

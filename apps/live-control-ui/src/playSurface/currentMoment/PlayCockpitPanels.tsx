@@ -35,8 +35,6 @@ export function PlaySceneOutline({
   onInspect: (scene: NativeRunbookSceneV2) => void;
   toggleRef: RefObject<HTMLButtonElement | null>;
 }) {
-  const currentBeat = deck.beats.find((beat) => beat.id === deck.currentBeatId);
-
   return (
     <aside
       className={`play-cockpit-rail play-outline${collapsed ? " is-collapsed" : ""}`}
@@ -56,17 +54,14 @@ export function PlaySceneOutline({
       </button>
       {collapsed ? null : (
         <div id="play-outline-body" className="play-rail-body" data-testid="play-outline-body">
-          {currentBeat ? (
-            <p className="play-outline-current-beat">
-              <span>Current Beat</span>
-              <strong>{currentBeat.title}</strong>
-            </p>
-          ) : null}
           <nav aria-label="Scenes in this Run" className="play-outline-groups">
             {deck.beats.map((beat) => (
               <section className="play-outline-group" key={beat.id} data-beat-id={beat.id}>
                 <h2 data-testid={beat.id === deck.currentBeatId ? "play-beat-context-title" : undefined}>
-                  {beat.title}
+                  <span>{beat.title}</span>
+                  {beat.id === deck.currentBeatId ? (
+                    <span className="play-outline-beat-state">Current</span>
+                  ) : null}
                 </h2>
                 {beat.scenes.length === 0 ? (
                   <p className="play-muted">No scenes</p>
@@ -146,11 +141,11 @@ export function PlayRecordedOutcomes({
         aria-label={`${collapsed ? "Expand" : "Collapse"} saved choices and notes`}
         onClick={onToggle}
       >
-        {collapsed ? "Run notes" : "Saved choices & notes"}
+        Saved choices &amp; notes
       </button>
       {collapsed ? null : (
         <div id="play-recorded-outcomes-body" className="play-rail-body" data-testid="play-recorded-outcomes-body">
-          <p className="play-outcomes-caveat">Current selections and notes in this Run</p>
+          <p className="play-outcomes-caveat">Current Run state</p>
           <section aria-labelledby="play-recorded-decisions-heading">
             <h2 id="play-recorded-decisions-heading">Saved choices</h2>
             {decisions.length === 0 ? (
