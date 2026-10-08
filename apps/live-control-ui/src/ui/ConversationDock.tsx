@@ -35,7 +35,7 @@ export interface ConversationDockProps {
 export function ConversationDock({
   reader, readerLabel = "Workspace content", conversationLabel, messages, composer, title = "Buddy", contextLabel = "Context",
   contextDetails, collapsedPreview, collapseMode = "composer", launcher, fullscreenEnabled = false, headerActions, initialExpanded = false, expanded: controlledExpanded,
-  initialHeight = 340, minHeight = 280, maxHeight = 520,
+  initialHeight = 340, minHeight = 280, maxHeight = 1440,
   minimumReaderHeight = 160, onExpandedChange, className = "", style,
 }: ConversationDockProps) {
   const id = useId();

@@ -825,6 +825,18 @@
   font-size: 0.68rem;
 }
 
+.plan-conversation-dock .world-plan-agent-conversation__composer [aria-label="Actual Plan change target"] {
+  min-inline-size: 0;
+  max-block-size: 1.2rem;
+  margin: 0;
+  overflow: hidden;
+  color: var(--ui-text-secondary);
+  font-size: 0.68rem;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .plan-conversation-dock .world-plan-agent-conversation__composer-footer button {
   grid-column: 2;
   grid-row: 1;
