@@ -1697,6 +1697,14 @@ export function WorldPlanAgentConversation({
     } : null,
   });
   const [composerMessage, setComposerMessage] = useState("");
+  const [submittedMessage, setSubmittedMessage] = useState<{
+    id: string; scopeKey: string; conversationId: string | null; pointerRevision: number | null;
+    message: string; kind: "discuss" | "propose";
+  } | null>(null);
+  const confirmedResetRef = useRef<{ commandId: string; worldId: string; conversationId: string; pointerRevision: number } | null>(null);
+  const [retiredProposalTurns, setRetiredProposalTurns] = useState<{
+    scopeKey: string; turns: AgentInteractionTurn[]; positions: WorldPlanLocalProposalPosition[];
+  } | null>(null);
   const [composerIntent, setComposerIntent] = useState<"discuss" | "propose">("discuss");
   const [composerIntentCorrection, setComposerIntentCorrection] = useState<{
     message: string;
@@ -1833,6 +1841,29 @@ export function WorldPlanAgentConversation({
     ),
     [history, proposalOrderForDisplay, proposalThreadForDisplay?.turns],
   );
+  const archivedProposalTurns = useMemo(() => {
+    if (!namespace || !documentId) return [];
+    try {
+      return listAgentThreads(namespace, "plan", documentId)
+        .filter((summary) => summary.threadId !== activeThread?.threadId)
+        .flatMap((summary) => {
+          const thread = loadAgentThreadById(namespace, summary.threadId);
+          return thread?.worldPlanProposalHistory === WORLD_PLAN_LOCAL_PROPOSAL_HISTORY
+            ? thread.turns.filter((turn) => turn.planEdit) : [];
+        });
+    } catch { return []; }
+  }, [namespace, documentId, activeThread?.threadId, proposalOrderRevision]);
+  const otherLocalProposals = [...new Map([...conversationDisplay.localActivity, ...archivedProposalTurns,
+    ...(retiredProposalTurns?.scopeKey === scopeKey ? retiredProposalTurns.turns : [])]
+    .map((turn) => [turn.turnId, turn])).values()];
+  const archivedProposalPositions = useMemo(() => {
+    if (!namespace || !documentId) return [];
+    try {
+      return listAgentThreads(namespace, "plan", documentId)
+        .filter((summary) => summary.threadId !== activeThread?.threadId)
+        .flatMap((summary) => readLocalProposalOrder(localProposalOrderStorageKey(namespace, summary.threadId))?.positions ?? []);
+    } catch { return []; }
+  }, [namespace, documentId, activeThread?.threadId, proposalOrderRevision]);
   const latestConversationEventKey = conversationDisplay.events.at(-1)?.kind === "world"
     ? (() => {
       const turn = conversationDisplay.events.at(-1)!.turn as WorldAgentConversationHistoryTurn;
@@ -1882,7 +1913,7 @@ export function WorldPlanAgentConversation({
     }
     const frame = window.requestAnimationFrame(scrollToLatest);
     return () => window.cancelAnimationFrame(frame);
-  }, [agent.paneState.isOpen, latestConversationEventKey, presentationHosts]);
+  }, [agent.paneState.isOpen, latestConversationEventKey, submittedMessage?.id, presentationHosts]);
 
   function jumpToLatestReply() {
     const viewport = presentationHosts?.messages?.parentElement;
@@ -2049,6 +2080,12 @@ export function WorldPlanAgentConversation({
           && await confirmedAskHistoryMatches(page, confirmedAskNotice.stored,
             confirmedAskNotice.conversationId, confirmedAskNotice.answer);
         if (!active || generation !== historyGenerationRef.current) return;
+        const reset = confirmedResetRef.current;
+        if (reset?.worldId === verifiedWorldId && (page.pointer_revision < reset.pointerRevision
+          || (page.pointer_revision === reset.pointerRevision && page.conversation_id !== reset.conversationId))) {
+          setHistoryError("The refreshed transcript has not reached the confirmed new conversation. Refresh history again.");
+          return;
+        }
         historySnapshotRef.current = page;
         setHistory(page);
         if (matchingNotice && confirmedAskNotice
@@ -2056,6 +2093,8 @@ export function WorldPlanAgentConversation({
           const settledNotice = confirmedAskNotice.notice.replace(/Refreshing World history[^.]*\.|refreshing World history\.|World history refresh failed\. Refresh history to check this confirmed Ask\./,
             "World history refreshed.");
           confirmedAskNoticeRef.current = null;
+          setSubmittedMessage((current) => current?.kind === "discuss"
+            && current.id === confirmedAskNotice.stored.envelope?.request.turn_id ? null : current);
           setConversationNotice((current) => current === confirmedAskNotice.notice ? settledNotice : current);
         }
       })
@@ -2191,6 +2230,7 @@ export function WorldPlanAgentConversation({
     const stillCurrent = () => latestRef.current.mounted
       && latestRef.current.scopeMatches
       && latestRef.current.verifiedWorldId === envelope.worldId
+      && latestRef.current.documentId === documentId
       && newConversationRef.current === token;
     try {
       const response = await postWorldAgentNewConversation(envelope.worldId, envelope.request);
@@ -2202,6 +2242,30 @@ export function WorldPlanAgentConversation({
         || !Number.isSafeInteger(response.pointer_revision)
         || !(response.active_conversation_id === null || typeof response.active_conversation_id === "string")) {
         throw new Error("The New Conversation response did not match its saved command.");
+      }
+      if (response.active_conversation_id !== response.conversation_id
+        || response.conversation_id === envelope.request.expected_active_conversation_id
+        || response.pointer_revision <= envelope.request.expected_pointer_revision) {
+        throw new Error("The New Conversation response did not confirm an active fresh conversation.");
+      }
+      const freshReset = confirmedResetRef.current?.commandId !== envelope.request.command_id
+        && historySnapshotRef.current?.conversation_id !== response.conversation_id;
+      confirmedResetRef.current = { commandId: envelope.request.command_id, worldId: envelope.worldId, conversationId: response.conversation_id,
+        pointerRevision: response.pointer_revision };
+      if (freshReset) {
+        historyGenerationRef.current += 1;
+        historySnapshotRef.current = null;
+        setHistory(null);
+        setSubmittedMessage(null);
+        editReviewRef.current = null;
+        setEditReview(null);
+        if (namespace && documentId && activeThread?.worldPlanProposalHistory === WORLD_PLAN_LOCAL_PROPOSAL_HISTORY) {
+          setRetiredProposalTurns((current) => ({ scopeKey,
+            turns: [...activeThread.turns.filter((turn) => turn.planEdit), ...(current?.scopeKey === scopeKey ? current.turns : [])],
+            positions: [...(proposalOrderForDisplay?.positions ?? []), ...(current?.scopeKey === scopeKey ? current.positions : [])] }));
+          agent.updateThread({ ...createAgentInteractionThread(namespace, null, "plan", "hermes", "New conversation", documentId),
+            worldPlanProposalHistory: WORLD_PLAN_LOCAL_PROPOSAL_HISTORY });
+        }
       }
       try {
         window.localStorage.removeItem(stored.storageKey);
@@ -2263,7 +2327,6 @@ export function WorldPlanAgentConversation({
         throw new Error("Browser storage did not preserve the exact command envelope.");
       }
       refreshPendingCommandList();
-      setComposerMessage("");
       setError(null);
       setNewConversationError(null);
       void sendNewConversationCommand({ storageKey, envelope, error: null });
@@ -2413,6 +2476,10 @@ export function WorldPlanAgentConversation({
       || (targetAtSubmit && (!targetBasisAtSubmit || targetBasisAtSubmit.revision !== revision))) return;
 
     const startingFenceKey = requestFenceKey;
+    const submittedClientThreadId = crypto.randomUUID();
+    const submittedTurnId = crypto.randomUUID();
+    setSubmittedMessage({ id: submittedTurnId, scopeKey, conversationId: pointerSnapshot.conversation_id,
+      pointerRevision: pointerSnapshot.pointer_revision, message, kind: "discuss" });
     setSending(true);
     setError(null);
     setConversationNotice(null);
@@ -2448,8 +2515,8 @@ export function WorldPlanAgentConversation({
       }
       const request: WorldPlanAgentTurnRequestV1 = {
         schema: "dmb_agent_turn_request_v1",
-        client_thread_id: crypto.randomUUID(),
-        turn_id: crypto.randomUUID(),
+        client_thread_id: submittedClientThreadId,
+        turn_id: submittedTurnId,
         surface: { surface_id: "plan", instance_id: surfaceInstanceId },
         owner_scope: { kind: "world", world_id: worldId },
         primary_work: {
@@ -2973,6 +3040,9 @@ export function WorldPlanAgentConversation({
       setEditError("The selected card is stale or no longer unique in this draft. Select it again before composing.");
       return;
     }
+    const submittedEditId = crypto.randomUUID();
+    setSubmittedMessage({ id: submittedEditId, scopeKey, conversationId: historySnapshotRef.current?.conversation_id ?? null,
+      pointerRevision: historySnapshotRef.current?.pointer_revision ?? null, message: instruction, kind: "propose" });
 
     const dispatchHistory = historySnapshotRef.current;
     const canAnchorProposal = !historyLoading && !historyError
@@ -3089,6 +3159,7 @@ export function WorldPlanAgentConversation({
       }
       proposalRequestRef.current = null;
       setComposing(false);
+      setSubmittedMessage((current) => current?.id === submittedEditId ? null : current);
       agent.updateThread({
         ...currentThread,
         campaignId: namespace,
@@ -3245,7 +3316,8 @@ export function WorldPlanAgentConversation({
     event.currentTarget.form?.requestSubmit();
   }
   const localProposalPositionsByTurnId = new Map(
-    (proposalOrderForDisplay?.positions ?? []).map((position) => [position.turnId, position]),
+    [...archivedProposalPositions, ...(retiredProposalTurns?.scopeKey === scopeKey ? retiredProposalTurns.positions : []),
+      ...(proposalOrderForDisplay?.positions ?? [])].map((position) => [position.turnId, position]),
   );
   const renderProposalEvent = (
     turn: AgentInteractionTurn,
@@ -3474,6 +3546,16 @@ export function WorldPlanAgentConversation({
         {latestConversationEvent ? renderConversationEvent(latestConversationEvent) : history && !historyLoading ? (
           <p className="world-plan-agent-conversation__empty">No messages yet. Ask about this Plan or describe a change.</p>
         ) : null}
+        {submittedMessage?.scopeKey === scopeKey
+          && (submittedMessage.conversationId === null
+            ? (submittedMessage.pointerRevision === (history?.pointer_revision ?? null))
+            : submittedMessage.conversationId === history?.conversation_id)
+          && !history?.turns.some((turn) => turn.turn_id === submittedMessage.id) ? (
+          <article aria-label="Submitted message awaiting confirmation">
+            <p><strong>You:</strong> {submittedMessage.message}</p>
+            <p role="status">{sending || composing ? "Waiting for Buddy…" : "Message not yet confirmed."}</p>
+          </article>
+        ) : null}
         {conversationNotice ? <p role="status">{conversationNotice}</p> : null}
         {presentationHosts && newReplyAvailable ? (
           <button type="button" className="world-plan-agent-conversation__new-reply" onClick={jumpToLatestReply}>
@@ -3481,13 +3563,13 @@ export function WorldPlanAgentConversation({
           </button>
         ) : null}
       </section>
-      {conversationDisplay.localActivity.length ? (
+      {otherLocalProposals.length ? (
         <details className="world-plan-agent-conversation__local-activity" aria-label="Other local Plan proposals">
-          <summary>Other local proposals · {conversationDisplay.localActivity.length}</summary>
+          <summary>Other local proposals · {otherLocalProposals.length}</summary>
           <p className="world-plan-agent-conversation__context">
             These browser-saved proposals could not be matched to this World conversation. They are kept separate and are not current Plan actions.
           </p>
-          {conversationDisplay.localActivity.map((turn) => renderProposalEvent(
+          {otherLocalProposals.map((turn) => renderProposalEvent(
             turn,
             localProposalPositionsByTurnId.get(turn.turnId) ?? null,
             true,

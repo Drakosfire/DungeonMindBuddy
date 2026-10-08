@@ -1341,6 +1341,132 @@ afterEach(() => {
 });
 
 describe("World Plan conversation consumer", () => {
+  it("echoes Discuss immediately before preparation completes and settles to one durable message", async () => {
+    const api = setupApi(history("conversation-a", 4, []));
+    mountComponent();
+    await screen.findByText(/No messages yet/i);
+    let release!: (value: any) => void;
+    vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockImplementation(() => new Promise((resolve) => { release = resolve; }));
+    const post = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
+      api.setCurrent(history("conversation-a", 4, [historyTurnForAsk(request, "Durable reply")]));
+      return agentResponse(request, "conversation-a", "Durable reply") as any;
+    });
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "What happens next?" } });
+    fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
+    expect(screen.getByRole("article", { name: "Submitted message awaiting confirmation" })).toHaveTextContent("What happens next?");
+    expect(post).not.toHaveBeenCalled();
+    await act(async () => release(committedRevision()));
+    await screen.findByText("Durable reply");
+    await waitFor(() => expect(screen.queryByRole("article", { name: "Submitted message awaiting confirmation" })).not.toBeInTheDocument());
+    expect(screen.getAllByText("What happens next?")).toHaveLength(1);
+    expect(post).toHaveBeenCalledTimes(1);
+  });
+
+  it("echoes an edit request immediately and confirmed reset retires its local thread without losing the composer draft", async () => {
+    const api = setupApi(history("conversation-a", 4, []));
+    const captured = await capturedCardBodyEdit("Original body.\n");
+    let releaseCapture!: (value: any) => void;
+    const bridge = { capture: vi.fn(() => new Promise<any>((resolve) => { releaseCapture = resolve; })), apply: vi.fn() };
+    mockCardBodyProposal();
+    const mounted = mountComponent(7, bridge);
+    await screen.findByText(/No messages yet/i);
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the opening." } });
+    fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
+    expect(screen.getByRole("article", { name: "Submitted message awaiting confirmation" })).toHaveTextContent("Revise the opening.");
+    await act(async () => releaseCapture(captured));
+    await screen.findByRole("region", { name: "Review proposed Plan edit" });
+    expect(screen.queryByRole("article", { name: "Submitted message awaiting confirmation" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Discard proposal" }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Keep this unsent draft" } });
+    persistAgentThread(harness.agent.activeThread!);
+    const oldThreads = Object.entries(localStorage).filter(([, value]) => value.includes('"question":"Revise the opening."') && value.includes('"planEdit"'));
+    expect(oldThreads).toHaveLength(1);
+    const reset = vi.spyOn(liveApi, "postWorldAgentNewConversation").mockRejectedValueOnce(new Error("HTTP401 reset failed"))
+      .mockImplementation(async () => {
+        api.setCurrent(history("conversation-b", 5, []));
+        return { schema: "dmb_agent_new_conversation_response_v1", world_id: worldId,
+          conversation_id: "conversation-b", active_conversation_id: "conversation-b", pointer_revision: 5 } as any;
+      });
+    fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
+    await screen.findByText(/HTTP401 reset failed/);
+    expect(screen.getByRole("region", { name: "World conversation transcript" })).toHaveTextContent("Revise the opening.");
+    fireEvent.click(screen.getByRole("button", { name: "Retry saved New Conversation command" }));
+    await screen.findByText(/No messages yet/i);
+    expect(screen.getByRole("region", { name: "World conversation transcript" })).not.toHaveTextContent("Revise the opening.");
+    expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("Keep this unsent draft");
+    for (const [key, value] of oldThreads) expect(localStorage.getItem(key)).toBe(value);
+    expect(reset.mock.calls[0]![1]).toEqual(reset.mock.calls[1]![1]);
+    mounted.unmount();
+    mountComponent(7, bridge);
+    await screen.findByText(/No messages yet/i);
+    expect(screen.getByRole("region", { name: "World conversation transcript" })).not.toHaveTextContent("Revise the opening.");
+  });
+
+  it("rejects a delayed pre-reset transcript instead of repopulating the confirmed fresh conversation", async () => {
+    const api = setupApi(history("conversation-a", 4, [makeTurn(1, "old", "Old message", "Old reply")]));
+    vi.spyOn(liveApi, "postWorldAgentNewConversation").mockResolvedValue({
+      schema: "dmb_agent_new_conversation_response_v1", world_id: worldId,
+      conversation_id: "conversation-b", active_conversation_id: "conversation-b", pointer_revision: 5,
+    } as any);
+    mountComponent();
+    await screen.findByText("Old message");
+    fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
+    await screen.findByText(/has not reached the confirmed new conversation/);
+    expect(screen.getByRole("region", { name: "World conversation transcript" })).not.toHaveTextContent("Old message");
+    api.setCurrent(history("conversation-b", 5, []));
+    fireEvent.click(screen.getByRole("button", { name: "Refresh World history" }));
+    await screen.findByText(/No messages yet/i);
+    expect(pendingCommandKeys()).toHaveLength(0);
+  });
+
+  it("keeps a first-message echo out of a different conversation while preserving its uncertain request", async () => {
+    const api = setupApi(history(null, 0, []));
+    const post = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockRejectedValue(new Error("Unknown outcome"));
+    render(conversationElement());
+    await screen.findByText(/No messages yet/i);
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "My first question" } });
+    fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
+    await screen.findByText(/outcome.*uncertain/);
+    expect(screen.getByRole("article", { name: "Submitted message awaiting confirmation" })).toHaveTextContent("My first question");
+    const key = pendingAskKeys()[0]!;
+    const bytes = localStorage.getItem(key);
+    api.setCurrent(history("other-conversation", 1, [makeTurn(1, "other", "Other question", "Other reply")]));
+    fireEvent.click(screen.getByText(/Needs attention/));
+    fireEvent.click(screen.getByRole("button", { name: "Refresh World history" }));
+    await screen.findByText("Other reply");
+    expect(screen.queryByRole("article", { name: "Submitted message awaiting confirmation" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "World conversation transcript" })).not.toHaveTextContent("My first question");
+    expect(localStorage.getItem(key)).toBe(bytes);
+    expect(post).toHaveBeenCalledTimes(1);
+  });
+
+  it("replays a confirmed reset after storage cleanup failure without retiring the fresh local thread twice", async () => {
+    const api = setupApi(history("conversation-a", 4, []));
+    harness.agent.activeThread = { ...harness.agent.activeThread, turns: [], worldPlanProposalHistory: "world_plan_proposals_v1" };
+    vi.spyOn(liveApi, "postWorldAgentNewConversation").mockImplementation(async () => {
+      api.setCurrent(history("conversation-b", 5, []));
+      return { schema: "dmb_agent_new_conversation_response_v1", world_id: worldId,
+        conversation_id: "conversation-b", active_conversation_id: "conversation-b", pointer_revision: 5 } as any;
+    });
+    const realRemove = Storage.prototype.removeItem;
+    let failed = false;
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (this: Storage, key: string) {
+      if (!failed && pendingCommandKeys().includes(key)) { failed = true; throw new Error("Cleanup failed"); }
+      realRemove.call(this, key);
+    });
+    mountComponent();
+    await screen.findByText(/No messages yet/i);
+    fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
+    await screen.findByText("Cleanup failed");
+    await waitFor(() => expect(harness.agent.updateThread).toHaveBeenCalledTimes(1));
+    const freshThreadId = harness.agent.activeThread.threadId;
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Fresh unsent draft" } });
+    fireEvent.click(screen.getByRole("button", { name: "Retry saved New Conversation command" }));
+    await waitFor(() => expect(pendingCommandKeys()).toHaveLength(0));
+    expect(harness.agent.updateThread).toHaveBeenCalledTimes(1);
+    expect(harness.agent.activeThread.threadId).toBe(freshThreadId);
+    expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("Fresh unsent draft");
+  });
   it.each([
     ["What changes after the rescue?", "discuss"],
     ["Tell me about Lysandra.", "discuss"],
@@ -4113,7 +4239,8 @@ describe("World Plan conversation consumer", () => {
     expect(sent[1]).toEqual(sent[0]);
     expect(postAsk).toHaveBeenCalledTimes(2);
     expect(screen.queryByText("Old conversation answer")).not.toBeInTheDocument();
-    expect(screen.queryByText("Keep this in conversation A")).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "World conversation transcript" })).not.toHaveTextContent("Keep this in conversation A");
+    expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("Keep this in conversation A");
     expect(harness.agent.updateThread).not.toHaveBeenCalled();
   });
 
