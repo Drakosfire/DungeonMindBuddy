@@ -2522,3 +2522,47 @@ def test_http_atomic_full_19_recipe_order_independent(monkeypatch, tmp_path):
     assert len(candidate["nodes"]) == 8 and len(candidate["edges"]) == 2
     assert service.verify_child_replay(child, parent, tmp_path)
     assert (tmp_path / "parent.json").read_bytes() == raw
+
+
+@pytest.mark.parametrize("collection", ["beats", "proposed_writes", "ignored_items", "deferred_items"])
+def test_http_atomic_omission_rejects_retained_dependencies_before_writes(monkeypatch, tmp_path, collection):
+    parent, _, runs, body = _atomic_fixture(monkeypatch, tmp_path)
+    payload = json.loads((tmp_path / "parent.json").read_bytes())
+    payload[collection] = [{"nested": {"retained_edge_ids": ["unsupported"]}}]
+    raw = service._canonical_bytes(payload); (tmp_path / "parent.json").write_bytes(raw)
+    components = dict(parent.components)
+    components["candidate_graph"] = components["candidate_graph"].model_copy(update={"sha256": _sha(raw)})
+    parent = parent.model_copy(update={"components": components}); runs["parent"] = parent
+    body["parent_candidate_sha256"] = _sha(raw)
+    writes = []
+    monkeypatch.setattr(service, "_write_child_candidate", lambda *args, **kwargs: writes.append("file"))
+    monkeypatch.setattr(service, "create_extraction_run", lambda *args, **kwargs: writes.append("run"))
+    app = _split_http_app(monkeypatch)
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post("/api/live/extract-promote/runs/parent/recap-candidate-corrections", json=body)
+            assert response.status_code == 409, response.text
+            assert "dependent candidate record" in response.json()["message"]
+    asyncio.run(exercise())
+    assert writes == [] and runs == {"parent": parent}
+    assert (tmp_path / "parent.json").read_bytes() == raw
+    assert not (tmp_path / "out/graph_memory/derived_candidates").exists()
+
+
+def test_http_atomic_bad_last_operation_does_not_persist_earlier_edits(monkeypatch, tmp_path):
+    parent, raw, runs, body = _atomic_fixture(monkeypatch, tmp_path)
+    # Earlier descriptions, labels, tuple, omission and first evidence edit are valid.
+    body["evidence_replacements"][-1]["anchor_quotes"] = ["not in the frozen source"]
+    writes = []
+    monkeypatch.setattr(service, "_write_child_candidate", lambda *args, **kwargs: writes.append("file"))
+    monkeypatch.setattr(service, "create_extraction_run", lambda *args, **kwargs: writes.append("run"))
+    app = _split_http_app(monkeypatch)
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post("/api/live/extract-promote/runs/parent/recap-candidate-corrections", json=body)
+            assert response.status_code == 422, response.text
+            assert "not literal" in response.json()["message"]
+    asyncio.run(exercise())
+    assert writes == [] and runs == {"parent": parent}
+    assert (tmp_path / "parent.json").read_bytes() == raw
+    assert not (tmp_path / "out/graph_memory/derived_candidates").exists()

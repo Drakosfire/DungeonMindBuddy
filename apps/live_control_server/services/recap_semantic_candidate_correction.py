@@ -584,6 +584,16 @@ def _replay_atomic_batch(parent: dict, manifest: dict, source_bytes: bytes | Non
     validate_source_span_index(index, source_artifact_id=index.source_artifact_id, content_sha256=request.source_revision_sha256)
     if parent.get("source_artifact_ids") != [index.source_artifact_id]:
         raise _reject("atomic batch source identity changed", status_code=409)
+    # Retained records must never dangle after an omission. Plan against the
+    # unchanged parent and reject dependencies rather than cascading edits.
+    omitted = {x.edge_id for x in request.edge_omissions}
+    for op in request.edge_omissions:
+        matches = [e for e in parent.get("edges", []) if e.get("edge_id") == op.edge_id]
+        if len(matches) != 1 or _sha(_canonical_bytes(matches[0])) != op.expected_edge_sha256:
+            raise _reject("atomic edge omission preimage is stale", status_code=409)
+        for key in ("beats", "proposed_writes", "ignored_items", "deferred_items"):
+            if _contains(parent.get(key, []), op.edge_id):
+                raise _reject("omitted edge has a dependent candidate record", status_code=409)
     child = copy.deepcopy(parent)
     def record(kind, identifier):
         collection, key = ("nodes", "node_id") if kind == "node" else ("edges", "edge_id")
@@ -600,11 +610,6 @@ def _replay_atomic_batch(parent: dict, manifest: dict, source_bytes: bytes | Non
             if old.get(field) != getattr(op, original):
                 raise _reject("atomic node preimage is stale", status_code=409)
             new[field] = getattr(op, replacement)
-    omitted = {x.edge_id for x in request.edge_omissions}
-    for op in request.edge_omissions:
-        old, _ = record("edge", op.edge_id)
-        if _sha(_canonical_bytes(old)) != op.expected_edge_sha256:
-            raise _reject("atomic edge omission preimage is stale", status_code=409)
     # Validate rewrites against original preimages, but duplicates against final omissions.
     tuple_parent = copy.deepcopy(parent)
     tuple_parent["edges"] = [e for e in parent.get("edges", []) if e.get("edge_id") not in omitted]

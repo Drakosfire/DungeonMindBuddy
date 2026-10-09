@@ -39,3 +39,14 @@ Local verification: 120 correction/disposition checks passed. The complete
 9b6d97af3eec2dfb610af287a4fef5cd296754fd665310070fbf9651766ff2f6.
 No S28 child was created with this source. Targeted disposable PostgreSQL basis
 verification and independent ARCH review remain pending at source publication.
+
+V7 deliberately requires fully strict final evidence; the actual S28 quote child
+has zero invalid evidence before this batch. It does not inherit unresolved bad
+quotes. V1–V6 retain their existing evidence and replay behavior. Omitted edges
+with retained references in beats, proposed writes, ignored or deferred records
+reject the entire batch before materialization or persistence; no cascading edits.
+
+ARCH omission-dependency HOLD repaired: 125 owning correction/disposition checks
+passed, including four retained-reference collections and a bad final evidence
+operation with file/run write spies proving zero persistence. Independent review
+and targeted persisted-basis witness remain separate gates.
