@@ -1,4 +1,4 @@
-"""One-run continuation of the verified C1S2 checkpoint; never initializes a World.
+"""Bounded continuation of sealed C1S2 or checkpoint38; never initializes a World.
 
 This command is not an automatic recovery engine. An incomplete output directory,
 an ambiguous confirm, or an unexpected head is a STOP requiring steward review.
@@ -37,6 +37,10 @@ CHECKPOINT_REPORT_SHA256 = (
 )
 CHECKPOINT_LEDGER_SHA256 = (
     "e018212987fd967632874aec2c477ad6aa4fc617aecdbce78110bd4103f4abcd"
+)
+CHECKPOINT38_HEAD = "rev:dfe5ad1c967a365d3f7748b38faa1a9c"
+CHECKPOINT38_REPORT_SHA256 = (
+    "a6ca378e8055862e41c003808c10a5cf04710d5afd5576a05806636bfe3696d2"
 )
 
 
@@ -93,6 +97,40 @@ def _checkpoint(root: Path, entries: tuple[Any, ...]) -> list[dict[str, Any]]:
         )
         parent = child
     return copy.deepcopy(ledger)
+
+
+def _checkpoint38(
+    path: Path, original_prefix: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Accept one sealed STOP, not an arbitrary caller-selected resume point."""
+    _require(
+        replay._sha256_file(path) == CHECKPOINT38_REPORT_SHA256,
+        "checkpoint38 report digest mismatch",
+    )
+    report = json.loads(path.read_text(encoding="utf-8"))
+    rows = report["sessions"]
+    _require(
+        report["status"] == "STOP"
+        and report["new_confirms"] == 36
+        and report["last_good_head"] == CHECKPOINT38_HEAD
+        and report["terminal_head"] is None
+        and report["stop"]["actual_head"] == CHECKPOINT38_HEAD
+        and report["stop"]["head_read_error"] is None,
+        "wrong checkpoint38 STOP disposition",
+    )
+    _require(
+        len(rows) == 38 and rows[:2] == original_prefix,
+        "checkpoint38 original prefix/coverage differs",
+    )
+    parent = GENESIS
+    for ordinal, row in enumerate(rows, 1):
+        _require(
+            row["ordinal"] == ordinal and row["sealed_parent_revision"] == parent,
+            "checkpoint38 lineage/ordinal differs",
+        )
+        parent = row["receipt_child_revision"]
+    _require(parent == CHECKPOINT38_HEAD, "checkpoint38 terminal lineage differs")
+    return copy.deepcopy(rows)
 
 
 class _Authority:
@@ -296,6 +334,47 @@ class _Authority:
             "source revision bytes differ",
         )
 
+    def checkpoint38_binding(
+        self,
+        entry: Any,
+        original: Any,
+        decision_id: str,
+        decision_sha256: str,
+        dsn: str,
+    ) -> None:
+        """Held boundary: no unaccepted carrier schema/API is integrated here.
+
+        Decision pins are command integrity, not admission authority. A later
+        reviewed producer + Core transaction fence must replace this gate and
+        reprove the exact decision/source basis. No caller can enable it.
+        """
+        # RAKE's producer alone is insufficient: its final source/decision
+        # check is outside Core's publication transaction. No caller flag or
+        # injected callback may activate real suffix writes under this source.
+        _require(False, "checkpoint38 publication fence not accepted; execution held")
+
+    def require_unclaimed(self, entry: Any, dsn: str) -> None:
+        """Reject any persisted suffix contribution, including an orphan, read-only.
+
+        Core's contribution/review ports have no source enumeration method.
+        This bounded negative check does not admit or reconstruct authority.
+        """
+        import psycopg
+
+        with psycopg.connect(
+            dsn, options="-c default_transaction_read_only=on"
+        ) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT 1 FROM dungeonmind.graph_contributions "
+                    "WHERE world_id = %s AND payload->>'source_artifact_id' = %s LIMIT 1",
+                    (replay.WORLD_ID, entry.source_artifact_id),
+                )
+                _require(
+                    cursor.fetchone() is None,
+                    "suffix source has unaccounted contribution",
+                )
+
 
 def _ledger_row(
     entry: Any, original: Any, digest: str, result: dict[str, Any]
@@ -326,6 +405,10 @@ def run_continuation(
     authority: Any | None = None,
     seams: replay.ReplaySeams | None = None,
     require_clean: bool = True,
+    checkpoint38_report: Path | None = None,
+    binding_decision_id: str | None = None,
+    binding_decision_sha256: str | None = None,
+    verify_checkpoint38_only: bool = False,
 ) -> dict[str, Any]:
     replay.assert_runtime_dsn(dsn)
     root = (repo_root or replay.REPO_ROOT).resolve()
@@ -335,10 +418,35 @@ def run_continuation(
         artifact_root=accepted_root, repo_root=root
     )
     prefix = _checkpoint(retained_root, manifest.entries)
+    checkpoint38 = checkpoint38_report is not None
+    _require(
+        not verify_checkpoint38_only or checkpoint38,
+        "read-only checkpoint38 verification requires sealed report",
+    )
+    if verify_checkpoint38_only:
+        _require(
+            not binding_decision_id and not binding_decision_sha256,
+            "prefix-only verification does not accept an unverified carrier",
+        )
+    else:
+        _require(
+            checkpoint38 == bool(binding_decision_id) == bool(binding_decision_sha256),
+            "checkpoint38 requires exact binding decision identity/digest",
+        )
+    if checkpoint38:
+        if not verify_checkpoint38_only:
+            _require(
+                len(binding_decision_sha256 or "") == 64
+                and all(c in "0123456789abcdef" for c in binding_decision_sha256 or ""),
+                "binding decision digest invalid",
+            )
+        prefix = _checkpoint38(checkpoint38_report, prefix)
+    prefix_count = len(prefix)
+    prefix_head = CHECKPOINT38_HEAD if checkpoint38 else PREFIX_HEAD
     authority = authority or _Authority(dsn)
     authority.genesis()
     for entry, row, original in zip(
-        manifest.entries[:2], prefix, originals[:2], strict=True
+        manifest.entries[:prefix_count], prefix, originals[:prefix_count], strict=True
     ):
         _require(
             row["candidate_digest"] == original.candidate_digest,
@@ -348,19 +456,52 @@ def run_continuation(
             _source_token(row) == original.source_revision_id,
             "prefix source token differs",
         )
-        authority.publication(entry, row)
-    # Session 3's source admission already happened before the mapping STOP.
+        proof = authority.publication(entry, row)
+        if checkpoint38 and entry.ordinal > 2:
+            _require(
+                row.get("durable_proof") == proof, "checkpoint38 durable proof differs"
+            )
+    # The failed next session (S3 or C2S22) already admitted its source before STOP.
     # Verify it read-only; it is not a receipt for an accepted contribution.
-    authority.source(manifest.entries[2], originals[2].source_revision_id)
+    authority.source(
+        manifest.entries[prefix_count], originals[prefix_count].source_revision_id
+    )
     command = {
         "world": replay.WORLD_ID,
         "manifest_digest": manifest.digest,
         "retained_report_sha256": CHECKPOINT_REPORT_SHA256,
         "retained_ledger_sha256": CHECKPOINT_LEDGER_SHA256,
         "source_head": replay.git_head(root),
-        "prefix_head": PREFIX_HEAD,
+        "prefix_head": prefix_head,
     }
+    if checkpoint38:
+        command.update(
+            checkpoint38_report_sha256=CHECKPOINT38_REPORT_SHA256,
+            binding_decision_id=binding_decision_id,
+            binding_decision_sha256=binding_decision_sha256,
+        )
     command_digest = replay._digest_obj(command)
+    if verify_checkpoint38_only:
+        _require(
+            seams is None,
+            "checkpoint38 requires production admission, no injected seams",
+        )
+        _require(
+            authority.head() == prefix_head, "retained head moved before verification"
+        )
+        for entry in manifest.entries[prefix_count:]:
+            authority.require_unclaimed(entry, dsn)
+        return {
+            "status": "PREFIX_VERIFIED_READ_ONLY",
+            "command": command,
+            "command_digest": command_digest,
+            "sessions": prefix,
+            "new_confirms": 0,
+            "last_good_head": prefix_head,
+            "execution_held": True,
+            "binding_verified": False,
+            "full_selected_world_ready": False,
+        }
     output = output.resolve()
     if output.exists():
         path = output / "continuation_report.json"
@@ -376,7 +517,8 @@ def run_continuation(
         )
         rows = prior["sessions"]
         _require(
-            len(rows) == 44 and rows[:2] == prefix, "completed ledger coverage differs"
+            len(rows) == 44 and rows[:prefix_count] == prefix,
+            "completed ledger coverage differs",
         )
         parent = GENESIS
         for entry, row, original in zip(manifest.entries, rows, originals, strict=True):
@@ -400,7 +542,21 @@ def run_continuation(
             parent = row["receipt_child_revision"]
         _require(prior["terminal_head"] == parent, "completed terminal differs")
         return {**prior, "disposition": "ALREADY_COMPLETE_VERIFIED_READ_ONLY"}
-    _require(authority.head() == PREFIX_HEAD, "retained head moved before continuation")
+    _require(authority.head() == prefix_head, "retained head moved before continuation")
+    if checkpoint38:
+        _require(
+            seams is None,
+            "checkpoint38 requires production admission, no injected seams",
+        )
+        for entry in manifest.entries[prefix_count:]:
+            authority.require_unclaimed(entry, dsn)
+        authority.checkpoint38_binding(
+            manifest.entries[38],
+            originals[38],
+            binding_decision_id,
+            binding_decision_sha256,
+            dsn,
+        )
     output.mkdir(parents=True, exist_ok=False)
     report: dict[str, Any] = {
         "command": command,
@@ -408,16 +564,18 @@ def run_continuation(
         "status": "RUNNING",
         "sessions": prefix,
         "new_confirms": 0,
-        "last_good_head": PREFIX_HEAD,
+        "last_good_head": prefix_head,
         "terminal_head": None,
         "model_calls": 0,
         "full_selected_world_ready": False,
     }
     replay._write_json(output / "continuation_report.json", report)
     seams = seams or replay.ReplaySeams()
-    parent = PREFIX_HEAD
+    parent = prefix_head
     try:
-        for entry, original in zip(manifest.entries[2:], originals[2:], strict=True):
+        for entry, original in zip(
+            manifest.entries[prefix_count:], originals[prefix_count:], strict=True
+        ):
             _require(
                 authority.head() == parent,
                 "expected parent moved before source/prepare",
@@ -494,12 +652,20 @@ def main() -> int:
     parser.add_argument("--retained-root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--dsn", required=True)
+    parser.add_argument("--checkpoint38-report", type=Path)
+    parser.add_argument("--binding-decision-id")
+    parser.add_argument("--binding-decision-sha256")
+    parser.add_argument("--verify-checkpoint38-only", action="store_true")
     args = parser.parse_args()
     report = run_continuation(
         accepted_root=args.accepted_root,
         retained_root=args.retained_root,
         output=args.output,
         dsn=args.dsn,
+        checkpoint38_report=args.checkpoint38_report,
+        binding_decision_id=args.binding_decision_id,
+        binding_decision_sha256=args.binding_decision_sha256,
+        verify_checkpoint38_only=args.verify_checkpoint38_only,
     )
     print(
         json.dumps(
@@ -517,7 +683,7 @@ def main() -> int:
             sort_keys=True,
         )
     )
-    return 0 if report["status"] == "COMPLETE" else 1
+    return 0 if report["status"] in {"COMPLETE", "PREFIX_VERIFIED_READ_ONLY"} else 1
 
 
 if __name__ == "__main__":

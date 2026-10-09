@@ -1748,6 +1748,100 @@ def _mutation_context_from_sealed_package(
     )
 
 
+def _reviewed_identity_publication_guard(
+    *, bundle: Any, package: Mapping[str, Any], context: WorldGraphMutationContext,
+    parent_revision_id: str, campaign_id: str | None,
+) -> Any | None:
+    """Translate one sealed reviewed-corpus binding into Core's guarded intent.
+
+    The binding is only a claim carrier here. Core re-verifies its decision,
+    target/evidence preimages, source closure, and parent inside publication.
+    """
+    from dungeonmind.contracts.contribution_review_v2 import (
+        ReviewedIdentityPublicationPreconditionsV1,
+        ReviewedIdentitySourcePreconditionV1,
+    )
+    from dungeonmind.contracts.identity import IdentityDecisionRecordV2
+    from dungeonmind.domain.canonical import canonical_sha256
+
+    prefix = "dmb-reviewed-corpus-native-binding-v1:"
+    candidates = []
+    effect = dict(package.get("effect") or {})
+    admission = dict(effect.get("candidate_admission") or {})
+    candidate_digest = str(admission.get("candidate_digest") or "")
+    for raw in context.identity_ledger_records:
+        decision = dict(raw)
+        reason = decision.get("reason")
+        if not isinstance(reason, str) or not reason.startswith(prefix):
+            continue
+        try:
+            payload = json.loads(reason[len(prefix):])
+            required = {
+                "schema_version", "world_id", "parent_revision_id", "campaign_id",
+                "candidate_sha256", "candidate_node_id", "corpus_ref_type",
+                "corpus_ref_key", "target_object_id", "target_sha256",
+                "evidence_sha256", "decision_id", "reviewer_id", "sources",
+            }
+            if set(payload) != required or payload["schema_version"] != "dmb_reviewed_corpus_native_binding_v1":
+                raise ValueError("binding carrier fields/schema are not exact")
+            sources = payload["sources"]
+            source_required = {"source_artifact_id", "source_revision_id", "artifact_sha256", "revision_sha256"}
+            if not isinstance(sources, list) or not sources or any(set(source) != source_required for source in sources):
+                raise ValueError("binding source records are malformed")
+            if payload["candidate_sha256"] == candidate_digest:
+                candidates.append((decision, payload))
+        except Exception as exc:
+            raise WorldGraphWriteError(
+                "sealed reviewed-identity binding is malformed",
+                code="governed_write_inexpressible", details={"reason": str(exc)[:300]},
+            ) from exc
+    if not candidates:
+        return None
+    if len(candidates) != 1:
+        raise WorldGraphWriteError(
+            "confirmation must resolve exactly one reviewed-identity binding",
+            code="governed_write_inexpressible", details={"binding_count": len(candidates)},
+        )
+    decision, binding = candidates[0]
+    if (
+        binding["world_id"] != context.world_id
+        or binding["parent_revision_id"] != parent_revision_id
+        or binding["campaign_id"] != (campaign_id or "")
+        or binding["candidate_sha256"] != candidate_digest
+        or binding["decision_id"] != decision.get("decision_id")
+        or binding["target_object_id"] not in (decision.get("target_object_ids") or [])
+        or decision.get("decision_kind") != "human_override"
+        or decision.get("actor") != binding["reviewer_id"]
+    ):
+        raise WorldGraphWriteError(
+            "sealed reviewed-identity binding does not match this exact command",
+            code="governed_write_inexpressible",
+        )
+    try:
+        typed_decision = IdentityDecisionRecordV2.model_validate(decision)
+        decision_sha256 = canonical_sha256(typed_decision.model_dump(mode="json"))
+        guard = ReviewedIdentityPublicationPreconditionsV1(
+            world_id=binding["world_id"], campaign_id=binding["campaign_id"],
+            expected_parent_revision_id=binding["parent_revision_id"],
+            decision_id=binding["decision_id"], decision_sha256=decision_sha256,
+            target_object_id=binding["target_object_id"],
+            target_object_sha256=binding["target_sha256"],
+            existence_evidence_sha256=binding["evidence_sha256"],
+            sources=tuple(ReviewedIdentitySourcePreconditionV1(
+                source_artifact_id=item["source_artifact_id"],
+                source_revision_id=item["source_revision_id"],
+                source_artifact_sha256=item["artifact_sha256"],
+                source_revision_sha256=item["revision_sha256"],
+            ) for item in sorted(binding["sources"], key=lambda item: (item["source_artifact_id"], item["source_revision_id"]))),
+        )
+    except Exception as exc:
+        raise WorldGraphWriteError(
+            "reviewed-identity publication guard is invalid",
+            code="governed_write_inexpressible", details={"reason": str(exc)[:300],},
+        ) from exc
+    return guard
+
+
 def _reconstruct_selected_contribution(
     *,
     package: dict[str, Any],
@@ -1895,6 +1989,7 @@ def confirm_extract_promote_via_dungeonmind(
     from dungeonmind.contracts.contribution_review_v2 import (
         CommitConfirmationReceiptV2,
         ContributionReviewIntentV2,
+        GuardedContributionReviewIntentV2,
         ContributionReviewSubmissionV2,
         contribution_v2_payload_sha256,
         derive_review_intent_sha256_v2,
@@ -2039,6 +2134,13 @@ def confirm_extract_promote_via_dungeonmind(
         )
     ]
     campaign_id = contribution.campaign_scope or None
+    reviewed_identity_preconditions = _reviewed_identity_publication_guard(
+        bundle=bundle,
+        package=package,
+        context=mutation_context,
+        parent_revision_id=parent_revision_id,
+        campaign_id=campaign_id,
+    )
     raw_profile = parent_stored.graph_payload.get("semantic_profile")
     if raw_profile is None:
         raise WorldGraphWriteError(
@@ -2071,9 +2173,15 @@ def confirm_extract_promote_via_dungeonmind(
         assertion_verdicts=assertion_verdicts,
         reviewer_id=confirming_principal,
         reviewed_at=reviewed_at,
+        reviewed_identity_preconditions=reviewed_identity_preconditions,
     )
     try:
-        intent = ContributionReviewIntentV2(
+        intent_type = (
+            GuardedContributionReviewIntentV2
+            if reviewed_identity_preconditions is not None
+            else ContributionReviewIntentV2
+        )
+        intent = intent_type(
             operation_id=operation_id,
             world_id=world_id,
             campaign_id=campaign_id,
@@ -2085,6 +2193,8 @@ def confirm_extract_promote_via_dungeonmind(
             reviewer_id=confirming_principal,
             reviewed_at=reviewed_at,
             review_intent_sha256=intent_sha256,
+            **({"reviewed_identity_preconditions": reviewed_identity_preconditions}
+               if reviewed_identity_preconditions is not None else {}),
         )
         confirmation = CommitConfirmationReceiptV2(
             confirmation_id=derive_confirmation_id(
