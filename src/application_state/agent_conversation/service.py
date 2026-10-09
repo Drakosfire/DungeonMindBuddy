@@ -7,6 +7,8 @@ import json
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+from pydantic import ValidationError
+
 from application_state.agent_conversation import repository as repo
 from application_state.agent_conversation.types import (
     ArchiveCommand,
@@ -15,6 +17,10 @@ from application_state.agent_conversation.types import (
     Conversation,
     ConversationCommand,
     ConversationCommandReceipt,
+    CommandResolutionRequestV1,
+    CommandResolutionRecordV1,
+    OccupiedCommandProofV1,
+    _fingerprint,
     Draft,
     DraftSave,
     DraftSubmit,
@@ -214,12 +220,73 @@ class AgentConversationService:
             raise ApplicationStateIntegrityError("stored new conversation receipt is invalid")
         return receipt
 
+    def get_command_resolution(self, request: CommandResolutionRequestV1) -> CommandResolutionRecordV1 | None:
+        _world_id(request.original_command.world_id)
+        with unit_of_work(_ready_dsn()) as conn:
+            conn.execute("SET TRANSACTION READ ONLY")
+            record = repo.get_command_resolution(conn, request.original_command.world_id, request.resolution_operation_id)
+        if record is not None and record.resolution_request_fingerprint != request.fingerprint():
+            raise ApplicationStateConflictError("resolution operation ID has a different binding")
+        return record
+
+    def resolve_new_conversation(self, request: CommandResolutionRequestV1, *, actor: str) -> CommandResolutionRecordV1:
+        command = request.original_command
+        _world_id(command.world_id)
+        if not actor.strip():
+            raise ApplicationStateValidationError("resolution actor is required")
+        with unit_of_work(_ready_dsn()) as conn:
+            pointer = _lock_pointer(conn, command.world_id)
+            previous = repo.get_command_resolution(conn, command.world_id, request.resolution_operation_id)
+            if previous is not None:
+                if previous.resolution_request_fingerprint != request.fingerprint():
+                    raise ApplicationStateConflictError("resolution operation ID has a different binding")
+                return previous
+            found = repo.get_command_receipt(conn, command.world_id, command.command_id)
+            retired = repo.get_command_retirement(conn, command.world_id, command.command_id)
+            if found is not None and retired is not None:
+                raise ApplicationStateIntegrityError("successful and retired command coexist")
+            if retired is not None:
+                if retired.original_request_fingerprint != request_fingerprint(command):
+                    raise ApplicationStateConflictError("retired command has a different binding")
+                raise ApplicationStateConflictError("use_original_resolution_record")
+            confirmed = occupied = None
+            if found is not None:
+                receipt, fingerprint = found
+                if receipt.command_kind == "new" and fingerprint == request_fingerprint(command):
+                    outcome = "confirmed"
+                    confirmed = receipt
+                else:
+                    outcome = "submitted_binding_blocked"
+                    occupied = OccupiedCommandProofV1(world_id=command.world_id, command_id=command.command_id,
+                        command_kind=receipt.command_kind, request_fingerprint=fingerprint,
+                        receipt_sha256=_fingerprint({"receipt": receipt.model_dump(mode="json"), "request_fingerprint": fingerprint}))
+            else:
+                if pointer.revision != request.expected_current_pointer_revision or pointer.active_conversation_id != request.expected_current_active_conversation_id:
+                    raise ApplicationStateConflictError("World active conversation changed; refresh before resolving")
+                outcome = "retired"
+            try:
+                record = CommandResolutionRecordV1.create(request=request,
+                    original_request_fingerprint=request_fingerprint(command), resolution_request_fingerprint=request.fingerprint(),
+                    observed_pointer=pointer, outcome=outcome, actor=actor, recorded_at=_now().isoformat(),
+                    confirmed_receipt=confirmed, occupied_receipt=occupied,
+                    retirement_operation_id=request.resolution_operation_id if outcome == "retired" else None)
+            except ValidationError as exc:
+                raise ApplicationStateIntegrityError("command resolution evidence is invalid") from exc
+            return repo.insert_command_resolution(conn, record)
+
     def new_conversation(self, command: ConversationCommand) -> ConversationCommandReceipt:
         world_id = _world_id(command.world_id)
         dsn = _ready_dsn()
         now = _now()
         with unit_of_work(dsn) as conn:
             pointer = _lock_pointer(conn, world_id)
+            retirement = repo.get_command_retirement(conn, world_id, command.command_id)
+            if retirement is not None:
+                if repo.get_command_receipt(conn, world_id, command.command_id) is not None:
+                    raise ApplicationStateIntegrityError("successful and retired command coexist")
+                if retirement.original_request_fingerprint != request_fingerprint(command):
+                    raise ApplicationStateConflictError("retired command has a different binding")
+                raise ApplicationStateConflictError("new_conversation_request_retired")
             replay = _receipt_replay(conn, command, command_kind="new")
             if replay is not None:
                 return replay
@@ -263,6 +330,8 @@ class AgentConversationService:
         now = _now()
         with unit_of_work(dsn) as conn:
             pointer = _lock_pointer(conn, world_id)
+            if repo.get_command_retirement(conn, world_id, command.command_id) is not None:
+                raise ApplicationStateConflictError("command ID is retired")
             replay = _receipt_replay(conn, command, command_kind="archive")
             if replay is not None:
                 return replay
@@ -297,6 +366,8 @@ class AgentConversationService:
         now = _now()
         with unit_of_work(dsn) as conn:
             pointer = _lock_pointer(conn, world_id)
+            if repo.get_command_retirement(conn, world_id, command.command_id) is not None:
+                raise ApplicationStateConflictError("command ID is retired")
             replay = _receipt_replay(conn, command, command_kind="reopen")
             if replay is not None:
                 return replay

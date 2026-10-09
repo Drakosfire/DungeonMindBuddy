@@ -253,7 +253,7 @@ def test_0015_upgrade_preserves_populated_0014_legacy_action_history(application
 
     command.upgrade(alembic_config(), "head")
     current, head = _current_and_head(application_state_dsn)
-    assert current == head == "20261007_0018"
+    assert current == head == "20261008_0019"
     loaded = PlanActionDialogueService().get_by_key(request.basis.world_id, request.idempotency_key)
     assert loaded is not None
     assert loaded.action_id == action.action_id

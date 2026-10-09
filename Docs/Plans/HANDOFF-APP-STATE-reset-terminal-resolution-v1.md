@@ -100,3 +100,10 @@ No root config/lockfile, Core, unrelated presentation, new framework, corpus/pro
 - Synthetic actual controller settlement: explicit verified blocked acknowledgement; confirmed/retired exact bytes only; absent/unavailable/server/storage errors retain; stale World/Plan/mount/generation/replaced bytes cannot clear; reload recovery preserves IDs. Existing failed/interrupted Graph Ask classification, drafts/proposals/current thread and history remain intact.
 
 Run owning affected tests/lint/typecheck, inspect exact cumulative base→head, commit/push/open one bounded implementation PR with evidence limits. Human/operator acceptance and independent review remain real gates; neither green synthetic checks nor this design lift full-World readiness or live activation holds.
+
+
+## Implementation activation — 2026-10-08
+
+PRIME merged this authority (#1035) at `ae9a98b468759d6c460344cfc0506beaa53033cb` and dispatched the closed lease. Implementation lane `codex/reset-terminal-resolution` in `/tmp/dmb-plan-ask-history` starts at that freshly fetched main. Source inventory still has only `20261007_0018`; the candidate `20261008_0019` migration is activated for source and disposable fixture testing only. PostgreSQL fixtures create/drop uniquely named application-state test databases; no Buddy runtime or live schema is changed. The existing controller lease remains APP-STATE-owned.
+
+Client settlement removes only the exact captured original request in one synchronous storage removal, after comparing both original and saved operation bytes. The operation identity is retained for exact readback; this avoids partially deleting two independent localStorage keys on access/quota failure. It is metadata, not an active pending command or a new operation ID. No implementation merge, runtime activation or full-World readiness is claimed.

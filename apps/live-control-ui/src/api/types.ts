@@ -5440,3 +5440,37 @@ export interface WorldAgentNewConversationStatusV1 {
     recorded_at: string;
   };
 }
+
+
+export interface WorldCommandResolutionRequestV1 {
+  schema: "dmb_agent_new_conversation_resolution_request_v1";
+  resolution_operation_id: string;
+  original_command: { world_id: string; command_id: string; expected_pointer_revision: number; expected_active_conversation_id: string | null };
+  expected_current_pointer_revision: number;
+  expected_current_active_conversation_id: string | null;
+}
+
+export interface WorldCommandResolutionRecordV1 {
+  schema: "dmb_agent_new_conversation_resolution_record_v1";
+  request: WorldCommandResolutionRequestV1;
+  original_command_kind: "new";
+  original_request_fingerprint: string;
+  resolution_request_fingerprint: string;
+  observed_pointer: { world_id: string; active_conversation_id: string | null; revision: number };
+  outcome: "confirmed" | "retired" | "submitted_binding_blocked";
+  actor: string;
+  recorded_at: string;
+  record_serializer_version: "canonical-json-ascii-v1";
+  confirmed_receipt: null | { world_id: string; command_id: string; command_kind: "new";
+    conversation_id: string; active_conversation_id: string; pointer_revision: number; recorded_at: string };
+  occupied_receipt: null | { world_id: string; command_id: string; command_kind: "new" | "archive" | "reopen";
+    request_fingerprint: string; receipt_sha256: string };
+  retirement_operation_id: string | null;
+  record_sha256: string;
+}
+
+export interface WorldCommandResolutionResponseV1 {
+  schema: "dmb_agent_new_conversation_resolution_response_v1";
+  status: "terminal" | "absent";
+  record: WorldCommandResolutionRecordV1 | null;
+}

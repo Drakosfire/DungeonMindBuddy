@@ -485,7 +485,7 @@ def test_agent_conversation_migration_is_single_current_head(
     application_state_dsn: str,
 ) -> None:
     current, head = _current_and_head(application_state_dsn)
-    assert current == head == "20261007_0018"
+    assert current == head == "20261008_0019"
 
 
 def test_completion_validation_codes_are_closed_safe_and_valueerror_compatible() -> (
@@ -1031,11 +1031,11 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
     assert v1_execution_before is not None
     command.downgrade(alembic_config(), "20261005_0017")
     assert _current_and_head(application_state_dsn) == (
-        "20261005_0017", "20261007_0018"
+        "20261005_0017", "20261008_0019"
     )
     command.upgrade(alembic_config(), "head")
     assert _current_and_head(application_state_dsn) == (
-        "20261007_0018", "20261007_0018"
+        "20261008_0019", "20261008_0019"
     )
     with psycopg.connect(application_state_dsn, autocommit=True) as conn:
         assert conn.execute(
@@ -1059,7 +1059,7 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
     command.downgrade(alembic_config(), "20261004_0016")
     command.upgrade(alembic_config(), "head")
     assert _current_and_head(application_state_dsn) == (
-        "20261007_0018", "20261007_0018"
+        "20261008_0019", "20261008_0019"
     )
     with psycopg.connect(application_state_dsn, autocommit=True) as conn:
         assert conn.execute(
@@ -1084,8 +1084,8 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
     with pytest.raises(RuntimeError, match="refusing to drop non-null Agent Graph context"):
         command.downgrade(alembic_config(), "20261004_0015")
     assert _current_and_head(application_state_dsn) == (
-        "20261007_0018",
-        "20261007_0018",
+        "20261008_0019",
+        "20261008_0019",
     )
 
 
@@ -3157,7 +3157,7 @@ def test_graph_execution_v2_source_read_receipt_round_trip_through_fresh_service
     from application_state.cli import alembic_config
     with pytest.raises(RuntimeError, match="refusing to downgrade while V2 Graph execution"):
         command.downgrade(alembic_config(), "20261005_0017")
-    assert _current_and_head(application_state_dsn) == ("20261007_0018", "20261007_0018")
+    assert _current_and_head(application_state_dsn) == ("20261008_0019", "20261008_0019")
     assert AgentConversationService().list_turns(world_id, conversation.conversation_id)[0] == reload
 
 
@@ -3204,4 +3204,165 @@ def test_read_only_reset_receipt_actual_repository_route(application_state_dsn, 
                 assert (await client.get(url+suffix)).status_code == 422
             assert (await client.get(url+query.replace("revision=0", "revision=1"))).status_code == 409
             assert (await client.get(url.replace(command.world_id, missing.world_id)+query)).json()["status"] == "absent"
+    asyncio.run(exercise())
+
+
+def _resolution_request(command, *, revision=0, conversation=None):
+    from application_state.agent_conversation.types import CommandResolutionRequestV1
+    return CommandResolutionRequestV1(resolution_operation_id=uuid4(), original_command=command,
+        expected_current_pointer_revision=revision, expected_current_active_conversation_id=conversation)
+
+
+@pytest.mark.parametrize("winner", ["old", "retire"])
+def test_terminal_reset_actual_lock_race_and_delayed_post(application_state_dsn, monkeypatch, winner):
+    import threading
+    import psycopg
+    from application_state.agent_conversation import service as owner
+    command = ConversationCommand(world_id="terminal-race-world", command_id=uuid4(), expected_pointer_revision=0, expected_active_conversation_id=None)
+    request = _resolution_request(command)
+    locked, release = threading.Event(), threading.Event()
+    original_lock = owner._lock_pointer
+    def gated_lock(conn, world):
+        pointer = original_lock(conn, world)
+        if threading.current_thread().name == winner:
+            locked.set()
+            assert release.wait(10)
+        return pointer
+    monkeypatch.setattr(owner, "_lock_pointer", gated_lock)
+    def old():
+        threading.current_thread().name = "old"
+        try:
+            return AgentConversationService().new_conversation(command)
+        except ApplicationStateConflictError as exc:
+            return str(exc)
+    def retire():
+        threading.current_thread().name = "retire"
+        return AgentConversationService().resolve_new_conversation(request, actor="test-gm")
+    functions = {"old": old, "retire": retire}
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(functions[winner])
+        assert locked.wait(10)
+        second = pool.submit(functions["retire" if winner == "old" else "old"])
+        release.set()
+        values = [first.result(timeout=20), second.result(timeout=20)]
+    record = next(value for value in values if hasattr(value, "outcome"))
+    service = AgentConversationService()
+    pointer = service.get_world_pointer(command.world_id)
+    assert record.outcome == ("confirmed" if winner == "old" else "retired")
+    assert service.get_command_resolution(request) == record
+    assert service.resolve_new_conversation(request, actor="different-later-gm") == record
+    if winner == "retire":
+        assert "new_conversation_request_retired" in values
+        assert pointer.revision == 0 and pointer.active_conversation_id is None
+        fresh = service.new_conversation(command.model_copy(update={"command_id": uuid4()}))
+        with pytest.raises(ApplicationStateConflictError, match="request_retired"):
+            service.new_conversation(command)
+        assert service.get_world_pointer(command.world_id).active_conversation_id == fresh.conversation_id
+        assert service.resolve_new_conversation(request, actor="test-gm") == record
+        different = request.model_copy(update={"resolution_operation_id": uuid4()})
+        with pytest.raises(ApplicationStateConflictError, match="use_original_resolution_record"):
+            service.resolve_new_conversation(different, actor="test-gm")
+        with pytest.raises(ApplicationStateConflictError, match="different binding"):
+            service.resolve_new_conversation(request.model_copy(update={"expected_current_pointer_revision": 1}), actor="test-gm")
+    else:
+        assert pointer.revision == 1
+        assert service.new_conversation(command) == record.confirmed_receipt
+    with psycopg.connect(application_state_dsn) as conn:
+        assert conn.execute("SELECT count(*) FROM agent.command_resolution WHERE world_id=%s", (command.world_id,)).fetchone()[0] == 1
+        assert conn.execute("SELECT count(*) FROM agent.conversation WHERE world_id=%s", (command.world_id,)).fetchone()[0] == 1
+
+
+@pytest.mark.parametrize("outcome", ["confirmed", "retired", "submitted_binding_blocked"])
+def test_terminal_records_fresh_readback_immutable_and_downgrade_refused(application_state_dsn, outcome):
+    import psycopg
+    from alembic import command as migration
+    from application_state.cli import alembic_config
+    from pydantic import ValidationError
+    service = AgentConversationService()
+    original = ConversationCommand(world_id="terminal-record-world", command_id=uuid4(), expected_pointer_revision=0, expected_active_conversation_id=None)
+    occupied = None
+    if outcome != "retired":
+        occupied = service.new_conversation(original)
+    submitted = original if outcome != "submitted_binding_blocked" else original.model_copy(update={"expected_pointer_revision": 9})
+    request = _resolution_request(submitted)
+    record = service.resolve_new_conversation(request, actor="test-gm")
+    assert record.outcome == outcome
+    assert AgentConversationService().get_command_resolution(request) == record
+    assert service.resolve_new_conversation(request, actor="test-gm") == record
+    with pytest.raises(ValidationError, match="digest mismatch"):
+        type(record).model_validate({**record.model_dump(mode="json", by_alias=True), "actor": "tampered"})
+    if occupied:
+        assert service.new_conversation(original) == occupied
+    if outcome == "submitted_binding_blocked":
+        blocked = record.occupied_receipt.model_dump(mode="json")
+        assert "conversation_id" not in blocked and "active_conversation_id" not in blocked
+        assert str(occupied.conversation_id) not in json.dumps(blocked)
+        with pytest.raises(psycopg.Error, match="immutable"):
+            with psycopg.connect(application_state_dsn) as conn:
+                conn.execute("DELETE FROM agent.command_receipt WHERE world_id=%s AND command_id=%s", (original.world_id, original.command_id))
+    for statement in ("DELETE FROM agent.command_resolution", "UPDATE agent.command_resolution SET outcome=outcome"):
+        with pytest.raises(psycopg.Error, match="immutable"):
+            with psycopg.connect(application_state_dsn) as conn:
+                conn.execute(statement)
+    with pytest.raises(Exception, match="downgrade refused"):
+        migration.downgrade(alembic_config(), "20261007_0018")
+    assert _current_and_head(application_state_dsn) == ("20261008_0019", "20261008_0019")
+    assert service.get_command_resolution(request) == record
+
+
+def test_terminal_empty_ledger_downgrade_and_nonterminal_cas_rolls_back(application_state_dsn):
+    import psycopg
+    from alembic import command as migration
+    from application_state.cli import alembic_config
+    original = ConversationCommand(world_id="terminal-missing-world", command_id=uuid4(), expected_pointer_revision=0, expected_active_conversation_id=None)
+    request = _resolution_request(original, revision=1)
+    with pytest.raises(ApplicationStateConflictError, match="changed"):
+        AgentConversationService().resolve_new_conversation(request, actor="test-gm")
+    with psycopg.connect(application_state_dsn) as conn:
+        assert conn.execute("SELECT count(*) FROM agent.world_state WHERE world_id=%s", (original.world_id,)).fetchone()[0] == 0
+        assert conn.execute("SELECT count(*) FROM agent.command_resolution").fetchone()[0] == 0
+    migration.downgrade(alembic_config(), "20261007_0018")
+    assert _current_and_head(application_state_dsn) == ("20261007_0018", "20261008_0019")
+    migration.upgrade(alembic_config(), "head")
+    assert _current_and_head(application_state_dsn) == ("20261008_0019", "20261008_0019")
+
+
+def test_terminal_resolution_actual_http_binding_readback_and_auth(application_state_dsn, monkeypatch):
+    import asyncio
+    import httpx
+    from fastapi import FastAPI, HTTPException
+    from apps.live_control_server.routes import agent as route
+    command = ConversationCommand(world_id="terminal-http-world", command_id=uuid4(), expected_pointer_revision=0, expected_active_conversation_id=None)
+    request = _resolution_request(command)
+    monkeypatch.setattr(route, "enforce_native_graph_gm", lambda _request: SimpleNamespace(subject="http-gm"))
+    monkeypatch.setattr(route, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(route, "_conversation_service", lambda _request: AgentConversationService())
+    app = FastAPI()
+    app.include_router(route.router, prefix="/api/live")
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            root = f"/api/live/agent/worlds/{command.world_id}/conversation/commands/{command.command_id}"
+            query = "?original_pointer_revision=0&original_active_conversation_id=null&current_pointer_revision=0&current_active_conversation_id=null"
+            status_url = root + "/resolutions/" + str(request.resolution_operation_id)
+            assert (await client.get(status_url+query)).json()["status"] == "absent"
+            body = request.model_dump(mode="json", by_alias=True)
+            response = await client.post(root+"/resolve", json=body)
+            assert response.status_code == 200, response.text
+            assert response.json()["record"]["outcome"] == "retired"
+            assert (await client.get(status_url+query)).json() == response.json()
+            assert (await client.post(root+"/resolve", json=body)).json() == response.json()
+            assert (await client.get(status_url+query+"&extra=x")).status_code == 422
+            assert (await client.get(status_url+query.replace("revision=0", "revision=1"))).status_code == 409
+            different = request.model_copy(update={"resolution_operation_id": uuid4()})
+            conflict = await client.post(root+"/resolve", json=different.model_dump(mode="json", by_alias=True))
+            assert conflict.status_code == 409 and conflict.json()["detail"]["code"] == "use_original_resolution_record"
+            assert (await client.post(root.replace(command.world_id,"other-world")+"/resolve", json=body)).status_code == 422
+            old = await client.post(f"/api/live/agent/worlds/{command.world_id}/conversation/new", json={"schema":"dmb_agent_new_conversation_v1", "command_id":str(command.command_id), "expected_pointer_revision":0,"expected_active_conversation_id":None})
+            assert old.status_code == 409 and old.json()["detail"]["code"] == "new_conversation_request_retired"
+            def reject(_request):
+                raise HTTPException(status_code=403, detail="GM required")
+            monkeypatch.setattr(route, "enforce_native_graph_gm", reject)
+            monkeypatch.setattr(route, "_verified_world_id", lambda _world: pytest.fail("lookup before auth"))
+            assert (await client.post(root+"/resolve", json=body)).status_code == 403
+            assert (await client.get(status_url+query)).status_code == 403
     asyncio.run(exercise())

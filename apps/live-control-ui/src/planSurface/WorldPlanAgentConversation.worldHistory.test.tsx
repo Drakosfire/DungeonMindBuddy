@@ -50,7 +50,7 @@ vi.mock("../agentInteraction/usePublishAgentSurfaceContext", () => ({
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { activeThreadStorageKey, loadAgentThreadById, persistAgentThread } from "../agentInteraction/agentInteractionStorage";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
-import { confirmedNewConversationStatus, newConversationRequestFingerprint, classifyPlanComposerIntent, WorldPlanAgentConversation } from "./components/WorldPlanAgentConversation";
+import { commandCanonicalDigest, verifiedCommandResolution, confirmedNewConversationStatus, newConversationRequestFingerprint, classifyPlanComposerIntent, WorldPlanAgentConversation } from "./components/WorldPlanAgentConversation";
 import { PlanEditGuardError, captureWorldPlanEditTarget, previewWorldPlanEditProposal, type WorldPlanEditEditorState } from "./agentEdit/planAgentEditProposal";
 import type { PlanConversationPresentationHosts } from "./components/PlanConversationDockAdapter";
 import { AGENT_TURN_HISTORY_CAP, threadStorageKey } from "./components/agentInteractionHistory";
@@ -4925,6 +4925,141 @@ describe("World Plan conversation consumer", () => {
     const bytes = '{"expected_active_conversation_id":null,"expected_pointer_revision":0,"world_id":"w\\u00f6rld\\ud83d\\ude00"}';
     expect(await newConversationRequestFingerprint("wörld😀", request)).toBe(Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(bytes))), (byte) => byte.toString(16).padStart(2, "0")).join(""));
     expect(await confirmedNewConversationStatus({ status: "confirmed" }, "wörld😀", request)).toBe(false);
+  });
+
+  async function terminalResponse(request: any, outcome = "retired") {
+    const { command_id: _commandId, ...original } = request.original_command;
+    const { resolution_operation_id: _operationId, ...operation } = request;
+    const created = "00000000-0000-0000-0000-000000000003";
+    const record: any = {
+      schema: "dmb_agent_new_conversation_resolution_record_v1", request, original_command_kind: "new",
+      original_request_fingerprint: await commandCanonicalDigest(original),
+      resolution_request_fingerprint: await commandCanonicalDigest(operation),
+      observed_pointer: { world_id: request.original_command.world_id, revision: request.expected_current_pointer_revision,
+        active_conversation_id: request.expected_current_active_conversation_id }, outcome, actor: "synthetic-gm",
+      recorded_at: "2026-10-08T00:00:00+00:00", record_serializer_version: "canonical-json-ascii-v1",
+      confirmed_receipt: outcome === "confirmed" ? { world_id: request.original_command.world_id, command_id: request.original_command.command_id,
+        command_kind: "new", conversation_id: created, active_conversation_id: created,
+        pointer_revision: request.original_command.expected_pointer_revision + 1, recorded_at: "2026-10-08T00:00:00Z" } : null,
+      occupied_receipt: outcome === "submitted_binding_blocked" ? { world_id: request.original_command.world_id,
+        command_id: request.original_command.command_id, command_kind: "new", request_fingerprint: "f".repeat(64), receipt_sha256: "a".repeat(64) } : null,
+      retirement_operation_id: outcome === "retired" ? request.resolution_operation_id : null,
+    };
+    record.record_sha256 = await commandCanonicalDigest(record);
+    return { schema: "dmb_agent_new_conversation_resolution_response_v1", status: "terminal", record };
+  }
+
+  function seedTerminalCommand() {
+    const id = "00000000-0000-0000-0000-000000000001";
+    const key = `dmb:world-agent-new-conversation:v1:${encodeURIComponent(worldId)}:${id}`;
+    const raw = JSON.stringify({ schema: "dmb_world_pending_new_conversation_v1", worldId, documentId,
+      request: { schema: "dmb_agent_new_conversation_v1", command_id: id, expected_pointer_revision: 0, expected_active_conversation_id: null } });
+    localStorage.setItem(key, raw);
+    const resolutionKey = `dmb:world-command-resolution:v1:${encodeURIComponent(worldId)}:${encodeURIComponent(documentId)}:${id}`;
+    return { key, raw, resolutionKey };
+  }
+
+  it.each(["retired", "confirmed", "submitted_binding_blocked", "absent", "unavailable", "op-conflict", "bad-digest",
+    "replaced-original", "replaced-resolution", "unmount", "scope-change", "storage-save-fail", "storage-clear-fail"])("settles only verified explicit terminal resolution: %s", async (mode) => {
+    const active = "00000000-0000-0000-0000-000000000002";
+    setupApi(history(active, 10, [makeTurn(1, "turn-1", "Retained question", "Retained answer")]));
+    const saved = seedTerminalCommand();
+    const result = deferred<any>();
+    const post = vi.spyOn(liveApi, "postWorldCommandResolution").mockImplementation(async (request) => {
+      const bytes = localStorage.getItem(saved.resolutionKey);
+      expect(bytes).not.toBeNull();
+      expect(JSON.parse(bytes!).request).toEqual(request);
+      return result.promise;
+    });
+    const reset = vi.spyOn(liveApi, "postWorldAgentNewConversation");
+    const ask = vi.spyOn(liveApi, "postWorldPlanAgentTurn");
+    const mounted = render(conversationElement());
+    await screen.findByText("Retained question");
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "My active composer draft" } });
+    if (mode === "storage-save-fail") vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("storage unavailable"); });
+    fireEvent.click(screen.getByRole("button", { name: "Resolve saved New Conversation request" }));
+    if (mode === "storage-save-fail") {
+      await screen.findByText("storage unavailable");
+      expect(post).not.toHaveBeenCalled(); expect(localStorage.getItem(saved.key)).toBe(saved.raw); return;
+    }
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+    const request = post.mock.calls[0]![0];
+    const identity = localStorage.getItem(saved.resolutionKey)!;
+    const response = await terminalResponse(request, ["confirmed", "submitted_binding_blocked"].includes(mode) ? mode : "retired");
+    if (mode === "bad-digest") response.record.actor = "forged";
+    if (mode === "replaced-original") localStorage.setItem(saved.key, saved.raw + " ");
+    if (mode === "replaced-resolution") localStorage.setItem(saved.resolutionKey, identity + " ");
+    if (mode === "unmount") mounted.unmount();
+    if (mode === "scope-change") mounted.rerender(conversationElement({ documentId: "other-plan" }));
+    if (mode === "storage-clear-fail") vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => { throw new Error("storage unavailable"); });
+    await act(async () => {
+      if (mode === "unavailable" || mode === "op-conflict") result.reject(new Error(mode === "op-conflict" ? "use_original_resolution_record" : "server unavailable"));
+      else result.resolve(mode === "absent" ? { schema: response.schema, status: "absent", record: null } : response);
+      await result.promise.catch(() => {});
+    });
+    if (mode === "submitted_binding_blocked") {
+      expect(localStorage.getItem(saved.key)).toBe(saved.raw);
+      fireEvent.click(await screen.findByRole("button", { name: "Acknowledge blocked submitted request" }));
+    }
+    if (["retired", "confirmed", "submitted_binding_blocked"].includes(mode)) {
+      await waitFor(() => expect(localStorage.getItem(saved.key)).toBeNull());
+      expect(localStorage.getItem(saved.resolutionKey)).toBe(identity);
+    } else {
+      expect(localStorage.getItem(saved.key)).not.toBeNull(); expect(localStorage.getItem(saved.resolutionKey)).not.toBeNull();
+    }
+    expect(reset).not.toHaveBeenCalled(); expect(ask).not.toHaveBeenCalled();
+    expect(harness.agent.updateThread).not.toHaveBeenCalled(); expect(harness.agent.createThread).not.toHaveBeenCalled();
+    if (!["unmount", "scope-change"].includes(mode)) {
+      expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("My active composer draft");
+      expect(screen.getByText("Retained answer")).toBeInTheDocument();
+    }
+  });
+
+  it("reads a lost resolution response after reload with its original operation/CAS and no reset POST", async () => {
+    const active = "00000000-0000-0000-0000-000000000002";
+    const api = setupApi(history(active, 10, []));
+    const saved = seedTerminalCommand();
+    let request: any;
+    const post = vi.spyOn(liveApi, "postWorldCommandResolution").mockImplementation(async (body) => {
+      request = body; throw new Error("lost resolution response");
+    });
+    const mounted = render(conversationElement()); await screen.findByText(/No messages yet/i);
+    fireEvent.click(screen.getByRole("button", { name: "Resolve saved New Conversation request" }));
+    await screen.findByText("lost resolution response");
+    const raw = localStorage.getItem(saved.resolutionKey);
+    mounted.unmount();
+    api.setCurrent(history(active, 20, []));
+    const lookup = vi.spyOn(liveApi, "getWorldCommandResolution").mockResolvedValue(await terminalResponse(request) as any);
+    render(conversationElement()); await screen.findByText(/No messages yet/i);
+    fireEvent.click(screen.getByRole("button", { name: "Check saved resolution record" }));
+    await waitFor(() => expect(localStorage.getItem(saved.key)).toBeNull());
+    expect(lookup).toHaveBeenCalledWith(request); expect(post).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(raw!).request.expected_current_pointer_revision).toBe(10);
+  });
+
+  it("retains the saved operation ID on a use-original-record conflict and explicit retries", async () => {
+    setupApi(history("00000000-0000-0000-0000-000000000002", 10, []));
+    const saved = seedTerminalCommand();
+    const post = vi.spyOn(liveApi, "postWorldCommandResolution").mockRejectedValue(new Error("use_original_resolution_record"));
+    render(conversationElement()); await screen.findByText(/No messages yet/i);
+    fireEvent.click(screen.getByRole("button", { name: "Resolve saved New Conversation request" }));
+    await screen.findByText("use_original_resolution_record");
+    const identity = localStorage.getItem(saved.resolutionKey);
+    fireEvent.click(screen.getByRole("button", { name: "Resolve saved New Conversation request" }));
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
+    expect(post.mock.calls[0]![0]).toEqual(post.mock.calls[1]![0]);
+    expect(localStorage.getItem(saved.resolutionKey)).toBe(identity); expect(localStorage.getItem(saved.key)).toBe(saved.raw);
+  });
+
+  it("refuses a blocked certificate whose alleged occupied fingerprint is the submitted binding", async () => {
+    const command = { schema: "dmb_agent_new_conversation_resolution_request_v1" as const, resolution_operation_id: crypto.randomUUID(),
+      original_command: { world_id: worldId, command_id: crypto.randomUUID(), expected_pointer_revision: 0, expected_active_conversation_id: null },
+      expected_current_pointer_revision: 0, expected_current_active_conversation_id: null };
+    const response = await terminalResponse(command, "submitted_binding_blocked");
+    response.record.occupied_receipt.request_fingerprint = response.record.original_request_fingerprint;
+    const { record_sha256: _digest, ...payload } = response.record;
+    response.record.record_sha256 = await commandCanonicalDigest(payload);
+    expect(await verifiedCommandResolution(response, command)).toBeNull();
   });
 
 });

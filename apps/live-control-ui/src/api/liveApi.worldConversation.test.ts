@@ -133,3 +133,34 @@ it("uses redirect rejection for status GET and never resends a reset after redir
   await expect(api.getWorldAgentNewConversationStatus("world-a", savedStatusCommand)).rejects.toThrow();
   expect(fetchSpy).toHaveBeenCalledTimes(1);
 });
+
+
+it("protects resolution POST/record GET and never automatically retries the metadata POST", async () => {
+  vi.stubEnv("VITE_LIVE_API_BASE_URL", ""); vi.resetModules(); const api = await import("./liveApi");
+  const original = { world_id: "world-a", command_id: savedStatusCommand.command_id, expected_pointer_revision: 0, expected_active_conversation_id: null };
+  const request = { schema: "dmb_agent_new_conversation_resolution_request_v1" as const, resolution_operation_id: "00000000-0000-0000-0000-000000000004", original_command: original, expected_current_pointer_revision: 0, expected_current_active_conversation_id: null };
+  let businessPosts = 0;
+  const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
+    if (String(url) === "/api/live/agent/local-session") return init?.method === "POST" ? Response.json({ status: "active", csrf_token: "fresh" }) : Response.json({ status: "active", csrf_token: "old" });
+    expect(init?.redirect).toBe("error"); expect(init?.credentials).toBe("same-origin");
+    if (init?.method === "POST") { businessPosts++; expect(JSON.parse(String(init.body))).toEqual(request); return Response.json({ detail: { code: "graph_auth_required" } }, { status: 401 }); }
+    return Response.json({ status: "absent" });
+  });
+  await expect(api.postWorldCommandResolution(request)).rejects.toMatchObject({ status: 401 });
+  expect(businessPosts).toBe(1);
+  await api.getWorldCommandResolution(request);
+  expect(fetchSpy.mock.calls.filter(([url, init]) => init?.method === "POST" && String(url).endsWith("/new"))).toHaveLength(0);
+  const lookup = fetchSpy.mock.calls.find(([url]) => String(url).includes("/resolutions/"))!;
+  expect(String(lookup[0])).toContain("original_active_conversation_id=null"); expect(String(lookup[0])).toContain("current_pointer_revision=0");
+});
+
+it("injects bearer for both exact resolution routes and rejects off-loopback destinations", async () => {
+  vi.stubEnv("VITE_LIVE_API_BASE_URL", "http://127.0.0.1:8000"); vi.resetModules(); const api = await import("./liveApi"); api.setNativeGraphAccessToken("resolution-token");
+  const request = { schema: "dmb_agent_new_conversation_resolution_request_v1" as const, resolution_operation_id: savedStatusCommand.command_id,
+    original_command: { world_id: "world-a", command_id: savedStatusCommand.command_id, expected_pointer_revision: 0, expected_active_conversation_id: null }, expected_current_pointer_revision: 0, expected_current_active_conversation_id: null };
+  const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ status: "absent" }));
+  await api.postWorldCommandResolution(request); fetchSpy.mockResolvedValue(Response.json({ status: "absent" })); await api.getWorldCommandResolution(request);
+  for (const [, init] of fetchSpy.mock.calls) { expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer resolution-token"); expect(init?.redirect).toBe("error"); }
+  vi.stubEnv("VITE_LIVE_API_BASE_URL", "https://api.example.invalid"); vi.resetModules(); const blocked = await import("./liveApi"); blocked.setNativeGraphAccessToken("resolution-token");
+  fetchSpy.mockClear(); await expect(blocked.postWorldCommandResolution(request)).rejects.toMatchObject({ status: 0 }); await expect(blocked.getWorldCommandResolution(request)).rejects.toMatchObject({ status: 0 }); expect(fetchSpy).not.toHaveBeenCalled();
+});

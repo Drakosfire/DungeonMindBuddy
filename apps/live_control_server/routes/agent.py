@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import ValidationError
 
 from application_state.agent_conversation import AgentConversationService
-from application_state.agent_conversation.types import ConversationCommand, TurnProvenance, request_fingerprint
+from application_state.agent_conversation.types import ConversationCommand, CommandResolutionRequestV1, TurnProvenance, request_fingerprint
 from application_state.errors import ApplicationStateError
 
 from apps.live_control_server.config import (
@@ -33,6 +33,7 @@ from apps.live_control_server.models.agent_turn import (
     AgentNewConversationResponse,
     AgentNewConversationStatusV1,
     AgentNewConversationReceiptV1,
+    AgentCommandResolutionResponseV1,
     AgentTurnContentBasis,
     AgentTurnRequest,
 )
@@ -1158,6 +1159,50 @@ def get_new_world_conversation_status(
             pointer_revision=receipt.pointer_revision, recorded_at=receipt.recorded_at.isoformat()))
 
 
+def _resolution_error(exc: ApplicationStateError) -> HTTPException:
+    code = "use_original_resolution_record" if str(exc) == "use_original_resolution_record" else "command_resolution_nonterminal"
+    return HTTPException(status_code=exc.status_code, detail={"code": code, "message": str(exc)})
+
+
+@router.post("/worlds/{world_id}/conversation/commands/{command_id}/resolve", response_model=AgentCommandResolutionResponseV1)
+def post_world_command_resolution(world_id: str, command_id: UUID, body: CommandResolutionRequestV1, request: Request) -> AgentCommandResolutionResponseV1:
+    principal = enforce_native_graph_gm(request)
+    verified_world_id = _verified_world_id(world_id)
+    if body.original_command.world_id != verified_world_id or body.original_command.command_id != command_id or request.query_params:
+        raise HTTPException(status_code=422, detail="resolution path and original command must match")
+    try:
+        record = _conversation_service(request).resolve_new_conversation(body, actor=principal.subject)
+    except ApplicationStateError as exc:
+        raise _resolution_error(exc) from exc
+    return AgentCommandResolutionResponseV1(status="terminal", record=record)
+
+
+@router.get("/worlds/{world_id}/conversation/commands/{command_id}/resolutions/{operation_id}", response_model=AgentCommandResolutionResponseV1)
+def get_world_command_resolution(world_id: str, command_id: UUID, operation_id: UUID, request: Request,
+    original_pointer_revision: int = Query(ge=0), original_active_conversation_id: str = Query(),
+    current_pointer_revision: int = Query(ge=0), current_active_conversation_id: str = Query(),
+) -> AgentCommandResolutionResponseV1:
+    enforce_native_graph_gm(request)
+    verified_world_id = _verified_world_id(world_id)
+    allowed = {"original_pointer_revision", "original_active_conversation_id", "current_pointer_revision", "current_active_conversation_id"}
+    if set(request.query_params) != allowed or any(len(request.query_params.getlist(key)) != 1 for key in allowed):
+        raise HTTPException(status_code=422, detail="exact resolution selectors required")
+    try:
+        original = ConversationCommand(world_id=verified_world_id, command_id=command_id,
+            expected_pointer_revision=original_pointer_revision,
+            expected_active_conversation_id=None if original_active_conversation_id == "null" else UUID(original_active_conversation_id))
+        body = CommandResolutionRequestV1(resolution_operation_id=operation_id, original_command=original,
+            expected_current_pointer_revision=current_pointer_revision,
+            expected_current_active_conversation_id=None if current_active_conversation_id == "null" else UUID(current_active_conversation_id))
+    except (ValueError, ValidationError) as exc:
+        raise HTTPException(status_code=422, detail="invalid resolution binding") from exc
+    try:
+        record = _conversation_service(request).get_command_resolution(body)
+    except ApplicationStateError as exc:
+        raise _resolution_error(exc) from exc
+    return AgentCommandResolutionResponseV1(status="terminal" if record else "absent", record=record)
+
+
 @router.post(
     "/worlds/{world_id}/conversation/new",
     response_model=AgentNewConversationResponse,
@@ -1182,7 +1227,7 @@ def post_new_world_conversation(
     except ApplicationStateError as exc:
         raise HTTPException(
             status_code=exc.status_code,
-            detail={"code": "conversation_command_rejected", "message": str(exc)},
+            detail={"code": "new_conversation_request_retired" if str(exc) == "new_conversation_request_retired" else "conversation_command_rejected", "message": str(exc)},
         ) from exc
     return AgentNewConversationResponse(
         world_id=verified_world_id,
