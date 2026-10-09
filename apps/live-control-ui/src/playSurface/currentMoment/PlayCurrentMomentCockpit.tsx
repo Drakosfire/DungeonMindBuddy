@@ -9,8 +9,10 @@ import {
 } from "../../api/liveApi";
 import type { AnyPlayRunRecord, PlayRunProgress, WorldPlayRunRecordV2 } from "../../api/types";
 import { ReadOnlyBodyContent } from "../../markdownReader/ReadOnlyBodyContent";
+import { SceneCard, type SceneCardChoice, type SceneCardChoiceActions, type SceneCardIdentity } from "../../shared/SceneCard";
 import {
   canonicalizePlayRunProgress,
+  type NativeRunbookBeatV2,
   type NativeRunbookChoiceV2,
   type NativeRunbookReadyV2,
   type NativeRunbookSceneV2,
@@ -18,9 +20,9 @@ import {
 import type { RunbookMutationStatus } from "../runbook/RunbookTableDeck";
 import {
   resolveCurrentMoment,
-  sceneInCurrentBeat,
   type PlayWorkspace,
 } from "./currentMomentModel";
+import { beatForScene, PlayRecordedOutcomes, PlaySceneOutline, sceneInAnyBeat } from "./PlayCockpitPanels";
 import {
   choiceBranchRelevance,
   operableDecisions,
@@ -183,10 +185,27 @@ function isExactSceneNoteAcknowledgement(
     && updated.progress.notes_by_element_id[sceneId] === submittedText;
 }
 
-function relevanceLabel(relevance: NativeRunbookSceneV2["relevance"]): string | null {
-  if (relevance === "emphasized") return "emphasized";
-  if (relevance === "de-emphasized") return "de-emphasized";
-  return null;
+function narrowPlayViewport(): boolean {
+  return typeof window !== "undefined"
+    && typeof window.matchMedia === "function"
+    && window.matchMedia("(max-width: 60rem)").matches;
+}
+
+function playSceneCardChoices(decisions: readonly NativeRunbookChoiceV2[], selections: Readonly<Record<string, string>>): SceneCardChoice[] {
+  return decisions.map((choice) => ({
+    id: choice.id,
+    title: choice.title,
+    bodyText: choice.bodyText,
+    bodyContent: choice.bodyContent,
+    associatedSceneId: choice.sceneId,
+    selectedOptionId: selections[choice.id] ?? null,
+    options: choice.options.map((option) => ({
+      id: option.id,
+      title: option.title,
+      bodyText: option.bodyText,
+      bodyContent: option.bodyContent,
+    })),
+  }));
 }
 
 function DecisionBlock({
@@ -289,6 +308,38 @@ function DecisionBlock({
   );
 }
 
+function BeatContext({
+  beat,
+  resolved,
+  relation,
+}: {
+  beat: NativeRunbookBeatV2;
+  resolved: boolean;
+  relation: "Current Beat" | "Viewing Beat";
+}) {
+  return (
+    <details
+      className="play-beat-context"
+      data-testid="play-beat-context-disclosure"
+      data-beat-id={beat.id}
+      data-beat-resolved={resolved ? "true" : "false"}
+    >
+      <summary>
+        <span>{relation}</span>
+        <strong>{beat.title}</strong>
+        <span className="play-beat-context-state">
+          {beat.beatKind ? `${beat.beatKind} · ` : ""}{resolved ? "Resolved" : "Not marked resolved"}
+        </span>
+      </summary>
+      <ReadOnlyBodyContent
+        content={beat.bodyContent}
+        fallbackText={beat.bodyText}
+        className="play-body play-beat-context-body"
+      />
+    </details>
+  );
+}
+
 export function PlayCurrentMomentCockpit({
   deck,
   mutationStatus,
@@ -309,22 +360,27 @@ export function PlayCurrentMomentCockpit({
     : JSON.stringify([run.schema_version, run.run_id]);
   const mutationsOpen = mutationStatus === "idle" || mutationStatus === "saving";
   const [workspace, setWorkspace] = useState<PlayWorkspace>({ kind: "current" });
-  const [beatCollapsed, setBeatCollapsed] = useState(false);
-  const [glanceCollapsed, setGlanceCollapsed] = useState(false);
+  const [beatCollapsed, setBeatCollapsed] = useState(narrowPlayViewport);
+  const [glanceCollapsed, setGlanceCollapsed] = useState(narrowPlayViewport);
   const [progressRejection, setProgressRejection] = useState<string | null>(null);
   const [exactRereadSucceeded, setExactRereadSucceeded] = useState(false);
   const [sceneNoteDrafts, setSceneNoteDrafts] = useState<Record<string, SceneNoteDraft>>({});
   const [sceneNoteStorageWarnings, setSceneNoteStorageWarnings] = useState<Record<string, string>>({});
+  const cockpitRef = useRef<HTMLElement | null>(null);
+  const compactLayoutRef = useRef(narrowPlayViewport());
   const mountedRef = useRef(true);
   const liveRunIdRef = useRef(run.run_id);
   const liveRunIdentityRef = useRef(runIdentity);
   const requestSerialRef = useRef(0);
-  const scenesLauncherRef = useRef<HTMLButtonElement | null>(null);
-  const glanceToggleRef = useRef<HTMLButtonElement | null>(null);
+  const outlineToggleRef = useRef<HTMLButtonElement | null>(null);
   const inFlightRef = useRef(false);
   const saveSceneNoteRef = useRef<(scope: string) => void>(() => undefined);
   const sceneNoteDraftsRef = useRef(sceneNoteDrafts);
   const sceneNoteRequestCounterRef = useRef(0);
+  const compactOutlineToggleRef = useRef<HTMLButtonElement | null>(null);
+  const compactOutcomesToggleRef = useRef<HTMLButtonElement | null>(null);
+  const compactPanelFocusRef = useRef<"scenes" | "outcomes">("scenes");
+  const workspaceHeadingRef = useRef<HTMLHeadingElement | null>(null);
   sceneNoteDraftsRef.current = sceneNoteDrafts;
 
   useEffect(() => {
@@ -332,8 +388,9 @@ export function PlayCurrentMomentCockpit({
     liveRunIdRef.current = run.run_id;
     liveRunIdentityRef.current = runIdentity;
     setWorkspace({ kind: "current" });
-    setBeatCollapsed(false);
-    setGlanceCollapsed(false);
+    const compactPanels = compactLayoutRef.current;
+    setBeatCollapsed(compactPanels);
+    setGlanceCollapsed(compactPanels);
     setProgressRejection(null);
     setExactRereadSucceeded(false);
     inFlightRef.current = false;
@@ -343,11 +400,48 @@ export function PlayCurrentMomentCockpit({
     };
   }, [runIdentity]);
 
+  useEffect(() => {
+    const cockpit = cockpitRef.current;
+    if (cockpit && typeof ResizeObserver !== "undefined") {
+      let previousCompact: boolean | null = null;
+      const observer = new ResizeObserver((entries) => {
+        const width = entries[0]?.contentRect.width ?? cockpit.getBoundingClientRect().width;
+        const compact = width <= 960;
+        compactLayoutRef.current = compact;
+        if (previousCompact === compact) return;
+        previousCompact = compact;
+        setBeatCollapsed(compact);
+        setGlanceCollapsed(compact);
+      });
+      observer.observe(cockpit);
+      return () => observer.disconnect();
+    }
+
+    if (typeof window.matchMedia !== "function") return;
+    const query = window.matchMedia("(max-width: 60rem)");
+    const sync = () => {
+      compactLayoutRef.current = query.matches;
+      setBeatCollapsed(query.matches);
+      setGlanceCollapsed(query.matches);
+    };
+    sync();
+    query.addEventListener?.("change", sync);
+    return () => query.removeEventListener?.("change", sync);
+  }, []);
+
+  useEffect(() => {
+    if (workspace.kind !== "scene-inspect") return;
+    queueMicrotask(() => workspaceHeadingRef.current?.focus());
+  }, [workspace]);
+
   const moment = resolveCurrentMoment(deck);
   const currentBeat = moment.status === "ok" ? moment.beat : null;
   const currentScene = moment.status === "ok" ? moment.scene : null;
   const inspectedScene = workspace.kind === "scene-inspect"
-    ? sceneInCurrentBeat(deck, workspace.sceneId)
+    ? sceneInAnyBeat(deck, workspace.sceneId)
+    : null;
+  const inspectedBeat = workspace.kind === "scene-inspect"
+    ? beatForScene(deck, workspace.sceneId)
     : null;
   const worldOwnedRun = run.schema_version === "dmb_world_play_run_record_v2";
   const sceneNoteId = worldOwnedRun ? currentScene?.id ?? null : null;
@@ -602,7 +696,6 @@ export function PlayCurrentMomentCockpit({
     sceneNoteChangedOnServer, mutationStatus, run.run_revision]);
 
   const makeSceneCurrent = (scene: NativeRunbookSceneV2) => {
-    if (scene.beatId !== deck.currentBeatId) return;
     void replaceProgress({
       ...run.progress,
       current_beat_id: scene.beatId,
@@ -630,12 +723,12 @@ export function PlayCurrentMomentCockpit({
 
   const restoreWorkspaceFocus = () => {
     queueMicrotask(() => {
-      const scenes = scenesLauncherRef.current;
-      if (scenes?.isConnected) {
-        scenes.focus();
-        return;
+      const outline = compactLayoutRef.current
+        ? compactOutlineToggleRef.current
+        : outlineToggleRef.current;
+      if (outline?.isConnected) {
+        outline.focus();
       }
-      glanceToggleRef.current?.focus();
     });
   };
 
@@ -644,27 +737,103 @@ export function PlayCurrentMomentCockpit({
     restoreWorkspaceFocus();
   };
 
+  const toggleOutline = () => {
+    const nextCollapsed = !beatCollapsed;
+    if (compactLayoutRef.current && !nextCollapsed) {
+      compactPanelFocusRef.current = "scenes";
+      setGlanceCollapsed(true);
+    }
+    setBeatCollapsed(nextCollapsed);
+  };
+
+  const toggleOutcomes = () => {
+    const nextCollapsed = !glanceCollapsed;
+    if (compactLayoutRef.current && !nextCollapsed) {
+      compactPanelFocusRef.current = "outcomes";
+      setBeatCollapsed(true);
+    }
+    setGlanceCollapsed(nextCollapsed);
+  };
+
   const openInspect = (scene: NativeRunbookSceneV2) => {
+    if (compactLayoutRef.current) {
+      setBeatCollapsed(true);
+      setGlanceCollapsed(true);
+    }
     setWorkspace({ kind: "scene-inspect", sceneId: scene.id });
   };
 
-  const sceneCount = currentBeat?.scenes.length ?? 0;
   const saving = mutationStatus === "saving";
   const workspaceKind = workspace.kind === "scene-inspect" && inspectedScene == null
     ? "current"
     : workspace.kind;
+  const compactOverlayOpen = compactLayoutRef.current && (!beatCollapsed || !glanceCollapsed);
   const decisions = currentBeat
     ? operableDecisions(currentBeat, currentScene?.id ?? null)
     : [];
+  const inspectedDecisions = inspectedBeat && inspectedScene
+    ? operableDecisions(inspectedBeat, inspectedScene.id)
+    : [];
+  const sceneCardIdentity = (sceneId: string): SceneCardIdentity => ({
+    worldId: worldOwnedRun ? run.world_id : null,
+    campaignId: worldOwnedRun ? null : run.campaign_id,
+    documentId: run.playable_artifact_id,
+    sceneId,
+    revision: run.playable_revision,
+    workRevisionId: worldOwnedRun ? run.playable_work_revision_id : null,
+    contentSha256: run.playable_content_sha256,
+    sourceState: "run-pin",
+  });
+  const choiceActions = (source: readonly NativeRunbookChoiceV2[], writable: boolean): SceneCardChoiceActions => ({
+    writable,
+    busy: saving || !mutationsOpen,
+    onSelectOption: writable ? (choiceId, optionId) => {
+      const choice = source.find((entry) => entry.id === choiceId);
+      if (choice) selectOption(choice, optionId);
+    } : undefined,
+    onClearSelection: writable ? (choiceId) => {
+      const choice = source.find((entry) => entry.id === choiceId);
+      if (choice) clearSelection(choice);
+    } : undefined,
+    renderSelectedContext: ({ id }) => {
+      const choice = source.find((entry) => entry.id === id);
+      if (!choice) return null;
+      const branch = choiceBranchRelevance(deck, choice);
+      return branch.length ? (
+        <ul className="play-decision-relevance" data-testid="play-decision-relevance">
+          {branch.map((row) => (
+            <li key={row.targetId} data-target-id={row.targetId} data-relevance={row.relevance}>
+              {row.title} — {row.relevance}
+            </li>
+          ))}
+        </ul>
+      ) : null;
+    },
+  });
 
   return (
     <section
       className="play-cockpit"
+      ref={cockpitRef}
       data-testid="play-current-moment-cockpit"
       data-play-run-id={run.run_id}
       data-current-beat-id={deck.currentBeatId}
       data-current-scene-id={deck.currentSceneId ?? ""}
       aria-label="Current moment"
+      onKeyDown={(event) => {
+        if (event.key !== "Escape") return;
+        event.preventDefault();
+        if (compactOverlayOpen) {
+          const focusTarget = compactPanelFocusRef.current === "scenes"
+            ? compactOutlineToggleRef
+            : compactOutcomesToggleRef;
+          setBeatCollapsed(true);
+          setGlanceCollapsed(true);
+          queueMicrotask(() => focusTarget.current?.focus());
+        } else if (workspaceKind === "scene-inspect") {
+          closeToCurrent();
+        }
+      }}
     >
       {moment.status === "incoherent" ? (
         <p role="alert" className="play-banner" data-testid="play-current-moment-incoherent">
@@ -695,14 +864,30 @@ export function PlayCurrentMomentCockpit({
         </p>
       ) : null}
 
-      {currentBeat ? (
-        <div className="play-cockpit-orientation" data-testid="play-current-orientation">
-          <p data-testid="play-current-beat">Current Beat: {currentBeat.title}</p>
-          <p data-testid="play-current-scene">
-            {currentScene ? `Current Scene: ${currentScene.title}` : "No Scene is current"}
-          </p>
-        </div>
-      ) : null}
+      <nav className="play-compact-tools" aria-label="Play panels">
+        <button
+          type="button"
+          data-testid="play-compact-outline-toggle"
+          ref={compactOutlineToggleRef}
+          aria-expanded={!beatCollapsed}
+          aria-controls="play-outline-body"
+          onClick={toggleOutline}
+        >
+          <span>Scenes</span>
+          <span aria-hidden="true">{beatCollapsed ? "Browse" : "Close"}</span>
+        </button>
+        <button
+          type="button"
+          data-testid="play-compact-outcomes-toggle"
+          ref={compactOutcomesToggleRef}
+          aria-expanded={!glanceCollapsed}
+          aria-controls="play-recorded-outcomes-body"
+          onClick={toggleOutcomes}
+        >
+          <span>Run record</span>
+          <span aria-hidden="true">{glanceCollapsed ? "Open" : "Close"}</span>
+        </button>
+      </nav>
 
       <div
         className="play-cockpit-shell"
@@ -714,6 +899,8 @@ export function PlayCurrentMomentCockpit({
           className="play-cockpit-center"
           data-testid="play-central-workspace"
           data-workspace={workspaceKind}
+          inert={compactOverlayOpen}
+          aria-hidden={compactOverlayOpen ? true : undefined}
         >
           {workspaceKind === "current" && currentBeat && currentScene ? (
             <article
@@ -721,22 +908,18 @@ export function PlayCurrentMomentCockpit({
               data-testid="play-workspace-current"
               aria-labelledby="play-workspace-heading"
             >
-              <p className="play-kicker">Current Scene</p>
-              <h2 id="play-workspace-heading">{currentScene.title}</h2>
-              <ReadOnlyBodyContent
-                content={currentScene.bodyContent}
-                fallbackText={currentScene.bodyText}
-                className="play-body play-scene-board-body"
-              />
-              <DecisionBlock
-                deck={deck}
-                decisions={decisions}
-                saving={saving}
-                mutationsOpen={mutationsOpen}
-                onSelect={selectOption}
-                onClear={clearSelection}
-              />
-              {worldOwnedRun && sceneNoteScope && sceneNoteId ? (
+              <SceneCard
+                identity={sceneCardIdentity(currentScene.id)}
+                scene={currentScene}
+                choices={playSceneCardChoices(decisions, run.progress.selections)}
+                variant="play-current"
+                kicker="Current Scene"
+                headingId="play-workspace-heading"
+                headingRef={workspaceHeadingRef}
+                context={<BeatContext beat={currentBeat}
+                  resolved={run.progress.resolved_beat_ids.includes(currentBeat.id)} relation="Current Beat" />}
+                choiceActions={choiceActions(decisions, true)}
+                footer={worldOwnedRun && sceneNoteScope && sceneNoteId ? (
                 <section className="play-notes" data-testid="play-scene-note">
                   <label htmlFor={`play-scene-note-${run.run_id}-${sceneNoteId}`}>Scene note</label>
                   <textarea
@@ -796,14 +979,16 @@ export function PlayCurrentMomentCockpit({
                     </p>
                   ) : null}
                 </section>
-              ) : null}
+                ) : null}
+              />
             </article>
           ) : null}
 
           {workspaceKind === "current" && currentBeat && currentScene == null ? (
             <article data-testid="play-workspace-beat-only" aria-labelledby="play-workspace-heading">
               <p className="play-kicker">Current Beat</p>
-              <h2 id="play-workspace-heading">{currentBeat.title}</h2>
+              <h2 id="play-workspace-heading" ref={workspaceHeadingRef} tabIndex={-1}>{currentBeat.title}</h2>
+              <p className="play-muted" data-testid="play-current-scene">No Scene is current.</p>
               <ReadOnlyBodyContent
                 content={currentBeat.bodyContent}
                 fallbackText={currentBeat.bodyText}
@@ -844,78 +1029,32 @@ export function PlayCurrentMomentCockpit({
             </article>
           ) : null}
 
-          {workspaceKind === "scenes" && currentBeat ? (
-            <article data-testid="play-workspace-scenes" aria-labelledby="play-workspace-heading">
-              <p className="play-kicker">Scenes</p>
-              <h2 id="play-workspace-heading">Scenes</h2>
-              <button type="button" data-testid="play-workspace-back" onClick={closeToCurrent}>
-                Back
-              </button>
-              {currentBeat.scenes.length === 0 ? (
-                <p className="play-muted" data-testid="play-scenes-empty">
-                  No authored Scenes in this Beat.
-                </p>
-              ) : (
-                <ul className="play-scene-inventory" data-testid="play-scene-inventory">
-                  {currentBeat.scenes.map((scene) => {
-                    const isCurrent = currentScene?.id === scene.id;
-                    const extra = relevanceLabel(scene.relevance);
-                    return (
-                      <li
-                        key={scene.id}
-                        data-scene-id={scene.id}
-                        data-current={isCurrent ? "true" : "false"}
-                        aria-current={isCurrent ? "true" : undefined}
-                      >
-                        <span>
-                          {scene.title}
-                          {isCurrent ? " · current" : " · not current"}
-                          {extra ? ` · ${extra}` : ""}
-                        </span>
-                        <button
-                          type="button"
-                          aria-label={`Inspect ${scene.title}`}
-                          onClick={() => openInspect(scene)}
-                        >
-                          Inspect
-                        </button>
-                        {mutationsOpen && !isCurrent ? (
-                          <button
-                            type="button"
-                            disabled={saving}
-                            aria-label={`Make ${scene.title} current`}
-                            onClick={() => makeSceneCurrent(scene)}
-                          >
-                            Make Current
-                          </button>
-                        ) : null}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </article>
-          ) : null}
-
           {workspaceKind === "scene-inspect" && inspectedScene && currentBeat ? (
             <article
               data-testid="play-workspace-inspect"
               data-inspecting-current={inspectedScene.id === currentScene?.id ? "true" : "false"}
               aria-labelledby="play-workspace-heading"
             >
-              <p className="play-kicker">
-                {inspectedScene.id === currentScene?.id ? "Current Scene" : "Inspecting Scene"}
-              </p>
-              <h2 id="play-workspace-heading">
-                {inspectedScene.id === currentScene?.id
-                  ? inspectedScene.title
-                  : `Inspecting ${inspectedScene.title}`}
-              </h2>
-              <p data-testid="play-inspect-current">
-                Current: {currentScene ? currentScene.title : currentBeat.title}
-              </p>
-              <p data-testid="play-inspect-scene">Inspecting: {inspectedScene.title}</p>
-              <div className="play-controls">
+              <SceneCard
+                identity={sceneCardIdentity(inspectedScene.id)}
+                scene={inspectedScene}
+                choices={playSceneCardChoices(inspectedDecisions, run.progress.selections)}
+                variant="play-inspection"
+                kicker={inspectedScene.id === currentScene?.id ? "Current Scene" : "Inspecting Scene · no Run change"}
+                titlePrefix={inspectedScene.id === currentScene?.id ? undefined : "Inspecting"}
+                headingId="play-workspace-heading"
+                headingRef={workspaceHeadingRef}
+                status={<>
+                  <p className="play-inspect-position" data-testid="play-inspect-current">
+                    Run position: {currentBeat.title} · {currentScene?.title ?? "No current Scene"}
+                  </p>
+                  <p className="play-inspect-position" data-testid="play-inspect-scene">
+                    Viewing: {inspectedBeat?.title ?? "Unknown Beat"} · {inspectedScene.title}
+                  </p>
+                </>}
+                context={inspectedBeat ? <BeatContext beat={inspectedBeat}
+                  resolved={run.progress.resolved_beat_ids.includes(inspectedBeat.id)} relation="Viewing Beat" /> : null}
+                sceneActions={<div className="play-controls">
                 <button type="button" data-testid="play-workspace-back" onClick={closeToCurrent}>
                   Back
                 </button>
@@ -930,91 +1069,36 @@ export function PlayCurrentMomentCockpit({
                     Make Current
                   </button>
                 ) : null}
-              </div>
-              <ReadOnlyBodyContent
-                content={inspectedScene.bodyContent}
-                fallbackText={inspectedScene.bodyText}
-                className="play-body"
+                </div>}
+                choiceActions={choiceActions(inspectedDecisions, false)}
+                footer={worldOwnedRun ? (
+                  <section className="play-notes play-notes--readonly" data-testid="play-inspected-scene-note">
+                    <h3>Scene note</h3>
+                    <p>{Object.prototype.hasOwnProperty.call(run.progress.notes_by_element_id, inspectedScene.id)
+                      ? run.progress.notes_by_element_id[inspectedScene.id]
+                      : "No saved note."}</p>
+                  </section>
+                ) : null}
               />
             </article>
           ) : null}
         </div>
 
-        <aside
-          className={`play-cockpit-rail play-beat-context${beatCollapsed ? " is-collapsed" : ""}`}
-          data-testid="play-beat-context"
-        >
-          <button
-            type="button"
-            className="play-rail-toggle"
-            data-testid="play-beat-context-toggle"
-            aria-expanded={!beatCollapsed}
-            aria-controls="play-beat-context-body"
-            aria-label={
-              currentBeat
-                ? `${beatCollapsed ? "Expand" : "Collapse"} Beat Context: ${currentBeat.title}`
-                : undefined
-            }
-            onClick={() => setBeatCollapsed((current) => !current)}
-          >
-            Beat Context
-            {!beatCollapsed && currentBeat ? `: ${currentBeat.title}` : ""}
-          </button>
-          {beatCollapsed ? null : (
-            <div id="play-beat-context-body" className="play-rail-body">
-              {currentBeat ? (
-                <>
-                  <h2 data-testid="play-beat-context-title">{currentBeat.title}</h2>
-                  {currentBeat.beatKind ? (
-                    <p className="play-muted">{currentBeat.beatKind}</p>
-                  ) : null}
-                  {run.progress.resolved_beat_ids.includes(currentBeat.id) ? (
-                    <p className="play-muted">resolved</p>
-                  ) : null}
-                  <ReadOnlyBodyContent
-                    content={currentBeat.bodyContent}
-                    fallbackText={currentBeat.bodyText}
-                    className="play-body"
-                  />
-                </>
-              ) : (
-                <p className="play-muted">Current Beat is unavailable.</p>
-              )}
-            </div>
-          )}
-        </aside>
-
-        <aside
-          className={`play-cockpit-rail play-at-a-glance${glanceCollapsed ? " is-collapsed" : ""}`}
-          data-testid="play-at-a-glance"
-        >
-          <button
-            type="button"
-            className="play-rail-toggle"
-            data-testid="play-at-a-glance-toggle"
-            ref={glanceToggleRef}
-            aria-expanded={!glanceCollapsed}
-            aria-controls="play-at-a-glance-body"
-            onClick={() => setGlanceCollapsed((current) => !current)}
-          >
-            At a Glance
-          </button>
-          {glanceCollapsed ? null : (
-            <div id="play-at-a-glance-body" className="play-rail-body">
-              <p className="play-glance-caption">Around this moment</p>
-              <button
-                type="button"
-                className="play-glance-category"
-                data-testid="play-at-a-glance-scenes"
-                ref={scenesLauncherRef}
-                aria-pressed={workspaceKind === "scenes"}
-                onClick={() => setWorkspace({ kind: "scenes" })}
-              >
-                Scenes {sceneCount}
-              </button>
-            </div>
-          )}
-        </aside>
+        <PlaySceneOutline
+          deck={deck}
+          currentSceneId={currentScene?.id ?? null}
+          inspectedSceneId={workspaceKind === "scene-inspect" ? inspectedScene?.id ?? null : null}
+          collapsed={beatCollapsed}
+          onToggle={toggleOutline}
+          onInspect={openInspect}
+          toggleRef={outlineToggleRef}
+        />
+        <PlayRecordedOutcomes
+          deck={deck}
+          collapsed={glanceCollapsed}
+          onToggle={toggleOutcomes}
+          onInspect={openInspect}
+        />
       </div>
     </section>
   );

@@ -57,8 +57,20 @@ test("keeps the active Play scene primary across available widths", async ({ pag
     const beat = page.getByTestId("play-beat-context");
     const glance = page.getByTestId("play-at-a-glance");
     await expect(central).toBeVisible();
-    await expect(beat).toBeVisible();
-    await expect(glance).toBeVisible();
+    const compact = viewport.width <= 960;
+    const beatToggle = page.getByTestId(compact ? "play-compact-outline-toggle" : "play-beat-context-toggle");
+    const glanceToggle = page.getByTestId(compact ? "play-compact-outcomes-toggle" : "play-at-a-glance-toggle");
+    if (compact) {
+      await expect(beatToggle).toBeVisible();
+      await expect(glanceToggle).toBeVisible();
+      await expect(beatToggle).toHaveAttribute("aria-expanded", "false");
+      await expect(glanceToggle).toHaveAttribute("aria-expanded", "false");
+      await expect(beat).toBeHidden();
+      await expect(glance).toBeHidden();
+    } else {
+      await expect(beat).toBeVisible();
+      await expect(glance).toBeVisible();
+    }
 
     const geometry = await page.evaluate(() => {
       const top = (selector: string) => {
@@ -85,9 +97,19 @@ test("keeps the active Play scene primary across available widths", async ({ pag
     expect(geometry.documentWidth).toBeLessThanOrEqual(viewport.width);
     expect(geometry.sceneLeft).toBeGreaterThanOrEqual(0);
     expect(geometry.sceneRight).toBeLessThanOrEqual(viewport.width);
-    if (viewport.width <= 960) {
-      expect(geometry.centralTop).toBeLessThan(geometry.beatTop);
-      expect(geometry.centralTop).toBeLessThan(geometry.glanceTop);
+    if (compact) {
+      const sceneTop = geometry.centralTop;
+      await beatToggle.click();
+      await expect(beat).toBeVisible();
+      await expect(glance).toBeHidden();
+      const [sceneAfterOpen, beatAfterOpen] = await Promise.all([
+        central.evaluate((element) => element.getBoundingClientRect().top),
+        beat.evaluate((element) => element.getBoundingClientRect().top),
+      ]);
+      expect(Math.abs(sceneAfterOpen - sceneTop)).toBeLessThan(1);
+      expect(Math.abs(beatAfterOpen - sceneAfterOpen)).toBeLessThan(1);
+      await beatToggle.click();
+      await expect(beat).toBeHidden();
     } else {
       expect(geometry.centralTop).toBeLessThanOrEqual(geometry.beatTop);
     }
@@ -100,14 +122,60 @@ test("keeps the active Play scene primary across available widths", async ({ pag
     }
 
     if (viewport.width === 320) {
-      const beatToggle = page.getByTestId("play-beat-context-toggle");
+      await expect(beatToggle).toHaveAttribute("aria-expanded", "false");
       await beatToggle.focus();
       await page.keyboard.press("Enter");
-      await expect(beatToggle).toHaveAttribute("aria-expanded", "false");
-      await page.keyboard.press("Enter");
       await expect(beatToggle).toHaveAttribute("aria-expanded", "true");
+      await page.keyboard.press("Enter");
+      await expect(beatToggle).toHaveAttribute("aria-expanded", "false");
     }
   }
+});
+
+test("keeps shared Plan focus and Play inspection readable at 320px without inspection writes", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.goto("/?story=scene-card--narrow-plan-focus&mode=preview");
+  await expect(page.locator("html[data-storyloaded]")).toBeVisible();
+  const planCard = page.locator('[data-scene-card][data-source-state="verified"]');
+  await expect(planCard).toBeVisible();
+  await expect(planCard.getByTestId("scene-card-source-cue")).toHaveText("Saved Plan");
+  await expect(planCard.getByRole("heading", { name: /very long winding corridor/ })).toBeVisible();
+  await expect(planCard).toContainText("Which route will the party take?");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+  expect(await planCard.evaluate((card) => {
+    const right = card.getBoundingClientRect().right;
+    return Array.from(card.querySelectorAll<HTMLElement>(".world-plan-scene-reader__context, .world-plan-scene-reader__target"))
+      .every((child) => child.getBoundingClientRect().right <= right + 1);
+  })).toBe(true);
+  await expect(page).toHaveScreenshot("scene-card-plan-focus-narrow.png");
+
+  const writes: string[] = [];
+  page.on("request", (request) => {
+    if (!["GET", "HEAD"].includes(request.method())) writes.push(`${request.method()} ${request.url()}`);
+  });
+  await page.goto("/?story=play-current-moment-cockpit--responsive-cockpit&mode=preview");
+  await expect(page.locator("html[data-storyloaded]")).toBeVisible();
+  await page.getByTestId("play-compact-outline-toggle").click();
+  await page.locator('[data-testid="play-outline-scene"][data-scene-id="scene:north-gate"]').click();
+  const inspected = page.getByTestId("play-workspace-inspect");
+  await expect(inspected).toBeVisible();
+  await expect(inspected.getByTestId("scene-card-source-cue")).toHaveText("Run-pinned Playable");
+  await expect(inspected).toContainText("What do they do with the surviving brood?");
+  await expect(inspected).toContainText("Keep the choice open.");
+  const preview = inspected.locator('[data-option-id="option:follow-brood"] details');
+  await preview.locator("summary").click();
+  await expect(preview).toHaveAttribute("open", "");
+  await expect(preview).toContainText("The party pursues the retreating creatures");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+  expect(await inspected.evaluate((workspace) => {
+    const decision = workspace.querySelector<HTMLElement>(".shared-scene-choice");
+    if (!decision) return false;
+    const right = decision.getBoundingClientRect().right;
+    return Array.from(decision.querySelectorAll<HTMLElement>(".play-decision-option"))
+      .every((option) => option.getBoundingClientRect().right <= right + 1);
+  })).toBe(true);
+  expect(writes).toEqual([]);
+  await expect(page).toHaveScreenshot("scene-card-play-inspect-narrow.png");
 });
 
 test("keeps the full App Play route readable and keyboard-operable at narrow widths", async ({ page }) => {
@@ -126,7 +194,8 @@ test("keeps the full App Play route readable and keyboard-operable at narrow wid
     await expect(page.locator("html[data-storyloaded]")).toBeVisible();
     const scene = page.getByTestId("play-workspace-current");
     const sceneTitle = page.getByRole("heading", { name: "North Gate" });
-    const beatToggle = page.getByTestId("play-beat-context-toggle");
+    const compact = viewport.width <= 960;
+    const beatToggle = page.getByTestId(compact ? "play-compact-outline-toggle" : "play-beat-context-toggle");
     const note = page.getByRole("textbox", { name: "Scene note" });
     await expect(page.getByTestId("play-surface-ready")).toBeVisible();
     await expect(page.getByTestId("play-start-new-run")).toHaveText("Start New Run");
@@ -186,9 +255,10 @@ test("keeps the full App Play route readable and keyboard-operable at narrow wid
     expect(geometry.documentWidth).toBeLessThanOrEqual(viewport.width);
     expect(geometry.titleVisibleInFirstViewport).toBe(true);
     expect(geometry.bodyFontSize).toBeGreaterThanOrEqual(14);
-    if (viewport.width <= 960) {
-      expect(geometry.scene!.top).toBeLessThan(geometry.beat!.top);
-      expect(geometry.scene!.top).toBeLessThan(geometry.glance!.top);
+    if (compact) {
+      await expect(page.getByRole("navigation", { name: "Play panels" })).toBeVisible();
+      await expect(page.getByTestId("play-beat-context")).toBeHidden();
+      await expect(page.getByTestId("play-at-a-glance")).toBeHidden();
     }
 
     if (viewport.width === 320) {
@@ -200,10 +270,11 @@ test("keeps the full App Play route readable and keyboard-operable at narrow wid
       expect(firstControlAfterRunAction).not.toBe("play-beat-context-toggle");
 
       await beatToggle.focus();
-      await page.keyboard.press("Enter");
       await expect(beatToggle).toHaveAttribute("aria-expanded", "false");
       await page.keyboard.press("Enter");
       await expect(beatToggle).toHaveAttribute("aria-expanded", "true");
+      await page.keyboard.press("Enter");
+      await expect(beatToggle).toHaveAttribute("aria-expanded", "false");
     }
 
     await page.waitForFunction(() => (
@@ -219,6 +290,106 @@ test("keeps the full App Play route readable and keyboard-operable at narrow wid
       method === "PUT" && path === "/api/live/world-play-runs/v2/active"
     ))).toBe(true);
   }
+});
+
+test("collapses supporting panels when the Play canvas is narrow inside a wide viewport", async ({ page }) => {
+  await page.setViewportSize(desktop);
+  await page.goto("/?story=play-current-moment-cockpit--app-shell-responsive-cockpit&mode=preview");
+  await expect(page.locator("html[data-storyloaded]")).toBeVisible();
+
+  const cockpit = page.getByTestId("play-current-moment-cockpit");
+  const shell = page.getByTestId("play-cockpit-shell");
+  const outlineToggle = page.getByTestId("play-beat-context-toggle");
+  const outcomesToggle = page.getByTestId("play-at-a-glance-toggle");
+  const compactOutlineToggle = page.getByTestId("play-compact-outline-toggle");
+  const compactOutcomesToggle = page.getByTestId("play-compact-outcomes-toggle");
+  await expect(outlineToggle).toHaveAttribute("aria-expanded", "true");
+  await expect(outcomesToggle).toHaveAttribute("aria-expanded", "true");
+
+  await cockpit.evaluate((element) => {
+    element.style.width = "800px";
+    element.style.marginInline = "auto";
+  });
+  await expect(compactOutlineToggle).toBeVisible();
+  await expect(compactOutcomesToggle).toBeVisible();
+  await expect(compactOutlineToggle).toHaveAttribute("aria-expanded", "false");
+  await expect(compactOutcomesToggle).toHaveAttribute("aria-expanded", "false");
+  await expect.poll(() => shell.evaluate((element) => (
+    getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean).length
+  ))).toBe(1);
+
+  await compactOutlineToggle.click();
+  await expect(compactOutlineToggle).toHaveAttribute("aria-expanded", "true");
+  await cockpit.evaluate((element) => { element.style.width = "760px"; });
+  await expect(compactOutlineToggle).toHaveAttribute("aria-expanded", "true");
+
+  await cockpit.evaluate((element) => { element.style.width = "1000px"; });
+  await expect(outlineToggle).toHaveAttribute("aria-expanded", "true");
+  await expect(outcomesToggle).toHaveAttribute("aria-expanded", "true");
+  await expect.poll(() => shell.evaluate((element) => (
+    getComputedStyle(element).gridTemplateColumns.split(" ").filter(Boolean).length
+  ))).toBe(3);
+});
+
+test("keeps compact scene navigation and the Run record directly reachable", async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 900 });
+  await page.goto("/?story=play-current-moment-cockpit--app-shell-responsive-cockpit&mode=preview");
+  await expect(page.locator("html[data-storyloaded]")).toBeVisible();
+
+  const compactOutline = page.getByTestId("play-compact-outline-toggle");
+  const compactOutcomes = page.getByTestId("play-compact-outcomes-toggle");
+  const scene = page.getByTestId("play-central-workspace");
+  const outline = page.getByTestId("play-beat-context");
+  const outcomes = page.getByTestId("play-at-a-glance");
+  await expect(compactOutline).toBeVisible();
+  await expect(compactOutcomes).toBeVisible();
+  await expect(compactOutline).toHaveAttribute("aria-expanded", "false");
+  await expect(compactOutcomes).toHaveAttribute("aria-expanded", "false");
+
+  const sceneTopBefore = await scene.evaluate((element) => element.getBoundingClientRect().top);
+  await compactOutline.click();
+  await expect(outline).toBeVisible();
+  await expect(outcomes).toBeHidden();
+  await expect(compactOutline).toHaveAttribute("aria-expanded", "true");
+  const positions = await Promise.all([
+    scene.evaluate((element) => element.getBoundingClientRect().top),
+    outline.evaluate((element) => element.getBoundingClientRect().top),
+  ]);
+  expect(Math.abs(positions[0] - sceneTopBefore)).toBeLessThan(1);
+  expect(Math.abs(positions[1] - positions[0])).toBeLessThan(1);
+
+  await compactOutcomes.click();
+  await expect(outline).toBeHidden();
+  await expect(outcomes).toBeVisible();
+  await expect(compactOutline).toHaveAttribute("aria-expanded", "false");
+  await expect(compactOutcomes).toHaveAttribute("aria-expanded", "true");
+  await compactOutcomes.click();
+  await expect(outcomes).toBeHidden();
+
+  await compactOutline.click();
+  await expect(scene).toHaveAttribute("inert", "");
+  for (let tab = 0; tab < 3; tab += 1) {
+    await page.keyboard.press("Tab");
+    expect(await page.evaluate(() => (
+      document.activeElement?.closest("[data-testid='play-central-workspace']") != null
+    ))).toBe(false);
+  }
+  await page.keyboard.press("Escape");
+  await expect(outline).toBeHidden();
+  await expect(compactOutline).toBeFocused();
+  await expect(scene).not.toHaveAttribute("inert", "");
+
+  await compactOutline.click();
+  await outline.getByRole("button", { name: /Lower Cistern/ }).click();
+  const inspectedHeading = page.getByRole("heading", { name: "Inspecting Lower Cistern" });
+  await expect(inspectedHeading).toBeFocused();
+  await expect(outline).toBeHidden();
+  await expect(outcomes).toBeHidden();
+  await page.getByTestId("play-workspace-back").click();
+  const currentHeading = page.getByRole("heading", { name: "North Gate" });
+  await expect(currentHeading).toBeVisible();
+  await expect(compactOutline).toBeFocused();
+  await expect(scene).toContainText("North Gate");
 });
 
 const mobileDockStories = [

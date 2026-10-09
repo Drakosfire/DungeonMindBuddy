@@ -46,6 +46,11 @@ export const BREACH_DOGFOOD_RUNBOOK_MARKDOWN = [
   "Following the brood deeper turns the defense of the gate into a search below",
   "the fortifications.",
   "",
+  "<!-- dmb-playable-element:v2 kind=scene id=scene:lower-cistern -->",
+  "### Lower Cistern",
+  "",
+  "Water echoes below the broken gate. The party has crossed into the next Beat.",
+  "",
 ].join("\n");
 
 export function breachDogfoodManifestV2(run: PlayRunRecord): PlayRunReferenceManifestV2 {
@@ -63,6 +68,7 @@ export function breachDogfoodManifestV2(run: PlayRunRecord): PlayRunReferenceMan
     scenes: [
       { scene_id: "scene:north-gate", beat_id: "beat:hold-breach" },
       { scene_id: "scene:tunnel-pursuit", beat_id: "beat:hold-breach" },
+      { scene_id: "scene:lower-cistern", beat_id: "beat:lower-tunnels" },
     ],
     choices: [
       {
