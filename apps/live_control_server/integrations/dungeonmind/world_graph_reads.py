@@ -95,6 +95,7 @@ from dungeonmind.application.world_graph_retrieval import (
     ObjectLookupResult,
     RetrievalBounds,
     SourceAnchorIndexRequest,
+    SelectedSourceAnchorIndexRequest,
     SourceAnchorMetadata,
     SourceAnchorResolution,
     WorldGraphRetrievalService,
@@ -2246,6 +2247,7 @@ class ResolvedWorldGraphSearchV2:
 
     result: WorldGraphRetrievalResult
     source_pins: tuple[ResolvedSourceAnchorMetadataV2, ...]
+    native_targets: tuple[EvidenceTarget, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -2255,6 +2257,69 @@ class ResolvedWorldGraphSourceIndexV2:
     status: Literal["complete", "overflow"]
     eligible_count: int
     source_pins: tuple[ResolvedSourceAnchorMetadataV2, ...]
+
+
+@dataclass(frozen=True)
+class ResolvedSelectedSourceIndexV1:
+    status: Literal["complete", "overflow", "unavailable"]
+    eligible_count: int
+    source_pins: tuple[ResolvedSourceAnchorMetadataV2, ...]
+    commitment: Mapping[str, Any] | None
+
+
+def list_selected_source_anchor_index_direct_v1(services: DirectWorldGraphReadServices,
+    request: WorldGraphSearchRequest, *, revision_id: str, targets: tuple[EvidenceTarget, ...],
+) -> ResolvedSelectedSourceIndexV1:
+    """One exact admitted selected metadata index; no source content is opened."""
+    from dungeonmind.domain.canonical import canonical_sha256
+    from application_state.agent_conversation.types import GraphSelectedSourceReadScopeV2
+    try:
+        if not revision_id or (request.revision_pin and request.revision_pin != revision_id):
+            raise ValueError("selected index revision differs from search")
+        projection = _map_retrieval_context(request.model_copy(update={"revision_pin": revision_id}), services.binding)
+        native = services.retrieval.list_selected_source_anchor_index(SelectedSourceAnchorIndexRequest(projection=projection, targets=targets, max_entries=512))
+        snapshot = native.snapshot
+        if (snapshot.world_id, snapshot.campaign_id, snapshot.focus, snapshot.admissibility, snapshot.scope_mode, snapshot.revision_id) != (
+            projection.world_id, projection.campaign_id, projection.focus, projection.admissibility, projection.scope_mode, revision_id):
+            raise ValueError("selected index changed authorized context")
+        context = {"world_id": snapshot.world_id, "campaign_id": snapshot.campaign_id, "scope_mode": str(snapshot.scope_mode),
+            "focus": snapshot.focus.model_dump(mode="json"), "admissibility": str(snapshot.admissibility), "revision_id": snapshot.revision_id}
+        def target_json(values):
+            return [{"kind": target.kind, "target_id": target.target_id} for target in values]
+        requested = target_json(native.requested_targets)
+        if requested != target_json(tuple(sorted(targets, key=lambda target: (target.kind, target.target_id)))):
+            raise ValueError("selected index changed requested targets")
+        selector = {"schema": "dm_selected_source_anchor_selector_v1", "context": context, "max_entries": 512, "targets": requested}
+        if native.max_entries != 512 or native.index_scope != "selected_targets" or canonical_sha256(selector) != native.selector_sha256:
+            raise ValueError("selected selector commitment changed")
+        entries = [{"anchor_id": entry.anchor_id, "evidence_ref_id": entry.evidence_ref_id,
+            "source_artifact_id": entry.source_artifact_id, "source_revision_id": entry.source_revision_id} for entry in native.entries]
+        index_payload = {"schema": "dm_selected_source_anchor_index_v1", "selector_sha256": native.selector_sha256,
+            "status": native.status, "admitted_targets": target_json(native.admitted_targets), "not_visible_targets": target_json(native.not_visible_targets),
+            "provenance_gap_count": native.provenance_gap_count, "unavailable_binding_count": native.unavailable_binding_count,
+            "eligible_count": native.eligible_count, "entries": entries}
+        if canonical_sha256(index_payload) != native.index_sha256:
+            raise ValueError("selected index digest changed")
+        if native.status == "overflow":
+            if native.eligible_count <= 512 or entries:
+                raise ValueError("selected overflow must be explicit and empty")
+            return ResolvedSelectedSourceIndexV1(status="overflow", eligible_count=native.eligible_count, source_pins=(), commitment=None)
+        commitment = {"schema": "dmb_selected_source_anchor_index_commitment_v1", "context": context,
+            "access_context_sha256": canonical_sha256(context), "requested_targets": requested,
+            "admitted_targets": target_json(native.admitted_targets), "not_visible_targets": target_json(native.not_visible_targets),
+            "requested_count": native.requested_count, "admitted_count": native.admitted_count, "not_visible_count": native.not_visible_count,
+            "provenance_gap_count": native.provenance_gap_count, "unavailable_binding_count": native.unavailable_binding_count,
+            "eligible_count": native.eligible_count, "max_entries": 512, "status": native.status, "index_scope": native.index_scope,
+            "selector_sha256": native.selector_sha256, "index_sha256": native.index_sha256}
+        pins = tuple(ResolvedSourceAnchorMetadataV2(anchor_id=_buddy_anchor_id(entry.anchor_id), graph_revision=revision_id,
+            evidence_ref_id=entry.evidence_ref_id, source_artifact_id=entry.source_artifact_id, source_revision_id=entry.source_revision_id) for entry in native.entries)
+        # Validate the exact same durable codec before exposing any authority.
+        GraphSelectedSourceReadScopeV2(retrieval_session_id="bootstrap-validation", initial_claim_packet_sha256="0"*64, world_id=request.world_id,
+            campaign_id=snapshot.campaign_id, graph_revision=revision_id, admitted_anchors=[
+                {key: value for key, value in vars(pin).items() if key != "graph_revision"} for pin in pins], selected_index_commitment=commitment)
+        return ResolvedSelectedSourceIndexV1(status=native.status, eligible_count=native.eligible_count, source_pins=pins, commitment=commitment)
+    except Exception as exc:
+        raise _map_direct_error(exc) from exc
 
 
 def list_source_anchor_index_direct_v2(
@@ -2351,7 +2416,20 @@ def search_world_graph_direct_v2(
             and anchor.evidence_ref_id
             and anchor.source_artifact_id
         ), key=lambda pin: pin.anchor_id))
-        return ResolvedWorldGraphSearchV2(result=public, source_pins=pins)
+        candidates = [EvidenceTarget(kind="object", target_id=obj.object_id) for obj in native.objects]
+        candidates += [EvidenceTarget(kind="relationship", target_id=rel.relationship_id) for rel in native.relationships]
+        candidates += [EvidenceTarget(kind="assertion", target_id=row.assertion_id) for row in native.property_assertions]
+        selected = []
+        seen = set()
+        for target in candidates:
+            key = (target.kind, target.target_id)
+            if key not in seen:
+                selected.append(target)
+                seen.add(key)
+            if len(selected) == 8:
+                break
+        return ResolvedWorldGraphSearchV2(result=public, source_pins=pins,
+            native_targets=tuple(sorted(selected, key=lambda target: (target.kind, target.target_id))))
     except Exception as exc:  # noqa: BLE001
         raise _map_direct_error(exc) from exc
 

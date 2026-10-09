@@ -1125,8 +1125,111 @@ class GraphSourceReadScopeV2(StrictModel):
         return self
 
 
+class GraphSelectedTargetV1(StrictModel):
+    kind: Literal["object", "relationship", "assertion"]
+    target_id: str = Field(min_length=1, max_length=256)
+
+    @model_validator(mode="after")
+    def validate_id(self) -> "GraphSelectedTargetV1":
+        if self.target_id != self.target_id.strip() or any(c in self.target_id for c in "\r\n\t"):
+            raise ValueError("selected target ID must be canonical")
+        return self
+
+
+class GraphSelectedFocusV1(StrictModel):
+    kind: Literal["none", "session"]
+    session_id: str | None
+
+
+class GraphSelectedContextV1(StrictModel):
+    world_id: str = Field(min_length=1, max_length=256)
+    campaign_id: str | None
+    scope_mode: Literal["world", "campaign", "world_cross_campaign"]
+    focus: GraphSelectedFocusV1
+    admissibility: Literal["gm", "player"]
+    revision_id: str = Field(min_length=1, max_length=256)
+
+    @model_validator(mode="after")
+    def validate_context(self) -> "GraphSelectedContextV1":
+        if (self.scope_mode == "campaign") != bool(self.campaign_id):
+            raise ValueError("selected campaign context is invalid")
+        if self.focus.kind == "session":
+            if not self.campaign_id or not self.focus.session_id:
+                raise ValueError("session focus requires campaign and session")
+        elif self.focus.session_id is not None:
+            raise ValueError("none focus cannot carry session")
+        return self
+
+
+class GraphSelectedIndexCommitmentV1(StrictModel):
+    schema_: Literal["dmb_selected_source_anchor_index_commitment_v1"] = Field(default="dmb_selected_source_anchor_index_commitment_v1", alias="schema")
+    context: GraphSelectedContextV1
+    access_context_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    requested_targets: list[GraphSelectedTargetV1] = Field(min_length=1, max_length=8)
+    admitted_targets: list[GraphSelectedTargetV1] = Field(max_length=8)
+    not_visible_targets: list[GraphSelectedTargetV1] = Field(max_length=8)
+    requested_count: int = Field(strict=True, ge=1, le=8)
+    admitted_count: int = Field(strict=True, ge=0, le=8)
+    not_visible_count: int = Field(strict=True, ge=0, le=8)
+    provenance_gap_count: int = Field(strict=True, ge=0)
+    unavailable_binding_count: int = Field(strict=True, ge=0)
+    eligible_count: int = Field(strict=True, ge=0, le=512)
+    max_entries: Literal[512]
+    status: Literal["complete", "unavailable"]
+    index_scope: Literal["selected_targets"]
+    selector_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    index_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_commitment(self) -> "GraphSelectedIndexCommitmentV1":
+        arrays = [self.requested_targets, self.admitted_targets, self.not_visible_targets]
+        keys = [[(target.kind, target.target_id) for target in items] for items in arrays]
+        if any(items != sorted(set(items)) for items in keys):
+            raise ValueError("selected targets must be canonical and unique")
+        requested, admitted, hidden = map(set, keys)
+        if admitted & hidden or admitted | hidden != requested or (
+            self.requested_count, self.admitted_count, self.not_visible_count
+        ) != tuple(len(items) for items in keys):
+            raise ValueError("selected coverage partition is invalid")
+        context = self.context.model_dump(mode="json")
+        if self.access_context_sha256 != _canonical_sha256(context):
+            raise ValueError("selected access context digest changed")
+        selector = {"schema": "dm_selected_source_anchor_selector_v1", "context": context,
+            "max_entries": self.max_entries, "targets": [target.model_dump(mode="json") for target in self.requested_targets]}
+        if self.selector_sha256 != _canonical_sha256(selector):
+            raise ValueError("selected selector digest changed")
+        if (self.status == "complete") != (self.eligible_count > 0):
+            raise ValueError("selected status/count conflict")
+        return self
+
+
+class GraphSelectedSourceReadScopeV2(GraphSourceReadScopeV2):
+    initial_claim_packet_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    selected_index_commitment: GraphSelectedIndexCommitmentV1
+
+    @model_validator(mode="after")
+    def validate_selected_scope(self) -> "GraphSelectedSourceReadScopeV2":
+        commitment = self.selected_index_commitment
+        if self.graph_revision != commitment.context.revision_id or self.campaign_id != commitment.context.campaign_id or len(self.admitted_anchors) != commitment.eligible_count:
+            raise ValueError("selected scope differs from committed context/pins")
+        entries = []
+        for anchor in self.admitted_anchors:
+            item = anchor.model_dump(mode="json")
+            if item["anchor_id"].startswith("source-anchor:v1:"):
+                item["anchor_id"] = "dm-source-anchor:v1:" + item["anchor_id"][len("source-anchor:v1:"):]
+            entries.append(item)
+        index = {"schema": "dm_selected_source_anchor_index_v1", "selector_sha256": commitment.selector_sha256,
+            "status": commitment.status, "admitted_targets": [target.model_dump(mode="json") for target in commitment.admitted_targets],
+            "not_visible_targets": [target.model_dump(mode="json") for target in commitment.not_visible_targets],
+            "provenance_gap_count": commitment.provenance_gap_count, "unavailable_binding_count": commitment.unavailable_binding_count,
+            "eligible_count": commitment.eligible_count, "entries": entries}
+        if commitment.index_sha256 != _canonical_sha256(index):
+            raise ValueError("selected index digest changed")
+        return self
+
+
 class GraphExecutionPolicyV2(GraphExecutionPolicyV1):
-    source_read_scope: GraphSourceReadScopeV2
+    source_read_scope: GraphSelectedSourceReadScopeV2 | GraphSourceReadScopeV2
     max_source_read_calls: int = Field(strict=True, ge=0, le=8)
     max_source_read_anchors: int = Field(strict=True, ge=0, le=8)
     max_source_read_chars: int = Field(strict=True, ge=0, le=96000)
@@ -1134,6 +1237,8 @@ class GraphExecutionPolicyV2(GraphExecutionPolicyV1):
 
     @model_validator(mode="after")
     def validate_source_budgets(self) -> GraphExecutionPolicyV2:
+        if (self.policy_version == "plan_world_graph_execution_selected_scope_v1") != isinstance(self.source_read_scope, GraphSelectedSourceReadScopeV2):
+            raise ValueError("selected execution policy requires the selected scope subtype")
         if (self.max_source_read_calls == 0) != (self.max_source_read_anchors == 0):
             raise ValueError("disabled source-read budgets must set call and anchor limits to zero")
         if (self.max_source_read_calls == 0) != (self.max_source_read_chars == 0):
@@ -1544,9 +1649,32 @@ def graph_execution_policy_digest_v2(
 PlanWorldGraphExecution = PlanWorldGraphExecutionV1 | PlanWorldGraphExecutionV2
 
 
+_SELECTED_SOURCE_INDEX_SELECTION_POLICY_V1 = "parent_initial_retrieval_with_selected_source_index_v1"
+
 _BOUNDED_SOURCE_INDEX_SELECTION_POLICY_V1 = (
     "parent_initial_retrieval_with_bounded_source_index_v1"
 )
+
+
+def validate_selected_source_binding(receipt: PlanWorldGraphContextReceiptV1, execution: PlanWorldGraphExecution | None) -> None:
+    """Bind the selected policy to its immutable composite at every read/write boundary."""
+    selected_policy = receipt.graph_packet.selection_policy_version == _SELECTED_SOURCE_INDEX_SELECTION_POLICY_V1
+    selected_scope = isinstance(execution.policy.source_read_scope, GraphSelectedSourceReadScopeV2) if isinstance(execution, PlanWorldGraphExecutionV2) else False
+    if selected_policy != selected_scope:
+        raise ValueError("selected receipt policy and frozen scope differ")
+    if selected_scope:
+        selected = execution.policy.source_read_scope
+        if selected.world_id != receipt.graph_authority.managed_world_id or selected.campaign_id != receipt.graph_authority.campaign_id or selected.graph_revision != receipt.graph_authority.graph_revision or any(anchor.evidence_ref_id not in receipt.graph_packet.candidate_evidence_ref_ids for anchor in selected.admitted_anchors):
+            raise ValueError("selected scope differs from managed receipt authority")
+        composite = {"schema": "dmb_selected_retrieval_composite_v1", "selection_policy_version": _SELECTED_SOURCE_INDEX_SELECTION_POLICY_V1,
+            "initial_claim_packet_sha256": selected.initial_claim_packet_sha256,
+            "selected_index": selected.selected_index_commitment.model_dump(mode="json", by_alias=True),
+            "source_pins": [anchor.model_dump(mode="json") for anchor in selected.admitted_anchors]}
+        if _canonical_sha256(composite) != receipt.graph_packet.retrieval_packet_sha256:
+            raise ValueError("selected composite differs from frozen receipt")
+        context = selected.selected_index_commitment.context
+        if context.world_id != receipt.graph_authority.native_world_id or context.revision_id != receipt.graph_authority.graph_revision or context.scope_mode != "world_cross_campaign" or context.campaign_id != receipt.graph_authority.campaign_id or context.admissibility != "gm" or context.focus.kind != "none" or receipt.graph_authority.admissibility_version != "gm-v1":
+            raise ValueError("selected native context differs from receipt authority")
 
 
 def validate_completion_against_receipt(
@@ -1663,7 +1791,7 @@ def validate_completion_against_receipt(
                     "Graph claim evidence refs must be in the frozen candidate set",
                 )
             indexed_refs = set(claim.evidence_ref_ids) - dispatched_evidence
-            if indexed_refs and packet.selection_policy_version == _BOUNDED_SOURCE_INDEX_SELECTION_POLICY_V1:
+            if indexed_refs and packet.selection_policy_version in {_BOUNDED_SOURCE_INDEX_SELECTION_POLICY_V1, _SELECTED_SOURCE_INDEX_SELECTION_POLICY_V1}:
                 _reject_graph_completion(
                     GraphCompletionRejectionCode.EVIDENCE_NOT_DISPATCHED,
                     "indexed Graph evidence requires a producing execution envelope",
@@ -1746,7 +1874,7 @@ def derive_execution_answer_context_status(
     claims = [s for s in answer_segments if isinstance(s, PlanWorldGraphClaimSegmentV1)]
     indexed_policy = (
         receipt.graph_packet.selection_policy_version
-        == _BOUNDED_SOURCE_INDEX_SELECTION_POLICY_V1
+        in {_BOUNDED_SOURCE_INDEX_SELECTION_POLICY_V1, _SELECTED_SOURCE_INDEX_SELECTION_POLICY_V1}
     )
     source_scope = (
         execution.policy.source_read_scope
@@ -1963,6 +2091,7 @@ def validate_execution_completion(
     claim_graph_event_ids: dict[str, list[UUID]],
 ) -> None:
     """Validate supplied status against the derived producing-envelope status."""
+    validate_selected_source_binding(receipt, execution)
     if isinstance(completion, PlanWorldGraphCompletionV2):
         if not isinstance(execution, PlanWorldGraphExecutionV2):
             raise ValueError("V2 completion requires a V2 execution record")  # noqa: TRY004
@@ -2123,6 +2252,7 @@ class TurnSubmission(StrictModel):
                 raise ValueError(
                     "Graph context receipt must match the submitted Plan intent"
                 )
+            validate_selected_source_binding(receipt, self.graph_context_execution)
             if self.graph_context_execution is not None:
                 execution = self.graph_context_execution
                 if execution.events:
@@ -2139,6 +2269,7 @@ class TurnSubmission(StrictModel):
                         or any(a.evidence_ref_id not in receipt.graph_packet.candidate_evidence_ref_ids for a in scope.admitted_anchors)
                     ):
                         raise ValueError("V2 source-read scope must match the frozen Graph receipt")
+                validate_selected_source_binding(receipt, execution)
                 if accounting.estimator != receipt.assembled_input.tokenizer_name:
                     raise ValueError("receipt tokenizer metadata differs from Graph execution policy")
                 if (
@@ -2209,6 +2340,8 @@ class Turn(StrictModel):
             and self.submitted_intent_fingerprint_v2 is None
         ):
             raise ValueError("Graph receipt requires a v2 submitted-intent fingerprint")
+        if self.graph_context_receipt is not None:
+            validate_selected_source_binding(self.graph_context_receipt, self.graph_context_execution)
         if self.graph_context_execution is not None:
             if self.graph_context_receipt is None:
                 raise ValueError("Graph execution requires its frozen context receipt")
