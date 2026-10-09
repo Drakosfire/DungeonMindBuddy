@@ -1039,6 +1039,74 @@ class ExactRunReviewPackage(_ExtractPromoteModel):
     first_world_publish_reason: str | None = None
 
 
+class RecapBatchEdgeOmission(_ExtractPromoteModel):
+    edge_id: str
+    expected_edge_sha256: str
+
+    _id = field_validator("edge_id")(RecapCandidateNodeOmission._node_id.__func__)
+    _sha = field_validator("expected_edge_sha256")(RecapCandidateNodeOmission._digest.__func__)
+
+class RecapBatchEvidenceReplacement(_ExtractPromoteModel):
+    record_kind: Literal["node", "edge"]
+    record_id: str
+    evidence_index: int = Field(ge=0)
+    expected_evidence_ref_sha256: str
+    source_span_ref_id: str
+    anchor_quotes: list[str] = Field(min_length=1, max_length=16)
+
+    _ids = field_validator("record_id", "source_span_ref_id")(RecapCandidateNodeOmission._node_id.__func__)
+    _sha = field_validator("expected_evidence_ref_sha256")(RecapCandidateNodeOmission._digest.__func__)
+
+    @field_validator("anchor_quotes")
+    @classmethod
+    def _quotes(cls, values: list[str]) -> list[str]:
+        if any(not q or q != q.strip() or len(q) > 4096 for q in values):
+            raise ValueError("quotes must be nonblank, trimmed and bounded")
+        return values
+
+class RecapCandidateCorrectionRequestV7(_ExtractPromoteModel):
+    """One bounded atomic batch; evidence locators are derived, never supplied."""
+
+    schema_: Literal["dmb_recap_candidate_correction_request_v7"] = Field(alias="schema")
+    parent_run_id: str
+    parent_candidate_sha256: str
+    source_revision_sha256: str
+    span_index_sha256: str
+    profile_id: Literal["recap_category_v1@1.0"]
+    node_description_replacements: list[RecapNodeDescriptionReplacement] = Field(default_factory=list, max_length=8)
+    node_label_replacements: list[RecapNodeLabelReplacement] = Field(default_factory=list, max_length=4)
+    edge_tuple_replacements: list[RecapCandidateEdgeTupleReplacement] = Field(default_factory=list, max_length=2)
+    evidence_replacements: list[RecapBatchEvidenceReplacement] = Field(default_factory=list, max_length=2)
+    edge_omissions: list[RecapBatchEdgeOmission] = Field(default_factory=list, max_length=3)
+
+    _id = field_validator("parent_run_id")(RecapCandidateNodeOmission._node_id.__func__)
+    _sha = field_validator("parent_candidate_sha256", "source_revision_sha256", "span_index_sha256")(RecapCandidateNodeOmission._digest.__func__)
+
+    @model_validator(mode="after")
+    def _batch(self) -> "RecapCandidateCorrectionRequestV7":
+        groups = [self.node_description_replacements, self.node_label_replacements,
+                  self.edge_tuple_replacements, self.evidence_replacements, self.edge_omissions]
+        if not 1 <= sum(map(len, groups)) <= 19:
+            raise ValueError("batch total must be 1..19")
+        for group in groups:
+            keys = [(x.record_kind, x.record_id, x.evidence_index) if isinstance(x, RecapBatchEvidenceReplacement)
+                    else getattr(x, "node_id", None) or x.edge_id for x in group]
+            if len(set(keys)) != len(keys):
+                raise ValueError("duplicate batch target")
+        omitted = {x.edge_id for x in self.edge_omissions}
+        edited = {x.edge_id for x in self.edge_tuple_replacements} | {
+            x.record_id for x in self.evidence_replacements if x.record_kind == "edge"}
+        if omitted & edited:
+            raise ValueError("edge cannot be edited and omitted")
+        for x in self.node_description_replacements:
+            if not x.original_description or len(x.original_description) > 4096 or x.original_description == x.replacement_description:
+                raise ValueError("description preimage must be bounded and changed")
+        return self
+
+class RecapCandidateCorrectionResponseV7(RecapCandidateCorrectionResponse):
+    schema_: Literal["dmb_recap_candidate_correction_response_v7"] = Field(
+        default="dmb_recap_candidate_correction_response_v7", alias="schema")
+
 class RecapSemanticDecisionRequest(_ExtractPromoteModel):
     schema_: Literal["dmb_recap_semantic_decision_request_v1"] = Field(
         default=RECAP_SEMANTIC_DECISION_REQUEST_SCHEMA, alias="schema"

@@ -16,6 +16,8 @@ from apps.live_control_server.models.extract_promote import (
     RecapCandidateCorrectionRequestV4,
     RecapCandidateCorrectionRequestV5,
     RecapCandidateCorrectionRequestV6,
+    RecapCandidateCorrectionRequestV7,
+    RecapCandidateCorrectionResponseV7,
     RecapEvidenceRefSplit,
     RecapCandidateCorrectionResponse,
     RecapCandidateCorrectionResponseV2,
@@ -81,6 +83,9 @@ DERIVATION_V5 = "operator_recap_semantic_candidate_correction_v5"
 MANIFEST_SCHEMA_V5 = "dmb_recap_semantic_candidate_manifest_v5"
 DERIVATION_V6 = "operator_recap_semantic_candidate_correction_v6"
 MANIFEST_SCHEMA_V6 = "dmb_recap_semantic_candidate_manifest_v6"
+DERIVATION_V7 = "operator_recap_semantic_candidate_correction_v7"
+MANIFEST_SCHEMA_V7 = "dmb_recap_semantic_candidate_manifest_v7"
+
 PROFILE = "recap_category_v1@1.0"
 MAX_EDGE_TUPLE_REPLACEMENTS = 7
 EDGE_TUPLE_FIELDS = ("from_node_id", "relationship_type", "to_node_id", "label")
@@ -554,10 +559,93 @@ def _replay_evidence_ref_split(parent: dict, manifest: dict, source_bytes: bytes
     return child
 
 
+def _replay_atomic_batch(parent: dict, manifest: dict, source_bytes: bytes | None, span_bytes: bytes | None) -> dict:
+    from graph_memory.source_span import source_span_index_from_dict, validate_source_span_index
+    from graph_memory.extraction.category_candidate_graph_extractor import materialize_promote_evidence_ref
+    from graph_memory.anchor_quotes import find_anchor_quote_matches
+    from apps.live_control_server.services.extract_promote import _assert_and_project_candidate_evidence
+
+    if manifest.get("schema") != MANIFEST_SCHEMA_V7:
+        raise _reject("atomic manifest schema changed")
+    expected_keys = {"schema", "source_revision_sha256", "span_index_sha256", "profile_id", "node_description_replacements", "node_label_replacements", "edge_tuple_replacements", "evidence_replacements", "edge_omissions"}
+    if set(manifest) != expected_keys:
+        raise _reject("atomic manifest fields changed")
+    try:
+        request = RecapCandidateCorrectionRequestV7.model_validate({
+            **{k: v for k, v in manifest.items() if k != "schema"},
+            "schema": "dmb_recap_candidate_correction_request_v7",
+            "parent_run_id": "replay", "parent_candidate_sha256": "0" * 64,
+        })
+    except (ValueError, TypeError) as exc:
+        raise _reject("atomic manifest is malformed") from exc
+    if source_bytes is None or span_bytes is None or _sha(source_bytes) != request.source_revision_sha256 or _sha(span_bytes) != request.span_index_sha256:
+        raise _reject("atomic batch frozen source or span index changed", status_code=409)
+    index = source_span_index_from_dict(json.loads(span_bytes))
+    validate_source_span_index(index, source_artifact_id=index.source_artifact_id, content_sha256=request.source_revision_sha256)
+    if parent.get("source_artifact_ids") != [index.source_artifact_id]:
+        raise _reject("atomic batch source identity changed", status_code=409)
+    child = copy.deepcopy(parent)
+    def record(kind, identifier):
+        collection, key = ("nodes", "node_id") if kind == "node" else ("edges", "edge_id")
+        matches = [x for x in parent.get(collection, []) if x.get(key) == identifier]
+        if len(matches) != 1:
+            raise _reject("atomic batch record missing or ambiguous", status_code=409)
+        return matches[0], next(x for x in child[collection] if x.get(key) == identifier)
+    for operations, field, original, replacement in (
+        (request.node_description_replacements, "description", "original_description", "replacement_description"),
+        (request.node_label_replacements, "label", "original_label", "replacement_label"),
+    ):
+        for op in operations:
+            old, new = record("node", op.node_id)
+            if old.get(field) != getattr(op, original):
+                raise _reject("atomic node preimage is stale", status_code=409)
+            new[field] = getattr(op, replacement)
+    omitted = {x.edge_id for x in request.edge_omissions}
+    for op in request.edge_omissions:
+        old, _ = record("edge", op.edge_id)
+        if _sha(_canonical_bytes(old)) != op.expected_edge_sha256:
+            raise _reject("atomic edge omission preimage is stale", status_code=409)
+    # Validate rewrites against original preimages, but duplicates against final omissions.
+    tuple_parent = copy.deepcopy(parent)
+    tuple_parent["edges"] = [e for e in parent.get("edges", []) if e.get("edge_id") not in omitted]
+    if request.edge_tuple_replacements:
+        plans = _plan_edge_tuple_replacements(tuple_parent, [x.model_dump(mode="json") for x in request.edge_tuple_replacements])
+        for identifier, values in plans.items():
+            record("edge", identifier)[1].update(values)
+    for op in request.evidence_replacements:
+        old, new = record(op.record_kind, op.record_id)
+        refs = old.get("evidence_refs", [])
+        if op.evidence_index >= len(refs) or _sha(_canonical_bytes(refs[op.evidence_index])) != op.expected_evidence_ref_sha256:
+            raise _reject("atomic evidence preimage is stale", status_code=409)
+        spans = [x for x in index.spans if x.source_span_id == op.source_span_ref_id]
+        if len(spans) != 1:
+            raise _reject("atomic evidence span is not frozen")
+        span = spans[0]
+        paragraph = "\n".join(source_bytes.decode("utf-8").splitlines()[span.start_line - 1:span.end_line])
+        if any(not find_anchor_quote_matches(paragraph, [quote]) for quote in op.anchor_quotes):
+            raise _reject("atomic evidence quote is not literal")
+        derived = materialize_promote_evidence_ref(
+            {"source_span_ref_id": op.source_span_ref_id, "anchor_quotes": op.anchor_quotes},
+            source_artifact_id=index.source_artifact_id, source_ref_id=index.source_ref_id,
+        )
+        if derived == refs[op.evidence_index]:
+            raise _reject("atomic evidence replacement is unchanged")
+        new["evidence_refs"][op.evidence_index] = derived
+    child["edges"] = [e for e in child.get("edges", []) if e.get("edge_id") not in omitted]
+    ids = [n.get("node_id") for n in child.get("nodes", [])]
+    edges = [e.get("edge_id") for e in child.get("edges", [])]
+    tuples = [tuple(e.get(f) for f in EDGE_TUPLE_FIELDS) for e in child.get("edges", [])]
+    if len(set(ids)) != len(ids) or len(set(edges)) != len(edges) or len(set(tuples)) != len(tuples) or any(e.get(f) not in ids for e in child.get("edges", []) for f in ("from_node_id", "to_node_id")):
+        raise _reject("atomic final references or tuples conflict")
+    _assert_and_project_candidate_evidence(candidate_payload=child, source_prose=source_bytes.decode("utf-8"), source_artifact_id=index.source_artifact_id, span_index=index)
+    return child
+
 def replay_candidate(parent: dict, manifest: dict, *, source_bytes: bytes | None = None, span_bytes: bytes | None = None) -> dict:
     """Reconstruct one bounded correction request; never patch arbitrary JSON."""
     if not isinstance(parent, dict) or not isinstance(manifest, dict):
         raise _reject("semantic candidate replay input is malformed")
+    if manifest.get("schema") == MANIFEST_SCHEMA_V7:
+        return _replay_atomic_batch(parent, manifest, source_bytes, span_bytes)
     if manifest.get("schema") == MANIFEST_SCHEMA_V6:
         return _replay_evidence_ref_split(parent, manifest, source_bytes, span_bytes)
     v3 = manifest.get("schema") == MANIFEST_SCHEMA_V3
@@ -774,8 +862,8 @@ def verify_child_replay(run, parent, root: Path) -> bool:
 
 
 def correct_recap_candidate(
-    request: RecapCandidateCorrectionRequest | RecapCandidateCorrectionRequestV2 | RecapCandidateCorrectionRequestV3 | RecapCandidateCorrectionRequestV4 | RecapCandidateCorrectionRequestV5 | RecapCandidateCorrectionRequestV6,
-) -> RecapCandidateCorrectionResponse | RecapCandidateCorrectionResponseV2 | RecapCandidateCorrectionResponseV3 | RecapCandidateCorrectionResponseV4 | RecapCandidateCorrectionResponseV5 | RecapCandidateCorrectionResponseV6:
+    request: RecapCandidateCorrectionRequest | RecapCandidateCorrectionRequestV2 | RecapCandidateCorrectionRequestV3 | RecapCandidateCorrectionRequestV4 | RecapCandidateCorrectionRequestV5 | RecapCandidateCorrectionRequestV6 | RecapCandidateCorrectionRequestV7,
+) -> RecapCandidateCorrectionResponse | RecapCandidateCorrectionResponseV2 | RecapCandidateCorrectionResponseV3 | RecapCandidateCorrectionResponseV4 | RecapCandidateCorrectionResponseV5 | RecapCandidateCorrectionResponseV6 | RecapCandidateCorrectionResponseV7:
     """Create one held reviewable child without altering parent or WorldGraph."""
     from application_state.ingest.service import (
         RecapSemanticBasisV2,
@@ -784,6 +872,7 @@ def correct_recap_candidate(
         RecapSemanticBasisV5,
         RecapSemanticBasisV6,
         RecapSemanticBasisV7,
+        RecapSemanticBasisV8,
     )
 
     root = repo_root()
@@ -826,13 +915,21 @@ def correct_recap_candidate(
         raise _reject("parent candidate is unreadable") from exc
     if not isinstance(parent_payload, dict):
         raise _reject("parent candidate root must be an object")
+    v7 = isinstance(request, RecapCandidateCorrectionRequestV7)
     v6 = isinstance(request, RecapCandidateCorrectionRequestV6)
     v5 = isinstance(request, RecapCandidateCorrectionRequestV5)
     v3 = isinstance(request, RecapCandidateCorrectionRequestV3)
     v4 = isinstance(request, RecapCandidateCorrectionRequestV4)
     v2 = isinstance(request, RecapCandidateCorrectionRequestV2)
-    derivation = DERIVATION_V6 if v6 else DERIVATION_V5 if v5 else DERIVATION_V4 if v4 else DERIVATION_V3 if v3 else DERIVATION_V2 if v2 else DERIVATION
-    if v6:
+    derivation = DERIVATION_V7 if v7 else DERIVATION_V6 if v6 else DERIVATION_V5 if v5 else DERIVATION_V4 if v4 else DERIVATION_V3 if v3 else DERIVATION_V2 if v2 else DERIVATION
+    if v7:
+        if request.source_revision_sha256 != source_sha or request.span_index_sha256 != span_sha or request.profile_id != parent.profile_id:
+            raise _reject("atomic request source/index/profile pins changed", status_code=409)
+        manifest = request.model_dump(mode="json", exclude={"schema_", "parent_run_id", "parent_candidate_sha256"})
+        manifest["schema"] = MANIFEST_SCHEMA_V7
+        for key, coordinate in (("node_description_replacements", lambda x: x["node_id"]), ("node_label_replacements", lambda x: x["node_id"]), ("edge_tuple_replacements", lambda x: x["edge_id"]), ("edge_omissions", lambda x: x["edge_id"]), ("evidence_replacements", lambda x: (x["record_kind"], x["record_id"], x["evidence_index"]))):
+            manifest[key].sort(key=coordinate)
+    elif v6:
         manifest = {
             "schema": MANIFEST_SCHEMA_V6,
             "source_revision_sha256": request.source_revision_sha256,
@@ -933,6 +1030,8 @@ def correct_recap_candidate(
         campaign_id=parent.campaign_id, session_id=parent.session_id,
     )
     basis = (
+        RecapSemanticBasisV8(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V7)
+        if v7 else
         RecapSemanticBasisV7(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V6)
         if v6 else
         RecapSemanticBasisV6(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V5)
@@ -1016,7 +1115,8 @@ def correct_recap_candidate(
         if assessment.disposition is None or assessment.disposition.get("state") != semantic_state:
             raise _reject("derived run semantic decision conflicts", status_code=409)
     response_type = (
-        RecapCandidateCorrectionResponseV6 if v6
+        RecapCandidateCorrectionResponseV7 if v7
+        else RecapCandidateCorrectionResponseV6 if v6
         else RecapCandidateCorrectionResponseV5 if v5
         else RecapCandidateCorrectionResponseV4 if v4
         else RecapCandidateCorrectionResponseV3 if v3
