@@ -3366,3 +3366,52 @@ def test_terminal_resolution_actual_http_binding_readback_and_auth(application_s
             assert (await client.post(root+"/resolve", json=body)).status_code == 403
             assert (await client.get(status_url+query)).status_code == 403
     asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("unavailable", [False, True])
+def test_selected_source_scope_jsonb_and_legacy_roundtrip(application_state_dsn, tmp_path, monkeypatch, unavailable):
+    from tests.test_agent_turn_route import _selected_consumer_context
+    from apps.live_control_server.services.agent_turn_service import _conversation_provenance, _submitted_turn_intent
+    from application_state.agent_conversation.types import GraphSelectedSourceReadScopeV2, graph_execution_policy_digest_v2
+    body, work, bootstrap, receipt, execution, _members = _selected_consumer_context(tmp_path,monkeypatch,unavailable=unavailable)
+    service = AgentConversationService()
+    conversation = service.new_conversation(ConversationCommand(world_id=work.world_id,command_id=uuid4(),expected_pointer_revision=0,expected_active_conversation_id=None))
+    provenance = _conversation_provenance(body,world_id=work.world_id,work=work,graph_scope=bootstrap.world_scope,graph_envelope=bootstrap.graph_envelope)
+    request = TurnSubmission(world_id=work.world_id,conversation_id=conversation.conversation_id,idempotency_key=uuid4(),expected_conversation_revision=1,
+        user_text=body.message,provenance=provenance,submitted_intent_v2=_submitted_turn_intent(body,world_id=work.world_id),graph_context_receipt=receipt,graph_context_execution=execution)
+    accepted = service.accept_turn(request)
+    readback = AgentConversationService().list_turns(work.world_id,conversation.conversation_id)[0]
+    assert readback.graph_context_execution.model_dump(mode='json',by_alias=True)==execution.model_dump(mode='json',by_alias=True)
+    assert isinstance(readback.graph_context_execution.policy.source_read_scope,GraphSelectedSourceReadScopeV2)
+    assert service.accept_turn(request).turn_id==accepted.turn_id
+    # Legacy scopes must not gain the required selected commitment or change digest.
+    from application_state.agent_conversation.types import GraphSourceReadScopeV2, GraphExecutionPolicyV2, GraphExecutionAccountingV1
+    old_scope = GraphSourceReadScopeV2(retrieval_session_id='legacy',world_id=work.world_id,campaign_id=None,graph_revision=bootstrap.world_scope.revision_id,
+        admitted_anchors=list(bootstrap.source_scope_anchors))
+    old_policy = GraphExecutionPolicyV2(policy_version='plan_world_graph_execution_v1',allowed_graph_operations=['expand_graph_retrieval'],
+        max_provider_attempts=4,max_graph_operations=8,max_results_per_operation=512,max_total_provider_input_tokens=131072,max_total_provider_output_tokens=8192,
+        provider_input_accounting=GraphExecutionAccountingV1(kind='conservative_upper_bound',estimator='utf8_json_bytes_plus_64_per_node_v1'),source_opened=False,
+        source_read_scope=old_scope,max_source_read_calls=0 if unavailable else 8,max_source_read_anchors=0 if unavailable else 8,
+        max_source_read_chars=0 if unavailable else 96000,max_chars_per_source_read=12000)
+    encoded=old_policy.model_dump(mode='json',by_alias=True)
+    assert 'selected_index_commitment' not in encoded['source_read_scope']
+    restored=GraphExecutionPolicyV2.model_validate(encoded)
+    assert restored.model_dump(mode='json',by_alias=True)==encoded
+    assert graph_execution_policy_digest_v2(receipt.context_receipt_sha256,old_policy)==graph_execution_policy_digest_v2(receipt.context_receipt_sha256,restored)
+    legacy_root = tmp_path/'legacy'
+    legacy_root.mkdir()
+    legacy_body,legacy_work,legacy_boot,legacy_receipt,legacy_execution,_ = _selected_consumer_context(legacy_root,monkeypatch,legacy=True)
+    assert legacy_receipt.graph_packet.selection_policy_version == 'parent_initial_retrieval_with_bounded_source_index_v1'
+    active = service.get_active_conversation(legacy_work.world_id)
+    if active is None:
+        receipt_new = service.new_conversation(ConversationCommand(world_id=legacy_work.world_id,command_id=uuid4(),expected_pointer_revision=0,expected_active_conversation_id=None))
+        active = service.get_active_conversation(legacy_work.world_id)
+        assert active.conversation_id == receipt_new.conversation_id
+    legacy_submission = TurnSubmission(world_id=legacy_work.world_id,conversation_id=active.conversation_id,idempotency_key=uuid4(),expected_conversation_revision=active.revision,
+        user_text=legacy_body.message,provenance=_conversation_provenance(legacy_body,world_id=legacy_work.world_id,work=legacy_work,graph_scope=legacy_boot.world_scope,graph_envelope=legacy_boot.graph_envelope),
+        submitted_intent_v2=_submitted_turn_intent(legacy_body,world_id=legacy_work.world_id),graph_context_receipt=legacy_receipt,graph_context_execution=legacy_execution)
+    legacy_turn = service.accept_turn(legacy_submission)
+    legacy_loaded = next(turn for turn in AgentConversationService().list_turns(legacy_work.world_id,active.conversation_id) if turn.turn_id==legacy_turn.turn_id)
+    assert legacy_loaded.graph_context_execution.model_dump_json(by_alias=True)==legacy_execution.model_dump_json(by_alias=True)
+    assert not isinstance(legacy_loaded.graph_context_execution.policy.source_read_scope,GraphSelectedSourceReadScopeV2)
+    assert set(legacy_loaded.graph_context_execution.policy.source_read_scope.model_dump(mode='json',by_alias=True))=={'schema','retrieval_session_id','world_id','campaign_id','graph_revision','admitted_anchors'}

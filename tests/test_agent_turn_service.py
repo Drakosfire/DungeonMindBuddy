@@ -3259,3 +3259,56 @@ def test_successful_plan_turn_returns_one_sanitized_trace_event(
     assert prompt_secret not in trace_events[0]
     assert "ANSWER_SENTINEL" not in trace_events[0]
     assert "TRACE_LEAK_SENTINEL" not in trace_events[0]
+
+
+def test_selected_multi_hop_graph_read_and_source_scope_remain_separate(tmp_path,monkeypatch):
+    import json
+    from tests.test_agent_turn_route import _selected_consumer_context
+    from tests.test_world_graph_retrieval_contract import _selected_native_fixture
+    from apps.live_control_server.services import agent_turn_service as owner
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+    from graph_memory.retrieval.models import WorldGraphNeighborhoodRequest
+    from graph_memory.interaction.session import SourceAnchorState
+    body,work,bootstrap,receipt,execution,_ = _selected_consumer_context(tmp_path,monkeypatch,neighbor=True)
+    services,request,revision = _selected_native_fixture(claims=True,neighbor=True)
+    neighborhood = direct.get_neighborhood_direct(services,WorldGraphNeighborhoodRequest.model_validate({
+        'schema':'dmb_world_graph_neighborhood_request_v1','worldId':request.world_id,'campaignId':'','scopeMode':'world','revisionPin':revision,'seedNodeIds':['obj:tavern'],'maxDepth':2}))
+    assert 'obj:noise:0' in {node.node_id for node in neighborhood.nodes}
+    pool={pin['anchor_id'] for pin in bootstrap.source_scope_anchors}
+    outside=next(anchor for anchor in neighborhood.source_anchors if anchor.anchor_id not in pool and anchor.readable)
+    session=bootstrap.retrieval_session
+    session.source_anchors.append(SourceAnchorState(anchor_id=outside.anchor_id,readable=True,opened=False,locator_kind=outside.locator_kind))
+    monkeypatch.setattr('graph_memory.interaction.session_store.get_session',lambda _id:session)
+    calls=[]
+    pin=bootstrap.source_scope_anchors[0]
+    def read(args,*,receipt_version):
+        calls.append(args)
+        return {'schema':'dmb_internal_read_graph_source_batch_v2','retrievalSessionId':session.id,'reads':[{
+            'sourceReadId':'source-read:inside','result':{'schema':'dmb_world_graph_source_anchor_read_v1','outcome':'enough','anchorId':pin['anchor_id'],
+                'content':'fixture passage','contentSha256':'a'*64,'evidenceRefId':pin['evidence_ref_id'],'sourceArtifactId':pin['source_artifact_id']},
+            'receipt':{'source_read_id':'source-read:inside','retrieval_session_id':session.id,'graph_revision':revision,**pin,
+                'read_content_sha256':'a'*64,'outcome':'enough','truncated':False}}]}
+    monkeypatch.setattr('graph_memory.interaction.expansion_executor.execute_read_graph_source',read)
+    class Fence:
+        def __init__(self):
+            self.turn=_policy_turn(status='running',completion_present=False).model_copy(update={'graph_context_receipt':receipt,'graph_context_execution':execution})
+        def append(self,_method,_key,event):
+            self.turn=self.turn.model_copy(update={'graph_context_execution':self.turn.graph_context_execution.model_copy(update={'events':[*self.turn.graph_context_execution.events,event]})})
+            return self.turn,True
+    adapter=owner._PolicyExecutionAdapter(service=object(),request=body,world_id=work.world_id,work=work,bootstrap=bootstrap,
+        playable_target=None,submitted_intent=None,existing_turn=None,budget={})
+    adapter.fence=Fence()
+    adapter.last_provider_attempt_id=__import__('uuid').uuid4()
+    denied=adapter.broker_source_read({'toolName':'read_graph_source','arguments':{'retrievalSessionId':session.id,'anchorIds':[outside.anchor_id]}})
+    assert json.loads(denied['resultJson'])['code']=='source_anchor_not_admitted' and calls==[]
+    inside=adapter.broker_source_read({'toolName':'read_graph_source','arguments':{'retrievalSessionId':session.id,'anchorIds':[pin['anchor_id']]}})
+    assert len(calls)==1, inside
+    assert json.loads(inside['resultJson'])['content']=='fixture passage'
+    assert execution.policy.max_graph_operations==8 and execution.policy.max_source_read_calls==8
+    legacy=direct.list_source_anchor_index_direct_v2(services,request,revision_id=revision)
+    assert legacy.status=='overflow'
+    small,small_request,small_revision=_selected_native_fixture(unrelated=2,claims=True,neighbor=True)
+    old_pool=direct.list_source_anchor_index_direct_v2(small,small_request,revision_id=small_revision)
+    old_neighbors=direct.get_neighborhood_direct(small,WorldGraphNeighborhoodRequest.model_validate({
+        'schema':'dmb_world_graph_neighborhood_request_v1','worldId':small_request.world_id,'campaignId':'','scopeMode':'world','revisionPin':small_revision,'seedNodeIds':['obj:tavern'],'maxDepth':2}))
+    assert {anchor.anchor_id for anchor in old_neighbors.source_anchors if anchor.readable}.issubset({item.anchor_id for item in old_pool.source_pins})

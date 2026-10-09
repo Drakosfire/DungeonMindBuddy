@@ -567,6 +567,11 @@ def _restore_v2_retry_bootstrap(
         return replace(bootstrap, source_scope_anchors=(), source_index_commitment=None)
     receipt = turn.graph_context_receipt
     scope = execution.policy.source_read_scope
+    if receipt is not None:
+        try:
+            graph_types.validate_selected_source_binding(receipt, execution)
+        except ValueError as exc:
+            raise AgentTurnServiceError("The selected scope cannot be bound to the frozen receipt.", code="turn_receipt_unverifiable", status_code=409, provider_dispatched=False) from exc
     if (
         receipt is None
         or execution.context_receipt_sha256 != receipt.context_receipt_sha256
@@ -581,6 +586,9 @@ def _restore_v2_retry_bootstrap(
             code="turn_receipt_unverifiable", status_code=409,
             provider_dispatched=False,
         )
+    if isinstance(scope, graph_types.GraphSelectedSourceReadScopeV2):
+        if bootstrap.source_index_commitment != scope.selected_index_commitment.model_dump(mode="json", by_alias=True):
+            raise AgentTurnServiceError("The selected index differs from the frozen source selection.", code="turn_receipt_unverifiable", status_code=409, provider_dispatched=False)
     frozen_pins = tuple(
         anchor.model_dump(mode="python") for anchor in scope.admitted_anchors
     )
@@ -677,12 +685,26 @@ def _freeze_policy_receipt(
         bootstrap,
     )
     assertions, relationships, evidence = _initial_packet_membership(packet, bootstrap)
+    basis = work.content_basis
+    if basis is None or request.plan_context_policy is None:
+        raise AgentTurnServiceError("The committed Plan basis is unavailable for receipt freeze.", code="receipt_freeze_failed", status_code=503, provider_dispatched=False)
     index_commitment = bootstrap.source_index_commitment
-    selection_policy = (
-        "parent_initial_retrieval_with_bounded_source_index_v1"
-        if index_commitment is not None else "parent_initial_retrieval_v1"
-    )
-    if index_commitment is not None:
+    selected_index = index_commitment is not None and index_commitment.get("schema") == "dmb_selected_source_anchor_index_commitment_v1"
+    selection_policy = ("parent_initial_retrieval_with_selected_source_index_v1" if selected_index else
+        "parent_initial_retrieval_with_bounded_source_index_v1" if index_commitment is not None else "parent_initial_retrieval_v1")
+    if selected_index:
+        try:
+            graph_types.GraphSelectedSourceReadScopeV2(retrieval_session_id=bootstrap.retrieval_session.id, initial_claim_packet_sha256=_canonical_sha256(packet),
+                world_id=basis.world_id, campaign_id=None, graph_revision=bootstrap.world_scope.revision_id,
+                admitted_anchors=list(bootstrap.source_scope_anchors), selected_index_commitment=index_commitment)
+            if index_commitment["context"]["world_id"] != bootstrap.world_scope.world_id:
+                raise ValueError("selected native World differs")
+        except (ValueError, TypeError, KeyError) as exc:
+            raise AgentTurnServiceError("The selected source commitment is invalid.", code="graph_evidence_invalid", status_code=502, provider_dispatched=False) from exc
+        retrieval_packet_sha256 = _canonical_sha256({"schema": "dmb_selected_retrieval_composite_v1",
+            "selection_policy_version": selection_policy, "initial_claim_packet_sha256": _canonical_sha256(packet),
+            "selected_index": index_commitment, "source_pins": list(bootstrap.source_scope_anchors)})
+    elif index_commitment is not None:
         if (
             index_commitment.get("schema")
             != "dmb_bounded_source_anchor_index_commitment_v1"
@@ -836,8 +858,9 @@ def _freeze_policy_receipt(
                 ),
                 source_opened=False,
         )
-        if bootstrap.source_scope_anchors:
-            scope = graph_types.GraphSourceReadScopeV2(
+        if bootstrap.source_scope_anchors or selected_index:
+            scope_class = graph_types.GraphSelectedSourceReadScopeV2 if selected_index else graph_types.GraphSourceReadScopeV2
+            scope = scope_class(
                 retrieval_session_id=bootstrap.retrieval_session.id,
                 world_id=basis.world_id,
                 campaign_id=None,
@@ -846,13 +869,17 @@ def _freeze_policy_receipt(
                     graph_types.GraphSourceScopeAnchorV2.model_validate(anchor)
                     for anchor in bootstrap.source_scope_anchors
                 ],
+                **({"selected_index_commitment": index_commitment, "initial_claim_packet_sha256":_canonical_sha256(packet)} if selected_index else {}),
             )
+            if selected_index:
+                policy_fields["policy_version"] = "plan_world_graph_execution_selected_scope_v1"
+            source_enabled = bool(bootstrap.source_scope_anchors)
             policy = graph_types.GraphExecutionPolicyV2(
                 **policy_fields,
                 source_read_scope=scope,
-                max_source_read_calls=8,
-                max_source_read_anchors=8,
-                max_source_read_chars=96_000,
+                max_source_read_calls=8 if source_enabled else 0,
+                max_source_read_anchors=8 if source_enabled else 0,
+                max_source_read_chars=96_000 if source_enabled else 0,
                 max_chars_per_source_read=12_000,
             )
             execution = graph_types.PlanWorldGraphExecutionV2(
@@ -3195,12 +3222,19 @@ def execute_agent_turn(
     if request.plan_context_policy is not None:
         try:
             with trace.phase("plan_graph_context_resolution") as parent_span_id:
+                frozen_scope_options = {}
+                if durable_turn is not None and durable_turn.graph_context_receipt is not None and durable_turn.graph_context_receipt.graph_packet.selection_policy_version == "parent_initial_retrieval_with_selected_source_index_v1":
+                    graph_types = _app_state_graph_execution_types()
+                    if not isinstance(durable_turn.graph_context_execution, graph_types.PlanWorldGraphExecutionV2):
+                        raise AgentTurnServiceError("The frozen selected execution scope is unavailable.", code="turn_receipt_unverifiable", status_code=409, provider_dispatched=False)
+                    frozen_scope_options["frozen_source_scope"] = durable_turn.graph_context_execution.policy.source_read_scope
                 policy_bootstrap = plan_graph_resolver(
                     request,
                     owner,
                     work,
                     None if durable_turn is None else durable_turn.graph_context_receipt,
                     parent_span_id,
+                    **frozen_scope_options,
                 )
                 policy_bootstrap = _restore_v2_retry_bootstrap(
                     policy_bootstrap, durable_turn,
