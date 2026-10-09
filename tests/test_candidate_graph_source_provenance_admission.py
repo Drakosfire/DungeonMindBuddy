@@ -57,6 +57,9 @@ def test_sealed_reviewed_corpus_binding_becomes_core_publication_guard():
 
     from dungeonmind.contracts.identity import IdentityDecisionRecordV2
     from dungeonmind.domain.canonical import canonical_sha256
+    from apps.live_control_server.models.extract_promote import (
+        ReviewedCorpusNativeBindingV1,
+    )
     from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
         _reviewed_identity_publication_guard,
     )
@@ -81,7 +84,10 @@ def test_sealed_reviewed_corpus_binding_becomes_core_publication_guard():
         reason="dmb-reviewed-corpus-native-binding-v1:" + json.dumps(payload),
         created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
     ).model_dump(mode="json")
-    context = SimpleNamespace(world_id="world:test", identity_ledger_records=[decision])
+    context = SimpleNamespace(
+        world_id="world:test", identity_ledger_records=[decision],
+        reviewed_corpus_bindings=(ReviewedCorpusNativeBindingV1.model_validate(payload),),
+    )
     guard = _reviewed_identity_publication_guard(
         bundle=SimpleNamespace(),
         package={"effect": {"candidate_admission": {"candidate_digest": "a" * 64}}},
@@ -93,23 +99,37 @@ def test_sealed_reviewed_corpus_binding_becomes_core_publication_guard():
     assert guard.sources[0].source_artifact_sha256 == "d" * 64
 
 
-def test_sealed_reviewed_corpus_binding_rejects_malformed_carrier():
+def test_guard_builder_ignores_a_verified_binding_for_another_candidate():
     from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
-        WorldGraphWriteError, _reviewed_identity_publication_guard,
+        _reviewed_identity_publication_guard,
+    )
+    from apps.live_control_server.models.extract_promote import (
+        ReviewedCorpusNativeBindingV1,
     )
 
-    context = SimpleNamespace(
-        world_id="world:test",
-        identity_ledger_records=[
-            {"reason": "dmb-reviewed-corpus-native-binding-v1:{}"},
-            {"reason": "dmb-reviewed-corpus-native-binding-v1:{}"},
-        ],
+    binding = ReviewedCorpusNativeBindingV1(
+        world_id="world:test", parent_revision_id="rev:parent",
+        campaign_id="campaign:test", candidate_sha256="a" * 64,
+        candidate_node_id="candidate:one", corpus_ref_type="npc",
+        corpus_ref_key="npc:one", target_object_id="npc:one",
+        target_sha256="b" * 64, evidence_sha256="c" * 64,
+        decision_id="decision:one", reviewer_id="gm:test",
+        sources=({
+            "source_artifact_id": "artifact:one",
+            "source_revision_id": "revision:one",
+            "artifact_sha256": "d" * 64,
+            "revision_sha256": "e" * 64,
+        },),
     )
-    with pytest.raises(WorldGraphWriteError, match="malformed"):
-        _reviewed_identity_publication_guard(
-            bundle=SimpleNamespace(), package={"effect": {}}, context=context,
-            parent_revision_id="rev:parent", campaign_id="campaign:test",
-        )
+    context = SimpleNamespace(
+        world_id="world:test", identity_ledger_records=[],
+        reviewed_corpus_bindings=(binding,),
+    )
+    assert _reviewed_identity_publication_guard(
+        bundle=SimpleNamespace(),
+        package={"effect": {"candidate_admission": {"candidate_digest": "f" * 64}}},
+        context=context, parent_revision_id="rev:parent", campaign_id="campaign:test",
+    ) is None
 
 
 @pytest.mark.parametrize("tampered_subject", [False, True])
@@ -322,7 +342,7 @@ def test_native_confirm_publishes_guarded_review_and_historical_replay_survives_
         world_id=world_id, package=package, assertion_ids=assertion_ids,
     )
     if tampered_subject:
-        with pytest.raises(world_graph_writes.WorldGraphWriteError, match="does not match"):
+        with pytest.raises(world_graph_writes.WorldGraphWriteError, match="authority could not be proved"):
             confirm()
         assert graph.get_head(world_id).head_revision_id == parent_revision_id
         assert contributions.list_for_world(world_id) == []
