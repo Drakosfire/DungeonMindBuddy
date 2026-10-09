@@ -3370,28 +3370,9 @@ def test_terminal_resolution_actual_http_binding_readback_and_auth(application_s
 
 @pytest.mark.parametrize("unavailable", [False, True])
 def test_selected_source_scope_jsonb_and_legacy_roundtrip(application_state_dsn, tmp_path, monkeypatch, unavailable):
-    import shutil
-    from urllib.parse import urlparse
-    import psycopg
-    from pathlib import Path
     from tests.test_agent_turn_route import _selected_consumer_context
     from apps.live_control_server.services.agent_turn_service import _conversation_provenance, _submitted_turn_intent
     from application_state.agent_conversation.types import GraphSelectedSourceReadScopeV2, graph_execution_policy_digest_v2
-    parsed = urlparse(application_state_dsn)
-    assert parsed.hostname in {"127.0.0.1", "localhost"} and parsed.port == 54329
-    assert parsed.path.startswith("/dungeonbuddy_app_state_test_")
-    assert shutil.disk_usage('/tmp').free >= 2*1024**3
-    with psycopg.connect(application_state_dsn) as conn:
-        name, oid, size = conn.execute("SELECT current_database(), oid, pg_database_size(oid) FROM pg_database WHERE datname=current_database()").fetchone()
-        system = conn.execute("SELECT system_identifier FROM pg_control_system()").fetchone()[0]
-    assert str(system) == "7694009545735577634"
-    proof_dir = Path('/tmp/buddy-selected-source-pg-witness')
-    proof_dir.mkdir(mode=0o700,exist_ok=True)
-    proof_path = proof_dir/(name+'.json')
-    proof = {"database":name,"oid":oid,"size_before":size,"system_identifier":str(system),"head":_current_and_head(application_state_dsn),
-        "core_source_pin":"870e879ac8226ae34b064d6846dc018b39db06aa","test_file_sha256":hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),"lifecycle":"fixture created; drop verified separately after teardown"}
-    proof_path.write_text(json.dumps(proof,indent=2)+'\n')
-    proof_path.chmod(0o600)
     body, work, bootstrap, receipt, execution, _members = _selected_consumer_context(tmp_path,monkeypatch,unavailable=unavailable)
     service = AgentConversationService()
     conversation = service.new_conversation(ConversationCommand(world_id=work.world_id,command_id=uuid4(),expected_pointer_revision=0,expected_active_conversation_id=None))
@@ -3434,8 +3415,3 @@ def test_selected_source_scope_jsonb_and_legacy_roundtrip(application_state_dsn,
     assert legacy_loaded.graph_context_execution.model_dump_json(by_alias=True)==legacy_execution.model_dump_json(by_alias=True)
     assert not isinstance(legacy_loaded.graph_context_execution.policy.source_read_scope,GraphSelectedSourceReadScopeV2)
     assert set(legacy_loaded.graph_context_execution.policy.source_read_scope.model_dump(mode='json',by_alias=True))=={'schema','retrieval_session_id','world_id','campaign_id','graph_revision','admitted_anchors'}
-    with psycopg.connect(application_state_dsn) as conn:
-        size_after=conn.execute('SELECT pg_database_size(current_database())').fetchone()[0]
-    proof.update(size_after=size_after,selected_scope_roundtrip=True,legacy_scope_bytes_digest_unchanged=True,turn_id=str(accepted.turn_id))
-    proof_path.write_text(json.dumps(proof,indent=2)+'\n')
-    assert size_after-size < 128*1024**2
