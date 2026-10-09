@@ -62,6 +62,7 @@ _DIRECT_PREDICATE_MAP: frozenset[str] = frozenset(
         "part_of",
         "participates_in",
         "possesses",
+        "protects",
         "present_at",
         "pursues",
         "recruits_for",

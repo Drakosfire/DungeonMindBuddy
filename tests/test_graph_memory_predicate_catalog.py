@@ -81,3 +81,12 @@ def test_session_23_gold_predicates_are_in_catalog():
         assert verb in ids
     # Widened families must still resolve in the taxonomy registry.
     assert catalog_cross_check_issues() == []
+
+
+def test_protects_adopts_existing_directed_threat_response_family():
+    assert V1_EXACT_PREDICATES["protects"] == "threat_relation"
+    assert validate_edge_predicate("protects", "threat_relation") == []
+    assert "protects" in predicates_by_family()["threat_relation"]
+    assert "`protects`" in prompt_markdown()
+    assert "threat_relation" not in ir.SYMMETRIC_FAMILIES
+    assert catalog_cross_check_issues() == []
