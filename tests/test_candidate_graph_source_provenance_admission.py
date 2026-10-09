@@ -1491,7 +1491,6 @@ def test_producer_binding_roundtrips_through_buddy_to_guarded_postgres_publicati
             dsn,
             world_id="world:reviewed-binding-pg-drift",
             source_artifact_id="artifact:reviewed-binding-pg-drift:recap",
-            reset_database=False,
         )
     )
     drift_bundle = PostgresRepositoryBundle(drift.database)
