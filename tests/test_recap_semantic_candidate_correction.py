@@ -2566,3 +2566,120 @@ def test_http_atomic_bad_last_operation_does_not_persist_earlier_edits(monkeypat
     assert writes == [] and runs == {"parent": parent}
     assert (tmp_path / "parent.json").read_bytes() == raw
     assert not (tmp_path / "out/graph_memory/derived_candidates").exists()
+
+
+def _final35_fixture(monkeypatch, root):
+    parent, _, runs, prior = _atomic_fixture(monkeypatch, root)
+    payload = json.loads((root / "parent.json").read_bytes())
+    prototype = copy.deepcopy(next(n for n in payload["nodes"] if n["node_id"] == "key"))
+    additions = [(f"effect{i}", "item") for i in range(4)] + [("guard", "organization"), ("lookouts", "organization"), ("redundant-wall", "item")]
+    additions += [(f"retained{i}", "item") for i in range(29)]
+    for identifier, kind in additions:
+        node = copy.deepcopy(prototype); node.update(node_id=identifier, node_type=kind, label=identifier, description="Observed " + identifier)
+        payload["nodes"].append(node)
+    assert len(payload["nodes"]) == 39
+    edge_proto = payload["edges"][0]
+    def edge(identifier, frm, pred, to):
+        return {**copy.deepcopy(edge_proto), "edge_id": identifier, "from_node_id": frm, "relationship_type": pred, "to_node_id": to, "label": identifier}
+    payload["edges"] = [edge("held-key", "key", "possesses", "mira"),
+        edge("cause0", "effect0", "possesses", "mira"), edge("cause1", "effect1", "possesses", "mira"),
+        edge("protection", "mira", "defends_weakened_location", "guard"),
+        edge("omit-owned", "effect2", "possesses", "mira"), edge("omit-contains", "effect0", "contains", "key"),
+        edge("omit-above", "effect1", "located_in", "mira"), edge("omit-motive", "mira", "defends_weakened_location", "lookouts")]
+    payload["edges"] += [edge(f"keep{i}", "mira", "holds", f"retained{i}") for i in range(11)]
+    raw = service._canonical_bytes(payload); (root / "parent.json").write_bytes(raw)
+    components = dict(parent.components); components["candidate_graph"] = components["candidate_graph"].model_copy(update={"sha256": _sha(raw)})
+    parent = parent.model_copy(update={"components": components, "revision": 5}); runs["parent"] = parent
+    retained = [n for n in payload["nodes"] if n["node_id"] != "redundant-wall"]
+    node_index = {n["node_id"]: n for n in payload["nodes"]}
+    kind_targets = [(f"effect{i}", "event") for i in range(4)] + [("guard", "character"), ("lookouts", "group")]
+    targets = {"held-key": ("mira", "holds", "key"), "cause0": ("mira", "causes", "effect0"),
+               "cause1": ("mira", "causes", "effect1"), "protection": ("mira", "protects", "guard")}
+    body = {"schema": "dmb_recap_candidate_correction_request_v8", "parent_run_id": "parent", "expected_parent_revision": 5,
+        "parent_candidate_sha256": _sha(raw), "source_revision_sha256": prior["source_revision_sha256"],
+        "span_index_sha256": prior["span_index_sha256"], "profile_id": service.PROFILE,
+        "node_description_replacements": [{"node_id": n["node_id"], "original_description": n["description"], "replacement_description": "Scene occurrence: " + n["description"]} for n in retained[:10]],
+        "node_label_replacements": [{"node_id": n["node_id"], "original_label": n["label"], "replacement_label": n["label"] + " (scene)"} for n in retained[:8]],
+        "evidence_replacements": prior["evidence_replacements"],
+        "node_type_replacements": [{"node_id": nid, "expected_node_type": node_index[nid]["node_type"], "replacement_node_type": kind} for nid, kind in kind_targets],
+        "node_omissions": [{"node_id": "redundant-wall", "expected_node_sha256": _sha(service._canonical_bytes(node_index["redundant-wall"]))}],
+        "edge_tuple_replacements": [{"edge_id": e["edge_id"], "expected_tuple": {k: e[k] for k in service.EDGE_TUPLE_FIELDS},
+            "replacement_tuple": {"from_node_id": targets[e["edge_id"]][0], "relationship_type": targets[e["edge_id"]][1], "to_node_id": targets[e["edge_id"]][2], "label": "corrected " + e["edge_id"]}} for e in payload["edges"] if e["edge_id"] in targets],
+        "edge_omissions": [{"edge_id": e["edge_id"], "expected_edge_sha256": _sha(service._canonical_bytes(e))} for e in payload["edges"] if e["edge_id"].startswith("omit-")]}
+    return parent, raw, runs, body
+
+
+def test_http_final35_one_held53_child_reordered_replay_and_parent_revision(monkeypatch, tmp_path):
+    from application_state.ingest.service import RecapSemanticBasisV9
+    parent, raw, runs, body = _final35_fixture(monkeypatch, tmp_path)
+    before_source = (tmp_path / "source.md").read_bytes(); before_index = (tmp_path / "spans.json").read_bytes()
+    app = _split_http_app(monkeypatch)
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            url = "/api/live/extract-promote/runs/parent/recap-candidate-corrections"
+            result = await client.post(url, json=body); assert result.status_code == 200, result.text
+            reordered = copy.deepcopy(body)
+            for key, value in reordered.items():
+                if isinstance(value, list): value.reverse()
+            assert (await client.post(url, json=reordered)).json() == result.json()
+            return result.json()
+    response = asyncio.run(exercise()); child = runs[response["runId"]]
+    assert response["schema"] == "dmb_recap_candidate_correction_response_v8" and response["semanticState"] == "held"
+    assert len(runs) == 2 and child.revision == 5
+    payload = json.loads((tmp_path / child.components["candidate_graph"].uri).read_bytes())
+    assert len(payload["nodes"]) == 38 and len(payload["edges"]) == 15
+    assert {n["node_id"]: n["node_type"] for n in payload["nodes"]}["guard"] == "character"
+    assert all(n["node_type"] == "event" for n in payload["nodes"] if n["node_id"].startswith("effect"))
+    assert service.verify_child_replay(child, parent, tmp_path)
+    assessment = assess_recap_semantics(child, parent=parent, source_revision_id=_sha(before_source), root=tmp_path)
+    basis = RecapSemanticBasisV9.model_validate(assessment.basis)
+    assert basis.digest() == response["semanticBasisSha256"] and not assessment.accepted
+    _assert_recap_semantic_basis(child, parent, basis)
+    with pytest.raises(ApplicationStateConflictError, match="parent revision"):
+        _assert_recap_semantic_basis(child, parent.model_copy(update={"revision": 6}), basis)
+    assert (tmp_path / "parent.json").read_bytes() == raw and (tmp_path / "source.md").read_bytes() == before_source
+    assert (tmp_path / "spans.json").read_bytes() == before_index
+
+
+@pytest.mark.parametrize("failure", ["parent_revision", "kind_stale", "kind_npc", "node_hash", "node_edited_omitted", "node_dependency", "edge_dependency", "last_evidence", "last_tuple", "unchanged_bad_tuple", "last_description", "last_label"])
+def test_http_final35_failure_has_zero_file_or_row_effects(monkeypatch, tmp_path, failure):
+    parent, raw, runs, body = _final35_fixture(monkeypatch, tmp_path)
+    if failure == "parent_revision": body["expected_parent_revision"] = 6
+    elif failure == "kind_stale": body["node_type_replacements"][-1]["expected_node_type"] = "item"
+    elif failure == "kind_npc": body["node_type_replacements"][-2]["replacement_node_type"] = "npc"
+    elif failure == "node_hash": body["node_omissions"][0]["expected_node_sha256"] = "f" * 64
+    elif failure == "node_edited_omitted": body["node_omissions"][0]["node_id"] = "mira"
+    elif failure in {"node_dependency", "edge_dependency", "unchanged_bad_tuple"}:
+        payload = json.loads(raw)
+        if failure == "node_dependency": payload["deferred_items"] = [{"ref": "redundant-wall"}]
+        elif failure == "edge_dependency": payload["beats"] = [{"ref": "omit-contains"}]
+        else: payload["edges"][-1]["from_node_id"] = "effect3"  # After event conversion, untouched holds is invalid.
+        raw = service._canonical_bytes(payload); (tmp_path / "parent.json").write_bytes(raw)
+        components = dict(parent.components); components["candidate_graph"] = components["candidate_graph"].model_copy(update={"sha256": _sha(raw)})
+        parent = parent.model_copy(update={"components": components}); runs["parent"] = parent; body["parent_candidate_sha256"] = _sha(raw)
+    elif failure == "last_evidence": body["evidence_replacements"][-1]["anchor_quotes"] = ["fabricated"]
+    elif failure == "last_tuple": body["edge_tuple_replacements"][-1]["replacement_tuple"]["relationship_type"] = "contains"
+    elif failure == "last_description": body["node_description_replacements"][-1]["original_description"] = "stale"
+    else: body["node_label_replacements"][-1]["original_label"] = "stale"
+    writes = []
+    monkeypatch.setattr(service, "_write_child_candidate", lambda *args, **kwargs: writes.append("file"))
+    monkeypatch.setattr(service, "create_extraction_run", lambda *args, **kwargs: writes.append("row"))
+    app = _split_http_app(monkeypatch)
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            result = await client.post("/api/live/extract-promote/runs/parent/recap-candidate-corrections", json=body)
+            assert result.status_code in {409, 422}, result.text
+    asyncio.run(exercise())
+    assert writes == [] and runs == {"parent": parent} and (tmp_path / "parent.json").read_bytes() == raw
+    assert not (tmp_path / "out/graph_memory/derived_candidates").exists()
+
+
+def test_final35_per_kind_caps_are_distinct_from_v7(monkeypatch, tmp_path):
+    from apps.live_control_server.models.extract_promote import RecapCandidateCorrectionRequestV7, RecapCandidateCorrectionRequestV8
+    from pydantic import ValidationError
+    _, _, _, body = _final35_fixture(monkeypatch, tmp_path)
+    RecapCandidateCorrectionRequestV8.model_validate(body)
+    for key, count in [("node_description_replacements", 10), ("node_label_replacements", 8), ("evidence_replacements", 2), ("node_type_replacements", 6), ("node_omissions", 1), ("edge_tuple_replacements", 4), ("edge_omissions", 4)]:
+        malformed = copy.deepcopy(body); malformed[key] = malformed[key][:1] * (count + 1)
+        with pytest.raises(ValidationError): RecapCandidateCorrectionRequestV8.model_validate(malformed)
+    with pytest.raises(ValidationError): RecapCandidateCorrectionRequestV7.model_validate({**body, "schema": "dmb_recap_candidate_correction_request_v7"})

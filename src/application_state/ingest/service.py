@@ -44,6 +44,7 @@ _RECAP_CANDIDATE_DERIVATION_V2 = "operator_recap_semantic_candidate_correction_v
 _RECAP_CANDIDATE_DERIVATION_V3 = "operator_recap_semantic_candidate_correction_v3"
 _RECAP_CANDIDATE_DERIVATION_V4 = "operator_recap_semantic_candidate_correction_v4"
 _RECAP_CANDIDATE_DERIVATION_V5 = "operator_recap_semantic_candidate_correction_v5"
+_RECAP_CANDIDATE_DERIVATION_V8 = "operator_recap_semantic_candidate_correction_v8"
 _RECAP_CANDIDATE_DERIVATION_V7 = "operator_recap_semantic_candidate_correction_v7"
 _RECAP_CANDIDATE_DERIVATION_V6 = "operator_recap_semantic_candidate_correction_v6"
 _RECAP_BASIS_SCHEMA = "dmb_recap_semantic_basis_v1"
@@ -207,6 +208,16 @@ class RecapSemanticBasisV8(RecapSemanticBasisV2):
         default="dmb_recap_semantic_basis_v8", alias="schema")
     derivation: Literal["operator_recap_semantic_candidate_correction_v7"]
     manifest_schema: Literal["dmb_recap_semantic_candidate_manifest_v7"]
+
+
+class RecapSemanticBasisV9(RecapSemanticBasisV2):
+    """Bind final remediation operations and exact parent metadata revision."""
+
+    schema_: Literal["dmb_recap_semantic_basis_v9"] = Field(
+        default="dmb_recap_semantic_basis_v9", alias="schema")
+    derivation: Literal["operator_recap_semantic_candidate_correction_v8"]
+    manifest_schema: Literal["dmb_recap_semantic_candidate_manifest_v8"]
+    expected_parent_revision: int = Field(strict=True, ge=1)
 
 class RecapSemanticDispositionCommandV1(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
@@ -448,14 +459,22 @@ def _assert_recap_split_manifest(manifest: object, basis: RecapSemanticBasisV7) 
         raise ApplicationStateConflictError("recap semantic candidate manifest changed")
 
 
-def _assert_recap_atomic_manifest(manifest: object, basis: RecapSemanticBasisV8) -> None:
+def _assert_recap_atomic_manifest(manifest: object, basis: RecapSemanticBasisV8 | RecapSemanticBasisV9) -> None:
     def invalid():
         raise ApplicationStateConflictError("recap atomic manifest is malformed")
+    final_batch = isinstance(basis, RecapSemanticBasisV9)
     limits = {"node_description_replacements": 8, "node_label_replacements": 4,
               "edge_tuple_replacements": 2, "evidence_replacements": 2, "edge_omissions": 3}
-    if not isinstance(manifest, dict) or set(manifest) != set(limits) | {"schema", "source_revision_sha256", "span_index_sha256", "profile_id"}:
+    pins = {"schema", "source_revision_sha256", "span_index_sha256", "profile_id"}
+    if final_batch:
+        limits.update(node_description_replacements=10, node_label_replacements=8,
+            edge_tuple_replacements=4, edge_omissions=4, node_type_replacements=6, node_omissions=1)
+        pins.add("expected_parent_revision")
+    if not isinstance(manifest, dict) or set(manifest) != set(limits) | pins:
         invalid()
     if manifest["schema"] != basis.manifest_schema or manifest["source_revision_sha256"] != basis.source_revision_sha256 or manifest["span_index_sha256"] != basis.span_index_sha256 or manifest["profile_id"] != basis.profile_id:
+        invalid()
+    if final_batch and (type(manifest["expected_parent_revision"]) is not int or manifest["expected_parent_revision"] != basis.expected_parent_revision):
         invalid()
     total = 0
     fields = {
@@ -465,6 +484,9 @@ def _assert_recap_atomic_manifest(manifest: object, basis: RecapSemanticBasisV8)
         "edge_omissions": {"edge_id", "expected_edge_sha256"},
         "evidence_replacements": {"record_kind", "record_id", "evidence_index", "expected_evidence_ref_sha256", "source_span_ref_id", "anchor_quotes"},
     }
+    if final_batch:
+        fields.update(node_type_replacements={"node_id", "expected_node_type", "replacement_node_type"},
+                      node_omissions={"node_id", "expected_node_sha256"})
     for key, limit in limits.items():
         rows = manifest[key]
         if not isinstance(rows, list) or len(rows) > limit:
@@ -484,6 +506,12 @@ def _assert_recap_atomic_manifest(manifest: object, basis: RecapSemanticBasisV8)
             if key in {"node_description_replacements", "node_label_replacements"}:
                 field = "description" if key == "node_description_replacements" else "label"
                 if any(not isinstance(row[prefix + field], str) or not row[prefix + field] or len(row[prefix + field]) > 4096 for prefix in ("original_", "replacement_")) or row["original_" + field] == row["replacement_" + field]:
+                    invalid()
+            if key == "node_type_replacements":
+                if any(not text(row[field], 64) or row[field] != row[field].lower() for field in ("expected_node_type", "replacement_node_type")) or row["expected_node_type"] == row["replacement_node_type"]:
+                    invalid()
+            if key == "node_omissions":
+                if not isinstance(row["expected_node_sha256"], str) or not _SHA256.fullmatch(row["expected_node_sha256"]):
                     invalid()
             if key == "edge_tuple_replacements":
                 for tuple_key in ("expected_tuple", "replacement_tuple"):
@@ -507,12 +535,17 @@ def _assert_recap_atomic_manifest(manifest: object, basis: RecapSemanticBasisV8)
         if key == "edge_omissions":
             if any(not isinstance(x["expected_edge_sha256"], str) or not _SHA256.fullmatch(x["expected_edge_sha256"]) for x in rows):
                 invalid()
-    if not 1 <= total <= 19:
+    if not 1 <= total <= (35 if final_batch else 19):
         invalid()
     omitted = {x["edge_id"] for x in manifest["edge_omissions"]}
     edited = {x["edge_id"] for x in manifest["edge_tuple_replacements"]} | {x["record_id"] for x in manifest["evidence_replacements"] if x["record_kind"] == "edge"}
     if omitted & edited:
         invalid()
+    if final_batch:
+        omitted_nodes = {x["node_id"] for x in manifest["node_omissions"]}
+        edited_nodes = {x["node_id"] for key in ("node_description_replacements", "node_label_replacements", "node_type_replacements") for x in manifest[key]} | {x["record_id"] for x in manifest["evidence_replacements"] if x["record_kind"] == "node"}
+        if omitted_nodes & edited_nodes:
+            invalid()
     canonical = json.dumps(manifest, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode() + b"\n"
     if hashlib.sha256(canonical).hexdigest() != basis.manifest_sha256:
         raise ApplicationStateConflictError("recap atomic manifest changed")
@@ -520,7 +553,7 @@ def _assert_recap_atomic_manifest(manifest: object, basis: RecapSemanticBasisV8)
 def _assert_recap_semantic_basis(
     child: ExtractionRun,
     parent: ExtractionRun,
-    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4 | RecapSemanticBasisV5 | RecapSemanticBasisV6 | RecapSemanticBasisV7 | RecapSemanticBasisV8,
+    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4 | RecapSemanticBasisV5 | RecapSemanticBasisV6 | RecapSemanticBasisV7 | RecapSemanticBasisV8 | RecapSemanticBasisV9,
 ) -> None:
     """Prove every basis field against stored child/parent identity and refs."""
     lineage = child.lineage
@@ -532,7 +565,8 @@ def _assert_recap_semantic_basis(
         or parent.status not in FROZEN_COMPONENT_STATUSES
         or not parent.has_required_review_components()
         or lineage.get("derivation") != (
-            _RECAP_CANDIDATE_DERIVATION_V7 if isinstance(basis, RecapSemanticBasisV8)
+            _RECAP_CANDIDATE_DERIVATION_V8 if isinstance(basis, RecapSemanticBasisV9)
+            else _RECAP_CANDIDATE_DERIVATION_V7 if isinstance(basis, RecapSemanticBasisV8)
             else _RECAP_CANDIDATE_DERIVATION_V6 if isinstance(basis, RecapSemanticBasisV7)
             else _RECAP_CANDIDATE_DERIVATION_V5 if isinstance(basis, RecapSemanticBasisV6)
             else _RECAP_CANDIDATE_DERIVATION_V4 if isinstance(basis, RecapSemanticBasisV5)
@@ -584,6 +618,11 @@ def _assert_recap_semantic_basis(
         or _sha(parent_spans.sha256) != basis.span_index_sha256
     ):
         raise ApplicationStateConflictError("recap semantic basis components changed")
+    if isinstance(basis, RecapSemanticBasisV9):
+        if parent.revision != basis.expected_parent_revision:
+            raise ApplicationStateConflictError("final batch parent revision changed")
+        _assert_recap_atomic_manifest(lineage.get("semantic_candidate_manifest"), basis)
+        return
     if isinstance(basis, RecapSemanticBasisV8):
         _assert_recap_atomic_manifest(lineage.get("semantic_candidate_manifest"), basis)
         return
@@ -828,7 +867,7 @@ def record_recap_semantic_disposition(
     run_id: str,
     *,
     expected_revision: int,
-    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4 | RecapSemanticBasisV5 | RecapSemanticBasisV6 | RecapSemanticBasisV7 | RecapSemanticBasisV8,
+    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4 | RecapSemanticBasisV5 | RecapSemanticBasisV6 | RecapSemanticBasisV7 | RecapSemanticBasisV8 | RecapSemanticBasisV9,
     decision: RecapSemanticDispositionCommandV1,
 ) -> ExtractionRun:
     """Single-use metadata-only CAS for a held recap correction child.
