@@ -991,6 +991,30 @@ def _plan_context_resolver(
                 "source_anchor_count": len(result.source_anchors),
             },
         )
+    # Source-index and session construction can outlive the earlier binding
+    # check. Reject a retargeted World before publishing the Plan bootstrap.
+    try:
+        final_world = get_world_container(registry_root, managed_world_id)
+    except WorldContainerRegistryError as exc:
+        raise AgentTurnServiceError(
+            "Managed World binding changed during Graph retrieval.",
+            code="native_graph_binding_changed", status_code=409,
+            provider_dispatched=False,
+        ) from exc
+    final_binding = final_world.native_graph_binding
+    if (
+        final_world.world_id != managed_world_id
+        or final_world.source_root_relpath != initial.source_root_relpath
+        or final_binding is None
+        or final_binding.status != "active"
+        or final_binding.native_world_id != native_world_id
+        or final_binding.binding_version != binding.binding_version
+    ):
+        raise AgentTurnServiceError(
+            "Managed World binding changed during Graph retrieval; retry the turn.",
+            code="native_graph_binding_changed", status_code=409,
+            provider_dispatched=False,
+        )
     return bootstrap
 
 
