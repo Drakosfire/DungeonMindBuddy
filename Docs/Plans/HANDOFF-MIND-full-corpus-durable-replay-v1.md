@@ -2,7 +2,7 @@
 
 **Created:** 2026-10-08
 
-**Status:** ACTIVE-ISOLATED-44-REPLAY — PRIME-adopted exact lease; execution waits for this authority to land on main
+**Status:** ACTIVE-CODE-PREPARATION — retained-head continuation; all graph replay/runtime execution HOLD after C1S3 STOP
 
 **Canonical handoff path:** `Docs/Plans/HANDOFF-MIND-full-corpus-durable-replay-v1.md`
 
@@ -27,6 +27,36 @@
 This is a new authority contract, not a revival of an old replay lease. The operator's full-graph reuse/replacement goal and PRIME's explicit bounded adoption authorize code preparation only. The authority PR is a steward-designated design exception under `AGENTS.md`; its sole changed path is this file. Repository operating law and `Docs/Process/STEWARD-CYCLE.md` continue to govern dispatch and review.
 
 ## Current phase — exact-packet isolated execution activation
+
+### Post-STOP continuation code-preparation authority — 2026-10-08
+
+PRIME chose retained-head continuation after accepted #1039 repair merge `6d495773e0086543e0340b34bc91da38ba3a2006`, reviewed head `3e935601da9401cc0f50cc0f8625905b9a14f531`. The original 44-session runner is pristine-only and explicitly never resumes. No source/data callback may fake pristine state. The following narrowly approved code preparation supersedes runtime dispatch below; the original stage remains pinned and stopped, and its packet/inputs/reports/receipts are immutable.
+
+**Code mission/invariant:** one-run orchestration of existing governed source/prepare/confirm helpers for unchanged manifest ordinals 3–44, only after verifying the exact retained genesis/Sessions 1–2 publication/contribution/source prefix. It must chain exact expected parents, fail closed on prefix/source/receipt drift or unrelated head movement, and detect already-completed exact publications versus mismatches without duplicating prior sessions. Restart after uncertain/partial effects must STOP and require exact durable reconciliation; it must not blindly re-prepare against a moved head or pretend checkpoint files are publication authority. No new public API/schema, generic recovery framework, source/profile/candidate rewrite or genesis regeneration.
+
+Retained checkpoint: `rev:43435e3a237b2e1e5836368b61619895`, genesis `rev:77fdd25fc46a0dc896a65b679f7dd68f`, 3 revisions/1 initializer receipt/2 terminal review publications, C1 Sessions 1–2 only. C1S3 source pair was admitted but no contribution/review/publication committed. Partial dump SHA-256 `8ad98b722049e26dba9d915f7d05038cff2a306bbc8e3f7b4d8f1686289d2284` must remain preserved. Core stays `a501784f21aaafb46d7561f46397a3afdc42f125`; repaired implementation starts from exact merge above. Cumulative graph-relevant change from frozen `f687` is the reviewed native-PC endpoint mapping; other intervening changes are unrelated APP-STATE/UI/process work, not authority to update the preserved runtime or S28 schema.
+
+**Serial code write lease (PRIME explicitly approved):**
+
+| Action | Path | Purpose |
+|---|---|---|
+| Create | `evals/graph_memory_layer/run_current_corpus_candidate_replay_continuation.py` | One-run retained-prefix validation and existing-governed suffix orchestration |
+| Create | `tests/test_current_corpus_candidate_replay_continuation.py` | Owning-boundary prefix/source/receipt, parent-race, exact-idempotency/mismatch and partial-STOP proof |
+| Modify | `Docs/Plans/HANDOFF-MIND-full-corpus-durable-replay-v1.md` | This exact preparation authority and backward-looking accepted predecessor/STOP facts |
+
+No additional paths/discovery exception. Frozen `run_current_corpus_candidate_replay_acceptance.py` must not change. Open exactly one assigned implementation PR, `MIND: continue replay from verified retained prefix`, without a new options-only lane. Use an isolated source checkout; no preserved runtime source update or graph call during implementation. Verify this handoff is durable on main before code edits under repository policy.
+
+Required synthetic evidence: actual typed prefix receipt/contribution/revision/source verification; exact 44-manifest/digest/first-two membership and ordinal 3 start; expected-parent race rejection; completed exact-run contribution/receipt identity versus command or source mismatch; lost/partial response STOP with actual durable-state reconciliation and no automatic duplicate confirmations. Independently review exact head and cumulative diff. Runtime execution still requires a separately reviewed exact command packet after code acceptance, combined shared/S28 budget accounting and fresh preflight. The six-PC authorized-read evidence-domain exclusions and S28/unique authored/current-corpus/readiness gaps remain explicit separate blockers, not permission to repair them here.
+
+Exact implementation verification:
+
+```bash
+uv run pytest tests/test_current_corpus_candidate_replay_continuation.py tests/test_current_corpus_candidate_replay_acceptance.py -q
+git diff --check
+git diff --name-only origin/main...HEAD
+```
+
+No replay, new target/reset/rename, binding, restore, schema/profile changes, provider/operator QA or S28 operation is authorized by this code lease. Existing read-only diagnostics/partial preservation remain allowed only within their explicitly assigned scopes.
 
 This section governs the current execution phase; the completed code-preparation sections below remain predecessor design/evidence, not a renewed source lease. PRIME adopted **ACTIVE-ISOLATED-44-REPLAY** after exact-packet architecture PASS. Actual execution still requires the activation gate above; the operator's zero-model durable graph goal does not waive main landing or preflight.
 
