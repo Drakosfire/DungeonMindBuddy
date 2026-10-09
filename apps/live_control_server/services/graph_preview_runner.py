@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
+
+from src.graph_memory.extraction.bounded_recap_execution import (
+    BoundedRecapPassClient,
+    RecapExecutionLimits,
+)
 
 from apps.live_control_server.services.source_artifact_registry import (
     SourceArtifactRegistryError,
@@ -61,7 +67,19 @@ def run_recap_production_extraction(
     context_vocabulary_packet: ContextVocabularyPacket | None = None,
     enable_node_vocabulary_packet: bool = False,
     enable_edge_vocabulary_packet: bool = False,
+    execution_limits: RecapExecutionLimits | None = None,
 ) -> ProductionExtractionResult:
+    bounded = None
+    if execution_limits is not None:
+        if category_client is not None or not allow_llm or model_id != execution_limits.model:
+            raise ValueError("bounded extraction requires its exact model and owning client")
+        if output_dir is None or output_dir.exists():
+            raise ValueError("bounded extraction requires a new output directory")
+        if not output_dir.resolve().is_relative_to(repo_root.resolve()):
+            raise ValueError("bounded extraction output must be repository-contained")
+        bounded = BoundedRecapPassClient(execution_limits)
+        output_dir.mkdir(parents=True, exist_ok=False)
+        category_client = bounded
     profile_id, profile_version = resolve_legacy_graph_extraction_profile(profile)
     artifact = create_recap_source_artifact(
         repo_root,
@@ -70,21 +88,34 @@ def run_recap_production_extraction(
         recap_path=recap_path,
     )
     source = _normalized_from_registered(repo_root, artifact.source_artifact_id)
-    return run_production_extraction(
-        ProductionExtractionRequest(
-            repo_root=repo_root,
-            source=source,
-            profile_id=profile_id,
-            profile_version=profile_version,
-            model_id=model_id,
-            allow_llm=allow_llm,
-            category_client=category_client,
-            output_dir=output_dir,
-            context_vocabulary_packet=context_vocabulary_packet,
-            enable_node_vocabulary_packet=enable_node_vocabulary_packet,
-            enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
+    result = None
+    try:
+        result = run_production_extraction(
+            ProductionExtractionRequest(
+                repo_root=repo_root,
+                source=source,
+                profile_id=profile_id,
+                profile_version=profile_version,
+                model_id=model_id,
+                allow_llm=allow_llm,
+                category_client=category_client,
+                output_dir=output_dir,
+                context_vocabulary_packet=context_vocabulary_packet,
+                enable_node_vocabulary_packet=enable_node_vocabulary_packet,
+                enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
+            )
         )
-    )
+        return result
+    finally:
+        if bounded is not None:
+            output_dir.mkdir(parents=True, exist_ok=True)
+            (output_dir / "inference_call_ledger.json").write_text(
+                json.dumps({**bounded.ledger(), "run_id": result.run.run_id if result else None,
+                            "source_artifact_id": source.source_artifact_id,
+                            "source_sha256": source.source_sha256,
+                            "component_sha256": {name: component.sha256 for name, component
+                                in getattr(result.run, "components", {}).items()} if result else None}, indent=2) + "\n", encoding="utf-8")
+
 
 
 def run_worldbuilding_production_extraction(

@@ -7,7 +7,6 @@ import os
 import re
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence
 
 from src.bootstrap_env import load_dungeonmindbuddy_dotenv
@@ -368,7 +367,7 @@ class CategoryGraphExtractionResult:
     pass_telemetry: dict[str, Any]
     consolidation_diagnostics: dict[str, Any]
     model_id: str
-    total_cost_usd: float
+    total_cost_usd: float | None
     diagnostics: dict[str, Any] = field(default_factory=dict)
     registry_context_graph: dict[str, Any] | None = None
     known_entity_mentions: dict[str, Any] | None = None
@@ -1710,7 +1709,7 @@ def run_category_pipeline(
     )
     pass_outputs: dict[str, dict[str, Any]] = {}
     pass_telemetry: dict[str, Any] = {}
-    total_cost = 0.0
+    total_cost: float | None = 0.0
     system = "Category-decomposed graph memory extraction."
     node_vocabulary_pass_diagnostics: dict[str, Any] = {}
     effective_node_vocabulary_packet, dynamic_node_vocabulary_diag = resolve_node_vocabulary_packet_for_options(options)
@@ -1744,7 +1743,7 @@ def run_category_pipeline(
             "response_id": result["response_id"],
             "progress_label": pass_spec.progress_label,
         }
-        total_cost += result["cost_usd"]
+        total_cost = None if total_cost is None or result["cost_usd"] is None else total_cost + result["cost_usd"]
         _notify(pass_name, "complete")
 
     if active_profile.beat_pass is not None:
@@ -1765,7 +1764,7 @@ def run_category_pipeline(
             "response_id": beat_result["response_id"],
             "progress_label": beat.progress_label,
         }
-        total_cost += beat_result["cost_usd"]
+        total_cost = None if total_cost is None or beat_result["cost_usd"] is None else total_cost + beat_result["cost_usd"]
         _notify(beat.pass_id, "complete")
 
     consolidated = consolidate_category_outputs(
@@ -1831,7 +1830,7 @@ def run_category_pipeline(
             "response_id": encounter_result["response_id"],
             "progress_label": encounter_progress,
         }
-        total_cost += encounter_result["cost_usd"]
+        total_cost = None if total_cost is None or encounter_result["cost_usd"] is None else total_cost + encounter_result["cost_usd"]
         _notify(encounter_pass_id, "complete")
         consolidated = consolidate_category_outputs(
             pass_outputs,
@@ -1864,7 +1863,7 @@ def run_category_pipeline(
         "response_id": edge_result["response_id"],
         "progress_label": edge.progress_label,
     }
-    total_cost += edge_result["cost_usd"]
+    total_cost = None if total_cost is None or edge_result["cost_usd"] is None else total_cost + edge_result["cost_usd"]
     _notify(edge.pass_id, "complete")
 
     consolidated = consolidate_category_outputs(
@@ -1931,7 +1930,7 @@ def run_category_pipeline(
                 "response_id": fill_result["response_id"],
                 "progress_label": PARTY_CLAIMED_FILL_PROGRESS,
             }
-            total_cost += fill_result["cost_usd"]
+            total_cost = None if total_cost is None or fill_result["cost_usd"] is None else total_cost + fill_result["cost_usd"]
             sanitized, claimed_fill_diag = apply_fill_to_parts(
                 sanitized,
                 parsed=fill_result["parsed"],
@@ -2009,7 +2008,7 @@ def run_category_pipeline(
         pass_telemetry=pass_telemetry,
         consolidation_diagnostics=merged_diag,
         model_id=model_id,
-        total_cost_usd=round(total_cost, 6),
+        total_cost_usd=None if total_cost is None else round(total_cost, 6),
         diagnostics={
             "extraction_mode": "category_decomposed",
             "model_id": model_id,

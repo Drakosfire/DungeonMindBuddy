@@ -37,7 +37,7 @@ dependencies = [
     # PLAY-1 consumer seam: reviewed WorldKeeper #8 V3-compatible head.
     "worldkeeper @ git+https://github.com/Drakosfire/WorldKeeper.git@49a8620f066ce7ef8972a699020c012f50af9158",
     # Exact pin: GenerationEngine PR #10 merge (E5L deterministic client cleanup).
-    "generationengine[openai] @ git+https://github.com/Drakosfire/GenerationEngine.git@9122257f5a8842e4771990a3316130bc1bf7e332",
+    "generationengine[openai] @ git+https://github.com/Drakosfire/GenerationEngine.git@128710668369b73beff78ea0e4377ec252cd04e4",
     "psycopg[binary]>=3.2",
     "alembic>=1.16",
 ]
