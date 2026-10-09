@@ -1,6 +1,6 @@
 # MIND handoff: checkpoint-38 active binding
 
-Status: `IMPLEMENTED_AWAITING_REVIEW`  
+Status: `MERGED` — Buddy PR #1049 merged to `main` at `b02622b03683d52344d3cfd5df833676483d2339`. The checkpoint-38 binding verification is available in read-only mode; six-session execution remains held pending a separately reviewed execution-authority contract.
 Scope: one read-only authorization gate for the first suffix candidate. This handoff does not authorize identity-ledger writes or suffix execution.
 
 ## Accepted basis
