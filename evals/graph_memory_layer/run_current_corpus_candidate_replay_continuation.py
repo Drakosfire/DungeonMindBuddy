@@ -517,6 +517,7 @@ def run_continuation(
     binding_decision_id: str | None = None,
     binding_decision_sha256: str | None = None,
     verify_checkpoint38_only: bool = False,
+    verify_checkpoint38_binding_only: bool = False,
 ) -> dict[str, Any]:
     if checkpoint38_report is not None:
         _require(
@@ -539,6 +540,14 @@ def run_continuation(
     _require(
         not verify_checkpoint38_only or checkpoint38,
         "read-only checkpoint38 verification requires sealed report",
+    )
+    _require(
+        not verify_checkpoint38_binding_only or checkpoint38,
+        "read-only binding verification requires sealed checkpoint38 report",
+    )
+    _require(
+        not (verify_checkpoint38_only and verify_checkpoint38_binding_only),
+        "checkpoint38 verification modes are mutually exclusive",
     )
     if verify_checkpoint38_only:
         _require(
@@ -617,6 +626,32 @@ def run_continuation(
             "binding_verified": False,
             "full_selected_world_ready": False,
         }
+    if verify_checkpoint38_binding_only:
+        _require(
+            authority.head() == prefix_head,
+            "retained head moved before binding verification",
+        )
+        for entry in suffix_entries:
+            authority.require_unclaimed(entry, dsn)
+        authority.checkpoint38_binding(
+            manifest.entries[CHECKPOINT38_S22_ORDINAL - 1],
+            originals[CHECKPOINT38_S22_ORDINAL - 1],
+            binding_decision_id,
+            binding_decision_sha256,
+            dsn,
+        )
+        return {
+            "status": "CHECKPOINT38_BINDING_VERIFIED_READ_ONLY",
+            "command": command,
+            "command_digest": command_digest,
+            "sessions": prefix,
+            "new_confirms": 0,
+            "last_good_head": prefix_head,
+            "terminal_head": None,
+            "execution_held": True,
+            "binding_verified": True,
+            "full_selected_world_ready": False,
+        }
     output = output.resolve()
     if output.exists():
         path = output / "continuation_report.json"
@@ -667,6 +702,10 @@ def run_continuation(
             binding_decision_id,
             binding_decision_sha256,
             dsn,
+        )
+        raise replay.ReplayStop(
+            "checkpoint38 six-session execution authority contract not accepted; execution held",
+            boundary="execution_authority",
         )
     output.mkdir(parents=True, exist_ok=False)
     report: dict[str, Any] = {
@@ -765,6 +804,7 @@ def main() -> int:
     parser.add_argument("--binding-decision-id")
     parser.add_argument("--binding-decision-sha256")
     parser.add_argument("--verify-checkpoint38-only", action="store_true")
+    parser.add_argument("--verify-checkpoint38-binding-only", action="store_true")
     args = parser.parse_args()
     report = run_continuation(
         accepted_root=args.accepted_root,
@@ -775,6 +815,7 @@ def main() -> int:
         binding_decision_id=args.binding_decision_id,
         binding_decision_sha256=args.binding_decision_sha256,
         verify_checkpoint38_only=args.verify_checkpoint38_only,
+        verify_checkpoint38_binding_only=args.verify_checkpoint38_binding_only,
     )
     print(
         json.dumps(
@@ -792,7 +833,11 @@ def main() -> int:
             sort_keys=True,
         )
     )
-    return 0 if report["status"] in {"COMPLETE", "PREFIX_VERIFIED_READ_ONLY"} else 1
+    return 0 if report["status"] in {
+        "COMPLETE",
+        "PREFIX_VERIFIED_READ_ONLY",
+        "CHECKPOINT38_BINDING_VERIFIED_READ_ONLY",
+    } else 1
 
 
 if __name__ == "__main__":

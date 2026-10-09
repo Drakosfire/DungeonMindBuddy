@@ -35,6 +35,8 @@ The default known-party resolver returned zero native matches for `thrin_branchb
 
 This gate is read-only preflight. Buddy's existing confirm path and Core's guarded transaction remain responsible for rechecking publication authority at commit time. Passing the source gate alone does not authorize the six-session run.
 
+`--verify-checkpoint38-binding-only` runs the preflight and returns `CHECKPOINT38_BINDING_VERIFIED_READ_ONLY` before output-directory creation. An ordinary checkpoint-38 continuation remains hard-held after a successful binding check, before output creation or confirm, until a distinct exact six-session execution-authority contract is reviewed and implemented. The source tests prove both the read-only result and this hard hold with a valid binding.
+
 ## Execution boundary, once separately released
 
 - Execute only frozen ordinals 39–44, sequentially, with no model/provider calls. Keep the 38-row prefix and accepted inputs immutable. Preserve the failed `continuation-run-01` STOP; never resume or reuse its output directory. A later authorized attempt needs a new private output directory and fresh exact-head/capacity checks.

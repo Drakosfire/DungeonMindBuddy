@@ -308,7 +308,9 @@ def test_checkpoint38_altered_prefix_is_zero_write(checkpoint38, monkeypatch, ch
     assert s.calls == [] and not s.output.exists()
 
 
-@pytest.mark.parametrize("injection", ["authority", "seams", "readonly_authority"])
+@pytest.mark.parametrize(
+    "injection", ["authority", "seams", "readonly_authority", "binding_readonly"]
+)
 def test_checkpoint38_rejects_injected_execution_authority_before_any_call(
     checkpoint38, injection
 ):
@@ -324,6 +326,8 @@ def test_checkpoint38_rejects_injected_execution_authority_before_any_call(
             binding_decision_id=None,
             binding_decision_sha256=None,
         )
+    elif injection == "binding_readonly":
+        options["verify_checkpoint38_binding_only"] = True
     with pytest.raises(driver.replay.ReplayStop):
         run(s, **options)
     assert s.authority.genesis_calls == 1  # one call belongs to checkpoint38 fixture construction
@@ -415,6 +419,38 @@ def _checkpoint38_reviewed_context():
     return context, canonical_sha256(decision.model_dump(mode="json"))
 
 
+def _install_valid_checkpoint38_binding(monkeypatch, s):
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+
+    entry = s.entries[driver.CHECKPOINT38_S22_ORDINAL - 1]
+    original = s.originals[driver.CHECKPOINT38_S22_ORDINAL - 1]
+    entry.campaign_id = driver.CHECKPOINT38_S22_CAMPAIGN_ID
+    entry.session_id = driver.CHECKPOINT38_S22_SESSION_ID
+    entry.key = (entry.campaign_id, entry.session_id)
+    entry.source_artifact_id = "artifact:recap:longmont-c2:session-22:06c978131f31"
+    entry.original_sha256 = "06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083"
+    original.candidate_digest = driver.CHECKPOINT38_S22_CANDIDATE_SHA256
+    original.source_revision_id = (
+        "sha256:06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083"
+    )
+    context, decision_sha256 = _checkpoint38_reviewed_context()
+    loader_calls = []
+
+    def load_context(world_id, *, revision_pin, database_url):
+        loader_calls.append((world_id, revision_pin, database_url))
+        return context
+
+    monkeypatch.setattr(
+        world_graph_writes, "load_production_mutation_context", load_context
+    )
+    gate = driver._Authority("unused", NS())
+    s.authority.checkpoint38_binding = gate.checkpoint38_binding
+    monkeypatch.setattr(driver, "_Authority", lambda _dsn: s.authority)
+    s.checkpoint_args["binding_decision_id"] = "decision:reviewed"
+    s.checkpoint_args["binding_decision_sha256"] = decision_sha256
+    return loader_calls
+
+
 def test_checkpoint38_binding_uses_exact_production_mutation_context(monkeypatch):
     from apps.live_control_server.integrations.dungeonmind import world_graph_writes
 
@@ -450,6 +486,47 @@ def test_checkpoint38_binding_uses_exact_production_mutation_context(monkeypatch
             "postgresql://test-dsn",
         )
     ]
+
+
+def test_checkpoint38_binding_only_verification_returns_before_output_or_confirm(
+    checkpoint38, monkeypatch
+):
+    s = checkpoint38
+    loader_calls = _install_valid_checkpoint38_binding(monkeypatch, s)
+    report = run(
+        s,
+        **{
+            **s.checkpoint_args,
+            "authority": None,
+            "verify_checkpoint38_binding_only": True,
+        },
+    )
+    assert report["status"] == "CHECKPOINT38_BINDING_VERIFIED_READ_ONLY"
+    assert report["binding_verified"] and report["execution_held"]
+    assert report["new_confirms"] == 0
+    assert len(report["sessions"]) == 38
+    assert s.authority.unclaimed == list(range(39, 45))
+    assert loader_calls == [
+        (
+            driver.replay.WORLD_ID,
+            driver.CHECKPOINT38_HEAD,
+            "postgresql://x:y@127.0.0.1:54362/dmb_current_corpus_replay_v1",
+        )
+    ]
+    assert s.calls == [] and not s.output.exists()
+
+
+def test_checkpoint38_valid_binding_still_holds_all_suffix_writes(
+    checkpoint38, monkeypatch
+):
+    s = checkpoint38
+    loader_calls = _install_valid_checkpoint38_binding(monkeypatch, s)
+    with pytest.raises(
+        driver.replay.ReplayStop, match="six-session execution authority contract"
+    ):
+        run(s, **{**s.checkpoint_args, "authority": None})
+    assert len(loader_calls) == 1
+    assert s.calls == [] and not s.output.exists()
 
 
 @pytest.mark.parametrize(
