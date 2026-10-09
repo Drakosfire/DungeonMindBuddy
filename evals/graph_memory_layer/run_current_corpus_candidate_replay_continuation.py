@@ -42,6 +42,16 @@ CHECKPOINT38_HEAD = "rev:dfe5ad1c967a365d3f7748b38faa1a9c"
 CHECKPOINT38_REPORT_SHA256 = (
     "a6ca378e8055862e41c003808c10a5cf04710d5afd5576a05806636bfe3696d2"
 )
+CHECKPOINT38_S22_ORDINAL = 39
+CHECKPOINT38_S22_CAMPAIGN_ID = "longmont-c2"
+CHECKPOINT38_S22_SESSION_ID = "session-22"
+CHECKPOINT38_S22_CANDIDATE_SHA256 = (
+    "143e1f9df81a85e47037651ecb70c7b12bc3347dc220a6964f1a1a66f500e726"
+)
+CHECKPOINT38_S22_CANDIDATE_NODE_ID = "node:thrin-branchborn"
+CHECKPOINT38_S22_CORPUS_REF_TYPE = "npc"
+CHECKPOINT38_S22_CORPUS_REF_KEY = "thrin_branchborn"
+CHECKPOINT38_S22_TARGET_OBJECT_ID = "npc_thrin"
 
 
 def _require(condition: bool, message: str) -> None:
@@ -349,16 +359,109 @@ class _Authority:
         decision_sha256: str,
         dsn: str,
     ) -> None:
-        """Held boundary: no unaccepted carrier schema/API is integrated here.
+        """Verify the reviewed S22 carrier through the production authority loader.
 
-        Decision pins are command integrity, not admission authority. A later
-        reviewed producer + Core transaction fence must replace this gate and
-        reprove the exact decision/source basis. No caller can enable it.
+        This is a read-only preflight. The production confirm path and Core's
+        transaction fence remain responsible for revalidating publication-time
+        authority; decision CLI pins alone never authorize a write.
         """
-        # RAKE's producer alone is insufficient: its final source/decision
-        # check is outside Core's publication transaction. No caller flag or
-        # injected callback may activate real suffix writes under this source.
-        _require(False, "checkpoint38 publication fence not accepted; execution held")
+        _require(
+            entry.ordinal == CHECKPOINT38_S22_ORDINAL
+            and entry.campaign_id == CHECKPOINT38_S22_CAMPAIGN_ID
+            and entry.session_id == CHECKPOINT38_S22_SESSION_ID
+            and original.candidate_digest == CHECKPOINT38_S22_CANDIDATE_SHA256,
+            "checkpoint38 first suffix candidate differs",
+        )
+        _require(
+            isinstance(decision_id, str)
+            and bool(decision_id.strip())
+            and decision_id == decision_id.strip(),
+            "checkpoint38 reviewed decision id is missing or padded",
+        )
+        _require(
+            isinstance(decision_sha256, str)
+            and len(decision_sha256) == 64
+            and all(char in "0123456789abcdef" for char in decision_sha256),
+            "checkpoint38 reviewed decision digest is invalid",
+        )
+
+        from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+            load_production_mutation_context,
+        )
+        from dungeonmind.contracts.identity import IdentityDecisionRecordV2
+        from dungeonmind.domain.canonical import canonical_sha256
+
+        try:
+            context = load_production_mutation_context(
+                replay.WORLD_ID,
+                revision_pin=CHECKPOINT38_HEAD,
+                database_url=dsn,
+            )
+        except Exception as exc:
+            raise replay.ReplayStop(
+                "checkpoint38 reviewed binding authority could not be loaded",
+                boundary="checkpoint38_binding",
+            ) from exc
+
+        _require(
+            context.world_id == replay.WORLD_ID
+            and context.revision_id == CHECKPOINT38_HEAD
+            and context.head_revision_id == CHECKPOINT38_HEAD,
+            "checkpoint38 mutation context is not pinned to the current parent",
+        )
+        candidate_bindings = [
+            binding
+            for binding in context.reviewed_corpus_bindings
+            if binding.campaign_id == CHECKPOINT38_S22_CAMPAIGN_ID
+            and binding.candidate_sha256 == original.candidate_digest
+        ]
+        _require(
+            len(candidate_bindings) == 1,
+            "checkpoint38 candidate does not have exactly one reviewed binding",
+        )
+        binding = candidate_bindings[0]
+        _require(
+            binding.world_id == replay.WORLD_ID
+            and binding.parent_revision_id == CHECKPOINT38_HEAD
+            and binding.campaign_id == entry.campaign_id
+            and binding.candidate_sha256 == original.candidate_digest
+            and binding.candidate_node_id == CHECKPOINT38_S22_CANDIDATE_NODE_ID
+            and binding.corpus_ref_type == CHECKPOINT38_S22_CORPUS_REF_TYPE
+            and binding.corpus_ref_key == CHECKPOINT38_S22_CORPUS_REF_KEY
+            and binding.target_object_id == CHECKPOINT38_S22_TARGET_OBJECT_ID
+            and binding.decision_id == decision_id,
+            "checkpoint38 reviewed binding differs from the frozen S22 identity",
+        )
+
+        decisions = [
+            record
+            for record in context.identity_ledger_records
+            if record.get("decision_id") == decision_id
+        ]
+        _require(
+            len(decisions) == 1,
+            "checkpoint38 reviewed binding does not resolve one ledger decision",
+        )
+        try:
+            decision = IdentityDecisionRecordV2.model_validate(decisions[0])
+        except Exception as exc:
+            raise replay.ReplayStop(
+                "checkpoint38 identity decision is not a typed v2 record",
+                boundary="checkpoint38_binding",
+            ) from exc
+        _require(
+            decision.status.value == "active"
+            and decision.decision_kind.value == "human_override"
+            and decision.world_id == replay.WORLD_ID
+            and decision.subject_object_ids == [CHECKPOINT38_S22_CANDIDATE_NODE_ID]
+            and decision.target_object_ids == [binding.target_object_id]
+            and decision.actor == binding.reviewer_id,
+            "checkpoint38 ledger decision does not match the active human review",
+        )
+        _require(
+            canonical_sha256(decision.model_dump(mode="json")) == decision_sha256,
+            "checkpoint38 active decision digest differs from its exact pin",
+        )
 
     def require_unclaimed(self, entry: Any, dsn: str) -> None:
         """Reject any persisted suffix contribution, including an orphan, read-only.
@@ -416,6 +519,7 @@ def run_continuation(
     binding_decision_id: str | None = None,
     binding_decision_sha256: str | None = None,
     verify_checkpoint38_only: bool = False,
+    verify_checkpoint38_binding_only: bool = False,
 ) -> dict[str, Any]:
     if checkpoint38_report is not None:
         _require(
@@ -438,6 +542,14 @@ def run_continuation(
     _require(
         not verify_checkpoint38_only or checkpoint38,
         "read-only checkpoint38 verification requires sealed report",
+    )
+    _require(
+        not verify_checkpoint38_binding_only or checkpoint38,
+        "read-only binding verification requires sealed checkpoint38 report",
+    )
+    _require(
+        not (verify_checkpoint38_only and verify_checkpoint38_binding_only),
+        "checkpoint38 verification modes are mutually exclusive",
     )
     if verify_checkpoint38_only:
         _require(
@@ -516,6 +628,32 @@ def run_continuation(
             "binding_verified": False,
             "full_selected_world_ready": False,
         }
+    if verify_checkpoint38_binding_only:
+        _require(
+            authority.head() == prefix_head,
+            "retained head moved before binding verification",
+        )
+        for entry in suffix_entries:
+            authority.require_unclaimed(entry, dsn)
+        authority.checkpoint38_binding(
+            manifest.entries[CHECKPOINT38_S22_ORDINAL - 1],
+            originals[CHECKPOINT38_S22_ORDINAL - 1],
+            binding_decision_id,
+            binding_decision_sha256,
+            dsn,
+        )
+        return {
+            "status": "CHECKPOINT38_BINDING_VERIFIED_READ_ONLY",
+            "command": command,
+            "command_digest": command_digest,
+            "sessions": prefix,
+            "new_confirms": 0,
+            "last_good_head": prefix_head,
+            "terminal_head": None,
+            "execution_held": True,
+            "binding_verified": True,
+            "full_selected_world_ready": False,
+        }
     output = output.resolve()
     if output.exists():
         path = output / "continuation_report.json"
@@ -566,6 +704,10 @@ def run_continuation(
             binding_decision_id,
             binding_decision_sha256,
             dsn,
+        )
+        raise replay.ReplayStop(
+            "checkpoint38 six-session execution authority contract not accepted; execution held",
+            boundary="execution_authority",
         )
     output.mkdir(parents=True, exist_ok=False)
     report: dict[str, Any] = {
@@ -664,6 +806,7 @@ def main() -> int:
     parser.add_argument("--binding-decision-id")
     parser.add_argument("--binding-decision-sha256")
     parser.add_argument("--verify-checkpoint38-only", action="store_true")
+    parser.add_argument("--verify-checkpoint38-binding-only", action="store_true")
     args = parser.parse_args()
     report = run_continuation(
         accepted_root=args.accepted_root,
@@ -674,6 +817,7 @@ def main() -> int:
         binding_decision_id=args.binding_decision_id,
         binding_decision_sha256=args.binding_decision_sha256,
         verify_checkpoint38_only=args.verify_checkpoint38_only,
+        verify_checkpoint38_binding_only=args.verify_checkpoint38_binding_only,
     )
     print(
         json.dumps(
@@ -691,7 +835,11 @@ def main() -> int:
             sort_keys=True,
         )
     )
-    return 0 if report["status"] in {"COMPLETE", "PREFIX_VERIFIED_READ_ONLY"} else 1
+    return 0 if report["status"] in {
+        "COMPLETE",
+        "PREFIX_VERIFIED_READ_ONLY",
+        "CHECKPOINT38_BINDING_VERIFIED_READ_ONLY",
+    } else 1
 
 
 if __name__ == "__main__":
