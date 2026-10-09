@@ -1069,3 +1069,123 @@ def test_confirm_fails_closed_when_admitted_source_fingerprint_drifts(
         _confirm_via_product_seam(prepared)
     assert [item.code for item in excinfo.value.diagnostics] == ["source_identity_conflict"]
     assert prepared.graph_authority.current_head(prepared.world_id).revision_id == prepared.d0
+
+
+def _accepted_pc_endpoint_contribution(predicate: str = "leads", target_kind: str = "group"):
+    from apps.live_control_server.models.world_graph_contributions import (
+        build_assertion,
+        create_graph_contribution,
+    )
+
+    token = "sha256:" + "cd" * 32
+    artifact = "artifact:recap:pc-endpoint-fixture"
+    evidence = [{"evidence_ref_id": "ev:pc-endpoint", "source_span_ref_id": "span:pc-endpoint"}]
+    common = {
+        "acceptance_state": "accepted", "evidence_ref_ids": ["ev:pc-endpoint"],
+        "source_artifact_id": artifact, "source_revision_id": token,
+        "campaign_scope": "campaign:pc-endpoint",
+    }
+    node = build_assertion(
+        assertion_kind="node", subject_node_id="object:target", label="Target",
+        value={"kind": target_kind, "evidence": evidence}, **common,
+    )
+    edge = build_assertion(
+        assertion_kind="edge", subject_node_id="object:leader", target_node_id="object:target",
+        predicate=predicate, label="Synthetic relation",
+        value={"edge_id": "edge:pc-endpoint", "evidence": evidence}, **common,
+    )
+    contribution = create_graph_contribution(
+        world_id="world:pc-endpoint", source_kind="source_extraction",
+        source_artifact_id=artifact, source_revision_id=token,
+        campaign_scope="campaign:pc-endpoint", accepted_assertions=[node, edge],
+        produced_at="2026-10-08T00:00:00Z", authored_by="synthetic-test",
+    )
+    return contribution, {(artifact, token): token}
+
+
+def _pc_endpoint_context(kind: str):
+    from apps.live_control_server.models.world_graph_mutation_context import MutationObject
+
+    return WorldGraphMutationContext(
+        world_id="world:pc-endpoint", revision_id="rev:pc-endpoint", head_revision_id="rev:pc-endpoint",
+        objects={"object:leader": MutationObject(object_id="object:leader", label="Leader", kind=kind)},
+    )
+
+
+def test_accepted_contribution_native_pc_and_legacy_pc_qualify_equivalently() -> None:
+    from apps.live_control_server.integrations.dungeonmind.assertion_qualification import CURRENT_V5_TARGET
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        _build_v2_candidate,
+        mutation_context_from_native_projection,
+    )
+    from dungeonmind.contracts.contribution import AcceptanceState
+
+    assert CURRENT_V5_TARGET.buddy_to_dm_kind["pc"] == "dnd5e:player_character"
+    contribution, pairs = _accepted_pc_endpoint_contribution()
+    frozen = contribution.model_dump(mode="json")
+    kwargs = {"pair_to_dm": pairs, "produced_at": datetime(2026, 10, 8, tzinfo=UTC)}
+    projection = SimpleNamespace(
+        snapshot=SimpleNamespace(revision_id="rev:pc-endpoint", head_revision_id="rev:pc-endpoint"),
+        graph=SimpleNamespace(
+            objects={"object:leader": SimpleNamespace(
+                object_id="object:leader", label="Leader", kind="dnd5e:player_character",
+                aliases=(), existence_assertion_metadata=SimpleNamespace(canon_state="canonical"),
+            )},
+            relationships={}, alias_index={},
+        ),
+    )
+    native_context = mutation_context_from_native_projection(projection, world_id="world:pc-endpoint")
+    assert native_context.world_id == "world:pc-endpoint"
+    assert native_context.revision_id == native_context.head_revision_id == "rev:pc-endpoint"
+    # Identity-context wire data stays unchanged; normalization is endpoint-only.
+    assert native_context.objects["object:leader"].kind == "player_character"
+    native, native_verdicts = _build_v2_candidate(contribution, context=native_context, **kwargs)
+    legacy, legacy_verdicts = _build_v2_candidate(contribution, context=_pc_endpoint_context("pc"), **kwargs)
+    assert native.model_dump(mode="json") == legacy.model_dump(mode="json")
+    assert native_verdicts == legacy_verdicts
+    assert set(native_verdicts.values()) == {AcceptanceState.ACCEPTED}
+    assert native.world_id == contribution.world_id == "world:pc-endpoint"
+    assert native.campaign_scope == contribution.campaign_scope == "campaign:pc-endpoint"
+    assert native.source_artifact_id == contribution.source_artifact_id
+    edge = next(assertion for assertion in native.assertions if assertion.assertion_kind == "edge")
+    assert edge.subject_object_id == "object:leader" and edge.object_object_id == "object:target"
+    assert edge.predicate == "leads" and json.loads(edge.value)["dm_predicate"] == "dnd5e:leads"
+    assert edge.source_revision_id == contribution.source_revision_id
+    assert edge.evidence_refs == next(a for a in legacy.assertions if a.assertion_kind == "edge").evidence_refs
+    assert contribution.model_dump(mode="json") == frozen
+
+
+@pytest.mark.parametrize("kind", ["unrecognized_kind", "foreign:player_character", "dnd5e:player_character", " player_character", "PLAYER_CHARACTER"])
+def test_accepted_contribution_does_not_guess_unknown_or_foreign_pc_kind(kind: str) -> None:
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        WorldGraphWriteError,
+        _build_v2_candidate,
+    )
+
+    contribution, pairs = _accepted_pc_endpoint_contribution()
+    with pytest.raises(WorldGraphWriteError, match="endpoint kinds") as failure:
+        _build_v2_candidate(
+            contribution, context=_pc_endpoint_context(kind), pair_to_dm=pairs,
+            produced_at=datetime(2026, 10, 8, tzinfo=UTC),
+        )
+    assert failure.value.code == "governed_write_inexpressible"
+    assert failure.value.details["reason"] == "endpoint_kind_not_admitted"
+    assert failure.value.details["subject_dm_kind"] is None
+
+
+def test_native_pc_normalization_preserves_invalid_event_target_rejection() -> None:
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        WorldGraphWriteError,
+        _build_v2_candidate,
+    )
+
+    contribution, pairs = _accepted_pc_endpoint_contribution("participates_in", "creature")
+    with pytest.raises(WorldGraphWriteError, match="endpoint kinds") as failure:
+        _build_v2_candidate(
+            contribution, context=_pc_endpoint_context("player_character"), pair_to_dm=pairs,
+            produced_at=datetime(2026, 10, 8, tzinfo=UTC),
+        )
+    assert failure.value.details["dm_predicate"] == "dnd5e:participates_in"
+    assert failure.value.details["subject_dm_kind"] == "dnd5e:player_character"
+    assert failure.value.details["object_dm_kind"] == "dnd5e:creature"
+    assert failure.value.details["reason"] == "endpoint_kind_not_admitted"
