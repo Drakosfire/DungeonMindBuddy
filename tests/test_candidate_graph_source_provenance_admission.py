@@ -1102,6 +1102,7 @@ def _prepared_native_recap(
 
     repo = tmp_path / "repo"
     world_root = tmp_path / "world"
+    tmp_path.mkdir(parents=True, exist_ok=True)
     repo.mkdir()
     world_root.mkdir()
     monkeypatch.setenv(
