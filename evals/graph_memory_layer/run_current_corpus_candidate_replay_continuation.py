@@ -373,8 +373,10 @@ class _Authority:
             "checkpoint38 first suffix candidate differs",
         )
         _require(
-            isinstance(decision_id, str) and bool(decision_id),
-            "checkpoint38 reviewed decision id is missing",
+            isinstance(decision_id, str)
+            and bool(decision_id.strip())
+            and decision_id == decision_id.strip(),
+            "checkpoint38 reviewed decision id is missing or padded",
         )
         _require(
             isinstance(decision_sha256, str)

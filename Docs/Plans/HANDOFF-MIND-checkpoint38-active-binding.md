@@ -31,7 +31,7 @@ The default known-party resolver returned zero native matches for `thrin_branchb
 
 ## Source gate and proof obligations
 
-`_Authority.checkpoint38_binding` must call the existing `load_production_mutation_context` for the exact World, checkpoint revision, and DSN. It must require context world, revision, and current head all equal the pinned checkpoint; exactly one typed binding for the frozen S22 digest/campaign; and exactly one typed `IdentityDecisionRecordV2` that is ACTIVE `human_override`, names the candidate node and bound target, and has `actor == binding.reviewer_id`. The canonical Core decision-record SHA-256 must equal the exact lowercase 64-hex CLI pin. Do not normalize, fall back, parse the carrier a second time, or accept injected authority/seams.
+`_Authority.checkpoint38_binding` must call the existing `load_production_mutation_context` for the exact World, checkpoint revision, and DSN. It must require context world, revision, and current head all equal the pinned checkpoint; exactly one typed binding for the frozen S22 digest/campaign; and exactly one typed `IdentityDecisionRecordV2` that is ACTIVE `human_override`, names the candidate node and bound target, and has `actor == binding.reviewer_id`. The decision ID must be nonblank and already trimmed; the canonical Core decision-record SHA-256 must equal the exact lowercase 64-hex CLI pin. Do not normalize, fall back, parse the carrier a second time, or accept injected authority/seams.
 
 This gate is read-only preflight. Buddy's existing confirm path and Core's guarded transaction remain responsible for rechecking publication authority at commit time. Passing the source gate alone does not authorize the six-session run.
 

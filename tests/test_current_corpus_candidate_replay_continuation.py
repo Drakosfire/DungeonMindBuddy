@@ -353,7 +353,7 @@ def test_checkpoint38_rejects_prepare_test_seam(checkpoint38):
     assert not checkpoint38.calls
 
 
-def _checkpoint38_reviewed_context():
+def _checkpoint38_reviewed_context(decision_id="decision:reviewed"):
     import json
 
     from apps.live_control_server.models.extract_promote import (
@@ -379,7 +379,7 @@ def _checkpoint38_reviewed_context():
         "target_object_id": driver.CHECKPOINT38_S22_TARGET_OBJECT_ID,
         "target_sha256": "a" * 64,
         "evidence_sha256": "b" * 64,
-        "decision_id": "decision:reviewed",
+        "decision_id": decision_id,
         "reviewer_id": reviewer_id,
         "sources": [
             {
@@ -555,6 +555,8 @@ def test_checkpoint38_valid_binding_still_holds_all_suffix_writes(
         "uppercase_digest",
         "padded_digest",
         "missing_digest",
+        "padded_decision_id",
+        "whitespace_decision_id",
         "loader_error",
     ],
 )
@@ -563,10 +565,14 @@ def test_checkpoint38_binding_fails_closed_on_authority_or_pin_drift(
 ):
     from apps.live_control_server.integrations.dungeonmind import world_graph_writes
 
-    context, decision_sha256 = _checkpoint38_reviewed_context()
+    decision_id = "decision:reviewed"
+    if drift == "padded_decision_id":
+        decision_id = " decision:reviewed "
+    elif drift == "whitespace_decision_id":
+        decision_id = "   "
+    context, decision_sha256 = _checkpoint38_reviewed_context(decision_id)
     binding = context.reviewed_corpus_bindings[0]
     record = dict(context.identity_ledger_records[0])
-    decision_id = "decision:reviewed"
     candidate_digest = driver.CHECKPOINT38_S22_CANDIDATE_SHA256
 
     if drift == "world":
