@@ -3260,7 +3260,7 @@ def test_reset_receipt_status_auth_precedes_world_and_receipt_lookup(monkeypatch
     assert error.value.status_code == 403
 
 
-def _selected_consumer_context(tmp_path, monkeypatch, *, unavailable=False, legacy=False, claims=True, neighbor=False):
+def _selected_consumer_context(tmp_path, monkeypatch, *, unavailable=False, legacy=False, claims=True, neighbor=False, flip_binding_after_index=False, head_updates=None, store_calls=None):
     from tests.test_world_graph_retrieval_contract import _selected_native_fixture
     from apps.live_control_server.routes import agent as route
     from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
@@ -3275,7 +3275,41 @@ def _selected_consumer_context(tmp_path, monkeypatch, *, unavailable=False, lega
     monkeypatch.setattr(route, "_managed_world_root", lambda: tmp_path)
     monkeypatch.setattr(registry, "get_world_container", lambda _root, world: container if world == managed.world_id else None)
     monkeypatch.setattr(direct, "direct_services_from_config", lambda world: services if world == request.world_id else None)
-    monkeypatch.setattr(route, "_store_plan_retrieval_session", lambda session, **kwargs: session)
+    def record_store(session, **_kwargs):
+        if store_calls is not None:
+            store_calls.append(session.id)
+        return session
+
+    monkeypatch.setattr(route, "_store_plan_retrieval_session", record_store)
+    if flip_binding_after_index or head_updates is not None:
+        original_index = direct.list_selected_source_anchor_index_direct_v1
+
+        def index_then_change_authority(*args, **kwargs):
+            nonlocal container
+            result = original_index(*args, **kwargs)
+            if flip_binding_after_index:
+                container = container.model_copy(update={
+                    "native_graph_binding": binding.model_copy(update={"binding_version": 2}),
+                })
+            if head_updates is not None:
+                from dungeonmind.contracts.graph import PublishRevisionCommand
+                from tests._cutover_direct_dungeonmind_read_helpers import NOW
+
+                stored = services.bundle.world_graph.get_revision(request.world_id, revision)
+                assert stored is not None
+                advanced = services.bundle.world_graph.publish_revision(PublishRevisionCommand(
+                    world_id=request.world_id,
+                    parent_revision_id=revision,
+                    expected_parent_revision_id=revision,
+                    operation_ids=["op:head-advanced-during-source-index"],
+                    graph_schema="dm_union_graph_v6",
+                    graph_payload=stored.graph_payload,
+                    created_at=NOW,
+                ))
+                head_updates.append(advanced.revision_id)
+            return result
+
+        monkeypatch.setattr(direct, "list_selected_source_anchor_index_direct_v1", index_then_change_authority)
     payload = _payload()
     payload.update(surface={"surface_id":"plan","instance_id":"plan-main"}, owner_scope={"kind":"world","world_id":managed.world_id},
         primary_work={"kind":"plan","object_id":"plan-1","expected_revision":7,"expected_revision_n":3,"expected_content_sha256":"a"*64},
@@ -3301,6 +3335,36 @@ def _selected_consumer_context(tmp_path, monkeypatch, *, unavailable=False, lega
         "maxProviderAttempts":4,"maxToolCapableAttempts":3,"maxGraphOperations":8}
     receipt, execution, membership = _freeze_policy_receipt(body, work, bootstrap, None, view, budget)
     return body, work, bootstrap, receipt, execution, membership
+
+
+def test_selected_plan_binding_change_during_source_index_fails_before_receipt(tmp_path, monkeypatch):
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+
+    store_calls = []
+    with pytest.raises(AgentTurnServiceError) as caught:
+        _selected_consumer_context(
+            tmp_path, monkeypatch, flip_binding_after_index=True,
+            store_calls=store_calls,
+        )
+
+    assert caught.value.code == "native_graph_binding_changed"
+    assert caught.value.status_code == 409
+    assert caught.value.provider_dispatched is False
+    assert store_calls == []
+
+
+def test_selected_plan_head_advance_during_source_index_keeps_one_revision(tmp_path, monkeypatch):
+    head_updates = []
+
+    _body, _work, bootstrap, receipt, _execution, _membership = _selected_consumer_context(
+        tmp_path, monkeypatch, head_updates=head_updates,
+    )
+
+    assert len(head_updates) == 1
+    assert head_updates[0] != bootstrap.world_scope.revision_id
+    assert receipt.graph_authority.graph_revision == bootstrap.world_scope.revision_id
+    assert bootstrap.retrieval_session.snapshot.revision_id == bootstrap.world_scope.revision_id
+    assert bootstrap.source_index_commitment["context"]["revision_id"] == bootstrap.world_scope.revision_id
 
 
 @pytest.mark.parametrize("unavailable", [False, True])
