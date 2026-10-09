@@ -1,8 +1,8 @@
-# HANDOFF — MIND: full-corpus durable replay code preparation v1
+# HANDOFF — MIND: isolated 44-cohort durable replay v1
 
 **Created:** 2026-10-08
 
-**Status:** CODE-PREPARATION COMPLETE / EXECUTION-HOLD
+**Status:** ACTIVE-ISOLATED-44-REPLAY — PRIME-adopted exact lease; execution waits for this authority to land on main
 
 **Canonical handoff path:** `Docs/Plans/HANDOFF-MIND-full-corpus-durable-replay-v1.md`
 
@@ -16,14 +16,45 @@
 
 **PR topology:** serial
 
-**Code-preparation activation gate:** satisfied by authority #1031 merge `3c8ad79a2008a20b75bd7d8791d139ad1404c75b`; endpoint implementation #1032 is now merged. A new exact execution lease is still required before any replay or storage write.
+**Activation gate:** ARCHITECTURE passed exact frozen packet SHA-256 `38f317d1bd99e484c14f2ebbc38d6bf841ab2e4a5904e2b56a4acb82c5bfe81a`; PRIME adopted the exact stage-44 lease on 2026-10-08. Remaining gate: independent authority-carry review, merge and re-read of this ACTIVE handoff on current `main`, then ordinary pinned preflight. Until landing, no staging, Docker/volume creation, migration or replay. Code-preparation gate was satisfied by #1031/#1032 and is not reopened.
 
 **Dispatch base rule:** fresh current `main` containing this handoff; record the exact dispatch base and reconfirm path ownership.
 
-**PR authorization:** one design/architecture authority PR first; after its acceptance, merge, and re-anchor, one assigned endpoint-only implementation PR. No overlapping successor PRs.
-**Implementation PR title:** `MIND: pin isolated full-corpus replay endpoint`
+**PR authorization:** PRIME authorized this one handoff-only activation authority PR. No new code PR, successor lane or runtime action while this authority is unmerged.
+
+**Authority PR title:** `MIND: activate isolated 44-cohort durable replay lease`
 
 This is a new authority contract, not a revival of an old replay lease. The operator's full-graph reuse/replacement goal and PRIME's explicit bounded adoption authorize code preparation only. The authority PR is a steward-designated design exception under `AGENTS.md`; its sole changed path is this file. Repository operating law and `Docs/Process/STEWARD-CYCLE.md` continue to govern dispatch and review.
+
+## Current phase — exact-packet isolated execution activation
+
+This section governs the current execution phase; the completed code-preparation sections below remain predecessor design/evidence, not a renewed source lease. PRIME adopted **ACTIVE-ISOLATED-44-REPLAY** after exact-packet architecture PASS. Actual execution still requires the activation gate above; the operator's zero-model durable graph goal does not waive main landing or preflight.
+
+**Mission/invariant:** replay the unchanged, exact 44-entry cohort through the existing governed source/genesis/review/publication path into one pristine durable isolated target, preserve the complete source/revision/receipt lineage and independently prove restoration. Exactly one approved genesis plus 44 ordered confirms yields a newly observed graph head; no historical head/receipt is forged, no input is repaired or skipped, and no result is described as full current selected-World integration.
+
+**Controlling execution recipe:** PRIME-held private `stage44-execution-activation-packet.json`, exact SHA-256 `38f317d1bd99e484c14f2ebbc38d6bf841ab2e4a5904e2b56a4acb82c5bfe81a`. Its concrete commands, file/input/code/policy hashes, credential boundaries, literal interpreter/import roots, resource observer and restore/read acceptance are adopted without substitutions only when this handoff is activated. No packet edits during review/execution. Missing packet or any byte/digest mismatch is STOP, not permission to reconstruct it from prose. Private locators, secrets and corpus bodies are intentionally not published here.
+
+Execution pins:
+
+- Buddy source commit `f687ecef54dd508e3fdff0c85cba21792bfa3b7f`, tree `12d5ff254c6f758b26f2e55639855f0e24c02037`; runner SHA-256 `c0d9e3c26e016d6784bd03a9cbebad0d9ba446c004aa42a6c67c050b5e4ef54e`.
+- Installed and migration Core `a501784f21aaafb46d7561f46397a3afdc42f125`, tree `eb0dae8134077b275f8d4f9badc4c8044b8e2e2a`; Alembic schema head `0014_adopted_withdrawal_v2`. Existing qualified interpreter only; no dependency resolution/install/sync or environment repin.
+- Profile descriptor `2199e8fb96e917c22718e6aec59cbbf55a37ee81575e1bcf16ce13fae0393496`; v5 vocabulary digest `f9fd5420e0ab3849224e0d58cf83dd432ca2e5da22ce661b25654406ec9c60d8`; owning policy-code audit digest `e5501476dfdaf80734609ba8891df07da58a8b7e1213308b28a7c91aae674354`. Whole commits and existing runtime contracts remain semantic authority; the audit is not a new policy version.
+- Frozen manifest digest `d21477c395f7093540491ca17c109a83bdf7e8a4e9f04517f5ef91f5d3d30e5c`: C1 sessions 1–17 and C2 sessions 1–27. Exact staged corpus/cohort/source/span hashes and new six-PC genesis plan/contribution pins are in the frozen recipe. The original 44 bundle is immutable.
+- Primary: `127.0.0.1:54362`, DB `dmb_current_corpus_replay_v1`, native World `dogfood-current-corpus-replay-v1`, container `dmb-full-corpus-durable-20261008`, volume `dmb-full-corpus-durable-20261008-pgdata`.
+- Restore: `127.0.0.1:54363`, fresh DB `dmb_current_corpus_replay_restore_v1`, container `dmb-full-corpus-restore-20261008`, volume `dmb-full-corpus-restore-20261008-pgdata`. Restore only; never run replay against this target.
+- Both use already-local `pgvector/pgvector:0.8.6-pg16@sha256:a36250871de0833b8757561c72f2477ef1ddd1101afa4e617fb552e0de514c6b` and persistent PGDATA mount `/var/lib/postgresql/data`. No pulls, tmpfs, automatic removal, old-container restart or other database/volume reuse.
+
+**Runtime/write ownership:** MIND owns only the exact packet-mapped private staged checkout, copied immutable inputs, source cache, generated replay/export/credential/control files and the two newly created fixed targets. The packet's private parent/root mappings are literal qualified locators, not caller-chosen environment overrides. Read-only original input access is allowed; primary/live checkout, source cache, APP-STATE, managed registry and operator runtime writes are not. No third database, including the separately proposed S28 APP-STATE database, belongs to this lease. No Git-tracked source changes or callbacks/seam wrappers are authorized.
+
+**Capacity/STOP controls:** maximum 2 GiB TOTAL work includes staging, exports/full dump, both PGDATA and the restore-container dump copy; preserve at least 2 GiB host free. Startup requires at least 4 GiB free. Fresh phase checks and the exact external 1-second read-only observer trip EARLY at free bytes `<=2415919104`, work bytes `>=1879048192`, or required measurement error. A pre-copy absent restore dump counts zero; missing/unreadable after its recorded copy is STOP. Named volumes are not hard quotas; observer samples may span multiple confirms, not atomic per-confirm barriers.
+
+Pin process ancestry/starttime and verify actual owned writers stop, including in-container dump/restore writers—not only their host Docker clients. If a writer cannot be safely interrupted, gracefully stop only its recorded new owned target container, preserving volume/artifacts; never stop the operator server/live DB. Reconcile actual typed DB head/receipts against ledger when available because an inflight confirm may commit. Preserve incomplete state, no resume/reset/auto-delete/next phase after STOP.
+
+**Acceptance/output:** full DB/source/history dump and exact typed terminal revision/payload/receipt correspondence; canonical payload digest and separate file hashes; independently restored schema, sorted UTC row fingerprints/counts, sequence/head/revision/source/receipt equality; deterministic actual Buddy-native projection/object/neighborhood/evidence and digest-bound source opening through the existing production services with explicit isolated DSN. No second Buddy server, model/provider witness, global DSN/config change, managed binding or old-file/partial-graph fallback. A failed existing admission/read/restore proof is STOP, not a new repair lease.
+
+Successful disposition is **STAGE44_DURABLE_REPLAY_PRESERVED**, never FULL_SELECTED_WORLD_READY. Session 28's retained package and held-child/identity qualification are separately owned; do not append it, override the 44 manifest, register it or silently create an APP-STATE schema/database here. Current expected corpus, required worldbuilding, actual Agent surfaces and correct durable managed binding must independently satisfy Overmind #35 before any operator journey/provider QA or cutover. All live binding/cutover/deletion/retirement remain outside this lease.
+
+**Current authority-PR write lease:** this file only. The adopted runtime permissions above become dispatchable only after independent authority-carry review and main landing/re-read, with ordinary pinned preflight. Historical §4 code paths remain released. After execution, PRIME synchronizes this same handoff with actual output/head/restore/STOP evidence without claiming a current World cutover.
 
 ### Completed code-preparation checkpoint — 2026-10-08
 
