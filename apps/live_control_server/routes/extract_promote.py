@@ -29,12 +29,14 @@ from apps.live_control_server.models.extract_promote import (
     RecapCandidateCorrectionRequestV4,
     RecapCandidateCorrectionRequestV5,
     RecapCandidateCorrectionRequestV6,
+    RecapCandidateCorrectionRequestV7,
     RecapCandidateCorrectionResponse,
     RecapCandidateCorrectionResponseV2,
     RecapCandidateCorrectionResponseV3,
     RecapCandidateCorrectionResponseV4,
     RecapCandidateCorrectionResponseV5,
     RecapCandidateCorrectionResponseV6,
+    RecapCandidateCorrectionResponseV7,
     ExtractPromoteStatusResponse,
     FirstWorldGraphConfirmReceipt,
     FirstWorldGraphConfirmRequest,
@@ -258,12 +260,13 @@ def post_recap_evidence_corrections(
         | RecapCandidateCorrectionResponseV4
         | RecapCandidateCorrectionResponseV5
         | RecapCandidateCorrectionResponseV6
+        | RecapCandidateCorrectionResponseV7
     ),
 )
 def post_recap_candidate_corrections(
     request_context: Request,
     run_id: str,
-    request: RecapCandidateCorrectionRequest | RecapCandidateCorrectionRequestV2 | RecapCandidateCorrectionRequestV3 | RecapCandidateCorrectionRequestV4 | RecapCandidateCorrectionRequestV5 | RecapCandidateCorrectionRequestV6,
+    request: RecapCandidateCorrectionRequest | RecapCandidateCorrectionRequestV2 | RecapCandidateCorrectionRequestV3 | RecapCandidateCorrectionRequestV4 | RecapCandidateCorrectionRequestV5 | RecapCandidateCorrectionRequestV6 | RecapCandidateCorrectionRequestV7,
     principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
 ) -> dict[str, Any] | JSONResponse:
     """GM-only bounded semantic candidate child; no World publication."""
