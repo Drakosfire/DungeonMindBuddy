@@ -1,0 +1,140 @@
+.shared-scene-card {
+  --scene-card-paper: var(--ui-background-paper, #f7ebd7);
+  --scene-card-ink: var(--ui-text-on-paper, #332d25);
+  --scene-card-border: var(--ui-border-paper, #c0ad6a);
+  --scene-card-choice-paper: #e4e9dc;
+  min-width: 0;
+  color: var(--scene-card-ink);
+  overflow-wrap: anywhere;
+}
+
+.shared-scene-card--plan {
+  padding: clamp(1rem, 3cqi, 1.5rem);
+  border: 1px solid var(--scene-card-border);
+  border-top: 3px solid var(--accent, #c58b49);
+  border-radius: var(--ui-radius-md, 0.75rem);
+  background: var(--scene-card-paper);
+  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 18%);
+  font-family: Georgia, "Book Antiqua", "Times New Roman", serif;
+}
+
+.shared-scene-card__header,
+.shared-scene-card__content,
+.shared-scene-choice__header {
+  min-width: 0;
+}
+
+.shared-scene-card__header {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.shared-scene-card__title,
+.shared-scene-card__title h2,
+.shared-scene-choice__title,
+.shared-scene-choice__title h3,
+.shared-scene-choice__option-title,
+.shared-scene-choice__option-title h4 {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.shared-scene-card__id {
+  color: #675f53;
+  font: 0.8rem/1.4 ui-monospace, monospace;
+  overflow-wrap: anywhere;
+}
+
+.shared-scene-card__content {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.shared-scene-card__body {
+  max-width: 68ch;
+  line-height: 1.65;
+}
+
+.shared-scene-card__body > :first-child,
+.shared-scene-choice__body > :first-child,
+.shared-scene-choice__option-body > :first-child {
+  margin-top: 0;
+}
+
+.shared-scene-card__body > :last-child,
+.shared-scene-choice__body > :last-child,
+.shared-scene-choice__option-body > :last-child {
+  margin-bottom: 0;
+}
+
+.shared-scene-choices {
+  display: grid;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.shared-scene-choice {
+  min-width: 0;
+  padding: 0.95rem 1rem 1.05rem;
+  border: 1px solid #bdc9b6;
+  border-radius: 0.55rem;
+  background: var(--scene-card-choice-paper);
+  color: #2c4232;
+}
+
+.shared-scene-card__kicker {
+  margin: 0 0 0.2rem;
+  color: #66715e;
+  font: 700 0.75rem/1.3 ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.shared-scene-choice__header {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.shared-scene-choice__association {
+  margin: 0;
+  font: 0.8rem/1.4 ui-sans-serif, system-ui, sans-serif;
+}
+
+.shared-scene-choice__options {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0.8rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shared-scene-choice__options > li {
+  min-width: 0;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #c3cdbd;
+  border-radius: 0.4rem;
+  background: rgb(255 255 255 / 48%);
+}
+
+.shared-scene-choice__relations {
+  margin: 0.65rem 0 0;
+  padding-left: 1.25rem;
+  font: 0.8rem/1.4 ui-sans-serif, system-ui, sans-serif;
+}
+
+.shared-scene-card .play-decision-options {
+  min-width: 0;
+}
+
+.shared-scene-card .play-decision-option {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 600px) {
+  .shared-scene-card--plan,
+  .shared-scene-choice {
+    padding: 0.8rem;
+  }
+}

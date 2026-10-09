@@ -979,6 +979,11 @@
   opacity: 0.62;
 }
 
+.play-decision-option[aria-disabled="true"] {
+  display: block;
+  cursor: default;
+}
+
 .play-decision-result {
   display: flex;
   flex-direction: column;
@@ -1093,6 +1098,17 @@
 .play-cockpit-center .play-notes textarea:focus-visible,
 .play-cockpit-center button:focus-visible {
   outline-color: #8b5b12;
+}
+
+.play-cockpit-center .play-notes--readonly h3 {
+  margin: 0 0 0.35rem;
+  font: 700 0.85rem/1.4 var(--ui-font-body, system-ui, sans-serif);
+  color: #456453;
+}
+
+.play-cockpit-center .play-notes--readonly p {
+  margin: 0;
+  white-space: pre-wrap;
 }
 
 @media (max-width: 60rem) {

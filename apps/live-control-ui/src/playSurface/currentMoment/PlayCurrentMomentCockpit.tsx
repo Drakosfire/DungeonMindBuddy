@@ -9,6 +9,7 @@ import {
 } from "../../api/liveApi";
 import type { AnyPlayRunRecord, PlayRunProgress, WorldPlayRunRecordV2 } from "../../api/types";
 import { ReadOnlyBodyContent } from "../../markdownReader/ReadOnlyBodyContent";
+import { SceneCard, type SceneCardChoice, type SceneCardChoiceActions, type SceneCardIdentity } from "../../shared/SceneCard";
 import {
   canonicalizePlayRunProgress,
   type NativeRunbookBeatV2,
@@ -188,6 +189,23 @@ function narrowPlayViewport(): boolean {
   return typeof window !== "undefined"
     && typeof window.matchMedia === "function"
     && window.matchMedia("(max-width: 60rem)").matches;
+}
+
+function playSceneCardChoices(decisions: readonly NativeRunbookChoiceV2[], selections: Readonly<Record<string, string>>): SceneCardChoice[] {
+  return decisions.map((choice) => ({
+    id: choice.id,
+    title: choice.title,
+    bodyText: choice.bodyText,
+    bodyContent: choice.bodyContent,
+    associatedSceneId: choice.sceneId,
+    selectedOptionId: selections[choice.id] ?? null,
+    options: choice.options.map((option) => ({
+      id: option.id,
+      title: option.title,
+      bodyText: option.bodyText,
+      bodyContent: option.bodyContent,
+    })),
+  }));
 }
 
 function DecisionBlock({
@@ -753,6 +771,45 @@ export function PlayCurrentMomentCockpit({
   const decisions = currentBeat
     ? operableDecisions(currentBeat, currentScene?.id ?? null)
     : [];
+  const inspectedDecisions = inspectedBeat && inspectedScene
+    ? operableDecisions(inspectedBeat, inspectedScene.id)
+    : [];
+  const sceneCardIdentity = (sceneId: string): SceneCardIdentity => ({
+    worldId: worldOwnedRun ? run.world_id : null,
+    campaignId: worldOwnedRun ? null : run.campaign_id,
+    documentId: run.playable_artifact_id,
+    sceneId,
+    revision: run.playable_revision,
+    workRevisionId: worldOwnedRun ? run.playable_work_revision_id : null,
+    contentSha256: run.playable_content_sha256,
+    sourceState: "run-pin",
+  });
+  const choiceActions = (source: readonly NativeRunbookChoiceV2[], writable: boolean): SceneCardChoiceActions => ({
+    writable,
+    busy: saving || !mutationsOpen,
+    onSelectOption: writable ? (choiceId, optionId) => {
+      const choice = source.find((entry) => entry.id === choiceId);
+      if (choice) selectOption(choice, optionId);
+    } : undefined,
+    onClearSelection: writable ? (choiceId) => {
+      const choice = source.find((entry) => entry.id === choiceId);
+      if (choice) clearSelection(choice);
+    } : undefined,
+    renderSelectedContext: ({ id }) => {
+      const choice = source.find((entry) => entry.id === id);
+      if (!choice) return null;
+      const branch = choiceBranchRelevance(deck, choice);
+      return branch.length ? (
+        <ul className="play-decision-relevance" data-testid="play-decision-relevance">
+          {branch.map((row) => (
+            <li key={row.targetId} data-target-id={row.targetId} data-relevance={row.relevance}>
+              {row.title} — {row.relevance}
+            </li>
+          ))}
+        </ul>
+      ) : null;
+    },
+  });
 
   return (
     <section
@@ -851,27 +908,18 @@ export function PlayCurrentMomentCockpit({
               data-testid="play-workspace-current"
               aria-labelledby="play-workspace-heading"
             >
-              <p className="play-kicker">Current Scene</p>
-              <h2 id="play-workspace-heading" ref={workspaceHeadingRef} tabIndex={-1}>{currentScene.title}</h2>
-              <BeatContext
-                beat={currentBeat}
-                resolved={run.progress.resolved_beat_ids.includes(currentBeat.id)}
-                relation="Current Beat"
-              />
-              <ReadOnlyBodyContent
-                content={currentScene.bodyContent}
-                fallbackText={currentScene.bodyText}
-                className="play-body play-scene-board-body"
-              />
-              <DecisionBlock
-                deck={deck}
-                decisions={decisions}
-                saving={saving}
-                mutationsOpen={mutationsOpen}
-                onSelect={selectOption}
-                onClear={clearSelection}
-              />
-              {worldOwnedRun && sceneNoteScope && sceneNoteId ? (
+              <SceneCard
+                identity={sceneCardIdentity(currentScene.id)}
+                scene={currentScene}
+                choices={playSceneCardChoices(decisions, run.progress.selections)}
+                variant="play-current"
+                kicker="Current Scene"
+                headingId="play-workspace-heading"
+                headingRef={workspaceHeadingRef}
+                context={<BeatContext beat={currentBeat}
+                  resolved={run.progress.resolved_beat_ids.includes(currentBeat.id)} relation="Current Beat" />}
+                choiceActions={choiceActions(decisions, true)}
+                footer={worldOwnedRun && sceneNoteScope && sceneNoteId ? (
                 <section className="play-notes" data-testid="play-scene-note">
                   <label htmlFor={`play-scene-note-${run.run_id}-${sceneNoteId}`}>Scene note</label>
                   <textarea
@@ -931,7 +979,8 @@ export function PlayCurrentMomentCockpit({
                     </p>
                   ) : null}
                 </section>
-              ) : null}
+                ) : null}
+              />
             </article>
           ) : null}
 
@@ -986,28 +1035,26 @@ export function PlayCurrentMomentCockpit({
               data-inspecting-current={inspectedScene.id === currentScene?.id ? "true" : "false"}
               aria-labelledby="play-workspace-heading"
             >
-              <p className="play-kicker">
-                {inspectedScene.id === currentScene?.id ? "Current Scene" : "Inspecting Scene · no Run change"}
-              </p>
-              <h2 id="play-workspace-heading" ref={workspaceHeadingRef} tabIndex={-1}>
-                {inspectedScene.id === currentScene?.id
-                  ? inspectedScene.title
-                  : `Inspecting ${inspectedScene.title}`}
-              </h2>
-              <p className="play-inspect-position" data-testid="play-inspect-current">
-                Run position: {currentBeat.title} · {currentScene?.title ?? "No current Scene"}
-              </p>
-              <p className="play-inspect-position" data-testid="play-inspect-scene">
-                Viewing: {inspectedBeat?.title ?? "Unknown Beat"} · {inspectedScene.title}
-              </p>
-              {inspectedBeat ? (
-                <BeatContext
-                  beat={inspectedBeat}
-                  resolved={run.progress.resolved_beat_ids.includes(inspectedBeat.id)}
-                  relation="Viewing Beat"
-                />
-              ) : null}
-              <div className="play-controls">
+              <SceneCard
+                identity={sceneCardIdentity(inspectedScene.id)}
+                scene={inspectedScene}
+                choices={playSceneCardChoices(inspectedDecisions, run.progress.selections)}
+                variant="play-inspection"
+                kicker={inspectedScene.id === currentScene?.id ? "Current Scene" : "Inspecting Scene · no Run change"}
+                titlePrefix={inspectedScene.id === currentScene?.id ? undefined : "Inspecting"}
+                headingId="play-workspace-heading"
+                headingRef={workspaceHeadingRef}
+                status={<>
+                  <p className="play-inspect-position" data-testid="play-inspect-current">
+                    Run position: {currentBeat.title} · {currentScene?.title ?? "No current Scene"}
+                  </p>
+                  <p className="play-inspect-position" data-testid="play-inspect-scene">
+                    Viewing: {inspectedBeat?.title ?? "Unknown Beat"} · {inspectedScene.title}
+                  </p>
+                </>}
+                context={inspectedBeat ? <BeatContext beat={inspectedBeat}
+                  resolved={run.progress.resolved_beat_ids.includes(inspectedBeat.id)} relation="Viewing Beat" /> : null}
+                sceneActions={<div className="play-controls">
                 <button type="button" data-testid="play-workspace-back" onClick={closeToCurrent}>
                   Back
                 </button>
@@ -1022,11 +1069,16 @@ export function PlayCurrentMomentCockpit({
                     Make Current
                   </button>
                 ) : null}
-              </div>
-              <ReadOnlyBodyContent
-                content={inspectedScene.bodyContent}
-                fallbackText={inspectedScene.bodyText}
-                className="play-body"
+                </div>}
+                choiceActions={choiceActions(inspectedDecisions, false)}
+                footer={worldOwnedRun ? (
+                  <section className="play-notes play-notes--readonly" data-testid="play-inspected-scene-note">
+                    <h3>Scene note</h3>
+                    <p>{Object.prototype.hasOwnProperty.call(run.progress.notes_by_element_id, inspectedScene.id)
+                      ? run.progress.notes_by_element_id[inspectedScene.id]
+                      : "No saved note."}</p>
+                  </section>
+                ) : null}
               />
             </article>
           ) : null}

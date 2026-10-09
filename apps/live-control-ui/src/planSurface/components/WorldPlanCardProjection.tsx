@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { JSONContent } from "@tiptap/core";
 import { ReadOnlyBodyContent } from "../../markdownReader/ReadOnlyBodyContent";
+import { SceneCard, type SceneCardChoice, type SceneCardElement } from "../../shared/SceneCard";
 import {
   indexPlayableStructure,
   indexPlayableStructureV2,
@@ -58,6 +59,48 @@ function cardTitleContent(node: WorldPlanCardNode, level: number): JSONContent {
   };
 }
 
+function planSceneCardElement(node: WorldPlanCardNode, level: 2 | 3 | 4): SceneCardElement {
+  return {
+    id: node.id,
+    title: node.title,
+    titleBlock: cardTitleContent(node, level),
+    bodyText: node.bodyText,
+    bodyContent: node.bodyContent,
+  };
+}
+
+/** A v2 Scene sees both Beat-wide and explicitly associated Choices; v1 Choices are Scene children. */
+export function planFocusedSceneChoices(scene: WorldPlanCardNode, parentBeat: WorldPlanCardNode | null): SceneCardChoice[] {
+  const choiceNodes = [
+    ...scene.children.filter((child) => child.kind === "choice"),
+    ...(parentBeat?.children.filter((child) => child.kind === "choice"
+      && (child.sceneId == null || child.sceneId === scene.id)) ?? []),
+  ];
+  return choiceNodes.map((choice) => ({
+    ...planSceneCardElement(choice, 3),
+    associatedSceneId: choice.sceneId,
+    options: choice.children.filter((child) => child.kind === "option").map((option) => ({
+      ...planSceneCardElement(option, 4),
+      activates: option.activates,
+      suppresses: option.suppresses,
+    })),
+  }));
+}
+
+function selectEditTargetWithScroll(button: HTMLButtonElement, target: WorldPlanCardTarget,
+  onSelectEditTarget?: (target: WorldPlanCardTarget) => void): void {
+  onSelectEditTarget?.(target);
+  if (!(window.matchMedia?.("(max-width: 42rem)").matches ?? false)) return;
+
+  const card = button.closest<HTMLElement>(".world-plan-card, .shared-scene-card");
+  if (!card) return;
+  const cardTop = card.getBoundingClientRect().top;
+  const chromeTop = Number.parseFloat(getComputedStyle(card).getPropertyValue("--app-chrome-top")) || 0;
+  const readingTop = chromeTop + 12;
+  const nextScrollTop = Math.max(0, window.scrollY + cardTop - readingTop);
+  if (Math.abs(nextScrollTop - window.scrollY) > 4) window.scrollTo({ top: nextScrollTop, behavior: "auto" });
+}
+
 function authoredInlineText(nodes: readonly JSONContent[]): string {
   return nodes.map((node) => {
     if (node.type === "text") return typeof node.text === "string" ? node.text : "";
@@ -75,10 +118,6 @@ export type WorldPlanCardProjectionModel =
 
 function flattenNodes(nodes: readonly WorldPlanCardNode[]): WorldPlanCardNode[] {
   return nodes.flatMap((node) => [node, ...flattenNodes(node.children)]);
-}
-
-function descendantsOf(node: WorldPlanCardNode): WorldPlanCardNode[] {
-  return flattenNodes(node.children);
 }
 
 export function worldPlanCardTargetKeys(model: WorldPlanCardProjectionModel): Set<string> {
@@ -282,21 +321,7 @@ function CardNodeView({
   const selectedForEdit = selectedEditTarget?.kind === target.kind && selectedEditTarget.id === target.id;
   const selectable = selectableTargetKeys.has(worldPlanCardTargetKey(target));
   const editable = editableTargetKeys.has(worldPlanCardTargetKey(target));
-  const selectEditTarget = (button: HTMLButtonElement) => {
-    onSelectEditTarget?.(target);
-    if (!(window.matchMedia?.("(max-width: 42rem)").matches ?? false)) return;
-
-    const card = button.closest<HTMLElement>(".world-plan-card");
-    if (!card) return;
-
-    const cardTop = card.getBoundingClientRect().top;
-    const chromeTop = Number.parseFloat(getComputedStyle(card).getPropertyValue("--app-chrome-top")) || 0;
-    const readingTop = chromeTop + 12;
-    const nextScrollTop = Math.max(0, window.scrollY + cardTop - readingTop);
-    if (Math.abs(nextScrollTop - window.scrollY) > 4) {
-      window.scrollTo({ top: nextScrollTop, behavior: "auto" });
-    }
-  };
+  const selectEditTarget = (button: HTMLButtonElement) => selectEditTargetWithScroll(button, target, onSelectEditTarget);
   return (
     <li className={`world-plan-card-node world-plan-card-node--${node.kind}`} data-element-id={node.id} data-element-kind={node.kind}>
       <article className="world-plan-card">
@@ -436,14 +461,7 @@ export function WorldPlanCardProjection({
   const parentBeat = focusedScene?.parentId
     ? nodes.find((node) => node.id === focusedScene.parentId && node.kind === "beat") ?? null
     : null;
-  const focusedDescendantIds = focusedScene
-    ? new Set([focusedScene.id, ...descendantsOf(focusedScene).map((node) => node.id)])
-    : new Set<string>();
-  const associatedChoices = focusedScene
-    ? nodes.filter((node) => node.kind === "choice"
-      && node.sceneId === focusedScene.id
-      && !focusedDescendantIds.has(node.id))
-    : [];
+  const focusedChoices = focusedScene ? planFocusedSceneChoices(focusedScene, parentBeat) : [];
   const focusedTarget = focusedScene ? { kind: focusedScene.kind, id: focusedScene.id } : null;
   const focusedTargetSelectable = Boolean(focusedTarget
     && basis.status === "verified"
@@ -528,6 +546,19 @@ export function WorldPlanCardProjection({
     const nextScene = focusedSceneIndex >= 0 && focusedSceneIndex < scenes.length - 1
       ? scenes[focusedSceneIndex + 1]
       : null;
+    const editAction = (kind: "scene" | "choice" | "option", id: string) => {
+      const target = { kind, id } satisfies WorldPlanCardTarget;
+      const editable = editableTargetKeys.has(worldPlanCardTargetKey(target));
+      const selected = selectedEditTarget?.kind === kind && selectedEditTarget.id === id;
+      return (
+        <button type="button" className="world-plan-card__edit-target" data-edit-target-kind={kind}
+          data-edit-target-id={id} aria-pressed={selected} disabled={!editable || !onSelectEditTarget}
+          title={editable ? "Use this exact current card body for a Compose proposal" : "This card is not a unique editable target in the current Plan draft"}
+          onClick={(event) => selectEditTargetWithScroll(event.currentTarget, target, onSelectEditTarget)}>
+          {selected ? "Selected for Edit" : "Select for Edit"}
+        </button>
+      );
+    };
     return (
       <section className="world-plan-cards world-plan-cards--reader" data-testid="world-plan-scene-reader" aria-label="Focused Plan scene">
         <nav className="world-plan-scene-reader__navigation" aria-label="Scene navigation">
@@ -535,16 +566,22 @@ export function WorldPlanCardProjection({
           <button type="button" onClick={() => setFocusedSceneId(null)}>Back to outline</button>
           <button type="button" disabled={!nextScene} onClick={() => nextScene && focusScene(nextScene)}>Next scene</button>
         </nav>
-        <header ref={focusedSceneHeadingRef} className="world-plan-scene-reader__heading">
-          <p className="world-plan-card__kind">Focused Scene · {model.version}</p>
-          <ReadOnlyBodyContent
-            content={[cardTitleContent(focusedScene, 2)]}
-            className="world-plan-scene-reader__title"
-            onActivateGraphNode={onActivateGraphNode}
-            unsupportedMessage="This authored content cannot be displayed safely in Cards. Open Document to view it."
-          />
-          <code>{focusedScene.id}</code>
-          {parentBeat ? (
+        <SceneCard
+          identity={{ worldId, documentId, sceneId: focusedScene.id,
+            revision: basis.status === "verified" ? basis.revision : null,
+            contentSha256: basis.status === "verified" ? basis.contentSha256 : null,
+            sourceState: isDirty || basis.status !== "verified" ? "draft" : "verified" }}
+          scene={planSceneCardElement(focusedScene, 2)}
+          choices={focusedChoices}
+          variant="plan"
+          kicker={`Focused Scene · ${model.version}`}
+          headerRef={focusedSceneHeadingRef}
+          sceneActions={editAction("scene", focusedScene.id)}
+          choiceActions={{
+            renderChoiceActions: (choice) => editAction("choice", choice.id),
+            renderOptionActions: (_choice, option) => editAction("option", option.id),
+          }}
+          context={parentBeat ? (
             <section className="world-plan-scene-reader__context" aria-label="Authored Beat context">
               <ReadOnlyBodyContent
                 content={[cardTitleContent(parentBeat, 3)]}
@@ -573,43 +610,16 @@ export function WorldPlanCardProjection({
               ) : null}
             </section>
           ) : null}
-          <p className="world-plan-scene-reader__target" role="status">
+          status={<p className="world-plan-scene-reader__target" role="status">
             {focusedTargetSelectable && focusedTargetSelected
               ? "New Ask uses this Scene from the verified saved Plan snapshot. Submitted requests keep their original target."
               : focusedTargetSelectable
                 ? "This Scene is available in the verified saved Plan, but it is not the selected Ask target. Return to the outline to set it again."
                 : "This Scene is not available in the verified saved Plan. The default Ask card target is cleared; no draft content will be sent."}
-          </p>
-        </header>
-        <div className="world-plan-scene-reader__content">
-          <ol className="world-plan-card-roots">
-            <CardNodeView
-              node={focusedScene}
-              worldId={worldId}
-              documentId={documentId}
-              selectableTargetKeys={selectableTargetKeys}
-              editableTargetKeys={editableTargetKeys}
-              selectedTarget={selectedTarget}
-              selectedEditTarget={selectedEditTarget}
-              onSelectEditTarget={onSelectEditTarget}
-              onActivateGraphNode={onActivateGraphNode}
-            />
-            {associatedChoices.map((choice) => (
-              <CardNodeView
-                key={choice.id}
-                node={choice}
-                worldId={worldId}
-                documentId={documentId}
-                selectableTargetKeys={selectableTargetKeys}
-                editableTargetKeys={editableTargetKeys}
-                selectedTarget={selectedTarget}
-                selectedEditTarget={selectedEditTarget}
-                onSelectEditTarget={onSelectEditTarget}
-                onActivateGraphNode={onActivateGraphNode}
-              />
-            ))}
-          </ol>
-        </div>
+          </p>}
+          onActivateGraphNode={onActivateGraphNode}
+          unsupportedMessage="This authored content cannot be displayed safely in Cards. Open Document to view it."
+        />
       </section>
     );
   }

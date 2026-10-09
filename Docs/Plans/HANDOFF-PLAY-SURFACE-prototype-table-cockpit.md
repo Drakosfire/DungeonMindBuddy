@@ -1,7 +1,7 @@
 # HANDOFF — Play prototype table cockpit
 
 **Status:** ACTIVE — implementation authorized by the user’s ongoing DOGFOOD and prototype-alignment goal.
-**Base:** `main@12134e7cae37425131c1e74f170d85f48e21ac2c`
+**Base:** `main@dedb742fa7010eabf9cbed8df846426ca3f82032` (rebased for shared Scene card revision)
 **Branch:** `codex/play-table-cockpit`
 **Flow:** PLAY-SURFACE
 **Topology:** serial; no overlapping Play UI implementation PR is open.
@@ -9,6 +9,8 @@
 ## Mission
 
 Bring the current-moment Play surface closer to the table-tested prototype: a scene outline, a dominant readable scene card, and a record of choices and scene notes saved in this Run. Keep the current Run as the sole authority for current position, choices, and notes. The outline may inspect any scene in the admitted Playable without changing current position; only the explicit **Make current** action changes it.
+
+The shared Scene card revision also uses one authored Scene and Choice renderer in Plan focus, Play current, and Play inspection. Plan reads its current document and preserves its Ask/Edit/Apply/Save callbacks. Play reads the admitted Run pin and preserves its existing choice, note, and Make Current CAS actions. Inspection shows Choices and any saved Scene note without providing an edit control. Source identity is exposed on each card as World/document/Scene/revision/work revision/digest/state attributes.
 
 ## Product invariants
 
@@ -37,8 +39,10 @@ Bring the current-moment Play surface closer to the table-tested prototype: a sc
 - `apps/live-control-ui/src/playSurface/playSurface.css`
 - `apps/live-control-ui/tests/ui-visual.pw.ts` and `apps/live-control-ui/tests/ui-visual-snapshots/play-cockpit-desktop.png`, `apps/live-control-ui/tests/ui-visual-snapshots/play-cockpit-narrow.png`, `apps/live-control-ui/tests/ui-visual-snapshots/play-cockpit-app-shell-desktop.png`, `apps/live-control-ui/tests/ui-visual-snapshots/play-cockpit-app-shell-narrow.png` (responsive evidence)
 - `apps/live-control-ui/src/playSurface/currentMoment/PlayCurrentMomentCockpit.stories.tsx` only if visual QA needs a dedicated fixture.
+- `apps/live-control-ui/src/planSurface/components/WorldPlanCardProjection.tsx` and `.css` (focused Scene adapter and style only)
+- `apps/live-control-ui/src/shared/SceneCard.tsx`, `sceneCard.css`, and `SceneCard.adapters.test.tsx` (smallest shared card and synthetic adapter evidence)
 
-No other paths are in the lease.
+No host, controller, API, schema, Graph, provider, or runtime path is in the lease.
 
 ## Verification
 
@@ -51,3 +55,11 @@ No other paths are in the lease.
 - The last full UI visual run had 12 passing tests and one unrelated Edit-dock fixture failure because `#app-edit-toolbox-drawer` is absent from the rendered fixture; the full visual file was not rerun for this compact overlay follow-up.
 - Reviewer follow-up verified one outline current-Beat marker and one concise Run-record title/caveat. No runtime, operator Run, or deployment changed.
 - Review exact cumulative `main@12134e7` → PR head diff and report verification limits.
+
+## Shared Scene card revision — 2026-10-09
+
+- Rebased the existing PR branch onto `main@dedb742fa`; retained the PR #1030 cockpit interaction and responsive work.
+- Shared card renders the authored Scene and associated Choices in Plan focus, Play current, and read-only Play inspection. The current Run position remains distinct from the inspected Scene; only Make Current writes the position.
+- Synthetic Conks, Sheep, and Session29 fixtures exercise both adapters at a 320px container, including a long Sheep title, source identity, Choice content, inspected Choice and note visibility, and no inspection write. Session29 also asserts the exact Make Current CAS payload while preserving selections, notes, and resolved Beats.
+- Focused Plan, Play, and shared-adapter component suites: **78 passed**. UI TypeScript and Vite production builds pass (Vite retains the existing large-chunk advisory). The focused desktop/narrow Play visual checks pass and their four snapshots were refreshed and inspected. The broad visual file was not rerun; its inherited Edit-dock fixture failure remains the verification limit above.
+- This is backend-free UI evidence. No live dogfood, operator runtime, or provider behavior is claimed.
