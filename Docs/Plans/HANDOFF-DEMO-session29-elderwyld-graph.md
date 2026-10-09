@@ -3,6 +3,13 @@
 **Status:** BLOCKED — bounded serial retrieval successor; design only, with no
             implementation, provider, database, or runtime lease.
 
+**Documentation settlement (2026-10-09):** The current-main re-anchor merged as
+Buddy #1052 at `22310fab4deb5794d0d3fd3d3ddd956ae3200727` from reviewed
+head `1640c92f9385caa0dc76d8e28594a44ec762909e`. Its documentation lease
+is closed. The selected-World/Session 29 product gate remains BLOCKED pending
+SERVER's exact active database authority and MIND's narrowly authorized native
+`eldyrwild` state check. No live Agent turn or operator dogfood is authorized.
+
 **Steward:** DEMO
 
 **Re-anchored source base:** Buddy main
