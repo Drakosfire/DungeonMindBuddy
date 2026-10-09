@@ -102,13 +102,25 @@ export function SceneCardChoices({ choices, variant, actions = {}, onActivateGra
               <div className="play-decision-options" role="radiogroup" aria-labelledby={titleId}>
                 {choice.options.map((option) => {
                   const isSelected = selected?.id === option.id;
-                  return actions.writable && actions.onSelectOption ? (
-                    <button key={option.id} type="button" role="radio" className={`play-decision-option${isSelected ? " is-selected" : ""}`}
-                      name={titleId} value={option.id} aria-checked={isSelected} disabled={actions.busy}
-                      onClick={() => actions.onSelectOption?.(choice.id, option.id)}>{option.title}</button>
-                  ) : (
-                    <span key={option.id} role="radio" className={`play-decision-option${isSelected ? " is-selected" : ""}`}
-                      aria-checked={isSelected} aria-disabled="true">{option.title}</span>
+                  return (
+                    <div key={option.id} className="shared-scene-choice__play-option" data-option-id={option.id}>
+                      {actions.writable && actions.onSelectOption ? (
+                        <button type="button" role="radio" className={`play-decision-option${isSelected ? " is-selected" : ""}`}
+                          name={titleId} value={option.id} aria-checked={isSelected} disabled={actions.busy}
+                          onClick={() => actions.onSelectOption?.(choice.id, option.id)}>{option.title}</button>
+                      ) : (
+                        <span role="radio" className={`play-decision-option${isSelected ? " is-selected" : ""}`}
+                          aria-checked={isSelected} aria-disabled="true">{option.title}</span>
+                      )}
+                      {option.bodyContent?.length || option.bodyText.trim() ? (
+                        <details className="shared-scene-choice__option-preview">
+                          <summary>Read option details</summary>
+                          <ReadOnlyBodyContent content={option.bodyContent} fallbackText={option.bodyText}
+                            className="play-body" onActivateGraphNode={onActivateGraphNode}
+                            unsupportedMessage={unsupportedMessage} />
+                        </details>
+                      ) : null}
+                    </div>
                   );
                 })}
               </div>
@@ -185,6 +197,11 @@ export function SceneCard({ identity, scene, choices, variant, kicker, titlePref
       aria-labelledby={headingId}>
       <header ref={headerRef} className={`shared-scene-card__header${plan ? " world-plan-scene-reader__heading" : ""}`}>
         <p className={plan ? "world-plan-card__kind" : "play-kicker"}>{kicker}</p>
+        <p className="shared-scene-card__source-cue" data-testid="scene-card-source-cue">
+          {identity.sourceState === "verified" ? "Saved Plan"
+            : identity.sourceState === "draft" ? "Draft Plan · Ask uses the saved Plan until Save"
+              : "Run-pinned Playable"}
+        </p>
         <Title element={scene} level={2} className={plan ? "world-plan-scene-reader__title" : "shared-scene-card__title"}
           headingId={headingId} headingRef={headingRef} prefix={titlePrefix}
           onActivateGraphNode={onActivateGraphNode} unsupportedMessage={unsupportedMessage} />

@@ -147,6 +147,9 @@
 
 .shared-scene-card--plan .world-plan-scene-reader__context,
 .shared-scene-card--plan .world-plan-scene-reader__target {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
   border-color: #c8b98e;
   background: rgb(222 210 184 / 58%);
   color: #453d31;

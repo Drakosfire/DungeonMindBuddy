@@ -461,6 +461,11 @@ export function WorldPlanCardProjection({
   const parentBeat = focusedScene?.parentId
     ? nodes.find((node) => node.id === focusedScene.parentId && node.kind === "beat") ?? null
     : null;
+  const contextBeats = parentBeat
+    ? [parentBeat]
+    : model.status === "ready" && model.version === "v1"
+      ? focusedScene?.children.filter((node) => node.kind === "beat") ?? []
+      : [];
   const focusedChoices = focusedScene ? planFocusedSceneChoices(focusedScene, parentBeat) : [];
   const focusedTarget = focusedScene ? { kind: focusedScene.kind, id: focusedScene.id } : null;
   const focusedTargetSelectable = Boolean(focusedTarget
@@ -582,27 +587,28 @@ export function WorldPlanCardProjection({
             renderChoiceActions: (choice) => editAction("choice", choice.id),
             renderOptionActions: (_choice, option) => editAction("option", option.id),
           }}
-          context={parentBeat ? (
-            <section className="world-plan-scene-reader__context" aria-label="Authored Beat context">
+          context={contextBeats.map((beat) => (
+            <section key={beat.id} className="world-plan-scene-reader__context" aria-label="Authored Beat context"
+              data-beat-id={beat.id} data-parent-scene-id={model.version === "v1" ? focusedScene.id : undefined}>
               <ReadOnlyBodyContent
-                content={[cardTitleContent(parentBeat, 3)]}
+                content={[cardTitleContent(beat, 3)]}
                 className="world-plan-scene-reader__context-title"
                 onActivateGraphNode={onActivateGraphNode}
                 unsupportedMessage="This authored content cannot be displayed safely in Cards. Open Document to view it."
               />
-              {parentBeat.bodyContent[0] ? (
+              {beat.bodyContent[0] ? (
                 <ReadOnlyBodyContent
-                  content={[parentBeat.bodyContent[0]]}
+                  content={[beat.bodyContent[0]]}
                   className="world-plan-scene-reader__objective"
                   onActivateGraphNode={onActivateGraphNode}
                   unsupportedMessage="This authored content cannot be displayed safely in Cards. Open Document to view it."
                 />
               ) : null}
-              {parentBeat.bodyContent.length > 1 ? (
+              {beat.bodyContent.length > 1 ? (
                 <details className="world-plan-scene-reader__beat-details">
                   <summary>Beat details</summary>
                   <ReadOnlyBodyContent
-                    content={parentBeat.bodyContent.slice(1)}
+                    content={beat.bodyContent.slice(1)}
                     className="world-plan-scene-reader__details-content"
                     onActivateGraphNode={onActivateGraphNode}
                     unsupportedMessage="This authored content cannot be displayed safely in Cards. Open Document to view it."
@@ -610,7 +616,7 @@ export function WorldPlanCardProjection({
                 </details>
               ) : null}
             </section>
-          ) : null}
+          ))}
           status={<p className="world-plan-scene-reader__target" role="status">
             {focusedTargetSelectable && focusedTargetSelected
               ? "New Ask uses this Scene from the verified saved Plan snapshot. Submitted requests keep their original target."

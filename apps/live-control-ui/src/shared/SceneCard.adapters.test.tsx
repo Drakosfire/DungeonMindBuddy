@@ -36,9 +36,11 @@ function fixture(name: typeof fixtureNames[number]) {
     `${name} choice framing.`,
     "<!-- dmb-playable-element:v2 kind=option id=option:go -->",
     "- Go ahead",
+    "",
     "  Enter the next chamber.",
     "<!-- dmb-playable-element:v2 kind=option id=option:stay -->",
     "- Stay here",
+    "",
     "  Wait by the door.",
     "<!-- dmb-playable-element:v2 kind=scene id=scene:two -->",
     `### ${name} second scene`,
@@ -48,6 +50,7 @@ function fixture(name: typeof fixtureNames[number]) {
     `${name} second framing.`,
     "<!-- dmb-playable-element:v2 kind=option id=option:leave -->",
     "- Leave now",
+    "",
     "  Walk out.",
   ].join("\n") + "\n";
   const run: WorldPlayRunRecordV2 = {
@@ -107,6 +110,7 @@ it.each(fixtureNames)("shows the %s Scene and its Choices through Plan focus and
   const planCard = screen.getByTestId("world-plan-scene-reader").querySelector<HTMLElement>("[data-scene-card]");
   expect(planCard).toHaveAttribute("data-scene-id", "scene:one");
   expect(planCard).toHaveAttribute("data-content-sha256", sha);
+  expect(within(planCard!).getByTestId("scene-card-source-cue")).toHaveTextContent("Saved Plan");
   expect(planCard).toHaveAttribute("aria-labelledby", "world-plan-focused-scene-heading");
   expect(document.getElementById("world-plan-focused-scene-heading")).toHaveTextContent(data.longTitle);
   expect(planCard).toHaveTextContent(data.longTitle);
@@ -121,6 +125,7 @@ it.each(fixtureNames)("shows the %s Scene and its Choices through Plan focus and
   expect(draftCard).toHaveAttribute("data-source-state", "draft");
   expect(draftCard).toHaveAttribute("data-source-revision", "");
   expect(draftCard).toHaveAttribute("data-content-sha256", "");
+  expect(within(draftCard!).getByTestId("scene-card-source-cue")).toHaveTextContent("Draft Plan · Ask uses the saved Plan until Save");
   plan.unmount();
 
   render(<div style={{ width: 320 }}><PlayFixture data={data} /></div>);
@@ -128,10 +133,19 @@ it.each(fixtureNames)("shows the %s Scene and its Choices through Plan focus and
   const currentCard = current.querySelector<HTMLElement>("[data-scene-card]");
   expect(currentCard).toHaveAttribute("data-scene-id", "scene:one");
   expect(currentCard).toHaveAttribute("data-work-revision-id", data.run.playable_work_revision_id);
+  expect(within(currentCard!).getByTestId("scene-card-source-cue")).toHaveTextContent("Run-pinned Playable");
   for (const text of [data.longTitle, `${name} authored opening body.`, `${name} opening decision?`, "Go ahead"]) {
     expect(currentCard).toHaveTextContent(text);
   }
   expect(within(current).getByRole("radio", { name: /Go ahead/ })).toBeChecked();
+  const currentPreview = current.querySelector<HTMLElement>('[data-option-id="option:stay"] details');
+  expect(currentPreview).toHaveTextContent("Wait by the door.");
+  expect(currentPreview).not.toHaveAttribute("open");
+  await user.click(within(currentPreview!).getByText("Read option details"));
+  expect(currentPreview).toHaveAttribute("open");
+  const selectedPreview = current.querySelector<HTMLElement>('[data-option-id="option:go"] details');
+  expect(selectedPreview).toHaveTextContent("Enter the next chamber.");
+  expect(liveApi.putWorldPlayRunProgress).not.toHaveBeenCalled();
 
   const secondOutlineScene = screen.getAllByTestId("play-outline-scene")
     .find((button) => button.getAttribute("data-scene-id") === "scene:two");
@@ -142,8 +156,44 @@ it.each(fixtureNames)("shows the %s Scene and its Choices through Plan focus and
   expect(inspected).toHaveTextContent(`${name} second decision?`);
   expect(inspected).toHaveTextContent("Leave now");
   expect(inspected).toHaveTextContent("Second scene note");
+  const inspectedPreview = inspected.querySelector<HTMLElement>('[data-option-id="option:leave"] details');
+  expect(inspectedPreview).toHaveTextContent("Walk out.");
+  await user.click(within(inspectedPreview!).getByText("Read option details"));
+  expect(inspectedPreview).toHaveAttribute("open");
   expect(within(inspected).queryByRole("textbox")).not.toBeInTheDocument();
   expect(liveApi.putWorldPlayRunProgress).not.toHaveBeenCalled();
+});
+
+it("preserves authored v1 Beat context attached to its focused Plan Scene", async () => {
+  const markdown = [
+    "<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->",
+    "## Arrival",
+    "The party reaches the gate.",
+    "<!-- dmb-playable-element:v1 kind=beat id=beat:guard -->",
+    "### The guard",
+    "The guard is waiting beside the gate.",
+    "<!-- dmb-playable-element:v1 kind=choice id=choice:route -->",
+    "### Choose a route",
+    "Two paths are open.",
+    "<!-- dmb-playable-element:v1 kind=option id=option:run -->",
+    "#### Run through the gate",
+    "Move quickly.",
+  ].join("\n") + "\n";
+  const imported = markdownToTiptapDoc(markdown);
+  expect(imported.diagnostics).toEqual([]);
+  render(<WorldPlanCardProjection worldId="fixture-world" documentId={documentId}
+    document={imported.doc} markdown={markdown} sourceWarnings={[]}
+    basis={{ status: "verified", revision: 9, contentSha256: sha }}
+    isDirty={false} onReturnToDocument={() => {}} />);
+  await userEvent.setup().click(screen.getByRole("button", { name: "Open scene: Arrival" }));
+  const card = screen.getByTestId("world-plan-scene-reader");
+  const context = within(card).getByRole("region", { name: "Authored Beat context" });
+  expect(context).toHaveAttribute("data-beat-id", "beat:guard");
+  expect(context).toHaveAttribute("data-parent-scene-id", "scene:arrival");
+  expect(context).toHaveTextContent("The guard");
+  expect(context).toHaveTextContent("The guard is waiting beside the gate.");
+  expect(card).toHaveTextContent("Choose a route");
+  expect(card).toHaveTextContent("Run through the gate");
 });
 
 it("keeps Session29 inspection read-only until Make Current sends the exact Run CAS", async () => {

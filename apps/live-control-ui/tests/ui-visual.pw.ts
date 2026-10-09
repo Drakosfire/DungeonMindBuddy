@@ -132,6 +132,52 @@ test("keeps the active Play scene primary across available widths", async ({ pag
   }
 });
 
+test("keeps shared Plan focus and Play inspection readable at 320px without inspection writes", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.goto("/?story=scene-card--narrow-plan-focus&mode=preview");
+  await expect(page.locator("html[data-storyloaded]")).toBeVisible();
+  const planCard = page.locator('[data-scene-card][data-source-state="verified"]');
+  await expect(planCard).toBeVisible();
+  await expect(planCard.getByTestId("scene-card-source-cue")).toHaveText("Saved Plan");
+  await expect(planCard.getByRole("heading", { name: /very long winding corridor/ })).toBeVisible();
+  await expect(planCard).toContainText("Which route will the party take?");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+  expect(await planCard.evaluate((card) => {
+    const right = card.getBoundingClientRect().right;
+    return Array.from(card.querySelectorAll<HTMLElement>(".world-plan-scene-reader__context, .world-plan-scene-reader__target"))
+      .every((child) => child.getBoundingClientRect().right <= right + 1);
+  })).toBe(true);
+  await expect(page).toHaveScreenshot("scene-card-plan-focus-narrow.png");
+
+  const writes: string[] = [];
+  page.on("request", (request) => {
+    if (!["GET", "HEAD"].includes(request.method())) writes.push(`${request.method()} ${request.url()}`);
+  });
+  await page.goto("/?story=play-current-moment-cockpit--responsive-cockpit&mode=preview");
+  await expect(page.locator("html[data-storyloaded]")).toBeVisible();
+  await page.getByTestId("play-compact-outline-toggle").click();
+  await page.locator('[data-testid="play-outline-scene"][data-scene-id="scene:north-gate"]').click();
+  const inspected = page.getByTestId("play-workspace-inspect");
+  await expect(inspected).toBeVisible();
+  await expect(inspected.getByTestId("scene-card-source-cue")).toHaveText("Run-pinned Playable");
+  await expect(inspected).toContainText("What do they do with the surviving brood?");
+  await expect(inspected).toContainText("Keep the choice open.");
+  const preview = inspected.locator('[data-option-id="option:follow-brood"] details');
+  await preview.locator("summary").click();
+  await expect(preview).toHaveAttribute("open", "");
+  await expect(preview).toContainText("The party pursues the retreating creatures");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+  expect(await inspected.evaluate((workspace) => {
+    const decision = workspace.querySelector<HTMLElement>(".shared-scene-choice");
+    if (!decision) return false;
+    const right = decision.getBoundingClientRect().right;
+    return Array.from(decision.querySelectorAll<HTMLElement>(".play-decision-option"))
+      .every((option) => option.getBoundingClientRect().right <= right + 1);
+  })).toBe(true);
+  expect(writes).toEqual([]);
+  await expect(page).toHaveScreenshot("scene-card-play-inspect-narrow.png");
+});
+
 test("keeps the full App Play route readable and keyboard-operable at narrow widths", async ({ page }) => {
   const story = "play-current-moment-cockpit--app-shell-responsive-cockpit";
   const viewports = [
