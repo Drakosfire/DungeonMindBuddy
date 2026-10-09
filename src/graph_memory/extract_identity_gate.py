@@ -242,6 +242,7 @@ def _known_party_anchor(
     context: WorldGraphMutationContext,
     *,
     world_id: str,
+    campaign_id: str | None = None,
 ) -> MutationObject | None:
     """Bind a party reference by its exact normalized ID, never its label alone."""
     ref = node.corpus_ref
@@ -258,6 +259,23 @@ def _known_party_anchor(
     if reference_key is None or not reference_key[1]:
         raise CandidateGraphMappingError("known party anchor reference ID is missing")
     expected_kind = "player_character" if ref.type == "pc" else "npc"
+    bindings = [b for b in context.reviewed_corpus_bindings
+                if b.candidate_node_id == node.node_id]
+    bound_target = None
+    if bindings:
+        if len(bindings) != 1:
+            raise CandidateGraphMappingError("conflicting reviewed corpus bindings")
+        binding = bindings[0]
+        if (binding.world_id != world_id
+            or binding.parent_revision_id != context.revision_id
+            or binding.campaign_id != campaign_id
+            or binding.candidate_sha256 != context.exact_candidate_sha256
+            or binding.corpus_ref_type != ref.type
+            or binding.corpus_ref_key != reference_key[1]):
+            raise CandidateGraphMappingError("reviewed corpus binding basis mismatch")
+        bound_target = context.objects.get(binding.target_object_id)
+        if bound_target is None or _norm_kind(bound_target.kind) != expected_kind:
+            raise CandidateGraphMappingError("reviewed corpus binding target kind mismatch")
     matches = []
     mismatched_kind = False
     for object_id, obj in context.objects.items():
@@ -270,6 +288,10 @@ def _known_party_anchor(
                 mismatched_kind = True
                 continue
             matches.append((object_id, obj))
+    if bound_target is not None:
+        if matches and (len(matches) != 1 or matches[0][0] != bound_target.object_id):
+            raise CandidateGraphMappingError("reviewed corpus binding conflicts with exact identity")
+        matches = [(bound_target.object_id, bound_target)]
     if not matches and mismatched_kind:
         raise CandidateGraphMappingError("known party anchor reference kind does not match its pinned object")
     if len(matches) != 1:
@@ -403,7 +425,7 @@ def gate_candidate_graph_against_head(
         extract_id = node.node_id
         label = node.label or extract_id
         node_aliases = _candidate_aliases(node)
-        known_anchor = _known_party_anchor(node, mutation_context, world_id=world_id)
+        known_anchor = _known_party_anchor(node, mutation_context, world_id=world_id, campaign_id=scope)
         object_kind = (
             known_anchor.kind if known_anchor is not None
             else _infer_object_kind(node, mutation_context)

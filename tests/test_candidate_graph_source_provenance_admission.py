@@ -1189,3 +1189,115 @@ def test_native_pc_normalization_preserves_invalid_event_target_rejection() -> N
     assert failure.value.details["subject_dm_kind"] == "dnd5e:player_character"
     assert failure.value.details["object_dm_kind"] == "dnd5e:creature"
     assert failure.value.details["reason"] == "endpoint_kind_not_admitted"
+
+
+def _reviewed_binding_authority_fixture():
+    from dungeonmind.contracts.evidence import SourceArtifactV2, SourceRevision
+    from dungeonmind.domain.canonical import canonical_sha256
+    from apps.live_control_server.models.world_graph_mutation_context import (
+        MutationObject, REVIEWED_CORPUS_BINDING_REASON_PREFIX,
+    )
+    from tests.test_known_party_anchor_admission import _reviewed_binding_case
+    _, _, binding = _reviewed_binding_case()
+    artifact = SourceArtifactV2(
+        source_artifact_id="artifact:origin", source_domain_key="session_recap",
+        source_domain="session_recap", world_id="test-world", campaign_id="test-campaign",
+        session_id="session-1", uri="repo://synthetic.md", current_revision_id="revision:origin",
+        authority=None, visibility="gm", artifact_kind="markdown", document_class="recap",
+        review_state=None, source_visibility_state="internal", workspace_document_ref=None,
+        status="active", created_at=None, updated_at=None,
+    )
+    revision = SourceRevision(source_revision_id="revision:origin", source_artifact_id="artifact:origin",
+                              content_sha256="f" * 64, locator="repo://synthetic.md", created_at=datetime(2026, 1, 1, tzinfo=UTC))
+    evidence = {"evidence_ref_id":"evidence:origin", "source_artifact_id":"artifact:origin",
+                "source_revision_id":"revision:origin", "source_domain":"session_recap", "source_domain_key":"session_recap"}
+    obj = {"object_id":"npc_guide", "kind":"dnd5e:npc", "label":"Guide", "aliases":[],
+           "assertion_metadata":{"campaign_scope":"test-campaign", "canon_state":"canonical", "evidence_ref_ids":["evidence:origin"]}}
+    binding = binding.model_copy(update={
+        "target_sha256":canonical_sha256(obj), "evidence_sha256":canonical_sha256([evidence]),
+        "sources":(binding.sources[0].model_copy(update={"artifact_sha256":canonical_sha256(artifact.model_dump(mode="json")),
+                                                       "revision_sha256":canonical_sha256(revision.model_dump(mode="json"))}),),
+    })
+    record = {"schema_version":"dm_identity_decision_v2", "decision_id":binding.decision_id,
+              "world_id":"test-world", "decision_kind":"human_override", "subject_object_ids":[binding.candidate_node_id],
+              "target_object_ids":[binding.target_object_id], "actor":binding.reviewer_id,
+              "reason":REVIEWED_CORPUS_BINDING_REASON_PREFIX+binding.model_dump_json(), "status":"active"}
+    records = [record]
+    snapshot = SimpleNamespace(get_artifact=lambda _:artifact, get_revision=lambda _:revision)
+    bundle = SimpleNamespace(identity_decisions=SimpleNamespace(list_for_world=lambda _:[SimpleNamespace(model_dump=lambda mode, d=d: d) for d in records]),
+                             sources=SimpleNamespace(get_provenance_snapshot=lambda **_:snapshot))
+    stored = SimpleNamespace(graph_payload={"objects":[obj], "evidence_refs":[evidence]})
+    context = WorldGraphMutationContext(world_id="test-world", revision_id="rev:pinned", head_revision_id="rev:pinned",
+        objects={"npc_guide":MutationObject(object_id="npc_guide",label="Guide",kind="npc",canon_state="canonical")},
+        identity_ledger_records=(copy.deepcopy(record),))
+    return bundle, stored, context, records, snapshot
+
+
+def test_reviewed_binding_reproves_authoritative_decision_sources_and_parent():
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import _verify_reviewed_corpus_binding_authority
+    bundle, stored, context, _, _ = _reviewed_binding_authority_fixture()
+    package = {"effect":{"candidate_admission":{"candidate_digest":"a"*64}}}
+    proved = _verify_reviewed_corpus_binding_authority(bundle, stored, context, package=package)
+    assert proved.reviewed_corpus_bindings[0].target_object_id == "npc_guide"
+    assert proved.exact_candidate_sha256 == "a"*64
+    assert not context.reviewed_corpus_bindings
+
+
+@pytest.mark.parametrize("case", ["source", "decision", "missing_decision", "target", "evidence", "campaign", "retracted", "duplicate", "superseded", "tamper"])
+def test_reviewed_binding_authority_drift_rejects_before_publication(case):
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        _verify_reviewed_corpus_binding_authority, WorldGraphWriteError,
+    )
+    bundle, stored, context, records, snapshot = _reviewed_binding_authority_fixture()
+    if case == "source":
+        original = snapshot.get_artifact("artifact:origin")
+        snapshot.get_artifact = lambda _:original.model_copy(update={"status":"deleted"})
+    elif case == "decision":
+        records[0]["status"] = "retracted"
+    elif case == "missing_decision":
+        records.clear()
+    elif case == "target":
+        stored.graph_payload["objects"][0]["label"] = "Someone else"
+    elif case == "evidence":
+        stored.graph_payload["evidence_refs"][0]["source_revision_id"] = "revision:other"
+    elif case == "campaign":
+        stored.graph_payload["objects"][0]["assertion_metadata"]["campaign_scope"] = "other"
+    elif case == "retracted":
+        from dataclasses import replace
+        context = replace(context, objects={"npc_guide":replace(context.objects["npc_guide"], canon_state="rejected")})
+    elif case == "duplicate":
+        records.append(copy.deepcopy(records[0]))
+    elif case == "superseded":
+        records.append({"decision_id":"decision:new", "status":"active", "supersedes_decision_ids":[records[0]["decision_id"]]})
+    else:
+        from dataclasses import replace
+        changed = copy.deepcopy(context.identity_ledger_records[0])
+        changed["target_object_ids"] = ["npc:other"]
+        context = replace(context, identity_ledger_records=(changed,))
+    with pytest.raises(WorldGraphWriteError, match="authority could not be proved"):
+        _verify_reviewed_corpus_binding_authority(bundle, stored, context,
+            package={"effect":{"candidate_admission":{"candidate_digest":"a"*64}}})
+
+
+def test_reviewed_binding_prepare_binds_full_candidate_before_qualification(tmp_path):
+    from dataclasses import replace
+    from tests.test_candidate_graph_admission_contract import _candidate, _prepare
+    from tests.test_known_party_anchor_admission import _reviewed_binding_case
+    from apps.live_control_server.services.candidate_graph_admission import canonical_candidate_digest
+    candidate = _candidate()
+    node, context, binding = _reviewed_binding_case()
+    node["evidence_refs"] = copy.deepcopy(candidate["nodes"][0]["evidence_refs"])
+    candidate["nodes"] = [node]
+    candidate["edges"] = []
+    candidate["beats"] = []
+    candidate["proposed_writes"] = []
+    binding = binding.model_copy(update={"world_id":"eldyrwild", "campaign_id":"longmont-c2",
+                                        "candidate_sha256":canonical_candidate_digest(candidate)})
+    context = replace(context, world_id="eldyrwild", exact_candidate_sha256=None,
+                      reviewed_corpus_bindings=(binding,))
+    before = copy.deepcopy(candidate)
+    result = _prepare(tmp_path, candidate, mutation_context=context)
+    assert result.review_package["effect"]["candidate_admission"]["candidate_digest"] == binding.candidate_sha256
+    assert result.review_package["effect"]["node_id_map"][node["node_id"]] == "npc_guide"
+    assert candidate == before
+    assert context.exact_candidate_sha256 is None

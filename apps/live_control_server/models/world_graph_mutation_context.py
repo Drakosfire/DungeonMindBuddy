@@ -15,7 +15,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 
 from apps.live_control_server.models.world_graph_identity_models import (
@@ -27,6 +27,10 @@ from apps.live_control_server.models.world_graph_identity_policy import (
     DEFAULT_IDENTITY_RESOLUTION_POLICY,
     IdentityResolutionPolicy,
 )
+
+
+if TYPE_CHECKING:
+    from apps.live_control_server.models.extract_promote import ReviewedCorpusNativeBindingV1
 
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
@@ -87,6 +91,8 @@ class WorldGraphMutationContext:
     identity_decisions: tuple[IdentityDecisionRecord, ...] = ()
     identity_ledger_records: tuple[Mapping[str, Any], ...] = ()
     relationships: Mapping[str, MutationRelationship] = field(default_factory=dict)
+    reviewed_corpus_bindings: tuple[ReviewedCorpusNativeBindingV1, ...] = ()
+    exact_candidate_sha256: str | None = None
 
 
     def object_ids(self) -> frozenset[str]:
@@ -655,6 +661,8 @@ def _decision_for_candidate(
 ) -> IdentityDecisionRecord | None:
     active = []
     for record in context.identity_decisions:
+        if record.reason.startswith(REVIEWED_CORPUS_BINDING_REASON_PREFIX):
+            continue  # Typed bindings are consumed only by the pinned anchor gate.
         if record.status != "active":
             continue
         if record.decision_kind not in _CANDIDATE_DECISION_KINDS:
@@ -1121,3 +1129,37 @@ __all__ = [
     "resolve_identity_against_context",
     "wire_kind",
 ]
+
+
+REVIEWED_CORPUS_BINDING_REASON_PREFIX = "dmb-reviewed-corpus-native-binding-v1:"
+
+
+def reviewed_corpus_bindings_from_decisions(records, *, world_id, revision_id):
+    """Recognize only explicitly versioned reviewed carrier records."""
+    import json
+    from apps.live_control_server.models.extract_promote import ReviewedCorpusNativeBindingV1
+
+    bindings = []
+    for record in records:
+        reason = str(record.get("reason") or "")
+        if not reason.startswith(REVIEWED_CORPUS_BINDING_REASON_PREFIX):
+            continue
+        binding = ReviewedCorpusNativeBindingV1.model_validate(
+            json.loads(reason[len(REVIEWED_CORPUS_BINDING_REASON_PREFIX):])
+        )
+        if (record.get("decision_kind") != "human_override"
+            or record.get("world_id") != binding.world_id
+            or record.get("decision_id") != binding.decision_id
+            or record.get("actor") != binding.reviewer_id
+            or record.get("subject_object_ids") != [binding.candidate_node_id]
+            or record.get("target_object_ids") != [binding.target_object_id]):
+            raise ValueError("reviewed binding carrier does not match typed payload")
+        if record.get("status", "active") != "active":
+            continue
+        # Prior one-candidate decisions are retained, never applied to later heads.
+        if binding.world_id == world_id and binding.parent_revision_id == revision_id:
+            bindings.append(binding)
+    keys = [(b.campaign_id, b.candidate_sha256, b.candidate_node_id) for b in bindings]
+    if len(keys) != len(set(keys)):
+        raise ValueError("conflicting reviewed corpus bindings")
+    return tuple(bindings)

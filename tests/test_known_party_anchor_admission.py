@@ -286,3 +286,56 @@ def test_reference_type_disambiguates_pc_and_npc_with_the_same_slug(
     result = _gate([_node("shared", ref_type)], context)
     assert result.node_id_map == {"node:shared": target_id}
     assert all(a.assertion_kind != "node" for a in result.accepted_proposals)
+
+
+
+def _reviewed_binding_case():
+    from apps.live_control_server.models.extract_promote import ReviewedCorpusNativeBindingV1
+    actor = replace(_actor("guide", kind="npc"), object_id="npc_guide")
+    node = _node("guide_full", "npc")
+    node["label"] = "Guide"
+    binding = ReviewedCorpusNativeBindingV1(
+        world_id="test-world", parent_revision_id="rev:pinned", campaign_id="test-campaign",
+        candidate_sha256="a" * 64, candidate_node_id=node["node_id"],
+        corpus_ref_type="npc", corpus_ref_key="guide full", target_object_id="npc_guide",
+        target_sha256="b" * 64, evidence_sha256="c" * 64,
+        decision_id="decision:binding", reviewer_id="reviewer:synthetic",
+        sources=({"source_artifact_id":"artifact:origin", "source_revision_id":"revision:origin",
+                  "artifact_sha256":"d" * 64, "revision_sha256":"e" * 64},),
+    )
+    context = replace(_context([actor]), reviewed_corpus_bindings=(binding,), exact_candidate_sha256="a" * 64)
+    return node, context, binding
+
+
+def test_reviewed_binding_attaches_support_to_bare_native_id_without_alias_invention():
+    node, context, _ = _reviewed_binding_case()
+    before = copy.deepcopy(context)
+    result = _gate([node], context)
+    assert result.node_id_map == {node["node_id"]: "npc_guide"}
+    assert all(a.assertion_kind != "node" for a in result.accepted_proposals)
+    assert context == before
+
+
+@pytest.mark.parametrize("case", ["world", "head", "campaign", "digest", "ref", "type", "kind", "missing", "retracted", "redirect", "conflict", "unbound"])
+def test_reviewed_binding_rejects_wrong_or_inactive_basis(case):
+    node, context, binding = _reviewed_binding_case()
+    updates = {"world":"world_id", "head":"parent_revision_id", "campaign":"campaign_id",
+               "digest":"candidate_sha256", "ref":"corpus_ref_key", "type":"corpus_ref_type"}
+    if case in updates:
+        value = "b" * 64 if case == "digest" else "wrong"
+        binding = binding.model_copy(update={updates[case]:value})
+        context = replace(context, reviewed_corpus_bindings=(binding,))
+    elif case == "kind":
+        context = replace(context, objects={"npc_guide":replace(context.objects["npc_guide"], kind="faction")})
+    elif case == "missing":
+        context = replace(context, objects={})
+    elif case == "retracted":
+        context = replace(context, objects={"npc_guide":replace(context.objects["npc_guide"], canon_state="rejected")})
+    elif case == "redirect":
+        context = replace(context, identity_redirects={"npc_guide":"npc:other"})
+    elif case == "conflict":
+        context = replace(context, reviewed_corpus_bindings=(binding,binding))
+    else:
+        context = replace(context, reviewed_corpus_bindings=())
+    with pytest.raises(CandidateGraphMappingError):
+        _gate([node], context)

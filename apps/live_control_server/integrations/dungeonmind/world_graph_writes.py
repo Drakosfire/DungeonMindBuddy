@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -747,12 +747,13 @@ def load_production_mutation_context(
             code="revision_not_bridged",
             details={"world_id": world_id, "revision_id": pinned},
         )
-    return mutation_context_from_revision_payload(
+    context = mutation_context_from_revision_payload(
         stored,
         world_id=world_id,
         head_revision_id=str(head.head_revision_id),
         dungeonmind_decisions=identity_decisions,
     )
+    return _verify_reviewed_corpus_binding_authority(bundle, stored, context)
 
 
 def _derive_confirm_operation_id(
@@ -2000,6 +2001,9 @@ def confirm_extract_promote_via_dungeonmind(
         world_id=world_id,
         head_revision_id=str(head.head_revision_id),
     )
+    mutation_context = _verify_reviewed_corpus_binding_authority(
+        bundle, parent_stored, mutation_context, package=package,
+    )
     _verified, contribution = _reconstruct_selected_contribution(
         package=package,
         world_id=world_id,
@@ -2151,6 +2155,9 @@ def confirm_extract_promote_via_dungeonmind(
             details={"world_id": world_id, "reason": str(exc)[:500]},
         ) from exc
 
+    _verify_reviewed_corpus_binding_authority(
+        bundle, parent_stored, mutation_context, package=package,
+    )
     try:
         publication = publish_finalized_review(
             world_id,
@@ -2776,3 +2783,87 @@ __all__ = [
     "worldbuilding_authority_operation_id",
     "write_error_status_code",
 ]
+
+
+
+def _verify_reviewed_corpus_binding_authority(bundle, stored, context, *, package=None):
+    """Reprove typed carrier, immutable target/evidence and authoritative sources."""
+    from dungeonmind.domain.canonical import canonical_sha256
+    from apps.live_control_server.models.world_graph_mutation_context import (
+        reviewed_corpus_bindings_from_decisions,
+    )
+
+    try:
+        bindings = reviewed_corpus_bindings_from_decisions(
+            context.identity_ledger_records, world_id=context.world_id,
+            revision_id=context.revision_id,
+        )
+        if not bindings:
+            return context
+        live = [_dump_identity_decision(d) for d in
+                bundle.identity_decisions.list_for_world(context.world_id)]
+        payload = stored.graph_payload
+        objects = {o["object_id"]: o for o in payload.get("objects", [])}
+        evidence = {e["evidence_ref_id"]: e for e in payload.get("evidence_refs", [])}
+        for binding in bindings:
+            sealed = [d for d in context.identity_ledger_records
+                      if d.get("decision_id") == binding.decision_id]
+            current = [d for d in live if d.get("decision_id") == binding.decision_id]
+            if len(sealed) != 1 or current != sealed:
+                raise ValueError("reviewed binding decision changed or disappeared")
+            if any(d.get("status", "active") == "active" and
+                   binding.decision_id in (d.get("supersedes_decision_ids") or []) for d in live):
+                raise ValueError("reviewed binding decision was superseded")
+            obj = objects.get(binding.target_object_id)
+            target = context.objects.get(binding.target_object_id)
+            if (obj is None or target is None or wire_kind(target.kind) != "npc"
+                or target.canon_state != "canonical"
+                or target.memory_state in {"rejected", "merged_away"}
+                or target.object_id in context.identity_redirects):
+                raise ValueError("reviewed binding target is not active canonical NPC")
+            meta = obj.get("assertion_metadata") or {}
+            if meta.get("canon_state") != "canonical" or wire_kind(str(obj.get("kind") or "")) != "npc":
+                raise ValueError("reviewed binding raw target standing mismatch")
+            if meta.get("campaign_scope") != binding.campaign_id:
+                raise ValueError("reviewed binding target campaign mismatch")
+            refs = [evidence[eid] for eid in meta.get("evidence_ref_ids", [])]
+            if (not refs or canonical_sha256(obj) != binding.target_sha256
+                or canonical_sha256(refs) != binding.evidence_sha256):
+                raise ValueError("reviewed binding target/evidence fingerprint mismatch")
+            pairs = {(e["source_artifact_id"], e["source_revision_id"]) for e in refs}
+            declared = {(r.source_artifact_id, r.source_revision_id) for r in binding.sources}
+            if pairs != declared:
+                raise ValueError("reviewed binding source closure mismatch")
+            snapshot = bundle.sources.get_provenance_snapshot(
+                artifact_ids=sorted({a for a, _ in pairs}),
+                revision_ids=sorted({r for _, r in pairs}),
+            )
+            for proof in binding.sources:
+                artifact = snapshot.get_artifact(proof.source_artifact_id)
+                revision = snapshot.get_revision(proof.source_revision_id)
+                if (artifact is None or revision is None
+                    or artifact.world_id != context.world_id
+                    or artifact.campaign_id != binding.campaign_id
+                    or str(artifact.status) != "active"
+                    or revision.source_artifact_id != artifact.source_artifact_id
+                    or canonical_sha256(artifact.model_dump(mode="json")) != proof.artifact_sha256
+                    or canonical_sha256(revision.model_dump(mode="json")) != proof.revision_sha256):
+                    raise ValueError("reviewed binding authoritative source mismatch")
+                for ref in refs:
+                    if ref["source_artifact_id"] == proof.source_artifact_id and (
+                        ref.get("source_domain") != str(artifact.source_domain)
+                        or ref.get("source_domain_key") != artifact.source_domain_key
+                    ):
+                        raise ValueError("reviewed binding evidence source domain mismatch")
+        digest = context.exact_candidate_sha256
+        if package is not None:
+            digest = ((package.get("effect") or {}).get("candidate_admission") or {}).get("candidate_digest")
+            if not digest:
+                raise ValueError("reviewed binding requires exact candidate admission")
+        return replace(context, reviewed_corpus_bindings=bindings,
+                       exact_candidate_sha256=digest)
+    except Exception as exc:
+        raise WorldGraphWriteError(
+            "reviewed corpus binding authority could not be proved",
+            code="governed_write_inexpressible", details={"reason": str(exc)[:500]},
+        ) from exc

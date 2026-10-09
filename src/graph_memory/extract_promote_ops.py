@@ -327,6 +327,10 @@ def prepare_extract_promote(
         mutation_context = mutation_context_from_world_root(root, resolved_world_id)
     else:
         root = world_root.resolve() if world_root is not None else None
+    if mutation_context.reviewed_corpus_bindings and mutation_context.exact_candidate_sha256 is None:
+        from dataclasses import replace
+        from apps.live_control_server.services.candidate_graph_admission import canonical_candidate_digest
+        mutation_context = replace(mutation_context, exact_candidate_sha256=canonical_candidate_digest(candidate_graph))
     package_world_root = str(root) if root is not None else None
     verified_revision = verify_source_revision(
         source_uri=source_uri,
