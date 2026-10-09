@@ -1167,8 +1167,11 @@ def _reprove_source_extraction(
 def _candidate_endpoint_kinds(
     context: WorldGraphMutationContext, candidate: Any
 ) -> dict[str, str]:
+    # Core's validated native PC kind is wire-stripped to player_character;
+    # qualification uses the equivalent Buddy kind pc. Keep every other kind
+    # unchanged so unknown/foreign kinds still fail the existing vocabulary gate.
     kinds: dict[str, str] = {
-        object_id: obj.kind
+        object_id: "pc" if obj.kind == "player_character" else obj.kind
         for object_id, obj in context.objects.items()
         if obj.kind.strip()
     }
