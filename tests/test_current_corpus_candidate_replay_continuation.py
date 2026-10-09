@@ -349,13 +349,236 @@ def test_checkpoint38_rejects_prepare_test_seam(checkpoint38):
     assert not checkpoint38.calls
 
 
-def test_checkpoint38_pending_publication_contract_cannot_write():
+def _checkpoint38_reviewed_context():
+    import json
+
+    from apps.live_control_server.models.extract_promote import (
+        ReviewedCorpusNativeBindingV1,
+    )
+    from apps.live_control_server.models.world_graph_mutation_context import (
+        REVIEWED_CORPUS_BINDING_REASON_PREFIX,
+        reviewed_corpus_bindings_from_decisions,
+    )
+    from dungeonmind.contracts.identity import IdentityDecisionRecordV2
+    from dungeonmind.domain.canonical import canonical_sha256
+
+    reviewer_id = "reviewer:test-only"
+    binding_payload = {
+        "schema_version": "dmb_reviewed_corpus_native_binding_v1",
+        "world_id": driver.replay.WORLD_ID,
+        "parent_revision_id": driver.CHECKPOINT38_HEAD,
+        "campaign_id": driver.CHECKPOINT38_S22_CAMPAIGN_ID,
+        "candidate_sha256": driver.CHECKPOINT38_S22_CANDIDATE_SHA256,
+        "candidate_node_id": driver.CHECKPOINT38_S22_CANDIDATE_NODE_ID,
+        "corpus_ref_type": driver.CHECKPOINT38_S22_CORPUS_REF_TYPE,
+        "corpus_ref_key": driver.CHECKPOINT38_S22_CORPUS_REF_KEY,
+        "target_object_id": driver.CHECKPOINT38_S22_TARGET_OBJECT_ID,
+        "target_sha256": "a" * 64,
+        "evidence_sha256": "b" * 64,
+        "decision_id": "decision:reviewed",
+        "reviewer_id": reviewer_id,
+        "sources": [
+            {
+                "source_artifact_id": "artifact:test",
+                "source_revision_id": "sha256:test",
+                "artifact_sha256": "c" * 64,
+                "revision_sha256": "d" * 64,
+            }
+        ],
+    }
+    binding = ReviewedCorpusNativeBindingV1.model_validate(binding_payload)
+    decision = IdentityDecisionRecordV2.model_validate(
+        {
+            "decision_id": binding.decision_id,
+            "world_id": binding.world_id,
+            "decision_kind": "human_override",
+            "subject_object_ids": [binding.candidate_node_id],
+            "target_object_ids": [binding.target_object_id],
+            "actor": reviewer_id,
+            "reason": REVIEWED_CORPUS_BINDING_REASON_PREFIX
+            + json.dumps(binding_payload, separators=(",", ":")),
+            "status": "active",
+            "created_at": "2026-10-01T00:00:00Z",
+        }
+    )
+    record = decision.model_dump(mode="json")
+    bindings = reviewed_corpus_bindings_from_decisions(
+        [record], world_id=binding.world_id, revision_id=binding.parent_revision_id
+    )
+    context = NS(
+        world_id=driver.replay.WORLD_ID,
+        revision_id=driver.CHECKPOINT38_HEAD,
+        head_revision_id=driver.CHECKPOINT38_HEAD,
+        reviewed_corpus_bindings=bindings,
+        identity_ledger_records=(record,),
+    )
+    return context, canonical_sha256(decision.model_dump(mode="json"))
+
+
+def test_checkpoint38_binding_uses_exact_production_mutation_context(monkeypatch):
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+
+    context, decision_sha256 = _checkpoint38_reviewed_context()
+    calls = []
+
+    def load_context(world_id, *, revision_pin, database_url):
+        calls.append((world_id, revision_pin, database_url))
+        return context
+
+    monkeypatch.setattr(
+        world_graph_writes, "load_production_mutation_context", load_context
+    )
     authority = driver._Authority("unused", NS())
-    with pytest.raises(
-        driver.replay.ReplayStop, match="publication fence not accepted"
-    ):
+    assert (
         authority.checkpoint38_binding(
-            NS(), NS(), "decision:reviewed", "a" * 64, "unused"
+            NS(
+                ordinal=driver.CHECKPOINT38_S22_ORDINAL,
+                campaign_id=driver.CHECKPOINT38_S22_CAMPAIGN_ID,
+                session_id=driver.CHECKPOINT38_S22_SESSION_ID,
+            ),
+            NS(candidate_digest=driver.CHECKPOINT38_S22_CANDIDATE_SHA256),
+            "decision:reviewed",
+            decision_sha256,
+            "postgresql://test-dsn",
+        )
+        is None
+    )
+    assert calls == [
+        (
+            driver.replay.WORLD_ID,
+            driver.CHECKPOINT38_HEAD,
+            "postgresql://test-dsn",
+        )
+    ]
+
+
+@pytest.mark.parametrize(
+    "drift",
+    [
+        "world",
+        "revision",
+        "head",
+        "missing_binding",
+        "duplicate_binding",
+        "wrong_binding_target",
+        "wrong_binding_campaign",
+        "wrong_binding_parent",
+        "wrong_binding_node",
+        "wrong_binding_ref_type",
+        "wrong_binding_ref_key",
+        "wrong_candidate",
+        "wrong_decision_id",
+        "duplicate_decision",
+        "inactive_decision",
+        "wrong_decision_kind",
+        "wrong_actor",
+        "wrong_subject",
+        "wrong_target",
+        "wrong_decision_digest",
+        "uppercase_digest",
+        "padded_digest",
+        "missing_digest",
+        "loader_error",
+    ],
+)
+def test_checkpoint38_binding_fails_closed_on_authority_or_pin_drift(
+    monkeypatch, drift
+):
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+
+    context, decision_sha256 = _checkpoint38_reviewed_context()
+    binding = context.reviewed_corpus_bindings[0]
+    record = dict(context.identity_ledger_records[0])
+    decision_id = "decision:reviewed"
+    candidate_digest = driver.CHECKPOINT38_S22_CANDIDATE_SHA256
+
+    if drift == "world":
+        context.world_id = "another-world"
+    elif drift == "revision":
+        context.revision_id = "rev:other"
+    elif drift == "head":
+        context.head_revision_id = "rev:other"
+    elif drift == "missing_binding":
+        context.reviewed_corpus_bindings = ()
+    elif drift == "duplicate_binding":
+        context.reviewed_corpus_bindings = (binding, binding)
+    elif drift == "wrong_binding_target":
+        context.reviewed_corpus_bindings = (
+            binding.model_copy(update={"target_object_id": "npc:other"}),
+        )
+    elif drift == "wrong_binding_campaign":
+        context.reviewed_corpus_bindings = (
+            binding.model_copy(update={"campaign_id": "longmont-c1"}),
+        )
+    elif drift == "wrong_binding_parent":
+        context.reviewed_corpus_bindings = (
+            binding.model_copy(update={"parent_revision_id": "rev:other"}),
+        )
+    elif drift == "wrong_binding_node":
+        context.reviewed_corpus_bindings = (
+            binding.model_copy(update={"candidate_node_id": "node:other"}),
+        )
+    elif drift == "wrong_binding_ref_type":
+        context.reviewed_corpus_bindings = (
+            binding.model_copy(update={"corpus_ref_type": "location"}),
+        )
+    elif drift == "wrong_binding_ref_key":
+        context.reviewed_corpus_bindings = (
+            binding.model_copy(update={"corpus_ref_key": "other-npc"}),
+        )
+    elif drift == "wrong_candidate":
+        candidate_digest = "e" * 64
+    elif drift == "wrong_decision_id":
+        decision_id = "decision:other"
+    elif drift == "duplicate_decision":
+        context.identity_ledger_records = (
+            record,
+            dict(record),
+        )
+    elif drift == "inactive_decision":
+        record["status"] = "superseded"
+        context.identity_ledger_records = (record,)
+    elif drift == "wrong_decision_kind":
+        record["decision_kind"] = "alias_add"
+        context.identity_ledger_records = (record,)
+    elif drift == "wrong_actor":
+        record["actor"] = "another-reviewer"
+        context.identity_ledger_records = (record,)
+    elif drift == "wrong_subject":
+        record["subject_object_ids"] = ["node:other"]
+        context.identity_ledger_records = (record,)
+    elif drift == "wrong_target":
+        record["target_object_ids"] = ["npc:other"]
+        context.identity_ledger_records = (record,)
+    elif drift == "wrong_decision_digest":
+        decision_sha256 = "f" * 64
+    elif drift == "uppercase_digest":
+        decision_sha256 = decision_sha256.upper()
+    elif drift == "padded_digest":
+        decision_sha256 += " "
+    elif drift == "missing_digest":
+        decision_sha256 = None
+
+    def load_context(*args, **kwargs):
+        if drift == "loader_error":
+            raise RuntimeError("authority unavailable")
+        return context
+
+    monkeypatch.setattr(
+        world_graph_writes, "load_production_mutation_context", load_context
+    )
+    authority = driver._Authority("unused", NS())
+    with pytest.raises(driver.replay.ReplayStop):
+        authority.checkpoint38_binding(
+            NS(
+                ordinal=driver.CHECKPOINT38_S22_ORDINAL,
+                campaign_id=driver.CHECKPOINT38_S22_CAMPAIGN_ID,
+                session_id=driver.CHECKPOINT38_S22_SESSION_ID,
+            ),
+            NS(candidate_digest=candidate_digest),
+            decision_id,
+            decision_sha256,
+            "postgresql://test-dsn",
         )
 
 
