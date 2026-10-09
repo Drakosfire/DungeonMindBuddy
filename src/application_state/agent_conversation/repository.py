@@ -15,6 +15,7 @@ from application_state.agent_conversation.types import (
     CompletedPlanAskPair,
     Conversation,
     ConversationCommandReceipt,
+    CommandResolutionRecordV1,
     Draft,
     HistoricalReference,
     LegacyImportReceipt,
@@ -1344,3 +1345,47 @@ def insert_legacy_turn(
         assistant_text=assistant_text,
         failure_code="legacy_unanswered" if assistant_text is None else None,
     )
+
+
+
+def _resolution_row(row: dict[str, Any] | None) -> CommandResolutionRecordV1 | None:
+    if row is None:
+        return None
+    try:
+        record = CommandResolutionRecordV1.model_validate(row["record"])
+    except ValidationError as exc:
+        raise ApplicationStateIntegrityError("stored command resolution is invalid") from exc
+    command = record.request.original_command
+    if (row["world_id"] != command.world_id or row["resolution_operation_id"] != record.request.resolution_operation_id
+        or row["original_command_id"] != command.command_id or row["outcome"] != record.outcome
+        or row["original_request_fingerprint"] != record.original_request_fingerprint
+        or row["resolution_request_fingerprint"] != record.resolution_request_fingerprint
+        or row["occupied_command_id"] != (None if record.outcome == "retired" else command.command_id)):
+        raise ApplicationStateIntegrityError("stored command resolution columns disagree")
+    return record
+
+
+def get_command_resolution(conn: psycopg.Connection, world_id: str, operation_id: UUID) -> CommandResolutionRecordV1 | None:
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute("SELECT * FROM agent.command_resolution WHERE world_id=%s AND resolution_operation_id=%s", (world_id, operation_id))
+        return _resolution_row(cur.fetchone())
+
+
+def get_command_retirement(conn: psycopg.Connection, world_id: str, command_id: UUID) -> CommandResolutionRecordV1 | None:
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute("SELECT * FROM agent.command_resolution WHERE world_id=%s AND original_command_id=%s AND outcome='retired'", (world_id, command_id))
+        return _resolution_row(cur.fetchone())
+
+
+def insert_command_resolution(conn: psycopg.Connection, record: CommandResolutionRecordV1) -> CommandResolutionRecordV1:
+    command = record.request.original_command
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute("""INSERT INTO agent.command_resolution(world_id,resolution_operation_id,original_command_id,
+            original_request_fingerprint,resolution_request_fingerprint,outcome,occupied_command_id,record)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *""", (command.world_id, record.request.resolution_operation_id,
+            command.command_id, record.original_request_fingerprint, record.resolution_request_fingerprint, record.outcome,
+            None if record.outcome == "retired" else command.command_id, Jsonb(record.model_dump(mode="json", by_alias=True))))
+        result = _resolution_row(cur.fetchone())
+    if result is None:
+        raise ApplicationStateIntegrityError("command resolution did not persist")
+    return result

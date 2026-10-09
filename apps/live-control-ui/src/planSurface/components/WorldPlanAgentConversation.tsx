@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import type { PlanConversationPresentationHosts } from "./PlanConversationDockAdapter";
 import { PlanEditReview } from "./PlanEditReview";
 
-import { getWorldAgentNewConversationStatus, getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlanDocumentEditProposal, connectNativeGraphSession, revokeNativeGraphSession, isValidWorldPlanGraphContextFailure, LiveApiError } from "../../api/liveApi";
+import { getWorldCommandResolution, postWorldCommandResolution, getWorldAgentNewConversationStatus, getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlanDocumentEditProposal, connectNativeGraphSession, revokeNativeGraphSession, isValidWorldPlanGraphContextFailure, LiveApiError } from "../../api/liveApi";
 import type {
   AgentInteractionThread,
   AgentInteractionTurn,
@@ -17,6 +17,8 @@ import type {
   WorldAgentConversationHistoryTurn,
   WorldAgentConversationHistoryTurnV1,
   WorldAgentNewConversationRequestV1,
+  WorldCommandResolutionRequestV1,
+  WorldCommandResolutionRecordV1,
   WorldPlanAgentPlanContextV1,
   WorldPlanGraphAnswerContextStatusV1,
   WorldPlanGraphAnswerSegmentV1,
@@ -257,6 +259,19 @@ interface WorldPlanPendingNewConversation {
   worldId: string;
   documentId: string;
   request: WorldAgentNewConversationRequestV1;
+}
+
+interface SavedCommandResolution {
+  schema: "dmb_world_saved_command_resolution_v1";
+  worldId: string;
+  documentId: string;
+  originalKey: string;
+  originalBytes: string;
+  request: WorldCommandResolutionRequestV1;
+}
+
+function commandResolutionKey(envelope: WorldPlanPendingNewConversation): string {
+  return `dmb:world-command-resolution:v1:${encodeURIComponent(envelope.worldId)}:${encodeURIComponent(envelope.documentId)}:${encodeURIComponent(envelope.request.command_id)}`;
 }
 
 interface StoredPendingNewConversation {
@@ -1152,13 +1167,68 @@ function canonicalJson(value: unknown): string {
   return encoded;
 }
 
-export async function newConversationRequestFingerprint(worldId: string, request: WorldAgentNewConversationRequestV1): Promise<string> {
-  // Python's existing canonical JSON uses ensure_ascii=True, including surrogate pairs.
-  const bytes = canonicalJson({ world_id: worldId, expected_pointer_revision: request.expected_pointer_revision,
-    expected_active_conversation_id: request.expected_active_conversation_id })
-    .replace(/[\u007f-\uffff]/g, (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
+export async function commandCanonicalDigest(value: unknown): Promise<string> {
+  const bytes = canonicalJson(value).replace(/[\u007f-\uffff]/g,
+    (character) => `\\u${character.charCodeAt(0).toString(16).padStart(4, "0")}`);
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(bytes));
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+export async function newConversationRequestFingerprint(worldId: string, request: WorldAgentNewConversationRequestV1): Promise<string> {
+  return commandCanonicalDigest({ world_id: worldId, expected_pointer_revision: request.expected_pointer_revision,
+    expected_active_conversation_id: request.expected_active_conversation_id });
+}
+
+function commandUuid(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+}
+
+export async function verifiedCommandResolution(value: unknown, request: WorldCommandResolutionRequestV1): Promise<WorldCommandResolutionRecordV1 | null> {
+  if (!hasExactKeys(value, ["schema", "status", "record"]) || value.schema !== "dmb_agent_new_conversation_resolution_response_v1"
+    || value.status !== "terminal") return null;
+  const record = value.record;
+  if (!hasExactKeys(record, ["schema", "request", "original_command_kind", "original_request_fingerprint", "resolution_request_fingerprint",
+    "observed_pointer", "outcome", "actor", "recorded_at", "record_serializer_version", "confirmed_receipt", "occupied_receipt", "retirement_operation_id", "record_sha256"])
+    || record.schema !== "dmb_agent_new_conversation_resolution_record_v1" || record.original_command_kind !== "new"
+    || canonicalJson(record.request) !== canonicalJson(request) || record.record_serializer_version !== "canonical-json-ascii-v1"
+    || typeof record.actor !== "string" || !record.actor.trim() || typeof record.recorded_at !== "string"
+    || !Number.isFinite(Date.parse(record.recorded_at)) || !/(Z|[+-]\d{2}:\d{2})$/.test(record.recorded_at)
+    || !isDigest(record.record_sha256)) return null;
+  const command = request.original_command;
+  const { resolution_operation_id: _id, ...operation } = request;
+  const { record_sha256: digest, ...payload } = record;
+  const originalDigest = await newConversationRequestFingerprint(command.world_id, {
+    schema: "dmb_agent_new_conversation_v1", command_id: command.command_id,
+    expected_pointer_revision: command.expected_pointer_revision, expected_active_conversation_id: command.expected_active_conversation_id });
+  if (record.original_request_fingerprint !== originalDigest || record.resolution_request_fingerprint !== await commandCanonicalDigest(operation)
+    || digest !== await commandCanonicalDigest(payload)) return null;
+  const pointer = record.observed_pointer;
+  if (!hasExactKeys(pointer, ["world_id", "active_conversation_id", "revision"]) || pointer.world_id !== command.world_id
+    || !(pointer.active_conversation_id === null || commandUuid(pointer.active_conversation_id))
+    || typeof pointer.revision !== "number" || !Number.isSafeInteger(pointer.revision) || pointer.revision < 0) return null;
+  if (record.outcome === "retired") {
+    if (record.confirmed_receipt !== null || record.occupied_receipt !== null || record.retirement_operation_id !== request.resolution_operation_id
+      || pointer.revision !== request.expected_current_pointer_revision || pointer.active_conversation_id !== request.expected_current_active_conversation_id) return null;
+  } else if (record.outcome === "submitted_binding_blocked") {
+    const proof = record.occupied_receipt;
+    if (record.confirmed_receipt !== null || record.retirement_operation_id !== null
+      || !hasExactKeys(proof, ["world_id", "command_id", "command_kind", "request_fingerprint", "receipt_sha256"])
+      || proof.world_id !== command.world_id || proof.command_id !== command.command_id
+      || !["new", "archive", "reopen"].includes(String(proof.command_kind))
+      || !isDigest(proof.request_fingerprint) || !isDigest(proof.receipt_sha256)
+      || (proof.command_kind === "new" && proof.request_fingerprint === originalDigest)) return null;
+  } else if (record.outcome === "confirmed") {
+    const receipt = record.confirmed_receipt;
+    if (record.occupied_receipt !== null || record.retirement_operation_id !== null
+      || !hasExactKeys(receipt, ["world_id", "command_id", "command_kind", "conversation_id", "active_conversation_id", "pointer_revision", "recorded_at"])
+      || receipt.world_id !== command.world_id || receipt.command_id !== command.command_id || receipt.command_kind !== "new"
+      || !commandUuid(receipt.conversation_id) || receipt.active_conversation_id !== receipt.conversation_id
+      || receipt.conversation_id === command.expected_active_conversation_id
+      || typeof receipt.pointer_revision !== "number" || !Number.isSafeInteger(receipt.pointer_revision)
+      || receipt.pointer_revision <= command.expected_pointer_revision
+      || typeof receipt.recorded_at !== "string" || !Number.isFinite(Date.parse(receipt.recorded_at))) return null;
+  } else return null;
+  return record as unknown as WorldCommandResolutionRecordV1;
 }
 
 export async function confirmedNewConversationStatus(value: unknown, worldId: string,
@@ -1831,6 +1901,11 @@ export function WorldPlanAgentConversation({
   const newConversationRef = useRef<symbol | null>(null);
   const commandStatusRef = useRef<symbol | null>(null);
   const [commandStatusChecking, setCommandStatusChecking] = useState(false);
+  const resolutionGenerationRef = useRef(0);
+  const [blockedResolution, setBlockedResolution] = useState<{
+    resolutionKey: string; resolutionBytes: string; originalKey: string; originalBytes: string;
+    envelope: WorldPlanPendingNewConversation; record: WorldCommandResolutionRecordV1; generation: number;
+  } | null>(null);
   const historySnapshotRef = useRef<WorldAgentConversationHistoryResponse | null>(null);
   const historyGenerationRef = useRef(0);
   const legacyHistoryRef = useRef<{ scopeKey: string; thread: AgentInteractionThread; rawBytes: string | null } | null>(null);
@@ -2244,6 +2319,8 @@ export function WorldPlanAgentConversation({
     newConversationRef.current = null;
     commandStatusRef.current = null;
     setCommandStatusChecking(false);
+    setBlockedResolution(null);
+    resolutionGenerationRef.current += 1;
     historyGenerationRef.current += 1;
     historySnapshotRef.current = null;
     setOlderLoading(false);
@@ -2318,6 +2395,10 @@ export function WorldPlanAgentConversation({
       if (raw === null || JSON.stringify(parsePendingNewConversation(stored.storageKey, raw, envelope.worldId).envelope) !== JSON.stringify(envelope)) {
         throw new Error("The saved command changed. Its recovery record was retained.");
       }
+      if (window.localStorage.getItem(commandResolutionKey(envelope)) !== null) {
+        setNewConversationError("A resolution identity is already saved. Check its original resolution record; no request was resent.");
+        return;
+      }
       const response = await getWorldAgentNewConversationStatus(envelope.worldId, envelope.request);
       const confirmed = await confirmedNewConversationStatus(response, envelope.worldId, envelope.request);
       if (!stillCurrent()) return;
@@ -2342,6 +2423,92 @@ export function WorldPlanAgentConversation({
         commandStatusRef.current = null;
         setCommandStatusChecking(false);
       }
+    }
+  }
+
+  function settleCommandResolution(value: NonNullable<typeof blockedResolution>) {
+    if (!latestRef.current.mounted || !latestRef.current.scopeMatches || resolutionGenerationRef.current !== value.generation
+      || latestRef.current.verifiedWorldId !== value.envelope.worldId || latestRef.current.documentId !== value.envelope.documentId) return;
+    try {
+      if (window.localStorage.getItem(value.originalKey) !== value.originalBytes
+        || window.localStorage.getItem(value.resolutionKey) !== value.resolutionBytes) {
+        throw new Error("Recovery bytes changed. Both records were retained.");
+      }
+      // Clear one captured envelope atomically; retain the operation identity for exact readback.
+      // Two independent localStorage removals cannot provide atomic recovery on quota/access failure.
+      window.localStorage.removeItem(value.originalKey);
+      refreshPendingCommandList();
+      setBlockedResolution(null);
+      setNewConversationError(null);
+      setConversationNotice(value.record.outcome === "submitted_binding_blocked"
+        ? "The submitted request was blocked by an occupied command ID. Its successful occupant and all history remain intact."
+        : "The saved request is resolved. Refreshing history; starting a new conversation remains a separate action.");
+      setHistoryRefreshNonce((current) => current + 1);
+    } catch (reason) {
+      setNewConversationError(reason instanceof Error ? reason.message : "Storage settlement failed; recovery records remain saved.");
+      refreshPendingCommandList();
+    }
+  }
+
+  async function resolveSavedCommand(stored: StoredPendingNewConversation, mode: "resolve" | "lookup") {
+    const envelope = stored.envelope;
+    if (!envelope || !scopeMatches || verifiedWorldId !== envelope.worldId || documentId !== envelope.documentId
+      || commandStatusRef.current !== null || newConversationRef.current !== null) return;
+    const token = Symbol("command-resolution");
+    const generation = ++resolutionGenerationRef.current;
+    setBlockedResolution(null);
+    commandStatusRef.current = token;
+    setCommandStatusChecking(true);
+    const current = () => latestRef.current.mounted && latestRef.current.scopeMatches && commandStatusRef.current === token
+      && latestRef.current.verifiedWorldId === envelope.worldId && latestRef.current.documentId === envelope.documentId;
+    try {
+      const originalBytes = window.localStorage.getItem(stored.storageKey);
+      if (originalBytes === null || JSON.stringify(parsePendingNewConversation(stored.storageKey, originalBytes, envelope.worldId).envelope) !== JSON.stringify(envelope)) {
+        throw new Error("The original recovery record changed; nothing was dispatched.");
+      }
+      const resolutionKey = commandResolutionKey(envelope);
+      let resolutionBytes = window.localStorage.getItem(resolutionKey);
+      if (resolutionBytes === null) {
+        if (mode === "lookup") throw new Error("No resolution identity is saved. Resolve this request explicitly before checking its record.");
+        const pointer = historySnapshotRef.current;
+        if (!pointer || historyLoading || pointer.world_id !== envelope.worldId) throw new Error("Refresh canonical history before resolving the request.");
+        const request: WorldCommandResolutionRequestV1 = {
+          schema: "dmb_agent_new_conversation_resolution_request_v1", resolution_operation_id: crypto.randomUUID(),
+          original_command: { world_id: envelope.worldId, command_id: envelope.request.command_id,
+            expected_pointer_revision: envelope.request.expected_pointer_revision, expected_active_conversation_id: envelope.request.expected_active_conversation_id },
+          expected_current_pointer_revision: pointer.pointer_revision, expected_current_active_conversation_id: pointer.active_conversation_id,
+        };
+        const saved: SavedCommandResolution = { schema: "dmb_world_saved_command_resolution_v1", worldId: envelope.worldId,
+          documentId: envelope.documentId, originalKey: stored.storageKey, originalBytes, request };
+        resolutionBytes = JSON.stringify(saved);
+        window.localStorage.setItem(resolutionKey, resolutionBytes);
+        if (window.localStorage.getItem(resolutionKey) !== resolutionBytes) throw new Error("Resolution identity could not be saved; nothing was dispatched.");
+      }
+      const saved = JSON.parse(resolutionBytes) as SavedCommandResolution;
+      if (!hasExactKeys(saved, ["schema", "worldId", "documentId", "originalKey", "originalBytes", "request"])
+        || saved.schema !== "dmb_world_saved_command_resolution_v1" || saved.worldId !== envelope.worldId || saved.documentId !== envelope.documentId
+        || saved.originalKey !== stored.storageKey || saved.originalBytes !== originalBytes
+        || !hasExactKeys(saved.request, ["schema", "resolution_operation_id", "original_command", "expected_current_pointer_revision", "expected_current_active_conversation_id"])
+        || saved.request.schema !== "dmb_agent_new_conversation_resolution_request_v1" || !commandUuid(saved.request.resolution_operation_id)
+        || canonicalJson(saved.request.original_command) !== canonicalJson({ world_id: envelope.worldId, command_id: envelope.request.command_id,
+          expected_pointer_revision: envelope.request.expected_pointer_revision, expected_active_conversation_id: envelope.request.expected_active_conversation_id })
+        || !Number.isSafeInteger(saved.request.expected_current_pointer_revision) || saved.request.expected_current_pointer_revision < 0
+        || !(saved.request.expected_current_active_conversation_id === null || typeof saved.request.expected_current_active_conversation_id === "string")) {
+        throw new Error("The saved resolution identity is invalid or differs from this envelope. It was retained.");
+      }
+      const response = mode === "lookup" ? await getWorldCommandResolution(saved.request) : await postWorldCommandResolution(saved.request);
+      const record = await verifiedCommandResolution(response, saved.request);
+      if (!current()) return;
+      if (!record) throw new Error("No exact terminal resolution was verified. Recovery records remain saved; no fresh command was sent.");
+      const value = { resolutionKey, resolutionBytes, originalKey: stored.storageKey, originalBytes, envelope, record, generation };
+      if (record.outcome === "submitted_binding_blocked") {
+        setBlockedResolution(value);
+        setNewConversationError(null);
+      } else settleCommandResolution(value);
+    } catch (reason) {
+      if (current()) setNewConversationError(reason instanceof Error ? reason.message : "Resolution unavailable. Its saved operation identity remains intact.");
+    } finally {
+      if (commandStatusRef.current === token) { commandStatusRef.current = null; setCommandStatusChecking(false); }
     }
   }
 
@@ -3772,6 +3939,7 @@ export function WorldPlanAgentConversation({
       {pendingCommands.some((item) => item.envelope) ? (
         <section aria-label="Pending New Conversation recovery">
           <h3>Pending New Conversation</h3>
+          <p>Resolve verifies an existing result or retires an unexecuted request so it cannot run later. It does not start a new conversation.</p>
           <p>A prior command has an uncertain outcome. Check its saved receipt without resending. An explicit retry keeps its original command ID and pointer snapshot.</p>
           {pendingCommands.filter((item): item is StoredPendingNewConversation & { envelope: WorldPlanPendingNewConversation } => item.envelope !== null)
             .map((item) => (
@@ -3782,11 +3950,19 @@ export function WorldPlanAgentConversation({
                   {commandStatusChecking ? "Checking status…" : "Check saved New Conversation status"}
                 </button>
                 <button type="button" disabled={commandStatusChecking || newConversationSending || sending || composing}
+                  onClick={() => { void resolveSavedCommand(item, "resolve"); }}>Resolve saved New Conversation request</button>
+                <button type="button" disabled={commandStatusChecking || newConversationSending || sending || composing}
+                  onClick={() => { void resolveSavedCommand(item, "lookup"); }}>Check saved resolution record</button>
+                <button type="button" disabled={commandStatusChecking || newConversationSending || sending || composing}
                   onClick={() => { void sendNewConversationCommand(item); }}>Retry saved New Conversation command</button>
               </div>
             ))}
         </section>
       ) : null}
+      {blockedResolution ? <section aria-label="Blocked request acknowledgement">
+        <p>This submitted request cannot execute: its command ID is occupied by a different immutable binding. Acknowledging clears only the matching saved request; its operation identity, the successful command and all history remain intact.</p>
+        <button type="button" disabled={commandStatusChecking} onClick={() => settleCommandResolution(blockedResolution)}>Acknowledge blocked submitted request</button>
+      </section> : null}
       {pendingAskLoadError ? <p role="alert">{pendingAskLoadError}</p> : null}
       {pendingAsks.some((item) => item.error) ? (
         <section aria-label="Unreadable Ask recovery">

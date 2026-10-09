@@ -2389,3 +2389,81 @@ class LegacyImportReceipt(StrictModel):
     pointer_revision: int
     imported_turn_count: int
     recorded_at: datetime
+
+
+class CommandResolutionRequestV1(StrictModel):
+    schema_: Literal["dmb_agent_new_conversation_resolution_request_v1"] = Field(default="dmb_agent_new_conversation_resolution_request_v1", alias="schema")
+    resolution_operation_id: UUID
+    original_command: ConversationCommand
+    expected_current_pointer_revision: int = Field(ge=0)
+    expected_current_active_conversation_id: UUID | None
+
+    def fingerprint(self) -> str:
+        return _fingerprint(self.model_dump(mode="json", by_alias=True, exclude={"resolution_operation_id"}))
+
+
+class OccupiedCommandProofV1(StrictModel):
+    world_id: str
+    command_id: UUID
+    command_kind: CommandKind
+    request_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class CommandResolutionRecordV1(StrictModel):
+    schema_: Literal["dmb_agent_new_conversation_resolution_record_v1"] = Field(default="dmb_agent_new_conversation_resolution_record_v1", alias="schema")
+    request: CommandResolutionRequestV1
+    original_command_kind: Literal["new"] = "new"
+    original_request_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    resolution_request_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    observed_pointer: WorldPointer
+    outcome: Literal["confirmed", "retired", "submitted_binding_blocked"]
+    actor: str = Field(min_length=1)
+    recorded_at: str
+    record_serializer_version: Literal["canonical-json-ascii-v1"] = "canonical-json-ascii-v1"
+    confirmed_receipt: ConversationCommandReceipt | None
+    occupied_receipt: OccupiedCommandProofV1 | None
+    retirement_operation_id: UUID | None
+    record_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_record(self) -> "CommandResolutionRecordV1":
+        command = self.request.original_command
+        if self.original_request_fingerprint != request_fingerprint(command) or self.resolution_request_fingerprint != self.request.fingerprint():
+            raise ValueError("resolution fingerprint mismatch")
+        if self.observed_pointer.world_id != command.world_id:
+            raise ValueError("resolution World mismatch")
+        timestamp = datetime.fromisoformat(self.recorded_at.replace("Z", "+00:00"))
+        if timestamp.tzinfo is None:
+            raise ValueError("recorded time must include timezone")
+        if self.outcome == "confirmed":
+            receipt = self.confirmed_receipt
+            if receipt is None or self.occupied_receipt is not None or self.retirement_operation_id is not None or (
+                receipt.world_id != command.world_id or receipt.command_id != command.command_id or receipt.command_kind != "new"
+                or receipt.active_conversation_id != receipt.conversation_id or receipt.conversation_id == command.expected_active_conversation_id
+                or receipt.pointer_revision <= command.expected_pointer_revision
+            ):
+                raise ValueError("invalid confirmed proof")
+        elif self.outcome == "retired":
+            if self.confirmed_receipt is not None or self.occupied_receipt is not None or self.retirement_operation_id != self.request.resolution_operation_id or (
+                self.observed_pointer.revision != self.request.expected_current_pointer_revision
+                or self.observed_pointer.active_conversation_id != self.request.expected_current_active_conversation_id
+            ):
+                raise ValueError("invalid retirement proof")
+        else:
+            proof = self.occupied_receipt
+            if proof is None or self.confirmed_receipt is not None or self.retirement_operation_id is not None or (
+                proof.world_id != command.world_id or proof.command_id != command.command_id
+                or (proof.command_kind == "new" and proof.request_fingerprint == self.original_request_fingerprint)
+            ):
+                raise ValueError("invalid blocked proof")
+        if self.record_sha256 != _fingerprint(self.model_dump(mode="json", by_alias=True, exclude={"record_sha256"})):
+            raise ValueError("resolution record digest mismatch")
+        return self
+
+    @classmethod
+    def create(cls, **values) -> "CommandResolutionRecordV1":
+        # Normalize typed fields through JSON mode before hashing the immutable record.
+        values = {key: value.model_dump(mode="json", by_alias=True) if isinstance(value, BaseModel) else str(value) if isinstance(value, UUID) else value for key, value in values.items()}
+        values.update(schema="dmb_agent_new_conversation_resolution_record_v1", original_command_kind="new", record_serializer_version="canonical-json-ascii-v1")
+        return cls.model_validate({**values, "record_sha256": _fingerprint(values)})

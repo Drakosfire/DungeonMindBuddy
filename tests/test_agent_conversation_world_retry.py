@@ -311,7 +311,7 @@ def test_0011_backfills_stable_fingerprints_for_existing_turns(
             (world_id, key),
         ).fetchone()
     assert stored == expected
-    assert _current_and_head(application_state_dsn) == ("20261007_0018", "20261007_0018")
+    assert _current_and_head(application_state_dsn) == ("20261008_0019", "20261008_0019")
 
 
 def test_0011_fails_closed_on_legacy_duplicate_world_keys(
@@ -329,7 +329,7 @@ def test_0011_fails_closed_on_legacy_duplicate_world_keys(
     with pytest.raises(RuntimeError, match="existing duplicate"):
         command.upgrade(alembic_config(), "head")
 
-    assert _current_and_head(application_state_dsn) == ("20261001_0010", "20261007_0018")
+    assert _current_and_head(application_state_dsn) == ("20261001_0010", "20261008_0019")
     with psycopg.connect(application_state_dsn) as conn:
         columns = conn.execute(
             """

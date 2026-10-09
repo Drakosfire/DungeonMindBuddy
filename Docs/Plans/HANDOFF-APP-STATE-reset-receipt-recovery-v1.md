@@ -77,3 +77,8 @@ PRIME merged authority #1033 at `0f8c4e018bed783cf9de7c32a880c2730bf1e8d8` and d
 ## Parent settlement and retarget — 2026-10-08
 
 PRIME reports operator-accepted #1007 merged at `e50a1f0bb8c5fd294e1795f4e2e89620859ffe4a` (reviewed head `cb660`). RECOVERY integrates that exact main, preserving its latest production/layout and two test repairs; the sole conflict was this authority file's additive activation record, retained here. PR #1034 now targets main. The earlier #1007 merge-order gate is satisfied; RECOVERY still requires independent review of its resulting cumulative main→head diff and separate merge/runtime authority. Its original stack/activation record above remains historical evidence.
+
+
+## Completed predecessor — 2026-10-08
+
+#1034 merged at `0e934cba8041e40e55112c01412f03f26bd83063` after exact-head review of `6b2d9b2c`. Its success-only v1 lookup remains compatible: absence means no successful receipt, not execution failure. The next terminal-resolution authority is `HANDOFF-APP-STATE-reset-terminal-resolution-v1.md`, merged as #1035 at `ae9a98b468759d6c460344cfc0506beaa53033cb`. Prepared recovery runtime overlay `90b33872` remains preparation only; no activation or operator witness is recorded here.

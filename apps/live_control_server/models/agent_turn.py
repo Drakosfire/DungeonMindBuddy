@@ -14,6 +14,7 @@ from application_state.agent_conversation.types import (
     PlanContextPolicyV1,
     SubmittedPlanPlayableTargetV1,
     TurnProvenance,
+    CommandResolutionRecordV1,
 )
 
 
@@ -554,4 +555,17 @@ class AgentNewConversationStatusV1(BaseModel):
             or self.receipt.pointer_revision <= self.expected_pointer_revision
         ):
             raise ValueError("receipt must bind a committed fresh conversation")
+        return self
+
+
+class AgentCommandResolutionResponseV1(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    schema_: Literal["dmb_agent_new_conversation_resolution_response_v1"] = Field(default="dmb_agent_new_conversation_resolution_response_v1", alias="schema")
+    status: Literal["terminal", "absent"]
+    record: CommandResolutionRecordV1 | None
+
+    @model_validator(mode="after")
+    def validate_presence(self) -> "AgentCommandResolutionResponseV1":
+        if (self.status == "terminal") != (self.record is not None):
+            raise ValueError("resolution response must match record presence")
         return self

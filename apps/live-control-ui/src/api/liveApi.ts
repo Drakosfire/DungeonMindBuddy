@@ -22,6 +22,8 @@ import type {
   WorldAgentNewConversationRequestV1,
   WorldAgentNewConversationResponseV1,
   WorldAgentNewConversationStatusV1,
+  WorldCommandResolutionRequestV1,
+  WorldCommandResolutionResponseV1,
   LiveQueryBackend,
   LiveQueryOptions,
   PlanDocumentEditProposalRequest,
@@ -315,7 +317,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/threat-drafts\/[^/]+\/publication-operations\/[^/]+\/identity-candidates\/prepare$/.test(pathname)) {
     return true;
   }
-  if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversation(?:\/new|\/commands\/[^/]+)?$/.test(pathname)
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversation(?:\/new|\/commands\/[^/]+(?:\/resolve|\/resolutions\/[^/]+)?)?$/.test(pathname)
     || pathname === "/api/live/agent/turn"
     || pathname === "/api/live/world-graph/projection"
     || pathname === "/api/live/world-graph/managed-projection"
@@ -1636,6 +1638,21 @@ export async function getWorldAgentConversationHistory(
   return apiFetch<WorldAgentConversationHistoryResponse>(
     `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation${suffix}`,
   );
+}
+
+export async function postWorldCommandResolution(request: WorldCommandResolutionRequestV1): Promise<WorldCommandResolutionResponseV1> {
+  const command = request.original_command;
+  return apiFetch<WorldCommandResolutionResponseV1>(`/api/live/agent/worlds/${encodeURIComponent(command.world_id)}/conversation/commands/${encodeURIComponent(command.command_id)}/resolve`,
+    { method: "POST", body: JSON.stringify(request) });
+}
+
+export async function getWorldCommandResolution(request: WorldCommandResolutionRequestV1): Promise<WorldCommandResolutionResponseV1> {
+  const command = request.original_command;
+  const query = new URLSearchParams({ original_pointer_revision: String(command.expected_pointer_revision),
+    original_active_conversation_id: command.expected_active_conversation_id ?? "null",
+    current_pointer_revision: String(request.expected_current_pointer_revision),
+    current_active_conversation_id: request.expected_current_active_conversation_id ?? "null" });
+  return apiFetch<WorldCommandResolutionResponseV1>(`/api/live/agent/worlds/${encodeURIComponent(command.world_id)}/conversation/commands/${encodeURIComponent(command.command_id)}/resolutions/${encodeURIComponent(request.resolution_operation_id)}?${query}`);
 }
 
 export async function getWorldAgentNewConversationStatus(
