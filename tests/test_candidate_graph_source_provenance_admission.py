@@ -1226,9 +1226,11 @@ def _prepare_reviewed_binding_postgres(prepared):
     from dungeonmind.domain.canonical import canonical_sha256
     from dungeonmind.infrastructure.postgres import PostgresRepositoryBundle
     from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
-        REVIEWED_CORPUS_BINDING_REASON_PREFIX,
         bind_identity_ledger_to_package,
         load_production_mutation_context,
+    )
+    from apps.live_control_server.models.world_graph_mutation_context import (
+        REVIEWED_CORPUS_BINDING_REASON_PREFIX,
     )
     from apps.live_control_server.integrations.dungeonmind.world_graph_source_admission_adapter import (
         DungeonMindWorldGraphSourceAdmissionAdapter,
