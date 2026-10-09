@@ -1,6 +1,6 @@
 # HANDOFF — Play prototype table cockpit
 
-**Status:** ACTIVE — implementation authorized by the user’s ongoing DOGFOOD and prototype-alignment goal.
+**Status:** SETTLED — PR #1030 merged at `e21c5b3b36b314bf1926b590f09ee4394e854c5a` from reviewed head `122512fc698c3807c516a884f28675a0c6a27efc`.
 **Base:** `main@dedb742fa7010eabf9cbed8df846426ca3f82032` (rebased for shared Scene card revision)
 **Branch:** `codex/play-table-cockpit`
 **Flow:** PLAY-SURFACE
@@ -66,3 +66,10 @@ No host, controller, API, schema, Graph, provider, or runtime path is in the lea
 - DOGFOOD fidelity follow-up: every authored Play option body has a read-only expandable preview in current and inspection, including selected options. V1 focused Plan Scenes show their child Beat title and body with the exact Scene association. The card visibly distinguishes Saved Plan, draft Plan, and Run-pinned Playable; draft Ask remains tied to the saved Plan until Save.
 - Focused Plan, Play, and shared-adapter component suites: **79 passed**. UI TypeScript and Vite production builds pass (Vite retains the existing large-chunk advisory). Three targeted Chromium visual checks pass: existing desktop/narrow Play layout plus a synthetic 320px Plan focus with long title and Play inspection with option details. Six snapshots were refreshed and inspected; browser bounds checks show no card-internal or document overflow, and inspection generated zero writes. The broad visual file was not rerun; its inherited Edit-dock fixture failure remains the verification limit above.
 - This is backend-free UI evidence. No live dogfood, operator runtime, or provider behavior is claimed.
+
+## Settlement — 2026-10-09
+
+PR #1030 is merged; its implementation write lease is closed. The focused
+component and browser evidence above establishes the shared Scene/Choice card
+presentation only. Selected-World integration, connected J5 use, durable Run
+outcomes and operator acceptance remain open under separate gates.

@@ -67,15 +67,17 @@ production implementation or independently frozen gold.
    usefulness, the missing Session 29 database identity, and full connected
    J1–J6 acceptance remain open. Do not reopen consumer code without new
    evidence.
-2. The next ACTIVE DEMO product slice is one focused Plan Scene reader over the
-   existing Cards projection. Keep the outline, authored-order previous/next,
-   readable Scene/Choice/Option content, Document access, exact Start Play pin,
+2. The focused Plan Scene reader merged as Buddy #941, followed by the shared
+   Plan/Play Scene and Choice card in Buddy #1030. They keep the outline,
+   authored-order previous/next, readable Scene/Choice/Option content,
+   Document access, exact Start Play pin,
    and truthful default Agent Ask context. A newly submitted Ask follows the
    focused saved Scene; a pending Ask remains pinned to its submitted target.
-   Reuse the existing Plan/Playable authority and do not add Play conversation
-   backend work, prototype persistence, or a second retrieval path. The exact
-   Buddy lease is
-   [`HANDOFF-DEMO-focused-scene-reader.md`](../Plans/HANDOFF-DEMO-focused-scene-reader.md).
+   They reuse the existing Plan/Playable authority without Play conversation
+   backend work, prototype persistence, or a second retrieval path. Their
+   implementation leases are settled in
+   [`HANDOFF-DEMO-focused-scene-reader.md`](../Plans/HANDOFF-DEMO-focused-scene-reader.md)
+   and [`HANDOFF-PLAY-SURFACE-prototype-table-cockpit.md`](../Plans/HANDOFF-PLAY-SURFACE-prototype-table-cockpit.md).
 3. Continue the shared prepare/run adoption across Session 29, Conks, and Sheep.
    Preserve source identity and evidence separately from navigation choices
    such as chronology, location, and scene focus.
@@ -107,8 +109,9 @@ restarting it for a fixture.
 
 ### Ownership and next dispatch
 
-DEMO owns the product contract and current bounded reader under
-[`HANDOFF-DEMO-focused-scene-reader.md`](../Plans/HANDOFF-DEMO-focused-scene-reader.md).
+DEMO owns the product contract; the bounded #941 reader and #1030 shared-card
+leases are settled. The next connected witness requires its own selected-World
+integration and runtime lease.
 ARCHITECTURE critiques reuse of document/Playable,
 surface targeting, media and presentation contracts. APP-STATE owns any required
 durable Run/notes/action-state change after the relevant contract is bounded;
@@ -1323,13 +1326,15 @@ that their foundations are absent. Historical slices retain their IDs.
 
 ### 2026-10-06 — DEMO focused Plan scene reader
 
-- **State: active; implementation committed, PR open for PRIME review.** The
-  serial PR is [#941](https://github.com/Drakosfire/DungeonMindBuddy/pull/941)
+- **State: integrated; implementation lease closed.** The
+  serial PR [#941](https://github.com/Drakosfire/DungeonMindBuddy/pull/941) merged at
+  `facb73dbd3b11cfe2ea4f8c80e4963acd3e2eab3` from accepted head
+  `8813673f65f699084b88fb5d2cabac4a8b837e6e`
   on branch `codex/demo-focused-card-reader`, based on
   `c714c7c6b5f5504590ae5e000de530c079ea9f17` (main after #940). The product
-  implementation commit is `1ecba7d9b068a59c3b2362c5dce2df79477a2158`. Its ACTIVE contract
+  implementation commit is `1ecba7d9b068a59c3b2362c5dce2df79477a2158`. Its settled contract
   is [`HANDOFF-DEMO-focused-scene-reader.md`](../Plans/HANDOFF-DEMO-focused-scene-reader.md)
-  and the exclusive lease is exactly the seven paths listed in §4 there.
+  and its exclusive implementation lease was the seven paths listed in §4 there.
   PRIME transferred the projection/CSS/integration paths and roadmap entry
   from open #914; its visual hold/evidence branch remain preserved. #927 stays
   queued design-only. The intervening #940 main change adds only the independent
@@ -1344,9 +1349,29 @@ that their foundations are absent. Historical slices retain their IDs.
   `ThreatPublicationPanel.tsx(553,77): TS2503 Cannot find namespace 'JSX'`
   error outside the lease. Connected operator acceptance is not claimed by
   these code tests.
-- **Next:** PRIME reviews the exact cumulative PR head. DOGFOOD visual quality
-  control and connected operator acceptance remain separate; do not merge or
-  claim J1–J6 acceptance.
+- **Next:** preserve this integrated reader as a predecessor. Connected
+  selected-World use and operator acceptance remain separate; do not claim
+  J1–J6 acceptance from the code merge.
+
+### 2026-10-09 — DEMO-J5 shared Scene card and Play cockpit (#1030)
+
+- **State: integrated; implementation lease closed.** Buddy
+  [#1030](https://github.com/Drakosfire/DungeonMindBuddy/pull/1030) merged at
+  `e21c5b3b36b314bf1926b590f09ee4394e854c5a` from exact reviewed head
+  `122512fc698c3807c516a884f28675a0c6a27efc` on base
+  `dedb742fa7010eabf9cbed8df846426ca3f82032`.
+  [`HANDOFF-PLAY-SURFACE-prototype-table-cockpit.md`](../Plans/HANDOFF-PLAY-SURFACE-prototype-table-cockpit.md)
+  is settled. Plan focus, Play current and Play inspection share an authored
+  Scene/Choice card while Plan document state and Play Run pin remain distinct.
+- **Evidence:** 79 focused tests, UI typecheck and Vite production build passed;
+  three targeted Chromium checks passed with six inspected snapshots, including
+  320px Plan focus and read-only Play inspection with zero writes. The older
+  broad visual run retained one Edit-dock fixture failure; no selected-World
+  live dogfood, provider, runtime or connected J5 outcome was proven by this UI
+  slice.
+- **Next:** keep the selected-World integration gate binding before a connected
+  Plan→Play witness. Do not infer durable J6 outcomes, source admission, or
+  operator acceptance from this presentation merge.
 
 ### 2026-09-26 — PLAY-1 integration and DEMO preflight
 
