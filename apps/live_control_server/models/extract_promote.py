@@ -1107,6 +1107,51 @@ class RecapCandidateCorrectionResponseV7(RecapCandidateCorrectionResponse):
     schema_: Literal["dmb_recap_candidate_correction_response_v7"] = Field(
         default="dmb_recap_candidate_correction_response_v7", alias="schema")
 
+
+class RecapCandidateCorrectionRequestV8(RecapCandidateCorrectionRequestV7):
+    """One complete bounded remediation, including typed kinds and omission."""
+
+    schema_: Literal["dmb_recap_candidate_correction_request_v8"] = Field(alias="schema")
+    expected_parent_revision: int = Field(strict=True, ge=1)
+    node_description_replacements: list[RecapNodeDescriptionReplacement] = Field(default_factory=list, max_length=10)
+    node_label_replacements: list[RecapNodeLabelReplacement] = Field(default_factory=list, max_length=8)
+    edge_tuple_replacements: list[RecapCandidateEdgeTupleReplacement] = Field(default_factory=list, max_length=4)
+    edge_omissions: list[RecapBatchEdgeOmission] = Field(default_factory=list, max_length=4)
+    node_type_replacements: list[RecapCandidateNodeTypeReplacement] = Field(default_factory=list, max_length=6)
+    node_omissions: list[RecapCandidateNodeOmission] = Field(default_factory=list, max_length=1)
+
+    @model_validator(mode="after")
+    def _batch(self) -> "RecapCandidateCorrectionRequestV8":
+        groups = [self.node_description_replacements, self.node_label_replacements,
+                  self.edge_tuple_replacements, self.evidence_replacements, self.edge_omissions,
+                  self.node_type_replacements, self.node_omissions]
+        if not 1 <= sum(map(len, groups)) <= 35:
+            raise ValueError("final batch total must be 1..35")
+        for group in groups:
+            keys = [(x.record_kind, x.record_id, x.evidence_index) if isinstance(x, RecapBatchEvidenceReplacement)
+                    else getattr(x, "node_id", None) or x.edge_id for x in group]
+            if len(set(keys)) != len(keys):
+                raise ValueError("duplicate final batch target")
+        omitted_edges = {x.edge_id for x in self.edge_omissions}
+        edited_edges = {x.edge_id for x in self.edge_tuple_replacements} | {
+            x.record_id for x in self.evidence_replacements if x.record_kind == "edge"}
+        omitted_nodes = {x.node_id for x in self.node_omissions}
+        edited_nodes = {x.node_id for x in [*self.node_description_replacements,
+            *self.node_label_replacements, *self.node_type_replacements]} | {
+            x.record_id for x in self.evidence_replacements if x.record_kind == "node"}
+        if omitted_edges & edited_edges or omitted_nodes & edited_nodes:
+            raise ValueError("record cannot be edited and omitted")
+        for x in self.node_description_replacements:
+            if not x.original_description or len(x.original_description) > 4096 or x.original_description == x.replacement_description:
+                raise ValueError("description preimage must be bounded and changed")
+        return self
+
+
+class RecapCandidateCorrectionResponseV8(RecapCandidateCorrectionResponse):
+    schema_: Literal["dmb_recap_candidate_correction_response_v8"] = Field(
+        default="dmb_recap_candidate_correction_response_v8", alias="schema")
+
+
 class RecapSemanticDecisionRequest(_ExtractPromoteModel):
     schema_: Literal["dmb_recap_semantic_decision_request_v1"] = Field(
         default=RECAP_SEMANTIC_DECISION_REQUEST_SCHEMA, alias="schema"

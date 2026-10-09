@@ -3258,3 +3258,114 @@ def test_reset_receipt_status_auth_precedes_world_and_receipt_lookup(monkeypatch
     with pytest.raises(HTTPException) as error:
         route.get_new_world_conversation_status("unknown-world", uuid4(), Request({"type": "http", "query_string": b""}), 0, "null")
     assert error.value.status_code == 403
+
+
+def _selected_consumer_context(tmp_path, monkeypatch, *, unavailable=False, legacy=False, claims=True, neighbor=False):
+    from tests.test_world_graph_retrieval_contract import _selected_native_fixture
+    from apps.live_control_server.routes import agent as route
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+    from apps.live_control_server.services import world_container_registry as registry
+    from apps.live_control_server.services.agent_turn_service import _freeze_policy_receipt, _plan_message
+    services, request, revision = _selected_native_fixture(unrelated=0 if legacy else 513, unavailable=unavailable, claims=claims, neighbor=neighbor)
+    managed = registry.create_world_container(tmp_path, name="Selected consumer fixture")
+    (tmp_path / managed.source_root_relpath).mkdir(parents=True, exist_ok=True)
+    binding = registry.NativeGraphBindingRecord(native_world_id=request.world_id, binding_version=1,
+        status="active", validated_at="2026-10-08T00:00:00Z", validated_head_revision_id=revision)
+    container = managed.model_copy(update={"native_graph_binding": binding})
+    monkeypatch.setattr(route, "_managed_world_root", lambda: tmp_path)
+    monkeypatch.setattr(registry, "get_world_container", lambda _root, world: container if world == managed.world_id else None)
+    monkeypatch.setattr(direct, "direct_services_from_config", lambda world: services if world == request.world_id else None)
+    monkeypatch.setattr(route, "_store_plan_retrieval_session", lambda session, **kwargs: session)
+    payload = _payload()
+    payload.update(surface={"surface_id":"plan","instance_id":"plan-main"}, owner_scope={"kind":"world","world_id":managed.world_id},
+        primary_work={"kind":"plan","object_id":"plan-1","expected_revision":7,"expected_revision_n":3,"expected_content_sha256":"a"*64},
+        client_work_state="saved_clean", plan_context_policy={"policy":"auto_plan_world"}, message="The Prancing Tavern")
+    body = AgentTurnRequest.model_validate(payload)
+    work = route.AgentTurnResolvedWork(kind="plan", object_id="plan-1", revision=7, changed_since_expected=False,
+        owner_kind="world", owner_id=managed.world_id, world_id=managed.world_id,
+        content_basis=route.AgentTurnContentBasis(world_id=managed.world_id, document_id="plan-1", object_revision=7,
+            work_revision_id=str(uuid4()), revision_n=3, content_sha256="a"*64, committed_status="committed", has_divergent_working_copy=False),
+        plan_markdown="The keeper waits at the tavern.")
+    frozen = None if not legacy else SimpleNamespace(graph_authority=SimpleNamespace(managed_world_id=managed.world_id,
+        native_world_id=request.world_id,binding_version=1,graph_revision=revision),
+        graph_packet=SimpleNamespace(selection_policy_version="parent_initial_retrieval_with_bounded_source_index_v1"))
+    bootstrap = route._plan_context_resolver(body, {"kind":"world","id":managed.world_id}, work, frozen)
+    projected = bootstrap.retrieval_session.project_for_hermes()
+    initial = {"candidates":projected["candidates"][:8], "claimLedger":projected["claim_ledger"][:24],
+        "intentHint":projected["intent_hint"],"availableExpansions":projected["available_expansions"]}
+    encoded = json.dumps({"input":[{"role":"system","content":"Turn capability policy (runtime-enforced; also required on tool calls):\n"+json.dumps({"initialClaimPacket":initial})},
+        {"role":"user","content":_plan_message(body.message,work.plan_markdown,content_basis=work.content_basis)}]},sort_keys=True,separators=(",",":"))
+    view = {"provider":"openai-api","model":"fixture","apiMode":"codex_responses","payloadJson":encoded,
+        "payloadSha256":hashlib.sha256(encoded.encode()).hexdigest(),"payloadUtf8Bytes":len(encoded.encode())}
+    budget = {"estimator":"utf8_json_bytes_plus_64_per_node_v1","contextLimitTokens":32768,"outputReserveTokens":2048,
+        "maxProviderAttempts":4,"maxToolCapableAttempts":3,"maxGraphOperations":8}
+    receipt, execution, membership = _freeze_policy_receipt(body, work, bootstrap, None, view, budget)
+    return body, work, bootstrap, receipt, execution, membership
+
+
+@pytest.mark.parametrize("unavailable", [False, True])
+def test_selected_consumer_freezes_before_provider_despite_513_and_keeps_graph_facts(tmp_path, monkeypatch, unavailable):
+    from application_state.agent_conversation.types import GraphSelectedSourceReadScopeV2, graph_execution_policy_digest_v2
+    body, work, bootstrap, receipt, execution, membership = _selected_consumer_context(tmp_path, monkeypatch, unavailable=unavailable)
+    assert receipt.graph_packet.selection_policy_version == "parent_initial_retrieval_with_selected_source_index_v1"
+    assert isinstance(execution.policy.source_read_scope, GraphSelectedSourceReadScopeV2)
+    assert execution.execution_policy_sha256 == graph_execution_policy_digest_v2(execution.context_receipt_sha256, execution.policy)
+    assert execution.policy.max_graph_operations == 8
+    assert membership[0] and membership[2] and receipt.assembled_input.dispatched_evidence_ref_ids
+    assert receipt.assembled_input.packet_disposition == "included" and not receipt.source_opened
+    assert execution.policy.max_source_read_calls == (0 if unavailable else 8)
+    assert execution.policy.max_source_read_chars == (0 if unavailable else 96000)
+    assert len(execution.policy.source_read_scope.admitted_anchors) == (0 if unavailable else 1)
+    assert bootstrap.source_index_commitment["status"] == ("unavailable" if unavailable else "complete")
+
+
+def test_selected_consumer_pending_selector_and_no_source_crawl_expansion(tmp_path, monkeypatch):
+    import copy
+    from apps.live_control_server.routes import agent as route
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    body, work, bootstrap, receipt, execution, _membership = _selected_consumer_context(tmp_path, monkeypatch)
+    owner = {"kind":"world","id":work.world_id}
+    replay = route._plan_context_resolver(body, owner, work, receipt, frozen_source_scope=execution.policy.source_read_scope)
+    assert replay.source_index_commitment == bootstrap.source_index_commitment
+    assert replay.source_scope_anchors == bootstrap.source_scope_anchors
+    with pytest.raises(AgentTurnServiceError, match="stored selected source scope"):
+        route._plan_context_resolver(body, owner, work, receipt)
+    changed = copy.deepcopy(bootstrap.source_index_commitment)
+    changed["access_context_sha256"] = "0"*64
+    from dataclasses import replace
+    from apps.live_control_server.services.agent_turn_service import _restore_v2_retry_bootstrap
+    turn = SimpleNamespace(graph_context_receipt=receipt, graph_context_execution=execution)
+    with pytest.raises(AgentTurnServiceError, match="selected index differs"):
+        _restore_v2_retry_bootstrap(replace(bootstrap,source_index_commitment=changed),turn)
+
+
+
+def test_selected_consumer_unsupported_facts_keep_existing_plan_only_omission(tmp_path,monkeypatch):
+    _body,_work,_bootstrap,receipt,_execution,members=_selected_consumer_context(tmp_path,monkeypatch,claims=False)
+    assert not members[0] and not members[1]
+    assert receipt.assembled_input.packet_disposition=='omitted_insufficient'
+
+
+def test_selected_same_pins_different_valid_selector_cannot_rebind_receipt(tmp_path,monkeypatch):
+    import copy
+    from pydantic import ValidationError
+    from application_state.agent_conversation.types import GraphSelectedSourceReadScopeV2, GraphExecutionPolicyV2, PlanWorldGraphExecutionV2, TurnSubmission, _canonical_sha256, graph_execution_policy_digest_v2
+    from apps.live_control_server.services.agent_turn_service import _conversation_provenance,_submitted_turn_intent
+    body,work,bootstrap,receipt,execution,_ = _selected_consumer_context(tmp_path,monkeypatch)
+    scope=execution.policy.source_read_scope
+    commitment=copy.deepcopy(scope.selected_index_commitment.model_dump(mode='json',by_alias=True))
+    targets=[{'kind':'object','target_id':'obj:different-same-pins'}]
+    commitment.update(requested_targets=targets,admitted_targets=targets,not_visible_targets=[],requested_count=1,admitted_count=1,not_visible_count=0)
+    commitment['selector_sha256']=_canonical_sha256({'schema':'dm_selected_source_anchor_selector_v1','context':commitment['context'],'max_entries':512,'targets':targets})
+    entries=[{**anchor.model_dump(mode='json'),'anchor_id':anchor.anchor_id.replace('source-anchor:v1:','dm-source-anchor:v1:',1)} for anchor in scope.admitted_anchors]
+    commitment['index_sha256']=_canonical_sha256({'schema':'dm_selected_source_anchor_index_v1','selector_sha256':commitment['selector_sha256'],'status':commitment['status'],
+        'admitted_targets':targets,'not_visible_targets':[],'provenance_gap_count':commitment['provenance_gap_count'],'unavailable_binding_count':commitment['unavailable_binding_count'],
+        'eligible_count':commitment['eligible_count'],'entries':entries})
+    changed_scope=GraphSelectedSourceReadScopeV2.model_validate({**scope.model_dump(mode='json',by_alias=True),'selected_index_commitment':commitment})
+    changed_policy=GraphExecutionPolicyV2.model_validate({**execution.policy.model_dump(mode='json',by_alias=True),'source_read_scope':changed_scope.model_dump(mode='json',by_alias=True)})
+    changed_execution=PlanWorldGraphExecutionV2(context_receipt_sha256=receipt.context_receipt_sha256,policy=changed_policy,
+        execution_policy_sha256=graph_execution_policy_digest_v2(receipt.context_receipt_sha256,changed_policy),events=[])
+    with pytest.raises(ValidationError,match='selected composite differs'):
+        TurnSubmission(world_id=work.world_id,conversation_id=uuid4(),idempotency_key=uuid4(),expected_conversation_revision=1,user_text=body.message,
+            provenance=_conversation_provenance(body,world_id=work.world_id,work=work,graph_scope=bootstrap.world_scope,graph_envelope=bootstrap.graph_envelope),
+            submitted_intent_v2=_submitted_turn_intent(body,world_id=work.world_id),graph_context_receipt=receipt,graph_context_execution=changed_execution)

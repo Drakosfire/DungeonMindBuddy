@@ -28,6 +28,8 @@ CANDIDATE_DERIVATION_V2 = "operator_recap_semantic_candidate_correction_v2"
 CANDIDATE_DERIVATION_V3 = "operator_recap_semantic_candidate_correction_v3"
 CANDIDATE_DERIVATION_V4 = "operator_recap_semantic_candidate_correction_v4"
 CANDIDATE_DERIVATION_V5 = "operator_recap_semantic_candidate_correction_v5"
+CANDIDATE_DERIVATION_V8 = "operator_recap_semantic_candidate_correction_v8"
+MANIFEST_SCHEMA_V8 = "dmb_recap_semantic_candidate_manifest_v8"
 CANDIDATE_DERIVATION_V7 = "operator_recap_semantic_candidate_correction_v7"
 MANIFEST_SCHEMA_V7 = "dmb_recap_semantic_candidate_manifest_v7"
 CANDIDATE_DERIVATION_V6 = "operator_recap_semantic_candidate_correction_v6"
@@ -68,6 +70,7 @@ def is_recap_correction(run: ExtractionRun) -> bool:
         CANDIDATE_DERIVATION_V5,
         CANDIDATE_DERIVATION_V6,
         CANDIDATE_DERIVATION_V7,
+        CANDIDATE_DERIVATION_V8,
     }
 
 
@@ -142,6 +145,7 @@ def assess_recap_semantics(
     span_sha = _sha(spans.sha256)
     candidate_v3 = lineage.get("derivation") == CANDIDATE_DERIVATION_V3
     candidate_v4 = lineage.get("derivation") == CANDIDATE_DERIVATION_V4
+    candidate_v8 = lineage.get("derivation") == CANDIDATE_DERIVATION_V8
     candidate_v7 = lineage.get("derivation") == CANDIDATE_DERIVATION_V7
     candidate_v6 = lineage.get("derivation") == CANDIDATE_DERIVATION_V6
     candidate_v5 = lineage.get("derivation") == CANDIDATE_DERIVATION_V5
@@ -154,10 +158,11 @@ def assess_recap_semantics(
         CANDIDATE_DERIVATION_V5,
         CANDIDATE_DERIVATION_V6,
         CANDIDATE_DERIVATION_V7,
+        CANDIDATE_DERIVATION_V8,
     }
     candidate_manifest = lineage.get("semantic_candidate_manifest")
-    expected_manifest_schema = MANIFEST_SCHEMA_V7 if candidate_v7 else MANIFEST_SCHEMA_V6 if candidate_v6 else MANIFEST_SCHEMA_V5 if candidate_v5 else MANIFEST_SCHEMA_V4 if candidate_v4 else MANIFEST_SCHEMA_V3 if candidate_v3 else MANIFEST_SCHEMA_V2
-    if (candidate_v2 or candidate_v3 or candidate_v4 or candidate_v5 or candidate_v6 or candidate_v7) and (
+    expected_manifest_schema = MANIFEST_SCHEMA_V8 if candidate_v8 else MANIFEST_SCHEMA_V7 if candidate_v7 else MANIFEST_SCHEMA_V6 if candidate_v6 else MANIFEST_SCHEMA_V5 if candidate_v5 else MANIFEST_SCHEMA_V4 if candidate_v4 else MANIFEST_SCHEMA_V3 if candidate_v3 else MANIFEST_SCHEMA_V2
+    if (candidate_v2 or candidate_v3 or candidate_v4 or candidate_v5 or candidate_v6 or candidate_v7 or candidate_v8) and (
         not isinstance(candidate_manifest, dict)
         or candidate_manifest.get("schema") != expected_manifest_schema
     ):
@@ -182,7 +187,8 @@ def assess_recap_semantics(
             return held()
     basis_fields = {
         "schema": (
-            "dmb_recap_semantic_basis_v8" if candidate_v7
+            "dmb_recap_semantic_basis_v9" if candidate_v8
+            else "dmb_recap_semantic_basis_v8" if candidate_v7
             else "dmb_recap_semantic_basis_v7" if candidate_v6
             else "dmb_recap_semantic_basis_v6" if candidate_v5
             else "dmb_recap_semantic_basis_v5" if candidate_v4
@@ -225,6 +231,13 @@ def assess_recap_semantics(
     if candidate_v7:
         basis_fields["derivation"] = CANDIDATE_DERIVATION_V7
         basis_fields["manifest_schema"] = MANIFEST_SCHEMA_V7
+    if candidate_v8:
+        expected = candidate_manifest.get("expected_parent_revision")
+        if type(expected) is not int or expected != parent.revision:
+            return held()
+        basis_fields["expected_parent_revision"] = expected
+        basis_fields["derivation"] = CANDIDATE_DERIVATION_V8
+        basis_fields["manifest_schema"] = MANIFEST_SCHEMA_V8
     basis = _digest(basis_fields)
     raw = lineage.get("semantic_disposition")
     if (
@@ -308,6 +321,11 @@ def accepted_effect_binding(
         binding["manifest_sha256"] = _sha(run.lineage.get("manifest_sha256"))
         binding["derivation"] = CANDIDATE_DERIVATION_V7
         binding["manifest_schema"] = MANIFEST_SCHEMA_V7
+    if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V8:
+        binding["manifest_sha256"] = _sha(run.lineage.get("manifest_sha256"))
+        binding["derivation"] = CANDIDATE_DERIVATION_V8
+        binding["manifest_schema"] = MANIFEST_SCHEMA_V8
+        binding["expected_parent_revision"] = assessment.basis["expected_parent_revision"]
     return binding
 
 

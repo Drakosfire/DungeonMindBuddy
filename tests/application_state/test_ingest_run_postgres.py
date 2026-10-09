@@ -1097,3 +1097,56 @@ def test_atomic_recap_basis_v8_persisted_decision_cas_and_manifest_fence(applica
     with pytest.raises(ApplicationStateConflictError):
         record_recap_semantic_disposition(bad_child.run_id, expected_revision=bad_child.revision, basis=bad_basis, decision=decision)
     assert get_extraction_run(bad_child.run_id).revision == bad_child.revision
+
+
+def test_final_recap_basis_v9_persisted_parent_revision_and_manifest_fence(application_state_dsn: str) -> None:
+    from application_state.ingest.service import RecapSemanticBasisV9
+    components = _review_components()
+    components["candidate_graph"] = components["candidate_graph"].model_copy(update={"uri": "repo://atomic-parent.json", "sha256": "c" * 64})
+    child_components = dict(components)
+    child_components["candidate_graph"] = components["candidate_graph"].model_copy(update={"uri": "repo://atomic-child.json", "sha256": "d" * 64})
+    manifest = {
+        "schema": "dmb_recap_semantic_candidate_manifest_v8", "source_revision_sha256": "a" * 64,
+        "span_index_sha256": "b" * 64, "profile_id": "recap_category_v1@1.0",
+        "node_description_replacements": [{"node_id": "mira", "original_description": "uncertain", "replacement_description": "observed"}],
+        "node_label_replacements": [{"node_id": "mira", "original_label": "Mira", "replacement_label": "Mira (session)"}],
+        "edge_tuple_replacements": [], "evidence_replacements": [], "edge_omissions": [],
+        "node_type_replacements": [{"node_id": "guard", "expected_node_type": "organization", "replacement_node_type": "character"}],
+        "node_omissions": [{"node_id": "redundant-wall", "expected_node_sha256": "e" * 64}], "expected_parent_revision": 1,
+    }
+    def digest(value):
+        return hashlib.sha256((json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":")) + "\n").encode()).hexdigest()
+    parent = _run(run_id=f"atomic_parent_{uuid4().hex[:12]}", source_artifact_id="artifact:recap:c:s:source",
+                  source_domain="recap", campaign_id="c", session_id="s", profile_id="recap_category_v1@1.0",
+                  status=ExtractionRunStatus.REVIEWABLE, components=components)
+    basis = RecapSemanticBasisV9(
+        parent_run_id=parent.run_id, parent_candidate_sha256="c" * 64, manifest_sha256=digest(manifest),
+        child_run_id=f"atomic_child_{uuid4().hex[:12]}", candidate_uri="repo://atomic-child.json", candidate_sha256="d" * 64,
+        source_artifact_id=parent.source_artifact_id, source_uri="repo://source.md", source_revision_sha256="a" * 64,
+        span_index_uri="repo://spans.json", span_index_sha256="b" * 64, profile_id=parent.profile_id, profile_version="1.0",
+        campaign_id="c", session_id="s", derivation="operator_recap_semantic_candidate_correction_v8",
+        manifest_schema="dmb_recap_semantic_candidate_manifest_v8", expected_parent_revision=1)
+    child = parent.model_copy(deep=True, update={"run_id": basis.child_run_id, "components": child_components,
+        "lineage": {"derivation": basis.derivation, "parent_run_id": parent.run_id, "parent_candidate_sha256": "c" * 64,
+                    "manifest_sha256": basis.manifest_sha256, "semantic_candidate_manifest": manifest,
+                    "semantic_disposition": {"version": 1, "state": "held", "basis_sha256": basis.digest()}}})
+    with unit_of_work(application_state_dsn) as conn:
+        ingest_repo.insert_run(conn, parent); ingest_repo.insert_run(conn, child)
+    decision = RecapSemanticDispositionCommandV1(state="accepted", review_decision_ref="review:atomic-test", reviewer_id="test-gm")
+    with pytest.raises(ApplicationStateConflictError):
+        record_recap_semantic_disposition(child.run_id, expected_revision=child.revision, basis=basis.model_copy(update={"manifest_sha256": "f" * 64}), decision=decision)
+    assert get_extraction_run(child.run_id).revision == child.revision
+    accepted = record_recap_semantic_disposition(child.run_id, expected_revision=child.revision, basis=basis, decision=decision)
+    assert accepted.revision == child.revision + 1
+    assert accepted.lineage["semantic_candidate_manifest"] == manifest
+    assert record_recap_semantic_disposition(child.run_id, expected_revision=child.revision, basis=basis, decision=decision) == accepted
+    assert get_extraction_run(child.run_id) == accepted
+    malformed = copy.deepcopy(manifest); malformed["node_description_replacements"] *= 2
+    bad_basis = basis.model_copy(update={"child_run_id": f"atomic_invalid_{uuid4().hex[:12]}", "manifest_sha256": digest(malformed)})
+    bad_child = child.model_copy(deep=True, update={"run_id": bad_basis.child_run_id})
+    bad_child.lineage.update(manifest_sha256=bad_basis.manifest_sha256, semantic_candidate_manifest=malformed,
+                            semantic_disposition={"version": 1, "state": "held", "basis_sha256": bad_basis.digest()})
+    with unit_of_work(application_state_dsn) as conn: ingest_repo.insert_run(conn, bad_child)
+    with pytest.raises(ApplicationStateConflictError):
+        record_recap_semantic_disposition(bad_child.run_id, expected_revision=bad_child.revision, basis=bad_basis, decision=decision)
+    assert get_extraction_run(bad_child.run_id).revision == bad_child.revision

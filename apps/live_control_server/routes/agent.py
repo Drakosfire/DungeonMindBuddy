@@ -522,6 +522,7 @@ def _plan_context_resolver(
     *,
     trace: AgentTurnTraceBuilder | None = None,
     parent_span_id: str | None = None,
+    frozen_source_scope: Any | None = None,
 ) -> AgentPlanWorldGraphBootstrap:
     """Resolve one source-free, revision-pinned DungeonMind retrieval packet."""
     from graph_memory.interaction.authority_classifier import (
@@ -541,6 +542,7 @@ def _plan_context_resolver(
         direct_services_from_config,
         get_object_direct,
         list_source_anchor_index_direct_v2,
+        list_selected_source_anchor_index_direct_v1,
         search_world_graph_direct_v2,
     )
     from apps.live_control_server.services.agent_plan_playable_target import (
@@ -786,21 +788,41 @@ def _plan_context_resolver(
         None,
         "parent_initial_retrieval_v1",
         "parent_initial_retrieval_with_bounded_source_index_v1",
+        "parent_initial_retrieval_with_selected_source_index_v1",
     }:
         raise AgentTurnServiceError(
             "The stored Graph selection policy cannot be safely reconstructed.",
             code="turn_receipt_unverifiable", status_code=409,
             provider_dispatched=False,
         )
-    use_bounded_index = (
-        stored_selection_policy is None
-        or stored_selection_policy
-        == "parent_initial_retrieval_with_bounded_source_index_v1"
+    use_bounded_index = stored_selection_policy == "parent_initial_retrieval_with_bounded_source_index_v1"
+    use_selected_index = stored_selection_policy == "parent_initial_retrieval_with_selected_source_index_v1" or (
+        stored_selection_policy is None and bool(resolved_search.native_targets)
     )
     source_scope_anchors: list[dict[str, str]] = []
     source_index_commitment: dict[str, Any] | None = None
     try:
-        if use_bounded_index:
+        if use_selected_index:
+            from dungeonmind.application.world_graph_retrieval import EvidenceTarget
+            from application_state.agent_conversation.types import GraphSelectedSourceReadScopeV2
+            targets = resolved_search.native_targets
+            if stored_selection_policy is not None:
+                if not isinstance(frozen_source_scope, GraphSelectedSourceReadScopeV2):
+                    raise AgentTurnServiceError("The stored selected source scope is unavailable.", code="turn_receipt_unverifiable", status_code=409, provider_dispatched=False)
+                targets = tuple(EvidenceTarget(kind=target.kind, target_id=target.target_id)
+                    for target in frozen_source_scope.selected_index_commitment.requested_targets)
+            index = list_selected_source_anchor_index_direct_v1(services, request, revision_id=revision_id, targets=targets)
+            if index.status == "overflow":
+                raise AgentTurnServiceError("The selected source scope exceeds 512 anchors.", code="graph_evidence_invalid", status_code=502, provider_dispatched=False)
+            source_index_commitment = dict(index.commitment)
+            if frozen_source_scope is not None and source_index_commitment != frozen_source_scope.selected_index_commitment.model_dump(mode="json", by_alias=True):
+                raise AgentTurnServiceError("The selected index differs from its frozen commitment.", code="turn_receipt_unverifiable", status_code=409, provider_dispatched=False)
+            indexed = {pin.anchor_id: pin for pin in index.source_pins}
+            for pin in resolved_search.source_pins:
+                if pin.anchor_id in indexed and indexed[pin.anchor_id] != pin:
+                    raise ValueError("selected source pin differs from initial read")
+            source_pins = index.source_pins
+        elif use_bounded_index:
             index = list_source_anchor_index_direct_v2(
                 services, request, revision_id=revision_id,
             )
@@ -827,7 +849,7 @@ def _plan_context_resolver(
                     or pin.source_artifact_id != anchor.source_artifact_id
                 ):
                     raise ValueError("source anchor metadata differs from the admitted Graph result")
-            source_pins = resolved_search.source_pins
+            source_pins = resolved_search.source_pins if stored_selection_policy is not None else ()
         for pin in source_pins:
             source_scope_anchors.append({
                 "anchor_id": pin.anchor_id,
@@ -856,7 +878,7 @@ def _plan_context_resolver(
     # A safely reclaimed V2 turn must reconstruct the same initial provider
     # envelope after process restart; both handles appear in that envelope.
     request_identity = body.model_dump_json(by_alias=True).encode("utf-8")
-    if use_bounded_index:
+    if use_bounded_index or use_selected_index:
         request_identity += b"\x00" + (work.plan_markdown or "").encode("utf-8")
     source_session_id, initial_operation_id = (
         _source_session_handles(
@@ -1265,9 +1287,9 @@ def post_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, Any]:
             work_resolver=_work_resolver,
             historical_work_resolver=_historical_work_resolver,
             graph_resolver=_graph_resolver,
-            plan_graph_resolver=lambda turn, owner, work, receipt, parent_span_id: _plan_context_resolver(
+            plan_graph_resolver=lambda turn, owner, work, receipt, parent_span_id, frozen_source_scope=None: _plan_context_resolver(
                 turn, owner, work, receipt, trace=trace,
-                parent_span_id=parent_span_id,
+                parent_span_id=parent_span_id, frozen_source_scope=frozen_source_scope,
             ),
             runtime_factory=lambda: getattr(
                 request.app.state, "agent_turn_runtime", None
