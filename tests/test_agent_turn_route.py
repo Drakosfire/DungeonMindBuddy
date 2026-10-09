@@ -3260,7 +3260,7 @@ def test_reset_receipt_status_auth_precedes_world_and_receipt_lookup(monkeypatch
     assert error.value.status_code == 403
 
 
-def _selected_consumer_context(tmp_path, monkeypatch, *, unavailable=False, legacy=False, claims=True, neighbor=False, flip_binding_after_index=False, head_updates=None):
+def _selected_consumer_context(tmp_path, monkeypatch, *, unavailable=False, legacy=False, claims=True, neighbor=False, flip_binding_after_index=False, head_updates=None, store_calls=None):
     from tests.test_world_graph_retrieval_contract import _selected_native_fixture
     from apps.live_control_server.routes import agent as route
     from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
@@ -3275,7 +3275,12 @@ def _selected_consumer_context(tmp_path, monkeypatch, *, unavailable=False, lega
     monkeypatch.setattr(route, "_managed_world_root", lambda: tmp_path)
     monkeypatch.setattr(registry, "get_world_container", lambda _root, world: container if world == managed.world_id else None)
     monkeypatch.setattr(direct, "direct_services_from_config", lambda world: services if world == request.world_id else None)
-    monkeypatch.setattr(route, "_store_plan_retrieval_session", lambda session, **kwargs: session)
+    def record_store(session, **_kwargs):
+        if store_calls is not None:
+            store_calls.append(session.id)
+        return session
+
+    monkeypatch.setattr(route, "_store_plan_retrieval_session", record_store)
     if flip_binding_after_index or head_updates is not None:
         original_index = direct.list_selected_source_anchor_index_direct_v1
 
@@ -3335,12 +3340,17 @@ def _selected_consumer_context(tmp_path, monkeypatch, *, unavailable=False, lega
 def test_selected_plan_binding_change_during_source_index_fails_before_receipt(tmp_path, monkeypatch):
     from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
 
+    store_calls = []
     with pytest.raises(AgentTurnServiceError) as caught:
-        _selected_consumer_context(tmp_path, monkeypatch, flip_binding_after_index=True)
+        _selected_consumer_context(
+            tmp_path, monkeypatch, flip_binding_after_index=True,
+            store_calls=store_calls,
+        )
 
     assert caught.value.code == "native_graph_binding_changed"
     assert caught.value.status_code == 409
     assert caught.value.provider_dispatched is False
+    assert store_calls == []
 
 
 def test_selected_plan_head_advance_during_source_index_keeps_one_revision(tmp_path, monkeypatch):
