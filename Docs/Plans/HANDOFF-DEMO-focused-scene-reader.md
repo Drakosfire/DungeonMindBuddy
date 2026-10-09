@@ -1,7 +1,7 @@
 ---
 title: Focused Plan scene reader with truthful Agent target
 document_class: implementation_handoff
-status: ACTIVE
+status: SETTLED
 created_at: "2026-10-06"
 workstream: DEMO
 pr_topology: serial
@@ -10,6 +10,13 @@ base_ref: c714c7c6b5f5504590ae5e000de530c079ea9f17
 ---
 
 # HANDOFF — focused Plan scene reader
+
+**Settlement (2026-10-09):** PR #941 merged at
+`facb73dbd3b11cfe2ea4f8c80e4963acd3e2eab3` from accepted head
+`8813673f65f699084b88fb5d2cabac4a8b837e6e`. Its implementation lease is
+closed. PR #1030 later added the shared Scene/Choice presentation at
+`e21c5b3b36b314bf1926b590f09ee4394e854c5a`; neither merge closes connected
+J5 or operator acceptance.
 
 ## Authority and current lane
 
