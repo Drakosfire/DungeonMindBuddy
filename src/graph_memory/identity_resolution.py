@@ -78,9 +78,9 @@ PREDICATE_FAMILY: dict[str, str] = {
     # routing
     "travels_to": "routing", "routes_to": "routing", "leads_to": "routing",
     "road_to": "routing", "path_to": "routing", "displaced_from": "routing",
-    # threat / antagonism
+    # threats and directed threat responses
     "threatens": "threat_relation", "besieges": "threat_relation",
-    "attacks": "threat_relation",
+    "attacks": "threat_relation", "protects": "threat_relation",
     # membership
     "member_of": "membership", "belongs_to": "membership", "serves": "membership",
     "recruits_for": "membership", "part_of_group": "membership",
@@ -490,6 +490,10 @@ def _canonical_endpoints(edge: Any, node_index: Mapping[str, Any]) -> tuple[Any,
     return frm, to, family
 
 
+def _is_literal_protects(edge: Any) -> bool:
+    return str(_get(edge, "relationship_type", "") or "").strip().lower() == "protects"
+
+
 def edge_match_score(
     gold_edge: Any,
     cand_edge: Any,
@@ -497,6 +501,9 @@ def edge_match_score(
     cand_nodes_index: Mapping[str, Any],
 ) -> float:
     """Score two edges by endpoint-node match and predicate-family agreement."""
+    g_protects, c_protects = _is_literal_protects(gold_edge), _is_literal_protects(cand_edge)
+    if g_protects != c_protects:
+        return 0.0
     g_from, g_to, g_family = _canonical_endpoints(gold_edge, gold_nodes_index)
     c_from, c_to, c_family = _canonical_endpoints(cand_edge, cand_nodes_index)
     if g_from is None or g_to is None or c_from is None or c_to is None:
@@ -504,7 +511,10 @@ def edge_match_score(
     family_ok = g_family == c_family
     forward = min(node_match_score(g_from, c_from), node_match_score(g_to, c_to))
     backward = min(node_match_score(g_from, c_to), node_match_score(g_to, c_from))
-    if g_family in SYMMETRIC_FAMILIES or c_family in SYMMETRIC_FAMILIES:
+    if (
+        not (_is_literal_protects(gold_edge) or _is_literal_protects(cand_edge))
+        and (g_family in SYMMETRIC_FAMILIES or c_family in SYMMETRIC_FAMILIES)
+    ):
         endpoint_score = max(forward, backward)
     else:
         endpoint_score = forward
@@ -529,7 +539,10 @@ def _edge_endpoint_score(
         return 0.0, g_family, c_family, g_rel, c_rel
     forward = min(node_match_score(g_from, c_from), node_match_score(g_to, c_to))
     backward = min(node_match_score(g_from, c_to), node_match_score(g_to, c_from))
-    if g_family in SYMMETRIC_FAMILIES or c_family in SYMMETRIC_FAMILIES:
+    if (
+        not (_is_literal_protects(gold_edge) or _is_literal_protects(cand_edge))
+        and (g_family in SYMMETRIC_FAMILIES or c_family in SYMMETRIC_FAMILIES)
+    ):
         endpoint_score = max(forward, backward)
     else:
         endpoint_score = forward
@@ -584,6 +597,12 @@ def classify_edge_alignment(
             **base,
             "reason": "endpoint_score_below_threshold",
             "detail": "live edge endpoints do not align with gold endpoints",
+        }
+    if _is_literal_protects(gold_edge) != _is_literal_protects(live_edge):
+        return {
+            **base,
+            "reason": "exact_predicate_mismatch",
+            "detail": "literal protects does not match another relationship_type",
         }
     if g_family != c_family:
         return {
@@ -748,12 +767,16 @@ def canonical_node_key(node: Any) -> tuple[str, str]:
     return (node_type_class(node_type_of(node)), normalize_label(str(_get(node, "label", ""))))
 
 
-def canonical_edge_key(edge: Any, node_index: Mapping[str, Any]) -> tuple[str, str, str]:
+def canonical_edge_key(edge: Any, node_index: Mapping[str, Any]) -> tuple[str, str, str] | tuple[str, str, str, str]:
     """Direction- and inverse-normalized merge key for a single edge."""
     frm, to, family = _canonical_endpoints(edge, node_index)
     frm_key = canonical_node_key(frm) if frm is not None else ("missing", str(_get(edge, "from_node_id", "")))
     to_key = canonical_node_key(to) if to is not None else ("missing", str(_get(edge, "to_node_id", "")))
     frm_s, to_s = "::".join(frm_key), "::".join(to_key)
+    # Protection shares routing taxonomy with threat responses, but is not an
+    # attack/threat synonym. Keep literal protection and its direction distinct.
+    if _is_literal_protects(edge):
+        return (family, frm_s, to_s, "protects")
     if family in SYMMETRIC_FAMILIES:
         frm_s, to_s = sorted((frm_s, to_s))
     return (family, frm_s, to_s)
@@ -767,7 +790,7 @@ def dedup_edges(edges: Sequence[Any], nodes: Sequence[Any]) -> dict[str, Any]:
     reported as merged (e.g. ``parent_of`` kept, ``child_of`` dropped).
     """
     node_index = _node_index(nodes)
-    seen: dict[tuple[str, str, str], Any] = {}
+    seen: dict[tuple[str, ...], Any] = {}
     kept: list[Any] = []
     merged: list[tuple[str, str]] = []
     for edge in edges:
