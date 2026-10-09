@@ -133,6 +133,13 @@ def _checkpoint38(
     return copy.deepcopy(rows)
 
 
+def _selected_suffix_entries(
+    entries: tuple[Any, ...], prefix_count: int
+) -> tuple[Any, ...]:
+    """Pure planning helper; selecting entries does not authorize their execution."""
+    return tuple(entries[prefix_count:])
+
+
 class _Authority:
     """Thin read-only verification over existing typed Core repositories."""
 
@@ -410,6 +417,16 @@ def run_continuation(
     binding_decision_sha256: str | None = None,
     verify_checkpoint38_only: bool = False,
 ) -> dict[str, Any]:
+    if checkpoint38_report is not None:
+        _require(
+            authority is None,
+            "checkpoint38 forbids injected authority; use the production authority",
+        )
+        _require(
+            seams is None,
+            "checkpoint38 forbids injected replay seams; use production admission",
+        )
+    checkpoint38 = checkpoint38_report is not None
     replay.assert_runtime_dsn(dsn)
     root = (repo_root or replay.REPO_ROOT).resolve()
     if require_clean:
@@ -418,7 +435,6 @@ def run_continuation(
         artifact_root=accepted_root, repo_root=root
     )
     prefix = _checkpoint(retained_root, manifest.entries)
-    checkpoint38 = checkpoint38_report is not None
     _require(
         not verify_checkpoint38_only or checkpoint38,
         "read-only checkpoint38 verification requires sealed report",
@@ -443,6 +459,8 @@ def run_continuation(
         prefix = _checkpoint38(checkpoint38_report, prefix)
     prefix_count = len(prefix)
     prefix_head = CHECKPOINT38_HEAD if checkpoint38 else PREFIX_HEAD
+    suffix_entries = _selected_suffix_entries(manifest.entries, prefix_count)
+    suffix_originals = originals[prefix_count:]
     authority = authority or _Authority(dsn)
     authority.genesis()
     for entry, row, original in zip(
@@ -483,13 +501,9 @@ def run_continuation(
     command_digest = replay._digest_obj(command)
     if verify_checkpoint38_only:
         _require(
-            seams is None,
-            "checkpoint38 requires production admission, no injected seams",
-        )
-        _require(
             authority.head() == prefix_head, "retained head moved before verification"
         )
-        for entry in manifest.entries[prefix_count:]:
+        for entry in suffix_entries:
             authority.require_unclaimed(entry, dsn)
         return {
             "status": "PREFIX_VERIFIED_READ_ONLY",
@@ -544,11 +558,7 @@ def run_continuation(
         return {**prior, "disposition": "ALREADY_COMPLETE_VERIFIED_READ_ONLY"}
     _require(authority.head() == prefix_head, "retained head moved before continuation")
     if checkpoint38:
-        _require(
-            seams is None,
-            "checkpoint38 requires production admission, no injected seams",
-        )
-        for entry in manifest.entries[prefix_count:]:
+        for entry in suffix_entries:
             authority.require_unclaimed(entry, dsn)
         authority.checkpoint38_binding(
             manifest.entries[38],
@@ -573,9 +583,7 @@ def run_continuation(
     seams = seams or replay.ReplaySeams()
     parent = prefix_head
     try:
-        for entry, original in zip(
-            manifest.entries[prefix_count:], originals[prefix_count:], strict=True
-        ):
+        for entry, original in zip(suffix_entries, suffix_originals, strict=True):
             _require(
                 authority.head() == parent,
                 "expected parent moved before source/prepare",
