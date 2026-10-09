@@ -112,8 +112,9 @@ def test_sealed_reviewed_corpus_binding_rejects_malformed_carrier():
         )
 
 
+@pytest.mark.parametrize("tampered_subject", [False, True])
 def test_native_confirm_publishes_guarded_review_and_historical_replay_survives_supersession(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, tampered_subject: bool,
 ) -> None:
     """Use the real Buddy confirm path and Core in-memory owning repositories."""
     from dungeonmind.application.review_publication import publish_finalized_review
@@ -257,7 +258,8 @@ def test_native_confirm_publishes_guarded_review_and_historical_replay_survives_
     }
     decision = IdentityDecisionRecordV2(
         decision_id=binding_payload["decision_id"], world_id=world_id,
-        decision_kind="human_override", subject_object_ids=["candidate:brin"],
+        decision_kind="human_override",
+        subject_object_ids=["candidate:wrong"] if tampered_subject else ["candidate:brin"],
         target_object_ids=["npc:existing_npc"], actor="gm@test",
         reason="dmb-reviewed-corpus-native-binding-v1:" + json.dumps(binding_payload),
         created_at=now,
@@ -311,14 +313,26 @@ def test_native_confirm_publishes_guarded_review_and_historical_replay_survives_
         world_graph_writes, "_direct_services",
         lambda *_args: SimpleNamespace(bundle=bundle, binding=binding),
     )
-    first = world_graph_writes.confirm_extract_promote_via_dungeonmind(
-        request, database_url="memory://synthetic", confirming_principal="gm@test",
-        assertion_ids=assertion_ids, repo_root=tmp_path,
-    )
-    assert first["outcome"] == "published"
-    publication = publications.get(world_id, world_graph_writes._derive_confirm_operation_id(
+    def confirm():
+        return world_graph_writes.confirm_extract_promote_via_dungeonmind(
+            request, database_url="memory://synthetic", confirming_principal="gm@test",
+            assertion_ids=assertion_ids, repo_root=tmp_path,
+        )
+    operation_id = world_graph_writes._derive_confirm_operation_id(
         world_id=world_id, package=package, assertion_ids=assertion_ids,
-    ))
+    )
+    if tampered_subject:
+        with pytest.raises(world_graph_writes.WorldGraphWriteError, match="does not match"):
+            confirm()
+        assert graph.get_head(world_id).head_revision_id == parent_revision_id
+        assert contributions.list_for_world(world_id) == []
+        assert not reviews._records
+        assert publications.get(world_id, operation_id) is None
+        return
+
+    first = confirm()
+    assert first["outcome"] == "published"
+    publication = publications.get(world_id, operation_id)
     assert publication is not None
     persisted_review = reviews.get(world_id, publication.review_id)
     assert persisted_review.record.reviewed_identity_preconditions is not None
@@ -331,10 +345,7 @@ def test_native_confirm_publishes_guarded_review_and_historical_replay_survives_
         "supersedes_decision_ids": [decision.decision_id],
         "created_at": now.replace(day=10),
     }))
-    replay = world_graph_writes.confirm_extract_promote_via_dungeonmind(
-        request, database_url="memory://synthetic", confirming_principal="gm@test",
-        assertion_ids=assertion_ids, repo_root=tmp_path,
-    )
+    replay = confirm()
     assert replay["committed_revision_id"] == first["committed_revision_id"]
     via_core = publish_finalized_review(
         world_id, publication.review_id, published_at=now,

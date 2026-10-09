@@ -1809,6 +1809,7 @@ def _reviewed_identity_publication_guard(
         or binding["campaign_id"] != (campaign_id or "")
         or binding["candidate_sha256"] != candidate_digest
         or binding["decision_id"] != decision.get("decision_id")
+        or decision.get("subject_object_ids") != [binding["candidate_node_id"]]
         or binding["target_object_id"] not in (decision.get("target_object_ids") or [])
         or decision.get("decision_kind") != "human_override"
         or decision.get("actor") != binding["reviewer_id"]
