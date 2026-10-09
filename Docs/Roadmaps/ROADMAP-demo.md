@@ -582,37 +582,40 @@ identities/lifecycles, and return its revised handoff and no-skip PostgreSQL
 verification plan to PRIME. No #826 implementation or merge is authorized by
 its old branch state.
 
-**Session 29 existing-Graph retrieval — immediate J3 query gate; implementation BLOCKED.**
+**Session 29 existing-Graph answerability — immediate J3 query gate; live witness BLOCKED.**
 
 The bounded contract is pinned in
 [HANDOFF-DEMO-session29-elderwyld-graph.md](../Plans/HANDOFF-DEMO-session29-elderwyld-graph.md).
-The focused source audit at Buddy code head `672d18b` (Agent query code unchanged
-through docs-only #853 at main `e6a4e7d3`) confirms the exact gap: Agent graph
-resolution verifies the managed World, then passes its managed ID unchanged to
-the MIND direct reader, which expects the bound native Graph ID. The Agent path
-does not read #836's active binding, and it forwards the request's revision pin.
-The narrow fix belongs at Buddy's trusted Agent-turn boundary: resolve the
-active binding, capture its `binding_version` and one current native head, and
-carry the managed and native IDs separately.
+The current-main correction merged in Buddy #1052 at
+`22310fab4deb5794d0d3fd3d3ddd956ae3200727` from reviewed head
+`1640c92f9385caa0dc76d8e28594a44ec762909e`; its documentation lease is
+closed. Buddy #938's accepted saved-Plan `auto_plan_world` route already verifies
+the selected managed World and committed Plan, resolves #836's active versioned
+native Graph binding, and pins native reads to one revision. Its distinct-ID,
+source-pin, citation, and durable history/replay tests are synthetic. The older
+`672d18b` source audit described the separate generic `graph_request` path;
+that path is not a prerequisite for selected-Plan answerability.
 
 The query uses MIND V2 `WORLD_CROSS_CAMPAIGN` with `campaign_id=None` and GM
 admissibility. Keep `campaign_id=longmont-c2` and `session_id=session-29` in Buddy
 narrative focus only; never pass them as native scope, campaign, focus, or a
-Graph entity ID. Pin every search, multi-hop, evidence, and source read to one
-server-resolved current head. Return native citations, disclose the configured
-provider destination and bounded excerpts before dispatch, and show the exact excerpts
-sent after the turn.
+Graph entity ID. Return native citations only from admitted revision-pinned
+evidence, and distinguish metadata references from validated opened source text.
+Disclose that a real Ask sends committed Plan content and selected Graph context
+to the configured provider.
 
-This is a read-only query of existing `eldyrwild`. It is separate from the
-fresh-World source-admission path below and #826's paused KnowledgeSpace
-provisioning. Its implementation is serial after the merged #853 production
-conversation runtime is implemented and accepted, then the DEMO Plan consumer
-cutover is accepted. #853 is design-only; PRIME has not assigned its
-implementation owner or lease. No current live read proves `eldyrwild`'s present
-head or answerability. The previous native observation at
-rev:680c246047d67f9fe0293ee90526f670 is historical only. The J3 live witness
-and disposable `R1`-to-`R2`/restart fixture remain required. Do not mutate the real
-Graph or create a KnowledgeSpace for either witness.
+SERVER has not identified the exact active native database/head and selected
+managed World for the Session 29 witness. MIND has not verified native
+`eldyrwild` C1/C2 or S22–29 source coverage and Thrin identity at that authority.
+Its STOP checkpoint/export for `dogfood-current-corpus-replay-v1` concerns a
+separate replay World, not native `eldyrwild` completeness. The historical S22
+Mireward missing-source result is object-specific, not a verdict on every S22
+citation. A real `/api/live/agent/turn` POST may dispatch a provider and persist
+retrieval/conversation receipts, so no live turn or operator dogfood is authorized.
+This gate remains separate from fresh-World source admission and #826's paused
+empty KnowledgeSpace provisioning. The J3 live witness and disposable
+`R1`-to-`R2`/restart fixture remain required under separately pinned leases;
+all J1–J6 and operator acceptance gates remain open.
 
 The user's DEMO minimum still requires one real, surface-aware conversational
 Agent entry on every navigable DEMO surface (Index, Plan, Play, Build, Ingest
