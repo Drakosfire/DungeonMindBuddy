@@ -38,6 +38,7 @@ from apps.live_control_server.ports.world_graph_source_admission import (
     WorldGraphSourceAdmissionError,
 )
 from apps.live_control_server.services.candidate_graph_admission import (
+    canonical_candidate_digest,
     confirm_candidate_graph_admission,
     prepare_candidate_graph_admission,
 )
@@ -49,6 +50,330 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 ARTIFACT_ID = "artifact:recap:longmont-c2:session-9"
 WORLD_ID = "world:recap-provenance"
 CAMPAIGN_ID = "longmont-c2"
+
+
+def test_sealed_reviewed_corpus_binding_becomes_core_publication_guard():
+    from datetime import datetime, timezone
+
+    from dungeonmind.contracts.identity import IdentityDecisionRecordV2
+    from dungeonmind.domain.canonical import canonical_sha256
+    from apps.live_control_server.models.extract_promote import (
+        ReviewedCorpusNativeBindingV1,
+    )
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        _reviewed_identity_publication_guard,
+    )
+
+    payload = {
+        "schema_version": "dmb_reviewed_corpus_native_binding_v1",
+        "world_id": "world:test", "parent_revision_id": "rev:parent",
+        "campaign_id": "campaign:test", "candidate_sha256": "a" * 64,
+        "candidate_node_id": "npc-node", "corpus_ref_type": "npc",
+        "corpus_ref_key": "npc:guide", "target_object_id": "npc:guide",
+        "target_sha256": "b" * 64, "evidence_sha256": "c" * 64,
+        "decision_id": "decision:guide", "reviewer_id": "human:test",
+        "sources": [{"source_artifact_id": "artifact:guide",
+                     "source_revision_id": "revision:guide",
+                     "artifact_sha256": "d" * 64,
+                     "revision_sha256": "e" * 64}],
+    }
+    decision = IdentityDecisionRecordV2(
+        decision_id=payload["decision_id"], world_id=payload["world_id"],
+        decision_kind="human_override", subject_object_ids=[payload["candidate_node_id"]],
+        target_object_ids=[payload["target_object_id"]], actor=payload["reviewer_id"],
+        reason="dmb-reviewed-corpus-native-binding-v1:" + json.dumps(payload),
+        created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+    ).model_dump(mode="json")
+    context = SimpleNamespace(
+        world_id="world:test", identity_ledger_records=[decision],
+        reviewed_corpus_bindings=(ReviewedCorpusNativeBindingV1.model_validate(payload),),
+    )
+    guard = _reviewed_identity_publication_guard(
+        bundle=SimpleNamespace(),
+        package={"effect": {"candidate_admission": {"candidate_digest": "a" * 64}}},
+        context=context, parent_revision_id="rev:parent", campaign_id="campaign:test",
+    )
+    assert guard is not None
+    assert guard.decision_sha256 == canonical_sha256(decision)
+    assert guard.target_object_id == "npc:guide"
+    assert guard.sources[0].source_artifact_sha256 == "d" * 64
+
+
+def test_guard_builder_ignores_a_verified_binding_for_another_candidate():
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        _reviewed_identity_publication_guard,
+    )
+    from apps.live_control_server.models.extract_promote import (
+        ReviewedCorpusNativeBindingV1,
+    )
+
+    binding = ReviewedCorpusNativeBindingV1(
+        world_id="world:test", parent_revision_id="rev:parent",
+        campaign_id="campaign:test", candidate_sha256="a" * 64,
+        candidate_node_id="candidate:one", corpus_ref_type="npc",
+        corpus_ref_key="npc:one", target_object_id="npc:one",
+        target_sha256="b" * 64, evidence_sha256="c" * 64,
+        decision_id="decision:one", reviewer_id="gm:test",
+        sources=({
+            "source_artifact_id": "artifact:one",
+            "source_revision_id": "revision:one",
+            "artifact_sha256": "d" * 64,
+            "revision_sha256": "e" * 64,
+        },),
+    )
+    context = SimpleNamespace(
+        world_id="world:test", identity_ledger_records=[],
+        reviewed_corpus_bindings=(binding,),
+    )
+    assert _reviewed_identity_publication_guard(
+        bundle=SimpleNamespace(),
+        package={"effect": {"candidate_admission": {"candidate_digest": "f" * 64}}},
+        context=context, parent_revision_id="rev:parent", campaign_id="campaign:test",
+    ) is None
+
+
+@pytest.mark.parametrize("tampered_subject", [False, True])
+def test_native_confirm_publishes_guarded_review_and_historical_replay_survives_supersession(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, tampered_subject: bool,
+) -> None:
+    """Use the real Buddy confirm path and Core in-memory owning repositories."""
+    from dungeonmind.application.review_publication import publish_finalized_review
+    from dungeonmind.application.semantic_profiles import descriptor_sha256
+    from dungeonmind.contracts.graph import PublishRevisionCommand
+    from dungeonmind.contracts.identity import IdentityDecisionRecordV2
+    from dungeonmind.contracts.semantic_profile import SemanticProfileRef
+    from dungeonmind.domain.canonical import canonical_sha256
+    from dungeonmind.infrastructure.memory import (
+        InMemoryContributionRepository,
+        InMemoryContributionReviewRepository,
+        InMemoryFinalizedReviewPublicationRepository,
+        InMemoryIdentityDecisionRepository,
+        InMemorySourceRepository,
+        InMemoryWorldGraphRepository,
+    )
+    from dungeonmind_dnd.application.world_object_vocabulary import (
+        load_builtin_v3_descriptor,
+    )
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+    from apps.live_control_server.integrations.dungeonmind.world_graph_source_admission_adapter import (
+        DungeonMindWorldGraphSourceAdmissionAdapter,
+    )
+    from apps.live_control_server.models.extract_promote import ExtractPromoteConfirmRequest
+    from apps.live_control_server.ports.world_graph_source_admission import (
+        WorldGraphSourceAdmissionRequest,
+    )
+
+    world_id = WORLD_ID
+    parent_revision_id = ""
+    now = datetime(2026, 10, 9, tzinfo=UTC)
+    graph = InMemoryWorldGraphRepository()
+    contributions = InMemoryContributionRepository()
+    reviews = InMemoryContributionReviewRepository(contributions)
+    sources = InMemorySourceRepository()
+    identities = InMemoryIdentityDecisionRepository()
+    publications = InMemoryFinalizedReviewPublicationRepository(
+        reviews, graph, source_repository=sources, identity_repository=identities,
+    )
+    descriptor = load_builtin_v3_descriptor()
+    semantic_profile = SemanticProfileRef(
+        profile_id=descriptor.profile_id,
+        profile_revision=descriptor.profile_revision,
+        descriptor_sha256=descriptor_sha256(descriptor),
+    )
+
+    source_path, buddy_revision = _source_file(tmp_path)
+    artifact_payload = _artifact(
+        uri=str(source_path),
+        content_sha256=buddy_revision.removeprefix("sha256:"),
+        world_id=world_id,
+    )
+    source_adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=sources)
+    admitted = source_adapter.prove_or_admit(WorldGraphSourceAdmissionRequest(
+        world_id=world_id,
+        campaign_id=CAMPAIGN_ID,
+        source_artifact=artifact_payload,
+        source_revision_token=buddy_revision,
+        source_uri=str(source_path),
+    ))
+    artifact = sources.get_artifact(admitted.source_artifact_id)
+    source_revision = sources.get_revision(admitted.source_revision_id)
+    assert artifact is not None and source_revision is not None
+
+    evidence_id = "evidence:reviewed-npc-existence"
+    evidence = {
+        "schema_version": "dm_evidence_ref_v2",
+        "evidence_ref_id": evidence_id,
+        "source_artifact_id": admitted.source_artifact_id,
+        "source_revision_id": admitted.source_revision_id,
+        "source_domain_key": str(artifact.source_domain_key),
+        "source_domain": str(artifact.source_domain),
+        "evidence_role": "support",
+        "can_open_source": True,
+        "can_highlight_span": False,
+        "session_id": "session-9",
+        "source_span_ref_id": None,
+        "locator": "paragraph:1",
+        "uri": None,
+        "source_locator": None,
+        "line_ref": None,
+    }
+    def assertion_metadata(assertion_id: str) -> dict[str, Any]:
+        return {
+            "schema_version": "dm_knowledge_assertion_metadata_v1",
+            "assertion_id": assertion_id,
+            "campaign_scope": CAMPAIGN_ID,
+            "visibility": "gm",
+            "epistemic_kind": "fact",
+            "canon_state": "canonical",
+            "evidence_ref_ids": [evidence_id],
+            "session_refs": [],
+            "temporal_scope": {"kind": "unknown", "fictional_time_ref": None},
+        }
+
+    parent_payload = {
+        "world_id": world_id,
+        "semantic_profile": semantic_profile.model_dump(mode="json"),
+        "relationship_endpoint_aspect_schema": "dm_relationship_endpoint_aspect_v1",
+        "objects": [{
+            "object_id": "npc:existing_npc", "kind": "dnd5e:npc", "label": "Brin",
+            "assertion_metadata": assertion_metadata("assertion:brin-exists"),
+            "aliases": [], "summary": None, "properties": [], "aspects": [],
+        }],
+        "relationships": [], "evidence_refs": [evidence],
+    }
+    from dungeonmind.application.graph_snapshot_v6 import UnionGraphV6Payload
+    parent_payload = UnionGraphV6Payload.model_validate(parent_payload).model_dump(mode="json")
+    parent_stored = graph.publish_revision(PublishRevisionCommand(
+        world_id=world_id, parent_revision_id=None, expected_parent_revision_id=None,
+        operation_ids=["operation:synthetic-parent"], graph_schema="dm_union_graph_v6",
+        graph_payload=parent_payload, created_at=now,
+    ))
+    parent_revision_id = parent_stored.revision_id
+
+    candidate = _candidate()
+    candidate["nodes"][0]["label"] = "Brin"
+    candidate["nodes"][0]["node_id"] = "candidate:brin"
+    candidate_digest = canonical_candidate_digest(candidate)
+    target = parent_payload["objects"][0]
+    binding_payload = {
+        "schema_version": "dmb_reviewed_corpus_native_binding_v1",
+        "world_id": world_id,
+        "parent_revision_id": parent_revision_id,
+        "campaign_id": CAMPAIGN_ID,
+        "candidate_sha256": candidate_digest,
+        "candidate_node_id": "candidate:brin",
+        "corpus_ref_type": "npc",
+        "corpus_ref_key": "npc:existing_npc",
+        "target_object_id": "npc:existing_npc",
+        "target_sha256": canonical_sha256(target),
+        "evidence_sha256": canonical_sha256([evidence]),
+        "decision_id": "decision:reviewed-brin",
+        "reviewer_id": "gm@test",
+        "sources": [{
+            "source_artifact_id": artifact.source_artifact_id,
+            "source_revision_id": source_revision.source_revision_id,
+            "artifact_sha256": canonical_sha256(artifact.model_dump(mode="json")),
+            "revision_sha256": canonical_sha256(source_revision.model_dump(mode="json")),
+        }],
+    }
+    decision = IdentityDecisionRecordV2(
+        decision_id=binding_payload["decision_id"], world_id=world_id,
+        decision_kind="human_override",
+        subject_object_ids=["candidate:wrong"] if tampered_subject else ["candidate:brin"],
+        target_object_ids=["npc:existing_npc"], actor="gm@test",
+        reason="dmb-reviewed-corpus-native-binding-v1:" + json.dumps(binding_payload),
+        created_at=now,
+    )
+    identities.append(decision)
+    stored_parent = graph.get_revision(world_id, parent_revision_id)
+    context = world_graph_writes.mutation_context_from_revision_payload(
+        stored_parent, world_id=world_id, head_revision_id=parent_revision_id,
+        dungeonmind_decisions=[decision],
+    )
+    prepared = prepare_candidate_graph_admission(
+        candidate_graph=candidate,
+        source_uri=str(source_path),
+        source_revision_id=buddy_revision,
+        prepared_by="gm@test",
+        world_id=world_id,
+        source_artifact_id=ARTIFACT_ID,
+        source_artifact=artifact_payload,
+        campaign_scope=CAMPAIGN_ID,
+        repo_root=tmp_path,
+        candidate_graph_path=str(tmp_path / "candidate_graph.json"),
+        mutation_context=context,
+        source_admission=source_adapter,
+    )
+    assert prepared.confirmable
+    package = bind_identity_ledger_to_package(prepared.review_package, context)
+    assertion_ids = tuple(
+        str(item["assertion_id"])
+        for item in package["effect"]["accepted_proposals"]
+        if item.get("assertion_id")
+    )
+    assert assertion_ids
+    request = ExtractPromoteConfirmRequest(
+        review_package=package, assertion_ids=list(assertion_ids),
+    )
+
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
+        DirectAuthorityBinding,
+    )
+    bundle = SimpleNamespace(
+        world_graph=graph, contributions=contributions, contribution_reviews=reviews,
+        finalized_review_publications=publications, identity_decisions=identities,
+        sources=sources,
+    )
+    binding = DirectAuthorityBinding(
+        world_id=world_id, dungeonmind_first_revision_id=parent_revision_id,
+        dungeonmind_head_revision_id=parent_revision_id,
+        legacy_buddy_revision_id=None, genesis="reviewed_world_initialization",
+    )
+    monkeypatch.setattr(
+        world_graph_writes, "_direct_services",
+        lambda *_args: SimpleNamespace(bundle=bundle, binding=binding),
+    )
+    def confirm():
+        return world_graph_writes.confirm_extract_promote_via_dungeonmind(
+            request, database_url="memory://synthetic", confirming_principal="gm@test",
+            assertion_ids=assertion_ids, repo_root=tmp_path,
+        )
+    operation_id = world_graph_writes._derive_confirm_operation_id(
+        world_id=world_id, package=package, assertion_ids=assertion_ids,
+    )
+    if tampered_subject:
+        with pytest.raises(world_graph_writes.WorldGraphWriteError, match="authority could not be proved"):
+            confirm()
+        assert graph.get_head(world_id).head_revision_id == parent_revision_id
+        assert contributions.list_for_world(world_id) == []
+        assert not reviews._records
+        assert publications.get(world_id, operation_id) is None
+        return
+
+    first = confirm()
+    assert first["outcome"] == "published"
+    publication = publications.get(world_id, operation_id)
+    assert publication is not None
+    persisted_review = reviews.get(world_id, publication.review_id)
+    assert persisted_review.record.reviewed_identity_preconditions is not None
+    assert persisted_review.record.reviewed_identity_preconditions.decision_id == decision.decision_id
+    child = graph.get_revision(world_id, first["committed_revision_id"])
+    assert child is not None and graph.get_head(world_id).head_revision_id == child.revision.revision_id
+
+    identities.append(decision.model_copy(update={
+        "decision_id": "decision:reviewed-brin-superseding",
+        "supersedes_decision_ids": [decision.decision_id],
+        "created_at": now.replace(day=10),
+    }))
+    replay = confirm()
+    assert replay["committed_revision_id"] == first["committed_revision_id"]
+    via_core = publish_finalized_review(
+        world_id, publication.review_id, published_at=now,
+        review_repository=reviews, world_graph_repository=graph,
+        publication_repository=publications,
+        graph_reader=world_graph_writes._build_graph_reader(),
+    )
+    assert via_core == publication
 
 pytest_plugins = ("tests.application_state.conftest",)
 
@@ -736,6 +1061,10 @@ def _prepared_native_recap(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     application_state_dsn: str,
+    *,
+    world_id: str = "world:recap-provenance-pg",
+    source_artifact_id: str = ARTIFACT_ID,
+    reset_database: bool = True,
 ):
     from apps.live_control_server.integrations.dungeonmind.world_graph_authority_adapter import (
         DungeonMindWorldGraphAuthorityAdapter,
@@ -764,14 +1093,16 @@ def _prepared_native_recap(
     dsn = require_test_dsn()
     ensure_migrated(dsn)
     database = PostgresDatabase(dsn)
-    with database.connect() as conn:
-        conn.execute(TRUNCATE_SQL)
-        conn.commit()
+    if reset_database:
+        with database.connect() as conn:
+            conn.execute(TRUNCATE_SQL)
+            conn.commit()
 
     from apps.live_control_server import config as wg_config
 
     repo = tmp_path / "repo"
     world_root = tmp_path / "world"
+    tmp_path.mkdir(parents=True, exist_ok=True)
     repo.mkdir()
     world_root.mkdir()
     monkeypatch.setenv(
@@ -787,7 +1118,6 @@ def _prepared_native_recap(
         REPO_ROOT / "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_party_registry.json",
         registry,
     )
-    world_id = "world:recap-provenance-pg"
     genesis_authority = DungeonMindWorldGraphInitializationAdapter(database_url=dsn)
     genesis_plan = prepare_recap_world_genesis(
         RecapWorldGenesisPrepareRequest(
@@ -812,12 +1142,13 @@ def _prepared_native_recap(
     source_revision = f"sha256:{hashlib.sha256(source.read_bytes()).hexdigest()}"
     graph_authority = DungeonMindWorldGraphAuthorityAdapter(database_url=dsn)
     context = graph_authority.mutation_context(world_id, d0)
-    candidate = _candidate()
+    candidate = _candidate_bound_to(source_artifact_id)
     candidate_path = tmp_path / "candidate_graph.json"
     candidate_path.write_text(json.dumps(candidate), encoding="utf-8")
     recap = _artifact(
         uri=str(source),
         content_sha256=source_revision.removeprefix("sha256:"),
+        source_artifact_id=source_artifact_id,
         world_id=world_id,
     )
     result = prepare_candidate_graph_admission(
@@ -826,7 +1157,7 @@ def _prepared_native_recap(
         source_revision_id=source_revision,
         prepared_by="recap-provenance-test",
         world_id=world_id,
-        source_artifact_id=ARTIFACT_ID,
+        source_artifact_id=source_artifact_id,
         source_artifact=recap,
         campaign_scope=CAMPAIGN_ID,
         repo_root=repo,
@@ -845,6 +1176,10 @@ def _prepared_native_recap(
         context=context,
         candidate=candidate,
         candidate_path=candidate_path,
+        source_path=source,
+        source_revision_id=source_revision,
+        source_artifact_id=source_artifact_id,
+        source_artifact_payload=recap,
         result=result,
         package=package,
     )
@@ -882,6 +1217,305 @@ def _confirm_via_product_seam(prepared) -> dict[str, Any]:
             repo_root=prepared.repo,
         ),
     )
+
+
+def _prepare_reviewed_binding_postgres(prepared):
+    """Persist a typed producer carrier and prepare through native PG authority."""
+    from dungeonmind.contracts.graph import PublishRevisionCommand
+    from dungeonmind.contracts.identity import IdentityDecisionRecordV2
+    from dungeonmind.domain.canonical import canonical_sha256
+    from dungeonmind.infrastructure.postgres import PostgresRepositoryBundle
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        bind_identity_ledger_to_package,
+        load_production_mutation_context,
+    )
+    from apps.live_control_server.models.world_graph_mutation_context import (
+        REVIEWED_CORPUS_BINDING_REASON_PREFIX,
+    )
+    from apps.live_control_server.integrations.dungeonmind.world_graph_source_admission_adapter import (
+        DungeonMindWorldGraphSourceAdmissionAdapter,
+    )
+    from apps.live_control_server.models.extract_promote import ReviewedCorpusNativeBindingV1
+    from apps.live_control_server.ports.world_graph_source_admission import (
+        WorldGraphSourceAdmissionRequest,
+    )
+    from apps.live_control_server.services.candidate_graph_admission import (
+        canonical_candidate_digest,
+        prepare_candidate_graph_admission,
+    )
+    from dungeonmind.application.graph_snapshot_v6 import UnionGraphV6Payload
+
+    bundle = PostgresRepositoryBundle(prepared.database)
+    now = datetime(2026, 10, 9, 18, tzinfo=UTC)
+    target_source_path = prepared.repo / "reviewed-npc-existence.md"
+    target_source_path.write_text("Brin is an established synthetic NPC.\n", encoding="utf-8")
+    target_revision_token = f"sha256:{hashlib.sha256(target_source_path.read_bytes()).hexdigest()}"
+    target_artifact_payload = _artifact(
+        uri=str(target_source_path),
+        content_sha256=target_revision_token.removeprefix("sha256:"),
+        source_artifact_id=f"{prepared.source_artifact_id}:target-existence",
+        campaign_id=CAMPAIGN_ID,
+        session_id="session-8",
+        world_id=prepared.world_id,
+    )
+    source_adapter = DungeonMindWorldGraphSourceAdmissionAdapter(database_url=prepared.dsn)
+    target_admission = source_adapter.prove_or_admit(WorldGraphSourceAdmissionRequest(
+        world_id=prepared.world_id,
+        campaign_id=CAMPAIGN_ID,
+        source_artifact=target_artifact_payload,
+        source_revision_token=target_revision_token,
+        source_uri=str(target_source_path),
+    ))
+    target_artifact = bundle.sources.get_artifact(target_admission.source_artifact_id)
+    target_source_revision = bundle.sources.get_revision(target_admission.source_revision_id)
+    assert target_artifact is not None and target_source_revision is not None
+
+    evidence = {
+        "schema_version": "dm_evidence_ref_v2",
+        "evidence_ref_id": f"evidence:{prepared.source_artifact_id}:target-existence",
+        "source_artifact_id": target_artifact.source_artifact_id,
+        "source_revision_id": target_source_revision.source_revision_id,
+        "source_domain_key": str(target_artifact.source_domain_key),
+        "source_domain": str(target_artifact.source_domain),
+        "evidence_role": "support",
+        "can_open_source": True,
+        "can_highlight_span": False,
+        "session_id": "session-8",
+        "source_span_ref_id": None,
+        "locator": "paragraph:1",
+        "uri": None,
+        "source_locator": None,
+        "line_ref": None,
+    }
+    parent = bundle.world_graph.get_revision(prepared.world_id, prepared.d0)
+    assert parent is not None
+    parent_payload = copy.deepcopy(parent.graph_payload)
+    assert all(item["object_id"] != "npc:existing_npc" for item in parent_payload["objects"])
+    target = {
+        "object_id": "npc:existing_npc",
+        "kind": "dnd5e:npc",
+        "label": "Brin",
+        "assertion_metadata": {
+            "schema_version": "dm_knowledge_assertion_metadata_v1",
+            "assertion_id": "assertion:reviewed-npc-existence",
+            "campaign_scope": CAMPAIGN_ID,
+            "visibility": "gm",
+            "epistemic_kind": "fact",
+            "canon_state": "canonical",
+            "evidence_ref_ids": [evidence["evidence_ref_id"]],
+            "session_refs": [],
+            "temporal_scope": {"kind": "unknown", "fictional_time_ref": None},
+        },
+        "aliases": [],
+        "summary": None,
+        "properties": [],
+        "aspects": [],
+    }
+    parent_payload["objects"].append(target)
+    parent_payload["evidence_refs"].append(evidence)
+    parent_payload = UnionGraphV6Payload.model_validate(parent_payload).model_dump(mode="json")
+    bundle.world_graph.publish_revision(PublishRevisionCommand(
+        world_id=prepared.world_id,
+        parent_revision_id=prepared.d0,
+        expected_parent_revision_id=prepared.d0,
+        operation_ids=[f"operation:reviewed-npc-parent:{prepared.world_id}"],
+        graph_schema=parent.revision.graph_schema,
+        graph_payload=parent_payload,
+        created_at=now,
+    ))
+    parent_revision_id = bundle.world_graph.get_head(prepared.world_id).head_revision_id
+    parent = bundle.world_graph.get_revision(prepared.world_id, parent_revision_id)
+    assert parent is not None
+    target = next(item for item in parent.graph_payload["objects"] if item["object_id"] == "npc:existing_npc")
+    evidence = next(
+        item for item in parent.graph_payload["evidence_refs"]
+        if item["evidence_ref_id"] == evidence["evidence_ref_id"]
+    )
+
+    candidate = copy.deepcopy(prepared.candidate)
+    node = candidate["nodes"][0]
+    node.update(
+        node_id="candidate:brin",
+        label="Brin",
+        proposed_action="anchor",
+        corpus_ref={"type": "npc", "ref_id": "existing_npc", "resolution": "resolved"},
+    )
+    candidate_digest = canonical_candidate_digest(candidate)
+    binding = ReviewedCorpusNativeBindingV1(
+        world_id=prepared.world_id,
+        parent_revision_id=parent_revision_id,
+        campaign_id=CAMPAIGN_ID,
+        candidate_sha256=candidate_digest,
+        candidate_node_id=node["node_id"],
+        corpus_ref_type="npc",
+        corpus_ref_key="existing npc",
+        target_object_id=target["object_id"],
+        target_sha256=canonical_sha256(target),
+        evidence_sha256=canonical_sha256([evidence]),
+        decision_id=f"decision:{prepared.world_id}:reviewed-binding",
+        reviewer_id="gm@synthetic-test",
+        sources=({
+            "source_artifact_id": target_artifact.source_artifact_id,
+            "source_revision_id": target_source_revision.source_revision_id,
+            "artifact_sha256": canonical_sha256(target_artifact.model_dump(mode="json")),
+            "revision_sha256": canonical_sha256(target_source_revision.model_dump(mode="json")),
+        },),
+    )
+    decision = IdentityDecisionRecordV2(
+        decision_id=binding.decision_id,
+        world_id=prepared.world_id,
+        decision_kind="human_override",
+        subject_object_ids=[binding.candidate_node_id],
+        target_object_ids=[binding.target_object_id],
+        actor=binding.reviewer_id,
+        reason=REVIEWED_CORPUS_BINDING_REASON_PREFIX + binding.model_dump_json(),
+        created_at=now,
+    )
+    persisted_decision = bundle.identity_decisions.append(decision)
+    assert persisted_decision == decision
+
+    context = load_production_mutation_context(
+        prepared.world_id,
+        revision_pin=parent_revision_id,
+        database_url=prepared.dsn,
+    )
+    assert context.reviewed_corpus_bindings == (binding,)
+    prepared.candidate = candidate
+    prepared.candidate_path.write_text(json.dumps(candidate), encoding="utf-8")
+    result = prepare_candidate_graph_admission(
+        candidate_graph=candidate,
+        source_uri=str(prepared.source_path),
+        source_revision_id=prepared.source_revision_id,
+        prepared_by=binding.reviewer_id,
+        world_id=prepared.world_id,
+        source_artifact_id=prepared.source_artifact_id,
+        source_artifact=prepared.source_artifact_payload,
+        campaign_scope=CAMPAIGN_ID,
+        repo_root=prepared.repo,
+        mutation_context=context,
+        candidate_graph_path=str(prepared.candidate_path),
+        source_admission=source_adapter,
+    )
+    assert result.confirmable
+    prepared.result = result
+    prepared.package = bind_identity_ledger_to_package(result.review_package, context)
+    prepared.binding = binding
+    prepared.persisted_decision = persisted_decision
+    prepared.parent_revision_id = parent_revision_id
+    return prepared
+
+
+def _pg_publication_counts(database, world_id: str) -> tuple[int, int, int, int]:
+    with database.connect() as conn:
+        row = conn.execute(
+            "SELECT "
+            "(SELECT count(*) FROM dungeonmind.graph_revisions WHERE world_id = %s) AS revisions, "
+            "(SELECT count(*) FROM dungeonmind.graph_contributions WHERE world_id = %s) AS contributions, "
+            "(SELECT count(*) FROM dungeonmind.contribution_reviews WHERE world_id = %s) AS reviews, "
+            "(SELECT count(*) FROM dungeonmind.finalized_review_publications WHERE world_id = %s) AS publications",
+            (world_id, world_id, world_id, world_id),
+        ).fetchone()
+    return tuple(row[key] for key in ("revisions", "contributions", "reviews", "publications"))
+
+
+@pytest.mark.integration
+def test_producer_binding_roundtrips_through_buddy_to_guarded_postgres_publication(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Real typed carrier, production Buddy context/confirm, and Core PG fence."""
+    import os
+
+    from dungeonmind.infrastructure.postgres import PostgresRepositoryBundle
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        _derive_confirm_operation_id,
+    )
+    from apps.live_control_server.models.extract_promote import (
+        ReviewedCorpusNativeBindingV1,
+    )
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        WorldGraphWriteError,
+    )
+
+    dsn = os.environ.get("DMB_CUTOVER_TEST_DATABASE_URL", "").strip()
+    assert dsn, "owner-provided DMB_CUTOVER_TEST_DATABASE_URL is required"
+    from tests._cutover_d3a_blocker_safe_fixtures import require_test_dsn
+
+    assert dsn == require_test_dsn(), "owner-provided DSN must be the isolated cutover test DSN"
+
+    success = _prepare_reviewed_binding_postgres(
+        _prepared_native_recap(
+            tmp_path / "success",
+            monkeypatch,
+            dsn,
+            world_id="world:reviewed-binding-pg-success",
+            source_artifact_id="artifact:reviewed-binding-pg-success:recap",
+        )
+    )
+    assert isinstance(success.binding, ReviewedCorpusNativeBindingV1)
+    assert success.persisted_decision.reason.startswith("dmb-reviewed-corpus-native-binding-v1:")
+    bundle = PostgresRepositoryBundle(success.database)
+    assertion_ids = tuple(
+        str(item["assertion_id"])
+        for item in success.package["effect"]["accepted_proposals"]
+        if item.get("assertion_id")
+    )
+    operation_id = _derive_confirm_operation_id(
+        world_id=success.world_id, package=success.package, assertion_ids=assertion_ids,
+    )
+    first = _confirm_via_product_seam(success)
+    receipt = bundle.finalized_review_publications.get(success.world_id, operation_id)
+    assert receipt is not None
+    assert first["committed_revision_id"] == receipt.published_revision_id
+    state = bundle.contribution_reviews.get(success.world_id, receipt.review_id)
+    assert state is not None
+    assert state.record.reviewed_identity_preconditions.decision_id == success.binding.decision_id
+    assert bundle.world_graph.get_head(success.world_id).head_revision_id == receipt.published_revision_id
+
+    superseding = success.persisted_decision.model_copy(update={
+        "decision_id": f"{success.binding.decision_id}:superseding",
+        "supersedes_decision_ids": [success.binding.decision_id],
+        "reason": "Synthetic later authority decision for exact receipt replay.",
+        "created_at": datetime(2026, 10, 9, 19, tzinfo=UTC),
+    })
+    bundle.identity_decisions.append(superseding)
+    replayed = _confirm_via_product_seam(success)
+    assert replayed["committed_revision_id"] == first["committed_revision_id"]
+    assert bundle.finalized_review_publications.get(success.world_id, operation_id) == receipt
+    assert bundle.world_graph.get_head(success.world_id).head_revision_id == receipt.published_revision_id
+
+    drift = _prepare_reviewed_binding_postgres(
+        _prepared_native_recap(
+            tmp_path / "drift",
+            monkeypatch,
+            dsn,
+            world_id="world:reviewed-binding-pg-drift",
+            source_artifact_id="artifact:reviewed-binding-pg-drift:recap",
+        )
+    )
+    drift_bundle = PostgresRepositoryBundle(drift.database)
+    before = _pg_publication_counts(drift.database, drift.world_id)
+    drift_head = drift_bundle.world_graph.get_head(drift.world_id).head_revision_id
+    drift_decision = drift.persisted_decision.model_copy(update={
+        "decision_id": f"{drift.binding.decision_id}:superseding",
+        "supersedes_decision_ids": [drift.binding.decision_id],
+        "reason": "Synthetic authority drift before first publication.",
+        "created_at": datetime(2026, 10, 9, 19, 1, tzinfo=UTC),
+    })
+    drift_bundle.identity_decisions.append(drift_decision)
+    drift_assertion_ids = tuple(
+        str(item["assertion_id"])
+        for item in drift.package["effect"]["accepted_proposals"]
+        if item.get("assertion_id")
+    )
+    drift_operation_id = _derive_confirm_operation_id(
+        world_id=drift.world_id, package=drift.package, assertion_ids=drift_assertion_ids,
+    )
+    with pytest.raises(WorldGraphWriteError, match="authority could not be proved"):
+        _confirm_via_product_seam(drift)
+    assert drift_bundle.world_graph.get_head(drift.world_id).head_revision_id == drift_head
+    assert _pg_publication_counts(drift.database, drift.world_id) == before
+    assert drift_bundle.finalized_review_publications.get(drift.world_id, drift_operation_id) is None
 
 
 @pytest.mark.integration
@@ -1189,3 +1823,115 @@ def test_native_pc_normalization_preserves_invalid_event_target_rejection() -> N
     assert failure.value.details["subject_dm_kind"] == "dnd5e:player_character"
     assert failure.value.details["object_dm_kind"] == "dnd5e:creature"
     assert failure.value.details["reason"] == "endpoint_kind_not_admitted"
+
+
+def _reviewed_binding_authority_fixture():
+    from dungeonmind.contracts.evidence import SourceArtifactV2, SourceRevision
+    from dungeonmind.domain.canonical import canonical_sha256
+    from apps.live_control_server.models.world_graph_mutation_context import (
+        MutationObject, REVIEWED_CORPUS_BINDING_REASON_PREFIX,
+    )
+    from tests.test_known_party_anchor_admission import _reviewed_binding_case
+    _, _, binding = _reviewed_binding_case()
+    artifact = SourceArtifactV2(
+        source_artifact_id="artifact:origin", source_domain_key="session_recap",
+        source_domain="session_recap", world_id="test-world", campaign_id="test-campaign",
+        session_id="session-1", uri="repo://synthetic.md", current_revision_id="revision:origin",
+        authority=None, visibility="gm", artifact_kind="markdown", document_class="recap",
+        review_state=None, source_visibility_state="internal", workspace_document_ref=None,
+        status="active", created_at=None, updated_at=None,
+    )
+    revision = SourceRevision(source_revision_id="revision:origin", source_artifact_id="artifact:origin",
+                              content_sha256="f" * 64, locator="repo://synthetic.md", created_at=datetime(2026, 1, 1, tzinfo=UTC))
+    evidence = {"evidence_ref_id":"evidence:origin", "source_artifact_id":"artifact:origin",
+                "source_revision_id":"revision:origin", "source_domain":"session_recap", "source_domain_key":"session_recap"}
+    obj = {"object_id":"npc_guide", "kind":"dnd5e:npc", "label":"Guide", "aliases":[],
+           "assertion_metadata":{"campaign_scope":"test-campaign", "canon_state":"canonical", "evidence_ref_ids":["evidence:origin"]}}
+    binding = binding.model_copy(update={
+        "target_sha256":canonical_sha256(obj), "evidence_sha256":canonical_sha256([evidence]),
+        "sources":(binding.sources[0].model_copy(update={"artifact_sha256":canonical_sha256(artifact.model_dump(mode="json")),
+                                                       "revision_sha256":canonical_sha256(revision.model_dump(mode="json"))}),),
+    })
+    record = {"schema_version":"dm_identity_decision_v2", "decision_id":binding.decision_id,
+              "world_id":"test-world", "decision_kind":"human_override", "subject_object_ids":[binding.candidate_node_id],
+              "target_object_ids":[binding.target_object_id], "actor":binding.reviewer_id,
+              "reason":REVIEWED_CORPUS_BINDING_REASON_PREFIX+binding.model_dump_json(), "status":"active"}
+    records = [record]
+    snapshot = SimpleNamespace(get_artifact=lambda _:artifact, get_revision=lambda _:revision)
+    bundle = SimpleNamespace(identity_decisions=SimpleNamespace(list_for_world=lambda _:[SimpleNamespace(model_dump=lambda mode, d=d: d) for d in records]),
+                             sources=SimpleNamespace(get_provenance_snapshot=lambda **_:snapshot))
+    stored = SimpleNamespace(graph_payload={"objects":[obj], "evidence_refs":[evidence]})
+    context = WorldGraphMutationContext(world_id="test-world", revision_id="rev:pinned", head_revision_id="rev:pinned",
+        objects={"npc_guide":MutationObject(object_id="npc_guide",label="Guide",kind="npc",canon_state="canonical")},
+        identity_ledger_records=(copy.deepcopy(record),))
+    return bundle, stored, context, records, snapshot
+
+
+def test_reviewed_binding_reproves_authoritative_decision_sources_and_parent():
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import _verify_reviewed_corpus_binding_authority
+    bundle, stored, context, _, _ = _reviewed_binding_authority_fixture()
+    package = {"effect":{"candidate_admission":{"candidate_digest":"a"*64}}}
+    proved = _verify_reviewed_corpus_binding_authority(bundle, stored, context, package=package)
+    assert proved.reviewed_corpus_bindings[0].target_object_id == "npc_guide"
+    assert proved.exact_candidate_sha256 == "a"*64
+    assert not context.reviewed_corpus_bindings
+
+
+@pytest.mark.parametrize("case", ["source", "decision", "missing_decision", "target", "evidence", "campaign", "retracted", "duplicate", "superseded", "tamper"])
+def test_reviewed_binding_authority_drift_rejects_before_publication(case):
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        _verify_reviewed_corpus_binding_authority, WorldGraphWriteError,
+    )
+    bundle, stored, context, records, snapshot = _reviewed_binding_authority_fixture()
+    if case == "source":
+        original = snapshot.get_artifact("artifact:origin")
+        snapshot.get_artifact = lambda _:original.model_copy(update={"status":"deleted"})
+    elif case == "decision":
+        records[0]["status"] = "retracted"
+    elif case == "missing_decision":
+        records.clear()
+    elif case == "target":
+        stored.graph_payload["objects"][0]["label"] = "Someone else"
+    elif case == "evidence":
+        stored.graph_payload["evidence_refs"][0]["source_revision_id"] = "revision:other"
+    elif case == "campaign":
+        stored.graph_payload["objects"][0]["assertion_metadata"]["campaign_scope"] = "other"
+    elif case == "retracted":
+        from dataclasses import replace
+        context = replace(context, objects={"npc_guide":replace(context.objects["npc_guide"], canon_state="rejected")})
+    elif case == "duplicate":
+        records.append(copy.deepcopy(records[0]))
+    elif case == "superseded":
+        records.append({"decision_id":"decision:new", "status":"active", "supersedes_decision_ids":[records[0]["decision_id"]]})
+    else:
+        from dataclasses import replace
+        changed = copy.deepcopy(context.identity_ledger_records[0])
+        changed["target_object_ids"] = ["npc:other"]
+        context = replace(context, identity_ledger_records=(changed,))
+    with pytest.raises(WorldGraphWriteError, match="authority could not be proved"):
+        _verify_reviewed_corpus_binding_authority(bundle, stored, context,
+            package={"effect":{"candidate_admission":{"candidate_digest":"a"*64}}})
+
+
+def test_reviewed_binding_prepare_binds_full_candidate_before_qualification(tmp_path):
+    from dataclasses import replace
+    from tests.test_candidate_graph_admission_contract import _candidate, _prepare
+    from tests.test_known_party_anchor_admission import _reviewed_binding_case
+    from apps.live_control_server.services.candidate_graph_admission import canonical_candidate_digest
+    candidate = _candidate()
+    node, context, binding = _reviewed_binding_case()
+    node["evidence_refs"] = copy.deepcopy(candidate["nodes"][0]["evidence_refs"])
+    candidate["nodes"] = [node]
+    candidate["edges"] = []
+    candidate["beats"] = []
+    candidate["proposed_writes"] = []
+    binding = binding.model_copy(update={"world_id":"eldyrwild", "campaign_id":"longmont-c2",
+                                        "candidate_sha256":canonical_candidate_digest(candidate)})
+    context = replace(context, world_id="eldyrwild", exact_candidate_sha256=None,
+                      reviewed_corpus_bindings=(binding,))
+    before = copy.deepcopy(candidate)
+    result = _prepare(tmp_path, candidate, mutation_context=context)
+    assert result.review_package["effect"]["candidate_admission"]["candidate_digest"] == binding.candidate_sha256
+    assert result.review_package["effect"]["node_id_map"][node["node_id"]] == "npc_guide"
+    assert candidate == before
+    assert context.exact_candidate_sha256 is None

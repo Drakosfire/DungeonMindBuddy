@@ -1284,3 +1284,37 @@ class FirstWorldGraphConfirmReceipt(_ExtractPromoteModel):
     rejected_assertion_ids: list[str] = Field(default_factory=list)
     audit_status: ConfirmAuditStatus
     warnings: list[str] = Field(default_factory=list)
+
+
+class ReviewedCorpusNativeSourceV1(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    source_artifact_id: str = Field(min_length=1)
+    source_revision_id: str = Field(min_length=1)
+    artifact_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    revision_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class ReviewedCorpusNativeBindingV1(BaseModel):
+    """Strict payload in the existing HUMAN_OVERRIDE reason carrier."""
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    schema_version: Literal["dmb_reviewed_corpus_native_binding_v1"] = "dmb_reviewed_corpus_native_binding_v1"
+    world_id: str = Field(min_length=1)
+    parent_revision_id: str = Field(min_length=1)
+    campaign_id: str = Field(min_length=1)
+    candidate_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    candidate_node_id: str = Field(min_length=1)
+    corpus_ref_type: Literal["npc"]
+    corpus_ref_key: str = Field(min_length=1)
+    target_object_id: str = Field(min_length=1)
+    target_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    evidence_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    decision_id: str = Field(min_length=1)
+    reviewer_id: str = Field(min_length=1)
+    sources: tuple[ReviewedCorpusNativeSourceV1, ...] = Field(min_length=1, max_length=16)
+
+    @model_validator(mode="after")
+    def _unique_sources(self):
+        keys = [(s.source_artifact_id, s.source_revision_id) for s in self.sources]
+        if len(keys) != len(set(keys)):
+            raise ValueError("duplicate binding source")
+        return self

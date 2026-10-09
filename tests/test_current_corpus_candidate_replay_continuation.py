@@ -180,9 +180,228 @@ def run(s, **overrides):
         output=s.output,
         dsn="postgresql://x:y@127.0.0.1:54362/dmb_current_corpus_replay_v1",
         repo_root=s.root,
-        authority=s.authority,
+        authority=overrides.pop("authority", s.authority),
     )
     return driver.run_continuation(**{**args, **overrides})
+
+
+@pytest.fixture
+def checkpoint38(setup, monkeypatch):
+    s = setup
+    full = run(s)
+    report = copy.deepcopy(full)
+    report.update(
+        status="STOP",
+        new_confirms=36,
+        sessions=full["sessions"][:38],
+        last_good_head="rev:synthetic-38",
+        terminal_head=None,
+        stop={"actual_head": "rev:synthetic-38", "head_read_error": None},
+    )
+    for ordinal, row in enumerate(report["sessions"], 1):
+        row["ordinal"] = ordinal
+    # Keep the original first two rows exact, including their ordinal fields.
+    ledger = s.retained / "replay_ledger.json"
+    old = json.loads(ledger.read_text())
+    for ordinal, row in enumerate(old["sessions"], 1):
+        row["ordinal"] = ordinal
+    ledger.write_text(json.dumps(old))
+    old_report = s.retained / "replay_report.json"
+    obj = json.loads(old_report.read_text())
+    obj["replay_ledger"] = old["sessions"]
+    old_report.write_text(json.dumps(obj))
+    monkeypatch.setattr(
+        driver, "CHECKPOINT_LEDGER_SHA256", driver.replay._sha256_file(ledger)
+    )
+    monkeypatch.setattr(
+        driver, "CHECKPOINT_REPORT_SHA256", driver.replay._sha256_file(old_report)
+    )
+    path = s.root / "sealed38.json"
+    path.write_text(json.dumps(report))
+    monkeypatch.setattr(
+        driver, "CHECKPOINT38_REPORT_SHA256", driver.replay._sha256_file(path)
+    )
+    monkeypatch.setattr(driver, "CHECKPOINT38_HEAD", "rev:synthetic-38")
+    s.authority.current = "rev:synthetic-38"
+    s.authority.verified.clear()
+    s.calls.clear()
+    s.output = s.root / "suffix39"
+    s.authority.unclaimed = []
+    s.authority.require_unclaimed = lambda entry, dsn: s.authority.unclaimed.append(
+        entry.ordinal
+    )
+    s.authority.binding_calls = []
+    s.authority.checkpoint38_binding = lambda *args: s.authority.binding_calls.append(
+        args
+    )
+    s.checkpoint_args = dict(
+        checkpoint38_report=path,
+        binding_decision_id="decision:reviewed",
+        binding_decision_sha256="a" * 64,
+    )
+    return s
+
+
+def test_checkpoint38_suffix_selection_is_planning_only(checkpoint38):
+    s = checkpoint38
+    prefix = json.loads(s.checkpoint_args["checkpoint38_report"].read_text())[
+        "sessions"
+    ]
+    selected = driver._selected_suffix_entries(s.entries, len(prefix))
+    assert [entry.ordinal for entry in selected] == list(range(39, 45))
+    assert s.calls == [] and s.authority.binding_calls == []
+    assert not s.output.exists()
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "bytes",
+        "count",
+        "status",
+        "head",
+        "actual_head",
+        "ordinal",
+        "parent",
+        "source",
+        "candidate",
+        "proof",
+        "proposal",
+    ],
+)
+def test_checkpoint38_altered_prefix_is_zero_write(checkpoint38, monkeypatch, change):
+    s = checkpoint38
+    path = s.checkpoint_args["checkpoint38_report"]
+    obj = json.loads(path.read_text())
+    if change == "count":
+        obj["sessions"].pop()
+    elif change == "status":
+        obj["status"] = "COMPLETE"
+    elif change == "head":
+        obj["last_good_head"] = "rev:other"
+    elif change == "actual_head":
+        obj["stop"]["actual_head"] = None
+    elif change == "ordinal":
+        obj["sessions"][10]["ordinal"] = 90
+    elif change == "parent":
+        obj["sessions"][10]["sealed_parent_revision"] = "rev:other"
+    elif change == "source":
+        obj["sessions"][10]["source_revision_id"] = "sha256:other"
+    elif change == "candidate":
+        obj["sessions"][10]["candidate_digest"] = "other"
+    elif change == "proof":
+        obj["sessions"][10]["durable_proof"] = {}
+    elif change == "proposal":
+        obj["sessions"][10]["proposal_digest"] = "other"
+    else:
+        obj["extra"] = "tampered"
+    path.write_text(json.dumps(obj))
+    # Re-seal synthetic artifacts except the digest test to prove semantic guards too.
+    if change != "bytes":
+        monkeypatch.setattr(
+            driver, "CHECKPOINT38_REPORT_SHA256", driver.replay._sha256_file(path)
+        )
+    monkeypatch.setattr(driver, "CHECKPOINT_REPORT_SHA256", driver.replay._sha256_file(s.retained / "replay_report.json"))
+    monkeypatch.setattr(driver, "CHECKPOINT_LEDGER_SHA256", driver.replay._sha256_file(s.retained / "replay_ledger.json"))
+    with pytest.raises(driver.replay.ReplayStop):
+        run(s, **s.checkpoint_args)
+    assert s.calls == [] and not s.output.exists()
+
+
+@pytest.mark.parametrize("injection", ["authority", "seams", "readonly_authority"])
+def test_checkpoint38_rejects_injected_execution_authority_before_any_call(
+    checkpoint38, injection
+):
+    s = checkpoint38
+    options = dict(s.checkpoint_args)
+    if injection == "authority":
+        options["authority"] = s.authority
+    elif injection == "seams":
+        options.update(authority=None, seams=driver.replay.ReplaySeams())
+    elif injection == "readonly_authority":
+        options.update(
+            verify_checkpoint38_only=True,
+            binding_decision_id=None,
+            binding_decision_sha256=None,
+        )
+    with pytest.raises(driver.replay.ReplayStop):
+        run(s, **options)
+    assert s.authority.genesis_calls == 1  # one call belongs to checkpoint38 fixture construction
+    assert not s.calls and not s.output.exists()
+    assert s.authority.binding_calls == []
+
+
+@pytest.mark.parametrize("field", ["binding_decision_id", "binding_decision_sha256"])
+def test_checkpoint38_requires_decision_pins(checkpoint38, field):
+    args = {**checkpoint38.checkpoint_args, field: None}
+    with pytest.raises(driver.replay.ReplayStop):
+        run(checkpoint38, **{**args, "authority": None})
+    assert not checkpoint38.calls
+
+
+def test_checkpoint38_rejects_prepare_test_seam(checkpoint38):
+    with pytest.raises(driver.replay.ReplayStop, match="production admission"):
+        run(
+            checkpoint38,
+            **{**checkpoint38.checkpoint_args, "authority": None},
+            seams=driver.replay.ReplaySeams(),
+        )
+    assert not checkpoint38.calls
+
+
+def test_checkpoint38_pending_publication_contract_cannot_write():
+    authority = driver._Authority("unused", NS())
+    with pytest.raises(
+        driver.replay.ReplayStop, match="publication fence not accepted"
+    ):
+        authority.checkpoint38_binding(
+            NS(), NS(), "decision:reviewed", "a" * 64, "unused"
+        )
+
+
+@pytest.mark.parametrize("claimed", [False, True])
+def test_checkpoint38_negative_contribution_probe_is_read_only(monkeypatch, claimed):
+    from contextlib import nullcontext
+
+    calls = []
+
+    class Cursor:
+        def execute(self, query, params):
+            calls.append((query, params))
+
+        def fetchone(self):
+            return (1,) if claimed else None
+
+    def connect(dsn, **kwargs):
+        assert kwargs == {"options": "-c default_transaction_read_only=on"}
+        return nullcontext(NS(cursor=lambda: nullcontext(Cursor())))
+
+    monkeypatch.setattr("psycopg.connect", connect)
+    authority = driver._Authority("unused", NS())
+    if claimed:
+        with pytest.raises(driver.replay.ReplayStop, match="unaccounted"):
+            authority.require_unclaimed(NS(source_artifact_id="artifact:22"), "unused")
+    else:
+        authority.require_unclaimed(NS(source_artifact_id="artifact:22"), "unused")
+    assert len(calls) == 1 and calls[0][0].startswith("SELECT 1")
+    assert calls[0][1] == (driver.replay.WORLD_ID, "artifact:22")
+
+
+def test_checkpoint38_report_verification_is_read_only_local_evidence(checkpoint38):
+    s = checkpoint38
+    rows = driver._checkpoint38(
+        s.checkpoint_args["checkpoint38_report"],
+        json.loads((s.retained / "replay_ledger.json").read_text())["sessions"],
+    )
+    assert len(rows) == 38
+    assert rows[-1]["receipt_child_revision"] == driver.CHECKPOINT38_HEAD
+    assert not s.calls and not s.output.exists() and not s.authority.binding_calls
+
+
+def test_readonly_mode_requires_checkpoint38(setup):
+    with pytest.raises(driver.replay.ReplayStop, match="requires sealed report"):
+        run(setup, verify_checkpoint38_only=True)
+    assert not setup.calls
 
 
 def test_only_suffix_executes_and_prefix_stays_exact(setup):

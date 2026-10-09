@@ -387,6 +387,9 @@ def prepare_candidate_graph_admission(
     source_admission = prepare_kwargs.pop("source_admission", None)
     source_artifact = prepare_kwargs.pop("source_artifact", None)
     projected, dispositions, digest = _integrity_and_eligibility(candidate_graph)
+    context = prepare_kwargs.get("mutation_context")
+    if context is not None and context.reviewed_corpus_bindings:
+        prepare_kwargs["mutation_context"] = replace(context, exact_candidate_sha256=digest)
     has_structurally_admissible_nodes = bool(projected.get("nodes"))
     has_standing_context = prepare_kwargs.get("registry_context_graph") is not None
     if has_structurally_admissible_nodes or has_standing_context:
