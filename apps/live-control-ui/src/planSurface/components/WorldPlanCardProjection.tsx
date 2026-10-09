@@ -568,13 +568,14 @@ export function WorldPlanCardProjection({
         </nav>
         <SceneCard
           identity={{ worldId, documentId, sceneId: focusedScene.id,
-            revision: basis.status === "verified" ? basis.revision : null,
-            contentSha256: basis.status === "verified" ? basis.contentSha256 : null,
+            revision: basis.status === "verified" && !isDirty ? basis.revision : null,
+            contentSha256: basis.status === "verified" && !isDirty ? basis.contentSha256 : null,
             sourceState: isDirty || basis.status !== "verified" ? "draft" : "verified" }}
           scene={planSceneCardElement(focusedScene, 2)}
           choices={focusedChoices}
           variant="plan"
           kicker={`Focused Scene · ${model.version}`}
+          headingId="world-plan-focused-scene-heading"
           headerRef={focusedSceneHeadingRef}
           sceneActions={editAction("scene", focusedScene.id)}
           choiceActions={{

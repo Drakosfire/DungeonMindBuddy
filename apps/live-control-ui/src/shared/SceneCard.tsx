@@ -56,12 +56,13 @@ function Title({ element, level, className, headingId, headingRef, prefix, testI
   unsupportedMessage?: string;
 }) {
   if (element.titleBlock) return (
-    <ReadOnlyBodyContent
-      content={[element.titleBlock]}
-      className={className}
-      onActivateGraphNode={onActivateGraphNode}
-      unsupportedMessage={unsupportedMessage}
-    />
+    <div id={headingId} className={className}>
+      <ReadOnlyBodyContent
+        content={[element.titleBlock]}
+        onActivateGraphNode={onActivateGraphNode}
+        unsupportedMessage={unsupportedMessage}
+      />
+    </div>
   );
   const title = `${prefix ? `${prefix} ` : ""}${element.title || "Untitled Scene"}`;
   if (level === 2) return <h2 id={headingId} ref={headingRef} tabIndex={-1} className={className}>{title}</h2>;

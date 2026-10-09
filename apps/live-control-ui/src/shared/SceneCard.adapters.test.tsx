@@ -107,10 +107,20 @@ it.each(fixtureNames)("shows the %s Scene and its Choices through Plan focus and
   const planCard = screen.getByTestId("world-plan-scene-reader").querySelector<HTMLElement>("[data-scene-card]");
   expect(planCard).toHaveAttribute("data-scene-id", "scene:one");
   expect(planCard).toHaveAttribute("data-content-sha256", sha);
+  expect(planCard).toHaveAttribute("aria-labelledby", "world-plan-focused-scene-heading");
+  expect(document.getElementById("world-plan-focused-scene-heading")).toHaveTextContent(data.longTitle);
   expect(planCard).toHaveTextContent(data.longTitle);
   expect(planCard).toHaveTextContent(`${name} authored opening body.`);
   expect(planCard).toHaveTextContent(`${name} opening decision?`);
   expect(planCard).toHaveTextContent("Go ahead");
+  plan.rerender(<div style={{ width: 320 }}><WorldPlanCardProjection
+    worldId={data.run.world_id} documentId={documentId} document={imported.doc}
+    markdown={data.markdown} sourceWarnings={[]} basis={{ status: "verified", revision: 9, contentSha256: sha }}
+    isDirty onReturnToDocument={() => {}} /></div>);
+  const draftCard = screen.getByTestId("world-plan-scene-reader").querySelector<HTMLElement>("[data-scene-card]");
+  expect(draftCard).toHaveAttribute("data-source-state", "draft");
+  expect(draftCard).toHaveAttribute("data-source-revision", "");
+  expect(draftCard).toHaveAttribute("data-content-sha256", "");
   plan.unmount();
 
   render(<div style={{ width: 320 }}><PlayFixture data={data} /></div>);
