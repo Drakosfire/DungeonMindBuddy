@@ -287,10 +287,24 @@ class AgentTurnRequest(BaseModel):
                 self.primary_work.kind != "run"
                 or self.owner_scope is None
                 or self.owner_scope.kind != "world"
-                or self.graph_request.mode != "none"
                 or self.graph_selection is not None
             ):
-                raise ValueError("Play Run turns require a World owner and no Graph request")
+                raise ValueError("Play Run turns require a World owner and no Graph selection")
+            if self.graph_request.mode == "world" and (
+                self.graph_request.world_id != self.owner_scope.world_id
+                or self.graph_request.campaign_id is not None
+                or self.graph_request.focus.kind != "none"
+                or self.graph_request.revision_pin is not None
+            ):
+                raise ValueError("Play Run Graph requires the current owner World without narrative focus")
+            if self.graph_request.mode not in {"none", "world"}:
+                raise ValueError("Play Run Graph requires World scope")
+        if (
+            self.surface.surface_id == "play"
+            and self.graph_request.mode != "none"
+            and self.primary_work is None
+        ):
+            raise ValueError("Play Graph requires an exact saved Run")
         if self.primary_work is not None and self.primary_work.kind == "run" and self.surface.surface_id != "play":
             raise ValueError("Run work requires the Play surface")
         if self.graph_request.mode == "none":

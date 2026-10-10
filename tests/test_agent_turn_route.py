@@ -72,16 +72,27 @@ def _play_turn_payload(*, revision: int = 7) -> dict[str, Any]:
     }
 
 
-def test_play_run_turn_requires_world_owner_and_graphless_intent() -> None:
+def test_play_run_turn_requires_world_owner_and_bounded_graph_intent() -> None:
     payload = _play_turn_payload()
+    world_graph = {
+        "mode": "world", "world_id": "world-a", "campaign_id": None,
+        "revision_pin": None,
+        "focus": {"kind": "none", "session_id": None, "campaign_id": None},
+    }
+    assert AgentTurnRequest.model_validate({
+        **payload, "graph_request": world_graph,
+    }).graph_request.mode == "world"
     for change in (
         {"owner_scope": None},
         {"surface": {"surface_id": "plan", "instance_id": "plan-main"}},
-        {"graph_request": {
-            "mode": "world", "world_id": "world-a", "campaign_id": None,
-            "revision_pin": None,
-            "focus": {"kind": "none", "session_id": None, "campaign_id": None},
-        }},
+        {"graph_request": {**world_graph, "world_id": "world-b"}},
+        {"graph_request": world_graph, "primary_work": None, "client_work_state": "none"},
+        {"graph_request": {**world_graph, "campaign_id": "campaign-a"}},
+        {"graph_request": {**world_graph, "revision_pin": "old"}},
+        {"graph_request": {**world_graph, "focus": {
+            "kind": "session", "session_id": "session-a", "campaign_id": None,
+        }}},
+        {"graph_request": world_graph, "graph_selection": {"node_id": "node-a"}},
     ):
         with pytest.raises(ValueError):
             AgentTurnRequest.model_validate({**payload, **change})
@@ -253,6 +264,284 @@ def test_world_play_http_turn_replays_without_current_run_or_provider(
         assert [turn["provenance"]["surface_id"] for turn in turns] == ["play", "plan"]
         assert turns[0]["provenance"]["primary_work"]["kind"] == "run"
         assert turns[1]["provenance"]["primary_work"]["resolution"] == "absent"
+
+
+def test_play_world_graph_http_freezes_native_binding_and_independent_pins(
+    tmp_path: Path, monkeypatch: Any, application_state_dsn: str,
+) -> None:
+    from unittest.mock import patch
+    from application_state.agent_conversation import AgentConversationService
+    from application_state.agent_conversation.types import (
+        ConversationCommand, TurnSubmission, decode_play_graph_binding_references,
+    )
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+    from apps.live_control_server.main import create_app
+    from apps.live_control_server.routes import agent as route
+    from apps.live_control_server.services import agent_play_surface_context as play
+    from apps.live_control_server.services.agent_turn_service import (
+        _conversation_provenance, _submitted_turn_intent, _turn_idempotency_key,
+    )
+    from apps.live_control_server.services.world_container_registry import (
+        NativeGraphBindingRecord, create_world_container, world_source_root_relpath,
+    )
+    from apps.live_control_server.services import world_container_registry
+    from apps.live_control_server.services import managed_world_graph_projection
+    from dungeonmind.contracts.graph import PublishRevisionCommand
+    from dungeonmind.infrastructure.memory import (
+        InMemorySourceRepository, InMemoryWorldGraphRepository,
+    )
+    from tests._cutover_direct_dungeonmind_read_helpers import (
+        WORLD_ID as NATIVE_ID, NOW, _FakeBundle, _payload as graph_payload,
+        _receipt, _seed_sources,
+    )
+    from tests.test_agent_play_surface_context import (
+        _manifest, _world_committed, _world_play_record,
+    )
+
+    assert application_state_dsn
+    managed = create_world_container(tmp_path, name="Play Graph World")
+    assert managed.world_id != NATIVE_ID
+    (tmp_path / world_source_root_relpath(managed.world_id)).mkdir(parents=True, exist_ok=True)
+    binding = NativeGraphBindingRecord(
+        native_world_id=NATIVE_ID, binding_version=1, status="active",
+        validated_at="2026-10-10T00:00:00Z", validated_head_revision_id="initial",
+    )
+    current = {"record": managed.model_copy(update={"native_graph_binding": binding})}
+    monkeypatch.setattr(
+        world_container_registry, "get_world_container",
+        lambda _root, world_id: current["record"] if world_id == managed.world_id else None,
+    )
+    monkeypatch.setattr(
+        route, "get_world_container",
+        lambda _root, world_id: current["record"] if world_id == managed.world_id else None,
+    )
+    monkeypatch.setattr(
+        managed_world_graph_projection, "get_world_container",
+        lambda _root, world_id: current["record"] if world_id == managed.world_id else None,
+    )
+    graph = InMemoryWorldGraphRepository()
+    first = graph.publish_revision(PublishRevisionCommand(
+        world_id=NATIVE_ID, parent_revision_id=None, expected_parent_revision_id=None,
+        operation_ids=["op:play-graph-a"], graph_schema="dm_union_graph_v6",
+        graph_payload=graph_payload(), created_at=NOW,
+    ))
+    sources = InMemorySourceRepository()
+    seed = _seed_sources()
+    for artifact_id in ("src:world-lore", "src:one-notes", "src:one-recap", "src:player-sign"):
+        artifact = seed.get_artifact(artifact_id)
+        assert artifact is not None
+        sources.put_artifact(artifact)
+        revision = seed.get_revision(artifact.current_revision_id)
+        assert revision is not None
+        sources.put_revision(revision)
+    head = {"revision": first.revision_id}
+    native_reads: list[str] = []
+
+    def direct_services(world_id: str) -> Any:
+        native_reads.append(world_id)
+        assert world_id == NATIVE_ID
+        return direct.direct_services_from_bundle(
+            _FakeBundle(graph, sources, _receipt(NATIVE_ID, head["revision"])), NATIVE_ID,
+        )
+
+    monkeypatch.setattr(direct, "direct_services_from_config", direct_services)
+    auth_token = "test-play-world-graph-operator-token"
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "development")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", auth_token)
+    monkeypatch.setattr(route, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(route, "_managed_world_root", lambda: tmp_path)
+    monkeypatch.setattr(route, "session_dir", lambda: tmp_path / "sessions")
+    service = AgentConversationService()
+    monkeypatch.setattr(route, "_conversation_service", lambda _request: service)
+    runtime = FakeRuntime()
+    app = create_app()
+    app.state.agent_turn_runtime = runtime
+    payload = {
+        **_play_turn_payload(),
+        "owner_scope": {"kind": "world", "world_id": managed.world_id},
+        "graph_request": {
+            "mode": "world", "world_id": managed.world_id,
+            "campaign_id": None, "revision_pin": None,
+            "focus": {"kind": "none", "session_id": None, "campaign_id": None},
+        },
+        "message": "Where is the tavern?",
+    }
+
+    async def post(value: dict[str, Any]) -> httpx.Response:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, client=("127.0.0.1", 50000)),
+            base_url="http://test",
+        ) as client:
+            return await client.post(
+                "/api/live/agent/turn", json=value,
+                headers={"Authorization": f"Bearer {auth_token}"},
+            )
+
+    with (
+        patch.object(play, "get_world_play_run", return_value=_world_play_record(world_id=managed.world_id)) as get_run,
+        patch.object(play, "get_committed_playable_revision", return_value=_world_committed(world_id=managed.world_id)) as get_runbook,
+        patch.object(play, "get_world_play_run_reference_manifest", return_value=_manifest()),
+    ):
+        stale = asyncio.run(post({**payload, "turn_id": "stale", "primary_work": {
+            **payload["primary_work"], "expected_revision": 6,
+        }}))
+        assert stale.status_code == 409, stale.text
+        assert native_reads == [] and runtime.invocations == []
+        get_run.return_value = _world_play_record(world_id="foreign-world")
+        foreign = asyncio.run(post({**payload, "turn_id": "foreign-run"}))
+        assert foreign.status_code == 409, foreign.text
+        assert native_reads == [] and runtime.invocations == []
+        get_run.return_value = _world_play_record(world_id=managed.world_id)
+
+        request = AgentTurnRequest.model_validate(payload)
+        work = route._work_resolver(request, {"kind": "world", "id": managed.world_id})
+        assert work is not None
+        envelope, scope = route._graph_resolver(request, {"kind": "world", "id": managed.world_id}, work)
+        provenance = _conversation_provenance(
+            request, world_id=managed.world_id, work=work,
+            graph_scope=scope, graph_envelope=envelope,
+        )
+        receipt = decode_play_graph_binding_references(provenance)
+        assert receipt is not None and receipt.native_world_id == NATIVE_ID
+        assert receipt.binding_version == 1
+        service.new_conversation(ConversationCommand(
+            world_id=managed.world_id, command_id=uuid4(),
+            expected_pointer_revision=0, expected_active_conversation_id=None,
+        ))
+        active = service.get_active_conversation(managed.world_id)
+        assert active is not None
+        service.accept_turn(TurnSubmission(
+            world_id=managed.world_id, conversation_id=active.conversation_id,
+            idempotency_key=_turn_idempotency_key(managed.world_id, request.turn_id),
+            expected_conversation_revision=active.revision,
+            user_text=request.message, provenance=provenance,
+            submitted_intent_v1=_submitted_turn_intent(request, world_id=managed.world_id),
+        ))
+        second = graph.publish_revision(PublishRevisionCommand(
+            world_id=NATIVE_ID, parent_revision_id=first.revision_id,
+            expected_parent_revision_id=first.revision_id,
+            operation_ids=["op:play-graph-b"], graph_schema="dm_union_graph_v6",
+            graph_payload=graph_payload(), created_at=NOW,
+        ))
+        head["revision"] = second.revision_id
+        get_run.side_effect = AssertionError("pending retry read current Run progress")
+        frozen = asyncio.run(post(payload))
+        assert frozen.status_code == 200, frozen.text
+        assert frozen.json()["graph"]["revision_id"] == first.revision_id
+        assert runtime.invocations[0].context_packet.world_scope.world_id == NATIVE_ID
+        assert runtime.invocations[0].context_packet.world_scope.revision_id == first.revision_id
+        assert "The Prancing Tavern" in str(
+            runtime.invocations[0].context_packet.retrieval_session.packet
+        )
+        get_run.side_effect = None
+        get_run.return_value = _world_play_record(world_id=managed.world_id, run_revision=8)
+        current_turn = asyncio.run(post({
+            **payload, "turn_id": "play-turn-2",
+            "primary_work": {**payload["primary_work"], "expected_revision": 8},
+        }))
+        assert current_turn.status_code == 200, current_turn.text
+        assert current_turn.json()["graph"]["revision_id"] == second.revision_id
+        get_run.side_effect = AssertionError("completed retry read mutable Run")
+        get_runbook.side_effect = AssertionError("completed retry read mutable Runbook")
+        reads_before = len(native_reads)
+        replay = asyncio.run(post(payload))
+        assert replay.status_code == 200, replay.text
+        assert replay.json()["graph"]["revision_id"] == first.revision_id
+        assert len(native_reads) == reads_before and len(runtime.invocations) == 2
+        altered = asyncio.run(post({**payload, "message": "Altered intent"}))
+        assert altered.status_code == 409
+        monkeypatch.setattr(route, "_conversation_service", lambda _request: AgentConversationService())
+        async def history() -> httpx.Response:
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+                return await client.get(
+                    f"/api/live/agent/worlds/{managed.world_id}/conversation",
+                    headers={"Authorization": f"Bearer {auth_token}"},
+                )
+        listed = asyncio.run(history())
+        assert listed.status_code == 200, listed.text
+        refs = [turn["provenance"]["supporting_work"] for turn in listed.json()["turns"]]
+        assert [next(ref["revision"] for ref in group if ref["kind"] == "world_graph_revision") for group in refs] == [first.revision_id, second.revision_id]
+        assert [next(ref["revision"] for ref in group if ref["kind"] == "dmb_play_graph_binding_v1") for group in refs] == ["1", "1"]
+        assert all(next(ref["object_id"] for ref in group if ref["kind"] == "world_graph_revision") == NATIVE_ID for group in refs)
+
+        get_run.side_effect = None
+        get_runbook.side_effect = None
+        without_binding = current["record"].model_copy(update={"native_graph_binding": None})
+        current["record"] = without_binding
+        reads_before = len(native_reads)
+        missing = asyncio.run(post({
+            **payload, "turn_id": "play-missing-binding",
+            "primary_work": {**payload["primary_work"], "expected_revision": 8},
+        }))
+        assert missing.status_code == 409, missing.text
+        assert len(native_reads) == reads_before and len(runtime.invocations) == 2
+
+        current["record"] = managed.model_copy(update={"native_graph_binding": binding})
+        with patch.object(direct, "direct_services_from_config", return_value=None):
+            unavailable = asyncio.run(post({
+                **payload, "turn_id": "play-graph-unavailable",
+                "primary_work": {**payload["primary_work"], "expected_revision": 8},
+            }))
+        assert unavailable.status_code == 503, unavailable.text
+        assert len(runtime.invocations) == 2
+        retry_payload = {
+            **payload, "turn_id": "play-pending-rebind",
+            "primary_work": {**payload["primary_work"], "expected_revision": 8},
+        }
+        retry_request = AgentTurnRequest.model_validate(retry_payload)
+        retry_work = route._work_resolver(retry_request, {"kind": "world", "id": managed.world_id})
+        assert retry_work is not None
+        retry_envelope, retry_scope = route._graph_resolver(
+            retry_request, {"kind": "world", "id": managed.world_id}, retry_work,
+        )
+        retry_provenance = _conversation_provenance(
+            retry_request, world_id=managed.world_id, work=retry_work,
+            graph_scope=retry_scope, graph_envelope=retry_envelope,
+        )
+        active = service.get_active_conversation(managed.world_id)
+        assert active is not None
+        service.accept_turn(TurnSubmission(
+            world_id=managed.world_id, conversation_id=active.conversation_id,
+            idempotency_key=_turn_idempotency_key(managed.world_id, retry_request.turn_id),
+            expected_conversation_revision=active.revision,
+            user_text=retry_request.message, provenance=retry_provenance,
+            submitted_intent_v1=_submitted_turn_intent(retry_request, world_id=managed.world_id),
+        ))
+        current["record"] = managed.model_copy(update={
+            "native_graph_binding": binding.model_copy(update={"binding_version": 2}),
+        })
+        reads_before = len(native_reads)
+        rebound = asyncio.run(post(retry_payload))
+        assert rebound.status_code == 409, rebound.text
+        assert len(native_reads) == reads_before
+        current["record"] = managed.model_copy(update={
+            "native_graph_binding": binding.model_copy(update={
+                "native_world_id": "native:other", "binding_version": 2,
+            }),
+        })
+        rebound_native = asyncio.run(post(retry_payload))
+        assert rebound_native.status_code == 409, rebound_native.text
+        assert len(native_reads) == reads_before
+        assert len(runtime.invocations) == 2
+
+        current["record"] = managed.model_copy(update={"native_graph_binding": binding})
+        original_precheck = route.resolve_managed_world_binding
+
+        def rebind_after_precheck(*args: Any, **kwargs: Any) -> Any:
+            verified = original_precheck(*args, **kwargs)
+            current["record"] = managed.model_copy(update={
+                "native_graph_binding": binding.model_copy(update={
+                    "native_world_id": "native:after-precheck", "binding_version": 2,
+                }),
+            })
+            return verified
+
+        with patch.object(route, "resolve_managed_world_binding", rebind_after_precheck):
+            raced = asyncio.run(post(retry_payload))
+        assert raced.status_code == 409, raced.text
+        assert len(native_reads) == reads_before
+        assert len(runtime.invocations) == 2
 
 
 @pytest.mark.parametrize(

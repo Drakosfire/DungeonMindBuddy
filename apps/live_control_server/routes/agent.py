@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import ValidationError
 
 from application_state.agent_conversation import AgentConversationService
-from application_state.agent_conversation.types import ConversationCommand, CommandResolutionRequestV1, TurnProvenance, decode_play_run_turn_context_references, request_fingerprint
+from application_state.agent_conversation.types import ConversationCommand, CommandResolutionRequestV1, PlayGraphBindingReceiptV1, TurnProvenance, decode_play_run_turn_context_references, request_fingerprint
 from application_state.errors import ApplicationStateError
 
 from apps.live_control_server.config import (
@@ -55,6 +55,18 @@ from apps.live_control_server.services.agent_turn_service import (
     build_existing_graph_context,
     execute_agent_turn,
     project_plan_turn_context,
+)
+from apps.live_control_server.services.agent_runtime import AgentWorldScope
+from apps.live_control_server.services.agent_world_graph_query_context import (
+    adapt_projection_to_agent_envelope,
+)
+from apps.live_control_server.services.managed_world_graph_projection import (
+    ManagedWorldGraphProjectionRequest,
+    project_managed_world_graph,
+    resolve_managed_world_binding,
+)
+from apps.live_control_server.services.world_graph_projection import (
+    WorldGraphProjectionServiceError,
 )
 from apps.live_control_server.services.hermes_session_store import (
     HermesSessionPointerStore,
@@ -410,11 +422,77 @@ def _graph_resolver(
     body: AgentTurnRequest,
     owner: Mapping[str, Any] | None,
     work: AgentTurnResolvedWork | None,
+    *,
+    expected_play_binding: PlayGraphBindingReceiptV1 | None = None,
 ) -> tuple[dict[str, Any], Any]:
     graph = body.graph_request
     if graph.mode == "none":
         raise AgentTurnServiceError(
             "Graph was not requested.", code="graph_not_requested"
+        )
+    if body.surface.surface_id == "play" and body.primary_work is not None:
+        if (
+            graph.mode != "world" or owner is None
+            or owner.get("kind") != "world" or owner.get("id") != graph.world_id
+            or work is None or work.kind != "run" or work.world_id != graph.world_id
+            or graph.campaign_id is not None or graph.focus.kind != "none"
+            or body.graph_selection is not None
+        ):
+            raise AgentTurnServiceError(
+                "Play Graph requires the exact resolved Run and owner World.",
+                code="graph_scope_rejected", status_code=403,
+            )
+        try:
+            current_binding = None
+            if expected_play_binding is not None:
+                current_binding = resolve_managed_world_binding(
+                    graph.world_id, root=_managed_world_root(),
+                )
+                if (
+                    current_binding.managed_world_id != expected_play_binding.managed_world_id
+                    or current_binding.native_world_id != expected_play_binding.native_world_id
+                    or current_binding.binding_version != expected_play_binding.binding_version
+                ):
+                    raise AgentTurnServiceError(
+                        "The native World Graph binding changed after turn acceptance.",
+                        code="turn_receipt_unverifiable", status_code=409,
+                    )
+            bound = project_managed_world_graph(
+                ManagedWorldGraphProjectionRequest(
+                    schema_="dmb_managed_world_graph_projection_request_v1",
+                    managed_world_id=graph.world_id,
+                    revision_pin=graph.revision_pin,
+                    query_text=body.message,
+                ),
+                root=_managed_world_root(),
+                expected_binding=current_binding,
+            )
+        except WorldGraphProjectionServiceError as exc:
+            raise AgentTurnServiceError(
+                "The managed World Graph binding or revision is unavailable.",
+                code="graph_unavailable", status_code=(
+                    exc.status_code if exc.status_code in {404, 409, 503} else 503
+                ),
+            ) from exc
+        envelope = adapt_projection_to_agent_envelope(
+            bound.projection, query_text=body.message,
+        )
+        if (
+            bound.managed_world_id != graph.world_id
+            or envelope.get("world_id") != bound.native_world_id
+            or envelope.get("scope_mode") != "world"
+            or envelope.get("admissibility") != "gm"
+        ):
+            raise AgentTurnServiceError(
+                "The native Graph projection does not match its verified binding.",
+                code="graph_scope_rejected", status_code=409,
+            )
+        envelope["managed_world_id"] = bound.managed_world_id
+        envelope["binding_version"] = bound.binding_version
+        return envelope, AgentWorldScope(
+            world_id=bound.native_world_id,
+            campaign_id="", focus=envelope["focus"], admissibility="gm",
+            revision_id=str(envelope.get("revision_id") or ""), scope_mode="world",
         )
     if graph.mode == "world":
         requested_world_id = graph.world_id
