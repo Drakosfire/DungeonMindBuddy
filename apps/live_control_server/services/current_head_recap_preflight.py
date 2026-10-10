@@ -42,6 +42,7 @@ class ExpectedSource:
     content_sha256: str
     original_path: str
     normalized_sha256: str
+    source_domain: str = "session_recap"
 
     @property
     def key(self) -> tuple[str, str]:
@@ -206,6 +207,14 @@ def _classify_source(
         for source in pair_rows
         if source.content_sha256 != expected.content_sha256
     ]
+    divergent_alternate = [
+        source
+        for source in native_sources
+        if source.campaign_id == expected.campaign_id
+        and source.session_id == expected.session_id
+        and source.source_artifact_id != expected.source_artifact_id
+        and source.content_sha256 not in (None, expected.content_sha256)
+    ]
     nearby = [
         source
         for source in native_sources
@@ -231,6 +240,13 @@ def _classify_source(
             observed_evidence_payload,
             pinned_evidence_payload,
         )
+    if divergent_alternate:
+        return (
+            "digest_conflict",
+            [_source_identity(row) for row in nearby],
+            observed_evidence_payload,
+            pinned_evidence_payload,
+        )
     if not pair_rows:
         return (
             "missing_source_pair",
@@ -241,6 +257,18 @@ def _classify_source(
     if not exact_identity:
         return (
             "digest_conflict",
+            [_source_identity(row) for row in nearby],
+            observed_evidence_payload,
+            pinned_evidence_payload,
+        )
+    if any(
+        source.campaign_id != expected.campaign_id
+        or source.session_id != expected.session_id
+        or source.source_domain != expected.source_domain
+        for source in exact_identity
+    ):
+        return (
+            "source_identity_conflict",
             [_source_identity(row) for row in nearby],
             observed_evidence_payload,
             pinned_evidence_payload,
@@ -271,6 +299,7 @@ _NEXT_ACTION = {
     "exact_match": "review exact source and graph evidence tuple; no admission implied",
     "missing_source_pair": "locate the exact native artifact/revision pair; do not substitute another session artifact",
     "digest_conflict": "resolve the exact artifact/revision digest conflict without overwriting source bytes",
+    "source_identity_conflict": "resolve campaign, session, or source-domain identity mismatch before review",
     "graph_evidence_absent": "inspect evidence binding at the pinned head before proposing any admission",
     "parent_head_drift": "discard this plan and rerun against a newly observed head",
     "graph_evidence_unavailable": "obtain a complete pinned-head evidence index before review",
@@ -411,17 +440,17 @@ def _native_source_inventory(bundle: Any, world_id: str) -> tuple[NativeSource, 
     return tuple(rows)
 
 
-def read_current_head_observations(
-    *,
-    world_id: str = DEFAULT_WORLD_ID,
-) -> tuple[str, str, tuple[NativeSource, ...], tuple[GraphEvidence, ...], bool]:
-    """Read source inventory and graph anchors under one pinned Buddy read bundle."""
+@dataclass(frozen=True)
+class CurrentHeadReadDependencies:
+    database_url: str
+    database_factory: Any
+    bundle_factory: Any
+    services_factory: Any
+    source_anchor_index: Any
+    search_request_factory: Any
 
-    if world_id != DEFAULT_WORLD_ID:
-        raise RuntimeError("world_id_must_be_eldyrwild")
 
-    # These imports stay lazy so pure planner tests do not require a live
-    # DungeonMind installation or open a database connection.
+def _production_read_dependencies() -> CurrentHeadReadDependencies:
     from apps.live_control_server import config
     from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
         direct_services_from_bundle,
@@ -436,13 +465,34 @@ def read_current_head_observations(
     database_url = config.world_graph_authority_database_url()
     if not database_url:
         raise RuntimeError("authority_unavailable")
-    bundle = PostgresRepositoryBundle(PostgresDatabase(database_url))
-    services = direct_services_from_bundle(bundle, world_id)
+    return CurrentHeadReadDependencies(
+        database_url=database_url,
+        database_factory=PostgresDatabase,
+        bundle_factory=PostgresRepositoryBundle,
+        services_factory=direct_services_from_bundle,
+        source_anchor_index=list_source_anchor_index_direct_v2,
+        search_request_factory=WorldGraphSearchRequest.model_validate,
+    )
+
+
+def read_current_head_observations(
+    *,
+    world_id: str = DEFAULT_WORLD_ID,
+    dependencies: CurrentHeadReadDependencies | None = None,
+) -> tuple[str, str, tuple[NativeSource, ...], tuple[GraphEvidence, ...], bool]:
+    """Read source inventory and graph anchors under one pinned Buddy read bundle."""
+
+    if world_id != DEFAULT_WORLD_ID:
+        raise RuntimeError("world_id_must_be_eldyrwild")
+
+    deps = dependencies or _production_read_dependencies()
+    bundle = deps.bundle_factory(deps.database_factory(deps.database_url))
+    services = deps.services_factory(bundle, world_id)
     pinned_head = services.binding.dungeonmind_head_revision_id
     if not pinned_head:
         raise RuntimeError("current_head_unavailable")
     native_sources = _native_source_inventory(bundle, world_id)
-    request = WorldGraphSearchRequest.model_validate(
+    request = deps.search_request_factory(
         {
             "schema": "dmb_world_graph_search_request_v1",
             "worldId": world_id,
@@ -461,7 +511,7 @@ def read_current_head_observations(
             },
         }
     )
-    index = list_source_anchor_index_direct_v2(
+    index = deps.source_anchor_index(
         services, request, revision_id=pinned_head
     )
     if index.status == "complete":
