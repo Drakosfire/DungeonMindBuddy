@@ -282,6 +282,17 @@ class AgentTurnRequest(BaseModel):
                 )
             if self.graph_request.mode != "none":
                 raise ValueError("Plan content turns require graph_request.mode=none")
+        if self.surface.surface_id == "play" and self.primary_work is not None:
+            if (
+                self.primary_work.kind != "run"
+                or self.owner_scope is None
+                or self.owner_scope.kind != "world"
+                or self.graph_request.mode != "none"
+                or self.graph_selection is not None
+            ):
+                raise ValueError("Play Run turns require a World owner and no Graph request")
+        if self.primary_work is not None and self.primary_work.kind == "run" and self.surface.surface_id != "play":
+            raise ValueError("Run work requires the Play surface")
         if self.graph_request.mode == "none":
             if self.graph_selection is not None:
                 raise ValueError("graph selection requires an explicit graph request")
