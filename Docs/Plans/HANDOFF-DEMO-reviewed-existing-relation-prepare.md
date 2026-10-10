@@ -1,0 +1,24 @@
+# HANDOFF — DEMO reviewed relations between existing nodes
+
+**Status:** ACTIVE bounded preparation slice; PRIME owns exact-head review and merge. **Base:** Buddy `fa47c5cfa64fe83802d1f19740b2db6f9000e20c`; Core `955a94ecc7d1608681670717603854e80f486f8a` inspected, with Buddy's installed Core pin unchanged. **Authority:** [PRIME lease comment 6096153075](https://github.com/Drakosfire/DungeonMindBuddy/pull/1060#issuecomment-6096153075).
+
+## Outcome
+
+An internal, trusted GM execution path can prepare a digested Core v2 review intent for semantically reviewed relations whose endpoints already exist in the selected native World graph. Preparation reads the admitted native ExtractionRun and pinned v6 parent; it verifies the exact source body, revision, span, endpoints, kinds, predicate, campaign, and ID collisions. It preserves the extraction and writes no graph state. A separate semantic review artifact supplies the human-level relation verdict; the service does not infer that verdict from labels. Core's existing finalize and publication operations remain the only commit path and retain their own capability and head gates.
+
+The internal input carries a policy enabling the exact `dungeonbuddy.prepare_reviewed_existing_relations` preview-write effect under a pinned GM graph scope, an active managed-World/native-graph binding, and the exact `service:buddy:reviewed-relations` principal. Core's `reviewer_id` and contribution `authored_by` use that service principal. The separate pinned semantic artifact identifies an `agent_steward` and is recorded by ID/digest in candidate diagnostics; this slice makes no human-review claim. Each accepted assertion is an edge with explicit accepted verdict; identity proposals and verdicts are empty. Source spans and any candidate anchor quotes are checked against frozen source bytes, while the reviewed canonical endpoints remain independent of the extraction's candidate identities.
+
+## Exact write lease
+
+- `apps/live_control_server/models/reviewed_existing_relation_prepare.py`
+- `apps/live_control_server/services/reviewed_existing_relation_prepare.py`
+- `tests/test_reviewed_existing_relation_prepare.py`
+- This handoff
+
+No route, public arbitrary-target API, Core implementation, dependency pin, original extraction rewrite, node creation, blocked-candidate retarget, fake human reviewer, special command, runtime, corpus, or production database change belongs to this slice. The private review artifact at `/tmp/prime-c1s1-reviewed-existing-relations.json` is semantic review evidence only; its SHA256 is `2a56e14aad9d094166f0ac3aa63e11f21ee3802b002d0f156b0ce6e7aeb4eb8a`. It is neither a service credential nor a publication receipt and is not copied into the PR.
+
+## Verification and handback
+
+Owning synthetic cases must cover accepted existing endpoints and admitted source/span proof; missing or foreign endpoints; source body/revision/span drift; stale parent or payload digest; unsupported predicate and kind pair; relationship and evidence ID collision; exact empty identity proposals/verdicts; and consumption by the existing Core v2 finalize/materialize/publication seam in an isolated fixture with the original nodes preserved and exact replay. Use disposable PostgreSQL only if that invariant cannot be proved with the Core in-memory repositories. Record actual commands/results and exact PR head here and in the PR body. PRIME independently reviews and merges; this slice does not claim a real-data rehearsal or operator acceptance.
+
+**Synthetic verification, 2026-10-10:** `tests/test_reviewed_existing_relation_prepare.py` passes 23/23 against Buddy's installed Core pin `b789ddc207a0a5a820a11f85e18d203d355d8f53` and separately against inspected Core `955a94ecc7d1608681670717603854e80f486f8a`. The suite uses Core in-memory repositories and existing finalize/materialize/publication operations, verifying original node identity and exact publication replay. It supplies synthetic run/World resolver records to exercise the preparation service's byte/digest/span/source-catalog gates; actual registry, PostgreSQL, and retained C1 data were not used. Ruff check passes on the three Python paths. The project-wide Python environment could not be synced offline because its local `out/hermes-agent` directory is absent from this checkout; the focused suite ran with Core's virtual environment and both exact Core source trees. No dependency pin or runtime state changed.
