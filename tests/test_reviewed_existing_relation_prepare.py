@@ -311,6 +311,114 @@ def _case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
     return locals()
 
 
+def _multi_edge_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
+    case = _case(tmp_path, monkeypatch)
+    parent_evidence = case["graph_payload"]["evidence_refs"][0]["evidence_ref_id"]
+    extra_objects = [
+        {
+            "object_id": "npc:guard",
+            "kind": "dnd5e:npc",
+            "label": "Guard",
+            "assertion_metadata": _metadata("ka:guard", parent_evidence),
+        },
+        {
+            "object_id": "loc:tower",
+            "kind": "dnd5e:location",
+            "label": "Tower",
+            "assertion_metadata": _metadata("ka:tower", parent_evidence),
+        },
+    ]
+    graph_payload = UnionGraphV6Payload.model_validate(
+        {
+            **case["graph_payload"],
+            "objects": [*case["graph_payload"]["objects"], *extra_objects],
+        }
+    ).model_dump(mode="json")
+    graph = InMemoryWorldGraphRepository()
+    parent = graph.publish_revision(
+        PublishRevisionCommand(
+            world_id=WORLD,
+            parent_revision_id=None,
+            expected_parent_revision_id=None,
+            operation_ids=["init:test-multiedge-relations"],
+            graph_schema=GRAPH_SCHEMA_V6,
+            graph_payload=graph_payload,
+            created_at=NOW,
+        )
+    )
+    case.update(graph=graph, graph_payload=graph_payload, parent=parent)
+    case["context"] = case["context"].model_copy(
+        update={
+            "expected_parent_revision_id": parent.revision_id,
+            "expected_parent_payload_sha256": canonical_sha256(graph_payload),
+        }
+    )
+
+    relations = [
+        ReviewedExistingRelation(
+            candidate_edge_id="edge:candidate:a",
+            relationship_id="edge:reviewed:a",
+            subject_object_id="npc:scout",
+            subject_kind="dnd5e:npc",
+            qualified_predicate="dnd5e:aware_of",
+            object_object_id="loc:gate",
+            object_kind="dnd5e:location",
+            source_span_ids=[case["span_id"]],
+            semantic_rationale="Reviewed relation one.",
+        ),
+        ReviewedExistingRelation(
+            candidate_edge_id="edge:candidate:b",
+            relationship_id="edge:reviewed:b",
+            subject_object_id="npc:guard",
+            subject_kind="dnd5e:npc",
+            qualified_predicate="dnd5e:aware_of",
+            object_object_id="loc:tower",
+            object_kind="dnd5e:location",
+            source_span_ids=[case["span_id"]],
+            semantic_rationale="Reviewed relation two.",
+        ),
+        ReviewedExistingRelation(
+            candidate_edge_id="edge:candidate:c",
+            relationship_id="edge:reviewed:c",
+            subject_object_id="npc:scout",
+            subject_kind="dnd5e:npc",
+            qualified_predicate="dnd5e:aware_of",
+            object_object_id="loc:tower",
+            object_kind="dnd5e:location",
+            source_span_ids=[case["span_id"]],
+            semantic_rationale="Reviewed relation three.",
+        ),
+    ]
+    candidate = {
+        "campaign_id": CAMPAIGN,
+        "edges": [
+            {
+                "edge_id": relation.candidate_edge_id,
+                "evidence_refs": [
+                    {
+                        "source_artifact_id": ARTIFACT,
+                        "source_span_ref_id": case["span_id"],
+                        "anchor_quotes": ["knows the gate"],
+                    }
+                ],
+            }
+            for relation in relations
+        ],
+    }
+    candidate_bytes = json.dumps(candidate, sort_keys=True).encode()
+    case["candidate_path"].write_bytes(candidate_bytes)
+    candidate_sha = _sha(candidate_bytes)
+    case["run"].components["candidate_graph"].sha256 = "sha256:" + candidate_sha
+    _rebind(
+        case,
+        candidate_graph_sha256=candidate_sha,
+        expected_parent_revision_id=parent.revision_id,
+        expected_parent_payload_sha256=canonical_sha256(graph_payload),
+        relations=relations,
+    )
+    return case
+
+
 def _prepare(case: dict):
     return subject.prepare_reviewed_existing_relations(
         case["context"],
@@ -323,30 +431,7 @@ def _prepare(case: dict):
     )
 
 
-def _rebind(case: dict, **changes) -> None:
-    review = case["review"].model_copy(update=changes)
-    case["review"] = review.model_copy(
-        update={"review_sha256": subject._record_digest(review)}
-    )
-
-
-def test_prepares_only_reviewed_existing_edges_and_core_publishes_exact_replay(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    case = _case(tmp_path, monkeypatch)
-    intent = _prepare(case)
-    assert intent.identity_proposals == intent.identity_verdicts == []
-    assert len(intent.candidate_contribution.assertions) == 1
-    assert intent.candidate_contribution.assertions[0].assertion_kind == "edge"
-    assert intent.reviewer_id == "service:buddy:reviewed-relations"
-    assert (
-        intent.candidate_contribution.diagnostics["semantic_reviewer_id"]
-        == "steward:prime"
-    )
-    assert case["graph"].get_head(WORLD).head_revision_id == case["parent"].revision_id
-    assert _prepare(case) == intent
-
+def _finalize_publish(case: dict, intent):
     reviews = InMemoryContributionReviewRepository(InMemoryContributionRepository())
     publications = InMemoryFinalizedReviewPublicationRepository(reviews, case["graph"])
     confirmation = CommitConfirmationReceiptV2(
@@ -389,8 +474,36 @@ def test_prepares_only_reviewed_existing_edges_and_core_publishes_exact_replay(
         publication_repository=publications,
         graph_reader=reader,
     )
-    assert replay == result
     published = case["graph"].get_revision(WORLD, result.published_revision_id)
+    return result, replay, published
+
+
+def _rebind(case: dict, **changes) -> None:
+    review = case["review"].model_copy(update=changes)
+    case["review"] = review.model_copy(
+        update={"review_sha256": subject._record_digest(review)}
+    )
+
+
+def test_prepares_only_reviewed_existing_edges_and_core_publishes_exact_replay(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    case = _case(tmp_path, monkeypatch)
+    intent = _prepare(case)
+    assert intent.identity_proposals == intent.identity_verdicts == []
+    assert len(intent.candidate_contribution.assertions) == 1
+    assert intent.candidate_contribution.assertions[0].assertion_kind == "edge"
+    assert intent.reviewer_id == "service:buddy:reviewed-relations"
+    assert (
+        intent.candidate_contribution.diagnostics["semantic_reviewer_id"]
+        == "steward:prime"
+    )
+    assert case["graph"].get_head(WORLD).head_revision_id == case["parent"].revision_id
+    assert _prepare(case) == intent
+
+    result, replay, published = _finalize_publish(case, intent)
+    assert replay == result
     assert published is not None
     assert [item["object_id"] for item in published.graph_payload["objects"]] == [
         "npc:scout",
@@ -402,6 +515,44 @@ def test_prepares_only_reviewed_existing_edges_and_core_publishes_exact_replay(
     metadata = published.graph_payload["relationships"][0]["assertion_metadata"]
     assert metadata["session_refs"] == ["session-1"]
     assert metadata["temporal_scope"]["kind"] == "unknown"
+
+
+def test_multi_edge_verdicts_follow_core_assertion_id_order_and_publish_exact_replay(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    case = _multi_edge_case(tmp_path, monkeypatch)
+    intent = _prepare(case)
+    assert len(intent.candidate_contribution.assertions) == 3
+
+    relationship_order_ids = [
+        assertion.assertion_id
+        for relation in sorted(
+            case["review"].relations, key=lambda item: item.relationship_id
+        )
+        for assertion in intent.candidate_contribution.assertions
+        if json.loads(assertion.value)["edge_id"] == relation.relationship_id
+    ]
+    verdict_ids = [verdict.assertion_id for verdict in intent.assertion_verdicts]
+    assert relationship_order_ids != sorted(relationship_order_ids)
+    assert verdict_ids == sorted(verdict_ids)
+
+    result, replay, published = _finalize_publish(case, intent)
+    assert replay == result
+    assert published is not None
+    assert [item["object_id"] for item in published.graph_payload["objects"]] == [
+        "npc:scout",
+        "loc:gate",
+        "npc:guard",
+        "loc:tower",
+    ]
+    assert [
+        item["relationship_id"] for item in published.graph_payload["relationships"]
+    ] == ["edge:reviewed:a", "edge:reviewed:b", "edge:reviewed:c"]
+    assert all(
+        item["assertion_metadata"]["session_refs"] == ["session-1"]
+        for item in published.graph_payload["relationships"]
+    )
 
 
 @pytest.mark.parametrize(

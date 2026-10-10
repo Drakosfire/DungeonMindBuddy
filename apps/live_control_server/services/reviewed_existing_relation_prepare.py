@@ -483,6 +483,8 @@ def prepare_reviewed_existing_relations(
             )
         )
 
+    verdicts.sort(key=lambda verdict: verdict.assertion_id)
+
     contribution = GraphContributionV2(
         contribution_id="contrib:reviewed:" + review.review_sha256,
         world_id=context.native_world_id,
