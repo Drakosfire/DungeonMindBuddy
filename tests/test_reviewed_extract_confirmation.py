@@ -437,6 +437,13 @@ def test_writer_uses_frozen_review_time_and_recovers_lost_responses(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, lost_response: str | None
 ) -> None:
     from dungeonmind.application import contribution_review_v2, review_publication
+    from graph_memory import extract_promote_proposal
+
+    # This recovery test uses a synthetic package with no recap contribution.
+    # The source-local identity basis is exercised by admission/confirm tests.
+    monkeypatch.setattr(
+        extract_promote_proposal, "verify_source_local_identity_basis", lambda *_a, **_k: None
+    )
 
     case, _package, binding, _old_bundle, _state = _finalized_case(
         tmp_path, monkeypatch

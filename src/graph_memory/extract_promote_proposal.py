@@ -76,6 +76,7 @@ def build_contribution_effect_slice(
     unresolved_mentions: Sequence[ContributionIdentityMention],
     node_id_map: Mapping[str, str],
     identity_outcome_snapshot: Mapping[str, str],
+    identity_basis: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """One sealed contribution slice inside a v3 multi-contribution effect."""
     uri = (verified_source_uri or "").strip()
@@ -121,6 +122,7 @@ def build_contribution_effect_slice(
         "identity_outcome_snapshot": dict(
             sorted((str(k), str(v)) for k, v in identity_outcome_snapshot.items())
         ),
+        **({"identity_basis": dict(identity_basis)} if identity_basis else {}),
     }
 
 
@@ -140,6 +142,7 @@ def build_effect_body(
     unresolved_mentions: Sequence[ContributionIdentityMention],
     node_id_map: Mapping[str, str],
     identity_outcome_snapshot: Mapping[str, str],
+    identity_basis: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a v2-shaped single-contribution effect (also used as primary mirror)."""
     slice_body = build_contribution_effect_slice(
@@ -155,6 +158,7 @@ def build_effect_body(
         unresolved_mentions=unresolved_mentions,
         node_id_map=node_id_map,
         identity_outcome_snapshot=identity_outcome_snapshot,
+        identity_basis=identity_basis,
     )
     return {
         "world_id": world_id,
@@ -344,6 +348,7 @@ def seal_promote_proposal(
     unresolved_mentions: Sequence[ContributionIdentityMention],
     node_id_map: Mapping[str, str],
     identity_outcome_snapshot: Mapping[str, str],
+    identity_basis: Mapping[str, Any] | None = None,
     prepared_by: str,
     scorer_report: Mapping[str, Any] | None = None,
     diagnostics: Sequence[str] | None = None,
@@ -377,6 +382,7 @@ def seal_promote_proposal(
             unresolved_mentions=unresolved_mentions,
             node_id_map=node_id_map,
             identity_outcome_snapshot=identity_outcome_snapshot,
+            identity_basis=identity_basis,
         )
         effect = build_multi_contribution_effect_body(
             world_id=world_id,
@@ -400,6 +406,7 @@ def seal_promote_proposal(
             unresolved_mentions=unresolved_mentions,
             node_id_map=node_id_map,
             identity_outcome_snapshot=identity_outcome_snapshot,
+            identity_basis=identity_basis,
         )
         version = PROMOTE_PROPOSAL_VERSION_V2
 
@@ -528,8 +535,144 @@ def contribution_slices_from_effect(effect: Mapping[str, Any]) -> list[dict[str,
             "identity_outcome_snapshot": dict(
                 effect.get("identity_outcome_snapshot") or {}
             ),
+            **({"identity_basis": dict(effect["identity_basis"])} if isinstance(effect.get("identity_basis"), Mapping) else {}),
         }
     ]
+
+
+def verify_source_local_identity_basis(
+    effect: Mapping[str, Any], *, candidate_sha256: str | None = None,
+    candidate_graph: Mapping[str, Any] | None = None,
+    require: bool = False,
+) -> None:
+    """Reprove the sealed recap identity map before a new governed write."""
+    from graph_memory.extract_identity_gate import (
+        SOURCE_LOCAL_IDENTITY_SCHEMA, _qualified_source_local_id,
+    )
+    from graph_memory.identity_resolution import corpus_ref_identity
+    from apps.live_control_server.models.world_graph_mutation_context import (
+        reviewed_corpus_bindings_from_decisions,
+    )
+
+    source = effect.get("source_admission")
+    admission = effect.get("candidate_admission")
+    raw_nodes = {
+        str(node.get("node_id") or ""): node
+        for node in (candidate_graph.get("nodes") or [])
+        if isinstance(node, Mapping)
+    } if candidate_graph is not None else {}
+    ledger = effect.get("identity_ledger")
+    try:
+        reviewed_bindings = reviewed_corpus_bindings_from_decisions(
+            (ledger.get("decisions") or []) if isinstance(ledger, Mapping) else [],
+            world_id=str(effect.get("world_id") or ""),
+            revision_id=str(effect.get("parent_revision_id") or ""),
+        )
+    except ValueError as exc:
+        raise PromoteProposalError("reviewed canonical carrier is malformed") from exc
+    recap_found = False
+    for item in contribution_slices_from_effect(effect):
+        meta = dict(item.get("contribution_meta") or {})
+        if meta.get("source_kind") != "source_extraction":
+            continue
+        recap_found = True
+        basis = item.get("identity_basis")
+        if not isinstance(basis, Mapping):
+            if require:
+                raise PromoteProposalError("source-local identity basis is required for new publication")
+            continue
+        expected = {
+            "schema": SOURCE_LOCAL_IDENTITY_SCHEMA,
+            "world_id": str(effect.get("world_id") or ""),
+            "parent_revision_id": str(effect.get("parent_revision_id") or ""),
+            "source_artifact_id": str(item.get("source_artifact_id") or ""),
+            "source_sha256": str(source.get("content_sha256") or "") if isinstance(source, Mapping) else "",
+            "extraction_profile": str(meta.get("extraction_profile") or ""),
+            "source_kind": "source_extraction",
+            "candidate_sha256": candidate_sha256 or (str(admission.get("candidate_digest") or "") if isinstance(admission, Mapping) else ""),
+            "candidate_schema": str(item.get("candidate_schema") or ""),
+            "candidate_version": str(item.get("candidate_version") or ""),
+        }
+        if not isinstance(source, Mapping) or any(
+            basis.get(key) != value or not value for key, value in expected.items()
+        ):
+            raise PromoteProposalError("source-local identity basis disagrees with sealed candidate/source/parent")
+        nodes = basis.get("nodes")
+        if not isinstance(nodes, Mapping):
+            raise PromoteProposalError("source-local identity classifications are missing")
+        node_map = dict(item.get("node_id_map") or {})
+        outcomes = dict(item.get("identity_outcome_snapshot") or {})
+        for local_id, record in nodes.items():
+            if not isinstance(record, Mapping) or record.get("outcome") != outcomes.get(local_id):
+                raise PromoteProposalError("source-local identity outcome mismatch")
+            classification = record.get("classification")
+            proposed = record.get("proposed_node_id")
+            if classification == "source_local":
+                if proposed != _qualified_source_local_id(
+                    {key: str(value) for key, value in expected.items()}, str(local_id)
+                ) or node_map.get(local_id) != proposed or outcomes.get(local_id) != "created_new":
+                    raise PromoteProposalError("source-local identity mapping mismatch")
+            elif classification == "reviewed_canonical":
+                if (
+                    outcomes.get(local_id) not in {"resolved_existing", "human_override"}
+                    or not record.get("canonical_target_id")
+                    or proposed != record.get("canonical_target_id")
+                    or node_map.get(local_id) != proposed
+                ):
+                    raise PromoteProposalError("reviewed canonical binding mismatch")
+                ref_type = record.get("canonical_ref_type")
+                ref_id = record.get("canonical_ref_id")
+                has_reference = bool(ref_type and ref_id)
+                if bool(ref_type) != bool(ref_id):
+                    raise PromoteProposalError("reviewed canonical reference is incomplete")
+                carrier = any(
+                    binding.candidate_node_id == local_id
+                    and binding.target_object_id == proposed
+                    and binding.candidate_sha256 == expected["candidate_sha256"]
+                    and binding.campaign_id == str(meta.get("campaign_scope") or "")
+                    for binding in reviewed_bindings
+                )
+                if not has_reference and not carrier:
+                    raise PromoteProposalError("reviewed canonical identity has no exact reference or carrier")
+                if has_reference:
+                    target_suffix = str(proposed).partition(":")[2]
+                    claimed_ref = {"corpus_ref": {"type": ref_type, "ref_id": ref_id}}
+                    target_ref = {"corpus_ref": {"type": ref_type, "ref_id": target_suffix}}
+                    if (
+                        ref_type not in {"pc", "npc"}
+                        or not target_suffix
+                        or corpus_ref_identity(claimed_ref) != corpus_ref_identity(target_ref)
+                    ):
+                        raise PromoteProposalError("reviewed canonical target disagrees with reference")
+                    if candidate_graph is not None:
+                        raw = raw_nodes.get(str(local_id))
+                        raw_ref = raw.get("corpus_ref") if isinstance(raw, Mapping) else None
+                        if (
+                            not isinstance(raw_ref, Mapping)
+                            or raw_ref.get("resolution") != "resolved"
+                            or raw_ref.get("type") != ref_type
+                            or raw_ref.get("ref_id") != ref_id
+                        ):
+                            raise PromoteProposalError("reviewed canonical reference differs from exact candidate")
+                elif candidate_graph is not None and str(local_id) not in raw_nodes:
+                    raise PromoteProposalError("reviewed canonical carrier has no exact candidate node")
+            elif classification == "deferred":
+                if local_id in node_map:
+                    raise PromoteProposalError("deferred identity is mapped for publication")
+            else:
+                raise PromoteProposalError("unknown source-local identity classification")
+        if set(node_map) != set(nodes).intersection(node_map):
+            raise PromoteProposalError("published identity has no sealed classification")
+        for assertion in item.get("accepted_proposals") or []:
+            if not isinstance(assertion, Mapping):
+                raise PromoteProposalError("accepted assertion is malformed")
+            if assertion.get("assertion_kind") in {"node", "edge"}:
+                for endpoint in ("subject_node_id", "target_node_id"):
+                    node_id = assertion.get(endpoint)
+                    if node_id is not None and node_id not in node_map.values():
+                        raise PromoteProposalError("accepted assertion is outside source-local identity map")
+    if require and not recap_found:
+        raise PromoteProposalError("source-local recap contribution is missing")
 
 
 def verify_promote_proposal(

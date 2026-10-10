@@ -1897,6 +1897,69 @@ def _confirm_proof_payload(
     }
 
 
+def _reprove_pinned_canonical_identity_bindings(
+    *, package: Mapping[str, Any], context: WorldGraphMutationContext,
+) -> None:
+    """Re-run explicit anchor proof against the exact candidate and pinned parent."""
+    from graph_memory.candidate_graph_to_contribution import load_typed_candidate_graph
+    from graph_memory.extract_identity_gate import (
+        _known_party_anchor, _reviewed_binding_anchor,
+    )
+    from graph_memory.extract_promote_proposal import (
+        contribution_slices_from_effect, verify_source_local_identity_basis,
+    )
+    from apps.live_control_server.services.candidate_graph_admission import (
+        canonical_candidate_digest,
+    )
+
+    effect = dict(package.get("effect") or {})
+    slices = contribution_slices_from_effect(effect)
+    canonical = [
+        (item, str(local_id), record)
+        for item in slices
+        for local_id, record in dict((item.get("identity_basis") or {}).get("nodes") or {}).items()
+        if isinstance(record, Mapping) and record.get("classification") == "reviewed_canonical"
+    ]
+    if not canonical:
+        return
+    path = str(package.get("candidate_graph_path") or "").strip()
+    if not path:
+        raise WorldGraphWriteError(
+            "reviewed canonical identity requires the exact candidate document",
+            code="governed_write_inexpressible",
+        )
+    try:
+        candidate = json.loads(Path(path).read_text(encoding="utf-8"))
+        admission = dict(effect.get("candidate_admission") or {})
+        digest = canonical_candidate_digest(candidate)
+        if digest != admission.get("candidate_digest"):
+            raise ValueError("exact candidate digest changed")
+        verify_source_local_identity_basis(
+            effect, candidate_sha256=digest, candidate_graph=candidate,
+            require=True,
+        )
+        preview = load_typed_candidate_graph(candidate)
+        nodes = {node.node_id: node for node in preview.nodes}
+        for item, local_id, record in canonical:
+            node = nodes.get(local_id)
+            if node is None:
+                raise ValueError("reviewed canonical node is absent from exact candidate")
+            campaign = (item.get("contribution_meta") or {}).get("campaign_scope")
+            target = _reviewed_binding_anchor(
+                node, context, world_id=context.world_id, campaign_id=campaign,
+            ) or _known_party_anchor(
+                node, context, world_id=context.world_id, campaign_id=campaign,
+            )
+            if target is None or target.object_id != record.get("canonical_target_id"):
+                raise ValueError("reviewed canonical target differs from pinned authority")
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        raise WorldGraphWriteError(
+            "reviewed canonical identity authority could not be proved",
+            code="governed_write_inexpressible",
+            details={"reason": str(exc)[:500]},
+        ) from exc
+
+
 def _classify_parent_revision(
     bundle: Any,
     world_id: str,
@@ -2177,6 +2240,18 @@ def confirm_extract_promote_via_dungeonmind(
                 "publication exists without the pinned finalized review",
                 code="authority_integrity",
             )
+        if (
+            str(getattr(existing, "world_id", "") or "") != world_id
+            or str(getattr(existing, "operation_id", "") or "") != operation_id
+        ):
+            raise WorldGraphWriteError(
+                "publication receipt does not match the requested operation",
+                code="governed_write_idempotency_conflict",
+            )
+        _assert_publication_replay_identity(
+            existing=existing,
+            expected_parent_revision_id=str((package.get("effect") or {}).get("parent_revision_id") or ""),
+        )
         accepted_assertion_ids, affected_object_ids = (
             _receipt_ids_from_reviewed_contribution(
                 bundle=bundle,
@@ -2194,6 +2269,16 @@ def confirm_extract_promote_via_dungeonmind(
             accepted_assertion_ids=accepted_assertion_ids,
             affected_object_ids=affected_object_ids,
         )
+
+    from graph_memory.extract_promote_proposal import verify_source_local_identity_basis
+    try:
+        verify_source_local_identity_basis(package.get("effect") or {}, require=True)
+    except ValueError as exc:
+        raise WorldGraphWriteError(
+            "review package has no valid source-local identity basis",
+            code="governed_write_inexpressible",
+            details={"world_id": world_id, "reason": str(exc)[:500]},
+        ) from exc
 
     sealed_parent = str(
         (package.get("effect") or {}).get("parent_revision_id") or ""
@@ -2253,6 +2338,9 @@ def confirm_extract_promote_via_dungeonmind(
     )
     mutation_context = _verify_reviewed_corpus_binding_authority(
         bundle, parent_stored, mutation_context, package=package,
+    )
+    _reprove_pinned_canonical_identity_bindings(
+        package=package, context=mutation_context,
     )
     _verified, contribution = _reconstruct_selected_contribution(
         package=package,

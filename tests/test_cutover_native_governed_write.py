@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+from types import SimpleNamespace
 
 
 import pytest
@@ -48,6 +49,49 @@ def _context(*objects: MutationObject) -> WorldGraphMutationContext:
         objects=by_id,
         alias_owners=alias_owners,
     )
+
+
+def test_legacy_package_only_replays_exact_terminal_publication(monkeypatch, tmp_path):
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes as writes
+
+    package = {
+        "proposal_id": "proposal:legacy",
+        "proposal_digest": "a" * 64,
+        "effect": {
+            "world_id": "eldyrwild", "parent_revision_id": "rev:parent",
+            "contribution_meta": {"source_kind": "source_extraction"},
+        },
+    }
+    operation_id = writes._derive_confirm_operation_id(
+        world_id="eldyrwild", package=package, assertion_ids=None,
+    )
+    receipt = SimpleNamespace(
+        world_id="eldyrwild", operation_id=operation_id,
+        expected_parent_revision_id="rev:parent",
+        published_revision_id="rev:child", reviewed_contribution_id="contribution:old",
+    )
+    present = True
+    def lookup(_world, _operation):
+        assert _world == "eldyrwild" and _operation == operation_id
+        return receipt if present else None
+    bundle = SimpleNamespace(finalized_review_publications=SimpleNamespace(get=lookup))
+    monkeypatch.setattr(writes, "_direct_services", lambda *_: SimpleNamespace(bundle=bundle, binding=None))
+    monkeypatch.setattr(writes, "_receipt_ids_from_reviewed_contribution", lambda **_: (["assertion:old"], ["object:old"]))
+    request = SimpleNamespace(review_package=package)
+    def confirm():
+        return writes.confirm_extract_promote_via_dungeonmind(
+            request, database_url="memory://synthetic", confirming_principal="gm@test",
+            assertion_ids=None, repo_root=tmp_path,
+        )
+
+    assert confirm()["outcome"] == "already_applied"
+    receipt.expected_parent_revision_id = "rev:wrong"
+    with pytest.raises(writes.WorldGraphWriteError, match="does not match"):
+        confirm()
+    receipt.expected_parent_revision_id = "rev:parent"
+    present = False
+    with pytest.raises(writes.WorldGraphWriteError, match="source-local identity basis"):
+        confirm()
 
 
 def test_static_write_module_has_no_direct_buddy_graph_runtime_imports():

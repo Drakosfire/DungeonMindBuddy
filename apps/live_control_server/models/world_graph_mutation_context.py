@@ -833,9 +833,66 @@ def resolve_identity_against_context(
     candidate: IdentityCandidate,
     *,
     policy: IdentityResolutionPolicy | None = None,
+    source_local: bool = False,
 ) -> IdentityResolution:
     """Classify identity against mutation-context facts. Does not mutate."""
     active_policy = policy or DEFAULT_IDENTITY_RESOLUTION_POLICY
+
+    if source_local:
+        # A recap-local token is never a global identity decision key, even if
+        # the same token or label appears in the pinned parent. Only the
+        # source-bound proposed id may be used for a new object.
+        proposed = str(candidate.proposed_node_id or "").strip()
+        if not proposed.startswith("source-local:v1:"):
+            raise ValueError("source-local identity requires a qualified proposed id")
+        qualified_decision = any(
+            record.status == "active" and (
+                record.source_candidate_id == proposed
+                or record.subject_node_id == proposed
+            )
+            for record in context.identity_decisions
+        )
+        if proposed in context.objects or proposed in context.identity_redirects or qualified_decision:
+            return IdentityResolution(
+                world_id=candidate.world_id,
+                candidate_id=candidate.candidate_id,
+                outcome="blocked_collision",
+                blocked_by=[proposed],
+                diagnostics=["Qualified source-local id is already occupied"],
+                requires_human_review=True,
+            )
+        same_kind, cross_kind, provisional = _find_plausible_matches(
+            context, candidate, policy=active_policy
+        )
+        if same_kind or cross_kind or provisional:
+            matches = sorted({
+                obj.object_id for obj in (*same_kind, *cross_kind, *provisional)
+            })
+            return IdentityResolution(
+                world_id=candidate.world_id,
+                candidate_id=candidate.candidate_id,
+                outcome="ambiguous",
+                blocked_by=matches,
+                diagnostics=[
+                    "Surface similarity cannot bind a source-local candidate to a World object"
+                ],
+                requires_human_review=True,
+            )
+        if not candidate.evidence_ref_ids:
+            return IdentityResolution(
+                world_id=candidate.world_id,
+                candidate_id=candidate.candidate_id,
+                outcome="rejected",
+                diagnostics=["Source-local creation requires source evidence"],
+            )
+        return IdentityResolution(
+            world_id=candidate.world_id,
+            candidate_id=candidate.candidate_id,
+            outcome="created_new",
+            created_node_id=proposed,
+            diagnostics=["Qualified source-local identity from verified candidate basis"],
+            canon_state="canonical",
+        )
 
 
     prior = _decision_for_candidate(context, candidate)
