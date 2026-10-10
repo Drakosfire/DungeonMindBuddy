@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from application_state.agent_conversation.types import PlayRunTurnContextReceiptV1
+
 from apps.live_control_server.services.agent_runtime import (
     AgentCurrentOwnerContext,
     AgentPlayCurrentElementContext,
@@ -32,6 +34,7 @@ from apps.live_control_server.services.play_run_reference_manifest import (
     _opening_fence,
     _parse_v2_marker,
     detect_playable_grammar_version,
+    derive_play_run_reference_elements_v2,
     get_play_run_reference_manifest,
     get_world_play_run_reference_manifest,
 )
@@ -61,6 +64,7 @@ class WorldPlaySurfaceContextError(ValueError):
 class _ResolvedWorldPlaySurfaceContext:
     world_name: str
     record: object
+    committed: object
     beat: _PlayAuthoredSlice
     scene: _PlayAuthoredSlice | None
 
@@ -641,8 +645,104 @@ def _resolve_world_play_surface_context_v2(
     return _ResolvedWorldPlaySurfaceContext(
         world_name=world.name,
         record=record,
+        committed=committed,
         beat=beat,
         scene=scene,
+    )
+
+
+def resolve_world_play_turn_snapshot(
+    *, root: Path, world_id: str, run_id: str, run_revision: int,
+) -> tuple[AgentSurfaceContext, PlayRunTurnContextReceiptV1]:
+    """Admit the current World Run once and freeze its authored moment."""
+    request = AgentWorldPlaySurfaceContextRequestV2.model_validate({
+        "schema": "dmb_agent_world_play_surface_context_request_v2",
+        "surface_id": "play", "world_id": world_id,
+        "run_id": run_id, "run_revision": run_revision,
+    })
+    resolved = _resolve_world_play_surface_context_v2(
+        request, root=root, outer_world_id=world_id,
+    )
+    record, committed = resolved.record, resolved.committed
+    receipt = PlayRunTurnContextReceiptV1.model_validate({
+        "schema": "dmb_play_run_turn_context_receipt_v1",
+        "run_id": record.run_id, "run_revision": record.run_revision,
+        "runbook_object_id": committed.document_id,
+        "runbook_object_revision": committed.object_revision,
+        "runbook_work_revision_id": committed.work_revision_id,
+        "runbook_revision_n": committed.revision_n,
+        "runbook_content_sha256": committed.content_sha256,
+        "beat_id": resolved.beat.element_id,
+        "scene_id": None if resolved.scene is None else resolved.scene.element_id,
+    })
+    return _world_play_turn_context(world_id, resolved.world_name, receipt, resolved.beat, resolved.scene), receipt
+
+
+def resolve_historical_world_play_turn_snapshot(
+    *, root: Path, world_id: str, receipt: PlayRunTurnContextReceiptV1,
+) -> AgentSurfaceContext:
+    """Reconstruct the accepted moment from its immutable Runbook pin."""
+    from apps.live_control_server.services.world_container_registry import get_world_container
+
+    world = get_world_container(root, world_id)
+    if world.world_id != world_id:
+        raise WorldPlaySurfaceContextError("Historical Play World identity changed")
+    committed = get_committed_playable_revision(
+        receipt.runbook_object_id, revision_n=receipt.runbook_revision_n,
+        expected_sha256=receipt.runbook_content_sha256, kind="runbook",
+        expected_world_id=world_id,
+    )
+    if (
+        committed.kind != "runbook"
+        or committed.world_id != world_id
+        or committed.document_id != receipt.runbook_object_id
+        or committed.object_revision != receipt.runbook_object_revision
+        or committed.work_revision_id != str(receipt.runbook_work_revision_id)
+        or committed.revision_n != receipt.runbook_revision_n
+        or committed.content_sha256 != receipt.runbook_content_sha256
+    ):
+        raise WorldPlaySurfaceContextError("Historical Play Runbook pin changed")
+    try:
+        membership = derive_play_run_reference_elements_v2(committed.markdown)
+    except ValueError as exc:
+        raise WorldPlaySurfaceContextError("Historical Play Runbook V2 membership is invalid") from exc
+    if (
+        not any(item.beat_id == receipt.beat_id for item in membership.beats)
+        or (
+            receipt.scene_id is not None
+            and not any(
+                item.scene_id == receipt.scene_id and item.beat_id == receipt.beat_id
+                for item in membership.scenes
+            )
+        )
+    ):
+        raise WorldPlaySurfaceContextError("Historical Play Scene does not belong to its accepted Beat")
+    slices = extract_v2_play_authored_slices(committed.markdown)
+    beat = slices.get(receipt.beat_id)
+    scene = None if receipt.scene_id is None else slices.get(receipt.scene_id)
+    if beat is None or beat.kind != "beat" or (receipt.scene_id is not None and (scene is None or scene.kind != "scene")):
+        raise WorldPlaySurfaceContextError("Historical Play moment is absent from its Runbook")
+    return _world_play_turn_context(world_id, world.name, receipt, beat, scene)
+
+
+def _world_play_turn_context(
+    world_id: str, world_name: str, receipt: PlayRunTurnContextReceiptV1,
+    beat: _PlayAuthoredSlice, scene: _PlayAuthoredSlice | None,
+) -> AgentSurfaceContext:
+    return AgentSurfaceContext(
+        surface_id="play",
+        current_owner=AgentCurrentOwnerContext(kind="world", owner_id=world_id, name=world_name),
+        current_play=AgentPlayCurrentMomentContext(
+            run_id=receipt.run_id,
+            playable_artifact_id=receipt.runbook_object_id,
+            playable_revision=receipt.runbook_revision_n,
+            current_beat=AgentPlayCurrentElementContext(
+                kind="beat", element_id=beat.element_id, title=beat.title, body_text=beat.body_text,
+            ),
+            current_scene=None if scene is None else AgentPlayCurrentElementContext(
+                kind="scene", element_id=scene.element_id, title=scene.title, body_text=scene.body_text,
+            ),
+        ),
     )
 
 

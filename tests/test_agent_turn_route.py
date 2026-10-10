@@ -59,6 +59,280 @@ def _payload() -> dict[str, Any]:
     }
 
 
+def _play_turn_payload(*, revision: int = 7) -> dict[str, Any]:
+    from tests.test_agent_play_surface_context import RUN_ID
+
+    return {
+        **_payload(),
+        "turn_id": "play-turn-1",
+        "surface": {"surface_id": "play", "instance_id": "play-main"},
+        "owner_scope": {"kind": "world", "world_id": "world-a"},
+        "primary_work": {"kind": "run", "object_id": RUN_ID, "expected_revision": revision},
+        "client_work_state": "saved_clean",
+    }
+
+
+def test_play_run_turn_requires_world_owner_and_graphless_intent() -> None:
+    payload = _play_turn_payload()
+    for change in (
+        {"owner_scope": None},
+        {"surface": {"surface_id": "plan", "instance_id": "plan-main"}},
+        {"graph_request": {
+            "mode": "world", "world_id": "world-a", "campaign_id": None,
+            "revision_pin": None,
+            "focus": {"kind": "none", "session_id": None, "campaign_id": None},
+        }},
+    ):
+        with pytest.raises(ValueError):
+            AgentTurnRequest.model_validate({**payload, **change})
+
+
+def test_world_play_turn_admits_exact_current_run_and_freezes_receipt(
+    tmp_path: Path, monkeypatch: Any,
+) -> None:
+    from unittest.mock import patch
+    from apps.live_control_server.routes import agent as route
+    from apps.live_control_server.services.agent_turn_service import _conversation_provenance
+    from application_state.agent_conversation.types import decode_play_run_turn_context_references
+    from tests.test_agent_play_surface_context import (
+        _manifest, _world_committed, _world_play_record,
+    )
+
+    monkeypatch.setattr(route, "_managed_world_root", lambda: tmp_path)
+    with (
+        patch("apps.live_control_server.services.world_container_registry.get_world_container",
+              return_value=SimpleNamespace(world_id="world-a", name="World A")),
+        patch("apps.live_control_server.services.agent_play_surface_context.get_world_play_run",
+              return_value=_world_play_record()),
+        patch("apps.live_control_server.services.agent_play_surface_context.get_committed_playable_revision",
+              return_value=_world_committed()),
+        patch("apps.live_control_server.services.agent_play_surface_context.get_world_play_run_reference_manifest",
+              return_value=_manifest()),
+    ):
+        request = AgentTurnRequest.model_validate(_play_turn_payload())
+        work = route._work_resolver(request, {"kind": "world", "id": "world-a"})
+    assert work is not None and work.surface_context.current_play is not None
+    assert work.surface_context.current_play.current_beat.element_id == "beat:hold-the-gate"
+    provenance = _conversation_provenance(request, world_id="world-a", work=work)
+    receipt = decode_play_run_turn_context_references(
+        provenance.primary_work, provenance.supporting_work,
+    )
+    assert receipt is not None
+    assert receipt.run_revision == 7
+    assert receipt.scene_id == "scene:gate-line"
+    assert receipt.runbook_content_sha256 == "c" * 64
+
+
+def test_historical_play_retry_uses_original_runbook_and_moment(
+    tmp_path: Path, monkeypatch: Any,
+) -> None:
+    from unittest.mock import patch
+    from apps.live_control_server.routes import agent as route
+    from application_state.agent_conversation.types import (
+        PlayRunTurnContextReceiptV1, TurnProvenance,
+        encode_play_run_turn_context_references,
+    )
+    from tests.test_agent_play_surface_context import RUN_ID, DOC_ID, _world_committed
+
+    receipt = PlayRunTurnContextReceiptV1.model_validate({
+        "schema": "dmb_play_run_turn_context_receipt_v1",
+        "run_id": RUN_ID, "run_revision": 7,
+        "runbook_object_id": DOC_ID, "runbook_object_revision": 2,
+        "runbook_work_revision_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        "runbook_revision_n": 1, "runbook_content_sha256": "c" * 64,
+        "beat_id": "beat:hold-the-gate", "scene_id": "scene:gate-line",
+    })
+    primary, supporting = encode_play_run_turn_context_references(receipt)
+    provenance = TurnProvenance(
+        world_id="world-a", surface_resolution="resolved", surface_id="play",
+        primary_work=primary, supporting_work=supporting,
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    monkeypatch.setattr(route, "_managed_world_root", lambda: tmp_path)
+    with (
+        patch("apps.live_control_server.services.world_container_registry.get_world_container",
+              return_value=SimpleNamespace(world_id="world-a", name="World A")),
+        patch("apps.live_control_server.services.agent_play_surface_context.get_committed_playable_revision",
+              return_value=_world_committed()),
+        patch("apps.live_control_server.services.agent_play_surface_context.get_world_play_run") as get_current_run,
+    ):
+        work = route._historical_work_resolver(
+            AgentTurnRequest.model_validate(_play_turn_payload()),
+            {"kind": "world", "id": "world-a"}, provenance,
+        )
+    assert work is not None
+    assert work.surface_context.current_play.current_beat.element_id == receipt.beat_id
+    assert work.surface_context.current_play.current_scene.element_id == receipt.scene_id
+    get_current_run.assert_not_called()
+
+
+def test_world_play_http_turn_replays_without_current_run_or_provider(
+    tmp_path: Path, monkeypatch: Any, application_state_dsn: str,
+) -> None:
+    from unittest.mock import patch
+    from apps.live_control_server.main import create_app
+    from apps.live_control_server.routes import agent as route
+    from apps.live_control_server.services import agent_play_surface_context as play
+    from application_state.agent_conversation import AgentConversationService
+    from application_state.agent_conversation.types import ConversationCommand
+    from tests.test_agent_play_surface_context import (
+        _manifest, _world_committed, _world_play_record,
+    )
+
+    assert application_state_dsn
+    service = AgentConversationService()
+    pointer = service.get_world_pointer("world-a")
+    service.new_conversation(ConversationCommand(
+        world_id="world-a", command_id=uuid4(),
+        expected_pointer_revision=pointer.revision,
+        expected_active_conversation_id=pointer.active_conversation_id,
+    ))
+    monkeypatch.setattr(route, "enforce_native_graph_gm", lambda _request: None)
+    monkeypatch.setattr(route, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(route, "_managed_world_root", lambda: tmp_path)
+    monkeypatch.setattr(route, "session_dir", lambda: tmp_path / "sessions")
+    monkeypatch.setattr(route, "get_world_container", lambda _root, _world: SimpleNamespace(world_id="world-a", name="World A"))
+    runtime = FakeRuntime()
+    app = create_app()
+    app.state.agent_turn_runtime = runtime
+    app.state.agent_conversation_service = service
+    monkeypatch.setattr(route, "_conversation_service", lambda _request: service)
+    payload = _play_turn_payload()
+
+    async def request_turn(value: dict[str, Any]) -> httpx.Response:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            return await client.post("/api/live/agent/turn", json=value)
+
+    with (
+        patch("apps.live_control_server.services.world_container_registry.get_world_container",
+              return_value=SimpleNamespace(world_id="world-a", name="World A")),
+        patch.object(play, "get_world_play_run", return_value=_world_play_record()) as get_run,
+        patch.object(play, "get_committed_playable_revision", return_value=_world_committed()) as get_runbook,
+        patch.object(play, "get_world_play_run_reference_manifest", return_value=_manifest()),
+    ):
+        first = asyncio.run(request_turn(payload))
+        assert first.status_code == 200, first.text
+        assert first.json()["owner_scope"]["status"] == "resolved", first.text
+        assert first.json()["conversation"]["conversation_id"] is not None, first.text
+        assert len(runtime.invocations) == 1
+        assert runtime.invocations[0].context_packet.surface_context.current_play.current_beat.element_id == "beat:hold-the-gate"
+        assert get_run.call_count == 1
+        get_run.side_effect = AssertionError("completed retry read mutable Run")
+        get_runbook.side_effect = AssertionError("completed retry read mutable Runbook")
+        again = asyncio.run(request_turn(payload))
+        assert again.status_code == 200, again.text
+        assert again.json()["answer"]["text"] == first.json()["answer"]["text"]
+        assert len(runtime.invocations) == 1
+        assert get_run.call_count == 1
+        altered = asyncio.run(request_turn({**payload, "message": "Changed question"}))
+        assert altered.status_code == 409
+        get_run.side_effect = None
+        get_runbook.side_effect = None
+        stale = asyncio.run(request_turn({**_play_turn_payload(revision=6), "turn_id": "play-stale"}))
+        assert stale.status_code == 409
+        get_run.return_value = _world_play_record(world_id="world-b")
+        foreign = asyncio.run(request_turn({**payload, "turn_id": "play-foreign"}))
+        assert foreign.status_code == 409
+        assert len(runtime.invocations) == 1
+        plan = asyncio.run(request_turn({
+            **_payload(), "turn_id": "plan-after-play",
+            "surface": {"surface_id": "plan", "instance_id": "plan-main"},
+            "owner_scope": {"kind": "world", "world_id": "world-a"},
+        }))
+        assert plan.status_code == 200, plan.text
+
+        async def get_history() -> httpx.Response:
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+                return await client.get("/api/live/agent/worlds/world-a/conversation")
+
+        history = asyncio.run(get_history())
+        assert history.status_code == 200, history.text
+        turns = history.json()["turns"]
+        assert [turn["provenance"]["surface_id"] for turn in turns] == ["play", "plan"]
+        assert turns[0]["provenance"]["primary_work"]["kind"] == "run"
+        assert turns[1]["provenance"]["primary_work"]["resolution"] == "absent"
+
+
+@pytest.mark.parametrize(
+    "scene_id,expected_status",
+    [("scene:gate-line", 200), ("scene:the-crush", 409)],
+)
+def test_pending_play_http_retry_uses_frozen_moment_after_run_advances(
+    tmp_path: Path, monkeypatch: Any, application_state_dsn: str,
+    scene_id: str, expected_status: int,
+) -> None:
+    from unittest.mock import patch
+    from application_state.agent_conversation import AgentConversationService
+    from application_state.agent_conversation.types import ConversationCommand, TurnSubmission
+    from apps.live_control_server.main import create_app
+    from apps.live_control_server.routes import agent as route
+    from apps.live_control_server.services import agent_play_surface_context as play
+    from apps.live_control_server.services.agent_turn_service import (
+        _conversation_provenance, _submitted_turn_intent, _turn_idempotency_key,
+    )
+    from tests.test_agent_play_surface_context import (
+        _manifest, _world_committed, _world_play_record,
+    )
+
+    assert application_state_dsn
+    service = AgentConversationService()
+    request = AgentTurnRequest.model_validate(_play_turn_payload())
+    monkeypatch.setattr(route, "enforce_native_graph_gm", lambda _request: None)
+    monkeypatch.setattr(route, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(route, "_managed_world_root", lambda: tmp_path)
+    monkeypatch.setattr(route, "session_dir", lambda: tmp_path / "sessions")
+    monkeypatch.setattr(route, "_conversation_service", lambda _request: service)
+    monkeypatch.setattr(route, "get_world_container", lambda _root, _world: SimpleNamespace(world_id="world-a", name="World A"))
+    runtime = FakeRuntime()
+    app = create_app()
+    app.state.agent_turn_runtime = runtime
+
+    with (
+        patch("apps.live_control_server.services.world_container_registry.get_world_container",
+              return_value=SimpleNamespace(world_id="world-a", name="World A")),
+        patch.object(play, "get_world_play_run", return_value=_world_play_record()) as get_run,
+        patch.object(play, "get_committed_playable_revision", return_value=_world_committed()),
+        patch.object(play, "get_world_play_run_reference_manifest", return_value=_manifest()),
+    ):
+        work = route._work_resolver(request, {"kind": "world", "id": "world-a"})
+        assert work is not None
+        work = replace(work, play_context_receipt=work.play_context_receipt.model_copy(
+            update={"scene_id": scene_id}
+        ))
+        provenance = _conversation_provenance(request, world_id="world-a", work=work)
+        service.new_conversation(ConversationCommand(
+            world_id="world-a", command_id=uuid4(),
+            expected_pointer_revision=0, expected_active_conversation_id=None,
+        ))
+        active = service.get_active_conversation("world-a")
+        assert active is not None
+        service.accept_turn(TurnSubmission(
+            world_id="world-a", conversation_id=active.conversation_id,
+            idempotency_key=_turn_idempotency_key("world-a", request.turn_id),
+            expected_conversation_revision=active.revision,
+            user_text=request.message, provenance=provenance,
+            submitted_intent_v1=_submitted_turn_intent(request, world_id="world-a"),
+        ))
+        get_run.side_effect = AssertionError("pending retry read current Run progress")
+
+        async def post() -> httpx.Response:
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+                return await client.post("/api/live/agent/turn", json=_play_turn_payload())
+
+        response = asyncio.run(post())
+        assert response.status_code == expected_status, response.text
+        if expected_status == 200:
+            assert len(runtime.invocations) == 1
+            moment = runtime.invocations[0].context_packet.surface_context.current_play
+            assert moment.current_beat.element_id == "beat:hold-the-gate"
+            assert moment.current_scene.element_id == "scene:gate-line"
+        else:
+            assert runtime.invocations == []
+        assert get_run.call_count == 1
+
+
 def test_source_session_handles_reconstruct_only_for_the_same_frozen_turn() -> None:
     from apps.live_control_server.routes.agent import _source_session_handles
 

@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import ValidationError
 
 from application_state.agent_conversation import AgentConversationService
-from application_state.agent_conversation.types import ConversationCommand, CommandResolutionRequestV1, TurnProvenance, request_fingerprint
+from application_state.agent_conversation.types import ConversationCommand, CommandResolutionRequestV1, TurnProvenance, decode_play_run_turn_context_references, request_fingerprint
 from application_state.errors import ApplicationStateError
 
 from apps.live_control_server.config import (
@@ -42,6 +42,11 @@ from apps.live_control_server.services.agent_runtime import (
     AgentSurfaceContext,
 )
 from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
+from apps.live_control_server.services.agent_play_surface_context import (
+    WorldPlaySurfaceContextError,
+    resolve_historical_world_play_turn_snapshot,
+    resolve_world_play_turn_snapshot,
+)
 from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
 from apps.live_control_server.services.agent_turn_service import (
     AgentPlanWorldGraphBootstrap,
@@ -129,6 +134,22 @@ def _work_resolver(
     locator = body.primary_work
     if locator is None:
         return None
+    if locator.kind == "run" and body.surface.surface_id == "play":
+        if owner is None or owner.get("kind") != "world" or not owner.get("id"):
+            raise AgentTurnServiceError("A Play Run requires a verified World.", code="world_owner_unverified", status_code=403)
+        try:
+            context, receipt = resolve_world_play_turn_snapshot(
+                root=_managed_world_root(), world_id=str(owner["id"]),
+                run_id=locator.object_id, run_revision=locator.expected_revision,
+            )
+        except (WorldPlaySurfaceContextError, WorkspaceDocumentRegistryError, WorldContainerRegistryError, ValueError) as exc:
+            raise AgentTurnServiceError("The exact World Play Run is unavailable or stale.", code="play_context_unavailable", status_code=409) from exc
+        return AgentTurnResolvedWork(
+            kind="run", object_id=receipt.run_id, revision=receipt.run_revision,
+            changed_since_expected=False, owner_kind="world", owner_id=str(owner["id"]),
+            world_id=str(owner["id"]), surface_context=context,
+            play_context_receipt=receipt,
+        )
     if locator.kind != "plan":
         raise AgentTurnServiceError(
             f"Saved work kind {locator.kind!r} has no accepted resolver yet.",
@@ -278,6 +299,30 @@ def _historical_work_resolver(
     if reference.resolution == "absent":
         return None
     locator = body.primary_work
+    if locator is not None and locator.kind == "run" and body.surface.surface_id == "play":
+        try:
+            receipt = decode_play_run_turn_context_references(reference, provenance.supporting_work)
+        except ValueError as exc:
+            raise AgentTurnServiceError("The historical Play receipt is malformed.", code="turn_receipt_unverifiable", status_code=409) from exc
+        if (
+            receipt is None or owner is None or owner.get("kind") != "world"
+            or owner.get("id") != provenance.world_id
+            or receipt.run_id != locator.object_id
+            or receipt.run_revision != locator.expected_revision
+        ):
+            raise AgentTurnServiceError("The historical Play receipt does not match its World or Run.", code="turn_receipt_unverifiable", status_code=409)
+        try:
+            context = resolve_historical_world_play_turn_snapshot(
+                root=_managed_world_root(), world_id=provenance.world_id, receipt=receipt,
+            )
+        except (WorldPlaySurfaceContextError, WorkspaceDocumentRegistryError, WorldContainerRegistryError) as exc:
+            raise AgentTurnServiceError("The historical Play Runbook is unavailable.", code="historical_work_unavailable", status_code=409) from exc
+        return AgentTurnResolvedWork(
+            kind="run", object_id=receipt.run_id, revision=receipt.run_revision,
+            changed_since_expected=False, owner_kind="world", owner_id=provenance.world_id,
+            world_id=provenance.world_id, surface_context=context,
+            play_context_receipt=receipt,
+        )
     if (
         reference.resolution != "resolved"
         or reference.kind != "plan"

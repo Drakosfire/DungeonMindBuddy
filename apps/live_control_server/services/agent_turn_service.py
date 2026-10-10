@@ -22,6 +22,7 @@ from application_state.agent_conversation.types import (
     HistoricalReference,
     PlanWorldGraphContextReceiptV1,
     PlanPlayableTargetReceiptV1,
+    PlayRunTurnContextReceiptV1,
     PlanContextPolicyV1,
     SubmittedGraphFocusIntentV1,
     SubmittedGraphRequestIntentV1,
@@ -36,7 +37,9 @@ from application_state.agent_conversation.types import (
     TurnResult,
     TurnSubmission,
     decode_plan_playable_target_reference,
+    decode_play_run_turn_context_references,
     encode_plan_playable_target_reference,
+    encode_play_run_turn_context_references,
     validate_completion_against_receipt,
 )
 from application_state.errors import (
@@ -924,6 +927,7 @@ class AgentTurnResolvedWork:
     world_id: str | None = None
     content_basis: AgentTurnContentBasis | None = None
     plan_markdown: str | None = None
+    play_context_receipt: PlayRunTurnContextReceiptV1 | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -2238,6 +2242,22 @@ def _conversation_provenance(
             revision_n=None if content_basis is None else content_basis.revision_n,
         )
     supporting_work: list[HistoricalReference] = []
+    if request.surface.surface_id == "play" and request.primary_work is not None:
+        receipt = None if work is None else work.play_context_receipt
+        if (
+            work is None or receipt is None or work.kind != "run"
+            or work.world_id != world_id or work.owner_id != world_id
+            or receipt.run_id != request.primary_work.object_id
+            or receipt.run_revision != request.primary_work.expected_revision
+        ):
+            raise AgentTurnServiceError(
+                "The Play Run moment could not be frozen.",
+                code="play_context_unavailable", status_code=409,
+            )
+        primary_work, play_references = encode_play_run_turn_context_references(
+            receipt
+        )
+        supporting_work.extend(play_references)
     if playable_target is not None:
         if request.graph_request.mode != "none" or request.graph_selection is not None:
             raise AgentTurnServiceError(
@@ -2461,6 +2481,36 @@ def _require_playable_target_receipt_matches_request(
     return receipt
 
 
+def _require_play_run_receipt_matches_request(
+    request: AgentTurnRequest, provenance: TurnProvenance,
+) -> PlayRunTurnContextReceiptV1 | None:
+    if request.surface.surface_id != "play" or request.primary_work is None:
+        return None
+    try:
+        receipt = decode_play_run_turn_context_references(
+            provenance.primary_work, provenance.supporting_work,
+        )
+    except ValueError as exc:
+        raise AgentTurnServiceError(
+            "The stored Play Run receipt is malformed.",
+            code="turn_receipt_unverifiable", status_code=409,
+        ) from exc
+    if (
+        receipt is None
+        or provenance.world_id != request.owner_scope.world_id
+        or provenance.surface_id != "play"
+        or receipt.run_id != request.primary_work.object_id
+        or receipt.run_revision != request.primary_work.expected_revision
+        or request.graph_request.mode != "none"
+        or provenance.selected_object.resolution != "absent"
+    ):
+        raise AgentTurnServiceError(
+            "The stored Play Run receipt does not match the submitted intent.",
+            code="turn_receipt_unverifiable", status_code=409,
+        )
+    return receipt
+
+
 def _completed_turn_replay(
     request: AgentTurnRequest,
     *,
@@ -2470,6 +2520,7 @@ def _completed_turn_replay(
 ) -> AgentTurnResponse:
     """Project a completed durable receipt without loading runtime/current state."""
     _require_playable_target_receipt_matches_request(request, turn.provenance)
+    _require_play_run_receipt_matches_request(request, turn.provenance)
     segment_thread_id = _provider_segment_thread_id(
         turn.provenance, conversation_id=turn.conversation_id
     )
@@ -3028,6 +3079,7 @@ def execute_agent_turn(
         stored_playable_target = _require_playable_target_receipt_matches_request(
             request, durable_turn.provenance
         )
+        _require_play_run_receipt_matches_request(request, durable_turn.provenance)
 
     graph_reference = None
     if durable_turn is not None:
