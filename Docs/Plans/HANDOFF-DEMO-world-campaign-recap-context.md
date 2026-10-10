@@ -1,7 +1,7 @@
 # DEMO handoff — bind campaign recap extraction to the selected World Graph
 
 **Status:** ACTIVE implementation; PRIME owns independent review and merge.
-**Base:** `main@3851908e44b2542fd4d1663c873eabcabd25c7c5`
+**Base:** `main@5be59b2ee3c06913e607f0d64c938fba4515a235`
 **Branch:** `codex/demo-world-recap-context-20261010`
 **Scope:** Buddy recap graph extraction, review preparation, and confirm-time context validation.
 
