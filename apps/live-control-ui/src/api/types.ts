@@ -805,6 +805,20 @@ export interface WorldPlanAgentTurnRequestV1 {
   message: string;
 }
 
+/** Play submits only an admitted World Run and its current revision. The server resolves its Runbook and moment. */
+export interface WorldPlayAgentTurnRequestV1 {
+  schema: "dmb_agent_turn_request_v1";
+  client_thread_id: string;
+  turn_id: string;
+  surface: { surface_id: "play"; instance_id: string };
+  owner_scope: { kind: "world"; world_id: string };
+  primary_work: { kind: "run"; object_id: string; expected_revision: number };
+  client_work_state: "saved_clean";
+  graph_request: { mode: "none" };
+  graph_selection: null;
+  message: string;
+}
+
 /** Wire shape returned by the accepted generic turn route; runtime-validated by its caller. */
 export interface WorldPlanAgentTurnResponseV1 {
   schema: "dmb_agent_turn_response_v1";

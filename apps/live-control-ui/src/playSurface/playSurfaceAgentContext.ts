@@ -4,15 +4,15 @@
  * Witnesses only — never titles, body text, digest, selections, notes, or inspection.
  */
 
-import type { PlayRunRecord } from "../api/types";
+import type { AnyPlayRunRecord } from "../api/types";
 import type { SurfaceInteractionAgentContextContribution } from "../surfaceInteraction/types";
 
 export function buildPlaySurfaceAgentContext(
-  run: PlayRunRecord | null,
+  run: AnyPlayRunRecord | null,
 ): SurfaceInteractionAgentContextContribution {
   const base: SurfaceInteractionAgentContextContribution = {
     label: "Play",
-    campaignId: run?.campaign_id ?? null,
+    campaignId: run?.schema_version === "dmb_play_run_record_v1" ? run.campaign_id : null,
     documentId: run?.playable_artifact_id ?? null,
     sessionNumber: null,
     ambientSummary: run ? `Play · run ${run.run_id}` : null,

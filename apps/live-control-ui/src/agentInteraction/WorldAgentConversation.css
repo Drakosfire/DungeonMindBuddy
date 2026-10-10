@@ -1,0 +1,22 @@
+.world-agent-conversation {
+  display: block;
+  block-size: 100%;
+  min-block-size: 0;
+}
+
+.world-agent-conversation__dock {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.world-agent-conversation__dock .conversation-dock__reader,
+.world-agent-conversation__dock .conversation-dock__resize {
+  display: none;
+}
+
+.world-agent-conversation__dock.is-expanded .conversation-dock__conversation {
+  block-size: 100%;
+}
+
+.world-agent-conversation__dock .conversation-dock__composer > .plan-conversation-dock__composer {
+  inline-size: 100%;
+}

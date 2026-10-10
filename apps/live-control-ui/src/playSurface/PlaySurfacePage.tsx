@@ -25,6 +25,7 @@ import type {
   WorldPlayActiveRunStateV2,
 } from "../api/types";
 import { usePublishAgentSurfaceContext } from "../agentInteraction/usePublishAgentSurfaceContext";
+import { usePublishWorldPlayConversation } from "../agentInteraction/WorldAgentConversation";
 import { usePublishSurfaceInteraction } from "../agentInteraction/usePublishSurfaceInteraction";
 import { AppChrome } from "../chrome/AppChrome";
 import { buildSurfaceInteractionIdentity } from "../surfaceInteraction/surfaceIdentity";
@@ -255,9 +256,11 @@ function pinnedSourceCue(
 function PlaySurfacePublisher({
   admittedRun,
   runQuery,
+  currentMoment,
 }: {
   admittedRun: AnyPlayRunRecord | null;
   runQuery: string | null;
+  currentMoment: { beatTitle: string; sceneTitle: string | null } | null;
 }) {
   const authority = useMemo(
     () => playPublicationAuthority({ admittedRun, runQuery }),
@@ -265,7 +268,7 @@ function PlaySurfacePublisher({
   );
   const agentContextContribution = useMemo(
     () => buildPlaySurfaceAgentContext(
-      admittedRun?.schema_version === "dmb_play_run_record_v1" ? admittedRun : null,
+      admittedRun,
     ),
     [admittedRun],
   );
@@ -287,6 +290,16 @@ function PlaySurfacePublisher({
     projections: [],
     projectionBindings: [],
   }), [authority, agentContextContribution]);
+
+  usePublishWorldPlayConversation(admittedRun?.schema_version === "dmb_world_play_run_record_v2"
+    ? {
+      worldId: admittedRun.world_id,
+      runId: admittedRun.run_id,
+      runRevision: admittedRun.run_revision,
+      surfaceInstanceId: publication.identity.instanceKey,
+      beatTitle: currentMoment?.beatTitle ?? null,
+      sceneTitle: currentMoment?.sceneTitle ?? null,
+    } : null);
 
   const agentContext = useMemo(
     () => ({
@@ -859,12 +872,15 @@ export function PlaySurfacePage() {
       ? admission
       : null;
   const admittedRun = v1Deck?.run ?? v2Deck?.run ?? null;
+  const currentWorldBeat = v2Deck?.beats.find((beat) => beat.id === v2Deck.currentBeatId) ?? null;
+  const currentWorldScene = currentWorldBeat?.scenes.find((scene) => scene.id === v2Deck?.currentSceneId) ?? null;
   const publication = playPublicationAuthority({ admittedRun, runQuery });
   const blocked = v1Deck == null && v2Deck == null;
 
   return (
     <AppChrome activeRoute="play">
-      <PlaySurfacePublisher admittedRun={admittedRun} runQuery={runQuery} />
+      <PlaySurfacePublisher admittedRun={admittedRun} runQuery={runQuery}
+        currentMoment={currentWorldBeat ? { beatTitle: currentWorldBeat.title, sceneTitle: currentWorldScene?.title ?? null } : null} />
       {loadStatus === "chooser" ? (
         <PlayChooser
           continuityWarning={detail}

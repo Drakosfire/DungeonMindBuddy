@@ -61,11 +61,46 @@ function PublishPlanContext() {
   return null;
 }
 
+function PublishPlayContext() {
+  const context = useMemo(
+    () => ({
+      surfaceId: "play",
+      label: "World Play",
+      campaignId: "world-plan:world-1",
+      documentId: "run-1",
+      sessionNumber: null,
+      ambientSummary: "Admitted World Run",
+      sourceEnvelope: null,
+    }),
+    [],
+  );
+  usePublishAgentSurfaceContext(context);
+  return null;
+}
+
 describe("AgentInteractionChrome", () => {
   function RegisterAsk({ present = true }: { present?: boolean }) {
     useRegisterAskPluginPresence(present);
     return null;
   }
+
+  it("opens Play in its companion shell with one conversation close path", async () => {
+    const user = userEvent.setup();
+    render(
+      <AgentInteractionProvider>
+        <AskPluginSlotProvider>
+          <PublishPlayContext />
+          <RegisterAsk />
+          <AgentInteractionChrome />
+        </AskPluginSlotProvider>
+      </AgentInteractionProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Open" }));
+    expect(screen.getByTestId("agent-interaction-chrome")).toHaveClass("agent-interaction-shell--play", "open");
+    expect(screen.getByTestId("agent-interaction-ask-host")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Close chat" })).not.toBeInTheDocument();
+  });
 
   it("renders no Agent chrome or Open action without a registered Ask plugin", () => {
     render(
