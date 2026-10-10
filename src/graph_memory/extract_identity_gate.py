@@ -57,6 +57,11 @@ _NON_MUTATING_OUTCOMES = frozenset(
     {"ambiguous", "blocked_collision", "rejected", "provisional_new"}
 )
 SOURCE_LOCAL_IDENTITY_SCHEMA = "dmb_source_local_identity_basis_v1"
+_STABLE_SOURCE_IDENTITY_FIELDS = (
+    "schema", "world_id", "source_artifact_id", "source_sha256",
+    "extraction_profile", "source_kind", "candidate_sha256",
+    "candidate_schema", "candidate_version",
+)
 
 
 def _candidate_preview_digest(preview: CandidateGraphPreview) -> str:
@@ -90,7 +95,12 @@ def _source_local_identity_basis(
 
 
 def _qualified_source_local_id(basis: Mapping[str, str], local_id: str) -> str:
-    preimage = {**basis, "local_node_id": local_id}
+    # Parent remains sealed for confirmation, but the same verified source
+    # candidate retains its identity as World revisions advance.
+    preimage = {
+        **{key: basis[key] for key in _STABLE_SOURCE_IDENTITY_FIELDS},
+        "local_node_id": local_id,
+    }
     encoded = json.dumps(preimage, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
     return "source-local:v1:" + hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 

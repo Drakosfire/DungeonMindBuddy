@@ -327,6 +327,35 @@ def test_same_local_id_in_distinct_frozen_candidates_has_distinct_durable_ids(tm
     assert first_id != second_id
 
 
+def test_same_verified_candidate_keeps_id_across_parent_revisions(tmp_path) -> None:
+    candidate = _candidate()
+    def context(revision: str, objects: dict | None = None) -> WorldGraphMutationContext:
+        return WorldGraphMutationContext(
+            world_id="eldyrwild", revision_id=revision,
+            head_revision_id=revision, objects=objects or {},
+        )
+
+    before = _prepare(tmp_path, candidate, mutation_context=context("rev:before"))
+    after = _prepare(tmp_path, candidate, mutation_context=context("rev:after"))
+    before_effect = before.review_package["effect"]
+    after_effect = after.review_package["effect"]
+    first_id = before_effect["node_id_map"]["candidate:brin"]
+    assert first_id == after_effect["node_id_map"]["candidate:brin"]
+    assert before_effect["identity_basis"]["parent_revision_id"] == "rev:before"
+    assert after_effect["identity_basis"]["parent_revision_id"] == "rev:after"
+
+    occupied = _prepare(
+        tmp_path, candidate, mutation_context=context(
+            "rev:after", {first_id: MutationObject(
+                object_id=first_id, label="Brin", kind="npc",
+            )},
+        ),
+    )
+    occupied_effect = occupied.review_package["effect"]
+    assert "candidate:brin" not in occupied_effect["node_id_map"]
+    assert occupied_effect["identity_outcome_snapshot"]["candidate:brin"] == "blocked_collision"
+
+
 def test_resealed_identity_basis_drift_fails_before_governed_write(tmp_path) -> None:
     from graph_memory.extract_promote_proposal import (
         PromoteProposalError, compute_proposal_digest,
