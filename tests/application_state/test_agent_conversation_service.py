@@ -71,11 +71,42 @@ def test_play_run_context_codec_validates_complete_reserved_group() -> None:
         selected_object=HistoricalReference(resolution="absent"),
     )
     assert TurnProvenance(**base).primary_work == primary
+    legacy_run = TurnProvenance(
+        **(
+            base
+            | {
+                "supporting_work": [
+                    HistoricalReference(
+                        resolution="resolved",
+                        kind="runbook",
+                        object_id="historical-runbook",
+                        revision="old-revision",
+                    )
+                ]
+            }
+        )
+    )
+    assert (
+        decode_play_run_turn_context_references(
+            legacy_run.primary_work, legacy_run.supporting_work
+        )
+        is None
+    )
     for changed in (
         {"supporting_work": supporting[:1]},
         {"supporting_work": supporting + [supporting[1]]},
         {"supporting_work": supporting + [supporting[2]]},
         {"supporting_work": supporting + [supporting[0]]},
+        {
+            "supporting_work": supporting
+            + [
+                HistoricalReference(
+                    resolution="resolved",
+                    kind="runbook",
+                    object_id="other-runbook",
+                )
+            ]
+        },
         {"primary_work": primary.model_copy(update={"revision": "0"})},
         {"primary_work": primary.model_copy(update={"revision": "07"})},
         {

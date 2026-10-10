@@ -242,6 +242,7 @@ def decode_plan_playable_target_reference(
     )
 
 
+PLAY_RUNBOOK_REFERENCE_KIND = "dmb_play_runbook_v1"
 PLAY_CURRENT_BEAT_REFERENCE_KIND = "dmb_play_current_beat_v1"
 PLAY_CURRENT_SCENE_REFERENCE_KIND = "dmb_play_current_scene_v1"
 _PLAY_MARKER_ID_PATTERN = r"^(beat|scene):[a-z0-9][a-z0-9._-]{0,127}$"
@@ -292,7 +293,7 @@ def encode_play_run_turn_context_references(
     supporting = [
         HistoricalReference(
             resolution="resolved",
-            kind="runbook",
+            kind=PLAY_RUNBOOK_REFERENCE_KIND,
             object_id=receipt.runbook_object_id,
             revision=str(receipt.runbook_object_revision),
             content_sha256=receipt.runbook_content_sha256,
@@ -324,24 +325,35 @@ def decode_play_run_turn_context_references(
     supporting: list[HistoricalReference],
 ) -> PlayRunTurnContextReceiptV1 | None:
     """Validate the reserved group as one complete structural receipt."""
-    reserved = {PLAY_CURRENT_BEAT_REFERENCE_KIND, PLAY_CURRENT_SCENE_REFERENCE_KIND}
-    markers = [reference for reference in supporting if reference.kind in reserved]
-    if primary.kind != "run" and not markers:
+    reserved = {
+        PLAY_RUNBOOK_REFERENCE_KIND,
+        PLAY_CURRENT_BEAT_REFERENCE_KIND,
+        PLAY_CURRENT_SCENE_REFERENCE_KIND,
+    }
+    reserved_references = [
+        reference for reference in supporting if reference.kind in reserved
+    ]
+    if not reserved_references:
         return None
-    runbooks = [reference for reference in supporting if reference.kind == "runbook"]
+    runbooks = [
+        reference
+        for reference in reserved_references
+        if reference.kind == PLAY_RUNBOOK_REFERENCE_KIND
+    ]
     beats = [
         reference
-        for reference in markers
+        for reference in reserved_references
         if reference.kind == PLAY_CURRENT_BEAT_REFERENCE_KIND
     ]
     scenes = [
         reference
-        for reference in markers
+        for reference in reserved_references
         if reference.kind == PLAY_CURRENT_SCENE_REFERENCE_KIND
     ]
     if (
         primary.kind != "run"
         or len(runbooks) != 1
+        or any(reference.kind == "runbook" for reference in supporting)
         or len(beats) != 1
         or len(scenes) > 1
     ):
@@ -366,7 +378,7 @@ def decode_play_run_turn_context_references(
         or runbook.revision != str(runbook.object_revision)
     ):
         raise ValueError("Play Run or Runbook reference is malformed")
-    for marker in markers:
+    for marker in (*beats, *scenes):
         if (
             marker.resolution != "resolved"
             or marker.object_id is None
