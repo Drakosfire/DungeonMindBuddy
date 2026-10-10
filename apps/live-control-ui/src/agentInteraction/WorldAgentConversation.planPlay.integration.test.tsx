@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { webcrypto } from "node:crypto";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldPlanDocumentEditProposal } from "../api/liveApi";
+import { getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldPlanDocumentEditProposal } from "../api/liveApi";
 import type { AgentInteractionTurn, WorldAgentConversationHistoryResponseV1, WorldPlanAgentTurnRequestV1, WorldPlayAgentTurnRequestV1 } from "../api/types";
 import { AgentInteractionChrome } from "./AgentInteractionChrome";
 import { AgentInteractionProvider } from "./AgentInteractionProvider";
@@ -191,19 +191,70 @@ describe("one App-level World conversation host across Plan and Play", () => {
       phase = "pending";
       throw new Error("Connection lost after submit");
     });
-    render(<Harness initial="play" />);
+    const view = render(<Harness initial="play" />);
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
     const composer = await screen.findByLabelText("Message DungeonBuddy");
     await waitFor(() => expect(composer).toBeEnabled());
     fireEvent.change(composer, { target: { value: "What happens next?" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     await waitFor(() => expect(screen.getByText(/Connection lost after submit/)).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: "Switch surface" }));
+    view.unmount();
+    render(<Harness initial="plan" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
     await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeDisabled());
     phase = "completed";
     await waitFor(() => expect(screen.getByText("Recovered Play answer")).toBeInTheDocument(), { timeout: 7000 });
     await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled());
     expect(screen.queryByText(/Connection lost after submit/)).not.toBeInTheDocument();
+    expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps an unaccepted Play request available for explicit exact-ID retry from Plan", async () => {
+    let firstRequest: WorldPlayAgentTurnRequestV1 | null = null;
+    vi.mocked(postWorldPlayAgentTurn).mockImplementation(async (request) => {
+      if (!firstRequest) {
+        firstRequest = request;
+        throw new Error("Connection closed before admission");
+      }
+      vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([
+        turn("plan", 1, "Original Plan answer"), { ...turn("play", 2, "Retried Play answer"), turn_id: request.turn_id },
+      ]));
+      return playResponse(request);
+    });
+    const view = render(<Harness initial="play" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    const composer = await screen.findByLabelText("Message DungeonBuddy");
+    await waitFor(() => expect(composer).toBeEnabled());
+    fireEvent.change(composer, { target: { value: "What happens at the gate?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await screen.findByText(/Connection closed before admission/);
+    expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
+    view.unmount();
+    render(<Harness initial="plan" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeDisabled());
+    expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Retry exact Play turn" }));
+    await waitFor(() => expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(postWorldPlayAgentTurn).mock.calls[1]?.[0]).toEqual(firstRequest);
+    await waitFor(() => expect(screen.getByText("Retried Play answer")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled());
+    expect(screen.queryByRole("button", { name: "Retry exact Play turn" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    [401, "local_session_required"], [403, "world_owner_unverified"],
+  ])("releases a Play draft after a definite pre-dispatch refusal %s", async (status, code) => {
+    vi.mocked(postWorldPlayAgentTurn).mockRejectedValue(new LiveApiError("Refused before provider dispatch", status, { code }));
+    render(<Harness initial="play" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    const composer = await screen.findByLabelText("Message DungeonBuddy");
+    await waitFor(() => expect(composer).toBeEnabled());
+    fireEvent.change(composer, { target: { value: "Ask about this Run" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("Ask about this Run"));
+    expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Retry exact Play turn" })).not.toBeInTheDocument();
     expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
   });
 

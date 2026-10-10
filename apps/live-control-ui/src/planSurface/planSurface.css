@@ -654,6 +654,39 @@ body.surface-projection-open .plan-agent-shell {
   box-shadow: -18px 0 44px rgb(0 0 0 / 32%);
 }
 
+/* Play keeps the active Run beside the same World conversation. */
+:root:has(.plan-agent-shell.agent-interaction-shell--play.open) {
+  --app-chrome-bottom: 0rem;
+  --agent-play-panel-width: min(440px, 38vw);
+}
+
+#root:has(.agent-interaction-shell--play.open) .app-wrap:has(.play-surface) {
+  width: calc(100% - var(--agent-play-panel-width));
+  max-width: none;
+  margin-right: var(--agent-play-panel-width);
+  margin-left: 0;
+}
+
+.plan-agent-shell.agent-interaction-shell--play.open {
+  top: var(--app-chrome-top, 0px);
+  right: 0;
+  bottom: 0;
+  left: auto;
+  width: var(--agent-play-panel-width, min(440px, 38vw));
+  max-width: none;
+  height: auto;
+  max-height: none;
+  overflow: hidden;
+  border-left: 1px solid var(--ui-border-strong, #414e61);
+  background: var(--ui-background-ops, #10141d);
+  box-shadow: -18px 0 44px rgb(0 0 0 / 32%);
+}
+
+.plan-agent-shell.agent-interaction-shell--play.open .world-agent-conversation {
+  min-width: 0;
+  min-height: 0;
+}
+
 .plan-agent-shell.agent-interaction-shell--plan.open .agent-interaction-exit {
   position: absolute;
   top: 0.55rem;
@@ -8064,6 +8097,26 @@ body.surface-projection-open .plan-agent-shell {
 }
 
 @media (max-width: 42rem) {
+  #root:has(.agent-interaction-shell--play.open) .app-wrap:has(.play-surface) {
+    width: 100%;
+    margin-right: 0;
+  }
+
+  .plan-agent-shell.agent-interaction-shell--play.open {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100vw;
+    max-width: 100vw;
+    height: min(62dvh, calc(100dvh - var(--app-chrome-top, 0px) - 3rem));
+    max-height: none;
+    border: 1px solid var(--ui-border-strong, #414e61);
+    border-bottom: 0;
+    border-radius: 1rem 1rem 0 0;
+    box-shadow: 0 -18px 44px rgb(0 0 0 / 36%);
+  }
+
   .plan-agent-shell.agent-interaction-shell--plan.open {
     top: auto;
     right: 0;

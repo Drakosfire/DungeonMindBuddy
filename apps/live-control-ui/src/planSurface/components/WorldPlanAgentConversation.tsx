@@ -202,6 +202,44 @@ const PENDING_ASK_STORAGE_PREFIX = "dmb:world-plan-pending-ask:v1:";
 const PENDING_ASK_CLEARED_EVENT = "dmb:world-plan-pending-ask-cleared:v1";
 const PENDING_ASK_ACCEPTED_EVENT = "dmb:world-plan-ask-accepted:v1";
 const PENDING_NEW_CONVERSATION_STORAGE_PREFIX = "dmb:world-agent-new-conversation:v1:";
+const PENDING_PLAY_TURN_STORAGE_PREFIX = "dmb:world-play-pending-turn:v1:";
+
+interface StoredPendingPlayTurn {
+  storageKey: string;
+  serialized: string;
+  request: WorldPlayAgentTurnRequestV1;
+}
+
+function pendingPlayTurnStorageKey(worldId: string): string {
+  return `${PENDING_PLAY_TURN_STORAGE_PREFIX}${encodeURIComponent(worldId)}`;
+}
+
+function readPendingPlayTurn(worldId: string): StoredPendingPlayTurn | null {
+  const storageKey = pendingPlayTurnStorageKey(worldId);
+  const serialized = window.localStorage.getItem(storageKey);
+  if (serialized === null) return null;
+  const value: unknown = JSON.parse(serialized);
+  if (!hasExactKeys(value, ["schema", "request"]) || value.schema !== "dmb_world_play_pending_turn_v1"
+    || !hasExactKeys(value.request, ["schema", "client_thread_id", "turn_id", "surface", "owner_scope",
+      "primary_work", "client_work_state", "graph_request", "graph_selection", "message"])
+    || value.request.schema !== "dmb_agent_turn_request_v1"
+    || !commandUuid(value.request.client_thread_id) || !commandUuid(value.request.turn_id)
+    || !hasExactKeys(value.request.surface, ["surface_id", "instance_id"])
+    || value.request.surface.surface_id !== "play" || typeof value.request.surface.instance_id !== "string"
+    || !value.request.surface.instance_id.trim()
+    || !hasExactKeys(value.request.owner_scope, ["kind", "world_id"])
+    || value.request.owner_scope.kind !== "world" || value.request.owner_scope.world_id !== worldId
+    || !hasExactKeys(value.request.primary_work, ["kind", "object_id", "expected_revision"])
+    || value.request.primary_work.kind !== "run" || typeof value.request.primary_work.object_id !== "string"
+    || !value.request.primary_work.object_id.trim() || !isPositiveRevision(value.request.primary_work.expected_revision)
+    || value.request.client_work_state !== "saved_clean"
+    || !hasExactKeys(value.request.graph_request, ["mode"]) || value.request.graph_request.mode !== "none"
+    || value.request.graph_selection !== null || typeof value.request.message !== "string"
+    || !value.request.message.trim() || value.request.message.length > 8000) {
+    throw new Error("The saved Play request is malformed. It was retained and cannot be retried automatically.");
+  }
+  return { storageKey, serialized, request: value.request as unknown as WorldPlayAgentTurnRequestV1 };
+}
 
 interface WorldPlanLocalProposalPosition {
   turnId: string;
@@ -1914,6 +1952,8 @@ export function WorldPlanAgentConversation({
   const [confirmedTerminalFailureAsks, setConfirmedTerminalFailureAsks] = useState<ConfirmedTerminalFailureAsk[]>([]);
   const [pendingAskLoadError, setPendingAskLoadError] = useState<string | null>(null);
   const [pendingCommands, setPendingCommands] = useState<StoredPendingNewConversation[]>([]);
+  const [pendingPlayTurn, setPendingPlayTurn] = useState<StoredPendingPlayTurn | null>(null);
+  const [pendingPlayLoadError, setPendingPlayLoadError] = useState<string | null>(null);
   const [pendingCommandLoadError, setPendingCommandLoadError] = useState<string | null>(null);
   const [newConversationSending, setNewConversationSending] = useState(false);
   const [newConversationError, setNewConversationError] = useState<string | null>(null);
@@ -2266,6 +2306,20 @@ export function WorldPlanAgentConversation({
         if (!active || generation !== historyGenerationRef.current) return;
         sharedConversation?.setPendingTurn((current) => current && page.turns.some((turn) =>
           turn.turn_id === current.turnId && ["completed", "failed", "interrupted"].includes(turn.lifecycle_status)) ? null : current);
+        if (pendingPlayTurn && page.turns.some((turn) => turn.turn_id === pendingPlayTurn.request.turn_id
+          && ["completed", "failed", "interrupted"].includes(turn.lifecycle_status))) {
+          try {
+            if (window.localStorage.getItem(pendingPlayTurn.storageKey) === pendingPlayTurn.serialized) {
+              window.localStorage.removeItem(pendingPlayTurn.storageKey);
+              setPendingPlayTurn(null);
+              setPendingPlayLoadError(null);
+            } else {
+              setPendingPlayLoadError("The saved Play request changed. Review its recovery record before another turn.");
+            }
+          } catch (reason) {
+            setPendingPlayLoadError(reason instanceof Error ? reason.message : "Could not clear the confirmed Play request.");
+          }
+        }
         const uncertainNotice = uncertainPlayNoticeRef.current;
         if (uncertainNotice && page.turns.some((turn) => turn.turn_id === uncertainNotice.turnId
           && ["completed", "failed", "interrupted"].includes(turn.lifecycle_status))) {
@@ -2335,7 +2389,7 @@ export function WorldPlanAgentConversation({
       });
     return () => { active = false; };
   }, [scopeKey, scopeMatches, verifiedWorldId, documentId, historyRefreshNonce, sharedConversation?.historyRefreshNonce,
-    sharedConversation?.pendingTurn?.surface, isPlay, visible]);
+    sharedConversation?.pendingTurn?.surface, pendingPlayTurn?.serialized, isPlay, visible]);
 
   useEffect(() => {
     if (verifiedWorldId !== worldId || !sharedConversation?.pendingTurn) return;
@@ -2358,6 +2412,18 @@ export function WorldPlanAgentConversation({
         : "Browser storage is unavailable for pending Ask recovery.");
     }
   }, [scopeKey, scopeMatches, verifiedWorldId, documentId]);
+
+  useEffect(() => {
+    if (!verifiedWorldId) return;
+    try {
+      const stored = readPendingPlayTurn(verifiedWorldId);
+      setPendingPlayTurn(stored);
+      setPendingPlayLoadError(null);
+      if (stored) sharedConversation?.setPendingTurn((current) => current ?? { surface: "play", turnId: stored.request.turn_id });
+    } catch (reason) {
+      setPendingPlayLoadError(reason instanceof Error ? reason.message : "Saved Play request recovery is unavailable.");
+    }
+  }, [verifiedWorldId, sharedConversation?.setPendingTurn]);
 
   useEffect(() => {
     if (!verifiedWorldId) {
@@ -2957,29 +3023,30 @@ export function WorldPlanAgentConversation({
     }
   }
 
-  async function submitPlay(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const admittedRun = playMode?.admittedRun;
-    const message = composerMessage.trim();
-    if (!visible || !isPlay || !admittedRun || admittedRun.worldId !== verifiedWorldId
-      || !historySnapshotRef.current || historyLoading || historyError || !message || message.length > 8000
-      || sending || requestRef.current || sharedConversation?.pendingTurn) return;
-    const request: WorldPlayAgentTurnRequestV1 = {
-      schema: "dmb_agent_turn_request_v1",
-      client_thread_id: crypto.randomUUID(),
-      turn_id: crypto.randomUUID(),
-      surface: { surface_id: "play", instance_id: admittedRun.surfaceInstanceId },
-      owner_scope: { kind: "world", world_id: admittedRun.worldId },
-      primary_work: { kind: "run", object_id: admittedRun.runId, expected_revision: admittedRun.runRevision },
-      client_work_state: "saved_clean",
-      graph_request: { mode: "none" },
-      graph_selection: null,
-      message,
-    };
+  function clearSavedPlayTurn(stored: StoredPendingPlayTurn): boolean {
+    try {
+      const current = window.localStorage.getItem(stored.storageKey);
+      const terminal = sharedConversation?.history?.turns.some((turn) => turn.turn_id === stored.request.turn_id
+        && ["completed", "failed", "interrupted"].includes(turn.lifecycle_status));
+      if (current !== stored.serialized && !(current === null && terminal)) {
+        throw new Error("The saved Play request changed. Its recovery record was retained.");
+      }
+      if (current === stored.serialized) window.localStorage.removeItem(stored.storageKey);
+      setPendingPlayTurn(null);
+      setPendingPlayLoadError(null);
+      return true;
+    } catch (reason) {
+      setPendingPlayLoadError(reason instanceof Error ? reason.message : "Could not clear the saved Play request.");
+      return false;
+    }
+  }
+
+  async function dispatchSavedPlayTurn(stored: StoredPendingPlayTurn) {
+    const request = stored.request;
+    if (verifiedWorldId !== request.owner_scope.world_id || requestRef.current || sending) return;
     const token = Symbol("world-play-turn");
-    requestRef.current = { token, scopeKey: admittedRun.worldId, fenceKey: JSON.stringify(request.primary_work) };
+    requestRef.current = { token, scopeKey: request.owner_scope.world_id, fenceKey: JSON.stringify(request.primary_work) };
     sharedConversation?.setPendingTurn({ surface: "play", turnId: request.turn_id });
-    setComposerMessage((current) => current === composerMessage ? "" : current);
     setSending(true);
     setError(null);
     try {
@@ -2994,24 +3061,31 @@ export function WorldPlanAgentConversation({
         || response.graph.status !== "not_requested") {
         throw new Error("The Play response did not match the submitted World Run. Check World history before continuing.");
       }
-      sharedConversation?.setPendingTurn((current) => current?.turnId === request.turn_id ? null : current);
+      if (clearSavedPlayTurn(stored)) sharedConversation?.setPendingTurn((current) => current?.turnId === request.turn_id ? null : current);
       sharedConversation?.setHistoryRefreshNonce((current) => current + 1);
     } catch (reason) {
       if (requestRef.current?.token !== token || !latestRef.current.mounted) return;
       if (sharedConversation?.history?.turns.some((turn) => turn.turn_id === request.turn_id
         && ["completed", "failed", "interrupted"].includes(turn.lifecycle_status))) {
-        sharedConversation.setPendingTurn((current) => current?.turnId === request.turn_id ? null : current);
+        if (clearSavedPlayTurn(stored)) sharedConversation.setPendingTurn((current) => current?.turnId === request.turn_id ? null : current);
         return;
       }
       const rejectedBeforeDispatch = reason instanceof LiveApiError
-        && ["play_context_unavailable", "world_owner_unverified"].includes(reason.code ?? "");
+        && (["play_context_unavailable", "world_owner_unverified"].includes(reason.code ?? "")
+          || reason.status === 401 || reason.status === 403);
       if (rejectedBeforeDispatch) {
-        sharedConversation?.setPendingTurn((current) => current?.turnId === request.turn_id ? null : current);
-        setComposerMessage((current) => current || message);
+        if (clearSavedPlayTurn(stored)) {
+          sharedConversation?.setPendingTurn((current) => current?.turnId === request.turn_id ? null : current);
+          setComposerDrafts((drafts) => {
+            const key = `play:${request.primary_work.object_id}`;
+            return drafts[key] ? drafts : { ...drafts, [key]: request.message };
+          });
+        }
       }
       const notice = rejectedBeforeDispatch
-        ? `This Run is no longer verified for a Play turn. ${reason instanceof Error ? reason.message : "Reload the Run."}`
-        : `${reason instanceof Error ? reason.message : "The Play turn outcome is unknown."} Check World history before sending another turn.`;
+        ? `This Play turn was refused before dispatch. ${localOperatorCredentialFailure(reason, "return to Play and send again")
+          ?? (reason instanceof Error ? reason.message : "Reload the Run.")}`
+        : `${reason instanceof Error ? reason.message : "The Play turn outcome is unknown."} Check World history or explicitly retry the saved request with its original IDs.`;
       uncertainPlayNoticeRef.current = rejectedBeforeDispatch ? null : { turnId: request.turn_id, message: notice };
       setError(notice);
       sharedConversation?.setHistoryRefreshNonce((current) => current + 1);
@@ -3021,6 +3095,41 @@ export function WorldPlanAgentConversation({
         setSending(false);
       }
     }
+  }
+
+  async function submitPlay(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const admittedRun = playMode?.admittedRun;
+    const message = composerMessage.trim();
+    if (!visible || !isPlay || !admittedRun || admittedRun.worldId !== verifiedWorldId
+      || !historySnapshotRef.current || historyLoading || historyError || !message || message.length > 8000
+      || sending || requestRef.current || sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError) return;
+    const request: WorldPlayAgentTurnRequestV1 = {
+      schema: "dmb_agent_turn_request_v1",
+      client_thread_id: crypto.randomUUID(),
+      turn_id: crypto.randomUUID(),
+      surface: { surface_id: "play", instance_id: admittedRun.surfaceInstanceId },
+      owner_scope: { kind: "world", world_id: admittedRun.worldId },
+      primary_work: { kind: "run", object_id: admittedRun.runId, expected_revision: admittedRun.runRevision },
+      client_work_state: "saved_clean",
+      graph_request: { mode: "none" },
+      graph_selection: null,
+      message,
+    };
+    const storageKey = pendingPlayTurnStorageKey(admittedRun.worldId);
+    const serialized = JSON.stringify({ schema: "dmb_world_play_pending_turn_v1", request });
+    try {
+      if (window.localStorage.getItem(storageKey) !== null) throw new Error("An earlier Play request still needs recovery.");
+      window.localStorage.setItem(storageKey, serialized);
+      if (window.localStorage.getItem(storageKey) !== serialized) throw new Error("Browser storage did not preserve the exact Play request.");
+    } catch (reason) {
+      setError(`The Play turn was not sent because its exact recovery request could not be saved. ${reason instanceof Error ? reason.message : "Browser storage is unavailable."}`);
+      return;
+    }
+    const stored = { storageKey, serialized, request };
+    setPendingPlayTurn(stored);
+    setComposerMessage((current) => current === composerMessage ? "" : current);
+    await dispatchSavedPlayTurn(stored);
   }
 
   function submitComposer(event: FormEvent<HTMLFormElement>) {
@@ -3783,8 +3892,10 @@ export function WorldPlanAgentConversation({
     ? composerIntentCorrection.intent
     : inferredComposerIntent;
   const composerBusy = isPlay
-    ? sending || Boolean(sharedConversation?.pendingTurn) || historyLoading || !history || Boolean(historyError) || !playMode?.admittedRun
-    : intentBusy || Boolean(sharedConversation?.pendingTurn) || (detectedComposerIntent === "discuss"
+    ? sending || Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError)
+      || historyLoading || !history || Boolean(historyError) || !playMode?.admittedRun
+    : intentBusy || Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError)
+      || (detectedComposerIntent === "discuss"
       && (historyLoading || !history || Boolean(historyError)));
   const messageLimit = isPlay || detectedComposerIntent === "discuss" ? 8000 : 4000;
   const messageTooLong = composerMessage.length > messageLimit;
@@ -3989,7 +4100,7 @@ export function WorldPlanAgentConversation({
     ? "A new conversation is already starting."
     : pendingNewConversation
       ? "A previous new-conversation request is awaiting confirmation. Check its status before starting another."
-    : sending || composing || Boolean(sharedConversation?.pendingTurn)
+    : sending || composing || Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError)
         ? "Wait for the current message to finish before starting a new conversation."
         : historyLoading
           ? "Conversation history is still loading."
@@ -4314,6 +4425,14 @@ export function WorldPlanAgentConversation({
   const messages = (
     <div className="world-plan-agent-conversation__body">
       {newConversationError ? <p role="alert">{newConversationError}</p> : null}
+      {pendingPlayLoadError ? <p role="alert">{pendingPlayLoadError}</p> : null}
+      {pendingPlayTurn ? <section className="world-plan-agent-conversation__recovery-notice" aria-label="Saved Play turn recovery">
+        <p>This Play turn is awaiting confirmation. Refresh history or retry its exact saved request; no request is sent automatically.</p>
+        <button type="button" onClick={refreshWorldHistory} disabled={historyLoading}>Refresh World history</button>
+        <button type="button" onClick={() => { void dispatchSavedPlayTurn(pendingPlayTurn); }} disabled={sending || requestRef.current !== null}>
+          Retry exact Play turn
+        </button>
+      </section> : null}
       {presentationHosts && playableTargetStale ? <p role="alert">The Ask target is stale. Select it again before asking.</p> : null}
       {presentationHosts && effectiveEditTargetStale ? <p role="alert">The edit target is stale. Select it again before composing a proposal.</p> : null}
       {authorizationBlocked ? (
@@ -4488,7 +4607,7 @@ export function WorldPlanAgentConversation({
         <ConversationDock className="plan-conversation-dock world-agent-conversation__dock" reader={null} readerLabel="Play workspace"
           conversationLabel="World conversation" title="Conversation"
           contextLabel={`${worldName} · Play${admittedRun?.beatTitle ? ` · ${admittedRun.beatTitle}` : ""}${admittedRun?.sceneTitle ? ` · ${admittedRun.sceneTitle}` : ""}`}
-          initialHeight={360} minHeight={240} minimumReaderHeight={0} fullscreenEnabled
+          initialHeight={360} minHeight={240} minimumReaderHeight={0} collapseMode="launcher"
           expanded={agent.paneState.isOpen} onExpandedChange={agent.setPaneOpen}
           headerActions={<details className="plan-conversation-dock__management" aria-label="Conversation options">
             <summary>Conversation options</summary><div>{headerActions}{managementDetails}</div>
