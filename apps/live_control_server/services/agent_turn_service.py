@@ -23,6 +23,7 @@ from application_state.agent_conversation.types import (
     PlanWorldGraphContextReceiptV1,
     PlanPlayableTargetReceiptV1,
     PlayRunTurnContextReceiptV1,
+    PlayGraphBindingReceiptV1,
     PlanContextPolicyV1,
     SubmittedGraphFocusIntentV1,
     SubmittedGraphRequestIntentV1,
@@ -38,8 +39,10 @@ from application_state.agent_conversation.types import (
     TurnSubmission,
     decode_plan_playable_target_reference,
     decode_play_run_turn_context_references,
+    decode_play_graph_binding_references,
     encode_plan_playable_target_reference,
     encode_play_run_turn_context_references,
+    encode_play_graph_binding_reference,
     validate_completion_against_receipt,
 )
 from application_state.errors import (
@@ -2285,6 +2288,27 @@ def _conversation_provenance(
                 revision=revision,
             )
         )
+        if request.surface.surface_id == "play" and request.primary_work is not None:
+            if (
+                request.graph_request.mode != "world"
+                or graph_envelope is None
+                or graph_envelope.get("managed_world_id") != world_id
+                or graph_envelope.get("world_id") != graph_scope.world_id
+                or not isinstance(graph_envelope.get("binding_version"), int)
+                or isinstance(graph_envelope.get("binding_version"), bool)
+            ):
+                raise AgentTurnServiceError(
+                    "The Play Graph binding could not be frozen.",
+                    code="turn_receipt_unverifiable", status_code=409,
+                )
+            supporting_work.append(encode_play_graph_binding_reference(
+                PlayGraphBindingReceiptV1(
+                    schema="dmb_play_graph_binding_receipt_v1",
+                    managed_world_id=world_id,
+                    native_world_id=graph_scope.world_id,
+                    binding_version=graph_envelope["binding_version"],
+                )
+            ))
         if request.graph_selection is None:
             selected_object = HistoricalReference(resolution="absent")
         else:
@@ -2501,7 +2525,6 @@ def _require_play_run_receipt_matches_request(
         or provenance.surface_id != "play"
         or receipt.run_id != request.primary_work.object_id
         or receipt.run_revision != request.primary_work.expected_revision
-        or request.graph_request.mode != "none"
         or provenance.selected_object.resolution != "absent"
     ):
         raise AgentTurnServiceError(
@@ -2509,6 +2532,34 @@ def _require_play_run_receipt_matches_request(
             code="turn_receipt_unverifiable", status_code=409,
         )
     return receipt
+
+
+def _stored_play_graph_binding(
+    request: AgentTurnRequest, provenance: TurnProvenance,
+) -> PlayGraphBindingReceiptV1 | None:
+    if request.surface.surface_id != "play" or request.primary_work is None:
+        return None
+    try:
+        binding = decode_play_graph_binding_references(provenance)
+    except ValueError as exc:
+        raise AgentTurnServiceError(
+            "The stored Play Graph binding is malformed.",
+            code="turn_receipt_unverifiable", status_code=409,
+        ) from exc
+    if (request.graph_request.mode == "world") != (binding is not None):
+        raise AgentTurnServiceError(
+            "The Play Graph intent does not match its binding receipt.",
+            code="turn_receipt_unverifiable", status_code=409,
+        )
+    if binding is not None and (
+        binding.managed_world_id != provenance.world_id
+        or request.graph_request.world_id != binding.managed_world_id
+    ):
+        raise AgentTurnServiceError(
+            "The Play Graph binding does not match the World owner.",
+            code="turn_receipt_unverifiable", status_code=409,
+        )
+    return binding
 
 
 def _completed_turn_replay(
@@ -2521,6 +2572,7 @@ def _completed_turn_replay(
     """Project a completed durable receipt without loading runtime/current state."""
     _require_playable_target_receipt_matches_request(request, turn.provenance)
     _require_play_run_receipt_matches_request(request, turn.provenance)
+    play_graph_binding = _stored_play_graph_binding(request, turn.provenance)
     segment_thread_id = _provider_segment_thread_id(
         turn.provenance, conversation_id=turn.conversation_id
     )
@@ -2555,7 +2607,10 @@ def _completed_turn_replay(
     if graph_requested and (
         graph_reference is None
         or graph_reference.resolution != "resolved"
-        or graph_reference.object_id != owner.get("id")
+        or graph_reference.object_id != (
+            play_graph_binding.native_world_id if play_graph_binding is not None
+            else owner.get("id")
+        )
         or not graph_reference.revision
     ):
         raise AgentTurnServiceError(
@@ -3075,11 +3130,15 @@ def execute_agent_turn(
             )
 
     stored_playable_target: PlanPlayableTargetReceiptV1 | None = None
+    stored_play_graph_binding: PlayGraphBindingReceiptV1 | None = None
     if durable_turn is not None:
         stored_playable_target = _require_playable_target_receipt_matches_request(
             request, durable_turn.provenance
         )
         _require_play_run_receipt_matches_request(request, durable_turn.provenance)
+        stored_play_graph_binding = _stored_play_graph_binding(
+            request, durable_turn.provenance,
+        )
 
     graph_reference = None
     if durable_turn is not None:
@@ -3111,7 +3170,10 @@ def execute_agent_turn(
         if (
             graph_reference.resolution != "resolved"
             or not graph_reference.revision
-            or graph_reference.object_id != canonical_world_id
+            or graph_reference.object_id != (
+                stored_play_graph_binding.native_world_id
+                if stored_play_graph_binding is not None else canonical_world_id
+            )
         ):
             raise AgentTurnServiceError(
                 "The retry receipt has no verifiable frozen Graph snapshot.",
@@ -3307,7 +3369,13 @@ def execute_agent_turn(
         graph_result = {"status": "not_requested", "selection_found": None}
     else:
         try:
-            envelope, scope = graph_resolver(resolution_request, owner, work)
+            if request.surface.surface_id == "play" and request.primary_work is not None:
+                envelope, scope = graph_resolver(
+                    resolution_request, owner, work,
+                    expected_play_binding=stored_play_graph_binding,
+                )
+            else:
+                envelope, scope = graph_resolver(resolution_request, owner, work)
         except AgentTurnServiceError:
             raise
         except Exception as exc:
@@ -3329,7 +3397,14 @@ def execute_agent_turn(
         if conversation_service is not None and canonical_world_id is not None and (
             not envelope.get("revision_id")
             or scope.revision_id != resolved_graph_revision
-            or scope.world_id != canonical_world_id
+            or scope.world_id != (
+                stored_play_graph_binding.native_world_id
+                if stored_play_graph_binding is not None else (
+                    str(envelope.get("world_id"))
+                    if request.surface.surface_id == "play" and request.primary_work is not None
+                    else canonical_world_id
+                )
+            )
             or (
                 durable_turn is not None
                 and resolved_graph_revision != graph_reference.revision
@@ -3340,6 +3415,25 @@ def execute_agent_turn(
                 code="graph_revision_unavailable",
                 status_code=503,
             )
+        if request.surface.surface_id == "play" and request.primary_work is not None:
+            if (
+                envelope.get("managed_world_id") != canonical_world_id
+                or envelope.get("world_id") != scope.world_id
+                or envelope.get("campaign_id") not in ("", None)
+                or scope.scope_mode != "world"
+                or scope.admissibility != "gm"
+                or (
+                    stored_play_graph_binding is not None and (
+                        stored_play_graph_binding.native_world_id != scope.world_id
+                        or stored_play_graph_binding.binding_version
+                        != envelope.get("binding_version")
+                    )
+                )
+            ):
+                raise AgentTurnServiceError(
+                    "The Play Graph binding changed or did not match the frozen receipt.",
+                    code="turn_receipt_unverifiable", status_code=409,
+                )
         found_selection = _selection_found(envelope, selected_node_id)
         if selected_node_id is not None and found_selection is not True:
             raise AgentTurnServiceError(

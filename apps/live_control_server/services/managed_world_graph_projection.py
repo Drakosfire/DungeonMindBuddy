@@ -149,10 +149,16 @@ def project_managed_world_graph(
     request: ManagedWorldGraphProjectionRequest,
     *,
     root: Path | None = None,
+    expected_binding: VerifiedManagedWorldBinding | None = None,
 ) -> ManagedWorldGraphProjectionResponse:
     """Read through a stable active Buddy binding, failing closed on change."""
 
     initial = resolve_managed_world_binding(request.managed_world_id, root=root)
+    if expected_binding is not None and initial != expected_binding:
+        raise WorldGraphProjectionServiceError(
+            "Managed World native Graph binding changed before projection.",
+            code="native_graph_binding_changed", status_code=409,
+        )
 
     native_request = WorldGraphProjectionRequest.model_validate(
         {
