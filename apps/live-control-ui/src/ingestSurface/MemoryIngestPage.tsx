@@ -30,7 +30,7 @@ export function MemoryIngestPage() {
     sourceEnvelope: null,
   }, [selectedWorld.kind, selectionError]);
   usePublishAgentSurfaceContext(blockedContext);
-  if (selectedWorld.kind === "managed") return <SelectedWorldMemoryIngestPage key={selectedWorld.worldId} />;
+  if (selectedWorld.kind === "managed") return <SelectedWorldMemoryIngestPage key={selectedWorld.worldId} managedWorldId={selectedWorld.worldId} />;
   return (
     <AppChrome activeRoute="ingest">
       <main className={`app-status${selectedWorld.kind === "loading" ? "" : " app-error"}`}>
@@ -46,7 +46,7 @@ export function MemoryIngestPage() {
   );
 }
 
-function SelectedWorldMemoryIngestPage() {
+function SelectedWorldMemoryIngestPage({ managedWorldId: selectedManagedWorldId }: { managedWorldId: string }) {
   const selectedWorld = useSelectedWorld();
   const managedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const catalog = useIngestRunCatalogInformation();
@@ -220,7 +220,7 @@ function SelectedWorldMemoryIngestPage() {
         <main className="ingest-surface-root" aria-label="Memory Ingest">
           <h1>Memory Ingest · {selectedWorld.kind === "managed" ? selectedWorld.name : managedWorldId}</h1>
           {managedWorldId === "elderwyld" ? (
-            <IngestionModule campaignId="longmont-c2" session={29} initialSourceSession={29} />
+            <IngestionModule campaignId="longmont-c2" session={29} managedWorldId={selectedManagedWorldId} initialSourceSession={29} />
           ) : (
             <>
               <p>No exact extraction run is selected for this World.</p>

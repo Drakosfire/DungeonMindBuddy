@@ -134,6 +134,22 @@ operator use; visual polish alone does not establish durable or Graph behavior.
 The end-to-end demo remains unaccepted. Several integration and rehearsal steps
 are now proven; J1–J6 have not passed as a connected journey.
 
+**Selected-World recap Graph context — implementation in review:** Buddy now
+consumes DungeonMind's bearer-gated campaign ingestion context for recap graph
+extraction. The selected managed World is resolved to its active native binding
+server-side; membership and an initialized head are checked before recap graph
+staging/source/run writes. The observed head and binding are pinned into
+immutable extraction lineage and revalidated at prepare/confirm. Corpus-only
+recap maintenance and first-World worldbuilding remain available without this
+campaign context. This code lane is documented in
+[`HANDOFF-DEMO-world-campaign-recap-context.md`](../Plans/HANDOFF-DEMO-world-campaign-recap-context.md);
+it does not claim a real recap extraction, publication, rollout, or J1–J6
+acceptance. MIND #111 is pinned at
+`b789ddc207a0a5a820a11f85e18d203d355d8f53`. The corrected S28 candidate
+(`31cbf...`, 38 nodes + 15 edges, zero invalid assertions) remains
+`world_id=null` and non-promotable; its stale source-remediation handoff is
+settled, and historical adoption remains a separate decision/workflow.
+
 **Recap publication target and Graph Ask witness (2026-10-06):** Buddy #980
 merged at `a92371b7b2e727d1d45bef1c8e1d7a3d01b58193` and now requires recap
 prepare to name an explicit managed World; the server seals and revalidates its

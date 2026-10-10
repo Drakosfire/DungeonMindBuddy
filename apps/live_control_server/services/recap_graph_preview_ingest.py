@@ -13,7 +13,7 @@ import json
 import logging
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Any, Mapping
 
 
 from apps.live_control_server.services.graph_ingest_run_registry import (
@@ -186,10 +186,13 @@ def build_recap_graph_preview_bundle(
     enable_node_vocabulary_packet: bool = False,
     enable_edge_vocabulary_packet: bool = False,
     category_client: Any | None = None,
+    ingest_context: Any | None = None,
 ) -> dict[str, Any]:
     """Build a preview graph-ingest run from a normalized recap."""
 
 
+    if ingest_context is None:
+        raise ValueError("managed World/campaign ingestion context is required")
     repo = repo_root.resolve()
     normalized = _resolve_existing_readable_path(normalized_recap_path, field_name="normalized_recap_path")
     source_recap_path, source_recap_sha256 = _lineage_for_normalized_recap(
@@ -243,6 +246,17 @@ def build_recap_graph_preview_bundle(
             graph_extraction_profile=requested_profile if profile_sensitive_reuse else None,
             require_production_lineage=extract_graph,
         )
+        if reusable is not None and not _summary_matches_ingest_context(
+            repo, reusable, ingest_context
+        ):
+            logger.info(
+                "skipping reusable recap run with a different World/campaign head snapshot "
+                "campaign=%s session=session-%s manifest=%s",
+                campaign_id,
+                session,
+                reusable.manifest_path,
+            )
+            reusable = None
         if reusable is not None:
             logger.info(
                 "graph preview bundle reusing run campaign=%s session=session-%s status=%s manifest=%s run_dir=%s",
@@ -277,6 +291,7 @@ def build_recap_graph_preview_bundle(
         context_vocabulary_packet=context_vocabulary_packet,
         enable_node_vocabulary_packet=enable_node_vocabulary_packet,
         enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
+        ingest_context=ingest_context,
     )
     logger.info(
         "production extraction run_id=%s profile=%s status=%s failure_kind=%s",
@@ -455,10 +470,13 @@ def materialize_recap_preview_supergraph(
     context_vocabulary_packet: ContextVocabularyPacket | None = None,
     enable_node_vocabulary_packet: bool = False,
     enable_edge_vocabulary_packet: bool = False,
+    ingest_context: Any | None = None,
 ) -> dict[str, Any]:
     """Materialize a preview union supergraph from a recap graph-ingest run."""
 
 
+    if ingest_context is None:
+        raise ValueError("managed World/campaign ingestion context is required")
     repo = repo_root.resolve()
     source_recap_path, source_recap_sha256 = _lineage_for_normalized_recap(
         repo, normalized_recap_path
@@ -496,6 +514,7 @@ def materialize_recap_preview_supergraph(
             context_vocabulary_packet=context_vocabulary_packet,
             enable_node_vocabulary_packet=enable_node_vocabulary_packet,
             enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
+            ingest_context=ingest_context,
         )
 
 
@@ -538,6 +557,7 @@ def materialize_recap_preview_supergraph(
                 context_vocabulary_packet=context_vocabulary_packet,
                 enable_node_vocabulary_packet=enable_node_vocabulary_packet,
                 enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
+                ingest_context=ingest_context,
             )
 
 
@@ -826,6 +846,53 @@ def _latest_matching_run(
                 continue
         return run
     return None
+
+
+def _summary_matches_ingest_context(
+    repo: Path, summary: GraphIngestRunSummary, ingest_context: Any
+) -> bool:
+    """Reuse a run only while its source and selected World authority stay exact."""
+    if not summary.manifest_path:
+        return False
+    try:
+        payload = json.loads((repo / summary.manifest_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, TypeError):
+        return False
+    diagnostics = payload.get("diagnostics") if isinstance(payload, dict) else None
+    run_id = diagnostics.get("extraction_run_id") if isinstance(diagnostics, dict) else None
+    if not isinstance(run_id, str) or not run_id.strip():
+        return False
+    from apps.live_control_server.services.graph_run_registry import (
+        GraphRunRegistryError,
+        get_extraction_run,
+    )
+
+    try:
+        run = get_extraction_run(repo, run_id)
+    except GraphRunRegistryError:
+        return False
+    return _same_recap_ingest_context_authority(
+        (run.lineage or {}).get("world_campaign_ingest_context"),
+        ingest_context.as_lineage(),
+    )
+
+
+def _same_recap_ingest_context_authority(
+    extracted: Any, current: Mapping[str, Any]
+) -> bool:
+    """A recap extraction depends on its source, not the Graph head it observed."""
+    if not isinstance(extracted, Mapping):
+        return False
+    return all(
+        extracted.get(key) == current.get(key)
+        for key in (
+            "schema",
+            "managed_world_id",
+            "native_world_id",
+            "binding_version",
+            "campaign_id",
+        )
+    )
 
 
 def _load_extraction_run_record(repo: Path, run_id: str) -> Any | None:

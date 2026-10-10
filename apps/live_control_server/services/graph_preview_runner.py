@@ -68,6 +68,7 @@ def run_recap_production_extraction(
     enable_node_vocabulary_packet: bool = False,
     enable_edge_vocabulary_packet: bool = False,
     execution_limits: RecapExecutionLimits | None = None,
+    ingest_context: Any | None = None,
 ) -> ProductionExtractionResult:
     bounded = None
     if execution_limits is not None:
@@ -103,6 +104,10 @@ def run_recap_production_extraction(
                 context_vocabulary_packet=context_vocabulary_packet,
                 enable_node_vocabulary_packet=enable_node_vocabulary_packet,
                 enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
+                initial_lineage=(
+                    {"world_campaign_ingest_context": ingest_context.as_lineage()}
+                    if ingest_context is not None else None
+                ),
             )
         )
         return result

@@ -63,6 +63,9 @@ class RecapIngestRequest(BaseModel):
 
     operation: RecapIngestOperation
     campaign_id: str = Field(min_length=1)
+    # Optional for general corpus maintenance. Required only when creating a
+    # canonical graph ExtractionRun for an existing managed World.
+    managed_world_id: str | None = None
     session: Annotated[int, Field(ge=1)]
     raw_text: str | None = None
     slug: str | None = None
@@ -320,6 +323,7 @@ def _inspect_status_with_graph(body: RecapIngestRequest, corpus: Path | None) ->
 
 
 def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path | None) -> dict[str, Any]:
+    ingest_context = _request_recap_context(body) if body.include_graph_extraction else None
     active_corpus = (corpus or default_corpus_root()).resolve()
     staged_reuse_status: dict[str, Any] | None = None
 
@@ -361,6 +365,7 @@ def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path |
                 extract_graph=True,
                 graph_model_id=body.graph_model_id or resolve_category_graph_model(None),
                 force_graph_run=body.force_graph_run,
+                ingest_context=ingest_context,
             )
             status = _append_graph_status(status, graph)
             if graph.get("extraction_mode") == "llm_blocked" or graph.get("blocked_reason"):
@@ -486,6 +491,34 @@ def _options_for_request(body: RecapIngestRequest) -> PipelineOptions:
     raise HTTPException(status_code=422, detail=f"unsupported operation: {operation}")
 
 
+def _request_recap_context(body: RecapIngestRequest):
+    if not body.managed_world_id:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "managed_world_context_required",
+                "message": "Select a managed World before creating a campaign recap graph run.",
+            },
+        )
+    from apps.live_control_server.services.recap_ingest_context import (
+        read_recap_ingest_context,
+    )
+
+    try:
+        return read_recap_ingest_context(
+            managed_world_id=body.managed_world_id,
+            campaign_id=body.campaign_id,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=getattr(exc, "status_code", 503),
+            detail={
+                "code": getattr(exc, "code", "ingest_context_unavailable"),
+                "message": str(exc),
+            },
+        ) from exc
+
+
 @router.post("/recap-ingest", response_model=RecapIngestStatusResponse)
 def post_recap_ingest(body: RecapIngestRequest) -> dict[str, Any]:
     try:
@@ -497,6 +530,7 @@ def post_recap_ingest(body: RecapIngestRequest) -> dict[str, Any]:
         if body.operation == "inspect_graph_preview":
             return _inspect_status_with_graph(body, corpus)
         if body.operation in {"build_graph_preview_bundle", "materialize_preview_supergraph"}:
+            ingest_context = _request_recap_context(body)
             status = inspect_recap_ingest_status(
                 campaign_id=body.campaign_id,
                 session=body.session,
@@ -522,6 +556,7 @@ def post_recap_ingest(body: RecapIngestRequest) -> dict[str, Any]:
                     candidate_graph_path=body.candidate_graph_path,
                     extract_graph=body.extract_graph,
                     graph_model_id=body.graph_model_id,
+                    ingest_context=ingest_context,
                 )
             else:
                 graph = materialize_recap_preview_supergraph(
@@ -533,6 +568,7 @@ def post_recap_ingest(body: RecapIngestRequest) -> dict[str, Any]:
                     extract_graph=body.extract_graph or body.materialize_after_extract,
                     graph_model_id=body.graph_model_id,
                     force_graph_run=body.force_graph_run,
+                    ingest_context=ingest_context,
                 )
             return _append_graph_status(status, graph)
         if body.operation == "build_frontmatter_seed":

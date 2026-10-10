@@ -35,6 +35,7 @@ import { NativeGraphAccessControl } from "../chrome/NativeGraphAccessControl";
 interface IngestionModuleProps {
   campaignId: string;
   session: number;
+  managedWorldId?: string;
   initialSourceSession?: number;
 }
 
@@ -730,7 +731,7 @@ function previewSourceSignature(recapSession: number, rawText: string, slug: str
   });
 }
 
-export function IngestionModule({ campaignId: planCampaignId, session, initialSourceSession }: IngestionModuleProps) {
+export function IngestionModule({ campaignId: planCampaignId, session, managedWorldId, initialSourceSession }: IngestionModuleProps) {
   const projection = useOptionalProjection();
   const [ingestCampaignId, setIngestCampaignId] = useState(() =>
     resolveInitialReviewCampaignId(planCampaignId),
@@ -1401,6 +1402,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
         await postRecapIngest({
           operation: "generate_recap_memory",
           campaign_id: ingestCampaignId,
+          managed_world_id: managedWorldId,
           session: recapSession,
           slug: effectiveSlug || undefined,
           title: effectiveTitle || undefined,
@@ -1801,6 +1803,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
       const result = await postRecapIngest({
         operation: "build_graph_preview_bundle",
         campaign_id: ingestCampaignId,
+        managed_world_id: managedWorldId,
         session: recapSession,
         candidate_graph_path: extractGraphWithMini ? undefined : candidateGraphPath.trim() || undefined,
         extract_graph: extractGraphWithMini,
@@ -1826,6 +1829,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
       const result = await postRecapIngest({
         operation: "materialize_preview_supergraph",
         campaign_id: ingestCampaignId,
+        managed_world_id: managedWorldId,
         session: recapSession,
         candidate_graph_path: extractGraphWithMini ? undefined : candidateGraphPath.trim() || undefined,
         extract_graph: extractGraphWithMini,

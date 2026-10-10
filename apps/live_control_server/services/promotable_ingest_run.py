@@ -89,6 +89,8 @@ class PromotableIngestRun:
     # Review/prepare must load this URI — never re-derive the registry canonical
     # index from source_artifact_id alone.
     source_span_index_path: Path | None = None
+    # Immutable MIND membership/head observation captured before recap extraction.
+    ingest_context: dict[str, Any] | None = None
 
 
 def ingest_runs_artifact_root(root: Path | None = None) -> Path:
@@ -424,6 +426,11 @@ def _resolve_promotable_extraction_run(
         ],
         source_domain=(run.source_domain or "worldbuilding").strip() or "worldbuilding",
         world_id=artifact_world_id,
+        ingest_context=(
+            dict(run.lineage.get("world_campaign_ingest_context"))
+            if isinstance(run.lineage.get("world_campaign_ingest_context"), dict)
+            else None
+        ),
         source_span_index_path=span_index_path,
     )
 

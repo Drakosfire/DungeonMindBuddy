@@ -81,6 +81,7 @@ from graph_memory.extract_promote_proposal import (
 
 _PUBLICATION_TARGET_KEY = "managed_world_publication_target"
 _PUBLICATION_TARGET_SCHEMA = "dmb_managed_world_publication_target_v1"
+_RECAP_CONTEXT_KEY = "world_campaign_ingest_context"
 
 
 def _resolve_publication_target(managed_world_id: str) -> VerifiedManagedWorldBinding:
@@ -118,6 +119,50 @@ def _seal_publication_target(
     sealed["effect"] = effect
     sealed["proposal_digest"] = compute_proposal_digest(effect)
     return sealed
+
+
+def _seal_recap_ingest_context(
+    package: Mapping[str, Any], context: Mapping[str, Any]
+) -> dict[str, Any]:
+    sealed = dict(package)
+    effect = dict(sealed.get("effect") or {})
+    effect[_RECAP_CONTEXT_KEY] = dict(context)
+    sealed["effect"] = effect
+    sealed["proposal_digest"] = compute_proposal_digest(effect)
+    return sealed
+
+
+def _assert_current_recap_ingest_context(
+    context: Mapping[str, Any], *, managed_world_id: str, campaign_id: str
+) -> dict[str, Any]:
+    from apps.live_control_server.services.recap_ingest_context import (
+        read_recap_ingest_context,
+    )
+
+    try:
+        current = read_recap_ingest_context(
+            managed_world_id=managed_world_id, campaign_id=campaign_id
+        ).as_lineage()
+    except Exception as exc:  # noqa: BLE001
+        raise ExtractPromoteError(
+            "World/campaign ingestion authority is unavailable; prepare again.",
+            code="recap_ingest_context_changed",
+            status_code=409,
+        ) from exc
+    identity_fields = (
+        "schema",
+        "managed_world_id",
+        "native_world_id",
+        "binding_version",
+        "campaign_id",
+    )
+    if any(context.get(key) != current.get(key) for key in identity_fields):
+        raise ExtractPromoteError(
+            "World/campaign membership or binding changed; prepare again.",
+            code="recap_ingest_context_changed",
+            status_code=409,
+        )
+    return current
 
 
 def _assert_current_publication_target(
@@ -1352,6 +1397,26 @@ def prepare(
             status_code=409,
         )
 
+    recap_context = getattr(resolved, "ingest_context", None)
+    prepared_recap_context: dict[str, Any] | None = None
+    if resolved.source_domain == "recap":
+        if isinstance(recap_context, dict):
+            if (
+                recap_context.get("campaign_id") != resolved.campaign_id
+                or recap_context.get("native_world_id") != target.native_world_id
+                or recap_context.get("managed_world_id") != target.managed_world_id
+            ):
+                raise ExtractPromoteError(
+                    "Recap run World/campaign context differs from the selected managed World.",
+                    code="recap_ingest_context_mismatch",
+                    status_code=409,
+                )
+            prepared_recap_context = _assert_current_recap_ingest_context(
+                recap_context,
+                managed_world_id=target.managed_world_id,
+                campaign_id=resolved.campaign_id,
+            )
+
 
     # Defense in depth: registry seal must still pass confirm-time rules.
     assert_sealed_source_uri_allowed(resolved.sealed_source_uri)
@@ -1558,6 +1623,14 @@ def prepare(
                     status_code=exc.status_code,
                     diagnostics=[_diagnostic(exc.code, str(exc))],
                 ) from exc
+            if prepared_recap_context is not None and getattr(
+                mutation_context, "head_revision_id", None
+            ) != prepared_recap_context.get("head_revision_id"):
+                raise ExtractPromoteError(
+                    "World Graph head changed during review preparation; prepare again.",
+                    code="recap_ingest_context_changed",
+                    status_code=409,
+                )
             from apps.live_control_server.services.candidate_graph_admission import (
                 prepare_candidate_graph_admission,
             )
@@ -1646,6 +1719,25 @@ def prepare(
         ) from exc
 
     sealed_target = _seal_publication_target(result.review_package, target)
+    if prepared_recap_context is not None:
+        if result.parent_revision_id != prepared_recap_context.get("head_revision_id"):
+            raise ExtractPromoteError(
+                "Prepared publication parent differs from the observed review head.",
+                code="recap_ingest_context_changed",
+                status_code=409,
+            )
+        current_prepared_context = _assert_current_recap_ingest_context(
+            prepared_recap_context,
+            managed_world_id=target.managed_world_id,
+            campaign_id=resolved.campaign_id,
+        )
+        if current_prepared_context != prepared_recap_context:
+            raise ExtractPromoteError(
+                "World Graph head changed during review preparation; prepare again.",
+                code="recap_ingest_context_changed",
+                status_code=409,
+            )
+        sealed_target = _seal_recap_ingest_context(sealed_target, prepared_recap_context)
     # A prepare spanning a binding edit must not return a reviewable stale target.
     _assert_current_publication_target(sealed_target)
     result = replace(
@@ -2028,6 +2120,16 @@ def confirm(
         )
 
     _assert_current_publication_target(request.review_package)
+    effect = (request.review_package or {}).get("effect") or {}
+    recap_context = effect.get(_RECAP_CONTEXT_KEY) if isinstance(effect, dict) else None
+    if isinstance(recap_context, dict):
+        managed_world_id = str(recap_context.get("managed_world_id") or "")
+        campaign_id = str(recap_context.get("campaign_id") or "")
+        _assert_current_recap_ingest_context(
+            recap_context,
+            managed_world_id=managed_world_id,
+            campaign_id=campaign_id,
+        )
 
 
     normalized_assertion_ids = tuple(request.assertion_ids)
