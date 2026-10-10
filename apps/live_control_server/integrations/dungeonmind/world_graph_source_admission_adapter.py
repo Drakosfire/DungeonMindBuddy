@@ -360,11 +360,7 @@ def _snapshot_pair(
             revision_ids=[source_revision_id],
         )
     except Exception as exc:
-        raise WorldGraphSourceAdmissionError(
-            "DungeonMind source catalog could not be read.",
-            code="authority_unavailable",
-            details={"reason": type(exc).__name__},
-        ) from exc
+        raise _map_provider_error(exc) from exc
     artifact = snapshot.get_artifact(source_artifact_id)
     revision = snapshot.get_revision(source_revision_id)
     if artifact is None and revision is None:
@@ -513,11 +509,7 @@ class DungeonMindWorldGraphSourceAdmissionAdapter:
                 revision_ids=[str(revision.source_revision_id)],
             )
         except Exception as exc:
-            raise WorldGraphSourceAdmissionError(
-                "DungeonMind source catalog could not be read before admission.",
-                code="authority_unavailable",
-                details={"reason": type(exc).__name__},
-            ) from exc
+            raise _map_provider_error(exc) from exc
         if (
             existing.get_artifact(str(dm_artifact.source_artifact_id)) is not None
             or existing.get_revision(str(revision.source_revision_id)) is not None

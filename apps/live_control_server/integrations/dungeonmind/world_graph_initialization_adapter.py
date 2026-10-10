@@ -156,6 +156,7 @@ def _map_sources(
     dm_artifact = _store_artifact_v2(
         artifact,
         current_revision_id=dm_revision_id,
+        world_id=request.world_id,
         uri=locator,
     )
     dm_artifact = dm_artifact.model_copy(

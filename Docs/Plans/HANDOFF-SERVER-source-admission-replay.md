@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE implementation lease from PRIME on 2026-10-10; implementation ready for PRIME's independent review. PRIME owns review and merge.
 
-**Authority:** Buddy `origin/main@6a58b18897bcba506e725a57d1edaa910855cccf`, after #1069. [PRIME's exact lease](https://github.com/Drakosfire/DungeonMindBuddy/pull/1069#issuecomment-6098107030) governs this branch, `codex/server-source-admission-replay`, as one serial PR against `main`. Relevant open PRs have no leased-path collision. The architectural ruling requires a full stored-pair identity proof before replay; pair existence alone is insufficient.
+**Authority:** Buddy `origin/main@6a58b18897bcba506e725a57d1edaa910855cccf`, after #1069. [PRIME's exact lease](https://github.com/Drakosfire/DungeonMindBuddy/pull/1069#issuecomment-6098107030) and [narrow initialization-caller extension](https://github.com/Drakosfire/DungeonMindBuddy/pull/1070#issuecomment-6098336661) govern this branch, `codex/server-source-admission-replay`, as one serial PR against `main`. Relevant open PRs have no leased-path collision. The architectural ruling requires a full stored-pair identity proof before replay; pair existence alone is insufficient.
 
 ## Primary question
 
@@ -10,7 +10,7 @@ Can a confirmable recap source whose artifact/revision pair already exists in Du
 
 ## Bounded implementation
 
-Expected writes are the source-admission adapter and port, candidate-admission service, extract-promote prepare, governed-write reproof, their three focused test files, and this handoff. The source adapter resolves catalog-aware collision IDs, reads the stored pair, and compares its World/campaign, mapped source domain/protection/body, current revision, and SHA-256 identity. A complete match reuses the pair without Core puts. A missing pair follows first admission. Partial pairs, changed material fields, and unverified alternate URIs fail closed. Catalog-only metadata is preserved. Confirm re-proves the sealed catalog fingerprint and locator.
+Expected writes are the source-admission adapter and port, candidate-admission service, extract-promote prepare, governed-write reproof, the narrowly approved first-world initialization caller, their focused test files, and this handoff. The source adapter resolves catalog-aware collision IDs, reads the stored pair, and compares its World/campaign, mapped source domain/protection/body, current revision, and SHA-256 identity. A complete match reuses the pair without Core puts. A missing pair follows first admission. Partial pairs, changed material fields, and unverified alternate URIs fail closed. Catalog-only metadata is preserved. Confirm re-proves the sealed catalog fingerprint and locator. Core persistence-integrity exceptions map to source identity conflicts; transport failures remain availability failures.
 
 The candidate producer verifies local bytes, then seals the catalog revision locator into accepted assertions and the reconstructed contribution while retaining the local URI solely as the byte-verification input. This keeps the source admission pair and contribution citations aligned with DungeonMind. There is no Core/catalog rewrite, private C1 call, provider/runtime change, or unrelated Graph feature.
 
@@ -20,11 +20,16 @@ Stop if a Core schema/API change, a path outside the lease, or a second independ
 
 ## Implementation and evidence
 
-Implementation base: `6a58b18897bcba506e725a57d1edaa910855cccf`. Implementation code commit: `033a2d96bc15c16db28be6e57eb432f8b77db27b`. The final handoff commit's head is recorded in the PR handback because this file cannot name its own commit.
+Implementation base: `6a58b18897bcba506e725a57d1edaa910855cccf`. Initial implementation code commit: `033a2d96bc15c16db28be6e57eb432f8b77db27b`. The final handoff commit's head is recorded in the PR handback because this file cannot name its own commit.
 
 - Focused source admission, candidate provenance, extract-promote target, candidate contract, and source-to-contribution suites: **103 passed, 5 deselected**, one existing Pydantic `schema` warning. Deselections: three D.3A tests require `DMB_CUTOVER_TEST_DATABASE_URL`, one integration producer binding test requires the same variable, and one inherited source-pin fixture fails because its synthetic native result lacks `objects` in unchanged `world_graph_reads.py`.
 - One disposable pgvector PostgreSQL catalog was seeded with the source pair, switched to database-default read-only mode, then replayed from an alternate verified URI. Replay succeeded with the original locator and fingerprint; Core puts would have failed under the read-only setting. The disposable database was removed. An initial non-pgvector local PostgreSQL attempt could not run Core migrations because its server lacks the `vector` extension; its disposable database was also removed.
 - `uv lock --check` passed after linking the already prepared ignored Hermes source from the previous isolated worktree; the committed lock and dependency pins did not change. Changed-file Ruff and `git diff --check` passed. The inherited source-pin fixture failure was observed on the first focused run and its failing files are unchanged by this PR.
 - A direct read-only PostgreSQL replay witnesses the Core catalog boundary. The larger D.3A publication fixtures were attempted with local PostgreSQL but stopped at their explicit missing `DMB_CUTOVER_TEST_DATABASE_URL` precondition; they are not claimed as passing.
+
+PRIME's independent review funded a narrow follow-up after running those four D.3A PostgreSQL fixtures. All four initially failed because the first-world initialization adapter still omitted the required `world_id` argument to `_store_artifact_v2` introduced by merged #1069. The only other helper call already passed it. The caller now passes `request.world_id`, retaining its existing World and campaign mapping. After that correction, three fixtures passed; the fourth exposed an adapter error classification defect when Core detected a tampered revision column as `PersistenceIntegrityError`. The adapter now maps that to `source_identity_conflict` at both catalog-read points.
+
+- All **four** owning PostgreSQL fixtures now pass using a fresh disposable pgvector database migrated to Core head and the local ephemeral application-state database. They cover reviewed binding through guarded publication, native scoped reads after fresh recap publication, disappeared source at confirm, and tampered source digest at confirm. The disposable pgvector database is removed after this witness.
+- Expanded non-integration source/genesis cohort: **122 passed, 19 deselected, 1 inherited failure**. `test_dungeonmind_pin_is_exact_pr56_merge` expects old Core pin `63ec810a...`, while the exact base already pins `b789ddc2...`; neither dependency file nor that test changed here. The separate `native.objects` synthetic-fixture failure also remains inherited and outside this lease.
 
 No rollout or merge performed. PRIME owns exact-head review and merge.
