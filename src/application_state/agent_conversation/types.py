@@ -245,7 +245,97 @@ def decode_plan_playable_target_reference(
 PLAY_RUNBOOK_REFERENCE_KIND = "dmb_play_runbook_v1"
 PLAY_CURRENT_BEAT_REFERENCE_KIND = "dmb_play_current_beat_v1"
 PLAY_CURRENT_SCENE_REFERENCE_KIND = "dmb_play_current_scene_v1"
+PLAY_GRAPH_BINDING_REFERENCE_KIND = "dmb_play_graph_binding_v1"
 _PLAY_MARKER_ID_PATTERN = r"^(beat|scene):[a-z0-9][a-z0-9._-]{0,127}$"
+
+
+class PlayGraphBindingReceiptV1(StrictModel):
+    """Frozen native binding under the managed provenance World owner."""
+
+    schema_: Literal["dmb_play_graph_binding_receipt_v1"] = Field(alias="schema")
+    managed_world_id: str = Field(min_length=1, max_length=128)
+    native_world_id: str = Field(min_length=1, max_length=128)
+    binding_version: int = Field(strict=True, ge=1)
+
+    @model_validator(mode="after")
+    def validate_identity(self) -> "PlayGraphBindingReceiptV1":
+        if any(
+            value != value.strip()
+            for value in (self.managed_world_id, self.native_world_id)
+        ):
+            raise ValueError(
+                "Play Graph binding identities cannot have surrounding whitespace"
+            )
+        return self
+
+
+def encode_play_graph_binding_reference(
+    receipt: PlayGraphBindingReceiptV1,
+) -> HistoricalReference:
+    """Encode the native binding; managed owner is TurnProvenance.world_id."""
+    return HistoricalReference(
+        resolution="resolved",
+        kind=PLAY_GRAPH_BINDING_REFERENCE_KIND,
+        object_id=receipt.native_world_id,
+        revision=str(receipt.binding_version),
+    )
+
+
+def decode_play_graph_binding_references(
+    provenance: "TurnProvenance",
+) -> PlayGraphBindingReceiptV1 | None:
+    """Decode the reserved binding only with its complete Play and Graph basis."""
+    bindings = [
+        reference
+        for reference in provenance.supporting_work
+        if reference.kind == PLAY_GRAPH_BINDING_REFERENCE_KIND
+    ]
+    if not bindings:
+        return None
+    graphs = [
+        reference
+        for reference in provenance.supporting_work
+        if reference.kind == "world_graph_revision"
+    ]
+    if len(bindings) != 1 or len(graphs) != 1:
+        raise ValueError(
+            "Play Graph binding requires one binding and one Graph revision"
+        )
+    binding, graph = bindings[0], graphs[0]
+    if (
+        provenance.surface_resolution != "resolved"
+        or provenance.surface_id != "play"
+        or provenance.selected_object.resolution != "absent"
+        or decode_play_run_turn_context_references(
+            provenance.primary_work, provenance.supporting_work
+        )
+        is None
+        or binding.resolution != "resolved"
+        or binding.object_id is None
+        or binding.revision is None
+        or not binding.revision.isdecimal()
+        or binding.revision != str(int(binding.revision))
+        or int(binding.revision) < 1
+        or binding.content_sha256 is not None
+        or binding.object_revision is not None
+        or binding.work_revision_id is not None
+        or binding.revision_n is not None
+        or graph.resolution != "resolved"
+        or graph.object_id != binding.object_id
+        or graph.revision is None
+        or not graph.revision.strip()
+        or graph.content_sha256 is not None
+        or graph.object_revision is not None
+        or graph.work_revision_id is not None
+        or graph.revision_n is not None
+    ):
+        raise ValueError("Play Graph binding provenance is malformed or mismatched")
+    return PlayGraphBindingReceiptV1(
+        schema="dmb_play_graph_binding_receipt_v1",
+        managed_world_id=provenance.world_id,
+        native_world_id=binding.object_id,
+        binding_version=int(binding.revision),
+    )
 
 
 class PlayRunTurnContextReceiptV1(StrictModel):
@@ -493,6 +583,7 @@ class TurnProvenance(StrictModel):
             self.surface_resolution != "resolved" or self.surface_id != "play"
         ):
             raise ValueError("Play Run context requires the Play surface")
+        decode_play_graph_binding_references(self)
         return self
 
 

@@ -19,6 +19,7 @@ from application_state.agent_conversation.types import (
     LegacyImport,
     LegacyTurn,
     PlayRunTurnContextReceiptV1,
+    PlayGraphBindingReceiptV1,
     ReopenCommand,
     SubmittedGraphFocusIntentV1,
     SubmittedGraphRequestIntentV1,
@@ -31,6 +32,8 @@ from application_state.agent_conversation.types import (
     TurnResult,
     TurnSubmission,
     decode_play_run_turn_context_references,
+    decode_play_graph_binding_references,
+    encode_play_graph_binding_reference,
     encode_play_run_turn_context_references,
     submitted_turn_intent_fingerprint_v1,
 )
@@ -56,6 +59,76 @@ def _play_run_receipt() -> PlayRunTurnContextReceiptV1:
         beat_id="beat:a",
         scene_id="scene:arrival",
     )
+
+
+def test_play_graph_binding_codec_requires_exact_play_graph_basis() -> None:
+    primary, supporting = encode_play_run_turn_context_references(_play_run_receipt())
+    receipt = PlayGraphBindingReceiptV1(
+        schema="dmb_play_graph_binding_receipt_v1",
+        managed_world_id="world-one",
+        native_world_id="native-world-one",
+        binding_version=4,
+    )
+    graph = HistoricalReference(
+        resolution="resolved",
+        kind="world_graph_revision",
+        object_id=receipt.native_world_id,
+        revision="graph-revision-7",
+    )
+    binding = encode_play_graph_binding_reference(receipt)
+    base = dict(
+        world_id=receipt.managed_world_id,
+        surface_resolution="resolved",
+        surface_id="play",
+        primary_work=primary,
+        supporting_work=[*supporting, graph, binding],
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    provenance = TurnProvenance(**base)
+    assert decode_play_graph_binding_references(provenance) == receipt
+    assert (
+        decode_play_graph_binding_references(
+            TurnProvenance(**(base | {"supporting_work": [*supporting, graph]}))
+        )
+        is None
+    )
+    for changed in (
+        {"supporting_work": [*supporting, binding]},
+        {"supporting_work": [*supporting, graph, binding, binding]},
+        {"supporting_work": [*supporting, graph, graph, binding]},
+        {"supporting_work": [graph, binding]},
+        {
+            "supporting_work": [
+                *supporting,
+                graph.model_copy(update={"object_id": "foreign-world"}),
+                binding,
+            ]
+        },
+        {
+            "supporting_work": [
+                *supporting,
+                graph,
+                binding.model_copy(update={"revision": "04"}),
+            ]
+        },
+        {
+            "supporting_work": [
+                *supporting,
+                graph,
+                binding.model_copy(update={"content_sha256": "a" * 64}),
+            ]
+        },
+        {"surface_id": "plan"},
+        {
+            "selected_object": HistoricalReference(
+                resolution="resolved", kind="scene", object_id="scene-1"
+            )
+        },
+    ):
+        with pytest.raises((ValueError, ValidationError)):
+            TurnProvenance(**(base | changed))
+    legacy = TurnProvenance(**(base | {"supporting_work": [graph]}))
+    assert decode_play_graph_binding_references(legacy) is None
 
 
 def test_play_run_context_codec_validates_complete_reserved_group() -> None:
