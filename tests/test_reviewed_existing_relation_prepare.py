@@ -249,8 +249,9 @@ def _case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
     )
     resolved = SimpleNamespace(
         run_id="run:reviewed",
-        world_id="buddy-world",
+        world_id=None,
         campaign_id=CAMPAIGN,
+        session_id="session-1",
         source_artifact_id=ARTIFACT,
         source_revision_id=source_revision_id,
         source_domain="recap",
@@ -292,6 +293,7 @@ def _case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
         native_world_id=WORLD,
         campaign_id=CAMPAIGN,
         source_run_id=resolved.run_id,
+        source_session_id="session-1",
         source_artifact_id=ARTIFACT,
         source_revision_id=source_revision_id,
         source_body_sha256=source_sha,
@@ -397,6 +399,9 @@ def test_prepares_only_reviewed_existing_edges_and_core_publishes_exact_replay(
     assert [
         item["relationship_id"] for item in published.graph_payload["relationships"]
     ] == ["edge:reviewed:scout-gate"]
+    metadata = published.graph_payload["relationships"][0]["assertion_metadata"]
+    assert metadata["session_refs"] == ["session-1"]
+    assert metadata["temporal_scope"]["kind"] == "unknown"
 
 
 @pytest.mark.parametrize(
@@ -419,6 +424,9 @@ def test_prepares_only_reviewed_existing_edges_and_core_publishes_exact_replay(
         ("evidence_collision", "evidence_collision"),
         ("foreign_source", "source_not_admitted"),
         ("foreign_source_world", "source_not_admitted"),
+        ("foreign_run_world", "source_binding_mismatch"),
+        ("foreign_run_session", "source_binding_mismatch"),
+        ("foreign_review_session", "source_not_admitted"),
         ("source_revision_moved", "source_not_admitted"),
         ("source_domain_changed", "source_domain_mismatch"),
         ("source_quote_changed", "source_quote_drift"),
@@ -594,6 +602,12 @@ def test_rejects_drift_and_collisions(
         )
     elif change == "foreign_source":
         case["sources"] = InMemorySourceRepository()
+    elif change == "foreign_run_world":
+        case["resolved"].world_id = "buddy-world:foreign"
+    elif change == "foreign_run_session":
+        case["resolved"].session_id = "session:foreign"
+    elif change == "foreign_review_session":
+        _rebind(case, source_session_id="session:foreign")
     elif change in {"foreign_source_world", "source_revision_moved"}:
         artifact = case["sources"].get_artifact(ARTIFACT)
         assert artifact is not None

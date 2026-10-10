@@ -51,6 +51,7 @@ class PinnedExistingRelationReview(_StrictModel):
     native_world_id: str = Field(min_length=1)
     campaign_id: str = Field(min_length=1)
     source_run_id: str = Field(min_length=1)
+    source_session_id: str | None = None
     source_artifact_id: str = Field(min_length=1)
     source_revision_id: str = Field(min_length=1)
     source_body_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")

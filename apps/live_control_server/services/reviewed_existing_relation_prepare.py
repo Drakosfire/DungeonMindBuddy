@@ -109,8 +109,9 @@ def _load_pinned_source(
         run, resolved = _resolve_source_run(repo_root, review.source_run_id)
         if (
             resolved.run_id != review.source_run_id
-            or resolved.world_id != review.buddy_world_id
+            or resolved.world_id not in (None, review.buddy_world_id)
             or resolved.campaign_id != review.campaign_id
+            or (resolved.session_id or None) != review.source_session_id
             or resolved.source_artifact_id != review.source_artifact_id
             or resolved.source_revision_id.removeprefix("sha256:")
             != review.source_body_sha256
@@ -277,6 +278,7 @@ def prepare_reviewed_existing_relations(
         or revision is None
         or artifact.world_id != context.native_world_id
         or artifact.campaign_id != context.campaign_id
+        or artifact.session_id != review.source_session_id
         or artifact.status != SourceStatus.ACTIVE
         or artifact.current_revision_id != review.source_revision_id
         or revision.source_artifact_id != review.source_artifact_id
@@ -458,7 +460,11 @@ def prepare_reviewed_existing_relations(
                     {
                         "dm_predicate": relation.qualified_predicate,
                         "edge_id": relation.relationship_id,
-                        "session_refs": [],
+                        "session_ids": (
+                            [review.source_session_id]
+                            if review.source_session_id is not None
+                            else []
+                        ),
                     },
                     sort_keys=True,
                     separators=(",", ":"),
