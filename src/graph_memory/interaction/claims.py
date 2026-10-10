@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from graph_memory.interaction.schema_constants import GRAPH_CLAIM_SCHEMA
 
@@ -35,6 +35,7 @@ ClaimSupportState = Literal[
 ClaimKind = Literal[
     "identity",
     "attribute",
+    "source_observation",
     "relationship",
     "navigation_summary",
     "inference",
@@ -91,6 +92,35 @@ class GraphClaim(BaseModel):
     authority_class: ClaimAuthorityClass
     support: ClaimSupport = Field(default_factory=ClaimSupport)
     used_in_answer: bool = False
+
+    source_assertion_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    observation_kind: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    review_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    contribution_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    publication_revision_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    source_artifact_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    source_revision_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    evidence_ref_ids: list[str] = Field(default_factory=list, exclude_if=lambda value: not value)
+
+    @model_validator(mode="after")
+    def _require_reviewed_source_identity(self) -> GraphClaim:
+        if self.claim_kind == "source_observation" and (
+            self.authority_class != "source_derived_accepted_assertion"
+            or self.observation_kind != "session_observation"
+            or self.source_assertion_id != self.claim_id
+            or not self.subject_node_id
+            or not self.value_text
+            or not self.review_id
+            or not self.contribution_id
+            or not self.publication_revision_id
+            or not self.source_artifact_id
+            or not self.source_revision_id
+            or not self.evidence_ref_ids
+        ):
+            raise ValueError(
+                "reviewed source observation needs exact review and evidence identity"
+            )
+        return self
 
     def may_state_as_campaign_fact(self) -> bool:
         return self.authority_class in {

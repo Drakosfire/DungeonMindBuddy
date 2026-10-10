@@ -216,6 +216,7 @@ def project_complete_world_object(
         relationships=list(authority.relationships),
         related_node_ids=[item.node_id for item in related_nodes],
         source_bindings=source_bindings,
+        reviewed_source_observations=list(authority.reviewed_source_observations),
     )
     hits = sum(1 for row in source_bindings if row.provenance_status == "excerpt_ready")
     misses = sum(

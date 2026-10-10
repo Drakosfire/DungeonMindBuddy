@@ -250,6 +250,60 @@ def claims_from_retrieval_result(
                 support=support_from_anchors(anchors, supporting_ids=[assertion_id]),
             )
         )
+    for observation in (
+        result.get("reviewedSourceObservations")
+        or result.get("reviewed_source_observations")
+        or []
+    ):
+        row = _as_mapping(observation)
+        if row is None:
+            continue
+        assertion_id = str(_get(row, "assertion_id", "assertionId") or "").strip()
+        evidence_ids = _get(row, "evidence_ref_ids", "evidenceRefIds") or []
+        if (
+            not assertion_id or not isinstance(evidence_ids, list) or not evidence_ids
+            or any(not isinstance(item, str) or not item.strip() for item in evidence_ids)
+        ):
+            continue
+        anchored_evidence = {
+            _get(anchor, "evidence_ref_id", "evidenceRefId")
+            for anchor in anchors
+            if assertion_id in (
+                _get(anchor, "supporting_assertion_ids", "supportingAssertionIds") or []
+            )
+        }
+        if not set(evidence_ids).issubset(anchored_evidence):
+            continue
+        claims.append(
+            GraphClaim(
+                claim_id=assertion_id,
+                claim_kind="source_observation",
+                subject_node_id=str(
+                    _get(row, "subject_node_id", "subjectNodeId") or ""
+                ),
+                predicate="session_observation",
+                value_text=str(_get(row, "text") or ""),
+                epistemic_kind=str(_get(row, "epistemic_kind", "epistemicKind") or ""),
+                visibility=str(_get(row, "visibility") or ""),
+                campaign_scope=_get(row, "campaign_scope", "campaignScope"),
+                acceptance_state="accepted",
+                revision_id=revision_id,
+                authority_class="source_derived_accepted_assertion",
+                source_assertion_id=assertion_id,
+                observation_kind=str(
+                    _get(row, "observation_kind", "observationKind") or ""
+                ),
+                review_id=_get(row, "review_id", "reviewId"),
+                contribution_id=_get(row, "contribution_id", "contributionId"),
+                publication_revision_id=_get(
+                    row, "publication_revision_id", "publicationRevisionId"
+                ),
+                source_artifact_id=_get(row, "source_artifact_id", "sourceArtifactId"),
+                source_revision_id=_get(row, "source_revision_id", "sourceRevisionId"),
+                evidence_ref_ids=[str(item) for item in evidence_ids],
+                support=support_from_anchors(anchors, supporting_ids=[assertion_id]),
+            )
+        )
     return claims
 
 

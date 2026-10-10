@@ -27,6 +27,9 @@ from graph_memory.retrieval.models import (
     WorldGraphSourceAnchorReadResult,
     WorldGraphRetrievalResult,
 )
+from apps.live_control_server.models.world_graph_object_projection import (
+    WorldGraphObjectReviewedSourceObservation,
+)
 
 
 class WorldGraphRetrievalServiceError(ValueError):
@@ -140,6 +143,30 @@ def get_campaign_object(
 
     try:
         return direct.get_object_direct(
+            direct.direct_services_from_config(request.world_id), request
+        )
+    except direct.DirectWorldGraphReadError as exc:
+        raise _map_direct_error(exc) from None
+
+
+def get_campaign_object_with_reviewed_sources(
+    request: WorldGraphObjectRequest,
+    *,
+    root: Path | None = None,
+) -> tuple[
+    WorldGraphRetrievalResult,
+    list[WorldGraphObjectReviewedSourceObservation],
+    list[str],
+    list[str],
+]:
+    """Internal Harness object expansion at its frozen native Graph revision."""
+    _require_mounted_native_read(root)
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as direct,
+    )
+
+    try:
+        return direct.get_object_with_reviewed_sources_direct(
             direct.direct_services_from_config(request.world_id), request
         )
     except direct.DirectWorldGraphReadError as exc:
