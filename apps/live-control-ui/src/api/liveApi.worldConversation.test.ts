@@ -4,8 +4,10 @@ import {
   getWorldAgentConversationHistory,
   getWorldAgentNewConversationStatus,
   postWorldAgentNewConversation,
+  postWorldPlayAgentTurn,
   setNativeGraphAccessToken,
 } from "./liveApi";
+import type { WorldPlayAgentTurnRequestV1 } from "./types";
 
 function jsonResponse(value: unknown): Response {
   return new Response(JSON.stringify(value), {
@@ -21,6 +23,29 @@ afterEach(() => {
 });
 
 describe("World Agent conversation transport", () => {
+  it("sends the exact selected World Graph Play request and preserves the native Graph receipt", async () => {
+    setNativeGraphAccessToken("test-token");
+    const request: WorldPlayAgentTurnRequestV1 = {
+      schema: "dmb_agent_turn_request_v1", client_thread_id: "thread-one", turn_id: "turn-one",
+      surface: { surface_id: "play", instance_id: "play-one" },
+      owner_scope: { kind: "world", world_id: "managed-world" },
+      primary_work: { kind: "run", object_id: "run-one", expected_revision: 3 },
+      client_work_state: "saved_clean",
+      graph_request: { mode: "world", world_id: "managed-world", campaign_id: null,
+        revision_pin: null, focus: { kind: "none", session_id: null, campaign_id: null } },
+      graph_selection: null, message: "What can I see?",
+    };
+    const response = { schema: "dmb_agent_turn_response_v1", client_thread_id: request.client_thread_id,
+      turn_id: request.turn_id, owner_scope: { owner_id: "managed-world" },
+      graph: { status: "ready", world_id: "native-world", revision_id: "native-revision", scope_mode: "world" } };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(response));
+
+    await expect(postWorldPlayAgentTurn(request)).resolves.toEqual(response);
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe("/api/live/agent/turn");
+    expect(fetchSpy.mock.calls[0]?.[1]?.method).toBe("POST");
+    expect(fetchSpy.mock.calls[0]?.[1]?.body).toBe(JSON.stringify(request));
+  });
+
   it("reads the exact bounded World history route and preserves the accepted response", async () => {
     setNativeGraphAccessToken("test-token");
     const response = {

@@ -112,8 +112,12 @@ function playResponse(request: WorldPlayAgentTurnRequestV1) {
     primary_work: { status: "resolved" as const, kind: "run", object_id: RUN, revision_used: 3,
       expected_revision: 3, content_basis: null },
     client_work_state_reported: "saved_clean" as const,
-    graph: { status: "not_requested" as const, world_id: null, campaign_id: null, scope_mode: null,
-      revision_id: null, focus: null, selection_node_id: null, selection_found: null, head_revision_id: null, is_head: null },
+    graph: request.graph_request.mode === "none"
+      ? { status: "not_requested" as const, world_id: null, campaign_id: null, scope_mode: null,
+        revision_id: null, focus: null, selection_node_id: null, selection_found: null, head_revision_id: null, is_head: null }
+      : { status: "ready" as const, world_id: "native-world-one", campaign_id: "", scope_mode: "world" as const,
+        revision_id: "native-revision-one", focus: { kind: "none" }, selection_node_id: null,
+        selection_found: null, head_revision_id: "native-revision-one", is_head: true },
     conversation: { client_thread_id: request.client_thread_id, turn_id: request.turn_id,
       pointer_status: "accepted" as const, pointer_id: "pointer", conversation_id: "conversation-one" },
     answer: { status: "ok" as const, text: "Original Play answer", code: null, message: null,
@@ -229,17 +233,127 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     await screen.findByText(/Connection closed before admission/);
     expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
+    const storageKey = `dmb:world-play-pending-turn:v1:${encodeURIComponent(WORLD)}`;
+    const frozen = window.localStorage.getItem(storageKey);
+    expect(JSON.parse(frozen ?? "null").request.graph_request).toEqual({ mode: "world", world_id: WORLD,
+      campaign_id: null, revision_pin: null, focus: { kind: "none", session_id: null, campaign_id: null } });
     view.unmount();
     render(<Harness initial="plan" />);
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
     await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeDisabled());
     expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
+    expect(window.localStorage.getItem(storageKey)).toBe(frozen);
     fireEvent.click(screen.getByRole("button", { name: "Retry exact Play turn" }));
     await waitFor(() => expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(2));
     expect(vi.mocked(postWorldPlayAgentTurn).mock.calls[1]?.[0]).toEqual(firstRequest);
+    expect(JSON.stringify(vi.mocked(postWorldPlayAgentTurn).mock.calls[1]?.[0])).toBe(JSON.stringify(firstRequest));
     await waitFor(() => expect(screen.getByText("Retried Play answer")).toBeInTheDocument());
     await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled());
     expect(screen.queryByRole("button", { name: "Retry exact Play turn" })).not.toBeInTheDocument();
+  });
+
+  it("recovers an actual saved legacy graphless Play turn without changing its request", async () => {
+    const request: WorldPlayAgentTurnRequestV1 = {
+      schema: "dmb_agent_turn_request_v1",
+      client_thread_id: "00000000-0000-4000-8000-000000000021",
+      turn_id: "00000000-0000-4000-8000-000000000022",
+      surface: { surface_id: "play", instance_id: "play-instance" },
+      owner_scope: { kind: "world", world_id: WORLD },
+      primary_work: { kind: "run", object_id: RUN, expected_revision: 3 },
+      client_work_state: "saved_clean", graph_request: { mode: "none" },
+      graph_selection: null, message: "Old saved Play question",
+    };
+    const storageKey = `dmb:world-play-pending-turn:v1:${encodeURIComponent(WORLD)}`;
+    const serialized = JSON.stringify({ schema: "dmb_world_play_pending_turn_v1", request });
+    window.localStorage.setItem(storageKey, serialized);
+    vi.mocked(postWorldPlayAgentTurn).mockImplementation(async (posted) => playResponse(posted));
+    render(<Harness initial="play" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    const retry = await screen.findByRole("button", { name: "Retry exact Play turn" });
+    expect(window.localStorage.getItem(storageKey)).toBe(serialized);
+    fireEvent.click(retry);
+    await waitFor(() => expect(postWorldPlayAgentTurn).toHaveBeenCalledWith(request));
+    await waitFor(() => expect(window.localStorage.getItem(storageKey)).toBeNull());
+  });
+
+  it("accepts a replayed native Graph receipt for a saved managed World Play request", async () => {
+    const request: WorldPlayAgentTurnRequestV1 = {
+      schema: "dmb_agent_turn_request_v1",
+      client_thread_id: "00000000-0000-4000-8000-000000000031",
+      turn_id: "00000000-0000-4000-8000-000000000032",
+      surface: { surface_id: "play", instance_id: "play-instance" },
+      owner_scope: { kind: "world", world_id: WORLD },
+      primary_work: { kind: "run", object_id: RUN, expected_revision: 3 },
+      client_work_state: "saved_clean",
+      graph_request: { mode: "world", world_id: WORLD, campaign_id: null,
+        revision_pin: null, focus: { kind: "none", session_id: null, campaign_id: null } },
+      graph_selection: null, message: "Saved Graph question",
+    };
+    const storageKey = `dmb:world-play-pending-turn:v1:${encodeURIComponent(WORLD)}`;
+    window.localStorage.setItem(storageKey, JSON.stringify({ schema: "dmb_world_play_pending_turn_v1", request }));
+    vi.mocked(postWorldPlayAgentTurn).mockImplementation(async (posted) => ({
+      ...playResponse(posted),
+      graph: { ...playResponse(posted).graph, status: "replayed" as const },
+    }));
+    render(<Harness initial="play" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Retry exact Play turn" }));
+    await waitFor(() => expect(postWorldPlayAgentTurn).toHaveBeenCalledWith(request));
+    await waitFor(() => expect(window.localStorage.getItem(storageKey)).toBeNull());
+    expect(playResponse(request).graph.world_id).toBe("native-world-one");
+    expect(request.owner_scope.world_id).toBe(WORLD);
+  });
+
+  it("keeps Graph unavailable as a saved Play failure without a graphless repost", async () => {
+    vi.mocked(postWorldPlayAgentTurn).mockRejectedValue(
+      new LiveApiError("Native World binding unavailable", 503, { code: "graph_unavailable" }),
+    );
+    render(<Harness initial="play" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    const composer = await screen.findByLabelText("Message DungeonBuddy");
+    await waitFor(() => expect(composer).toBeEnabled());
+    fireEvent.change(composer, { target: { value: "What does the Graph say?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await screen.findByText(/World Graph could not be resolved/);
+    const posted = vi.mocked(postWorldPlayAgentTurn).mock.calls[0]?.[0];
+    expect(posted?.graph_request.mode).toBe("world");
+    expect(JSON.parse(window.localStorage.getItem(`dmb:world-play-pending-turn:v1:${encodeURIComponent(WORLD)}`) ?? "null")
+      .request.graph_request).toEqual(posted?.graph_request);
+    expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("Original Play answer")).not.toBeInTheDocument();
+  });
+
+  it("rejects an unavailable Graph receipt even if a response contains answer text", async () => {
+    vi.mocked(postWorldPlayAgentTurn).mockImplementation(async (request) => ({
+      ...playResponse(request), graph: { ...playResponse(request).graph, status: "unavailable" as const },
+    }));
+    render(<Harness initial="play" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    const composer = await screen.findByLabelText("Message DungeonBuddy");
+    await waitFor(() => expect(composer).toBeEnabled());
+    fireEvent.change(composer, { target: { value: "What happens now?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await screen.findByText(/Play response did not match/);
+    expect(screen.queryByText("Original Play answer")).not.toBeInTheDocument();
+    expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
+    expect(window.localStorage.getItem(`dmb:world-play-pending-turn:v1:${encodeURIComponent(WORLD)}`)).not.toBeNull();
+  });
+
+  it("does not expose a saved Play request after the selected World changes", async () => {
+    vi.mocked(postWorldPlayAgentTurn).mockRejectedValue(new Error("Connection closed before admission"));
+    render(<Harness initial="play" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    const composer = await screen.findByLabelText("Message DungeonBuddy");
+    await waitFor(() => expect(composer).toBeEnabled());
+    fireEvent.change(composer, { target: { value: "Question for World one" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await screen.findByText(/Connection closed before admission/);
+    const storageKey = `dmb:world-play-pending-turn:v1:${encodeURIComponent(WORLD)}`;
+    const frozen = window.localStorage.getItem(storageKey);
+    fireEvent.click(screen.getByRole("button", { name: "Switch World" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Retry exact Play turn" })).not.toBeInTheDocument());
+    expect(window.localStorage.getItem(storageKey)).toBe(frozen);
+    expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
   });
 
   it.each([
@@ -253,7 +367,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.change(composer, { target: { value: "Ask about this Run" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("Ask about this Run"));
-    expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled();
+    await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled());
     expect(screen.queryByRole("button", { name: "Retry exact Play turn" })).not.toBeInTheDocument();
     expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
   });
@@ -357,7 +471,8 @@ describe("one App-level World conversation host across Plan and Play", () => {
     expect(request).toMatchObject({ surface: { surface_id: "play", instance_id: "play-instance" },
       owner_scope: { kind: "world", world_id: WORLD },
       primary_work: { kind: "run", object_id: RUN, expected_revision: 3 },
-      graph_request: { mode: "none" }, graph_selection: null });
+      graph_request: { mode: "world", world_id: WORLD, campaign_id: null, revision_pin: null,
+        focus: { kind: "none", session_id: null, campaign_id: null } }, graph_selection: null });
     fireEvent.click(screen.getByRole("button", { name: "Switch surface" }));
     vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([
       turn("plan", 1, "Original Plan answer"), turn("play", 2, "Original Play answer"),
