@@ -16,6 +16,7 @@ import type {
   IndexAgentTurnRequestV1,
   IndexAgentTurnResponseV1,
   WorldPlanAgentTurnRequestV1,
+  WorldPlayAgentTurnRequestV1,
   WorldPlanAgentTurnResponse,
   WorldPlanGraphContextFailureV1,
   WorldAgentConversationHistoryResponse,
@@ -1613,6 +1614,15 @@ export async function postIndexAgentTurn(
 
 export async function postWorldPlanAgentTurn(
   request: WorldPlanAgentTurnRequestV1,
+): Promise<WorldPlanAgentTurnResponse> {
+  return apiFetch<WorldPlanAgentTurnResponse>("/api/live/agent/turn", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function postWorldPlayAgentTurn(
+  request: WorldPlayAgentTurnRequestV1,
 ): Promise<WorldPlanAgentTurnResponse> {
   return apiFetch<WorldPlanAgentTurnResponse>("/api/live/agent/turn", {
     method: "POST",

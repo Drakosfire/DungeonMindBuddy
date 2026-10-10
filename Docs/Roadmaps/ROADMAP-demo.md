@@ -78,6 +78,15 @@ production implementation or independently frozen gold.
    implementation leases are settled in
    [`HANDOFF-DEMO-focused-scene-reader.md`](../Plans/HANDOFF-DEMO-focused-scene-reader.md)
    and [`HANDOFF-PLAY-SURFACE-prototype-table-cockpit.md`](../Plans/HANDOFF-PLAY-SURFACE-prototype-table-cockpit.md).
+   The next bounded Plan↔Play World conversation consumer is active in existing
+   Buddy [#927](https://github.com/Drakosfire/DungeonMindBuddy/pull/927), based on
+   `dfdb671e1bcd3f8acfb9a44f64e379e928cd6ec9`. SERVER #1061 supplies the
+   exact World Run admission and durable request-time provenance contract.
+   DEMO's [active handoff](../Plans/HANDOFF-DEMO-plan-play-world-conversation.md)
+   limits the UI work to one persistent World conversation host, exact current
+   Run revision on new Play turns, preserved Plan Ask/edit controls, and a
+   mounted Plan→Play→Plan witness. #927 remains under PRIME review and DOGFOOD
+   design QC; no connected or operator acceptance is claimed here.
 3. Continue the shared prepare/run adoption across Session 29, Conks, and Sheep.
    Preserve source identity and evidence separately from navigation choices
    such as chronology, location, and scene focus.

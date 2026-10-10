@@ -29,7 +29,7 @@ import {
 } from "./components/WorldPlanGraphReferenceActivation";
 import { PlanSurfaceCanvasFrame } from "./components/PlanSurfaceCanvas";
 import { PlanConversationDockAdapter } from "./components/PlanConversationDockAdapter";
-import { WorldPlanAgentConversation } from "./components/WorldPlanAgentConversation";
+import { WorldPlanConversationRegistration } from "../agentInteraction/WorldAgentConversation";
 import {
   buildWorldPlanCardProjectionModel,
   WorldPlanCardProjection,
@@ -1758,7 +1758,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         {status === "error" ? <button type="button" onClick={retryPlanLoad}>Retry Plan load</button> : null}
       </main>
       )}>
-      {(presentationHosts) => <WorldPlanAgentConversation
+      {(presentationHosts) => <WorldPlanConversationRegistration
         presentationHosts={presentationHosts}
         worldId={worldId}
         worldName={worldName}

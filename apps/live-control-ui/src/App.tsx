@@ -12,6 +12,7 @@ import type {
   SurfaceModuleDefinition,
 } from "./api/types";
 import { AgentInteractionProvider } from "./agentInteraction/AgentInteractionProvider";
+import { WorldAgentConversation, WorldAgentConversationProvider } from "./agentInteraction/WorldAgentConversation";
 import { AskPluginSlotProvider } from "./agentInteraction/AskPluginSlot";
 import { AgentInteractionChrome } from "./agentInteraction/AgentInteractionChrome";
 import { IndexAgentConversation } from "./agentInteraction/IndexAgentConversation";
@@ -344,22 +345,28 @@ function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
   return (
     <AgentInteractionProvider>
       <AskPluginSlotProvider>
-        <WorldGraphLensProvider
-          key={selectedWorld.kind === "managed" ? selectedWorld.worldId : "legacy"}
-          planCampaignId={WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID}
-          managedWorldId={selectedWorld.kind === "managed" ? selectedWorld.worldId : null}
-        >
-          <WorldGraphLensProjectionProvider defaultCampaignId={WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID}>
-            <SurfaceContextProvider>
-              <PeekRegionProvider key={selectedWorld.kind === "managed" ? selectedWorld.worldId : "legacy"}>
-                {content}
-                <ToolHost />
-                <LegacyProjectionHostAdapter />
-                <AgentInteractionChrome />
-              </PeekRegionProvider>
-            </SurfaceContextProvider>
-          </WorldGraphLensProjectionProvider>
-        </WorldGraphLensProvider>
+        <WorldAgentConversationProvider key={selectedWorld.kind === "managed" ? selectedWorld.worldId : "legacy"}
+          worldId={selectedWorld.kind === "managed" ? selectedWorld.worldId : null}>
+          <WorldGraphLensProvider
+            key={selectedWorld.kind === "managed" ? selectedWorld.worldId : "legacy"}
+            planCampaignId={WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID}
+            managedWorldId={selectedWorld.kind === "managed" ? selectedWorld.worldId : null}
+          >
+            <WorldGraphLensProjectionProvider defaultCampaignId={WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID}>
+              <SurfaceContextProvider>
+                <PeekRegionProvider key={selectedWorld.kind === "managed" ? selectedWorld.worldId : "legacy"}>
+                  {content}
+                  <ToolHost />
+                  <LegacyProjectionHostAdapter />
+                  <AgentInteractionChrome />
+                  <WorldAgentConversation surface={route === "plan" || route === "play" ? route : "other"}
+                    worldId={selectedWorld.kind === "managed" ? selectedWorld.worldId : null}
+                    worldName={selectedWorld.kind === "managed" ? selectedWorld.name : undefined} />
+                </PeekRegionProvider>
+              </SurfaceContextProvider>
+            </WorldGraphLensProjectionProvider>
+          </WorldGraphLensProvider>
+        </WorldAgentConversationProvider>
       </AskPluginSlotProvider>
     </AgentInteractionProvider>
   );
