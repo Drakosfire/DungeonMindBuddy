@@ -9,9 +9,14 @@ from __future__ import annotations
 
 import argparse
 import copy
+import hashlib
 import json
+import os
 from pathlib import Path
+import shutil
+import subprocess
 from typing import Any
+from urllib.parse import unquote, urlparse
 
 from evals.graph_memory_layer import (
     run_current_corpus_candidate_replay_acceptance as replay,
@@ -52,6 +57,11 @@ CHECKPOINT38_S22_CANDIDATE_NODE_ID = "node:thrin-branchborn"
 CHECKPOINT38_S22_CORPUS_REF_TYPE = "npc"
 CHECKPOINT38_S22_CORPUS_REF_KEY = "thrin_branchborn"
 CHECKPOINT38_S22_TARGET_OBJECT_ID = "npc_thrin"
+CHECKPOINT38_PRIVATE_ROOT = Path(
+    "/home/drakosfire/.local/state/dungeonmindbuddy/recovery/full-corpus-20261008"
+)
+EXECUTION_PACKET_SCHEMA = "dmb_checkpoint38_six_session_execution_v1"
+MIN_BACKUP_FREE_BYTES = 2 * 1024**3
 
 
 def _require(condition: bool, message: str) -> None:
@@ -148,6 +158,171 @@ def _selected_suffix_entries(
 ) -> tuple[Any, ...]:
     """Pure planning helper; selecting entries does not authorize their execution."""
     return tuple(entries[prefix_count:])
+
+
+def _execution_packet(
+    path: Path,
+    *,
+    manifest: Any,
+    originals: tuple[Any, ...],
+    source_head: str,
+    decision_id: str,
+    decision_sha256: str,
+    output: Path,
+    accepted_root: Path,
+    retained_root: Path,
+    checkpoint38_report: Path,
+    target: tuple[str, int, str],
+) -> tuple[dict[str, Any], str]:
+    """Validate every frozen input before claiming an output or touching the DB."""
+    try:
+        raw = path.read_bytes()
+        packet = json.loads(raw)
+    except (OSError, ValueError) as exc:
+        raise replay.ReplayStop(
+            "execution packet unavailable or invalid", boundary="execution_authority"
+        ) from exc
+    _require(isinstance(packet, dict), "execution packet must be an object")
+    expected_keys = {
+        "schema",
+        "world_id",
+        "checkpoint_head",
+        "checkpoint_report_sha256",
+        "manifest_digest",
+        "source_head",
+        "binding_decision_id",
+        "binding_decision_sha256",
+        "output",
+        "accepted_root",
+        "retained_root",
+        "checkpoint38_report",
+        "target",
+        "suffix",
+    }
+    _require(set(packet) == expected_keys, "execution packet fields differ")
+    expected = {
+        "schema": EXECUTION_PACKET_SCHEMA,
+        "world_id": replay.WORLD_ID,
+        "checkpoint_head": CHECKPOINT38_HEAD,
+        "checkpoint_report_sha256": CHECKPOINT38_REPORT_SHA256,
+        "manifest_digest": manifest.digest,
+        "source_head": source_head,
+        "binding_decision_id": decision_id,
+        "binding_decision_sha256": decision_sha256,
+        "output": str(output),
+        "accepted_root": str(accepted_root.resolve()),
+        "retained_root": str(retained_root.resolve()),
+        "checkpoint38_report": str(checkpoint38_report.resolve()),
+        "target": {"host": target[0], "port": target[1], "database": target[2]},
+    }
+    _require(
+        all(packet[key] == value for key, value in expected.items()),
+        "execution packet authority/input pin differs",
+    )
+    rows = packet["suffix"]
+    _require(
+        isinstance(rows, list) and len(rows) == 6,
+        "execution packet must seal six sessions",
+    )
+    for ordinal, (row, entry, original) in enumerate(
+        zip(rows, manifest.entries[38:], originals[38:], strict=True), start=39
+    ):
+        _require(
+            isinstance(row, dict)
+            and set(row)
+            == {
+                "ordinal",
+                "campaign_id",
+                "session_id",
+                "source_artifact_id",
+                "source_revision_id",
+                "original_sha256",
+                "candidate_digest",
+                "candidate_file_sha256",
+            },
+            "execution packet suffix fields differ",
+        )
+        candidate = replay._resolve_candidate_path(
+            original.candidate_locator, accepted_root
+        )
+        _require(
+            type(row["ordinal"]) is int
+            and row["ordinal"] == ordinal == entry.ordinal
+            and row["campaign_id"] == entry.campaign_id
+            and row["session_id"] == entry.session_id
+            and row["source_artifact_id"] == entry.source_artifact_id
+            and row["source_revision_id"] == original.source_revision_id
+            and row["original_sha256"] == entry.original_sha256
+            and row["candidate_digest"] == original.candidate_digest,
+            "execution packet suffix identity differs",
+        )
+        _require(
+            isinstance(row["candidate_file_sha256"], str)
+            and len(row["candidate_file_sha256"]) == 64
+            and all(c in "0123456789abcdef" for c in row["candidate_file_sha256"]),
+            "execution packet candidate file digest invalid",
+        )
+        _require(
+            replay._sha256_file(candidate) == row["candidate_file_sha256"],
+            "execution packet candidate file differs",
+        )
+    return packet, hashlib.sha256(raw).hexdigest()
+
+
+def _backup_before_confirm(dsn: str, output: Path, authority: Any) -> dict[str, str]:
+    """Take a new complete custom-format dump; never overwrite a prior artifact."""
+    backup = output / "checkpoint38-before.dump"
+    _require(not backup.exists(), "checkpoint38 backup path already claimed")
+    parsed = urlparse(dsn)
+    _require(
+        bool(parsed.username and parsed.password),
+        "checkpoint38 backup requires explicit database credentials",
+    )
+    env = {k: v for k, v in os.environ.items() if not k.startswith("PG")}
+    env["PGPASSWORD"] = unquote(parsed.password)
+    command = [
+        "pg_dump",
+        "--format=custom",
+        "--no-password",
+        "--host",
+        parsed.hostname or "",
+        "--port",
+        str(parsed.port or 0),
+        "--username",
+        unquote(parsed.username),
+        "--dbname",
+        parsed.path.lstrip("/"),
+        "--file",
+        str(backup),
+    ]
+    try:
+        _require(
+            shutil.disk_usage(output).free >= MIN_BACKUP_FREE_BYTES,
+            "insufficient free space before checkpoint38 backup",
+        )
+        backup.touch(mode=0o600, exist_ok=False)
+        result = subprocess.run(command, env=env, capture_output=True, check=False)
+        _require(
+            result.returncode == 0,
+            f"checkpoint38 pg_dump failed (exit {result.returncode})",
+        )
+        _require(backup.stat().st_size > 0, "checkpoint38 backup empty")
+        verify = subprocess.run(
+            ["pg_restore", "--list", str(backup)], capture_output=True, check=False
+        )
+        _require(
+            verify.returncode == 0 and bool(verify.stdout),
+            f"checkpoint38 backup archive invalid (exit {verify.returncode})",
+        )
+        _require(
+            authority.head() == CHECKPOINT38_HEAD,
+            "checkpoint38 head moved during backup",
+        )
+    except OSError as exc:
+        raise replay.ReplayStop(
+            "checkpoint38 backup failed", boundary="backup"
+        ) from exc
+    return {"path": str(backup), "sha256": replay._sha256_file(backup)}
 
 
 class _Authority:
@@ -520,7 +695,22 @@ def run_continuation(
     binding_decision_sha256: str | None = None,
     verify_checkpoint38_only: bool = False,
     verify_checkpoint38_binding_only: bool = False,
+    execute_checkpoint38: bool = False,
+    execution_packet: Path | None = None,
 ) -> dict[str, Any]:
+    _require(
+        not execute_checkpoint38 or checkpoint38_report is not None,
+        "checkpoint38 execution requires sealed report",
+    )
+    _require(
+        (execution_packet is not None) == execute_checkpoint38,
+        "checkpoint38 execution requires explicit mode and packet",
+    )
+    _require(
+        not execute_checkpoint38
+        or not (verify_checkpoint38_only or verify_checkpoint38_binding_only),
+        "checkpoint38 execution and read-only modes differ",
+    )
     if checkpoint38_report is not None:
         _require(
             authority is None,
@@ -531,7 +721,7 @@ def run_continuation(
             "checkpoint38 forbids injected replay seams; use production admission",
         )
     checkpoint38 = checkpoint38_report is not None
-    replay.assert_runtime_dsn(dsn)
+    target = replay.assert_runtime_dsn(dsn)
     root = (repo_root or replay.REPO_ROOT).resolve()
     if require_clean:
         _require(replay.git_worktree_clean(root), "continuation checkout dirty")
@@ -610,6 +800,28 @@ def run_continuation(
             binding_decision_id=binding_decision_id,
             binding_decision_sha256=binding_decision_sha256,
         )
+    output = output.resolve()
+    packet = None
+    if execute_checkpoint38:
+        _require(
+            output.parent == CHECKPOINT38_PRIVATE_ROOT
+            and output.name != "continuation-run-01",
+            "checkpoint38 output must be new under the private recovery root",
+        )
+        packet, packet_sha256 = _execution_packet(
+            execution_packet,
+            manifest=manifest,
+            originals=originals,
+            source_head=command["source_head"],
+            decision_id=binding_decision_id,
+            decision_sha256=binding_decision_sha256,
+            output=output,
+            accepted_root=accepted_root,
+            retained_root=retained_root,
+            checkpoint38_report=checkpoint38_report,
+            target=target,
+        )
+        command["execution_packet_sha256"] = packet_sha256
     command_digest = replay._digest_obj(command)
     if verify_checkpoint38_only:
         _require(
@@ -654,7 +866,6 @@ def run_continuation(
             "binding_verified": True,
             "full_selected_world_ready": False,
         }
-    output = output.resolve()
     if output.exists():
         path = output / "continuation_report.json"
         _require(
@@ -667,6 +878,16 @@ def run_continuation(
         _require(
             prior["status"] == "COMPLETE", "incomplete run cannot automatically restart"
         )
+        if checkpoint38:
+            backup = prior.get("prewrite_backup") or {}
+            backup_path = output / "checkpoint38-before.dump"
+            _require(
+                backup.get("path") == str(backup_path)
+                and isinstance(backup.get("sha256"), str)
+                and backup_path.is_file()
+                and replay._sha256_file(backup_path) == backup["sha256"],
+                "completed checkpoint38 backup missing or changed",
+            )
         rows = prior["sessions"]
         _require(
             len(rows) == 44 and rows[:prefix_count] == prefix,
@@ -705,11 +926,11 @@ def run_continuation(
             binding_decision_sha256,
             dsn,
         )
-        raise replay.ReplayStop(
-            "checkpoint38 six-session execution authority contract not accepted; execution held",
-            boundary="execution_authority",
+        _require(
+            execute_checkpoint38,
+            "checkpoint38 requires explicit six-session execution mode and packet",
         )
-    output.mkdir(parents=True, exist_ok=False)
+    output.mkdir(parents=True, exist_ok=False, mode=0o700)
     report: dict[str, Any] = {
         "command": command,
         "command_digest": command_digest,
@@ -721,18 +942,46 @@ def run_continuation(
         "model_calls": 0,
         "full_selected_world_ready": False,
     }
+    if checkpoint38:
+        report["execution_packet_sha256"] = command["execution_packet_sha256"]
     replay._write_json(output / "continuation_report.json", report)
     seams = seams or replay.ReplaySeams()
     parent = prefix_head
     try:
+        if checkpoint38:
+            report["prewrite_backup"] = _backup_before_confirm(dsn, output, authority)
+            replay._write_json(output / "continuation_report.json", report)
+            for entry in suffix_entries:
+                authority.require_unclaimed(entry, dsn)
+            authority.checkpoint38_binding(
+                manifest.entries[38],
+                originals[38],
+                binding_decision_id,
+                binding_decision_sha256,
+                dsn,
+            )
         for entry, original in zip(suffix_entries, suffix_originals, strict=True):
+            if checkpoint38:
+                _require(
+                    replay._sha256_file(execution_packet)
+                    == command["execution_packet_sha256"],
+                    "execution packet changed during continuation",
+                )
             _require(
                 authority.head() == parent,
                 "expected parent moved before source/prepare",
             )
+            if checkpoint38:
+                authority.require_unclaimed(entry, dsn)
             candidate_path = replay._resolve_candidate_path(
                 original.candidate_locator, accepted_root
             )
+            if checkpoint38:
+                _require(
+                    replay._sha256_file(candidate_path)
+                    == packet["suffix"][entry.ordinal - 39]["candidate_file_sha256"],
+                    "candidate file changed during continuation",
+                )
             candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
             from apps.live_control_server.services.candidate_graph_admission import (
                 canonical_candidate_digest,
@@ -761,6 +1010,12 @@ def run_continuation(
                 candidate == json.loads(candidate_path.read_text(encoding="utf-8")),
                 "candidate mutated",
             )
+            if checkpoint38:
+                _require(
+                    replay._sha256_file(candidate_path)
+                    == packet["suffix"][entry.ordinal - 39]["candidate_file_sha256"],
+                    "candidate file changed during confirm",
+                )
             row = _ledger_row(entry, original, digest, result)
             _require(row["sealed_parent_revision"] == parent, "confirm parent differs")
             row["durable_proof"] = authority.publication(entry, row)
@@ -773,6 +1028,17 @@ def run_continuation(
             report["new_confirms"] += 1
             report["last_good_head"] = parent
             replay._write_json(output / "continuation_report.json", report)
+        if checkpoint38:
+            _require(
+                replay._sha256_file(execution_packet)
+                == command["execution_packet_sha256"],
+                "execution packet changed during continuation",
+            )
+            _require(
+                replay._sha256_file(output / "checkpoint38-before.dump")
+                == report["prewrite_backup"]["sha256"],
+                "checkpoint38 backup changed during continuation",
+            )
         report["status"] = "COMPLETE"
         report["terminal_head"] = parent
     except Exception as exc:
@@ -807,6 +1073,8 @@ def main() -> int:
     parser.add_argument("--binding-decision-sha256")
     parser.add_argument("--verify-checkpoint38-only", action="store_true")
     parser.add_argument("--verify-checkpoint38-binding-only", action="store_true")
+    parser.add_argument("--execute-checkpoint38", action="store_true")
+    parser.add_argument("--execution-packet", type=Path)
     args = parser.parse_args()
     report = run_continuation(
         accepted_root=args.accepted_root,
@@ -818,6 +1086,8 @@ def main() -> int:
         binding_decision_sha256=args.binding_decision_sha256,
         verify_checkpoint38_only=args.verify_checkpoint38_only,
         verify_checkpoint38_binding_only=args.verify_checkpoint38_binding_only,
+        execute_checkpoint38=args.execute_checkpoint38,
+        execution_packet=args.execution_packet,
     )
     print(
         json.dumps(
@@ -835,11 +1105,16 @@ def main() -> int:
             sort_keys=True,
         )
     )
-    return 0 if report["status"] in {
-        "COMPLETE",
-        "PREFIX_VERIFIED_READ_ONLY",
-        "CHECKPOINT38_BINDING_VERIFIED_READ_ONLY",
-    } else 1
+    return (
+        0
+        if report["status"]
+        in {
+            "COMPLETE",
+            "PREFIX_VERIFIED_READ_ONLY",
+            "CHECKPOINT38_BINDING_VERIFIED_READ_ONLY",
+        }
+        else 1
+    )
 
 
 if __name__ == "__main__":
