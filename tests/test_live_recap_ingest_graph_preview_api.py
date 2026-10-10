@@ -698,6 +698,66 @@ def test_recap_ingest_materialize_preview_supergraph_extracts_without_candidate_
     assert run.source_artifact_id == graph["source_artifact_id"]
 
 
+def test_materialize_reextracts_when_selected_world_binding_changes(
+    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from apps.live_control_server.services import recap_ingest_context
+    from apps.live_control_server.services.graph_run_registry import get_extraction_run
+
+    client, _corpus, _candidate = client_env
+    _prepare_normalized(client)
+    _patch_fake_category_extract(monkeypatch)
+    _patch_retired_union_materialize(monkeypatch)
+    build = client.post(
+        "/api/live/recap-ingest",
+        json={
+            "operation": "build_graph_preview_bundle",
+            "campaign_id": "longmont-c2",
+            "managed_world_id": "elderwyld",
+            "session": 22,
+            "extract_graph": True,
+            "graph_model_id": "gpt-5.4-mini",
+        },
+    )
+    assert build.status_code == 200, build.text
+    original = build.json()["ingest_report"]["graph_preview"]["extraction_run_id"]
+
+    class ReboundContext:
+        def as_lineage(self) -> dict[str, object]:
+            return {
+                "schema": "dm_world_campaign_ingest_context_v1",
+                "managed_world_id": "elderwyld",
+                "native_world_id": "world:elderwyld-rebound",
+                "binding_version": 4,
+                "campaign_id": "longmont-c2",
+                "head_revision_id": "rev:next-head",
+                "graph_schema": "dm_graph_v1",
+                "graph_payload_sha256": "b" * 64,
+            }
+
+    monkeypatch.setattr(
+        recap_ingest_context,
+        "read_recap_ingest_context",
+        lambda **_kwargs: ReboundContext(),
+    )
+    materialized = client.post(
+        "/api/live/recap-ingest",
+        json={
+            "operation": "materialize_preview_supergraph",
+            "campaign_id": "longmont-c2",
+            "managed_world_id": "elderwyld",
+            "session": 22,
+            "extract_graph": True,
+            "materialize_after_extract": True,
+        },
+    )
+    assert materialized.status_code == 200, materialized.text
+    graph = materialized.json()["ingest_report"]["graph_preview"]
+    assert graph["extraction_run_id"] != original
+    run = get_extraction_run(ROOT, graph["extraction_run_id"])
+    assert run.lineage["world_campaign_ingest_context"]["native_world_id"] == "world:elderwyld-rebound"
+
+
 def test_recap_ingest_extract_graph_missing_api_key_returns_llm_blocked(
     client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:

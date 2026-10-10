@@ -528,6 +528,10 @@ def materialize_recap_preview_supergraph(
                 source_recap_path=source_recap_path,
                 source_recap_sha256=source_recap_sha256,
             )
+            existing = [
+                run for run in existing
+                if _summary_matches_ingest_context(repo, run, ingest_context)
+            ]
             logger.info(
                 "preview union extract-then-materialize discovered runs campaign=%s session=session-%s statuses=%s",
                 campaign_id,
@@ -564,6 +568,12 @@ def materialize_recap_preview_supergraph(
     if manifest_path:
         manifest = _resolve_existing_repo_path(repo, manifest_path, field_name="manifest_path")
         summary = _summary_for_manifest(repo, manifest)
+        if summary is not None and not _summary_matches_ingest_context(
+            repo, summary, ingest_context
+        ):
+            raise ValueError(
+                "selected graph-ingest run does not match the selected World/campaign binding"
+            )
     elif forced_build_status and forced_build_status.get("manifest_path"):
         forced_manifest = _resolve_existing_repo_path(
             repo,
@@ -579,7 +589,13 @@ def materialize_recap_preview_supergraph(
             source_recap_path=source_recap_path,
             source_recap_sha256=source_recap_sha256,
         )
-        summary = runs[0] if runs else None
+        summary = next(
+            (
+                run for run in runs
+                if _summary_matches_ingest_context(repo, run, ingest_context)
+            ),
+            None,
+        )
 
 
     if summary is None:
@@ -589,7 +605,12 @@ def materialize_recap_preview_supergraph(
             session,
             normalized_recap_path,
         )
-        return _missing_status(normalized_recap_path)
+        status = _missing_status(normalized_recap_path)
+        status["blocked_reason"] = (
+            "Candidate graph extraction has not run yet for this selected World/campaign binding"
+        )
+        status["next_actions"] = ["build_graph_preview_bundle", "extract_graph"]
+        return status
     if (
         summary.status == GraphIngestRunStatus.PREVIEW_UNION_STORE_READY.value
         and not force_graph_run

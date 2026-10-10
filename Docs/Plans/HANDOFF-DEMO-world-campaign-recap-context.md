@@ -3,6 +3,7 @@
 **Status:** ACTIVE implementation; PRIME owns independent review and merge.
 **Base:** `main@5be59b2ee3c06913e607f0d64c938fba4515a235`
 **Branch:** `codex/demo-world-recap-context-20261010`
+**PR:** Draft Buddy #1060; PRIME retains independent review and merge.
 **Scope:** Buddy recap graph extraction, review preparation, and confirm-time context validation.
 
 ## User outcome
@@ -44,7 +45,9 @@ existing governed parent compare-and-swap; exact retries can return the existing
 the new lineage remain eligible for explicit selected-World/source adoption
 through the existing path. Existing extraction runs remain reusable while
 their exact source, campaign membership, and selected binding identity remain
-valid, even if another publication advances the head.
+valid, even if another publication advances the head. Materialization applies
+the same identity gate to discovered and explicitly named manifests; it never
+reports a mismatched candidate as available for the current selection.
 
 ## Boundaries
 
@@ -63,14 +66,18 @@ valid, even if another publication advances the head.
 
 The context and selected-target suites pass 13 tests, including a legacy-shaped
 recap prepare boundary, reuse after an unrelated head advance, and confirm
-replay after the head advances. Changed Python files pass Ruff, the
-exact MIND-pinned `SourceAnchorIndexRequest` import succeeds against the current
-MIND source, and `git diff --check` passes. The full recap API suite passes 26
-tests using its fixture's isolated PostgreSQL databases, which it creates and
-drops by unique name. An initial sandboxed run could not reach that endpoint;
-the elevated run exposed implementation errors, which were fixed before the
-passing rerun. The UI test runner is absent from this checkout's
-`node_modules`; UI tests/build remain unverified here.
+replay after the head advances. The mounted managed-World Ingest test passes
+13/13 using the existing UI dependencies through isolated symlinks in this
+temporary checkout; shared dependencies were not changed. Changed Python files
+pass Ruff, the exact MIND-pinned `SourceAnchorIndexRequest` import succeeds
+against the current MIND source, and `git diff --check` passes. The complete
+recap API suite passed 26 tests before the final materialization authority gate.
+After that gate, the focused API set covering prior materialization behavior
+and the new rebound-World regression passed 5/5 against the fixture's isolated,
+uniquely named PostgreSQL databases. The database fixture creates/drops those
+test databases; no shared graph state was used. An initial sandboxed run could
+not reach that endpoint; the elevated run exposed implementation errors, which
+were fixed before the passing runs.
 
 `uv lock --check --offline` cannot run to completion in this temporary checkout
 because the ignored `out/hermes-agent` path required by the workspace lock is
