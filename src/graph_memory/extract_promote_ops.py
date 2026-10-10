@@ -196,6 +196,7 @@ def _gate_from_contribution_slice(
             str(k): str(v)
             for k, v in dict(slice_body.get("identity_outcome_snapshot") or {}).items()
         },
+        identity_basis=dict(slice_body.get("identity_basis") or {}),
         diagnostics=[],
         candidate_preview_id=str(slice_body.get("candidate_preview_id") or ""),
         candidate_schema=str(slice_body.get("candidate_schema") or ""),
@@ -276,6 +277,7 @@ def prepare_extract_promote(
     source_artifact_id: str | None = None,
     campaign_scope: str | None = None,
     extraction_profile: str | None = "current_default",
+    candidate_identity_sha256: str | None = None,
     node_ids: Sequence[str] | None = None,
     include_edges: bool = True,
     candidate_graph_path: str | None = None,
@@ -350,6 +352,7 @@ def prepare_extract_promote(
             source_uri=authoritative_source_uri or source_uri,
             source_kind="source_extraction",
             source_domain="recap",
+            candidate_identity_sha256=candidate_identity_sha256,
             node_ids=tuple(node_ids) if node_ids is not None else None,
             include_edges=include_edges,
         )
@@ -391,6 +394,7 @@ def prepare_extract_promote(
             source_uri=authoritative_source_uri or source_uri,
             source_kind="source_extraction",
             source_domain="recap",
+            candidate_identity_sha256=candidate_identity_sha256,
             node_ids=tuple(node_ids) if node_ids is not None else None,
             include_edges=include_edges,
         )
@@ -482,6 +486,7 @@ def prepare_extract_promote(
             unresolved_mentions=gate.unresolved_mentions,
             node_id_map=gate.node_id_map,
             identity_outcome_snapshot=gate.identity_outcome_snapshot,
+            identity_basis=gate.identity_basis,
         )
     )
 

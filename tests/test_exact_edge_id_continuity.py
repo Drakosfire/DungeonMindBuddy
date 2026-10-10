@@ -398,10 +398,8 @@ def test_identity_gate_omits_compatible_existing_edge(
         a for a in gate.accepted_proposals if a.assertion_kind == "edge"
     ]
     assert edge_assertions == []
-    assert gate.identity_outcome_snapshot.get(rid) == "resolved_existing"
-    assert any(
-        d.startswith(f"confirm_existing_edge:{rid}") for d in gate.diagnostics
-    )
+    assert gate.node_id_map == {}
+    assert rid not in gate.identity_outcome_snapshot
 
 
 def test_identity_gate_omits_belongs_to_after_reverse_endpoint_publication(
@@ -495,8 +493,8 @@ def test_identity_gate_omits_belongs_to_after_reverse_endpoint_publication(
         campaign_scope="longmont-c1",
     )
     assert all(a.assertion_kind != "edge" for a in gate.accepted_proposals)
-    assert gate.identity_outcome_snapshot.get(rid) == "resolved_existing"
-    assert any(d.startswith(f"confirm_existing_edge:{rid}") for d in gate.diagnostics)
+    assert gate.node_id_map == {}
+    assert rid not in gate.identity_outcome_snapshot
 
 
 def test_identity_gate_rejects_incompatible_occupied_edge(
@@ -612,6 +610,5 @@ def test_identity_gate_rejects_incompatible_occupied_edge(
     rejected_edges = [
         a for a in gate.rejected_assertions if a.assertion_kind == "edge"
     ]
-    assert len(rejected_edges) == 1
-    assert rejected_edges[0].identity_resolution_outcome == "blocked_collision"
-    assert gate.identity_outcome_snapshot.get(conflicting_id) == "blocked_collision"
+    assert rejected_edges == []
+    assert conflicting_id not in gate.identity_outcome_snapshot

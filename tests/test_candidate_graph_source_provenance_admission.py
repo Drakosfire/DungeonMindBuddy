@@ -290,6 +290,18 @@ def test_native_confirm_publishes_guarded_review_and_historical_replay_survives_
         stored_parent, world_id=world_id, head_revision_id=parent_revision_id,
         dungeonmind_decisions=[decision],
     )
+    if tampered_subject:
+        with pytest.raises(world_graph_writes.WorldGraphWriteError, match="authority could not be proved"):
+            world_graph_writes._verify_reviewed_corpus_binding_authority(
+                SimpleNamespace(identity_decisions=identities, sources=sources),
+                stored_parent, context,
+            )
+        assert contributions.list_for_world(world_id) == []
+        return
+    context = world_graph_writes._verify_reviewed_corpus_binding_authority(
+        SimpleNamespace(identity_decisions=identities, sources=sources),
+        stored_parent, context,
+    )
     prepared = prepare_candidate_graph_admission(
         candidate_graph=candidate,
         source_uri=str(source_path),

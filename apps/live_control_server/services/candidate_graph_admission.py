@@ -394,6 +394,7 @@ def prepare_candidate_graph_admission(
     source_admission = prepare_kwargs.pop("source_admission", None)
     source_artifact = prepare_kwargs.pop("source_artifact", None)
     projected, dispositions, digest = _integrity_and_eligibility(candidate_graph)
+    prepare_kwargs["candidate_identity_sha256"] = digest
     context = prepare_kwargs.get("mutation_context")
     if context is not None and context.reviewed_corpus_bindings:
         prepare_kwargs["mutation_context"] = replace(context, exact_candidate_sha256=digest)
@@ -607,6 +608,8 @@ def verify_candidate_graph_admission_confirmation(
             [CandidateIntegrityDiagnostic(code="candidate_digest_mismatch", message="candidate changed after prepare")],
             candidate_digest=actual,
         )
+    from graph_memory.extract_promote_proposal import verify_source_local_identity_basis
+    verify_source_local_identity_basis(effect, candidate_sha256=actual)
     return binding
 
 

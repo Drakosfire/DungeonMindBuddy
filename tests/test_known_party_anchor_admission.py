@@ -239,13 +239,13 @@ def test_unanchored_new_character_stays_npc() -> None:
     assert assertion.value["kind"] == "npc"
 
 
-def test_legacy_unreferenced_character_match_keeps_existing_pc_identity() -> None:
+def test_unreferenced_character_match_defers_existing_pc_identity() -> None:
     node = _node("baergrom")
     node["corpus_ref"] = None
     node["proposed_action"] = "create"
     result = _gate([node], _context([_actor("baergrom", kind="pc")]))
-    assert result.node_id_map == {"node:baergrom": "pc:baergrom"}
-    assert result.identity_outcome_snapshot["node:baergrom"] == "resolved_existing"
+    assert result.node_id_map == {}
+    assert result.identity_outcome_snapshot["node:baergrom"] == "ambiguous"
     assert all(a.assertion_kind != "node" for a in result.accepted_proposals)
 
 

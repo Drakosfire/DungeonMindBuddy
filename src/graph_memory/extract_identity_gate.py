@@ -7,7 +7,9 @@ rejected assertions, plus a fixed-candidate scorer report for operator review.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import hashlib
+import json
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -54,6 +56,43 @@ _CONNECT_EXISTING_OUTCOMES = frozenset({"resolved_existing", "human_override"})
 _NON_MUTATING_OUTCOMES = frozenset(
     {"ambiguous", "blocked_collision", "rejected", "provisional_new"}
 )
+SOURCE_LOCAL_IDENTITY_SCHEMA = "dmb_source_local_identity_basis_v1"
+
+
+def _candidate_preview_digest(preview: CandidateGraphPreview) -> str:
+    encoded = json.dumps(
+        asdict(preview), sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _source_local_identity_basis(
+    *, world_id: str, parent_revision_id: str, source_artifact_id: str, source_revision_id: str,
+    extraction_profile: str, source_kind: str, candidate_sha256: str,
+    candidate_schema: str, candidate_version: str,
+) -> dict[str, str]:
+    source_sha = source_revision_id.removeprefix("sha256:")
+    for name, digest in (("source revision", source_sha), ("candidate", candidate_sha256)):
+        if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
+            raise CandidateGraphMappingError(f"verified {name} SHA-256 is required")
+    return {
+        "schema": SOURCE_LOCAL_IDENTITY_SCHEMA,
+        "world_id": world_id,
+        "parent_revision_id": parent_revision_id,
+        "source_artifact_id": source_artifact_id,
+        "source_sha256": source_sha,
+        "extraction_profile": extraction_profile,
+        "source_kind": source_kind,
+        "candidate_sha256": candidate_sha256,
+        "candidate_schema": candidate_schema,
+        "candidate_version": candidate_version,
+    }
+
+
+def _qualified_source_local_id(basis: Mapping[str, str], local_id: str) -> str:
+    preimage = {**basis, "local_node_id": local_id}
+    encoded = json.dumps(preimage, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return "source-local:v1:" + hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
 def _require_artifact_id(value: str | None) -> str:
@@ -76,6 +115,7 @@ class IdentityGateResult:
     scorer_report: dict[str, Any] = field(default_factory=dict)
     node_id_map: dict[str, str] = field(default_factory=dict)
     identity_outcome_snapshot: dict[str, str] = field(default_factory=dict)
+    identity_basis: dict[str, Any] = field(default_factory=dict)
     diagnostics: list[str] = field(default_factory=list)
     candidate_preview_id: str = ""
     candidate_schema: str = ""
@@ -110,6 +150,7 @@ class IdentityGateResult:
             unresolved_mentions=self.unresolved_mentions,
             node_id_map=self.node_id_map,
             identity_outcome_snapshot=self.identity_outcome_snapshot,
+            identity_basis=self.identity_basis,
             prepared_by=prepared_by,
             scorer_report=self.scorer_report,
             diagnostics=self.diagnostics,
@@ -310,6 +351,51 @@ def _known_party_anchor(
     return target
 
 
+def _reviewed_binding_anchor(
+    node: CandidateNode, context: WorldGraphMutationContext, *,
+    world_id: str, campaign_id: str | None,
+) -> MutationObject | None:
+    bindings = [
+        binding for binding in context.reviewed_corpus_bindings
+        if binding.candidate_node_id == node.node_id
+    ]
+    if not bindings:
+        return None
+    if len(bindings) != 1:
+        raise CandidateGraphMappingError("conflicting reviewed canonical bindings")
+    binding = bindings[0]
+    if (
+        binding.world_id != world_id
+        or binding.parent_revision_id != context.revision_id
+        or binding.campaign_id != campaign_id
+        or binding.candidate_sha256 != context.exact_candidate_sha256
+    ):
+        raise CandidateGraphMappingError("reviewed canonical binding basis mismatch")
+    if node.corpus_ref is not None:
+        referenced = _known_party_anchor(
+            node, context, world_id=world_id, campaign_id=campaign_id
+        )
+        if referenced is None or referenced.object_id != binding.target_object_id:
+            raise CandidateGraphMappingError("reviewed canonical binding reference mismatch")
+    target = context.objects.get(binding.target_object_id)
+    expected_kind = "player_character" if binding.corpus_ref_type == "pc" else "npc"
+    if (
+        target is None or target.object_id in context.identity_redirects
+        or node.node_type != "character"
+        or binding.corpus_ref_type not in {"pc", "npc"}
+        or _norm_kind(target.kind) != expected_kind
+        or target.canon_state != "canonical"
+        or target.memory_state in {"merged_away", "rejected"}
+    ):
+        raise CandidateGraphMappingError("reviewed canonical binding target is not active")
+    terms = {ir.normalize_label(target.label), *(
+        ir.normalize_label(alias) for alias in target.aliases
+    )}
+    if ir.normalize_label(node.label) not in terms:
+        raise CandidateGraphMappingError("reviewed canonical binding label mismatch")
+    return target
+
+
 def _durable_node_id(resolution: Any, extract_node_id: str) -> str | None:
     outcome = resolution.outcome
     if outcome == "resolved_existing":
@@ -333,6 +419,7 @@ def gate_candidate_graph_against_head(
     source_domain: str = "recap",
     source_uri: str | None = None,
     source_kind: str = "source_extraction",
+    candidate_identity_sha256: str | None = None,
     node_ids: Sequence[str] | None = None,
     include_edges: bool = True,
     mutation_context: WorldGraphMutationContext | None = None,
@@ -387,6 +474,20 @@ def gate_candidate_graph_against_head(
         nodes=nodes,
         edges=edges_in_scope,
     )
+    source_local_basis = (
+        _source_local_identity_basis(
+            world_id=world_id,
+            parent_revision_id=parent_revision_id,
+            source_artifact_id=artifact_id,
+            source_revision_id=source_revision_id,
+            extraction_profile=str(extraction_profile or "current_default"),
+            source_kind=kind,
+            candidate_sha256=candidate_identity_sha256 or _candidate_preview_digest(preview),
+            candidate_schema=preview.schema,
+            candidate_version=preview.version,
+        )
+        if kind == "source_extraction" else None
+    )
 
     candidate_contribution = candidate_graph_to_contribution(
         preview,
@@ -415,6 +516,7 @@ def gate_candidate_graph_against_head(
     rejected: list[GraphContributionAssertion] = []
     node_id_map: dict[str, str] = {}
     identity_outcome_snapshot: dict[str, str] = {}
+    identity_nodes: dict[str, dict[str, str]] = {}
     diagnostics: list[str] = [
         f"parent_revision_id:{parent_revision_id}",
         f"scorer_matched:{len(scorer_report.get('matched') or [])}",
@@ -425,7 +527,15 @@ def gate_candidate_graph_against_head(
         extract_id = node.node_id
         label = node.label or extract_id
         node_aliases = _candidate_aliases(node)
-        known_anchor = _known_party_anchor(node, mutation_context, world_id=world_id, campaign_id=scope)
+        known_anchor = _reviewed_binding_anchor(
+            node, mutation_context, world_id=world_id, campaign_id=scope
+        ) or _known_party_anchor(node, mutation_context, world_id=world_id, campaign_id=scope)
+        classification = "reviewed_canonical" if known_anchor is not None else "source_local"
+        proposed_id = (
+            known_anchor.object_id if known_anchor is not None
+            else _qualified_source_local_id(source_local_basis, extract_id)
+            if source_local_basis is not None else extract_id
+        )
         object_kind = (
             known_anchor.kind if known_anchor is not None
             else _infer_object_kind(node, mutation_context)
@@ -444,10 +554,11 @@ def gate_candidate_graph_against_head(
             evidence_ref_ids=evidence_refs,
             campaign_scope=scope,
             source_artifact_id=artifact_id,
-            proposed_node_id=known_anchor.object_id if known_anchor is not None else extract_id,
+            proposed_node_id=proposed_id,
         )
         resolution = resolve_identity_against_context(
-            mutation_context, identity_candidate
+            mutation_context, identity_candidate,
+            source_local=source_local_basis is not None and known_anchor is None,
         )
         if known_anchor is not None and (
             resolution.outcome not in _CONNECT_EXISTING_OUTCOMES
@@ -455,6 +566,13 @@ def gate_candidate_graph_against_head(
         ):
             raise CandidateGraphMappingError("known party anchor resolution changed its verified pinned identity")
         identity_outcome_snapshot[extract_id] = resolution.outcome
+        if source_local_basis is not None:
+            identity_nodes[extract_id] = {
+                "classification": classification if resolution.outcome in _MUTATING_OUTCOMES else "deferred",
+                "proposed_node_id": proposed_id,
+                "outcome": resolution.outcome,
+                **({"canonical_target_id": known_anchor.object_id} if known_anchor is not None else {}),
+            }
         diagnostics.append(
             f"identity:{extract_id}:{resolution.outcome}:{resolution.target_node_id or resolution.created_node_id or resolution.provisional_node_id}"
         )
@@ -650,6 +768,10 @@ def gate_candidate_graph_against_head(
         scorer_report=scorer_report,
         node_id_map=node_id_map,
         identity_outcome_snapshot=identity_outcome_snapshot,
+        identity_basis=(
+            {**source_local_basis, "nodes": dict(sorted(identity_nodes.items()))}
+            if source_local_basis is not None else {}
+        ),
         diagnostics=diagnostics,
         candidate_preview_id=preview.preview_id,
         candidate_schema=preview.schema,

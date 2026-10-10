@@ -2177,6 +2177,18 @@ def confirm_extract_promote_via_dungeonmind(
                 "publication exists without the pinned finalized review",
                 code="authority_integrity",
             )
+        if (
+            str(getattr(existing, "world_id", "") or "") != world_id
+            or str(getattr(existing, "operation_id", "") or "") != operation_id
+        ):
+            raise WorldGraphWriteError(
+                "publication receipt does not match the requested operation",
+                code="governed_write_idempotency_conflict",
+            )
+        _assert_publication_replay_identity(
+            existing=existing,
+            expected_parent_revision_id=str((package.get("effect") or {}).get("parent_revision_id") or ""),
+        )
         accepted_assertion_ids, affected_object_ids = (
             _receipt_ids_from_reviewed_contribution(
                 bundle=bundle,
@@ -2194,6 +2206,16 @@ def confirm_extract_promote_via_dungeonmind(
             accepted_assertion_ids=accepted_assertion_ids,
             affected_object_ids=affected_object_ids,
         )
+
+    from graph_memory.extract_promote_proposal import verify_source_local_identity_basis
+    try:
+        verify_source_local_identity_basis(package.get("effect") or {}, require=True)
+    except ValueError as exc:
+        raise WorldGraphWriteError(
+            "review package has no valid source-local identity basis",
+            code="governed_write_inexpressible",
+            details={"world_id": world_id, "reason": str(exc)[:500]},
+        ) from exc
 
     sealed_parent = str(
         (package.get("effect") or {}).get("parent_revision_id") or ""
