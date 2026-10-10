@@ -1,17 +1,22 @@
-.world-agent-conversation__history {
-  flex: 1 1 0;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+.world-agent-conversation {
+  display: block;
+  block-size: 100%;
+  min-block-size: 0;
 }
 
-.world-agent-conversation .world-plan-agent-conversation__composer form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+.world-agent-conversation__dock {
+  grid-template-rows: minmax(0, 1fr);
 }
 
-.world-agent-conversation .world-plan-agent-conversation__composer textarea {
-  min-height: 5rem;
-  resize: vertical;
+.world-agent-conversation__dock .conversation-dock__reader,
+.world-agent-conversation__dock .conversation-dock__resize {
+  display: none;
+}
+
+.world-agent-conversation__dock.is-expanded .conversation-dock__conversation {
+  block-size: 100%;
+}
+
+.world-agent-conversation__dock .conversation-dock__composer > .plan-conversation-dock__composer {
+  inline-size: 100%;
 }

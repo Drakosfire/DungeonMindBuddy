@@ -24,8 +24,6 @@ interface WorldConversationRegistry {
   unregisterPlay: (token: symbol) => void;
   history: WorldAgentConversationHistoryResponse | null;
   setHistory: Dispatch<SetStateAction<WorldAgentConversationHistoryResponse | null>>;
-  message: string;
-  setMessage: Dispatch<SetStateAction<string>>;
   pendingTurn: { surface: "plan" | "play"; turnId: string } | null;
   setPendingTurn: Dispatch<SetStateAction<{ surface: "plan" | "play"; turnId: string } | null>>;
   historyRefreshNonce: number;
@@ -38,7 +36,6 @@ export function WorldAgentConversationProvider({ children, worldId }: { children
   const [plan, setPlan] = useState<Registration<WorldPlanAgentConversationProps> | null>(null);
   const [play, setPlay] = useState<Registration<AdmittedWorldPlayConversationContext | null> | null>(null);
   const [history, setHistory] = useState<WorldAgentConversationHistoryResponse | null>(null);
-  const [message, setMessage] = useState("");
   const [pendingTurn, setPendingTurn] = useState<{ surface: "plan" | "play"; turnId: string } | null>(null);
   const [historyRefreshNonce, setHistoryRefreshNonce] = useState(0);
   const registerPlan = useCallback((token: symbol, value: WorldPlanAgentConversationProps) => setPlan({ token, value }), []);
@@ -46,8 +43,8 @@ export function WorldAgentConversationProvider({ children, worldId }: { children
   const registerPlay = useCallback((token: symbol, value: AdmittedWorldPlayConversationContext | null) => setPlay({ token, value }), []);
   const unregisterPlay = useCallback((token: symbol) => setPlay((current) => current?.token === token ? null : current), []);
   const value = useMemo(() => ({ worldId, plan, play, registerPlan, unregisterPlan, registerPlay, unregisterPlay,
-    history, setHistory, message, setMessage, pendingTurn, setPendingTurn, historyRefreshNonce, setHistoryRefreshNonce }),
-  [worldId, plan, play, registerPlan, unregisterPlan, registerPlay, unregisterPlay, history, message, pendingTurn, historyRefreshNonce]);
+    history, setHistory, pendingTurn, setPendingTurn, historyRefreshNonce, setHistoryRefreshNonce }),
+  [worldId, plan, play, registerPlan, unregisterPlan, registerPlay, unregisterPlay, history, pendingTurn, historyRefreshNonce]);
   return <Registry.Provider value={value}>{children}</Registry.Provider>;
 }
 
@@ -103,6 +100,7 @@ export function WorldAgentConversation({ surface, worldId, worldName }: {
     && Number.isSafeInteger(run.runRevision) && run.runRevision > 0 && run.surfaceInstanceId.trim()
     ? run : null;
   return <WorldPlanAgentConversation {...props} worldName={worldName ?? props.worldName}
+    presentationHosts={surface === "plan" ? props.presentationHosts : undefined}
     visible={(surface === "plan" && registry.plan?.value.worldId === worldId) || surface === "play"}
     playMode={surface === "play" ? { admittedRun } : null} />;
 }
