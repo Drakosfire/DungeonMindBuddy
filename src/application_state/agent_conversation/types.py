@@ -242,6 +242,168 @@ def decode_plan_playable_target_reference(
     )
 
 
+PLAY_RUNBOOK_REFERENCE_KIND = "dmb_play_runbook_v1"
+PLAY_CURRENT_BEAT_REFERENCE_KIND = "dmb_play_current_beat_v1"
+PLAY_CURRENT_SCENE_REFERENCE_KIND = "dmb_play_current_scene_v1"
+_PLAY_MARKER_ID_PATTERN = r"^(beat|scene):[a-z0-9][a-z0-9._-]{0,127}$"
+
+
+class PlayRunTurnContextReceiptV1(StrictModel):
+    """Structural historical Play context; current authority belongs to SERVER."""
+
+    schema_: Literal["dmb_play_run_turn_context_receipt_v1"] = Field(alias="schema")
+    run_id: str = Field(min_length=1, max_length=128)
+    run_revision: int = Field(strict=True, ge=1)
+    runbook_object_id: str = Field(min_length=1, max_length=128)
+    runbook_object_revision: int = Field(strict=True, ge=1)
+    runbook_work_revision_id: UUID
+    runbook_revision_n: int = Field(strict=True, ge=1)
+    runbook_content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    beat_id: str = Field(min_length=6, max_length=135, pattern=_PLAY_MARKER_ID_PATTERN)
+    scene_id: str | None = Field(
+        default=None, min_length=7, max_length=135, pattern=_PLAY_MARKER_ID_PATTERN
+    )
+    marker_grammar_version: Literal["v2"] = "v2"
+
+    @model_validator(mode="after")
+    def validate_context(self) -> "PlayRunTurnContextReceiptV1":
+        if not self.beat_id.startswith("beat:"):
+            raise ValueError("Play Beat ID must use the beat prefix")
+        if self.scene_id is not None and not self.scene_id.startswith("scene:"):
+            raise ValueError("Play Scene ID must use the scene prefix")
+        if any(
+            value != value.strip() for value in (self.run_id, self.runbook_object_id)
+        ):
+            raise ValueError(
+                "Play context identities cannot have surrounding whitespace"
+            )
+        return self
+
+
+def encode_play_run_turn_context_references(
+    receipt: PlayRunTurnContextReceiptV1,
+) -> tuple[HistoricalReference, list[HistoricalReference]]:
+    """Encode the complete receipt into existing primary and supporting rows."""
+    primary = HistoricalReference(
+        resolution="resolved",
+        kind="run",
+        object_id=receipt.run_id,
+        revision=str(receipt.run_revision),
+    )
+    supporting = [
+        HistoricalReference(
+            resolution="resolved",
+            kind=PLAY_RUNBOOK_REFERENCE_KIND,
+            object_id=receipt.runbook_object_id,
+            revision=str(receipt.runbook_object_revision),
+            content_sha256=receipt.runbook_content_sha256,
+            object_revision=receipt.runbook_object_revision,
+            work_revision_id=receipt.runbook_work_revision_id,
+            revision_n=receipt.runbook_revision_n,
+        ),
+        HistoricalReference(
+            resolution="resolved",
+            kind=PLAY_CURRENT_BEAT_REFERENCE_KIND,
+            object_id=receipt.beat_id,
+            revision=receipt.marker_grammar_version,
+        ),
+    ]
+    if receipt.scene_id is not None:
+        supporting.append(
+            HistoricalReference(
+                resolution="resolved",
+                kind=PLAY_CURRENT_SCENE_REFERENCE_KIND,
+                object_id=receipt.scene_id,
+                revision=receipt.marker_grammar_version,
+            )
+        )
+    return primary, supporting
+
+
+def decode_play_run_turn_context_references(
+    primary: HistoricalReference,
+    supporting: list[HistoricalReference],
+) -> PlayRunTurnContextReceiptV1 | None:
+    """Validate the reserved group as one complete structural receipt."""
+    reserved = {
+        PLAY_RUNBOOK_REFERENCE_KIND,
+        PLAY_CURRENT_BEAT_REFERENCE_KIND,
+        PLAY_CURRENT_SCENE_REFERENCE_KIND,
+    }
+    reserved_references = [
+        reference for reference in supporting if reference.kind in reserved
+    ]
+    if not reserved_references:
+        return None
+    runbooks = [
+        reference
+        for reference in reserved_references
+        if reference.kind == PLAY_RUNBOOK_REFERENCE_KIND
+    ]
+    beats = [
+        reference
+        for reference in reserved_references
+        if reference.kind == PLAY_CURRENT_BEAT_REFERENCE_KIND
+    ]
+    scenes = [
+        reference
+        for reference in reserved_references
+        if reference.kind == PLAY_CURRENT_SCENE_REFERENCE_KIND
+    ]
+    if (
+        primary.kind != "run"
+        or len(runbooks) != 1
+        or any(reference.kind == "runbook" for reference in supporting)
+        or len(beats) != 1
+        or len(scenes) > 1
+    ):
+        raise ValueError("Play Run context references are incomplete or duplicated")
+    runbook = runbooks[0]
+    if (
+        primary.resolution != "resolved"
+        or primary.object_id is None
+        or primary.revision is None
+        or not primary.revision.isdecimal()
+        or primary.revision != str(int(primary.revision))
+        or primary.content_sha256 is not None
+        or primary.object_revision is not None
+        or primary.work_revision_id is not None
+        or primary.revision_n is not None
+        or runbook.resolution != "resolved"
+        or runbook.object_id is None
+        or runbook.object_revision is None
+        or runbook.work_revision_id is None
+        or runbook.revision_n is None
+        or runbook.content_sha256 is None
+        or runbook.revision != str(runbook.object_revision)
+    ):
+        raise ValueError("Play Run or Runbook reference is malformed")
+    for marker in (*beats, *scenes):
+        if (
+            marker.resolution != "resolved"
+            or marker.object_id is None
+            or marker.revision != "v2"
+            or marker.content_sha256 is not None
+            or marker.object_revision is not None
+            or marker.work_revision_id is not None
+            or marker.revision_n is not None
+        ):
+            raise ValueError("Play current marker reference is malformed")
+    return PlayRunTurnContextReceiptV1(
+        schema="dmb_play_run_turn_context_receipt_v1",
+        run_id=primary.object_id,
+        run_revision=int(primary.revision),
+        runbook_object_id=runbook.object_id,
+        runbook_object_revision=runbook.object_revision,
+        runbook_work_revision_id=runbook.work_revision_id,
+        runbook_revision_n=runbook.revision_n,
+        runbook_content_sha256=runbook.content_sha256,
+        beat_id=beats[0].object_id,
+        scene_id=scenes[0].object_id if scenes else None,
+        marker_grammar_version="v2",
+    )
+
+
 class PlanAskContextBasis(StrictModel):
     """Server-resolved committed Plan basis used only to filter Ask history."""
 
@@ -324,6 +486,13 @@ class TurnProvenance(StrictModel):
                 raise ValueError(
                     "Playable target provenance requires an exact Plan basis and no Graph selection"
                 )
+        play_context = decode_play_run_turn_context_references(
+            self.primary_work, self.supporting_work
+        )
+        if play_context is not None and (
+            self.surface_resolution != "resolved" or self.surface_id != "play"
+        ):
+            raise ValueError("Play Run context requires the Play surface")
         return self
 
 

@@ -18,6 +18,7 @@ from application_state.agent_conversation.types import (
     HistoricalReference,
     LegacyImport,
     LegacyTurn,
+    PlayRunTurnContextReceiptV1,
     ReopenCommand,
     SubmittedGraphFocusIntentV1,
     SubmittedGraphRequestIntentV1,
@@ -29,6 +30,8 @@ from application_state.agent_conversation.types import (
     TurnProvenance,
     TurnResult,
     TurnSubmission,
+    decode_play_run_turn_context_references,
+    encode_play_run_turn_context_references,
     submitted_turn_intent_fingerprint_v1,
 )
 from application_state.config import APPLICATION_STATE_DSN_ENV
@@ -38,6 +41,115 @@ from application_state.errors import (
     ApplicationStateUnavailableError,
     ApplicationStateValidationError,
 )
+
+
+def _play_run_receipt() -> PlayRunTurnContextReceiptV1:
+    return PlayRunTurnContextReceiptV1(
+        schema="dmb_play_run_turn_context_receipt_v1",
+        run_id="run-1",
+        run_revision=7,
+        runbook_object_id="runbook-1",
+        runbook_object_revision=4,
+        runbook_work_revision_id=uuid4(),
+        runbook_revision_n=3,
+        runbook_content_sha256="a" * 64,
+        beat_id="beat:a",
+        scene_id="scene:arrival",
+    )
+
+
+def test_play_run_context_codec_validates_complete_reserved_group() -> None:
+    receipt = _play_run_receipt()
+    primary, supporting = encode_play_run_turn_context_references(receipt)
+    assert decode_play_run_turn_context_references(primary, supporting) == receipt
+    base = dict(
+        world_id="world-one",
+        surface_resolution="resolved",
+        surface_id="play",
+        primary_work=primary,
+        supporting_work=supporting,
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    assert TurnProvenance(**base).primary_work == primary
+    legacy_run = TurnProvenance(
+        **(
+            base
+            | {
+                "supporting_work": [
+                    HistoricalReference(
+                        resolution="resolved",
+                        kind="runbook",
+                        object_id="historical-runbook",
+                        revision="old-revision",
+                    )
+                ]
+            }
+        )
+    )
+    assert (
+        decode_play_run_turn_context_references(
+            legacy_run.primary_work, legacy_run.supporting_work
+        )
+        is None
+    )
+    for changed in (
+        {"supporting_work": supporting[:1]},
+        {"supporting_work": supporting + [supporting[1]]},
+        {"supporting_work": supporting + [supporting[2]]},
+        {"supporting_work": supporting + [supporting[0]]},
+        {
+            "supporting_work": supporting
+            + [
+                HistoricalReference(
+                    resolution="resolved",
+                    kind="runbook",
+                    object_id="other-runbook",
+                )
+            ]
+        },
+        {"primary_work": primary.model_copy(update={"revision": "0"})},
+        {"primary_work": primary.model_copy(update={"revision": "07"})},
+        {
+            "supporting_work": [
+                supporting[0].model_copy(update={"revision": "5"}),
+                *supporting[1:],
+            ]
+        },
+        {
+            "supporting_work": [
+                supporting[0],
+                supporting[1].model_copy(update={"revision": "v1"}),
+            ]
+        },
+        {
+            "supporting_work": [
+                supporting[0],
+                supporting[1].model_copy(update={"content_sha256": "b" * 64}),
+            ]
+        },
+        {"surface_id": "plan"},
+    ):
+        with pytest.raises((ValueError, ValidationError)):
+            TurnProvenance(**(base | changed))
+    with pytest.raises((ValueError, ValidationError)):
+        TurnProvenance(
+            **(base | {"primary_work": HistoricalReference(resolution="absent")})
+        )
+    assert (
+        decode_play_run_turn_context_references(
+            HistoricalReference(resolution="resolved", kind="plan", object_id="plan-1"),
+            [],
+        )
+        is None
+    )
+    without_scene = receipt.model_copy(update={"scene_id": None})
+    minimal_primary, minimal_supporting = encode_play_run_turn_context_references(
+        without_scene
+    )
+    assert (
+        decode_play_run_turn_context_references(minimal_primary, minimal_supporting)
+        == without_scene
+    )
 
 
 def _ref(

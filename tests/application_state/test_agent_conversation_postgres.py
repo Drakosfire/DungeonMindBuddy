@@ -20,6 +20,7 @@ from application_state.agent_conversation.types import (
     HistoricalReference,
     PlanContextPolicyV1,
     PlanPlayableTargetReceiptV1,
+    PlayRunTurnContextReceiptV1,
     PlanWorldGraphCitationMapV1,
     PlanWorldGraphCitationV1,
     PlanWorldGraphClaimSegmentV1,
@@ -36,6 +37,8 @@ from application_state.agent_conversation.types import (
     TurnProvenance,
     TurnResult,
     TurnSubmission,
+    decode_play_run_turn_context_references,
+    encode_play_run_turn_context_references,
     encode_plan_playable_target_reference,
 )
 from application_state.cli import _current_and_head
@@ -64,6 +67,68 @@ def _reference(kind: str, object_id: str, revision: str, digest: str | None = No
         object_id=object_id,
         revision=revision,
         content_sha256=digest,
+    )
+
+
+def test_play_run_context_complete_tuple_survives_fresh_service(
+    application_state_dsn: str,
+) -> None:
+    writer = AgentConversationService()
+    world_id = "play-run-codec-world"
+    conversation = _new(writer, world_id)
+    receipt = PlayRunTurnContextReceiptV1(
+        schema="dmb_play_run_turn_context_receipt_v1",
+        run_id="run-7",
+        run_revision=3,
+        runbook_object_id="runbook-7",
+        runbook_object_revision=5,
+        runbook_work_revision_id=uuid4(),
+        runbook_revision_n=2,
+        runbook_content_sha256="b" * 64,
+        beat_id="beat:a",
+        scene_id="scene:arrival",
+    )
+    primary, supporting = encode_play_run_turn_context_references(receipt)
+    provenance = TurnProvenance(
+        world_id=world_id,
+        surface_resolution="resolved",
+        surface_id="play",
+        primary_work=primary,
+        supporting_work=supporting,
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    writer.accept_turn(
+        TurnSubmission(
+            world_id=world_id,
+            conversation_id=conversation.conversation_id,
+            idempotency_key=uuid4(),
+            expected_conversation_revision=1,
+            user_text="What happens now?",
+            provenance=provenance,
+            submitted_intent_v1=SubmittedTurnIntentV1(
+                world_id=world_id,
+                client_thread_id="play-run-test-thread",
+                message="What happens now?",
+                surface_id="play",
+                surface_instance_id="play-main",
+                client_work_state="none",
+                primary_work=SubmittedPrimaryWorkIntentV1(
+                    kind="run", object_id="run-7", expected_revision=3
+                ),
+                graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+                graph_selection=None,
+            ),
+        )
+    )
+    loaded = AgentConversationService().list_turns(
+        world_id, conversation.conversation_id
+    )[0]
+    assert loaded.provenance == provenance
+    assert (
+        decode_play_run_turn_context_references(
+            loaded.provenance.primary_work, loaded.provenance.supporting_work
+        )
+        == receipt
     )
 
 
