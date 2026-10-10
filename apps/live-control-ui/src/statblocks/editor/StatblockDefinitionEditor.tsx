@@ -1,5 +1,17 @@
 import { useState } from "react";
-import type { AbilityName, StatblockDefinitionV1_Output } from "../../contracts/dungeonbuddy-statblocks-v1/client";
+import type {
+  AbilityName,
+  AttackMechanic_Input,
+  CompositeMechanic_Input,
+  MovementEffect_Input,
+  MovementMode_Input,
+  MovementModeKind,
+  PassiveMechanic_Input,
+  PhaseTransitionMechanic_Input,
+  RuleElement_Input,
+  SaveEffectMechanic_Input,
+  StatblockDefinitionV1_Output,
+} from "../../contracts/dungeonbuddy-statblocks-v1/client";
 import { ProtectedStructureBlock } from "./ProtectedStructureBlock";
 import {
   createEditorStateFromOutput,
@@ -13,6 +25,7 @@ import {
   setPrimaryArmorClassValue,
   setRuleElementName,
   setRuleElementRulesText,
+  updateWorkingCopy,
   type StatblockEditorState,
 } from "./statblockEditorState";
 import "./StatblockDefinitionEditor.css";
@@ -25,6 +38,206 @@ const ABILITY_NAMES: AbilityName[] = [
   "wisdom",
   "charisma",
 ];
+
+const MOVEMENT_MODE_KINDS: MovementModeKind[] = [
+  "walk",
+  "fly",
+  "swim",
+  "climb",
+  "burrow",
+  "hover",
+  "special",
+];
+
+type DirectEffectMechanic =
+  | CompositeMechanic_Input
+  | AttackMechanic_Input
+  | PassiveMechanic_Input
+  | PhaseTransitionMechanic_Input
+  | SaveEffectMechanic_Input;
+type DirectEffect = NonNullable<CompositeMechanic_Input["effects"]>[number];
+type MovementEffectField =
+  | "effects"
+  | "hit_effects"
+  | "miss_effects"
+  | "success_effects"
+  | "failure_effects";
+type MovementEffectCollection = {
+  field: MovementEffectField;
+  label: string;
+  effects: DirectEffect[];
+};
+
+function movementEffectCollections(
+  mechanic: RuleElement_Input["mechanic"],
+): MovementEffectCollection[] {
+  switch (mechanic.kind) {
+    case "composite":
+    case "passive":
+    case "phase_transition":
+      return [{ field: "effects", label: "effects", effects: mechanic.effects ?? [] }];
+    case "attack":
+      return [
+        { field: "hit_effects", label: "hit effects", effects: mechanic.hit_effects ?? [] },
+        { field: "miss_effects", label: "miss effects", effects: mechanic.miss_effects ?? [] },
+      ];
+    case "save_effect":
+      return [
+        {
+          field: "success_effects",
+          label: "success effects",
+          effects: mechanic.success_effects ?? [],
+        },
+        {
+          field: "failure_effects",
+          label: "failure effects",
+          effects: mechanic.failure_effects ?? [],
+        },
+      ];
+    default:
+      return [];
+  }
+}
+
+function isMovementEffect(effect: DirectEffect): effect is MovementEffect_Input {
+  return effect.kind === "movement" || "movement_mode_key" in effect;
+}
+
+function hasDirectMovementEffect(mechanic: RuleElement_Input["mechanic"]): boolean {
+  return movementEffectCollections(mechanic).some((collection) =>
+    collection.effects.some(isMovementEffect),
+  );
+}
+
+function updateMovementMode(
+  state: StatblockEditorState,
+  index: number,
+  update: (mode: MovementMode_Input) => MovementMode_Input,
+): StatblockEditorState {
+  return updateWorkingCopy(state, (current) => ({
+    ...current,
+    movement: {
+      ...current.movement,
+      modes: current.movement.modes.map((mode, modeIndex) =>
+        modeIndex === index ? update(mode) : mode,
+      ),
+    },
+  }));
+}
+
+function addMovementMode(state: StatblockEditorState): StatblockEditorState {
+  return updateWorkingCopy(state, (current) => ({
+    ...current,
+    movement: {
+      ...current.movement,
+      modes: [
+        ...current.movement.modes,
+        { key: "", mode: "walk", distance: { value: 0, unit: "feet" }, qualifiers: [] },
+      ],
+    },
+  }));
+}
+
+function removeMovementMode(state: StatblockEditorState, index: number): StatblockEditorState {
+  return updateWorkingCopy(state, (current) => ({
+    ...current,
+    movement: {
+      ...current.movement,
+      modes: current.movement.modes.filter((_mode, modeIndex) => modeIndex !== index),
+    },
+  }));
+}
+
+function updateMovementEffectReference(
+  state: StatblockEditorState,
+  elementKey: string,
+  field: MovementEffectField,
+  effectIndex: number,
+  movementModeKey: string,
+): StatblockEditorState {
+  return updateWorkingCopy(state, (current) => ({
+    ...current,
+    rule_elements: current.rule_elements.map((element) => {
+      if (element.key !== elementKey) return element;
+      const updateEffects = (effects: DirectEffect[] | undefined): DirectEffect[] =>
+        (effects ?? []).map((effect, index) =>
+          index === effectIndex && isMovementEffect(effect)
+            ? { ...effect, movement_mode_key: movementModeKey }
+            : effect,
+        );
+      const mechanic = element.mechanic;
+      let updatedMechanic: DirectEffectMechanic | null = null;
+      switch (mechanic.kind) {
+        case "composite":
+        case "passive":
+        case "phase_transition":
+          if (field === "effects") {
+            updatedMechanic = { ...mechanic, effects: updateEffects(mechanic.effects) };
+          }
+          break;
+        case "attack":
+          updatedMechanic = {
+            ...mechanic,
+            hit_effects:
+              field === "hit_effects" ? updateEffects(mechanic.hit_effects) : mechanic.hit_effects,
+            miss_effects:
+              field === "miss_effects" ? updateEffects(mechanic.miss_effects) : mechanic.miss_effects,
+          };
+          break;
+        case "save_effect":
+          updatedMechanic = {
+            ...mechanic,
+            success_effects:
+              field === "success_effects"
+                ? updateEffects(mechanic.success_effects)
+                : mechanic.success_effects,
+            failure_effects:
+              field === "failure_effects"
+                ? updateEffects(mechanic.failure_effects)
+                : mechanic.failure_effects,
+          };
+          break;
+      }
+      if (!updatedMechanic) return element;
+      return {
+        ...element,
+        mechanic: updatedMechanic,
+      };
+    }),
+  }));
+}
+
+function updateMovementQualifier(
+  state: StatblockEditorState,
+  modeIndex: number,
+  qualifierIndex: number,
+  value: string,
+): StatblockEditorState {
+  return updateMovementMode(state, modeIndex, (mode) => ({
+    ...mode,
+    qualifiers: (mode.qualifiers ?? []).map((qualifier, index) =>
+      index === qualifierIndex ? value : qualifier,
+    ),
+  }));
+}
+
+function addMovementQualifier(state: StatblockEditorState, modeIndex: number): StatblockEditorState {
+  return updateMovementMode(state, modeIndex, (mode) => ({
+    ...mode,
+    qualifiers: [...(mode.qualifiers ?? []), ""],
+  }));
+}
+
+function removeMovementQualifier(
+  state: StatblockEditorState,
+  modeIndex: number,
+  qualifierIndex: number,
+): StatblockEditorState {
+  return updateMovementMode(state, modeIndex, (mode) => ({
+    ...mode,
+    qualifiers: (mode.qualifiers ?? []).filter((_qualifier, index) => index !== qualifierIndex),
+  }));
+}
 
 export type StatblockDefinitionEditorProps = {
   output: StatblockDefinitionV1_Output;
@@ -170,6 +383,10 @@ export function StatblockDefinitionEditor({
 
       <section className="statblock-definition-editor__section" aria-label="Rule elements">
         <h3>Rule elements</h3>
+        <p>
+          Movement references use the exact key of a movement mode in this definition. Changing a
+          mode kind never changes its key or rewrites a reference.
+        </p>
         {workingCopy.rule_elements.map((element) => (
           <article key={element.key} className="statblock-definition-editor__rule-element">
             <label>
@@ -188,8 +405,140 @@ export function StatblockDefinitionEditor({
                 onChange={(event) => commit(setRuleElementRulesText(state, element.key, event.target.value))}
               />
             </label>
+            {movementEffectCollections(element.mechanic).flatMap((collection) =>
+              collection.effects.map((effect, effectIndex) =>
+                isMovementEffect(effect) ? (
+                  <label key={`movement-reference-${collection.field}-${effectIndex}`}>
+                    Movement mode reference for {element.key} {collection.label} {effectIndex + 1}
+                    <input
+                      aria-label={`Movement mode reference ${element.key} ${collection.label} ${effectIndex}`}
+                      value={effect.movement_mode_key ?? ""}
+                      onChange={(event) =>
+                        commit(
+                          updateMovementEffectReference(
+                            state,
+                            element.key,
+                            collection.field,
+                            effectIndex,
+                            event.currentTarget.value,
+                          ),
+                        )
+                      }
+                    />
+                  </label>
+                ) : null,
+              ),
+            )}
           </article>
         ))}
+      </section>
+
+      <section className="statblock-definition-editor__section" aria-label="Movement modes">
+        <h3>Movement modes</h3>
+        <p>Each key is local to this definition. Mode kind and key are separate values.</p>
+        {workingCopy.movement.modes.map((mode, index) => (
+          <fieldset key={index} className="statblock-definition-editor__rule-element">
+            <legend>Movement mode {index + 1}</legend>
+            <div className="statblock-definition-editor__grid">
+              <label>
+                Local key
+                <input
+                  aria-label={`Movement mode key ${index}`}
+                  value={mode.key}
+                  onChange={(event) =>
+                    commit(updateMovementMode(state, index, (current) => ({
+                      ...current,
+                      key: event.currentTarget.value,
+                    })))
+                  }
+                />
+              </label>
+              <label>
+                Mode kind
+                <select
+                  aria-label={`Movement mode kind ${index}`}
+                  value={mode.mode}
+                  onChange={(event) => {
+                    const nextMode = MOVEMENT_MODE_KINDS.find(
+                      (kind) => kind === event.currentTarget.value,
+                    );
+                    if (nextMode) {
+                      commit(updateMovementMode(state, index, (current) => ({
+                        ...current,
+                        mode: nextMode,
+                      })));
+                    }
+                  }}
+                >
+                  {MOVEMENT_MODE_KINDS.map((kind) => (
+                    <option key={kind} value={kind}>
+                      {kind}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Distance (feet)
+                <input
+                  type="number"
+                  aria-label={`Movement mode distance ${index}`}
+                  value={mode.distance.value}
+                  onChange={(event) =>
+                    commit(updateMovementMode(state, index, (current) => ({
+                      ...current,
+                      distance: { ...current.distance, value: Number(event.currentTarget.value) },
+                    })))
+                  }
+                />
+              </label>
+            </div>
+            {(mode.qualifiers ?? []).map((qualifier, qualifierIndex) => (
+              <div key={qualifierIndex} className="statblock-definition-editor__grid">
+                <label>
+                  Qualifier {qualifierIndex + 1}
+                  <input
+                    aria-label={`Movement mode qualifier ${index} ${qualifierIndex}`}
+                    value={qualifier}
+                    onChange={(event) =>
+                      commit(
+                        updateMovementQualifier(
+                          state,
+                          index,
+                          qualifierIndex,
+                          event.currentTarget.value,
+                        ),
+                      )
+                    }
+                  />
+                </label>
+                <button
+                  type="button"
+                  aria-label={`Remove qualifier ${qualifierIndex} from movement mode ${index}`}
+                  onClick={() => commit(removeMovementQualifier(state, index, qualifierIndex))}
+                >
+                  Remove qualifier
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              aria-label={`Add qualifier to movement mode ${index}`}
+              onClick={() => commit(addMovementQualifier(state, index))}
+            >
+              Add qualifier
+            </button>
+            <button
+              type="button"
+              aria-label={`Remove movement mode ${index}`}
+              onClick={() => commit(removeMovementMode(state, index))}
+            >
+              Remove movement mode
+            </button>
+          </fieldset>
+        ))}
+        <button type="button" onClick={() => commit(addMovementMode(state))}>
+          Add movement mode
+        </button>
       </section>
 
       <details
@@ -221,7 +570,6 @@ export function StatblockDefinitionEditor({
           editableFieldsAbove={`hit_points.${hpTarget}`}
         />
         <ProtectedStructureBlock path="ruleset" title="Ruleset" value={workingCopy.ruleset} />
-        <ProtectedStructureBlock path="movement" title="Movement" value={workingCopy.movement} />
         <ProtectedStructureBlock path="proficiencies" title="Proficiencies" value={workingCopy.proficiencies} />
         <ProtectedStructureBlock path="senses" title="Senses" value={workingCopy.senses} />
         <ProtectedStructureBlock path="communication" title="Communication" value={workingCopy.communication} />
@@ -281,6 +629,9 @@ export function StatblockDefinitionEditor({
               path={`rule_elements[${index}].mechanic`}
               title="Mechanic"
               value={element.mechanic}
+              editableFieldsAbove={
+                hasDirectMovementEffect(element.mechanic) ? "movement-mode reference" : undefined
+              }
             />
           </section>
         ))}
