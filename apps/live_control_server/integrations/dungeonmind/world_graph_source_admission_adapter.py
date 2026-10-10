@@ -75,6 +75,7 @@ def _store_artifact_v2(
     artifact: Any,
     *,
     current_revision_id: str | None,
+    world_id: str,
     uri: str | None = None,
     lineage: dict[str, Any] | None = None,
 ) -> Any:
@@ -105,7 +106,7 @@ def _store_artifact_v2(
         source_artifact_id=artifact.source_artifact_id,
         source_domain_key=domain_key,
         source_domain=domain,
-        world_id=artifact.world_id,
+        world_id=world_id,
         campaign_id=artifact.campaign_id,
         session_id=artifact.session_id,
         uri=uri if uri is not None else artifact.uri,
@@ -309,19 +310,19 @@ def _map_buddy_source(
     if not locator:
         locator = f"object://{dm_revision_id}"
     created_at = _revision_created_at(artifact)
+    world_id = str(getattr(artifact, "world_id", None) or "").strip() or request.world_id
     dm_artifact = _store_artifact_v2(
         artifact,
         current_revision_id=dm_revision_id,
+        world_id=world_id,
         uri=locator,
     )
     campaign_id = (
         str(getattr(artifact, "campaign_id", None) or "").strip()
         or request.campaign_id
     )
-    world_id = str(getattr(artifact, "world_id", None) or "").strip() or request.world_id
     dm_artifact = dm_artifact.model_copy(
         update={
-            "world_id": world_id,
             "campaign_id": campaign_id,
         }
     )

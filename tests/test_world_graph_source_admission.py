@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import copy
 import subprocess
 import sys
 import textwrap
@@ -15,6 +16,7 @@ import pytest
 
 from apps.live_control_server.integrations.dungeonmind.world_graph_source_admission_adapter import (
     DungeonMindWorldGraphSourceAdmissionAdapter,
+    _map_buddy_source,
 )
 from apps.live_control_server.ports.world_graph_source_admission import (
     WorldGraphSourceAdmissionError,
@@ -143,6 +145,60 @@ def test_prove_missing_pair_fails_closed() -> None:
             source_revision_token=TOKEN,
         )
     assert exc.value.code == "source_not_admitted"
+
+
+@pytest.mark.parametrize("legacy_world_id", [None, "", " "])
+def test_mapper_resolves_legacy_missing_world_before_strict_artifact_v2(
+    legacy_world_id: str | None,
+) -> None:
+    from dungeonmind.contracts.evidence import SourceArtifactV2
+
+    artifact = _buddy_artifact(artifact_id=ARTIFACT_A, world_id=legacy_world_id)
+    original_fields = copy.deepcopy(vars(artifact))
+    request = WorldGraphSourceAdmissionRequest(
+        world_id=WORLD_ID,
+        campaign_id=CAMPAIGN_ID,
+        source_artifact=artifact,
+        source_revision_token=TOKEN,
+        source_uri=f"object://{ARTIFACT_A}",
+    )
+
+    mapped, revision, token = _map_buddy_source(request, InMemorySourceRepository())
+
+    assert isinstance(mapped, SourceArtifactV2)
+    assert mapped.world_id == WORLD_ID
+    assert mapped.source_domain_key == "worldbuilding"
+    assert mapped.source_domain.value == "worldbuilding"
+    assert mapped.campaign_id == CAMPAIGN_ID
+    assert mapped.uri == f"object://{ARTIFACT_A}"
+    assert mapped.current_revision_id == TOKEN
+    assert revision.source_artifact_id == ARTIFACT_A
+    assert revision.content_sha256 == "ab" * 32
+    assert token == TOKEN
+    assert vars(artifact) == original_fields
+
+
+@pytest.mark.parametrize("artifact_world_id", [WORLD_ID, "foreign-world"])
+def test_mapper_preserves_existing_artifact_world_scope(
+    artifact_world_id: str,
+) -> None:
+    from dungeonmind.contracts.evidence import SourceArtifactV2
+
+    artifact = _buddy_artifact(artifact_id=ARTIFACT_A, world_id=artifact_world_id)
+    original_fields = copy.deepcopy(vars(artifact))
+    request = WorldGraphSourceAdmissionRequest(
+        world_id=WORLD_ID,
+        campaign_id=CAMPAIGN_ID,
+        source_artifact=artifact,
+        source_revision_token=TOKEN,
+        source_uri=f"object://{ARTIFACT_A}",
+    )
+
+    mapped, _revision, _token = _map_buddy_source(request, InMemorySourceRepository())
+
+    assert isinstance(mapped, SourceArtifactV2)
+    assert mapped.world_id == artifact_world_id
+    assert vars(artifact) == original_fields
 
 
 def test_source_admission_adapter_has_no_legacy_graph_engine_or_writes_imports() -> None:
