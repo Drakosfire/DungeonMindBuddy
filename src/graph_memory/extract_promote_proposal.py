@@ -542,15 +542,34 @@ def contribution_slices_from_effect(effect: Mapping[str, Any]) -> list[dict[str,
 
 def verify_source_local_identity_basis(
     effect: Mapping[str, Any], *, candidate_sha256: str | None = None,
+    candidate_graph: Mapping[str, Any] | None = None,
     require: bool = False,
 ) -> None:
     """Reprove the sealed recap identity map before a new governed write."""
     from graph_memory.extract_identity_gate import (
         SOURCE_LOCAL_IDENTITY_SCHEMA, _qualified_source_local_id,
     )
+    from graph_memory.identity_resolution import corpus_ref_identity
+    from apps.live_control_server.models.world_graph_mutation_context import (
+        reviewed_corpus_bindings_from_decisions,
+    )
 
     source = effect.get("source_admission")
     admission = effect.get("candidate_admission")
+    raw_nodes = {
+        str(node.get("node_id") or ""): node
+        for node in (candidate_graph.get("nodes") or [])
+        if isinstance(node, Mapping)
+    } if candidate_graph is not None else {}
+    ledger = effect.get("identity_ledger")
+    try:
+        reviewed_bindings = reviewed_corpus_bindings_from_decisions(
+            (ledger.get("decisions") or []) if isinstance(ledger, Mapping) else [],
+            world_id=str(effect.get("world_id") or ""),
+            revision_id=str(effect.get("parent_revision_id") or ""),
+        )
+    except ValueError as exc:
+        raise PromoteProposalError("reviewed canonical carrier is malformed") from exc
     recap_found = False
     for item in contribution_slices_from_effect(effect):
         meta = dict(item.get("contribution_meta") or {})
@@ -594,8 +613,49 @@ def verify_source_local_identity_basis(
                 ) or node_map.get(local_id) != proposed or outcomes.get(local_id) != "created_new":
                     raise PromoteProposalError("source-local identity mapping mismatch")
             elif classification == "reviewed_canonical":
-                if not record.get("canonical_target_id") or proposed != record.get("canonical_target_id") or node_map.get(local_id) != proposed:
+                if (
+                    outcomes.get(local_id) not in {"resolved_existing", "human_override"}
+                    or not record.get("canonical_target_id")
+                    or proposed != record.get("canonical_target_id")
+                    or node_map.get(local_id) != proposed
+                ):
                     raise PromoteProposalError("reviewed canonical binding mismatch")
+                ref_type = record.get("canonical_ref_type")
+                ref_id = record.get("canonical_ref_id")
+                has_reference = bool(ref_type and ref_id)
+                if bool(ref_type) != bool(ref_id):
+                    raise PromoteProposalError("reviewed canonical reference is incomplete")
+                carrier = any(
+                    binding.candidate_node_id == local_id
+                    and binding.target_object_id == proposed
+                    and binding.candidate_sha256 == expected["candidate_sha256"]
+                    and binding.campaign_id == str(meta.get("campaign_scope") or "")
+                    for binding in reviewed_bindings
+                )
+                if not has_reference and not carrier:
+                    raise PromoteProposalError("reviewed canonical identity has no exact reference or carrier")
+                if has_reference:
+                    target_suffix = str(proposed).partition(":")[2]
+                    claimed_ref = {"corpus_ref": {"type": ref_type, "ref_id": ref_id}}
+                    target_ref = {"corpus_ref": {"type": ref_type, "ref_id": target_suffix}}
+                    if (
+                        ref_type not in {"pc", "npc"}
+                        or not target_suffix
+                        or corpus_ref_identity(claimed_ref) != corpus_ref_identity(target_ref)
+                    ):
+                        raise PromoteProposalError("reviewed canonical target disagrees with reference")
+                    if candidate_graph is not None:
+                        raw = raw_nodes.get(str(local_id))
+                        raw_ref = raw.get("corpus_ref") if isinstance(raw, Mapping) else None
+                        if (
+                            not isinstance(raw_ref, Mapping)
+                            or raw_ref.get("resolution") != "resolved"
+                            or raw_ref.get("type") != ref_type
+                            or raw_ref.get("ref_id") != ref_id
+                        ):
+                            raise PromoteProposalError("reviewed canonical reference differs from exact candidate")
+                elif candidate_graph is not None and str(local_id) not in raw_nodes:
+                    raise PromoteProposalError("reviewed canonical carrier has no exact candidate node")
             elif classification == "deferred":
                 if local_id in node_map:
                     raise PromoteProposalError("deferred identity is mapped for publication")

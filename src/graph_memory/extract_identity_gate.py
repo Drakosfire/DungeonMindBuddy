@@ -582,6 +582,10 @@ def gate_candidate_graph_against_head(
                 "proposed_node_id": proposed_id,
                 "outcome": resolution.outcome,
                 **({"canonical_target_id": known_anchor.object_id} if known_anchor is not None else {}),
+                **({
+                    "canonical_ref_type": node.corpus_ref.type,
+                    "canonical_ref_id": node.corpus_ref.ref_id,
+                } if known_anchor is not None and node.corpus_ref is not None else {}),
             }
         diagnostics.append(
             f"identity:{extract_id}:{resolution.outcome}:{resolution.target_node_id or resolution.created_node_id or resolution.provisional_node_id}"

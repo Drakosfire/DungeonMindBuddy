@@ -609,7 +609,9 @@ def verify_candidate_graph_admission_confirmation(
             candidate_digest=actual,
         )
     from graph_memory.extract_promote_proposal import verify_source_local_identity_basis
-    verify_source_local_identity_basis(effect, candidate_sha256=actual)
+    verify_source_local_identity_basis(
+        effect, candidate_sha256=actual, candidate_graph=candidate_graph
+    )
     return binding
 
 

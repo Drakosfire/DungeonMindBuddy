@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -378,6 +379,79 @@ def test_resealed_identity_basis_drift_fails_before_governed_write(tmp_path) -> 
             governed_confirm=governed_confirm,
         )
     assert not called
+
+
+@pytest.mark.parametrize("forged_outcome", ["created_new", "resolved_existing"])
+def test_resealed_canonical_tag_without_exact_authority_fails_before_write(
+    tmp_path, forged_outcome: str,
+) -> None:
+    from graph_memory.extract_promote_proposal import (
+        PromoteProposalError, compute_proposal_digest,
+    )
+
+    candidate = _candidate()
+    package = copy.deepcopy(_prepare(tmp_path, candidate).review_package)
+    effect = package["effect"]
+    target = "npc:unreviewed-global"
+    record = effect["identity_basis"]["nodes"]["candidate:brin"]
+    record.update(
+        classification="reviewed_canonical", proposed_node_id=target,
+        canonical_target_id=target, outcome=forged_outcome,
+    )
+    effect["node_id_map"]["candidate:brin"] = target
+    effect["identity_outcome_snapshot"]["candidate:brin"] = forged_outcome
+    for assertion in effect["accepted_proposals"]:
+        if assertion["assertion_kind"] == "node":
+            assertion["subject_node_id"] = target
+            assertion["identity_resolution_outcome"] = forged_outcome
+    package["proposal_digest"] = compute_proposal_digest(effect)
+    called = False
+
+    def governed_confirm():
+        nonlocal called
+        called = True
+        return "rev:d1"
+
+    with pytest.raises(PromoteProposalError, match="reviewed canonical"):
+        confirm_candidate_graph_admission(
+            review_package=package, candidate_graph=candidate,
+            governed_confirm=governed_confirm,
+        )
+    assert not called
+
+
+def test_exact_known_party_reference_remains_confirmable(tmp_path) -> None:
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+    candidate = _candidate()
+    candidate["nodes"][0]["corpus_ref"] = {
+        "type": "npc", "ref_id": "brin", "resolution": "resolved",
+    }
+    candidate["nodes"][0]["proposed_action"] = "anchor"
+    candidate["nodes"].append(_node("candidate:orik", "character"))
+    context = WorldGraphMutationContext(
+        world_id="eldyrwild", revision_id="rev:d0", head_revision_id="rev:d0",
+        objects={"npc:brin": MutationObject(
+            object_id="npc:brin", label="Brin", kind="npc",
+            canon_state="canonical", memory_state="active",
+        )},
+    )
+    result = _prepare(tmp_path, candidate, mutation_context=context)
+    assert result.confirmable
+    assert result.review_package["effect"]["node_id_map"]["candidate:brin"] == "npc:brin"
+    assert confirm_candidate_graph_admission(
+        review_package=result.review_package, candidate_graph=candidate,
+        governed_confirm=lambda: "confirmed",
+    ) == "confirmed"
+    (tmp_path / "candidate_graph.json").write_text(
+        json.dumps(candidate), encoding="utf-8"
+    )
+    world_graph_writes._reprove_pinned_canonical_identity_bindings(
+        package=result.review_package, context=context,
+    )
+    with pytest.raises(world_graph_writes.WorldGraphWriteError, match="authority could not be proved"):
+        world_graph_writes._reprove_pinned_canonical_identity_bindings(
+            package=result.review_package, context=replace(context, objects={}),
+        )
 
 
 @pytest.mark.parametrize(

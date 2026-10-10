@@ -6,7 +6,7 @@ import copy
 import hashlib
 import json
 import shutil
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -302,6 +302,9 @@ def test_native_confirm_publishes_guarded_review_and_historical_replay_survives_
         SimpleNamespace(identity_decisions=identities, sources=sources),
         stored_parent, context,
     )
+    (tmp_path / "candidate_graph.json").write_text(
+        json.dumps(candidate), encoding="utf-8"
+    )
     prepared = prepare_candidate_graph_admission(
         candidate_graph=candidate,
         source_uri=str(source_path),
@@ -318,6 +321,15 @@ def test_native_confirm_publishes_guarded_review_and_historical_replay_survives_
     )
     assert prepared.confirmable
     package = bind_identity_ledger_to_package(prepared.review_package, context)
+    pinned_context = replace(context, exact_candidate_sha256=candidate_digest)
+    world_graph_writes._reprove_pinned_canonical_identity_bindings(
+        package=package, context=pinned_context,
+    )
+    with pytest.raises(world_graph_writes.WorldGraphWriteError, match="authority could not be proved"):
+        world_graph_writes._reprove_pinned_canonical_identity_bindings(
+            package=package,
+            context=replace(pinned_context, objects={}),
+        )
     assertion_ids = tuple(
         str(item["assertion_id"])
         for item in package["effect"]["accepted_proposals"]
