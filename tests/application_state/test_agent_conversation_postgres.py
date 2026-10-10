@@ -21,6 +21,7 @@ from application_state.agent_conversation.types import (
     PlanContextPolicyV1,
     PlanPlayableTargetReceiptV1,
     PlayRunTurnContextReceiptV1,
+    PlayGraphBindingReceiptV1,
     PlanWorldGraphCitationMapV1,
     PlanWorldGraphCitationV1,
     PlanWorldGraphClaimSegmentV1,
@@ -38,6 +39,8 @@ from application_state.agent_conversation.types import (
     TurnResult,
     TurnSubmission,
     decode_play_run_turn_context_references,
+    decode_play_graph_binding_references,
+    encode_play_graph_binding_reference,
     encode_play_run_turn_context_references,
     encode_plan_playable_target_reference,
 )
@@ -89,6 +92,23 @@ def test_play_run_context_complete_tuple_survives_fresh_service(
         scene_id="scene:arrival",
     )
     primary, supporting = encode_play_run_turn_context_references(receipt)
+    binding_receipt = PlayGraphBindingReceiptV1(
+        schema="dmb_play_graph_binding_receipt_v1",
+        managed_world_id=world_id,
+        native_world_id="native-play-run-codec-world",
+        binding_version=3,
+    )
+    supporting.extend(
+        [
+            HistoricalReference(
+                resolution="resolved",
+                kind="world_graph_revision",
+                object_id=binding_receipt.native_world_id,
+                revision="graph-revision-9",
+            ),
+            encode_play_graph_binding_reference(binding_receipt),
+        ]
+    )
     provenance = TurnProvenance(
         world_id=world_id,
         surface_resolution="resolved",
@@ -124,6 +144,7 @@ def test_play_run_context_complete_tuple_survives_fresh_service(
         world_id, conversation.conversation_id
     )[0]
     assert loaded.provenance == provenance
+    assert decode_play_graph_binding_references(loaded.provenance) == binding_receipt
     assert (
         decode_play_run_turn_context_references(
             loaded.provenance.primary_work, loaded.provenance.supporting_work
