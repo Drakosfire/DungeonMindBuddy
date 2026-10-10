@@ -305,7 +305,9 @@ def _dispatch_expansion(
                 "nodeId": node_ids[0],
             }
         )
-        return retrieval_service.get_campaign_object(obj_req, root=root)
+        return retrieval_service.get_campaign_object_with_reviewed_sources(
+            obj_req, root=root
+        )
     if request.operation == "neighborhood":
         neigh_req = WorldGraphNeighborhoodRequest.model_validate(
             {
@@ -387,7 +389,7 @@ def execute_expand_graph_retrieval(
     operation: OperationName = request.operation  # type: ignore[assignment]
 
     try:
-        result = _dispatch_expansion(
+        expanded = _dispatch_expansion(
             request=request,
             session=session,
             ctx=ctx,
@@ -410,10 +412,28 @@ def execute_expand_graph_retrieval(
             ],
             "retrievalSessionId": session.id,
         }
-    if isinstance(result, dict) and result.get("schema") == "dmb_world_graph_retrieval_error_v1":
-        return {**result, "retrievalSessionId": session.id}
+    if (
+        isinstance(expanded, dict)
+        and expanded.get("schema") == "dmb_world_graph_retrieval_error_v1"
+    ):
+        return {**expanded, "retrievalSessionId": session.id}
 
+    reviewed_observations = []
+    observation_gaps = []
+    observation_missing = []
+    if request.operation == "object":
+        result, reviewed_observations, observation_gaps, observation_missing = expanded
+    else:
+        result = expanded
     result_dict = result.model_dump(mode="json", by_alias=True)
+    if request.operation == "object":
+        result_dict["reviewedSourceObservations"] = [
+            row.model_dump(mode="json", by_alias=True) for row in reviewed_observations
+        ]
+        result_dict["reviewedSourceObservationCoverage"] = {
+            "gapCodes": observation_gaps,
+            "missingIds": observation_missing,
+        }
     new_claims = claims_from_retrieval_result(
         result_dict,
         revision_id=session.snapshot.revision_id,

@@ -149,6 +149,26 @@ class WorldGraphObjectProjectionSourceBinding(_ObjectProjectionModel):
     excerpt: str | None = None
 
 
+class WorldGraphObjectReviewedSourceObservation(_ObjectProjectionModel):
+    """A reviewed source assertion, separate from authored Graph attributes."""
+
+    assertion_id: str
+    subject_node_id: str
+    observation_kind: Literal["session_observation"]
+    text: str
+    entity_kind: str
+    review_id: str
+    contribution_id: str
+    publication_revision_id: str
+    source_artifact_id: str
+    source_revision_id: str
+    evidence_ref_ids: list[str]
+    campaign_scope: str | None = None
+    visibility: str
+    epistemic_kind: str
+    temporal_scope: dict[str, Any] | None = None
+
+
 class WorldGraphObjectProjectionTelemetry(_ObjectProjectionModel):
     world_read_ms: float | None = None
     source_batch_read_ms: float | None = None
@@ -183,6 +203,11 @@ class WorldGraphObjectProjectionResult(_ObjectProjectionModel):
         default_factory=list
     )
     assertions: list[WorldGraphObjectProjectionAssertion] = Field(default_factory=list)
+    reviewed_source_observations: list[WorldGraphObjectReviewedSourceObservation] = (
+        Field(default_factory=list)
+    )
+    coverage_gap_codes: list[str] = Field(default_factory=list)
+    coverage_missing_ids: list[str] = Field(default_factory=list)
     source_bindings: list[WorldGraphObjectProjectionSourceBinding] = Field(
         default_factory=list
     )
@@ -211,6 +236,8 @@ def object_projection_semantic_fingerprint(
     relationships: list[WorldGraphObjectProjectionRelationship],
     related_node_ids: list[str],
     source_bindings: list[WorldGraphObjectProjectionSourceBinding],
+    reviewed_source_observations: list[WorldGraphObjectReviewedSourceObservation]
+    | None = None,
 ) -> str:
     """Deterministic fingerprint over World truth, not surface chrome."""
     payload = {
@@ -251,6 +278,29 @@ def object_projection_semantic_fingerprint(
             }
             for row in sorted(source_bindings, key=lambda item: item.evidence_ref_id)
         ],
+        **(
+            {
+                "reviewed_source_observations": [
+                    {
+                        "assertion_id": row.assertion_id,
+                        "subject_node_id": row.subject_node_id,
+                        "text": row.text,
+                        "review_id": row.review_id,
+                        "contribution_id": row.contribution_id,
+                        "publication_revision_id": row.publication_revision_id,
+                        "source_artifact_id": row.source_artifact_id,
+                        "source_revision_id": row.source_revision_id,
+                        "evidence_ref_ids": list(row.evidence_ref_ids),
+                    }
+                    for row in sorted(
+                        reviewed_source_observations or [],
+                        key=lambda item: item.assertion_id,
+                    )
+                ]
+            }
+            if reviewed_source_observations
+            else {}
+        ),
     }
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()

@@ -406,7 +406,9 @@ def _adapt_complete_object_to_agent_envelope(
 ) -> dict[str, Any]:
     """Selected-object Agent context uses the same complete object as UI surfaces."""
     snapshot = result.snapshot
-    status: AgentGraphStatus = "ready" if result.found and result.node is not None else "empty"
+    status: AgentGraphStatus = (
+        "ready" if result.found and result.node is not None else "empty"
+    )
     truncated = result.completeness.status == "partial"
     object_scope = "world"
     if snapshot is not None and snapshot.scope_mode in {"campaign", "world"}:
@@ -464,6 +466,26 @@ def _adapt_complete_object_to_agent_envelope(
     source_bindings = [
         _adapt_selected_object_source_binding(row) for row in result.source_bindings
     ]
+    reviewed_source_observations = [
+        {
+            "assertion_id": row.assertion_id,
+            "subject_node_id": row.subject_node_id,
+            "observation_kind": row.observation_kind,
+            "text": row.text,
+            "entity_kind": row.entity_kind,
+            "review_id": row.review_id,
+            "contribution_id": row.contribution_id,
+            "publication_revision_id": row.publication_revision_id,
+            "source_artifact_id": row.source_artifact_id,
+            "source_revision_id": row.source_revision_id,
+            "evidence_ref_ids": list(row.evidence_ref_ids),
+            "campaign_scope": row.campaign_scope,
+            "visibility": row.visibility,
+            "epistemic_kind": row.epistemic_kind,
+            "temporal_scope": row.temporal_scope,
+        }
+        for row in result.reviewed_source_observations
+    ]
     warning_codes = _warning_codes_from_diagnostics(
         [],
         projection_truncated=truncated,
@@ -491,6 +513,11 @@ def _adapt_complete_object_to_agent_envelope(
         "relationships": relationships,
         "attributes": attributes,
         "source_bindings": source_bindings,
+        "reviewed_source_observations": reviewed_source_observations,
+        "reviewed_source_observation_coverage": {
+            "gap_codes": list(result.coverage_gap_codes),
+            "missing_ids": list(result.coverage_missing_ids),
+        },
         "excerpt_policy": SELECTED_OBJECT_EXCERPT_POLICY,
         "completeness": result.completeness.status,
         "truncated_fields": list(result.completeness.truncated_fields),
@@ -727,6 +754,29 @@ def render_world_graph_prompt_block(envelope: dict[str, Any] | None) -> str:
             )
     else:
         lines.append("attributes: (none)")
+
+    reviewed = list(envelope.get("reviewed_source_observations") or [])
+    if reviewed:
+        lines.append(
+            "reviewed_source_observations (source context, not authored properties):"
+        )
+        for row in reviewed:
+            lines.append(
+                "- "
+                f"{row.get('assertion_id')} | subject={row.get('subject_node_id')} | "
+                f"review={row.get('review_id')} | contribution={row.get('contribution_id')} | "
+                f"publication={row.get('publication_revision_id')} | "
+                f"artifact={row.get('source_artifact_id')} | "
+                f"revision={row.get('source_revision_id')} | "
+                f"text={row.get('text') or ''}"
+                f"{_prompt_optional_ids('evidence_ref_ids', row.get('evidence_ref_ids'))}"
+            )
+    coverage = envelope.get("reviewed_source_observation_coverage")
+    if isinstance(coverage, dict) and coverage.get("gap_codes"):
+        lines.append(
+            "reviewed_source_observation_gaps: "
+            + ", ".join(str(code) for code in coverage["gap_codes"])
+        )
 
     source_bindings = list(envelope.get("source_bindings") or [])
     if source_bindings:

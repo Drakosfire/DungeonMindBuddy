@@ -269,7 +269,7 @@ def _graph_refs_for_claims(
             object_kind = "relationship"
         elif claim.claim_kind == "identity":
             object_kind = "node"
-        elif claim.claim_kind == "attribute":
+        elif claim.claim_kind in {"attribute", "source_observation"}:
             object_kind = "assertion"
         else:
             object_kind = "claim"
@@ -277,7 +277,7 @@ def _graph_refs_for_claims(
             GraphReference(
                 revision_id=revision_id,
                 object_kind=object_kind,
-                object_id=claim.claim_id,
+                object_id=claim.source_assertion_id or claim.claim_id,
                 label=claim.value_text or claim.subject_label,
                 claim_id=claim.claim_id,
             )
@@ -291,7 +291,11 @@ def _claim_ledger_text(claims: Sequence[GraphClaim]) -> str | None:
     bullets: list[str] = []
     for claim in claims[:12]:
         label = claim.subject_label or claim.subject_node_id or claim.claim_id
-        predicate = claim.predicate or claim.claim_kind
+        predicate = (
+            "reviewed source observation"
+            if claim.claim_kind == "source_observation"
+            else claim.predicate or claim.claim_kind
+        )
         value = claim.value_text or ""
         bullets.append(f"- {label}: {predicate} — {value}".strip(" —"))
     return "Graph-grounded facts for this turn:\n" + "\n".join(bullets)

@@ -175,6 +175,7 @@ from apps.live_control_server.models.world_graph_object_projection import (
     WorldGraphObjectProjectionRelationship,
     WorldGraphObjectProjectionRequest,
     WorldGraphObjectProjectionResult,
+    WorldGraphObjectReviewedSourceObservation,
     WorldGraphObjectProjectionSourceBinding,
     WorldGraphObjectProjectionTelemetry,
 )
@@ -519,9 +520,14 @@ def direct_services_from_bundle(
         graph_reader=graph_reader,
         reviewed_world_initializations=bundle.reviewed_world_initializations,
     )
+    reviews = getattr(bundle, "contribution_reviews", None)
+    publications = getattr(bundle, "finalized_review_publications", None)
     retrieval = WorldGraphRetrievalService(
         projection=projection,
         sources=bundle.sources,
+        world_graph=bundle.world_graph if reviews is not None or publications is not None else None,
+        contribution_reviews=reviews,
+        finalized_review_publications=publications,
     )
     binding = _load_direct_authority_binding(bundle, world_id)
     return DirectWorldGraphReadServices(
@@ -1918,6 +1924,135 @@ def get_object_direct(
         raise _map_direct_error(exc) from exc
 
 
+def get_object_with_reviewed_sources_direct(
+    services: DirectWorldGraphReadServices,
+    request: WorldGraphObjectRequest,
+) -> tuple[
+    WorldGraphRetrievalResult,
+    list[WorldGraphObjectReviewedSourceObservation],
+    list[str],
+    list[str],
+]:
+    """Keep bounded object semantics while adding Core's reviewed source facet.
+
+    The ordinary object result remains the existing bounded retrieval. A second
+    read at its exact pinned revision supplies only finalized observations and
+    their admitted anchors. No contribution records are inspected in Buddy.
+    """
+    try:
+        native_request = _map_retrieval_context(request, services.binding)
+        if native_request.revision_pin is None:
+            raise ValueError("Harness object expansion requires an exact revision pin")
+        bounded = services.retrieval.get_object(
+            native_request,
+            object_id=request.node_id,
+            bounds=_retrieval_bounds(request.bounds),
+        )
+        complete = services.retrieval.get_complete_object(
+            native_request, object_id=request.node_id
+        )
+        snapshot_fields = (
+            "schema_version", "world_id", "campaign_id", "focus", "admissibility",
+            "scope_mode", "revision_id",
+        )
+        if (
+            any(
+                getattr(bounded.snapshot, field, None) != getattr(complete.snapshot, field, None)
+                for field in snapshot_fields
+            )
+            or bounded.found != complete.found
+            or ((bounded.object is None) != (complete.object is None))
+            or (
+                bounded.object is not None and complete.object is not None
+                and bounded.object.object_id != complete.object.object_id
+            )
+        ):
+            raise PersistenceIntegrityError(
+                "Bounded and complete object reads disagree at the pinned revision"
+            )
+        result = _object_result_view(bounded, request=request)
+        gaps = list(complete.coverage.gap_codes)
+        missing = list(complete.coverage.missing_ids)
+        complete_anchors = (
+            _source_anchor_views(complete.anchors, revision_id=complete.snapshot.revision_id)
+            if complete.reviewed_source_observations else []
+        )
+        anchors = {row.anchor_id: row for row in result.source_anchors}
+        accepted: list[WorldGraphObjectReviewedSourceObservation] = []
+        truncated = False
+        for observation in complete.reviewed_source_observations:
+            if len(accepted) >= request.bounds.max_attributes:
+                truncated = True
+                continue
+            supporting = []
+            for evidence_id in observation.evidence_ref_ids:
+                matches = [
+                    anchor
+                    for anchor in complete_anchors
+                    if anchor.evidence_ref_id == evidence_id
+                    and observation.assertion_id in anchor.supporting_assertion_ids
+                ]
+                if not matches:
+                    raise PersistenceIntegrityError(
+                        "Reviewed observation has no admitted supporting anchor"
+                    )
+                supporting.append(sorted(matches, key=lambda row: row.anchor_id)[0])
+            additional = {
+                anchor.anchor_id
+                for anchor in supporting
+                if anchor.anchor_id not in anchors
+            }
+            if len(anchors) + len(additional) > request.bounds.max_source_anchors:
+                truncated = True
+                continue
+            for anchor in supporting:
+                existing = anchors.get(anchor.anchor_id)
+                if existing is None:
+                    anchors[anchor.anchor_id] = anchor
+                else:
+                    anchors[anchor.anchor_id] = existing.model_copy(
+                        update={
+                            "supporting_assertion_ids": sorted(
+                                set(existing.supporting_assertion_ids)
+                                | set(anchor.supporting_assertion_ids)
+                            ),
+                        }
+                    )
+            accepted.append(_reviewed_source_observation_view(observation))
+        coverage = result.coverage
+        if truncated:
+            gaps.append("reviewed_source_observation_anchor_bound")
+            coverage = coverage.model_copy(
+                update={
+                    "truncated_fields": sorted(
+                        set(coverage.truncated_fields)
+                        | {"reviewed_source_observations"}
+                    ),
+                }
+            )
+        result = result.model_copy(
+            update={
+                "source_anchors": list(anchors.values()),
+                "coverage": coverage,
+                "outcome": "truncated" if truncated else result.outcome,
+                "diagnostics": [
+                    *result.diagnostics,
+                    *(
+                        WorldGraphRetrievalDiagnostic(
+                            code=code,
+                            message="Reviewed source observation coverage is incomplete.",
+                            severity="warning",
+                        )
+                        for code in sorted(set(gaps))
+                    ),
+                ],
+            }
+        )
+        return result, accepted, sorted(set(gaps)), missing
+    except Exception as exc:  # noqa: BLE001
+        raise _map_direct_error(exc) from exc
+
+
 def _complete_object_attribute_view(
     assertion: AdmittedAssertionValue,
     *,
@@ -2077,6 +2212,28 @@ def get_complete_object_direct(
         raise _map_direct_error(exc) from exc
 
 
+def _reviewed_source_observation_view(
+    row: Any,
+) -> WorldGraphObjectReviewedSourceObservation:
+    return WorldGraphObjectReviewedSourceObservation(
+        assertion_id=row.assertion_id,
+        subject_node_id=row.subject_object_id,
+        observation_kind=row.observation_kind,
+        text=row.text,
+        entity_kind=row.entity_kind,
+        review_id=row.review_id,
+        contribution_id=row.contribution_id,
+        publication_revision_id=row.publication_revision_id,
+        source_artifact_id=row.source_artifact_id,
+        source_revision_id=row.source_revision_id,
+        evidence_ref_ids=list(row.evidence_ref_ids),
+        campaign_scope=row.campaign_scope,
+        visibility=row.visibility.value,
+        epistemic_kind=row.epistemic_kind,
+        temporal_scope=row.temporal_scope,
+    )
+
+
 def _complete_object_result_view(
     services: DirectWorldGraphReadServices,
     result: CompleteObjectLookupResult,
@@ -2107,6 +2264,8 @@ def _complete_object_result_view(
             completeness=completeness,
             snapshot=snapshot,
             requested_node_id=request.node_id,
+            coverage_gap_codes=list(result.coverage.gap_codes),
+            coverage_missing_ids=list(result.coverage.missing_ids),
             telemetry=WorldGraphObjectProjectionTelemetry(
                 completeness=completeness.status,
                 truncated_fields=list(completeness.truncated_fields),
@@ -2161,6 +2320,10 @@ def _complete_object_result_view(
         _complete_object_attribute_view(row, evidence_by_id=evidence_by_id)
         for row in result.property_assertions
     ]
+    reviewed_source_observations = [
+        _reviewed_source_observation_view(row)
+        for row in result.reviewed_source_observations
+    ]
     relationships = [
         _complete_object_relationship_view(
             rel,
@@ -2180,6 +2343,9 @@ def _complete_object_result_view(
         related_nodes=related,
         relationships=relationships,
         assertions=assertions,
+        reviewed_source_observations=reviewed_source_observations,
+        coverage_gap_codes=list(result.coverage.gap_codes),
+        coverage_missing_ids=list(result.coverage.missing_ids),
         source_bindings=source_bindings,
         telemetry=WorldGraphObjectProjectionTelemetry(
             relationship_count=len(relationships),
