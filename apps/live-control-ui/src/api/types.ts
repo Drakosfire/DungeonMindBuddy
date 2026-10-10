@@ -805,7 +805,7 @@ export interface WorldPlanAgentTurnRequestV1 {
   message: string;
 }
 
-/** Play submits only an admitted World Run and its current revision. The server resolves its Runbook and moment. */
+/** Play submits an admitted World Run. The server resolves its Graph binding and revision. */
 export interface WorldPlayAgentTurnRequestV1 {
   schema: "dmb_agent_turn_request_v1";
   client_thread_id: string;
@@ -814,7 +814,14 @@ export interface WorldPlayAgentTurnRequestV1 {
   owner_scope: { kind: "world"; world_id: string };
   primary_work: { kind: "run"; object_id: string; expected_revision: number };
   client_work_state: "saved_clean";
-  graph_request: { mode: "none" };
+  /** The graphless variant is retained for exact recovery of older saved requests. */
+  graph_request: { mode: "none" } | {
+    mode: "world";
+    world_id: string;
+    campaign_id: null;
+    revision_pin: null;
+    focus: { kind: "none"; session_id: null; campaign_id: null };
+  };
   graph_selection: null;
   message: string;
 }
@@ -845,7 +852,7 @@ export interface WorldPlanAgentTurnResponseV1 {
   };
   client_work_state_reported: "none" | "saved_clean" | "saved_dirty" | "new_unsaved";
   graph: {
-    status: "not_requested" | "ready" | "empty" | "unavailable" | "rejected";
+    status: "not_requested" | "ready" | "empty" | "unavailable" | "rejected" | "replayed";
     world_id: string | null;
     campaign_id: string | null;
     scope_mode: "world" | "campaign" | null;

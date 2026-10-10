@@ -214,6 +214,28 @@ function pendingPlayTurnStorageKey(worldId: string): string {
   return `${PENDING_PLAY_TURN_STORAGE_PREFIX}${encodeURIComponent(worldId)}`;
 }
 
+function isSavedPlayGraphRequest(value: unknown, worldId: string): boolean {
+  if (hasExactKeys(value, ["mode"]) && value.mode === "none") return true;
+  return hasExactKeys(value, ["mode", "world_id", "campaign_id", "revision_pin", "focus"])
+    && value.mode === "world" && value.world_id === worldId
+    && value.campaign_id === null && value.revision_pin === null
+    && hasExactKeys(value.focus, ["kind", "session_id", "campaign_id"])
+    && value.focus.kind === "none" && value.focus.session_id === null
+    && value.focus.campaign_id === null;
+}
+
+function matchesPlayGraphResponse(value: unknown, request: WorldPlayAgentTurnRequestV1): boolean {
+  if (!isRecord(value)) return false;
+  if (request.graph_request.mode === "none") return value.status === "not_requested";
+  return ["ready", "empty", "replayed"].includes(String(value.status))
+    && typeof value.world_id === "string" && Boolean(value.world_id.trim())
+    && (value.campaign_id === null || value.campaign_id === "")
+    && value.scope_mode === "world"
+    && typeof value.revision_id === "string" && Boolean(value.revision_id.trim())
+    && isRecord(value.focus) && value.focus.kind === "none"
+    && value.selection_node_id === null && value.selection_found === null;
+}
+
 function readPendingPlayTurn(worldId: string): StoredPendingPlayTurn | null {
   const storageKey = pendingPlayTurnStorageKey(worldId);
   const serialized = window.localStorage.getItem(storageKey);
@@ -233,7 +255,7 @@ function readPendingPlayTurn(worldId: string): StoredPendingPlayTurn | null {
     || value.request.primary_work.kind !== "run" || typeof value.request.primary_work.object_id !== "string"
     || !value.request.primary_work.object_id.trim() || !isPositiveRevision(value.request.primary_work.expected_revision)
     || value.request.client_work_state !== "saved_clean"
-    || !hasExactKeys(value.request.graph_request, ["mode"]) || value.request.graph_request.mode !== "none"
+    || !isSavedPlayGraphRequest(value.request.graph_request, worldId)
     || value.request.graph_selection !== null || typeof value.request.message !== "string"
     || !value.request.message.trim() || value.request.message.length > 8000) {
     throw new Error("The saved Play request is malformed. It was retained and cannot be retried automatically.");
@@ -3055,10 +3077,14 @@ export function WorldPlanAgentConversation({
       if (!["dmb_agent_turn_response_v1", "dmb_agent_turn_response_v2"].includes(response.schema)
         || response.client_thread_id !== request.client_thread_id || response.turn_id !== request.turn_id
         || response.surface.surface_id !== "play" || response.surface.instance_id !== request.surface.instance_id
+        || response.owner_scope.status !== "resolved"
         || response.owner_scope.kind !== "world" || response.owner_scope.owner_id !== request.owner_scope.world_id
+        || response.primary_work.status !== "resolved"
         || response.primary_work.kind !== "run" || response.primary_work.object_id !== request.primary_work.object_id
         || response.primary_work.expected_revision !== request.primary_work.expected_revision
-        || response.graph.status !== "not_requested") {
+        || response.primary_work.revision_used !== request.primary_work.expected_revision
+        || response.client_work_state_reported !== request.client_work_state
+        || !matchesPlayGraphResponse(response.graph, request)) {
         throw new Error("The Play response did not match the submitted World Run. Check World history before continuing.");
       }
       if (clearSavedPlayTurn(stored)) sharedConversation?.setPendingTurn((current) => current?.turnId === request.turn_id ? null : current);
@@ -3082,9 +3108,13 @@ export function WorldPlanAgentConversation({
           });
         }
       }
+      const graphFailure = reason instanceof LiveApiError
+        && ["graph_unavailable", "native_binding_invalid", "graph_revision_unavailable", "graph_read_failed"].includes(reason.code ?? "");
       const notice = rejectedBeforeDispatch
         ? `This Play turn was refused before dispatch. ${localOperatorCredentialFailure(reason, "return to Play and send again")
           ?? (reason instanceof Error ? reason.message : "Reload the Run.")}`
+        : graphFailure
+          ? `The World Graph could not be resolved for this Play turn. ${reason.message} Check World history or explicitly retry the exact saved request; Graph context will remain required.`
         : `${reason instanceof Error ? reason.message : "The Play turn outcome is unknown."} Check World history or explicitly retry the saved request with its original IDs.`;
       uncertainPlayNoticeRef.current = rejectedBeforeDispatch ? null : { turnId: request.turn_id, message: notice };
       setError(notice);
@@ -3112,7 +3142,8 @@ export function WorldPlanAgentConversation({
       owner_scope: { kind: "world", world_id: admittedRun.worldId },
       primary_work: { kind: "run", object_id: admittedRun.runId, expected_revision: admittedRun.runRevision },
       client_work_state: "saved_clean",
-      graph_request: { mode: "none" },
+      graph_request: { mode: "world", world_id: admittedRun.worldId, campaign_id: null,
+        revision_pin: null, focus: { kind: "none", session_id: null, campaign_id: null } },
       graph_selection: null,
       message,
     };
