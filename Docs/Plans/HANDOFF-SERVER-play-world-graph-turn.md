@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE implementation lease from PRIME on 2026-10-10. PRIME owns independent review and merge.
 
-**Authority:** Buddy `origin/main@0063aae23149c165dd9cffb94206c8d1c24392da`, after APP-STATE #1064. [PRIME's exact SERVER lease](https://github.com/Drakosfire/DungeonMindBuddy/pull/1061#issuecomment-6096729339) and `HANDOFF-APP-STATE-play-graph-binding-receipt.md` define this consumer contract. Branch `codex/server-play-world-graph-turn`, serial PR against `main`. Held #1014 and active DEMO #1065 have no file overlap with this lease.
+**Authority:** Buddy `origin/main@abb5c983c8e3d2d06791a7dbb6e0c2fccf92c8d5`, after APP-STATE #1064 and disjoint DEMO #1065. [PRIME's exact SERVER lease](https://github.com/Drakosfire/DungeonMindBuddy/pull/1061#issuecomment-6096729339) and `HANDOFF-APP-STATE-play-graph-binding-receipt.md` define this consumer contract. Branch `codex/server-play-world-graph-turn`, serial PR against `main`. Held #1014 has no file overlap with this lease.
 
 ## Primary question
 
@@ -24,7 +24,7 @@ Run the owning HTTP and durable retry suites with unique disposable PostgreSQL. 
 
 ## Implementation and evidence
 
-Implementation base: `0063aae23149c165dd9cffb94206c8d1c24392da`. Exact review head is recorded in the PR handback because the commit containing this note cannot name itself.
+Implementation base: `abb5c983c8e3d2d06791a7dbb6e0c2fccf92c8d5`. Implementation code commit: `c74bb5b99577c45b83e88b14f4d3863c33802d69`. Exact review head is recorded in the PR handback because the commit containing this note cannot name itself.
 
 - Fresh isolated `uv sync --locked` succeeded with the pinned DungeonMind, WorldKeeper, GenerationEngine, and prepared Hermes sources. The prepared Hermes manifest verified its exact source, patch, and tree identity.
 - Owning route, durable retry, service, managed Graph projection, and context assembler suites: **130 passed**, 11 existing Pydantic schema-name warnings. The tests used unique disposable PostgreSQL databases. The synthetic native Graph and managed World had distinct IDs; the provider was a fake runtime.
