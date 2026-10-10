@@ -679,9 +679,9 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
     with monkeypatch.context() as index_patch:
         index_patch.setattr(
-            direct, "list_source_anchor_index_direct_v2",
-            lambda *_args, **_kwargs: direct.ResolvedWorldGraphSourceIndexV2(
-                status="overflow", eligible_count=513, source_pins=(),
+            direct, "list_selected_source_anchor_index_direct_v1",
+            lambda *_args, **_kwargs: direct.ResolvedSelectedSourceIndexV1(
+                status="overflow", eligible_count=513, source_pins=(), commitment=None,
             ),
         )
         with pytest.raises(AgentTurnServiceError) as overflow:
@@ -691,11 +691,36 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
         assert overflow.value.code == "graph_evidence_invalid"
         assert overflow.value.provider_dispatched is False
     with monkeypatch.context() as mismatch_patch:
+        # Return a complete selected index that disagrees with the initial
+        # search pin. The resolver must reject metadata drift for an anchor
+        # present in both reads.
+        initial_anchor_ids = {
+            anchor.anchor_id for anchor in bootstrap.retrieval_session.source_anchors
+        }
+        matching_pin = next(
+            pin for pin in bootstrap.source_scope_anchors
+            if pin["anchor_id"] in initial_anchor_ids
+        )
+        original_selected_index = direct.list_selected_source_anchor_index_direct_v1
+
+        def selected_index_with_stale_initial_pin(*args: Any, **kwargs: Any) -> Any:
+            index = original_selected_index(*args, **kwargs)
+            indexed_pin = next(
+                pin for pin in index.source_pins
+                if pin.anchor_id == matching_pin["anchor_id"]
+            )
+            stale_pin = replace(
+                indexed_pin,
+                source_revision_id=indexed_pin.source_revision_id + "-changed",
+            )
+            return replace(index, source_pins=tuple(
+                stale_pin if pin.anchor_id == stale_pin.anchor_id else pin
+                for pin in index.source_pins
+            ))
+
         mismatch_patch.setattr(
-            direct, "list_source_anchor_index_direct_v2",
-            lambda *_args, **_kwargs: direct.ResolvedWorldGraphSourceIndexV2(
-                status="complete", eligible_count=0, source_pins=(),
-            ),
+            direct, "list_selected_source_anchor_index_direct_v1",
+            selected_index_with_stale_initial_pin,
         )
         with pytest.raises(AgentTurnServiceError) as mismatch:
             agent_route._plan_context_resolver(
@@ -740,7 +765,7 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     initial_anchor_ids = {
         anchor.anchor_id for anchor in selected.retrieval_session.source_anchors
     }
-    assert {pin["anchor_id"] for pin in selected.source_scope_anchors} - initial_anchor_ids
+    assert {pin["anchor_id"] for pin in selected.source_scope_anchors} <= initial_anchor_ids
     assert graph_reads == [NATIVE_ID] * 4
     phase_order = [span["name"] for span in trace.spans]
     assert phase_order == [
@@ -782,7 +807,9 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     assert replayed.graph_envelope["revision_id"] == selected.graph_envelope["revision_id"]
     assert replayed.graph_envelope["matched_node_ids"] == selected.graph_envelope["matched_node_ids"]
     assert selected.source_scope_anchors
-    assert replayed.source_scope_anchors == selected.source_scope_anchors
+    assert {pin["anchor_id"] for pin in selected.source_scope_anchors} <= {
+        pin["anchor_id"] for pin in replayed.source_scope_anchors
+    }
     assert replayed.retrieval_session.id == selected.retrieval_session.id
     assert replayed.retrieval_session.operations == selected.retrieval_session.operations
 
@@ -882,7 +909,7 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     assert receipt.graph_authority.managed_world_id == managed.world_id
     assert (
         receipt.graph_packet.selection_policy_version
-        == "parent_initial_retrieval_with_bounded_source_index_v1"
+        == "parent_initial_retrieval_with_selected_source_index_v1"
     )
     assert set(receipt.graph_packet.candidate_evidence_ref_ids) == ({
         pin["evidence_ref_id"] for pin in bootstrap.source_scope_anchors
@@ -892,23 +919,41 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     )
     assert bootstrap.source_index_commitment is not None
     assert receipt.graph_packet.retrieval_packet_sha256 == _canonical_sha256({
-        "schema": "dmb_plan_retrieval_composite_v1",
+        "schema": "dmb_selected_retrieval_composite_v1",
         "selection_policy_version": receipt.graph_packet.selection_policy_version,
-        "initial_claim_packet": initial_packet,
-        "source_index": bootstrap.source_index_commitment,
+        "initial_claim_packet_sha256": _canonical_sha256(initial_packet),
+        "selected_index": bootstrap.source_index_commitment,
+        "source_pins": list(bootstrap.source_scope_anchors),
     })
     assert receipt.graph_packet.evidence_sufficiency_status == "insufficient"
     assert receipt.assembled_input.packet_disposition == "omitted_insufficient"
     assert receipt.assembled_input.dispatched_packet_sha256 is None
     changed_pins = [dict(pin) for pin in bootstrap.source_scope_anchors]
     changed_pins[0]["source_revision_id"] += "-changed"
+    changed_index = {
+        **bootstrap.source_index_commitment,
+    }
+    changed_entries = [{
+        **pin,
+        "anchor_id": pin["anchor_id"].replace(
+            "source-anchor:v1:", "dm-source-anchor:v1:", 1,
+        ),
+    } for pin in changed_pins]
+    changed_index["index_sha256"] = _canonical_sha256({
+        "schema": "dm_selected_source_anchor_index_v1",
+        "selector_sha256": changed_index["selector_sha256"],
+        "status": changed_index["status"],
+        "admitted_targets": changed_index["admitted_targets"],
+        "not_visible_targets": changed_index["not_visible_targets"],
+        "provenance_gap_count": changed_index["provenance_gap_count"],
+        "unavailable_binding_count": changed_index["unavailable_binding_count"],
+        "eligible_count": changed_index["eligible_count"],
+        "entries": changed_entries,
+    })
     changed_bootstrap = replace(
         bootstrap,
         source_scope_anchors=tuple(changed_pins),
-        source_index_commitment={
-            **bootstrap.source_index_commitment,
-            "source_pins": changed_pins,
-        },
+        source_index_commitment=changed_index,
     )
     changed_receipt, _, _ = _freeze_policy_receipt(
         body, work, changed_bootstrap, None, view, budget,
@@ -929,17 +974,20 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
             }), None, view, budget,
         )
     assert wrong_index_version.value.code == "graph_evidence_invalid"
-    legacy_initial_ids = set(bootstrap.evidence_by_anchor_id)
+    bounded_bootstrap = agent_route._plan_context_resolver(
+        body, {"kind": "world", "id": managed.world_id}, work, frozen,
+    )
+    legacy_initial_ids = set(bounded_bootstrap.evidence_by_anchor_id)
     legacy_pins = tuple(
-        pin for pin in bootstrap.source_scope_anchors
+        pin for pin in bounded_bootstrap.source_scope_anchors
         if pin["anchor_id"] in legacy_initial_ids
     )
-    assert legacy_pins and len(legacy_pins) < len(bootstrap.source_scope_anchors)
+    assert legacy_pins and len(legacy_pins) < len(bounded_bootstrap.source_scope_anchors)
     legacy_bootstrap = replace(
-        bootstrap,
+        bounded_bootstrap,
         source_scope_anchors=legacy_pins,
         source_index_commitment=None,
-        candidate_evidence_ref_ids=tuple(sorted(set(bootstrap.evidence_by_anchor_id.values()))),
+        candidate_evidence_ref_ids=tuple(sorted(set(bounded_bootstrap.evidence_by_anchor_id.values()))),
     )
     legacy_receipt, legacy_execution, _ = _freeze_policy_receipt(
         body, work, legacy_bootstrap, None, view, budget,
@@ -1247,8 +1295,22 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     from graph_memory.interaction.session_store import clear_sessions
 
     clear_sessions()
+    bounded_replay = SimpleNamespace(
+        graph_authority=SimpleNamespace(
+            managed_world_id=managed.world_id,
+            native_world_id=NATIVE_ID,
+            binding_version=1,
+            graph_revision=published.revision_id,
+        ),
+        graph_packet=SimpleNamespace(
+            selection_policy_version=(
+                "parent_initial_retrieval_with_bounded_source_index_v1"
+            ),
+        ),
+    )
     selected = agent_route._plan_context_resolver(
-        selected_body, {"kind": "world", "id": managed.world_id}, selected_work, None,
+        selected_body, {"kind": "world", "id": managed.world_id}, selected_work,
+        bounded_replay,
     )
     sign_pin = next(
         pin for pin in selected.source_scope_anchors
