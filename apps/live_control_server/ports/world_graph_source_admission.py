@@ -44,6 +44,8 @@ class WorldGraphSourceAdmissionRequest:
     source_artifact: Any
     source_revision_token: str
     source_uri: str | None = None
+    # Set only after the caller has hashed the bytes opened from source_uri.
+    verified_input_sha256: str | None = None
 
 
 @dataclass(frozen=True)
@@ -54,6 +56,10 @@ class AdmittedSourceIdentity:
     source_revision_id: str
     content_sha256: str
     buddy_source_revision_id: str
+    # Catalog authority; legacy injected transports may omit these additions.
+    source_locator: str | None = None
+    artifact_uri: str | None = None
+    catalog_fingerprint_sha256: str | None = None
 
 
 class WorldGraphSourceAdmissionAuthority(Protocol):

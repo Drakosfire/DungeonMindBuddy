@@ -353,6 +353,7 @@ def _admit_confirmable_recap_source(
         source_artifact=artifact,
         source_revision_token=verified_revision_id,
         source_uri=source_uri,
+        verified_input_sha256=verified_revision_id.removeprefix("sha256:"),
     )
     try:
         return _source_admission_authority(source_admission).prove_or_admit(request)
@@ -374,6 +375,12 @@ def _seal_source_admission(
         "source_revision_id": admitted.source_revision_id,
         "buddy_source_revision_id": admitted.buddy_source_revision_id,
         "content_sha256": admitted.content_sha256,
+        **({"source_locator": admitted.source_locator} if admitted.source_locator else {}),
+        **({"artifact_uri": admitted.artifact_uri} if admitted.artifact_uri else {}),
+        **(
+            {"catalog_fingerprint_sha256": admitted.catalog_fingerprint_sha256}
+            if admitted.catalog_fingerprint_sha256 else {}
+        ),
     }
     sealed["effect"] = effect
     sealed["proposal_digest"] = compute_proposal_digest(effect)
@@ -476,24 +483,7 @@ def prepare_candidate_graph_admission(
     effect = dict(result.review_package.get("effect") or {})
     confirmable = bool(effect.get("accepted_proposals"))
     result = replace(result, confirmable=confirmable)
-    binding = CandidateAdmissionBinding(
-        candidate_digest=digest,
-        candidate_locator=prepare_kwargs.get("candidate_graph_path"),
-        candidate_preview_id=str(candidate_graph.get("preview_id") or ""),
-        source_artifact_id=str(effect.get("source_artifact_id") or ""),
-        source_revision_id=str(effect.get("source_revision_id") or ""),
-        world_id=result.world_id,
-        parent_revision_id=result.parent_revision_id,
-        confirmable=confirmable,
-        dispositions=dispositions,
-        exact_candidate_counts={
-            key: len(candidate_graph.get(key) or [])
-            for key in ("nodes", "edges", "beats", "proposed_writes")
-        },
-    )
-    package = bind_candidate_admission_to_proposal(
-        result.review_package, binding.as_effect_payload()
-    )
+    admitted: AdmittedSourceIdentity | None = None
     if confirmable:
         admitted = _admit_confirmable_recap_source(
             world_id=result.world_id,
@@ -513,6 +503,38 @@ def prepare_candidate_graph_admission(
             source_admission=source_admission,
             candidate_digest=digest,
         )
+        if admitted.source_locator and admitted.source_locator != str(
+            prepare_kwargs.get("source_uri") or ""
+        ).strip():
+            result = prepare_extract_promote(
+                candidate_graph=projected,
+                authoritative_source_uri=admitted.source_locator,
+                **prepare_kwargs,
+            )
+            if not result.review_package.get("effect", {}).get("accepted_proposals"):
+                raise CandidateAdmissionNotConfirmableError(
+                    "Catalog-locator preparation lost accepted assertions"
+                )
+            effect = dict(result.review_package.get("effect") or {})
+    binding = CandidateAdmissionBinding(
+        candidate_digest=digest,
+        candidate_locator=prepare_kwargs.get("candidate_graph_path"),
+        candidate_preview_id=str(candidate_graph.get("preview_id") or ""),
+        source_artifact_id=str(effect.get("source_artifact_id") or ""),
+        source_revision_id=str(effect.get("source_revision_id") or ""),
+        world_id=result.world_id,
+        parent_revision_id=result.parent_revision_id,
+        confirmable=confirmable,
+        dispositions=dispositions,
+        exact_candidate_counts={
+            key: len(candidate_graph.get(key) or [])
+            for key in ("nodes", "edges", "beats", "proposed_writes")
+        },
+    )
+    package = bind_candidate_admission_to_proposal(
+        result.review_package, binding.as_effect_payload()
+    )
+    if admitted is not None:
         package = _seal_source_admission(package, admitted)
     return replace(
         result,
@@ -633,7 +655,13 @@ def _reprove_sealed_recap_source(
         )
         raise
     sealed_sha = str(sealed.get("content_sha256") or "").strip()
-    if sealed_sha and admitted.content_sha256 != sealed_sha:
+    sealed_locator = str(sealed.get("source_locator") or "").strip()
+    sealed_fingerprint = str(sealed.get("catalog_fingerprint_sha256") or "").strip()
+    if (
+        (sealed_sha and admitted.content_sha256 != sealed_sha)
+        or (sealed_locator and admitted.source_locator != sealed_locator)
+        or (sealed_fingerprint and admitted.catalog_fingerprint_sha256 != sealed_fingerprint)
+    ):
         _raise_source_admission(
             WorldGraphSourceAdmissionError(
                 "Sealed recap source fingerprint drifted from the admitted pair.",

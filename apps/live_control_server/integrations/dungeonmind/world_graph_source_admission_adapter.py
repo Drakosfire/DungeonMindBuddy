@@ -12,6 +12,8 @@ This module must be importable without ``world_graph_writes``,
 
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import UTC, datetime
 from typing import Any
 
@@ -306,6 +308,13 @@ def _map_buddy_source(
             code="inexpressible",
             details={"source_revision_token": buddy_token},
         )
+    if request.verified_input_sha256 is not None and (
+        _hex_digest(request.verified_input_sha256) != digest
+    ):
+        raise WorldGraphSourceAdmissionError(
+            "Verified input bytes differ from the requested source revision.",
+            code="source_identity_conflict",
+        )
     locator = (request.source_uri or getattr(artifact, "uri", None) or "").strip()
     if not locator:
         locator = f"object://{dm_revision_id}"
@@ -337,20 +346,24 @@ def _map_buddy_source(
     return dm_artifact, revision, buddy_token
 
 
-def _snapshot_identity(
+def _snapshot_pair(
     sources: Any,
     *,
+    world_id: str,
     source_artifact_id: str,
     source_revision_id: str,
     buddy_source_revision_id: str,
-) -> AdmittedSourceIdentity:
-    snapshot = sources.get_provenance_snapshot(
-        artifact_ids=[source_artifact_id],
-        revision_ids=[source_revision_id],
-    )
+) -> tuple[Any, Any, AdmittedSourceIdentity]:
+    try:
+        snapshot = sources.get_provenance_snapshot(
+            artifact_ids=[source_artifact_id],
+            revision_ids=[source_revision_id],
+        )
+    except Exception as exc:
+        raise _map_provider_error(exc) from exc
     artifact = snapshot.get_artifact(source_artifact_id)
     revision = snapshot.get_revision(source_revision_id)
-    if artifact is None or revision is None:
+    if artifact is None and revision is None:
         raise WorldGraphSourceAdmissionError(
             "Admitted source pair is not snapshot-provable.",
             code="source_not_admitted",
@@ -359,12 +372,104 @@ def _snapshot_identity(
                 "source_revision_id": source_revision_id,
             },
         )
-    return AdmittedSourceIdentity(
+    if artifact is None or revision is None:
+        raise WorldGraphSourceAdmissionError(
+            "DungeonMind source catalog contains only one half of the source pair.",
+            code="source_identity_conflict",
+        )
+    locator = str(getattr(revision, "locator", None) or "").strip()
+    if (
+        str(artifact.source_artifact_id) != source_artifact_id
+        or str(revision.source_revision_id) != source_revision_id
+        or str(revision.source_artifact_id) != source_artifact_id
+        or str(artifact.current_revision_id or "") != source_revision_id
+        or str(artifact.world_id) != world_id
+        or not locator
+        or any(ord(character) < 32 for character in locator)
+    ):
+        raise WorldGraphSourceAdmissionError(
+            "DungeonMind source pair has changed identity, current revision, or locator.",
+            code="source_identity_conflict",
+        )
+    material = {
+        "artifact": artifact.model_dump(
+            mode="json", exclude={"created_at", "updated_at"}
+        ),
+        "revision": revision.model_dump(mode="json", exclude={"created_at"}),
+    }
+    fingerprint = hashlib.sha256(json.dumps(
+        material, sort_keys=True, separators=(",", ":"), ensure_ascii=True,
+    ).encode("utf-8")).hexdigest()
+    identity = AdmittedSourceIdentity(
         source_artifact_id=str(artifact.source_artifact_id),
         source_revision_id=str(revision.source_revision_id),
-        content_sha256=str(revision.content_sha256),
+        content_sha256=_hex_digest(str(revision.content_sha256)),
         buddy_source_revision_id=buddy_source_revision_id,
+        source_locator=locator,
+        artifact_uri=str(artifact.uri) if artifact.uri is not None else None,
+        catalog_fingerprint_sha256=fingerprint,
     )
+    return artifact, revision, identity
+
+
+def _prove_existing_pair(
+    sources: Any,
+    *,
+    request: WorldGraphSourceAdmissionRequest,
+    mapped_artifact: Any,
+    mapped_revision: Any,
+    buddy_token: str,
+) -> AdmittedSourceIdentity:
+    stored_artifact, stored_revision, identity = _snapshot_pair(
+        sources,
+        world_id=request.world_id,
+        source_artifact_id=str(mapped_artifact.source_artifact_id),
+        source_revision_id=str(mapped_revision.source_revision_id),
+        buddy_source_revision_id=buddy_token,
+    )
+    exact_fields = (
+        "source_domain_key", "source_domain", "world_id", "campaign_id",
+        "session_id", "visibility", "artifact_kind", "document_class",
+        "review_state", "source_visibility_state", "status",
+    )
+    if any(
+        getattr(stored_artifact, field) != getattr(mapped_artifact, field)
+        for field in exact_fields
+    ) or (
+        mapped_artifact.workspace_document_ref is not None
+        and stored_artifact.workspace_document_ref != mapped_artifact.workspace_document_ref
+    ) or any(
+        stored_artifact.lineage.get(key) != value
+        for key, value in mapped_artifact.lineage.items()
+    ) or (
+        mapped_artifact.authority is not None
+        and stored_artifact.authority != mapped_artifact.authority
+    ) or (
+        stored_revision.body_storage != mapped_revision.body_storage
+        or _hex_digest(str(stored_revision.content_sha256))
+        != _hex_digest(str(mapped_revision.content_sha256))
+    ):
+        raise WorldGraphSourceAdmissionError(
+            "Existing DungeonMind source scope, protection, or body differs from the incoming source.",
+            code="source_identity_conflict",
+        )
+    incoming_uri = str(request.source_uri or mapped_artifact.uri or "").strip()
+    known_uris = {str(stored_artifact.uri or ""), str(identity.source_locator or "")}
+    if incoming_uri not in known_uris:
+        verified = _hex_digest(str(request.verified_input_sha256 or ""))
+        if not verified or verified != identity.content_sha256:
+            raise WorldGraphSourceAdmissionError(
+                "Alternate source mirror has no matching byte-verification proof.",
+                code="source_identity_conflict",
+            )
+    elif request.verified_input_sha256 is not None and (
+        _hex_digest(request.verified_input_sha256) != identity.content_sha256
+    ):
+        raise WorldGraphSourceAdmissionError(
+            "Verified input bytes differ from the admitted source body.",
+            code="source_identity_conflict",
+        )
+    return identity
 
 
 class DungeonMindWorldGraphSourceAdmissionAdapter:
@@ -390,18 +495,47 @@ class DungeonMindWorldGraphSourceAdmissionAdapter:
     ) -> AdmittedSourceIdentity:
         sources = self._source_repository()
         dm_artifact, revision, buddy_token = _map_buddy_source(request, sources)
+        if (
+            dm_artifact.world_id != request.world_id
+            or (request.campaign_id and dm_artifact.campaign_id != request.campaign_id)
+        ):
+            raise WorldGraphSourceAdmissionError(
+                "Incoming source belongs to a different World or campaign.",
+                code="source_identity_conflict",
+            )
+        try:
+            existing = sources.get_provenance_snapshot(
+                artifact_ids=[str(dm_artifact.source_artifact_id)],
+                revision_ids=[str(revision.source_revision_id)],
+            )
+        except Exception as exc:
+            raise _map_provider_error(exc) from exc
+        if (
+            existing.get_artifact(str(dm_artifact.source_artifact_id)) is not None
+            or existing.get_revision(str(revision.source_revision_id)) is not None
+        ):
+            return _prove_existing_pair(
+                sources, request=request, mapped_artifact=dm_artifact,
+                mapped_revision=revision, buddy_token=buddy_token,
+            )
         try:
             sources.put_artifact(dm_artifact)
             sources.put_revision(revision)
         except WorldGraphSourceAdmissionError:
             raise
         except Exception as exc:
-            raise _map_provider_error(exc) from exc
-        return _snapshot_identity(
-            sources,
-            source_artifact_id=str(dm_artifact.source_artifact_id),
-            source_revision_id=str(revision.source_revision_id),
-            buddy_source_revision_id=buddy_token,
+            try:
+                return _prove_existing_pair(
+                    sources, request=request, mapped_artifact=dm_artifact,
+                    mapped_revision=revision, buddy_token=buddy_token,
+                )
+            except WorldGraphSourceAdmissionError as proof_exc:
+                if proof_exc.code != "source_not_admitted":
+                    raise
+                raise _map_provider_error(exc) from exc
+        return _prove_existing_pair(
+            sources, request=request, mapped_artifact=dm_artifact,
+            mapped_revision=revision, buddy_token=buddy_token,
         )
 
     def prove(
@@ -414,8 +548,9 @@ class DungeonMindWorldGraphSourceAdmissionAdapter:
     ) -> AdmittedSourceIdentity:
         sources = self._source_repository()
         buddy_token = str(source_revision_token or "").strip()
-        identity = _snapshot_identity(
+        _artifact, _revision, identity = _snapshot_pair(
             sources,
+            world_id=world_id,
             source_artifact_id=source_artifact_id,
             source_revision_id=source_revision_id,
             buddy_source_revision_id=buddy_token or source_revision_id,
