@@ -1,7 +1,7 @@
 # MIND handoff: checkpoint-38 active binding
 
-Status: `MERGED` — Buddy PR #1049 merged to `main` at `b02622b03683d52344d3cfd5df833676483d2339`. The checkpoint-38 binding verification is available in read-only mode; six-session execution remains held pending a separately reviewed execution-authority contract.
-Scope: one read-only authorization gate for the first suffix candidate. This handoff does not authorize identity-ledger writes or suffix execution.
+Status: `MERGED` for PR #1049 at `b02622b03683d52344d3cfd5df833676483d2339`. A subsequent MIND implementation lane is preparing the six-session execution contract on the three paths named below. Code review and the exact execution packet must complete before any private-data run.
+Scope: checkpoint-38 verification and an explicit, packet-bound continuation for frozen ordinals 39–44. The runner never creates an identity decision; the human decision remains a prerequisite.
 
 ## Accepted basis
 
@@ -35,7 +35,15 @@ The default known-party resolver returned zero native matches for `thrin_branchb
 
 This gate is read-only preflight. Buddy's existing confirm path and Core's guarded transaction remain responsible for rechecking publication authority at commit time. Passing the source gate alone does not authorize the six-session run.
 
-`--verify-checkpoint38-binding-only` runs the preflight and returns `CHECKPOINT38_BINDING_VERIFIED_READ_ONLY` before output-directory creation. An ordinary checkpoint-38 continuation remains hard-held after a successful binding check, before output creation or confirm, until a distinct exact six-session execution-authority contract is reviewed and implemented. The source tests prove both the read-only result and this hard hold with a valid binding.
+`--verify-checkpoint38-binding-only` runs the preflight and returns `CHECKPOINT38_BINDING_VERIFIED_READ_ONLY` before output-directory creation. Ordinary checkpoint-38 continuation remains held. `--execute-checkpoint38 --execution-packet <private JSON>` is the only execution mode. It validates the complete packet, the authenticated decision through the existing production context, exact checkpoint head, every suffix input, and a fresh complete PostgreSQL backup before calling the existing admission/confirm path. This code path is not an instruction to run it before review and a real human identity decision.
+
+## Six-session execution packet (new bounded contract)
+
+The private JSON object has schema `dmb_checkpoint38_six_session_execution_v1` and exactly these fields: `schema`, `world_id`, `checkpoint_head`, `checkpoint_report_sha256`, `manifest_digest`, `source_head`, `binding_decision_id`, `binding_decision_sha256`, `output`, `accepted_root`, `retained_root`, `checkpoint38_report`, `target`, and `suffix`. `output` is an absolute, previously unclaimed direct child of the pinned private recovery root. `target` is `{host, port, database}` and must match the runner's fixed isolated PostgreSQL endpoint. `source_head` is the exact Buddy execution checkout commit. The binding fields identify one existing, ACTIVE, human-reviewed Core decision; they are not invented by the runner.
+
+`suffix` is an ordered array of exactly six objects for manifest ordinals 39–44. Each object has exactly `ordinal`, `campaign_id`, `session_id`, `source_artifact_id`, `source_revision_id`, `original_sha256`, `candidate_digest`, and `candidate_file_sha256`. The runner checks these against the accepted manifest/ledger and the candidate file bytes. The packet's raw SHA-256 enters the command digest and report, so an incomplete output can never be relabeled with a changed packet. The packet is private evidence, not a checked-in corpus artifact.
+
+The runner creates `checkpoint38-before.dump` in the newly claimed output, requires a nonempty valid PostgreSQL custom archive, records its SHA-256, and rechecks current head, unclaimed suffix sources, and reviewed binding before the first confirm. It does not overwrite an old backup or auto-resume an incomplete output. Resource/capacity observation and later independent restore proof remain execution-operator obligations under the existing private recipe; this source change does not claim either was performed.
 
 ## Execution boundary, once separately released
 
@@ -46,4 +54,4 @@ This gate is read-only preflight. Buddy's existing confirm path and Core's guard
 
 ## Review and completion
 
-The source slice is limited to the continuation runner, its focused test, and this handoff. Review the exact cumulative diff and focused checkpoint-38 gate tests. Existing prefix/production-PostgreSQL proof is reused; do not create a new PostgreSQL fixture or claim it was rerun. Human carrier creation and six-session data execution require separate exact authority after source review.
+The source slice is limited to the continuation runner, its focused test, and this handoff. Review the exact cumulative diff and focused checkpoint-38 gate tests. Existing prefix/production-PostgreSQL proof is reused; do not create a new PostgreSQL fixture or claim it was rerun. The original semantic question remains open: is `node:thrin-branchborn` the same person as `npc_thrin`? No authenticated approval, `reviewer_id`, or decision ID has been established. The full six-session execution packet, target capacity, real backup, restore witness, and private-data confirms remain pending after this code review.

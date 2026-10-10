@@ -226,6 +226,7 @@ def checkpoint38(setup, monkeypatch):
     s.authority.verified.clear()
     s.calls.clear()
     s.output = s.root / "suffix39"
+    monkeypatch.setattr(driver, "CHECKPOINT38_PRIVATE_ROOT", s.root)
     s.authority.unclaimed = []
     s.authority.require_unclaimed = lambda entry, dsn: s.authority.unclaimed.append(
         entry.ordinal
@@ -301,8 +302,16 @@ def test_checkpoint38_altered_prefix_is_zero_write(checkpoint38, monkeypatch, ch
         monkeypatch.setattr(
             driver, "CHECKPOINT38_REPORT_SHA256", driver.replay._sha256_file(path)
         )
-    monkeypatch.setattr(driver, "CHECKPOINT_REPORT_SHA256", driver.replay._sha256_file(s.retained / "replay_report.json"))
-    monkeypatch.setattr(driver, "CHECKPOINT_LEDGER_SHA256", driver.replay._sha256_file(s.retained / "replay_ledger.json"))
+    monkeypatch.setattr(
+        driver,
+        "CHECKPOINT_REPORT_SHA256",
+        driver.replay._sha256_file(s.retained / "replay_report.json"),
+    )
+    monkeypatch.setattr(
+        driver,
+        "CHECKPOINT_LEDGER_SHA256",
+        driver.replay._sha256_file(s.retained / "replay_ledger.json"),
+    )
     with pytest.raises(driver.replay.ReplayStop):
         run(s, **s.checkpoint_args)
     assert s.calls == [] and not s.output.exists()
@@ -330,7 +339,9 @@ def test_checkpoint38_rejects_injected_execution_authority_before_any_call(
         options["verify_checkpoint38_binding_only"] = True
     with pytest.raises(driver.replay.ReplayStop):
         run(s, **options)
-    assert s.authority.genesis_calls == 1  # one call belongs to checkpoint38 fixture construction
+    assert (
+        s.authority.genesis_calls == 1
+    )  # one call belongs to checkpoint38 fixture construction
     assert not s.calls and not s.output.exists()
     assert s.authority.binding_calls == []
 
@@ -428,7 +439,9 @@ def _install_valid_checkpoint38_binding(monkeypatch, s):
     entry.session_id = driver.CHECKPOINT38_S22_SESSION_ID
     entry.key = (entry.campaign_id, entry.session_id)
     entry.source_artifact_id = "artifact:recap:longmont-c2:session-22:06c978131f31"
-    entry.original_sha256 = "06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083"
+    entry.original_sha256 = (
+        "06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083"
+    )
     original.candidate_digest = driver.CHECKPOINT38_S22_CANDIDATE_SHA256
     original.source_revision_id = (
         "sha256:06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083"
@@ -522,11 +535,343 @@ def test_checkpoint38_valid_binding_still_holds_all_suffix_writes(
     s = checkpoint38
     loader_calls = _install_valid_checkpoint38_binding(monkeypatch, s)
     with pytest.raises(
-        driver.replay.ReplayStop, match="six-session execution authority contract"
+        driver.replay.ReplayStop, match="explicit six-session execution mode"
     ):
         run(s, **{**s.checkpoint_args, "authority": None})
     assert len(loader_calls) == 1
     assert s.calls == [] and not s.output.exists()
+
+
+def _write_execution_packet(s):
+    packet = {
+        "schema": driver.EXECUTION_PACKET_SCHEMA,
+        "world_id": driver.replay.WORLD_ID,
+        "checkpoint_head": driver.CHECKPOINT38_HEAD,
+        "checkpoint_report_sha256": driver.CHECKPOINT38_REPORT_SHA256,
+        "manifest_digest": driver.replay.ACCEPTED_MANIFEST_DIGEST,
+        "source_head": "approved-source",
+        "binding_decision_id": s.checkpoint_args["binding_decision_id"],
+        "binding_decision_sha256": s.checkpoint_args["binding_decision_sha256"],
+        "output": str(s.output.resolve()),
+        "accepted_root": str(s.accepted.resolve()),
+        "retained_root": str(s.retained.resolve()),
+        "checkpoint38_report": str(s.checkpoint_args["checkpoint38_report"].resolve()),
+        "target": {
+            "host": "127.0.0.1",
+            "port": 54362,
+            "database": "dmb_current_corpus_replay_v1",
+        },
+        "suffix": [
+            {
+                "ordinal": entry.ordinal,
+                "campaign_id": entry.campaign_id,
+                "session_id": entry.session_id,
+                "source_artifact_id": entry.source_artifact_id,
+                "source_revision_id": original.source_revision_id,
+                "original_sha256": entry.original_sha256,
+                "candidate_digest": original.candidate_digest,
+                "candidate_file_sha256": driver.replay._sha256_file(
+                    s.accepted / original.candidate_locator
+                ),
+            }
+            for entry, original in zip(s.entries[38:], s.originals[38:], strict=True)
+        ],
+    }
+    path = s.root / "execution-packet.json"
+    path.write_text(json.dumps(packet))
+    return path, packet
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "world_id",
+        "source_head",
+        "output",
+        "decision",
+        "count",
+        "ordinal",
+        "source",
+        "candidate",
+        "candidate_file",
+        "extra_field",
+    ],
+)
+def test_checkpoint38_execution_packet_drift_stops_before_backup_or_confirm(
+    checkpoint38, monkeypatch, change
+):
+    s = checkpoint38
+    _install_valid_checkpoint38_binding(monkeypatch, s)
+    path, packet = _write_execution_packet(s)
+    if change == "world_id":
+        packet["world_id"] = "other"
+    elif change == "source_head":
+        packet["source_head"] = "other"
+    elif change == "output":
+        packet["output"] = str(s.root / "another-output")
+    elif change == "decision":
+        packet["binding_decision_id"] = "decision:other"
+    elif change == "count":
+        packet["suffix"].pop()
+    elif change == "ordinal":
+        packet["suffix"][0]["ordinal"] = 40
+    elif change == "source":
+        packet["suffix"][0]["source_artifact_id"] = "other"
+    elif change == "candidate":
+        packet["suffix"][0]["candidate_digest"] = "a" * 64
+    elif change == "candidate_file":
+        packet["suffix"][0]["candidate_file_sha256"] = "b" * 64
+    else:
+        packet["extra"] = True
+    path.write_text(json.dumps(packet))
+    backup_calls = []
+    monkeypatch.setattr(
+        driver, "_backup_before_confirm", lambda *args: backup_calls.append(args)
+    )
+    with pytest.raises(driver.replay.ReplayStop, match="execution packet"):
+        run(
+            s,
+            **{
+                **s.checkpoint_args,
+                "authority": None,
+                "execute_checkpoint38": True,
+                "execution_packet": path,
+            },
+        )
+    assert not backup_calls and not s.calls and not s.output.exists()
+
+
+def test_checkpoint38_execution_seals_backup_then_confirms_only_six(
+    checkpoint38, monkeypatch
+):
+    s = checkpoint38
+    _install_valid_checkpoint38_binding(monkeypatch, s)
+    path, _ = _write_execution_packet(s)
+    events = []
+
+    def backup(*args):
+        events.append("backup")
+        archive = s.output / "checkpoint38-before.dump"
+        archive.write_bytes(b"synthetic backup")
+        return {"path": str(archive), "sha256": driver.replay._sha256_file(archive)}
+
+    monkeypatch.setattr(driver, "_backup_before_confirm", backup)
+    real_confirm = s.confirm
+
+    def confirm(**kwargs):
+        events.append(kwargs["entry"].ordinal)
+        assert events[0] == "backup"
+        return real_confirm(**kwargs)
+
+    monkeypatch.setattr(driver.replay, "_admit_and_confirm", confirm)
+    monkeypatch.setattr(
+        "apps.live_control_server.services.candidate_graph_admission.canonical_candidate_digest",
+        lambda candidate: (
+            driver.CHECKPOINT38_S22_CANDIDATE_SHA256
+            if candidate["nodes"][0]["node_id"] == "synthetic-39"
+            else driver.replay._digest_obj(candidate)
+        ),
+    )
+    report = run(
+        s,
+        **{
+            **s.checkpoint_args,
+            "authority": None,
+            "execute_checkpoint38": True,
+            "execution_packet": path,
+        },
+    )
+    assert report["status"] == "COMPLETE"
+    assert report["new_confirms"] == 6
+    assert len(report["sessions"]) == 44
+    assert report["sessions"][0]["ordinal"] == 1
+    assert report["sessions"][37]["ordinal"] == 38
+    assert events == ["backup", *range(39, 45)]
+    assert report["command"]["execution_packet_sha256"] == driver.replay._sha256_file(
+        path
+    )
+    prior_calls = s.calls.copy()
+    repeated = run(
+        s,
+        **{
+            **s.checkpoint_args,
+            "authority": None,
+            "execute_checkpoint38": True,
+            "execution_packet": path,
+        },
+    )
+    assert repeated["disposition"] == "ALREADY_COMPLETE_VERIFIED_READ_ONLY"
+    assert s.calls == prior_calls and events == ["backup", *range(39, 45)]
+    (s.output / "checkpoint38-before.dump").write_bytes(b"changed")
+    with pytest.raises(driver.replay.ReplayStop, match="backup missing or changed"):
+        run(
+            s,
+            **{
+                **s.checkpoint_args,
+                "authority": None,
+                "execute_checkpoint38": True,
+                "execution_packet": path,
+            },
+        )
+
+
+def test_checkpoint38_backup_failure_preserves_stop_without_confirm(
+    checkpoint38, monkeypatch
+):
+    s = checkpoint38
+    _install_valid_checkpoint38_binding(monkeypatch, s)
+    path, _ = _write_execution_packet(s)
+
+    def fail_backup(*args):
+        raise driver.replay.ReplayStop("synthetic backup failure", boundary="backup")
+
+    monkeypatch.setattr(driver, "_backup_before_confirm", fail_backup)
+    report = run(
+        s,
+        **{
+            **s.checkpoint_args,
+            "authority": None,
+            "execute_checkpoint38": True,
+            "execution_packet": path,
+        },
+    )
+    assert report["status"] == "STOP" and report["new_confirms"] == 0
+    assert report["stop"]["actual_head"] == driver.CHECKPOINT38_HEAD
+    assert s.calls == []
+    with pytest.raises(driver.replay.ReplayStop, match="incomplete"):
+        run(
+            s,
+            **{
+                **s.checkpoint_args,
+                "authority": None,
+                "execute_checkpoint38": True,
+                "execution_packet": path,
+            },
+        )
+
+
+def test_checkpoint38_lost_confirm_response_preserves_actual_head_and_stops(
+    checkpoint38, monkeypatch
+):
+    s = checkpoint38
+    _install_valid_checkpoint38_binding(monkeypatch, s)
+    path, _ = _write_execution_packet(s)
+    monkeypatch.setattr(
+        driver,
+        "_backup_before_confirm",
+        lambda *args: {"path": "synthetic", "sha256": "a" * 64},
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.candidate_graph_admission.canonical_candidate_digest",
+        lambda candidate: (
+            driver.CHECKPOINT38_S22_CANDIDATE_SHA256
+            if candidate["nodes"][0]["node_id"] == "synthetic-39"
+            else driver.replay._digest_obj(candidate)
+        ),
+    )
+
+    def lost(**kwargs):
+        s.confirm(**kwargs)
+        raise RuntimeError("synthetic confirm response lost")
+
+    monkeypatch.setattr(driver.replay, "_admit_and_confirm", lost)
+    report = run(
+        s,
+        **{
+            **s.checkpoint_args,
+            "authority": None,
+            "execute_checkpoint38": True,
+            "execution_packet": path,
+        },
+    )
+    assert report["status"] == "STOP" and report["new_confirms"] == 0
+    assert report["last_good_head"] == driver.CHECKPOINT38_HEAD
+    assert report["stop"]["actual_head"] == "rev:synthetic-39"
+    assert s.calls == [39]
+    with pytest.raises(driver.replay.ReplayStop, match="incomplete"):
+        run(
+            s,
+            **{
+                **s.checkpoint_args,
+                "authority": None,
+                "execute_checkpoint38": True,
+                "execution_packet": path,
+            },
+        )
+    assert s.calls == [39]
+
+
+def test_checkpoint38_packet_change_after_one_receipt_stops_next_confirm(
+    checkpoint38, monkeypatch
+):
+    s = checkpoint38
+    _install_valid_checkpoint38_binding(monkeypatch, s)
+    path, _ = _write_execution_packet(s)
+
+    def backup(*args):
+        archive = s.output / "checkpoint38-before.dump"
+        archive.write_bytes(b"synthetic backup")
+        return {"path": str(archive), "sha256": driver.replay._sha256_file(archive)}
+
+    monkeypatch.setattr(driver, "_backup_before_confirm", backup)
+    monkeypatch.setattr(
+        "apps.live_control_server.services.candidate_graph_admission.canonical_candidate_digest",
+        lambda candidate: (
+            driver.CHECKPOINT38_S22_CANDIDATE_SHA256
+            if candidate["nodes"][0]["node_id"] == "synthetic-39"
+            else driver.replay._digest_obj(candidate)
+        ),
+    )
+
+    def confirm(**kwargs):
+        result = s.confirm(**kwargs)
+        path.write_text(path.read_text() + "\n")
+        return result
+
+    monkeypatch.setattr(driver.replay, "_admit_and_confirm", confirm)
+    report = run(
+        s,
+        **{
+            **s.checkpoint_args,
+            "authority": None,
+            "execute_checkpoint38": True,
+            "execution_packet": path,
+        },
+    )
+    assert report["status"] == "STOP" and report["new_confirms"] == 1
+    assert report["stop"]["actual_head"] == "rev:synthetic-39"
+    assert s.calls == [39]
+
+
+def test_backup_archive_command_has_no_password_and_checks_archive(
+    tmp_path, monkeypatch
+):
+    output = tmp_path / "new-run"
+    output.mkdir(mode=0o700)
+    calls = []
+
+    def command(argv, *, env=None, capture_output, check):
+        calls.append((argv, env))
+        if argv[0] == "pg_dump":
+            Path(argv[-1]).write_bytes(b"synthetic custom archive")
+            return NS(returncode=0)
+        return NS(returncode=0, stdout=b"archive listing")
+
+    monkeypatch.setattr(driver.subprocess, "run", command)
+    monkeypatch.setattr(
+        driver.shutil, "disk_usage", lambda _: NS(free=driver.MIN_BACKUP_FREE_BYTES)
+    )
+    result = driver._backup_before_confirm(
+        "postgresql://operator:private%2Dsecret@127.0.0.1:54362/dmb_current_corpus_replay_v1",
+        output,
+        NS(head=lambda: driver.CHECKPOINT38_HEAD),
+    )
+    assert result["sha256"] == driver.replay._sha256_file(
+        output / "checkpoint38-before.dump"
+    )
+    assert [argv[0] for argv, _ in calls] == ["pg_dump", "pg_restore"]
+    assert all("private-secret" not in " ".join(argv) for argv, _ in calls)
+    assert calls[0][1]["PGPASSWORD"] == "private-secret"
 
 
 @pytest.mark.parametrize(
