@@ -10,7 +10,7 @@ from __future__ import annotations
 
 
 import hashlib
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -269,6 +269,7 @@ def prepare_extract_promote(
     *,
     candidate_graph: Mapping[str, Any],
     source_uri: str,
+    authoritative_source_uri: str | None = None,
     source_revision_id: str,
     prepared_by: str,
     world_id: str = DEFAULT_WORLD_ID,
@@ -328,7 +329,6 @@ def prepare_extract_promote(
     else:
         root = world_root.resolve() if world_root is not None else None
     if mutation_context.reviewed_corpus_bindings and mutation_context.exact_candidate_sha256 is None:
-        from dataclasses import replace
         from apps.live_control_server.services.candidate_graph_admission import canonical_candidate_digest
         mutation_context = replace(mutation_context, exact_candidate_sha256=canonical_candidate_digest(candidate_graph))
     package_world_root = str(root) if root is not None else None
@@ -347,7 +347,7 @@ def prepare_extract_promote(
             source_revision_id=verified_revision,
             campaign_scope=campaign_scope,
             extraction_profile=extraction_profile,
-            source_uri=source_uri,
+            source_uri=authoritative_source_uri or source_uri,
             source_kind="source_extraction",
             source_domain="recap",
             node_ids=tuple(node_ids) if node_ids is not None else None,
@@ -388,13 +388,18 @@ def prepare_extract_promote(
             source_revision_id=verified_revision,
             campaign_scope=campaign_scope,
             extraction_profile=extraction_profile,
-            source_uri=source_uri,
+            source_uri=authoritative_source_uri or source_uri,
             source_kind="source_extraction",
             source_domain="recap",
             node_ids=tuple(node_ids) if node_ids is not None else None,
             include_edges=include_edges,
         )
 
+
+    # Source citations use the catalog locator; confirm still verifies the
+    # local input bytes that were read during preparation.
+    if authoritative_source_uri is not None:
+        gate = replace(gate, verified_source_uri=source_uri)
 
     contribution_slices: list[dict[str, Any]] = []
     standing_gate: IdentityGateResult | None = None

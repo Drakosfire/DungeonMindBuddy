@@ -101,6 +101,58 @@ def test_prove_or_admit_writes_missing_pair_and_is_idempotent() -> None:
     assert sources.get_artifact(ARTIFACT_A) is not None
 
 
+def test_existing_pair_replay_makes_no_core_puts_and_keeps_catalog_metadata() -> None:
+    class CountingSources(InMemorySourceRepository):
+        puts = 0
+
+        def put_artifact(self, artifact: Any) -> Any:
+            self.puts += 1
+            return super().put_artifact(artifact)
+
+        def put_revision(self, revision: Any) -> Any:
+            self.puts += 1
+            return super().put_revision(revision)
+
+    sources = CountingSources()
+    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=sources)
+    first = adapter.prove_or_admit(_request(artifact_id=ARTIFACT_A))
+    stored = sources.get_artifact(ARTIFACT_A)
+    assert stored is not None
+    sources._artifacts[ARTIFACT_A] = stored.model_copy(
+        update={"lineage": {"catalog_review": "preserved"}, "updated_at": datetime.now(UTC)}
+    )
+    writes_before = sources.puts
+    replay = WorldGraphSourceAdmissionRequest(
+        world_id=WORLD_ID,
+        campaign_id=CAMPAIGN_ID,
+        source_artifact=_buddy_artifact(artifact_id=ARTIFACT_A),
+        source_revision_token=TOKEN,
+        source_uri="object://verified-local-mirror",
+        verified_input_sha256="ab" * 32,
+    )
+    second = adapter.prove_or_admit(replay)
+    assert sources.puts == writes_before
+    assert second.source_locator == first.source_locator
+    assert second.catalog_fingerprint_sha256 != first.catalog_fingerprint_sha256
+    assert sources.get_artifact(ARTIFACT_A).updated_at != stored.updated_at
+
+
+def test_partial_pair_and_material_drift_fail_closed_without_puts() -> None:
+    sources = InMemorySourceRepository()
+    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=sources)
+    artifact, revision, _ = _map_buddy_source(_request(artifact_id=ARTIFACT_A), sources)
+    sources.put_artifact(artifact)
+    with pytest.raises(WorldGraphSourceAdmissionError, match="one half") as exc:
+        adapter.prove_or_admit(_request(artifact_id=ARTIFACT_A))
+    assert exc.value.code == "source_identity_conflict"
+    assert sources.get_revision(revision.source_revision_id) is None
+    sources.put_revision(revision)
+    sources._artifacts[ARTIFACT_A] = artifact.model_copy(update={"campaign_id": "other-campaign"})
+    with pytest.raises(WorldGraphSourceAdmissionError) as exc:
+        adapter.prove_or_admit(_request(artifact_id=ARTIFACT_A))
+    assert exc.value.code == "source_identity_conflict"
+
+
 def test_prove_or_admit_collision_seals_as_token_suffix() -> None:
     sources = InMemorySourceRepository()
     adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=sources)

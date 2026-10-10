@@ -1156,7 +1156,13 @@ def _reprove_source_extraction(
             details={"world_id": world_id, "reason": "source_identity_conflict"},
         ) from exc
     sealed_sha = str(sealed.get("content_sha256") or "").strip()
-    if sealed_sha and identity.content_sha256 != sealed_sha:
+    sealed_locator = str(sealed.get("source_locator") or "").strip()
+    sealed_fingerprint = str(sealed.get("catalog_fingerprint_sha256") or "").strip()
+    if (
+        (sealed_sha and identity.content_sha256 != sealed_sha)
+        or (sealed_locator and identity.source_locator != sealed_locator)
+        or (sealed_fingerprint and identity.catalog_fingerprint_sha256 != sealed_fingerprint)
+    ):
         raise WorldGraphWriteError(
             "Sealed recap source fingerprint drifted from the admitted pair.",
             code="governed_write_inexpressible",

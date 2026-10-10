@@ -671,7 +671,7 @@ def test_fingerprint_conflict_fails_closed(tmp_path: Path) -> None:
     assert still.get_revision(sealed["source_revision_id"]) is not None
 
 
-def test_same_token_divergent_artifact_fingerprint_fails_closed(tmp_path: Path) -> None:
+def test_same_token_verified_mirror_reuses_catalog_locator(tmp_path: Path) -> None:
     admission = RecordingAdmission()
     first = _prepare(tmp_path, source_admission=admission)
     sealed = first.review_package["effect"]["source_admission"]
@@ -682,8 +682,7 @@ def test_same_token_divergent_artifact_fingerprint_fails_closed(tmp_path: Path) 
         uri=str(relocated),
         content_sha256=token.removeprefix("sha256:"),
     )
-    with pytest.raises(CandidateAdmissionIntegrityError) as excinfo:
-        prepare_candidate_graph_admission(
+    replay = prepare_candidate_graph_admission(
             candidate_graph=_candidate(),
             source_uri=str(relocated),
             source_revision_id=token,
@@ -702,7 +701,31 @@ def test_same_token_divergent_artifact_fingerprint_fails_closed(tmp_path: Path) 
             ),
             source_admission=admission,
         )
-    assert [item.code for item in excinfo.value.diagnostics] == ["source_identity_conflict"]
+    replay_effect = replay.review_package["effect"]
+    assert replay_effect["source_admission"]["source_locator"] == sealed["source_locator"]
+    assert replay_effect["source_admission"]["catalog_fingerprint_sha256"] == sealed["catalog_fingerprint_sha256"]
+    assert replay_effect["verified_source_uri"] == str(relocated)
+    assert str(relocated) not in str(replay_effect["accepted_proposals"])
+    assert sealed["source_locator"] in str(replay_effect["accepted_proposals"])
+    from graph_memory.extract_promote_ops import resolve_merged_contribution_from_package
+
+    _, contribution = resolve_merged_contribution_from_package(
+        review_package=replay.review_package,
+        confirming_principal="gm@test",
+        world_id_hint=WORLD_ID,
+        expected_parent_revision_id="rev:d0",
+        assertion_ids=None,
+        mutation_context=WorldGraphMutationContext(
+            world_id=WORLD_ID,
+            revision_id="rev:d0",
+            head_revision_id="rev:d0",
+            objects={},
+        ),
+        repo_root=tmp_path,
+        verify_source=True,
+    )
+    assert str(relocated) not in str(contribution.accepted_assertions)
+    assert sealed["source_locator"] in str(contribution.accepted_assertions)
     assert admission.calls == ["prove_or_admit", "prove_or_admit"]
     still = admission.sources.get_provenance_snapshot(
         artifact_ids=[sealed["source_artifact_id"]],
@@ -1010,6 +1033,27 @@ def test_confirm_skips_write_when_sealed_source_fingerprint_drifts(
     assert [item.code for item in excinfo.value.diagnostics] == ["source_identity_conflict"]
     assert published["ran"] is False
     assert admission.calls[-1] == "prove"
+
+
+def test_confirm_skips_write_when_catalog_locator_drifts(tmp_path: Path) -> None:
+    admission = RecordingAdmission()
+    result = _prepare(tmp_path, source_admission=admission)
+    sealed = result.review_package["effect"]["source_admission"]
+    stored = admission.sources.get_revision(sealed["source_revision_id"])
+    assert stored is not None
+    admission.sources._revisions[sealed["source_revision_id"]] = stored.model_copy(
+        update={"locator": "object://different-catalog-location"}
+    )
+    published = {"ran": False}
+    with pytest.raises(CandidateAdmissionIntegrityError) as excinfo:
+        confirm_candidate_graph_admission(
+            review_package=result.review_package,
+            candidate_graph=_candidate(),
+            source_admission=admission,
+            governed_confirm=lambda: published.__setitem__("ran", True) or "published",
+        )
+    assert [item.code for item in excinfo.value.diagnostics] == ["source_identity_conflict"]
+    assert published["ran"] is False
 
 
 def test_recap_evidence_view_maps_session_recap_not_other() -> None:
