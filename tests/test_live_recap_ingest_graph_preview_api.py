@@ -24,6 +24,26 @@ def _ingest_application_state(application_state_dsn: str) -> str:
 
 @pytest.fixture
 def client_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, Path, Path]:
+    from apps.live_control_server.services import recap_ingest_context
+
+    class FakeContext:
+        def as_lineage(self) -> dict[str, object]:
+            return {
+                "schema": "dm_world_campaign_ingest_context_v1",
+                "managed_world_id": "elderwyld",
+                "native_world_id": "world:elderwyld",
+                "binding_version": 3,
+                "campaign_id": "longmont-c2",
+                "head_revision_id": "rev:observed-head",
+                "graph_schema": "dm_graph_v1",
+                "graph_payload_sha256": "a" * 64,
+            }
+
+    monkeypatch.setattr(
+        recap_ingest_context,
+        "read_recap_ingest_context",
+        lambda **_kwargs: FakeContext(),
+    )
     for name in ("live_packet.json", "surface_layout.json", "current_state.json"):
         shutil.copy2(SEED_SESSION / name, tmp_path / name)
     (tmp_path / "event_log.jsonl").write_text("", encoding="utf-8")
@@ -57,6 +77,7 @@ def _prepare_normalized(client: TestClient) -> None:
         json={
             "operation": "stage_preview",
             "campaign_id": "longmont-c2",
+            "managed_world_id": "elderwyld",
             "session": 22,
             "raw_text": raw,
             "slug": "Mireward Road Dogfood",
@@ -68,11 +89,77 @@ def _prepare_normalized(client: TestClient) -> None:
         json={
             "operation": "apply_normalize",
             "campaign_id": "longmont-c2",
+            "managed_world_id": "elderwyld",
             "session": 22,
             "slug": "Mireward Road Dogfood",
         },
     )
     assert apply.status_code == 200
+
+
+def test_recap_graph_ingest_requires_world_context_before_staging_or_source_registration(
+    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, corpus, _candidate = client_env
+    from apps.live_control_server.routes import recap_ingest
+
+    registry = ROOT / "out/registries/source_artifacts.json"
+    registry_before = registry.read_bytes() if registry.exists() else None
+    calls = []
+    monkeypatch.setattr(recap_ingest, "run_pipeline", lambda *args, **kwargs: calls.append((args, kwargs)))
+    response = client.post(
+        "/api/live/recap-ingest",
+        json={
+            "operation": "generate_recap_memory",
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "raw_text": "Session 22 Recap\n\nA new recap.",
+            "include_graph_extraction": True,
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "managed_world_context_required"
+    assert calls == []
+    assert not list(corpus.rglob("*.md"))
+    assert (registry.read_bytes() if registry.exists() else None) == registry_before
+
+
+def test_uninitialized_world_stops_before_recap_staging_or_source_registration(
+    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client, corpus, _candidate = client_env
+    from apps.live_control_server.routes import recap_ingest
+    from apps.live_control_server.services import recap_ingest_context
+
+    registry = ROOT / "out/registries/source_artifacts.json"
+    registry_before = registry.read_bytes() if registry.exists() else None
+    calls = []
+    monkeypatch.setattr(recap_ingest, "run_pipeline", lambda *args, **kwargs: calls.append((args, kwargs)))
+
+    def uninitialized(**_kwargs):
+        raise recap_ingest_context.RecapIngestContextError(
+            "World Graph is not initialized.",
+            code="world_graph_not_initialized",
+            status_code=409,
+        )
+
+    monkeypatch.setattr(recap_ingest_context, "read_recap_ingest_context", uninitialized)
+    response = client.post(
+        "/api/live/recap-ingest",
+        json={
+            "operation": "generate_recap_memory",
+            "campaign_id": "longmont-c2",
+            "managed_world_id": "elderwyld",
+            "session": 22,
+            "raw_text": "Session 22 Recap\n\nA new recap.",
+            "include_graph_extraction": True,
+        },
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "world_graph_not_initialized"
+    assert calls == []
+    assert not list(corpus.rglob("*.md"))
+    assert (registry.read_bytes() if registry.exists() else None) == registry_before
 
 
 def _stamp_fixture_candidate(
@@ -90,7 +177,12 @@ def _stamp_fixture_candidate(
 
     status = client.post(
         "/api/live/recap-ingest",
-        json={"operation": "inspect_status", "campaign_id": "longmont-c2", "session": 22},
+        json={
+            "operation": "inspect_status",
+            "campaign_id": "longmont-c2",
+            "managed_world_id": "elderwyld",
+            "session": 22,
+        },
     )
     assert status.status_code == 200
     rel = status.json().get("paths", {}).get("normalized_recap")
@@ -138,7 +230,12 @@ def test_recap_ingest_build_graph_preview_bundle_from_normalized_recap(client_en
 
     response = client.post(
         "/api/live/recap-ingest",
-        json={"operation": "build_graph_preview_bundle", "campaign_id": "longmont-c2", "session": 22},
+        json={
+            "operation": "build_graph_preview_bundle",
+            "campaign_id": "longmont-c2",
+            "managed_world_id": "elderwyld",
+            "session": 22,
+        },
     )
 
     assert response.status_code == 200
@@ -155,12 +252,22 @@ def test_recap_ingest_materialize_preview_supergraph_blocks_without_candidate_gr
     _prepare_normalized(client)
     client.post(
         "/api/live/recap-ingest",
-        json={"operation": "build_graph_preview_bundle", "campaign_id": "longmont-c2", "session": 22},
+        json={
+            "operation": "build_graph_preview_bundle",
+            "campaign_id": "longmont-c2",
+            "managed_world_id": "elderwyld",
+            "session": 22,
+        },
     )
 
     response = client.post(
         "/api/live/recap-ingest",
-        json={"operation": "materialize_preview_supergraph", "campaign_id": "longmont-c2", "session": 22},
+        json={
+            "operation": "materialize_preview_supergraph",
+            "campaign_id": "longmont-c2",
+            "managed_world_id": "elderwyld",
+            "session": 22,
+        },
     )
 
     assert response.status_code == 200
@@ -182,6 +289,7 @@ def test_recap_ingest_materialize_preview_supergraph_with_candidate_graph_path(
         json={
             "operation": "materialize_preview_supergraph",
             "campaign_id": "longmont-c2",
+            "managed_world_id": "elderwyld",
             "session": 22,
             "candidate_graph_path": candidate.relative_to(ROOT).as_posix(),
         },
@@ -208,6 +316,7 @@ def test_recap_ingest_rejects_unsafe_candidate_graph_path(client_env: tuple[Test
         json={
             "operation": "build_graph_preview_bundle",
             "campaign_id": "longmont-c2",
+            "managed_world_id": "elderwyld",
             "session": 22,
             "candidate_graph_path": "../escape.json",
         },
@@ -319,6 +428,7 @@ def test_recap_ingest_build_graph_preview_bundle_with_extract_graph_fake_client(
         json={
             "operation": "build_graph_preview_bundle",
             "campaign_id": "longmont-c2",
+            "managed_world_id": "elderwyld",
             "session": 22,
             "extract_graph": True,
             "graph_model_id": "gpt-5.4-mini",
@@ -339,6 +449,7 @@ def test_recap_ingest_build_graph_preview_bundle_with_extract_graph_fake_client(
     assert run.status in {ExtractionRunStatus.REVIEWABLE, ExtractionRunStatus.FAILED}
     assert run.status == ExtractionRunStatus.REVIEWABLE
     assert run.source_artifact_id == graph["source_artifact_id"]
+    assert run.lineage["world_campaign_ingest_context"]["head_revision_id"] == "rev:observed-head"
     candidate = json.loads((ROOT / graph["candidate_graph_path"]).read_text(encoding="utf-8"))
     assert run.source_artifact_id in (candidate.get("source_artifact_ids") or [])
     for node in candidate.get("nodes") or []:
@@ -415,6 +526,7 @@ def test_recap_ingest_typed_validation_failure_blocks_candidate_and_preview_unio
         json={
             "operation": "build_graph_preview_bundle",
             "campaign_id": "longmont-c2",
+            "managed_world_id": "elderwyld",
             "session": 22,
             "extract_graph": True,
             "force_graph_run": True,
@@ -438,6 +550,7 @@ def test_recap_ingest_typed_validation_failure_blocks_candidate_and_preview_unio
         json={
             "operation": "materialize_preview_supergraph",
             "campaign_id": "longmont-c2",
+            "managed_world_id": "elderwyld",
             "session": 22,
             "extract_graph": True,
             "force_graph_run": True,
@@ -475,6 +588,7 @@ def test_recap_ingest_packaged_span_index_resolves_evidence_for_surface(
         json={
             "operation": "build_graph_preview_bundle",
             "campaign_id": "longmont-c2",
+            "managed_world_id": "elderwyld",
             "session": 22,
             "extract_graph": True,
             "graph_model_id": "gpt-5.4-mini",
@@ -566,6 +680,7 @@ def test_recap_ingest_materialize_preview_supergraph_extracts_without_candidate_
         json={
             "operation": "materialize_preview_supergraph",
             "campaign_id": "longmont-c2",
+            "managed_world_id": "elderwyld",
             "session": 22,
             "extract_graph": True,
             "materialize_after_extract": True,
@@ -581,6 +696,66 @@ def test_recap_ingest_materialize_preview_supergraph_extracts_without_candidate_
 
     run = get_extraction_run(ROOT, graph["extraction_run_id"])
     assert run.source_artifact_id == graph["source_artifact_id"]
+
+
+def test_materialize_reextracts_when_selected_world_binding_changes(
+    client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from apps.live_control_server.services import recap_ingest_context
+    from apps.live_control_server.services.graph_run_registry import get_extraction_run
+
+    client, _corpus, _candidate = client_env
+    _prepare_normalized(client)
+    _patch_fake_category_extract(monkeypatch)
+    _patch_retired_union_materialize(monkeypatch)
+    build = client.post(
+        "/api/live/recap-ingest",
+        json={
+            "operation": "build_graph_preview_bundle",
+            "campaign_id": "longmont-c2",
+            "managed_world_id": "elderwyld",
+            "session": 22,
+            "extract_graph": True,
+            "graph_model_id": "gpt-5.4-mini",
+        },
+    )
+    assert build.status_code == 200, build.text
+    original = build.json()["ingest_report"]["graph_preview"]["extraction_run_id"]
+
+    class ReboundContext:
+        def as_lineage(self) -> dict[str, object]:
+            return {
+                "schema": "dm_world_campaign_ingest_context_v1",
+                "managed_world_id": "elderwyld",
+                "native_world_id": "world:elderwyld-rebound",
+                "binding_version": 4,
+                "campaign_id": "longmont-c2",
+                "head_revision_id": "rev:next-head",
+                "graph_schema": "dm_graph_v1",
+                "graph_payload_sha256": "b" * 64,
+            }
+
+    monkeypatch.setattr(
+        recap_ingest_context,
+        "read_recap_ingest_context",
+        lambda **_kwargs: ReboundContext(),
+    )
+    materialized = client.post(
+        "/api/live/recap-ingest",
+        json={
+            "operation": "materialize_preview_supergraph",
+            "campaign_id": "longmont-c2",
+            "managed_world_id": "elderwyld",
+            "session": 22,
+            "extract_graph": True,
+            "materialize_after_extract": True,
+        },
+    )
+    assert materialized.status_code == 200, materialized.text
+    graph = materialized.json()["ingest_report"]["graph_preview"]
+    assert graph["extraction_run_id"] != original
+    run = get_extraction_run(ROOT, graph["extraction_run_id"])
+    assert run.lineage["world_campaign_ingest_context"]["native_world_id"] == "world:elderwyld-rebound"
 
 
 def test_recap_ingest_extract_graph_missing_api_key_returns_llm_blocked(
@@ -599,6 +774,7 @@ def test_recap_ingest_extract_graph_missing_api_key_returns_llm_blocked(
         json={
             "operation": "build_graph_preview_bundle",
             "campaign_id": "longmont-c2",
+            "managed_world_id": "elderwyld",
             "session": 22,
             "extract_graph": True,
             "force_graph_run": True,
@@ -624,6 +800,7 @@ def test_recap_ingest_rejects_candidate_path_with_extract_graph(
         json={
             "operation": "build_graph_preview_bundle",
             "campaign_id": "longmont-c2",
+            "managed_world_id": "elderwyld",
             "session": 22,
             "candidate_graph_path": candidate.relative_to(ROOT).as_posix(),
             "extract_graph": True,
@@ -644,6 +821,7 @@ def test_recap_ingest_generate_recap_memory_without_graph_extraction(
         json={
             "operation": "generate_recap_memory",
             "campaign_id": "longmont-c2",
+            "managed_world_id": "elderwyld",
             "session": 22,
             "raw_text": "Session 22 Recap\n\nThe group scouts the Mireward road.",
             "slug": "Mireward Road Dogfood",
@@ -672,6 +850,7 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
         json={
             "operation": "generate_recap_memory",
             "campaign_id": "longmont-c2",
+            "managed_world_id": "elderwyld",
             "session": 22,
             "raw_text": "Session 22 Recap\n\nThe group scouts the Mireward road.",
             "slug": "Mireward Road Dogfood",
@@ -703,6 +882,7 @@ def test_generate_recap_memory_reuses_preview_graph_without_force(
     payload = {
         "operation": "generate_recap_memory",
         "campaign_id": "longmont-c2",
+        "managed_world_id": "elderwyld",
         "session": 22,
         "slug": "Mireward Road Dogfood",
         "check": True,
@@ -732,6 +912,7 @@ def test_generate_recap_memory_force_graph_run_starts_new_preview_run(
     payload = {
         "operation": "generate_recap_memory",
         "campaign_id": "longmont-c2",
+        "managed_world_id": "elderwyld",
         "session": 22,
         "slug": "Mireward Road Dogfood",
         "check": True,
@@ -766,6 +947,7 @@ def test_generate_recap_memory_reuses_staged_notes_and_still_materializes_graph(
         json={
             "operation": "generate_recap_memory",
             "campaign_id": "longmont-c2",
+            "managed_world_id": "elderwyld",
             "session": 22,
             "raw_text": "Different pasted text should not replace staged notes.",
             "slug": "Mireward Road Dogfood",
@@ -804,6 +986,7 @@ def test_recap_ingest_generate_recap_memory_with_blocked_graph_preserves_recap_s
         json={
             "operation": "generate_recap_memory",
             "campaign_id": "longmont-c2",
+            "managed_world_id": "elderwyld",
             "session": 22,
             "raw_text": "Session 22 Recap\n\nThe group scouts the Mireward road.",
             "slug": "Mireward Road Dogfood",
@@ -841,6 +1024,7 @@ def test_real_recap_manifest_adapts_to_extraction_run(
         json={
             "operation": "materialize_preview_supergraph",
             "campaign_id": "longmont-c2",
+            "managed_world_id": "elderwyld",
             "session": 22,
             "candidate_graph_path": candidate.relative_to(ROOT).as_posix(),
         },
@@ -1001,7 +1185,9 @@ def test_recap_writer_and_discovery_use_configured_root(client_env, monkeypatch)
     _prepare_normalized(client)
     try:
         response = client.post("/api/live/recap-ingest", json={
-            "operation": "build_graph_preview_bundle", "campaign_id": "longmont-c2", "session": 22,
+            "operation": "build_graph_preview_bundle", "campaign_id": "longmont-c2",
+            "managed_world_id": "elderwyld",
+            "session": 22,
         })
         assert response.status_code == 200, response.text
         graph = response.json()["ingest_report"]["graph_preview"]
@@ -1021,7 +1207,9 @@ def test_recap_preview_uses_configured_immutable_content_root(client_env, monkey
     _prepare_normalized(client)
     try:
         response = client.post("/api/live/recap-ingest", json={
-            "operation": "build_graph_preview_bundle", "campaign_id": "longmont-c2", "session": 22,
+            "operation": "build_graph_preview_bundle", "campaign_id": "longmont-c2",
+            "managed_world_id": "elderwyld",
+            "session": 22,
         })
         assert response.status_code == 200, response.text
         graph = response.json()["ingest_report"]["graph_preview"]
@@ -1043,7 +1231,9 @@ def test_unmocked_candidate_completion_recovers_without_provider_replay(client_e
     _prepare_normalized(client)
     _patch_fake_category_extract(monkeypatch)
     built = client.post("/api/live/recap-ingest", json={
-        "operation": "build_graph_preview_bundle", "campaign_id": "longmont-c2", "session": 22,
+        "operation": "build_graph_preview_bundle", "campaign_id": "longmont-c2",
+        "managed_world_id": "elderwyld",
+        "session": 22,
         "extract_graph": True, "graph_model_id": "gpt-5.4-mini",
     })
     assert built.status_code == 200, built.text
@@ -1057,7 +1247,11 @@ def test_unmocked_candidate_completion_recovers_without_provider_replay(client_e
     monkeypatch.setattr(production, "extract_category_candidate_graph", forbidden)
     monkeypatch.setattr(service, "_materialize_preview_union_store_from_graph_ingest_run", forbidden)
     monkeypatch.setattr(service, "_PreviewUnionMaterializeOptions", forbidden)
-    request = {"operation": "generate_recap_memory", "campaign_id": "longmont-c2", "session": 22,
+    request = {
+        "operation": "generate_recap_memory",
+        "campaign_id": "longmont-c2",
+        "managed_world_id": "elderwyld",
+        "session": 22,
                "include_graph_extraction": True, "include_legacy_breadcrumb": False,
                "graph_model_id": "gpt-5.4-mini"}
     for _ in range(2):

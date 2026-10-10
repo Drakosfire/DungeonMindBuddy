@@ -60,6 +60,7 @@ class ProductionExtractionRequest:
     context_vocabulary_packet: ContextVocabularyPacket | None = None
     enable_node_vocabulary_packet: bool = False
     enable_edge_vocabulary_packet: bool = False
+    initial_lineage: dict[str, Any] | None = None
 
 
 @dataclass
@@ -157,7 +158,7 @@ def _advance_run(
         expected_revision=run.revision,
         components=components,
         diagnostics=diagnostics,
-        lineage=lineage,
+        lineage={**(run.lineage or {}), **(lineage or {})},
     )
 
 
@@ -248,14 +249,14 @@ def run_production_extraction(
             source,
             profile_id=f"{request.profile_id}@{request.profile_version}",
             diagnostics=ExtractionRunDiagnostics(messages=[str(exc)], errors=[str(exc)]),
-            lineage={"failure_kind": "profile"},
+            lineage={**(request.initial_lineage or {}), "failure_kind": "profile"},
         )
         failed = _fail_run(
             request.repo_root,
             draft,
             message=str(exc),
             failure_kind="profile",
-            lineage={"failure_kind": "profile"},
+            lineage={**(request.initial_lineage or {}), "failure_kind": "profile"},
         )
         loaded = get_extraction_run(request.repo_root, failed.run_id)
         return ProductionExtractionResult(
@@ -271,6 +272,7 @@ def run_production_extraction(
         source,
         profile_id=profile_qualified,
         lineage={
+            **(request.initial_lineage or {}),
             "profile_id": profile.profile_id,
             "profile_version": profile.profile_version,
             "source_sha256": source.source_sha256,
@@ -288,6 +290,7 @@ def run_production_extraction(
         status=ExtractionRunStatus.PREPARED,
         components=components,
         lineage={
+            **(request.initial_lineage or {}),
             "profile_id": profile.profile_id,
             "profile_version": profile.profile_version,
             "source_sha256": source.source_sha256,
@@ -418,6 +421,7 @@ def run_production_extraction(
         status=ExtractionRunStatus.EXTRACTED,
         components=components,
         lineage={
+            **(request.initial_lineage or {}),
             "profile_id": profile.profile_id,
             "profile_version": profile.profile_version,
             "model_id": model_id,
@@ -605,6 +609,7 @@ def run_production_extraction(
         status=ExtractionRunStatus.VALIDATED,
         components=components,
         lineage={
+            **(request.initial_lineage or {}),
             "profile_id": profile.profile_id,
             "profile_version": profile.profile_version,
             "model_id": model_id,

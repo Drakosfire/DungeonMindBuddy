@@ -1,6 +1,11 @@
-# DEMO: one complete S28 remediation
+# DEMO: one complete S28 remediation — historical, held
 
-Status: ACTIVE source implementation, PRIME2026-10-08 shared-path transfer after RAKE froze651584.
+**Disposition:** SETTLED as a source-correction handoff; no data adoption or
+Graph publication was authorized by its implementation evidence. The corrected
+Session 28 candidate remains held and unbound. Any future adoption is a separate
+historical-adoption workflow with its own exact authority and execution plan.
+
+Status: historical source implementation, PRIME2026-10-08 shared-path transfer after RAKE froze651584.
 Base8087da569af4e4e221d02fd770f101d3a02cd66d; branchcodex/demo-s28-final-remediation.
 Checkout /home/drakosfire/.codex/worktrees/demo-plan-cards-url-reopen/DungeonMindBuddy.
 Topology serial: one additive batch source PR; later RAKE binding+batch cumulative integration required.
@@ -36,7 +41,11 @@ actual data execution, semantic acceptance, World binding or Graph admission.
 Source verification: 125 necessary inherited V1–V7 checks passed once, plus14 new
 full35 mounted/replay/cap/zero-effect cases. Frozen real recipe pure replay matches
 9141381db870b12502d4b567e4d595c64699374028c1f54ac18c92185e332b1c.
-No actual S28 child was created. One portable persisted-basis test is committed;
+No actual S28 child was created by the source implementation. Later bounded
+correction evidence identified the intended child `31cbf...` with 38 nodes and
+15 edges (53 assertions), zero invalid assertions, `world_id=null`, and
+`promotable=false`; it remains held/unbound. This establishes correction
+candidate shape only, not native World admission or publication. One portable persisted-basis test is committed;
 APPSTATE owns separately activated single fixed UUID54329 fixture plan at
 /tmp/s28-v8-pg-resource-plan.json. Independent ARCH review/persistence evidence
 and later RAKE binding+batch cumulative integration remain gates.

@@ -33,8 +33,8 @@ vi.mock("../planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule", () => 
 }));
 
 vi.mock("../modules/IngestionModule", () => ({
-  IngestionModule: ({ campaignId, session }: { campaignId: string; session: number }) =>
-    <div data-testid="recap-workbench">{campaignId} · {session}</div>,
+  IngestionModule: ({ campaignId, session, managedWorldId }: { campaignId: string; session: number; managedWorldId?: string }) =>
+    <div data-testid="recap-workbench" data-managed-world-id={managedWorldId}>{campaignId} · {session}</div>,
 }));
 
 const planView = {
@@ -98,6 +98,7 @@ describe("managed-World Ingest boundary", () => {
     window.history.replaceState({}, "", `/ingest?world=elderwyld${query}`);
     render(<MemoryIngestPage />);
     expect(await screen.findByTestId("recap-workbench")).toHaveTextContent("longmont-c2 · 29");
+    expect(screen.getByTestId("recap-workbench")).toHaveAttribute("data-managed-world-id", "elderwyld");
     expect(screen.queryByTestId("exact-graph-review")).not.toBeInTheDocument();
   });
 

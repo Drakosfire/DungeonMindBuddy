@@ -1560,6 +1560,7 @@ export type RecapIngestOperation =
 export interface RecapIngestRequest {
   operation: RecapIngestOperation;
   campaign_id: string;
+  managed_world_id?: string;
   session: number;
   raw_text?: string;
   slug?: string;
