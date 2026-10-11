@@ -540,6 +540,44 @@ def contribution_slices_from_effect(effect: Mapping[str, Any]) -> list[dict[str,
     ]
 
 
+def validate_source_proven_endpoint_basis(effect: Mapping[str, Any]) -> None:
+    proof=effect.get("source_proven_endpoint_basis")
+    if proof is None:
+        return
+    if (
+        not isinstance(proof,Mapping)
+        or proof.get("schema")!="dmb_source_proven_endpoint_basis_v1"
+        or proof.get("purpose")!="endpoint_binding_only"
+        or effect.get("recap_source_observation_basis") is not None
+        or proof.get("world_id")!=effect.get("world_id")
+        or proof.get("parent_revision_id")!=effect.get("parent_revision_id")
+        or proof.get("source_artifact_id")!=effect.get("source_artifact_id")
+        or proof.get("source_revision_id")!=effect.get("source_revision_id")
+    ):
+        raise PromoteProposalError("invalid or mixed endpoint-proof purpose")
+    rows=proof.get("subjects")
+    if not isinstance(rows,list) or not rows:
+        raise PromoteProposalError("endpoint proof has no subjects")
+    if len({r["raw_node_id"] for r in rows})!=len(rows) or len({r["subject_id"] for r in rows})!=len(rows):
+        raise PromoteProposalError("duplicate endpoint proof")
+    node_map=effect.get("node_id_map") or {}
+    classifications=(effect.get("identity_basis") or {}).get("nodes") or {}
+    outcomes=effect.get("identity_outcome_snapshot") or {}
+    subjects={r["subject_id"] for r in rows}
+    for row in rows:
+        raw=row["raw_node_id"]
+        if (
+            node_map.get(raw)!=row["subject_id"] or outcomes.get(raw)!="resolved_existing"
+            or classifications.get(raw,{}).get("classification")!="source_proven_endpoint"
+            or row["package_sha256"] not in proof.get("historical_packages",{})
+            or hashlib.sha256(proof["historical_packages"][row["package_sha256"]].encode()).hexdigest()!=row["package_sha256"]
+        ):
+            raise PromoteProposalError("sealed endpoint mapping/package drift")
+    for assertion in effect.get("accepted_proposals") or []:
+        if assertion.get("assertion_kind")!="edge" and assertion.get("subject_node_id") in subjects:
+            raise PromoteProposalError("binding-only endpoint emitted a node/alias/description effect")
+
+
 def validate_recap_source_observation_basis(effect: Mapping[str, Any]) -> None:
     proof = effect.get("recap_source_observation_basis")
     if proof is None:
@@ -652,6 +690,16 @@ def verify_source_local_identity_basis(
                     {key: str(value) for key, value in expected.items()}, str(local_id)
                 ) or node_map.get(local_id) != proposed or outcomes.get(local_id) != "created_new":
                     raise PromoteProposalError("source-local identity mapping mismatch")
+            elif classification == "source_proven_endpoint":
+                validate_source_proven_endpoint_basis(effect)
+                rows=[r for r in effect["source_proven_endpoint_basis"]["subjects"] if r["raw_node_id"]==local_id]
+                if (
+                    len(rows)!=1 or outcomes.get(local_id)!="resolved_existing"
+                    or proposed!=rows[0]["subject_id"] or node_map.get(local_id)!=proposed
+                    or proposed!=_qualified_source_local_id(
+                        {key:str(value) for key,value in expected.items()},str(local_id))
+                ):
+                    raise PromoteProposalError("source-proven endpoint identity drift")
             elif classification == "source_proven_existing":
                 validate_recap_source_observation_basis(effect)
                 proof = effect.get("recap_source_observation_basis") or {}
@@ -837,6 +885,7 @@ def verify_promote_proposal(
 
     accepted = _parse_assertions(effect.get("accepted_proposals"))
     validate_recap_source_observation_basis(effect)
+    validate_source_proven_endpoint_basis(effect)
     resolved_selection: dict[str, set[str]] | None = None
     if selected_assertion_ids is not None:
         resolved_selection = resolve_slice_qualified_selection(

@@ -38,7 +38,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def review_and_confirm(case, package, selected):
+def review_and_confirm(case, package, selected, *, confirm=True):
     package_bytes=(json.dumps(package,sort_keys=True,indent=2)+"\n").encode()
     parent=case["bundle"].world_graph.get_revision(case["world"],package["effect"]["parent_revision_id"])
     review={
@@ -69,12 +69,12 @@ def review_and_confirm(case, package, selected):
         sealed_package_bytes=package_bytes,gm_capability_policy=writes._confirm_capability_policy(
             world_id=case["world"],campaign_id="longmont-c2",parent_revision_id=parent.revision.revision_id),
         database_url=case["dsn"],repo_root=case["root"])
-    receipt=confirm_reviewed_extract(**kwargs)
+    receipt=confirm_reviewed_extract(**kwargs) if confirm else None
     return receipt,package_bytes,kwargs
 
 
 @pytest.fixture
-def observation_case(tmp_path,monkeypatch,application_state_dsn):
+def observation_case(tmp_path,monkeypatch,application_state_dsn,request):
     dsn=os.environ.get("DMB_RECAP_OBSERVATION_TEST_DATABASE_URL","").strip()
     if not dsn:
         pytest.skip("dedicated DMB_RECAP_OBSERVATION_TEST_DATABASE_URL required")
@@ -126,8 +126,10 @@ def observation_case(tmp_path,monkeypatch,application_state_dsn):
     binding=VerifiedManagedWorldBinding("managed-test",world,1,"corpus/managed-test-markdown")
     monkeypatch.setattr("apps.live_control_server.services.managed_world_graph_projection.resolve_managed_world_binding",lambda *_a,**_k:binding)
     monkeypatch.setattr(extract_promote,"resolve_managed_world_binding",lambda *_a,**_k:binding)
+    mixed=getattr(request,"param",None)=="source_endpoint"
+    body=TEXT+("\nThe Annex hosts festival registration. Clerk Mira works in the Annex.\n" if mixed else "")
     artifact=create_recap_source_artifact(tmp_path,campaign_id="longmont-c2",session_id="session-22",
-        recap_text=TEXT+"\nSynthetic fixture "+token+".\n")
+        recap_text=body+"\nSynthetic fixture "+token+".\n")
     span=source_span_index_path(tmp_path,artifact.source_artifact_id)
     index=json.loads(span.read_text())
     candidate=tmp_path/"out/graph_memory/runs/extraction"/token/"candidate_graph.json"
@@ -145,6 +147,20 @@ def observation_case(tmp_path,monkeypatch,application_state_dsn):
         "campaign_id":"longmont-c2","session_id":"session-22","source_artifact_ids":[artifact.source_artifact_id],
         "status":"preview","nodes":[node],"edges":[],"beats":[],"proposed_writes":[],
         "ignored_items":[],"deferred_items":[],"diagnostics":_diagnostics()}
+    if mixed:
+        location=copy.deepcopy(node)
+        location.update(node_id="loc_annex",label="The Annex",node_type="location",
+                        description="The Annex hosts festival registration.")
+        reference=copy.deepcopy(node["evidence_refs"][0])
+        reference["source_span_ref_id"]=index["spans"][1]["source_span_id"]
+        reference["anchor_quotes"]=["The Annex hosts festival registration."]
+        location["evidence_refs"]=[reference]
+        raw["nodes"].append(location)
+        edge_reference=copy.deepcopy(reference)
+        edge_reference["anchor_quotes"]=["Clerk Mira works in the Annex."]
+        raw["edges"]=[{"edge_id":"edge_mira_annex","from_node_id":"npc_mira","to_node_id":"loc_annex",
+            "relationship_type":"located_in","label":"works in the Annex","semantic_state":_semantic(),
+            "evidence_refs":[edge_reference],"proposed_action":"create","confidence":"medium","warnings":[]}]
     candidate.write_text(json.dumps(raw))
     paths={"source_artifact":tmp_path/artifact.uri.removeprefix("repo://"),"source_span_index":span,"candidate_graph":candidate}
     components={key:ExtractionRunComponentRef(kind=key,uri="repo://"+path.relative_to(tmp_path).as_posix(),
