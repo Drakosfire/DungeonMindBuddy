@@ -2342,6 +2342,19 @@ def confirm_extract_promote_via_dungeonmind(
     _reprove_pinned_canonical_identity_bindings(
         package=package, context=mutation_context,
     )
+    if (package.get("effect") or {}).get("recap_source_observation_basis") is not None:
+        from apps.live_control_server.services.recap_source_observation_prepare import (
+            reprove_recap_source_observation_binding,
+            RecapSourceObservationPrepareError,
+        )
+        try:
+            reprove_recap_source_observation_binding(
+                bundle=bundle, package=package, repo_root=repo_root,
+            )
+        except RecapSourceObservationPrepareError as exc:
+            raise WorldGraphWriteError(
+                str(exc), code="governed_write_source_observation_drift",
+            ) from exc
     _verified, contribution = _reconstruct_selected_contribution(
         package=package,
         world_id=world_id,

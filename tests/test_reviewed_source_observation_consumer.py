@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 from unittest.mock import patch
+import os
+import pytest
 
 from dungeonmind.application.world_graph_retrieval import ReviewedSourceObservation
 from dungeonmind.contracts.vocabulary import Visibility
@@ -30,6 +32,115 @@ from graph_memory.retrieval.models import (
     WorldGraphRetrievalResult,
     WorldGraphSourceAnchor,
 )
+from tests.test_recap_source_observation_followup import (
+    observation_case as observation_case, review_and_confirm, TEXT,
+)
+
+
+def _verify_real_published_observation(case, receipt, node_id):
+    """Actual PostgreSQL projection; no fabricated observation or consumer stub."""
+    from apps.live_control_server.services.world_graph_retrieval import read_source_anchor_internal_v2
+    from graph_memory.retrieval.models import (
+        WorldGraphSourceAnchorReadRequest, RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA,
+    )
+    from graph_memory.interaction.session_store import get_session
+    child=receipt["committed_revision_id"]
+    ctx={"worldId":case["world"],"campaignId":"longmont-c2","admissibility":"gm",
+        "revisionPin":child,"focus":{"kind":"session","sessionId":"session-22","campaignId":"longmont-c2"}}
+    request=WorldGraphObjectRequest.model_validate({
+        **ctx,"schema":RETRIEVAL_OBJECT_REQUEST_SCHEMA,"nodeId":node_id})
+    services=direct.direct_services_from_config(case["world"])
+    native=services.retrieval.get_complete_object(
+        direct._map_retrieval_context(request,services.binding),object_id=node_id)
+    assert native.found and native.object.summary is None
+    assert len(native.reviewed_source_observations)==1
+    observation=native.reviewed_source_observations[0]
+    assert observation.text==TEXT.strip()
+    assert observation.contribution_id==receipt["contribution_id"]
+    assert observation.publication_revision_id==child
+    assert observation.source_artifact_id==case["artifact"].source_artifact_id
+    assert observation.source_revision_id=="sha256:"+case["artifact"].content_sha256
+    clear_sessions()
+    try:
+        session=GraphRetrievalSession(
+            snapshot=SessionSnapshot(world_id=case["world"],campaign_id="longmont-c2",
+                revision_id=child,focus=ctx["focus"]),
+            question="What did the clerk do?",preflight_candidate_ids=[node_id])
+        create_session(session)
+        result=execute_expand_graph_retrieval({
+            "schema":"dmb_expand_graph_retrieval_request_v1","retrievalSessionId":session.id,
+            "operation":"object","targets":[{"kind":"node","id":node_id}]})
+        assert result["reviewedSourceObservations"][0]["text"]==TEXT.strip()
+        current=get_session(session.id)
+        claim=current.claim_by_id(observation.assertion_id)
+        assert claim.claim_kind=="source_observation"
+        assert claim.review_id==observation.review_id
+        assert claim.contribution_id==receipt["contribution_id"]
+        assert claim.source_revision_id==observation.source_revision_id
+        assert claim.support.source_anchor_ids
+        for anchor_id in claim.support.source_anchor_ids:
+            opened=read_source_anchor_internal_v2(
+                WorldGraphSourceAnchorReadRequest.model_validate({
+                    **ctx,"schema":RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA,
+                    "anchorId":anchor_id,"maxChars":4000}),
+                repo_root=case["root"])
+            assert opened.result.outcome=="enough"
+            assert TEXT.strip() in opened.result.content
+            assert opened.source_revision_sha256==case["artifact"].content_sha256
+            assert opened.source_revision_id==observation.source_revision_id
+            assert opened.source_span_ref_id
+        answer=validate_structured_answer(current,None,model_prose=TEXT.strip())
+        assert any(ref.object_id==observation.assertion_id for ref in answer.graph_references)
+        assert "reviewed source observation" in answer.support_claim_ledger_text
+        assert current.operations[-1].operation=="object"
+    finally:
+        clear_sessions()
+
+
+@pytest.mark.skipif(not os.environ.get("DMB_RECAP_OBSERVATION_TEST_DATABASE_URL"),
+                    reason="dedicated disposable Core database required")
+def test_actual_producer_publication_native_harness_answer_and_source_open(observation_case):
+    case=observation_case
+    package=case["package"]
+    selected=[a["assertion_id"] for a in package["effect"]["accepted_proposals"]]
+    node=next(a for a in package["effect"]["accepted_proposals"] if a["assertion_kind"]=="node")
+    original=case["bundle"].world_graph.get_revision(case["world"],package["effect"]["parent_revision_id"]).graph_payload
+    receipt,_,_=review_and_confirm(case,package,selected)
+    child=case["bundle"].world_graph.get_revision(case["world"],receipt["committed_revision_id"]).graph_payload
+    for obj in original["objects"]:
+        assert next(row for row in child["objects"] if row["object_id"]==obj["object_id"])==obj
+    assert original["relationships"]==child["relationships"]
+    _verify_real_published_observation(case,receipt,node["subject_node_id"])
+
+
+@pytest.mark.skipif(not os.environ.get("DMB_RECAP_OBSERVATION_TEST_DATABASE_URL"),
+                    reason="dedicated disposable Core database required")
+def test_actual_node_only_then_source_proven_observation_followup(observation_case):
+    from apps.live_control_server.services.recap_source_observation_prepare import prepare_recap_source_observations
+    from apps.live_control_server.services.graph_object_authoring_prepare import GraphObjectAuthoringObjectRefPayload
+    case=observation_case
+    package=case["package"]
+    node=next(a for a in package["effect"]["accepted_proposals"] if a["assertion_kind"]=="node")
+    first,old_bytes,_=review_and_confirm(case,package,[node["assertion_id"]])
+    request=WorldGraphObjectRequest.model_validate({
+        "schema":RETRIEVAL_OBJECT_REQUEST_SCHEMA,"worldId":case["world"],
+        "campaignId":"longmont-c2","revisionPin":first["committed_revision_id"],
+        "nodeId":node["subject_node_id"]})
+    services=direct.direct_services_from_config(case["world"])
+    native=services.retrieval.get_complete_object(
+        direct._map_retrieval_context(request,services.binding),object_id=node["subject_node_id"])
+    assert native.object.summary is None and native.reviewed_source_observations==()
+    old_payload=case["bundle"].world_graph.get_revision(case["world"],first["committed_revision_id"]).graph_payload
+    prepared=prepare_recap_source_observations(
+        bundle=case["bundle"],managed_world_id="managed-test",source_run_id=case["run_id"],
+        historical_publication_revision_id=first["committed_revision_id"],
+        historical_package_bytes=old_bytes,subjects=[GraphObjectAuthoringObjectRefPayload(
+            refKind="existing_graph_node",nodeId=node["subject_node_id"],label="exact",kind="npc")],
+        repo_root=case["root"])
+    selected=[a["assertion_id"] for a in prepared["review_package"]["effect"]["accepted_proposals"]]
+    receipt,_,_=review_and_confirm(case,prepared["review_package"],selected)
+    assert case["bundle"].world_graph.get_revision(case["world"],receipt["committed_revision_id"]).graph_payload==old_payload
+    _verify_real_published_observation(case,receipt,node["subject_node_id"])
 
 
 def _observation() -> ReviewedSourceObservation:

@@ -113,6 +113,13 @@ admission, deployment or semantic acceptance is not claimed by this PR.
 Stop on changed bytes, run/status/scope/binding/head, path escape, required catalog
 effects outside the C2S1 pair, or any need for graph confirmation/model calls.
 
+Reviewed recap observation producer compatibility: pending source-proven
+observation packages require the new internal binding validator/publisher from
+`HANDOFF-BUDDY-reviewed-recap-source-observations.md`; a rollback to the #1073
+publisher must not attempt to confirm those new packages. Already finalized
+attributes remain readable through the existing Core observation facet. This
+operation adds no Core migration, artifact-root setting or data-restore step.
+
 ## Completed 2026-10-06 rollout
 
 **Status:** COMPLETE; runtime lease returned to PRIME on 2026-10-06. PRIME reviewed draft PR #978 at head `1c8c14c75f16a2bbe2ba3288e4ddd01c32a7b9db` and explicitly activated this bounded operational lease, conditional on every fresh preflight and stop condition below. The completed execution moved only the owned runtime to exact target `521a63518a1dd0188b76244c5382d8fb897878d4`.

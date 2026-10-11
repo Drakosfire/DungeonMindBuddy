@@ -540,6 +540,46 @@ def contribution_slices_from_effect(effect: Mapping[str, Any]) -> list[dict[str,
     ]
 
 
+def validate_recap_source_observation_basis(effect: Mapping[str, Any]) -> None:
+    proof = effect.get("recap_source_observation_basis")
+    if proof is None:
+        return
+    if not isinstance(proof, Mapping) or proof.get("schema") != "dmb_recap_source_observation_basis_v1":
+        raise PromoteProposalError("invalid existing-subject observation proof")
+    if proof.get("world_id") != effect.get("world_id") or proof.get("parent_revision_id") != effect.get("parent_revision_id"):
+        raise PromoteProposalError("observation proof parent/World drift")
+    subjects = proof.get("subjects")
+    if not isinstance(subjects, list) or not subjects:
+        raise PromoteProposalError("observation proof has no subjects")
+    ids = [row.get("observation_assertion_id") for row in subjects]
+    if len(set(ids)) != len(ids):
+        raise PromoteProposalError("duplicate observation proof subjects")
+    accepted = effect.get("accepted_proposals") or []
+    if effect.get("rejected_assertions") or effect.get("unresolved_mentions"):
+        raise PromoteProposalError("observations-only proof cannot carry other proposal effects")
+    if set(ids) != {a.get("assertion_id") for a in accepted}:
+        raise PromoteProposalError("observation proof does not cover sealed descriptors")
+    by_id = {row["observation_assertion_id"]:row for row in subjects}
+    source = effect.get("source_admission") or {}
+    for assertion in accepted:
+        row = by_id[assertion["assertion_id"]]
+        value = assertion.get("value") or {}
+        text = value.get("summary")
+        if (
+            assertion.get("assertion_kind") != "attribute"
+            or assertion.get("predicate") != "session_observation"
+            or assertion.get("subject_node_id") != row.get("subject_id")
+            or assertion.get("target_node_id") is not None
+            or assertion.get("identity_resolution_outcome") != "resolved_existing"
+            or not isinstance(text, str) or not text.strip()
+            or hashlib.sha256(text.encode()).hexdigest() != row.get("description_sha256")
+            or assertion.get("source_artifact_id") != effect.get("source_artifact_id")
+            or assertion.get("source_revision_id") != effect.get("source_revision_id")
+            or proof.get("source_body_sha256") != source.get("content_sha256")
+        ):
+            raise PromoteProposalError("existing-subject observation descriptor drift")
+
+
 def verify_source_local_identity_basis(
     effect: Mapping[str, Any], *, candidate_sha256: str | None = None,
     candidate_graph: Mapping[str, Any] | None = None,
@@ -612,6 +652,17 @@ def verify_source_local_identity_basis(
                     {key: str(value) for key, value in expected.items()}, str(local_id)
                 ) or node_map.get(local_id) != proposed or outcomes.get(local_id) != "created_new":
                     raise PromoteProposalError("source-local identity mapping mismatch")
+            elif classification == "source_proven_existing":
+                validate_recap_source_observation_basis(effect)
+                proof = effect.get("recap_source_observation_basis") or {}
+                rows = [row for row in proof.get("subjects", []) if row.get("raw_node_id") == local_id]
+                if (
+                    len(rows) != 1 or outcomes.get(local_id) != "resolved_existing"
+                    or proposed != rows[0].get("subject_id") or node_map.get(local_id) != proposed
+                    or proposed != _qualified_source_local_id(
+                        {key:str(value) for key,value in expected.items()}, str(local_id))
+                ):
+                    raise PromoteProposalError("source-proven existing-subject identity drift")
             elif classification == "reviewed_canonical":
                 if (
                     outcomes.get(local_id) not in {"resolved_existing", "human_override"}
@@ -785,6 +836,7 @@ def verify_promote_proposal(
             )
 
     accepted = _parse_assertions(effect.get("accepted_proposals"))
+    validate_recap_source_observation_basis(effect)
     resolved_selection: dict[str, set[str]] | None = None
     if selected_assertion_ids is not None:
         resolved_selection = resolve_slice_qualified_selection(

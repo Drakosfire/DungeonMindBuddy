@@ -1,6 +1,64 @@
 # HANDOFF — BUDDY reviewed recap source observations
 
-**Status:** DESIGN REVIEW / BLOCKED implementation — Root review of this exact branch/commit and recorded activation required before implementation.
+**Status:** ACTIVE implementation; code and owning evidence ready for committed-head PRIME review. PRIME activated this lease after reviewing design head `de7cd03e` (review `6114057417`), merged as PR #1074 at `70a64971d725c69478e3bf653689f785317c6259`.
+**Implementation authority:** PRIME activation message on 2026-10-11; base/current main `70a64971d725c69478e3bf653689f785317c6259`; branch `codex/reviewed-recap-source-observations`; durable isolated checkout `/home/drakosfire/.codex/worktrees/buddy-artifact-data-root/DungeonMindBuddy`. Core pin stays `ba6069b91e1a608f125548860502a69b4c3e3fc6`. The former BLOCKED gate is revoked by this activation.
+**Sync set:** this handoff activation/status/evidence only. The existing #1073 rollout handoff changes only if this operation changes its owned deployment/rollback meaning. No other bookkeeping documents or retained-World mutation are leased.
+
+**Implementation settlement:** Fresh recap node descriptions are separate default-off
+attribute proposals, with exact node dependencies and actual text/source/span
+presentation. Both single/multi-slice backends reject missing attribute subjects
+and exclude observations from implicit selection. Verified existing-identity
+support reuses the descriptor without duplicating it. Existing-subject preparation
+is internal and attribute-only; it verifies historical finalized publication,
+review/contribution digests, accepted source-local creation, exact run/body/span/
+candidate hashes, qualified dm_kind, active current subject and parent lineage.
+It seals those proofs and re-proves them before confirmation. Already published
+same-source descriptions cannot be proposed again. No label binding, node-create,
+alias, role or canonical-summary update supplies the follow-up.
+
+**Owning evidence (2026-10-11):** Author's five named files
+`test_candidate_graph_to_contribution`, `test_recap_source_observation_producer`,
+`test_recap_source_observation_followup`, `test_reviewed_extract_confirmation`,
+`test_reviewed_source_observation_consumer`: **46 passed, 1 skipped** on the working
+tree. The skipped owning PostgreSQL recovery test was then run alone against a
+fresh `dmb_reviewed_extract_test_source_observations` database: **1 passed**.
+Thus it is not an unperformed integration witness. PRIME independently ran these
+files plus `test_promote_stage_d_proposals`: **56 passed, 1 skipped**; its skip
+was the same unset dedicated recovery URL, before the author supplied that fixture.
+No skipped result is counted as an independent PRIME PASS.
+
+Commands use the unchanged installed Core pin `ba6069b9`, Python 3.13, the
+disposable loopback PostgreSQL at **55443**, a `dmb_observation_test_*` Core database
+and separate disposable APP databases. No retained database, operator APP state,
+API/provider/model call or dependency synchronization was used.
+The actual integrated producer creates canonical source/run evidence, publishes
+through trusted reviewed confirmation, reads native complete-object observations,
+executes ordinary Harness object expansion and answer validation, and opens the
+real digest-pinned source anchor containing the reviewed quote. The source opener
+receives its existing server-owned artifact-repository argument; no content or
+observation is injected. Node-only publication yields no observation; the
+source-proven follow-up yields one without changing graph payload, authored
+fields, previous publication or identity state. Wrong historical package/subject/
+publication/kind (including invented kind suffix), source/body/span/candidate,
+resealed text or current-subject fingerprint fails. Replays follow the existing
+idempotency path. The actual consumer assertions were independently checked by
+PRIME; injected legacy consumer unit fixtures are not this integration evidence.
+
+One fixture correction used admitted `character` input (mapped NPC), canonical
+v6 seed payload, the canonical source seal and APP revision CAS. The genuine kind
+proof compares current Core kind to historical `dm_kind`; arbitrary suffix
+equality was removed in favor of the existing qualification map.
+Automatic approval review rejected an incomplete default-off producer patch and
+a proposed mutation-context replacement. No such bypass is in the implementation:
+the producer is guarded at projection/reconstruction, and the production
+mutation-context loader is unchanged. No retained C2S1 follow-up is executed here.
+Final head, Ruff/diff results and PR URL are recorded in the PR handback rather
+than inventing this document's own commit hash.
+
+**Rollback meaning:** The existing #1073 operator handoff gains only a compatibility
+note for pending source-proven observation packages: they require this publisher's
+proof validator. Already finalized observations remain readable by the unchanged
+Core/facet contract. No data rollback, root change or migration is required.
 **Owner:** Buddy producer and review orchestration; DungeonMind owns finalized review materialization and the existing observation read facet.
 **PR topology:** serial. One assigned Buddy implementation PR; no companion Core PR.
 **Design base:** Buddy `78b0ab1236303577c8dfaf283ca59be47b09f4bc` (#1073); Core pin `ba6069b91e1a608f125548860502a69b4c3e3fc6`.
