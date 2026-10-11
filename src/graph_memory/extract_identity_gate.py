@@ -22,6 +22,8 @@ from graph_memory.candidate_graph_to_contribution import (
     map_candidate_edge_to_assertion,
     map_candidate_node_to_assertion,
     map_connect_existing_support_assertions,
+    map_recap_source_observation,
+    is_recap_source_observation,
     require_single_verified_source_artifact,
 )
 from graph_memory.extract_promote_proposal import (
@@ -671,6 +673,16 @@ def gate_candidate_graph_against_head(
                     kind_override=known_anchor.kind if known_anchor is not None else None,
                 )
             )
+            if kind == "source_extraction":
+                description = map_recap_source_observation(
+                    node, durable_node_id=durable_id, source_revision_id=revision_id,
+                    verified_source_artifact_id=artifact_id, campaign_scope=scope,
+                    source_domain=source_domain, session_id=session_id, campaign_id=campaign_id,
+                    source_uri=source_uri, identity_resolution_outcome=resolution.outcome,
+                    kind_override=known_anchor.kind if known_anchor is not None else None,
+                )
+                if description is not None:
+                    support_assertions[0] = description
             accepted_proposals.extend(support_assertions)
             diagnostics.extend(alias_skip_diagnostics)
             continue
@@ -690,6 +702,18 @@ def gate_candidate_graph_against_head(
                 subject_node_id_override=durable_id,
             )
         )
+        if kind == "source_extraction" and resolution.outcome == "created_new":
+            description = map_recap_source_observation(
+                node, durable_node_id=durable_id, source_revision_id=revision_id,
+                verified_source_artifact_id=artifact_id, campaign_scope=scope,
+                source_domain=source_domain, session_id=session_id, campaign_id=campaign_id,
+                source_uri=source_uri, identity_resolution_outcome=resolution.outcome,
+                kind_override=object_kind,
+            )
+            if description is not None:
+                # Separate technical proposal: both reconstruction paths exclude
+                # it unless its assertion ID is explicitly selected.
+                accepted_proposals.append(description)
 
     if include_edges:
         mapped = set(node_id_map)
@@ -921,7 +945,8 @@ def build_accepted_contribution_from_proposals(
     selected = [
         assertion
         for assertion in gate.accepted_proposals
-        if allow is None or assertion.assertion_id in allow
+        if (allow is None and not is_recap_source_observation(assertion))
+        or (allow is not None and assertion.assertion_id in allow)
     ]
     if not selected:
         raise CandidateGraphMappingError("no accepted proposals selected for merge")
@@ -943,6 +968,10 @@ def build_accepted_contribution_from_proposals(
 
     filtered: list[GraphContributionAssertion] = []
     for assertion in selected:
+        if assertion.assertion_kind == "attribute" and not _endpoint_available(
+            assertion.subject_node_id or "", selected_node_subjects=node_subjects, context=pinned_context,
+        ):
+            raise CandidateGraphMappingError("selected attribute subject is neither selected nor on pinned parent")
         if assertion.assertion_kind == "edge":
             subject = assertion.subject_node_id
             target = assertion.target_node_id
@@ -1043,7 +1072,8 @@ def build_accepted_contribution_from_multi_slice_proposals(
         selected = [
             assertion
             for assertion in gate.accepted_proposals
-            if allow is None or assertion.assertion_id in allow
+            if (allow is None and not is_recap_source_observation(assertion))
+            or (allow is not None and assertion.assertion_id in allow)
         ]
         if selected:
             active.append((slice_id, gate, selected))
@@ -1082,6 +1112,10 @@ def build_accepted_contribution_from_multi_slice_proposals(
     filtered: list[GraphContributionAssertion] = []
     for slice_id, _gate, selected in active:
         for assertion in selected:
+            if assertion.assertion_kind == "attribute" and not _endpoint_available(
+                assertion.subject_node_id or "", selected_node_subjects=node_subjects, context=pinned_context,
+            ):
+                raise CandidateGraphMappingError("selected attribute subject is neither selected in atomic batch nor on pinned parent")
             selection_coords.append(
                 f"{slice_id}{SLICE_SELECTOR_DELIMITER}{assertion.assertion_id}"
             )

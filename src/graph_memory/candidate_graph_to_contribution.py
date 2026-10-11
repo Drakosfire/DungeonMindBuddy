@@ -501,6 +501,55 @@ def map_connect_existing_support_assertions(
     return assertions, tuple(skip_diagnostics)
 
 
+def is_recap_source_observation(assertion: GraphContributionAssertion) -> bool:
+    value = assertion.value or {}
+    return (
+        assertion.assertion_kind == "attribute"
+        and assertion.predicate == "session_observation"
+        and isinstance(value.get("summary"), str)
+        and bool(value["summary"].strip())
+        and any(domain in {"recap", "session_recap"} for domain in value.get("source_domains", []))
+    )
+
+
+def map_recap_source_observation(
+    node: CandidateNode, *, durable_node_id: str, source_revision_id: str,
+    verified_source_artifact_id: str, campaign_scope: str | None,
+    source_domain: str = "recap", session_id: str | None = None,
+    campaign_id: str | None = None, source_uri: str | None = None,
+    identity_resolution_outcome: str = "created_new", kind_override: str | None = None,
+) -> GraphContributionAssertion | None:
+    """Build a description proposal; publication requires an explicit selection."""
+    if source_domain not in {"recap", "session_recap"} or not (node.description or "").strip():
+        return None
+    admitted = map_candidate_node_to_assertion(
+        node, source_revision_id=source_revision_id,
+        verified_source_artifact_id=verified_source_artifact_id, campaign_scope=campaign_scope,
+        source_domain=source_domain, session_id=session_id, campaign_id=campaign_id,
+        source_uri=source_uri, acceptance_state="accepted",
+        identity_resolution_outcome=identity_resolution_outcome, kind_override=kind_override,
+        subject_node_id_override=durable_node_id,
+    )
+    support, _ = map_connect_existing_support_assertions(
+        node, durable_node_id=durable_node_id, source_revision_id=source_revision_id,
+        verified_source_artifact_id=verified_source_artifact_id, campaign_scope=campaign_scope,
+        source_domain=source_domain, session_id=session_id, campaign_id=campaign_id,
+        source_uri=source_uri, identity_resolution_outcome=identity_resolution_outcome,
+        kind_override=kind_override,
+    )
+    observation = support[0]
+    return build_assertion(
+        assertion_kind="attribute", acceptance_state="accepted",
+        subject_node_id=durable_node_id, predicate="session_observation", label=observation.label,
+        value={**observation.value, "session_ids": [session_id] if session_id else []},
+        evidence_ref_ids=observation.evidence_ref_ids,
+        source_artifact_id=observation.source_artifact_id, source_revision_id=source_revision_id,
+        campaign_scope=campaign_scope, temporal_scope=admitted.temporal_scope,
+        visibility=admitted.visibility, epistemic_kind=admitted.epistemic_kind,
+        identity_resolution_outcome=identity_resolution_outcome,
+    )
+
+
 def map_candidate_edge_to_assertion(
     edge: CandidateEdge,
     *,

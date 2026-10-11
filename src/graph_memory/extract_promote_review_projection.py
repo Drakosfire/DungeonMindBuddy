@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from graph_memory.extract_identity_gate import IdentityGateResult
+from graph_memory.candidate_graph_to_contribution import is_recap_source_observation
 from graph_memory.extract_promote_proposal import SLICE_SELECTOR_DELIMITER
 from apps.live_control_server.models.world_graph_contribution_models import (
     ContributionIdentityMention,
@@ -91,7 +92,7 @@ def project_promote_review(
         items.append(item)
         if item.kind == "relationship":
             relationships += 1
-        elif item.action == "create":
+        elif item.kind == "object" and item.action == "create":
             new_objects += 1
         elif item.action == "connect_existing":
             connect_existing += 1
@@ -181,6 +182,10 @@ def _action_from_outcome(outcome: str) -> ReviewItemAction:
 
 
 def _evidence_summary(assertion: GraphContributionAssertion) -> str | None:
+    if is_recap_source_observation(assertion):
+        spans = sorted({str(ref.get("source_span_ref_id") or "") for ref in
+                        assertion.value.get("evidence", []) if ref.get("source_span_ref_id")})
+        return f"source {assertion.source_artifact_id}@{assertion.source_revision_id}; spans: " + ", ".join(spans)
     refs = [str(r).strip() for r in (assertion.evidence_ref_ids or []) if str(r).strip()]
     if refs:
         return f"{len(refs)} evidence ref{'s' if len(refs) != 1 else ''}"
@@ -299,6 +304,8 @@ def _summary_for_accepted(
     label_by_node_id: dict[str, str],
 ) -> str:
     kind = _kind_from_assertion(assertion)
+    if is_recap_source_observation(assertion):
+        return "Source observation: " + assertion.value["summary"]
     if kind == "relationship":
         return f"Add relationship: {_relationship_display(assertion, label_by_node_id=label_by_node_id)}"
     label = _label_for_assertion(assertion, label_by_node_id=label_by_node_id)
@@ -348,6 +355,10 @@ def _item_from_accepted_assertion(
             create_node_assertion_ids=create_node_assertion_ids,
             contribution_slice_id=contribution_slice_id,
         )
+    elif kind == "attribute" and subject in create_node_assertion_ids:
+        depends_on = [_slice_qualified_id(
+            contribution_slice_id, create_node_assertion_ids[subject],
+        )]
     return PromoteReviewItem(
         assertion_id=assertion.assertion_id,
         kind=kind,
@@ -368,7 +379,7 @@ def _item_from_accepted_assertion(
         evidence_summary=_evidence_summary(assertion),
         warnings=[],
         selectable=True,
-        selected_by_default=True,
+        selected_by_default=not is_recap_source_observation(assertion),
         depends_on_slice_qualified_ids=depends_on,
     )
 
