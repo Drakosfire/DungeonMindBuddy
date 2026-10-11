@@ -278,6 +278,7 @@ def prepare_extract_promote(
     campaign_scope: str | None = None,
     extraction_profile: str | None = "current_default",
     candidate_identity_sha256: str | None = None,
+    source_proven_endpoints: Mapping[str, Mapping[str, Any]] | None = None,
     node_ids: Sequence[str] | None = None,
     include_edges: bool = True,
     candidate_graph_path: str | None = None,
@@ -353,6 +354,7 @@ def prepare_extract_promote(
             source_kind="source_extraction",
             source_domain="recap",
             candidate_identity_sha256=candidate_identity_sha256,
+            source_proven_endpoints=source_proven_endpoints,
             node_ids=tuple(node_ids) if node_ids is not None else None,
             include_edges=include_edges,
         )
@@ -395,6 +397,7 @@ def prepare_extract_promote(
             source_kind="source_extraction",
             source_domain="recap",
             candidate_identity_sha256=candidate_identity_sha256,
+            source_proven_endpoints=source_proven_endpoints,
             node_ids=tuple(node_ids) if node_ids is not None else None,
             include_edges=include_edges,
         )

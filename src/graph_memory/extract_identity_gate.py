@@ -432,6 +432,7 @@ def gate_candidate_graph_against_head(
     source_uri: str | None = None,
     source_kind: str = "source_extraction",
     candidate_identity_sha256: str | None = None,
+    source_proven_endpoints: Mapping[str, Mapping[str, Any]] | None = None,
     node_ids: Sequence[str] | None = None,
     include_edges: bool = True,
     mutation_context: WorldGraphMutationContext | None = None,
@@ -537,6 +538,31 @@ def gate_candidate_graph_against_head(
 
     for node in nodes:
         extract_id = node.node_id
+        endpoint = (source_proven_endpoints or {}).get(extract_id)
+        if endpoint is not None:
+            from apps.live_control_server.models.world_graph_mutation_context import wire_kind
+            target = endpoint.get("subject_id")
+            if (
+                kind != "source_extraction" or source_local_basis is None
+                or endpoint.get("world_id") != world_id
+                or endpoint.get("parent_revision_id") != mutation_context.revision_id
+                or endpoint.get("source_artifact_id") != artifact_id
+                or endpoint.get("source_revision_id") != revision_id
+                or endpoint.get("candidate_digest") != source_local_basis["candidate_sha256"]
+                or target not in mutation_context.objects
+                or target != _qualified_source_local_id(source_local_basis, extract_id)
+                or wire_kind(str(endpoint.get("subject_kind") or ""))
+                != wire_kind(mutation_context.objects[target].kind)
+            ):
+                raise CandidateGraphMappingError("source-proven endpoint binding differs from exact candidate/source/parent")
+            node_id_map[extract_id] = target
+            identity_outcome_snapshot[extract_id] = "resolved_existing"
+            identity_nodes[extract_id] = {
+                "classification":"source_proven_endpoint","proposed_node_id":target,
+                "outcome":"resolved_existing",
+            }
+            diagnostics.append(f"source_proven_endpoint_only:{extract_id}->{target}")
+            continue
         label = node.label or extract_id
         node_aliases = _candidate_aliases(node)
         known_anchor = _reviewed_binding_anchor(
