@@ -16,6 +16,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Mapping
 
 
+from apps.live_control_server.config import artifact_data_root
 from apps.live_control_server.services.graph_ingest_run_registry import (
     GraphIngestRunSummary,
     UNUSABLE_SOURCE_RECAP_DIGEST,
@@ -155,7 +156,7 @@ def inspect_recap_graph_preview_status(
     """Return latest graph-ingest status for a recap session without writing files."""
 
 
-    repo = repo_root.resolve()
+    repo = artifact_data_root(repo_root)
     source_recap_path, source_recap_sha256 = _lineage_for_normalized_recap(
         repo, normalized_recap_path
     )
@@ -193,7 +194,7 @@ def build_recap_graph_preview_bundle(
 
     if ingest_context is None:
         raise ValueError("managed World/campaign ingestion context is required")
-    repo = repo_root.resolve()
+    repo = artifact_data_root(repo_root)
     normalized = _resolve_existing_readable_path(normalized_recap_path, field_name="normalized_recap_path")
     source_recap_path, source_recap_sha256 = _lineage_for_normalized_recap(
         repo, normalized_recap_path
@@ -343,7 +344,7 @@ def build_recap_graph_preview_bundle(
             campaign_id=campaign_id,
             session_id=f"session-{session}",
             normalized_recap_path=packaging_source,
-            output_dir=run_dir,
+            output_dir=run_dir.relative_to(repo),
             source_label=f"{campaign_id} session {session} normalized recap",
             allow_llm=False,
             model_id=graph_model_id,
@@ -477,7 +478,7 @@ def materialize_recap_preview_supergraph(
 
     if ingest_context is None:
         raise ValueError("managed World/campaign ingestion context is required")
-    repo = repo_root.resolve()
+    repo = artifact_data_root(repo_root)
     source_recap_path, source_recap_sha256 = _lineage_for_normalized_recap(
         repo, normalized_recap_path
     )
@@ -1382,7 +1383,10 @@ def _new_run_dir(repo: Path, campaign_id: str, session: int) -> Path:
     while (repo / path).exists():
         suffix += 1
         path = base.with_name(f"{base.name}-{suffix}")
-    return path
+    resolved = (repo / path).resolve()
+    if ".." in path.parts or not resolved.is_relative_to(repo.resolve()):
+        raise ValueError("graph-ingest output escapes artifact repository")
+    return resolved
 
 
 def _resolve_existing_readable_path(value: str | None, *, field_name: str) -> Path:
@@ -1390,7 +1394,10 @@ def _resolve_existing_readable_path(value: str | None, *, field_name: str) -> Pa
         raise ValueError(f"{field_name} is required")
     if value.startswith("file:"):
         raise ValueError(f"{field_name} must be a filesystem path, not a file URI")
-    path = Path(value).expanduser().resolve()
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        path = artifact_data_root(Path.cwd()) / path
+    path = path.resolve()
     if not path.exists():
         raise FileNotFoundError(f"{field_name} does not exist: {value}")
     if not path.is_file():

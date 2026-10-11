@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from apps.live_control_server.config import artifact_data_root
+
 from apps.live_control_server.services.source_artifact_registry import (
     SourceArtifactRegistryError,
     get_source_artifact,
@@ -278,7 +280,7 @@ def read_admitted_worldbuilding_span(
 
     try:
         read_outcome = read_repo_line_span_text(
-            repo_root=root,
+            repo_root=artifact_data_root(root),
             relative_path=relative_path,
             start_line=int(span.start_line),
             end_line=int(span.end_line),

@@ -66,6 +66,8 @@ def _raise_registry(exc: ApplicationStateError) -> NoReturn:
 
 
 def _resolve_repo_contained_uri(root: Path, uri: str) -> Path:
+    from apps.live_control_server.config import ArtifactDataRootError, artifact_data_root
+
     raw = uri or ""
     if not raw:
         raise GraphRunRegistryError("component uri is required", status_code=422)
@@ -81,7 +83,10 @@ def _resolve_repo_contained_uri(root: Path, uri: str) -> Path:
     candidate = Path(value)
     if candidate.is_absolute() or ".." in candidate.parts:
         raise GraphRunRegistryError(f"unsafe component uri: {uri}", status_code=422)
-    resolved_root = root.resolve()
+    try:
+        resolved_root = artifact_data_root(root)
+    except ArtifactDataRootError as exc:
+        raise GraphRunRegistryError(str(exc), status_code=503) from exc
     resolved = (resolved_root / value).resolve()
     if not resolved.is_relative_to(resolved_root):
         raise GraphRunRegistryError(f"component uri escapes repository root: {uri}", status_code=422)

@@ -10,6 +10,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field, ValidationError
 
+from apps.live_control_server.config import ArtifactDataRootError, artifact_data_root
+
 from apps.live_control_server.services.tiptap_markdown_write import (
     TiptapMarkdownWriteError,
     authorize_target_for_record,
@@ -66,12 +68,19 @@ class SourceArtifactRegistryDocument(BaseModel):
     records: list[GraphMemorySourceArtifact] = Field(default_factory=list)
 
 
+def _artifact_root(root: Path) -> Path:
+    try:
+        return artifact_data_root(root)
+    except ArtifactDataRootError as exc:
+        raise SourceArtifactRegistryError(str(exc), status_code=503) from exc
+
+
 def _utc_now_iso() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
 def source_artifacts_path(root: Path) -> Path:
-    return root / DEFAULT_SOURCE_ARTIFACT_REGISTRY_REL
+    return _resolve_registry_content_path(root, DEFAULT_SOURCE_ARTIFACT_REGISTRY_REL)
 
 
 def _normalize_committed_markdown(markdown: str) -> str:
@@ -105,7 +114,10 @@ def _require_safe_path_segment(value: str, *, field_name: str) -> str:
 
 def _resolve_registry_content_path(root: Path, relpath: str) -> Path:
     """Resolve ``root / relpath`` and reject escapes outside ``root``."""
-    resolved_root = root.resolve()
+    relative = Path(relpath)
+    if relative.is_absolute() or ".." in relative.parts:
+        raise SourceArtifactRegistryError("unsafe artifact path", status_code=422)
+    resolved_root = _artifact_root(root)
     target = (resolved_root / relpath).resolve()
     if not target.is_relative_to(resolved_root):
         raise SourceArtifactRegistryError(
@@ -135,7 +147,7 @@ def source_span_index_relpath(source_artifact_id: str) -> str:
 
 
 def source_span_index_path(root: Path, source_artifact_id: str) -> Path:
-    return root / source_span_index_relpath(source_artifact_id)
+    return _resolve_registry_content_path(root, source_span_index_relpath(source_artifact_id))
 
 
 def _validate_registry_records(records: list[GraphMemorySourceArtifact]) -> None:
@@ -242,7 +254,7 @@ def _persist_span_index(root: Path, index: SourceSpanIndex) -> str:
         content_sha256=index.content_sha256,
     )
     relpath = source_span_index_relpath(index.source_artifact_id)
-    path = root / relpath
+    path = _resolve_registry_content_path(root, relpath)
     path.parent.mkdir(parents=True, exist_ok=True)
     write_json(path, source_span_index_to_dict(index))
     return relpath
@@ -282,6 +294,7 @@ def resolve_worldbuilding_source_span(
     span_index: int = 0,
 ):
     """Load one persisted worldbuilding span and resolve it through the evidence resolver."""
+    root = _artifact_root(root)
     artifact = get_source_artifact(root, source_artifact_id)
     if str(artifact.source_domain) != "worldbuilding":
         raise SourceArtifactRegistryError(
@@ -349,6 +362,7 @@ def create_source_artifact_from_workspace_document(
     The per-document mutation lock is held across load/verify/read/persist so a concurrent
     Markdown commit cannot interleave target bytes with a prior workspace revision.
     """
+    root = _artifact_root(root)
     with workspace_document_mutation_lock(root, document_id):
         return _create_source_artifact_from_workspace_document_unlocked(
             root,
@@ -504,6 +518,7 @@ def _upsert_source_artifact(
     candidate: GraphMemorySourceArtifact,
     content: str,
 ) -> GraphMemorySourceArtifact:
+    root = _artifact_root(root)
     path = source_artifacts_path(root)
     with registry_mutation_lock(path):
         document, token = _load_unlocked(root)
@@ -584,6 +599,7 @@ def create_recap_source_artifact(
     repo-contained recap content root may replace that prefix).
     The caller's original recap path is read-only input and is never rewritten.
     """
+    root = _artifact_root(root)
     cleaned_campaign = _require_safe_path_segment(
         campaign_id or "", field_name="campaign_id"
     )
@@ -679,7 +695,7 @@ def load_registered_source_artifact_text(
             status_code=500,
         )
     relpath = artifact.uri.removeprefix("repo://")
-    target = root / relpath
+    target = _resolve_registry_content_path(root, relpath)
     if not target.is_file():
         raise SourceArtifactRegistryError(
             "registered source artifact file is missing",

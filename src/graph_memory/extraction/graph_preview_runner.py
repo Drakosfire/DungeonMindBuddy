@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Mapping
@@ -194,7 +194,12 @@ def _fail_run(
 
 def _run_output_dir(repo_root: Path, run_id: str, output_dir: Path | None) -> Path:
     base = output_dir or (repo_root / "out" / "graph_memory" / "runs" / "extraction")
-    return base / run_id
+    if not base.is_absolute():
+        base = repo_root / base
+    path = (base / run_id).resolve()
+    if not path.is_relative_to(repo_root.resolve()):
+        raise ValueError("extraction output escapes artifact repository")
+    return path
 
 
 def _build_prepared_components(
@@ -230,8 +235,14 @@ def run_production_extraction(
     request: ProductionExtractionRequest,
 ) -> ProductionExtractionResult:
     """Execute an exact profile-selected extraction and persist an ExtractionRun."""
+    from apps.live_control_server.config import artifact_data_root
     from apps.live_control_server.services.graph_run_registry import get_extraction_run
 
+    request = replace(request, repo_root=artifact_data_root(request.repo_root))
+    if request.output_dir is not None:
+        # Check before creating a draft or calling a model. The actual run ID
+        # is minted later, but its output must stay inside this physical base.
+        _run_output_dir(request.repo_root, "preflight", request.output_dir)
     source = request.source
     profile_qualified: str | None = None
     try:

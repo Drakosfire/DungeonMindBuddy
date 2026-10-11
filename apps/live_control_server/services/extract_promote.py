@@ -84,6 +84,17 @@ _PUBLICATION_TARGET_SCHEMA = "dmb_managed_world_publication_target_v1"
 _RECAP_CONTEXT_KEY = "world_campaign_ingest_context"
 
 
+def _artifact_root() -> Path:
+    from apps.live_control_server.config import ArtifactDataRootError, artifact_data_root
+
+    try:
+        return artifact_data_root(repo_root())
+    except ArtifactDataRootError as exc:
+        raise ExtractPromoteError(
+            str(exc), code="artifact_data_root_unavailable", status_code=503
+        ) from exc
+
+
 def _resolve_publication_target(managed_world_id: str) -> VerifiedManagedWorldBinding:
     try:
         return resolve_managed_world_binding(managed_world_id)
@@ -289,7 +300,7 @@ def _with_review_package_inspection_context(
 
 
 def _allowed_source_roots() -> list[Path]:
-    root = repo_root().resolve()
+    root = _artifact_root().resolve()
     roots = [(root / name).resolve() for name in _SOURCE_ROOT_NAMES]
     dedicated = extract_promote_source_root()
     if dedicated is not None:
@@ -322,7 +333,7 @@ def _parse_source_uri_to_path(raw_uri: str) -> Path:
             status_code=422,
             diagnostics=[_diagnostic("invalid_source_uri", "sourceUri is required")],
         )
-    root = repo_root().resolve()
+    root = _artifact_root().resolve()
     if text.startswith("repo://"):
         rel = text[len("repo://") :].lstrip("/")
         if not rel or any(part in ("", ".", "..") for part in Path(rel).parts):
@@ -334,10 +345,22 @@ def _parse_source_uri_to_path(raw_uri: str) -> Path:
                     _diagnostic("invalid_source_uri", "sourceUri repo path is invalid")
                 ],
             )
-        return (root / rel).resolve()
+        candidate = (root / rel).resolve()
+        if not candidate.is_relative_to(root):
+            raise ExtractPromoteError(
+                "source URI escapes artifact repository",
+                code="invalid_source_uri", status_code=422,
+            )
+        return candidate
     path = Path(text).expanduser()
     if not path.is_absolute():
-        return (root / path).resolve()
+        candidate = (root / path).resolve()
+        if ".." in path.parts or not candidate.is_relative_to(root):
+            raise ExtractPromoteError(
+                "source URI escapes artifact repository",
+                code="invalid_source_uri", status_code=422,
+            )
+        return candidate
     return path.resolve()
 
 
@@ -351,7 +374,7 @@ def resolve_promote_source_uri(raw_uri: str) -> str:
     run-artifact URIs are accepted only via ``assert_sealed_source_uri_allowed``.
     """
     path = _parse_source_uri_to_path(raw_uri)
-    root = repo_root().resolve()
+    root = _artifact_root().resolve()
     allowed = _allowed_source_roots()
 
 
@@ -416,7 +439,7 @@ def assert_sealed_source_uri_allowed(source_uri: str) -> None:
     Always denies durable world-graph store trees.
     """
     path = _parse_source_uri_to_path(source_uri)
-    root = repo_root().resolve()
+    root = _artifact_root().resolve()
     if is_under_world_store(path, root=root):
         raise ExtractPromoteError(
             "sourceUri must not reference the world graph store",
@@ -627,7 +650,7 @@ def _load_frozen_span_index_for_resolved_run(resolved: Any) -> Any:
     try:
         payload = load_json(span_path)
         index = source_span_index_from_dict(payload)
-        artifact = get_source_artifact(repo_root(), resolved.source_artifact_id)
+        artifact = get_source_artifact(_artifact_root(), resolved.source_artifact_id)
         validate_source_span_index(
             index,
             source_artifact_id=artifact.source_artifact_id,
@@ -916,7 +939,7 @@ def _recap_semantic_assessment(resolved, run_record=None):
     )
 
     try:
-        run = run_record or get_extraction_run(repo_root(), resolved.run_id)
+        run = run_record or get_extraction_run(_artifact_root(), resolved.run_id)
     except GraphRunRegistryError as exc:
         raise ExtractPromoteError(
             "canonical extraction run could not be re-read",
@@ -928,7 +951,7 @@ def _recap_semantic_assessment(resolved, run_record=None):
     parent_id = run.lineage.get("parent_run_id")
     if isinstance(parent_id, str) and parent_id.strip():
         try:
-            parent = get_extraction_run(repo_root(), parent_id)
+            parent = get_extraction_run(_artifact_root(), parent_id)
         except GraphRunRegistryError as exc:
             if exc.status_code != 404:
                 raise ExtractPromoteError(
@@ -939,7 +962,7 @@ def _recap_semantic_assessment(resolved, run_record=None):
             # missing parent makes its semantic basis invalid and keeps it held.
     return run, assess_recap_semantics(
         run, parent=parent, source_revision_id=resolved.source_revision_id,
-        root=repo_root(),
+        root=_artifact_root(),
     )
 
 
@@ -975,8 +998,16 @@ def _candidate_owner_for_locator(locator: str):
             code="candidate_binding_invalid", status_code=409,
         )
     try:
-        relative = path.relative_to(repo_root().resolve()).as_posix()
+        relative = path.relative_to(_artifact_root().resolve()).as_posix()
     except ValueError:
+        from apps.live_control_server.config import ARTIFACT_DATA_ROOT_ENV
+        import os
+
+        if os.environ.get(ARTIFACT_DATA_ROOT_ENV, "").strip():
+            raise ExtractPromoteError(
+                "candidate locator is outside the declared artifact repository",
+                code="candidate_binding_invalid", status_code=409,
+            ) from None
         return None
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     owners = {}
@@ -1005,7 +1036,7 @@ def _candidate_owner_for_locator(locator: str):
             code="candidate_binding_invalid", status_code=409,
         )
     if not owners and path.is_relative_to(
-        (repo_root().resolve() / "out" / "graph_memory" / "derived_candidates").resolve()
+        (_artifact_root().resolve() / "out" / "graph_memory" / "derived_candidates").resolve()
     ):
         raise ExtractPromoteError(
             "derived candidate has no exact canonical run binding",
@@ -1038,7 +1069,7 @@ def _assert_recap_semantics_at_confirm(locator: str, review_package) -> None:
             code="recap_semantic_hold", status_code=409,
         )
     try:
-        resolved = resolve_promotable_ingest_run(owner.run_id, root=repo_root())
+        resolved = resolve_promotable_ingest_run(owner.run_id, root=_artifact_root())
     except PromotableIngestRunError as exc:
         raise _promotable_run_error(exc) from exc
     if resolved.candidate_graph_path.resolve() != _parse_source_uri_to_path(locator):
@@ -1104,15 +1135,15 @@ def decide_recap_semantic_disposition(
     )
 
     try:
-        run = get_reviewable_extraction_run(repo_root(), run_id)
+        run = get_reviewable_extraction_run(_artifact_root(), run_id)
         if not is_recap_correction(run):
             raise ExtractPromoteError(
                 "run is not a corrected recap child",
                 code="recap_semantic_decision_invalid", status_code=409,
             )
         parent_id = run.lineage.get("parent_run_id")
-        parent = get_extraction_run(repo_root(), parent_id) if isinstance(parent_id, str) else None
-        artifact = get_source_artifact(repo_root(), run.source_artifact_id)
+        parent = get_extraction_run(_artifact_root(), parent_id) if isinstance(parent_id, str) else None
+        artifact = get_source_artifact(_artifact_root(), run.source_artifact_id)
     except (GraphRunRegistryError, SourceArtifactRegistryError) as exc:
         raise ExtractPromoteError(
             "canonical corrected recap evidence is unavailable",
@@ -1120,7 +1151,7 @@ def decide_recap_semantic_disposition(
         ) from exc
     assessment = assess_recap_semantics(
         run, parent=parent, source_revision_id=artifact.content_sha256,
-        root=repo_root(),
+        root=_artifact_root(),
     )
     if assessment.basis is None or assessment.basis_sha256 is None:
         raise ExtractPromoteError(
@@ -1133,7 +1164,7 @@ def decide_recap_semantic_disposition(
             code="recap_semantic_decision_conflict", status_code=409,
         )
     if request.decision == "accepted":
-        resolved = resolve_promotable_ingest_run(run_id, root=repo_root())
+        resolved = resolve_promotable_ingest_run(run_id, root=_artifact_root())
         payload = json.loads(resolved.candidate_graph_path.read_text(encoding="utf-8"))
         _assert_candidate_scope_matches_run(payload, campaign_id=run.campaign_id, session_id=run.session_id)
         _assert_and_project_candidate_evidence(
@@ -1188,7 +1219,7 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
     sealing a proposal or inventing campaign/session scope.
     """
     try:
-        resolved = resolve_promotable_ingest_run(run_id, root=repo_root())
+        resolved = resolve_promotable_ingest_run(run_id, root=_artifact_root())
     except PromotableIngestRunError as exc:
         raise ExtractPromoteError(
             str(exc),
@@ -1259,7 +1290,7 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
 
         inspect_only = _is_worldbuilding_inspect_only(resolved)
         capability = resolve_first_world_capability(
-            repo=repo_root(),
+            repo=_artifact_root(),
             world_root=world_graph_root(),
             source_domain=resolved.source_domain,
             world_id=getattr(resolved, "world_id", None),
@@ -1273,7 +1304,7 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
         derived_from_run_id: str | None = None
         semantic_assessment = None
         try:
-            run_record = get_extraction_run(repo_root(), resolved.run_id)
+            run_record = get_extraction_run(_artifact_root(), resolved.run_id)
             if run_record.lineage.get("derivation") == "operator_literal_evidence_correction_v1":
                 derived_from_run_id = str(run_record.lineage.get("parent_run_id") or "") or None
             from apps.live_control_server.services.recap_semantic_disposition import (
@@ -1358,7 +1389,7 @@ def _require_canonical_source_artifact(source_artifact_id: str):
     )
 
     try:
-        return get_source_artifact(repo_root(), source_artifact_id)
+        return get_source_artifact(_artifact_root(), source_artifact_id)
     except SourceArtifactRegistryError as exc:
         raise ExtractPromoteError(
             "canonical source artifact is unavailable for recap prepare",
@@ -1378,7 +1409,7 @@ def prepare(
         )
     target = _resolve_publication_target(request.managed_world_id)
     try:
-        resolved = resolve_promotable_ingest_run(request.run_id, root=repo_root())
+        resolved = resolve_promotable_ingest_run(request.run_id, root=_artifact_root())
     except PromotableIngestRunError as exc:
         raise _promotable_run_error(exc) from exc
 
@@ -1598,7 +1629,7 @@ def prepare(
         node_ids=request.node_ids,
         include_edges=True,
         candidate_graph_path=str(path),
-        repo_root=repo_root(),
+        repo_root=_artifact_root(),
         disclose_source_digest=False,
         registry_context_graph=registry_payload,
     )
@@ -2204,7 +2235,7 @@ def confirm(
                     database_url=_config.world_graph_authority_database_url() or "",
                     confirming_principal=SERVER_CONFIRMING_PRINCIPAL,
                     assertion_ids=normalized_assertion_ids,
-                    repo_root=repo_root(),
+                    repo_root=_artifact_root(),
                 )
 
             payload = confirm_candidate_graph_admission(

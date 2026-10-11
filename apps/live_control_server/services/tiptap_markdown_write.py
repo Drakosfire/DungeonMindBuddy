@@ -273,7 +273,14 @@ def normalize_tiptap_target_relpath(value: str) -> str:
 
 def resolve_tiptap_markdown_target(root: Path, relpath: str) -> Path:
     normalized = normalize_tiptap_target_relpath(relpath)
-    resolved_root = root.resolve()
+    from apps.live_control_server.config import ArtifactDataRootError, artifact_data_root
+
+    try:
+        resolved_root = artifact_data_root(root)
+    except ArtifactDataRootError as exc:
+        error = TiptapMarkdownWriteError(str(exc))
+        error.status_code = 503
+        raise error from exc
     target = (resolved_root / normalized).resolve()
     if not target.is_relative_to(resolved_root):
         raise TiptapMarkdownWriteError("target_relpath escapes the repository root")
