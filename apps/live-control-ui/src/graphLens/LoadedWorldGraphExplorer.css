@@ -1,0 +1,17 @@
+.loaded-graph-explorer { width: min(960px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 24px; border: 1px solid #536575; border-radius: 12px; background: #171f29; color: #e8eaef; overflow: auto; }
+.loaded-graph-explorer::backdrop { background: #000a; }
+.loaded-graph-explorer header { display: flex; justify-content: space-between; align-items: start; gap: 16px; }
+.loaded-graph-explorer h2, .loaded-graph-explorer h3 { margin-top: 0; }
+.loaded-graph-explorer__scope { color: #b5c4cf; }
+.loaded-graph-explorer__layout { display: grid; grid-template-columns: minmax(180px, 30%) minmax(0, 1fr); gap: 24px; }
+.loaded-graph-explorer nav { max-height: 65dvh; overflow: auto; }
+.loaded-graph-explorer input { display: block; width: 100%; box-sizing: border-box; margin: 8px 0 12px; }
+.loaded-graph-explorer nav ul { list-style: none; padding: 0; }
+.loaded-graph-explorer nav button { display: block; width: 100%; text-align: left; white-space: normal; height: auto; margin-bottom: 6px; }
+.loaded-graph-explorer nav button[aria-current="true"] { background: #425f58; }
+.loaded-graph-explorer small { display: block; color: #b5c4cf; }
+.loaded-graph-explorer article { background: #f0e7d1; color: #30291b; padding: 20px; border-radius: 10px; overflow-wrap: anywhere; }
+.loaded-graph-explorer article button { background: #e5d9b9; color: #30291b; border: 1px solid #ad9d78; }
+.loaded-graph-explorer article li { margin-bottom: 12px; }
+.loaded-graph-explorer details { margin-top: 20px; }
+@media (max-width: 600px) { .loaded-graph-explorer { padding: 16px; } .loaded-graph-explorer__layout { grid-template-columns: 1fr; } .loaded-graph-explorer nav { max-height: 25dvh; } }
