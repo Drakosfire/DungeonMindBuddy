@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from apps.live_control_server.config import repo_root, world_graph_root
+from apps.live_control_server.config import ArtifactDataRootError, artifact_data_root, repo_root, world_graph_root
 from apps.live_control_server.services.graph_ingest_run_registry import (
     GRAPH_INGEST_MANIFEST_NAME,
     GraphIngestRunRegistryError,
@@ -61,6 +61,15 @@ class PromotableIngestRunError(ValueError):
         self.diagnostics = list(diagnostics or [message])
 
 
+def _artifact_root(root: Path | None = None) -> Path:
+    try:
+        return artifact_data_root(root if root is not None else repo_root())
+    except ArtifactDataRootError as exc:
+        raise PromotableIngestRunError(
+            str(exc), code="artifact_data_root_unavailable", status_code=503
+        ) from exc
+
+
 @dataclass(frozen=True)
 class PromotableIngestRun:
     """Resolved, promotable graph-ingest run."""
@@ -95,14 +104,14 @@ class PromotableIngestRun:
 
 def ingest_runs_artifact_root(root: Path | None = None) -> Path:
     """Default repo-relative root for product ingest-run artifacts."""
-    return ((root or repo_root()).resolve() / "out" / "graph_memory" / "runs").resolve()
+    return (_artifact_root(root) / "out" / "graph_memory" / "runs").resolve()
 
 
 def ingest_run_registry_roots(
     root: Path | None = None, *, include_eval_roots: bool = False
 ) -> list[Path]:
     """Configured registry search roots (honors ``DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT``)."""
-    repo = (root or repo_root()).resolve()
+    repo = _artifact_root(root)
     return list(
         _graph_ingest_search_roots(repo, include_eval_roots=include_eval_roots)
     )
@@ -115,7 +124,7 @@ def world_store_denied_roots(root: Path | None = None) -> list[Path]:
     worlds subtree is denied so configured ingest-run registry roots can remain
     registry-gated evidence. A more specific mutation root is denied wholesale.
     """
-    repo = (root or repo_root()).resolve()
+    repo = _artifact_root(root)
     out_root = (repo / "out").resolve()
     worlds = (repo / "out" / "graph_memory" / "worlds").resolve()
     roots: list[Path] = [worlds]
@@ -216,7 +225,7 @@ def resolve_promotable_ingest_run(
             status_code=422,
         )
 
-    repo = (root or repo_root()).resolve()
+    repo = _artifact_root(root)
 
     from apps.live_control_server.services.graph_run_registry import (
         get_extraction_run,
@@ -323,6 +332,10 @@ def _seal_extraction_source(
     digest_hex = source_revision_id.removeprefix("sha256:")
     seal_root = ingest_run_registry_roots(repo)[0]
     sealed = (seal_root / "promote_seals" / digest_hex / "normalized_source.md").resolve()
+    if not sealed.is_relative_to(repo.resolve()):
+        raise PromotableIngestRunError(
+            "source seal escapes artifact repository", code="run_not_promotable", status_code=422
+        )
     payload = source_path.read_bytes()
     if hashlib.sha256(payload).hexdigest() != digest_hex:
         raise PromotableIngestRunError(
@@ -444,6 +457,7 @@ def resolve_promotable_from_loaded_manifest(
     run_id: str,
 ) -> PromotableIngestRun:
     """Shared prepare/summary seam: validate one loaded manifest for promotion."""
+    repo = _artifact_root(repo)
     validation = validate_graph_ingest_run_manifest(payload)
     if validation.get("errors"):
         raise PromotableIngestRunError(

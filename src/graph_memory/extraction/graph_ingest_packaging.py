@@ -203,8 +203,9 @@ def compute_sha256(path: Path) -> str:
 
 
 def _repo_root() -> Path:
-    # TODO: add an explicit repo_root option before wiring this runner into runtime/API paths.
-    return Path.cwd().resolve()
+    from apps.live_control_server.config import artifact_data_root
+
+    return artifact_data_root(Path.cwd())
 
 
 def _validate_safe_relative_path(path: Path, *, field_name: str) -> None:
@@ -215,7 +216,9 @@ def _validate_safe_relative_path(path: Path, *, field_name: str) -> None:
 
 
 def safe_relative_artifact_uri(path: Path, repo_root: Path | None = None) -> str:
-    root = (repo_root or _repo_root()).resolve()
+    from apps.live_control_server.config import artifact_data_root
+
+    root = artifact_data_root(repo_root or _repo_root())
     resolved = path.resolve()
     try:
         relative = resolved.relative_to(root)
@@ -228,11 +231,13 @@ def safe_relative_artifact_uri(path: Path, repo_root: Path | None = None) -> str
 def ensure_output_dir(path: Path) -> Path:
     _validate_safe_relative_path(path, field_name="output_dir")
     output_dir = (_repo_root() / path).resolve()
+    safe_relative_artifact_uri(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     return output_dir
 
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:
+    safe_relative_artifact_uri(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
@@ -250,6 +255,7 @@ def _slug(value: str) -> str:
 
 def _copy_source_recap(source: Path, output_dir: Path) -> Path:
     target = output_dir / "normalized_recap_source.md"
+    safe_relative_artifact_uri(target)
     if source.resolve() != target.resolve():
         shutil.copyfile(source, target)
     return target
@@ -359,13 +365,16 @@ def _write_canonical_source_span_bundle(
     artifact_id = validated.source_artifact_id
 
     source_spans_dir = output_dir / "source_spans"
+    safe_relative_artifact_uri(source_spans_dir)
     source_spans_dir.mkdir(parents=True, exist_ok=True)
     source_span_path = source_spans_dir / "recap_full_text.md"
+    safe_relative_artifact_uri(source_span_path)
     source_span_path.write_text(recap_text)
     lines = recap_text.splitlines()
     for ordinal, span in enumerate(validated.spans, start=1):
         paragraph_text = "\n".join(lines[span.start_line - 1 : span.end_line])
         paragraph_path = source_spans_dir / f"recap_paragraph_{ordinal:03d}.md"
+        safe_relative_artifact_uri(paragraph_path)
         paragraph_path.write_text(paragraph_text)
 
     source_span_index_path = output_dir / "source_span_index.json"
@@ -421,8 +430,10 @@ def _write_source_span_bundle(
         )
 
     source_spans_dir = output_dir / "source_spans"
+    safe_relative_artifact_uri(source_spans_dir)
     source_spans_dir.mkdir(parents=True, exist_ok=True)
     source_span_path = source_spans_dir / "recap_full_text.md"
+    safe_relative_artifact_uri(source_span_path)
     source_span_path.write_text(recap_text)
     resolved_artifact_id = (
         source_artifact_id.strip()
@@ -449,6 +460,7 @@ def _write_source_span_bundle(
     ]
     for paragraph in _split_recap_paragraph_spans(recap_text):
         paragraph_path = source_spans_dir / f"recap_paragraph_{paragraph['ordinal']:03d}.md"
+        safe_relative_artifact_uri(paragraph_path)
         paragraph_path.write_text(str(paragraph["text"]))
         spans.append(
             {
@@ -959,6 +971,7 @@ def run_graph_preview_extraction(
                 f"candidate graph does not exist: {options.candidate_graph_path}"
             )
         candidate_graph_path = output_dir / "candidate_graph.json"
+        safe_relative_artifact_uri(candidate_graph_path)
         # Preserve exact production bytes so packaged digests match ExtractionRun components.
         if options.candidate_graph_path.resolve() != candidate_graph_path.resolve():
             shutil.copy2(options.candidate_graph_path, candidate_graph_path)
@@ -1223,6 +1236,7 @@ def run_graph_preview_extraction(
             extraction_summary = f"Category graph extraction blocked: {exc}"
             if isinstance(exc, CategoryGraphExtractionError) and exc.raw_model_response:
                 raw_model_response_path = output_dir / "raw_model_response.txt"
+                safe_relative_artifact_uri(raw_model_response_path)
                 raw_model_response_path.write_text(exc.raw_model_response)
                 artifacts["raw_model_response"] = _artifact(
                     GraphIngestArtifactKind.PASS_TELEMETRY,

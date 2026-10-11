@@ -23,6 +23,8 @@ def registry_token(path: Path) -> str:
 def registry_mutation_lock(registry_path: Path) -> Iterator[None]:
     """Serialize load/check/mutate/replace for one registry document."""
     lock_path = registry_path.with_name(f".{registry_path.name}.lock")
+    if lock_path.is_symlink():
+        raise ValueError("registry lock path must not be a symlink")
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     with lock_path.open("a+", encoding="utf-8") as handle:
         fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
@@ -41,11 +43,16 @@ def workspace_document_mutation_lock(root: Path, document_id: str) -> Iterator[N
     shared workspace registry file must acquire this lock first, then
     ``registry_mutation_lock(workspace_documents_path)``.
     """
+    from apps.live_control_server.config import artifact_data_root
+
+    root = artifact_data_root(root)
     cleaned = (document_id or "").strip()
     if not cleaned:
         raise ValueError("document_id is required for workspace document mutation lock")
     safe_name = _SAFE_LOCK_NAME_RE.sub("_", cleaned)
     lock_path = root / "out" / "registries" / ".locks" / f"workspace_document.{safe_name}.lock"
+    if not lock_path.resolve().is_relative_to(root):
+        raise ValueError("workspace lock escapes artifact repository")
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     with lock_path.open("a+", encoding="utf-8") as handle:
         fcntl.flock(handle.fileno(), fcntl.LOCK_EX)

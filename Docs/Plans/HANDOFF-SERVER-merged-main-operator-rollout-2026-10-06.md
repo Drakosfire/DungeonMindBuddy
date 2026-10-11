@@ -1,5 +1,120 @@
 # SERVER — merged-main operator runtime rollout
 
+## Artifact repository selection — 2026-10-11
+
+**Status:** ACTIVE bounded implementation; awaiting PRIME review. This section
+is a new configuration capability, separate from the completed rollout below.
+PRIME authorized one serial Buddy PR on main
+`20d0a4d79a4d3272f291f0fb56e71b73cbb82733`, branch
+`codex/artifact-data-root`, isolated checkout
+`/home/drakosfire/.codex/worktrees/buddy-artifact-data-root/DungeonMindBuddy`.
+PRIME owns review/merge; DOGFOOD owns subsequent runtime deployment and one
+prepare request. There is no graph confirmation or model-call lease.
+
+The running current-main API resolves managed World `elderwyld` to native World
+`eldyrwild`, but its exact C2S1 prepare failed `run_not_promotable` (422):
+the file SourceArtifact registry was selected relative to the code checkout.
+APP-STATE still resolves the exact run as reviewable and its source as available.
+The unchanged registry, source body, frozen span index and candidate exist in
+the retained primary data repository with their recorded SHA-256 hashes.
+
+### Contract and exclusive write paths
+
+`DMB_ARTIFACT_DATA_ROOT` selects the physical artifact **repository root**.
+Unset retains each caller's existing root. A configured value must name an
+absolute existing readable/searchable directory; empty, missing, relative,
+unusable and escaped paths fail without falling back to the code repository.
+Metadata/body/span/candidate reads agree on this base. APP-STATE remains the
+canonical run/status/component authority; stored repo:// URI strings, IDs,
+digests, source/run scope and semantic-review commitments do not change.
+
+This root owns source registry/content/span files, frozen ingest components,
+derived candidates, graph-ingest outputs and content-addressed promote seals.
+It also owns the existing **file-backed** workspace registry, committed
+worldbuilding Markdown and its file locks: normal workspace creation, Tiptap
+prepare/commit, source creation and admitted span reads select the same owner.
+The ordinary workspace writer produces that body; source admission does not
+copy or synthesize it to hide a mismatched workspace owner.
+PostgreSQL Plan/Run/content authority is unchanged.
+
+Canonical components and output paths must remain inside the resolved artifact
+root after symlink resolution. Missing registry/body/components and byte/scope
+drift remain truthful failures. A fresh declared directory may receive new files
+through existing authorized producers; selecting it does not adopt old runs.
+Resolving a promotable run can create an immutable normalized-source seal in
+`out/graph_memory/runs/promote_seals`; resolution is not entirely read-only.
+
+`repo_root()`, Hermes dependencies under the code checkout's `out`, managed
+World selection and World Graph storage configuration keep their own meaning.
+`DUNGEONMIND_EXTRACT_PROMOTE_SOURCE_ROOT` remains an extra byte-input allowlist.
+`DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT` selects a confined subtree of the artifact
+repository. Neither variable selects canonical source metadata authority.
+
+Expected writes: `apps/live_control_server/config.py`; service modules
+`source_artifact_registry`, `graph_run_registry`, `promotable_ingest_run`,
+`extract_promote`, `graph_ingest_run_registry`, `graph_preview_runner`,
+`recap_graph_preview_ingest`, `exact_run_evidence_correction`,
+`recap_semantic_candidate_correction`, `workspace_document_registry`,
+`tiptap_markdown_write`, `registry_file_lock`, `worldbuilding_source_span_read`;
+the production extraction controller and graph-ingest packaging under
+`src/graph_memory/extraction`; `tests/test_artifact_data_root.py`; this handoff.
+Producer and workspace paths were added to the same lease after tracing their
+physical outputs and shared lock domains. No dependency/pin changes, artifact
+overlay, source authority migration, graph store or provider changes are included.
+
+### Verification and deployment gate
+
+Focused cohort: **219 passed, 2 deselected** using the unchanged pinned Core
+`ba6069b91e1a608f125548860502a69b4c3e3fc6` source.
+The split-root test uses actual registry/source/frozen index/candidate evidence
+and a canonical run-port test double, verifies a literal source quote, and
+reaches the native prepare boundary. It creates only the expected source seal.
+Normal workspace author/commit/source/span flow, producer output roots,
+confirm owner lookup and relocation rejection, digest/scope drift, traversal,
+symlink escapes, invalid/missing roots and Hermes preservation are covered.
+The canonical PostgreSQL run-port implementation is unchanged.
+
+One existing selected-source-pin fixture fails identically on the exact base
+because its synthetic native result lacks `objects`. The existing disposable
+run-registry test could not start: dedicated PostgreSQL at 127.0.0.1:54329 refuses
+connections. These are the two deselections; neither is claimed passing.
+The first broader attempt used an older installed Core package and lacked
+`SourceAnchorIndexRequest`; rerunning with the exact pin resolved those import
+failures without editing dependency files. Pydantic field-shadow warnings carry.
+Ruff has one pre-existing unused compatibility export in graph-ingest packaging;
+the same import is present at the base. Other changed Python files pass Ruff,
+and the cumulative diff passes whitespace checks.
+
+After PRIME acceptance, DOGFOOD must deploy the accepted Buddy code under its
+runtime lease and set the private operator configuration:
+
+```text
+DMB_ARTIFACT_DATA_ROOT=/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy
+```
+
+Preflight must report effective code SHA/module path and resolved artifact root,
+read the unchanged registry's exact source record, reload the canonical APP run,
+and hash its three recorded components under the declared root. Do not call the
+promotable resolver merely to claim a read-only preflight: it may write a seal.
+Keep managed World `elderwyld`, native `eldyrwild`, campaign `longmont-c2`,
+session `session-1`, and exact run
+`7f205b79-54d4-40e5-a11c-61c512870b0a`.
+Its candidate digest is
+`f771a086f9f62072686957a0d1740363ad4237eed1b6a444a93f59e6c9160782`;
+source revision is
+`sha256:f1045adefbd67ec0943446bb17ab236388594d5d9dbfecb95646aa985e69c99b`.
+
+Then make one prepare-only request through the running owning API, retain its
+sealed current-parent package and source/collision evidence, and return it to
+PRIME/human semantic review. Re-prove the 13 original raw-ID collisions and
+existing object preservation with #1072 qualification; configuration must not
+turn those IDs into overwrite authority. A live sealed package, source catalog
+admission, deployment or semantic acceptance is not claimed by this PR.
+Stop on changed bytes, run/status/scope/binding/head, path escape, required catalog
+effects outside the C2S1 pair, or any need for graph confirmation/model calls.
+
+## Completed 2026-10-06 rollout
+
 **Status:** COMPLETE; runtime lease returned to PRIME on 2026-10-06. PRIME reviewed draft PR #978 at head `1c8c14c75f16a2bbe2ba3288e4ddd01c32a7b9db` and explicitly activated this bounded operational lease, conditional on every fresh preflight and stop condition below. The completed execution moved only the owned runtime to exact target `521a63518a1dd0188b76244c5382d8fb897878d4`.
 **Source authority:** Buddy `origin/main@521a63518a1dd0188b76244c5382d8fb897878d4`, merge of accepted UI PR #972. The current runtime is clean and detached at #972 head `4722ac5b82b81970ef2a66eb21e28e9ee1f874fa`; `git diff 4722ac5b..521a6351` is empty. The target changes the deployed Git identity, not the source tree.
 **Predecessor protocol:** completed [PR #966 operator deployment](HANDOFF-SERVER-pr966-operator-runtime-deploy-2026-10-06.md). Do not rewrite its historical settlement. PR #977's recap correction is draft and is outside this rollout target.

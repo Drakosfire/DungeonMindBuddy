@@ -9,7 +9,7 @@ import tempfile
 from pathlib import Path
 from uuid import NAMESPACE_URL, uuid5
 
-from apps.live_control_server.config import repo_root
+from apps.live_control_server.config import artifact_data_root, repo_root
 from apps.live_control_server.models.extract_promote import (
     ExactRunEvidenceCorrectionRequest,
     ExactRunEvidenceCorrectionResponse,
@@ -173,7 +173,7 @@ def correct_exact_run_evidence(
     request: ExactRunEvidenceCorrectionRequest,
 ) -> ExactRunEvidenceCorrectionResponse:
     """Seal one quote-only child; never mutate parent or publish a World head."""
-    repo = repo_root()
+    repo = artifact_data_root(repo_root())
     try:
         resolved = resolve_promotable_ingest_run(request.parent_run_id, root=repo)
         parent = get_extraction_run(repo, request.parent_run_id)
@@ -313,7 +313,7 @@ def correct_recap_run_evidence(
         assess_recap_semantics,
     )
 
-    repo = repo_root()
+    repo = artifact_data_root(repo_root())
     try:
         resolved = resolve_promotable_ingest_run(request.parent_run_id, root=repo)
         parent = get_extraction_run(repo, request.parent_run_id)

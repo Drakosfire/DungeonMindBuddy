@@ -10,7 +10,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, ValidationError
 
-from apps.live_control_server.config import repo_root
+from apps.live_control_server.config import artifact_data_root, repo_root
 from apps.live_control_server.services.graph_review_lanes import (
     GraphReviewVocabularyMode,
 )
@@ -129,7 +129,7 @@ def inspect_graph_ingest_registry_roots(
     include_eval_roots: bool = False,
 ) -> list[GraphIngestRegistryRootStatus]:
     """Read-only status for configured graph-ingest discovery roots."""
-    repo = (root or repo_root()).resolve()
+    repo = artifact_data_root(root or repo_root())
     env_root = os.environ.get(GRAPH_INGEST_RUNS_ENV, "").strip()
     values: list[str] = [env_root] if env_root else list(DEFAULT_GRAPH_INGEST_RUN_ROOTS)
     if include_eval_roots:
@@ -163,7 +163,7 @@ def inspect_graph_ingest_registry_health(
     max_issues: int = MAX_REGISTRY_HEALTH_ISSUES,
 ) -> GraphIngestRegistryHealth:
     """Read-only registry health: distinguish corrupt manifests from empty roots."""
-    repo = (root or repo_root()).resolve()
+    repo = artifact_data_root(root or repo_root())
     manifest_files_found = 0
     valid_manifests = 0
     invalid_manifests = 0
@@ -205,7 +205,7 @@ def discover_graph_ingest_runs(
 ) -> list[GraphIngestRunSummary]:
     """Discover valid graph-ingest manifests from bounded roots."""
 
-    repo = (root or repo_root()).resolve()
+    repo = artifact_data_root(root or repo_root())
     if status is not None and status not in ALLOWED_STATUS_FILTERS:
         raise GraphIngestRunRegistryError(
             f"invalid status filter: {status}", status_code=422
@@ -366,6 +366,7 @@ def _normalize_repo_path(repo: Path, value: str) -> str:
 
 def graph_ingest_output_root(repo: Path) -> Path:
     """Use the configured discovery root for new runs, with identical confinement."""
+    repo = artifact_data_root(repo)
     value = (
         os.environ.get(GRAPH_INGEST_RUNS_ENV, "").strip()
         or DEFAULT_GRAPH_INGEST_RUN_ROOTS[0]
@@ -376,6 +377,7 @@ def graph_ingest_output_root(repo: Path) -> Path:
 def _graph_ingest_search_roots(
     repo: Path, *, include_eval_roots: bool = False
 ) -> list[Path]:
+    repo = artifact_data_root(repo)
     env_root = os.environ.get(GRAPH_INGEST_RUNS_ENV)
     values = [env_root] if env_root else list(DEFAULT_GRAPH_INGEST_RUN_ROOTS)
     if include_eval_roots:
@@ -817,6 +819,7 @@ def _has_ready_preview_union_store(summary: GraphIngestRunSummary) -> bool:
 def _resolve_repo_contained_path(
     path: Path, repo: Path, *, must_exist: bool = True
 ) -> Path:
+    repo = artifact_data_root(repo)
     value = str(path).replace("\\", "/")
     if value.startswith("file:") or ".." in Path(value).parts:
         raise GraphIngestRunRegistryError(

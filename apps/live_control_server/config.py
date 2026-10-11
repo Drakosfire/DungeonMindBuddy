@@ -34,10 +34,40 @@ WORLD_GRAPH_AUTHORITY_DATABASE_URL_ENV = (
 # Mounted product must not consume it; env/function remain for unmounted names.
 WORLD_GRAPH_AUTHORITY_CACHE_ROOT_ENV = "DUNGEONMIND_WORLD_GRAPH_AUTHORITY_CACHE_ROOT"
 MANAGED_WORLD_DATA_ROOT_ENV = "DMB_MANAGED_WORLD_DATA_ROOT"
+ARTIFACT_DATA_ROOT_ENV = "DMB_ARTIFACT_DATA_ROOT"
 
 
 def repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
+
+
+class ArtifactDataRootError(RuntimeError):
+    """The explicitly selected artifact repository cannot be used."""
+
+
+def artifact_data_root(default: Path | None = None) -> Path:
+    """Select stored repo:// artifacts without changing the code repository.
+
+    The directory must already exist; producers may create individual artifacts
+    inside it. Metadata and frozen component reads still require exact files.
+    Unset preserves the caller's existing repository selection.
+    """
+    raw = os.environ.get(ARTIFACT_DATA_ROOT_ENV)
+    if raw is None:
+        return (default if default is not None else repo_root()).resolve()
+    raw = raw.strip()
+    if not raw:
+        raise ArtifactDataRootError("artifact_data_root_empty")
+    path = Path(raw)
+    if not path.is_absolute():
+        raise ArtifactDataRootError("artifact_data_root_not_absolute")
+    try:
+        root = path.resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise ArtifactDataRootError("artifact_data_root_unavailable") from exc
+    if not root.is_dir() or not os.access(root, os.R_OK | os.X_OK):
+        raise ArtifactDataRootError("artifact_data_root_unavailable")
+    return root
 
 
 class ManagedWorldDataRootError(RuntimeError):

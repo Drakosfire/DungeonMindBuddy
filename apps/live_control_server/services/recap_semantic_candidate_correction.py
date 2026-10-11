@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
-from apps.live_control_server.config import repo_root
+from apps.live_control_server.config import artifact_data_root, repo_root
 from apps.live_control_server.models.extract_promote import (
     RecapCandidateCorrectionRequest,
     RecapCandidateCorrectionRequestV2,
@@ -918,7 +918,7 @@ def correct_recap_candidate(
         RecapSemanticBasisV9,
     )
 
-    root = repo_root()
+    root = artifact_data_root(repo_root())
     try:
         resolved = resolve_promotable_ingest_run(request.parent_run_id, root=root)
         parent = get_extraction_run(root, request.parent_run_id)

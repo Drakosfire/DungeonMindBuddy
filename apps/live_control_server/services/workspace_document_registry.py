@@ -395,7 +395,16 @@ def _utc_now_iso() -> str:
 
 
 def workspace_documents_path(root: Path) -> Path:
-    return root / DEFAULT_REGISTRY_REL
+    from apps.live_control_server.config import ArtifactDataRootError, artifact_data_root
+
+    try:
+        base = artifact_data_root(root)
+    except ArtifactDataRootError as exc:
+        raise WorkspaceDocumentRegistryError(str(exc), status_code=503) from exc
+    path = (base / DEFAULT_REGISTRY_REL).resolve()
+    if not path.is_relative_to(base):
+        raise WorkspaceDocumentRegistryError("workspace registry escapes artifact repository", status_code=422)
+    return path
 
 
 def _validate_document_id(document_id: str) -> str:
@@ -584,7 +593,12 @@ def _worldbuilding_world_scoped_target_relpath(world_id: str, document_id: str) 
 
 
 def _require_existing_world_markdown_root(root: Path, world_id: str) -> None:
-    world_root = root / _world_markdown_root_relpath(world_id)
+    from apps.live_control_server.config import artifact_data_root
+
+    base = artifact_data_root(root)
+    world_root = (base / _world_markdown_root_relpath(world_id)).resolve()
+    if not world_root.is_relative_to(base):
+        raise WorkspaceDocumentRegistryError("workspace source escapes artifact repository", status_code=422)
     if not world_root.is_dir():
         raise WorkspaceDocumentRegistryError(
             f"world source root is missing: {_world_markdown_root_relpath(world_id)}",
