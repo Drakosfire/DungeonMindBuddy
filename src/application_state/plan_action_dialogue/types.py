@@ -5,10 +5,21 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
+
+from application_state.agent_conversation.types import (
+    PlanAskHistoryAttributionV1,
+    PlanWorldGraphAssembledInputV1,
+    PlanWorldGraphAuthorityV1,
+    PlanWorldGraphCitationMapV2,
+    PlanWorldGraphClaimSegmentV1,
+    PlanWorldGraphConnectiveSegmentV1,
+    PlanWorldGraphExecutionV2,
+    PlanWorldGraphPacketV1,
+)
 
 ActionStatus = Literal["pending", "completed", "failed", "indeterminate"]
 ActionType = Literal["compose", "revise"]
@@ -55,6 +66,142 @@ class PlanActionPlayableTargetReceipt(StrictModel):
         return self
 
 
+class PlanActionContinuation(StrictModel):
+    continuation_of_action_id: UUID
+    clarification_id: UUID
+    previous_result_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    previous_instruction: str = Field(min_length=1, max_length=4000)
+
+
+class PlanActionConsultationReceipt(StrictModel):
+    """Server-frozen action inputs; draft intent is separate from Graph authority."""
+
+    schema_version: Literal["dmb_plan_action_consultation_receipt_v1"] = (
+        "dmb_plan_action_consultation_receipt_v1"
+    )
+    receipt_serializer_version: Literal["canonical-json-utf8-v1"]
+    consultation_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    action_id: UUID
+    request_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    surface_id: Literal["plan"]
+    surface_instance_id: str = Field(min_length=1, max_length=128)
+    basis: PlanActionBasis
+    draft_matches_basis: bool
+    draft_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    target_kind: Literal["replace_selection"]
+    selected_text_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    instruction: str = Field(min_length=1, max_length=4000)
+    action_input_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    authority_status: Literal["resolved", "unavailable"] = "resolved"
+    authority_failure_code: str | None = Field(default=None, min_length=1, max_length=128)
+    graph_authority: PlanWorldGraphAuthorityV1 | None = None
+    graph_packet: PlanWorldGraphPacketV1 | None = None
+    assembled_input: PlanWorldGraphAssembledInputV1 | None = None
+    continuation: PlanActionContinuation | None = None
+    history_conversation_id: UUID | None = None
+    history_attribution: list[PlanAskHistoryAttributionV1] = Field(
+        default_factory=list, max_length=6
+    )
+
+    @model_validator(mode="after")
+    def validate_receipt(self):
+        from application_state.plan_action_dialogue.graph_consultation import (
+            validate_consultation_receipt,
+        )
+
+        validate_consultation_receipt(self)
+        return self
+
+
+class ActionResultAttribution(StrictModel):
+    schema_version: Literal["dmb_plan_action_result_v1"] = "dmb_plan_action_result_v1"
+    result_id: UUID
+    consultation_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    message: str = Field(min_length=1, max_length=12000)
+    producing_provider_attempt_id: UUID
+    answer_segments: list[
+        Annotated[
+            PlanWorldGraphClaimSegmentV1 | PlanWorldGraphConnectiveSegmentV1,
+            Field(discriminator="kind"),
+        ]
+    ] = Field(min_length=1, max_length=128)
+    citation_map: PlanWorldGraphCitationMapV2 | None
+    claim_graph_event_ids: dict[str, list[UUID]] = Field(max_length=128)
+
+    @model_validator(mode="after")
+    def validate_message(self):
+        if not self.message.strip():
+            raise ValueError("action result message must be nonblank")
+        return self
+
+
+class PlanActionClarificationResult(ActionResultAttribution):
+    kind: Literal["clarification"]
+
+
+class PlanActionProposalResult(ActionResultAttribution):
+    kind: Literal["proposal"]
+    disposition: Literal[
+        "supported_context_used",
+        "no_relevant_established_fact_found",
+        "explicit_draft_override_after_clarification",
+    ]
+    # Commit the inert response, preserving existing proposal-payload non-replay.
+    proposal_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class PlanActionContextUnavailableResult(StrictModel):
+    schema_version: Literal["dmb_plan_action_result_v1"] = "dmb_plan_action_result_v1"
+    kind: Literal["context_unavailable"]
+    result_id: UUID
+    consultation_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    message: str = Field(min_length=1, max_length=12000)
+    failure_code: str = Field(min_length=1, max_length=128)
+
+    @model_validator(mode="after")
+    def validate_failure(self):
+        if not self.message.strip() or not self.failure_code.strip():
+            raise ValueError("context unavailable result requires a visible message and failure code")
+        return self
+
+
+PlanActionConsultationResult = Annotated[
+    PlanActionClarificationResult
+    | PlanActionProposalResult
+    | PlanActionContextUnavailableResult,
+    Field(discriminator="kind"),
+]
+
+
+class PlanActionConsultation(StrictModel):
+    schema_version: Literal["dmb_plan_action_consultation_v1"] = (
+        "dmb_plan_action_consultation_v1"
+    )
+    receipt: PlanActionConsultationReceipt
+    execution: PlanWorldGraphExecutionV2 | None
+    result: PlanActionConsultationResult | None = None
+
+    @model_validator(mode="after")
+    def validate_consultation(self):
+        from application_state.plan_action_dialogue.graph_consultation import (
+            validate_consultation,
+        )
+
+        validate_consultation(self)
+        return self
+
+
+class ConsultationOptionalModel(StrictModel):
+    consultation: PlanActionConsultation | None = None
+
+    @model_serializer(mode="wrap")
+    def serialize_legacy_shape(self, handler):
+        data = handler(self)
+        if self.consultation is None:
+            data.pop("consultation", None)
+        return data
+
+
 class PlanActionReservation(StrictModel):
     idempotency_key: UUID
     request_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -81,7 +228,7 @@ class PlanActionReservation(StrictModel):
         return self
 
 
-class PlanActionRecord(StrictModel):
+class PlanActionRecord(ConsultationOptionalModel):
     action_id: UUID
     idempotency_key: UUID
     request_fingerprint: str
@@ -103,8 +250,17 @@ class PlanActionRecord(StrictModel):
     completed_at: datetime | None
     lease_expires_at: datetime | None
 
+    @model_validator(mode="after")
+    def validate_consultation_binding(self):
+        from application_state.plan_action_dialogue.graph_consultation import (
+            validate_consultation_record,
+        )
 
-class PlanActionProjection(StrictModel):
+        validate_consultation_record(self)
+        return self
+
+
+class PlanActionProjection(ConsultationOptionalModel):
     action_id: UUID
     action_type: ActionType
     status: ActionStatus
@@ -125,7 +281,7 @@ class PlanActionProjectionPage(StrictModel):
     actions: list[PlanActionProjection] = Field(max_length=50)
 
 
-class CompletedPlanActionContext(StrictModel):
+class CompletedPlanActionContext(ConsultationOptionalModel):
     action_id: UUID
     action_type: ActionType
     basis: PlanActionBasis

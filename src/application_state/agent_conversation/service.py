@@ -57,6 +57,8 @@ from application_state.agent_conversation.types import (
     validate_completion_against_receipt,
     validate_execution_completion,
     validate_related_recap_context_scope,
+    _ask_graph_validation_inputs,
+    validate_graph_provider_envelope,
 )
 from application_state.cli import assert_at_head
 from application_state.config import load_runtime_dsn
@@ -780,29 +782,12 @@ class AgentConversationService:
             if isinstance(event, ProviderAttemptAuthorizedEventV1):
                 receipt = turn.graph_context_receipt
                 assert receipt is not None
-                graph_events = [e for e in execution.events if isinstance(e, ValidatedGraphOperationEventV1)]
-                included_graph_events = set(event.included_graph_event_ids)
-                included_operations = [e for e in graph_events if e.event_id in included_graph_events]
-                available_assertions = set(receipt.assembled_input.dispatched_assertion_ids) | {x for e in included_operations for x in e.assertion_ids}
-                available_relationships = set(receipt.assembled_input.dispatched_relationship_ids) | {x for e in included_operations for x in e.relationship_ids}
-                available_evidence = set(receipt.assembled_input.dispatched_evidence_ref_ids) | {x for e in included_operations for x in e.evidence_ref_ids}
-                if not set(event.included_assertion_ids).issubset(available_assertions) or not set(event.included_relationship_ids).issubset(available_relationships) or not set(event.included_evidence_ref_ids).issubset(available_evidence):
-                    raise ApplicationStateValidationError("provider envelope includes IDs absent from admitted Graph evidence")
-                if event.input_tokens + event.output_token_reserve > receipt.assembled_input.context_window_limit:
-                    raise ApplicationStateValidationError("provider envelope exceeds the frozen context window")
-                operation_event_ids = {e.event_id for e in graph_events}
-                if not set(event.included_graph_event_ids).issubset(operation_event_ids):
-                    raise ApplicationStateValidationError("provider envelope references an unknown Graph operation event")
-                previous_attempts = [e for e in execution.events if isinstance(e, ProviderAttemptAuthorizedEventV1)]
-                if not previous_attempts:
-                    assembled = receipt.assembled_input
-                    if (
-                        event.envelope_sha256 != assembled.assembled_input_sha256
-                        or event.input_tokens != assembled.provider_envelope_input_tokens
-                        or event.output_token_reserve != assembled.output_token_reserve
-                        or event.input_estimator != assembled.tokenizer_name
-                    ):
-                        raise ApplicationStateValidationError("first provider authorization must match the frozen receipt envelope and accounting")
+                try:
+                    validate_graph_provider_envelope(
+                        _ask_graph_validation_inputs(receipt), execution, event
+                    )
+                except ValueError as exc:
+                    raise ApplicationStateValidationError(str(exc)) from exc
             if isinstance(event, ValidatedGraphOperationEventV1):
                 receipt = turn.graph_context_receipt
                 assert receipt is not None

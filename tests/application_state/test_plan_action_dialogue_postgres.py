@@ -8,6 +8,8 @@ import psycopg
 import pytest
 from alembic import command
 
+from tests.application_state import test_plan_action_consultation as consultation_tests
+
 from application_state.errors import ApplicationStateConflictError
 from application_state.plan_action_dialogue.service import PlanActionDialogueService
 from application_state.plan_action_dialogue.types import (
@@ -16,6 +18,11 @@ from application_state.plan_action_dialogue.types import (
     PlanActionReservation,
 )
 from application_state.cli import _current_and_head, alembic_config
+
+
+@pytest.fixture
+def application_state_dsn(monkeypatch):
+    yield from consultation_tests.application_state_dsn.__wrapped__(monkeypatch)
 
 
 def _basis(revision: int = 4, digest: str = "a" * 64) -> PlanActionBasis:
@@ -253,7 +260,7 @@ def test_0015_upgrade_preserves_populated_0014_legacy_action_history(application
 
     command.upgrade(alembic_config(), "head")
     current, head = _current_and_head(application_state_dsn)
-    assert current == head == "20261008_0019"
+    assert current == head == "20261012_0020"
     loaded = PlanActionDialogueService().get_by_key(request.basis.world_id, request.idempotency_key)
     assert loaded is not None
     assert loaded.action_id == action.action_id
