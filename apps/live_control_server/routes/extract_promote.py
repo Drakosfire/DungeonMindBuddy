@@ -32,6 +32,7 @@ from apps.live_control_server.models.extract_promote import (
     RecapCandidateCorrectionRequestV7,
     RecapCandidateCorrectionRequestV8,
     RecapCandidateCorrectionRequestV9,
+    RecapCandidateCorrectionRequestV10,
     RecapCandidateCorrectionResponse,
     RecapCandidateCorrectionResponseV2,
     RecapCandidateCorrectionResponseV3,
@@ -41,6 +42,7 @@ from apps.live_control_server.models.extract_promote import (
     RecapCandidateCorrectionResponseV7,
     RecapCandidateCorrectionResponseV8,
     RecapCandidateCorrectionResponseV9,
+    RecapCandidateCorrectionResponseV10,
     ExtractPromoteStatusResponse,
     FirstWorldGraphConfirmReceipt,
     FirstWorldGraphConfirmRequest,
@@ -267,12 +269,13 @@ def post_recap_evidence_corrections(
         | RecapCandidateCorrectionResponseV7
         | RecapCandidateCorrectionResponseV8
         | RecapCandidateCorrectionResponseV9
+        | RecapCandidateCorrectionResponseV10
     ),
 )
 def post_recap_candidate_corrections(
     request_context: Request,
     run_id: str,
-    request: RecapCandidateCorrectionRequest | RecapCandidateCorrectionRequestV2 | RecapCandidateCorrectionRequestV3 | RecapCandidateCorrectionRequestV4 | RecapCandidateCorrectionRequestV5 | RecapCandidateCorrectionRequestV6 | RecapCandidateCorrectionRequestV7 | RecapCandidateCorrectionRequestV8 | RecapCandidateCorrectionRequestV9,
+    request: RecapCandidateCorrectionRequest | RecapCandidateCorrectionRequestV2 | RecapCandidateCorrectionRequestV3 | RecapCandidateCorrectionRequestV4 | RecapCandidateCorrectionRequestV5 | RecapCandidateCorrectionRequestV6 | RecapCandidateCorrectionRequestV7 | RecapCandidateCorrectionRequestV8 | RecapCandidateCorrectionRequestV9 | RecapCandidateCorrectionRequestV10,
     principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
 ) -> dict[str, Any] | JSONResponse:
     """GM-only bounded semantic candidate child; no World publication."""
