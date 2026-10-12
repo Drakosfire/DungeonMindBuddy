@@ -2661,6 +2661,29 @@ def _recap_context_cursor(descriptor: RecapContextDescriptor, section_sha256: st
     return f"recap-page:v1:{hashlib.sha256(payload.encode()).hexdigest()}:{offset}"
 
 
+def _recap_h1_lines_outside_fences(lines: list[str]) -> list[int]:
+    """Find ATX H1 lines while ignoring fenced Markdown code blocks."""
+    headings: list[int] = []
+    fence_char: str | None = None
+    fence_length = 0
+    for index, line in enumerate(lines):
+        content = line.rstrip("\r\n")
+        fence = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", content)
+        if fence_char is not None:
+            if re.fullmatch(rf" {{0,3}}{re.escape(fence_char)}{{{fence_length},}}[ \t]*", content):
+                fence_char = None
+                fence_length = 0
+            continue
+        if fence is not None:
+            marker, info = fence.groups()
+            if marker[0] != "`" or "`" not in info:
+                fence_char, fence_length = marker[0], len(marker)
+                continue
+        if re.match(r"^ {0,3}#(?:[ \t]+|$)", content):
+            headings.append(index)
+    return headings
+
+
 def read_recap_context_direct(
     services: DirectWorldGraphReadServices,
     request: RecapContextReadRequest,
@@ -2708,11 +2731,12 @@ def read_recap_context_direct(
             raise ValueError("recap context source bytes differ from admitted digest")
         text = raw.decode("utf-8")
         lines = text.splitlines(keepends=True)
-        matches = [i for i, line in enumerate(lines) if line.rstrip("\r\n") == descriptor.expected_heading]
+        h1_lines = _recap_h1_lines_outside_fences(lines)
+        matches = [i for i in h1_lines if lines[i].rstrip("\r\n") == descriptor.expected_heading]
         if len(matches) != 1:
             raise ValueError("recap section heading is missing or ambiguous")
         heading_index = matches[0]
-        end_index = next((i for i in range(heading_index + 1, len(lines)) if lines[i].startswith("# ")), len(lines))
+        end_index = next((i for i in h1_lines if i > heading_index), len(lines))
         section = "".join(lines[heading_index + 1:end_index])
         section_sha = hashlib.sha256(section.encode("utf-8")).hexdigest()
         offset = 0

@@ -57,6 +57,51 @@ def test_recap_context_routes_use_separate_service_operations(monkeypatch) -> No
     assert len(listed)==len(opened)==1
 
 
+def test_mounted_recap_context_route_authenticates_before_service_and_preserves_error(monkeypatch) -> None:
+    import json
+    from fastapi import FastAPI
+    from fastapi import HTTPException
+    from fastapi.routing import APIRoute
+    from starlette.requests import Request
+    from apps.live_control_server.routes import world_graph_retrieval as route
+    from apps.live_control_server.services.agent_graph_auth import (
+        enforce_native_graph_gm, native_graph_gm_dependency,
+    )
+    from apps.live_control_server.services.world_graph_retrieval import WorldGraphRetrievalServiceError
+
+    token = 'synthetic-recap-context-operator-token-32-chars'
+    monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_MODE', 'local_operator')
+    monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_ENVIRONMENT', 'development')
+    monkeypatch.setenv('DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN', token)
+    calls = []
+
+    def unavailable(request):
+        calls.append(request)
+        raise WorldGraphRetrievalServiceError('Source unavailable.', code='source_unavailable', status_code=409)
+
+    monkeypatch.setattr(route, 'read_recap_context', unavailable)
+    app = FastAPI()
+    app.include_router(route.router)
+    path = '/api/live/world-graph/retrieval/recap-context/read'
+    mounted = next(row for row in app.routes if isinstance(row, APIRoute) and row.path == path)
+    assert any(dependency.call is native_graph_gm_dependency for dependency in mounted.dependant.dependencies)
+    empty = Request({'type': 'http', 'method': 'POST', 'path': path, 'query_string': b'',
+                     'headers': [], 'client': ('127.0.0.1', 50000)})
+    with pytest.raises(HTTPException) as denied:
+        enforce_native_graph_gm(empty)
+    assert denied.value.status_code == 401 and denied.value.detail['code'] == 'graph_auth_required'
+    assert calls == []
+    payload = {
+        'schema': 'dmb_recap_context_read_request_v1', 'worldId': 'eldyrwild',
+        'campaignId': '', 'scopeMode': 'world', 'revisionPin': 'rev:fixed',
+        'contextAnchorId': 'dm-context-anchor:v1:exact',
+    }
+    request = RecapContextReadRequest.model_validate(payload)
+    failed = mounted.endpoint(empty, request)
+    assert failed.status_code == 409 and json.loads(failed.body)['code'] == 'source_unavailable'
+    assert len(calls) == 1 and calls[0].scope_mode == 'world'
+
+
 def _projection(**overrides: object) -> WorldGraphProjectionRequest:
     payload: dict[str, object] = {
         "schema": "dmb_world_graph_projection_request_v1",

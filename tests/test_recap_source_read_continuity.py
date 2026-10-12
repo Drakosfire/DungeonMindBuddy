@@ -347,6 +347,35 @@ def test_recap_context_refuses_changed_bytes_and_tampered_continuation(tmp_path:
         read_recap_context_direct(services, request, repo_root=tmp_path)
 
 
+def test_recap_context_ignores_fenced_fake_headings(tmp_path: Path) -> None:
+    services, _index_request, request, path, _digest = _context_fixture(tmp_path)
+    source = (
+        '```markdown\n# Session 22 Recap\n```\n'
+        '# Session 22 Recap\nfirst line\n'
+        '~~~~ example\n# Fake next heading\n~~~~\n'
+        'last line\n# Actual next heading\nexcluded\n'
+    ).encode('utf-8')
+    path.write_bytes(source)
+    native = services.retrieval.resolve_source_context(None, context_anchor_id=request.context_anchor_id)
+    descriptor = replace(native.context, content_sha256=hashlib.sha256(source).hexdigest())
+    services.retrieval.resolve_source_context = lambda _req, context_anchor_id: replace(native, context=descriptor)
+    opened = read_recap_context_direct(services, request.model_copy(update={'max_chars': 4000}), repo_root=tmp_path)
+    assert (opened.heading_line, opened.line_start, opened.line_end) == (4, 5, 9)
+    assert opened.content == 'first line\n~~~~ example\n# Fake next heading\n~~~~\nlast line\n'
+
+
+def test_recap_context_rejects_heading_only_inside_fence(tmp_path: Path) -> None:
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import DirectWorldGraphReadError
+    services, _index_request, request, path, _digest = _context_fixture(tmp_path)
+    source = b'```markdown\n# Session 22 Recap\n```\nbody\n'
+    path.write_bytes(source)
+    native = services.retrieval.resolve_source_context(None, context_anchor_id=request.context_anchor_id)
+    descriptor = replace(native.context, content_sha256=hashlib.sha256(source).hexdigest())
+    services.retrieval.resolve_source_context = lambda _req, context_anchor_id: replace(native, context=descriptor)
+    with pytest.raises(DirectWorldGraphReadError):
+        read_recap_context_direct(services, request, repo_root=tmp_path)
+
+
 @pytest.mark.parametrize('source', [
     b'# Wrong heading\nbody\n',
     b'# Session 22 Recap\none\n# Session 22 Recap\ntwo\n',
