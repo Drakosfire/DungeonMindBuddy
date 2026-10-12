@@ -186,10 +186,29 @@ def assess_recap_semantics(
     if candidate_correction:
         if root is None:
             return held()
-        from apps.live_control_server.services.recap_semantic_candidate_correction import verify_child_replay
+        from apps.live_control_server.services.recap_semantic_candidate_correction import (
+            ExtractPromoteError,
+            inherited_pc_proof_digest,
+            inherited_pc_reference_proof,
+            verify_child_replay,
+        )
 
         if not verify_child_replay(run, parent, root):
             return held()
+    inherited_digest = None
+    if candidate_v7 or candidate_v8:
+        try:
+            inherited_proof = inherited_pc_reference_proof(run, root)
+        except (ExtractPromoteError, AttributeError, KeyError, OSError, ValueError, TypeError,
+                json.JSONDecodeError):
+            return held()
+        if inherited_proof is None:
+            if "inherited_pc_proof" in lineage:
+                return held()
+        elif lineage.get("inherited_pc_proof") != inherited_proof:
+            return held()
+        else:
+            inherited_digest = inherited_pc_proof_digest(inherited_proof)
     basis_fields = {
         "schema": (
             "dmb_recap_semantic_basis_v10" if candidate_v9
@@ -237,6 +256,8 @@ def assess_recap_semantics(
     if candidate_v7:
         basis_fields["derivation"] = CANDIDATE_DERIVATION_V7
         basis_fields["manifest_schema"] = MANIFEST_SCHEMA_V7
+        if inherited_digest is not None:
+            basis_fields["inherited_pc_proof_sha256"] = inherited_digest
     if candidate_v8:
         expected = candidate_manifest.get("expected_parent_revision")
         if type(expected) is not int or expected != parent.revision:
@@ -244,6 +265,8 @@ def assess_recap_semantics(
         basis_fields["expected_parent_revision"] = expected
         basis_fields["derivation"] = CANDIDATE_DERIVATION_V8
         basis_fields["manifest_schema"] = MANIFEST_SCHEMA_V8
+        if inherited_digest is not None:
+            basis_fields["inherited_pc_proof_sha256"] = inherited_digest
     if candidate_v9:
         expected = candidate_manifest.get("expected_parent_revision")
         if type(expected) is not int or expected != parent.revision:
@@ -344,11 +367,15 @@ def accepted_effect_binding(
         binding["manifest_sha256"] = _sha(run.lineage.get("manifest_sha256"))
         binding["derivation"] = CANDIDATE_DERIVATION_V7
         binding["manifest_schema"] = MANIFEST_SCHEMA_V7
+        if assessment.basis.get("inherited_pc_proof_sha256") is not None:
+            binding["inherited_pc_proof_sha256"] = assessment.basis["inherited_pc_proof_sha256"]
     if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V8:
         binding["manifest_sha256"] = _sha(run.lineage.get("manifest_sha256"))
         binding["derivation"] = CANDIDATE_DERIVATION_V8
         binding["manifest_schema"] = MANIFEST_SCHEMA_V8
         binding["expected_parent_revision"] = assessment.basis["expected_parent_revision"]
+        if assessment.basis.get("inherited_pc_proof_sha256") is not None:
+            binding["inherited_pc_proof_sha256"] = assessment.basis["inherited_pc_proof_sha256"]
     if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V9:
         binding.update(
             manifest_sha256=_sha(run.lineage.get("manifest_sha256")),

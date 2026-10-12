@@ -2691,11 +2691,20 @@ def _pc_reference_fixture(monkeypatch, root, *, source_text="Mira found the key 
     )
     from apps.live_control_server.integrations.dungeonmind import world_graph_writes
     from graph_memory import party_context
+    from graph_memory.source_span import build_stable_source_span_id, document_source_ref_id
 
     parent, _, runs = _fixture(monkeypatch, root, source_text=source_text)
     payload = json.loads((root / "parent.json").read_bytes())
     payload["session_id"] = "session-28"
     payload["nodes"][0]["corpus_ref"] = None
+    source_ref_id = document_source_ref_id(parent.source_artifact_id)
+    payload["nodes"][0]["evidence_refs"][0]["source_ref_id"] = source_ref_id
+    source_sha = _sha((root / "source.md").read_bytes())
+    stable_span_id = build_stable_source_span_id(
+        source_artifact_id=parent.source_artifact_id,
+        content_sha256=source_sha, start_line=1, end_line=1,
+    )
+    payload["nodes"][0]["evidence_refs"][0]["source_span_ref_id"] = stable_span_id
     raw = service._canonical_bytes(payload)
     (root / "parent.json").write_bytes(raw)
     source = (root / "source.md").read_bytes()
@@ -2703,10 +2712,10 @@ def _pc_reference_fixture(monkeypatch, root, *, source_text="Mira found the key 
     span_id = payload["nodes"][0]["evidence_refs"][0]["source_span_ref_id"]
     index = {
         "schema": "dmb_source_span_index_v1", "version": "1.0",
-        "source_artifact_id": parent.source_artifact_id, "source_ref_id": "ref:mira",
+        "source_artifact_id": parent.source_artifact_id, "source_ref_id": source_ref_id,
         "content_sha256": source_sha,
         "spans": [{"source_span_id": span_id, "source_artifact_id": parent.source_artifact_id,
-                   "source_ref_id": "ref:mira", "content_sha256": source_sha,
+                   "source_ref_id": source_ref_id, "content_sha256": source_sha,
                    "start_line": 1, "end_line": 1}],
     }
     index_bytes = service._canonical_bytes(index)
@@ -2753,6 +2762,237 @@ def _pc_reference_fixture(monkeypatch, root, *, source_text="Mira found the key 
                          "native_object_id": "pc:mira"}],
     }
     return parent, raw, runs, body, context
+
+
+def test_inherited_pc_proof_survives_held_v9_v7_v8_chain(monkeypatch, tmp_path):
+    from application_state.ingest.service import RecapSemanticBasisV8, RecapSemanticBasisV9
+    from apps.live_control_server.models.extract_promote import (
+        RecapCandidateCorrectionRequestV7, RecapCandidateCorrectionRequestV8,
+        RecapCandidateCorrectionRequestV9,
+    )
+    from apps.live_control_server.services.recap_semantic_candidate_correction import (
+        inherited_pc_proof_digest, inherited_pc_reference_proof,
+        verify_inherited_pc_native_basis,
+    )
+
+    parent, _, runs, body, context = _pc_reference_fixture(monkeypatch, tmp_path)
+    first = service.correct_recap_candidate(RecapCandidateCorrectionRequestV9.model_validate(body))
+    v9 = runs[first.run_id]
+    assert v9.lineage["semantic_disposition"]["state"] == "held"
+    common = {"parent_run_id": v9.run_id,
+              "parent_candidate_sha256": v9.components["candidate_graph"].sha256.removeprefix("sha256:"),
+              "source_revision_sha256": body["source_revision_sha256"],
+              "span_index_sha256": body["span_index_sha256"],
+              "profile_id": body["profile_id"]}
+    v7_body = {"schema": "dmb_recap_candidate_correction_request_v7", **common,
+               "node_description_replacements": [{"node_id": "mira",
+                   "original_description": "Mira carried an uncertain object.",
+                   "replacement_description": "Mira carried a key."}]}
+    second = service.correct_recap_candidate(RecapCandidateCorrectionRequestV7.model_validate(v7_body))
+    v7 = runs[second.run_id]
+    proof7 = inherited_pc_reference_proof(v7, tmp_path)
+    assert proof7 == v7.lineage["inherited_pc_proof"]
+    assert proof7["rows"][0]["origin_run_id"] == v9.run_id
+    assessment7 = assess_recap_semantics(v7, parent=v9, source_revision_id=body["source_revision_sha256"], root=tmp_path)
+    basis7 = RecapSemanticBasisV8.model_validate(assessment7.basis)
+    assert basis7.inherited_pc_proof_sha256 == inherited_pc_proof_digest(proof7)
+    legacy_fields = basis7.model_dump(mode="json", by_alias=True)
+    legacy_fields["inherited_pc_proof_sha256"] = None
+    legacy_basis = RecapSemanticBasisV8.model_validate(legacy_fields)
+    legacy_bytes = json.dumps({key: value for key, value in legacy_fields.items() if value is not None},
+                              sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()
+    assert legacy_basis.digest() == hashlib.sha256(legacy_bytes).hexdigest()
+    _assert_recap_semantic_basis(v7, v9, basis7, get_ancestor=runs.get)
+    v8_body = {"schema": "dmb_recap_candidate_correction_request_v8",
+               **{**common, "parent_run_id": v7.run_id,
+                  "parent_candidate_sha256": v7.components["candidate_graph"].sha256.removeprefix("sha256:")},
+               "expected_parent_revision": v7.revision,
+               "node_description_replacements": [{"node_id": "mira",
+                   "original_description": "Mira carried a key.",
+                   "replacement_description": "Mira carried the bridge key."}]}
+    third = service.correct_recap_candidate(RecapCandidateCorrectionRequestV8.model_validate(v8_body))
+    v8 = runs[third.run_id]
+    proof8 = inherited_pc_reference_proof(v8, tmp_path)
+    assert proof8 == v8.lineage["inherited_pc_proof"]
+    assessment8 = assess_recap_semantics(v8, parent=v7, source_revision_id=body["source_revision_sha256"], root=tmp_path)
+    basis8 = RecapSemanticBasisV9.model_validate(assessment8.basis)
+    assert basis8.inherited_pc_proof_sha256 == inherited_pc_proof_digest(proof8)
+    _assert_recap_semantic_basis(v8, v7, basis8, get_ancestor=runs.get)
+    monkeypatch.setattr(extract_promote, "_artifact_root", lambda: tmp_path)
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, run_id: runs[run_id])
+    original_resolve = extract_promote.resolve_promotable_ingest_run
+    def review_resolve(run_id, **kwargs):
+        value = original_resolve(run_id, **kwargs)
+        value.session_id = "session-28"
+        value.status = "reviewable"
+        value.diagnostics = []
+        return value
+    monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", review_resolve)
+    package = extract_promote.get_exact_run_review_package(v8.run_id)
+    assert package.inherited_pc_references is not None
+    assert package.inherited_pc_references.rows[0].origin_run_id == v9.run_id
+    assert package.inherited_pc_references.proof_sha256 == inherited_pc_proof_digest(proof8)
+    assert package.inherited_pc_references.final_candidate_sha256 == basis8.candidate_sha256
+    assert package.inherited_pc_references.run_revision == v8.revision
+    assert package.inherited_pc_references.semantic_basis_sha256 == assessment8.basis_sha256
+    final = json.loads((tmp_path / v8.components["candidate_graph"].uri).read_bytes())
+    assert verify_inherited_pc_native_basis(final, proof8, context)
+    from dataclasses import replace
+    from apps.live_control_server.models.world_graph_mutation_context import MutationObject
+    assert not verify_inherited_pc_native_basis(
+        final, proof8, replace(context, world_id="another-world"))
+    assert not verify_inherited_pc_native_basis(
+        final, proof8, replace(context, objects={"pc:mira": MutationObject(
+            object_id="pc:mira", label="Mira", kind="npc",
+            canon_state="canonical", memory_state="active")}))
+    changed = copy.deepcopy(v8.lineage)
+    changed["inherited_pc_proof"]["rows"][0]["anchor_quote"] = "forged"
+    altered = v8.model_copy(update={"lineage": changed})
+    assert assess_recap_semantics(altered, parent=v7,
+                                  source_revision_id=body["source_revision_sha256"], root=tmp_path).basis is None
+    with pytest.raises(ApplicationStateConflictError, match="inherited PC proof"):
+        _assert_recap_semantic_basis(altered, v7, basis8, get_ancestor=runs.get)
+    old = v8.model_copy(update={"lineage": {key: value for key, value in v8.lineage.items()
+                                               if key != "inherited_pc_proof"}})
+    assert assess_recap_semantics(old, parent=v7,
+                                  source_revision_id=body["source_revision_sha256"], root=tmp_path).basis is None
+    with pytest.raises(ApplicationStateConflictError, match="inherited PC proof"):
+        _assert_recap_semantic_basis(old, v7, basis8, get_ancestor=runs.get)
+
+    # Exercise the real decision function and APP-STATE CAS over synthetic rows.
+    from contextlib import contextmanager
+    from application_state.ingest import service as ingest_service
+    from apps.live_control_server.services import source_artifact_registry
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+    from apps.live_control_server.services.managed_world_graph_projection import VerifiedManagedWorldBinding
+    from apps.live_control_server.services import candidate_graph_admission
+    from graph_memory.extract_promote_ops import ExtractPromotePrepareResult
+
+    monkeypatch.setattr(graph_run_registry, "get_reviewable_extraction_run",
+                        lambda _root, run_id: runs[run_id])
+    monkeypatch.setattr(source_artifact_registry, "get_source_artifact", lambda *_: SimpleNamespace(
+        content_sha256=body["source_revision_sha256"], world_id="invented-world"))
+    monkeypatch.setattr(ingest_service, "load_runtime_dsn", lambda: "synthetic")
+    monkeypatch.setattr(ingest_service, "assert_at_head", lambda **_: None)
+    @contextmanager
+    def fake_uow(_dsn):
+        yield object()
+    monkeypatch.setattr(ingest_service, "unit_of_work", fake_uow)
+    monkeypatch.setattr(ingest_service.repo, "lock_run", lambda _conn, run_id: runs.get(run_id))
+    monkeypatch.setattr(ingest_service.repo, "get_run", lambda _conn, run_id: runs.get(run_id))
+    def cas(_conn, *, run_id, expected_revision, lineage):
+        current = runs[run_id]
+        if current.revision != expected_revision:
+            return None
+        updated = current.model_copy(update={"revision": expected_revision + 1, "lineage": lineage})
+        runs[run_id] = updated
+        return updated
+    monkeypatch.setattr(ingest_service.repo, "cas_update_run_lineage", cas)
+    receipt = extract_promote.decide_recap_semantic_disposition(
+        v8.run_id,
+        RecapSemanticDecisionRequest(expected_revision=v8.revision,
+            candidate_sha256=basis8.candidate_sha256, decision="accepted",
+            review_decision_ref="decision:final-v8"),
+        reviewer_id="gm",
+    )
+    assert receipt.state == "accepted" and receipt.basis_sha256 == assessment8.basis_sha256
+    with pytest.raises(extract_promote.ExtractPromoteError, match="conflicts"):
+        extract_promote.decide_recap_semantic_disposition(
+            v8.run_id,
+            RecapSemanticDecisionRequest(expected_revision=v8.revision,
+                candidate_sha256=basis8.candidate_sha256, decision="accepted",
+                review_decision_ref="decision:stale-conflict"),
+            reviewer_id="gm",
+        )
+    assert runs[v9.run_id].lineage["semantic_disposition"]["state"] == "held"
+    assert runs[v7.run_id].lineage["semantic_disposition"]["state"] == "held"
+    accepted = runs[v8.run_id]
+    accepted_assessment = assess_recap_semantics(
+        accepted, parent=v7, source_revision_id=body["source_revision_sha256"], root=tmp_path)
+    assert accepted_assessment.accepted
+    binding = accepted_effect_binding(accepted, accepted_assessment)
+    assert binding["inherited_pc_proof_sha256"] == inherited_pc_proof_digest(proof8)
+
+    target = VerifiedManagedWorldBinding(
+        managed_world_id="managed", native_world_id="invented-world",
+        binding_version=1, source_root_relpath="corpus/invented")
+    monkeypatch.setattr(extract_promote, "_resolve_publication_target", lambda _: target)
+    monkeypatch.setattr(extract_promote, "_candidate_owner_for_locator", lambda _: runs[v8.run_id])
+    monkeypatch.setattr(extract_promote, "_require_canonical_source_artifact",
+                        lambda _: SimpleNamespace(world_id="invented-world"))
+    monkeypatch.setattr(extract_promote, "assert_sealed_source_uri_allowed", lambda _: None)
+    original_review_resolve = extract_promote.resolve_promotable_ingest_run
+    def publication_resolve(run_id, **kwargs):
+        value = original_review_resolve(run_id, **kwargs)
+        value.sealed_source_uri = str(tmp_path / "source.md")
+        value.registry_context_graph_path = None
+        value.world_id = "invented-world"
+        value.ingest_context = None
+        return value
+    monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", publication_resolve)
+    monkeypatch.setattr(world_graph_writes, "bind_identity_ledger_to_package", lambda package, _: package)
+    def admission(**kwargs):
+        effect = {"world_id": "invented-world", "parent_revision_id": "rev:head"}
+        return ExtractPromotePrepareResult(
+            review_package={"effect": effect, "proposal_digest": "initial"},
+            proposal_id="synthetic", proposal_digest="initial",
+            parent_revision_id="rev:head", world_id="invented-world",
+            accepted_proposals_count=0, unresolved_mentions_count=0,
+            rejected_assertions_count=0, confirmable=False,
+        )
+    monkeypatch.setattr(candidate_graph_admission, "prepare_candidate_graph_admission", admission)
+    prepared = extract_promote.prepare(ExtractPromotePrepareRequest(
+        run_id=v8.run_id, managed_world_id="managed"))
+    assert prepared.review_package["effect"][EFFECT_KEY] == binding
+    locator = str(tmp_path / accepted.components["candidate_graph"].uri)
+    extract_promote._assert_recap_semantics_at_confirm(locator, prepared.review_package)
+    from dataclasses import replace
+    from apps.live_control_server.models.world_graph_mutation_context import MutationObject
+    stale_target = replace(context, objects={"pc:mira": MutationObject(
+        object_id="pc:mira", label="Mira", kind="npc",
+        canon_state="canonical", memory_state="active")})
+    monkeypatch.setattr(world_graph_writes, "load_production_mutation_context",
+                        lambda _: stale_target)
+    with pytest.raises(extract_promote.ExtractPromoteError, match="native target"):
+        extract_promote.prepare(ExtractPromotePrepareRequest(
+            run_id=v8.run_id, managed_world_id="managed"))
+    with pytest.raises(extract_promote.ExtractPromoteError, match="native target"):
+        extract_promote._assert_recap_semantics_at_confirm(locator, prepared.review_package)
+    monkeypatch.setattr(world_graph_writes, "load_production_mutation_context", lambda _: context)
+
+    # Each forged frozen link must fail at the accepted-effect confirm boundary.
+    origin = runs[v9.run_id]
+    for mutation in ("tuple", "quote", "manifest", "missing_intro", "forged_intro", "source", "index", "cycle"):
+        altered_origin = origin.model_copy(deep=True)
+        if mutation == "tuple":
+            altered_origin.lineage["semantic_candidate_manifest"]["attachments"][0]["corpus_ref"]["ref_id"] = "other"
+        elif mutation == "quote":
+            altered_origin.lineage["semantic_candidate_manifest"]["attachments"][0]["anchor_quote"] = "forged quote"
+        elif mutation == "manifest":
+            altered_origin.lineage["semantic_candidate_manifest"]["world_id"] = "foreign-world"
+        elif mutation == "missing_intro":
+            altered_origin.lineage["semantic_candidate_manifest"]["attachments"] = []
+        elif mutation == "forged_intro":
+            altered_origin.lineage["semantic_candidate_manifest"]["attachments"][0]["node_id"] = "forged-node"
+        elif mutation in {"source", "index"}:
+            key = "source_artifact" if mutation == "source" else "source_span_index"
+            altered_origin.components[key] = altered_origin.components[key].model_copy(
+                update={"sha256": "0" * 64})
+        else:
+            altered_origin.lineage["parent_run_id"] = origin.run_id
+        runs[origin.run_id] = altered_origin
+        with pytest.raises(extract_promote.ExtractPromoteError):
+            extract_promote._assert_recap_semantics_at_confirm(locator, prepared.review_package)
+        runs[origin.run_id] = origin
+
+    original_bytes = (tmp_path / accepted.components["candidate_graph"].uri).read_bytes()
+    altered_candidate = json.loads(original_bytes)
+    altered_candidate["nodes"][0]["corpus_ref"]["ref_id"] = "other"
+    (tmp_path / accepted.components["candidate_graph"].uri).write_bytes(
+        service._canonical_bytes(altered_candidate))
+    with pytest.raises(extract_promote.ExtractPromoteError):
+        extract_promote._assert_recap_semantics_at_confirm(locator, prepared.review_package)
+    (tmp_path / accepted.components["candidate_graph"].uri).write_bytes(original_bytes)
 
 
 def test_pc_reference_child_is_held_replayable_and_only_changes_refs(monkeypatch, tmp_path):

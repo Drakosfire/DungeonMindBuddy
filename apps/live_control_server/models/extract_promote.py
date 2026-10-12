@@ -1004,6 +1004,30 @@ class RecapCandidateCorrectionResponseV6(RecapCandidateCorrectionResponse):
     )
 
 
+class InheritedPcReferenceReviewRow(_ExtractPromoteModel):
+    node_id: str
+    corpus_ref: dict[str, str]
+    native_object_id: str
+    origin_world_id: str
+    origin_run_id: str
+    origin_manifest_sha256: str
+    source_revision_sha256: str
+    span_index_sha256: str
+    source_span_ref_id: str
+    anchor_quote: str
+    pc_mention: str
+    lineage_links: list[dict[str, str]]
+
+
+class InheritedPcReferenceReview(_ExtractPromoteModel):
+    schema_: Literal["dmb_inherited_pc_reference_proof_v1"] = Field(alias="schema")
+    final_candidate_sha256: str
+    rows: list[InheritedPcReferenceReviewRow]
+    proof_sha256: str
+    run_revision: int
+    semantic_basis_sha256: str
+
+
 class ExactRunReviewPackage(_ExtractPromoteModel):
     """Server-owned exact-run review projection — source prose + assertion evidence.
 
@@ -1031,6 +1055,7 @@ class ExactRunReviewPackage(_ExtractPromoteModel):
     promotable_reason: str | None = None
     # Present only for a recap child made by operator literal-evidence correction.
     semantic_disposition: dict[str, Any] | None = None
+    inherited_pc_references: InheritedPcReferenceReview | None = None
     # Additive first-world publish capability (CR02A). Generic promotable stays
     # false for worldbuilding; eligibility is a separate explicit path.
     world_id: str | None = None
