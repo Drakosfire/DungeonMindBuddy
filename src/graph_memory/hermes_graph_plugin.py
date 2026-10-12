@@ -23,6 +23,7 @@ from apps.live_control_server.services.hermes_graph_interaction_tools import (
     ORDERED_INTERACTION_TOOL_NAMES,
     ORDERED_MODEL_VISIBLE_TOOL_NAMES,
     QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME,
+    READ_RELATED_RECAP_CONTEXT_TOOL_NAME,
     execute_hermes_graph_interaction_tool_json,
     hermes_model_visible_tool_definitions,
 )
@@ -169,9 +170,15 @@ def default_graph_only_capability_policy(
     graph_names = tuple(
         name
         for name in ORDERED_GRAPH_TOOL_NAMES
-        if name != QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME
+        if name not in {
+            QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME,
+            READ_RELATED_RECAP_CONTEXT_TOOL_NAME,
+        }
     )
-    names = tuple(ORDERED_MODEL_VISIBLE_TOOL_NAMES)
+    names = tuple(
+        name for name in ORDERED_MODEL_VISIBLE_TOOL_NAMES
+        if name != READ_RELATED_RECAP_CONTEXT_TOOL_NAME
+    )
     return HermesCapabilityPolicy(
         enabled_toolsets=(TOOLSET_NAME,),
         enabled_tool_names=names,
@@ -446,7 +453,10 @@ def _handler_for(tool_name: str):
                 return denied
             assert payload is not None
             if _parent_graph_broker_required.get():
-                if tool_name not in {"expand_graph_retrieval", "read_graph_source"}:
+                if tool_name not in {
+                    "expand_graph_retrieval", "read_graph_source",
+                    READ_RELATED_RECAP_CONTEXT_TOOL_NAME,
+                }:
                     return _policy_denied_error(
                         code="plan_graph_tool_not_permitted",
                         message="Only parent-brokered Graph interactions are permitted.",

@@ -1410,12 +1410,15 @@ class _GraphOperationReservation:
         limit: int,
         broker: Callable[[str, Mapping[str, Any]], tuple[str, Mapping[str, Any] | None]],
         source_limit: int = 0,
+        context_limit: int = 0,
     ) -> None:
         self.limit = limit
         self.source_limit = source_limit
+        self.context_limit = context_limit
         self.broker = broker
         self.count = 0
         self.source_count = 0
+        self.context_count = 0
         self.indeterminate = False
         self.agents: list[Any] = []
         self._lock = threading.Lock()
@@ -1443,8 +1446,15 @@ class _GraphOperationReservation:
             }, separators=(",", ":")), None
         if (tool_name == "expand_graph_retrieval" and self.count >= self.limit) or (
             tool_name == "read_graph_source" and self.source_count >= self.source_limit
+        ) or (
+            tool_name == "read_related_recap_context"
+            and self.context_count >= self.context_limit
         ):
-            if self.count >= self.limit and self.source_count >= self.source_limit:
+            if (
+                self.count >= self.limit
+                and self.source_count >= self.source_limit
+                and self.context_count >= self.context_limit
+            ):
                 self._retire_tools()
             return json.dumps({
                 "schema": "dmb_world_graph_retrieval_error_v1",
@@ -1471,13 +1481,33 @@ class _GraphOperationReservation:
                 self._retire_tools()
         elif tool_name == "expand_graph_retrieval" and isinstance(result, Mapping) and result.get("schema") == "dmb_world_graph_retrieval_result_v1":
             self.count += 1
-            if self.count >= self.limit and self.source_count >= self.source_limit:
+            if (
+                self.count >= self.limit
+                and self.source_count >= self.source_limit
+                and self.context_count >= self.context_limit
+            ):
                 self._retire_tools()
         elif tool_name == "read_graph_source" and isinstance(result, Mapping) and result.get("schema") in {
             "dmb_world_graph_source_anchor_read_v1", "dmb_read_graph_source_batch_v1",
         }:
             self.source_count += 1
-            if self.count >= self.limit and self.source_count >= self.source_limit:
+            if (
+                self.count >= self.limit
+                and self.source_count >= self.source_limit
+                and self.context_count >= self.context_limit
+            ):
+                self._retire_tools()
+        elif (
+            tool_name == "read_related_recap_context"
+            and isinstance(result, Mapping)
+            and result.get("schema") == "dmb_related_recap_context_read_v1"
+        ):
+            self.context_count += 1
+            if (
+                self.count >= self.limit
+                and self.source_count >= self.source_limit
+                and self.context_count >= self.context_limit
+            ):
                 self._retire_tools()
         else:
             self.indeterminate = True
@@ -1785,6 +1815,7 @@ def run_hermes_graph_agent_turn(
             _GraphOperationReservation(
                 request.request_budget["maxGraphOperations"], on_parent_graph_operation,
                 source_limit=8,
+                context_limit=8,
             )
             if request.parent_graph_broker_required and on_parent_graph_operation is not None
             else None
@@ -1904,6 +1935,12 @@ def run_hermes_graph_agent_turn(
                                 )
                                 and set(names).issubset(policy.enabled_tool_names)
                             ]
+                        else:
+                            visible_defs = [
+                                definition for definition in visible_defs
+                                if "read_related_recap_context" not in
+                                _tool_names_from_definitions([definition])
+                            ]
                         visible_names = _tool_names_from_definitions(visible_defs)
                         surface_error = _validate_model_visible_surface(
                             visible_names,
@@ -2014,7 +2051,13 @@ def run_hermes_graph_agent_turn(
                                     )
                                     and set(names).issubset(policy.enabled_tool_names)
                                 ]
-                                agent.tools = agent_tools
+                            else:
+                                agent_tools = [
+                                    definition for definition in agent_tools
+                                    if "read_related_recap_context" not in
+                                    _tool_names_from_definitions([definition])
+                                ]
+                            agent.tools = agent_tools
                             agent_visible = _tool_names_from_definitions(agent_tools)
                             agent_surface_error = _validate_model_visible_surface(
                                 agent_visible,

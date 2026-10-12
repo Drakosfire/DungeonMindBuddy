@@ -36,6 +36,9 @@ from apps.live_control_server.services.hermes_graph_agent_host import (
 )
 from graph_memory.hermes_graph_plugin import (
     HermesGraphScope,
+    HermesToolCapabilityRule,
+    READ_RELATED_RECAP_CONTEXT_TOOL_NAME,
+    TOOLSET_NAME,
     default_conversation_only_capability_policy,
     default_graph_only_capability_policy,
     parent_brokered_graph_expansion_policy,
@@ -222,6 +225,7 @@ class HermesAgentRuntimeAdapter:
         on_graph_operation: Callable[[Mapping[str, Any]], Mapping[str, Any]],
         on_provider_lifecycle: Callable[[Mapping[str, Any]], bool] | None = None,
         source_read_enabled: bool = False,
+        context_read_enabled: bool = False,
     ) -> AgentRuntimeResult:
         """Use the existing Hermes host with a per-request parent authorization gate."""
         return self._run(
@@ -232,6 +236,7 @@ class HermesAgentRuntimeAdapter:
             on_provider_lifecycle=on_provider_lifecycle,
             require_authorization=True,
             source_read_enabled=source_read_enabled,
+            context_read_enabled=context_read_enabled,
         )
 
     def _run(
@@ -244,6 +249,7 @@ class HermesAgentRuntimeAdapter:
         on_provider_lifecycle: Callable[[Mapping[str, Any]], bool] | None = None,
         require_authorization: bool = False,
         source_read_enabled: bool = False,
+        context_read_enabled: bool = False,
     ) -> AgentRuntimeResult:
         policy_id = invocation.capability_policy.policy_id
         world_scope = invocation.context_packet.world_scope
@@ -260,16 +266,34 @@ class HermesAgentRuntimeAdapter:
                 raise ValueError("Plan Graph authorization requires a resolved World scope")
             if on_graph_operation is None:
                 raise ValueError("Plan Graph authorization requires a parent broker")
+            parent_policy = (
+                parent_brokered_graph_source_policy(request.capability_policy.graph_scope)
+                if source_read_enabled else
+                parent_brokered_graph_expansion_policy(request.capability_policy.graph_scope)
+            )
+            if context_read_enabled:
+                parent_policy = replace(
+                    parent_policy,
+                    enabled_tool_names=(
+                        *parent_policy.enabled_tool_names,
+                        READ_RELATED_RECAP_CONTEXT_TOOL_NAME,
+                    ),
+                    tool_rules=(
+                        *parent_policy.tool_rules,
+                        HermesToolCapabilityRule(
+                            tool_name=READ_RELATED_RECAP_CONTEXT_TOOL_NAME,
+                            toolset=TOOLSET_NAME,
+                            require_graph_scope=False,
+                            allowed_effects=frozenset({"read"}),
+                        ),
+                    ),
+                )
             request = replace(
                 request,
                 provider_authorization_required=True,
                 request_budget=request_budget,
                 parent_graph_broker_required=True,
-                capability_policy=(
-                    parent_brokered_graph_source_policy(request.capability_policy.graph_scope)
-                    if source_read_enabled else
-                    parent_brokered_graph_expansion_policy(request.capability_policy.graph_scope)
-                ),
+                capability_policy=parent_policy,
             )
         host = self._host_factory()
         host_phase_spans: list[dict[str, Any]] = []

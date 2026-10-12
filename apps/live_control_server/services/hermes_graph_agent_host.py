@@ -512,7 +512,10 @@ def hermes_graph_agent_worker_main(
                     )
                 graph_operation_sequence += 1
                 operation_id = f"{request_id}:g{graph_operation_sequence}"
-                if tool_name not in {"expand_graph_retrieval", "read_graph_source"}:
+                if tool_name not in {
+                    "expand_graph_retrieval", "read_graph_source",
+                    "read_related_recap_context",
+                }:
                     return (
                         '{"schema":"dmb_world_graph_retrieval_error_v1",'
                         '"code":"plan_graph_tool_not_permitted",'
@@ -933,7 +936,10 @@ class HermesGraphAgentHost:
                 }
                 if (
                     operation_id == expected_id
-                    and tool_name in {"expand_graph_retrieval", "read_graph_source"}
+                    and tool_name in {
+                        "expand_graph_retrieval", "read_graph_source",
+                        "read_related_recap_context",
+                    }
                     and isinstance(arguments, Mapping)
                     and on_graph_operation is not None
                 ):

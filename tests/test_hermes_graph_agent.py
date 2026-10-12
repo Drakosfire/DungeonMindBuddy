@@ -8,6 +8,7 @@ import importlib.metadata
 import json
 import os
 import threading
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -2610,6 +2611,48 @@ def test_parent_graph_broker_blocks_child_fallback_and_returns_parent_packet(
         graph_plugin.reset_parent_graph_broker(broker_token)
 
 
+def test_related_recap_tool_is_registered_only_with_parent_read_policy() -> None:
+    definitions = hermes_model_visible_tool_definitions()
+    recap = next(
+        item for item in definitions
+        if item["function"]["name"] == "read_related_recap_context"
+    )
+    assert set(recap["function"]["parameters"]["required"]) >= {
+        "targetKind", "targetId", "evidenceRefIds",
+    }
+    base = default_graph_only_capability_policy(_default_scope())
+    assert "read_related_recap_context" not in base.enabled_tool_names
+    rule = HermesToolCapabilityRule(
+        tool_name="read_related_recap_context", toolset=TOOLSET_NAME,
+        require_graph_scope=False, allowed_effects=frozenset({"read"}),
+    )
+    parent = replace(base,
+        enabled_tool_names=(*base.enabled_tool_names, "read_related_recap_context"),
+        tool_rules=(*base.tool_rules, rule),
+    )
+    called: list[tuple[str, dict[str, Any]]] = []
+    broker_token = graph_plugin.set_parent_graph_broker(
+        lambda name, args: (
+            called.append((name, dict(args))) or
+            '{"schema":"dmb_related_recap_context_read_v1"}', None
+        ), required=True,
+    )
+    policy_token = set_active_capability_policy(parent)
+    session_token = set_active_retrieval_session_id("session:one")
+    try:
+        response = graph_plugin._handler_for("read_related_recap_context")({
+            "targetKind": "assertion", "targetId": "assertion:one",
+            "evidenceRefIds": ["evidence:one"],
+        })
+        assert json.loads(response)["schema"] == "dmb_related_recap_context_read_v1"
+        assert called[0][0] == "read_related_recap_context"
+        assert called[0][1]["retrievalSessionId"] == "session:one"
+    finally:
+        graph_plugin.reset_active_retrieval_session_id(session_token)
+        reset_active_capability_policy(policy_token)
+        graph_plugin.reset_parent_graph_broker(broker_token)
+
+
 def test_request_budget_guard_accepts_codex_responses_envelope():
     payload = {
         "model": "synthetic-model",
@@ -2783,6 +2826,22 @@ def test_graph_operation_reservation_preflights_remaining_budget():
     assert returned["code"] == "graph_operation_unavailable"
     assert normalized.indeterminate is True
     assert normalized_agent.tools == []
+
+    context_calls: list[str] = []
+    context = _GraphOperationReservation(
+        1,
+        lambda name, _arguments: (
+            context_calls.append(name) or
+            '{"schema":"dmb_related_recap_context_read_v1","outcome":"enough"}',
+            None,
+        ),
+        context_limit=1,
+    )
+    context("read_related_recap_context", {})
+    assert context.context_count == 1
+    blocked = json.loads(context("read_related_recap_context", {})[0])
+    assert blocked["code"] == "graph_operation_over_budget"
+    assert context_calls == ["read_related_recap_context"]
     authorized: list[Any] = []
     guard = _request_budget_guard(
         {
