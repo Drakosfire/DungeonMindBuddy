@@ -1,6 +1,6 @@
 # HANDOFF — DEMO: open sources from durable World conversation
 
-**Status:** ACTIVE UI consumer, 2026-10-12, authorized by PRIME against SERVER DTO `6aed0c06ea266fe67ae1f88633b28d1f5ff71bb1` (additive recap availability status after the first draft). SOURCE #1089 merged at `8fce46de7e33bc352300abdf3ece0369a3ac1e68`; no runtime or operator acceptance is claimed.
+**Status:** ACTIVE UI consumer, 2026-10-12, authorized by PRIME against SERVER PR #1090 DTO `dfa2265ccc67558a96e6ab3bf8d3597ae24bfd78`. SOURCE #1089 merged at `8fce46de7e33bc352300abdf3ece0369a3ac1e68`; no runtime or operator acceptance is claimed.
 **Owner:** DEMO; PRIME controls activation, review and merge.
 **Branch/base:** `codex/demo-world-chat-source-open-design`, re-anchored to Buddy `main@c6659aef23744e8f1e74095a6dcf927b590aeecd` after checking open PRs. One draft UI consumer PR may be reviewed concurrently; final integration waits for SERVER's exact producer merge pin and type alignment.
 
@@ -15,7 +15,7 @@ At answer production, SERVER is expected to project a versioned `source_open_tar
 ## Contract pins and remaining gates
 
 1. ARCHITECTURE's portable source-open ruling is pinned at SHA-256 `9519e083ca2957fd5c807c6d2fbbc2e5033cee7928b29d275992758fd3841b77`. SERVER must publish the exact target DTO and historical replay shape. APP-STATE requires no new schema under this UI projection ruling; recheck if the final producer contract changes.
-2. SERVER's versioned `source_open_targets` projection, including the separate `related_recap_context` target kind and additive `related_recap_context_statuses`, is published at `6aed0c06ea266fe67ae1f88633b28d1f5ff71bb1`. Merge and exact final head are required before the UI PR is ready to merge. It must supply exact native World, scope, campaign, focus, admissibility and Graph revision pins, with a trustworthy target-to-citation association.
+2. SERVER's versioned `source_open_targets` projection, including the separate `related_recap_context` target kind and additive `related_recap_context_statuses`, is published in PR #1090 at `dfa2265ccc67558a96e6ab3bf8d3597ae24bfd78`. Merge and exact final head are required before the UI PR is ready to merge. The UI includes the final `source_campaign_id` context field and verifies it against the read descriptor. It must supply exact native World, scope, campaign, focus, admissibility and Graph revision pins, with a trustworthy target-to-citation association.
 3. SOURCE's distinct Core-authorized recap-context read route merged via #1089 at `8fce46de7e33bc352300abdf3ece0369a3ac1e68`; Core's World-scope campaign-recap corrective is included. The UI does not narrow ordinary chat to a campaign picker. Genuine evidence-anchor reads retain their existing route.
 4. Open PRs checked 2026-10-12: SOURCE #1089 owns only backend/Core pin paths; remaining draft UI PRs do not touch this consumer or its API types/history test. Recheck before PR. No shared runtime, port, database or external state lease.
 

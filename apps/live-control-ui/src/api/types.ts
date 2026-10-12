@@ -1075,6 +1075,7 @@ export type WorldPlanSourceOpenTargetV1 = WorldPlanSourceOpenAuthorityV1 & (
     kind: "related_recap_context";
     context_anchor_id: string;
     provenance_evidence_ref_id: string;
+    source_campaign_id: string | null;
     source_uri: string;
     content_sha256: string;
     expected_session_id: string;

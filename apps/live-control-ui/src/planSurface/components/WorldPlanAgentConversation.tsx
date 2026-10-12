@@ -1089,7 +1089,7 @@ function isWorldPlanSourceOpenTargets(
       "native_world_id", "binding_version", "scope_mode", "campaign_id", "focus", "admissibility", "graph_revision"];
     const variant = evidence
       ? ["anchor_id", "evidence_ref_id", "source_read_id", "read_outcome"]
-      : ["context_anchor_id", "provenance_evidence_ref_id", "source_uri", "content_sha256", "expected_session_id",
+      : ["context_anchor_id", "provenance_evidence_ref_id", "source_campaign_id", "source_uri", "content_sha256", "expected_session_id",
         "expected_heading", "selector_schema", "selector_policy"];
     if (!hasExactKeys(target, [...common, ...variant])
       || target.schema !== (evidence ? "dmb_agent_evidence_anchor_open_target_v1" : "dmb_agent_related_recap_context_open_target_v1")
@@ -1113,12 +1113,14 @@ function isWorldPlanSourceOpenTargets(
         || typeof evidenceId !== "string" || !evidenceId
         || !(target.source_read_id === null || (typeof target.source_read_id === "string" && target.source_read_id))
         || !(target.read_outcome === null || ["enough", "partial", "truncated"].includes(String(target.read_outcome)))
+        || (target.source_read_id === null) !== (target.read_outcome === null)
         || (target.source_read_id !== null && !("source_read_ids" in citation && citation.source_read_ids.includes(target.source_read_id)))) return false;
     } else if (typeof target.context_anchor_id !== "string" || !target.context_anchor_id.startsWith("dm-context-anchor:v1:")
-      || typeof target.source_uri !== "string" || !target.source_uri
+      || !(target.source_campaign_id === null || (typeof target.source_campaign_id === "string" && target.source_campaign_id.trim()))
+      || typeof target.source_uri !== "string" || !target.source_uri.startsWith("repo://")
       || typeof target.content_sha256 !== "string" || !/^[0-9a-f]{64}$/.test(target.content_sha256)
       || typeof target.expected_session_id !== "string" || !/^session-[1-9][0-9]*$/.test(target.expected_session_id)
-      || typeof target.expected_heading !== "string" || !target.expected_heading
+      || target.expected_heading !== `# Session ${target.expected_session_id.slice(8)} Recap`
       || target.selector_schema !== "dm_recap_context_section_selector_v1"
       || target.selector_policy !== "markdown-session-recap-v1") return false;
     const identity = `${target.kind}\u001f${target.claim_id}\u001f${evidence ? target.anchor_id : target.context_anchor_id}`;
@@ -3597,6 +3599,7 @@ export function WorldPlanAgentConversation({
           && result.contextAnchorId === target.context_anchor_id
           && descriptor?.contextAnchorId === target.context_anchor_id
           && descriptor.worldId === target.native_world_id
+          && descriptor.campaignId === target.source_campaign_id
           && descriptor.graphRevisionId === target.graph_revision
           && descriptor.sourceArtifactId === target.source_artifact_id
           && descriptor.sourceRevisionId === target.source_revision_id

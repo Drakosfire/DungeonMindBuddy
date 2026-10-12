@@ -705,8 +705,8 @@ function sourceOpenTargets(): WorldPlanSourceOpenTargetV1[] {
       anchor_id: "anchor-test", evidence_ref_id: "evidence-internal-test", source_read_id: null, read_outcome: null },
     { ...authority, schema: "dmb_agent_related_recap_context_open_target_v1", kind: "related_recap_context",
       context_anchor_id: "dm-context-anchor:v1:test", provenance_evidence_ref_id: "evidence-internal-test",
-      source_uri: "recaps/session-22.md", content_sha256: "e".repeat(64), expected_session_id: "session-22",
-      expected_heading: "Session 22", selector_schema: "dm_recap_context_section_selector_v1",
+      source_campaign_id: "longmont-c2", source_uri: "repo://recaps/session-22.md", content_sha256: "e".repeat(64), expected_session_id: "session-22",
+      expected_heading: "# Session 22 Recap", selector_schema: "dm_recap_context_section_selector_v1",
       selector_policy: "markdown-session-recap-v1" },
   ];
 }
@@ -2492,8 +2492,8 @@ describe("World Plan conversation consumer", () => {
       contextAnchorId: "dm-context-anchor:v1:test",
       context: { contextAnchorId: "dm-context-anchor:v1:test", worldId: "native-world-internal-test",
         campaignId: "longmont-c2", graphRevisionId: "graph-revision-test", sourceArtifactId: "artifact-test",
-        sourceRevisionId: "source-revision-test", sourceUri: "recaps/session-22.md", contentSha256: "e".repeat(64),
-        expectedSessionId: "session-22", expectedHeading: "Session 22",
+        sourceRevisionId: "source-revision-test", sourceUri: "repo://recaps/session-22.md", contentSha256: "e".repeat(64),
+        expectedSessionId: "session-22", expectedHeading: "# Session 22 Recap",
         selectorSchema: "dm_recap_context_section_selector_v1", selectorPolicy: "markdown-session-recap-v1" },
       mediaType: "text/markdown", content: "Related Session 22 passage", headingLine: 1, lineStart: 2, lineEnd: 3,
       sectionSha256: "a".repeat(64), offsetChars: 0, truncated: false, nextContinuation: null, diagnostics: [],
