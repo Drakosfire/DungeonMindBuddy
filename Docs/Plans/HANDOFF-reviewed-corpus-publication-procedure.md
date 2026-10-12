@@ -1,6 +1,6 @@
 Upstream activation SHA-256: `1529a19f816f831b44b99c4e9e5ab7c300ef02a8a1c84319af345321c6c230c6`.
 
-Buddy implementation lane: `codex/server-reviewed-corpus-publication` in `/tmp/buddy-agent-source-targets`; initial base `6dd0bda0dc10e65808ad536425ee3a6595d45703`, re-anchored final base `059fe3fd8c36d677261670f86b8d3f4e2d6f7e66` after disjoint citation-append #1100, installed Core `d8798a5d5d6b46efa3e485e5b493a8fc3d4a94f7`. Open PR/lease inventory has no collision with these six new paths. RAKE owns S28 and MIND settled S20. No retained execution is authorized.
+Buddy implementation lane: `codex/server-reviewed-corpus-publication` in `/tmp/buddy-agent-source-targets`; initial base `6dd0bda0dc10e65808ad536425ee3a6595d45703`, re-anchored final base `ace0cc21a1030f432d52852db5a51fc6a850c21d` after disjoint citation-append #1100 and APP-STATE #1101, installed Core `d8798a5d5d6b46efa3e485e5b493a8fc3d4a94f7`. Open PR/lease inventory has no collision with these six new paths. RAKE owns S28 and MIND settled S20. No retained execution is authorized.
 
 # SERVER — resumable reviewed corpus publication
 
@@ -69,7 +69,7 @@ Implementation decisions: existing typed Core submission/policy and source recor
 
 ## Owning evidence and limits
 
-Focused unit gate: 17 passed. It covers all committed-stage resume boundaries,
+Focused unit gate: 26 passed. It covers all committed-stage resume boundaries,
 source/review/publication lost responses with exact receipt recovery and one
 dispatch, unresolved missing-receipt stop, original timestamp/identity retention,
 read-only inspection without journal writes, changed packet/body/source authority,
@@ -77,7 +77,7 @@ stale parent preserving source/review, prerequisites/selected binding, local
 executor exclusion, untrusted journal flags, unrelated catalog rows, derived
 unique evidence effects, and CLI private-packet error masking.
 
-Disposable PostgreSQL/mounted route proof: 1 passed, no skips. A separately named
+Disposable PostgreSQL/mounted route proof: 2 passed, no skips (node/relationship and standing observation-only variants). A separately named
 `dmb_reviewed_corpus_test_*` database at loopback 55443 was created, initialized
 with exact Core115 migrations as an external fixture prerequisite, and cleaned
 after the test. The actual procedure resumes after finalized review, verifies
@@ -98,4 +98,21 @@ No provider, retained APP/native query/write, private corpus export, fresh
 extraction, Session20 replay, production schema migration or runtime restart was
 used. No acceptance token is asserted by SERVER. PRIME owns exact-head review.
 
-Implementation/test head: `a5d6d43b2ecc7eca03ce40ba19489b51393bf853`. The final PR head adds only this exact-head evidence line; obtain that final SHA from the PR handback.
+Updated implementation/test head: `72ece137431da2e84f243870fd3297f04442068d`. The final PR head adds only this exact-head evidence line; obtain that final SHA from the PR handback.
+
+PRIME HOLD `6132919288` on original head `bfd04364` is addressed within the
+same six-path lease: accepted applied assertion/session-observation targets are
+derived and read through existing complete observation/evidence adapters, with
+exact reviewed lineage/text digest/support. Observation-only publications verify
+standing subjects/source reads despite byte-identical graph objects and reused
+evidence IDs. Every changed relationship must have an enough outcome, exact
+requested/returned target and its own admitted support; shared node evidence
+cannot mask its absence. Receipt probes precede local source loading on inspection
+and committed resume. Missing/changed source after publication reports the
+committed publication plus unavailable source, without redispatch; all uncommitted
+writes still revalidate immutable source bytes. Positive/negative unit tests and
+the observation-only disposable PG/mounted proof pass. No legacy recap-format
+reader change or private C1S16 packet is included. APP migration0020 is inherited
+from the new base; this procedure accesses Core and file binding authority, not
+APP storage, and creates no production migration. Changed-path Ruff and exact
+cumulative six-path diff checks pass. Final head adds only handoff evidence.
