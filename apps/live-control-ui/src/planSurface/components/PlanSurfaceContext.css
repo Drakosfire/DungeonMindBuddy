@@ -1,0 +1,10 @@
+.plan-surface-context .surface-context-module__body { width: 100%; }
+.plan-surface-context__row { width: 100%; }
+.world-plan-context-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-left: auto; }
+.world-plan-context-toolbar .world-plan-view-switch { margin: 0; gap: 3px; flex-wrap: nowrap; }
+.world-plan-context-toolbar .world-plan-view-switch button { min-height: 28px; padding: 3px 9px; border-radius: 5px; font-size: .78rem; color: #cbd3dc; background: transparent; }
+.world-plan-context-toolbar .world-plan-view-switch button[aria-pressed="true"] { color: #e8eaef; background: #27312f; border-color: #718f83; box-shadow: none; }
+.world-plan-context-toolbar__save { font-size: .72rem; color: #aeb9c6; white-space: nowrap; }
+.world-plan-context-toolbar .world-plan-context-toolbar__start { min-height: 28px; padding: 3px 10px; border-radius: 5px; border: 1px solid #ac8035; background: #d9a840; color: #211c12; font-size: .78rem; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.world-plan-context-toolbar .world-plan-context-toolbar__start:disabled { opacity: .55; cursor: not-allowed; }
+@media (max-width: 700px) { .world-plan-context-toolbar { margin-left: 0; } }

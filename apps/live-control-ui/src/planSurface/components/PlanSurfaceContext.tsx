@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 
 import type { WorkspaceDocumentRecord, WorldOwnedPlanRecordV2 } from "../../api/types";
 import { buildPlanSurfaceIdentity } from "../../agentInteraction/projectionSurfacePublication";
@@ -19,6 +19,7 @@ import {
 } from "./PlanDocumentCreateControl";
 import { PlanDocumentSelector, type PlanDocumentListStatus } from "./PlanDocumentSelector";
 import { buildWorldPlanSurfaceIdentity } from "../worldPlanIdentity";
+import "./PlanSurfaceContext.css";
 
 export interface PlanSurfaceContextProps {
   campaignId: string;
@@ -49,6 +50,7 @@ export interface WorldPlanSurfaceContextProps {
   disabled?: boolean;
   onSelect: (documentId: string) => void;
   onNewPlan: () => void;
+  toolbar?: ReactNode;
 }
 
 export function WorldPlanSurfaceContext({
@@ -59,6 +61,7 @@ export function WorldPlanSurfaceContext({
   disabled = false,
   onSelect,
   onNewPlan,
+  toolbar,
 }: WorldPlanSurfaceContextProps) {
   const surfaceIdentity = useMemo(() => buildWorldPlanSurfaceIdentity({
     worldId,
@@ -89,9 +92,10 @@ export function WorldPlanSurfaceContext({
             New Plan
           </SurfaceContextAction>
         ) : null}
+        {toolbar}
       </div>
     </SurfaceContextModule>
-  ), [disabled, documentId, onNewPlan, onSelect, records]);
+  ), [disabled, documentId, onNewPlan, onSelect, records, toolbar]);
 
   useSurfaceContextContribution({
     id: "plan-world-context",
