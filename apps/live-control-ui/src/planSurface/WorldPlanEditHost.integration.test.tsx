@@ -139,12 +139,14 @@ it("routes World Plan title, Save, formatting and insertion through the real doc
 
   const view = renderPlan();
   const host = await screen.findByTestId("surface-edit-host");
+  fireEvent.click(within(host).getByRole("button", { name: "Edit" }));
   await waitFor(() => expect(within(host).getByRole("button", { name: "Save Plan" })).toBeEnabled());
   expect(host).toHaveAttribute("data-layout", "dock");
   const planPage = screen.getByTestId("world-owned-plan");
   expect(within(planPage).getByRole("heading", { level: 1, name: "New Plan" })).toHaveClass("sr-only");
   expect(within(planPage).queryByText("WORLD PLAN")).not.toBeInTheDocument();
-  expect(within(planPage).getByText("Plan changes stay local until you choose Save Plan.")).toBeInTheDocument();
+  expect(within(planPage).queryByText("Plan changes stay local until you choose Save Plan.")).not.toBeInTheDocument();
+  expect(within(screen.getByRole("group", { name: "Plan controls" })).getByText("Unsaved changes")).toBeInTheDocument();
   expect(screen.getByLabelText("Plan document")).toBeInTheDocument();
   expect(screen.getByTestId("plan-authoring-identity")).toHaveTextContent("Unsaved Plan draft");
   const localId = JSON.parse(localStorage.getItem(draftKey) ?? "null").local_draft_id;

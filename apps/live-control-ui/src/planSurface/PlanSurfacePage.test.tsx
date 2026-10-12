@@ -227,7 +227,7 @@ it.each([false, true, "stale-apply", "save", "save-clean"] as const)("captures t
   const page = await screen.findByTestId("world-owned-plan");
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
   expect(await screen.findByRole("region", { name: "Plan content" })).toBeInTheDocument();
-  fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
+  fireEvent.click(within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Cards" }));
   const reader = await screen.findByTestId("world-plan-scene-reader");
   expect(within(reader).getByRole("button", { name: "Select for Edit" })).toHaveAttribute("aria-pressed", "false");
   const conversation = savedWorldPlanConversation();
@@ -316,7 +316,7 @@ it("does not send a scene proposal when the mounted snapshot has a stale committ
   render(<SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}><AgentEnabledPlanPage /></SelectedWorldProvider>);
   const page = await screen.findByTestId("world-owned-plan");
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
+  fireEvent.click(within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Cards" }));
   await screen.findByTestId("world-plan-scene-reader");
   const conversation = savedWorldPlanConversation();
   fireEvent.change(messageDungeonBuddyField(conversation), { target: { value: "Append a cue to the current scene." } });
@@ -803,7 +803,7 @@ it("opens exact managed World Graph references from Document and Cards without c
   expect(documentReference.isConnected).toBe(true);
   expect(screen.getByRole("region", { name: "Saved World Plan conversation" })).toBe(agentConversation);
   expect(agentConversation?.textContent).toBe(conversationText);
-  const cardsTab = within(page).getByRole("button", { name: "Cards" });
+  const cardsTab = within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Cards" });
   fireEvent.click(cardsTab);
   const cards = await screen.findByTestId("world-plan-scene-reader");
   expect(documentReference.closest(".world-plan-document-view")).toHaveAttribute("hidden");
@@ -839,7 +839,7 @@ it("opens exact managed World Graph references from Document and Cards without c
   expect(await screen.findByRole("dialog", { name: "Pinned source passage" })).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Back to World Graph object" }));
   expect(await screen.findByRole("dialog", { name: "World Graph object" })).toBeInTheDocument();
-  const documentTab = within(page).getByRole("button", { name: "Document" });
+  const documentTab = within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Document" });
   fireEvent.click(documentTab);
   expect(screen.getByTestId("world-plan-document-view")).not.toHaveAttribute("hidden");
   fireEvent.click(within(reverseInspector).getByRole("button", { name: "Close Ironveil Warehouse" }));
@@ -932,8 +932,8 @@ it("restores Cards from the matching Plan URL after reopen and keeps the local e
   );
   const firstMount = render(pageTree);
   const page = await screen.findByTestId("world-owned-plan");
-  const cards = within(page).getByRole("button", { name: "Cards" });
-  const document = within(page).getByRole("button", { name: "Document" });
+  const cards = within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Cards" });
+  const document = within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Document" });
   await waitFor(() => expect(cards).toHaveAttribute("aria-pressed", "true"));
   expect(screen.getByTestId("world-plan-document-view")).toHaveAttribute("hidden");
   const contextIdentity = screen.getByTestId("world-plan-context-identity").textContent;
@@ -957,11 +957,11 @@ it("restores Cards from the matching Plan URL after reopen and keeps the local e
 
   render(pageTree);
   const reopenedPage = await screen.findByTestId("world-owned-plan");
-  const reopenedCards = within(reopenedPage).getByRole("button", { name: "Cards" });
+  const reopenedCards = within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Cards" });
   await waitFor(() => expect(reopenedCards).toHaveAttribute("aria-pressed", "true"));
   expect(screen.getByTestId("world-plan-document-view")).toHaveAttribute("hidden");
   expect(screen.getByTestId("world-plan-context-identity").textContent).toBe(contextIdentity);
-  fireEvent.click(within(reopenedPage).getByRole("button", { name: "Document" }));
+  fireEvent.click(within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Document" }));
   expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent("Draft survives Cards and reload");
   expect(JSON.parse(localStorage.getItem(draftKey) ?? "null").markdown).toBe(savedDraft);
 });
@@ -997,13 +997,13 @@ it("clears the Cards route when opening a different saved Plan identity", async 
     </SelectedWorldProvider>,
   );
   const page = await screen.findByTestId("world-owned-plan");
-  await waitFor(() => expect(within(page).getByRole("button", { name: "Cards" })).toHaveAttribute("aria-pressed", "true"));
+  await waitFor(() => expect(within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Cards" })).toHaveAttribute("aria-pressed", "true"));
 
   fireEvent.change(screen.getByLabelText("Plan document"), { target: { value: documentB } });
   await waitFor(() => expect(screen.getByLabelText("Plan title")).toHaveValue("Second Plan"));
   expect(new URLSearchParams(window.location.search).get("documentId")).toBe(documentB);
   expect(new URLSearchParams(window.location.search).get("view")).toBeNull();
-  expect(within(page).getByRole("button", { name: "Document" })).toHaveAttribute("aria-pressed", "true");
+  expect(within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Document" })).toHaveAttribute("aria-pressed", "true");
   expect(screen.getByTestId("world-plan-document-view")).not.toHaveAttribute("hidden");
   expect(screen.queryByTestId("world-plan-scene-reader")).not.toBeInTheDocument();
   expect(screen.getByTestId("world-plan-publication")).toHaveAttribute("data-work-object", `document:${documentB}`);
@@ -1113,7 +1113,7 @@ it.each([
 
   const page = await screen.findByTestId("world-owned-plan");
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
+  fireEvent.click(within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Cards" }));
   const reader = screen.queryByTestId("world-plan-scene-reader");
   if (reader) fireEvent.click(within(reader).getByRole("button", { name: "Back to outline" }));
   const cards = await screen.findByTestId("world-plan-cards");
@@ -1166,7 +1166,7 @@ it("keeps the submitted card identity fixed while selection changes during basis
 
   const page = await screen.findByTestId("world-owned-plan");
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
+  fireEvent.click(within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Cards" }));
   const reader = screen.queryByTestId("world-plan-scene-reader");
   if (reader) fireEvent.click(within(reader).getByRole("button", { name: "Back to outline" }));
   const cards = await screen.findByTestId("world-plan-cards");
@@ -1221,7 +1221,7 @@ it("follows focused Scene for a new Ask while a pending Ask and Edit target stay
 
   const page = await screen.findByTestId("world-owned-plan");
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
+  fireEvent.click(within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Cards" }));
 
   const reader = await screen.findByTestId("world-plan-scene-reader");
   const conversation = savedWorldPlanConversation();
@@ -1286,7 +1286,7 @@ it("clears the previous saved Ask target when focus moves to a draft-only Scene"
 
   const page = await screen.findByTestId("world-owned-plan");
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
+  fireEvent.click(within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Cards" }));
   const reader = await screen.findByTestId("world-plan-scene-reader");
   const conversation = savedWorldPlanConversation();
   expect(within(conversation).getByRole("group", { name: "Question focus" })).toHaveTextContent("Arrival");
@@ -2674,7 +2674,7 @@ it("does not bind an unbound recovery to the empty-ID blank Plan while editing i
   );
   await screen.findByTestId("world-owned-plan");
   await waitFor(() => expect(screen.getByRole("button", { name: "Save Plan" })).toBeEnabled());
-  fireEvent.click(screen.getByRole("button", { name: "New blank Plan" }));
+  fireEvent.click(screen.getByRole("button", { name: "New Plan" }));
   fireEvent.change(screen.getByLabelText("Plan title"), { target: { value: "New blank edit" } });
   expect(JSON.parse(localStorage.getItem(key) ?? "null")).toMatchObject({
     document_id: null,
@@ -2752,7 +2752,7 @@ it("preserves a blank recovery journal and keeps Plan actions locked after conte
   expect(editor).toHaveAttribute("contenteditable", "false");
   expect(screen.queryByRole("button", { name: "Save Plan" })).not.toBeInTheDocument();
   expect(screen.getByLabelText("Plan document")).toBeDisabled();
-  expect(screen.getByRole("button", { name: "New blank Plan" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "New Plan" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Restore recovered draft into this Plan" })).toBeDisabled();
   const discardButtons = screen.getAllByRole("button", { name: "Discard recovered draft" });
   expect(discardButtons.length).toBeGreaterThan(0);
@@ -2760,7 +2760,7 @@ it("preserves a blank recovery journal and keeps Plan actions locked after conte
   const retry = screen.getByRole("button", { name: "Retry Plan load" });
   expect(retry).toBeEnabled();
 
-  fireEvent.click(screen.getByRole("button", { name: "New blank Plan" }));
+  fireEvent.click(screen.getByRole("button", { name: "New Plan" }));
   fireEvent.click(screen.getByRole("button", { name: "Restore recovered draft into this Plan" }));
   fireEvent.click(discardButtons[0]);
   expect(localStorage.getItem(draftKey)).toBe(originalJournal);
@@ -2835,7 +2835,7 @@ it("keeps another Plan's draft out of a failed document load and retries without
   expect(screen.queryByText("A private draft body")).not.toBeInTheDocument();
   expect(screen.queryByText("Plan A private title")).not.toBeInTheDocument();
   expect(screen.getByLabelText("Plan document")).toBeDisabled();
-  expect(screen.getByRole("button", { name: "New blank Plan" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "New Plan" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Retry Plan load" })).toBeEnabled();
 
   fireEvent.click(screen.getByRole("button", { name: "Retry Plan load" }));
@@ -3150,7 +3150,12 @@ it("starts Play from the exact clean committed World Plan revision", async () =>
   const start = await screen.findByTestId("world-plan-start-play");
   await waitFor(() => expect(start).toBeEnabled());
   const page = screen.getByTestId("world-owned-plan");
-  fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
+  const bar = screen.getByTestId("surface-context-host");
+  expect(bar).toContainElement(start);
+  expect(bar).toContainElement(screen.getByRole("group", { name: "Plan view" }));
+  expect(within(page).queryByRole("group", { name: "Plan view" })).not.toBeInTheDocument();
+  expect(within(page).queryByText("Plan changes stay local until you choose Save Plan.")).not.toBeInTheDocument();
+  fireEvent.click(within(screen.getByRole("group", { name: "Plan view" })).getByRole("button", { name: "Cards" }));
   const reader = await screen.findByTestId("world-plan-scene-reader");
   expect(reader.querySelector(".world-plan-scene-reader__title h2")).toHaveTextContent("Arrival");
   expect(reader).not.toHaveTextContent("A lantern moves behind the loading door.");

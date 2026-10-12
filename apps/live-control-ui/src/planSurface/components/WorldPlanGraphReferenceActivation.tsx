@@ -277,9 +277,11 @@ export function WorldPlanGraphReferenceActivationProvider({
         const page = triggerPageRef.current;
         const pageIdentity = triggerPageIdentityRef.current;
         if (page?.isConnected && pageIdentity && page.dataset.planSurfaceIdentity === pageIdentity) {
-          trigger = page.querySelector<HTMLElement>(
+          const toolbars = Array.from(page.ownerDocument.querySelectorAll<HTMLElement>("[data-plan-toolbar-identity]"))
+            .filter((candidate) => candidate.dataset.planToolbarIdentity === pageIdentity && !candidate.closest("[hidden]"));
+          trigger = toolbars.length === 1 ? toolbars[0]!.querySelector<HTMLElement>(
             '.world-plan-view-switch button[aria-pressed="true"]',
-          );
+          ) : null;
         } else {
           trigger = null;
         }

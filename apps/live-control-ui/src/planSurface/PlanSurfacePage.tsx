@@ -1612,6 +1612,38 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         disabled={saving || status !== "ready"}
         onSelect={(nextId) => { void openPlan(nextId); }}
         onNewPlan={resetBlankPlan}
+        toolbar={<div className="world-plan-context-toolbar" data-plan-toolbar-identity={editorIdentity} role="group" aria-label="Plan controls">
+          <nav className="world-plan-view-switch" role="group" aria-label="Plan view" data-testid="world-plan-view-switch">
+            <button
+              type="button"
+              aria-pressed={!cardsViewActive}
+              onClick={() => selectPlanView("document")}
+            >Document</button>
+            <button
+              type="button"
+              aria-pressed={cardsViewActive}
+              disabled={!documentId || status !== "ready" || !editor}
+              onClick={() => selectPlanView("cards")}
+            >Cards</button>
+          </nav>
+          <span className="world-plan-context-toolbar__save" role="status"
+            title="Plan changes stay local until you choose Save Plan.">
+            {saving ? "Saving…" : status === "error" ? "Plan unavailable" : status !== "ready" || (documentId && savedBasis.status !== "verified") ? "Checking Plan…"
+              : savedPlanDirty || !documentId ? "Unsaved changes" : "Saved"}
+          </span>
+          <button type="button" className="world-plan-context-toolbar__start" data-testid="world-plan-start-play"
+            aria-label={startingPlay ? "Verifying saved Plan…" : "Start Play from this Plan"}
+            aria-describedby={status === "ready" && !canStartPlayFromSavedPlan && !startingPlay && documentId ? "world-plan-start-play-reason" : undefined}
+            title={canStartPlayFromSavedPlan ? "Start Play from this saved Plan" : "Save and reopen a clean, committed Plan before starting Play."}
+            disabled={!canStartPlayFromSavedPlan} onClick={() => { void startPlayFromSavedPlan(); }}>
+            {startingPlay ? "Verifying…" : "Start Play"}
+          </button>
+          {status === "ready" && documentId && !canStartPlayFromSavedPlan && !startingPlay ? (
+            <span id="world-plan-start-play-reason" className="sr-only" data-testid="world-plan-start-play-disabled">
+              Save and reopen a clean, committed Plan before starting Play.
+            </span>
+          ) : null}
+        </div>}
       />
       <PlanConversationDockAdapter contextLabel={focusTitle ? `${focusTitle} · Full saved Plan` : `${worldName} · Full saved Plan`} reader={(
       <main
@@ -1623,25 +1655,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         <h1 id="world-owned-plan-title" className="sr-only">
           {documentId ? title || "Untitled Plan" : "New Plan"}
         </h1>
-        <p className="world-owned-plan__intro">
-          Plan changes stay local until you choose Save Plan.
-        </p>
-        <div className="world-plan-start-play">
-          <button
-            type="button"
-            data-testid="world-plan-start-play"
-            disabled={!canStartPlayFromSavedPlan}
-            onClick={() => { void startPlayFromSavedPlan(); }}
-          >
-            {startingPlay ? "Verifying saved Plan…" : "Start Play from this Plan"}
-          </button>
-          {startPlayError ? <p role="alert" data-testid="world-plan-start-play-error">{startPlayError}</p> : null}
-          {status === "ready" && documentId && !canStartPlayFromSavedPlan && !startingPlay ? (
-            <p role="status" data-testid="world-plan-start-play-disabled">
-              Save and reopen a clean, committed Plan before starting Play.
-            </p>
-          ) : null}
-        </div>
+        {startPlayError ? <p role="alert" data-testid="world-plan-start-play-error">{startPlayError}</p> : null}
         {createUncertain ? (
           <section role="alert">
             <p>Plan creation may have succeeded, but its response was lost. Refresh Saved Plans and open a candidate if one appears. Its identity is not assumed; the recovered text stays separate until you explicitly restore it into a Plan or discard it. Automatic creation retry is blocked to avoid duplicates.</p>
@@ -1668,19 +1682,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             <ul>{fidelityWarnings.map((warning, index) => <li key={`${index}:${warning}`}>{warning}</li>)}</ul>
           </section>
         ) : null}
-        <nav className="world-plan-view-switch" role="group" aria-label="Plan view" data-testid="world-plan-view-switch">
-          <button
-            type="button"
-            aria-pressed={!cardsViewActive}
-            onClick={() => selectPlanView("document")}
-          >Document</button>
-          <button
-            type="button"
-            aria-pressed={cardsViewActive}
-            disabled={!documentId || status !== "ready" || !editor}
-            onClick={() => selectPlanView("cards")}
-          >Cards</button>
-        </nav>
+
         <div
           className="world-plan-document-view"
           data-testid="world-plan-document-view"

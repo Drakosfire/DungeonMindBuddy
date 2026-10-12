@@ -167,7 +167,11 @@ describe("WorldPlanSurfaceContext", () => {
     expect(within(host).getByTestId("world-plan-document-select")).toHaveValue(DOC_A);
     expect(within(host).getByRole("option", { name: "Of Conks Session 28" })).toBeInTheDocument();
     expect(within(host).queryByText(/S\d+/)).not.toBeInTheDocument();
-    expect(within(host).getByRole("button", { name: "New blank Plan" })).toBeInTheDocument();
+    expect(within(host).getByRole("button", { name: "New Plan" })).toBeInTheDocument();
+    expect(within(host).queryByText("PLAN", { exact: true })).not.toBeInTheDocument();
+    expect(within(host).queryByText("Of Conks", { exact: true })).not.toBeInTheDocument();
+    fireEvent.click(within(host).getByRole("button", { name: "New Plan" }));
+    expect(onNewPlan).toHaveBeenCalledOnce();
   });
 
   it("routes blank selection to the existing blank Plan and saved selection to its exact document", () => {
