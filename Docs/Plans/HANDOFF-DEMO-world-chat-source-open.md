@@ -2,7 +2,7 @@
 
 **Status:** SETTLED, 2026-10-12. UI PR #1091 merged at `39af83580e8d9a4a6367560f34f9ab6d021aa6b7` from reviewed head `3d845240da27658c2c9e08104088622972c2f616`. This handoff grants no active path, runtime or state lease.
 **Owner:** DEMO; PRIME controls subsequent activation and merge decisions.
-**Producer pins:** SERVER source-open projection #1090 merged at `5614fb1c9156a6a42aed94e2f2422f52df412667` (DTO code `98bc9eb18cda45daffc50d94d32947051c92368b`); SOURCE recap reader #1089 merged at `8fce46de7e33bc352300abdf3ece0369a3ac1e68`. Portable architectural ruling SHA-256: `d1502b6cea6172e170a6008000bf0f60f99ce84635c37adc872bcd4a03f0dea4a`.
+**Producer pins:** SERVER source-open projection #1090 merged at `5614fb1c9156a6a42aed94e2f2422f52df412667` (DTO code `98bc9eb18cda45daffc50d94d32947051c92368b`); SOURCE recap reader #1089 merged at `8fce46de7e33bc352300abdf3ece0369a3ac1e68`. Portable architectural ruling SHA-256: `d1502b6cea6172e170a6008000bf0f60f99ce84635c37adc872bcd4a03f0dea4`.
 
 ## Delivered boundary
 
