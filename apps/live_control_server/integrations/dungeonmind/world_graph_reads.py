@@ -95,6 +95,7 @@ from dungeonmind.application.world_graph_retrieval import (
     ObjectLookupResult,
     RetrievalBounds,
     SourceAnchorIndexRequest,
+    SourceContextIndexRequest,
     SelectedSourceAnchorIndexRequest,
     SourceAnchorMetadata,
     SourceAnchorResolution,
@@ -158,6 +159,11 @@ from graph_memory.retrieval.models import (
     WorldGraphSourceAnchor,
     WorldGraphSourceAnchorReadRequest,
     WorldGraphSourceAnchorReadResult,
+    RecapContextIndexRequest,
+    RecapContextReadRequest,
+    RecapContextDescriptor,
+    RecapContextIndexResult,
+    RecapContextReadResult,
 )
 from graph_memory.retrieval.source_reader import (
     SourceReadError,
@@ -1857,9 +1863,12 @@ def _classify_locator_kind(anchor: SourceAnchorMetadata) -> str:
     if parse_graph_data_uri(uri) is not None and parse_json_pointer_locator(locator) is not None:
         return "json_pointer"
     recap_span = _product_source_span_ref_id(anchor)
-    if recap_span and parse_repo_uri(uri) is not None:
+    if recap_span and parse_repo_uri(uri) is not None and (
+        domain not in _RECAP_SOURCE_DOMAINS
+        or _supported_recap_span_identity(recap_span) is not None
+    ):
         return "source_span"
-    if span and parse_repo_uri(uri) is not None:
+    if span and domain not in _RECAP_SOURCE_DOMAINS and parse_repo_uri(uri) is not None:
         return "source_span"
     return "unsupported"
 
@@ -2549,6 +2558,193 @@ def list_source_anchor_index_direct_v2(
             status="complete", eligible_count=result.eligible_count,
             source_pins=pins,
         )
+    except Exception as exc:  # noqa: BLE001
+        raise _map_direct_error(exc) from exc
+
+
+def _recap_context_view(native: Any) -> RecapContextDescriptor:
+    selector = native.section_selector
+    if (
+        selector.schema_version != "dm_recap_context_section_selector_v1"
+        or selector.kind != "recap_section"
+        or selector.policy != "markdown-session-recap-v1"
+    ):
+        raise ValueError("unsupported recap context selector")
+    if any(
+        not isinstance(value, str) or not value or value != value.strip()
+        for value in (
+            native.context_anchor_id, native.world_id, native.graph_revision_id,
+            native.source_artifact_id, native.source_revision_id, native.source_uri,
+            native.content_sha256,
+        )
+    ) or not native.context_anchor_id.startswith("dm-context-anchor:v1:") or (
+        native.campaign_id is not None and (
+            not isinstance(native.campaign_id, str) or not native.campaign_id.strip()
+        )
+    ):
+        raise ValueError("recap context descriptor is incomplete")
+    return RecapContextDescriptor(
+        context_anchor_id=native.context_anchor_id,
+        world_id=native.world_id,
+        campaign_id=native.campaign_id,
+        graph_revision_id=native.graph_revision_id,
+        source_artifact_id=native.source_artifact_id,
+        source_revision_id=native.source_revision_id,
+        source_uri=native.source_uri,
+        content_sha256=native.content_sha256,
+        expected_session_id=selector.expected_session_id,
+        expected_heading=selector.expected_heading,
+    )
+
+
+def _recap_context_projection(
+    request: RecapContextIndexRequest | RecapContextReadRequest,
+    binding: DirectAuthorityBinding,
+) -> WorldGraphProjectionRequestV2:
+    projection = _map_retrieval_context(request, binding)
+    if projection.revision_pin != request.revision_pin:
+        raise ValueError("recap context revision pin changed during binding")
+    return projection
+
+
+def _recap_context_descriptor_in_scope(descriptor: RecapContextDescriptor, projection: WorldGraphProjectionRequestV2, revision_id: str) -> bool:
+    if descriptor.world_id != projection.world_id or descriptor.graph_revision_id != revision_id:
+        return False
+    if projection.scope_mode is ScopeModeV2.CAMPAIGN:
+        return descriptor.campaign_id == projection.campaign_id
+    return projection.scope_mode is ScopeModeV2.WORLD_CROSS_CAMPAIGN
+
+
+def list_recap_context_direct(
+    services: DirectWorldGraphReadServices,
+    request: RecapContextIndexRequest,
+) -> RecapContextIndexResult:
+    try:
+        projection = _recap_context_projection(request, services.binding)
+        native = services.retrieval.list_source_context_index(
+            SourceContextIndexRequest(projection=projection, max_entries=request.max_entries)
+        )
+        snapshot = native.snapshot
+        if (
+            snapshot.world_id != projection.world_id
+            or snapshot.campaign_id != projection.campaign_id
+            or snapshot.admissibility != projection.admissibility
+            or snapshot.scope_mode != projection.scope_mode
+            or snapshot.revision_id != request.revision_pin
+            or native.max_entries != request.max_entries
+        ):
+            raise ValueError("recap context index changed its pinned projection")
+        entries = [_recap_context_view(row) for row in native.entries]
+        if native.status == "overflow":
+            if entries or native.eligible_count <= request.max_entries:
+                raise ValueError("recap context overflow is not empty")
+        elif native.status != "complete" or len(entries) != native.eligible_count:
+            raise ValueError("recap context index is incomplete")
+        for row in entries:
+            if not _recap_context_descriptor_in_scope(row, projection, snapshot.revision_id):
+                raise ValueError("recap context descriptor differs from index scope")
+        if len({row.context_anchor_id for row in entries}) != len(entries):
+            raise ValueError("recap context identities are ambiguous")
+        return RecapContextIndexResult(
+            snapshot=_retrieval_snapshot_view(snapshot, focus=request.focus.to_projection_focus()),
+            status=native.status,
+            eligible_count=native.eligible_count,
+            max_entries=native.max_entries,
+            entries=entries,
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise _map_direct_error(exc) from exc
+
+
+def _recap_context_cursor(descriptor: RecapContextDescriptor, section_sha256: str, offset: int) -> str:
+    payload = f"{descriptor.context_anchor_id}|{descriptor.content_sha256}|{section_sha256}|{offset}"
+    return f"recap-page:v1:{hashlib.sha256(payload.encode()).hexdigest()}:{offset}"
+
+
+def read_recap_context_direct(
+    services: DirectWorldGraphReadServices,
+    request: RecapContextReadRequest,
+    *,
+    repo_root: Path,
+) -> RecapContextReadResult:
+    try:
+        projection = _recap_context_projection(request, services.binding)
+        native = services.retrieval.resolve_source_context(
+            projection, context_anchor_id=request.context_anchor_id
+        )
+        snapshot = native.snapshot
+        if (
+            snapshot.world_id != projection.world_id
+            or snapshot.campaign_id != projection.campaign_id
+            or snapshot.admissibility != projection.admissibility
+            or snapshot.scope_mode != projection.scope_mode
+            or snapshot.revision_id != request.revision_pin
+            or native.context_anchor_id != request.context_anchor_id
+        ):
+            raise ValueError("recap context resolution changed its pinned projection")
+        view_snapshot = _retrieval_snapshot_view(snapshot, focus=request.focus.to_projection_focus())
+        if not native.found or native.context is None:
+            return RecapContextReadResult(outcome="empty", snapshot=view_snapshot, context_anchor_id=request.context_anchor_id)
+        descriptor = _recap_context_view(native.context)
+        if not _recap_context_descriptor_in_scope(descriptor, projection, snapshot.revision_id) or descriptor.context_anchor_id != request.context_anchor_id:
+            raise ValueError("recap context descriptor differs from resolved scope")
+        match = re.fullmatch(r"session-([1-9][0-9]*)", descriptor.expected_session_id)
+        if (
+            match is None
+            or descriptor.expected_heading != f"# Session {match.group(1)} Recap"
+            or not re.fullmatch(r"[0-9a-f]{64}", descriptor.content_sha256)
+            or not descriptor.source_revision_id.strip()
+        ):
+            raise ValueError("recap context source or selector is invalid")
+        relative = parse_repo_uri(descriptor.source_uri)
+        if not relative:
+            raise ValueError("recap context requires a repo source URI")
+        root = repo_root.resolve()
+        path = (root / relative).resolve()
+        if not path.is_relative_to(root):
+            raise ValueError("recap context URI escapes source root")
+        raw = path.read_bytes()
+        if hashlib.sha256(raw).hexdigest() != descriptor.content_sha256:
+            raise ValueError("recap context source bytes differ from admitted digest")
+        text = raw.decode("utf-8")
+        lines = text.splitlines(keepends=True)
+        matches = [i for i, line in enumerate(lines) if line.rstrip("\r\n") == descriptor.expected_heading]
+        if len(matches) != 1:
+            raise ValueError("recap section heading is missing or ambiguous")
+        heading_index = matches[0]
+        end_index = next((i for i in range(heading_index + 1, len(lines)) if lines[i].startswith("# ")), len(lines))
+        section = "".join(lines[heading_index + 1:end_index])
+        section_sha = hashlib.sha256(section.encode("utf-8")).hexdigest()
+        offset = 0
+        if request.continuation is not None:
+            try:
+                offset = int(request.continuation.rsplit(":", 1)[1])
+            except (ValueError, IndexError) as exc:
+                raise ValueError("invalid recap context continuation") from exc
+            if not 0 < offset < len(section) or request.continuation != _recap_context_cursor(descriptor, section_sha, offset):
+                raise ValueError("recap context continuation differs from verified section")
+        end = min(len(section), offset + request.max_chars)
+        truncated = end < len(section)
+        return RecapContextReadResult(
+            outcome="truncated" if truncated else "enough",
+            snapshot=view_snapshot,
+            context_anchor_id=request.context_anchor_id,
+            context=descriptor,
+            media_type="text/markdown",
+            content=section[offset:end],
+            heading_line=heading_index + 1,
+            line_start=heading_index + 2,
+            line_end=end_index,
+            section_sha256=section_sha,
+            offset_chars=offset,
+            truncated=truncated,
+            next_continuation=_recap_context_cursor(descriptor, section_sha, end) if truncated else None,
+        )
+    except (OSError, UnicodeDecodeError, ValueError) as exc:
+        raise DirectWorldGraphReadError(
+            f"Recap context is unavailable: {type(exc).__name__}",
+            code="source_unavailable", status_code=409, cause=exc,
+        ) from exc
     except Exception as exc:  # noqa: BLE001
         raise _map_direct_error(exc) from exc
 

@@ -26,6 +26,8 @@ from apps.live_control_server.services.world_graph_retrieval import (
     get_object_evidence,
     get_object_neighborhood,
     read_source_anchor,
+    list_recap_context,
+    read_recap_context,
     search_campaign_graph,
 )
 from graph_memory.retrieval.models import (
@@ -37,6 +39,10 @@ from graph_memory.retrieval.models import (
     WorldGraphSearchRequest,
     WorldGraphSourceAnchorReadRequest,
     WorldGraphSourceAnchorReadResult,
+    RecapContextIndexRequest,
+    RecapContextIndexResult,
+    RecapContextReadRequest,
+    RecapContextReadResult,
 )
 
 
@@ -231,6 +237,40 @@ def post_world_graph_retrieval_source_anchor_read(
                 status_code=500,
             )
         )
+    return response.model_dump(mode="json", by_alias=True)
+
+
+@router.post("/recap-context/index", response_model=RecapContextIndexResult)
+def post_recap_context_index(
+    request_context: Request,
+    request: RecapContextIndexRequest,
+) -> dict[str, Any] | JSONResponse:
+    try:
+        _reject_query_params(request_context)
+        response = list_recap_context(request)
+    except WorldGraphRetrievalServiceError as exc:
+        return _error_response(exc)
+    except Exception:
+        return _error_response(WorldGraphRetrievalServiceError(
+            "Recap context index failed unexpectedly.", code="retrieval_internal_error", status_code=500,
+        ))
+    return response.model_dump(mode="json", by_alias=True)
+
+
+@router.post("/recap-context/read", response_model=RecapContextReadResult)
+def post_recap_context_read(
+    request_context: Request,
+    request: RecapContextReadRequest,
+) -> dict[str, Any] | JSONResponse:
+    try:
+        _reject_query_params(request_context)
+        response = read_recap_context(request)
+    except WorldGraphRetrievalServiceError as exc:
+        return _error_response(exc)
+    except Exception:
+        return _error_response(WorldGraphRetrievalServiceError(
+            "Recap context read failed unexpectedly.", code="retrieval_internal_error", status_code=500,
+        ))
     return response.model_dump(mode="json", by_alias=True)
 
 

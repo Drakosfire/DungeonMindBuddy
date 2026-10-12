@@ -27,6 +27,10 @@ from graph_memory.retrieval.models import (
     WorldGraphSourceAnchorReadRequest,
     WorldGraphSourceAnchorReadResult,
     WorldGraphRetrievalResult,
+    RecapContextIndexRequest,
+    RecapContextIndexResult,
+    RecapContextReadRequest,
+    RecapContextReadResult,
 )
 from apps.live_control_server.models.world_graph_object_projection import (
     WorldGraphObjectReviewedSourceObservation,
@@ -225,6 +229,38 @@ def read_source_anchor(
         return direct.read_source_anchor_direct(
             direct.direct_services_from_config(request.world_id),
             request,
+            repo_root=_resolved_repo_root(root=root, repo_root=repo_root),
+        )
+    except direct.DirectWorldGraphReadError as exc:
+        raise _map_direct_error(exc) from None
+
+
+def list_recap_context(
+    request: RecapContextIndexRequest,
+    *,
+    root: Path | None = None,
+) -> RecapContextIndexResult:
+    _require_mounted_native_read(root)
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+    try:
+        return direct.list_recap_context_direct(
+            direct.direct_services_from_config(request.world_id), request
+        )
+    except direct.DirectWorldGraphReadError as exc:
+        raise _map_direct_error(exc) from None
+
+
+def read_recap_context(
+    request: RecapContextReadRequest,
+    *,
+    root: Path | None = None,
+    repo_root: Path | None = None,
+) -> RecapContextReadResult:
+    _require_mounted_native_read(root)
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+    try:
+        return direct.read_recap_context_direct(
+            direct.direct_services_from_config(request.world_id), request,
             repo_root=_resolved_repo_root(root=root, repo_root=repo_root),
         )
     except direct.DirectWorldGraphReadError as exc:

@@ -10,7 +10,51 @@ from apps.live_control_server.services.agent_world_graph_query_context import (
 )
 from graph_memory.projection.world_projection import WorldGraphProjectionRequest
 from graph_memory.interaction.initial_resolve import create_session_from_preflight
-from graph_memory.retrieval.models import WorldGraphSearchRequest
+from graph_memory.retrieval.models import WorldGraphSearchRequest, RecapContextIndexRequest, RecapContextReadRequest
+
+
+def test_recap_context_wire_requires_exact_gm_pin_and_distinct_context_id() -> None:
+    common = {"worldId": "eldyrwild", "campaignId": "longmont-c2", "scopeMode": "campaign", "revisionPin": "rev:fixed"}
+    listed = RecapContextIndexRequest.model_validate({"schema":"dmb_recap_context_index_request_v1", **common})
+    assert listed.max_entries == 512
+    opened = RecapContextReadRequest.model_validate({"schema":"dmb_recap_context_read_request_v1", **common,
+        "contextAnchorId":"dm-context-anchor:v1:exact"})
+    assert opened.context_anchor_id.startswith("dm-context-anchor:")
+    for bad in ({"revisionPin":None}, {"admissibility":"player"}, {"sourceUri":"repo://forged.md"}):
+        with pytest.raises(ValidationError):
+            RecapContextReadRequest.model_validate({"schema":"dmb_recap_context_read_request_v1", **common,
+                "contextAnchorId":"dm-context-anchor:v1:exact", **bad})
+    with pytest.raises(ValidationError):
+        RecapContextReadRequest.model_validate({"schema":"dmb_recap_context_read_request_v1", **common,
+            "contextAnchorId":"source-anchor:v1:old-evidence"})
+
+
+def test_recap_context_routes_use_separate_service_operations(monkeypatch) -> None:
+    from starlette.requests import Request
+    from apps.live_control_server.routes import world_graph_retrieval as route
+    from graph_memory.retrieval.models import RecapContextDescriptor, RecapContextIndexResult, RecapContextReadResult, WorldGraphRetrievalSnapshot
+    snapshot = WorldGraphRetrievalSnapshot(world_id="eldyrwild", campaign_id="longmont-c2", revision_id="rev:fixed",
+        head_revision_id="rev:fixed", is_head=True, focus={"kind":"none"}, admissibility="gm", scope_mode="campaign")
+    descriptor = RecapContextDescriptor(context_anchor_id="dm-context-anchor:v1:exact", world_id="eldyrwild",
+        campaign_id="longmont-c2", graph_revision_id="rev:fixed", source_artifact_id="artifact:s22",
+        source_revision_id="sha256:"+"a"*64, source_uri="repo://s22.md", content_sha256="a"*64,
+        expected_session_id="session-22", expected_heading="# Session 22 Recap")
+    listed=[]
+    opened=[]
+    monkeypatch.setattr(route,"list_recap_context",lambda request: listed.append(request) or RecapContextIndexResult(
+        snapshot=snapshot,status="complete",eligible_count=1,max_entries=512,entries=[descriptor]))
+    monkeypatch.setattr(route,"read_recap_context",lambda request: opened.append(request) or RecapContextReadResult(
+        outcome="enough",snapshot=snapshot,context_anchor_id=descriptor.context_anchor_id,context=descriptor,
+        content="one line",media_type="text/markdown",heading_line=3,line_start=4,line_end=4,
+        section_sha256="b"*64))
+    empty=Request({"type":"http","query_string":b""})
+    common={"worldId":"eldyrwild","campaignId":"longmont-c2","scopeMode":"campaign","revisionPin":"rev:fixed"}
+    index=RecapContextIndexRequest.model_validate({"schema":"dmb_recap_context_index_request_v1",**common})
+    read=RecapContextReadRequest.model_validate({"schema":"dmb_recap_context_read_request_v1",**common,
+        "contextAnchorId":descriptor.context_anchor_id})
+    assert route.post_recap_context_index(empty,index)["entries"][0]["contextAnchorId"]==descriptor.context_anchor_id
+    assert route.post_recap_context_read(empty,read)["content"]=="one line"
+    assert len(listed)==len(opened)==1
 
 
 def _projection(**overrides: object) -> WorldGraphProjectionRequest:
