@@ -18,6 +18,20 @@ function Fixture({ expanded = false, onExpandedChange = vi.fn() } = {}) {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("ConversationDock", () => {
+  it("uses accessible icons for fullscreen and close without removing their keyboard names", () => {
+    render(<ConversationDock reader={<p>Plan</p>} messages={<p>Reply</p>} composer={<textarea aria-label="Message Buddy" />} collapseMode="launcher" fullscreenEnabled initialExpanded />);
+    const fullscreen = screen.getByRole("button", { name: "Expand conversation fullscreen" });
+    const close = screen.getByRole("button", { name: "Close conversation" });
+    expect(fullscreen).toHaveTextContent("");
+    expect(close).toHaveTextContent("");
+    expect(fullscreen.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+    expect(close.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+    fireEvent.click(fullscreen);
+    expect(screen.getByRole("button", { name: "Restore conversation dock" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(close);
+    expect(screen.getByRole("button", { name: "Open conversation" })).toBeInTheDocument();
+  });
+
   it("allows the conversation to grow beyond the old half-screen ceiling", () => {
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({height:900} as DOMRect);
     render(<ConversationDock reader={<p>Plan</p>} messages={<p>Conversation</p>} composer={<textarea aria-label="Message Buddy" />} expanded />);

@@ -188,9 +188,13 @@ export function ConversationDock({
             <span>{contextLabel}</span><span aria-hidden="true">▾</span>
           </button>}
           <div className="conversation-dock__actions">{headerActions}</div>
-          {fullscreenEnabled && expanded && <button ref={fullscreenButton} type="button" aria-label={fullscreen ? "Restore conversation dock" : "Expand conversation fullscreen"} aria-pressed={fullscreen} onClick={toggleFullscreen}>{fullscreen ? "Restore" : "Fullscreen"}</button>}
-          <button type="button" aria-label={collapseMode === "launcher" && expanded ? "Close conversation" : undefined} className="conversation-dock__toggle" aria-expanded={expanded}
-            aria-controls={`${id}-messages`} onClick={() => changeExpanded(!expanded)}>{expanded ? collapseMode === "launcher" ? "Close" : "Collapse" : "Open chat"}</button>
+          {fullscreenEnabled && expanded && <button ref={fullscreenButton} className="conversation-dock__icon-button" type="button" title={fullscreen ? "Restore dock" : "Fullscreen"} aria-label={fullscreen ? "Restore conversation dock" : "Expand conversation fullscreen"} aria-pressed={fullscreen} onClick={toggleFullscreen}>
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d={fullscreen ? "M3 8h5V3M21 8h-5V3M8 21v-5H3M16 21v-5h5" : "M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5"} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </button>}
+          <button type="button" aria-label={expanded ? collapseMode === "launcher" ? "Close conversation" : "Collapse" : "Open chat"} title={expanded ? collapseMode === "launcher" ? "Close conversation" : "Collapse" : "Open chat"} className={`conversation-dock__toggle${expanded ? " conversation-dock__icon-button" : ""}`} aria-expanded={expanded}
+            aria-controls={`${id}-messages`} onClick={() => changeExpanded(!expanded)}>
+            {expanded ? <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d={collapseMode === "launcher" ? "M6 6l12 12M18 6 6 18" : "m6 9 6 6 6-6"} fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg> : "Open chat"}
+          </button>
         </header>
         <div id={`${id}-context`} className="conversation-dock__context" hidden={!contextOpen}>{contextDetails}</div>
         <div ref={messageRegion} id={`${id}-messages`} className="conversation-dock__messages" role="log"

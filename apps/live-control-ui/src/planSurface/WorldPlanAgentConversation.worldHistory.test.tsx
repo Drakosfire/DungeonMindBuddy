@@ -2356,11 +2356,26 @@ describe("World Plan conversation consumer", () => {
     render(conversationElement());
 
     for (const [, , label] of outcomes) expect(await screen.findByText(label)).toBeInTheDocument();
+    const basisLabels = screen.getAllByLabelText("Answer sources").map((element) => element.textContent);
+    expect(basisLabels).toEqual(["World + Plan", "World + Plan · partial", "Plan only", "Plan only"]);
+    expect(screen.queryByLabelText("Turn surface")).not.toBeInTheDocument();
     expect(screen.getByText(/provider dispatch did not begin\. Submit a new Ask if you want another attempt/)).toBeInTheDocument();
     expect(screen.getByText(/attempt outcome is unknown\. Refresh World history before taking another action/)).toBeInTheDocument();
     expect(screen.getByText(/A new attempt requires a new Ask/)).toBeInTheDocument();
     expect(screen.queryByText(/assertion-internal-test|context_receipt_sha256/)).not.toBeInTheDocument();
     expect(screen.getAllByText("graph-revision-test")).toHaveLength(2);
+  });
+
+  it("rejects an unknown completion status instead of labeling it Plan only", async () => {
+    const context = await planGraphContext("plan_only_graph_unused");
+    context.completion!.answer_context_status = "abstained" as any;
+    setupApi(await historyV2("conversation-a", 4, [policyHistoryTurn(
+      1, "unknown-basis", "Question", "Unverified answer", context,
+    )]));
+    render(conversationElement());
+    expect(await screen.findByText(/invalid Graph-context receipt/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Answer sources")).not.toBeInTheDocument();
+    expect(screen.queryByText("Unverified answer")).not.toBeInTheDocument();
   });
 
   it("accepts parent-validated tool evidence when the initial Graph receipt was insufficient", async () => {
@@ -2839,6 +2854,38 @@ describe("World Plan conversation consumer", () => {
     expect(screen.queryByText(/server confirmed provider dispatch did not begin/)).not.toBeInTheDocument();
     expect(pendingAskKeys()).toHaveLength(1);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps verified messages and typing focus during a pending history check without reposting", async () => {
+    const saved = history("conversation-a", 4, [makeTurn(1, "saved-turn", "Earlier question", "Verified existing reply")]);
+    const api = setupApi(saved);
+    const post = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockRejectedValue(new Error("connection lost"));
+    const mounted = render(conversationElement());
+    await screen.findByText("Verified existing reply");
+    ensureWorldGraphAskEnabled();
+    const textarea = screen.getByLabelText("Message DungeonBuddy");
+    fireEvent.change(textarea, { target: { value: "Check the north gate" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await screen.findByText(/outcome of this Graph-context Ask is uncertain/);
+    fireEvent.change(textarea, { target: { value: "Keep this newer draft" } });
+    textarea.focus();
+    const existingReply = screen.getByText("Verified existing reply");
+    let release!: (value: WorldAgentConversationHistoryResponse) => void;
+    api.getHistory.mockReturnValueOnce(new Promise((resolve) => { release = resolve; }));
+    const reads = api.getHistory.mock.calls.length;
+    fireEvent(window, new Event("online"));
+    await waitFor(() => expect(api.getHistory.mock.calls.length).toBeGreaterThan(reads));
+    expect(screen.getByText("Verified existing reply")).toBe(existingReply);
+    expect(screen.queryByText("Loading conversation…")).not.toBeInTheDocument();
+    expect(textarea).toBeEnabled();
+    expect(textarea).toHaveFocus();
+    expect(textarea).toHaveValue("Keep this newer draft");
+    expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
+    await act(async () => release(saved));
+    expect(screen.getByText("Verified existing reply")).toBe(existingReply);
+    expect(textarea).toHaveFocus();
+    expect(post).toHaveBeenCalledTimes(1);
+    mounted.unmount();
   });
 
   it("automatically reconciles a lost Graph Ask without reposting or showing an empty transcript", async () => {
@@ -4472,7 +4519,8 @@ describe("World Plan conversation consumer", () => {
     fireEvent.change(textarea, { target: { value: "Revise this excerpt" } });
     fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
     await waitFor(() => expect(proposalRequest).toHaveBeenCalledTimes(1));
-    expect(textarea).toBeDisabled();
+    expect(textarea).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
     expect(textarea).toHaveValue("");
     fireEvent.change(textarea, { target: { value: newDraft } });
 
