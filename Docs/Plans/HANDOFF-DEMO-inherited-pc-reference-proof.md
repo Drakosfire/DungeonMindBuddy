@@ -1,6 +1,6 @@
 # HANDOFF — DEMO: inherited PC reference review proof
 
-**Status:** ACTIVE — PRIME delegated one Buddy code and synthetic proof slice on 2026-10-11; ARCHITECTURE settled the API review contract.
+**Status:** SETTLED — Buddy [PR #1086](https://github.com/Drakosfire/DungeonMindBuddy/pull/1086) merged at `e9243dadf33d0a3c34a6c0ad11c4759cdb37940b` from reviewed head `e397a2a877f47169461076e5dc111ddbbdb707db` on 2026-10-12. The exclusive write lease below is closed.
 **Owner:** DEMO
 **Authority base:** `Drakosfire/DungeonMindBuddy` `origin/main@736098ac6e1ed0133a57540669d7719d23447808` (merged V9 PR #1084)
 **Branch:** `codex/demo-inherited-pc-reference-review`
@@ -33,3 +33,7 @@ No port, service, database, external state or artifact output directory is lease
 ## Verification and exit
 
 Use invented synthetic fixtures. Prove a V9→V7→V8 chain with held intermediates, final review rows/digest/basis correspondence and accepted final decision. Refuse changed ref/tuple/quote/manifest, missing or forged introduction, wrong source/index/World, cycle and stale/current native target before publication. Prove old V7/V8 no-reference basis bytes/digests unchanged and a legacy held descendant with inherited refs cannot pass absent proof. Review the cumulative diff, run owning tests, commit, push and open the assigned PR. Return its exact head and limits to PRIME for independent review and merge control.
+
+## Settlement
+
+ARCHITECTURE's exact-head Cycle 2 review passed on `e397a2a8` (formal review `5487118787`). The focused correction/disposition suites passed 158 tests; the test-only final commit exercised the accepted V8 descendant through the real decision service and APP-STATE CAS function over synthetic rows while V9/V7 parents stayed held. A synthetic prepare carried the accepted effect binding, and the confirm-time semantic gate rejected current native-target drift and representative frozen-lineage attacks. No real World writer, live source, provider, runtime, database migration, Session 28 publication, UI semantic-decision action, or proof that a human opened the JSON was claimed. PRIME merged the exact reviewed head; this handoff grants no remaining implementation lease.
