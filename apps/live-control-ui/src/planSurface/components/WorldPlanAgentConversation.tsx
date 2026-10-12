@@ -1551,9 +1551,9 @@ function reconcileCompletedGraphPendingAsks(
   worldId: string,
   documentId: string,
   isCurrent: () => boolean,
-): Promise<{ refreshPendingList: boolean; storageError: string | null }> {
+): Promise<{ refreshPendingList: boolean; storageError: string | null; confirmedTurnIds: string[] }> {
   if (page.schema !== "dmb_agent_conversation_history_v3") {
-    return Promise.resolve({ refreshPendingList: false, storageError: null });
+    return Promise.resolve({ refreshPendingList: false, storageError: null, confirmedTurnIds: [] });
   }
   const pending = readPendingAsks(worldId, documentId)
     .filter((stored) => stored.envelope?.request.plan_context_policy);
@@ -1561,7 +1561,7 @@ function reconcileCompletedGraphPendingAsks(
     stored,
     key: await pendingGraphAskIdempotencyKey(stored),
   }))).then((correlated) => {
-    if (!isCurrent()) return { refreshPendingList: false, storageError: null };
+    if (!isCurrent()) return { refreshPendingList: false, storageError: null, confirmedTurnIds: [] };
     const candidates = correlated.flatMap(({ stored, key }) => {
       if (!key) return [];
       const matchingRows = page.turns.filter((turn) => "idempotency_key" in turn && turn.idempotency_key === key);
@@ -1574,6 +1574,7 @@ function reconcileCompletedGraphPendingAsks(
     const matchesByKey = new Map<string, number>();
     for (const candidate of candidates) matchesByKey.set(candidate.key, (matchesByKey.get(candidate.key) ?? 0) + 1);
 
+  const confirmedTurnIds: string[] = [];
   let refreshPendingList = false;
   let storageError: string | null = null;
     for (const candidate of candidates) {
@@ -1581,6 +1582,7 @@ function reconcileCompletedGraphPendingAsks(
       if (matchesByKey.get(candidate.key) !== 1) continue;
       const result = clearPendingAskIfUnchanged(candidate.stored);
       if (result.kind === "cleared") {
+        confirmedTurnIds.push(candidate.stored.envelope!.request.turn_id);
         dispatchPendingAskSettlement(candidate.stored, result);
       } else {
         // A replacement envelope or storage failure stays visible and intact.
@@ -1588,7 +1590,7 @@ function reconcileCompletedGraphPendingAsks(
         if (result.kind === "unavailable") storageError = result.message;
       }
     }
-    return { refreshPendingList, storageError };
+    return { refreshPendingList, storageError, confirmedTurnIds };
   });
 }
 
@@ -1956,6 +1958,7 @@ export function WorldPlanAgentConversation({
   }, [verifiedWorldId]);
   const [graphCredentialStatus, setGraphCredentialStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const uncertainPlanNoticeRef = useRef<{ turnId: string; message: string } | null>(null);
   const uncertainPlayNoticeRef = useRef<{ turnId: string; message: string } | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -2302,7 +2305,6 @@ export function WorldPlanAgentConversation({
     setOlderLoading(false);
     if (sharedConversation?.worldId !== worldId) setHistory(null);
     setHistoryError(null);
-    setConfirmedTerminalFailureAsks([]);
     const reconcilingPendingPlay = sharedConversation?.pendingTurn?.surface === "play";
     if (((!isPlay && (!scopeMatches || !documentId)) && !reconcilingPendingPlay)
       || verifiedWorldId !== worldId || (!visible && !reconcilingPendingPlay)) {
@@ -2372,6 +2374,18 @@ export function WorldPlanAgentConversation({
           );
           if (!active || generation !== historyGenerationRef.current) return;
           setConfirmedTerminalFailureAsks(terminalFailures);
+          const uncertain = uncertainPlanNoticeRef.current;
+          if (uncertain) {
+            const failureConfirmed = readPendingAsks(verifiedWorldId, documentId).some((item) =>
+              item.envelope?.request.turn_id === uncertain.turnId
+              && terminalFailures.some((failure) => failure.storageKey === item.storageKey
+                && failure.serialized === item.serialized));
+            if (failureConfirmed || reconciliation.confirmedTurnIds.includes(uncertain.turnId)) {
+              uncertainPlanNoticeRef.current = null;
+              setSubmittedMessage((current) => current?.id === uncertain.turnId ? null : current);
+              setError((current) => current === uncertain.message ? null : current);
+            }
+          }
         } catch (reason) {
           setPendingAskLoadError(reason instanceof Error
             ? reason.message
@@ -2435,6 +2449,37 @@ export function WorldPlanAgentConversation({
     }
   }, [scopeKey, scopeMatches, verifiedWorldId, documentId]);
 
+  // Recovery reads history only. Absence from a page never proves failure or permits reposting.
+  const unresolvedPlanAskKey = pendingAsks.filter((item) => item.envelope?.request.plan_context_policy
+    && !isPendingAskFailureConfirmed(item)).map((item) => item.serialized).join("\u001f");
+  useEffect(() => {
+    if (!visible || !scopeMatches || !verifiedWorldId || !documentId || sending || !unresolvedPlanAskKey) return;
+    let attempts = 0;
+    let timer: number | undefined;
+    const check = () => {
+      if (document.visibilityState === "hidden" || !navigator.onLine) return;
+      setHistoryRefreshNonce((current) => current + 1);
+      attempts += 1;
+      if (attempts < 10) timer = window.setTimeout(check, Math.min(3000 * 2 ** (attempts - 1), 30000));
+    };
+    const resume = () => {
+      if (document.visibilityState === "hidden" || !navigator.onLine) return;
+      if (timer !== undefined) window.clearTimeout(timer);
+      attempts = 0;
+      check();
+    };
+    timer = window.setTimeout(check, 1000);
+    window.addEventListener("online", resume);
+    window.addEventListener("focus", resume);
+    document.addEventListener("visibilitychange", resume);
+    return () => {
+      if (timer !== undefined) window.clearTimeout(timer);
+      window.removeEventListener("online", resume);
+      window.removeEventListener("focus", resume);
+      document.removeEventListener("visibilitychange", resume);
+    };
+  }, [visible, scopeMatches, verifiedWorldId, documentId, sending, unresolvedPlanAskKey]);
+
   useEffect(() => {
     if (!verifiedWorldId) return;
     try {
@@ -2482,6 +2527,8 @@ export function WorldPlanAgentConversation({
     commandStatusRef.current = null;
     setCommandStatusChecking(false);
     setBlockedResolution(null);
+    setConfirmedTerminalFailureAsks([]);
+    uncertainPlanNoticeRef.current = null;
     resolutionGenerationRef.current += 1;
     historyGenerationRef.current += 1;
     historySnapshotRef.current = null;
@@ -2909,9 +2956,11 @@ export function WorldPlanAgentConversation({
           setError(definitivePreDispatchFailure);
         }
       } else if (isCurrent()) {
+        const graphNotice = localOperatorCredentialFailure(reason, "restore authorization so Buddy can check this turn without resending it")
+          ?? `The outcome of this Graph-context Ask is uncertain. Buddy is checking saved history automatically; this message will not be resent. ${reason instanceof Error ? reason.message : ""}`;
+        if (envelope.request.plan_context_policy) uncertainPlanNoticeRef.current = { turnId: envelope.request.turn_id, message: graphNotice };
         setError(envelope.request.plan_context_policy
-          ? localOperatorCredentialFailure(reason, "refresh World history to inspect this turn; do not resend it")
-            ?? `The outcome of this Graph-context Ask is uncertain. Refresh World history before taking another action. This saved turn will not be reposted. ${reason instanceof Error ? reason.message : ""}`
+          ? graphNotice
           : localOperatorCredentialFailure(reason, "retry the saved Ask; its exact request and turn ID are preserved")
             ?? (reason instanceof Error
               ? `The Ask outcome is uncertain. Retry the saved request to reuse its exact turn ID and intent. ${reason.message}`
@@ -4509,7 +4558,7 @@ export function WorldPlanAgentConversation({
             {olderLoading ? "Loading earlier messages…" : "Load earlier messages"}
           </button>
         ) : null}
-        {latestConversationEvent ? renderConversationEvent(latestConversationEvent) : history && !historyLoading ? (
+        {latestConversationEvent ? renderConversationEvent(latestConversationEvent) : history && !historyLoading && submittedMessage?.scopeKey !== scopeKey ? (
           <p className="world-plan-agent-conversation__empty">No messages yet. {isPlay ? "Ask about this Run." : "Ask about this Plan or describe a change."}</p>
         ) : null}
         {submittedMessage?.scopeKey === scopeKey
@@ -4519,7 +4568,7 @@ export function WorldPlanAgentConversation({
           && !history?.turns.some((turn) => turn.turn_id === submittedMessage.id) ? (
           <article aria-label="Submitted message awaiting confirmation">
             <p><strong>You:</strong> {submittedMessage.message}</p>
-            <p role="status">{sending || composing ? "Waiting for Buddy…" : "Message not yet confirmed."}</p>
+            <p role="status">{sending || composing ? "Waiting for Buddy…" : "Checking whether Buddy received this message…"}</p>
           </article>
         ) : null}
         {conversationNotice ? <p role="status">{conversationNotice}</p> : null}

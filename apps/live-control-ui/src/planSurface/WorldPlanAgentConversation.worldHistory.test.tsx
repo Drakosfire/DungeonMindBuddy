@@ -2841,6 +2841,39 @@ describe("World Plan conversation consumer", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
+  it("automatically reconciles a lost Graph Ask without reposting or showing an empty transcript", async () => {
+    const { api, mounted, postAsk, request } = await leavePendingGraphAsk({ kind: "scene", id: "scene:opening" });
+    expect(screen.queryByText(/No messages yet/i)).not.toBeInTheDocument();
+    const context = await planGraphContext("graph_grounded", { request, execution: null });
+    const correlationKey = await expectedHistoryCorrelationKey(worldId, request.turn_id);
+    const completed = withPersistedCorrelation(policyHistoryTurn(
+      1, request.turn_id, request.message, "The western gate is watched.", context, "completed", request,
+    ), correlationKey, "00000000-0000-4000-8000-000000000091");
+    api.setCurrent(await historyV3("conversation-a", 10, [completed]));
+    await waitFor(() => expect(pendingAskKeys()).toEqual([]), { timeout: 5000 });
+    expect(await screen.findAllByText("The western gate is watched.")).not.toHaveLength(0);
+    expect(screen.queryByText(/outcome of this Graph-context Ask is uncertain/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("article", { name: "Submitted message awaiting confirmation" })).not.toBeInTheDocument();
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    const readCount = api.getHistory.mock.calls.length;
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 1200)); });
+    expect(api.getHistory).toHaveBeenCalledTimes(readCount);
+    mounted.unmount();
+  }, 10000);
+
+  it("checks an unresolved Graph Ask again on reconnect without changing its saved request", async () => {
+    const { api, mounted, postAsk } = await leavePendingGraphAsk({ kind: "scene", id: "scene:opening" });
+    const key = pendingAskKeys()[0]!;
+    const saved = localStorage.getItem(key);
+    const readCount = api.getHistory.mock.calls.length;
+    fireEvent(window, new Event("online"));
+    await waitFor(() => expect(api.getHistory.mock.calls.length).toBeGreaterThan(readCount));
+    expect(localStorage.getItem(key)).toBe(saved);
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/No messages yet/i)).not.toBeInTheDocument();
+    mounted.unmount();
+  });
+
   it("reconciles a lost Graph Ask from its exact completed history after remount without using the new card selection", async () => {
     const cardA = { kind: "scene" as const, id: "scene:opening" };
     const cardB = { kind: "scene" as const, id: "scene:ending" };
