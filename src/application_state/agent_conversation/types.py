@@ -1729,7 +1729,7 @@ class RelatedRecapContextAdmissionV1(StrictModel):
         min_length=24, max_length=256, pattern=r"^dm-context-anchor:v1:.+$"
     )
     descriptor_world_id: str = Field(min_length=1, max_length=128)
-    descriptor_campaign_id: None = None
+    descriptor_campaign_id: str | None = Field(max_length=256)
     descriptor_graph_revision_id: str = Field(min_length=1, max_length=256)
     descriptor_source_artifact_id: str = Field(min_length=1, max_length=256)
     descriptor_source_revision_id: str = Field(min_length=1, max_length=256)
@@ -1757,6 +1757,11 @@ class RelatedRecapContextAdmissionV1(StrictModel):
             )
         ):
             raise ValueError("related recap admission identifiers must be trimmed")
+        if self.descriptor_campaign_id is not None and (
+            not self.descriptor_campaign_id.strip()
+            or self.descriptor_campaign_id != self.descriptor_campaign_id.strip()
+        ):
+            raise ValueError("related recap source campaign must be nonblank and trimmed")
         if (self.admission_origin == "validated_graph_operation") != (
             self.admission_graph_event_id is not None
         ):
@@ -1779,7 +1784,6 @@ class RelatedRecapContextAdmissionV1(StrictModel):
             raise ValueError("related recap heading must match its Core session selector")
         if (
             self.descriptor_world_id != self.native_world_id
-            or self.descriptor_campaign_id is not None
             or self.descriptor_graph_revision_id != self.graph_revision
         ):
             raise ValueError("related recap descriptor differs from its frozen Core projection")
@@ -2168,9 +2172,10 @@ class PlanWorldGraphExecutionV2(StrictModel):
 
 def _related_recap_descriptor_key(
     admission: RelatedRecapContextAdmissionV1,
-) -> tuple[str, str, str, str, str, str]:
+) -> tuple[str, str | None, str, str, str, str, str]:
     return (
         admission.context_anchor_id,
+        admission.descriptor_campaign_id,
         admission.descriptor_source_artifact_id,
         admission.descriptor_source_revision_id,
         admission.descriptor_content_sha256,

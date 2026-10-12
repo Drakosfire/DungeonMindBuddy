@@ -1705,6 +1705,7 @@ def _related_recap_admission_fixture(
     selected_index_sha256=None,
     artifact_id: str = "legacy-artifact",
     source_revision_id: str = "legacy-source-revision",
+    descriptor_campaign_id: str | None = None,
 ):
     from application_state.agent_conversation.types import (
         RelatedRecapContextAdmissionV1,
@@ -1750,7 +1751,7 @@ def _related_recap_admission_fixture(
         context_index_max_entries=512,
         context_anchor_id="dm-context-anchor:v1:session-22",
         descriptor_world_id="native-indexed-world",
-        descriptor_campaign_id=None,
+        descriptor_campaign_id=descriptor_campaign_id,
         descriptor_graph_revision_id="graph-revision-1",
         descriptor_source_artifact_id=artifact_id,
         descriptor_source_revision_id=source_revision_id,
@@ -2519,6 +2520,7 @@ def test_related_recap_context_may_bind_a_committed_selected_index() -> None:
         evidence_ref_id="evidence-indexed",
         artifact_id="artifact-indexed",
         source_revision_id="source-revision-indexed",
+        descriptor_campaign_id="longmont-c2",
     )
     authorization = RelatedRecapContextAuthorizationEventV1(
         event_id=uuid4(),
@@ -2534,6 +2536,8 @@ def test_related_recap_context_may_bind_a_committed_selected_index() -> None:
         base.model_dump(mode="json", by_alias=True)
         | {"events": [authorization.model_dump(mode="json", by_alias=True)]}
     )
+    assert admission.campaign_id is None
+    assert admission.descriptor_campaign_id == "longmont-c2"
     validate_related_recap_context_scope(receipt, stored)
 
     changed_index = admission.model_copy(update={"selected_index_sha256": "9" * 64})
@@ -2549,6 +2553,111 @@ def test_related_recap_context_may_bind_a_committed_selected_index() -> None:
     )
     with pytest.raises(ValueError, match="committed selected-index admission"):
         validate_related_recap_context_scope(receipt, rejected)
+
+    with pytest.raises(ValidationError, match="source campaign must be nonblank"):
+        _related_recap_admission_fixture(descriptor_campaign_id=" ")
+    missing_campaign = _related_recap_admission_fixture().model_dump(
+        mode="json", by_alias=True
+    )
+    missing_campaign.pop("descriptor_campaign_id")
+    from application_state.agent_conversation.types import RelatedRecapContextAdmissionV1
+
+    with pytest.raises(ValidationError, match="descriptor_campaign_id"):
+        RelatedRecapContextAdmissionV1.model_validate(missing_campaign)
+
+
+def test_related_recap_continuation_binds_exact_descriptor_campaign() -> None:
+    from application_state.agent_conversation.types import (
+        PlanWorldGraphExecutionV2,
+        RelatedRecapContextAuthorizationEventV1,
+        ValidatedRelatedRecapContextEventV1,
+        _canonical_sha256,
+    )
+
+    _receipt, execution = _related_recap_execution_fixture()
+    first_admission = _related_recap_admission_fixture(
+        descriptor_campaign_id="longmont-c2"
+    )
+    first_authorization = RelatedRecapContextAuthorizationEventV1(
+        event_id=uuid4(),
+        sequence=0,
+        kind="related_recap_context_authorized_v1",
+        read_call_id=uuid4(),
+        context_receipt_sha256=execution.context_receipt_sha256,
+        execution_policy_sha256=execution.execution_policy_sha256,
+        admission=first_admission,
+        max_chars=100,
+    )
+    first_result = ValidatedRelatedRecapContextEventV1(
+        event_id=uuid4(),
+        sequence=1,
+        kind="validated_related_recap_context_v1",
+        read_call_id=first_authorization.read_call_id,
+        authorization_event_id=first_authorization.event_id,
+        admission_sha256=_canonical_sha256(
+            first_admission.model_dump(mode="json", by_alias=True)
+        ),
+        outcome="truncated",
+        range_semantics_version="utf8-character-offset-in-markdown-session-recap-v1",
+        source_bytes_sha256=first_admission.descriptor_content_sha256,
+        section_sha256="e" * 64,
+        page_content_sha256="f" * 64,
+        heading_line=12,
+        line_start=13,
+        line_end=38,
+        offset_chars=0,
+        returned_chars=100,
+        truncated=True,
+        continuation_out_sha256="1" * 64,
+    )
+    changed_campaign = _related_recap_admission_fixture(
+        descriptor_campaign_id="longmont-c1"
+    )
+    second_authorization = RelatedRecapContextAuthorizationEventV1(
+        event_id=uuid4(),
+        sequence=2,
+        kind="related_recap_context_authorized_v1",
+        read_call_id=uuid4(),
+        context_receipt_sha256=execution.context_receipt_sha256,
+        execution_policy_sha256=execution.execution_policy_sha256,
+        admission=changed_campaign,
+        max_chars=100,
+        continuation_in_sha256="1" * 64,
+    )
+    second_result = ValidatedRelatedRecapContextEventV1(
+        event_id=uuid4(),
+        sequence=3,
+        kind="validated_related_recap_context_v1",
+        read_call_id=second_authorization.read_call_id,
+        authorization_event_id=second_authorization.event_id,
+        admission_sha256=_canonical_sha256(
+            changed_campaign.model_dump(mode="json", by_alias=True)
+        ),
+        outcome="enough",
+        range_semantics_version="utf8-character-offset-in-markdown-session-recap-v1",
+        source_bytes_sha256=changed_campaign.descriptor_content_sha256,
+        section_sha256="e" * 64,
+        page_content_sha256="2" * 64,
+        heading_line=12,
+        line_start=13,
+        line_end=38,
+        offset_chars=100,
+        returned_chars=40,
+        truncated=False,
+        continuation_in_sha256="1" * 64,
+    )
+    with pytest.raises(ValidationError, match="continuation has no unique prior page"):
+        PlanWorldGraphExecutionV2.model_validate(
+            execution.model_dump(mode="json", by_alias=True)
+            | {
+                "events": [
+                    first_authorization.model_dump(mode="json", by_alias=True),
+                    first_result.model_dump(mode="json", by_alias=True),
+                    second_authorization.model_dump(mode="json", by_alias=True),
+                    second_result.model_dump(mode="json", by_alias=True),
+                ]
+            }
+        )
 
 
 def test_related_recap_context_inclusion_is_separate_and_dispatch_fenced() -> None:

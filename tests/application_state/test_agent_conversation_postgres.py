@@ -3426,7 +3426,7 @@ def test_related_recap_events_round_trip_through_fresh_service(
         "context_index_max_entries": 512,
         "context_anchor_id": "dm-context-anchor:v1:session-22",
         "descriptor_world_id": "native-world-17",
-        "descriptor_campaign_id": None,
+        "descriptor_campaign_id": "longmont-c2",
         "descriptor_graph_revision_id": "graph-rev-11",
         "descriptor_source_artifact_id": "legacy-artifact",
         "descriptor_source_revision_id": "legacy-source-revision",
@@ -3514,6 +3514,11 @@ def test_related_recap_events_round_trip_through_fresh_service(
     assert reloaded.graph_context_execution.events[-1] == inclusion
     assert reloaded.graph_context_execution.events[-2] == result
     assert reloaded.graph_context_execution.events[-3] == authorization
+    assert reloaded.graph_context_execution.events[-3].admission.campaign_id is None
+    assert (
+        reloaded.graph_context_execution.events[-3].admission.descriptor_campaign_id
+        == "longmont-c2"
+    )
     assert "evidence-initial" not in {
         anchor.evidence_ref_id
         for anchor in reloaded.graph_context_execution.policy.source_read_scope.admitted_anchors
