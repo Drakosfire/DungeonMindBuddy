@@ -16,6 +16,7 @@ import copy
 import hashlib
 import json
 import shutil
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -35,6 +36,7 @@ from apps.live_control_server.integrations.dungeonmind.world_graph_reads import 
 from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
     _recap_extraction_evidence_view,
 )
+from apps.live_control_server.services.world_graph_retrieval import _resolved_repo_root
 from dungeonmind.application.graph_snapshot import GraphEvidenceRecord
 from dungeonmind.application.world_graph_retrieval import SourceAnchorMetadata
 from dungeonmind.contracts.evidence import SourceDomain
@@ -351,6 +353,145 @@ def test_admitted_repo_span_read_is_digest_verified(tmp_path: Path) -> None:
     assert result.content_sha256 == digest
     assert result.line_start == 16
     assert result.line_end == 16
+
+
+def test_admitted_recap_spans_use_configured_artifact_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    code_root = tmp_path / "code"
+    code_root.mkdir()
+    artifact_root = tmp_path / "artifacts"
+    artifact_root.mkdir()
+    relative = "out/registries/source_content/recap/longmont-c2/session-22/source.md"
+    source = artifact_root / relative
+    source.parent.mkdir(parents=True)
+    source.write_text("first line\nsecond line\n", encoding="utf-8")
+    digest = _digest_hex(source.read_bytes())
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(artifact_root))
+
+    selected = _resolved_repo_root(root=None, repo_root=None)
+    assert selected == artifact_root
+    assert _resolved_repo_root(root=None, repo_root=code_root) == code_root
+    services = SimpleNamespace(bundle=SimpleNamespace(sources=_FakeSources(
+        locator=f"repo://{relative}", digest=digest,
+    )))
+    for line, expected in ((1, "first line"), (2, "second line")):
+        span = build_stable_source_span_id(
+            source_artifact_id=ARTIFACT_ID,
+            content_sha256=digest,
+            start_line=line,
+            end_line=line,
+        )
+        result = _read_admitted_repo_span(
+            services,
+            _anchor(locator_identity=span, source_span_ref_id=None,
+                    uri=f"repo://{relative}"),
+            request=_read_request(),
+            repo_root=selected,
+            base=_read_base(source_span_ref_id=span),
+        )
+        assert result.outcome == "enough"
+        assert result.content == expected
+        assert result.content_sha256 == digest
+        assert (result.line_start, result.line_end) == (line, line)
+
+    missing_under_code = _read_admitted_repo_span(
+        services,
+        _anchor(locator_identity=span, source_span_ref_id=None,
+                uri=f"repo://{relative}"),
+        request=_read_request(),
+        repo_root=code_root,
+        base=_read_base(source_span_ref_id=span),
+    )
+    assert missing_under_code.outcome == "unavailable"
+    assert missing_under_code.diagnostics[0].code == "source_unavailable"
+
+
+def test_source_batch_v2_opens_split_root_recap_spans_with_receipts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+    from apps.live_control_server.services import world_graph_retrieval as retrieval
+    from graph_memory.interaction.expansion_executor import execute_read_graph_source
+    from graph_memory.interaction.session import (
+        GraphRetrievalSession, SessionSnapshot, SourceAnchorState,
+    )
+    from graph_memory.interaction.session_store import clear_sessions, create_session
+    from graph_memory.retrieval.models import WorldGraphRetrievalSnapshot
+
+    artifact_root = tmp_path / "artifact-root"
+    artifact_root.mkdir()
+    relative = "out/registries/source_content/recap/longmont-c2/session-22/source.md"
+    source = artifact_root / relative
+    source.parent.mkdir(parents=True)
+    source.write_text("first line\nsecond line\n", encoding="utf-8")
+    digest = _digest_hex(source.read_bytes())
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(artifact_root))
+    assert not (REPO_ROOT / relative).exists()
+
+    anchors = {}
+    for line in (1, 2):
+        span = build_stable_source_span_id(
+            source_artifact_id=ARTIFACT_ID, content_sha256=digest,
+            start_line=line, end_line=line,
+        )
+        anchor = replace(
+            _anchor(locator_identity=span, uri=f"repo://{relative}"),
+            anchor_id=f"source-anchor:v1:split-root-{line}",
+        )
+        anchors[anchor.anchor_id] = anchor
+    services = SimpleNamespace(
+        binding=object(),
+        bundle=SimpleNamespace(sources=_FakeSources(
+            locator=f"repo://{relative}", digest=digest,
+        )),
+        retrieval=SimpleNamespace(resolve_source_anchor=lambda _ctx, anchor_id: (
+            SimpleNamespace(
+                found=True, anchor=anchors[anchor_id],
+                snapshot=SimpleNamespace(revision_id="rev:split-root"),
+            )
+        )),
+    )
+    monkeypatch.setattr(retrieval, "_require_mounted_native_read", lambda _root: None)
+    monkeypatch.setattr(direct, "direct_services_from_config", lambda _world: services)
+    monkeypatch.setattr(direct, "_map_retrieval_context", lambda *_args: object())
+    monkeypatch.setattr(direct, "_dnd_anchor_id", lambda anchor_id: anchor_id)
+    monkeypatch.setattr(direct, "_retrieval_snapshot_view", lambda _snapshot, *, focus: (
+        WorldGraphRetrievalSnapshot(
+            world_id="world:recap-source-read-continuity", campaign_id="longmont-c2",
+            revision_id="rev:split-root", head_revision_id="rev:split-root",
+            is_head=True, focus=focus, admissibility="gm",
+        )
+    ))
+    clear_sessions()
+    try:
+        session = GraphRetrievalSession(
+            snapshot=SessionSnapshot(
+                world_id="world:recap-source-read-continuity",
+                campaign_id="longmont-c2", revision_id="rev:split-root",
+            ),
+            source_anchors=[
+                SourceAnchorState(anchor_id=anchor_id, readable=True)
+                for anchor_id in anchors
+            ],
+        )
+        create_session(session)
+        batch = execute_read_graph_source({
+            "retrievalSessionId": session.id,
+            "anchorIds": list(anchors),
+            "maxChars": 4000,
+        }, receipt_version=2)
+        assert batch["schema"] == "dmb_internal_read_graph_source_batch_v2"
+        for line, item in enumerate(batch["reads"], start=1):
+            assert item["result"].get("outcome") == "enough", item
+            assert item["result"]["content"] == f"{('first', 'second')[line - 1]} line"
+            assert item["result"]["contentSha256"] == digest
+            assert item["receipt"]["read_content_sha256"] == digest
+            assert item["receipt"]["source_revision_sha256"] == digest
+            assert item["receipt"]["line_start"] == line
+            assert item["receipt"]["line_end"] == line
+    finally:
+        clear_sessions()
 
 
 def test_admitted_repo_span_fails_closed_on_tampered_bytes(tmp_path: Path) -> None:

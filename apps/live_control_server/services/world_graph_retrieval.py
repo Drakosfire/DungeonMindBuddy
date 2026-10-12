@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 
 from apps.live_control_server.config import (
     WorldGraphAuthorityConfigurationError,
+    artifact_data_root,
     repo_root as default_repo_root,
     require_mounted_dungeonmind_world_graph,
 )
@@ -101,7 +102,7 @@ def _require_mounted_native_read(root: Path | None) -> None:
 
 
 def _resolved_repo_root(*, root: Path | None, repo_root: Path | None) -> Path:
-    """Resolve the registry/file root for worldbuilding SourceSpan reads."""
+    """Resolve the repository holding admitted source bytes."""
     if repo_root is not None:
         return Path(repo_root).resolve()
     if root is not None:
@@ -110,7 +111,7 @@ def _resolved_repo_root(*, root: Path | None, repo_root: Path | None) -> Path:
             candidate / "corpus"
         ).exists():
             return candidate
-    return default_repo_root().resolve()
+    return artifact_data_root(default=default_repo_root())
 
 
 def search_campaign_graph(
