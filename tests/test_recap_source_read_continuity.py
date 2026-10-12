@@ -32,6 +32,8 @@ from apps.live_control_server.integrations.dungeonmind.world_graph_reads import 
     _read_admitted_repo_span,
     _source_anchor_views,
     extract_span_from_revision_bound_text,
+    list_recap_context_direct,
+    read_recap_context_direct,
 )
 from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
     _recap_extraction_evidence_view,
@@ -39,11 +41,19 @@ from apps.live_control_server.integrations.dungeonmind.world_graph_writes import
 from apps.live_control_server.services.world_graph_retrieval import _resolved_repo_root
 from dungeonmind.application.graph_snapshot import GraphEvidenceRecord
 from dungeonmind.application.world_graph_retrieval import SourceAnchorMetadata
+from dungeonmind.application.world_graph_retrieval import (
+    RecapContextSectionSelectorV1, RecapSourceContextV1,
+    SourceContextIndexResult, SourceContextResolution,
+)
 from dungeonmind.contracts.evidence import SourceDomain
+from dungeonmind.contracts.projection import Admissibility
+from dungeonmind.contracts.projection_v2 import ScopeModeV2
 from graph_memory.retrieval.models import (
     RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA,
     WorldGraphRetrievalTrustBoundary,
     WorldGraphSourceAnchorReadRequest,
+    RecapContextIndexRequest,
+    RecapContextReadRequest,
 )
 from graph_memory.source_span import build_stable_source_span_id
 from tests.test_candidate_graph_admission_contract import _candidate
@@ -239,6 +249,171 @@ def test_classifier_keeps_replay_shaped_file_uri_unsupported() -> None:
     anchor = _anchor(locator_identity=REPO_URI, source_span_ref_id=None)
     assert _product_source_span_ref_id(anchor) is None
     assert _classify_locator_kind(anchor) == "unsupported"
+
+
+def test_legacy_opaque_recap_span_remains_provenance_but_unreadable() -> None:
+    anchor = _anchor(locator_identity="span:session-22:mireward", source_span_ref_id="span:session-22:mireward")
+    view = _source_anchor_views([anchor], revision_id="rev:child")[0]
+    assert view.source_span_ref_id == "span:session-22:mireward"
+    assert view.locator_kind == "unsupported"
+    assert view.readable is False
+
+
+def _context_fixture(tmp_path: Path):
+    raw = b'title: recap\n\n# Session 22 Recap\nfirst line\nsecond line\n'
+    digest = hashlib.sha256(raw).hexdigest()
+    path = tmp_path / 's22.md'
+    path.write_bytes(raw)
+    selector = RecapContextSectionSelectorV1(expected_session_id='session-22', expected_heading='# Session 22 Recap')
+    descriptor = RecapSourceContextV1(
+        context_anchor_id='dm-context-anchor:v1:test', world_id='eldyrwild',
+        campaign_id='longmont-c2', graph_revision_id='rev:test',
+        source_artifact_id='artifact:s22', source_revision_id='sha256:' + digest,
+        source_uri='repo://s22.md', content_sha256=digest, section_selector=selector,
+    )
+    snapshot = SimpleNamespace(
+        world_id='eldyrwild', campaign_id='longmont-c2', revision_id='rev:test',
+        head_revision_id='rev:test', is_head=True, admissibility=Admissibility.GM,
+        scope_mode=ScopeModeV2.CAMPAIGN,
+    )
+    retrieval = SimpleNamespace(
+        list_source_context_index=lambda req: SourceContextIndexResult(
+            snapshot=snapshot, eligible_count=1, max_entries=req.max_entries,
+            status='complete', entries=(descriptor,),
+        ),
+        resolve_source_context=lambda _req, context_anchor_id: SourceContextResolution(
+            snapshot=snapshot, found=context_anchor_id == descriptor.context_anchor_id,
+            context_anchor_id=context_anchor_id,
+            context=descriptor if context_anchor_id == descriptor.context_anchor_id else None,
+        ),
+    )
+    services = SimpleNamespace(retrieval=retrieval, binding=SimpleNamespace(legacy_buddy_revision_id=None))
+    common = dict(worldId='eldyrwild', campaignId='longmont-c2', scopeMode='campaign', revisionPin='rev:test')
+    index_request = RecapContextIndexRequest.model_validate({'schema':'dmb_recap_context_index_request_v1', **common})
+    read_request = RecapContextReadRequest.model_validate({'schema':'dmb_recap_context_read_request_v1', **common,
+        'contextAnchorId':descriptor.context_anchor_id, 'maxChars':5})
+    return services, index_request, read_request, path, digest
+
+
+def test_recap_context_core_descriptor_opens_verified_section_with_continuation(tmp_path: Path) -> None:
+    services, index_request, read_request, _path, digest = _context_fixture(tmp_path)
+    index = list_recap_context_direct(services, index_request)
+    assert index.status == 'complete'
+    assert index.entries[0].content_sha256 == digest
+    first = read_recap_context_direct(services, read_request, repo_root=tmp_path)
+    assert (first.heading_line, first.line_start, first.line_end) == (3, 4, 5)
+    assert first.content == 'first'
+    assert first.truncated and first.next_continuation
+    tail = []
+    current = first
+    while current.next_continuation:
+        current = read_recap_context_direct(services, read_request.model_copy(update={'continuation': current.next_continuation}), repo_root=tmp_path)
+        tail.append(current.content)
+    assert first.content + ''.join(tail) == 'first line\nsecond line\n'
+    assert current.section_sha256 == first.section_sha256
+
+
+def test_recap_context_opens_campaign_recap_from_ordinary_world_scope(tmp_path: Path) -> None:
+    services, index_request, read_request, _path, digest = _context_fixture(tmp_path)
+    native_index = services.retrieval.list_source_context_index(SimpleNamespace(max_entries=index_request.max_entries))
+    campaign_snapshot = native_index.snapshot
+    world_snapshot = SimpleNamespace(
+        **{**vars(campaign_snapshot), 'campaign_id': None, 'scope_mode': ScopeModeV2.WORLD_CROSS_CAMPAIGN}
+    )
+    native_resolution = services.retrieval.resolve_source_context(None, context_anchor_id=read_request.context_anchor_id)
+    services.retrieval.list_source_context_index = lambda req: replace(native_index, snapshot=world_snapshot)
+    services.retrieval.resolve_source_context = lambda req, context_anchor_id: replace(native_resolution, snapshot=world_snapshot)
+    world_index_request = RecapContextIndexRequest.model_validate({
+        **index_request.model_dump(mode='json', by_alias=True), 'campaignId': '', 'scopeMode': 'world',
+    })
+    world_read_request = RecapContextReadRequest.model_validate({
+        **read_request.model_dump(mode='json', by_alias=True), 'campaignId': '', 'scopeMode': 'world',
+    })
+    index = list_recap_context_direct(services, world_index_request)
+    assert index.snapshot.scope_mode == 'world'
+    assert index.entries[0].campaign_id == 'longmont-c2'
+    read = read_recap_context_direct(services, world_read_request, repo_root=tmp_path)
+    assert read.context is not None and read.context.content_sha256 == digest
+    assert read.content == 'first'
+
+
+def test_recap_context_refuses_changed_bytes_and_tampered_continuation(tmp_path: Path) -> None:
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import DirectWorldGraphReadError
+    services, _index_request, request, path, _digest = _context_fixture(tmp_path)
+    with pytest.raises(DirectWorldGraphReadError):
+        read_recap_context_direct(services, request.model_copy(update={'continuation':'recap-page:v1:bad:5'}), repo_root=tmp_path)
+    path.write_text('# Session 22 Recap\nchanged\n')
+    with pytest.raises(DirectWorldGraphReadError):
+        read_recap_context_direct(services, request, repo_root=tmp_path)
+
+
+def test_recap_context_ignores_fenced_fake_headings(tmp_path: Path) -> None:
+    services, _index_request, request, path, _digest = _context_fixture(tmp_path)
+    source = (
+        '```markdown\n# Session 22 Recap\n```\n'
+        '# Session 22 Recap\nfirst line\n'
+        '~~~~ example\n# Fake next heading\n~~~~\n'
+        'last line\n# Actual next heading\nexcluded\n'
+    ).encode('utf-8')
+    path.write_bytes(source)
+    native = services.retrieval.resolve_source_context(None, context_anchor_id=request.context_anchor_id)
+    descriptor = replace(native.context, content_sha256=hashlib.sha256(source).hexdigest())
+    services.retrieval.resolve_source_context = lambda _req, context_anchor_id: replace(native, context=descriptor)
+    opened = read_recap_context_direct(services, request.model_copy(update={'max_chars': 4000}), repo_root=tmp_path)
+    assert (opened.heading_line, opened.line_start, opened.line_end) == (4, 5, 9)
+    assert opened.content == 'first line\n~~~~ example\n# Fake next heading\n~~~~\nlast line\n'
+
+
+def test_recap_context_rejects_heading_only_inside_fence(tmp_path: Path) -> None:
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import DirectWorldGraphReadError
+    services, _index_request, request, path, _digest = _context_fixture(tmp_path)
+    source = b'```markdown\n# Session 22 Recap\n```\nbody\n'
+    path.write_bytes(source)
+    native = services.retrieval.resolve_source_context(None, context_anchor_id=request.context_anchor_id)
+    descriptor = replace(native.context, content_sha256=hashlib.sha256(source).hexdigest())
+    services.retrieval.resolve_source_context = lambda _req, context_anchor_id: replace(native, context=descriptor)
+    with pytest.raises(DirectWorldGraphReadError):
+        read_recap_context_direct(services, request, repo_root=tmp_path)
+
+
+@pytest.mark.parametrize('source', [
+    b'# Wrong heading\nbody\n',
+    b'# Session 22 Recap\none\n# Session 22 Recap\ntwo\n',
+    b'\xff# Session 22 Recap\n',
+])
+def test_recap_context_rejects_unreadable_section_bytes(tmp_path: Path, source: bytes) -> None:
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import DirectWorldGraphReadError
+    services, _index_request, request, path, _digest = _context_fixture(tmp_path)
+    path.write_bytes(source)
+    native = services.retrieval.resolve_source_context(None, context_anchor_id=request.context_anchor_id)
+    revised = replace(native.context, content_sha256=hashlib.sha256(source).hexdigest())
+    services.retrieval.resolve_source_context = lambda _req, context_anchor_id: replace(native, context=revised)
+    with pytest.raises(DirectWorldGraphReadError):
+        read_recap_context_direct(services, request, repo_root=tmp_path)
+
+
+def test_recap_context_rejects_foreign_uri_and_revision(tmp_path: Path) -> None:
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import DirectWorldGraphReadError
+    services, _index_request, request, _path, _digest = _context_fixture(tmp_path)
+    native = services.retrieval.resolve_source_context(None, context_anchor_id=request.context_anchor_id)
+    for change in ({'source_uri':'repo://../outside.md'}, {'graph_revision_id':'rev:foreign'}):
+        revised = replace(native.context, **change)
+        services.retrieval.resolve_source_context = lambda _req, context_anchor_id: replace(native, context=revised)
+        with pytest.raises(DirectWorldGraphReadError):
+            read_recap_context_direct(services, request, repo_root=tmp_path)
+
+
+def test_recap_context_miss_and_overflow_never_open_source(tmp_path: Path) -> None:
+    services, index_request, request, path, _digest = _context_fixture(tmp_path)
+    request = request.model_copy(update={'context_anchor_id':'dm-context-anchor:v1:missing'})
+    missed = read_recap_context_direct(services, request, repo_root=tmp_path)
+    assert missed.outcome == 'empty' and missed.content is None
+    assert path.exists()
+    native = services.retrieval.list_source_context_index(SimpleNamespace(max_entries=index_request.max_entries))
+    services.retrieval.list_source_context_index = lambda req: replace(native,
+        status='overflow', eligible_count=513, entries=())
+    overflow = list_recap_context_direct(services, index_request)
+    assert overflow.status == 'overflow' and overflow.entries == []
 
 
 def test_classifier_ignores_span_syntax_inside_evidence_ref_id() -> None:
