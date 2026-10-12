@@ -2018,6 +2018,7 @@ export function WorldPlanAgentConversation({
   } | null>(null);
   const historySnapshotRef = useRef<WorldAgentConversationHistoryResponse | null>(null);
   const historyGenerationRef = useRef(0);
+  const historyReadScopeRef = useRef<string | null>(null);
   const legacyHistoryRef = useRef<{ scopeKey: string; thread: AgentInteractionThread; rawBytes: string | null } | null>(null);
   const proposalRequestRef = useRef<{ token: symbol; threadId: string; fenceKey: string; providerThreadId: string | null } | null>(null);
   const proposalIntentRef = useRef<{ fingerprint: string; idempotencyKey: string } | null>(null);
@@ -2302,9 +2303,13 @@ export function WorldPlanAgentConversation({
       confirmedAskNoticeRef.current = { ...confirmedAskNotice, notice };
       setConversationNotice((current) => current === confirmedAskNotice.notice ? notice : current);
     };
-    historySnapshotRef.current = null;
+    const sameHistoryScope = historyReadScopeRef.current === scopeKey;
+    historyReadScopeRef.current = scopeKey;
+    if (!sameHistoryScope) {
+      historySnapshotRef.current = null;
+      setHistory(null);
+    }
     setOlderLoading(false);
-    if (sharedConversation?.worldId !== worldId) setHistory(null);
     setHistoryError(null);
     const reconcilingPendingPlay = sharedConversation?.pendingTurn?.surface === "play";
     if (((!isPlay && (!scopeMatches || !documentId)) && !reconcilingPendingPlay)
@@ -3325,6 +3330,17 @@ export function WorldPlanAgentConversation({
     }
   }
 
+  function replySourceLabel(status: WorldPlanGraphAnswerContextStatusV1, surface: string | null): string | null {
+    const work = surface === "play" ? "Run" : "Plan";
+    switch (status) {
+      case "graph_grounded": return `World + ${work}`;
+      case "graph_grounded_partial": return `World + ${work} · partial`;
+      case "plan_only_insufficient_evidence":
+      case "plan_only_graph_unused": return `${work} only`;
+      default: return null;
+    }
+  }
+
   function graphExecutionGuidance(
     execution: WorldPlanGraphExecutionProjectionV1 | null,
     hasCompletion: boolean,
@@ -4135,14 +4151,23 @@ export function WorldPlanAgentConversation({
         className={`world-plan-agent-conversation__turn world-plan-agent-conversation__turn--${turn.assistant_text ? "complete" : failed ? "failed" : interrupted ? "interrupted" : "pending"}`}
         data-sequence={turn.sequence}
       >
-        <p className="world-plan-agent-conversation__context" aria-label="Turn surface">{turnSurfaceLabel}</p>
+        {turnSurfaceLabel !== "Plan" ? <p className="world-plan-agent-conversation__context" aria-label="Turn surface">{turnSurfaceLabel}</p> : null}
         <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--user">
           <span className="world-plan-agent-conversation__speaker">You</span>
           <p>{turn.user_text}</p>
         </div>
         {turn.assistant_text ? (
           <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--assistant">
-            <span className="world-plan-agent-conversation__speaker">Buddy</span>
+            <div className="world-plan-agent-conversation__reply-heading">
+              <span className="world-plan-agent-conversation__speaker">Buddy</span>
+              {"plan_context" in turn && turn.lifecycle_status === "completed" && turn.plan_context?.completion
+                && replySourceLabel(turn.plan_context.completion.answer_context_status, turn.provenance.surface_id) ? (
+                <span className="world-plan-agent-conversation__answer-basis" aria-label="Answer sources"
+                  title={graphContextStatusLabel(turn.plan_context.completion.answer_context_status)}>
+                  {replySourceLabel(turn.plan_context.completion.answer_context_status, turn.provenance.surface_id)}
+                </span>
+              ) : null}
+            </div>
             <WorldPlanAgentAnswer
               answer={turn.assistant_text}
               displaySegments={"plan_context" in turn && turn.plan_context?.completion
@@ -4229,6 +4254,7 @@ export function WorldPlanAgentConversation({
             >
               {`Use ${worldName} facts · ${useWorldGraphForAsk ? "On" : "Off"}`}
             </button>
+            <p className="world-plan-agent-conversation__context-summary">Allows World retrieval. Each reply shows which sources it used.</p>
             {playableTarget ? (
               <div role="group" aria-label="Question focus" className="world-plan-agent-conversation__context-target">
                 <span>Focus: {playableTargetLabel || playableTarget.id.replace(/^[^:]+:/, "")}</span>
@@ -4536,7 +4562,7 @@ export function WorldPlanAgentConversation({
       ) : null}
       <section className="world-plan-agent-conversation__turns" aria-label="World conversation transcript" aria-live="polite">
         <h3>Conversation</h3>
-        {historyLoading ? <p className="world-plan-agent-conversation__loading" role="status">Loading conversation…</p> : null}
+        {historyLoading && !history ? <p className="world-plan-agent-conversation__loading" role="status">Loading conversation…</p> : null}
         {historyError ? (
           <div role="group" aria-label="World history unavailable">
             {authorizationBlocked
@@ -4637,7 +4663,7 @@ export function WorldPlanAgentConversation({
           }}
           onKeyDown={handleComposerKeyDown}
           maxLength={8000}
-          disabled={composerBusy}
+          disabled={isPlay ? !playMode?.admittedRun : !scopeMatches}
           placeholder={isPlay ? "Ask about this Run…" : "Ask Buddy, or tell it what to change…"}
           aria-describedby="world-plan-agent-composer-hint"
         />

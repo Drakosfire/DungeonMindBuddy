@@ -1,4 +1,4 @@
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { WorldPlanAgentAnswer } from "./WorldPlanAgentAnswer";
@@ -73,5 +73,31 @@ describe("WorldPlanAgentAnswer", () => {
     expect(container.textContent).toContain("Saved Plan:");
     expect(container.textContent).toContain("Evidence:");
     expect(container.querySelectorAll(".world-plan-agent-answer > .world-plan-agent-answer")).toHaveLength(0);
+  });
+});
+
+describe("stable Buddy answer rendering", () => {
+  it("retains plain answer nodes on unrelated refreshes and updates changed text", () => {
+    const view = render(<WorldPlanAgentAnswer answer="A verified answer." />);
+    const reply = screen.getByText("A verified answer.");
+    view.rerender(<WorldPlanAgentAnswer answer="A verified answer." />);
+    expect(screen.getByText("A verified answer.")).toBe(reply);
+    view.rerender(<WorldPlanAgentAnswer answer="A newer verified answer." />);
+    expect(screen.queryByText("A verified answer.")).not.toBeInTheDocument();
+    expect(screen.getByText("A newer verified answer.")).toBeInTheDocument();
+  });
+  it("retains structured segments when history delivers equivalent new arrays", () => {
+    const segments = ["First paragraph.", "Second paragraph."];
+    const view = render(<WorldPlanAgentAnswer answer={segments.join("\n")} displaySegments={segments} />);
+    const first = screen.getByText("First paragraph.");
+    const second = screen.getByText("Second paragraph.");
+    view.rerender(<WorldPlanAgentAnswer answer={segments.join("\n")} displaySegments={[...segments]} />);
+    expect(screen.getByText("First paragraph.")).toBe(first);
+    expect(screen.getByText("Second paragraph.")).toBe(second);
+    const updated = ["First paragraph.", "Updated second paragraph."];
+    view.rerender(<WorldPlanAgentAnswer answer={updated.join("\n")} displaySegments={updated} />);
+    expect(screen.getByText("First paragraph.")).toBe(first);
+    expect(screen.queryByText("Second paragraph.")).not.toBeInTheDocument();
+    expect(screen.getByText("Updated second paragraph.")).toBeInTheDocument();
   });
 });

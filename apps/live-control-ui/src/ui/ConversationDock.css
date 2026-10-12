@@ -97,3 +97,6 @@
 .conversation-dock__header { flex-wrap: nowrap; min-block-size: 2.5rem; }
 .conversation-dock__context { max-block-size: min(12rem,30dvh); }
 @media(max-width:36rem) { .conversation-dock__header { gap:.15rem; } .conversation-dock__header button { padding:.25rem; } .conversation-dock .conversation-dock__context-toggle { max-inline-size:30%; } }
+
+.conversation-dock__header .conversation-dock__icon-button { display: inline-flex; align-items: center; justify-content: center; min-inline-size: 32px; min-block-size: 32px; padding: 5px; }
+.conversation-dock__icon-button:focus-visible { outline: 2px solid #d9a840; outline-offset: 2px; }

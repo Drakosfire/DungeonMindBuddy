@@ -1,9 +1,9 @@
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 
 import { ReadOnlyBodyContent } from "../../markdownReader/ReadOnlyBodyContent";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 
-export function WorldPlanAgentAnswer({
+export const WorldPlanAgentAnswer = memo(function WorldPlanAgentAnswerView({
   answer,
   className,
   displaySegments,
@@ -45,4 +45,8 @@ export function WorldPlanAgentAnswer({
       className={["world-plan-agent-answer", className].filter(Boolean).join(" ")}
     />
   );
-}
+}, (previous, next) => previous.answer === next.answer && previous.className === next.className
+  && (previous.displaySegments === next.displaySegments
+    || Boolean(previous.displaySegments && next.displaySegments
+      && previous.displaySegments.length === next.displaySegments.length
+      && previous.displaySegments.every((segment, index) => segment === next.displaySegments![index]))));

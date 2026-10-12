@@ -923,3 +923,8 @@
 .world-plan-agent-conversation__review { padding:0; border:0; background:transparent; }
 .world-plan-agent-conversation__settings { font-size:.85rem; }
 .world-plan-agent-conversation__speaker { font-size:.72rem; color:var(--ui-text-secondary); }
+
+.plan-conversation-dock .world-plan-agent-conversation__composer textarea { border: 1px solid #62768b; }
+.plan-conversation-dock .world-plan-agent-conversation__composer textarea:focus-visible { border-color: #d9a840; outline: 2px solid #d9a840; outline-offset: 2px; }
+.world-plan-agent-conversation__reply-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.world-plan-agent-conversation__answer-basis { color: #aebbc7; font-size: .7rem; }
