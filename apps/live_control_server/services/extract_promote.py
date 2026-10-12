@@ -1097,6 +1097,21 @@ def _assert_recap_semantics_at_confirm(locator: str, review_package) -> None:
                 "PC reference World or parent head differs from reviewed basis",
                 code="candidate_binding_invalid", status_code=409,
             )
+    if isinstance(current.lineage.get("inherited_pc_proof"), dict):
+        from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+        from apps.live_control_server.services.recap_semantic_candidate_correction import (
+            verify_inherited_pc_native_basis,
+        )
+        proof = current.lineage["inherited_pc_proof"]
+        try:
+            context = world_graph_writes.load_production_mutation_context(effect["world_id"])
+            candidate = json.loads(_parse_source_uri_to_path(locator).read_text(encoding="utf-8"))
+        except (KeyError, OSError, ValueError, world_graph_writes.WorldGraphWriteError) as exc:
+            raise ExtractPromoteError("inherited PC native target unavailable",
+                                      code="recap_semantic_hold", status_code=409) from exc
+        if not verify_inherited_pc_native_basis(candidate, proof, context):
+            raise ExtractPromoteError("inherited PC native target changed",
+                                      code="recap_semantic_hold", status_code=409)
 
 
 def decide_recap_semantic_disposition(
@@ -1322,6 +1337,7 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
         )
 
         derived_from_run_id: str | None = None
+        inherited_pc_references = None
         semantic_assessment = None
         try:
             run_record = get_extraction_run(_artifact_root(), resolved.run_id)
@@ -1334,6 +1350,27 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
             if is_recap_correction(run_record):
                 derived_from_run_id = str(run_record.lineage.get("parent_run_id") or "") or None
                 _, semantic_assessment = _recap_semantic_assessment(resolved, run_record)
+                if run_record.lineage.get("derivation") in {
+                    "operator_recap_semantic_candidate_correction_v7",
+                    "operator_recap_semantic_candidate_correction_v8",
+                } and isinstance(run_record.lineage.get("inherited_pc_proof"), dict):
+                    from apps.live_control_server.services.recap_semantic_candidate_correction import (
+                        inherited_pc_proof_digest, inherited_pc_reference_proof,
+                    )
+                    proof = inherited_pc_reference_proof(run_record, _artifact_root())
+                    if (proof != run_record.lineage["inherited_pc_proof"]
+                        or semantic_assessment is None or semantic_assessment.basis is None
+                        or semantic_assessment.basis_sha256 is None
+                        or semantic_assessment.basis.get("inherited_pc_proof_sha256") != inherited_pc_proof_digest(proof)):
+                        raise ExtractPromoteError(
+                            "inherited PC review proof changed",
+                            code="recap_semantic_hold", status_code=409,
+                        )
+                    inherited_pc_references = {
+                        **proof, "proof_sha256": inherited_pc_proof_digest(proof),
+                        "run_revision": run_record.revision,
+                        "semantic_basis_sha256": semantic_assessment.basis_sha256,
+                    }
         except GraphRunRegistryError as exc:
             if exc.status_code != 404:
                 raise
@@ -1380,6 +1417,7 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
                 }
                 if semantic_assessment is not None else None
             ),
+            inherited_pc_references=inherited_pc_references,
             world_id=capability.world_id,
             world_state=capability.world_state,
             first_world_publish_eligible=(
@@ -1661,6 +1699,11 @@ def prepare(
         disclose_source_digest=False,
         registry_context_graph=registry_payload,
     )
+    if (canonical_run is not None
+        and isinstance(canonical_run.lineage.get("inherited_pc_proof"), dict)
+        and _config.world_graph_authority_mode() != _config.WORLD_GRAPH_AUTHORITY_DUNGEONMIND):
+        raise ExtractPromoteError("inherited PC references require native World authority",
+                                  code="recap_semantic_hold", status_code=409)
     try:
         if (
             _config.world_graph_authority_mode()
@@ -1692,6 +1735,16 @@ def prepare(
                     "PC reference native head changed during prepare",
                     code="recap_semantic_hold", status_code=409,
                 )
+            if canonical_run is not None and isinstance(canonical_run.lineage.get("inherited_pc_proof"), dict):
+                from apps.live_control_server.services.recap_semantic_candidate_correction import (
+                    verify_inherited_pc_native_basis,
+                )
+                candidate = json.loads(path.read_text(encoding="utf-8"))
+                if not verify_inherited_pc_native_basis(
+                    candidate, canonical_run.lineage["inherited_pc_proof"], mutation_context,
+                ):
+                    raise ExtractPromoteError("inherited PC native target changed during prepare",
+                                              code="recap_semantic_hold", status_code=409)
             if prepared_recap_context is not None and getattr(
                 mutation_context, "head_revision_id", None
             ) != prepared_recap_context.get("head_revision_id"):

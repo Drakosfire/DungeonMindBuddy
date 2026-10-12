@@ -70,6 +70,7 @@ from apps.live_control_server.integrations.dungeonmind.assertion_qualification i
     edge_endpoint_kind_admission_reason,
 )
 from graph_memory.ingestion.extraction_run import (
+    ExtractionRun,
     ExtractionRunComponentKind,
     ExtractionRunComponentRef,
     ExtractionRunStatus,
@@ -739,7 +740,7 @@ def _pc_registry(manifest: dict, *, campaign_id: str, session_id: str) -> set[st
 
 
 def _replay_pc_references(parent: dict, manifest: dict, source_bytes: bytes | None,
-                          span_bytes: bytes | None) -> dict:
+                          span_bytes: bytes | None, *, historical: bool = False) -> dict:
     """Change only reviewed null corpus references in a copied candidate."""
     from graph_memory.anchor_quotes import find_anchor_quote_matches
 
@@ -759,8 +760,11 @@ def _replay_pc_references(parent: dict, manifest: dict, source_bytes: bytes | No
         raise _reject("PC reference frozen source or spans changed", status_code=409)
     if not isinstance(parent.get("nodes"), list) or not isinstance(parent.get("session_id"), str):
         raise _reject("PC reference parent candidate is malformed")
-    roster = _pc_registry(manifest, campaign_id=parent.get("campaign_id"),
-                          session_id=parent["session_id"])
+    # An introduction was checked against the then-current registry/head when
+    # created. Descendant review replays its frozen source proof, not mutable
+    # historical external state.
+    roster = None if historical else _pc_registry(
+        manifest, campaign_id=parent.get("campaign_id"), session_id=parent["session_id"])
     try:
         index = json.loads(span_bytes)
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -776,7 +780,7 @@ def _replay_pc_references(parent: dict, manifest: dict, source_bytes: bytes | No
     except UnicodeDecodeError as exc:
         raise _reject("PC actor source is not UTF-8") from exc
     for operation in request.attachments:
-        if operation.corpus_ref.ref_id not in roster:
+        if roster is not None and operation.corpus_ref.ref_id not in roster:
             raise _reject("PC reference is not in the selected roster", status_code=409)
         nodes = [node for node in parent["nodes"] if isinstance(node, dict) and node.get("node_id") == operation.node_id]
         if len(nodes) != 1 or nodes[0].get("node_type") != "character":
@@ -1085,6 +1089,194 @@ def verify_child_replay(run, parent, root: Path) -> bool:
         return False
 
 
+INHERITED_PC_PROOF_SCHEMA = "dmb_inherited_pc_reference_proof_v1"
+
+
+def inherited_pc_proof_digest(proof: dict) -> str:
+    return _sha(_canonical_bytes(proof))
+
+
+def _frozen_component(run: ExtractionRun, key: str, root: Path) -> bytes:
+    """Read one exact immutable component without escaping its artifact root."""
+    ref = run.components[key]
+    raw = root / ref.uri.removeprefix("repo://")
+    path = raw.resolve(strict=True)
+    if not path.is_relative_to(root.resolve()) or raw.is_symlink():
+        raise _reject("inherited PC component escaped its artifact root", status_code=409)
+    value = path.read_bytes()
+    if _sha(value) != ref.sha256.removeprefix("sha256:"):
+        raise _reject("inherited PC component digest changed", status_code=409)
+    return value
+
+
+def _unique_pc_node(payload: dict, node_id: str) -> dict:
+    nodes = payload.get("nodes")
+    matches = [node for node in nodes if isinstance(node, dict) and node.get("node_id") == node_id] if isinstance(nodes, list) else []
+    if len(matches) != 1 or matches[0].get("node_type") != "character":
+        raise _reject("inherited PC node is missing or wrong kind", status_code=409)
+    return matches[0]
+
+
+def inherited_pc_reference_proof(
+    run: ExtractionRun, root: Path, *, candidate_override: dict | None = None,
+) -> dict | None:
+    """Derive surviving V9 attachments through sealed, immutable correction links.
+
+    This deliberately does not re-read the historical registry or original
+    World head. The current native target is checked at publication time.
+    """
+    if run.lineage.get("derivation") not in {DERIVATION_V7, DERIVATION_V8}:
+        return None
+    final_bytes = (_canonical_bytes(candidate_override) if candidate_override is not None
+                   else _frozen_component(run, "candidate_graph", root))
+    if _sha(final_bytes) != run.components["candidate_graph"].sha256.removeprefix("sha256:"):
+        raise _reject("inherited PC final candidate digest changed", status_code=409)
+    final = json.loads(final_bytes)
+    if not isinstance(final, dict) or not isinstance(final.get("nodes"), list):
+        raise _reject("inherited PC final candidate is malformed", status_code=409)
+    pc_nodes = [node for node in final["nodes"] if isinstance(node, dict)
+                and isinstance(node.get("corpus_ref"), dict)
+                and node["corpus_ref"].get("type") == "pc"
+                and node["corpus_ref"].get("resolution") == "resolved"]
+    if not pc_nodes:
+        return None
+    states: list[tuple[dict, dict, dict]] = []  # candidate, manifest, immutable link
+    seen: set[str] = set()
+    current = run
+    current_bytes = final_bytes
+    while current.lineage.get("derivation") in {
+        DERIVATION, DERIVATION_V2, DERIVATION_V3, DERIVATION_V4, DERIVATION_V5,
+        DERIVATION_V6, DERIVATION_V7, DERIVATION_V8, DERIVATION_V9,
+    }:
+        if current.run_id in seen or len(seen) >= 64:
+            raise _reject("inherited PC lineage is cyclic or unbounded", status_code=409)
+        seen.add(current.run_id)
+        lineage = current.lineage
+        parent_id = lineage.get("parent_run_id")
+        manifest = lineage.get("semantic_candidate_manifest")
+        if not isinstance(parent_id, str) or not parent_id or not isinstance(manifest, dict):
+            raise _reject("inherited PC lineage is missing its manifest", status_code=409)
+        manifest_sha = _sha(_canonical_bytes(manifest))
+        if lineage.get("manifest_sha256") != manifest_sha:
+            raise _reject("inherited PC manifest digest changed", status_code=409)
+        try:
+            parent = get_extraction_run(root, parent_id)
+        except GraphRunRegistryError as exc:
+            raise _reject("inherited PC parent is unavailable", status_code=409) from exc
+        if parent.run_id in seen:
+            raise _reject("inherited PC lineage is cyclic", status_code=409)
+        parent_bytes = _frozen_component(parent, "candidate_graph", root)
+        source_bytes = _frozen_component(parent, "source_artifact", root)
+        span_bytes = _frozen_component(parent, "source_span_index", root)
+        if (current.components["source_artifact"] != parent.components["source_artifact"]
+            or current.components["source_span_index"] != parent.components["source_span_index"]
+            or lineage.get("parent_candidate_sha256") != _sha(parent_bytes)
+            or current.campaign_id != parent.campaign_id or current.session_id != parent.session_id
+            or current.source_artifact_id != parent.source_artifact_id
+            or current.profile_id != parent.profile_id
+            or current.run_id != str(uuid5(NAMESPACE_URL,
+                f"dmb:{lineage['derivation']}:{parent_id}:{_sha(parent_bytes)}:{manifest_sha}"))):
+            raise _reject("inherited PC lineage identity changed", status_code=409)
+        parent_payload = json.loads(parent_bytes)
+        if lineage.get("derivation") == DERIVATION_V9:
+            expected = _replay_pc_references(parent_payload, manifest, source_bytes, span_bytes,
+                                             historical=True)
+        else:
+            expected = replay_candidate(parent_payload, manifest, source_bytes=source_bytes,
+                                        span_bytes=span_bytes)
+        if current_bytes != _canonical_bytes(expected):
+            raise _reject("inherited PC lineage replay changed", status_code=409)
+        link = {
+            "run_id": current.run_id, "parent_run_id": parent_id,
+            "derivation": lineage["derivation"], "manifest_sha256": manifest_sha,
+            "candidate_sha256": _sha(current_bytes),
+            "parent_candidate_sha256": _sha(parent_bytes),
+        }
+        states.append((json.loads(current_bytes), manifest, link))
+        current, current_bytes = parent, parent_bytes
+
+    rows: list[dict] = []
+    for selected in pc_nodes:
+        node_id, ref = selected.get("node_id"), selected["corpus_ref"]
+        if not isinstance(node_id, str):
+            raise _reject("inherited PC node ID is malformed", status_code=409)
+        origin_index = next((index for index, (_, manifest, _) in enumerate(states)
+            if manifest.get("schema") == MANIFEST_SCHEMA_V9
+            and any(row.get("node_id") == node_id for row in manifest.get("attachments", [])
+                    if isinstance(row, dict))), None)
+        if origin_index is None:
+            continue  # A pre-existing source candidate PC is outside this V9 overlay.
+        _, origin_manifest, origin_link = states[origin_index]
+        introductions = [row for row in origin_manifest["attachments"] if row["node_id"] == node_id]
+        if len(introductions) != 1 or introductions[0].get("corpus_ref") != ref:
+            raise _reject("inherited PC introduction changed", status_code=409)
+        introduction = introductions[0]
+        for payload, _, _ in states[:origin_index + 1]:
+            node = _unique_pc_node(payload, node_id)
+            evidence = node.get("evidence_refs")
+            if node.get("corpus_ref") != ref or not isinstance(evidence, list) or not any(
+                isinstance(item, dict)
+                and item.get("source_span_ref_id") == introduction["source_span_ref_id"]
+                and isinstance(item.get("anchor_quotes"), list)
+                and introduction["anchor_quote"] in item["anchor_quotes"]
+                for item in evidence
+            ):
+                raise _reject("inherited PC attachment tuple changed", status_code=409)
+        if (origin_manifest.get("source_revision_sha256") !=
+            run.components["source_artifact"].sha256.removeprefix("sha256:")
+            or origin_manifest.get("span_index_sha256") !=
+            run.components["source_span_index"].sha256.removeprefix("sha256:")):
+            raise _reject("inherited PC frozen source/index changed", status_code=409)
+        rows.append({
+            "node_id": node_id, "corpus_ref": ref,
+            "native_object_id": introduction["native_object_id"],
+            "origin_world_id": origin_manifest["world_id"],
+            "origin_run_id": origin_link["run_id"],
+            "origin_manifest_sha256": origin_link["manifest_sha256"],
+            "source_revision_sha256": origin_manifest["source_revision_sha256"],
+            "span_index_sha256": origin_manifest["span_index_sha256"],
+            "source_span_ref_id": introduction["source_span_ref_id"],
+            "anchor_quote": introduction["anchor_quote"],
+            "pc_mention": introduction["pc_mention"],
+            "lineage_links": [link for _, _, link in states[:origin_index + 1]],
+        })
+    if not rows:
+        return None
+    rows.sort(key=lambda row: row["node_id"])
+    return {"schema": INHERITED_PC_PROOF_SCHEMA,
+            "final_candidate_sha256": _sha(final_bytes), "rows": rows}
+
+
+def verify_inherited_pc_native_basis(candidate: dict, proof: dict, context: object) -> bool:
+    """Resolve every surviving inherited target against the current native World."""
+    try:
+        from graph_memory.extract_identity_gate import _known_party_anchor
+
+        preview = load_typed_candidate_graph(candidate)
+        nodes = {node.node_id: node for node in preview.nodes}
+        if _sha(_canonical_bytes(candidate)) != proof["final_candidate_sha256"]:
+            return False
+        for row in proof["rows"]:
+            if row["origin_world_id"] != context.world_id:
+                return False
+            node = nodes.get(row["node_id"])
+            if node is None:
+                return False
+            target = _known_party_anchor(
+                node, context, world_id=context.world_id,
+                campaign_id=candidate.get("campaign_id"),
+            )
+            if target is None or target.object_id != row["native_object_id"]:
+                return False
+            names = (target.label, *target.aliases)
+            if not any(row["pc_mention"].casefold() == name.strip().casefold()
+                       for name in names if isinstance(name, str) and name.strip()):
+                return False
+        return True
+    except (AttributeError, KeyError, ValueError, TypeError, CandidateGraphMappingError):
+        return False
+
+
 def correct_recap_candidate(
     request: RecapCandidateCorrectionRequest | RecapCandidateCorrectionRequestV2 | RecapCandidateCorrectionRequestV3 | RecapCandidateCorrectionRequestV4 | RecapCandidateCorrectionRequestV5 | RecapCandidateCorrectionRequestV6 | RecapCandidateCorrectionRequestV7 | RecapCandidateCorrectionRequestV8 | RecapCandidateCorrectionRequestV9,
 ) -> RecapCandidateCorrectionResponse | RecapCandidateCorrectionResponseV2 | RecapCandidateCorrectionResponseV3 | RecapCandidateCorrectionResponseV4 | RecapCandidateCorrectionResponseV5 | RecapCandidateCorrectionResponseV6 | RecapCandidateCorrectionResponseV7 | RecapCandidateCorrectionResponseV8 | RecapCandidateCorrectionResponseV9:
@@ -1262,6 +1454,32 @@ def correct_recap_candidate(
     child_sha = _sha(child_bytes)
     child_path = root / "out" / "graph_memory" / "derived_candidates" / child_id / "candidate_graph.json"
     child_uri = child_path.relative_to(root).as_posix()
+    components = dict(parent.components)
+    components[ExtractionRunComponentKind.CANDIDATE_GRAPH.value] = ExtractionRunComponentRef(
+        kind=ExtractionRunComponentKind.CANDIDATE_GRAPH, uri=child_uri,
+        sha256=child_sha, exists=True,
+    )
+    lineage = {
+        "derivation": derivation,
+        "parent_run_id": parent.run_id,
+        "parent_candidate_sha256": parent_sha,
+        "manifest_sha256": manifest_sha,
+        "semantic_candidate_manifest": manifest,
+    }
+    inherited_proof = None
+    if v7 or v8:
+        prospective = ExtractionRun(
+            run_id=child_id, source_artifact_id=parent.source_artifact_id,
+            source_domain="recap", campaign_id=parent.campaign_id,
+            session_id=parent.session_id, profile_id=parent.profile_id,
+            status=ExtractionRunStatus.REVIEWABLE, components=components, lineage=lineage,
+        )
+        inherited_proof = inherited_pc_reference_proof(
+            prospective, root, candidate_override=payload)
+        if inherited_proof is not None:
+            lineage["inherited_pc_proof"] = inherited_proof
+    inherited_digest = (inherited_pc_proof_digest(inherited_proof)
+                        if inherited_proof is not None else None)
     basis_fields = dict(
         parent_run_id=parent.run_id, parent_candidate_sha256=parent_sha,
         manifest_sha256=manifest_sha, child_run_id=child_id,
@@ -1278,9 +1496,9 @@ def correct_recap_candidate(
             registry_sha256=request.registry_sha256, roster_key=request.roster_key,
             world_id=request.world_id, expected_head_revision_id=request.expected_head_revision_id)
         if v9 else
-        RecapSemanticBasisV9(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V8, expected_parent_revision=request.expected_parent_revision)
+        RecapSemanticBasisV9(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V8, expected_parent_revision=request.expected_parent_revision, inherited_pc_proof_sha256=inherited_digest)
         if v8 else
-        RecapSemanticBasisV8(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V7)
+        RecapSemanticBasisV8(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V7, inherited_pc_proof_sha256=inherited_digest)
         if v7 else
         RecapSemanticBasisV7(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V6)
         if v6 else
@@ -1291,19 +1509,9 @@ def correct_recap_candidate(
         if v3 else RecapSemanticBasisV3(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V2)
         if v2 else RecapSemanticBasisV2(**basis_fields)
     )
-    lineage = {
-        "derivation": derivation,
-        "parent_run_id": parent.run_id,
-        "parent_candidate_sha256": parent_sha,
-        "manifest_sha256": manifest_sha,
-        "semantic_candidate_manifest": manifest,
-        "semantic_disposition": {"version": 1, "state": "held", "basis_sha256": basis.digest()},
+    lineage["semantic_disposition"] = {
+        "version": 1, "state": "held", "basis_sha256": basis.digest(),
     }
-    components = dict(parent.components)
-    components[ExtractionRunComponentKind.CANDIDATE_GRAPH.value] = ExtractionRunComponentRef(
-        kind=ExtractionRunComponentKind.CANDIDATE_GRAPH, uri=child_uri,
-        sha256=child_sha, exists=True,
-    )
     try:
         child = get_extraction_run(root, child_id)
     except GraphRunRegistryError as exc:

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 import re
-from typing import Any, Literal, NoReturn
+from typing import Any, Callable, Literal, NoReturn
 
 import psycopg
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -146,7 +146,7 @@ class RecapSemanticBasisV2(BaseModel):
 
     def digest(self) -> str:
         encoded = json.dumps(
-            self.model_dump(mode="json", by_alias=True), sort_keys=True,
+            self.model_dump(mode="json", by_alias=True, exclude_none=True), sort_keys=True,
             separators=(",", ":"), ensure_ascii=True,
         ).encode("utf-8")
         return hashlib.sha256(encoded).hexdigest()
@@ -209,6 +209,7 @@ class RecapSemanticBasisV8(RecapSemanticBasisV2):
         default="dmb_recap_semantic_basis_v8", alias="schema")
     derivation: Literal["operator_recap_semantic_candidate_correction_v7"]
     manifest_schema: Literal["dmb_recap_semantic_candidate_manifest_v7"]
+    inherited_pc_proof_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 
 class RecapSemanticBasisV9(RecapSemanticBasisV2):
@@ -219,6 +220,7 @@ class RecapSemanticBasisV9(RecapSemanticBasisV2):
     derivation: Literal["operator_recap_semantic_candidate_correction_v8"]
     manifest_schema: Literal["dmb_recap_semantic_candidate_manifest_v8"]
     expected_parent_revision: int = Field(strict=True, ge=1)
+    inherited_pc_proof_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 
 class RecapSemanticBasisV10(RecapSemanticBasisV2):
@@ -613,10 +615,131 @@ def _assert_recap_pc_manifest(manifest: object, basis: RecapSemanticBasisV10) ->
         raise ApplicationStateConflictError("PC reference manifest changed")
 
 
+def _inherited_pc_proof_sha(value: object) -> str:
+    canonical = json.dumps(value, sort_keys=True, ensure_ascii=False,
+                           separators=(",", ":")).encode("utf-8") + b"\n"
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def _assert_inherited_pc_basis(
+    child: ExtractionRun, parent: ExtractionRun,
+    basis: RecapSemanticBasisV8 | RecapSemanticBasisV9,
+    get_ancestor: Callable[[str], ExtractionRun | None] | None,
+) -> None:
+    """Independently bind persisted proof to immutable APP-STATE ancestry."""
+    corrections = {
+        _RECAP_CANDIDATE_DERIVATION, _RECAP_CANDIDATE_DERIVATION_V2,
+        _RECAP_CANDIDATE_DERIVATION_V3, _RECAP_CANDIDATE_DERIVATION_V4,
+        _RECAP_CANDIDATE_DERIVATION_V5, _RECAP_CANDIDATE_DERIVATION_V6,
+        _RECAP_CANDIDATE_DERIVATION_V7, _RECAP_CANDIDATE_DERIVATION_V8,
+        _RECAP_CANDIDATE_DERIVATION_V9,
+    }
+    seen: set[str] = set()
+    links: list[dict[str, object]] = []
+    introductions: list[tuple[int, ExtractionRun, dict, dict]] = []
+    omitted: set[str] = set()
+    current = child
+    while current.lineage.get("derivation") in corrections:
+        if current.run_id in seen or len(seen) >= 64:
+            raise ApplicationStateConflictError("inherited PC lineage is cyclic or unbounded")
+        seen.add(current.run_id)
+        lineage = current.lineage
+        parent_id = lineage.get("parent_run_id")
+        manifest = lineage.get("semantic_candidate_manifest")
+        if not isinstance(parent_id, str) or not parent_id or not isinstance(manifest, dict):
+            raise ApplicationStateConflictError("inherited PC lineage manifest is missing")
+        previous = parent if parent.run_id == parent_id else (
+            get_ancestor(parent_id) if get_ancestor is not None else None)
+        if previous is None or previous.run_id in seen:
+            raise ApplicationStateConflictError("inherited PC parent is missing or cyclic")
+        current_candidate = current.components.get("candidate_graph")
+        previous_candidate = previous.components.get("candidate_graph")
+        source = current.components.get("source_artifact")
+        spans = current.components.get("source_span_index")
+        if not all((current_candidate, previous_candidate, source, spans)):
+            raise ApplicationStateConflictError("inherited PC components are missing")
+        manifest_sha = _inherited_pc_proof_sha(manifest)
+        parent_sha = _sha(previous_candidate.sha256)
+        candidate_sha = _sha(current_candidate.sha256)
+        if (lineage.get("manifest_sha256") != manifest_sha
+            or lineage.get("parent_candidate_sha256") != parent_sha
+            or not candidate_sha or not parent_sha
+            or source != previous.components.get("source_artifact")
+            or spans != previous.components.get("source_span_index")
+            or current.campaign_id != previous.campaign_id
+            or current.session_id != previous.session_id
+            or current.source_artifact_id != previous.source_artifact_id):
+            raise ApplicationStateConflictError("inherited PC lineage pins changed")
+        link = {
+            "run_id": current.run_id, "parent_run_id": parent_id,
+            "derivation": lineage["derivation"], "manifest_sha256": manifest_sha,
+            "candidate_sha256": candidate_sha, "parent_candidate_sha256": parent_sha,
+        }
+        links.append(link)
+        if lineage["derivation"] == _RECAP_CANDIDATE_DERIVATION_V8:
+            operations = manifest.get("node_omissions")
+            if not isinstance(operations, list):
+                raise ApplicationStateConflictError("inherited PC node omission basis changed")
+            omitted.update(row["node_id"] for row in operations
+                           if isinstance(row, dict) and isinstance(row.get("node_id"), str))
+        if lineage["derivation"] == _RECAP_CANDIDATE_DERIVATION_V9:
+            rows = manifest.get("attachments")
+            if (manifest.get("schema") != "dmb_recap_semantic_candidate_manifest_v9"
+                or not isinstance(rows, list) or not 1 <= len(rows) <= 6
+                or any(not isinstance(row, dict) or not isinstance(row.get("node_id"), str)
+                       for row in rows)
+                or len({row["node_id"] for row in rows}) != len(rows)
+                or manifest.get("source_revision_sha256") != _sha(source.sha256)
+                or manifest.get("span_index_sha256") != _sha(spans.sha256)):
+                raise ApplicationStateConflictError("inherited PC introduction is malformed")
+            for row in rows:
+                if (not isinstance(row, dict)
+                    or any(not isinstance(row.get(key), str) or not row[key]
+                           for key in ("node_id", "native_object_id", "source_span_ref_id",
+                                       "anchor_quote", "pc_mention"))
+                    or not isinstance(row.get("corpus_ref"), dict)
+                    or row["corpus_ref"].get("type") != "pc"
+                    or row["corpus_ref"].get("resolution") != "resolved"
+                    or not isinstance(manifest.get("world_id"), str)
+                    or not manifest["world_id"]):
+                    raise ApplicationStateConflictError("inherited PC attachment is malformed")
+                if row["node_id"] not in omitted:
+                    introductions.append((len(links), current, manifest, row))
+        current = previous
+
+    expected_rows: list[dict] = []
+    for depth, origin, manifest, row in introductions:
+        expected_rows.append({
+            "node_id": row["node_id"], "corpus_ref": row["corpus_ref"],
+            "native_object_id": row["native_object_id"],
+            "origin_world_id": manifest["world_id"],
+            "origin_run_id": origin.run_id,
+            "origin_manifest_sha256": origin.lineage["manifest_sha256"],
+            "source_revision_sha256": manifest["source_revision_sha256"],
+            "span_index_sha256": manifest["span_index_sha256"],
+            "source_span_ref_id": row["source_span_ref_id"],
+            "anchor_quote": row["anchor_quote"], "pc_mention": row["pc_mention"],
+            "lineage_links": links[:depth],
+        })
+    expected_rows.sort(key=lambda row: row["node_id"])
+    digest = basis.inherited_pc_proof_sha256
+    stored = child.lineage.get("inherited_pc_proof")
+    if not expected_rows:
+        if digest is not None or stored is not None:
+            raise ApplicationStateConflictError("inherited PC proof is unexpected")
+        return
+    expected = {"schema": "dmb_inherited_pc_reference_proof_v1",
+                "final_candidate_sha256": basis.candidate_sha256, "rows": expected_rows}
+    if (not isinstance(digest, str) or not _SHA256.fullmatch(digest)
+        or stored != expected or _inherited_pc_proof_sha(stored) != digest):
+        raise ApplicationStateConflictError("inherited PC proof is missing or changed")
+
+
 def _assert_recap_semantic_basis(
     child: ExtractionRun,
     parent: ExtractionRun,
     basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4 | RecapSemanticBasisV5 | RecapSemanticBasisV6 | RecapSemanticBasisV7 | RecapSemanticBasisV8 | RecapSemanticBasisV9 | RecapSemanticBasisV10,
+    get_ancestor: Callable[[str], ExtractionRun | None] | None = None,
 ) -> None:
     """Prove every basis field against stored child/parent identity and refs."""
     lineage = child.lineage
@@ -691,9 +814,11 @@ def _assert_recap_semantic_basis(
         if parent.revision != basis.expected_parent_revision:
             raise ApplicationStateConflictError("final batch parent revision changed")
         _assert_recap_atomic_manifest(lineage.get("semantic_candidate_manifest"), basis)
+        _assert_inherited_pc_basis(child, parent, basis, get_ancestor)
         return
     if isinstance(basis, RecapSemanticBasisV8):
         _assert_recap_atomic_manifest(lineage.get("semantic_candidate_manifest"), basis)
+        _assert_inherited_pc_basis(child, parent, basis, get_ancestor)
         return
     if isinstance(basis, RecapSemanticBasisV7):
         _assert_recap_split_manifest(lineage.get("semantic_candidate_manifest"), basis)
@@ -957,7 +1082,8 @@ def record_recap_semantic_disposition(
         parent = repo.get_run(conn, parent_id) if isinstance(parent_id, str) else None
         if parent is None:
             raise ApplicationStateConflictError("recap correction parent is missing")
-        _assert_recap_semantic_basis(child, parent, basis)
+        _assert_recap_semantic_basis(
+            child, parent, basis, get_ancestor=lambda ancestor_id: repo.get_run(conn, ancestor_id))
         raw = child.lineage.get("semantic_disposition")
         if not isinstance(raw, dict) or type(raw.get("version")) is not int or raw.get("version") != 1:
             raise ApplicationStateConflictError("recap semantic hold is missing or malformed")
