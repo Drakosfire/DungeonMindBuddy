@@ -11,7 +11,7 @@ The frozen native oracle at `rev:62820bcd7eca116af9d889e128fabf4e` supplies acce
 ## Exclusive write lease
 
 - `src/graph_memory/interaction/authority_classifier.py`
-- `tests/test_graph_retrieval_interaction.py`
+- `tests/test_authority_classifier_evidence_binding.py` (PRIME-approved test-path substitution)
 - `tests/test_agent_turn_service.py` for focused frozen-envelope proof
 - this handoff
 
@@ -24,3 +24,5 @@ For an accepted relationship, use only its exact, valid evidence-ref IDs interse
 ## Acceptance witness
 
 Focused classifier tests prove exact matching to an unreadable anchor and exclusion of an unrelated readable anchor, plus absent/foreign/mismatched/revision-negative cases. A test at the Agent turn boundary freezes an actual serialized provider envelope without a provider call and proves the exact relationship/evidence IDs survive in `claimLedger`, `dispatched_relationship_ids`, and `dispatched_evidence_ref_ids` with `packet_disposition=included` and `source_opened=false`. Run focused tests and relevant repository gates, inspect cumulative base-to-head diff, then commit/push/open the PR. Update this handoff with exact implementation head and evidence before handing it to PRIME.
+
+The original planned classifier suite, `tests/test_graph_retrieval_interaction.py`, cannot collect on current main: it imports `graph_memory.interaction.digest_audit`, removed by CUTOVER D.3B. PRIME approved the focused new test path above without changing the production scope; this inherited collection defect remains separate.
