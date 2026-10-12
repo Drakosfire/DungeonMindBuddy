@@ -35,6 +35,8 @@ from application_state.agent_conversation.types import (
     ProviderAttemptAuthorizedEventV1,
     ProviderAttemptAuthorizedEventV2,
     ProviderOutcomeEventV1,
+    RelatedRecapContextAuthorizationEventV1,
+    RelatedRecapContextProviderInclusionEventV1,
     ReopenCommand,
     SourceReadAuthorizationEventV2,
     SubmittedTurnIntentV1,
@@ -45,6 +47,7 @@ from application_state.agent_conversation.types import (
     TurnResult,
     TurnSubmission,
     ValidatedGraphOperationEventV1,
+    ValidatedRelatedRecapContextEventV1,
     ValidatedSourceReadEventV2,
     WorldPointer,
     request_fingerprint,
@@ -53,6 +56,7 @@ from application_state.agent_conversation.types import (
     turn_idempotency_fingerprint,
     validate_completion_against_receipt,
     validate_execution_completion,
+    validate_related_recap_context_scope,
 )
 from application_state.cli import assert_at_head
 from application_state.config import load_runtime_dsn
@@ -814,6 +818,10 @@ class AgentConversationService:
                 updated_execution = execution_type.model_validate(
                     execution.model_dump(mode="json", by_alias=True) | {"events": [e.model_dump(mode="json", by_alias=True) for e in events]}
                 )
+                if turn.graph_context_receipt is not None:
+                    validate_related_recap_context_scope(
+                        turn.graph_context_receipt, updated_execution
+                    )
             except ValueError as exc:
                 raise ApplicationStateValidationError(str(exc)) from exc
             updated = repo.update_graph_execution(
@@ -878,6 +886,40 @@ class AgentConversationService:
             world_id, conversation_id, turn_id, expected_revision=expected_revision,
             expected_attempt=expected_attempt, event=receipt,
             duplicate_key="event_id",
+        )
+
+    def authorize_related_recap_context(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int,
+        authorization: RelatedRecapContextAuthorizationEventV1,
+    ) -> tuple[Turn, bool]:
+        """Persist the parent-authorized context scope before the Buddy read."""
+        return self._append_graph_execution_event(
+            world_id, conversation_id, turn_id, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, event=authorization,
+            duplicate_key="read_call_id",
+        )
+
+    def record_validated_related_recap_context(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int,
+        result: ValidatedRelatedRecapContextEventV1,
+    ) -> tuple[Turn, bool]:
+        """Persist context-read metadata without passage text or continuation tokens."""
+        return self._append_graph_execution_event(
+            world_id, conversation_id, turn_id, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, event=result, duplicate_key="event_id",
+        )
+
+    def record_related_recap_context_inclusion(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int,
+        inclusion: RelatedRecapContextProviderInclusionEventV1,
+    ) -> tuple[Turn, bool]:
+        """Persist context inclusion before its matching provider authorization."""
+        return self._append_graph_execution_event(
+            world_id, conversation_id, turn_id, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, event=inclusion, duplicate_key="event_id",
         )
 
     def authorize_provider_attempt_v2(
