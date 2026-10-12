@@ -53,6 +53,7 @@ from application_state.errors import (
 from apps.live_control_server.models.agent_turn import (
     AgentEvidenceAnchorOpenTargetV1,
     AgentRelatedRecapContextOpenTargetV1,
+    AgentRelatedRecapContextStatusV1,
     AgentPlanWorldGraphContextResponseV1,
     AgentPlanWorldGraphExecutionProjectionV1,
     AgentTurnContentBasis,
@@ -2947,7 +2948,10 @@ def _evidence_anchor_open_targets(turn: Turn) -> list[AgentEvidenceAnchorOpenTar
 
 def _related_recap_context_open_targets(
     turn: Turn,
-) -> list[AgentRelatedRecapContextOpenTargetV1]:
+) -> tuple[
+    list[AgentRelatedRecapContextOpenTargetV1],
+    list[AgentRelatedRecapContextStatusV1],
+]:
     """Join cited evidence to Core-authorized context metadata at one frozen pin.
 
     This read-only projection does not make a context descriptor claim support.
@@ -2964,10 +2968,10 @@ def _related_recap_context_open_targets(
         or completion.citation_map is None
         or receipt.graph_authority.admissibility_version != "gm-v1"
     ):
-        return []
+        return [], []
     authority = receipt.graph_authority
     if authority.scope_mode != "world" or authority.campaign_id is not None:
-        return []
+        return [], []
     citations = [
         entry for entry in completion.citation_map.entries
         if entry.graph_revision == authority.graph_revision
@@ -2975,7 +2979,46 @@ def _related_recap_context_open_targets(
         and entry.evidence_ref_ids
     ]
     if not citations:
-        return []
+        return [], []
+
+    def statuses(
+        counts: Mapping[str, int] | None = None,
+        *,
+        unavailable: bool = False,
+    ) -> list[AgentRelatedRecapContextStatusV1]:
+        counts = {} if counts is None else counts
+        return [
+            AgentRelatedRecapContextStatusV1(
+                claim_id=entry.claim_id,
+                status=(
+                    "metadata_unavailable" if unavailable else
+                    "multiple_choices" if counts.get(entry.claim_id, 0) > 1 else
+                    "available" if counts.get(entry.claim_id, 0) == 1 else
+                    "no_context"
+                ),
+                choice_count=0 if unavailable else counts.get(entry.claim_id, 0),
+            )
+            for entry in citations
+        ]
+
+    scope = execution.policy.source_read_scope
+    if (
+        scope.world_id != authority.managed_world_id
+        or scope.campaign_id is not None
+        or scope.graph_revision != authority.graph_revision
+    ):
+        return [], statuses(unavailable=True)
+    if isinstance(scope, graph_types.GraphSelectedSourceReadScopeV2):
+        selected = scope.selected_index_commitment.context
+        if (
+            selected.world_id != authority.native_world_id
+            or selected.campaign_id is not None
+            or selected.scope_mode != "world_cross_campaign"
+            or selected.focus.kind != "none"
+            or selected.admissibility != "gm"
+            or selected.revision_id != authority.graph_revision
+        ):
+            return [], statuses(unavailable=True)
 
     try:
         from dungeonmind.application.world_graph_retrieval import (
@@ -3009,6 +3052,7 @@ def _related_recap_context_open_targets(
             )
 
         pairs_by_target: dict[tuple[str, str], dict[str, set[tuple[str, str]]]] = {}
+        incomplete_targets = False
         for citation in citations:
             target_key = (citation.target_kind, citation.target_id)
             if target_key in pairs_by_target:
@@ -3028,6 +3072,7 @@ def _related_recap_context_open_targets(
                 or result.coverage.missing_ids
             ):
                 pairs_by_target[target_key] = {}
+                incomplete_targets = True
                 continue
             pairs: dict[str, set[tuple[str, str]]] = {}
             for anchor in result.anchors:
@@ -3044,11 +3089,13 @@ def _related_recap_context_open_targets(
                     ))
             pairs_by_target[target_key] = pairs
 
+        if incomplete_targets:
+            return [], statuses(unavailable=True)
         if not any(
             pairs_by_target.get((entry.target_kind, entry.target_id), {}).get(ref)
             for entry in citations for ref in entry.evidence_ref_ids
         ):
-            return []
+            return [], statuses()
         index = services.retrieval.list_source_context_index(
             SourceContextIndexRequest(projection=projection, max_entries=512)
         )
@@ -3057,7 +3104,7 @@ def _related_recap_context_open_targets(
             or index.eligible_count != len(index.entries)
             or not exact_snapshot(index.snapshot)
         ):
-            return []
+            return [], statuses(unavailable=True)
         descriptors: dict[tuple[str, str], list[Any]] = {}
         for descriptor in index.entries:
             selector = descriptor.section_selector
@@ -3068,7 +3115,7 @@ def _related_recap_context_open_targets(
                 or selector.kind != "recap_section"
                 or selector.policy != "markdown-session-recap-v1"
             ):
-                return []
+                return [], statuses(unavailable=True)
             descriptors.setdefault((
                 descriptor.source_artifact_id, descriptor.source_revision_id,
             ), []).append(descriptor)
@@ -3097,10 +3144,16 @@ def _related_recap_context_open_targets(
                             graph_revision=authority.graph_revision,
                         )
                         targets[(citation.claim_id, evidence_ref_id, descriptor.context_anchor_id)] = target
-        return [targets[key] for key in sorted(targets)]
+        ordered = [targets[key] for key in sorted(targets)]
+        counts: dict[str, int] = {}
+        for target in ordered:
+            counts[target.claim_id] = counts.get(target.claim_id, 0) + 1
+        if any(count > 512 for count in counts.values()):
+            return [], statuses(unavailable=True)
+        return ordered, statuses(counts)
     except Exception as exc:  # noqa: BLE001 - optional read-only projection fails closed
         _LOG.debug("Related recap context metadata unavailable: %s", type(exc).__name__)
-        return []
+        return [], statuses(unavailable=True)
 
 
 def project_plan_turn_context(
@@ -3138,6 +3191,7 @@ def project_plan_turn_context(
             authorization_state,
             completed=turn.status == "completed",
         )
+    related_targets, related_statuses = _related_recap_context_open_targets(turn)
     return AgentPlanWorldGraphContextResponseV1(
         receipt=receipt,
         completion=turn.completion,
@@ -3145,8 +3199,9 @@ def project_plan_turn_context(
         delivery_replay=delivery_replay,
         source_open_targets=[
             *_evidence_anchor_open_targets(turn),
-            *_related_recap_context_open_targets(turn),
+            *related_targets,
         ],
+        related_recap_context_statuses=related_statuses,
     )
 
 

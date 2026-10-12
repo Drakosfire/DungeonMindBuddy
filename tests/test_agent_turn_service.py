@@ -683,12 +683,185 @@ def test_v2_completion_opens_citation_only_from_producing_source_envelope(
     assert project_plan_turn_context(
         completed_turn, delivery_replay=False
     ).source_open_targets == projected.source_open_targets
-    history = _serialized_card_a_history_body(
-        monkeypatch, policy_turn_override=completed_turn
+    from types import SimpleNamespace
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as direct_reads,
     )
-    assert history["turns"][0]["plan_context"]["source_open_targets"] == [
-        target.model_dump(mode="json", by_alias=True)
-    ]
+
+    descriptors = [SimpleNamespace(
+        context_anchor_id="dm-context-anchor:v1:one",
+        world_id=receipt.graph_authority.native_world_id,
+        campaign_id="campaign:one",
+        graph_revision_id=receipt.graph_authority.graph_revision,
+        source_artifact_id="artifact:one",
+        source_revision_id="source-revision:one",
+        source_uri="repo://recaps/session-22.md",
+        content_sha256="d" * 64,
+        section_selector=SimpleNamespace(
+            schema_version="dm_recap_context_section_selector_v1",
+            kind="recap_section", policy="markdown-session-recap-v1",
+            expected_session_id="session-22",
+            expected_heading="# Session 22 Recap",
+        ),
+    )]
+    good_descriptor = descriptors[0]
+
+    def snapshot(projection: Any) -> Any:
+        return SimpleNamespace(
+            world_id=projection.world_id,
+            campaign_id=projection.campaign_id,
+            scope_mode=projection.scope_mode,
+            admissibility=projection.admissibility,
+            focus=projection.focus,
+            revision_id=projection.revision_pin,
+        )
+
+    metadata_state = {"evidence_complete": True, "index_complete": True}
+
+    class RelatedMetadata:
+        def get_evidence(self, projection: Any, *, target: Any, max_anchors: int) -> Any:
+            assert (target.kind, target.target_id, max_anchors) == (
+                "assertion", "assertion-internal-test", 32,
+            )
+            assert (
+                projection.world_id, projection.campaign_id,
+                projection.scope_mode.value, projection.admissibility.value,
+                projection.revision_pin,
+            ) == (
+                receipt.graph_authority.native_world_id, None,
+                "world_cross_campaign", "gm",
+                receipt.graph_authority.graph_revision,
+            )
+            return SimpleNamespace(
+                found=True, target=target, snapshot=snapshot(projection),
+                coverage=SimpleNamespace(
+                    truncated_fields=(
+                        () if metadata_state["evidence_complete"] else ("anchors",)
+                    ), gap_codes=(), missing_ids=(),
+                ),
+                anchors=(SimpleNamespace(
+                    evidence_ref_id="evidence-internal-test",
+                    source_artifact_id="artifact:one",
+                    source_revision_id="source-revision:one",
+                    can_open_source=False,
+                ),),
+            )
+
+        def list_source_context_index(self, request: Any) -> Any:
+            return SimpleNamespace(
+                status=("complete" if metadata_state["index_complete"] else "overflow"),
+                eligible_count=len(descriptors),
+                entries=tuple(descriptors), snapshot=snapshot(request.projection),
+            )
+
+    with monkeypatch.context() as related_scope:
+        related_scope.setattr(
+            direct_reads, "direct_services_from_config",
+            lambda _world: SimpleNamespace(retrieval=RelatedMetadata()),
+        )
+        related = project_plan_turn_context(completed_turn, delivery_replay=False)
+        assert [item.kind for item in related.source_open_targets] == [
+            "evidence_anchor", "related_recap_context",
+        ]
+        context_target = related.source_open_targets[1]
+        assert context_target.context_anchor_id == "dm-context-anchor:v1:one"
+        assert context_target.provenance_evidence_ref_id == "evidence-internal-test"
+        assert context_target.source_revision_id == "source-revision:one"
+        assert context_target.source_campaign_id == "campaign:one"
+        assert related.completion.citation_map.entries[0].source_read_ids == [
+            "source-read:one"
+        ]
+        context_only_citation = completion.citation_map.entries[0].model_copy(update={
+            "source_read_ids": [], "source_opened": False,
+        })
+        context_only_completion = completion.model_copy(update={
+            "citation_map": completion.citation_map.model_copy(update={
+                "entries": [context_only_citation],
+            }),
+        })
+        context_only_scope = policy.source_read_scope.model_copy(update={
+            "admitted_anchors": [],
+        })
+        context_only_execution = completed_execution.model_copy(update={
+            "policy": policy.model_copy(update={
+                "source_read_scope": context_only_scope,
+            }),
+        })
+        context_only_turn = completed_turn.model_copy(update={
+            "completion": context_only_completion,
+            "graph_context_execution": context_only_execution,
+        })
+        assert service_module._evidence_anchor_open_targets(context_only_turn) == []
+        context_only_targets, context_only_statuses = (
+            service_module._related_recap_context_open_targets(context_only_turn)
+        )
+        assert [item.kind for item in context_only_targets] == [
+            "related_recap_context"
+        ]
+        assert [(item.status, item.choice_count) for item in context_only_statuses] == [
+            ("available", 1)
+        ]
+        assert project_plan_turn_context(
+            completed_turn, delivery_replay=True
+        ).source_open_targets == related.source_open_targets
+        assert [(item.status, item.choice_count) for item in (
+            related.related_recap_context_statuses
+        )] == [("available", 1)]
+        history = _serialized_card_a_history_body(
+            related_scope, policy_turn_override=completed_turn
+        )
+        assert history["turns"][0]["plan_context"]["source_open_targets"] == [
+            item.model_dump(mode="json", by_alias=True)
+            for item in related.source_open_targets
+        ]
+        descriptors.append(SimpleNamespace(
+            **{**vars(descriptors[0]), "context_anchor_id": "dm-context-anchor:v1:two"}
+        ))
+        choices = project_plan_turn_context(completed_turn, delivery_replay=True)
+        assert [
+            item.context_anchor_id for item in choices.source_open_targets
+            if item.kind == "related_recap_context"
+        ] == ["dm-context-anchor:v1:one", "dm-context-anchor:v1:two"]
+        assert choices.related_recap_context_statuses[0].status == "multiple_choices"
+        assert choices.related_recap_context_statuses[0].choice_count == 2
+        descriptors[0] = SimpleNamespace(
+            **{**vars(descriptors[0]), "source_revision_id": "foreign-revision"}
+        )
+        descriptors.pop()
+        assert [item.kind for item in project_plan_turn_context(
+            completed_turn, delivery_replay=True
+        ).source_open_targets] == ["evidence_anchor"]
+        assert project_plan_turn_context(
+            completed_turn, delivery_replay=True
+        ).related_recap_context_statuses[0].status == "no_context"
+        descriptors[0] = SimpleNamespace(
+            **{
+                **vars(descriptors[0]),
+                "source_revision_id": "source-revision:one",
+                "section_selector": SimpleNamespace(
+                    **{
+                        **vars(descriptors[0].section_selector),
+                        "expected_heading": "# Session 23 Recap",
+                    }
+                ),
+            }
+        )
+        assert [item.kind for item in project_plan_turn_context(
+            completed_turn, delivery_replay=True
+        ).source_open_targets] == ["evidence_anchor"]
+        assert project_plan_turn_context(
+            completed_turn, delivery_replay=True
+        ).related_recap_context_statuses[0].status == "metadata_unavailable"
+        descriptors[0] = good_descriptor
+        metadata_state["evidence_complete"] = False
+        assert project_plan_turn_context(
+            completed_turn, delivery_replay=True
+        ).related_recap_context_statuses[0].status == "metadata_unavailable"
+        metadata_state["evidence_complete"] = True
+        metadata_state["index_complete"] = False
+        assert project_plan_turn_context(
+            completed_turn, delivery_replay=True
+        ).related_recap_context_statuses[0].status == "metadata_unavailable"
     foreign_scope = policy.source_read_scope.model_copy(update={
         "graph_revision": "foreign-revision",
     })
