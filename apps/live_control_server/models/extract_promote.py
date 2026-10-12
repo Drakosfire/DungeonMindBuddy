@@ -1416,7 +1416,8 @@ class RecapEvidenceAppend(_ExtractPromoteModel):
 
     record_kind: Literal["node", "edge"]
     record_id: str
-    expected_evidence_refs_sha256: str
+    expected_evidence_refs_sha256: str = Field(
+        description="SHA-256 of the existing evidence_refs array encoded as UTF-8 JSON with sorted object keys, ensure_ascii=False, compact separators and one trailing newline.")
     source_span_ref_id: str
     anchor_quotes: list[str] = Field(min_length=1, max_length=16)
 

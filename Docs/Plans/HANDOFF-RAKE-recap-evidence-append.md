@@ -151,3 +151,10 @@ schema belongs in this implementation lease.
 - Old request, basis and immutable replay identities remain unchanged.
 - Session28 application, semantic acceptance, admission and publication remain
   separate review gates after merge.
+
+
+`expected_evidence_refs_sha256` hashes the complete existing array using UTF-8
+JSON with sorted object keys, `ensure_ascii=False`, compact separators `,` / `:`,
+and one trailing newline. Array order is preserved. This is the existing sealed
+candidate canonical-byte convention; it does not use a file path or client
+supplied evidence identity.
