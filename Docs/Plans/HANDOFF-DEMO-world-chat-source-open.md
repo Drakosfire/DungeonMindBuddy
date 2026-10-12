@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE UI consumer, 2026-10-12, authorized by PRIME against SERVER DTO `6aed0c06ea266fe67ae1f88633b28d1f5ff71bb1` (additive recap availability status after the first draft). SOURCE #1089 merged at `8fce46de7e33bc352300abdf3ece0369a3ac1e68`; no runtime or operator acceptance is claimed.
 **Owner:** DEMO; PRIME controls activation, review and merge.
-**Branch/base:** `codex/demo-world-chat-source-open-design`, re-anchored to Buddy `main@c6659aef23744e8f1e74095a6dcf927b590aeecd` after checking open PRs. Serial UI consumer PR follows the exact SERVER producer merge.
+**Branch/base:** `codex/demo-world-chat-source-open-design`, re-anchored to Buddy `main@c6659aef23744e8f1e74095a6dcf927b590aeecd` after checking open PRs. One draft UI consumer PR may be reviewed concurrently; final integration waits for SERVER's exact producer merge pin and type alignment.
 
 ## User action and invariant
 
