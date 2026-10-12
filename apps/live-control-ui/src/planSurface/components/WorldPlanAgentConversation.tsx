@@ -1,3 +1,4 @@
+import { LoadedWorldGraphExplorer } from "../../graphLens/LoadedWorldGraphExplorer";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { ConversationDock } from "../../ui/ConversationDock";
@@ -4213,6 +4214,7 @@ export function WorldPlanAgentConversation({
   const contextDetails = (
     <div className="world-plan-agent-conversation__header-context" role="group" aria-label="What Buddy uses and where changes go">
           <section className="world-plan-agent-conversation__context-section" aria-label="Question sources">
+            <LoadedWorldGraphExplorer />
             <h3>Answers use</h3>
             <p className="world-plan-agent-conversation__context-summary">
               The saved Plan{playableTarget ? "" : " in full"}.
