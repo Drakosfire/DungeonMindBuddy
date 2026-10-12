@@ -2485,7 +2485,7 @@ describe("World Plan conversation consumer", () => {
       contentSha256: "f".repeat(64), lineStart: 1, lineEnd: 2, truncated: false, diagnostics: [],
     });
     const recapRead = vi.spyOn(liveApi, "postWorldGraphRecapContextRead").mockResolvedValue({
-      schema: "dmb_recap_context_read_v1", outcome: "enough",
+      schema: "dmb_recap_context_read_v1", outcome: "truncated",
       snapshot: { worldId: "native-world-internal-test", campaignId: "", scopeMode: "world",
         revisionId: "graph-revision-test", headRevisionId: "graph-revision-test", isHead: true,
         focus: { kind: "none", sessionId: null, campaignId: null }, admissibility: "gm" },
@@ -2496,7 +2496,7 @@ describe("World Plan conversation consumer", () => {
         expectedSessionId: "session-22", expectedHeading: "# Session 22 Recap",
         selectorSchema: "dm_recap_context_section_selector_v1", selectorPolicy: "markdown-session-recap-v1" },
       mediaType: "text/markdown", content: "Related Session 22 passage", headingLine: 1, lineStart: 2, lineEnd: 3,
-      sectionSha256: "a".repeat(64), offsetChars: 0, truncated: false, nextContinuation: null, diagnostics: [],
+      sectionSha256: "a".repeat(64), offsetChars: 0, truncated: true, nextContinuation: "next", diagnostics: [],
     });
 
     render(conversationElement());
@@ -2510,10 +2510,30 @@ describe("World Plan conversation consumer", () => {
     }));
     fireEvent.click(screen.getByRole("button", { name: "Open related recap context" }));
     expect(await screen.findByLabelText("Related recap context passage")).toHaveTextContent("Related Session 22 passage");
+    expect(screen.getByText("Partial passage. More source text may be available.")).toBeInTheDocument();
     expect(recapRead).toHaveBeenCalledWith(expect.objectContaining({
       revisionPin: "graph-revision-test", contextAnchorId: "dm-context-anchor:v1:test",
     }));
     expect(ask).not.toHaveBeenCalled();
+  });
+
+  it("distinguishes absent recap context from unavailable recap metadata on demand", async () => {
+    const first = await planGraphContext("graph_grounded");
+    first.related_recap_context_statuses = [{ schema: "dmb_agent_related_recap_context_status_v1",
+      claim_id: "claim-internal-test", status: "no_context", choice_count: 0 }];
+    const second = await planGraphContext("graph_grounded");
+    second.related_recap_context_statuses = [{ schema: "dmb_agent_related_recap_context_status_v1",
+      claim_id: "claim-internal-test", status: "metadata_unavailable", choice_count: 0 }];
+    setupApi(await historyV2("conversation-a", 5, [
+      policyHistoryTurn(1, "no-recap-turn", "First question", "First answer", first),
+      policyHistoryTurn(2, "metadata-unavailable-turn", "Second question", "Second answer", second),
+    ]));
+    render(conversationElement());
+    const summaries = await screen.findAllByText("Related recap context status");
+    summaries.forEach((summary) => fireEvent.click(summary));
+    expect(screen.getByText("No related recap passage matches this cited point.")).toBeInTheDocument();
+    expect(screen.getByText("Related recap metadata could not be checked for this cited point.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open related recap context" })).not.toBeInTheDocument();
   });
 
   it("fails closed when a source reader returns a different evidence identity", async () => {

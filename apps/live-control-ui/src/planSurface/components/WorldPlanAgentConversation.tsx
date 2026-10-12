@@ -2061,7 +2061,7 @@ export function WorldPlanAgentConversation({
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [sourcePassage, setSourcePassage] = useState<{
     turnId: string; claimId: string; targetId: string;
-    status: "loading" | "open" | "unavailable"; content: string | null; message: string | null;
+    status: "loading" | "open" | "unavailable"; content: string | null; message: string | null; partial: boolean;
   } | null>(null);
   const sourceReadEpochRef = useRef(0);
   const [historyRefreshNonce, setHistoryRefreshNonce] = useState(0);
@@ -3565,7 +3565,7 @@ export function WorldPlanAgentConversation({
     const epoch = ++sourceReadEpochRef.current;
     const targetId = target.kind === "evidence_anchor" ? target.anchor_id : target.context_anchor_id;
     const identity = { turnId: turn.turn_id, claimId: target.claim_id, targetId };
-    setSourcePassage({ ...identity, status: "loading", content: null, message: null });
+    setSourcePassage({ ...identity, status: "loading", content: null, message: null, partial: false });
     const stillCurrent = () => sourceReadEpochRef.current === epoch
       && historySnapshotRef.current?.world_id === target.managed_world_id
       && historySnapshotRef.current?.conversation_id === conversationId
@@ -3573,6 +3573,7 @@ export function WorldPlanAgentConversation({
     const focus = { kind: "none" as const, sessionId: null, campaignId: null };
     try {
       let content: string | null = null;
+      let partial = false;
       if (target.kind === "evidence_anchor") {
         const result = await postWorldGraphSourceAnchorRead({
           schema: "dmb_world_graph_source_anchor_read_request_v1",
@@ -3585,7 +3586,10 @@ export function WorldPlanAgentConversation({
           && result.anchorId === target.anchor_id
           && result.evidenceRefId === target.evidence_ref_id
           && result.sourceArtifactId === target.source_artifact_id
-          && typeof result.content === "string" && result.content) content = result.content;
+          && typeof result.content === "string" && result.content) {
+          content = result.content;
+          partial = result.truncated || result.outcome === "partial" || result.outcome === "truncated";
+        }
       } else {
         const result: WorldGraphRecapContextReadResponse = await postWorldGraphRecapContextRead({
           schema: "dmb_recap_context_read_request_v1",
@@ -3609,20 +3613,27 @@ export function WorldPlanAgentConversation({
           && descriptor.expectedHeading === target.expected_heading
           && descriptor.selectorSchema === target.selector_schema
           && descriptor.selectorPolicy === target.selector_policy
-          && typeof result.content === "string" && result.content) content = result.content;
+          && typeof result.content === "string" && result.content) {
+          content = result.content;
+          partial = result.truncated || result.outcome === "truncated";
+        }
       }
       if (!stillCurrent()) return;
       setSourcePassage(content
-        ? { ...identity, status: "open", content, message: null }
-        : { ...identity, status: "unavailable", content: null, message: "This pinned source passage is unavailable or did not match the saved citation." });
+        ? { ...identity, status: "open", content, message: null, partial }
+        : { ...identity, status: "unavailable", content: null, message: "This pinned source passage is unavailable or did not match the saved citation.", partial: false });
     } catch {
-      if (stillCurrent()) setSourcePassage({ ...identity, status: "unavailable", content: null, message: "The source reader could not open this pinned passage." });
+      if (stillCurrent()) setSourcePassage({ ...identity, status: "unavailable", content: null, message: "The source reader could not open this pinned passage.", partial: false });
     }
   }
 
   function renderSourceActions(turn: WorldAgentConversationHistoryTurn) {
     const targets = "plan_context" in turn ? turn.plan_context?.source_open_targets ?? [] : [];
-    if (targets.length === 0) return null;
+    const unavailable = "plan_context" in turn
+      ? turn.plan_context?.related_recap_context_statuses?.filter((row) =>
+        row.status === "no_context" || row.status === "metadata_unavailable") ?? []
+      : [];
+    if (targets.length === 0 && unavailable.length === 0) return null;
     const claims = "plan_context" in turn
       ? turn.plan_context?.completion?.answer_segments.filter((segment) => segment.kind === "graph_claim") ?? []
       : [];
@@ -3656,10 +3667,20 @@ export function WorldPlanAgentConversation({
           {opened && sourcePassage.status === "unavailable" ? <p role="alert">{sourcePassage.message}</p> : null}
           {opened && sourcePassage.status === "open" ? <div className="world-plan-agent-conversation__source-passage"
             role="region" aria-label={target.kind === "evidence_anchor" ? "Evidence passage" : "Related recap context passage"}>
+            {sourcePassage.partial ? <p role="note">Partial passage. More source text may be available.</p> : null}
             {sourcePassage.content}
           </div> : null}
         </div>;
       })}
+      {unavailable.length > 0 ? <details className="world-plan-agent-conversation__source-status">
+        <summary>Related recap context status</summary>
+        {unavailable.map((row) => {
+          const point = claims.findIndex((claim) => claim.claim_id === row.claim_id) + 1;
+          return <p key={row.claim_id}>{claims.length > 1 ? `Point ${point}: ` : ""}{row.status === "no_context"
+            ? "No related recap passage matches this cited point."
+            : "Related recap metadata could not be checked for this cited point."}</p>;
+        })}
+      </details> : null}
     </section>;
   }
 

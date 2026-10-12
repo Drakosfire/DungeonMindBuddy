@@ -201,6 +201,21 @@
   flex: 0 1 100%;
 }
 
+.world-plan-agent-conversation__source-status {
+  flex: 0 1 100%;
+  color: var(--ui-text-secondary, #b8c0ce);
+}
+
+.world-plan-agent-conversation__source-status > summary {
+  width: fit-content;
+  cursor: pointer;
+}
+
+.world-plan-agent-conversation__source-status p,
+.world-plan-agent-conversation__source-passage p {
+  margin: 0 0 0.4rem;
+}
+
 .world-plan-agent-conversation__source-passage {
   max-block-size: 18rem;
   max-inline-size: min(46rem, 100%);
