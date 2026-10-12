@@ -1,0 +1,56 @@
+{
+  "candidate_checkout": "/tmp/buddy-runtime-candidate-core115-20261012",
+  "candidate_head": "708416fdf6f5148e7abf17cdeb5ec6d141b70291",
+  "candidate_tree": "77749d08d64110e4b38f2ad672fe0cdb9dcf187f",
+  "constructor_base_sha256": "b78ba91857a8a4a59a287e3b75811c8299c7e89f66bca13145cf1d0786603f2b",
+  "constructor_delta_only_candidate_path_pin_output": true,
+  "constructor_sha256": "69f323d1a3192e41b94271abd1e6a38dcf9a18e80f789f5cb8254fbb3b271efb",
+  "core_commit": "d8798a5d5d6b46efa3e485e5b493a8fc3d4a94f7",
+  "effective_config_preflight": "PASS",
+  "effective_config_receipt_sha256": "d1cf0b386c124eb36751b1e473a6c0169ba6aaeeb60d7c72292edca4201624d2",
+  "environment_is_symlink": false,
+  "environment_root": "/tmp/buddy-runtime-candidate-core115-20261012/.venv",
+  "launcher_sha256": "e20dc73a68d210f2127025df4e7e8b462450cbe2f13c8eee85f62ee7b2803179",
+  "listeners_started": false,
+  "local_distribution_origins": {
+    "dungeonmindbuddy": "file:///tmp/buddy-runtime-candidate-core115-20261012",
+    "hermes-agent": "file:///tmp/buddy-runtime-candidate-core115-20261012/out/hermes-agent"
+  },
+  "lock_sha256": "9cc6cc1e28fb89096c80617e5206382e57c5236a81c9d132138ba452feff91bf",
+  "locked_offline_sync": "PASS; two local distributions only",
+  "module_origins": {
+    "apps.live_control_server.main": "/tmp/buddy-runtime-candidate-core115-20261012/apps/live_control_server/main.py",
+    "dungeonmind.application.world_graph_retrieval": "/tmp/buddy-runtime-candidate-core115-20261012/.venv/lib/python3.13/site-packages/dungeonmind/application/world_graph_retrieval.py"
+  },
+  "pip_and_lock_checks": "PASS",
+  "preservation_before_equals_after": true,
+  "preserved": {
+    "live_core": "ba6069b91e1a608f125548860502a69b4c3e3fc6",
+    "live_head": "98f0c225066fff9ec836b05ac7d78e0de983e8ff",
+    "live_status": "M evals/c2_live_prep/live/session_22/hermes_thread_pointers.json\n?? .venv\n?? evals/c2_live_prep/live/session_22/hermes_agent_profiles/",
+    "old_candidate_core": "13143455b304d748c249bd7bd628134c421bf6d9",
+    "old_candidate_head": "fad78a85d710f560bc297f867b6e3c1fa4f0940e",
+    "old_candidate_status": "",
+    "pointer_sha256": "1a785a7e5754d04f8ba68fa0c27e4a7dd958cdceee431e3cd2185958269df1af",
+    "private_config_sha256": {
+      "/home/drakosfire/.local/state/dungeonmind/recovery/native-live-20261011/dogfood-runtime.env": "403063720f25f9488907551349f67e85e833e46f948264119d3fe3d98efce3db",
+      "/home/drakosfire/.local/state/dungeonmindbuddy/runtime-config/dogfood-current-main.env": "c0bad74504dd82fa3c171acdfc99eaf51cb2858097d0260980a9c0c54759d026",
+      "/home/drakosfire/.local/state/dungeonmindbuddy/runtime-config/dogfood-local-operator.env": "f3d61e23000d2c73b389e815280ecd1e333563f6c614f2f45f21ba65c6206ac0",
+      "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/.env": "9bd370567b61340464bfd8142b8c7fca1aa9f657d4ebc65ccf7dd1f305335214"
+    },
+    "profile_files": 16,
+    "profile_inventory_sha256": "bc304a57c799c6ecc4f12ce8918be36a7caf64ebd317a0d2de40acf0ec2ca197"
+  },
+  "provider_called": false,
+  "python": "3.13.12",
+  "quiet_activation_authority": false,
+  "retained_authority_queried": false,
+  "ui_artifacts_reused": true,
+  "ui_build_inventory_sha256": "63629e0da6083d56adffb6753b3672f5339f5ea892f9f082ac4f656bc8524516",
+  "ui_lock_sha256": "860c764cbe376a7b996b77b6ee45f709f8debd9d4713de2f45dbf5817d87c5b2",
+  "ui_path_bound_caches_removed": [
+    ".vite-temp",
+    ".tmp"
+  ],
+  "ui_tree": "62f9d059068fa7eda0c4d334a376b07b29d95456"
+}

@@ -1,6 +1,6 @@
 # SERVER — exact Core115 dependency adoption
 
-Status: REVIEW under PRIME's 2026-10-12 bounded dispatch. Owner: SERVER;
+Status: COMPLETE — PR #1098 merged at `708416fdf6f5148e7abf17cdeb5ec6d141b70291`, exact reviewed head `ace7432db31d5bb1055c4cefcb0c7c91ff8de07e`, independent pin-only review `6130797095`. The dependency-adoption lease is closed. Owner: SERVER;
 PRIME owns independent review/merge. Serial branch `codex/server-core115-pin`,
 isolated checkout `/tmp/buddy-agent-source-targets`, fetched Buddy main base
 `fa74809ea44d14a138ac652f57c5889e347e64d2`.
@@ -15,7 +15,7 @@ the generic domain during v6 publication. It uses bounded source authority and
 writer-fence validation; reader admission, SourcePairs and durable wire schemas
 remain unchanged. The prior candidate with Core131 is stale for writer semantics.
 
-Exclusive tracked writes: `pyproject.toml`, `uv.lock`, and this handoff. The lock
+Historical tracked write lease — closed: `pyproject.toml`, `uv.lock`, and this handoff. The lock
 diff must contain only the exact Core source/requirement pin; no package metadata,
 timestamp, dependency-version or wheel churn. No Buddy runtime feature, consumer
 relaxation, UI/dependency build, private configuration, retained authority, live
@@ -67,5 +67,4 @@ reports Core `ba6069b9`; neither was mutated. No UI install/build was repeated.
 Whitespace and cumulative diff checks pass. Open #1014 has no leased-file
 collision. Historical draft #826 still carries an older Core96 pin in these two
 dependency files and must be restacked before future merge; it is not modified
-by this main-based adoption. No acceptance token is claimed by SERVER. PRIME
-reviews the exact final PR head, which includes this evidence handoff.
+by this main-based adoption. Draft #826 was marked restack-required in comment `6130871673`. PRIME accepted the exact dependency head before merge. The separately authorized Core115 candidate preparation is recorded in the existing isolated-runtime preparation report; quiet/full World authority remains pending.
