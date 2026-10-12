@@ -35,6 +35,7 @@ from apps.live_control_server.integrations.dungeonmind.world_graph_reads import 
 from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
     _recap_extraction_evidence_view,
 )
+from apps.live_control_server.services.world_graph_retrieval import _resolved_repo_root
 from dungeonmind.application.graph_snapshot import GraphEvidenceRecord
 from dungeonmind.application.world_graph_retrieval import SourceAnchorMetadata
 from dungeonmind.contracts.evidence import SourceDomain
@@ -351,6 +352,58 @@ def test_admitted_repo_span_read_is_digest_verified(tmp_path: Path) -> None:
     assert result.content_sha256 == digest
     assert result.line_start == 16
     assert result.line_end == 16
+
+
+def test_admitted_recap_spans_use_configured_artifact_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    code_root = tmp_path / "code"
+    code_root.mkdir()
+    artifact_root = tmp_path / "artifacts"
+    artifact_root.mkdir()
+    relative = "out/registries/source_content/recap/longmont-c2/session-22/source.md"
+    source = artifact_root / relative
+    source.parent.mkdir(parents=True)
+    source.write_text("first line\nsecond line\n", encoding="utf-8")
+    digest = _digest_hex(source.read_bytes())
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(artifact_root))
+
+    selected = _resolved_repo_root(root=None, repo_root=None)
+    assert selected == artifact_root
+    assert _resolved_repo_root(root=None, repo_root=code_root) == code_root
+    services = SimpleNamespace(bundle=SimpleNamespace(sources=_FakeSources(
+        locator=f"repo://{relative}", digest=digest,
+    )))
+    for line, expected in ((1, "first line"), (2, "second line")):
+        span = build_stable_source_span_id(
+            source_artifact_id=ARTIFACT_ID,
+            content_sha256=digest,
+            start_line=line,
+            end_line=line,
+        )
+        result = _read_admitted_repo_span(
+            services,
+            _anchor(locator_identity=span, source_span_ref_id=None,
+                    uri=f"repo://{relative}"),
+            request=_read_request(),
+            repo_root=selected,
+            base=_read_base(source_span_ref_id=span),
+        )
+        assert result.outcome == "enough"
+        assert result.content == expected
+        assert result.content_sha256 == digest
+        assert (result.line_start, result.line_end) == (line, line)
+
+    missing_under_code = _read_admitted_repo_span(
+        services,
+        _anchor(locator_identity=span, source_span_ref_id=None,
+                uri=f"repo://{relative}"),
+        request=_read_request(),
+        repo_root=code_root,
+        base=_read_base(source_span_ref_id=span),
+    )
+    assert missing_under_code.outcome == "unavailable"
+    assert missing_under_code.diagnostics[0].code == "source_unavailable"
 
 
 def test_admitted_repo_span_fails_closed_on_tampered_bytes(tmp_path: Path) -> None:
