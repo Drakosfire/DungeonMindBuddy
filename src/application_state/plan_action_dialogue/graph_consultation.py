@@ -6,6 +6,8 @@ semantics. Existing Graph events remain the authority for evidence/context reads
 
 from __future__ import annotations
 
+import hashlib
+
 from application_state.agent_conversation.types import (
     CompletionBindingEventV1,
     GraphEvidenceValidationInputs,
@@ -45,6 +47,16 @@ def consultation_receipt_digest(receipt: PlanActionConsultationReceipt) -> str:
 
 def consultation_result_digest(result: PlanActionConsultationResult) -> str:
     return _canonical_sha256(result.model_dump(mode="json", by_alias=True))
+
+
+def render_answer_segments(segments) -> str:
+    """The existing Ask full-answer rendition: ordered text joined by LF."""
+    return "\n".join(segment.text for segment in segments)
+
+
+def historical_ask_answer_digest(attribution) -> str:
+    """Commit the full validated Ask answer, before any bounded prose projection."""
+    return hashlib.sha256(render_answer_segments(attribution.answer_segments).encode("utf-8")).hexdigest()
 
 
 def action_input_digest(receipt: PlanActionConsultationReceipt) -> str:
@@ -133,13 +145,16 @@ def validate_consultation_receipt(receipt: PlanActionConsultationReceipt) -> Non
         raise ValueError("action consultation requires its exact managed World GM authority")
     validate_graph_packet_input(receipt.graph_packet, receipt.assembled_input)
     source_ids = set()
-    included = {pin.turn_id for pin in receipt.assembled_input.included_history}
+    pins = receipt.assembled_input.included_history
+    included = {pin.turn_id: pin.answer_sha256 for pin in pins}
+    if len(included) != len(pins):
+        raise ValueError("action included-history turn IDs must be unique")
     for attribution in receipt.history_attribution:
         if (attribution.source_conversation_id != receipt.history_conversation_id
                 or attribution.plan_basis.model_dump(mode="json")
                 != receipt.basis.model_dump(mode="json")
                 or attribution.source_turn_id in source_ids
-                or attribution.source_turn_id not in included):
+                or included.get(attribution.source_turn_id) != historical_ask_answer_digest(attribution)):
             raise ValueError("historical Ask attribution differs from the frozen action history")
         source_ids.add(attribution.source_turn_id)
         completion_type = (PlanWorldGraphCompletionV2
@@ -217,6 +232,8 @@ def validate_consultation(consultation: PlanActionConsultation) -> None:
                 raise ValueError("action result must come from its final provider attempt")
             if not result.message.strip():
                 raise ValueError("action result requires a visible message")
+            if result.message != render_answer_segments(result.answer_segments):
+                raise ValueError("action visible message must match its ordered attributed segments")
             if result.citation_map is not None:
                 if (result.citation_map.context_receipt_sha256 != receipt.consultation_receipt_sha256
                         or len(result.citation_map.entries) != len(result.claim_graph_event_ids)):

@@ -17,6 +17,7 @@ from application_state.agent_conversation.types import (
     PlanWorldGraphAssembledInputV1, PlanWorldGraphAuthorityV1,
     PlanWorldGraphCitationMapV2, PlanWorldGraphCitationV2,
     PlanWorldGraphClaimSegmentV1, PlanWorldGraphPacketV1,
+    PlanWorldGraphConnectiveSegmentV1,
     ProviderAttemptAuthorizedEventV2, ProviderOutcomeEventV1,
     SourceReadAnchorReceiptV2, SourceReadAuthorizationEventV2,
     ValidatedGraphOperationEventV1, ValidatedSourceReadEventV2,
@@ -27,6 +28,7 @@ from application_state.config import APPLICATION_STATE_DSN_ENV
 from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
 from application_state.plan_action_dialogue.graph_consultation import (
     build_consultation_receipt, consultation_result_digest,
+    historical_ask_answer_digest, render_answer_segments,
 )
 from application_state.plan_action_dialogue.service import PlanActionDialogueService
 from application_state.plan_action_dialogue.types import (
@@ -192,8 +194,9 @@ def attributed_result(receipt, events, *, proposal=False, disposition="supported
     )
     common = dict(
         result_id=uuid4(), consultation_receipt_sha256=receipt.consultation_receipt_sha256,
-        message="Mira owns this observatory. Is the new door hers?",
-        producing_provider_attempt_id=events[6].provider_attempt_id, answer_segments=[claim],
+        message="Mira owns the observatory.\nIs the new door hers?",
+        producing_provider_attempt_id=events[6].provider_attempt_id,
+        answer_segments=[claim, PlanWorldGraphConnectiveSegmentV1(kind="connective", text="Is the new door hers?")],
         citation_map=PlanWorldGraphCitationMapV2(
             context_receipt_sha256=receipt.consultation_receipt_sha256,
             entries=[PlanWorldGraphCitationV2(
@@ -322,12 +325,14 @@ def test_shared_extraction_preserves_ask_validation_and_wire_shapes():
         assert type(execution).model_validate_json(before).model_dump_json(by_alias=True) == before
 
 
-def test_optional_historical_ask_attribution_keeps_basis_and_source_identity():
+@pytest.mark.parametrize("revision_case", ["current", "older"])
+def test_optional_historical_ask_attribution_keeps_basis_and_source_identity(revision_case):
     from tests.application_state.test_agent_conversation_service import _indexed_graph_completion_fixture
     from application_state.agent_conversation.types import PlanAskHistoryAttributionV1, PlanWorldGraphHistoryPinV1
     old, _execution, completion, _attempt, _event = _indexed_graph_completion_fixture(packet_coverage="incomplete")
     action = model_action(reservation(basis=PlanActionBasis.model_validate(old.plan_basis.model_dump())))
-    receipt, _policy = frozen_inputs(action)
+    receipt, _policy = frozen_inputs(action, revision=(old.graph_authority.graph_revision
+                                    if revision_case == "current" else "graph-r2"))
     conversation_id, turn_id = uuid4(), uuid4()
     attribution = PlanAskHistoryAttributionV1(
         source_turn_id=turn_id, source_conversation_id=conversation_id, source_sequence=1,
@@ -337,18 +342,24 @@ def test_optional_historical_ask_attribution_keeps_basis_and_source_identity():
         citation_map=completion.citation_map,
     )
     assembled = receipt.assembled_input.model_copy(update={
-        "included_history": [PlanWorldGraphHistoryPinV1(turn_id=turn_id, answer_sha256="e" * 64)]
+        "included_history": [PlanWorldGraphHistoryPinV1(turn_id=turn_id, answer_sha256=historical_ask_answer_digest(attribution))]
     })
     kwargs = dict(action=action, surface_instance_id="plan-pane", graph_authority=receipt.graph_authority,
                   graph_packet=receipt.graph_packet, assembled_input=assembled,
                   history_conversation_id=conversation_id)
     valid = build_consultation_receipt(**kwargs, history_attribution=[attribution])
     assert valid.history_attribution[0].source_turn_id == turn_id
-    assert valid.history_attribution[0].answer_segments[0].graph_revision != valid.graph_authority.graph_revision
+    assert (valid.history_attribution[0].answer_segments[0].graph_revision
+            == valid.graph_authority.graph_revision) == (revision_case == "current")
     with pytest.raises(ValueError, match="historical Ask"):
         build_consultation_receipt(**kwargs, history_attribution=[
             attribution.model_copy(update={"source_conversation_id": uuid4()})
         ])
+    changed_answer = attribution.model_copy(update={"answer_segments": [
+        attribution.answer_segments[0].model_copy(update={"text": "Changed answer under the same turn ID."})
+    ]})
+    with pytest.raises(ValueError, match="historical Ask"):
+        build_consultation_receipt(**kwargs, history_attribution=[changed_answer])
 
 
 @pytest.mark.parametrize("proposal", [False, True])
@@ -363,6 +374,8 @@ def test_pg_typed_result_and_source_receipts_survive_fresh_history(application_s
     reload = PlanActionDialogueService().get_by_key(request.basis.world_id, request.idempotency_key)
     assert reload.consultation == completed.consultation
     assert reload.consultation.execution.events[5] == events[5]
+    assert reload.assistant_summary == render_answer_segments(reload.consultation.result.answer_segments)
+    assert reload.consultation.result.answer_segments[-1].kind == "connective"
     assert service.list_status(request.basis).actions[0].consultation == reload.consultation
     assert service.completed_context(request.basis)[0].consultation == reload.consultation
     payload = reload.consultation.model_dump(mode="json", by_alias=True)
@@ -417,6 +430,10 @@ def test_pg_terminal_result_rejects_wrong_dispatch_and_commits_once(application_
         service.append_consultation_event(action_id=action.action_id, token=action.dispatch_token,
                                           fence=action.fence, event=event)
     result = attributed_result(receipt, events)
+    unrelated = result.model_copy(update={"message": "Unrelated visible claim without attribution."})
+    with pytest.raises(ValueError, match="ordered attributed segments"):
+        service.finish_consultation(action_id=action.action_id, token=action.dispatch_token,
+                                    fence=action.fence, result=unrelated)
     for token, fence in [(uuid4(), action.fence), (action.dispatch_token, action.fence + 1)]:
         with pytest.raises(ApplicationStateConflictError):
             service.finish_consultation(action_id=action.action_id, token=token, fence=fence, result=result)
@@ -425,6 +442,9 @@ def test_pg_terminal_result_rejects_wrong_dispatch_and_commits_once(application_
     assert len(unchanged.consultation.execution.events) == len(events)
     service.finish_consultation(action_id=action.action_id, token=action.dispatch_token,
                                 fence=action.fence, result=result)
+    loaded = PlanActionDialogueService().get_by_key(action.basis.world_id, action.idempotency_key)
+    assert loaded.assistant_summary == render_answer_segments(result.answer_segments)
+    assert service.completed_context(action.basis)[0].assistant_summary == loaded.assistant_summary
     with pytest.raises(ApplicationStateConflictError):
         service.finish_consultation(action_id=action.action_id, token=action.dispatch_token,
                                     fence=action.fence, result=result)
@@ -441,6 +461,47 @@ def test_pg_concurrent_freeze_has_one_fresh_gate(application_state_dsn):
         )[1]
     with ThreadPoolExecutor(max_workers=2) as pool:
         assert sum(pool.map(freeze, range(2))) == 1
+
+
+def test_pg_historical_answer_hash_rejects_changed_same_turn_and_survives_reload(application_state_dsn):
+    from tests.application_state.test_agent_conversation_service import _indexed_graph_completion_fixture
+    from application_state.agent_conversation.types import PlanAskHistoryAttributionV1, PlanWorldGraphHistoryPinV1
+    from application_state.plan_action_dialogue.graph_consultation import consultation_receipt_digest
+    old, _execution, completion, _attempt, _event = _indexed_graph_completion_fixture(packet_coverage="incomplete")
+    service = PlanActionDialogueService()
+    request = reservation(basis=PlanActionBasis.model_validate(old.plan_basis.model_dump()))
+    action, _ = service.reserve(request)
+    receipt, policy = frozen_inputs(action, revision="graph-r2")
+    conversation_id, turn_id = uuid4(), uuid4()
+    attribution = PlanAskHistoryAttributionV1(
+        source_turn_id=turn_id, source_conversation_id=conversation_id, source_sequence=1,
+        surface_instance_id="plan-pane", plan_basis=old.plan_basis, playable_target=None,
+        context_receipt_sha256=old.context_receipt_sha256, answer_basis=completion.answer_basis,
+        answer_context_status=completion.answer_context_status, answer_segments=completion.answer_segments,
+        citation_map=completion.citation_map,
+    )
+    assembled = receipt.assembled_input.model_copy(update={"included_history": [
+        PlanWorldGraphHistoryPinV1(turn_id=turn_id, answer_sha256=historical_ask_answer_digest(attribution))
+    ]})
+    valid = build_consultation_receipt(
+        action=action, surface_instance_id="plan-pane", graph_authority=receipt.graph_authority,
+        graph_packet=receipt.graph_packet, assembled_input=assembled,
+        history_conversation_id=conversation_id, history_attribution=[attribution],
+    )
+    altered = attribution.model_copy(update={"answer_segments": [
+        attribution.answer_segments[0].model_copy(update={"text": "Unrelated answer under the original turn ID."})
+    ]})
+    bad = valid.model_copy(update={"history_attribution": [altered]})
+    bad = bad.model_copy(update={"consultation_receipt_sha256": consultation_receipt_digest(bad)})
+    with pytest.raises(ValueError, match="historical Ask"):
+        service.freeze_consultation(action_id=action.action_id, token=action.dispatch_token,
+                                    fence=action.fence, receipt=bad, policy=policy)
+    assert service.get_by_key(action.basis.world_id, action.idempotency_key).consultation is None
+    service.freeze_consultation(action_id=action.action_id, token=action.dispatch_token,
+                                fence=action.fence, receipt=valid, policy=policy)
+    loaded = PlanActionDialogueService().get_by_key(action.basis.world_id, action.idempotency_key)
+    assert loaded.consultation.receipt.history_attribution == [attribution]
+    assert loaded.consultation.receipt.assembled_input.included_history[0].answer_sha256 == historical_ask_answer_digest(attribution)
 
 
 def test_pg_linked_clarification_preserves_intent_and_revalidates_current_graph(application_state_dsn):

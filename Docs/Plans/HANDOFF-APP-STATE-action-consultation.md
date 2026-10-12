@@ -7,7 +7,8 @@ Pinned dispatch: `/tmp/HANDOFF-APP-STATE-action-consultation.md`, SHA-256
 `8ab15e464ef75b8cdf34002473bd601a43c3a3b83a20fd39f81076641f6a3525`.
 Pinned design: `/tmp/continuity-edit-contract-decision.json`, SHA-256
 `0751fd8e159f35e94528c90228398167b98867873611a39593cee52141b756fa`.
-Base: freshly fetched Buddy main `6dd0bda0dc10e65808ad536425ee3a6595d45703`.
+Base: freshly fetched Buddy main `059fe3fd8c36d677261670f86b8d3f4e2d6f7e66`.
+The initial implementation used `6dd0bda0`; disjoint #1100 was adopted on rebase.
 Branch: `codex/app-state-action-consultation`. Checkout is isolated in `/tmp`.
 Migration: `20261012_0020`, descending from current `20261008_0019`.
 
@@ -91,7 +92,11 @@ SERVER's adapter sequence is:
    returns `fresh=False`. It does not grant another provider call.
 4. `finish_consultation` atomically persists result and its terminal completion
    binding. A clarification is completed with a message, result ID and typed
-   attribution; it has no replacement payload. A proposal persists disposition
+   attribution; it has no replacement payload. The displayed message and stored
+   assistant summary must equal the ordered claim/connective segment texts
+   joined by LF, without normalization. Questions and creative prose are explicit
+   connective segments. Unrelated visible text is rejected before completion.
+   A proposal persists disposition
    and the inert proposal-response digest, preserving response non-replay.
    SERVER supplies the existing proposal response separately only after this
    durable terminal write succeeds. Required failed reads cannot become a
@@ -113,7 +118,17 @@ advance; older citations remain historical until freshly admitted.
 Optional typed Ask history preserves source conversation/turn IDs and attribution
 beside its committed Plan basis. SERVER supplies only active exact-basis eligible
 history. APP checks receipt membership, basis and frozen included-history pins;
-historical facts must still be admitted in the current execution before citation.
+each pin's `answer_sha256` must equal SHA-256 of the full ordered attribution
+segment texts joined by LF and encoded as UTF-8. This is the existing saved Ask
+answer rendition: `CompletedPlanAskPair` and the Ask repository check it against
+the stored answer, and SERVER renders completion answers the same way. The
+current Ask assembler emits empty `included_history`; its wire/hash behavior is
+unchanged. This action adapter commits the complete validated source answer,
+before any bounded prose view. An abbreviated prose view is separately bound
+by the actual provider-envelope commitment and cannot replace the full typed
+attribution or silently redefine its source-answer pin. Duplicate history turn
+pins and same-turn changed answers are rejected.
+Historical facts must still be admitted in the current execution before citation.
 
 ## Verification and external state
 
@@ -142,7 +157,7 @@ Implementation completion includes commit/push/open PR. Independent PRIME review
 and merge remain separate; operator semantic acceptance belongs to the later
 SERVER/DEMO vertical slice.
 
-Author verification: 37 distinct action/legacy owning checks passed, including
+Initial author verification: 37 distinct action/legacy owning checks passed, including
 the focused rerun of one corrected freeze-test fixture; nine unchanged Ask
 source/context validator checks and four unchanged Ask PostgreSQL provider,
 evidence and source-read boundaries passed. All PostgreSQL checks used unique
@@ -150,3 +165,16 @@ evidence and source-read boundaries passed. All PostgreSQL checks used unique
 Python paths pass Ruff and compilation; cumulative diff passes whitespace checks.
 This proves persistence/validation mechanics, not model semantic behavior or UI
 operator acceptance.
+
+Independent review held implementation `5e084c22` for two attribution defects:
+unrelated result prose and unchecked historical answer pins. The amendment binds
+visible result/summary to the canonical segments and independently computes the
+full source-answer hash. Focused repair evidence: eight model checks (including
+current/older Graph revision history positives and same-ID changed-answer
+negatives) and four real PostgreSQL canonical-terminal/history-pin checks passed.
+The rebased cumulative implementation must receive independent review again.
+
+Rebased final author verification: all 39 action/legacy cases, nine unchanged
+Ask validator cases and four unchanged Ask PostgreSQL boundaries passed.
+Changed-path Ruff, compilation and cumulative diff checks also passed. Only
+the isolated 54340 resource was used; no retained/provider/runtime action ran.
