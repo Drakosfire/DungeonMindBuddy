@@ -1,8 +1,8 @@
 # HANDOFF — DEMO: open sources from durable World conversation
 
-**Status:** ACTIVE UI consumer, 2026-10-12, authorized by PRIME against SERVER PR #1090 DTO `98bc9eb18cda45daffc50d94d32947051c92368b`. SOURCE #1089 merged at `8fce46de7e33bc352300abdf3ece0369a3ac1e68`; no runtime or operator acceptance is claimed.
+**Status:** ACTIVE UI consumer, 2026-10-12, authorized by PRIME against SERVER PR #1090 merged at `5614fb1c9156a6a42aed94e2f2422f52df412667` (DTO code `98bc9eb18cda45daffc50d94d32947051c92368b`). SOURCE #1089 merged at `8fce46de7e33bc352300abdf3ece0369a3ac1e68`; no runtime or operator acceptance is claimed.
 **Owner:** DEMO; PRIME controls activation, review and merge.
-**Branch/base:** `codex/demo-world-chat-source-open-design`, re-anchored to Buddy `main@c6659aef23744e8f1e74095a6dcf927b590aeecd` after checking open PRs. One draft UI consumer PR may be reviewed concurrently; final integration waits for SERVER's exact producer merge pin and type alignment.
+**Branch/base:** `codex/demo-world-chat-source-open-design`, re-anchored to Buddy `main@5614fb1c9156a6a42aed94e2f2422f52df412667` after checking open PRs. One draft UI consumer PR is under review against the merged producer contract.
 
 ## User action and invariant
 
@@ -15,7 +15,7 @@ At answer production, SERVER is expected to project a versioned `source_open_tar
 ## Contract pins and remaining gates
 
 1. ARCHITECTURE's portable source-open ruling is pinned at SHA-256 `d1502b6cea6172e170a6008000bf0f60f99ce84635c37adc872bcd4a03f0dea4a`. SERVER must publish the exact target DTO and historical replay shape. APP-STATE requires no new schema under this UI projection ruling; recheck if the final producer contract changes.
-2. SERVER's versioned `source_open_targets` projection, including the separate `related_recap_context` target kind and additive evidence/recap availability statuses, is published in PR #1090 at `98bc9eb18cda45daffc50d94d32947051c92368b`. Merge and exact final head are required before the UI PR is ready to merge. The UI includes `source_campaign_id` and verifies it against the read descriptor. It accepts bounded partial/overflow status while retaining valid links. It must supply exact native World, scope, campaign, focus, admissibility and Graph revision pins, with a trustworthy target-to-citation association.
+2. SERVER's versioned `source_open_targets` projection, including the separate `related_recap_context` target kind and additive evidence/recap availability statuses, merged in PR #1090 at `5614fb1c9156a6a42aed94e2f2422f52df412667`. The UI includes `source_campaign_id` and verifies it against the read descriptor. It accepts bounded partial/overflow status while retaining valid links. Targets carry exact native World, scope, campaign, focus, admissibility and Graph revision pins with a trustworthy target-to-citation association.
 3. SOURCE's distinct Core-authorized recap-context read route merged via #1089 at `8fce46de7e33bc352300abdf3ece0369a3ac1e68`; Core's World-scope campaign-recap corrective is included. The UI does not narrow ordinary chat to a campaign picker. Genuine evidence-anchor reads retain their existing route.
 4. Open PRs checked 2026-10-12: SOURCE #1089 owns only backend/Core pin paths; remaining draft UI PRs do not touch this consumer or its API types/history test. Recheck before PR. No shared runtime, port, database or external state lease.
 
