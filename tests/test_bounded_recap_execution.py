@@ -8,6 +8,7 @@ from generationengine.types import GenerationEngineError, TextResult
 
 from src.graph_memory.extraction.bounded_recap_execution import (
     BoundedRecapPassClient,
+    DEEPSEEK_MODEL,
     RecapExecutionLimits,
 )
 from src.graph_memory.extraction.category_candidate_graph_extractor import (
@@ -53,6 +54,104 @@ def invoke(client, model="gpt-6-luna"):
         instructions="PRIVATE_PROMPT",
         user_content="PRIVATE_SOURCE",
     )
+
+
+def deepseek_observation(**changes):
+    values = observation().model_dump()
+    values.update(
+        provider="openrouter",
+        requested_model=DEEPSEEK_MODEL,
+        resolved_model=DEEPSEEK_MODEL,
+        response_model=DEEPSEEK_MODEL,
+        provider_attempt_count=1,
+        cost_usd=None,
+    )
+    values.update(changes)
+    return InferenceObservation.model_validate(values)
+
+
+def test_deepseek_route_caps_and_unknown_receipt():
+    from src.graph_memory.extraction.category_candidate_graph_schema import (
+        category_pass_text_format,
+    )
+
+    schema = category_pass_text_format("actor_pass")["format"]["schema"]
+    # Empty arrays are legal for the actor pass; validate against the actual contract.
+    from jsonschema import validate
+
+    payload = {"observation_nodes": []}
+    validate(payload, schema)
+    engine = Engine(TextResult(text=json.dumps(payload), observation=deepseek_observation()))
+    client = BoundedRecapPassClient(
+        RecapExecutionLimits(provider="openrouter", model=DEEPSEEK_MODEL, max_calls=1),
+        engine_factory=lambda: engine,
+    )
+    result = invoke(client, DEEPSEEK_MODEL)
+    request = engine.requests[0]
+    assert (request.provider, request.model) == ("openrouter", DEEPSEEK_MODEL)
+    assert request.provider_route.order == ("DeepSeek",)
+    assert request.provider_route.allow_fallbacks is False
+    assert request.reasoning_effort == "none" and request.json_object is True
+    assert request.json_schema is None and request.max_transport_retries == 0
+    assert (request.max_output_tokens, request.deadline_ms) == (8192, 60000)
+    assert "PRIVATE_PROMPT" in request.system_prompt
+    assert "PRIVATE_SOURCE" not in request.system_prompt
+    assert result["cost_usd"] is None
+    assert client.calls[0]["requested_route"] == {
+        "order": ["DeepSeek"], "allow_fallbacks": False
+    }
+    assert "PRIVATE" not in json.dumps(client.ledger())
+    assert engine.closed == 1
+    with pytest.raises(CategoryGraphExtractionError):
+        invoke(client, DEEPSEEK_MODEL)
+    assert len(engine.requests) == 1
+
+
+@pytest.mark.parametrize(
+    "text,changes",
+    [
+        ('{"observation_nodes": "wrong"}', {}),
+        ('{"observation_nodes": []}', {"provider": "other"}),
+        ('{"observation_nodes": []}', {"response_model": "other"}),
+        ('{"observation_nodes": []}', {"provider_attempt_count": 2}),
+        ('{"observation_nodes": []}', {"retry_count": 1}),
+    ],
+)
+def test_deepseek_fail_closed_without_next_call(text, changes):
+    engine = Engine(TextResult(text=text, observation=deepseek_observation(**changes)))
+    client = BoundedRecapPassClient(
+        RecapExecutionLimits(provider="openrouter", model=DEEPSEEK_MODEL),
+        engine_factory=lambda: engine,
+    )
+    with pytest.raises(CategoryGraphExtractionError):
+        invoke(client, DEEPSEEK_MODEL)
+    assert client.ledger()["stopped"]
+    with pytest.raises(CategoryGraphExtractionError):
+        invoke(client, DEEPSEEK_MODEL)
+    assert len(engine.requests) == 1 and engine.closed == 1
+
+
+def test_deepseek_requires_credential_without_provider_call(monkeypatch):
+    from src.graph_memory.extraction import bounded_recap_execution as module
+
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("DUNGEONBUDDY_OPENROUTER", raising=False)
+    monkeypatch.setattr(module, "load_dungeonmindbuddy_dotenv", lambda **kwargs: None)
+    client = BoundedRecapPassClient(
+        RecapExecutionLimits(provider="openrouter", model=DEEPSEEK_MODEL)
+    )
+    with pytest.raises(CategoryGraphExtractionError):
+        invoke(client, DEEPSEEK_MODEL)
+    assert client.ledger()["stopped"]
+    assert client.calls[0]["consumer_failure"] == "CategoryGraphExtractionError"
+
+
+@pytest.mark.parametrize(
+    "provider,model", [("openrouter", "gpt-6-luna"), ("openai", DEEPSEEK_MODEL)]
+)
+def test_provider_model_pair_is_fixed(provider, model):
+    with pytest.raises(ValueError):
+        RecapExecutionLimits(provider=provider, model=model)
 
 
 def test_owning_request_caps_and_unknown_receipt():

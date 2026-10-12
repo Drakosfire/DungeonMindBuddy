@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import time
 from dataclasses import asdict, dataclass
 from typing import Any
 
+from jsonschema import validate as validate_json_schema
+
+from src.bootstrap_env import load_dungeonmindbuddy_dotenv
 from src.graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionError,
 )
@@ -16,9 +20,12 @@ from src.graph_memory.extraction.category_candidate_graph_schema import (
     category_pass_text_format_for_spec,
 )
 
+DEEPSEEK_MODEL = "deepseek/deepseek-v4.1-flash"
+
 
 @dataclass(frozen=True)
 class RecapExecutionLimits:
+    provider: str = "openai"
     model: str = "gpt-6-luna"
     max_calls: int = 8
     per_call_deadline_ms: int = 60_000
@@ -26,8 +33,11 @@ class RecapExecutionLimits:
     max_output_tokens: int = 8192
 
     def __post_init__(self) -> None:
-        if self.model != "gpt-6-luna":
-            raise ValueError("bounded recap extraction requires gpt-6-luna")
+        if (self.provider, self.model) not in {
+            ("openai", "gpt-6-luna"),
+            ("openrouter", DEEPSEEK_MODEL),
+        }:
+            raise ValueError("unsupported bounded recap provider/model selection")
         for name, ceiling in (
             ("max_calls", 8),
             ("per_call_deadline_ms", 60_000),
@@ -39,15 +49,34 @@ class RecapExecutionLimits:
                 raise ValueError(f"{name} must be 1..{ceiling}")
 
 
+def _default_engine_for(provider: str):
+    from generationengine import GenerationClient
+
+    if provider == "openrouter":
+        from generationengine.providers.openrouter_text import OpenRouterTextProvider
+
+        load_dungeonmindbuddy_dotenv(override=False)
+        key = os.environ.get("OPENROUTER_API_KEY") or os.environ.get(
+            "DUNGEONBUDDY_OPENROUTER"
+        )
+        if not key or not key.strip():
+            raise CategoryGraphExtractionError(
+                "OpenRouter credential is unavailable for bounded recap extraction"
+            )
+        return GenerationClient(
+            text_providers={"openrouter": OpenRouterTextProvider(api_key=key.strip())}
+        )
+    return GenerationClient()
+
+
 class BoundedRecapPassClient:
     def __init__(
         self, limits: RecapExecutionLimits, *, engine_factory=None, clock=time.monotonic
     ):
-        from generationengine import GenerationClient
         from generationengine.types import TextRequest
 
         self.limits = limits
-        self._engine_factory = engine_factory or GenerationClient
+        self._engine_factory = engine_factory or (lambda: _default_engine_for(limits.provider))
         self._request_type = TextRequest
         self._clock = clock
         self._started = clock()
@@ -95,22 +124,46 @@ class BoundedRecapPassClient:
             if pass_spec
             else category_pass_text_format(pass_name)
         )["format"]
-        request = self._request_type(
-            user_prompt=user_content,
-            system_prompt=instructions,
-            provider="openai",
-            model=self.limits.model,
-            temperature=None,
-            json_schema=fmt["schema"],
-            schema_name=fmt["name"],
-            max_transport_retries=0,
-            max_output_tokens=self.limits.max_output_tokens,
-            deadline_ms=min(remaining, self.limits.per_call_deadline_ms),
-        )
+        deepseek = self.limits.provider == "openrouter"
+        route = None
+        system_prompt = instructions
+        if deepseek:
+            from generationengine.types import ProviderRoute
+
+            route = ProviderRoute(order=("DeepSeek",), allow_fallbacks=False)
+            system_prompt = (
+                f"{instructions}\n\nThe JSON object MUST conform to this schema:\n"
+                + json.dumps(fmt["schema"], sort_keys=True, separators=(",", ":"))
+            )
+        request_kwargs: dict[str, Any] = {
+            "user_prompt": user_content,
+            "system_prompt": system_prompt,
+            "provider": self.limits.provider,
+            "model": self.limits.model,
+            "temperature": None,
+            "max_transport_retries": 0,
+            "max_output_tokens": self.limits.max_output_tokens,
+            "deadline_ms": min(remaining, self.limits.per_call_deadline_ms),
+        }
+        if deepseek:
+            request_kwargs.update(
+                provider_route=route,
+                reasoning_effort="none",
+                json_object=True,
+            )
+        else:
+            request_kwargs.update(json_schema=fmt["schema"], schema_name=fmt["name"])
+        request = self._request_type(**request_kwargs)
         entry = {
             "ordinal": len(self.calls) + 1,
             "pass_name": pass_name,
+            "requested_provider": self.limits.provider,
             "model": self.limits.model,
+            "requested_route": (
+                {"order": list(route.order), "allow_fallbacks": route.allow_fallbacks}
+                if route is not None
+                else None
+            ),
             "deadline_ms": request.deadline_ms,
             "max_output_tokens": request.max_output_tokens,
             "observation": None,
@@ -133,6 +186,17 @@ class BoundedRecapPassClient:
                 observation["state"] != "completed"
                 or observation["retry_count"] != 0
                 or observation["conformance_retry_count"] != 0
+                or observation.get("transport_retry_count") not in (None, 0)
+                or (
+                    deepseek
+                    and (
+                        observation.get("provider") != "openrouter"
+                        or observation.get("requested_model") != self.limits.model
+                        or observation.get("resolved_model") != self.limits.model
+                        or observation.get("provider_attempt_count") != 1
+                        or observation.get("response_model") != self.limits.model
+                    )
+                )
             ):
                 raise CategoryGraphExtractionError(
                     "inference did not complete within one attempt", pass_name=pass_name
@@ -140,6 +204,8 @@ class BoundedRecapPassClient:
             parsed = json.loads(result.text or "")
             if not isinstance(parsed, dict):
                 raise ValueError("expected JSON object")
+            if deepseek:
+                validate_json_schema(parsed, fmt["schema"])
         except GenerationEngineError as exc:
             entry["observation"] = exc.observation.model_dump(mode="json")
             self._stopped = True
