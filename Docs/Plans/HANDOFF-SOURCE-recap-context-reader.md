@@ -1,6 +1,6 @@
 # HANDOFF — SOURCE: open authorized recap context in Buddy
 
-**Status:** BLOCKED, 2026-10-12 — Core #113 rejects Buddy's ordinary cross-campaign World projection. **Owner:** SOURCE (Buddy reader); PRIME coordinates review and merge. **Base:** fetched Buddy `main@e9243dadf33d0a3c34a6c0ad11c4759cdb37940b`. **Predecessor:** Core #113 merged at `b883034fbb4a8ae2b1da894d7ff7d6ee34dc4491`, reviewed source head `0da89f619880d527de4544b0bd3d66d1df32ae75`. **Topology:** one parallel-independent Buddy PR; no overlap with the separate evidence-ID/edge-ID producer repair in `src/graph_memory/interaction/authority_classifier.py` and `apps/live_control_server/services/agent_turn_service.py`. Re-anchor main and active leases before implementation.
+**Status:** ACTIVE, 2026-10-12 — Core #114 resolved the ordinary cross-campaign World scope gate. **Owner:** SOURCE (Buddy reader); PRIME coordinates review and merge. **Base:** fetched Buddy `main@ef39f2e5c08bb851c5646c47586506d6e7150dd4`. **Predecessors:** Core #113 merged at `b883034fbb4a8ae2b1da894d7ff7d6ee34dc4491`; Core #114 merged at `13143455b304d748c249bd7bd628134c421bf6d9`, exact reviewed head `9e1f76a5ff270d6050be3463eb0b4902d4d87f4f`. **Topology:** one parallel-independent Buddy PR; no overlap with the separate evidence-ID/edge-ID producer repair in `src/graph_memory/interaction/authority_classifier.py` and `apps/live_control_server/services/agent_turn_service.py`. Core #114 admits pinned GM `WORLD_CROSS_CAMPAIGN` context index/resolve, preserves WORLD and CAMPAIGN semantics, and binds source campaign in the context ID. Its read-only native witness found S22/S23 among 19 descriptors at `rev:62820bcd7eca116af9d889e128fabf4e` with unchanged head. Buddy still must prove its own descriptor-to-local-passage read.
 
 ## User outcome and contract
 
@@ -14,10 +14,10 @@ A GM can enumerate Core-authorized recap-context descriptors for an exact native
 - `src/graph_memory/retrieval/models.py`
 - `tests/test_recap_source_read_continuity.py`
 - `tests/test_world_graph_retrieval_contract.py`
-- `pyproject.toml` and `uv.lock` only for the exact merged Core #113 pin
+- `pyproject.toml` and `uv.lock` only for the exact merged Core #114 pin
 - this handoff
 
-No Graph/corpus/DB/runtime/provider/S28 write, `authority_classifier.py`, or `agent_turn_service.py` is leased. No UI or Agent Harness integration is claimed by this API slice; if the ordinary Agent cannot invoke the new context operation, that is an explicit bounded successor. The historical source-reader handoff and current Roadmap need no backward-looking sync beyond naming Core #113 here; do not pre-mark this slice complete.
+No Graph/corpus/DB/runtime/provider/S28 write, `authority_classifier.py`, or `agent_turn_service.py` is leased. No UI or Agent Harness integration is claimed by this API slice; if the ordinary Agent cannot invoke the new context operation, that is an explicit bounded successor. The historical source-reader handoff and current Roadmap need no backward-looking sync beyond naming Core #113/#114 here; do not pre-mark this slice complete.
 
 ## Owning-boundary acceptance
 
@@ -27,6 +27,10 @@ The focused contract/continuity suites must prove the new public route and nativ
 
 Stop if the merged Core DTO differs, a live descriptor is absent, an active path lease collides, or implementation needs another public contract/path. Bring the bounded PR to PRIME for independent review. No live runtime swap or provider replay belongs to this slice.
 
-## Activation gate discovered after handoff publication
+## Resolved activation gate
 
-Buddy maps `scopeMode=world` to Core `ScopeModeV2.WORLD_CROSS_CAMPAIGN`. At merged Core #113, `SourceContextIndexRequest.__post_init__` accepts only `WORLD` or `CAMPAIGN`, rejecting `WORLD_CROSS_CAMPAIGN` with `source-context index requires World or campaign scope`. Its `WORLD` branch admits only world-owned recap artifacts; S22/S23 are campaign-owned. A direct constructor check against the merged pin rejected cross-campaign and accepted `CAMPAIGN`. The host has no active 5202/8000/5432 listener, so live World/campaign index results could not be obtained here. This is a contract gate for ordinary World chat; do not silently ask the operator to select `longmont-c2` or forge a descriptor. Core must explicitly admit cross-campaign context with the same authorized artifact tuple/selector and tests, or supply an equivalent reviewed World-scope contract. After merge, re-anchor and reactivate this handoff before implementing/publishing the Buddy reader. Isolated Buddy candidate and synthetic fail-closed tests may be retained for review preparation; no product PR or runtime activation while BLOCKED.
+Buddy maps `scopeMode=world` to Core `ScopeModeV2.WORLD_CROSS_CAMPAIGN`. Core #113 rejected that scope while its `WORLD` branch admitted only world-owned recap artifacts, excluding campaign-owned S22/S23. Core #114 merged the scoped correction at `13143455b304d748c249bd7bd628134c421bf6d9`. Its tests distinguish cross-campaign union, world-owned-only `WORLD`, and exact `CAMPAIGN`; its read-only native witness found both S22/S23 under cross-campaign at the pinned head. This Buddy lane remains responsible for proving the source sections are digest-verified and openable through its own API under ordinary World scope.
+
+## Reader verification at the pinned Core merge
+
+The isolated Buddy lane pinned Core `13143455b304d748c249bd7bd628134c421bf6d9`. Its focused non-integration continuity/contract command passed **38 tests** (one integration test deselected), including a synthetic ordinary World-scope request returning a campaign-owned recap descriptor, fenced fake-heading rejection, and mounted route GM dependency/error-envelope checks. Changed-path Ruff, `git diff --check`, and `uv lock --check --offline` passed. The lockfile diff against Buddy main is limited to the exact Core pin and seven lines of uv-required metadata rather than unrelated package timestamp/wheel churn. A read-only native probe with `default_transaction_read_only=on` used Buddy `scopeMode=world`, `campaignId=""`, GM, and `rev:62820bcd7eca116af9d889e128fabf4e`: Core returned a complete index of **19** descriptors. Buddy opened S22 at digest `06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083` and S23 at `77ba5030b5c89e8888e8a3d900fe3fc07b94313af81a7ad5f888eb663d4c7782`; each was `enough` with heading line 12 and section lines 13–38. The native head was unchanged before/after. This proves the source-read seam, not an Agent chat answer, source claim support, provider dispatch, runtime activation, or S28 publication.

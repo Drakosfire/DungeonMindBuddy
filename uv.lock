@@ -1,4 +1,5 @@
 version = 1
+revision = 3
 requires-python = "==3.13.*"
 
 [manifest]
@@ -399,7 +400,7 @@ wheels = [
 [[package]]
 name = "dungeonmind"
 version = "0.1.0"
-source = { git = "https://github.com/Drakosfire/DungeonMind.git?rev=ba6069b91e1a608f125548860502a69b4c3e3fc6#ba6069b91e1a608f125548860502a69b4c3e3fc6" }
+source = { git = "https://github.com/Drakosfire/DungeonMind.git?rev=13143455b304d748c249bd7bd628134c421bf6d9#13143455b304d748c249bd7bd628134c421bf6d9" }
 dependencies = [
     { name = "cryptography" },
     { name = "pydantic" },
@@ -450,9 +451,9 @@ embedding = [
 requires-dist = [
     { name = "alembic", specifier = ">=1.16" },
     { name = "blake3", specifier = ">=0.3.3" },
-    { name = "dungeonmind", extras = ["postgres"], git = "https://github.com/Drakosfire/DungeonMind.git?rev=ba6069b91e1a608f125548860502a69b4c3e3fc6" },
+    { name = "dungeonmind", extras = ["postgres"], git = "https://github.com/Drakosfire/DungeonMind.git?rev=13143455b304d748c249bd7bd628134c421bf6d9" },
     { name = "fastapi", specifier = ">=0.115.0" },
-    { name = "generationengine", extras = ["openai"], git = "https://github.com/Drakosfire/GenerationEngine.git?rev=128710668369b73beff78ea0e4377ec252cd04e4#128710668369b73beff78ea0e4377ec252cd04e4" },
+    { name = "generationengine", extras = ["openai"], git = "https://github.com/Drakosfire/GenerationEngine.git?rev=128710668369b73beff78ea0e4377ec252cd04e4" },
     { name = "hermes-agent", directory = "out/hermes-agent" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "jsonschema", specifier = ">=4.25.1" },
@@ -469,8 +470,9 @@ requires-dist = [
     { name = "ruff", specifier = ">=0.15.7" },
     { name = "sentence-transformers", marker = "extra == 'embedding'", specifier = ">=3.0" },
     { name = "uvicorn", specifier = ">=0.30.0" },
-    { name = "worldkeeper", git = "https://github.com/Drakosfire/WorldKeeper.git?rev=49a8620f066ce7ef8972a699020c012f50af9158#49a8620f066ce7ef8972a699020c012f50af9158" },
+    { name = "worldkeeper", git = "https://github.com/Drakosfire/WorldKeeper.git?rev=49a8620f066ce7ef8972a699020c012f50af9158" },
 ]
+provides-extras = ["embedding"]
 
 [[package]]
 name = "fastapi"
@@ -743,6 +745,7 @@ requires-dist = [
     { name = "websockets", specifier = "==15.0.1" },
     { name = "youtube-transcript-api", marker = "extra == 'youtube'", specifier = "==1.2.4" },
 ]
+provides-extras = ["anthropic", "exa", "firecrawl", "parallel-web", "fal", "edge-tts", "modal", "daytona", "hindsight", "dev", "messaging", "cron", "slack", "matrix", "wecom", "cli", "tts-premium", "voice", "pty", "honcho", "supermemory", "mem0", "vision", "mcp", "nemo-relay", "homeassistant", "sms", "teams", "computer-use", "acp", "mistral", "bedrock", "vertex", "azure-identity", "termux", "termux-all", "dingtalk", "feishu", "google", "youtube", "web", "all"]
 
 [[package]]
 name = "hf-xet"
