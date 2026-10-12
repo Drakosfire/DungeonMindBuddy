@@ -1,9 +1,9 @@
 # HANDOFF — DEMO: reviewed PC corpus-reference correction
 
-**Status:** BLOCKED — pending durable main landing and activation; no code lease yet
+**Status:** ACTIVE — landed by PR #1082 at `main@149b4fc13ca0b0b9d83733b67e36396c4a32dadf`; Buddy code and synthetic proof only
 **Owner:** DEMO
 **Authority base:** DungeonMindBuddy `origin/main@bb541a49085623a68a173acb46bf709248537c00`, 2026-10-11
-**Proposed topology after activation:** parallel-independent from DOGFOOD chat stability/runtime, SERVER rollout preparation, and MIND source review
+**Topology:** parallel-independent from DOGFOOD chat stability/runtime, SERVER rollout preparation, and MIND source review
 **Implementation branch:** `codex/demo-pc-corpus-reference-correction`
 **Assigned PR:** `DEMO: audit PC corpus-reference correction`
 
@@ -45,6 +45,6 @@ Use invented synthetic fixtures only. Prove exact child-only field delta and rep
 
 ## §5 Activation and current holds
 
-Land this handoff on Buddy main and re-anchor open work before changing code. Once the exact base and path collision check remain valid, DEMO may mark the handoff ACTIVE in a guarded steward sync and start the assigned isolated lane.
+PR #1082 landed this handoff on Buddy main. PRIME reviewed and explicitly activated the bounded code slice after the landing. The implementation branch starts at the merge SHA above; it does not acquire a live data or runtime lease.
 
 The S28 held child remains held. MIND owns the independent actual-source/actor review. DOGFOOD owns the active chat-stability and runtime 5202 lane; SERVER owns oneAsk rollout preparation. No overlap in their code or runtime leases is authorized. A green synthetic PR does not activate the live six-PC correction or Session 29 integration.

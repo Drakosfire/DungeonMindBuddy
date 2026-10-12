@@ -1089,6 +1089,14 @@ def _assert_recap_semantics_at_confirm(locator: str, review_package) -> None:
         raise ExtractPromoteError(
             str(exc), code="candidate_binding_invalid", status_code=409,
         ) from exc
+    if current.lineage.get("derivation") == "operator_recap_semantic_candidate_correction_v9":
+        if (not isinstance(binding, dict)
+            or effect.get("world_id") != binding.get("world_id")
+            or effect.get("parent_revision_id") != binding.get("expected_head_revision_id")):
+            raise ExtractPromoteError(
+                "PC reference World or parent head differs from reviewed basis",
+                code="candidate_binding_invalid", status_code=409,
+            )
 
 
 def decide_recap_semantic_disposition(
@@ -1109,6 +1117,7 @@ def decide_recap_semantic_disposition(
         RecapSemanticBasisV7,
         RecapSemanticBasisV8,
         RecapSemanticBasisV9,
+        RecapSemanticBasisV10,
         RecapSemanticDispositionCommandV1,
         record_recap_semantic_disposition,
     )
@@ -1127,6 +1136,7 @@ def decide_recap_semantic_disposition(
         CANDIDATE_DERIVATION_V6,
         CANDIDATE_DERIVATION_V7,
         CANDIDATE_DERIVATION_V8,
+        CANDIDATE_DERIVATION_V9,
         is_recap_correction,
     )
     from apps.live_control_server.services.source_artifact_registry import (
@@ -1175,7 +1185,8 @@ def decide_recap_semantic_disposition(
         )
     try:
         basis_type = (
-            RecapSemanticBasisV9 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V8
+            RecapSemanticBasisV10 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V9
+            else RecapSemanticBasisV9 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V8
             else RecapSemanticBasisV8 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V7
             else RecapSemanticBasisV7 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V6
             else RecapSemanticBasisV6 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V5
@@ -1427,6 +1438,14 @@ def prepare(
             code="recap_semantic_hold",
             status_code=409,
         )
+    if (canonical_run is not None
+        and canonical_run.lineage.get("derivation") == "operator_recap_semantic_candidate_correction_v9"
+        and (semantic_assessment is None or semantic_assessment.basis is None
+             or semantic_assessment.basis.get("world_id") != target.native_world_id)):
+        raise ExtractPromoteError(
+            "PC reference correction names a different native World",
+            code="recap_semantic_hold", status_code=409,
+        )
 
     recap_context = getattr(resolved, "ingest_context", None)
     prepared_recap_context: dict[str, Any] | None = None
@@ -1654,6 +1673,16 @@ def prepare(
                     status_code=exc.status_code,
                     diagnostics=[_diagnostic(exc.code, str(exc))],
                 ) from exc
+            if (canonical_run is not None
+                and canonical_run.lineage.get("derivation") == "operator_recap_semantic_candidate_correction_v9"
+                and (semantic_assessment is None or semantic_assessment.basis is None
+                     or mutation_context.world_id != semantic_assessment.basis.get("world_id")
+                     or mutation_context.revision_id != semantic_assessment.basis.get("expected_head_revision_id")
+                     or mutation_context.head_revision_id != semantic_assessment.basis.get("expected_head_revision_id"))):
+                raise ExtractPromoteError(
+                    "PC reference native head changed during prepare",
+                    code="recap_semantic_hold", status_code=409,
+                )
             if prepared_recap_context is not None and getattr(
                 mutation_context, "head_revision_id", None
             ) != prepared_recap_context.get("head_revision_id"):

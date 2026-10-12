@@ -1152,6 +1152,70 @@ class RecapCandidateCorrectionResponseV8(RecapCandidateCorrectionResponse):
         default="dmb_recap_candidate_correction_response_v8", alias="schema")
 
 
+class RecapPcCorpusReferenceV1(_ExtractPromoteModel):
+    type: Literal["pc"]
+    ref_id: str = Field(min_length=1, max_length=128, pattern=r"^[a-z0-9][a-z0-9_-]*$")
+    resolution: Literal["resolved"]
+
+
+class RecapPcCorpusReferenceAttachmentV1(_ExtractPromoteModel):
+    node_id: str = Field(min_length=1, max_length=256)
+    expected_corpus_ref: None
+    corpus_ref: RecapPcCorpusReferenceV1
+    source_span_ref_id: str = Field(min_length=1, max_length=256)
+    anchor_quote: str = Field(min_length=1, max_length=4096)
+    native_object_id: str = Field(min_length=1, max_length=256)
+
+    @model_validator(mode="after")
+    def _target(self) -> "RecapPcCorpusReferenceAttachmentV1":
+        if (self.node_id != self.node_id.strip()
+            or self.source_span_ref_id != self.source_span_ref_id.strip()
+            or self.anchor_quote != self.anchor_quote.strip()
+            or self.native_object_id != f"pc:{self.corpus_ref.ref_id}"):
+            raise ValueError("PC attachment target or source anchor is malformed")
+        return self
+
+
+class RecapCandidateCorrectionRequestV9(_ExtractPromoteModel):
+    """One held, reference-only child over reviewed PC actor anchors."""
+
+    schema_: Literal["dmb_recap_candidate_correction_request_v9"] = Field(alias="schema")
+    parent_run_id: str
+    parent_candidate_sha256: str
+    expected_parent_revision: int = Field(strict=True, ge=1)
+    source_revision_sha256: str
+    span_index_sha256: str
+    profile_id: Literal["recap_category_v1@1.0"]
+    registry_path: str = Field(min_length=1)
+    registry_sha256: str
+    roster_session: int = Field(strict=True, ge=1)
+    roster_key: str = Field(min_length=1)
+    world_id: str = Field(min_length=1)
+    expected_head_revision_id: str = Field(min_length=1)
+    reviewer_id: str = Field(min_length=1, max_length=256)
+    review_decision_ref: str = Field(min_length=1, max_length=256)
+    attachments: list[RecapPcCorpusReferenceAttachmentV1] = Field(min_length=1, max_length=6)
+
+    _id = field_validator("parent_run_id")(RecapCandidateNodeOmission._node_id.__func__)
+    _sha = field_validator("parent_candidate_sha256", "source_revision_sha256", "span_index_sha256", "registry_sha256")(RecapCandidateNodeOmission._digest.__func__)
+
+    @model_validator(mode="after")
+    def _unique(self) -> "RecapCandidateCorrectionRequestV9":
+        if (len({x.node_id for x in self.attachments}) != len(self.attachments)
+            or len({x.corpus_ref.ref_id for x in self.attachments}) != len(self.attachments)
+            or self.roster_key != self.roster_key.strip()
+            or any(value != value.strip() for value in (
+                self.registry_path, self.world_id, self.expected_head_revision_id,
+                self.reviewer_id, self.review_decision_ref))):
+            raise ValueError("PC attachment basis is duplicate or malformed")
+        return self
+
+
+class RecapCandidateCorrectionResponseV9(RecapCandidateCorrectionResponse):
+    schema_: Literal["dmb_recap_candidate_correction_response_v9"] = Field(
+        default="dmb_recap_candidate_correction_response_v9", alias="schema")
+
+
 class RecapSemanticDecisionRequest(_ExtractPromoteModel):
     schema_: Literal["dmb_recap_semantic_decision_request_v1"] = Field(
         default=RECAP_SEMANTIC_DECISION_REQUEST_SCHEMA, alias="schema"

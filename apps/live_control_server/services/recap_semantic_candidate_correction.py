@@ -19,6 +19,8 @@ from apps.live_control_server.models.extract_promote import (
     RecapCandidateCorrectionRequestV7,
     RecapCandidateCorrectionRequestV8,
     RecapCandidateCorrectionResponseV8,
+    RecapCandidateCorrectionRequestV9,
+    RecapCandidateCorrectionResponseV9,
     RecapCandidateCorrectionResponseV7,
     RecapEvidenceRefSplit,
     RecapCandidateCorrectionResponse,
@@ -90,6 +92,8 @@ MANIFEST_SCHEMA_V7 = "dmb_recap_semantic_candidate_manifest_v7"
 
 DERIVATION_V8 = "operator_recap_semantic_candidate_correction_v8"
 MANIFEST_SCHEMA_V8 = "dmb_recap_semantic_candidate_manifest_v8"
+DERIVATION_V9 = "operator_recap_semantic_candidate_correction_v9"
+MANIFEST_SCHEMA_V9 = "dmb_recap_semantic_candidate_manifest_v9"
 
 PROFILE = "recap_category_v1@1.0"
 MAX_EDGE_TUPLE_REPLACEMENTS = 7
@@ -682,10 +686,166 @@ def _replay_atomic_batch(parent: dict, manifest: dict, source_bytes: bytes | Non
     _assert_and_project_candidate_evidence(candidate_payload=child, source_prose=source_bytes.decode("utf-8"), source_artifact_id=index.source_artifact_id, span_index=index)
     return child
 
+_PC_MANIFEST_KEYS = {
+    "schema", "expected_parent_revision", "source_revision_sha256", "span_index_sha256",
+    "profile_id", "registry_path", "registry_sha256", "roster_session", "roster_key",
+    "world_id", "expected_head_revision_id", "reviewer_id", "review_decision_ref", "attachments",
+}
+
+
+def _pc_registry(manifest: dict, *, campaign_id: str, session_id: str) -> set[str]:
+    """Read the current exact registry; never trust a manifest roster list."""
+    import re
+    from graph_memory.party_context import _roster_slugs
+
+    raw_path = manifest["registry_path"]
+    if (not isinstance(raw_path, str) or not raw_path.startswith("corpus/")
+        or Path(raw_path).is_absolute() or ".." in Path(raw_path).parts):
+        raise _reject("PC registry path is outside the corpus root")
+    try:
+        corpus_root = (repo_root() / "corpus").resolve(strict=True)
+        path = (repo_root() / raw_path).resolve(strict=True)
+    except OSError as exc:
+        raise _reject("PC registry is unavailable", status_code=409) from exc
+    if not path.is_relative_to(corpus_root) or path.name != "_party_registry.json" or not path.is_file():
+        raise _reject("PC registry identity is invalid")
+    try:
+        data = path.read_bytes()
+    except OSError as exc:
+        raise _reject("PC registry is unreadable", status_code=409) from exc
+    if _sha(data) != manifest["registry_sha256"]:
+        raise _reject("PC registry bytes changed", status_code=409)
+    try:
+        registry = json.loads(data)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise _reject("PC registry is unreadable") from exc
+    if (not isinstance(registry, dict)
+        or registry.get("schema") not in {"party_registry_v1", "party_registry_v2"}
+        or registry.get("campaign_id") != campaign_id):
+        raise _reject("PC registry campaign changed", status_code=409)
+    match = re.fullmatch(r"(?:session[-_ ]*)?0*([1-9][0-9]*)", session_id, re.IGNORECASE)
+    if match is None or int(match.group(1)) != manifest["roster_session"]:
+        raise _reject("PC roster session differs from parent candidate", status_code=409)
+    slugs, key, _ = _roster_slugs(registry, "session_pc_rosters", str(manifest["roster_session"]))
+    if key != manifest["roster_key"] or len(slugs) != len(set(slugs)):
+        raise _reject("PC roster carry-forward basis changed", status_code=409)
+    return set(slugs)
+
+
+def _replay_pc_references(parent: dict, manifest: dict, source_bytes: bytes | None,
+                          span_bytes: bytes | None) -> dict:
+    """Change only reviewed null corpus references in a copied candidate."""
+    from graph_memory.anchor_quotes import find_anchor_quote_matches
+
+    if set(manifest) != _PC_MANIFEST_KEYS or manifest.get("schema") != MANIFEST_SCHEMA_V9:
+        raise _reject("PC reference manifest fields changed")
+    try:
+        request = RecapCandidateCorrectionRequestV9.model_validate({
+            **{key: value for key, value in manifest.items() if key != "schema"},
+            "schema": "dmb_recap_candidate_correction_request_v9",
+            "parent_run_id": "replay", "parent_candidate_sha256": "0" * 64,
+        })
+    except (ValueError, TypeError) as exc:
+        raise _reject("PC reference manifest is malformed") from exc
+    if (source_bytes is None or span_bytes is None
+        or _sha(source_bytes) != request.source_revision_sha256
+        or _sha(span_bytes) != request.span_index_sha256):
+        raise _reject("PC reference frozen source or spans changed", status_code=409)
+    if not isinstance(parent.get("nodes"), list) or not isinstance(parent.get("session_id"), str):
+        raise _reject("PC reference parent candidate is malformed")
+    roster = _pc_registry(manifest, campaign_id=parent.get("campaign_id"),
+                          session_id=parent["session_id"])
+    try:
+        index = json.loads(span_bytes)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise _reject("PC reference span index is unreadable") from exc
+    if (not isinstance(index, dict) or index.get("schema") != "dmb_source_span_index_v1"
+        or index.get("content_sha256") != request.source_revision_sha256
+        or parent.get("source_artifact_ids") != [index.get("source_artifact_id")]
+        or not isinstance(index.get("spans"), list)):
+        raise _reject("PC reference span authority changed", status_code=409)
+    child = copy.deepcopy(parent)
+    try:
+        source_lines = source_bytes.decode("utf-8").splitlines()
+    except UnicodeDecodeError as exc:
+        raise _reject("PC actor source is not UTF-8") from exc
+    for operation in request.attachments:
+        if operation.corpus_ref.ref_id not in roster:
+            raise _reject("PC reference is not in the selected roster", status_code=409)
+        nodes = [node for node in parent["nodes"] if isinstance(node, dict) and node.get("node_id") == operation.node_id]
+        if len(nodes) != 1 or nodes[0].get("node_type") != "character":
+            raise _reject("PC reference node is missing or wrong kind", status_code=409)
+        old = nodes[0]
+        if "corpus_ref" not in old or old["corpus_ref"] is not None:
+            raise _reject("PC reference null preimage changed", status_code=409)
+        refs = old.get("evidence_refs")
+        if (not isinstance(refs, list) or not any(
+            isinstance(ref, dict) and isinstance(ref.get("anchor_quotes"), list)
+            and ref.get("source_span_ref_id") == operation.source_span_ref_id
+            and operation.anchor_quote in ref.get("anchor_quotes", [])
+            and ref.get("source_artifact_id") == index["source_artifact_id"]
+            and ref.get("source_ref_id") == index["source_ref_id"]
+            for ref in refs)):
+            raise _reject("PC actor anchor is absent from candidate evidence", status_code=409)
+        spans = [span for span in index["spans"] if isinstance(span, dict)
+                 and span.get("source_span_id") == operation.source_span_ref_id]
+        if len(spans) != 1:
+            raise _reject("PC actor span is missing or ambiguous", status_code=409)
+        span = spans[0]
+        start, end = span.get("start_line"), span.get("end_line")
+        if (type(start) is not int or type(end) is not int
+            or not 1 <= start <= end <= len(source_lines)
+            or any(span.get(key) != index.get(key)
+                   for key in ("content_sha256", "source_artifact_id", "source_ref_id"))):
+            raise _reject("PC actor span authority changed", status_code=409)
+        paragraph = "\n".join(source_lines[start - 1:end])
+        if not find_anchor_quote_matches(paragraph, [operation.anchor_quote]):
+            raise _reject("PC actor quote is not literal in its span", status_code=409)
+        next(node for node in child["nodes"] if node["node_id"] == operation.node_id)["corpus_ref"] = operation.corpus_ref.model_dump(mode="json")
+    try:
+        validate_candidate_document_integrity(child)
+        load_typed_candidate_graph(child)
+    except (CandidateAdmissionIntegrityError, CandidateGraphMappingError) as exc:
+        raise _reject("PC reference child failed candidate validation") from exc
+    return child
+
+
+def verify_pc_reference_native_basis(candidate: dict, manifest: dict) -> bool:
+    """Re-read one native head and prove each selected PC target without writes."""
+    if manifest.get("schema") != MANIFEST_SCHEMA_V9:
+        return True
+    try:
+        from apps.live_control_server.integrations.dungeonmind.world_graph_writes import load_production_mutation_context
+        from graph_memory.extract_identity_gate import _known_party_anchor
+
+        context = load_production_mutation_context(manifest["world_id"])
+        if (context.world_id != manifest["world_id"]
+            or context.revision_id != manifest["expected_head_revision_id"]
+            or context.head_revision_id != manifest["expected_head_revision_id"]):
+            return False
+        preview = load_typed_candidate_graph(candidate)
+        nodes = {node.node_id: node for node in preview.nodes}
+        for row in manifest["attachments"]:
+            node = nodes.get(row["node_id"])
+            if node is None:
+                return False
+            target = _known_party_anchor(
+                node, context, world_id=manifest["world_id"],
+                campaign_id=candidate.get("campaign_id"),
+            )
+            if target is None or target.object_id != row["native_object_id"]:
+                return False
+        return True
+    except (AttributeError, KeyError, OSError, RuntimeError, ValueError, TypeError, CandidateGraphMappingError):
+        return False
+
+
 def replay_candidate(parent: dict, manifest: dict, *, source_bytes: bytes | None = None, span_bytes: bytes | None = None) -> dict:
     """Reconstruct one bounded correction request; never patch arbitrary JSON."""
     if not isinstance(parent, dict) or not isinstance(manifest, dict):
         raise _reject("semantic candidate replay input is malformed")
+    if manifest.get("schema") == MANIFEST_SCHEMA_V9:
+        return _replay_pc_references(parent, manifest, source_bytes, span_bytes)
     if manifest.get("schema") in {MANIFEST_SCHEMA_V7, MANIFEST_SCHEMA_V8}:
         return _replay_atomic_batch(parent, manifest, source_bytes, span_bytes)
     if manifest.get("schema") == MANIFEST_SCHEMA_V6:
@@ -898,14 +1058,15 @@ def verify_child_replay(run, parent, root: Path) -> bool:
         parent_bytes = material["parent:candidate_graph"]
         child_bytes = material["child:candidate_graph"]
         expected = replay_candidate(json.loads(parent_bytes), manifest, source_bytes=material["parent:source_artifact"], span_bytes=material["parent:source_span_index"])
-        return child_bytes == _canonical_bytes(expected)
+        return (child_bytes == _canonical_bytes(expected)
+                and verify_pc_reference_native_basis(expected, manifest))
     except (AttributeError, KeyError, OSError, ValueError, TypeError, json.JSONDecodeError):
         return False
 
 
 def correct_recap_candidate(
-    request: RecapCandidateCorrectionRequest | RecapCandidateCorrectionRequestV2 | RecapCandidateCorrectionRequestV3 | RecapCandidateCorrectionRequestV4 | RecapCandidateCorrectionRequestV5 | RecapCandidateCorrectionRequestV6 | RecapCandidateCorrectionRequestV7 | RecapCandidateCorrectionRequestV8,
-) -> RecapCandidateCorrectionResponse | RecapCandidateCorrectionResponseV2 | RecapCandidateCorrectionResponseV3 | RecapCandidateCorrectionResponseV4 | RecapCandidateCorrectionResponseV5 | RecapCandidateCorrectionResponseV6 | RecapCandidateCorrectionResponseV7 | RecapCandidateCorrectionResponseV8:
+    request: RecapCandidateCorrectionRequest | RecapCandidateCorrectionRequestV2 | RecapCandidateCorrectionRequestV3 | RecapCandidateCorrectionRequestV4 | RecapCandidateCorrectionRequestV5 | RecapCandidateCorrectionRequestV6 | RecapCandidateCorrectionRequestV7 | RecapCandidateCorrectionRequestV8 | RecapCandidateCorrectionRequestV9,
+) -> RecapCandidateCorrectionResponse | RecapCandidateCorrectionResponseV2 | RecapCandidateCorrectionResponseV3 | RecapCandidateCorrectionResponseV4 | RecapCandidateCorrectionResponseV5 | RecapCandidateCorrectionResponseV6 | RecapCandidateCorrectionResponseV7 | RecapCandidateCorrectionResponseV8 | RecapCandidateCorrectionResponseV9:
     """Create one held reviewable child without altering parent or WorldGraph."""
     from application_state.ingest.service import (
         RecapSemanticBasisV2,
@@ -916,6 +1077,7 @@ def correct_recap_candidate(
         RecapSemanticBasisV7,
         RecapSemanticBasisV8,
         RecapSemanticBasisV9,
+        RecapSemanticBasisV10,
     )
 
     root = artifact_data_root(repo_root())
@@ -958,6 +1120,7 @@ def correct_recap_candidate(
         raise _reject("parent candidate is unreadable") from exc
     if not isinstance(parent_payload, dict):
         raise _reject("parent candidate root must be an object")
+    v9 = isinstance(request, RecapCandidateCorrectionRequestV9)
     v8 = isinstance(request, RecapCandidateCorrectionRequestV8)
     v7 = isinstance(request, RecapCandidateCorrectionRequestV7)
     v6 = isinstance(request, RecapCandidateCorrectionRequestV6)
@@ -965,10 +1128,18 @@ def correct_recap_candidate(
     v3 = isinstance(request, RecapCandidateCorrectionRequestV3)
     v4 = isinstance(request, RecapCandidateCorrectionRequestV4)
     v2 = isinstance(request, RecapCandidateCorrectionRequestV2)
-    derivation = DERIVATION_V8 if v8 else DERIVATION_V7 if v7 else DERIVATION_V6 if v6 else DERIVATION_V5 if v5 else DERIVATION_V4 if v4 else DERIVATION_V3 if v3 else DERIVATION_V2 if v2 else DERIVATION
-    if v8 and request.expected_parent_revision != parent.revision:
+    derivation = DERIVATION_V9 if v9 else DERIVATION_V8 if v8 else DERIVATION_V7 if v7 else DERIVATION_V6 if v6 else DERIVATION_V5 if v5 else DERIVATION_V4 if v4 else DERIVATION_V3 if v3 else DERIVATION_V2 if v2 else DERIVATION
+    if (v8 or v9) and request.expected_parent_revision != parent.revision:
         raise _reject("final batch parent revision changed", status_code=409)
-    if v7:
+    if v9:
+        if (request.source_revision_sha256 != source_sha
+            or request.span_index_sha256 != span_sha
+            or request.profile_id != parent.profile_id):
+            raise _reject("PC reference source/index/profile pins changed", status_code=409)
+        manifest = request.model_dump(mode="json", exclude={"schema_", "parent_run_id", "parent_candidate_sha256"})
+        manifest["schema"] = MANIFEST_SCHEMA_V9
+        manifest["attachments"].sort(key=lambda item: item["node_id"])
+    elif v7:
         if request.source_revision_sha256 != source_sha or request.span_index_sha256 != span_sha or request.profile_id != parent.profile_id:
             raise _reject("atomic request source/index/profile pins changed", status_code=409)
         manifest = request.model_dump(mode="json", exclude={"schema_", "parent_run_id", "parent_candidate_sha256"})
@@ -1033,6 +1204,8 @@ def correct_recap_candidate(
             item.model_dump(mode="json") for item in request.session_action_replacements
         ]
     payload = replay_candidate(parent_payload, manifest, source_bytes=source_bytes, span_bytes=span_bytes)
+    if v9 and not verify_pc_reference_native_basis(payload, manifest):
+        raise _reject("PC reference native World/head/identity basis changed", status_code=409)
     _assert_candidate_scope_matches_run(payload, campaign_id=parent.campaign_id, session_id=parent.session_id)
     evidence_arguments = dict(
         source_prose=resolved.normalized_recap_path.read_text(encoding="utf-8"),
@@ -1079,6 +1252,11 @@ def correct_recap_candidate(
         campaign_id=parent.campaign_id, session_id=parent.session_id,
     )
     basis = (
+        RecapSemanticBasisV10(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V9,
+            expected_parent_revision=request.expected_parent_revision,
+            registry_sha256=request.registry_sha256, roster_key=request.roster_key,
+            world_id=request.world_id, expected_head_revision_id=request.expected_head_revision_id)
+        if v9 else
         RecapSemanticBasisV9(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V8, expected_parent_revision=request.expected_parent_revision)
         if v8 else
         RecapSemanticBasisV8(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V7)
@@ -1166,7 +1344,8 @@ def correct_recap_candidate(
         if assessment.disposition is None or assessment.disposition.get("state") != semantic_state:
             raise _reject("derived run semantic decision conflicts", status_code=409)
     response_type = (
-        RecapCandidateCorrectionResponseV8 if v8
+        RecapCandidateCorrectionResponseV9 if v9
+        else RecapCandidateCorrectionResponseV8 if v8
         else RecapCandidateCorrectionResponseV7 if v7
         else RecapCandidateCorrectionResponseV6 if v6
         else RecapCandidateCorrectionResponseV5 if v5

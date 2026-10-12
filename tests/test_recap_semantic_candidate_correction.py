@@ -2683,3 +2683,225 @@ def test_final35_per_kind_caps_are_distinct_from_v7(monkeypatch, tmp_path):
         malformed = copy.deepcopy(body); malformed[key] = malformed[key][:1] * (count + 1)
         with pytest.raises(ValidationError): RecapCandidateCorrectionRequestV8.model_validate(malformed)
     with pytest.raises(ValidationError): RecapCandidateCorrectionRequestV7.model_validate({**body, "schema": "dmb_recap_candidate_correction_request_v7"})
+
+
+def _pc_reference_fixture(monkeypatch, root):
+    from apps.live_control_server.models.world_graph_mutation_context import (
+        MutationObject, WorldGraphMutationContext,
+    )
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+
+    parent, _, runs = _fixture(monkeypatch, root)
+    payload = json.loads((root / "parent.json").read_bytes())
+    payload["session_id"] = "session-28"
+    payload["nodes"][0]["corpus_ref"] = None
+    raw = service._canonical_bytes(payload)
+    (root / "parent.json").write_bytes(raw)
+    source = (root / "source.md").read_bytes()
+    source_sha = _sha(source)
+    span_id = payload["nodes"][0]["evidence_refs"][0]["source_span_ref_id"]
+    index = {
+        "schema": "dmb_source_span_index_v1", "version": "1.0",
+        "source_artifact_id": parent.source_artifact_id, "source_ref_id": "ref:mira",
+        "content_sha256": source_sha,
+        "spans": [{"source_span_id": span_id, "source_artifact_id": parent.source_artifact_id,
+                   "source_ref_id": "ref:mira", "content_sha256": source_sha,
+                   "start_line": 1, "end_line": 1}],
+    }
+    index_bytes = service._canonical_bytes(index)
+    (root / "spans.json").write_bytes(index_bytes)
+    components = dict(parent.components)
+    components["candidate_graph"] = components["candidate_graph"].model_copy(update={"sha256": _sha(raw)})
+    components["source_span_index"] = components["source_span_index"].model_copy(update={"sha256": _sha(index_bytes)})
+    parent = parent.model_copy(update={"components": components, "session_id": "session-28", "revision": 5})
+    runs["parent"] = parent
+    original_resolve = service.resolve_promotable_ingest_run
+    def resolve(run_id, **kwargs):
+        value = original_resolve(run_id, **kwargs)
+        value.session_id = "session-28"
+        return value
+    monkeypatch.setattr(service, "resolve_promotable_ingest_run", resolve)
+    monkeypatch.setattr(service, "_load_frozen_span_index_for_resolved_run",
+                        lambda _: SimpleNamespace(spans=[SimpleNamespace(**index["spans"][0])]))
+    registry_path = root / "corpus/invented/_party_registry.json"
+    registry_path.parent.mkdir(parents=True)
+    registry_path.write_text(json.dumps({"schema": "party_registry_v1", "campaign_id": "c",
+                                         "session_pc_rosters": {"23": ["mira"]}}))
+    context = WorldGraphMutationContext(
+        world_id="invented-world", revision_id="rev:head", head_revision_id="rev:head",
+        objects={"pc:mira": MutationObject(object_id="pc:mira", label="Mira",
+                                            kind="player_character", canon_state="canonical",
+                                            memory_state="active")},
+    )
+    monkeypatch.setattr(world_graph_writes, "load_production_mutation_context", lambda _: context)
+    body = {
+        "schema": "dmb_recap_candidate_correction_request_v9", "parent_run_id": "parent",
+        "parent_candidate_sha256": _sha(raw), "expected_parent_revision": 5,
+        "source_revision_sha256": source_sha, "span_index_sha256": _sha(index_bytes),
+        "profile_id": service.PROFILE, "registry_path": "corpus/invented/_party_registry.json",
+        "registry_sha256": _sha(registry_path.read_bytes()), "roster_session": 28,
+        "roster_key": "23", "world_id": "invented-world",
+        "expected_head_revision_id": "rev:head", "reviewer_id": "reviewer",
+        "review_decision_ref": "decision:invented",
+        "attachments": [{"node_id": "mira", "expected_corpus_ref": None,
+                         "corpus_ref": {"type": "pc", "ref_id": "mira", "resolution": "resolved"},
+                         "source_span_ref_id": span_id,
+                         "anchor_quote": source.decode().strip(),
+                         "native_object_id": "pc:mira"}],
+    }
+    return parent, raw, runs, body, context
+
+
+def test_pc_reference_child_is_held_replayable_and_only_changes_refs(monkeypatch, tmp_path):
+    from application_state.ingest.service import RecapSemanticBasisV10
+    from apps.live_control_server.models.extract_promote import RecapCandidateCorrectionRequestV9
+
+    parent, raw, runs, body, _ = _pc_reference_fixture(monkeypatch, tmp_path)
+    result = service.correct_recap_candidate(RecapCandidateCorrectionRequestV9.model_validate(body))
+    child = runs[result.run_id]
+    assert result.schema_ == "dmb_recap_candidate_correction_response_v9"
+    assert result.semantic_state == "held" and len(runs) == 2
+    candidate = json.loads((tmp_path / child.components["candidate_graph"].uri).read_bytes())
+    original = json.loads(raw)
+    assert candidate["nodes"][0].pop("corpus_ref") == body["attachments"][0]["corpus_ref"]
+    assert original["nodes"][0].pop("corpus_ref") is None
+    assert candidate == original
+    assert service.verify_child_replay(child, parent, tmp_path)
+    assessment = assess_recap_semantics(child, parent=parent,
+                                        source_revision_id=body["source_revision_sha256"], root=tmp_path)
+    basis = RecapSemanticBasisV10.model_validate(assessment.basis)
+    assert basis.digest() == result.semantic_basis_sha256 and not assessment.accepted
+    _assert_recap_semantic_basis(child, parent, basis)
+    with pytest.raises(ApplicationStateConflictError, match="parent revision"):
+        _assert_recap_semantic_basis(child, parent.model_copy(update={"revision": 6}), basis)
+    tampered = child.model_copy(update={"lineage": copy.deepcopy(child.lineage)})
+    tampered.lineage["semantic_candidate_manifest"]["attachments"][0]["anchor_quote"] = "invented"
+    with pytest.raises(ApplicationStateConflictError, match="manifest changed"):
+        _assert_recap_semantic_basis(tampered, parent, basis)
+
+
+def test_pc_reference_http_route_accepts_only_typed_held_child(monkeypatch, tmp_path):
+    _, _, runs, body, _ = _pc_reference_fixture(monkeypatch, tmp_path)
+    app = _split_http_app(monkeypatch)
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),
+                                     base_url="http://test") as client:
+            url = "/api/live/extract-promote/runs/parent/recap-candidate-corrections"
+            response = await client.post(url, json=body)
+            assert response.status_code == 200, response.text
+            assert response.json()["schema"] == "dmb_recap_candidate_correction_response_v9"
+            assert response.json()["semanticState"] == "held"
+            retry = await client.post(url, json=body)
+            assert retry.json() == response.json()
+            return response.json()
+    response = asyncio.run(exercise())
+    assert len(runs) == 2 and response["runId"] in runs
+
+
+@pytest.mark.parametrize("bad", ["registry", "roster", "source", "parent", "world", "head", "kind",
+                                 "redirect", "duplicate", "ref", "actor", "preimage"])
+def test_pc_reference_invalid_basis_creates_no_child(monkeypatch, tmp_path, bad):
+    from apps.live_control_server.models.extract_promote import RecapCandidateCorrectionRequestV9
+    from apps.live_control_server.models.world_graph_mutation_context import MutationObject
+    from dataclasses import replace
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+
+    parent, raw, runs, body, context = _pc_reference_fixture(monkeypatch, tmp_path)
+    if bad == "registry":
+        body["registry_sha256"] = "0" * 64
+    elif bad == "roster":
+        body["roster_key"] = "22"
+    elif bad == "source":
+        body["source_revision_sha256"] = "0" * 64
+    elif bad == "parent":
+        body["expected_parent_revision"] = 6
+    elif bad == "world":
+        body["world_id"] = "foreign-world"
+    elif bad == "head":
+        body["expected_head_revision_id"] = "rev:stale"
+    elif bad == "kind":
+        context = replace(context, objects={"pc:mira": replace(context.objects["pc:mira"], kind="npc")})
+    elif bad == "redirect":
+        context = replace(context, identity_redirects={"pc:mira": "pc:other"})
+    elif bad == "duplicate":
+        context = replace(context, objects={**context.objects,
+            "node:mira": MutationObject(object_id="node:mira", label="Mira",
+                                        kind="player_character", canon_state="canonical")})
+    elif bad == "ref":
+        body["attachments"][0]["corpus_ref"]["ref_id"] = "other"
+    elif bad == "actor":
+        body["attachments"][0]["anchor_quote"] = "Unsupported actor quote"
+    elif bad == "preimage":
+        original = json.loads(raw)
+        original["nodes"][0]["corpus_ref"] = {"type": "pc", "ref_id": "mira", "resolution": "resolved"}
+        raw = service._canonical_bytes(original)
+        (tmp_path / "parent.json").write_bytes(raw)
+        components = dict(parent.components)
+        components["candidate_graph"] = components["candidate_graph"].model_copy(update={"sha256": _sha(raw)})
+        parent = parent.model_copy(update={"components": components})
+        runs["parent"] = parent
+        body["parent_candidate_sha256"] = _sha(raw)
+    monkeypatch.setattr(world_graph_writes, "load_production_mutation_context", lambda _: context)
+    request = RecapCandidateCorrectionRequestV9.model_validate(body) if bad != "ref" else None
+    before = list(runs)
+    if request is None:
+        with pytest.raises(ValueError):
+            RecapCandidateCorrectionRequestV9.model_validate(body)
+    else:
+        with pytest.raises(extract_promote.ExtractPromoteError):
+            service.correct_recap_candidate(request)
+    assert list(runs) == before
+    assert not (tmp_path / "out/graph_memory/derived_candidates").exists()
+
+
+def test_pc_reference_prepare_and_confirm_reprove_current_basis(monkeypatch, tmp_path):
+    from dataclasses import replace
+    from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+    from apps.live_control_server.models.extract_promote import RecapCandidateCorrectionRequestV9
+    from apps.live_control_server.services.managed_world_graph_projection import VerifiedManagedWorldBinding
+
+    parent, _, runs, body, context = _pc_reference_fixture(monkeypatch, tmp_path)
+    response = service.correct_recap_candidate(RecapCandidateCorrectionRequestV9.model_validate(body))
+    child = runs[response.run_id]
+    lineage = copy.deepcopy(child.lineage)
+    lineage["semantic_disposition"] = {
+        "version": 1, "state": "accepted", "basis_sha256": response.semantic_basis_sha256,
+        "review_decision_ref": "decision:invented", "reviewer_id": "reviewer",
+        "decided_at": "2026-10-11T00:00:00Z",
+    }
+    child = child.model_copy(update={"lineage": lineage})
+    runs[child.run_id] = child
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, run_id: runs[run_id])
+    monkeypatch.setattr(extract_promote, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", service.resolve_promotable_ingest_run)
+    monkeypatch.setattr(extract_promote, "_candidate_owner_for_locator", lambda _: child)
+    monkeypatch.setattr(extract_promote, "_resolve_publication_target", lambda _: VerifiedManagedWorldBinding(
+        managed_world_id="managed", native_world_id="invented-world", binding_version=1,
+        source_root_relpath="corpus/invented"))
+    assessment = assess_recap_semantics(child, parent=parent,
+                                        source_revision_id=body["source_revision_sha256"], root=tmp_path)
+    assert assessment.accepted
+    binding = accepted_effect_binding(child, assessment)
+    assert binding["world_id"] == "invented-world"
+    assert binding["expected_head_revision_id"] == "rev:head"
+    locator = str(tmp_path / child.components["candidate_graph"].uri)
+    effect = {EFFECT_KEY: binding, "world_id": "invented-world", "parent_revision_id": "rev:head"}
+    extract_promote._assert_recap_semantics_at_confirm(locator, {"effect": effect})
+    with pytest.raises(extract_promote.ExtractPromoteError, match="World or parent head"):
+        extract_promote._assert_recap_semantics_at_confirm(
+            locator, {"effect": {**effect, "world_id": "foreign-world"}})
+    with pytest.raises(extract_promote.ExtractPromoteError, match="World or parent head"):
+        extract_promote._assert_recap_semantics_at_confirm(
+            locator, {"effect": {**effect, "parent_revision_id": "rev:stale"}})
+    stale = replace(context, revision_id="rev:new", head_revision_id="rev:new")
+    monkeypatch.setattr(world_graph_writes, "load_production_mutation_context", lambda _: stale)
+    with pytest.raises(extract_promote.ExtractPromoteError, match="semantic review"):
+        extract_promote.prepare(ExtractPromotePrepareRequest(run_id=child.run_id,
+                                                             managed_world_id="managed"))
+    with pytest.raises(extract_promote.ExtractPromoteError, match="held"):
+        extract_promote._assert_recap_semantics_at_confirm(locator, {"effect": effect})
+    monkeypatch.setattr(world_graph_writes, "load_production_mutation_context", lambda _: context)
+    registry = tmp_path / body["registry_path"]
+    registry.write_text(registry.read_text() + "\n")
+    with pytest.raises(extract_promote.ExtractPromoteError, match="held"):
+        extract_promote._assert_recap_semantics_at_confirm(locator, {"effect": effect})
