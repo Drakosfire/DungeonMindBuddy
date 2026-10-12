@@ -3170,3 +3170,220 @@ def test_pc_reference_prepare_and_confirm_reprove_current_basis(monkeypatch, tmp
     registry.write_text(registry.read_text() + "\n")
     with pytest.raises(extract_promote.ExtractPromoteError, match="held"):
         extract_promote._assert_recap_semantics_at_confirm(locator, {"effect": effect})
+
+
+def _append_fixture(monkeypatch, root):
+    """Frozen three-span recap plus a PC introduction and an existing edge."""
+    from graph_memory.source_span import build_stable_source_span_id
+    parent, _, runs, pc_body, context = _pc_reference_fixture(monkeypatch, root)
+    source = b"Mira found the key under the bridge.\nMira rescued a traveler.\nMira felt frightened.\n"
+    (root / "source.md").write_bytes(source)
+    digest = _sha(source)
+    old = json.loads((root / "parent.json").read_bytes())
+    index = json.loads((root / "spans.json").read_bytes())
+    index["content_sha256"] = digest
+    index["spans"] = [{
+        "source_span_id": build_stable_source_span_id(source_artifact_id=parent.source_artifact_id,
+            content_sha256=digest, start_line=i, end_line=i),
+        "source_artifact_id": parent.source_artifact_id, "source_ref_id": index["source_ref_id"],
+        "content_sha256": digest, "start_line": i, "end_line": i,
+    } for i in (1, 2, 3)]
+    ref = old["nodes"][0]["evidence_refs"][0]
+    ref["source_span_ref_id"] = index["spans"][0]["source_span_id"]
+    location = copy.deepcopy(old["nodes"][0])
+    location.update(node_id="bridge", node_type="location", label="Bridge")
+    old["nodes"].append(location)
+    old["edges"] = [{"edge_id": "edge-bridge", "from_node_id": "mira", "to_node_id": "bridge",
+        "relationship_type": "located_in", "label": "found key under bridge",
+        "evidence_refs": [copy.deepcopy(ref)], "semantic_state": copy.deepcopy(old["nodes"][0]["semantic_state"]),
+        "confidence": "medium", "proposed_action": "create"}]
+    raw = service._canonical_bytes(old)
+    span_bytes = service._canonical_bytes(index)
+    (root / "parent.json").write_bytes(raw)
+    (root / "spans.json").write_bytes(span_bytes)
+    components = dict(parent.components)
+    for key, content in (("source_artifact", source), ("source_span_index", span_bytes), ("candidate_graph", raw)):
+        components[key] = components[key].model_copy(update={"sha256": _sha(content)})
+    parent = parent.model_copy(update={"components": components})
+    runs[parent.run_id] = parent
+    pc_body.update(parent_candidate_sha256=_sha(raw), source_revision_sha256=digest,
+                   span_index_sha256=_sha(span_bytes))
+    pc_body["attachments"][0]["source_span_ref_id"] = index["spans"][0]["source_span_id"]
+    monkeypatch.setattr(service, "_load_frozen_span_index_for_resolved_run",
+        lambda _: SimpleNamespace(spans=[SimpleNamespace(**s) for s in index["spans"]]))
+    return parent, raw, runs, pc_body, context, index
+
+
+def _append_request(parent, payload, index, *, kind="node", identifier="mira", line=2):
+    collection, key = ("nodes", "node_id") if kind == "node" else ("edges", "edge_id")
+    record = next(x for x in payload[collection] if x[key] == identifier)
+    return {"schema": "dmb_recap_candidate_correction_request_v10", "parent_run_id": parent.run_id,
+        "expected_parent_revision": parent.revision,
+        "parent_candidate_sha256": parent.components["candidate_graph"].sha256.removeprefix("sha256:"),
+        "source_revision_sha256": parent.components["source_artifact"].sha256.removeprefix("sha256:"),
+        "span_index_sha256": parent.components["source_span_index"].sha256.removeprefix("sha256:"),
+        "profile_id": service.PROFILE,
+        "evidence_appends": [{"record_kind": kind, "record_id": identifier,
+            "expected_evidence_refs_sha256": _sha(service._canonical_bytes(record["evidence_refs"])),
+            "source_span_ref_id": index["spans"][line - 1]["source_span_id"],
+            "anchor_quotes": ["Mira rescued a traveler." if line == 2 else "Mira felt frightened."]}]}
+
+
+def test_append_replay_preserves_existing_citations_and_rejects_forged_authority(monkeypatch, tmp_path):
+    from apps.live_control_server.models.extract_promote import RecapCandidateCorrectionRequestV10
+    from pydantic import ValidationError
+    parent, raw, _, _, _, index = _append_fixture(monkeypatch, tmp_path)
+    payload = json.loads(raw)
+    body = _append_request(parent, payload, index)
+    req = RecapCandidateCorrectionRequestV10.model_validate(body)
+    manifest = req.model_dump(mode="json", exclude={"schema_", "parent_run_id", "parent_candidate_sha256"})
+    manifest["schema"] = service.MANIFEST_SCHEMA_V10
+    child = service.replay_candidate(payload, manifest, source_bytes=(tmp_path / "source.md").read_bytes(),
+                                     span_bytes=(tmp_path / "spans.json").read_bytes())
+    assert child["nodes"][0]["evidence_refs"][:-1] == payload["nodes"][0]["evidence_refs"]
+    assert service._canonical_bytes(child["nodes"][0]["evidence_refs"][:-1]) == service._canonical_bytes(payload["nodes"][0]["evidence_refs"])
+    assert child["nodes"][1:] == payload["nodes"][1:] and child["edges"] == payload["edges"]
+    appended = child["nodes"][0]["evidence_refs"][-1]
+    assert appended["source_anchor_id"] == "anchor:" + body["evidence_appends"][0]["source_span_ref_id"]
+    forged = copy.deepcopy(body)
+    forged["evidence_appends"][0]["source_artifact_id"] = "client-authority"
+    with pytest.raises(ValidationError):
+        RecapCandidateCorrectionRequestV10.model_validate(forged)
+    duplicated = copy.deepcopy(body)
+    duplicated["evidence_appends"] *= 2
+    with pytest.raises(ValidationError):
+        RecapCandidateCorrectionRequestV10.model_validate(duplicated)
+
+
+def test_http_append_child_preserves_pc_proof_and_retry_identity(monkeypatch, tmp_path):
+    from application_state.ingest.service import RecapSemanticBasisV11
+    from apps.live_control_server.models.extract_promote import RecapCandidateCorrectionRequestV9
+    parent, raw, runs, pc_body, _, index = _append_fixture(monkeypatch, tmp_path)
+    introduced = service.correct_recap_candidate(RecapCandidateCorrectionRequestV9.model_validate(pc_body))
+    pc_parent = runs[introduced.run_id]
+    pc_bytes = (tmp_path / pc_parent.components["candidate_graph"].uri).read_bytes()
+    pc_payload = json.loads(pc_bytes)
+    body = _append_request(pc_parent, pc_payload, index)
+    edge_body = _append_request(pc_parent, pc_payload, index, kind="edge", identifier="edge-bridge", line=3)
+    body["evidence_appends"].extend(edge_body["evidence_appends"])
+    body["node_description_replacements"] = [{"node_id": "mira",
+        "original_description": pc_payload["nodes"][0]["description"],
+        "replacement_description": "Mira found a key and rescued a traveler."}]
+    app = _split_http_app(monkeypatch)
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            first = await client.post(f"/api/live/extract-promote/runs/{pc_parent.run_id}/recap-candidate-corrections", json=body)
+            assert first.status_code == 200, first.text
+            reverse = copy.deepcopy(body)
+            reverse["evidence_appends"].reverse()
+            second = await client.post(f"/api/live/extract-promote/runs/{pc_parent.run_id}/recap-candidate-corrections", json=reverse)
+            assert second.status_code == 200 and second.json() == first.json()
+            return first.json()
+    response = asyncio.run(exercise())
+    assert response["schema"] == "dmb_recap_candidate_correction_response_v10"
+    assert response["semanticState"] == "held" and len(runs) == 3
+    child = runs[response["runId"]]
+    value = json.loads((tmp_path / child.components["candidate_graph"].uri).read_bytes())
+    for collection in ("nodes", "edges"):
+        assert value[collection][0]["evidence_refs"][:-1] == pc_payload[collection][0]["evidence_refs"]
+    assert value["nodes"][0]["corpus_ref"] == pc_payload["nodes"][0]["corpus_ref"]
+    proof = service.inherited_pc_reference_proof(child, tmp_path)
+    assert proof == child.lineage["inherited_pc_proof"]
+    assert proof["rows"][0]["origin_run_id"] == pc_parent.run_id
+    assert service.verify_child_replay(child, pc_parent, tmp_path)
+    assessment = assess_recap_semantics(child, parent=pc_parent,
+        source_revision_id=body["source_revision_sha256"], root=tmp_path)
+    assert assessment.marked and not assessment.accepted
+    basis = RecapSemanticBasisV11.model_validate(assessment.basis)
+    assert basis.digest() == response["semanticBasisSha256"]
+    _assert_recap_semantic_basis(child, pc_parent, basis, get_ancestor=runs.get)
+    monkeypatch.setattr(extract_promote, "_artifact_root", lambda: tmp_path)
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, run_id: runs[run_id])
+    original_resolve = service.resolve_promotable_ingest_run
+    def review_resolve(run_id, **kwargs):
+        value = original_resolve(run_id, **kwargs)
+        value.status = "reviewable"
+        value.diagnostics = []
+        return value
+    monkeypatch.setattr(extract_promote, "resolve_promotable_ingest_run", review_resolve)
+    package = extract_promote.get_exact_run_review_package(child.run_id)
+    assert package.inherited_pc_references is not None
+    assert package.inherited_pc_references.rows[0].origin_run_id == pc_parent.run_id
+    assert package.inherited_pc_references.proof_sha256 == basis.inherited_pc_proof_sha256
+    assert (tmp_path / pc_parent.components["candidate_graph"].uri).read_bytes() == pc_bytes
+    assert (tmp_path / "parent.json").read_bytes() == raw
+    drifted = child.model_copy(deep=True)
+    drifted.lineage["inherited_pc_proof"]["rows"][0]["corpus_ref"]["ref_id"] = "foreign"
+    with pytest.raises(ApplicationStateConflictError):
+        _assert_recap_semantic_basis(drifted, pc_parent, basis, get_ancestor=runs.get)
+
+
+@pytest.mark.parametrize("fault", ["parent_revision", "parent_digest", "source", "span", "quote", "unknown_target", "existing_span", "array_preimage", "bad_last_append"])
+def test_append_service_rejects_atomically_before_child(monkeypatch, tmp_path, fault):
+    from apps.live_control_server.models.extract_promote import RecapCandidateCorrectionRequestV10
+    parent, raw, runs, _, _, index = _append_fixture(monkeypatch, tmp_path)
+    body = _append_request(parent, json.loads(raw), index)
+    if fault == "parent_revision":
+        body["expected_parent_revision"] += 1
+    elif fault == "parent_digest":
+        body["parent_candidate_sha256"] = "0" * 64
+    elif fault == "source":
+        body["source_revision_sha256"] = "0" * 64
+    elif fault == "span":
+        body["span_index_sha256"] = "0" * 64
+    elif fault == "quote":
+        body["evidence_appends"][0]["anchor_quotes"] = ["Mira rescued a dragon."]
+    elif fault == "unknown_target":
+        body["evidence_appends"][0]["record_id"] = "unknown"
+    elif fault == "existing_span":
+        body["evidence_appends"][0].update(source_span_ref_id=index["spans"][0]["source_span_id"], anchor_quotes=["Mira found the key under the bridge."])
+    elif fault == "array_preimage":
+        body["evidence_appends"][0]["expected_evidence_refs_sha256"] = "0" * 64
+    elif fault == "bad_last_append":
+        second = copy.deepcopy(body["evidence_appends"][0])
+        second.update(source_span_ref_id=index["spans"][2]["source_span_id"], anchor_quotes=["not literal"])
+        body["evidence_appends"].append(second)
+    with pytest.raises(service.ExtractPromoteError):
+        service.correct_recap_candidate(RecapCandidateCorrectionRequestV10.model_validate(body))
+    assert len(runs) == 1 and not (tmp_path / "out/graph_memory/derived_candidates").exists()
+    assert (tmp_path / "parent.json").read_bytes() == raw
+
+
+def test_append_decision_dispatch_uses_distinct_basis_and_stays_guarded(monkeypatch, tmp_path):
+    from application_state.ingest import service as ingest_service
+    from apps.live_control_server.models.extract_promote import RecapCandidateCorrectionRequestV10
+    from apps.live_control_server.services import source_artifact_registry
+    parent, raw, runs, _, _, index = _append_fixture(monkeypatch, tmp_path)
+    body = _append_request(parent, json.loads(raw), index)
+    response = service.correct_recap_candidate(RecapCandidateCorrectionRequestV10.model_validate(body))
+    child = runs[response.run_id]
+    monkeypatch.setattr(extract_promote, "_artifact_root", lambda: tmp_path)
+    monkeypatch.setattr(graph_run_registry, "get_extraction_run", lambda _root, run_id: runs[run_id])
+    monkeypatch.setattr(graph_run_registry, "get_reviewable_extraction_run", lambda _root, run_id: runs[run_id])
+    monkeypatch.setattr(source_artifact_registry, "get_source_artifact",
+        lambda *_args: SimpleNamespace(content_sha256=body["source_revision_sha256"]))
+    seen = []
+    def record(run_id, *, expected_revision, basis, decision):
+        assert isinstance(basis, ingest_service.RecapSemanticBasisV11)
+        _assert_recap_semantic_basis(child, parent, basis, get_ancestor=runs.get)
+        seen.append((run_id, expected_revision, basis.digest()))
+        decided = child.model_copy(deep=True, update={"revision": expected_revision + 1})
+        decided.lineage["semantic_disposition"] = {"version": 1, "state": decision.state,
+            "basis_sha256": basis.digest(), "review_decision_ref": decision.review_decision_ref,
+            "reviewer_id": decision.reviewer_id, "decided_at": "2026-10-12T00:00:00Z",
+            "from_revision": expected_revision}
+        return decided
+    monkeypatch.setattr(ingest_service, "record_recap_semantic_disposition", record)
+    receipt = extract_promote.decide_recap_semantic_disposition(child.run_id,
+        RecapSemanticDecisionRequest(expected_revision=child.revision,
+            candidate_sha256=response.candidate_sha256, decision="rejected",
+            review_decision_ref="synthetic:append-review"), reviewer_id="gm")
+    assert receipt.state == "rejected"
+    assert seen == [(child.run_id, child.revision, response.semantic_basis_sha256)]
+    assert child.lineage["semantic_disposition"]["state"] == "held"
+    from pydantic import ValidationError
+    for count in (0, 3):
+        bounded = copy.deepcopy(body)
+        bounded["evidence_appends"] *= count
+        with pytest.raises(ValidationError):
+            RecapCandidateCorrectionRequestV10.model_validate(bounded)

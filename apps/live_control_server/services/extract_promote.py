@@ -1133,6 +1133,7 @@ def decide_recap_semantic_disposition(
         RecapSemanticBasisV8,
         RecapSemanticBasisV9,
         RecapSemanticBasisV10,
+        RecapSemanticBasisV11,
         RecapSemanticDispositionCommandV1,
         record_recap_semantic_disposition,
     )
@@ -1152,6 +1153,7 @@ def decide_recap_semantic_disposition(
         CANDIDATE_DERIVATION_V7,
         CANDIDATE_DERIVATION_V8,
         CANDIDATE_DERIVATION_V9,
+        CANDIDATE_DERIVATION_V10,
         is_recap_correction,
     )
     from apps.live_control_server.services.source_artifact_registry import (
@@ -1209,7 +1211,8 @@ def decide_recap_semantic_disposition(
         )
     try:
         basis_type = (
-            RecapSemanticBasisV10 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V9
+            RecapSemanticBasisV11 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V10
+            else RecapSemanticBasisV10 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V9
             else RecapSemanticBasisV9 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V8
             else RecapSemanticBasisV8 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V7
             else RecapSemanticBasisV7 if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V6
@@ -1353,6 +1356,7 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
                 if run_record.lineage.get("derivation") in {
                     "operator_recap_semantic_candidate_correction_v7",
                     "operator_recap_semantic_candidate_correction_v8",
+                    "operator_recap_semantic_candidate_correction_v10",
                 } and isinstance(run_record.lineage.get("inherited_pc_proof"), dict):
                     from apps.live_control_server.services.recap_semantic_candidate_correction import (
                         inherited_pc_proof_digest, inherited_pc_reference_proof,

@@ -32,6 +32,8 @@ CANDIDATE_DERIVATION_V8 = "operator_recap_semantic_candidate_correction_v8"
 MANIFEST_SCHEMA_V8 = "dmb_recap_semantic_candidate_manifest_v8"
 CANDIDATE_DERIVATION_V9 = "operator_recap_semantic_candidate_correction_v9"
 MANIFEST_SCHEMA_V9 = "dmb_recap_semantic_candidate_manifest_v9"
+CANDIDATE_DERIVATION_V10 = "operator_recap_semantic_candidate_correction_v10"
+MANIFEST_SCHEMA_V10 = "dmb_recap_semantic_candidate_manifest_v10"
 CANDIDATE_DERIVATION_V7 = "operator_recap_semantic_candidate_correction_v7"
 MANIFEST_SCHEMA_V7 = "dmb_recap_semantic_candidate_manifest_v7"
 CANDIDATE_DERIVATION_V6 = "operator_recap_semantic_candidate_correction_v6"
@@ -74,6 +76,7 @@ def is_recap_correction(run: ExtractionRun) -> bool:
         CANDIDATE_DERIVATION_V7,
         CANDIDATE_DERIVATION_V8,
         CANDIDATE_DERIVATION_V9,
+        CANDIDATE_DERIVATION_V10,
     }
 
 
@@ -148,6 +151,7 @@ def assess_recap_semantics(
     span_sha = _sha(spans.sha256)
     candidate_v3 = lineage.get("derivation") == CANDIDATE_DERIVATION_V3
     candidate_v4 = lineage.get("derivation") == CANDIDATE_DERIVATION_V4
+    candidate_v10 = lineage.get("derivation") == CANDIDATE_DERIVATION_V10
     candidate_v9 = lineage.get("derivation") == CANDIDATE_DERIVATION_V9
     candidate_v8 = lineage.get("derivation") == CANDIDATE_DERIVATION_V8
     candidate_v7 = lineage.get("derivation") == CANDIDATE_DERIVATION_V7
@@ -164,10 +168,11 @@ def assess_recap_semantics(
         CANDIDATE_DERIVATION_V7,
         CANDIDATE_DERIVATION_V8,
         CANDIDATE_DERIVATION_V9,
+        CANDIDATE_DERIVATION_V10,
     }
     candidate_manifest = lineage.get("semantic_candidate_manifest")
-    expected_manifest_schema = MANIFEST_SCHEMA_V9 if candidate_v9 else MANIFEST_SCHEMA_V8 if candidate_v8 else MANIFEST_SCHEMA_V7 if candidate_v7 else MANIFEST_SCHEMA_V6 if candidate_v6 else MANIFEST_SCHEMA_V5 if candidate_v5 else MANIFEST_SCHEMA_V4 if candidate_v4 else MANIFEST_SCHEMA_V3 if candidate_v3 else MANIFEST_SCHEMA_V2
-    if (candidate_v2 or candidate_v3 or candidate_v4 or candidate_v5 or candidate_v6 or candidate_v7 or candidate_v8 or candidate_v9) and (
+    expected_manifest_schema = MANIFEST_SCHEMA_V10 if candidate_v10 else MANIFEST_SCHEMA_V9 if candidate_v9 else MANIFEST_SCHEMA_V8 if candidate_v8 else MANIFEST_SCHEMA_V7 if candidate_v7 else MANIFEST_SCHEMA_V6 if candidate_v6 else MANIFEST_SCHEMA_V5 if candidate_v5 else MANIFEST_SCHEMA_V4 if candidate_v4 else MANIFEST_SCHEMA_V3 if candidate_v3 else MANIFEST_SCHEMA_V2
+    if (candidate_v2 or candidate_v3 or candidate_v4 or candidate_v5 or candidate_v6 or candidate_v7 or candidate_v8 or candidate_v9 or candidate_v10) and (
         not isinstance(candidate_manifest, dict)
         or candidate_manifest.get("schema") != expected_manifest_schema
     ):
@@ -196,7 +201,7 @@ def assess_recap_semantics(
         if not verify_child_replay(run, parent, root):
             return held()
     inherited_digest = None
-    if candidate_v7 or candidate_v8:
+    if candidate_v7 or candidate_v8 or candidate_v10:
         try:
             inherited_proof = inherited_pc_reference_proof(run, root)
         except (ExtractPromoteError, AttributeError, KeyError, OSError, ValueError, TypeError,
@@ -211,7 +216,8 @@ def assess_recap_semantics(
             inherited_digest = inherited_pc_proof_digest(inherited_proof)
     basis_fields = {
         "schema": (
-            "dmb_recap_semantic_basis_v10" if candidate_v9
+            "dmb_recap_semantic_basis_v11" if candidate_v10
+            else "dmb_recap_semantic_basis_v10" if candidate_v9
             else "dmb_recap_semantic_basis_v9" if candidate_v8
             else "dmb_recap_semantic_basis_v8" if candidate_v7
             else "dmb_recap_semantic_basis_v7" if candidate_v6
@@ -265,6 +271,14 @@ def assess_recap_semantics(
         basis_fields["expected_parent_revision"] = expected
         basis_fields["derivation"] = CANDIDATE_DERIVATION_V8
         basis_fields["manifest_schema"] = MANIFEST_SCHEMA_V8
+        if inherited_digest is not None:
+            basis_fields["inherited_pc_proof_sha256"] = inherited_digest
+    if candidate_v10:
+        expected = candidate_manifest.get("expected_parent_revision")
+        if type(expected) is not int or expected != parent.revision:
+            return held()
+        basis_fields.update(expected_parent_revision=expected, derivation=CANDIDATE_DERIVATION_V10,
+                            manifest_schema=MANIFEST_SCHEMA_V10)
         if inherited_digest is not None:
             basis_fields["inherited_pc_proof_sha256"] = inherited_digest
     if candidate_v9:

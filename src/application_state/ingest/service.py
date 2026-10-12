@@ -46,6 +46,7 @@ _RECAP_CANDIDATE_DERIVATION_V4 = "operator_recap_semantic_candidate_correction_v
 _RECAP_CANDIDATE_DERIVATION_V5 = "operator_recap_semantic_candidate_correction_v5"
 _RECAP_CANDIDATE_DERIVATION_V8 = "operator_recap_semantic_candidate_correction_v8"
 _RECAP_CANDIDATE_DERIVATION_V9 = "operator_recap_semantic_candidate_correction_v9"
+_RECAP_CANDIDATE_DERIVATION_V10 = "operator_recap_semantic_candidate_correction_v10"
 _RECAP_CANDIDATE_DERIVATION_V7 = "operator_recap_semantic_candidate_correction_v7"
 _RECAP_CANDIDATE_DERIVATION_V6 = "operator_recap_semantic_candidate_correction_v6"
 _RECAP_BASIS_SCHEMA = "dmb_recap_semantic_basis_v1"
@@ -235,6 +236,17 @@ class RecapSemanticBasisV10(RecapSemanticBasisV2):
     roster_key: str = Field(min_length=1)
     world_id: str = Field(min_length=1)
     expected_head_revision_id: str = Field(min_length=1)
+
+
+class RecapSemanticBasisV11(RecapSemanticBasisV2):
+    """Bind additive frozen evidence without reusing the V9 PC basis meaning."""
+
+    schema_: Literal["dmb_recap_semantic_basis_v11"] = Field(
+        default="dmb_recap_semantic_basis_v11", alias="schema")
+    derivation: Literal["operator_recap_semantic_candidate_correction_v10"]
+    manifest_schema: Literal["dmb_recap_semantic_candidate_manifest_v10"]
+    expected_parent_revision: int = Field(strict=True, ge=1)
+    inherited_pc_proof_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 class RecapSemanticDispositionCommandV1(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
@@ -476,6 +488,48 @@ def _assert_recap_split_manifest(manifest: object, basis: RecapSemanticBasisV7) 
         raise ApplicationStateConflictError("recap semantic candidate manifest changed")
 
 
+
+def _assert_recap_append_manifest(manifest: object, basis: RecapSemanticBasisV11) -> None:
+    def invalid():
+        raise ApplicationStateConflictError("recap evidence append manifest is malformed")
+    keys = {"schema", "expected_parent_revision", "source_revision_sha256", "span_index_sha256",
+            "profile_id", "evidence_appends", "node_description_replacements"}
+    if not isinstance(manifest, dict) or set(manifest) != keys:
+        invalid()
+    if (manifest["schema"] != basis.manifest_schema
+        or manifest["source_revision_sha256"] != basis.source_revision_sha256
+        or manifest["span_index_sha256"] != basis.span_index_sha256
+        or manifest["profile_id"] != basis.profile_id
+        or type(manifest["expected_parent_revision"]) is not int
+        or manifest["expected_parent_revision"] != basis.expected_parent_revision):
+        invalid()
+    appends, descriptions = manifest["evidence_appends"], manifest["node_description_replacements"]
+    if not isinstance(appends, list) or not 1 <= len(appends) <= 2 or not isinstance(descriptions, list) or len(descriptions) > 1:
+        invalid()
+    seen = set()
+    for row in appends:
+        if not isinstance(row, dict) or set(row) != {"record_kind", "record_id", "expected_evidence_refs_sha256", "source_span_ref_id", "anchor_quotes"}:
+            invalid()
+        if (row["record_kind"] not in {"node", "edge"}
+            or any(not isinstance(row[k], str) or not row[k] or row[k] != row[k].strip() or len(row[k]) > 256 or any(c in row[k] for c in "\r\n\t") for k in ("record_id", "source_span_ref_id"))
+            or not isinstance(row["expected_evidence_refs_sha256"], str)
+            or not _SHA256.fullmatch(row["expected_evidence_refs_sha256"])):
+            invalid()
+        quotes = row["anchor_quotes"]
+        if not isinstance(quotes, list) or not 1 <= len(quotes) <= 16 or any(not isinstance(q, str) or not q or q != q.strip() or len(q) > 4096 for q in quotes) or len(set(quotes)) != len(quotes):
+            invalid()
+        target = (row["record_kind"], row["record_id"], row["source_span_ref_id"])
+        if target in seen:
+            invalid()
+        seen.add(target)
+    for row in descriptions:
+        if (not isinstance(row, dict) or set(row) != {"node_id", "original_description", "replacement_description"}
+            or any(not isinstance(row[k], str) or not row[k] or len(row[k]) > 4096 for k in row)
+            or row["node_id"] != row["node_id"].strip()
+            or row["replacement_description"] != row["replacement_description"].strip()
+            or row["original_description"] == row["replacement_description"]):
+            invalid()
+
 def _assert_recap_atomic_manifest(manifest: object, basis: RecapSemanticBasisV8 | RecapSemanticBasisV9) -> None:
     def invalid():
         raise ApplicationStateConflictError("recap atomic manifest is malformed")
@@ -623,7 +677,7 @@ def _inherited_pc_proof_sha(value: object) -> str:
 
 def _assert_inherited_pc_basis(
     child: ExtractionRun, parent: ExtractionRun,
-    basis: RecapSemanticBasisV8 | RecapSemanticBasisV9,
+    basis: RecapSemanticBasisV8 | RecapSemanticBasisV9 | RecapSemanticBasisV11,
     get_ancestor: Callable[[str], ExtractionRun | None] | None,
 ) -> None:
     """Independently bind persisted proof to immutable APP-STATE ancestry."""
@@ -632,7 +686,7 @@ def _assert_inherited_pc_basis(
         _RECAP_CANDIDATE_DERIVATION_V3, _RECAP_CANDIDATE_DERIVATION_V4,
         _RECAP_CANDIDATE_DERIVATION_V5, _RECAP_CANDIDATE_DERIVATION_V6,
         _RECAP_CANDIDATE_DERIVATION_V7, _RECAP_CANDIDATE_DERIVATION_V8,
-        _RECAP_CANDIDATE_DERIVATION_V9,
+        _RECAP_CANDIDATE_DERIVATION_V9, _RECAP_CANDIDATE_DERIVATION_V10,
     }
     seen: set[str] = set()
     links: list[dict[str, object]] = []
@@ -738,7 +792,7 @@ def _assert_inherited_pc_basis(
 def _assert_recap_semantic_basis(
     child: ExtractionRun,
     parent: ExtractionRun,
-    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4 | RecapSemanticBasisV5 | RecapSemanticBasisV6 | RecapSemanticBasisV7 | RecapSemanticBasisV8 | RecapSemanticBasisV9 | RecapSemanticBasisV10,
+    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4 | RecapSemanticBasisV5 | RecapSemanticBasisV6 | RecapSemanticBasisV7 | RecapSemanticBasisV8 | RecapSemanticBasisV9 | RecapSemanticBasisV10 | RecapSemanticBasisV11,
     get_ancestor: Callable[[str], ExtractionRun | None] | None = None,
 ) -> None:
     """Prove every basis field against stored child/parent identity and refs."""
@@ -751,7 +805,8 @@ def _assert_recap_semantic_basis(
         or parent.status not in FROZEN_COMPONENT_STATUSES
         or not parent.has_required_review_components()
         or lineage.get("derivation") != (
-            _RECAP_CANDIDATE_DERIVATION_V9 if isinstance(basis, RecapSemanticBasisV10)
+            _RECAP_CANDIDATE_DERIVATION_V10 if isinstance(basis, RecapSemanticBasisV11)
+            else _RECAP_CANDIDATE_DERIVATION_V9 if isinstance(basis, RecapSemanticBasisV10)
             else _RECAP_CANDIDATE_DERIVATION_V8 if isinstance(basis, RecapSemanticBasisV9)
             else _RECAP_CANDIDATE_DERIVATION_V7 if isinstance(basis, RecapSemanticBasisV8)
             else _RECAP_CANDIDATE_DERIVATION_V6 if isinstance(basis, RecapSemanticBasisV7)
@@ -805,6 +860,12 @@ def _assert_recap_semantic_basis(
         or _sha(parent_spans.sha256) != basis.span_index_sha256
     ):
         raise ApplicationStateConflictError("recap semantic basis components changed")
+    if isinstance(basis, RecapSemanticBasisV11):
+        if parent.revision != basis.expected_parent_revision:
+            raise ApplicationStateConflictError("evidence append parent revision changed")
+        _assert_recap_append_manifest(lineage.get("semantic_candidate_manifest"), basis)
+        _assert_inherited_pc_basis(child, parent, basis, get_ancestor)
+        return
     if isinstance(basis, RecapSemanticBasisV10):
         if parent.revision != basis.expected_parent_revision:
             raise ApplicationStateConflictError("PC reference parent revision changed")
@@ -1061,7 +1122,7 @@ def record_recap_semantic_disposition(
     run_id: str,
     *,
     expected_revision: int,
-    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4 | RecapSemanticBasisV5 | RecapSemanticBasisV6 | RecapSemanticBasisV7 | RecapSemanticBasisV8 | RecapSemanticBasisV9 | RecapSemanticBasisV10,
+    basis: RecapSemanticBasisV1 | RecapSemanticBasisV2 | RecapSemanticBasisV3 | RecapSemanticBasisV4 | RecapSemanticBasisV5 | RecapSemanticBasisV6 | RecapSemanticBasisV7 | RecapSemanticBasisV8 | RecapSemanticBasisV9 | RecapSemanticBasisV10 | RecapSemanticBasisV11,
     decision: RecapSemanticDispositionCommandV1,
 ) -> ExtractionRun:
     """Single-use metadata-only CAS for a held recap correction child.

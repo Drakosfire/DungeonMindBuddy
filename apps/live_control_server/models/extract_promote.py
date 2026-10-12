@@ -1409,3 +1409,56 @@ class ReviewedCorpusNativeBindingV1(BaseModel):
         if len(keys) != len(set(keys)):
             raise ValueError("duplicate binding source")
         return self
+
+
+class RecapEvidenceAppend(_ExtractPromoteModel):
+    """One server-derived evidence entry after an exact existing citation array."""
+
+    record_kind: Literal["node", "edge"]
+    record_id: str
+    expected_evidence_refs_sha256: str = Field(
+        description="SHA-256 of the existing evidence_refs array encoded as UTF-8 JSON with sorted object keys, ensure_ascii=False, compact separators and one trailing newline.")
+    source_span_ref_id: str
+    anchor_quotes: list[str] = Field(min_length=1, max_length=16)
+
+    _ids = field_validator("record_id", "source_span_ref_id")(RecapCandidateNodeOmission._node_id.__func__)
+    _sha = field_validator("expected_evidence_refs_sha256")(RecapCandidateNodeOmission._digest.__func__)
+    _quotes = field_validator("anchor_quotes")(RecapBatchEvidenceReplacement._quotes.__func__)
+
+    @model_validator(mode="after")
+    def _distinct_quotes(self):
+        if len(set(self.anchor_quotes)) != len(self.anchor_quotes):
+            raise ValueError("append quotes must be distinct")
+        return self
+
+
+class RecapCandidateCorrectionRequestV10(_ExtractPromoteModel):
+    """Append at most two frozen-span citations; optionally correct one description."""
+
+    schema_: Literal["dmb_recap_candidate_correction_request_v10"] = Field(alias="schema")
+    parent_run_id: str
+    expected_parent_revision: int = Field(strict=True, ge=1)
+    parent_candidate_sha256: str
+    source_revision_sha256: str
+    span_index_sha256: str
+    profile_id: Literal["recap_category_v1@1.0"]
+    evidence_appends: list[RecapEvidenceAppend] = Field(min_length=1, max_length=2)
+    node_description_replacements: list[RecapNodeDescriptionReplacement] = Field(default_factory=list, max_length=1)
+
+    _id = field_validator("parent_run_id")(RecapCandidateNodeOmission._node_id.__func__)
+    _sha = field_validator("parent_candidate_sha256", "source_revision_sha256", "span_index_sha256")(RecapCandidateNodeOmission._digest.__func__)
+
+    @model_validator(mode="after")
+    def _bounded_append(self):
+        targets = [(x.record_kind, x.record_id, x.source_span_ref_id) for x in self.evidence_appends]
+        if len(set(targets)) != len(targets):
+            raise ValueError("duplicate evidence append")
+        for x in self.node_description_replacements:
+            if not x.original_description or len(x.original_description) > 4096 or x.original_description == x.replacement_description:
+                raise ValueError("description preimage must be bounded and changed")
+        return self
+
+
+class RecapCandidateCorrectionResponseV10(RecapCandidateCorrectionResponse):
+    schema_: Literal["dmb_recap_candidate_correction_response_v10"] = Field(
+        default="dmb_recap_candidate_correction_response_v10", alias="schema")

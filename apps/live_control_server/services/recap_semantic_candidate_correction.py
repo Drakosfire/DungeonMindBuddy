@@ -20,6 +20,8 @@ from apps.live_control_server.models.extract_promote import (
     RecapCandidateCorrectionRequestV8,
     RecapCandidateCorrectionResponseV8,
     RecapCandidateCorrectionRequestV9,
+    RecapCandidateCorrectionRequestV10,
+    RecapCandidateCorrectionResponseV10,
     RecapCandidateCorrectionResponseV9,
     RecapCandidateCorrectionResponseV7,
     RecapEvidenceRefSplit,
@@ -95,6 +97,8 @@ DERIVATION_V8 = "operator_recap_semantic_candidate_correction_v8"
 MANIFEST_SCHEMA_V8 = "dmb_recap_semantic_candidate_manifest_v8"
 DERIVATION_V9 = "operator_recap_semantic_candidate_correction_v9"
 MANIFEST_SCHEMA_V9 = "dmb_recap_semantic_candidate_manifest_v9"
+DERIVATION_V10 = "operator_recap_semantic_candidate_correction_v10"
+MANIFEST_SCHEMA_V10 = "dmb_recap_semantic_candidate_manifest_v10"
 
 PROFILE = "recap_category_v1@1.0"
 MAX_EDGE_TUPLE_REPLACEMENTS = 7
@@ -865,10 +869,68 @@ def verify_pc_reference_native_basis(candidate: dict, manifest: dict) -> bool:
         return False
 
 
+
+def _replay_evidence_append(parent: dict, manifest: dict, source_bytes: bytes | None, span_bytes: bytes | None) -> dict:
+    """Validate the whole append batch before producing an immutable child."""
+    from graph_memory.source_span import source_span_index_from_dict, validate_source_span_index
+    from graph_memory.extraction.category_candidate_graph_extractor import materialize_promote_evidence_ref
+
+    keys = {"schema", "expected_parent_revision", "source_revision_sha256", "span_index_sha256",
+            "profile_id", "evidence_appends", "node_description_replacements"}
+    if set(manifest) != keys or manifest.get("schema") != MANIFEST_SCHEMA_V10:
+        raise _reject("evidence append manifest fields changed")
+    try:
+        request = RecapCandidateCorrectionRequestV10.model_validate({
+            **{k: v for k, v in manifest.items() if k != "schema"},
+            "schema": "dmb_recap_candidate_correction_request_v10",
+            "parent_run_id": "replay", "parent_candidate_sha256": "0" * 64,
+        })
+    except (ValueError, TypeError) as exc:
+        raise _reject("evidence append manifest is malformed") from exc
+    if source_bytes is None or span_bytes is None or _sha(source_bytes) != request.source_revision_sha256 or _sha(span_bytes) != request.span_index_sha256:
+        raise _reject("evidence append frozen source/index changed", status_code=409)
+    index = source_span_index_from_dict(json.loads(span_bytes))
+    validate_source_span_index(index, source_artifact_id=index.source_artifact_id,
+                               content_sha256=request.source_revision_sha256)
+    if parent.get("source_artifact_ids") != [index.source_artifact_id]:
+        raise _reject("evidence append source identity changed", status_code=409)
+    child = copy.deepcopy(parent)
+    for op in request.node_description_replacements:
+        matches = [n for n in child.get("nodes", []) if n.get("node_id") == op.node_id]
+        if len(matches) != 1 or matches[0].get("description") != op.original_description:
+            raise _reject("append description preimage is stale", status_code=409)
+        matches[0]["description"] = op.replacement_description
+    for op in request.evidence_appends:
+        collection, id_key = ("nodes", "node_id") if op.record_kind == "node" else ("edges", "edge_id")
+        originals = [r for r in parent.get(collection, []) if r.get(id_key) == op.record_id]
+        if len(originals) != 1 or not isinstance(originals[0].get("evidence_refs"), list) or any(not isinstance(ref, dict) for ref in originals[0]["evidence_refs"]):
+            raise _reject("evidence append target missing or ambiguous", status_code=409)
+        original_refs = originals[0]["evidence_refs"]
+        if _sha(_canonical_bytes(original_refs)) != op.expected_evidence_refs_sha256:
+            raise _reject("evidence append citation array preimage is stale", status_code=409)
+        matches = [span for span in index.spans if span.source_span_id == op.source_span_ref_id]
+        if len(matches) != 1:
+            raise _reject("evidence append span is not frozen")
+        span = matches[0]
+        paragraph = "\n".join(source_bytes.decode("utf-8").splitlines()[span.start_line - 1:span.end_line])
+        if any(quote not in paragraph for quote in op.anchor_quotes):
+            raise _reject("evidence append quote is not literal")
+        derived = materialize_promote_evidence_ref(
+            {"source_span_ref_id": op.source_span_ref_id, "anchor_quotes": op.anchor_quotes},
+            source_artifact_id=index.source_artifact_id, source_ref_id=index.source_ref_id,
+        )
+        target = next(r for r in child[collection] if r[id_key] == op.record_id)
+        if any(ref.get("source_span_ref_id") == op.source_span_ref_id or ref.get("source_anchor_id") == derived["source_anchor_id"] for ref in target["evidence_refs"]):
+            raise _reject("duplicate evidence append", status_code=409)
+        target["evidence_refs"].append(derived)
+    return child
+
 def replay_candidate(parent: dict, manifest: dict, *, source_bytes: bytes | None = None, span_bytes: bytes | None = None) -> dict:
     """Reconstruct one bounded correction request; never patch arbitrary JSON."""
     if not isinstance(parent, dict) or not isinstance(manifest, dict):
         raise _reject("semantic candidate replay input is malformed")
+    if manifest.get("schema") == MANIFEST_SCHEMA_V10:
+        return _replay_evidence_append(parent, manifest, source_bytes, span_bytes)
     if manifest.get("schema") == MANIFEST_SCHEMA_V9:
         return _replay_pc_references(parent, manifest, source_bytes, span_bytes)
     if manifest.get("schema") in {MANIFEST_SCHEMA_V7, MANIFEST_SCHEMA_V8}:
@@ -1125,7 +1187,7 @@ def inherited_pc_reference_proof(
     This deliberately does not re-read the historical registry or original
     World head. The current native target is checked at publication time.
     """
-    if run.lineage.get("derivation") not in {DERIVATION_V7, DERIVATION_V8}:
+    if run.lineage.get("derivation") not in {DERIVATION_V7, DERIVATION_V8, DERIVATION_V10}:
         return None
     final_bytes = (_canonical_bytes(candidate_override) if candidate_override is not None
                    else _frozen_component(run, "candidate_graph", root))
@@ -1146,7 +1208,7 @@ def inherited_pc_reference_proof(
     current_bytes = final_bytes
     while current.lineage.get("derivation") in {
         DERIVATION, DERIVATION_V2, DERIVATION_V3, DERIVATION_V4, DERIVATION_V5,
-        DERIVATION_V6, DERIVATION_V7, DERIVATION_V8, DERIVATION_V9,
+        DERIVATION_V6, DERIVATION_V7, DERIVATION_V8, DERIVATION_V9, DERIVATION_V10,
     }:
         if current.run_id in seen or len(seen) >= 64:
             raise _reject("inherited PC lineage is cyclic or unbounded", status_code=409)
@@ -1278,8 +1340,8 @@ def verify_inherited_pc_native_basis(candidate: dict, proof: dict, context: obje
 
 
 def correct_recap_candidate(
-    request: RecapCandidateCorrectionRequest | RecapCandidateCorrectionRequestV2 | RecapCandidateCorrectionRequestV3 | RecapCandidateCorrectionRequestV4 | RecapCandidateCorrectionRequestV5 | RecapCandidateCorrectionRequestV6 | RecapCandidateCorrectionRequestV7 | RecapCandidateCorrectionRequestV8 | RecapCandidateCorrectionRequestV9,
-) -> RecapCandidateCorrectionResponse | RecapCandidateCorrectionResponseV2 | RecapCandidateCorrectionResponseV3 | RecapCandidateCorrectionResponseV4 | RecapCandidateCorrectionResponseV5 | RecapCandidateCorrectionResponseV6 | RecapCandidateCorrectionResponseV7 | RecapCandidateCorrectionResponseV8 | RecapCandidateCorrectionResponseV9:
+    request: RecapCandidateCorrectionRequest | RecapCandidateCorrectionRequestV2 | RecapCandidateCorrectionRequestV3 | RecapCandidateCorrectionRequestV4 | RecapCandidateCorrectionRequestV5 | RecapCandidateCorrectionRequestV6 | RecapCandidateCorrectionRequestV7 | RecapCandidateCorrectionRequestV8 | RecapCandidateCorrectionRequestV9 | RecapCandidateCorrectionRequestV10,
+) -> RecapCandidateCorrectionResponse | RecapCandidateCorrectionResponseV2 | RecapCandidateCorrectionResponseV3 | RecapCandidateCorrectionResponseV4 | RecapCandidateCorrectionResponseV5 | RecapCandidateCorrectionResponseV6 | RecapCandidateCorrectionResponseV7 | RecapCandidateCorrectionResponseV8 | RecapCandidateCorrectionResponseV9 | RecapCandidateCorrectionResponseV10:
     """Create one held reviewable child without altering parent or WorldGraph."""
     from application_state.ingest.service import (
         RecapSemanticBasisV2,
@@ -1291,6 +1353,7 @@ def correct_recap_candidate(
         RecapSemanticBasisV8,
         RecapSemanticBasisV9,
         RecapSemanticBasisV10,
+        RecapSemanticBasisV11,
     )
 
     root = artifact_data_root(repo_root())
@@ -1333,6 +1396,7 @@ def correct_recap_candidate(
         raise _reject("parent candidate is unreadable") from exc
     if not isinstance(parent_payload, dict):
         raise _reject("parent candidate root must be an object")
+    v10 = isinstance(request, RecapCandidateCorrectionRequestV10)
     v9 = isinstance(request, RecapCandidateCorrectionRequestV9)
     v8 = isinstance(request, RecapCandidateCorrectionRequestV8)
     v7 = isinstance(request, RecapCandidateCorrectionRequestV7)
@@ -1341,10 +1405,16 @@ def correct_recap_candidate(
     v3 = isinstance(request, RecapCandidateCorrectionRequestV3)
     v4 = isinstance(request, RecapCandidateCorrectionRequestV4)
     v2 = isinstance(request, RecapCandidateCorrectionRequestV2)
-    derivation = DERIVATION_V9 if v9 else DERIVATION_V8 if v8 else DERIVATION_V7 if v7 else DERIVATION_V6 if v6 else DERIVATION_V5 if v5 else DERIVATION_V4 if v4 else DERIVATION_V3 if v3 else DERIVATION_V2 if v2 else DERIVATION
-    if (v8 or v9) and request.expected_parent_revision != parent.revision:
+    derivation = DERIVATION_V10 if v10 else DERIVATION_V9 if v9 else DERIVATION_V8 if v8 else DERIVATION_V7 if v7 else DERIVATION_V6 if v6 else DERIVATION_V5 if v5 else DERIVATION_V4 if v4 else DERIVATION_V3 if v3 else DERIVATION_V2 if v2 else DERIVATION
+    if (v8 or v9 or v10) and request.expected_parent_revision != parent.revision:
         raise _reject("final batch parent revision changed", status_code=409)
-    if v9:
+    if v10:
+        if request.source_revision_sha256 != source_sha or request.span_index_sha256 != span_sha or request.profile_id != parent.profile_id:
+            raise _reject("append request source/index/profile pins changed", status_code=409)
+        manifest = request.model_dump(mode="json", exclude={"schema_", "parent_run_id", "parent_candidate_sha256"})
+        manifest["schema"] = MANIFEST_SCHEMA_V10
+        manifest["evidence_appends"].sort(key=lambda item: (item["record_kind"], item["record_id"], item["source_span_ref_id"]))
+    elif v9:
         if (request.source_revision_sha256 != source_sha
             or request.span_index_sha256 != span_sha
             or request.profile_id != parent.profile_id):
@@ -1467,7 +1537,7 @@ def correct_recap_candidate(
         "semantic_candidate_manifest": manifest,
     }
     inherited_proof = None
-    if v7 or v8:
+    if v7 or v8 or v10:
         prospective = ExtractionRun(
             run_id=child_id, source_artifact_id=parent.source_artifact_id,
             source_domain="recap", campaign_id=parent.campaign_id,
@@ -1491,6 +1561,9 @@ def correct_recap_candidate(
         campaign_id=parent.campaign_id, session_id=parent.session_id,
     )
     basis = (
+        RecapSemanticBasisV11(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V10,
+            expected_parent_revision=request.expected_parent_revision, inherited_pc_proof_sha256=inherited_digest)
+        if v10 else
         RecapSemanticBasisV10(**basis_fields, derivation=derivation, manifest_schema=MANIFEST_SCHEMA_V9,
             expected_parent_revision=request.expected_parent_revision,
             registry_sha256=request.registry_sha256, roster_key=request.roster_key,
@@ -1573,7 +1646,8 @@ def correct_recap_candidate(
         if assessment.disposition is None or assessment.disposition.get("state") != semantic_state:
             raise _reject("derived run semantic decision conflicts", status_code=409)
     response_type = (
-        RecapCandidateCorrectionResponseV9 if v9
+        RecapCandidateCorrectionResponseV10 if v10
+        else RecapCandidateCorrectionResponseV9 if v9
         else RecapCandidateCorrectionResponseV8 if v8
         else RecapCandidateCorrectionResponseV7 if v7
         else RecapCandidateCorrectionResponseV6 if v6
