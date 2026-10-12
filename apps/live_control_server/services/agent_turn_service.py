@@ -578,6 +578,8 @@ def _restore_v2_retry_bootstrap(
         return bootstrap
     graph_types = _app_state_graph_execution_types()
     execution = turn.graph_context_execution
+    if execution is None:
+        return bootstrap
     if not isinstance(execution, graph_types.PlanWorldGraphExecutionV2):
         # A legacy frozen execution cannot gain the V2 source tool on replay.
         return replace(bootstrap, source_scope_anchors=(), source_index_commitment=None)
@@ -1265,7 +1267,13 @@ class _PolicyExecutionAdapter:
                     provider_dispatched=False,
                 )
             execution = getattr(self.turn, "graph_context_execution", None)
-            if execution is None or any(
+            if execution is None:
+                raise AgentTurnServiceError(
+                    "The stored Graph receipt has no frozen execution ledger and cannot be upgraded on retry.",
+                    code="turn_receipt_unverifiable", status_code=409,
+                    provider_dispatched=False,
+                )
+            if any(
                 _is_provider_authorization(event)
                 for event in execution.events
             ):
@@ -2062,7 +2070,7 @@ class _PolicyExecutionAdapter:
 
     def _related_recap_admission(
         self, request: ReadRelatedRecapContextRequest,
-    ) -> Any:
+    ) -> tuple[Any, str]:
         """Resolve one turn-admitted target/ref set to one same-pin Core context."""
         from dungeonmind.application.world_graph_retrieval import (
             EvidenceTarget, SourceContextIndexRequest,
@@ -2238,10 +2246,8 @@ class _PolicyExecutionAdapter:
             raise ValueError("related recap context match is missing or ambiguous")
         descriptor = descriptors[0]
         selector = descriptor.section_selector
-        if request.context_anchor_id is not None and (
-            request.context_anchor_id != descriptor.context_anchor_id
-        ):
-            raise ValueError("related recap continuation changed its context")
+        if request.context_anchor_id != descriptor.context_anchor_id:
+            raise ValueError("related recap Core context differs from admitted provenance")
         admission = graph_types.RelatedRecapContextAdmissionV1(
             admission_origin=origin,
             admission_graph_event_id=origin_event_id,
@@ -2285,7 +2291,7 @@ class _PolicyExecutionAdapter:
             expected_session_id=descriptor.section_selector.expected_session_id,
             expected_heading=descriptor.section_selector.expected_heading,
         )
-        return admission
+        return admission, descriptor.source_uri
 
     def broker_related_recap_context(
         self, message: Mapping[str, Any],
@@ -2333,7 +2339,7 @@ class _PolicyExecutionAdapter:
         if len(prior) >= 8 or sum(item.max_chars for item in prior) + request.max_chars > 96000:
             return denied("related_recap_context_over_budget", 413)
         try:
-            admission = self._related_recap_admission(request)
+            admission, source_uri = self._related_recap_admission(request)
         except (ValueError, TypeError, AttributeError):
             return denied("related_recap_context_not_admitted", 403)
         except Exception:
@@ -2384,7 +2390,7 @@ class _PolicyExecutionAdapter:
                 "authorize_related_recap_context", "authorization", authorization
             ))
             self.turn = updated
-            if self._related_recap_admission(request) != admission:
+            if self._related_recap_admission(request) != (admission, source_uri):
                 raise ValueError("related recap authority changed after authorization")
             from graph_memory.retrieval.models import RecapContextReadRequest
             from apps.live_control_server.services.world_graph_retrieval import (
@@ -2413,6 +2419,7 @@ class _PolicyExecutionAdapter:
                 or context.graph_revision_id != admission.descriptor_graph_revision_id
                 or context.source_artifact_id != admission.descriptor_source_artifact_id
                 or context.source_revision_id != admission.descriptor_source_revision_id
+                or context.source_uri != source_uri
                 or context.content_sha256 != admission.descriptor_content_sha256
                 or context.selector_schema != admission.selector_schema
                 or context.selector_policy != admission.selector_policy
@@ -2423,6 +2430,8 @@ class _PolicyExecutionAdapter:
                 or result.snapshot.scope_mode != "world"
                 or result.snapshot.admissibility != "gm"
                 or result.snapshot.focus.kind != "none"
+                or result.snapshot.focus.session_id is not None
+                or result.snapshot.focus.campaign_id is not None
                 or result.snapshot.revision_id != admission.graph_revision
                 or result.truncated != (result.outcome == "truncated")
                 or len(content) > request.max_chars
@@ -4709,6 +4718,7 @@ def execute_agent_turn(
             budget=budget,
             context_read_enabled=(
                 durable_turn is None
+                or durable_turn.graph_context_execution is None
                 or isinstance(
                     durable_turn.graph_context_execution,
                     _app_state_graph_execution_types().PlanWorldGraphExecutionV2,

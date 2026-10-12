@@ -209,7 +209,9 @@ def hermes_graph_interaction_tool_definitions() -> list[dict[str, Any]]:
                     "Read a related recap section for an admitted Graph target and exact "
                     "evidence refs. This context can inform prose but is not cited evidence. "
                     "Use the contextAnchorId offered in a relatedRecapContexts entry "
-                    "of a validated graph retrieval result. The parent verifies the source. "
+                    "of a validated graph retrieval result. A previously known Core context "
+                    "ID can also resolve when its target and refs were admitted to this turn "
+                    "and the parent verifies the exact same-scope provenance join. "
                     "For another page pass that same contextAnchorId and the returned continuation. "
                     "Do not supply paths, source revisions, or World authority."
                 ),

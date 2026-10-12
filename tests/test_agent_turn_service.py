@@ -1525,8 +1525,18 @@ def test_parent_source_broker_persists_authorization_before_content_and_result_b
     assert service_module._restore_v2_retry_bootstrap(
         replace(bootstrap, source_scope_anchors=frozen_pins), turn,
     ).retrieval_session.id == session.id
+    unfrozen = _policy_turn(status="accepted", completion_present=False)
+    assert service_module._restore_v2_retry_bootstrap(fresh, unfrozen) is fresh
+    legacy_policy = graph_types.GraphExecutionPolicyV1.model_validate({
+        key: value for key, value in policy.model_dump(mode="json").items()
+        if key in graph_types.GraphExecutionPolicyV1.model_fields
+    })
+    legacy_execution = graph_types.PlanWorldGraphExecutionV1(
+        context_receipt_sha256=unfrozen.graph_context_receipt.context_receipt_sha256,
+        policy=legacy_policy, events=[],
+    )
     legacy_retry = service_module._restore_v2_retry_bootstrap(
-        fresh, _policy_turn(status="accepted", completion_present=False),
+        fresh, unfrozen.model_copy(update={"graph_context_execution": legacy_execution}),
     )
     assert legacy_retry.source_scope_anchors == ()
     changed = replace(fresh, source_scope_anchors=({
@@ -1823,6 +1833,7 @@ def _related_recap_broker_fixture(monkeypatch: Any) -> Any:
                 graph_revision_id=descriptor.graph_revision_id,
                 source_artifact_id=descriptor.source_artifact_id,
                 source_revision_id=descriptor.source_revision_id,
+                source_uri=descriptor.source_uri,
                 content_sha256=descriptor.content_sha256,
                 selector_schema=selector.schema_version,
                 selector_policy=selector.policy,
@@ -1831,7 +1842,9 @@ def _related_recap_broker_fixture(monkeypatch: Any) -> Any:
             ),
             snapshot=SimpleNamespace(
                 world_id=descriptor.world_id, campaign_id="", scope_mode="world",
-                admissibility="gm", focus=SimpleNamespace(kind="none"),
+                admissibility="gm", focus=SimpleNamespace(
+                    kind="none", session_id=None, campaign_id=None,
+                ),
                 revision_id=descriptor.graph_revision_id,
             ),
             content=page_text, section_sha256=section_digest,
@@ -2065,6 +2078,27 @@ def test_parent_related_recap_broker_persists_verified_context_without_evidence_
     assert adapter.failure.code == "graph_evidence_invalid"
 
 
+def test_parent_related_recap_known_core_id_requires_admitted_target_and_join(
+    monkeypatch: Any,
+) -> None:
+    fixture = _related_recap_broker_fixture(monkeypatch)
+    assert fixture.adapter.operation_payloads == {}
+    # This ID is valid in Core, but it cannot authorize an unrelated target.
+    denied = fixture.adapter.broker_graph_operation(_related_recap_request(
+        fixture, targetId="unadmitted-other-target",
+    ))
+    assert json.loads(denied["resultJson"])["code"] == "related_recap_context_not_admitted"
+    assert fixture.calls == [] and fixture.adapter.context_payloads == {}
+    # A previously known ID needs no redundant offer receipt: the full frozen
+    # target/ref + same-pin Core provenance/index join remains the authority.
+    output = fixture.adapter.broker_graph_operation(_related_recap_request(fixture))
+    assert json.loads(output["resultJson"])["content"] == fixture.page_text
+    events = fixture.adapter.fence.turn.graph_context_execution.events
+    assert events[0].admission.admission_origin == "initial_graph_input"
+    assert events[0].admission.context_anchor_id == fixture.descriptor.context_anchor_id
+    assert fixture.descriptor.source_uri not in fixture.adapter.fence.turn.graph_context_execution.model_dump_json()
+
+
 def test_parent_related_recap_selected_index_admission(monkeypatch: Any) -> None:
     fixture = _related_recap_broker_fixture(monkeypatch)
     graph_types = fixture.graph_types
@@ -2137,6 +2171,175 @@ def test_parent_related_recap_selected_index_admission(monkeypatch: Any) -> None
     assert events[0].admission.admission_origin == "selected_index_admission"
     assert events[0].admission.selected_index_sha256 == index_sha
     assert events[0].admission.admission_graph_event_id is None
+
+
+@pytest.mark.parametrize("frozen_v1", [False, True], ids=["unfrozen", "frozen-v1"])
+def test_reconciled_turn_context_policy_before_provider_freeze(
+    monkeypatch: Any, tmp_path: Path, frozen_v1: bool,
+) -> None:
+    fixture = _related_recap_broker_fixture(monkeypatch)
+    accepted = _policy_turn(status="accepted", completion_present=False)
+    receipt = accepted.graph_context_receipt
+    assert receipt is not None and accepted.graph_context_execution is None
+    graph_types, service_module = fixture.graph_types, fixture.service_module
+    if frozen_v1:
+        policy = graph_types.GraphExecutionPolicyV1.model_validate({
+            key: value
+            for key, value in fixture.adapter.fence.turn.graph_context_execution.policy.model_dump(mode="json").items()
+            if key in graph_types.GraphExecutionPolicyV1.model_fields
+        })
+        accepted = accepted.model_copy(update={
+            "graph_context_execution": graph_types.PlanWorldGraphExecutionV1(
+                context_receipt_sha256=receipt.context_receipt_sha256,
+                policy=policy, events=[],
+            ),
+        })
+    basis = AgentTurnContentBasis(
+        world_id=accepted.world_id, document_id=receipt.plan_basis.document_id,
+        object_revision=receipt.plan_basis.object_revision,
+        work_revision_id=str(receipt.plan_basis.work_revision_id),
+        revision_n=receipt.plan_basis.revision_n,
+        content_sha256=receipt.plan_basis.content_sha256,
+        committed_status="committed", has_divergent_working_copy=False,
+    )
+    work = AgentTurnResolvedWork(
+        kind="plan", object_id=basis.document_id, revision=basis.object_revision,
+        changed_since_expected=False, owner_kind="world", owner_id=accepted.world_id,
+        world_id=accepted.world_id, content_basis=basis, plan_markdown="The keeper waits.",
+    )
+    request = _request(
+        surface={"surface_id": "plan", "instance_id": "plan-main"},
+        owner_scope={"kind": "world", "world_id": accepted.world_id},
+        primary_work={
+            "kind": "plan", "object_id": basis.document_id,
+            "expected_revision": basis.object_revision, "expected_revision_n": basis.revision_n,
+            "expected_content_sha256": basis.content_sha256,
+        },
+        client_work_state="saved_clean", plan_context_policy={"policy": "auto_plan_world"},
+        message=accepted.user_text,
+    )
+    bootstrap = replace(fixture.adapter.bootstrap, binding_version=2, graph_envelope={
+        "revision_id": receipt.graph_authority.graph_revision,
+        "world_id": receipt.graph_authority.native_world_id, "scope_mode": "world",
+    })
+    observed: list[bool] = []
+
+    def no_dispatch(*_args: Any, **_kwargs: Any) -> Any:
+        pytest.fail("This pre-freeze policy witness must not dispatch or mutate APP")
+
+    class ReconciledService:
+        def reconcile_turn(self, *_args: Any) -> Turn:
+            return accepted
+
+        accept_turn = claim_turn = authorize_provider_attempt = no_dispatch
+        record_provider_outcome = append_validated_graph_operation = no_dispatch
+        complete_turn = fail_turn = renew_turn_claim = no_dispatch
+
+    class InspectingRuntime:
+        descriptor = AgentRuntimeDescriptor("pre-freeze", "fake", "test", "graph")
+
+        def run_with_provider_authorization(
+            self, _invocation: Any, _authorize: Any, *, request_budget: Any,
+            on_graph_operation: Any, on_provider_lifecycle: Any,
+            context_read_enabled: bool = False,
+        ) -> AgentRuntimeResult:
+            observed.append(context_read_enabled)
+            projection = bootstrap.retrieval_session.project_for_hermes()
+            body = json.dumps({
+                "input": [{"role": "system", "content":
+                    "Turn capability policy (runtime-enforced; also required on tool calls):\n"
+                    + json.dumps({"initialClaimPacket": {
+                        "candidates": projection["candidates"][:8],
+                        "claimLedger": projection["claim_ledger"][:24],
+                        "intentHint": projection["intent_hint"],
+                        "availableExpansions": projection["available_expansions"],
+                    }}),
+                }, {"role": "user", "content": service_module._plan_message(
+                    request.message, work.plan_markdown, content_basis=basis,
+                )}], "tools": [],
+            })
+            view = {
+                "provider": request_budget["provider"], "model": request_budget["model"],
+                "apiMode": request_budget["apiMode"], "payloadJson": body,
+                "payloadSha256": sha256(body.encode()).hexdigest(),
+                "payloadUtf8Bytes": len(body.encode()),
+            }
+            frozen_receipt, execution, _ = service_module._freeze_policy_receipt(
+                request, work, bootstrap, None, view, request_budget,
+                context_read_enabled=context_read_enabled,
+            )
+            assert isinstance(execution, (
+                graph_types.PlanWorldGraphExecutionV1 if frozen_v1
+                else graph_types.PlanWorldGraphExecutionV2
+            ))
+            if not frozen_v1:
+                assert execution.policy.source_read_scope.admitted_anchors == []
+                assert execution.policy.max_source_read_calls == 0
+                existing_without_ledger = accepted.model_copy(update={
+                    "graph_context_receipt": frozen_receipt,
+                    "graph_context_execution": None,
+                })
+                blocked_adapter = service_module._PolicyExecutionAdapter(
+                    service=ReconciledService(), request=request,
+                    world_id=accepted.world_id, work=work, bootstrap=bootstrap,
+                    playable_target=None,
+                    submitted_intent=_submitted_turn_intent(request, world_id=accepted.world_id),
+                    existing_turn=existing_without_ledger, budget=request_budget,
+                    context_read_enabled=True,
+                )
+                assert blocked_adapter.authorize(view) is False
+                assert blocked_adapter.failure.code == "turn_receipt_unverifiable"
+                assert blocked_adapter.failure.provider_dispatched is False
+                assert blocked_adapter.fence is None
+                # Exercise APP's immutable acceptance boundary without a DB:
+                # idempotent reaccept cannot attach a new execution to this row.
+                from contextlib import contextmanager
+                from application_state.agent_conversation import service as app_service
+
+                @contextmanager
+                def no_database(_dsn: Any) -> Any:
+                    yield object()
+
+                submitted = _submitted_turn_intent(request, world_id=accepted.world_id)
+                submission = graph_types.TurnSubmission(
+                    world_id=accepted.world_id, conversation_id=accepted.conversation_id,
+                    idempotency_key=accepted.idempotency_key, expected_conversation_revision=1,
+                    user_text=request.message, provenance=accepted.provenance,
+                    submitted_intent_v2=submitted,
+                    graph_context_receipt=frozen_receipt, graph_context_execution=execution,
+                )
+                with monkeypatch.context() as app_contract:
+                    app_contract.setattr(app_service, "_ready_dsn", lambda: "unused")
+                    app_contract.setattr(app_service, "unit_of_work", no_database)
+                    app_contract.setattr(app_service.repo, "get_turn_by_world_key", lambda *_args: (
+                        existing_without_ledger, "old-request", "old-idempotency", None,
+                        app_service.submitted_turn_intent_fingerprint_v2(submitted),
+                    ))
+                    with pytest.raises(ApplicationStateConflictError, match="Graph receipt"):
+                        app_service.AgentConversationService().accept_turn(submission)
+            return AgentRuntimeResult(
+                status="error", error_code="request_budget_exceeded",
+                observed_model_call_count=0,
+            )
+
+    with pytest.raises(AgentTurnServiceError) as stopped:
+        execute_agent_turn(
+            request, root=tmp_path,
+            pointer_store=HermesSessionPointerStore(tmp_path / "pointers"),
+            owner_resolver=lambda _request: {
+                "kind": "world", "id": accepted.world_id, "name": "World One",
+            },
+            work_resolver=no_dispatch,
+            historical_work_resolver=lambda *_args: work,
+            graph_resolver=no_dispatch,
+            plan_graph_resolver=lambda *_args, **_kwargs: bootstrap,
+            runtime=InspectingRuntime(), conversation_service=ReconciledService(),
+        )
+    assert stopped.value.code == "plan_context_delivery_failure"
+    assert observed == [not frozen_v1]
+    assert accepted.graph_context_execution is None if not frozen_v1 else isinstance(
+        accepted.graph_context_execution, graph_types.PlanWorldGraphExecutionV1
+    )
 
 
 @pytest.mark.parametrize("change", [
@@ -2215,11 +2418,14 @@ def test_parent_related_recap_continuation_matches_descriptor_and_pages(
     ("context", "world_id", "wrong-world"),
     ("context", "source_artifact_id", "wrong-artifact"),
     ("context", "source_revision_id", "wrong-source-revision"),
+    ("context", "source_uri", "repo://recaps/foreign.md"),
     ("context", "content_sha256", "b" * 64),
     ("context", "selector_policy", "wrong-selector"),
     ("context", "expected_heading", "# Wrong heading"),
     ("snapshot", "revision_id", "wrong-graph-revision"),
     ("snapshot", "scope_mode", "campaign"),
+    ("focus", "session_id", "unexpected-session"),
+    ("focus", "campaign_id", "unexpected-campaign"),
     ("result", "section_sha256", "invalid-digest"),
     ("result", "offset_chars", 1),
     ("result", "line_start", 1),
@@ -2232,7 +2438,11 @@ def test_parent_related_recap_rejects_source_metadata_before_release(
 
     def wrong_source(request: Any) -> Any:
         result = fixture.read_source(request)
-        setattr(result if owner == "result" else getattr(result, owner), field, value)
+        returned = (
+            result if owner == "result" else
+            result.snapshot.focus if owner == "focus" else getattr(result, owner)
+        )
+        setattr(returned, field, value)
         return result
 
     monkeypatch.setattr(fixture.source_reads, "read_recap_context", wrong_source)
