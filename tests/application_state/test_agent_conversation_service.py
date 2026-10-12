@@ -1708,12 +1708,12 @@ def _related_recap_admission_fixture(
     descriptor_campaign_id: str | None = None,
 ):
     from application_state.agent_conversation.types import (
-        RelatedRecapContextAdmissionV1,
-        RelatedRecapProvenanceBindingV1,
+        RelatedRecapContextAdmissionV2,
+        RelatedRecapProvenanceBindingV2,
         related_recap_provenance_result_digest,
     )
 
-    binding = RelatedRecapProvenanceBindingV1(
+    binding = RelatedRecapProvenanceBindingV2(
         evidence_ref_id=evidence_ref_id,
         source_artifact_id=artifact_id,
         source_revision_id=source_revision_id,
@@ -1727,7 +1727,7 @@ def _related_recap_admission_fixture(
         target_id=target_id,
         provenance_bindings=[binding],
     )
-    return RelatedRecapContextAdmissionV1(
+    return RelatedRecapContextAdmissionV2(
         admission_origin=admission_origin,
         admission_graph_event_id=admission_graph_event_id,
         selected_index_sha256=selected_index_sha256,
@@ -1749,17 +1749,17 @@ def _related_recap_admission_fixture(
         context_index_status="complete",
         context_index_entry_count=1,
         context_index_max_entries=512,
-        context_anchor_id="dm-context-anchor:v1:session-22",
+        context_anchor_id="dm-context-anchor:v2:session-22",
         descriptor_world_id="native-indexed-world",
         descriptor_campaign_id=descriptor_campaign_id,
         descriptor_graph_revision_id="graph-revision-1",
         descriptor_source_artifact_id=artifact_id,
         descriptor_source_revision_id=source_revision_id,
         descriptor_content_sha256="d" * 64,
-        selector_schema="dm_recap_context_section_selector_v1",
-        selector_policy="markdown-session-recap-v1",
+        selector_schema="dm_recap_context_section_selector_v2",
+        selector_policy="markdown-session-recap-v2",
         expected_session_id="session-22",
-        expected_heading="# Session 22 Recap",
+        canonical_heading="# Session 22 Recap", legacy_session_heading="## Session 22:", legacy_recap_marker="**Recap**:",
     )
 
 
@@ -2389,8 +2389,8 @@ def test_graph_execution_v2_source_read_scope_receipt_and_budget_are_strict() ->
 def test_related_recap_context_uses_independent_turn_admitted_provenance() -> None:
     from application_state.agent_conversation.types import (
         PlanWorldGraphExecutionV2,
-        RelatedRecapContextAuthorizationEventV1,
-        ValidatedRelatedRecapContextEventV1,
+        RelatedRecapContextAuthorizationEventV2,
+        ValidatedRelatedRecapContextEventV2,
         _canonical_sha256,
         validate_related_recap_context_scope,
         validate_selected_source_binding,
@@ -2398,22 +2398,22 @@ def test_related_recap_context_uses_independent_turn_admitted_provenance() -> No
 
     receipt, execution = _related_recap_execution_fixture()
     admission = _related_recap_admission_fixture()
-    authorization = RelatedRecapContextAuthorizationEventV1(
-        event_id=uuid4(), sequence=0, kind="related_recap_context_authorized_v1",
+    authorization = RelatedRecapContextAuthorizationEventV2(
+        event_id=uuid4(), sequence=0, kind="related_recap_context_authorized_v2",
         read_call_id=uuid4(), context_receipt_sha256=execution.context_receipt_sha256,
         execution_policy_sha256=execution.execution_policy_sha256,
         admission=admission, max_chars=12000,
     )
-    result = ValidatedRelatedRecapContextEventV1(
-        event_id=uuid4(), sequence=1, kind="validated_related_recap_context_v1",
+    result = ValidatedRelatedRecapContextEventV2(
+        event_id=uuid4(), sequence=1, kind="validated_related_recap_context_v2",
         read_call_id=authorization.read_call_id,
         authorization_event_id=authorization.event_id,
         admission_sha256=_canonical_sha256(admission.model_dump(mode="json", by_alias=True)),
         outcome="enough",
-        range_semantics_version="utf8-character-offset-in-markdown-session-recap-v1",
+        range_semantics_version="utf8-character-offset-in-markdown-session-recap-v2",
         source_bytes_sha256=admission.descriptor_content_sha256,
         section_sha256="e" * 64, page_content_sha256="f" * 64,
-        heading_line=12, line_start=13, line_end=38, offset_chars=0,
+        heading_line=12, selected_form="canonical_h1", session_heading_line=12, recap_marker_line=None, line_start=13, line_end=38, offset_chars=0,
         returned_chars=37, truncated=False,
     )
     stored = PlanWorldGraphExecutionV2.model_validate(
@@ -2462,7 +2462,7 @@ def test_related_recap_context_uses_independent_turn_admitted_provenance() -> No
 def test_related_recap_context_may_bind_a_prior_validated_graph_operation() -> None:
     from application_state.agent_conversation.types import (
         PlanWorldGraphExecutionV2,
-        RelatedRecapContextAuthorizationEventV1,
+        RelatedRecapContextAuthorizationEventV2,
         ValidatedGraphOperationEventV1,
         validate_related_recap_context_scope,
     )
@@ -2482,8 +2482,8 @@ def test_related_recap_context_may_bind_a_prior_validated_graph_operation() -> N
         admission_graph_event_id=operation.event_id,
         evidence_ref_id="evidence-from-operation",
     )
-    authorization = RelatedRecapContextAuthorizationEventV1(
-        event_id=uuid4(), sequence=1, kind="related_recap_context_authorized_v1",
+    authorization = RelatedRecapContextAuthorizationEventV2(
+        event_id=uuid4(), sequence=1, kind="related_recap_context_authorized_v2",
         read_call_id=uuid4(), context_receipt_sha256=base.context_receipt_sha256,
         execution_policy_sha256=base.execution_policy_sha256,
         admission=admission, max_chars=100,
@@ -2509,7 +2509,7 @@ def test_related_recap_context_may_bind_a_prior_validated_graph_operation() -> N
 def test_related_recap_context_may_bind_a_committed_selected_index() -> None:
     from application_state.agent_conversation.types import (
         PlanWorldGraphExecutionV2,
-        RelatedRecapContextAuthorizationEventV1,
+        RelatedRecapContextAuthorizationEventV2,
         validate_related_recap_context_scope,
     )
 
@@ -2522,10 +2522,10 @@ def test_related_recap_context_may_bind_a_committed_selected_index() -> None:
         source_revision_id="source-revision-indexed",
         descriptor_campaign_id="longmont-c2",
     )
-    authorization = RelatedRecapContextAuthorizationEventV1(
+    authorization = RelatedRecapContextAuthorizationEventV2(
         event_id=uuid4(),
         sequence=0,
-        kind="related_recap_context_authorized_v1",
+        kind="related_recap_context_authorized_v2",
         read_call_id=uuid4(),
         context_receipt_sha256=base.context_receipt_sha256,
         execution_policy_sha256=base.execution_policy_sha256,
@@ -2560,17 +2560,17 @@ def test_related_recap_context_may_bind_a_committed_selected_index() -> None:
         mode="json", by_alias=True
     )
     missing_campaign.pop("descriptor_campaign_id")
-    from application_state.agent_conversation.types import RelatedRecapContextAdmissionV1
+    from application_state.agent_conversation.types import RelatedRecapContextAdmissionV2
 
     with pytest.raises(ValidationError, match="descriptor_campaign_id"):
-        RelatedRecapContextAdmissionV1.model_validate(missing_campaign)
+        RelatedRecapContextAdmissionV2.model_validate(missing_campaign)
 
 
 def test_related_recap_continuation_binds_exact_descriptor_campaign() -> None:
     from application_state.agent_conversation.types import (
         PlanWorldGraphExecutionV2,
-        RelatedRecapContextAuthorizationEventV1,
-        ValidatedRelatedRecapContextEventV1,
+        RelatedRecapContextAuthorizationEventV2,
+        ValidatedRelatedRecapContextEventV2,
         _canonical_sha256,
     )
 
@@ -2578,31 +2578,31 @@ def test_related_recap_continuation_binds_exact_descriptor_campaign() -> None:
     first_admission = _related_recap_admission_fixture(
         descriptor_campaign_id="longmont-c2"
     )
-    first_authorization = RelatedRecapContextAuthorizationEventV1(
+    first_authorization = RelatedRecapContextAuthorizationEventV2(
         event_id=uuid4(),
         sequence=0,
-        kind="related_recap_context_authorized_v1",
+        kind="related_recap_context_authorized_v2",
         read_call_id=uuid4(),
         context_receipt_sha256=execution.context_receipt_sha256,
         execution_policy_sha256=execution.execution_policy_sha256,
         admission=first_admission,
         max_chars=100,
     )
-    first_result = ValidatedRelatedRecapContextEventV1(
+    first_result = ValidatedRelatedRecapContextEventV2(
         event_id=uuid4(),
         sequence=1,
-        kind="validated_related_recap_context_v1",
+        kind="validated_related_recap_context_v2",
         read_call_id=first_authorization.read_call_id,
         authorization_event_id=first_authorization.event_id,
         admission_sha256=_canonical_sha256(
             first_admission.model_dump(mode="json", by_alias=True)
         ),
         outcome="truncated",
-        range_semantics_version="utf8-character-offset-in-markdown-session-recap-v1",
+        range_semantics_version="utf8-character-offset-in-markdown-session-recap-v2",
         source_bytes_sha256=first_admission.descriptor_content_sha256,
         section_sha256="e" * 64,
         page_content_sha256="f" * 64,
-        heading_line=12,
+        heading_line=12, selected_form="canonical_h1", session_heading_line=12, recap_marker_line=None,
         line_start=13,
         line_end=38,
         offset_chars=0,
@@ -2613,10 +2613,10 @@ def test_related_recap_continuation_binds_exact_descriptor_campaign() -> None:
     changed_campaign = _related_recap_admission_fixture(
         descriptor_campaign_id="longmont-c1"
     )
-    second_authorization = RelatedRecapContextAuthorizationEventV1(
+    second_authorization = RelatedRecapContextAuthorizationEventV2(
         event_id=uuid4(),
         sequence=2,
-        kind="related_recap_context_authorized_v1",
+        kind="related_recap_context_authorized_v2",
         read_call_id=uuid4(),
         context_receipt_sha256=execution.context_receipt_sha256,
         execution_policy_sha256=execution.execution_policy_sha256,
@@ -2624,21 +2624,21 @@ def test_related_recap_continuation_binds_exact_descriptor_campaign() -> None:
         max_chars=100,
         continuation_in_sha256="1" * 64,
     )
-    second_result = ValidatedRelatedRecapContextEventV1(
+    second_result = ValidatedRelatedRecapContextEventV2(
         event_id=uuid4(),
         sequence=3,
-        kind="validated_related_recap_context_v1",
+        kind="validated_related_recap_context_v2",
         read_call_id=second_authorization.read_call_id,
         authorization_event_id=second_authorization.event_id,
         admission_sha256=_canonical_sha256(
             changed_campaign.model_dump(mode="json", by_alias=True)
         ),
         outcome="enough",
-        range_semantics_version="utf8-character-offset-in-markdown-session-recap-v1",
+        range_semantics_version="utf8-character-offset-in-markdown-session-recap-v2",
         source_bytes_sha256=changed_campaign.descriptor_content_sha256,
         section_sha256="e" * 64,
         page_content_sha256="2" * 64,
-        heading_line=12,
+        heading_line=12, selected_form="canonical_h1", session_heading_line=12, recap_marker_line=None,
         line_start=13,
         line_end=38,
         offset_chars=100,
@@ -2664,9 +2664,9 @@ def test_related_recap_context_inclusion_is_separate_and_dispatch_fenced() -> No
     from application_state.agent_conversation.types import (
         PlanWorldGraphExecutionV2,
         ProviderAttemptAuthorizedEventV2,
-        RelatedRecapContextAuthorizationEventV1,
-        RelatedRecapContextProviderInclusionEventV1,
-        ValidatedRelatedRecapContextEventV1,
+        RelatedRecapContextAuthorizationEventV2,
+        RelatedRecapContextProviderInclusionEventV2,
+        ValidatedRelatedRecapContextEventV2,
         _canonical_sha256,
         related_recap_context_inclusion_digest,
         _validate_v2_completion_source_reads,
@@ -2674,29 +2674,29 @@ def test_related_recap_context_inclusion_is_separate_and_dispatch_fenced() -> No
 
     _receipt, execution = _related_recap_execution_fixture()
     admission = _related_recap_admission_fixture()
-    authorization = RelatedRecapContextAuthorizationEventV1(
-        event_id=uuid4(), sequence=0, kind="related_recap_context_authorized_v1",
+    authorization = RelatedRecapContextAuthorizationEventV2(
+        event_id=uuid4(), sequence=0, kind="related_recap_context_authorized_v2",
         read_call_id=uuid4(), context_receipt_sha256=execution.context_receipt_sha256,
         execution_policy_sha256=execution.execution_policy_sha256,
         admission=admission, max_chars=12000,
     )
-    result = ValidatedRelatedRecapContextEventV1(
-        event_id=uuid4(), sequence=1, kind="validated_related_recap_context_v1",
+    result = ValidatedRelatedRecapContextEventV2(
+        event_id=uuid4(), sequence=1, kind="validated_related_recap_context_v2",
         read_call_id=authorization.read_call_id,
         authorization_event_id=authorization.event_id,
         admission_sha256=_canonical_sha256(admission.model_dump(mode="json", by_alias=True)),
         outcome="enough",
-        range_semantics_version="utf8-character-offset-in-markdown-session-recap-v1",
+        range_semantics_version="utf8-character-offset-in-markdown-session-recap-v2",
         source_bytes_sha256=admission.descriptor_content_sha256,
         section_sha256="e" * 64, page_content_sha256="f" * 64,
-        heading_line=12, line_start=13, line_end=38, offset_chars=0,
+        heading_line=12, selected_form="canonical_h1", session_heading_line=12, recap_marker_line=None, line_start=13, line_end=38, offset_chars=0,
         returned_chars=37, truncated=False,
     )
     attempt_id = uuid4()
     envelope_sha = "a" * 64
-    inclusion = RelatedRecapContextProviderInclusionEventV1(
+    inclusion = RelatedRecapContextProviderInclusionEventV2(
         event_id=uuid4(), sequence=2,
-        kind="related_recap_context_provider_inclusion_v1",
+        kind="related_recap_context_provider_inclusion_v2",
         provider_attempt_id=attempt_id, envelope_sha256=envelope_sha,
         included_context_event_ids=[result.event_id],
         included_context_sha256=related_recap_context_inclusion_digest([result]),
@@ -2989,3 +2989,35 @@ def test_reset_fingerprint_full_canonical_unicode_vector():
     assert request_fingerprint(command) == hashlib.sha256(encoded.encode()).hexdigest()
     assert request_fingerprint(command.model_copy(update={"command_id": uuid4()})) == request_fingerprint(command)
     assert request_fingerprint(command.model_copy(update={"expected_pointer_revision": 1})) != request_fingerprint(command)
+
+
+@pytest.mark.parametrize("patch", [
+    {"session_heading_line":2}, {"selected_form":"legacy_h2"}, {"recap_marker_line":2},
+    {"selected_form":"legacy_h2","recap_marker_line":1}, {"line_start":3},
+    {"kind":"validated_related_recap_context_v1"},
+])
+def test_related_recap_v2_audit_rejects_forged_geometry_and_retired_kind(patch):
+    from pydantic import ValidationError
+    from application_state.agent_conversation.types import ValidatedRelatedRecapContextEventV2
+    data = dict(event_id=uuid4(),sequence=1,kind="validated_related_recap_context_v2",read_call_id=uuid4(),
+        authorization_event_id=uuid4(),admission_sha256="a"*64,outcome="enough",
+        range_semantics_version="utf8-character-offset-in-markdown-session-recap-v2",
+        source_bytes_sha256="b"*64,section_sha256="c"*64,page_content_sha256="d"*64,
+        selected_form="canonical_h1",session_heading_line=1,recap_marker_line=None,
+        heading_line=1,line_start=2,line_end=3,offset_chars=0,returned_chars=10,truncated=False)
+    with pytest.raises(ValidationError):
+        ValidatedRelatedRecapContextEventV2.model_validate(data | patch)
+
+
+@pytest.mark.parametrize("patch", [
+    {"expected_session_id":"session-022"}, {"expected_session_id":"session-0"},
+    {"canonical_heading":"# Session 21 Recap"}, {"legacy_session_heading":"## Session 21:"},
+    {"legacy_recap_marker":"Recap:"}, {"schema":"dmb_agent_related_recap_context_admission_v1"},
+    {"context_anchor_id":"dm-context-anchor:v1:session-22"},
+])
+def test_related_recap_v2_admission_rejects_retired_or_forged_selector(patch):
+    from pydantic import ValidationError
+    from application_state.agent_conversation.types import RelatedRecapContextAdmissionV2
+    data = _related_recap_admission_fixture().model_dump(mode="json",by_alias=True)
+    with pytest.raises(ValidationError):
+        RelatedRecapContextAdmissionV2.model_validate(data | patch)

@@ -3257,10 +3257,10 @@ def test_related_recap_events_round_trip_through_fresh_service(
         GraphSourceScopeAnchorV2,
         PlanWorldGraphContextReceiptV1,
         PlanWorldGraphExecutionV2,
-        RelatedRecapContextAuthorizationEventV1,
-        RelatedRecapContextProviderInclusionEventV1,
-        RelatedRecapProvenanceBindingV1,
-        ValidatedRelatedRecapContextEventV1,
+        RelatedRecapContextAuthorizationEventV2,
+        RelatedRecapContextProviderInclusionEventV2,
+        RelatedRecapProvenanceBindingV2,
+        ValidatedRelatedRecapContextEventV2,
         _canonical_sha256,
         graph_execution_policy_digest_v2,
         plan_world_graph_context_receipt_digest,
@@ -3390,13 +3390,13 @@ def test_related_recap_events_round_trip_through_fresh_service(
         expected_revision=accepted.revision,
         lease_seconds=60,
     ).turn
-    binding = RelatedRecapProvenanceBindingV1(
+    binding = RelatedRecapProvenanceBindingV2(
         evidence_ref_id="evidence-initial",
         source_artifact_id="legacy-artifact",
         source_revision_id="legacy-source-revision",
     )
     admission = {
-        "schema": "dmb_agent_related_recap_context_admission_v1",
+        "schema": "dmb_agent_related_recap_context_admission_v2",
         "admission_origin": "initial_graph_input",
         "managed_world_id": world_id,
         "native_world_id": "native-world-17",
@@ -3424,26 +3424,28 @@ def test_related_recap_events_round_trip_through_fresh_service(
         "context_index_status": "complete",
         "context_index_entry_count": 1,
         "context_index_max_entries": 512,
-        "context_anchor_id": "dm-context-anchor:v1:session-22",
+        "context_anchor_id": "dm-context-anchor:v2:session-22",
         "descriptor_world_id": "native-world-17",
         "descriptor_campaign_id": "longmont-c2",
         "descriptor_graph_revision_id": "graph-rev-11",
         "descriptor_source_artifact_id": "legacy-artifact",
         "descriptor_source_revision_id": "legacy-source-revision",
         "descriptor_content_sha256": "d" * 64,
-        "selector_schema": "dm_recap_context_section_selector_v1",
-        "selector_policy": "markdown-session-recap-v1",
+        "selector_schema": "dm_recap_context_section_selector_v2",
+        "selector_policy": "markdown-session-recap-v2",
         "expected_session_id": "session-22",
-        "expected_heading": "# Session 22 Recap",
+        "canonical_heading": "# Session 22 Recap",
+        "legacy_session_heading": "## Session 22:",
+        "legacy_recap_marker": "**Recap**:",
     }
-    from application_state.agent_conversation.types import RelatedRecapContextAdmissionV1
+    from application_state.agent_conversation.types import RelatedRecapContextAdmissionV2
 
-    typed_admission = RelatedRecapContextAdmissionV1.model_validate(admission)
+    typed_admission = RelatedRecapContextAdmissionV2.model_validate(admission)
     call_id = uuid4()
-    authorization = RelatedRecapContextAuthorizationEventV1(
+    authorization = RelatedRecapContextAuthorizationEventV2(
         event_id=uuid4(),
         sequence=0,
-        kind="related_recap_context_authorized_v1",
+        kind="related_recap_context_authorized_v2",
         read_call_id=call_id,
         context_receipt_sha256=receipt.context_receipt_sha256,
         execution_policy_sha256=execution.execution_policy_sha256,
@@ -3459,19 +3461,19 @@ def test_related_recap_events_round_trip_through_fresh_service(
         authorization=authorization,
     )
     assert inserted is True
-    result = ValidatedRelatedRecapContextEventV1(
+    result = ValidatedRelatedRecapContextEventV2(
         event_id=uuid4(),
         sequence=1,
-        kind="validated_related_recap_context_v1",
+        kind="validated_related_recap_context_v2",
         read_call_id=call_id,
         authorization_event_id=authorization.event_id,
         admission_sha256=_canonical_sha256(typed_admission.model_dump(mode="json", by_alias=True)),
         outcome="enough",
-        range_semantics_version="utf8-character-offset-in-markdown-session-recap-v1",
+        range_semantics_version="utf8-character-offset-in-markdown-session-recap-v2",
         source_bytes_sha256="d" * 64,
         section_sha256="e" * 64,
         page_content_sha256="f" * 64,
-        heading_line=12,
+        heading_line=12, selected_form="canonical_h1", session_heading_line=12, recap_marker_line=None,
         line_start=13,
         line_end=38,
         offset_chars=0,
@@ -3489,10 +3491,10 @@ def test_related_recap_events_round_trip_through_fresh_service(
     assert inserted is True
     attempt_id = uuid4()
     envelope_sha = "a" * 64
-    inclusion = RelatedRecapContextProviderInclusionEventV1(
+    inclusion = RelatedRecapContextProviderInclusionEventV2(
         event_id=uuid4(),
         sequence=2,
-        kind="related_recap_context_provider_inclusion_v1",
+        kind="related_recap_context_provider_inclusion_v2",
         provider_attempt_id=attempt_id,
         envelope_sha256=envelope_sha,
         included_context_event_ids=[result.event_id],

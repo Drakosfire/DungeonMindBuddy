@@ -16,8 +16,8 @@ import type {
   WorldAgentConversationHistoryTurnV1,
   WorldAgentConversationHistoryTurnV2,
   WorldAgentConversationHistoryPlanTurnV3,
-  WorldPlanAgentPlanContextV1,
-  WorldPlanSourceOpenTargetV1,
+  WorldPlanAgentPlanContextV2,
+  WorldPlanSourceOpenTargetV2,
   WorldPlanAgentTurnResponseV2,
   WorldPlanAgentTurnRequestV1,
   WorldPlanGraphAnswerContextStatusV1,
@@ -294,7 +294,7 @@ const serverHistoryProjection: WorldAgentConversationHistoryResponseV2 = {
           "schema": "dmb_agent_plan_world_graph_context_receipt_v1",
           "source_opened": false
         },
-        "schema": "dmb_agent_plan_world_graph_context_response_v1"
+        "schema": "dmb_agent_plan_world_graph_context_response_v2"
       },
       "provenance": {
         "primary_work": {
@@ -472,7 +472,7 @@ const serverCardTargetHistoryProjection: WorldAgentConversationHistoryResponseV2
             "schema": "dmb_agent_plan_world_graph_context_receipt_v1",
             "source_opened": false
           },
-          "schema": "dmb_agent_plan_world_graph_context_response_v1"
+          "schema": "dmb_agent_plan_world_graph_context_response_v2"
         },
         "provenance": {
           "primary_work": {
@@ -572,7 +572,7 @@ async function planGraphContext(
     execution?: WorldPlanGraphExecutionProjectionV1 | null;
     completion?: boolean;
   } = {},
-): Promise<WorldPlanAgentPlanContextV1> {
+): Promise<WorldPlanAgentPlanContextV2> {
   const graphClaimed = status === "graph_grounded" || status === "graph_grounded_partial";
   const sufficient = status !== "plan_only_insufficient_evidence";
   const graphRevision = "graph-revision-test";
@@ -668,7 +668,7 @@ async function planGraphContext(
     source_opened: false as const,
   }] : [];
   return {
-    schema: "dmb_agent_plan_world_graph_context_response_v1",
+    schema: "dmb_agent_plan_world_graph_context_response_v2",
     receipt,
     completion: options.completion === false ? null : {
       schema: "dmb_plan_world_graph_completion_v1",
@@ -692,7 +692,24 @@ async function planGraphContext(
   };
 }
 
-function sourceOpenTargets(): WorldPlanSourceOpenTargetV1[] {
+function currentRecapPage(): Awaited<ReturnType<typeof liveApi.postWorldGraphRecapContextReadV2>> {
+  return {
+      schema: "dmb_recap_context_read_v2", outcome: "truncated",
+      snapshot: { worldId: "native-world-internal-test", campaignId: "", scopeMode: "world",
+        revisionId: "graph-revision-test", headRevisionId: "graph-revision-test", isHead: true,
+        focus: { kind: "none", sessionId: null, campaignId: null }, admissibility: "gm" },
+      contextAnchorId: "dm-context-anchor:v2:test",
+      context: { contextAnchorId: "dm-context-anchor:v2:test", worldId: "native-world-internal-test",
+        campaignId: "longmont-c2", graphRevisionId: "graph-revision-test", sourceArtifactId: "artifact-test",
+        sourceRevisionId: "source-revision-test", sourceUri: "repo://recaps/session-22.md", contentSha256: "e".repeat(64),
+        expectedSessionId: "session-22", canonicalHeading: "# Session 22 Recap", legacySessionHeading: "## Session 22:", legacyRecapMarker: "**Recap**:",
+        selectorSchema: "dm_recap_context_section_selector_v2", selectorPolicy: "markdown-session-recap-v2" },
+      mediaType: "text/markdown", content: "Related Session 22 passage", headingLine: 1, selectedForm: "canonical_h1", sessionHeadingLine: 1, recapMarkerLine: null, lineStart: 2, lineEnd: 3,
+      sectionSha256: "a".repeat(64), offsetChars: 0, truncated: true, nextContinuation: "recap-page:v2:" + "b".repeat(64) + ":26", diagnostics: [],
+    };
+}
+
+function sourceOpenTargets(): WorldPlanSourceOpenTargetV2[] {
   const authority = {
     claim_id: "claim-internal-test", source_artifact_id: "artifact-test", source_revision_id: "source-revision-test",
     managed_world_id: worldId, native_world_id: "native-world-internal-test", binding_version: 3,
@@ -703,15 +720,15 @@ function sourceOpenTargets(): WorldPlanSourceOpenTargetV1[] {
   return [
     { ...authority, schema: "dmb_agent_evidence_anchor_open_target_v1", kind: "evidence_anchor",
       anchor_id: "anchor-test", evidence_ref_id: "evidence-internal-test", source_read_id: null, read_outcome: null },
-    { ...authority, schema: "dmb_agent_related_recap_context_open_target_v1", kind: "related_recap_context",
-      context_anchor_id: "dm-context-anchor:v1:test", provenance_evidence_ref_id: "evidence-internal-test",
+    { ...authority, schema: "dmb_agent_related_recap_context_open_target_v2", kind: "related_recap_context",
+      context_anchor_id: "dm-context-anchor:v2:test", provenance_evidence_ref_id: "evidence-internal-test",
       source_campaign_id: "longmont-c2", source_uri: "repo://recaps/session-22.md", content_sha256: "e".repeat(64), expected_session_id: "session-22",
-      expected_heading: "# Session 22 Recap", selector_schema: "dm_recap_context_section_selector_v1",
-      selector_policy: "markdown-session-recap-v1" },
+      canonical_heading: "# Session 22 Recap", legacy_session_heading: "## Session 22:", legacy_recap_marker: "**Recap**:", selector_schema: "dm_recap_context_section_selector_v2",
+      selector_policy: "markdown-session-recap-v2" },
   ];
 }
 
-async function resealPlanGraphContext(context: WorldPlanAgentPlanContextV1): Promise<WorldPlanAgentPlanContextV1> {
+async function resealPlanGraphContext(context: WorldPlanAgentPlanContextV2): Promise<WorldPlanAgentPlanContextV2> {
   const { context_receipt_sha256: _ignored, ...receiptPayload } = context.receipt;
   const digest = await sha256Hex(canonicalJson(receiptPayload));
   context.receipt.context_receipt_sha256 = digest;
@@ -1037,7 +1054,7 @@ function policyHistoryTurn(
   turnId: string,
   question: string,
   answer: string | null,
-  context: WorldPlanAgentPlanContextV1,
+  context: WorldPlanAgentPlanContextV2,
   lifecycle: WorldAgentConversationHistoryTurnV2["lifecycle_status"] = "completed",
   request?: WorldPlanAgentTurnRequestV1,
 ): WorldAgentConversationHistoryTurnV2 {
@@ -2471,7 +2488,7 @@ describe("World Plan conversation consumer", () => {
     context.source_open_targets = sourceOpenTargets();
     context.evidence_anchor_statuses = [{ schema: "dmb_agent_evidence_anchor_status_v1",
       claim_id: "claim-internal-test", status: "partial", target_count: 1 }];
-    context.related_recap_context_statuses = [{ schema: "dmb_agent_related_recap_context_status_v1",
+    context.related_recap_context_statuses = [{ schema: "dmb_agent_related_recap_context_status_v2",
       claim_id: "claim-internal-test", status: "partial", choice_count: 1 }];
     setupApi(await historyV2("conversation-a", 5, [policyHistoryTurn(
       1, "source-open-turn", "What is known?", "The western gate is watched.", context,
@@ -2486,22 +2503,22 @@ describe("World Plan conversation consumer", () => {
       sourceDomain: "recap", locatorKind: "heading", mediaType: "text/markdown", content: "Exact evidence passage",
       contentSha256: "f".repeat(64), lineStart: 1, lineEnd: 2, truncated: false, diagnostics: [],
     });
-    const recapRead = vi.spyOn(liveApi, "postWorldGraphRecapContextRead").mockResolvedValue({
-      schema: "dmb_recap_context_read_v1", outcome: "truncated",
+    const recapRead = vi.spyOn(liveApi, "postWorldGraphRecapContextReadV2").mockResolvedValue({
+      schema: "dmb_recap_context_read_v2", outcome: "truncated",
       snapshot: { worldId: "native-world-internal-test", campaignId: "", scopeMode: "world",
         revisionId: "graph-revision-test", headRevisionId: "graph-revision-test", isHead: true,
         focus: { kind: "none", sessionId: null, campaignId: null }, admissibility: "gm" },
-      contextAnchorId: "dm-context-anchor:v1:test",
-      context: { contextAnchorId: "dm-context-anchor:v1:test", worldId: "native-world-internal-test",
+      contextAnchorId: "dm-context-anchor:v2:test",
+      context: { contextAnchorId: "dm-context-anchor:v2:test", worldId: "native-world-internal-test",
         campaignId: "longmont-c2", graphRevisionId: "graph-revision-test", sourceArtifactId: "artifact-test",
         sourceRevisionId: "source-revision-test", sourceUri: "repo://recaps/session-22.md", contentSha256: "e".repeat(64),
-        expectedSessionId: "session-22", expectedHeading: "# Session 22 Recap",
-        selectorSchema: "dm_recap_context_section_selector_v1", selectorPolicy: "markdown-session-recap-v1" },
-      mediaType: "text/markdown", content: "Related Session 22 passage", headingLine: 1, lineStart: 2, lineEnd: 3,
-      sectionSha256: "a".repeat(64), offsetChars: 0, truncated: true, nextContinuation: "next", diagnostics: [],
+        expectedSessionId: "session-22", canonicalHeading: "# Session 22 Recap", legacySessionHeading: "## Session 22:", legacyRecapMarker: "**Recap**:",
+        selectorSchema: "dm_recap_context_section_selector_v2", selectorPolicy: "markdown-session-recap-v2" },
+      mediaType: "text/markdown", content: "Related Session 22 passage", headingLine: 1, selectedForm: "canonical_h1", sessionHeadingLine: 1, recapMarkerLine: null, lineStart: 2, lineEnd: 3,
+      sectionSha256: "a".repeat(64), offsetChars: 0, truncated: true, nextContinuation: "recap-page:v2:" + "b".repeat(64) + ":26", diagnostics: [],
     });
 
-    render(conversationElement());
+    const mounted = render(conversationElement());
     const openEvidence = await screen.findByRole("button", { name: "Open evidence" });
     expect(openEvidence.closest("details")).toBeNull();
     expect(screen.getByText(/Some evidence passage choices could not be offered/)).toBeInTheDocument();
@@ -2516,11 +2533,66 @@ describe("World Plan conversation consumer", () => {
     expect(await screen.findByLabelText("Related recap context passage")).toHaveTextContent("Related Session 22 passage");
     expect(screen.getByText("Partial passage. More source text may be available.")).toBeInTheDocument();
     expect(recapRead).toHaveBeenCalledWith(expect.objectContaining({
-      revisionPin: "graph-revision-test", contextAnchorId: "dm-context-anchor:v1:test",
+      revisionPin: "graph-revision-test", contextAnchorId: "dm-context-anchor:v2:test",
     }));
+    const firstPage = await recapRead.mock.results[0]!.value;
+    recapRead.mockResolvedValue({ ...firstPage, outcome: "enough", content: " — final Ω beat", offsetChars: [...firstPage.content!].length,
+      truncated: false, nextContinuation: null });
+    fireEvent.click(screen.getByRole("button", { name: "Load more context" }));
+    await waitFor(() => expect(screen.getByLabelText("Related recap context passage")).toHaveTextContent("Related Session 22 passage — final Ω beat"));
+    expect(recapRead).toHaveBeenLastCalledWith(expect.objectContaining({continuation: firstPage.nextContinuation, maxChars: 12000}));
+    expect(screen.queryByRole("button", {name: "Load more context"})).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Close passage" }));
     expect(screen.queryByLabelText("Related recap context passage")).not.toBeInTheDocument();
+    recapRead.mockResolvedValue(firstPage);
+    fireEvent.click(screen.getByRole("button", {name: "Open related recap context"}));
+    expect(await screen.findByLabelText("Related recap context passage")).toHaveTextContent("Related Session 22 passage");
+    expect(recapRead).toHaveBeenLastCalledWith(expect.objectContaining({continuation: null}));
+    mounted.unmount();
+    render(conversationElement());
+    fireEvent.click(await screen.findByRole("button", {name: "Open related recap context"}));
+    expect(await screen.findByLabelText("Related recap context passage")).toHaveTextContent("Related Session 22 passage");
+    expect(recapRead).toHaveBeenLastCalledWith(expect.objectContaining({continuation: null}));
     expect(ask).not.toHaveBeenCalled();
+  });
+
+  it.each(["offset", "section", "form", "marker", "selector", "extra", "old_cursor"])("rejects changed V2 continuation %s", async (fault) => {
+    const context = await planGraphContext("graph_grounded");
+    context.source_open_targets = [sourceOpenTargets()[1]!];
+    setupApi(await historyV2("conversation-a", 5, [policyHistoryTurn(1, "v2-page-turn", "What happened?", "The gate is watched.", context)]));
+    const first = currentRecapPage();
+    const next = { ...first, content: "FORGED_NEXT_PASSAGE", offsetChars: [...first.content!].length };
+    if (fault === "offset") next.offsetChars += 1;
+    if (fault === "section") next.sectionSha256 = "f".repeat(64);
+    if (fault === "form") { next.selectedForm = "legacy_h2"; next.recapMarkerLine = 2; next.lineStart = 3; }
+    if (fault === "marker") next.recapMarkerLine = 2;
+    if (fault === "selector") next.context = { ...first.context!, legacySessionHeading: "## Session 99:" };
+    if (fault === "extra") next.context = { ...first.context!, unexpected: true } as typeof next.context;
+    if (fault === "old_cursor") next.nextContinuation = "recap-page:v1:" + "b".repeat(64) + ":26";
+    vi.spyOn(liveApi, "postWorldGraphRecapContextReadV2").mockResolvedValueOnce(first).mockResolvedValueOnce(next);
+    render(conversationElement());
+    fireEvent.click(await screen.findByRole("button", { name: "Open related recap context" }));
+    await screen.findByLabelText("Related recap context passage");
+    fireEvent.click(screen.getByRole("button", {name: "Load more context"}));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/unavailable or did not match/);
+    expect(screen.queryByText("FORGED_NEXT_PASSAGE")).not.toBeInTheDocument();
+  });
+
+  it.each(["close", "Plan", "World"])("discards a late current context page after %s switch", async (change) => {
+    const context = await planGraphContext("graph_grounded");
+    context.source_open_targets = [sourceOpenTargets()[1]!];
+    setupApi(await historyV2("conversation-a", 5, [policyHistoryTurn(1, "v2-late-turn", "What happened?", "The gate is watched.", context)]));
+    const first = currentRecapPage();
+    let finish!: (page: typeof first) => void;
+    vi.spyOn(liveApi, "postWorldGraphRecapContextReadV2").mockResolvedValueOnce(first).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    const mounted = render(conversationElement());
+    fireEvent.click(await screen.findByRole("button", {name: "Open related recap context"}));
+    await screen.findByLabelText("Related recap context passage");
+    fireEvent.click(screen.getByRole("button", {name: "Load more context"}));
+    if (change === "close") fireEvent.click(screen.getByRole("button", {name: "Close passage"}));
+    else mounted.rerender(conversationElement(change === "Plan" ? {documentId:"other-plan"} : {worldId:"other-world"}));
+    await act(async () => finish({...first, content:"LATE_CONTEXT_PASSAGE", offsetChars:[...first.content!].length}));
+    expect(screen.queryByText("LATE_CONTEXT_PASSAGE")).not.toBeInTheDocument();
   });
 
   it("keeps a larger verified source set behind a compact choice list", async () => {
@@ -2540,10 +2612,10 @@ describe("World Plan conversation consumer", () => {
 
   it("distinguishes absent recap context from unavailable recap metadata on demand", async () => {
     const first = await planGraphContext("graph_grounded");
-    first.related_recap_context_statuses = [{ schema: "dmb_agent_related_recap_context_status_v1",
+    first.related_recap_context_statuses = [{ schema: "dmb_agent_related_recap_context_status_v2",
       claim_id: "claim-internal-test", status: "no_context", choice_count: 0 }];
     const second = await planGraphContext("graph_grounded");
-    second.related_recap_context_statuses = [{ schema: "dmb_agent_related_recap_context_status_v1",
+    second.related_recap_context_statuses = [{ schema: "dmb_agent_related_recap_context_status_v2",
       claim_id: "claim-internal-test", status: "metadata_unavailable", choice_count: 0 }];
     setupApi(await historyV2("conversation-a", 5, [
       policyHistoryTurn(1, "no-recap-turn", "First question", "First answer", first),
@@ -3563,7 +3635,7 @@ describe("World Plan conversation consumer", () => {
       }
 
       let receiptRequest = request;
-      let context: WorldPlanAgentPlanContextV1;
+      let context: WorldPlanAgentPlanContextV2;
       let lifecycle: WorldAgentConversationHistoryTurnV2["lifecycle_status"] = "completed";
       let answer: string | null = "The western gate is watched.";
       if (historyCase === "target-mismatch") {

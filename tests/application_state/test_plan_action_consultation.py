@@ -278,7 +278,7 @@ def test_action_attribution_rejects_foreign_claims_and_context_as_evidence(mutat
     model_consultation(receipt, policy, events, result)
     if mutation == "context_as_source":
         citation = result.citation_map.entries[0].model_copy(
-            update={"source_read_ids": ["dm-context-anchor:v1:session-22"]}
+            update={"source_read_ids": ["dm-context-anchor:v2:session-22"]}
         )
         changed = result.model_copy(update={
             "citation_map": result.citation_map.model_copy(update={"entries": [citation]})
@@ -678,3 +678,50 @@ def test_pg_malformed_row_fails_closed_and_downgrade_preserves_receipts(applicat
     with pytest.raises(ValidationError):
         service.get_by_key(action.basis.world_id, action.idempotency_key)
     assert frozen.consultation.result is None
+
+
+def test_current_related_recap_consultation_preserves_context_boundary():
+    from application_state.agent_conversation.types import (
+        RelatedRecapContextAdmissionV2, RelatedRecapProvenanceBindingV2,
+        RelatedRecapContextAuthorizationEventV2, ValidatedRelatedRecapContextEventV2,
+        RelatedRecapContextProviderInclusionEventV2, _canonical_sha256,
+        related_recap_provenance_result_digest, related_recap_context_inclusion_digest,
+    )
+    from tests.application_state.test_agent_conversation_service import _related_recap_admission_fixture
+    receipt, policy = frozen_inputs(model_action())
+    events = consultation_events(receipt, policy)[:3]
+    binding = RelatedRecapProvenanceBindingV2(evidence_ref_id="evidence:authored",source_artifact_id="artifact:authored",source_revision_id="source-r1")
+    data = _related_recap_admission_fixture().model_dump(mode="json",by_alias=True) | {
+        "managed_world_id":receipt.basis.world_id,"native_world_id":"native-synthetic","binding_version":1,
+        "graph_revision":"graph-r1","target_id":"assertion:observatory","provenance_bindings":[binding.model_dump(mode="json")],
+        "descriptor_world_id":"native-synthetic","descriptor_graph_revision_id":"graph-r1",
+        "descriptor_source_artifact_id":"artifact:authored","descriptor_source_revision_id":"source-r1",
+        "provenance_result_sha256":related_recap_provenance_result_digest(managed_world_id=receipt.basis.world_id,
+            native_world_id="native-synthetic",binding_version=1,graph_revision="graph-r1",target_kind="assertion",
+            target_id="assertion:observatory",provenance_bindings=[binding]),
+    }
+    admission=RelatedRecapContextAdmissionV2.model_validate(data)
+    authorization=RelatedRecapContextAuthorizationEventV2(event_id=uuid4(),sequence=3,kind="related_recap_context_authorized_v2",
+        read_call_id=uuid4(),context_receipt_sha256=receipt.consultation_receipt_sha256,
+        execution_policy_sha256=graph_execution_policy_digest_v2(receipt.consultation_receipt_sha256,policy),admission=admission,max_chars=100)
+    read=ValidatedRelatedRecapContextEventV2(event_id=uuid4(),sequence=4,kind="validated_related_recap_context_v2",
+        read_call_id=authorization.read_call_id,authorization_event_id=authorization.event_id,
+        admission_sha256=_canonical_sha256(admission.model_dump(mode="json",by_alias=True)),outcome="enough",
+        range_semantics_version="utf8-character-offset-in-markdown-session-recap-v2",source_bytes_sha256=admission.descriptor_content_sha256,
+        section_sha256="a"*64,page_content_sha256="b"*64,selected_form="legacy_h2",session_heading_line=1,
+        recap_marker_line=4,heading_line=1,line_start=5,line_end=6,offset_chars=0,returned_chars=50,truncated=False)
+    final=consultation_events(receipt,policy)[6].model_copy(update={"included_graph_event_ids":[],"included_source_read_event_ids":[]})
+    inclusion=RelatedRecapContextProviderInclusionEventV2(event_id=uuid4(),sequence=5,kind="related_recap_context_provider_inclusion_v2",
+        provider_attempt_id=final.provider_attempt_id,envelope_sha256=final.envelope_sha256,
+        included_context_event_ids=[read.event_id],included_context_sha256=related_recap_context_inclusion_digest([read]),included_chars=50)
+    execution=PlanWorldGraphExecutionV2(context_receipt_sha256=receipt.consultation_receipt_sha256,
+        execution_policy_sha256=authorization.execution_policy_sha256,policy=policy,events=[*events,authorization,read,inclusion,final])
+    consultation=PlanActionConsultation(receipt=receipt,execution=execution,result=None)
+    assert consultation.execution.events[-2].kind=="related_recap_context_provider_inclusion_v2"
+    # A current related event ID never becomes literal claim support.
+    from application_state.agent_conversation.types import validate_graph_execution_source_citations
+    citation=PlanWorldGraphCitationV2(claim_id="claim:owner",target_kind="assertion",target_id="assertion:observatory",
+        graph_revision="graph-r1",evidence_ref_ids=["evidence:authored"],source_opened=True,source_read_ids=[str(read.event_id)])
+    with pytest.raises(ValueError):
+        validate_graph_execution_source_citations(PlanWorldGraphCitationMapV2(context_receipt_sha256=receipt.consultation_receipt_sha256,entries=[citation]),
+            execution,final.provider_attempt_id)

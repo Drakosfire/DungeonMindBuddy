@@ -35,8 +35,8 @@ from application_state.agent_conversation.types import (
     ProviderAttemptAuthorizedEventV1,
     ProviderAttemptAuthorizedEventV2,
     ProviderOutcomeEventV1,
-    RelatedRecapContextAuthorizationEventV1,
-    RelatedRecapContextProviderInclusionEventV1,
+    RelatedRecapContextAuthorizationEventV2,
+    RelatedRecapContextProviderInclusionEventV2,
     ReopenCommand,
     SourceReadAuthorizationEventV2,
     SubmittedTurnIntentV1,
@@ -47,7 +47,7 @@ from application_state.agent_conversation.types import (
     TurnResult,
     TurnSubmission,
     ValidatedGraphOperationEventV1,
-    ValidatedRelatedRecapContextEventV1,
+    ValidatedRelatedRecapContextEventV2,
     ValidatedSourceReadEventV2,
     WorldPointer,
     request_fingerprint,
@@ -766,6 +766,10 @@ class AgentConversationService:
             if turn.claim_expires_at is None or turn.claim_expires_at <= now:
                 raise ApplicationStateConflictError("Graph execution claim has expired")
             for prior in execution.events:
+                # Inclusion and outcome events share the authorization attempt ID.
+                # Only an earlier authorization can be its duplicate.
+                if duplicate_key == "provider_attempt_id" and not isinstance(prior, ProviderAttemptAuthorizedEventV1):
+                    continue
                 if getattr(prior, duplicate_key, None) == getattr(event, duplicate_key, None):
                     if (
                         isinstance(prior, ValidatedGraphOperationEventV1)
@@ -876,7 +880,7 @@ class AgentConversationService:
     def authorize_related_recap_context(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int,
-        authorization: RelatedRecapContextAuthorizationEventV1,
+        authorization: RelatedRecapContextAuthorizationEventV2,
     ) -> tuple[Turn, bool]:
         """Persist the parent-authorized context scope before the Buddy read."""
         return self._append_graph_execution_event(
@@ -888,7 +892,7 @@ class AgentConversationService:
     def record_validated_related_recap_context(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int,
-        result: ValidatedRelatedRecapContextEventV1,
+        result: ValidatedRelatedRecapContextEventV2,
     ) -> tuple[Turn, bool]:
         """Persist context-read metadata without passage text or continuation tokens."""
         return self._append_graph_execution_event(
@@ -899,7 +903,7 @@ class AgentConversationService:
     def record_related_recap_context_inclusion(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int,
-        inclusion: RelatedRecapContextProviderInclusionEventV1,
+        inclusion: RelatedRecapContextProviderInclusionEventV2,
     ) -> tuple[Turn, bool]:
         """Persist context inclusion before its matching provider authorization."""
         return self._append_graph_execution_event(

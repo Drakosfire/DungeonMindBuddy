@@ -1676,13 +1676,13 @@ class ValidatedSourceReadEventV2(GraphExecutionEventBaseV1):
     receipts: list[SourceReadAnchorReceiptV2] = Field(min_length=1, max_length=8)
 
 
-class RelatedRecapProvenanceBindingV1(StrictModel):
+class RelatedRecapProvenanceBindingV2(StrictModel):
     evidence_ref_id: str = Field(min_length=1, max_length=256)
     source_artifact_id: str = Field(min_length=1, max_length=256)
     source_revision_id: str = Field(min_length=1, max_length=256)
 
     @model_validator(mode="after")
-    def validate_ids(self) -> RelatedRecapProvenanceBindingV1:
+    def validate_ids(self) -> RelatedRecapProvenanceBindingV2:
         if any(
             not value.strip() or value != value.strip()
             for value in (self.evidence_ref_id, self.source_artifact_id, self.source_revision_id)
@@ -1699,10 +1699,10 @@ def related_recap_provenance_result_digest(
     graph_revision: str,
     target_kind: str,
     target_id: str,
-    provenance_bindings: list[RelatedRecapProvenanceBindingV1],
+    provenance_bindings: list[RelatedRecapProvenanceBindingV2],
 ) -> str:
     return _canonical_sha256({
-        "schema": "dmb_agent_related_recap_core_provenance_v1",
+        "schema": "dmb_agent_related_recap_core_provenance_v2",
         "managed_world_id": managed_world_id,
         "native_world_id": native_world_id,
         "binding_version": binding_version,
@@ -1722,9 +1722,9 @@ def related_recap_provenance_result_digest(
     })
 
 
-class RelatedRecapContextAdmissionV1(StrictModel):
-    schema_: Literal["dmb_agent_related_recap_context_admission_v1"] = Field(
-        default="dmb_agent_related_recap_context_admission_v1", alias="schema"
+class RelatedRecapContextAdmissionV2(StrictModel):
+    schema_: Literal["dmb_agent_related_recap_context_admission_v2"] = Field(
+        default="dmb_agent_related_recap_context_admission_v2", alias="schema"
     )
     admission_origin: Literal[
         "initial_graph_input", "validated_graph_operation", "selected_index_admission"
@@ -1741,7 +1741,7 @@ class RelatedRecapContextAdmissionV1(StrictModel):
     graph_revision: str = Field(min_length=1, max_length=256)
     target_kind: Literal["assertion", "relationship"]
     target_id: str = Field(min_length=1, max_length=256)
-    provenance_bindings: list[RelatedRecapProvenanceBindingV1] = Field(
+    provenance_bindings: list[RelatedRecapProvenanceBindingV2] = Field(
         min_length=1, max_length=64
     )
     provenance_result_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -1752,7 +1752,7 @@ class RelatedRecapContextAdmissionV1(StrictModel):
     context_index_entry_count: int = Field(strict=True, ge=1, le=512)
     context_index_max_entries: Literal[512]
     context_anchor_id: str = Field(
-        min_length=24, max_length=256, pattern=r"^dm-context-anchor:v1:.+$"
+        min_length=24, max_length=256, pattern=r"^dm-context-anchor:v2:.+$"
     )
     descriptor_world_id: str = Field(min_length=1, max_length=128)
     descriptor_campaign_id: str | None = Field(max_length=256)
@@ -1760,13 +1760,15 @@ class RelatedRecapContextAdmissionV1(StrictModel):
     descriptor_source_artifact_id: str = Field(min_length=1, max_length=256)
     descriptor_source_revision_id: str = Field(min_length=1, max_length=256)
     descriptor_content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    selector_schema: Literal["dm_recap_context_section_selector_v1"]
-    selector_policy: Literal["markdown-session-recap-v1"]
+    selector_schema: Literal["dm_recap_context_section_selector_v2"]
+    selector_policy: Literal["markdown-session-recap-v2"]
     expected_session_id: str = Field(min_length=1, max_length=64)
-    expected_heading: str = Field(min_length=1, max_length=128)
+    canonical_heading: str = Field(min_length=1, max_length=128)
+    legacy_session_heading: str = Field(min_length=1, max_length=128)
+    legacy_recap_marker: Literal["**Recap**:"]
 
     @model_validator(mode="after")
-    def validate_admission(self) -> RelatedRecapContextAdmissionV1:
+    def validate_admission(self) -> RelatedRecapContextAdmissionV2:
         if any(
             not value.strip() or value != value.strip()
             for value in (
@@ -1779,7 +1781,7 @@ class RelatedRecapContextAdmissionV1(StrictModel):
                 self.descriptor_source_artifact_id,
                 self.descriptor_source_revision_id,
                 self.expected_session_id,
-                self.expected_heading,
+                self.canonical_heading,
             )
         ):
             raise ValueError("related recap admission identifiers must be trimmed")
@@ -1806,7 +1808,11 @@ class RelatedRecapContextAdmissionV1(StrictModel):
         ):
             raise ValueError("related recap descriptor must join an exact cited provenance pair")
         session_number = self.expected_session_id.removeprefix("session-")
-        if not session_number.isdigit() or self.expected_heading != f"# Session {session_number} Recap":
+        if (not self.expected_session_id.startswith("session-")
+            or not session_number.isascii() or not session_number.isdigit()
+            or session_number.startswith("0")
+            or self.canonical_heading != f"# Session {session_number} Recap"
+            or self.legacy_session_heading != f"## Session {session_number}:"):
             raise ValueError("related recap heading must match its Core session selector")
         if (
             self.descriptor_world_id != self.native_world_id
@@ -1827,28 +1833,31 @@ class RelatedRecapContextAdmissionV1(StrictModel):
         return self
 
 
-class RelatedRecapContextAuthorizationEventV1(GraphExecutionEventBaseV1):
-    kind: Literal["related_recap_context_authorized_v1"]
+class RelatedRecapContextAuthorizationEventV2(GraphExecutionEventBaseV1):
+    kind: Literal["related_recap_context_authorized_v2"]
     read_call_id: UUID
     context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     execution_policy_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    admission: RelatedRecapContextAdmissionV1
+    admission: RelatedRecapContextAdmissionV2
     max_chars: int = Field(strict=True, ge=1, le=12000)
     continuation_in_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 
-class ValidatedRelatedRecapContextEventV1(GraphExecutionEventBaseV1):
-    kind: Literal["validated_related_recap_context_v1"]
+class ValidatedRelatedRecapContextEventV2(GraphExecutionEventBaseV1):
+    kind: Literal["validated_related_recap_context_v2"]
     read_call_id: UUID
     authorization_event_id: UUID
     admission_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     outcome: Literal["enough", "truncated", "empty", "unavailable"]
     range_semantics_version: Literal[
-        "utf8-character-offset-in-markdown-session-recap-v1"
+        "utf8-character-offset-in-markdown-session-recap-v2"
     ]
     source_bytes_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     section_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     page_content_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    selected_form: Literal["canonical_h1", "legacy_h2"] | None = None
+    session_heading_line: int | None = Field(default=None, strict=True, ge=1)
+    recap_marker_line: int | None = Field(default=None, strict=True, ge=1)
     heading_line: int | None = Field(default=None, strict=True, ge=1)
     line_start: int | None = Field(default=None, strict=True, ge=1)
     line_end: int | None = Field(default=None, strict=True, ge=1)
@@ -1859,7 +1868,7 @@ class ValidatedRelatedRecapContextEventV1(GraphExecutionEventBaseV1):
     continuation_out_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
     @model_validator(mode="after")
-    def validate_read_result(self) -> ValidatedRelatedRecapContextEventV1:
+    def validate_read_result(self) -> ValidatedRelatedRecapContextEventV2:
         if (self.outcome == "truncated") != self.truncated:
             raise ValueError("related recap truncation flag must match its outcome")
         if self.outcome == "unavailable":
@@ -1869,12 +1878,14 @@ class ValidatedRelatedRecapContextEventV1(GraphExecutionEventBaseV1):
                     self.source_bytes_sha256,
                     self.section_sha256,
                     self.page_content_sha256,
+                    self.selected_form,
+                    self.session_heading_line,
                     self.heading_line,
                     self.line_start,
                     self.line_end,
                     self.continuation_out_sha256,
                 )
-            ) or self.returned_chars != 0 or self.truncated:
+            ) or self.recap_marker_line is not None or self.returned_chars != 0 or self.truncated:
                 raise ValueError("unavailable related recap result cannot carry content metadata")
         else:
             if any(
@@ -1883,13 +1894,18 @@ class ValidatedRelatedRecapContextEventV1(GraphExecutionEventBaseV1):
                     self.source_bytes_sha256,
                     self.section_sha256,
                     self.page_content_sha256,
+                    self.selected_form,
+                    self.session_heading_line,
                     self.heading_line,
                     self.line_start,
                     self.line_end,
                 )
             ):
                 raise ValueError("available related recap result needs verified digests and range")
-            if self.line_end < self.line_start or self.heading_line >= self.line_start:
+            if (self.heading_line != self.session_heading_line
+                or (self.selected_form == "canonical_h1" and (self.recap_marker_line is not None or self.line_start != self.heading_line + 1))
+                or (self.selected_form == "legacy_h2" and (self.recap_marker_line is None or self.recap_marker_line <= self.heading_line or self.line_start != self.recap_marker_line + 1))
+                or self.line_end < self.line_start - (1 if self.outcome == "empty" else 0) or self.heading_line >= self.line_start):
                 raise ValueError("related recap section line range is invalid")
         if (self.outcome == "truncated") != (self.continuation_out_sha256 is not None):
             raise ValueError("related recap continuation must match truncation state")
@@ -1900,8 +1916,8 @@ class ValidatedRelatedRecapContextEventV1(GraphExecutionEventBaseV1):
         return self
 
 
-class RelatedRecapContextProviderInclusionEventV1(GraphExecutionEventBaseV1):
-    kind: Literal["related_recap_context_provider_inclusion_v1"]
+class RelatedRecapContextProviderInclusionEventV2(GraphExecutionEventBaseV1):
+    kind: Literal["related_recap_context_provider_inclusion_v2"]
     provider_attempt_id: UUID
     envelope_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     included_context_event_ids: list[UUID] = Field(min_length=1, max_length=8)
@@ -1909,17 +1925,17 @@ class RelatedRecapContextProviderInclusionEventV1(GraphExecutionEventBaseV1):
     included_chars: int = Field(strict=True, ge=1, le=96000)
 
     @model_validator(mode="after")
-    def validate_included_context_ids(self) -> RelatedRecapContextProviderInclusionEventV1:
+    def validate_included_context_ids(self) -> RelatedRecapContextProviderInclusionEventV2:
         if len(set(self.included_context_event_ids)) != len(self.included_context_event_ids):
             raise ValueError("included related recap result IDs must be unique")
         return self
 
 
 def related_recap_context_inclusion_digest(
-    reads: list[ValidatedRelatedRecapContextEventV1],
+    reads: list[ValidatedRelatedRecapContextEventV2],
 ) -> str:
     return _canonical_sha256({
-        "schema": "dmb_agent_related_recap_context_inclusion_v1",
+        "schema": "dmb_agent_related_recap_context_inclusion_v2",
         "reads": [
             {
                 "event_id": str(event.event_id),
@@ -1928,6 +1944,11 @@ def related_recap_context_inclusion_digest(
                 "source_bytes_sha256": event.source_bytes_sha256,
                 "section_sha256": event.section_sha256,
                 "page_content_sha256": event.page_content_sha256,
+                "selected_form": event.selected_form,
+                "session_heading_line": event.session_heading_line,
+                "recap_marker_line": event.recap_marker_line,
+                "line_start": event.line_start,
+                "line_end": event.line_end,
                 "offset_chars": event.offset_chars,
                 "returned_chars": event.returned_chars,
             }
@@ -1957,9 +1978,9 @@ GraphExecutionEventV2 = Annotated[
     | CompletionBindingEventV1
     | SourceReadAuthorizationEventV2
     | ValidatedSourceReadEventV2
-    | RelatedRecapContextAuthorizationEventV1
-    | ValidatedRelatedRecapContextEventV1
-    | RelatedRecapContextProviderInclusionEventV1,
+    | RelatedRecapContextAuthorizationEventV2
+    | ValidatedRelatedRecapContextEventV2
+    | RelatedRecapContextProviderInclusionEventV2,
     Field(discriminator="kind"),
 ]
 
@@ -2164,9 +2185,9 @@ class PlanWorldGraphExecutionV2(StrictModel):
                 (
                     SourceReadAuthorizationEventV2,
                     ValidatedSourceReadEventV2,
-                    RelatedRecapContextAuthorizationEventV1,
-                    ValidatedRelatedRecapContextEventV1,
-                    RelatedRecapContextProviderInclusionEventV1,
+                    RelatedRecapContextAuthorizationEventV2,
+                    ValidatedRelatedRecapContextEventV2,
+                    RelatedRecapContextProviderInclusionEventV2,
                 ),
             ):
                 continue
@@ -2197,8 +2218,8 @@ class PlanWorldGraphExecutionV2(StrictModel):
 
 
 def _related_recap_descriptor_key(
-    admission: RelatedRecapContextAdmissionV1,
-) -> tuple[str, str | None, str, str, str, str, str]:
+    admission: RelatedRecapContextAdmissionV2,
+) -> tuple:
     return (
         admission.context_anchor_id,
         admission.descriptor_campaign_id,
@@ -2207,16 +2228,22 @@ def _related_recap_descriptor_key(
         admission.descriptor_content_sha256,
         admission.selector_schema,
         admission.selector_policy,
+        admission.descriptor_world_id,
+        admission.descriptor_graph_revision_id,
+        admission.expected_session_id,
+        admission.canonical_heading,
+        admission.legacy_session_heading,
+        admission.legacy_recap_marker,
     )
 
 
 def _validate_related_recap_context_events(
     execution: PlanWorldGraphExecutionV2,
 ) -> None:
-    authorizations: dict[UUID, RelatedRecapContextAuthorizationEventV1] = {}
-    results_by_call: dict[UUID, ValidatedRelatedRecapContextEventV1] = {}
-    results_by_event: dict[UUID, ValidatedRelatedRecapContextEventV1] = {}
-    inclusion_pending: RelatedRecapContextProviderInclusionEventV1 | None = None
+    authorizations: dict[UUID, RelatedRecapContextAuthorizationEventV2] = {}
+    results_by_call: dict[UUID, ValidatedRelatedRecapContextEventV2] = {}
+    results_by_event: dict[UUID, ValidatedRelatedRecapContextEventV2] = {}
+    inclusion_pending: RelatedRecapContextProviderInclusionEventV2 | None = None
     latest_attempt_id: UUID | None = None
     latest_outcome: str | None = None
     authorization_count = 0
@@ -2237,9 +2264,9 @@ def _validate_related_recap_context_events(
             isinstance(
                 event,
                 (
-                    RelatedRecapContextAuthorizationEventV1,
-                    ValidatedRelatedRecapContextEventV1,
-                    RelatedRecapContextProviderInclusionEventV1,
+                    RelatedRecapContextAuthorizationEventV2,
+                    ValidatedRelatedRecapContextEventV2,
+                    RelatedRecapContextProviderInclusionEventV2,
                 ),
             )
             and latest_outcome == "outcome_unknown"
@@ -2251,7 +2278,7 @@ def _validate_related_recap_context_events(
         elif isinstance(event, ProviderOutcomeEventV1) and event.provider_attempt_id == latest_attempt_id:
             latest_outcome = event.outcome
 
-        if isinstance(event, RelatedRecapContextAuthorizationEventV1):
+        if isinstance(event, RelatedRecapContextAuthorizationEventV2):
             if event.read_call_id in authorizations:
                 raise ValueError("related recap read call ID was authorized more than once")
             if (
@@ -2262,7 +2289,7 @@ def _validate_related_recap_context_events(
             authorizations[event.read_call_id] = event
             authorization_count += 1
             authorized_chars += event.max_chars
-        elif isinstance(event, ValidatedRelatedRecapContextEventV1):
+        elif isinstance(event, ValidatedRelatedRecapContextEventV2):
             authorization = authorizations.get(event.read_call_id)
             if (
                 authorization is None
@@ -2306,13 +2333,14 @@ def _validate_related_recap_context_events(
                 if (
                     previous.section_sha256 != event.section_sha256
                     or previous.source_bytes_sha256 != event.source_bytes_sha256
+                    or any(getattr(previous, field) != getattr(event, field) for field in ("selected_form", "session_heading_line", "recap_marker_line", "heading_line", "line_start", "line_end"))
                     or event.offset_chars != previous.offset_chars + previous.returned_chars
                 ):
                     raise ValueError("related recap continuation changed section or skipped characters")
             results_by_call[event.read_call_id] = event
             results_by_event[event.event_id] = event
             returned_chars += event.returned_chars
-        elif isinstance(event, RelatedRecapContextProviderInclusionEventV1):
+        elif isinstance(event, RelatedRecapContextProviderInclusionEventV2):
             if inclusion_pending is not None:
                 raise ValueError("related recap provider inclusion cannot be nested")
             included = [results_by_event.get(event_id) for event_id in event.included_context_event_ids]
@@ -2428,7 +2456,7 @@ def validate_graph_related_recap_context_scope(
     authorizations = [
         event
         for event in execution.events
-        if isinstance(event, RelatedRecapContextAuthorizationEventV1)
+        if isinstance(event, RelatedRecapContextAuthorizationEventV2)
     ]
     if not authorizations:
         return
@@ -2448,7 +2476,7 @@ def validate_graph_related_recap_context_scope(
         graph_scope if isinstance(graph_scope, GraphSelectedSourceReadScopeV2) else None
     )
     for event in execution.events:
-        if not isinstance(event, RelatedRecapContextAuthorizationEventV1):
+        if not isinstance(event, RelatedRecapContextAuthorizationEventV2):
             continue
         admission = event.admission
         authority = inputs.graph_authority

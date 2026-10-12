@@ -483,29 +483,32 @@ class AgentEvidenceAnchorOpenTargetV1(AgentSourceOpenAuthorityV1):
         return self
 
 
-class AgentRelatedRecapContextOpenTargetV1(AgentSourceOpenAuthorityV1):
-    schema_: Literal["dmb_agent_related_recap_context_open_target_v1"] = Field(
-        default="dmb_agent_related_recap_context_open_target_v1", alias="schema"
+class AgentRelatedRecapContextOpenTargetV2(AgentSourceOpenAuthorityV1):
+    schema_: Literal["dmb_agent_related_recap_context_open_target_v2"] = Field(
+        default="dmb_agent_related_recap_context_open_target_v2", alias="schema"
     )
     kind: Literal["related_recap_context"] = "related_recap_context"
-    context_anchor_id: str = Field(pattern=r"^dm-context-anchor:v1:.+")
+    context_anchor_id: str = Field(pattern=r"^dm-context-anchor:v2:.+")
     provenance_evidence_ref_id: str = Field(min_length=1, max_length=256)
     source_campaign_id: str | None = None
     source_uri: str = Field(min_length=1)
     content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     expected_session_id: str = Field(pattern=r"^session-[1-9][0-9]*$")
-    expected_heading: str = Field(min_length=1)
-    selector_schema: Literal["dm_recap_context_section_selector_v1"] = (
-        "dm_recap_context_section_selector_v1"
+    canonical_heading: str = Field(min_length=1)
+    legacy_session_heading: str = Field(min_length=1)
+    legacy_recap_marker: Literal["**Recap**:"]
+    selector_schema: Literal["dm_recap_context_section_selector_v2"] = (
+        "dm_recap_context_section_selector_v2"
     )
-    selector_policy: Literal["markdown-session-recap-v1"] = "markdown-session-recap-v1"
+    selector_policy: Literal["markdown-session-recap-v2"] = "markdown-session-recap-v2"
 
     @model_validator(mode="after")
-    def validate_context_selector(self) -> AgentRelatedRecapContextOpenTargetV1:
+    def validate_context_selector(self) -> AgentRelatedRecapContextOpenTargetV2:
         match = re.fullmatch(r"session-([1-9][0-9]*)", self.expected_session_id)
         if (
             match is None
-            or self.expected_heading != f"# Session {match.group(1)} Recap"
+            or self.canonical_heading != f"# Session {match.group(1)} Recap"
+            or self.legacy_session_heading != f"## Session {match.group(1)}:"
             or not self.source_uri.startswith("repo://")
             or (self.source_campaign_id is not None and not self.source_campaign_id.strip())
         ):
@@ -513,8 +516,8 @@ class AgentRelatedRecapContextOpenTargetV1(AgentSourceOpenAuthorityV1):
         return self
 
 
-AgentSourceOpenTargetV1 = Annotated[
-    AgentEvidenceAnchorOpenTargetV1 | AgentRelatedRecapContextOpenTargetV1,
+AgentSourceOpenTargetV2 = Annotated[
+    AgentEvidenceAnchorOpenTargetV1 | AgentRelatedRecapContextOpenTargetV2,
     Field(discriminator="kind"),
 ]
 
@@ -542,11 +545,11 @@ class AgentEvidenceAnchorStatusV1(BaseModel):
         return self
 
 
-class AgentRelatedRecapContextStatusV1(BaseModel):
+class AgentRelatedRecapContextStatusV2(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    schema_: Literal["dmb_agent_related_recap_context_status_v1"] = Field(
-        default="dmb_agent_related_recap_context_status_v1", alias="schema"
+    schema_: Literal["dmb_agent_related_recap_context_status_v2"] = Field(
+        default="dmb_agent_related_recap_context_status_v2", alias="schema"
     )
     claim_id: str = Field(min_length=1, max_length=128)
     status: Literal[
@@ -556,7 +559,7 @@ class AgentRelatedRecapContextStatusV1(BaseModel):
     choice_count: int = Field(strict=True, ge=0, le=512)
 
     @model_validator(mode="after")
-    def validate_choice_count(self) -> AgentRelatedRecapContextStatusV1:
+    def validate_choice_count(self) -> AgentRelatedRecapContextStatusV2:
         valid = (
             self.choice_count == 1 if self.status == "available" else
             self.choice_count > 1 if self.status == "multiple_choices" else
@@ -569,21 +572,21 @@ class AgentRelatedRecapContextStatusV1(BaseModel):
         return self
 
 
-class AgentPlanWorldGraphContextResponseV1(BaseModel):
+class AgentPlanWorldGraphContextResponseV2(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    schema_: Literal["dmb_agent_plan_world_graph_context_response_v1"] = Field(
-        default="dmb_agent_plan_world_graph_context_response_v1", alias="schema"
+    schema_: Literal["dmb_agent_plan_world_graph_context_response_v2"] = Field(
+        default="dmb_agent_plan_world_graph_context_response_v2", alias="schema"
     )
     receipt: PlanWorldGraphContextReceiptV1
     completion: PlanWorldGraphCompletionV1 | PlanWorldGraphCompletionV2 | None
     execution: AgentPlanWorldGraphExecutionProjectionV1 | None
     delivery_replay: bool
-    source_open_targets: list[AgentSourceOpenTargetV1] = Field(default_factory=list)
+    source_open_targets: list[AgentSourceOpenTargetV2] = Field(default_factory=list)
     evidence_anchor_statuses: list[AgentEvidenceAnchorStatusV1] = Field(
         default_factory=list
     )
-    related_recap_context_statuses: list[AgentRelatedRecapContextStatusV1] = Field(
+    related_recap_context_statuses: list[AgentRelatedRecapContextStatusV2] = Field(
         default_factory=list
     )
 
@@ -592,7 +595,7 @@ class AgentTurnResponseV2(AgentTurnResponse):
     schema_: Literal["dmb_agent_turn_response_v2"] = Field(
         default="dmb_agent_turn_response_v2", alias="schema"
     )
-    plan_context: AgentPlanWorldGraphContextResponseV1
+    plan_context: AgentPlanWorldGraphContextResponseV2
 
 
 class AgentConversationHistoryTurn(BaseModel):
@@ -609,7 +612,7 @@ class AgentConversationHistoryTurn(BaseModel):
 
 
 class AgentConversationHistoryTurnV2(AgentConversationHistoryTurn):
-    plan_context: AgentPlanWorldGraphContextResponseV1
+    plan_context: AgentPlanWorldGraphContextResponseV2
 
 
 class AgentConversationHistoryTurnV3(AgentConversationHistoryTurn):
@@ -617,7 +620,7 @@ class AgentConversationHistoryTurnV3(AgentConversationHistoryTurn):
 
 
 class AgentConversationHistoryPlanTurnV3(AgentConversationHistoryTurnV3):
-    plan_context: AgentPlanWorldGraphContextResponseV1
+    plan_context: AgentPlanWorldGraphContextResponseV2
 
 
 class AgentConversationHistoryResponse(BaseModel):

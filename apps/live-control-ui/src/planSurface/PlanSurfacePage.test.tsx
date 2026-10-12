@@ -13,7 +13,7 @@ import { WorldGraphLensProjectionProvider } from "../graphLens/useWorldGraphLens
 import { AgentInteractionProvider, useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
 import { AgentInteractionChrome } from "../agentInteraction/AgentInteractionChrome";
 import { AskPluginSlotProvider } from "../agentInteraction/AskPluginSlot";
-import type { WorldPlanAgentTurnRequestV1, WorldPlanAgentTurnResponse, WorldPlanAgentPlanContextV1, WorldPlanGraphAnswerContextStatusV1, WorldPlanGraphExecutionProjectionV1 } from "../api/types";
+import type { WorldPlanAgentTurnRequestV1, WorldPlanAgentTurnResponse, WorldPlanAgentPlanContextV2, WorldPlanGraphAnswerContextStatusV1, WorldPlanGraphExecutionProjectionV1 } from "../api/types";
 import {
   activeThreadStorageKey,
   createAgentInteractionThread,
@@ -456,7 +456,7 @@ function planGraphContext(
     execution?: WorldPlanGraphExecutionProjectionV1 | null;
     completion?: boolean;
   } = {},
-): WorldPlanAgentPlanContextV1 {
+): WorldPlanAgentPlanContextV2 {
   const worldId = options.request!.owner_scope.world_id;
   const documentId = options.request!.primary_work.object_id;
   const workRevisionId = "work-revision-plan-4";
@@ -556,7 +556,7 @@ function planGraphContext(
     source_opened: false as const,
   }] : [];
   return {
-    schema: "dmb_agent_plan_world_graph_context_response_v1",
+    schema: "dmb_agent_plan_world_graph_context_response_v2",
     receipt,
     completion: options.completion === false ? null : {
       schema: "dmb_plan_world_graph_completion_v1",
