@@ -1,0 +1,23 @@
+.app-site-nav.app-site-nav--compact { flex-wrap: nowrap; justify-content: flex-start; gap: 8px; padding: 6px 10px; }
+.app-site-nav--compact .app-nav-compass { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; flex: 0 0 36px; padding: 4px; color: #d9a840; background: transparent; border: 1px solid transparent; border-radius: 8px; cursor: pointer; }
+.app-site-nav--compact .app-nav-compass:hover, .app-site-nav--compact .app-nav-compass[aria-expanded="true"] { background: #252b32; border-color: #53636e; }
+.app-site-nav--compact .app-nav-compass:focus-visible { outline: 2px solid #d9a840; outline-offset: 2px; }
+.app-nav-current { flex: 0 0 auto; font-size: .85rem; color: #cbd3dc; white-space: nowrap; }
+.app-site-nav--compact .app-site-nav__routes { flex: 1 1 auto; flex-wrap: nowrap; overflow-x: auto; gap: 6px; }
+.app-site-nav--compact .app-site-nav__routes[hidden] { display: none; }
+.app-site-nav--compact .app-site-nav__routes a { flex: 0 0 auto; white-space: nowrap; }
+.app-nav-world-context { display: flex; align-items: center; gap: 8px; margin-left: auto; min-width: 0; flex: 0 1 auto; }
+.app-nav-world-context .app-world-selector { min-width: 0; flex: 0 1 auto; }
+.app-nav-world-context .app-world-selector > button { max-width: min(240px, 100%); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.app-nav-world-context .app-world-selector__menu { left: auto; right: 0; max-width: calc(100vw - 32px); min-width: min(14rem, calc(100vw - 32px)); }
+.app-nav-world-context .app-world-graph-status { flex: 0 0 auto; }
+@media (max-width: 900px) {
+  .app-site-nav.app-site-nav--compact[data-expanded="true"] { flex-wrap: wrap; }
+  .app-site-nav--compact[data-expanded="true"] .app-site-nav__routes { order: 3; flex-basis: 100%; }
+}
+@media (max-width: 480px) {
+  .app-site-nav.app-site-nav--compact { gap: 6px; padding: 6px; }
+  .app-nav-world-context { gap: 5px; }
+  .app-nav-world-context .app-world-selector > button { max-width: min(150px, 100%); font-size: .75rem; }
+  .app-nav-world-context .app-world-graph-status__prefix { display: none; }
+}

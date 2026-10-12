@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -321,6 +321,7 @@ describe("App inspector integration", () => {
     render(<App />);
 
     const nav = screen.getByRole("navigation", { name: "Command board navigation" });
+    fireEvent.click(within(nav).getByRole("button", { name: "Open navigation" }));
     const links = within(nav).getAllByRole("link");
     expect(links.map((link) => link.getAttribute("href"))).toEqual([
       "/",
@@ -377,7 +378,7 @@ describe("App inspector integration", () => {
 
     expect(await screen.findByRole("heading", { name: "Graph Review Workbench" })).toBeInTheDocument();
     expect(screen.queryByText(/Review extracted graph runs against gold/i)).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Ingest" })).toHaveClass("active");
+    expect(screen.getByRole("link", { name: "Ingest", hidden: true })).toHaveClass("active");
     expect(await screen.findByLabelText("Campaign")).toBeInTheDocument();
     expect(screen.getByLabelText("Focus session")).toBeInTheDocument();
     expect(screen.queryByText(/No canonical ExtractionRuns are stored yet/i)).not.toBeInTheDocument();
@@ -397,7 +398,7 @@ describe("App inspector integration", () => {
     expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
     expect(screen.queryByTestId("build-markdown-editor")).not.toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Command board navigation" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Build" })).toHaveClass("active");
+    expect(screen.getByRole("link", { name: "Build", hidden: true })).toHaveClass("active");
   });
 
   it("E1/E5: real App /build route renders composition and viewExact seam", async () => {
@@ -477,7 +478,7 @@ describe("App inspector integration", () => {
     expect(screen.getByTestId("build-source-mode-read")).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryByTestId("build-markdown-editor")).not.toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Command board navigation" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Build" })).toHaveClass("active");
+    expect(screen.getByRole("link", { name: "Build", hidden: true })).toHaveClass("active");
     expect(screen.getByTestId("agent-interaction-chrome")).toBeInTheDocument();
     expect(screen.getByTestId("agent-interaction-bar")).toBeInTheDocument();
 
@@ -640,7 +641,7 @@ describe("App inspector integration", () => {
     expect(screen.queryByText(/wrong document kind|Failed to load runbook/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Tools" })).not.toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Command board navigation" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Plan" })).toHaveAttribute("href", "/plan");
+    expect(screen.getByRole("link", { name: "Plan", hidden: true })).toHaveAttribute("href", "/plan");
     expect(screen.queryByRole("link", { name: "Live play" })).not.toBeInTheDocument();
 
     const editToggle = await screen.findByRole("button", { name: "Edit" });
@@ -817,7 +818,7 @@ describe("App inspector integration", () => {
     render(<App />);
 
     expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Play" })).toHaveClass("active");
+    expect(screen.getByRole("link", { name: "Play", hidden: true })).toHaveClass("active");
     expect(screen.getByRole("navigation", { name: "Command board navigation" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Choose a Run" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Existing Runs" })).toBeInTheDocument();

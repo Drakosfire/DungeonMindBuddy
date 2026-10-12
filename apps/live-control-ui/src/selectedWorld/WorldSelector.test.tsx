@@ -38,6 +38,18 @@ describe("World selector", () => {
     expect(window.location.search).toBe("?world=world-b");
   });
 
+  it("keeps compact World selection on demand with an explicit switch label", async () => {
+    vi.mocked(listWorldContainers).mockResolvedValue({ schema_version: "dmb_world_container_registry_v1", records: [] });
+    const user = userEvent.setup();
+    render(<SelectedWorldProvider locationSnapshot="/plan"><WorldSelector compact /></SelectedWorldProvider>);
+    const trigger = screen.getByRole("button", { name: "Switch World: Choose" });
+    expect(trigger).toHaveTextContent("Choose");
+    expect(listWorldContainers).not.toHaveBeenCalled();
+    await user.click(trigger);
+    expect(await screen.findByText("No managed Worlds yet.")).toBeInTheDocument();
+    expect(listWorldContainers).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps the error visible and permits a fresh registry request", async () => {
     vi.mocked(listWorldContainers)
       .mockRejectedValueOnce(new Error("registry unavailable"))
