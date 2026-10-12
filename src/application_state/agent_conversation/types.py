@@ -1650,6 +1650,266 @@ class ValidatedSourceReadEventV2(GraphExecutionEventBaseV1):
     receipts: list[SourceReadAnchorReceiptV2] = Field(min_length=1, max_length=8)
 
 
+class RelatedRecapProvenanceBindingV1(StrictModel):
+    evidence_ref_id: str = Field(min_length=1, max_length=256)
+    source_artifact_id: str = Field(min_length=1, max_length=256)
+    source_revision_id: str = Field(min_length=1, max_length=256)
+
+    @model_validator(mode="after")
+    def validate_ids(self) -> RelatedRecapProvenanceBindingV1:
+        if any(
+            not value.strip() or value != value.strip()
+            for value in (self.evidence_ref_id, self.source_artifact_id, self.source_revision_id)
+        ):
+            raise ValueError("related recap provenance pins must be nonblank and trimmed")
+        return self
+
+
+def related_recap_provenance_result_digest(
+    *,
+    managed_world_id: str,
+    native_world_id: str,
+    binding_version: int,
+    graph_revision: str,
+    target_kind: str,
+    target_id: str,
+    provenance_bindings: list[RelatedRecapProvenanceBindingV1],
+) -> str:
+    return _canonical_sha256({
+        "schema": "dmb_agent_related_recap_core_provenance_v1",
+        "managed_world_id": managed_world_id,
+        "native_world_id": native_world_id,
+        "binding_version": binding_version,
+        "scope_mode": "world_cross_campaign",
+        "campaign_id": None,
+        "admissibility": "gm",
+        "admissibility_version": "gm-v1",
+        "graph_revision": graph_revision,
+        "target_kind": target_kind,
+        "target_id": target_id,
+        "bindings": [
+            item.model_dump(mode="json", by_alias=True)
+            for item in provenance_bindings
+        ],
+        "status": "complete",
+        "gap_count": 0,
+    })
+
+
+class RelatedRecapContextAdmissionV1(StrictModel):
+    schema_: Literal["dmb_agent_related_recap_context_admission_v1"] = Field(
+        default="dmb_agent_related_recap_context_admission_v1", alias="schema"
+    )
+    admission_origin: Literal[
+        "initial_graph_input", "validated_graph_operation", "selected_index_admission"
+    ]
+    admission_graph_event_id: UUID | None = None
+    selected_index_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    managed_world_id: str = Field(min_length=1, max_length=128)
+    native_world_id: str = Field(min_length=1, max_length=128)
+    binding_version: int = Field(strict=True, ge=1)
+    scope_mode: Literal["world_cross_campaign"]
+    campaign_id: None = None
+    admissibility: Literal["gm"]
+    admissibility_version: Literal["gm-v1"]
+    graph_revision: str = Field(min_length=1, max_length=256)
+    target_kind: Literal["assertion", "relationship"]
+    target_id: str = Field(min_length=1, max_length=256)
+    provenance_bindings: list[RelatedRecapProvenanceBindingV1] = Field(
+        min_length=1, max_length=64
+    )
+    provenance_result_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    provenance_status: Literal["complete"]
+    provenance_gap_count: Literal[0]
+    context_index_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    context_index_status: Literal["complete"]
+    context_index_entry_count: int = Field(strict=True, ge=1, le=512)
+    context_index_max_entries: Literal[512]
+    context_anchor_id: str = Field(
+        min_length=24, max_length=256, pattern=r"^dm-context-anchor:v1:.+$"
+    )
+    descriptor_world_id: str = Field(min_length=1, max_length=128)
+    descriptor_campaign_id: str | None = Field(max_length=256)
+    descriptor_graph_revision_id: str = Field(min_length=1, max_length=256)
+    descriptor_source_artifact_id: str = Field(min_length=1, max_length=256)
+    descriptor_source_revision_id: str = Field(min_length=1, max_length=256)
+    descriptor_content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    selector_schema: Literal["dm_recap_context_section_selector_v1"]
+    selector_policy: Literal["markdown-session-recap-v1"]
+    expected_session_id: str = Field(min_length=1, max_length=64)
+    expected_heading: str = Field(min_length=1, max_length=128)
+
+    @model_validator(mode="after")
+    def validate_admission(self) -> RelatedRecapContextAdmissionV1:
+        if any(
+            not value.strip() or value != value.strip()
+            for value in (
+                self.managed_world_id,
+                self.native_world_id,
+                self.graph_revision,
+                self.target_id,
+                self.descriptor_world_id,
+                self.descriptor_graph_revision_id,
+                self.descriptor_source_artifact_id,
+                self.descriptor_source_revision_id,
+                self.expected_session_id,
+                self.expected_heading,
+            )
+        ):
+            raise ValueError("related recap admission identifiers must be trimmed")
+        if self.descriptor_campaign_id is not None and (
+            not self.descriptor_campaign_id.strip()
+            or self.descriptor_campaign_id != self.descriptor_campaign_id.strip()
+        ):
+            raise ValueError("related recap source campaign must be nonblank and trimmed")
+        if (self.admission_origin == "validated_graph_operation") != (
+            self.admission_graph_event_id is not None
+        ):
+            raise ValueError("related recap operation admission needs its exact event ID")
+        if (self.admission_origin == "selected_index_admission") != (
+            self.selected_index_sha256 is not None
+        ):
+            raise ValueError("related recap selected-index admission needs its exact commitment")
+        evidence_ref_ids = [item.evidence_ref_id for item in self.provenance_bindings]
+        if evidence_ref_ids != sorted(set(evidence_ref_ids)):
+            raise ValueError("related recap provenance bindings must be sorted and unique")
+        if not any(
+            item.source_artifact_id == self.descriptor_source_artifact_id
+            and item.source_revision_id == self.descriptor_source_revision_id
+            for item in self.provenance_bindings
+        ):
+            raise ValueError("related recap descriptor must join an exact cited provenance pair")
+        session_number = self.expected_session_id.removeprefix("session-")
+        if not session_number.isdigit() or self.expected_heading != f"# Session {session_number} Recap":
+            raise ValueError("related recap heading must match its Core session selector")
+        if (
+            self.descriptor_world_id != self.native_world_id
+            or self.descriptor_graph_revision_id != self.graph_revision
+        ):
+            raise ValueError("related recap descriptor differs from its frozen Core projection")
+        expected_provenance_digest = related_recap_provenance_result_digest(
+            managed_world_id=self.managed_world_id,
+            native_world_id=self.native_world_id,
+            binding_version=self.binding_version,
+            graph_revision=self.graph_revision,
+            target_kind=self.target_kind,
+            target_id=self.target_id,
+            provenance_bindings=self.provenance_bindings,
+        )
+        if self.provenance_result_sha256 != expected_provenance_digest:
+            raise ValueError("related recap provenance result digest changed")
+        return self
+
+
+class RelatedRecapContextAuthorizationEventV1(GraphExecutionEventBaseV1):
+    kind: Literal["related_recap_context_authorized_v1"]
+    read_call_id: UUID
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    execution_policy_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    admission: RelatedRecapContextAdmissionV1
+    max_chars: int = Field(strict=True, ge=1, le=12000)
+    continuation_in_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+
+class ValidatedRelatedRecapContextEventV1(GraphExecutionEventBaseV1):
+    kind: Literal["validated_related_recap_context_v1"]
+    read_call_id: UUID
+    authorization_event_id: UUID
+    admission_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    outcome: Literal["enough", "truncated", "empty", "unavailable"]
+    range_semantics_version: Literal[
+        "utf8-character-offset-in-markdown-session-recap-v1"
+    ]
+    source_bytes_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    section_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    page_content_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    heading_line: int | None = Field(default=None, strict=True, ge=1)
+    line_start: int | None = Field(default=None, strict=True, ge=1)
+    line_end: int | None = Field(default=None, strict=True, ge=1)
+    offset_chars: int = Field(strict=True, ge=0, le=1_000_000)
+    returned_chars: int = Field(strict=True, ge=0, le=12000)
+    truncated: bool
+    continuation_in_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    continuation_out_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_read_result(self) -> ValidatedRelatedRecapContextEventV1:
+        if (self.outcome == "truncated") != self.truncated:
+            raise ValueError("related recap truncation flag must match its outcome")
+        if self.outcome == "unavailable":
+            if any(
+                value is not None
+                for value in (
+                    self.source_bytes_sha256,
+                    self.section_sha256,
+                    self.page_content_sha256,
+                    self.heading_line,
+                    self.line_start,
+                    self.line_end,
+                    self.continuation_out_sha256,
+                )
+            ) or self.returned_chars != 0 or self.truncated:
+                raise ValueError("unavailable related recap result cannot carry content metadata")
+        else:
+            if any(
+                value is None
+                for value in (
+                    self.source_bytes_sha256,
+                    self.section_sha256,
+                    self.page_content_sha256,
+                    self.heading_line,
+                    self.line_start,
+                    self.line_end,
+                )
+            ):
+                raise ValueError("available related recap result needs verified digests and range")
+            if self.line_end < self.line_start or self.heading_line >= self.line_start:
+                raise ValueError("related recap section line range is invalid")
+        if (self.outcome == "truncated") != (self.continuation_out_sha256 is not None):
+            raise ValueError("related recap continuation must match truncation state")
+        if self.returned_chars == 0 and self.outcome not in {"empty", "unavailable"}:
+            raise ValueError("empty related recap page must use the empty outcome")
+        if self.outcome == "empty" and self.returned_chars != 0:
+            raise ValueError("empty related recap outcome cannot return characters")
+        return self
+
+
+class RelatedRecapContextProviderInclusionEventV1(GraphExecutionEventBaseV1):
+    kind: Literal["related_recap_context_provider_inclusion_v1"]
+    provider_attempt_id: UUID
+    envelope_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    included_context_event_ids: list[UUID] = Field(min_length=1, max_length=8)
+    included_context_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    included_chars: int = Field(strict=True, ge=1, le=96000)
+
+    @model_validator(mode="after")
+    def validate_included_context_ids(self) -> RelatedRecapContextProviderInclusionEventV1:
+        if len(set(self.included_context_event_ids)) != len(self.included_context_event_ids):
+            raise ValueError("included related recap result IDs must be unique")
+        return self
+
+
+def related_recap_context_inclusion_digest(
+    reads: list[ValidatedRelatedRecapContextEventV1],
+) -> str:
+    return _canonical_sha256({
+        "schema": "dmb_agent_related_recap_context_inclusion_v1",
+        "reads": [
+            {
+                "event_id": str(event.event_id),
+                "authorization_event_id": str(event.authorization_event_id),
+                "admission_sha256": event.admission_sha256,
+                "source_bytes_sha256": event.source_bytes_sha256,
+                "section_sha256": event.section_sha256,
+                "page_content_sha256": event.page_content_sha256,
+                "offset_chars": event.offset_chars,
+                "returned_chars": event.returned_chars,
+            }
+            for event in reads
+        ],
+    })
+
+
 class ProviderAttemptAuthorizedEventV2(ProviderAttemptAuthorizedEventV1):
     kind: Literal["provider_attempt_authorized_v2"]
     included_source_read_event_ids: list[UUID] = Field(max_length=8)
@@ -1670,7 +1930,10 @@ GraphExecutionEventV2 = Annotated[
     | ProviderOutcomeEventV1
     | CompletionBindingEventV1
     | SourceReadAuthorizationEventV2
-    | ValidatedSourceReadEventV2,
+    | ValidatedSourceReadEventV2
+    | RelatedRecapContextAuthorizationEventV1
+    | ValidatedRelatedRecapContextEventV1
+    | RelatedRecapContextProviderInclusionEventV1,
     Field(discriminator="kind"),
 ]
 
@@ -1865,10 +2128,21 @@ class PlanWorldGraphExecutionV2(StrictModel):
         if authorized_chars > self.policy.max_source_read_chars:
             raise ValueError("source-read character budget exceeded")
 
+        _validate_related_recap_context_events(self)
+
         # Reuse the V1 execution validator for the unchanged Graph/provider state machine.
         legacy_events: list[dict[str, object]] = []
         for event in self.events:
-            if isinstance(event, (SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2)):
+            if isinstance(
+                event,
+                (
+                    SourceReadAuthorizationEventV2,
+                    ValidatedSourceReadEventV2,
+                    RelatedRecapContextAuthorizationEventV1,
+                    ValidatedRelatedRecapContextEventV1,
+                    RelatedRecapContextProviderInclusionEventV1,
+                ),
+            ):
                 continue
             payload = event.model_dump(mode="json", by_alias=True)
             if isinstance(event, ProviderAttemptAuthorizedEventV2):
@@ -1894,6 +2168,143 @@ class PlanWorldGraphExecutionV2(StrictModel):
         if len(self.model_dump_json(by_alias=True).encode("utf-8")) > 1_048_576:
             raise ValueError("Graph execution record exceeds the storage size limit")
         return self
+
+
+def _related_recap_descriptor_key(
+    admission: RelatedRecapContextAdmissionV1,
+) -> tuple[str, str | None, str, str, str, str, str]:
+    return (
+        admission.context_anchor_id,
+        admission.descriptor_campaign_id,
+        admission.descriptor_source_artifact_id,
+        admission.descriptor_source_revision_id,
+        admission.descriptor_content_sha256,
+        admission.selector_schema,
+        admission.selector_policy,
+    )
+
+
+def _validate_related_recap_context_events(
+    execution: PlanWorldGraphExecutionV2,
+) -> None:
+    authorizations: dict[UUID, RelatedRecapContextAuthorizationEventV1] = {}
+    results_by_call: dict[UUID, ValidatedRelatedRecapContextEventV1] = {}
+    results_by_event: dict[UUID, ValidatedRelatedRecapContextEventV1] = {}
+    inclusion_pending: RelatedRecapContextProviderInclusionEventV1 | None = None
+    latest_attempt_id: UUID | None = None
+    latest_outcome: str | None = None
+    authorization_count = 0
+    authorized_chars = 0
+    returned_chars = 0
+
+    for event in execution.events:
+        if inclusion_pending is not None:
+            if not isinstance(event, ProviderAttemptAuthorizedEventV1):
+                raise ValueError("related recap inclusion must precede its provider authorization")
+            if (
+                event.provider_attempt_id != inclusion_pending.provider_attempt_id
+                or event.envelope_sha256 != inclusion_pending.envelope_sha256
+            ):
+                raise ValueError("related recap inclusion differs from provider authorization")
+            inclusion_pending = None
+        if (
+            isinstance(
+                event,
+                (
+                    RelatedRecapContextAuthorizationEventV1,
+                    ValidatedRelatedRecapContextEventV1,
+                    RelatedRecapContextProviderInclusionEventV1,
+                ),
+            )
+            and latest_outcome == "outcome_unknown"
+        ):
+            raise ValueError("related recap context cannot continue after an unknown provider outcome")
+        if isinstance(event, (ProviderAttemptAuthorizedEventV1, ProviderAttemptAuthorizedEventV2)):
+            latest_attempt_id = event.provider_attempt_id
+            latest_outcome = None
+        elif isinstance(event, ProviderOutcomeEventV1) and event.provider_attempt_id == latest_attempt_id:
+            latest_outcome = event.outcome
+
+        if isinstance(event, RelatedRecapContextAuthorizationEventV1):
+            if event.read_call_id in authorizations:
+                raise ValueError("related recap read call ID was authorized more than once")
+            if (
+                event.context_receipt_sha256 != execution.context_receipt_sha256
+                or event.execution_policy_sha256 != execution.execution_policy_sha256
+            ):
+                raise ValueError("related recap authorization differs from the frozen execution")
+            authorizations[event.read_call_id] = event
+            authorization_count += 1
+            authorized_chars += event.max_chars
+        elif isinstance(event, ValidatedRelatedRecapContextEventV1):
+            authorization = authorizations.get(event.read_call_id)
+            if (
+                authorization is None
+                or authorization.sequence >= event.sequence
+                or authorization.event_id != event.authorization_event_id
+            ):
+                raise ValueError("related recap result requires its earlier authorization")
+            if event.read_call_id in results_by_call:
+                raise ValueError("related recap authorization already has a result")
+            expected_admission_sha = _canonical_sha256(
+                authorization.admission.model_dump(mode="json", by_alias=True)
+            )
+            if event.admission_sha256 != expected_admission_sha:
+                raise ValueError("related recap result differs from its authorized descriptor")
+            if event.continuation_in_sha256 != authorization.continuation_in_sha256:
+                raise ValueError("related recap result continuation differs from its authorization")
+            if event.returned_chars > authorization.max_chars:
+                raise ValueError("related recap result exceeds its authorized character limit")
+            if event.outcome != "unavailable" and (
+                event.source_bytes_sha256 != authorization.admission.descriptor_content_sha256
+            ):
+                raise ValueError("related recap source bytes differ from the admitted descriptor")
+            if event.continuation_in_sha256 is None:
+                if event.offset_chars != 0:
+                    raise ValueError("initial related recap page must start at character offset zero")
+            else:
+                descriptor_key = _related_recap_descriptor_key(authorization.admission)
+                continuations = [
+                    previous
+                    for previous in results_by_event.values()
+                    if previous.continuation_out_sha256 == event.continuation_in_sha256
+                    and previous.outcome == "truncated"
+                    and _related_recap_descriptor_key(
+                        authorizations[previous.read_call_id].admission
+                    )
+                    == descriptor_key
+                ]
+                if len(continuations) != 1:
+                    raise ValueError("related recap continuation has no unique prior page")
+                previous = continuations[0]
+                if (
+                    previous.section_sha256 != event.section_sha256
+                    or previous.source_bytes_sha256 != event.source_bytes_sha256
+                    or event.offset_chars != previous.offset_chars + previous.returned_chars
+                ):
+                    raise ValueError("related recap continuation changed section or skipped characters")
+            results_by_call[event.read_call_id] = event
+            results_by_event[event.event_id] = event
+            returned_chars += event.returned_chars
+        elif isinstance(event, RelatedRecapContextProviderInclusionEventV1):
+            if inclusion_pending is not None:
+                raise ValueError("related recap provider inclusion cannot be nested")
+            included = [results_by_event.get(event_id) for event_id in event.included_context_event_ids]
+            if any(result is None for result in included):
+                raise ValueError("related recap inclusion references an unknown or later read result")
+            reads = [result for result in included if result is not None]
+            if any(result.outcome not in {"enough", "truncated"} for result in reads):
+                raise ValueError("related recap inclusion requires content-bearing results")
+            if event.included_chars != sum(result.returned_chars for result in reads):
+                raise ValueError("related recap inclusion character count differs from read results")
+            if event.included_context_sha256 != related_recap_context_inclusion_digest(reads):
+                raise ValueError("related recap inclusion digest differs from read results")
+            inclusion_pending = event
+
+    if authorization_count > 8:
+        raise ValueError("related recap read call budget exceeded")
+    if authorized_chars > 96000 or returned_chars > 96000:
+        raise ValueError("related recap character budget exceeded")
 
 
 def graph_execution_policy_digest_v2(
@@ -1935,6 +2346,98 @@ def validate_selected_source_binding(receipt: PlanWorldGraphContextReceiptV1, ex
         context = selected.selected_index_commitment.context
         if context.world_id != receipt.graph_authority.native_world_id or context.revision_id != receipt.graph_authority.graph_revision or context.scope_mode != "world_cross_campaign" or context.campaign_id != receipt.graph_authority.campaign_id or context.admissibility != "gm" or context.focus.kind != "none" or receipt.graph_authority.admissibility_version != "gm-v1":
             raise ValueError("selected native context differs from receipt authority")
+
+
+def validate_related_recap_context_scope(
+    receipt: PlanWorldGraphContextReceiptV1,
+    execution: PlanWorldGraphExecution | None,
+) -> None:
+    """Bind related-context authorization to turn-admitted targets and Core pins."""
+    if not isinstance(execution, PlanWorldGraphExecutionV2):
+        return
+    authorizations = [
+        event
+        for event in execution.events
+        if isinstance(event, RelatedRecapContextAuthorizationEventV1)
+    ]
+    if not authorizations:
+        return
+    graph_scope = execution.policy.source_read_scope
+    if (
+        graph_scope.world_id != receipt.graph_authority.managed_world_id
+        or graph_scope.campaign_id != receipt.graph_authority.campaign_id
+        or graph_scope.graph_revision != receipt.graph_authority.graph_revision
+    ):
+        raise ValueError("related recap execution differs from frozen Graph authority")
+    operations = {
+        event.event_id: event
+        for event in execution.events
+        if isinstance(event, ValidatedGraphOperationEventV1)
+    }
+    selected_scope = (
+        graph_scope if isinstance(graph_scope, GraphSelectedSourceReadScopeV2) else None
+    )
+    for event in execution.events:
+        if not isinstance(event, RelatedRecapContextAuthorizationEventV1):
+            continue
+        admission = event.admission
+        authority = receipt.graph_authority
+        if (
+            admission.context_anchor_id != admission.context_anchor_id.strip()
+            or admission.managed_world_id != authority.managed_world_id
+            or admission.native_world_id != authority.native_world_id
+            or admission.binding_version != authority.binding_version
+            or admission.graph_revision != authority.graph_revision
+            or authority.scope_mode != "world"
+            or authority.campaign_id is not None
+            or authority.admissibility_version != admission.admissibility_version
+            or event.context_receipt_sha256 != receipt.context_receipt_sha256
+            or event.execution_policy_sha256 != execution.execution_policy_sha256
+        ):
+            raise ValueError("related recap authorization differs from the frozen turn authority")
+        target_ids = (
+            set(receipt.assembled_input.dispatched_assertion_ids)
+            if admission.target_kind == "assertion"
+            else set(receipt.assembled_input.dispatched_relationship_ids)
+        )
+        evidence_ref_ids = {item.evidence_ref_id for item in admission.provenance_bindings}
+        if admission.admission_origin == "initial_graph_input":
+            if (
+                admission.target_id not in target_ids
+                or not evidence_ref_ids.issubset(
+                    set(receipt.assembled_input.dispatched_evidence_ref_ids)
+                )
+            ):
+                raise ValueError("related recap target and refs were not in initial dispatched Graph input")
+        elif admission.admission_origin == "validated_graph_operation":
+            operation = operations.get(admission.admission_graph_event_id)
+            if (
+                operation is None
+                or operation.sequence >= event.sequence
+                or operation.graph_revision != authority.graph_revision
+                or admission.target_id
+                not in (
+                    set(operation.assertion_ids)
+                    if admission.target_kind == "assertion"
+                    else set(operation.relationship_ids)
+                )
+                or not evidence_ref_ids.issubset(set(operation.evidence_ref_ids))
+            ):
+                raise ValueError("related recap target and refs lack a prior validated Graph operation")
+        else:
+            if selected_scope is None:
+                raise ValueError("related recap selected-index admission requires the frozen selected scope")
+            commitment = selected_scope.selected_index_commitment
+            admitted_target = GraphSelectedTargetV1(
+                kind=admission.target_kind, target_id=admission.target_id
+            )
+            admitted_refs = {anchor.evidence_ref_id for anchor in selected_scope.admitted_anchors}
+            if (
+                admission.selected_index_sha256 != commitment.index_sha256
+                or admitted_target not in commitment.admitted_targets
+                or not evidence_ref_ids.issubset(admitted_refs)
+            ):
+                raise ValueError("related recap target and refs lack the committed selected-index admission")
 
 
 def validate_completion_against_receipt(
@@ -2602,6 +3105,9 @@ class Turn(StrictModel):
             raise ValueError("Graph receipt requires a v2 submitted-intent fingerprint")
         if self.graph_context_receipt is not None:
             validate_selected_source_binding(self.graph_context_receipt, self.graph_context_execution)
+            validate_related_recap_context_scope(
+                self.graph_context_receipt, self.graph_context_execution
+            )
         if self.graph_context_execution is not None:
             if self.graph_context_receipt is None:
                 raise ValueError("Graph execution requires its frozen context receipt")

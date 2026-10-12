@@ -3247,6 +3247,292 @@ def test_graph_execution_v2_source_read_receipt_round_trip_through_fresh_service
     assert AgentConversationService().list_turns(world_id, conversation.conversation_id)[0] == reload
 
 
+def test_related_recap_events_round_trip_through_fresh_service(
+    application_state_dsn: str,
+) -> None:
+    from application_state.agent_conversation.types import (
+        GraphExecutionAccountingV1,
+        GraphExecutionPolicyV2,
+        GraphSourceReadScopeV2,
+        GraphSourceScopeAnchorV2,
+        PlanWorldGraphContextReceiptV1,
+        PlanWorldGraphExecutionV2,
+        RelatedRecapContextAuthorizationEventV1,
+        RelatedRecapContextProviderInclusionEventV1,
+        RelatedRecapProvenanceBindingV1,
+        ValidatedRelatedRecapContextEventV1,
+        _canonical_sha256,
+        graph_execution_policy_digest_v2,
+        plan_world_graph_context_receipt_digest,
+        related_recap_context_inclusion_digest,
+        related_recap_provenance_result_digest,
+    )
+
+    service = AgentConversationService()
+    world_id = "related-recap-context-roundtrip-world"
+    conversation = _new(service, world_id)
+    plan_revision_id = uuid4()
+    receipt = _graph_receipt(
+        world_id,
+        plan_revision_id,
+        candidate_assertion_ids=["assertion-1"],
+        candidate_evidence_ref_ids=["evidence-indexed", "evidence-initial"],
+        dispatched_assertion_ids=["assertion-1"],
+        dispatched_evidence_ref_ids=["evidence-initial"],
+        evidence_sufficiency_status="sufficient",
+    )
+    receipt_without_digest = receipt.model_copy(
+        update={
+            "graph_authority": receipt.graph_authority.model_copy(
+                update={"admissibility_version": "gm-v1"}
+            ),
+            "context_receipt_sha256": "0" * 64,
+        }
+    )
+    receipt_digest = plan_world_graph_context_receipt_digest(receipt_without_digest)
+    receipt = PlanWorldGraphContextReceiptV1.model_validate(
+        receipt_without_digest.model_dump(mode="json", by_alias=True)
+        | {"context_receipt_sha256": receipt_digest}
+    )
+    intent = SubmittedTurnIntentV2(
+        world_id=world_id,
+        client_thread_id="related-recap-context-thread",
+        message="Summarize the prior session.",
+        surface_id="plan",
+        surface_instance_id="plan-pane-related-recap",
+        client_work_state="saved_clean",
+        primary_work=SubmittedPrimaryWorkIntentV1(
+            kind="plan",
+            object_id="graph-receipt-plan",
+            expected_revision=3,
+            expected_revision_n=2,
+            expected_content_sha256="a" * 64,
+        ),
+        plan_context_policy=PlanContextPolicyV1(policy="auto_plan_world"),
+        graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+        graph_selection=None,
+    )
+    provenance = TurnProvenance(
+        world_id=world_id,
+        surface_resolution="resolved",
+        surface_id="plan",
+        surface_instance_id="plan-pane-related-recap",
+        primary_work=HistoricalReference(
+            resolution="resolved",
+            kind="plan",
+            object_id="graph-receipt-plan",
+            content_sha256="a" * 64,
+            object_revision=3,
+            work_revision_id=plan_revision_id,
+            revision_n=2,
+        ),
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    scope = GraphSourceReadScopeV2(
+        retrieval_session_id="related-recap-context-session",
+        world_id=world_id,
+        campaign_id=None,
+        graph_revision="graph-rev-11",
+        admitted_anchors=[
+            GraphSourceScopeAnchorV2(
+                anchor_id="anchor-indexed",
+                evidence_ref_id="evidence-indexed",
+                source_artifact_id="artifact-indexed",
+                source_revision_id="source-revision-indexed",
+            )
+        ],
+    )
+    policy = GraphExecutionPolicyV2(
+        policy_version="related-recap-test-policy-v1",
+        allowed_graph_operations=["search_assertions"],
+        max_provider_attempts=2,
+        max_graph_operations=0,
+        max_results_per_operation=0,
+        max_total_provider_input_tokens=100,
+        max_total_provider_output_tokens=40,
+        provider_input_accounting=GraphExecutionAccountingV1(
+            kind="exact_token_count", estimator="synthetic-tokenizer"
+        ),
+        source_opened=False,
+        source_read_scope=scope,
+        max_source_read_calls=1,
+        max_source_read_anchors=1,
+        max_source_read_chars=12000,
+        max_chars_per_source_read=12000,
+    )
+    execution = PlanWorldGraphExecutionV2(
+        schema="dmb_agent_plan_world_graph_execution_v2",
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        execution_policy_sha256=graph_execution_policy_digest_v2(
+            receipt.context_receipt_sha256, policy
+        ),
+        policy=policy,
+        events=[],
+    )
+    accepted = service.accept_turn(
+        TurnSubmission(
+            world_id=world_id,
+            conversation_id=conversation.conversation_id,
+            idempotency_key=uuid4(),
+            expected_conversation_revision=1,
+            user_text=intent.message,
+            provenance=provenance,
+            submitted_intent_v2=intent,
+            graph_context_receipt=receipt,
+            graph_context_execution=execution,
+        )
+    )
+    fresh = AgentConversationService()
+    claimed = fresh.claim_turn(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=accepted.revision,
+        lease_seconds=60,
+    ).turn
+    binding = RelatedRecapProvenanceBindingV1(
+        evidence_ref_id="evidence-initial",
+        source_artifact_id="legacy-artifact",
+        source_revision_id="legacy-source-revision",
+    )
+    admission = {
+        "schema": "dmb_agent_related_recap_context_admission_v1",
+        "admission_origin": "initial_graph_input",
+        "managed_world_id": world_id,
+        "native_world_id": "native-world-17",
+        "binding_version": 4,
+        "scope_mode": "world_cross_campaign",
+        "campaign_id": None,
+        "admissibility": "gm",
+        "admissibility_version": "gm-v1",
+        "graph_revision": "graph-rev-11",
+        "target_kind": "assertion",
+        "target_id": "assertion-1",
+        "provenance_bindings": [binding.model_dump(mode="json")],
+        "provenance_result_sha256": related_recap_provenance_result_digest(
+            managed_world_id=world_id,
+            native_world_id="native-world-17",
+            binding_version=4,
+            graph_revision="graph-rev-11",
+            target_kind="assertion",
+            target_id="assertion-1",
+            provenance_bindings=[binding],
+        ),
+        "provenance_status": "complete",
+        "provenance_gap_count": 0,
+        "context_index_sha256": "c" * 64,
+        "context_index_status": "complete",
+        "context_index_entry_count": 1,
+        "context_index_max_entries": 512,
+        "context_anchor_id": "dm-context-anchor:v1:session-22",
+        "descriptor_world_id": "native-world-17",
+        "descriptor_campaign_id": "longmont-c2",
+        "descriptor_graph_revision_id": "graph-rev-11",
+        "descriptor_source_artifact_id": "legacy-artifact",
+        "descriptor_source_revision_id": "legacy-source-revision",
+        "descriptor_content_sha256": "d" * 64,
+        "selector_schema": "dm_recap_context_section_selector_v1",
+        "selector_policy": "markdown-session-recap-v1",
+        "expected_session_id": "session-22",
+        "expected_heading": "# Session 22 Recap",
+    }
+    from application_state.agent_conversation.types import RelatedRecapContextAdmissionV1
+
+    typed_admission = RelatedRecapContextAdmissionV1.model_validate(admission)
+    call_id = uuid4()
+    authorization = RelatedRecapContextAuthorizationEventV1(
+        event_id=uuid4(),
+        sequence=0,
+        kind="related_recap_context_authorized_v1",
+        read_call_id=call_id,
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        execution_policy_sha256=execution.execution_policy_sha256,
+        admission=typed_admission,
+        max_chars=12000,
+    )
+    authorized, inserted = fresh.authorize_related_recap_context(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=claimed.revision,
+        expected_attempt=claimed.attempt,
+        authorization=authorization,
+    )
+    assert inserted is True
+    result = ValidatedRelatedRecapContextEventV1(
+        event_id=uuid4(),
+        sequence=1,
+        kind="validated_related_recap_context_v1",
+        read_call_id=call_id,
+        authorization_event_id=authorization.event_id,
+        admission_sha256=_canonical_sha256(typed_admission.model_dump(mode="json", by_alias=True)),
+        outcome="enough",
+        range_semantics_version="utf8-character-offset-in-markdown-session-recap-v1",
+        source_bytes_sha256="d" * 64,
+        section_sha256="e" * 64,
+        page_content_sha256="f" * 64,
+        heading_line=12,
+        line_start=13,
+        line_end=38,
+        offset_chars=0,
+        returned_chars=37,
+        truncated=False,
+    )
+    recorded, inserted = fresh.record_validated_related_recap_context(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=authorized.revision,
+        expected_attempt=claimed.attempt,
+        result=result,
+    )
+    assert inserted is True
+    attempt_id = uuid4()
+    envelope_sha = "a" * 64
+    inclusion = RelatedRecapContextProviderInclusionEventV1(
+        event_id=uuid4(),
+        sequence=2,
+        kind="related_recap_context_provider_inclusion_v1",
+        provider_attempt_id=attempt_id,
+        envelope_sha256=envelope_sha,
+        included_context_event_ids=[result.event_id],
+        included_context_sha256=related_recap_context_inclusion_digest([result]),
+        included_chars=result.returned_chars,
+    )
+    pending, inserted = fresh.record_related_recap_context_inclusion(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=recorded.revision,
+        expected_attempt=claimed.attempt,
+        inclusion=inclusion,
+    )
+    assert inserted is True
+    reloaded = AgentConversationService().list_turns(
+        world_id, conversation.conversation_id
+    )[0]
+    assert reloaded.graph_context_execution.events[-1] == inclusion
+    assert reloaded.graph_context_execution.events[-2] == result
+    assert reloaded.graph_context_execution.events[-3] == authorization
+    assert reloaded.graph_context_execution.events[-3].admission.campaign_id is None
+    assert (
+        reloaded.graph_context_execution.events[-3].admission.descriptor_campaign_id
+        == "longmont-c2"
+    )
+    assert "evidence-initial" not in {
+        anchor.evidence_ref_id
+        for anchor in reloaded.graph_context_execution.policy.source_read_scope.admitted_anchors
+    }
+    serialized = reloaded.graph_context_execution.model_dump(mode="json", by_alias=True)
+    encoded_result = serialized["events"][1]
+    assert not {"content", "source_uri", "continuation", "token"}.intersection(
+        encoded_result
+    )
+    assert pending.graph_context_execution == reloaded.graph_context_execution
+    assert "response" not in serialized
+    assert "replacement_markdown" not in serialized
+
+
 def test_read_only_reset_receipt_actual_repository_route(application_state_dsn, monkeypatch):
     import asyncio
     import httpx
