@@ -510,6 +510,7 @@ def test_history_projection_keeps_receipt_and_completion_bound_to_provenance() -
     assert context.completion is not None
     assert context.execution is None
     assert context.delivery_replay is False
+    assert context.source_open_targets == []
 
     with pytest.raises(AgentTurnServiceError, match="historical turn provenance"):
         project_plan_turn_context(_policy_turn(drift=True), delivery_replay=False)
@@ -539,7 +540,9 @@ def test_plan_context_wire_preserves_v2_source_read_citation() -> None:
     assert wire["completion"]["citation_map"]["entries"][0]["source_opened"] is True
 
 
-def test_v2_completion_opens_citation_only_from_producing_source_envelope() -> None:
+def test_v2_completion_opens_citation_only_from_producing_source_envelope(
+    monkeypatch: Any,
+) -> None:
     from application_state.agent_conversation import types as graph_types
     from apps.live_control_server.services import agent_turn_service as service_module
 
@@ -661,6 +664,50 @@ def test_v2_completion_opens_citation_only_from_producing_source_envelope() -> N
     })
     projected = project_plan_turn_context(completed_turn, delivery_replay=True)
     assert projected.completion.citation_map.entries[0].source_opened is True
+    assert len(projected.source_open_targets) == 1
+    target = projected.source_open_targets[0]
+    assert target.kind == "evidence_anchor"
+    assert (
+        target.claim_id, target.anchor_id, target.evidence_ref_id,
+        target.source_artifact_id, target.source_revision_id,
+    ) == (
+        "claim-internal-test", "anchor:one", "evidence-internal-test",
+        "artifact:one", "source-revision:one",
+    )
+    assert (target.managed_world_id, target.native_world_id, target.graph_revision) == (
+        receipt.graph_authority.managed_world_id,
+        receipt.graph_authority.native_world_id,
+        receipt.graph_authority.graph_revision,
+    )
+    assert (target.source_read_id, target.read_outcome) == ("source-read:one", "enough")
+    assert project_plan_turn_context(
+        completed_turn, delivery_replay=False
+    ).source_open_targets == projected.source_open_targets
+    history = _serialized_card_a_history_body(
+        monkeypatch, policy_turn_override=completed_turn
+    )
+    assert history["turns"][0]["plan_context"]["source_open_targets"] == [
+        target.model_dump(mode="json", by_alias=True)
+    ]
+    foreign_scope = policy.source_read_scope.model_copy(update={
+        "graph_revision": "foreign-revision",
+    })
+    foreign_execution = completed_execution.model_copy(update={
+        "policy": policy.model_copy(update={"source_read_scope": foreign_scope}),
+    })
+    assert service_module._evidence_anchor_open_targets(
+        completed_turn.model_copy(update={"graph_context_execution": foreign_execution})
+    ) == []
+    foreign_pin = scope_anchor.model_copy(update={"evidence_ref_id": "foreign-evidence"})
+    foreign_pin_scope = policy.source_read_scope.model_copy(update={
+        "admitted_anchors": [foreign_pin],
+    })
+    foreign_pin_execution = completed_execution.model_copy(update={
+        "policy": policy.model_copy(update={"source_read_scope": foreign_pin_scope}),
+    })
+    assert service_module._evidence_anchor_open_targets(
+        completed_turn.model_copy(update={"graph_context_execution": foreign_pin_execution})
+    ) == []
 
     unincluded_attempt = graph_types.ProviderAttemptAuthorizedEventV2(
         **attempt_fields, included_source_read_event_ids=[],
@@ -747,6 +794,7 @@ def test_completed_policy_replay_returns_v2_from_stored_receipt_only() -> None:
 
 def _serialized_card_a_history_body(
     monkeypatch: Any, *, include_turn_correlation: bool = False,
+    policy_turn_override: Turn | None = None,
 ) -> dict[str, Any]:
     """Exercise FastAPI's response serialization for additive policy history."""
     import asyncio
@@ -756,7 +804,7 @@ def _serialized_card_a_history_body(
 
     from apps.live_control_server.routes import agent as agent_route
 
-    policy_turn = _cited_card_a_policy_turn()
+    policy_turn = policy_turn_override or _cited_card_a_policy_turn()
     legacy_turn = SimpleNamespace(
         turn_id=UUID("00000000-0000-4000-8000-000000000033"),
         sequence=1,

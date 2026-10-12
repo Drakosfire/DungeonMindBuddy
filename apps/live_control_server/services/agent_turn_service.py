@@ -51,6 +51,8 @@ from application_state.errors import (
 )
 
 from apps.live_control_server.models.agent_turn import (
+    AgentEvidenceAnchorOpenTargetV1,
+    AgentRelatedRecapContextOpenTargetV1,
     AgentPlanWorldGraphContextResponseV1,
     AgentPlanWorldGraphExecutionProjectionV1,
     AgentTurnContentBasis,
@@ -2853,6 +2855,254 @@ def _validate_policy_turn_record(
         )
 
 
+def _evidence_anchor_open_targets(turn: Turn) -> list[AgentEvidenceAnchorOpenTargetV1]:
+    """Project only cited, frozen source pins from a validated V2 turn."""
+    graph_types = _app_state_graph_execution_types()
+    receipt = turn.graph_context_receipt
+    completion = turn.completion
+    execution = turn.graph_context_execution
+    if (
+        receipt is None
+        or not isinstance(completion, graph_types.PlanWorldGraphCompletionV2)
+        or not isinstance(execution, graph_types.PlanWorldGraphExecutionV2)
+        or completion.citation_map is None
+        or receipt.graph_authority.admissibility_version != "gm-v1"
+    ):
+        return []
+    authority = receipt.graph_authority
+    scope = execution.policy.source_read_scope
+    if (
+        scope.world_id != authority.managed_world_id
+        or scope.campaign_id is not None
+        or scope.graph_revision != authority.graph_revision
+        or authority.scope_mode != "world"
+        or authority.campaign_id is not None
+    ):
+        return []
+    pins_by_evidence: dict[str, list[Any]] = {}
+    for pin in scope.admitted_anchors:
+        pins_by_evidence.setdefault(pin.evidence_ref_id, []).append(pin)
+
+    binding = next(
+        (event for event in execution.events if getattr(event, "kind", None) == "completion_binding"),
+        None,
+    )
+    producing_attempt = next(
+        (
+            event for event in execution.events
+            if getattr(event, "kind", None) == "provider_attempt_authorized_v2"
+            and binding is not None
+            and event.provider_attempt_id == binding.provider_attempt_id
+        ),
+        None,
+    )
+    included_read_events = (
+        set(producing_attempt.included_source_read_event_ids)
+        if producing_attempt is not None else set()
+    )
+    reads_by_id = {
+        read.source_read_id: read
+        for event in execution.events
+        if getattr(event, "kind", None) == "validated_source_read_v2"
+        and event.event_id in included_read_events
+        for read in event.receipts
+    }
+    targets: list[AgentEvidenceAnchorOpenTargetV1] = []
+    for citation in completion.citation_map.entries:
+        if citation.graph_revision != authority.graph_revision:
+            continue
+        for evidence_ref_id in citation.evidence_ref_ids:
+            for pin in pins_by_evidence.get(evidence_ref_id, []):
+                matching_reads = [
+                    reads_by_id[read_id]
+                    for read_id in citation.source_read_ids
+                    if read_id in reads_by_id
+                    and reads_by_id[read_id].anchor_id == pin.anchor_id
+                    and reads_by_id[read_id].evidence_ref_id == pin.evidence_ref_id
+                    and reads_by_id[read_id].source_artifact_id == pin.source_artifact_id
+                    and reads_by_id[read_id].source_revision_id == pin.source_revision_id
+                    and reads_by_id[read_id].outcome in {"enough", "partial", "truncated"}
+                    and reads_by_id[read_id].content_sha256 is not None
+                    and reads_by_id[read_id].returned_chars > 0
+                ]
+                read = matching_reads[0] if len(matching_reads) == 1 else None
+                targets.append(AgentEvidenceAnchorOpenTargetV1(
+                    claim_id=citation.claim_id,
+                    anchor_id=pin.anchor_id,
+                    evidence_ref_id=pin.evidence_ref_id,
+                    source_artifact_id=pin.source_artifact_id,
+                    source_revision_id=pin.source_revision_id,
+                    managed_world_id=authority.managed_world_id,
+                    native_world_id=authority.native_world_id,
+                    binding_version=authority.binding_version,
+                    graph_revision=authority.graph_revision,
+                    source_read_id=None if read is None else read.source_read_id,
+                    read_outcome=None if read is None else read.outcome,
+                ))
+    return sorted(
+        targets,
+        key=lambda target: (target.claim_id, target.evidence_ref_id, target.anchor_id),
+    )
+
+
+def _related_recap_context_open_targets(
+    turn: Turn,
+) -> list[AgentRelatedRecapContextOpenTargetV1]:
+    """Join cited evidence to Core-authorized context metadata at one frozen pin.
+
+    This read-only projection does not make a context descriptor claim support.
+    Missing, incomplete, or unavailable Core metadata yields no context target.
+    """
+    graph_types = _app_state_graph_execution_types()
+    receipt = turn.graph_context_receipt
+    completion = turn.completion
+    execution = turn.graph_context_execution
+    if (
+        receipt is None
+        or not isinstance(completion, graph_types.PlanWorldGraphCompletionV2)
+        or not isinstance(execution, graph_types.PlanWorldGraphExecutionV2)
+        or completion.citation_map is None
+        or receipt.graph_authority.admissibility_version != "gm-v1"
+    ):
+        return []
+    authority = receipt.graph_authority
+    if authority.scope_mode != "world" or authority.campaign_id is not None:
+        return []
+    citations = [
+        entry for entry in completion.citation_map.entries
+        if entry.graph_revision == authority.graph_revision
+        and entry.target_kind in {"assertion", "relationship"}
+        and entry.evidence_ref_ids
+    ]
+    if not citations:
+        return []
+
+    try:
+        from dungeonmind.application.world_graph_retrieval import (
+            EvidenceTarget, SourceContextIndexRequest,
+        )
+        from dungeonmind.contracts.projection import Admissibility
+        from dungeonmind.contracts.projection_v2 import (
+            ScopeModeV2, WorldGraphProjectionRequestV2,
+        )
+        from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
+            direct_services_from_config,
+        )
+
+        projection = WorldGraphProjectionRequestV2(
+            world_id=authority.native_world_id,
+            campaign_id=None,
+            admissibility=Admissibility.GM,
+            scope_mode=ScopeModeV2.WORLD_CROSS_CAMPAIGN,
+            revision_pin=authority.graph_revision,
+        )
+        services = direct_services_from_config(authority.native_world_id)
+
+        def exact_snapshot(snapshot: Any) -> bool:
+            return (
+                snapshot.world_id == projection.world_id
+                and snapshot.campaign_id is None
+                and snapshot.scope_mode == projection.scope_mode
+                and snapshot.admissibility == projection.admissibility
+                and snapshot.focus == projection.focus
+                and snapshot.revision_id == authority.graph_revision
+            )
+
+        pairs_by_target: dict[tuple[str, str], dict[str, set[tuple[str, str]]]] = {}
+        for citation in citations:
+            target_key = (citation.target_kind, citation.target_id)
+            if target_key in pairs_by_target:
+                continue
+            result = services.retrieval.get_evidence(
+                projection,
+                target=EvidenceTarget(kind=citation.target_kind, target_id=citation.target_id),
+                max_anchors=32,
+            )
+            if (
+                not result.found
+                or result.target.kind != citation.target_kind
+                or result.target.target_id != citation.target_id
+                or not exact_snapshot(result.snapshot)
+                or result.coverage.truncated_fields
+                or result.coverage.gap_codes
+                or result.coverage.missing_ids
+            ):
+                pairs_by_target[target_key] = {}
+                continue
+            pairs: dict[str, set[tuple[str, str]]] = {}
+            for anchor in result.anchors:
+                if (
+                    isinstance(anchor.evidence_ref_id, str)
+                    and isinstance(anchor.source_artifact_id, str)
+                    and isinstance(anchor.source_revision_id, str)
+                    and anchor.evidence_ref_id.strip()
+                    and anchor.source_artifact_id.strip()
+                    and anchor.source_revision_id.strip()
+                ):
+                    pairs.setdefault(anchor.evidence_ref_id, set()).add((
+                        anchor.source_artifact_id, anchor.source_revision_id,
+                    ))
+            pairs_by_target[target_key] = pairs
+
+        if not any(
+            pairs_by_target.get((entry.target_kind, entry.target_id), {}).get(ref)
+            for entry in citations for ref in entry.evidence_ref_ids
+        ):
+            return []
+        index = services.retrieval.list_source_context_index(
+            SourceContextIndexRequest(projection=projection, max_entries=512)
+        )
+        if (
+            index.status != "complete"
+            or index.eligible_count != len(index.entries)
+            or not exact_snapshot(index.snapshot)
+        ):
+            return []
+        descriptors: dict[tuple[str, str], list[Any]] = {}
+        for descriptor in index.entries:
+            selector = descriptor.section_selector
+            if (
+                descriptor.world_id != authority.native_world_id
+                or descriptor.graph_revision_id != authority.graph_revision
+                or selector.schema_version != "dm_recap_context_section_selector_v1"
+                or selector.kind != "recap_section"
+                or selector.policy != "markdown-session-recap-v1"
+            ):
+                return []
+            descriptors.setdefault((
+                descriptor.source_artifact_id, descriptor.source_revision_id,
+            ), []).append(descriptor)
+
+        targets: dict[tuple[str, str, str], AgentRelatedRecapContextOpenTargetV1] = {}
+        for citation in citations:
+            pairs = pairs_by_target.get((citation.target_kind, citation.target_id), {})
+            for evidence_ref_id in citation.evidence_ref_ids:
+                for pair in sorted(pairs.get(evidence_ref_id, set())):
+                    for descriptor in descriptors.get(pair, []):
+                        selector = descriptor.section_selector
+                        target = AgentRelatedRecapContextOpenTargetV1(
+                            claim_id=citation.claim_id,
+                            provenance_evidence_ref_id=evidence_ref_id,
+                            context_anchor_id=descriptor.context_anchor_id,
+                            source_artifact_id=descriptor.source_artifact_id,
+                            source_revision_id=descriptor.source_revision_id,
+                            source_campaign_id=descriptor.campaign_id,
+                            source_uri=descriptor.source_uri,
+                            content_sha256=descriptor.content_sha256,
+                            expected_session_id=selector.expected_session_id,
+                            expected_heading=selector.expected_heading,
+                            managed_world_id=authority.managed_world_id,
+                            native_world_id=authority.native_world_id,
+                            binding_version=authority.binding_version,
+                            graph_revision=authority.graph_revision,
+                        )
+                        targets[(citation.claim_id, evidence_ref_id, descriptor.context_anchor_id)] = target
+        return [targets[key] for key in sorted(targets)]
+    except Exception as exc:  # noqa: BLE001 - optional read-only projection fails closed
+        _LOG.debug("Related recap context metadata unavailable: %s", type(exc).__name__)
+        return []
+
+
 def project_plan_turn_context(
     turn: Turn,
     *,
@@ -2893,6 +3143,10 @@ def project_plan_turn_context(
         completion=turn.completion,
         execution=execution_projection,
         delivery_replay=delivery_replay,
+        source_open_targets=[
+            *_evidence_anchor_open_targets(turn),
+            *_related_recap_context_open_targets(turn),
+        ],
     )
 
 

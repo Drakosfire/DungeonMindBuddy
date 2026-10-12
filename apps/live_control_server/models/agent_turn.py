@@ -483,6 +483,7 @@ class AgentRelatedRecapContextOpenTargetV1(AgentSourceOpenAuthorityV1):
     kind: Literal["related_recap_context"] = "related_recap_context"
     context_anchor_id: str = Field(pattern=r"^dm-context-anchor:v1:.+")
     provenance_evidence_ref_id: str = Field(min_length=1, max_length=256)
+    source_campaign_id: str | None = None
     source_uri: str = Field(min_length=1)
     content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     expected_session_id: str = Field(pattern=r"^session-[1-9][0-9]*$")
