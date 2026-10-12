@@ -437,6 +437,68 @@ class AgentPlanWorldGraphExecutionProjectionV1(BaseModel):
     automatic_redispatch: Literal[False] = False
 
 
+class AgentSourceOpenFocusV1(BaseModel):
+    """The frozen ordinary World Plan query has no session focus."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["none"] = "none"
+    session_id: None = None
+    campaign_id: None = None
+
+
+class AgentSourceOpenAuthorityV1(BaseModel):
+    """Exact historical authority for a user initiated source open."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    claim_id: str = Field(min_length=1, max_length=128)
+    source_artifact_id: str = Field(min_length=1, max_length=256)
+    source_revision_id: str = Field(min_length=1, max_length=256)
+    managed_world_id: str = Field(min_length=1, max_length=128)
+    native_world_id: str = Field(min_length=1, max_length=128)
+    binding_version: int = Field(strict=True, ge=1)
+    scope_mode: Literal["world"] = "world"
+    campaign_id: None = None
+    focus: AgentSourceOpenFocusV1 = Field(default_factory=AgentSourceOpenFocusV1)
+    admissibility: Literal["gm"] = "gm"
+    graph_revision: str = Field(min_length=1, max_length=256)
+
+
+class AgentEvidenceAnchorOpenTargetV1(AgentSourceOpenAuthorityV1):
+    schema_: Literal["dmb_agent_evidence_anchor_open_target_v1"] = Field(
+        default="dmb_agent_evidence_anchor_open_target_v1", alias="schema"
+    )
+    kind: Literal["evidence_anchor"] = "evidence_anchor"
+    anchor_id: str = Field(min_length=1, max_length=256)
+    evidence_ref_id: str = Field(min_length=1, max_length=256)
+    source_read_id: str | None = Field(default=None, min_length=1, max_length=128)
+    read_outcome: Literal["enough", "partial", "truncated"] | None = None
+
+
+class AgentRelatedRecapContextOpenTargetV1(AgentSourceOpenAuthorityV1):
+    schema_: Literal["dmb_agent_related_recap_context_open_target_v1"] = Field(
+        default="dmb_agent_related_recap_context_open_target_v1", alias="schema"
+    )
+    kind: Literal["related_recap_context"] = "related_recap_context"
+    context_anchor_id: str = Field(pattern=r"^dm-context-anchor:v1:.+")
+    provenance_evidence_ref_id: str = Field(min_length=1, max_length=256)
+    source_uri: str = Field(min_length=1)
+    content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    expected_session_id: str = Field(pattern=r"^session-[1-9][0-9]*$")
+    expected_heading: str = Field(min_length=1)
+    selector_schema: Literal["dm_recap_context_section_selector_v1"] = (
+        "dm_recap_context_section_selector_v1"
+    )
+    selector_policy: Literal["markdown-session-recap-v1"] = "markdown-session-recap-v1"
+
+
+AgentSourceOpenTargetV1 = Annotated[
+    AgentEvidenceAnchorOpenTargetV1 | AgentRelatedRecapContextOpenTargetV1,
+    Field(discriminator="kind"),
+]
+
+
 class AgentPlanWorldGraphContextResponseV1(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -447,6 +509,7 @@ class AgentPlanWorldGraphContextResponseV1(BaseModel):
     completion: PlanWorldGraphCompletionV1 | PlanWorldGraphCompletionV2 | None
     execution: AgentPlanWorldGraphExecutionProjectionV1 | None
     delivery_replay: bool
+    source_open_targets: list[AgentSourceOpenTargetV1] = Field(default_factory=list)
 
 
 class AgentTurnResponseV2(AgentTurnResponse):
