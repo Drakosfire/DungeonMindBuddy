@@ -3276,7 +3276,7 @@ def test_related_recap_events_round_trip_through_fresh_service(
         world_id,
         plan_revision_id,
         candidate_assertion_ids=["assertion-1"],
-        candidate_evidence_ref_ids=["evidence-initial", "evidence-indexed"],
+        candidate_evidence_ref_ids=["evidence-indexed", "evidence-initial"],
         dispatched_assertion_ids=["assertion-1"],
         dispatched_evidence_ref_ids=["evidence-initial"],
         evidence_sufficiency_status="sufficient",
