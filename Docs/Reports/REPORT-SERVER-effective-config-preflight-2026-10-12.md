@@ -5,7 +5,7 @@ PRIME authorized this final preparation check after accepting PR #1096 at merge
 `d77f73487d975678f5e9751b4e078fe81d71aef2`, review `6129657061`.
 It grants no runtime activation, listener, provider or database connection.
 
-The prepared candidate remains clean detached at
+The initial accepted candidate is preserved clean detached at
 `fad78a85d710f560bc297f867b6e3c1fa4f0940e` in
 `/tmp/buddy-runtime-candidate-20261012`, with its accepted separate locked
 environment, Core `13143455`, and built UI. Later main changes only documented
@@ -13,8 +13,8 @@ preparation evidence. No private configuration file was copied into the candidat
 
 ## Explicit constructor and observed result
 
-The [bounded constructor/probe](evidence/server-effective-config-preflight-2026-10-12/effective_config.py)
-constructs the actual conditional launch environment in memory. It retains only
+The accepted initial [constructor/probe](evidence/server-effective-config-preflight-2026-10-12/effective_config.py)
+is the baseline for the controlled Core115 successor. It constructed the initial checkpoint environment in memory. It retains only
 basic OS settings, excludes ambient credentials/DSNs/model overrides/venv and
 Python-path selectors, checks the exact code pin and absence of incidental dotenv
 files, and loads these existing owner-private files without interpolation:
@@ -59,7 +59,9 @@ integrity hashes. No credentials, key values or source/provider bodies occur.
 Constructor SHA-256:
 `b78ba91857a8a4a59a287e3b75811c8299c7e89f66bca13145cf1d0786603f2b`.
 
-## Pinned conditional launcher recipe
+The current Core115 successor and controlled constructor delta are recorded in `REPORT-SERVER-isolated-runtime-prep-2026-10-12.md`; the following recipes now target that successor.
+
+## Current Core115 conditional launcher recipe
 
 These commands are **not executed**. They require PRIME's fresh quiet authority,
 current owned-group/port proof, draft/working-state and open-turn/action checks,
@@ -71,12 +73,12 @@ Verify all three listeners close before invoking the existing launcher.
 The actual candidate recipe now explicitly constructs its private environment:
 
 ```bash
-cd /tmp/buddy-runtime-candidate-20261012
+cd /tmp/buddy-runtime-candidate-core115-20261012
 nohup setsid .venv/bin/python - > .run/launcher.log 2>&1 <<'PY' &
 import hashlib, os, sys
 from pathlib import Path
-loader = Path('/tmp/buddy-runtime-prep-20261012/effective_config.py')
-assert hashlib.sha256(loader.read_bytes()).hexdigest() == 'b78ba91857a8a4a59a287e3b75811c8299c7e89f66bca13145cf1d0786603f2b'
+loader = Path('/tmp/buddy-core115-candidate-prep-20261012/effective_config.py')
+assert hashlib.sha256(loader.read_bytes()).hexdigest() == '69f323d1a3192e41b94271abd1e6a38dcf9a18e80f789f5cb8254fbb3b271efb'
 sys.path.insert(0, str(loader.parent))
 from effective_config import build_environment, CANDIDATE
 env = build_environment(CANDIDATE)
@@ -101,8 +103,8 @@ cd /tmp/buddy-automatic-chat-reconciliation
 nohup setsid .venv/bin/python - > .run/launcher.log 2>&1 <<'PY' &
 import hashlib, os, sys
 from pathlib import Path
-loader = Path('/tmp/buddy-runtime-prep-20261012/effective_config.py')
-assert hashlib.sha256(loader.read_bytes()).hexdigest() == 'b78ba91857a8a4a59a287e3b75811c8299c7e89f66bca13145cf1d0786603f2b'
+loader = Path('/tmp/buddy-core115-candidate-prep-20261012/effective_config.py')
+assert hashlib.sha256(loader.read_bytes()).hexdigest() == '69f323d1a3192e41b94271abd1e6a38dcf9a18e80f789f5cb8254fbb3b271efb'
 sys.path.insert(0, str(loader.parent))
 from effective_config import build_environment, ROLLBACK
 env = build_environment(ROLLBACK)

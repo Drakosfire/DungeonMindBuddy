@@ -94,3 +94,46 @@ the earlier recipe's assumption of an already populated operator shell.
 Candidate environment/build preparation passes. Final runtime activation still
 requires fresh quiet/draft/open-turn/action/state evidence and PRIME authority;
 the full World product gate remains unproven. No operator dogfood invitation follows.
+
+## Core115 successor — prepared delta, no activation
+
+PR #1098 merged at `708416fdf6f5148e7abf17cdeb5ec6d141b70291`, exact head
+`ace7432db31d5bb1055c4cefcb0c7c91ff8de07e`, independent pin-only review
+`6130797095`. Draft #826 is marked restack-required by comment `6130871673`.
+PRIME then funded this separate preparation only.
+
+New clean detached checkout `/tmp/buddy-runtime-candidate-core115-20261012` pins
+`708416fdf6f5148e7abf17cdeb5ec6d141b70291`, tree
+`77749d08d64110e4b38f2ad672fe0cdb9dcf187f`. Its real owned `.venv` has Python
+3.13.12 and Core `d8798a5d5d6b46efa3e485e5b493a8fc3d4a94f7`. Local Buddy/Hermes
+distribution origins and Buddy/Core module paths resolve inside this checkout.
+Offline locked sync replaced only the two local distributions; all other
+packages, including Core115, were cached. Compatibility (100 packages), offline
+lock check and existing launcher syntax passed. Lock SHA-256 is
+`9cc6cc1e28fb89096c80617e5206382e57c5236a81c9d132138ba452feff91bf`.
+
+UI source tree and lock are identical to the accepted fad candidate. Its UI
+dependencies and built assets were copied in isolation, executable links resolve
+inside the new tree, and only copied path-bound `.vite-temp`/`.tmp` caches were
+removed. No npm install or UI build was repeated. Reused build inventory remains
+`63629e0da6083d56adffb6753b3672f5339f5ea892f9f082ac4f656bc8524516`.
+
+The accepted explicit private constructor was retargeted only in candidate path,
+exact pin and receipt-output path; source order, private permissions, dedicated
+key mapping, authority identities and old continuity roots are unchanged. Its
+[controlled diff](evidence/server-core115-candidate-delta-2026-10-12/constructor.diff)
+produces SHA-256 `69f323d1a3192e41b94271abd1e6a38dcf9a18e80f789f5cb8254fbb3b271efb`.
+The materialized file is `/tmp/buddy-core115-candidate-prep-20261012/effective_config.py`;
+current conditional recipes in the effective-config report use this file and pin.
+The isolated actual config/auth/policy preflight passed; its
+[receipt](evidence/server-core115-candidate-delta-2026-10-12/effective-config.json)
+SHA-256 is `d1cf0b386c124eb36751b1e473a6c0169ba6aaeeb60d7c72292edca4201624d2`.
+
+Before/after preservation matches exactly: old fad/Core131 candidate, live
+98f0/Coreba6069 environment, checkout status, private config hashes, pointer and
+16 profile-file inventory. No listener, provider or retained-authority query/write
+occurred. Free space after preparation is 7.2 GB. The short
+[delta receipt](evidence/server-core115-candidate-delta-2026-10-12/delta.json)
+SHA-256 is `c9fd115094e07d63871364650494bf4ca07a6cac4680bf7ad59d0e274ecca64c`.
+Preserve both candidates, the live rollback root and the materialized constructor.
+Fresh quiet/draft/open-turn/action/state authority and the full World gate remain pending.
