@@ -519,6 +519,29 @@ AgentSourceOpenTargetV1 = Annotated[
 ]
 
 
+class AgentEvidenceAnchorStatusV1(BaseModel):
+    """Whether the bounded projection exposed every verified evidence opener."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_: Literal["dmb_agent_evidence_anchor_status_v1"] = Field(
+        default="dmb_agent_evidence_anchor_status_v1", alias="schema"
+    )
+    claim_id: str = Field(min_length=1, max_length=128)
+    status: Literal["available", "no_anchor", "partial", "overflow"]
+    target_count: int = Field(strict=True, ge=0, le=8)
+
+    @model_validator(mode="after")
+    def validate_target_count(self) -> AgentEvidenceAnchorStatusV1:
+        valid = (
+            self.target_count > 0 if self.status in {"available", "partial"}
+            else self.target_count == 0
+        )
+        if not valid:
+            raise ValueError("evidence anchor status and target count disagree")
+        return self
+
+
 class AgentRelatedRecapContextStatusV1(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -526,7 +549,10 @@ class AgentRelatedRecapContextStatusV1(BaseModel):
         default="dmb_agent_related_recap_context_status_v1", alias="schema"
     )
     claim_id: str = Field(min_length=1, max_length=128)
-    status: Literal["available", "multiple_choices", "no_context", "metadata_unavailable"]
+    status: Literal[
+        "available", "multiple_choices", "no_context", "metadata_unavailable",
+        "partial", "overflow",
+    ]
     choice_count: int = Field(strict=True, ge=0, le=512)
 
     @model_validator(mode="after")
@@ -534,6 +560,8 @@ class AgentRelatedRecapContextStatusV1(BaseModel):
         valid = (
             self.choice_count == 1 if self.status == "available" else
             self.choice_count > 1 if self.status == "multiple_choices" else
+            self.choice_count > 0 if self.status == "partial" else
+            self.choice_count >= 0 if self.status == "metadata_unavailable" else
             self.choice_count == 0
         )
         if not valid:
@@ -552,6 +580,9 @@ class AgentPlanWorldGraphContextResponseV1(BaseModel):
     execution: AgentPlanWorldGraphExecutionProjectionV1 | None
     delivery_replay: bool
     source_open_targets: list[AgentSourceOpenTargetV1] = Field(default_factory=list)
+    evidence_anchor_statuses: list[AgentEvidenceAnchorStatusV1] = Field(
+        default_factory=list
+    )
     related_recap_context_statuses: list[AgentRelatedRecapContextStatusV1] = Field(
         default_factory=list
     )

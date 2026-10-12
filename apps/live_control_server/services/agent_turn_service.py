@@ -52,6 +52,7 @@ from application_state.errors import (
 
 from apps.live_control_server.models.agent_turn import (
     AgentEvidenceAnchorOpenTargetV1,
+    AgentEvidenceAnchorStatusV1,
     AgentRelatedRecapContextOpenTargetV1,
     AgentRelatedRecapContextStatusV1,
     AgentPlanWorldGraphContextResponseV1,
@@ -2856,7 +2857,9 @@ def _validate_policy_turn_record(
         )
 
 
-def _evidence_anchor_open_targets(turn: Turn) -> list[AgentEvidenceAnchorOpenTargetV1]:
+def _evidence_anchor_open_projection(
+    turn: Turn,
+) -> tuple[list[AgentEvidenceAnchorOpenTargetV1], list[AgentEvidenceAnchorStatusV1]]:
     """Project only cited, frozen source pins from a validated V2 turn."""
     graph_types = _app_state_graph_execution_types()
     receipt = turn.graph_context_receipt
@@ -2869,7 +2872,7 @@ def _evidence_anchor_open_targets(turn: Turn) -> list[AgentEvidenceAnchorOpenTar
         or completion.citation_map is None
         or receipt.graph_authority.admissibility_version != "gm-v1"
     ):
-        return []
+        return [], []
     authority = receipt.graph_authority
     scope = execution.policy.source_read_scope
     if (
@@ -2879,7 +2882,7 @@ def _evidence_anchor_open_targets(turn: Turn) -> list[AgentEvidenceAnchorOpenTar
         or authority.scope_mode != "world"
         or authority.campaign_id is not None
     ):
-        return []
+        return [], []
     pins_by_evidence: dict[str, list[Any]] = {}
     for pin in scope.admitted_anchors:
         pins_by_evidence.setdefault(pin.evidence_ref_id, []).append(pin)
@@ -2909,11 +2912,33 @@ def _evidence_anchor_open_targets(turn: Turn) -> list[AgentEvidenceAnchorOpenTar
         for read in event.receipts
     }
     targets: list[AgentEvidenceAnchorOpenTargetV1] = []
-    for citation in completion.citation_map.entries:
-        if citation.graph_revision != authority.graph_revision:
-            continue
-        for evidence_ref_id in citation.evidence_ref_ids:
-            for pin in pins_by_evidence.get(evidence_ref_id, []):
+    counts: dict[str, int] = {}
+    omitted: set[str] = set()
+    seen: set[tuple[str, str, str, str, str]] = set()
+    citations = sorted(
+        (entry for entry in completion.citation_map.entries
+         if entry.graph_revision == authority.graph_revision),
+        key=lambda entry: (entry.claim_id, entry.target_kind, entry.target_id),
+    )
+    for citation in citations:
+        counts.setdefault(citation.claim_id, 0)
+        for evidence_ref_id in sorted(set(citation.evidence_ref_ids)):
+            for pin in sorted(
+                pins_by_evidence.get(evidence_ref_id, []),
+                key=lambda item: (
+                    item.anchor_id, item.source_artifact_id, item.source_revision_id,
+                ),
+            ):
+                key = (
+                    citation.claim_id, evidence_ref_id, pin.anchor_id,
+                    pin.source_artifact_id, pin.source_revision_id,
+                )
+                if key in seen:
+                    continue
+                seen.add(key)
+                if counts[citation.claim_id] >= 8 or len(targets) >= 64:
+                    omitted.add(citation.claim_id)
+                    continue
                 matching_reads = [
                     reads_by_id[read_id]
                     for read_id in citation.source_read_ids
@@ -2940,14 +2965,28 @@ def _evidence_anchor_open_targets(turn: Turn) -> list[AgentEvidenceAnchorOpenTar
                     source_read_id=None if read is None else read.source_read_id,
                     read_outcome=None if read is None else read.outcome,
                 ))
-    return sorted(
-        targets,
-        key=lambda target: (target.claim_id, target.evidence_ref_id, target.anchor_id),
-    )
+                counts[citation.claim_id] += 1
+    statuses = [AgentEvidenceAnchorStatusV1(
+        claim_id=claim_id,
+        status=(
+            "partial" if count and claim_id in omitted else
+            "overflow" if claim_id in omitted else
+            "available" if count else "no_anchor"
+        ),
+        target_count=count,
+    ) for claim_id, count in sorted(counts.items())]
+    return targets, statuses
+
+
+def _evidence_anchor_open_targets(turn: Turn) -> list[AgentEvidenceAnchorOpenTargetV1]:
+    """Compatibility helper for callers that need only the bounded links."""
+    return _evidence_anchor_open_projection(turn)[0]
 
 
 def _related_recap_context_open_targets(
     turn: Turn,
+    *,
+    available_slots: int = 64,
 ) -> tuple[
     list[AgentRelatedRecapContextOpenTargetV1],
     list[AgentRelatedRecapContextStatusV1],
@@ -2985,18 +3024,27 @@ def _related_recap_context_open_targets(
         counts: Mapping[str, int] | None = None,
         *,
         unavailable: bool = False,
+        unavailable_claims: set[str] | None = None,
+        omitted_claims: set[str] | None = None,
     ) -> list[AgentRelatedRecapContextStatusV1]:
         counts = {} if counts is None else counts
+        unavailable_claims = set() if unavailable_claims is None else unavailable_claims
+        omitted_claims = set() if omitted_claims is None else omitted_claims
         return [
             AgentRelatedRecapContextStatusV1(
                 claim_id=entry.claim_id,
                 status=(
-                    "metadata_unavailable" if unavailable else
+                    "metadata_unavailable" if unavailable or entry.claim_id in unavailable_claims else
+                    "partial" if counts.get(entry.claim_id, 0) and entry.claim_id in omitted_claims else
+                    "overflow" if entry.claim_id in omitted_claims else
                     "multiple_choices" if counts.get(entry.claim_id, 0) > 1 else
                     "available" if counts.get(entry.claim_id, 0) == 1 else
                     "no_context"
                 ),
-                choice_count=0 if unavailable else counts.get(entry.claim_id, 0),
+                choice_count=(
+                    0 if unavailable
+                    else counts.get(entry.claim_id, 0)
+                ),
             )
             for entry in citations
         ]
@@ -3019,9 +3067,6 @@ def _related_recap_context_open_targets(
             or selected.revision_id != authority.graph_revision
         ):
             return [], statuses(unavailable=True)
-    if len({(entry.target_kind, entry.target_id) for entry in citations}) > 8:
-        return [], statuses(unavailable=True)
-
     try:
         from dungeonmind.application.world_graph_retrieval import (
             EvidenceTarget, SourceContextIndexRequest,
@@ -3054,50 +3099,53 @@ def _related_recap_context_open_targets(
             )
 
         pairs_by_target: dict[tuple[str, str], dict[str, set[tuple[str, str]]]] = {}
-        incomplete_targets = False
-        for citation in citations:
-            target_key = (citation.target_kind, citation.target_id)
-            if target_key in pairs_by_target:
-                continue
-            result = services.retrieval.get_evidence(
-                projection,
-                target=EvidenceTarget(kind=citation.target_kind, target_id=citation.target_id),
-                max_anchors=32,
-            )
-            if (
-                not result.found
-                or result.target.kind != citation.target_kind
-                or result.target.target_id != citation.target_id
-                or not exact_snapshot(result.snapshot)
-                or result.coverage.truncated_fields
-                or result.coverage.gap_codes
-                or result.coverage.missing_ids
-            ):
-                pairs_by_target[target_key] = {}
-                incomplete_targets = True
-                continue
-            pairs: dict[str, set[tuple[str, str]]] = {}
-            for anchor in result.anchors:
+        target_keys = sorted({(entry.target_kind, entry.target_id) for entry in citations})
+        unavailable_targets = set(target_keys[8:])
+        for target_key in target_keys[:8]:
+            try:
+                result = services.retrieval.get_evidence(
+                    projection,
+                    target=EvidenceTarget(kind=target_key[0], target_id=target_key[1]),
+                    max_anchors=32,
+                )
                 if (
-                    isinstance(anchor.evidence_ref_id, str)
-                    and isinstance(anchor.source_artifact_id, str)
-                    and isinstance(anchor.source_revision_id, str)
-                    and anchor.evidence_ref_id.strip()
-                    and anchor.source_artifact_id.strip()
-                    and anchor.source_revision_id.strip()
+                    not result.found
+                    or result.target.kind != target_key[0]
+                    or result.target.target_id != target_key[1]
+                    or not exact_snapshot(result.snapshot)
+                    or result.coverage.truncated_fields
+                    or result.coverage.gap_codes
+                    or result.coverage.missing_ids
                 ):
-                    pairs.setdefault(anchor.evidence_ref_id, set()).add((
-                        anchor.source_artifact_id, anchor.source_revision_id,
-                    ))
-            pairs_by_target[target_key] = pairs
+                    unavailable_targets.add(target_key)
+                    continue
+                pairs: dict[str, set[tuple[str, str]]] = {}
+                for anchor in result.anchors:
+                    if (
+                        isinstance(anchor.evidence_ref_id, str)
+                        and isinstance(anchor.source_artifact_id, str)
+                        and isinstance(anchor.source_revision_id, str)
+                        and anchor.evidence_ref_id.strip()
+                        and anchor.source_artifact_id.strip()
+                        and anchor.source_revision_id.strip()
+                    ):
+                        pairs.setdefault(anchor.evidence_ref_id, set()).add((
+                            anchor.source_artifact_id, anchor.source_revision_id,
+                        ))
+                pairs_by_target[target_key] = pairs
+            except Exception as exc:  # noqa: BLE001 - one failed target cannot hide verified peers
+                _LOG.debug("Related recap evidence metadata unavailable: %s", type(exc).__name__)
+                unavailable_targets.add(target_key)
 
-        if incomplete_targets:
-            return [], statuses(unavailable=True)
+        unavailable_claims = {
+            entry.claim_id for entry in citations
+            if (entry.target_kind, entry.target_id) in unavailable_targets
+        }
         if not any(
             pairs_by_target.get((entry.target_kind, entry.target_id), {}).get(ref)
             for entry in citations for ref in entry.evidence_ref_ids
         ):
-            return [], statuses()
+            return [], statuses(unavailable_claims=unavailable_claims)
         index = services.retrieval.list_source_context_index(
             SourceContextIndexRequest(projection=projection, max_entries=512)
         )
@@ -3124,11 +3172,23 @@ def _related_recap_context_open_targets(
             ), []).append(descriptor)
 
         targets: dict[tuple[str, str, str], AgentRelatedRecapContextOpenTargetV1] = {}
-        for citation in citations:
+        counts: dict[str, int] = {}
+        omitted_claims: set[str] = set()
+        for citation in sorted(
+            citations, key=lambda entry: (entry.claim_id, entry.target_kind, entry.target_id)
+        ):
             pairs = pairs_by_target.get((citation.target_kind, citation.target_id), {})
-            for evidence_ref_id in citation.evidence_ref_ids:
+            for evidence_ref_id in sorted(set(citation.evidence_ref_ids)):
                 for pair in sorted(pairs.get(evidence_ref_id, set())):
-                    for descriptor in descriptors.get(pair, []):
+                    for descriptor in sorted(
+                        descriptors.get(pair, []), key=lambda item: item.context_anchor_id
+                    ):
+                        key = (citation.claim_id, evidence_ref_id, descriptor.context_anchor_id)
+                        if key in targets:
+                            continue
+                        if counts.get(citation.claim_id, 0) >= 8 or len(targets) >= available_slots:
+                            omitted_claims.add(citation.claim_id)
+                            continue
                         selector = descriptor.section_selector
                         target = AgentRelatedRecapContextOpenTargetV1(
                             claim_id=citation.claim_id,
@@ -3146,14 +3206,12 @@ def _related_recap_context_open_targets(
                             binding_version=authority.binding_version,
                             graph_revision=authority.graph_revision,
                         )
-                        targets[(citation.claim_id, evidence_ref_id, descriptor.context_anchor_id)] = target
+                        targets[key] = target
+                        counts[citation.claim_id] = counts.get(citation.claim_id, 0) + 1
         ordered = [targets[key] for key in sorted(targets)]
-        counts: dict[str, int] = {}
-        for target in ordered:
-            counts[target.claim_id] = counts.get(target.claim_id, 0) + 1
-        if any(count > 512 for count in counts.values()):
-            return [], statuses(unavailable=True)
-        return ordered, statuses(counts)
+        return ordered, statuses(
+            counts, unavailable_claims=unavailable_claims, omitted_claims=omitted_claims
+        )
     except Exception as exc:  # noqa: BLE001 - optional read-only projection fails closed
         _LOG.debug("Related recap context metadata unavailable: %s", type(exc).__name__)
         return [], statuses(unavailable=True)
@@ -3194,16 +3252,17 @@ def project_plan_turn_context(
             authorization_state,
             completed=turn.status == "completed",
         )
-    related_targets, related_statuses = _related_recap_context_open_targets(turn)
+    evidence_targets, evidence_statuses = _evidence_anchor_open_projection(turn)
+    related_targets, related_statuses = _related_recap_context_open_targets(
+        turn, available_slots=64 - len(evidence_targets)
+    )
     return AgentPlanWorldGraphContextResponseV1(
         receipt=receipt,
         completion=turn.completion,
         execution=execution_projection,
         delivery_replay=delivery_replay,
-        source_open_targets=[
-            *_evidence_anchor_open_targets(turn),
-            *related_targets,
-        ],
+        source_open_targets=[*evidence_targets, *related_targets],
+        evidence_anchor_statuses=evidence_statuses,
         related_recap_context_statuses=related_statuses,
     )
 
