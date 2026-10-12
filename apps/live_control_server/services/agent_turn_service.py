@@ -3019,6 +3019,8 @@ def _related_recap_context_open_targets(
             or selected.revision_id != authority.graph_revision
         ):
             return [], statuses(unavailable=True)
+    if len({(entry.target_kind, entry.target_id) for entry in citations}) > 8:
+        return [], statuses(unavailable=True)
 
     try:
         from dungeonmind.application.world_graph_retrieval import (
@@ -3101,6 +3103,7 @@ def _related_recap_context_open_targets(
         )
         if (
             index.status != "complete"
+            or index.max_entries != 512
             or index.eligible_count != len(index.entries)
             or not exact_snapshot(index.snapshot)
         ):

@@ -662,9 +662,25 @@ def test_v2_completion_opens_citation_only_from_producing_source_envelope(
     completed_turn = turn.model_copy(update={
         "completion": completion, "graph_context_execution": completed_execution,
     })
-    projected = project_plan_turn_context(completed_turn, delivery_replay=True)
+    from types import SimpleNamespace
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as direct_reads,
+    )
+
+    def no_context_service(_world: str) -> Any:
+        raise RuntimeError("synthetic context service unavailable")
+
+    with monkeypatch.context() as unavailable_scope:
+        unavailable_scope.setattr(
+            direct_reads, "direct_services_from_config", no_context_service
+        )
+        projected = project_plan_turn_context(completed_turn, delivery_replay=True)
+        assert project_plan_turn_context(
+            completed_turn, delivery_replay=False
+        ).source_open_targets == projected.source_open_targets
     assert projected.completion.citation_map.entries[0].source_opened is True
     assert len(projected.source_open_targets) == 1
+    assert projected.related_recap_context_statuses[0].status == "metadata_unavailable"
     target = projected.source_open_targets[0]
     assert target.kind == "evidence_anchor"
     assert (
@@ -680,14 +696,6 @@ def test_v2_completion_opens_citation_only_from_producing_source_envelope(
         receipt.graph_authority.graph_revision,
     )
     assert (target.source_read_id, target.read_outcome) == ("source-read:one", "enough")
-    assert project_plan_turn_context(
-        completed_turn, delivery_replay=False
-    ).source_open_targets == projected.source_open_targets
-    from types import SimpleNamespace
-    from apps.live_control_server.integrations.dungeonmind import (
-        world_graph_reads as direct_reads,
-    )
-
     descriptors = [SimpleNamespace(
         context_anchor_id="dm-context-anchor:v1:one",
         world_id=receipt.graph_authority.native_world_id,
@@ -750,6 +758,7 @@ def test_v2_completion_opens_citation_only_from_producing_source_envelope(
         def list_source_context_index(self, request: Any) -> Any:
             return SimpleNamespace(
                 status=("complete" if metadata_state["index_complete"] else "overflow"),
+                max_entries=512,
                 eligible_count=len(descriptors),
                 entries=tuple(descriptors), snapshot=snapshot(request.projection),
             )
@@ -779,28 +788,72 @@ def test_v2_completion_opens_citation_only_from_producing_source_envelope(
                 "entries": [context_only_citation],
             }),
         })
-        context_only_scope = policy.source_read_scope.model_copy(update={
-            "admitted_anchors": [],
+        context_only_policy = graph_types.GraphExecutionPolicyV2.model_validate({
+            **policy.model_dump(mode="json", by_alias=True),
+            "source_read_scope": {
+                **policy.source_read_scope.model_dump(mode="json", by_alias=True),
+                "admitted_anchors": [],
+            },
+            "max_source_read_calls": 0,
+            "max_source_read_anchors": 0,
+            "max_source_read_chars": 0,
         })
-        context_only_execution = completed_execution.model_copy(update={
-            "policy": policy.model_copy(update={
-                "source_read_scope": context_only_scope,
-            }),
+        context_only_policy_digest = service_module._canonical_sha256({
+            "schema": "dmb_agent_plan_world_graph_execution_v2",
+            "context_receipt_sha256": receipt.context_receipt_sha256,
+            "policy": context_only_policy.model_dump(mode="json", by_alias=True),
         })
+        context_attempt_id = uuid4()
+        context_attempt = graph_types.ProviderAttemptAuthorizedEventV2(
+            **{
+                **attempt_fields,
+                "event_id": uuid4(), "sequence": 0,
+                "provider_attempt_id": context_attempt_id,
+            },
+            included_source_read_event_ids=[],
+        )
+        context_sdk = sdk_entered.model_copy(update={
+            "event_id": uuid4(), "sequence": 1,
+            "provider_attempt_id": context_attempt_id,
+        })
+        context_outcome = outcome.model_copy(update={
+            "event_id": uuid4(), "sequence": 2,
+            "provider_attempt_id": context_attempt_id,
+        })
+        context_binding = binding.model_copy(update={
+            "event_id": uuid4(), "sequence": 3,
+            "provider_attempt_id": context_attempt_id,
+            "completion_sha256": service_module._canonical_sha256(
+                context_only_completion.model_dump(mode="json", by_alias=True)
+            ),
+        })
+        context_only_execution = graph_types.PlanWorldGraphExecutionV2(
+            context_receipt_sha256=receipt.context_receipt_sha256,
+            execution_policy_sha256=context_only_policy_digest,
+            policy=context_only_policy,
+            events=[context_attempt, context_sdk, context_outcome, context_binding],
+        )
         context_only_turn = completed_turn.model_copy(update={
             "completion": context_only_completion,
             "graph_context_execution": context_only_execution,
         })
-        assert service_module._evidence_anchor_open_targets(context_only_turn) == []
-        context_only_targets, context_only_statuses = (
-            service_module._related_recap_context_open_targets(context_only_turn)
+        context_only_projection = project_plan_turn_context(
+            context_only_turn, delivery_replay=True
         )
-        assert [item.kind for item in context_only_targets] == [
+        assert [item.kind for item in context_only_projection.source_open_targets] == [
             "related_recap_context"
         ]
-        assert [(item.status, item.choice_count) for item in context_only_statuses] == [
+        assert [(item.status, item.choice_count) for item in (
+            context_only_projection.related_recap_context_statuses
+        )] == [
             ("available", 1)
         ]
+        context_only_history = _serialized_card_a_history_body(
+            related_scope, policy_turn_override=context_only_turn
+        )
+        assert [item["kind"] for item in context_only_history["turns"][0][
+            "plan_context"
+        ]["source_open_targets"]] == ["related_recap_context"]
         assert project_plan_turn_context(
             completed_turn, delivery_replay=True
         ).source_open_targets == related.source_open_targets
