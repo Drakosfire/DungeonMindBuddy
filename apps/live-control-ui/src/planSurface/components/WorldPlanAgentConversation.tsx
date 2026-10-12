@@ -5,7 +5,7 @@ import { ConversationDock } from "../../ui/ConversationDock";
 import type { PlanConversationPresentationHosts } from "./PlanConversationDockAdapter";
 import { PlanEditReview } from "./PlanEditReview";
 
-import { getWorldCommandResolution, postWorldCommandResolution, getWorldAgentNewConversationStatus, getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldPlanDocumentEditProposal, connectNativeGraphSession, revokeNativeGraphSession, isValidWorldPlanGraphContextFailure, LiveApiError } from "../../api/liveApi";
+import { getWorldCommandResolution, postWorldCommandResolution, getWorldAgentNewConversationStatus, getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldPlanDocumentEditProposal, postWorldGraphSourceAnchorRead, postWorldGraphRecapContextRead, connectNativeGraphSession, revokeNativeGraphSession, isValidWorldPlanGraphContextFailure, LiveApiError } from "../../api/liveApi";
 import type {
   AgentInteractionThread,
   AgentInteractionTurn,
@@ -23,6 +23,9 @@ import type {
   WorldCommandResolutionRequestV1,
   WorldCommandResolutionRecordV1,
   WorldPlanAgentPlanContextV1,
+  WorldPlanSourceOpenTargetV1,
+  WorldGraphSourceAnchorReadResponse,
+  WorldGraphRecapContextReadResponse,
   WorldPlanGraphAnswerContextStatusV1,
   WorldPlanGraphAnswerSegmentV1,
   WorldPlanGraphCitationMapV1,
@@ -1069,12 +1072,119 @@ function isWorldPlanGraphExecution(value: unknown): value is WorldPlanGraphExecu
     && value.automatic_redispatch === false;
 }
 
+function isWorldPlanSourceOpenTargets(
+  value: unknown,
+  receipt: WorldPlanGraphContextReceiptV1,
+  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | null,
+): value is WorldPlanSourceOpenTargetV1[] {
+  if (!Array.isArray(value) || value.length > 64) return false;
+  const citations = completion?.citation_map?.entries ?? [];
+  const byClaim = new Map(citations.map((citation) => [citation.claim_id, citation]));
+  const seen = new Set<string>();
+  const perClaim = new Map<string, number>();
+  for (const target of value) {
+    if (!isRecord(target)) return false;
+    const evidence = target.kind === "evidence_anchor";
+    if (!evidence && target.kind !== "related_recap_context") return false;
+    const common = ["schema", "kind", "claim_id", "source_artifact_id", "source_revision_id", "managed_world_id",
+      "native_world_id", "binding_version", "scope_mode", "campaign_id", "focus", "admissibility", "graph_revision"];
+    const variant = evidence
+      ? ["anchor_id", "evidence_ref_id", "source_read_id", "read_outcome"]
+      : ["context_anchor_id", "provenance_evidence_ref_id", "source_campaign_id", "source_uri", "content_sha256", "expected_session_id",
+        "expected_heading", "selector_schema", "selector_policy"];
+    if (!hasExactKeys(target, [...common, ...variant])
+      || target.schema !== (evidence ? "dmb_agent_evidence_anchor_open_target_v1" : "dmb_agent_related_recap_context_open_target_v1")
+      || typeof target.claim_id !== "string" || !target.claim_id
+      || typeof target.source_artifact_id !== "string" || !target.source_artifact_id
+      || typeof target.source_revision_id !== "string" || !target.source_revision_id
+      || target.managed_world_id !== receipt.plan_basis.world_id
+      || target.managed_world_id !== receipt.graph_authority.managed_world_id
+      || target.native_world_id !== receipt.graph_authority.native_world_id
+      || target.binding_version !== receipt.graph_authority.binding_version
+      || target.scope_mode !== "world" || target.campaign_id !== null
+      || !hasExactKeys(target.focus, ["kind", "session_id", "campaign_id"])
+      || target.focus.kind !== "none" || target.focus.session_id !== null || target.focus.campaign_id !== null
+      || target.admissibility !== "gm" || target.graph_revision !== receipt.graph_authority.graph_revision) return false;
+    const citation = byClaim.get(target.claim_id);
+    const evidenceId = evidence ? target.evidence_ref_id : target.provenance_evidence_ref_id;
+    if (!citation || !citation.evidence_ref_ids.includes(String(evidenceId))
+      || citation.graph_revision !== target.graph_revision) return false;
+    if (evidence) {
+      if (typeof target.anchor_id !== "string" || !target.anchor_id
+        || typeof evidenceId !== "string" || !evidenceId
+        || !(target.source_read_id === null || (typeof target.source_read_id === "string" && target.source_read_id))
+        || !(target.read_outcome === null || ["enough", "partial", "truncated"].includes(String(target.read_outcome)))
+        || (target.source_read_id === null) !== (target.read_outcome === null)
+        || (target.source_read_id !== null && !("source_read_ids" in citation && citation.source_read_ids.includes(target.source_read_id)))) return false;
+    } else if (typeof target.context_anchor_id !== "string" || !target.context_anchor_id.startsWith("dm-context-anchor:v1:")
+      || !(target.source_campaign_id === null || (typeof target.source_campaign_id === "string" && target.source_campaign_id.trim()))
+      || typeof target.source_uri !== "string" || !target.source_uri.startsWith("repo://")
+      || typeof target.content_sha256 !== "string" || !/^[0-9a-f]{64}$/.test(target.content_sha256)
+      || typeof target.expected_session_id !== "string" || !/^session-[1-9][0-9]*$/.test(target.expected_session_id)
+      || target.expected_heading !== `# Session ${target.expected_session_id.slice(8)} Recap`
+      || target.selector_schema !== "dm_recap_context_section_selector_v1"
+      || target.selector_policy !== "markdown-session-recap-v1") return false;
+    const identity = `${target.kind}\u001f${target.claim_id}\u001f${evidence ? target.anchor_id : target.context_anchor_id}`;
+    if (seen.has(identity)) return false;
+    const count = (perClaim.get(target.claim_id) ?? 0) + 1;
+    if (count > 8) return false;
+    perClaim.set(target.claim_id, count);
+    seen.add(identity);
+  }
+  return true;
+}
+
+function isWorldPlanRelatedRecapStatuses(
+  value: unknown,
+  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | null,
+): boolean {
+  if (!Array.isArray(value) || value.length > 128) return false;
+  const claims = new Set((completion?.citation_map?.entries ?? []).map((entry) => entry.claim_id));
+  const seen = new Set<string>();
+  for (const row of value) {
+    if (!hasExactKeys(row, ["schema", "claim_id", "status", "choice_count"])
+      || row.schema !== "dmb_agent_related_recap_context_status_v1"
+      || typeof row.claim_id !== "string" || !claims.has(row.claim_id) || seen.has(row.claim_id)
+      || !Number.isSafeInteger(row.choice_count) || (row.choice_count as number) < 0 || (row.choice_count as number) > 512
+      || !(row.status === "available" ? row.choice_count === 1
+        : row.status === "multiple_choices" ? (row.choice_count as number) > 1
+          : row.status === "partial" ? (row.choice_count as number) > 0
+            : row.status === "metadata_unavailable" ? (row.choice_count as number) >= 0
+              : ["no_context", "overflow"].includes(String(row.status)) && row.choice_count === 0)) return false;
+    seen.add(row.claim_id);
+  }
+  return true;
+}
+
+function isWorldPlanEvidenceAnchorStatuses(
+  value: unknown,
+  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | null,
+): boolean {
+  if (!Array.isArray(value) || value.length > 128) return false;
+  const claims = new Set((completion?.citation_map?.entries ?? []).map((entry) => entry.claim_id));
+  const seen = new Set<string>();
+  for (const row of value) {
+    if (!hasExactKeys(row, ["schema", "claim_id", "status", "target_count"])
+      || row.schema !== "dmb_agent_evidence_anchor_status_v1"
+      || typeof row.claim_id !== "string" || !claims.has(row.claim_id) || seen.has(row.claim_id)
+      || !Number.isSafeInteger(row.target_count) || (row.target_count as number) < 0 || (row.target_count as number) > 8
+      || !(["available", "partial"].includes(String(row.status))
+        ? (row.target_count as number) > 0
+        : ["no_anchor", "overflow"].includes(String(row.status)) && row.target_count === 0)) return false;
+    seen.add(row.claim_id);
+  }
+  return true;
+}
+
 function isWorldPlanContextProjection(
   value: unknown,
   request?: WorldPlanAgentTurnRequestV1,
   historyTurn = false,
 ): value is WorldPlanAgentPlanContextV1 {
   const required = ["schema", "receipt", "completion", "execution"];
+  if (isRecord(value) && Object.prototype.hasOwnProperty.call(value, "source_open_targets")) required.push("source_open_targets");
+  if (isRecord(value) && Object.prototype.hasOwnProperty.call(value, "evidence_anchor_statuses")) required.push("evidence_anchor_statuses");
+  if (isRecord(value) && Object.prototype.hasOwnProperty.call(value, "related_recap_context_statuses")) required.push("related_recap_context_statuses");
   const allowed = historyTurn && isRecord(value) && !Object.prototype.hasOwnProperty.call(value, "delivery_replay")
     ? required
     : [...required, "delivery_replay"];
@@ -1082,6 +1192,12 @@ function isWorldPlanContextProjection(
     || value.schema !== "dmb_agent_plan_world_graph_context_response_v1"
     || !isWorldPlanGraphReceipt(value.receipt, request)
     || (value.completion !== null && !isWorldPlanGraphCompletion(value.completion, value.receipt))
+    || (Object.prototype.hasOwnProperty.call(value, "source_open_targets")
+      && !isWorldPlanSourceOpenTargets(value.source_open_targets, value.receipt, value.completion))
+    || (Object.prototype.hasOwnProperty.call(value, "evidence_anchor_statuses")
+      && !isWorldPlanEvidenceAnchorStatuses(value.evidence_anchor_statuses, value.completion))
+    || (Object.prototype.hasOwnProperty.call(value, "related_recap_context_statuses")
+      && !isWorldPlanRelatedRecapStatuses(value.related_recap_context_statuses, value.completion))
     || (value.execution !== null && !isWorldPlanGraphExecution(value.execution))
     || (Object.prototype.hasOwnProperty.call(value, "delivery_replay") && typeof value.delivery_replay !== "boolean")) return false;
   if (!historyTurn && (!Object.prototype.hasOwnProperty.call(value, "delivery_replay")
@@ -1972,6 +2088,11 @@ export function WorldPlanAgentConversation({
   const [historyLoading, setHistoryLoading] = useState(false);
   const [olderLoading, setOlderLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [sourcePassage, setSourcePassage] = useState<{
+    turnId: string; claimId: string; targetId: string;
+    status: "loading" | "open" | "unavailable"; content: string | null; message: string | null; partial: boolean;
+  } | null>(null);
+  const sourceReadEpochRef = useRef(0);
   const [historyRefreshNonce, setHistoryRefreshNonce] = useState(0);
   const [proposalOrderRevision, setProposalOrderRevision] = useState(0);
   const [pendingAsks, setPendingAsks] = useState<StoredPendingAsk[]>([]);
@@ -2017,6 +2138,10 @@ export function WorldPlanAgentConversation({
     envelope: WorldPlanPendingNewConversation; record: WorldCommandResolutionRecordV1; generation: number;
   } | null>(null);
   const historySnapshotRef = useRef<WorldAgentConversationHistoryResponse | null>(null);
+  useLayoutEffect(() => {
+    sourceReadEpochRef.current += 1;
+    setSourcePassage(null);
+  }, [scopeKey, verifiedWorldId, history?.conversation_id]);
   const historyGenerationRef = useRef(0);
   const historyReadScopeRef = useRef<string | null>(null);
   const legacyHistoryRef = useRef<{ scopeKey: string; thread: AgentInteractionThread; rawBytes: string | null } | null>(null);
@@ -2245,6 +2370,7 @@ export function WorldPlanAgentConversation({
       newConversationRef.current = null;
       commandStatusRef.current = null;
       historyGenerationRef.current += 1;
+      sourceReadEpochRef.current += 1;
       proposalRequestRef.current = null;
       editReviewRef.current = null;
       sectionScanRef.current = null;
@@ -3445,6 +3571,182 @@ export function WorldPlanAgentConversation({
     return matchingTurns.length === 1 && matchingTurns[0]!.lifecycle_status === "failed";
   }
 
+  function sourceReadMatchesAuthority(
+    target: WorldPlanSourceOpenTargetV1,
+    snapshot: WorldGraphSourceAnchorReadResponse["snapshot"],
+  ): boolean {
+    return snapshot !== null
+      && snapshot.worldId === target.native_world_id
+      && snapshot.campaignId === ""
+      && snapshot.scopeMode === "world"
+      && snapshot.revisionId === target.graph_revision
+      && snapshot.admissibility === "gm"
+      && snapshot.focus.kind === "none"
+      && snapshot.focus.sessionId === null
+      && (snapshot.focus.campaignId ?? null) === null;
+  }
+
+  async function openSourcePassage(turn: WorldAgentConversationHistoryTurn, target: WorldPlanSourceOpenTargetV1) {
+    const page = historySnapshotRef.current;
+    if (!page || page.world_id !== target.managed_world_id || page.world_id !== verifiedWorldId
+      || page.conversation_state !== "active" || !page.conversation_id
+      || !page.turns.some((item) => item.turn_id === turn.turn_id)) return;
+    const conversationId = page.conversation_id;
+    const epoch = ++sourceReadEpochRef.current;
+    const targetId = target.kind === "evidence_anchor" ? target.anchor_id : target.context_anchor_id;
+    const identity = { turnId: turn.turn_id, claimId: target.claim_id, targetId };
+    setSourcePassage({ ...identity, status: "loading", content: null, message: null, partial: false });
+    const stillCurrent = () => sourceReadEpochRef.current === epoch
+      && historySnapshotRef.current?.world_id === target.managed_world_id
+      && historySnapshotRef.current?.conversation_id === conversationId
+      && historySnapshotRef.current?.turns.some((item) => {
+        const context = "plan_context" in item ? item.plan_context : null;
+        return item.turn_id === turn.turn_id && isRecord(context)
+          && Array.isArray(context.source_open_targets)
+          && context.source_open_targets.some((current: unknown) => JSON.stringify(current) === JSON.stringify(target));
+      });
+    const focus = { kind: "none" as const, sessionId: null, campaignId: null };
+    try {
+      let content: string | null = null;
+      let partial = false;
+      if (target.kind === "evidence_anchor") {
+        const result = await postWorldGraphSourceAnchorRead({
+          schema: "dmb_world_graph_source_anchor_read_request_v1",
+          worldId: target.native_world_id, campaignId: "", scopeMode: "world", focus,
+          admissibility: "gm", revisionPin: target.graph_revision, anchorId: target.anchor_id,
+        });
+        if (result.schema === "dmb_world_graph_source_anchor_read_v1"
+          && ["enough", "partial", "truncated"].includes(result.outcome)
+          && sourceReadMatchesAuthority(target, result.snapshot)
+          && result.anchorId === target.anchor_id
+          && result.evidenceRefId === target.evidence_ref_id
+          && result.sourceArtifactId === target.source_artifact_id
+          && typeof result.content === "string" && result.content) {
+          content = result.content;
+          partial = result.truncated || result.outcome === "partial" || result.outcome === "truncated";
+        }
+      } else {
+        const result: WorldGraphRecapContextReadResponse = await postWorldGraphRecapContextRead({
+          schema: "dmb_recap_context_read_request_v1",
+          worldId: target.native_world_id, campaignId: "", scopeMode: "world", focus,
+          admissibility: "gm", revisionPin: target.graph_revision, contextAnchorId: target.context_anchor_id,
+        });
+        const descriptor = result.context;
+        if (result.schema === "dmb_recap_context_read_v1"
+          && ["enough", "truncated"].includes(result.outcome)
+          && sourceReadMatchesAuthority(target, result.snapshot)
+          && result.contextAnchorId === target.context_anchor_id
+          && descriptor?.contextAnchorId === target.context_anchor_id
+          && descriptor.worldId === target.native_world_id
+          && descriptor.campaignId === target.source_campaign_id
+          && descriptor.graphRevisionId === target.graph_revision
+          && descriptor.sourceArtifactId === target.source_artifact_id
+          && descriptor.sourceRevisionId === target.source_revision_id
+          && descriptor.sourceUri === target.source_uri
+          && descriptor.contentSha256 === target.content_sha256
+          && descriptor.expectedSessionId === target.expected_session_id
+          && descriptor.expectedHeading === target.expected_heading
+          && descriptor.selectorSchema === target.selector_schema
+          && descriptor.selectorPolicy === target.selector_policy
+          && typeof result.content === "string" && result.content) {
+          content = result.content;
+          partial = result.truncated || result.outcome === "truncated";
+        }
+      }
+      if (!stillCurrent()) return;
+      setSourcePassage(content
+        ? { ...identity, status: "open", content, message: null, partial }
+        : { ...identity, status: "unavailable", content: null, message: "This pinned source passage is unavailable or did not match the saved citation.", partial: false });
+    } catch {
+      if (stillCurrent()) setSourcePassage({ ...identity, status: "unavailable", content: null, message: "The source reader could not open this pinned passage.", partial: false });
+    }
+  }
+
+  function renderSourceActions(turn: WorldAgentConversationHistoryTurn) {
+    const targets = "plan_context" in turn ? turn.plan_context?.source_open_targets ?? [] : [];
+    const recapUnavailable = "plan_context" in turn
+      ? turn.plan_context?.related_recap_context_statuses?.filter((row) =>
+        row.status === "no_context" || row.status === "metadata_unavailable") ?? []
+      : [];
+    const evidenceUnavailable = "plan_context" in turn
+      ? turn.plan_context?.evidence_anchor_statuses?.filter((row) => row.status === "no_anchor") ?? []
+      : [];
+    const evidenceLimited = "plan_context" in turn
+      ? turn.plan_context?.evidence_anchor_statuses?.some((row) => row.status === "partial" || row.status === "overflow") ?? false
+      : false;
+    const recapLimited = "plan_context" in turn
+      ? turn.plan_context?.related_recap_context_statuses?.some((row) => row.status === "partial" || row.status === "overflow") ?? false
+      : false;
+    if (targets.length === 0 && recapUnavailable.length === 0 && evidenceUnavailable.length === 0
+      && !evidenceLimited && !recapLimited) return null;
+    const claims = "plan_context" in turn
+      ? turn.plan_context?.completion?.answer_segments.filter((segment) => segment.kind === "graph_claim") ?? []
+      : [];
+    const activeTarget = targets.find((target) => sourcePassage?.turnId === turn.turn_id
+      && sourcePassage.claimId === target.claim_id
+      && sourcePassage.targetId === (target.kind === "evidence_anchor" ? target.anchor_id : target.context_anchor_id));
+    const renderTarget = (target: WorldPlanSourceOpenTargetV1) => {
+        const targetId = target.kind === "evidence_anchor" ? target.anchor_id : target.context_anchor_id;
+        const point = claims.findIndex((claim) => claim.claim_id === target.claim_id) + 1;
+        const relatedChoices = target.kind === "related_recap_context"
+          ? targets.filter((candidate) => candidate.kind === "related_recap_context" && candidate.claim_id === target.claim_id).length
+          : 0;
+        const evidenceChoices = target.kind === "evidence_anchor"
+          ? targets.filter((candidate) => candidate.kind === "evidence_anchor" && candidate.claim_id === target.claim_id)
+          : [];
+        const evidenceNumber = target.kind === "evidence_anchor"
+          ? evidenceChoices.findIndex((candidate) => candidate.kind === "evidence_anchor" && candidate.anchor_id === target.anchor_id) + 1
+          : 0;
+        return <div key={`${target.kind}-${target.claim_id}-${targetId}`} className="world-plan-agent-conversation__source-action">
+          {claims.length > 1 ? <span className="world-plan-agent-conversation__source-actions-label">Point {point} · </span> : null}
+          <button type="button" title={target.kind === "related_recap_context" ? target.source_uri : undefined}
+            aria-label={claims.length > 1
+            ? `${target.kind === "evidence_anchor" ? "Open evidence" : "Open related recap context"} for point ${point}${relatedChoices > 1 && target.kind === "related_recap_context" ? ` · ${target.expected_heading}` : ""}${evidenceChoices.length > 1 ? ` · ${evidenceNumber} of ${evidenceChoices.length}` : ""}`
+            : undefined} onClick={() => { void openSourcePassage(turn, target); }}>
+            {target.kind === "evidence_anchor" ? evidenceChoices.length > 1
+              ? `Open evidence · ${evidenceNumber} of ${evidenceChoices.length}` : "Open evidence"
+              : relatedChoices > 1 ? `Open related recap context · ${target.expected_heading}` : "Open related recap context"}
+          </button>
+        </div>;
+    };
+    return <section className="world-plan-agent-conversation__source-actions" aria-label="Sources for this answer">
+      <span className="world-plan-agent-conversation__source-actions-label">Read the source</span>
+      {targets.slice(0, 3).map(renderTarget)}
+      {targets.length > 3 ? <details className="world-plan-agent-conversation__source-more">
+        <summary>{targets.length - 3} more source choice{targets.length - 3 === 1 ? "" : "s"}</summary>
+        <div>{targets.slice(3).map(renderTarget)}</div>
+      </details> : null}
+      {activeTarget && sourcePassage ? <div className="world-plan-agent-conversation__source-reader">
+        <button type="button" onClick={() => { sourceReadEpochRef.current += 1; setSourcePassage(null); }}>Close passage</button>
+        {sourcePassage.status === "loading" ? <p role="status">Opening pinned source…</p> : null}
+        {sourcePassage.status === "unavailable" ? <p role="alert">{sourcePassage.message}</p> : null}
+        {sourcePassage.status === "open" ? <div className="world-plan-agent-conversation__source-passage"
+          role="region" aria-label={activeTarget.kind === "evidence_anchor" ? "Evidence passage" : "Related recap context passage"}>
+          {sourcePassage.partial ? <p role="note">Partial passage. More source text may be available.</p> : null}
+          {sourcePassage.content}
+        </div> : null}
+      </div> : null}
+      {evidenceLimited ? <p role="note">Some evidence passage choices could not be offered. Shown links remain pinned.</p> : null}
+      {recapLimited ? <p role="note">Some related recap choices could not be offered. Shown links remain pinned.</p> : null}
+      {evidenceUnavailable.length > 0 ? <details className="world-plan-agent-conversation__source-status">
+        <summary>Evidence source status</summary>
+        {evidenceUnavailable.map((row) => {
+          const point = claims.findIndex((claim) => claim.claim_id === row.claim_id) + 1;
+          return <p key={row.claim_id}>{claims.length > 1 ? `Point ${point}: ` : ""}No readable evidence anchor is available for this cited point.</p>;
+        })}
+      </details> : null}
+      {recapUnavailable.length > 0 ? <details className="world-plan-agent-conversation__source-status">
+        <summary>Related recap context status</summary>
+        {recapUnavailable.map((row) => {
+          const point = claims.findIndex((claim) => claim.claim_id === row.claim_id) + 1;
+          return <p key={row.claim_id}>{claims.length > 1 ? `Point ${point}: ` : ""}{row.status === "no_context"
+            ? "No related recap passage matches this cited point."
+            : "Some related recap metadata could not be checked for this cited point."}</p>;
+        })}
+      </details> : null}
+    </section>;
+  }
+
   function renderGraphContextHistory(turn: WorldAgentConversationHistoryTurn) {
     if (!("plan_context" in turn) || !turn.plan_context) return null;
     const { completion, execution } = turn.plan_context;
@@ -4174,6 +4476,7 @@ export function WorldPlanAgentConversation({
                 ? turn.plan_context.completion.answer_segments.map((segment) => segment.text)
                 : undefined}
             />
+            {renderSourceActions(turn)}
           </div>
         ) : (
           <p className="world-plan-agent-conversation__turn-status" role="status">

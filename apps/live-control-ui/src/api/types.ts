@@ -1036,7 +1036,62 @@ export interface WorldPlanAgentPlanContextV1 {
   completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | null;
   execution: WorldPlanGraphExecutionProjectionV1 | null;
   delivery_replay: boolean;
+  source_open_targets?: WorldPlanSourceOpenTargetV1[];
+  evidence_anchor_statuses?: WorldPlanEvidenceAnchorStatusV1[];
+  related_recap_context_statuses?: WorldPlanRelatedRecapContextStatusV1[];
 }
+
+export interface WorldPlanEvidenceAnchorStatusV1 {
+  schema: "dmb_agent_evidence_anchor_status_v1";
+  claim_id: string;
+  status: "available" | "no_anchor" | "partial" | "overflow";
+  target_count: number;
+}
+
+export interface WorldPlanRelatedRecapContextStatusV1 {
+  schema: "dmb_agent_related_recap_context_status_v1";
+  claim_id: string;
+  status: "available" | "multiple_choices" | "no_context" | "metadata_unavailable" | "partial" | "overflow";
+  choice_count: number;
+}
+
+export interface WorldPlanSourceOpenAuthorityV1 {
+  claim_id: string;
+  source_artifact_id: string;
+  source_revision_id: string;
+  managed_world_id: string;
+  native_world_id: string;
+  binding_version: number;
+  scope_mode: "world";
+  campaign_id: null;
+  focus: { kind: "none"; session_id: null; campaign_id: null };
+  admissibility: "gm";
+  graph_revision: string;
+}
+
+export type WorldPlanSourceOpenTargetV1 = WorldPlanSourceOpenAuthorityV1 & (
+  | {
+    schema: "dmb_agent_evidence_anchor_open_target_v1";
+    kind: "evidence_anchor";
+    anchor_id: string;
+    evidence_ref_id: string;
+    source_read_id: string | null;
+    read_outcome: "enough" | "partial" | "truncated" | null;
+  }
+  | {
+    schema: "dmb_agent_related_recap_context_open_target_v1";
+    kind: "related_recap_context";
+    context_anchor_id: string;
+    provenance_evidence_ref_id: string;
+    source_campaign_id: string | null;
+    source_uri: string;
+    content_sha256: string;
+    expected_session_id: string;
+    expected_heading: string;
+    selector_schema: "dm_recap_context_section_selector_v1";
+    selector_policy: "markdown-session-recap-v1";
+  }
+);
 
 export interface WorldPlanAgentTurnResponseV2 extends Omit<WorldPlanAgentTurnResponseV1, "schema"> {
   schema: "dmb_agent_turn_response_v2";
@@ -3626,6 +3681,52 @@ export interface WorldGraphSourceAnchorReadResponse {
   lineStart: number | null;
   lineEnd: number | null;
   truncated: boolean;
+  diagnostics: Array<{ code: string; message: string; severity: string }>;
+}
+
+export interface WorldGraphRecapContextReadRequest {
+  schema: "dmb_recap_context_read_request_v1";
+  worldId: string;
+  campaignId: string;
+  scopeMode: "world";
+  focus: WorldGraphProjectionFocus;
+  admissibility: "gm";
+  revisionPin: string;
+  contextAnchorId: string;
+  maxChars?: number;
+  continuation?: string | null;
+}
+
+export interface WorldGraphRecapContextDescriptor {
+  contextAnchorId: string;
+  worldId: string;
+  campaignId: string | null;
+  graphRevisionId: string;
+  sourceArtifactId: string;
+  sourceRevisionId: string;
+  sourceUri: string;
+  contentSha256: string;
+  expectedSessionId: string;
+  expectedHeading: string;
+  selectorSchema: "dm_recap_context_section_selector_v1";
+  selectorPolicy: "markdown-session-recap-v1";
+}
+
+export interface WorldGraphRecapContextReadResponse {
+  schema: "dmb_recap_context_read_v1";
+  outcome: "enough" | "truncated" | "empty" | "unavailable";
+  snapshot: WorldGraphSourceAnchorReadSnapshot;
+  contextAnchorId: string;
+  context: WorldGraphRecapContextDescriptor | null;
+  mediaType: string | null;
+  content: string | null;
+  headingLine: number | null;
+  lineStart: number | null;
+  lineEnd: number | null;
+  sectionSha256: string | null;
+  offsetChars: number;
+  truncated: boolean;
+  nextContinuation: string | null;
   diagnostics: Array<{ code: string; message: string; severity: string }>;
 }
 

@@ -17,6 +17,7 @@ import type {
   WorldAgentConversationHistoryTurnV2,
   WorldAgentConversationHistoryPlanTurnV3,
   WorldPlanAgentPlanContextV1,
+  WorldPlanSourceOpenTargetV1,
   WorldPlanAgentTurnResponseV2,
   WorldPlanAgentTurnRequestV1,
   WorldPlanGraphAnswerContextStatusV1,
@@ -689,6 +690,25 @@ async function planGraphContext(
     } : options.execution,
     delivery_replay: false,
   };
+}
+
+function sourceOpenTargets(): WorldPlanSourceOpenTargetV1[] {
+  const authority = {
+    claim_id: "claim-internal-test", source_artifact_id: "artifact-test", source_revision_id: "source-revision-test",
+    managed_world_id: worldId, native_world_id: "native-world-internal-test", binding_version: 3,
+    scope_mode: "world" as const, campaign_id: null,
+    focus: { kind: "none" as const, session_id: null, campaign_id: null },
+    admissibility: "gm" as const, graph_revision: "graph-revision-test",
+  };
+  return [
+    { ...authority, schema: "dmb_agent_evidence_anchor_open_target_v1", kind: "evidence_anchor",
+      anchor_id: "anchor-test", evidence_ref_id: "evidence-internal-test", source_read_id: null, read_outcome: null },
+    { ...authority, schema: "dmb_agent_related_recap_context_open_target_v1", kind: "related_recap_context",
+      context_anchor_id: "dm-context-anchor:v1:test", provenance_evidence_ref_id: "evidence-internal-test",
+      source_campaign_id: "longmont-c2", source_uri: "repo://recaps/session-22.md", content_sha256: "e".repeat(64), expected_session_id: "session-22",
+      expected_heading: "# Session 22 Recap", selector_schema: "dm_recap_context_section_selector_v1",
+      selector_policy: "markdown-session-recap-v1" },
+  ];
 }
 
 async function resealPlanGraphContext(context: WorldPlanAgentPlanContextV1): Promise<WorldPlanAgentPlanContextV1> {
@@ -2442,7 +2462,168 @@ describe("World Plan conversation consumer", () => {
     expect((await screen.findAllByText("The western gate is watched.")).length).toBeGreaterThan(0);
     expect(screen.getByText(/source passage read\./)).toBeInTheDocument();
     expect(screen.queryByText(/source text not opened\./)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open evidence" })).not.toBeInTheDocument();
     expect(screen.queryByText(/invalid Graph-context receipt/)).not.toBeInTheDocument();
+  });
+
+  it("opens exact evidence and related recap targets from saved World history without a provider repost", async () => {
+    const context = await planGraphContext("graph_grounded");
+    context.source_open_targets = sourceOpenTargets();
+    context.evidence_anchor_statuses = [{ schema: "dmb_agent_evidence_anchor_status_v1",
+      claim_id: "claim-internal-test", status: "partial", target_count: 1 }];
+    context.related_recap_context_statuses = [{ schema: "dmb_agent_related_recap_context_status_v1",
+      claim_id: "claim-internal-test", status: "partial", choice_count: 1 }];
+    setupApi(await historyV2("conversation-a", 5, [policyHistoryTurn(
+      1, "source-open-turn", "What is known?", "The western gate is watched.", context,
+    )]));
+    const ask = vi.spyOn(liveApi, "postWorldPlanAgentTurn");
+    const evidenceRead = vi.spyOn(liveApi, "postWorldGraphSourceAnchorRead").mockResolvedValue({
+      schema: "dmb_world_graph_source_anchor_read_v1", outcome: "enough",
+      snapshot: { worldId: "native-world-internal-test", campaignId: "", scopeMode: "world",
+        revisionId: "graph-revision-test", headRevisionId: "graph-revision-test", isHead: true,
+        focus: { kind: "none", sessionId: null, campaignId: null }, admissibility: "gm" },
+      anchorId: "anchor-test", evidenceRefId: "evidence-internal-test", sourceArtifactId: "artifact-test",
+      sourceDomain: "recap", locatorKind: "heading", mediaType: "text/markdown", content: "Exact evidence passage",
+      contentSha256: "f".repeat(64), lineStart: 1, lineEnd: 2, truncated: false, diagnostics: [],
+    });
+    const recapRead = vi.spyOn(liveApi, "postWorldGraphRecapContextRead").mockResolvedValue({
+      schema: "dmb_recap_context_read_v1", outcome: "truncated",
+      snapshot: { worldId: "native-world-internal-test", campaignId: "", scopeMode: "world",
+        revisionId: "graph-revision-test", headRevisionId: "graph-revision-test", isHead: true,
+        focus: { kind: "none", sessionId: null, campaignId: null }, admissibility: "gm" },
+      contextAnchorId: "dm-context-anchor:v1:test",
+      context: { contextAnchorId: "dm-context-anchor:v1:test", worldId: "native-world-internal-test",
+        campaignId: "longmont-c2", graphRevisionId: "graph-revision-test", sourceArtifactId: "artifact-test",
+        sourceRevisionId: "source-revision-test", sourceUri: "repo://recaps/session-22.md", contentSha256: "e".repeat(64),
+        expectedSessionId: "session-22", expectedHeading: "# Session 22 Recap",
+        selectorSchema: "dm_recap_context_section_selector_v1", selectorPolicy: "markdown-session-recap-v1" },
+      mediaType: "text/markdown", content: "Related Session 22 passage", headingLine: 1, lineStart: 2, lineEnd: 3,
+      sectionSha256: "a".repeat(64), offsetChars: 0, truncated: true, nextContinuation: "next", diagnostics: [],
+    });
+
+    render(conversationElement());
+    const openEvidence = await screen.findByRole("button", { name: "Open evidence" });
+    expect(openEvidence.closest("details")).toBeNull();
+    expect(screen.getByText(/Some evidence passage choices could not be offered/)).toBeInTheDocument();
+    expect(screen.getByText(/Some related recap choices could not be offered/)).toBeInTheDocument();
+    fireEvent.click(openEvidence);
+    expect(await screen.findByLabelText("Evidence passage")).toHaveTextContent("Exact evidence passage");
+    expect(evidenceRead).toHaveBeenCalledWith(expect.objectContaining({
+      worldId: "native-world-internal-test", scopeMode: "world", campaignId: "",
+      revisionPin: "graph-revision-test", anchorId: "anchor-test", admissibility: "gm",
+    }));
+    fireEvent.click(screen.getByRole("button", { name: "Open related recap context" }));
+    expect(await screen.findByLabelText("Related recap context passage")).toHaveTextContent("Related Session 22 passage");
+    expect(screen.getByText("Partial passage. More source text may be available.")).toBeInTheDocument();
+    expect(recapRead).toHaveBeenCalledWith(expect.objectContaining({
+      revisionPin: "graph-revision-test", contextAnchorId: "dm-context-anchor:v1:test",
+    }));
+    fireEvent.click(screen.getByRole("button", { name: "Close passage" }));
+    expect(screen.queryByLabelText("Related recap context passage")).not.toBeInTheDocument();
+    expect(ask).not.toHaveBeenCalled();
+  });
+
+  it("keeps a larger verified source set behind a compact choice list", async () => {
+    const context = await planGraphContext("graph_grounded");
+    const evidence = sourceOpenTargets()[0]!;
+    if (evidence.kind !== "evidence_anchor") throw new Error("Expected evidence fixture.");
+    context.source_open_targets = [0, 1, 2, 3].map((index) => ({ ...evidence, anchor_id: `anchor-${index}` }));
+    setupApi(await historyV2("conversation-a", 5, [policyHistoryTurn(
+      1, "multiple-source-turn", "What is known?", "The western gate is watched.", context,
+    )]));
+    render(conversationElement());
+    const more = await screen.findByText("1 more source choice");
+    expect(more.closest("details")).not.toHaveAttribute("open");
+    fireEvent.click(more);
+    expect(screen.getAllByRole("button", { name: /Open evidence/ })).toHaveLength(4);
+  });
+
+  it("distinguishes absent recap context from unavailable recap metadata on demand", async () => {
+    const first = await planGraphContext("graph_grounded");
+    first.related_recap_context_statuses = [{ schema: "dmb_agent_related_recap_context_status_v1",
+      claim_id: "claim-internal-test", status: "no_context", choice_count: 0 }];
+    const second = await planGraphContext("graph_grounded");
+    second.related_recap_context_statuses = [{ schema: "dmb_agent_related_recap_context_status_v1",
+      claim_id: "claim-internal-test", status: "metadata_unavailable", choice_count: 0 }];
+    setupApi(await historyV2("conversation-a", 5, [
+      policyHistoryTurn(1, "no-recap-turn", "First question", "First answer", first),
+      policyHistoryTurn(2, "metadata-unavailable-turn", "Second question", "Second answer", second),
+    ]));
+    render(conversationElement());
+    const summaries = await screen.findAllByText("Related recap context status");
+    summaries.forEach((summary) => fireEvent.click(summary));
+    expect(screen.getByText("No related recap passage matches this cited point.")).toBeInTheDocument();
+    expect(screen.getByText("Some related recap metadata could not be checked for this cited point.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open related recap context" })).not.toBeInTheDocument();
+  });
+
+  it("fails closed when a source reader returns a different evidence identity", async () => {
+    const context = await planGraphContext("graph_grounded");
+    context.source_open_targets = sourceOpenTargets();
+    setupApi(await historyV2("conversation-a", 5, [policyHistoryTurn(
+      1, "source-mismatch-turn", "What is known?", "The western gate is watched.", context,
+    )]));
+    vi.spyOn(liveApi, "postWorldGraphSourceAnchorRead").mockResolvedValue({
+      schema: "dmb_world_graph_source_anchor_read_v1", outcome: "enough",
+      snapshot: { worldId: "native-world-internal-test", campaignId: "", scopeMode: "world",
+        revisionId: "graph-revision-test", headRevisionId: "graph-revision-test", isHead: true,
+        focus: { kind: "none", sessionId: null, campaignId: null }, admissibility: "gm" },
+      anchorId: "anchor-test", evidenceRefId: "other-evidence", sourceArtifactId: "artifact-test",
+      sourceDomain: "recap", locatorKind: "heading", mediaType: "text/markdown", content: "Wrong passage",
+      contentSha256: "f".repeat(64), lineStart: 1, lineEnd: 2, truncated: false, diagnostics: [],
+    });
+    render(conversationElement());
+    fireEvent.click(await screen.findByRole("button", { name: "Open evidence" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/unavailable or did not match/);
+    expect(screen.queryByText("Wrong passage")).not.toBeInTheDocument();
+  });
+
+  it("rejects a projected opener bound to a foreign native World", async () => {
+    const context = await planGraphContext("graph_grounded");
+    context.source_open_targets = [{ ...sourceOpenTargets()[0]!, native_world_id: "foreign-world" }];
+    setupApi(await historyV2("conversation-a", 5, [policyHistoryTurn(
+      1, "foreign-source-turn", "What is known?", "Unverified answer", context,
+    )]));
+    render(conversationElement());
+    expect(await screen.findByText(/invalid Graph-context receipt/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open evidence" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Unverified answer")).not.toBeInTheDocument();
+  });
+
+  it("offers the persisted source target after a fresh answer and ignores a late read after Plan switch", async () => {
+    const api = setupApi(history("conversation-a", 4, []));
+    const read = vi.spyOn(liveApi, "postWorldGraphSourceAnchorRead");
+    let finishRead!: (value: any) => void;
+    read.mockImplementation(() => new Promise((resolve) => { finishRead = resolve; }));
+    const ask = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
+      const response = await policyResponse(request, "conversation-a", "The western gate is watched.");
+      response.plan_context.source_open_targets = [sourceOpenTargets()[0]!];
+      api.setCurrent(await historyV2("conversation-a", 5, [policyHistoryTurn(
+        1, request.turn_id, request.message, response.answer.text, response.plan_context, "completed", request,
+      )]));
+      return response;
+    });
+    const mounted = render(conversationElement());
+    await screen.findByText(/No messages yet/i);
+    ensureWorldGraphAskEnabled();
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Who watches the gate?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Open evidence" }));
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(ask).toHaveBeenCalledTimes(1);
+
+    mounted.rerender(conversationElement({ documentId: "other-plan" }));
+    await act(async () => finishRead({
+      schema: "dmb_world_graph_source_anchor_read_v1", outcome: "enough",
+      snapshot: { worldId: "native-world-internal-test", campaignId: "", scopeMode: "world",
+        revisionId: "graph-revision-test", headRevisionId: "graph-revision-test", isHead: true,
+        focus: { kind: "none", sessionId: null, campaignId: null }, admissibility: "gm" },
+      anchorId: "anchor-test", evidenceRefId: "evidence-internal-test", sourceArtifactId: "artifact-test",
+      sourceDomain: "recap", locatorKind: "heading", mediaType: "text/markdown", content: "Late prior passage",
+      contentSha256: "f".repeat(64), lineStart: 1, lineEnd: 2, truncated: false, diagnostics: [],
+    }));
+    expect(screen.queryByText("Late prior passage")).not.toBeInTheDocument();
+    expect(ask).toHaveBeenCalledTimes(1);
   });
 
   it("accepts mixed initial and tool citations for a partial completion with truncated retrieval", async () => {
