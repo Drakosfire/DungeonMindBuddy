@@ -28,6 +28,8 @@ from apps.live_control_server.services.world_graph_retrieval import (
     read_source_anchor,
     list_recap_context,
     read_recap_context,
+    list_recap_context_v2,
+    read_recap_context_v2,
     search_campaign_graph,
 )
 from graph_memory.retrieval.models import (
@@ -43,6 +45,10 @@ from graph_memory.retrieval.models import (
     RecapContextIndexResult,
     RecapContextReadRequest,
     RecapContextReadResult,
+    RecapContextIndexRequestV2,
+    RecapContextIndexResultV2,
+    RecapContextReadRequestV2,
+    RecapContextReadResultV2,
 )
 
 
@@ -265,6 +271,40 @@ def post_recap_context_read(
     try:
         _reject_query_params(request_context)
         response = read_recap_context(request)
+    except WorldGraphRetrievalServiceError as exc:
+        return _error_response(exc)
+    except Exception:
+        return _error_response(WorldGraphRetrievalServiceError(
+            "Recap context read failed unexpectedly.", code="retrieval_internal_error", status_code=500,
+        ))
+    return response.model_dump(mode="json", by_alias=True)
+
+
+@router.post("/recap-context/v2/index", response_model=RecapContextIndexResultV2)
+def post_recap_context_index_v2(
+    request_context: Request,
+    request: RecapContextIndexRequestV2,
+) -> dict[str, Any] | JSONResponse:
+    try:
+        _reject_query_params(request_context)
+        response = list_recap_context_v2(request)
+    except WorldGraphRetrievalServiceError as exc:
+        return _error_response(exc)
+    except Exception:
+        return _error_response(WorldGraphRetrievalServiceError(
+            "Recap context index failed unexpectedly.", code="retrieval_internal_error", status_code=500,
+        ))
+    return response.model_dump(mode="json", by_alias=True)
+
+
+@router.post("/recap-context/v2/read", response_model=RecapContextReadResult | RecapContextReadResultV2)
+def post_recap_context_read_v2(
+    request_context: Request,
+    request: RecapContextReadRequestV2,
+) -> dict[str, Any] | JSONResponse:
+    try:
+        _reject_query_params(request_context)
+        response = read_recap_context_v2(request)
     except WorldGraphRetrievalServiceError as exc:
         return _error_response(exc)
     except Exception:

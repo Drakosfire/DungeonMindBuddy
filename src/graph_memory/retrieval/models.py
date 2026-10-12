@@ -496,3 +496,74 @@ __all__ = [
     "RecapContextReadResult",
     "compute_source_anchor_id",
 ]
+
+
+class RecapContextIndexRequestV2(RecapContextIndexRequest):
+    schema_: Literal["dmb_recap_context_index_request_v2"] = Field(alias="schema")
+
+
+class RecapContextReadRequestV2(WorldGraphRetrievalRequestContext):
+    schema_: Literal["dmb_recap_context_read_request_v2"] = Field(alias="schema")
+    context_anchor_id: str = Field(min_length=1)
+    max_chars: int = Field(default=SOURCE_ANCHOR_READ_MAX_CHARS_DEFAULT, ge=1, le=SOURCE_ANCHOR_READ_MAX_CHARS_HARD_MAX)
+    continuation: str | None = None
+
+    @field_validator("context_anchor_id")
+    @classmethod
+    def _known_context_version(cls, value: str) -> str:
+        if not value.startswith(("dm-context-anchor:v1:", "dm-context-anchor:v2:")):
+            raise ValueError("recap context requires a known Core context ID")
+        return value
+
+    @model_validator(mode="after")
+    def _require_pin(self):
+        if not self.revision_pin or self.admissibility != "gm":
+            raise ValueError("recap context requires a pinned GM projection")
+        return self
+
+
+class RecapContextDescriptorV2(_RetrievalResponseModel):
+    context_anchor_id: str
+    world_id: str
+    campaign_id: str | None
+    graph_revision_id: str
+    source_artifact_id: str
+    source_revision_id: str
+    source_uri: str
+    content_sha256: str
+    expected_session_id: str
+    canonical_heading: str
+    legacy_session_heading: str
+    legacy_recap_marker: str
+    selector_schema: Literal["dm_recap_context_section_selector_v2"] = "dm_recap_context_section_selector_v2"
+    selector_policy: Literal["markdown-session-recap-v2"] = "markdown-session-recap-v2"
+
+
+class RecapContextIndexResultV2(_RetrievalResponseModel):
+    schema_: Literal["dmb_recap_context_index_v2"] = Field(alias="schema", default="dmb_recap_context_index_v2")
+    snapshot: WorldGraphRetrievalSnapshot
+    status: Literal["complete", "overflow"]
+    eligible_count: int
+    max_entries: int
+    entries: list[RecapContextDescriptorV2] = Field(default_factory=list)
+
+
+class RecapContextReadResultV2(_RetrievalResponseModel):
+    schema_: Literal["dmb_recap_context_read_v2"] = Field(alias="schema", default="dmb_recap_context_read_v2")
+    outcome: Literal["enough", "truncated", "empty", "unavailable"]
+    snapshot: WorldGraphRetrievalSnapshot
+    context_anchor_id: str
+    context: RecapContextDescriptorV2 | None = None
+    media_type: str | None = None
+    content: str | None = None
+    selected_form: Literal["canonical_h1", "legacy_h2"] | None = None
+    heading_line: int | None = None
+    session_heading_line: int | None = None
+    recap_marker_line: int | None = None
+    line_start: int | None = None
+    line_end: int | None = None
+    section_sha256: str | None = None
+    offset_chars: int = 0
+    truncated: bool = False
+    next_continuation: str | None = None
+    diagnostics: list[WorldGraphRetrievalDiagnostic] = Field(default_factory=list)

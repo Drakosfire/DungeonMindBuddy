@@ -1171,3 +1171,151 @@ def test_fresh_recap_publication_source_read_is_digest_verified(
     )
     assert foreign.outcome in {"empty", "partial", "unavailable", "denied"}
     assert foreign.content is None
+
+
+LEGACY_PRELUDE_V2 = (
+    "## Session 16:\n## Major Beats:\nSynthetic prelude A.\n"
+    "## Next Beats :\nSynthetic prelude B.\n**Recap**:\n"
+    "Synthetic recap body.\n## Afterword\nExcluded afterword.\n"
+    "## Session 17:\n**Recap**:\nOther session body.\n"
+)
+
+
+def _context_fixture_v2(tmp_path, raw=LEGACY_PRELUDE_V2.encode()):
+    from dungeonmind.application.world_graph_retrieval import RecapContextSectionSelectorV2, RecapSourceContextV2
+    from graph_memory.retrieval.models import RecapContextIndexRequestV2, RecapContextReadRequestV2
+    path = tmp_path / "s16.md"
+    path.write_bytes(raw)
+    digest = hashlib.sha256(raw).hexdigest()
+    common = dict(world_id="eldyrwild", campaign_id="longmont-c1", graph_revision_id="rev:test",
+        source_artifact_id="artifact:synthetic:s16", source_revision_id="sha256:" + digest,
+        source_uri="repo://s16.md", content_sha256=digest)
+    v1 = RecapSourceContextV1(context_anchor_id="dm-context-anchor:v1:synthetic",
+        section_selector=RecapContextSectionSelectorV1(expected_session_id="session-16", expected_heading="# Session 16 Recap"), **common)
+    v2 = RecapSourceContextV2(context_anchor_id="dm-context-anchor:v2:synthetic",
+        section_selector=RecapContextSectionSelectorV2(expected_session_id="session-16",
+            canonical_heading="# Session 16 Recap", legacy_session_heading="## Session 16:", legacy_recap_marker="**Recap**:"), **common)
+    snapshot = SimpleNamespace(world_id="eldyrwild", campaign_id="longmont-c1", revision_id="rev:test",
+        head_revision_id="rev:test", is_head=True, admissibility=Admissibility.GM, scope_mode=ScopeModeV2.CAMPAIGN)
+    descriptors = {v1.context_anchor_id: v1, v2.context_anchor_id: v2}
+    def index(request):
+        selected = v2 if request.selector_policy == "markdown-session-recap-v2" else v1
+        return SourceContextIndexResult(snapshot=snapshot, eligible_count=1, max_entries=request.max_entries, status="complete", entries=(selected,))
+    def resolve(projection, *, context_anchor_id, allow_selector_v2=False):
+        selected = descriptors.get(context_anchor_id)
+        if context_anchor_id.startswith("dm-context-anchor:v2:") and not allow_selector_v2:
+            selected = None
+        return SourceContextResolution(snapshot=snapshot, context_anchor_id=context_anchor_id, found=selected is not None, context=selected)
+    services = SimpleNamespace(retrieval=SimpleNamespace(list_source_context_index=index, resolve_source_context=resolve),
+        binding=SimpleNamespace(legacy_buddy_revision_id=None))
+    base = dict(worldId="eldyrwild", campaignId="longmont-c1", scopeMode="campaign", revisionPin="rev:test")
+    request = RecapContextReadRequestV2.model_validate({"schema":"dmb_recap_context_read_request_v2", **base, "contextAnchorId":v2.context_anchor_id,"maxChars":5})
+    listed = RecapContextIndexRequestV2.model_validate({"schema":"dmb_recap_context_index_request_v2", **base})
+    return services, listed, request, path, descriptors
+
+
+def test_recap_context_v2_exact_prelude_and_contiguous_original_pages(tmp_path):
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import list_recap_context_direct_v2, read_recap_context_direct_v2
+    services, listed, request, path, _ = _context_fixture_v2(tmp_path)
+    index = list_recap_context_direct_v2(services, listed)
+    assert index.entries[0].selector_policy == "markdown-session-recap-v2"
+    pages = []
+    while True:
+        page = read_recap_context_direct_v2(services, request, repo_root=tmp_path)
+        assert page.selected_form == "legacy_h2"
+        assert (page.session_heading_line,page.recap_marker_line,page.line_start,page.line_end)==(1,6,7,7)
+        assert page.offset_chars == sum(map(len,pages))
+        pages.append(page.content)
+        if not page.truncated:
+            break
+        request = request.model_copy(update={"continuation":page.next_continuation})
+    assert "".join(pages) == "Synthetic recap body.\n"
+    assert path.read_bytes() == LEGACY_PRELUDE_V2.encode()
+
+
+def test_recap_context_v2_canonical_and_saved_v1_bytes_ranges_cursors(tmp_path):
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import read_recap_context_direct_v2, DirectWorldGraphReadError
+    raw = b"# Session 16 Recap\r\nUnicode \xce\xa9 text.\r\n## Still in recap\r\nTail.\r\n# Next\r\nExcluded.\r\n"
+    services, _, request, _, _ = _context_fixture_v2(tmp_path,raw)
+    v1 = RecapContextReadRequest.model_validate({**request.model_dump(mode="json",by_alias=True,exclude={"schema_"}),
+        "schema":"dmb_recap_context_read_request_v1","contextAnchorId":"dm-context-anchor:v1:synthetic"})
+    old = read_recap_context_direct(services,v1,repo_root=tmp_path)
+    saved = request.model_copy(update={"context_anchor_id":v1.context_anchor_id})
+    delegated = read_recap_context_direct_v2(services,saved,repo_root=tmp_path)
+    assert delegated.model_dump(mode="json")==old.model_dump(mode="json")
+    page = read_recap_context_direct_v2(services,request,repo_root=tmp_path)
+    assert (page.content,page.heading_line,page.line_start,page.line_end,page.section_sha256)==(old.content,old.heading_line,old.line_start,old.line_end,old.section_sha256)
+    assert page.next_continuation.startswith("recap-page:v2:") and old.next_continuation.startswith("recap-page:v1:")
+    delegated_next = read_recap_context_direct_v2(services,saved.model_copy(update={"continuation":old.next_continuation}),repo_root=tmp_path)
+    old_next = read_recap_context_direct(services,v1.model_copy(update={"continuation":old.next_continuation}),repo_root=tmp_path)
+    assert delegated_next.model_dump(mode="json")==old_next.model_dump(mode="json")
+    for bad in (request.model_copy(update={"continuation":old.next_continuation}),saved.model_copy(update={"continuation":page.next_continuation})):
+        with pytest.raises(DirectWorldGraphReadError) as error:
+            read_recap_context_direct_v2(services,bad,repo_root=tmp_path)
+        assert error.value.code=="source_unavailable"
+
+
+@pytest.mark.parametrize("raw", [
+    "## Session 17:\n**Recap**:\nWrong session.\n",
+    "## Session 16:\n## Major Beats:\nNo marker.\n## Session 17:\n**Recap**:\nOther.\n",
+    "## Session 16:\n**Recap**:\nFirst.\n**Recap**:\nSecond.\n",
+    "## Session 16:\n**Recap**:\nFirst.\n## Session 16:\n**Recap**:\nSecond.\n",
+    "# Session 16 Recap\nCanonical.\n## Session 16:\n**Recap**:\nLegacy.\n",
+    "## Session 16:\n```md\n**Recap**:\nFenced.\n```\n",
+    "## Session 16:\n> **Recap**:\nQuoted.\n",
+    "## Session 16:\n    **Recap**:\nIndented.\n",
+    "```\n## Session 16:\n**Recap**:\nFake.\n```\n",
+    "## Session 16:\n**Recap**:",
+    "## Session 16:\nRecap: inline\nUnsupported.\n",
+])
+def test_recap_context_v2_rejects_unsupported_or_ambiguous_structure(tmp_path,raw):
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import read_recap_context_direct_v2,DirectWorldGraphReadError
+    services,_,request,_,_ = _context_fixture_v2(tmp_path,raw.encode())
+    with pytest.raises(DirectWorldGraphReadError) as error:
+        read_recap_context_direct_v2(services,request,repo_root=tmp_path)
+    assert error.value.code=="source_unavailable" and error.value.status_code==409
+
+
+def test_recap_context_v2_fenced_fake_boundaries_and_subordinate_headings_are_exact(tmp_path):
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import read_recap_context_direct_v2
+    raw="## Session 16:\n**Recap**:\nBody.\n### Detail\n```\n# Fake boundary\n## Fake boundary\n**Recap**:\n```\nTail.\n## End\nExcluded.\n"
+    services,_,request,_,_ = _context_fixture_v2(tmp_path,raw.encode())
+    page=read_recap_context_direct_v2(services,request.model_copy(update={"max_chars":12000}),repo_root=tmp_path)
+    assert page.content=="Body.\n### Detail\n```\n# Fake boundary\n## Fake boundary\n**Recap**:\n```\nTail.\n"
+
+
+@pytest.mark.parametrize("fault",["bytes","utf8","uri","campaign","revision","cursor","source_revision"])
+def test_recap_context_v2_revalidates_every_page_and_authority(tmp_path,fault):
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import read_recap_context_direct_v2,DirectWorldGraphReadError
+    services,_,request,path,descriptors = _context_fixture_v2(tmp_path)
+    page=read_recap_context_direct_v2(services,request,repo_root=tmp_path)
+    request=request.model_copy(update={"continuation":page.next_continuation})
+    descriptor=descriptors[request.context_anchor_id]
+    if fault=="bytes":
+        path.write_bytes(b"changed")
+    elif fault=="utf8":
+        path.write_bytes(b"\xff")
+        descriptors[request.context_anchor_id]=replace(descriptor,content_sha256=hashlib.sha256(b"\xff").hexdigest())
+    elif fault=="uri":
+        descriptors[request.context_anchor_id]=replace(descriptor,source_uri="repo://../escape.md")
+    elif fault=="campaign":
+        descriptors[request.context_anchor_id]=replace(descriptor,campaign_id="foreign")
+    elif fault=="revision":
+        descriptors[request.context_anchor_id]=replace(descriptor,graph_revision_id="rev:foreign")
+    elif fault=="source_revision":
+        descriptors[request.context_anchor_id]=replace(descriptor,source_revision_id="revision:changed")
+    else:
+        request=request.model_copy(update={"continuation":page.next_continuation+"0"})
+    with pytest.raises(DirectWorldGraphReadError) as error:
+        read_recap_context_direct_v2(services,request,repo_root=tmp_path)
+    assert error.value.code=="source_unavailable"
+
+
+def test_recap_context_v2_preserves_empty_canonical_v1_slice(tmp_path):
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import read_recap_context_direct_v2
+    services,_,request,_,_=_context_fixture_v2(tmp_path,b"# Session 16 Recap\n# Next\n")
+    v1=RecapContextReadRequest.model_validate({**request.model_dump(mode="json",by_alias=True,exclude={"schema_"}),
+        "schema":"dmb_recap_context_read_request_v1","contextAnchorId":"dm-context-anchor:v1:synthetic"})
+    old=read_recap_context_direct(services,v1,repo_root=tmp_path)
+    new=read_recap_context_direct_v2(services,request,repo_root=tmp_path)
+    assert (new.content,new.line_start,new.line_end,new.section_sha256)==(old.content,old.line_start,old.line_end,old.section_sha256)
