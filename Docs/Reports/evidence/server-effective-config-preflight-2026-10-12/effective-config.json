@@ -1,0 +1,44 @@
+{
+  "artifact_root": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy",
+  "authority_identities": {
+    "app": {
+      "database": "dungeonbuddy_application_state",
+      "host": "127.0.0.1",
+      "port": 54331
+    },
+    "native": {
+      "database": "dungeonmind_cutover_live_restore_20261011",
+      "host": "127.0.0.1",
+      "port": 54330
+    }
+  },
+  "candidate_head": "fad78a85d710f560bc297f867b6e3c1fa4f0940e",
+  "database_connected": false,
+  "dedicated_buddy_model_key_present": true,
+  "dedicated_key_selected": true,
+  "incidental_configuration_absent": true,
+  "listeners_started": false,
+  "local_operator_gm_validation_passed": true,
+  "local_operator_mode": "local_operator",
+  "local_operator_token_present": true,
+  "managed_root": "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy",
+  "model_identity": "gpt-6-luna",
+  "native_authority_mode": "dungeonmind",
+  "operator_profile": "/home/drakosfire/.local/state/dungeonmindbuddy/runtime-config/dogfood-local-operator.env",
+  "private_configs_unchanged": true,
+  "private_source_sha256": {
+    "/home/drakosfire/.local/state/dungeonmind/recovery/native-live-20261011/dogfood-runtime.env": "403063720f25f9488907551349f67e85e833e46f948264119d3fe3d98efce3db",
+    "/home/drakosfire/.local/state/dungeonmindbuddy/runtime-config/dogfood-current-main.env": "c0bad74504dd82fa3c171acdfc99eaf51cb2858097d0260980a9c0c54759d026",
+    "/home/drakosfire/.local/state/dungeonmindbuddy/runtime-config/dogfood-local-operator.env": "f3d61e23000d2c73b389e815280ecd1e333563f6c614f2f45f21ba65c6206ac0",
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/.env": "9bd370567b61340464bfd8142b8c7fca1aa9f657d4ebc65ccf7dd1f305335214"
+  },
+  "private_sources_in_order": [
+    "/home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/.env",
+    "/home/drakosfire/.local/state/dungeonmindbuddy/runtime-config/dogfood-current-main.env",
+    "/home/drakosfire/.local/state/dungeonmind/recovery/native-live-20261011/dogfood-runtime.env"
+  ],
+  "profiles_root": "/tmp/buddy-automatic-chat-reconciliation/evals/c2_live_prep/live/session_22/hermes_agent_profiles",
+  "provider_called": false,
+  "provider_identity": "openai-api",
+  "session_root": "/tmp/buddy-automatic-chat-reconciliation/evals/c2_live_prep/live/session_22"
+}
