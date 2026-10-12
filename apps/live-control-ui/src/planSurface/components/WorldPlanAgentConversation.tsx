@@ -3633,13 +3633,20 @@ export function WorldPlanAgentConversation({
         const relatedChoices = target.kind === "related_recap_context"
           ? targets.filter((candidate) => candidate.kind === "related_recap_context" && candidate.claim_id === target.claim_id).length
           : 0;
+        const evidenceChoices = target.kind === "evidence_anchor"
+          ? targets.filter((candidate) => candidate.kind === "evidence_anchor" && candidate.claim_id === target.claim_id)
+          : [];
+        const evidenceNumber = target.kind === "evidence_anchor"
+          ? evidenceChoices.findIndex((candidate) => candidate.kind === "evidence_anchor" && candidate.anchor_id === target.anchor_id) + 1
+          : 0;
         return <div key={`${target.kind}-${target.claim_id}-${targetId}`} className="world-plan-agent-conversation__source-action">
           {claims.length > 1 ? <span className="world-plan-agent-conversation__source-actions-label">Point {point} · </span> : null}
           <button type="button" title={target.kind === "related_recap_context" ? target.source_uri : undefined}
             aria-label={claims.length > 1
-            ? `${target.kind === "evidence_anchor" ? "Open evidence" : "Open related recap context"} for point ${point}${relatedChoices > 1 && target.kind === "related_recap_context" ? ` · ${target.expected_heading}` : ""}`
+            ? `${target.kind === "evidence_anchor" ? "Open evidence" : "Open related recap context"} for point ${point}${relatedChoices > 1 && target.kind === "related_recap_context" ? ` · ${target.expected_heading}` : ""}${evidenceChoices.length > 1 ? ` · ${evidenceNumber} of ${evidenceChoices.length}` : ""}`
             : undefined} onClick={() => { void openSourcePassage(turn, target); }}>
-            {target.kind === "evidence_anchor" ? "Open evidence"
+            {target.kind === "evidence_anchor" ? evidenceChoices.length > 1
+              ? `Open evidence · ${evidenceNumber} of ${evidenceChoices.length}` : "Open evidence"
               : relatedChoices > 1 ? `Open related recap context · ${target.expected_heading}` : "Open related recap context"}
           </button>
           {opened && sourcePassage.status === "loading" ? <p role="status">Opening pinned source…</p> : null}
