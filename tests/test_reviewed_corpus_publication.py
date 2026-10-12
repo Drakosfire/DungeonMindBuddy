@@ -86,6 +86,9 @@ def corpus_case(tmp_path: Path, bundle=None):
             contributions=contributions,
             contribution_reviews=reviews,
             finalized_review_publications=publication,
+            reviewed_world_initializations=SimpleNamespace(
+                get_for_world=lambda _world: None
+            ),
         )
         bundle.existing_world_adoptions = InMemoryExistingWorldAdoptionRepository(
             graph, sources, contributions, InMemoryIdentityDecisionRepository()
@@ -378,6 +381,99 @@ def execute(case, **kwargs):
     )
 
 
+def observation_packet(case):
+    """Synthetic immutable review of a standing subject; no extraction or node write."""
+    parent = case.bundle.world_graph.get_revision(
+        case.packet.native_world_id,
+        case.backend.publication_probe(case.packet).published_revision_id,
+    )
+    evidence = case.packet.submission.intent.candidate_contribution.assertions[
+        0
+    ].evidence_refs[0]
+    assertion = GraphContributionAssertionV2(
+        assertion_id="assertion:observation",
+        assertion_kind="attribute",
+        subject_object_id="npc:a",
+        value=json.dumps(
+            {
+                "property_term": "session_observation",
+                "summary": "Synthetic reviewed statement.",
+                "kind": "dnd5e:npc",
+            }
+        ),
+        evidence_refs=[evidence],
+        campaign_scope="fixture-campaign",
+    )
+    candidate = case.packet.submission.intent.candidate_contribution.model_copy(
+        update={"contribution_id": "contrib:" + "b" * 32, "assertions": [assertion]}
+    )
+    plan = case.packet.submission.intent.plan_ref.model_copy(
+        update={
+            "source_plan_id": "fixture:observation-plan",
+            "source_plan_sha256": "4" * 64,
+            "candidate_contribution_sha256": contribution_v2_payload_sha256(candidate),
+            "expected_parent_revision_id": parent.revision.revision_id,
+            "base_graph_payload_sha256": canonical_sha256(parent.graph_payload),
+        }
+    )
+    at = NOW + timedelta(days=1)
+    operation = "reviewop:" + "1" * 32
+    verdicts = [
+        ContributionAssertionVerdict(
+            assertion_id=assertion.assertion_id, acceptance_state="accepted"
+        )
+    ]
+    fields = dict(
+        operation_id=operation,
+        world_id=case.packet.native_world_id,
+        campaign_id="fixture-campaign",
+        plan_ref=plan,
+        candidate_contribution=candidate,
+        identity_proposals=[],
+        identity_verdicts=[],
+        assertion_verdicts=verdicts,
+        reviewer_id="gm:synthetic-review",
+        reviewed_at=at,
+    )
+    digest = derive_review_intent_sha256_v2(**fields)
+    submission = ContributionReviewSubmissionV2(
+        intent=ContributionReviewIntentV2(**fields, review_intent_sha256=digest),
+        confirmation=CommitConfirmationReceiptV2(
+            confirmation_id=derive_confirmation_id(
+                operation_id=operation,
+                review_intent_sha256=digest,
+                actor=fields["reviewer_id"],
+                confirmed_at=at,
+            ),
+            operation_id=operation,
+            review_intent_sha256=digest,
+            actor=fields["reviewer_id"],
+            world_id=case.packet.native_world_id,
+            campaign_id="fixture-campaign",
+            expected_parent_revision_id=parent.revision.revision_id,
+            confirmed_at=at,
+        ),
+    )
+    policy = case.packet.capability_policy.model_copy(
+        update={
+            "graph_scope": case.packet.capability_policy.graph_scope.model_copy(
+                update={"revision_pin": parent.revision.revision_id}
+            )
+        }
+    )
+    return case.packet.model_copy(
+        update={
+            "sources": (
+                case.packet.sources[0].model_copy(
+                    update={"admission_id": "admission:observation"}
+                ),
+            ),
+            "submission": submission,
+            "capability_policy": policy,
+        }
+    )
+
+
 @pytest.fixture
 def case(tmp_path, monkeypatch):
     result = corpus_case(tmp_path)
@@ -486,8 +582,8 @@ def test_changed_packet_or_source_stops_preserving_committed_work(case):
     with pytest.raises(ProcedureStopped):
         procedure(case).run(changed, selected_world_id=changed.managed_world_id)
     case.body_path.write_bytes(BODY + b"drift")
-    with pytest.raises(ProcedureStopped, match="source_bytes_changed"):
-        execute(case)
+    result = execute(case)
+    assert result["status"] == "blocked" and result["code"] == "source_bytes_changed"
     assert case.store.read(case.packet.operation_id) == before
     assert case.backend.review_probe(case.packet) is not None
 
@@ -615,3 +711,143 @@ def test_cli_masks_invalid_private_packet(tmp_path):
     assert run.returncode == 2 and "PRIVATE_CORPUS_BODY" not in run.stdout + run.stderr
     assert "never display this" not in run.stdout + run.stderr
     assert not (tmp_path / "progress").exists()
+
+
+def real_verifier(case, monkeypatch):
+    from apps.live_control_server.services import reviewed_corpus_publication as service
+
+    monkeypatch.setattr(
+        service,
+        "project_managed_world_graph",
+        lambda request, **_kwargs: SimpleNamespace(
+            projection=SimpleNamespace(
+                snapshot=SimpleNamespace(revision_id=request.revision_pin)
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        case.backend, "verify", CorePublicationBackend.verify.__get__(case.backend)
+    )
+
+
+def test_observation_only_reads_standing_subject_and_source(case, monkeypatch):
+    execute(case)
+    original = case.bundle.world_graph.get_revision(
+        case.packet.native_world_id,
+        case.backend.publication_probe(case.packet).published_revision_id,
+    )
+    case.packet = observation_packet(case)
+    real_verifier(case, monkeypatch)
+    result = execute(case)
+    if result["verification"].get("status") == "unavailable":
+        case.backend.verify(case.packet, case.backend.publication_probe(case.packet))
+    assert result["status"] == "verified"
+    effects = result["verification"]["effects"]
+    assert (
+        effects["changed_object_ids"] == [] and effects["introduced_evidence_ids"] == []
+    )
+    assert effects["readback_evidence_ids"] == ["evidence:shared"]
+    assert result["verification"]["verified_assertion_ids"] == ["assertion:observation"]
+    assert result["verification"]["opened_sources"]
+    child = case.bundle.world_graph.get_revision(
+        case.packet.native_world_id, result["published_revision_id"]
+    )
+    assert original.graph_payload["objects"] == child.graph_payload["objects"]
+
+
+def test_missing_observation_cannot_be_verified(case, monkeypatch):
+    execute(case)
+    case.packet = observation_packet(case)
+    execute(case)
+    real_verifier(case, monkeypatch)
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as reads,
+    )
+
+    original = reads.get_object_with_reviewed_sources_direct
+
+    def omitted(*args):
+        result, observations, gaps, missing = original(*args)
+        return result, [], gaps, missing
+
+    monkeypatch.setattr(reads, "get_object_with_reviewed_sources_direct", omitted)
+    with pytest.raises(ProcedureStopped, match="published_observation_unavailable"):
+        case.backend.verify(case.packet, case.backend.publication_probe(case.packet))
+
+
+@pytest.mark.parametrize(
+    "change", ["missing", "wrong_target", "wrong_support", "outcome"]
+)
+def test_shared_node_evidence_cannot_mask_relationship_failure(
+    case, monkeypatch, change
+):
+    execute(case)
+    real_verifier(case, monkeypatch)
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as reads,
+    )
+
+    original = reads.get_evidence_direct
+
+    def defective(*args):
+        result = original(*args)
+        if change == "missing":
+            return result.model_copy(update={"relationships": []})
+        if change == "wrong_target":
+            return result.model_copy(
+                update={
+                    "request_summary": {
+                        "target_kind": "relationship",
+                        "target_id": "wrong",
+                    }
+                }
+            )
+        if change == "wrong_support":
+            return result.model_copy(update={"source_anchors": []})
+        return result.model_copy(update={"outcome": "partial"})
+
+    monkeypatch.setattr(reads, "get_evidence_direct", defective)
+    result = execute(case)
+    assert (
+        result["status"] == "published"
+        and result["verification"]["status"] == "unavailable"
+    )
+
+
+@pytest.mark.parametrize("missing", [True, False])
+def test_committed_publication_inspection_survives_local_source_loss(
+    case, monkeypatch, missing
+):
+    execute(case)
+    publication = case.backend.publication_probe(case.packet)
+    real_verifier(case, monkeypatch)
+    if missing:
+        case.body_path.unlink()
+    else:
+        case.body_path.write_bytes(BODY + b"changed")
+
+    def no_dispatch(*_args):
+        pytest.fail("committed inspection/resume must not redispatch")
+
+    for name in ("admit", "finalize", "publish"):
+        monkeypatch.setattr(case.backend, name, no_dispatch)
+    before = {p.name: p.read_bytes() for p in case.store.directory.iterdir()}
+    result = procedure(case).run(
+        case.packet, selected_world_id=case.packet.managed_world_id
+    )
+    assert (
+        result["status"] == "published"
+        and result["published_revision_id"] == publication.published_revision_id
+    )
+    assert result["verification"]["source_open_status"] == "unavailable"
+    assert all(value == "committed" for value in result["observed_stages"].values())
+    assert before == {p.name: p.read_bytes() for p in case.store.directory.iterdir()}
+    assert execute(case)["published_revision_id"] == publication.published_revision_id
+
+
+def test_missing_source_blocks_uncommitted_publication(case):
+    execute(case, stop_after="review")
+    case.body_path.unlink()
+    result = execute(case)
+    assert result["status"] == "blocked" and result["code"] == "source_body_unavailable"
+    assert case.backend.publication_probe(case.packet) is None

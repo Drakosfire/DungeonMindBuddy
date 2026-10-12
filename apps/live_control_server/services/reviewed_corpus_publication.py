@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 import hashlib
+import json
 from pathlib import Path
 from typing import Any, Callable
 
@@ -161,12 +162,14 @@ class CorePublicationBackend:
         if not relative or source.revision.body_storage != "external":
             raise ProcedureStopped("unsupported_source_body")
         path = (self.artifact_root / relative).resolve()
-        if (
-            not path.is_relative_to(self.artifact_root)
-            or path.stat().st_size > 16_777_216
-        ):
+        if not path.is_relative_to(self.artifact_root):
             raise ProcedureStopped("source_body_outside_scope")
-        body = path.read_bytes()
+        try:
+            if path.stat().st_size > 16_777_216:
+                raise ProcedureStopped("source_body_outside_scope")
+            body = path.read_bytes()
+        except OSError as exc:
+            raise ProcedureStopped("source_body_unavailable") from exc
         if hashlib.sha256(body).hexdigest() != source.revision.content_sha256:
             raise ProcedureStopped("source_bytes_changed")
         return body
@@ -354,6 +357,73 @@ class CorePublicationBackend:
             rows(before, "relationships", "relationship_id"),
             rows(after, "relationships", "relationship_id"),
         )
+        applied: dict[str, list[str]] = {}
+
+        def collect(value: Any) -> None:
+            if isinstance(value, dict):
+                metadata = value.get("assertion_metadata")
+                if isinstance(metadata, dict):
+                    applied[metadata["assertion_id"]] = metadata["evidence_ref_ids"]
+                for nested in value.values():
+                    collect(nested)
+            elif isinstance(value, list):
+                for nested in value:
+                    collect(nested)
+
+        collect(after)
+        targets = []
+        from dungeonmind.contracts.contribution_review_v2 import (
+            NON_MUTATING_IDENTITY_OUTCOMES,
+        )
+
+        for assertion in self.review_probe(packet).reviewed_contribution.assertions:
+            if (
+                str(assertion.acceptance_state) != "accepted"
+                or assertion.identity_resolution_outcome
+                in NON_MUTATING_IDENTITY_OUTCOMES
+            ):
+                continue
+            value = (
+                json.loads(assertion.value or "{}")
+                if assertion.assertion_kind == "attribute"
+                else {}
+            )
+            observation = value.get("property_term") == "session_observation"
+            if (
+                assertion.subject_object_id
+                and assertion.assertion_kind in ("attribute", "alias")
+                and (observation or assertion.assertion_id in applied)
+            ):
+                target = {
+                    "assertion_id": assertion.assertion_id,
+                    "subject_id": assertion.subject_object_id,
+                    "kind": "observation" if observation else "assertion",
+                    "evidence_ids": sorted(
+                        {ref.evidence_ref_id for ref in assertion.evidence_refs}
+                        if observation
+                        else set(applied[assertion.assertion_id])
+                    ),
+                }
+                if observation:
+                    target["text_sha256"] = hashlib.sha256(
+                        value["summary"].strip().encode()
+                    ).hexdigest()
+                targets.append(target)
+        changed_relationships = sorted(
+            key for key in new_rel if old_rel.get(key) != new_rel[key]
+        )
+        relationship_support = {
+            row["relationship_id"]: sorted(
+                set(row["assertion_metadata"]["evidence_ref_ids"])
+            )
+            for row in after["relationships"]
+            if row["relationship_id"] in changed_relationships
+        }
+        readback_refs = set(new_refs) - set(old_refs)
+        for target in targets:
+            readback_refs.update(target["evidence_ids"])
+        for refs in relationship_support.values():
+            readback_refs.update(refs)
         return {
             "graph_payload_sha256": material.graph_payload_sha256,
             "source_pairs": sorted(
@@ -366,9 +436,10 @@ class CorePublicationBackend:
             "changed_object_ids": sorted(
                 key for key in new_objects if old_objects.get(key) != new_objects[key]
             ),
-            "changed_relationship_ids": sorted(
-                key for key in new_rel if old_rel.get(key) != new_rel[key]
-            ),
+            "changed_relationship_ids": changed_relationships,
+            "relationship_support": relationship_support,
+            "accepted_assertion_targets": targets,
+            "readback_evidence_ids": sorted(readback_refs),
         }
 
     def verify(self, packet: ReviewedCorpusPacket, publication: Any) -> dict[str, Any]:
@@ -400,7 +471,7 @@ class CorePublicationBackend:
             raise ProcedureStopped("selected_world_query_conflict")
         from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
             direct_services_from_bundle,
-            get_object_direct,
+            get_object_with_reviewed_sources_direct,
             get_evidence_direct,
             read_source_anchor_direct,
         )
@@ -420,23 +491,95 @@ class CorePublicationBackend:
             "revisionPin": publication.published_revision_id,
         }
         anchors = {}
-        for object_id in effects["changed_object_ids"]:
-            result = get_object_direct(
+        verified_assertions = []
+        object_ids = set(effects["changed_object_ids"]) | {
+            target["subject_id"] for target in effects["accepted_assertion_targets"]
+        }
+        for object_id in sorted(object_ids):
+            result, observations, gaps, missing = (
+                get_object_with_reviewed_sources_direct(
+                    services,
+                    WorldGraphObjectRequest.model_validate(
+                        {
+                            **common,
+                            "schema": "dmb_world_graph_object_request_v1",
+                            "nodeId": object_id,
+                        }
+                    ),
+                )
+            )
+            if (
+                result.outcome != "enough"
+                or gaps
+                or missing
+                or object_id not in [node.node_id for node in result.nodes]
+            ):
+                raise ProcedureStopped("published_object_unavailable")
+            for target in effects["accepted_assertion_targets"]:
+                if target["subject_id"] != object_id or target["kind"] != "observation":
+                    continue
+                matches = [
+                    row
+                    for row in observations
+                    if row.assertion_id == target["assertion_id"]
+                    and row.subject_node_id == object_id
+                    and row.review_id == packet.review_id
+                    and row.publication_revision_id == publication.published_revision_id
+                    and row.contribution_id == publication.reviewed_contribution_id
+                ]
+                if (
+                    len(matches) != 1
+                    or hashlib.sha256(matches[0].text.encode()).hexdigest()
+                    != target["text_sha256"]
+                ):
+                    raise ProcedureStopped("published_observation_unavailable")
+                refs = set(matches[0].evidence_ref_ids)
+                admitted = {
+                    anchor.evidence_ref_id
+                    for anchor in result.source_anchors
+                    if target["assertion_id"] in anchor.supporting_assertion_ids
+                }
+                if (
+                    not refs
+                    or not set(target["evidence_ids"]).issubset(refs)
+                    or not refs.issubset(admitted)
+                ):
+                    raise ProcedureStopped("published_observation_support_unavailable")
+                verified_assertions.append(target["assertion_id"])
+            for anchor in result.source_anchors:
+                if anchor.evidence_ref_id in effects["readback_evidence_ids"]:
+                    anchors[anchor.anchor_id] = anchor
+        for target in effects["accepted_assertion_targets"]:
+            if target["kind"] != "assertion":
+                continue
+            result = get_evidence_direct(
                 services,
-                WorldGraphObjectRequest.model_validate(
+                WorldGraphEvidenceRequest.model_validate(
                     {
                         **common,
-                        "schema": "dmb_world_graph_object_request_v1",
-                        "nodeId": object_id,
+                        "schema": "dmb_world_graph_evidence_request_v1",
+                        "target": {"kind": "attribute", "id": target["assertion_id"]},
                     }
                 ),
             )
-            if result.outcome != "enough" or object_id not in [
-                node.node_id for node in result.nodes
-            ]:
-                raise ProcedureStopped("published_object_unavailable")
+            matches = [
+                row
+                for row in result.attributes
+                if row.assertion_id == target["assertion_id"]
+                and row.subject_node_id == target["subject_id"]
+            ]
+            refs = set(target["evidence_ids"])
+            if (
+                result.outcome != "enough"
+                or len(matches) != 1
+                or not refs
+                or not refs.issubset(matches[0].evidence_ref_ids)
+                or not refs.issubset({a.evidence_ref_id for a in result.source_anchors})
+            ):
+                raise ProcedureStopped("published_assertion_unavailable")
+            verified_assertions.append(target["assertion_id"])
             for anchor in result.source_anchors:
-                if anchor.evidence_ref_id in effects["introduced_evidence_ids"]:
+                if anchor.evidence_ref_id in effects["readback_evidence_ids"]:
                     anchors[anchor.anchor_id] = anchor
         for relationship_id in effects["changed_relationship_ids"]:
             result = get_evidence_direct(
@@ -449,25 +592,49 @@ class CorePublicationBackend:
                     }
                 ),
             )
+            matches = [
+                row for row in result.relationships if row.edge_id == relationship_id
+            ]
+            refs = set(effects["relationship_support"][relationship_id])
+            if (
+                result.outcome != "enough"
+                or result.request_summary
+                != {"target_kind": "relationship", "target_id": relationship_id}
+                or len(matches) != 1
+                or not refs
+                or not refs.issubset(matches[0].evidence_ref_ids)
+                or not refs.issubset({a.evidence_ref_id for a in result.source_anchors})
+            ):
+                raise ProcedureStopped("published_relationship_unavailable")
             for anchor in result.source_anchors:
-                if anchor.evidence_ref_id in effects["introduced_evidence_ids"]:
+                if anchor.evidence_ref_id in effects["readback_evidence_ids"]:
                     anchors[anchor.anchor_id] = anchor
         opened, unavailable, covered = [], [], set()
         for anchor_id, anchor in sorted(anchors.items()):
             if not anchor.readable:
                 continue
-            result = read_source_anchor_direct(
-                services,
-                WorldGraphSourceAnchorReadRequest.model_validate(
+            try:
+                result = read_source_anchor_direct(
+                    services,
+                    WorldGraphSourceAnchorReadRequest.model_validate(
+                        {
+                            **common,
+                            "schema": "dmb_world_graph_source_anchor_read_request_v1",
+                            "anchorId": anchor_id,
+                            "maxChars": 12000,
+                        }
+                    ),
+                    repo_root=self.artifact_root,
+                )
+            except Exception:
+                unavailable.append(
                     {
-                        **common,
-                        "schema": "dmb_world_graph_source_anchor_read_request_v1",
-                        "anchorId": anchor_id,
-                        "maxChars": 12000,
+                        "anchor_id": anchor_id,
+                        "outcome": "unavailable",
+                        "diagnostic_codes": ["source_read_unavailable"],
                     }
-                ),
-                repo_root=self.artifact_root,
-            )
+                )
+                continue
             if result.outcome not in ("enough", "truncated") or not result.content:
                 unavailable.append(
                     {
@@ -490,7 +657,7 @@ class CorePublicationBackend:
                 }
             )
         self.binding(packet)
-        expected_refs = set(effects["introduced_evidence_ids"])
+        expected_refs = set(effects["readback_evidence_ids"])
         return {
             "core_verified": True,
             "selected_world_service_verified": True,
@@ -498,7 +665,10 @@ class CorePublicationBackend:
             if not expected_refs
             else "verified"
             if expected_refs.issubset(covered)
+            else "unavailable"
+            if unavailable
             else "incomplete",
+            "verified_assertion_ids": sorted(verified_assertions),
             "opened_sources": opened,
             "unavailable_sources": unavailable,
             "effects": effects,
@@ -545,10 +715,7 @@ class ReviewedCorpusPublicationProcedure:
             raise ProcedureStopped("external_prerequisites_required")
         self.backend.binding(packet)
         self.backend.parent(packet)
-        bodies = {
-            source.admission_id: self.backend.source_body(source)
-            for source in packet.sources
-        }
+        bodies: dict[str, bytes] = {}
         if execute:
             from dungeonmind.domain.capability import evaluate_capability
             from dungeonmind.contracts.capability import CapabilityEffect
@@ -673,6 +840,12 @@ class ReviewedCorpusPublicationProcedure:
                     return answer("pending")
                 try:
                     self.backend.parent(packet, current=True)
+                    bodies.update(
+                        {
+                            source.admission_id: self.backend.source_body(source)
+                            for source in packet.sources
+                        }
+                    )
                     if name == "publication":
                         for source in packet.sources:
                             if self.backend.source_probe(packet, source) is None:

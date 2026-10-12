@@ -12,7 +12,12 @@ from uuid import uuid4
 
 import pytest
 
-from tests.test_reviewed_corpus_publication import corpus_case, execute, procedure
+from tests.test_reviewed_corpus_publication import (
+    corpus_case,
+    execute,
+    procedure,
+    observation_packet,
+)
 
 
 @pytest.fixture
@@ -66,8 +71,13 @@ def postgres_case(tmp_path, monkeypatch):
             conn.execute(sql.SQL("DROP DATABASE {}").format(sql.Identifier(name)))
 
 
+@pytest.mark.parametrize(
+    "observation_only",
+    [False, True],
+    ids=["nodes-and-relationship", "standing-observation-only"],
+)
 def test_postgres_resume_and_actual_selected_world_and_source_routes(
-    postgres_case, monkeypatch
+    postgres_case, monkeypatch, observation_only
 ):
     case = postgres_case
     # Actual interrupted operation: source and finalized review survive independently.
@@ -77,6 +87,24 @@ def test_postgres_resume_and_actual_selected_world_and_source_routes(
     if result["verification"].get("status") == "unavailable":
         case.backend.verify(case.packet, case.backend.publication_probe(case.packet))
     assert result["status"] == "verified", result["verification"]
+    if observation_only:
+        parent = case.bundle.world_graph.get_revision(
+            case.packet.native_world_id, result["published_revision_id"]
+        )
+        case.packet = observation_packet(case)
+        assert execute(case, stop_after="review")["status"] == "committed_stage"
+        first = case.store.read(case.packet.operation_id)
+        result = execute(case)
+        assert result["status"] == "verified", result["verification"]
+        assert result["verification"]["effects"]["changed_object_ids"] == []
+        assert result["verification"]["effects"]["introduced_evidence_ids"] == []
+        assert result["verification"]["verified_assertion_ids"] == [
+            "assertion:observation"
+        ]
+        child_record = case.bundle.world_graph.get_revision(
+            case.packet.native_world_id, result["published_revision_id"]
+        )
+        assert parent.graph_payload["objects"] == child_record.graph_payload["objects"]
     verification = result["verification"]
     assert (
         verification["core_verified"]
@@ -89,7 +117,9 @@ def test_postgres_resume_and_actual_selected_world_and_source_routes(
     )
     for stage, value in first["stages"].items():
         assert case.store.read(case.packet.operation_id)["stages"][stage] == value
-    assert len(verification["effects"]["introduced_evidence_ids"]) == 1
+    assert len(verification["effects"]["introduced_evidence_ids"]) == (
+        0 if observation_only else 1
+    )
     child = result["published_revision_id"]
     before = {p.name: p.read_bytes() for p in case.store.directory.iterdir()}
     inspected = procedure(case).run(
