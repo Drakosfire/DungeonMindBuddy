@@ -30,7 +30,7 @@ describe("loaded World graph inspection", () => {
     expect(screen.getByRole("dialog", { name: "Elderwyld loaded graph" })).toBeVisible();
     expect(screen.getByText(/projection is truncated/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Find a node"), { target: { value: "Ironveil" } });
-    fireEvent.click(screen.getByRole("button", { name: "Lysandra person" }));
+    fireEvent.click(screen.getByRole("button", { name: "Lysandra Person" }));
     const detail = screen.getByRole("article", { name: "Selected graph node" });
     expect(detail).toHaveTextContent("Lysandra guards the warehouse.");
     fireEvent.click(within(detail).getByRole("button", { name: "Brin" }));
@@ -42,10 +42,32 @@ describe("loaded World graph inspection", () => {
     fetchSpy.mockRestore();
   });
 
+  it("uses readable labels without changing graph identities, sources or duplicate edges", () => {
+    const rawNode = { ...node("raw-npc", "Captain Lysandra"), kind: "npc", role: " NPC ",
+      sourceDomains: ["session_recap", "worldbuilding", "other", "custom_source_kind"],
+      adjacency: [projection.nodes[0]!.adjacency[0]!, { ...projection.nodes[0]!.adjacency[0]!, edgeId: "second-edge" }] };
+    const raw = { ...projection, nodes: [rawNode, { ...node("brin", "Brin"), kind: "player_character", role: "player_character" }] };
+    const original = JSON.stringify(raw);
+    render(<LoadedGraphBrowser worldName="Elderwyld" projection={raw} />);
+    fireEvent.click(screen.getByRole("button", { name: "Explore loaded graph" }));
+    fireEvent.click(screen.getByRole("button", { name: "Captain Lysandra NPC" }));
+    const detail = screen.getByRole("article", { name: "Selected graph node" });
+    expect(within(detail).getByText("NPC", { exact: true })).toBeInTheDocument();
+    expect(detail).not.toHaveTextContent("NPC · NPC");
+    expect(detail).toHaveTextContent("Session recap");
+    expect(detail).toHaveTextContent("Worldbuilding");
+    expect(detail).toHaveTextContent("Other sources");
+    expect(detail).toHaveTextContent("Custom Source Kind");
+    expect(within(detail).getAllByRole("button", { name: "Brin" })).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "Brin Player character" }));
+    expect(within(detail).getByText("Player character", { exact: true })).toBeInTheDocument();
+    expect(JSON.stringify(raw)).toBe(original);
+  });
+
   it("removes stale graph content and gates exploration when the projection is unavailable", () => {
     const view = render(<LoadedGraphBrowser worldName="Elderwyld" projection={projection} />);
     fireEvent.click(screen.getByRole("button", { name: "Explore loaded graph" }));
-    fireEvent.click(screen.getByRole("button", { name: "Lysandra person" }));
+    fireEvent.click(screen.getByRole("button", { name: "Lysandra Person" }));
     view.rerender(<LoadedGraphBrowser worldName="Elderwyld" projection={null} />);
     expect(screen.getByRole("button", { name: "Explore loaded graph" })).toBeDisabled();
     expect(screen.queryByText("Lysandra guards the warehouse.")).not.toBeInTheDocument();
