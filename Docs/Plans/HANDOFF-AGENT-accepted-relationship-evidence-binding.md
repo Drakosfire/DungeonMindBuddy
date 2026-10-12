@@ -26,3 +26,14 @@ For an accepted relationship, use only its exact, valid evidence-ref IDs interse
 Focused classifier tests prove exact matching to an unreadable anchor and exclusion of an unrelated readable anchor, plus absent/foreign/mismatched/revision-negative cases. A test at the Agent turn boundary freezes an actual serialized provider envelope without a provider call and proves the exact relationship/evidence IDs survive in `claimLedger`, `dispatched_relationship_ids`, and `dispatched_evidence_ref_ids` with `packet_disposition=included` and `source_opened=false`. Run focused tests and relevant repository gates, inspect cumulative base-to-head diff, then commit/push/open the PR. Update this handoff with exact implementation head and evidence before handing it to PRIME.
 
 The original planned classifier suite, `tests/test_graph_retrieval_interaction.py`, cannot collect on current main: it imports `graph_memory.interaction.digest_audit`, removed by CUTOVER D.3B. PRIME approved the focused new test path above without changing the production scope; this inherited collection defect remains separate.
+
+## Implementation evidence for PRIME review
+
+Implementation code/test commit: `87c591526730bf1e03447b8419917862838fa9a5`, based on `ef39f2e5c08bb851c5646c47586506d6e7150dd4`. The classifier now intersects a relationship's valid evidence refs with same-result anchors at the requested revision; it never infers an opened source from retrieval metadata. The existing turn-service production code consumes the resulting anchor support unchanged.
+
+- Focused command (with the current Buddy runtime environment and pinned Core source): `PYTHONPATH="$PWD/src:$PWD:/tmp/dms-ba6069/src" /home/drakosfire/.codex/worktrees/main-dogfood-runtime/DungeonMindBuddy/.venv/bin/python -m pytest -q tests/test_authority_classifier_evidence_binding.py tests/test_agent_turn_service.py -k 'relationship or policy_adapter_freezes_first_envelope'` — 11 passed, 54 deselected. This includes readable and opaque final-envelope cases.
+- `ruff check` on the three changed Python files — passed. `git diff --check` — passed.
+- Read-only replay of the retained native oracle's first matching relationship/anchor response per case through the patched classifier: C1-Q01 12/12, C2-Q17 24/24, C2-Q19 12/12 relationship claims acquire exact anchor support; zero are marked source-opened. Every checked anchor row has `revisionId` equal to its response snapshot revision. No provider request or native write was made.
+- A broader `tests/test_agent_turn_service.py` run stalled in the inherited `test_history_http_opt_in_uses_persisted_key_not_durable_turn_id`; it was interrupted. It is incomplete evidence, not a pass. The retired `digest_audit` import blocks collection of the old broad classifier file on current main.
+
+The manual World-scope Mossglade causal question remains unproven by the campaign-scoped oracle. PRIME owns independent review, merge, and any later runtime replay.
