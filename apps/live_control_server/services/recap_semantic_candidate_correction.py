@@ -696,12 +696,18 @@ _PC_MANIFEST_KEYS = {
 def _pc_registry(manifest: dict, *, campaign_id: str, session_id: str) -> set[str]:
     """Read the current exact registry; never trust a manifest roster list."""
     import re
-    from graph_memory.party_context import _roster_slugs
+    from graph_memory.party_context import CAMPAIGN_CORPUS, _roster_slugs
 
     raw_path = manifest["registry_path"]
     if (not isinstance(raw_path, str) or not raw_path.startswith("corpus/")
         or Path(raw_path).is_absolute() or ".." in Path(raw_path).parts):
         raise _reject("PC registry path is outside the corpus root")
+    campaign_source = CAMPAIGN_CORPUS.get(campaign_id)
+    if campaign_source is None:
+        raise _reject("PC campaign has no authoritative registry location", status_code=409)
+    expected_path = campaign_source[0] / campaign_source[1] / "_party_registry.json"
+    if Path(raw_path) != expected_path:
+        raise _reject("PC registry path differs from canonical campaign source", status_code=409)
     try:
         corpus_root = (repo_root() / "corpus").resolve(strict=True)
         path = (repo_root() / raw_path).resolve(strict=True)
@@ -799,8 +805,9 @@ def _replay_pc_references(parent: dict, manifest: dict, source_bytes: bytes | No
                    for key in ("content_sha256", "source_artifact_id", "source_ref_id"))):
             raise _reject("PC actor span authority changed", status_code=409)
         paragraph = "\n".join(source_lines[start - 1:end])
-        if not find_anchor_quote_matches(paragraph, [operation.anchor_quote]):
-            raise _reject("PC actor quote is not literal in its span", status_code=409)
+        if (not find_anchor_quote_matches(paragraph, [operation.anchor_quote])
+            or not _exact_pc_mention(operation.anchor_quote, operation.pc_mention)):
+            raise _reject("PC quote or selected mention is not literal in its span", status_code=409)
         next(node for node in child["nodes"] if node["node_id"] == operation.node_id)["corpus_ref"] = operation.corpus_ref.model_dump(mode="json")
     try:
         validate_candidate_document_integrity(child)
@@ -808,6 +815,14 @@ def _replay_pc_references(parent: dict, manifest: dict, source_bytes: bytes | No
     except (CandidateAdmissionIntegrityError, CandidateGraphMappingError) as exc:
         raise _reject("PC reference child failed candidate validation") from exc
     return child
+
+
+def _exact_pc_mention(quote: str, mention: str) -> bool:
+    """A full literal mention, not a substring or fuzzy label similarity."""
+    import re
+
+    return re.search(r"(?<!\w)" + re.escape(mention.casefold()) + r"(?!\w)",
+                     quote.casefold()) is not None
 
 
 def verify_pc_reference_native_basis(candidate: dict, manifest: dict) -> bool:
@@ -834,6 +849,12 @@ def verify_pc_reference_native_basis(candidate: dict, manifest: dict) -> bool:
                 campaign_id=candidate.get("campaign_id"),
             )
             if target is None or target.object_id != row["native_object_id"]:
+                return False
+            # Roster membership and exact native identity are established above.
+            # The reviewed source mention must name this selected target.
+            names = (target.label, *target.aliases)
+            if not any(row["pc_mention"].casefold() == name.strip().casefold()
+                       for name in names if isinstance(name, str) and name.strip()):
                 return False
         return True
     except (AttributeError, KeyError, OSError, RuntimeError, ValueError, TypeError, CandidateGraphMappingError):

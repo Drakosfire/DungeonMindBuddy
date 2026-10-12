@@ -1173,6 +1173,15 @@ def decide_recap_semantic_disposition(
             "candidate digest does not match corrected recap child",
             code="recap_semantic_decision_conflict", status_code=409,
         )
+    if request.decision == "accepted" and run.lineage.get("derivation") == CANDIDATE_DERIVATION_V9:
+        manifest = run.lineage.get("semantic_candidate_manifest")
+        if (not isinstance(manifest, dict)
+            or reviewer_id != manifest.get("reviewer_id")
+            or request.review_decision_ref != manifest.get("review_decision_ref")):
+            raise ExtractPromoteError(
+                "authenticated PC review differs from proposed correction basis",
+                code="recap_semantic_decision_conflict", status_code=409,
+            )
     if request.decision == "accepted":
         resolved = resolve_promotable_ingest_run(run_id, root=_artifact_root())
         payload = json.loads(resolved.candidate_graph_path.read_text(encoding="utf-8"))

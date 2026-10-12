@@ -1164,6 +1164,7 @@ class RecapPcCorpusReferenceAttachmentV1(_ExtractPromoteModel):
     corpus_ref: RecapPcCorpusReferenceV1
     source_span_ref_id: str = Field(min_length=1, max_length=256)
     anchor_quote: str = Field(min_length=1, max_length=4096)
+    pc_mention: str = Field(min_length=1, max_length=256)
     native_object_id: str = Field(min_length=1, max_length=256)
 
     @model_validator(mode="after")
@@ -1171,6 +1172,7 @@ class RecapPcCorpusReferenceAttachmentV1(_ExtractPromoteModel):
         if (self.node_id != self.node_id.strip()
             or self.source_span_ref_id != self.source_span_ref_id.strip()
             or self.anchor_quote != self.anchor_quote.strip()
+            or self.pc_mention != self.pc_mention.strip()
             or self.native_object_id != f"pc:{self.corpus_ref.ref_id}"):
             raise ValueError("PC attachment target or source anchor is malformed")
         return self

@@ -592,7 +592,7 @@ def _assert_recap_pc_manifest(manifest: object, basis: RecapSemanticBasisV10) ->
     ids, refs = set(), set()
     for row in rows:
         if (not isinstance(row, dict) or set(row) != {"node_id", "expected_corpus_ref", "corpus_ref",
-            "source_span_ref_id", "anchor_quote", "native_object_id"}
+            "source_span_ref_id", "anchor_quote", "pc_mention", "native_object_id"}
             or row["expected_corpus_ref"] is not None or not isinstance(row["corpus_ref"], dict)
             or set(row["corpus_ref"]) != {"type", "ref_id", "resolution"}
             or row["corpus_ref"].get("type") != "pc"
@@ -602,7 +602,7 @@ def _assert_recap_pc_manifest(manifest: object, basis: RecapSemanticBasisV10) ->
         if (not isinstance(ref, str) or not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,127}", ref)
             or row["native_object_id"] != f"pc:{ref}"
             or any(not isinstance(row[key], str) or not row[key].strip()
-                   for key in ("node_id", "source_span_ref_id", "anchor_quote"))
+                   for key in ("node_id", "source_span_ref_id", "anchor_quote", "pc_mention"))
             or row["node_id"] in ids or ref in refs):
             raise ApplicationStateConflictError("PC attachment identity is invalid")
         ids.add(row["node_id"])

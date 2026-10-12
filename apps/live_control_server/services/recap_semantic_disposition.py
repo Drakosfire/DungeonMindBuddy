@@ -275,6 +275,10 @@ def assess_recap_semantics(
         for key in ("review_decision_ref", "reviewer_id", "decided_at")
     ):
         return held(basis_sha256=basis, basis=basis_fields)
+    if (candidate_v9 and disposition["state"] == "accepted"
+        and (disposition["reviewer_id"] != candidate_manifest.get("reviewer_id")
+             or disposition["review_decision_ref"] != candidate_manifest.get("review_decision_ref"))):
+        return held(basis_sha256=basis, basis=basis_fields)
     if disposition["state"] == "rejected":
         return RecapSemanticAssessment(
             True, False, basis, REJECTED_REASON, disposition, basis_fields

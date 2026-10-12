@@ -2685,13 +2685,14 @@ def test_final35_per_kind_caps_are_distinct_from_v7(monkeypatch, tmp_path):
     with pytest.raises(ValidationError): RecapCandidateCorrectionRequestV7.model_validate({**body, "schema": "dmb_recap_candidate_correction_request_v7"})
 
 
-def _pc_reference_fixture(monkeypatch, root):
+def _pc_reference_fixture(monkeypatch, root, *, source_text="Mira found the key under the bridge.\n"):
     from apps.live_control_server.models.world_graph_mutation_context import (
         MutationObject, WorldGraphMutationContext,
     )
     from apps.live_control_server.integrations.dungeonmind import world_graph_writes
+    from graph_memory import party_context
 
-    parent, _, runs = _fixture(monkeypatch, root)
+    parent, _, runs = _fixture(monkeypatch, root, source_text=source_text)
     payload = json.loads((root / "parent.json").read_bytes())
     payload["session_id"] = "session-28"
     payload["nodes"][0]["corpus_ref"] = None
@@ -2724,6 +2725,7 @@ def _pc_reference_fixture(monkeypatch, root):
     monkeypatch.setattr(service, "_load_frozen_span_index_for_resolved_run",
                         lambda _: SimpleNamespace(spans=[SimpleNamespace(**index["spans"][0])]))
     registry_path = root / "corpus/invented/_party_registry.json"
+    monkeypatch.setitem(party_context.CAMPAIGN_CORPUS, "c", (Path("corpus"), "invented"))
     registry_path.parent.mkdir(parents=True)
     registry_path.write_text(json.dumps({"schema": "party_registry_v1", "campaign_id": "c",
                                          "session_pc_rosters": {"23": ["mira"]}}))
@@ -2747,6 +2749,7 @@ def _pc_reference_fixture(monkeypatch, root):
                          "corpus_ref": {"type": "pc", "ref_id": "mira", "resolution": "resolved"},
                          "source_span_ref_id": span_id,
                          "anchor_quote": source.decode().strip(),
+                         "pc_mention": "Mira",
                          "native_object_id": "pc:mira"}],
     }
     return parent, raw, runs, body, context
@@ -2798,17 +2801,27 @@ def test_pc_reference_http_route_accepts_only_typed_held_child(monkeypatch, tmp_
     assert len(runs) == 2 and response["runId"] in runs
 
 
-@pytest.mark.parametrize("bad", ["registry", "roster", "source", "parent", "world", "head", "kind",
-                                 "redirect", "duplicate", "ref", "actor", "preimage"])
+@pytest.mark.parametrize("bad", ["registry", "alternate_registry", "roster", "source", "parent",
+                                 "world", "head", "kind", "redirect", "duplicate", "ref",
+                                 "actor", "wrong_pc_quote", "wrong_pc_mention", "preimage"])
 def test_pc_reference_invalid_basis_creates_no_child(monkeypatch, tmp_path, bad):
     from apps.live_control_server.models.extract_promote import RecapCandidateCorrectionRequestV9
     from apps.live_control_server.models.world_graph_mutation_context import MutationObject
     from dataclasses import replace
     from apps.live_control_server.integrations.dungeonmind import world_graph_writes
 
-    parent, raw, runs, body, context = _pc_reference_fixture(monkeypatch, tmp_path)
+    parent, raw, runs, body, context = _pc_reference_fixture(
+        monkeypatch, tmp_path,
+        source_text=("Ari found the key under the bridge.\n" if bad == "wrong_pc_quote"
+                     else "Ari met Mira at the bridge.\n" if bad == "wrong_pc_mention"
+                     else "Mira found the key under the bridge.\n"))
     if bad == "registry":
         body["registry_sha256"] = "0" * 64
+    elif bad == "alternate_registry":
+        alternate = tmp_path / "corpus/other/_party_registry.json"
+        alternate.parent.mkdir(parents=True)
+        alternate.write_bytes((tmp_path / body["registry_path"]).read_bytes())
+        body["registry_path"] = "corpus/other/_party_registry.json"
     elif bad == "roster":
         body["roster_key"] = "22"
     elif bad == "source":
@@ -2831,6 +2844,8 @@ def test_pc_reference_invalid_basis_creates_no_child(monkeypatch, tmp_path, bad)
         body["attachments"][0]["corpus_ref"]["ref_id"] = "other"
     elif bad == "actor":
         body["attachments"][0]["anchor_quote"] = "Unsupported actor quote"
+    elif bad == "wrong_pc_mention":
+        body["attachments"][0]["pc_mention"] = "Ari"
     elif bad == "preimage":
         original = json.loads(raw)
         original["nodes"][0]["corpus_ref"] = {"type": "pc", "ref_id": "mira", "resolution": "resolved"}
@@ -2881,6 +2896,16 @@ def test_pc_reference_prepare_and_confirm_reprove_current_basis(monkeypatch, tmp
     assessment = assess_recap_semantics(child, parent=parent,
                                         source_revision_id=body["source_revision_sha256"], root=tmp_path)
     assert assessment.accepted
+    mismatched = child.model_copy(update={"lineage": copy.deepcopy(child.lineage)})
+    mismatched.lineage["semantic_disposition"]["reviewer_id"] = "other-reviewer"
+    assert not assess_recap_semantics(
+        mismatched, parent=parent, source_revision_id=body["source_revision_sha256"],
+        root=tmp_path).accepted
+    mismatched.lineage["semantic_disposition"]["reviewer_id"] = "reviewer"
+    mismatched.lineage["semantic_disposition"]["review_decision_ref"] = "other-decision"
+    assert not assess_recap_semantics(
+        mismatched, parent=parent, source_revision_id=body["source_revision_sha256"],
+        root=tmp_path).accepted
     binding = accepted_effect_binding(child, assessment)
     assert binding["world_id"] == "invented-world"
     assert binding["expected_head_revision_id"] == "rev:head"
