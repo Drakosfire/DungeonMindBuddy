@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE UI consumer, 2026-10-12, authorized by PRIME against SERVER PR #1090 merged at `5614fb1c9156a6a42aed94e2f2422f52df412667` (DTO code `98bc9eb18cda45daffc50d94d32947051c92368b`). SOURCE #1089 merged at `8fce46de7e33bc352300abdf3ece0369a3ac1e68`; no runtime or operator acceptance is claimed.
 **Owner:** DEMO; PRIME controls activation, review and merge.
-**Branch/base:** `codex/demo-world-chat-source-open-design`, re-anchored to Buddy `main@5614fb1c9156a6a42aed94e2f2422f52df412667` after checking open PRs. One draft UI consumer PR is under review against the merged producer contract.
+**Branch/base:** `codex/demo-world-chat-source-open-design`, re-anchored to Buddy `main@36a44d5e67133ae5a2d5061c6c2ac759d14d467b` after checking open PRs. One draft UI consumer PR is under review against the merged producer contract.
 
 ## User action and invariant
 
