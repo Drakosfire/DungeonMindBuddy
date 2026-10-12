@@ -1,9 +1,9 @@
 # HANDOFF — DEMO: reviewed PC corpus-reference correction
 
-**Status:** BLOCKED — pending durable main landing and activation; no code lease yet
+**Status:** ACTIVE — landed by PR #1082 at `main@149b4fc13ca0b0b9d83733b67e36396c4a32dadf`; Buddy code and synthetic proof only
 **Owner:** DEMO
 **Authority base:** DungeonMindBuddy `origin/main@bb541a49085623a68a173acb46bf709248537c00`, 2026-10-11
-**Proposed topology after activation:** parallel-independent from DOGFOOD chat stability/runtime, SERVER rollout preparation, and MIND source review
+**Topology:** parallel-independent from DOGFOOD chat stability/runtime, SERVER rollout preparation, and MIND source review
 **Implementation branch:** `codex/demo-pc-corpus-reference-correction`
 **Assigned PR:** `DEMO: audit PC corpus-reference correction`
 
@@ -17,12 +17,12 @@ This is a generic bounded correction operation. Session 28 supplies the motivati
 
 - A private activation packet pins the held parent run, candidate, source, span index, current party registry, selected roster and native World/head. These exact identities stay outside this code-only PR.
 - Select the greatest numeric roster at or before the target session as the carry-forward basis. No separate roster vote is implied.
-- An attachment request names the exact parent revision, source and span hashes, registry bytes/hash, selected roster key, reviewed source actor anchors, candidate node IDs and null preimages, one World ID and expected native head, and unique active `pc:<slug>` targets of native `player_character` kind. The reviewer decision reference and reviewer identity are required before acceptance.
+- An attachment request names the exact parent revision, source and span hashes, authoritative campaign registry path and bytes/hash, selected roster key, reviewed source quotes and literal PC mentions, candidate node IDs and null preimages, one World ID and expected native head, and unique active `pc:<slug>` targets of native `player_character` kind. The request's reviewer identity and decision reference are proposed review metadata; acceptance requires the later authenticated semantic disposition to match both values.
 - The motivating real-case targets require source-backed semantic review under a separate data lease. Separately held or unresolved identities remain outside this operation.
 
 ## §3 Contract and refusal
 
-The request is strict and typed: one to six unique node attachments, each with an exact `{type: "pc", ref_id: <slug>, resolution: "resolved"}` replacement. The parent must have exactly one matching node per ID and `corpus_ref: null`; its evidence must resolve to the pinned source/span and identify that actor. Registry membership and roster selection must match the exact pinned bytes and target slug. Native lookup must return exactly one active `pc:<slug>` in the requested World at the expected head, of `player_character` kind, without redirect or duplicate identity. Labels and fuzzy matching are never identity authority.
+The request is strict and typed: one to six unique node attachments, each with an exact `{type: "pc", ref_id: <slug>, resolution: "resolved"}` replacement. The parent must have exactly one matching node per ID and `corpus_ref: null`; its evidence must resolve to the pinned source/span, contain a literal selected-PC mention, and match that PC's current native label or owned alias. This mechanically proves a selected identity mention; the separate semantic review judges the source role. The registry must be at the authoritative campaign path, and membership and roster selection must match its exact pinned bytes and target slug. Native lookup must return exactly one active `pc:<slug>` in the requested World at the expected head, of `player_character` kind, without redirect or duplicate identity. Labels and fuzzy matching are never identity authority by themselves.
 
 The child manifest and candidate digest bind all inputs, reviewer basis, and the exact replacement list. Replay changes only those `corpus_ref` fields and compares every other candidate byte semantically. Prepare and native confirm re-read parent/source/span/registry/native World/head and reject stale or foreign authority. A changed parent, source, roster, registry, World, head, target kind, redirect, duplicate, or unsupported actor must fail before a World mutation.
 
@@ -45,6 +45,6 @@ Use invented synthetic fixtures only. Prove exact child-only field delta and rep
 
 ## §5 Activation and current holds
 
-Land this handoff on Buddy main and re-anchor open work before changing code. Once the exact base and path collision check remain valid, DEMO may mark the handoff ACTIVE in a guarded steward sync and start the assigned isolated lane.
+PR #1082 landed this handoff on Buddy main. PRIME reviewed and explicitly activated the bounded code slice after the landing. The implementation branch starts at the merge SHA above; it does not acquire a live data or runtime lease.
 
 The S28 held child remains held. MIND owns the independent actual-source/actor review. DOGFOOD owns the active chat-stability and runtime 5202 lane; SERVER owns oneAsk rollout preparation. No overlap in their code or runtime leases is authorized. A green synthetic PR does not activate the live six-PC correction or Session 29 integration.

@@ -30,6 +30,8 @@ CANDIDATE_DERIVATION_V4 = "operator_recap_semantic_candidate_correction_v4"
 CANDIDATE_DERIVATION_V5 = "operator_recap_semantic_candidate_correction_v5"
 CANDIDATE_DERIVATION_V8 = "operator_recap_semantic_candidate_correction_v8"
 MANIFEST_SCHEMA_V8 = "dmb_recap_semantic_candidate_manifest_v8"
+CANDIDATE_DERIVATION_V9 = "operator_recap_semantic_candidate_correction_v9"
+MANIFEST_SCHEMA_V9 = "dmb_recap_semantic_candidate_manifest_v9"
 CANDIDATE_DERIVATION_V7 = "operator_recap_semantic_candidate_correction_v7"
 MANIFEST_SCHEMA_V7 = "dmb_recap_semantic_candidate_manifest_v7"
 CANDIDATE_DERIVATION_V6 = "operator_recap_semantic_candidate_correction_v6"
@@ -71,6 +73,7 @@ def is_recap_correction(run: ExtractionRun) -> bool:
         CANDIDATE_DERIVATION_V6,
         CANDIDATE_DERIVATION_V7,
         CANDIDATE_DERIVATION_V8,
+        CANDIDATE_DERIVATION_V9,
     }
 
 
@@ -145,6 +148,7 @@ def assess_recap_semantics(
     span_sha = _sha(spans.sha256)
     candidate_v3 = lineage.get("derivation") == CANDIDATE_DERIVATION_V3
     candidate_v4 = lineage.get("derivation") == CANDIDATE_DERIVATION_V4
+    candidate_v9 = lineage.get("derivation") == CANDIDATE_DERIVATION_V9
     candidate_v8 = lineage.get("derivation") == CANDIDATE_DERIVATION_V8
     candidate_v7 = lineage.get("derivation") == CANDIDATE_DERIVATION_V7
     candidate_v6 = lineage.get("derivation") == CANDIDATE_DERIVATION_V6
@@ -159,10 +163,11 @@ def assess_recap_semantics(
         CANDIDATE_DERIVATION_V6,
         CANDIDATE_DERIVATION_V7,
         CANDIDATE_DERIVATION_V8,
+        CANDIDATE_DERIVATION_V9,
     }
     candidate_manifest = lineage.get("semantic_candidate_manifest")
-    expected_manifest_schema = MANIFEST_SCHEMA_V8 if candidate_v8 else MANIFEST_SCHEMA_V7 if candidate_v7 else MANIFEST_SCHEMA_V6 if candidate_v6 else MANIFEST_SCHEMA_V5 if candidate_v5 else MANIFEST_SCHEMA_V4 if candidate_v4 else MANIFEST_SCHEMA_V3 if candidate_v3 else MANIFEST_SCHEMA_V2
-    if (candidate_v2 or candidate_v3 or candidate_v4 or candidate_v5 or candidate_v6 or candidate_v7 or candidate_v8) and (
+    expected_manifest_schema = MANIFEST_SCHEMA_V9 if candidate_v9 else MANIFEST_SCHEMA_V8 if candidate_v8 else MANIFEST_SCHEMA_V7 if candidate_v7 else MANIFEST_SCHEMA_V6 if candidate_v6 else MANIFEST_SCHEMA_V5 if candidate_v5 else MANIFEST_SCHEMA_V4 if candidate_v4 else MANIFEST_SCHEMA_V3 if candidate_v3 else MANIFEST_SCHEMA_V2
+    if (candidate_v2 or candidate_v3 or candidate_v4 or candidate_v5 or candidate_v6 or candidate_v7 or candidate_v8 or candidate_v9) and (
         not isinstance(candidate_manifest, dict)
         or candidate_manifest.get("schema") != expected_manifest_schema
     ):
@@ -187,7 +192,8 @@ def assess_recap_semantics(
             return held()
     basis_fields = {
         "schema": (
-            "dmb_recap_semantic_basis_v9" if candidate_v8
+            "dmb_recap_semantic_basis_v10" if candidate_v9
+            else "dmb_recap_semantic_basis_v9" if candidate_v8
             else "dmb_recap_semantic_basis_v8" if candidate_v7
             else "dmb_recap_semantic_basis_v7" if candidate_v6
             else "dmb_recap_semantic_basis_v6" if candidate_v5
@@ -238,6 +244,19 @@ def assess_recap_semantics(
         basis_fields["expected_parent_revision"] = expected
         basis_fields["derivation"] = CANDIDATE_DERIVATION_V8
         basis_fields["manifest_schema"] = MANIFEST_SCHEMA_V8
+    if candidate_v9:
+        expected = candidate_manifest.get("expected_parent_revision")
+        if type(expected) is not int or expected != parent.revision:
+            return held()
+        basis_fields.update(
+            expected_parent_revision=expected,
+            registry_sha256=candidate_manifest.get("registry_sha256"),
+            roster_key=candidate_manifest.get("roster_key"),
+            world_id=candidate_manifest.get("world_id"),
+            expected_head_revision_id=candidate_manifest.get("expected_head_revision_id"),
+            derivation=CANDIDATE_DERIVATION_V9,
+            manifest_schema=MANIFEST_SCHEMA_V9,
+        )
     basis = _digest(basis_fields)
     raw = lineage.get("semantic_disposition")
     if (
@@ -255,6 +274,10 @@ def assess_recap_semantics(
         isinstance(disposition.get(key), str) and disposition[key].strip()
         for key in ("review_decision_ref", "reviewer_id", "decided_at")
     ):
+        return held(basis_sha256=basis, basis=basis_fields)
+    if (candidate_v9 and disposition["state"] == "accepted"
+        and (disposition["reviewer_id"] != candidate_manifest.get("reviewer_id")
+             or disposition["review_decision_ref"] != candidate_manifest.get("review_decision_ref"))):
         return held(basis_sha256=basis, basis=basis_fields)
     if disposition["state"] == "rejected":
         return RecapSemanticAssessment(
@@ -326,6 +349,17 @@ def accepted_effect_binding(
         binding["derivation"] = CANDIDATE_DERIVATION_V8
         binding["manifest_schema"] = MANIFEST_SCHEMA_V8
         binding["expected_parent_revision"] = assessment.basis["expected_parent_revision"]
+    if run.lineage.get("derivation") == CANDIDATE_DERIVATION_V9:
+        binding.update(
+            manifest_sha256=_sha(run.lineage.get("manifest_sha256")),
+            derivation=CANDIDATE_DERIVATION_V9,
+            manifest_schema=MANIFEST_SCHEMA_V9,
+            expected_parent_revision=assessment.basis["expected_parent_revision"],
+            registry_sha256=assessment.basis["registry_sha256"],
+            roster_key=assessment.basis["roster_key"],
+            world_id=assessment.basis["world_id"],
+            expected_head_revision_id=assessment.basis["expected_head_revision_id"],
+        )
     return binding
 
 
