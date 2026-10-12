@@ -2674,7 +2674,7 @@ it("does not bind an unbound recovery to the empty-ID blank Plan while editing i
   );
   await screen.findByTestId("world-owned-plan");
   await waitFor(() => expect(screen.getByRole("button", { name: "Save Plan" })).toBeEnabled());
-  fireEvent.click(screen.getByRole("button", { name: "New blank Plan" }));
+  fireEvent.click(screen.getByRole("button", { name: "New Plan" }));
   fireEvent.change(screen.getByLabelText("Plan title"), { target: { value: "New blank edit" } });
   expect(JSON.parse(localStorage.getItem(key) ?? "null")).toMatchObject({
     document_id: null,
@@ -2752,7 +2752,7 @@ it("preserves a blank recovery journal and keeps Plan actions locked after conte
   expect(editor).toHaveAttribute("contenteditable", "false");
   expect(screen.queryByRole("button", { name: "Save Plan" })).not.toBeInTheDocument();
   expect(screen.getByLabelText("Plan document")).toBeDisabled();
-  expect(screen.getByRole("button", { name: "New blank Plan" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "New Plan" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Restore recovered draft into this Plan" })).toBeDisabled();
   const discardButtons = screen.getAllByRole("button", { name: "Discard recovered draft" });
   expect(discardButtons.length).toBeGreaterThan(0);
@@ -2760,7 +2760,7 @@ it("preserves a blank recovery journal and keeps Plan actions locked after conte
   const retry = screen.getByRole("button", { name: "Retry Plan load" });
   expect(retry).toBeEnabled();
 
-  fireEvent.click(screen.getByRole("button", { name: "New blank Plan" }));
+  fireEvent.click(screen.getByRole("button", { name: "New Plan" }));
   fireEvent.click(screen.getByRole("button", { name: "Restore recovered draft into this Plan" }));
   fireEvent.click(discardButtons[0]);
   expect(localStorage.getItem(draftKey)).toBe(originalJournal);
@@ -2835,7 +2835,7 @@ it("keeps another Plan's draft out of a failed document load and retries without
   expect(screen.queryByText("A private draft body")).not.toBeInTheDocument();
   expect(screen.queryByText("Plan A private title")).not.toBeInTheDocument();
   expect(screen.getByLabelText("Plan document")).toBeDisabled();
-  expect(screen.getByRole("button", { name: "New blank Plan" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "New Plan" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Retry Plan load" })).toBeEnabled();
 
   fireEvent.click(screen.getByRole("button", { name: "Retry Plan load" }));

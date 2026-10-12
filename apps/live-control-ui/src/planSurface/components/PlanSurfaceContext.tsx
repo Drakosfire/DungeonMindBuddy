@@ -53,7 +53,6 @@ export interface WorldPlanSurfaceContextProps {
 
 export function WorldPlanSurfaceContext({
   worldId,
-  worldName,
   documentId,
   localDraftId,
   records,
@@ -68,9 +67,8 @@ export function WorldPlanSurfaceContext({
   }), [documentId, localDraftId, worldId]);
 
   const content = useMemo(() => (
-    <SurfaceContextModule label="PLAN" className="plan-surface-context">
+    <SurfaceContextModule className="plan-surface-context">
       <div className="plan-surface-context__row" data-testid="world-plan-surface-context">
-        <SurfaceContextBadge>{worldName}</SurfaceContextBadge>
         <SurfaceContextSelect
           id="world-plan-document-select"
           data-testid="world-plan-document-select"
@@ -79,7 +77,7 @@ export function WorldPlanSurfaceContext({
           disabled={disabled}
           onChange={(event) => event.target.value ? onSelect(event.target.value) : onNewPlan()}
         >
-          <option value="">New blank Plan</option>
+          <option value="">New Plan</option>
           {records.map((record) => (
             <option key={record.document_id} value={record.document_id}>
               {record.title || "Untitled Plan"}
@@ -88,12 +86,12 @@ export function WorldPlanSurfaceContext({
         </SurfaceContextSelect>
         {documentId ? (
           <SurfaceContextAction type="button" onClick={onNewPlan} disabled={disabled}>
-            New blank Plan
+            New Plan
           </SurfaceContextAction>
         ) : null}
       </div>
     </SurfaceContextModule>
-  ), [disabled, documentId, onNewPlan, onSelect, records, worldName]);
+  ), [disabled, documentId, onNewPlan, onSelect, records]);
 
   useSurfaceContextContribution({
     id: "plan-world-context",

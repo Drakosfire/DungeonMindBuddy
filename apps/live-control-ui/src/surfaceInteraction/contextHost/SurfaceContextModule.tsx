@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 interface SurfaceContextModuleProps {
-  label: string;
+  label?: string;
   children: ReactNode;
   className?: string;
 }
@@ -17,7 +17,7 @@ export function SurfaceContextModule({
 
   return (
     <div className={moduleClassName} data-testid="surface-context-module">
-      <span className="surface-context-label">{label}</span>
+      {label ? <span className="surface-context-label">{label}</span> : null}
       <div className="surface-context-module__body">{children}</div>
     </div>
   );
