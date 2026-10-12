@@ -2,7 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import { useOptionalWorldGraphLensProjection } from "./useWorldGraphLensProjection";
 import type { WorldGraphProjection } from "../api/types";
+import { graphObjectTypeBadgeLabel, graphObjectSecondaryRoleLabel } from "../graphObjectCard/graphObjectDisplay";
 import "./LoadedWorldGraphExplorer.css";
+
+function readableGraphLabel(value: string): string {
+  const labels: Record<string, string> = {
+    npc: "NPC", pc: "Player character", player_character: "Player character",
+    session_recap: "Session recap", worldbuilding: "Worldbuilding", other: "Other sources",
+  };
+  return labels[value.trim().toLowerCase()] ?? graphObjectTypeBadgeLabel(value);
+}
 
 /** Inspect the shared, verified loaded projection; opening this view never fetches or mutates Graph. */
 export function LoadedWorldGraphExplorer() {
@@ -37,6 +46,7 @@ export function LoadedGraphBrowser({ worldName, projection }: {
   const filtered = nodes.filter((node) => [node.label, node.kind, ...node.aliases]
     .some((text) => text.toLocaleLowerCase().includes(query.toLocaleLowerCase().trim())));
   const selected = nodes.find((node) => node.nodeId === selectedId);
+  const secondaryRole = selected ? graphObjectSecondaryRoleLabel(selected.kind, selected.role) : null;
   const byId = new Map(nodes.map((node) => [node.nodeId, node]));
   return <>
     <button ref={launcher} type="button" disabled={!projection} onClick={() => setOpen(true)}
@@ -55,13 +65,13 @@ export function LoadedGraphBrowser({ worldName, projection }: {
             <label>Find a node<input type="search" value={query} onChange={(event) => { setQuery(event.target.value); setVisibleCount(100); }} /></label>
             <ul>{filtered.slice(0, visibleCount).map((node) => <li key={node.nodeId}>
               <button type="button" aria-current={selectedId === node.nodeId ? "true" : undefined} onClick={() => setSelectedId(node.nodeId)}>
-                {node.label}<small>{node.kind}</small>
+                {node.label}<small>{readableGraphLabel(node.kind)}</small>
               </button></li>)}</ul>
             {!filtered.length ? <p>No matching nodes in the loaded projection.</p> : null}
             {filtered.length > visibleCount ? <button type="button" onClick={() => setVisibleCount((count) => count + 100)}>Show more nodes</button> : null}
           </nav>
           <article aria-label="Selected graph node">
-            {selected ? <><h3>{selected.label}</h3><p>{selected.kind}{selected.role ? ` · ${selected.role}` : ""}</p>
+            {selected ? <><h3>{selected.label}</h3><p>{readableGraphLabel(selected.kind)}{secondaryRole ? ` · ${readableGraphLabel(secondaryRole)}` : ""}</p>
               {selected.aliases.length ? <p>Also known as {selected.aliases.join(", ")}</p> : null}
               <p>{selected.summary || "No summary is included in the loaded projection."}</p>
               <h4>Connections</h4>
@@ -71,7 +81,7 @@ export function LoadedGraphBrowser({ worldName, projection }: {
                   : <span>{edge.label} (outside the loaded projection)</span>}
                 {edge.relatedSummary ? <p>{edge.relatedSummary}</p> : null}
               </li>)}</ul> : <p>No connections are included for this node.</p>}
-              {selected.sourceDomains.length ? <><h4>Sources</h4><ul>{selected.sourceDomains.map((source) => <li key={source}>{source}</li>)}</ul></> : null}
+              {selected.sourceDomains.length ? <><h4>Sources</h4><ul>{selected.sourceDomains.map((source) => <li key={source}>{readableGraphLabel(source)}</li>)}</ul></> : null}
               <details><summary>Projection details</summary><p>Node: {selected.nodeId}</p><p>Revision: {projection.snapshot.revisionId}</p>
                 <p>{selected.evidenceRefIds.length} evidence references · {selected.sourceArtifactIds.length} source artifacts</p></details>
             </> : <p>Select a node to inspect its summary and connections.</p>}

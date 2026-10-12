@@ -15,3 +15,7 @@
 .loaded-graph-explorer article li { margin-bottom: 12px; }
 .loaded-graph-explorer details { margin-top: 20px; }
 @media (max-width: 600px) { .loaded-graph-explorer { padding: 16px; } .loaded-graph-explorer__layout { grid-template-columns: 1fr; } .loaded-graph-explorer nav { max-height: 25dvh; } }
+
+.loaded-graph-explorer article h3, .loaded-graph-explorer article h4 { color: #30291b; opacity: 1; text-transform: none; letter-spacing: normal; }
+.loaded-graph-explorer article h3 { font-size: 1.125rem; }
+.loaded-graph-explorer article h4 { font-size: .95rem; }
