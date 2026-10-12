@@ -198,7 +198,32 @@
 
 .world-plan-agent-conversation__source-action {
   min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.world-plan-agent-conversation__source-action button {
+  max-inline-size: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+
+.world-plan-agent-conversation__source-more,
+.world-plan-agent-conversation__source-reader {
   flex: 0 1 100%;
+  min-inline-size: 0;
+}
+
+.world-plan-agent-conversation__source-more > summary {
+  width: fit-content;
+  cursor: pointer;
+}
+
+.world-plan-agent-conversation__source-more > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-block-start: 0.35rem;
 }
 
 .world-plan-agent-conversation__source-actions > p {

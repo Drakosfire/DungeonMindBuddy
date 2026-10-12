@@ -3682,12 +3682,11 @@ export function WorldPlanAgentConversation({
     const claims = "plan_context" in turn
       ? turn.plan_context?.completion?.answer_segments.filter((segment) => segment.kind === "graph_claim") ?? []
       : [];
-    return <section className="world-plan-agent-conversation__source-actions" aria-label="Sources for this answer">
-      <span className="world-plan-agent-conversation__source-actions-label">Read the source</span>
-      {targets.map((target) => {
+    const activeTarget = targets.find((target) => sourcePassage?.turnId === turn.turn_id
+      && sourcePassage.claimId === target.claim_id
+      && sourcePassage.targetId === (target.kind === "evidence_anchor" ? target.anchor_id : target.context_anchor_id));
+    const renderTarget = (target: WorldPlanSourceOpenTargetV1) => {
         const targetId = target.kind === "evidence_anchor" ? target.anchor_id : target.context_anchor_id;
-        const opened = sourcePassage?.turnId === turn.turn_id
-          && sourcePassage.claimId === target.claim_id && sourcePassage.targetId === targetId;
         const point = claims.findIndex((claim) => claim.claim_id === target.claim_id) + 1;
         const relatedChoices = target.kind === "related_recap_context"
           ? targets.filter((candidate) => candidate.kind === "related_recap_context" && candidate.claim_id === target.claim_id).length
@@ -3708,15 +3707,25 @@ export function WorldPlanAgentConversation({
               ? `Open evidence · ${evidenceNumber} of ${evidenceChoices.length}` : "Open evidence"
               : relatedChoices > 1 ? `Open related recap context · ${target.expected_heading}` : "Open related recap context"}
           </button>
-          {opened && sourcePassage.status === "loading" ? <p role="status">Opening pinned source…</p> : null}
-          {opened && sourcePassage.status === "unavailable" ? <p role="alert">{sourcePassage.message}</p> : null}
-          {opened && sourcePassage.status === "open" ? <div className="world-plan-agent-conversation__source-passage"
-            role="region" aria-label={target.kind === "evidence_anchor" ? "Evidence passage" : "Related recap context passage"}>
-            {sourcePassage.partial ? <p role="note">Partial passage. More source text may be available.</p> : null}
-            {sourcePassage.content}
-          </div> : null}
         </div>;
-      })}
+    };
+    return <section className="world-plan-agent-conversation__source-actions" aria-label="Sources for this answer">
+      <span className="world-plan-agent-conversation__source-actions-label">Read the source</span>
+      {targets.slice(0, 3).map(renderTarget)}
+      {targets.length > 3 ? <details className="world-plan-agent-conversation__source-more">
+        <summary>{targets.length - 3} more source choice{targets.length - 3 === 1 ? "" : "s"}</summary>
+        <div>{targets.slice(3).map(renderTarget)}</div>
+      </details> : null}
+      {activeTarget && sourcePassage ? <div className="world-plan-agent-conversation__source-reader">
+        <button type="button" onClick={() => { sourceReadEpochRef.current += 1; setSourcePassage(null); }}>Close passage</button>
+        {sourcePassage.status === "loading" ? <p role="status">Opening pinned source…</p> : null}
+        {sourcePassage.status === "unavailable" ? <p role="alert">{sourcePassage.message}</p> : null}
+        {sourcePassage.status === "open" ? <div className="world-plan-agent-conversation__source-passage"
+          role="region" aria-label={activeTarget.kind === "evidence_anchor" ? "Evidence passage" : "Related recap context passage"}>
+          {sourcePassage.partial ? <p role="note">Partial passage. More source text may be available.</p> : null}
+          {sourcePassage.content}
+        </div> : null}
+      </div> : null}
       {evidenceLimited ? <p role="note">Some evidence passage choices could not be offered. Shown links remain pinned.</p> : null}
       {recapLimited ? <p role="note">Some related recap choices could not be offered. Shown links remain pinned.</p> : null}
       {evidenceUnavailable.length > 0 ? <details className="world-plan-agent-conversation__source-status">

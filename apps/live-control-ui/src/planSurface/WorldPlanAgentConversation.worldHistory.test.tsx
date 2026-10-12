@@ -2518,7 +2518,24 @@ describe("World Plan conversation consumer", () => {
     expect(recapRead).toHaveBeenCalledWith(expect.objectContaining({
       revisionPin: "graph-revision-test", contextAnchorId: "dm-context-anchor:v1:test",
     }));
+    fireEvent.click(screen.getByRole("button", { name: "Close passage" }));
+    expect(screen.queryByLabelText("Related recap context passage")).not.toBeInTheDocument();
     expect(ask).not.toHaveBeenCalled();
+  });
+
+  it("keeps a larger verified source set behind a compact choice list", async () => {
+    const context = await planGraphContext("graph_grounded");
+    const evidence = sourceOpenTargets()[0]!;
+    if (evidence.kind !== "evidence_anchor") throw new Error("Expected evidence fixture.");
+    context.source_open_targets = [0, 1, 2, 3].map((index) => ({ ...evidence, anchor_id: `anchor-${index}` }));
+    setupApi(await historyV2("conversation-a", 5, [policyHistoryTurn(
+      1, "multiple-source-turn", "What is known?", "The western gate is watched.", context,
+    )]));
+    render(conversationElement());
+    const more = await screen.findByText("1 more source choice");
+    expect(more.closest("details")).not.toHaveAttribute("open");
+    fireEvent.click(more);
+    expect(screen.getAllByRole("button", { name: /Open evidence/ })).toHaveLength(4);
   });
 
   it("distinguishes absent recap context from unavailable recap metadata on demand", async () => {
