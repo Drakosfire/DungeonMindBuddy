@@ -381,11 +381,49 @@ def execute(case, **kwargs):
     )
 
 
-def observation_packet(case):
-    """Synthetic immutable review of a standing subject; no extraction or node write."""
+def standing_neighborhood(case):
+    """Synthetic unrelated existing neighborhood above the unchanged 16 bound."""
+    import copy
+
     parent = case.bundle.world_graph.get_revision(
         case.packet.native_world_id,
         case.backend.publication_probe(case.packet).published_revision_id,
+    )
+    payload = copy.deepcopy(parent.graph_payload)
+    node = next(row for row in payload["objects"] if row["object_id"] == "npc:b")
+    relationship = payload["relationships"][0]
+    for index in range(20):
+        row = copy.deepcopy(node)
+        row["object_id"] = f"npc:standing-{index}"
+        row["aliases"] = []
+        row["assertion_metadata"]["assertion_id"] = f"ka:standing:node:{index}"
+        payload["objects"].append(row)
+        edge = copy.deepcopy(relationship)
+        edge["relationship_id"] = f"edge:standing:{index}"
+        edge["source_object_id"] = "npc:a"
+        edge["target_object_id"] = row["object_id"]
+        edge["assertion_metadata"]["assertion_id"] = f"ka:standing:edge:{index}"
+        payload["relationships"].append(edge)
+    child = case.bundle.world_graph.publish_revision(
+        PublishRevisionCommand(
+            world_id=case.packet.native_world_id,
+            parent_revision_id=parent.revision.revision_id,
+            expected_parent_revision_id=parent.revision.revision_id,
+            operation_ids=["fixture:standing-neighborhood"],
+            graph_schema="dm_union_graph_v6",
+            graph_payload=payload,
+            created_at=NOW + timedelta(hours=1),
+        )
+    )
+    return child.revision_id
+
+
+def observation_packet(case, parent_revision_id=None):
+    """Synthetic immutable review of a standing subject; no extraction or node write."""
+    parent = case.bundle.world_graph.get_revision(
+        case.packet.native_world_id,
+        parent_revision_id
+        or case.backend.publication_probe(case.packet).published_revision_id,
     )
     evidence = case.packet.submission.intent.candidate_contribution.assertions[
         0
@@ -851,3 +889,264 @@ def test_missing_source_blocks_uncommitted_publication(case):
     result = execute(case)
     assert result["status"] == "blocked" and result["code"] == "source_body_unavailable"
     assert case.backend.publication_probe(case.packet) is None
+
+
+def high_degree_observation(case, monkeypatch):
+    execute(case)
+    parent = standing_neighborhood(case)
+    case.packet = observation_packet(case, parent)
+    real_verifier(case, monkeypatch)
+
+
+def standing_observation_bound_result(original, *args):
+    """One required observation survives a bounded set of standing observations."""
+    result, observations, gaps, missing = original(*args)
+    required = observations[0]
+    standing = [
+        required.model_copy(update={"assertion_id": f"assertion:standing:{index}"})
+        for index in range(23)
+    ]
+    result = result.model_copy(
+        update={
+            "outcome": "truncated",
+            "coverage": result.coverage.model_copy(
+                update={
+                    "truncated_fields": sorted(
+                        set(result.coverage.truncated_fields)
+                        | {"reviewed_source_observations"}
+                    )
+                }
+            ),
+        }
+    )
+    return (
+        result,
+        [*standing, required],
+        [*gaps, "reviewed_source_observation_anchor_bound"],
+        missing,
+    )
+
+
+def test_high_degree_standing_relationships_do_not_hide_complete_operation(
+    case, monkeypatch
+):
+    high_degree_observation(case, monkeypatch)
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as reads,
+    )
+
+    original = reads.get_object_with_reviewed_sources_direct
+    seen = []
+
+    def capture(services, request):
+        result = original(services, request)
+        seen.append(
+            (
+                result[0].outcome,
+                result[0].coverage.truncated_fields,
+                request.bounds.max_relationships,
+            )
+        )
+        return result
+
+    monkeypatch.setattr(reads, "get_object_with_reviewed_sources_direct", capture)
+    result = execute(case)
+    assert result["status"] == "verified"
+    assert seen == [("truncated", ["relationships"], 16)]
+    assert result["verification"]["verified_assertion_ids"] == ["assertion:observation"]
+    assert result["verification"]["effects"]["changed_relationship_ids"] == []
+    assert result["verification"]["opened_sources"] and not result["product_ready"]
+
+
+def test_bounded_standing_observations_do_not_hide_complete_operation(
+    case, monkeypatch
+):
+    high_degree_observation(case, monkeypatch)
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as reads,
+    )
+
+    original = reads.get_object_with_reviewed_sources_direct
+    seen = []
+
+    def bounded(*args):
+        result = standing_observation_bound_result(original, *args)
+        seen.append(
+            (
+                result[0].outcome,
+                result[0].coverage.truncated_fields,
+                result[2],
+                len(result[1]),
+                args[1].bounds.max_source_anchors,
+            )
+        )
+        return result
+
+    monkeypatch.setattr(reads, "get_object_with_reviewed_sources_direct", bounded)
+    result = execute(case)
+    assert result["status"] == "verified"
+    assert seen == [
+        (
+            "truncated",
+            ["relationships", "reviewed_source_observations"],
+            ["reviewed_source_observation_anchor_bound"],
+            24,
+            24,
+        )
+    ]
+    assert result["verification"]["verified_assertion_ids"] == ["assertion:observation"]
+    assert result["verification"]["source_open_status"] == "verified"
+    assert not result["product_ready"]
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "required_observation",
+        "required_support",
+        "other_gap",
+        "missing_id",
+        "other_truncated_field",
+    ],
+)
+def test_bounded_standing_observations_cannot_hide_missing_operation_proof(
+    case, monkeypatch, change
+):
+    high_degree_observation(case, monkeypatch)
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as reads,
+    )
+
+    original = reads.get_object_with_reviewed_sources_direct
+
+    def incomplete(*args):
+        result, observations, gaps, missing = standing_observation_bound_result(
+            original, *args
+        )
+        if change == "required_observation":
+            observations = observations[:-1]
+        elif change == "required_support":
+            result = result.model_copy(update={"source_anchors": []})
+        elif change == "other_gap":
+            gaps.append("other_coverage_gap")
+        elif change == "missing_id":
+            missing = ["required:missing"]
+        else:
+            result = result.model_copy(
+                update={
+                    "coverage": result.coverage.model_copy(
+                        update={
+                            "truncated_fields": [
+                                *result.coverage.truncated_fields,
+                                "source_anchors",
+                            ]
+                        }
+                    )
+                }
+            )
+        return result, observations, gaps, missing
+
+    monkeypatch.setattr(reads, "get_object_with_reviewed_sources_direct", incomplete)
+    result = execute(case)
+    assert result["status"] == "published"
+    assert result["verification"]["status"] == "unavailable"
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "node",
+        "attributes",
+        "source_anchors",
+        "reviewed_source_observations",
+        "nodes",
+        "evidence",
+        "gaps",
+        "missing",
+        "partial",
+    ],
+)
+def test_required_operation_fields_still_fail_in_high_degree_context(
+    case, monkeypatch, change
+):
+    high_degree_observation(case, monkeypatch)
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as reads,
+    )
+
+    original = reads.get_object_with_reviewed_sources_direct
+
+    def incomplete(*args):
+        result, observations, gaps, missing = original(*args)
+        if change == "node":
+            result = result.model_copy(update={"nodes": []})
+        elif change in (
+            "attributes",
+            "source_anchors",
+            "reviewed_source_observations",
+            "nodes",
+        ):
+            result = result.model_copy(
+                update={
+                    "coverage": result.coverage.model_copy(
+                        update={"truncated_fields": ["relationships", change]}
+                    )
+                }
+            )
+        elif change == "evidence":
+            result = result.model_copy(
+                update={
+                    "coverage": result.coverage.model_copy(
+                        update={"missing_evidence_ref_ids": ["evidence:shared"]}
+                    )
+                }
+            )
+        elif change == "gaps":
+            gaps = ["required_facet_unavailable"]
+        elif change == "missing":
+            missing = ["assertion:observation"]
+        else:
+            result = result.model_copy(update={"outcome": "partial"})
+        return result, observations, gaps, missing
+
+    monkeypatch.setattr(reads, "get_object_with_reviewed_sources_direct", incomplete)
+    result = execute(case)
+    assert (
+        result["status"] == "published"
+        and result["verification"]["status"] == "unavailable"
+    )
+
+
+@pytest.mark.parametrize("change", ["lineage", "text", "support"])
+def test_exact_observation_proof_survives_relationship_truncation_guard(
+    case, monkeypatch, change
+):
+    high_degree_observation(case, monkeypatch)
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as reads,
+    )
+
+    original = reads.get_object_with_reviewed_sources_direct
+
+    def incorrect(*args):
+        result, observations, gaps, missing = original(*args)
+        if change == "lineage":
+            observations = [
+                row.model_copy(update={"review_id": "review:wrong"})
+                for row in observations
+            ]
+        elif change == "text":
+            observations = [
+                row.model_copy(update={"text": "wrong approved text"})
+                for row in observations
+            ]
+        else:
+            result = result.model_copy(update={"source_anchors": []})
+        return result, observations, gaps, missing
+
+    monkeypatch.setattr(reads, "get_object_with_reviewed_sources_direct", incorrect)
+    result = execute(case)
+    assert (
+        result["status"] == "published"
+        and result["verification"]["status"] == "unavailable"
+    )

@@ -116,3 +116,50 @@ reader change or private C1S16 packet is included. APP migration0020 is inherite
 from the new base; this procedure accesses Core and file binding authority, not
 APP storage, and creates no production migration. Changed-path Ruff and exact
 cumulative six-path diff checks pass. Final head adds only handoff evidence.
+
+## Settled procedure and operation readback repair
+
+PR #1102 was accepted by PRIME in review `6133235408` at head
+`cdb896acacd3efee1cf2ed2fb0b4bc33361d03b4` and merged as
+`cbbf89e7f5af02e09e0182635737e316e05e89b0`. The six-path procedure
+above is settled history. The active repair is limited to this handoff, the
+procedure service, and its unit and integration tests. PRIME funded this
+four-path lease from `/tmp/HANDOFF-SERVER-operation-readback-completeness.md`
+at SHA-256 `79a251fdb5d9c2707579f2c0b1f45d1108a76686b2095693b355b5b41339cbdf`.
+
+The first retained readback showed a complete accepted observation and admitted
+support on its first failing subject, while only unrelated standing relationships
+exceeded the default 16 relationship bound. One additional operation-wide
+read-only capture at SHA-256
+`3d56643a1d583526ea9ece7f86a9321502a91f51fd4e80af1caa0a7dfbb924ce`,
+covered all 23 operation subjects without dispatch or retained writes. Four
+subjects also returned the known `reviewed_source_observation_anchor_bound`
+gap and `reviewed_source_observations` truncation under the default 24 anchor
+bound. Each required new observation was nevertheless present exactly once
+with exact lineage, text hash, and nonempty admitted support. PRIME explicitly
+amended this lease to allow only that unrelated standing observation truncation
+when all required operation targets and their support are complete. The same
+bounded read may also truncate unrelated relationships. Missing required
+targets/support, other gaps, missing IDs, and other truncated fields fail.
+
+This verifies the accepted operation at the pinned revision; it does not claim
+whole-neighborhood completeness. Exact changed-relationship checks, source
+opening, immutable identity, default bounds, and no-redispatch rules remain.
+Required evidence for this repair: synthetic high-standing relationship and
+observation positives, omitted required observation/support negatives, focused
+unit and disposable PostgreSQL gates, one private read-only final verification,
+and exact cumulative four-path diff. PRIME owns independent review and merge.
+
+Repair evidence, 2026-10-12: 45 focused unit tests pass. Three disposable
+PostgreSQL variants pass, including the bounded standing-observation result
+through actual Core publication, selected-World service query, and mounted
+source route. The test fixture's Alembic `path_separator` deprecation remains.
+Changed Python paths pass Ruff check and format. The single private final
+read-only verification receipt has SHA-256
+`d95b23a9bea14810d5ab924fea8339f801ef8b868e62cff7af6c7405a44f484b`:
+existing publication and head agree before/after; transaction/default
+read-only are on; Core and selected-World service verification pass; nine
+accepted assertions verify; 13 sources open and zero are unavailable. This is
+not an HTTP route or product-readiness result. No retained write, provider
+call, publication redispatch, or runtime restart occurred. The earlier failed
+read-only attempt is retained as diagnostic history, not mislabeled success.

@@ -496,6 +496,11 @@ class CorePublicationBackend:
             target["subject_id"] for target in effects["accepted_assertion_targets"]
         }
         for object_id in sorted(object_ids):
+            observation_targets = [
+                target
+                for target in effects["accepted_assertion_targets"]
+                if target["subject_id"] == object_id and target["kind"] == "observation"
+            ]
             result, observations, gaps, missing = (
                 get_object_with_reviewed_sources_direct(
                     services,
@@ -508,16 +513,38 @@ class CorePublicationBackend:
                     ),
                 )
             )
+            unrelated_relationship_bound = result.outcome == "truncated" and set(
+                result.coverage.truncated_fields
+            ) == {"relationships"}
+            unrelated_observation_bound = (
+                result.outcome == "truncated"
+                and bool(observation_targets)
+                and set(gaps) == {"reviewed_source_observation_anchor_bound"}
+                and "reviewed_source_observations" in result.coverage.truncated_fields
+                and set(result.coverage.truncated_fields).issubset(
+                    {"relationships", "reviewed_source_observations"}
+                )
+            )
             if (
-                result.outcome != "enough"
-                or gaps
+                (
+                    result.outcome != "enough"
+                    and not unrelated_relationship_bound
+                    and not unrelated_observation_bound
+                )
+                or (gaps and not unrelated_observation_bound)
                 or missing
+                or result.coverage.missing_seed_node_ids
+                or result.coverage.missing_evidence_ref_ids
+                or set(result.coverage.truncated_fields)
+                - (
+                    {"relationships", "reviewed_source_observations"}
+                    if unrelated_observation_bound
+                    else {"relationships"}
+                )
                 or object_id not in [node.node_id for node in result.nodes]
             ):
                 raise ProcedureStopped("published_object_unavailable")
-            for target in effects["accepted_assertion_targets"]:
-                if target["subject_id"] != object_id or target["kind"] != "observation":
-                    continue
+            for target in observation_targets:
                 matches = [
                     row
                     for row in observations
