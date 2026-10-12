@@ -1077,10 +1077,11 @@ function isWorldPlanSourceOpenTargets(
   receipt: WorldPlanGraphContextReceiptV1,
   completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | null,
 ): value is WorldPlanSourceOpenTargetV1[] {
-  if (!Array.isArray(value) || value.length > 256) return false;
+  if (!Array.isArray(value) || value.length > 64) return false;
   const citations = completion?.citation_map?.entries ?? [];
   const byClaim = new Map(citations.map((citation) => [citation.claim_id, citation]));
   const seen = new Set<string>();
+  const perClaim = new Map<string, number>();
   for (const target of value) {
     if (!isRecord(target)) return false;
     const evidence = target.kind === "evidence_anchor";
@@ -1125,6 +1126,9 @@ function isWorldPlanSourceOpenTargets(
       || target.selector_policy !== "markdown-session-recap-v1") return false;
     const identity = `${target.kind}\u001f${target.claim_id}\u001f${evidence ? target.anchor_id : target.context_anchor_id}`;
     if (seen.has(identity)) return false;
+    const count = (perClaim.get(target.claim_id) ?? 0) + 1;
+    if (count > 8) return false;
+    perClaim.set(target.claim_id, count);
     seen.add(identity);
   }
   return true;
@@ -1144,7 +1148,29 @@ function isWorldPlanRelatedRecapStatuses(
       || !Number.isSafeInteger(row.choice_count) || (row.choice_count as number) < 0 || (row.choice_count as number) > 512
       || !(row.status === "available" ? row.choice_count === 1
         : row.status === "multiple_choices" ? (row.choice_count as number) > 1
-          : ["no_context", "metadata_unavailable"].includes(String(row.status)) && row.choice_count === 0)) return false;
+          : row.status === "partial" ? (row.choice_count as number) > 0
+            : row.status === "metadata_unavailable" ? (row.choice_count as number) >= 0
+              : ["no_context", "overflow"].includes(String(row.status)) && row.choice_count === 0)) return false;
+    seen.add(row.claim_id);
+  }
+  return true;
+}
+
+function isWorldPlanEvidenceAnchorStatuses(
+  value: unknown,
+  completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | null,
+): boolean {
+  if (!Array.isArray(value) || value.length > 128) return false;
+  const claims = new Set((completion?.citation_map?.entries ?? []).map((entry) => entry.claim_id));
+  const seen = new Set<string>();
+  for (const row of value) {
+    if (!hasExactKeys(row, ["schema", "claim_id", "status", "target_count"])
+      || row.schema !== "dmb_agent_evidence_anchor_status_v1"
+      || typeof row.claim_id !== "string" || !claims.has(row.claim_id) || seen.has(row.claim_id)
+      || !Number.isSafeInteger(row.target_count) || (row.target_count as number) < 0 || (row.target_count as number) > 8
+      || !(["available", "partial"].includes(String(row.status))
+        ? (row.target_count as number) > 0
+        : ["no_anchor", "overflow"].includes(String(row.status)) && row.target_count === 0)) return false;
     seen.add(row.claim_id);
   }
   return true;
@@ -1157,6 +1183,7 @@ function isWorldPlanContextProjection(
 ): value is WorldPlanAgentPlanContextV1 {
   const required = ["schema", "receipt", "completion", "execution"];
   if (isRecord(value) && Object.prototype.hasOwnProperty.call(value, "source_open_targets")) required.push("source_open_targets");
+  if (isRecord(value) && Object.prototype.hasOwnProperty.call(value, "evidence_anchor_statuses")) required.push("evidence_anchor_statuses");
   if (isRecord(value) && Object.prototype.hasOwnProperty.call(value, "related_recap_context_statuses")) required.push("related_recap_context_statuses");
   const allowed = historyTurn && isRecord(value) && !Object.prototype.hasOwnProperty.call(value, "delivery_replay")
     ? required
@@ -1167,6 +1194,8 @@ function isWorldPlanContextProjection(
     || (value.completion !== null && !isWorldPlanGraphCompletion(value.completion, value.receipt))
     || (Object.prototype.hasOwnProperty.call(value, "source_open_targets")
       && !isWorldPlanSourceOpenTargets(value.source_open_targets, value.receipt, value.completion))
+    || (Object.prototype.hasOwnProperty.call(value, "evidence_anchor_statuses")
+      && !isWorldPlanEvidenceAnchorStatuses(value.evidence_anchor_statuses, value.completion))
     || (Object.prototype.hasOwnProperty.call(value, "related_recap_context_statuses")
       && !isWorldPlanRelatedRecapStatuses(value.related_recap_context_statuses, value.completion))
     || (value.execution !== null && !isWorldPlanGraphExecution(value.execution))
@@ -2341,6 +2370,7 @@ export function WorldPlanAgentConversation({
       newConversationRef.current = null;
       commandStatusRef.current = null;
       historyGenerationRef.current += 1;
+      sourceReadEpochRef.current += 1;
       proposalRequestRef.current = null;
       editReviewRef.current = null;
       sectionScanRef.current = null;
@@ -3569,7 +3599,12 @@ export function WorldPlanAgentConversation({
     const stillCurrent = () => sourceReadEpochRef.current === epoch
       && historySnapshotRef.current?.world_id === target.managed_world_id
       && historySnapshotRef.current?.conversation_id === conversationId
-      && historySnapshotRef.current?.turns.some((item) => item.turn_id === turn.turn_id);
+      && historySnapshotRef.current?.turns.some((item) => {
+        const context = "plan_context" in item ? item.plan_context : null;
+        return item.turn_id === turn.turn_id && isRecord(context)
+          && Array.isArray(context.source_open_targets)
+          && context.source_open_targets.some((current: unknown) => JSON.stringify(current) === JSON.stringify(target));
+      });
     const focus = { kind: "none" as const, sessionId: null, campaignId: null };
     try {
       let content: string | null = null;
@@ -3629,11 +3664,21 @@ export function WorldPlanAgentConversation({
 
   function renderSourceActions(turn: WorldAgentConversationHistoryTurn) {
     const targets = "plan_context" in turn ? turn.plan_context?.source_open_targets ?? [] : [];
-    const unavailable = "plan_context" in turn
+    const recapUnavailable = "plan_context" in turn
       ? turn.plan_context?.related_recap_context_statuses?.filter((row) =>
         row.status === "no_context" || row.status === "metadata_unavailable") ?? []
       : [];
-    if (targets.length === 0 && unavailable.length === 0) return null;
+    const evidenceUnavailable = "plan_context" in turn
+      ? turn.plan_context?.evidence_anchor_statuses?.filter((row) => row.status === "no_anchor") ?? []
+      : [];
+    const evidenceLimited = "plan_context" in turn
+      ? turn.plan_context?.evidence_anchor_statuses?.some((row) => row.status === "partial" || row.status === "overflow") ?? false
+      : false;
+    const recapLimited = "plan_context" in turn
+      ? turn.plan_context?.related_recap_context_statuses?.some((row) => row.status === "partial" || row.status === "overflow") ?? false
+      : false;
+    if (targets.length === 0 && recapUnavailable.length === 0 && evidenceUnavailable.length === 0
+      && !evidenceLimited && !recapLimited) return null;
     const claims = "plan_context" in turn
       ? turn.plan_context?.completion?.answer_segments.filter((segment) => segment.kind === "graph_claim") ?? []
       : [];
@@ -3672,13 +3717,22 @@ export function WorldPlanAgentConversation({
           </div> : null}
         </div>;
       })}
-      {unavailable.length > 0 ? <details className="world-plan-agent-conversation__source-status">
+      {evidenceLimited ? <p role="note">Some evidence passage choices could not be offered. Shown links remain pinned.</p> : null}
+      {recapLimited ? <p role="note">Some related recap choices could not be offered. Shown links remain pinned.</p> : null}
+      {evidenceUnavailable.length > 0 ? <details className="world-plan-agent-conversation__source-status">
+        <summary>Evidence source status</summary>
+        {evidenceUnavailable.map((row) => {
+          const point = claims.findIndex((claim) => claim.claim_id === row.claim_id) + 1;
+          return <p key={row.claim_id}>{claims.length > 1 ? `Point ${point}: ` : ""}No readable evidence anchor is available for this cited point.</p>;
+        })}
+      </details> : null}
+      {recapUnavailable.length > 0 ? <details className="world-plan-agent-conversation__source-status">
         <summary>Related recap context status</summary>
-        {unavailable.map((row) => {
+        {recapUnavailable.map((row) => {
           const point = claims.findIndex((claim) => claim.claim_id === row.claim_id) + 1;
           return <p key={row.claim_id}>{claims.length > 1 ? `Point ${point}: ` : ""}{row.status === "no_context"
             ? "No related recap passage matches this cited point."
-            : "Related recap metadata could not be checked for this cited point."}</p>;
+            : "Some related recap metadata could not be checked for this cited point."}</p>;
         })}
       </details> : null}
     </section>;

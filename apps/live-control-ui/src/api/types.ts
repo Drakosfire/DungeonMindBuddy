@@ -1037,13 +1037,21 @@ export interface WorldPlanAgentPlanContextV1 {
   execution: WorldPlanGraphExecutionProjectionV1 | null;
   delivery_replay: boolean;
   source_open_targets?: WorldPlanSourceOpenTargetV1[];
+  evidence_anchor_statuses?: WorldPlanEvidenceAnchorStatusV1[];
   related_recap_context_statuses?: WorldPlanRelatedRecapContextStatusV1[];
+}
+
+export interface WorldPlanEvidenceAnchorStatusV1 {
+  schema: "dmb_agent_evidence_anchor_status_v1";
+  claim_id: string;
+  status: "available" | "no_anchor" | "partial" | "overflow";
+  target_count: number;
 }
 
 export interface WorldPlanRelatedRecapContextStatusV1 {
   schema: "dmb_agent_related_recap_context_status_v1";
   claim_id: string;
-  status: "available" | "multiple_choices" | "no_context" | "metadata_unavailable";
+  status: "available" | "multiple_choices" | "no_context" | "metadata_unavailable" | "partial" | "overflow";
   choice_count: number;
 }
 

@@ -201,6 +201,12 @@
   flex: 0 1 100%;
 }
 
+.world-plan-agent-conversation__source-actions > p {
+  flex: 0 1 100%;
+  margin: 0;
+  color: var(--ui-text-secondary, #b8c0ce);
+}
+
 .world-plan-agent-conversation__source-status {
   flex: 0 1 100%;
   color: var(--ui-text-secondary, #b8c0ce);

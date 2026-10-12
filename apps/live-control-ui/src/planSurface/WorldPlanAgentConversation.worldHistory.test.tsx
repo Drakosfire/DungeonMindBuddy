@@ -2469,8 +2469,10 @@ describe("World Plan conversation consumer", () => {
   it("opens exact evidence and related recap targets from saved World history without a provider repost", async () => {
     const context = await planGraphContext("graph_grounded");
     context.source_open_targets = sourceOpenTargets();
+    context.evidence_anchor_statuses = [{ schema: "dmb_agent_evidence_anchor_status_v1",
+      claim_id: "claim-internal-test", status: "partial", target_count: 1 }];
     context.related_recap_context_statuses = [{ schema: "dmb_agent_related_recap_context_status_v1",
-      claim_id: "claim-internal-test", status: "available", choice_count: 1 }];
+      claim_id: "claim-internal-test", status: "partial", choice_count: 1 }];
     setupApi(await historyV2("conversation-a", 5, [policyHistoryTurn(
       1, "source-open-turn", "What is known?", "The western gate is watched.", context,
     )]));
@@ -2502,6 +2504,8 @@ describe("World Plan conversation consumer", () => {
     render(conversationElement());
     const openEvidence = await screen.findByRole("button", { name: "Open evidence" });
     expect(openEvidence.closest("details")).toBeNull();
+    expect(screen.getByText(/Some evidence passage choices could not be offered/)).toBeInTheDocument();
+    expect(screen.getByText(/Some related recap choices could not be offered/)).toBeInTheDocument();
     fireEvent.click(openEvidence);
     expect(await screen.findByLabelText("Evidence passage")).toHaveTextContent("Exact evidence passage");
     expect(evidenceRead).toHaveBeenCalledWith(expect.objectContaining({
@@ -2532,7 +2536,7 @@ describe("World Plan conversation consumer", () => {
     const summaries = await screen.findAllByText("Related recap context status");
     summaries.forEach((summary) => fireEvent.click(summary));
     expect(screen.getByText("No related recap passage matches this cited point.")).toBeInTheDocument();
-    expect(screen.getByText("Related recap metadata could not be checked for this cited point.")).toBeInTheDocument();
+    expect(screen.getByText("Some related recap metadata could not be checked for this cited point.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Open related recap context" })).not.toBeInTheDocument();
   });
 
