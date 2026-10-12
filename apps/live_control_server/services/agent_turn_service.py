@@ -2343,6 +2343,33 @@ class _PolicyExecutionAdapter:
             sha256(request.continuation.encode("utf-8")).hexdigest()
             if request.continuation is not None else None
         )
+        prior_page = None
+        if continuation_sha is not None:
+            authorizations = {
+                event.read_call_id: event
+                for event in execution.events
+                if getattr(event, "kind", None) == "related_recap_context_authorized_v1"
+            }
+            descriptor_fields = (
+                "context_anchor_id", "descriptor_world_id", "descriptor_campaign_id",
+                "descriptor_graph_revision_id", "descriptor_source_artifact_id",
+                "descriptor_source_revision_id", "descriptor_content_sha256",
+                "selector_schema", "selector_policy", "expected_session_id", "expected_heading",
+            )
+            pages = [
+                event for event in execution.events
+                if getattr(event, "kind", None) == "validated_related_recap_context_v1"
+                and event.outcome == "truncated"
+                and event.continuation_out_sha256 == continuation_sha
+                and (authorization := authorizations.get(event.read_call_id)) is not None
+                and all(
+                    getattr(authorization.admission, field) == getattr(admission, field)
+                    for field in descriptor_fields
+                )
+            ]
+            if len(pages) != 1:
+                return denied("related_recap_context_not_admitted", 403)
+            prior_page = pages[0]
         authorization = graph_types.RelatedRecapContextAuthorizationEventV1(
             event_id=uuid4(), sequence=len(execution.events),
             kind="related_recap_context_authorized_v1",
@@ -2402,6 +2429,24 @@ class _PolicyExecutionAdapter:
                 or result.heading_line is None or result.line_start is None
                 or result.line_end is None or result.section_sha256 is None
                 or result.offset_chars < 0
+                or (request.continuation is None and result.offset_chars != 0)
+                or (
+                    result.truncated and (
+                        not isinstance(result.next_continuation, str)
+                        or not result.next_continuation
+                        or len(result.next_continuation) > 256
+                    )
+                )
+                or (not result.truncated and result.next_continuation is not None)
+                or (
+                    prior_page is not None and (
+                        result.section_sha256 != prior_page.section_sha256
+                        or result.heading_line != prior_page.heading_line
+                        or result.line_start != prior_page.line_start
+                        or result.line_end != prior_page.line_end
+                        or result.offset_chars != prior_page.offset_chars + prior_page.returned_chars
+                    )
+                )
             ):
                 raise ValueError("related recap read differed from authorized descriptor")
             event = graph_types.ValidatedRelatedRecapContextEventV1(

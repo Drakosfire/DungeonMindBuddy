@@ -1677,9 +1677,7 @@ def test_parent_source_broker_persists_authorization_before_content_and_result_b
         clear_sessions()
 
 
-def test_parent_related_recap_broker_persists_verified_context_without_evidence_upgrade(
-    monkeypatch: Any,
-) -> None:
+def _related_recap_broker_fixture(monkeypatch: Any) -> Any:
     from types import SimpleNamespace
     from application_state.agent_conversation import types as graph_types
     from apps.live_control_server.services import agent_turn_service as service_module
@@ -1782,9 +1780,8 @@ def test_parent_related_recap_broker_persists_verified_context_without_evidence_
     class Retrieval:
         def get_evidence(self, projection: Any, *, target: Any, max_anchors: int) -> Any:
             assert max_anchors == 32
-            assert (target.kind, target.target_id) == (
-                "assertion", "assertion-traversal-test"
-            )
+            assert target.kind == "assertion"
+            assert target.target_id in {"assertion-internal-test", "assertion-traversal-test"}
             assert projection.revision_pin == receipt.graph_authority.graph_revision
             return SimpleNamespace(
                 found=True, target=target, snapshot=snapshot(projection),
@@ -1863,6 +1860,38 @@ def test_parent_related_recap_broker_persists_verified_context_without_evidence_
     )
     adapter.fence = Fence()
     adapter.last_provider_attempt_id = uuid4()
+    return SimpleNamespace(
+        adapter=adapter, turn=turn, receipt=receipt, session=session, calls=calls,
+        descriptor=descriptor, retrieval_type=Retrieval, read_source=read_source,
+        source_reads=source_reads, direct_reads=direct_reads, page_text=page_text,
+        section_digest=section_digest, budget=budget, graph_types=graph_types,
+        service_module=service_module,
+    )
+
+
+def _related_recap_request(fixture: Any, **updates: Any) -> dict[str, Any]:
+    return {
+        "toolName": "read_related_recap_context",
+        "arguments": {
+            "retrievalSessionId": fixture.session.id,
+            "targetKind": "assertion", "targetId": "assertion-internal-test",
+            "evidenceRefIds": ["evidence-internal-test"],
+            "contextAnchorId": fixture.descriptor.context_anchor_id,
+            **updates,
+        },
+    }
+
+
+def test_parent_related_recap_broker_persists_verified_context_without_evidence_upgrade(
+    monkeypatch: Any,
+) -> None:
+    from types import SimpleNamespace
+
+    fixture = _related_recap_broker_fixture(monkeypatch)
+    adapter, receipt, session = fixture.adapter, fixture.receipt, fixture.session
+    descriptor, calls = fixture.descriptor, fixture.calls
+    Retrieval, direct_reads = fixture.retrieval_type, fixture.direct_reads
+    page_text, budget = fixture.page_text, fixture.budget
     traversal = SimpleNamespace(
         snapshot=SimpleNamespace(
             world_id=receipt.graph_authority.native_world_id,
@@ -2006,7 +2035,23 @@ def test_parent_related_recap_broker_persists_verified_context_without_evidence_
     ]
     persisted = adapter.fence.turn.graph_context_execution
     assert persisted.events[-2].included_chars == len(page_text)
+    included = persisted.events[-2]
+    dispatched = persisted.events[-1]
+    validated = saved.events[-1]
+    assert included.included_context_event_ids == [validated.event_id]
+    assert included.included_context_sha256 == (
+        fixture.graph_types.related_recap_context_inclusion_digest([validated])
+    )
+    assert included.envelope_sha256 == dispatched.envelope_sha256 == view["payloadSha256"]
+    assert included.provider_attempt_id == dispatched.provider_attempt_id
+    assert json.loads(view["payloadJson"])["input"][1]["output"] == (
+        adapter.context_payloads[validated.event_id]
+    )
+    assert dispatched.included_assertion_ids == []
+    assert dispatched.included_relationship_ids == []
+    assert dispatched.included_evidence_ref_ids == []
     assert persisted.events[-1].included_source_read_event_ids == []
+    assert persisted.policy.source_opened is False
     assert page_text not in persisted.model_dump_json()
     duplicated = json.loads(provider_body)
     duplicated["input"].extend(duplicated["input"])
@@ -2018,6 +2063,231 @@ def test_parent_related_recap_broker_persists_verified_context_without_evidence_
     }) is False
     assert adapter.failure is not None
     assert adapter.failure.code == "graph_evidence_invalid"
+
+
+def test_parent_related_recap_selected_index_admission(monkeypatch: Any) -> None:
+    fixture = _related_recap_broker_fixture(monkeypatch)
+    graph_types = fixture.graph_types
+    digest = fixture.service_module._canonical_sha256
+    authority = fixture.receipt.graph_authority
+    context = {
+        "world_id": authority.native_world_id, "campaign_id": None,
+        "scope_mode": "world_cross_campaign",
+        "focus": {"kind": "none", "session_id": None},
+        "admissibility": "gm", "revision_id": authority.graph_revision,
+    }
+    targets = [{"kind": "assertion", "target_id": "assertion-traversal-test"}]
+    entries = [{
+        "anchor_id": "dm-source-anchor:v1:selected-recap",
+        "evidence_ref_id": "evidence-internal-test",
+        "source_artifact_id": fixture.descriptor.source_artifact_id,
+        "source_revision_id": fixture.descriptor.source_revision_id,
+    }]
+    selector_sha = digest({
+        "schema": "dm_selected_source_anchor_selector_v1",
+        "context": context, "max_entries": 512, "targets": targets,
+    })
+    index_sha = digest({
+        "schema": "dm_selected_source_anchor_index_v1",
+        "selector_sha256": selector_sha, "status": "complete",
+        "admitted_targets": targets, "not_visible_targets": [],
+        "provenance_gap_count": 0, "unavailable_binding_count": 0,
+        "eligible_count": 1, "entries": entries,
+    })
+    commitment = graph_types.GraphSelectedIndexCommitmentV1.model_validate({
+        "context": context, "access_context_sha256": digest(context),
+        "requested_targets": targets, "admitted_targets": targets,
+        "not_visible_targets": [], "requested_count": 1, "admitted_count": 1,
+        "not_visible_count": 0, "provenance_gap_count": 0,
+        "unavailable_binding_count": 0, "eligible_count": 1,
+        "max_entries": 512, "status": "complete", "index_scope": "selected_targets",
+        "selector_sha256": selector_sha, "index_sha256": index_sha,
+    })
+    prior = fixture.adapter.fence.turn.graph_context_execution
+    scope = graph_types.GraphSelectedSourceReadScopeV2(
+        retrieval_session_id=fixture.session.id, world_id=authority.managed_world_id,
+        campaign_id=None, graph_revision=authority.graph_revision,
+        admitted_anchors=entries, selected_index_commitment=commitment,
+        initial_claim_packet_sha256=fixture.receipt.assembled_input.dispatched_packet_sha256,
+    )
+    policy = graph_types.GraphExecutionPolicyV2.model_validate({
+        **prior.policy.model_dump(mode="json", by_alias=True),
+        "policy_version": "plan_world_graph_execution_selected_scope_v1",
+        "source_read_scope": scope.model_dump(mode="json", by_alias=True),
+    })
+    execution = graph_types.PlanWorldGraphExecutionV2(
+        context_receipt_sha256=prior.context_receipt_sha256, policy=policy, events=[],
+        execution_policy_sha256=digest({
+            "schema": "dmb_agent_plan_world_graph_execution_v2",
+            "context_receipt_sha256": prior.context_receipt_sha256,
+            "policy": policy.model_dump(mode="json", by_alias=True),
+        }),
+    )
+    fixture.adapter.fence.turn = fixture.turn.model_copy(update={
+        "graph_context_execution": execution,
+    })
+    output = fixture.adapter.broker_graph_operation(_related_recap_request(
+        fixture, targetId="assertion-traversal-test",
+    ))
+    assert json.loads(output["resultJson"])["content"] == fixture.page_text
+    events = fixture.adapter.fence.turn.graph_context_execution.events
+    assert fixture.calls == [
+        "authorize_related_recap_context", "record_validated_related_recap_context",
+    ]
+    assert events[0].admission.admission_origin == "selected_index_admission"
+    assert events[0].admission.selected_index_sha256 == index_sha
+    assert events[0].admission.admission_graph_event_id is None
+
+
+@pytest.mark.parametrize("change", [
+    None, "unknown_token", "core_campaign", "source_campaign", "offset", "section", "range",
+])
+def test_parent_related_recap_continuation_matches_descriptor_and_pages(
+    monkeypatch: Any, change: str | None,
+) -> None:
+    fixture = _related_recap_broker_fixture(monkeypatch)
+    pages = ["The old watch ", "shifted."]
+    section_sha = sha256("".join(pages).encode()).hexdigest()
+    continuation = "opaque-next-page"
+    requests: list[Any] = []
+
+    def paged_source(request: Any) -> Any:
+        requests.append(request)
+        result = fixture.read_source(request)
+        second = request.continuation is not None
+        result.content = pages[int(second)]
+        result.section_sha256 = section_sha
+        result.offset_chars = len(pages[0]) if second else 0
+        result.outcome = "enough" if second else "truncated"
+        result.truncated = not second
+        result.next_continuation = None if second else continuation
+        if second:
+            assert request.continuation == continuation
+            if change == "source_campaign":
+                result.context.campaign_id = "wrong-campaign"
+            elif change == "offset":
+                result.offset_chars += 1
+            elif change == "section":
+                result.section_sha256 = "b" * 64
+            elif change == "range":
+                result.line_end += 1
+        return result
+
+    monkeypatch.setattr(fixture.source_reads, "read_recap_context", paged_source)
+    first = fixture.adapter.broker_graph_operation(_related_recap_request(fixture))
+    first_payload = json.loads(first["resultJson"])
+    assert first_payload["content"] == pages[0]
+    assert first_payload["nextContinuation"] == continuation
+    assert fixture.adapter.fence.turn.graph_context_execution.events[0].admission.admission_origin == (
+        "initial_graph_input"
+    )
+    if change == "core_campaign":
+        fixture.descriptor.campaign_id = "changed-descriptor-campaign"
+    second = fixture.adapter.broker_graph_operation(_related_recap_request(
+        fixture, continuation=("unissued-token" if change == "unknown_token" else continuation),
+    ))
+    payload = json.loads(second["resultJson"])
+    events = fixture.adapter.fence.turn.graph_context_execution.events
+    if change is None:
+        assert payload["content"] == pages[1]
+        assert payload["offsetChars"] == len(pages[0])
+        assert payload["nextContinuation"] is None
+        assert len(requests) == 2 and len(fixture.adapter.context_payloads) == 2
+        assert events[2].continuation_in_sha256 == events[1].continuation_out_sha256
+        assert events[3].offset_chars == events[1].returned_chars
+        assert events[3].section_sha256 == events[1].section_sha256
+        assert events[3].source_bytes_sha256 == events[1].source_bytes_sha256
+    else:
+        assert "content" not in payload and pages[1] not in second["resultJson"]
+        assert len(fixture.adapter.context_payloads) == 1
+        assert sum(event.kind == "validated_related_recap_context_v1" for event in events) == 1
+        if change in {"unknown_token", "core_campaign"}:
+            assert payload["code"] == "related_recap_context_not_admitted"
+            assert len(requests) == 1 and len(events) == 2
+        else:
+            assert payload["code"] == "related_recap_context_unavailable"
+            assert len(requests) == 2 and len(events) == 3
+    assert continuation not in fixture.adapter.fence.turn.graph_context_execution.model_dump_json()
+
+
+@pytest.mark.parametrize(("owner", "field", "value"), [
+    ("context", "campaign_id", "wrong-campaign"),
+    ("context", "world_id", "wrong-world"),
+    ("context", "source_artifact_id", "wrong-artifact"),
+    ("context", "source_revision_id", "wrong-source-revision"),
+    ("context", "content_sha256", "b" * 64),
+    ("context", "selector_policy", "wrong-selector"),
+    ("context", "expected_heading", "# Wrong heading"),
+    ("snapshot", "revision_id", "wrong-graph-revision"),
+    ("snapshot", "scope_mode", "campaign"),
+    ("result", "section_sha256", "invalid-digest"),
+    ("result", "offset_chars", 1),
+    ("result", "line_start", 1),
+    ("result", "line_end", 1),
+])
+def test_parent_related_recap_rejects_source_metadata_before_release(
+    monkeypatch: Any, owner: str, field: str, value: Any,
+) -> None:
+    fixture = _related_recap_broker_fixture(monkeypatch)
+
+    def wrong_source(request: Any) -> Any:
+        result = fixture.read_source(request)
+        setattr(result if owner == "result" else getattr(result, owner), field, value)
+        return result
+
+    monkeypatch.setattr(fixture.source_reads, "read_recap_context", wrong_source)
+    output = fixture.adapter.broker_graph_operation(_related_recap_request(fixture))
+    payload = json.loads(output["resultJson"])
+    assert payload["code"] == "related_recap_context_unavailable"
+    assert "content" not in payload and fixture.page_text not in output["resultJson"]
+    assert fixture.adapter.context_payloads == {}
+    assert len(fixture.adapter.fence.turn.graph_context_execution.events) == 1
+    assert fixture.calls == ["authorize_related_recap_context"]
+
+
+@pytest.mark.parametrize("max_chars", [0, 12001, True])
+def test_parent_related_recap_per_call_quota_prevents_source_io(
+    monkeypatch: Any, max_chars: Any,
+) -> None:
+    fixture = _related_recap_broker_fixture(monkeypatch)
+    output = fixture.adapter.broker_graph_operation(_related_recap_request(
+        fixture, maxChars=max_chars,
+    ))
+    assert json.loads(output["resultJson"])["code"] == "invalid_arguments"
+    assert fixture.calls == [] and fixture.adapter.context_payloads == {}
+
+
+def test_parent_related_recap_eight_call_and_total_character_quota(monkeypatch: Any) -> None:
+    fixture = _related_recap_broker_fixture(monkeypatch)
+    page = "x" * 12000
+    source_calls: list[Any] = []
+
+    def full_page(request: Any) -> Any:
+        source_calls.append(request)
+        result = fixture.read_source(request)
+        result.content = page
+        result.section_sha256 = sha256(page.encode()).hexdigest()
+        return result
+
+    monkeypatch.setattr(fixture.source_reads, "read_recap_context", full_page)
+    for _ in range(8):
+        output = fixture.adapter.broker_graph_operation(_related_recap_request(
+            fixture, maxChars=12000,
+        ))
+        assert json.loads(output["resultJson"])["content"] == page
+    events = fixture.adapter.fence.turn.graph_context_execution.events
+    assert sum(
+        event.max_chars for event in events
+        if event.kind == "related_recap_context_authorized_v1"
+    ) == 96000
+    assert sum(
+        event.returned_chars for event in events
+        if event.kind == "validated_related_recap_context_v1"
+    ) == 96000
+    denied = fixture.adapter.broker_graph_operation(_related_recap_request(fixture, maxChars=1))
+    assert json.loads(denied["resultJson"])["code"] == "related_recap_context_over_budget"
+    assert len(source_calls) == 8
+    assert len(fixture.adapter.fence.turn.graph_context_execution.events) == 16
 
 
 def test_plan_graph_budget_fails_closed_for_unverified_model(
