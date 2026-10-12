@@ -5,7 +5,7 @@ import type { WorldContainerRecord } from "../api/types";
 import { useRetrySelectedWorld, useSelectedWorld } from "./SelectedWorldContext";
 import { selectWorldFromLocation, worldScopedSurfaceHref } from "./worldSelectionNavigation";
 
-export function WorldSelector() {
+export function WorldSelector({ compact = false }: { compact?: boolean } = {}) {
   const selected = useSelectedWorld();
   const retrySelection = useRetrySelectedWorld();
   const [open, setOpen] = useState(false);
@@ -28,13 +28,14 @@ export function WorldSelector() {
     }
   }, []);
 
+  const worldLabel = selected.kind === "managed" ? selected.name : selected.kind === "legacy" ? "Choose" : "Unavailable";
   return (
     <div className="app-world-selector" data-testid="world-selector">
-      <button type="button" aria-expanded={open} onClick={() => {
+      <button type="button" aria-expanded={open} aria-label={compact ? `Switch World: ${worldLabel}` : undefined} title={compact ? `Switch World: ${worldLabel}` : undefined} onClick={() => {
         setOpen((current) => !current);
         if (!open) void refresh();
       }}>
-        World: {selected.kind === "managed" ? selected.name : selected.kind === "legacy" ? "Choose" : "Unavailable"}
+        {compact ? <>{worldLabel} <span aria-hidden="true">▾</span></> : `World: ${worldLabel}`}
       </button>
       {open ? (
         <div className="app-world-selector__menu" aria-label="Select World">

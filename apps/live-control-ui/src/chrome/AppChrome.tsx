@@ -14,12 +14,8 @@ import {
   SurfaceContextHost,
 } from "../surfaceInteraction/contextHost";
 import { PeekRegionSlot, usePeekRegionState } from "../surfaceInteraction/peekHost";
-import { APP_NAV_ITEMS, type AppRouteKey } from "./appChromeConfig";
-import { interceptPrimaryNavigationClick } from "./appNavigation";
-import { AppChromeWorldGraphStatus } from "./AppChromeWorldGraphStatus";
-import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
-import { WorldSelector } from "../selectedWorld/WorldSelector";
-import { worldScopedSurfaceHref } from "../selectedWorld/worldSelectionNavigation";
+import type { AppRouteKey } from "./appChromeConfig";
+import { CompactAppNavigation } from "./CompactAppNavigation";
 
 const callbackIdentityKeys = new WeakMap<() => void, number>();
 let nextCallbackIdentityKey = 1;
@@ -135,7 +131,6 @@ export function AppChrome({
   workspaceLayout = "content",
   children,
 }: AppChromeProps) {
-  const selectedWorld = useSelectedWorld();
   const { winner: secondaryContext } = usePeekRegionState();
   const priorSecondaryKindRef = useRef(secondaryContext?.kind ?? null);
   const secondaryKindRef = useRef(secondaryContext?.kind ?? null);
@@ -355,24 +350,7 @@ export function AppChrome({
   const mainContent = (
     <div className="app-wrap" data-workspace-layout={workspaceLayout}>
       <header ref={chromeHeaderRef} className="app-chrome-header" data-testid="app-chrome-header">
-        <nav className="app-site-nav" aria-label="Command board navigation">
-          <div className="app-site-nav__routes">
-            {APP_NAV_ITEMS.map((item) => (
-              <a
-                key={item.href}
-                href={item.route && selectedWorld.kind === "managed"
-                  ? worldScopedSurfaceHref(item.href, selectedWorld.worldId)
-                  : item.href}
-                className={item.route === activeRoute ? "active" : undefined}
-                onClick={interceptPrimaryNavigationClick}
-              >
-                {item.label}
-              </a>
-            ))}
-          </div>
-          <WorldSelector />
-          <AppChromeWorldGraphStatus />
-        </nav>
+        <CompactAppNavigation activeRoute={activeRoute} />
         <SurfaceContextHost />
       </header>
 

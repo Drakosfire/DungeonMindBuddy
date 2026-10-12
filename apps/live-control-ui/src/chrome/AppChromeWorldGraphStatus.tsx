@@ -154,7 +154,7 @@ function WorldGraphConstellation({ tone }: { tone: WorldGraphChromeTone }) {
 /**
  * Application-chrome World Graph status. Observes lens/projection; does not load.
  */
-export function AppChromeWorldGraphStatus() {
+export function AppChromeWorldGraphStatus({ compact = false }: { compact?: boolean } = {}) {
   const [open, setOpen] = useState(false);
   const selectedWorld = useSelectedWorld();
   const projection = useOptionalWorldGraphLensProjection();
@@ -188,6 +188,13 @@ export function AppChromeWorldGraphStatus() {
     [lens, projection, selectedWorld],
   );
 
+  const graphStatusLabel = ({
+    ready: "Ready", loading: "Loading…", error: "Needs attention", unavailable: "Not initialized",
+    warning: "Check scope", not_loaded: "Not loaded",
+  } satisfies Record<WorldGraphChromeTone, string>)[presentation.tone];
+  const graphAccessibleLabel = selectedWorld.kind === "managed"
+    ? `${selectedWorld.name} World graph: ${graphStatusLabel}` : `World graph: ${presentation.fullLabel}`;
+
   const trigger = (
     <button
       type="button"
@@ -195,16 +202,20 @@ export function AppChromeWorldGraphStatus() {
       data-testid="app-chrome-world-graph-status"
       aria-expanded={open}
       aria-haspopup="dialog"
-      title={presentation.fullLabel}
+      title={compact ? graphAccessibleLabel : presentation.fullLabel}
+      aria-label={compact ? graphAccessibleLabel : undefined}
       onClick={() => setOpen((current) => !current)}
     >
       <WorldGraphConstellation tone={presentation.tone} />
+      {compact ? <span className="app-world-graph-status__label app-world-graph-status__label--graph"><span className="app-world-graph-status__prefix">Graph · </span>{graphStatusLabel}</span> : <>
       <span className="app-world-graph-status__label app-world-graph-status__label--full">
         {presentation.fullLabel}
       </span>
       <span className="app-world-graph-status__label app-world-graph-status__label--compact">
         {presentation.compactLabel}
       </span>
+      </>}
+
     </button>
   );
 

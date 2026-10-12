@@ -148,7 +148,10 @@ describe("appNavigation helpers", () => {
 });
 
 function commandBoardNav() {
-  return screen.getByRole("navigation", { name: "Command board navigation" });
+  const nav = screen.getByRole("navigation", { name: "Command board navigation" });
+  const toggle = within(nav).queryByRole("button", { name: "Open navigation" });
+  if (toggle) fireEvent.click(toggle);
+  return nav;
 }
 
 describe("App same-document primary navigation", () => {
@@ -294,7 +297,7 @@ describe("App same-document primary navigation", () => {
     expect(await screen.findByTestId("play-status-miss")).toBeInTheDocument();
     expect(window.location.search).toBe(`?run=${PLAY_RUN_ID}`);
 
-    const nav = screen.getByRole("navigation", { name: "Command board navigation" });
+    const nav = commandBoardNav();
     await user.click(within(nav).getByRole("link", { name: "Ingest" }));
     expect(await screen.findByRole("heading", { name: "Graph Review Workbench" })).toBeInTheDocument();
     expect(window.location.pathname).toBe("/ingest");
@@ -314,7 +317,7 @@ describe("App same-document primary navigation", () => {
     expect(await screen.findByRole("heading", { name: "Graph Review Workbench" })).toBeInTheDocument();
 
     const pushSpy = vi.spyOn(window.history, "pushState");
-    const nav = screen.getByRole("navigation", { name: "Command board navigation" });
+    const nav = commandBoardNav();
     await user.click(within(nav).getByRole("link", { name: "Ingest" }));
     expect(pushSpy).not.toHaveBeenCalled();
     expect(window.location.pathname).toBe("/ingest");
@@ -324,7 +327,7 @@ describe("App same-document primary navigation", () => {
   it("does not intercept Combat Tracker or modifier-click primary links", async () => {
     const user = userEvent.setup();
     render(<App />);
-    const nav = screen.getByRole("navigation", { name: "Command board navigation" });
+    const nav = commandBoardNav();
     const combat = within(nav).getByRole("link", { name: "Combat Tracker" });
     expect(combat).toHaveAttribute("href", "/combat");
 

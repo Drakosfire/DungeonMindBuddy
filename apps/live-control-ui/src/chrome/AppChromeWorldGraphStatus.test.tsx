@@ -197,3 +197,23 @@ describe("managed World error detail", () => {
     }
   });
 });
+
+describe("compact World graph health label", () => {
+  it.each([
+    ["ready", "Graph · Ready"],
+    ["loading", "Graph · Loading…"],
+    ["error", "Graph · Needs attention"],
+    ["unavailable", "Graph · Not initialized"],
+  ] as const)("keeps %s status truthful and names the World accessibly", async (state, label) => {
+    const selected = await import("../selectedWorld/SelectedWorldContext");
+    const projection = await import("../graphLens/useWorldGraphLensProjection");
+    vi.spyOn(selected, "useSelectedWorld").mockReturnValue({ kind: "managed", worldId: "elderwyld", name: "Elderwyld", documentId: null });
+    vi.spyOn(projection, "useOptionalWorldGraphLensProjection").mockReturnValue({ projectionState: state, projectionError: null, nodeCount: 0 } as ReturnType<typeof projection.useOptionalWorldGraphLensProjection>);
+    try {
+      render(<SurfaceContextProvider><AppChromeWorldGraphStatus compact /></SurfaceContextProvider>);
+      const trigger = screen.getByTestId("app-chrome-world-graph-status");
+      expect(trigger).toHaveTextContent(label);
+      expect(trigger.getAttribute("aria-label")).toContain("Elderwyld World graph:");
+    } finally { vi.restoreAllMocks(); }
+  });
+});
