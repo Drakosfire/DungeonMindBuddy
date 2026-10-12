@@ -259,3 +259,64 @@ def test_selected_own_overflow_and_unavailable_preserve_truthful_coverage():
         if expected == "unavailable":
             assert index.commitment["admitted_count"] == 1 and index.commitment["unavailable_binding_count"] > 0
             assert search.result.nodes[0].evidence_ref_ids
+
+
+def test_mounted_recap_context_v2_routes_preserve_saved_v1_and_auth(monkeypatch,tmp_path):
+    import asyncio
+    import httpx
+    from fastapi import FastAPI
+    import fastapi.routing as routing
+    import fastapi.dependencies.utils as dependencies
+    from apps.live_control_server.routes import world_graph_retrieval as route
+    from apps.live_control_server.services import world_graph_retrieval as product
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+    from tests.test_recap_source_read_continuity import _context_fixture_v2
+    from graph_memory.retrieval.models import RecapContextReadRequestV2
+    token="synthetic-v2-reader-token-"+"x"*32
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE","local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT","development")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN",token)
+    async def inline(function,*args,**kwargs):
+        return function(*args,**kwargs)
+    monkeypatch.setattr(routing,"run_in_threadpool",inline)
+    monkeypatch.setattr(dependencies,"run_in_threadpool",inline)
+    raw=b"# Session 16 Recap\nCanonical body.\n"
+    services,index_request,read_request,source,_=_context_fixture_v2(tmp_path,raw)
+    monkeypatch.setattr(product,"_require_mounted_native_read",lambda _root:None)
+    monkeypatch.setattr(product,"_resolved_repo_root",lambda **_kwargs:tmp_path)
+    calls=[]
+    monkeypatch.setattr(direct,"direct_services_from_config",lambda world:calls.append(world) or services)
+    app=FastAPI()
+    app.include_router(route.router)
+    base="/api/live/world-graph/retrieval/recap-context"
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),base_url="http://test") as client:
+            denied=await client.post(base+"/v2/index",json=index_request.model_dump(mode="json",by_alias=True))
+            assert denied.status_code==401 and calls==[]
+            headers={"Authorization":"Bearer "+token}
+            listed=await client.post(base+"/v2/index",headers=headers,json=index_request.model_dump(mode="json",by_alias=True))
+            assert listed.status_code==200 and listed.json()["schema"]=="dmb_recap_context_index_v2"
+            assert listed.json()["entries"][0]["selectorPolicy"]=="markdown-session-recap-v2"
+            old_body={**read_request.model_dump(mode="json",by_alias=True),"schema":"dmb_recap_context_read_request_v1","contextAnchorId":"dm-context-anchor:v1:synthetic"}
+            old=await client.post(base+"/read",headers=headers,json=old_body)
+            saved={**old_body,"schema":"dmb_recap_context_read_request_v2"}
+            delegated=await client.post(base+"/v2/read",headers=headers,json=saved)
+            assert old.status_code==delegated.status_code==200 and old.json()==delegated.json()
+            assert delegated.json()["nextContinuation"].startswith("recap-page:v1:")
+            new=await client.post(base+"/v2/read",headers=headers,json=read_request.model_dump(mode="json",by_alias=True))
+            assert new.status_code==200 and new.json()["schema"]=="dmb_recap_context_read_v2"
+            assert new.json()["selectedForm"]=="canonical_h1"
+            crossing={**read_request.model_dump(mode="json",by_alias=True),"continuation":old.json()["nextContinuation"]}
+            rejected=await client.post(base+"/v2/read",headers=headers,json=crossing)
+            assert rejected.status_code==409 and rejected.json()["code"]=="source_unavailable"
+            wrong={**read_request.model_dump(mode="json",by_alias=True),"contextAnchorId":"dm-context-anchor:v3:unknown"}
+            assert (await client.post(base+"/v2/read",headers=headers,json=wrong)).status_code==422
+            oversized={**read_request.model_dump(mode="json",by_alias=True),"maxChars":12001}
+            assert (await client.post(base+"/v2/read",headers=headers,json=oversized)).status_code==422
+            no_pin={**read_request.model_dump(mode="json",by_alias=True),"revisionPin":None}
+            assert (await client.post(base+"/v2/read",headers=headers,json=no_pin)).status_code==422
+            assert (await client.post(base+"/read",headers=headers,json=read_request.model_dump(mode="json",by_alias=True))).status_code==422
+    asyncio.run(exercise())
+    assert source.read_bytes()==raw
+    with pytest.raises(ValidationError):
+        RecapContextReadRequestV2.model_validate({**read_request.model_dump(mode="json",by_alias=True),"admissibility":"player"})

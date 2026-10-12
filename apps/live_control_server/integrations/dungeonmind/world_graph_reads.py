@@ -164,6 +164,11 @@ from graph_memory.retrieval.models import (
     RecapContextDescriptor,
     RecapContextIndexResult,
     RecapContextReadResult,
+    RecapContextIndexRequestV2,
+    RecapContextReadRequestV2,
+    RecapContextDescriptorV2,
+    RecapContextIndexResultV2,
+    RecapContextReadResultV2,
 )
 from graph_memory.retrieval.source_reader import (
     SourceReadError,
@@ -3411,3 +3416,242 @@ def _read_verified_json_file(
     if not isinstance(payload, dict):
         raise SourceReadError("source file JSON payload is not an object", code="source_integrity_error")
     return payload
+
+
+def _recap_context_view_v2(native: Any) -> RecapContextDescriptorV2:
+    selector = native.section_selector
+    if (
+        selector.schema_version != "dm_recap_context_section_selector_v2"
+        or selector.kind != "recap_section"
+        or selector.policy != "markdown-session-recap-v2"
+    ):
+        raise ValueError("unsupported recap context selector")
+    if any(
+        not isinstance(value, str) or not value or value != value.strip()
+        for value in (
+            native.context_anchor_id, native.world_id, native.graph_revision_id,
+            native.source_artifact_id, native.source_revision_id, native.source_uri,
+            native.content_sha256,
+        )
+    ) or not native.context_anchor_id.startswith("dm-context-anchor:v2:") or (
+        native.campaign_id is not None and (
+            not isinstance(native.campaign_id, str) or not native.campaign_id.strip()
+        )
+    ):
+        raise ValueError("recap context descriptor is incomplete")
+    match = re.fullmatch(r"session-([1-9][0-9]*)", selector.expected_session_id)
+    if (match is None or selector.canonical_heading != f"# Session {match.group(1)} Recap"
+        or selector.legacy_session_heading != f"## Session {match.group(1)}:"
+        or selector.legacy_recap_marker != "**Recap**:"
+        or native.schema_version != "dm_recap_source_context_v2"):
+        raise ValueError("recap V2 selector metadata is invalid")
+    return RecapContextDescriptorV2(
+        context_anchor_id=native.context_anchor_id,
+        world_id=native.world_id,
+        campaign_id=native.campaign_id,
+        graph_revision_id=native.graph_revision_id,
+        source_artifact_id=native.source_artifact_id,
+        source_revision_id=native.source_revision_id,
+        source_uri=native.source_uri,
+        content_sha256=native.content_sha256,
+        expected_session_id=selector.expected_session_id,
+        canonical_heading=selector.canonical_heading,
+        legacy_session_heading=selector.legacy_session_heading,
+        legacy_recap_marker=selector.legacy_recap_marker,
+    )
+
+
+def list_recap_context_direct_v2(
+    services: DirectWorldGraphReadServices,
+    request: RecapContextIndexRequestV2,
+) -> RecapContextIndexResultV2:
+    try:
+        projection = _recap_context_projection(request, services.binding)
+        native = services.retrieval.list_source_context_index(
+            SourceContextIndexRequest(projection=projection, max_entries=request.max_entries, selector_policy="markdown-session-recap-v2")
+        )
+        snapshot = native.snapshot
+        if (
+            snapshot.world_id != projection.world_id
+            or snapshot.campaign_id != projection.campaign_id
+            or snapshot.admissibility != projection.admissibility
+            or snapshot.scope_mode != projection.scope_mode
+            or snapshot.revision_id != request.revision_pin
+            or native.max_entries != request.max_entries
+        ):
+            raise ValueError("recap context index changed its pinned projection")
+        entries = [_recap_context_view_v2(row) for row in native.entries]
+        if native.status == "overflow":
+            if entries or native.eligible_count <= request.max_entries:
+                raise ValueError("recap context overflow is not empty")
+        elif native.status != "complete" or len(entries) != native.eligible_count:
+            raise ValueError("recap context index is incomplete")
+        for row in entries:
+            if not _recap_context_descriptor_in_scope(row, projection, snapshot.revision_id):
+                raise ValueError("recap context descriptor differs from index scope")
+        if len({row.context_anchor_id for row in entries}) != len(entries):
+            raise ValueError("recap context identities are ambiguous")
+        return RecapContextIndexResultV2(
+            snapshot=_retrieval_snapshot_view(snapshot, focus=request.focus.to_projection_focus()),
+            status=native.status,
+            eligible_count=native.eligible_count,
+            max_entries=native.max_entries,
+            entries=entries,
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise _map_direct_error(exc) from exc
+
+
+
+def _recap_v2_visible_lines(lines: list[str]) -> list[int]:
+    """Literal structural lines outside fenced and indented Markdown code."""
+    visible = []
+    fence_char = None
+    fence_length = 0
+    for index, line in enumerate(lines):
+        text = line.rstrip("\r\n")
+        if fence_char is not None:
+            if re.fullmatch(rf" {{0,3}}{re.escape(fence_char)}{{{fence_length},}}[ \t]*", text):
+                fence_char, fence_length = None, 0
+            continue
+        fence = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", text)
+        if fence is not None:
+            marker, info = fence.groups()
+            if marker[0] != "`" or "`" not in info:
+                fence_char, fence_length = marker[0], len(marker)
+                continue
+        if not text.startswith(("    ", "\t", ">")):
+            visible.append(index)
+    return visible
+
+
+def _select_recap_section_v2(lines: list[str], descriptor: RecapContextDescriptorV2):
+    visible = _recap_v2_visible_lines(lines)
+    def text(i):
+        return lines[i].rstrip("\r\n")
+    canonical = [i for i in visible if text(i) == descriptor.canonical_heading]
+    legacy = [i for i in visible if text(i) == descriptor.legacy_session_heading]
+    if len(canonical) + len(legacy) != 1:
+        raise ValueError("recap V2 section heading is missing or ambiguous")
+    if canonical:
+        heading = canonical[0]
+        end = next((i for i in _recap_h1_lines_outside_fences(lines) if i > heading), len(lines))
+        start, marker, form = heading + 1, None, "canonical_h1"
+    else:
+        heading = legacy[0]
+        envelope_end = next((i for i in visible if i > heading and (
+            re.match(r"^ {0,3}#(?:[ \t]+|$)", text(i))
+            or re.match(r"^ {0,3}##[ \t]+Session[ \t]+[0-9]+:", text(i))
+        )), len(lines))
+        markers = [i for i in visible if heading < i < envelope_end and text(i) == descriptor.legacy_recap_marker]
+        if len(markers) != 1:
+            raise ValueError("recap V2 marker is missing or ambiguous")
+        marker = markers[0]
+        start = marker + 1
+        end = next((i for i in visible if i > marker and re.match(r"^ {0,3}#{1,2}(?:[ \t]+|$)", text(i))), len(lines))
+        form = "legacy_h2"
+    if not 0 <= heading < start <= end <= len(lines) or (form == "legacy_h2" and start == end):
+        raise ValueError("recap V2 section bounds are invalid")
+    return form, heading, marker, start, end
+
+
+def _recap_context_cursor_v2(descriptor, section_sha256, selected, offset):
+    payload = json.dumps([descriptor.model_dump(mode="json"),
+        section_sha256, *selected, offset], sort_keys=True, separators=(",", ":"))
+    return f"recap-page:v2:{hashlib.sha256(payload.encode()).hexdigest()}:{offset}"
+
+
+def read_recap_context_direct_v2(
+    services: DirectWorldGraphReadServices,
+    request: RecapContextReadRequestV2,
+    *,
+    repo_root: Path,
+) -> RecapContextReadResult | RecapContextReadResultV2:
+    if request.context_anchor_id.startswith("dm-context-anchor:v1:"):
+        old = RecapContextReadRequest.model_validate({
+            **request.model_dump(mode="json", by_alias=True, exclude={"schema_"}),
+            "schema": "dmb_recap_context_read_request_v1",
+        })
+        return read_recap_context_direct(services, old, repo_root=repo_root)
+    try:
+        projection = _recap_context_projection(request, services.binding)
+        native = services.retrieval.resolve_source_context(
+            projection, context_anchor_id=request.context_anchor_id, allow_selector_v2=True
+        )
+        snapshot = native.snapshot
+        if (
+            snapshot.world_id != projection.world_id
+            or snapshot.campaign_id != projection.campaign_id
+            or snapshot.admissibility != projection.admissibility
+            or snapshot.scope_mode != projection.scope_mode
+            or snapshot.revision_id != request.revision_pin
+            or native.context_anchor_id != request.context_anchor_id
+        ):
+            raise ValueError("recap context resolution changed its pinned projection")
+        view_snapshot = _retrieval_snapshot_view(snapshot, focus=request.focus.to_projection_focus())
+        if not native.found or native.context is None:
+            return RecapContextReadResultV2(outcome="empty", snapshot=view_snapshot, context_anchor_id=request.context_anchor_id)
+        descriptor = _recap_context_view_v2(native.context)
+        if not _recap_context_descriptor_in_scope(descriptor, projection, snapshot.revision_id) or descriptor.context_anchor_id != request.context_anchor_id:
+            raise ValueError("recap context descriptor differs from resolved scope")
+        match = re.fullmatch(r"session-([1-9][0-9]*)", descriptor.expected_session_id)
+        if (
+            match is None
+            or descriptor.canonical_heading != f"# Session {match.group(1)} Recap"
+            or descriptor.legacy_session_heading != f"## Session {match.group(1)}:"
+            or descriptor.legacy_recap_marker != "**Recap**:"
+            or not re.fullmatch(r"[0-9a-f]{64}", descriptor.content_sha256)
+            or not descriptor.source_revision_id.strip()
+        ):
+            raise ValueError("recap context source or selector is invalid")
+        relative = parse_repo_uri(descriptor.source_uri)
+        if not relative:
+            raise ValueError("recap context requires a repo source URI")
+        root = repo_root.resolve()
+        path = (root / relative).resolve()
+        if not path.is_relative_to(root):
+            raise ValueError("recap context URI escapes source root")
+        raw = path.read_bytes()
+        if hashlib.sha256(raw).hexdigest() != descriptor.content_sha256:
+            raise ValueError("recap context source bytes differ from admitted digest")
+        text = raw.decode("utf-8")
+        lines = text.splitlines(keepends=True)
+        selected = _select_recap_section_v2(lines, descriptor)
+        form, heading_index, marker_index, start_index, end_index = selected
+        section = "".join(lines[start_index:end_index])
+        section_sha = hashlib.sha256(section.encode("utf-8")).hexdigest()
+        offset = 0
+        if request.continuation is not None:
+            try:
+                offset = int(request.continuation.rsplit(":", 1)[1])
+            except (ValueError, IndexError) as exc:
+                raise ValueError("invalid recap context continuation") from exc
+            if not 0 < offset < len(section) or request.continuation != _recap_context_cursor_v2(descriptor, section_sha, selected, offset):
+                raise ValueError("recap context continuation differs from verified section")
+        end = min(len(section), offset + request.max_chars)
+        truncated = end < len(section)
+        return RecapContextReadResultV2(
+            outcome="truncated" if truncated else "enough",
+            snapshot=view_snapshot,
+            context_anchor_id=request.context_anchor_id,
+            context=descriptor,
+            media_type="text/markdown",
+            content=section[offset:end],
+            selected_form=form,
+            heading_line=heading_index + 1,
+            session_heading_line=heading_index + 1,
+            recap_marker_line=marker_index + 1 if marker_index is not None else None,
+            line_start=start_index + 1,
+            line_end=end_index,
+            section_sha256=section_sha,
+            offset_chars=offset,
+            truncated=truncated,
+            next_continuation=_recap_context_cursor_v2(descriptor, section_sha, selected, end) if truncated else None,
+        )
+    except (OSError, UnicodeDecodeError, ValueError) as exc:
+        raise DirectWorldGraphReadError(
+            f"Recap context is unavailable: {type(exc).__name__}",
+            code="source_unavailable", status_code=409, cause=exc,
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise _map_direct_error(exc) from exc
