@@ -128,6 +128,39 @@ def support_from_anchors(
     )
 
 
+def _relationship_evidence_ids(value: Any) -> list[str]:
+    """Accept only complete, nonblank evidence-ref lists from a retrieval row."""
+    if not isinstance(value, list) or any(
+        not isinstance(item, str) or not item.strip() or item != item.strip()
+        for item in value
+    ):
+        return []
+    return list(dict.fromkeys(value))
+
+
+def _relationship_support_from_evidence(
+    anchors: Sequence[Mapping[str, Any]],
+    *,
+    evidence_ref_ids: Sequence[str],
+    revision_id: str,
+) -> ClaimSupport:
+    """Bind only same-result, same-revision anchors with exact evidence refs.
+
+    Retrieval anchors are provenance metadata, not source-open receipts.
+    """
+    accepted_ids = set(evidence_ref_ids)
+    if not accepted_ids:
+        return ClaimSupport(state="graph_accepted")
+    matching = [
+        {**anchor, "opened": False}
+        for anchor in anchors
+        if isinstance(_get(anchor, "evidence_ref_id", "evidenceRefId"), str)
+        and _get(anchor, "evidence_ref_id", "evidenceRefId") in accepted_ids
+        and _get(anchor, "revision_id", "revisionId") == revision_id
+    ]
+    return support_from_anchors(matching)
+
+
 def claims_from_retrieval_result(
     result: Mapping[str, Any],
     *,
@@ -168,6 +201,9 @@ def claims_from_retrieval_result(
         if not edge_id:
             continue
         predicate = _get(rel_map, "predicate")
+        evidence_ids = _relationship_evidence_ids(
+            _get(rel_map, "evidence_ref_ids", "evidenceRefIds")
+        )
         claims.append(
             GraphClaim(
                 claim_id=edge_id,
@@ -201,7 +237,10 @@ def claims_from_retrieval_result(
                 ),
                 revision_id=revision_id,
                 authority_class="accepted_relationship",
-                support=support_from_anchors(anchors, supporting_ids=[edge_id]),
+                evidence_ref_ids=evidence_ids,
+                support=_relationship_support_from_evidence(
+                    anchors, evidence_ref_ids=evidence_ids, revision_id=revision_id
+                ),
             )
         )
 

@@ -1282,9 +1282,11 @@ def test_plan_graph_budget_fails_closed_for_unverified_model(
     ["The keeper waits.", "The keeper waits.\n" + "x" * 50_000],
     ids=["short", "long-committed-plan"],
 )
+@pytest.mark.parametrize("anchor_readable", [True, False], ids=["readable", "opaque"])
 def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     monkeypatch: Any,
     plan_markdown: str,
+    anchor_readable: bool,
     caplog: Any,
 ) -> None:
     from datetime import timedelta
@@ -1301,7 +1303,7 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     from graph_memory.interaction.session import (
         CoverageState, GraphRetrievalSession, SessionSnapshot, SourceAnchorState,
     )
-    from graph_memory.interaction.claims import GraphClaim, ClaimSupport
+    from graph_memory.interaction.authority_classifier import claims_from_retrieval_result
     from application_state.agent_conversation.types import TurnClaimReceipt
 
     request = _request(
@@ -1333,14 +1335,19 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         ),
         question=request.message,
         coverage=CoverageState(state="empty"),
-        claims=[GraphClaim(
-            claim_id="rel:seed", claim_kind="relationship",
-            revision_id="graph-revision-3", authority_class="accepted_relationship",
-            support=ClaimSupport(
-                state="source_anchor_available", source_anchor_ids=["anchor:one"],
-            ),
-        )],
-        source_anchors=[SourceAnchorState(anchor_id="anchor:one", readable=True)],
+        claims=claims_from_retrieval_result({
+            "relationships": [{
+                "edgeId": "rel:seed", "sourceNodeId": "node:one",
+                "targetNodeId": "node:two", "predicate": "guards",
+                "evidenceRefIds": ["ev:one"],
+            }],
+            "sourceAnchors": [{
+                "anchorId": "anchor:one", "revisionId": "graph-revision-3",
+                "evidenceRefId": "ev:one", "readable": anchor_readable,
+                "supportingGraphObjectIds": [],
+            }],
+        }, revision_id="graph-revision-3"),
+        source_anchors=[SourceAnchorState(anchor_id="anchor:one", readable=anchor_readable)],
     )
     bootstrap = service_module.AgentPlanWorldGraphBootstrap(
             graph_envelope={
@@ -1365,6 +1372,13 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         "intentHint": projected["intent_hint"],
         "availableExpansions": projected["available_expansions"],
     }
+    assert initial_packet["claimLedger"][0]["claim_id"] == "rel:seed"
+    assert initial_packet["claimLedger"][0]["evidence_ref_ids"] == ["ev:one"]
+    assert initial_packet["claimLedger"][0]["support"]["source_anchor_ids"] == ["anchor:one"]
+    assert initial_packet["claimLedger"][0]["support"]["source_read_ids"] == []
+    assert initial_packet["claimLedger"][0]["support"]["state"] == (
+        "source_anchor_available" if anchor_readable else "source_anchor_unreadable"
+    )
     provider_body = {
         "input": [{
             "role": "system",
@@ -1390,13 +1404,18 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     assert budget["contextLimitTokens"] == 1_050_000
     assert (budget["maxProviderAttempts"], budget["maxToolCapableAttempts"],
             budget["maxGraphOperations"]) == (4, 3, 8)
-    _source_receipt, source_execution, _membership = service_module._freeze_policy_receipt(
+    source_receipt, source_execution, membership = service_module._freeze_policy_receipt(
         request, work, replace(bootstrap, source_scope_anchors=({
             "anchor_id": "anchor:one", "evidence_ref_id": "ev:one",
             "source_artifact_id": "artifact:one",
             "source_revision_id": "source-revision:one",
         },)), None, view, budget,
     )
+    assert membership == ([], ["rel:seed"], ["ev:one"])
+    assert source_receipt.assembled_input.packet_disposition == "included"
+    assert source_receipt.assembled_input.dispatched_relationship_ids == ["rel:seed"]
+    assert source_receipt.assembled_input.dispatched_evidence_ref_ids == ["ev:one"]
+    assert source_receipt.source_opened is False
     assert isinstance(source_execution, graph_types.PlanWorldGraphExecutionV2)
     assert source_execution.policy.source_read_scope.world_id == "world:one"
     assert source_execution.policy.source_read_scope.admitted_anchors[0].source_revision_id == (

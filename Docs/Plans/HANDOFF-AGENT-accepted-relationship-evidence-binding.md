@@ -1,0 +1,39 @@
+# HANDOFF — AGENT: bind accepted relationship evidence in the initial packet
+
+**Status:** ACTIVE, authorized by PRIME on 2026-10-12. **Base:** fetched Buddy GitHub `main@ef39f2e5c08bb851c5646c47586506d6e7150dd4`. **Topology:** parallel-independent Buddy PR; active SOURCE reader work is on disjoint paths and remains BLOCKED on its Core contract. PRIME owns independent review and merge.
+
+## Primary question
+
+When an accepted retrieved relationship has `evidenceRefIds` that exactly match source-anchor `evidenceRefId`s in the same result and revision, can its support survive the ordinary Agent's initial claim packet and final provider envelope without claiming that the source passage was opened?
+
+The frozen native oracle at `rev:62820bcd7eca116af9d889e128fabf4e` supplies accepted relationships with matching evidence refs and anchors, but no anchor's supporting-object IDs contain those relationship edge IDs. The current classifier joins by edge ID, leaving `source_anchor_ids` empty; the existing Agent turn admission then withholds evidence. This is a producer-contract repair. The campaign-scoped oracle does not prove the exact manual World-scope Mossglade turn failed at this gate.
+
+## Exclusive write lease
+
+- `src/graph_memory/interaction/authority_classifier.py`
+- `tests/test_authority_classifier_evidence_binding.py` (PRIME-approved test-path substitution)
+- `tests/test_agent_turn_service.py` for focused frozen-envelope proof
+- this handoff
+
+Production `agent_turn_service.py` is outside the lease. If a focused owning-boundary test demonstrates that it needs a production change, stop for PRIME to re-scope. No provider call, runtime restart, database/corpus/native Graph write, reader DTO, route/API change, or source-context feature is authorized.
+
+## Invariant and stop conditions
+
+For an accepted relationship, use only its exact, valid evidence-ref IDs intersected with anchors returned in the same result at the requested revision. Preserve relationship edge/subject/object/predicate, campaign scope, revision, authority, and source-readable/opened state. Do not use a nearby anchor, label/slug match, foreign revision, candidate node, rejected/nonfact assertion, or opaque label as support. A Graph-grounded fact may remain available with `source_opened=false`; no source-text quotation follows from this join. Absent or malformed evidence fails closed. Stop for PRIME if native retrieval does not attest refs, the final envelope requires an unleased production path, or a new public contract is needed.
+
+## Acceptance witness
+
+Focused classifier tests prove exact matching to an unreadable anchor and exclusion of an unrelated readable anchor, plus absent/foreign/mismatched/revision-negative cases. A test at the Agent turn boundary freezes an actual serialized provider envelope without a provider call and proves the exact relationship/evidence IDs survive in `claimLedger`, `dispatched_relationship_ids`, and `dispatched_evidence_ref_ids` with `packet_disposition=included` and `source_opened=false`. Run focused tests and relevant repository gates, inspect cumulative base-to-head diff, then commit/push/open the PR. Update this handoff with exact implementation head and evidence before handing it to PRIME.
+
+The original planned classifier suite, `tests/test_graph_retrieval_interaction.py`, cannot collect on current main: it imports `graph_memory.interaction.digest_audit`, removed by CUTOVER D.3B. PRIME approved the focused new test path above without changing the production scope; this inherited collection defect remains separate.
+
+## Implementation evidence for PRIME review
+
+Implementation code/test commit: `87c591526730bf1e03447b8419917862838fa9a5`, based on `ef39f2e5c08bb851c5646c47586506d6e7150dd4`. The classifier now intersects a relationship's valid evidence refs with same-result anchors at the requested revision; it never infers an opened source from retrieval metadata. The existing turn-service production code consumes the resulting anchor support unchanged.
+
+- Focused command (with the current Buddy runtime environment and pinned Core source): `PYTHONPATH="$PWD/src:$PWD:/tmp/dms-ba6069/src" /home/drakosfire/.codex/worktrees/main-dogfood-runtime/DungeonMindBuddy/.venv/bin/python -m pytest -q tests/test_authority_classifier_evidence_binding.py tests/test_agent_turn_service.py -k 'relationship or policy_adapter_freezes_first_envelope'` — 11 passed, 54 deselected. This includes readable and opaque final-envelope cases.
+- `ruff check` on the three changed Python files — passed. `git diff --check` — passed.
+- Read-only replay of the retained native oracle's first matching relationship/anchor response per case through the patched classifier: C1-Q01 12/12, C2-Q17 24/24, C2-Q19 12/12 relationship claims acquire exact anchor support; zero are marked source-opened. Every checked anchor row has `revisionId` equal to its response snapshot revision. No provider request or native write was made.
+- A broader `tests/test_agent_turn_service.py` run stalled in the inherited `test_history_http_opt_in_uses_persisted_key_not_durable_turn_id`; it was interrupted. It is incomplete evidence, not a pass. The retired `digest_audit` import blocks collection of the old broad classifier file on current main.
+
+The manual World-scope Mossglade causal question remains unproven by the campaign-scoped oracle. PRIME owns independent review, merge, and any later runtime replay.
