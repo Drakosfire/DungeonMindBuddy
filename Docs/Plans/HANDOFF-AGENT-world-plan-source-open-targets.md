@@ -1,6 +1,6 @@
 # HANDOFF — AGENT: project saved World Plan source-open targets
 
-**Status:** ACTIVE — implementation candidate ready for PRIME's independent review. **Owner:** SERVER. **Authority:** PRIME's 2026-10-12 dispatch and ARCH ruling `/tmp/prime-s26-retained-activation/world-plan-source-open-contract-v1.md` (final SHA-256 `d1502b6cea6172e170a6008000bf0f60f99ce84635c37adc872bcd4a03f0dea4`). **Base:** fetched Buddy GitHub `main@8fce46de7e33bc352300abdf3ece0369a3ac1e68`, which includes accepted evidence binding #1088 and SOURCE reader #1089 (reviewed head `df8b3099f9fb220b18b97f42cfc097ea25a2a35f`). Core #114 merged at `13143455b304d748c249bd7bd628134c421bf6d9`. **Topology:** serial producer PR after both merged predecessors; DEMO may consume the published additive DTO on disjoint UI paths. PRIME owns independent review and merge.
+**Status:** COMPLETED — PRIME and ARCH accepted exact PR head `e6c8593d3c94485d86989cfa81966f6cdc1243ac`; PR #1090 merged at `5614fb1c9156a6a42aed94e2f2422f52df412667` on 2026-10-12. The implementation lease is closed. **Owner:** SERVER. **Authority:** PRIME's 2026-10-12 dispatch and ARCH ruling `/tmp/prime-s26-retained-activation/world-plan-source-open-contract-v1.md` (final SHA-256 `d1502b6cea6172e170a6008000bf0f60f99ce84635c37adc872bcd4a03f0dea4`). **Base:** fetched Buddy GitHub `main@8fce46de7e33bc352300abdf3ece0369a3ac1e68`, which includes accepted evidence binding #1088 and SOURCE reader #1089 (reviewed head `df8b3099f9fb220b18b97f42cfc097ea25a2a35f`). Core #114 merged at `13143455b304d748c249bd7bd628134c421bf6d9`. **Topology:** serial producer PR after both merged predecessors; DEMO may consume the published additive DTO on disjoint UI paths. PRIME owned independent review and merge.
 
 ## Primary outcome and contract
 
@@ -37,3 +37,7 @@ Initial review head `dfa2265ccc67558a96e6ab3bf8d3597ae24bfd78` was held by PRIME
 - Changed-path Ruff passed; `git diff --check` passed. Two inherited Pydantic field-shadow warnings appeared in the focused route test, with no failures. The broader service file includes a previously observed hanging inherited history test outside this exact focused gate; no full-file completion claim is made.
 - SOURCE #1089 independently proved actual read-only S22/S23 authorized descriptors and digest-verified bounded source passages at the pinned native revision. This producer's Core join is tested synthetically at its boundary; it has **not** been replayed against those private native citations, and no live runtime/user click was performed here.
 - Cumulative diff changes only the two handoffs, the Agent response model, the saved-turn projector, and its focused service/history test. APP state, SOURCE routes, UI, corpus, and native Graph are untouched.
+
+## Settlement
+
+PRIME independently reviewed and merged the bounded producer at the head and merge commit recorded above. The next Agent Harness recap-context broker requires APP's typed context receipt field correction from PR #1092 before any SERVER implementation paths activate. Its handoff may be prepared from this merged authority; it is not a license to edit SERVER runtime files while the APP contract is unsettled.
