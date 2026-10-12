@@ -17,6 +17,8 @@ from tests.test_reviewed_corpus_publication import (
     execute,
     procedure,
     observation_packet,
+    standing_neighborhood,
+    standing_observation_bound_result,
 )
 
 
@@ -73,8 +75,12 @@ def postgres_case(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize(
     "observation_only",
-    [False, True],
-    ids=["nodes-and-relationship", "standing-observation-only"],
+    [False, True, "bounded-standing-observations"],
+    ids=[
+        "nodes-and-relationship",
+        "standing-observation-only",
+        "bounded-standing-observations",
+    ],
 )
 def test_postgres_resume_and_actual_selected_world_and_source_routes(
     postgres_case, monkeypatch, observation_only
@@ -88,10 +94,22 @@ def test_postgres_resume_and_actual_selected_world_and_source_routes(
         case.backend.verify(case.packet, case.backend.publication_probe(case.packet))
     assert result["status"] == "verified", result["verification"]
     if observation_only:
+        standing_parent = standing_neighborhood(case)
         parent = case.bundle.world_graph.get_revision(
-            case.packet.native_world_id, result["published_revision_id"]
+            case.packet.native_world_id, standing_parent
         )
-        case.packet = observation_packet(case)
+        case.packet = observation_packet(case, standing_parent)
+        if observation_only == "bounded-standing-observations":
+            from apps.live_control_server.integrations.dungeonmind import (
+                world_graph_reads as reads,
+            )
+
+            original = reads.get_object_with_reviewed_sources_direct
+            monkeypatch.setattr(
+                reads,
+                "get_object_with_reviewed_sources_direct",
+                lambda *args: standing_observation_bound_result(original, *args),
+            )
         assert execute(case, stop_after="review")["status"] == "committed_stage"
         first = case.store.read(case.packet.operation_id)
         result = execute(case)
