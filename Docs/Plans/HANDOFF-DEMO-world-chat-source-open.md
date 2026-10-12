@@ -1,9 +1,8 @@
 # HANDOFF — DEMO: open sources from durable World conversation
 
-**Status:** BLOCKED design, 2026-10-12. This document grants no implementation path or runtime lease.
+**Status:** ACTIVE UI consumer, 2026-10-12, authorized by PRIME against SERVER DTO `6aed0c06ea266fe67ae1f88633b28d1f5ff71bb1` (additive recap availability status after the first draft). SOURCE #1089 merged at `8fce46de7e33bc352300abdf3ece0369a3ac1e68`; no runtime or operator acceptance is claimed.
 **Owner:** DEMO; PRIME controls activation, review and merge.
-**Design base:** Buddy `main@1710af3cb4d167346c0ce0388ffc9bf0868338e8`.
-**Topology if activated:** one serial Buddy UI consumer PR after the exact SERVER projection and SOURCE reader contracts are merged and pinned. Re-anchor main, open PRs and path leases before activation.
+**Branch/base:** `codex/demo-world-chat-source-open-design`, re-anchored to Buddy `main@c6659aef23744e8f1e74095a6dcf927b590aeecd` after checking open PRs. Serial UI consumer PR follows the exact SERVER producer merge.
 
 ## User action and invariant
 
@@ -13,22 +12,23 @@ The current durable `WorldPlanAgentConversation` displays Graph claim text, revi
 
 At answer production, SERVER is expected to project a versioned `source_open_targets` list from the stored turn, keyed by citation `claim_id`. A genuine evidence target binds the admitted opaque anchor, evidence ID, source artifact/revision and exact frozen authority tuple; only this target may use the existing `/world-graph/retrieval/source-anchor/read` route and the label **Open evidence**. A `related_recap_context` target may be attached only when a Core-authorized descriptor's artifact/revision pair matches admitted citation provenance at that pinned projection. It carries an opaque context ID and exact descriptor tuple, uses SOURCE's distinct reader route, and bears the label **Open related recap context**. It is never counted as claim support. The UI consumes the exact settled response/history types and verifies returned identity before displaying content. It does not choose an arbitrary source from a global catalog or claim that `source_opened` means the GM clicked a passage.
 
-## Gates before ACTIVE
+## Contract pins and remaining gates
 
 1. ARCHITECTURE's portable source-open ruling is pinned at SHA-256 `9519e083ca2957fd5c807c6d2fbbc2e5033cee7928b29d275992758fd3841b77`. SERVER must publish the exact target DTO and historical replay shape. APP-STATE requires no new schema under this UI projection ruling; recheck if the final producer contract changes.
-2. SERVER's versioned `source_open_targets` projection, including the separate `related_recap_context` target kind, is merged at an exact head after its producer-side evidence-ID/edge-ID repair. It must supply exact native World, scope, campaign, focus, admissibility and Graph revision pins, with a trustworthy target-to-citation association.
-3. SOURCE's distinct Core-authorized recap-context read route is merged and pinned. Core's World-scope campaign-recap corrective must be settled; the UI must not narrow ordinary chat to a campaign picker to work around it. Genuine evidence-anchor reads retain their existing route.
-4. Confirm no collision with active UI consumer, shared API type, history or reader leases. Activate only the exact paths needed by the merged producer contracts.
+2. SERVER's versioned `source_open_targets` projection, including the separate `related_recap_context` target kind and additive `related_recap_context_statuses`, is published at `6aed0c06ea266fe67ae1f88633b28d1f5ff71bb1`. Merge and exact final head are required before the UI PR is ready to merge. It must supply exact native World, scope, campaign, focus, admissibility and Graph revision pins, with a trustworthy target-to-citation association.
+3. SOURCE's distinct Core-authorized recap-context read route merged via #1089 at `8fce46de7e33bc352300abdf3ece0369a3ac1e68`; Core's World-scope campaign-recap corrective is included. The UI does not narrow ordinary chat to a campaign picker. Genuine evidence-anchor reads retain their existing route.
+4. Open PRs checked 2026-10-12: SOURCE #1089 owns only backend/Core pin paths; remaining draft UI PRs do not touch this consumer or its API types/history test. Recheck before PR. No shared runtime, port, database or external state lease.
 
 ## Proposed UI write set after activation
 
 - `apps/live-control-ui/src/api/types.ts` — consume strict additive target types if not already supplied by SERVER.
 - `apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.tsx` — citation actions, bounded read state and current World/conversation fencing.
+- `apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.css` — readable source actions and bounded passage layout in the ordinary answer.
 - `apps/live-control-ui/src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx` — mounted fresh and restored history witnesses.
 - A colocated source-reader component/style and `apps/live-control-ui/src/api/liveApi.ts` with its focused test only if the accepted SOURCE route requires transport not already present.
 - This handoff, when activated and settled.
 
-No SERVER, APP-STATE, Core, Graph source, corpus, provider, database or runtime path is reserved by this BLOCKED design. Reuse an installed UI dependency lane for verification; a missing `vitest` binary in one scratch clone does not establish a repository test failure.
+No SERVER, APP-STATE, Core, Graph source, corpus, provider, database or runtime path is reserved by this UI lease. Reuse an installed UI dependency lane for verification; a missing `vitest` binary in one scratch clone does not establish a repository test failure.
 
 ## Owning-boundary proof when activated
 
