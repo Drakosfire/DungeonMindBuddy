@@ -1,6 +1,6 @@
 # HANDOFF — AGENT: bind accepted relationship evidence in the initial packet
 
-**Status:** ACTIVE, authorized by PRIME on 2026-10-12. **Base:** fetched Buddy GitHub `main@ef39f2e5c08bb851c5646c47586506d6e7150dd4`. **Topology:** parallel-independent Buddy PR; active SOURCE reader work is on disjoint paths and remains BLOCKED on its Core contract. PRIME owns independent review and merge.
+**Status:** COMPLETED — PRIME reviewed exact `fecdf089e2ddea24f50d50a27cc36e4f47dc43ef` and merged PR #1088 at `ddd88f360daf24ba82c7afb07e384ce025911272` on 2026-10-12. The implementation lease is closed. **Base:** fetched Buddy GitHub `main@ef39f2e5c08bb851c5646c47586506d6e7150dd4`. **Topology:** parallel-independent Buddy PR; SOURCE reader work was on disjoint paths. PRIME owns the merged review evidence.
 
 ## Primary question
 

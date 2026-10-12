@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -437,6 +438,137 @@ class AgentPlanWorldGraphExecutionProjectionV1(BaseModel):
     automatic_redispatch: Literal[False] = False
 
 
+class AgentSourceOpenFocusV1(BaseModel):
+    """The frozen ordinary World Plan query has no session focus."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["none"] = "none"
+    session_id: None = None
+    campaign_id: None = None
+
+
+class AgentSourceOpenAuthorityV1(BaseModel):
+    """Exact historical authority for a user initiated source open."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    claim_id: str = Field(min_length=1, max_length=128)
+    source_artifact_id: str = Field(min_length=1, max_length=256)
+    source_revision_id: str = Field(min_length=1, max_length=256)
+    managed_world_id: str = Field(min_length=1, max_length=128)
+    native_world_id: str = Field(min_length=1, max_length=128)
+    binding_version: int = Field(strict=True, ge=1)
+    scope_mode: Literal["world"] = "world"
+    campaign_id: None = None
+    focus: AgentSourceOpenFocusV1 = Field(default_factory=AgentSourceOpenFocusV1)
+    admissibility: Literal["gm"] = "gm"
+    graph_revision: str = Field(min_length=1, max_length=256)
+
+
+class AgentEvidenceAnchorOpenTargetV1(AgentSourceOpenAuthorityV1):
+    schema_: Literal["dmb_agent_evidence_anchor_open_target_v1"] = Field(
+        default="dmb_agent_evidence_anchor_open_target_v1", alias="schema"
+    )
+    kind: Literal["evidence_anchor"] = "evidence_anchor"
+    anchor_id: str = Field(min_length=1, max_length=256)
+    evidence_ref_id: str = Field(min_length=1, max_length=256)
+    source_read_id: str | None = Field(default=None, min_length=1, max_length=128)
+    read_outcome: Literal["enough", "partial", "truncated"] | None = None
+
+    @model_validator(mode="after")
+    def validate_read_audit(self) -> AgentEvidenceAnchorOpenTargetV1:
+        if (self.source_read_id is None) != (self.read_outcome is None):
+            raise ValueError("source-read audit ID and outcome must appear together")
+        return self
+
+
+class AgentRelatedRecapContextOpenTargetV1(AgentSourceOpenAuthorityV1):
+    schema_: Literal["dmb_agent_related_recap_context_open_target_v1"] = Field(
+        default="dmb_agent_related_recap_context_open_target_v1", alias="schema"
+    )
+    kind: Literal["related_recap_context"] = "related_recap_context"
+    context_anchor_id: str = Field(pattern=r"^dm-context-anchor:v1:.+")
+    provenance_evidence_ref_id: str = Field(min_length=1, max_length=256)
+    source_campaign_id: str | None = None
+    source_uri: str = Field(min_length=1)
+    content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    expected_session_id: str = Field(pattern=r"^session-[1-9][0-9]*$")
+    expected_heading: str = Field(min_length=1)
+    selector_schema: Literal["dm_recap_context_section_selector_v1"] = (
+        "dm_recap_context_section_selector_v1"
+    )
+    selector_policy: Literal["markdown-session-recap-v1"] = "markdown-session-recap-v1"
+
+    @model_validator(mode="after")
+    def validate_context_selector(self) -> AgentRelatedRecapContextOpenTargetV1:
+        match = re.fullmatch(r"session-([1-9][0-9]*)", self.expected_session_id)
+        if (
+            match is None
+            or self.expected_heading != f"# Session {match.group(1)} Recap"
+            or not self.source_uri.startswith("repo://")
+            or (self.source_campaign_id is not None and not self.source_campaign_id.strip())
+        ):
+            raise ValueError("related recap context selector or source is invalid")
+        return self
+
+
+AgentSourceOpenTargetV1 = Annotated[
+    AgentEvidenceAnchorOpenTargetV1 | AgentRelatedRecapContextOpenTargetV1,
+    Field(discriminator="kind"),
+]
+
+
+class AgentEvidenceAnchorStatusV1(BaseModel):
+    """Whether the bounded projection exposed every verified evidence opener."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_: Literal["dmb_agent_evidence_anchor_status_v1"] = Field(
+        default="dmb_agent_evidence_anchor_status_v1", alias="schema"
+    )
+    claim_id: str = Field(min_length=1, max_length=128)
+    status: Literal["available", "no_anchor", "partial", "overflow"]
+    target_count: int = Field(strict=True, ge=0, le=8)
+
+    @model_validator(mode="after")
+    def validate_target_count(self) -> AgentEvidenceAnchorStatusV1:
+        valid = (
+            self.target_count > 0 if self.status in {"available", "partial"}
+            else self.target_count == 0
+        )
+        if not valid:
+            raise ValueError("evidence anchor status and target count disagree")
+        return self
+
+
+class AgentRelatedRecapContextStatusV1(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_: Literal["dmb_agent_related_recap_context_status_v1"] = Field(
+        default="dmb_agent_related_recap_context_status_v1", alias="schema"
+    )
+    claim_id: str = Field(min_length=1, max_length=128)
+    status: Literal[
+        "available", "multiple_choices", "no_context", "metadata_unavailable",
+        "partial", "overflow",
+    ]
+    choice_count: int = Field(strict=True, ge=0, le=512)
+
+    @model_validator(mode="after")
+    def validate_choice_count(self) -> AgentRelatedRecapContextStatusV1:
+        valid = (
+            self.choice_count == 1 if self.status == "available" else
+            self.choice_count > 1 if self.status == "multiple_choices" else
+            self.choice_count > 0 if self.status == "partial" else
+            self.choice_count >= 0 if self.status == "metadata_unavailable" else
+            self.choice_count == 0
+        )
+        if not valid:
+            raise ValueError("recap context status and choice count disagree")
+        return self
+
+
 class AgentPlanWorldGraphContextResponseV1(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -447,6 +579,13 @@ class AgentPlanWorldGraphContextResponseV1(BaseModel):
     completion: PlanWorldGraphCompletionV1 | PlanWorldGraphCompletionV2 | None
     execution: AgentPlanWorldGraphExecutionProjectionV1 | None
     delivery_replay: bool
+    source_open_targets: list[AgentSourceOpenTargetV1] = Field(default_factory=list)
+    evidence_anchor_statuses: list[AgentEvidenceAnchorStatusV1] = Field(
+        default_factory=list
+    )
+    related_recap_context_statuses: list[AgentRelatedRecapContextStatusV1] = Field(
+        default_factory=list
+    )
 
 
 class AgentTurnResponseV2(AgentTurnResponse):

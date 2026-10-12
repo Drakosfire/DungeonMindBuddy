@@ -510,6 +510,8 @@ def test_history_projection_keeps_receipt_and_completion_bound_to_provenance() -
     assert context.completion is not None
     assert context.execution is None
     assert context.delivery_replay is False
+    assert context.source_open_targets == []
+    assert context.evidence_anchor_statuses == []
 
     with pytest.raises(AgentTurnServiceError, match="historical turn provenance"):
         project_plan_turn_context(_policy_turn(drift=True), delivery_replay=False)
@@ -537,9 +539,12 @@ def test_plan_context_wire_preserves_v2_source_read_citation() -> None:
         "source-read:one"
     ]
     assert wire["completion"]["citation_map"]["entries"][0]["source_opened"] is True
+    assert wire["evidence_anchor_statuses"] == []
 
 
-def test_v2_completion_opens_citation_only_from_producing_source_envelope() -> None:
+def test_v2_completion_opens_citation_only_from_producing_source_envelope(
+    monkeypatch: Any,
+) -> None:
     from application_state.agent_conversation import types as graph_types
     from apps.live_control_server.services import agent_turn_service as service_module
 
@@ -659,8 +664,417 @@ def test_v2_completion_opens_citation_only_from_producing_source_envelope() -> N
     completed_turn = turn.model_copy(update={
         "completion": completion, "graph_context_execution": completed_execution,
     })
-    projected = project_plan_turn_context(completed_turn, delivery_replay=True)
+    from types import SimpleNamespace
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as direct_reads,
+    )
+
+    def no_context_service(_world: str) -> Any:
+        raise RuntimeError("synthetic context service unavailable")
+
+    with monkeypatch.context() as unavailable_scope:
+        unavailable_scope.setattr(
+            direct_reads, "direct_services_from_config", no_context_service
+        )
+        projected = project_plan_turn_context(completed_turn, delivery_replay=True)
+        assert project_plan_turn_context(
+            completed_turn, delivery_replay=False
+        ).source_open_targets == projected.source_open_targets
     assert projected.completion.citation_map.entries[0].source_opened is True
+    assert len(projected.source_open_targets) == 1
+    assert [(item.status, item.target_count) for item in (
+        projected.evidence_anchor_statuses
+    )] == [("available", 1)]
+    assert projected.related_recap_context_statuses[0].status == "metadata_unavailable"
+    target = projected.source_open_targets[0]
+    assert target.kind == "evidence_anchor"
+    assert (
+        target.claim_id, target.anchor_id, target.evidence_ref_id,
+        target.source_artifact_id, target.source_revision_id,
+    ) == (
+        "claim-internal-test", "anchor:one", "evidence-internal-test",
+        "artifact:one", "source-revision:one",
+    )
+    assert (target.managed_world_id, target.native_world_id, target.graph_revision) == (
+        receipt.graph_authority.managed_world_id,
+        receipt.graph_authority.native_world_id,
+        receipt.graph_authority.graph_revision,
+    )
+    assert (target.source_read_id, target.read_outcome) == ("source-read:one", "enough")
+    descriptors = [SimpleNamespace(
+        context_anchor_id="dm-context-anchor:v1:one",
+        world_id=receipt.graph_authority.native_world_id,
+        campaign_id="campaign:one",
+        graph_revision_id=receipt.graph_authority.graph_revision,
+        source_artifact_id="artifact:one",
+        source_revision_id="source-revision:one",
+        source_uri="repo://recaps/session-22.md",
+        content_sha256="d" * 64,
+        section_selector=SimpleNamespace(
+            schema_version="dm_recap_context_section_selector_v1",
+            kind="recap_section", policy="markdown-session-recap-v1",
+            expected_session_id="session-22",
+            expected_heading="# Session 22 Recap",
+        ),
+    )]
+    good_descriptor = descriptors[0]
+
+    def snapshot(projection: Any) -> Any:
+        return SimpleNamespace(
+            world_id=projection.world_id,
+            campaign_id=projection.campaign_id,
+            scope_mode=projection.scope_mode,
+            admissibility=projection.admissibility,
+            focus=projection.focus,
+            revision_id=projection.revision_pin,
+        )
+
+    metadata_state = {"evidence_complete": True, "index_complete": True}
+
+    class RelatedMetadata:
+        def get_evidence(self, projection: Any, *, target: Any, max_anchors: int) -> Any:
+            assert (target.kind, target.target_id, max_anchors) == (
+                "assertion", "assertion-internal-test", 32,
+            )
+            assert (
+                projection.world_id, projection.campaign_id,
+                projection.scope_mode.value, projection.admissibility.value,
+                projection.revision_pin,
+            ) == (
+                receipt.graph_authority.native_world_id, None,
+                "world_cross_campaign", "gm",
+                receipt.graph_authority.graph_revision,
+            )
+            return SimpleNamespace(
+                found=True, target=target, snapshot=snapshot(projection),
+                coverage=SimpleNamespace(
+                    truncated_fields=(
+                        () if metadata_state["evidence_complete"] else ("anchors",)
+                    ), gap_codes=(), missing_ids=(),
+                ),
+                anchors=(SimpleNamespace(
+                    evidence_ref_id="evidence-internal-test",
+                    source_artifact_id="artifact:one",
+                    source_revision_id="source-revision:one",
+                    can_open_source=False,
+                ),),
+            )
+
+        def list_source_context_index(self, request: Any) -> Any:
+            return SimpleNamespace(
+                status=("complete" if metadata_state["index_complete"] else "overflow"),
+                max_entries=512,
+                eligible_count=len(descriptors),
+                entries=tuple(descriptors), snapshot=snapshot(request.projection),
+            )
+
+    with monkeypatch.context() as related_scope:
+        related_scope.setattr(
+            direct_reads, "direct_services_from_config",
+            lambda _world: SimpleNamespace(retrieval=RelatedMetadata()),
+        )
+        related = project_plan_turn_context(completed_turn, delivery_replay=False)
+        assert [item.kind for item in related.source_open_targets] == [
+            "evidence_anchor", "related_recap_context",
+        ]
+        context_target = related.source_open_targets[1]
+        assert context_target.context_anchor_id == "dm-context-anchor:v1:one"
+        assert context_target.provenance_evidence_ref_id == "evidence-internal-test"
+        assert context_target.source_revision_id == "source-revision:one"
+        assert context_target.source_campaign_id == "campaign:one"
+        assert related.completion.citation_map.entries[0].source_read_ids == [
+            "source-read:one"
+        ]
+        context_only_citation = completion.citation_map.entries[0].model_copy(update={
+            "source_read_ids": [], "source_opened": False,
+        })
+        context_only_completion = completion.model_copy(update={
+            "citation_map": completion.citation_map.model_copy(update={
+                "entries": [context_only_citation],
+            }),
+        })
+        context_only_policy = graph_types.GraphExecutionPolicyV2.model_validate({
+            **policy.model_dump(mode="json", by_alias=True),
+            "source_read_scope": {
+                **policy.source_read_scope.model_dump(mode="json", by_alias=True),
+                "admitted_anchors": [],
+            },
+            "max_source_read_calls": 0,
+            "max_source_read_anchors": 0,
+            "max_source_read_chars": 0,
+        })
+        context_only_policy_digest = service_module._canonical_sha256({
+            "schema": "dmb_agent_plan_world_graph_execution_v2",
+            "context_receipt_sha256": receipt.context_receipt_sha256,
+            "policy": context_only_policy.model_dump(mode="json", by_alias=True),
+        })
+        context_attempt_id = uuid4()
+        context_attempt = graph_types.ProviderAttemptAuthorizedEventV2(
+            **{
+                **attempt_fields,
+                "event_id": uuid4(), "sequence": 0,
+                "provider_attempt_id": context_attempt_id,
+            },
+            included_source_read_event_ids=[],
+        )
+        context_sdk = sdk_entered.model_copy(update={
+            "event_id": uuid4(), "sequence": 1,
+            "provider_attempt_id": context_attempt_id,
+        })
+        context_outcome = outcome.model_copy(update={
+            "event_id": uuid4(), "sequence": 2,
+            "provider_attempt_id": context_attempt_id,
+        })
+        context_binding = binding.model_copy(update={
+            "event_id": uuid4(), "sequence": 3,
+            "provider_attempt_id": context_attempt_id,
+            "completion_sha256": service_module._canonical_sha256(
+                context_only_completion.model_dump(mode="json", by_alias=True)
+            ),
+        })
+        context_only_execution = graph_types.PlanWorldGraphExecutionV2(
+            context_receipt_sha256=receipt.context_receipt_sha256,
+            execution_policy_sha256=context_only_policy_digest,
+            policy=context_only_policy,
+            events=[context_attempt, context_sdk, context_outcome, context_binding],
+        )
+        context_only_turn = completed_turn.model_copy(update={
+            "completion": context_only_completion,
+            "graph_context_execution": context_only_execution,
+        })
+        context_only_projection = project_plan_turn_context(
+            context_only_turn, delivery_replay=True
+        )
+        assert [item.kind for item in context_only_projection.source_open_targets] == [
+            "related_recap_context"
+        ]
+        assert [(item.status, item.choice_count) for item in (
+            context_only_projection.related_recap_context_statuses
+        )] == [
+            ("available", 1)
+        ]
+        context_only_history = _serialized_card_a_history_body(
+            related_scope, policy_turn_override=context_only_turn
+        )
+        assert [item["kind"] for item in context_only_history["turns"][0][
+            "plan_context"
+        ]["source_open_targets"]] == ["related_recap_context"]
+        assert project_plan_turn_context(
+            completed_turn, delivery_replay=True
+        ).source_open_targets == related.source_open_targets
+        assert [(item.status, item.choice_count) for item in (
+            related.related_recap_context_statuses
+        )] == [("available", 1)]
+        history = _serialized_card_a_history_body(
+            related_scope, policy_turn_override=completed_turn
+        )
+        assert history["turns"][0]["plan_context"]["source_open_targets"] == [
+            item.model_dump(mode="json", by_alias=True)
+            for item in related.source_open_targets
+        ]
+        assert history["turns"][0]["plan_context"]["evidence_anchor_statuses"] == [
+            item.model_dump(mode="json", by_alias=True)
+            for item in related.evidence_anchor_statuses
+        ]
+        descriptors.append(SimpleNamespace(
+            **{**vars(descriptors[0]), "context_anchor_id": "dm-context-anchor:v1:two"}
+        ))
+        choices = project_plan_turn_context(completed_turn, delivery_replay=True)
+        assert [
+            item.context_anchor_id for item in choices.source_open_targets
+            if item.kind == "related_recap_context"
+        ] == ["dm-context-anchor:v1:one", "dm-context-anchor:v1:two"]
+        assert choices.related_recap_context_statuses[0].status == "multiple_choices"
+        assert choices.related_recap_context_statuses[0].choice_count == 2
+        descriptors[0] = SimpleNamespace(
+            **{**vars(descriptors[0]), "source_revision_id": "foreign-revision"}
+        )
+        descriptors.pop()
+        assert [item.kind for item in project_plan_turn_context(
+            completed_turn, delivery_replay=True
+        ).source_open_targets] == ["evidence_anchor"]
+        assert project_plan_turn_context(
+            completed_turn, delivery_replay=True
+        ).related_recap_context_statuses[0].status == "no_context"
+        descriptors[0] = SimpleNamespace(
+            **{
+                **vars(descriptors[0]),
+                "source_revision_id": "source-revision:one",
+                "section_selector": SimpleNamespace(
+                    **{
+                        **vars(descriptors[0].section_selector),
+                        "expected_heading": "# Session 23 Recap",
+                    }
+                ),
+            }
+        )
+        assert [item.kind for item in project_plan_turn_context(
+            completed_turn, delivery_replay=True
+        ).source_open_targets] == ["evidence_anchor"]
+        assert project_plan_turn_context(
+            completed_turn, delivery_replay=True
+        ).related_recap_context_statuses[0].status == "metadata_unavailable"
+        descriptors[0] = good_descriptor
+        metadata_state["evidence_complete"] = False
+        assert project_plan_turn_context(
+            completed_turn, delivery_replay=True
+        ).related_recap_context_statuses[0].status == "metadata_unavailable"
+        metadata_state["evidence_complete"] = True
+        metadata_state["index_complete"] = False
+        assert project_plan_turn_context(
+            completed_turn, delivery_replay=True
+        ).related_recap_context_statuses[0].status == "metadata_unavailable"
+
+    # Build validated V2 completion/scope fixtures at the projection boundary.
+    # A bad Core lookup or exhausted metadata budget must not hide checked peers.
+    metadata_state["index_complete"] = True
+    claim_segment = completed_turn.completion.answer_segments[0]
+    original_citation = completed_turn.completion.citation_map.entries[0]
+
+    def expanded_completion(count: int) -> Any:
+        payload = completed_turn.completion.model_dump(mode="json", by_alias=True)
+        payload["answer_segments"] = []
+        payload["citation_map"]["entries"] = []
+        for number in range(count):
+            claim_id = f"claim-{number:02d}"
+            target_id = f"assertion-{number:02d}"
+            segment = claim_segment.model_dump(mode="json", by_alias=True)
+            segment.update(claim_id=claim_id, target_id=target_id)
+            citation_payload = original_citation.model_dump(mode="json", by_alias=True)
+            citation_payload.update(claim_id=claim_id, target_id=target_id)
+            payload["answer_segments"].append(segment)
+            payload["citation_map"]["entries"].append(citation_payload)
+        return graph_types.PlanWorldGraphCompletionV2.model_validate(payload)
+
+    mixed_turn = completed_turn.model_copy(update={"completion": expanded_completion(2)})
+
+    class MixedMetadata(RelatedMetadata):
+        def get_evidence(self, projection: Any, *, target: Any, max_anchors: int) -> Any:
+            if target.target_id == "assertion-01":
+                raise RuntimeError("synthetic unavailable target")
+            result = super().get_evidence(
+                projection,
+                target=SimpleNamespace(kind="assertion", target_id="assertion-internal-test"),
+                max_anchors=max_anchors,
+            )
+            return SimpleNamespace(**{**vars(result), "target": target})
+
+    with monkeypatch.context() as mixed_scope:
+        mixed_scope.setattr(
+            direct_reads, "direct_services_from_config",
+            lambda _world: SimpleNamespace(retrieval=MixedMetadata()),
+        )
+        mixed_targets, mixed_statuses = service_module._related_recap_context_open_targets(
+            mixed_turn
+        )
+    assert [(item.claim_id, item.context_anchor_id) for item in mixed_targets] == [
+        ("claim-00", "dm-context-anchor:v1:one")
+    ]
+    assert [(item.claim_id, item.status) for item in mixed_statuses] == [
+        ("claim-00", "available"), ("claim-01", "metadata_unavailable")
+    ]
+
+    # The scope and completion reach their legitimate protocol sizes. A 9x9
+    # cited-pin crossproduct exposes 64 deterministic links, with no duplication.
+    many_pins = [graph_types.GraphSourceScopeAnchorV2(
+        anchor_id=f"anchor:{number:02d}",
+        evidence_ref_id="evidence-internal-test",
+        source_artifact_id=f"artifact:{number:02d}",
+        source_revision_id=f"source-revision:{number:02d}",
+    ) for number in range(9)]
+    large_scope = graph_types.GraphSourceReadScopeV2.model_validate({
+        **policy.source_read_scope.model_dump(mode="json", by_alias=True),
+        "admitted_anchors": [pin.model_dump(mode="json", by_alias=True) for pin in many_pins],
+    })
+    large_execution = completed_execution.model_copy(update={
+        "policy": policy.model_copy(update={"source_read_scope": large_scope}),
+    })
+    large_turn = completed_turn.model_copy(update={
+        "completion": expanded_completion(9),
+        "graph_context_execution": large_execution,
+    })
+    large_targets, large_statuses = service_module._evidence_anchor_open_projection(
+        large_turn
+    )
+    assert len(large_targets) == 64
+    assert len({(
+        item.claim_id, item.evidence_ref_id, item.anchor_id,
+        item.source_artifact_id, item.source_revision_id,
+    ) for item in large_targets}) == 64
+    assert [(item.claim_id, item.status, item.target_count) for item in large_statuses] == [
+        *((f"claim-{number:02d}", "partial", 8) for number in range(8)),
+        ("claim-08", "overflow", 0),
+    ]
+    with monkeypatch.context() as budget_scope:
+        budget_scope.setattr(
+            direct_reads, "direct_services_from_config",
+            lambda _world: SimpleNamespace(retrieval=MixedMetadata()),
+        )
+        retained, budget_statuses = service_module._related_recap_context_open_targets(
+            mixed_turn, available_slots=0
+        )
+    assert retained == []
+    assert [(item.claim_id, item.status) for item in budget_statuses] == [
+        ("claim-00", "overflow"), ("claim-01", "metadata_unavailable")
+    ]
+    nine_claim_turn = completed_turn.model_copy(update={"completion": expanded_completion(9)})
+
+    class CompleteMetadata(MixedMetadata):
+        def get_evidence(self, projection: Any, *, target: Any, max_anchors: int) -> Any:
+            result = RelatedMetadata.get_evidence(
+                self, projection,
+                target=SimpleNamespace(kind="assertion", target_id="assertion-internal-test"),
+                max_anchors=max_anchors,
+            )
+            return SimpleNamespace(**{**vars(result), "target": target})
+
+    with monkeypatch.context() as nine_scope:
+        nine_scope.setattr(
+            direct_reads, "direct_services_from_config",
+            lambda _world: SimpleNamespace(retrieval=CompleteMetadata()),
+        )
+        nine_targets, nine_statuses = service_module._related_recap_context_open_targets(
+            nine_claim_turn, available_slots=1
+        )
+    assert [(item.claim_id, item.context_anchor_id) for item in nine_targets] == [
+        ("claim-00", "dm-context-anchor:v1:one")
+    ]
+    assert [item.status for item in nine_statuses] == [
+        "available", *("overflow" for _ in range(7)), "metadata_unavailable"
+    ]
+    descriptors.extend(SimpleNamespace(
+        **{**vars(good_descriptor), "context_anchor_id": f"dm-context-anchor:v1:{number:02d}"}
+    ) for number in range(2, 10))
+    with monkeypatch.context() as choice_budget_scope:
+        choice_budget_scope.setattr(
+            direct_reads, "direct_services_from_config",
+            lambda _world: SimpleNamespace(retrieval=RelatedMetadata()),
+        )
+        capped_choices, capped_statuses = service_module._related_recap_context_open_targets(
+            completed_turn
+        )
+    assert len(capped_choices) == 8
+    assert capped_statuses[0].status == "partial"
+    assert capped_statuses[0].choice_count == 8
+    foreign_scope = policy.source_read_scope.model_copy(update={
+        "graph_revision": "foreign-revision",
+    })
+    foreign_execution = completed_execution.model_copy(update={
+        "policy": policy.model_copy(update={"source_read_scope": foreign_scope}),
+    })
+    assert service_module._evidence_anchor_open_targets(
+        completed_turn.model_copy(update={"graph_context_execution": foreign_execution})
+    ) == []
+    foreign_pin = scope_anchor.model_copy(update={"evidence_ref_id": "foreign-evidence"})
+    foreign_pin_scope = policy.source_read_scope.model_copy(update={
+        "admitted_anchors": [foreign_pin],
+    })
+    foreign_pin_execution = completed_execution.model_copy(update={
+        "policy": policy.model_copy(update={"source_read_scope": foreign_pin_scope}),
+    })
+    assert service_module._evidence_anchor_open_targets(
+        completed_turn.model_copy(update={"graph_context_execution": foreign_pin_execution})
+    ) == []
 
     unincluded_attempt = graph_types.ProviderAttemptAuthorizedEventV2(
         **attempt_fields, included_source_read_event_ids=[],
@@ -747,6 +1161,7 @@ def test_completed_policy_replay_returns_v2_from_stored_receipt_only() -> None:
 
 def _serialized_card_a_history_body(
     monkeypatch: Any, *, include_turn_correlation: bool = False,
+    policy_turn_override: Turn | None = None,
 ) -> dict[str, Any]:
     """Exercise FastAPI's response serialization for additive policy history."""
     import asyncio
@@ -756,7 +1171,7 @@ def _serialized_card_a_history_body(
 
     from apps.live_control_server.routes import agent as agent_route
 
-    policy_turn = _cited_card_a_policy_turn()
+    policy_turn = policy_turn_override or _cited_card_a_policy_turn()
     legacy_turn = SimpleNamespace(
         turn_id=UUID("00000000-0000-4000-8000-000000000033"),
         sequence=1,
