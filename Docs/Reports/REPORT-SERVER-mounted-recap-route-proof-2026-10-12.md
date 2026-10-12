@@ -116,3 +116,13 @@ The current operator runtime has not been upgraded. No operator dogfood
 invitation, provider call, APP/native DB write, migration, source mutation, or
 listening-port change is implied by this receipt. PRIME owns the next funded
 verification and any separate quiet rollout authority.
+
+## Accepted proof and isolated dependency successor
+
+PRIME accepted the mounted proof and merged PR #1095 at
+`fad78a85d710f560bc297f867b6e3c1fa4f0940e`, exact reviewed head
+`bd53d6f2205ab49737efc9e09f0672c4bebd9763`, review `6129371710`. The separately
+authorized isolated environment preparation is recorded in
+`REPORT-SERVER-isolated-runtime-prep-2026-10-12.md`. It satisfies the candidate
+dependency/build preparation gate while preserving the live runtime; quiet
+activation, fresh operator-state checks, and the full World gate remain separate.
