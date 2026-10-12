@@ -66,6 +66,9 @@ from apps.live_control_server.services.agent_context_assembler import (
     assemble_agent_conversation_context,
     assemble_agent_graph_context,
 )
+from apps.live_control_server.services.hermes_graph_interaction_tools import (
+    ReadRelatedRecapContextRequest,
+)
 from apps.live_control_server.services.agent_plan_playable_target import (
     AgentPlanPlayableTargetError,
     resolve_agent_plan_playable_target,
@@ -421,7 +424,10 @@ def _included_tool_payloads(body: Mapping[str, Any], *, tool_name: str) -> list[
             if (
                 not isinstance(call_id, str)
                 or call_id in seen_outputs
-                or calls.get(call_id) not in {"expand_graph_retrieval", "read_graph_source"}
+                or calls.get(call_id) not in {
+                    "expand_graph_retrieval", "read_graph_source",
+                    "read_related_recap_context",
+                }
                 or not isinstance(item.get("output"), str)
             ):
                 raise ValueError("provider Graph function output is not matched")
@@ -572,6 +578,8 @@ def _restore_v2_retry_bootstrap(
         return bootstrap
     graph_types = _app_state_graph_execution_types()
     execution = turn.graph_context_execution
+    if execution is None:
+        return bootstrap
     if not isinstance(execution, graph_types.PlanWorldGraphExecutionV2):
         # A legacy frozen execution cannot gain the V2 source tool on replay.
         return replace(bootstrap, source_scope_anchors=(), source_index_commitment=None)
@@ -686,6 +694,8 @@ def _freeze_policy_receipt(
     playable_target: PlanPlayableTargetReceiptV1 | None,
     view: Mapping[str, Any],
     budget: Mapping[str, Any],
+    *,
+    context_read_enabled: bool = False,
 ) -> tuple[PlanWorldGraphContextReceiptV1, Any, tuple[list[str], list[str], list[str]]]:
     """Freeze exact first-request accounting and source-free initial evidence."""
     graph_types = _app_state_graph_execution_types()
@@ -868,7 +878,7 @@ def _freeze_policy_receipt(
                 ),
                 source_opened=False,
         )
-        if bootstrap.source_scope_anchors or selected_index:
+        if bootstrap.source_scope_anchors or selected_index or context_read_enabled:
             scope_class = graph_types.GraphSelectedSourceReadScopeV2 if selected_index else graph_types.GraphSourceReadScopeV2
             scope = scope_class(
                 retrieval_session_id=bootstrap.retrieval_session.id,
@@ -1013,6 +1023,21 @@ class AgentTurnExecutionPersistencePort(Protocol):
         expected_revision: int, expected_attempt: int, receipt: Any,
     ) -> tuple[Turn, bool]: ...
 
+    def authorize_related_recap_context(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, authorization: Any,
+    ) -> tuple[Turn, bool]: ...
+
+    def record_validated_related_recap_context(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, result: Any,
+    ) -> tuple[Turn, bool]: ...
+
+    def record_related_recap_context_inclusion(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, inclusion: Any,
+    ) -> tuple[Turn, bool]: ...
+
     def authorize_provider_attempt_v2(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int, provider_attempt_event: Any,
@@ -1136,6 +1161,7 @@ class _PolicyExecutionAdapter:
         submitted_intent: SubmittedTurnIntentV2,
         existing_turn: Turn | None,
         budget: Mapping[str, Any],
+        context_read_enabled: bool = False,
         trace: AgentTurnTraceBuilder | None = None,
         admission_span_id: str | None = None,
     ) -> None:
@@ -1152,6 +1178,7 @@ class _PolicyExecutionAdapter:
         self.submitted_intent = submitted_intent
         self.turn = existing_turn
         self.budget = budget
+        self.context_read_enabled = context_read_enabled
         self.trace = trace
         self.admission_span_id = admission_span_id
         self.fence: _ClaimFence | None = None
@@ -1161,6 +1188,7 @@ class _PolicyExecutionAdapter:
         self.deterministic_guard_exhausted = False
         self.operation_payloads: dict[UUID, str] = {}
         self.source_payloads: dict[UUID, str] = {}
+        self.context_payloads: dict[UUID, str] = {}
 
     def _ensure_claimed(
         self, view: Mapping[str, Any],
@@ -1192,6 +1220,7 @@ class _PolicyExecutionAdapter:
             receipt, execution, membership = _freeze_policy_receipt(
                 self.request, self.work, self.bootstrap,
                 self.playable_target, view, self.budget,
+                context_read_enabled=self.context_read_enabled,
             )
             provenance = _conversation_provenance(
                 self.request,
@@ -1238,7 +1267,13 @@ class _PolicyExecutionAdapter:
                     provider_dispatched=False,
                 )
             execution = getattr(self.turn, "graph_context_execution", None)
-            if execution is None or any(
+            if execution is None:
+                raise AgentTurnServiceError(
+                    "The stored Graph receipt has no frozen execution ledger and cannot be upgraded on retry.",
+                    code="turn_receipt_unverifiable", status_code=409,
+                    provider_dispatched=False,
+                )
+            if any(
                 _is_provider_authorization(event)
                 for event in execution.events
             ):
@@ -1354,6 +1389,9 @@ class _PolicyExecutionAdapter:
                 included_source_payloads = _included_tool_payloads(
                     body, tool_name="read_graph_source"
                 )
+                included_context_payloads = _included_tool_payloads(
+                    body, tool_name="read_related_recap_context"
+                )
             except ValueError as exc:
                 raise AgentTurnServiceError(
                     "The final provider request has an invalid Graph result block.",
@@ -1397,6 +1435,25 @@ class _PolicyExecutionAdapter:
                 and (payload := self.source_payloads.get(event.event_id)) is not None
                 and included_source_payloads.count(payload) == 1
             ]
+            known_context_payloads = list(self.context_payloads.values())
+            if (
+                len(included_context_payloads) != len(set(included_context_payloads))
+                or any(
+                    known_context_payloads.count(payload) != 1
+                    for payload in included_context_payloads
+                )
+            ):
+                raise AgentTurnServiceError(
+                    "The final provider request has ambiguous recap context.",
+                    code="graph_evidence_invalid", status_code=502,
+                    provider_dispatched=False,
+                )
+            included_context_events = [
+                event for event in execution.events
+                if getattr(event, "kind", None) == "validated_related_recap_context_v1"
+                and (payload := self.context_payloads.get(event.event_id)) is not None
+                and included_context_payloads.count(payload) == 1
+            ]
             assertions = sorted(set(assertions) | {
                 item for event in included_operations for item in event.assertion_ids
             })
@@ -1424,6 +1481,30 @@ class _PolicyExecutionAdapter:
                 included_graph_event_ids=[event.event_id for event in included_operations],
             )
             if isinstance(execution, graph_types.PlanWorldGraphExecutionV2):
+                if included_context_events:
+                    inclusion = graph_types.RelatedRecapContextProviderInclusionEventV1(
+                        event_id=uuid4(), sequence=len(execution.events),
+                        kind="related_recap_context_provider_inclusion_v1",
+                        provider_attempt_id=provider_attempt_id,
+                        envelope_sha256=view["payloadSha256"],
+                        included_context_event_ids=[
+                            item.event_id for item in included_context_events
+                        ],
+                        included_context_sha256=(
+                            graph_types.related_recap_context_inclusion_digest(
+                                included_context_events
+                            )
+                        ),
+                        included_chars=sum(
+                            item.returned_chars for item in included_context_events
+                        ),
+                    )
+                    updated = _require_fresh_execution_append(self.fence.append(
+                        "record_related_recap_context_inclusion", "inclusion", inclusion
+                    ))
+                    self.turn = updated
+                    execution = updated.graph_context_execution
+                    event_fields["sequence"] = len(execution.events)
                 event = graph_types.ProviderAttemptAuthorizedEventV2(
                     kind="provider_attempt_authorized_v2",
                     included_source_read_event_ids=[
@@ -1497,6 +1578,8 @@ class _PolicyExecutionAdapter:
         """Resolve and persist an exact native Graph expansion before IPC reply."""
         if message.get("toolName") == "read_graph_source":
             return self.broker_source_read(message)
+        if message.get("toolName") == "read_related_recap_context":
+            return self.broker_related_recap_context(message)
         from graph_memory.interaction.authority_classifier import (
             claims_from_retrieval_result,
         )
@@ -1615,6 +1698,10 @@ class _PolicyExecutionAdapter:
             truncated = result.outcome == "truncated" or bool(
                 result.coverage.truncated_fields
             )
+            if sufficient and not truncated:
+                offers = self._related_recap_offers(result, services)
+                if offers:
+                    result_payload["relatedRecapContexts"] = offers
             graph_types = _app_state_graph_execution_types()
             event_id = uuid4()
             event = graph_types.ValidatedGraphOperationEventV1(
@@ -1679,6 +1766,127 @@ class _PolicyExecutionAdapter:
                 )
             )
             return denied("graph_operation_unavailable", 503)
+
+    def _related_recap_offers(self, result: Any, services: Any) -> list[dict[str, Any]]:
+        """Offer only exact context IDs attached to this validated traversal packet."""
+        from dungeonmind.application.world_graph_retrieval import (
+            EvidenceTarget, SourceContextIndexRequest,
+        )
+        from dungeonmind.contracts.projection import Admissibility
+        from dungeonmind.contracts.projection_v2 import (
+            ScopeModeV2, WorldGraphProjectionRequestV2,
+        )
+
+        authority = self.fence.turn.graph_context_receipt.graph_authority
+        if (
+            authority.scope_mode != "world" or authority.campaign_id is not None
+            or authority.admissibility_version != "gm-v1"
+        ):
+            return []
+        candidates = [
+            ("assertion", item.assertion_id, tuple(item.evidence_ref_ids))
+            for item in result.attributes
+            if item.evidence_ref_ids
+        ] + [
+            ("relationship", item.edge_id, tuple(item.evidence_ref_ids))
+            for item in result.relationships
+            if item.evidence_ref_ids
+        ]
+        if not candidates:
+            return []
+        projection = WorldGraphProjectionRequestV2(
+            world_id=authority.native_world_id, campaign_id=None,
+            admissibility=Admissibility.GM,
+            scope_mode=ScopeModeV2.WORLD_CROSS_CAMPAIGN,
+            revision_pin=authority.graph_revision,
+        )
+
+        def exact_snapshot(snapshot: Any) -> bool:
+            return (
+                snapshot.world_id == projection.world_id
+                and snapshot.campaign_id is None
+                and snapshot.scope_mode == projection.scope_mode
+                and snapshot.admissibility == projection.admissibility
+                and snapshot.focus == projection.focus
+                and snapshot.revision_id == authority.graph_revision
+            )
+
+        try:
+            index = services.retrieval.list_source_context_index(
+                SourceContextIndexRequest(projection=projection, max_entries=512)
+            )
+            if (
+                index.status != "complete" or index.max_entries != 512
+                or index.eligible_count != len(index.entries)
+                or not exact_snapshot(index.snapshot)
+            ):
+                return []
+            descriptors: dict[tuple[str, str], list[Any]] = {}
+            seen_context_ids: set[str] = set()
+            for item in index.entries:
+                selector = item.section_selector
+                if (
+                    item.world_id != authority.native_world_id
+                    or item.graph_revision_id != authority.graph_revision
+                    or not item.source_uri.startswith("repo://")
+                    or item.context_anchor_id in seen_context_ids
+                    or selector.schema_version != "dm_recap_context_section_selector_v1"
+                    or selector.kind != "recap_section"
+                    or selector.policy != "markdown-session-recap-v1"
+                ):
+                    return []
+                seen_context_ids.add(item.context_anchor_id)
+                descriptors.setdefault((
+                    item.source_artifact_id, item.source_revision_id,
+                ), []).append(item)
+            offers: list[dict[str, Any]] = []
+            for kind, target_id, refs in sorted(candidates)[:8]:
+                if not refs or len(refs) > 64 or refs != tuple(sorted(set(refs))):
+                    continue
+                evidence = services.retrieval.get_evidence(
+                    projection, target=EvidenceTarget(kind=kind, target_id=target_id),
+                    max_anchors=32,
+                )
+                if (
+                    not evidence.found or evidence.target.kind != kind
+                    or evidence.target.target_id != target_id
+                    or not exact_snapshot(evidence.snapshot)
+                    or evidence.coverage.truncated_fields
+                    or evidence.coverage.gap_codes
+                    or evidence.coverage.missing_ids
+                ):
+                    continue
+                pairs = []
+                for ref in refs:
+                    matches = {
+                        (anchor.source_artifact_id, anchor.source_revision_id)
+                        for anchor in evidence.anchors
+                        if anchor.evidence_ref_id == ref
+                        and anchor.source_artifact_id
+                        and anchor.source_revision_id
+                    }
+                    if len(matches) != 1:
+                        break
+                    pairs.append(next(iter(matches)))
+                if len(pairs) != len(refs):
+                    continue
+                matched = {
+                    item.context_anchor_id: item
+                    for pair in pairs for item in descriptors.get(pair, [])
+                }
+                if len(matched) != 1:
+                    continue
+                descriptor = next(iter(matched.values()))
+                offers.append({
+                    "targetKind": kind, "targetId": target_id,
+                    "evidenceRefIds": list(refs),
+                    "contextAnchorId": descriptor.context_anchor_id,
+                    "sourceCampaignId": descriptor.campaign_id,
+                })
+            return offers
+        except Exception as exc:  # noqa: BLE001 - optional offer must not hide Graph facts
+            _LOG.debug("Related recap offer metadata unavailable: %s", type(exc).__name__)
+            return []
 
     def broker_source_read(self, message: Mapping[str, Any]) -> Mapping[str, Any]:
         """Authorize, read, then durably validate one admitted source batch."""
@@ -1859,6 +2067,450 @@ class _PolicyExecutionAdapter:
                 code="source_read_indeterminate", status_code=503,
             )
             return denied("source_read_unavailable", 503)
+
+    def _related_recap_admission(
+        self, request: ReadRelatedRecapContextRequest,
+    ) -> tuple[Any, str]:
+        """Resolve one turn-admitted target/ref set to one same-pin Core context."""
+        from dungeonmind.application.world_graph_retrieval import (
+            EvidenceTarget, SourceContextIndexRequest,
+        )
+        from dungeonmind.contracts.projection import Admissibility
+        from dungeonmind.contracts.projection_v2 import (
+            ScopeModeV2, WorldGraphProjectionRequestV2,
+        )
+        from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
+            direct_services_from_config,
+        )
+
+        assert self.fence is not None
+        turn = self.fence.turn
+        receipt = turn.graph_context_receipt
+        execution = turn.graph_context_execution
+        graph_types = _app_state_graph_execution_types()
+        if (
+            receipt is None
+            or not isinstance(execution, graph_types.PlanWorldGraphExecutionV2)
+            or receipt.graph_authority.scope_mode != "world"
+            or receipt.graph_authority.campaign_id is not None
+            or receipt.graph_authority.admissibility_version != "gm-v1"
+        ):
+            raise ValueError("related recap requires a frozen GM World V2 turn")
+        authority = receipt.graph_authority
+        scope = execution.policy.source_read_scope
+        if (
+            scope.world_id != authority.managed_world_id
+            or scope.campaign_id is not None
+            or scope.graph_revision != authority.graph_revision
+        ):
+            raise ValueError("related recap scope differs from frozen authority")
+        refs = set(request.evidence_ref_ids)
+        target_ids = (
+            receipt.assembled_input.dispatched_assertion_ids
+            if request.target_kind == "assertion"
+            else receipt.assembled_input.dispatched_relationship_ids
+        )
+        origin = None
+        origin_event_id = None
+        selected_digest = None
+        if (
+            request.target_id in target_ids
+            and refs.issubset(set(receipt.assembled_input.dispatched_evidence_ref_ids))
+        ):
+            origin = "initial_graph_input"
+        else:
+            for event in execution.events:
+                if getattr(event, "kind", None) != "validated_graph_operation":
+                    continue
+                admitted_targets = (
+                    event.assertion_ids if request.target_kind == "assertion"
+                    else event.relationship_ids
+                )
+                if (
+                    event.graph_revision == authority.graph_revision
+                    and request.target_id in admitted_targets
+                    and refs.issubset(set(event.evidence_ref_ids))
+                ):
+                    origin = "validated_graph_operation"
+                    origin_event_id = event.event_id
+                    break
+        if origin is None and isinstance(scope, graph_types.GraphSelectedSourceReadScopeV2):
+            selected = scope.selected_index_commitment
+            if (
+                any(
+                    item.kind == request.target_kind and item.target_id == request.target_id
+                    for item in selected.admitted_targets
+                )
+                and refs.issubset({pin.evidence_ref_id for pin in scope.admitted_anchors})
+            ):
+                origin = "selected_index_admission"
+                selected_digest = selected.index_sha256
+        if origin is None:
+            raise ValueError("related recap target and refs were not admitted to the turn")
+
+        projection = WorldGraphProjectionRequestV2(
+            world_id=authority.native_world_id, campaign_id=None,
+            admissibility=Admissibility.GM,
+            scope_mode=ScopeModeV2.WORLD_CROSS_CAMPAIGN,
+            revision_pin=authority.graph_revision,
+        )
+
+        def exact_snapshot(snapshot: Any) -> bool:
+            return (
+                snapshot.world_id == projection.world_id
+                and snapshot.campaign_id is None
+                and snapshot.scope_mode == projection.scope_mode
+                and snapshot.admissibility == projection.admissibility
+                and snapshot.focus == projection.focus
+                and snapshot.revision_id == authority.graph_revision
+            )
+
+        retrieval = direct_services_from_config(authority.native_world_id).retrieval
+        evidence = retrieval.get_evidence(
+            projection,
+            target=EvidenceTarget(kind=request.target_kind, target_id=request.target_id),
+            max_anchors=32,
+        )
+        if (
+            not evidence.found
+            or evidence.target.kind != request.target_kind
+            or evidence.target.target_id != request.target_id
+            or not exact_snapshot(evidence.snapshot)
+            or evidence.coverage.truncated_fields
+            or evidence.coverage.gap_codes
+            or evidence.coverage.missing_ids
+        ):
+            raise ValueError("related recap evidence metadata is incomplete")
+        bindings = []
+        for ref in request.evidence_ref_ids:
+            pairs = {
+                (anchor.source_artifact_id, anchor.source_revision_id)
+                for anchor in evidence.anchors
+                if anchor.evidence_ref_id == ref
+                and isinstance(anchor.source_artifact_id, str)
+                and isinstance(anchor.source_revision_id, str)
+                and anchor.source_artifact_id.strip()
+                and anchor.source_revision_id.strip()
+            }
+            if len(pairs) != 1:
+                raise ValueError("related recap evidence provenance is missing or ambiguous")
+            artifact_id, source_revision_id = next(iter(pairs))
+            bindings.append(graph_types.RelatedRecapProvenanceBindingV1(
+                evidence_ref_id=ref, source_artifact_id=artifact_id,
+                source_revision_id=source_revision_id,
+            ))
+        index = retrieval.list_source_context_index(
+            SourceContextIndexRequest(projection=projection, max_entries=512)
+        )
+        if (
+            index.status != "complete"
+            or index.max_entries != 512
+            or index.eligible_count != len(index.entries)
+            or not exact_snapshot(index.snapshot)
+        ):
+            raise ValueError("related recap context index is incomplete")
+        pairs = {
+            (item.source_artifact_id, item.source_revision_id)
+            for item in bindings
+        }
+        descriptors = []
+        index_rows = []
+        context_ids: set[str] = set()
+        for item in index.entries:
+            selector = item.section_selector
+            if (
+                item.world_id != authority.native_world_id
+                or item.graph_revision_id != authority.graph_revision
+                or selector.schema_version != "dm_recap_context_section_selector_v1"
+                or selector.kind != "recap_section"
+                or selector.policy != "markdown-session-recap-v1"
+                or not item.source_uri.startswith("repo://")
+                or item.context_anchor_id in context_ids
+            ):
+                raise ValueError("related recap index descriptor is invalid")
+            context_ids.add(item.context_anchor_id)
+            index_rows.append({
+                "context_anchor_id": item.context_anchor_id,
+                "world_id": item.world_id,
+                "campaign_id": item.campaign_id,
+                "graph_revision_id": item.graph_revision_id,
+                "source_artifact_id": item.source_artifact_id,
+                "source_revision_id": item.source_revision_id,
+                "source_uri": item.source_uri,
+                "content_sha256": item.content_sha256,
+                "selector": selector.identity_payload(),
+            })
+            if (item.source_artifact_id, item.source_revision_id) in pairs:
+                descriptors.append(item)
+        if len(descriptors) != 1:
+            raise ValueError("related recap context match is missing or ambiguous")
+        descriptor = descriptors[0]
+        selector = descriptor.section_selector
+        if request.context_anchor_id != descriptor.context_anchor_id:
+            raise ValueError("related recap Core context differs from admitted provenance")
+        admission = graph_types.RelatedRecapContextAdmissionV1(
+            admission_origin=origin,
+            admission_graph_event_id=origin_event_id,
+            selected_index_sha256=selected_digest,
+            managed_world_id=authority.managed_world_id,
+            native_world_id=authority.native_world_id,
+            binding_version=authority.binding_version,
+            scope_mode="world_cross_campaign", campaign_id=None,
+            admissibility="gm", admissibility_version="gm-v1",
+            graph_revision=authority.graph_revision,
+            target_kind=request.target_kind, target_id=request.target_id,
+            provenance_bindings=bindings,
+            provenance_result_sha256=graph_types.related_recap_provenance_result_digest(
+                managed_world_id=authority.managed_world_id,
+                native_world_id=authority.native_world_id,
+                binding_version=authority.binding_version,
+                graph_revision=authority.graph_revision,
+                target_kind=request.target_kind,
+                target_id=request.target_id,
+                provenance_bindings=bindings,
+            ),
+            provenance_status="complete", provenance_gap_count=0,
+            context_index_sha256=_canonical_sha256({
+                "schema": "dmb_agent_related_recap_context_index_v1",
+                "world_id": authority.native_world_id,
+                "graph_revision": authority.graph_revision,
+                "entries": sorted(index_rows, key=lambda row: row["context_anchor_id"]),
+            }),
+            context_index_status="complete",
+            context_index_entry_count=index.eligible_count,
+            context_index_max_entries=512,
+            context_anchor_id=descriptor.context_anchor_id,
+            descriptor_world_id=descriptor.world_id,
+            descriptor_campaign_id=descriptor.campaign_id,
+            descriptor_graph_revision_id=descriptor.graph_revision_id,
+            descriptor_source_artifact_id=descriptor.source_artifact_id,
+            descriptor_source_revision_id=descriptor.source_revision_id,
+            descriptor_content_sha256=descriptor.content_sha256,
+            selector_schema=selector.schema_version,
+            selector_policy=selector.policy,
+            expected_session_id=descriptor.section_selector.expected_session_id,
+            expected_heading=descriptor.section_selector.expected_heading,
+        )
+        return admission, descriptor.source_uri
+
+    def broker_related_recap_context(
+        self, message: Mapping[str, Any],
+    ) -> Mapping[str, Any]:
+        """Append authorization, verify a bounded SOURCE page, append read receipt."""
+        def denied(code: str, status: int) -> Mapping[str, Any]:
+            return {
+                "resultJson": json.dumps({
+                    "schema": "dmb_world_graph_retrieval_error_v1",
+                    "code": code,
+                    "message": "Related recap context could not be admitted.",
+                    "statusCode": status, "diagnostics": [],
+                }, separators=(",", ":")),
+                "retrievalSession": None,
+            }
+
+        if self.failure is not None:
+            return denied("related_recap_context_indeterminate", 503)
+        if self.fence is None or self.last_provider_attempt_id is None:
+            return denied("related_recap_context_before_authorization", 409)
+        graph_types = _app_state_graph_execution_types()
+        execution = self.fence.turn.graph_context_execution
+        if not isinstance(execution, graph_types.PlanWorldGraphExecutionV2):
+            return denied("related_recap_context_not_enabled", 403)
+        arguments = message.get("arguments")
+        if not isinstance(arguments, Mapping):
+            return denied("invalid_arguments", 422)
+        normalized = {
+            key: value for key, value in arguments.items()
+            if key not in {
+                "retrievalSessionId", "worldId", "campaignId", "focus",
+                "admissibility", "revisionPin", "scopeMode",
+            }
+        }
+        if arguments.get("retrievalSessionId") != execution.policy.source_read_scope.retrieval_session_id:
+            return denied("graph_revision_conflict", 409)
+        try:
+            request = ReadRelatedRecapContextRequest.model_validate(normalized)
+        except ValidationError:
+            return denied("invalid_arguments", 422)
+        prior = [
+            event for event in execution.events
+            if getattr(event, "kind", None) == "related_recap_context_authorized_v1"
+        ]
+        if len(prior) >= 8 or sum(item.max_chars for item in prior) + request.max_chars > 96000:
+            return denied("related_recap_context_over_budget", 413)
+        try:
+            admission, source_uri = self._related_recap_admission(request)
+        except (ValueError, TypeError, AttributeError):
+            return denied("related_recap_context_not_admitted", 403)
+        except Exception:
+            return denied("related_recap_context_unavailable", 503)
+        read_call_id = uuid4()
+        continuation_sha = (
+            sha256(request.continuation.encode("utf-8")).hexdigest()
+            if request.continuation is not None else None
+        )
+        prior_page = None
+        if continuation_sha is not None:
+            authorizations = {
+                event.read_call_id: event
+                for event in execution.events
+                if getattr(event, "kind", None) == "related_recap_context_authorized_v1"
+            }
+            descriptor_fields = (
+                "context_anchor_id", "descriptor_world_id", "descriptor_campaign_id",
+                "descriptor_graph_revision_id", "descriptor_source_artifact_id",
+                "descriptor_source_revision_id", "descriptor_content_sha256",
+                "selector_schema", "selector_policy", "expected_session_id", "expected_heading",
+            )
+            pages = [
+                event for event in execution.events
+                if getattr(event, "kind", None) == "validated_related_recap_context_v1"
+                and event.outcome == "truncated"
+                and event.continuation_out_sha256 == continuation_sha
+                and (authorization := authorizations.get(event.read_call_id)) is not None
+                and all(
+                    getattr(authorization.admission, field) == getattr(admission, field)
+                    for field in descriptor_fields
+                )
+            ]
+            if len(pages) != 1:
+                return denied("related_recap_context_not_admitted", 403)
+            prior_page = pages[0]
+        authorization = graph_types.RelatedRecapContextAuthorizationEventV1(
+            event_id=uuid4(), sequence=len(execution.events),
+            kind="related_recap_context_authorized_v1",
+            read_call_id=read_call_id,
+            context_receipt_sha256=execution.context_receipt_sha256,
+            execution_policy_sha256=execution.execution_policy_sha256,
+            admission=admission, max_chars=request.max_chars,
+            continuation_in_sha256=continuation_sha,
+        )
+        try:
+            updated = _require_fresh_execution_append(self.fence.append(
+                "authorize_related_recap_context", "authorization", authorization
+            ))
+            self.turn = updated
+            if self._related_recap_admission(request) != (admission, source_uri):
+                raise ValueError("related recap authority changed after authorization")
+            from graph_memory.retrieval.models import RecapContextReadRequest
+            from apps.live_control_server.services.world_graph_retrieval import (
+                read_recap_context,
+            )
+            result = read_recap_context(RecapContextReadRequest.model_validate({
+                "schema": "dmb_recap_context_read_request_v1",
+                "worldId": admission.managed_world_id,
+                "campaignId": "", "scopeMode": "world",
+                "focus": {"kind": "none", "sessionId": None, "campaignId": None},
+                "admissibility": "gm", "revisionPin": admission.graph_revision,
+                "contextAnchorId": admission.context_anchor_id,
+                "maxChars": request.max_chars,
+                "continuation": request.continuation,
+            }))
+            context = result.context
+            content = result.content
+            if (
+                result.outcome not in {"enough", "truncated"}
+                or not isinstance(content, str) or not content
+                or context is None
+                or result.context_anchor_id != admission.context_anchor_id
+                or context.context_anchor_id != admission.context_anchor_id
+                or context.world_id != admission.descriptor_world_id
+                or context.campaign_id != admission.descriptor_campaign_id
+                or context.graph_revision_id != admission.descriptor_graph_revision_id
+                or context.source_artifact_id != admission.descriptor_source_artifact_id
+                or context.source_revision_id != admission.descriptor_source_revision_id
+                or context.source_uri != source_uri
+                or context.content_sha256 != admission.descriptor_content_sha256
+                or context.selector_schema != admission.selector_schema
+                or context.selector_policy != admission.selector_policy
+                or context.expected_session_id != admission.expected_session_id
+                or context.expected_heading != admission.expected_heading
+                or result.snapshot.world_id != admission.native_world_id
+                or result.snapshot.campaign_id != ""
+                or result.snapshot.scope_mode != "world"
+                or result.snapshot.admissibility != "gm"
+                or result.snapshot.focus.kind != "none"
+                or result.snapshot.focus.session_id is not None
+                or result.snapshot.focus.campaign_id is not None
+                or result.snapshot.revision_id != admission.graph_revision
+                or result.truncated != (result.outcome == "truncated")
+                or len(content) > request.max_chars
+                or result.heading_line is None or result.line_start is None
+                or result.line_end is None or result.section_sha256 is None
+                or result.offset_chars < 0
+                or (request.continuation is None and result.offset_chars != 0)
+                or (
+                    result.truncated and (
+                        not isinstance(result.next_continuation, str)
+                        or not result.next_continuation
+                        or len(result.next_continuation) > 256
+                    )
+                )
+                or (not result.truncated and result.next_continuation is not None)
+                or (
+                    prior_page is not None and (
+                        result.section_sha256 != prior_page.section_sha256
+                        or result.heading_line != prior_page.heading_line
+                        or result.line_start != prior_page.line_start
+                        or result.line_end != prior_page.line_end
+                        or result.offset_chars != prior_page.offset_chars + prior_page.returned_chars
+                    )
+                )
+            ):
+                raise ValueError("related recap read differed from authorized descriptor")
+            event = graph_types.ValidatedRelatedRecapContextEventV1(
+                event_id=uuid4(), sequence=len(updated.graph_context_execution.events),
+                kind="validated_related_recap_context_v1",
+                read_call_id=read_call_id,
+                authorization_event_id=authorization.event_id,
+                admission_sha256=_canonical_sha256(
+                    admission.model_dump(mode="json", by_alias=True)
+                ),
+                outcome=result.outcome,
+                range_semantics_version=(
+                    "utf8-character-offset-in-markdown-session-recap-v1"
+                ),
+                source_bytes_sha256=admission.descriptor_content_sha256,
+                section_sha256=result.section_sha256,
+                page_content_sha256=sha256(content.encode("utf-8")).hexdigest(),
+                heading_line=result.heading_line,
+                line_start=result.line_start,
+                line_end=result.line_end,
+                offset_chars=result.offset_chars,
+                returned_chars=len(content),
+                truncated=result.truncated,
+                continuation_in_sha256=continuation_sha,
+                continuation_out_sha256=(
+                    sha256(result.next_continuation.encode("utf-8")).hexdigest()
+                    if result.next_continuation is not None else None
+                ),
+            )
+            updated = _require_fresh_execution_append(self.fence.append(
+                "record_validated_related_recap_context", "result", event
+            ))
+            self.turn = updated
+            public = {
+                "schema": "dmb_related_recap_context_read_v1",
+                "outcome": result.outcome,
+                "targetKind": request.target_kind,
+                "targetId": request.target_id,
+                "evidenceRefIds": request.evidence_ref_ids,
+                "contextAnchorId": admission.context_anchor_id,
+                "content": content,
+                "sectionSha256": result.section_sha256,
+                "offsetChars": result.offset_chars,
+                "truncated": result.truncated,
+                "nextContinuation": result.next_continuation,
+            }
+            result_json = json.dumps(public, ensure_ascii=False, separators=(",", ":"))
+            self.context_payloads[event.event_id] = result_json
+            return {"resultJson": result_json, "retrievalSession": None}
+        except Exception:
+            self.failure = AgentTurnServiceError(
+                "The parent related recap read could not be durably validated.",
+                code="related_recap_context_indeterminate", status_code=503,
+            )
+            return denied("related_recap_context_unavailable", 503)
 
     def stop(self) -> Turn | None:
         if self.fence is None:
@@ -4064,6 +4716,14 @@ def execute_agent_turn(
             submitted_intent=submitted_intent,
             existing_turn=durable_turn,
             budget=budget,
+            context_read_enabled=(
+                durable_turn is None
+                or durable_turn.graph_context_execution is None
+                or isinstance(
+                    durable_turn.graph_context_execution,
+                    _app_state_graph_execution_types().PlanWorldGraphExecutionV2,
+                )
+            ),
             trace=trace,
             admission_span_id=admission_span_id,
         )
@@ -4079,6 +4739,8 @@ def execute_agent_turn(
             }
             if policy_bootstrap.source_scope_anchors:
                 run_options["source_read_enabled"] = True
+            if adapter.context_read_enabled:
+                run_options["context_read_enabled"] = True
             policy_result = guarded_run(
                 invocation, adapter.authorize, **run_options,
             )

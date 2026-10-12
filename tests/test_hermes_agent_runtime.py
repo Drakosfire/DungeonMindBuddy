@@ -26,6 +26,8 @@ from apps.live_control_server.services.hermes_graph_agent_contract import (
     HermesGraphAgentTurnRequest,
     HermesGraphAgentTurnResult,
     HermesGraphToolEvent,
+    serialize_hermes_graph_agent_turn_request,
+    deserialize_hermes_graph_agent_turn_request,
 )
 from graph_memory.hermes_graph_plugin import (
     ORDERED_MODEL_VISIBLE_TOOL_NAMES,
@@ -65,6 +67,22 @@ def test_guarded_adapter_passes_final_answer_limits_unchanged() -> None:
     assert host.calls[0].request_budget == budget
     assert host.calls[0].provider_authorization_required is True
     assert host.calls[0].parent_graph_broker_required is True
+    assert "read_related_recap_context" not in host.calls[0].capability_policy.enabled_tool_names
+    adapter.run_with_provider_authorization(
+        _invocation(), lambda _view: False, request_budget=budget,
+        on_graph_operation=lambda _message: {}, context_read_enabled=True,
+    )
+    context_policy = host.calls[-1].capability_policy
+    assert context_policy.enabled_tool_names == (
+        "expand_graph_retrieval", "read_related_recap_context"
+    )
+    rule = context_policy.rule_for("read_related_recap_context")
+    assert rule is not None and rule.allowed_effects == frozenset({"read"})
+    wire = serialize_hermes_graph_agent_turn_request(host.calls[-1])
+    assert (
+        "read_related_recap_context"
+        in deserialize_hermes_graph_agent_turn_request(wire).capability_policy.enabled_tool_names
+    )
 
 
 class _FakeHost:
@@ -249,7 +267,10 @@ def test_adapter_maps_invocation_onto_existing_host(tmp_path: Path) -> None:
     assert request.capability_policy is not None
     assert request.capability_policy.enabled_toolsets == (TOOLSET_NAME,)
     assert (
-        request.capability_policy.enabled_tool_names == ORDERED_MODEL_VISIBLE_TOOL_NAMES
+        request.capability_policy.enabled_tool_names == tuple(
+            name for name in ORDERED_MODEL_VISIBLE_TOOL_NAMES
+            if name != "read_related_recap_context"
+        )
     )
     assert all(
         "write" not in rule.allowed_effects

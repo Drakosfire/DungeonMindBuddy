@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from apps.live_control_server.models.threat_query_hydration import (
     ThreatQueryHydrationRequestV1,
@@ -23,10 +25,39 @@ from graph_memory.interaction.expansion_executor import (
 
 DECLARE_CONVERSATION_CONTEXT_TOOL_NAME = "declare_conversation_context"
 QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME = "query_threat_mechanics_hydration"
+READ_RELATED_RECAP_CONTEXT_TOOL_NAME = "read_related_recap_context"
+
+
+class ReadRelatedRecapContextRequest(BaseModel):
+    """Model intent only; the parent supplies and checks every authority pin."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    schema_: Literal["dmb_read_related_recap_context_request_v1"] = Field(
+        default="dmb_read_related_recap_context_request_v1", alias="schema"
+    )
+    target_kind: Literal["assertion", "relationship"] = Field(alias="targetKind")
+    target_id: str = Field(alias="targetId", min_length=1, max_length=256)
+    evidence_ref_ids: list[str] = Field(alias="evidenceRefIds", min_length=1, max_length=64)
+    max_chars: int = Field(default=4000, alias="maxChars", strict=True, ge=1, le=12000)
+    context_anchor_id: str = Field(alias="contextAnchorId", min_length=1, max_length=256)
+    continuation: str | None = Field(default=None, max_length=256)
+
+    @model_validator(mode="after")
+    def validate_request(self) -> ReadRelatedRecapContextRequest:
+        if (
+            self.target_id != self.target_id.strip()
+            or self.evidence_ref_ids != sorted(set(self.evidence_ref_ids))
+            or any(not value.strip() or value != value.strip() for value in self.evidence_ref_ids)
+            or not self.context_anchor_id.startswith("dm-context-anchor:v1:")
+        ):
+            raise ValueError("related recap request has invalid intent or continuation")
+        return self
 
 ORDERED_INTERACTION_TOOL_NAMES: tuple[str, ...] = (
     "expand_graph_retrieval",
     "read_graph_source",
+    READ_RELATED_RECAP_CONTEXT_TOOL_NAME,
     QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME,
 )
 
@@ -131,6 +162,9 @@ def hermes_graph_interaction_tool_definitions() -> list[dict[str, Any]]:
         by_alias=True,
         mode="validation",
     )
+    recap_schema = ReadRelatedRecapContextRequest.model_json_schema(
+        by_alias=True, mode="validation"
+    )
     return [
         {
             "type": "function",
@@ -165,6 +199,23 @@ def hermes_graph_interaction_tool_definitions() -> list[dict[str, Any]]:
                     "caller authority."
                 ),
                 "parameters": read_schema,
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": READ_RELATED_RECAP_CONTEXT_TOOL_NAME,
+                "description": (
+                    "Read a related recap section for an admitted Graph target and exact "
+                    "evidence refs. This context can inform prose but is not cited evidence. "
+                    "Use the contextAnchorId offered in a relatedRecapContexts entry "
+                    "of a validated graph retrieval result. A previously known Core context "
+                    "ID can also resolve when its target and refs were admitted to this turn "
+                    "and the parent verifies the exact same-scope provenance join. "
+                    "For another page pass that same contextAnchorId and the returned continuation. "
+                    "Do not supply paths, source revisions, or World authority."
+                ),
+                "parameters": recap_schema,
             },
         },
         query_threat_mechanics_hydration_tool_definition(),
@@ -294,6 +345,8 @@ __all__ = [
     "DECLARE_CONVERSATION_CONTEXT_TOOL_NAME",
     "HERMES_ANSWER_SCOPE_TOOL_NAMES",
     "HERMES_GRAPH_INTERACTION_TOOL_NAMES",
+    "READ_RELATED_RECAP_CONTEXT_TOOL_NAME",
+    "ReadRelatedRecapContextRequest",
     "ORDERED_INTERACTION_TOOL_NAMES",
     "ORDERED_MODEL_VISIBLE_TOOL_NAMES",
     "QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME",

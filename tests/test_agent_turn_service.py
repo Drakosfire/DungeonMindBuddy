@@ -1525,8 +1525,18 @@ def test_parent_source_broker_persists_authorization_before_content_and_result_b
     assert service_module._restore_v2_retry_bootstrap(
         replace(bootstrap, source_scope_anchors=frozen_pins), turn,
     ).retrieval_session.id == session.id
+    unfrozen = _policy_turn(status="accepted", completion_present=False)
+    assert service_module._restore_v2_retry_bootstrap(fresh, unfrozen) is fresh
+    legacy_policy = graph_types.GraphExecutionPolicyV1.model_validate({
+        key: value for key, value in policy.model_dump(mode="json").items()
+        if key in graph_types.GraphExecutionPolicyV1.model_fields
+    })
+    legacy_execution = graph_types.PlanWorldGraphExecutionV1(
+        context_receipt_sha256=unfrozen.graph_context_receipt.context_receipt_sha256,
+        policy=legacy_policy, events=[],
+    )
     legacy_retry = service_module._restore_v2_retry_bootstrap(
-        fresh, _policy_turn(status="accepted", completion_present=False),
+        fresh, unfrozen.model_copy(update={"graph_context_execution": legacy_execution}),
     )
     assert legacy_retry.source_scope_anchors == ()
     changed = replace(fresh, source_scope_anchors=({
@@ -1675,6 +1685,819 @@ def test_parent_source_broker_persists_authorization_before_content_and_result_b
         assert len(adapter.source_payloads) == 2
     finally:
         clear_sessions()
+
+
+def _related_recap_broker_fixture(monkeypatch: Any) -> Any:
+    from types import SimpleNamespace
+    from application_state.agent_conversation import types as graph_types
+    from apps.live_control_server.services import agent_turn_service as service_module
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as direct_reads,
+    )
+    from apps.live_control_server.services import world_graph_retrieval as source_reads
+    from dungeonmind.application.world_graph_retrieval import RecapContextSectionSelectorV1
+    from graph_memory.interaction.session import GraphRetrievalSession, SessionSnapshot
+
+    turn = _cited_card_a_policy_turn().model_copy(update={
+        "status": "running", "completion": None, "assistant_text": None,
+    })
+    receipt = turn.graph_context_receipt
+    assert receipt is not None
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id=receipt.graph_authority.native_world_id, campaign_id="",
+            focus={"kind": "none"}, admissibility="gm",
+            revision_id=receipt.graph_authority.graph_revision, scope_mode="world",
+        ),
+        question="What happened at the gate?",
+    )
+    policy = graph_types.GraphExecutionPolicyV2(
+        policy_version="plan_world_graph_execution_v1",
+        allowed_graph_operations=["expand_graph_retrieval"],
+        max_provider_attempts=4, max_graph_operations=8, max_results_per_operation=512,
+        max_total_provider_input_tokens=100_000,
+        max_total_provider_output_tokens=10_000,
+        provider_input_accounting=graph_types.GraphExecutionAccountingV1(
+            kind="conservative_upper_bound", estimator="utf8_json_bytes_plus_64_per_node_v1",
+        ),
+        source_opened=False,
+        source_read_scope=graph_types.GraphSourceReadScopeV2(
+            retrieval_session_id=session.id,
+            world_id=receipt.graph_authority.managed_world_id,
+            campaign_id=None, graph_revision=receipt.graph_authority.graph_revision,
+            admitted_anchors=[],
+        ),
+        max_source_read_calls=0, max_source_read_anchors=0,
+        max_source_read_chars=0, max_chars_per_source_read=12_000,
+    )
+    execution = graph_types.PlanWorldGraphExecutionV2(
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        execution_policy_sha256=service_module._canonical_sha256({
+            "schema": "dmb_agent_plan_world_graph_execution_v2",
+            "context_receipt_sha256": receipt.context_receipt_sha256,
+            "policy": policy.model_dump(mode="json", by_alias=True),
+        }),
+        policy=policy, events=[],
+    )
+    turn = turn.model_copy(update={"graph_context_execution": execution})
+    calls: list[str] = []
+
+    class Fence:
+        def __init__(self) -> None:
+            self.turn = turn
+
+        def append(self, method: str, _key: str, event: Any) -> tuple[Turn, bool]:
+            calls.append(method)
+            prior = self.turn.graph_context_execution
+            self.turn = self.turn.model_copy(update={
+                "graph_context_execution": graph_types.PlanWorldGraphExecutionV2.model_validate({
+                    **prior.model_dump(mode="json", by_alias=True),
+                    "events": [
+                        *[item.model_dump(mode="json", by_alias=True) for item in prior.events],
+                        event.model_dump(mode="json", by_alias=True),
+                    ],
+                }),
+                "revision": self.turn.revision + 1,
+            })
+            graph_types.validate_related_recap_context_scope(
+                receipt, self.turn.graph_context_execution
+            )
+            return self.turn, True
+
+    selector = RecapContextSectionSelectorV1(
+        expected_session_id="session-22", expected_heading="# Session 22 Recap"
+    )
+    descriptor = SimpleNamespace(
+        context_anchor_id="dm-context-anchor:v1:recap-22",
+        world_id=receipt.graph_authority.native_world_id,
+        campaign_id="longmont-c2",
+        graph_revision_id=receipt.graph_authority.graph_revision,
+        source_artifact_id="artifact:recap-22",
+        source_revision_id="source-revision:recap-22",
+        source_uri="repo://recaps/session-22.md",
+        content_sha256="a" * 64,
+        section_selector=selector,
+    )
+
+    def snapshot(projection: Any) -> Any:
+        return SimpleNamespace(
+            world_id=projection.world_id, campaign_id=None,
+            scope_mode=projection.scope_mode,
+            admissibility=projection.admissibility,
+            focus=projection.focus, revision_id=projection.revision_pin,
+        )
+
+    class Retrieval:
+        def get_evidence(self, projection: Any, *, target: Any, max_anchors: int) -> Any:
+            assert max_anchors == 32
+            assert target.kind == "assertion"
+            assert target.target_id in {"assertion-internal-test", "assertion-traversal-test"}
+            assert projection.revision_pin == receipt.graph_authority.graph_revision
+            return SimpleNamespace(
+                found=True, target=target, snapshot=snapshot(projection),
+                coverage=SimpleNamespace(
+                    truncated_fields=(), gap_codes=(), missing_ids=(),
+                ),
+                anchors=(SimpleNamespace(
+                    evidence_ref_id="evidence-internal-test",
+                    source_artifact_id="artifact:recap-22",
+                    source_revision_id="source-revision:recap-22",
+                    can_open_source=False,
+                ),),
+            )
+
+        def list_source_context_index(self, request: Any) -> Any:
+            return SimpleNamespace(
+                status="complete", max_entries=512, eligible_count=1,
+                entries=(descriptor,), snapshot=snapshot(request.projection),
+            )
+
+    monkeypatch.setattr(
+        direct_reads, "direct_services_from_config",
+        lambda _world: SimpleNamespace(retrieval=Retrieval()),
+    )
+    page_text = "The old watch shifted."
+    section_digest = sha256(page_text.encode()).hexdigest()
+
+    def read_source(request: Any) -> Any:
+        assert calls[-1] == "authorize_related_recap_context"
+        assert request.context_anchor_id == descriptor.context_anchor_id
+        assert request.campaign_id == "" and request.scope_mode == "world"
+        assert request.revision_pin == receipt.graph_authority.graph_revision
+        return SimpleNamespace(
+            outcome="enough", context_anchor_id=descriptor.context_anchor_id,
+            context=SimpleNamespace(
+                context_anchor_id=descriptor.context_anchor_id,
+                world_id=descriptor.world_id,
+                campaign_id=descriptor.campaign_id,
+                graph_revision_id=descriptor.graph_revision_id,
+                source_artifact_id=descriptor.source_artifact_id,
+                source_revision_id=descriptor.source_revision_id,
+                source_uri=descriptor.source_uri,
+                content_sha256=descriptor.content_sha256,
+                selector_schema=selector.schema_version,
+                selector_policy=selector.policy,
+                expected_session_id=selector.expected_session_id,
+                expected_heading=selector.expected_heading,
+            ),
+            snapshot=SimpleNamespace(
+                world_id=descriptor.world_id, campaign_id="", scope_mode="world",
+                admissibility="gm", focus=SimpleNamespace(
+                    kind="none", session_id=None, campaign_id=None,
+                ),
+                revision_id=descriptor.graph_revision_id,
+            ),
+            content=page_text, section_sha256=section_digest,
+            heading_line=1, line_start=2, line_end=3, offset_chars=0,
+            truncated=False, next_continuation=None,
+        )
+
+    monkeypatch.setattr(source_reads, "read_recap_context", read_source)
+    budget = service_module._policy_request_budget()
+    adapter = service_module._PolicyExecutionAdapter(
+        service=object(), request=_request(), world_id=turn.world_id, work=None,
+        bootstrap=service_module.AgentPlanWorldGraphBootstrap(
+            graph_envelope={},
+            world_scope=service_module.AgentWorldScope(
+                world_id=receipt.graph_authority.native_world_id,
+                campaign_id="", focus={"kind": "none"}, admissibility="gm",
+                revision_id=receipt.graph_authority.graph_revision, scope_mode="world",
+            ),
+            retrieval_session=session, binding_version=1,
+            source_root_relpath="corpus", candidate_assertion_ids=(),
+            candidate_relationship_ids=(), candidate_evidence_ref_ids=(),
+            evidence_by_anchor_id={},
+        ),
+        playable_target=None, submitted_intent=None,
+        existing_turn=turn, budget=budget,
+    )
+    adapter.fence = Fence()
+    adapter.last_provider_attempt_id = uuid4()
+    return SimpleNamespace(
+        adapter=adapter, turn=turn, receipt=receipt, session=session, calls=calls,
+        descriptor=descriptor, retrieval_type=Retrieval, read_source=read_source,
+        source_reads=source_reads, direct_reads=direct_reads, page_text=page_text,
+        section_digest=section_digest, budget=budget, graph_types=graph_types,
+        service_module=service_module,
+    )
+
+
+def _related_recap_request(fixture: Any, **updates: Any) -> dict[str, Any]:
+    return {
+        "toolName": "read_related_recap_context",
+        "arguments": {
+            "retrievalSessionId": fixture.session.id,
+            "targetKind": "assertion", "targetId": "assertion-internal-test",
+            "evidenceRefIds": ["evidence-internal-test"],
+            "contextAnchorId": fixture.descriptor.context_anchor_id,
+            **updates,
+        },
+    }
+
+
+def test_parent_related_recap_broker_persists_verified_context_without_evidence_upgrade(
+    monkeypatch: Any,
+) -> None:
+    from types import SimpleNamespace
+
+    fixture = _related_recap_broker_fixture(monkeypatch)
+    adapter, receipt, session = fixture.adapter, fixture.receipt, fixture.session
+    descriptor, calls = fixture.descriptor, fixture.calls
+    Retrieval, direct_reads = fixture.retrieval_type, fixture.direct_reads
+    page_text, budget = fixture.page_text, fixture.budget
+    traversal = SimpleNamespace(
+        snapshot=SimpleNamespace(
+            world_id=receipt.graph_authority.native_world_id,
+            revision_id=receipt.graph_authority.graph_revision,
+        ),
+        attributes=(SimpleNamespace(
+            assertion_id="assertion-traversal-test",
+            evidence_ref_ids=("evidence-internal-test",),
+        ),),
+        relationships=(),
+        source_anchors=(SimpleNamespace(
+            anchor_id="old-unreadable-anchor",
+            evidence_ref_id="evidence-internal-test",
+            readable=False, locator_kind="unsupported",
+        ),),
+        coverage=SimpleNamespace(truncated_fields=()),
+        outcome="enough",
+        model_dump=lambda **_kwargs: {
+            "schema": "dmb_world_graph_retrieval_result_v1",
+            "operation": "search", "outcome": "enough",
+            "attributes": [{
+                "assertionId": "assertion-traversal-test",
+                "evidenceRefIds": ["evidence-internal-test"],
+            }],
+            "sourceAnchors": [{
+                "anchorId": "old-unreadable-anchor",
+                "evidenceRefId": "evidence-internal-test", "readable": False,
+            }],
+        },
+    )
+    from graph_memory.interaction import authority_classifier, session_store
+
+    monkeypatch.setattr(authority_classifier, "claims_from_retrieval_result", lambda *_a, **_kw: [])
+    monkeypatch.setattr(session_store, "replace_session", lambda _session: None)
+    monkeypatch.setattr(direct_reads, "search_world_graph_direct", lambda *_a: traversal)
+    graph_packet = adapter.broker_graph_operation({
+        "toolName": "expand_graph_retrieval",
+        "arguments": {
+            "retrievalSessionId": session.id, "operation": "search",
+        },
+    })
+    offered = json.loads(graph_packet["resultJson"])["relatedRecapContexts"]
+    assert offered == [{
+        "targetKind": "assertion", "targetId": "assertion-traversal-test",
+        "evidenceRefIds": ["evidence-internal-test"],
+        "contextAnchorId": descriptor.context_anchor_id,
+        "sourceCampaignId": "longmont-c2",
+    }]
+    for invalid in (
+        {"targetId": "assertion-not-in-turn"},
+        {"evidenceRefIds": ["evidence-not-in-turn"]},
+        {"contextAnchorId": "dm-context-anchor:v1:wrong"},
+    ):
+        attempted = adapter.broker_related_recap_context({
+            "toolName": "read_related_recap_context",
+            "arguments": {
+                "retrievalSessionId": session.id,
+                "targetKind": "assertion", "targetId": "assertion-traversal-test",
+                "evidenceRefIds": ["evidence-internal-test"],
+                "contextAnchorId": offered[0]["contextAnchorId"],
+                **invalid,
+            },
+        })
+        assert json.loads(attempted["resultJson"])["code"] == (
+            "related_recap_context_not_admitted"
+        )
+    descriptor.graph_revision_id = "stale-graph-revision"
+    stale = adapter.broker_related_recap_context({
+        "toolName": "read_related_recap_context",
+        "arguments": {
+            "retrievalSessionId": session.id,
+            "targetKind": "assertion", "targetId": "assertion-traversal-test",
+            "evidenceRefIds": ["evidence-internal-test"],
+            "contextAnchorId": offered[0]["contextAnchorId"],
+        },
+    })
+    assert json.loads(stale["resultJson"])["code"] == "related_recap_context_not_admitted"
+    descriptor.graph_revision_id = receipt.graph_authority.graph_revision
+    original_index = Retrieval.list_source_context_index
+
+    def overflow_index(self: Any, request: Any) -> Any:
+        result = original_index(self, request)
+        return SimpleNamespace(**{
+            **vars(result), "status": "overflow", "entries": (),
+        })
+
+    monkeypatch.setattr(Retrieval, "list_source_context_index", overflow_index)
+    overflow = adapter.broker_related_recap_context({
+        "toolName": "read_related_recap_context",
+        "arguments": {
+            "retrievalSessionId": session.id,
+            "targetKind": "assertion", "targetId": "assertion-traversal-test",
+            "evidenceRefIds": ["evidence-internal-test"],
+            "contextAnchorId": offered[0]["contextAnchorId"],
+        },
+    })
+    assert json.loads(overflow["resultJson"])["code"] == "related_recap_context_not_admitted"
+    monkeypatch.setattr(Retrieval, "list_source_context_index", original_index)
+    assert calls == ["append_validated_graph_operation"]
+    output = adapter.broker_related_recap_context({
+        "toolName": "read_related_recap_context",
+        "arguments": {
+            "retrievalSessionId": session.id,
+            "targetKind": "assertion", "targetId": "assertion-traversal-test",
+            "evidenceRefIds": ["evidence-internal-test"],
+            "contextAnchorId": offered[0]["contextAnchorId"],
+        },
+    })
+    assert calls == [
+        "append_validated_graph_operation", "authorize_related_recap_context",
+        "record_validated_related_recap_context",
+    ]
+    assert json.loads(output["resultJson"])["content"] == page_text
+    saved = adapter.fence.turn.graph_context_execution
+    assert saved.events[1].admission.descriptor_campaign_id == "longmont-c2"
+    assert saved.events[1].admission.campaign_id is None
+    assert saved.events[1].admission.admission_origin == "validated_graph_operation"
+    assert page_text not in saved.model_dump_json()
+    assert descriptor.source_uri not in saved.model_dump_json()
+    assert len(adapter.context_payloads) == 1
+
+    provider_body = json.dumps({
+        "input": [
+            {"type": "function_call", "call_id": "recap:one",
+             "name": "read_related_recap_context"},
+            {"type": "function_call_output", "call_id": "recap:one",
+             "output": output["resultJson"]},
+        ],
+        "tools": [],
+    })
+    view = {
+        "provider": budget["provider"], "model": budget["model"],
+        "apiMode": budget["apiMode"], "payloadJson": provider_body,
+        "payloadSha256": sha256(provider_body.encode()).hexdigest(),
+        "payloadUtf8Bytes": len(provider_body.encode()),
+    }
+    adapter._ensure_claimed = lambda _view: (adapter.fence.turn, [], [], [])
+    assert adapter.authorize(view) is True
+    assert calls[-2:] == [
+        "record_related_recap_context_inclusion", "authorize_provider_attempt_v2",
+    ]
+    persisted = adapter.fence.turn.graph_context_execution
+    assert persisted.events[-2].included_chars == len(page_text)
+    included = persisted.events[-2]
+    dispatched = persisted.events[-1]
+    validated = saved.events[-1]
+    assert included.included_context_event_ids == [validated.event_id]
+    assert included.included_context_sha256 == (
+        fixture.graph_types.related_recap_context_inclusion_digest([validated])
+    )
+    assert included.envelope_sha256 == dispatched.envelope_sha256 == view["payloadSha256"]
+    assert included.provider_attempt_id == dispatched.provider_attempt_id
+    assert json.loads(view["payloadJson"])["input"][1]["output"] == (
+        adapter.context_payloads[validated.event_id]
+    )
+    assert dispatched.included_assertion_ids == []
+    assert dispatched.included_relationship_ids == []
+    assert dispatched.included_evidence_ref_ids == []
+    assert persisted.events[-1].included_source_read_event_ids == []
+    assert persisted.policy.source_opened is False
+    assert page_text not in persisted.model_dump_json()
+    duplicated = json.loads(provider_body)
+    duplicated["input"].extend(duplicated["input"])
+    duplicated_body = json.dumps(duplicated)
+    assert adapter.authorize({
+        **view, "payloadJson": duplicated_body,
+        "payloadSha256": sha256(duplicated_body.encode()).hexdigest(),
+        "payloadUtf8Bytes": len(duplicated_body.encode()),
+    }) is False
+    assert adapter.failure is not None
+    assert adapter.failure.code == "graph_evidence_invalid"
+
+
+def test_parent_related_recap_known_core_id_requires_admitted_target_and_join(
+    monkeypatch: Any,
+) -> None:
+    fixture = _related_recap_broker_fixture(monkeypatch)
+    assert fixture.adapter.operation_payloads == {}
+    # This ID is valid in Core, but it cannot authorize an unrelated target.
+    denied = fixture.adapter.broker_graph_operation(_related_recap_request(
+        fixture, targetId="unadmitted-other-target",
+    ))
+    assert json.loads(denied["resultJson"])["code"] == "related_recap_context_not_admitted"
+    assert fixture.calls == [] and fixture.adapter.context_payloads == {}
+    # A previously known ID needs no redundant offer receipt: the full frozen
+    # target/ref + same-pin Core provenance/index join remains the authority.
+    output = fixture.adapter.broker_graph_operation(_related_recap_request(fixture))
+    assert json.loads(output["resultJson"])["content"] == fixture.page_text
+    events = fixture.adapter.fence.turn.graph_context_execution.events
+    assert events[0].admission.admission_origin == "initial_graph_input"
+    assert events[0].admission.context_anchor_id == fixture.descriptor.context_anchor_id
+    assert fixture.descriptor.source_uri not in fixture.adapter.fence.turn.graph_context_execution.model_dump_json()
+
+
+def test_parent_related_recap_selected_index_admission(monkeypatch: Any) -> None:
+    fixture = _related_recap_broker_fixture(monkeypatch)
+    graph_types = fixture.graph_types
+    digest = fixture.service_module._canonical_sha256
+    authority = fixture.receipt.graph_authority
+    context = {
+        "world_id": authority.native_world_id, "campaign_id": None,
+        "scope_mode": "world_cross_campaign",
+        "focus": {"kind": "none", "session_id": None},
+        "admissibility": "gm", "revision_id": authority.graph_revision,
+    }
+    targets = [{"kind": "assertion", "target_id": "assertion-traversal-test"}]
+    entries = [{
+        "anchor_id": "dm-source-anchor:v1:selected-recap",
+        "evidence_ref_id": "evidence-internal-test",
+        "source_artifact_id": fixture.descriptor.source_artifact_id,
+        "source_revision_id": fixture.descriptor.source_revision_id,
+    }]
+    selector_sha = digest({
+        "schema": "dm_selected_source_anchor_selector_v1",
+        "context": context, "max_entries": 512, "targets": targets,
+    })
+    index_sha = digest({
+        "schema": "dm_selected_source_anchor_index_v1",
+        "selector_sha256": selector_sha, "status": "complete",
+        "admitted_targets": targets, "not_visible_targets": [],
+        "provenance_gap_count": 0, "unavailable_binding_count": 0,
+        "eligible_count": 1, "entries": entries,
+    })
+    commitment = graph_types.GraphSelectedIndexCommitmentV1.model_validate({
+        "context": context, "access_context_sha256": digest(context),
+        "requested_targets": targets, "admitted_targets": targets,
+        "not_visible_targets": [], "requested_count": 1, "admitted_count": 1,
+        "not_visible_count": 0, "provenance_gap_count": 0,
+        "unavailable_binding_count": 0, "eligible_count": 1,
+        "max_entries": 512, "status": "complete", "index_scope": "selected_targets",
+        "selector_sha256": selector_sha, "index_sha256": index_sha,
+    })
+    prior = fixture.adapter.fence.turn.graph_context_execution
+    scope = graph_types.GraphSelectedSourceReadScopeV2(
+        retrieval_session_id=fixture.session.id, world_id=authority.managed_world_id,
+        campaign_id=None, graph_revision=authority.graph_revision,
+        admitted_anchors=entries, selected_index_commitment=commitment,
+        initial_claim_packet_sha256=fixture.receipt.assembled_input.dispatched_packet_sha256,
+    )
+    policy = graph_types.GraphExecutionPolicyV2.model_validate({
+        **prior.policy.model_dump(mode="json", by_alias=True),
+        "policy_version": "plan_world_graph_execution_selected_scope_v1",
+        "source_read_scope": scope.model_dump(mode="json", by_alias=True),
+    })
+    execution = graph_types.PlanWorldGraphExecutionV2(
+        context_receipt_sha256=prior.context_receipt_sha256, policy=policy, events=[],
+        execution_policy_sha256=digest({
+            "schema": "dmb_agent_plan_world_graph_execution_v2",
+            "context_receipt_sha256": prior.context_receipt_sha256,
+            "policy": policy.model_dump(mode="json", by_alias=True),
+        }),
+    )
+    fixture.adapter.fence.turn = fixture.turn.model_copy(update={
+        "graph_context_execution": execution,
+    })
+    output = fixture.adapter.broker_graph_operation(_related_recap_request(
+        fixture, targetId="assertion-traversal-test",
+    ))
+    assert json.loads(output["resultJson"])["content"] == fixture.page_text
+    events = fixture.adapter.fence.turn.graph_context_execution.events
+    assert fixture.calls == [
+        "authorize_related_recap_context", "record_validated_related_recap_context",
+    ]
+    assert events[0].admission.admission_origin == "selected_index_admission"
+    assert events[0].admission.selected_index_sha256 == index_sha
+    assert events[0].admission.admission_graph_event_id is None
+
+
+@pytest.mark.parametrize("frozen_v1", [False, True], ids=["unfrozen", "frozen-v1"])
+def test_reconciled_turn_context_policy_before_provider_freeze(
+    monkeypatch: Any, tmp_path: Path, frozen_v1: bool,
+) -> None:
+    fixture = _related_recap_broker_fixture(monkeypatch)
+    accepted = _policy_turn(status="accepted", completion_present=False)
+    receipt = accepted.graph_context_receipt
+    assert receipt is not None and accepted.graph_context_execution is None
+    graph_types, service_module = fixture.graph_types, fixture.service_module
+    if frozen_v1:
+        policy = graph_types.GraphExecutionPolicyV1.model_validate({
+            key: value
+            for key, value in fixture.adapter.fence.turn.graph_context_execution.policy.model_dump(mode="json").items()
+            if key in graph_types.GraphExecutionPolicyV1.model_fields
+        })
+        accepted = accepted.model_copy(update={
+            "graph_context_execution": graph_types.PlanWorldGraphExecutionV1(
+                context_receipt_sha256=receipt.context_receipt_sha256,
+                policy=policy, events=[],
+            ),
+        })
+    basis = AgentTurnContentBasis(
+        world_id=accepted.world_id, document_id=receipt.plan_basis.document_id,
+        object_revision=receipt.plan_basis.object_revision,
+        work_revision_id=str(receipt.plan_basis.work_revision_id),
+        revision_n=receipt.plan_basis.revision_n,
+        content_sha256=receipt.plan_basis.content_sha256,
+        committed_status="committed", has_divergent_working_copy=False,
+    )
+    work = AgentTurnResolvedWork(
+        kind="plan", object_id=basis.document_id, revision=basis.object_revision,
+        changed_since_expected=False, owner_kind="world", owner_id=accepted.world_id,
+        world_id=accepted.world_id, content_basis=basis, plan_markdown="The keeper waits.",
+    )
+    request = _request(
+        surface={"surface_id": "plan", "instance_id": "plan-main"},
+        owner_scope={"kind": "world", "world_id": accepted.world_id},
+        primary_work={
+            "kind": "plan", "object_id": basis.document_id,
+            "expected_revision": basis.object_revision, "expected_revision_n": basis.revision_n,
+            "expected_content_sha256": basis.content_sha256,
+        },
+        client_work_state="saved_clean", plan_context_policy={"policy": "auto_plan_world"},
+        message=accepted.user_text,
+    )
+    bootstrap = replace(fixture.adapter.bootstrap, binding_version=2, graph_envelope={
+        "revision_id": receipt.graph_authority.graph_revision,
+        "world_id": receipt.graph_authority.native_world_id, "scope_mode": "world",
+    })
+    observed: list[bool] = []
+
+    def no_dispatch(*_args: Any, **_kwargs: Any) -> Any:
+        pytest.fail("This pre-freeze policy witness must not dispatch or mutate APP")
+
+    class ReconciledService:
+        def reconcile_turn(self, *_args: Any) -> Turn:
+            return accepted
+
+        accept_turn = claim_turn = authorize_provider_attempt = no_dispatch
+        record_provider_outcome = append_validated_graph_operation = no_dispatch
+        complete_turn = fail_turn = renew_turn_claim = no_dispatch
+
+    class InspectingRuntime:
+        descriptor = AgentRuntimeDescriptor("pre-freeze", "fake", "test", "graph")
+
+        def run_with_provider_authorization(
+            self, _invocation: Any, _authorize: Any, *, request_budget: Any,
+            on_graph_operation: Any, on_provider_lifecycle: Any,
+            context_read_enabled: bool = False,
+        ) -> AgentRuntimeResult:
+            observed.append(context_read_enabled)
+            projection = bootstrap.retrieval_session.project_for_hermes()
+            body = json.dumps({
+                "input": [{"role": "system", "content":
+                    "Turn capability policy (runtime-enforced; also required on tool calls):\n"
+                    + json.dumps({"initialClaimPacket": {
+                        "candidates": projection["candidates"][:8],
+                        "claimLedger": projection["claim_ledger"][:24],
+                        "intentHint": projection["intent_hint"],
+                        "availableExpansions": projection["available_expansions"],
+                    }}),
+                }, {"role": "user", "content": service_module._plan_message(
+                    request.message, work.plan_markdown, content_basis=basis,
+                )}], "tools": [],
+            })
+            view = {
+                "provider": request_budget["provider"], "model": request_budget["model"],
+                "apiMode": request_budget["apiMode"], "payloadJson": body,
+                "payloadSha256": sha256(body.encode()).hexdigest(),
+                "payloadUtf8Bytes": len(body.encode()),
+            }
+            frozen_receipt, execution, _ = service_module._freeze_policy_receipt(
+                request, work, bootstrap, None, view, request_budget,
+                context_read_enabled=context_read_enabled,
+            )
+            assert isinstance(execution, (
+                graph_types.PlanWorldGraphExecutionV1 if frozen_v1
+                else graph_types.PlanWorldGraphExecutionV2
+            ))
+            if not frozen_v1:
+                assert execution.policy.source_read_scope.admitted_anchors == []
+                assert execution.policy.max_source_read_calls == 0
+                existing_without_ledger = accepted.model_copy(update={
+                    "graph_context_receipt": frozen_receipt,
+                    "graph_context_execution": None,
+                })
+                blocked_adapter = service_module._PolicyExecutionAdapter(
+                    service=ReconciledService(), request=request,
+                    world_id=accepted.world_id, work=work, bootstrap=bootstrap,
+                    playable_target=None,
+                    submitted_intent=_submitted_turn_intent(request, world_id=accepted.world_id),
+                    existing_turn=existing_without_ledger, budget=request_budget,
+                    context_read_enabled=True,
+                )
+                assert blocked_adapter.authorize(view) is False
+                assert blocked_adapter.failure.code == "turn_receipt_unverifiable"
+                assert blocked_adapter.failure.provider_dispatched is False
+                assert blocked_adapter.fence is None
+                # Exercise APP's immutable acceptance boundary without a DB:
+                # idempotent reaccept cannot attach a new execution to this row.
+                from contextlib import contextmanager
+                from application_state.agent_conversation import service as app_service
+
+                @contextmanager
+                def no_database(_dsn: Any) -> Any:
+                    yield object()
+
+                submitted = _submitted_turn_intent(request, world_id=accepted.world_id)
+                submission = graph_types.TurnSubmission(
+                    world_id=accepted.world_id, conversation_id=accepted.conversation_id,
+                    idempotency_key=accepted.idempotency_key, expected_conversation_revision=1,
+                    user_text=request.message, provenance=accepted.provenance,
+                    submitted_intent_v2=submitted,
+                    graph_context_receipt=frozen_receipt, graph_context_execution=execution,
+                )
+                with monkeypatch.context() as app_contract:
+                    app_contract.setattr(app_service, "_ready_dsn", lambda: "unused")
+                    app_contract.setattr(app_service, "unit_of_work", no_database)
+                    app_contract.setattr(app_service.repo, "get_turn_by_world_key", lambda *_args: (
+                        existing_without_ledger, "old-request", "old-idempotency", None,
+                        app_service.submitted_turn_intent_fingerprint_v2(submitted),
+                    ))
+                    with pytest.raises(ApplicationStateConflictError, match="Graph receipt"):
+                        app_service.AgentConversationService().accept_turn(submission)
+            return AgentRuntimeResult(
+                status="error", error_code="request_budget_exceeded",
+                observed_model_call_count=0,
+            )
+
+    with pytest.raises(AgentTurnServiceError) as stopped:
+        execute_agent_turn(
+            request, root=tmp_path,
+            pointer_store=HermesSessionPointerStore(tmp_path / "pointers"),
+            owner_resolver=lambda _request: {
+                "kind": "world", "id": accepted.world_id, "name": "World One",
+            },
+            work_resolver=no_dispatch,
+            historical_work_resolver=lambda *_args: work,
+            graph_resolver=no_dispatch,
+            plan_graph_resolver=lambda *_args, **_kwargs: bootstrap,
+            runtime=InspectingRuntime(), conversation_service=ReconciledService(),
+        )
+    assert stopped.value.code == "plan_context_delivery_failure"
+    assert observed == [not frozen_v1]
+    assert accepted.graph_context_execution is None if not frozen_v1 else isinstance(
+        accepted.graph_context_execution, graph_types.PlanWorldGraphExecutionV1
+    )
+
+
+@pytest.mark.parametrize("change", [
+    None, "unknown_token", "core_campaign", "source_campaign", "offset", "section", "range",
+])
+def test_parent_related_recap_continuation_matches_descriptor_and_pages(
+    monkeypatch: Any, change: str | None,
+) -> None:
+    fixture = _related_recap_broker_fixture(monkeypatch)
+    pages = ["The old watch ", "shifted."]
+    section_sha = sha256("".join(pages).encode()).hexdigest()
+    continuation = "opaque-next-page"
+    requests: list[Any] = []
+
+    def paged_source(request: Any) -> Any:
+        requests.append(request)
+        result = fixture.read_source(request)
+        second = request.continuation is not None
+        result.content = pages[int(second)]
+        result.section_sha256 = section_sha
+        result.offset_chars = len(pages[0]) if second else 0
+        result.outcome = "enough" if second else "truncated"
+        result.truncated = not second
+        result.next_continuation = None if second else continuation
+        if second:
+            assert request.continuation == continuation
+            if change == "source_campaign":
+                result.context.campaign_id = "wrong-campaign"
+            elif change == "offset":
+                result.offset_chars += 1
+            elif change == "section":
+                result.section_sha256 = "b" * 64
+            elif change == "range":
+                result.line_end += 1
+        return result
+
+    monkeypatch.setattr(fixture.source_reads, "read_recap_context", paged_source)
+    first = fixture.adapter.broker_graph_operation(_related_recap_request(fixture))
+    first_payload = json.loads(first["resultJson"])
+    assert first_payload["content"] == pages[0]
+    assert first_payload["nextContinuation"] == continuation
+    assert fixture.adapter.fence.turn.graph_context_execution.events[0].admission.admission_origin == (
+        "initial_graph_input"
+    )
+    if change == "core_campaign":
+        fixture.descriptor.campaign_id = "changed-descriptor-campaign"
+    second = fixture.adapter.broker_graph_operation(_related_recap_request(
+        fixture, continuation=("unissued-token" if change == "unknown_token" else continuation),
+    ))
+    payload = json.loads(second["resultJson"])
+    events = fixture.adapter.fence.turn.graph_context_execution.events
+    if change is None:
+        assert payload["content"] == pages[1]
+        assert payload["offsetChars"] == len(pages[0])
+        assert payload["nextContinuation"] is None
+        assert len(requests) == 2 and len(fixture.adapter.context_payloads) == 2
+        assert events[2].continuation_in_sha256 == events[1].continuation_out_sha256
+        assert events[3].offset_chars == events[1].returned_chars
+        assert events[3].section_sha256 == events[1].section_sha256
+        assert events[3].source_bytes_sha256 == events[1].source_bytes_sha256
+    else:
+        assert "content" not in payload and pages[1] not in second["resultJson"]
+        assert len(fixture.adapter.context_payloads) == 1
+        assert sum(event.kind == "validated_related_recap_context_v1" for event in events) == 1
+        if change in {"unknown_token", "core_campaign"}:
+            assert payload["code"] == "related_recap_context_not_admitted"
+            assert len(requests) == 1 and len(events) == 2
+        else:
+            assert payload["code"] == "related_recap_context_unavailable"
+            assert len(requests) == 2 and len(events) == 3
+    assert continuation not in fixture.adapter.fence.turn.graph_context_execution.model_dump_json()
+
+
+@pytest.mark.parametrize(("owner", "field", "value"), [
+    ("context", "campaign_id", "wrong-campaign"),
+    ("context", "world_id", "wrong-world"),
+    ("context", "source_artifact_id", "wrong-artifact"),
+    ("context", "source_revision_id", "wrong-source-revision"),
+    ("context", "source_uri", "repo://recaps/foreign.md"),
+    ("context", "content_sha256", "b" * 64),
+    ("context", "selector_policy", "wrong-selector"),
+    ("context", "expected_heading", "# Wrong heading"),
+    ("snapshot", "revision_id", "wrong-graph-revision"),
+    ("snapshot", "scope_mode", "campaign"),
+    ("focus", "session_id", "unexpected-session"),
+    ("focus", "campaign_id", "unexpected-campaign"),
+    ("result", "section_sha256", "invalid-digest"),
+    ("result", "offset_chars", 1),
+    ("result", "line_start", 1),
+    ("result", "line_end", 1),
+])
+def test_parent_related_recap_rejects_source_metadata_before_release(
+    monkeypatch: Any, owner: str, field: str, value: Any,
+) -> None:
+    fixture = _related_recap_broker_fixture(monkeypatch)
+
+    def wrong_source(request: Any) -> Any:
+        result = fixture.read_source(request)
+        returned = (
+            result if owner == "result" else
+            result.snapshot.focus if owner == "focus" else getattr(result, owner)
+        )
+        setattr(returned, field, value)
+        return result
+
+    monkeypatch.setattr(fixture.source_reads, "read_recap_context", wrong_source)
+    output = fixture.adapter.broker_graph_operation(_related_recap_request(fixture))
+    payload = json.loads(output["resultJson"])
+    assert payload["code"] == "related_recap_context_unavailable"
+    assert "content" not in payload and fixture.page_text not in output["resultJson"]
+    assert fixture.adapter.context_payloads == {}
+    assert len(fixture.adapter.fence.turn.graph_context_execution.events) == 1
+    assert fixture.calls == ["authorize_related_recap_context"]
+
+
+@pytest.mark.parametrize("max_chars", [0, 12001, True])
+def test_parent_related_recap_per_call_quota_prevents_source_io(
+    monkeypatch: Any, max_chars: Any,
+) -> None:
+    fixture = _related_recap_broker_fixture(monkeypatch)
+    output = fixture.adapter.broker_graph_operation(_related_recap_request(
+        fixture, maxChars=max_chars,
+    ))
+    assert json.loads(output["resultJson"])["code"] == "invalid_arguments"
+    assert fixture.calls == [] and fixture.adapter.context_payloads == {}
+
+
+def test_parent_related_recap_eight_call_and_total_character_quota(monkeypatch: Any) -> None:
+    fixture = _related_recap_broker_fixture(monkeypatch)
+    page = "x" * 12000
+    source_calls: list[Any] = []
+
+    def full_page(request: Any) -> Any:
+        source_calls.append(request)
+        result = fixture.read_source(request)
+        result.content = page
+        result.section_sha256 = sha256(page.encode()).hexdigest()
+        return result
+
+    monkeypatch.setattr(fixture.source_reads, "read_recap_context", full_page)
+    for _ in range(8):
+        output = fixture.adapter.broker_graph_operation(_related_recap_request(
+            fixture, maxChars=12000,
+        ))
+        assert json.loads(output["resultJson"])["content"] == page
+    events = fixture.adapter.fence.turn.graph_context_execution.events
+    assert sum(
+        event.max_chars for event in events
+        if event.kind == "related_recap_context_authorized_v1"
+    ) == 96000
+    assert sum(
+        event.returned_chars for event in events
+        if event.kind == "validated_related_recap_context_v1"
+    ) == 96000
+    denied = fixture.adapter.broker_graph_operation(_related_recap_request(fixture, maxChars=1))
+    assert json.loads(denied["resultJson"])["code"] == "related_recap_context_over_budget"
+    assert len(source_calls) == 8
+    assert len(fixture.adapter.fence.turn.graph_context_execution.events) == 16
 
 
 def test_plan_graph_budget_fails_closed_for_unverified_model(
@@ -1837,6 +2660,13 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         "source-revision:one"
     )
     assert source_execution.policy.max_source_read_calls == 8
+    _, context_execution, _ = service_module._freeze_policy_receipt(
+        request, work, bootstrap, None, view, budget,
+        context_read_enabled=True,
+    )
+    assert isinstance(context_execution, graph_types.PlanWorldGraphExecutionV2)
+    assert context_execution.policy.source_read_scope.admitted_anchors == []
+    assert context_execution.policy.max_source_read_calls == 0
 
     class FakeExecutionPort:
         turn: Turn | None = None
@@ -1871,7 +2701,7 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
             )
             execution = self.turn.graph_context_execution
             assert execution is not None
-            updated = graph_types.PlanWorldGraphExecutionV1.model_validate({
+            updated = type(execution).model_validate({
                 **execution.model_dump(mode="json", by_alias=True),
                 "events": [
                     *[prior.model_dump(mode="json", by_alias=True) for prior in execution.events],
@@ -1887,6 +2717,8 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         def authorize_provider_attempt(self, _world_id: str, _conversation_id: Any, _turn_id: Any, *, expected_revision: int, expected_attempt: int, provider_attempt_event: Any) -> tuple[Turn, bool]:
             self.authorize_count += 1
             return self._append(provider_attempt_event, expected_revision, expected_attempt)
+
+        authorize_provider_attempt_v2 = authorize_provider_attempt
 
         def record_provider_outcome(self, _world_id: str, _conversation_id: Any, _turn_id: Any, *, expected_revision: int, expected_attempt: int, outcome: Any) -> tuple[Turn, bool]:
             return self._append(outcome, expected_revision, expected_attempt)
@@ -1908,7 +2740,7 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
                 ),
                 claim_graph_event_ids=result.claim_graph_event_ids,
             )
-            updated_execution = graph_types.PlanWorldGraphExecutionV1.model_validate({
+            updated_execution = type(execution).model_validate({
                 **execution.model_dump(mode="json", by_alias=True),
                 "events": [
                     *[prior.model_dump(mode="json", by_alias=True) for prior in execution.events],
@@ -2352,7 +3184,9 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         def run_with_provider_authorization(
             self, _invocation: Any, authorize: Any, *, request_budget: Any,
             on_graph_operation: Any, on_provider_lifecycle: Any,
+            context_read_enabled: bool = False,
         ) -> AgentRuntimeResult:
+            assert context_read_enabled is True
             assert callable(on_graph_operation)
             adjusted = dict(view)
             adjusted["model"] = request_budget["model"]
@@ -2379,7 +3213,9 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         def run_with_provider_authorization(
             self, _invocation: Any, authorize: Any, *, request_budget: Any,
             on_graph_operation: Any, on_provider_lifecycle: Any,
+            context_read_enabled: bool = False,
         ) -> AgentRuntimeResult:
+            assert context_read_enabled is True
             assert request_budget["contextLimitTokens"] == 1_050_000
             assert (request_budget["maxProviderAttempts"],
                     request_budget["maxToolCapableAttempts"],
@@ -2618,7 +3454,7 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     assert execution_events[-1].kind == "completion_binding"
     assert execution_events[-1].provider_attempt_id in {
         event.provider_attempt_id for event in execution_events
-        if event.kind == "provider_attempt_authorized"
+        if event.kind in {"provider_attempt_authorized", "provider_attempt_authorized_v2"}
     }
     assert "plan_graph_answer_validation_failed" not in caplog.text
     assert "PRIVATE_PROVIDER_FINAL_BODY" not in caplog.text
@@ -2648,7 +3484,9 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
             def run_with_provider_authorization(
                 self, _invocation: Any, authorize: Any, *, request_budget: Any,
                 on_graph_operation: Any, on_provider_lifecycle: Any,
+                context_read_enabled: bool = False,
             ) -> AgentRuntimeResult:
+                assert context_read_enabled is True
                 adjusted = {**view, "model": request_budget["model"]}
                 for index in range(4):
                     assert authorize(adjusted) is True

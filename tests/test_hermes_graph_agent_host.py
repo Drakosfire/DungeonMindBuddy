@@ -2147,6 +2147,45 @@ def test_source_read_round_trips_through_correlated_parent_broker(
         host.shutdown()
 
 
+def test_related_recap_context_round_trips_through_correlated_parent_broker(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DMB_TEST_BROKER_TOOL_NAME", "read_related_recap_context")
+    host = HermesGraphAgentHost(worker_target=_graph_broker_worker_main)
+    observed: list[dict[str, Any]] = []
+    try:
+        result = host.execute(
+            _request(
+                provider_authorization_required=True,
+                request_budget={
+                    "schema": "dmb_hermes_request_budget_policy_v1",
+                    "provider": "openai-api", "model": "synthetic-model",
+                    "apiMode": "chat_completions",
+                    "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+                    "contextLimitTokens": 32768, "outputReserveTokens": 2048,
+                    "maxProviderAttempts": 4, "maxToolCapableAttempts": 3,
+                    "maxGraphOperations": 8,
+                },
+                parent_graph_broker_required=True,
+                retrieval_session_id="parent-session",
+                retrieval_session={"retrieval_session_id": "parent-session"},
+            ),
+            on_provider_authorization=lambda _view: True,
+            on_graph_operation=lambda request: (
+                observed.append(dict(request)) or {
+                    "resultJson": '{"schema":"dmb_related_recap_context_read_v1","outcome":"enough"}',
+                    "retrievalSession": {"retrieval_session_id": "parent-session"},
+                }
+            ),
+        )
+        assert result.status == "ok"
+        assert len(observed) == 1
+        assert observed[0]["toolName"] == "read_related_recap_context"
+        assert observed[0]["arguments"]["retrievalSessionId"] == "parent-session"
+    finally:
+        host.shutdown()
+
+
 def test_parent_execute_does_not_call_rung3_when_using_stub_worker(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
