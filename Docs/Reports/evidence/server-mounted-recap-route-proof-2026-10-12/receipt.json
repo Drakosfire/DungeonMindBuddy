@@ -1,0 +1,166 @@
+{
+  "authorized_index_status": 200,
+  "code_head": "0cc3cadac5104c875a7453dbf32df74a208e3036",
+  "core_head": "13143455b304d748c249bd7bd628134c421bf6d9",
+  "default_transaction_read_only": "on",
+  "descriptor_count": 19,
+  "head_unchanged": true,
+  "invalid_token_status": 401,
+  "native_head_after": "rev:62820bcd7eca116af9d889e128fabf4e",
+  "native_head_before": "rev:62820bcd7eca116af9d889e128fabf4e",
+  "opened": [
+    {
+      "authorized_read_status": 200,
+      "content_sha256": "06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083",
+      "context_anchor_id": "dm-context-anchor:v1:abf0eafb5e62b6f10efbf5931600dbcac320abdf71f67d6ed545c330d4ddc261",
+      "heading_line": 12,
+      "invalid_continuation_status": 409,
+      "line_end": 38,
+      "line_start": 13,
+      "pages": [
+        {
+          "offset_chars": 0,
+          "page_sha256": "70d1d60e7f035aaebe6633b14f4aa7317a60425c325b61ba769cfba624f38be3",
+          "returned_chars": 1000,
+          "truncated": true
+        },
+        {
+          "offset_chars": 1000,
+          "page_sha256": "57b39c2c692db58598e0fe99fb6eb3e146bc6d0144b1158405bab75d3d47c026",
+          "returned_chars": 1000,
+          "truncated": true
+        },
+        {
+          "offset_chars": 2000,
+          "page_sha256": "c4f01f96f44c6488f69a5275160d936ace627541612530d03f23dcefa0c99eb0",
+          "returned_chars": 1000,
+          "truncated": true
+        },
+        {
+          "offset_chars": 3000,
+          "page_sha256": "cb1915f6bddf7b4847540a93779dfd50f1226e1a2c3171c2776b86e8dfc54bb9",
+          "returned_chars": 1000,
+          "truncated": true
+        },
+        {
+          "offset_chars": 4000,
+          "page_sha256": "4959eab4fb9de79ff14313facb5de50591b50e338620341a4f1c128c6b56a8f9",
+          "returned_chars": 1000,
+          "truncated": true
+        },
+        {
+          "offset_chars": 5000,
+          "page_sha256": "0070a2995b0f599ec8ee4e8728d0e5b79cfb68da0171e074530756c2d4792281",
+          "returned_chars": 1000,
+          "truncated": true
+        },
+        {
+          "offset_chars": 6000,
+          "page_sha256": "d28944f21d6998e574d5e4da85fb71d13ab8e5a06ef99319b4a5bfb4a9af2a5d",
+          "returned_chars": 1000,
+          "truncated": true
+        },
+        {
+          "offset_chars": 7000,
+          "page_sha256": "651c01a8d3d4692752d4df71474f71bc52afa16ddcae9742c3513ed08b4784e5",
+          "returned_chars": 1000,
+          "truncated": true
+        },
+        {
+          "offset_chars": 8000,
+          "page_sha256": "7655208d790c0ec6da231115cda84ef718c052c3f569d36a3838149fbb0bd9aa",
+          "returned_chars": 1000,
+          "truncated": true
+        },
+        {
+          "offset_chars": 9000,
+          "page_sha256": "42cb11bdb9280cf6e039e2fe5ee6f674aa7bd0aed81adecae5e298956f4270be",
+          "returned_chars": 660,
+          "truncated": false
+        }
+      ],
+      "section_sha256": "c320260289bcf77aa1a90cca5ac6ca006352d1229bf348f2de26a60b5c2f68d1",
+      "source_artifact_id": "corpus:eldyrwild:session-22-recap",
+      "source_campaign_id": "longmont-c2",
+      "source_revision_id": "sha256:06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083"
+    },
+    {
+      "authorized_read_status": 200,
+      "content_sha256": "77ba5030b5c89e8888e8a3d900fe3fc07b94313af81a7ad5f888eb663d4c7782",
+      "context_anchor_id": "dm-context-anchor:v1:cca1a91a5ba5915e1df267007aafd9109d154dd3197b3c05fa8645170e8baa91",
+      "heading_line": 12,
+      "invalid_continuation_status": 409,
+      "line_end": 38,
+      "line_start": 13,
+      "pages": [
+        {
+          "offset_chars": 0,
+          "page_sha256": "70f0eb0334507bc1101f57715cf1061c572c25c38a43bc8c365794fe825aaa9d",
+          "returned_chars": 1000,
+          "truncated": true
+        },
+        {
+          "offset_chars": 1000,
+          "page_sha256": "4967f490fcee47c6282a9ac192d8734ec10dd0386f21fd98d7ffefc7217fd424",
+          "returned_chars": 1000,
+          "truncated": true
+        },
+        {
+          "offset_chars": 2000,
+          "page_sha256": "40d3731dd5e5c51b166543b1dd92cd7ba514ab8cdceea235e18ed9e4d4ee2340",
+          "returned_chars": 1000,
+          "truncated": true
+        },
+        {
+          "offset_chars": 3000,
+          "page_sha256": "ca636e1985ee87ecad7443b8408c3410b7bafe1bb219b1e0f58322867d3959af",
+          "returned_chars": 1000,
+          "truncated": true
+        },
+        {
+          "offset_chars": 4000,
+          "page_sha256": "94172f29210180c9d4960b192207b5fda49c31444d9f2303164af53e0f432322",
+          "returned_chars": 1000,
+          "truncated": true
+        },
+        {
+          "offset_chars": 5000,
+          "page_sha256": "2db294446a0de08211feab7b6d4edad40e716dae026e70d3f03bf9fab1592fb1",
+          "returned_chars": 1000,
+          "truncated": true
+        },
+        {
+          "offset_chars": 6000,
+          "page_sha256": "3fcaafbe956e7334d14b6da0415fe85dbe9edccd13142ad5fedc967ce455bb89",
+          "returned_chars": 1000,
+          "truncated": true
+        },
+        {
+          "offset_chars": 7000,
+          "page_sha256": "b43ba2a2f85da9db1ecdaa8fbdbd6eab7bfe4f6a7b6926ff372cc41c6944be02",
+          "returned_chars": 1000,
+          "truncated": true
+        },
+        {
+          "offset_chars": 8000,
+          "page_sha256": "79a5067af0f020adaf7ce3183081ea54914761800f3943b87de748cb24d51b48",
+          "returned_chars": 1000,
+          "truncated": true
+        },
+        {
+          "offset_chars": 9000,
+          "page_sha256": "9352c5a890b7f948e830916b2c8ea44b3df10dde4af4c3a31b284465b32db551",
+          "returned_chars": 250,
+          "truncated": false
+        }
+      ],
+      "section_sha256": "06a706ffafdda0eb2297f747084c2fff9f3e166a49ead99c7f8242961fa7f268",
+      "source_artifact_id": "corpus:eldyrwild:session-23-recap",
+      "source_campaign_id": "longmont-c2",
+      "source_revision_id": "sha256:77ba5030b5c89e8888e8a3d900fe3fc07b94313af81a7ad5f888eb663d4c7782"
+    }
+  ],
+  "transaction_read_only": "on",
+  "unauthenticated_index_status": 401,
+  "unauthenticated_read_status": 401
+}
