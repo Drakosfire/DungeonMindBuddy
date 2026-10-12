@@ -97,3 +97,5 @@ are inherited only through the new base, not included in this capability diff.
 No provider, retained APP/native query/write, private corpus export, fresh
 extraction, Session20 replay, production schema migration or runtime restart was
 used. No acceptance token is asserted by SERVER. PRIME owns exact-head review.
+
+Implementation/test head: `a5d6d43b2ecc7eca03ce40ba19489b51393bf853`. The final PR head adds only this exact-head evidence line; obtain that final SHA from the PR handback.
