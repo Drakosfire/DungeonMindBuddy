@@ -10,50 +10,50 @@ from apps.live_control_server.services.agent_world_graph_query_context import (
 )
 from graph_memory.projection.world_projection import WorldGraphProjectionRequest
 from graph_memory.interaction.initial_resolve import create_session_from_preflight
-from graph_memory.retrieval.models import WorldGraphSearchRequest, RecapContextIndexRequest, RecapContextReadRequest
+from graph_memory.retrieval.models import WorldGraphSearchRequest, RecapContextIndexRequestV2, RecapContextReadRequestV2
 
 
 def test_recap_context_wire_requires_exact_gm_pin_and_distinct_context_id() -> None:
     common = {"worldId": "eldyrwild", "campaignId": "longmont-c2", "scopeMode": "campaign", "revisionPin": "rev:fixed"}
-    listed = RecapContextIndexRequest.model_validate({"schema":"dmb_recap_context_index_request_v1", **common})
+    listed = RecapContextIndexRequestV2.model_validate({"schema":"dmb_recap_context_index_request_v2", **common})
     assert listed.max_entries == 512
-    opened = RecapContextReadRequest.model_validate({"schema":"dmb_recap_context_read_request_v1", **common,
-        "contextAnchorId":"dm-context-anchor:v1:exact"})
+    opened = RecapContextReadRequestV2.model_validate({"schema":"dmb_recap_context_read_request_v2", **common,
+        "contextAnchorId":"dm-context-anchor:v2:exact"})
     assert opened.context_anchor_id.startswith("dm-context-anchor:")
     for bad in ({"revisionPin":None}, {"admissibility":"player"}, {"sourceUri":"repo://forged.md"}):
         with pytest.raises(ValidationError):
-            RecapContextReadRequest.model_validate({"schema":"dmb_recap_context_read_request_v1", **common,
-                "contextAnchorId":"dm-context-anchor:v1:exact", **bad})
+            RecapContextReadRequestV2.model_validate({"schema":"dmb_recap_context_read_request_v2", **common,
+                "contextAnchorId":"dm-context-anchor:v2:exact", **bad})
     with pytest.raises(ValidationError):
-        RecapContextReadRequest.model_validate({"schema":"dmb_recap_context_read_request_v1", **common,
+        RecapContextReadRequestV2.model_validate({"schema":"dmb_recap_context_read_request_v2", **common,
             "contextAnchorId":"source-anchor:v1:old-evidence"})
 
 
 def test_recap_context_routes_use_separate_service_operations(monkeypatch) -> None:
     from starlette.requests import Request
     from apps.live_control_server.routes import world_graph_retrieval as route
-    from graph_memory.retrieval.models import RecapContextDescriptor, RecapContextIndexResult, RecapContextReadResult, WorldGraphRetrievalSnapshot
+    from graph_memory.retrieval.models import RecapContextDescriptorV2, RecapContextIndexResultV2, RecapContextReadResultV2, WorldGraphRetrievalSnapshot
     snapshot = WorldGraphRetrievalSnapshot(world_id="eldyrwild", campaign_id="longmont-c2", revision_id="rev:fixed",
         head_revision_id="rev:fixed", is_head=True, focus={"kind":"none"}, admissibility="gm", scope_mode="campaign")
-    descriptor = RecapContextDescriptor(context_anchor_id="dm-context-anchor:v1:exact", world_id="eldyrwild",
+    descriptor = RecapContextDescriptorV2(context_anchor_id="dm-context-anchor:v2:exact", world_id="eldyrwild",
         campaign_id="longmont-c2", graph_revision_id="rev:fixed", source_artifact_id="artifact:s22",
         source_revision_id="sha256:"+"a"*64, source_uri="repo://s22.md", content_sha256="a"*64,
-        expected_session_id="session-22", expected_heading="# Session 22 Recap")
+        expected_session_id="session-22", canonical_heading="# Session 22 Recap", legacy_session_heading="## Session 22:", legacy_recap_marker="**Recap**:")
     listed=[]
     opened=[]
-    monkeypatch.setattr(route,"list_recap_context",lambda request: listed.append(request) or RecapContextIndexResult(
+    monkeypatch.setattr(route,"list_recap_context_v2",lambda request: listed.append(request) or RecapContextIndexResultV2(
         snapshot=snapshot,status="complete",eligible_count=1,max_entries=512,entries=[descriptor]))
-    monkeypatch.setattr(route,"read_recap_context",lambda request: opened.append(request) or RecapContextReadResult(
+    monkeypatch.setattr(route,"read_recap_context_v2",lambda request: opened.append(request) or RecapContextReadResultV2(
         outcome="enough",snapshot=snapshot,context_anchor_id=descriptor.context_anchor_id,context=descriptor,
-        content="one line",media_type="text/markdown",heading_line=3,line_start=4,line_end=4,
+        content="one line",media_type="text/markdown",heading_line=3, selected_form="canonical_h1", session_heading_line=3, recap_marker_line=None,line_start=4,line_end=4,
         section_sha256="b"*64))
     empty=Request({"type":"http","query_string":b""})
     common={"worldId":"eldyrwild","campaignId":"longmont-c2","scopeMode":"campaign","revisionPin":"rev:fixed"}
-    index=RecapContextIndexRequest.model_validate({"schema":"dmb_recap_context_index_request_v1",**common})
-    read=RecapContextReadRequest.model_validate({"schema":"dmb_recap_context_read_request_v1",**common,
+    index=RecapContextIndexRequestV2.model_validate({"schema":"dmb_recap_context_index_request_v2",**common})
+    read=RecapContextReadRequestV2.model_validate({"schema":"dmb_recap_context_read_request_v2",**common,
         "contextAnchorId":descriptor.context_anchor_id})
-    assert route.post_recap_context_index(empty,index)["entries"][0]["contextAnchorId"]==descriptor.context_anchor_id
-    assert route.post_recap_context_read(empty,read)["content"]=="one line"
+    assert route.post_recap_context_index_v2(empty,index)["entries"][0]["contextAnchorId"]==descriptor.context_anchor_id
+    assert route.post_recap_context_read_v2(empty,read)["content"]=="one line"
     assert len(listed)==len(opened)==1
 
 
@@ -79,10 +79,10 @@ def test_mounted_recap_context_route_authenticates_before_service_and_preserves_
         calls.append(request)
         raise WorldGraphRetrievalServiceError('Source unavailable.', code='source_unavailable', status_code=409)
 
-    monkeypatch.setattr(route, 'read_recap_context', unavailable)
+    monkeypatch.setattr(route, 'read_recap_context_v2', unavailable)
     app = FastAPI()
     app.include_router(route.router)
-    path = '/api/live/world-graph/retrieval/recap-context/read'
+    path = '/api/live/world-graph/retrieval/recap-context/v2/read'
     mounted = next(row for row in app.routes if isinstance(row, APIRoute) and row.path == path)
     assert any(dependency.call is native_graph_gm_dependency for dependency in mounted.dependant.dependencies)
     empty = Request({'type': 'http', 'method': 'POST', 'path': path, 'query_string': b'',
@@ -92,11 +92,11 @@ def test_mounted_recap_context_route_authenticates_before_service_and_preserves_
     assert denied.value.status_code == 401 and denied.value.detail['code'] == 'graph_auth_required'
     assert calls == []
     payload = {
-        'schema': 'dmb_recap_context_read_request_v1', 'worldId': 'eldyrwild',
+        'schema': 'dmb_recap_context_read_request_v2', 'worldId': 'eldyrwild',
         'campaignId': '', 'scopeMode': 'world', 'revisionPin': 'rev:fixed',
-        'contextAnchorId': 'dm-context-anchor:v1:exact',
+        'contextAnchorId': 'dm-context-anchor:v2:exact',
     }
-    request = RecapContextReadRequest.model_validate(payload)
+    request = RecapContextReadRequestV2.model_validate(payload)
     failed = mounted.endpoint(empty, request)
     assert failed.status_code == 409 and json.loads(failed.body)['code'] == 'source_unavailable'
     assert len(calls) == 1 and calls[0].scope_mode == 'world'
@@ -261,7 +261,7 @@ def test_selected_own_overflow_and_unavailable_preserve_truthful_coverage():
             assert search.result.nodes[0].evidence_ref_ids
 
 
-def test_mounted_recap_context_v2_routes_preserve_saved_v1_and_auth(monkeypatch,tmp_path):
+def test_mounted_recap_context_v2_only_routes_and_auth(monkeypatch,tmp_path):
     import asyncio
     import httpx
     from fastapi import FastAPI
@@ -297,16 +297,14 @@ def test_mounted_recap_context_v2_routes_preserve_saved_v1_and_auth(monkeypatch,
             listed=await client.post(base+"/v2/index",headers=headers,json=index_request.model_dump(mode="json",by_alias=True))
             assert listed.status_code==200 and listed.json()["schema"]=="dmb_recap_context_index_v2"
             assert listed.json()["entries"][0]["selectorPolicy"]=="markdown-session-recap-v2"
-            old_body={**read_request.model_dump(mode="json",by_alias=True),"schema":"dmb_recap_context_read_request_v1","contextAnchorId":"dm-context-anchor:v1:synthetic"}
-            old=await client.post(base+"/read",headers=headers,json=old_body)
-            saved={**old_body,"schema":"dmb_recap_context_read_request_v2"}
-            delegated=await client.post(base+"/v2/read",headers=headers,json=saved)
-            assert old.status_code==delegated.status_code==200 and old.json()==delegated.json()
-            assert delegated.json()["nextContinuation"].startswith("recap-page:v1:")
+            for retired in ("/read", "/index"):
+                assert (await client.post(base+retired,headers=headers,json=read_request.model_dump(mode="json",by_alias=True))).status_code == 404
+            old_body = {**read_request.model_dump(mode="json",by_alias=True), "contextAnchorId":"dm-context-anchor:v1:synthetic"}
+            assert (await client.post(base+"/v2/read",headers=headers,json=old_body)).status_code == 422
             new=await client.post(base+"/v2/read",headers=headers,json=read_request.model_dump(mode="json",by_alias=True))
             assert new.status_code==200 and new.json()["schema"]=="dmb_recap_context_read_v2"
             assert new.json()["selectedForm"]=="canonical_h1"
-            crossing={**read_request.model_dump(mode="json",by_alias=True),"continuation":old.json()["nextContinuation"]}
+            crossing={**read_request.model_dump(mode="json",by_alias=True),"continuation":"recap-page:v1:"+"a"*64+":5"}
             rejected=await client.post(base+"/v2/read",headers=headers,json=crossing)
             assert rejected.status_code==409 and rejected.json()["code"]=="source_unavailable"
             wrong={**read_request.model_dump(mode="json",by_alias=True),"contextAnchorId":"dm-context-anchor:v3:unknown"}
@@ -315,7 +313,7 @@ def test_mounted_recap_context_v2_routes_preserve_saved_v1_and_auth(monkeypatch,
             assert (await client.post(base+"/v2/read",headers=headers,json=oversized)).status_code==422
             no_pin={**read_request.model_dump(mode="json",by_alias=True),"revisionPin":None}
             assert (await client.post(base+"/v2/read",headers=headers,json=no_pin)).status_code==422
-            assert (await client.post(base+"/read",headers=headers,json=read_request.model_dump(mode="json",by_alias=True))).status_code==422
+            assert (await client.post(base+"/read",headers=headers,json=read_request.model_dump(mode="json",by_alias=True))).status_code==404
     asyncio.run(exercise())
     assert source.read_bytes()==raw
     with pytest.raises(ValidationError):

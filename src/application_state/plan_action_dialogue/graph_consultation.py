@@ -17,9 +17,9 @@ from application_state.agent_conversation.types import (
     PlanWorldGraphCitationMapV2,
     ProviderAttemptAuthorizedEventV1,
     ProviderOutcomeEventV1,
-    RelatedRecapContextProviderInclusionEventV1,
+    RelatedRecapContextProviderInclusionEventV2,
     ValidatedGraphOperationEventV1,
-    ValidatedRelatedRecapContextEventV1,
+    ValidatedRelatedRecapContextEventV2,
     ValidatedSourceReadEventV2,
     _canonical_sha256,
     derive_graph_execution_evidence_status,
@@ -266,7 +266,7 @@ def _validate_proposal_disposition(consultation, claims) -> None:
     if any(
         (isinstance(e, ValidatedSourceReadEventV2)
          and any(read.outcome in {"denied", "unavailable"} for read in e.receipts))
-        or (isinstance(e, ValidatedRelatedRecapContextEventV1) and e.outcome == "unavailable")
+        or (isinstance(e, ValidatedRelatedRecapContextEventV2) and e.outcome == "unavailable")
         for e in execution.events
     ):
         raise ValueError("failed consultation reads cannot become an applicable proposal")
@@ -275,7 +275,7 @@ def _validate_proposal_disposition(consultation, claims) -> None:
             raise ValueError("explicit draft override requires a linked clarification")
     elif result.disposition == "supported_context_used":
         included_context = any(
-            isinstance(e, RelatedRecapContextProviderInclusionEventV1)
+            isinstance(e, RelatedRecapContextProviderInclusionEventV2)
             and e.provider_attempt_id == result.producing_provider_attempt_id
             for e in execution.events
         )

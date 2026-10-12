@@ -1030,15 +1030,15 @@ export interface WorldPlanGraphCompletionV2 extends Omit<WorldPlanGraphCompletio
 }
 
 /** Exact policy-only response envelope defined by SERVER's accepted wire contract. */
-export interface WorldPlanAgentPlanContextV1 {
-  schema: "dmb_agent_plan_world_graph_context_response_v1";
+export interface WorldPlanAgentPlanContextV2 {
+  schema: "dmb_agent_plan_world_graph_context_response_v2";
   receipt: WorldPlanGraphContextReceiptV1;
   completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | null;
   execution: WorldPlanGraphExecutionProjectionV1 | null;
   delivery_replay: boolean;
-  source_open_targets?: WorldPlanSourceOpenTargetV1[];
+  source_open_targets?: WorldPlanSourceOpenTargetV2[];
   evidence_anchor_statuses?: WorldPlanEvidenceAnchorStatusV1[];
-  related_recap_context_statuses?: WorldPlanRelatedRecapContextStatusV1[];
+  related_recap_context_statuses?: WorldPlanRelatedRecapContextStatusV2[];
 }
 
 export interface WorldPlanEvidenceAnchorStatusV1 {
@@ -1048,8 +1048,8 @@ export interface WorldPlanEvidenceAnchorStatusV1 {
   target_count: number;
 }
 
-export interface WorldPlanRelatedRecapContextStatusV1 {
-  schema: "dmb_agent_related_recap_context_status_v1";
+export interface WorldPlanRelatedRecapContextStatusV2 {
+  schema: "dmb_agent_related_recap_context_status_v2";
   claim_id: string;
   status: "available" | "multiple_choices" | "no_context" | "metadata_unavailable" | "partial" | "overflow";
   choice_count: number;
@@ -1069,7 +1069,7 @@ export interface WorldPlanSourceOpenAuthorityV1 {
   graph_revision: string;
 }
 
-export type WorldPlanSourceOpenTargetV1 = WorldPlanSourceOpenAuthorityV1 & (
+export type WorldPlanSourceOpenTargetV2 = WorldPlanSourceOpenAuthorityV1 & (
   | {
     schema: "dmb_agent_evidence_anchor_open_target_v1";
     kind: "evidence_anchor";
@@ -1079,7 +1079,7 @@ export type WorldPlanSourceOpenTargetV1 = WorldPlanSourceOpenAuthorityV1 & (
     read_outcome: "enough" | "partial" | "truncated" | null;
   }
   | {
-    schema: "dmb_agent_related_recap_context_open_target_v1";
+    schema: "dmb_agent_related_recap_context_open_target_v2";
     kind: "related_recap_context";
     context_anchor_id: string;
     provenance_evidence_ref_id: string;
@@ -1087,15 +1087,17 @@ export type WorldPlanSourceOpenTargetV1 = WorldPlanSourceOpenAuthorityV1 & (
     source_uri: string;
     content_sha256: string;
     expected_session_id: string;
-    expected_heading: string;
-    selector_schema: "dm_recap_context_section_selector_v1";
-    selector_policy: "markdown-session-recap-v1";
+    canonical_heading: string;
+    legacy_session_heading: string;
+    legacy_recap_marker: "**Recap**:";
+    selector_schema: "dm_recap_context_section_selector_v2";
+    selector_policy: "markdown-session-recap-v2";
   }
 );
 
 export interface WorldPlanAgentTurnResponseV2 extends Omit<WorldPlanAgentTurnResponseV1, "schema"> {
   schema: "dmb_agent_turn_response_v2";
-  plan_context: WorldPlanAgentPlanContextV1;
+  plan_context: WorldPlanAgentPlanContextV2;
 }
 
 export type WorldPlanAgentTurnResponse =
@@ -1152,7 +1154,7 @@ export interface WorldAgentConversationHistoryResponseV1 {
 
 export interface WorldAgentConversationHistoryTurnV2 extends WorldAgentConversationHistoryTurnV1 {
   /** Absent on legacy turns; present on a policy-bearing turn with a frozen receipt. */
-  plan_context?: Omit<WorldPlanAgentPlanContextV1, "delivery_replay"> & {
+  plan_context?: Omit<WorldPlanAgentPlanContextV2, "delivery_replay"> & {
     delivery_replay?: boolean;
   };
 }
@@ -1168,7 +1170,7 @@ export interface WorldAgentConversationHistoryTurnV3 extends WorldAgentConversat
 }
 
 export interface WorldAgentConversationHistoryPlanTurnV3 extends WorldAgentConversationHistoryTurnV3 {
-  plan_context: Omit<WorldPlanAgentPlanContextV1, "delivery_replay"> & {
+  plan_context: Omit<WorldPlanAgentPlanContextV2, "delivery_replay"> & {
     delivery_replay?: boolean;
   };
 }
@@ -3684,8 +3686,8 @@ export interface WorldGraphSourceAnchorReadResponse {
   diagnostics: Array<{ code: string; message: string; severity: string }>;
 }
 
-export interface WorldGraphRecapContextReadRequest {
-  schema: "dmb_recap_context_read_request_v1";
+export interface WorldGraphRecapContextReadRequestV2 {
+  schema: "dmb_recap_context_read_request_v2";
   worldId: string;
   campaignId: string;
   scopeMode: "world";
@@ -3707,19 +3709,24 @@ export interface WorldGraphRecapContextDescriptor {
   sourceUri: string;
   contentSha256: string;
   expectedSessionId: string;
-  expectedHeading: string;
-  selectorSchema: "dm_recap_context_section_selector_v1";
-  selectorPolicy: "markdown-session-recap-v1";
+  canonicalHeading: string;
+  legacySessionHeading: string;
+  legacyRecapMarker: "**Recap**:";
+  selectorSchema: "dm_recap_context_section_selector_v2";
+  selectorPolicy: "markdown-session-recap-v2";
 }
 
-export interface WorldGraphRecapContextReadResponse {
-  schema: "dmb_recap_context_read_v1";
+export interface WorldGraphRecapContextReadResponseV2 {
+  schema: "dmb_recap_context_read_v2";
   outcome: "enough" | "truncated" | "empty" | "unavailable";
   snapshot: WorldGraphSourceAnchorReadSnapshot;
   contextAnchorId: string;
   context: WorldGraphRecapContextDescriptor | null;
   mediaType: string | null;
   content: string | null;
+  selectedForm: "canonical_h1" | "legacy_h2" | null;
+  sessionHeadingLine: number | null;
+  recapMarkerLine: number | null;
   headingLine: number | null;
   lineStart: number | null;
   lineEnd: number | null;

@@ -518,7 +518,7 @@ def test_history_projection_keeps_receipt_and_completion_bound_to_provenance() -
 
 
 def test_plan_context_wire_preserves_v2_source_read_citation() -> None:
-    from apps.live_control_server.models.agent_turn import AgentPlanWorldGraphContextResponseV1
+    from apps.live_control_server.models.agent_turn import AgentPlanWorldGraphContextResponseV2
 
     turn = _cited_card_a_policy_turn()
     completion = turn.completion.model_dump(mode="json", by_alias=True)
@@ -527,7 +527,7 @@ def test_plan_context_wire_preserves_v2_source_read_citation() -> None:
     completion["citation_map"]["entries"][0].update({
         "source_opened": True, "source_read_ids": ["source-read:one"],
     })
-    response = AgentPlanWorldGraphContextResponseV1.model_validate({
+    response = AgentPlanWorldGraphContextResponseV2.model_validate({
         "receipt": turn.graph_context_receipt.model_dump(mode="json", by_alias=True),
         "completion": completion,
         "execution": None,
@@ -702,7 +702,7 @@ def test_v2_completion_opens_citation_only_from_producing_source_envelope(
     )
     assert (target.source_read_id, target.read_outcome) == ("source-read:one", "enough")
     descriptors = [SimpleNamespace(
-        context_anchor_id="dm-context-anchor:v1:one",
+        context_anchor_id="dm-context-anchor:v2:one",
         world_id=receipt.graph_authority.native_world_id,
         campaign_id="campaign:one",
         graph_revision_id=receipt.graph_authority.graph_revision,
@@ -711,10 +711,10 @@ def test_v2_completion_opens_citation_only_from_producing_source_envelope(
         source_uri="repo://recaps/session-22.md",
         content_sha256="d" * 64,
         section_selector=SimpleNamespace(
-            schema_version="dm_recap_context_section_selector_v1",
-            kind="recap_section", policy="markdown-session-recap-v1",
+            schema_version="dm_recap_context_section_selector_v2",
+            kind="recap_section", policy="markdown-session-recap-v2",
             expected_session_id="session-22",
-            expected_heading="# Session 22 Recap",
+            canonical_heading="# Session 22 Recap", legacy_session_heading="## Session 22:", legacy_recap_marker="**Recap**:",
         ),
     )]
     good_descriptor = descriptors[0]
@@ -778,7 +778,7 @@ def test_v2_completion_opens_citation_only_from_producing_source_envelope(
             "evidence_anchor", "related_recap_context",
         ]
         context_target = related.source_open_targets[1]
-        assert context_target.context_anchor_id == "dm-context-anchor:v1:one"
+        assert context_target.context_anchor_id == "dm-context-anchor:v2:one"
         assert context_target.provenance_evidence_ref_id == "evidence-internal-test"
         assert context_target.source_revision_id == "source-revision:one"
         assert context_target.source_campaign_id == "campaign:one"
@@ -877,13 +877,13 @@ def test_v2_completion_opens_citation_only_from_producing_source_envelope(
             for item in related.evidence_anchor_statuses
         ]
         descriptors.append(SimpleNamespace(
-            **{**vars(descriptors[0]), "context_anchor_id": "dm-context-anchor:v1:two"}
+            **{**vars(descriptors[0]), "context_anchor_id": "dm-context-anchor:v2:two"}
         ))
         choices = project_plan_turn_context(completed_turn, delivery_replay=True)
         assert [
             item.context_anchor_id for item in choices.source_open_targets
             if item.kind == "related_recap_context"
-        ] == ["dm-context-anchor:v1:one", "dm-context-anchor:v1:two"]
+        ] == ["dm-context-anchor:v2:one", "dm-context-anchor:v2:two"]
         assert choices.related_recap_context_statuses[0].status == "multiple_choices"
         assert choices.related_recap_context_statuses[0].choice_count == 2
         descriptors[0] = SimpleNamespace(
@@ -903,7 +903,7 @@ def test_v2_completion_opens_citation_only_from_producing_source_envelope(
                 "section_selector": SimpleNamespace(
                     **{
                         **vars(descriptors[0].section_selector),
-                        "expected_heading": "# Session 23 Recap",
+                        "canonical_heading": "# Session 23 Recap",
                     }
                 ),
             }
@@ -968,7 +968,7 @@ def test_v2_completion_opens_citation_only_from_producing_source_envelope(
             mixed_turn
         )
     assert [(item.claim_id, item.context_anchor_id) for item in mixed_targets] == [
-        ("claim-00", "dm-context-anchor:v1:one")
+        ("claim-00", "dm-context-anchor:v2:one")
     ]
     assert [(item.claim_id, item.status) for item in mixed_statuses] == [
         ("claim-00", "available"), ("claim-01", "metadata_unavailable")
@@ -1037,13 +1037,13 @@ def test_v2_completion_opens_citation_only_from_producing_source_envelope(
             nine_claim_turn, available_slots=1
         )
     assert [(item.claim_id, item.context_anchor_id) for item in nine_targets] == [
-        ("claim-00", "dm-context-anchor:v1:one")
+        ("claim-00", "dm-context-anchor:v2:one")
     ]
     assert [item.status for item in nine_statuses] == [
         "available", *("overflow" for _ in range(7)), "metadata_unavailable"
     ]
     descriptors.extend(SimpleNamespace(
-        **{**vars(good_descriptor), "context_anchor_id": f"dm-context-anchor:v1:{number:02d}"}
+        **{**vars(good_descriptor), "context_anchor_id": f"dm-context-anchor:v2:{number:02d}"}
     ) for number in range(2, 10))
     with monkeypatch.context() as choice_budget_scope:
         choice_budget_scope.setattr(
@@ -1240,7 +1240,7 @@ def test_history_http_route_serializes_mixed_v1_and_v2_turns(
     assert body["world_id"] == "world-conversation-test"
     assert [turn["sequence"] for turn in body["turns"]] == [2, 1]
     policy_payload = body["turns"][0]["plan_context"]
-    assert policy_payload["schema"] == "dmb_agent_plan_world_graph_context_response_v1"
+    assert policy_payload["schema"] == "dmb_agent_plan_world_graph_context_response_v2"
     assert policy_payload["receipt"]["schema"] == "dmb_agent_plan_world_graph_context_receipt_v1"
     assert policy_payload["receipt"]["plan_basis"]["document_id"] == "saved-plan-test"
     assert policy_payload["receipt"]["playable_target"] == {
@@ -1695,7 +1695,7 @@ def _related_recap_broker_fixture(monkeypatch: Any) -> Any:
         world_graph_reads as direct_reads,
     )
     from apps.live_control_server.services import world_graph_retrieval as source_reads
-    from dungeonmind.application.world_graph_retrieval import RecapContextSectionSelectorV1
+    from dungeonmind.application.world_graph_retrieval import RecapContextSectionSelectorV2
     from graph_memory.interaction.session import GraphRetrievalSession, SessionSnapshot
 
     turn = _cited_card_a_policy_turn().model_copy(update={
@@ -1764,11 +1764,11 @@ def _related_recap_broker_fixture(monkeypatch: Any) -> Any:
             )
             return self.turn, True
 
-    selector = RecapContextSectionSelectorV1(
-        expected_session_id="session-22", expected_heading="# Session 22 Recap"
+    selector = RecapContextSectionSelectorV2(
+        expected_session_id="session-22", canonical_heading="# Session 22 Recap", legacy_session_heading="## Session 22:", legacy_recap_marker="**Recap**:"
     )
     descriptor = SimpleNamespace(
-        context_anchor_id="dm-context-anchor:v1:recap-22",
+        context_anchor_id="dm-context-anchor:v2:recap-22",
         world_id=receipt.graph_authority.native_world_id,
         campaign_id="longmont-c2",
         graph_revision_id=receipt.graph_authority.graph_revision,
@@ -1838,7 +1838,7 @@ def _related_recap_broker_fixture(monkeypatch: Any) -> Any:
                 selector_schema=selector.schema_version,
                 selector_policy=selector.policy,
                 expected_session_id=selector.expected_session_id,
-                expected_heading=selector.expected_heading,
+                canonical_heading=selector.canonical_heading, legacy_session_heading=selector.legacy_session_heading, legacy_recap_marker=selector.legacy_recap_marker,
             ),
             snapshot=SimpleNamespace(
                 world_id=descriptor.world_id, campaign_id="", scope_mode="world",
@@ -1848,11 +1848,11 @@ def _related_recap_broker_fixture(monkeypatch: Any) -> Any:
                 revision_id=descriptor.graph_revision_id,
             ),
             content=page_text, section_sha256=section_digest,
-            heading_line=1, line_start=2, line_end=3, offset_chars=0,
+            heading_line=1, selected_form="canonical_h1", session_heading_line=1, recap_marker_line=None, line_start=2, line_end=3, offset_chars=0,
             truncated=False, next_continuation=None,
         )
 
-    monkeypatch.setattr(source_reads, "read_recap_context", read_source)
+    monkeypatch.setattr(source_reads, "read_recap_context_v2", read_source)
     budget = service_module._policy_request_budget()
     adapter = service_module._PolicyExecutionAdapter(
         service=object(), request=_request(), world_id=turn.world_id, work=None,
@@ -1956,7 +1956,7 @@ def test_parent_related_recap_broker_persists_verified_context_without_evidence_
     for invalid in (
         {"targetId": "assertion-not-in-turn"},
         {"evidenceRefIds": ["evidence-not-in-turn"]},
-        {"contextAnchorId": "dm-context-anchor:v1:wrong"},
+        {"contextAnchorId": "dm-context-anchor:v2:wrong"},
     ):
         attempted = adapter.broker_related_recap_context({
             "toolName": "read_related_recap_context",
@@ -2376,7 +2376,7 @@ def test_parent_related_recap_continuation_matches_descriptor_and_pages(
                 result.line_end += 1
         return result
 
-    monkeypatch.setattr(fixture.source_reads, "read_recap_context", paged_source)
+    monkeypatch.setattr(fixture.source_reads, "read_recap_context_v2", paged_source)
     first = fixture.adapter.broker_graph_operation(_related_recap_request(fixture))
     first_payload = json.loads(first["resultJson"])
     assert first_payload["content"] == pages[0]
@@ -2403,7 +2403,7 @@ def test_parent_related_recap_continuation_matches_descriptor_and_pages(
     else:
         assert "content" not in payload and pages[1] not in second["resultJson"]
         assert len(fixture.adapter.context_payloads) == 1
-        assert sum(event.kind == "validated_related_recap_context_v1" for event in events) == 1
+        assert sum(event.kind == "validated_related_recap_context_v2" for event in events) == 1
         if change in {"unknown_token", "core_campaign"}:
             assert payload["code"] == "related_recap_context_not_admitted"
             assert len(requests) == 1 and len(events) == 2
@@ -2421,7 +2421,12 @@ def test_parent_related_recap_continuation_matches_descriptor_and_pages(
     ("context", "source_uri", "repo://recaps/foreign.md"),
     ("context", "content_sha256", "b" * 64),
     ("context", "selector_policy", "wrong-selector"),
-    ("context", "expected_heading", "# Wrong heading"),
+    ("context", "canonical_heading", "# Wrong heading"),
+    ("context", "legacy_session_heading", "## Session 99:"),
+    ("context", "legacy_recap_marker", "Recap:"),
+    ("result", "selected_form", "legacy_h2"),
+    ("result", "session_heading_line", 2),
+    ("result", "recap_marker_line", 2),
     ("snapshot", "revision_id", "wrong-graph-revision"),
     ("snapshot", "scope_mode", "campaign"),
     ("focus", "session_id", "unexpected-session"),
@@ -2445,7 +2450,7 @@ def test_parent_related_recap_rejects_source_metadata_before_release(
         setattr(returned, field, value)
         return result
 
-    monkeypatch.setattr(fixture.source_reads, "read_recap_context", wrong_source)
+    monkeypatch.setattr(fixture.source_reads, "read_recap_context_v2", wrong_source)
     output = fixture.adapter.broker_graph_operation(_related_recap_request(fixture))
     payload = json.loads(output["resultJson"])
     assert payload["code"] == "related_recap_context_unavailable"
@@ -2479,7 +2484,7 @@ def test_parent_related_recap_eight_call_and_total_character_quota(monkeypatch: 
         result.section_sha256 = sha256(page.encode()).hexdigest()
         return result
 
-    monkeypatch.setattr(fixture.source_reads, "read_recap_context", full_page)
+    monkeypatch.setattr(fixture.source_reads, "read_recap_context_v2", full_page)
     for _ in range(8):
         output = fixture.adapter.broker_graph_operation(_related_recap_request(
             fixture, maxChars=12000,
@@ -2488,11 +2493,11 @@ def test_parent_related_recap_eight_call_and_total_character_quota(monkeypatch: 
     events = fixture.adapter.fence.turn.graph_context_execution.events
     assert sum(
         event.max_chars for event in events
-        if event.kind == "related_recap_context_authorized_v1"
+        if event.kind == "related_recap_context_authorized_v2"
     ) == 96000
     assert sum(
         event.returned_chars for event in events
-        if event.kind == "validated_related_recap_context_v1"
+        if event.kind == "validated_related_recap_context_v2"
     ) == 96000
     denied = fixture.adapter.broker_graph_operation(_related_recap_request(fixture, maxChars=1))
     assert json.loads(denied["resultJson"])["code"] == "related_recap_context_over_budget"
@@ -4584,3 +4589,466 @@ def test_selected_multi_hop_graph_read_and_source_scope_remain_separate(tmp_path
     old_neighbors=direct.get_neighborhood_direct(small,WorldGraphNeighborhoodRequest.model_validate({
         'schema':'dmb_world_graph_neighborhood_request_v1','worldId':small_request.world_id,'campaignId':'','scopeMode':'world','revisionPin':small_revision,'seedNodeIds':['obj:tavern'],'maxDepth':2}))
     assert {anchor.anchor_id for anchor in old_neighbors.source_anchors if anchor.readable}.issubset({item.anchor_id for item in old_pool.source_pins})
+
+
+def test_mounted_current_related_recap_route_pg_fake_provider_and_saved_history(
+    application_state_dsn,
+    tmp_path,
+    monkeypatch,
+):
+    """Actual authenticated route/broker/SOURCE/APP; only authority and provider are synthetic."""
+    import asyncio
+    from types import SimpleNamespace
+    import httpx
+    import fastapi.routing as routing
+    from fastapi import FastAPI
+    from application_state.agent_conversation import AgentConversationService
+    from apps.live_control_server.routes import agent as route
+    from apps.live_control_server.services import agent_turn_service as parent
+    from apps.live_control_server.services import world_graph_retrieval as source
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as direct,
+    )
+    from dungeonmind.application.world_graph_retrieval import (
+        RecapContextSectionSelectorV2,
+        RecapSourceContextV2,
+        SourceContextIndexResult,
+        SourceContextResolution,
+    )
+    from graph_memory.interaction.session import (
+        GraphRetrievalSession,
+        SessionSnapshot,
+        CoverageState,
+        SourceAnchorState,
+    )
+    from graph_memory.interaction.authority_classifier import (
+        claims_from_retrieval_result,
+    )
+    from apps.live_control_server.services.agent_runtime import AgentWorldScope
+
+    token = "synthetic-current-context-token-" + "x" * 32
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "development")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", token)
+
+    async def inline(fn, *args, **kwargs):
+        return fn(*args, **kwargs)
+
+    monkeypatch.setattr(routing, "run_in_threadpool", inline)
+    monkeypatch.setattr(
+        "apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference",
+        lambda **kwargs: ("openai-api", "gpt-6-luna", "https://api.openai.com/v1"),
+    )
+    world, native, revision = (
+        "current-context-world",
+        "synthetic-native",
+        "rev:current-context",
+    )
+    plan = "# Plan\nFollow the gate.\n"
+    basis = AgentTurnContentBasis(
+        world_id=world,
+        document_id="synthetic-plan",
+        object_revision=1,
+        work_revision_id=str(uuid4()),
+        revision_n=1,
+        content_sha256=sha256(plan.encode()).hexdigest(),
+        committed_status="committed",
+        has_divergent_working_copy=False,
+    )
+    work = AgentTurnResolvedWork(
+        kind="plan",
+        object_id=basis.document_id,
+        revision=1,
+        changed_since_expected=False,
+        owner_kind="world",
+        owner_id=world,
+        world_id=world,
+        content_basis=basis,
+        plan_markdown=plan,
+    )
+    body = _request(
+        surface={"surface_id": "plan", "instance_id": "synthetic-plan-pane"},
+        owner_scope={"kind": "world", "world_id": world},
+        client_work_state="saved_clean",
+        primary_work={
+            "kind": "plan",
+            "object_id": basis.document_id,
+            "expected_revision": 1,
+            "expected_revision_n": 1,
+            "expected_content_sha256": basis.content_sha256,
+        },
+        turn_id=str(uuid4()),
+        plan_context_policy={"policy": "auto_plan_world"},
+        message="Summarize the entire prior recap while preserving its context boundary.",
+    )
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id=native,
+            campaign_id="",
+            focus={"kind": "none"},
+            admissibility="gm",
+            revision_id=revision,
+            is_head=True,
+            scope_mode="world",
+        ),
+        question=body.message,
+        coverage=CoverageState(state="empty"),
+        claims=claims_from_retrieval_result(
+            {
+                "relationships": [
+                    {
+                        "edgeId": "rel:gate",
+                        "sourceNodeId": "node:keeper",
+                        "targetNodeId": "node:gate",
+                        "predicate": "guards",
+                        "evidenceRefIds": ["ev:gate"],
+                    }
+                ],
+                "sourceAnchors": [
+                    {
+                        "anchorId": "synthetic-anchor",
+                        "revisionId": revision,
+                        "evidenceRefId": "ev:gate",
+                        "readable": False,
+                        "supportingGraphObjectIds": [],
+                    }
+                ],
+            },
+            revision_id=revision,
+        ),
+        source_anchors=[
+            SourceAnchorState(anchor_id="synthetic-anchor", readable=False)
+        ],
+    )
+    bootstrap = parent.AgentPlanWorldGraphBootstrap(
+        graph_envelope={
+            "revision_id": revision,
+            "world_id": native,
+            "scope_mode": "world",
+        },
+        world_scope=AgentWorldScope(
+            world_id=native,
+            campaign_id="",
+            focus={"kind": "none"},
+            admissibility="gm",
+            revision_id=revision,
+            scope_mode="world",
+        ),
+        retrieval_session=session,
+        binding_version=1,
+        source_root_relpath="corpus",
+        candidate_assertion_ids=(),
+        candidate_relationship_ids=("rel:gate",),
+        candidate_evidence_ref_ids=("ev:gate",),
+        evidence_by_anchor_id={"synthetic-anchor": "ev:gate"},
+    )
+    raw = b"## Session 22:\n## Major Beats:\nExcluded prelude.\n**Recap**:\nFirst synthetic beat.\nSecond synthetic beat.\n## Afterword\nExcluded tail.\n"
+    (tmp_path / "recap.md").write_bytes(raw)
+    selector = RecapContextSectionSelectorV2(
+        expected_session_id="session-22",
+        canonical_heading="# Session 22 Recap",
+        legacy_session_heading="## Session 22:",
+        legacy_recap_marker="**Recap**:",
+    )
+    descriptor = RecapSourceContextV2(
+        context_anchor_id="dm-context-anchor:v2:synthetic-route",
+        world_id=native,
+        campaign_id="synthetic-campaign",
+        graph_revision_id=revision,
+        source_artifact_id="synthetic-artifact",
+        source_revision_id="sha256:" + sha256(raw).hexdigest(),
+        source_uri="repo://recap.md",
+        content_sha256=sha256(raw).hexdigest(),
+        section_selector=selector,
+    )
+
+    def snapshot(projection):
+        return SimpleNamespace(
+            world_id=native,
+            campaign_id=None,
+            scope_mode=projection.scope_mode,
+            admissibility=projection.admissibility,
+            focus=projection.focus,
+            revision_id=revision,
+            head_revision_id=revision,
+            is_head=True,
+        )
+
+    class Retrieval:
+        def get_evidence(self, projection, *, target, max_anchors):
+            assert (target.kind, target.target_id) == ("relationship", "rel:gate")
+            return SimpleNamespace(
+                found=True,
+                target=target,
+                snapshot=snapshot(projection),
+                coverage=SimpleNamespace(
+                    truncated_fields=(), gap_codes=(), missing_ids=()
+                ),
+                anchors=(
+                    SimpleNamespace(
+                        evidence_ref_id="ev:gate",
+                        source_artifact_id=descriptor.source_artifact_id,
+                        source_revision_id=descriptor.source_revision_id,
+                        can_open_source=False,
+                    ),
+                ),
+            )
+
+        def list_source_context_index(self, request):
+            assert request.selector_policy == "markdown-session-recap-v2"
+            return SourceContextIndexResult(
+                snapshot=snapshot(request.projection),
+                status="complete",
+                eligible_count=1,
+                max_entries=512,
+                entries=(descriptor,),
+            )
+
+        def resolve_source_context(
+            self, projection, *, context_anchor_id, allow_selector_v2=False
+        ):
+            assert (
+                allow_selector_v2 and context_anchor_id == descriptor.context_anchor_id
+            )
+            return SourceContextResolution(
+                snapshot=snapshot(projection),
+                found=True,
+                context_anchor_id=context_anchor_id,
+                context=descriptor,
+            )
+
+    monkeypatch.setattr(
+        direct,
+        "direct_services_from_config",
+        lambda _: SimpleNamespace(
+            retrieval=Retrieval(),
+            binding=SimpleNamespace(legacy_buddy_revision_id=None),
+        ),
+    )
+    monkeypatch.setattr(source, "_require_mounted_native_read", lambda _: None)
+    monkeypatch.setattr(source, "_resolved_repo_root", lambda **kwargs: tmp_path)
+    monkeypatch.setattr(route, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(route, "session_dir", lambda: tmp_path / "sessions")
+    monkeypatch.setattr(
+        route,
+        "_owner_resolver",
+        lambda _: {"kind": "world", "id": world, "name": "Synthetic World"},
+    )
+    monkeypatch.setattr(route, "_work_resolver", lambda *_: work)
+    monkeypatch.setattr(
+        route, "_plan_context_resolver", lambda *args, **kwargs: bootstrap
+    )
+    packet = session.project_for_hermes()
+    initial = {
+        "candidates": packet["candidates"][:8],
+        "claimLedger": packet["claim_ledger"][:24],
+        "intentHint": packet["intent_hint"],
+        "availableExpansions": packet["available_expansions"],
+    }
+    provider_calls = []
+
+    class FakeProvider:
+        descriptor = AgentRuntimeDescriptor(
+            "fake-current-context", "fake", "test", "graph"
+        )
+
+        def run_with_provider_authorization(
+            self,
+            invocation,
+            authorize,
+            *,
+            request_budget,
+            on_graph_operation,
+            on_provider_lifecycle,
+            context_read_enabled=False,
+        ):
+            assert context_read_enabled
+            payload = {
+                "input": [
+                    {
+                        "role": "system",
+                        "content": "Turn capability policy (runtime-enforced; also required on tool calls):\n"
+                        + json.dumps({"initialClaimPacket": initial}),
+                    },
+                    {
+                        "role": "user",
+                        "content": parent._plan_message(
+                            body.message, plan, content_basis=basis
+                        ),
+                    },
+                ],
+                "tools": [],
+            }
+
+            def send():
+                encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+                assert authorize(
+                    {
+                        "provider": "openai-api",
+                        "model": request_budget["model"],
+                        "apiMode": "codex_responses",
+                        "payloadJson": encoded,
+                        "payloadSha256": sha256(encoded.encode()).hexdigest(),
+                        "payloadUtf8Bytes": len(encoded.encode()),
+                    }
+                ), str(authorize.__self__.failure)
+                assert on_provider_lifecycle({"transition": "sdk_entered"})
+                assert on_provider_lifecycle({"transition": "response_received"})
+                provider_calls.append(encoded)
+
+            send()
+            parts = []
+            continuation = None
+            for i in range(8):
+                response = on_graph_operation(
+                    {
+                        "toolName": "read_related_recap_context",
+                        "arguments": {
+                            "schema": "dmb_read_related_recap_context_request_v2",
+                            "retrievalSessionId": session.id,
+                            "targetKind": "relationship",
+                            "targetId": "rel:gate",
+                            "evidenceRefIds": ["ev:gate"],
+                            "contextAnchorId": descriptor.context_anchor_id,
+                            "maxChars": 24,
+                            "continuation": continuation,
+                        },
+                    }
+                )
+                page = json.loads(response["resultJson"])
+                assert page["schema"] == "dmb_related_recap_context_read_v2", page
+                parts.append(page["content"])
+                payload["input"].extend(
+                    [
+                        {
+                            "type": "function_call",
+                            "call_id": f"context-{i}",
+                            "name": "read_related_recap_context",
+                            "arguments": "{}",
+                        },
+                        {
+                            "type": "function_call_output",
+                            "call_id": f"context-{i}",
+                            "output": response["resultJson"],
+                        },
+                    ]
+                )
+                continuation = page["nextContinuation"]
+                if continuation is None:
+                    break
+            assert "".join(parts) == "First synthetic beat.\nSecond synthetic beat.\n"
+            send()
+            claim = {
+                "kind": "graph_claim",
+                "claim_id": "rel:gate",
+                "text": "The keeper guards the gate.",
+                "target_kind": "relationship",
+                "target_id": "rel:gate",
+                "graph_revision": revision,
+                "evidence_ref_ids": ["ev:gate"],
+            }
+            answer = {
+                "answer_context_status": "graph_grounded",
+                "answer_segments": [claim],
+                "citation_map": {
+                    "entries": [
+                        {
+                            **{
+                                key: value
+                                for key, value in claim.items()
+                                if key not in {"kind", "text"}
+                            },
+                            "source_opened": False,
+                        }
+                    ]
+                },
+            }
+            return AgentRuntimeResult(
+                status="ok",
+                final_text=json.dumps(answer),
+                runtime_session_id="synthetic-session",
+            )
+
+    app = FastAPI()
+    app.state.agent_turn_runtime = FakeProvider()
+    app.state.agent_conversation_service = AgentConversationService()
+    app.include_router(route.router, prefix="/api/live")
+
+    async def exercise():
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            denied = await client.post(
+                "/api/live/agent/turn", json=body.model_dump(mode="json", by_alias=True)
+            )
+            assert denied.status_code == 401 and provider_calls == []
+            result = await client.post(
+                "/api/live/agent/turn",
+                headers={"Authorization": "Bearer " + token},
+                json=body.model_dump(mode="json", by_alias=True),
+            )
+            assert result.status_code == 200, result.text
+            return result.json()
+
+    delivered = asyncio.run(exercise())
+    assert len(provider_calls) == 2
+    service = AgentConversationService()
+    conversation = service.get_active_conversation(world)
+    saved = service.list_turns(world, conversation.conversation_id)[0]
+    assert saved.status == "completed" and saved.user_text == body.message
+    events = saved.graph_context_execution.events
+    reads = [e for e in events if e.kind == "validated_related_recap_context_v2"]
+    assert len(reads) == 2 and all(
+        e.selected_form == "legacy_h2"
+        and e.session_heading_line == 1
+        and e.recap_marker_line == 4
+        for e in reads
+    )
+    assert events[-5].kind == "related_recap_context_provider_inclusion_v2"
+    assert saved.completion.citation_map.entries[0].source_opened is False
+    assert saved.completion.citation_map.entries[0].source_read_ids == []
+    before = saved.model_dump_json()
+    rebuilt = project_plan_turn_context(saved, delivery_replay=True)
+    assert rebuilt.schema_ == "dmb_agent_plan_world_graph_context_response_v2"
+    target = next(
+        t for t in rebuilt.source_open_targets if t.kind == "related_recap_context"
+    )
+    assert (
+        target.context_anchor_id == descriptor.context_anchor_id
+        and target.legacy_recap_marker == "**Recap**:"
+    )
+    assert (
+        service.list_turns(world, conversation.conversation_id)[0].model_dump_json()
+        == before
+    )
+    assert len(provider_calls) == 2 and (tmp_path / "recap.md").read_bytes() == raw
+    import os
+    import subprocess
+    import sys
+
+    child = subprocess.check_output(
+        [
+            sys.executable,
+            "-c",
+            """
+import json, sys
+from application_state.agent_conversation import AgentConversationService
+from apps.live_control_server.services.agent_turn_service import project_plan_turn_context
+from uuid import UUID
+turn = AgentConversationService().list_turns(sys.argv[1], UUID(sys.argv[2]))[0]
+view = project_plan_turn_context(turn, delivery_replay=True)
+print(json.dumps({"turn":turn.model_dump(mode="json",by_alias=True), "view_schema":view.schema_}))
+""",
+            world,
+            str(conversation.conversation_id),
+        ],
+        env=os.environ.copy(),
+        text=True,
+    )
+    readback = json.loads(child)
+    assert readback["turn"] == saved.model_dump(mode="json", by_alias=True)
+    assert readback["view_schema"] == "dmb_agent_plan_world_graph_context_response_v2"
+    assert (
+        delivered["plan_context"]["source_open_targets"]
+        == rebuilt.model_dump(mode="json", by_alias=True)["source_open_targets"]
+    )

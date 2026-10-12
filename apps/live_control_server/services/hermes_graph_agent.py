@@ -1500,7 +1500,7 @@ class _GraphOperationReservation:
         elif (
             tool_name == "read_related_recap_context"
             and isinstance(result, Mapping)
-            and result.get("schema") == "dmb_related_recap_context_read_v1"
+            and result.get("schema") == "dmb_related_recap_context_read_v2"
         ):
             self.context_count += 1
             if (

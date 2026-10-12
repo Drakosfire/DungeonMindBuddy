@@ -2634,7 +2634,7 @@ def test_related_recap_tool_is_registered_only_with_parent_read_policy() -> None
     broker_token = graph_plugin.set_parent_graph_broker(
         lambda name, args: (
             called.append((name, dict(args))) or
-            '{"schema":"dmb_related_recap_context_read_v1"}', None
+            '{"schema":"dmb_related_recap_context_read_v2"}', None
         ), required=True,
     )
     policy_token = set_active_capability_policy(parent)
@@ -2644,7 +2644,7 @@ def test_related_recap_tool_is_registered_only_with_parent_read_policy() -> None
             "targetKind": "assertion", "targetId": "assertion:one",
             "evidenceRefIds": ["evidence:one"],
         })
-        assert json.loads(response)["schema"] == "dmb_related_recap_context_read_v1"
+        assert json.loads(response)["schema"] == "dmb_related_recap_context_read_v2"
         assert called[0][0] == "read_related_recap_context"
         assert called[0][1]["retrievalSessionId"] == "session:one"
     finally:
@@ -2832,7 +2832,7 @@ def test_graph_operation_reservation_preflights_remaining_budget():
         1,
         lambda name, _arguments: (
             context_calls.append(name) or
-            '{"schema":"dmb_related_recap_context_read_v1","outcome":"enough"}',
+            '{"schema":"dmb_related_recap_context_read_v2","outcome":"enough"}',
             None,
         ),
         context_limit=1,

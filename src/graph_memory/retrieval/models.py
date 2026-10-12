@@ -28,10 +28,6 @@ RETRIEVAL_EVIDENCE_REQUEST_SCHEMA = "dmb_world_graph_evidence_request_v1"
 RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA = "dmb_world_graph_source_anchor_read_request_v1"
 RETRIEVAL_RESULT_SCHEMA = "dmb_world_graph_retrieval_result_v1"
 RETRIEVAL_SOURCE_ANCHOR_READ_SCHEMA = "dmb_world_graph_source_anchor_read_v1"
-RECAP_CONTEXT_INDEX_REQUEST_SCHEMA = "dmb_recap_context_index_request_v1"
-RECAP_CONTEXT_INDEX_SCHEMA = "dmb_recap_context_index_v1"
-RECAP_CONTEXT_READ_REQUEST_SCHEMA = "dmb_recap_context_read_request_v1"
-RECAP_CONTEXT_READ_SCHEMA = "dmb_recap_context_read_v1"
 RETRIEVAL_ERROR_SCHEMA = "dmb_world_graph_retrieval_error_v1"
 
 ANCHOR_SCHEMA_VERSION = "v1"
@@ -195,37 +191,6 @@ class WorldGraphSourceAnchorReadRequest(WorldGraphRetrievalRequestContext):
     )
 
 
-class RecapContextIndexRequest(WorldGraphRetrievalRequestContext):
-    schema_: Literal[RECAP_CONTEXT_INDEX_REQUEST_SCHEMA] = Field(alias="schema")
-    max_entries: int = Field(default=512, ge=1, le=512)
-
-    @model_validator(mode="after")
-    def _require_pin(self) -> RecapContextIndexRequest:
-        if not self.revision_pin or self.admissibility != "gm":
-            raise ValueError("recap context requires a pinned GM projection")
-        return self
-
-
-class RecapContextReadRequest(WorldGraphRetrievalRequestContext):
-    schema_: Literal[RECAP_CONTEXT_READ_REQUEST_SCHEMA] = Field(alias="schema")
-    context_anchor_id: str = Field(min_length=1)
-    max_chars: int = Field(default=SOURCE_ANCHOR_READ_MAX_CHARS_DEFAULT, ge=1, le=SOURCE_ANCHOR_READ_MAX_CHARS_HARD_MAX)
-    continuation: str | None = None
-
-    @field_validator("context_anchor_id")
-    @classmethod
-    def _context_id_only(cls, value: str) -> str:
-        if not value.startswith("dm-context-anchor:v1:"):
-            raise ValueError("recap context requires a Core context ID")
-        return value
-
-    @model_validator(mode="after")
-    def _require_pin(self) -> RecapContextReadRequest:
-        if not self.revision_pin or self.admissibility != "gm":
-            raise ValueError("recap context requires a pinned GM projection")
-        return self
-
-
 class WorldGraphRetrievalSnapshot(_RetrievalResponseModel):
     world_id: str
     campaign_id: str
@@ -361,48 +326,6 @@ class WorldGraphSourceAnchorReadResult(_RetrievalResponseModel):
     diagnostics: list[WorldGraphRetrievalDiagnostic] = Field(default_factory=list)
 
 
-class RecapContextDescriptor(_RetrievalResponseModel):
-    context_anchor_id: str
-    world_id: str
-    campaign_id: str | None
-    graph_revision_id: str
-    source_artifact_id: str
-    source_revision_id: str
-    source_uri: str
-    content_sha256: str
-    expected_session_id: str
-    expected_heading: str
-    selector_schema: Literal["dm_recap_context_section_selector_v1"] = "dm_recap_context_section_selector_v1"
-    selector_policy: Literal["markdown-session-recap-v1"] = "markdown-session-recap-v1"
-
-
-class RecapContextIndexResult(_RetrievalResponseModel):
-    schema_: Literal[RECAP_CONTEXT_INDEX_SCHEMA] = Field(alias="schema", default=RECAP_CONTEXT_INDEX_SCHEMA)
-    snapshot: WorldGraphRetrievalSnapshot
-    status: Literal["complete", "overflow"]
-    eligible_count: int
-    max_entries: int
-    entries: list[RecapContextDescriptor] = Field(default_factory=list)
-
-
-class RecapContextReadResult(_RetrievalResponseModel):
-    schema_: Literal[RECAP_CONTEXT_READ_SCHEMA] = Field(alias="schema", default=RECAP_CONTEXT_READ_SCHEMA)
-    outcome: Literal["enough", "truncated", "empty", "unavailable"]
-    snapshot: WorldGraphRetrievalSnapshot
-    context_anchor_id: str
-    context: RecapContextDescriptor | None = None
-    media_type: str | None = None
-    content: str | None = None
-    heading_line: int | None = None
-    line_start: int | None = None
-    line_end: int | None = None
-    section_sha256: str | None = None
-    offset_chars: int = 0
-    truncated: bool = False
-    next_continuation: str | None = None
-    diagnostics: list[WorldGraphRetrievalDiagnostic] = Field(default_factory=list)
-
-
 class WorldGraphRetrievalErrorResponse(_RetrievalResponseModel):
     schema_: Literal[RETRIEVAL_ERROR_SCHEMA] = Field(
         alias="schema", default=RETRIEVAL_ERROR_SCHEMA
@@ -458,10 +381,6 @@ __all__ = [
     "RETRIEVAL_SEARCH_REQUEST_SCHEMA",
     "RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA",
     "RETRIEVAL_SOURCE_ANCHOR_READ_SCHEMA",
-    "RECAP_CONTEXT_INDEX_REQUEST_SCHEMA",
-    "RECAP_CONTEXT_INDEX_SCHEMA",
-    "RECAP_CONTEXT_READ_REQUEST_SCHEMA",
-    "RECAP_CONTEXT_READ_SCHEMA",
     "SOURCE_ANCHOR_READ_MAX_CHARS_DEFAULT",
     "SOURCE_ANCHOR_READ_MAX_CHARS_HARD_MAX",
     "EvidenceTargetKind",
@@ -489,16 +408,24 @@ __all__ = [
     "WorldGraphSourceAnchor",
     "WorldGraphSourceAnchorReadRequest",
     "WorldGraphSourceAnchorReadResult",
-    "RecapContextIndexRequest",
-    "RecapContextReadRequest",
-    "RecapContextDescriptor",
-    "RecapContextIndexResult",
-    "RecapContextReadResult",
+    "RecapContextIndexRequestV2",
+    "RecapContextReadRequestV2",
+    "RecapContextDescriptorV2",
+    "RecapContextIndexResultV2",
+    "RecapContextReadResultV2",
     "compute_source_anchor_id",
 ]
 
 
-class RecapContextIndexRequestV2(RecapContextIndexRequest):
+class RecapContextIndexRequestV2(WorldGraphRetrievalRequestContext):
+    max_entries: int = Field(default=512, ge=1, le=512)
+
+    @model_validator(mode="after")
+    def _require_pin(self):
+        if not self.revision_pin or self.admissibility != "gm":
+            raise ValueError("recap context requires a pinned GM projection")
+        return self
+
     schema_: Literal["dmb_recap_context_index_request_v2"] = Field(alias="schema")
 
 
@@ -511,7 +438,7 @@ class RecapContextReadRequestV2(WorldGraphRetrievalRequestContext):
     @field_validator("context_anchor_id")
     @classmethod
     def _known_context_version(cls, value: str) -> str:
-        if not value.startswith(("dm-context-anchor:v1:", "dm-context-anchor:v2:")):
+        if not value.startswith("dm-context-anchor:v2:"):
             raise ValueError("recap context requires a known Core context ID")
         return value
 

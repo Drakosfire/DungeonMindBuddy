@@ -53,9 +53,9 @@ from application_state.errors import (
 from apps.live_control_server.models.agent_turn import (
     AgentEvidenceAnchorOpenTargetV1,
     AgentEvidenceAnchorStatusV1,
-    AgentRelatedRecapContextOpenTargetV1,
-    AgentRelatedRecapContextStatusV1,
-    AgentPlanWorldGraphContextResponseV1,
+    AgentRelatedRecapContextOpenTargetV2,
+    AgentRelatedRecapContextStatusV2,
+    AgentPlanWorldGraphContextResponseV2,
     AgentPlanWorldGraphExecutionProjectionV1,
     AgentTurnContentBasis,
     AgentTurnRequest,
@@ -1450,7 +1450,7 @@ class _PolicyExecutionAdapter:
                 )
             included_context_events = [
                 event for event in execution.events
-                if getattr(event, "kind", None) == "validated_related_recap_context_v1"
+                if getattr(event, "kind", None) == "validated_related_recap_context_v2"
                 and (payload := self.context_payloads.get(event.event_id)) is not None
                 and included_context_payloads.count(payload) == 1
             ]
@@ -1482,9 +1482,9 @@ class _PolicyExecutionAdapter:
             )
             if isinstance(execution, graph_types.PlanWorldGraphExecutionV2):
                 if included_context_events:
-                    inclusion = graph_types.RelatedRecapContextProviderInclusionEventV1(
+                    inclusion = graph_types.RelatedRecapContextProviderInclusionEventV2(
                         event_id=uuid4(), sequence=len(execution.events),
-                        kind="related_recap_context_provider_inclusion_v1",
+                        kind="related_recap_context_provider_inclusion_v2",
                         provider_attempt_id=provider_attempt_id,
                         envelope_sha256=view["payloadSha256"],
                         included_context_event_ids=[
@@ -1813,7 +1813,7 @@ class _PolicyExecutionAdapter:
 
         try:
             index = services.retrieval.list_source_context_index(
-                SourceContextIndexRequest(projection=projection, max_entries=512)
+                SourceContextIndexRequest(projection=projection, max_entries=512, selector_policy="markdown-session-recap-v2")
             )
             if (
                 index.status != "complete" or index.max_entries != 512
@@ -1830,9 +1830,9 @@ class _PolicyExecutionAdapter:
                     or item.graph_revision_id != authority.graph_revision
                     or not item.source_uri.startswith("repo://")
                     or item.context_anchor_id in seen_context_ids
-                    or selector.schema_version != "dm_recap_context_section_selector_v1"
+                    or selector.schema_version != "dm_recap_context_section_selector_v2"
                     or selector.kind != "recap_section"
-                    or selector.policy != "markdown-session-recap-v1"
+                    or selector.policy != "markdown-session-recap-v2"
                 ):
                     return []
                 seen_context_ids.add(item.context_anchor_id)
@@ -2195,12 +2195,12 @@ class _PolicyExecutionAdapter:
             if len(pairs) != 1:
                 raise ValueError("related recap evidence provenance is missing or ambiguous")
             artifact_id, source_revision_id = next(iter(pairs))
-            bindings.append(graph_types.RelatedRecapProvenanceBindingV1(
+            bindings.append(graph_types.RelatedRecapProvenanceBindingV2(
                 evidence_ref_id=ref, source_artifact_id=artifact_id,
                 source_revision_id=source_revision_id,
             ))
         index = retrieval.list_source_context_index(
-            SourceContextIndexRequest(projection=projection, max_entries=512)
+            SourceContextIndexRequest(projection=projection, max_entries=512, selector_policy="markdown-session-recap-v2")
         )
         if (
             index.status != "complete"
@@ -2221,9 +2221,9 @@ class _PolicyExecutionAdapter:
             if (
                 item.world_id != authority.native_world_id
                 or item.graph_revision_id != authority.graph_revision
-                or selector.schema_version != "dm_recap_context_section_selector_v1"
+                or selector.schema_version != "dm_recap_context_section_selector_v2"
                 or selector.kind != "recap_section"
-                or selector.policy != "markdown-session-recap-v1"
+                or selector.policy != "markdown-session-recap-v2"
                 or not item.source_uri.startswith("repo://")
                 or item.context_anchor_id in context_ids
             ):
@@ -2248,7 +2248,7 @@ class _PolicyExecutionAdapter:
         selector = descriptor.section_selector
         if request.context_anchor_id != descriptor.context_anchor_id:
             raise ValueError("related recap Core context differs from admitted provenance")
-        admission = graph_types.RelatedRecapContextAdmissionV1(
+        admission = graph_types.RelatedRecapContextAdmissionV2(
             admission_origin=origin,
             admission_graph_event_id=origin_event_id,
             selected_index_sha256=selected_digest,
@@ -2271,7 +2271,7 @@ class _PolicyExecutionAdapter:
             ),
             provenance_status="complete", provenance_gap_count=0,
             context_index_sha256=_canonical_sha256({
-                "schema": "dmb_agent_related_recap_context_index_v1",
+                "schema": "dmb_agent_related_recap_context_index_v2",
                 "world_id": authority.native_world_id,
                 "graph_revision": authority.graph_revision,
                 "entries": sorted(index_rows, key=lambda row: row["context_anchor_id"]),
@@ -2289,7 +2289,9 @@ class _PolicyExecutionAdapter:
             selector_schema=selector.schema_version,
             selector_policy=selector.policy,
             expected_session_id=descriptor.section_selector.expected_session_id,
-            expected_heading=descriptor.section_selector.expected_heading,
+            canonical_heading=descriptor.section_selector.canonical_heading,
+            legacy_session_heading=descriptor.section_selector.legacy_session_heading,
+            legacy_recap_marker=descriptor.section_selector.legacy_recap_marker,
         )
         return admission, descriptor.source_uri
 
@@ -2334,7 +2336,7 @@ class _PolicyExecutionAdapter:
             return denied("invalid_arguments", 422)
         prior = [
             event for event in execution.events
-            if getattr(event, "kind", None) == "related_recap_context_authorized_v1"
+            if getattr(event, "kind", None) == "related_recap_context_authorized_v2"
         ]
         if len(prior) >= 8 or sum(item.max_chars for item in prior) + request.max_chars > 96000:
             return denied("related_recap_context_over_budget", 413)
@@ -2354,17 +2356,18 @@ class _PolicyExecutionAdapter:
             authorizations = {
                 event.read_call_id: event
                 for event in execution.events
-                if getattr(event, "kind", None) == "related_recap_context_authorized_v1"
+                if getattr(event, "kind", None) == "related_recap_context_authorized_v2"
             }
             descriptor_fields = (
                 "context_anchor_id", "descriptor_world_id", "descriptor_campaign_id",
                 "descriptor_graph_revision_id", "descriptor_source_artifact_id",
                 "descriptor_source_revision_id", "descriptor_content_sha256",
-                "selector_schema", "selector_policy", "expected_session_id", "expected_heading",
+                "selector_schema", "selector_policy", "expected_session_id", "canonical_heading",
+                "legacy_session_heading", "legacy_recap_marker",
             )
             pages = [
                 event for event in execution.events
-                if getattr(event, "kind", None) == "validated_related_recap_context_v1"
+                if getattr(event, "kind", None) == "validated_related_recap_context_v2"
                 and event.outcome == "truncated"
                 and event.continuation_out_sha256 == continuation_sha
                 and (authorization := authorizations.get(event.read_call_id)) is not None
@@ -2376,9 +2379,9 @@ class _PolicyExecutionAdapter:
             if len(pages) != 1:
                 return denied("related_recap_context_not_admitted", 403)
             prior_page = pages[0]
-        authorization = graph_types.RelatedRecapContextAuthorizationEventV1(
+        authorization = graph_types.RelatedRecapContextAuthorizationEventV2(
             event_id=uuid4(), sequence=len(execution.events),
-            kind="related_recap_context_authorized_v1",
+            kind="related_recap_context_authorized_v2",
             read_call_id=read_call_id,
             context_receipt_sha256=execution.context_receipt_sha256,
             execution_policy_sha256=execution.execution_policy_sha256,
@@ -2392,13 +2395,13 @@ class _PolicyExecutionAdapter:
             self.turn = updated
             if self._related_recap_admission(request) != (admission, source_uri):
                 raise ValueError("related recap authority changed after authorization")
-            from graph_memory.retrieval.models import RecapContextReadRequest
+            from graph_memory.retrieval.models import RecapContextReadRequestV2
             from apps.live_control_server.services.world_graph_retrieval import (
-                read_recap_context,
+                read_recap_context_v2,
             )
-            result = read_recap_context(RecapContextReadRequest.model_validate({
-                "schema": "dmb_recap_context_read_request_v1",
-                "worldId": admission.managed_world_id,
+            result = read_recap_context_v2(RecapContextReadRequestV2.model_validate({
+                "schema": "dmb_recap_context_read_request_v2",
+                "worldId": admission.native_world_id,
                 "campaignId": "", "scopeMode": "world",
                 "focus": {"kind": "none", "sessionId": None, "campaignId": None},
                 "admissibility": "gm", "revisionPin": admission.graph_revision,
@@ -2424,7 +2427,9 @@ class _PolicyExecutionAdapter:
                 or context.selector_schema != admission.selector_schema
                 or context.selector_policy != admission.selector_policy
                 or context.expected_session_id != admission.expected_session_id
-                or context.expected_heading != admission.expected_heading
+                or context.canonical_heading != admission.canonical_heading
+                or context.legacy_session_heading != admission.legacy_session_heading
+                or context.legacy_recap_marker != admission.legacy_recap_marker
                 or result.snapshot.world_id != admission.native_world_id
                 or result.snapshot.campaign_id != ""
                 or result.snapshot.scope_mode != "world"
@@ -2435,6 +2440,10 @@ class _PolicyExecutionAdapter:
                 or result.snapshot.revision_id != admission.graph_revision
                 or result.truncated != (result.outcome == "truncated")
                 or len(content) > request.max_chars
+                or result.selected_form not in {"canonical_h1", "legacy_h2"}
+                or result.session_heading_line != result.heading_line
+                or (result.selected_form == "canonical_h1" and (result.recap_marker_line is not None or result.line_start != result.heading_line + 1))
+                or (result.selected_form == "legacy_h2" and (result.recap_marker_line is None or result.recap_marker_line <= result.heading_line or result.line_start != result.recap_marker_line + 1))
                 or result.heading_line is None or result.line_start is None
                 or result.line_end is None or result.section_sha256 is None
                 or result.offset_chars < 0
@@ -2450,6 +2459,9 @@ class _PolicyExecutionAdapter:
                 or (
                     prior_page is not None and (
                         result.section_sha256 != prior_page.section_sha256
+                        or result.selected_form != prior_page.selected_form
+                        or result.session_heading_line != prior_page.session_heading_line
+                        or result.recap_marker_line != prior_page.recap_marker_line
                         or result.heading_line != prior_page.heading_line
                         or result.line_start != prior_page.line_start
                         or result.line_end != prior_page.line_end
@@ -2458,9 +2470,9 @@ class _PolicyExecutionAdapter:
                 )
             ):
                 raise ValueError("related recap read differed from authorized descriptor")
-            event = graph_types.ValidatedRelatedRecapContextEventV1(
+            event = graph_types.ValidatedRelatedRecapContextEventV2(
                 event_id=uuid4(), sequence=len(updated.graph_context_execution.events),
-                kind="validated_related_recap_context_v1",
+                kind="validated_related_recap_context_v2",
                 read_call_id=read_call_id,
                 authorization_event_id=authorization.event_id,
                 admission_sha256=_canonical_sha256(
@@ -2468,11 +2480,14 @@ class _PolicyExecutionAdapter:
                 ),
                 outcome=result.outcome,
                 range_semantics_version=(
-                    "utf8-character-offset-in-markdown-session-recap-v1"
+                    "utf8-character-offset-in-markdown-session-recap-v2"
                 ),
                 source_bytes_sha256=admission.descriptor_content_sha256,
                 section_sha256=result.section_sha256,
                 page_content_sha256=sha256(content.encode("utf-8")).hexdigest(),
+                selected_form=result.selected_form,
+                session_heading_line=result.session_heading_line,
+                recap_marker_line=result.recap_marker_line,
                 heading_line=result.heading_line,
                 line_start=result.line_start,
                 line_end=result.line_end,
@@ -2490,7 +2505,7 @@ class _PolicyExecutionAdapter:
             ))
             self.turn = updated
             public = {
-                "schema": "dmb_related_recap_context_read_v1",
+                "schema": "dmb_related_recap_context_read_v2",
                 "outcome": result.outcome,
                 "targetKind": request.target_kind,
                 "targetId": request.target_id,
@@ -3640,8 +3655,8 @@ def _related_recap_context_open_targets(
     *,
     available_slots: int = 64,
 ) -> tuple[
-    list[AgentRelatedRecapContextOpenTargetV1],
-    list[AgentRelatedRecapContextStatusV1],
+    list[AgentRelatedRecapContextOpenTargetV2],
+    list[AgentRelatedRecapContextStatusV2],
 ]:
     """Join cited evidence to Core-authorized context metadata at one frozen pin.
 
@@ -3678,12 +3693,12 @@ def _related_recap_context_open_targets(
         unavailable: bool = False,
         unavailable_claims: set[str] | None = None,
         omitted_claims: set[str] | None = None,
-    ) -> list[AgentRelatedRecapContextStatusV1]:
+    ) -> list[AgentRelatedRecapContextStatusV2]:
         counts = {} if counts is None else counts
         unavailable_claims = set() if unavailable_claims is None else unavailable_claims
         omitted_claims = set() if omitted_claims is None else omitted_claims
         return [
-            AgentRelatedRecapContextStatusV1(
+            AgentRelatedRecapContextStatusV2(
                 claim_id=entry.claim_id,
                 status=(
                     "metadata_unavailable" if unavailable or entry.claim_id in unavailable_claims else
@@ -3799,7 +3814,7 @@ def _related_recap_context_open_targets(
         ):
             return [], statuses(unavailable_claims=unavailable_claims)
         index = services.retrieval.list_source_context_index(
-            SourceContextIndexRequest(projection=projection, max_entries=512)
+            SourceContextIndexRequest(projection=projection, max_entries=512, selector_policy="markdown-session-recap-v2")
         )
         if (
             index.status != "complete"
@@ -3814,16 +3829,16 @@ def _related_recap_context_open_targets(
             if (
                 descriptor.world_id != authority.native_world_id
                 or descriptor.graph_revision_id != authority.graph_revision
-                or selector.schema_version != "dm_recap_context_section_selector_v1"
+                or selector.schema_version != "dm_recap_context_section_selector_v2"
                 or selector.kind != "recap_section"
-                or selector.policy != "markdown-session-recap-v1"
+                or selector.policy != "markdown-session-recap-v2"
             ):
                 return [], statuses(unavailable=True)
             descriptors.setdefault((
                 descriptor.source_artifact_id, descriptor.source_revision_id,
             ), []).append(descriptor)
 
-        targets: dict[tuple[str, str, str], AgentRelatedRecapContextOpenTargetV1] = {}
+        targets: dict[tuple[str, str, str], AgentRelatedRecapContextOpenTargetV2] = {}
         counts: dict[str, int] = {}
         omitted_claims: set[str] = set()
         for citation in sorted(
@@ -3842,7 +3857,7 @@ def _related_recap_context_open_targets(
                             omitted_claims.add(citation.claim_id)
                             continue
                         selector = descriptor.section_selector
-                        target = AgentRelatedRecapContextOpenTargetV1(
+                        target = AgentRelatedRecapContextOpenTargetV2(
                             claim_id=citation.claim_id,
                             provenance_evidence_ref_id=evidence_ref_id,
                             context_anchor_id=descriptor.context_anchor_id,
@@ -3852,7 +3867,9 @@ def _related_recap_context_open_targets(
                             source_uri=descriptor.source_uri,
                             content_sha256=descriptor.content_sha256,
                             expected_session_id=selector.expected_session_id,
-                            expected_heading=selector.expected_heading,
+                            canonical_heading=selector.canonical_heading,
+                            legacy_session_heading=selector.legacy_session_heading,
+                            legacy_recap_marker=selector.legacy_recap_marker,
                             managed_world_id=authority.managed_world_id,
                             native_world_id=authority.native_world_id,
                             binding_version=authority.binding_version,
@@ -3873,7 +3890,7 @@ def project_plan_turn_context(
     turn: Turn,
     *,
     delivery_replay: bool,
-) -> AgentPlanWorldGraphContextResponseV1:
+) -> AgentPlanWorldGraphContextResponseV2:
     """Project a history/replay receipt only after checking its lifecycle binding."""
     _validate_policy_turn_record(turn)
     receipt = turn.graph_context_receipt
@@ -3908,7 +3925,7 @@ def project_plan_turn_context(
     related_targets, related_statuses = _related_recap_context_open_targets(
         turn, available_slots=64 - len(evidence_targets)
     )
-    return AgentPlanWorldGraphContextResponseV1(
+    return AgentPlanWorldGraphContextResponseV2(
         receipt=receipt,
         completion=turn.completion,
         execution=execution_projection,

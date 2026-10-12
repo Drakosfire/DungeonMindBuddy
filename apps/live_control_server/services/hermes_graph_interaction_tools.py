@@ -33,8 +33,8 @@ class ReadRelatedRecapContextRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    schema_: Literal["dmb_read_related_recap_context_request_v1"] = Field(
-        default="dmb_read_related_recap_context_request_v1", alias="schema"
+    schema_: Literal["dmb_read_related_recap_context_request_v2"] = Field(
+        default="dmb_read_related_recap_context_request_v2", alias="schema"
     )
     target_kind: Literal["assertion", "relationship"] = Field(alias="targetKind")
     target_id: str = Field(alias="targetId", min_length=1, max_length=256)
@@ -49,7 +49,7 @@ class ReadRelatedRecapContextRequest(BaseModel):
             self.target_id != self.target_id.strip()
             or self.evidence_ref_ids != sorted(set(self.evidence_ref_ids))
             or any(not value.strip() or value != value.strip() for value in self.evidence_ref_ids)
-            or not self.context_anchor_id.startswith("dm-context-anchor:v1:")
+            or not self.context_anchor_id.startswith("dm-context-anchor:v2:")
         ):
             raise ValueError("related recap request has invalid intent or continuation")
         return self

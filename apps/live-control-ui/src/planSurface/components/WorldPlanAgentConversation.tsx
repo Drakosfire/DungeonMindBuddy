@@ -5,7 +5,7 @@ import { ConversationDock } from "../../ui/ConversationDock";
 import type { PlanConversationPresentationHosts } from "./PlanConversationDockAdapter";
 import { PlanEditReview } from "./PlanEditReview";
 
-import { getWorldCommandResolution, postWorldCommandResolution, getWorldAgentNewConversationStatus, getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldPlanDocumentEditProposal, postWorldGraphSourceAnchorRead, postWorldGraphRecapContextRead, connectNativeGraphSession, revokeNativeGraphSession, isValidWorldPlanGraphContextFailure, LiveApiError } from "../../api/liveApi";
+import { getWorldCommandResolution, postWorldCommandResolution, getWorldAgentNewConversationStatus, getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldPlanDocumentEditProposal, postWorldGraphSourceAnchorRead, postWorldGraphRecapContextReadV2, connectNativeGraphSession, revokeNativeGraphSession, isValidWorldPlanGraphContextFailure, LiveApiError } from "../../api/liveApi";
 import type {
   AgentInteractionThread,
   AgentInteractionTurn,
@@ -22,10 +22,10 @@ import type {
   WorldAgentNewConversationRequestV1,
   WorldCommandResolutionRequestV1,
   WorldCommandResolutionRecordV1,
-  WorldPlanAgentPlanContextV1,
-  WorldPlanSourceOpenTargetV1,
+  WorldPlanAgentPlanContextV2,
+  WorldPlanSourceOpenTargetV2,
   WorldGraphSourceAnchorReadResponse,
-  WorldGraphRecapContextReadResponse,
+  WorldGraphRecapContextReadResponseV2,
   WorldPlanGraphAnswerContextStatusV1,
   WorldPlanGraphAnswerSegmentV1,
   WorldPlanGraphCitationMapV1,
@@ -1076,7 +1076,7 @@ function isWorldPlanSourceOpenTargets(
   value: unknown,
   receipt: WorldPlanGraphContextReceiptV1,
   completion: WorldPlanGraphCompletionV1 | WorldPlanGraphCompletionV2 | null,
-): value is WorldPlanSourceOpenTargetV1[] {
+): value is WorldPlanSourceOpenTargetV2[] {
   if (!Array.isArray(value) || value.length > 64) return false;
   const citations = completion?.citation_map?.entries ?? [];
   const byClaim = new Map(citations.map((citation) => [citation.claim_id, citation]));
@@ -1091,9 +1091,9 @@ function isWorldPlanSourceOpenTargets(
     const variant = evidence
       ? ["anchor_id", "evidence_ref_id", "source_read_id", "read_outcome"]
       : ["context_anchor_id", "provenance_evidence_ref_id", "source_campaign_id", "source_uri", "content_sha256", "expected_session_id",
-        "expected_heading", "selector_schema", "selector_policy"];
+        "canonical_heading", "legacy_session_heading", "legacy_recap_marker", "selector_schema", "selector_policy"];
     if (!hasExactKeys(target, [...common, ...variant])
-      || target.schema !== (evidence ? "dmb_agent_evidence_anchor_open_target_v1" : "dmb_agent_related_recap_context_open_target_v1")
+      || target.schema !== (evidence ? "dmb_agent_evidence_anchor_open_target_v1" : "dmb_agent_related_recap_context_open_target_v2")
       || typeof target.claim_id !== "string" || !target.claim_id
       || typeof target.source_artifact_id !== "string" || !target.source_artifact_id
       || typeof target.source_revision_id !== "string" || !target.source_revision_id
@@ -1116,14 +1116,16 @@ function isWorldPlanSourceOpenTargets(
         || !(target.read_outcome === null || ["enough", "partial", "truncated"].includes(String(target.read_outcome)))
         || (target.source_read_id === null) !== (target.read_outcome === null)
         || (target.source_read_id !== null && !("source_read_ids" in citation && citation.source_read_ids.includes(target.source_read_id)))) return false;
-    } else if (typeof target.context_anchor_id !== "string" || !target.context_anchor_id.startsWith("dm-context-anchor:v1:")
+    } else if (typeof target.context_anchor_id !== "string" || !target.context_anchor_id.startsWith("dm-context-anchor:v2:")
       || !(target.source_campaign_id === null || (typeof target.source_campaign_id === "string" && target.source_campaign_id.trim()))
       || typeof target.source_uri !== "string" || !target.source_uri.startsWith("repo://")
       || typeof target.content_sha256 !== "string" || !/^[0-9a-f]{64}$/.test(target.content_sha256)
       || typeof target.expected_session_id !== "string" || !/^session-[1-9][0-9]*$/.test(target.expected_session_id)
-      || target.expected_heading !== `# Session ${target.expected_session_id.slice(8)} Recap`
-      || target.selector_schema !== "dm_recap_context_section_selector_v1"
-      || target.selector_policy !== "markdown-session-recap-v1") return false;
+      || target.canonical_heading !== `# Session ${target.expected_session_id.slice(8)} Recap`
+      || target.legacy_session_heading !== `## Session ${target.expected_session_id.slice(8)}:`
+      || target.legacy_recap_marker !== "**Recap**:"
+      || target.selector_schema !== "dm_recap_context_section_selector_v2"
+      || target.selector_policy !== "markdown-session-recap-v2") return false;
     const identity = `${target.kind}\u001f${target.claim_id}\u001f${evidence ? target.anchor_id : target.context_anchor_id}`;
     if (seen.has(identity)) return false;
     const count = (perClaim.get(target.claim_id) ?? 0) + 1;
@@ -1143,7 +1145,7 @@ function isWorldPlanRelatedRecapStatuses(
   const seen = new Set<string>();
   for (const row of value) {
     if (!hasExactKeys(row, ["schema", "claim_id", "status", "choice_count"])
-      || row.schema !== "dmb_agent_related_recap_context_status_v1"
+      || row.schema !== "dmb_agent_related_recap_context_status_v2"
       || typeof row.claim_id !== "string" || !claims.has(row.claim_id) || seen.has(row.claim_id)
       || !Number.isSafeInteger(row.choice_count) || (row.choice_count as number) < 0 || (row.choice_count as number) > 512
       || !(row.status === "available" ? row.choice_count === 1
@@ -1180,7 +1182,7 @@ function isWorldPlanContextProjection(
   value: unknown,
   request?: WorldPlanAgentTurnRequestV1,
   historyTurn = false,
-): value is WorldPlanAgentPlanContextV1 {
+): value is WorldPlanAgentPlanContextV2 {
   const required = ["schema", "receipt", "completion", "execution"];
   if (isRecord(value) && Object.prototype.hasOwnProperty.call(value, "source_open_targets")) required.push("source_open_targets");
   if (isRecord(value) && Object.prototype.hasOwnProperty.call(value, "evidence_anchor_statuses")) required.push("evidence_anchor_statuses");
@@ -1189,7 +1191,7 @@ function isWorldPlanContextProjection(
     ? required
     : [...required, "delivery_replay"];
   if (!hasExactKeys(value, allowed)
-    || value.schema !== "dmb_agent_plan_world_graph_context_response_v1"
+    || value.schema !== "dmb_agent_plan_world_graph_context_response_v2"
     || !isWorldPlanGraphReceipt(value.receipt, request)
     || (value.completion !== null && !isWorldPlanGraphCompletion(value.completion, value.receipt))
     || (Object.prototype.hasOwnProperty.call(value, "source_open_targets")
@@ -2091,6 +2093,7 @@ export function WorldPlanAgentConversation({
   const [sourcePassage, setSourcePassage] = useState<{
     turnId: string; claimId: string; targetId: string;
     status: "loading" | "open" | "unavailable"; content: string | null; message: string | null; partial: boolean;
+    page?: WorldGraphRecapContextReadResponseV2; pages?: number; loadingMore?: boolean;
   } | null>(null);
   const sourceReadEpochRef = useRef(0);
   const [historyRefreshNonce, setHistoryRefreshNonce] = useState(0);
@@ -3572,7 +3575,7 @@ export function WorldPlanAgentConversation({
   }
 
   function sourceReadMatchesAuthority(
-    target: WorldPlanSourceOpenTargetV1,
+    target: WorldPlanSourceOpenTargetV2,
     snapshot: WorldGraphSourceAnchorReadResponse["snapshot"],
   ): boolean {
     return snapshot !== null
@@ -3586,16 +3589,20 @@ export function WorldPlanAgentConversation({
       && (snapshot.focus.campaignId ?? null) === null;
   }
 
-  async function openSourcePassage(turn: WorldAgentConversationHistoryTurn, target: WorldPlanSourceOpenTargetV1) {
+  async function openSourcePassage(turn: WorldAgentConversationHistoryTurn, target: WorldPlanSourceOpenTargetV2, more = false) {
     const page = historySnapshotRef.current;
     if (!page || page.world_id !== target.managed_world_id || page.world_id !== verifiedWorldId
       || page.conversation_state !== "active" || !page.conversation_id
       || !page.turns.some((item) => item.turn_id === turn.turn_id)) return;
     const conversationId = page.conversation_id;
-    const epoch = ++sourceReadEpochRef.current;
     const targetId = target.kind === "evidence_anchor" ? target.anchor_id : target.context_anchor_id;
     const identity = { turnId: turn.turn_id, claimId: target.claim_id, targetId };
-    setSourcePassage({ ...identity, status: "loading", content: null, message: null, partial: false });
+    const previous = more ? sourcePassage : null;
+    if (more && (target.kind !== "related_recap_context" || !previous?.page?.nextContinuation
+      || previous.turnId !== identity.turnId || previous.claimId !== identity.claimId || previous.targetId !== targetId
+      || previous.loadingMore || (previous.pages ?? 1) >= 8)) return;
+    const epoch = ++sourceReadEpochRef.current;
+    setSourcePassage(previous ? { ...previous, loadingMore: true } : { ...identity, status: "loading", content: null, message: null, partial: false });
     const stillCurrent = () => sourceReadEpochRef.current === epoch
       && historySnapshotRef.current?.world_id === target.managed_world_id
       && historySnapshotRef.current?.conversation_id === conversationId
@@ -3609,6 +3616,7 @@ export function WorldPlanAgentConversation({
     try {
       let content: string | null = null;
       let partial = false;
+      let recapPage: WorldGraphRecapContextReadResponseV2 | undefined;
       if (target.kind === "evidence_anchor") {
         const result = await postWorldGraphSourceAnchorRead({
           schema: "dmb_world_graph_source_anchor_read_request_v1",
@@ -3626,16 +3634,18 @@ export function WorldPlanAgentConversation({
           partial = result.truncated || result.outcome === "partial" || result.outcome === "truncated";
         }
       } else {
-        const result: WorldGraphRecapContextReadResponse = await postWorldGraphRecapContextRead({
-          schema: "dmb_recap_context_read_request_v1",
+        const result: WorldGraphRecapContextReadResponseV2 = await postWorldGraphRecapContextReadV2({
+          schema: "dmb_recap_context_read_request_v2",
           worldId: target.native_world_id, campaignId: "", scopeMode: "world", focus,
           admissibility: "gm", revisionPin: target.graph_revision, contextAnchorId: target.context_anchor_id,
+          maxChars: 12000, continuation: previous?.page?.nextContinuation ?? null,
         });
         const descriptor = result.context;
-        if (result.schema === "dmb_recap_context_read_v1"
+        if (result.schema === "dmb_recap_context_read_v2"
           && ["enough", "truncated"].includes(result.outcome)
           && sourceReadMatchesAuthority(target, result.snapshot)
           && result.contextAnchorId === target.context_anchor_id
+          && hasExactKeys(descriptor, ["contextAnchorId", "worldId", "campaignId", "graphRevisionId", "sourceArtifactId", "sourceRevisionId", "sourceUri", "contentSha256", "expectedSessionId", "canonicalHeading", "legacySessionHeading", "legacyRecapMarker", "selectorSchema", "selectorPolicy"])
           && descriptor?.contextAnchorId === target.context_anchor_id
           && descriptor.worldId === target.native_world_id
           && descriptor.campaignId === target.source_campaign_id
@@ -3645,17 +3655,33 @@ export function WorldPlanAgentConversation({
           && descriptor.sourceUri === target.source_uri
           && descriptor.contentSha256 === target.content_sha256
           && descriptor.expectedSessionId === target.expected_session_id
-          && descriptor.expectedHeading === target.expected_heading
+          && descriptor.canonicalHeading === target.canonical_heading
+          && descriptor.legacySessionHeading === target.legacy_session_heading
+          && descriptor.legacyRecapMarker === target.legacy_recap_marker
           && descriptor.selectorSchema === target.selector_schema
           && descriptor.selectorPolicy === target.selector_policy
-          && typeof result.content === "string" && result.content) {
+          && result.mediaType === "text/markdown"
+          && Number.isInteger(result.headingLine) && result.headingLine! >= 1
+          && result.sessionHeadingLine === result.headingLine
+          && Number.isInteger(result.lineStart) && Number.isInteger(result.lineEnd) && result.lineEnd! >= result.lineStart!
+          && ((result.selectedForm === "canonical_h1" && result.recapMarkerLine === null && result.lineStart === result.headingLine! + 1)
+            || (result.selectedForm === "legacy_h2" && Number.isInteger(result.recapMarkerLine) && result.recapMarkerLine! > result.headingLine! && result.lineStart === result.recapMarkerLine! + 1))
+          && typeof result.sectionSha256 === "string" && /^[0-9a-f]{64}$/.test(result.sectionSha256)
+          && result.truncated === (result.outcome === "truncated")
+          && (result.truncated ? typeof result.nextContinuation === "string" && result.nextContinuation.startsWith("recap-page:v2:") && result.nextContinuation.length <= 256 : result.nextContinuation === null)
+          && Number.isInteger(result.offsetChars) && result.offsetChars >= 0
+          && (previous?.page ? result.offsetChars === previous.page.offsetChars + [...previous.page.content!].length
+            && ["selectedForm", "sessionHeadingLine", "recapMarkerLine", "headingLine", "lineStart", "lineEnd", "sectionSha256"].every((key) => result[key as keyof typeof result] === previous.page![key as keyof typeof result])
+            : result.offsetChars === 0)
+          && typeof result.content === "string" && result.content && [...result.content].length <= 12000) {
           content = result.content;
-          partial = result.truncated || result.outcome === "truncated";
+          partial = result.truncated;
+          recapPage = result;
         }
       }
       if (!stillCurrent()) return;
       setSourcePassage(content
-        ? { ...identity, status: "open", content, message: null, partial }
+        ? { ...identity, status: "open", content: (previous?.content ?? "") + content, message: null, partial, page: recapPage, pages: (previous?.pages ?? 0) + 1, loadingMore: false }
         : { ...identity, status: "unavailable", content: null, message: "This pinned source passage is unavailable or did not match the saved citation.", partial: false });
     } catch {
       if (stillCurrent()) setSourcePassage({ ...identity, status: "unavailable", content: null, message: "The source reader could not open this pinned passage.", partial: false });
@@ -3685,7 +3711,7 @@ export function WorldPlanAgentConversation({
     const activeTarget = targets.find((target) => sourcePassage?.turnId === turn.turn_id
       && sourcePassage.claimId === target.claim_id
       && sourcePassage.targetId === (target.kind === "evidence_anchor" ? target.anchor_id : target.context_anchor_id));
-    const renderTarget = (target: WorldPlanSourceOpenTargetV1) => {
+    const renderTarget = (target: WorldPlanSourceOpenTargetV2) => {
         const targetId = target.kind === "evidence_anchor" ? target.anchor_id : target.context_anchor_id;
         const point = claims.findIndex((claim) => claim.claim_id === target.claim_id) + 1;
         const relatedChoices = target.kind === "related_recap_context"
@@ -3701,11 +3727,11 @@ export function WorldPlanAgentConversation({
           {claims.length > 1 ? <span className="world-plan-agent-conversation__source-actions-label">Point {point} · </span> : null}
           <button type="button" title={target.kind === "related_recap_context" ? target.source_uri : undefined}
             aria-label={claims.length > 1
-            ? `${target.kind === "evidence_anchor" ? "Open evidence" : "Open related recap context"} for point ${point}${relatedChoices > 1 && target.kind === "related_recap_context" ? ` · ${target.expected_heading}` : ""}${evidenceChoices.length > 1 ? ` · ${evidenceNumber} of ${evidenceChoices.length}` : ""}`
+            ? `${target.kind === "evidence_anchor" ? "Open evidence" : "Open related recap context"} for point ${point}${relatedChoices > 1 && target.kind === "related_recap_context" ? ` · ${target.canonical_heading}` : ""}${evidenceChoices.length > 1 ? ` · ${evidenceNumber} of ${evidenceChoices.length}` : ""}`
             : undefined} onClick={() => { void openSourcePassage(turn, target); }}>
             {target.kind === "evidence_anchor" ? evidenceChoices.length > 1
               ? `Open evidence · ${evidenceNumber} of ${evidenceChoices.length}` : "Open evidence"
-              : relatedChoices > 1 ? `Open related recap context · ${target.expected_heading}` : "Open related recap context"}
+              : relatedChoices > 1 ? `Open related recap context · ${target.canonical_heading}` : "Open related recap context"}
           </button>
         </div>;
     };
@@ -3724,6 +3750,10 @@ export function WorldPlanAgentConversation({
           role="region" aria-label={activeTarget.kind === "evidence_anchor" ? "Evidence passage" : "Related recap context passage"}>
           {sourcePassage.partial ? <p role="note">Partial passage. More source text may be available.</p> : null}
           {sourcePassage.content}
+          {activeTarget.kind === "related_recap_context" && sourcePassage.page?.nextContinuation && (sourcePassage.pages ?? 1) < 8
+            ? <button type="button" disabled={sourcePassage.loadingMore} onClick={() => { void openSourcePassage(turn, activeTarget, true); }}>
+              {sourcePassage.loadingMore ? "Loading more…" : "Load more context"}
+            </button> : null}
         </div> : null}
       </div> : null}
       {evidenceLimited ? <p role="note">Some evidence passage choices could not be offered. Shown links remain pinned.</p> : null}

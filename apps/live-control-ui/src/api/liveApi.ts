@@ -142,8 +142,8 @@ import type {
   WorldGraphRecapProjection,
   WorldGraphSourceAnchorReadRequest,
   WorldGraphSourceAnchorReadResponse,
-  WorldGraphRecapContextReadRequest,
-  WorldGraphRecapContextReadResponse,
+  WorldGraphRecapContextReadRequestV2,
+  WorldGraphRecapContextReadResponseV2,
   PartyRegistrySurfaceResponse,
   PartyRegistrySessionRosterWriteCommitRequest,
   PartyRegistrySessionRosterWriteCommitResponse,
@@ -1605,11 +1605,11 @@ export async function postWorldGraphSourceAnchorRead(
   );
 }
 
-export async function postWorldGraphRecapContextRead(
-  request: WorldGraphRecapContextReadRequest,
-): Promise<WorldGraphRecapContextReadResponse> {
-  return apiFetch<WorldGraphRecapContextReadResponse>(
-    "/api/live/world-graph/retrieval/recap-context/read",
+export async function postWorldGraphRecapContextReadV2(
+  request: WorldGraphRecapContextReadRequestV2,
+): Promise<WorldGraphRecapContextReadResponseV2> {
+  return apiFetch<WorldGraphRecapContextReadResponseV2>(
+    "/api/live/world-graph/retrieval/recap-context/v2/read",
     { method: "POST", body: JSON.stringify(request) },
   );
 }
