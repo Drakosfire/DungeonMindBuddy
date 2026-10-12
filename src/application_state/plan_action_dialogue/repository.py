@@ -9,9 +9,12 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-from application_state.errors import ApplicationStateConflictError
+from application_state.agent_conversation.types import ProviderOutcomeEventV1
+
+from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
 from application_state.plan_action_dialogue.types import (
     PlanActionBasis,
+    PlanActionConsultation,
     PlanActionPlayableTargetReceipt,
     PlanActionRecord,
     PlanActionReservation,
@@ -24,7 +27,7 @@ _RETURNING = """
     content_sha256, draft_matches_basis, draft_sha256, target_kind,
     selected_text_sha256, playable_target_receipt, instruction, status, assistant_summary,
     failure_code, dispatch_token, fence, action_sequence, accepted_at,
-    completed_at, lease_expires_at
+    completed_at, lease_expires_at, consultation
 """
 
 
@@ -61,6 +64,8 @@ def _record(row: dict[str, Any]) -> PlanActionRecord:
         accepted_at=row["accepted_at"],
         completed_at=row["completed_at"],
         lease_expires_at=row["lease_expires_at"],
+        consultation=(PlanActionConsultation.model_validate(row["consultation"])
+                      if row.get("consultation") is not None else None),
     )
 
 
@@ -156,6 +161,13 @@ def reserve(conn: psycopg.Connection, request: PlanActionReservation) -> tuple[P
     if (
         existing.request_fingerprint != request.request_fingerprint
         or existing.playable_target_receipt != request.playable_target_receipt
+        or existing.action_type != request.action_type
+        or existing.basis != request.basis
+        or existing.draft_matches_basis != request.draft_matches_basis
+        or existing.draft_sha256 != request.draft_sha256
+        or existing.target_kind != request.target_kind
+        or existing.selected_text_sha256 != request.selected_text_sha256
+        or existing.instruction != request.instruction
     ):
         raise ApplicationStateConflictError("Plan action key was reused with a different request")
     if existing.status == "pending":
@@ -175,6 +187,15 @@ def finish(
 ) -> PlanActionRecord:
     if status not in {"completed", "failed"}:
         raise ValueError("terminal Plan action status must be completed or failed")
+    current = _get_by_id(conn, action_id, lock=True)
+    if (current is not None and current.status == "pending" and current.consultation is not None
+            and current.consultation.execution is not None
+            and any(isinstance(event, ProviderOutcomeEventV1) and event.outcome == "outcome_unknown"
+                    for event in current.consultation.execution.events)):
+        raise ApplicationStateValidationError("unknown consultation outcome must remain indeterminate")
+    if (current is not None and current.status == "pending"
+            and current.consultation is not None and status == "completed"):
+        raise ApplicationStateValidationError("consulted action requires a typed terminal result")
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
@@ -199,6 +220,83 @@ def finish(
     if current.status == "pending":
         current = _reconcile_expiry(conn, action_id)
     return current
+
+
+def lock_dispatch(
+    conn: psycopg.Connection, action_id: UUID, token: UUID, fence: int,
+) -> PlanActionRecord:
+    record = _get_by_id(conn, action_id, lock=True)
+    if record is None:
+        raise ApplicationStateConflictError("Plan action does not exist")
+    if record.status == "pending":
+        record = _reconcile_expiry(conn, action_id)
+    if (record.status != "pending" or record.dispatch_token != token or record.fence != fence):
+        raise ApplicationStateConflictError("Plan action consultation is fenced by a stale dispatch")
+    return record
+
+
+def validate_predecessor(conn: psycopg.Connection, consultation: PlanActionConsultation) -> None:
+    from application_state.plan_action_dialogue.graph_consultation import consultation_result_digest
+
+    receipt = consultation.receipt
+    link = receipt.continuation
+    if link is None:
+        return
+    if link.continuation_of_action_id == receipt.action_id:
+        raise ApplicationStateConflictError("action cannot continue itself")
+    predecessor = _get_by_id(conn, link.continuation_of_action_id, lock=True)
+    previous = None if predecessor is None else predecessor.consultation
+    if (predecessor is None or predecessor.status != "completed" or previous is None
+            or previous.result is None or previous.result.kind != "clarification"
+            or previous.result.result_id != link.clarification_id
+            or consultation_result_digest(previous.result) != link.previous_result_sha256
+            or predecessor.instruction != link.previous_instruction
+            or predecessor.basis != receipt.basis
+            or predecessor.draft_matches_basis != receipt.draft_matches_basis
+            or predecessor.draft_sha256 != receipt.draft_sha256
+            or predecessor.target_kind != receipt.target_kind
+            or predecessor.selected_text_sha256 != receipt.selected_text_sha256
+            or previous.receipt.surface_id != receipt.surface_id
+            or previous.receipt.surface_instance_id != receipt.surface_instance_id):
+        raise ApplicationStateConflictError("clarification predecessor differs from the current action basis")
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT action_id FROM plan_action.action WHERE action_id <> %s AND "
+            "consultation->'receipt'->'continuation'->>'continuation_of_action_id' = %s LIMIT 1",
+            (receipt.action_id, str(link.continuation_of_action_id)),
+        )
+        if cur.fetchone() is not None:
+            raise ApplicationStateConflictError("clarification predecessor is already superseded")
+
+
+def write_consultation(
+    conn: psycopg.Connection, record: PlanActionRecord, consultation: PlanActionConsultation,
+    *, status: str = "pending", summary: str | None = None, failure_code: str | None = None,
+) -> PlanActionRecord:
+    # Validate the full row before writing; readback validates it again.
+    PlanActionRecord.model_validate(record.model_dump(mode="python") | {
+        "consultation": consultation, "status": status,
+        "assistant_summary": summary, "failure_code": failure_code,
+    })
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""UPDATE plan_action.action
+            SET consultation = %s, status = %s, assistant_summary = %s, failure_code = %s,
+                dispatch_token = CASE WHEN %s THEN dispatch_token ELSE NULL END,
+                lease_expires_at = CASE WHEN %s THEN lease_expires_at ELSE NULL END,
+                completed_at = CASE WHEN %s THEN clock_timestamp() ELSE NULL END,
+                updated_at = clock_timestamp()
+            WHERE action_id = %s AND status = 'pending' AND dispatch_token = %s
+                AND fence = %s AND lease_expires_at > clock_timestamp()
+            RETURNING {_RETURNING}""",
+            (Jsonb(consultation.model_dump(mode="json", by_alias=True)), status, summary,
+             failure_code, status == "pending", status == "pending", status == "completed",
+             record.action_id, record.dispatch_token, record.fence),
+        )
+        row = cur.fetchone()
+    if row is None:
+        raise ApplicationStateConflictError("Plan action consultation lost its dispatch fence")
+    return _record(row)
 
 
 def get_by_key(conn: psycopg.Connection, world_id: str, key: UUID) -> PlanActionRecord | None:

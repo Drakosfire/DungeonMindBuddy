@@ -936,34 +936,60 @@ class PlanWorldGraphContextReceiptV1(StrictModel):
     def validate_receipt(self) -> "PlanWorldGraphContextReceiptV1":
         if self.graph_authority.managed_world_id != self.plan_basis.world_id:
             raise ValueError("Graph authority managed World must match Plan basis")
-        packet = self.graph_packet
-        assembled = self.assembled_input
-        if assembled.packet_disposition == "omitted_insufficient":
-            if packet.evidence_sufficiency_status != "insufficient":
-                raise ValueError("only insufficient evidence may be omitted")
-        elif packet.evidence_sufficiency_status != "sufficient":
-            raise ValueError("included Graph packet requires sufficient evidence")
-        if not set(assembled.dispatched_assertion_ids).issubset(
-            packet.candidate_assertion_ids
-        ):
-            raise ValueError(
-                "dispatched assertion IDs must come from retrieved candidates"
-            )
-        if not set(assembled.dispatched_relationship_ids).issubset(
-            packet.candidate_relationship_ids
-        ):
-            raise ValueError(
-                "dispatched relationship IDs must come from retrieved candidates"
-            )
-        if not set(assembled.dispatched_evidence_ref_ids).issubset(
-            packet.candidate_evidence_ref_ids
-        ):
-            raise ValueError(
-                "dispatched evidence IDs must come from retrieved candidates"
-            )
+        validate_graph_packet_input(self.graph_packet, self.assembled_input)
         if self.context_receipt_sha256 != plan_world_graph_context_receipt_digest(self):
             raise ValueError("Graph context receipt digest does not match its contents")
         return self
+
+
+def validate_graph_packet_input(
+    packet: PlanWorldGraphPacketV1, assembled: PlanWorldGraphAssembledInputV1,
+) -> None:
+    """Validate the shared retrieved-candidate to dispatched-input commitment."""
+    if assembled.packet_disposition == "omitted_insufficient":
+        if packet.evidence_sufficiency_status != "insufficient":
+            raise ValueError("only insufficient evidence may be omitted")
+    elif packet.evidence_sufficiency_status != "sufficient":
+        raise ValueError("included Graph packet requires sufficient evidence")
+    if not set(assembled.dispatched_assertion_ids).issubset(
+        packet.candidate_assertion_ids
+    ):
+        raise ValueError(
+            "dispatched assertion IDs must come from retrieved candidates"
+        )
+    if not set(assembled.dispatched_relationship_ids).issubset(
+        packet.candidate_relationship_ids
+    ):
+        raise ValueError(
+            "dispatched relationship IDs must come from retrieved candidates"
+        )
+    if not set(assembled.dispatched_evidence_ref_ids).issubset(
+        packet.candidate_evidence_ref_ids
+    ):
+        raise ValueError(
+            "dispatched evidence IDs must come from retrieved candidates"
+        )
+
+
+class GraphEvidenceValidationInputs(StrictModel):
+    """Common validation inputs, independent of an Ask or action lifecycle."""
+
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    committed_content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    graph_authority: PlanWorldGraphAuthorityV1
+    graph_packet: PlanWorldGraphPacketV1
+    assembled_input: PlanWorldGraphAssembledInputV1
+
+def _ask_graph_validation_inputs(
+    receipt: PlanWorldGraphContextReceiptV1,
+) -> GraphEvidenceValidationInputs:
+    return GraphEvidenceValidationInputs(
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        committed_content_sha256=receipt.plan_basis.content_sha256,
+        graph_authority=receipt.graph_authority,
+        graph_packet=receipt.graph_packet,
+        assembled_input=receipt.assembled_input,
+    )
 
 
 def _canonical_sha256(value: object) -> str:
@@ -2327,29 +2353,73 @@ _BOUNDED_SOURCE_INDEX_SELECTION_POLICY_V1 = (
 )
 
 
-def validate_selected_source_binding(receipt: PlanWorldGraphContextReceiptV1, execution: PlanWorldGraphExecution | None) -> None:
+def validate_graph_provider_envelope(
+    inputs: GraphEvidenceValidationInputs, execution: PlanWorldGraphExecution,
+    event: ProviderAttemptAuthorizedEventV1,
+) -> None:
+    """Shared admitted-ID, first-envelope and frozen-context-window checks."""
+    graph_events = [e for e in execution.events if isinstance(e, ValidatedGraphOperationEventV1)]
+    included_graph_events = set(event.included_graph_event_ids)
+    included_operations = [e for e in graph_events if e.event_id in included_graph_events]
+    available_assertions = set(inputs.assembled_input.dispatched_assertion_ids) | {x for e in included_operations for x in e.assertion_ids}
+    available_relationships = set(inputs.assembled_input.dispatched_relationship_ids) | {x for e in included_operations for x in e.relationship_ids}
+    available_evidence = set(inputs.assembled_input.dispatched_evidence_ref_ids) | {x for e in included_operations for x in e.evidence_ref_ids}
+    if not set(event.included_assertion_ids).issubset(available_assertions) or not set(event.included_relationship_ids).issubset(available_relationships) or not set(event.included_evidence_ref_ids).issubset(available_evidence):
+        raise ValueError("provider envelope includes IDs absent from admitted Graph evidence")
+    if event.input_tokens + event.output_token_reserve > inputs.assembled_input.context_window_limit:
+        raise ValueError("provider envelope exceeds the frozen context window")
+    operation_event_ids = {e.event_id for e in graph_events}
+    if not set(event.included_graph_event_ids).issubset(operation_event_ids):
+        raise ValueError("provider envelope references an unknown Graph operation event")
+    previous_attempts = [e for e in execution.events if isinstance(e, ProviderAttemptAuthorizedEventV1)]
+    if not previous_attempts:
+        assembled = inputs.assembled_input
+        if (
+            event.envelope_sha256 != assembled.assembled_input_sha256
+            or event.input_tokens != assembled.provider_envelope_input_tokens
+            or event.output_token_reserve != assembled.output_token_reserve
+            or event.input_estimator != assembled.tokenizer_name
+        ):
+            raise ValueError("first provider authorization must match the frozen receipt envelope and accounting")
+
+
+def validate_selected_source_binding(
+    receipt: PlanWorldGraphContextReceiptV1,
+    execution: PlanWorldGraphExecution | None,
+) -> None:
+    validate_graph_selected_source_binding(_ask_graph_validation_inputs(receipt), execution)
+
+
+def validate_graph_selected_source_binding(inputs: GraphEvidenceValidationInputs, execution: PlanWorldGraphExecution | None) -> None:
     """Bind the selected policy to its immutable composite at every read/write boundary."""
-    selected_policy = receipt.graph_packet.selection_policy_version == _SELECTED_SOURCE_INDEX_SELECTION_POLICY_V1
+    selected_policy = inputs.graph_packet.selection_policy_version == _SELECTED_SOURCE_INDEX_SELECTION_POLICY_V1
     selected_scope = isinstance(execution.policy.source_read_scope, GraphSelectedSourceReadScopeV2) if isinstance(execution, PlanWorldGraphExecutionV2) else False
     if selected_policy != selected_scope:
         raise ValueError("selected receipt policy and frozen scope differ")
     if selected_scope:
         selected = execution.policy.source_read_scope
-        if selected.world_id != receipt.graph_authority.managed_world_id or selected.campaign_id != receipt.graph_authority.campaign_id or selected.graph_revision != receipt.graph_authority.graph_revision or any(anchor.evidence_ref_id not in receipt.graph_packet.candidate_evidence_ref_ids for anchor in selected.admitted_anchors):
+        if selected.world_id != inputs.graph_authority.managed_world_id or selected.campaign_id != inputs.graph_authority.campaign_id or selected.graph_revision != inputs.graph_authority.graph_revision or any(anchor.evidence_ref_id not in inputs.graph_packet.candidate_evidence_ref_ids for anchor in selected.admitted_anchors):
             raise ValueError("selected scope differs from managed receipt authority")
         composite = {"schema": "dmb_selected_retrieval_composite_v1", "selection_policy_version": _SELECTED_SOURCE_INDEX_SELECTION_POLICY_V1,
             "initial_claim_packet_sha256": selected.initial_claim_packet_sha256,
             "selected_index": selected.selected_index_commitment.model_dump(mode="json", by_alias=True),
             "source_pins": [anchor.model_dump(mode="json") for anchor in selected.admitted_anchors]}
-        if _canonical_sha256(composite) != receipt.graph_packet.retrieval_packet_sha256:
+        if _canonical_sha256(composite) != inputs.graph_packet.retrieval_packet_sha256:
             raise ValueError("selected composite differs from frozen receipt")
         context = selected.selected_index_commitment.context
-        if context.world_id != receipt.graph_authority.native_world_id or context.revision_id != receipt.graph_authority.graph_revision or context.scope_mode != "world_cross_campaign" or context.campaign_id != receipt.graph_authority.campaign_id or context.admissibility != "gm" or context.focus.kind != "none" or receipt.graph_authority.admissibility_version != "gm-v1":
+        if context.world_id != inputs.graph_authority.native_world_id or context.revision_id != inputs.graph_authority.graph_revision or context.scope_mode != "world_cross_campaign" or context.campaign_id != inputs.graph_authority.campaign_id or context.admissibility != "gm" or context.focus.kind != "none" or inputs.graph_authority.admissibility_version != "gm-v1":
             raise ValueError("selected native context differs from receipt authority")
 
 
 def validate_related_recap_context_scope(
     receipt: PlanWorldGraphContextReceiptV1,
+    execution: PlanWorldGraphExecution | None,
+) -> None:
+    validate_graph_related_recap_context_scope(_ask_graph_validation_inputs(receipt), execution)
+
+
+def validate_graph_related_recap_context_scope(
+    inputs: GraphEvidenceValidationInputs,
     execution: PlanWorldGraphExecution | None,
 ) -> None:
     """Bind related-context authorization to turn-admitted targets and Core pins."""
@@ -2364,9 +2434,9 @@ def validate_related_recap_context_scope(
         return
     graph_scope = execution.policy.source_read_scope
     if (
-        graph_scope.world_id != receipt.graph_authority.managed_world_id
-        or graph_scope.campaign_id != receipt.graph_authority.campaign_id
-        or graph_scope.graph_revision != receipt.graph_authority.graph_revision
+        graph_scope.world_id != inputs.graph_authority.managed_world_id
+        or graph_scope.campaign_id != inputs.graph_authority.campaign_id
+        or graph_scope.graph_revision != inputs.graph_authority.graph_revision
     ):
         raise ValueError("related recap execution differs from frozen Graph authority")
     operations = {
@@ -2381,7 +2451,7 @@ def validate_related_recap_context_scope(
         if not isinstance(event, RelatedRecapContextAuthorizationEventV1):
             continue
         admission = event.admission
-        authority = receipt.graph_authority
+        authority = inputs.graph_authority
         if (
             admission.context_anchor_id != admission.context_anchor_id.strip()
             or admission.managed_world_id != authority.managed_world_id
@@ -2391,21 +2461,21 @@ def validate_related_recap_context_scope(
             or authority.scope_mode != "world"
             or authority.campaign_id is not None
             or authority.admissibility_version != admission.admissibility_version
-            or event.context_receipt_sha256 != receipt.context_receipt_sha256
+            or event.context_receipt_sha256 != inputs.context_receipt_sha256
             or event.execution_policy_sha256 != execution.execution_policy_sha256
         ):
             raise ValueError("related recap authorization differs from the frozen turn authority")
         target_ids = (
-            set(receipt.assembled_input.dispatched_assertion_ids)
+            set(inputs.assembled_input.dispatched_assertion_ids)
             if admission.target_kind == "assertion"
-            else set(receipt.assembled_input.dispatched_relationship_ids)
+            else set(inputs.assembled_input.dispatched_relationship_ids)
         )
         evidence_ref_ids = {item.evidence_ref_id for item in admission.provenance_bindings}
         if admission.admission_origin == "initial_graph_input":
             if (
                 admission.target_id not in target_ids
                 or not evidence_ref_ids.issubset(
-                    set(receipt.assembled_input.dispatched_evidence_ref_ids)
+                    set(inputs.assembled_input.dispatched_evidence_ref_ids)
                 )
             ):
                 raise ValueError("related recap target and refs were not in initial dispatched Graph input")
@@ -2577,11 +2647,30 @@ def validate_completion_against_receipt(
 
 
 def derive_execution_answer_context_status(
+    *, context_receipt_sha256: str,
+    answer_segments: list[PlanWorldGraphAnswerSegmentV1],
+    citation_map: PlanWorldGraphCitationMapV1 | None,
+    receipt: PlanWorldGraphContextReceiptV1,
+    execution: PlanWorldGraphExecution,
+    producing_provider_attempt_id: UUID,
+    claim_graph_event_ids: dict[str, list[UUID]],
+) -> Literal["graph_grounded", "graph_grounded_partial",
+             "plan_only_insufficient_evidence", "plan_only_graph_unused"]:
+    return derive_graph_execution_evidence_status(
+        context_receipt_sha256=context_receipt_sha256,
+        answer_segments=answer_segments, citation_map=citation_map,
+        inputs=_ask_graph_validation_inputs(receipt), execution=execution,
+        producing_provider_attempt_id=producing_provider_attempt_id,
+        claim_graph_event_ids=claim_graph_event_ids,
+    )
+
+
+def derive_graph_execution_evidence_status(
     *,
     context_receipt_sha256: str,
     answer_segments: list[PlanWorldGraphAnswerSegmentV1],
     citation_map: PlanWorldGraphCitationMapV1 | None,
-    receipt: PlanWorldGraphContextReceiptV1,
+    inputs: GraphEvidenceValidationInputs,
     execution: PlanWorldGraphExecution,
     producing_provider_attempt_id: UUID,
     claim_graph_event_ids: dict[str, list[UUID]],
@@ -2600,7 +2689,7 @@ def derive_execution_answer_context_status(
     is sufficient, complete, and untruncated. It does not assert corpus-wide
     completeness.
     """
-    if context_receipt_sha256 != receipt.context_receipt_sha256:
+    if context_receipt_sha256 != inputs.context_receipt_sha256:
         _reject_graph_completion(
             GraphCompletionRejectionCode.RECEIPT_BINDING,
             "completion must bind the exact stored Graph receipt",
@@ -2631,12 +2720,12 @@ def derive_execution_answer_context_status(
     included_relationships = set(producing.included_relationship_ids)
     included_evidence = set(producing.included_evidence_ref_ids)
     dispatched = {
-        "assertion": set(receipt.assembled_input.dispatched_assertion_ids),
-        "relationship": set(receipt.assembled_input.dispatched_relationship_ids),
+        "assertion": set(inputs.assembled_input.dispatched_assertion_ids),
+        "relationship": set(inputs.assembled_input.dispatched_relationship_ids),
     }
     claims = [s for s in answer_segments if isinstance(s, PlanWorldGraphClaimSegmentV1)]
     indexed_policy = (
-        receipt.graph_packet.selection_policy_version
+        inputs.graph_packet.selection_policy_version
         in {_BOUNDED_SOURCE_INDEX_SELECTION_POLICY_V1, _SELECTED_SOURCE_INDEX_SELECTION_POLICY_V1}
     )
     source_scope = (
@@ -2659,7 +2748,7 @@ def derive_execution_answer_context_status(
             for read in event.receipts
         }
     for segment in answer_segments:
-        if isinstance(segment, PlanWorldGraphPlanClaimSegmentV1) and segment.plan_content_sha256 != receipt.plan_basis.content_sha256:
+        if isinstance(segment, PlanWorldGraphPlanClaimSegmentV1) and segment.plan_content_sha256 != inputs.committed_content_sha256:
             _reject_graph_completion(
                 GraphCompletionRejectionCode.PLAN_BASIS_ATTRIBUTION,
                 "Plan claim attribution must match the frozen Plan digest",
@@ -2682,7 +2771,7 @@ def derive_execution_answer_context_status(
         )
     sufficient_sources: list[tuple[str, bool]] = []
     for claim in claims:
-        if claim.graph_revision != receipt.graph_authority.graph_revision:
+        if claim.graph_revision != inputs.graph_authority.graph_revision:
             _reject_graph_completion(
                 GraphCompletionRejectionCode.GRAPH_REVISION_MISMATCH,
                 "Graph claim must use the frozen Graph revision",
@@ -2702,7 +2791,7 @@ def derive_execution_answer_context_status(
             )
         refs = set(claim.evidence_ref_ids)
         indexed_refs = (
-            refs - set(receipt.assembled_input.dispatched_evidence_ref_ids)
+            refs - set(inputs.assembled_input.dispatched_evidence_ref_ids)
             if indexed_policy else set()
         )
         indexed_reads: dict[str, SourceReadAnchorReceiptV2] = {}
@@ -2710,7 +2799,7 @@ def derive_execution_answer_context_status(
         if indexed_refs:
             if (
                 not indexed_policy
-                or not indexed_refs.issubset(set(receipt.graph_packet.candidate_evidence_ref_ids))
+                or not indexed_refs.issubset(set(inputs.graph_packet.candidate_evidence_ref_ids))
                 or not isinstance(producing, ProviderAttemptAuthorizedEventV2)
                 or not isinstance(citation_for_claim, PlanWorldGraphCitationV2)
             ):
@@ -2762,9 +2851,9 @@ def derive_execution_answer_context_status(
                 "completion binding event IDs must be unique per claim",
             )
         support_packets: list[tuple[set[str], set[str], str, str, bool]] = []
-        if claim.target_id in dispatched[claim.target_kind] and refs.issubset(set(receipt.assembled_input.dispatched_evidence_ref_ids)):
+        if claim.target_id in dispatched[claim.target_kind] and refs.issubset(set(inputs.assembled_input.dispatched_evidence_ref_ids)):
             if claim.target_id in (included_assertions if claim.target_kind == "assertion" else included_relationships) and refs.issubset(included_evidence):
-                support_packets.append((set(receipt.assembled_input.dispatched_assertion_ids) | set(receipt.assembled_input.dispatched_relationship_ids), set(receipt.assembled_input.dispatched_evidence_ref_ids), receipt.graph_packet.evidence_sufficiency_status, receipt.graph_packet.coverage_status, receipt.graph_packet.truncated))
+                support_packets.append((set(inputs.assembled_input.dispatched_assertion_ids) | set(inputs.assembled_input.dispatched_relationship_ids), set(inputs.assembled_input.dispatched_evidence_ref_ids), inputs.graph_packet.evidence_sufficiency_status, inputs.graph_packet.coverage_status, inputs.graph_packet.truncated))
         for event_id in mapped_ids:
             event = events.get(event_id)
             if event is None or event_id not in included_event_ids:
@@ -2800,8 +2889,8 @@ def derive_execution_answer_context_status(
             )
         sufficient_sources.extend((status, coverage == "complete" and not truncated) for _, _, status, coverage, truncated in support_packets)
         if indexed_refs and (
-            receipt.graph_packet.coverage_status != "complete"
-            or receipt.graph_packet.truncated
+            inputs.graph_packet.coverage_status != "complete"
+            or inputs.graph_packet.truncated
         ):
             sufficient_sources.append(("sufficient", False))
         if any(read.outcome != "enough" or read.truncated for read in indexed_reads.values()):
@@ -2824,13 +2913,13 @@ def derive_execution_answer_context_status(
             else "graph_grounded_partial"
         )
     initial_ids_in_envelope = bool(
-        set(receipt.assembled_input.dispatched_assertion_ids).intersection(included_assertions)
-        or set(receipt.assembled_input.dispatched_relationship_ids).intersection(included_relationships)
-        or set(receipt.assembled_input.dispatched_evidence_ref_ids).intersection(included_evidence)
+        set(inputs.assembled_input.dispatched_assertion_ids).intersection(included_assertions)
+        or set(inputs.assembled_input.dispatched_relationship_ids).intersection(included_relationships)
+        or set(inputs.assembled_input.dispatched_evidence_ref_ids).intersection(included_evidence)
     )
     sufficient = (
-        receipt.graph_packet.evidence_sufficiency_status == "sufficient"
-        and receipt.assembled_input.packet_disposition == "included"
+        inputs.graph_packet.evidence_sufficiency_status == "sufficient"
+        and inputs.assembled_input.packet_disposition == "included"
         and initial_ids_in_envelope
     )
     sufficient = sufficient or any(
@@ -2881,13 +2970,22 @@ def validate_execution_completion(
     )
 
 
-def _validate_v2_completion_source_reads(completion: PlanWorldGraphCompletionV2, execution: PlanWorldGraphExecutionV2, producing_provider_attempt_id: UUID) -> None:
-    if completion.citation_map is None:
+def _validate_v2_completion_source_reads(
+    completion: PlanWorldGraphCompletionV2, execution: PlanWorldGraphExecutionV2,
+    producing_provider_attempt_id: UUID,
+) -> None:
+    validate_graph_execution_source_citations(
+        completion.citation_map, execution, producing_provider_attempt_id
+    )
+
+
+def validate_graph_execution_source_citations(citation_map: PlanWorldGraphCitationMapV2 | None, execution: PlanWorldGraphExecutionV2, producing_provider_attempt_id: UUID) -> None:
+    if citation_map is None:
         return
     attempt = next((e for e in execution.events if isinstance(e, (ProviderAttemptAuthorizedEventV1, ProviderAttemptAuthorizedEventV2)) and e.provider_attempt_id == producing_provider_attempt_id), None)
     included = set(attempt.included_source_read_event_ids) if isinstance(attempt, ProviderAttemptAuthorizedEventV2) else set()
     reads = {read.source_read_id: read for event in execution.events if isinstance(event, ValidatedSourceReadEventV2) and event.event_id in included for read in event.receipts}
-    for citation in completion.citation_map.entries:
+    for citation in citation_map.entries:
         if citation.source_opened != bool(citation.source_read_ids) or not set(citation.source_read_ids).issubset(reads):
             _reject_graph_completion(GraphCompletionRejectionCode.CITATION_CLAIM_MISMATCH, "citation source-opened state must bind source reads in the producing envelope")
         for read_id in citation.source_read_ids:
