@@ -322,9 +322,17 @@ class BoundedRecapPassClient:
         if deepseek:
             from generationengine.types import ProviderRoute
 
-            route = ProviderRoute(order=("DeepSeek",), allow_fallbacks=False)
+            route = ProviderRoute(
+                order=("DeepSeek",),
+                allow_fallbacks=False,
+                require_parameters=True,
+            )
             system_prompt = (
-                f"{instructions}\n\nThe JSON object MUST conform to this schema:\n"
+                f"{instructions}\n\n"
+                "Return exactly one complete JSON object, without Markdown fences "
+                "or surrounding prose. Escape quotes, backslashes, and control "
+                "characters as JSON requires, and close every string and "
+                "container. Follow this schema:\n"
                 + json.dumps(fmt["schema"], sort_keys=True, separators=(",", ":"))
             )
         request_kwargs: dict[str, Any] = {
@@ -358,7 +366,11 @@ class BoundedRecapPassClient:
             "requested_provider": self.limits.provider,
             "model": self.limits.model,
             "requested_route": (
-                {"order": list(route.order), "allow_fallbacks": route.allow_fallbacks}
+                {
+                    "order": list(route.order),
+                    "allow_fallbacks": route.allow_fallbacks,
+                    "require_parameters": route.require_parameters,
+                }
                 if route is not None
                 else None
             ),
@@ -457,6 +469,7 @@ class BoundedRecapPassClient:
                     "inference did not complete within one attempt", pass_name=pass_name,
                     raw_model_response=result.text,
                 )
+            entry["external_outcome"] = "completed"
         except CategoryGraphExtractionError:
             self._stopped = True
             raise
@@ -478,6 +491,8 @@ class BoundedRecapPassClient:
         except (json.JSONDecodeError, NonObjectResponseError, JsonSchemaValidationError) as exc:
             self._stopped = True
             entry["consumer_failure"] = type(exc).__name__
+            if isinstance(exc, json.JSONDecodeError):
+                entry["consumer_outcome"] = "invalid_json"
             entry["validation_failure"] = {
                 "kind": (
                     "schema" if isinstance(exc, JsonSchemaValidationError)
@@ -500,6 +515,20 @@ class BoundedRecapPassClient:
                 "schema_path": (
                     _safe_validation_path(exc.schema_path, fmt["schema"])
                     if isinstance(exc, JsonSchemaValidationError) else []
+                ),
+                **(
+                    {
+                        "position": exc.pos,
+                        "line": exc.lineno,
+                        "column": exc.colno,
+                        "response_chars": len(result.text or ""),
+                        "response_utf8_bytes": len((result.text or "").encode("utf-8")),
+                        "response_sha256": hashlib.sha256(
+                            (result.text or "").encode("utf-8")
+                        ).hexdigest(),
+                    }
+                    if isinstance(exc, json.JSONDecodeError)
+                    else {}
                 ),
             }
             raise CategoryGraphExtractionError(
