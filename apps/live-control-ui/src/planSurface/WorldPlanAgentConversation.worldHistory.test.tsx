@@ -1597,6 +1597,11 @@ describe("World Plan conversation consumer", () => {
     await waitFor(() => {
       expect(document.querySelector(`article[data-plan-action-id="${clarificationId}"]`)).toBeTruthy();
     });
+    bridge.restoreSelection.mockRejectedValueOnce(new Error("The saved selection no longer matches this Plan. Start a fresh edit."));
+    fireEvent.click(screen.getByRole("button", { name: "Reply about this edit" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Start a fresh edit");
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(bridge.apply).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Reply about this edit" }));
     await waitFor(() => expect(bridge.restoreSelection).toHaveBeenCalledWith(savedAnchor,
       captured.request.draft_sha256, selectedDigest, {
