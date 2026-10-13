@@ -114,6 +114,101 @@ describe("ResolvedGraphObjectProjection partial completeness", () => {
     expect(screen.queryByTestId("complete-object-partial-warning")).not.toBeInTheDocument();
   });
 
+  it("shows distinct reviewed observations from the serialized complete-object wire when the summary is empty", async () => {
+    const first = {
+      assertionId: "assertion:1",
+      subjectNodeId: "pc_caelynn",
+      observationKind: "session_observation" as const,
+      text: "The gate was quiet before the attack.",
+      entityKind: "npc",
+      reviewId: "review:1",
+      contributionId: "contribution:1",
+      publicationRevisionId: "rev:published:1",
+      sourceArtifactId: "artifact:recap:1",
+      sourceRevisionId: "sha256:1",
+      evidenceRefIds: ["evidence:1"],
+      campaignScope: "longmont-c2",
+      visibility: "gm",
+      epistemicKind: "fact",
+      temporalScope: { session_id: "session-20" },
+    };
+    vi.mocked(liveApi.postWorldGraphCompleteObject).mockResolvedValue({
+      ...completeObject("complete"),
+      node: { ...caelynn, summary: null, evidenceBadges: [] },
+      reviewedSourceObservations: [
+        first,
+        {
+          ...first,
+          assertionId: "assertion:2",
+          text: "The gate was crowded after the attack.",
+          reviewId: "review:2",
+          contributionId: "contribution:2",
+          publicationRevisionId: "rev:published:2",
+          sourceArtifactId: "artifact:recap:2",
+          sourceRevisionId: "sha256:2",
+          evidenceRefIds: ["evidence:2"],
+          temporalScope: { session_id: "session-22" },
+        },
+      ],
+      coverageGapCodes: [],
+      coverageMissingIds: [],
+      sourceBindings: [
+        { evidenceRefId: "evidence:1", sourceArtifactId: "artifact:recap:1", sourceRevisionId: "sha256:1", sourceDomain: "session_recap", sessionId: "session-20", provenanceStatus: "no_source_span" },
+        { evidenceRefId: "evidence:2", sourceArtifactId: "artifact:recap:2", sourceRevisionId: "sha256:2", sourceDomain: "session_recap", sessionId: "session-22", provenanceStatus: "no_source_span" },
+      ],
+    });
+
+    render(<ResolvedGraphObjectProjection resolution={resolvedCaelynn()} originSurface="plan" onReadSourceEvidence={vi.fn()} />);
+    const notes = await screen.findByRole("region", { name: "Reviewed source observations" });
+    expect(within(notes).getByText("The gate was quiet before the attack.")).toBeVisible();
+    expect(within(notes).getByText("The gate was crowded after the attack.")).toBeVisible();
+    expect(within(notes).getByText("Session 20")).toBeVisible();
+    expect(within(notes).getByText("Session 22")).toBeVisible();
+    expect(within(notes).getAllByText("Session recap")).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: "Read source" })).not.toBeInTheDocument();
+    const sourceDetails = within(notes).getAllByText("Source and review details");
+    expect(sourceDetails).toHaveLength(2);
+    await userEvent.setup().click(sourceDetails[0]);
+    expect(within(notes).getByText("review:1")).toBeVisible();
+    expect(within(notes).getByText("assertion:1")).toBeVisible();
+  });
+
+  it("keeps long reviewed text available and reports source coverage gaps without exposing raw IDs by default", async () => {
+    const longText = `The first account is distinct. ${"This detail belongs to this reviewed source. ".repeat(9)}`;
+    vi.mocked(liveApi.postWorldGraphCompleteObject).mockResolvedValue({
+      ...completeObject("partial"),
+      node: { ...caelynn, summary: null },
+      reviewedSourceObservations: [{
+        assertionId: "assertion:long",
+        subjectNodeId: "pc_caelynn",
+        observationKind: "session_observation",
+        text: longText,
+        entityKind: "npc",
+        reviewId: "review:long",
+        contributionId: "contribution:long",
+        publicationRevisionId: "rev:long",
+        sourceArtifactId: "artifact:long",
+        sourceRevisionId: "sha256:long",
+        evidenceRefIds: ["evidence:long"],
+        campaignScope: null,
+        visibility: "gm",
+        epistemicKind: "fact",
+        temporalScope: null,
+      }],
+      coverageGapCodes: ["missing_source_authority"],
+      coverageMissingIds: ["source-revision:missing"],
+    });
+
+    render(<ResolvedGraphObjectProjection resolution={resolvedCaelynn()} originSurface="plan" />);
+    const notes = await screen.findByRole("region", { name: "Reviewed source observations" });
+    expect(within(notes).getByText(/Some source context could not be included/)).toBeVisible();
+    expect(within(notes).getByText(/Missing records: source-revision:missing/)).not.toBeVisible();
+    const expand = within(notes).getByText(/Read full observation/);
+    await userEvent.setup().click(expand);
+    expect(within(notes).getByText(longText.trim())).toBeVisible();
+    expect(screen.getByTestId("complete-object-partial-warning")).toBeVisible();
+  });
+
   it("offers a Plan source passage only from an exact digest-pinned evidence binding", async () => {
     const onReadSourceEvidence = vi.fn();
     const evidenceNode = {

@@ -3643,6 +3643,25 @@ export interface WorldGraphObjectProjectionCompleteness {
   truncatedFields: string[];
 }
 
+/** Reviewed source context is distinct from authored Graph properties and node summaries. */
+export interface WorldGraphObjectReviewedSourceObservation {
+  assertionId: string;
+  subjectNodeId: string;
+  observationKind: "session_observation";
+  text: string;
+  entityKind: string;
+  reviewId: string;
+  contributionId: string;
+  publicationRevisionId: string;
+  sourceArtifactId: string;
+  sourceRevisionId: string;
+  evidenceRefIds: string[];
+  campaignScope: string | null;
+  visibility: string;
+  epistemicKind: string;
+  temporalScope: Record<string, unknown> | null;
+}
+
 export interface WorldGraphObjectProjectionResult {
   schema: "dmb_world_graph_object_projection_v1";
   found: boolean;
@@ -3654,6 +3673,9 @@ export interface WorldGraphObjectProjectionResult {
   relatedNodes: WorldGraphProjectionNodeView[];
   relationships?: unknown[];
   assertions?: unknown[];
+  reviewedSourceObservations?: WorldGraphObjectReviewedSourceObservation[];
+  coverageGapCodes?: string[];
+  coverageMissingIds?: string[];
   sourceBindings?: unknown[];
   semanticFingerprint: string | null;
   telemetry?: {
