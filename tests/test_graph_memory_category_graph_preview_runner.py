@@ -317,6 +317,85 @@ def test_runner_allow_llm_with_fake_client_writes_candidate_graph(
     assert (result.output_dir / "pass_telemetry.json").exists()
 
 
+def test_runner_canonical_line_only_index_reaches_category_prompt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from apps.live_control_server.services.source_artifact_registry import (
+        create_recap_source_artifact,
+        load_source_span_index,
+    )
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        FixtureCategoryGraphPassClient,
+    )
+    from src.graph_memory.party_context import CAMPAIGN_CORPUS
+    from src.graph_memory.source_span import source_span_index_to_dict
+    from tests.fixtures.graph_memory.category_extraction_helpers import (
+        minimal_category_pass_outputs,
+    )
+
+    class CapturingClient(FixtureCategoryGraphPassClient):
+        def __init__(self, source_span_ref_id: str) -> None:
+            super().__init__(minimal_category_pass_outputs(source_span_ref_id))
+            self.prompts: dict[str, str] = {}
+
+        def run_pass(self, pass_name: str, *, model_id: str, instructions: str,
+                     user_content: str, pass_spec=None) -> dict[str, Any]:
+            self.prompts[pass_name] = user_content
+            return super().run_pass(
+                pass_name, model_id=model_id, instructions=instructions,
+                user_content=user_content, pass_spec=pass_spec,
+            )
+
+    monkeypatch.setitem(
+        CAMPAIGN_CORPUS,
+        "longmont-c1",
+        (REPO_ROOT / "corpus/eldyrwild-markdown", "Longmont Campaign/Campaign 1"),
+    )
+    monkeypatch.chdir(tmp_path)
+    source = tmp_path / "session_16_normalized_recap.md"
+    recap_text = "Session 16\n\nBonogo carried the violet astrolabe into Mireward at dawn.\n"
+    source.write_text(recap_text, encoding="utf-8")
+    artifact = create_recap_source_artifact(
+        tmp_path, campaign_id="longmont-c1", session_id="session-16", recap_path=source,
+    )
+    span_index = source_span_index_to_dict(
+        load_source_span_index(tmp_path, artifact.source_artifact_id)
+    )
+    assert all("text" not in span and "text_excerpt" not in span for span in span_index["spans"])
+    recap_span_ref = next(
+        span["source_span_id"] for span in span_index["spans"]
+        if span.get("start_line") == 3
+    )
+    client = CapturingClient(recap_span_ref)
+
+    result = run_graph_preview_extraction(
+        GraphPreviewRunnerOptions(
+            campaign_id="longmont-c1",
+            session_id="session-16",
+            normalized_recap_path=source,
+            output_dir=Path("runs/canonical_line_only_prompt"),
+            allow_llm=True,
+            category_client=client,
+            source_span_index=span_index,
+            source_artifact_id=artifact.source_artifact_id,
+        )
+    )
+
+    actor_prompt = client.prompts["actor_pass"]
+    assert "Bonogo carried the violet astrolabe into Mireward at dawn." in actor_prompt
+    assert recap_span_ref in actor_prompt
+    assert "Baergrom" in actor_prompt  # C1 roster context, distinct from recap text
+    assert result.status == GraphIngestRunStatus.CANDIDATE_VALIDATION_READY
+    manifest = _load_manifest(result.manifest_path)
+    packaged_index = _load_manifest(result.output_dir / "source_span_index.json")
+    candidate = _load_manifest(result.candidate_graph_path)
+    provenance = _load_manifest(result.output_dir / "provenance_index.json")
+    assert packaged_index == span_index
+    assert manifest["source"]["source_artifact_id"] == artifact.source_artifact_id
+    assert candidate["source_artifact_ids"] == [artifact.source_artifact_id]
+    assert provenance["source_artifacts"][0]["artifact_id"] == artifact.source_artifact_id
+
+
 def test_runner_allow_llm_blocked_writes_calm_manifest(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
