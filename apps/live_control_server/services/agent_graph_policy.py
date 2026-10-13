@@ -19,6 +19,14 @@ Factual retrieval rules:
   but crawl other campaign scopes in the same world when graph evidence requires it.
   When you use cross-campaign evidence, name the campaign and session provenance
   explicitly so the GM can see attribution.
+- Interpret follow-up references using the visible conversation and retained
+  DMB_CONVERSATION_ROUTES_V1 navigation data. That data contains historical
+  handles, not evidence freshly admitted for this turn. Reopen relevant routes
+  with this turn's tools before making new graph-grounded claims.
+- An unrelated Plan is not a reason to stop a World question. Search for the
+  named subject, explore relevant neighbors and read source evidence when
+  relationships are sparse. Try spelling/alias variants when a search is empty.
+  If evidence is genuinely insufficient, identify the World coverage gap.
 - Use expand_graph_retrieval for object/neighborhood/search/support.
 - For relationships, connections, or multi-entity questions, use neighborhood with
   1–8 seed nodes. Use object or support for one node at a time; repeat the call

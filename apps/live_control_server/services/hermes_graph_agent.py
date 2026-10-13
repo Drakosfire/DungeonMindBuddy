@@ -1753,6 +1753,9 @@ def run_hermes_graph_agent_turn(
                                 "Start a new conversation."
                             ),
                         )
+                    if request.parent_graph_broker_required:
+                        from apps.live_control_server.services.agent_conversation_context import compact_conversation_context
+                        restored_history = compact_conversation_context(restored_history).messages
                 else:
                     profiles_root.mkdir(parents=True, exist_ok=True)
                     if profile_home.exists():

@@ -1175,7 +1175,9 @@ class _PolicyExecutionAdapter:
         context_read_enabled: bool = False,
         trace: AgentTurnTraceBuilder | None = None,
         admission_span_id: str | None = None,
+        expected_conversation_id: UUID | None = None,
     ) -> None:
+        self.expected_conversation_id = expected_conversation_id
         self.service = service
         self.request = request
         self.world_id = world_id
@@ -1245,6 +1247,8 @@ class _PolicyExecutionAdapter:
                     provenance=provenance, submitted_intent=self.submitted_intent,
                     graph_context_receipt=receipt,
                     graph_context_execution=execution,
+                    **({"expected_conversation_id": self.expected_conversation_id}
+                       if self.expected_conversation_id is not None else {}),
                 )
             else:
                 with self.trace.phase("durable_turn_accept"):
@@ -1253,6 +1257,8 @@ class _PolicyExecutionAdapter:
                         provenance=provenance, submitted_intent=self.submitted_intent,
                         graph_context_receipt=receipt,
                         graph_context_execution=execution,
+                        **({"expected_conversation_id": self.expected_conversation_id}
+                           if self.expected_conversation_id is not None else {}),
                     )
             if accepted.provenance != provenance or accepted.graph_context_receipt != receipt:
                 raise AgentTurnServiceError(
@@ -3962,6 +3968,30 @@ def _provider_segment_thread_id(
     return f"app-state-segment-{digest}"
 
 
+
+def _policy_continuity_segment(
+    service: AgentConversationService, request: AgentTurnRequest, *,
+    world_id: str, work: AgentTurnResolvedWork | None,
+    playable_target: PlanPlayableTargetReceiptV1 | None = None,
+) -> tuple[UUID, str] | None:
+    """Resolve existing continuity before admission using the server's active World conversation.
+
+    Policy turns are accepted only after freezing their first provider envelope.
+    Their pre-admission lookup must nevertheless use the same conversation key
+    as completion. Client thread IDs cannot select or carry another conversation.
+    Reading an absent pointer does not create a conversation before admission.
+    """
+    active = service.get_active_conversation(world_id)
+    if active is None:
+        return None
+    provenance = _conversation_provenance(
+        request, world_id=world_id, work=work, playable_target=playable_target,
+    )
+    return active.conversation_id, _provider_segment_thread_id(
+        provenance, conversation_id=active.conversation_id,
+    )
+
+
 def _active_or_create_conversation(
     service: AgentConversationService,
     *,
@@ -4003,6 +4033,7 @@ def _accept_world_turn(
     submitted_intent: SubmittedTurnIntentV1 | SubmittedTurnIntentV2,
     graph_context_receipt: PlanWorldGraphContextReceiptV1 | None = None,
     graph_context_execution: Any | None = None,
+    expected_conversation_id: UUID | None = None,
 ) -> Turn:
     if isinstance(submitted_intent, SubmittedTurnIntentV2) and graph_context_receipt is None:
         raise AgentTurnServiceError(
@@ -4015,6 +4046,12 @@ def _accept_world_turn(
         active = _active_or_create_conversation(
             service, world_id=world_id, turn_id=request.turn_id
         )
+        if expected_conversation_id is not None and active.conversation_id != expected_conversation_id:
+            raise AgentTurnServiceError(
+                "The World conversation changed before provider admission.",
+                code="conversation_changed", status_code=409,
+                provider_dispatched=False,
+            )
         submission = TurnSubmission(
             world_id=world_id,
             conversation_id=active.conversation_id,
@@ -4376,6 +4413,7 @@ def execute_agent_turn(
     pointer_work_kind = work_kind
     pointer_work_id = work_id
     pointer_thread_id = request.client_thread_id
+    policy_conversation_id: UUID | None = None
     graph_result: dict[str, Any]
     scope: AgentWorldScope | None = None
     envelope: Mapping[str, Any] | None = None
@@ -4577,18 +4615,45 @@ def execute_agent_turn(
             pointer_work_kind = "agent_conversation_segment"
             pointer_work_id = segment_thread_id
             pointer_thread_id = segment_thread_id
+        elif request.plan_context_policy is not None:
+            continuity = _policy_continuity_segment(
+                conversation_service, request, world_id=canonical_world_id,
+                work=work, playable_target=playable_target_receipt,
+            )
+            if continuity is not None:
+                policy_conversation_id, segment_thread_id = continuity
+                pointer_owner_kind = "world"
+                pointer_owner_id = canonical_world_id
+                pointer_work_kind = "agent_conversation_segment"
+                pointer_work_id = segment_thread_id
+                pointer_thread_id = segment_thread_id
 
     context_assembly_span = trace.start_phase("context_assembly")
     context_assembly_status = "ok"
     try:
-        pointer = pointer_store.resolve_structured_for_request(
-            owner_kind=pointer_owner_kind,
-            owner_id=pointer_owner_id,
-            work_kind=pointer_work_kind,
-            work_id=pointer_work_id,
-            agent_thread_id=pointer_thread_id,
-            pointer_id=None,
-        )
+        if (
+            request.plan_context_policy is not None
+            and durable_turn is None
+            and policy_conversation_id is None
+        ):
+            # A first Ask has no canonical segment key yet. Do not fall back
+            # to the legacy Plan/client-thread binding: it may belong to an
+            # unrelated conversation and leak into this Ask. Reconciled turns
+            # already selected their frozen canonical segment above.
+            pointer = HermesStructuredPointerResolution(
+                continuity_session_id=None,
+                pointer_status="absent",
+                pointer_in_request=False,
+            )
+        else:
+            pointer = pointer_store.resolve_structured_for_request(
+                owner_kind=pointer_owner_kind,
+                owner_id=pointer_owner_id,
+                work_kind=pointer_work_kind,
+                work_id=pointer_work_id,
+                agent_thread_id=pointer_thread_id,
+                pointer_id=None,
+            )
         if pointer.pointer_status == "rejected" and plan_continuity:
             if running_turn is not None and conversation_service is not None:
                 conversation_service.fail_turn(
@@ -4753,6 +4818,7 @@ def execute_agent_turn(
             ),
             trace=trace,
             admission_span_id=admission_span_id,
+            expected_conversation_id=policy_conversation_id,
         )
         span_id = trace.start_phase("runtime_dispatch")
         try:
@@ -4911,7 +4977,10 @@ def execute_agent_turn(
                     completed_turn.provenance,
                     conversation_id=completed_turn.conversation_id,
                 ),
-                agent_thread_id=pointer_thread_id,
+                agent_thread_id=_provider_segment_thread_id(
+                    completed_turn.provenance,
+                    conversation_id=completed_turn.conversation_id,
+                ),
                 hermes_session_id=policy_result.runtime_session_id,
                 require_new_thread=plan_continuity,
             )

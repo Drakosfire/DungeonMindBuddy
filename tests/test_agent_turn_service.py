@@ -2223,6 +2223,9 @@ def test_reconciled_turn_context_policy_before_provider_freeze(
         "world_id": receipt.graph_authority.native_world_id, "scope_mode": "world",
     })
     observed: list[bool] = []
+    segment_thread_id = service_module._provider_segment_thread_id(
+        accepted.provenance, conversation_id=accepted.conversation_id,
+    )
 
     def no_dispatch(*_args: Any, **_kwargs: Any) -> Any:
         pytest.fail("This pre-freeze policy witness must not dispatch or mutate APP")
@@ -2239,10 +2242,11 @@ def test_reconciled_turn_context_policy_before_provider_freeze(
         descriptor = AgentRuntimeDescriptor("pre-freeze", "fake", "test", "graph")
 
         def run_with_provider_authorization(
-            self, _invocation: Any, _authorize: Any, *, request_budget: Any,
+            self, invocation: Any, _authorize: Any, *, request_budget: Any,
             on_graph_operation: Any, on_provider_lifecycle: Any,
             context_read_enabled: bool = False,
         ) -> AgentRuntimeResult:
+            assert invocation.run_options.runtime_session_id == "canonical-session"
             observed.append(context_read_enabled)
             projection = bootstrap.retrieval_session.project_for_hermes()
             body = json.dumps({
@@ -2322,10 +2326,17 @@ def test_reconciled_turn_context_policy_before_provider_freeze(
                 observed_model_call_count=0,
             )
 
+    pointer_store = HermesSessionPointerStore(tmp_path / "pointers")
+    pointer_store.upsert_structured_after_turn(
+        owner_kind="world", owner_id=accepted.world_id,
+        work_kind="agent_conversation_segment", work_id=segment_thread_id,
+        agent_thread_id=segment_thread_id,
+        hermes_session_id="canonical-session",
+    )
     with pytest.raises(AgentTurnServiceError) as stopped:
         execute_agent_turn(
             request, root=tmp_path,
-            pointer_store=HermesSessionPointerStore(tmp_path / "pointers"),
+            pointer_store=pointer_store,
             owner_resolver=lambda _request: {
                 "kind": "world", "id": accepted.world_id, "name": "World One",
             },
@@ -2674,6 +2685,10 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     assert context_execution.policy.max_source_read_calls == 0
 
     class FakeExecutionPort:
+        # This execution-ledger fake has no previous conversation to restore.
+        def get_active_conversation(self, _world_id: str) -> None:
+            return None
+
         turn: Turn | None = None
         accepted_count = 0
         authorize_count = 0
@@ -3187,10 +3202,11 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
             self.final_text = final_text
 
         def run_with_provider_authorization(
-            self, _invocation: Any, authorize: Any, *, request_budget: Any,
+            self, invocation: Any, authorize: Any, *, request_budget: Any,
             on_graph_operation: Any, on_provider_lifecycle: Any,
             context_read_enabled: bool = False,
         ) -> AgentRuntimeResult:
+            assert invocation.run_options.runtime_session_id is None
             assert context_read_enabled is True
             assert callable(on_graph_operation)
             adjusted = dict(view)
@@ -3355,10 +3371,20 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
 
     fake = FakeExecutionPort()
 
+    pointer_store = HermesSessionPointerStore(
+        Path("/tmp") / f"plan-policy-{uuid4()}"
+    )
+    pointer_store.upsert_structured_after_turn(
+        owner_kind="world", owner_id="world:one",
+        work_kind="plan", work_id="plan:one",
+        agent_thread_id=request.client_thread_id,
+        hermes_session_id="legacy-unrelated-plan-session",
+    )
+
     response = execute_agent_turn(
         request,
         root=Path("/tmp"),
-        pointer_store=HermesSessionPointerStore(Path("/tmp") / f"plan-policy-{uuid4()}"),
+        pointer_store=pointer_store,
         owner_resolver=lambda _request: {
             "kind": "world", "id": "world:one", "name": "World One",
         },
