@@ -1,0 +1,403 @@
+"""APP-owned per-attempt trace storage and claim fencing."""
+
+from __future__ import annotations
+
+from datetime import datetime
+from uuid import UUID
+
+from psycopg.types.json import Jsonb
+
+from application_state.agent_conversation.context_trace import (
+    ContextTraceObservation,
+    MAX_SOURCE_READS_PER_TURN,
+    MAX_SOURCE_PASSAGE_CHARS_PER_TURN,
+    TraceGraphTool,
+    TraceSourcePassage,
+    TurnContextTraceV1,
+)
+from application_state.errors import (
+    ApplicationStateConflictError,
+    ApplicationStateNotFoundError,
+    ApplicationStateValidationError,
+)
+from application_state.unit_of_work import unit_of_work
+
+
+def _load_trace(payload: object) -> TurnContextTraceV1:
+    try:
+        return TurnContextTraceV1.model_validate(payload)
+    except Exception as exc:
+        raise ApplicationStateValidationError("stored context trace is invalid") from exc
+
+
+def _trace_row(conn, turn_id: UUID, attempt: int):
+    return conn.execute(
+        "SELECT trace_id, payload FROM agent.turn_context_trace "
+        "WHERE turn_id=%s AND attempt=%s FOR UPDATE",
+        (turn_id, attempt),
+    ).fetchone()
+
+
+def _save_trace(conn, trace: TurnContextTraceV1) -> None:
+    conn.execute(
+        "UPDATE agent.turn_context_trace SET payload=%s "
+        "WHERE turn_id=%s AND attempt=%s AND trace_id=%s",
+        (
+            Jsonb(trace.model_dump(mode="json", by_alias=True)),
+            trace.turn_id,
+            trace.attempt,
+            trace.trace_id,
+        ),
+    )
+
+
+def append_source_passages_locked(
+    conn,
+    *,
+    world_id: str,
+    turn_id: UUID,
+    attempt: int,
+    event_id: UUID,
+    passages: list[TraceSourcePassage],
+) -> TurnContextTraceV1 | None:
+    """Append source bytes in the same transaction as their ledger receipt."""
+    row = _trace_row(conn, turn_id, attempt)
+    if row is None:
+        return None
+    trace = _load_trace(row[1])
+    if trace.world_id != world_id:
+        raise ApplicationStateValidationError("source passage trace belongs to a different World")
+    if trace.closed_at is not None:
+        raise ApplicationStateConflictError("context trace is already closed")
+    candidates = [item for item in passages if item.source_read_event_id == event_id]
+    if len(candidates) != len(passages):
+        raise ApplicationStateValidationError("source passage refers to a different ledger event")
+    existing = [
+        item for item in trace.observations
+        if isinstance(item, TraceSourcePassage) and item.source_read_event_id == event_id
+    ]
+    if existing:
+        retry = [
+            item.model_copy(update={"sequence": saved.sequence})
+            for item, saved in zip(candidates, existing, strict=True)
+        ]
+        if existing == retry:
+            return trace
+        raise ApplicationStateConflictError("source-read passage observation changed")
+    if len(candidates) != len({item.source_read_id for item in candidates}):
+        raise ApplicationStateValidationError("source-read passage IDs must be unique")
+    all_attempt_rows = conn.execute(
+        "SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s",
+        (turn_id,),
+    ).fetchall()
+    observed_chars = sum(item.returned_chars for item in candidates)
+    observed_reads = len(candidates)
+    for attempt_row in all_attempt_rows:
+        other = _load_trace(attempt_row[0])
+        prior_passages = [
+            item for item in other.observations
+            if isinstance(item, TraceSourcePassage)
+            and item.source_read_event_id != event_id
+        ]
+        observed_chars += sum(item.returned_chars for item in prior_passages)
+        observed_reads += len(prior_passages)
+    if observed_reads > MAX_SOURCE_READS_PER_TURN:
+        raise ApplicationStateValidationError("captured source passages exceed the 8-read turn ceiling")
+    if observed_chars > MAX_SOURCE_PASSAGE_CHARS_PER_TURN:
+        raise ApplicationStateValidationError("captured source passages exceed the 96,000 character turn ceiling")
+    sequence = len(trace.observations)
+    # The source read has already been validated by the authoritative graph
+    # execution model. These observations only preserve the returned bytes.
+    additions = [
+        item.model_copy(update={"sequence": sequence + index})
+        for index, item in enumerate(candidates)
+    ]
+    try:
+        updated = TurnContextTraceV1.model_validate({
+            **trace.model_dump(mode="python"),
+            "observations": [*trace.observations, *additions],
+        })
+    except ValueError as exc:
+        raise ApplicationStateValidationError(str(exc)) from exc
+    _save_trace(conn, updated)
+    return updated
+
+
+def close_context_trace_locked(
+    conn,
+    *,
+    world_id: str,
+    turn_id: UUID,
+    attempt: int,
+    status: str,
+    closed_at: datetime,
+) -> None:
+    row = _trace_row(conn, turn_id, attempt)
+    if row is None:
+        return
+    trace = _load_trace(row[1])
+    if trace.world_id != world_id:
+        raise ApplicationStateValidationError("context trace World differs from its turn")
+    if trace.closed_at is not None:
+        if trace.closed_at == closed_at and trace.terminal_status == status:
+            return
+        raise ApplicationStateConflictError("context trace is already closed")
+    execution_row = conn.execute(
+        "SELECT graph_context_execution FROM agent.turn WHERE world_id=%s AND turn_id=%s",
+        (world_id, turn_id),
+    ).fetchone()
+    execution = execution_row[0] if execution_row is not None else None
+    observations = [
+        item for item in trace.observations if isinstance(item, TraceSourcePassage)
+    ]
+    observed = {
+        (str(item.source_read_event_id), item.source_read_id)
+        for item in observations
+    }
+    missing_passage = False
+    trace_graph_event_ids = {
+        str(item.execution_event_id)
+        for item in trace.observations if isinstance(item, TraceGraphTool)
+    }
+    missing_graph_projection = False
+    if isinstance(execution, dict):
+        for event in execution.get("events", []):
+            if (
+                event.get("kind") == "validated_graph_operation"
+                and int(event.get("sequence", -1)) >= trace.execution_start_sequence
+                and str(event.get("event_id")) not in trace_graph_event_ids
+            ):
+                missing_graph_projection = True
+            if (
+                event.get("kind") != "validated_source_read_v2"
+                or int(event.get("sequence", -1)) < trace.execution_start_sequence
+            ):
+                continue
+            for receipt in event.get("receipts", []):
+                if receipt.get("content_sha256") is not None and (
+                    event.get("event_id"), receipt.get("source_read_id")
+                ) not in observed:
+                    missing_passage = True
+                    break
+            if missing_passage:
+                break
+    capture_status = trace.capture_status
+    capture_failure_code = trace.capture_failure_code
+    if (missing_passage or missing_graph_projection) and capture_status == "recording":
+        capture_status = "incomplete"
+        capture_failure_code = (
+            "source_passage_snapshot_missing" if missing_passage
+            else "graph_result_projection_missing"
+        )
+    try:
+        closed = TurnContextTraceV1.model_validate({
+            **trace.model_dump(mode="python"),
+            "closed_at": closed_at,
+            "terminal_status": status,
+            "capture_status": "complete" if capture_status == "recording" else capture_status,
+            "capture_failure_code": capture_failure_code,
+        })
+    except ValueError as exc:
+        raise ApplicationStateValidationError(str(exc)) from exc
+    _save_trace(conn, closed)
+
+
+class TurnContextTraceStore:
+    def begin(
+        self, *, world_id: str, conversation_id: UUID, turn_id: UUID,
+        expected_revision: int, attempt: int, trace_id: UUID, started_at: datetime,
+    ) -> TurnContextTraceV1:
+        from application_state.agent_conversation.service import _ready_dsn
+
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = conn.execute(
+                "SELECT conversation_id, status, revision, attempt, claim_expires_at, "
+                "clock_timestamp() AS now, graph_context_execution FROM agent.turn "
+                "WHERE world_id=%s AND turn_id=%s FOR UPDATE",
+                (world_id, turn_id),
+            ).fetchone()
+            if turn is None or turn[0] != conversation_id:
+                raise ApplicationStateNotFoundError("trace turn is unavailable in this World conversation")
+            if (
+                turn[1] != "running" or turn[2] != expected_revision
+                or turn[3] != attempt or turn[4] is None or turn[4] <= turn[5]
+            ):
+                raise ApplicationStateConflictError("trace start is fenced by the current turn claim")
+            existing = _trace_row(conn, turn_id, attempt)
+            if existing is not None:
+                trace = _load_trace(existing[1])
+                if trace.trace_id != trace_id or trace.started_at != started_at:
+                    raise ApplicationStateConflictError("context trace attempt identity changed")
+                return trace
+            trace = TurnContextTraceV1(
+                trace_id=trace_id, world_id=world_id, conversation_id=conversation_id,
+                turn_id=turn_id, attempt=attempt, started_at=started_at,
+                execution_start_sequence=(
+                    len(turn[6].get("events", [])) if isinstance(turn[6], dict) else 0
+                ),
+                observations=[],
+            )
+            conn.execute(
+                "INSERT INTO agent.turn_context_trace(turn_id,attempt,trace_id,payload) "
+                "VALUES (%s,%s,%s,%s)",
+                (turn_id, attempt, trace_id, Jsonb(trace.model_dump(mode="json", by_alias=True))),
+            )
+            return trace
+
+    def append(
+        self, *, world_id: str, conversation_id: UUID, turn_id: UUID,
+        expected_revision: int, attempt: int, trace_id: UUID,
+        observation: ContextTraceObservation,
+    ) -> TurnContextTraceV1:
+        from application_state.agent_conversation.service import _ready_dsn
+
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = conn.execute(
+                "SELECT conversation_id, status, revision, attempt, claim_expires_at, "
+                "clock_timestamp() AS now, graph_context_execution "
+                "FROM agent.turn "
+                "WHERE world_id=%s AND turn_id=%s FOR UPDATE",
+                (world_id, turn_id),
+            ).fetchone()
+            if turn is None or turn[0] != conversation_id:
+                raise ApplicationStateNotFoundError("trace turn is unavailable in this World conversation")
+            if (
+                turn[1] != "running" or turn[2] != expected_revision
+                or turn[3] != attempt or turn[4] is None or turn[4] <= turn[5]
+            ):
+                raise ApplicationStateConflictError("trace append is fenced by a stale or expired claim")
+            row = _trace_row(conn, turn_id, attempt)
+            if row is None:
+                raise ApplicationStateNotFoundError("context trace was not started")
+            trace = _load_trace(row[1])
+            if trace.trace_id != trace_id or trace.world_id != world_id:
+                raise ApplicationStateConflictError("context trace identity changed")
+            if trace.closed_at is not None:
+                raise ApplicationStateConflictError("context trace is already closed")
+            if observation.sequence < len(trace.observations):
+                if trace.observations[observation.sequence] == observation:
+                    return trace
+                raise ApplicationStateConflictError("trace observation differs from the recorded event")
+            if observation.sequence != len(trace.observations):
+                raise ApplicationStateConflictError("trace observation sequence is stale")
+            if isinstance(observation, TraceSourcePassage):
+                raise ApplicationStateValidationError(
+                    "source passage observations must be committed with their validated source-read event"
+                )
+            if isinstance(observation, TraceGraphTool):
+                _validate_graph_tool_observation(observation, turn[6])
+            try:
+                updated = TurnContextTraceV1.model_validate({
+                    **trace.model_dump(mode="python"),
+                    "observations": [*trace.observations, observation],
+                })
+            except ValueError as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            _save_trace(conn, updated)
+            return updated
+
+    def mark_incomplete(
+        self, *, world_id: str, conversation_id: UUID, turn_id: UUID,
+        expected_revision: int, attempt: int, trace_id: UUID, failure_code: str,
+    ) -> TurnContextTraceV1:
+        from application_state.agent_conversation.service import _ready_dsn
+
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = conn.execute(
+                "SELECT conversation_id, status, revision, attempt, claim_expires_at, "
+                "clock_timestamp() AS now FROM agent.turn "
+                "WHERE world_id=%s AND turn_id=%s FOR UPDATE",
+                (world_id, turn_id),
+            ).fetchone()
+            if turn is None or turn[0] != conversation_id:
+                raise ApplicationStateNotFoundError("trace turn is unavailable in this World conversation")
+            if (
+                turn[1] != "running" or turn[2] != expected_revision
+                or turn[3] != attempt or turn[4] is None or turn[4] <= turn[5]
+            ):
+                raise ApplicationStateConflictError("trace failure marker is fenced by a stale claim")
+            row = _trace_row(conn, turn_id, attempt)
+            if row is None:
+                raise ApplicationStateNotFoundError("context trace was not started")
+            trace = _load_trace(row[1])
+            if trace.trace_id != trace_id:
+                raise ApplicationStateConflictError("context trace identity changed")
+            if trace.capture_status == "incomplete":
+                if trace.capture_failure_code == failure_code:
+                    return trace
+                raise ApplicationStateConflictError("context trace already has a different capture failure")
+            incomplete = TurnContextTraceV1.model_validate({
+                **trace.model_dump(mode="python"),
+                "capture_status": "incomplete", "capture_failure_code": failure_code,
+            })
+            _save_trace(conn, incomplete)
+            return incomplete
+
+    def list_attempts(
+        self, *, world_id: str, turn_id: UUID,
+    ) -> list[TurnContextTraceV1]:
+        from application_state.agent_conversation.service import _ready_dsn
+
+        with unit_of_work(_ready_dsn()) as conn:
+            if conn.execute(
+                "SELECT 1 FROM agent.turn WHERE world_id=%s AND turn_id=%s",
+                (world_id, turn_id),
+            ).fetchone() is None:
+                raise ApplicationStateNotFoundError("trace turn is unavailable in this World")
+            rows = conn.execute(
+                "SELECT payload FROM agent.turn_context_trace "
+                "WHERE turn_id=%s ORDER BY attempt",
+                (turn_id,),
+            ).fetchall()
+        return [_load_trace(row[0]) for row in rows]
+
+
+def _validate_graph_tool_observation(observation: TraceGraphTool, execution: object) -> None:
+    """Tie the bounded summary to the authoritative graph execution ledger."""
+    events = execution.get("events", []) if isinstance(execution, dict) else []
+    matching = [
+        event for event in events
+        if isinstance(event, dict)
+        and event.get("kind") == "validated_graph_operation"
+        and event.get("event_id") == str(observation.execution_event_id)
+    ]
+    if len(matching) != 1:
+        raise ApplicationStateValidationError(
+            "graph trace observation must reference one recorded validated operation"
+        )
+    event = matching[0]
+    if event.get("operation") != "expand_graph_retrieval":
+        raise ApplicationStateValidationError("graph trace tool does not match its execution event")
+    if (
+        event.get("request_arguments_sha256") != observation.request_arguments_sha256
+        or event.get("result_packet_sha256") != observation.result_packet_sha256
+    ):
+        raise ApplicationStateValidationError(
+            "graph trace request or result digest differs from its execution receipt"
+        )
+    result = observation.result
+    if (
+        event.get("graph_revision") != result.graph_revision
+        or event.get("coverage_status") != result.coverage_status
+        or event.get("truncated") is True and result.coverage_status != "incomplete"
+    ):
+        raise ApplicationStateValidationError(
+            "graph trace result scope or coverage differs from its execution receipt"
+        )
+    for field, event_field in (
+        ("claim_ids", "assertion_ids"),
+        ("relationship_ids", "relationship_ids"),
+        ("evidence_ref_ids", "evidence_ref_ids"),
+    ):
+        recorded = event.get(event_field, [])
+        projected = getattr(result, field)
+        if (
+            result.total_counts.model_dump()[
+                "claims" if field == "claim_ids" else
+                "relationships" if field == "relationship_ids" else "evidence_refs"
+            ] != len(recorded)
+            or not set(projected).issubset(set(recorded))
+        ):
+            raise ApplicationStateValidationError(
+                "graph trace result IDs differ from the authoritative execution receipt"
+            )
