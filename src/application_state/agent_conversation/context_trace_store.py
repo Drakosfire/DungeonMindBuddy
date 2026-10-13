@@ -13,6 +13,7 @@ from application_state.agent_conversation.context_trace import (
     MAX_CONTEXT_TRACE_BYTES,
     MAX_SOURCE_READS_PER_TURN,
     MAX_SOURCE_PASSAGE_CHARS_PER_TURN,
+    TraceContextSnapshot,
     TraceGraphTool,
     TraceSourcePassage,
     TurnContextTraceV1,
@@ -266,7 +267,7 @@ class TurnContextTraceStore:
         with unit_of_work(_ready_dsn()) as conn:
             turn = conn.execute(
                 "SELECT conversation_id, status, revision, attempt, claim_expires_at, "
-                "clock_timestamp() AS now, graph_context_execution "
+                "clock_timestamp() AS now, graph_context_execution, sequence "
                 "FROM agent.turn "
                 "WHERE world_id=%s AND turn_id=%s FOR UPDATE",
                 (world_id, turn_id),
@@ -298,6 +299,15 @@ class TurnContextTraceStore:
                 )
             if isinstance(observation, TraceGraphTool):
                 _validate_graph_tool_observation(observation, turn[6])
+            if isinstance(observation, TraceContextSnapshot):
+                if not _historical_sources_available(conn, trace, observation, turn[7]):
+                    incomplete = TurnContextTraceV1.model_validate({
+                        **trace.model_dump(mode="python"),
+                        "capture_status": "incomplete",
+                        "capture_failure_code": trace.capture_failure_code or "historical_source_unavailable",
+                    })
+                    _save_trace(conn, incomplete)
+                    return incomplete
             try:
                 updated = TurnContextTraceV1.model_validate({
                     **trace.model_dump(mode="python"),
@@ -370,6 +380,53 @@ class TurnContextTraceStore:
                 (turn_id,),
             ).fetchall()
         return [_load_trace(row[0]) for row in rows]
+
+
+def _historical_sources_available(conn, trace: TurnContextTraceV1,
+                                  snapshot: TraceContextSnapshot, current_sequence: int) -> bool:
+    """Validate observational references without creating Graph/read authority."""
+    for material in snapshot.materials:
+        matched_passages = []
+        for ref in material.historical_source_reads:
+            if ref.world_id != trace.world_id or ref.conversation_id != trace.conversation_id:
+                return False
+            row = conn.execute(
+                "SELECT historical.payload FROM agent.turn source "
+                "JOIN agent.turn_context_trace historical ON historical.turn_id=source.turn_id "
+                "WHERE source.world_id=%s AND source.conversation_id=%s "
+                "AND source.turn_id=%s AND source.sequence < %s "
+                "AND historical.attempt=%s AND historical.trace_id=%s",
+                (trace.world_id, trace.conversation_id, ref.turn_id, current_sequence,
+                 ref.attempt, ref.trace_id),
+            ).fetchone()
+            if row is None:
+                return False
+            try:
+                source_trace = _load_trace(row[0])
+            except ApplicationStateValidationError:
+                return False
+            if (source_trace.world_id != ref.world_id or source_trace.conversation_id != ref.conversation_id
+                    or source_trace.turn_id != ref.turn_id or source_trace.attempt != ref.attempt
+                    or source_trace.trace_id != ref.trace_id):
+                return False
+            passages = [
+                item for item in source_trace.observations
+                if isinstance(item, TraceSourcePassage)
+                and item.source_read_event_id == ref.source_read_event_id
+                and item.source_read_id == ref.source_read_id
+                and item.content_sha256 == ref.content_sha256
+            ]
+            if len(passages) != 1:
+                return False
+            matched_passages.extend(passages)
+        if material.historical_source_reads and material.route is not None and not any(
+            all(getattr(material.route, key) in (None, getattr(passage, key))
+                for key in ("world_id", "graph_revision", "anchor_id", "evidence_ref_id",
+                            "source_artifact_id", "source_revision_id", "content_sha256"))
+            for passage in matched_passages
+        ):
+            return False
+    return True
 
 
 def _validate_graph_tool_observation(observation: TraceGraphTool, execution: object) -> None:

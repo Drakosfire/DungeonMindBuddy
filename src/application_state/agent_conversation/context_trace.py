@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
 
 MAX_CONTEXT_TRACE_BYTES = 1_048_576
 CONTEXT_TRACE_TERMINAL_RESERVE_BYTES = 4096
@@ -44,6 +44,22 @@ class TraceCapturedSourceReference(TraceModel):
     content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
+class TraceHistoricalSourceReferenceV1(TraceModel):
+    """Exact earlier passage provenance; never current-turn read authority."""
+
+    schema_version: Literal["dmb_trace_historical_source_ref_v1"] = Field(
+        default="dmb_trace_historical_source_ref_v1", alias="schema",
+    )
+    world_id: str = Field(min_length=1, max_length=256)
+    conversation_id: UUID
+    turn_id: UUID
+    attempt: int = Field(strict=True, ge=1)
+    trace_id: UUID
+    source_read_event_id: UUID
+    source_read_id: str = Field(min_length=1, max_length=128)
+    content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class TraceContextMaterial(TraceModel):
     item_id: str = Field(min_length=1, max_length=256)
     state: Literal["model_context", "retrieval_route"]
@@ -52,18 +68,37 @@ class TraceContextMaterial(TraceModel):
     route: TraceRoute | None = None
     source_read_event_id: UUID | None = None
     source_reads: list[TraceCapturedSourceReference] = Field(default_factory=list, max_length=8)
+    historical_source_reads: list[TraceHistoricalSourceReferenceV1] = Field(default_factory=list, max_length=8)
+
+    @model_serializer(mode="wrap")
+    def serialize_material(self, handler):
+        payload = handler(self)
+        if not self.historical_source_reads:
+            payload.pop("historical_source_reads", None)
+        return payload
 
     @model_validator(mode="after")
     def validate_representation(self) -> TraceContextMaterial:
         if self.state == "retrieval_route":
-            if self.route is None or self.text is not None or self.source_read_event_id is not None or self.source_reads:
+            if (self.route is None or self.text is not None or self.source_read_event_id is not None
+                    or self.source_reads or self.historical_source_reads):
                 raise ValueError("retrieval route must carry a route handle, not present prose")
         elif self.role == "source":
-            if self.text is not None or self.source_read_event_id is None or not self.source_reads:
+            current = self.source_read_event_id is not None and bool(self.source_reads)
+            historical = bool(self.historical_source_reads)
+            if (self.text is not None or current == historical or
+                    historical and (self.source_read_event_id is not None or self.source_reads)):
                 raise ValueError("present source material must reference its captured source read")
             if len({ref.source_read_id for ref in self.source_reads}) != len(self.source_reads):
                 raise ValueError("present source read references must be unique")
-        elif self.text is None or self.route is not None or self.source_read_event_id is not None or self.source_reads:
+            identities = [
+                (ref.turn_id, ref.attempt, ref.trace_id, ref.source_read_event_id, ref.source_read_id)
+                for ref in self.historical_source_reads
+            ]
+            if len(identities) != len(set(identities)):
+                raise ValueError("historical source references must be unique")
+        elif (self.text is None or self.route is not None or self.source_read_event_id is not None
+              or self.source_reads or self.historical_source_reads):
             raise ValueError("visible context material must carry only its visible text")
         return self
 
@@ -329,6 +364,13 @@ class TurnContextTraceV1(TraceModel):
                     raise ValueError("context route must belong to the trace World")
                 for material in item.materials:
                     if material.state != "model_context" or material.role != "source":
+                        continue
+                    if material.historical_source_reads:
+                        if any(ref.world_id != self.world_id or ref.conversation_id != self.conversation_id
+                               for ref in material.historical_source_reads):
+                            raise ValueError("historical source reference must belong to the trace World conversation")
+                        # Exact passage and earlier-turn validation belongs to the
+                        # APP write boundary; historical reads are not new admission.
                         continue
                     passages = captured.get(material.source_read_event_id, [])
                     if not passages:
