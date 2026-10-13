@@ -20,6 +20,7 @@ import type {
   WorldPlanSourceOpenTargetV2,
   WorldPlanAgentTurnResponseV2,
   WorldPlanAgentTurnRequestV1,
+  WorldPlanActionProjection,
   WorldPlanGraphAnswerContextStatusV1,
   WorldPlanGraphExecutionProjectionV1,
 } from "../api/types";
@@ -1309,6 +1310,11 @@ function setupApi(initialHistory: WorldAgentConversationHistoryResponse) {
     },
     actions: [],
   });
+  vi.spyOn(liveApi, "getWorldPlanConversationActions").mockImplementation(async (_world, conversationId) => ({
+    schema_version: "dmb_world_plan_action_conversation_projection_v1",
+    world_id: worldId, conversation_id: conversationId,
+    actions: [], next_before_action_sequence: null,
+  }));
   return {
     getHistory,
     getPlanBasis,
@@ -1399,6 +1405,183 @@ const cardEditScope: Partial<ConversationTestProps> = {
 };
 
 describe("World Plan conversation consumer", () => {
+  it("shows a durable sourced edit clarification without Apply and sends a short linked reply to proposal review", async () => {
+    const api = setupApi(history("conversation-a", 4, []));
+    const selected = "Draft excerpt";
+    const selectedDigest = await sha256Hex(selected);
+    const captured = {
+      editor: { isDestroyed: false },
+      request: {
+        document_id: documentId, world_id: worldId, session: 1,
+        base_revision: 7, base_content_sha256: contentSha256,
+        draft_markdown: "# Draft\n\nDraft excerpt.",
+        draft_sha256: "d".repeat(64),
+        target_kind: "replace_selection" as const,
+        selected_text: selected,
+      },
+      from: 1, to: 2, editorJson: "{}", selectionJson: "[]",
+      draftGeneration: 0, selectionGeneration: 0,
+    };
+    const bridge = { capture: vi.fn(async () => captured), apply: vi.fn(async () => undefined) };
+    const clarificationId = "00000000-0000-4000-8000-000000000081";
+    const source = {
+      schema: "dmb_agent_evidence_anchor_open_target_v1" as const,
+      kind: "evidence_anchor" as const,
+      claim_id: "claim:owner", anchor_id: "anchor:owner",
+      evidence_ref_id: "evidence:owner", source_artifact_id: "artifact:owner",
+      source_revision_id: "source-r1", managed_world_id: worldId,
+      native_world_id: "native-test", binding_version: 1,
+      graph_revision: "graph-r1", source_read_id: "read:owner",
+      read_outcome: "enough" as const,
+    };
+    const actions: WorldPlanActionProjection[] = [];
+    vi.mocked(liveApi.getWorldPlanDocumentEditActions).mockImplementation(async () => ({
+      schema_version: "dmb_world_plan_action_projection_v1",
+      basis: {
+        world_id: worldId, document_id: documentId, object_revision: 7,
+        work_revision_id: workRevisionId, revision_n: 1, content_sha256: contentSha256,
+      },
+      actions,
+    }));
+    vi.mocked(liveApi.getWorldPlanConversationActions).mockImplementation(async (_world, conversationId) => ({
+      schema_version: "dmb_world_plan_action_conversation_projection_v1",
+      world_id: worldId, conversation_id: conversationId,
+      actions: conversationId === "conversation-a" ? actions : [],
+      next_before_action_sequence: null,
+    }));
+    const post = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) => {
+      if (!request.continuation_of_action_id) {
+        actions.push({
+          action_id: clarificationId, action_type: "revise", status: "completed",
+          basis: {
+            world_id: worldId, document_id: documentId, object_revision: 7,
+            work_revision_id: workRevisionId, revision_n: 1, content_sha256: contentSha256,
+          },
+          instruction: request.instruction,
+          assistant_summary: "Mira owns the observatory. Did you mean her mother?",
+          action_sequence: 1, accepted_at: "2026-10-12T00:00:00Z",
+          completed_at: "2026-10-12T00:00:01Z", playable_target_receipt: null,
+          consultation: {
+            receipt: { origin_conversation_id: "conversation-a", origin_pointer_revision: 4,
+              draft_sha256: request.draft_sha256, selected_text_sha256: selectedDigest, continuation: null },
+            result: {
+              kind: "clarification", result_id: "00000000-0000-4000-8000-000000000082",
+              message: "Mira owns the observatory. Did you mean her mother?",
+            },
+          },
+          source_open_targets: [source],
+        });
+        return {
+          schema_version: "dmb_world_plan_edit_clarification_v1",
+          action_id: clarificationId, idempotency_key: request.idempotency_key,
+          document_id: documentId, world_id: worldId, base_revision: 7,
+          base_content_sha256: contentSha256, draft_sha256: request.draft_sha256,
+          selected_text_sha256: selectedDigest, kind: "clarification",
+          message: "Mira owns the observatory. Did you mean her mother?",
+          consultation: {
+            origin_conversation_id: "conversation-a", origin_pointer_revision: 4,
+            result: {
+              kind: "clarification", result_id: "00000000-0000-4000-8000-000000000082",
+              message: "Mira owns the observatory. Did you mean her mother?",
+            },
+            source_open_targets: [source], graph_revision: "graph-r1",
+          },
+        };
+      }
+      expect(request.continuation_of_action_id).toBe(clarificationId);
+      expect(request.expected_active_conversation_id).toBe("conversation-a");
+      expect(request.expected_pointer_revision).toBe(4);
+      return {
+        schema_version: "dmb_world_plan_document_edit_proposal_v1",
+        action_id: "00000000-0000-4000-8000-000000000083",
+        idempotency_key: request.idempotency_key,
+        document_id: documentId, world_id: worldId, base_revision: 7,
+        base_content_sha256: contentSha256, draft_sha256: request.draft_sha256,
+        target_kind: "replace_selection", selected_text_sha256: selectedDigest,
+        replacement_markdown: "Her mother guards the door.",
+        summary: "Make the figure Mira's mother.", assumptions: [],
+        model: "test-model", model_observed: false,
+        model_latency_ms: 0, wall_latency_ms: 0, usage: null,
+      };
+    });
+    const readSource = vi.spyOn(liveApi, "postWorldGraphSourceAnchorRead").mockResolvedValue({
+      schema: "dmb_world_graph_source_anchor_read_v1", outcome: "enough",
+      snapshot: {
+        worldId: "native-test", campaignId: "", scopeMode: "world",
+        revisionId: "graph-r1", headRevisionId: "graph-r1", isHead: true,
+        focus: { kind: "none", sessionId: null, campaignId: null }, admissibility: "gm",
+      },
+      anchorId: "anchor:owner", evidenceRefId: "evidence:owner",
+      sourceArtifactId: "artifact:owner", sourceDomain: "recap", locatorKind: "heading",
+      mediaType: "text/markdown", content: "Mira owns the observatory.",
+      contentSha256: "f".repeat(64), lineStart: 1, lineEnd: 1,
+      truncated: false, diagnostics: [],
+    });
+    let mounted = mountComponent(7, bridge, null, false, {
+      editorSelectionActive: true, draftGeneration: 0, selectionGeneration: 0,
+    });
+    await screen.findByText(/No messages yet/i);
+    await waitFor(() => expect(liveApi.getWorldPlanConversationActions).toHaveBeenCalledWith(worldId, "conversation-a"));
+    expect(actions).toHaveLength(0);
+    expect(document.querySelector(`article[data-plan-action-id="${clarificationId}"]`)).toBeNull();
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
+      target: { value: "Change Mira into the door keeper." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
+    const clarification = await waitFor(() => {
+      const article = document.querySelector(`article[data-plan-action-id="${clarificationId}"]`);
+      if (!article) throw new Error("Saved clarification is not in the conversation");
+      return article;
+    });
+    expect(clarification.closest("article")).not.toHaveTextContent("Apply changes");
+    expect(screen.queryByRole("region", { name: "Review proposed Plan edit" })).not.toBeInTheDocument();
+    fireEvent.click(within(clarification as HTMLElement).getByRole("button", { name: "Open evidence" }));
+    expect(await within(clarification as HTMLElement).findByText("Mira owns the observatory.")).toBeInTheDocument();
+    expect(readSource).toHaveBeenCalledWith(expect.objectContaining({
+      worldId: "native-test", revisionPin: "graph-r1", anchorId: "anchor:owner",
+    }));
+    mounted.unmount();
+    mounted = mountComponent(7, bridge, null, false, {
+      editorSelectionActive: true, draftGeneration: 0, selectionGeneration: 0,
+    });
+    await waitFor(() => {
+      expect(document.querySelector(`article[data-plan-action-id="${clarificationId}"]`)).toBeTruthy();
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Reply about this edit" }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
+      target: { value: "Her mother." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
+    const review = await screen.findByRole("region", { name: "Review proposed Plan edit" });
+    expect(within(review).getByText("Before")).toBeInTheDocument();
+    expect(within(review).getByText("After")).toBeInTheDocument();
+    expect(review).toHaveTextContent("Draft excerpt");
+    expect(review).toHaveTextContent("Her mother guards the door.");
+    expect(post).toHaveBeenCalledTimes(2);
+    expect(bridge.apply).not.toHaveBeenCalled();
+    fireEvent.click(within(review).getByRole("button", { name: "Apply changes" }));
+    await waitFor(() => expect(bridge.apply).toHaveBeenCalledTimes(1));
+    mounted.unmount();
+    mounted = mountComponent(7, bridge, null, false, {
+      editorSelectionActive: true, draftGeneration: 1, selectionGeneration: 0,
+    });
+    await waitFor(() => expect(document.querySelector(`article[data-plan-action-id="${clarificationId}"]`)).toBeTruthy());
+    expect(screen.queryByRole("button", { name: "Apply changes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save Plan" })).not.toBeInTheDocument();
+    expect(bridge.apply).toHaveBeenCalledTimes(1);
+    vi.spyOn(liveApi, "postWorldAgentNewConversation").mockImplementation(async (_world, command) => {
+      api.setCurrent(history("conversation-b", command.expected_pointer_revision + 1, []));
+      return {
+        schema: "dmb_agent_new_conversation_response_v1", world_id: worldId,
+        conversation_id: "conversation-b", active_conversation_id: "conversation-b",
+        pointer_revision: command.expected_pointer_revision + 1,
+      } as any;
+    });
+    fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
+    await screen.findByText(/New World conversation confirmed/);
+    await waitFor(() => expect(document.querySelector(`article[data-plan-action-id="${clarificationId}"]`)).toBeNull());
+    mounted.unmount();
+  });
   it.each(["cursor", "scene", "selection", "missing", "stale", "late"])("shows actual target and fences real capture for %s", async (mode) => {
     setupApi(history("conversation-a", 4, []));
     const source = "# Breaking the Siege\n<!-- dmb-playable-element:v1 kind=scene id=scene:opening -->\n## Something Is Still Moving\nOpening body.\n<!-- dmb-playable-element:v1 kind=scene id=scene:next -->\n## Other Scene\nOther body.\n";

@@ -358,12 +358,14 @@ def _app_state_graph_execution_types() -> Any:
     return graph_types
 
 
-def _require_fresh_execution_append(result: tuple[Turn, bool]) -> Turn:
+def _require_fresh_execution_append(result: tuple[Any, bool]) -> Any:
     """Only a newly committed one-shot event may acknowledge harness progress."""
+    from application_state.plan_action_dialogue.types import PlanActionRecord
+
     if (
         not isinstance(result, tuple)
         or len(result) != 2
-        or not isinstance(result[0], Turn)
+        or not isinstance(result[0], (Turn, PlanActionRecord))
         or result[1] is not True
     ):
         raise AgentTurnServiceError(
@@ -1149,6 +1151,15 @@ class _ClaimFence:
 class _PolicyExecutionAdapter:
     """Parent-owned persistence gate for one Plan/World Graph harness turn."""
 
+    def _broker_receipt(self) -> Any:
+        """Frozen authority exposed to the shared Graph/source broker."""
+        assert self.fence is not None
+        return self.fence.turn.graph_context_receipt
+
+    def _broker_execution(self) -> Any:
+        assert self.fence is not None
+        return self.fence.turn.graph_context_execution
+
     def __init__(
         self,
         *,
@@ -1325,8 +1336,8 @@ class _PolicyExecutionAdapter:
                     code="provider_envelope_over_budget", status_code=413,
                     provider_dispatched=False,
                 )
-            turn, assertions, relationships, evidence = self._ensure_claimed(view)
-            execution = getattr(turn, "graph_context_execution", None)
+            _record, assertions, relationships, evidence = self._ensure_claimed(view)
+            execution = self._broker_execution() if self.fence is not None else None
             if execution is None or self.fence is None:
                 raise AgentTurnServiceError(
                     "The Graph execution ledger is unavailable after claim.",
@@ -1503,7 +1514,7 @@ class _PolicyExecutionAdapter:
                         "record_related_recap_context_inclusion", "inclusion", inclusion
                     ))
                     self.turn = updated
-                    execution = updated.graph_context_execution
+                    execution = self._broker_execution()
                     event_fields["sequence"] = len(execution.events)
                 event = graph_types.ProviderAttemptAuthorizedEventV2(
                     kind="provider_attempt_authorized_v2",
@@ -1552,7 +1563,7 @@ class _PolicyExecutionAdapter:
             graph_types = _app_state_graph_execution_types()
             event = graph_types.ProviderOutcomeEventV1(
                 event_id=uuid4(),
-                sequence=len(self.fence.turn.graph_context_execution.events),
+                sequence=len(self._broker_execution().events),
                 kind="provider_outcome",
                 provider_attempt_id=self.last_provider_attempt_id,
                 outcome=transition,
@@ -1612,7 +1623,7 @@ class _PolicyExecutionAdapter:
         try:
             if self.fence is None or self.last_provider_attempt_id is None:
                 return denied("graph_operation_before_authorization", 409)
-            execution = self.fence.turn.graph_context_execution
+            execution = self._broker_execution()
             if execution is None or sum(
                 getattr(event, "kind", None) == "validated_graph_operation"
                 for event in execution.events
@@ -1706,7 +1717,7 @@ class _PolicyExecutionAdapter:
             event_id = uuid4()
             event = graph_types.ValidatedGraphOperationEventV1(
                 event_id=event_id,
-                sequence=len(self.fence.turn.graph_context_execution.events),
+                sequence=len(self._broker_execution().events),
                 kind="validated_graph_operation",
                 operation_id=uuid4(), operation="expand_graph_retrieval",
                 request_arguments_sha256=_canonical_sha256(normalized),
@@ -1777,7 +1788,7 @@ class _PolicyExecutionAdapter:
             ScopeModeV2, WorldGraphProjectionRequestV2,
         )
 
-        authority = self.fence.turn.graph_context_receipt.graph_authority
+        authority = self._broker_receipt().graph_authority
         if (
             authority.scope_mode != "world" or authority.campaign_id is not None
             or authority.admissibility_version != "gm-v1"
@@ -1911,7 +1922,7 @@ class _PolicyExecutionAdapter:
             if self.fence is None or self.last_provider_attempt_id is None:
                 return denied("source_read_before_authorization", 409)
             graph_types = _app_state_graph_execution_types()
-            execution = self.fence.turn.graph_context_execution
+            execution = self._broker_execution()
             if not isinstance(execution, graph_types.PlanWorldGraphExecutionV2):
                 return denied("source_read_not_enabled", 403)
             arguments = message.get("arguments")
@@ -1930,7 +1941,7 @@ class _PolicyExecutionAdapter:
             if (
                 request.retrieval_session_id != scope.retrieval_session_id
                 or session.snapshot.world_id
-                != self.fence.turn.graph_context_receipt.graph_authority.native_world_id
+                != self._broker_receipt().graph_authority.native_world_id
                 or session.snapshot.campaign_id != (scope.campaign_id or "")
                 or session.snapshot.revision_id != scope.graph_revision
             ):
@@ -2042,7 +2053,7 @@ class _PolicyExecutionAdapter:
                 ))
                 results.append(result)
             event = graph_types.ValidatedSourceReadEventV2(
-                event_id=uuid4(), sequence=len(updated.graph_context_execution.events),
+                event_id=uuid4(), sequence=len(self._broker_execution().events),
                 kind="validated_source_read_v2", read_call_id=read_call_id,
                 receipts=receipts,
             )
@@ -2084,9 +2095,8 @@ class _PolicyExecutionAdapter:
         )
 
         assert self.fence is not None
-        turn = self.fence.turn
-        receipt = turn.graph_context_receipt
-        execution = turn.graph_context_execution
+        receipt = self._broker_receipt()
+        execution = self._broker_execution()
         graph_types = _app_state_graph_execution_types()
         if (
             receipt is None
@@ -2315,7 +2325,7 @@ class _PolicyExecutionAdapter:
         if self.fence is None or self.last_provider_attempt_id is None:
             return denied("related_recap_context_before_authorization", 409)
         graph_types = _app_state_graph_execution_types()
-        execution = self.fence.turn.graph_context_execution
+        execution = self._broker_execution()
         if not isinstance(execution, graph_types.PlanWorldGraphExecutionV2):
             return denied("related_recap_context_not_enabled", 403)
         arguments = message.get("arguments")
@@ -2471,7 +2481,7 @@ class _PolicyExecutionAdapter:
             ):
                 raise ValueError("related recap read differed from authorized descriptor")
             event = graph_types.ValidatedRelatedRecapContextEventV2(
-                event_id=uuid4(), sequence=len(updated.graph_context_execution.events),
+                event_id=uuid4(), sequence=len(self._broker_execution().events),
                 kind="validated_related_recap_context_v2",
                 read_call_id=read_call_id,
                 authorization_event_id=authorization.event_id,

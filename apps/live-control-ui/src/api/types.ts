@@ -1242,6 +1242,9 @@ export interface PlanDocumentEditProposalResponse {
 
 export interface WorldPlanDocumentEditProposalRequest {
   idempotency_key: string;
+  continuation_of_action_id?: string | null;
+  expected_active_conversation_id?: string | null;
+  expected_pointer_revision?: number | null;
   document_id: string;
   world_id: string;
   base_revision: number;
@@ -1283,6 +1286,35 @@ export interface WorldPlanDocumentEditProposalResponse {
   model_latency_ms: number;
   wall_latency_ms: number;
   usage: Record<string, number> | null;
+  consultation?: WorldPlanEditConsultationProjection;
+}
+
+export interface WorldPlanEditConsultationProjection {
+  origin_conversation_id: string;
+  origin_pointer_revision: number;
+  result: {
+    kind: "clarification" | "proposal" | "context_unavailable";
+    result_id: string;
+    message: string;
+    [key: string]: unknown;
+  };
+  source_open_targets: WorldPlanSourceOpenTargetV2[];
+  graph_revision: string | null;
+}
+
+export interface WorldPlanEditClarificationResponse {
+  schema_version: "dmb_world_plan_edit_clarification_v1";
+  action_id: string;
+  idempotency_key: string;
+  document_id: string;
+  world_id: string;
+  base_revision: number;
+  base_content_sha256: string;
+  draft_sha256: string;
+  selected_text_sha256: string;
+  kind: "clarification" | "context_unavailable";
+  message: string;
+  consultation: WorldPlanEditConsultationProjection;
 }
 
 export interface WorldPlanActionBasis {
@@ -1312,6 +1344,21 @@ export interface WorldPlanActionProjection {
   basis: WorldPlanActionBasis;
   instruction: string;
   assistant_summary: string | null;
+  consultation?: {
+    receipt: {
+      origin_conversation_id?: string;
+      origin_pointer_revision?: number;
+      draft_sha256: string;
+      selected_text_sha256: string;
+      continuation?: { continuation_of_action_id: string } | null;
+    };
+    result: {
+      kind: "clarification" | "proposal" | "context_unavailable";
+      result_id: string;
+      message: string;
+    } | null;
+  } | null;
+  source_open_targets?: WorldPlanSourceOpenTargetV2[];
   action_sequence: number;
   accepted_at: string;
   completed_at: string | null;
@@ -1322,6 +1369,14 @@ export interface WorldPlanActionProjectionPage {
   schema_version: "dmb_world_plan_action_projection_v1";
   basis: WorldPlanActionBasis;
   actions: WorldPlanActionProjection[];
+}
+
+export interface WorldPlanActionConversationProjectionPage {
+  schema_version: "dmb_world_plan_action_conversation_projection_v1";
+  world_id: string;
+  conversation_id: string;
+  actions: WorldPlanActionProjection[];
+  next_before_action_sequence: number | null;
 }
 
 export interface AgentInteractionThread {

@@ -31,7 +31,9 @@ import type {
   PlanDocumentEditProposalResponse,
   WorldPlanDocumentEditProposalRequest,
   WorldPlanDocumentEditProposalResponse,
+  WorldPlanEditClarificationResponse,
   WorldPlanActionProjectionPage,
+  WorldPlanActionConversationProjectionPage,
   LiveSurfaceResponse,
   AddGeneratedStatblockCombatRequest,
   AddGeneratedStatblockCombatResponse,
@@ -1769,8 +1771,8 @@ export async function postPlanDocumentEditProposal(
 
 export async function postWorldPlanDocumentEditProposal(
   request: WorldPlanDocumentEditProposalRequest,
-): Promise<WorldPlanDocumentEditProposalResponse> {
-  return apiFetch<WorldPlanDocumentEditProposalResponse>("/api/live/world-plan-edit/propose", {
+): Promise<WorldPlanDocumentEditProposalResponse | WorldPlanEditClarificationResponse> {
+  return apiFetch<WorldPlanDocumentEditProposalResponse | WorldPlanEditClarificationResponse>("/api/live/world-plan-edit/propose", {
     method: "POST",
     body: JSON.stringify(request),
   });
@@ -1782,6 +1784,17 @@ export async function getWorldPlanDocumentEditActions(
 ): Promise<WorldPlanActionProjectionPage> {
   const query = new URLSearchParams({ world_id: worldId, document_id: documentId });
   return apiFetch<WorldPlanActionProjectionPage>(`/api/live/world-plan-edit/actions?${query.toString()}`);
+}
+
+export async function getWorldPlanConversationActions(
+  worldId: string,
+  conversationId: string,
+  options: { limit?: number; beforeActionSequence?: number } = {},
+): Promise<WorldPlanActionConversationProjectionPage> {
+  const query = new URLSearchParams({ world_id: worldId, conversation_id: conversationId });
+  if (options.limit !== undefined) query.set("limit", String(options.limit));
+  if (options.beforeActionSequence !== undefined) query.set("before_action_sequence", String(options.beforeActionSequence));
+  return apiFetch<WorldPlanActionConversationProjectionPage>(`/api/live/world-plan-edit/conversation-actions?${query.toString()}`);
 }
 
 export async function putSurfaceLayout(

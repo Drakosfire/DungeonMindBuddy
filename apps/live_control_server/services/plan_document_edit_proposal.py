@@ -14,11 +14,12 @@ from generationengine import GenerationClient, TextRequest
 from pydantic import ValidationError
 
 from application_state.agent_conversation import AgentConversationService
-from application_state.agent_conversation.types import PlanAskContextBasis
+from application_state.agent_conversation.types import PlanAskContextBasis, WorldPointer
 from application_state.errors import ApplicationStateConflictError, ApplicationStateError
 from application_state.plan_action_dialogue import PlanActionDialogueService
 from application_state.plan_action_dialogue.types import (
     PlanActionBasis,
+    PlanActionConversationProjectionPage,
     PlanActionPlayableTargetReceipt,
     PlanActionProjectionPage,
     PlanActionReservation,
@@ -31,6 +32,7 @@ from apps.live_control_server.models.plan_document_edit_proposal import (
     PlanEditHistoryMessage,
     WorldPlanDocumentEditProposalRequest,
     WorldPlanDocumentEditProposalResponse,
+    WorldPlanEditClarificationResponse,
 )
 from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRegistryError,
@@ -235,6 +237,7 @@ def _action_fingerprint(
     request: WorldPlanDocumentEditProposalRequest,
     basis: PlanActionBasis,
     playable_target_receipt: PlanActionPlayableTargetReceipt | None = None,
+    expected_world_pointer: WorldPointer | None = None,
 ) -> str:
     # Client conversation_history and server-projected context are mutable
     # history, not explicit action intent. Keep them out of new action identity.
@@ -264,19 +267,25 @@ def _action_fingerprint(
             "target_kind": request.target_kind,
             "selected_text_sha256": _digest(request.selected_text),
             "instruction": request.instruction,
+            **({"continuation_of_action_id": str(request.continuation_of_action_id)}
+               if request.continuation_of_action_id is not None else {}),
+            **({"origin_conversation_id": str(expected_world_pointer.active_conversation_id),
+                "origin_pointer_revision": expected_world_pointer.revision}
+               if expected_world_pointer is not None else {}),
         }
     )
 
 
 def _matches_world_action_receipt(
-    action: Any, request: WorldPlanDocumentEditProposalRequest
+    action: Any, request: WorldPlanDocumentEditProposalRequest,
+    expected_world_pointer: WorldPointer | None = None,
 ) -> bool:
-    """Compare typed intent while accepting old and new fingerprint versions.
+    """Compare typed intent; sourced actions also bind their World pointer.
 
     WorkRevision identity is server-owned and is recovered from the saved basis.
-    The request carries only the World, document, object revision, and content
-    digest coordinates checked below. The stored request fingerprint is not a
-    replay witness because the previous algorithm included mutable history.
+    Plain actions retain their historical typed comparison because older
+    fingerprints included mutable client history. Sourced consultations use
+    the new server-computed fingerprint as their exact origin witness.
     """
     basis = getattr(action, "basis", None)
     if basis is None:
@@ -291,6 +300,13 @@ def _matches_world_action_receipt(
         or getattr(basis, "revision_n", None) is None
     ):
         return False
+    if expected_world_pointer is not None:
+        if getattr(action, "request_fingerprint", None) != _action_fingerprint(
+            request,
+            basis,
+            expected_world_pointer=expected_world_pointer,
+        ):
+            return False
 
     expected_action_type = (
         "compose" if request.target_kind == "insert_at_caret" else "revise"
@@ -715,11 +731,43 @@ def propose_world_plan_document_edit(
     generation_client: Any | None = None,
     model: str | None = None,
     action_store: Any | None = None,
-) -> WorldPlanDocumentEditProposalResponse:
+) -> WorldPlanDocumentEditProposalResponse | WorldPlanEditClarificationResponse:
     """Reserve one durable action, then return its validated inert proposal."""
     store = action_store or PlanActionDialogueService()
     _validate_world_request_inputs(request)
     world = _verified_world(root, request.world_id)
+    binding = getattr(world, "native_graph_binding", None)
+    consulted_selection = request.target_kind == "replace_selection" and binding is not None
+    expected_world_pointer: WorldPointer | None = None
+    if consulted_selection:
+        if request.expected_active_conversation_id is None or request.expected_pointer_revision is None:
+            raise PlanDocumentEditProposalError(
+                "conversation_origin_missing", "Refresh the World conversation before this sourced edit.",
+                status_code=409,
+            )
+        try:
+            expected_world_pointer = AgentConversationService().get_world_pointer(request.world_id)
+        except ApplicationStateError as exc:
+            raise PlanDocumentEditProposalError(
+                "conversation_origin_unavailable", "The World conversation pointer is unavailable.",
+                status_code=503,
+            ) from exc
+        if (
+            expected_world_pointer.active_conversation_id != request.expected_active_conversation_id
+            or expected_world_pointer.revision != request.expected_pointer_revision
+        ):
+            raise PlanDocumentEditProposalError(
+                "conversation_origin_stale", "The World conversation changed. Refresh before editing.",
+                status_code=409,
+            )
+    if request.continuation_of_action_id is not None and (
+        request.target_kind != "replace_selection" or binding is None
+    ):
+        raise PlanDocumentEditProposalError(
+            "clarification_target_invalid",
+            "The clarification can only continue the same initialized World Plan selection.",
+            status_code=409,
+        )
     selected_digest = _digest(request.selected_text)
     try:
         existing = store.get_by_key(request.world_id, request.idempotency_key)
@@ -732,7 +780,7 @@ def propose_world_plan_document_edit(
             "action_store_unavailable", "Plan action storage is unavailable.", status_code=503
         ) from exc
     if existing is not None:
-        if not _matches_world_action_receipt(existing, request):
+        if not _matches_world_action_receipt(existing, request, expected_world_pointer):
             raise PlanDocumentEditProposalError(
                 "action_idempotency_conflict", "This action key was already used for a different request.", status_code=409
             )
@@ -770,10 +818,11 @@ def propose_world_plan_document_edit(
             body_serialization_version=resolved_target.body_serialization_version,
             target_body_sha256=resolved_target.target_body_sha256,
         )
-    fingerprint = _action_fingerprint(request, basis, target_receipt)
+    fingerprint = _action_fingerprint(request, basis, target_receipt, expected_world_pointer)
     reservation = PlanActionReservation(
         idempotency_key=request.idempotency_key,
         request_fingerprint=fingerprint,
+        expected_world_pointer=expected_world_pointer,
         action_type="compose" if request.target_kind == "insert_at_caret" else "revise",
         basis=basis,
         draft_matches_basis=request.draft_sha256 == basis.content_sha256,
@@ -795,7 +844,7 @@ def propose_world_plan_document_edit(
                 "action_store_unavailable", "Plan action storage is unavailable.", status_code=503
             ) from lookup_exc
         if raced_action is None or not _matches_world_action_receipt(
-            raced_action, request
+            raced_action, request, expected_world_pointer
         ):
             raise PlanDocumentEditProposalError(
                 "action_idempotency_conflict", "This action key was already used for a different request.", status_code=409
@@ -810,7 +859,7 @@ def propose_world_plan_document_edit(
             "action_store_unavailable", "Plan action storage is unavailable.", status_code=503
         ) from exc
     if not created:
-        if not _matches_world_action_receipt(action, request):
+        if not _matches_world_action_receipt(action, request, expected_world_pointer):
             raise PlanDocumentEditProposalError(
                 "action_idempotency_conflict", "This action key was already used for a different request.", status_code=409
             )
@@ -819,6 +868,28 @@ def propose_world_plan_document_edit(
         raise PlanDocumentEditProposalError(
             "action_reservation_invalid", "Plan action reservation has no dispatch token.", status_code=503
         )
+
+    if consulted_selection:
+        from apps.live_control_server.services.plan_action_consultation import (
+            PlanActionConsultationError,
+            execute_plan_action_consultation,
+        )
+
+        try:
+            return execute_plan_action_consultation(
+                root=root, request=request, action=action, store=store,
+                expected_world_pointer=expected_world_pointer,
+            )
+        except PlanActionConsultationError as exc:
+            raise PlanDocumentEditProposalError(
+                exc.code, str(exc), status_code=exc.status_code
+            ) from exc
+        except Exception as exc:
+            raise PlanDocumentEditProposalError(
+                "plan_consultation_unavailable",
+                "The sourced Plan edit consultation could not be completed.",
+                status_code=503,
+            ) from exc
 
     def finish_failure(exc: PlanDocumentEditProposalError) -> None:
         try:
@@ -1013,4 +1084,24 @@ def get_world_plan_action_projection(
     except Exception as exc:
         raise PlanDocumentEditProposalError(
             "action_store_unavailable", "Plan action storage is unavailable.", status_code=503
+        ) from exc
+
+
+def get_world_plan_action_conversation_projection(
+    *, root: Path, world_id: str, conversation_id: UUID,
+    limit: int = 50, before_action_sequence: int | None = None,
+    action_store: Any | None = None,
+) -> PlanActionConversationProjectionPage:
+    """Read sourced action dialogue for one verified World conversation."""
+    _verified_world(root, world_id)
+    try:
+        AgentConversationService().get_conversation(world_id, conversation_id)
+        return (action_store or PlanActionDialogueService()).list_conversation_status(
+            world_id, conversation_id, limit=limit,
+            before_action_sequence=before_action_sequence,
+        )
+    except ApplicationStateError as exc:
+        raise PlanDocumentEditProposalError(
+            "action_conversation_unavailable", "The viewed World conversation is unavailable.",
+            status_code=exc.status_code,
         ) from exc
