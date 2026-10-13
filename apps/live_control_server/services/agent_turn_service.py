@@ -85,6 +85,7 @@ from apps.live_control_server.services.agent_runtime import (
 from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
 from apps.live_control_server.services.agent_context_trace_collector import ContextTraceCollector
 from apps.live_control_server.services.agent_context_trace_projection import graph_operation_observation
+from apps.live_control_server.services.agent_context_compaction_report import ContextCompactionReport
 from apps.live_control_server.services.agent_world_graph_query_context import (
     AgentWorldGraphFocus,
     AgentWorldGraphQueryContextRequest,
@@ -1235,6 +1236,8 @@ class _PolicyExecutionAdapter:
         self.admission_span_id = admission_span_id
         self.fence: _ClaimFence | None = None
         self.context_capture: ContextTraceCollector | None = None
+        self.context_compaction_report: ContextCompactionReport | None = None
+        self.context_compaction_unavailable = False
         self.last_provider_attempt_id: UUID | None = None
         self.producing_provider_attempt_id: UUID | None = None
         self.failure: AgentTurnServiceError | None = None
@@ -1416,6 +1419,11 @@ class _PolicyExecutionAdapter:
         # Rollout is explicit: accepted baseline APIs keep trace capture off.
         if os.environ.get("DMB_CONTEXT_TRACE_CAPTURE") == "1":
             self.context_capture = ContextTraceCollector(self.fence)
+            if self.context_compaction_report is not None:
+                self.context_capture.compaction(self.context_compaction_report,
+                                               graph_world_id=self.bootstrap.world_scope.world_id)
+            if self.context_compaction_unavailable:
+                self.context_capture.mark_incomplete("historical_source_unavailable")
         if self.trace is not None and self.admission_span_id is not None:
             self.trace.complete_phase(self.admission_span_id)
             self.admission_span_id = None
@@ -1697,6 +1705,16 @@ class _PolicyExecutionAdapter:
     def broker_graph_operation(self, message: Mapping[str, Any]) -> Mapping[str, Any]:
         """Resolve and persist an exact native Graph expansion before IPC reply."""
         operation_started = monotonic()
+        if message.get("toolName") == "observe_context_compaction":
+            if os.environ.get("DMB_CONTEXT_TRACE_CAPTURE") == "1":
+                arguments = message.get("arguments")
+                try:
+                    if self.context_compaction_report is not None or self.fence is not None:
+                        raise ValueError("compaction observation arrived outside restore boundary")
+                    self.context_compaction_report = ContextCompactionReport.model_validate(arguments)
+                except (ValueError, TypeError):
+                    self.context_compaction_unavailable = True
+            return {"resultJson": '{"schema":"dmb_context_compaction_ack_v1"}', "retrievalSession": None}
         if message.get("toolName") == "read_graph_source":
             return self.broker_source_read(message)
         if message.get("toolName") == "read_related_recap_context":

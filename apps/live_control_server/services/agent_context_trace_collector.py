@@ -13,6 +13,7 @@ from application_state.agent_conversation.context_trace import (
     ContextTraceObservation, TraceSourcePassage,
 )
 from application_state.errors import ApplicationStateValidationError
+from apps.live_control_server.services.agent_context_compaction_report import ContextCompactionReport
 
 _OBSERVATION = TypeAdapter(ContextTraceObservation)
 # Exact APP-owned rejection reasons. Identity, fencing, validation and transport
@@ -65,7 +66,7 @@ class ContextTraceCollector:
 
     def observe(self, fields: Mapping[str, Any]) -> None:
         with self.fence.renewer._lock:
-            if self.trace.capture_status == "incomplete":
+            if self._capture_exhausted():
                 return
             observation = _OBSERVATION.validate_python({
                 **fields, "sequence": len(self.trace.observations),
@@ -105,7 +106,7 @@ class ContextTraceCollector:
                 if text not in (None, ""):
                     raise ValueError("failed source receipt has returned prose")
                 continue
-            if self.trace.capture_status == "incomplete":
+            if self._capture_exhausted():
                 raise ApplicationStateValidationError("source capture is incomplete")
             passages.append(TraceSourcePassage(
                 sequence=0, elapsed_ms=self.elapsed_ms,
@@ -152,7 +153,7 @@ class ContextTraceCollector:
         permits the SAME receipt to be persisted without passage bytes. The
         read itself is never repeated. Uncertain writes propagate unchanged.
         """
-        if self.trace.capture_status != "incomplete":
+        if not self._capture_exhausted():
             passages = self.source_passages(event, results, world_id=world_id,
                                             graph_revision=graph_revision)
             try:
@@ -169,3 +170,72 @@ class ContextTraceCollector:
                 return updated, fresh, True
         updated, fresh = self.fence.append("record_validated_source_read", "receipt", event)
         return updated, fresh, False
+
+    def _capture_exhausted(self) -> bool:
+        # Missing historical provenance is an incomplete BEFORE view, not a
+        # capacity failure or permission to withhold newly captured source reads.
+        return (self.trace.capture_status == "incomplete"
+                and self.trace.capture_failure_code != "historical_source_unavailable")
+
+    def compaction(self, report: ContextCompactionReport, *, graph_world_id: str) -> None:
+        turn = self.fence.turn
+        before = [{"item_id": item.item_id, "state": "model_context", "role": item.role,
+                   "text": item.text} for item in report.before_visible]
+        matches: dict[str, list[dict[str, Any]]] = {item.item_id: [] for item in report.prior_sources}
+        before_sequence = turn.sequence
+        while matches and before_sequence > 1:
+            turns = self.fence.service.list_turns(turn.world_id, turn.conversation_id,
+                                                limit=100, before_sequence=before_sequence)
+            if not turns:
+                break
+            for prior in turns:
+                for trace in self.fence.service.list_context_trace_attempts(world_id=turn.world_id, turn_id=prior.turn_id):
+                    for passage in trace.observations:
+                        if not isinstance(passage, TraceSourcePassage):
+                            continue
+                        for candidate in report.prior_sources:
+                            if (passage.anchor_id == candidate.anchor_id
+                                    and passage.content_sha256 == candidate.content_sha256
+                                    and passage.returned_chars == candidate.returned_chars
+                                    and (candidate.evidence_ref_id is None or passage.evidence_ref_id == candidate.evidence_ref_id)
+                                    and (candidate.source_artifact_id is None or passage.source_artifact_id == candidate.source_artifact_id)):
+                                matches[candidate.item_id].append({
+                                    "schema": "dmb_trace_historical_source_ref_v1", "world_id": trace.world_id,
+                                    "conversation_id": trace.conversation_id, "turn_id": trace.turn_id,
+                                    "attempt": trace.attempt, "trace_id": trace.trace_id,
+                                    "source_read_event_id": passage.source_read_event_id,
+                                    "source_read_id": passage.source_read_id,
+                                    "content_sha256": candidate.content_sha256,
+                                })
+            before_sequence = min(item.sequence for item in turns)
+        missing = False
+        for candidate in report.prior_sources:
+            references = matches[candidate.item_id]
+            if len(references) != 1:
+                missing = True
+                continue
+            before.append({"item_id": candidate.item_id, "state": "model_context", "role": "source",
+                           "historical_source_reads": references})
+        self.observe({"kind": "context_snapshot", "stage": "before", "materials": before})
+        after = [{"item_id": item.item_id, "state": "model_context", "role": item.role,
+                  "text": item.text} for item in report.after_visible]
+        for kind in ("nodes", "sources"):
+            for index, route in enumerate(report.routes.get(kind, [])):
+                if route.get("world_id") not in {turn.world_id, graph_world_id}:
+                    missing = True
+                    continue
+                handle = {key: value for key, value in route.items() if key not in {"label", "kind"}}
+                # APP World identity is canonical; the observed revision/anchor
+                # remain unchanged. These handles are not newly admitted reads.
+                handle["world_id"] = turn.world_id
+                handle["route_id"] = f"{kind}:{index}"
+                after.append({"item_id": f"route:{kind}:{index}", "state": "retrieval_route",
+                              "role": "source" if kind == "sources" else "fact", "route": handle})
+        self.observe({"kind": "context_snapshot", "stage": "after", "materials": after})
+        for decision in report.decisions:
+            self.observe({"kind": "context_decision", "action": decision.action,
+                          "item_ids": [decision.item_id], "reason_code": decision.reason_code,
+                          "policy_version": report.policy_version})
+        if missing:
+            self.observe({"kind": "failure", "code": "historical_source_unavailable", "phase": "context_build"})
+            self.mark_incomplete("historical_source_unavailable")

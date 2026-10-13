@@ -40,8 +40,8 @@ class Store:
 
 def collector():
     store = Store()
-    turn = SimpleNamespace(world_id="world", conversation_id=uuid4(), turn_id=uuid4(), revision=4, attempt=1)
-    fence = SimpleNamespace(service=store, renewer=SimpleNamespace(_lock=Lock(), _turn=turn))
+    turn = SimpleNamespace(world_id="world", conversation_id=uuid4(), turn_id=uuid4(), revision=4, attempt=1, sequence=2)
+    fence = SimpleNamespace(service=store, turn=turn, renewer=SimpleNamespace(_lock=Lock(), _turn=turn))
     return ContextTraceCollector(fence), store, turn
 
 
@@ -234,3 +234,53 @@ def test_parent_tool_denial_records_safe_failure_without_evidence_authority():
     assert observed.code == "source_anchor_not_admitted"
     assert "private-anchor-42" not in observed.model_dump_json()
     assert "content" not in observed.model_dump()
+
+
+def compaction_fixture():
+    import json
+    from apps.live_control_server.services.agent_context_compaction_report import compaction_report
+    from apps.live_control_server.services.agent_conversation_context import compact_conversation_context
+    text = "Frank and Sara operate the Rocky Talkie."
+    messages = [
+        {"role": "user", "content": "Tell me about Mirathorn."},
+        {"role": "tool", "content": json.dumps({"schema": "dmb_world_graph_source_anchor_read_v1",
+            "outcome": "enough", "anchorId": "anchor", "evidenceRefId": "evidence", "sourceArtifactId": "artifact",
+            "snapshot": {"worldId": "native-world", "revisionId": "graph-revision"}, "content": text})},
+        {"role": "assistant", "content": "Frank and Sara are operators."},
+    ]
+    return text, compaction_report(messages, compact_conversation_context(messages))
+
+
+def test_compaction_matches_observed_bytes_to_exact_prior_trace_and_keeps_only_routes_after():
+    from application_state.agent_conversation.context_trace import TraceSourcePassage
+    capture, store, turn = collector()
+    text, report = compaction_fixture()
+    prior_turn = SimpleNamespace(turn_id=uuid4(), sequence=1)
+    event = source_event(text)
+    passage = TraceSourcePassage(**capture.source_passages(event, [{"content": text}], world_id="world",
+                                                         graph_revision="graph-revision")[0].model_dump())
+    prior = store.trace.model_copy(update={"turn_id": prior_turn.turn_id, "trace_id": uuid4(), "observations": [passage]})
+    store.list_turns = lambda *args, **kwargs: [prior_turn]
+    store.list_context_trace_attempts = lambda **kwargs: [prior]
+    capture.compaction(report, graph_world_id="native-world")
+    before, after = store.trace.observations[:2]
+    remembered = next(item for item in before.materials if item.role == "source")
+    ref = remembered.historical_source_reads[0]
+    assert ref.trace_id == prior.trace_id and ref.turn_id == prior_turn.turn_id
+    assert ref.content_sha256 == sha256(text.encode()).hexdigest()
+    assert remembered.source_read_event_id is None and remembered.source_reads == []
+    assert not any(item.role == "source" and item.state == "model_context" for item in after.materials)
+    route = next(item for item in after.materials if item.state == "retrieval_route")
+    assert route.route.anchor_id == "anchor" and route.route.world_id == turn.world_id
+
+
+def test_missing_historical_capture_is_explicit_without_rewriting_history_or_blocking_new_reads():
+    capture, store, _ = collector()
+    text, report = compaction_fixture()
+    original = report.model_dump_json()
+    store.list_turns = lambda *args, **kwargs: []
+    capture.compaction(report, graph_world_id="native-world")
+    assert store.trace.capture_failure_code == "historical_source_unavailable"
+    assert report.model_dump_json() == original
+    assert not any(item.role == "source" for item in store.trace.observations[0].materials)
+    assert capture.source_passages(source_event(text), [{"content": text}], world_id="world", graph_revision="revision")

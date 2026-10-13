@@ -15,6 +15,12 @@ export interface BuddyTraceMaterial {
   role: 'user' | 'assistant' | 'source' | 'fact'; text?: string | null
   route?: BuddyTraceRoute | null; source_read_event_id?: string | null
   source_reads: { source_read_id: string; content_sha256: string }[]
+  historical_source_reads?: BuddyHistoricalSourceReference[]
+}
+export interface BuddyHistoricalSourceReference {
+  schema: 'dmb_trace_historical_source_ref_v1'; world_id: string; conversation_id: string
+  turn_id: string; attempt: number; trace_id: string; source_read_event_id: string
+  source_read_id: string; content_sha256: string
 }
 interface Observation { sequence: number; elapsed_ms: number }
 interface GraphLimits {

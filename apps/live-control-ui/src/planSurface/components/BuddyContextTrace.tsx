@@ -1,4 +1,5 @@
 import './BuddyContextTrace.css'
+import { BuddyHistoricalSourcePassage } from './BuddyHistoricalSourcePassage'
 import type { BuddyTraceMaterial, BuddyTraceObservation, BuddyTraceSourcePassage, BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
 export type { BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
 
@@ -28,7 +29,9 @@ function Materials({ materials, passages }: { materials: BuddyTraceMaterial[]; p
   return <div className="buddy-context-trace__context-columns">
     <section><h5>Present in model context</h5>{present.length === 0 ? <p>No captured material.</p> : present.map(item =>
       <details key={item.item_id}><summary>{item.role} · {item.item_id}</summary>{item.role === 'source'
-        ? capturedMaterials(item, passages).length > 0
+        ? item.historical_source_reads?.length
+          ? item.historical_source_reads.map(reference => <BuddyHistoricalSourcePassage key={`${reference.trace_id}:${reference.source_read_id}`} reference={reference} />)
+          : capturedMaterials(item, passages).length > 0
           ? capturedMaterials(item, passages).map(passage => <Passage key={passage.source_read_id} passage={passage} />)
           : <p>Referenced source passage was not captured in this attempt.</p>
         : <p className="buddy-context-trace__prose">{item.text}</p>}</details>)}</section>
