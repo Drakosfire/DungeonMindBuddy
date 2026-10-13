@@ -1,5 +1,7 @@
 import hashlib
 import json
+
+import pytest
 from time import monotonic
 from uuid import uuid4
 
@@ -50,7 +52,8 @@ def test_restoration_consumer_persists_exact_historical_before_and_route_only_af
     assert service.list_context_trace_attempts(world_id=current.world_id, turn_id=original.turn_id) == original_trace
 
 
-def test_real_source_capture_cap_commits_one_receipt_without_uncaptured_passage(historical_pair):
+@pytest.mark.parametrize("prior_gap", [None, "historical_source_unavailable"])
+def test_real_source_capture_cap_commits_one_receipt_without_uncaptured_passage(historical_pair, prior_gap):
     service, conversation, original, current, _, _, _ = historical_pair
     original = next(turn for turn in service.list_turns(current.world_id, conversation.conversation_id)
                     if turn.turn_id == original.turn_id)
@@ -76,10 +79,12 @@ def test_real_source_capture_cap_commits_one_receipt_without_uncaptured_passage(
     fence = _ClaimFence(service, claimed)
     capture = ContextTraceCollector(fence)
     try:
+        if prior_gap:
+            capture.mark_incomplete(prior_gap)
         capture.observe({"kind": "context_snapshot", "stage": "before", "materials": [
             {"item_id": "capacity-witness", "state": "model_context", "role": "assistant",
              "text": "x" * (MAX_CONTEXT_TRACE_BYTES - 6000)}]})
-        assert capture.trace.capture_status == "recording"
+        assert capture.trace.capture_status == ("incomplete" if prior_gap else "recording")
         read_call = uuid4()
         authorization = original.graph_context_execution.events[0].model_copy(update={
             "event_id": uuid4(), "sequence": 0, "read_call_id": read_call})
@@ -95,7 +100,8 @@ def test_real_source_capture_cap_commits_one_receipt_without_uncaptured_passage(
         assert fresh and not may_release
         assert len(updated.graph_context_execution.events) == 2
         assert updated.graph_context_execution.events[-1].event_id == event.event_id
-        assert capture.trace.capture_failure_code == "trace_size_limit"
+        assert capture.trace.capture_failure_code == (prior_gap or "trace_size_limit")
+        assert capture._capture_exhausted()
         assert not any(item.kind == "source_passage" for item in capture.trace.observations)
     finally:
         stopped, error = fence.stop()
@@ -105,3 +111,24 @@ def test_real_source_capture_cap_commits_one_receipt_without_uncaptured_passage(
                                  failure_code="synthetic_capacity_terminal"))
     saved = service.list_context_trace_attempts(world_id=current.world_id, turn_id=stopped.turn_id)[0]
     assert saved.capture_status == "incomplete" and saved.terminal_status == "failed"
+
+
+def test_real_combined_partial_gaps_preserve_first_marker(historical_pair):
+    service, _, _, current, _, _, _ = historical_pair
+    fence = _ClaimFence(service, current)
+    capture = ContextTraceCollector.__new__(ContextTraceCollector)
+    capture.fence, capture.started = fence, monotonic()
+    capture.trace = service.list_context_trace_attempts(world_id=current.world_id, turn_id=current.turn_id)[0]
+    try:
+        capture.mark_incomplete("historical_source_unavailable")
+        capture.mark_incomplete("recap_context_capture_unavailable")
+        capture.observe({"kind": "failure", "phase": "graph_retrieval", "code": "synthetic_later_observation"})
+        assert capture.trace.capture_failure_code == "historical_source_unavailable"
+        assert not capture._capture_exhausted()
+        assert any(item.kind == "failure" and item.code == "recap_context_capture_unavailable"
+                   for item in capture.trace.observations)
+        assert capture.trace.observations[-1].code == "synthetic_later_observation"
+        assert fence.turn.revision == current.revision
+    finally:
+        _, error = fence.stop()
+        assert error is None

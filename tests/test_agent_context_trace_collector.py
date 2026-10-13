@@ -7,7 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 from application_state.agent_conversation.context_trace import TurnContextTraceV1
-from application_state.errors import ApplicationStateValidationError
+from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
 from apps.live_control_server.services.agent_context_trace_collector import ContextTraceCollector
 
 
@@ -31,6 +31,8 @@ class Store:
         return self.trace
 
     def mark_context_trace_incomplete(self, *, failure_code, **binding):
+        if self.trace.capture_status == "incomplete" and self.trace.capture_failure_code != failure_code:
+            raise ApplicationStateConflictError("first capture marker is immutable")
         self.trace = self.trace.model_copy(update={"capture_status": "incomplete", "capture_failure_code": failure_code})
         return self.trace
 
@@ -358,3 +360,16 @@ def test_retained_knowledge_and_routes_are_present_only_if_the_actual_request_co
     assert any(item.state == "retrieval_route" for item in store.trace.observations[-1].materials)
     capture.provider_context("Who are its operators?", [], body={"input": []})
     assert len(store.trace.observations[-1].materials) == 1
+
+
+def test_later_gap_preserves_first_marker_and_capacity_remains_independent():
+    capture, store, _ = collector()
+    capture.mark_incomplete("historical_source_unavailable")
+    capture.mark_incomplete("recap_context_capture_unavailable")
+    assert store.trace.capture_failure_code == "historical_source_unavailable"
+    assert store.trace.observations[-1].code == "recap_context_capture_unavailable"
+    assert not capture._capture_exhausted()
+    capture.mark_incomplete("trace_size_limit")
+    assert store.trace.capture_failure_code == "historical_source_unavailable"
+    assert store.trace.observations[-1].code == "trace_size_limit"
+    assert capture._capture_exhausted()

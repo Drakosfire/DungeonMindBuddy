@@ -76,9 +76,26 @@ class ContextTraceCollector:
             self._mark_incomplete_locked(code)
 
     def _mark_incomplete_locked(self, code: str) -> None:
-        self.trace = self.fence.service.mark_context_trace_incomplete(
-            **self._binding(), failure_code=code,
-        )
+        # APP preserves the first durable marker. Later gaps must not ask it
+        # to replace that marker, and capacity exhaustion is independent of it.
+        if code not in {"historical_source_unavailable", "recap_context_capture_unavailable"}:
+            self.capture_capacity_exhausted = True
+        if self.trace.capture_status != "incomplete":
+            self.trace = self.fence.service.mark_context_trace_incomplete(
+                **self._binding(), failure_code=code,
+            )
+        elif self.trace.capture_failure_code != code:
+            observation = _OBSERVATION.validate_python({
+                "kind": "failure", "phase": "trace_capture", "code": code,
+                "sequence": len(self.trace.observations), "elapsed_ms": self.elapsed_ms,
+            })
+            try:
+                self.trace = self.fence.service.append_context_trace(
+                    **self._binding(), observation=observation,
+                )
+            except ApplicationStateValidationError:
+                # The first durable gap survives even when no more trace fits.
+                self.capture_capacity_exhausted = True
 
     def observe(self, fields: Mapping[str, Any]) -> None:
         with self.fence.renewer._lock:
@@ -190,7 +207,8 @@ class ContextTraceCollector:
     def _capture_exhausted(self) -> bool:
         # Missing historical provenance is an incomplete BEFORE view, not a
         # capacity failure or permission to withhold newly captured source reads.
-        return (self.trace.capture_status == "incomplete"
+        return (getattr(self, "capture_capacity_exhausted", False) or
+                self.trace.capture_status == "incomplete"
                 and self.trace.capture_failure_code not in {
                     "historical_source_unavailable", "recap_context_capture_unavailable",
                 })
