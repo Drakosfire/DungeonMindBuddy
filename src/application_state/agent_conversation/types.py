@@ -1534,6 +1534,19 @@ class GraphExecutionPolicyV2(GraphExecutionPolicyV1):
         return self
 
 
+class GraphExecutionPolicyV3(GraphExecutionPolicyV1):
+    """Initial scope is frozen; traversal admission is recorded in ordered events."""
+    source_read_scope: GraphSelectedSourceReadScopeV2 | GraphSourceReadScopeV2
+    max_source_read_chars: int = Field(strict=True, ge=0, le=96000)
+    max_chars_per_source_read: int = Field(strict=True, ge=1, le=12000)
+
+    @model_validator(mode="after")
+    def validate_selected_scope(self) -> "GraphExecutionPolicyV3":
+        if (self.policy_version == "plan_world_graph_execution_selected_scope_v1") != isinstance(self.source_read_scope, GraphSelectedSourceReadScopeV2):
+            raise ValueError("selected execution policy requires the selected scope subtype")
+        return self
+
+
 class GraphExecutionEventBaseV1(StrictModel):
     event_id: UUID
     sequence: int = Field(strict=True, ge=0, le=2047)
@@ -1561,6 +1574,41 @@ class ValidatedGraphOperationEventV1(GraphExecutionEventBaseV1):
             values = getattr(self, name)
             if any(not value.strip() for value in values) or values != sorted(set(values)):
                 raise ValueError(f"{name} must be nonblank, sorted, and unique")
+        return self
+
+
+class ValidatedGraphOperationEventV3(ValidatedGraphOperationEventV1):
+    kind: Literal["validated_graph_operation_v3"]
+    returned_source_pins: list[GraphSourceScopeAnchorV2] = Field(max_length=2048)
+
+    @model_validator(mode="after")
+    def validate_source_pins(self) -> "ValidatedGraphOperationEventV3":
+        ids = [pin.anchor_id for pin in self.returned_source_pins]
+        if ids != sorted(set(ids)):
+            raise ValueError("returned source pins must be sorted and unique")
+        if any(pin.evidence_ref_id not in self.evidence_ref_ids for pin in self.returned_source_pins):
+            raise ValueError("returned source pins require operation evidence")
+        return self
+
+
+class SourceScopeExtensionEventV3(GraphExecutionEventBaseV1):
+    kind: Literal["source_scope_extension_v3"]
+    origin_graph_event_id: UUID
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    execution_policy_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    world_id: str = Field(min_length=1, max_length=256)
+    native_world_id: str = Field(min_length=1, max_length=256)
+    binding_version: int = Field(strict=True, ge=1)
+    campaign_id: str | None = Field(default=None, max_length=256)
+    graph_revision: str = Field(min_length=1, max_length=256)
+    retrieval_session_id: str = Field(min_length=1, max_length=128)
+    pins: list[GraphSourceScopeAnchorV2] = Field(min_length=1, max_length=2048)
+
+    @model_validator(mode="after")
+    def validate_pins(self) -> "SourceScopeExtensionEventV3":
+        ids = [pin.anchor_id for pin in self.pins]
+        if ids != sorted(set(ids)):
+            raise ValueError("extension pins must be sorted and unique")
         return self
 
 
@@ -1968,6 +2016,11 @@ class ProviderAttemptAuthorizedEventV2(ProviderAttemptAuthorizedEventV1):
         return self
 
 
+class ProviderAttemptAuthorizedEventV3(ProviderAttemptAuthorizedEventV2):
+    kind: Literal["provider_attempt_authorized_v3"]
+    included_source_read_event_ids: list[UUID] = Field(max_length=2048)
+
+
 
 
 GraphExecutionEventV2 = Annotated[
@@ -2102,6 +2155,8 @@ class PlanWorldGraphExecutionV2(StrictModel):
             raise ValueError("Graph execution event IDs must be unique")
         scope = self.policy.source_read_scope
         scope_by_anchor = {anchor.anchor_id: anchor for anchor in scope.admitted_anchors}
+        dynamic = self.schema_ == "dmb_agent_plan_world_graph_execution_v3"
+        origins: dict[UUID, ValidatedGraphOperationEventV3] = {}
         auths: dict[UUID, SourceReadAuthorizationEventV2] = {}
         receipts_by_event: dict[UUID, ValidatedSourceReadEventV2] = {}
         receipts_by_call: set[UUID] = set()
@@ -2110,7 +2165,7 @@ class PlanWorldGraphExecutionV2(StrictModel):
         latest_attempt_id: UUID | None = None
         latest_outcome: str | None = None
         for event in self.events:
-            if isinstance(event, (SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2)) and latest_outcome == "outcome_unknown":
+            if isinstance(event, (SourceScopeExtensionEventV3, SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2)) and latest_outcome == "outcome_unknown":
                 raise ValueError("source reads cannot continue after an unknown provider outcome")
             if isinstance(event, CompletionBindingEventV1) and event.sequence != len(self.events) - 1:
                 raise ValueError("completion binding must be the final V2 execution event")
@@ -2119,6 +2174,24 @@ class PlanWorldGraphExecutionV2(StrictModel):
                 latest_outcome = None
             elif isinstance(event, ProviderOutcomeEventV1) and event.provider_attempt_id == latest_attempt_id:
                 latest_outcome = event.outcome
+            if isinstance(event, ValidatedGraphOperationEventV3):
+                if event.graph_revision != scope.graph_revision:
+                    raise ValueError("source origin uses a different Graph revision")
+                origins[event.event_id] = event
+            elif isinstance(event, SourceScopeExtensionEventV3):
+                origin = origins.get(event.origin_graph_event_id)
+                if origin is None or origin.sequence >= event.sequence or event.pins != origin.returned_source_pins:
+                    raise ValueError("source extension requires exact pins from an earlier validated origin")
+                if (event.context_receipt_sha256 != self.context_receipt_sha256
+                    or event.execution_policy_sha256 != self.execution_policy_sha256
+                    or event.world_id != scope.world_id or event.campaign_id != scope.campaign_id
+                    or event.graph_revision != scope.graph_revision
+                    or event.retrieval_session_id != scope.retrieval_session_id):
+                    raise ValueError("source extension differs from the frozen scope")
+                for pin in event.pins:
+                    if pin.anchor_id in scope_by_anchor and scope_by_anchor[pin.anchor_id] != pin:
+                        raise ValueError("source extension cannot rebind an admitted anchor")
+                    scope_by_anchor[pin.anchor_id] = pin
             if isinstance(event, SourceReadAuthorizationEventV2):
                 if event.read_call_id in auths:
                     raise ValueError("source-read call ID was authorized more than once")
@@ -2168,9 +2241,9 @@ class PlanWorldGraphExecutionV2(StrictModel):
             elif isinstance(event, ProviderAttemptAuthorizedEventV2):
                 if any(event_id not in receipts_by_event for event_id in event.included_source_read_event_ids):
                     raise ValueError("provider envelope references an unknown or later source-read receipt")
-        if len(auths) > self.policy.max_source_read_calls:
+        if not dynamic and len(auths) > self.policy.max_source_read_calls:
             raise ValueError("source-read call budget exceeded")
-        if authorized_anchors > self.policy.max_source_read_anchors:
+        if not dynamic and authorized_anchors > self.policy.max_source_read_anchors:
             raise ValueError("source-read anchor budget exceeded")
         if authorized_chars > self.policy.max_source_read_chars:
             raise ValueError("source-read character budget exceeded")
@@ -2183,6 +2256,7 @@ class PlanWorldGraphExecutionV2(StrictModel):
             if isinstance(
                 event,
                 (
+                    SourceScopeExtensionEventV3,
                     SourceReadAuthorizationEventV2,
                     ValidatedSourceReadEventV2,
                     RelatedRecapContextAuthorizationEventV2,
@@ -2195,6 +2269,9 @@ class PlanWorldGraphExecutionV2(StrictModel):
             if isinstance(event, ProviderAttemptAuthorizedEventV2):
                 payload["kind"] = "provider_attempt_authorized"
                 payload.pop("included_source_read_event_ids", None)
+            if isinstance(event, ValidatedGraphOperationEventV3):
+                payload["kind"] = "validated_graph_operation"
+                payload.pop("returned_source_pins", None)
             payload["sequence"] = len(legacy_events)
             legacy_events.append(payload)
         legacy_policy = {
@@ -2214,7 +2291,34 @@ class PlanWorldGraphExecutionV2(StrictModel):
         })
         if len(self.model_dump_json(by_alias=True).encode("utf-8")) > 1_048_576:
             raise ValueError("Graph execution record exceeds the storage size limit")
+        if dynamic and len(json.dumps(self.model_dump(mode="json", by_alias=True), ensure_ascii=True).encode("utf-8")) > 1_048_576:
+            raise ValueError("Graph execution record exceeds the storage size limit")
         return self
+
+
+GraphExecutionEventV3 = Annotated[
+    ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3
+    | ProviderOutcomeEventV1 | CompletionBindingEventV1
+    | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2
+    | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
+    | RelatedRecapContextProviderInclusionEventV2,
+    Field(discriminator="kind"),
+]
+
+
+class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
+    schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
+        default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
+    )
+    policy: GraphExecutionPolicyV3
+    events: list[GraphExecutionEventV3] = Field(max_length=2048)
+
+    def effective_source_pins(self) -> dict[str, GraphSourceScopeAnchorV2]:
+        pins = {pin.anchor_id: pin for pin in self.policy.source_read_scope.admitted_anchors}
+        for event in self.events:
+            if isinstance(event, SourceScopeExtensionEventV3):
+                pins.update({pin.anchor_id: pin for pin in event.pins})
+        return pins
 
 
 def _related_recap_descriptor_key(
@@ -2371,7 +2475,17 @@ def graph_execution_policy_digest_v2(
     })
 
 
-PlanWorldGraphExecution = PlanWorldGraphExecutionV1 | PlanWorldGraphExecutionV2
+def graph_execution_policy_digest_v3(
+    context_receipt_sha256: str, policy: GraphExecutionPolicyV3,
+) -> str:
+    return _canonical_sha256({
+        "schema": "dmb_agent_plan_world_graph_execution_v3",
+        "context_receipt_sha256": context_receipt_sha256,
+        "policy": policy.model_dump(mode="json", by_alias=True),
+    })
+
+
+PlanWorldGraphExecution = PlanWorldGraphExecutionV1 | PlanWorldGraphExecutionV2 | PlanWorldGraphExecutionV3
 
 
 _SELECTED_SOURCE_INDEX_SELECTION_POLICY_V1 = "parent_initial_retrieval_with_selected_source_index_v1"
@@ -2420,6 +2534,17 @@ def validate_selected_source_binding(
 
 def validate_graph_selected_source_binding(inputs: GraphEvidenceValidationInputs, execution: PlanWorldGraphExecution | None) -> None:
     """Bind the selected policy to its immutable composite at every read/write boundary."""
+    if isinstance(execution, PlanWorldGraphExecutionV3):
+        authority = inputs.graph_authority
+        for extension in execution.events:
+            if isinstance(extension, SourceScopeExtensionEventV3) and (
+                extension.world_id != authority.managed_world_id
+                or extension.native_world_id != authority.native_world_id
+                or extension.binding_version != authority.binding_version
+                or extension.campaign_id != authority.campaign_id
+                or extension.graph_revision != authority.graph_revision
+            ):
+                raise ValueError("source extension differs from frozen managed/native authority")
     selected_policy = inputs.graph_packet.selection_policy_version == _SELECTED_SOURCE_INDEX_SELECTION_POLICY_V1
     selected_scope = isinstance(execution.policy.source_read_scope, GraphSelectedSourceReadScopeV2) if isinstance(execution, PlanWorldGraphExecutionV2) else False
     if selected_policy != selected_scope:

@@ -1,12 +1,12 @@
 # Plan Graph traversal-discovered source admission
 
-**Status:** ACTIVE — APP phase by PRIME dispatch (2026-10-13); SERVER consumer integration pending  
-**Owner:** Buddy APP-STATE + SERVER, one jointly reviewed implementation PR  
-**Topology:** serial  
-**Authority base:** DungeonMindBuddy main `597c69b1ca5449947894311af83756812b2318fe`  
-**Prior merge:** MIND #1129 at `597c69b1ca5449947894311af83756812b2318fe`  
-**Buddy Core pin:** DungeonMind `d81ed4e126c55ef8df57804c9ab7128b7499c7a1`  
-**Schema head:** `20261013_0022_turn_context_trace.py`; next migration follows 0022.  
+**Status:** ACTIVE — APP phase verified; SERVER consumer integration pending (2026-10-13)
+**Owner:** Buddy APP-STATE + SERVER, one jointly reviewed implementation PR
+**Topology:** serial
+**Authority base:** DungeonMindBuddy main `597c69b1ca5449947894311af83756812b2318fe`
+**Prior merge:** MIND #1129 at `597c69b1ca5449947894311af83756812b2318fe`
+**Buddy Core pin:** DungeonMind `d81ed4e126c55ef8df57804c9ab7128b7499c7a1`
+**Schema head:** `20261013_0022_turn_context_trace.py`; next migration follows 0022.
 **Design branch:** `codex/plan-graph-source-admission`
 
 This handoff is pinned on a branch based on current main. PRIME activates the APP and SERVER write leases before implementation. It does not authorize a provider run, World publication, or Graph mutation.
@@ -105,3 +105,22 @@ The focused adversarial matrix also proves:
 Offline typed/service tests and a real PostgreSQL fenced-append test are required. No provider QA or World-knowledge publication is authorized by this handoff.
 
 APP activation: PRIME dispatch authorizes the exact APP allowlist on this serial branch, pinned handoff `975a98ab09de2fb3ac0be16d4f127da2dfd97f30`, base `597c69b1ca5449947894311af83756812b2318fe`, isolated non-serving checkout `/tmp/app-state-conversation-owner`. SERVER rollout/recovery lease is settled. Integration acceptance and paired rollout remain pending.
+
+## APP phase handback
+
+APP activation commit: `2ed7b6e1`; pinned design remains `975a98ab09de2fb3ac0be16d4f127da2dfd97f30` on base `597c69b1ca5449947894311af83756812b2318fe`. Before PR finalization, fetched remote main `9d32bc3d99e1c39a34434b309ee80c8ee82ad5ac`; its MIND #1130 changes are disjoint. The single branch and non-serving checkout remain the serial integration lane. Relevant open MIND #1130 and older inactive #1014 do not overlap this APP lease. No repository-adapter amendment was necessary.
+
+SERVER interface:
+
+- New turns use `PlanWorldGraphExecutionV3`, `GraphExecutionPolicyV3`, and `graph_execution_policy_digest_v3`. The V3 policy retains immutable initial scope and character budgets, omits cumulative call/anchor counters, and permits initially empty scope with traversal admission. V1/V2 models and serialized fields remain available unchanged. State updates, completion binding, and expired-provider recovery preserve the execution subtype.
+- Build `ValidatedGraphOperationEventV3(kind="validated_graph_operation_v3", returned_source_pins=[...])` from the exact validated native operation response. Returned pins are sorted by unique anchor ID and require their evidence refs in the operation's evidence list.
+- After the origin append and before returning results to the worker, call `extend_source_scope(... expected_revision, expected_attempt, extension=SourceScopeExtensionEventV3(...))`. It references `origin_graph_event_id` and carries the exact entire origin pin list, receipt/policy SHA, managed/native World, binding version, campaign, Graph revision, and retrieval session. APP validates exact earlier membership, receipt authority, ordering and no rebinding; event ID duplicates are fenced/idempotent. Changed V3 origin content conflicts even when request arguments match.
+- `execution.effective_source_pins()` returns immutable initial pins plus validated extensions. Keep session presence/readability checks before source I/O. `authorize_source_read` and `record_validated_source_read` retain their V2 per-batch event contracts (1–8 anchors/receipts); V3 validates against the effective pins. Authorized character reservations still count `max_chars * anchors` against 96,000; consumers must choose request sizes within remaining capacity.
+- Use `ProviderAttemptAuthorizedEventV3(kind="provider_attempt_authorized_v3")` for every producing envelope, including all actually included source-read event IDs (up to the execution bound). On an active trace, APP rejects inclusion of any content-bearing receipt without its exact captured event/read/digest tuple. Capture overflow rolls back the read/passage transaction; consumer marks trace incomplete, retries the same receipt without passage, withholds uncaptured bytes, and omits those read events from inclusion. Existing receipt-only behavior when trace capture is disabled remains available.
+- Unknown outcomes block operation, extension, and source-read continuation. Duplicate append returns `False`; it is never a fresh dispatch/read grant. Preserve the existing no-replay consumer contract.
+- Trace no longer has a cumulative eight-passage limit; historical references may represent up to 2,048 items per material. Same-read references stay capped at the eight-item batch. The 12,000-character passage, 96,000-character turn, 2,048-event/observation and 1 MiB execution/trace bounds remain enforced. Graph trace validation/closure recognize V3 origin events.
+- Migration `20261013_0023_graph_source_admission_v3.py` follows 0022, extends the existing JSONB check, preserves legacy checks, and refuses downgrade while V3 records exist. It was run only in disposable PostgreSQL.
+
+APP proof: 62 focused cases passed (46 deselected) using `/tmp/app_source_admission_final_runner.py`, existing Python environment, owned PostgreSQL 16 with 512 MiB tmpfs/random loopback port/env-only password and unconditional teardown. This comprises 27 new typed/real-PG witnesses and 35 legacy V2/trace regressions. Evidence covers exact fresh-service readback, nine passages/inclusions/opened-citation read binding, forged/late origins and foreign/rebound/mixed pins, fresh/stale/attempt/expired fences, duplicate/changed-origin behavior, unknown no-follow/reclaim, character/batch/event/serialized capacity, capture rollback/incomplete recovery and uncaptured-inclusion denial, V1 migration byte preservation and V3 downgrade refusal. Ruff and cumulative whitespace checks pass. Initial proof harness errors (missing disposable DSN, fixture tokenizer, assertion wording and generated migration quoting) were corrected; final proof is green.
+
+This is APP storage/authority proof. SERVER parent construction, mounted source I/O denial, final completion, consultation and trace collector adoption remain pending in this same draft integration PR. The independent cumulative review and paired migration/runtime release remain gates. PRIME coordinates the serial checkout transfer; APP stops writing after handback.

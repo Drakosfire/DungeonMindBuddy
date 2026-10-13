@@ -12,7 +12,6 @@ from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_valid
 
 MAX_CONTEXT_TRACE_BYTES = 1_048_576
 CONTEXT_TRACE_TERMINAL_RESERVE_BYTES = 4096
-MAX_SOURCE_READS_PER_TURN = 8
 MAX_SOURCE_PASSAGE_CHARS_PER_TURN = 96_000
 MAX_SOURCE_PASSAGE_CHARS_PER_READ = 12_000
 SafeTraceCode = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")]
@@ -68,7 +67,7 @@ class TraceContextMaterial(TraceModel):
     route: TraceRoute | None = None
     source_read_event_id: UUID | None = None
     source_reads: list[TraceCapturedSourceReference] = Field(default_factory=list, max_length=8)
-    historical_source_reads: list[TraceHistoricalSourceReferenceV1] = Field(default_factory=list, max_length=8)
+    historical_source_reads: list[TraceHistoricalSourceReferenceV1] = Field(default_factory=list, max_length=2048)
 
     @model_serializer(mode="wrap")
     def serialize_material(self, handler):
