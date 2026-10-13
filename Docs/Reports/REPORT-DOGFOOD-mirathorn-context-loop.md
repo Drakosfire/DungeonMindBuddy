@@ -61,3 +61,11 @@ Verified continuity root cause: fresh policy turns perform pointer lookup before
 Prior tool transcripts must not count as current-turn admission. The new compactor keeps visible questions/answers and revision-qualified node/source handles, drops old tool calls/results, and removes repeated Plan bodies (the current Ask supplies its own exact Plan). Its deterministic decisions and route inventory are available internally; product trace persistence/projection is still pending.
 
 Verification at this checkpoint: continuity/context/turn-service tests 101 passed, one PostgreSQL-owning route test excluded after its disposable server on :54329 refused connection. A broader harness run reached 42 passed then failed mixed_plugin_capability_policy_loads_both_surfaces with hermes_tool_surface_mismatch; the identical isolated test fails on unchanged parent #1118, so this is an inherited environment/tool-surface failure. Ruff and diff checks pass. No successor deployment or new provider acceptance run has occurred.
+
+## Compaction review regressions — 2026-10-13
+
+Independent review found that the first compactor fixture did not match the production message shape: `_plan_message` places the Plan/question JSON after its instructions, then the runtime appends Graph-answer instructions. The prior implementation parsed only the final line, so it retained the full Plan and instructions. `_question` now scans lines for the exact Plan payload and returns only `user_question`; a producer-shaped regression proves both synthetic Plan text and appended instructions are pruned.
+
+The review also found that successful `partial` source reads were omitted from retained routes. The compactor now keeps an exact world/revision/anchor route only when the read has a recognized successful outcome (`enough`, `partial`, or `truncated`) and nonempty content; it still removes passage bodies from the next request. A partial-read regression proves the route survives while the prose does not.
+
+Focused compaction tests: 5 passed. Broader context, continuity and turn-service tests: 103 passed, 1 PostgreSQL-owned test deselected because its disposable service was unavailable, 2 existing Pydantic warnings. Ruff and `git diff --check` passed. These checks do not prove live source rehydration; the four-prompt acceptance and owning PostgreSQL witness remain open.

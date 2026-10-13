@@ -33,12 +33,15 @@ def _json(value: Any) -> Any:
 
 
 def _question(content: str) -> str:
-    # A prior exact Plan payload is redundant: this turn supplies its own basis.
-    payload = _json(content.rsplit('\n', 1)[-1])
-    if isinstance(payload, dict) and 'committed_plan_markdown' in payload:
-        question = payload.get('user_question')
-        if isinstance(question, str):
-            return question
+    # The production user message is Plan instructions + a JSON line, followed
+    # by the Graph answer instructions. Find the exact payload instead of
+    # assuming it is the final line.
+    for line in reversed(content.splitlines()):
+        payload = _json(line.strip())
+        if isinstance(payload, dict) and 'committed_plan_markdown' in payload:
+            question = payload.get('user_question')
+            if isinstance(question, str):
+                return question
     return content
 
 
@@ -78,7 +81,12 @@ def compact_conversation_context(history: Sequence[Mapping[str, Any]]) -> Conver
                 if isinstance(anchor, dict):
                     remember({**scope, 'anchor_id': anchor.get('anchorId'), 'evidence_ref_id': anchor.get('evidenceRefId'),
                               'source_artifact_id': anchor.get('sourceArtifactId'), 'source_revision_id': anchor.get('sourceRevisionId')}, source=True)
-        elif result.get('schema') == 'dmb_world_graph_source_anchor_read_v1' and result.get('outcome') in {'enough', 'truncated'}:
+        elif (
+            result.get('schema') == 'dmb_world_graph_source_anchor_read_v1'
+            and result.get('outcome') in {'enough', 'partial', 'truncated'}
+            and isinstance(result.get('content'), str)
+            and result.get('content')
+        ):
             remember({**scope, 'anchor_id': result.get('anchorId'), 'evidence_ref_id': result.get('evidenceRefId'),
                       'source_artifact_id': result.get('sourceArtifactId'), 'source_revision_id': result.get('sourceRevisionId')}, source=True)
 
