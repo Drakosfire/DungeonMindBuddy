@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { ConversationDock } from "../../ui/ConversationDock";
 import type { PlanConversationPresentationHosts } from "./PlanConversationDockAdapter";
 import { PlanEditReview } from "./PlanEditReview";
+import { BuddyContextTraceLoader } from "./BuddyContextTraceLoader";
 
 import { getWorldCommandResolution, postWorldCommandResolution, getWorldAgentNewConversationStatus, getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, getWorldPlanConversationActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldPlanDocumentEditProposal, postWorldGraphSourceAnchorRead, postWorldGraphRecapContextReadV2, connectNativeGraphSession, revokeNativeGraphSession, isValidWorldPlanGraphContextFailure, LiveApiError } from "../../api/liveApi";
 import type {
@@ -2180,6 +2181,7 @@ export function WorldPlanAgentConversation({
   const [composing, setComposing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [traceVisible, setTraceVisible] = useState(false);
+  const [openedTraceTurns, setOpenedTraceTurns] = useState<Record<string, boolean>>({});
   const [historyLoading, setHistoryLoading] = useState(false);
   const [olderLoading, setOlderLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -4944,8 +4946,16 @@ export function WorldPlanAgentConversation({
           </p>
         ) : null}
         <div className="world-plan-agent-conversation__turn-debug">
-          <details className="world-plan-agent-conversation__turn-details">
+          <details className="world-plan-agent-conversation__turn-details" onToggle={(event) => {
+            const open = event.currentTarget.open;
+            const key = `${verifiedWorldId}\u001f${turn.turn_id}`;
+            setOpenedTraceTurns(current => current[key] === open ? current : { ...current, [key]: open });
+          }}>
             <summary>Debug</summary>
+            {verifiedWorldId && history?.conversation_id ? <BuddyContextTraceLoader
+              enabled={openedTraceTurns[`${verifiedWorldId}\u001f${turn.turn_id}`] === true}
+              worldId={verifiedWorldId} turnId={turn.turn_id} conversationId={history.conversation_id}
+            /> : null}
             <p className="world-plan-agent-conversation__context">
               Turn {turn.sequence} · {turn.lifecycle_status} · {historyTurnProvenanceLabel(turn)}
             </p>

@@ -1303,6 +1303,9 @@ function mockCardBodyProposal(replacementMarkdown = "The revised scene opens.") 
 }
 
 function setupApi(initialHistory: WorldAgentConversationHistoryResponse) {
+  vi.spyOn(liveApi, "getWorldAgentTurnContextTrace").mockImplementation(async (world, turn) => ({
+    schema: "dmb_agent_turn_context_trace_response_v1", world_id: world, turn_id: turn, attempts: [],
+  }));
   let currentHistory = initialHistory;
   let currentBasis = committedRevision();
   let olderPage: WorldAgentConversationHistoryResponse | null = null;
@@ -4788,6 +4791,29 @@ describe("World Plan conversation consumer", () => {
     fireEvent.click(olderButton);
     expect(await screen.findByText("Fresh older B turn")).toBeInTheDocument();
     expect(api.historyCalls).toContainEqual({ limit: 50, beforeSequence: 2, includeTurnCorrelation: true });
+  });
+
+  it("loads the persisted execution trace only when the turn Debug is expanded", async () => {
+    setupApi(history("conversation-a", 4, [makeTurn(1, "turn-trace", "Question", "Answer")]));
+    const loadTrace = vi.mocked(liveApi.getWorldAgentTurnContextTrace).mockResolvedValue({
+      schema: "dmb_agent_turn_context_trace_response_v1", world_id: worldId, turn_id: "turn-trace",
+      attempts: [{ schema: "dmb_turn_context_trace_v1", trace_id: "trace", world_id: worldId,
+        turn_id: "turn-trace", conversation_id: "conversation-a", attempt: 1, execution_start_sequence: 0,
+        started_at: "2026-10-13T00:00:00Z", closed_at: "2026-10-13T00:00:01Z", terminal_status: "completed",
+        capture_status: "complete", capture_failure_code: null, observations: [{kind: "provider_call", sequence: 0,
+          elapsed_ms: 1000, provider: "openai-api", model: "trace-model", outcome: "response_received", input_tokens: 42, output_tokens: 7}] }],
+    });
+    render(conversationElement());
+    await screen.findByText("Answer");
+    expect(loadTrace).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("Debug"));
+    await screen.findByText("How Buddy built this reply");
+    expect(screen.getByText("trace-model")).toBeInTheDocument();
+    expect(screen.getByText(/Provider-reported usage: 42 input · 7 output/)).toBeInTheDocument();
+    expect(loadTrace).toHaveBeenCalledWith(worldId, "turn-trace");
+    fireEvent.click(screen.getByText("Debug"));
+    fireEvent.click(screen.getByText("Debug"));
+    expect(loadTrace).toHaveBeenCalledTimes(1);
   });
 
   it("keeps frozen-receipt status out of the chat and tucks it under Debug", async () => {

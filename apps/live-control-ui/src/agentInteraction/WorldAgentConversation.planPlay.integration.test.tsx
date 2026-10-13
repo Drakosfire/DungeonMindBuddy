@@ -19,6 +19,9 @@ vi.mock("../selectedWorld/SelectedWorldContext", () => ({
 vi.mock("../api/liveApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/liveApi")>()),
   getWorldAgentConversationHistory: vi.fn(),
+  getWorldAgentTurnContextTrace: vi.fn(async (worldId: string, turnId: string) => ({
+    schema: "dmb_agent_turn_context_trace_response_v1", world_id: worldId, turn_id: turnId, attempts: [],
+  })),
   getWorldOwnedPlanCommittedRevision: vi.fn(),
   getWorldPlanDocumentEditActions: vi.fn(),
   postWorldAgentNewConversation: vi.fn(),
