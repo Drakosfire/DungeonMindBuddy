@@ -4761,6 +4761,31 @@ describe("World Plan conversation consumer", () => {
     expect(api.historyCalls).toContainEqual({ limit: 50, beforeSequence: 2, includeTurnCorrelation: true });
   });
 
+  it("explains an unconfirmed Graph turn instead of claiming Buddy is working", async () => {
+    const api = setupApi(history("conversation-a", 4, []));
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
+      const pendingTurn = historyTurnForAsk(request, "");
+      pendingTurn.assistant_text = null;
+      pendingTurn.lifecycle_status = "running";
+      api.setCurrent(history("conversation-a", 4, [pendingTurn]));
+      throw new Error("Plan Graph delivery stopped after its receipt was frozen.");
+    });
+    render(conversationElement());
+    await screen.findByText(/No messages yet/i);
+    ensureWorldGraphAskEnabled();
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Query the graph about Mirathorn." } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+    expect(await screen.findByText(/outcome of this Graph-context Ask is uncertain/)).toBeInTheDocument();
+    await waitFor(() => {
+      const turnStatus = document.querySelector(".world-plan-agent-conversation__turn-status");
+      expect(turnStatus).toHaveTextContent("No answer has been saved for this turn yet. Buddy is checking World history; your message will not be sent again.");
+    }, { timeout: 4000 });
+    expect(screen.queryByText("Buddy is working on this reply…")).not.toBeInTheDocument();
+    expect(screen.queryByRole("article", { name: "Submitted message awaiting confirmation" })).not.toBeInTheDocument();
+    expect(postAsk).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps an uncertain Graph Ask in recovery when the Plan basis changes", async () => {
     const api = setupApi(history("conversation-a", 4, []));
     const thread = legacyThread();

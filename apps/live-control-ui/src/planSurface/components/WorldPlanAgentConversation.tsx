@@ -4719,6 +4719,9 @@ export function WorldPlanAgentConversation({
   const pendingGraphAskRecords = savedAskRecords.filter((item) => item.envelope.request.plan_context_policy);
   const confirmedFailureCount = pendingGraphAskRecords.filter((item) => isPendingAskFailureConfirmed(item)).length;
   const unconfirmedGraphAskCount = pendingGraphAskRecords.length - confirmedFailureCount;
+  const isAwaitingGraphAskConfirmation = (turnId: string) => !sending && pendingGraphAskRecords.some((item) =>
+    item.envelope.request.turn_id === turnId && !isPendingAskFailureConfirmed(item, turnId));
+  const graphAskConfirmationStatus = "No answer has been saved for this turn yet. Buddy is checking World history; your message will not be sent again.";
   const intentBusy = sending || composing || saveInFlight || !scopeMatches || currentReview !== null;
   const inferredComposerIntent = classifyPlanComposerIntent(composerMessage);
   const detectedComposerIntent = continuationOfActionId ? "propose" : composerIntentCorrection?.message === composerMessage
@@ -4920,7 +4923,9 @@ export function WorldPlanAgentConversation({
               ? turn.provenance.surface_id === "play" ? "Buddy couldn’t finish this reply. No Run change was applied." : "Buddy couldn’t finish this reply. Your Plan was not changed."
               : interrupted
                 ? turn.provenance.surface_id === "play" ? "This reply stopped before it finished. No Run change was applied." : "This reply stopped before it finished. Your Plan was not changed."
-                : "Buddy is working on this reply…"}
+                : isAwaitingGraphAskConfirmation(turn.turn_id)
+                  ? graphAskConfirmationStatus
+                  : "Buddy is working on this reply…"}
           </p>
         )}
         <details className="world-plan-agent-conversation__turn-details">
@@ -5343,7 +5348,9 @@ export function WorldPlanAgentConversation({
           && !history?.turns.some((turn) => turn.turn_id === submittedMessage.id) ? (
           <article aria-label="Submitted message awaiting confirmation">
             <p><strong>You:</strong> {submittedMessage.message}</p>
-            <p role="status">{sending || composing ? "Waiting for Buddy…" : "Checking whether Buddy received this message…"}</p>
+            <p role="status">{isAwaitingGraphAskConfirmation(submittedMessage.id)
+              ? graphAskConfirmationStatus
+              : sending || composing ? "Waiting for Buddy…" : "Checking whether Buddy received this message…"}</p>
           </article>
         ) : null}
         {conversationNotice ? <p role="status">{conversationNotice}</p> : null}
