@@ -2674,6 +2674,10 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     assert context_execution.policy.max_source_read_calls == 0
 
     class FakeExecutionPort:
+        # This execution-ledger fake has no previous conversation to restore.
+        def get_active_conversation(self, _world_id: str) -> None:
+            return None
+
         turn: Turn | None = None
         accepted_count = 0
         authorize_count = 0

@@ -3,8 +3,8 @@
 Status: ACTIVE — explicitly authorized by the user's active thread goal, 2026-10-13.
 Branch: `codex/buddy-mirathorn-context-loop`.
 Checkout: `/home/drakosfire/.codex/worktrees/buddy-context-loop/DungeonMindBuddy`.
-Remote main anchor: `ec1da1b7872fe6d4f9fee0b501510a5137677eea`.
-Topology: stacked on PR #1118 at exact head `500f27143467df1351748505ec97b996ca1fcc22`; parent merges first, then rebase this successor. Parent presentation lane is frozen for this task. New context-loop UI changes belong to this successor.
+Remote main anchor: `0fb4aa6e6849b614bbec9ab91e772e415354c7b3` (verified 2026-10-13).
+Topology: serial, draft PR #1119 is the sole context-loop implementation lane. Predecessor #1118 head `500f27143467df1351748505ec97b996ca1fcc22` merged as `0fb4aa6e6849b614bbec9ab91e772e415354c7b3`; this successor is rebased onto that accepted main. New context-loop UI changes belong to this successor. The predecessor delivered evidence presentation and hidden pending-status diagnostics, plus a requested Backlog capture; its old handoff verification section is historical, not proof of full context-loop acceptance. Successor runtime/trace evidence is recorded separately in the report.
 Ownership: Buddy owns runtime orchestration, conversation working context and inspection UX. DungeonMind owns admitted graph truth and source read contracts. Do not create a second graph authority or use arbitrary corpus files as an Agent retrieval fallback.
 
 ## Objective and acceptance
@@ -27,7 +27,7 @@ Completion requires live UI acceptance transcript and trace evidence, owning-bou
 
 - This handoff and `Docs/Reports/REPORT-DOGFOOD-mirathorn-context-loop.md`.
 - `apps/live_control_server/services/{agent_context_assembler,agent_runtime,agent_turn_service,agent_turn_trace,hermes_agent_runtime,hermes_graph_agent,hermes_graph_agent_host,hermes_graph_agent_contract,hermes_graph_interaction_tools,hermes_session_store,agent_graph_policy}.py`.
-- New Buddy-owned conversation context/trace service modules and their targeted tests.
+- New Buddy-owned conversation context/trace service modules and their targeted tests, including `tests/test_agent_policy_continuity.py`, `tests/test_agent_conversation_context.py`, `tests/test_agent_turn_service.py` and `tests/test_hermes_graph_agent.py`.
 - `apps/live_control_server/routes/agent.py`, `apps/live_control_server/models/agent_turn.py`.
 - `src/graph_memory/hermes_graph_plugin.py` and its targeted tests.
 - `apps/live-control-ui/src/api/{liveApi,types}.ts` and their tests.

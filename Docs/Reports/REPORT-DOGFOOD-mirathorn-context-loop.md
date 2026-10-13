@@ -43,3 +43,21 @@ All four prompts were submitted once via :5202 in one fresh World conversation, 
 - **Trace:** operational logs omit content by design, and saved-turn UI only shows grounding/provenance. Product context trace is missing.
 
 Code observations: `agent_turn_service` starts each bootstrap with a retrieval session and freezes an initial packet; receipt `included_history` is currently empty. Hermes restores native conversation history through its structured session pointer, so empty receipt history alone does not prove no history was sent. Current policy budget is four model requests (three tool-capable), eight graph operations. Source-read capability is enabled conditionally on initial bootstrap source anchors. Subsequent source reads validate against frozen admitted anchors. These are concrete seams to inspect for conversation-aware evidence re-admission and observable context management; weakening receipt validation is not an acceptable fix.
+
+## Native execution diagnosis and first repair checkpoint
+
+Read-only inspection of native Hermes SQLite messages (excluding all reasoning fields) confirms the baseline did invoke tools. Each turn nevertheless used a separate one-user profile:
+- Overview: session 2286c234-f125-4ea7-a3e7-5c2b97d56750, profile cae570e05a25354b1b5a30821c6e0756bb6f31a5b82cd224c7b1e8e79f4cca79; neighborhood + source read.
+- Operators: session 09ebbc31-3ccc-4b6b-a3af-0c58fd4265af, profile d2d2b77f00e10a1ac2adb9c6143a66731d400558bd823a53b68048d75e78389f; one empty search for Rocky Talkie operators.
+- Frank: session 4ae07fc6-424a-46dd-92b5-f0ca1c7e6560, profile a2d48630ad98e0d2ab464b1ea8957a9eed6dcda1591574d90c7750224837f96b; broad Caelynn search and Frank search returned truncated results.
+- Sara: session 9ec26d4a-b609-451d-a6d7-ad04d2df2332, profile cc0bf4d211f09d8b281a153c0732ade745128fb29bf018c2d9197a4e6e139af8; neighborhood, six-anchor source read, then truncated search. Session row reports gpt-6-luna, 46,791 input / 1,665 output tokens across four API calls.
+
+Private profile root: parent checkout `evals/c2_live_prep/live/session_22/hermes_agent_profiles/`. This is execution diagnosis, not a graph storage bypass.
+
+Sara's source-anchor:v1:2cc31442d8506605eaa9c8c3cc66366d36ed20d7c9b034dc0a3da8321e49ee13 read returned enough, truncated=false, from admitted artifact:recap:longmont-c2:session-20:70f3983a0182, line 32. It contains the tainted-provision warning, Sara's trust concern, and the Tealeaf handoff. Another successful source read covers line 28 and her Mirathorn operator role. The Plan-only final answer therefore ignored actual admitted source content. Evidence representation and synthesis remain to be repaired; sparse graph relationships alone are insufficient explanation.
+
+Verified continuity root cause: fresh policy turns perform pointer lookup before durable acceptance, under Plan/client identity, but completion stores under agent_conversation_segment with conversation/provenance-derived work identity. The first repair resolves the active server conversation and its provenance segment before assembly and uses the same server segment for completion writes. If active conversation changes before acceptance, provider dispatch is denied.
+
+Prior tool transcripts must not count as current-turn admission. The new compactor keeps visible questions/answers and revision-qualified node/source handles, drops old tool calls/results, and removes repeated Plan bodies (the current Ask supplies its own exact Plan). Its deterministic decisions and route inventory are available internally; product trace persistence/projection is still pending.
+
+Verification at this checkpoint: continuity/context/turn-service tests 101 passed, one PostgreSQL-owning route test excluded after its disposable server on :54329 refused connection. A broader harness run reached 42 passed then failed mixed_plugin_capability_policy_loads_both_surfaces with hermes_tool_surface_mismatch; the identical isolated test fails on unchanged parent #1118, so this is an inherited environment/tool-surface failure. Ruff and diff checks pass. No successor deployment or new provider acceptance run has occurred.
