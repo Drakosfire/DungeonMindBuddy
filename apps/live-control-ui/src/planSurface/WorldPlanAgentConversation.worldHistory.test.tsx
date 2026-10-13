@@ -83,6 +83,26 @@ function ensureWorldGraphAskDisabled() {
   if (toggle.getAttribute("aria-pressed") === "true") fireEvent.click(toggle);
 }
 
+async function expandAnswerEvidence(index = 0) {
+  await screen.findAllByText("Evidence trail");
+  const controls = Array.from(document.querySelectorAll<HTMLSummaryElement>(
+    ".world-plan-agent-conversation__evidence-trail > summary",
+  ));
+  const control = controls[index];
+  if (!control) throw new Error(`Answer evidence trail ${index + 1} is not mounted.`);
+  const disclosure = control.parentElement;
+  if (disclosure instanceof HTMLDetailsElement && !disclosure.open) fireEvent.click(control);
+  return disclosure;
+}
+
+async function expandAllAnswerEvidence() {
+  await screen.findAllByText("Evidence trail");
+  document.querySelectorAll<HTMLSummaryElement>(".world-plan-agent-conversation__evidence-trail > summary").forEach((control) => {
+    const disclosure = control.parentElement;
+    if (disclosure instanceof HTMLDetailsElement && !disclosure.open) fireEvent.click(control);
+  });
+}
+
 function openLatestTurnDetails() {
   const transcript = screen.getByRole("region", { name: "World conversation transcript" });
   const latestTurn = transcript.querySelector("article[data-sequence]");
@@ -2826,10 +2846,13 @@ describe("World Plan conversation consumer", () => {
     });
 
     const mounted = render(conversationElement());
+    const evidenceTrail = await screen.findByText("Evidence trail");
+    expect(evidenceTrail.closest("details")).not.toHaveAttribute("open");
+    fireEvent.click(evidenceTrail);
     const openEvidence = await screen.findByRole("button", { name: "Open evidence" });
-    expect(openEvidence.closest("details")).toBeNull();
-    expect(screen.getByText(/Some evidence passage choices could not be offered/)).toBeInTheDocument();
-    expect(screen.getByText(/Some related recap choices could not be offered/)).toBeInTheDocument();
+    expect(openEvidence.closest("details")).toBe(evidenceTrail.closest("details"));
+    expect(screen.getByText(/Some Graph passages could not be shown/)).toBeInTheDocument();
+    expect(screen.getByText(/Some related recap passages could not be shown/)).toBeInTheDocument();
     fireEvent.click(openEvidence);
     expect(await screen.findByLabelText("Evidence passage")).toHaveTextContent("Exact evidence passage");
     expect(evidenceRead).toHaveBeenCalledWith(expect.objectContaining({
@@ -2857,6 +2880,7 @@ describe("World Plan conversation consumer", () => {
     expect(recapRead).toHaveBeenLastCalledWith(expect.objectContaining({continuation: null}));
     mounted.unmount();
     render(conversationElement());
+    await expandAnswerEvidence();
     fireEvent.click(await screen.findByRole("button", {name: "Open related recap context"}));
     expect(await screen.findByLabelText("Related recap context passage")).toHaveTextContent("Related Session 22 passage");
     expect(recapRead).toHaveBeenLastCalledWith(expect.objectContaining({continuation: null}));
@@ -2878,6 +2902,7 @@ describe("World Plan conversation consumer", () => {
     if (fault === "old_cursor") next.nextContinuation = "recap-page:v1:" + "b".repeat(64) + ":26";
     vi.spyOn(liveApi, "postWorldGraphRecapContextReadV2").mockResolvedValueOnce(first).mockResolvedValueOnce(next);
     render(conversationElement());
+    await expandAnswerEvidence();
     fireEvent.click(await screen.findByRole("button", { name: "Open related recap context" }));
     await screen.findByLabelText("Related recap context passage");
     fireEvent.click(screen.getByRole("button", {name: "Load more context"}));
@@ -2893,6 +2918,7 @@ describe("World Plan conversation consumer", () => {
     let finish!: (page: typeof first) => void;
     vi.spyOn(liveApi, "postWorldGraphRecapContextReadV2").mockResolvedValueOnce(first).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
     const mounted = render(conversationElement());
+    await expandAnswerEvidence();
     fireEvent.click(await screen.findByRole("button", {name: "Open related recap context"}));
     await screen.findByLabelText("Related recap context passage");
     fireEvent.click(screen.getByRole("button", {name: "Load more context"}));
@@ -2911,7 +2937,8 @@ describe("World Plan conversation consumer", () => {
       1, "multiple-source-turn", "What is known?", "The western gate is watched.", context,
     )]));
     render(conversationElement());
-    const more = await screen.findByText("1 more source choice");
+    await expandAnswerEvidence();
+    const more = await screen.findByText("Show 1 more passage");
     expect(more.closest("details")).not.toHaveAttribute("open");
     fireEvent.click(more);
     expect(screen.getAllByRole("button", { name: /Open evidence/ })).toHaveLength(4);
@@ -2929,10 +2956,9 @@ describe("World Plan conversation consumer", () => {
       policyHistoryTurn(2, "metadata-unavailable-turn", "Second question", "Second answer", second),
     ]));
     render(conversationElement());
-    const summaries = await screen.findAllByText("Related recap context status");
-    summaries.forEach((summary) => fireEvent.click(summary));
-    expect(screen.getByText("No related recap passage matches this cited point.")).toBeInTheDocument();
-    expect(screen.getByText("Some related recap metadata could not be checked for this cited point.")).toBeInTheDocument();
+    await expandAllAnswerEvidence();
+    expect(screen.getByText("No related recap passage matched this claim.")).toBeInTheDocument();
+    expect(screen.getByText("Related recap details could not be checked for this claim.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Open related recap context" })).not.toBeInTheDocument();
   });
 
@@ -2952,6 +2978,7 @@ describe("World Plan conversation consumer", () => {
       contentSha256: "f".repeat(64), lineStart: 1, lineEnd: 2, truncated: false, diagnostics: [],
     });
     render(conversationElement());
+    await expandAnswerEvidence();
     fireEvent.click(await screen.findByRole("button", { name: "Open evidence" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/unavailable or did not match/);
     expect(screen.queryByText("Wrong passage")).not.toBeInTheDocument();
@@ -2987,6 +3014,7 @@ describe("World Plan conversation consumer", () => {
     ensureWorldGraphAskEnabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Who watches the gate?" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    fireEvent.click(await screen.findByText("Evidence trail"));
     fireEvent.click(await screen.findByRole("button", { name: "Open evidence" }));
     expect(read).toHaveBeenCalledTimes(1);
     expect(ask).toHaveBeenCalledTimes(1);
