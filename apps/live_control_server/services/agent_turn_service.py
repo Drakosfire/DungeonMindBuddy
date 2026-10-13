@@ -105,6 +105,7 @@ _LOG = logging.getLogger(__name__)
 def _is_provider_authorization(event: Any) -> bool:
     return getattr(event, "kind", None) in {
         "provider_attempt_authorized", "provider_attempt_authorized_v2",
+        "provider_attempt_authorized_v3",
     }
 
 
@@ -349,6 +350,11 @@ def _app_state_graph_execution_types() -> Any:
         "GraphExecutionAccountingV1",
         "GraphExecutionPolicyV1",
         "PlanWorldGraphExecutionV1",
+        "PlanWorldGraphExecutionV3",
+        "GraphExecutionPolicyV3",
+        "ValidatedGraphOperationEventV3",
+        "SourceScopeExtensionEventV3",
+        "ProviderAttemptAuthorizedEventV3",
         "ProviderAttemptAuthorizedEventV1",
         "ProviderOutcomeEventV1",
         "ValidatedGraphOperationEventV1",
@@ -379,6 +385,27 @@ def _require_fresh_execution_append(result: tuple[Any, bool]) -> Any:
             status_code=409,
         )
     return result[0]
+
+
+def _safe_graph_failure_category(exc: Exception) -> str:
+    """Return an allowlisted failure code without serializing exception details."""
+    if isinstance(exc, ValidationError):
+        return "validation_error"
+    if isinstance(exc, ApplicationStateConflictError):
+        return "persistence_conflict"
+    if isinstance(exc, (ApplicationStateError, psycopg.Error)):
+        return "persistence_error"
+    if isinstance(exc, AgentTurnServiceError):
+        return "application_error"
+    if isinstance(exc, (ConnectionError, TimeoutError, OSError)):
+        return "transport_error"
+    if isinstance(exc, ValueError):
+        return "value_error"
+    if isinstance(exc, TypeError):
+        return "type_error"
+    if isinstance(exc, KeyError):
+        return "key_error"
+    return "unexpected_error"
 
 
 def _canonical_sha256(value: Any) -> str:
@@ -933,23 +960,18 @@ def _freeze_policy_receipt(
             )
             if selected_index:
                 policy_fields["policy_version"] = "plan_world_graph_execution_selected_scope_v1"
-            source_enabled = bool(bootstrap.source_scope_anchors)
-            policy = graph_types.GraphExecutionPolicyV2(
+            policy = graph_types.GraphExecutionPolicyV3(
                 **policy_fields,
                 source_read_scope=scope,
-                max_source_read_calls=8 if source_enabled else 0,
-                max_source_read_anchors=8 if source_enabled else 0,
-                max_source_read_chars=96_000 if source_enabled else 0,
+                max_source_read_chars=96_000,
                 max_chars_per_source_read=12_000,
             )
-            execution = graph_types.PlanWorldGraphExecutionV2(
+            execution = graph_types.PlanWorldGraphExecutionV3(
                 context_receipt_sha256=receipt.context_receipt_sha256,
                 policy=policy,
-                execution_policy_sha256=_canonical_sha256({
-                    "schema": "dmb_agent_plan_world_graph_execution_v2",
-                    "context_receipt_sha256": receipt.context_receipt_sha256,
-                    "policy": policy.model_dump(mode="json", by_alias=True),
-                }),
+                execution_policy_sha256=graph_types.graph_execution_policy_digest_v3(
+                    receipt.context_receipt_sha256, policy,
+                ),
                 events=[],
             )
         else:
@@ -1052,6 +1074,11 @@ class AgentTurnExecutionPersistencePort(Protocol):
     def append_validated_graph_operation(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int, operation_event: Any,
+    ) -> tuple[Turn, bool]: ...
+
+    def extend_source_scope(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, extension: Any,
     ) -> tuple[Turn, bool]: ...
 
     def authorize_source_read(
@@ -1525,7 +1552,9 @@ class _PolicyExecutionAdapter:
                 )
             included_operations = [
                 event for event in execution.events
-                if getattr(event, "kind", None) == "validated_graph_operation"
+                if getattr(event, "kind", None) in {
+                    "validated_graph_operation", "validated_graph_operation_v3",
+                }
                 and (
                     payload := self.operation_payloads.get(event.event_id)
                 ) is not None
@@ -1620,13 +1649,22 @@ class _PolicyExecutionAdapter:
                     self.turn = updated
                     execution = self._broker_execution()
                     event_fields["sequence"] = len(execution.events)
-                event = graph_types.ProviderAttemptAuthorizedEventV2(
-                    kind="provider_attempt_authorized_v2",
-                    included_source_read_event_ids=[
-                        event.event_id for event in included_source_events
-                    ],
-                    **event_fields,
-                )
+                if isinstance(execution, graph_types.PlanWorldGraphExecutionV3):
+                    event = graph_types.ProviderAttemptAuthorizedEventV3(
+                        kind="provider_attempt_authorized_v3",
+                        included_source_read_event_ids=[
+                            event.event_id for event in included_source_events
+                        ],
+                        **event_fields,
+                    )
+                else:
+                    event = graph_types.ProviderAttemptAuthorizedEventV2(
+                        kind="provider_attempt_authorized_v2",
+                        included_source_read_event_ids=[
+                            event.event_id for event in included_source_events
+                        ],
+                        **event_fields,
+                    )
                 method_name = "authorize_provider_attempt_v2"
             else:
                 if included_source_events:
@@ -1735,6 +1773,8 @@ class _PolicyExecutionAdapter:
         from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
             direct_services_from_config, get_evidence_direct, get_neighborhood_direct,
             get_object_direct, search_world_graph_direct,
+            get_evidence_direct_v3, get_neighborhood_direct_v3,
+            get_object_direct_v3, search_world_graph_direct_v3,
         )
 
         def denied(code: str, status: int = 502) -> Mapping[str, Any]:
@@ -1742,15 +1782,19 @@ class _PolicyExecutionAdapter:
                                             "Parent Graph expansion could not be admitted.",
                                             arguments=message.get("arguments"))
 
+        stage = "request_validation"
         try:
             if self.fence is None or self.last_provider_attempt_id is None:
                 return denied("graph_operation_before_authorization", 409)
             execution = self._broker_execution()
             if execution is None or sum(
-                getattr(event, "kind", None) == "validated_graph_operation"
+                getattr(event, "kind", None) in {
+                    "validated_graph_operation", "validated_graph_operation_v3",
+                }
                 for event in execution.events
             ) >= execution.policy.max_graph_operations:
                 return denied("graph_operation_over_budget", 413)
+            graph_types = _app_state_graph_execution_types()
             arguments = message.get("arguments")
             if message.get("toolName") != "expand_graph_retrieval" or not isinstance(arguments, Mapping):
                 return denied("plan_graph_tool_not_permitted", 403)
@@ -1781,6 +1825,7 @@ class _PolicyExecutionAdapter:
                 "admissibility": "gm",
                 "revisionPin": self.bootstrap.world_scope.revision_id,
             }
+            stage = "native_retrieval"
             services = direct_services_from_config(self.bootstrap.world_scope.world_id)
             if request.operation == "object":
                 if len(target_ids) != 1:
@@ -1789,7 +1834,11 @@ class _PolicyExecutionAdapter:
                     **common, "schema": "dmb_world_graph_object_request_v1",
                     "nodeId": target_ids[0],
                 })
-                result = get_object_direct(services, effective_request)
+                resolved = (
+                    get_object_direct_v3(services, effective_request)
+                    if isinstance(execution, graph_types.PlanWorldGraphExecutionV3) else None
+                )
+                result = resolved.result if resolved is not None else get_object_direct(services, effective_request)
             elif request.operation == "neighborhood":
                 if not 1 <= len(target_ids) <= 8:
                     return denied("ambiguous_target", 422)
@@ -1797,7 +1846,11 @@ class _PolicyExecutionAdapter:
                     **common, "schema": "dmb_world_graph_neighborhood_request_v1",
                     "seedNodeIds": target_ids, "maxDepth": request.depth,
                 })
-                result = get_neighborhood_direct(services, effective_request)
+                resolved = (
+                    get_neighborhood_direct_v3(services, effective_request)
+                    if isinstance(execution, graph_types.PlanWorldGraphExecutionV3) else None
+                )
+                result = resolved.result if resolved is not None else get_neighborhood_direct(services, effective_request)
             elif request.operation == "support":
                 if len(target_ids) != 1:
                     return denied("ambiguous_target", 422)
@@ -1805,14 +1858,23 @@ class _PolicyExecutionAdapter:
                     **common, "schema": "dmb_world_graph_evidence_request_v1",
                     "target": {"kind": "node", "id": target_ids[0]},
                 })
-                result = get_evidence_direct(services, effective_request)
+                resolved = (
+                    get_evidence_direct_v3(services, effective_request)
+                    if isinstance(execution, graph_types.PlanWorldGraphExecutionV3) else None
+                )
+                result = resolved.result if resolved is not None else get_evidence_direct(services, effective_request)
             else:
                 effective_request = WorldGraphSearchRequest.model_validate({
                     **common, "schema": "dmb_world_graph_search_request_v1",
                     "queryText": request.query_text or session.question,
                     "seedNodeIds": target_ids[:8],
                 })
-                result = search_world_graph_direct(services, effective_request)
+                resolved = (
+                    search_world_graph_direct_v3(services, effective_request)
+                    if isinstance(execution, graph_types.PlanWorldGraphExecutionV3) else None
+                )
+                result = resolved.result if resolved is not None else search_world_graph_direct(services, effective_request)
+            stage = "result_validation"
             if (
                 result.snapshot is None
                 or result.snapshot.world_id != self.bootstrap.world_scope.world_id
@@ -1831,6 +1893,16 @@ class _PolicyExecutionAdapter:
             })
             if len(assertion_ids) + len(relationship_ids) + len(evidence_ids) > 512:
                 return denied("graph_operation_over_budget", 413)
+            returned_source_pins = []
+            if resolved is not None:
+                for pin in resolved.source_pins:
+                    if pin.graph_revision != result.snapshot.revision_id:
+                        raise ValueError("Native source pin differs from operation Graph revision")
+                    returned_source_pins.append(graph_types.GraphSourceScopeAnchorV2(
+                        anchor_id=pin.anchor_id, evidence_ref_id=pin.evidence_ref_id,
+                        source_artifact_id=pin.source_artifact_id,
+                        source_revision_id=pin.source_revision_id,
+                    ))
             sufficient = bool((assertion_ids or relationship_ids) and evidence_ids)
             truncated = result.outcome == "truncated" or bool(
                 result.coverage.truncated_fields
@@ -1839,12 +1911,15 @@ class _PolicyExecutionAdapter:
                 offers = self._related_recap_offers(result, services)
                 if offers:
                     result_payload["relatedRecapContexts"] = offers
-            graph_types = _app_state_graph_execution_types()
             event_id = uuid4()
-            event = graph_types.ValidatedGraphOperationEventV1(
+            event_type = (
+                graph_types.ValidatedGraphOperationEventV3
+                if isinstance(self._broker_execution(), graph_types.PlanWorldGraphExecutionV3)
+                else graph_types.ValidatedGraphOperationEventV1
+            )
+            event_fields = dict(
                 event_id=event_id,
                 sequence=len(self._broker_execution().events),
-                kind="validated_graph_operation",
                 operation_id=uuid4(), operation="expand_graph_retrieval",
                 request_arguments_sha256=_canonical_sha256(normalized),
                 graph_revision=self.bootstrap.world_scope.revision_id,
@@ -1862,12 +1937,45 @@ class _PolicyExecutionAdapter:
                 truncated=truncated,
                 source_opened=False,
             )
+            if event_type is graph_types.ValidatedGraphOperationEventV3:
+                event = event_type(
+                    **event_fields, kind="validated_graph_operation_v3",
+                    returned_source_pins=returned_source_pins,
+                )
+            else:
+                event = event_type(**event_fields, kind="validated_graph_operation")
+            stage = "persistence"
             updated = _require_fresh_execution_append(
                 self.fence.append(
                     "append_validated_graph_operation", "operation_event", event
                 )
             )
             self.turn = updated
+            if (
+                isinstance(self._broker_execution(), graph_types.PlanWorldGraphExecutionV3)
+                and returned_source_pins
+            ):
+                receipt = self._broker_receipt()
+                authority = receipt.graph_authority
+                extension = graph_types.SourceScopeExtensionEventV3(
+                    event_id=uuid4(),
+                    sequence=len(self._broker_execution().events),
+                    kind="source_scope_extension_v3",
+                    origin_graph_event_id=event.event_id,
+                    context_receipt_sha256=self._broker_execution().context_receipt_sha256,
+                    execution_policy_sha256=self._broker_execution().execution_policy_sha256,
+                    world_id=authority.managed_world_id,
+                    native_world_id=authority.native_world_id,
+                    binding_version=authority.binding_version,
+                    campaign_id=authority.campaign_id,
+                    graph_revision=authority.graph_revision,
+                    retrieval_session_id=self.bootstrap.retrieval_session.id,
+                    pins=returned_source_pins,
+                )
+                updated = _require_fresh_execution_append(
+                    self.fence.append("extend_source_scope", "extension", extension)
+                )
+                self.turn = updated
             if self.context_capture is not None:
                 self.context_capture.observe(graph_operation_observation(
                     request=effective_request, result=result, result_payload=result_payload,
@@ -1901,6 +2009,11 @@ class _PolicyExecutionAdapter:
                 "retrievalSession": session.project_for_hermes(),
             }
         except Exception as exc:
+            category = _safe_graph_failure_category(exc)
+            _LOG.warning(
+                "plan_graph_parent_failure stage=%s error_code=%s",
+                stage, category,
+            )
             self.failure = (
                 exc if isinstance(exc, AgentTurnServiceError)
                 else AgentTurnServiceError(
@@ -2076,7 +2189,11 @@ class _PolicyExecutionAdapter:
             if len(set(request.anchor_ids)) != len(request.anchor_ids):
                 return denied("duplicate_source_anchor", 422)
             admitted = {anchor.anchor_id: anchor for anchor in session.source_anchors}
-            frozen = {anchor.anchor_id: anchor for anchor in scope.admitted_anchors}
+            frozen = (
+                execution.effective_source_pins()
+                if isinstance(execution, graph_types.PlanWorldGraphExecutionV3)
+                else {anchor.anchor_id: anchor for anchor in scope.admitted_anchors}
+            )
             if any(
                 anchor_id not in admitted or not admitted[anchor_id].readable
                 or anchor_id not in frozen
@@ -2085,9 +2202,12 @@ class _PolicyExecutionAdapter:
                 return denied("source_anchor_not_admitted", 403)
             prior_auth = [event for event in execution.events if getattr(event, "kind", None) == "source_read_authorized_v2"]
             if (
-                len(prior_auth) >= execution.policy.max_source_read_calls
-                or sum(len(event.anchors) for event in prior_auth) + len(request.anchor_ids)
-                > execution.policy.max_source_read_anchors
+                (not isinstance(execution, graph_types.PlanWorldGraphExecutionV3)
+                 and (
+                    len(prior_auth) >= execution.policy.max_source_read_calls
+                    or sum(len(event.anchors) for event in prior_auth) + len(request.anchor_ids)
+                    > execution.policy.max_source_read_anchors
+                 ))
                 or sum(event.max_chars * len(event.anchors) for event in prior_auth)
                 + request.max_chars * len(request.anchor_ids)
                 > execution.policy.max_source_read_chars
@@ -2266,7 +2386,9 @@ class _PolicyExecutionAdapter:
             origin = "initial_graph_input"
         else:
             for event in execution.events:
-                if getattr(event, "kind", None) != "validated_graph_operation":
+                if getattr(event, "kind", None) not in {
+                    "validated_graph_operation", "validated_graph_operation_v3",
+                }:
                     continue
                 admitted_targets = (
                     event.assertion_ids if request.target_kind == "assertion"
@@ -2809,7 +2931,9 @@ def _parse_policy_completion(
         )
         operations = {
             event.event_id: event for event in execution.events
-            if getattr(event, "kind", None) == "validated_graph_operation"
+            if getattr(event, "kind", None) in {
+                "validated_graph_operation", "validated_graph_operation_v3",
+            }
         }
         bindings: dict[str, list[UUID]] = {}
         for segment in typed_segments:
@@ -3695,7 +3819,12 @@ def _evidence_anchor_open_projection(
     ):
         return [], []
     pins_by_evidence: dict[str, list[Any]] = {}
-    for pin in scope.admitted_anchors:
+    effective_pins = (
+        execution.effective_source_pins().values()
+        if isinstance(execution, graph_types.PlanWorldGraphExecutionV3)
+        else scope.admitted_anchors
+    )
+    for pin in effective_pins:
         pins_by_evidence.setdefault(pin.evidence_ref_id, []).append(pin)
 
     binding = next(
@@ -3705,7 +3834,9 @@ def _evidence_anchor_open_projection(
     producing_attempt = next(
         (
             event for event in execution.events
-            if getattr(event, "kind", None) == "provider_attempt_authorized_v2"
+            if getattr(event, "kind", None) in {
+                "provider_attempt_authorized_v2", "provider_attempt_authorized_v3",
+            }
             and binding is not None
             and event.provider_attempt_id == binding.provider_attempt_id
         ),
@@ -4355,6 +4486,8 @@ def execute_agent_turn(
         required_methods = (
             "accept_turn", "claim_turn", "authorize_provider_attempt",
             "record_provider_outcome", "append_validated_graph_operation",
+            "extend_source_scope", "authorize_source_read",
+            "record_validated_source_read", "authorize_provider_attempt_v2",
             "complete_turn", "fail_turn", "renew_turn_claim",
         )
         if any(

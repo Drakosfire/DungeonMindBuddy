@@ -21,7 +21,6 @@ _OBSERVATION = TypeAdapter(ContextTraceObservation)
 # errors are deliberately not eligible for receipt-only cap fallback.
 _SOURCE_CAPTURE_LIMITS = {
     "trace exceeds the explicit 1 MiB per-attempt ceiling": "trace_size_limit",
-    "captured source passages exceed the 8-read turn ceiling": "source_read_capture_limit",
     "captured source passages exceed the 96,000 character turn ceiling": "source_character_capture_limit",
 }
 

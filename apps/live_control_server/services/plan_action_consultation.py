@@ -13,7 +13,8 @@ from pydantic import BaseModel, ConfigDict, TypeAdapter
 from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation.types import (
     GraphExecutionAccountingV1,
-    GraphExecutionPolicyV2,
+    GraphExecutionPolicyV3,
+    PlanWorldGraphExecutionV3,
     GraphSelectedSourceReadScopeV2,
     GraphSourceReadScopeV2,
     PlanAskContextBasis,
@@ -169,6 +170,8 @@ class ActionPolicyExecutionAdapter(_PolicyExecutionAdapter):
         self.operation_payloads: dict[UUID, str] = {}
         self.source_payloads: dict[UUID, str] = {}
         self.context_payloads: dict[UUID, str] = {}
+        self.denied_tool_payloads: dict[str, list[tuple[str, str]]] = {}
+        self.context_capture = None
         self.context_read_enabled = True
         self.required_context_failed = False
 
@@ -280,7 +283,7 @@ def _freeze_action_inputs(
     history_conversation_id: UUID | None,
     history_attribution: tuple[Any, ...],
     expected_world_pointer: WorldPointer | None,
-) -> tuple[Any, GraphExecutionPolicyV2]:
+) -> tuple[Any, GraphExecutionPolicyV3]:
     """Commit the actual first provider envelope under the APP action basis."""
     if expected_world_pointer is None or expected_world_pointer.active_conversation_id is None:
         raise ValueError("Sourced consultation requires an active World conversation")
@@ -390,7 +393,7 @@ def _freeze_action_inputs(
         if selected
         else GraphSourceReadScopeV2(**scope_fields)
     )
-    policy = GraphExecutionPolicyV2(
+    policy = GraphExecutionPolicyV3(
         policy_version=(
             "plan_world_graph_execution_selected_scope_v1"
             if selected else "plan_world_graph_execution_v1"
@@ -406,9 +409,7 @@ def _freeze_action_inputs(
         ),
         source_opened=False,
         source_read_scope=scope,
-        max_source_read_calls=8 if bootstrap.source_scope_anchors else 0,
-        max_source_read_anchors=8 if bootstrap.source_scope_anchors else 0,
-        max_source_read_chars=96_000 if bootstrap.source_scope_anchors else 0,
+        max_source_read_chars=96_000,
         max_chars_per_source_read=12_000,
     )
     return receipt, policy
@@ -534,14 +535,18 @@ def _parse_action_result(
     )
     auth = next((
         event for event in execution.events
-        if getattr(event, "kind", None) == "provider_attempt_authorized_v2"
+        if getattr(event, "kind", None) in {
+            "provider_attempt_authorized_v2", "provider_attempt_authorized_v3"
+        }
         and event.provider_attempt_id == producing_attempt_id
     ), None)
     if auth is None:
         raise ValueError("Action has no producing provider authorization")
     operations = {
         event.event_id: event for event in execution.events
-        if getattr(event, "kind", None) == "validated_graph_operation"
+        if getattr(event, "kind", None) in {
+            "validated_graph_operation", "validated_graph_operation_v3"
+        }
     }
     bindings: dict[str, list[UUID]] = {}
     for segment in segments:
@@ -668,11 +673,18 @@ def _source_open_targets(action: PlanActionRecord) -> list[dict[str, Any]]:
     if authority is None or scope.world_id != authority.managed_world_id or scope.graph_revision != authority.graph_revision:
         return []
     pins_by_evidence: dict[str, list[Any]] = {}
-    for pin in scope.admitted_anchors:
+    effective_pins = (
+        execution.effective_source_pins().values()
+        if isinstance(execution, PlanWorldGraphExecutionV3)
+        else scope.admitted_anchors
+    )
+    for pin in effective_pins:
         pins_by_evidence.setdefault(pin.evidence_ref_id, []).append(pin)
     auth = next((
         event for event in execution.events
-        if getattr(event, "kind", None) == "provider_attempt_authorized_v2"
+        if getattr(event, "kind", None) in {
+            "provider_attempt_authorized_v2", "provider_attempt_authorized_v3"
+        }
         and event.provider_attempt_id == result.producing_provider_attempt_id
     ), None)
     included_ids = set(auth.included_source_read_event_ids) if auth else set()

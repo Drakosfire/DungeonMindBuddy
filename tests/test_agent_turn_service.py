@@ -160,8 +160,12 @@ def test_plan_context_policy_cannot_be_accepted_without_frozen_provider_receipt(
     assert caught.value.code == "plan_graph_receipt_unavailable"
 
 
+@pytest.mark.parametrize('missing_method', [
+    'all', 'extend_source_scope', 'authorize_source_read',
+    'record_validated_source_read', 'authorize_provider_attempt_v2',
+])
 def test_plan_context_policy_fails_after_replay_preflight_before_mutable_reads(
-    tmp_path: Path,
+    tmp_path: Path, missing_method: str,
 ) -> None:
     request = _request(
         surface={"surface_id": "plan", "instance_id": "plan-main"},
@@ -179,6 +183,11 @@ def test_plan_context_policy_fails_after_replay_preflight_before_mutable_reads(
 
     class ReconcileOnly:
         calls = 0
+
+        def __getattr__(self, name):
+            if missing_method == 'all' or name == missing_method:
+                return None
+            return lambda *_a, **_kw: pytest.fail('incompatible producer must fail before any mutable call')
 
         def reconcile_turn(self, *_args: Any) -> None:
             self.calls += 1
@@ -1742,6 +1751,364 @@ def test_parent_source_broker_persists_authorization_before_content_and_result_b
         clear_sessions()
 
 
+def test_v3_parent_admits_traversal_pin_reads_it_and_binds_opened_citation(
+    monkeypatch: Any,
+) -> None:
+    from types import SimpleNamespace
+
+    from application_state.agent_conversation import types as graph_types
+    from apps.live_control_server.services import agent_turn_service as service_module
+    from apps.live_control_server.services.agent_runtime import AgentWorldScope
+    from graph_memory.interaction.session import (
+        CoverageState, GraphRetrievalSession, SessionSnapshot,
+    )
+    from graph_memory.interaction.session_store import (
+        clear_sessions, create_session,
+    )
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference",
+        lambda **_kwargs: ("openai-api", "gpt-6-luna", "https://api.openai.com/v1"),
+    )
+    turn = _policy_turn(status="running", completion_present=False)
+    receipt = turn.graph_context_receipt
+    assert receipt is not None
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id=receipt.graph_authority.native_world_id, campaign_id="",
+            focus={"kind": "none"}, admissibility="gm",
+            revision_id=receipt.graph_authority.graph_revision, scope_mode="world",
+        ),
+        question="Where is the gate?", coverage=CoverageState(state="ready"),
+    )
+    scope = graph_types.GraphSourceReadScopeV2(
+        retrieval_session_id=session.id,
+        world_id=receipt.graph_authority.managed_world_id,
+        campaign_id=None, graph_revision=receipt.graph_authority.graph_revision,
+        admitted_anchors=[],
+    )
+    policy = graph_types.GraphExecutionPolicyV3(
+        policy_version="plan_world_graph_execution_v1",
+        allowed_graph_operations=["expand_graph_retrieval"],
+        max_provider_attempts=4, max_graph_operations=8, max_results_per_operation=512,
+        max_total_provider_input_tokens=100_000,
+        max_total_provider_output_tokens=10_000,
+        provider_input_accounting=graph_types.GraphExecutionAccountingV1(
+            kind="conservative_upper_bound",
+            estimator="utf8_json_bytes_plus_64_per_node_v1",
+        ),
+        source_opened=False, source_read_scope=scope,
+        max_source_read_chars=96_000, max_chars_per_source_read=12_000,
+    )
+    initial_attempt_id = uuid4()
+    initial_attempt = graph_types.ProviderAttemptAuthorizedEventV3(
+        event_id=uuid4(), sequence=0, kind="provider_attempt_authorized_v3",
+        provider_attempt_id=initial_attempt_id, envelope_sha256="b" * 64,
+        serializer_version="canonical-json-utf8-v1", provider="openai-api",
+        model="gpt-6-luna", api_mode="codex_responses",
+        tool_schema_sha256="c" * 64,
+        input_accounting_kind="conservative_upper_bound",
+        input_estimator="utf8_json_bytes_plus_64_per_node_v1",
+        input_tokens=1000, output_token_reserve=2048,
+        included_assertion_ids=[], included_relationship_ids=[],
+        included_evidence_ref_ids=[], included_graph_event_ids=[],
+        included_source_read_event_ids=[],
+    )
+    initial_sdk = graph_types.ProviderOutcomeEventV1(
+        event_id=uuid4(), sequence=1, kind="provider_outcome",
+        provider_attempt_id=initial_attempt_id, outcome="sdk_entered",
+    )
+    initial_outcome = graph_types.ProviderOutcomeEventV1(
+        event_id=uuid4(), sequence=2, kind="provider_outcome",
+        provider_attempt_id=initial_attempt_id, outcome="response_received",
+    )
+    execution = graph_types.PlanWorldGraphExecutionV3(
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        execution_policy_sha256=graph_types.graph_execution_policy_digest_v3(
+            receipt.context_receipt_sha256, policy,
+        ),
+        policy=policy, events=[initial_attempt, initial_sdk, initial_outcome],
+    )
+    turn = turn.model_copy(update={"graph_context_execution": execution})
+    append_order: list[str] = []
+
+    class Fence:
+        def __init__(self) -> None:
+            self.turn = turn
+
+        def append(
+            self, method: str, _event_name: str, event: Any, **_extras: Any,
+        ) -> tuple[Turn, bool]:
+            append_order.append(method)
+            current = self.turn.graph_context_execution
+            assert isinstance(current, graph_types.PlanWorldGraphExecutionV3)
+            updated_execution = graph_types.PlanWorldGraphExecutionV3.model_validate({
+                **current.model_dump(mode="json", by_alias=True),
+                "events": [
+                    *[item.model_dump(mode="json", by_alias=True) for item in current.events],
+                    event.model_dump(mode="json", by_alias=True),
+                ],
+            })
+            self.turn = self.turn.model_copy(update={
+                "graph_context_execution": updated_execution,
+                "revision": self.turn.revision + 1,
+            })
+            return self.turn, True
+
+    pins = [graph_types.GraphSourceScopeAnchorV2(
+        anchor_id=f"anchor:discovered:{index:02d}",
+        evidence_ref_id=f"evidence:discovered:{index:02d}",
+        source_artifact_id=f"artifact:discovered:{index:02d}",
+        source_revision_id=f"source-revision:discovered:{index:02d}",
+    ) for index in range(9)]
+    cited_pin = pins[0]
+    native_result = SimpleNamespace(
+        snapshot=SimpleNamespace(
+            world_id=receipt.graph_authority.native_world_id,
+            revision_id=receipt.graph_authority.graph_revision,
+        ),
+        attributes=(SimpleNamespace(
+            assertion_id="assertion:discovered",
+            evidence_ref_ids=tuple(pin.evidence_ref_id for pin in pins),
+        ),),
+        relationships=(),
+        source_anchors=tuple(SimpleNamespace(
+            anchor_id=pin.anchor_id, evidence_ref_id=pin.evidence_ref_id,
+            source_artifact_id=pin.source_artifact_id,
+            revision_id=pin.source_revision_id, readable=True,
+            locator_kind="repo_span",
+        ) for pin in pins),
+        coverage=SimpleNamespace(truncated_fields=("relationships",)),
+        outcome="truncated",
+        model_dump=lambda **_kwargs: {
+            "schema": "dmb_world_graph_retrieval_result_v1",
+            "operation": "search", "outcome": "truncated",
+            "attributes": [{
+                "assertionId": "assertion:discovered",
+                "evidenceRefIds": [pin.evidence_ref_id for pin in pins],
+            }],
+            "sourceAnchors": [{
+                "anchorId": pin.anchor_id,
+                "evidenceRefId": pin.evidence_ref_id,
+                "sourceArtifactId": pin.source_artifact_id,
+                "revisionId": pin.source_revision_id, "readable": True,
+            } for pin in pins],
+            "coverage": {"truncatedFields": ["relationships"]},
+        },
+    )
+    from graph_memory.interaction import authority_classifier
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads
+
+    monkeypatch.setattr(authority_classifier, "claims_from_retrieval_result", lambda *_a, **_kw: [])
+    monkeypatch.setattr(world_graph_reads, "direct_services_from_config", lambda *_a: object())
+    monkeypatch.setattr(world_graph_reads, "search_world_graph_direct_v3", lambda *_a: SimpleNamespace(
+        result=native_result, source_pins=[SimpleNamespace(
+            **pin.model_dump(), graph_revision=receipt.graph_authority.graph_revision,
+        ) for pin in pins],
+    ))
+    contents = {
+        pin.anchor_id: f"Passage for discovered source {index}."
+        for index, pin in enumerate(pins)
+    }
+
+    def read_source(arguments: Any, *, receipt_version: int) -> dict[str, Any]:
+        assert receipt_version == 2
+        assert append_order[-1] == "authorize_source_read"
+        returned = []
+        for anchor_id in arguments["anchorIds"]:
+            pin = next(item for item in pins if item.anchor_id == anchor_id)
+            content = contents[anchor_id]
+            content_digest = sha256(content.encode()).hexdigest()
+            read_id = f"source-read:{anchor_id.rsplit(':', 1)[1]}"
+            returned.append({
+                "sourceReadId": read_id,
+                "result": {
+                    "schema": "dmb_world_graph_source_anchor_read_v1",
+                    "outcome": "enough", "anchorId": pin.anchor_id,
+                    "content": content, "contentSha256": content_digest,
+                    "evidenceRefId": pin.evidence_ref_id,
+                    "sourceArtifactId": pin.source_artifact_id,
+                    "lineStart": 1, "lineEnd": 1, "truncated": False,
+                },
+                "receipt": {
+                    "source_read_id": read_id,
+                    "retrieval_session_id": session.id,
+                    "graph_revision": receipt.graph_authority.graph_revision,
+                    "anchor_id": pin.anchor_id,
+                    "evidence_ref_id": pin.evidence_ref_id,
+                    "source_artifact_id": pin.source_artifact_id,
+                    "source_revision_id": pin.source_revision_id,
+                    "read_content_sha256": content_digest,
+                    "outcome": "enough", "truncated": False,
+                },
+            })
+        return {
+            "schema": "dmb_internal_read_graph_source_batch_v2",
+            "retrievalSessionId": session.id,
+            "reads": returned,
+        }
+
+    monkeypatch.setattr(
+        "graph_memory.interaction.expansion_executor.execute_read_graph_source",
+        read_source,
+    )
+    bootstrap = service_module.AgentPlanWorldGraphBootstrap(
+        graph_envelope={},
+        world_scope=AgentWorldScope(
+            world_id=receipt.graph_authority.native_world_id, campaign_id="",
+            focus={"kind": "none"}, admissibility="gm",
+            revision_id=receipt.graph_authority.graph_revision, scope_mode="world",
+        ),
+        retrieval_session=session, binding_version=receipt.graph_authority.binding_version,
+        source_root_relpath="corpus", candidate_assertion_ids=(),
+        candidate_relationship_ids=(), candidate_evidence_ref_ids=(),
+        evidence_by_anchor_id={}, source_scope_anchors=(),
+    )
+    budget = service_module._policy_request_budget()
+    adapter = service_module._PolicyExecutionAdapter(
+        service=object(), request=_request(), world_id=receipt.graph_authority.managed_world_id,
+        work=None, bootstrap=bootstrap, playable_target=None, submitted_intent=None,
+        existing_turn=turn, budget=budget,
+    )
+    adapter.fence = Fence()
+    adapter.last_provider_attempt_id = initial_attempt_id
+    adapter.producing_provider_attempt_id = initial_attempt_id
+    adapter._ensure_claimed = lambda _view: (adapter.fence.turn, [], [], [])
+    clear_sessions()
+    create_session(session)
+    try:
+        graph_arguments = {
+            "retrievalSessionId": session.id, "operation": "search",
+        }
+        graph_reply = adapter.broker_graph_operation({
+            "toolName": "expand_graph_retrieval", "arguments": graph_arguments,
+        })
+        assert all(content not in graph_reply["resultJson"] for content in contents.values())
+        execution_after_graph = adapter.fence.turn.graph_context_execution
+        assert isinstance(execution_after_graph, graph_types.PlanWorldGraphExecutionV3)
+        origin, extension = execution_after_graph.events[-2:]
+        assert origin.kind == "validated_graph_operation_v3"
+        assert origin.returned_source_pins == pins
+        assert extension.kind == "source_scope_extension_v3"
+        assert extension.origin_graph_event_id == origin.event_id
+        assert extension.pins == origin.returned_source_pins
+        assert execution_after_graph.policy.source_read_scope.admitted_anchors == []
+
+        assert len(session.source_anchors) == 9
+        source_replies = []
+        input_items = [
+            {"type": "function_call", "call_id": "graph-call",
+             "name": "expand_graph_retrieval", "arguments": json.dumps(graph_arguments)},
+            {"type": "function_call_output", "call_id": "graph-call",
+             "output": graph_reply["resultJson"]},
+        ]
+        for index, pin in enumerate(pins):
+            source_arguments = {
+                "retrievalSessionId": session.id, "anchorIds": [pin.anchor_id],
+            }
+            source_reply = adapter.broker_source_read({
+                "toolName": "read_graph_source", "arguments": source_arguments,
+            })
+            assert contents[pin.anchor_id] in source_reply["resultJson"]
+            source_replies.append(source_reply)
+            input_items.extend([
+                {"type": "function_call", "call_id": f"source-call-{index}",
+                 "name": "read_graph_source", "arguments": json.dumps(source_arguments)},
+                {"type": "function_call_output", "call_id": f"source-call-{index}",
+                 "output": source_reply["resultJson"]},
+            ])
+        assert append_order[-18:] == [
+            part for _ in pins for part in (
+                "authorize_source_read", "record_validated_source_read",
+            )
+        ]
+        payload = json.dumps({"input": input_items, "tools": []})
+        provider_view = {
+            "provider": budget["provider"], "model": budget["model"],
+            "apiMode": budget["apiMode"], "payloadJson": payload,
+            "payloadSha256": sha256(payload.encode()).hexdigest(),
+            "payloadUtf8Bytes": len(payload.encode()),
+        }
+        assert adapter.authorize(provider_view) is True
+        assert adapter.record_lifecycle({"transition": "sdk_entered"}) is True
+        assert adapter.record_lifecycle({"transition": "response_received"}) is True
+        final_execution = adapter.fence.turn.graph_context_execution
+        assert isinstance(final_execution, graph_types.PlanWorldGraphExecutionV3)
+        final_authorization = final_execution.events[-3]
+        read_event = next(
+            event for event in final_execution.events
+            if event.kind == "validated_source_read_v2"
+        )
+        assert final_authorization.kind == "provider_attempt_authorized_v3"
+        assert len(final_authorization.included_source_read_event_ids) == 9
+        assert read_event.event_id in final_authorization.included_source_read_event_ids
+        assert final_authorization.included_graph_event_ids == [origin.event_id]
+
+        model_answer = json.dumps({
+            "answer_context_status": "graph_grounded_partial",
+            "answer_segments": [{
+                "kind": "graph_claim", "claim_id": "claim:gate",
+                "text": "The gate is sealed with blue wax.",
+                "target_kind": "assertion", "target_id": "assertion:discovered",
+                "graph_revision": receipt.graph_authority.graph_revision,
+                "evidence_ref_ids": [cited_pin.evidence_ref_id],
+            }],
+            "citation_map": {"entries": [{
+                "claim_id": "claim:gate", "target_kind": "assertion",
+                "target_id": "assertion:discovered",
+                "graph_revision": receipt.graph_authority.graph_revision,
+                "evidence_ref_ids": [cited_pin.evidence_ref_id], "source_opened": False,
+            }]},
+        })
+        completion, bindings, _answer = service_module._parse_policy_completion(
+            model_answer, adapter.fence.turn, adapter.producing_provider_attempt_id,
+        )
+        assert completion.citation_map is not None
+        citation = completion.citation_map.entries[0]
+        assert citation.source_opened is True
+        assert citation.source_read_ids == ["source-read:00"]
+        assert bindings["claim:gate"] == [origin.event_id]
+        completion_binding = graph_types.CompletionBindingEventV1(
+            event_id=uuid4(), sequence=len(final_execution.events),
+            kind="completion_binding",
+            provider_attempt_id=adapter.producing_provider_attempt_id,
+            completion_sha256=service_module._canonical_sha256(
+                completion.model_dump(mode="json", by_alias=True)
+            ),
+            claim_graph_event_ids=bindings,
+        )
+        bound_execution = graph_types.PlanWorldGraphExecutionV3.model_validate({
+            **final_execution.model_dump(mode="json", by_alias=True),
+            "events": [
+                *[item.model_dump(mode="json", by_alias=True) for item in final_execution.events],
+                completion_binding.model_dump(mode="json", by_alias=True),
+            ],
+        })
+        graph_types.validate_execution_completion(
+            completion, receipt, bound_execution,
+            adapter.producing_provider_attempt_id, bindings,
+        )
+        projected, _statuses = service_module._evidence_anchor_open_projection(
+            adapter.fence.turn.model_copy(update={
+                "completion": completion, "graph_context_execution": bound_execution,
+            }),
+        )
+        assert len(projected) == 1
+        assert projected[0].source_read_id == citation.source_read_ids[0]
+        assert projected[0].anchor_id == cited_pin.anchor_id
+        from apps.live_control_server.services.plan_action_consultation import _source_open_targets
+        saved_plan_targets = _source_open_targets(SimpleNamespace(consultation=SimpleNamespace(
+            receipt=receipt, execution=bound_execution,
+            result=SimpleNamespace(kind='clarification', citation_map=completion.citation_map,
+                                   producing_provider_attempt_id=adapter.producing_provider_attempt_id),
+        )))
+        assert len(saved_plan_targets) == 1
+        assert saved_plan_targets[0]['source_read_id'] == citation.source_read_ids[0]
+        assert saved_plan_targets[0]['anchor_id'] == cited_pin.anchor_id
+    finally:
+        clear_sessions()
+
+
 def _related_recap_broker_fixture(monkeypatch: Any) -> Any:
     from types import SimpleNamespace
     from application_state.agent_conversation import types as graph_types
@@ -2438,11 +2805,12 @@ def test_reconciled_turn_context_policy_before_provider_freeze(
             )
             assert isinstance(execution, (
                 graph_types.PlanWorldGraphExecutionV1 if frozen_v1
-                else graph_types.PlanWorldGraphExecutionV2
+                else graph_types.PlanWorldGraphExecutionV3
             ))
             if not frozen_v1:
                 assert execution.policy.source_read_scope.admitted_anchors == []
-                assert execution.policy.max_source_read_calls == 0
+                assert execution.policy.max_source_read_chars == 96_000
+                assert not hasattr(execution.policy, "max_source_read_calls")
                 existing_without_ledger = accepted.model_copy(update={
                     "graph_context_receipt": frozen_receipt,
                     "graph_context_execution": None,
@@ -2834,19 +3202,20 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     assert source_receipt.assembled_input.dispatched_relationship_ids == ["rel:seed"]
     assert source_receipt.assembled_input.dispatched_evidence_ref_ids == ["ev:one"]
     assert source_receipt.source_opened is False
-    assert isinstance(source_execution, graph_types.PlanWorldGraphExecutionV2)
+    assert isinstance(source_execution, graph_types.PlanWorldGraphExecutionV3)
     assert source_execution.policy.source_read_scope.world_id == "world:one"
     assert source_execution.policy.source_read_scope.admitted_anchors[0].source_revision_id == (
         "source-revision:one"
     )
-    assert source_execution.policy.max_source_read_calls == 8
+    assert source_execution.policy.max_source_read_chars == 96_000
+    assert not hasattr(source_execution.policy, "max_source_read_calls")
     _, context_execution, _ = service_module._freeze_policy_receipt(
         request, work, bootstrap, None, view, budget,
         context_read_enabled=True,
     )
-    assert isinstance(context_execution, graph_types.PlanWorldGraphExecutionV2)
+    assert isinstance(context_execution, graph_types.PlanWorldGraphExecutionV3)
     assert context_execution.policy.source_read_scope.admitted_anchors == []
-    assert context_execution.policy.max_source_read_calls == 0
+    assert context_execution.policy.max_source_read_chars == 96_000
 
     class FakeExecutionPort:
         # This execution-ledger fake has no previous conversation to restore.
@@ -2912,6 +3281,15 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
 
         def append_validated_graph_operation(self, _world_id: str, _conversation_id: Any, _turn_id: Any, *, expected_revision: int, expected_attempt: int, operation_event: Any) -> tuple[Turn, bool]:
             return self._append(operation_event, expected_revision, expected_attempt)
+
+        def extend_source_scope(self, *_args, expected_revision, expected_attempt, extension):
+            return self._append(extension, expected_revision, expected_attempt)
+
+        def authorize_source_read(self, *_args, expected_revision, expected_attempt, authorization):
+            return self._append(authorization, expected_revision, expected_attempt)
+
+        def record_validated_source_read(self, *_args, expected_revision, expected_attempt, receipt):
+            return self._append(receipt, expected_revision, expected_attempt)
 
         def complete_turn(self, result: Any) -> Turn:
             assert self.turn is not None
@@ -3054,6 +3432,11 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     assert json.loads(normalized_failure["resultJson"])["code"] == "graph_operation_unavailable"
     assert json.loads(normalized_failure["resultJson"])["statusCode"] == 503
     assert adapter.failure is not None and adapter.failure.code == "graph_operation_indeterminate"
+    assert (
+        "plan_graph_parent_failure stage=native_retrieval "
+        "error_code=unexpected_error"
+    ) in caplog.text
+    assert "private Graph admission failure" not in caplog.text
     from apps.live_control_server.services.hermes_graph_agent import _GraphOperationReservation
 
     reservation = _GraphOperationReservation(
@@ -3720,7 +4103,10 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     assert execution_events[-1].kind == "completion_binding"
     assert execution_events[-1].provider_attempt_id in {
         event.provider_attempt_id for event in execution_events
-        if event.kind in {"provider_attempt_authorized", "provider_attempt_authorized_v2"}
+        if event.kind in {
+            "provider_attempt_authorized", "provider_attempt_authorized_v2",
+            "provider_attempt_authorized_v3",
+        }
     }
     assert "plan_graph_answer_validation_failed" not in caplog.text
     assert "PRIVATE_PROVIDER_FINAL_BODY" not in caplog.text
@@ -4843,7 +5229,8 @@ def test_selected_multi_hop_graph_read_and_source_scope_remain_separate(tmp_path
     inside=adapter.broker_source_read({'toolName':'read_graph_source','arguments':{'retrievalSessionId':session.id,'anchorIds':[pin['anchor_id']]}})
     assert len(calls)==1, inside
     assert json.loads(inside['resultJson'])['content']=='fixture passage'
-    assert execution.policy.max_graph_operations==8 and execution.policy.max_source_read_calls==8
+    assert execution.policy.max_graph_operations==8 and execution.policy.max_source_read_chars==96000
+    assert not hasattr(execution.policy,"max_source_read_calls")
     legacy=direct.list_source_anchor_index_direct_v2(services,request,revision_id=revision)
     assert legacy.status=='overflow'
     small,small_request,small_revision=_selected_native_fixture(unrelated=2,claims=True,neighbor=True)
@@ -5314,3 +5701,400 @@ print(json.dumps({"turn":turn.model_dump(mode="json",by_alias=True), "view_schem
         delivered["plan_context"]["source_open_targets"]
         == rebuilt.model_dump(mode="json", by_alias=True)["source_open_targets"]
     )
+
+
+@pytest.mark.parametrize("operation", ["search", "object", "neighborhood", "support"])
+def test_mounted_v3_traversal_source_route_real_pg_and_history(
+    application_state_dsn,
+    tmp_path,
+    monkeypatch, operation,
+):
+    """Actual authenticated route/broker/SOURCE/APP; only authority and provider are synthetic."""
+    import asyncio
+    import httpx
+    import fastapi.routing as routing
+    from fastapi import FastAPI
+    from application_state.agent_conversation import AgentConversationService
+    from apps.live_control_server.routes import agent as route
+    from apps.live_control_server.services import agent_turn_service as parent
+    from apps.live_control_server.services import world_graph_retrieval as source
+    from apps.live_control_server.integrations.dungeonmind import (
+        world_graph_reads as direct,
+    )
+    from graph_memory.interaction.session import (
+        GraphRetrievalSession,
+        SessionSnapshot,
+        CoverageState,
+    )
+    from apps.live_control_server.services.agent_runtime import AgentWorldScope
+
+    token = "synthetic-current-context-token-" + "x" * 32
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "development")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", token)
+
+    async def inline(fn, *args, **kwargs):
+        return fn(*args, **kwargs)
+
+    monkeypatch.setattr(routing, "run_in_threadpool", inline)
+    monkeypatch.setattr(
+        "apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference",
+        lambda **kwargs: ("openai-api", "gpt-6-luna", "https://api.openai.com/v1"),
+    )
+    from tests._cutover_direct_dungeonmind_read_helpers import (
+        WORLD_ID, NOW, ANCHOR_CONTENT, _payload, _seed_sources, _receipt, _FakeBundle,
+    )
+    from dungeonmind.contracts.graph import PublishRevisionCommand
+    from dungeonmind.infrastructure.memory import InMemoryWorldGraphRepository
+    graphs = InMemoryWorldGraphRepository()
+    payload = _payload()
+    payload['objects'][0]['properties'] = [{
+        'property_term': 'dnd5e:population', 'value': 'bustling',
+        'assertion_metadata': {
+            **payload['objects'][0]['assertion_metadata'], 'assertion_id': 'asrt:population',
+        },
+    }]
+    published = graphs.publish_revision(PublishRevisionCommand(
+        world_id=WORLD_ID, parent_revision_id=None, expected_parent_revision_id=None,
+        operation_ids=['op:mounted-synthetic'], graph_schema='dm_union_graph_v6',
+        graph_payload=payload, created_at=NOW,
+    ))
+    services = direct.direct_services_from_bundle(
+        _FakeBundle(graphs, _seed_sources(), _receipt(WORLD_ID, published.revision_id)), WORLD_ID,
+    )
+    world, native, revision = 'mounted-v3-world', WORLD_ID, published.revision_id
+    plan = "# Plan\nFollow the gate.\n"
+    basis = AgentTurnContentBasis(
+        world_id=world,
+        document_id="synthetic-plan",
+        object_revision=1,
+        work_revision_id=str(uuid4()),
+        revision_n=1,
+        content_sha256=sha256(plan.encode()).hexdigest(),
+        committed_status="committed",
+        has_divergent_working_copy=False,
+    )
+    work = AgentTurnResolvedWork(
+        kind="plan",
+        object_id=basis.document_id,
+        revision=1,
+        changed_since_expected=False,
+        owner_kind="world",
+        owner_id=world,
+        world_id=world,
+        content_basis=basis,
+        plan_markdown=plan,
+    )
+    body = _request(
+        surface={"surface_id": "plan", "instance_id": "synthetic-plan-pane"},
+        owner_scope={"kind": "world", "world_id": world},
+        client_work_state="saved_clean",
+        primary_work={
+            "kind": "plan",
+            "object_id": basis.document_id,
+            "expected_revision": 1,
+            "expected_revision_n": 1,
+            "expected_content_sha256": basis.content_sha256,
+        },
+        turn_id=str(uuid4()),
+        plan_context_policy={"policy": "auto_plan_world"},
+        message="Summarize the entire prior recap while preserving its context boundary.",
+    )
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id=native, campaign_id='', focus={'kind': 'none'}, admissibility='gm',
+            revision_id=revision, is_head=True, scope_mode='world',
+        ), question=body.message, coverage=CoverageState(state='empty'),
+    )
+    # Support returns evidence for an already selected object; its claim remains in the initial packet.
+    if operation == 'support':
+        from graph_memory.interaction.authority_classifier import claims_from_retrieval_result
+        from graph_memory.retrieval.models import WorldGraphObjectRequest
+        selected = direct.get_object_direct(services, WorldGraphObjectRequest.model_validate({
+            'schema':'dmb_world_graph_object_request_v1', 'worldId':native, 'campaignId':'',
+            'scopeMode':'world', 'revisionPin':revision, 'nodeId':'obj:tavern',
+        }))
+        session.claims = claims_from_retrieval_result(selected.model_dump(mode='json', by_alias=True), revision_id=revision)
+    bootstrap = parent.AgentPlanWorldGraphBootstrap(
+        graph_envelope={'revision_id': revision, 'world_id': native, 'scope_mode': 'world'},
+        world_scope=AgentWorldScope(world_id=native, campaign_id='', focus={'kind':'none'},
+            admissibility='gm', revision_id=revision, scope_mode='world'),
+        retrieval_session=session, binding_version=1, source_root_relpath='corpus',
+        candidate_assertion_ids=("asrt:population",) if operation == "support" else (),
+        candidate_relationship_ids=(), candidate_evidence_ref_ids=("ev:tavern",) if operation == "support" else (),
+        evidence_by_anchor_id=({anchor.anchor_id:anchor.evidence_ref_id for anchor in selected.source_anchors}
+                               if operation == 'support' else {}), source_scope_anchors=(),
+    )
+    (tmp_path / 'corpus').mkdir()
+    (tmp_path / 'corpus/world_lore.md').write_text(ANCHOR_CONTENT)
+    core_reads = []
+    from graph_memory.interaction import expansion_executor
+    core_results = []
+    original_execute = expansion_executor.execute_read_graph_source
+    def checked_execute(*args, **kwargs):
+        result = original_execute(*args, **kwargs)
+        core_results.append(result)
+        assert result.get('reads') and result['reads'][0].get('receipt'), result
+        return result
+    monkeypatch.setattr(expansion_executor, 'execute_read_graph_source', checked_execute)
+    original_read = direct.read_source_anchor_direct_v2
+    def counted_read(*args, **kwargs):
+        core_reads.append(args[1].anchor_id)
+        return original_read(*args, **kwargs)
+    monkeypatch.setattr(direct, 'read_source_anchor_direct_v2', counted_read)
+    monkeypatch.setattr(direct, 'direct_services_from_config', lambda _: services)
+    monkeypatch.setattr(source, "_require_mounted_native_read", lambda _: None)
+    monkeypatch.setattr(source, "_resolved_repo_root", lambda **kwargs: tmp_path)
+    monkeypatch.setattr(route, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(route, "session_dir", lambda: tmp_path / "sessions")
+    monkeypatch.setattr(
+        route,
+        "_owner_resolver",
+        lambda _: {"kind": "world", "id": world, "name": "Synthetic World"},
+    )
+    monkeypatch.setattr(route, "_work_resolver", lambda *_: work)
+    monkeypatch.setattr(
+        route, "_plan_context_resolver", lambda *args, **kwargs: bootstrap
+    )
+    provider_calls = []
+
+    class FakeProvider:
+        descriptor = AgentRuntimeDescriptor(
+            "fake-current-context", "fake", "test", "graph"
+        )
+
+        def run_with_provider_authorization(
+            self,
+            invocation,
+            authorize,
+            *,
+            request_budget,
+            on_graph_operation,
+            on_provider_lifecycle,
+            context_read_enabled=False,
+        ):
+            assert context_read_enabled
+            frozen_packet = authorize.__self__.initial_session_projection
+            initial = {
+                'candidates': frozen_packet['candidates'][:8],
+                'claimLedger': frozen_packet['claim_ledger'][:24],
+                'intentHint': frozen_packet['intent_hint'],
+                'availableExpansions': frozen_packet['available_expansions'],
+            }
+            payload = {
+                "input": [
+                    {
+                        "role": "system",
+                        "content": "Turn capability policy (runtime-enforced; also required on tool calls):\n"
+                        + json.dumps({"initialClaimPacket": initial}),
+                    },
+                    {
+                        "role": "user",
+                        "content": parent._plan_message(
+                            body.message, plan, content_basis=basis
+                        ),
+                    },
+                ],
+                "tools": [],
+            }
+
+            def send():
+                encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+                assert authorize(
+                    {
+                        "provider": "openai-api",
+                        "model": request_budget["model"],
+                        "apiMode": "codex_responses",
+                        "payloadJson": encoded,
+                        "payloadSha256": sha256(encoded.encode()).hexdigest(),
+                        "payloadUtf8Bytes": len(encoded.encode()),
+                    }
+                ), str(authorize.__self__.failure)
+                assert on_provider_lifecycle({"transition": "sdk_entered"})
+                assert on_provider_lifecycle({"transition": "response_received"})
+                provider_calls.append(encoded)
+
+            send()
+            adapter = authorize.__self__
+            assert adapter._broker_execution().policy.source_read_scope.admitted_anchors == []
+            graph_reply = on_graph_operation({
+                'toolName': 'expand_graph_retrieval', 'arguments': {
+                    'retrievalSessionId': session.id, 'operation': operation,
+                    'queryText': 'The Prancing Tavern',
+                    'targets': [{'kind':'node','id':'obj:tavern'}],
+                },
+            })
+            graph_packet = json.loads(graph_reply['resultJson'])
+            origin, extension = adapter._broker_execution().events[-2:]
+            assert origin.kind == 'validated_graph_operation_v3', graph_packet
+            assert extension.kind == 'source_scope_extension_v3'
+            assert extension.origin_graph_event_id == origin.event_id
+            pin = next(pin for pin in origin.returned_source_pins if pin.evidence_ref_id == 'ev:tavern')
+            assert pin in extension.pins
+            response = on_graph_operation({'toolName':'read_graph_source', 'arguments': {
+                'retrievalSessionId': session.id, 'anchorIds':[pin.anchor_id], 'maxChars':1000,
+            }})
+            page = json.loads(response['resultJson'])
+            assert page.get('content') == ANCHOR_CONTENT.rstrip(), json.dumps({'page':page,'core':core_results})
+            for call_id, name, reply in [('graph','expand_graph_retrieval',graph_reply),
+                                          ('source','read_graph_source',response)]:
+                payload['input'].extend([
+                    {'type':'function_call','call_id':call_id,'name':name,'arguments':'{}'},
+                    {'type':'function_call_output','call_id':call_id,'output':reply['resultJson']},
+                ])
+            send()
+            claim = {
+                "kind": "graph_claim",
+                "claim_id": "claim:population",
+                "text": "The keeper guards the gate.",
+                "target_kind": "assertion",
+                "target_id": "asrt:population",
+                "graph_revision": revision,
+                "evidence_ref_ids": ["ev:tavern"],
+            }
+            answer = {
+                "answer_context_status": "graph_grounded",
+                "answer_segments": [claim],
+                "citation_map": {
+                    "entries": [
+                        {
+                            **{
+                                key: value
+                                for key, value in claim.items()
+                                if key not in {"kind", "text"}
+                            },
+                            "source_opened": False,
+                        }
+                    ]
+                },
+            }
+            return AgentRuntimeResult(
+                status="ok",
+                final_text=json.dumps(answer),
+                runtime_session_id="synthetic-session",
+            )
+
+    app = FastAPI()
+    app.state.agent_turn_runtime = FakeProvider()
+    app.state.agent_conversation_service = AgentConversationService()
+    app.include_router(route.router, prefix="/api/live")
+
+    async def exercise():
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            denied = await client.post(
+                "/api/live/agent/turn", json=body.model_dump(mode="json", by_alias=True)
+            )
+            assert denied.status_code == 401 and provider_calls == []
+            result = await client.post(
+                "/api/live/agent/turn",
+                headers={"Authorization": "Bearer " + token},
+                json=body.model_dump(mode="json", by_alias=True),
+            )
+            assert result.status_code == 200, result.text
+            return result.json()
+
+    delivered = asyncio.run(exercise())
+    assert len(provider_calls) == 2
+    service = AgentConversationService()
+    conversation = service.get_active_conversation(world)
+    saved = service.list_turns(world, conversation.conversation_id)[0]
+    assert saved.status == "completed" and saved.user_text == body.message
+    events = saved.graph_context_execution.events
+    from application_state.agent_conversation.types import PlanWorldGraphExecutionV3
+    assert isinstance(saved.graph_context_execution, PlanWorldGraphExecutionV3)
+    assert saved.graph_context_execution.policy.source_read_scope.admitted_anchors == []
+    origin = next(e for e in events if e.kind == 'validated_graph_operation_v3')
+    extension = next(e for e in events if e.kind == 'source_scope_extension_v3')
+    read = next(e for e in events if e.kind == 'validated_source_read_v2')
+    producing = [e for e in events if e.kind == 'provider_attempt_authorized_v3'][-1]
+    assert extension.origin_graph_event_id == origin.event_id
+    assert extension.pins == origin.returned_source_pins
+    assert read.event_id in producing.included_source_read_event_ids
+    citation = saved.completion.citation_map.entries[0]
+    assert citation.source_opened and citation.source_read_ids == [read.receipts[0].source_read_id]
+    assert core_reads == [read.receipts[0].anchor_id]
+    before = saved.model_dump_json()
+    rebuilt = project_plan_turn_context(saved, delivery_replay=True)
+    assert rebuilt.schema_ == "dmb_agent_plan_world_graph_context_response_v2"
+    target = next(t for t in rebuilt.source_open_targets if t.kind == 'evidence_anchor')
+    assert target.source_read_id == citation.source_read_ids[0]
+    assert (
+        service.list_turns(world, conversation.conversation_id)[0].model_dump_json()
+        == before
+    )
+    assert len(provider_calls) == 2 and (tmp_path / "corpus/world_lore.md").read_text() == ANCHOR_CONTENT
+    import os
+    import subprocess
+    import sys
+
+    child = subprocess.check_output(
+        [
+            sys.executable,
+            "-c",
+            """
+import json, sys
+from application_state.agent_conversation import AgentConversationService
+from apps.live_control_server.services.agent_turn_service import project_plan_turn_context
+from uuid import UUID
+turn = AgentConversationService().list_turns(sys.argv[1], UUID(sys.argv[2]))[0]
+view = project_plan_turn_context(turn, delivery_replay=True)
+print(json.dumps({"turn":turn.model_dump(mode="json",by_alias=True), "view_schema":view.schema_}))
+""",
+            world,
+            str(conversation.conversation_id),
+        ],
+        env=os.environ.copy(),
+        text=True,
+    )
+    readback = json.loads(child)
+    assert readback["turn"] == saved.model_dump(mode="json", by_alias=True)
+    assert readback["view_schema"] == "dmb_agent_plan_world_graph_context_response_v2"
+    assert (
+        delivered["plan_context"]["source_open_targets"]
+        == rebuilt.model_dump(mode="json", by_alias=True)["source_open_targets"]
+    )
+
+
+@pytest.mark.parametrize('consumer', ['ordinary', 'saved_plan'])
+@pytest.mark.parametrize('failure', ['foreign', 'stale', 'unreadable', 'mixed'])
+def test_v3_source_batch_denied_before_io_for_both_consumers(tmp_path, monkeypatch, consumer, failure):
+    from types import SimpleNamespace
+    from tests.test_agent_turn_route import _selected_consumer_context
+    from apps.live_control_server.services import agent_turn_service as owner
+    from apps.live_control_server.services.plan_action_consultation import ActionPolicyExecutionAdapter
+    from graph_memory.interaction.session import SourceAnchorState
+    body, work, bootstrap, receipt, execution, _ = _selected_consumer_context(tmp_path, monkeypatch)
+    session = bootstrap.retrieval_session
+    pin = execution.policy.source_read_scope.admitted_anchors[0]
+    session.source_anchors = [SourceAnchorState(anchor_id=pin.anchor_id, readable=True)]
+    anchor_ids = [pin.anchor_id]
+    if failure == 'foreign':
+        session.snapshot.world_id = 'foreign-world'
+    elif failure == 'stale':
+        session.snapshot.revision_id = 'stale-revision'
+    elif failure == 'unreadable':
+        session.source_anchors[0].readable = False
+    else:
+        anchor_ids.append('unreturned-anchor')
+    monkeypatch.setattr('graph_memory.interaction.session_store.get_session', lambda _: session)
+    monkeypatch.setattr('graph_memory.interaction.expansion_executor.execute_read_graph_source',
+                        lambda *_a, **_kw: pytest.fail('source IO must not run for a rejected batch'))
+    if consumer == 'ordinary':
+        adapter = owner._PolicyExecutionAdapter(service=object(), request=body, world_id=work.world_id,
+            work=work, bootstrap=bootstrap, playable_target=None, submitted_intent=None,
+            existing_turn=None, budget={})
+        adapter.fence = SimpleNamespace(turn=_policy_turn(status='running', completion_present=False).model_copy(
+            update={'graph_context_receipt':receipt, 'graph_context_execution':execution}))
+    else:
+        action = SimpleNamespace(basis=SimpleNamespace(world_id=work.world_id),
+                                 consultation=SimpleNamespace(receipt=receipt, execution=execution))
+        adapter = ActionPolicyExecutionAdapter(store=object(), action=action, bootstrap=bootstrap,
+                                               budget={}, surface_instance_id='synthetic')
+        adapter.fence = SimpleNamespace(action=action)
+    adapter.last_provider_attempt_id = uuid4()
+    reply = adapter.broker_source_read({'toolName':'read_graph_source', 'arguments':{
+        'retrievalSessionId':session.id, 'anchorIds':anchor_ids}})
+    assert json.loads(reply['resultJson'])['code'] == (
+        'graph_revision_conflict' if failure in {'foreign','stale'} else 'source_anchor_not_admitted')

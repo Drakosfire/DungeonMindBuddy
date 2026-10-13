@@ -191,7 +191,8 @@ def hermes_graph_interaction_tool_definitions() -> list[dict[str, Any]]:
                 "name": "read_graph_source",
                 "description": (
                     "Read one or more source anchors already admitted in the current "
-                    "GraphRetrievalSession, including exact admitted worldbuilding "
+                    "GraphRetrievalSession, including pins admitted by the parent "
+                    "from a validated traversal in this turn, and exact admitted worldbuilding "
                     "evidence spans when the graph provenance names them. Creates a "
                     "source citation only after a successful integrity-checked read. "
                     "Pass retrievalSessionId and anchorIds from the session ledger. "
