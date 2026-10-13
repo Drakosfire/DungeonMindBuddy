@@ -10,6 +10,16 @@ from uuid import UUID, uuid4
 from pydantic import ValidationError
 
 from application_state.agent_conversation import repository as repo
+from application_state.agent_conversation.context_trace import (
+    ContextTraceObservation,
+    TraceSourcePassage,
+    TurnContextTraceV1,
+)
+from application_state.agent_conversation.context_trace_store import (
+    TurnContextTraceStore,
+    append_source_passages_locked,
+    close_context_trace_locked,
+)
 from application_state.agent_conversation.types import (
     ArchiveCommand,
     CompletedPlanAskPair,
@@ -95,6 +105,69 @@ def _validate_turn_claim_lease(lease_seconds: int) -> None:
         raise ApplicationStateValidationError(
             f"turn claim lease must be between 1 and {MAX_TURN_CLAIM_LEASE_SECONDS} seconds"
         )
+
+
+def _validate_source_passage_observations(
+    execution,
+    event: ValidatedSourceReadEventV2,
+    passages: list[TraceSourcePassage] | None,
+    *,
+    trace_active: bool,
+    trace_capture_status: str | None,
+) -> list[TraceSourcePassage]:
+    supplied = passages or []
+    if not trace_active:
+        if supplied:
+            raise ApplicationStateValidationError("source passage capture requires an active turn trace")
+        return []
+    authorization = next(
+        (
+            item for item in execution.events
+            if isinstance(item, SourceReadAuthorizationEventV2)
+            and item.read_call_id == event.read_call_id
+        ),
+        None,
+    )
+    if authorization is None:
+        raise ApplicationStateIntegrityError("validated source read has no persisted authorization")
+    receipt_by_id = {item.source_read_id: item for item in event.receipts}
+    expected_ids = {
+        item.source_read_id for item in event.receipts
+        if item.content_sha256 is not None and item.returned_chars > 0
+    }
+    if {item.source_read_id for item in supplied} != expected_ids:
+        if not supplied and expected_ids and trace_capture_status == "incomplete":
+            # The caller must suppress these bytes from model context; the trace
+            # records its safe incompleteness code and the ledger keeps the read
+            # receipt without making uncaptured text look inspectable.
+            return []
+        raise ApplicationStateValidationError(
+            "active context trace requires the exact text for every content-bearing source receipt"
+        )
+    if len(supplied) != len(expected_ids):
+        raise ApplicationStateValidationError("source passage observations must be unique")
+    supplied_by_id = {item.source_read_id: item for item in supplied}
+    for passage in supplied:
+        receipt = receipt_by_id[passage.source_read_id]
+        if (
+            passage.source_read_event_id != event.event_id
+            or passage.read_call_id != event.read_call_id
+            or passage.world_id != authorization.world_id
+            or passage.graph_revision != authorization.graph_revision
+            or passage.anchor_id != receipt.anchor_id
+            or passage.evidence_ref_id != receipt.evidence_ref_id
+            or passage.source_artifact_id != receipt.source_artifact_id
+            or passage.source_revision_id != receipt.source_revision_id
+            or passage.line_start != receipt.line_start
+            or passage.line_end != receipt.line_end
+            or passage.outcome != receipt.outcome
+            or passage.returned_chars != receipt.returned_chars
+            or passage.content_sha256 != receipt.content_sha256
+        ):
+            raise ApplicationStateValidationError(
+                "captured passage differs from its validated source-read receipt"
+            )
+    return [supplied_by_id[item.source_read_id] for item in event.receipts if item.source_read_id in supplied_by_id]
 
 
 def _fingerprint_payload(payload: object) -> str:
@@ -708,7 +781,8 @@ class AgentConversationService:
                         )
                     interrupted = repo.interrupt_expired_graph_execution(
                         conn, world_id=world_id, turn_id=turn_id,
-                        expected_revision=expected_revision, execution=execution,
+                        expected_revision=expected_revision, expected_attempt=turn.attempt,
+                        execution=execution,
                         failure_code=("provider_outcome_unknown" if outcome_unknown else "provider_authorized_nonreclaimable"),
                     )
                     if interrupted is None:
@@ -722,6 +796,13 @@ class AgentConversationService:
                 if turn.status not in {"accepted", "failed", "interrupted", "running"}:
                     raise ApplicationStateConflictError(
                         "turn is not eligible for a runtime claim"
+                    )
+                if turn.status == "running" and (
+                    turn.claim_expires_at is None or turn.claim_expires_at <= now
+                ):
+                    close_context_trace_locked(
+                        conn, world_id=world_id, turn_id=turn_id,
+                        attempt=turn.attempt, status="interrupted", closed_at=now,
                     )
                 claimed = repo.claim_turn(
                     conn,
@@ -750,6 +831,7 @@ class AgentConversationService:
         expected_attempt: int,
         event: GraphExecutionEventV1 | GraphExecutionEventV2,
         duplicate_key: str,
+        source_passages: list[TraceSourcePassage] | None = None,
     ) -> tuple[Turn, bool]:
         world_id = _world_id(world_id)
         dsn = _ready_dsn()
@@ -765,6 +847,13 @@ class AgentConversationService:
             now = repo.database_clock(conn)
             if turn.claim_expires_at is None or turn.claim_expires_at <= now:
                 raise ApplicationStateConflictError("Graph execution claim has expired")
+            trace_row = conn.execute(
+                "SELECT payload->>'capture_status' FROM agent.turn_context_trace "
+                "WHERE turn_id=%s AND attempt=%s",
+                (turn_id, expected_attempt),
+            ).fetchone()
+            trace_active = trace_row is not None
+            trace_capture_status = trace_row[0] if trace_row is not None else None
             for prior in execution.events:
                 # Inclusion and outcome events share the authorization attempt ID.
                 # Only an earlier authorization can be its duplicate.
@@ -778,6 +867,23 @@ class AgentConversationService:
                         if prior.request_arguments_sha256 == event.request_arguments_sha256:
                             return turn, False
                         raise ApplicationStateConflictError("Graph operation ID was reused with changed arguments")
+                    if isinstance(prior, ValidatedSourceReadEventV2) and isinstance(event, ValidatedSourceReadEventV2):
+                        if prior != event:
+                            raise ApplicationStateConflictError("source-read event ID was reused with changed content")
+                        source_observations = _validate_source_passage_observations(
+                            execution, prior, source_passages, trace_active=trace_active,
+                            trace_capture_status=trace_capture_status,
+                        )
+                        if trace_active and source_observations:
+                            persisted = append_source_passages_locked(
+                                conn, world_id=world_id, turn_id=turn_id, attempt=expected_attempt,
+                                event_id=prior.event_id, passages=source_observations,
+                            )
+                            if persisted is None:
+                                raise ApplicationStateIntegrityError("active context trace disappeared during source read")
+                        elif source_observations:
+                            raise ApplicationStateValidationError("source passage trace is not active")
+                        return turn, False
                     if prior == event:
                         return turn, False
                     raise ApplicationStateConflictError("Graph execution event ID was reused with changed content")
@@ -797,6 +903,14 @@ class AgentConversationService:
                 assert receipt is not None
                 if event.graph_revision != receipt.graph_authority.graph_revision:
                     raise ApplicationStateValidationError("Graph operation event must use the frozen Graph revision")
+            source_observations: list[TraceSourcePassage] = []
+            if isinstance(event, ValidatedSourceReadEventV2):
+                source_observations = _validate_source_passage_observations(
+                    execution, event, source_passages, trace_active=trace_active,
+                    trace_capture_status=trace_capture_status,
+                )
+            elif source_passages:
+                raise ApplicationStateValidationError("passage observations require a validated source-read event")
             events = [*execution.events, event]
             try:
                 execution_type = (
@@ -817,6 +931,16 @@ class AgentConversationService:
                 conn, world_id=world_id, turn_id=turn_id,
                 expected_revision=expected_revision, execution=updated_execution,
             )
+            if (
+                updated is not None and isinstance(event, ValidatedSourceReadEventV2)
+                and trace_active and source_observations
+            ):
+                persisted = append_source_passages_locked(
+                    conn, world_id=world_id, turn_id=turn_id, attempt=expected_attempt,
+                    event_id=event.event_id, passages=source_observations,
+                )
+                if persisted is None:
+                    raise ApplicationStateIntegrityError("active context trace disappeared during source read")
         if updated is None:
             raise ApplicationStateConflictError("Graph execution append lost its claim fence")
         return updated, True
@@ -869,12 +993,52 @@ class AgentConversationService:
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int,
         receipt: ValidatedSourceReadEventV2,
+        source_passages: list[TraceSourcePassage] | None = None,
     ) -> tuple[Turn, bool]:
-        """Persist the server-validated source read result without source text."""
+        """Persist the validated receipt and optional exact trace passages atomically."""
         return self._append_graph_execution_event(
             world_id, conversation_id, turn_id, expected_revision=expected_revision,
             expected_attempt=expected_attempt, event=receipt,
-            duplicate_key="event_id",
+            duplicate_key="event_id", source_passages=source_passages,
+        )
+
+    def start_context_trace(
+        self, *, world_id: str, conversation_id: UUID, turn_id: UUID,
+        expected_revision: int, attempt: int, trace_id: UUID, started_at: datetime,
+    ) -> TurnContextTraceV1:
+        """Start optional trace capture under the active turn claim."""
+        return TurnContextTraceStore().begin(
+            world_id=_world_id(world_id), conversation_id=conversation_id,
+            turn_id=turn_id, expected_revision=expected_revision, attempt=attempt,
+            trace_id=trace_id, started_at=started_at,
+        )
+
+    def append_context_trace(
+        self, *, world_id: str, conversation_id: UUID, turn_id: UUID,
+        expected_revision: int, attempt: int, trace_id: UUID,
+        observation: ContextTraceObservation,
+    ) -> TurnContextTraceV1:
+        return TurnContextTraceStore().append(
+            world_id=_world_id(world_id), conversation_id=conversation_id,
+            turn_id=turn_id, expected_revision=expected_revision, attempt=attempt,
+            trace_id=trace_id, observation=observation,
+        )
+
+    def mark_context_trace_incomplete(
+        self, *, world_id: str, conversation_id: UUID, turn_id: UUID,
+        expected_revision: int, attempt: int, trace_id: UUID, failure_code: str,
+    ) -> TurnContextTraceV1:
+        return TurnContextTraceStore().mark_incomplete(
+            world_id=_world_id(world_id), conversation_id=conversation_id,
+            turn_id=turn_id, expected_revision=expected_revision, attempt=attempt,
+            trace_id=trace_id, failure_code=failure_code,
+        )
+
+    def list_context_trace_attempts(
+        self, *, world_id: str, turn_id: UUID,
+    ) -> list[TurnContextTraceV1]:
+        return TurnContextTraceStore().list_attempts(
+            world_id=_world_id(world_id), turn_id=turn_id,
         )
 
     def authorize_related_recap_context(
@@ -1041,6 +1205,7 @@ class AgentConversationService:
                 world_id=world_id,
                 turn_id=turn.turn_id,
                 expected_revision=result.expected_revision,
+                expected_attempt=turn.attempt,
                 assistant_text=result.assistant_text,
                 completion=result.completion,
                 graph_context_execution=execution,
@@ -1075,6 +1240,7 @@ class AgentConversationService:
                 world_id=world_id,
                 turn_id=turn.turn_id,
                 expected_revision=failure.expected_revision,
+                expected_attempt=turn.attempt,
                 status=status,
                 failure_code=failure.failure_code,
             )
