@@ -36,6 +36,7 @@ from apps.live_control_server.models.agent_turn import (
     AgentCommandResolutionResponseV1,
     AgentTurnContentBasis,
     AgentTurnRequest,
+    AgentTurnContextTraceResponseV1,
 )
 from apps.live_control_server.services.agent_runtime import (
     AgentCurrentWorkContext,
@@ -1312,6 +1313,25 @@ def get_world_conversation_history(
             turns[0].sequence if len(turns) == limit and turns else None
         ),
     )
+
+
+@router.get("/worlds/{world_id}/conversation/turns/{turn_id}/context-trace", response_model=AgentTurnContextTraceResponseV1)
+def get_world_turn_context_trace(world_id: str, turn_id: UUID, request: Request) -> AgentTurnContextTraceResponseV1:
+    """Explicit authenticated read; normal history never includes passage bytes."""
+    enforce_native_graph_gm(request)
+    verified_world_id = _verified_world_id(world_id)
+    if request.query_params:
+        raise HTTPException(status_code=422, detail="context trace read does not accept query selectors")
+    try:
+        attempts = _conversation_service(request).list_context_trace_attempts(
+            world_id=verified_world_id, turn_id=turn_id,
+        )
+        return AgentTurnContextTraceResponseV1(world_id=verified_world_id, turn_id=turn_id, attempts=attempts)
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code,
+                            detail={"code": "context_trace_unavailable", "message": str(exc)}) from exc
+    except ValidationError as exc:
+        raise HTTPException(status_code=409, detail={"code": "context_trace_binding_invalid"}) from exc
 
 
 @router.get("/worlds/{world_id}/conversation/commands/{command_id}", response_model=AgentNewConversationStatusV1)

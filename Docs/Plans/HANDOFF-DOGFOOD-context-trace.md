@@ -4,6 +4,7 @@ Status: ACTIVE for Buddy observation producer/inspection UI. APP-STATE #1122 mer
 Base: `origin/main@a2b8db65fc69fa06b6e7e32bb16bcf4ecca5d6b8`, fetched and inspected 2026-10-13.
 Branch: `codex/buddy-context-trace`.
 Checkout: `/home/drakosfire/.codex/worktrees/buddy-context-trace/DungeonMindBuddy`.
+Development integration checkout: `/home/drakosfire/.codex/worktrees/buddy-trace-integration/DungeonMindBuddy`, branch `codex/buddy-trace-integration`; this preserves the serving checkout during adoption of accepted main contracts. Its descendant commits fast-forward the same PR #1120 head branch; no second trace PR or runtime is created.
 Topology: serial; predecessor #1119 merged exact head `b0cd7045` as `a2b8db65`. This is the sole context-trace implementation slice. Open #1014, #869, #844, #826, #798, and the rules stack have no overlapping trace write lease.
 
 ## Capability
@@ -37,6 +38,8 @@ No dependency pin/lockfile, graph write, ingestion publication, arbitrary corpus
 SERVER's citation-identity repair #1121 merged as `ad555917179764c61dcbc3095f9d7fd5182709b2`; its shared-function lease is released. This lane must re-anchor before collector/history integration while preserving its packet/version semantics. Because 5202 now runs from this checkout, rebase/source adoption must occur in a stopped transition. This branch currently edits neither shared backend file. APP-STATE retains persistence ownership; its accepted implementation remains a separate integration dependency.
 
 ## Runtime and verification
+
+Integration checkpoint: accepted main `cfc788a9` merged into the non-serving trace lane. Opt-in authenticated `GET /worlds/{world_id}/conversation/turns/{turn_id}/context-trace` reads APP-owned attempts; normal history still excludes passage bytes. Five HTTP boundary cases pass, including exact passage serialization, absent historic trace, auth-before-storage, wrong-World rejection and extra-selector rejection. A sandbox AnyIO threadpool control hung; the live blocked test process was stopped after that environmental control reproduced, then native-threadpool tests passed. Seventeen viewer/loader cases and app typecheck pass. The loader is not yet mounted in turn Debug and runtime observations are not yet produced. No live schema activation or new provider request is claimed.
 
 The accepted source-context reference is `source_read_event_id` plus specific `source_reads` IDs/digests, referring to earlier exact passage snapshots in the same attempt. Viewer validation now covers exact, wrong-digest and future-capture cases: eleven cases pass plus app typecheck. Delivery repair #1124 owns the provider denial/membership functions until it settles; trace integration consumes that repair afterward. Message dedup #1123 is merged at `cfc788a9` and its matching temporary UI delta in the serving checkout is preserved until main is adopted.
 

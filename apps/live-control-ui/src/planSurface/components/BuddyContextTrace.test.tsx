@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { BuddyContextTrace, type BuddyTurnContextTrace } from './BuddyContextTrace'
-import type { BuddyTraceGraphResult, BuddyTraceSourcePassage } from './BuddyContextTrace.types'
+import type { BuddyTraceGraphResult, BuddyTraceSourcePassage } from '../../api/buddyContextTraceTypes'
 
 function trace(observations: BuddyTurnContextTrace['observations']): BuddyTurnContextTrace {
   return { schema: 'dmb_turn_context_trace_v1', trace_id: 'trace', world_id: 'world',

@@ -1,4 +1,10 @@
 /** APP-STATE context-trace consumer shape. Observations grant no evidence authority. */
+export interface WorldAgentTurnContextTraceResponse {
+  schema: 'dmb_agent_turn_context_trace_response_v1'
+  world_id: string
+  turn_id: string
+  attempts: BuddyTurnContextTrace[]
+}
 export interface BuddyTraceRoute {
   route_id: string; world_id: string; graph_revision: string
   node_id?: string | null; anchor_id?: string | null; evidence_ref_id?: string | null

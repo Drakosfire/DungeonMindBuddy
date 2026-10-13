@@ -1,6 +1,6 @@
 import './BuddyContextTrace.css'
-import type { BuddyTraceMaterial, BuddyTraceObservation, BuddyTraceSourcePassage, BuddyTurnContextTrace } from './BuddyContextTrace.types'
-export type { BuddyTurnContextTrace } from './BuddyContextTrace.types'
+import type { BuddyTraceMaterial, BuddyTraceObservation, BuddyTraceSourcePassage, BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
+export type { BuddyTurnContextTrace } from '../../api/buddyContextTraceTypes'
 
 const names: Record<string, string> = {
   expand_graph_retrieval: 'Explore World graph',

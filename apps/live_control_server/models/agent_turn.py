@@ -7,6 +7,7 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from application_state.agent_conversation.context_trace import TurnContextTraceV1
 
 from application_state.agent_conversation.types import (
     PlanWorldGraphCompletionV1,
@@ -666,6 +667,22 @@ class AgentConversationHistoryResponseV3(AgentConversationHistoryResponse):
         default="dmb_agent_conversation_history_v3", alias="schema"
     )
     turns: list[AgentConversationHistoryPlanTurnV3 | AgentConversationHistoryTurnV3]
+
+
+class AgentTurnContextTraceResponseV1(BaseModel):
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    schema_: Literal["dmb_agent_turn_context_trace_response_v1"] = Field(
+        default="dmb_agent_turn_context_trace_response_v1", alias="schema"
+    )
+    world_id: str
+    turn_id: UUID
+    attempts: list[TurnContextTraceV1]
+
+    @model_validator(mode="after")
+    def validate_trace_binding(self) -> "AgentTurnContextTraceResponseV1":
+        if any(trace.world_id != self.world_id or trace.turn_id != self.turn_id for trace in self.attempts):
+            raise ValueError("context trace belongs to a different World or turn")
+        return self
 
 
 class AgentNewConversationRequest(BaseModel):
