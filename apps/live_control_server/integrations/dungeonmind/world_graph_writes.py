@@ -105,50 +105,6 @@ class _BuddyEvidenceRecord:
     source_span_ref_id: str | None = None
 
 
-def _graph_review_evidence_view(
-    contribution: Any,
-    *,
-    pair_to_dm: dict[tuple[str, str], str],
-    sources: Any | None = None,
-) -> _EmptyEvidenceView:
-    """Worldbuilding evidence bound to the admitted Graph Review source pair.
-
-    The empty-store fallback stamps SourceDomain.OTHER, which native
-    projection rejects against a worldbuilding SourceArtifactV2 as
-    ``evidence_source_domain_mismatch`` / SCOPE_UNKNOWN.
-    """
-    records: dict[str, Any] = {}
-    assertions = [
-        *list(getattr(contribution, "accepted_assertions", None) or []),
-        *list(getattr(contribution, "candidate_assertions", None) or []),
-        *list(getattr(contribution, "rejected_assertions", None) or []),
-    ]
-    for assertion in assertions:
-        artifact_id = str(getattr(assertion, "source_artifact_id", "") or "")
-        token = str(getattr(assertion, "source_revision_id", "") or "")
-        dm_revision_id = pair_to_dm.get((artifact_id, token), token)
-        locator = None
-        if sources is not None and dm_revision_id:
-            try:
-                revision = sources.get_revision(dm_revision_id)
-            except Exception:
-                revision = None
-            if revision is not None:
-                locator = str(getattr(revision, "locator", None) or "") or None
-        for evidence_id in list(getattr(assertion, "evidence_ref_ids", None) or []):
-            records[str(evidence_id)] = _BuddyEvidenceRecord(
-                evidence_ref_id=str(evidence_id),
-                source_artifact_id=artifact_id,
-                source_domain="worldbuilding",
-                evidence_role="support",
-                can_open_source=bool(locator),
-                can_highlight_span=False,
-                locator=locator,
-                uri=locator,
-            )
-    return _EmptyEvidenceView(evidence=records)
-
-
 def _embedded_recap_span_ref_id(assertion: Any, evidence_id: str) -> str | None:
     """Return the first-class recap span identity already on the assertion.
 
@@ -1397,20 +1353,21 @@ def _build_v2_candidate(
 ) -> tuple[Any, dict[str, Any]]:
     from apps.live_control_server.integrations.dungeonmind.contribution_mapping import (
         _map_contributions,
+        map_graph_review_contribution_v3,
     )
     from dungeonmind.contracts.contribution import AcceptanceState, ContributionStatus
 
     evidence_view: Any = _EmptyEvidenceView()
     source_kind = getattr(contribution, "source_kind", None)
-    if source_kind == "graph_review_authored_assertion":
-        evidence_view = _graph_review_evidence_view(
-            contribution, pair_to_dm=pair_to_dm, sources=sources
-        )
-    elif source_kind == "source_extraction":
+    if source_kind == "source_extraction":
         evidence_view = _recap_extraction_evidence_view(
             contribution, pair_to_dm=pair_to_dm, sources=sources
         )
-    mapped = _map_contributions(evidence_view, [contribution], pair_to_dm)
+    mapped = (
+        [map_graph_review_contribution_v3(evidence_view, contribution, pair_to_dm)]
+        if source_kind == "graph_review_authored_assertion"
+        else _map_contributions(evidence_view, [contribution], pair_to_dm)
+    )
     if len(mapped) != 1:
         raise WorldGraphWriteError(
             "contribution mapping did not produce exactly one candidate",
@@ -1590,6 +1547,7 @@ def _publish_capability_policy(
     campaign_id: str | None,
     parent_revision_id: str,
     policy_id: str,
+    tool_name: str | None = None,
 ) -> Any:
     """Same confirm-commit tool admission as D.1, distinct policy identity."""
     from dungeonmind.contracts.capability import (
@@ -1602,6 +1560,8 @@ def _publish_capability_policy(
     from dungeonmind.contracts.contribution_review_v2 import FINALIZE_REVIEW_V2_TOOL
     from dungeonmind.contracts.projection import Admissibility
 
+    admitted_tool = tool_name or FINALIZE_REVIEW_V2_TOOL
+
     return CapabilityPolicy(
         policy_id=policy_id,
         graph_scope=GraphScope(
@@ -1610,10 +1570,10 @@ def _publish_capability_policy(
             admissibility=Admissibility.GM,
             revision_pin=parent_revision_id,
         ),
-        enabled_tools=[FINALIZE_REVIEW_V2_TOOL],
+        enabled_tools=[admitted_tool],
         tool_rules=[
             ToolCapabilityRule(
-                tool_name=FINALIZE_REVIEW_V2_TOOL,
+                tool_name=admitted_tool,
                 category=CapabilityCategory.CONFIRM_COMMIT,
                 require_graph_scope=True,
                 allowed_effects=[CapabilityEffect.COMMIT],
@@ -1697,6 +1657,7 @@ def _receipt_ids_from_reviewed_contribution(
     from dungeonmind.contracts.contribution_review_v2 import (
         contribution_v2_payload_sha256,
     )
+    from dungeonmind.contracts.contribution_review_v3 import contribution_v3_payload_sha256
 
     contribution_id = str(getattr(publication, "reviewed_contribution_id", "") or "")
     expected_hash = str(getattr(publication, "reviewed_contribution_sha256", "") or "")
@@ -1721,7 +1682,11 @@ def _receipt_ids_from_reviewed_contribution(
             details={"world_id": world_id, "contribution_id": contribution_id},
         )
     try:
-        actual_hash = contribution_v2_payload_sha256(reviewed)
+        actual_hash = (
+            contribution_v3_payload_sha256(reviewed)
+            if getattr(reviewed, "schema_version", None) == "dm_graph_contribution_v3"
+            else contribution_v2_payload_sha256(reviewed)
+        )
     except Exception:
         from dungeonmind.domain.canonical import canonical_sha256
 
@@ -2737,8 +2702,14 @@ def _review_intent_sha256_for_threat_request(
         contribution_v2_payload_sha256,
         derive_review_intent_sha256_v2,
     )
+    from dungeonmind.contracts.contribution_review_v3 import (
+        contribution_v3_payload_sha256,
+        derive_review_intent_sha256_v3,
+    )
     from dungeonmind.contracts.semantic_profile import SemanticProfileRef
     from dungeonmind.domain.canonical import canonical_sha256
+
+    typed_graph_review = contribution.source_kind == "graph_review_authored_assertion"
 
     try:
         parent_stored = bundle.world_graph.get_revision(
@@ -2807,13 +2778,22 @@ def _review_intent_sha256_for_threat_request(
             {"contribution_id": contribution.contribution_id}
         ),
         preview_content_sha256=canonical_sha256({}),
-        candidate_contribution_sha256=contribution_v2_payload_sha256(candidate),
+        candidate_contribution_sha256=(
+            contribution_v3_payload_sha256(candidate)
+            if typed_graph_review
+            else contribution_v2_payload_sha256(candidate)
+        ),
         expected_parent_revision_id=expected_parent_revision_id,
         base_graph_schema=parent_envelope.graph_schema,
         base_graph_payload_sha256=parent_envelope.graph_payload_sha256,
         semantic_profile=SemanticProfileRef.model_validate(raw_profile),
     )
-    return derive_review_intent_sha256_v2(
+    derive = (
+        derive_review_intent_sha256_v3
+        if typed_graph_review
+        else derive_review_intent_sha256_v2
+    )
+    return derive(
         operation_id=operation_id,
         world_id=world_id,
         campaign_id=campaign_id,
@@ -2901,6 +2881,14 @@ def publish_contribution_via_dungeonmind(
         derive_review_intent_sha256_v2,
         FINALIZE_REVIEW_V2_TOOL,
     )
+    from dungeonmind.contracts.contribution_review_v3 import (
+        CommitConfirmationReceiptV3,
+        ContributionReviewIntentV3,
+        ContributionReviewSubmissionV3,
+        contribution_v3_payload_sha256,
+        derive_review_intent_sha256_v3,
+        FINALIZE_REVIEW_V3_TOOL,
+    )
     from dungeonmind.contracts.semantic_profile import SemanticProfileRef
     from dungeonmind.domain.canonical import canonical_sha256
     from dungeonmind.domain.errors import (
@@ -2909,6 +2897,7 @@ def publish_contribution_via_dungeonmind(
         StaleParentRevisionError,
     )
 
+    typed_graph_review = contribution.source_kind == "graph_review_authored_assertion"
     dsn = _require_database_url(database_url)
     services = _direct_services(dsn, world_id)
     bundle = services.bundle
@@ -3026,13 +3015,22 @@ def publish_contribution_via_dungeonmind(
             {"contribution_id": contribution.contribution_id}
         ),
         preview_content_sha256=canonical_sha256({}),
-        candidate_contribution_sha256=contribution_v2_payload_sha256(candidate),
+        candidate_contribution_sha256=(
+            contribution_v3_payload_sha256(candidate)
+            if typed_graph_review
+            else contribution_v2_payload_sha256(candidate)
+        ),
         expected_parent_revision_id=expected_parent_revision_id,
         base_graph_schema=parent_envelope.graph_schema,
         base_graph_payload_sha256=parent_envelope.graph_payload_sha256,
         semantic_profile=SemanticProfileRef.model_validate(raw_profile),
     )
-    intent_sha256 = derive_review_intent_sha256_v2(
+    derive = (
+        derive_review_intent_sha256_v3
+        if typed_graph_review
+        else derive_review_intent_sha256_v2
+    )
+    intent_sha256 = derive(
         operation_id=operation_id,
         world_id=world_id,
         campaign_id=campaign_id,
@@ -3045,7 +3043,22 @@ def publish_contribution_via_dungeonmind(
         reviewed_at=reviewed_at,
     )
     try:
-        intent = ContributionReviewIntentV2(
+        intent_type = (
+            ContributionReviewIntentV3
+            if typed_graph_review
+            else ContributionReviewIntentV2
+        )
+        receipt_type = (
+            CommitConfirmationReceiptV3
+            if typed_graph_review
+            else CommitConfirmationReceiptV2
+        )
+        submission_type = (
+            ContributionReviewSubmissionV3
+            if typed_graph_review
+            else ContributionReviewSubmissionV2
+        )
+        intent = intent_type(
             operation_id=operation_id,
             world_id=world_id,
             campaign_id=campaign_id,
@@ -3058,7 +3071,7 @@ def publish_contribution_via_dungeonmind(
             reviewed_at=reviewed_at,
             review_intent_sha256=intent_sha256,
         )
-        confirmation = CommitConfirmationReceiptV2(
+        confirmation = receipt_type(
             confirmation_id=derive_confirmation_id(
                 operation_id=operation_id,
                 review_intent_sha256=intent_sha256,
@@ -3068,14 +3081,18 @@ def publish_contribution_via_dungeonmind(
             operation_id=operation_id,
             review_intent_sha256=intent_sha256,
             actor=actor,
-            tool_name=FINALIZE_REVIEW_V2_TOOL,
+            tool_name=(
+                FINALIZE_REVIEW_V3_TOOL
+                if typed_graph_review
+                else FINALIZE_REVIEW_V2_TOOL
+            ),
             effect="commit",
             world_id=world_id,
             campaign_id=campaign_id,
             expected_parent_revision_id=expected_parent_revision_id,
             confirmed_at=reviewed_at,
         )
-        submission = ContributionReviewSubmissionV2(
+        submission = submission_type(
             intent=intent, confirmation=confirmation
         )
     except Exception as exc:
@@ -3092,18 +3109,31 @@ def publish_contribution_via_dungeonmind(
     from dungeonmind.application.contribution_review_v2 import (
         finalize_contribution_review_v2,
     )
+    from dungeonmind.application.contribution_review_v3 import (
+        finalize_contribution_review_v3,
+    )
     from dungeonmind.application.review_publication import (
         publish_finalized_review,
     )
 
     try:
-        state = finalize_contribution_review_v2(
+        finalize = (
+            finalize_contribution_review_v3
+            if typed_graph_review
+            else finalize_contribution_review_v2
+        )
+        state = finalize(
             submission,
             capability_policy=_publish_capability_policy(
                 world_id=world_id,
                 campaign_id=campaign_id,
                 parent_revision_id=expected_parent_revision_id,
                 policy_id=_publication_provenance(publication_family)[1],
+                tool_name=(
+                    FINALIZE_REVIEW_V3_TOOL
+                    if typed_graph_review
+                    else FINALIZE_REVIEW_V2_TOOL
+                ),
             ),
             world_graph_repository=bundle.world_graph,
             review_repository=bundle.contribution_reviews,

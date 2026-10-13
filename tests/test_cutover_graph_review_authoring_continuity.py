@@ -89,6 +89,11 @@ def _object_proposal() -> dict[str, object]:
         "localProposalId": REVIEWED_OBJECT_ID,
         "proposalKind": "object",
         "status": "staged_local",
+        "selection": {
+            "selectionKind": "text_span",
+            "selectedText": "Post-genesis source for manual authoring.",
+            "normalizedSelectedText": "Post-genesis source for manual authoring.",
+        },
         "objectRef": {
             "label": "D2C4 Reviewed Object",
             "kind": "party",
@@ -106,6 +111,11 @@ def _link_proposal() -> dict[str, object]:
         "localProposalId": "d2c4-link-existing",
         "proposalKind": "link_existing",
         "status": "staged_local",
+        "selection": {
+            "selectionKind": "text_span",
+            "selectedText": "vial",
+            "normalizedSelectedText": "vial",
+        },
         "selectedText": "vial",
         "normalizedSelectedText": "vial",
         "existingObjectRef": {
@@ -126,6 +136,11 @@ def _relationship_proposal(source_node_id: str) -> dict[str, object]:
         "localProposalId": "d2c4-relationship",
         "proposalKind": "relationship",
         "status": "staged_local",
+        "selection": {
+            "selectionKind": "text_span",
+            "selectedText": "associated with",
+            "normalizedSelectedText": "associated with",
+        },
         "sourceObjectRef": {
             "refKind": "existing_graph_node",
             "nodeId": source_node_id,
@@ -291,7 +306,7 @@ def _write_post_genesis_graph_review_run(repo: Path) -> str:
     source = repo / committed.target_relpath
     source.parent.mkdir(parents=True, exist_ok=True)
     source.write_text(
-        "# D2C4 Graph Review\n\nPost-genesis source for manual authoring.\n",
+        "# D2C4 Graph Review\n\nPost-genesis source for manual authoring. The vial is associated with the reviewed object.\n",
         encoding="utf-8",
     )
     artifact = create_source_artifact_from_workspace_document(
@@ -539,8 +554,25 @@ def test_graph_review_authoring_continuity_one_world_sequence(
         ),
         repo_root=repo,
     )
-    assert resolved_anchor.outcome != "empty"
+    from apps.live_control_server.services.source_artifact_registry import (
+        get_source_artifact,
+        load_source_span_index,
+    )
+    from apps.live_control_server.config import artifact_data_root
+    from graph_memory.retrieval.source_reader import parse_repo_uri
+
+    assert resolved_anchor.outcome == "enough"
     assert resolved_anchor.source_artifact_id == buddy_artifact_id
+    assert resolved_anchor.source_span_ref_id == anchor.source_span_ref_id
+    registered = get_source_artifact(repo, buddy_artifact_id)
+    index = load_source_span_index(repo, buddy_artifact_id)
+    span = next(item for item in index.spans if item.source_span_id == anchor.source_span_ref_id)
+    relative = parse_repo_uri(registered.uri)
+    assert relative is not None
+    source_bytes = (artifact_data_root(repo) / relative).read_bytes()
+    lines = source_bytes.decode("utf-8").splitlines()
+    assert resolved_anchor.content == "\n".join(lines[span.start_line - 1 : span.end_line])
+    assert resolved_anchor.content_sha256 == hashlib.sha256(source_bytes).hexdigest()
     assert resolved_anchor.snapshot is not None
     assert resolved_anchor.snapshot.revision_id == d1
 

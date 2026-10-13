@@ -6,6 +6,7 @@ import hashlib
 import hmac
 import json
 import os
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -31,6 +32,7 @@ from apps.live_control_server.models.graph_authoring_overlay import (
     UnsafeCampaignRelError,
     build_source_anchor_from_payload,
     default_graph_authoring_provenance,
+    normalize_selected_text,
     validate_campaign_id,
 )
 from apps.live_control_server.services.graph_authoring_overlay_store import (
@@ -1025,9 +1027,183 @@ def verify_publication_intent(token: str, payload: dict[str, Any]) -> None:
         )
 
 
-def graph_review_source_evidence_ref_id(source_artifact_id: str) -> str:
-    """One contribution evidence handle for the sealed Graph Review source pair."""
-    return f"grauth-ev:{source_artifact_id}"
+@dataclass(frozen=True)
+class VerifiedGraphReviewSpan:
+    assertion_id: str
+    evidence_ref_id: str
+    source_artifact_id: str
+    source_revision_id: str
+    source_domain: str
+    source_span_ref_id: str
+    source_content_sha256: str
+    span_content_sha256: str
+    span_index_sha256: str | None
+    visibility_state: str
+
+
+def graph_review_source_evidence_ref_id(source_artifact_id: str, assertion_id: str) -> str:
+    """Keep independently verified assertion passages distinct in one contribution."""
+    return f"grauth-ev:{source_artifact_id}:{assertion_id}"
+
+
+def _source_span_error(message: str, *, drift: bool = False) -> GraphObjectAuthoringError:
+    return GraphObjectAuthoringError(
+        message,
+        code="source_span_drift" if drift else "source_span_unreadable",
+        status_code=409 if drift else 422,
+    )
+
+
+def _selected_passage(
+    anchor: GraphAuthoringSourceAnchor | None,
+    passages: list[tuple[str, str]],
+) -> tuple[str, str]:
+    """Resolve a server-owned passage; selection coordinates are hints, not proof."""
+    if anchor is None or not normalize_selected_text(anchor.selected_text):
+        raise _source_span_error(
+            "Select source text with a readable passage, then prepare Graph Review again."
+        )
+    selected = normalize_selected_text(anchor.selected_text)
+    explicit = (anchor.source_span_ref_id or "").strip()
+    matches = [
+        (span_id, content)
+        for span_id, content in passages
+        if selected in normalize_selected_text(content)
+        and (not explicit or span_id == explicit)
+    ]
+    if not explicit and len(matches) > 1 and anchor.paragraph_ordinal is not None:
+        ordinal = anchor.paragraph_ordinal
+        if 1 <= ordinal <= len(passages) and passages[ordinal - 1] in matches:
+            matches = [passages[ordinal - 1]]
+    if len(matches) != 1:
+        raise _source_span_error(
+            "The selected text does not identify one current source passage. "
+            "Select an exact passage and prepare Graph Review again."
+        )
+    return matches[0]
+
+
+def verify_graph_review_assertion_spans(
+    *,
+    assertions: list[AuthoredGraphAssertion],
+    resolved_source: Any,
+    source_root: Path,
+    world_id: str,
+    campaign_id: str,
+) -> dict[str, VerifiedGraphReviewSpan]:
+    """Re-read registered bytes and bind each assertion to one exact passage."""
+    from apps.live_control_server.config import artifact_data_root
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
+        extract_span_from_revision_bound_text,
+        split_recap_body_paragraphs,
+    )
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryError,
+        load_source_span_index,
+        source_span_index_path,
+    )
+    from apps.live_control_server.services.worldbuilding_source_span_read import (
+        read_admitted_worldbuilding_span,
+    )
+    from graph_memory.retrieval.errors import WorldGraphRetrievalError
+    from graph_memory.retrieval.source_reader import parse_repo_uri
+
+    artifact = _buddy_source_artifact(resolved_source)
+    _scope_check_buddy_artifact(
+        artifact, authored_world=world_id, authored_campaign=campaign_id
+    )
+    artifact_id = str(getattr(artifact, "source_artifact_id", "") or "")
+    digest = str(getattr(artifact, "content_sha256", "") or "").removeprefix("sha256:").lower()
+    revision_id = str(getattr(resolved_source, "source_revision_id", "") or "")
+    visibility = str(getattr(artifact, "visibility_state", "") or "")
+    domain = str(getattr(artifact, "source_domain", "") or "")
+    if domain == "recap":
+        domain = "session_recap"
+    if (
+        len(digest) != 64
+        or any(char not in "0123456789abcdef" for char in digest)
+        or revision_id != f"sha256:{digest}"
+        or not visibility
+        or str(getattr(artifact, "status", "active")) != "active"
+    ):
+        raise _source_span_error(
+            "The admitted source revision or visibility is not current. Prepare again.",
+            drift=True,
+        )
+    relative = parse_repo_uri(str(getattr(artifact, "uri", "") or ""))
+    if relative is None:
+        raise _source_span_error("The admitted source has no readable repo passage.")
+    root = artifact_data_root(source_root)
+    target = (root / relative).resolve()
+    if not target.is_relative_to(root):
+        raise _source_span_error("The admitted source path is outside its repository.")
+    try:
+        raw = target.read_bytes()
+        text = raw.decode("utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise _source_span_error("The admitted source body is unreadable. Prepare again.", drift=True) from exc
+    if hashlib.sha256(raw).hexdigest() != digest:
+        raise _source_span_error("The admitted source body changed. Prepare again.", drift=True)
+
+    index_digest: str | None = None
+    if domain == "worldbuilding":
+        try:
+            index = load_source_span_index(source_root, artifact_id)
+            index_digest = hashlib.sha256(
+                source_span_index_path(source_root, artifact_id).read_bytes()
+            ).hexdigest()
+        except (SourceArtifactRegistryError, OSError) as exc:
+            raise _source_span_error("The registered source span index is unreadable. Prepare again.", drift=True) from exc
+        lines = text.splitlines()
+        passages = [
+            (span.source_span_id, "\n".join(lines[span.start_line - 1 : span.end_line]))
+            for span in index.spans
+        ]
+    elif domain == "session_recap":
+        passages = [
+            (f"{artifact_id}:paragraph:{ordinal}", paragraph)
+            for ordinal, paragraph in enumerate(split_recap_body_paragraphs(text), start=1)
+        ]
+    else:
+        raise _source_span_error("This source domain has no supported exact passage reader.")
+
+    verified: dict[str, VerifiedGraphReviewSpan] = {}
+    for assertion in assertions:
+        span_id, passage = _selected_passage(assertion.source_anchor, passages)
+        if domain == "worldbuilding":
+            try:
+                read = read_admitted_worldbuilding_span(
+                    root=source_root,
+                    source_artifact_id=artifact_id,
+                    source_span_ref_id=span_id,
+                    graph_content_sha256=digest,
+                    max_chars=max(len(text) + 1, 1024),
+                    anchor_id=f"prepare:{assertion.assertion_id}",
+                    graph_artifact=artifact,
+                )
+            except WorldGraphRetrievalError as exc:
+                raise _source_span_error("The registered source passage cannot be opened. Prepare again.", drift=True) from exc
+            if read.outcome != "enough" or read.content != passage:
+                raise _source_span_error("The registered source passage changed. Prepare again.", drift=True)
+        else:
+            extracted = extract_span_from_revision_bound_text(
+                text=text, span_id=span_id, digest=digest
+            )
+            if extracted is None or extracted[0] != passage:
+                raise _source_span_error("The recap passage changed. Prepare again.", drift=True)
+        verified[assertion.assertion_id] = VerifiedGraphReviewSpan(
+            assertion_id=assertion.assertion_id,
+            evidence_ref_id=graph_review_source_evidence_ref_id(artifact_id, assertion.assertion_id),
+            source_artifact_id=artifact_id,
+            source_revision_id=revision_id,
+            source_domain=domain,
+            source_span_ref_id=span_id,
+            source_content_sha256=digest,
+            span_content_sha256=hashlib.sha256(passage.encode("utf-8")).hexdigest(),
+            span_index_sha256=index_digest,
+            visibility_state=visibility,
+        )
+    return verified
 
 
 def translate_assertions_to_contribution(
@@ -1038,13 +1214,13 @@ def translate_assertions_to_contribution(
     source_artifact_id: str,
     source_revision_id: str,
     assertions: list[AuthoredGraphAssertion],
+    verified_spans: dict[str, VerifiedGraphReviewSpan],
 ):
     from apps.live_control_server.models.world_graph_contributions import (
         build_assertion,
         create_graph_contribution,
     )
 
-    evidence_ref_ids = [graph_review_source_evidence_ref_id(source_artifact_id)]
     node_id_by_local_proposal_id = {
         str(assertion.object_ref.local_proposal_id): authored_object_node_id(
             assertion.assertion_id
@@ -1062,6 +1238,11 @@ def translate_assertions_to_contribution(
 
     accepted = []
     for assertion in assertions:
+        verified = verified_spans.get(assertion.assertion_id)
+        if verified is None or verified.source_artifact_id != source_artifact_id or verified.source_revision_id != source_revision_id:
+            raise _source_span_error("A reviewed assertion has no verified source passage. Prepare again.")
+        evidence_ref_ids = [verified.evidence_ref_id]
+        evidence_value = {"evidence": [asdict(verified)]}
         if assertion.assertion_kind == "object":
             node_id = authored_object_node_id(assertion.assertion_id)
             accepted.append(
@@ -1073,7 +1254,8 @@ def translate_assertions_to_contribution(
                     value={
                         "kind": assertion.object_ref.kind or "unknown",
                         "role": assertion.object_ref.role or assertion.object_ref.kind or "unknown",
-                        "source_domains": ["worldbuilding"],
+                        "source_domains": [verified.source_domain],
+                        **evidence_value,
                         "aliases": list(assertion.aliases or [assertion.object_ref.label]),
                         "summary": assertion.summary,
                     },
@@ -1102,7 +1284,8 @@ def translate_assertions_to_contribution(
                     label=alias_text or assertion.existing_object_ref.label,
                     value={
                         "alias": alias_text or assertion.existing_object_ref.label,
-                        "source_domains": ["worldbuilding"],
+                        "source_domains": [verified.source_domain],
+                        **evidence_value,
                     },
                     evidence_ref_ids=evidence_ref_ids,
                     source_artifact_id=source_artifact_id,
@@ -1129,7 +1312,7 @@ def translate_assertions_to_contribution(
                     target_node_id=target_id,
                     predicate=assertion.relationship_type,
                     label=assertion.relationship_label,
-                    value={"source_domains": ["worldbuilding"], "direction": assertion.direction},
+                    value={"source_domains": [verified.source_domain], "direction": assertion.direction, **evidence_value},
                     evidence_ref_ids=evidence_ref_ids,
                     source_artifact_id=source_artifact_id,
                     source_revision_id=source_revision_id,
@@ -1508,6 +1691,15 @@ def prepare_graph_object_authoring_write(
         )
         buddy_artifact_id = str(getattr(resolved, "source_artifact_id"))
         buddy_revision_id = str(getattr(resolved, "source_revision_id"))
+        from apps.live_control_server.config import repo_root
+
+        verified_spans = verify_graph_review_assertion_spans(
+            assertions=assertions,
+            resolved_source=resolved,
+            source_root=(corpus_root or repo_root()).resolve(),
+            world_id=world_id,
+            campaign_id=request.campaign_id,
+        )
         from apps.live_control_server.ports.world_graph_authority_access import (
             get_world_graph_authority,
         )
@@ -1547,6 +1739,7 @@ def prepare_graph_object_authoring_write(
             source_artifact_id=buddy_artifact_id,
             source_revision_id=buddy_revision_id,
             assertions=assertions,
+            verified_spans=verified_spans,
         )
         contribution_digest = contribution_binding_digest(contribution)
 
