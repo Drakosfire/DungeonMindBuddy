@@ -33,7 +33,7 @@ Completion requires live UI acceptance transcript and trace evidence, owning-bou
 - `apps/live-control-ui/src/api/{liveApi,types}.ts` and their tests.
 - `apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.{tsx,css}` and `WorldPlanAgentConversation.worldHistory.test.tsx`.
 
-Persistence and public contracts must be designed from actual owning boundaries before expanding this allowlist. No dependency pin, lockfile, canonical graph write, ingestion publication or migration is leased implicitly. Any necessary expansion is recorded coherently here before implementation under the user's goal authority.
+No dependency pin, lockfile, durable trace schema, canonical graph write or ingestion publication is leased implicitly. The product-facing trace is the next serial capability and is recorded as BLOCKED until this continuity/compaction slice is reviewed and merged. Its design must persist actual admitted source passages, tool outcomes and context-management decisions on the durable turn, project them through authenticated World history, and render an expandable trace without hidden reasoning. Before that successor starts, re-anchor and explicitly expand its write set to include the owning turn store/API/UI contracts and migration.
 
 ## Runtime and evidence
 
