@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 import psycopg
 import pytest
 from alembic import command
+from pydantic import ValidationError
 
 from tests.application_state import test_plan_action_consultation as consultation_tests
 
@@ -15,6 +16,7 @@ from application_state.plan_action_dialogue.service import PlanActionDialogueSer
 from application_state.plan_action_dialogue.types import (
     PlanActionBasis,
     PlanActionPlayableTargetReceipt,
+    PlanActionSelectionAnchorV1,
     PlanActionReservation,
 )
 from application_state.cli import _current_and_head, alembic_config
@@ -44,6 +46,7 @@ def _reservation(
     target_kind: str = "replace_selection",
     fingerprint: str = "b" * 64,
     playable_target_receipt: PlanActionPlayableTargetReceipt | None = None,
+    selection_anchor: PlanActionSelectionAnchorV1 | None = None,
 ) -> PlanActionReservation:
     return PlanActionReservation(
         idempotency_key=key or uuid4(),
@@ -55,8 +58,117 @@ def _reservation(
         target_kind=target_kind,
         selected_text_sha256="d" * 64 if target_kind == "replace_selection" else None,
         playable_target_receipt=playable_target_receipt,
+        selection_anchor=selection_anchor,
         instruction=instruction,
     )
+
+
+def _selection_anchor(*, anchor: int = 10, head: int = 20) -> PlanActionSelectionAnchorV1:
+    return PlanActionSelectionAnchorV1.model_validate({
+        "schema_version": "dmb_plan_selection_anchor_v1",
+        "editor_format": "world-plan-tiptap-json-v1",
+        "editor_json_sha256": "e" * 64,
+        "anchor": anchor, "head": head,
+        "from": min(anchor, head), "to": max(anchor, head),
+        "section": {"id": "heading:8:2", "apply_from": 8, "apply_to": 25},
+    })
+
+
+def test_selection_anchor_is_strict_versioned_and_bounded() -> None:
+    valid = _selection_anchor(anchor=20, head=10)
+    payload = valid.model_dump(mode="json", by_alias=True)
+    assert set(payload) == {
+        "schema_version", "editor_format", "editor_json_sha256",
+        "anchor", "head", "from", "to", "section",
+    }
+    assert len(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()) <= 512
+    assert valid.anchor == 20 and valid.head == 10 and valid.from_ == 10
+    invalid = [
+        {**payload, "extra": "x"},
+        {**payload, "extra": "x" * 513},
+        {key: value for key, value in payload.items() if key != "section"},
+        {**payload, "schema_version": "v2"},
+        {**payload, "editor_format": "unknown"},
+        {**payload, "editor_json_sha256": "E" * 64},
+        {**payload, "anchor": True},
+        {**payload, "head": "10"},
+        {**payload, "head": 10.0},
+        {**payload, "anchor": 1_000_001},
+        {**payload, "head": 20, "anchor": 20},
+        {**payload, "from": 11},
+        {**payload, "section": {**payload["section"], "id": "heading:9:2"}},
+        {**payload, "section": {**payload["section"], "apply_to": 19}},
+        {**payload, "section": {**payload["section"], "extra": 1}},
+    ]
+    for malformed in invalid:
+        with pytest.raises(ValidationError):
+            PlanActionSelectionAnchorV1.model_validate(malformed)
+
+
+def test_selection_anchor_persists_projects_and_conflicts_on_same_key(
+    application_state_dsn: str,
+) -> None:
+    service = PlanActionDialogueService()
+    anchor = _selection_anchor()
+    request = _reservation(selection_anchor=anchor)
+    action, created = service.reserve(request)
+    assert created and action.selection_anchor == anchor
+    loaded = PlanActionDialogueService().get_by_key(request.basis.world_id, request.idempotency_key)
+    assert loaded.selection_anchor == anchor
+    assert service.list_status(request.basis).actions[0].selection_anchor == anchor
+    assert service.reserve(request) == (action, False)
+    changed = _selection_anchor(anchor=20, head=11)
+    with pytest.raises(ApplicationStateConflictError, match="different request"):
+        service.reserve(request.model_copy(update={"selection_anchor": changed}))
+    with pytest.raises(ApplicationStateConflictError, match="different request"):
+        service.reserve(request.model_copy(update={"selection_anchor": None}))
+    with psycopg.connect(application_state_dsn) as conn:
+        row = conn.execute(
+            "SELECT selection_anchor FROM plan_action.action WHERE action_id=%s", (action.action_id,),
+        ).fetchone()[0]
+    assert PlanActionSelectionAnchorV1.model_validate(row) == anchor
+    raw = anchor.model_dump(mode="json", by_alias=True)
+    with psycopg.connect(application_state_dsn, autocommit=True) as conn:
+        for malformed in (
+            {**raw, "anchor": True},
+            {**raw, "unexpected": 1},
+            {**raw, "editor_json_sha256": int("1" * 64)},
+            {**raw, "section": {**raw["section"], "id": "heading:9:2"}},
+        ):
+            with pytest.raises(psycopg.errors.CheckViolation):
+                conn.execute(
+                    "UPDATE plan_action.action SET selection_anchor=%s::jsonb WHERE action_id=%s",
+                    (json.dumps(malformed), action.action_id),
+                )
+
+
+def test_selection_anchor_migration_preserves_consultation_and_guards_downgrade(
+    application_state_dsn: str,
+) -> None:
+    service = PlanActionDialogueService()
+    prior_request = consultation_tests.reservation()
+    prior, _ = service.reserve(prior_request)
+    consultation_tests.complete_action(service, prior)
+    with psycopg.connect(application_state_dsn) as conn:
+        before = conn.execute(
+            "SELECT consultation::text, request_fingerprint FROM plan_action.action WHERE action_id=%s",
+            (prior.action_id,),
+        ).fetchone()
+    command.downgrade(alembic_config(), "20261012_0020")
+    command.upgrade(alembic_config(), "head")
+    with psycopg.connect(application_state_dsn) as conn:
+        after = conn.execute(
+            "SELECT consultation::text, request_fingerprint, selection_anchor "
+            "FROM plan_action.action WHERE action_id=%s", (prior.action_id,),
+        ).fetchone()
+    assert after == (*before, None)
+    assert PlanActionDialogueService().get_by_key(prior_request.basis.world_id, prior_request.idempotency_key).consultation is not None
+
+    anchored, _ = service.reserve(_reservation(selection_anchor=_selection_anchor()))
+    with pytest.raises(RuntimeError, match="refusing to downgrade while Plan selection anchors exist"):
+        command.downgrade(alembic_config(), "20261012_0020")
+    assert _current_and_head(application_state_dsn) == ("20261012_0021", "20261012_0021")
+    assert service.get_by_key(anchored.basis.world_id, anchored.idempotency_key).selection_anchor is not None
 
 
 def _expire(dsn: str, action_id: UUID, *, stale_updated_at: bool = False) -> None:
@@ -260,7 +372,7 @@ def test_0015_upgrade_preserves_populated_0014_legacy_action_history(application
 
     command.upgrade(alembic_config(), "head")
     current, head = _current_and_head(application_state_dsn)
-    assert current == head == "20261012_0020"
+    assert current == head == "20261012_0021"
     loaded = PlanActionDialogueService().get_by_key(request.basis.world_id, request.idempotency_key)
     assert loaded is not None
     assert loaded.action_id == action.action_id

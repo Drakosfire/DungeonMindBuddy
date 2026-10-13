@@ -67,6 +67,47 @@ class PlanActionPlayableTargetReceipt(StrictModel):
         return self
 
 
+class PlanActionSelectionSectionV1(StrictModel):
+    id: str = Field(pattern=r"^heading:(0|[1-9][0-9]{0,6}):[1-6]$")
+    apply_from: int = Field(strict=True, ge=0, le=1_000_000)
+    apply_to: int = Field(strict=True, ge=0, le=1_000_000)
+
+    @model_validator(mode="after")
+    def validate_root(self):
+        if int(self.id.split(":", 2)[1]) != self.apply_from:
+            raise ValueError("selection section ID must name its exact apply root")
+        return self
+
+
+class PlanActionSelectionAnchorV1(StrictModel):
+    model_config = ConfigDict(validate_by_name=True)
+
+    schema_version: Literal["dmb_plan_selection_anchor_v1"]
+    editor_format: Literal["world-plan-tiptap-json-v1"]
+    editor_json_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    anchor: int = Field(strict=True, ge=0, le=1_000_000)
+    head: int = Field(strict=True, ge=0, le=1_000_000)
+    from_: int = Field(alias="from", strict=True, ge=0, le=1_000_000)
+    to: int = Field(strict=True, ge=0, le=1_000_000)
+    section: PlanActionSelectionSectionV1 | None
+
+    @model_validator(mode="after")
+    def validate_range_and_size(self):
+        if self.anchor == self.head or self.from_ != min(self.anchor, self.head) or self.to != max(self.anchor, self.head):
+            raise ValueError("selection anchor range must match its directional endpoints")
+        if self.section is not None and not (
+            self.section.apply_from <= self.from_ < self.to <= self.section.apply_to
+        ):
+            raise ValueError("selection anchor must fit its exact heading section")
+        encoded = json.dumps(
+            self.model_dump(mode="json", by_alias=True),
+            ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+        ).encode("utf-8")
+        if len(encoded) > 512:
+            raise ValueError("selection anchor exceeds 512 canonical UTF-8 bytes")
+        return self
+
+
 class PlanActionContinuation(StrictModel):
     continuation_of_action_id: UUID
     clarification_id: UUID
@@ -202,6 +243,8 @@ class ConsultationOptionalModel(StrictModel):
         data = handler(self)
         if self.consultation is None:
             data.pop("consultation", None)
+        if getattr(self, "selection_anchor", None) is None:
+            data.pop("selection_anchor", None)
         return data
 
 
@@ -216,10 +259,15 @@ class PlanActionReservation(StrictModel):
     target_kind: TargetKind
     selected_text_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     playable_target_receipt: PlanActionPlayableTargetReceipt | None = None
+    selection_anchor: PlanActionSelectionAnchorV1 | None = None
     instruction: str = Field(min_length=1, max_length=4000)
 
     @model_validator(mode="after")
     def validate_target_witness(self):
+        if self.selection_anchor is not None and (
+            self.action_type != "revise" or self.target_kind != "replace_selection"
+        ):
+            raise ValueError("selection anchor belongs only to a revised Plan selection")
         if self.expected_world_pointer is not None and (
             self.expected_world_pointer.world_id != self.basis.world_id
             or self.expected_world_pointer.active_conversation_id is None
@@ -251,6 +299,7 @@ class PlanActionRecord(ConsultationOptionalModel):
     target_kind: TargetKind
     selected_text_sha256: str | None
     playable_target_receipt: PlanActionPlayableTargetReceipt | None
+    selection_anchor: PlanActionSelectionAnchorV1 | None = None
     instruction: str
     status: ActionStatus
     assistant_summary: str | None
@@ -283,6 +332,7 @@ class PlanActionProjection(ConsultationOptionalModel):
     accepted_at: datetime
     completed_at: datetime | None
     playable_target_receipt: PlanActionPlayableTargetReceipt | None
+    selection_anchor: PlanActionSelectionAnchorV1 | None = None
 
 
 class PlanActionProjectionPage(StrictModel):
