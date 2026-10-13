@@ -1,6 +1,6 @@
 # Plan Graph traversal-discovered source admission
 
-**Status:** PINNED / READY FOR PRIME ACTIVATION  
+**Status:** ACTIVE — APP phase by PRIME dispatch (2026-10-13); SERVER consumer integration pending  
 **Owner:** Buddy APP-STATE + SERVER, one jointly reviewed implementation PR  
 **Topology:** serial  
 **Authority base:** DungeonMindBuddy main `597c69b1ca5449947894311af83756812b2318fe`  
@@ -103,3 +103,5 @@ The focused adversarial matrix also proves:
 - no extension/read follows outcome-unknown and no operation is automatically replayed.
 
 Offline typed/service tests and a real PostgreSQL fenced-append test are required. No provider QA or World-knowledge publication is authorized by this handoff.
+
+APP activation: PRIME dispatch authorizes the exact APP allowlist on this serial branch, pinned handoff `975a98ab09de2fb3ac0be16d4f127da2dfd97f30`, base `597c69b1ca5449947894311af83756812b2318fe`, isolated non-serving checkout `/tmp/app-state-conversation-owner`. SERVER rollout/recovery lease is settled. Integration acceptance and paired rollout remain pending.
