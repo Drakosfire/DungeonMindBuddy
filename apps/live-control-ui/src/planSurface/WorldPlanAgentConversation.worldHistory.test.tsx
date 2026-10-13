@@ -1422,8 +1422,12 @@ describe("World Plan conversation consumer", () => {
       from: 1, to: 2, editorJson: "{}", selectionJson: "[]",
       draftGeneration: 0, selectionGeneration: 0,
     };
-    const bridge = { capture: vi.fn(async () => captured), apply: vi.fn(async () => undefined) };
+    const bridge = { capture: vi.fn(async () => captured), apply: vi.fn(async () => undefined),
+      preview: vi.fn(() => ({ before: { markdown: "# Draft\n\nDraft excerpt." },
+        after: { markdown: "# Draft\n\nHer mother guards the door." } })) };
     const clarificationId = "00000000-0000-4000-8000-000000000081";
+    const proposalId = "00000000-0000-4000-8000-000000000083";
+    const proposalResultId = "00000000-0000-4000-8000-000000000084";
     const source = {
       schema: "dmb_agent_evidence_anchor_open_target_v1" as const,
       kind: "evidence_anchor" as const,
@@ -1491,9 +1495,43 @@ describe("World Plan conversation consumer", () => {
       expect(request.continuation_of_action_id).toBe(clarificationId);
       expect(request.expected_active_conversation_id).toBe("conversation-a");
       expect(request.expected_pointer_revision).toBe(4);
+      const proposalResult = {
+        kind: "proposal", result_id: proposalResultId,
+        message: "The observatory belongs to Mira; the proposed change names her mother at the door.",
+        answer_segments: [{
+          kind: "graph_claim", claim_id: "claim:owner", text: "Mira owns the observatory.",
+          target_kind: "assertion", target_id: "node:mira", graph_revision: "graph-r1",
+          evidence_ref_ids: ["evidence:owner"],
+        }],
+        citation_map: { schema: "dmb_graph_citation_map_v2", entries: [{
+          claim_id: "claim:owner", target_kind: "assertion", target_id: "node:mira",
+          graph_revision: "graph-r1", evidence_ref_ids: ["evidence:owner"],
+          source_opened: true, source_read_ids: ["read:owner"],
+        }] },
+      };
+      actions.push({
+        action_id: proposalId, action_type: "revise", status: "completed",
+        basis: { world_id: worldId, document_id: documentId, object_revision: 7,
+          work_revision_id: workRevisionId, revision_n: 1, content_sha256: contentSha256 },
+        instruction: request.instruction, assistant_summary: "Make the figure Mira's mother.",
+        action_sequence: 2, accepted_at: "2026-10-12T00:00:02Z", completed_at: "2026-10-12T00:00:03Z",
+        playable_target_receipt: null,
+        consultation: { receipt: { origin_conversation_id: "conversation-a", origin_pointer_revision: 4,
+          draft_sha256: request.draft_sha256, selected_text_sha256: selectedDigest,
+          continuation: { continuation_of_action_id: clarificationId } }, result: proposalResult },
+        source_open_targets: [source],
+      } as WorldPlanActionProjection);
+      const actualAction = actions.at(-1)!;
+      actions.splice(actions.length - 1, 0, {
+        ...actualAction, action_id: "00000000-0000-4000-8000-000000000085",
+        consultation: { ...actualAction.consultation!, result: {
+          ...proposalResult, result_id: "00000000-0000-4000-8000-000000000086",
+          answer_segments: [{ ...proposalResult.answer_segments[0]!, text: "An unrelated World fact." }],
+        } },
+      } as WorldPlanActionProjection);
       return {
         schema_version: "dmb_world_plan_document_edit_proposal_v1",
-        action_id: "00000000-0000-4000-8000-000000000083",
+        action_id: proposalId,
         idempotency_key: request.idempotency_key,
         document_id: documentId, world_id: worldId, base_revision: 7,
         base_content_sha256: contentSha256, draft_sha256: request.draft_sha256,
@@ -1502,6 +1540,8 @@ describe("World Plan conversation consumer", () => {
         summary: "Make the figure Mira's mother.", assumptions: [],
         model: "test-model", model_observed: false,
         model_latency_ms: 0, wall_latency_ms: 0, usage: null,
+        consultation: { origin_conversation_id: "conversation-a", origin_pointer_revision: 4,
+          result: proposalResult, source_open_targets: [source], graph_revision: "graph-r1" },
       };
     });
     const readSource = vi.spyOn(liveApi, "postWorldGraphSourceAnchorRead").mockResolvedValue({
@@ -1552,20 +1592,84 @@ describe("World Plan conversation consumer", () => {
       target: { value: "Her mother." },
     });
     fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
-    const review = await screen.findByRole("region", { name: "Review proposed Plan edit" });
+    const review = await screen.findByRole("region", { name: "Change selected text" });
     expect(within(review).getByText("Before")).toBeInTheDocument();
     expect(within(review).getByText("After")).toBeInTheDocument();
     expect(review).toHaveTextContent("Draft excerpt");
     expect(review).toHaveTextContent("Her mother guards the door.");
+    const supportingFacts = await within(review).findByRole("region", { name: "Supporting World facts" });
+    expect(Boolean(supportingFacts.compareDocumentPosition(within(review).getByRole("button", { name: "Apply to draft" }))
+      & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+    expect(supportingFacts).toHaveTextContent("Mira owns the observatory.");
+    expect(supportingFacts).not.toHaveTextContent("An unrelated World fact.");
+    expect(supportingFacts).toHaveTextContent("Buddy read a source passage for this fact.");
+    fireEvent.click(within(supportingFacts).getByRole("button", { name: "Open evidence" }));
+    expect(await within(supportingFacts).findByText("Mira owns the observatory.", { selector: "pre" })).toBeInTheDocument();
+    fireEvent.click(within(supportingFacts).getByRole("button", { name: "Close passage" }));
+    readSource.mockRejectedValueOnce(new Error("source unavailable"));
+    fireEvent.click(within(supportingFacts).getByRole("button", { name: "Open evidence" }));
+    expect(await within(supportingFacts).findByRole("alert")).toHaveTextContent("pinned source passage is unavailable");
+    actions.splice(actions.findIndex((action) => action.action_id === "00000000-0000-4000-8000-000000000085"), 1);
     expect(post).toHaveBeenCalledTimes(2);
     expect(bridge.apply).not.toHaveBeenCalled();
-    fireEvent.click(within(review).getByRole("button", { name: "Apply changes" }));
+    fireEvent.click(within(review).getByRole("button", { name: "Apply to draft" }));
     await waitFor(() => expect(bridge.apply).toHaveBeenCalledTimes(1));
     mounted.unmount();
     mounted = mountComponent(7, bridge, null, false, {
       editorSelectionActive: true, draftGeneration: 1, selectionGeneration: 0,
     });
     await waitFor(() => expect(document.querySelector(`article[data-plan-action-id="${clarificationId}"]`)).toBeTruthy());
+    const savedProposal = await waitFor(() => {
+      const article = document.querySelector(`article[data-plan-action-id="${proposalId}"]`);
+      if (!article) throw new Error("Saved proposal support is not in the conversation");
+      return article;
+    });
+    expect(within(savedProposal as HTMLElement).getByRole("region", { name: "Supporting World facts" }))
+      .toHaveTextContent("Mira owns the observatory.");
+    expect(within(savedProposal as HTMLElement).queryByRole("button", { name: "Apply changes" })).not.toBeInTheDocument();
+    const savedAction = actions.find((action) => action.action_id === proposalId)!;
+    actions[actions.indexOf(savedAction)] = {
+      ...savedAction,
+      consultation: { ...savedAction.consultation!, result: {
+        ...savedAction.consultation!.result!,
+        citation_map: { schema: "dmb_graph_citation_map_v2", entries: [{
+          claim_id: "claim:owner", target_kind: "assertion", target_id: "node:mira",
+          graph_revision: "graph-r1", evidence_ref_ids: ["evidence:owner"],
+          source_opened: false, source_read_ids: [],
+        }] },
+      } },
+      source_open_targets: [{ ...source, source_read_id: null, read_outcome: null }],
+    } as WorldPlanActionProjection;
+    mounted.unmount();
+    mounted = mountComponent(7, bridge, null, false, {
+      editorSelectionActive: true, draftGeneration: 1, selectionGeneration: 0,
+    });
+    const metadataOnly = await screen.findByText("Buddy used a Graph fact; it did not read the source passage.");
+    expect(metadataOnly.closest("article")).toHaveAttribute("data-plan-action-id", proposalId);
+    expect(within(metadataOnly.closest("article")!).getByRole("button", { name: "Open evidence" })).toBeInTheDocument();
+    actions[actions.indexOf(actions.find((action) => action.action_id === proposalId)!)] = {
+      ...savedAction, basis: { ...savedAction.basis, world_id: "other-world" },
+    };
+    mounted.unmount();
+    mounted = mountComponent(7, bridge, null, false, {
+      editorSelectionActive: true, draftGeneration: 1, selectionGeneration: 0,
+    });
+    await waitFor(() => expect(document.querySelector(`article[data-plan-action-id="${clarificationId}"]`)).toBeTruthy());
+    expect(document.querySelector(`article[data-plan-action-id="${proposalId}"]`)).toBeNull();
+    actions[actions.indexOf(actions.find((action) => action.action_id === proposalId)!)] = {
+      ...savedAction, consultation: {
+        ...savedAction.consultation!, receipt: {
+          ...savedAction.consultation!.receipt, origin_pointer_revision: 3,
+        },
+      },
+    };
+    mounted.unmount();
+    mounted = mountComponent(7, bridge, null, false, {
+      editorSelectionActive: true, draftGeneration: 1, selectionGeneration: 0,
+    });
+    await waitFor(() => expect(document.querySelector(`article[data-plan-action-id="${clarificationId}"]`)).toBeTruthy());
+    expect(document.querySelector(`article[data-plan-action-id="${proposalId}"]`)).toBeNull();
+    actions[actions.indexOf(actions.find((action) => action.action_id === proposalId)!)] = savedAction;
     expect(screen.queryByRole("button", { name: "Apply changes" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save Plan" })).not.toBeInTheDocument();
     expect(bridge.apply).toHaveBeenCalledTimes(1);
@@ -1580,6 +1684,7 @@ describe("World Plan conversation consumer", () => {
     fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
     await screen.findByText(/New World conversation confirmed/);
     await waitFor(() => expect(document.querySelector(`article[data-plan-action-id="${clarificationId}"]`)).toBeNull());
+    expect(document.querySelector(`article[data-plan-action-id="${proposalId}"]`)).toBeNull();
     mounted.unmount();
   });
   it.each(["cursor", "scene", "selection", "missing", "stale", "late"])("shows actual target and fences real capture for %s", async (mode) => {

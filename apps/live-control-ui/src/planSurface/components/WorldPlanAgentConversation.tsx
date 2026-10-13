@@ -129,6 +129,18 @@ type WorldPlanEditReviewBefore =
   | { kind: "captured-text"; markdown: string; target?: { kind: string; id: string } }
   | { kind: "caret" };
 
+interface SavedProposalClaim {
+  claimId: string;
+  text: string;
+  sourceOpened: boolean;
+  targets: WorldPlanSourceOpenTargetV2[];
+}
+
+interface SavedProposalGrounding {
+  action: WorldPlanActionProjection;
+  claims: SavedProposalClaim[];
+}
+
 interface PlanSectionScan {
   captured: CapturedWorldPlanEditTarget;
   worldId: string;
@@ -577,6 +589,77 @@ function mergeHistoryTurns(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Keep each displayed fact and source bound to one durable action and citation. */
+function savedProposalGrounding(
+  action: WorldPlanActionProjection,
+  worldId: string,
+  conversationId: string | null,
+  pointerRevision: number | null,
+): SavedProposalGrounding | null {
+  const consultation = action.consultation;
+  const result: unknown = consultation?.result;
+  if (action.status !== "completed" || !consultation || !isRecord(result)
+    || result.kind !== "proposal" || !conversationId || pointerRevision === null
+    || action.basis.world_id !== worldId
+    || consultation.receipt.origin_conversation_id !== conversationId
+    || consultation.receipt.origin_pointer_revision !== pointerRevision) return null;
+  const segments = result.answer_segments;
+  const citationMap = result.citation_map;
+  if (!Array.isArray(segments) || segments.length > 128
+    || !segments.every((segment) => isRecord(segment)
+      && (segment.kind === "graph_claim" || segment.kind === "connective"))) return null;
+  const rawClaims = segments.filter((segment): segment is Record<string, unknown> =>
+    isRecord(segment) && segment.kind === "graph_claim");
+  if (citationMap === null && rawClaims.length === 0) return { action, claims: [] };
+  if (!isRecord(citationMap) || citationMap.schema !== "dmb_graph_citation_map_v2"
+    || !Array.isArray(citationMap.entries) || citationMap.entries.length !== rawClaims.length) return null;
+  const citations = new Map<string, Record<string, unknown>>();
+  for (const entry of citationMap.entries) {
+    if (!isRecord(entry) || typeof entry.claim_id !== "string" || citations.has(entry.claim_id)
+      || !Array.isArray(entry.evidence_ref_ids)
+      || !entry.evidence_ref_ids.every((id) => typeof id === "string" && Boolean(id))
+      || typeof entry.source_opened !== "boolean" || !Array.isArray(entry.source_read_ids)
+      || !entry.source_read_ids.every((id) => typeof id === "string" && Boolean(id))
+      || entry.source_opened !== (entry.source_read_ids.length > 0)) return null;
+    citations.set(entry.claim_id, entry);
+  }
+  const targets = action.source_open_targets ?? [];
+  if (!Array.isArray(targets) || targets.length > 64) return null;
+  const claims: SavedProposalClaim[] = [];
+  const seen = new Set<string>();
+  for (const claim of rawClaims) {
+    const claimId = claim.claim_id;
+    if (typeof claimId !== "string" || !claimId || seen.has(claimId)
+      || typeof claim.text !== "string" || !claim.text.trim()
+      || !Array.isArray(claim.evidence_ref_ids)
+      || !claim.evidence_ref_ids.every((id) => typeof id === "string" && Boolean(id))) return null;
+    const citation = citations.get(claimId);
+    if (!citation || citation.target_kind !== claim.target_kind || citation.target_id !== claim.target_id
+      || citation.graph_revision !== claim.graph_revision
+      || JSON.stringify(citation.evidence_ref_ids) !== JSON.stringify(claim.evidence_ref_ids)) return null;
+    seen.add(claimId);
+    claims.push({ claimId, text: claim.text, sourceOpened: citation.source_opened as boolean, targets: [] });
+  }
+  for (const target of targets) {
+    if (!isRecord(target) || target.kind !== "evidence_anchor"
+      || target.schema !== "dmb_agent_evidence_anchor_open_target_v1"
+      || typeof target.claim_id !== "string" || typeof target.evidence_ref_id !== "string"
+      || typeof target.anchor_id !== "string" || !target.anchor_id
+      || typeof target.source_artifact_id !== "string" || !target.source_artifact_id
+      || typeof target.source_revision_id !== "string" || !target.source_revision_id
+      || typeof target.native_world_id !== "string" || !target.native_world_id
+      || target.managed_world_id !== worldId) return null;
+    const citation = citations.get(target.claim_id);
+    const claim = claims.find((item) => item.claimId === target.claim_id);
+    if (!citation || !claim || target.graph_revision !== citation.graph_revision
+      || !(citation.evidence_ref_ids as string[]).includes(target.evidence_ref_id)
+      || (target.source_read_id !== null
+        && !(citation.source_read_ids as string[]).includes(String(target.source_read_id)))) return null;
+    claim.targets.push(target as WorldPlanSourceOpenTargetV2);
+  }
+  return { action, claims };
 }
 
 function isPlanPlayableTarget(value: unknown): value is WorldPlanSelectedPlayableTargetV1 {
@@ -3721,9 +3804,16 @@ export function WorldPlanAgentConversation({
   }
 
   async function openActionEvidence(action: WorldPlanActionProjection, target: WorldPlanSourceOpenTargetV2) {
+    const actionKind = action.consultation?.result?.kind;
+    const proposalGrounding = actionKind === "proposal"
+      ? savedProposalGrounding(action, worldId, history?.conversation_id ?? null, history?.pointer_revision ?? null)
+      : null;
     if (target.kind !== "evidence_anchor"
-      || action.consultation?.result?.kind !== "clarification"
+      || (actionKind !== "clarification" && !proposalGrounding)
       || !action.source_open_targets?.some((item) => JSON.stringify(item) === JSON.stringify(target))
+      || !conversationActions.some((item) => item.action_id === action.action_id)
+      || action.consultation?.receipt.origin_conversation_id !== history?.conversation_id
+      || action.consultation?.receipt.origin_pointer_revision !== history?.pointer_revision
       || target.managed_world_id !== verifiedWorldId || !scopeMatches) return;
     const epoch = ++sourceReadEpochRef.current;
     const identity = { turnId: action.action_id, claimId: target.claim_id, targetId: target.anchor_id };
@@ -3736,6 +3826,8 @@ export function WorldPlanAgentConversation({
         admissibility: "gm", revisionPin: target.graph_revision, anchorId: target.anchor_id,
       });
       if (sourceReadEpochRef.current !== epoch || latestRef.current.verifiedWorldId !== target.managed_world_id
+        || historySnapshotRef.current?.conversation_id !== action.consultation?.receipt.origin_conversation_id
+        || historySnapshotRef.current?.pointer_revision !== action.consultation?.receipt.origin_pointer_revision
         || latestRef.current.documentId !== documentId || !latestRef.current.scopeMatches) return;
       const admitted = result.schema === "dmb_world_graph_source_anchor_read_v1"
         && ["enough", "partial", "truncated"].includes(result.outcome)
@@ -3755,10 +3847,50 @@ export function WorldPlanAgentConversation({
     }
   }
 
+  const renderProposalGrounding = (grounding: SavedProposalGrounding | null) => (
+    <section className="world-plan-agent-conversation__source-actions" aria-label="Supporting World facts">
+      <h5>Supporting World facts</h5>
+      {!grounding ? (
+        <p className="world-plan-agent-conversation__context">Supporting World facts are not yet available for this proposal.</p>
+      ) : grounding.claims.length === 0 ? (
+        <p className="world-plan-agent-conversation__context">No supporting World facts are attached to this proposal.</p>
+      ) : <ol>{grounding.claims.map((claim) => <li key={claim.claimId}>
+        <p>{claim.text}</p>
+        <p className="world-plan-agent-conversation__context">{claim.sourceOpened
+          ? "Buddy read a source passage for this fact."
+          : "Buddy used a Graph fact; it did not read the source passage."}</p>
+        {claim.targets.length === 0 ? (
+          <p className="world-plan-agent-conversation__context">No source passage can be opened for this fact.</p>
+        ) : claim.targets.map((target, index) => target.kind === "evidence_anchor" ? (
+          <div key={`${target.anchor_id}:${target.evidence_ref_id}`}>
+            <button type="button" onClick={() => { void openActionEvidence(grounding.action, target); }}>
+              {claim.targets.length > 1 ? `Open evidence ${index + 1}` : "Open evidence"}
+            </button>
+            {sourcePassage?.turnId === grounding.action.action_id
+              && sourcePassage.claimId === claim.claimId && sourcePassage.targetId === target.anchor_id ? (
+              <div>
+                <button type="button" onClick={() => { sourceReadEpochRef.current += 1; setSourcePassage(null); }}>Close passage</button>
+                {sourcePassage.status === "loading" ? <p role="status">Opening pinned source…</p> : null}
+                {sourcePassage.status === "unavailable" ? <p role="alert">{sourcePassage.message}</p> : null}
+                {sourcePassage.status === "open" ? <pre>{sourcePassage.content}</pre> : null}
+                {sourcePassage.partial ? <p role="note">Partial passage. More source text may be available.</p> : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null)}
+      </li>)}</ol>}
+    </section>
+  );
+
   const renderConsultedAction = (action: WorldPlanActionProjection) => {
     const result = action.consultation?.result;
-    if (!result || !["clarification", "context_unavailable"].includes(result.kind)
-      || action.consultation?.receipt.origin_conversation_id !== history?.conversation_id) return null;
+    if (!result || !["clarification", "context_unavailable", "proposal"].includes(result.kind)
+      || action.consultation?.receipt.origin_conversation_id !== history?.conversation_id
+      || action.consultation?.receipt.origin_pointer_revision !== history?.pointer_revision) return null;
+    const grounding = result.kind === "proposal"
+      ? savedProposalGrounding(action, worldId, history?.conversation_id ?? null, history?.pointer_revision ?? null)
+      : null;
+    if (result.kind === "proposal" && (!grounding || currentReview?.admitted.response.action_id === action.action_id)) return null;
     const currentBasisAction = actionHistory.some((candidate) => candidate.action_id === action.action_id);
     const targets = action.source_open_targets?.filter((target) => target.kind === "evidence_anchor") ?? [];
     return <article key={action.action_id} className="world-plan-agent-conversation__proposal-event"
@@ -3770,8 +3902,9 @@ export function WorldPlanAgentConversation({
       <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--assistant">
         <span className="world-plan-agent-conversation__speaker">Buddy</span>
         <WorldPlanAgentAnswer answer={result.message} />
+        {result.kind === "proposal" ? renderProposalGrounding(grounding) : null}
         {result.kind === "context_unavailable" ? <p role="note">World context is unavailable. No edit can be applied from this answer.</p> : null}
-        {targets.map((target) => <div key={`${target.claim_id}:${target.anchor_id}`}>
+        {result.kind !== "proposal" ? targets.map((target) => <div key={`${target.claim_id}:${target.anchor_id}`}>
           <button type="button" onClick={() => { void openActionEvidence(action, target); }}>Open evidence</button>
           {sourcePassage?.turnId === action.action_id && sourcePassage.targetId === target.anchor_id ? (
             <div>
@@ -3781,7 +3914,7 @@ export function WorldPlanAgentConversation({
               {sourcePassage.status === "open" ? <pre>{sourcePassage.content}</pre> : null}
             </div>
           ) : null}
-        </div>)}
+        </div>) : null}
         {result.kind === "clarification" ? <button type="button"
           disabled={composing || !editorSelectionActive || !scopeMatches || !currentBasisAction
             || action.consultation?.receipt.origin_pointer_revision !== history?.pointer_revision
@@ -4471,6 +4604,23 @@ export function WorldPlanAgentConversation({
     && editReview.threadId === activeThread?.threadId
     ? editReview
     : null;
+  const reviewGrounding = (() => {
+    if (!currentReview || !history || history.active_conversation_id !== history.conversation_id) return null;
+    const response = currentReview.admitted.response;
+    const consultation = response.consultation;
+    if (!consultation || consultation.result.kind !== "proposal"
+      || consultation.origin_conversation_id !== history.conversation_id
+      || consultation.origin_pointer_revision !== history.pointer_revision) return null;
+    const action = conversationActions.find((candidate) => candidate.action_id === response.action_id);
+    if (!action || action.basis.world_id !== response.world_id
+      || action.basis.document_id !== response.document_id
+      || action.basis.object_revision !== response.base_revision
+      || action.basis.content_sha256 !== response.base_content_sha256
+      || action.consultation?.receipt.draft_sha256 !== response.draft_sha256
+      || action.consultation?.receipt.selected_text_sha256 !== response.selected_text_sha256
+      || action.consultation?.result?.result_id !== consultation.result.result_id) return null;
+    return savedProposalGrounding(action, worldId, history.conversation_id, history.pointer_revision);
+  })();
   const authorizationBlocked = [historyError, error, editError].some((message) =>
     message?.includes("local Agent and Graph session is missing or was rejected"));
   const pendingGraphAsk = pendingAsks.some((item) => item.envelope?.request.plan_context_policy);
@@ -4526,15 +4676,16 @@ export function WorldPlanAgentConversation({
     const canOfferSave = status === "applied" && savedDirty && snapshot.threadId === activeThread?.threadId
       && (!snapshot.conversationId || snapshot.conversationId === history?.conversation_id) && onSavePlan;
     return <PlanEditReview targetLabel={snapshot.targetLabel} before={snapshot.preview.before} after={snapshot.preview.after}
-      status={status} onApply={() => { if (executable) void applyEditReview(executable); }}
-      onDiscard={() => { if (executable && editReviewRef.current === executable) discardEditReview(); }}
-      saveAction={canOfferSave ? { disabled: !savedDirty || !savePlanEnabled || saveInFlight, onSave: () => {
-        if (latestRef.current.mounted && latestRef.current.verifiedWorldId === snapshot.worldId
-          && latestRef.current.documentId === snapshot.documentId && latestRef.current.threadId === snapshot.threadId
-          && (!snapshot.conversationId || historySnapshotRef.current?.conversation_id === snapshot.conversationId)
-          && latestRef.current.scopeMatches && latestRef.current.savedDirty && latestRef.current.savePlanEnabled
-          && !latestRef.current.saveInFlight) onSavePlan?.();
-      } } : undefined}
+        status={status} onApply={() => { if (executable) void applyEditReview(executable); }}
+        onDiscard={() => { if (executable && editReviewRef.current === executable) discardEditReview(); }}
+        supportingFacts={executable ? renderProposalGrounding(reviewGrounding) : undefined}
+        saveAction={canOfferSave ? { disabled: !savedDirty || !savePlanEnabled || saveInFlight, onSave: () => {
+          if (latestRef.current.mounted && latestRef.current.verifiedWorldId === snapshot.worldId
+            && latestRef.current.documentId === snapshot.documentId && latestRef.current.threadId === snapshot.threadId
+            && (!snapshot.conversationId || historySnapshotRef.current?.conversation_id === snapshot.conversationId)
+            && latestRef.current.scopeMatches && latestRef.current.savedDirty && latestRef.current.savePlanEnabled
+            && !latestRef.current.saveInFlight) onSavePlan?.();
+        } } : undefined}
       />;
   };
   const renderProposalEvent = (
@@ -4619,6 +4770,7 @@ export function WorldPlanAgentConversation({
               <pre>{currentReview.admitted.canonicalMarkdown}</pre>
             </div>
           </div>
+          {renderProposalGrounding(reviewGrounding)}
           <p className="world-plan-agent-conversation__context">Apply changes your draft. Save keeps the changes.</p>
           <div className="world-plan-agent-conversation__review-actions">
             <button type="button" onClick={discardEditReview}>Discard proposal</button>

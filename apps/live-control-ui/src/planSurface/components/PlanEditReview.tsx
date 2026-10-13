@@ -15,6 +15,7 @@ export interface PlanEditReviewProps {
   onDiscard: () => void;
   saveAction?: { onSave: () => void; disabled?: boolean; label?: string };
   details?: ReactNode;
+  supportingFacts?: ReactNode;
 }
 
 /** Derive display coordinates only; the controller's frozen source is never rewritten. */
@@ -54,7 +55,7 @@ function changedSourceRanges(before: PlanEditReviewPreview, after: PlanEditRevie
 }
 
 /** Presentation only: the owning controller supplies frozen Apply-equivalent previews and guarded actions. */
-export function PlanEditReview({ targetLabel, before, after, status, onApply, onDiscard, saveAction, details }: PlanEditReviewProps) {
+export function PlanEditReview({ targetLabel, before, after, status, onApply, onDiscard, saveAction, details, supportingFacts }: PlanEditReviewProps) {
   const id = useId();
   const [large, setLarge] = useState(false);
   const expand = useRef<HTMLButtonElement>(null);
@@ -87,6 +88,7 @@ export function PlanEditReview({ targetLabel, before, after, status, onApply, on
         <MarkdownDocumentReader markdown={preview.markdown} sourceLineTarget={change.target ? { ...change.target, targetKey: `${change.target.targetKey}:${large ? "expanded" : "inline"}` } : change.target} hidePlayableMarkers />
       </section>)}
     </div>
+    {supportingFacts}
     {details && <details className="plan-edit-review__details"><summary>Details</summary>{details}</details>}
     <footer className="plan-edit-review__actions">
       {status === "review" ? <><button type="button" onClick={onDiscard}>Discard proposal</button><button type="button" onClick={onApply}>Apply to draft</button></> : null}
