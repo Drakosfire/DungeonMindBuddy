@@ -127,10 +127,10 @@ describe("ResolvedGraphObjectProjection partial completeness", () => {
       sourceArtifactId: "artifact:recap:1",
       sourceRevisionId: "sha256:1",
       evidenceRefIds: ["evidence:1"],
-      campaignScope: "longmont-c2",
+      campaignScope: "longmont-c1",
       visibility: "gm",
       epistemicKind: "fact",
-      temporalScope: { session_id: "session-20" },
+      temporalScope: { schema_version: "dm_temporal_scope_ref_v1", kind: "evergreen" },
     };
     vi.mocked(liveApi.postWorldGraphCompleteObject).mockResolvedValue({
       ...completeObject("complete"),
@@ -147,14 +147,15 @@ describe("ResolvedGraphObjectProjection partial completeness", () => {
           sourceArtifactId: "artifact:recap:2",
           sourceRevisionId: "sha256:2",
           evidenceRefIds: ["evidence:2"],
-          temporalScope: { session_id: "session-22" },
+          campaignScope: "longmont-c2",
+          temporalScope: { schema_version: "dm_temporal_scope_ref_v1", kind: "fictional_time_ref", fictional_time_ref: "after-the-attack" },
         },
       ],
       coverageGapCodes: [],
       coverageMissingIds: [],
       sourceBindings: [
         { evidenceRefId: "evidence:1", sourceArtifactId: "artifact:recap:1", sourceRevisionId: "sha256:1", sourceDomain: "session_recap", sessionId: "session-20", provenanceStatus: "no_source_span" },
-        { evidenceRefId: "evidence:2", sourceArtifactId: "artifact:recap:2", sourceRevisionId: "sha256:2", sourceDomain: "session_recap", sessionId: "session-22", provenanceStatus: "no_source_span" },
+        { evidenceRefId: "evidence:2", sourceArtifactId: "artifact:recap:2", sourceRevisionId: "sha256:2", sourceDomain: "session_recap", sessionId: "session-20", provenanceStatus: "no_source_span" },
       ],
     });
 
@@ -162,9 +163,11 @@ describe("ResolvedGraphObjectProjection partial completeness", () => {
     const notes = await screen.findByRole("region", { name: "Reviewed source observations" });
     expect(within(notes).getByText("The gate was quiet before the attack.")).toBeVisible();
     expect(within(notes).getByText("The gate was crowded after the attack.")).toBeVisible();
-    expect(within(notes).getByText("Session 20")).toBeVisible();
-    expect(within(notes).getByText("Session 22")).toBeVisible();
-    expect(within(notes).getAllByText("Session recap")).toHaveLength(2);
+    expect(within(notes).getAllByText("Source: Session recap · Session 20")).toHaveLength(2);
+    expect(within(notes).getByText("Applies: Evergreen")).toBeVisible();
+    expect(within(notes).getByText("Fictional time: after-the-attack")).toBeVisible();
+    expect(within(notes).getByText("· C1")).toBeVisible();
+    expect(within(notes).getByText("· C2")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Read source" })).not.toBeInTheDocument();
     const sourceDetails = within(notes).getAllByText("Source and review details");
     expect(sourceDetails).toHaveLength(2);

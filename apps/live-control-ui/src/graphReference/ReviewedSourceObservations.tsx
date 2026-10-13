@@ -2,6 +2,7 @@ import type {
   WorldGraphObjectProjectionResult,
   WorldGraphObjectReviewedSourceObservation,
 } from "../api/types";
+import { formatCampaignScopeCompact } from "../graphObjectCard/graphObjectDisplay";
 import "./ReviewedSourceObservations.css";
 
 type SourceBinding = {
@@ -41,21 +42,23 @@ function sessionLabel(value: unknown): string | null {
   return match ? `Session ${Number(match[1])}` : null;
 }
 
-function timeLabel(
-  observation: WorldGraphObjectReviewedSourceObservation,
-  binding: SourceBinding | null,
-): string {
+function timeLabel(observation: WorldGraphObjectReviewedSourceObservation): string {
   const temporal = observation.temporalScope;
   const session = sessionLabel(temporal?.session_id)
-    ?? sessionLabel(temporal?.sessionId)
-    ?? sessionLabel(binding?.sessionId);
-  if (session) return session;
-  if (temporal?.kind === "evergreen") return "Evergreen";
-  if (temporal?.kind === "session") return "Session-specific";
-  if (typeof temporal?.kind === "string" && temporal.kind !== "unknown") {
-    return `Time: ${temporal.kind.replace(/[_-]/g, " ")}`;
+    ?? sessionLabel(temporal?.sessionId);
+  if (session) return `Applies: ${session}`;
+  if (temporal?.kind === "evergreen" || temporal?.kind === "world_timeless") return "Applies: Evergreen";
+  if (temporal?.kind === "fictional_time_ref") {
+    const ref = temporal.fictional_time_ref;
+    return typeof ref === "string" && ref.trim()
+      ? `Fictional time: ${ref.trim()}`
+      : "Fictional time reference";
   }
-  return "Time not specified";
+  if (temporal?.kind === "session") return "Applies: Session-specific";
+  if (typeof temporal?.kind === "string" && temporal.kind !== "unknown") {
+    return `Applies: ${temporal.kind.replace(/[_-]/g, " ")}`;
+  }
+  return "Time scope not specified";
 }
 
 function preview(text: string): string {
@@ -88,10 +91,10 @@ export function ReviewedSourceObservations({ result }: { result: WorldGraphObjec
               return (
                 <li key={observation.assertionId} className="reviewed-source-observations__item">
                   <div className="reviewed-source-observations__context">
-                    <span>{sourceLabel(binding?.sourceDomain)}</span>
+                    <span>Source: {sourceLabel(binding?.sourceDomain)}{sessionLabel(binding?.sessionId) ? ` · ${sessionLabel(binding?.sessionId)}` : ""}</span>
                     <span aria-hidden="true">·</span>
-                    <span>{timeLabel(observation, binding)}</span>
-                    {observation.campaignScope ? <span>· Campaign-specific</span> : <span>· Campaign not specified</span>}
+                    <span>{timeLabel(observation)}</span>
+                    <span>· {formatCampaignScopeCompact(observation.campaignScope) ?? "Campaign not specified"}</span>
                   </div>
                   {text.length > 220 ? (
                     <details className="reviewed-source-observations__text">
