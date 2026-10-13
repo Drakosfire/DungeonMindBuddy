@@ -59,6 +59,9 @@ APP durable execution contract and migration:
 
 - `src/application_state/agent_conversation/types.py`
 - `src/application_state/agent_conversation/service.py`
+- `src/application_state/plan_action_dialogue/types.py` (PRIME-approved consultation V3 follow-up)
+- `src/application_state/plan_action_dialogue/service.py` (matching owning freeze/append contract)
+- `tests/application_state/test_plan_action_consultation.py` (consultation version/persistence evidence)
 - new migration after `20261013_0022_turn_context_trace.py`
 - `tests/application_state/test_agent_conversation_service.py`
 - focused new or existing PostgreSQL execution/trace tests under `tests/application_state/`
@@ -124,3 +127,9 @@ SERVER interface:
 APP proof: 62 focused cases passed (46 deselected) using `/tmp/app_source_admission_final_runner.py`, existing Python environment, owned PostgreSQL 16 with 512 MiB tmpfs/random loopback port/env-only password and unconditional teardown. This comprises 27 new typed/real-PG witnesses and 35 legacy V2/trace regressions. Evidence covers exact fresh-service readback, nine passages/inclusions/opened-citation read binding, forged/late origins and foreign/rebound/mixed pins, fresh/stale/attempt/expired fences, duplicate/changed-origin behavior, unknown no-follow/reclaim, character/batch/event/serialized capacity, capture rollback/incomplete recovery and uncaptured-inclusion denial, V1 migration byte preservation and V3 downgrade refusal. Ruff and cumulative whitespace checks pass. Initial proof harness errors (missing disposable DSN, fixture tokenizer, assertion wording and generated migration quoting) were corrected; final proof is green.
 
 This is APP storage/authority proof. SERVER parent construction, mounted source I/O denial, final completion, consultation and trace collector adoption remain pending in this same draft integration PR. The independent cumulative review and paired migration/runtime release remain gates. PRIME coordinates the serial checkout transfer; APP stops writing after handback.
+
+## APP consultation follow-up activation
+
+PRIME temporarily returned the serial checkout lease to APP to admit V3 in `src/application_state/plan_action_dialogue/types.py` and owning `tests/application_state/test_plan_action_consultation.py`. SERVER is paused; its existing uncommitted `agent_turn_service.py` edit is preserved. This follows exact checkpoint `7c8016519dc2aff3a30d412b69edbe0a158163a6`. PRIME approved the concrete additional scope: `src/application_state/plan_action_dialogue/service.py` plus amendment of the already proposed 0023 migration for nested consultation V3. No new migration/table or V1 consultation acceptance is authorized.
+
+Consultation follow-up VERIFIED: owning consultation union accepts V2/V3; freeze chooses matching execution type and digest; shared validators retain authority binding. Existing 0023 also extends the nested consultation SQL check and refuses downgrade if either Agent or Plan Action V3 exists. V1 consultation rejection is preserved. Ten focused consultation cases passed (31 deselected): V2/V3 JSON round-trip, existing V1 rejection/shared history, V3 owning freeze/append/fresh readback and completed source history, foreign native binding rejection, nested downgrade refusal, V2 completed consultation bytes across downgrade/upgrade, and reused V2 token-fenced/provider/source proofs. Three focused Agent migration/expired V3 recovery cases passed (11 deselected). Both runners used owned disposable 512 MiB tmpfs PostgreSQL and unconditional teardown. Ruff and owning diff checks pass. SERVER dirty `agent_turn_service.py` is excluded from this APP commit; its preserved working-tree blob is `d5dec612bc905e48f110cf2bfc7f2abf755b00ce`. APP releases temporary serial writing after this follow-up handback; consumer integration/final review remain pending.
