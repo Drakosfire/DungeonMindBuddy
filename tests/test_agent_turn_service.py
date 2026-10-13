@@ -2856,6 +2856,9 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         turn: Turn | None = None
         accepted_count = 0
         authorize_count = 0
+        fail_count = 0
+        fail_error: Exception | None = None
+        before_delivery_ledger: Any = None
 
         def reconcile_turn(self, *_args: Any) -> None:
             return None
@@ -2947,8 +2950,19 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
             }).model_dump(mode="json", by_alias=True))
             return self.turn
 
-        def fail_turn(self, _failure: Any, *, interrupted: bool = False) -> Turn:
-            raise AssertionError("valid typed answer must not fail the turn")
+        def fail_turn(self, failure: Any, *, interrupted: bool = False) -> Turn:
+            self.fail_count += 1
+            assert self.turn is not None
+            assert failure.expected_revision == self.turn.revision
+            assert interrupted is True
+            if self.fail_error is not None:
+                raise self.fail_error
+            self.turn = self.turn.model_copy(update={
+                "status": "interrupted", "revision": self.turn.revision + 1,
+                "failure_code": failure.failure_code, "claim_expires_at": None,
+                "completed_at": datetime.now(UTC),
+            })
+            return self.turn
 
         def renew_turn_claim(self, *_args: Any, **_kwargs: Any) -> Turn:
             assert self.turn is not None
@@ -3390,10 +3404,12 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         def __init__(
             self, result: AgentRuntimeResult, *, authorize_first: bool = False,
             reject_at_adapter: bool = False,
+            uncertain_final: bool = False,
         ) -> None:
             self.result = result
             self.authorize_first = authorize_first
             self.reject_at_adapter = reject_at_adapter
+            self.uncertain_final = uncertain_final
 
         def run_with_provider_authorization(
             self, _invocation: Any, authorize: Any, *, request_budget: Any,
@@ -3413,11 +3429,20 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
                 adjusted = dict(view)
                 adjusted["model"] = request_budget["model"]
                 assert authorize(adjusted) is False
+            if self.uncertain_final:
+                for sequence in range(4):
+                    assert authorize(view) is True
+                    assert on_provider_lifecycle({"transition": "sdk_entered"}) is True
+                    assert on_provider_lifecycle({
+                        "transition": "response_received" if sequence < 3 else "outcome_unknown",
+                    }) is True
+                fake.before_delivery_ledger = fake.turn.graph_context_execution
             return self.result
 
     def execute_budget_result(
         result: AgentRuntimeResult, *, authorize_first: bool = False,
         reject_at_adapter: bool = False,
+        uncertain_final: bool = False,
     ):
         return execute_agent_turn(
             request, root=Path("/tmp"),
@@ -3431,6 +3456,7 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
             runtime=BudgetVetoRuntime(
                 result, authorize_first=authorize_first,
                 reject_at_adapter=reject_at_adapter,
+                uncertain_final=uncertain_final,
             ),
             conversation_service=fake,
         )
@@ -3441,7 +3467,9 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
             status="error", error_code="request_budget_exceeded",
             error_message="PRIVATE_PLAN_BODY api_key=sk-secret-shaped",
             observed_model_call_count=0,
-            runtime_metadata={"host_phase_spans": [{"name": "rung3_plugin_discovery"}]},
+            runtime_metadata={"host_phase_spans": [{
+                "name": "rung3_plugin_discovery", "status": "PRIVATE_PHASE_STATUS",
+            }]},
         ))
     assert veto.value.code == "provider_envelope_over_budget"
     assert veto.value.status_code == 413
@@ -3449,6 +3477,8 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     assert "PRIVATE_PLAN_BODY" not in caplog.text
     assert "sk-secret-shaped" not in caplog.text
     assert "rung3_plugin_discovery" in caplog.text
+    assert "phase_status=invalid" in caplog.text
+    assert "PRIVATE_PHASE_STATUS" not in caplog.text
     assert fake.accepted_count == 0
     assert fake.authorize_count == 0
 
@@ -3533,6 +3563,46 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     assert denial_after_authorization.value.provider_dispatched is None
     assert fake.authorize_count == 2
 
+    from application_state.errors import ApplicationStateConflictError
+
+    for failure in (None, "stale revision", "expired claim"):
+        fake = FakeExecutionPort()
+        if failure is not None:
+            fake.fail_error = ApplicationStateConflictError(failure)
+        caplog.clear()
+        with pytest.raises(AgentTurnServiceError) as failed_delivery:
+            execute_budget_result(AgentRuntimeResult(
+                status="error", error_code="provider_lifecycle_unavailable",
+                error_message="PRIVATE_STREAM_BODY",
+                observed_model_call_count=4,
+                runtime_metadata={"host_phase_spans": [{
+                    "name": "host_result_decode", "status": "ok",
+                }]},
+            ), uncertain_final=True)
+        assert failed_delivery.value.code == (
+            "plan_context_delivery_failure" if failure is None else "turn_persistence_indeterminate"
+        )
+        assert fake.accepted_count == 1 and fake.authorize_count == 4
+        assert fake.fail_count == 1
+        assert fake.turn is not None
+        assert fake.turn.status == ("interrupted" if failure is None else "running")
+        assert fake.turn.graph_context_execution == fake.before_delivery_ledger
+        outcomes = [e.outcome for e in fake.turn.graph_context_execution.events
+                    if e.kind == "provider_outcome"]
+        assert outcomes == ["sdk_entered", "response_received"] * 3 + [
+            "sdk_entered", "outcome_unknown",
+        ]
+        assert fake.turn.assistant_text is None and fake.turn.completion is None
+        if failure is None:
+            assert fake.turn.failure_code == "provider_outcome_unknown"
+            history = project_plan_turn_context(fake.turn, delivery_replay=False)
+            assert history.completion is None
+            assert history.execution.authorization_state == "outcome_unknown"
+            assert history.execution.claimability == "blocked_unknown_or_sent"
+            assert history.execution.automatic_redispatch is False
+        assert "phase=host_result_decode phase_status=ok" in caplog.text
+        assert "PRIVATE_STREAM_BODY" not in caplog.text
+
     fake = FakeExecutionPort()
 
     pointer_store = HermesSessionPointerStore(
@@ -3567,6 +3637,7 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     assert response.plan_context.completion is not None
     assert response.answer.text == "The keeper waits."
     assert fake.turn is not None and fake.turn.status == "completed"
+    assert fake.fail_count == 0
 
     for private_final_text in (
         "PRIVATE_PROVIDER_FINAL_BODY {",
@@ -3659,14 +3730,15 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         terminal_failures: list[tuple[str, int]] = []
 
         def record_guard_failure(failure: Any, *, interrupted: bool = False) -> Turn:
-            assert interrupted is False
+            assert interrupted is uncertain_last
             assert fake.turn is not None
             assert failure.expected_revision == fake.turn.revision
             terminal_failures.append((failure.failure_code, failure.expected_revision))
             if fail_finalization:
                 raise ApplicationStateConflictError("claim fence changed")
             fake.turn = fake.turn.model_copy(update={
-                "status": "failed", "failure_code": failure.failure_code,
+                "status": "interrupted" if interrupted else "failed",
+                "failure_code": failure.failure_code,
                 "revision": fake.turn.revision + 1, "claim_expires_at": None,
             })
             return fake.turn
@@ -3725,8 +3797,8 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
         assert fake.turn is not None
         assert len(fake.turn.graph_context_execution.events) == (11 if uncertain_last else 12)
         if uncertain_last:
-            assert terminal_failures == []
-            assert fake.turn.status == "running"
+            assert terminal_failures == [("plan_context_delivery_failure", 13)]
+            assert fake.turn.status == "interrupted"
         else:
             assert terminal_failures == [("provider_attempt_limit_exhausted", 15)]
             assert fake.turn.status == ("running" if fail_finalization else "failed")

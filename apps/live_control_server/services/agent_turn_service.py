@@ -4227,6 +4227,35 @@ def _accept_world_turn(
     )
 
 
+def _interrupt_policy_delivery(
+    service: AgentConversationService, turn: Turn,
+) -> None:
+    """Settle only the current owned claim; retain its uncertain execution ledger."""
+    failure_code = "plan_context_delivery_failure"
+    execution = turn.graph_context_execution
+    if execution is not None:
+        authorized = [event for event in execution.events if _is_provider_authorization(event)]
+        if authorized:
+            outcomes = [
+                event.outcome for event in execution.events
+                if getattr(event, "kind", None) == "provider_outcome"
+                and event.provider_attempt_id == authorized[-1].provider_attempt_id
+            ]
+            if outcomes and outcomes[-1] == "outcome_unknown":
+                failure_code = "provider_outcome_unknown"
+    try:
+        service.fail_turn(TurnFailure(
+            world_id=turn.world_id, conversation_id=turn.conversation_id,
+            turn_id=turn.turn_id, expected_revision=turn.revision,
+            failure_code=failure_code,
+        ), interrupted=True)
+    except (ApplicationStateError, psycopg.OperationalError) as exc:
+        raise AgentTurnServiceError(
+            "The interrupted Plan Graph delivery could not be durably confirmed.",
+            code="turn_persistence_indeterminate", status_code=503,
+        ) from exc
+
+
 def execute_agent_turn(
     request: AgentTurnRequest,
     *,
@@ -4987,6 +5016,7 @@ def execute_agent_turn(
             if not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", safe_code):
                 safe_code = "invalid"
             phase = "none"
+            phase_status = "none"
             spans = policy_result.runtime_metadata.get("host_phase_spans")
             if isinstance(spans, list) and spans and isinstance(spans[-1], Mapping):
                 candidate = spans[-1].get("name")
@@ -4994,14 +5024,19 @@ def execute_agent_turn(
                     r"[a-z][a-z0-9_]{0,63}", candidate
                 ):
                     phase = candidate
+                candidate_status = spans[-1].get("status")
+                phase_status = (
+                    candidate_status if candidate_status in ("ok", "error") else "invalid"
+                )
             parent_code = "none" if adapter.failure is None else adapter.failure.code
             if not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", parent_code):
                 parent_code = "invalid"
             _LOG.warning(
-                "plan_graph_runtime_failure status=%s error_code=%s phase=%s parent_authorized=%s turn_exists=%s parent_failure_code=%s",
+                "plan_graph_runtime_failure status=%s error_code=%s phase=%s phase_status=%s parent_authorized=%s turn_exists=%s parent_failure_code=%s",
                 policy_result.status if policy_result.status in ("ok", "error") else "invalid",
                 safe_code,
                 phase,
+                phase_status,
                 adapter.last_provider_attempt_id is not None,
                 policy_turn is not None,
                 parent_code,
@@ -5027,6 +5062,8 @@ def execute_agent_turn(
                         "The Plan Graph guard failure could not be durably confirmed.",
                         code="turn_persistence_indeterminate", status_code=503,
                     ) from exc
+            elif adapter.fence is not None:
+                _interrupt_policy_delivery(conversation_service, policy_turn)
             raise AgentTurnServiceError(
                 "Plan Graph delivery stopped after its receipt was frozen.",
                 code="plan_context_delivery_failure", status_code=503,
@@ -5045,6 +5082,8 @@ def execute_agent_turn(
             or adapter.producing_provider_attempt_id is None
         ):
             trace.complete_phase(span_id, status="error")
+            if policy_turn is not None and adapter.fence is not None:
+                _interrupt_policy_delivery(conversation_service, policy_turn)
             raise AgentTurnServiceError(
                 "The Plan Graph provider did not return a durably acknowledged answer.",
                 code="plan_context_delivery_failure", status_code=503,

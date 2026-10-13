@@ -1433,6 +1433,80 @@ def test_execution_partial_citations_require_sufficient_evidence(
     assert completed.completion == completion
 
 
+@pytest.mark.parametrize("expired", [False, True], ids=["owned-claim", "expired-claim"])
+def test_delivery_settlement_preserves_unknown_and_owner_fences(
+    application_state_dsn: str, expired: bool,
+) -> None:
+    import psycopg
+    from application_state.agent_conversation.types import ProviderOutcomeEventV1
+    from apps.live_control_server.services.agent_turn_service import (
+        AgentTurnServiceError, _interrupt_policy_delivery,
+    )
+
+    service = AgentConversationService()
+    world_id = f"delivery-settlement-{expired}"
+    conversation, _, accepted, claimed = _accepted_execution_turn(service, world_id)
+    attempt_id = uuid4()
+    current, _ = service.authorize_provider_attempt(
+        world_id, conversation.conversation_id, accepted.turn_id,
+        expected_revision=claimed.revision, expected_attempt=claimed.attempt,
+        provider_attempt_event=_provider_authorization_event(attempt_id=attempt_id, sequence=0),
+    )
+    for sequence, outcome in enumerate(("sdk_entered", "outcome_unknown"), start=1):
+        current, _ = service.record_provider_outcome(
+            world_id, conversation.conversation_id, accepted.turn_id,
+            expected_revision=current.revision, expected_attempt=current.attempt,
+            outcome=ProviderOutcomeEventV1(
+                event_id=uuid4(), sequence=sequence, kind="provider_outcome",
+                provider_attempt_id=attempt_id, outcome=outcome,
+            ),
+        )
+    ledger = current.graph_context_execution
+    failure = TurnFailure(
+        world_id=world_id, conversation_id=conversation.conversation_id,
+        turn_id=accepted.turn_id, expected_revision=current.revision,
+        failure_code="provider_outcome_unknown",
+    )
+    with pytest.raises(ApplicationStateConflictError):
+        service.fail_turn(failure.model_copy(update={
+            "expected_revision": current.revision - 1,
+        }), interrupted=True)
+    assert service.list_turns(world_id, conversation.conversation_id)[0] == current
+    if expired:
+        # Disposable test database only: exercise the existing expiry transition.
+        with psycopg.connect(application_state_dsn) as conn:
+            conn.execute(
+                "UPDATE agent.turn SET claim_expires_at=clock_timestamp()-interval '1 second' WHERE turn_id=%s",
+                (accepted.turn_id,),
+            )
+        with pytest.raises(AgentTurnServiceError) as expired_settlement:
+            _interrupt_policy_delivery(service, current)
+        assert expired_settlement.value.code == "turn_persistence_indeterminate"
+        with pytest.raises(ApplicationStateConflictError, match="recorded as potentially sent"):
+            service.claim_turn(
+                world_id, conversation.conversation_id, accepted.turn_id,
+                expected_revision=current.revision,
+            )
+        settled = service.list_turns(world_id, conversation.conversation_id)[0]
+    else:
+        _interrupt_policy_delivery(service, current)
+        settled = service.list_turns(world_id, conversation.conversation_id)[0]
+        assert service.fail_turn(failure, interrupted=True) == settled
+        with pytest.raises(ApplicationStateConflictError):
+            service.fail_turn(failure.model_copy(update={
+                "failure_code": "different_failure",
+            }), interrupted=True)
+    assert settled.status == "interrupted"
+    assert settled.revision == current.revision + 1 and settled.attempt == current.attempt
+    assert settled.graph_context_execution == ledger
+    assert settled.assistant_text is None and settled.completion is None
+    with pytest.raises(ApplicationStateConflictError, match="prior provider authorization"):
+        service.claim_turn(
+            world_id, conversation.conversation_id, accepted.turn_id,
+            expected_revision=settled.revision,
+        )
+
+
 def test_expired_authorized_execution_becomes_unknown_and_cannot_reclaim(
     application_state_dsn: str,
 ) -> None:
