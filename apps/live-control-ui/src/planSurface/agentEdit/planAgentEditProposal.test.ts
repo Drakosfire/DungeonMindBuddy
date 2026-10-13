@@ -1,4 +1,5 @@
 import { Editor, type JSONContent } from "@tiptap/core";
+import { TextSelection } from "@tiptap/pm/state";
 import { webcrypto } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -17,6 +18,7 @@ import {
   capturePlanEditTarget,
   captureWorldPlanEditTarget,
   previewWorldPlanEditProposal,
+  restoreWorldPlanSelection,
   type ExpectedWorldPlanEditAgentBinding,
   type PlanEditEditorState,
   type WorldPlanEditAgentBinding,
@@ -118,6 +120,145 @@ function worldState(state: PlanEditEditorState): WorldPlanEditEditorState {
     canEdit: state.canEdit,
   };
 }
+
+it("restores the second duplicate in a new editor and applies only that range", async () => {
+  const markdown = "# Plan\n\nSame passage.\n\nOther prose.\n\nSame passage.\n";
+  const first = mountedState(markdown);
+  const positions: number[] = [];
+  first.editor.state.doc.descendants((node, pos) => {
+    if (node.isText && node.text === "Same passage.") positions.push(pos);
+  });
+  expect(positions).toHaveLength(2);
+  const second = positions[1]!;
+  first.editor.view.dispatch(first.editor.state.tr.setSelection(
+    TextSelection.create(first.editor.state.doc, second + "Same passage.".length, second),
+  ));
+  const captured = await captureWorldPlanEditTarget(worldState(first.state));
+  const anchor = captured.request.selection_anchor!;
+  expect(anchor).toMatchObject({ from: second, to: second + "Same passage.".length,
+    anchor: second + "Same passage.".length, head: second, section: null });
+  first.editor.destroy();
+
+  const remounted = mountedState(markdown);
+  expect(remounted.editor.state.selection.empty).toBe(true);
+  const current = worldState(remounted.state);
+  const restored = await restoreWorldPlanSelection(anchor, captured.request.draft_sha256,
+    await sha256Hex(captured.request.selected_text), {
+      worldId: captured.request.world_id, documentId: captured.request.document_id,
+      baseRevision: captured.request.base_revision, baseContentSha256: captured.request.base_content_sha256,
+    }, () => true, () => current);
+  expect(restored.request.selection_anchor).toEqual(anchor);
+  const key = "00000000-0000-4000-8000-000000000002";
+  const admitted = await admitWorldPlanEditProposal(restored,
+    await worldResponseFor(restored, "Changed only here.", key), key);
+  const preview = previewWorldPlanEditProposal(restored, admitted);
+  expect(preview.before.markdown.match(/Same passage\./g)).toHaveLength(2);
+  expect(preview.after.markdown).toContain("Same passage.");
+  expect(preview.after.markdown).toContain("Changed only here.");
+  await applyWorldPlanEditProposal({ captured: restored, admitted, getCurrent: () => current,
+    expectedAgentBinding: expectedAgentBinding(), getAgentBinding: matchingAgentBinding });
+  expect(remounted.editor.getText().match(/Same passage\./g)).toHaveLength(1);
+  expect(remounted.editor.getText()).toContain("Changed only here.");
+});
+
+it("refuses a saved range after same-text editor JSON drift without moving the selection", async () => {
+  const source = "# Plan\n\nSame passage.\n\nSame passage.\n";
+  const first = mountedState(source);
+  const positions: number[] = [];
+  first.editor.state.doc.descendants((node, pos) => {
+    if (node.isText && node.text === "Same passage.") positions.push(pos);
+  });
+  first.editor.commands.setTextSelection({ from: positions[1]!, to: positions[1]! + "Same passage.".length });
+  const captured = await captureWorldPlanEditTarget(worldState(first.state));
+  const remounted = mountedState("# Plan\n\nChanged prefix.\n\nSame passage.\n\nSame passage.\n");
+  const before = remounted.editor.state.selection.toJSON();
+  await expect(restoreWorldPlanSelection(captured.request.selection_anchor!,
+    captured.request.draft_sha256, await sha256Hex(captured.request.selected_text), {
+      worldId: captured.request.world_id, documentId: captured.request.document_id,
+      baseRevision: captured.request.base_revision, baseContentSha256: captured.request.base_content_sha256,
+    }, () => true,
+    () => worldState(remounted.state))).rejects.toThrow(/Start a fresh edit/);
+  expect(remounted.editor.state.selection.toJSON()).toEqual(before);
+});
+
+it.each(["World", "document", "revision", "digest"] as const)(
+  "refuses a changed %s binding before restoring the saved selection", async (changed) => {
+    const source = "# Plan\n\nSame passage.\n\nSame passage.\n";
+    const first = mountedState(source);
+    const positions: number[] = [];
+    first.editor.state.doc.descendants((node, pos) => {
+      if (node.isText && node.text === "Same passage.") positions.push(pos);
+    });
+    first.editor.commands.setTextSelection({ from: positions[1]!, to: positions[1]! + "Same passage.".length });
+    const captured = await captureWorldPlanEditTarget(worldState(first.state));
+    const remounted = mountedState(source);
+    const before = remounted.editor.state.selection.toJSON();
+    const beforeDocument = remounted.editor.getJSON();
+    await expect(restoreWorldPlanSelection(captured.request.selection_anchor!,
+      captured.request.draft_sha256, await sha256Hex(captured.request.selected_text), {
+        worldId: changed === "World" ? "other-world" : captured.request.world_id,
+        documentId: changed === "document" ? "other-plan" : captured.request.document_id,
+        baseRevision: changed === "revision" ? captured.request.base_revision + 1 : captured.request.base_revision,
+        baseContentSha256: changed === "digest" ? "f".repeat(64) : captured.request.base_content_sha256,
+      }, () => true, () => worldState(remounted.state))).rejects.toThrow(/Start a fresh edit/);
+    expect(remounted.editor.state.selection.toJSON()).toEqual(before);
+    expect(remounted.editor.getJSON()).toEqual(beforeDocument);
+});
+
+it.each(["out-of-document range", "draft SHA", "selected-text SHA", "unknown anchor version", "unknown editor format", "extra anchor key"] as const)(
+  "refuses %s before moving the saved selection", async (changed) => {
+    const source = "# Plan\n\nSame passage.\n\nSame passage.\n";
+    const first = mountedState(source);
+    const positions: number[] = [];
+    first.editor.state.doc.descendants((node, pos) => {
+      if (node.isText && node.text === "Same passage.") positions.push(pos);
+    });
+    first.editor.commands.setTextSelection({ from: positions[1]!, to: positions[1]! + "Same passage.".length });
+    const captured = await captureWorldPlanEditTarget(worldState(first.state));
+    const remounted = mountedState(source);
+    const beforeSelection = remounted.editor.state.selection.toJSON();
+    const beforeDocument = remounted.editor.getJSON();
+    const anchor = { ...captured.request.selection_anchor! };
+    if (changed === "out-of-document range") {
+      anchor.anchor = remounted.editor.state.doc.content.size + 10;
+      anchor.head = anchor.anchor + 1;
+      anchor.from = anchor.anchor;
+      anchor.to = anchor.head;
+    } else if (changed === "unknown anchor version") {
+      Object.assign(anchor, { schema_version: "dmb_plan_selection_anchor_v2" });
+    } else if (changed === "unknown editor format") {
+      Object.assign(anchor, { editor_format: "unknown-editor-v1" });
+    } else if (changed === "extra anchor key") {
+      Object.assign(anchor, { unexpected: "forged" });
+    }
+    await expect(restoreWorldPlanSelection(anchor,
+      changed === "draft SHA" ? "f".repeat(64) : captured.request.draft_sha256,
+      changed === "selected-text SHA" ? "f".repeat(64) : await sha256Hex(captured.request.selected_text), {
+        worldId: captured.request.world_id, documentId: captured.request.document_id,
+        baseRevision: captured.request.base_revision, baseContentSha256: captured.request.base_content_sha256,
+      }, () => true, () => worldState(remounted.state))).rejects.toThrow(/Start a fresh edit/);
+    expect(remounted.editor.state.selection.toJSON()).toEqual(beforeSelection);
+    expect(remounted.editor.getJSON()).toEqual(beforeDocument);
+});
+
+it("refuses a changed World conversation origin before restoring the saved selection", async () => {
+  const source = "# Plan\n\nSame passage.\n\nSame passage.\n";
+  const first = mountedState(source);
+  const positions: number[] = [];
+  first.editor.state.doc.descendants((node, pos) => {
+    if (node.isText && node.text === "Same passage.") positions.push(pos);
+  });
+  first.editor.commands.setTextSelection({ from: positions[1]!, to: positions[1]! + "Same passage.".length });
+  const captured = await captureWorldPlanEditTarget(worldState(first.state));
+  const remounted = mountedState(source);
+  const before = remounted.editor.state.selection.toJSON();
+  await expect(restoreWorldPlanSelection(captured.request.selection_anchor!,
+    captured.request.draft_sha256, await sha256Hex(captured.request.selected_text), {
+      worldId: captured.request.world_id, documentId: captured.request.document_id,
+      baseRevision: captured.request.base_revision, baseContentSha256: captured.request.base_content_sha256,
+    }, () => false, () => worldState(remounted.state))).rejects.toThrow(/Start a fresh edit/);
+  expect(remounted.editor.state.selection.toJSON()).toEqual(before);
+});
 
 it.each(["caret", "selection", "list", "card", "frontmatter"])("previews frozen %s context without mutation and matches actual Apply", async (kind) => {
   let source = kind === "card"
@@ -455,6 +596,75 @@ describe("reviewed Plan edit admission", () => {
 });
 
 describe("reviewed World-only Plan edit admission and Apply", () => {
+  it("restores a protected rich-text section with duplicate heading labels by exact range", async () => {
+    const source = [
+      "# World Plan", "", "## Mireward", "First heading remains untouched.", "",
+      "## Mireward", SECTION_MARKER, "### After the attack", "",
+      "- The **watcher** waits for *a signal*.", "- The town regroups.", "",
+      `${SECTION_LINK} is present.`, "", "## North Road", "Elsewhere.",
+    ].join("\n");
+    const first = mountedState(source);
+    const sections = planSectionTargets(first.editor).filter((candidate) => candidate.heading === "Mireward");
+    expect(sections).toHaveLength(2);
+    first.editor.commands.setTextSelection({ from: sections[1]!.from, to: sections[1]!.to });
+    const captured = await captureWorldPlanEditTarget(worldState(first.state));
+    const anchor = captured.request.selection_anchor!;
+    expect(anchor.section?.id).toBe(sections[1]!.id);
+    expect(captured.request.selected_text).toContain(SECTION_MARKER);
+    expect(captured.request.selected_text).toContain("**watcher**");
+    first.editor.destroy();
+    const remounted = mountedState(source);
+    const current = worldState(remounted.state);
+    const restored = await restoreWorldPlanSelection(anchor, captured.request.draft_sha256,
+      await sha256Hex(captured.request.selected_text), {
+        worldId: captured.request.world_id, documentId: captured.request.document_id,
+        baseRevision: captured.request.base_revision, baseContentSha256: captured.request.base_content_sha256,
+      }, () => true, () => current);
+    expect(restored.request.selection_anchor).toEqual(anchor);
+    expect(restored.sectionTarget?.protectedInventory.map((entry) => entry.kind)).toEqual([
+      "playable-marker", "graph-reference",
+    ]);
+    const replacement = captured.request.selected_text.replace("The town regroups.", "The town regroups under lantern light.");
+    const admitted = await admitWorldPlanEditProposal(restored, await worldResponseFor(restored, replacement));
+    const preview = previewWorldPlanEditProposal(restored, admitted);
+    expect(preview.before.markdown).toContain("First heading remains untouched.");
+    expect(preview.after.markdown).toContain("The town regroups under lantern light.");
+    await applyWorldPlanEditProposal({ captured: restored, admitted, getCurrent: () => current,
+      expectedAgentBinding: expectedAgentBinding(), getAgentBinding: matchingAgentBinding });
+    const savedMarkdown = tiptapJsonToSemanticMarkdown(remounted.editor.getJSON());
+    const reopened = markdownToTiptapDoc(savedMarkdown).doc;
+    const reopenedMarkdown = tiptapJsonToSemanticMarkdown(reopened);
+    expect(reopenedMarkdown).toContain("First heading remains untouched.");
+    expect(reopenedMarkdown.match(/## Mireward/g)).toHaveLength(2);
+    expect(reopenedMarkdown).toContain("The town regroups under lantern light.");
+    expect(reopenedMarkdown).toContain(SECTION_MARKER);
+    expect(reopenedMarkdown).toContain(SECTION_LINK);
+    expect(reopenedMarkdown).not.toContain("The town regroups.\n");
+  });
+
+  it.each(["section locator", "section apply range"] as const)(
+    "refuses an altered %s before changing the mounted editor", async (changed) => {
+      const { captured } = await captureWorldSection();
+      const anchor = structuredClone(captured.request.selection_anchor!);
+      expect(anchor.section).not.toBeNull();
+      if (changed === "section locator") {
+        anchor.section!.id = anchor.section!.id.replace(/:[1-6]$/, ":6");
+      } else {
+        anchor.section!.apply_to += 1;
+      }
+      const remounted = mountedState(WORLD_SECTION_MARKDOWN);
+      const current = worldState(remounted.state);
+      const beforeSelection = remounted.editor.state.selection.toJSON();
+      const beforeDocument = remounted.editor.getJSON();
+      await expect(restoreWorldPlanSelection(anchor, captured.request.draft_sha256,
+        await sha256Hex(captured.request.selected_text), {
+          worldId: captured.request.world_id, documentId: captured.request.document_id,
+          baseRevision: captured.request.base_revision, baseContentSha256: captured.request.base_content_sha256,
+        }, () => true, () => current)).rejects.toThrow(/Start a fresh edit/);
+      expect(remounted.editor.state.selection.toJSON()).toEqual(beforeSelection);
+      expect(remounted.editor.getJSON()).toEqual(beforeDocument);
+    });
+
   it("captures a whole heading section with an exact digest and typed protected identities", async () => {
     const { captured } = await captureWorldSection();
     expect(captured.sectionTarget).toBeDefined();

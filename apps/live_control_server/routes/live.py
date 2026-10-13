@@ -1123,7 +1123,7 @@ def get_world_plan_document_edit_actions(
         page = get_world_plan_action_projection(
             root=world_root, world_id=world_id, document_id=document_id
         )
-        payload = page.model_dump(mode="json")
+        payload = page.model_dump(mode="json", by_alias=True)
         for record, item in zip(page.actions, payload["actions"], strict=True):
             if record.consultation is not None:
                 item["source_open_targets"] = project_plan_action_source_targets(record)
@@ -1155,7 +1155,7 @@ def get_world_plan_edit_conversation_actions(
         raise HTTPException(
             status_code=exc.status_code, detail={"code": exc.code, "message": str(exc)},
         ) from exc
-    payload = page.model_dump(mode="json")
+    payload = page.model_dump(mode="json", by_alias=True)
     for record, item in zip(page.actions, payload["actions"], strict=True):
         item["source_open_targets"] = project_plan_action_source_targets(record)
     return payload

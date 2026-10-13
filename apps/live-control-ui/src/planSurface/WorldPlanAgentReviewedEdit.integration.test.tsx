@@ -387,6 +387,147 @@ function setupWorldApi() {
   });
 }
 
+it("resumes the second identical saved selection after remount, then reviews, applies, saves and reopens", async () => {
+  savedMarkdown = "# Plan\n\nSame passage.\n\nOther prose.\n\nSame passage.\n";
+  setupWorldApi();
+  const conversationId = "00000000-0000-4000-8000-000000000071";
+  const clarificationId = "00000000-0000-4000-8000-000000000072";
+  const proposalId = "00000000-0000-4000-8000-000000000073";
+  const actions: any[] = [];
+  vi.spyOn(liveApi, "getWorldAgentConversationHistory").mockResolvedValue({
+    schema: "dmb_agent_conversation_history_v1", world_id: worldId,
+    conversation_state: "active", conversation_id: conversationId,
+    active_conversation_id: conversationId, pointer_revision: 4,
+    turns: [], next_before_sequence: null,
+  });
+  vi.mocked(liveApi.getWorldPlanDocumentEditActions).mockImplementation(async () => ({
+    schema_version: "dmb_world_plan_action_projection_v1",
+    basis: { world_id: worldId, document_id: documentId, object_revision: savedRevision,
+      work_revision_id: "00000000-0000-4000-8000-000000000010", revision_n: 1, content_sha256: savedDigest },
+    actions,
+  }));
+  vi.spyOn(liveApi, "getWorldPlanConversationActions").mockImplementation(async () => ({
+    schema_version: "dmb_world_plan_action_conversation_projection_v1", world_id: worldId,
+    conversation_id: conversationId, actions, next_before_action_sequence: null,
+  }));
+  const post = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) => {
+    const result = request.continuation_of_action_id
+      ? { kind: "proposal", result_id: "00000000-0000-4000-8000-000000000074",
+        message: "Change only the second passage.", answer_segments: [], citation_map: null }
+      : { kind: "clarification", result_id: "00000000-0000-4000-8000-000000000075",
+        message: "Which occurrence should change?", answer_segments: [], citation_map: null };
+    const actionId = request.continuation_of_action_id ? proposalId : clarificationId;
+    actions.push({
+      action_id: actionId, action_type: "revise", status: "completed",
+      basis: { world_id: worldId, document_id: documentId, object_revision: 7,
+        work_revision_id: "00000000-0000-4000-8000-000000000010", revision_n: 1, content_sha256: request.base_content_sha256 },
+      instruction: request.instruction, assistant_summary: result.message,
+      action_sequence: actions.length + 1, accepted_at: "2026-10-12T00:00:00Z",
+      completed_at: "2026-10-12T00:00:01Z", playable_target_receipt: null,
+      selection_anchor: request.selection_anchor,
+      consultation: { receipt: { origin_conversation_id: conversationId, origin_pointer_revision: 4,
+        draft_sha256: request.draft_sha256, selected_text_sha256: await sha256Hex(request.selected_text),
+        continuation: request.continuation_of_action_id
+          ? { continuation_of_action_id: clarificationId } : null },
+      result },
+      source_open_targets: [],
+    });
+    if (!request.continuation_of_action_id) return {
+      schema_version: "dmb_world_plan_edit_clarification_v1", action_id: actionId,
+      idempotency_key: request.idempotency_key, document_id: documentId, world_id: worldId,
+      base_revision: 7, base_content_sha256: request.base_content_sha256,
+      draft_sha256: request.draft_sha256, selected_text_sha256: await sha256Hex(request.selected_text),
+      kind: "clarification", message: result.message,
+      consultation: { origin_conversation_id: conversationId, origin_pointer_revision: 4, result },
+    } as any;
+    return {
+      schema_version: "dmb_world_plan_document_edit_proposal_v1", action_id: actionId,
+      idempotency_key: request.idempotency_key, document_id: documentId, world_id: worldId,
+      base_revision: 7, base_content_sha256: request.base_content_sha256,
+      draft_sha256: request.draft_sha256, target_kind: "replace_selection",
+      selected_text_sha256: await sha256Hex(request.selected_text),
+      replacement_markdown: "Only second changed.", summary: result.message,
+      assumptions: [], model: "fake-provider", model_observed: false,
+      model_latency_ms: 0, wall_latency_ms: 0, usage: null,
+      consultation: { origin_conversation_id: conversationId, origin_pointer_revision: 4, result },
+    } as any;
+  });
+  vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockResolvedValue({
+    schema_version: "dmb_tiptap_markdown_write_prepare_v2", scope_mode: "world",
+    world_id: worldId, document_id: documentId, title: "Integration Plan",
+    target_relpath: `out/workspace/plan/${documentId}.md`,
+    target_display_path: `out/workspace/plan/${documentId}.md`,
+    registry_revision: 8, file_exists: true, writer_ok: true,
+    writer_confirm_token: "selection-save-token", warnings: [], diagnostics: [],
+  });
+  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite").mockImplementation(async (request) => {
+    savedMarkdown = request.markdown;
+    savedRevision = 8;
+    savedDigest = await sha256Hex(savedMarkdown);
+    return { schema_version: "dmb_tiptap_markdown_write_commit_v2", scope_mode: "world",
+      world_id: worldId, document_id: documentId, title: "Integration Plan",
+      target_relpath: `out/workspace/plan/${documentId}.md`,
+      target_display_path: `out/workspace/plan/${documentId}.md`,
+      registry_revision: 8, committed_revision: 8,
+      committed_record: { ...planRecord(), revision: 8 },
+      normalized_content_sha256: savedDigest, writer_ok: true, writer_phase: "commit", diagnostics: [] };
+  });
+  const location = `/plan?world=${worldId}&documentId=${documentId}`;
+  window.history.replaceState({}, "", location);
+  let view = render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
+  const surface = await screen.findByTestId("world-owned-plan-markdown-editor");
+  const proseMirror = surface.querySelector(".ProseMirror") as HTMLElement;
+  const mountedEditor = (proseMirror as HTMLElement & { editor: Editor }).editor;
+  const duplicates = Array.from(proseMirror.querySelectorAll("p")).filter((p) => p.textContent === "Same passage.");
+  expect(duplicates).toHaveLength(2);
+  const positions: number[] = [];
+  mountedEditor.state.doc.descendants((node, position) => {
+    if (node.isText && node.text === "Same passage.") positions.push(position);
+  });
+  expect(positions).toHaveLength(2);
+  act(() => mountedEditor.commands.setTextSelection({ from: positions[1]!, to: positions[1]! + "Same passage.".length }));
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  await screen.findByText(/No messages yet/);
+  await waitFor(() => expect(liveApi.getWorldAgentConversationHistory).toHaveBeenCalled());
+  await waitFor(() => expect(liveApi.getWorldPlanConversationActions).toHaveBeenCalledWith(worldId, conversationId));
+  fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise this passage." } });
+  fireEvent.click(await screen.findByRole("button", { name: "Propose edit" }));
+  await screen.findAllByText("Which occurrence should change?");
+  expect(post).toHaveBeenCalledTimes(1);
+  expect(post.mock.calls[0]![0]).toMatchObject({ target_kind: "replace_selection", selected_text: "Same passage." });
+  const originalAnchor = post.mock.calls[0]![0].selection_anchor!;
+  expect(originalAnchor.from).toBeGreaterThan(1);
+  view.unmount();
+  window.getSelection()?.removeAllRanges();
+
+  view = render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
+  await screen.findByTestId("world-owned-plan-markdown-editor");
+  expect(window.getSelection()?.isCollapsed).toBe(true);
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  await screen.findByText(/No messages yet/);
+  fireEvent.click(await screen.findByRole("button", { name: "Reply about this edit" }));
+  await waitFor(() => expect(screen.getByLabelText("Actual Plan change target")).toHaveTextContent("Replace selected editor text"));
+  expect(screen.queryAllByRole("alert").map((element) => element.textContent)).toEqual([]);
+  await screen.findByRole("button", { name: "Propose edit" });
+  fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "The second one." } });
+  fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
+  const review = await screen.findByRole("region", { name: "Change selected text" });
+  expect(post).toHaveBeenCalledTimes(2);
+  expect(post.mock.calls[1]![0].selection_anchor).toEqual(originalAnchor);
+  expect(review).toHaveTextContent("Same passage.");
+  expect(review).toHaveTextContent("Only second changed.");
+  fireEvent.click(within(review).getByRole("button", { name: "Apply to draft" }));
+  await waitFor(() => expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent("Only second changed."));
+  expect(screen.getByTestId("world-owned-plan-markdown-editor").textContent?.match(/Same passage\./g)).toHaveLength(1);
+  fireEvent.click(within(review).getByRole("button", { name: "Save Plan" }));
+  await waitFor(() => expect(commit).toHaveBeenCalledTimes(1));
+  view.unmount();
+  render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
+  const reopened = await screen.findByTestId("world-owned-plan-markdown-editor");
+  await waitFor(() => expect(reopened).toHaveTextContent("Only second changed."));
+  expect(reopened.textContent?.match(/Same passage\./g)).toHaveLength(1);
+}, 30_000);
+
 beforeAll(() => {
   Object.defineProperty(globalThis, "crypto", { configurable: true, value: webcrypto });
 });

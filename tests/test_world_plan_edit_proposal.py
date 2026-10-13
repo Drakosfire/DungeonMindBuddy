@@ -57,6 +57,16 @@ def _sha(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def _selection_anchor(start: int = 1, end: int = 2) -> dict:
+    return {
+        "schema_version": "dmb_plan_selection_anchor_v1",
+        "editor_format": "world-plan-tiptap-json-v1",
+        "editor_json_sha256": "e" * 64,
+        "anchor": start, "head": end, "from": start, "to": end,
+        "section": None,
+    }
+
+
 def _request(**overrides) -> WorldPlanDocumentEditProposalRequest:
     data = {
         "idempotency_key": str(uuid4()),
@@ -72,6 +82,8 @@ def _request(**overrides) -> WorldPlanDocumentEditProposalRequest:
         "conversation_history": [{"role": "user", "content": "Start the scene."}],
     }
     data.update(overrides)
+    if data.get("expected_active_conversation_id") and data["target_kind"] == "replace_selection":
+        data.setdefault("selection_anchor", _selection_anchor())
     return WorldPlanDocumentEditProposalRequest.model_validate(data)
 
 
@@ -1300,6 +1312,7 @@ def test_mounted_initialized_selection_reports_context_unavailable_without_an_ed
         "draft_markdown": draft, "draft_sha256": _sha(draft),
         "target_kind": "replace_selection",
         "selected_text": "The observatory door is locked.",
+        "selection_anchor": _selection_anchor(),
         "instruction": "Make the door easy to open.",
         "conversation_history": [],
     })
@@ -1450,6 +1463,7 @@ def test_mounted_initialized_selection_dispatches_one_harness_action_and_returns
         "draft_markdown": draft, "draft_sha256": _sha(draft),
         "target_kind": "replace_selection",
         "selected_text": "The observatory door is locked.",
+        "selection_anchor": _selection_anchor(),
         "instruction": "Make the door easy to open.",
         "conversation_history": [],
     })
@@ -1647,12 +1661,14 @@ def test_mounted_sourced_clarification_links_fresh_reply_to_inert_proposal(
             "draft_markdown": draft, "draft_sha256": _sha(draft),
             "target_kind": "replace_selection",
             "selected_text": "The Prancing Tavern has a sealed cellar.",
+            "selection_anchor": _selection_anchor(),
             "instruction": instruction, "conversation_history": [], **extra,
         }
 
+    first_request = request("Open the sealed cellar for the party.")
     first = client.post(
         "/api/live/world-plan-edit/propose",
-        json=request("Open the sealed cellar for the party."),
+        json=first_request,
     )
     assert first.status_code == 200, first.text
     clarification = first.json()
@@ -1663,6 +1679,23 @@ def test_mounted_sourced_clarification_links_fresh_reply_to_inert_proposal(
     assert first_citation["source_read_ids"] == ["source-read:synthetic:1"]
     assert clarification["consultation"]["source_open_targets"][0]["source_read_id"] == "source-read:synthetic:1"
     assert client.get(f"/api/live/workspace-documents/{document_id}/snapshot").json()["content_sha256"] == saved["content_sha256"]
+    changed_range = client.post("/api/live/world-plan-edit/propose", json={
+        **first_request, "selection_anchor": _selection_anchor(3, 4),
+    })
+    assert changed_range.status_code == 409, changed_range.text
+    assert harness.calls == 1
+    projected_anchor = client.get(
+        f"/api/live/world-plan-edit/actions?world_id={work.world_id}&document_id={document_id}"
+    ).json()["actions"][0]["selection_anchor"]
+    assert projected_anchor == _selection_anchor()
+    assert "from_" not in projected_anchor
+    internal_spelling = _selection_anchor()
+    internal_spelling["from_"] = internal_spelling.pop("from")
+    wrong_wire = client.post("/api/live/world-plan-edit/propose", json={
+        **request("Use the same Plan passage."), "selection_anchor": internal_spelling,
+    })
+    assert wrong_wire.status_code == 422, wrong_wire.text
+    assert harness.calls == 1
 
     second = client.post(
         "/api/live/world-plan-edit/propose",
@@ -1678,6 +1711,11 @@ def test_mounted_sourced_clarification_links_fresh_reply_to_inert_proposal(
     ).json()["actions"]
     by_id = {item["action_id"]: item for item in actions}
     assert by_id[clarification["action_id"]]["consultation"]["result"]["kind"] == "clarification"
+    assert by_id[clarification["action_id"]]["selection_anchor"] == _selection_anchor()
+    assert by_id[proposal["action_id"]]["selection_anchor"] == _selection_anchor()
+    citation_map = by_id[proposal["action_id"]]["consultation"]["result"]["citation_map"]
+    assert citation_map["schema"] == "dmb_graph_citation_map_v2"
+    assert "schema_" not in citation_map
     assert by_id[proposal["action_id"]]["consultation"]["result"]["kind"] == "proposal"
     assert by_id[proposal["action_id"]]["consultation"]["receipt"]["continuation"]["continuation_of_action_id"] == clarification["action_id"]
     assert client.get(f"/api/live/workspace-documents/{document_id}/snapshot").json()["content_sha256"] == saved["content_sha256"]
@@ -1714,6 +1752,8 @@ def test_mounted_sourced_clarification_links_fresh_reply_to_inert_proposal(
     assert {item["action_id"] for item in dialogue.json()["actions"]} == {
         clarification["action_id"], proposal["action_id"],
     }
+    assert all(item["selection_anchor"] == _selection_anchor() for item in dialogue.json()["actions"])
+    assert all("from_" not in item["selection_anchor"] for item in dialogue.json()["actions"])
     assert all(item["consultation"]["receipt"]["origin_conversation_id"] == origin_id
                for item in dialogue.json()["actions"])
     current_status = client.get(

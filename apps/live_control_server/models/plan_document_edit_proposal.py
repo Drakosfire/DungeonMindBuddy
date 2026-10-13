@@ -6,6 +6,7 @@ from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
+from application_state.plan_action_dialogue.types import PlanActionSelectionAnchorV1
 
 
 class PlanEditHistoryMessage(BaseModel):
@@ -61,6 +62,7 @@ class WorldPlanDocumentEditProposalRequest(BaseModel):
     draft_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     target_kind: Literal["replace_selection", "insert_at_caret", "replace_playable_body"]
     selected_text: str = Field(max_length=8000)
+    selection_anchor: PlanActionSelectionAnchorV1 | None = None
     playable_target: WorldPlanPlayableTarget | None = None
     body_serialization_version: Literal["plan-playable-body-markdown-v1"] | None = None
     target_body_markdown: str | None = Field(default=None, max_length=8000)
@@ -68,12 +70,22 @@ class WorldPlanDocumentEditProposalRequest(BaseModel):
     instruction: str = Field(min_length=1, max_length=4000)
     conversation_history: list[PlanEditHistoryMessage] = Field(default_factory=list, max_length=12)
 
+    @model_validator(mode="before")
+    @classmethod
+    def public_anchor_uses_wire_keys(cls, value):
+        if isinstance(value, dict) and isinstance(value.get("selection_anchor"), dict):
+            if "from_" in value["selection_anchor"]:
+                raise ValueError("selection_anchor must use the public 'from' key")
+        return value
+
     @model_validator(mode="after")
     def target_fields_match_mode(self):
         if (self.expected_active_conversation_id is None) != (self.expected_pointer_revision is None):
             raise ValueError("World conversation ID and pointer revision must be supplied together")
         if any(0xD800 <= ord(character) <= 0xDFFF for character in self.draft_markdown):
             raise ValueError("draft_markdown must contain valid Unicode scalar values")
+        if self.selection_anchor is not None and self.target_kind != "replace_selection":
+            raise ValueError("selection_anchor belongs only to a selected Plan range")
         card_fields = (
             self.playable_target,
             self.body_serialization_version,

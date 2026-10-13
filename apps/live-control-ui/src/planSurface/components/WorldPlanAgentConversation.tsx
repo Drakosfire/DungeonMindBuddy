@@ -3882,6 +3882,47 @@ export function WorldPlanAgentConversation({
     </section>
   );
 
+  async function beginClarificationReply(action: WorldPlanActionProjection) {
+    setContinuationOfActionId(null);
+    proposalIntentRef.current = null;
+    const receipt = action.consultation?.receipt;
+    const anchor = action.selection_anchor;
+    if (!editBridge || !anchor || !receipt || !documentId || !history
+      || !scopeMatches || !planReady || saveInFlight
+      || action.basis.world_id !== worldId
+      || action.basis.document_id !== documentId
+      || action.basis.object_revision !== revision
+      || receipt.origin_conversation_id !== history.conversation_id
+      || receipt.origin_pointer_revision !== history.pointer_revision
+      || history.active_conversation_id !== history.conversation_id) {
+      setEditError("The saved selection is no longer available here. Start a fresh edit.");
+      return;
+    }
+    try {
+      const captured = await editBridge.restoreSelection(anchor, receipt.draft_sha256, receipt.selected_text_sha256, {
+        worldId: action.basis.world_id, documentId: action.basis.document_id,
+        baseRevision: action.basis.object_revision, baseContentSha256: action.basis.content_sha256,
+      }, () => historySnapshotRef.current?.conversation_id === receipt.origin_conversation_id
+        && historySnapshotRef.current?.pointer_revision === receipt.origin_pointer_revision
+        && historySnapshotRef.current?.active_conversation_id === receipt.origin_conversation_id);
+      if (captured.request.world_id !== worldId || captured.request.document_id !== documentId
+        || captured.request.base_revision !== revision
+        || captured.request.base_content_sha256 !== action.basis.content_sha256
+        || captured.request.target_kind !== "replace_selection"
+        || JSON.stringify(captured.request.selection_anchor) !== JSON.stringify(anchor)
+        || historySnapshotRef.current?.conversation_id !== receipt.origin_conversation_id
+        || historySnapshotRef.current?.pointer_revision !== receipt.origin_pointer_revision) {
+        throw new PlanEditGuardError("The saved Plan basis or World conversation changed. Start a fresh edit.");
+      }
+      setContinuationOfActionId(action.action_id);
+      setComposerMessage("");
+      setComposerIntent("propose");
+      setEditError(null);
+    } catch (reason) {
+      setEditError(reason instanceof Error ? reason.message : "The saved selection could not be restored. Start a fresh edit.");
+    }
+  }
+
   const renderConsultedAction = (action: WorldPlanActionProjection) => {
     const result = action.consultation?.result;
     if (!result || !["clarification", "context_unavailable", "proposal"].includes(result.kind)
@@ -3915,18 +3956,15 @@ export function WorldPlanAgentConversation({
             </div>
           ) : null}
         </div>) : null}
-        {result.kind === "clarification" ? <button type="button"
-          disabled={composing || !editorSelectionActive || !scopeMatches || !currentBasisAction
+        {result.kind === "clarification" && !action.selection_anchor
+          ? <p role="note">This older clarification has no saved selection. Start a fresh edit to continue.</p>
+          : null}
+        {result.kind === "clarification" && action.selection_anchor ? <button type="button"
+          disabled={composing || !editBridge || !scopeMatches || !currentBasisAction
             || action.consultation?.receipt.origin_pointer_revision !== history?.pointer_revision
             || history?.active_conversation_id !== history?.conversation_id
             || conversationActions.some((candidate) => candidate.consultation?.receipt.continuation?.continuation_of_action_id === action.action_id)}
-          onClick={() => {
-            proposalIntentRef.current = null;
-            setContinuationOfActionId(action.action_id);
-            setComposerMessage("");
-            setComposerIntent("propose");
-            setEditError(null);
-          }}>Reply about this edit</button> : null}
+          onClick={() => { void beginClarificationReply(action); }}>Reply about this edit</button> : null}
       </div>
     </article>;
   };
@@ -4361,13 +4399,30 @@ export function WorldPlanAgentConversation({
       if (continuationOfActionId && captured.request.target_kind !== "replace_selection") {
         throw new Error("Reply to this clarification with the original Plan selection active.");
       }
+      if (continuationOfActionId) {
+        const predecessor = conversationActions.find((action) => action.action_id === continuationOfActionId);
+        if (!predecessor?.selection_anchor
+          || JSON.stringify(captured.request.selection_anchor) !== JSON.stringify(predecessor.selection_anchor)
+          || predecessor.basis.world_id !== captured.request.world_id
+          || predecessor.basis.document_id !== captured.request.document_id
+          || predecessor.basis.object_revision !== captured.request.base_revision
+          || predecessor.basis.content_sha256 !== captured.request.base_content_sha256
+          || predecessor.consultation?.receipt.draft_sha256 !== captured.request.draft_sha256
+          || predecessor.consultation?.receipt.selected_text_sha256 !== await textSha256(captured.request.selected_text)
+          || predecessor.consultation?.receipt.origin_conversation_id !== dispatchHistory?.conversation_id
+          || predecessor.consultation?.receipt.origin_pointer_revision !== dispatchHistory?.pointer_revision) {
+          throw new Error("The saved selection or World conversation changed. Start a fresh edit.");
+        }
+      }
       if (captured.playableTargetSource === "scene") {
         await verifySceneCommittedBasis(captured);
         if (!isCurrent()) return;
       }
       const conversationHistory: WorldPlanDocumentEditProposalRequest["conversation_history"] = [];
+      const { selection_anchor: capturedAnchor, ...capturedRequest } = captured.request;
       const requestWithoutKey = {
-        ...captured.request,
+        ...capturedRequest,
+        ...(capturedAnchor && proposalAnchor ? { selection_anchor: capturedAnchor } : {}),
         instruction,
         conversation_history: conversationHistory,
         ...(continuationOfActionId ? { continuation_of_action_id: continuationOfActionId } : {}),

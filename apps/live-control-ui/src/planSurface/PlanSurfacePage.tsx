@@ -44,6 +44,7 @@ import {
   applyWorldPlanEditProposal,
   captureWorldPlanEditTarget,
   previewWorldPlanEditProposal,
+  restoreWorldPlanSelection,
   type WorldPlanEditBridge,
   type WorldPlanEditEditorState,
 } from "./agentEdit/planAgentEditProposal";
@@ -525,6 +526,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       worldEditStateGetterRef.current(),
       () => worldEditStateGetterRef.current(),
     ),
+    restoreSelection: (anchor, draftSha256, selectedTextSha256, expectedBasis, isOriginCurrent) =>
+      restoreWorldPlanSelection(anchor, draftSha256, selectedTextSha256, expectedBasis,
+        isOriginCurrent, () => worldEditStateGetterRef.current()),
     apply: (captured, admitted, expectedAgentBinding, getAgentBinding) => applyWorldPlanEditProposal({
       captured,
       admitted,
