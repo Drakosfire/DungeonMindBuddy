@@ -4121,7 +4121,7 @@ def test_initial_canonical_citations_match_actual_provider_packet_and_frozen_ver
     assert _initial_citation_provider_view(body, work, old_replay) == old_view
 
 
-@pytest.mark.parametrize("mutation", ["missing", "anchor", "foreign", "duplicate"])
+@pytest.mark.parametrize("mutation", ["missing", "anchor", "foreign", "extra", "duplicate"])
 def test_initial_citation_membership_rejects_hidden_or_invalid_evidence(tmp_path, monkeypatch, mutation):
     import copy
     from apps.live_control_server.services.agent_turn_service import (
@@ -4133,7 +4133,8 @@ def test_initial_citation_membership_rejects_hidden_or_invalid_evidence(tmp_path
     row = next(row for row in packet["claimLedger"] if row["claim_id"] in bootstrap.candidate_assertion_ids and row.get("evidence_ref_ids"))
     row["evidence_ref_ids"] = {
         "missing": [], "anchor": row["support"]["source_anchor_ids"],
-        "foreign": ["ev:foreign"], "duplicate": row["evidence_ref_ids"] * 2,
+        "foreign": ["ev:foreign"], "extra": row["evidence_ref_ids"] + ["ev:foreign"],
+        "duplicate": row["evidence_ref_ids"] * 2,
     }[mutation]
     with pytest.raises(AgentTurnServiceError) as caught:
         _initial_packet_membership(packet, bootstrap)
