@@ -1,6 +1,6 @@
 # APP-STATE: Plan clarification selection anchor
 
-Status: ACTIVE, bounded APP prerequisite. Base: GitHub `main` `0b10f9554999818142350511fdc84a263bebfcd9`. Authority: `/tmp/HANDOFF-APP-STATE-selection-anchor-activation.json` and pinned decision SHA-256 `c75bd07e468c6f10f1d445cd5d997db83e5595f9e0ce6150cee970787c025a3a`.
+Status: MERGED predecessor. APP PR #1112 merged to GitHub `main` at `ed2472886d208ca90fc82875d1dea185594125d1` (implementation commit `1dfcaf81d9feb81f6f5bdda5744984a7e3c58b6`). Original base: `0b10f9554999818142350511fdc84a263bebfcd9`. Authority: `/tmp/HANDOFF-APP-STATE-selection-anchor-activation.json` and pinned decision SHA-256 `c75bd07e468c6f10f1d445cd5d997db83e5595f9e0ce6150cee970787c025a3a`.
 
 The existing `plan_action.action` row gains one nullable JSONB `selection_anchor` in migration `20261012_0021`, after `20261012_0020`. Current SERVER actions with null anchors remain accepted during this prerequisite. A later SERVER/UI consumer requires nonnull anchors for new sourced selection requests. This APP slice does not alter consultation receipts, Graph execution, request fingerprint computation, or editor behavior.
 
