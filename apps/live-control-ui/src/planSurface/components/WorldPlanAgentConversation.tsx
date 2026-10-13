@@ -4955,6 +4955,7 @@ export function WorldPlanAgentConversation({
             {verifiedWorldId && history?.conversation_id ? <BuddyContextTraceLoader
               enabled={openedTraceTurns[`${verifiedWorldId}\u001f${turn.turn_id}`] === true}
               worldId={verifiedWorldId} turnId={turn.turn_id} conversationId={history.conversation_id}
+              running={turn.lifecycle_status === "running" || turn.lifecycle_status === "accepted"}
             /> : null}
             <p className="world-plan-agent-conversation__context">
               Turn {turn.sequence} · {turn.lifecycle_status} · {historyTurnProvenanceLabel(turn)}

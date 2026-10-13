@@ -1630,6 +1630,7 @@ def test_parent_source_broker_persists_authorization_before_content_and_result_b
             capture.trace.capture_failure_code = code
         capture.mark_incomplete = mark_incomplete
         capture.refresh_after_source_capture = lambda: None
+        capture.observe = lambda fields: None
         adapter.context_capture = capture
     content = "bound source text"
     digest = "a" * 64  # Parent source revision digest, not the excerpt digest.

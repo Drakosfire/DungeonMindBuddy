@@ -1253,6 +1253,11 @@ class _PolicyExecutionAdapter:
             "message": response_message, "statusCode": status, "diagnostics": [],
         }, separators=(",", ":"))
         self.denied_tool_payloads.setdefault(tool_name, []).append((_canonical_sha256(arguments), payload))
+        if self.context_capture is not None:
+            self.context_capture.observe({
+                "kind": "failure", "code": code,
+                "phase": "graph_retrieval" if tool_name == "expand_graph_retrieval" else "source_read",
+            })
         return {"resultJson": payload, "retrievalSession": None}
 
     def _included_evidence_payloads(

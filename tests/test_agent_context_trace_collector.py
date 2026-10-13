@@ -217,3 +217,20 @@ def test_uncertain_or_identity_source_capture_failure_has_no_receipt_retry(failu
                                        world_id="world", graph_revision="revision")
     assert len(appends) == 1
     assert store.trace.capture_status == "recording"
+
+
+def test_parent_tool_denial_records_safe_failure_without_evidence_authority():
+    import json
+    from apps.live_control_server.services.agent_turn_service import _PolicyExecutionAdapter
+    capture, store, _ = collector()
+    adapter = _PolicyExecutionAdapter.__new__(_PolicyExecutionAdapter)
+    adapter.context_capture = capture
+    adapter.denied_tool_payloads = {}
+    denied = adapter._denied_tool_result("read_graph_source", "source_anchor_not_admitted", 403,
+                                        "Source could not be admitted.", arguments={"anchorIds": ["private-anchor-42"]})
+    assert json.loads(denied["resultJson"])["code"] == "source_anchor_not_admitted"
+    observed = store.trace.observations[0]
+    assert observed.kind == "failure" and observed.phase == "source_read"
+    assert observed.code == "source_anchor_not_admitted"
+    assert "private-anchor-42" not in observed.model_dump_json()
+    assert "content" not in observed.model_dump()
