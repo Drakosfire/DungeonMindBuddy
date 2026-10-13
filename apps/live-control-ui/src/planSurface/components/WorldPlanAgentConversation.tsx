@@ -4865,19 +4865,25 @@ export function WorldPlanAgentConversation({
               : "Conversation history is not ready yet."
             : null;
 
+  const newConversationButton = (
+    <button
+      className={presentationHosts ? "conversation-dock__icon-button" : undefined}
+      type="button"
+      onClick={startNewConversation}
+      disabled={newConversationDisabledReason !== null}
+      aria-label="New conversation"
+      title={newConversationDisabledReason ?? "New conversation"}
+      aria-describedby={newConversationDisabledReason ? "world-plan-new-conversation-disabled-reason" : undefined}
+    >
+      {newConversationSending ? "…" : presentationHosts ? <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg> : "New conversation"}
+    </button>
+  );
   const headerActions = (
     <div className="world-plan-agent-conversation__actions">
             <button type="button" aria-expanded={settingsOpen} aria-controls="world-plan-agent-settings" onClick={() => setSettingsOpen((open) => !open)}>
               {settingsOpen ? "Close settings" : "Settings"}
             </button>
-            <button
-              type="button"
-              onClick={startNewConversation}
-              disabled={newConversationDisabledReason !== null}
-              aria-describedby={newConversationDisabledReason ? "world-plan-new-conversation-disabled-reason" : undefined}
-            >
-              {newConversationSending ? "Starting…" : "New conversation"}
-            </button>
+            {!presentationHosts || presentationHosts.newConversation === undefined ? newConversationButton : null}
             {newConversationDisabledReason ? (
               <p id="world-plan-new-conversation-disabled-reason" className="world-plan-agent-conversation__management-reason" role="note">
                 Unavailable right now: {newConversationDisabledReason}
@@ -5386,6 +5392,7 @@ export function WorldPlanAgentConversation({
   if (presentationHosts) {
     return <>
       {presentationHosts.header && createPortal(<>{headerActions}{managementDetails}</>, presentationHosts.header)}
+      {presentationHosts.newConversation && createPortal(newConversationButton, presentationHosts.newConversation)}
       {presentationHosts.context && createPortal(contextDetails, presentationHosts.context)}
       {presentationHosts.messages && createPortal(messages, presentationHosts.messages)}
       {presentationHosts.composer && createPortal(composer, presentationHosts.composer)}

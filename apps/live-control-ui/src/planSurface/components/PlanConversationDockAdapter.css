@@ -116,6 +116,16 @@
   position: relative;
 }
 
+.plan-conversation-dock__new-conversation {
+  display: flex;
+  align-items: center;
+}
+
+.plan-conversation-dock__new-conversation .conversation-dock__icon-button {
+  min-inline-size: var(--conversation-dock-control-hit-size);
+  min-block-size: var(--conversation-dock-control-hit-size);
+}
+
 .plan-conversation-dock__management > summary {
   display: flex;
   align-items: center;

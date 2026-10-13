@@ -1312,7 +1312,12 @@ it("connects and revokes the local Agent and Graph session from Settings", async
   );
 
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  const newConversation = screen.getByRole("button", { name: "New conversation" });
+  expect(newConversation.closest(".conversation-dock__header")).toBeInTheDocument();
+  expect(newConversation.querySelector("svg")).toBeInTheDocument();
+  expect(newConversation).toHaveAttribute("title", "New conversation");
   fireEvent.click(screen.getByText("Conversation options", {exact:true}));
+  expect(screen.getByText("Conversation options").closest("details")).not.toContainElement(newConversation);
   fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
   expect(screen.queryByLabelText("Local operator credential")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Connect local session" }));
