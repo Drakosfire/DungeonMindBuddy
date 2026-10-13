@@ -1,5 +1,6 @@
 import json
 import asyncio
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -84,6 +85,19 @@ def invoke(client, model="gpt-6-luna"):
         model_id=model,
         instructions="PRIVATE_PROMPT",
         user_content="PRIVATE_SOURCE",
+    )
+
+
+def private_response_client(engine_factory, run_dir, *, limits=None):
+    run_dir.mkdir(parents=True, exist_ok=True)
+    return BoundedRecapPassClient(
+        limits or RecapExecutionLimits(),
+        engine_factory=engine_factory,
+        response_artifact_dir=run_dir / ".private" / "pass_responses",
+        request_context_hashes={
+            "normalized_source": "a" * 64,
+            "settled_identity_context": "b" * 64,
+        },
     )
 
 
@@ -191,6 +205,154 @@ def test_local_response_failure_retains_private_raw_outside_safe_ledger(
     with pytest.raises(CategoryGraphExtractionError):
         invoke(client, DEEPSEEK_MODEL)
     assert len(engine.requests) == 1 and engine.closed == 1
+
+
+def test_private_response_evidence_captures_success_before_consumer_use(tmp_path):
+    import hashlib
+    import os
+    import stat
+
+    raw = '{"observation_nodes": []}'
+    engine = Engine(TextResult(text=raw, observation=observation()))
+    client = private_response_client(lambda: engine, tmp_path / "run")
+
+    result = invoke(client)
+
+    artifact_path = Path(client.calls[0]["response_artifact_path"])
+    artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+    request = engine.requests[0].model_dump(mode="json")
+    canonical_request = json.dumps(
+        request, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+    assert result["parsed"] == {"observation_nodes": []}
+    assert artifact["capture_state"] == "unvalidated_snapshot"
+    assert artifact["pass_name"] == "actor_pass" and artifact["pass_ordinal"] == 1
+    assert artifact["request"]["sha256"] == hashlib.sha256(canonical_request).hexdigest()
+    assert artifact["request"]["system_prompt_sha256"] == hashlib.sha256(
+        request["system_prompt"].encode()
+    ).hexdigest()
+    assert artifact["request"]["user_prompt_sha256"] == hashlib.sha256(
+        request["user_prompt"].encode()
+    ).hexdigest()
+    assert artifact["context_sha256"] == {
+        "normalized_source": "a" * 64,
+        "settled_identity_context": "b" * 64,
+    }
+    assert artifact["response"]["text"] == raw
+    assert artifact["response"]["utf8_bytes"] == len(raw.encode())
+    assert artifact["response"]["sha256"] == hashlib.sha256(raw.encode()).hexdigest()
+    assert artifact["ge_observation"]["provider_response_id"] == "response"
+    assert "provider_request_id" not in artifact["ge_observation"]
+    assert "PRIVATE_PROMPT" not in json.dumps(artifact)
+    assert "PRIVATE_SOURCE" not in json.dumps(artifact)
+    assert "PRIVATE" not in json.dumps(client.ledger())
+    assert client.calls[0]["response_artifact_sha256"] == hashlib.sha256(
+        artifact_path.read_bytes()
+    ).hexdigest()
+    assert stat.S_IMODE(os.stat(tmp_path / "run" / ".private").st_mode) == 0o700
+    assert stat.S_IMODE(
+        os.stat(tmp_path / "run" / ".private" / "pass_responses").st_mode
+    ) == 0o700
+    assert stat.S_IMODE(os.stat(artifact_path).st_mode) == 0o600
+
+
+@pytest.mark.parametrize(
+    "raw,expected_kind",
+    [
+        ('{"observation_nodes":', "invalid_json"),
+        ('{"observation_nodes": "wrong"}', "schema"),
+    ],
+)
+def test_private_response_evidence_precedes_json_and_schema_validation(
+    tmp_path, raw, expected_kind
+):
+    engine = Engine(TextResult(text=raw, observation=deepseek_observation()))
+    client = private_response_client(
+        lambda: engine,
+        tmp_path / "run",
+        limits=RecapExecutionLimits(provider="openrouter", model=DEEPSEEK_MODEL),
+    )
+
+    with pytest.raises(CategoryGraphExtractionError):
+        invoke(client, DEEPSEEK_MODEL)
+
+    artifact_path = Path(client.calls[0]["response_artifact_path"])
+    artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert artifact["capture_state"] == "unvalidated_snapshot"
+    assert artifact["response"]["text"] == raw
+    assert client.calls[0]["validation_failure"]["kind"] == expected_kind
+    assert client.calls[0]["response_artifact_sha256"]
+    assert "PRIVATE_PROMPT" not in json.dumps(artifact)
+    assert "PRIVATE_SOURCE" not in json.dumps(artifact)
+
+
+def test_private_response_evidence_keeps_earlier_pass_when_later_pass_fails(tmp_path):
+    responses = [
+        TextResult(text='{"observation_nodes": []}', observation=observation()),
+        TextResult(text='{"observation_nodes":', observation=observation()),
+    ]
+
+    class SequenceEngine:
+        async def generate_text(self, request):
+            return responses.pop(0)
+
+        async def aclose(self):
+            pass
+
+    client = private_response_client(SequenceEngine, tmp_path / "run")
+    client.run_pass(
+        "actor_pass", model_id="gpt-6-luna", instructions="SYSTEM", user_content="USER"
+    )
+    with pytest.raises(CategoryGraphExtractionError):
+        client.run_pass(
+            "location_pass", model_id="gpt-6-luna", instructions="SYSTEM", user_content="USER"
+        )
+
+    evidence_dir = tmp_path / "run" / ".private" / "pass_responses"
+    assert sorted(path.name for path in evidence_dir.glob("*.json")) == [
+        "01-actor_pass.json",
+        "02-location_pass.json",
+    ]
+    assert client.calls[0]["response_artifact_sha256"]
+    assert client.calls[1]["response_artifact_sha256"]
+
+
+def test_private_response_evidence_is_atomic_and_never_overwrites(tmp_path):
+    engine = Engine(TextResult(text='{"observation_nodes": []}', observation=observation()))
+    run_dir = tmp_path / "run"
+    first = private_response_client(lambda: engine, run_dir)
+    invoke(first)
+    artifact_path = Path(first.calls[0]["response_artifact_path"])
+    original = artifact_path.read_bytes()
+
+    second_engine = Engine(
+        TextResult(text='{"observation_nodes": []}', observation=observation())
+    )
+    second = private_response_client(lambda: second_engine, run_dir)
+    with pytest.raises(CategoryGraphExtractionError, match="private recap response evidence"):
+        invoke(second)
+
+    assert artifact_path.read_bytes() == original
+    assert not list((run_dir / ".private" / "pass_responses").glob("*.pending"))
+    assert "response_artifact_path" not in second.calls[0]
+    assert second.calls[0]["consumer_failure"] == "PrivateResponseEvidenceWriteFailed"
+
+
+def test_unknown_worker_receipt_does_not_create_private_response(tmp_path, monkeypatch):
+    from src.graph_memory.extraction import bounded_recap_execution as module
+    from src.graph_memory.extraction._recap_inference_worker import _WorkerOutcome
+
+    monkeypatch.setattr(
+        module, "_execute_in_owned_process", lambda *args, **kwargs: _WorkerOutcome(None, False)
+    )
+    client = private_response_client(lambda: None, tmp_path / "run")
+
+    with pytest.raises(CategoryGraphExtractionError, match="outcome unknown"):
+        invoke(client)
+
+    assert client.calls[0]["external_outcome"] == "unknown"
+    assert "response_artifact_path" not in client.calls[0]
+    assert not (tmp_path / "run" / ".private").exists()
 
 
 def test_validation_paths_redact_unknown_response_field_names():
