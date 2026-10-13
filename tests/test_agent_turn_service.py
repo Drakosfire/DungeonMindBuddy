@@ -1420,9 +1420,9 @@ def test_duplicate_execution_event_never_acknowledges_harness_progress() -> None
     assert caught.value.code == "turn_persistence_indeterminate"
 
 
-@pytest.mark.parametrize("capture_enabled", [False, True])
+@pytest.mark.parametrize("capture_enabled", [False, True, "limit"])
 def test_parent_source_broker_persists_authorization_before_content_and_result_before_reply(
-    monkeypatch: Any, capture_enabled: bool,
+    monkeypatch: Any, capture_enabled: bool | str,
 ) -> None:
     from application_state.agent_conversation import types as graph_types
     from apps.live_control_server.services import agent_turn_service as service_module
@@ -1490,11 +1490,15 @@ def test_parent_source_broker_persists_authorization_before_content_and_result_b
         def append(self, method: str, _key: str, event: Any, **extras: Any) -> tuple[Turn, bool]:
             order.append(method)
             if method == "record_validated_source_read" and capture_enabled:
-                passages = extras["source_passages"]
-                assert passages[0].source_read_event_id == event.event_id
-                assert passages[0].text == "bound source text"
-                assert passages[0].content_sha256 == sha256(passages[0].text.encode()).hexdigest()
-                captured_passages.extend(passages)
+                if capture_enabled == "limit" and extras:
+                    from application_state.errors import ApplicationStateValidationError
+                    raise ApplicationStateValidationError("trace exceeds the explicit 1 MiB per-attempt ceiling")
+                if extras:
+                    passages = extras["source_passages"]
+                    assert passages[0].source_read_event_id == event.event_id
+                    assert passages[0].text == "bound source text"
+                    assert passages[0].content_sha256 == sha256(passages[0].text.encode()).hexdigest()
+                    captured_passages.extend(passages)
             current = self.turn.graph_context_execution
             self.turn = self.turn.model_copy(update={
                 "graph_context_execution": graph_types.PlanWorldGraphExecutionV2.model_validate({
@@ -1619,7 +1623,12 @@ def test_parent_source_broker_persists_authorization_before_content_and_result_b
         capture = ContextTraceCollector.__new__(ContextTraceCollector)
         from time import monotonic
         capture.started = monotonic()
+        capture.fence = adapter.fence
         capture.trace = SimpleNamespace(capture_status="recording")
+        def mark_incomplete(code: str) -> None:
+            capture.trace.capture_status = "incomplete"
+            capture.trace.capture_failure_code = code
+        capture.mark_incomplete = mark_incomplete
         capture.refresh_after_source_capture = lambda: None
         adapter.context_capture = capture
     content = "bound source text"
@@ -1672,6 +1681,17 @@ def test_parent_source_broker_persists_authorization_before_content_and_result_b
             "toolName": "read_graph_source",
             "arguments": {"retrievalSessionId": session.id, "anchorIds": ["anchor:one"]},
         })
+        if capture_enabled == "limit":
+            assert order == ["authorize_source_read", "record_validated_source_read", "record_validated_source_read"]
+            assert json.loads(accepted["resultJson"])["code"] == "source_capture_incomplete"
+            assert content not in accepted["resultJson"]
+            assert adapter.source_payloads == {}
+            assert adapter.failure is None
+            assert adapter.context_capture.trace.capture_failure_code == "trace_size_limit"
+            events = adapter.fence.turn.graph_context_execution.events
+            assert sum(event.kind == "source_read_authorized_v2" for event in events) == 1
+            assert sum(event.kind == "validated_source_read_v2" for event in events) == 1
+            return
         assert order == ["authorize_source_read", "record_validated_source_read"]
         assert content in accepted["resultJson"]
         assert content not in adapter.fence.turn.graph_context_execution.model_dump_json()

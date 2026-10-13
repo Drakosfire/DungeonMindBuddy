@@ -15,6 +15,13 @@ from application_state.agent_conversation.context_trace import (
 from application_state.errors import ApplicationStateValidationError
 
 _OBSERVATION = TypeAdapter(ContextTraceObservation)
+# Exact APP-owned rejection reasons. Identity, fencing, validation and transport
+# errors are deliberately not eligible for receipt-only cap fallback.
+_SOURCE_CAPTURE_LIMITS = {
+    "trace exceeds the explicit 1 MiB per-attempt ceiling": "trace_size_limit",
+    "captured source passages exceed the 8-read turn ceiling": "source_read_capture_limit",
+    "captured source passages exceed the 96,000 character turn ceiling": "source_character_capture_limit",
+}
 
 
 class ContextTraceCollector:
@@ -136,3 +143,29 @@ class ContextTraceCollector:
                 "output_tokens": actual("output_tokens"),
                 "duration_ms": call.get("duration_ms"),
             })
+
+    def persist_source_receipt(self, event: Any, results: list[Mapping[str, Any]],
+                               *, world_id: str, graph_revision: str) -> tuple[Any, bool, bool]:
+        """Return (updated turn, fresh receipt, captured bytes may be released).
+
+        Only a known capture limit rolls back the atomic passage append and
+        permits the SAME receipt to be persisted without passage bytes. The
+        read itself is never repeated. Uncertain writes propagate unchanged.
+        """
+        if self.trace.capture_status != "incomplete":
+            passages = self.source_passages(event, results, world_id=world_id,
+                                            graph_revision=graph_revision)
+            try:
+                updated, fresh = self.fence.append(
+                    "record_validated_source_read", "receipt", event, source_passages=passages,
+                )
+            except ApplicationStateValidationError as exc:
+                code = _SOURCE_CAPTURE_LIMITS.get(str(exc))
+                if code is None:
+                    raise
+                self.mark_incomplete(code)
+            else:
+                self.refresh_after_source_capture()
+                return updated, fresh, True
+        updated, fresh = self.fence.append("record_validated_source_read", "receipt", event)
+        return updated, fresh, False

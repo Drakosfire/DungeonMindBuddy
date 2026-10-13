@@ -2160,17 +2160,19 @@ class _PolicyExecutionAdapter:
                 kind="validated_source_read_v2", read_call_id=read_call_id,
                 receipts=receipts,
             )
-            capture_options = {}
             if self.context_capture is not None:
-                capture_options["source_passages"] = self.context_capture.source_passages(
+                updated, fresh, captured = self.context_capture.persist_source_receipt(
                     event, results, world_id=scope.world_id, graph_revision=scope.graph_revision,
                 )
-            updated = _require_fresh_execution_append(
-                self.fence.append("record_validated_source_read", "receipt", event, **capture_options)
-            )
+                updated = _require_fresh_execution_append((updated, fresh))
+                self.turn = updated
+                if not captured:
+                    return denied("source_capture_incomplete", 503)
+            else:
+                updated = _require_fresh_execution_append(
+                    self.fence.append("record_validated_source_read", "receipt", event)
+                )
             self.turn = updated
-            if self.context_capture is not None:
-                self.context_capture.refresh_after_source_capture()
             public = (
                 {**results[0], "retrievalSessionId": scope.retrieval_session_id}
                 if len(results) == 1 else {

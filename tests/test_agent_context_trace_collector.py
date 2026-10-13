@@ -174,3 +174,46 @@ def test_producer_observations_survive_real_postgres_terminal_failure(applicatio
     assert saved.observations[0].input_tokens == 42
     assert saved.observations[0].output_tokens == 7
     assert saved.observations[1].code == "synthetic_delivery_failure"
+
+
+@pytest.mark.parametrize("reason,code", [
+    ("trace exceeds the explicit 1 MiB per-attempt ceiling", "trace_size_limit"),
+    ("captured source passages exceed the 8-read turn ceiling", "source_read_capture_limit"),
+    ("captured source passages exceed the 96,000 character turn ceiling", "source_character_capture_limit"),
+])
+def test_known_source_cap_retries_only_same_receipt_without_releasing_bytes(reason, code):
+    capture, store, turn = collector()
+    event = source_event("source text")
+    appends = []
+    def append(method, name, received, **options):
+        appends.append((method, name, received, options))
+        if options:
+            raise ApplicationStateValidationError(reason)
+        return turn, True
+    capture.fence.append = append
+    updated, fresh, may_release = capture.persist_source_receipt(
+        event, [{"content": "source text"}], world_id="world", graph_revision="revision",
+    )
+    assert updated is turn and fresh is True and may_release is False
+    assert len(appends) == 2
+    assert appends[0][2] is appends[1][2] is event
+    assert appends[1][3] == {}
+    assert store.trace.capture_failure_code == code
+
+
+@pytest.mark.parametrize("failure", [
+    ConnectionError("unknown write disposition"),
+    ApplicationStateValidationError("source passage trace belongs to a different World"),
+])
+def test_uncertain_or_identity_source_capture_failure_has_no_receipt_retry(failure):
+    capture, store, _ = collector()
+    appends = []
+    def append(*args, **kwargs):
+        appends.append((args, kwargs))
+        raise failure
+    capture.fence.append = append
+    with pytest.raises(type(failure)):
+        capture.persist_source_receipt(source_event("source text"), [{"content": "source text"}],
+                                       world_id="world", graph_revision="revision")
+    assert len(appends) == 1
+    assert store.trace.capture_status == "recording"
