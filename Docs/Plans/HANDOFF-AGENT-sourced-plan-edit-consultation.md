@@ -5,8 +5,9 @@ Status: ACTIVE under PRIME, 2026-10-12. Pinned activation:
 `3339a0fbe1596ca52fc6bf52f40da71c107d6329f139506cd9e6dce7293eed2a`.
 Design: `/tmp/continuity-edit-contract-decision.json`, SHA-256
 `0751fd8e159f35e94528c90228398167b98867873611a39593cee52141b756fa`.
-Current base: GitHub Buddy main `2a3e2566e30256528486d391758a7ab0f1a92ad8`
-after merged APP #1109. Original activation base was
+Current base: GitHub Buddy main `f1ea2778a03e48ab0cb7be53fe990054b8ff8c87`
+after merged INGEST #1110. The prior base was merged APP #1109 at
+`2a3e2566e30256528486d391758a7ab0f1a92ad8`. Original activation base was
 `1fb127f8a0a2f0456eb385186e54cecff6f58b33` after accepted #1106.
 Branch: `codex/server-sourced-plan-edit-consultation`,
 isolated checkout `/tmp/buddy-sourced-plan-edit-consultation`. APP #1101
@@ -132,7 +133,8 @@ through the read-only API; the current UI views the active pointer. Blank
 World actions continue their typed idempotency comparison without requiring
 an origin fingerprint.
 
-Reverified on implementation commit `d8e32c7d24c8c66e107e57856161dfc5a20332cd`:
+Reverified before the #1110 rebase on implementation commit
+`d8e32c7d24c8c66e107e57856161dfc5a20332cd`:
 146 focused SERVER tests in
 disposable PostgreSQL; 197 mounted conversation UI tests; UI typecheck and
 production build; Ruff on changed Python; `git diff --check`. The positive
@@ -142,6 +144,16 @@ the archived conversation after New conversation, and rejects a stale new
 dispatch with 409. The mounted UI test confirms the old clarification is
 removed immediately after New conversation. PRIME owns independent exact-head
 review; no merge authority is implied.
+
+After INGEST #1110 merged, this branch was rebased again onto
+`f1ea2778a03e48ab0cb7be53fe990054b8ff8c87`. Its changed paths do not
+overlap this lease. The canonical recap packaging source and test from #1110
+are unchanged in the cumulative PR diff. The rebase completed without a
+conflict; the consumer's functional delta is unchanged.
+`git range-diff` pairs all five replayed commits exactly, and the complete
+old/new base-to-head patch ID matches:
+`e39e2c4b6446f01b1f028275249a1f223d03422b`. No functional gate was
+rerun because the rebase introduced no file collision or code delta.
 
 Follow-up review found and fixed a fresh-result refresh gap: after a POST
 returns a clarification, UI now refreshes the conversation projection, not
