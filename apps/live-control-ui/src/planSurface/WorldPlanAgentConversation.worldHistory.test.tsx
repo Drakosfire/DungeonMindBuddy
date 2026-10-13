@@ -1310,6 +1310,11 @@ function setupApi(initialHistory: WorldAgentConversationHistoryResponse) {
     },
     actions: [],
   });
+  vi.spyOn(liveApi, "getWorldPlanConversationActions").mockImplementation(async (_world, conversationId) => ({
+    schema_version: "dmb_world_plan_action_conversation_projection_v1",
+    world_id: worldId, conversation_id: conversationId,
+    actions: [], next_before_action_sequence: null,
+  }));
   return {
     getHistory,
     getPlanBasis,
@@ -1401,7 +1406,7 @@ const cardEditScope: Partial<ConversationTestProps> = {
 
 describe("World Plan conversation consumer", () => {
   it("shows a durable sourced edit clarification without Apply and sends a short linked reply to proposal review", async () => {
-    setupApi(history("conversation-a", 4, []));
+    const api = setupApi(history("conversation-a", 4, []));
     const selected = "Draft excerpt";
     const selectedDigest = await sha256Hex(selected);
     const captured = {
@@ -1438,6 +1443,12 @@ describe("World Plan conversation consumer", () => {
       },
       actions,
     }));
+    vi.mocked(liveApi.getWorldPlanConversationActions).mockImplementation(async (_world, conversationId) => ({
+      schema_version: "dmb_world_plan_action_conversation_projection_v1",
+      world_id: worldId, conversation_id: conversationId,
+      actions: conversationId === "conversation-a" ? actions : [],
+      next_before_action_sequence: null,
+    }));
     const post = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) => {
       if (!request.continuation_of_action_id) {
         actions.push({
@@ -1451,7 +1462,8 @@ describe("World Plan conversation consumer", () => {
           action_sequence: 1, accepted_at: "2026-10-12T00:00:00Z",
           completed_at: "2026-10-12T00:00:01Z", playable_target_receipt: null,
           consultation: {
-            receipt: { draft_sha256: request.draft_sha256, selected_text_sha256: selectedDigest, continuation: null },
+            receipt: { origin_conversation_id: "conversation-a", origin_pointer_revision: 4,
+              draft_sha256: request.draft_sha256, selected_text_sha256: selectedDigest, continuation: null },
             result: {
               kind: "clarification", result_id: "00000000-0000-4000-8000-000000000082",
               message: "Mira owns the observatory. Did you mean her mother?",
@@ -1467,6 +1479,7 @@ describe("World Plan conversation consumer", () => {
           selected_text_sha256: selectedDigest, kind: "clarification",
           message: "Mira owns the observatory. Did you mean her mother?",
           consultation: {
+            origin_conversation_id: "conversation-a", origin_pointer_revision: 4,
             result: {
               kind: "clarification", result_id: "00000000-0000-4000-8000-000000000082",
               message: "Mira owns the observatory. Did you mean her mother?",
@@ -1476,6 +1489,8 @@ describe("World Plan conversation consumer", () => {
         };
       }
       expect(request.continuation_of_action_id).toBe(clarificationId);
+      expect(request.expected_active_conversation_id).toBe("conversation-a");
+      expect(request.expected_pointer_revision).toBe(4);
       return {
         schema_version: "dmb_world_plan_document_edit_proposal_v1",
         action_id: "00000000-0000-4000-8000-000000000083",
@@ -1551,6 +1566,17 @@ describe("World Plan conversation consumer", () => {
     expect(screen.queryByRole("button", { name: "Apply changes" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save Plan" })).not.toBeInTheDocument();
     expect(bridge.apply).toHaveBeenCalledTimes(1);
+    vi.spyOn(liveApi, "postWorldAgentNewConversation").mockImplementation(async (_world, command) => {
+      api.setCurrent(history("conversation-b", command.expected_pointer_revision + 1, []));
+      return {
+        schema: "dmb_agent_new_conversation_response_v1", world_id: worldId,
+        conversation_id: "conversation-b", active_conversation_id: "conversation-b",
+        pointer_revision: command.expected_pointer_revision + 1,
+      } as any;
+    });
+    fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
+    await screen.findByText(/New World conversation confirmed/);
+    await waitFor(() => expect(document.querySelector(`article[data-plan-action-id="${clarificationId}"]`)).toBeNull());
     mounted.unmount();
   });
   it.each(["cursor", "scene", "selection", "missing", "stale", "late"])("shows actual target and fences real capture for %s", async (mode) => {

@@ -108,3 +108,34 @@ The older `WorldPlanAgentReviewedEdit.integration.test.tsx` fixture has 17/18
 failures on this base because its radio-control and copy assumptions predate
 accepted #1106. This slice did not rewrite those unrelated historical cases.
 PRIME owns independent exact-head review. Do not merge on this handoff alone.
+
+## APP origin cutover after PRIME HOLD
+
+APP predecessor #1109 merged into GitHub `main` at
+`2a3e2566e30256528486d391758a7ab0f1a92ad8`. This branch was rebased
+onto that exact commit before updating the consumer. The APP contract now
+requires the active World conversation ID and pointer revision on every
+sourced consultation receipt. SERVER captures the viewed pointer before
+dispatch, includes it in the server-computed action fingerprint, and passes
+it through reservation and freeze. Linked replies require the same origin;
+APP checks the pointer transactionally at reservation, freeze, and provider
+authorization. The selected saved Plan edit remains the only adopter.
+
+The mounted conversation-action read projects the viewed World conversation
+across Plan bases and documents, while exact-basis action status remains the
+edit applicability check. The UI clears prior dialogue when New conversation
+is confirmed, ignores late results for an old pointer, and prevents a linked
+reply from an archived action. A read of an archived conversation is available
+through the read-only API; the current UI views the active pointer. Blank
+World actions continue their typed idempotency comparison without requiring
+an origin fingerprint.
+
+Reverified on the rebased implementation files: 146 focused SERVER tests in
+disposable PostgreSQL; 197 mounted conversation UI tests; UI typecheck and
+production build; Ruff on changed Python; `git diff --check`. The positive
+mounted service test saves/reopens a changed Plan, reads both historical
+actions across that basis change, observes empty current-basis status, reads
+the archived conversation after New conversation, and rejects a stale new
+dispatch with 409. The mounted UI test confirms the old clarification is
+removed immediately after New conversation. PRIME owns independent exact-head
+review; no merge authority is implied.

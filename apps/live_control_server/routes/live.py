@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 from datetime import datetime, timezone
+from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Path, Query, Request
 from fastapi.responses import JSONResponse
@@ -32,6 +33,7 @@ from apps.live_control_server.models.plan_document_edit_proposal import (
 from apps.live_control_server.services.plan_document_edit_proposal import (
     PlanDocumentEditProposalError,
     get_world_plan_action_projection,
+    get_world_plan_action_conversation_projection,
     propose_plan_document_edit,
     propose_world_plan_document_edit,
 )
@@ -1131,6 +1133,32 @@ def get_world_plan_document_edit_actions(
             status_code=exc.status_code,
             detail={"code": exc.code, "message": str(exc)},
         ) from exc
+
+
+@router.get("/world-plan-edit/conversation-actions")
+def get_world_plan_edit_conversation_actions(
+    world_id: str = Query(min_length=1, max_length=128),
+    conversation_id: UUID = Query(),
+    limit: int = Query(default=50, ge=1, le=50),
+    before_action_sequence: int | None = Query(default=None, ge=1),
+) -> dict[str, Any]:
+    """Project read-only sourced dialogue for the viewed World conversation."""
+    try:
+        world_root = managed_world_data_root(repo_root())
+        page = get_world_plan_action_conversation_projection(
+            root=world_root, world_id=world_id, conversation_id=conversation_id,
+            limit=limit, before_action_sequence=before_action_sequence,
+        )
+    except ManagedWorldDataRootError as exc:
+        raise HTTPException(status_code=503, detail="Managed World storage is unavailable.") from exc
+    except PlanDocumentEditProposalError as exc:
+        raise HTTPException(
+            status_code=exc.status_code, detail={"code": exc.code, "message": str(exc)},
+        ) from exc
+    payload = page.model_dump(mode="json")
+    for record, item in zip(page.actions, payload["actions"], strict=True):
+        item["source_open_targets"] = project_plan_action_source_targets(record)
+    return payload
 
 
 @router.get("/state")

@@ -5,7 +5,7 @@ import { ConversationDock } from "../../ui/ConversationDock";
 import type { PlanConversationPresentationHosts } from "./PlanConversationDockAdapter";
 import { PlanEditReview } from "./PlanEditReview";
 
-import { getWorldCommandResolution, postWorldCommandResolution, getWorldAgentNewConversationStatus, getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldPlanDocumentEditProposal, postWorldGraphSourceAnchorRead, postWorldGraphRecapContextReadV2, connectNativeGraphSession, revokeNativeGraphSession, isValidWorldPlanGraphContextFailure, LiveApiError } from "../../api/liveApi";
+import { getWorldCommandResolution, postWorldCommandResolution, getWorldAgentNewConversationStatus, getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, getWorldPlanConversationActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldPlanDocumentEditProposal, postWorldGraphSourceAnchorRead, postWorldGraphRecapContextReadV2, connectNativeGraphSession, revokeNativeGraphSession, isValidWorldPlanGraphContextFailure, LiveApiError } from "../../api/liveApi";
 import type {
   AgentInteractionThread,
   AgentInteractionTurn,
@@ -1930,6 +1930,9 @@ export function WorldPlanAgentConversation({
   const selectedWorld = useSelectedWorld();
   const agent = useAgentInteraction();
   const sharedConversation = useWorldAgentConversationState();
+  const [localHistory, setLocalHistory] = useState<WorldAgentConversationHistoryResponse | null>(null);
+  const history = sharedConversation?.worldId === worldId ? sharedConversation.history : localHistory;
+  const setHistory = sharedConversation?.worldId === worldId ? sharedConversation.setHistory : setLocalHistory;
   const askSlot = useAskPluginSlotOptional();
   const verifiedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const isPlay = playMode !== null;
@@ -2001,6 +2004,8 @@ export function WorldPlanAgentConversation({
   // Apply still checks the live mounted Plan and provider binding before touching the draft.
   const currentPlanProposalFenceKey = JSON.stringify({
     requestFenceKey,
+    conversationId: history?.conversation_id ?? null,
+    pointerRevision: history?.pointer_revision ?? null,
     draftGeneration,
     selectionGeneration,
     savedDirty,
@@ -2091,9 +2096,6 @@ export function WorldPlanAgentConversation({
   const [composing, setComposing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [traceVisible, setTraceVisible] = useState(false);
-  const [localHistory, setLocalHistory] = useState<WorldAgentConversationHistoryResponse | null>(null);
-  const history = sharedConversation?.worldId === worldId ? sharedConversation.history : localHistory;
-  const setHistory = sharedConversation?.worldId === worldId ? sharedConversation.setHistory : setLocalHistory;
   const [historyLoading, setHistoryLoading] = useState(false);
   const [olderLoading, setOlderLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -2138,6 +2140,8 @@ export function WorldPlanAgentConversation({
     ?.label.replace(/^#{1,6}\s+/, "") ?? null;
   const [actionHistory, setActionHistory] = useState<WorldPlanActionProjection[]>([]);
   const [actionHistoryError, setActionHistoryError] = useState<string | null>(null);
+  const [conversationActions, setConversationActions] = useState<WorldPlanActionProjection[]>([]);
+  const [conversationActionsError, setConversationActionsError] = useState<string | null>(null);
   const requestRef = useRef<{ token: symbol; scopeKey: string; fenceKey: string } | null>(null);
   const newConversationRef = useRef<symbol | null>(null);
   const commandStatusRef = useRef<symbol | null>(null);
@@ -2414,6 +2418,26 @@ export function WorldPlanAgentConversation({
       });
     return () => { active = false; };
   }, [scopeMatches, verifiedWorldId, documentId, revision]);
+
+  useEffect(() => {
+    let active = true;
+    setConversationActions([]);
+    setConversationActionsError(null);
+    const viewedId = history?.conversation_id;
+    if (!scopeMatches || !verifiedWorldId || !viewedId
+      || history?.active_conversation_id !== viewedId) return () => { active = false; };
+    void getWorldPlanConversationActions(verifiedWorldId, viewedId)
+      .then((page) => {
+        if (active && page.schema_version === "dmb_world_plan_action_conversation_projection_v1"
+          && page.world_id === verifiedWorldId && page.conversation_id === viewedId) {
+          setConversationActions(page.actions);
+        }
+      })
+      .catch((reason: unknown) => {
+        if (active) setConversationActionsError(reason instanceof Error ? reason.message : "Could not load World edit dialogue.");
+      });
+    return () => { active = false; };
+  }, [scopeMatches, verifiedWorldId, history?.conversation_id, history?.pointer_revision]);
 
   useLayoutEffect(() => {
     proposalRequestRef.current = null;
@@ -2900,6 +2924,8 @@ export function WorldPlanAgentConversation({
         historySnapshotRef.current = null;
         setHistory(null);
         setSubmittedMessage(null);
+        setContinuationOfActionId(null);
+        setConversationActions([]);
         editReviewRef.current = null;
         setEditReview(null);
         if (namespace && documentId && activeThread?.worldPlanProposalHistory === WORLD_PLAN_LOCAL_PROPOSAL_HISTORY) {
@@ -3732,10 +3758,13 @@ export function WorldPlanAgentConversation({
 
   const renderConsultedAction = (action: WorldPlanActionProjection) => {
     const result = action.consultation?.result;
-    if (!result || !["clarification", "context_unavailable"].includes(result.kind)) return null;
+    if (!result || !["clarification", "context_unavailable"].includes(result.kind)
+      || action.consultation?.receipt.origin_conversation_id !== history?.conversation_id) return null;
+    const currentBasisAction = actionHistory.some((candidate) => candidate.action_id === action.action_id);
     const targets = action.source_open_targets?.filter((target) => target.kind === "evidence_anchor") ?? [];
     return <article key={action.action_id} className="world-plan-agent-conversation__proposal-event"
       data-plan-action-id={action.action_id}>
+      {!currentBasisAction ? <p className="world-plan-agent-conversation__context">Earlier saved Plan edit · read only</p> : null}
       <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--user">
         <span className="world-plan-agent-conversation__speaker">You</span><p>{action.instruction}</p>
       </div>
@@ -3755,8 +3784,10 @@ export function WorldPlanAgentConversation({
           ) : null}
         </div>)}
         {result.kind === "clarification" ? <button type="button"
-          disabled={composing || !editorSelectionActive || !scopeMatches
-            || actionHistory.some((candidate) => candidate.consultation?.receipt.continuation?.continuation_of_action_id === action.action_id)}
+          disabled={composing || !editorSelectionActive || !scopeMatches || !currentBasisAction
+            || action.consultation?.receipt.origin_pointer_revision !== history?.pointer_revision
+            || history?.active_conversation_id !== history?.conversation_id
+            || conversationActions.some((candidate) => candidate.consultation?.receipt.continuation?.continuation_of_action_id === action.action_id)}
           onClick={() => {
             proposalIntentRef.current = null;
             setContinuationOfActionId(action.action_id);
@@ -4019,6 +4050,24 @@ export function WorldPlanAgentConversation({
     }
   }
 
+  async function refreshConversationActions(conversationId: string, pointerRevision: number) {
+    if (!verifiedWorldId || !scopeMatches) return;
+    try {
+      const page = await getWorldPlanConversationActions(verifiedWorldId, conversationId);
+      if (page.schema_version === "dmb_world_plan_action_conversation_projection_v1"
+        && page.world_id === verifiedWorldId && page.conversation_id === conversationId
+        && historySnapshotRef.current?.conversation_id === conversationId
+        && historySnapshotRef.current?.pointer_revision === pointerRevision) {
+        setConversationActions(page.actions);
+      }
+    } catch (reason) {
+      if (historySnapshotRef.current?.conversation_id === conversationId
+        && historySnapshotRef.current?.pointer_revision === pointerRevision) {
+        setConversationActionsError(reason instanceof Error ? reason.message : "Could not refresh World edit dialogue.");
+      }
+    }
+  }
+
   async function selectPlanSection(sectionId: string) {
     setSelectedSectionTargetId(sectionId);
     if (!sectionId) {
@@ -4190,6 +4239,10 @@ export function WorldPlanAgentConversation({
         instruction,
         conversation_history: conversationHistory,
         ...(continuationOfActionId ? { continuation_of_action_id: continuationOfActionId } : {}),
+        ...(captured.request.target_kind === "replace_selection" && proposalAnchor && dispatchHistory
+          ? { expected_active_conversation_id: proposalAnchor.conversationId,
+              expected_pointer_revision: dispatchHistory.pointer_revision }
+          : {}),
       };
       const fingerprint = JSON.stringify(requestWithoutKey);
       const idempotencyKey = proposalIntentRef.current?.fingerprint === fingerprint
@@ -4318,6 +4371,9 @@ export function WorldPlanAgentConversation({
           }
         })
         .catch(() => undefined);
+      if (proposalAnchor && dispatchHistory) {
+        void refreshConversationActions(proposalAnchor.conversationId, dispatchHistory.pointer_revision);
+      }
     } catch (reason) {
       if (isCurrent()) {
         restoreSubmittedDraft(composerSnapshotAtSubmit, composerGenerationAtSubmit);
@@ -5028,7 +5084,8 @@ export function WorldPlanAgentConversation({
         {latestConversationEvent ? renderConversationEvent(latestConversationEvent) : history && !historyLoading && submittedMessage?.scopeKey !== scopeKey ? (
           <p className="world-plan-agent-conversation__empty">No messages yet. {isPlay ? "Ask about this Run." : "Ask about this Plan or describe a change."}</p>
         ) : null}
-        {!isPlay ? actionHistory.map(renderConsultedAction) : null}
+        {!isPlay ? conversationActions.map(renderConsultedAction) : null}
+        {!isPlay && conversationActionsError ? <p role="alert">{conversationActionsError}</p> : null}
         {submittedMessage?.scopeKey === scopeKey
           && (submittedMessage.conversationId === null
             ? (submittedMessage.pointerRevision === (history?.pointer_revision ?? null))

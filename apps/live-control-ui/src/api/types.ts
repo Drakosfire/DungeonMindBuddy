@@ -1243,6 +1243,8 @@ export interface PlanDocumentEditProposalResponse {
 export interface WorldPlanDocumentEditProposalRequest {
   idempotency_key: string;
   continuation_of_action_id?: string | null;
+  expected_active_conversation_id?: string | null;
+  expected_pointer_revision?: number | null;
   document_id: string;
   world_id: string;
   base_revision: number;
@@ -1288,6 +1290,8 @@ export interface WorldPlanDocumentEditProposalResponse {
 }
 
 export interface WorldPlanEditConsultationProjection {
+  origin_conversation_id: string;
+  origin_pointer_revision: number;
   result: {
     kind: "clarification" | "proposal" | "context_unavailable";
     result_id: string;
@@ -1342,6 +1346,8 @@ export interface WorldPlanActionProjection {
   assistant_summary: string | null;
   consultation?: {
     receipt: {
+      origin_conversation_id?: string;
+      origin_pointer_revision?: number;
       draft_sha256: string;
       selected_text_sha256: string;
       continuation?: { continuation_of_action_id: string } | null;
@@ -1363,6 +1369,14 @@ export interface WorldPlanActionProjectionPage {
   schema_version: "dmb_world_plan_action_projection_v1";
   basis: WorldPlanActionBasis;
   actions: WorldPlanActionProjection[];
+}
+
+export interface WorldPlanActionConversationProjectionPage {
+  schema_version: "dmb_world_plan_action_conversation_projection_v1";
+  world_id: string;
+  conversation_id: string;
+  actions: WorldPlanActionProjection[];
+  next_before_action_sequence: number | null;
 }
 
 export interface AgentInteractionThread {

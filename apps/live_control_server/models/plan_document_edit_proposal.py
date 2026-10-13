@@ -51,6 +51,8 @@ class WorldPlanDocumentEditProposalRequest(BaseModel):
 
     idempotency_key: UUID
     continuation_of_action_id: UUID | None = None
+    expected_active_conversation_id: UUID | None = None
+    expected_pointer_revision: int | None = Field(default=None, ge=0)
     document_id: str = Field(min_length=1, max_length=128)
     world_id: str = Field(min_length=1, max_length=128)
     base_revision: int = Field(ge=1)
@@ -68,6 +70,8 @@ class WorldPlanDocumentEditProposalRequest(BaseModel):
 
     @model_validator(mode="after")
     def target_fields_match_mode(self):
+        if (self.expected_active_conversation_id is None) != (self.expected_pointer_revision is None):
+            raise ValueError("World conversation ID and pointer revision must be supplied together")
         if any(0xD800 <= ord(character) <= 0xDFFF for character in self.draft_markdown):
             raise ValueError("draft_markdown must contain valid Unicode scalar values")
         card_fields = (

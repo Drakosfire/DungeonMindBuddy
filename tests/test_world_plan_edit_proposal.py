@@ -633,6 +633,21 @@ def test_same_key_retry_reconciles_typed_receipt_after_plan_advances(
     assert ask_reader.calls == []
 
 
+def test_blank_world_selection_replay_ignores_unused_conversation_hint(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+) -> None:
+    """A UI pointer hint cannot turn an unbound action into a sourced one."""
+    _authority(monkeypatch)
+    request = _request(
+        expected_active_conversation_id=str(uuid4()), expected_pointer_revision=3,
+    )
+    basis = service._validate_world_authority(tmp_path, request)
+    action = _stored_action(
+        request, basis, request_fingerprint=service._action_fingerprint(request, basis),
+    )
+    assert service._matches_world_action_receipt(action, request)
+
+
 @pytest.mark.parametrize(
     "changes",
     [
@@ -1147,7 +1162,11 @@ def test_saved_action_freezes_first_harness_envelope_and_persists_bounded_empty_
         lambda **_kwargs: ("openai-api", "gpt-6-luna", "https://api.openai.com/v1"),
     )
     store = PlanActionDialogueService()
-    action, created = store.reserve(reservation())
+    _activate_world_conversation("synthetic-world")
+    expected_pointer = AgentConversationService().get_world_pointer("synthetic-world")
+    action, created = store.reserve(reservation().model_copy(update={
+        "expected_world_pointer": expected_pointer,
+    }))
     assert created
     session = GraphRetrievalSession(
         snapshot=SessionSnapshot(
@@ -1201,6 +1220,7 @@ def test_saved_action_freezes_first_harness_envelope_and_persists_bounded_empty_
     adapter = ActionPolicyExecutionAdapter(
         store=store, action=action, bootstrap=bootstrap,
         budget=budget, surface_instance_id="synthetic-plan",
+        expected_world_pointer=expected_pointer,
     )
     assert adapter.authorize(view) is True
     assert adapter.record_lifecycle({"transition": "sdk_entered"}) is True
@@ -1250,6 +1270,7 @@ def test_mounted_initialized_selection_reports_context_unavailable_without_an_ed
         client, world.world_id, title="Sourced Plan",
         markdown="# Plan\n\nThe observatory door is locked.\n",
     )
+    origin_id, origin_revision = _activate_world_conversation(world.world_id)
     original_world_reader = service.get_world_container
     monkeypatch.setattr(
         service, "get_world_container",
@@ -1271,6 +1292,8 @@ def test_mounted_initialized_selection_reports_context_unavailable_without_an_ed
     draft = "# Plan\n\nThe observatory door is locked.\n"
     response = client.post("/api/live/world-plan-edit/propose", json={
         "idempotency_key": str(uuid4()),
+        "expected_active_conversation_id": origin_id,
+        "expected_pointer_revision": origin_revision,
         "document_id": document_id, "world_id": world.world_id,
         "base_revision": saved["loaded_revision"],
         "base_content_sha256": saved["content_sha256"],
@@ -1320,6 +1343,7 @@ def test_mounted_initialized_selection_dispatches_one_harness_action_and_returns
     document_id, saved = _create_saved_world_plan(
         client, world.world_id, title="Sourced Plan", markdown=draft,
     )
+    origin_id, origin_revision = _activate_world_conversation(world.world_id)
     original_world_reader = service.get_world_container
     monkeypatch.setattr(
         service, "get_world_container",
@@ -1419,6 +1443,8 @@ def test_mounted_initialized_selection_dispatches_one_harness_action_and_returns
     monkeypatch.setattr(consulted, "default_hermes_agent_runtime", FakeHarness)
     response = client.post("/api/live/world-plan-edit/propose", json={
         "idempotency_key": str(uuid4()), "document_id": document_id,
+        "expected_active_conversation_id": origin_id,
+        "expected_pointer_revision": origin_revision,
         "world_id": world.world_id, "base_revision": saved["loaded_revision"],
         "base_content_sha256": saved["content_sha256"],
         "draft_markdown": draft, "draft_sha256": _sha(draft),
@@ -1464,6 +1490,7 @@ def test_mounted_sourced_clarification_links_fresh_reply_to_inert_proposal(
     document_id, saved = _create_saved_world_plan(
         client, work.world_id, title="Synthetic tavern plan", markdown=draft,
     )
+    origin_id, origin_revision = _activate_world_conversation(work.world_id)
     resolver = agent_route._plan_context_resolver
     resolved = []
 
@@ -1613,6 +1640,8 @@ def test_mounted_sourced_clarification_links_fresh_reply_to_inert_proposal(
     def request(instruction, **extra):
         return {
             "idempotency_key": str(uuid4()), "document_id": document_id,
+            "expected_active_conversation_id": origin_id,
+            "expected_pointer_revision": origin_revision,
             "world_id": work.world_id, "base_revision": saved["loaded_revision"],
             "base_content_sha256": saved["content_sha256"],
             "draft_markdown": draft, "draft_sha256": _sha(draft),
@@ -1677,6 +1706,43 @@ def test_mounted_sourced_clarification_links_fresh_reply_to_inert_proposal(
     assert reopened.status_code == 200, reopened.text
     assert reopened.json()["content_sha256"] == _sha(reviewed_markdown)
     assert reopened.json()["content_sha256"] != saved["content_sha256"]
+    dialogue = client.get(
+        "/api/live/world-plan-edit/conversation-actions",
+        params={"world_id": work.world_id, "conversation_id": origin_id},
+    )
+    assert dialogue.status_code == 200, dialogue.text
+    assert {item["action_id"] for item in dialogue.json()["actions"]} == {
+        clarification["action_id"], proposal["action_id"],
+    }
+    assert all(item["consultation"]["receipt"]["origin_conversation_id"] == origin_id
+               for item in dialogue.json()["actions"])
+    current_status = client.get(
+        f"/api/live/world-plan-edit/actions?world_id={work.world_id}&document_id={document_id}"
+    )
+    assert current_status.status_code == 200, current_status.text
+    assert current_status.json()["actions"] == []
+
+    pointer = AgentConversationService().get_world_pointer(work.world_id)
+    assert str(pointer.active_conversation_id) == origin_id
+    AgentConversationService().new_conversation(ConversationCommand(
+        world_id=work.world_id, command_id=uuid4(),
+        expected_pointer_revision=pointer.revision,
+        expected_active_conversation_id=pointer.active_conversation_id,
+    ))
+    archived = client.get(
+        "/api/live/world-plan-edit/conversation-actions",
+        params={"world_id": work.world_id, "conversation_id": origin_id},
+    )
+    assert archived.status_code == 200, archived.text
+    assert {item["action_id"] for item in archived.json()["actions"]} == {
+        clarification["action_id"], proposal["action_id"],
+    }
+    stale = client.post(
+        "/api/live/world-plan-edit/propose",
+        json=request("Ask again in the archived conversation."),
+    )
+    assert stale.status_code == 409, stale.text
+    assert stale.json()["detail"]["code"] == "conversation_origin_stale"
 
 
 def test_persistence_uncertainty_never_returns_uncommitted_proposal_payload(
@@ -1780,6 +1846,18 @@ def _client(monkeypatch: pytest.MonkeyPatch, root: Path) -> TestClient:
     app.include_router(workspace_documents.router)
     app.include_router(live.router)
     return TestClient(app)
+
+
+def _activate_world_conversation(world_id: str) -> tuple[str, int]:
+    """Create the real APP pointer required for a new sourced consultation."""
+    conversations = AgentConversationService()
+    pointer = conversations.get_world_pointer(world_id)
+    receipt = conversations.new_conversation(ConversationCommand(
+        world_id=world_id, command_id=uuid4(),
+        expected_pointer_revision=pointer.revision,
+        expected_active_conversation_id=pointer.active_conversation_id,
+    ))
+    return str(receipt.conversation_id), receipt.pointer_revision
 
 
 def _create_saved_world_plan(

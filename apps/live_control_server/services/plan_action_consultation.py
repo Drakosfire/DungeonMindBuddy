@@ -24,6 +24,7 @@ from application_state.agent_conversation.types import (
     PlanWorldGraphAssembledInputV1,
     PlanWorldGraphAuthorityV1,
     PlanWorldGraphPacketV1,
+    WorldPointer,
 )
 from application_state.plan_action_dialogue.graph_consultation import (
     build_consultation_receipt,
@@ -144,6 +145,7 @@ class ActionPolicyExecutionAdapter(_PolicyExecutionAdapter):
         history_conversation_id: UUID | None = None,
         history_attribution: tuple[Any, ...] = (),
         root: Path | None = None,
+        expected_world_pointer: WorldPointer | None = None,
     ) -> None:
         self.store = store
         self.turn = action  # The actual APP action record, never an Ask Turn.
@@ -155,6 +157,7 @@ class ActionPolicyExecutionAdapter(_PolicyExecutionAdapter):
         self.history_conversation_id = history_conversation_id
         self.history_attribution = history_attribution
         self.root = root
+        self.expected_world_pointer = expected_world_pointer
         self.initial_session_projection = json.loads(
             json.dumps(bootstrap.retrieval_session.project_for_hermes(), ensure_ascii=False)
         )
@@ -224,6 +227,7 @@ class ActionPolicyExecutionAdapter(_PolicyExecutionAdapter):
             self.continuation,
             self.history_conversation_id,
             self.history_attribution,
+            self.expected_world_pointer,
         )
         frozen, fresh = self.store.freeze_consultation(
             action_id=self.turn.action_id,
@@ -275,8 +279,11 @@ def _freeze_action_inputs(
     continuation: PlanActionContinuation | None,
     history_conversation_id: UUID | None,
     history_attribution: tuple[Any, ...],
+    expected_world_pointer: WorldPointer | None,
 ) -> tuple[Any, GraphExecutionPolicyV2]:
     """Commit the actual first provider envelope under the APP action basis."""
+    if expected_world_pointer is None or expected_world_pointer.active_conversation_id is None:
+        raise ValueError("Sourced consultation requires an active World conversation")
     assertions, relationships, evidence = membership
     index = bootstrap.source_index_commitment
     selected = index is not None and index.get("schema") == "dmb_selected_source_anchor_index_commitment_v1"
@@ -357,6 +364,8 @@ def _freeze_action_inputs(
     )
     receipt = build_consultation_receipt(
         action=action,
+        origin_conversation_id=expected_world_pointer.active_conversation_id,
+        origin_pointer_revision=expected_world_pointer.revision,
         surface_instance_id=surface_instance_id,
         graph_authority=authority,
         graph_packet=graph_packet,
@@ -440,6 +449,7 @@ def _linked_clarification(
     action: PlanActionRecord,
     predecessor_id: UUID | None,
     surface_instance_id: str,
+    expected_world_pointer: WorldPointer,
 ) -> tuple[PlanActionContinuation | None, str | None]:
     if predecessor_id is None:
         return None, None
@@ -459,6 +469,10 @@ def _linked_clarification(
         or prior_consultation.receipt.draft_sha256 != action.draft_sha256
         or prior_consultation.receipt.selected_text_sha256 != action.selected_text_sha256
         or prior_consultation.receipt.basis != action.basis
+        or prior_consultation.receipt.origin_conversation_id
+        != expected_world_pointer.active_conversation_id
+        or prior_consultation.receipt.origin_pointer_revision
+        != expected_world_pointer.revision
     ):
         raise ValueError("The clarification no longer matches this Plan action")
     return PlanActionContinuation(
@@ -713,6 +727,8 @@ def _consultation_projection(action: PlanActionRecord) -> dict[str, Any]:
     consultation = action.consultation
     assert consultation is not None and consultation.result is not None
     return {
+        "origin_conversation_id": str(consultation.receipt.origin_conversation_id),
+        "origin_pointer_revision": consultation.receipt.origin_pointer_revision,
         "result": consultation.result.model_dump(mode="json", by_alias=True),
         "source_open_targets": _source_open_targets(action),
         "graph_revision": (
@@ -728,6 +744,7 @@ def execute_plan_action_consultation(
     request: Any,
     action: PlanActionRecord,
     store: Any,
+    expected_world_pointer: WorldPointer,
     runtime: Any | None = None,
 ) -> Any:
     """Run one already-reserved saved selection action through the shared Harness."""
@@ -746,8 +763,11 @@ def execute_plan_action_consultation(
             action=action,
             predecessor_id=request.continuation_of_action_id,
             surface_instance_id=surface_instance_id,
+            expected_world_pointer=expected_world_pointer,
         )
         history, history_conversation_id, history_attribution = _server_history(action.basis)
+        if history_conversation_id is not None and history_conversation_id != expected_world_pointer.active_conversation_id:
+            raise ValueError("Attributed Ask history belongs to another conversation")
         committed = get_committed_playable_revision(
             action.basis.document_id, kind="plan", expected_world_id=action.basis.world_id
         )
@@ -799,6 +819,8 @@ def execute_plan_action_consultation(
         failure_code = exc.code if exc.code else "graph_unavailable"
         receipt = build_consultation_receipt(
             action=action, surface_instance_id=surface_instance_id,
+            origin_conversation_id=expected_world_pointer.active_conversation_id,
+            origin_pointer_revision=expected_world_pointer.revision,
             authority_failure_code=failure_code, continuation=continuation,
         )
         frozen, fresh = store.freeze_consultation(
@@ -844,6 +866,7 @@ def execute_plan_action_consultation(
         history_conversation_id=history_conversation_id,
         history_attribution=history_attribution,
         root=root,
+        expected_world_pointer=expected_world_pointer,
     )
     selected_runtime = runtime or default_hermes_agent_runtime()
     run = getattr(selected_runtime, "run_with_provider_authorization", None)
