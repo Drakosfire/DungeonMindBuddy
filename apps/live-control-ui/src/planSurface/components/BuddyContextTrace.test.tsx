@@ -36,7 +36,7 @@ describe('Buddy context trace', () => {
       tool_name:'read_graph_source', arguments:{anchorIds:['anchor']},
       result:{content:passage, code:'source_anchor_not_admitted'}, outcome:'denied', execution_event_ids:[]}])} />)
     fireEvent.click(screen.getByText('Read supporting source'))
-    fireEvent.click(screen.getByText('Complete returned result'))
+    fireEvent.click(screen.getByText('Captured result'))
     expect(screen.getByText(/This result supplies no admitted evidence/)).toBeInTheDocument()
     expect(screen.getByText(/"content":/).textContent).toContain(passage)
   })

@@ -84,7 +84,7 @@ function Event({ event }: { event: BuddyTraceObservation }) {
       {event.outcome === 'returned' && event.tool_name !== 'expand_graph_retrieval' && sourcePassages(event.result).map((passage, index) =>
         <details className="buddy-context-trace__source" key={index}><summary>Source passage {index + 1}</summary>
           <blockquote>{passage}</blockquote></details>)}
-      <JsonDetails label="Complete returned result" value={event.result} />
+      <JsonDetails label="Captured result" value={event.result} />
       {event.outcome !== 'returned' && <p className="buddy-context-trace__failure">This result supplies no admitted evidence.</p>}</details>
     case 'provider_call': return <><strong>{event.model}</strong> <span>{event.outcome}</span>
       {(event.input_tokens != null || event.output_tokens != null) && <p>Provider-reported usage: {event.input_tokens == null ? 'input unavailable' : `${number(event.input_tokens)} input`} · {event.output_tokens == null ? 'output unavailable' : `${number(event.output_tokens)} output`}</p>}

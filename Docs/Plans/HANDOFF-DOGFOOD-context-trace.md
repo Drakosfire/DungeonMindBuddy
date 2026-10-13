@@ -12,6 +12,8 @@ Persist observable execution and context-management evidence for each accepted p
 
 This is the APP-STATE/Buddy contract: APP-STATE owns durable trace storage, attempt fencing and World/turn identity; Buddy owns the allowlisted observation producer and inspection UI. DungeonMind retains exclusive graph/source truth. A trace observation grants no citation, source admission, retry permission, turn completion or World mutation.
 
+PRIME's accepted owner split: APP-STATE implements a per-attempt trace table/types/store/lifecycle/migration, capped at 1 MiB per attempt with explicit incomplete/unavailable capture states. Exact complete broker-validated passage snapshots bind to the source-read execution event and original scope/reference/revision/digest. Capture is write-ahead with the validated read event; terminal close is atomic and preserves failed/interrupted attempts. These snapshots are historical context, not a graph authority or source archive. No arbitrary tool payload, whole provider prompt, hidden reasoning or credentials are eligible. Buddy consumes APP-STATE's supplied typed contract; the initial proposal remains design evidence only.
+
 ## Invariant critique
 
 - A response can arrive before a later authorization is denied. Persist the later failure without changing an earlier provider outcome to unknown or replaying the Ask.
