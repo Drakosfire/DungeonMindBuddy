@@ -1242,6 +1242,7 @@ def run_graph_preview_extraction(
                     GraphIngestArtifactKind.PASS_TELEMETRY,
                     raw_model_response_path,
                     "text/plain",
+                    compute_sha256(raw_model_response_path),
                 )
             logger.warning(
                 "category graph extraction blocked campaign=%s session=%s model_id=%s error=%s raw_model_response_path=%s",

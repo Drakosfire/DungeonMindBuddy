@@ -9,6 +9,7 @@ import time
 from dataclasses import asdict, dataclass
 from typing import Any
 
+from jsonschema import ValidationError as JsonSchemaValidationError
 from jsonschema import validate as validate_json_schema
 
 from src.bootstrap_env import load_dungeonmindbuddy_dotenv
@@ -21,6 +22,36 @@ from src.graph_memory.extraction.category_candidate_graph_schema import (
 )
 
 DEEPSEEK_MODEL = "deepseek/deepseek-v4.1-flash"
+
+
+class NonObjectResponseError(ValueError):
+    """A completed JSON response was not the object required by a pass."""
+
+
+def _safe_validation_path(path, schema: dict[str, Any]) -> list[str | int]:
+    """Retain schema-known path labels, never arbitrary response field names."""
+    allowed = {
+        "properties", "items", "type", "required", "additionalProperties",
+        "enum", "minLength", "minimum", "maximum", "pattern", "anyOf",
+        "oneOf", "allOf",
+    }
+
+    def collect(value: Any) -> None:
+        if isinstance(value, dict):
+            properties = value.get("properties")
+            if isinstance(properties, dict):
+                allowed.update(properties)
+            for child in value.values():
+                collect(child)
+        elif isinstance(value, list):
+            for child in value:
+                collect(child)
+
+    collect(schema)
+    return [
+        segment if isinstance(segment, int) or segment in allowed else "<unknown>"
+        for segment in list(path)[:16]
+    ]
 
 
 @dataclass(frozen=True)
@@ -201,11 +232,6 @@ class BoundedRecapPassClient:
                 raise CategoryGraphExtractionError(
                     "inference did not complete within one attempt", pass_name=pass_name
                 )
-            parsed = json.loads(result.text or "")
-            if not isinstance(parsed, dict):
-                raise ValueError("expected JSON object")
-            if deepseek:
-                validate_json_schema(parsed, fmt["schema"])
         except GenerationEngineError as exc:
             entry["observation"] = exc.observation.model_dump(mode="json")
             self._stopped = True
@@ -218,6 +244,43 @@ class BoundedRecapPassClient:
             entry["consumer_failure"] = type(exc).__name__
             raise CategoryGraphExtractionError(
                 "bounded extraction pass failed", pass_name=pass_name
+            ) from None
+        try:
+            parsed = json.loads(result.text or "")
+            if not isinstance(parsed, dict):
+                raise NonObjectResponseError("expected JSON object")
+            if deepseek:
+                validate_json_schema(parsed, fmt["schema"])
+        except (json.JSONDecodeError, NonObjectResponseError, JsonSchemaValidationError) as exc:
+            self._stopped = True
+            entry["consumer_failure"] = type(exc).__name__
+            entry["validation_failure"] = {
+                "kind": (
+                    "schema" if isinstance(exc, JsonSchemaValidationError)
+                    else "invalid_json" if isinstance(exc, json.JSONDecodeError)
+                    else "non_object"
+                ),
+                "validator": (
+                    exc.validator
+                    if isinstance(exc, JsonSchemaValidationError)
+                    and exc.validator in {
+                        "type", "required", "additionalProperties", "enum", "minLength",
+                        "minimum", "maximum", "pattern", "anyOf", "oneOf", "allOf",
+                    }
+                    else None
+                ),
+                "instance_path": (
+                    _safe_validation_path(exc.path, fmt["schema"])
+                    if isinstance(exc, JsonSchemaValidationError) else []
+                ),
+                "schema_path": (
+                    _safe_validation_path(exc.schema_path, fmt["schema"])
+                    if isinstance(exc, JsonSchemaValidationError) else []
+                ),
+            }
+            raise CategoryGraphExtractionError(
+                "bounded extraction pass failed", pass_name=pass_name,
+                raw_model_response=result.text,
             ) from None
         return {
             "parsed": parsed,
