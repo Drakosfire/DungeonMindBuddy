@@ -4935,6 +4935,13 @@ def execute_agent_turn(
             policy_result = guarded_run(
                 invocation, adapter.authorize, **run_options,
             )
+            if adapter.context_capture is not None:
+                adapter.context_capture.provider_usage(policy_result.model_calls)
+                failure_code = adapter.failure.code if adapter.failure is not None else policy_result.error_code
+                if policy_result.status == "error" and failure_code is not None:
+                    adapter.context_capture.observe({
+                        "kind": "failure", "phase": "delivery", "code": failure_code,
+                    })
         finally:
             policy_turn = adapter.stop()
         predispatch_budget_veto = (

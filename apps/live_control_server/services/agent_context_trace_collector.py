@@ -113,3 +113,26 @@ class ContextTraceCollector:
                 content_sha256=receipt.content_sha256, text=text,
             ))
         return passages
+
+    def provider_usage(self, calls: list[Mapping[str, Any]]) -> None:
+        """Use already-canonical provider telemetry without estimating actuals."""
+        for call in calls:
+            provider = call.get("provider")
+            model = call.get("response_model") or call.get("requested_model")
+            if not isinstance(provider, str) or not isinstance(model, str) or not provider or not model:
+                self.mark_incomplete("provider_identity_unavailable")
+                return
+            usage = call.get("usage")
+            reported = isinstance(usage, Mapping) and usage.get("status") == "reported"
+
+            def actual(name: str) -> int | None:
+                value = usage.get(name) if reported else None
+                return value if type(value) is int and value >= 0 else None
+
+            self.observe({
+                "kind": "provider_call", "provider": provider, "model": model,
+                "outcome": "response_received" if call.get("status") == "ok" else "failed",
+                "input_tokens": actual("input_tokens"),
+                "output_tokens": actual("output_tokens"),
+                "duration_ms": call.get("duration_ms"),
+            })

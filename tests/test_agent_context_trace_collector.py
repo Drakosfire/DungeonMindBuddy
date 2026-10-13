@@ -108,3 +108,39 @@ def test_incomplete_capture_cannot_claim_new_source_bytes():
     with pytest.raises(ApplicationStateValidationError):
         capture.source_passages(source_event("recorded"), [{"content": "recorded"}],
                                 world_id="world", graph_revision="graph-revision")
+
+
+def test_usage_keeps_reported_actuals_separate_from_request_accounting():
+    capture, store, _ = collector()
+    capture.provider_usage([{
+        "provider": "openai-api", "requested_model": "requested", "response_model": "actual",
+        "status": "ok", "duration_ms": 12.5,
+        "request_summary": {"input_tokens": 90000},
+        "usage": {"status": "reported", "input_tokens": 42, "output_tokens": 7},
+    }])
+    observed = store.trace.observations[0]
+    assert observed.model == "actual"
+    assert (observed.input_tokens, observed.output_tokens) == (42, 7)
+    assert observed.input_upper_bound is None
+    assert observed.duration_ms == 12.5
+
+
+@pytest.mark.parametrize("usage", [
+    {"status": "unavailable", "input_tokens": 90000},
+    {"status": "reported", "input_tokens": True, "output_tokens": -1},
+    {},
+])
+def test_unknown_or_invalid_usage_is_not_presented_as_actual(usage):
+    capture, store, _ = collector()
+    capture.provider_usage([{"provider": "openai-api", "requested_model": "model",
+                             "status": "error", "usage": usage}])
+    observed = store.trace.observations[0]
+    assert observed.input_tokens is None and observed.output_tokens is None
+    assert observed.outcome == "failed"
+
+
+def test_missing_model_identity_marks_trace_incomplete_without_inventing_model():
+    capture, store, _ = collector()
+    capture.provider_usage([{"status": "ok", "usage": {"status": "reported", "input_tokens": 42}}])
+    assert store.trace.capture_failure_code == "provider_identity_unavailable"
+    assert store.trace.observations == []
