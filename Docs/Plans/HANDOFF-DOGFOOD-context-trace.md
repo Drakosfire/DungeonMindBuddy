@@ -14,6 +14,8 @@ This is the APP-STATE/Buddy contract: APP-STATE owns durable trace storage, atte
 
 PRIME's accepted owner split: APP-STATE implements a per-attempt trace table/types/store/lifecycle/migration, capped at 1 MiB per attempt with explicit incomplete/unavailable capture states. Exact complete broker-validated passage snapshots bind to the source-read execution event and original scope/reference/revision/digest. Capture is write-ahead with the validated read event; terminal close is atomic and preserves failed/interrupted attempts. These snapshots are historical context, not a graph authority or source archive. No arbitrary tool payload, whole provider prompt, hidden reasoning or credentials are eligible. Buddy consumes APP-STATE's supplied typed contract; the initial proposal remains design evidence only.
 
+Consumer contract gap identified 2026-10-13: the current draft `TraceGraphTool` carries only event IDs/outcome/result code. Existing validated execution events carry request/result hashes, IDs and coverage but not actual query/selectors or returned graph facts. References to that ledger alone cannot satisfy the user's searches/tool-calls/results requirement. The accepted producer/persistence interface must include an allowlisted, broker-validated query/result projection (not arbitrary provider payload), or an exact immutable retrievable observation artifact. Until then the viewer must explicitly report unavailable query details; this requirement remains open and must not be reduced to event hashes.
+
 ## Invariant critique
 
 - A response can arrive before a later authorization is denied. Persist the later failure without changing an earlier provider outcome to unknown or replaying the Ask.

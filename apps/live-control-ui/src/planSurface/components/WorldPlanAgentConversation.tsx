@@ -3026,7 +3026,7 @@ export function WorldPlanAgentConversation({
           ? reason.message
           : "The command succeeded, but its local recovery envelope could not be cleared. Retrying remains safe.");
       }
-      setConversationNotice("New World conversation confirmed. Refreshing the server transcript.");
+      setConversationNotice(null);
       setHistoryRefreshNonce((current) => current + 1);
     } catch (reason) {
       if (!stillCurrent()) return;
@@ -5311,7 +5311,7 @@ export function WorldPlanAgentConversation({
       {saveInFlight ? (
         <p className="world-plan-agent-conversation__saving" role="status">Conversation paused while the Plan is saving.</p>
       ) : null}
-      <section className="world-plan-agent-conversation__turns" aria-label="World conversation transcript" aria-live="polite">
+      <section className="world-plan-agent-conversation__turns" aria-label="World conversation transcript" aria-live="polite" aria-busy={historyLoading || !history}>
         <h3>Conversation</h3>
         {historyLoading && !history ? <p className="world-plan-agent-conversation__loading" role="status">Loading conversation…</p> : null}
         {historyError ? (
@@ -5337,9 +5337,7 @@ export function WorldPlanAgentConversation({
             {olderLoading ? "Loading earlier messages…" : "Load earlier messages"}
           </button>
         ) : null}
-        {latestConversationEvent ? renderConversationEvent(latestConversationEvent) : history && !historyLoading && submittedMessage?.scopeKey !== scopeKey ? (
-          <p className="world-plan-agent-conversation__empty">No messages yet. {isPlay ? "Ask about this Run." : "Ask about this Plan or describe a change."}</p>
-        ) : null}
+        {latestConversationEvent ? renderConversationEvent(latestConversationEvent) : null}
         {!isPlay ? conversationActions.map(renderConsultedAction) : null}
         {!isPlay && conversationActionsError ? <p role="alert">{conversationActionsError}</p> : null}
         {submittedMessage?.scopeKey === scopeKey
