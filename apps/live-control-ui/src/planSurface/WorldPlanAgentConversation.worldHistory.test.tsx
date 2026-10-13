@@ -4203,8 +4203,9 @@ describe("World Plan conversation consumer", () => {
     ensureWorldGraphAskEnabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Who watches the western gate?" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
-    await waitFor(() => expect(screen.getByText("The server confirmed this Ask. World history refreshed.")).toBeInTheDocument());
-    expect(screen.getAllByText("The western gate is watched.")).toHaveLength(2);
+    await waitForConversationReady();
+    expect(screen.queryByText("The server confirmed this Ask. World history refreshed.")).not.toBeInTheDocument();
+    expect(await screen.findAllByText("The western gate is watched.")).toHaveLength(2);
     expect(postAsk).toHaveBeenCalledTimes(1);
     expect(pendingAskKeys()).toHaveLength(0);
   });
@@ -4226,7 +4227,8 @@ describe("World Plan conversation consumer", () => {
     expect(pendingAskKeys()).toHaveLength(0);
     fireEvent.click(screen.getAllByRole("button", { name: "Refresh World history" }).find((button) => !button.hasAttribute("disabled"))!);
     expect(await screen.findByText("Confirmed answer.")).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByText(/The server confirmed this Ask. World history refreshed/)).toBeInTheDocument());
+    await waitForConversationReady();
+    expect(screen.queryByText("The server confirmed this Ask. World history refreshed.")).not.toBeInTheDocument();
     expect(postAsk).toHaveBeenCalledTimes(1);
   });
 
@@ -4263,7 +4265,8 @@ describe("World Plan conversation consumer", () => {
     await act(async () => {
       window.dispatchEvent(new CustomEvent(pendingAskClearedEventName, { detail: events[0]!.detail }));
     });
-    await waitFor(() => expect(screen.getByText("The server confirmed this Ask. World history refreshed.")).toBeInTheDocument());
+    await waitForConversationReady();
+    expect(screen.queryByText("The server confirmed this Ask. World history refreshed.")).not.toBeInTheDocument();
     expect(postAsk).toHaveBeenCalledTimes(1);
   });
 
