@@ -1647,6 +1647,7 @@ class _PolicyExecutionAdapter:
             self.turn = updated
             self.last_provider_attempt_id = provider_attempt_id
             if self.context_capture is not None:
+                self.context_capture.provider_context(self.request.message, included_source_events, body=body)
                 self.context_capture.observe({
                     "kind": "provider_call", "provider_attempt_id": provider_attempt_id,
                     "provider": view["provider"], "model": view["model"],
@@ -2643,6 +2644,10 @@ class _PolicyExecutionAdapter:
                 "record_validated_related_recap_context", "result", event
             ))
             self.turn = updated
+            if self.context_capture is not None and content:
+                self.context_capture.observe({"kind": "failure", "phase": "trace_capture",
+                                              "code": "recap_context_capture_unavailable"})
+                self.context_capture.mark_incomplete("recap_context_capture_unavailable")
             public = {
                 "schema": "dmb_related_recap_context_read_v2",
                 "outcome": result.outcome,
@@ -5049,6 +5054,8 @@ def execute_agent_turn(
                 policy_result.final_text, policy_turn,
                 adapter.producing_provider_attempt_id,
             )
+            if adapter.context_capture is not None:
+                adapter.context_capture.answer_context(answer_text)
             completed_turn = conversation_service.complete_turn(TurnResult(
                 world_id=policy_turn.world_id,
                 conversation_id=policy_turn.conversation_id,

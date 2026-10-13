@@ -201,6 +201,19 @@ def test_known_source_cap_retries_only_same_receipt_without_releasing_bytes(reas
     assert store.trace.capture_failure_code == code
 
 
+def test_owned_pydantic_root_cap_is_recognized_without_matching_arbitrary_wrapped_messages():
+    from apps.live_control_server.services.agent_context_trace_collector import _source_capture_limit
+    owned = ValidationError.from_exception_data("TurnContextTraceV1", [{"type": "value_error", "loc": (),
+        "input": {}, "ctx": {"error": ValueError("trace exceeds the explicit 1 MiB per-attempt ceiling")}}])
+    error = ApplicationStateValidationError(str(owned))
+    error.__cause__ = owned
+    assert _source_capture_limit(error) == "trace_size_limit"
+    foreign = ValidationError.from_exception_data("ForeignGraphReceipt", [{"type": "value_error", "loc": (),
+        "input": {}, "ctx": {"error": ValueError("trace exceeds the explicit 1 MiB per-attempt ceiling")}}])
+    error.__cause__ = foreign
+    assert _source_capture_limit(error) is None
+
+
 @pytest.mark.parametrize("failure", [
     ConnectionError("unknown write disposition"),
     ApplicationStateValidationError("source passage trace belongs to a different World"),
@@ -251,7 +264,8 @@ def compaction_fixture():
     return text, compaction_report(messages, compact_conversation_context(messages))
 
 
-def test_compaction_matches_observed_bytes_to_exact_prior_trace_and_keeps_only_routes_after():
+@pytest.mark.parametrize("session_hint", [False, True])
+def test_compaction_matches_observed_bytes_to_exact_prior_trace_and_keeps_only_routes_after(session_hint):
     from application_state.agent_conversation.context_trace import TraceSourcePassage
     capture, store, turn = collector()
     text, report = compaction_fixture()
@@ -260,8 +274,21 @@ def test_compaction_matches_observed_bytes_to_exact_prior_trace_and_keeps_only_r
     passage = TraceSourcePassage(**capture.source_passages(event, [{"content": text}], world_id="world",
                                                          graph_revision="graph-revision")[0].model_dump())
     prior = store.trace.model_copy(update={"turn_id": prior_turn.turn_id, "trace_id": uuid4(), "observations": [passage]})
-    store.list_turns = lambda *args, **kwargs: [prior_turn]
-    store.list_context_trace_attempts = lambda **kwargs: [prior]
+    prior_turns, prior_traces = [prior_turn], {prior_turn.turn_id: prior}
+    if session_hint:
+        turn.sequence = 3
+        report.prior_sources[0].retrieval_session_id = "original-session"
+        prior_turn.graph_context_execution = SimpleNamespace(events=[SimpleNamespace(
+            kind="source_read_authorized_v2", read_call_id=passage.read_call_id, retrieval_session_id="original-session")])
+        other_turn = SimpleNamespace(turn_id=uuid4(), sequence=2)
+        other_passage = passage.model_copy(update={"read_call_id": uuid4(), "source_read_event_id": uuid4()})
+        other_turn.graph_context_execution = SimpleNamespace(events=[SimpleNamespace(
+            kind="source_read_authorized_v2", read_call_id=other_passage.read_call_id, retrieval_session_id="other-session")])
+        other_trace = prior.model_copy(update={"trace_id": uuid4(), "turn_id": other_turn.turn_id, "observations": [other_passage]})
+        prior_turns.append(other_turn)
+        prior_traces[other_turn.turn_id] = other_trace
+    store.list_turns = lambda *args, **kwargs: prior_turns
+    store.list_context_trace_attempts = lambda **kwargs: [prior_traces[kwargs["turn_id"]]]
     capture.compaction(report, graph_world_id="native-world")
     before, after = store.trace.observations[:2]
     remembered = next(item for item in before.materials if item.role == "source")
@@ -284,3 +311,50 @@ def test_missing_historical_capture_is_explicit_without_rewriting_history_or_blo
     assert report.model_dump_json() == original
     assert not any(item.role == "source" for item in store.trace.observations[0].materials)
     assert capture.source_passages(source_event(text), [{"content": text}], world_id="world", graph_revision="revision")
+
+
+def test_provider_context_distinguishes_included_current_sources_from_other_reads():
+    capture, store, _ = collector()
+    event = source_event("Included passage.")
+    unrelated = source_event("Other retrieved passage.")
+    first = capture.source_passages(event, [{"content": "Included passage."}], world_id="world", graph_revision="revision")[0]
+    second = capture.source_passages(unrelated, [{"content": "Other retrieved passage."}], world_id="world", graph_revision="revision")[0]
+    store.trace = store.trace.model_copy(update={"observations": [first, second.model_copy(update={"sequence": 1})]})
+    capture.refresh_after_source_capture()
+    capture.provider_context("Tell me about Mirathorn.", [event])
+    snapshot = store.trace.observations[-1]
+    sources = [item for item in snapshot.materials if item.role == "source"]
+    assert len(sources) == 1 and sources[0].source_read_event_id == event.event_id
+    assert snapshot.materials[0].text == "Tell me about Mirathorn."
+    capture.answer_context("The evidence names Frank and Sara.")
+    after = store.trace.observations[-1]
+    assert after.stage == "after"
+    assert after.materials[-1].text == "The evidence names Frank and Sara."
+    assert [item.source_read_event_id for item in after.materials if item.role == "source"] == [event.event_id]
+
+
+def test_provider_context_rejects_uncaptured_source_inclusion():
+    capture, store, _ = collector()
+    with pytest.raises(ApplicationStateValidationError, match="no exact captured passage"):
+        capture.provider_context("Question", [source_event("Uncaptured passage.")])
+    assert store.trace.observations == []
+
+
+def test_retained_knowledge_and_routes_are_present_only_if_the_actual_request_contains_them():
+    import json
+    from apps.live_control_server.services.agent_conversation_context import ROUTE_MARKER
+    capture, store, _ = collector()
+    _, report = compaction_fixture()
+    store.list_turns = lambda *args, **kwargs: []
+    capture.compaction(report, graph_world_id="native-world")
+    capture.provider_context("Who are its operators?", [], body={"input": [
+        {"role": item.role, "content": [{"type": "input_text", "text": item.text}]} for item in report.after_visible
+    ]})
+    snapshot = store.trace.observations[-1]
+    assert any(item.text == "Frank and Sara are operators." for item in snapshot.materials)
+    assert not any(item.state == "retrieval_route" for item in snapshot.materials)
+    capture.provider_context("Who are its operators?", [], body={"input": [{"role": "user", "content":
+        ROUTE_MARKER + json.dumps(report.routes, ensure_ascii=False, separators=(",", ":"))}]})
+    assert any(item.state == "retrieval_route" for item in store.trace.observations[-1].materials)
+    capture.provider_context("Who are its operators?", [], body={"input": []})
+    assert len(store.trace.observations[-1].materials) == 1

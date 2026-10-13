@@ -7,6 +7,18 @@ Checkout: `/home/drakosfire/.codex/worktrees/buddy-context-trace/DungeonMindBudd
 Development integration checkout: `/home/drakosfire/.codex/worktrees/buddy-trace-integration/DungeonMindBuddy`, branch `codex/buddy-trace-integration`; this preserves the serving checkout during adoption of accepted main contracts. Its descendant commits fast-forward the same PR #1120 head branch; no second trace PR or runtime is created.
 Topology: serial; predecessor #1119 merged exact head `b0cd7045` as `a2b8db65`. This is the sole context-trace implementation slice. Open #1014, #869, #844, #826, #798, and the rules stack have no overlapping trace write lease.
 
+## Current review checkpoint — 2026-10-13
+
+The non-serving integration lane consumes accepted main `cc0d95c6`, including APP-STATE historical passage references. This supersedes unfinished/status descriptions in the chronological checkpoints below. PRIME bounds #1120 as partial observability; the full Mirathorn goal remains open. Capture stays default-off pending independent review and coordinated activation.
+
+Provider snapshots now record the current question, retained visible conversation items and routes proven present in the actual request, and only parent-validated included source passages. A validated final answer produces the after snapshot. The private compaction transport is correlated to the parent execution and grants no graph or provider authority. Historical passage expansion reads the original same-conversation captured trace without copying it into current citation authority.
+
+Verification: the real PostgreSQL combined checkpoint passed 175 tests, including consumer restoration/terminal closure and atomic source-cap rollback with receipt-only persistence and withheld passage bytes. The final focused service/collector/compaction/transport suite passed 139 tests (two PostgreSQL cases excluded from that later run); Ruff passed. Authenticated trace HTTP boundary: five cases passed. Viewer/historical-source/loader: 28 cases passed; application TypeScript check passed. Two existing Pydantic shadowing warnings remain. Disposable PostgreSQL was removed after verification; shared World databases were untouched.
+
+Known limitations: successful related recap pages produce the explicit safe `recap_context_capture_unavailable` gap; their existing tool/model behavior remains unchanged. The current compactor does not retain recap-page routes, so the trace reports unavailable rather than claiming route preservation. Structural conversation retention is not an LLM relevance decision. Actual usage remains nullable when the provider does not report it. No fresh four-prompt UI acceptance or compaction recovery is claimed.
+
+Activation compatibility: every APP writer sharing the database must understand accepted historical source-reference codecs from `cc0d95c6`, or be demonstrably isolated, before capture is enabled. The approved runtime baseline `5d11ba51` alone does not satisfy that newer codec condition. SERVER/PRIME own runtime coordination; the serving 5202 checkout is preserved.
+
 ## Capability
 
 Persist observable execution and context-management evidence for each accepted policy Ask, including failed turns. Expose it through authenticated World history and an expandable Buddy trace. Capture actual graph tool arguments/results, source passages returned, source routes, context material before/after compaction, recorded keep/prune decisions, provider identity and actual usage when available, and exact safe failure codes. Distinguish conservative envelope accounting from provider-reported tokens. Historical turns without captured trace must say unavailable; never reconstruct a fictional trace.

@@ -2047,8 +2047,9 @@ def _related_recap_request(fixture: Any, **updates: Any) -> dict[str, Any]:
     }
 
 
+@pytest.mark.parametrize("capture_gap", [False, True])
 def test_parent_related_recap_broker_persists_verified_context_without_evidence_upgrade(
-    monkeypatch: Any,
+    monkeypatch: Any, capture_gap: bool,
 ) -> None:
     from types import SimpleNamespace
 
@@ -2156,6 +2157,13 @@ def test_parent_related_recap_broker_persists_verified_context_without_evidence_
     assert json.loads(overflow["resultJson"])["code"] == "related_recap_context_not_admitted"
     monkeypatch.setattr(Retrieval, "list_source_context_index", original_index)
     assert calls == ["append_validated_graph_operation"]
+    gap_observations, gap_codes = [], []
+    if capture_gap:
+        adapter.context_capture = SimpleNamespace(
+            observe=lambda fields: gap_observations.append(fields),
+            mark_incomplete=lambda code: gap_codes.append(code),
+            provider_context=lambda *args, **kwargs: None,
+        )
     output = adapter.broker_related_recap_context({
         "toolName": "read_related_recap_context",
         "arguments": {
@@ -2170,6 +2178,10 @@ def test_parent_related_recap_broker_persists_verified_context_without_evidence_
         "record_validated_related_recap_context",
     ]
     assert json.loads(output["resultJson"])["content"] == page_text
+    if capture_gap:
+        assert gap_codes == ["recap_context_capture_unavailable"]
+        assert gap_observations == [{"kind": "failure", "phase": "trace_capture", "code": "recap_context_capture_unavailable"}]
+        assert page_text not in json.dumps(gap_observations)
     saved = adapter.fence.turn.graph_context_execution
     assert saved.events[1].admission.descriptor_campaign_id == "longmont-c2"
     assert saved.events[1].admission.campaign_id is None

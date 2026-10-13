@@ -7,13 +7,14 @@ from time import monotonic
 from typing import Any, Mapping
 from uuid import uuid4
 
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 
 from application_state.agent_conversation.context_trace import (
     ContextTraceObservation, TraceSourcePassage,
 )
 from application_state.errors import ApplicationStateValidationError
 from apps.live_control_server.services.agent_context_compaction_report import ContextCompactionReport
+from apps.live_control_server.services.agent_conversation_context import ROUTE_MARKER
 
 _OBSERVATION = TypeAdapter(ContextTraceObservation)
 # Exact APP-owned rejection reasons. Identity, fencing, validation and transport
@@ -23,6 +24,20 @@ _SOURCE_CAPTURE_LIMITS = {
     "captured source passages exceed the 8-read turn ceiling": "source_read_capture_limit",
     "captured source passages exceed the 96,000 character turn ceiling": "source_character_capture_limit",
 }
+
+
+def _source_capture_limit(exc: ApplicationStateValidationError) -> str | None:
+    direct = _SOURCE_CAPTURE_LIMITS.get(str(exc))
+    if direct is not None:
+        return direct
+    cause = exc.__cause__
+    if isinstance(cause, ValidationError) and cause.title == "TurnContextTraceV1":
+        errors = cause.errors(include_input=False, include_url=False)
+        if len(errors) == 1 and errors[0].get("loc") == () and errors[0].get("type") == "value_error":
+            owned = errors[0].get("ctx", {}).get("error")
+            if isinstance(owned, ValueError):
+                return _SOURCE_CAPTURE_LIMITS.get(str(owned))
+    return None
 
 
 class ContextTraceCollector:
@@ -35,6 +50,7 @@ class ContextTraceCollector:
 
     def __init__(self, fence: Any) -> None:
         self.fence = fence
+        self.current_provider_materials: list[dict[str, Any]] = []
         self.started = monotonic()
         with fence.renewer._lock:
             turn = fence.renewer._turn
@@ -161,7 +177,7 @@ class ContextTraceCollector:
                     "record_validated_source_read", "receipt", event, source_passages=passages,
                 )
             except ApplicationStateValidationError as exc:
-                code = _SOURCE_CAPTURE_LIMITS.get(str(exc))
+                code = _source_capture_limit(exc)
                 if code is None:
                     raise
                 self.mark_incomplete(code)
@@ -175,7 +191,68 @@ class ContextTraceCollector:
         # Missing historical provenance is an incomplete BEFORE view, not a
         # capacity failure or permission to withhold newly captured source reads.
         return (self.trace.capture_status == "incomplete"
-                and self.trace.capture_failure_code != "historical_source_unavailable")
+                and self.trace.capture_failure_code not in {
+                    "historical_source_unavailable", "recap_context_capture_unavailable",
+                })
+
+    def provider_context(self, question: str, source_events: list[Any], *, body: Mapping[str, Any] | None = None) -> None:
+        """Observe source material proven included by the parent envelope gate.
+
+        Routes and old answers do not establish passage presence. Only the
+        included validated read events may refer to this attempt's snapshots.
+        The complete provider prompt/Plan body is deliberately not recorded.
+        """
+        materials = [{"item_id": "current-question", "state": "model_context",
+                      "role": "user", "text": question}]
+        visible: list[tuple[str, str]] = []
+        for item in (body or {}).get("input", []):
+            if not isinstance(item, Mapping) or item.get("role") not in {"user", "assistant"}:
+                continue
+            content = item.get("content")
+            if isinstance(content, str):
+                visible.append((item["role"], content))
+            elif isinstance(content, list):
+                visible.extend((item["role"], part["text"]) for part in content
+                               if isinstance(part, Mapping) and part.get("type") in {"input_text", "output_text"}
+                               and isinstance(part.get("text"), str))
+        for material in getattr(self, "compacted_materials", []):
+            identity = (material["role"], material.get("text"))
+            if material["state"] == "model_context" and identity in visible:
+                visible.remove(identity)
+                materials.append({**material, "item_id": f"retained:{material['item_id']}"})
+        report = getattr(self, "compacted_report", None)
+        if report is not None:
+            import json
+            routes_text = ROUTE_MARKER + json.dumps(report.routes, ensure_ascii=False, separators=(",", ":"))
+            if ("user", routes_text) in visible:
+                materials.extend(item for item in self.compacted_materials if item["state"] == "retrieval_route")
+        for event in source_events:
+            refs = []
+            for receipt in event.receipts:
+                if receipt.returned_chars == 0:
+                    continue
+                matches = [passage for passage in self.trace.observations
+                           if isinstance(passage, TraceSourcePassage)
+                           and passage.source_read_event_id == event.event_id
+                           and passage.source_read_id == receipt.source_read_id
+                           and passage.content_sha256 == receipt.content_sha256]
+                if len(matches) != 1:
+                    raise ApplicationStateValidationError("included source has no exact captured passage")
+                refs.append({"source_read_id": receipt.source_read_id,
+                             "content_sha256": receipt.content_sha256})
+            if refs:
+                materials.append({"item_id": f"source:{event.event_id}", "state": "model_context",
+                                  "role": "source", "source_read_event_id": event.event_id,
+                                  "source_reads": refs})
+        self.observe({"kind": "context_snapshot", "stage": "before", "materials": materials})
+        self.current_provider_materials = materials
+
+    def answer_context(self, answer: str) -> None:
+        """Record the validated visible answer and producing request's material."""
+        materials = [*getattr(self, "current_provider_materials", []),
+                     {"item_id": "validated-answer", "state": "model_context",
+                      "role": "assistant", "text": answer}]
+        self.observe({"kind": "context_snapshot", "stage": "after", "materials": materials})
 
     def compaction(self, report: ContextCompactionReport, *, graph_world_id: str) -> None:
         turn = self.fence.turn
@@ -194,6 +271,12 @@ class ContextTraceCollector:
                         if not isinstance(passage, TraceSourcePassage):
                             continue
                         for candidate in report.prior_sources:
+                            if candidate.retrieval_session_id is not None:
+                                events = getattr(getattr(prior, "graph_context_execution", None), "events", [])
+                                if not any(getattr(event, "kind", None) == "source_read_authorized_v2"
+                                           and event.read_call_id == passage.read_call_id
+                                           and event.retrieval_session_id == candidate.retrieval_session_id for event in events):
+                                    continue
                             if (passage.anchor_id == candidate.anchor_id
                                     and passage.content_sha256 == candidate.content_sha256
                                     and passage.returned_chars == candidate.returned_chars
@@ -232,6 +315,8 @@ class ContextTraceCollector:
                 after.append({"item_id": f"route:{kind}:{index}", "state": "retrieval_route",
                               "role": "source" if kind == "sources" else "fact", "route": handle})
         self.observe({"kind": "context_snapshot", "stage": "after", "materials": after})
+        self.compacted_report = report
+        self.compacted_materials = after
         for decision in report.decisions:
             self.observe({"kind": "context_decision", "action": decision.action,
                           "item_ids": [decision.item_id], "reason_code": decision.reason_code,

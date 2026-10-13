@@ -59,7 +59,9 @@ const reasons: Record<string, string> = {
 function Event({ event, passages }: { event: BuddyTraceObservation; passages: BuddyTraceSourcePassage[] }) {
   switch (event.kind) {
     case 'context_snapshot': return <details><summary>Working context · {event.stage} this turn</summary><Materials materials={event.materials} passages={passages.filter(passage => passage.sequence < event.sequence)} /></details>
-    case 'context_decision': return <><strong>{event.action}</strong><p>{reasons[event.reason_code] ?? event.reason_code}</p><JsonDetails label="Affected material and policy" value={{ items: event.item_ids, policy: event.policy_version }} /></>
+    case 'context_decision': return <><strong>{event.action}</strong><p>{event.action === 'retained' && event.policy_version === 'conversation_routes_v1'
+      ? 'Visible conversation history retained for follow-ups.'
+      : reasons[event.reason_code] ?? event.reason_code}</p><JsonDetails label="Affected material and policy" value={{ items: event.item_ids, policy: event.policy_version }} /></>
     case 'graph_tool': return <details><summary>{names[event.tool_name]} · {event.request.operation} <span>{event.result.outcome}</span></summary>
       {event.request.operation === 'search' && <p>Search: {event.request.query_text}</p>}
       <JsonDetails label="Query and selectors" value={event.request} />
@@ -73,7 +75,7 @@ function Event({ event, passages }: { event: BuddyTraceObservation; passages: Bu
       {(event.input_tokens != null || event.output_tokens != null) && <p>Provider-reported usage: {event.input_tokens == null ? 'input unavailable' : `${number(event.input_tokens)} input`} · {event.output_tokens == null ? 'output unavailable' : `${number(event.output_tokens)} output`}</p>}
       {event.input_upper_bound != null && <p className="buddy-context-trace__muted">Input ceiling: {number(event.input_upper_bound)} · conservative estimate, not actual token usage.</p>}
       {event.input_tokens == null && event.output_tokens == null && <p className="buddy-context-trace__muted">Actual token usage was not captured for this observation.</p>}</>
-    case 'failure': return <><strong className="buddy-context-trace__failure">Execution failed</strong><p>{event.phase} · {event.code}</p></>
+    case 'failure': return <><strong className="buddy-context-trace__failure">{event.phase === 'trace_capture' ? 'Trace capture incomplete' : 'Execution failed'}</strong><p>{event.phase} · {event.code}</p></>
   }
 }
 

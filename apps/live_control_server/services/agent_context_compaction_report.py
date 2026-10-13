@@ -10,7 +10,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from apps.live_control_server.services.agent_conversation_context import (
-    ROUTE_MARKER, ConversationContext, _question,
+    ROUTE_MARKER, ConversationContext, _question, compact_conversation_context,
 )
 
 
@@ -31,6 +31,7 @@ class PriorSourceCandidate(_ReportModel):
     anchor_id: str
     evidence_ref_id: str | None = None
     source_artifact_id: str | None = None
+    retrieval_session_id: str | None = Field(default=None, max_length=256)
     content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     returned_chars: int = Field(ge=1)
 
@@ -38,7 +39,7 @@ class PriorSourceCandidate(_ReportModel):
 class CompactionDecision(_ReportModel):
     item_id: str
     action: Literal["pruned", "compacted", "retained"]
-    reason_code: Literal["route_preserved", "superseded", "question_relevance"]
+    reason_code: Literal["route_preserved", "superseded", "question_relevance", "unavailable"]
 
 
 class ContextCompactionReport(_ReportModel):
@@ -73,12 +74,12 @@ def compaction_report(history: Sequence[Mapping[str, Any]], compacted: Conversat
         return rows
 
     sources = []
-    def source(result: Any, item_id: str) -> None:
+    def source(result: Any, item_id: str, retrieval_session_id: str | None = None) -> None:
         if not isinstance(result, dict):
             return
         if result.get("schema") == "dmb_read_graph_source_batch_v1":
             for index, read in enumerate(result.get("reads", [])):
-                source(read, f"{item_id}:read:{index}")
+                source(read, f"{item_id}:read:{index}", result.get("retrievalSessionId"))
             return
         text, anchor = result.get("content"), result.get("anchorId")
         if (result.get("schema") != "dmb_world_graph_source_anchor_read_v1"
@@ -88,6 +89,7 @@ def compaction_report(history: Sequence[Mapping[str, Any]], compacted: Conversat
         sources.append(PriorSourceCandidate(
             item_id=item_id, anchor_id=anchor,
             evidence_ref_id=result.get("evidenceRefId"), source_artifact_id=result.get("sourceArtifactId"),
+            retrieval_session_id=retrieval_session_id or result.get("retrievalSessionId"),
             content_sha256=hashlib.sha256(text.encode("utf-8")).hexdigest(), returned_chars=len(text),
         ))
 
@@ -105,12 +107,21 @@ def compaction_report(history: Sequence[Mapping[str, Any]], compacted: Conversat
         "current_turn_supplies_plan_basis": "superseded",
         "visible_conversation_knowledge": "question_relevance",
     }
+    decisions = []
+    for item in compacted.decisions:
+        reason = reasons[item["reason"]]
+        if reason == "route_preserved":
+            individual = compact_conversation_context([history[item["message_index"]]])
+            preserved = any(route in compacted.routes.get(kind, [])
+                            for kind, routes in individual.routes.items() for route in routes)
+            if not preserved:
+                reason = "unavailable"
+        decisions.append(CompactionDecision(item_id=f"message:{item['message_index']}",
+                                             action=actions[item["action"]], reason_code=reason))
     report = ContextCompactionReport(
         before_visible=visible(history), after_visible=visible(compacted.messages), prior_sources=sources,
         routes=compacted.routes, before_chars=compacted.before_chars, after_chars=compacted.after_chars,
-        decisions=[CompactionDecision(item_id=f"message:{item['message_index']}",
-                                     action=actions[item["action"]], reason_code=reasons[item["reason"]])
-                   for item in compacted.decisions],
+        decisions=decisions,
     )
     if len(report.model_dump_json().encode("utf-8")) > 1_048_576:
         raise ValueError("context compaction report exceeds its explicit 1 MiB transport limit")

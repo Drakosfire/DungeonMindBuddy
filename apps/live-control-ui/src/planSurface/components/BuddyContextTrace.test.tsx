@@ -21,6 +21,18 @@ const emptyResult: BuddyTraceGraphResult = {outcome:'denied', graph_revision:'re
   total_counts:{nodes:0, relationships:0, claims:0, evidence_refs:0}, omission_codes:[]}
 
 describe('Buddy context trace', () => {
+  it('describes structural history retention without inventing a semantic relevance decision', () => {
+    render(<BuddyContextTrace trace={trace([{kind:'context_decision', sequence:0, elapsed_ms:1,
+      action:'retained', item_ids:['message:1'], reason_code:'question_relevance', policy_version:'conversation_routes_v1'}])} />)
+    expect(screen.getByText('Visible conversation history retained for follow-ups.')).toBeInTheDocument()
+    expect(screen.queryByText('Relevant to this question')).not.toBeInTheDocument()
+  })
+  it('distinguishes a capture gap from a failed agent execution', () => {
+    render(<BuddyContextTrace trace={trace([{kind:'failure', sequence:0, elapsed_ms:1,
+      phase:'trace_capture', code:'recap_context_capture_unavailable'}])} />)
+    expect(screen.getByText('Trace capture incomplete')).toBeInTheDocument()
+    expect(screen.queryByText('Execution failed')).not.toBeInTheDocument()
+  })
   it('labels absent historical evidence honestly', () => {
     render(<BuddyContextTrace trace={null} />)
     expect(screen.getByText('No execution trace was captured for this turn.')).toBeInTheDocument()
