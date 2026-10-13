@@ -1960,6 +1960,25 @@ def test_parent_denial_exemption_requires_exact_tool_arguments_payload_and_occur
     assert len(adapter.fence.turn.graph_context_execution.events) == 3
 
 
+def test_fatal_broker_failure_blocks_later_authorization_and_preserves_original_code(monkeypatch: Any) -> None:
+    adapter, authorize = _denial_authorization_fixture(monkeypatch)
+    prior_execution = adapter._broker_execution
+
+    def fail_execution() -> Any:
+        raise RuntimeError("PRIVATE_BROKER_FAILURE")
+
+    monkeypatch.setattr(adapter, "_broker_execution", fail_execution)
+    arguments = {"retrievalSessionId": "foreign-session", "anchorIds": ["foreign-anchor"]}
+    payload = adapter.broker_source_read({"toolName": "read_graph_source", "arguments": arguments})["resultJson"]
+    original_failure = adapter.failure
+    assert original_failure.code == "source_read_indeterminate"
+    assert "PRIVATE_BROKER_FAILURE" not in payload
+    monkeypatch.setattr(adapter, "_broker_execution", prior_execution)
+    assert not authorize(_denial_call("read_graph_source", arguments, payload))
+    assert adapter.failure is original_failure
+    assert len(adapter.fence.turn.graph_context_execution.events) == 3
+
+
 def _related_recap_request(fixture: Any, **updates: Any) -> dict[str, Any]:
     return {
         "toolName": "read_related_recap_context",

@@ -1409,6 +1409,8 @@ class _PolicyExecutionAdapter:
 
     def authorize(self, view: Mapping[str, Any]) -> bool:
         """Return allow only for one fresh durable authorization append."""
+        if self.failure is not None:
+            return False
         try:
             if (
                 view.get("provider") != self.budget["provider"]
