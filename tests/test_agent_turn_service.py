@@ -1420,8 +1420,9 @@ def test_duplicate_execution_event_never_acknowledges_harness_progress() -> None
     assert caught.value.code == "turn_persistence_indeterminate"
 
 
+@pytest.mark.parametrize("capture_enabled", [False, True])
 def test_parent_source_broker_persists_authorization_before_content_and_result_before_reply(
-    monkeypatch: Any,
+    monkeypatch: Any, capture_enabled: bool,
 ) -> None:
     from application_state.agent_conversation import types as graph_types
     from apps.live_control_server.services import agent_turn_service as service_module
@@ -1480,13 +1481,20 @@ def test_parent_source_broker_persists_authorization_before_content_and_result_b
     )
     turn = turn.model_copy(update={"graph_context_execution": execution})
     order: list[str] = []
+    captured_passages = []
 
     class Fence:
         def __init__(self) -> None:
             self.turn = turn
 
-        def append(self, method: str, _key: str, event: Any) -> tuple[Turn, bool]:
+        def append(self, method: str, _key: str, event: Any, **extras: Any) -> tuple[Turn, bool]:
             order.append(method)
+            if method == "record_validated_source_read" and capture_enabled:
+                passages = extras["source_passages"]
+                assert passages[0].source_read_event_id == event.event_id
+                assert passages[0].text == "bound source text"
+                assert passages[0].content_sha256 == sha256(passages[0].text.encode()).hexdigest()
+                captured_passages.extend(passages)
             current = self.turn.graph_context_execution
             self.turn = self.turn.model_copy(update={
                 "graph_context_execution": graph_types.PlanWorldGraphExecutionV2.model_validate({
@@ -1605,6 +1613,15 @@ def test_parent_source_broker_persists_authorization_before_content_and_result_b
     )
     adapter.fence = Fence()
     adapter.last_provider_attempt_id = uuid4()
+    if capture_enabled:
+        from types import SimpleNamespace
+        from apps.live_control_server.services.agent_context_trace_collector import ContextTraceCollector
+        capture = ContextTraceCollector.__new__(ContextTraceCollector)
+        from time import monotonic
+        capture.started = monotonic()
+        capture.trace = SimpleNamespace(capture_status="recording")
+        capture.refresh_after_source_capture = lambda: None
+        adapter.context_capture = capture
     content = "bound source text"
     digest = "a" * 64  # Parent source revision digest, not the excerpt digest.
 
@@ -1667,6 +1684,23 @@ def test_parent_source_broker_persists_authorization_before_content_and_result_b
         })
         assert content in expanded["resultJson"]
         assert len(adapter.source_payloads) == 2
+        if capture_enabled:
+            assert len(captured_passages) == 2
+            def capture_unavailable(*args: Any, **kwargs: Any) -> Any:
+                raise ConnectionError("trace storage unavailable")
+            monkeypatch.setattr(adapter.context_capture, "source_passages", capture_unavailable)
+            rejected_capture = adapter.broker_source_read({
+                "toolName": "read_graph_source",
+                "arguments": {"retrievalSessionId": session.id, "anchorIds": ["anchor:one"]},
+            })
+            assert content not in rejected_capture["resultJson"]
+            assert len(adapter.source_payloads) == 2
+            assert len(captured_passages) == 2
+            assert order[-1] == "authorize_source_read"
+            assert adapter.failure.code == "source_read_indeterminate"
+            assert adapter.authorize(view) is False
+            assert order[-1] == "authorize_source_read"
+            return
         def forged(arguments: Any, *, receipt_version: int) -> dict[str, Any]:
             batch = read(arguments, receipt_version=receipt_version)
             batch["reads"][0]["receipt"]["source_revision_id"] = "source-revision:forged"
