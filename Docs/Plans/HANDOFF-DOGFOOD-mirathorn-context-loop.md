@@ -1,6 +1,6 @@
 # DOGFOOD: conversation graph context loop
 
-Status: ACTIVE — explicitly authorized by the user's active thread goal, 2026-10-13.
+Status: first continuity/compaction slice COMPLETE — #1119 merged head `b0cd7045` as `a2b8db65fc69fa06b6e7e32bb16bcf4ecca5d6b8` on 2026-10-13. The full user goal remains ACTIVE; the context-trace successor owns its own bounded contract in `HANDOFF-DOGFOOD-context-trace.md`.
 Branch: `codex/buddy-mirathorn-context-loop`.
 Checkout: `/home/drakosfire/.codex/worktrees/buddy-context-loop/DungeonMindBuddy`.
 Remote main anchor: `0fb4aa6e6849b614bbec9ab91e772e415354c7b3` (verified 2026-10-13).
@@ -37,6 +37,6 @@ No dependency pin, lockfile, durable trace schema, canonical graph write or inge
 
 ## Runtime and evidence
 
-5202 currently serves the parent presentation checkout; successor is not deployed. Preserve existing submitted Asks and never replay them. This goal authorizes fresh read-only acceptance queries and normal conversation records; preserve World facts and Plan content. Coordinate deployment only for the dogfood UI/API loop; stable main server operation belongs to its existing owner.
+5202 now serves this continuity/compaction checkout at `b0cd7045`, with the exact same tree as merged main `a2b8db65`. A new first Mirathorn Ask failed after three provider responses; its saved ledger and uncertainty are documented in the report. Preserve it and never replay it. This goal authorizes fresh read-only acceptance queries and normal conversation records; preserve World facts and Plan content. Stable main server operation belongs to its existing owner.
 
 Open PRs inspected on 2026-10-13: #1118 owns parent UI; #1014 is separate inactive runtime preparation; older rules/Build/Ingest lanes do not own the context-loop files. No other context-loop implementation PR found.

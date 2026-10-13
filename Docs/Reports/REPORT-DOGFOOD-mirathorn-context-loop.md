@@ -3,7 +3,7 @@
 ## Initial baseline — 2026-10-13
 
 Code base: parent #1118 head 500f2714, fetched main ec1da1b7.
-Plan: Campaign 2 Session 28, document a43bd39d-aeaf-45a8-a81a-06e51c4c1e9f (Mireward siege, unrelated to Mirathorn).
+Plan: Campaign 2 Session 28 (Mireward siege, unrelated to Mirathorn). Exact runtime locators are kept in the private local evidence pack.
 
 Observed existing Turn 6: question about Mirathorn; lifecycle running; no final Graph-context completion. UI Debug has no actual retrieval/result/context trace. A fresh World conversation was created via the UI and the exact first acceptance prompt, "Tell me all about Mirathorn.", was submitted once. Outcome is pending at this checkpoint; not counted as successful acceptance.
 
@@ -47,14 +47,14 @@ Code observations: `agent_turn_service` starts each bootstrap with a retrieval s
 ## Native execution diagnosis and first repair checkpoint
 
 Read-only inspection of native Hermes SQLite messages (excluding all reasoning fields) confirms the baseline did invoke tools. Each turn nevertheless used a separate one-user profile:
-- Overview: session 2286c234-f125-4ea7-a3e7-5c2b97d56750, profile cae570e05a25354b1b5a30821c6e0756bb6f31a5b82cd224c7b1e8e79f4cca79; neighborhood + source read.
-- Operators: session 09ebbc31-3ccc-4b6b-a3af-0c58fd4265af, profile d2d2b77f00e10a1ac2adb9c6143a66731d400558bd823a53b68048d75e78389f; one empty search for Rocky Talkie operators.
-- Frank: session 4ae07fc6-424a-46dd-92b5-f0ca1c7e6560, profile a2d48630ad98e0d2ab464b1ea8957a9eed6dcda1591574d90c7750224837f96b; broad Caelynn search and Frank search returned truncated results.
-- Sara: session 9ec26d4a-b609-451d-a6d7-ad04d2df2332, profile cc0bf4d211f09d8b281a153c0732ade745128fb29bf018c2d9197a4e6e139af8; neighborhood, six-anchor source read, then truncated search. Session row reports gpt-6-luna, 46,791 input / 1,665 output tokens across four API calls.
+- Overview: neighborhood + source read.
+- Operators: one empty search for Rocky Talkie operators.
+- Frank: broad Caelynn search and Frank search returned truncated results.
+- Sara: neighborhood, six-anchor source read, then truncated search. Session row reports gpt-6-luna, 46,791 input / 1,665 output tokens across four API calls.
 
-Private profile root: parent checkout `evals/c2_live_prep/live/session_22/hermes_agent_profiles/`. This is execution diagnosis, not a graph storage bypass.
+Exact session/profile locators remain in the private local evidence pack. This is execution diagnosis, not a graph storage bypass.
 
-Sara's source-anchor:v1:2cc31442d8506605eaa9c8c3cc66366d36ed20d7c9b034dc0a3da8321e49ee13 read returned enough, truncated=false, from admitted artifact:recap:longmont-c2:session-20:70f3983a0182, line 32. It contains the tainted-provision warning, Sara's trust concern, and the Tealeaf handoff. Another successful source read covers line 28 and her Mirathorn operator role. The Plan-only final answer therefore ignored actual admitted source content. Evidence representation and synthesis remain to be repaired; sparse graph relationships alone are insufficient explanation.
+A pinned admitted Session 20 source read returned enough, truncated=false, at line 32. It contains the tainted-provision warning, Sara's trust concern, and the Tealeaf handoff. Another successful source read covers line 28 and her Mirathorn operator role. Exact source/anchor identifiers remain private. The Plan-only final answer therefore ignored actual admitted source content. Evidence representation and synthesis remain to be repaired; sparse graph relationships alone are insufficient explanation.
 
 Verified continuity root cause: fresh policy turns perform pointer lookup before durable acceptance, under Plan/client identity, but completion stores under agent_conversation_segment with conversation/provenance-derived work identity. The first repair resolves the active server conversation and its provenance segment before assembly and uses the same server segment for completion writes. If active conversation changes before acceptance, provider dispatch is denied.
 
@@ -69,3 +69,15 @@ Independent review found that the first compactor fixture did not match the prod
 The review also found that successful `partial` source reads were omitted from retained routes. The compactor now keeps an exact world/revision/anchor route only when the read has a recognized successful outcome (`enough`, `partial`, or `truncated`) and nonempty content; it still removes passage bodies from the next request. A partial-read regression proves the route survives while the prose does not.
 
 Focused compaction tests: 5 passed. Broader context, continuity and turn-service tests: 103 passed, 1 PostgreSQL-owned test deselected because its disposable service was unavailable, 2 existing Pydantic warnings. Ruff and `git diff --check` passed. These checks do not prove live source rehydration; the four-prompt acceptance and owning PostgreSQL witness remain open.
+
+## Post-repair live failure — 2026-10-13
+
+Predecessor #1119 merged head `b0cd7045` as `a2b8db65`; 14 focused continuity/compaction/entrypoint cases passed on the final head. Independent review also supplied a real disposable PostgreSQL witness. 5202 was restarted from the continuity checkout; its tree matches merged main and UI/API/Graph health endpoints returned 200.
+
+In one fresh conversation, the unchanged Session 28 Plan and exact prompt “Tell me all about Mirathorn.” produced a durable turn. It was submitted once. No answer was returned; no replay occurred. Exact runtime identifiers remain in the private local evidence pack.
+
+Read-only inspection through the authenticated history API and the owning APP-STATE execution row proves: status `running`; three `gpt-6-luna` provider authorizations, each followed by `sdk_entered` and `response_received`; two validated graph expansions with distinct result hashes, both coverage incomplete and truncated; no validated source read; no fourth authorization or completion. The input accounting values 67,797 / 98,873 / 159,181 are conservative upper bounds, not actual model token usage. Current API history exposes only claimability/authorization projections, not the execution event list.
+
+The API returned HTTP 503 and logged `provider_authorization_denied`, last runtime phase `host_result_decode`, `parent_authorized=True`, `turn_exists=True`. The phase is not proof of a decode exception. The later parent denial's exact cause is discarded by the public wrapper and absent from the persisted ledger. The UI shows the user message twice (saved row and local submitted row), leaves the composer locked, and Debug shows only generic uncertainty. This is a delivery/authorization failure after successful graph exploration; source expansion and synthesis are unproved.
+
+Offline code inspection identifies a candidate failure mechanism: provider inclusion validation currently counts every matched tool output as admitted evidence, including parent-generated retrieval-error outputs, although those errors are not in the validated payload maps. A rejected source/tool operation could therefore poison the next model envelope. This is a hypothesis, not a claimed diagnosis of this live request: no retained provider envelope or tool-error observation exists to prove it. The next trace slice must preserve exact observable denials before applying a causal fix. Private diagnostic extracts remain local with mode 0600; neither contains hidden reasoning.
