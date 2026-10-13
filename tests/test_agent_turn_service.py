@@ -1882,6 +1882,103 @@ def _related_recap_broker_fixture(monkeypatch: Any) -> Any:
     )
 
 
+def _denial_authorization_fixture(monkeypatch: Any) -> tuple[Any, Any]:
+    monkeypatch.setattr(
+        "apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference",
+        lambda **_kwargs: ("openai-api", "gpt-6-luna", "https://api.openai.com/v1"),
+    )
+    fixture = _related_recap_broker_fixture(monkeypatch)
+    adapter = fixture.adapter
+    # This seam isolates inclusion after receipt/claim. The same owning ledger
+    # fake validates the provider events; existing entrypoint tests cover freeze.
+    monkeypatch.setattr(adapter, "_ensure_claimed", lambda _view: (adapter.fence.turn, [], [], []))
+
+    def authorize(items: list[dict[str, Any]]) -> bool:
+        payload = json.dumps({"input": items, "tools": []})
+        return adapter.authorize({
+            "provider": adapter.budget["provider"], "model": adapter.budget["model"],
+            "apiMode": adapter.budget["apiMode"], "payloadJson": payload,
+            "payloadSha256": sha256(payload.encode()).hexdigest(), "payloadUtf8Bytes": len(payload.encode()),
+        })
+
+    assert authorize([])
+    assert adapter.record_lifecycle({"transition": "sdk_entered"})
+    assert adapter.record_lifecycle({"transition": "response_received"})
+    return adapter, authorize
+
+
+def _denial_call(tool: str, arguments: dict[str, Any], payload: str, call_id: str = "denied-call") -> list[dict[str, Any]]:
+    return [
+        {"type": "function_call", "call_id": call_id, "name": tool, "arguments": json.dumps(arguments)},
+        {"type": "function_call_output", "call_id": call_id, "output": payload},
+    ]
+
+
+@pytest.mark.parametrize("tool", ["expand_graph_retrieval", "read_graph_source", "read_related_recap_context"])
+def test_exact_parent_tool_denial_can_inform_next_request_without_becoming_evidence(monkeypatch: Any, tool: str) -> None:
+    adapter, authorize = _denial_authorization_fixture(monkeypatch)
+    arguments = {"retrievalSessionId": "foreign-session"}
+    if tool == "expand_graph_retrieval":
+        arguments["operation"] = "search"
+    elif tool == "read_graph_source":
+        arguments["anchorIds"] = ["foreign-anchor"]
+    reply = adapter.broker_graph_operation({"toolName": tool, "arguments": arguments})
+    assert json.loads(reply["resultJson"])["schema"] == "dmb_world_graph_retrieval_error_v1"
+    assert adapter.failure is None
+    assert authorize(_denial_call(tool, arguments, reply["resultJson"]))
+    event = adapter.fence.turn.graph_context_execution.events[-1]
+    assert event.kind == "provider_attempt_authorized_v2"
+    assert event.included_graph_event_ids == []
+    assert event.included_source_read_event_ids == []
+    assert event.included_assertion_ids == []
+    assert event.included_relationship_ids == []
+    assert event.included_evidence_ref_ids == []
+    assert len(adapter.fence.turn.graph_context_execution.events) == 4
+
+
+@pytest.mark.parametrize("change", ["foreign_tool", "arguments", "payload", "unmatched", "duplicate", "forged_success"])
+def test_parent_denial_exemption_requires_exact_tool_arguments_payload_and_occurrence(monkeypatch: Any, change: str) -> None:
+    adapter, authorize = _denial_authorization_fixture(monkeypatch)
+    tool = "read_graph_source"
+    arguments = {"retrievalSessionId": "foreign-session", "anchorIds": ["foreign-anchor"]}
+    payload = adapter.broker_graph_operation({"toolName": tool, "arguments": arguments})["resultJson"]
+    if change == "foreign_tool":
+        tool = "expand_graph_retrieval"
+    if change == "arguments":
+        arguments = {**arguments, "anchorIds": ["another-anchor"]}
+    if change in {"payload", "forged_success"}:
+        modified = json.loads(payload)
+        modified["code" if change == "payload" else "schema"] = "forged_success"
+        payload = json.dumps(modified)
+    items = _denial_call(tool, arguments, payload)
+    if change == "unmatched":
+        items = items[1:]
+    if change == "duplicate":
+        items += _denial_call(tool, arguments, payload, "another-call")
+    assert not authorize(items)
+    assert adapter.failure.code == "graph_evidence_invalid"
+    assert len(adapter.fence.turn.graph_context_execution.events) == 3
+
+
+def test_fatal_broker_failure_blocks_later_authorization_and_preserves_original_code(monkeypatch: Any) -> None:
+    adapter, authorize = _denial_authorization_fixture(monkeypatch)
+    prior_execution = adapter._broker_execution
+
+    def fail_execution() -> Any:
+        raise RuntimeError("PRIVATE_BROKER_FAILURE")
+
+    monkeypatch.setattr(adapter, "_broker_execution", fail_execution)
+    arguments = {"retrievalSessionId": "foreign-session", "anchorIds": ["foreign-anchor"]}
+    payload = adapter.broker_source_read({"toolName": "read_graph_source", "arguments": arguments})["resultJson"]
+    original_failure = adapter.failure
+    assert original_failure.code == "source_read_indeterminate"
+    assert "PRIVATE_BROKER_FAILURE" not in payload
+    monkeypatch.setattr(adapter, "_broker_execution", prior_execution)
+    assert not authorize(_denial_call("read_graph_source", arguments, payload))
+    assert adapter.failure is original_failure
+    assert len(adapter.fence.turn.graph_context_execution.events) == 3
+
+
 def _related_recap_request(fixture: Any, **updates: Any) -> dict[str, Any]:
     return {
         "toolName": "read_related_recap_context",
