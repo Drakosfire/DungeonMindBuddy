@@ -19,6 +19,9 @@ vi.mock("../selectedWorld/SelectedWorldContext", () => ({
 vi.mock("../api/liveApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/liveApi")>()),
   getWorldAgentConversationHistory: vi.fn(),
+  getWorldAgentTurnContextTrace: vi.fn(async (worldId: string, turnId: string) => ({
+    schema: "dmb_agent_turn_context_trace_response_v1", world_id: worldId, turn_id: turnId, attempts: [],
+  })),
   getWorldOwnedPlanCommittedRevision: vi.fn(),
   getWorldPlanDocumentEditActions: vi.fn(),
   postWorldAgentNewConversation: vi.fn(),
@@ -402,7 +405,9 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
     await waitFor(() => expect(postWorldAgentNewConversation).toHaveBeenCalledTimes(1));
     expect(vi.mocked(postWorldAgentNewConversation).mock.calls[0]?.[0]).toBe(WORLD);
-    await waitFor(() => expect(screen.getByText("No messages yet. Ask about this Run.")).toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText("Original Plan answer")).not.toBeInTheDocument());
+    expect(screen.queryByText(/No messages yet/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/New World conversation confirmed/)).not.toBeInTheDocument();
   });
 
   it("keeps a local Plan proposal in the shared transcript while Play shows it read-only", async () => {

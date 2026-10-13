@@ -1,6 +1,6 @@
 # APP-STATE: historical source trace references
 
-Status: ACTIVE by PRIME dispatch. Base `origin/main@5d11ba51e583d230b8a7023d83fd9dfa6ce8d536`; branch `codex/app-state-historical-source-trace`; isolated checkout `/tmp/app-state-conversation-owner`. One implementation PR, parallel-independent of DOGFOOD #1120's producer/UI lane. Existing #1122 is merged at `6f54b152c506bc8cd356ad3e4cdb66a2c46babac`; accepted storage head `8aaa27d37b72d0833662e9510bbaaaa125d4e4ef`.
+Status: COMPLETED; #1125 merged accepted head `190bed5402538360602e2950ac78999fb1756928` as `cc0d95c6ba7ba186575675b7233a080be1a263b4`. Base `origin/main@5d11ba51e583d230b8a7023d83fd9dfa6ce8d536`; branch `codex/app-state-historical-source-trace`; isolated checkout `/tmp/app-state-conversation-owner`. One implementation PR, parallel-independent of DOGFOOD #1120's producer/UI lane. Existing #1122 is merged at `6f54b152c506bc8cd356ad3e4cdb66a2c46babac`; accepted storage head `8aaa27d37b72d0833662e9510bbaaaa125d4e4ef`.
 
 ## Contract
 

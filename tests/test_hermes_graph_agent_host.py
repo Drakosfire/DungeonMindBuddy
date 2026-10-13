@@ -2085,6 +2085,9 @@ def test_graph_operation_round_trips_through_correlated_parent_broker() -> None:
                     "estimator": "utf8_json_bytes_plus_64_per_node_v1",
                     "contextLimitTokens": 32768,
                     "outputReserveTokens": 2048,
+                    "maxProviderAttempts": 4,
+                    "maxToolCapableAttempts": 3,
+                    "maxGraphOperations": 8,
                 },
                 parent_graph_broker_required=True,
                 retrieval_session_id="parent-session",
@@ -2099,7 +2102,7 @@ def test_graph_operation_round_trips_through_correlated_parent_broker() -> None:
                 }
             ),
         )
-        assert result.status == "ok"
+        assert result.status == "ok", (result.error_code, result.error_message)
         assert result.final_response == '{"status":"expanded"}'
         assert len(observed) == 1
         assert observed[0]["toolName"] == "expand_graph_retrieval"

@@ -1643,6 +1643,12 @@ export async function postWorldPlayAgentTurn(
   });
 }
 
+export async function getWorldAgentTurnContextTrace(worldId: string, turnId: string) {
+  return apiFetch<import('./buddyContextTraceTypes').WorldAgentTurnContextTraceResponse>(
+    `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/context-trace`,
+  );
+}
+
 export interface WorldAgentConversationHistoryOptions {
   limit?: number;
   beforeSequence?: number;

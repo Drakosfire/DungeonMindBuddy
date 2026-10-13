@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { ConversationDock } from "../../ui/ConversationDock";
 import type { PlanConversationPresentationHosts } from "./PlanConversationDockAdapter";
 import { PlanEditReview } from "./PlanEditReview";
+import { BuddyContextTraceLoader } from "./BuddyContextTraceLoader";
 
 import { getWorldCommandResolution, postWorldCommandResolution, getWorldAgentNewConversationStatus, getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, getWorldPlanConversationActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldPlanDocumentEditProposal, postWorldGraphSourceAnchorRead, postWorldGraphRecapContextReadV2, connectNativeGraphSession, revokeNativeGraphSession, isValidWorldPlanGraphContextFailure, LiveApiError } from "../../api/liveApi";
 import type {
@@ -2180,6 +2181,7 @@ export function WorldPlanAgentConversation({
   const [composing, setComposing] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [traceVisible, setTraceVisible] = useState(false);
+  const [openedTraceTurns, setOpenedTraceTurns] = useState<Record<string, boolean>>({});
   const [historyLoading, setHistoryLoading] = useState(false);
   const [olderLoading, setOlderLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -3039,7 +3041,7 @@ export function WorldPlanAgentConversation({
           ? reason.message
           : "The command succeeded, but its local recovery envelope could not be cleared. Retrying remains safe.");
       }
-      setConversationNotice("New World conversation confirmed. Refreshing the server transcript.");
+      setConversationNotice(null);
       setHistoryRefreshNonce((current) => current + 1);
     } catch (reason) {
       if (!stillCurrent()) return;
@@ -4944,8 +4946,17 @@ export function WorldPlanAgentConversation({
           </p>
         ) : null}
         <div className="world-plan-agent-conversation__turn-debug">
-          <details className="world-plan-agent-conversation__turn-details">
+          <details className="world-plan-agent-conversation__turn-details" onToggle={(event) => {
+            const open = event.currentTarget.open;
+            const key = `${verifiedWorldId}\u001f${turn.turn_id}`;
+            setOpenedTraceTurns(current => current[key] === open ? current : { ...current, [key]: open });
+          }}>
             <summary>Debug</summary>
+            {verifiedWorldId && history?.conversation_id ? <BuddyContextTraceLoader
+              enabled={openedTraceTurns[`${verifiedWorldId}\u001f${turn.turn_id}`] === true}
+              worldId={verifiedWorldId} turnId={turn.turn_id} conversationId={history.conversation_id}
+              running={turn.lifecycle_status === "running" || turn.lifecycle_status === "accepted"}
+            /> : null}
             <p className="world-plan-agent-conversation__context">
               Turn {turn.sequence} · {turn.lifecycle_status} · {historyTurnProvenanceLabel(turn)}
             </p>
@@ -5328,7 +5339,7 @@ export function WorldPlanAgentConversation({
       {saveInFlight ? (
         <p className="world-plan-agent-conversation__saving" role="status">Conversation paused while the Plan is saving.</p>
       ) : null}
-      <section className="world-plan-agent-conversation__turns" aria-label="World conversation transcript" aria-live="polite">
+      <section className="world-plan-agent-conversation__turns" aria-label="World conversation transcript" aria-live="polite" aria-busy={historyLoading || !history}>
         <h3>Conversation</h3>
         {historyLoading && !history ? <p className="world-plan-agent-conversation__loading" role="status">Loading conversation…</p> : null}
         {historyError ? (
@@ -5354,9 +5365,7 @@ export function WorldPlanAgentConversation({
             {olderLoading ? "Loading earlier messages…" : "Load earlier messages"}
           </button>
         ) : null}
-        {latestConversationEvent ? renderConversationEvent(latestConversationEvent) : history && !historyLoading && submittedMessage?.scopeKey !== scopeKey ? (
-          <p className="world-plan-agent-conversation__empty">No messages yet. {isPlay ? "Ask about this Run." : "Ask about this Plan or describe a change."}</p>
-        ) : null}
+        {latestConversationEvent ? renderConversationEvent(latestConversationEvent) : null}
         {!isPlay ? conversationActions.map(renderConsultedAction) : null}
         {!isPlay && conversationActionsError ? <p role="alert">{conversationActionsError}</p> : null}
         {submittedMessage?.scopeKey === scopeKey

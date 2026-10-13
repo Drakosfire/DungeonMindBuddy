@@ -1526,6 +1526,7 @@ def run_hermes_graph_agent_turn(
     on_parent_graph_operation: Callable[
         [str, Mapping[str, Any]], tuple[str, Mapping[str, Any] | None]
     ] | None = None,
+    on_context_compaction: Callable[[Mapping[str, Any]], None] | None = None,
 ) -> HermesGraphAgentTurnResult:
     """Run one lockdown Hermes graph-agent turn and return a typed result.
 
@@ -1755,7 +1756,16 @@ def run_hermes_graph_agent_turn(
                         )
                     if request.parent_graph_broker_required:
                         from apps.live_control_server.services.agent_conversation_context import compact_conversation_context
-                        restored_history = compact_conversation_context(restored_history).messages
+                        compacted = compact_conversation_context(restored_history)
+                        if on_context_compaction is not None:
+                            from apps.live_control_server.services.agent_context_compaction_report import compaction_report
+                            try:
+                                observation = compaction_report(restored_history, compacted).model_dump(mode="json")
+                            except (ValueError, TypeError, KeyError):
+                                observation = {"schema_version": "dmb_context_compaction_unavailable_v1",
+                                               "code": "context_compaction_report_unavailable"}
+                            on_context_compaction(observation)
+                        restored_history = compacted.messages
                 else:
                     profiles_root.mkdir(parents=True, exist_ok=True)
                     if profile_home.exists():

@@ -1303,6 +1303,9 @@ function mockCardBodyProposal(replacementMarkdown = "The revised scene opens.") 
 }
 
 function setupApi(initialHistory: WorldAgentConversationHistoryResponse) {
+  vi.spyOn(liveApi, "getWorldAgentTurnContextTrace").mockImplementation(async (world, turn) => ({
+    schema: "dmb_agent_turn_context_trace_response_v1", world_id: world, turn_id: turn, attempts: [],
+  }));
   let currentHistory = initialHistory;
   let currentBasis = committedRevision();
   let olderPage: WorldAgentConversationHistoryResponse | null = null;
@@ -1351,6 +1354,10 @@ function pendingAskKeys(): string[] {
     key.startsWith(`dmb:world-plan-pending-ask:v1:${encodeURIComponent(worldId)}:${encodeURIComponent(documentId)}:`));
 }
 
+async function waitForConversationReady() {
+  await waitFor(() => expect(screen.getByRole("region", { name: "World conversation transcript" })).toHaveAttribute("aria-busy", "false"));
+}
+
 async function leavePendingGraphAsk(
   playableTarget: { kind: "scene" | "beat" | "choice" | "option"; id: string },
   initialHistory: WorldAgentConversationHistoryResponseV1 = history("conversation-a", 10, []),
@@ -1366,7 +1373,7 @@ async function leavePendingGraphAsk(
   });
   const mounted = render(conversationElement({ playableTarget, selectionGeneration: 0 }));
 
-  await screen.findByText(/No messages yet/i);
+  await waitForConversationReady();
   ensureWorldGraphAskEnabled();
   fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
     target: { value: "Who watches the western gate?" },
@@ -1590,7 +1597,7 @@ describe("World Plan conversation consumer", () => {
     let mounted = mountComponent(7, bridge, null, false, {
       editorSelectionActive: true, draftGeneration: 0, selectionGeneration: 0,
     });
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     await waitFor(() => expect(liveApi.getWorldPlanConversationActions).toHaveBeenCalledWith(worldId, "conversation-a"));
     expect(actions).toHaveLength(0);
     expect(document.querySelector(`article[data-plan-action-id="${clarificationId}"]`)).toBeNull();
@@ -1721,7 +1728,7 @@ describe("World Plan conversation consumer", () => {
       } as any;
     });
     fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
-    await screen.findByText(/New World conversation confirmed/);
+    await waitFor(() => expect(pendingCommandKeys()).toHaveLength(0));
     await waitFor(() => expect(document.querySelector(`article[data-plan-action-id="${clarificationId}"]`)).toBeNull());
     expect(document.querySelector(`article[data-plan-action-id="${proposalId}"]`)).toBeNull();
     mounted.unmount();
@@ -1769,7 +1776,7 @@ describe("World Plan conversation consumer", () => {
         model: "test", model_observed: false, model_latency_ms: 0, wall_latency_ms: 0, usage: null,
       }) as any);
       const mounted = render(conversationElement({ ...props, editBridge: bridge }));
-      await screen.findByText(/No messages yet/i);
+      await waitForConversationReady();
       const target = screen.getByLabelText("Actual Plan change target");
       expect(target).toBeVisible();
       expect(target).toHaveTextContent(mode === "cursor" ? "Insert at editor cursor" : mode === "selection" ? "Replace selected editor text" : "Something Is Still Moving (scene:opening)");
@@ -1810,7 +1817,7 @@ describe("World Plan conversation consumer", () => {
       preview: vi.fn(() => ({ before: { markdown: "# Opening\n\nOriginal body.\n" }, after: { markdown: "# Opening\n\nThe revised scene opens.\n" } })) };
     const post = mockCardBodyProposal();
     const first = render(conversationElement({ ...cardEditScope, editBridge: bridge }));
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the opening." } });
     fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
     const review = await screen.findByRole("region", { name: "Change scene:arrival" });
@@ -1859,7 +1866,7 @@ describe("World Plan conversation consumer", () => {
       ? vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockReturnValue(pending)
       : vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockReturnValue(pending);
     mountComponent(7, bridge, null, false, cardEditScope);
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     const input = screen.getByLabelText("Message DungeonBuddy");
     const raw = kind === "discuss" ? "  What follows?  " : "  Revise the opening.  ";
     fireEvent.change(input, { target: { value: raw } });
@@ -1893,7 +1900,7 @@ describe("World Plan conversation consumer", () => {
     };
     const post = mockCardBodyProposal();
     const mounted = render(conversationElement({ ...cardEditScope, editBridge: bridge }));
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the old target." } });
     fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
     fireEvent.click(await screen.findByRole("button", { name: "Apply to draft" }));
@@ -1925,7 +1932,7 @@ describe("World Plan conversation consumer", () => {
     const post = mockCardBodyProposal();
     const save = vi.fn();
     const mounted = render(conversationElement({ ...cardEditScope, editBridge: bridge, onSavePlan: save, savePlanEnabled: true, savedDirty: true }));
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the opening." } });
     fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
     const review = await screen.findByRole("region", { name: "Change scene:arrival" });
@@ -1963,7 +1970,7 @@ describe("World Plan conversation consumer", () => {
       preview: vi.fn(() => ({ before: { markdown: "# Opening\n\nOriginal body.\n" }, after: { markdown: "# Opening\n\nThe revised scene opens.\n" } })) };
     const post = mockCardBodyProposal();
     render(conversationElement({ ...cardEditScope, editBridge: bridge }));
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the opening." } });
     fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
     const review = await screen.findByRole("region", { name: "Change scene:arrival" });
@@ -1977,7 +1984,7 @@ describe("World Plan conversation consumer", () => {
         conversation_id: "conversation-b", active_conversation_id: "conversation-b", pointer_revision: 5 } as any;
     });
     fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     expect(screen.getByRole("region", { name: "World conversation transcript" })).not.toHaveTextContent("Original body.");
     expect(post).toHaveBeenCalledTimes(1);
     expect(bridge.apply).not.toHaveBeenCalled();
@@ -1985,7 +1992,7 @@ describe("World Plan conversation consumer", () => {
   it("echoes Discuss immediately before preparation completes and settles to one durable message", async () => {
     const api = setupApi(history("conversation-a", 4, []));
     mountComponent();
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     let release!: (value: any) => void;
     vi.mocked(liveApi.getWorldOwnedPlanCommittedRevision).mockImplementation(() => new Promise((resolve) => { release = resolve; }));
     const post = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
@@ -2011,7 +2018,7 @@ describe("World Plan conversation consumer", () => {
     const bridge = { capture: vi.fn(() => new Promise<any>((resolve) => { releaseCapture = resolve; })), apply: vi.fn() };
     mockCardBodyProposal();
     const mounted = mountComponent(7, bridge, null, false, cardEditScope);
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the opening." } });
     fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
     expect(screen.getByRole("article", { name: "Submitted message" })).toHaveTextContent("Revise the opening.");
@@ -2034,14 +2041,14 @@ describe("World Plan conversation consumer", () => {
     await screen.findByText(/HTTP401 reset failed/);
     expect(screen.getByRole("region", { name: "World conversation transcript" })).toHaveTextContent("Revise the opening.");
     fireEvent.click(screen.getByRole("button", { name: "Retry saved New Conversation command" }));
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     expect(screen.getByRole("region", { name: "World conversation transcript" })).not.toHaveTextContent("Revise the opening.");
     expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("Keep this unsent draft");
     for (const [key, value] of oldThreads) expect(localStorage.getItem(key)).toBe(value);
     expect(reset.mock.calls[0]![1]).toEqual(reset.mock.calls[1]![1]);
     mounted.unmount();
     mountComponent(7, bridge, null, false, cardEditScope);
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     expect(screen.getByRole("region", { name: "World conversation transcript" })).not.toHaveTextContent("Revise the opening.");
   });
 
@@ -2058,7 +2065,7 @@ describe("World Plan conversation consumer", () => {
     expect(screen.getByRole("region", { name: "World conversation transcript" })).not.toHaveTextContent("Old message");
     api.setCurrent(history("conversation-b", 5, []));
     fireEvent.click(screen.getByRole("button", { name: "Refresh World history" }));
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     expect(pendingCommandKeys()).toHaveLength(0);
   });
 
@@ -2066,7 +2073,7 @@ describe("World Plan conversation consumer", () => {
     const api = setupApi(history(null, 0, []));
     const post = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockRejectedValue(new Error("Unknown outcome"));
     render(conversationElement());
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "My first question" } });
     fireEvent.keyDown(screen.getByLabelText("Message DungeonBuddy"), { key: "Enter" });
     await screen.findByText(/outcome.*uncertain/);
@@ -2098,7 +2105,7 @@ describe("World Plan conversation consumer", () => {
       realRemove.call(this, key);
     });
     mountComponent();
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
     await screen.findByText("Cleanup failed");
     await waitFor(() => expect(harness.agent.updateThread).toHaveBeenCalledTimes(1));
@@ -2141,7 +2148,7 @@ describe("World Plan conversation consumer", () => {
   it("lets the user correct an inferred route for the current message", async () => {
     setupApi(history("conversation-a", 1, []));
     render(conversationElement({ editBridge: {} }));
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
 
     const input = screen.getByRole("textbox", { name: "Message DungeonBuddy" });
     fireEvent.change(input, { target: { value: "This scene needs a location." } });
@@ -2158,7 +2165,7 @@ describe("World Plan conversation consumer", () => {
   it("lets the user correct the scoped proposal imperative back to discussion", async () => {
     setupApi(history("conversation-a", 1, []));
     render(conversationElement({ editBridge: {} }));
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     fireEvent.change(screen.getByRole("textbox", { name: "Message DungeonBuddy" }), {
       target: { value: "For this disposable synthetic Plan only, propose appending exactly this line to the selected Quiet test scene body: Optional GM cue: Ask each player what they notice first. Preserve all existing text and playable markers; make no other change." },
     });
@@ -2175,7 +2182,7 @@ describe("World Plan conversation consumer", () => {
     const bridge = { capture: vi.fn(async () => captured), apply: vi.fn() };
     const post = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal");
     mountComponent(7, bridge, null, false, cardEditScope);
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Revise the selected scene." } });
     fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("no longer matches the displayed change target");
@@ -2195,7 +2202,7 @@ describe("World Plan conversation consumer", () => {
     const bridge = { capture: vi.fn(async () => captured), apply: vi.fn() };
     const post = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockRejectedValue(new Error("Proposal transport test"));
     mountComponent(7, bridge);
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Add a new scene here." } });
     fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Proposal transport test");
@@ -2300,7 +2307,7 @@ describe("World Plan conversation consumer", () => {
       playableEditTarget: { kind: "choice", id: "choice:retreat", generation: 2 },
       editBridge: {},
     }));
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
 
     const context = screen.getByRole("group", { name: "What Buddy uses and where changes go" });
     expect(within(context).getByRole("region", { name: "Question sources" })).toHaveTextContent("The saved Plan.");
@@ -2321,7 +2328,7 @@ describe("World Plan conversation consumer", () => {
   it("defaults a fresh Plan conversation to its saved Plan and World context", async () => {
     setupApi(history("conversation-a", 1, []));
     render(conversationElement());
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     const context = screen.getByRole("group", { name: "What Buddy uses and where changes go" });
     expect(within(context).getByRole("region", { name: "Question sources" })).toHaveTextContent("The saved Plan in full.");
     expect(within(context).getByRole("button", { name: "Use Test World facts · On" })).toHaveAttribute("aria-pressed", "true");
@@ -2340,7 +2347,7 @@ describe("World Plan conversation consumer", () => {
     const view = render(conversationElement({
       presentationHosts: { header, context: null, messages, composer },
     }));
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     const input = screen.getByLabelText("Message DungeonBuddy");
     fireEvent.change(input, { target: { value: "What happens next?" } });
     fireEvent.keyDown(input, { key: "Enter" });
@@ -2375,7 +2382,7 @@ describe("World Plan conversation consumer", () => {
       playableEditTarget: { kind: "scene", id: "scene:recovery", generation: 2 },
       editBridge: {},
     }));
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
 
     const context = screen.getByRole("group", { name: "What Buddy uses and where changes go" });
     expect(within(context).getByRole("region", { name: "Plan changes" })).toHaveTextContent("Buddy will propose changes to the selected card");
@@ -2422,7 +2429,7 @@ describe("World Plan conversation consumer", () => {
     const response = new Promise<any>((resolve) => { releaseResponse = resolve; });
     const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockReturnValue(response);
     render(conversationElement());
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     ensureWorldGraphAskDisabled();
     const textarea = screen.getByLabelText("Message DungeonBuddy");
     fireEvent.change(textarea, { target: { value: "  What happens at the opening?  " } });
@@ -2459,7 +2466,7 @@ describe("World Plan conversation consumer", () => {
     const response = new Promise<any>((resolve) => { releaseResponse = resolve; });
     const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockReturnValue(response);
     render(conversationElement());
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     ensureWorldGraphAskDisabled();
     const textarea = screen.getByLabelText("Message DungeonBuddy");
     fireEvent.change(textarea, { target: { value: "First question" } });
@@ -2638,7 +2645,7 @@ describe("World Plan conversation consumer", () => {
     });
 
     render(conversationElement({ playableTarget: card, savedDirty: true }));
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     const graphToggle = getGraphContextToggle();
     expect(graphToggle).toHaveAttribute("aria-pressed", "true");
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
@@ -2775,7 +2782,7 @@ describe("World Plan conversation consumer", () => {
     });
 
     render(conversationElement());
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     ensureWorldGraphAskEnabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Check the northern gate." } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
@@ -3010,7 +3017,7 @@ describe("World Plan conversation consumer", () => {
       return response;
     });
     const mounted = render(conversationElement());
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     ensureWorldGraphAskEnabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Who watches the gate?" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
@@ -3066,7 +3073,7 @@ describe("World Plan conversation consumer", () => {
     });
 
     render(conversationElement());
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     ensureWorldGraphAskEnabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Describe the gate patrol." } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
@@ -3194,7 +3201,7 @@ describe("World Plan conversation consumer", () => {
       return response;
     });
     render(conversationElement());
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     ensureWorldGraphAskEnabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Ask for a grounded answer." } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
@@ -3213,7 +3220,7 @@ describe("World Plan conversation consumer", () => {
       return response;
     });
     render(conversationElement());
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     ensureWorldGraphAskEnabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Ask with a malformed map." } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
@@ -3246,7 +3253,7 @@ describe("World Plan conversation consumer", () => {
       }),
     } as Response);
     render(conversationElement());
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     ensureWorldGraphAskEnabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Check the north gate." } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
@@ -3293,7 +3300,7 @@ describe("World Plan conversation consumer", () => {
       return response;
     });
     render(conversationElement());
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     ensureWorldGraphAskEnabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "Ask once before fixing the budget." },
@@ -3320,7 +3327,7 @@ describe("World Plan conversation consumer", () => {
     setupApi(history("conversation-a", 4, []));
     const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockRejectedValue(new Error("connection reset after dispatch"));
     render(conversationElement());
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     ensureWorldGraphAskEnabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Check the north gate." } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
@@ -3340,7 +3347,7 @@ describe("World Plan conversation consumer", () => {
       }),
     );
     render(conversationElement());
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     ensureWorldGraphAskEnabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "Ask about the northern gate." },
@@ -3433,7 +3440,7 @@ describe("World Plan conversation consumer", () => {
       }),
     } as Response);
     render(conversationElement());
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     ensureWorldGraphAskEnabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Check the north gate." } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
@@ -4057,7 +4064,7 @@ describe("World Plan conversation consumer", () => {
     setupApi(history("conversation-a", 4, []));
     const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockRejectedValue(new liveApi.LiveApiError("Unauthorized", 401));
     render(conversationElement());
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     ensureWorldGraphAskEnabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Check the north gate." } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
@@ -4077,7 +4084,7 @@ describe("World Plan conversation consumer", () => {
       return agentResponse(request, "conversation-a", "A saved-Plan answer.") as any;
     });
     render(conversationElement());
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     ensureWorldGraphAskDisabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Ask without Graph context" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
@@ -4130,7 +4137,7 @@ describe("World Plan conversation consumer", () => {
     const cardB = { kind: "scene" as const, id: "scene:ending" };
     const mounted = render(conversationElement({ playableTarget: cardA, selectionGeneration: 0 }));
 
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     ensureWorldGraphAskDisabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "What happens at the opening?" },
@@ -4192,7 +4199,7 @@ describe("World Plan conversation consumer", () => {
       return response;
     });
     render(conversationElement());
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     ensureWorldGraphAskEnabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Who watches the western gate?" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
@@ -4209,7 +4216,7 @@ describe("World Plan conversation consumer", () => {
       return agentResponse(request, "conversation-a", "Confirmed answer.") as any;
     });
     render(conversationElement());
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     ensureWorldGraphAskDisabled();
     api.getHistory.mockRejectedValueOnce(new Error("History transport failed"));
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "What happens next?" } });
@@ -4233,7 +4240,7 @@ describe("World Plan conversation consumer", () => {
       return agentResponse(value, "conversation-a", "Original answer.") as any;
     });
     render(conversationElement());
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     ensureWorldGraphAskDisabled();
     api.getHistory.mockReturnValueOnce(staleHistory.promise);
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Keep this request pinned." } });
@@ -4270,7 +4277,7 @@ describe("World Plan conversation consumer", () => {
     });
     const mounted = render(conversationElement());
 
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     ensureWorldGraphAskDisabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "What is the saved Plan's opening?" },
@@ -4338,7 +4345,7 @@ describe("World Plan conversation consumer", () => {
     const api = setupApi(history("conversation-a", 10, []));
     render(conversationElement());
 
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     const initialHistoryCalls = api.historyCalls.length;
     const otherWorldId = "another-world";
     const otherScopeKey = "dmb:world-plan-pending-ask:v1:"
@@ -4390,7 +4397,7 @@ describe("World Plan conversation consumer", () => {
     });
     const mounted = render(conversationElement());
 
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     ensureWorldGraphAskDisabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "Original captured request" },
@@ -4455,7 +4462,7 @@ describe("World Plan conversation consumer", () => {
       });
       const mounted = render(conversationElement());
 
-      await screen.findByText(/No messages yet/i);
+      await waitForConversationReady();
       ensureWorldGraphAskDisabled();
       fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
         target: { value: "Keep this exact request recoverable" },
@@ -4512,7 +4519,7 @@ describe("World Plan conversation consumer", () => {
     const sameCard = { kind: "scene" as const, id: "scene:arrival" };
     const mounted = render(conversationElement({ playableTarget: sameCard, selectionGeneration: 0 }));
 
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     ensureWorldGraphAskDisabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "What changes at arrival?" },
@@ -4566,7 +4573,7 @@ describe("World Plan conversation consumer", () => {
     const cardB = { kind: "scene" as const, id: "scene:ending" };
     const mounted = render(conversationElement({ playableTarget: cardA, selectionGeneration: 0 }));
 
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     ensureWorldGraphAskDisabled();
     ensureWorldGraphAskDisabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
@@ -4618,7 +4625,7 @@ describe("World Plan conversation consumer", () => {
     const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn");
 
     mountComponent(7, null, { kind: "scene", id: "scene:arrival" }, true);
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "Ask about the deleted card." },
     });
@@ -4786,6 +4793,29 @@ describe("World Plan conversation consumer", () => {
     expect(api.historyCalls).toContainEqual({ limit: 50, beforeSequence: 2, includeTurnCorrelation: true });
   });
 
+  it("loads the persisted execution trace only when the turn Debug is expanded", async () => {
+    setupApi(history("conversation-a", 4, [makeTurn(1, "turn-trace", "Question", "Answer")]));
+    const loadTrace = vi.mocked(liveApi.getWorldAgentTurnContextTrace).mockResolvedValue({
+      schema: "dmb_agent_turn_context_trace_response_v1", world_id: worldId, turn_id: "turn-trace",
+      attempts: [{ schema: "dmb_turn_context_trace_v1", trace_id: "trace", world_id: worldId,
+        turn_id: "turn-trace", conversation_id: "conversation-a", attempt: 1, execution_start_sequence: 0,
+        started_at: "2026-10-13T00:00:00Z", closed_at: "2026-10-13T00:00:01Z", terminal_status: "completed",
+        capture_status: "complete", capture_failure_code: null, observations: [{kind: "provider_call", sequence: 0,
+          elapsed_ms: 1000, provider: "openai-api", model: "trace-model", outcome: "response_received", input_tokens: 42, output_tokens: 7}] }],
+    });
+    render(conversationElement());
+    await screen.findByText("Answer");
+    expect(loadTrace).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("Debug"));
+    await screen.findByText("How Buddy built this reply");
+    expect(screen.getByText("trace-model")).toBeInTheDocument();
+    expect(screen.getByText(/Provider-reported usage: 42 input · 7 output/)).toBeInTheDocument();
+    expect(loadTrace).toHaveBeenCalledWith(worldId, "turn-trace");
+    fireEvent.click(screen.getByText("Debug"));
+    fireEvent.click(screen.getByText("Debug"));
+    expect(loadTrace).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps frozen-receipt status out of the chat and tucks it under Debug", async () => {
     const api = setupApi(history("conversation-a", 4, []));
     const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
@@ -4796,7 +4826,7 @@ describe("World Plan conversation consumer", () => {
       throw new Error("Plan Graph delivery stopped after its receipt was frozen.");
     });
     render(conversationElement());
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     ensureWorldGraphAskEnabled();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Query the graph about Mirathorn." } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
@@ -4917,7 +4947,7 @@ describe("World Plan conversation consumer", () => {
     });
 
     mountComponent();
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Do not lose this request" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
@@ -5011,7 +5041,7 @@ describe("World Plan conversation consumer", () => {
     };
 
     const mounted = mountComponent(7, bridge);
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     expect(screen.getAllByRole("textbox")).toHaveLength(1);
     const messageBox = screen.getByLabelText("Message DungeonBuddy");
     expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument();
@@ -5113,7 +5143,7 @@ describe("World Plan conversation consumer", () => {
     const proposalRequest = mockCardBodyProposal();
 
     mountComponent(7, bridge, null, false, cardEditScope);
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     const textarea = screen.getByLabelText("Message DungeonBuddy");
     fireEvent.change(textarea, {
       target: { value: "  Revise the arrival scene.  " },
@@ -5154,7 +5184,7 @@ describe("World Plan conversation consumer", () => {
     });
 
     mountComponent(7, bridge, null, false, cardEditScope);
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     const textarea = screen.getByLabelText("Message DungeonBuddy");
     fireEvent.change(textarea, { target: { value: "Revise this excerpt" } });
     fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
@@ -5186,7 +5216,7 @@ describe("World Plan conversation consumer", () => {
       const proposalRequest = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockResolvedValue({} as any);
 
       mountComponent(7, bridge, null, false, cardEditScope);
-      await screen.findByText(/No messages yet/i);
+      await waitForConversationReady();
             fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
         target: { value: "Revise the arrival scene." },
       });
@@ -5215,7 +5245,7 @@ describe("World Plan conversation consumer", () => {
       playableEditTargetGeneration: 2,
     }));
 
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
         fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "Revise the arrival scene." },
     });
@@ -5247,7 +5277,7 @@ describe("World Plan conversation consumer", () => {
     });
 
     mountComponent();
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Keep this exact ask" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
@@ -5303,7 +5333,7 @@ describe("World Plan conversation consumer", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Retry saved New Conversation command" }));
-    expect(await screen.findByText(/No messages yet/i)).toBeInTheDocument();
+    await waitForConversationReady();
     expect(requests[1]).toEqual(requests[0]);
     expect(postNew).toHaveBeenCalledTimes(2);
     expect(pendingCommandKeys()).toHaveLength(0);
@@ -5331,14 +5361,14 @@ describe("World Plan conversation consumer", () => {
     });
 
     mountComponent();
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Keep this in conversation A" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     expect(await screen.findByText(/outcome (?:is uncertain|of this Graph-context Ask is uncertain)/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
-    await waitFor(() => expect(screen.getByText(/New World conversation confirmed/)).toBeInTheDocument());
-    await screen.findByText(/No messages yet/i);
+    await waitFor(() => expect(pendingCommandKeys()).toHaveLength(0));
+    await waitForConversationReady();
     fireEvent.click(screen.getByRole("button", { name: "Retry saved Ask" }));
 
     expect(await screen.findByText(/not inserted into the currently active conversation/)).toBeInTheDocument();
@@ -5362,7 +5392,7 @@ describe("World Plan conversation consumer", () => {
     });
 
     mountComponent();
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Do not accept this result" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
@@ -5562,7 +5592,7 @@ describe("World Plan conversation consumer", () => {
     };
 
     const view = mountComponent(7, bridge, null, false, { editorSelectionActive: true });
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
         fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "Revise this excerpt" },
     });
@@ -5590,7 +5620,7 @@ describe("World Plan conversation consumer", () => {
     );
     await waitFor(() => expect(screen.getByRole("button", { name: "New conversation" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
-    await screen.findByText(/No messages yet/i);
+    await waitForConversationReady();
 
     expect(proposalSpy).toHaveBeenCalledTimes(1);
     expect(proposalSpy.mock.calls[0]![0]).toEqual(originalRequest);
@@ -5744,14 +5774,14 @@ describe("World Plan conversation consumer", () => {
     const post = vi.spyOn(liveApi, "postWorldCommandResolution").mockImplementation(async (body) => {
       request = body; throw new Error("lost resolution response");
     });
-    const mounted = render(conversationElement()); await screen.findByText(/No messages yet/i);
+    const mounted = render(conversationElement()); await waitForConversationReady();
     fireEvent.click(screen.getByRole("button", { name: "Resolve saved New Conversation request" }));
     await screen.findByText("lost resolution response");
     const raw = localStorage.getItem(saved.resolutionKey);
     mounted.unmount();
     api.setCurrent(history(active, 20, []));
     const lookup = vi.spyOn(liveApi, "getWorldCommandResolution").mockResolvedValue(await terminalResponse(request) as any);
-    render(conversationElement()); await screen.findByText(/No messages yet/i);
+    render(conversationElement()); await waitForConversationReady();
     fireEvent.click(screen.getByRole("button", { name: "Check saved resolution record" }));
     await waitFor(() => expect(localStorage.getItem(saved.key)).toBeNull());
     expect(lookup).toHaveBeenCalledWith(request); expect(post).toHaveBeenCalledTimes(1);
@@ -5762,7 +5792,7 @@ describe("World Plan conversation consumer", () => {
     setupApi(history("00000000-0000-0000-0000-000000000002", 10, []));
     const saved = seedTerminalCommand();
     const post = vi.spyOn(liveApi, "postWorldCommandResolution").mockRejectedValue(new Error("use_original_resolution_record"));
-    render(conversationElement()); await screen.findByText(/No messages yet/i);
+    render(conversationElement()); await waitForConversationReady();
     fireEvent.click(screen.getByRole("button", { name: "Resolve saved New Conversation request" }));
     await screen.findByText("use_original_resolution_record");
     const identity = localStorage.getItem(saved.resolutionKey);

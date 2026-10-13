@@ -1420,8 +1420,9 @@ def test_duplicate_execution_event_never_acknowledges_harness_progress() -> None
     assert caught.value.code == "turn_persistence_indeterminate"
 
 
+@pytest.mark.parametrize("capture_enabled", [False, True, "limit"])
 def test_parent_source_broker_persists_authorization_before_content_and_result_before_reply(
-    monkeypatch: Any,
+    monkeypatch: Any, capture_enabled: bool | str,
 ) -> None:
     from application_state.agent_conversation import types as graph_types
     from apps.live_control_server.services import agent_turn_service as service_module
@@ -1480,13 +1481,24 @@ def test_parent_source_broker_persists_authorization_before_content_and_result_b
     )
     turn = turn.model_copy(update={"graph_context_execution": execution})
     order: list[str] = []
+    captured_passages = []
 
     class Fence:
         def __init__(self) -> None:
             self.turn = turn
 
-        def append(self, method: str, _key: str, event: Any) -> tuple[Turn, bool]:
+        def append(self, method: str, _key: str, event: Any, **extras: Any) -> tuple[Turn, bool]:
             order.append(method)
+            if method == "record_validated_source_read" and capture_enabled:
+                if capture_enabled == "limit" and extras:
+                    from application_state.errors import ApplicationStateValidationError
+                    raise ApplicationStateValidationError("trace exceeds the explicit 1 MiB per-attempt ceiling")
+                if extras:
+                    passages = extras["source_passages"]
+                    assert passages[0].source_read_event_id == event.event_id
+                    assert passages[0].text == "bound source text"
+                    assert passages[0].content_sha256 == sha256(passages[0].text.encode()).hexdigest()
+                    captured_passages.extend(passages)
             current = self.turn.graph_context_execution
             self.turn = self.turn.model_copy(update={
                 "graph_context_execution": graph_types.PlanWorldGraphExecutionV2.model_validate({
@@ -1605,6 +1617,21 @@ def test_parent_source_broker_persists_authorization_before_content_and_result_b
     )
     adapter.fence = Fence()
     adapter.last_provider_attempt_id = uuid4()
+    if capture_enabled:
+        from types import SimpleNamespace
+        from apps.live_control_server.services.agent_context_trace_collector import ContextTraceCollector
+        capture = ContextTraceCollector.__new__(ContextTraceCollector)
+        from time import monotonic
+        capture.started = monotonic()
+        capture.fence = adapter.fence
+        capture.trace = SimpleNamespace(capture_status="recording")
+        def mark_incomplete(code: str) -> None:
+            capture.trace.capture_status = "incomplete"
+            capture.trace.capture_failure_code = code
+        capture.mark_incomplete = mark_incomplete
+        capture.refresh_after_source_capture = lambda: None
+        capture.observe = lambda fields: None
+        adapter.context_capture = capture
     content = "bound source text"
     digest = "a" * 64  # Parent source revision digest, not the excerpt digest.
 
@@ -1655,6 +1682,17 @@ def test_parent_source_broker_persists_authorization_before_content_and_result_b
             "toolName": "read_graph_source",
             "arguments": {"retrievalSessionId": session.id, "anchorIds": ["anchor:one"]},
         })
+        if capture_enabled == "limit":
+            assert order == ["authorize_source_read", "record_validated_source_read", "record_validated_source_read"]
+            assert json.loads(accepted["resultJson"])["code"] == "source_capture_incomplete"
+            assert content not in accepted["resultJson"]
+            assert adapter.source_payloads == {}
+            assert adapter.failure is None
+            assert adapter.context_capture.trace.capture_failure_code == "trace_size_limit"
+            events = adapter.fence.turn.graph_context_execution.events
+            assert sum(event.kind == "source_read_authorized_v2" for event in events) == 1
+            assert sum(event.kind == "validated_source_read_v2" for event in events) == 1
+            return
         assert order == ["authorize_source_read", "record_validated_source_read"]
         assert content in accepted["resultJson"]
         assert content not in adapter.fence.turn.graph_context_execution.model_dump_json()
@@ -1667,6 +1705,23 @@ def test_parent_source_broker_persists_authorization_before_content_and_result_b
         })
         assert content in expanded["resultJson"]
         assert len(adapter.source_payloads) == 2
+        if capture_enabled:
+            assert len(captured_passages) == 2
+            def capture_unavailable(*args: Any, **kwargs: Any) -> Any:
+                raise ConnectionError("trace storage unavailable")
+            monkeypatch.setattr(adapter.context_capture, "source_passages", capture_unavailable)
+            rejected_capture = adapter.broker_source_read({
+                "toolName": "read_graph_source",
+                "arguments": {"retrievalSessionId": session.id, "anchorIds": ["anchor:one"]},
+            })
+            assert content not in rejected_capture["resultJson"]
+            assert len(adapter.source_payloads) == 2
+            assert len(captured_passages) == 2
+            assert order[-1] == "authorize_source_read"
+            assert adapter.failure.code == "source_read_indeterminate"
+            assert adapter.authorize(view) is False
+            assert order[-1] == "authorize_source_read"
+            return
         def forged(arguments: Any, *, receipt_version: int) -> dict[str, Any]:
             batch = read(arguments, receipt_version=receipt_version)
             batch["reads"][0]["receipt"]["source_revision_id"] = "source-revision:forged"
@@ -1992,8 +2047,9 @@ def _related_recap_request(fixture: Any, **updates: Any) -> dict[str, Any]:
     }
 
 
+@pytest.mark.parametrize("capture_gap", [False, True])
 def test_parent_related_recap_broker_persists_verified_context_without_evidence_upgrade(
-    monkeypatch: Any,
+    monkeypatch: Any, capture_gap: bool,
 ) -> None:
     from types import SimpleNamespace
 
@@ -2101,6 +2157,13 @@ def test_parent_related_recap_broker_persists_verified_context_without_evidence_
     assert json.loads(overflow["resultJson"])["code"] == "related_recap_context_not_admitted"
     monkeypatch.setattr(Retrieval, "list_source_context_index", original_index)
     assert calls == ["append_validated_graph_operation"]
+    gap_observations, gap_codes = [], []
+    if capture_gap:
+        adapter.context_capture = SimpleNamespace(
+            observe=lambda fields: gap_observations.append(fields),
+            mark_incomplete=lambda code: gap_codes.append(code),
+            provider_context=lambda *args, **kwargs: None,
+        )
     output = adapter.broker_related_recap_context({
         "toolName": "read_related_recap_context",
         "arguments": {
@@ -2115,6 +2178,10 @@ def test_parent_related_recap_broker_persists_verified_context_without_evidence_
         "record_validated_related_recap_context",
     ]
     assert json.loads(output["resultJson"])["content"] == page_text
+    if capture_gap:
+        assert gap_codes == ["recap_context_capture_unavailable"]
+        assert gap_observations == [{"kind": "failure", "phase": "trace_capture", "code": "recap_context_capture_unavailable"}]
+        assert page_text not in json.dumps(gap_observations)
     saved = adapter.fence.turn.graph_context_execution
     assert saved.events[1].admission.descriptor_campaign_id == "longmont-c2"
     assert saved.events[1].admission.campaign_id is None

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import psycopg
 from pydantic import TypeAdapter, ValidationError
@@ -12,6 +13,7 @@ from datetime import datetime
 from hashlib import sha256
 from pathlib import Path
 from threading import Event, Lock, Thread
+from time import monotonic
 from typing import Annotated, Any, Callable, Mapping, Protocol
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
@@ -81,6 +83,9 @@ from apps.live_control_server.services.agent_runtime import (
     descriptor_for_runtime,
 )
 from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
+from apps.live_control_server.services.agent_context_trace_collector import ContextTraceCollector
+from apps.live_control_server.services.agent_context_trace_projection import graph_operation_observation
+from apps.live_control_server.services.agent_context_compaction_report import ContextCompactionReport
 from apps.live_control_server.services.agent_world_graph_query_context import (
     AgentWorldGraphFocus,
     AgentWorldGraphQueryContextRequest,
@@ -1155,7 +1160,7 @@ class _ClaimFence:
     def turn(self) -> Turn:
         return self.renewer.current_turn()
 
-    def append(self, method_name: str, event_name: str, event: Any) -> tuple[Turn, bool]:
+    def append(self, method_name: str, event_name: str, event: Any, **extras: Any) -> tuple[Turn, bool]:
         with self.renewer._lock:
             current = self.renewer._turn
             method = getattr(self.service, method_name, None)
@@ -1170,6 +1175,7 @@ class _ClaimFence:
                 expected_revision=current.revision,
                 expected_attempt=current.attempt,
                 **{event_name: event},
+                **extras,
             )
             if not isinstance(fresh, bool):
                 raise ApplicationStateError(
@@ -1229,6 +1235,9 @@ class _PolicyExecutionAdapter:
         self.trace = trace
         self.admission_span_id = admission_span_id
         self.fence: _ClaimFence | None = None
+        self.context_capture: ContextTraceCollector | None = None
+        self.context_compaction_report: ContextCompactionReport | None = None
+        self.context_compaction_unavailable = False
         self.last_provider_attempt_id: UUID | None = None
         self.producing_provider_attempt_id: UUID | None = None
         self.failure: AgentTurnServiceError | None = None
@@ -1247,6 +1256,11 @@ class _PolicyExecutionAdapter:
             "message": response_message, "statusCode": status, "diagnostics": [],
         }, separators=(",", ":"))
         self.denied_tool_payloads.setdefault(tool_name, []).append((_canonical_sha256(arguments), payload))
+        if self.context_capture is not None:
+            self.context_capture.observe({
+                "kind": "failure", "code": code,
+                "phase": "graph_retrieval" if tool_name == "expand_graph_retrieval" else "source_read",
+            })
         return {"resultJson": payload, "retrievalSession": None}
 
     def _included_evidence_payloads(
@@ -1402,6 +1416,14 @@ class _PolicyExecutionAdapter:
             )
         self.turn = claim.turn
         self.fence = _ClaimFence(self.service, claim.turn)
+        # Rollout is explicit: accepted baseline APIs keep trace capture off.
+        if os.environ.get("DMB_CONTEXT_TRACE_CAPTURE") == "1":
+            self.context_capture = ContextTraceCollector(self.fence)
+            if self.context_compaction_report is not None:
+                self.context_capture.compaction(self.context_compaction_report,
+                                               graph_world_id=self.bootstrap.world_scope.world_id)
+            if self.context_compaction_unavailable:
+                self.context_capture.mark_incomplete("historical_source_unavailable")
         if self.trace is not None and self.admission_span_id is not None:
             self.trace.complete_phase(self.admission_span_id)
             self.admission_span_id = None
@@ -1624,6 +1646,14 @@ class _PolicyExecutionAdapter:
             )
             self.turn = updated
             self.last_provider_attempt_id = provider_attempt_id
+            if self.context_capture is not None:
+                self.context_capture.provider_context(self.request.message, included_source_events, body=body)
+                self.context_capture.observe({
+                    "kind": "provider_call", "provider_attempt_id": provider_attempt_id,
+                    "provider": view["provider"], "model": view["model"],
+                    "outcome": "authorized", "input_upper_bound": upper_bound,
+                    "input_estimator": self.budget["estimator"],
+                })
             return True
         except (AgentTurnServiceError, ApplicationStateError, ValueError, KeyError, TypeError) as exc:
             self.failure = (
@@ -1656,6 +1686,12 @@ class _PolicyExecutionAdapter:
             self.turn = updated
             if transition == "response_received":
                 self.producing_provider_attempt_id = self.last_provider_attempt_id
+            if self.context_capture is not None and transition != "sdk_entered":
+                self.context_capture.observe({
+                    "kind": "provider_call", "provider_attempt_id": self.last_provider_attempt_id,
+                    "provider": self.budget["provider"], "model": self.budget["model"],
+                    "outcome": "response_received" if transition == "response_received" else "unknown",
+                })
             return True
         except (AgentTurnServiceError, ApplicationStateError, ValueError) as exc:
             self.failure = (
@@ -1669,6 +1705,17 @@ class _PolicyExecutionAdapter:
 
     def broker_graph_operation(self, message: Mapping[str, Any]) -> Mapping[str, Any]:
         """Resolve and persist an exact native Graph expansion before IPC reply."""
+        operation_started = monotonic()
+        if message.get("toolName") == "observe_context_compaction":
+            if os.environ.get("DMB_CONTEXT_TRACE_CAPTURE") == "1":
+                arguments = message.get("arguments")
+                try:
+                    if self.context_compaction_report is not None or self.fence is not None:
+                        raise ValueError("compaction observation arrived outside restore boundary")
+                    self.context_compaction_report = ContextCompactionReport.model_validate(arguments)
+                except (ValueError, TypeError):
+                    self.context_compaction_unavailable = True
+            return {"resultJson": '{"schema":"dmb_context_compaction_ack_v1"}', "retrievalSession": None}
         if message.get("toolName") == "read_graph_source":
             return self.broker_source_read(message)
         if message.get("toolName") == "read_related_recap_context":
@@ -1738,30 +1785,34 @@ class _PolicyExecutionAdapter:
             if request.operation == "object":
                 if len(target_ids) != 1:
                     return denied("ambiguous_target", 422)
-                result = get_object_direct(services, WorldGraphObjectRequest.model_validate({
+                effective_request = WorldGraphObjectRequest.model_validate({
                     **common, "schema": "dmb_world_graph_object_request_v1",
                     "nodeId": target_ids[0],
-                }))
+                })
+                result = get_object_direct(services, effective_request)
             elif request.operation == "neighborhood":
                 if not 1 <= len(target_ids) <= 8:
                     return denied("ambiguous_target", 422)
-                result = get_neighborhood_direct(services, WorldGraphNeighborhoodRequest.model_validate({
+                effective_request = WorldGraphNeighborhoodRequest.model_validate({
                     **common, "schema": "dmb_world_graph_neighborhood_request_v1",
                     "seedNodeIds": target_ids, "maxDepth": request.depth,
-                }))
+                })
+                result = get_neighborhood_direct(services, effective_request)
             elif request.operation == "support":
                 if len(target_ids) != 1:
                     return denied("ambiguous_target", 422)
-                result = get_evidence_direct(services, WorldGraphEvidenceRequest.model_validate({
+                effective_request = WorldGraphEvidenceRequest.model_validate({
                     **common, "schema": "dmb_world_graph_evidence_request_v1",
                     "target": {"kind": "node", "id": target_ids[0]},
-                }))
+                })
+                result = get_evidence_direct(services, effective_request)
             else:
-                result = search_world_graph_direct(services, WorldGraphSearchRequest.model_validate({
+                effective_request = WorldGraphSearchRequest.model_validate({
                     **common, "schema": "dmb_world_graph_search_request_v1",
                     "queryText": request.query_text or session.question,
                     "seedNodeIds": target_ids[:8],
-                }))
+                })
+                result = search_world_graph_direct(services, effective_request)
             if (
                 result.snapshot is None
                 or result.snapshot.world_id != self.bootstrap.world_scope.world_id
@@ -1817,6 +1868,12 @@ class _PolicyExecutionAdapter:
                 )
             )
             self.turn = updated
+            if self.context_capture is not None:
+                self.context_capture.observe(graph_operation_observation(
+                    request=effective_request, result=result, result_payload=result_payload,
+                    execution_event=event, sequence=0, elapsed_ms=0,
+                    duration_ms=(monotonic() - operation_started) * 1000,
+                ))
             session.upsert_claims(claims)
             prior_anchors = {item.anchor_id for item in session.source_anchors}
             for anchor in result.source_anchors:
@@ -2127,9 +2184,18 @@ class _PolicyExecutionAdapter:
                 kind="validated_source_read_v2", read_call_id=read_call_id,
                 receipts=receipts,
             )
-            updated = _require_fresh_execution_append(
-                self.fence.append("record_validated_source_read", "receipt", event)
-            )
+            if self.context_capture is not None:
+                updated, fresh, captured = self.context_capture.persist_source_receipt(
+                    event, results, world_id=scope.world_id, graph_revision=scope.graph_revision,
+                )
+                updated = _require_fresh_execution_append((updated, fresh))
+                self.turn = updated
+                if not captured:
+                    return denied("source_capture_incomplete", 503)
+            else:
+                updated = _require_fresh_execution_append(
+                    self.fence.append("record_validated_source_read", "receipt", event)
+                )
             self.turn = updated
             public = (
                 {**results[0], "retrievalSessionId": scope.retrieval_session_id}
@@ -2578,6 +2644,10 @@ class _PolicyExecutionAdapter:
                 "record_validated_related_recap_context", "result", event
             ))
             self.turn = updated
+            if self.context_capture is not None and content:
+                self.context_capture.observe({"kind": "failure", "phase": "trace_capture",
+                                              "code": "recap_context_capture_unavailable"})
+                self.context_capture.mark_incomplete("recap_context_capture_unavailable")
             public = {
                 "schema": "dmb_related_recap_context_read_v2",
                 "outcome": result.outcome,
@@ -4895,6 +4965,13 @@ def execute_agent_turn(
             policy_result = guarded_run(
                 invocation, adapter.authorize, **run_options,
             )
+            if adapter.context_capture is not None:
+                adapter.context_capture.provider_usage(policy_result.model_calls)
+                failure_code = adapter.failure.code if adapter.failure is not None else policy_result.error_code
+                if policy_result.status == "error" and failure_code is not None:
+                    adapter.context_capture.observe({
+                        "kind": "failure", "phase": "delivery", "code": failure_code,
+                    })
         finally:
             policy_turn = adapter.stop()
         predispatch_budget_veto = (
@@ -4977,6 +5054,8 @@ def execute_agent_turn(
                 policy_result.final_text, policy_turn,
                 adapter.producing_provider_attempt_id,
             )
+            if adapter.context_capture is not None:
+                adapter.context_capture.answer_context(answer_text)
             completed_turn = conversation_service.complete_turn(TurnResult(
                 world_id=policy_turn.world_id,
                 conversation_id=policy_turn.conversation_id,
