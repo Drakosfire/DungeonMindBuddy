@@ -1236,6 +1236,50 @@ class _PolicyExecutionAdapter:
         self.operation_payloads: dict[UUID, str] = {}
         self.source_payloads: dict[UUID, str] = {}
         self.context_payloads: dict[UUID, str] = {}
+        self.denied_tool_payloads: dict[str, list[tuple[str, str]]] = {}
+
+    def _denied_tool_result(
+        self, tool_name: str, code: str, status: int, response_message: str,
+        *, arguments: Any,
+    ) -> Mapping[str, Any]:
+        payload = json.dumps({
+            "schema": "dmb_world_graph_retrieval_error_v1", "code": code,
+            "message": response_message, "statusCode": status, "diagnostics": [],
+        }, separators=(",", ":"))
+        self.denied_tool_payloads.setdefault(tool_name, []).append((_canonical_sha256(arguments), payload))
+        return {"resultJson": payload, "retrievalSession": None}
+
+    def _included_evidence_payloads(
+        self, body: Mapping[str, Any], tool_name: str,
+    ) -> list[str]:
+        # A broker denial is conversational feedback, not a validated read.
+        # Only exact parent-produced bytes for this tool are excluded. Foreign
+        # errors and fabricated results still fail ordinary evidence membership.
+        payloads = _included_tool_payloads(body, tool_name=tool_name)
+        if not payloads:
+            return []
+        denials = list(self.denied_tool_payloads.get(tool_name, []))
+        items = body["input"]
+        calls = {item["call_id"]: item for item in items
+                 if isinstance(item, Mapping) and item.get("type") == "function_call"}
+        admitted: list[str] = []
+        for item in items:
+            if not isinstance(item, Mapping) or item.get("type") != "function_call_output":
+                continue
+            call = calls[item["call_id"]]
+            if call.get("name") != tool_name:
+                continue
+            payload = item["output"]
+            try:
+                arguments = json.loads(call["arguments"])
+                denial = (_canonical_sha256(arguments), payload)
+            except (KeyError, TypeError, ValueError):
+                denial = None
+            if denial is not None and denial in denials:
+                denials.remove(denial)
+            else:
+                admitted.append(payload)
+        return admitted
 
     def _ensure_claimed(
         self, view: Mapping[str, Any],
@@ -1436,13 +1480,9 @@ class _PolicyExecutionAdapter:
                 )
             provider_attempt_id = uuid4()
             try:
-                included_payloads = _included_graph_operation_payloads(body)
-                included_source_payloads = _included_tool_payloads(
-                    body, tool_name="read_graph_source"
-                )
-                included_context_payloads = _included_tool_payloads(
-                    body, tool_name="read_related_recap_context"
-                )
+                included_payloads = self._included_evidence_payloads(body, "expand_graph_retrieval")
+                included_source_payloads = self._included_evidence_payloads(body, "read_graph_source")
+                included_context_payloads = self._included_evidence_payloads(body, "read_related_recap_context")
             except ValueError as exc:
                 raise AgentTurnServiceError(
                     "The final provider request has an invalid Graph result block.",
@@ -1649,16 +1689,9 @@ class _PolicyExecutionAdapter:
         )
 
         def denied(code: str, status: int = 502) -> Mapping[str, Any]:
-            return {
-                "resultJson": json.dumps({
-                    "schema": "dmb_world_graph_retrieval_error_v1",
-                    "code": code,
-                    "message": "Parent Graph expansion could not be admitted.",
-                    "statusCode": status,
-                    "diagnostics": [],
-                }, separators=(",", ":")),
-                "retrievalSession": None,
-            }
+            return self._denied_tool_result("expand_graph_retrieval", code, status,
+                                            "Parent Graph expansion could not be admitted.",
+                                            arguments=message.get("arguments"))
 
         try:
             if self.fence is None or self.last_provider_attempt_id is None:
@@ -1947,14 +1980,9 @@ class _PolicyExecutionAdapter:
         from graph_memory.interaction.session_store import get_session
 
         def denied(code: str, status: int) -> Mapping[str, Any]:
-            return {
-                "resultJson": json.dumps({
-                    "schema": "dmb_world_graph_retrieval_error_v1",
-                    "code": code, "message": "Parent source read could not be admitted.",
-                    "statusCode": status, "diagnostics": [],
-                }, separators=(",", ":")),
-                "retrievalSession": None,
-            }
+            return self._denied_tool_result("read_graph_source", code, status,
+                                            "Parent source read could not be admitted.",
+                                            arguments=message.get("arguments"))
 
         try:
             if self.failure is not None:
@@ -2350,15 +2378,9 @@ class _PolicyExecutionAdapter:
     ) -> Mapping[str, Any]:
         """Append authorization, verify a bounded SOURCE page, append read receipt."""
         def denied(code: str, status: int) -> Mapping[str, Any]:
-            return {
-                "resultJson": json.dumps({
-                    "schema": "dmb_world_graph_retrieval_error_v1",
-                    "code": code,
-                    "message": "Related recap context could not be admitted.",
-                    "statusCode": status, "diagnostics": [],
-                }, separators=(",", ":")),
-                "retrievalSession": None,
-            }
+            return self._denied_tool_result("read_related_recap_context", code, status,
+                                            "Related recap context could not be admitted.",
+                                            arguments=message.get("arguments"))
 
         if self.failure is not None:
             return denied("related_recap_context_indeterminate", 503)
@@ -4893,13 +4915,17 @@ def execute_agent_turn(
                     r"[a-z][a-z0-9_]{0,63}", candidate
                 ):
                     phase = candidate
+            parent_code = "none" if adapter.failure is None else adapter.failure.code
+            if not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", parent_code):
+                parent_code = "invalid"
             _LOG.warning(
-                "plan_graph_runtime_failure status=%s error_code=%s phase=%s parent_authorized=%s turn_exists=%s",
+                "plan_graph_runtime_failure status=%s error_code=%s phase=%s parent_authorized=%s turn_exists=%s parent_failure_code=%s",
                 policy_result.status if policy_result.status in ("ok", "error") else "invalid",
                 safe_code,
                 phase,
                 adapter.last_provider_attempt_id is not None,
                 policy_turn is not None,
+                parent_code,
             )
         if adapter.failure is not None:
             trace.complete_phase(span_id, status="error")
