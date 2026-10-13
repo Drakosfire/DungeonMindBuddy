@@ -1,4 +1,5 @@
 import json
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -14,6 +15,36 @@ from src.graph_memory.extraction.bounded_recap_execution import (
 from src.graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionError,
 )
+
+
+@pytest.fixture(autouse=True)
+def semantic_engine_seam(monkeypatch):
+    """Keep existing request/validation tests local; process tests live separately."""
+    from src.graph_memory.extraction import bounded_recap_execution as module
+    from src.graph_memory.extraction._recap_inference_worker import _WorkerOutcome
+
+    def execute(factory, request, *, deadline):
+        from generationengine.types import TextRequest
+
+        async def run():
+            try:
+                engine = factory()
+            except Exception as exc:
+                return {"kind": "worker_failure", "error_type": type(exc).__name__}
+            try:
+                result = await engine.generate_text(TextRequest.model_validate(request))
+                return {"kind": "result", "result": result.model_dump(mode="json")}
+            except GenerationEngineError as exc:
+                return {
+                    "kind": "provider_failure", "failure_code": exc.failure.code.value,
+                    "observation": exc.observation.model_dump(mode="json"),
+                }
+            finally:
+                await engine.aclose()
+
+        return _WorkerOutcome(asyncio.run(run()), False)
+
+    monkeypatch.setattr(module, "_execute_in_owned_process", execute)
 
 
 def observation(**changes):
@@ -197,7 +228,7 @@ def test_unexpected_local_validator_fault_stops_without_leaking_or_next_call(
     monkeypatch.setattr(module, "validate_json_schema", fail_validator)
     with pytest.raises(CategoryGraphExtractionError) as caught:
         invoke(client, DEEPSEEK_MODEL)
-    assert caught.value.raw_model_response is None
+    assert caught.value.raw_model_response == raw
     assert client.ledger()["stopped"] is True
     assert client.calls[0]["consumer_failure"] == type(error).__name__
     assert "validation_failure" not in client.calls[0]

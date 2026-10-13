@@ -7,12 +7,16 @@ import json
 import os
 import time
 from dataclasses import asdict, dataclass
+from functools import partial
 from typing import Any
 
 from jsonschema import ValidationError as JsonSchemaValidationError
 from jsonschema import validate as validate_json_schema
 
 from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+from src.graph_memory.extraction._recap_inference_worker import (
+    _execute_in_owned_process, _WorkerStartFailure,
+)
 from src.graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionError,
 )
@@ -107,7 +111,7 @@ class BoundedRecapPassClient:
         from generationengine.types import TextRequest
 
         self.limits = limits
-        self._engine_factory = engine_factory or (lambda: _default_engine_for(limits.provider))
+        self._engine_factory = engine_factory or partial(_default_engine_for, limits.provider)
         self._request_type = TextRequest
         self._clock = clock
         self._started = clock()
@@ -125,7 +129,9 @@ class BoundedRecapPassClient:
     def run_pass(
         self, pass_name, *, model_id, instructions, user_content, pass_spec=None
     ):
-        from generationengine.types import GenerationEngineError
+        from generationengine.types import TextResult
+
+        wall_started = time.monotonic()
 
         remaining = self.limits.run_deadline_ms - int(
             (self._clock() - self._started) * 1000
@@ -200,17 +206,37 @@ class BoundedRecapPassClient:
             "observation": None,
         }
         self.calls.append(entry)
-
-        async def execute():
-            engine = self._engine_factory()
-            try:
-                # Native schema format, consumer parsing; no GE conformance repair call.
-                return await engine.generate_text(request)
-            finally:
-                await engine.aclose()
-
+        result = None
         try:
-            result = asyncio.run(execute())
+            outcome = _execute_in_owned_process(
+                self._engine_factory, request.model_dump(mode="json"),
+                deadline=wall_started + request.deadline_ms / 1000,
+            )
+            entry["wall_clock_ms"] = int((time.monotonic() - wall_started) * 1000)
+            entry["worker_cleanup"] = "terminated" if outcome.terminated else "reaped"
+            if outcome.terminated:
+                self._stopped = True
+            receipt = outcome.receipt
+            if receipt is None:
+                entry["external_outcome"] = "unknown"
+                raise CategoryGraphExtractionError(
+                    "bounded inference outcome unknown: worker ended without receipt",
+                    pass_name=pass_name,
+                )
+            if receipt["kind"] == "provider_failure":
+                entry["observation"] = receipt["observation"]
+                raise CategoryGraphExtractionError(
+                    "bounded inference failed: " + receipt["failure_code"],
+                    pass_name=pass_name,
+                )
+            if receipt["kind"] == "worker_failure":
+                entry["external_outcome"] = "unknown"
+                entry["consumer_failure"] = receipt["error_type"]
+                raise CategoryGraphExtractionError(
+                    "bounded inference outcome unknown: worker failed without GE receipt",
+                    pass_name=pass_name,
+                )
+            result = TextResult.model_validate(receipt["result"])
             observation = result.observation.model_dump(mode="json")
             entry["observation"] = observation
             if (
@@ -230,20 +256,20 @@ class BoundedRecapPassClient:
                 )
             ):
                 raise CategoryGraphExtractionError(
-                    "inference did not complete within one attempt", pass_name=pass_name
+                    "inference did not complete within one attempt", pass_name=pass_name,
+                    raw_model_response=result.text,
                 )
-        except GenerationEngineError as exc:
-            entry["observation"] = exc.observation.model_dump(mode="json")
+        except CategoryGraphExtractionError:
             self._stopped = True
-            raise CategoryGraphExtractionError(
-                "bounded inference failed: " + exc.failure.code.value,
-                pass_name=pass_name,
-            ) from None
+            raise
         except Exception as exc:
             self._stopped = True
             entry["consumer_failure"] = type(exc).__name__
+            if isinstance(exc, _WorkerStartFailure):
+                entry["external_outcome"] = "not_started"
             raise CategoryGraphExtractionError(
-                "bounded extraction pass failed", pass_name=pass_name
+                "bounded extraction pass failed", pass_name=pass_name,
+                raw_model_response=result.text if result is not None else None,
             ) from None
         try:
             parsed = json.loads(result.text or "")
@@ -286,7 +312,8 @@ class BoundedRecapPassClient:
             self._stopped = True
             entry["consumer_failure"] = type(exc).__name__
             raise CategoryGraphExtractionError(
-                "bounded extraction pass failed", pass_name=pass_name
+                "bounded extraction pass failed", pass_name=pass_name,
+                raw_model_response=result.text,
             ) from None
         return {
             "parsed": parsed,
