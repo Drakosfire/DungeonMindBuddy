@@ -514,6 +514,14 @@ def _initial_packet_membership(
     assertion_ids: set[str] = set()
     relationship_ids: set[str] = set()
     evidence_ids: set[str] = set()
+    if bootstrap.assembler_version not in {
+        "agent_harness_final_request_v1", "agent_harness_final_request_v2",
+    }:
+        raise AgentTurnServiceError(
+            "The initial claim assembler version is unsupported.",
+            code="graph_evidence_invalid", status_code=502,
+            provider_dispatched=False,
+        )
     for raw in packet.get("claimLedger", []):
         if not isinstance(raw, Mapping):
             raise AgentTurnServiceError(
@@ -531,10 +539,35 @@ def _initial_packet_membership(
         support = raw.get("support")
         if not isinstance(support, Mapping):
             continue
+        mapped_evidence: set[str] = set()
         for anchor_id in support.get("source_anchor_ids", []):
             evidence_id = bootstrap.evidence_by_anchor_id.get(anchor_id)
             if evidence_id is not None:
-                evidence_ids.add(evidence_id)
+                mapped_evidence.add(evidence_id)
+        if bootstrap.assembler_version == "agent_harness_final_request_v2":
+            explicit = raw.get("evidence_ref_ids", [])
+            if (
+                not isinstance(explicit, list)
+                or any(not isinstance(item, str) or not item or item != item.strip()
+                       for item in explicit)
+                or len(explicit) != len(set(explicit))
+                or (
+                    set(explicit) != mapped_evidence
+                    if raw.get("claim_kind") == "attribute"
+                    else not mapped_evidence.issubset(set(explicit))
+                )
+            ):
+                raise AgentTurnServiceError(
+                    "Initial claim evidence differs from its admitted source mapping.",
+                    code="graph_evidence_invalid", status_code=502,
+                    provider_dispatched=False,
+                )
+            # Relationships already expose their declared refs; preserve their
+            # existing source-anchor admission subset and insufficient omission.
+            evidence_ids.update(mapped_evidence)
+        else:
+            # Reconstruct only the current frozen v1 receipt's original packet.
+            evidence_ids.update(mapped_evidence)
     if not evidence_ids.issubset(set(bootstrap.candidate_evidence_ref_ids)):
         raise AgentTurnServiceError(
             "The provider Graph evidence is foreign to the pinned retrieval.",
@@ -811,7 +844,7 @@ def _freeze_policy_receipt(
                 "omission_reasons": [] if packet_included else ["insufficient_evidence"],
             },
             "assembled_input": {
-                "assembler_version": "agent_harness_final_request_v1",
+                "assembler_version": bootstrap.assembler_version,
                 "budget_policy_version": "plan_world_graph_budget_v1",
                 "provider_model_name": view["model"],
                 "provider_model_version": view["model"],
@@ -964,6 +997,7 @@ class AgentPlanWorldGraphBootstrap:
     evidence_by_anchor_id: Mapping[str, str]
     source_scope_anchors: tuple[Mapping[str, str], ...] = ()
     source_index_commitment: Mapping[str, Any] | None = None
+    assembler_version: str = "agent_harness_final_request_v1"
 
 
 OwnerResolver = Callable[[AgentTurnRequest], Mapping[str, Any] | None]

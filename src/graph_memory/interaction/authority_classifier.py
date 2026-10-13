@@ -165,6 +165,7 @@ def claims_from_retrieval_result(
     result: Mapping[str, Any],
     *,
     revision_id: str,
+    include_attribute_evidence_refs: bool = False,
 ) -> list[GraphClaim]:
     """Project a PR010A retrieval result into graph claims (no derived summaries)."""
     claims: list[GraphClaim] = []
@@ -253,6 +254,32 @@ def claims_from_retrieval_result(
             continue
         authority = classify_authority_for_attribute(attr_map)
         text_value = _get(attr_map, "text_value", "textValue")
+        attribute_anchors = anchors
+        evidence_ids: list[str] = []
+        if include_attribute_evidence_refs:
+            declared_evidence = set(_relationship_evidence_ids(
+                _get(attr_map, "evidence_ref_ids", "evidenceRefIds")
+            ))
+            attribute_anchors = []
+            for anchor in anchors:
+                supporting = _get(
+                    anchor, "supporting_assertion_ids", "supportingAssertionIds",
+                    "supporting_graph_object_ids", "supportingGraphObjectIds",
+                )
+                anchor_id = _get(anchor, "anchor_id", "anchorId")
+                evidence_id = _get(anchor, "evidence_ref_id", "evidenceRefId")
+                if (
+                    not isinstance(supporting, list) or assertion_id not in supporting
+                    or not isinstance(anchor_id, str) or not anchor_id
+                    or not isinstance(evidence_id, str) or evidence_id not in declared_evidence
+                    or _get(anchor, "revision_id", "revisionId") != revision_id
+                ):
+                    continue
+                attribute_anchors.append({**anchor, "opened": False})
+            evidence_ids = sorted({
+                _get(anchor, "evidence_ref_id", "evidenceRefId")
+                for anchor in attribute_anchors
+            })
         claims.append(
             GraphClaim(
                 claim_id=assertion_id,
@@ -286,7 +313,8 @@ def claims_from_retrieval_result(
                 acceptance_state="accepted",
                 revision_id=revision_id,
                 authority_class=authority,
-                support=support_from_anchors(anchors, supporting_ids=[assertion_id]),
+                evidence_ref_ids=evidence_ids,
+                support=support_from_anchors(attribute_anchors, supporting_ids=[assertion_id]),
             )
         )
     for observation in (

@@ -3513,6 +3513,31 @@ describe("World Plan conversation consumer", () => {
     mounted.unmount();
   });
 
+  it.each([true, false])("correlates running history with a different durable turn ID, matching request key: %s", async (matchingKey) => {
+    const { api, mounted, postAsk, request } = await leavePendingGraphAsk({ kind: "scene", id: "scene:opening" });
+    const context = await planGraphContext("graph_grounded", { request, execution: {
+      schema: "dmb_agent_plan_world_graph_execution_projection_v1", claimability: "blocked_unknown_or_sent",
+      authorization_state: "response_received", automatic_redispatch: false,
+    } });
+    context.completion = null;
+    const correlationKey = await expectedHistoryCorrelationKey(worldId, request.turn_id);
+    const running = withPersistedCorrelation(policyHistoryTurn(
+      1, request.turn_id, request.message, null, context, "running", request,
+    ), matchingKey ? correlationKey : "00000000-0000-4000-8000-000000000092", "00000000-0000-4000-8000-000000000091");
+    api.setCurrent(await historyV3("conversation-a", 10, [running]));
+    fireEvent(window, new Event("online"));
+    await screen.findByText(/Turn 1 · running/);
+    if (matchingKey) {
+      await waitFor(() => expect(screen.queryByRole("article", { name: "Submitted message" })).not.toBeInTheDocument());
+    } else {
+      expect(screen.getByRole("article", { name: "Submitted message" })).toHaveTextContent(request.message);
+    }
+    expect(screen.getByRole("region", { name: "World conversation transcript" })).toHaveTextContent(request.message);
+    expect(pendingAskKeys()).toHaveLength(1);
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    mounted.unmount();
+  });
+
   it("reconciles a lost Graph Ask from its exact completed history after remount without using the new card selection", async () => {
     const cardA = { kind: "scene" as const, id: "scene:opening" };
     const cardB = { kind: "scene" as const, id: "scene:ending" };

@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
 from pathlib import Path
 from threading import Barrier
 from time import sleep
@@ -14,6 +15,12 @@ import pytest
 from starlette.requests import Request
 
 from application_state.agent_conversation import AgentConversationService
+from application_state.agent_conversation.context_trace import (
+    TraceContextDecision,
+    TraceContextMaterial,
+    TraceContextSnapshot,
+    TraceSourcePassage,
+)
 from application_state.agent_conversation.types import (
     ConversationCommand,
     DraftSave,
@@ -571,7 +578,7 @@ def test_agent_conversation_migration_is_single_current_head(
     application_state_dsn: str,
 ) -> None:
     current, head = _current_and_head(application_state_dsn)
-    assert current == head == "20261012_0021"
+    assert current == head == "20261013_0022"
 
 
 def test_completion_validation_codes_are_closed_safe_and_valueerror_compatible() -> (
@@ -1117,11 +1124,11 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
     assert v1_execution_before is not None
     command.downgrade(alembic_config(), "20261005_0017")
     assert _current_and_head(application_state_dsn) == (
-        "20261005_0017", "20261012_0021"
+        "20261005_0017", "20261013_0022"
     )
     command.upgrade(alembic_config(), "head")
     assert _current_and_head(application_state_dsn) == (
-        "20261012_0021", "20261012_0021"
+        "20261013_0022", "20261013_0022"
     )
     with psycopg.connect(application_state_dsn, autocommit=True) as conn:
         assert conn.execute(
@@ -1145,7 +1152,7 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
     command.downgrade(alembic_config(), "20261004_0016")
     command.upgrade(alembic_config(), "head")
     assert _current_and_head(application_state_dsn) == (
-        "20261012_0021", "20261012_0021"
+        "20261013_0022", "20261013_0022"
     )
     with psycopg.connect(application_state_dsn, autocommit=True) as conn:
         assert conn.execute(
@@ -1170,8 +1177,8 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
     with pytest.raises(RuntimeError, match="refusing to drop non-null Agent Graph context"):
         command.downgrade(alembic_config(), "20261004_0015")
     assert _current_and_head(application_state_dsn) == (
-        "20261012_0021",
-        "20261012_0021",
+        "20261013_0022",
+        "20261013_0022",
     )
 
 
@@ -3193,6 +3200,30 @@ def test_graph_execution_v2_source_read_receipt_round_trip_through_fresh_service
         world_id, conversation.conversation_id, accepted.turn_id,
         expected_revision=accepted.revision, lease_seconds=60,
     )
+    trace_id = uuid4()
+    trace_started_at = datetime.now(UTC)
+    fresh.start_context_trace(
+        world_id=world_id, conversation_id=conversation.conversation_id,
+        turn_id=accepted.turn_id, expected_revision=claimed.turn.revision,
+        attempt=claimed.turn.attempt, trace_id=trace_id, started_at=trace_started_at,
+    )
+    context_decision = TraceContextDecision(
+        sequence=0, elapsed_ms=2.0, kind="context_decision", action="retained",
+        item_ids=["question-1"], reason_code="question_relevance",
+        policy_version="trace-test-v1",
+    )
+    trace_after_append = fresh.append_context_trace(
+        world_id=world_id, conversation_id=conversation.conversation_id,
+        turn_id=accepted.turn_id, expected_revision=claimed.turn.revision,
+        attempt=claimed.turn.attempt, trace_id=trace_id, observation=context_decision,
+    )
+    trace_after_retry = fresh.append_context_trace(
+        world_id=world_id, conversation_id=conversation.conversation_id,
+        turn_id=accepted.turn_id, expected_revision=claimed.turn.revision,
+        attempt=claimed.turn.attempt, trace_id=trace_id, observation=context_decision,
+    )
+    assert trace_after_retry == trace_after_append
+    assert fresh.list_turns(world_id, conversation.conversation_id)[0].revision == claimed.turn.revision
     call_id = uuid4()
     authorization = SourceReadAuthorizationEventV2(
         event_id=uuid4(), sequence=0, kind="source_read_authorized_v2",
@@ -3208,27 +3239,57 @@ def test_graph_execution_v2_source_read_receipt_round_trip_through_fresh_service
         authorization=authorization,
     )
     assert fresh_auth is True
+    passage_text = "Exact admitted passage bytes from this source read."
     result_event = ValidatedSourceReadEventV2(
         event_id=uuid4(), sequence=1, kind="validated_source_read_v2",
         read_call_id=call_id, receipts=[SourceReadAnchorReceiptV2(
             source_read_id="source-read:round-trip", anchor_id="anchor-1",
             evidence_ref_id="evidence-1", source_artifact_id="artifact-1",
             source_revision_id="source-revision-1", outcome="partial",
-            content_sha256="b" * 64, line_start=3, line_end=7,
-            returned_chars=41, truncated=True,
+            content_sha256=hashlib.sha256(passage_text.encode("utf-8")).hexdigest(),
+            line_start=3, line_end=7,
+            returned_chars=len(passage_text), truncated=True,
             evidence_sufficiency_status="insufficient",
         )],
     )
+    source_passage = TraceSourcePassage(
+        sequence=0, elapsed_ms=13.0, source_read_event_id=result_event.event_id,
+        read_call_id=call_id, world_id=world_id, graph_revision=scope.graph_revision,
+        source_read_id="source-read:round-trip", anchor_id="anchor-1",
+        evidence_ref_id="evidence-1", source_artifact_id="artifact-1",
+        source_revision_id="source-revision-1", line_start=3, line_end=7,
+        outcome="partial", returned_chars=len(passage_text),
+        content_sha256=hashlib.sha256(passage_text.encode("utf-8")).hexdigest(),
+        text=passage_text,
+    )
+    with pytest.raises(ApplicationStateValidationError, match="exact text"):
+        fresh.record_validated_source_read(
+            world_id, conversation.conversation_id, accepted.turn_id,
+            expected_revision=authorized.revision, expected_attempt=claimed.turn.attempt,
+            receipt=result_event,
+        )
+    assert fresh.list_turns(world_id, conversation.conversation_id)[0].graph_context_execution == authorized.graph_context_execution
     recorded, fresh_result = fresh.record_validated_source_read(
         world_id, conversation.conversation_id, accepted.turn_id,
         expected_revision=authorized.revision, expected_attempt=claimed.turn.attempt,
-        receipt=result_event,
+        receipt=result_event, source_passages=[source_passage],
     )
     assert fresh_result is True
+    with pytest.raises(ApplicationStateConflictError, match="stale or expired claim"):
+        fresh.append_context_trace(
+            world_id=world_id, conversation_id=conversation.conversation_id,
+            turn_id=accepted.turn_id, expected_revision=authorized.revision,
+            attempt=claimed.turn.attempt, trace_id=trace_id,
+            observation=TraceContextDecision(
+                sequence=2, elapsed_ms=15.0, kind="context_decision", action="retained",
+                item_ids=["question-1"], reason_code="question_relevance",
+                policy_version="trace-test-v1",
+            ),
+        )
     duplicate, inserted = fresh.record_validated_source_read(
         world_id, conversation.conversation_id, accepted.turn_id,
         expected_revision=recorded.revision, expected_attempt=claimed.turn.attempt,
-        receipt=result_event,
+        receipt=result_event, source_passages=[source_passage],
     )
     assert inserted is False
     assert duplicate.graph_context_execution == recorded.graph_context_execution
@@ -3237,14 +3298,57 @@ def test_graph_execution_v2_source_read_receipt_round_trip_through_fresh_service
     assert reload.graph_context_execution.events[-1] == result_event
     serialized_read = reload.graph_context_execution.model_dump(mode="json", by_alias=True)["events"][-1]["receipts"][0]
     assert "content" not in serialized_read
+    saved_traces = AgentConversationService().list_context_trace_attempts(
+        world_id=world_id, turn_id=accepted.turn_id,
+    )
+    assert len(saved_traces) == 1
+    assert saved_traces[0].observations == [
+        context_decision, source_passage.model_copy(update={"sequence": 1}),
+    ]
+    assert saved_traces[0].execution_start_sequence == 0
+
+    source_snapshot = TraceContextSnapshot(sequence=2, elapsed_ms=14, stage="after", materials=[
+        TraceContextMaterial(item_id="admitted-passage", state="model_context", role="source",
+            source_read_event_id=result_event.event_id,
+            source_reads=[{"source_read_id": source_passage.source_read_id,
+                           "content_sha256": source_passage.content_sha256}]),
+    ])
+    fresh.append_context_trace(
+        world_id=world_id, conversation_id=conversation.conversation_id,
+        turn_id=accepted.turn_id, expected_revision=reload.revision,
+        attempt=claimed.turn.attempt, trace_id=trace_id, observation=source_snapshot,
+    )
+    fabricated = source_snapshot.model_dump(mode="python")
+    fabricated["sequence"] = 3
+    fabricated["materials"][0]["source_reads"][0]["source_read_id"] = "other-passage"
+    with pytest.raises(ApplicationStateValidationError, match="passage IDs and digests"):
+        fresh.append_context_trace(
+            world_id=world_id, conversation_id=conversation.conversation_id,
+            turn_id=accepted.turn_id, expected_revision=reload.revision,
+            attempt=claimed.turn.attempt, trace_id=trace_id,
+            observation=TraceContextSnapshot.model_validate(fabricated),
+        )
+
+    failed = fresh.fail_turn(TurnFailure(
+        world_id=world_id, conversation_id=conversation.conversation_id,
+        turn_id=accepted.turn_id, expected_revision=reload.revision,
+        failure_code="test_capture_terminal",
+    ), interrupted=True)
+    assert failed.status == "interrupted"
+    closed_trace = AgentConversationService().list_context_trace_attempts(
+        world_id=world_id, turn_id=accepted.turn_id,
+    )[0]
+    assert closed_trace.terminal_status == "interrupted"
+    assert closed_trace.closed_at == failed.completed_at
+    assert closed_trace.capture_status == "complete"
 
     from alembic import command
 
     from application_state.cli import alembic_config
-    with pytest.raises(RuntimeError, match="refusing to downgrade while V2 Graph execution"):
+    with pytest.raises(RuntimeError, match="refusing to discard recorded context traces"):
         command.downgrade(alembic_config(), "20261005_0017")
-    assert _current_and_head(application_state_dsn) == ("20261012_0021", "20261012_0021")
-    assert AgentConversationService().list_turns(world_id, conversation.conversation_id)[0] == reload
+    assert _current_and_head(application_state_dsn) == ("20261013_0022", "20261013_0022")
+    assert AgentConversationService().list_turns(world_id, conversation.conversation_id)[0] == failed
 
 
 def test_related_recap_events_round_trip_through_fresh_service(
@@ -3680,7 +3784,7 @@ def test_terminal_records_fresh_readback_immutable_and_downgrade_refused(applica
                 conn.execute(statement)
     with pytest.raises(Exception, match="downgrade refused"):
         migration.downgrade(alembic_config(), "20261007_0018")
-    assert _current_and_head(application_state_dsn) == ("20261012_0021", "20261012_0021")
+    assert _current_and_head(application_state_dsn) == ("20261013_0022", "20261013_0022")
     assert service.get_command_resolution(request) == record
 
 
@@ -3696,9 +3800,9 @@ def test_terminal_empty_ledger_downgrade_and_nonterminal_cas_rolls_back(applicat
         assert conn.execute("SELECT count(*) FROM agent.world_state WHERE world_id=%s", (original.world_id,)).fetchone()[0] == 0
         assert conn.execute("SELECT count(*) FROM agent.command_resolution").fetchone()[0] == 0
     migration.downgrade(alembic_config(), "20261007_0018")
-    assert _current_and_head(application_state_dsn) == ("20261007_0018", "20261012_0021")
+    assert _current_and_head(application_state_dsn) == ("20261007_0018", "20261013_0022")
     migration.upgrade(alembic_config(), "head")
-    assert _current_and_head(application_state_dsn) == ("20261012_0021", "20261012_0021")
+    assert _current_and_head(application_state_dsn) == ("20261013_0022", "20261013_0022")
 
 
 def test_terminal_resolution_actual_http_binding_readback_and_auth(application_state_dsn, monkeypatch):

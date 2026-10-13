@@ -2141,6 +2141,7 @@ export function WorldPlanAgentConversation({
   const [submittedMessage, setSubmittedMessage] = useState<{
     id: string; scopeKey: string; conversationId: string | null; pointerRevision: number | null;
     message: string; kind: "discuss" | "propose";
+    idempotencyKey?: string | null;
   } | null>(null);
   const confirmedResetRef = useRef<{ commandId: string; worldId: string; conversationId: string; pointerRevision: number } | null>(null);
   const [retiredProposalTurns, setRetiredProposalTurns] = useState<{
@@ -2191,6 +2192,18 @@ export function WorldPlanAgentConversation({
   const [historyRefreshNonce, setHistoryRefreshNonce] = useState(0);
   const [proposalOrderRevision, setProposalOrderRevision] = useState(0);
   const [pendingAsks, setPendingAsks] = useState<StoredPendingAsk[]>([]);
+  useEffect(() => {
+    if (!submittedMessage || submittedMessage.kind !== "discuss"
+      || submittedMessage.idempotencyKey !== undefined) return;
+    const stored = pendingAsks.find((item) => item.envelope?.request.turn_id === submittedMessage.id);
+    if (!stored) return;
+    let active = true;
+    void pendingGraphAskIdempotencyKey(stored).then((key) => {
+      if (active) setSubmittedMessage((current) => current?.id === submittedMessage.id
+        ? { ...current, idempotencyKey: key } : current);
+    });
+    return () => { active = false; };
+  }, [pendingAsks, submittedMessage]);
   const [confirmedTerminalFailureAsks, setConfirmedTerminalFailureAsks] = useState<ConfirmedTerminalFailureAsk[]>([]);
   const [pendingAskLoadError, setPendingAskLoadError] = useState<string | null>(null);
   const [pendingCommands, setPendingCommands] = useState<StoredPendingNewConversation[]>([]);
@@ -4878,7 +4891,11 @@ export function WorldPlanAgentConversation({
     const failed = isHistoryTurnFailureConfirmed(turn.turn_id) || isWorldHistoryTurnFailed(turn.turn_id)
       || turn.lifecycle_status === "failed";
     const interrupted = turn.lifecycle_status === "interrupted";
-    const deliveryDiagnostic = uncertainPlanNoticeRef.current?.turnId === turn.turn_id
+    const deliveryDiagnostic = (uncertainPlanNoticeRef.current?.turnId === turn.turn_id
+      || (submittedMessage?.idempotencyKey && "idempotency_key" in turn
+        && turn.idempotency_key === submittedMessage.idempotencyKey
+        && turn.user_text === submittedMessage.message
+        && uncertainPlanNoticeRef.current?.turnId === submittedMessage.id))
       ? uncertainPlanNoticeRef.current.message
       : null;
     const targetReceipt = historyTurnPlayableTargetLabel(turn);
@@ -5344,7 +5361,10 @@ export function WorldPlanAgentConversation({
           && (submittedMessage.conversationId === null
             ? (submittedMessage.pointerRevision === (history?.pointer_revision ?? null))
             : submittedMessage.conversationId === history?.conversation_id)
-          && !history?.turns.some((turn) => turn.turn_id === submittedMessage.id) ? (
+          && !history?.turns.some((turn) => turn.turn_id === submittedMessage.id
+            || (submittedMessage.idempotencyKey && "idempotency_key" in turn
+              && turn.idempotency_key === submittedMessage.idempotencyKey
+              && turn.user_text === submittedMessage.message)) ? (
           <article aria-label="Submitted message">
             <p><strong>You:</strong> {submittedMessage.message}</p>
             {uncertainPlanNoticeRef.current?.turnId === submittedMessage.id ? (

@@ -897,7 +897,22 @@ def _plan_context_resolver(
     packet = result.model_dump(mode="python", by_alias=False)
     revision_id = result.snapshot.revision_id
     matched = list(result.matched_node_ids)
-    claims = claims_from_retrieval_result(packet, revision_id=revision_id)
+    assembler_version = (
+        "agent_harness_final_request_v2" if frozen_receipt is None
+        else frozen_receipt.assembled_input.assembler_version
+    )
+    if assembler_version not in {
+        "agent_harness_final_request_v1", "agent_harness_final_request_v2",
+    }:
+        raise AgentTurnServiceError(
+            "The stored initial claim assembler version is unsupported.",
+            code="turn_receipt_unverifiable", status_code=409,
+            provider_dispatched=False,
+        )
+    claims = claims_from_retrieval_result(
+        packet, revision_id=revision_id,
+        include_attribute_evidence_refs=(assembler_version == "agent_harness_final_request_v2"),
+    )
     evidence_by_anchor = {
         anchor.anchor_id: anchor.evidence_ref_id
         for anchor in result.source_anchors
@@ -1126,6 +1141,7 @@ def _plan_context_resolver(
             item.evidence_ref_id for item in result.source_anchors
         })),
         evidence_by_anchor_id=evidence_by_anchor,
+        assembler_version=assembler_version,
         source_scope_anchors=tuple(source_scope_anchors),
         source_index_commitment=source_index_commitment,
     )

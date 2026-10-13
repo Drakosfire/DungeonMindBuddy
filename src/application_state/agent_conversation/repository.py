@@ -32,6 +32,7 @@ from application_state.agent_conversation.types import (
     validate_completion_against_receipt,
     validate_execution_completion,
 )
+from application_state.agent_conversation.context_trace_store import close_context_trace_locked
 from application_state.agent_conversation.types import (
     request_fingerprint as model_fingerprint,
 )
@@ -915,6 +916,7 @@ def complete_claimed_turn(
     world_id: str,
     turn_id: UUID,
     expected_revision: int,
+    expected_attempt: int,
     assistant_text: str,
     completion: PlanWorldGraphCompletion | None,
     graph_context_execution: PlanWorldGraphExecution | None = None,
@@ -930,7 +932,8 @@ def complete_claimed_turn(
                 claim_expires_at = NULL,
                 completed_at = clock_timestamp(), updated_at = clock_timestamp()
             WHERE world_id = %s AND turn_id = %s AND status = 'running'
-              AND revision = %s AND claim_expires_at > clock_timestamp()
+              AND revision = %s AND attempt = %s
+              AND claim_expires_at > clock_timestamp()
             RETURNING {_TURN_COLS}
             """,
             (
@@ -946,9 +949,15 @@ def complete_claimed_turn(
                 world_id,
                 turn_id,
                 expected_revision,
+                expected_attempt,
             ),
         )
         row = cur.fetchone()
+    if row is not None:
+        close_context_trace_locked(
+            conn, world_id=world_id, turn_id=turn_id, attempt=expected_attempt,
+            status="completed", closed_at=row["completed_at"],
+        )
     return None if row is None else _turn_from_row(conn, row)
 
 
@@ -988,6 +997,7 @@ def interrupt_expired_graph_execution(
     world_id: str,
     turn_id: UUID,
     expected_revision: int,
+    expected_attempt: int,
     execution: PlanWorldGraphExecution,
     failure_code: str,
 ) -> Turn | None:
@@ -1000,7 +1010,8 @@ def interrupt_expired_graph_execution(
                 claim_expires_at = NULL, completed_at = clock_timestamp(),
                 updated_at = clock_timestamp()
             WHERE world_id = %s AND turn_id = %s AND status = 'running'
-              AND revision = %s AND claim_expires_at <= clock_timestamp()
+              AND revision = %s AND attempt = %s
+              AND claim_expires_at <= clock_timestamp()
             RETURNING {_TURN_COLS}
             """,
             (
@@ -1009,9 +1020,15 @@ def interrupt_expired_graph_execution(
                 world_id,
                 turn_id,
                 expected_revision,
+                expected_attempt,
             ),
         )
         row = cur.fetchone()
+    if row is not None:
+        close_context_trace_locked(
+            conn, world_id=world_id, turn_id=turn_id, attempt=expected_attempt,
+            status="interrupted", closed_at=row["completed_at"],
+        )
     return None if row is None else _turn_from_row(conn, row)
 
 
@@ -1021,6 +1038,7 @@ def fail_claimed_turn(
     world_id: str,
     turn_id: UUID,
     expected_revision: int,
+    expected_attempt: int,
     status: str,
     failure_code: str,
 ) -> Turn | None:
@@ -1035,12 +1053,18 @@ def fail_claimed_turn(
                 claim_expires_at = NULL,
                 completed_at = clock_timestamp(), updated_at = clock_timestamp()
             WHERE world_id = %s AND turn_id = %s AND status = 'running'
-              AND revision = %s AND claim_expires_at > clock_timestamp()
+              AND revision = %s AND attempt = %s
+              AND claim_expires_at > clock_timestamp()
             RETURNING {_TURN_COLS}
             """,
-            (status, failure_code, world_id, turn_id, expected_revision),
+            (status, failure_code, world_id, turn_id, expected_revision, expected_attempt),
         )
         row = cur.fetchone()
+    if row is not None:
+        close_context_trace_locked(
+            conn, world_id=world_id, turn_id=turn_id, attempt=expected_attempt,
+            status=status, closed_at=row["completed_at"],
+        )
     return None if row is None else _turn_from_row(conn, row)
 
 
