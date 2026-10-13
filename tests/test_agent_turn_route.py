@@ -1082,7 +1082,9 @@ def test_policy_resolver_reads_real_pinned_native_graph_with_distinct_managed_id
     }
     assert all(span["duration_ms"] >= 0 for span in spans_by_name.values())
 
-    frozen = SimpleNamespace(graph_authority=SimpleNamespace(
+    frozen = SimpleNamespace(assembled_input=SimpleNamespace(
+        assembler_version="agent_harness_final_request_v1",
+    ), graph_authority=SimpleNamespace(
         managed_world_id=managed.world_id,
         native_world_id=NATIVE_ID,
         binding_version=1,
@@ -3945,7 +3947,7 @@ def _selected_consumer_context(tmp_path, monkeypatch, *, unavailable=False, lega
         content_basis=route.AgentTurnContentBasis(world_id=managed.world_id, document_id="plan-1", object_revision=7,
             work_revision_id=str(uuid4()), revision_n=3, content_sha256="a"*64, committed_status="committed", has_divergent_working_copy=False),
         plan_markdown="The keeper waits at the tavern.")
-    frozen = None if not legacy else SimpleNamespace(graph_authority=SimpleNamespace(managed_world_id=managed.world_id,
+    frozen = None if not legacy else SimpleNamespace(assembled_input=SimpleNamespace(assembler_version="agent_harness_final_request_v1"), graph_authority=SimpleNamespace(managed_world_id=managed.world_id,
         native_world_id=request.world_id,binding_version=1,graph_revision=revision),
         graph_packet=SimpleNamespace(selection_policy_version="parent_initial_retrieval_with_bounded_source_index_v1"))
     bootstrap = route._plan_context_resolver(body, {"kind":"world","id":managed.world_id}, work, frozen)
@@ -4033,6 +4035,111 @@ def test_selected_consumer_unsupported_facts_keep_existing_plan_only_omission(tm
     _body,_work,_bootstrap,receipt,_execution,members=_selected_consumer_context(tmp_path,monkeypatch,claims=False)
     assert not members[0] and not members[1]
     assert receipt.assembled_input.packet_disposition=='omitted_insufficient'
+
+
+def _initial_citation_provider_view(body, work, bootstrap):
+    from apps.live_control_server.services.agent_turn_service import _plan_message
+    from apps.live_control_server.services.hermes_graph_agent import _scope_block
+    from graph_memory.hermes_graph_plugin import HermesGraphScope, default_graph_only_capability_policy
+
+    policy = default_graph_only_capability_policy(HermesGraphScope(
+        world_id=bootstrap.world_scope.world_id, campaign_id="", scope_mode="world",
+        focus={"kind": "none"}, admissibility="gm",
+        revision_pin=bootstrap.world_scope.revision_id,
+    ))
+    encoded = json.dumps({"input": [
+        {"role": "system", "content": _scope_block(
+            policy, retrieval_session_id=bootstrap.retrieval_session.id,
+            retrieval_session=bootstrap.retrieval_session.project_for_hermes(),
+        )},
+        {"role": "user", "content": _plan_message(
+            body.message, work.plan_markdown, content_basis=work.content_basis,
+        )},
+    ]}, sort_keys=True, separators=(",", ":"))
+    return {"provider": "openai-api", "model": "fixture", "apiMode": "codex_responses",
+            "payloadJson": encoded, "payloadSha256": hashlib.sha256(encoded.encode()).hexdigest(),
+            "payloadUtf8Bytes": len(encoded.encode())}
+
+
+def test_initial_canonical_citations_match_actual_provider_packet_and_frozen_versions(tmp_path, monkeypatch):
+    from apps.live_control_server.routes import agent as route
+    from apps.live_control_server.services.agent_turn_service import (
+        _freeze_policy_receipt, _initial_claim_packet_from_view, _initial_packet_membership,
+    )
+
+    body, work, bootstrap, _, execution, _ = _selected_consumer_context(tmp_path, monkeypatch)
+    budget = {"estimator": "utf8_json_bytes_plus_64_per_node_v1", "contextLimitTokens": 32768,
+              "outputReserveTokens": 2048, "maxProviderAttempts": 4,
+              "maxToolCapableAttempts": 3, "maxGraphOperations": 8}
+    view = _initial_citation_provider_view(body, work, bootstrap)
+    actual = _initial_claim_packet_from_view(SimpleNamespace(payload_json=view["payloadJson"]), bootstrap)
+    admitted = [row for row in actual["claimLedger"] if row["claim_id"] in bootstrap.candidate_assertion_ids]
+    assert admitted
+    exposed = {ref for row in admitted for ref in row.get("evidence_ref_ids", [])}
+    assert exposed
+    assert exposed.isdisjoint({anchor for row in admitted for anchor in row["support"]["source_anchor_ids"]})
+    receipt, _, membership = _freeze_policy_receipt(body, work, bootstrap, None, view, budget)
+    assert receipt.assembled_input.assembler_version == "agent_harness_final_request_v2"
+    assert exposed == set(membership[2]) == set(receipt.assembled_input.dispatched_evidence_ref_ids)
+    # Unanchored relationships keep the existing insufficient-evidence path;
+    # their declared refs never become dispatched citation membership.
+    from dataclasses import replace
+    unanchored = replace(bootstrap, candidate_assertion_ids=(),
+        candidate_relationship_ids=("rel:no-source",))
+    assert _initial_packet_membership({"claimLedger": [{
+        "claim_id": "rel:no-source", "claim_kind": "relationship",
+        "evidence_ref_ids": ["ev:declared-only"], "support": {"source_anchor_ids": []},
+    }]}, unanchored) == ([], ["rel:no-source"], [])
+
+    owner = {"kind": "world", "id": work.world_id}
+    replay = route._plan_context_resolver(body, owner, work, receipt,
+        frozen_source_scope=execution.policy.source_read_scope)
+    assert _initial_citation_provider_view(body, work, replay) == view
+    unknown = receipt.model_copy(update={"assembled_input": receipt.assembled_input.model_copy(
+        update={"assembler_version": "future-unknown"})})
+    with pytest.raises(route.AgentTurnServiceError) as invalid_version:
+        route._plan_context_resolver(body, owner, work, unknown,
+            frozen_source_scope=execution.policy.source_read_scope)
+    assert invalid_version.value.code == "turn_receipt_unverifiable"
+    assert invalid_version.value.provider_dispatched is False
+
+    # Build a genuinely frozen v1 packet, then prove its original request is
+    # reconstructed rather than upgrading already-admitted execution bytes.
+    old_marker = SimpleNamespace(graph_authority=receipt.graph_authority,
+        graph_packet=receipt.graph_packet,
+        assembled_input=SimpleNamespace(assembler_version="agent_harness_final_request_v1"))
+    legacy = route._plan_context_resolver(body, owner, work, old_marker,
+        frozen_source_scope=execution.policy.source_read_scope)
+    old_view = _initial_citation_provider_view(body, work, legacy)
+    old_packet = _initial_claim_packet_from_view(SimpleNamespace(payload_json=old_view["payloadJson"]), legacy)
+    assert all("evidence_ref_ids" not in row for row in old_packet["claimLedger"] if row["claim_kind"] == "attribute")
+    old_receipt, _, old_membership = _freeze_policy_receipt(body, work, legacy, None, old_view, budget)
+    assert old_receipt.assembled_input.assembler_version == "agent_harness_final_request_v1"
+    assert old_membership == _initial_packet_membership(old_packet, legacy)
+    old_replay = route._plan_context_resolver(body, owner, work, old_receipt,
+        frozen_source_scope=execution.policy.source_read_scope)
+    assert _initial_citation_provider_view(body, work, old_replay) == old_view
+
+
+@pytest.mark.parametrize("mutation", ["missing", "anchor", "foreign", "extra", "duplicate"])
+def test_initial_citation_membership_rejects_hidden_or_invalid_evidence(tmp_path, monkeypatch, mutation):
+    import copy
+    from apps.live_control_server.services.agent_turn_service import (
+        AgentTurnServiceError, _initial_claim_packet_from_view, _initial_packet_membership,
+    )
+    body, work, bootstrap, _, _, _ = _selected_consumer_context(tmp_path, monkeypatch)
+    view = _initial_citation_provider_view(body, work, bootstrap)
+    packet = copy.deepcopy(_initial_claim_packet_from_view(SimpleNamespace(payload_json=view["payloadJson"]), bootstrap))
+    row = next(row for row in packet["claimLedger"] if row["claim_id"] in bootstrap.candidate_assertion_ids and row.get("evidence_ref_ids"))
+    row["evidence_ref_ids"] = {
+        "missing": [], "anchor": row["support"]["source_anchor_ids"],
+        "foreign": ["ev:foreign"], "extra": row["evidence_ref_ids"] + ["ev:foreign"],
+        "duplicate": row["evidence_ref_ids"] * 2,
+    }[mutation]
+    with pytest.raises(AgentTurnServiceError) as caught:
+        _initial_packet_membership(packet, bootstrap)
+    assert caught.value.code == "graph_evidence_invalid"
+    assert caught.value.provider_dispatched is False
 
 
 def test_selected_same_pins_different_valid_selector_cannot_rebind_receipt(tmp_path,monkeypatch):

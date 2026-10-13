@@ -86,3 +86,33 @@ def test_relationship_binding_does_not_promote_nonfact_or_candidate() -> None:
     )
     assert not any(claim.claim_kind == "relationship" for claim in claims)
     assert next(c for c in claims if c.claim_kind == "attribute").may_state_as_campaign_fact() is False
+
+
+@pytest.mark.parametrize("readable", [True, False])
+def test_initial_attribute_exposes_exact_canonical_evidence_without_opening_source(readable):
+    packet = {
+        "attributes": [{"assertionId": "asrt:stacey-species", "predicate": "species",
+                        "textValue": "Stacey is a half-elf.", "evidenceRefIds": ["ev:stacey-species"]}],
+        "sourceAnchors": [
+            {"anchorId": "source-anchor:v1:opaque", "revisionId": "rev:one",
+             "evidenceRefId": "ev:stacey-species", "readable": readable, "opened": True,
+             "supportingAssertionIds": ["asrt:stacey-species"]},
+            {"anchorId": "wrong-revision", "revisionId": "rev:other",
+             "evidenceRefId": "ev:stacey-species", "supportingAssertionIds": ["asrt:stacey-species"]},
+            {"anchorId": "wrong-assertion", "revisionId": "rev:one",
+             "evidenceRefId": "ev:stacey-species", "supportingAssertionIds": ["asrt:other"]},
+            {"anchorId": "wrong-evidence", "revisionId": "rev:one",
+             "evidenceRefId": "ev:other", "supportingAssertionIds": ["asrt:stacey-species"]},
+        ],
+    }
+    claim = claims_from_retrieval_result(
+        packet, revision_id="rev:one", include_attribute_evidence_refs=True,
+    )[0]
+    assert claim.evidence_ref_ids == ["ev:stacey-species"]
+    assert claim.support.source_anchor_ids == ["source-anchor:v1:opaque"]
+    assert claim.support.source_read_ids == []
+    assert claim.support.state != "source_opened"
+    assert claim.model_dump(mode="json")["evidence_ref_ids"] == ["ev:stacey-species"]
+    # The explicit opt-in preserves frozen v1 and all unrelated consumers.
+    legacy = claims_from_retrieval_result(packet, revision_id="rev:one")[0]
+    assert "evidence_ref_ids" not in legacy.model_dump(mode="json")
