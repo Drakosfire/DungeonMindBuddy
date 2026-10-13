@@ -5,8 +5,10 @@ Status: ACTIVE under PRIME, 2026-10-12. Pinned activation:
 `3339a0fbe1596ca52fc6bf52f40da71c107d6329f139506cd9e6dce7293eed2a`.
 Design: `/tmp/continuity-edit-contract-decision.json`, SHA-256
 `0751fd8e159f35e94528c90228398167b98867873611a39593cee52141b756fa`.
-Base: fetched Buddy main `1fb127f8a0a2f0456eb385186e54cecff6f58b33`
-after accepted #1106. Branch: `codex/server-sourced-plan-edit-consultation`,
+Current base: GitHub Buddy main `2a3e2566e30256528486d391758a7ab0f1a92ad8`
+after merged APP #1109. Original activation base was
+`1fb127f8a0a2f0456eb385186e54cecff6f58b33` after accepted #1106.
+Branch: `codex/server-sourced-plan-edit-consultation`,
 isolated checkout `/tmp/buddy-sourced-plan-edit-consultation`. APP #1101
 consultation persistence is merged. The #1104 publication-readback lease is
 settled and released. RAKE's #1106 current-context shared broker/API/UI lease
@@ -130,7 +132,8 @@ through the read-only API; the current UI views the active pointer. Blank
 World actions continue their typed idempotency comparison without requiring
 an origin fingerprint.
 
-Reverified on the rebased implementation files: 146 focused SERVER tests in
+Reverified on implementation commit `d8e32c7d24c8c66e107e57856161dfc5a20332cd`:
+146 focused SERVER tests in
 disposable PostgreSQL; 197 mounted conversation UI tests; UI typecheck and
 production build; Ruff on changed Python; `git diff --check`. The positive
 mounted service test saves/reopens a changed Plan, reads both historical
