@@ -136,17 +136,139 @@ def test_deepseek_route_caps_and_unknown_receipt():
     assert (request.provider, request.model) == ("openrouter", DEEPSEEK_MODEL)
     assert request.provider_route.order == ("DeepSeek",)
     assert request.provider_route.allow_fallbacks is False
+    assert request.provider_route.require_parameters is True
     assert request.reasoning_effort == "none" and request.json_object is True
     assert request.json_schema is None and request.max_transport_retries == 0
     assert (request.max_output_tokens, request.deadline_ms) == (8192, 60000)
     assert "PRIVATE_PROMPT" in request.system_prompt
     assert "PRIVATE_SOURCE" not in request.system_prompt
+    assert "one complete JSON object" in request.system_prompt
+    assert "without Markdown fences" in request.system_prompt
+    assert "close every string and container" in request.system_prompt
     assert result["cost_usd"] is None
     assert client.calls[0]["requested_route"] == {
-        "order": ["DeepSeek"], "allow_fallbacks": False
+        "order": ["DeepSeek"],
+        "allow_fallbacks": False,
+        "require_parameters": True,
     }
     assert "PRIVATE" not in json.dumps(client.ledger())
     assert engine.closed == 1
+    with pytest.raises(CategoryGraphExtractionError):
+        invoke(client, DEEPSEEK_MODEL)
+    assert len(engine.requests) == 1
+
+
+def test_deepseek_request_reaches_accepted_ge_openrouter_sdk_kwargs():
+    from generationengine import GenerationClient
+    from generationengine.providers.base import TextGenerationCall
+    from generationengine.providers.openrouter_text import OpenRouterTextProvider
+    from generationengine.types import ProviderRoute
+
+    class Completions:
+        def __init__(self):
+            self.calls = []
+
+        async def create(self, **kwargs):
+            self.calls.append(kwargs)
+            return SimpleNamespace(
+                id="synthetic-response",
+                _request_id="synthetic-request",
+                model=DEEPSEEK_MODEL,
+                choices=[
+                    SimpleNamespace(
+                        message=SimpleNamespace(
+                            content='{"observation_nodes": []}', refusal=None
+                        ),
+                        finish_reason="stop",
+                    )
+                ],
+                usage=None,
+            )
+
+    completions = Completions()
+
+    class Client:
+        chat = SimpleNamespace(completions=completions)
+
+        async def close(self):
+            return None
+
+    provider = OpenRouterTextProvider(client=Client())
+    engine = GenerationClient(text_providers={"openrouter": provider})
+    client = BoundedRecapPassClient(
+        RecapExecutionLimits(provider="openrouter", model=DEEPSEEK_MODEL),
+        engine_factory=lambda: engine,
+    )
+
+    result = invoke(client, DEEPSEEK_MODEL)
+
+    assert result["parsed"] == {"observation_nodes": []}
+    kwargs = completions.calls[0]
+    assert kwargs["response_format"] == {"type": "json_object"}
+    assert kwargs["extra_body"]["provider"] == {
+        "order": ["DeepSeek"],
+        "allow_fallbacks": False,
+        "require_parameters": True,
+    }
+
+    default_route_kwargs = provider._request_kwargs(
+        TextGenerationCall(
+            model=DEEPSEEK_MODEL,
+            user_prompt="synthetic",
+            provider_route=ProviderRoute(order=("DeepSeek",), allow_fallbacks=False),
+            json_object=True,
+        )
+    )
+    assert default_route_kwargs["extra_body"]["provider"] == {
+        "order": ["DeepSeek"],
+        "allow_fallbacks": False,
+    }
+
+
+def test_synthetic_invalid_json_is_preserved_and_classified_before_stop(tmp_path):
+    import hashlib
+
+    fixture_dir = Path(__file__).parent / "fixtures" / "graph_memory" / "recap_json_output"
+    raw = (fixture_dir / "r6-object-invalid.txt").read_text(encoding="utf-8")
+    labels = json.loads(
+        (fixture_dir / "r6-response-classification-labels.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    with pytest.raises(json.JSONDecodeError) as parse_error:
+        json.loads(raw)
+
+    engine = Engine(TextResult(text=raw, observation=deepseek_observation()))
+    run_dir = tmp_path / "synthetic-run"
+    client = private_response_client(
+        lambda: engine,
+        run_dir,
+        limits=RecapExecutionLimits(provider="openrouter", model=DEEPSEEK_MODEL),
+    )
+    with pytest.raises(CategoryGraphExtractionError):
+        invoke(client, DEEPSEEK_MODEL)
+
+    entry = client.ledger()["calls"][0]
+    failure = entry["validation_failure"]
+    assert entry["external_outcome"] == labels["external_outcome"] == "completed"
+    assert entry["consumer_outcome"] == labels["consumer_outcome"] == "invalid_json"
+    assert labels["candidate_promotion"] is False
+    assert labels["automatic_salvage"] is False
+    assert labels["replay_authorized"] is False
+    assert failure["kind"] == "invalid_json"
+    assert failure["position"] == parse_error.value.pos
+    assert failure["line"] == parse_error.value.lineno
+    assert failure["column"] == parse_error.value.colno
+    assert failure["response_chars"] == len(raw)
+    assert failure["response_utf8_bytes"] == len(raw.encode("utf-8"))
+    assert failure["response_sha256"] == hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    assert raw not in json.dumps(client.ledger())
+
+    response_path = run_dir / ".private" / "pass_responses" / "01-actor_pass.json"
+    envelope = json.loads(response_path.read_text(encoding="utf-8"))
+    assert envelope["capture_state"] == "unvalidated_snapshot"
+    assert envelope["response"]["text"] == raw
+    assert response_path.stat().st_mode & 0o777 == 0o600
     with pytest.raises(CategoryGraphExtractionError):
         invoke(client, DEEPSEEK_MODEL)
     assert len(engine.requests) == 1

@@ -37,8 +37,8 @@ Do not commit the response or corpus-bearing per-node labels. The local private
 handback records the known-completed-invalid disposition and semantic review.
 
 Three earlier responses parsed and supplied 47 exact source quotes across 19
-nodes, but quote fidelity is not semantic acceptance. The private audit found a
-Feather Fall rescue attributed to the wrong character and additional unresolved
+nodes, but quote fidelity is not semantic acceptance. The private audit found
+at least one source-contradictory attribution and additional unresolved
 identity, grouping, timing, and spatial claims. No candidate graph was created;
 no edge pass, retry, follow-up call, or publication occurred. No part of R6 may
 be reused by this slice.
