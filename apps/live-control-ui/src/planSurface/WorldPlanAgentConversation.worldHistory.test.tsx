@@ -4779,7 +4779,7 @@ describe("World Plan conversation consumer", () => {
     expect(await screen.findByText(/outcome of this Graph-context Ask is uncertain/)).toBeInTheDocument();
     await waitFor(() => {
       const turnStatus = document.querySelector(".world-plan-agent-conversation__turn-status");
-      expect(turnStatus).toHaveTextContent("No answer has been saved for this turn yet. Buddy is checking World history; your message will not be sent again.");
+      expect(turnStatus).toHaveTextContent("No answer has been saved yet.");
     }, { timeout: 4000 });
     expect(screen.queryByText("Buddy is working on this reply…")).not.toBeInTheDocument();
     expect(screen.queryByRole("article", { name: "Submitted message awaiting confirmation" })).not.toBeInTheDocument();
