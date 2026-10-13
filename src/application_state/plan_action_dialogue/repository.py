@@ -371,17 +371,13 @@ def list_conversation(
             "WHERE world_id = %s "
             "AND consultation->'receipt'->>'origin_conversation_id' = %s "
             "AND (%s::bigint IS NULL OR action_sequence < %s) "
-            "ORDER BY action_sequence DESC LIMIT %s FOR UPDATE",
+            "ORDER BY action_sequence DESC LIMIT %s",
             (world_id, str(conversation_id), before_action_sequence,
              before_action_sequence, limit + 1),
         )
         rows = cur.fetchall()
     more = len(rows) > limit
     records = [_record(row) for row in rows[:limit]]
-    records = [
-        _reconcile_expiry(conn, item.action_id) if item.status == "pending" else item
-        for item in records
-    ]
     next_cursor = records[-1].action_sequence if more else None
     return list(reversed(records)), next_cursor
 

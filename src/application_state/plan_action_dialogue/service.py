@@ -200,6 +200,7 @@ class PlanActionDialogueService:
         if not world_id.strip():
             raise ApplicationStateValidationError("World ID is required")
         with unit_of_work(self._dsn()) as conn:
+            conn.execute("SET TRANSACTION READ ONLY")
             records, next_cursor = repo.list_conversation(
                 conn, world_id, conversation_id, limit=limit,
                 before_action_sequence=before_action_sequence,

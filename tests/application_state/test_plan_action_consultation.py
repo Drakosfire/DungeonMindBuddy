@@ -487,6 +487,36 @@ def test_pg_conversation_history_spans_plan_saves_and_documents_but_new_thread_i
     assert service.get_by_key(plain_request.basis.world_id, plain_request.idempotency_key) == plain
 
 
+def test_pg_conversation_history_read_does_not_reconcile_an_expired_action(
+    application_state_dsn,
+):
+    service = PlanActionDialogueService()
+    action, _ = service.reserve(reservation())
+    frozen, receipt, _ = frozen_action(service, action)
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute(
+            "UPDATE plan_action.action SET lease_expires_at=clock_timestamp()-interval '1 second' "
+            "WHERE action_id=%s", (action.action_id,),
+        )
+        before = conn.execute(
+            "SELECT status, dispatch_token, fence, lease_expires_at, consultation::text "
+            "FROM plan_action.action WHERE action_id=%s", (action.action_id,),
+        ).fetchone()
+    page = service.list_conversation_status(
+        action.basis.world_id, _owner_id(action.basis.world_id),
+    )
+    assert [item.action_id for item in page.actions] == [action.action_id]
+    assert page.actions[0].status == "pending"
+    assert page.actions[0].consultation.receipt == receipt
+    with psycopg.connect(application_state_dsn) as conn:
+        after = conn.execute(
+            "SELECT status, dispatch_token, fence, lease_expires_at, consultation::text "
+            "FROM plan_action.action WHERE action_id=%s", (action.action_id,),
+        ).fetchone()
+    assert before == after
+    assert before[0] == "pending" and before[1] == frozen.dispatch_token
+
+
 def test_pg_stale_pointer_blocks_reserve_freeze_and_provider_authorization(
     application_state_dsn,
 ):
