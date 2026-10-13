@@ -35,7 +35,7 @@ describe('Buddy context trace', () => {
   })
   it('keeps a retained route distinct from context prose', () => {
     render(<BuddyContextTrace trace={trace([{kind:'context_snapshot', stage:'after', sequence:0,
-      elapsed_ms:1, materials:[{item_id:'source', state:'retrieval_route', role:'source',
+      elapsed_ms:1, materials:[{item_id:'source', state:'retrieval_route', role:'source', source_reads:[],
         route:{route_id:'source', world_id:'world', graph_revision:'rev', anchor_id:'anchor'}}]}])} />)
     fireEvent.click(screen.getByText('Working context · after this turn'))
     expect(screen.getByText('Present in model context')).toBeInTheDocument()
@@ -77,9 +77,26 @@ describe('Buddy context trace', () => {
   })
   it('identifies a missing captured source snapshot in model context', () => {
     render(<BuddyContextTrace trace={trace([{kind:'context_snapshot', stage:'before', sequence:0, elapsed_ms:0,
-      materials:[{item_id:'source', state:'model_context', role:'source', source_read_event_id:'missing'}]}])} />)
+      materials:[{item_id:'source', state:'model_context', role:'source', source_read_event_id:'missing', source_reads:[]}]}])} />)
     fireEvent.click(screen.getByText('Working context · before this turn'))
     fireEvent.click(screen.getByText('source · source'))
     expect(screen.getByText('Referenced source passage was not captured in this attempt.')).toBeInTheDocument()
+  })
+  it.each(['matching', 'wrong digest', 'future passage'])('binds context source material to an exact earlier capture: %s', (mode) => {
+    const captured = passage('Actual captured passage')
+    const snapshot = {kind:'context_snapshot' as const, stage:'after' as const, sequence:1, elapsed_ms:3,
+      materials:[{item_id:'selected-source', state:'model_context' as const, role:'source' as const, source_read_event_id:'read-event',
+        source_reads:[{source_read_id:'read', content_sha256:mode === 'wrong digest' ? 'b'.repeat(64) : captured.content_sha256}]}]}
+    if (mode === 'future passage') captured.sequence = 2
+    render(<BuddyContextTrace trace={trace([captured, snapshot])} />)
+    fireEvent.click(screen.getByText('Working context · after this turn'))
+    const context = screen.getByText('source · selected-source').closest('details')!
+    fireEvent.click(screen.getByText('source · selected-source'))
+    if (mode === 'matching') {
+      expect(context.textContent).toContain('Actual captured passage')
+    } else {
+      expect(context.textContent).toContain('Referenced source passage was not captured')
+      expect(context.textContent).not.toContain('Actual captured passage')
+    }
   })
 })

@@ -8,6 +8,7 @@ export interface BuddyTraceMaterial {
   item_id: string; state: 'model_context' | 'retrieval_route'
   role: 'user' | 'assistant' | 'source' | 'fact'; text?: string | null
   route?: BuddyTraceRoute | null; source_read_event_id?: string | null
+  source_reads: { source_read_id: string; content_sha256: string }[]
 }
 interface Observation { sequence: number; elapsed_ms: number }
 interface GraphLimits {

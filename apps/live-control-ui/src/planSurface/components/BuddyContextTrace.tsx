@@ -28,8 +28,8 @@ function Materials({ materials, passages }: { materials: BuddyTraceMaterial[]; p
   return <div className="buddy-context-trace__context-columns">
     <section><h5>Present in model context</h5>{present.length === 0 ? <p>No captured material.</p> : present.map(item =>
       <details key={item.item_id}><summary>{item.role} · {item.item_id}</summary>{item.role === 'source'
-        ? passages.some(passage => passage.source_read_event_id === item.source_read_event_id)
-          ? passages.filter(passage => passage.source_read_event_id === item.source_read_event_id).map(passage => <Passage key={passage.source_read_id} passage={passage} />)
+        ? capturedMaterials(item, passages).length > 0
+          ? capturedMaterials(item, passages).map(passage => <Passage key={passage.source_read_id} passage={passage} />)
           : <p>Referenced source passage was not captured in this attempt.</p>
         : <p className="buddy-context-trace__prose">{item.text}</p>}</details>)}</section>
     <section><h5>Available through retained routes</h5>{routes.length === 0 ? <p>No captured routes.</p> : routes.map(item =>
@@ -39,6 +39,15 @@ function Materials({ materials, passages }: { materials: BuddyTraceMaterial[]; p
   </div>
 }
 
+function capturedMaterials(material: BuddyTraceMaterial, passages: BuddyTraceSourcePassage[]): BuddyTraceSourcePassage[] {
+  if (!material.source_reads?.length) return []
+  const matches = material.source_reads.map(reference => passages.filter(passage =>
+    passage.source_read_event_id === material.source_read_event_id
+    && passage.source_read_id === reference.source_read_id
+    && passage.content_sha256 === reference.content_sha256))
+  return matches.every(items => items.length === 1) ? matches.flat() : []
+}
+
 const reasons: Record<string, string> = {
   question_relevance: 'Relevant to this question', followup_detail_needed: 'More detail needed for the follow-up', coverage_gap: 'Evidence coverage was incomplete',
   context_budget: 'Compacted for the context budget', duplicate: 'Duplicate material', superseded: 'Superseded by newer material',
@@ -46,7 +55,7 @@ const reasons: Record<string, string> = {
 }
 function Event({ event, passages }: { event: BuddyTraceObservation; passages: BuddyTraceSourcePassage[] }) {
   switch (event.kind) {
-    case 'context_snapshot': return <details><summary>Working context · {event.stage} this turn</summary><Materials materials={event.materials} passages={passages} /></details>
+    case 'context_snapshot': return <details><summary>Working context · {event.stage} this turn</summary><Materials materials={event.materials} passages={passages.filter(passage => passage.sequence < event.sequence)} /></details>
     case 'context_decision': return <><strong>{event.action}</strong><p>{reasons[event.reason_code] ?? event.reason_code}</p><JsonDetails label="Affected material and policy" value={{ items: event.item_ids, policy: event.policy_version }} /></>
     case 'graph_tool': return <details><summary>{names[event.tool_name]} · {event.request.operation} <span>{event.result.outcome}</span></summary>
       {event.request.operation === 'search' && <p>Search: {event.request.query_text}</p>}

@@ -1,6 +1,6 @@
 # DOGFOOD: observable conversation context trace
 
-Status: ACTIVE for Buddy observation producer/inspection UI; APP-STATE retains implementation ownership of persistence. Integration is BLOCKED pending its accepted payload and persistence contract. The user's continuing Mirathorn goal authorizes design and implementation but does not transfer another lane's paths.
+Status: ACTIVE for Buddy observation producer/inspection UI. APP-STATE #1122 merged its accepted persistence contract as `6f54b152c506bc8cd356ad3e4cdb66a2c46babac`; DOGFOOD consumes it without editing persistence paths. Runtime activation remains behind SERVER's coordinated shared-schema rollout. The user's continuing Mirathorn goal authorizes design and implementation but does not transfer another lane's paths.
 Base: `origin/main@a2b8db65fc69fa06b6e7e32bb16bcf4ecca5d6b8`, fetched and inspected 2026-10-13.
 Branch: `codex/buddy-context-trace`.
 Checkout: `/home/drakosfire/.codex/worktrees/buddy-context-trace/DungeonMindBuddy`.
@@ -37,6 +37,8 @@ No dependency pin/lockfile, graph write, ingestion publication, arbitrary corpus
 SERVER's citation-identity repair #1121 merged as `ad555917179764c61dcbc3095f9d7fd5182709b2`; its shared-function lease is released. This lane must re-anchor before collector/history integration while preserving its packet/version semantics. Because 5202 now runs from this checkout, rebase/source adoption must occur in a stopped transition. This branch currently edits neither shared backend file. APP-STATE retains persistence ownership; its accepted implementation remains a separate integration dependency.
 
 ## Runtime and verification
+
+The accepted source-context reference is `source_read_event_id` plus specific `source_reads` IDs/digests, referring to earlier exact passage snapshots in the same attempt. Viewer validation now covers exact, wrong-digest and future-capture cases: eleven cases pass plus app typecheck. Delivery repair #1124 owns the provider denial/membership functions until it settles; trace integration consumes that repair afterward. Message dedup #1123 is merged at `cfc788a9` and its matching temporary UI delta in the serving checkout is preserved until main is adopted.
 
 5202 now serves this PR #1120 branch at `ec6bc77f` after the user requested removal of empty-conversation filler and the routine New Conversation confirmation notice. The trace viewer is still standalone and not wired. Its UI/API/Graph health checks passed; the browser shows neither removed line. The previous session directory and environment were preserved, and the separate stable-main services were untouched. Preserve the existing failed Ask, World facts, and Plan text. Live durable-trace rollout still requires the tested owning contract and verified migration/source-switch boundary. Disposable database tests use independent ports/data directories.
 
