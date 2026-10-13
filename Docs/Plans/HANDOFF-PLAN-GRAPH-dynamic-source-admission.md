@@ -74,6 +74,8 @@ APP passage trace bounds:
 
 SERVER consumer and parent admission:
 
+- `apps/live_control_server/integrations/dungeonmind/world_graph_reads.py` (PRIME-approved internal same-native-result operation pin seam)
+
 - `apps/live_control_server/services/agent_turn_service.py`
 - `apps/live_control_server/services/plan_action_consultation.py`
 - `apps/live_control_server/services/hermes_graph_interaction_tools.py` only for the matching tool contract wording
@@ -133,3 +135,7 @@ This is APP storage/authority proof. SERVER parent construction, mounted source 
 PRIME temporarily returned the serial checkout lease to APP to admit V3 in `src/application_state/plan_action_dialogue/types.py` and owning `tests/application_state/test_plan_action_consultation.py`. SERVER is paused; its existing uncommitted `agent_turn_service.py` edit is preserved. This follows exact checkpoint `7c8016519dc2aff3a30d412b69edbe0a158163a6`. PRIME approved the concrete additional scope: `src/application_state/plan_action_dialogue/service.py` plus amendment of the already proposed 0023 migration for nested consultation V3. No new migration/table or V1 consultation acceptance is authorized.
 
 Consultation follow-up VERIFIED: owning consultation union accepts V2/V3; freeze chooses matching execution type and digest; shared validators retain authority binding. Existing 0023 also extends the nested consultation SQL check and refuses downgrade if either Agent or Plan Action V3 exists. V1 consultation rejection is preserved. Ten focused consultation cases passed (31 deselected): V2/V3 JSON round-trip, existing V1 rejection/shared history, V3 owning freeze/append/fresh readback and completed source history, foreign native binding rejection, nested downgrade refusal, V2 completed consultation bytes across downgrade/upgrade, and reused V2 token-fenced/provider/source proofs. Three focused Agent migration/expired V3 recovery cases passed (11 deselected). Both runners used owned disposable 512 MiB tmpfs PostgreSQL and unconditional teardown. Ruff and owning diff checks pass. SERVER dirty `agent_turn_service.py` is excluded from this APP commit; its preserved working-tree blob is `d5dec612bc905e48f110cf2bfc7f2abf755b00ce`. APP releases temporary serial writing after this follow-up handback; consumer integration/final review remain pending.
+
+## SERVER internal pin seam amendment
+
+PRIME authorized this bounded amendment on 2026-10-13 after the mounted real-PG witness exposed that public `WorldGraphSourceAnchor.revision_id` is the Graph revision, not the source revision. Internal resolved wrappers for search/object/neighborhood/support must expose full source pins from the same native operation result. Preserve public result models and distinct frozen Graph/source revision identities. No extra retrieval, anchor resolution, source IO, Core change or public API is authorized. Tests remain in the existing SERVER allowlist; the mounted witness must use real `srcrev` pins and parameterize all four operations. Original redacted failed witness is retained privately at `/tmp/server_source_admission_joined_evidence.txt`.
