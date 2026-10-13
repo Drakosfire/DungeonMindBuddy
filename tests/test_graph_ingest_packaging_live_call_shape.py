@@ -271,3 +271,76 @@ def test_graph_ingest_packaging_live_call_shape_production_module(
     assert manifest["artifacts"]["candidate_graph"]["sha256"] == (
         f"sha256:{_sha256_file(candidate_path)}"
     )
+
+
+def test_bounded_schema_failure_packages_private_raw_response_and_safe_ledger(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The owning packaging boundary retains a rejected GE response, not a candidate."""
+    from generationengine.observation import InferenceObservation, ObservationState
+    from generationengine.types import TextResult
+
+    from src.graph_memory.extraction.bounded_recap_execution import (
+        BoundedRecapPassClient,
+        DEEPSEEK_MODEL,
+        RecapExecutionLimits,
+    )
+
+    raw = '{"observation_nodes": "PRIVATE_INVALID_RESPONSE"}'
+    observation = InferenceObservation(
+        provider="openrouter",
+        requested_model=DEEPSEEK_MODEL,
+        resolved_model=DEEPSEEK_MODEL,
+        response_model=DEEPSEEK_MODEL,
+        provider_attempt_count=1,
+        retry_count=0,
+        latency_ms=12,
+        state=ObservationState.COMPLETED,
+    )
+
+    class Engine:
+        def __init__(self):
+            self.requests = []
+            self.closed = 0
+
+        async def generate_text(self, request):
+            self.requests.append(request)
+            return TextResult(text=raw, observation=observation)
+
+        async def aclose(self):
+            self.closed += 1
+
+    engine = Engine()
+    bounded = BoundedRecapPassClient(
+        RecapExecutionLimits(provider="openrouter", model=DEEPSEEK_MODEL),
+        engine_factory=lambda: engine,
+    )
+    monkeypatch.chdir(tmp_path)
+    source = tmp_path / "recap.md"
+    source.write_text(RECAP_PATH.read_text())
+    result = _production_api().run_graph_preview_extraction(
+        _production_api().GraphPreviewRunnerOptions(
+            campaign_id="longmont-c2",
+            session_id="session-24",
+            normalized_recap_path=source,
+            output_dir=Path("runs/bounded_schema_failure"),
+            model_id=DEEPSEEK_MODEL,
+            allow_llm=True,
+            category_client=bounded,
+        )
+    )
+    assert result.status == GraphIngestRunStatus.SOURCE_SPAN_BUNDLE_READY
+    assert result.candidate_graph_path is None
+    manifest = json.loads(result.manifest_path.read_text())
+    artifact = manifest["artifacts"]["raw_model_response"]
+    raw_path = tmp_path / artifact["uri"]
+    assert raw_path.read_text() == raw
+    assert artifact["sha256"] == f"sha256:{_sha256_file(raw_path)}"
+    assert _sha256_file(raw_path) == hashlib.sha256(raw.encode()).hexdigest()
+    assert manifest["diagnostics"]["extraction_mode"] == "llm_blocked"
+    assert len(engine.requests) == 1 and engine.closed == 1
+    assert bounded.ledger()["stopped"] is True
+    ledger = json.dumps(bounded.ledger())
+    assert "PRIVATE_INVALID_RESPONSE" not in ledger
+    assert "PRIVATE_INVALID_RESPONSE" not in json.dumps(manifest)
+    assert bounded.calls[0]["validation_failure"]["validator"] == "type"

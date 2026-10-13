@@ -131,6 +131,82 @@ def test_deepseek_fail_closed_without_next_call(text, changes):
     assert len(engine.requests) == 1 and engine.closed == 1
 
 
+@pytest.mark.parametrize(
+    "raw,kind,validator,instance_path",
+    [
+        ('{"observation_nodes": "PRIVATE_RESPONSE"}', "schema", "type", ["observation_nodes"]),
+        ('{"observation_nodes":', "invalid_json", None, []),
+        ('["PRIVATE_RESPONSE"]', "non_object", None, []),
+    ],
+)
+def test_local_response_failure_retains_private_raw_outside_safe_ledger(
+    raw, kind, validator, instance_path
+):
+    engine = Engine(TextResult(text=raw, observation=deepseek_observation()))
+    client = BoundedRecapPassClient(
+        RecapExecutionLimits(provider="openrouter", model=DEEPSEEK_MODEL),
+        engine_factory=lambda: engine,
+    )
+    with pytest.raises(CategoryGraphExtractionError) as caught:
+        invoke(client, DEEPSEEK_MODEL)
+    assert caught.value.raw_model_response == raw
+    assert caught.value.pass_name == "actor_pass"
+    failure = client.calls[0]["validation_failure"]
+    assert (failure["kind"], failure["validator"], failure["instance_path"]) == (
+        kind, validator, instance_path
+    )
+    assert "PRIVATE_RESPONSE" not in json.dumps(client.ledger())
+    assert client.ledger()["stopped"]
+    with pytest.raises(CategoryGraphExtractionError):
+        invoke(client, DEEPSEEK_MODEL)
+    assert len(engine.requests) == 1 and engine.closed == 1
+
+
+def test_validation_paths_redact_unknown_response_field_names():
+    from src.graph_memory.extraction.bounded_recap_execution import _safe_validation_path
+
+    schema = {"properties": {"observation_nodes": {"type": "array"}}}
+    assert _safe_validation_path(
+        ["observation_nodes", 0, "PRIVATE_RESPONSE"], schema
+    ) == ["observation_nodes", 0, "<unknown>"]
+
+
+@pytest.mark.parametrize("error_type", ["schema_error", "runtime_error"])
+def test_unexpected_local_validator_fault_stops_without_leaking_or_next_call(
+    monkeypatch, error_type
+):
+    from jsonschema.exceptions import SchemaError
+
+    from src.graph_memory.extraction import bounded_recap_execution as module
+
+    raw = '{"observation_nodes": [], "private": "PRIVATE_RESPONSE"}'
+    engine = Engine(TextResult(text=raw, observation=deepseek_observation()))
+    client = BoundedRecapPassClient(
+        RecapExecutionLimits(provider="openrouter", model=DEEPSEEK_MODEL),
+        engine_factory=lambda: engine,
+    )
+    error = (
+        SchemaError("synthetic invalid configured schema")
+        if error_type == "schema_error"
+        else RuntimeError("synthetic validator fault")
+    )
+
+    def fail_validator(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr(module, "validate_json_schema", fail_validator)
+    with pytest.raises(CategoryGraphExtractionError) as caught:
+        invoke(client, DEEPSEEK_MODEL)
+    assert caught.value.raw_model_response is None
+    assert client.ledger()["stopped"] is True
+    assert client.calls[0]["consumer_failure"] == type(error).__name__
+    assert "validation_failure" not in client.calls[0]
+    assert "PRIVATE_RESPONSE" not in json.dumps(client.ledger())
+    with pytest.raises(CategoryGraphExtractionError):
+        invoke(client, DEEPSEEK_MODEL)
+    assert len(engine.requests) == 1 and engine.closed == 1
+
+
 def test_deepseek_requires_credential_without_provider_call(monkeypatch):
     from src.graph_memory.extraction import bounded_recap_execution as module
 
