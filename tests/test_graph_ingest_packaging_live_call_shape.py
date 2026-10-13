@@ -277,44 +277,11 @@ def test_bounded_schema_failure_packages_private_raw_response_and_safe_ledger(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The owning packaging boundary retains a rejected GE response, not a candidate."""
-    from generationengine.observation import InferenceObservation, ObservationState
-    from generationengine.types import TextResult
-
-    from src.graph_memory.extraction.bounded_recap_execution import (
-        BoundedRecapPassClient,
-        DEEPSEEK_MODEL,
-        RecapExecutionLimits,
-    )
+    from src.graph_memory.extraction.bounded_recap_execution import DEEPSEEK_MODEL
+    from tests.test_recap_inference_worker import build_client
 
     raw = '{"observation_nodes": "PRIVATE_INVALID_RESPONSE"}'
-    observation = InferenceObservation(
-        provider="openrouter",
-        requested_model=DEEPSEEK_MODEL,
-        resolved_model=DEEPSEEK_MODEL,
-        response_model=DEEPSEEK_MODEL,
-        provider_attempt_count=1,
-        retry_count=0,
-        latency_ms=12,
-        state=ObservationState.COMPLETED,
-    )
-
-    class Engine:
-        def __init__(self):
-            self.requests = []
-            self.closed = 0
-
-        async def generate_text(self, request):
-            self.requests.append(request)
-            return TextResult(text=raw, observation=observation)
-
-        async def aclose(self):
-            self.closed += 1
-
-    engine = Engine()
-    bounded = BoundedRecapPassClient(
-        RecapExecutionLimits(provider="openrouter", model=DEEPSEEK_MODEL),
-        engine_factory=lambda: engine,
-    )
+    bounded, engine = build_client(raw=raw, budget=5000)
     monkeypatch.chdir(tmp_path)
     source = tmp_path / "recap.md"
     source.write_text(RECAP_PATH.read_text())
@@ -338,7 +305,7 @@ def test_bounded_schema_failure_packages_private_raw_response_and_safe_ledger(
     assert artifact["sha256"] == f"sha256:{_sha256_file(raw_path)}"
     assert _sha256_file(raw_path) == hashlib.sha256(raw.encode()).hexdigest()
     assert manifest["diagnostics"]["extraction_mode"] == "llm_blocked"
-    assert len(engine.requests) == 1 and engine.closed == 1
+    assert engine.calls.value == 1 and engine.closed.value == 1
     assert bounded.ledger()["stopped"] is True
     ledger = json.dumps(bounded.ledger())
     assert "PRIVATE_INVALID_RESPONSE" not in ledger
