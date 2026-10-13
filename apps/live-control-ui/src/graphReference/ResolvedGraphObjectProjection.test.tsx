@@ -130,7 +130,7 @@ describe("ResolvedGraphObjectProjection partial completeness", () => {
       campaignScope: "longmont-c1",
       visibility: "gm",
       epistemicKind: "fact",
-      temporalScope: { schema_version: "dm_temporal_scope_ref_v1", kind: "evergreen" },
+      temporalScope: { schema_version: "dm_temporal_scope_ref_v1", kind: "world_timeless" },
     };
     vi.mocked(liveApi.postWorldGraphCompleteObject).mockResolvedValue({
       ...completeObject("complete"),
@@ -148,7 +148,16 @@ describe("ResolvedGraphObjectProjection partial completeness", () => {
           sourceRevisionId: "sha256:2",
           evidenceRefIds: ["evidence:2"],
           campaignScope: "longmont-c2",
-          temporalScope: { schema_version: "dm_temporal_scope_ref_v1", kind: "fictional_time_ref", fictional_time_ref: "after-the-attack" },
+          temporalScope: {
+            schema_version: "dm_temporal_scope_ref_v1",
+            kind: "fictional_time_ref",
+            fictional_time_ref: {
+              schema_version: "dm_fictional_time_anchor_ref_v1",
+              bundle_id: "bundle:after-attack",
+              campaign_id: "longmont-c2",
+              anchor_id: "anchor:aftermath",
+            },
+          },
         },
       ],
       coverageGapCodes: [],
@@ -165,7 +174,7 @@ describe("ResolvedGraphObjectProjection partial completeness", () => {
     expect(within(notes).getByText("The gate was crowded after the attack.")).toBeVisible();
     expect(within(notes).getAllByText("Source: Session recap · Session 20")).toHaveLength(2);
     expect(within(notes).getByText("Applies: Evergreen")).toBeVisible();
-    expect(within(notes).getByText("Fictional time: after-the-attack")).toBeVisible();
+    expect(within(notes).getByText("Fictional time reference")).toBeVisible();
     expect(within(notes).getByText("· C1")).toBeVisible();
     expect(within(notes).getByText("· C2")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Read source" })).not.toBeInTheDocument();
@@ -174,6 +183,8 @@ describe("ResolvedGraphObjectProjection partial completeness", () => {
     await userEvent.setup().click(sourceDetails[0]);
     expect(within(notes).getByText("review:1")).toBeVisible();
     expect(within(notes).getByText("assertion:1")).toBeVisible();
+    await userEvent.setup().click(sourceDetails[1]);
+    expect(within(notes).getByText(/"anchor_id":"anchor:aftermath"/)).toBeVisible();
   });
 
   it("keeps long reviewed text available and reports source coverage gaps without exposing raw IDs by default", async () => {
