@@ -191,6 +191,7 @@ class RecapExecutionLimits:
     per_call_deadline_ms: int = 60_000
     run_deadline_ms: int = 480_000
     max_output_tokens: int = 8192
+    edge_max_output_tokens: int | None = None
 
     def __post_init__(self) -> None:
         if (self.provider, self.model) not in {
@@ -207,6 +208,11 @@ class RecapExecutionLimits:
             value = getattr(self, name)
             if type(value) is not int or not 1 <= value <= ceiling:
                 raise ValueError(f"{name} must be 1..{ceiling}")
+        if self.edge_max_output_tokens is not None and (
+            type(self.edge_max_output_tokens) is not int
+            or not 1 <= self.edge_max_output_tokens <= 16_384
+        ):
+            raise ValueError("edge_max_output_tokens must be None or an int in 1..16384")
 
 
 def _default_engine_for(provider: str):
@@ -328,7 +334,13 @@ class BoundedRecapPassClient:
             "model": self.limits.model,
             "temperature": None,
             "max_transport_retries": 0,
-            "max_output_tokens": self.limits.max_output_tokens,
+            "max_output_tokens": (
+                self.limits.edge_max_output_tokens
+                if pass_spec is not None
+                and getattr(pass_spec, "kind", None) == "edge"
+                and self.limits.edge_max_output_tokens is not None
+                else self.limits.max_output_tokens
+            ),
             "deadline_ms": min(remaining, self.limits.per_call_deadline_ms),
         }
         if deepseek:
