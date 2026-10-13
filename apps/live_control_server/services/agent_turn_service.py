@@ -4631,14 +4631,27 @@ def execute_agent_turn(
     context_assembly_span = trace.start_phase("context_assembly")
     context_assembly_status = "ok"
     try:
-        pointer = pointer_store.resolve_structured_for_request(
-            owner_kind=pointer_owner_kind,
-            owner_id=pointer_owner_id,
-            work_kind=pointer_work_kind,
-            work_id=pointer_work_id,
-            agent_thread_id=pointer_thread_id,
-            pointer_id=None,
-        )
+        if (
+            request.plan_context_policy is not None
+            and policy_conversation_id is None
+        ):
+            # A new World conversation has no canonical segment key yet. Do
+            # not fall back to the legacy Plan/client-thread binding: it may
+            # belong to an unrelated conversation and leak into this Ask.
+            pointer = HermesStructuredPointerResolution(
+                continuity_session_id=None,
+                pointer_status="absent",
+                pointer_in_request=False,
+            )
+        else:
+            pointer = pointer_store.resolve_structured_for_request(
+                owner_kind=pointer_owner_kind,
+                owner_id=pointer_owner_id,
+                work_kind=pointer_work_kind,
+                work_id=pointer_work_id,
+                agent_thread_id=pointer_thread_id,
+                pointer_id=None,
+            )
         if pointer.pointer_status == "rejected" and plan_continuity:
             if running_turn is not None and conversation_service is not None:
                 conversation_service.fail_turn(

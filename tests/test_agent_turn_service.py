@@ -3191,10 +3191,11 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
             self.final_text = final_text
 
         def run_with_provider_authorization(
-            self, _invocation: Any, authorize: Any, *, request_budget: Any,
+            self, invocation: Any, authorize: Any, *, request_budget: Any,
             on_graph_operation: Any, on_provider_lifecycle: Any,
             context_read_enabled: bool = False,
         ) -> AgentRuntimeResult:
+            assert invocation.run_options.runtime_session_id is None
             assert context_read_enabled is True
             assert callable(on_graph_operation)
             adjusted = dict(view)
@@ -3359,10 +3360,20 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
 
     fake = FakeExecutionPort()
 
+    pointer_store = HermesSessionPointerStore(
+        Path("/tmp") / f"plan-policy-{uuid4()}"
+    )
+    pointer_store.upsert_structured_after_turn(
+        owner_kind="world", owner_id="world:one",
+        work_kind="plan", work_id="plan:one",
+        agent_thread_id=request.client_thread_id,
+        hermes_session_id="legacy-unrelated-plan-session",
+    )
+
     response = execute_agent_turn(
         request,
         root=Path("/tmp"),
-        pointer_store=HermesSessionPointerStore(Path("/tmp") / f"plan-policy-{uuid4()}"),
+        pointer_store=pointer_store,
         owner_resolver=lambda _request: {
             "kind": "world", "id": "world:one", "name": "World One",
         },
