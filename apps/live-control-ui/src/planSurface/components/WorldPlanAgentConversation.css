@@ -255,17 +255,6 @@
   color: var(--ui-text-secondary, #b8c0ce);
 }
 
-.world-plan-agent-conversation__source-status {
-  flex: 0 1 100%;
-  color: var(--ui-text-secondary, #b8c0ce);
-}
-
-.world-plan-agent-conversation__source-status > summary {
-  width: fit-content;
-  cursor: pointer;
-}
-
-.world-plan-agent-conversation__source-status p,
 .world-plan-agent-conversation__source-passage p {
   margin: 0 0 0.4rem;
 }
@@ -282,6 +271,174 @@
   color: #342c20;
   line-height: 1.65;
   font-size: 1rem;
+}
+
+.world-plan-agent-conversation__evidence-trail {
+  min-inline-size: 0;
+  margin-block-start: 0.75rem;
+  border: 1px solid #46596b;
+  border-radius: 0.8rem;
+  background: #172330;
+  color: #eef2f7;
+  overflow: hidden;
+}
+
+.world-plan-agent-conversation__evidence-trail > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-block-size: 2.8rem;
+  padding: 0.6rem 0.85rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.world-plan-agent-conversation__evidence-trail > summary::-webkit-details-marker { display: none; }
+.world-plan-agent-conversation__evidence-trail > summary::marker { content: ""; }
+.world-plan-agent-conversation__evidence-trail > summary:hover { background: #202f3d; }
+.world-plan-agent-conversation__evidence-trail > summary:focus-visible { outline: 2px solid #efbc5b; outline-offset: -3px; }
+
+.world-plan-agent-conversation__evidence-trail-title {
+  flex: none;
+  color: #f2d08b;
+  font-size: 0.75rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.world-plan-agent-conversation__evidence-trail-summary {
+  min-inline-size: 0;
+  color: #bdcad5;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.world-plan-agent-conversation__evidence-trail-caret {
+  flex: none;
+  margin-inline-start: auto;
+  color: #dce4ea;
+  font-size: 1.1rem;
+  transition: transform 120ms ease;
+}
+
+.world-plan-agent-conversation__evidence-trail[open] > summary { border-bottom: 1px solid #34485a; }
+.world-plan-agent-conversation__evidence-trail[open] .world-plan-agent-conversation__evidence-trail-caret { transform: rotate(180deg); }
+
+.world-plan-agent-conversation__evidence-trail-content {
+  display: grid;
+  gap: 0.8rem;
+  padding: 0.85rem;
+}
+
+.world-plan-agent-conversation__evidence-intro,
+.world-plan-agent-conversation__evidence-note {
+  margin: 0;
+  color: #bdcad5;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.world-plan-agent-conversation__evidence-claim {
+  min-inline-size: 0;
+  padding: 0.85rem;
+  border: 1px solid #394d60;
+  border-radius: 0.7rem;
+  background: #1d2a38;
+}
+
+.world-plan-agent-conversation__evidence-claim-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  color: #e2c27b;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.world-plan-agent-conversation__evidence-claim-header > span + span {
+  padding: 0.18rem 0.42rem;
+  border: 1px solid #526779;
+  border-radius: 999px;
+  color: #c6d3dd;
+  font-size: 0.65rem;
+  letter-spacing: 0.02em;
+}
+
+.world-plan-agent-conversation__evidence-claim blockquote {
+  margin: 0.55rem 0 0.75rem;
+  color: #f4f6f8;
+  font-size: 0.96rem;
+  line-height: 1.5;
+}
+
+.world-plan-agent-conversation__evidence-claim .world-plan-agent-conversation__evidence-note + .world-plan-agent-conversation__source-choices,
+.world-plan-agent-conversation__evidence-claim blockquote + .world-plan-agent-conversation__evidence-note {
+  margin-block-start: 0.55rem;
+}
+
+.world-plan-agent-conversation__source-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+  gap: 0.55rem;
+  margin-block-start: 0.65rem;
+}
+
+.world-plan-agent-conversation__source-choice {
+  display: grid;
+  align-content: start;
+  gap: 0.3rem;
+  min-inline-size: 0;
+  min-block-size: 5rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #53697c;
+  border-radius: 0.65rem;
+  background: #263748;
+  color: #f2f5f8;
+  text-align: start;
+  white-space: normal;
+  transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
+}
+
+.world-plan-agent-conversation__source-choice:hover { border-color: #d9b466; background: #30463f; transform: translateY(-1px); }
+.world-plan-agent-conversation__source-choice:focus-visible { outline: 2px solid #efbc5b; outline-offset: 2px; }
+.world-plan-agent-conversation__source-choice-kind { color: #c2d0da; font-size: 0.7rem; }
+.world-plan-agent-conversation__source-choice strong { overflow-wrap: anywhere; font-size: 0.9rem; line-height: 1.3; }
+.world-plan-agent-conversation__source-choice > span:last-child { color: #f0cf89; font-size: 0.76rem; }
+
+.world-plan-agent-conversation__source-choices > .world-plan-agent-conversation__source-more {
+  align-self: center;
+  grid-column: 1 / -1;
+  color: #c2d0da;
+  font-size: 0.8rem;
+}
+
+.world-plan-agent-conversation__source-choices > .world-plan-agent-conversation__source-more > summary { width: fit-content; cursor: pointer; }
+
+.world-plan-agent-conversation__source-more > div { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: 0.55rem; margin-block-start: 0.55rem; }
+
+.world-plan-agent-conversation__evidence-claim .world-plan-agent-conversation__source-reader {
+  max-inline-size: none;
+  margin-block-start: 0.75rem;
+  border-color: #a18c68;
+  box-shadow: 0 12px 28px #0004;
+}
+
+.world-plan-agent-conversation__evidence-claim .world-plan-agent-conversation__source-reader > [role="status"],
+.world-plan-agent-conversation__evidence-claim .world-plan-agent-conversation__source-reader > [role="alert"] {
+  margin: 0;
+  padding: 0.8rem 1rem;
+}
+
+@media (max-width: 520px) {
+  .world-plan-agent-conversation__evidence-trail > summary { align-items: flex-start; gap: 0.45rem; }
+  .world-plan-agent-conversation__evidence-trail-title { flex: none; }
+  .world-plan-agent-conversation__evidence-trail-summary { font-size: 0.75rem; }
+  .world-plan-agent-conversation__evidence-trail-content { padding: 0.65rem; }
+  .world-plan-agent-conversation__evidence-claim { padding: 0.7rem; }
 }
 
 .world-plan-agent-conversation__graph-context p {
@@ -839,6 +996,16 @@
   font-size: 0.76rem;
 }
 
+.world-plan-agent-conversation__turn-debug {
+  display: flex;
+  justify-content: flex-end;
+  margin-block-start: 0.2rem;
+}
+
+.world-plan-agent-conversation__turn-details[open] {
+  inline-size: min(100%, 48rem);
+}
+
 .world-plan-agent-conversation__turn-details > summary,
 .world-plan-agent-conversation__earlier > summary,
 .world-plan-agent-conversation__local-activity > summary,
@@ -846,6 +1013,10 @@
   width: fit-content;
   max-inline-size: 100%;
   cursor: pointer;
+}
+
+.world-plan-agent-conversation__turn-details > summary {
+  margin-inline-start: auto;
 }
 
 .world-plan-agent-conversation__turn-details > p {

@@ -3971,97 +3971,126 @@ export function WorldPlanAgentConversation({
 
   function renderSourceActions(turn: WorldAgentConversationHistoryTurn) {
     const targets = "plan_context" in turn ? turn.plan_context?.source_open_targets ?? [] : [];
-    const recapUnavailable = "plan_context" in turn
-      ? turn.plan_context?.related_recap_context_statuses?.filter((row) =>
-        row.status === "no_context" || row.status === "metadata_unavailable") ?? []
-      : [];
-    const evidenceUnavailable = "plan_context" in turn
-      ? turn.plan_context?.evidence_anchor_statuses?.filter((row) => row.status === "no_anchor") ?? []
-      : [];
-    const evidenceLimited = "plan_context" in turn
-      ? turn.plan_context?.evidence_anchor_statuses?.some((row) => row.status === "partial" || row.status === "overflow") ?? false
-      : false;
-    const recapLimited = "plan_context" in turn
-      ? turn.plan_context?.related_recap_context_statuses?.some((row) => row.status === "partial" || row.status === "overflow") ?? false
-      : false;
-    if (targets.length === 0 && recapUnavailable.length === 0 && evidenceUnavailable.length === 0
-      && !evidenceLimited && !recapLimited) return null;
-    const claims = "plan_context" in turn
-      ? turn.plan_context?.completion?.answer_segments.filter((segment) => segment.kind === "graph_claim") ?? []
-      : [];
-    const activeTarget = targets.find((target) => sourcePassage?.turnId === turn.turn_id
-      && sourcePassage.claimId === target.claim_id
-      && sourcePassage.targetId === (target.kind === "evidence_anchor" ? target.anchor_id : target.context_anchor_id));
-    const renderTarget = (target: WorldPlanSourceOpenTargetV2) => {
-        const targetId = target.kind === "evidence_anchor" ? target.anchor_id : target.context_anchor_id;
-        const point = claims.findIndex((claim) => claim.claim_id === target.claim_id) + 1;
-        const relatedChoices = target.kind === "related_recap_context"
-          ? targets.filter((candidate) => candidate.kind === "related_recap_context" && candidate.claim_id === target.claim_id).length
-          : 0;
-        const evidenceChoices = target.kind === "evidence_anchor"
-          ? targets.filter((candidate) => candidate.kind === "evidence_anchor" && candidate.claim_id === target.claim_id)
-          : [];
-        const evidenceNumber = target.kind === "evidence_anchor"
-          ? evidenceChoices.findIndex((candidate) => candidate.kind === "evidence_anchor" && candidate.anchor_id === target.anchor_id) + 1
-          : 0;
-        return <div key={`${target.kind}-${target.claim_id}-${targetId}`} className="world-plan-agent-conversation__source-action">
-          {claims.length > 1 ? <span className="world-plan-agent-conversation__source-actions-label">Point {point} · </span> : null}
-          <button type="button" title={target.kind === "related_recap_context" ? target.source_uri : undefined}
-            aria-label={claims.length > 1
-            ? `${target.kind === "evidence_anchor" ? "Open evidence" : "Open related recap context"} for point ${point}${relatedChoices > 1 && target.kind === "related_recap_context" ? ` · ${target.canonical_heading}` : ""}${evidenceChoices.length > 1 ? ` · ${evidenceNumber} of ${evidenceChoices.length}` : ""}`
-            : undefined} onClick={() => { void openSourcePassage(turn, target); }}>
-            {target.kind === "evidence_anchor" ? evidenceChoices.length > 1
-              ? `Open evidence · ${evidenceNumber} of ${evidenceChoices.length}` : "Open evidence"
-              : relatedChoices > 1 ? `Open related recap context · ${target.canonical_heading}` : "Open related recap context"}
-          </button>
-        </div>;
-    };
+    const planContext = "plan_context" in turn ? turn.plan_context : null;
+    const claims = planContext?.completion?.answer_segments.filter((segment) => segment.kind === "graph_claim") ?? [];
+    const citations = planContext?.completion?.citation_map?.entries ?? [];
+    const citationByClaim = new Map(citations.map((citation) => [citation.claim_id, citation]));
+    const evidenceStatuses = planContext?.evidence_anchor_statuses ?? [];
+    const recapStatuses = planContext?.related_recap_context_statuses ?? [];
+    if (targets.length === 0 && evidenceStatuses.length === 0 && recapStatuses.length === 0 && claims.length === 0) return null;
+
     const evidenceCount = targets.filter((target) => target.kind === "evidence_anchor").length;
     const recapCount = targets.length - evidenceCount;
-    return <section className="world-plan-agent-conversation__source-actions" aria-label="Sources for this answer">
-      <span className="world-plan-agent-conversation__source-actions-label">Cited sources · {evidenceCount} evidence {evidenceCount === 1 ? "passage" : "passages"}{recapCount ? ` · ${recapCount} related recap ${recapCount === 1 ? "passage" : "passages"}` : ""}</span>
-      {targets.slice(0, 3).map(renderTarget)}
-      {targets.length > 3 ? <details className="world-plan-agent-conversation__source-more">
-        <summary>{targets.length - 3} more source choice{targets.length - 3 === 1 ? "" : "s"}</summary>
-        <div>{targets.slice(3).map(renderTarget)}</div>
-      </details> : null}
-      {activeTarget && sourcePassage ? <div className="world-plan-agent-conversation__source-reader">
-        <div className="world-plan-agent-conversation__source-reader-header">
-          <div><span className="world-plan-agent-conversation__source-reader-eyebrow">Pinned source · {activeTarget.kind === "evidence_anchor" ? "Graph evidence" : "Related recap"}</span>
-            <strong>{activeTarget.kind === "related_recap_context" ? activeTarget.canonical_heading : "Passage supporting this answer"}</strong></div>
-          <button type="button" onClick={() => { sourceReadEpochRef.current += 1; setSourcePassage(null); }} aria-label="Close passage" title="Close passage">×</button>
+    const referenceCount = citations.reduce((count, citation) => count + citation.evidence_ref_ids.length, 0);
+    const summary = [
+      `${claims.length} ${claims.length === 1 ? "claim" : "claims"}`,
+      `${referenceCount} cited Graph ${referenceCount === 1 ? "reference" : "references"}`,
+      `${evidenceCount} Graph source ${evidenceCount === 1 ? "passage" : "passages"}`,
+      ...(recapCount ? [`${recapCount} related recap ${recapCount === 1 ? "passage" : "passages"}`] : []),
+    ].join(" · ");
+
+    const renderTarget = (target: WorldPlanSourceOpenTargetV2) => {
+      const targetId = target.kind === "evidence_anchor" ? target.anchor_id : target.context_anchor_id;
+      const evidenceChoices = target.kind === "evidence_anchor"
+        ? targets.filter((candidate) => candidate.kind === "evidence_anchor" && candidate.claim_id === target.claim_id)
+        : [];
+      const evidenceNumber = target.kind === "evidence_anchor"
+        ? evidenceChoices.findIndex((candidate) => candidate.kind === "evidence_anchor" && candidate.anchor_id === target.anchor_id) + 1
+        : 0;
+      const heading = target.kind === "related_recap_context"
+        ? target.canonical_heading.replace(/^#{1,6}\s*/, "") || `Session ${target.expected_session_id} recap`
+        : "";
+      const label = target.kind === "evidence_anchor"
+        ? evidenceChoices.length > 1 ? `Evidence passage ${evidenceNumber}` : "Evidence passage"
+        : heading;
+      const relatedChoices = target.kind === "related_recap_context"
+        ? targets.filter((candidate) => candidate.kind === "related_recap_context" && candidate.claim_id === target.claim_id).length
+        : 0;
+      const ariaLabel = target.kind === "evidence_anchor"
+        ? evidenceChoices.length > 1 ? `Open evidence passage ${evidenceNumber}` : "Open evidence"
+        : relatedChoices > 1
+          ? `Open related recap context · ${heading}`
+          : "Open related recap context";
+      return <button key={`${target.kind}-${target.claim_id}-${targetId}`} type="button"
+        className="world-plan-agent-conversation__source-choice"
+        aria-label={ariaLabel} title={target.kind === "related_recap_context" ? target.source_uri : undefined}
+        onClick={() => { void openSourcePassage(turn, target); }}>
+        <span className="world-plan-agent-conversation__source-choice-kind">
+          {target.kind === "evidence_anchor" ? "Graph evidence" : `Session ${target.expected_session_id} recap`}
+        </span>
+        <strong>{label}</strong>
+        <span>Read source passage <span aria-hidden="true">→</span></span>
+      </button>;
+    };
+
+    return <details className="world-plan-agent-conversation__evidence-trail">
+      <summary aria-label={`Explore evidence for this answer: ${summary}`}>
+        <span className="world-plan-agent-conversation__evidence-trail-title">Evidence trail</span>
+        <span className="world-plan-agent-conversation__evidence-trail-summary">{summary}</span>
+        <span className="world-plan-agent-conversation__evidence-trail-caret" aria-hidden="true">⌄</span>
+      </summary>
+      <div className="world-plan-agent-conversation__evidence-trail-content">
+        <div className="world-plan-agent-conversation__evidence-intro">
+          Claims cited in this answer and the source passages you can inspect. The loaded World graph is a separate view.
         </div>
-        {sourcePassage.status === "loading" ? <p role="status">Opening pinned source…</p> : null}
-        {sourcePassage.status === "unavailable" ? <p role="alert">{sourcePassage.message}</p> : null}
-        {sourcePassage.status === "open" ? <div className="world-plan-agent-conversation__source-passage"
-          role="region" aria-label={activeTarget.kind === "evidence_anchor" ? "Evidence passage" : "Related recap context passage"}>
-          {sourcePassage.partial ? <p role="note">Partial passage. More source text may be available.</p> : null}
-          {sourcePassage.content}
-          {activeTarget.kind === "related_recap_context" && sourcePassage.page?.nextContinuation
-            ? <button type="button" disabled={sourcePassage.loadingMore} onClick={() => { void openSourcePassage(turn, activeTarget, true); }}>
-              {sourcePassage.loadingMore ? "Loading more…" : "Load more context"}
-            </button> : null}
-        </div> : null}
-      </div> : null}
-      {evidenceLimited ? <p role="note">Some evidence passage choices could not be offered. Shown links remain pinned.</p> : null}
-      {recapLimited ? <p role="note">Some related recap choices could not be offered. Shown links remain pinned.</p> : null}
-      {evidenceUnavailable.length > 0 ? <details className="world-plan-agent-conversation__source-status">
-        <summary>Evidence source status</summary>
-        {evidenceUnavailable.map((row) => {
-          const point = claims.findIndex((claim) => claim.claim_id === row.claim_id) + 1;
-          return <p key={row.claim_id}>{claims.length > 1 ? `Point ${point}: ` : ""}No readable evidence anchor is available for this cited point.</p>;
+        {claims.map((claim, index) => {
+          const citation = citationByClaim.get(claim.claim_id);
+          const claimTargets = targets.filter((target) => target.claim_id === claim.claim_id);
+          const evidenceChoices = claimTargets.filter((target) => target.kind === "evidence_anchor");
+          const evidenceStatus = evidenceStatuses.find((row) => row.claim_id === claim.claim_id);
+          const recapStatus = recapStatuses.find((row) => row.claim_id === claim.claim_id);
+          const activeTarget = claimTargets.find((target) => sourcePassage?.turnId === turn.turn_id
+            && sourcePassage.claimId === target.claim_id
+            && sourcePassage.targetId === (target.kind === "evidence_anchor" ? target.anchor_id : target.context_anchor_id));
+          const overflowTargets = claimTargets.slice(3);
+          return <div key={`${turn.turn_id}-evidence-claim-${claim.claim_id}`} className="world-plan-agent-conversation__evidence-claim">
+            <header className="world-plan-agent-conversation__evidence-claim-header">
+              <span>{claims.length > 1 ? `Claim ${index + 1}` : "Evidence for this answer"}</span>
+              {citation ? <span>{citation.target_kind === "relationship" ? "Graph relationship" : "Graph fact"}</span> : null}
+            </header>
+            {claims.length > 1 ? <blockquote>{claim.text}</blockquote> : null}
+            {citation?.source_opened ? <p className="world-plan-agent-conversation__evidence-note">Buddy opened a source passage for this claim.</p> : null}
+            {citation && claimTargets.length === 0 && evidenceStatus?.status !== "no_anchor" ? (
+              <p className="world-plan-agent-conversation__evidence-note">{citation.evidence_ref_ids.length} Graph {citation.evidence_ref_ids.length === 1 ? "reference was" : "references were"} cited; no readable passage link was saved with this answer.</p>
+            ) : null}
+            {claimTargets.length > 0 ? <div className="world-plan-agent-conversation__source-choices">
+              {claimTargets.slice(0, 3).map(renderTarget)}
+              {overflowTargets.length ? <details className="world-plan-agent-conversation__source-more">
+                <summary>Show {overflowTargets.length} more passage{overflowTargets.length === 1 ? "" : "s"}</summary>
+                <div>{overflowTargets.map(renderTarget)}</div>
+              </details> : null}
+            </div> : null}
+            {evidenceStatus?.status === "no_anchor" ? <p className="world-plan-agent-conversation__evidence-note">No readable Graph source passage is available for this claim.</p> : null}
+            {evidenceStatus && ["partial", "overflow"].includes(evidenceStatus.status)
+              ? <p className="world-plan-agent-conversation__evidence-note">Some Graph passages could not be shown. Available passages are listed above.</p> : null}
+            {recapStatus?.status === "no_context" ? <p className="world-plan-agent-conversation__evidence-note">No related recap passage matched this claim.</p> : null}
+            {recapStatus?.status === "metadata_unavailable" ? <p className="world-plan-agent-conversation__evidence-note">Related recap details could not be checked for this claim.</p> : null}
+            {recapStatus && ["partial", "overflow"].includes(recapStatus.status)
+              ? <p className="world-plan-agent-conversation__evidence-note">Some related recap passages could not be shown. Available passages are listed above.</p> : null}
+            {activeTarget && sourcePassage ? <section className="world-plan-agent-conversation__source-reader">
+              <header className="world-plan-agent-conversation__source-reader-header">
+                <div><span className="world-plan-agent-conversation__source-reader-eyebrow">{activeTarget.kind === "evidence_anchor" ? "Graph evidence" : `Session ${activeTarget.expected_session_id} recap`}</span>
+                  <strong>{activeTarget.kind === "related_recap_context"
+                    ? activeTarget.canonical_heading.replace(/^#{1,6}\s*/, "") || `Session ${activeTarget.expected_session_id} recap`
+                    : `Evidence passage${evidenceChoices.length > 1 ? ` ${evidenceChoices.findIndex((target) => target.kind === "evidence_anchor" && target.anchor_id === activeTarget.anchor_id) + 1}` : ""} supporting this claim`}</strong></div>
+                <button type="button" onClick={() => { sourceReadEpochRef.current += 1; setSourcePassage(null); }} aria-label="Close passage" title="Close passage">×</button>
+              </header>
+              {sourcePassage.status === "loading" ? <p role="status">Opening pinned source…</p> : null}
+              {sourcePassage.status === "unavailable" ? <p role="alert">{sourcePassage.message}</p> : null}
+              {sourcePassage.status === "open" ? <div className="world-plan-agent-conversation__source-passage"
+                role="region" aria-label={activeTarget.kind === "evidence_anchor" ? "Evidence passage" : "Related recap context passage"}>
+                {sourcePassage.partial ? <p role="note">Partial passage. More source text may be available.</p> : null}
+                {sourcePassage.content}
+                {activeTarget.kind === "related_recap_context" && sourcePassage.page?.nextContinuation
+                  ? <button type="button" disabled={sourcePassage.loadingMore} onClick={() => { void openSourcePassage(turn, activeTarget, true); }}>
+                    {sourcePassage.loadingMore ? "Loading more…" : "Load more context"}
+                  </button> : null}
+              </div> : null}
+            </section> : null}
+          </div>;
         })}
-      </details> : null}
-      {recapUnavailable.length > 0 ? <details className="world-plan-agent-conversation__source-status">
-        <summary>Related recap context status</summary>
-        {recapUnavailable.map((row) => {
-          const point = claims.findIndex((claim) => claim.claim_id === row.claim_id) + 1;
-          return <p key={row.claim_id}>{claims.length > 1 ? `Point ${point}: ` : ""}{row.status === "no_context"
-            ? "No related recap passage matches this cited point."
-            : "Some related recap metadata could not be checked for this cited point."}</p>;
-        })}
-      </details> : null}
-    </section>;
+      </div>
+    </details>;
   }
 
   function renderGraphContextHistory(turn: WorldAgentConversationHistoryTurn) {
@@ -4684,6 +4713,8 @@ export function WorldPlanAgentConversation({
   })();
   const authorizationBlocked = [historyError, error, editError].some((message) =>
     message?.includes("local Agent and Graph session is missing or was rejected"));
+  const hasUncertainGraphNotice = Boolean(uncertainPlanNoticeRef.current
+    && error === uncertainPlanNoticeRef.current.message);
   const pendingGraphAsk = pendingAsks.some((item) => item.envelope?.request.plan_context_policy);
   const savedAskRecords = pendingAsks.filter((item): item is StoredPendingAsk & { envelope: WorldPlanPendingAskEnvelope } =>
     item.envelope !== null);
@@ -4847,6 +4878,9 @@ export function WorldPlanAgentConversation({
     const failed = isHistoryTurnFailureConfirmed(turn.turn_id) || isWorldHistoryTurnFailed(turn.turn_id)
       || turn.lifecycle_status === "failed";
     const interrupted = turn.lifecycle_status === "interrupted";
+    const deliveryDiagnostic = uncertainPlanNoticeRef.current?.turnId === turn.turn_id
+      ? uncertainPlanNoticeRef.current.message
+      : null;
     const targetReceipt = historyTurnPlayableTargetLabel(turn);
     const rawHistoricalCardKind = turn.provenance.supporting_work
       .find((reference) => reference.kind === "dmb_plan_playable_target_v1")?.object_id?.split(":", 1)[0] ?? null;
@@ -4885,25 +4919,26 @@ export function WorldPlanAgentConversation({
             />
             {renderSourceActions(turn)}
           </div>
-        ) : (
+        ) : failed || interrupted ? (
           <p className="world-plan-agent-conversation__turn-status" role="status">
             {failed
               ? turn.provenance.surface_id === "play" ? "Buddy couldn’t finish this reply. No Run change was applied." : "Buddy couldn’t finish this reply. Your Plan was not changed."
-              : interrupted
-                ? turn.provenance.surface_id === "play" ? "This reply stopped before it finished. No Run change was applied." : "This reply stopped before it finished. Your Plan was not changed."
-                : "Buddy is working on this reply…"}
+              : turn.provenance.surface_id === "play" ? "This reply stopped before it finished. No Run change was applied." : "This reply stopped before it finished. Your Plan was not changed."}
           </p>
-        )}
-        <details className="world-plan-agent-conversation__turn-details">
-          <summary>{failed || interrupted ? "Why this reply stopped" : "Details"}</summary>
-          <p className="world-plan-agent-conversation__context">
-            Turn {turn.sequence} · {turn.lifecycle_status} · {historyTurnProvenanceLabel(turn)}
-          </p>
-          {targetReceipt ? (
-            <p role={targetReceipt.startsWith("Target receipt unavailable") ? "alert" : "note"}>{targetReceipt}</p>
-          ) : null}
-          {renderGraphContextHistory(turn)}
-        </details>
+        ) : null}
+        <div className="world-plan-agent-conversation__turn-debug">
+          <details className="world-plan-agent-conversation__turn-details">
+            <summary>Debug</summary>
+            <p className="world-plan-agent-conversation__context">
+              Turn {turn.sequence} · {turn.lifecycle_status} · {historyTurnProvenanceLabel(turn)}
+            </p>
+            {deliveryDiagnostic ? <p className="world-plan-agent-conversation__context">Delivery · {deliveryDiagnostic}</p> : null}
+            {targetReceipt ? (
+              <p role={targetReceipt.startsWith("Target receipt unavailable") ? "alert" : "note"}>{targetReceipt}</p>
+            ) : null}
+            {renderGraphContextHistory(turn)}
+          </details>
+        </div>
       </article>
     );
   };
@@ -5312,9 +5347,18 @@ export function WorldPlanAgentConversation({
             ? (submittedMessage.pointerRevision === (history?.pointer_revision ?? null))
             : submittedMessage.conversationId === history?.conversation_id)
           && !history?.turns.some((turn) => turn.turn_id === submittedMessage.id) ? (
-          <article aria-label="Submitted message awaiting confirmation">
+          <article aria-label="Submitted message">
             <p><strong>You:</strong> {submittedMessage.message}</p>
-            <p role="status">{sending || composing ? "Waiting for Buddy…" : "Checking whether Buddy received this message…"}</p>
+            {uncertainPlanNoticeRef.current?.turnId === submittedMessage.id ? (
+              <div className="world-plan-agent-conversation__turn-debug">
+                <details className="world-plan-agent-conversation__turn-details">
+                  <summary>Debug</summary>
+                  <p className="world-plan-agent-conversation__context">
+                    Delivery · {uncertainPlanNoticeRef.current.message}
+                  </p>
+                </details>
+              </div>
+            ) : null}
           </article>
         ) : null}
         {conversationNotice ? <p role="status">{conversationNotice}</p> : null}
@@ -5417,7 +5461,7 @@ export function WorldPlanAgentConversation({
         {messageTooLong ? <p role="alert">{!isPlay && detectedComposerIntent === "propose"
           ? "Changes can be up to 4,000 characters. Shorten this request to continue."
           : "Questions can be up to 8,000 characters. Shorten this message to continue."}</p> : null}
-        {error && !authorizationBlocked ? <p role="alert">{error}</p> : null}
+        {error && !authorizationBlocked && !hasUncertainGraphNotice ? <p role="alert">{error}</p> : null}
         {editError && !authorizationBlocked ? <p role="alert">{editError}</p> : null}
         {!isPlay && detectedComposerIntent === "propose" && !editBridge ? (
           <p className="world-plan-agent-conversation__context" role="note">Plan changes are unavailable on this surface.</p>

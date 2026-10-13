@@ -106,6 +106,13 @@ PR #694 removed full-document loads among the primary React surfaces and the pos
 
 # IDEA
 
+## [IDEA] Background suggestions for missing World graph relationships — captured 2026-10-13
+**Context:** Mirathorn context-loop dogfooding: the loaded graph has a disconnected Sara node and no Frank node-name match, while corpus recaps describe their operator roles and connections to Mirathorn, Lysandra, and the rockie-talkie network.
+**Insight:** Buddy should suggest additional evidence-backed edges. A low-cost background decision loop could identify candidate relationships in admitted sources, assess whether they are already represented and useful, and surface them only when user review or a decision is needed.
+**Action:** Design bounded candidate generation and triage: preserve source references and proposed endpoints/predicates; deduplicate existing or previously reviewed candidates; distinguish explicit source facts from inference; decide when to stay quiet versus request review. Retain an inspectable record of why a candidate was suppressed or surfaced. Automatic publication is not decided by this idea. Buddy owns suggestions and review UX; canonical relationship publication requires the owning World graph contract.
+**Surfaces when:** Iterating Buddy's conversation context loop, investigating sparse subject neighbourhoods, improving relationship extraction, or designing proactive graph review.
+**Refs:** Mirathorn context-loop discussion and loaded Elderwyld graph inspection, 2026-10-13; `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/sara_mirathorn_operator_character_dossier.md`.
+
 ## [IDEA] Graph exploration controller lab — oracle traces to System One policy
 **Kind:** RESEARCH / EVALUATION / AGENT RETRIEVAL  
 **Owner:** Agent retrieval / DungeonMind graph-read consumer  
