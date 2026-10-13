@@ -10,6 +10,7 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 from application_state.agent_conversation.types import ProviderOutcomeEventV1
+from application_state.agent_conversation.types import WorldPointer
 
 from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
 from application_state.plan_action_dialogue.types import (
@@ -153,6 +154,8 @@ def reserve(conn: psycopg.Connection, request: PlanActionReservation) -> tuple[P
         )
         row = cur.fetchone()
     if row is not None:
+        if request.expected_world_pointer is not None:
+            expect_world_pointer(conn, request.expected_world_pointer)
         return _record(row), True
 
     existing = _get_by_key(conn, basis.world_id, request.idempotency_key, lock=True)
@@ -170,9 +173,31 @@ def reserve(conn: psycopg.Connection, request: PlanActionReservation) -> tuple[P
         or existing.instruction != request.instruction
     ):
         raise ApplicationStateConflictError("Plan action key was reused with a different request")
+    if request.expected_world_pointer is not None:
+        if (existing.consultation is not None
+                and (existing.consultation.receipt.origin_conversation_id
+                     != request.expected_world_pointer.active_conversation_id
+                     or existing.consultation.receipt.origin_pointer_revision
+                     != request.expected_world_pointer.revision)):
+            raise ApplicationStateConflictError("Plan action key was reused in another World conversation")
+        expect_world_pointer(conn, request.expected_world_pointer)
     if existing.status == "pending":
         existing = _reconcile_expiry(conn, existing.action_id)
     return existing, False
+
+
+def expect_world_pointer(conn: psycopg.Connection, expected: WorldPointer) -> None:
+    """Lock the World pointer so New conversation cannot overtake this transaction."""
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            "SELECT active_conversation_id, pointer_revision FROM agent.world_state "
+            "WHERE world_id = %s FOR UPDATE", (expected.world_id,),
+        )
+        current = cur.fetchone()
+    if (current is None
+            or current["active_conversation_id"] != expected.active_conversation_id
+            or current["pointer_revision"] != expected.revision):
+        raise ApplicationStateConflictError("World active conversation changed before Plan action authorization")
 
 
 def finish(
@@ -256,6 +281,8 @@ def validate_predecessor(conn: psycopg.Connection, consultation: PlanActionConsu
             or predecessor.draft_sha256 != receipt.draft_sha256
             or predecessor.target_kind != receipt.target_kind
             or predecessor.selected_text_sha256 != receipt.selected_text_sha256
+            or previous.receipt.origin_conversation_id != receipt.origin_conversation_id
+            or previous.receipt.origin_pointer_revision != receipt.origin_pointer_revision
             or previous.receipt.surface_id != receipt.surface_id
             or previous.receipt.surface_instance_id != receipt.surface_instance_id):
         raise ApplicationStateConflictError("clarification predecessor differs from the current action basis")
@@ -328,6 +355,31 @@ def list_basis(conn: psycopg.Connection, basis: PlanActionBasis) -> list[PlanAct
         for record in records
     ]
     return list(reversed(reconciled))
+
+
+def list_conversation(
+    conn: psycopg.Connection, world_id: str, conversation_id: UUID, *,
+    limit: int, before_action_sequence: int | None,
+) -> tuple[list[PlanActionRecord], int | None]:
+    if not 1 <= limit <= 50:
+        raise ValueError("Plan action conversation page limit must be between 1 and 50")
+    if before_action_sequence is not None and before_action_sequence < 1:
+        raise ValueError("Plan action conversation cursor must be positive")
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"SELECT {_RETURNING} FROM plan_action.action "
+            "WHERE world_id = %s "
+            "AND consultation->'receipt'->>'origin_conversation_id' = %s "
+            "AND (%s::bigint IS NULL OR action_sequence < %s) "
+            "ORDER BY action_sequence DESC LIMIT %s",
+            (world_id, str(conversation_id), before_action_sequence,
+             before_action_sequence, limit + 1),
+        )
+        rows = cur.fetchall()
+    more = len(rows) > limit
+    records = [_record(row) for row in rows[:limit]]
+    next_cursor = records[-1].action_sequence if more else None
+    return list(reversed(records)), next_cursor
 
 
 def completed_context(conn: psycopg.Connection, basis: PlanActionBasis, *, limit: int) -> list[PlanActionRecord]:
