@@ -1,0 +1,87 @@
+.reviewed-source-observations {
+  margin-top: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 0.7rem;
+  background: rgba(23, 27, 36, 0.78);
+}
+
+.reviewed-source-observations h4 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.reviewed-source-observations__intro,
+.reviewed-source-observations__context,
+.reviewed-source-observations__coverage {
+  color: var(--muted-text, #a7b4c8);
+  font-size: 0.83rem;
+}
+
+.reviewed-source-observations__intro {
+  margin: 0.2rem 0 0.65rem;
+}
+
+.reviewed-source-observations__list {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.reviewed-source-observations__item {
+  padding-left: 0.2rem;
+}
+
+.reviewed-source-observations__context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.25rem;
+}
+
+.reviewed-source-observations__text {
+  margin: 0;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.reviewed-source-observations__text summary {
+  cursor: pointer;
+}
+
+.reviewed-source-observations__text summary span,
+.reviewed-source-observations__provenance,
+.reviewed-source-observations__coverage details {
+  color: var(--muted-text, #a7b4c8);
+  font-size: 0.8rem;
+}
+
+.reviewed-source-observations__text p {
+  margin: 0.5rem 0 0;
+}
+
+.reviewed-source-observations__provenance {
+  margin-top: 0.35rem;
+}
+
+.reviewed-source-observations__provenance summary,
+.reviewed-source-observations__coverage summary {
+  cursor: pointer;
+}
+
+.reviewed-source-observations__provenance dl {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.2rem 0.6rem;
+  margin: 0.4rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.reviewed-source-observations__provenance dd {
+  margin: 0;
+}
+
+.reviewed-source-observations__coverage {
+  margin-top: 0.65rem;
+}

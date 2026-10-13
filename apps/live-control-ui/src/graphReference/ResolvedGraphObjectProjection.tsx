@@ -13,6 +13,7 @@ import type { WorldGraphObjectProjectionRequest } from "../api/types";
 import { useCompleteWorldObject, usesCompleteWorldObjectPayload } from "./fullWorldObjectProjection";
 import { CompleteObjectPartialWarning } from "./CompleteObjectPartialWarning";
 import { CompleteWorldObjectAdvancedDetails } from "./CompleteWorldObjectAdvancedDetails";
+import { ReviewedSourceObservations } from "./ReviewedSourceObservations";
 import type {
   GraphReferenceProjectionBinding,
   GraphReferenceProjectionState,
@@ -162,6 +163,7 @@ export function ResolvedGraphObjectProjection({
           />
         ) : undefined}
       />
+      <ReviewedSourceObservations result={complete.result} />
     </div>
   );
 }
