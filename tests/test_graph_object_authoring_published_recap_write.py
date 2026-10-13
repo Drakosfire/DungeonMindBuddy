@@ -140,6 +140,12 @@ def _recap_request(*, local_id: str, label: str) -> GraphObjectAuthoringPrepareR
     proposal = object_proposal(
         localProposalId=local_id,
         objectRef={"label": label, "kind": "party", "aliases": [label]},
+        selection={
+            "selectionKind": "text_span",
+            "selectedText": "A duplicate label appears.",
+            "normalizedSelectedText": "A duplicate label appears.",
+            "paragraphOrdinal": 1,
+        },
     )
     return GraphObjectAuthoringPrepareRequest.model_validate(
         {
@@ -343,7 +349,7 @@ def test_published_recap_write_uses_setting_world_for_campaign_scope(
     repo, dsn = real_dungeonmind_recap_authority
     recap_path = repo / "recaps" / "session-2.md"
     recap_path.parent.mkdir(parents=True, exist_ok=True)
-    recap_path.write_text("# C1 Session 2\nEphanna is present.\n", encoding="utf-8")
+    recap_path.write_text("# C1 Session 2\nA duplicate label appears.\n", encoding="utf-8")
     digest = hashlib.sha256(recap_path.read_bytes()).hexdigest()
     upsert_recap_artifact_record(
         repo,
@@ -387,3 +393,42 @@ def test_published_recap_write_uses_setting_world_for_campaign_scope(
     assert revision.world_id == WORLD_ID
     assert revision.objects[node_id].label == "C1 durable witness"
     assert authority.current_head(WORLD_ID).revision_id == commit.published_revision_id
+
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+    from graph_memory.retrieval.models import (
+        WorldGraphObjectRequest,
+        WorldGraphSourceAnchorReadRequest,
+    )
+    from tests.test_cutover_dungeonmind_first_world_initialization import _bundle
+
+    services = direct.direct_services_from_bundle(_bundle(dsn), WORLD_ID)
+    context = {
+        "worldId": WORLD_ID,
+        "campaignId": CAMPAIGN_ID,
+        "admissibility": "gm",
+        "scopeMode": "campaign",
+        "revisionPin": commit.published_revision_id,
+    }
+    exact = direct.get_object_direct(
+        services,
+        WorldGraphObjectRequest(
+            schema="dmb_world_graph_object_request_v1",
+            nodeId=node_id,
+            **context,
+        ),
+    )
+    assert exact.source_anchors
+    anchor = exact.source_anchors[0]
+    assert anchor.source_span_ref_id is not None
+    read = direct.read_source_anchor_direct(
+        services,
+        WorldGraphSourceAnchorReadRequest(
+            schema="dmb_world_graph_source_anchor_read_request_v1",
+            anchorId=anchor.anchor_id,
+            **context,
+        ),
+        repo_root=repo,
+    )
+    assert read.outcome == "enough"
+    assert read.content == "# C1 Session 2\nA duplicate label appears."
+    assert read.content_sha256 == digest

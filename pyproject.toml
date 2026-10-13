@@ -33,7 +33,7 @@ dependencies = [
     # Includes guarded review commitments and atomic identity/source admission.
     # The postgres extra carries the in-process PostgreSQL adapter
     # dependencies used by the DungeonMind-backed World Graph authority.
-    "dungeonmind[postgres] @ git+https://github.com/Drakosfire/DungeonMind.git@aa344e743c138ca099c023d2c384fee90328d37e",
+    "dungeonmind[postgres] @ git+https://github.com/Drakosfire/DungeonMind.git@d81ed4e126c55ef8df57804c9ab7128b7499c7a1",
     # PLAY-1 consumer seam: reviewed WorldKeeper #8 V3-compatible head.
     "worldkeeper @ git+https://github.com/Drakosfire/WorldKeeper.git@49a8620f066ce7ef8972a699020c012f50af9158",
     # Exact pin: GenerationEngine PR #17 merge (bounded OpenRouter text transport).
@@ -83,7 +83,7 @@ hermes-agent = { path = "out/hermes-agent", editable = false }
 # WorldKeeper's pinned metadata names an older DungeonMind Git commit. Normalize
 # only that dependency name so this repository's exact direct source below is
 # selected consistently at the Buddy-owned DungeonMind pin above.
-dungeonmind = { git = "https://github.com/Drakosfire/DungeonMind.git", rev = "aa344e743c138ca099c023d2c384fee90328d37e" }
+dungeonmind = { git = "https://github.com/Drakosfire/DungeonMind.git", rev = "d81ed4e126c55ef8df57804c9ab7128b7499c7a1" }
 
 # The pinned WorldKeeper release has one dependency, DungeonMind. Its package
 # metadata override drops the conflicting URL; tool.uv.sources above retains

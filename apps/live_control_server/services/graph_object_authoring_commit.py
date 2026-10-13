@@ -23,6 +23,7 @@ from apps.live_control_server.services.graph_object_authoring_prepare import (
     prove_graph_review_source,
     resolve_graph_review_source,
     translate_assertions_to_contribution,
+    verify_graph_review_assertion_spans,
     validate_authoring_campaign_scope,
     _blocking_assertion_diagnostics,
 )
@@ -204,6 +205,15 @@ def commit_graph_object_authoring_write(
 
     buddy_artifact_id = str(getattr(resolved, "source_artifact_id"))
     buddy_revision_id = str(getattr(resolved, "source_revision_id"))
+    from apps.live_control_server.config import repo_root
+
+    verified_spans = verify_graph_review_assertion_spans(
+        assertions=assertions,
+        resolved_source=resolved,
+        source_root=(corpus_root or repo_root()).resolve(),
+        world_id=world_id,
+        campaign_id=request.campaign_id,
+    )
     admitted_artifact, admitted_revision = prove_graph_review_source(
         world_id=world_id,
         source_artifact_id=source_artifact_id,
@@ -241,6 +251,7 @@ def commit_graph_object_authoring_write(
         source_artifact_id=buddy_artifact_id,
         source_revision_id=buddy_revision_id,
         assertions=assertions,
+        verified_spans=verified_spans,
     )
     if contribution_binding_digest(contribution) != sealed_contribution_digest:
         raise GraphObjectAuthoringError(

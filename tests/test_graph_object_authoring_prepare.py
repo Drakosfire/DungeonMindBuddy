@@ -38,6 +38,7 @@ from apps.live_control_server.services.graph_object_authoring_prepare import (
     classify_graph_review_expressibility,
     prepare_graph_object_authoring_write,
     stable_json_digest,
+    VerifiedGraphReviewSpan,
 )
 
 CAMPAIGN_ID = "longmont-c1"
@@ -177,6 +178,31 @@ def graph_review_unit_seams(monkeypatch: pytest.MonkeyPatch) -> FakeSourceAdmiss
     monkeypatch.setattr(
         "apps.live_control_server.ports.world_graph_source_admission_access.get_world_graph_source_admission_authority",
         lambda: fake,
+    )
+    def verified_unit_spans(*, assertions, resolved_source, **_kwargs):
+        artifact = resolved_source.source_artifact
+        return {
+            assertion.assertion_id: VerifiedGraphReviewSpan(
+                assertion_id=assertion.assertion_id,
+                evidence_ref_id=f"grauth-ev:{artifact.source_artifact_id}:{assertion.assertion_id}",
+                source_artifact_id=artifact.source_artifact_id,
+                source_revision_id=resolved_source.source_revision_id,
+                source_domain="worldbuilding",
+                source_span_ref_id=f"unit:{assertion.assertion_id}",
+                source_content_sha256="ab" * 32,
+                span_content_sha256="cd" * 32,
+                span_index_sha256="ef" * 32,
+                visibility_state="internal",
+            )
+            for assertion in assertions
+        }
+    monkeypatch.setattr(
+        "apps.live_control_server.services.graph_object_authoring_prepare.verify_graph_review_assertion_spans",
+        verified_unit_spans,
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.graph_object_authoring_commit.verify_graph_review_assertion_spans",
+        verified_unit_spans,
     )
     return fake
 

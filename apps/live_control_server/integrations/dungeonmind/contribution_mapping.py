@@ -24,8 +24,10 @@ from dungeonmind.contracts.contribution import (
     GraphContributionAssertionCorrectionKind,
     GraphContributionAssertionV2,
     GraphContributionV2,
+    GraphContributionAssertionV3,
+    GraphContributionV3,
 )
-from dungeonmind.contracts.evidence import EvidenceRef, EvidenceRole, SourceDomain
+from dungeonmind.contracts.evidence import EvidenceRef, EvidenceRefV2, EvidenceRole, SourceDomain
 from dungeonmind.contracts.identity import IdentityOutcome
 from dungeonmind.contracts.vocabulary import (
     ContributionEpistemicKind,
@@ -77,6 +79,7 @@ _CONTRIBUTION_EPISTEMIC_DIRECT = {
 
 
 CONTRIBUTION_EVIDENCE_ID_MARK = ":dmv1:"
+GRAPH_REVIEW_EVIDENCE_ID_MARK = ":dmv3:"
 CONTRIBUTION_EVIDENCE_V1_BINDING_FIELDS = (
     "schema_version",
     "source_artifact_id",
@@ -353,3 +356,98 @@ def _map_contributions(
             )
         )
     return mapped
+
+
+def map_graph_review_contribution_v3(
+    store: Any,
+    contribution: Any,
+    pair_to_dm: dict[tuple[str, str], str],
+) -> GraphContributionV3:
+    """Map only fresh Graph Review evidence into the governed typed review family."""
+    if contribution.source_kind != "graph_review_authored_assertion":
+        raise _fail("typed Graph Review mapping requires Graph Review source kind", "source_kind_unmapped")
+    mapped = _map_contributions(store, [contribution], pair_to_dm)
+    if len(mapped) != 1:
+        raise _fail("Graph Review mapping produced no unique contribution", "contribution_unmapped")
+
+    def valid_digest(value: Any) -> bool:
+        return (
+            isinstance(value, str)
+            and len(value) == 64
+            and all(char in "0123456789abcdef" for char in value)
+        )
+
+    buddy_by_id = {
+        assertion.assertion_id: assertion
+        for assertion in [
+            *contribution.candidate_assertions,
+            *contribution.accepted_assertions,
+            *contribution.rejected_assertions,
+        ]
+    }
+    typed_assertions: list[GraphContributionAssertionV3] = []
+    for assertion in mapped[0].assertions:
+        original = buddy_by_id[assertion.assertion_id]
+        rows = original.value.get("evidence") if isinstance(original.value, dict) else None
+        if not isinstance(rows, list) or len(rows) != 1 or not isinstance(rows[0], dict):
+            raise _fail("Graph Review assertion lacks one verified source passage", "evidence_span_missing")
+        row = rows[0]
+        raw_id = str(row.get("evidence_ref_id") or "")
+        source_artifact_id = str(row.get("source_artifact_id") or "")
+        buddy_revision_id = str(row.get("source_revision_id") or "")
+        source_span_ref_id = str(row.get("source_span_ref_id") or "")
+        source_domain_key = str(row.get("source_domain") or "")
+        domain = _map_source_domain(source_domain_key)
+        if (
+            list(original.evidence_ref_ids) != [raw_id]
+            or source_artifact_id != original.source_artifact_id
+            or buddy_revision_id != original.source_revision_id
+            or not source_span_ref_id
+            or domain not in {SourceDomain.WORLDBUILDING, SourceDomain.SESSION_RECAP}
+            or not valid_digest(row.get("source_content_sha256"))
+            or not valid_digest(row.get("span_content_sha256"))
+            or (
+                domain is SourceDomain.WORLDBUILDING
+                and not valid_digest(row.get("span_index_sha256"))
+            )
+            or not str(row.get("visibility_state") or "").strip()
+        ):
+            raise _fail("Graph Review verified evidence disagrees with its assertion", "evidence_span_mismatch")
+        dm_revision_id = pair_to_dm[(source_artifact_id, buddy_revision_id)]
+        binding = {
+            "source_artifact_id": source_artifact_id,
+            "source_revision_id": dm_revision_id,
+            "source_domain_key": source_domain_key,
+            "source_domain": domain.value,
+            "source_span_ref_id": source_span_ref_id,
+            "source_content_sha256": row.get("source_content_sha256"),
+            "span_content_sha256": row.get("span_content_sha256"),
+            "span_index_sha256": row.get("span_index_sha256"),
+            "visibility_state": row.get("visibility_state"),
+        }
+        evidence_id = f"{raw_id}{GRAPH_REVIEW_EVIDENCE_ID_MARK}{canonical_sha256(binding)}"
+        typed = EvidenceRefV2(
+            evidence_ref_id=evidence_id,
+            source_artifact_id=source_artifact_id,
+            source_revision_id=dm_revision_id,
+            source_domain_key=source_domain_key,
+            source_domain=domain,
+            evidence_role=EvidenceRole.SUPPORT,
+            can_open_source=True,
+            can_highlight_span=True,
+            session_id=None,
+            source_span_ref_id=source_span_ref_id,
+            locator=None,
+            uri=None,
+            source_locator=None,
+            line_ref=None,
+        )
+        typed_assertions.append(GraphContributionAssertionV3.model_validate({
+            **assertion.model_dump(mode="json"),
+            "evidence_refs": [typed.model_dump(mode="json")],
+        }))
+    return GraphContributionV3.model_validate({
+        **mapped[0].model_dump(mode="json"),
+        "schema_version": "dm_graph_contribution_v3",
+        "assertions": [assertion.model_dump(mode="json") for assertion in typed_assertions],
+    })
