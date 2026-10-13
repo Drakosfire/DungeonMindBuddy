@@ -282,6 +282,12 @@ class BoundedRecapPassClient:
                 "bounded extraction pass failed", pass_name=pass_name,
                 raw_model_response=result.text,
             ) from None
+        except Exception as exc:
+            self._stopped = True
+            entry["consumer_failure"] = type(exc).__name__
+            raise CategoryGraphExtractionError(
+                "bounded extraction pass failed", pass_name=pass_name
+            ) from None
         return {
             "parsed": parsed,
             "raw_text": result.text,
