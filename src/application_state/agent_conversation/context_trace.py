@@ -11,6 +11,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 MAX_CONTEXT_TRACE_BYTES = 1_048_576
+CONTEXT_TRACE_TERMINAL_RESERVE_BYTES = 4096
 MAX_SOURCE_READS_PER_TURN = 8
 MAX_SOURCE_PASSAGE_CHARS_PER_TURN = 96_000
 MAX_SOURCE_PASSAGE_CHARS_PER_READ = 12_000
@@ -38,6 +39,11 @@ class TraceEvent(TraceModel):
     elapsed_ms: float = Field(ge=0)
 
 
+class TraceCapturedSourceReference(TraceModel):
+    source_read_id: str = Field(min_length=1, max_length=128)
+    content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class TraceContextMaterial(TraceModel):
     item_id: str = Field(min_length=1, max_length=256)
     state: Literal["model_context", "retrieval_route"]
@@ -45,16 +51,19 @@ class TraceContextMaterial(TraceModel):
     text: str | None = None
     route: TraceRoute | None = None
     source_read_event_id: UUID | None = None
+    source_reads: list[TraceCapturedSourceReference] = Field(default_factory=list, max_length=8)
 
     @model_validator(mode="after")
     def validate_representation(self) -> TraceContextMaterial:
         if self.state == "retrieval_route":
-            if self.route is None or self.text is not None or self.source_read_event_id is not None:
+            if self.route is None or self.text is not None or self.source_read_event_id is not None or self.source_reads:
                 raise ValueError("retrieval route must carry a route handle, not present prose")
         elif self.role == "source":
-            if self.text is not None or self.source_read_event_id is None:
+            if self.text is not None or self.source_read_event_id is None or not self.source_reads:
                 raise ValueError("present source material must reference its captured source read")
-        elif self.text is None or self.route is not None or self.source_read_event_id is not None:
+            if len({ref.source_read_id for ref in self.source_reads}) != len(self.source_reads):
+                raise ValueError("present source read references must be unique")
+        elif self.text is None or self.route is not None or self.source_read_event_id is not None or self.source_reads:
             raise ValueError("visible context material must carry only its visible text")
         return self
 
@@ -306,19 +315,46 @@ class TurnContextTraceV1(TraceModel):
         passages = [item for item in self.observations if isinstance(item, TraceSourcePassage)]
         if sum(item.returned_chars for item in passages) > MAX_SOURCE_PASSAGE_CHARS_PER_TURN:
             raise ValueError("captured source passages exceed the per-turn character ceiling")
+        captured: dict[UUID, list[TraceSourcePassage]] = {}
         for item in self.observations:
             if isinstance(item, TraceSourcePassage) and item.world_id != self.world_id:
                 raise ValueError("source passage must belong to the trace World")
+            if isinstance(item, TraceSourcePassage):
+                captured.setdefault(item.source_read_event_id, []).append(item)
             if isinstance(item, TraceContextSnapshot):
                 if any(
                     material.route is not None and material.route.world_id != self.world_id
                     for material in item.materials
                 ):
                     raise ValueError("context route must belong to the trace World")
+                for material in item.materials:
+                    if material.state != "model_context" or material.role != "source":
+                        continue
+                    passages = captured.get(material.source_read_event_id, [])
+                    if not passages:
+                        raise ValueError("present source context requires an earlier captured same-turn source read")
+                    passage_by_id = {passage.source_read_id: passage for passage in passages}
+                    if any(ref.source_read_id not in passage_by_id or
+                           passage_by_id[ref.source_read_id].content_sha256 != ref.content_sha256
+                           for ref in material.source_reads):
+                        raise ValueError("present source context must identify captured passage IDs and digests")
+                    passages = [passage_by_id[ref.source_read_id] for ref in material.source_reads]
+                    if material.route is not None and not any(
+                        all(getattr(material.route, key) in (None, getattr(passage, key))
+                            for key in ("world_id", "graph_revision", "anchor_id", "evidence_ref_id",
+                                        "source_artifact_id", "source_revision_id", "content_sha256"))
+                        for passage in passages
+                    ):
+                        raise ValueError("present source context route differs from its captured source scope")
         encoded = json.dumps(
-            self.model_dump(mode="json", by_alias=True), ensure_ascii=False,
-            sort_keys=True, separators=(",", ":"), allow_nan=False,
+            self.model_dump(mode="json", by_alias=True), ensure_ascii=True,
+            sort_keys=True, allow_nan=False,
         ).encode("utf-8")
-        if len(encoded) > MAX_CONTEXT_TRACE_BYTES:
+        ceiling = MAX_CONTEXT_TRACE_BYTES - (
+            (CONTEXT_TRACE_TERMINAL_RESERVE_BYTES if self.capture_status == "recording"
+             else CONTEXT_TRACE_TERMINAL_RESERVE_BYTES // 2)
+            if self.closed_at is None else 0
+        )
+        if len(encoded) > ceiling:
             raise ValueError("trace exceeds the explicit 1 MiB per-attempt ceiling")
         return self

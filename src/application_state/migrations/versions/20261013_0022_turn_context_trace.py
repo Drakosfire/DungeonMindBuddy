@@ -16,7 +16,7 @@ def upgrade() -> None:
             trace_id UUID NOT NULL UNIQUE,
             payload JSONB NOT NULL,
             PRIMARY KEY (turn_id, attempt),
-            CHECK (jsonb_typeof(payload) = 'object'
+            CHECK (COALESCE(jsonb_typeof(payload) = 'object'
                 AND payload->>'schema' = 'dmb_turn_context_trace_v1'
                 AND payload->>'turn_id' = turn_id::text
                 AND payload->>'trace_id' = trace_id::text
@@ -31,7 +31,7 @@ def upgrade() -> None:
                 AND jsonb_typeof(payload->'observations') = 'array'
                 AND jsonb_array_length(payload->'observations') <= 2048
                 AND payload->>'capture_status' IN ('recording', 'complete', 'incomplete')
-                AND octet_length(payload::text) <= 1048576)
+                AND octet_length(payload::text) <= 1048576, FALSE))
         )
     """)
 

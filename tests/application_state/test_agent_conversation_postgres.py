@@ -17,6 +17,8 @@ from starlette.requests import Request
 from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation.context_trace import (
     TraceContextDecision,
+    TraceContextMaterial,
+    TraceContextSnapshot,
     TraceSourcePassage,
 )
 from application_state.agent_conversation.types import (
@@ -3304,6 +3306,28 @@ def test_graph_execution_v2_source_read_receipt_round_trip_through_fresh_service
         context_decision, source_passage.model_copy(update={"sequence": 1}),
     ]
     assert saved_traces[0].execution_start_sequence == 0
+
+    source_snapshot = TraceContextSnapshot(sequence=2, elapsed_ms=14, stage="after", materials=[
+        TraceContextMaterial(item_id="admitted-passage", state="model_context", role="source",
+            source_read_event_id=result_event.event_id,
+            source_reads=[{"source_read_id": source_passage.source_read_id,
+                           "content_sha256": source_passage.content_sha256}]),
+    ])
+    fresh.append_context_trace(
+        world_id=world_id, conversation_id=conversation.conversation_id,
+        turn_id=accepted.turn_id, expected_revision=reload.revision,
+        attempt=claimed.turn.attempt, trace_id=trace_id, observation=source_snapshot,
+    )
+    fabricated = source_snapshot.model_dump(mode="python")
+    fabricated["sequence"] = 3
+    fabricated["materials"][0]["source_reads"][0]["source_read_id"] = "other-passage"
+    with pytest.raises(ApplicationStateValidationError, match="passage IDs and digests"):
+        fresh.append_context_trace(
+            world_id=world_id, conversation_id=conversation.conversation_id,
+            turn_id=accepted.turn_id, expected_revision=reload.revision,
+            attempt=claimed.turn.attempt, trace_id=trace_id,
+            observation=TraceContextSnapshot.model_validate(fabricated),
+        )
 
     failed = fresh.fail_turn(TurnFailure(
         world_id=world_id, conversation_id=conversation.conversation_id,

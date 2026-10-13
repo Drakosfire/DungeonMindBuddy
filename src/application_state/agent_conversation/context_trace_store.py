@@ -9,6 +9,8 @@ from psycopg.types.json import Jsonb
 
 from application_state.agent_conversation.context_trace import (
     ContextTraceObservation,
+    CONTEXT_TRACE_TERMINAL_RESERVE_BYTES,
+    MAX_CONTEXT_TRACE_BYTES,
     MAX_SOURCE_READS_PER_TURN,
     MAX_SOURCE_PASSAGE_CHARS_PER_TURN,
     TraceGraphTool,
@@ -39,11 +41,21 @@ def _trace_row(conn, turn_id: UUID, attempt: int):
 
 
 def _save_trace(conn, trace: TurnContextTraceV1) -> None:
+    payload = Jsonb(trace.model_dump(mode="json", by_alias=True))
+    reserve = 0 if trace.closed_at is not None else (
+        CONTEXT_TRACE_TERMINAL_RESERVE_BYTES if trace.capture_status == "recording"
+        else CONTEXT_TRACE_TERMINAL_RESERVE_BYTES // 2
+    )
+    actual_bytes = conn.execute(
+        "SELECT octet_length(%s::jsonb::text)", (payload,),
+    ).fetchone()[0]
+    if actual_bytes > MAX_CONTEXT_TRACE_BYTES - reserve:
+        raise ApplicationStateValidationError("trace exceeds the explicit 1 MiB per-attempt ceiling")
     conn.execute(
         "UPDATE agent.turn_context_trace SET payload=%s "
         "WHERE turn_id=%s AND attempt=%s AND trace_id=%s",
         (
-            Jsonb(trace.model_dump(mode="json", by_alias=True)),
+            payload,
             trace.turn_id,
             trace.attempt,
             trace.trace_id,
@@ -291,9 +303,17 @@ class TurnContextTraceStore:
                     **trace.model_dump(mode="python"),
                     "observations": [*trace.observations, observation],
                 })
-            except ValueError as exc:
+                _save_trace(conn, updated)
+            except (ValueError, ApplicationStateValidationError) as exc:
+                if "1 MiB per-attempt ceiling" in str(exc):
+                    incomplete = TurnContextTraceV1.model_validate({
+                        **trace.model_dump(mode="python"),
+                        "capture_status": "incomplete",
+                        "capture_failure_code": trace.capture_failure_code or "trace_size_limit",
+                    })
+                    _save_trace(conn, incomplete)
+                    return incomplete
                 raise ApplicationStateValidationError(str(exc)) from exc
-            _save_trace(conn, updated)
             return updated
 
     def mark_incomplete(
