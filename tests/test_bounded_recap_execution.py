@@ -325,17 +325,32 @@ def test_private_response_evidence_is_atomic_and_never_overwrites(tmp_path):
     artifact_path = Path(first.calls[0]["response_artifact_path"])
     original = artifact_path.read_bytes()
 
+    known_response = '{"observation_nodes": []}'
     second_engine = Engine(
-        TextResult(text='{"observation_nodes": []}', observation=observation())
+        TextResult(
+            text=known_response,
+            observation=observation(input_tokens=7, output_tokens=3),
+        )
     )
     second = private_response_client(lambda: second_engine, run_dir)
-    with pytest.raises(CategoryGraphExtractionError, match="private recap response evidence"):
+    with pytest.raises(
+        CategoryGraphExtractionError,
+        match="private recap response evidence",
+    ) as caught:
         invoke(second)
 
+    assert caught.value.raw_model_response == known_response
     assert artifact_path.read_bytes() == original
     assert not list((run_dir / ".private" / "pass_responses").glob("*.pending"))
     assert "response_artifact_path" not in second.calls[0]
     assert second.calls[0]["consumer_failure"] == "PrivateResponseEvidenceWriteFailed"
+    assert second.calls[0]["observation"]["state"] == "completed"
+    assert second.calls[0]["observation"]["input_tokens"] == 7
+    assert second.calls[0]["observation"]["output_tokens"] == 3
+    assert second.calls[0]["observation"]["provider_response_id"] == "response"
+    assert known_response not in json.dumps(second.ledger())
+    assert "PRIVATE_PROMPT" not in json.dumps(second.ledger())
+    assert "PRIVATE_SOURCE" not in json.dumps(second.ledger())
 
 
 def test_unknown_worker_receipt_does_not_create_private_response(tmp_path, monkeypatch):

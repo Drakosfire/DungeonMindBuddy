@@ -399,6 +399,9 @@ class BoundedRecapPassClient:
                 else None
             )
             if self._response_artifact_dir is not None:
+                # The GE result is already known even if durable evidence cannot be
+                # written. Preserve its safe accounting before the fallible sink.
+                entry["observation"] = _safe_observation_snapshot(raw_observation)
                 try:
                     response_path, response_digest = _write_private_response_evidence(
                         self._response_artifact_dir,
@@ -415,6 +418,7 @@ class BoundedRecapPassClient:
                     raise CategoryGraphExtractionError(
                         "private recap response evidence could not be written",
                         pass_name=pass_name,
+                        raw_model_response=raw_text,
                     ) from None
                 entry["response_artifact_path"] = str(response_path)
                 entry["response_artifact_sha256"] = response_digest
