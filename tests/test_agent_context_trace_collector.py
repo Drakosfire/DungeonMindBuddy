@@ -144,3 +144,33 @@ def test_missing_model_identity_marks_trace_incomplete_without_inventing_model()
     capture.provider_usage([{"status": "ok", "usage": {"status": "reported", "input_tokens": 42}}])
     assert store.trace.capture_failure_code == "provider_identity_unavailable"
     assert store.trace.observations == []
+
+
+def test_producer_observations_survive_real_postgres_terminal_failure(application_state_dsn):
+    from time import monotonic
+    from application_state.agent_conversation.types import TurnFailure
+    from apps.live_control_server.services.agent_turn_service import _ClaimFence
+    from tests.application_state.test_agent_conversation_context_trace_postgres import _setup_turn
+
+    service, turn, _, trace = _setup_turn()
+    fence = _ClaimFence(service, turn)
+    capture = ContextTraceCollector.__new__(ContextTraceCollector)
+    capture.fence, capture.trace, capture.started = fence, trace, monotonic()
+    try:
+        capture.provider_usage([{"provider": "openai-api", "response_model": "test-model",
+                                "status": "ok", "duration_ms": 12,
+                                "usage": {"status": "reported", "input_tokens": 42, "output_tokens": 7}}])
+        capture.observe({"kind": "failure", "phase": "delivery", "code": "synthetic_delivery_failure"})
+        assert fence.turn.revision == turn.revision
+    finally:
+        current, error = fence.stop()
+        assert error is None
+    service.fail_turn(TurnFailure(world_id=current.world_id, conversation_id=current.conversation_id,
+                                 turn_id=current.turn_id, expected_revision=current.revision,
+                                 failure_code="synthetic_delivery_failure"))
+    saved = service.list_context_trace_attempts(world_id=turn.world_id, turn_id=turn.turn_id)[0]
+    assert saved.terminal_status == "failed"
+    assert saved.capture_status == "complete"
+    assert saved.observations[0].input_tokens == 42
+    assert saved.observations[0].output_tokens == 7
+    assert saved.observations[1].code == "synthetic_delivery_failure"
