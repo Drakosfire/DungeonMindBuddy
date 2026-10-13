@@ -3715,7 +3715,7 @@ export function WorldPlanAgentConversation({
     const previous = more ? sourcePassage : null;
     if (more && (target.kind !== "related_recap_context" || !previous?.page?.nextContinuation
       || previous.turnId !== identity.turnId || previous.claimId !== identity.claimId || previous.targetId !== targetId
-      || previous.loadingMore || (previous.pages ?? 1) >= 8)) return;
+      || previous.loadingMore)) return;
     const epoch = ++sourceReadEpochRef.current;
     setSourcePassage(previous ? { ...previous, loadingMore: true } : { ...identity, status: "loading", content: null, message: null, partial: false });
     const stillCurrent = () => sourceReadEpochRef.current === epoch
@@ -4016,22 +4016,28 @@ export function WorldPlanAgentConversation({
           </button>
         </div>;
     };
+    const evidenceCount = targets.filter((target) => target.kind === "evidence_anchor").length;
+    const recapCount = targets.length - evidenceCount;
     return <section className="world-plan-agent-conversation__source-actions" aria-label="Sources for this answer">
-      <span className="world-plan-agent-conversation__source-actions-label">Read the source</span>
+      <span className="world-plan-agent-conversation__source-actions-label">Cited sources · {evidenceCount} evidence {evidenceCount === 1 ? "passage" : "passages"}{recapCount ? ` · ${recapCount} related recap ${recapCount === 1 ? "passage" : "passages"}` : ""}</span>
       {targets.slice(0, 3).map(renderTarget)}
       {targets.length > 3 ? <details className="world-plan-agent-conversation__source-more">
         <summary>{targets.length - 3} more source choice{targets.length - 3 === 1 ? "" : "s"}</summary>
         <div>{targets.slice(3).map(renderTarget)}</div>
       </details> : null}
       {activeTarget && sourcePassage ? <div className="world-plan-agent-conversation__source-reader">
-        <button type="button" onClick={() => { sourceReadEpochRef.current += 1; setSourcePassage(null); }}>Close passage</button>
+        <div className="world-plan-agent-conversation__source-reader-header">
+          <div><span className="world-plan-agent-conversation__source-reader-eyebrow">Pinned source · {activeTarget.kind === "evidence_anchor" ? "Graph evidence" : "Related recap"}</span>
+            <strong>{activeTarget.kind === "related_recap_context" ? activeTarget.canonical_heading : "Passage supporting this answer"}</strong></div>
+          <button type="button" onClick={() => { sourceReadEpochRef.current += 1; setSourcePassage(null); }} aria-label="Close passage" title="Close passage">×</button>
+        </div>
         {sourcePassage.status === "loading" ? <p role="status">Opening pinned source…</p> : null}
         {sourcePassage.status === "unavailable" ? <p role="alert">{sourcePassage.message}</p> : null}
         {sourcePassage.status === "open" ? <div className="world-plan-agent-conversation__source-passage"
           role="region" aria-label={activeTarget.kind === "evidence_anchor" ? "Evidence passage" : "Related recap context passage"}>
           {sourcePassage.partial ? <p role="note">Partial passage. More source text may be available.</p> : null}
           {sourcePassage.content}
-          {activeTarget.kind === "related_recap_context" && sourcePassage.page?.nextContinuation && (sourcePassage.pages ?? 1) < 8
+          {activeTarget.kind === "related_recap_context" && sourcePassage.page?.nextContinuation
             ? <button type="button" disabled={sourcePassage.loadingMore} onClick={() => { void openSourcePassage(turn, activeTarget, true); }}>
               {sourcePassage.loadingMore ? "Loading more…" : "Load more context"}
             </button> : null}
@@ -4920,19 +4926,25 @@ export function WorldPlanAgentConversation({
               : "Conversation history is not ready yet."
             : null;
 
+  const newConversationButton = (
+    <button
+      className={presentationHosts ? "conversation-dock__icon-button" : undefined}
+      type="button"
+      onClick={startNewConversation}
+      disabled={newConversationDisabledReason !== null}
+      aria-label="New conversation"
+      title={newConversationDisabledReason ?? "New conversation"}
+      aria-describedby={newConversationDisabledReason ? "world-plan-new-conversation-disabled-reason" : undefined}
+    >
+      {newConversationSending ? "…" : presentationHosts ? <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg> : "New conversation"}
+    </button>
+  );
   const headerActions = (
     <div className="world-plan-agent-conversation__actions">
             <button type="button" aria-expanded={settingsOpen} aria-controls="world-plan-agent-settings" onClick={() => setSettingsOpen((open) => !open)}>
               {settingsOpen ? "Close settings" : "Settings"}
             </button>
-            <button
-              type="button"
-              onClick={startNewConversation}
-              disabled={newConversationDisabledReason !== null}
-              aria-describedby={newConversationDisabledReason ? "world-plan-new-conversation-disabled-reason" : undefined}
-            >
-              {newConversationSending ? "Starting…" : "New conversation"}
-            </button>
+            {!presentationHosts || presentationHosts.newConversation === undefined ? newConversationButton : null}
             {newConversationDisabledReason ? (
               <p id="world-plan-new-conversation-disabled-reason" className="world-plan-agent-conversation__management-reason" role="note">
                 Unavailable right now: {newConversationDisabledReason}
@@ -5441,6 +5453,7 @@ export function WorldPlanAgentConversation({
   if (presentationHosts) {
     return <>
       {presentationHosts.header && createPortal(<>{headerActions}{managementDetails}</>, presentationHosts.header)}
+      {presentationHosts.newConversation && createPortal(newConversationButton, presentationHosts.newConversation)}
       {presentationHosts.context && createPortal(contextDetails, presentationHosts.context)}
       {presentationHosts.messages && createPortal(messages, presentationHosts.messages)}
       {presentationHosts.composer && createPortal(composer, presentationHosts.composer)}

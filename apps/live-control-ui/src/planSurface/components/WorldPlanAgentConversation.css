@@ -214,6 +214,29 @@
   min-inline-size: 0;
 }
 
+.world-plan-agent-conversation__source-reader {
+  max-inline-size: min(62rem, 100%);
+  border: 1px solid #806b48;
+  border-radius: 0.8rem;
+  background: #efe5cf;
+  color: #342c20;
+  box-shadow: 0 16px 36px #0005;
+  overflow: hidden;
+}
+
+.world-plan-agent-conversation__source-reader-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid #ceb98c;
+}
+
+.world-plan-agent-conversation__source-reader-header strong { display: block; font: 600 1.15rem/1.25 Georgia, serif; }
+.world-plan-agent-conversation__source-reader-eyebrow { display: block; margin-bottom: .25rem; color: #72542e; font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.world-plan-agent-conversation__source-reader-header button { flex: none; min-width: 2rem; min-height: 2rem; padding: 0; border: 1px solid #ab936a; border-radius: 50%; background: #f8efd9; color: #342c20; font-size: 1.4rem; line-height: 1; }
+
 .world-plan-agent-conversation__source-more > summary {
   width: fit-content;
   cursor: pointer;
@@ -248,16 +271,17 @@
 }
 
 .world-plan-agent-conversation__source-passage {
-  max-block-size: 18rem;
-  max-inline-size: min(46rem, 100%);
+  max-block-size: min(55dvh, 36rem);
+  max-inline-size: 100%;
   overflow: auto;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  padding: 0.65rem 0.75rem;
-  border: 1px solid var(--ui-border-subtle, #343d4d);
-  border-radius: 0.35rem;
-  background: var(--ui-background-ops);
-  line-height: 1.45;
+  padding: 1.25rem clamp(1rem, 4vw, 2rem);
+  border: 0;
+  background: #f4ead4;
+  color: #342c20;
+  line-height: 1.65;
+  font-size: 1rem;
 }
 
 .world-plan-agent-conversation__graph-context p {

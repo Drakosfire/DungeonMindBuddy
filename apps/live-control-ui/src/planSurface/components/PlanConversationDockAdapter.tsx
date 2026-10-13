@@ -6,6 +6,7 @@ import "./PlanConversationDockAdapter.css";
 
 export interface PlanConversationPresentationHosts {
   header: HTMLElement | null;
+  newConversation?: HTMLElement | null;
   context: HTMLElement | null;
   messages: HTMLElement | null;
   composer: HTMLElement | null;
@@ -15,7 +16,7 @@ type AdapterProps = {
   reader:ReactNode;contextLabel:string;
   children:(hosts:PlanConversationPresentationHosts)=>ReactNode;
 };
-const absentHosts:PlanConversationPresentationHosts={header:null,context:null,messages:null,composer:null};
+const absentHosts:PlanConversationPresentationHosts={header:null,newConversation:null,context:null,messages:null,composer:null};
 export function PlanConversationDockAdapter(props:AdapterProps) {
   const slot=useAskPluginSlotOptional();
   if (!slot) return <>{props.reader}{props.children(absentHosts)}</>;
@@ -45,11 +46,12 @@ function MountedPlanDock({reader,contextLabel,children,slot}:AdapterProps & {slo
   }, []);
   useLayoutEffect(() => { if (!paneState.isOpen && management.current) management.current.open = false; }, [paneState.isOpen]);
   const {setLayoutOwner,setHostElement,setLauncherHost}=slot;
-  const [hosts,setHosts]=useState<PlanConversationPresentationHosts>({header:null,context:null,messages:null,composer:null});
+  const [hosts,setHosts]=useState<PlanConversationPresentationHosts>({header:null,newConversation:null,context:null,messages:null,composer:null});
   const bind=useCallback((key:keyof PlanConversationPresentationHosts,node:HTMLElement|null)=>{
     setHosts(current=>current[key]===node?current:{...current,[key]:node});
   },[]);
   const header=useCallback((node:HTMLDivElement|null)=>bind("header",node),[bind]);
+  const newConversation=useCallback((node:HTMLDivElement|null)=>bind("newConversation",node),[bind]);
   const context=useCallback((node:HTMLDivElement|null)=>bind("context",node),[bind]);
   const messages=useCallback((node:HTMLDivElement|null)=>bind("messages",node),[bind]);
   const composer=useCallback((node:HTMLDivElement|null)=>{bind("composer",node);setHostElement(node);},[bind,setHostElement]);
@@ -59,7 +61,7 @@ function MountedPlanDock({reader,contextLabel,children,slot}:AdapterProps & {slo
       conversationLabel="Saved World Plan conversation"
       title="Conversation" contextLabel="What Buddy sees" collapseMode="launcher" fullscreenEnabled expanded={paneState.isOpen} onExpandedChange={setPaneOpen}
       initialHeight={360} minHeight={240} minimumReaderHeight={0}
-      headerActions={<details ref={management} className="plan-conversation-dock__management" aria-label="Conversation options"><summary>Conversation options</summary><div ref={header}/></details>}
+      headerActions={<><div ref={newConversation} className="plan-conversation-dock__new-conversation"/><details ref={management} className="plan-conversation-dock__management" aria-label="Conversation options"><summary>Conversation options</summary><div ref={header}/></details></>}
       launcher={<><div ref={setLauncherHost} className="plan-conversation-dock__launcher"/><span>Conversation</span></>}
       contextDetails={<><p className="plan-conversation-dock__scope">{contextLabel.replace(/\s*·\s*Full saved Plan$/, "")}</p><div ref={context}/></>}
       messages={<div ref={messages} className="plan-conversation-dock__messages"/>}
