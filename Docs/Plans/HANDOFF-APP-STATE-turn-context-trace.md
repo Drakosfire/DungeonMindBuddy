@@ -1,6 +1,6 @@
 # APP-STATE: bounded per-attempt context trace persistence
 
-Status: ACTIVE. Base: `origin/main@a2b8db65fc69fa06b6e7e32bb16bcf4ecca5d6b8`. Branch: `codex/app-state-turn-context-trace`.
+Status: MERGED. PR #1122 accepted head `8aaa27d37b72d0833662e9510bbaaaa125d4e4ef`, merge `6f54b152c506bc8cd356ad3e4cdb66a2c46babac`. Original base: `a2b8db65fc69fa06b6e7e32bb16bcf4ecca5d6b8`; final base: `ad555917179764c61dcbc3095f9d7fd5182709b2`. Historical-source extension authority is in [the successor handoff](HANDOFF-APP-STATE-historical-source-trace.md). This predecessor grants no active write lease or live migration authority.
 
 APP-STATE owns the typed storage contract, migration, claim fencing, per-attempt retention, and atomic terminal closure. DOGFOOD owns the producer and UI. SERVER owns authenticated, explicit opt-in history routing. The existing `graph_context_execution` remains the authority for source admission, provider authorization, completion, retry, and World mutation; trace rows are supplemental history only.
 
