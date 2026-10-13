@@ -142,3 +142,13 @@ the archived conversation after New conversation, and rejects a stale new
 dispatch with 409. The mounted UI test confirms the old clarification is
 removed immediately after New conversation. PRIME owns independent exact-head
 review; no merge authority is implied.
+
+Follow-up review found and fixed a fresh-result refresh gap: after a POST
+returns a clarification, UI now refreshes the conversation projection, not
+only exact-basis status. The mounted test starts with an empty projection and
+requires the newly posted clarification to appear before reload. The action
+endpoint can read an archived conversation by explicit UUID. Current Ask
+history UI cannot select one: its existing route always reads the active
+conversation and its wire contract admits only `active`/`absent`. This lease
+does not add an archived Ask-history browsing contract; PRIME was notified
+of that boundary before independent review.

@@ -2424,8 +2424,7 @@ export function WorldPlanAgentConversation({
     setConversationActions([]);
     setConversationActionsError(null);
     const viewedId = history?.conversation_id;
-    if (!scopeMatches || !verifiedWorldId || !viewedId
-      || history?.active_conversation_id !== viewedId) return () => { active = false; };
+    if (!scopeMatches || !verifiedWorldId || !viewedId) return () => { active = false; };
     void getWorldPlanConversationActions(verifiedWorldId, viewedId)
       .then((page) => {
         if (active && page.schema_version === "dmb_world_plan_action_conversation_projection_v1"
@@ -4278,6 +4277,9 @@ export function WorldPlanAgentConversation({
         setContinuationOfActionId(null);
         proposalIntentRef.current = null;
         await refreshActionHistory();
+        if (proposalAnchor && dispatchHistory) {
+          await refreshConversationActions(proposalAnchor.conversationId, dispatchHistory.pointer_revision);
+        }
         return;
       }
       const admitted = await admitWorldPlanEditProposal(captured, response, request.idempotency_key);

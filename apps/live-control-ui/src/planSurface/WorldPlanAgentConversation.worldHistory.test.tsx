@@ -1521,6 +1521,9 @@ describe("World Plan conversation consumer", () => {
       editorSelectionActive: true, draftGeneration: 0, selectionGeneration: 0,
     });
     await screen.findByText(/No messages yet/i);
+    await waitFor(() => expect(liveApi.getWorldPlanConversationActions).toHaveBeenCalledWith(worldId, "conversation-a"));
+    expect(actions).toHaveLength(0);
+    expect(document.querySelector(`article[data-plan-action-id="${clarificationId}"]`)).toBeNull();
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "Change Mira into the door keeper." },
     });
