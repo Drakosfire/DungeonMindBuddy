@@ -1422,7 +1422,9 @@ describe("World Plan conversation consumer", () => {
       from: 1, to: 2, editorJson: "{}", selectionJson: "[]",
       draftGeneration: 0, selectionGeneration: 0,
     };
-    const bridge = { capture: vi.fn(async () => captured), apply: vi.fn(async () => undefined) };
+    const bridge = { capture: vi.fn(async () => captured), apply: vi.fn(async () => undefined),
+      preview: vi.fn(() => ({ before: { markdown: "# Draft\n\nDraft excerpt." },
+        after: { markdown: "# Draft\n\nHer mother guards the door." } })) };
     const clarificationId = "00000000-0000-4000-8000-000000000081";
     const proposalId = "00000000-0000-4000-8000-000000000083";
     const proposalResultId = "00000000-0000-4000-8000-000000000084";
@@ -1590,12 +1592,14 @@ describe("World Plan conversation consumer", () => {
       target: { value: "Her mother." },
     });
     fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
-    const review = await screen.findByRole("region", { name: "Review proposed Plan edit" });
+    const review = await screen.findByRole("region", { name: "Change selected text" });
     expect(within(review).getByText("Before")).toBeInTheDocument();
     expect(within(review).getByText("After")).toBeInTheDocument();
     expect(review).toHaveTextContent("Draft excerpt");
     expect(review).toHaveTextContent("Her mother guards the door.");
     const supportingFacts = await within(review).findByRole("region", { name: "Supporting World facts" });
+    expect(Boolean(supportingFacts.compareDocumentPosition(within(review).getByRole("button", { name: "Apply to draft" }))
+      & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
     expect(supportingFacts).toHaveTextContent("Mira owns the observatory.");
     expect(supportingFacts).not.toHaveTextContent("An unrelated World fact.");
     expect(supportingFacts).toHaveTextContent("Buddy read a source passage for this fact.");
@@ -1608,7 +1612,7 @@ describe("World Plan conversation consumer", () => {
     actions.splice(actions.findIndex((action) => action.action_id === "00000000-0000-4000-8000-000000000085"), 1);
     expect(post).toHaveBeenCalledTimes(2);
     expect(bridge.apply).not.toHaveBeenCalled();
-    fireEvent.click(within(review).getByRole("button", { name: "Apply changes" }));
+    fireEvent.click(within(review).getByRole("button", { name: "Apply to draft" }));
     await waitFor(() => expect(bridge.apply).toHaveBeenCalledTimes(1));
     mounted.unmount();
     mounted = mountComponent(7, bridge, null, false, {

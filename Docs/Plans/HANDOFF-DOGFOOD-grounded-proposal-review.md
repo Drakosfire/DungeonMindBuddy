@@ -7,6 +7,7 @@ Authority: Buddy `main` at `0b10f9554999818142350511fdc84a263bebfcd9` (GitHub `m
 Exclusive expected write set:
 
 - `apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.tsx`
+- `apps/live-control-ui/src/planSurface/components/PlanEditReview.tsx` (supporting-facts slot within the existing review)
 - `apps/live-control-ui/src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx`
 - This handoff
 
@@ -16,4 +17,4 @@ Invariant: A saved Plan edit proposal's human-readable World claims and pinned e
 
 Failure cases to verify: late or stale action projection; wrong action, World, conversation pointer, Plan basis, draft, or selected text; a citation without a matching claim or target; a source read that fails or returns mismatched authority; a New Conversation switch; a legacy proposal with no consultation; and a saved proposal whose review expired after reload.
 
-Verification: `npm test -- src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx` passed (197 tests); `npm run typecheck` passed; `git diff --check` passed. Mounted coverage checks matched proposal facts beside Before/After, source-open success and failure, cross-action/scope rejection, reload/New Conversation, and draft-only Apply. Review the cumulative base-to-head diff before merging; the final PR head is recorded in the PR.
+Verification: `npm test -- src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx` passed (197 tests); `npm run typecheck` passed; `git diff --check` passed. Mounted coverage exercises the editor's actual preview bridge and checks that matched proposal facts render inside Before/After review before Apply, source-open success and failure, cross-action/scope rejection, reload/New Conversation, and draft-only Apply. Review the cumulative base-to-head diff before merging; the final PR head is recorded in the PR.

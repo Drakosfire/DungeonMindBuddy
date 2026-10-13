@@ -3850,7 +3850,9 @@ export function WorldPlanAgentConversation({
   const renderProposalGrounding = (grounding: SavedProposalGrounding | null) => (
     <section className="world-plan-agent-conversation__source-actions" aria-label="Supporting World facts">
       <h5>Supporting World facts</h5>
-      {!grounding || grounding.claims.length === 0 ? (
+      {!grounding ? (
+        <p className="world-plan-agent-conversation__context">Supporting World facts are not yet available for this proposal.</p>
+      ) : grounding.claims.length === 0 ? (
         <p className="world-plan-agent-conversation__context">No supporting World facts are attached to this proposal.</p>
       ) : <ol>{grounding.claims.map((claim) => <li key={claim.claimId}>
         <p>{claim.text}</p>
@@ -4673,10 +4675,10 @@ export function WorldPlanAgentConversation({
       : executable ? applyingTurnId === turn.turnId ? "applying" : "review" : "stale";
     const canOfferSave = status === "applied" && savedDirty && snapshot.threadId === activeThread?.threadId
       && (!snapshot.conversationId || snapshot.conversationId === history?.conversation_id) && onSavePlan;
-    return <>
-      <PlanEditReview targetLabel={snapshot.targetLabel} before={snapshot.preview.before} after={snapshot.preview.after}
+    return <PlanEditReview targetLabel={snapshot.targetLabel} before={snapshot.preview.before} after={snapshot.preview.after}
         status={status} onApply={() => { if (executable) void applyEditReview(executable); }}
         onDiscard={() => { if (executable && editReviewRef.current === executable) discardEditReview(); }}
+        supportingFacts={executable ? renderProposalGrounding(reviewGrounding) : undefined}
         saveAction={canOfferSave ? { disabled: !savedDirty || !savePlanEnabled || saveInFlight, onSave: () => {
           if (latestRef.current.mounted && latestRef.current.verifiedWorldId === snapshot.worldId
             && latestRef.current.documentId === snapshot.documentId && latestRef.current.threadId === snapshot.threadId
@@ -4684,9 +4686,7 @@ export function WorldPlanAgentConversation({
             && latestRef.current.scopeMatches && latestRef.current.savedDirty && latestRef.current.savePlanEnabled
             && !latestRef.current.saveInFlight) onSavePlan?.();
         } } : undefined}
-      />
-      {executable ? renderProposalGrounding(reviewGrounding) : null}
-    </>;
+      />;
   };
   const renderProposalEvent = (
     turn: AgentInteractionTurn,
