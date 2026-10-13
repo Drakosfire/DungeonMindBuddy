@@ -336,6 +336,7 @@ interface ConfirmedTerminalFailureAsk {
   storageKey: string;
   serialized: string;
   historyTurnId: string;
+  clientTurnId: string;
 }
 
 interface WorldPlanPendingNewConversation {
@@ -1694,7 +1695,7 @@ function failedHistoryTurnMatchesPendingGraphAsk(
     || !request.plan_context_policy
     || page.world_id !== origin.worldId
     || !historyPageMatchesPendingAskConversation(page, origin)
-    || turn.lifecycle_status !== "failed"
+    || !["failed", "interrupted"].includes(turn.lifecycle_status)
     || turn.user_text !== request.message
     || turn.provenance.world_id !== origin.worldId
     || turn.provenance.surface_resolution !== "resolved"
@@ -1751,6 +1752,7 @@ async function classifyTerminalFailedGraphPendingAsks(
       storageKey: stored.storageKey,
       serialized: stored.serialized,
       historyTurnId,
+      clientTurnId: stored.envelope!.request.turn_id,
     }));
 }
 
@@ -2637,6 +2639,13 @@ export function WorldPlanAgentConversation({
           );
           if (!active || generation !== historyGenerationRef.current) return;
           setConfirmedTerminalFailureAsks(terminalFailures);
+          // Durable turn IDs differ from client request IDs. Only the exact
+          // bound terminal envelope may release its client-side pending lock.
+          const settledClientIds = new Set(terminalFailures.filter((failure) =>
+            window.localStorage.getItem(failure.storageKey) === failure.serialized)
+            .map((failure) => failure.clientTurnId));
+          sharedConversation?.setPendingTurn((current) => current?.surface === "plan"
+            && settledClientIds.has(current.turnId) ? null : current);
           const uncertain = uncertainPlanNoticeRef.current;
           if (uncertain) {
             const failureConfirmed = readPendingAsks(verifiedWorldId, documentId).some((item) =>
@@ -4890,8 +4899,8 @@ export function WorldPlanAgentConversation({
   const renderConversationEvent = (event: WorldConversationDisplayEvent) => {
     if (event.kind === "proposal") return renderProposalEvent(event.turn, event.position, false);
     const turn = event.turn;
-    const failed = isHistoryTurnFailureConfirmed(turn.turn_id) || isWorldHistoryTurnFailed(turn.turn_id)
-      || turn.lifecycle_status === "failed";
+    const failed = turn.lifecycle_status !== "interrupted" && (isHistoryTurnFailureConfirmed(turn.turn_id)
+      || isWorldHistoryTurnFailed(turn.turn_id) || turn.lifecycle_status === "failed");
     const interrupted = turn.lifecycle_status === "interrupted";
     const deliveryDiagnostic = (uncertainPlanNoticeRef.current?.turnId === turn.turn_id
       || (submittedMessage?.idempotencyKey && "idempotency_key" in turn
