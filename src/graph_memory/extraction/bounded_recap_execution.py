@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
+from pathlib import Path
+import re
+import stat
 import time
 from dataclasses import asdict, dataclass
 from functools import partial
-from typing import Any
+from typing import Any, Mapping
 
 from jsonschema import ValidationError as JsonSchemaValidationError
 from jsonschema import validate as validate_json_schema
@@ -26,6 +30,127 @@ from src.graph_memory.extraction.category_candidate_graph_schema import (
 )
 
 DEEPSEEK_MODEL = "deepseek/deepseek-v4.1-flash"
+
+_SAFE_OBSERVATION_FIELDS = (
+    "provider",
+    "requested_model",
+    "resolved_model",
+    "response_model",
+    "state",
+    "provider_attempt_count",
+    "retry_count",
+    "conformance_retry_count",
+    "transport_retry_count",
+    "input_tokens",
+    "output_tokens",
+    "cached_input_tokens",
+    "reasoning_tokens",
+    "cost_usd",
+    "pricing_source",
+    "latency_ms",
+    "provider_response_id",
+)
+
+_SAFE_REQUEST_FIELDS = (
+    "provider",
+    "model",
+    "temperature",
+    "max_transport_retries",
+    "max_output_tokens",
+    "deadline_ms",
+    "reasoning_effort",
+    "json_object",
+    "provider_route",
+)
+
+
+def _canonical_json_bytes(value: Any) -> bytes:
+    return json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+
+
+def _safe_observation_snapshot(value: Any) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        return {}
+    return {key: value[key] for key in _SAFE_OBSERVATION_FIELDS if key in value}
+
+
+def _write_private_response_evidence(
+    directory: Path,
+    *,
+    ordinal: int,
+    pass_name: str,
+    request: Mapping[str, Any],
+    context_hashes: Mapping[str, str],
+    raw_observation: Any,
+    response_text: str | None,
+) -> tuple[Path, str]:
+    """Atomically preserve one returned response without making it public graph data."""
+    if not re.fullmatch(r"[a-z0-9_-]+", pass_name):
+        raise ValueError("invalid recap pass name for response evidence")
+
+    directory = Path(directory)
+    private_root = directory.parent
+    for path in (private_root, directory):
+        path.mkdir(mode=0o700, parents=False, exist_ok=True)
+        if path.is_symlink() or not path.is_dir():
+            raise OSError("private response evidence path is not a directory")
+        if stat.S_IMODE(path.stat().st_mode) & 0o077:
+            raise PermissionError("private response evidence directory is not private")
+
+    request_bytes = _canonical_json_bytes(request)
+    system_prompt = request.get("system_prompt")
+    user_prompt = request.get("user_prompt")
+    response_bytes = response_text.encode("utf-8") if response_text is not None else None
+    envelope = {
+        "schema": "dmb_private_recap_pass_response_v1",
+        "capture_state": "unvalidated_snapshot",
+        "pass_ordinal": ordinal,
+        "pass_name": pass_name,
+        "request": {
+            "sha256": hashlib.sha256(request_bytes).hexdigest(),
+            "system_prompt_sha256": hashlib.sha256(
+                str(system_prompt or "").encode("utf-8")
+            ).hexdigest(),
+            "user_prompt_sha256": hashlib.sha256(
+                str(user_prompt or "").encode("utf-8")
+            ).hexdigest(),
+            "facts": {key: request[key] for key in _SAFE_REQUEST_FIELDS if key in request},
+        },
+        "context_sha256": dict(sorted(context_hashes.items())),
+        "ge_observation": _safe_observation_snapshot(raw_observation),
+        "response": {
+            "text": response_text,
+            "utf8_bytes": len(response_bytes) if response_bytes is not None else None,
+            "sha256": (
+                hashlib.sha256(response_bytes).hexdigest()
+                if response_bytes is not None
+                else None
+            ),
+        },
+    }
+    artifact_bytes = _canonical_json_bytes(envelope) + b"\n"
+    filename = f"{ordinal:02d}-{pass_name}.json"
+    destination = directory / filename
+    temporary = directory / f".{filename}.{os.getpid()}.{time.time_ns()}.pending"
+    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(artifact_bytes)
+            stream.flush()
+            os.fsync(stream.fileno())
+        # Hard-link publication is atomic and fails if the evidence path exists.
+        os.link(temporary, destination)
+        directory_fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+    return destination, hashlib.sha256(artifact_bytes).hexdigest()
 
 
 class NonObjectResponseError(ValueError):
@@ -106,15 +231,39 @@ def _default_engine_for(provider: str):
 
 class BoundedRecapPassClient:
     def __init__(
-        self, limits: RecapExecutionLimits, *, engine_factory=None, clock=time.monotonic
+        self,
+        limits: RecapExecutionLimits,
+        *,
+        engine_factory=None,
+        clock=time.monotonic,
+        response_artifact_dir: str | os.PathLike[str] | None = None,
+        request_context_hashes: Mapping[str, str] | None = None,
     ):
         from generationengine.types import TextRequest
+
+        if (response_artifact_dir is None) != (request_context_hashes is None):
+            raise ValueError(
+                "private response evidence requires both a sink and context hashes"
+            )
+        if request_context_hashes is not None:
+            if not request_context_hashes or any(
+                not isinstance(name, str)
+                or not name
+                or not isinstance(digest, str)
+                or not re.fullmatch(r"[0-9a-f]{64}", digest)
+                for name, digest in request_context_hashes.items()
+            ):
+                raise ValueError("private response context must contain SHA-256 digests")
 
         self.limits = limits
         self._engine_factory = engine_factory or partial(_default_engine_for, limits.provider)
         self._request_type = TextRequest
         self._clock = clock
         self._started = clock()
+        self._response_artifact_dir = (
+            Path(response_artifact_dir) if response_artifact_dir is not None else None
+        )
+        self._request_context_hashes = dict(request_context_hashes or {})
         self.calls: list[dict[str, Any]] = []
         self._stopped = False
 
@@ -208,8 +357,9 @@ class BoundedRecapPassClient:
         self.calls.append(entry)
         result = None
         try:
+            request_payload = request.model_dump(mode="json")
             outcome = _execute_in_owned_process(
-                self._engine_factory, request.model_dump(mode="json"),
+                self._engine_factory, request_payload,
                 deadline=wall_started + request.deadline_ms / 1000,
             )
             entry["wall_clock_ms"] = int((time.monotonic() - wall_started) * 1000)
@@ -236,6 +386,42 @@ class BoundedRecapPassClient:
                     "bounded inference outcome unknown: worker failed without GE receipt",
                     pass_name=pass_name,
                 )
+            raw_result = receipt.get("result")
+            raw_observation = (
+                raw_result.get("observation")
+                if isinstance(raw_result, Mapping)
+                else None
+            )
+            raw_text = (
+                raw_result.get("text")
+                if isinstance(raw_result, Mapping)
+                and isinstance(raw_result.get("text"), str)
+                else None
+            )
+            if self._response_artifact_dir is not None:
+                # The GE result is already known even if durable evidence cannot be
+                # written. Preserve its safe accounting before the fallible sink.
+                entry["observation"] = _safe_observation_snapshot(raw_observation)
+                try:
+                    response_path, response_digest = _write_private_response_evidence(
+                        self._response_artifact_dir,
+                        ordinal=len(self.calls),
+                        pass_name=pass_name,
+                        request=request_payload,
+                        context_hashes=self._request_context_hashes,
+                        raw_observation=raw_observation,
+                        response_text=raw_text,
+                    )
+                except Exception:
+                    self._stopped = True
+                    entry["consumer_failure"] = "PrivateResponseEvidenceWriteFailed"
+                    raise CategoryGraphExtractionError(
+                        "private recap response evidence could not be written",
+                        pass_name=pass_name,
+                        raw_model_response=raw_text,
+                    ) from None
+                entry["response_artifact_path"] = str(response_path)
+                entry["response_artifact_sha256"] = response_digest
             result = TextResult.model_validate(receipt["result"])
             observation = result.observation.model_dump(mode="json")
             entry["observation"] = observation
