@@ -1,12 +1,24 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { BuddyContextTrace, type BuddyTurnContextTrace } from './BuddyContextTrace'
+import type { BuddyTraceGraphResult, BuddyTraceSourcePassage } from './BuddyContextTrace.types'
 
 function trace(observations: BuddyTurnContextTrace['observations']): BuddyTurnContextTrace {
   return { schema: 'dmb_turn_context_trace_v1', trace_id: 'trace', world_id: 'world',
     conversation_id: 'conversation', turn_id: 'turn', attempt: 1,
-    started_at: '2026-10-13T00:00:00Z', closed_at: '2026-10-13T00:00:01Z', observations }
+    started_at: '2026-10-13T00:00:00Z', closed_at: '2026-10-13T00:00:01Z',
+    execution_start_sequence: 0, terminal_status: 'completed', capture_status: 'complete', capture_failure_code: null, observations }
 }
+
+function passage(text: string): BuddyTraceSourcePassage {
+  return {kind:'source_passage', sequence:0, elapsed_ms:2, source_read_event_id:'read-event', read_call_id:'call',
+    world_id:'world', graph_revision:'rev', source_read_id:'read', anchor_id:'anchor', evidence_ref_id:'evidence',
+    source_artifact_id:'Session source', source_revision_id:'source-rev', line_start:1, line_end:2,
+    outcome:'enough', returned_chars:text.length, content_sha256:'a'.repeat(64), text}
+}
+const emptyResult: BuddyTraceGraphResult = {outcome:'denied', graph_revision:'rev', coverage_status:'incomplete', projection_status:'complete',
+  nodes:[], relationship_ids:[], claim_ids:[], evidence_ref_ids:[], returned_counts:{nodes:0, relationships:0, claims:0, evidence_refs:0},
+  total_counts:{nodes:0, relationships:0, claims:0, evidence_refs:0}, omission_codes:[]}
 
 describe('Buddy context trace', () => {
   it('labels absent historical evidence honestly', () => {
@@ -23,30 +35,51 @@ describe('Buddy context trace', () => {
   })
   it('keeps a retained route distinct from context prose', () => {
     render(<BuddyContextTrace trace={trace([{kind:'context_snapshot', stage:'after', sequence:0,
-      elapsed_ms:1, materials:[{item_id:'source', state:'retrieval_route',
+      elapsed_ms:1, materials:[{item_id:'source', state:'retrieval_route', role:'source',
         route:{route_id:'source', world_id:'world', graph_revision:'rev', anchor_id:'anchor'}}]}])} />)
     fireEvent.click(screen.getByText('Working context · after this turn'))
     expect(screen.getByText('Present in model context')).toBeInTheDocument()
     expect(screen.getByText('Available through retained routes')).toBeInTheDocument()
     expect(screen.getByText(/passage is not currently present/)).toBeInTheDocument()
   })
-  it('preserves the full result and identifies denied reads as non-evidence', () => {
-    const passage='Full source passage. '.repeat(1000)
+  it('identifies denied graph queries as non-evidence', () => {
     render(<BuddyContextTrace trace={trace([{kind:'graph_tool', sequence:0, elapsed_ms:2,
-      tool_name:'read_graph_source', arguments:{anchorIds:['anchor']},
-      result:{content:passage, code:'source_anchor_not_admitted'}, outcome:'denied', execution_event_ids:[]}])} />)
-    fireEvent.click(screen.getByText('Read supporting source'))
+      tool_name:'expand_graph_retrieval', request:{operation:'search', query_text:'Mirathorn', seed_node_ids:[]},
+      execution_event_id:'event', request_arguments_sha256:'a'.repeat(64), result_packet_sha256:'b'.repeat(64), scope_mode:'world', campaign_id:null, revision_pin:'rev', result:emptyResult}])} />)
+    fireEvent.click(screen.getByText('Explore World graph · search'))
     fireEvent.click(screen.getByText('Captured result'))
     expect(screen.getByText(/This result supplies no admitted evidence/)).toBeInTheDocument()
-    expect(screen.getByText(/"content":/).textContent).toContain(passage)
+    expect(screen.getByText('Search: Mirathorn')).toBeInTheDocument()
   })
   it('opens complete admitted passages as readable prose', () => {
-    const passage='Mirathorn source passage. '.repeat(1000)
+    const text='Mirathorn source passage. '.repeat(300)
+    render(<BuddyContextTrace trace={trace([passage(text)])} />)
+    fireEvent.click(screen.getByText('Session source · lines 1–2 · enough'))
+    expect(screen.getByText(text.trim()).tagName).toBe('BLOCKQUOTE')
+    expect(screen.getByText(/Historical observation/)).toBeInTheDocument()
+  })
+  it('shows incomplete capture separately from a completed turn', () => {
+    render(<BuddyContextTrace trace={{...trace([]), capture_status:'incomplete', capture_failure_code:'trace_cap_exceeded'}} />)
+    expect(screen.getByRole('alert')).toHaveTextContent('Some execution evidence is missing. trace_cap_exceeded')
+    expect(screen.getByText('Incomplete capture')).toBeInTheDocument()
+  })
+  it('distinguishes limited trace projection from retrieval coverage', () => {
     render(<BuddyContextTrace trace={trace([{kind:'graph_tool', sequence:0, elapsed_ms:2,
-      tool_name:'read_graph_source', arguments:{anchorIds:['anchor']},
-      result:{reads:[{result:{content:passage}}]}, outcome:'returned', execution_event_ids:['read']}])} />)
-    fireEvent.click(screen.getByText('Read supporting source'))
-    fireEvent.click(screen.getByText('Source passage 1'))
-    expect(screen.getByText(passage.trim()).tagName).toBe('BLOCKQUOTE')
+      tool_name:'expand_graph_retrieval', request:{operation:'neighborhood', seed_node_ids:['city'], depth:2},
+      execution_event_id:'event', request_arguments_sha256:'a'.repeat(64), result_packet_sha256:'b'.repeat(64), scope_mode:'world', campaign_id:null, revision_pin:'rev',
+      result:{...emptyResult, outcome:'partial', projection_status:'limited', nodes:[{node_id:'city', label:'Mirathorn', kind:'location'}],
+        returned_counts:{...emptyResult.returned_counts, nodes:1}, total_counts:{...emptyResult.total_counts, nodes:4}, omission_codes:['trace_node_limit']}}])} />)
+    fireEvent.click(screen.getByText('Explore World graph · neighborhood'))
+    expect(screen.getByText(/Graph coverage: incomplete/)).toBeInTheDocument()
+    expect(screen.getByRole('note')).toHaveTextContent('trace_node_limit')
+    expect(screen.getByRole('note')).toHaveTextContent('4 nodes')
+    expect(screen.getByText('Mirathorn · location')).toBeInTheDocument()
+  })
+  it('identifies a missing captured source snapshot in model context', () => {
+    render(<BuddyContextTrace trace={trace([{kind:'context_snapshot', stage:'before', sequence:0, elapsed_ms:0,
+      materials:[{item_id:'source', state:'model_context', role:'source', source_read_event_id:'missing'}]}])} />)
+    fireEvent.click(screen.getByText('Working context · before this turn'))
+    fireEvent.click(screen.getByText('source · source'))
+    expect(screen.getByText('Referenced source passage was not captured in this attempt.')).toBeInTheDocument()
   })
 })

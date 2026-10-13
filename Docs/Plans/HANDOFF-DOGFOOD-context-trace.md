@@ -14,7 +14,7 @@ This is the APP-STATE/Buddy contract: APP-STATE owns durable trace storage, atte
 
 PRIME's accepted owner split: APP-STATE implements a per-attempt trace table/types/store/lifecycle/migration, capped at 1 MiB per attempt with explicit incomplete/unavailable capture states. Exact complete broker-validated passage snapshots bind to the source-read execution event and original scope/reference/revision/digest. Capture is write-ahead with the validated read event; terminal close is atomic and preserves failed/interrupted attempts. These snapshots are historical context, not a graph authority or source archive. No arbitrary tool payload, whole provider prompt, hidden reasoning or credentials are eligible. Buddy consumes APP-STATE's supplied typed contract; the initial proposal remains design evidence only.
 
-Consumer contract gap identified 2026-10-13: the current draft `TraceGraphTool` carries only event IDs/outcome/result code. Existing validated execution events carry request/result hashes, IDs and coverage but not actual query/selectors or returned graph facts. References to that ledger alone cannot satisfy the user's searches/tool-calls/results requirement. The accepted producer/persistence interface must include an allowlisted, broker-validated query/result projection (not arbitrary provider payload), or an exact immutable retrievable observation artifact. Until then the viewer must explicitly report unavailable query details; this requirement remains open and must not be reduced to event hashes.
+Consumer query/result gap addressed in APP-STATE's current draft contract: typed search/object/neighborhood/support requests, observed limits, returned node labels and claim/relationship/evidence projections, explicit coverage/omission counts, and exact execution receipt hashes. The viewer and pure producer projection now consume that shape. Five producer variants validate against owner draft contract digest `bf26b81d7b0f3097bcaa61f262e9c9a68cbe5db21f9599fa3526abbbce6271de`; this is provisional compatibility evidence, not proof that the persistence contract has merged or that live capture works. Nine producer tests and eight viewer tests pass; app typecheck and Ruff pass.
 
 ## Invariant critique
 
@@ -34,7 +34,7 @@ Consumer contract gap identified 2026-10-13: the current draft `TraceGraphTool` 
 
 No dependency pin/lockfile, graph write, ingestion publication, arbitrary corpus fallback, background summary/edge loop, or stable-main runtime is leased.
 
-PRIME's current dispatch reserves the initial provider-packet/receipt/reclaimed-packet functions in `routes/agent.py` and `agent_turn_service.py` to SERVER's citation-identity repair. Trace collector/history integration in both files is PARKED until that repair merges and this lane re-anchors. This branch currently edits neither file. Viewer and proposed API-type work can continue independently; APP-STATE separately settles the persistence lease.
+SERVER's citation-identity repair #1121 merged as `ad555917179764c61dcbc3095f9d7fd5182709b2`; its shared-function lease is released. This lane must re-anchor before collector/history integration while preserving its packet/version semantics. Because 5202 now runs from this checkout, rebase/source adoption must occur in a stopped transition. This branch currently edits neither shared backend file. APP-STATE retains persistence ownership; its accepted implementation remains a separate integration dependency.
 
 ## Runtime and verification
 

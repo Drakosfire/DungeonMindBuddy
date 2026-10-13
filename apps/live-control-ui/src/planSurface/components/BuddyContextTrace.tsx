@@ -1,44 +1,6 @@
 import './BuddyContextTrace.css'
-
-export interface BuddyTraceRoute {
-  route_id: string
-  world_id: string
-  graph_revision: string
-  node_id?: string | null
-  anchor_id?: string | null
-  evidence_ref_id?: string | null
-  source_artifact_id?: string | null
-  source_revision_id?: string | null
-}
-
-export interface BuddyTraceMaterial {
-  item_id: string
-  state: 'model_context' | 'retrieval_route'
-  role?: 'user' | 'assistant' | 'source' | 'fact' | null
-  text?: string | null
-  route?: BuddyTraceRoute | null
-}
-
-interface Observation { sequence: number; elapsed_ms: number }
-export type BuddyTraceObservation = Observation & (
-  | { kind: 'context_snapshot'; stage: 'before' | 'after'; materials: BuddyTraceMaterial[] }
-  | { kind: 'context_decision'; action: 'retrieved' | 'retained' | 'expanded' | 'compacted' | 'pruned'; item_ids: string[]; reason: string; policy_version: string }
-  | { kind: 'graph_tool'; tool_name: string; arguments: Record<string, unknown>; result: Record<string, unknown>; outcome: 'returned' | 'denied' | 'failed'; execution_event_ids: string[]; duration_ms?: number | null }
-  | { kind: 'provider_call'; provider_attempt_id?: string | null; provider: string; model: string; outcome: string; input_tokens?: number | null; output_tokens?: number | null; input_upper_bound?: number | null; input_estimator?: string | null; duration_ms?: number | null }
-  | { kind: 'failure'; code: string; phase: string; message: string }
-)
-
-export interface BuddyTurnContextTrace {
-  schema: 'dmb_turn_context_trace_v1'
-  trace_id: string
-  world_id: string
-  conversation_id: string
-  turn_id: string
-  attempt: number
-  started_at: string
-  closed_at: string | null
-  observations: BuddyTraceObservation[]
-}
+import type { BuddyTraceMaterial, BuddyTraceObservation, BuddyTraceSourcePassage, BuddyTurnContextTrace } from './BuddyContextTrace.types'
+export type { BuddyTurnContextTrace } from './BuddyContextTrace.types'
 
 const names: Record<string, string> = {
   expand_graph_retrieval: 'Explore World graph',
@@ -52,22 +14,24 @@ function JsonDetails({ label, value }: { label: string; value: unknown }) {
     <pre>{JSON.stringify(value, null, 2)}</pre></details>
 }
 
-function sourcePassages(value: unknown): string[] {
-  if (Array.isArray(value)) return value.flatMap(sourcePassages)
-  if (!value || typeof value !== 'object') return []
-  const object = value as Record<string, unknown>
-  return [
-    ...(typeof object.content === 'string' && object.content ? [object.content] : []),
-    ...Object.entries(object).filter(([key]) => key !== 'content').flatMap(([, child]) => sourcePassages(child)),
-  ]
+function Passage({ passage }: { passage: BuddyTraceSourcePassage }) {
+  return <details className="buddy-context-trace__source"><summary>{passage.source_artifact_id}{passage.line_start == null ? '' : ` · lines ${passage.line_start}–${passage.line_end}`} · {passage.outcome}</summary>
+    <blockquote>{passage.text}</blockquote><p>Exact passage read during this attempt. Historical observation; it does not grant new evidence authority.</p>
+    <JsonDetails label="Pinned source reference" value={{ world: passage.world_id, graph_revision: passage.graph_revision, anchor: passage.anchor_id,
+      evidence: passage.evidence_ref_id, source_revision: passage.source_revision_id, content_sha256: passage.content_sha256, returned_chars: passage.returned_chars }} />
+  </details>
 }
 
-function Materials({ materials }: { materials: BuddyTraceMaterial[] }) {
+function Materials({ materials, passages }: { materials: BuddyTraceMaterial[]; passages: BuddyTraceSourcePassage[] }) {
   const present = materials.filter(item => item.state === 'model_context')
   const routes = materials.filter(item => item.state === 'retrieval_route')
   return <div className="buddy-context-trace__context-columns">
     <section><h5>Present in model context</h5>{present.length === 0 ? <p>No captured material.</p> : present.map(item =>
-      <details key={item.item_id}><summary>{item.role ?? 'Material'} · {item.item_id}</summary><p className="buddy-context-trace__prose">{item.text}</p></details>)}</section>
+      <details key={item.item_id}><summary>{item.role} · {item.item_id}</summary>{item.role === 'source'
+        ? passages.some(passage => passage.source_read_event_id === item.source_read_event_id)
+          ? passages.filter(passage => passage.source_read_event_id === item.source_read_event_id).map(passage => <Passage key={passage.source_read_id} passage={passage} />)
+          : <p>Referenced source passage was not captured in this attempt.</p>
+        : <p className="buddy-context-trace__prose">{item.text}</p>}</details>)}</section>
     <section><h5>Available through retained routes</h5>{routes.length === 0 ? <p>No captured routes.</p> : routes.map(item =>
       <details key={item.item_id}><summary>{item.route?.node_id ?? item.route?.anchor_id ?? item.item_id}</summary>
         <p>This handle can retrieve details. Its passage is not currently present in model context.</p>
@@ -75,33 +39,42 @@ function Materials({ materials }: { materials: BuddyTraceMaterial[] }) {
   </div>
 }
 
-function Event({ event }: { event: BuddyTraceObservation }) {
+const reasons: Record<string, string> = {
+  question_relevance: 'Relevant to this question', followup_detail_needed: 'More detail needed for the follow-up', coverage_gap: 'Evidence coverage was incomplete',
+  context_budget: 'Compacted for the context budget', duplicate: 'Duplicate material', superseded: 'Superseded by newer material',
+  route_preserved: 'Recoverable route preserved', retrieval_sufficient: 'Retrieved evidence was sufficient', unavailable: 'Material unavailable',
+}
+function Event({ event, passages }: { event: BuddyTraceObservation; passages: BuddyTraceSourcePassage[] }) {
   switch (event.kind) {
-    case 'context_snapshot': return <details><summary>Working context · {event.stage} this turn</summary><Materials materials={event.materials} /></details>
-    case 'context_decision': return <><strong>{event.action}</strong><p>{event.reason}</p><JsonDetails label="Affected material and policy" value={{ items: event.item_ids, policy: event.policy_version }} /></>
-    case 'graph_tool': return <details><summary>{names[event.tool_name] ?? event.tool_name} <span>{event.outcome}</span></summary>
-      <JsonDetails label="Query and selectors" value={event.arguments} />
-      {event.outcome === 'returned' && event.tool_name !== 'expand_graph_retrieval' && sourcePassages(event.result).map((passage, index) =>
-        <details className="buddy-context-trace__source" key={index}><summary>Source passage {index + 1}</summary>
-          <blockquote>{passage}</blockquote></details>)}
+    case 'context_snapshot': return <details><summary>Working context · {event.stage} this turn</summary><Materials materials={event.materials} passages={passages} /></details>
+    case 'context_decision': return <><strong>{event.action}</strong><p>{reasons[event.reason_code] ?? event.reason_code}</p><JsonDetails label="Affected material and policy" value={{ items: event.item_ids, policy: event.policy_version }} /></>
+    case 'graph_tool': return <details><summary>{names[event.tool_name]} · {event.request.operation} <span>{event.result.outcome}</span></summary>
+      {event.request.operation === 'search' && <p>Search: {event.request.query_text}</p>}
+      <JsonDetails label="Query and selectors" value={event.request} />
+      <p>Graph coverage: {event.result.coverage_status}. {event.result.returned_counts.nodes} nodes · {event.result.returned_counts.relationships} relationships · {event.result.returned_counts.claims} claims · {event.result.returned_counts.evidence_refs} evidence references.</p>
+      {event.result.projection_status === 'limited' && <p role="note">Trace result projection is limited: {event.result.omission_codes.join(', ')}. Total returned by retrieval: {event.result.total_counts.nodes} nodes · {event.result.total_counts.relationships} relationships · {event.result.total_counts.claims} claims · {event.result.total_counts.evidence_refs} evidence references.</p>}
+      {event.result.nodes.length > 0 && <ul>{event.result.nodes.map(node => <li key={node.node_id}>{node.label} · {node.kind}</li>)}</ul>}
       <JsonDetails label="Captured result" value={event.result} />
-      {event.outcome !== 'returned' && <p className="buddy-context-trace__failure">This result supplies no admitted evidence.</p>}</details>
+      {['denied', 'unavailable'].includes(event.result.outcome) && <p className="buddy-context-trace__failure">This result supplies no admitted evidence.</p>}</details>
+    case 'source_passage': return <Passage passage={event} />
     case 'provider_call': return <><strong>{event.model}</strong> <span>{event.outcome}</span>
       {(event.input_tokens != null || event.output_tokens != null) && <p>Provider-reported usage: {event.input_tokens == null ? 'input unavailable' : `${number(event.input_tokens)} input`} · {event.output_tokens == null ? 'output unavailable' : `${number(event.output_tokens)} output`}</p>}
       {event.input_upper_bound != null && <p className="buddy-context-trace__muted">Input ceiling: {number(event.input_upper_bound)} · conservative estimate, not actual token usage.</p>}
       {event.input_tokens == null && event.output_tokens == null && <p className="buddy-context-trace__muted">Actual token usage was not captured for this observation.</p>}</>
-    case 'failure': return <><strong className="buddy-context-trace__failure">{event.message}</strong><p>{event.phase} · {event.code}</p></>
+    case 'failure': return <><strong className="buddy-context-trace__failure">Execution failed</strong><p>{event.phase} · {event.code}</p></>
   }
 }
 
 export function BuddyContextTrace({ trace }: { trace: BuddyTurnContextTrace | null }) {
   if (!trace) return <p className="buddy-context-trace__muted">No execution trace was captured for this turn.</p>
   const last = trace.observations.at(-1)
+  const passages = trace.observations.filter((event): event is BuddyTraceSourcePassage => event.kind === 'source_passage')
   return <section className="buddy-context-trace" aria-label="Buddy context trace">
     <header><div><h4>How Buddy built this reply</h4><p>Observable execution · attempt {trace.attempt}</p></div>
-      <span>{trace.closed_at ? 'Captured' : 'In progress'}{last ? ` · ${(last.elapsed_ms / 1000).toFixed(1)}s` : ''}</span></header>
+      <span>{trace.capture_status === 'incomplete' ? 'Incomplete capture' : trace.closed_at ? 'Captured' : 'In progress'}{last ? ` · ${(last.elapsed_ms / 1000).toFixed(1)}s` : ''}</span></header>
+    {trace.capture_status === 'incomplete' && <p role="alert" className="buddy-context-trace__failure">Some execution evidence is missing. {trace.capture_failure_code}</p>}
     <ol>{trace.observations.map(event => <li key={event.sequence}>
       <span className="buddy-context-trace__time">{(event.elapsed_ms / 1000).toFixed(1)}s</span>
-      <div><Event event={event} /></div></li>)}</ol>
+      <div><Event event={event} passages={passages} /></div></li>)}</ol>
   </section>
 }
