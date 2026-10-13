@@ -1,20 +1,38 @@
-.loaded-graph-explorer { width: min(960px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 24px; border: 1px solid #536575; border-radius: 12px; background: #171f29; color: #e8eaef; overflow: auto; }
-.loaded-graph-explorer::backdrop { background: #000a; }
-.loaded-graph-explorer header { display: flex; justify-content: space-between; align-items: start; gap: 16px; }
-.loaded-graph-explorer h2, .loaded-graph-explorer h3 { margin-top: 0; }
-.loaded-graph-explorer__scope { color: #b5c4cf; }
-.loaded-graph-explorer__layout { display: grid; grid-template-columns: minmax(180px, 30%) minmax(0, 1fr); gap: 24px; }
-.loaded-graph-explorer nav { max-height: 65dvh; overflow: auto; }
-.loaded-graph-explorer input { display: block; width: 100%; box-sizing: border-box; margin: 8px 0 12px; }
+.loaded-graph-explorer { width: min(1120px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); padding: 0; border: 1px solid #536575; border-radius: 18px; background: #141c28; color: #eef2f7; box-shadow: 0 28px 80px #000b; overflow: auto; }
+.loaded-graph-explorer::backdrop { background: #050910c9; backdrop-filter: blur(5px); }
+.loaded-graph-explorer__header { display: flex; justify-content: space-between; align-items: start; gap: 20px; padding: 28px 32px 20px; background: radial-gradient(circle at 80% 0%, #274438 0, transparent 45%), #182432; }
+.loaded-graph-explorer__eyebrow { display: block; color: #d9b466; font-size: .72rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.loaded-graph-explorer__close { min-width: 38px; min-height: 38px; padding: 0; border: 1px solid #65798b; border-radius: 50%; background: #1e2b3b; color: #f4f6f9; font-size: 1.7rem; line-height: 1; }
+.loaded-graph-explorer h2, .loaded-graph-explorer h3 { margin: .35rem 0; font-family: Georgia, serif; }
+.loaded-graph-explorer h2 { font-size: clamp(1.8rem, 4vw, 2.5rem); }
+.loaded-graph-explorer h3 { font-size: clamp(1.65rem, 3vw, 2.2rem); }
+.loaded-graph-explorer__scope { max-width: 55ch; margin: 0; color: #bfceda; line-height: 1.5; }
+.loaded-graph-explorer__overview { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 32px 20px; background: #182432; }
+.loaded-graph-explorer__overview > span { padding: 8px 12px; border: 1px solid #455a6a; border-radius: 999px; background: #243242; color: #cdd9e2; font-size: .85rem; }
+.loaded-graph-explorer__overview strong { color: #f8e4aa; font-size: 1rem; }
+.loaded-graph-explorer__overview .loaded-graph-explorer__coverage { border-color: #4d7967; background: #183c35; color: #c2f0d4; }
+.loaded-graph-explorer__overview .loaded-graph-explorer__coverage--partial { border-color: #bd8b47; background: #493821; color: #ffe0a5; }
+.loaded-graph-explorer__notice { margin: 0; padding: 12px 32px; border-block: 1px solid #79572f; background: #302719; color: #ffe3ae; }
+.loaded-graph-explorer__layout { display: grid; grid-template-columns: minmax(230px, 32%) minmax(0, 1fr); min-height: min(560px, 65dvh); }
+.loaded-graph-explorer nav { max-height: 68dvh; padding: 20px; border-right: 1px solid #34485a; background: #101924; overflow: auto; }
+.loaded-graph-explorer nav label { display: block; color: #e3ecf2; font-size: .82rem; font-weight: 650; }
+.loaded-graph-explorer nav select { display: block; width: 100%; box-sizing: border-box; margin: 8px 0 12px; padding: 10px; border: 1px solid #5a6e82; border-radius: 8px; background: #1b2736; color: #f4f7fa; }
+.loaded-graph-explorer__result-count { color: #acc1cf; font-size: .8rem; }
+.loaded-graph-explorer input { display: block; width: 100%; box-sizing: border-box; margin: 8px 0 12px; padding: 10px; border: 1px solid #5a6e82; border-radius: 8px; background: #1b2736; color: #f4f7fa; }
+.loaded-graph-explorer input:focus-visible, .loaded-graph-explorer select:focus-visible, .loaded-graph-explorer button:focus-visible { outline: 2px solid #efbc5b; outline-offset: 2px; }
 .loaded-graph-explorer nav ul { list-style: none; padding: 0; }
-.loaded-graph-explorer nav button { display: block; width: 100%; text-align: left; white-space: normal; height: auto; margin-bottom: 6px; }
-.loaded-graph-explorer nav button[aria-current="true"] { background: #425f58; }
+.loaded-graph-explorer nav button { display: block; width: 100%; text-align: left; white-space: normal; height: auto; margin-bottom: 6px; padding: 11px 12px; border: 1px solid transparent; border-radius: 9px; background: #202e3f; color: #f0f4f8; }
+.loaded-graph-explorer nav button[aria-current="true"], .loaded-graph-explorer nav button:hover { border-color: #d2a751; background: #354339; }
 .loaded-graph-explorer small { display: block; color: #b5c4cf; }
-.loaded-graph-explorer article { background: #f0e7d1; color: #30291b; padding: 20px; border-radius: 10px; overflow-wrap: anywhere; }
-.loaded-graph-explorer article button { background: #e5d9b9; color: #30291b; border: 1px solid #ad9d78; }
+.loaded-graph-explorer article { margin: 20px; padding: clamp(22px, 4vw, 42px); border: 1px solid #d5c7a7; border-radius: 14px; background: #f2e8d2; color: #332b1e; overflow-wrap: anywhere; }
+.loaded-graph-explorer__summary { max-width: 65ch; line-height: 1.6; font-size: 1.02rem; }
+.loaded-graph-explorer__connections { list-style: none; padding: 0; }
+.loaded-graph-explorer__connections li { padding: 12px 0; border-bottom: 1px solid #d7c9aa; }
+.loaded-graph-explorer__connections li > span { color: #6b5840; }
+.loaded-graph-explorer article button { background: #e5d9b9; color: #30291b; border: 1px solid #ad9d78; border-radius: 7px; }
 .loaded-graph-explorer article li { margin-bottom: 12px; }
 .loaded-graph-explorer details { margin-top: 20px; }
-@media (max-width: 600px) { .loaded-graph-explorer { padding: 16px; } .loaded-graph-explorer__layout { grid-template-columns: 1fr; } .loaded-graph-explorer nav { max-height: 25dvh; } }
+@media (max-width: 680px) { .loaded-graph-explorer__header { padding: 20px; } .loaded-graph-explorer__overview { padding: 0 20px 16px; } .loaded-graph-explorer__notice { padding: 12px 20px; } .loaded-graph-explorer__layout { grid-template-columns: 1fr; } .loaded-graph-explorer nav { max-height: 34dvh; border-right: 0; border-bottom: 1px solid #34485a; } .loaded-graph-explorer article { margin: 12px; } }
 
 .loaded-graph-explorer article h3, .loaded-graph-explorer article h4 { color: #30291b; opacity: 1; text-transform: none; letter-spacing: normal; }
 .loaded-graph-explorer article h3 { font-size: 1.125rem; }

@@ -64,6 +64,17 @@ describe("loaded World graph inspection", () => {
     expect(JSON.stringify(raw)).toBe(original);
   });
 
+  it("keeps the loaded coverage visible while filtering subjects", () => {
+    const mixed = { ...projection, nodes: [node("brin", "Brin"), { ...node("mirathorn", "Mirathorn"), kind: "location" }] };
+    render(<LoadedGraphBrowser worldName="Elderwyld" projection={mixed} />);
+    fireEvent.click(screen.getByRole("button", { name: "Explore loaded graph" }));
+    expect(screen.getByRole("status")).toHaveTextContent("counts and search below describe only what is loaded");
+    fireEvent.change(screen.getByRole("combobox", { name: "Show" }), { target: { value: "location" } });
+    expect(screen.getByText("1 match in the loaded projection")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mirathorn Location" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Brin Person" })).not.toBeInTheDocument();
+  });
+
   it("removes stale graph content and gates exploration when the projection is unavailable", () => {
     const view = render(<LoadedGraphBrowser worldName="Elderwyld" projection={projection} />);
     fireEvent.click(screen.getByRole("button", { name: "Explore loaded graph" }));
