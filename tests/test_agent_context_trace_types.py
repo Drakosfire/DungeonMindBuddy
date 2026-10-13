@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from application_state.agent_conversation.context_trace import TraceGraphTool
+from application_state.agent_conversation.context_trace import TraceContextMaterial
 from application_state.agent_conversation.context_trace_store import (
     _validate_graph_tool_observation,
 )
@@ -110,3 +111,16 @@ def test_limited_graph_tool_projection_names_omitted_results() -> None:
     observation = TraceGraphTool.model_validate(payload)
     assert observation.result.projection_status == "limited"
     assert observation.result.omission_codes == ["node_projection_limit"]
+
+
+def test_historical_material_is_exclusive_and_legacy_serialization_is_unchanged() -> None:
+    legacy = TraceContextMaterial(item_id="question", state="model_context", role="user", text="Question")
+    assert "historical_source_reads" not in legacy.model_dump(mode="json", by_alias=True)
+    ref = {"world_id": "world", "conversation_id": uuid4(), "turn_id": uuid4(), "attempt": 1,
+           "trace_id": uuid4(), "source_read_event_id": uuid4(), "source_read_id": "read-1", "content_sha256": "a" * 64}
+    material = TraceContextMaterial(item_id="history", state="model_context", role="source", historical_source_reads=[ref])
+    assert material.model_dump(mode="json")["historical_source_reads"][0]["source_read_id"] == "read-1"
+    for overrides in ({"text": "arbitrary source text"},
+                      {"source_read_event_id": uuid4(), "source_reads": [{"source_read_id": "current", "content_sha256": "a" * 64}]}):
+        with pytest.raises(ValidationError, match="present source material"):
+            TraceContextMaterial.model_validate({**material.model_dump(mode="python"), **overrides})
