@@ -102,7 +102,7 @@ class PlanActionDialogueService:
                         == (execution.policy if execution else None)):
                     return current, False
                 raise ApplicationStateConflictError("action consultation is already frozen with different inputs")
-            repo.validate_predecessor(conn, consultation)
+            repo.validate_predecessor(conn, current, consultation)
             return repo.write_consultation(conn, current, consultation), True
 
     def append_consultation_event(
@@ -189,6 +189,7 @@ class PlanActionDialogueService:
             accepted_at=item.accepted_at,
             completed_at=item.completed_at,
             playable_target_receipt=item.playable_target_receipt,
+            selection_anchor=item.selection_anchor,
             consultation=item.consultation,
         )
 

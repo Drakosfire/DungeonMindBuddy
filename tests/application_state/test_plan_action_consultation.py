@@ -40,6 +40,7 @@ from application_state.plan_action_dialogue.types import (
     PlanActionConsultationReceipt, PlanActionContinuation,
     PlanActionContextUnavailableResult, PlanActionProposalResult,
     PlanActionRecord, PlanActionReservation,
+    PlanActionSelectionAnchorV1,
 )
 from tests.application_state.conftest import _admin_dsn, _create_database, _drop_database, _replace_database
 
@@ -78,7 +79,10 @@ def application_state_dsn(monkeypatch):
         _drop_database(admin, name)
 
 
-def reservation(*, basis=None, instruction="Give the observatory a hidden door."):
+def reservation(
+    *, basis=None, instruction="Give the observatory a hidden door.",
+    selection_anchor: PlanActionSelectionAnchorV1 | None = None,
+):
     basis = basis or PlanActionBasis(
         world_id="synthetic-world", document_id="synthetic-plan", object_revision=4,
         work_revision_id=uuid4(), revision_n=2, content_sha256="a" * 64,
@@ -91,8 +95,20 @@ def reservation(*, basis=None, instruction="Give the observatory a hidden door."
         ),
         draft_matches_basis=False, draft_sha256="c" * 64,
         target_kind="replace_selection", selected_text_sha256="d" * 64,
+        selection_anchor=selection_anchor,
         instruction=instruction,
     )
+
+
+def selection_anchor(*, anchor: int = 10, head: int = 20) -> PlanActionSelectionAnchorV1:
+    return PlanActionSelectionAnchorV1.model_validate({
+        "schema_version": "dmb_plan_selection_anchor_v1",
+        "editor_format": "world-plan-tiptap-json-v1",
+        "editor_json_sha256": "e" * 64,
+        "anchor": anchor, "head": head,
+        "from": min(anchor, head), "to": max(anchor, head),
+        "section": {"id": "heading:8:2", "apply_from": 8, "apply_to": 25},
+    })
 
 
 def model_action(request=None):
@@ -804,6 +820,56 @@ def test_pg_linked_clarification_preserves_intent_and_revalidates_current_graph(
     with pytest.raises(ApplicationStateConflictError, match="superseded"):
         service.freeze_consultation(action_id=other.action_id, token=other.dispatch_token,
                                     fence=other.fence, receipt=other_receipt, policy=policy)
+
+
+def test_pg_locked_clarification_requires_exact_selection_anchor_equality(application_state_dsn):
+    service = PlanActionDialogueService()
+    exact_anchor = selection_anchor(anchor=20, head=10)
+    request = reservation(selection_anchor=exact_anchor)
+    first, _ = service.reserve(request)
+    previous, _ = complete_action(service, first)
+    link = PlanActionContinuation(
+        continuation_of_action_id=first.action_id,
+        clarification_id=previous.consultation.result.result_id,
+        previous_result_sha256=consultation_result_digest(previous.consultation.result),
+        previous_instruction=request.instruction,
+    )
+    for different in (None, selection_anchor(anchor=20, head=11)):
+        reply, _ = service.reserve(reservation(
+            basis=request.basis, instruction="Yes, hers.", selection_anchor=different,
+        ))
+        receipt, policy = frozen_inputs(reply, continuation=link)
+        with pytest.raises(ApplicationStateConflictError, match="predecessor"):
+            service.freeze_consultation(
+                action_id=reply.action_id, token=reply.dispatch_token,
+                fence=reply.fence, receipt=receipt, policy=policy,
+            )
+    reply, _ = service.reserve(reservation(
+        basis=request.basis, instruction="Yes, hers.", selection_anchor=exact_anchor,
+    ))
+    frozen, _, _ = frozen_action(service, reply, continuation=link)
+    assert frozen.selection_anchor == previous.selection_anchor == exact_anchor
+    assert service.list_conversation_status(
+        request.basis.world_id, _owner_id(request.basis.world_id),
+    ).actions[-1].selection_anchor == exact_anchor
+
+    second_first, _ = service.reserve(reservation(basis=request.basis))
+    second_previous, _ = complete_action(service, second_first)
+    second_link = PlanActionContinuation(
+        continuation_of_action_id=second_first.action_id,
+        clarification_id=second_previous.consultation.result.result_id,
+        previous_result_sha256=consultation_result_digest(second_previous.consultation.result),
+        previous_instruction=second_first.instruction,
+    )
+    anchored_reply, _ = service.reserve(reservation(
+        basis=request.basis, instruction="Another reply.", selection_anchor=exact_anchor,
+    ))
+    receipt, policy = frozen_inputs(anchored_reply, continuation=second_link)
+    with pytest.raises(ApplicationStateConflictError, match="predecessor"):
+        service.freeze_consultation(
+            action_id=anchored_reply.action_id, token=anchored_reply.dispatch_token,
+            fence=anchored_reply.fence, receipt=receipt, policy=policy,
+        )
 
 
 @pytest.mark.parametrize("change", ["world", "basis", "draft", "target", "predecessor", "surface"])

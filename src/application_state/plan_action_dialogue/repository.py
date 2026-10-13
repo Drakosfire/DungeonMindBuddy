@@ -17,6 +17,7 @@ from application_state.plan_action_dialogue.types import (
     PlanActionBasis,
     PlanActionConsultation,
     PlanActionPlayableTargetReceipt,
+    PlanActionSelectionAnchorV1,
     PlanActionRecord,
     PlanActionReservation,
 )
@@ -26,7 +27,8 @@ _RETURNING = """
     action_id, idempotency_key, request_fingerprint, action_type, world_id,
     document_id, object_revision, work_revision_id, revision_n,
     content_sha256, draft_matches_basis, draft_sha256, target_kind,
-    selected_text_sha256, playable_target_receipt, instruction, status, assistant_summary,
+    selected_text_sha256, playable_target_receipt, selection_anchor,
+    instruction, status, assistant_summary,
     failure_code, dispatch_token, fence, action_sequence, accepted_at,
     completed_at, lease_expires_at, consultation
 """
@@ -54,6 +56,10 @@ def _record(row: dict[str, Any]) -> PlanActionRecord:
         playable_target_receipt=(
             PlanActionPlayableTargetReceipt.model_validate(row["playable_target_receipt"])
             if row["playable_target_receipt"] is not None else None
+        ),
+        selection_anchor=(
+            PlanActionSelectionAnchorV1.model_validate(row["selection_anchor"])
+            if row["selection_anchor"] is not None else None
         ),
         instruction=row["instruction"],
         status=row["status"],
@@ -130,10 +136,11 @@ def reserve(conn: psycopg.Connection, request: PlanActionReservation) -> tuple[P
                 action_id, idempotency_key, request_fingerprint, action_type,
                 world_id, document_id, object_revision, work_revision_id,
                 revision_n, content_sha256, draft_matches_basis, draft_sha256,
-                target_kind, selected_text_sha256, playable_target_receipt, instruction, status,
+                target_kind, selected_text_sha256, playable_target_receipt,
+                selection_anchor, instruction, status,
                 dispatch_token, fence, accepted_at, lease_expires_at, updated_at
             ) VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                 'pending', %s, 1, clock_timestamp(),
                 clock_timestamp() + interval '120 seconds', clock_timestamp()
             )
@@ -149,6 +156,8 @@ def reserve(conn: psycopg.Connection, request: PlanActionReservation) -> tuple[P
                 request.selected_text_sha256,
                 Jsonb(request.playable_target_receipt.model_dump(mode="json"))
                 if request.playable_target_receipt is not None else None,
+                Jsonb(request.selection_anchor.model_dump(mode="json", by_alias=True))
+                if request.selection_anchor is not None else None,
                 request.instruction, token,
             ),
         )
@@ -164,6 +173,7 @@ def reserve(conn: psycopg.Connection, request: PlanActionReservation) -> tuple[P
     if (
         existing.request_fingerprint != request.request_fingerprint
         or existing.playable_target_receipt != request.playable_target_receipt
+        or existing.selection_anchor != request.selection_anchor
         or existing.action_type != request.action_type
         or existing.basis != request.basis
         or existing.draft_matches_basis != request.draft_matches_basis
@@ -260,7 +270,9 @@ def lock_dispatch(
     return record
 
 
-def validate_predecessor(conn: psycopg.Connection, consultation: PlanActionConsultation) -> None:
+def validate_predecessor(
+    conn: psycopg.Connection, current: PlanActionRecord, consultation: PlanActionConsultation,
+) -> None:
     from application_state.plan_action_dialogue.graph_consultation import consultation_result_digest
 
     receipt = consultation.receipt
@@ -281,6 +293,7 @@ def validate_predecessor(conn: psycopg.Connection, consultation: PlanActionConsu
             or predecessor.draft_sha256 != receipt.draft_sha256
             or predecessor.target_kind != receipt.target_kind
             or predecessor.selected_text_sha256 != receipt.selected_text_sha256
+            or predecessor.selection_anchor != current.selection_anchor
             or previous.receipt.origin_conversation_id != receipt.origin_conversation_id
             or previous.receipt.origin_pointer_revision != receipt.origin_pointer_revision
             or previous.receipt.surface_id != receipt.surface_id
