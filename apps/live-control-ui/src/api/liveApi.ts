@@ -31,6 +31,7 @@ import type {
   PlanDocumentEditProposalResponse,
   WorldPlanDocumentEditProposalRequest,
   WorldPlanDocumentEditProposalResponse,
+  WorldPlanEditClarificationResponse,
   WorldPlanActionProjectionPage,
   LiveSurfaceResponse,
   AddGeneratedStatblockCombatRequest,
@@ -1769,8 +1770,8 @@ export async function postPlanDocumentEditProposal(
 
 export async function postWorldPlanDocumentEditProposal(
   request: WorldPlanDocumentEditProposalRequest,
-): Promise<WorldPlanDocumentEditProposalResponse> {
-  return apiFetch<WorldPlanDocumentEditProposalResponse>("/api/live/world-plan-edit/propose", {
+): Promise<WorldPlanDocumentEditProposalResponse | WorldPlanEditClarificationResponse> {
+  return apiFetch<WorldPlanDocumentEditProposalResponse | WorldPlanEditClarificationResponse>("/api/live/world-plan-edit/propose", {
     method: "POST",
     body: JSON.stringify(request),
   });

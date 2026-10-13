@@ -27,12 +27,16 @@ from apps.live_control_server.models.plan_document_edit_proposal import (
     PlanDocumentEditProposalResponse,
     WorldPlanDocumentEditProposalRequest,
     WorldPlanDocumentEditProposalResponse,
+    WorldPlanEditClarificationResponse,
 )
 from apps.live_control_server.services.plan_document_edit_proposal import (
     PlanDocumentEditProposalError,
     get_world_plan_action_projection,
     propose_plan_document_edit,
     propose_world_plan_document_edit,
+)
+from apps.live_control_server.services.plan_action_consultation import (
+    project_plan_action_source_targets,
 )
 from apps.live_control_server.schema_validation import LiveRowValidationError
 from apps.live_control_server.services.agent_surface_context import (
@@ -1082,11 +1086,11 @@ def post_plan_document_edit_proposal(
 
 @router.post(
     "/world-plan-edit/propose",
-    response_model=WorldPlanDocumentEditProposalResponse,
+    response_model=WorldPlanDocumentEditProposalResponse | WorldPlanEditClarificationResponse,
 )
 def post_world_plan_document_edit_proposal(
     body: WorldPlanDocumentEditProposalRequest,
-) -> WorldPlanDocumentEditProposalResponse:
+) -> WorldPlanDocumentEditProposalResponse | WorldPlanEditClarificationResponse:
     try:
         world_root = managed_world_data_root(repo_root())
     except ManagedWorldDataRootError as exc:
@@ -1114,9 +1118,14 @@ def get_world_plan_document_edit_actions(
             status_code=503, detail="Managed World storage is unavailable."
         ) from exc
     try:
-        return get_world_plan_action_projection(
+        page = get_world_plan_action_projection(
             root=world_root, world_id=world_id, document_id=document_id
-        ).model_dump(mode="json")
+        )
+        payload = page.model_dump(mode="json")
+        for record, item in zip(page.actions, payload["actions"], strict=True):
+            if record.consultation is not None:
+                item["source_open_targets"] = project_plan_action_source_targets(record)
+        return payload
     except PlanDocumentEditProposalError as exc:
         raise HTTPException(
             status_code=exc.status_code,

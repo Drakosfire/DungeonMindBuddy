@@ -50,6 +50,7 @@ class WorldPlanDocumentEditProposalRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     idempotency_key: UUID
+    continuation_of_action_id: UUID | None = None
     document_id: str = Field(min_length=1, max_length=128)
     world_id: str = Field(min_length=1, max_length=128)
     base_revision: int = Field(ge=1)
@@ -154,6 +155,7 @@ class WorldPlanDocumentEditProposalResponse(BaseModel):
     model_latency_ms: int
     wall_latency_ms: int
     usage: dict[str, int | float] | None = None
+    consultation: dict | None = None
 
     @model_validator(mode="after")
     def response_fields_match_version(self):
@@ -177,6 +179,8 @@ class WorldPlanDocumentEditProposalResponse(BaseModel):
     @model_serializer(mode="wrap")
     def serialize_legacy_shape(self, handler):
         data = handler(self)
+        if self.consultation is None:
+            data.pop("consultation", None)
         if self.schema_version == "dmb_world_plan_document_edit_proposal_v1":
             for field in (
                 "playable_target",
@@ -188,3 +192,24 @@ class WorldPlanDocumentEditProposalResponse(BaseModel):
             ):
                 data.pop(field, None)
         return data
+
+
+class WorldPlanEditClarificationResponse(BaseModel):
+    """No replacement or Apply authority is present in this response."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal["dmb_world_plan_edit_clarification_v1"] = (
+        "dmb_world_plan_edit_clarification_v1"
+    )
+    action_id: UUID
+    idempotency_key: UUID
+    document_id: str
+    world_id: str
+    base_revision: int
+    base_content_sha256: str
+    draft_sha256: str
+    selected_text_sha256: str
+    kind: Literal["clarification", "context_unavailable"]
+    message: str
+    consultation: dict

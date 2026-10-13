@@ -31,6 +31,7 @@ from apps.live_control_server.models.plan_document_edit_proposal import (
     PlanEditHistoryMessage,
     WorldPlanDocumentEditProposalRequest,
     WorldPlanDocumentEditProposalResponse,
+    WorldPlanEditClarificationResponse,
 )
 from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRegistryError,
@@ -264,6 +265,8 @@ def _action_fingerprint(
             "target_kind": request.target_kind,
             "selected_text_sha256": _digest(request.selected_text),
             "instruction": request.instruction,
+            **({"continuation_of_action_id": str(request.continuation_of_action_id)}
+               if request.continuation_of_action_id is not None else {}),
         }
     )
 
@@ -715,11 +718,20 @@ def propose_world_plan_document_edit(
     generation_client: Any | None = None,
     model: str | None = None,
     action_store: Any | None = None,
-) -> WorldPlanDocumentEditProposalResponse:
+) -> WorldPlanDocumentEditProposalResponse | WorldPlanEditClarificationResponse:
     """Reserve one durable action, then return its validated inert proposal."""
     store = action_store or PlanActionDialogueService()
     _validate_world_request_inputs(request)
     world = _verified_world(root, request.world_id)
+    binding = getattr(world, "native_graph_binding", None)
+    if request.continuation_of_action_id is not None and (
+        request.target_kind != "replace_selection" or binding is None
+    ):
+        raise PlanDocumentEditProposalError(
+            "clarification_target_invalid",
+            "The clarification can only continue the same initialized World Plan selection.",
+            status_code=409,
+        )
     selected_digest = _digest(request.selected_text)
     try:
         existing = store.get_by_key(request.world_id, request.idempotency_key)
@@ -819,6 +831,27 @@ def propose_world_plan_document_edit(
         raise PlanDocumentEditProposalError(
             "action_reservation_invalid", "Plan action reservation has no dispatch token.", status_code=503
         )
+
+    if request.target_kind == "replace_selection" and binding is not None:
+        from apps.live_control_server.services.plan_action_consultation import (
+            PlanActionConsultationError,
+            execute_plan_action_consultation,
+        )
+
+        try:
+            return execute_plan_action_consultation(
+                root=root, request=request, action=action, store=store,
+            )
+        except PlanActionConsultationError as exc:
+            raise PlanDocumentEditProposalError(
+                exc.code, str(exc), status_code=exc.status_code
+            ) from exc
+        except Exception as exc:
+            raise PlanDocumentEditProposalError(
+                "plan_consultation_unavailable",
+                "The sourced Plan edit consultation could not be completed.",
+                status_code=503,
+            ) from exc
 
     def finish_failure(exc: PlanDocumentEditProposalError) -> None:
         try:

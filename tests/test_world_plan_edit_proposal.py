@@ -1059,6 +1059,626 @@ def test_completed_action_can_deliver_late_only_for_its_original_basis(
         executor.shutdown(wait=True, cancel_futures=True)
 
 
+def test_sourced_action_result_binds_producing_read_and_never_trusts_model_open_claim() -> None:
+    """The SERVER parser emits only citations admitted by the final action envelope."""
+    import json
+
+    from application_state.agent_conversation.types import (
+        PlanWorldGraphExecutionV2, graph_execution_policy_digest_v2,
+    )
+    from application_state.plan_action_dialogue.types import PlanActionConsultation
+    from apps.live_control_server.services.plan_action_consultation import (
+        _parse_action_result, _source_open_targets,
+    )
+    from tests.application_state.test_plan_action_consultation import (
+        consultation_events, frozen_inputs, model_action,
+    )
+
+    action = model_action()
+    receipt, policy = frozen_inputs(action)
+    events = consultation_events(receipt, policy)
+    execution = PlanWorldGraphExecutionV2(
+        context_receipt_sha256=receipt.consultation_receipt_sha256,
+        execution_policy_sha256=graph_execution_policy_digest_v2(
+            receipt.consultation_receipt_sha256, policy
+        ),
+        policy=policy,
+        events=events,
+    )
+    action = action.model_copy(update={
+        "consultation": PlanActionConsultation(receipt=receipt, execution=execution),
+    })
+    answer = {
+        "kind": "clarification",
+        "answer_segments": [{
+            "kind": "graph_claim", "claim_id": "claim:owner",
+            "text": "Mira owns the observatory.", "target_kind": "assertion",
+            "target_id": "assertion:observatory", "graph_revision": "graph-r1",
+            "evidence_ref_ids": ["evidence:authored"],
+        }, {"kind": "connective", "text": "Is the new door hers?"}],
+        "citation_map": {"entries": [{
+            "claim_id": "claim:owner", "target_kind": "assertion",
+            "target_id": "assertion:observatory", "graph_revision": "graph-r1",
+            "evidence_ref_ids": ["evidence:authored"], "source_opened": False,
+        }]},
+    }
+    parsed, proposal = _parse_action_result(
+        final_text=json.dumps(answer), action=action,
+        producing_attempt_id=events[6].provider_attempt_id,
+    )
+    assert proposal is None
+    assert parsed.kind == "clarification"
+    assert parsed.citation_map.entries[0].source_read_ids == ["source-read:authored"]
+    asserted = action.model_copy(update={
+        "consultation": action.consultation.model_copy(update={"result": parsed}),
+    })
+    links = _source_open_targets(asserted)
+    assert len(links) == 1
+    assert links[0]["source_revision_id"] == "source-r1"
+    assert links[0]["source_read_id"] == "source-read:authored"
+    answer["citation_map"]["entries"][0]["source_opened"] = True
+    with pytest.raises(ValueError, match="cannot claim source opening"):
+        _parse_action_result(
+            final_text=json.dumps(answer), action=action,
+            producing_attempt_id=events[6].provider_attempt_id,
+        )
+
+
+def test_saved_action_freezes_first_harness_envelope_and_persists_bounded_empty_result(
+    application_state_dsn, monkeypatch,
+) -> None:
+    """APP PostgreSQL proves the action adapter does not fabricate an Ask Turn."""
+    import json
+    from hashlib import sha256
+
+    from application_state.plan_action_dialogue.service import PlanActionDialogueService
+    from apps.live_control_server.services.agent_runtime import AgentWorldScope
+    from apps.live_control_server.services.agent_turn_service import AgentPlanWorldGraphBootstrap
+    from apps.live_control_server.services.plan_action_consultation import (
+        ActionPolicyExecutionAdapter, _parse_action_result,
+    )
+    from graph_memory.interaction.session import (
+        CoverageState, GraphRetrievalSession, SessionSnapshot,
+    )
+    from tests.application_state.test_plan_action_consultation import reservation
+
+    monkeypatch.setattr(
+        "apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference",
+        lambda **_kwargs: ("openai-api", "gpt-6-luna", "https://api.openai.com/v1"),
+    )
+    store = PlanActionDialogueService()
+    action, created = store.reserve(reservation())
+    assert created
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="native-synthetic", campaign_id="", focus={"kind": "none"},
+            admissibility="gm", revision_id="graph-r1", is_head=True, scope_mode="world",
+        ),
+        question=action.instruction,
+        coverage=CoverageState(state="ready"),
+        claims=[],
+        source_anchors=[],
+    )
+    bootstrap = AgentPlanWorldGraphBootstrap(
+        graph_envelope={"revision_id": "graph-r1", "world_id": "native-synthetic", "scope_mode": "world"},
+        world_scope=AgentWorldScope(
+            world_id="native-synthetic", campaign_id="", focus={"kind": "none"},
+            admissibility="gm", revision_id="graph-r1", scope_mode="world",
+        ),
+        retrieval_session=session, binding_version=1,
+        source_root_relpath="corpus/synthetic", candidate_assertion_ids=(),
+        candidate_relationship_ids=(), candidate_evidence_ref_ids=(),
+        evidence_by_anchor_id={},
+    )
+    projected = session.project_for_hermes()
+    initial = {
+        "candidates": projected["candidates"][:8],
+        "claimLedger": projected["claim_ledger"][:24],
+        "intentHint": projected["intent_hint"],
+        "availableExpansions": projected["available_expansions"],
+    }
+    body = {
+        "input": [{
+            "role": "system",
+            "content": "Turn capability policy (runtime-enforced; also required on tool calls):\n"
+            + json.dumps({"initialClaimPacket": initial}),
+        }, {"role": "user", "content": "Create an invented door."}],
+        "tools": [],
+    }
+    payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
+    view = {
+        "provider": "openai-api", "model": "gpt-6-luna",
+        "apiMode": "codex_responses", "payloadJson": payload,
+        "payloadSha256": sha256(payload.encode()).hexdigest(),
+        "payloadUtf8Bytes": len(payload.encode()),
+    }
+    budget = {
+        "provider": "openai-api", "model": "gpt-6-luna", "apiMode": "codex_responses",
+        "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+        "contextLimitTokens": 1_050_000, "outputReserveTokens": 2048,
+        "maxProviderAttempts": 4, "maxGraphOperations": 8,
+    }
+    adapter = ActionPolicyExecutionAdapter(
+        store=store, action=action, bootstrap=bootstrap,
+        budget=budget, surface_instance_id="synthetic-plan",
+    )
+    assert adapter.authorize(view) is True
+    assert adapter.record_lifecycle({"transition": "sdk_entered"}) is True
+    assert adapter.record_lifecycle({"transition": "response_received"}) is True
+    frozen = adapter.stop()
+    assert frozen.consultation is not None
+    assert frozen.consultation.receipt.assembled_input.assembled_input_sha256 == view["payloadSha256"]
+    assert frozen.consultation.receipt.graph_packet.coverage_status == "complete"
+    result, proposed = _parse_action_result(
+        final_text=json.dumps({
+            "kind": "proposal",
+            "answer_segments": [{"kind": "connective", "text": "I can propose the new door."}],
+            "citation_map": None,
+            "replacement_markdown": "The new door leads below.",
+            "summary": "Add a hidden door.",
+            "assumptions": ["Invented door, not an established World fact."],
+            "disposition": "no_relevant_established_fact_found",
+        }),
+        action=frozen,
+        producing_attempt_id=adapter.producing_provider_attempt_id,
+    )
+    assert proposed["replacement_markdown"] == "The new door leads below."
+    completed = store.finish_consultation(
+        action_id=frozen.action_id, token=frozen.dispatch_token,
+        fence=frozen.fence, result=result,
+    )
+    assert completed.status == "completed"
+    assert completed.consultation.result.kind == "proposal"
+    reread = store.list_status(action.basis)
+    assert reread.actions[0].consultation.result.proposal_sha256 == result.proposal_sha256
+
+
+def test_mounted_initialized_selection_reports_context_unavailable_without_an_edit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    application_state_dsn: str,
+) -> None:
+    """A failed required Graph resolution stays distinct from blank-World authoring."""
+    from types import SimpleNamespace
+
+    from apps.live_control_server.routes import agent as agent_route
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+
+    world = create_world_container(tmp_path, name="Sourced selection world")
+    client = _client(monkeypatch, tmp_path)
+    document_id, saved = _create_saved_world_plan(
+        client, world.world_id, title="Sourced Plan",
+        markdown="# Plan\n\nThe observatory door is locked.\n",
+    )
+    original_world_reader = service.get_world_container
+    monkeypatch.setattr(
+        service, "get_world_container",
+        lambda root, world_id: SimpleNamespace(
+            world_id=original_world_reader(root, world_id).world_id,
+            native_graph_binding=SimpleNamespace(status="active"),
+        ),
+    )
+    monkeypatch.setattr(
+        agent_route, "_plan_context_resolver",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AgentTurnServiceError(
+                "Synthetic required Graph read failed.",
+                code="graph_unavailable", status_code=503,
+                provider_dispatched=False,
+            )
+        ),
+    )
+    draft = "# Plan\n\nThe observatory door is locked.\n"
+    response = client.post("/api/live/world-plan-edit/propose", json={
+        "idempotency_key": str(uuid4()),
+        "document_id": document_id, "world_id": world.world_id,
+        "base_revision": saved["loaded_revision"],
+        "base_content_sha256": saved["content_sha256"],
+        "draft_markdown": draft, "draft_sha256": _sha(draft),
+        "target_kind": "replace_selection",
+        "selected_text": "The observatory door is locked.",
+        "instruction": "Make the door easy to open.",
+        "conversation_history": [],
+    })
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["schema_version"] == "dmb_world_plan_edit_clarification_v1"
+    assert payload["kind"] == "context_unavailable"
+    assert "replacement_markdown" not in payload
+    assert payload["consultation"]["result"]["failure_code"] == "graph_unavailable"
+    actions = client.get(
+        f"/api/live/world-plan-edit/actions?world_id={world.world_id}&document_id={document_id}"
+    )
+    assert actions.status_code == 200, actions.text
+    item = actions.json()["actions"][0]
+    assert item["status"] == "failed"
+    assert item["consultation"]["result"]["kind"] == "context_unavailable"
+    assert item["source_open_targets"] == []
+
+
+def test_mounted_initialized_selection_dispatches_one_harness_action_and_returns_inert_proposal(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    application_state_dsn: str,
+) -> None:
+    """Saved route -> parent authorization -> APP result -> inert proposal."""
+    import json
+    from hashlib import sha256
+    from types import SimpleNamespace
+
+    from apps.live_control_server.routes import agent as agent_route
+    from apps.live_control_server.services import plan_action_consultation as consulted
+    from apps.live_control_server.services.agent_runtime import (
+        AgentRuntimeResult, AgentWorldScope,
+    )
+    from apps.live_control_server.services.agent_turn_service import AgentPlanWorldGraphBootstrap
+    from graph_memory.interaction.session import CoverageState, GraphRetrievalSession, SessionSnapshot
+
+    world = create_world_container(tmp_path, name="Initialized edit world")
+    client = _client(monkeypatch, tmp_path)
+    draft = "# Plan\n\nThe observatory door is locked.\n"
+    document_id, saved = _create_saved_world_plan(
+        client, world.world_id, title="Sourced Plan", markdown=draft,
+    )
+    original_world_reader = service.get_world_container
+    monkeypatch.setattr(
+        service, "get_world_container",
+        lambda root, world_id: SimpleNamespace(
+            world_id=original_world_reader(root, world_id).world_id,
+            native_graph_binding=SimpleNamespace(
+                status="active", native_world_id="native-synthetic", binding_version=1,
+            ),
+        ),
+    )
+    from apps.live_control_server.services import world_container_registry
+    monkeypatch.setattr(
+        world_container_registry, "get_world_container", service.get_world_container,
+    )
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(
+            world_id="native-synthetic", campaign_id="", focus={"kind": "none"},
+            admissibility="gm", revision_id="graph-r1", is_head=True, scope_mode="world",
+        ),
+        question="Make the door easy to open.",
+        coverage=CoverageState(state="ready"), claims=[], source_anchors=[],
+    )
+    bootstrap = AgentPlanWorldGraphBootstrap(
+        graph_envelope={
+            "revision_id": "graph-r1", "world_id": "native-synthetic",
+            "scope_mode": "world",
+        },
+        world_scope=AgentWorldScope(
+            world_id="native-synthetic", campaign_id="", focus={"kind": "none"},
+            admissibility="gm", revision_id="graph-r1", scope_mode="world",
+        ),
+        retrieval_session=session, binding_version=1,
+        source_root_relpath="corpus/synthetic", candidate_assertion_ids=(),
+        candidate_relationship_ids=(), candidate_evidence_ref_ids=(),
+        evidence_by_anchor_id={},
+    )
+    resolved_queries: list[str] = []
+    def resolve(search, owner, work, frozen):
+        resolved_queries.append(search.message)
+        assert owner == {"kind": "world", "id": world.world_id}
+        assert work.content_basis.document_id == document_id
+        assert frozen is None
+        return bootstrap
+    monkeypatch.setattr(agent_route, "_plan_context_resolver", resolve)
+    monkeypatch.setattr(
+        "apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference",
+        lambda **_kwargs: ("openai-api", "gpt-6-luna", "https://api.openai.com/v1"),
+    )
+
+    class FakeHarness:
+        def run_with_provider_authorization(
+            self, invocation, authorize, *, request_budget,
+            on_graph_operation, on_provider_lifecycle,
+            source_read_enabled=False, context_read_enabled=False,
+        ):
+            assert invocation.plan_continuity_turn is True
+            assert context_read_enabled is True
+            assert source_read_enabled is False
+            projection = invocation.context_packet.retrieval_session.packet
+            initial = {
+                "candidates": projection["candidates"][:8],
+                "claimLedger": projection["claim_ledger"][:24],
+                "intentHint": projection["intent_hint"],
+                "availableExpansions": projection["available_expansions"],
+            }
+            body = {"input": [{
+                "role": "system",
+                "content": "Turn capability policy (runtime-enforced; also required on tool calls):\n"
+                + json.dumps({"initialClaimPacket": initial}),
+            }, {"role": "user", "content": invocation.message}], "tools": []}
+            payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
+            view = {
+                "provider": "openai-api", "model": "gpt-6-luna",
+                "apiMode": "codex_responses", "payloadJson": payload,
+                "payloadSha256": sha256(payload.encode()).hexdigest(),
+                "payloadUtf8Bytes": len(payload.encode()),
+            }
+            assert authorize(view) is True
+            assert on_provider_lifecycle({"transition": "sdk_entered"}) is True
+            assert on_provider_lifecycle({"transition": "response_received"}) is True
+            return AgentRuntimeResult(
+                status="ok",
+                final_text=json.dumps({
+                    "kind": "proposal",
+                    "answer_segments": [{
+                        "kind": "connective",
+                        "text": "I can propose an invented change to the door.",
+                    }],
+                    "citation_map": None,
+                    "replacement_markdown": "The observatory door opens easily.",
+                    "summary": "Make the observatory door easy to open.",
+                    "assumptions": ["No established door fact was found in the bounded consultation."],
+                    "disposition": "no_relevant_established_fact_found",
+                }),
+                observed_model_call_count=1,
+            )
+    monkeypatch.setattr(consulted, "default_hermes_agent_runtime", FakeHarness)
+    response = client.post("/api/live/world-plan-edit/propose", json={
+        "idempotency_key": str(uuid4()), "document_id": document_id,
+        "world_id": world.world_id, "base_revision": saved["loaded_revision"],
+        "base_content_sha256": saved["content_sha256"],
+        "draft_markdown": draft, "draft_sha256": _sha(draft),
+        "target_kind": "replace_selection",
+        "selected_text": "The observatory door is locked.",
+        "instruction": "Make the door easy to open.",
+        "conversation_history": [],
+    })
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["replacement_markdown"] == "The observatory door opens easily."
+    assert payload["consultation"]["result"]["kind"] == "proposal"
+    assert payload["consultation"]["result"]["disposition"] == "no_relevant_established_fact_found"
+    assert len(resolved_queries) == 1
+    assert "The observatory door is locked." in resolved_queries[0]
+    actions = client.get(
+        f"/api/live/world-plan-edit/actions?world_id={world.world_id}&document_id={document_id}"
+    )
+    assert actions.status_code == 200, actions.text
+    assert actions.json()["actions"][0]["consultation"]["result"]["kind"] == "proposal"
+    after = client.get(f"/api/live/workspace-documents/{document_id}/snapshot").json()
+    assert after["content_sha256"] == saved["content_sha256"]
+
+
+def test_mounted_sourced_clarification_links_fresh_reply_to_inert_proposal(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    application_state_dsn: str,
+) -> None:
+    """Saved edit -> selected Graph -> opened source -> APP -> fresh linked edit."""
+    from apps.live_control_server.routes import agent as agent_route
+    from apps.live_control_server.services import plan_action_consultation as consulted
+    from apps.live_control_server.services import world_container_registry as registry
+    from apps.live_control_server.services.agent_runtime import AgentRuntimeResult
+    from tests.test_agent_turn_route import _selected_consumer_context
+
+    _, work, _, _, _, _ = _selected_consumer_context(
+        tmp_path, monkeypatch, claims=True, legacy=False,
+    )
+    monkeypatch.setattr(service, "get_world_container", registry.get_world_container)
+    client = _client(monkeypatch, tmp_path)
+    draft = "# Plan\n\nThe Prancing Tavern has a sealed cellar.\n"
+    document_id, saved = _create_saved_world_plan(
+        client, work.world_id, title="Synthetic tavern plan", markdown=draft,
+    )
+    resolver = agent_route._plan_context_resolver
+    resolved = []
+
+    def resolve(*args):
+        bootstrap = resolver(*args)
+        resolved.append(bootstrap)
+        return bootstrap
+
+    monkeypatch.setattr(agent_route, "_plan_context_resolver", resolve)
+    monkeypatch.setattr(
+        "graph_memory.interaction.session_store.get_session",
+        lambda _id: resolved[-1].retrieval_session,
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference",
+        lambda **_kwargs: ("openai-api", "gpt-6-luna", "https://api.openai.com/v1"),
+    )
+    source_calls = []
+
+    def read_source(arguments, *, receipt_version):
+        bootstrap = resolved[-1]
+        pin = bootstrap.source_scope_anchors[0]
+        source_calls.append((arguments, receipt_version))
+        content = "The Prancing Tavern's cellar belongs to Mira; its entrance is sealed."
+        return {
+            "schema": "dmb_internal_read_graph_source_batch_v2",
+            "retrievalSessionId": bootstrap.retrieval_session.id,
+            "reads": [{
+                "sourceReadId": f"source-read:synthetic:{len(source_calls)}",
+                "result": {
+                    "schema": "dmb_world_graph_source_anchor_read_v1",
+                    "outcome": "enough", "anchorId": pin["anchor_id"],
+                    "content": content, "contentSha256": _sha(content),
+                    "evidenceRefId": pin["evidence_ref_id"],
+                    "sourceArtifactId": pin["source_artifact_id"],
+                },
+                "receipt": {
+                    "source_read_id": f"source-read:synthetic:{len(source_calls)}",
+                    "retrieval_session_id": bootstrap.retrieval_session.id,
+                    "graph_revision": bootstrap.world_scope.revision_id,
+                    **pin,
+                    "read_content_sha256": _sha(content),
+                    "outcome": "enough", "truncated": False,
+                },
+            }],
+        }
+
+    monkeypatch.setattr(
+        "graph_memory.interaction.expansion_executor.execute_read_graph_source",
+        read_source,
+    )
+
+    class FakeHarness:
+        calls = 0
+
+        def run_with_provider_authorization(
+            self, invocation, authorize, *, request_budget,
+            on_graph_operation, on_provider_lifecycle,
+            source_read_enabled=False, context_read_enabled=False,
+        ):
+            import json
+            from hashlib import sha256
+
+            assert invocation.plan_continuity_turn and source_read_enabled
+            assert context_read_enabled
+            bootstrap = resolved[-1]
+            assert bootstrap.candidate_assertion_ids
+            assert bootstrap.source_scope_anchors
+            projected = invocation.context_packet.retrieval_session.packet
+            initial = {
+                "candidates": projected["candidates"][:8],
+                "claimLedger": projected["claim_ledger"][:24],
+                "intentHint": projected["intent_hint"],
+                "availableExpansions": projected["available_expansions"],
+            }
+            system = {
+                "role": "system",
+                "content": "Turn capability policy (runtime-enforced; also required on tool calls):\n"
+                + json.dumps({"initialClaimPacket": initial}),
+            }
+
+            def provider_view(items):
+                payload = json.dumps({"input": items, "tools": []}, sort_keys=True, separators=(",", ":"))
+                return {
+                    "provider": "openai-api", "model": "gpt-6-luna",
+                    "apiMode": "codex_responses", "payloadJson": payload,
+                    "payloadSha256": sha256(payload.encode()).hexdigest(),
+                    "payloadUtf8Bytes": len(payload.encode()),
+                }
+
+            items = [system, {"role": "user", "content": invocation.message}]
+            assert authorize(provider_view(items)) is True
+            assert on_provider_lifecycle({"transition": "sdk_entered"}) is True
+            assert on_provider_lifecycle({"transition": "response_received"}) is True
+            pin = bootstrap.source_scope_anchors[0]
+            read = on_graph_operation({
+                "toolName": "read_graph_source",
+                "arguments": {
+                    "retrievalSessionId": bootstrap.retrieval_session.id,
+                    "anchorIds": [pin["anchor_id"]], "maxChars": 12000,
+                },
+            })
+            assert json.loads(read["resultJson"])["outcome"] == "enough"
+            items.extend([
+                {"type": "function_call", "call_id": "source-1", "name": "read_graph_source", "arguments": "{}"},
+                {"type": "function_call_output", "call_id": "source-1", "output": read["resultJson"]},
+            ])
+            assert authorize(provider_view(items)) is True, repr(authorize.__self__.failure)
+            assert on_provider_lifecycle({"transition": "sdk_entered"}) is True
+            assert on_provider_lifecycle({"transition": "response_received"}) is True
+            self.calls += 1
+            claim_id = bootstrap.candidate_assertion_ids[0]
+            citation = {
+                "claim_id": "claim:tavern", "target_kind": "assertion",
+                "target_id": claim_id, "graph_revision": bootstrap.world_scope.revision_id,
+                "evidence_ref_ids": [pin["evidence_ref_id"]], "source_opened": False,
+            }
+            segments = [{
+                "kind": "graph_claim", "claim_id": "claim:tavern",
+                "text": "The tavern cellar has an established owner and seal.",
+                "target_kind": "assertion", "target_id": claim_id,
+                "graph_revision": bootstrap.world_scope.revision_id,
+                "evidence_ref_ids": [pin["evidence_ref_id"]],
+            }]
+            if self.calls == 1:
+                answer = {
+                    "kind": "clarification", "answer_segments": [
+                        *segments, {"kind": "connective", "text": "Should Mira have opened the seal?"},
+                    ],
+                    "citation_map": {"entries": [citation]},
+                }
+            else:
+                answer = {
+                    "kind": "proposal", "answer_segments": segments,
+                    "citation_map": {"entries": [citation]},
+                    "replacement_markdown": "The Prancing Tavern has a sealed cellar; Mira holds its key.",
+                    "summary": "Clarify the cellar keyholder.",
+                    "assumptions": [], "disposition": "supported_context_used",
+                }
+            return AgentRuntimeResult(
+                status="ok", final_text=json.dumps(answer), observed_model_call_count=2,
+            )
+
+    harness = FakeHarness()
+    monkeypatch.setattr(consulted, "default_hermes_agent_runtime", lambda: harness)
+
+    def request(instruction, **extra):
+        return {
+            "idempotency_key": str(uuid4()), "document_id": document_id,
+            "world_id": work.world_id, "base_revision": saved["loaded_revision"],
+            "base_content_sha256": saved["content_sha256"],
+            "draft_markdown": draft, "draft_sha256": _sha(draft),
+            "target_kind": "replace_selection",
+            "selected_text": "The Prancing Tavern has a sealed cellar.",
+            "instruction": instruction, "conversation_history": [], **extra,
+        }
+
+    first = client.post(
+        "/api/live/world-plan-edit/propose",
+        json=request("Open the sealed cellar for the party."),
+    )
+    assert first.status_code == 200, first.text
+    clarification = first.json()
+    assert clarification["kind"] == "clarification"
+    assert "replacement_markdown" not in clarification
+    assert "Should Mira have opened the seal?" in clarification["message"]
+    first_citation = clarification["consultation"]["result"]["citation_map"]["entries"][0]
+    assert first_citation["source_read_ids"] == ["source-read:synthetic:1"]
+    assert clarification["consultation"]["source_open_targets"][0]["source_read_id"] == "source-read:synthetic:1"
+    assert client.get(f"/api/live/workspace-documents/{document_id}/snapshot").json()["content_sha256"] == saved["content_sha256"]
+
+    second = client.post(
+        "/api/live/world-plan-edit/propose",
+        json=request("Yes, Mira opened it and kept the key.", continuation_of_action_id=clarification["action_id"]),
+    )
+    assert second.status_code == 200, second.text
+    proposal = second.json()
+    assert proposal["replacement_markdown"].endswith("Mira holds its key.")
+    assert proposal["consultation"]["result"]["disposition"] == "supported_context_used"
+    assert len(resolved) == 2 and len(source_calls) == 2 and harness.calls == 2
+    actions = client.get(
+        f"/api/live/world-plan-edit/actions?world_id={work.world_id}&document_id={document_id}"
+    ).json()["actions"]
+    by_id = {item["action_id"]: item for item in actions}
+    assert by_id[clarification["action_id"]]["consultation"]["result"]["kind"] == "clarification"
+    assert by_id[proposal["action_id"]]["consultation"]["result"]["kind"] == "proposal"
+    assert by_id[proposal["action_id"]]["consultation"]["receipt"]["continuation"]["continuation_of_action_id"] == clarification["action_id"]
+    assert client.get(f"/api/live/workspace-documents/{document_id}/snapshot").json()["content_sha256"] == saved["content_sha256"]
+
+    # Apply remains an explicit editor choice. Only the separate Save API
+    # advances the committed Plan after the proposal has been reviewed.
+    reviewed_markdown = draft.replace(
+        "The Prancing Tavern has a sealed cellar.", proposal["replacement_markdown"]
+    )
+    prepared = client.post("/api/live/tiptap/markdown-write/prepare", json={
+        "schema_version": "dmb_tiptap_markdown_write_prepare_v2",
+        "scope_mode": "world", "world_id": work.world_id,
+        "document_id": document_id, "markdown": reviewed_markdown,
+        "expected_revision": saved["loaded_revision"],
+    })
+    assert prepared.status_code == 200, prepared.text
+    committed = client.post("/api/live/tiptap/markdown-write/commit", json={
+        "schema_version": "dmb_tiptap_markdown_write_commit_v2",
+        "scope_mode": "world", "world_id": work.world_id,
+        "document_id": document_id, "markdown": reviewed_markdown,
+        "expected_revision": prepared.json()["registry_revision"],
+        "writer_confirm_token": prepared.json()["writer_confirm_token"],
+    })
+    assert committed.status_code == 200, committed.text
+    reopened = client.get(f"/api/live/workspace-documents/{document_id}/snapshot")
+    assert reopened.status_code == 200, reopened.text
+    assert reopened.json()["content_sha256"] == _sha(reviewed_markdown)
+    assert reopened.json()["content_sha256"] != saved["content_sha256"]
+
+
 def test_persistence_uncertainty_never_returns_uncommitted_proposal_payload(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

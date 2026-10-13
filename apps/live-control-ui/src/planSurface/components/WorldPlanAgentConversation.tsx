@@ -1360,6 +1360,11 @@ export async function commandCanonicalDigest(value: unknown): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+async function textSha256(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 export async function newConversationRequestFingerprint(worldId: string, request: WorldAgentNewConversationRequestV1): Promise<string> {
   return commandCanonicalDigest({ world_id: worldId, expected_pointer_revision: request.expected_pointer_revision,
     expected_active_conversation_id: request.expected_active_conversation_id });
@@ -2038,6 +2043,7 @@ export function WorldPlanAgentConversation({
         return next;
       });
       composerEditGenerationRef.current += 1;
+      setContinuationOfActionId(null);
     }
     lastVisiblePlanDocumentRef.current = documentId;
   }, [sharedConversation?.worldId, visible, isPlay, documentId]);
@@ -2053,6 +2059,7 @@ export function WorldPlanAgentConversation({
     scopeKey: string; turns: AgentInteractionTurn[]; positions: WorldPlanLocalProposalPosition[];
   } | null>(null);
   const [composerIntent, setComposerIntent] = useState<"discuss" | "propose">("discuss");
+  const [continuationOfActionId, setContinuationOfActionId] = useState<string | null>(null);
   const [composerIntentCorrection, setComposerIntentCorrection] = useState<{
     message: string;
     intent: "discuss" | "propose";
@@ -3688,6 +3695,79 @@ export function WorldPlanAgentConversation({
     }
   }
 
+  async function openActionEvidence(action: WorldPlanActionProjection, target: WorldPlanSourceOpenTargetV2) {
+    if (target.kind !== "evidence_anchor"
+      || action.consultation?.result?.kind !== "clarification"
+      || !action.source_open_targets?.some((item) => JSON.stringify(item) === JSON.stringify(target))
+      || target.managed_world_id !== verifiedWorldId || !scopeMatches) return;
+    const epoch = ++sourceReadEpochRef.current;
+    const identity = { turnId: action.action_id, claimId: target.claim_id, targetId: target.anchor_id };
+    setSourcePassage({ ...identity, status: "loading", content: null, message: null, partial: false });
+    try {
+      const result = await postWorldGraphSourceAnchorRead({
+        schema: "dmb_world_graph_source_anchor_read_request_v1",
+        worldId: target.native_world_id, campaignId: "", scopeMode: "world",
+        focus: { kind: "none", sessionId: null, campaignId: null },
+        admissibility: "gm", revisionPin: target.graph_revision, anchorId: target.anchor_id,
+      });
+      if (sourceReadEpochRef.current !== epoch || latestRef.current.verifiedWorldId !== target.managed_world_id
+        || latestRef.current.documentId !== documentId || !latestRef.current.scopeMatches) return;
+      const admitted = result.schema === "dmb_world_graph_source_anchor_read_v1"
+        && ["enough", "partial", "truncated"].includes(result.outcome)
+        && sourceReadMatchesAuthority(target, result.snapshot)
+        && result.anchorId === target.anchor_id
+        && result.evidenceRefId === target.evidence_ref_id
+        && result.sourceArtifactId === target.source_artifact_id
+        && typeof result.content === "string" && Boolean(result.content);
+      setSourcePassage(admitted
+        ? { ...identity, status: "open", content: result.content, message: null, partial: result.truncated || result.outcome !== "enough" }
+        : { ...identity, status: "unavailable", content: null, message: "This pinned source did not match the saved citation.", partial: false });
+    } catch {
+      if (sourceReadEpochRef.current === epoch) setSourcePassage({
+        ...identity, status: "unavailable", content: null,
+        message: "The pinned source passage is unavailable.", partial: false,
+      });
+    }
+  }
+
+  const renderConsultedAction = (action: WorldPlanActionProjection) => {
+    const result = action.consultation?.result;
+    if (!result || !["clarification", "context_unavailable"].includes(result.kind)) return null;
+    const targets = action.source_open_targets?.filter((target) => target.kind === "evidence_anchor") ?? [];
+    return <article key={action.action_id} className="world-plan-agent-conversation__proposal-event"
+      data-plan-action-id={action.action_id}>
+      <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--user">
+        <span className="world-plan-agent-conversation__speaker">You</span><p>{action.instruction}</p>
+      </div>
+      <div className="world-plan-agent-conversation__message world-plan-agent-conversation__message--assistant">
+        <span className="world-plan-agent-conversation__speaker">Buddy</span>
+        <WorldPlanAgentAnswer answer={result.message} />
+        {result.kind === "context_unavailable" ? <p role="note">World context is unavailable. No edit can be applied from this answer.</p> : null}
+        {targets.map((target) => <div key={`${target.claim_id}:${target.anchor_id}`}>
+          <button type="button" onClick={() => { void openActionEvidence(action, target); }}>Open evidence</button>
+          {sourcePassage?.turnId === action.action_id && sourcePassage.targetId === target.anchor_id ? (
+            <div>
+              <button type="button" onClick={() => { sourceReadEpochRef.current += 1; setSourcePassage(null); }}>Close passage</button>
+              {sourcePassage.status === "loading" ? <p role="status">Opening pinned source…</p> : null}
+              {sourcePassage.status === "unavailable" ? <p role="alert">{sourcePassage.message}</p> : null}
+              {sourcePassage.status === "open" ? <pre>{sourcePassage.content}</pre> : null}
+            </div>
+          ) : null}
+        </div>)}
+        {result.kind === "clarification" ? <button type="button"
+          disabled={composing || !editorSelectionActive || !scopeMatches
+            || actionHistory.some((candidate) => candidate.consultation?.receipt.continuation?.continuation_of_action_id === action.action_id)}
+          onClick={() => {
+            proposalIntentRef.current = null;
+            setContinuationOfActionId(action.action_id);
+            setComposerMessage("");
+            setComposerIntent("propose");
+            setEditError(null);
+          }}>Reply about this edit</button> : null}
+      </div>
+    </article>;
+  };
+
   function renderSourceActions(turn: WorldAgentConversationHistoryTurn) {
     const targets = "plan_context" in turn ? turn.plan_context?.source_open_targets ?? [] : [];
     const recapUnavailable = "plan_context" in turn
@@ -4097,6 +4177,9 @@ export function WorldPlanAgentConversation({
       if (worldPlanEditReviewBefore(captured) === null) {
         throw new Error("The captured Plan target has no valid Before snapshot. Reselect it and compose the proposal again.");
       }
+      if (continuationOfActionId && captured.request.target_kind !== "replace_selection") {
+        throw new Error("Reply to this clarification with the original Plan selection active.");
+      }
       if (captured.playableTargetSource === "scene") {
         await verifySceneCommittedBasis(captured);
         if (!isCurrent()) return;
@@ -4106,6 +4189,7 @@ export function WorldPlanAgentConversation({
         ...captured.request,
         instruction,
         conversation_history: conversationHistory,
+        ...(continuationOfActionId ? { continuation_of_action_id: continuationOfActionId } : {}),
       };
       const fingerprint = JSON.stringify(requestWithoutKey);
       const idempotencyKey = proposalIntentRef.current?.fingerprint === fingerprint
@@ -4121,6 +4205,27 @@ export function WorldPlanAgentConversation({
       if (response.idempotency_key !== request.idempotency_key
         || typeof response.action_id !== "string" || !response.action_id.trim()) {
         throw new Error("DungeonBuddy's Plan action response did not match this edit request. No proposal was opened.");
+      }
+      if (response.schema_version === "dmb_world_plan_edit_clarification_v1") {
+        if (captured.request.target_kind !== "replace_selection"
+          || response.world_id !== request.world_id
+          || response.document_id !== request.document_id
+          || response.base_revision !== request.base_revision
+          || response.base_content_sha256 !== request.base_content_sha256
+          || response.draft_sha256 !== request.draft_sha256
+          || response.selected_text_sha256 !== await textSha256(request.selected_text)
+          || !["clarification", "context_unavailable"].includes(response.kind)) {
+          throw new Error("The saved Plan clarification did not match this captured selection.");
+        }
+        if (!isCurrent()) return;
+        proposalRequestRef.current = null;
+        setComposing(false);
+        setSubmittedMessage((current) => current?.id === submittedEditId ? null : current);
+        setComposerIntent("propose");
+        setContinuationOfActionId(null);
+        proposalIntentRef.current = null;
+        await refreshActionHistory();
+        return;
       }
       const admitted = await admitWorldPlanEditProposal(captured, response, request.idempotency_key);
       if (!isCurrent()) return;
@@ -4197,6 +4302,7 @@ export function WorldPlanAgentConversation({
       editReviewRef.current = nextReview;
       setEditReview(nextReview);
       setComposerIntent("discuss");
+      setContinuationOfActionId(null);
       proposalIntentRef.current = null;
       void getWorldPlanDocumentEditActions(worldId, documentId)
         .then((page) => {
@@ -4317,7 +4423,7 @@ export function WorldPlanAgentConversation({
   const unconfirmedGraphAskCount = pendingGraphAskRecords.length - confirmedFailureCount;
   const intentBusy = sending || composing || saveInFlight || !scopeMatches || currentReview !== null;
   const inferredComposerIntent = classifyPlanComposerIntent(composerMessage);
-  const detectedComposerIntent = composerIntentCorrection?.message === composerMessage
+  const detectedComposerIntent = continuationOfActionId ? "propose" : composerIntentCorrection?.message === composerMessage
     ? composerIntentCorrection.intent
     : inferredComposerIntent;
   const composerBusy = isPlay
@@ -4922,6 +5028,7 @@ export function WorldPlanAgentConversation({
         {latestConversationEvent ? renderConversationEvent(latestConversationEvent) : history && !historyLoading && submittedMessage?.scopeKey !== scopeKey ? (
           <p className="world-plan-agent-conversation__empty">No messages yet. {isPlay ? "Ask about this Run." : "Ask about this Plan or describe a change."}</p>
         ) : null}
+        {!isPlay ? actionHistory.map(renderConsultedAction) : null}
         {submittedMessage?.scopeKey === scopeKey
           && (submittedMessage.conversationId === null
             ? (submittedMessage.pointerRevision === (history?.pointer_revision ?? null))
