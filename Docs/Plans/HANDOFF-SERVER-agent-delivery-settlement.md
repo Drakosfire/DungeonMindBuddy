@@ -65,7 +65,7 @@ Real PostgreSQL is a dedicated disposable tmpfs container/database, never APP.
 
 ```bash
 PYTHONPATH=src:. "$DMB_REPAIR_PYTHON" -m pytest tests/test_agent_turn_service.py -q
-PYTHONPATH=src:. "$DMB_REPAIR_PYTHON" -m pytest tests/application_state/test_agent_conversation_postgres.py -q -k 'delivery_settlement or expired_claim_after_provider'
+PYTHONPATH=src:. "$DMB_REPAIR_PYTHON" -m pytest tests/application_state/test_agent_conversation_postgres.py -q -k 'delivery_settlement or expired_authorized_execution'
 "$DMB_REPAIR_PYTHON" -m ruff check apps/live_control_server/services/agent_turn_service.py tests/test_agent_turn_service.py tests/application_state/test_agent_conversation_postgres.py
 git diff --check
 ```
@@ -93,4 +93,36 @@ PRIME for independent review. No source-only runtime adoption is implied.
 
 ## 10. Implementation evidence
 
-Pending implementation; no acceptance or independent review claimed.
+Handoff pin before implementation: `36fd5c9519df5a6439b538e2d25c8305da93fe2f`.
+Implementation commit: `d848363f7128d32ce55aa6b771f286d9d769cb2d`.
+
+- Complete `tests/test_agent_turn_service.py`: 109 passed; two existing Pydantic
+  field-shadow warnings. This includes normal completion, pre-freeze/no-claim
+  no-mutation, four authorized attempts with three received and one unknown,
+  stale/expired fake fences, public history uncertainty and privacy diagnostics.
+- Focused PostgreSQL command above: 3 passed, 37 deselected. The production
+  settlement helper exercises real fresh/expired owner fences; stale rejection,
+  duplicate idempotence and prior-authorization nonreclaimability are proven.
+  PostgreSQL 16 used a dedicated 512 MiB tmpfs container on an isolated local
+  port with `DMB_APPLICATION_STATE_TEST_DATABASE_URL` pointing only to that
+  container. Per-test databases and the container were removed after proof.
+- Existing private Python 3.13 environment reused; no package installation.
+  Changed-file Ruff and `git diff --check` pass. No tracked repository CI workflow
+  or additional Python typecheck gate exists in this base.
+- Cumulative base→implementation lease comprises this handoff and exactly the
+  three leased Python files. No host, SDK, APP contract, UI or dependency changes.
+
+Failed delivery now invokes owner `fail_turn(..., interrupted=True)` exactly once
+only after the adapter acquired a claim. It preserves execution events, records
+the existing unknown outcome as `provider_outcome_unknown`, and keeps the existing
+HTTP error shape. A stale/expired fence remains indeterminate and requires owner
+reconciliation; it is never overwritten. Deterministic guard exhaustion retains
+its previous failure behavior.
+
+The endpoint exposes interruption through ordinary durable history. DOGFOOD owns
+the separately discovered client pending-state reconciliation repair. This PR
+does not establish the SDK stream failure subtype or guarantee a final answer.
+No provider run, replay, runtime adoption or independent review occurred here.
+
+Implementation token proposed: `SERVER_AGENT_DELIVERY_SETTLEMENT_IMPLEMENTED`.
+PRIME owns independent acceptance and any later merge/deployment release.
