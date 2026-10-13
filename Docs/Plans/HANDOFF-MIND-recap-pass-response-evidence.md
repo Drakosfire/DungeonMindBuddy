@@ -1,6 +1,8 @@
 # MIND — preserve recap pass responses as private evidence
 
-Status: ACTIVE under PRIME implementation approval, 2026-10-13.
+Status: COMPLETE — PRIME PASS at exact implementation head
+`60f536b8051ed54c6a6b8d8a29afa311fd5604b3`; merged as PR #1129 at
+`597c69b1ca5449947894311af83756812b2318fe`.
 
 ## Lane and authority
 
@@ -100,3 +102,19 @@ and `git diff --check`. Inspect the exact cumulative base-to-head diff and
 confirm the three-path allowlist. Commit, push, open one PR, and request an
 independent review from PRIME against the exact head. Do not merge or run
 ingestion as part of this handoff.
+
+## Acceptance and settlement
+
+- PRIME independently reviewed final implementation head
+  `60f536b8051ed54c6a6b8d8a29afa311fd5604b3` as PASS against base
+  `a1f8bdfdbc692f02879c3b68f58936838e902d21`.
+- PR #1129 merged at `597c69b1ca5449947894311af83756812b2318fe`.
+- The PASS closed the reproduced private-sink-write failure: a known completed
+  response retains safe observation/accounting and raw response fallback when
+  persistence fails; a missing worker receipt remains unknown and creates no
+  fabricated response.
+- No provider execution or native publication occurred in #1129. R5's original
+  evidence is unchanged, and its six earlier successful raw pass bodies remain
+  unavailable. This completion does not claim a successful R5/R6 ingestion.
+- The edge-only output allowance handoff is the serial successor; no R6 provider
+  request is released by this settlement.

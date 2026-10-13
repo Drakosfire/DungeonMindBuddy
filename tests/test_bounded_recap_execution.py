@@ -438,6 +438,91 @@ def test_provider_model_pair_is_fixed(provider, model):
         RecapExecutionLimits(provider=provider, model=model)
 
 
+@pytest.mark.parametrize(
+    "edge_override,expected_edge_limit",
+    [(None, 8192), (16384, 16384)],
+)
+def test_edge_output_allowance_applies_only_to_actual_edge_spec(
+    edge_override, expected_edge_limit
+):
+    from src.graph_memory.extraction.extraction_profile import ExtractionPassSpec
+
+    responses = [
+        TextResult(text='{"observation_nodes": []}', observation=deepseek_observation()),
+        TextResult(text='{"observation_edges": []}', observation=deepseek_observation()),
+        TextResult(text='{"observation_edges": []}', observation=deepseek_observation()),
+    ]
+
+    class SequenceEngine:
+        def __init__(self):
+            self.requests = []
+
+        async def generate_text(self, request):
+            self.requests.append(request)
+            return responses.pop(0)
+
+        async def aclose(self):
+            pass
+
+    engine = SequenceEngine()
+    limits = RecapExecutionLimits(
+        provider="openrouter",
+        model=DEEPSEEK_MODEL,
+        edge_max_output_tokens=edge_override,
+    )
+    client = BoundedRecapPassClient(limits, engine_factory=lambda: engine)
+    edge_spec = ExtractionPassSpec(
+        pass_id="edge_pass",
+        default_node_type=None,
+        instruction="Extract relationships",
+        progress_label="Extracting relationships",
+        kind="edge",
+    )
+
+    client.run_pass(
+        "actor_pass",
+        model_id=DEEPSEEK_MODEL,
+        instructions="SYSTEM",
+        user_content="ACTORS",
+    )
+    client.run_pass(
+        "edge_pass",
+        model_id=DEEPSEEK_MODEL,
+        instructions="SYSTEM",
+        user_content="EDGES",
+    )
+    client.run_pass(
+        "edge_pass",
+        model_id=DEEPSEEK_MODEL,
+        instructions="SYSTEM",
+        user_content="TYPED_EDGES",
+        pass_spec=edge_spec,
+    )
+
+    actor_request, untyped_edge_request, edge_request = engine.requests
+    assert actor_request.max_output_tokens == 8192
+    assert untyped_edge_request.max_output_tokens == 8192
+    assert edge_request.max_output_tokens == expected_edge_limit
+    for request in engine.requests:
+        assert 0 < request.deadline_ms <= 60_000
+        assert request.max_transport_retries == 0
+        assert request.provider_route.order == ("DeepSeek",)
+        assert request.provider_route.allow_fallbacks is False
+    assert limits.max_calls == 8
+    assert limits.run_deadline_ms == 480_000
+
+
+@pytest.mark.parametrize("invalid", [0, 16385, True, 1.5, "16384"])
+def test_edge_output_allowance_rejects_invalid_values(invalid):
+    with pytest.raises(ValueError, match="edge_max_output_tokens"):
+        RecapExecutionLimits(edge_max_output_tokens=invalid)
+
+
+def test_general_output_allowance_remains_capped_at_8192():
+    with pytest.raises(ValueError, match="max_output_tokens"):
+        RecapExecutionLimits(max_output_tokens=8193)
+
+
 def test_owning_request_caps_and_unknown_receipt():
     engine = Engine(TextResult(text='{"nodes": []}', observation=observation()))
     client = BoundedRecapPassClient(
