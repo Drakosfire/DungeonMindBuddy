@@ -4633,11 +4633,13 @@ def execute_agent_turn(
     try:
         if (
             request.plan_context_policy is not None
+            and durable_turn is None
             and policy_conversation_id is None
         ):
-            # A new World conversation has no canonical segment key yet. Do
-            # not fall back to the legacy Plan/client-thread binding: it may
-            # belong to an unrelated conversation and leak into this Ask.
+            # A first Ask has no canonical segment key yet. Do not fall back
+            # to the legacy Plan/client-thread binding: it may belong to an
+            # unrelated conversation and leak into this Ask. Reconciled turns
+            # already selected their frozen canonical segment above.
             pointer = HermesStructuredPointerResolution(
                 continuity_session_id=None,
                 pointer_status="absent",

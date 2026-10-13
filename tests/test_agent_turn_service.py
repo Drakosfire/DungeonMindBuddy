@@ -2223,6 +2223,9 @@ def test_reconciled_turn_context_policy_before_provider_freeze(
         "world_id": receipt.graph_authority.native_world_id, "scope_mode": "world",
     })
     observed: list[bool] = []
+    segment_thread_id = service_module._provider_segment_thread_id(
+        accepted.provenance, conversation_id=accepted.conversation_id,
+    )
 
     def no_dispatch(*_args: Any, **_kwargs: Any) -> Any:
         pytest.fail("This pre-freeze policy witness must not dispatch or mutate APP")
@@ -2239,10 +2242,11 @@ def test_reconciled_turn_context_policy_before_provider_freeze(
         descriptor = AgentRuntimeDescriptor("pre-freeze", "fake", "test", "graph")
 
         def run_with_provider_authorization(
-            self, _invocation: Any, _authorize: Any, *, request_budget: Any,
+            self, invocation: Any, _authorize: Any, *, request_budget: Any,
             on_graph_operation: Any, on_provider_lifecycle: Any,
             context_read_enabled: bool = False,
         ) -> AgentRuntimeResult:
+            assert invocation.run_options.runtime_session_id == "canonical-session"
             observed.append(context_read_enabled)
             projection = bootstrap.retrieval_session.project_for_hermes()
             body = json.dumps({
@@ -2322,10 +2326,17 @@ def test_reconciled_turn_context_policy_before_provider_freeze(
                 observed_model_call_count=0,
             )
 
+    pointer_store = HermesSessionPointerStore(tmp_path / "pointers")
+    pointer_store.upsert_structured_after_turn(
+        owner_kind="world", owner_id=accepted.world_id,
+        work_kind="agent_conversation_segment", work_id=segment_thread_id,
+        agent_thread_id=segment_thread_id,
+        hermes_session_id="canonical-session",
+    )
     with pytest.raises(AgentTurnServiceError) as stopped:
         execute_agent_turn(
             request, root=tmp_path,
-            pointer_store=HermesSessionPointerStore(tmp_path / "pointers"),
+            pointer_store=pointer_store,
             owner_resolver=lambda _request: {
                 "kind": "world", "id": accepted.world_id, "name": "World One",
             },
