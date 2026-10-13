@@ -5399,7 +5399,8 @@ export function WorldPlanAgentConversation({
             ) : null}
           </article>
         ) : null}
-        {conversationNotice ? <p role="status">{conversationNotice}</p> : null}
+        {conversationNotice && conversationNotice !== "The server confirmed this Ask. World history refreshed."
+          ? <p role="status">{conversationNotice}</p> : null}
         {(presentationHosts || isPlay) && newReplyAvailable ? (
           <button type="button" className="world-plan-agent-conversation__new-reply" onClick={jumpToLatestReply}>
             Jump to latest reply
