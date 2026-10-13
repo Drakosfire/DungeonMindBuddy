@@ -1,4 +1,5 @@
 import { Editor, type JSONContent } from "@tiptap/core";
+import { TextSelection } from "@tiptap/pm/state";
 import type { MarkdownSourceLineTarget } from "../../markdownReader/MarkdownDocumentReader";
 
 import type {
@@ -6,6 +7,7 @@ import type {
   PlanDocumentEditProposalResponse,
   WorldPlanDocumentEditProposalRequest,
   WorldPlanDocumentEditProposalResponse,
+  WorldPlanSelectionAnchorV1,
 } from "../../api/types";
 import { tiptapJsonToSemanticMarkdown } from "../../tiptap/markdown/calloutMarkdown";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
@@ -149,6 +151,9 @@ export interface ExpectedWorldPlanEditAgentBinding {
 
 export interface WorldPlanEditBridge {
   capture: () => Promise<CapturedWorldPlanEditTarget>;
+  restoreSelection: (anchor: WorldPlanSelectionAnchorV1, draftSha256: string, selectedTextSha256: string,
+    expectedBasis: Pick<WorldPlanEditEditorState, "worldId" | "documentId" | "baseRevision" | "baseContentSha256">,
+    isOriginCurrent: () => boolean) => Promise<CapturedWorldPlanEditTarget>;
   preview?: (captured: CapturedWorldPlanEditTarget, admitted: AdmittedWorldPlanEditProposal) => WorldPlanEditContextualPreview;
   apply: (
     captured: CapturedWorldPlanEditTarget,
@@ -594,6 +599,20 @@ export async function captureWorldPlanEditTarget(
       : "The selected Plan material is too large for one proposal.");
   }
   const draftSha256 = await sha256(draftMarkdown);
+  const selectionAnchor: WorldPlanSelectionAnchorV1 | undefined = targetKind === "replace_selection"
+    ? {
+      schema_version: "dmb_plan_selection_anchor_v1",
+      editor_format: "world-plan-tiptap-json-v1",
+      editor_json_sha256: await sha256(editorJson),
+      anchor: editor.state.selection.anchor,
+      head: editor.state.selection.head,
+      from,
+      to,
+      section: sectionTarget
+        ? { id: sectionTarget.id, apply_from: sectionTarget.applyFrom, apply_to: sectionTarget.applyTo }
+        : null,
+    }
+    : undefined;
   const live = getCurrent();
   if (!sameWorldPlanEditorBinding(input, live)
     || JSON.stringify(editor.getJSON()) !== editorJson
@@ -611,6 +630,7 @@ export async function captureWorldPlanEditTarget(
       draft_sha256: draftSha256,
       target_kind: targetKind,
       selected_text: selectedText,
+      ...(selectionAnchor ? { selection_anchor: selectionAnchor } : {}),
       ...(playableBodyTarget ? {
         playable_target: { ...playableBodyTarget.target },
         body_serialization_version: playableBodyTarget.bodySerializationVersion,
@@ -631,6 +651,93 @@ export async function captureWorldPlanEditTarget(
     sectionTarget,
     playableBodyTarget,
   };
+}
+
+function exactSelectionAnchor(anchor: WorldPlanSelectionAnchorV1): boolean {
+  if (!anchor || typeof anchor !== "object"
+    || Object.keys(anchor).sort().join(",") !== "anchor,editor_format,editor_json_sha256,from,head,schema_version,section,to"
+    || anchor.schema_version !== "dmb_plan_selection_anchor_v1"
+    || anchor.editor_format !== "world-plan-tiptap-json-v1"
+    || !/^[0-9a-f]{64}$/.test(anchor.editor_json_sha256)
+    || ![anchor.anchor, anchor.head, anchor.from, anchor.to].every((value) =>
+      Number.isInteger(value) && value >= 0 && value <= 1_000_000)
+    || anchor.anchor === anchor.head
+    || anchor.from !== Math.min(anchor.anchor, anchor.head)
+    || anchor.to !== Math.max(anchor.anchor, anchor.head)) return false;
+  const section = anchor.section;
+  if (section !== null && (!section || typeof section !== "object"
+    || Object.keys(section).sort().join(",") !== "apply_from,apply_to,id"
+    || !/^heading:(0|[1-9][0-9]{0,6}):[1-6]$/.test(section.id)
+    || ![section.apply_from, section.apply_to].every((value) =>
+      Number.isInteger(value) && value >= 0 && value <= 1_000_000)
+    || Number(section.id.split(":")[1]) !== section.apply_from
+    || !(section.apply_from <= anchor.from && anchor.to <= section.apply_to))) return false;
+  const canonical = JSON.stringify(anchor, (_key, value) => value && typeof value === "object" && !Array.isArray(value)
+    ? Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right)))
+    : value);
+  return new TextEncoder().encode(canonical).length <= 512;
+}
+
+/** Restore only a proven saved range, then use the normal mounted-editor capture path. */
+export async function restoreWorldPlanSelection(
+  anchor: WorldPlanSelectionAnchorV1,
+  draftSha256: string,
+  selectedTextSha256: string,
+  expectedBasis: Pick<WorldPlanEditEditorState, "worldId" | "documentId" | "baseRevision" | "baseContentSha256">,
+  isOriginCurrent: () => boolean,
+  getCurrent: () => WorldPlanEditEditorState,
+): Promise<CapturedWorldPlanEditTarget> {
+  const input = getCurrent();
+  const editor = currentWorldEditor(input);
+  const editorJson = JSON.stringify(editor.getJSON());
+  const selectionJson = JSON.stringify(editor.state.selection.toJSON());
+  if (!isOriginCurrent() || input.worldId !== expectedBasis.worldId || input.documentId !== expectedBasis.documentId
+    || input.baseRevision !== expectedBasis.baseRevision
+    || input.baseContentSha256 !== expectedBasis.baseContentSha256
+    || !exactSelectionAnchor(anchor) || anchor.to > editor.state.doc.content.size
+    || await sha256(editorJson) !== anchor.editor_json_sha256) {
+    throw new PlanEditGuardError("The saved selection no longer matches this Plan. Start a fresh edit.");
+  }
+  const json = JSON.parse(editorJson) as JSONContent;
+  const draftMarkdown = preserveLeadingYamlFrontmatter(input.sourceMarkdown, tiptapJsonToSemanticMarkdown(json));
+  if (await sha256(draftMarkdown) !== draftSha256) {
+    throw new PlanEditGuardError("The Plan draft changed. Start a fresh edit.");
+  }
+  const section = planSectionTargetForSelection(editor, anchor.from, anchor.to);
+  const sectionSlice = section ? rootNodesOverlappingSelection(editor, anchor.from, anchor.to, section) : null;
+  if ((section === null) !== (anchor.section === null)
+    || (section && anchor.section && (section.id !== anchor.section.id
+      || sectionSlice?.applyFrom !== anchor.section.apply_from
+      || sectionSlice?.applyTo !== anchor.section.apply_to))) {
+    throw new PlanEditGuardError("The saved Plan section changed. Start a fresh edit.");
+  }
+  const selectedText = sectionSlice
+    ? canonicalSectionMarkdownFromDraft(draftMarkdown, sectionSlice.rootContent)
+    : editor.state.doc.textBetween(anchor.from, anchor.to, "\n");
+  if (await sha256(selectedText) !== selectedTextSha256) {
+    throw new PlanEditGuardError("The saved selected text changed. Start a fresh edit.");
+  }
+  let selection: TextSelection;
+  try {
+    selection = TextSelection.create(editor.state.doc, anchor.anchor, anchor.head);
+  } catch {
+    throw new PlanEditGuardError("The saved selection is outside this Plan. Start a fresh edit.");
+  }
+  if (selection.anchor !== anchor.anchor || selection.head !== anchor.head
+    || !isOriginCurrent()
+    || !sameWorldPlanEditorBinding(input, getCurrent())
+    || JSON.stringify(editor.getJSON()) !== editorJson
+    || JSON.stringify(editor.state.selection.toJSON()) !== selectionJson) {
+    throw new PlanEditGuardError("The Plan changed while restoring the selection. Start a fresh edit.");
+  }
+  editor.view.dispatch(editor.state.tr.setSelection(selection));
+  const captured = await captureWorldPlanEditTarget(getCurrent(), getCurrent);
+  if (JSON.stringify(captured.request.selection_anchor) !== JSON.stringify(anchor)
+    || captured.request.draft_sha256 !== draftSha256
+    || await sha256(captured.request.selected_text) !== selectedTextSha256) {
+    throw new PlanEditGuardError("The saved selection could not be recaptured. Start a fresh edit.");
+  }
+  return captured;
 }
 
 function insertionForTarget(

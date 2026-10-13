@@ -468,6 +468,8 @@ def _linked_clarification(
         or prior_consultation.receipt.surface_instance_id != surface_instance_id
         or prior_consultation.receipt.draft_sha256 != action.draft_sha256
         or prior_consultation.receipt.selected_text_sha256 != action.selected_text_sha256
+        or prior.selection_anchor is None
+        or prior.selection_anchor != action.selection_anchor
         or prior_consultation.receipt.basis != action.basis
         or prior_consultation.receipt.origin_conversation_id
         != expected_world_pointer.active_conversation_id

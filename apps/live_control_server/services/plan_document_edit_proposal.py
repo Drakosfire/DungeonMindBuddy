@@ -266,6 +266,8 @@ def _action_fingerprint(
             "draft_sha256": request.draft_sha256,
             "target_kind": request.target_kind,
             "selected_text_sha256": _digest(request.selected_text),
+            **({"selection_anchor": request.selection_anchor.model_dump(mode="json", by_alias=True)}
+               if expected_world_pointer is not None and request.selection_anchor is not None else {}),
             "instruction": request.instruction,
             **({"continuation_of_action_id": str(request.continuation_of_action_id)}
                if request.continuation_of_action_id is not None else {}),
@@ -301,6 +303,8 @@ def _matches_world_action_receipt(
     ):
         return False
     if expected_world_pointer is not None:
+        if getattr(action, "selection_anchor", None) != request.selection_anchor:
+            return False
         if getattr(action, "request_fingerprint", None) != _action_fingerprint(
             request,
             basis,
@@ -740,6 +744,12 @@ def propose_world_plan_document_edit(
     consulted_selection = request.target_kind == "replace_selection" and binding is not None
     expected_world_pointer: WorldPointer | None = None
     if consulted_selection:
+        if request.selection_anchor is None:
+            raise PlanDocumentEditProposalError(
+                "selection_anchor_missing",
+                "Select this passage again before asking Buddy to revise it.",
+                status_code=422,
+            )
         if request.expected_active_conversation_id is None or request.expected_pointer_revision is None:
             raise PlanDocumentEditProposalError(
                 "conversation_origin_missing", "Refresh the World conversation before this sourced edit.",
@@ -829,6 +839,7 @@ def propose_world_plan_document_edit(
         draft_sha256=request.draft_sha256,
         target_kind=request.target_kind,
         selected_text_sha256=selected_digest if request.target_kind == "replace_selection" else None,
+        selection_anchor=request.selection_anchor if consulted_selection else None,
         playable_target_receipt=target_receipt,
         instruction=request.instruction,
     )

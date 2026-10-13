@@ -1253,12 +1253,24 @@ export interface WorldPlanDocumentEditProposalRequest {
   draft_sha256: string;
   target_kind: "replace_selection" | "insert_at_caret" | "replace_playable_body";
   selected_text: string;
+  selection_anchor?: WorldPlanSelectionAnchorV1;
   playable_target?: { kind: "scene" | "beat" | "choice" | "option"; id: string };
   body_serialization_version?: "plan-playable-body-markdown-v1";
   target_body_markdown?: string;
   target_body_sha256?: string;
   instruction: string;
   conversation_history: { role: "user" | "assistant"; content: string }[];
+}
+
+export interface WorldPlanSelectionAnchorV1 {
+  schema_version: "dmb_plan_selection_anchor_v1";
+  editor_format: "world-plan-tiptap-json-v1";
+  editor_json_sha256: string;
+  anchor: number;
+  head: number;
+  from: number;
+  to: number;
+  section: { id: string; apply_from: number; apply_to: number } | null;
 }
 
 export interface WorldPlanDocumentEditProposalResponse {
@@ -1343,11 +1355,13 @@ export interface WorldPlanActionProjection {
   status: "pending" | "completed" | "failed" | "indeterminate";
   basis: WorldPlanActionBasis;
   instruction: string;
+  selection_anchor?: WorldPlanSelectionAnchorV1 | null;
   assistant_summary: string | null;
   consultation?: {
     receipt: {
       origin_conversation_id?: string;
       origin_pointer_revision?: number;
+      surface_instance_id?: string;
       draft_sha256: string;
       selected_text_sha256: string;
       continuation?: { continuation_of_action_id: string } | null;

@@ -1409,6 +1409,12 @@ describe("World Plan conversation consumer", () => {
     const api = setupApi(history("conversation-a", 4, []));
     const selected = "Draft excerpt";
     const selectedDigest = await sha256Hex(selected);
+    const savedAnchor = {
+      schema_version: "dmb_plan_selection_anchor_v1" as const,
+      editor_format: "world-plan-tiptap-json-v1" as const,
+      editor_json_sha256: "e".repeat(64),
+      anchor: 1, head: 2, from: 1, to: 2, section: null,
+    };
     const captured = {
       editor: { isDestroyed: false },
       request: {
@@ -1418,11 +1424,13 @@ describe("World Plan conversation consumer", () => {
         draft_sha256: "d".repeat(64),
         target_kind: "replace_selection" as const,
         selected_text: selected,
+        selection_anchor: savedAnchor,
       },
       from: 1, to: 2, editorJson: "{}", selectionJson: "[]",
       draftGeneration: 0, selectionGeneration: 0,
     };
-    const bridge = { capture: vi.fn(async () => captured), apply: vi.fn(async () => undefined),
+    const bridge = { capture: vi.fn(async () => captured),
+      restoreSelection: vi.fn(async () => captured), apply: vi.fn(async () => undefined),
       preview: vi.fn(() => ({ before: { markdown: "# Draft\n\nDraft excerpt." },
         after: { markdown: "# Draft\n\nHer mother guards the door." } })) };
     const clarificationId = "00000000-0000-4000-8000-000000000081";
@@ -1462,6 +1470,7 @@ describe("World Plan conversation consumer", () => {
             work_revision_id: workRevisionId, revision_n: 1, content_sha256: contentSha256,
           },
           instruction: request.instruction,
+          selection_anchor: request.selection_anchor ?? null,
           assistant_summary: "Mira owns the observatory. Did you mean her mother?",
           action_sequence: 1, accepted_at: "2026-10-12T00:00:00Z",
           completed_at: "2026-10-12T00:00:01Z", playable_target_receipt: null,
@@ -1514,6 +1523,7 @@ describe("World Plan conversation consumer", () => {
         basis: { world_id: worldId, document_id: documentId, object_revision: 7,
           work_revision_id: workRevisionId, revision_n: 1, content_sha256: contentSha256 },
         instruction: request.instruction, assistant_summary: "Make the figure Mira's mother.",
+        selection_anchor: request.selection_anchor ?? null,
         action_sequence: 2, accepted_at: "2026-10-12T00:00:02Z", completed_at: "2026-10-12T00:00:03Z",
         playable_target_receipt: null,
         consultation: { receipt: { origin_conversation_id: "conversation-a", origin_pointer_revision: 4,
@@ -1588,6 +1598,10 @@ describe("World Plan conversation consumer", () => {
       expect(document.querySelector(`article[data-plan-action-id="${clarificationId}"]`)).toBeTruthy();
     });
     fireEvent.click(screen.getByRole("button", { name: "Reply about this edit" }));
+    await waitFor(() => expect(bridge.restoreSelection).toHaveBeenCalledWith(savedAnchor,
+      captured.request.draft_sha256, selectedDigest, {
+        worldId, documentId, baseRevision: 7, baseContentSha256: contentSha256,
+      }, expect.any(Function)));
     fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "Her mother." },
     });
