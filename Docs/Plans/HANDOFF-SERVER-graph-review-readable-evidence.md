@@ -1,5 +1,5 @@
 # Graph Review source-readable evidence
-Status: IMPLEMENTED on isolated Buddy branch; pending PRIME independent exact-head review. No merge or rollout authorized.
+Status: MERGED. PRIME independently accepted PR #1116 at reviewed head `313e972c` (review `6138825453`); Buddy main merge `ec1da1b7872fe6d4f9fee0b501510a5137677eea`. Implementation lease released. Runtime rollout remains separate.
 Base: re-anchor remote Buddy main (last accepted e5136705fb574aab4910113cc58034088df65734). Pin Core exact merge d81ed4e126c55ef8df57804c9ab7128b7499c7a1, accepted PR117 head a8346d9, CI38348352077 success, independent58-test PG boundary proof.
 Finding: /tmp/source-readable-graph-review-preparation-20261012.md SHA256 8f43470145a37e79909416edb36e8ad8229f506776a14ad88d0dd19f1a143f3c.
 Witness: /tmp/source-readable-graph-review-witness-20261012.py SHA256 3d483c27c34bd4b3bd621be5680c6ca2e378deb61e97454f29a0f1bf15b8da39. PRIME independently reran this against current47bc: both source types prepare EXPRESSIBLE, no accepted evidence span, recap incorrectly worldbuilding, can_open_source true from locator alone. This proves prepare/translation failure; no claim that bad inputs passed Core publication.
