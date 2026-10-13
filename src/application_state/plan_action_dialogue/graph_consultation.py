@@ -7,6 +7,7 @@ semantics. Existing Graph events remain the authority for evidence/context reads
 from __future__ import annotations
 
 import hashlib
+from uuid import UUID
 
 from application_state.agent_conversation.types import (
     CompletionBindingEventV1,
@@ -65,13 +66,14 @@ def action_input_digest(receipt: PlanActionConsultationReceipt) -> str:
         **receipt.model_dump(mode="json", by_alias=True, include={
             "surface_id", "surface_instance_id", "basis", "draft_matches_basis",
             "draft_sha256", "target_kind", "selected_text_sha256", "instruction",
-            "continuation",
+            "continuation", "origin_conversation_id", "origin_pointer_revision",
         }),
     })
 
 
 def build_consultation_receipt(
     *, action: PlanActionRecord, surface_instance_id: str,
+    origin_conversation_id: UUID, origin_pointer_revision: int,
     graph_authority=None, graph_packet=None, assembled_input=None, authority_failure_code=None,
     continuation=None, history_conversation_id=None, history_attribution=(),
 ) -> PlanActionConsultationReceipt:
@@ -84,6 +86,8 @@ def build_consultation_receipt(
         receipt_serializer_version="canonical-json-utf8-v1",
         consultation_receipt_sha256="0" * 64,
         action_id=action.action_id, request_fingerprint=action.request_fingerprint,
+        origin_conversation_id=origin_conversation_id,
+        origin_pointer_revision=origin_pointer_revision,
         surface_id="plan", surface_instance_id=surface_instance_id,
         basis=action.basis, draft_matches_basis=action.draft_matches_basis,
         draft_sha256=action.draft_sha256, target_kind=action.target_kind,
@@ -128,6 +132,9 @@ def validate_consultation_receipt(receipt: PlanActionConsultationReceipt) -> Non
         raise ValueError("action draft match witness differs from its exact digests")
     if receipt.consultation_receipt_sha256 != consultation_receipt_digest(receipt):
         raise ValueError("action consultation receipt digest differs from its contents")
+    if (receipt.history_conversation_id is not None
+            and receipt.history_conversation_id != receipt.origin_conversation_id):
+        raise ValueError("historical Ask source differs from the action conversation origin")
     graph_fields = (receipt.graph_authority, receipt.graph_packet, receipt.assembled_input)
     if receipt.authority_status == "unavailable":
         if (any(value is not None for value in graph_fields)

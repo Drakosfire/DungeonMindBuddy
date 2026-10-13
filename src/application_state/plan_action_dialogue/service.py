@@ -9,6 +9,8 @@ from application_state.agent_conversation.types import (
     GraphExecutionEventV2,
     GraphExecutionPolicyV2,
     PlanWorldGraphExecutionV2,
+    ProviderAttemptAuthorizedEventV1,
+    WorldPointer,
     graph_execution_policy_digest_v2,
 )
 from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
@@ -21,6 +23,7 @@ from application_state.plan_action_dialogue.types import (
     CompletedPlanActionContext,
     PlanActionBasis,
     PlanActionConsultation,
+    PlanActionConversationProjectionPage,
     PlanActionConsultationReceipt,
     PlanActionConsultationResult,
     PlanActionContextUnavailableResult,
@@ -88,6 +91,11 @@ class PlanActionDialogueService:
             current = repo.lock_dispatch(conn, action_id, token, fence)
             if receipt.action_id != action_id:
                 raise ApplicationStateValidationError("consultation action ID differs from reservation")
+            repo.expect_world_pointer(conn, WorldPointer(
+                world_id=receipt.basis.world_id,
+                active_conversation_id=receipt.origin_conversation_id,
+                revision=receipt.origin_pointer_revision,
+            ))
             if current.consultation is not None:
                 if (current.consultation.receipt == receipt
                         and (current.consultation.execution.policy if current.consultation.execution else None)
@@ -113,6 +121,13 @@ class PlanActionDialogueService:
                     if prior == event:
                         return current, False
                     raise ApplicationStateConflictError("action event ID was reused with different content")
+            if isinstance(event, ProviderAttemptAuthorizedEventV1):
+                receipt = consultation.receipt
+                repo.expect_world_pointer(conn, WorldPointer(
+                    world_id=receipt.basis.world_id,
+                    active_conversation_id=receipt.origin_conversation_id,
+                    revision=receipt.origin_pointer_revision,
+                ))
             if event.sequence != len(consultation.execution.events):
                 raise ApplicationStateConflictError("action consultation event sequence is stale")
             payload = consultation.model_dump(mode="json", by_alias=True)
@@ -156,21 +171,43 @@ class PlanActionDialogueService:
         return PlanActionProjectionPage(
             basis=basis,
             actions=[
-                PlanActionProjection(
-                    action_id=item.action_id,
-                    action_type=item.action_type,
-                    status=item.status,
-                    basis=item.basis,
-                    instruction=item.instruction,
-                    assistant_summary=item.assistant_summary if item.status == "completed" else None,
-                    action_sequence=item.action_sequence,
-                    accepted_at=item.accepted_at,
-                    completed_at=item.completed_at,
-                    playable_target_receipt=item.playable_target_receipt,
-                    consultation=item.consultation,
-                )
+                self._projection(item)
                 for item in records
             ],
+        )
+
+    @staticmethod
+    def _projection(item: PlanActionRecord) -> PlanActionProjection:
+        return PlanActionProjection(
+            action_id=item.action_id,
+            action_type=item.action_type,
+            status=item.status,
+            basis=item.basis,
+            instruction=item.instruction,
+            assistant_summary=item.assistant_summary if item.status == "completed" else None,
+            action_sequence=item.action_sequence,
+            accepted_at=item.accepted_at,
+            completed_at=item.completed_at,
+            playable_target_receipt=item.playable_target_receipt,
+            consultation=item.consultation,
+        )
+
+    def list_conversation_status(
+        self, world_id: str, conversation_id: UUID, *, limit: int = 50,
+        before_action_sequence: int | None = None,
+    ) -> PlanActionConversationProjectionPage:
+        """Read one viewed World conversation across Plan saves and documents."""
+        if not world_id.strip():
+            raise ApplicationStateValidationError("World ID is required")
+        with unit_of_work(self._dsn()) as conn:
+            records, next_cursor = repo.list_conversation(
+                conn, world_id, conversation_id, limit=limit,
+                before_action_sequence=before_action_sequence,
+            )
+        return PlanActionConversationProjectionPage(
+            world_id=world_id, conversation_id=conversation_id,
+            actions=[self._projection(item) for item in records],
+            next_before_action_sequence=next_cursor,
         )
 
     def completed_context(

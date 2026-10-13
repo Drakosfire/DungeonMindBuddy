@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from datetime import datetime, timezone
-from uuid import uuid4
+from threading import Event
+from uuid import NAMESPACE_DNS, uuid4, uuid5
 
 import psycopg
 import pytest
@@ -22,7 +23,10 @@ from application_state.agent_conversation.types import (
     SourceReadAnchorReceiptV2, SourceReadAuthorizationEventV2,
     ValidatedGraphOperationEventV1, ValidatedSourceReadEventV2,
     graph_execution_policy_digest_v2,
+    WorldPointer,
+    ConversationCommand,
 )
+from application_state.agent_conversation.service import AgentConversationService
 from application_state.cli import upgrade_to_head
 from application_state.config import APPLICATION_STATE_DSN_ENV
 from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
@@ -40,6 +44,10 @@ from application_state.plan_action_dialogue.types import (
 from tests.application_state.conftest import _admin_dsn, _create_database, _drop_database, _replace_database
 
 
+def _owner_id(world_id: str):
+    return uuid5(NAMESPACE_DNS, f"plan-action-test:{world_id}")
+
+
 @pytest.fixture
 def application_state_dsn(monkeypatch):
     """Use the repository test-admin configuration, with a new action DB per test."""
@@ -50,6 +58,20 @@ def application_state_dsn(monkeypatch):
     monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, dsn)
     try:
         upgrade_to_head(dsn=dsn)
+        with psycopg.connect(dsn) as conn:
+            for world_id in ("synthetic-world", "indexed-world", "other-world"):
+                conn.execute(
+                    "INSERT INTO agent.conversation (conversation_id, world_id, status, revision, "
+                    "next_turn_sequence, created_at, updated_at) "
+                    "VALUES (%s, %s, 'active', 1, 1, clock_timestamp(), clock_timestamp())",
+                    (_owner_id(world_id), world_id),
+                )
+                conn.execute(
+                    "INSERT INTO agent.world_state "
+                    "(world_id, active_conversation_id, pointer_revision, updated_at) "
+                    "VALUES (%s, %s, 1, clock_timestamp())",
+                    (world_id, _owner_id(world_id)),
+                )
         yield dsn
     finally:
         monkeypatch.delenv(APPLICATION_STATE_DSN_ENV, raising=False)
@@ -57,11 +79,15 @@ def application_state_dsn(monkeypatch):
 
 
 def reservation(*, basis=None, instruction="Give the observatory a hidden door."):
+    basis = basis or PlanActionBasis(
+        world_id="synthetic-world", document_id="synthetic-plan", object_revision=4,
+        work_revision_id=uuid4(), revision_n=2, content_sha256="a" * 64,
+    )
     return PlanActionReservation(
         idempotency_key=uuid4(), request_fingerprint="b" * 64, action_type="revise",
-        basis=basis or PlanActionBasis(
-            world_id="synthetic-world", document_id="synthetic-plan", object_revision=4,
-            work_revision_id=uuid4(), revision_n=2, content_sha256="a" * 64,
+        basis=basis,
+        expected_world_pointer=WorldPointer(
+            world_id=basis.world_id, active_conversation_id=_owner_id(basis.world_id), revision=1,
         ),
         draft_matches_basis=False, draft_sha256="c" * 64,
         target_kind="replace_selection", selected_text_sha256="d" * 64,
@@ -73,13 +99,17 @@ def model_action(request=None):
     request = request or reservation()
     now = datetime.now(timezone.utc)
     return PlanActionRecord(
-        **request.model_dump(mode="python"), action_id=uuid4(), status="pending",
+        **request.model_dump(mode="python", exclude={"expected_world_pointer"}),
+        action_id=uuid4(), status="pending",
         assistant_summary=None, failure_code=None, dispatch_token=uuid4(), fence=1,
         action_sequence=1, accepted_at=now, completed_at=None, lease_expires_at=now,
     )
 
 
-def frozen_inputs(action, *, revision="graph-r1", continuation=None):
+def frozen_inputs(
+    action, *, revision="graph-r1", continuation=None,
+    origin_conversation_id=None, origin_pointer_revision=1,
+):
     authority = PlanWorldGraphAuthorityV1(
         managed_world_id=action.basis.world_id, native_world_id="native-synthetic",
         binding_version=1, scope_mode="world", campaign_id=None,
@@ -107,6 +137,8 @@ def frozen_inputs(action, *, revision="graph-r1", continuation=None):
     receipt = build_consultation_receipt(
         action=action, surface_instance_id="plan-pane", graph_authority=authority,
         graph_packet=packet, assembled_input=assembled, continuation=continuation,
+        origin_conversation_id=origin_conversation_id or _owner_id(action.basis.world_id),
+        origin_pointer_revision=origin_pointer_revision,
     )
     policy = GraphExecutionPolicyV2(
         policy_version="plan_world_graph_execution_v1",
@@ -235,6 +267,17 @@ def complete_action(service, action, *, proposal=False, **kwargs):
     ), events
 
 
+def _new_world_conversation(world_id: str) -> WorldPointer:
+    conversations = AgentConversationService()
+    previous = conversations.get_world_pointer(world_id)
+    conversations.new_conversation(ConversationCommand(
+        world_id=world_id, command_id=uuid4(),
+        expected_pointer_revision=previous.revision,
+        expected_active_conversation_id=previous.active_conversation_id,
+    ))
+    return conversations.get_world_pointer(world_id)
+
+
 def test_action_receipt_is_truthful_and_digest_bound():
     action = model_action()
     receipt, _policy = frozen_inputs(action)
@@ -242,6 +285,14 @@ def test_action_receipt_is_truthful_and_digest_bound():
     assert "plan_context_policy" not in receipt.model_dump()
     assert "plan_basis" not in receipt.model_dump()
     assert "consultation" not in action.model_dump(mode="json")
+    with pytest.raises(ValidationError):
+        PlanActionConsultationReceipt.model_validate(
+            receipt.model_dump(mode="json", exclude={"origin_conversation_id"})
+        )
+    with pytest.raises(ValidationError):
+        PlanActionConsultationReceipt.model_validate(
+            receipt.model_dump(mode="json", exclude={"origin_pointer_revision"})
+        )
     for changes in ({"draft_sha256": "e" * 64}, {"instruction": "Changed intent."},
                     {"graph_authority": receipt.graph_authority.model_copy(update={"graph_revision": "r2"})}):
         with pytest.raises(ValidationError):
@@ -333,7 +384,7 @@ def test_optional_historical_ask_attribution_keeps_basis_and_source_identity(rev
     action = model_action(reservation(basis=PlanActionBasis.model_validate(old.plan_basis.model_dump())))
     receipt, _policy = frozen_inputs(action, revision=(old.graph_authority.graph_revision
                                     if revision_case == "current" else "graph-r2"))
-    conversation_id, turn_id = uuid4(), uuid4()
+    conversation_id, turn_id = _owner_id(action.basis.world_id), uuid4()
     attribution = PlanAskHistoryAttributionV1(
         source_turn_id=turn_id, source_conversation_id=conversation_id, source_sequence=1,
         surface_instance_id="plan-pane", plan_basis=old.plan_basis, playable_target=None,
@@ -346,7 +397,8 @@ def test_optional_historical_ask_attribution_keeps_basis_and_source_identity(rev
     })
     kwargs = dict(action=action, surface_instance_id="plan-pane", graph_authority=receipt.graph_authority,
                   graph_packet=receipt.graph_packet, assembled_input=assembled,
-                  history_conversation_id=conversation_id)
+                  history_conversation_id=conversation_id,
+                  origin_conversation_id=conversation_id, origin_pointer_revision=1)
     valid = build_consultation_receipt(**kwargs, history_attribution=[attribution])
     assert valid.history_attribution[0].source_turn_id == turn_id
     assert (valid.history_attribution[0].answer_segments[0].graph_revision
@@ -385,6 +437,202 @@ def test_pg_typed_result_and_source_receipts_survive_fresh_history(application_s
     replay, created = service.reserve(request)
     assert not created and replay.action_id == action.action_id
     assert replay.consultation == completed.consultation
+
+
+def test_pg_conversation_history_spans_plan_saves_and_documents_but_new_thread_is_empty(
+    application_state_dsn,
+):
+    service = PlanActionDialogueService()
+    first_request = reservation()
+    first, _ = service.reserve(first_request)
+    complete_action(service, first)
+    next_basis = first_request.basis.model_copy(update={
+        "document_id": "another-plan", "object_revision": 5,
+        "work_revision_id": uuid4(), "revision_n": 3, "content_sha256": "e" * 64,
+    })
+    second, _ = service.reserve(reservation(basis=next_basis))
+    complete_action(service, second)
+    old_owner = _owner_id(first_request.basis.world_id)
+    page = PlanActionDialogueService().list_conversation_status(
+        first_request.basis.world_id, old_owner, limit=1,
+    )
+    assert [item.action_id for item in page.actions] == [second.action_id]
+    assert page.actions[0].basis == next_basis
+    assert page.next_before_action_sequence == second.action_sequence
+    older = service.list_conversation_status(
+        first_request.basis.world_id, old_owner, limit=1,
+        before_action_sequence=page.next_before_action_sequence,
+    )
+    assert [item.action_id for item in older.actions] == [first.action_id]
+    assert older.actions[0].basis == first_request.basis
+    assert older.next_before_action_sequence is None
+    assert len(service.list_status(next_basis).actions) == 1
+
+    current = _new_world_conversation(first_request.basis.world_id)
+    assert current.active_conversation_id != old_owner
+    assert service.list_conversation_status(
+        first_request.basis.world_id, current.active_conversation_id,
+    ).actions == []
+    assert len(PlanActionDialogueService().list_conversation_status(
+        first_request.basis.world_id, old_owner,
+    ).actions) == 2
+    plain_request = reservation(basis=next_basis).model_copy(update={
+        "expected_world_pointer": None,
+    })
+    plain, _ = service.reserve(plain_request)
+    assert plain.consultation is None
+    assert len(service.list_conversation_status(
+        first_request.basis.world_id, old_owner,
+    ).actions) == 2
+    assert service.get_by_key(plain_request.basis.world_id, plain_request.idempotency_key) == plain
+
+
+def test_pg_stale_pointer_blocks_reserve_freeze_and_provider_authorization(
+    application_state_dsn,
+):
+    service = PlanActionDialogueService()
+    first_request = reservation()
+    first, _ = service.reserve(first_request)
+    frozen, receipt, policy = frozen_action(service, first)
+    provider = consultation_events(receipt, policy)[0]
+    second_request = reservation()
+    second, _ = service.reserve(second_request)
+    second_receipt, second_policy = frozen_inputs(second)
+    current = _new_world_conversation(first_request.basis.world_id)
+
+    with pytest.raises(ApplicationStateConflictError, match="active conversation changed"):
+        service.reserve(reservation())
+    with pytest.raises(ApplicationStateConflictError, match="active conversation changed"):
+        service.freeze_consultation(
+            action_id=second.action_id, token=second.dispatch_token, fence=second.fence,
+            receipt=second_receipt, policy=second_policy,
+        )
+    with pytest.raises(ApplicationStateConflictError, match="active conversation changed"):
+        service.append_consultation_event(
+            action_id=frozen.action_id, token=frozen.dispatch_token, fence=frozen.fence,
+            event=provider,
+        )
+    changed_key = first_request.model_copy(update={
+        "expected_world_pointer": current,
+    })
+    with pytest.raises(ApplicationStateConflictError, match="another World conversation"):
+        service.reserve(changed_key)
+
+
+@pytest.mark.parametrize("boundary", ["reserve", "provider_authorization"])
+def test_pg_new_conversation_serializes_with_action_authorization(
+    application_state_dsn, boundary,
+):
+    service = PlanActionDialogueService()
+    request = reservation()
+    if boundary == "provider_authorization":
+        action, _ = service.reserve(request)
+        _, receipt, policy = frozen_action(service, action)
+        event = consultation_events(receipt, policy)[0]
+
+        def attempt():
+            return service.append_consultation_event(
+                action_id=action.action_id, token=action.dispatch_token,
+                fence=action.fence, event=event,
+            )
+    else:
+        def attempt():
+            return service.reserve(request)
+
+    started = Event()
+
+    def run_attempt():
+        started.set()
+        return attempt()
+
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute(
+            "SELECT pointer_revision FROM agent.world_state WHERE world_id=%s FOR UPDATE",
+            (request.basis.world_id,),
+        )
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            pending = pool.submit(run_attempt)
+            assert started.wait(2)
+            with pytest.raises(FutureTimeoutError):
+                pending.result(timeout=0.15)
+            new_id = uuid4()
+            conn.execute(
+                "UPDATE agent.conversation SET status='archived', archived_at=clock_timestamp(), "
+                "updated_at=clock_timestamp() WHERE conversation_id=%s",
+                (_owner_id(request.basis.world_id),),
+            )
+            conn.execute(
+                "INSERT INTO agent.conversation (conversation_id, world_id, status, revision, "
+                "next_turn_sequence, created_at, updated_at) "
+                "VALUES (%s,%s,'active',1,1,clock_timestamp(),clock_timestamp())",
+                (new_id, request.basis.world_id),
+            )
+            conn.execute(
+                "UPDATE agent.world_state SET active_conversation_id=%s, pointer_revision=2, "
+                "updated_at=clock_timestamp() WHERE world_id=%s",
+                (new_id, request.basis.world_id),
+            )
+            conn.commit()
+            with pytest.raises(ApplicationStateConflictError, match="active conversation changed"):
+                pending.result(timeout=3)
+    if boundary == "reserve":
+        assert service.get_by_key(request.basis.world_id, request.idempotency_key) is None
+
+
+def test_pg_linked_reply_rejects_a_new_conversation_on_the_same_plan_basis(
+    application_state_dsn,
+):
+    service = PlanActionDialogueService()
+    request = reservation()
+    first, _ = service.reserve(request)
+    previous, _ = complete_action(service, first)
+    link = PlanActionContinuation(
+        continuation_of_action_id=first.action_id,
+        clarification_id=previous.consultation.result.result_id,
+        previous_result_sha256=consultation_result_digest(previous.consultation.result),
+        previous_instruction=request.instruction,
+    )
+    current = _new_world_conversation(request.basis.world_id)
+    reply_request = reservation(basis=request.basis, instruction="Yes, hers.").model_copy(
+        update={"expected_world_pointer": current}
+    )
+    reply, _ = service.reserve(reply_request)
+    receipt, policy = frozen_inputs(
+        reply, continuation=link,
+        origin_conversation_id=current.active_conversation_id,
+        origin_pointer_revision=current.revision,
+    )
+    with pytest.raises(ApplicationStateConflictError, match="predecessor"):
+        service.freeze_consultation(
+            action_id=reply.action_id, token=reply.dispatch_token, fence=reply.fence,
+            receipt=receipt, policy=policy,
+        )
+
+
+def test_pg_already_authorized_action_can_settle_in_its_archived_thread(
+    application_state_dsn,
+):
+    service = PlanActionDialogueService()
+    action, _ = service.reserve(reservation())
+    _, receipt, policy = frozen_action(service, action)
+    events = consultation_events(receipt, policy)
+    for event in events:
+        service.append_consultation_event(
+            action_id=action.action_id, token=action.dispatch_token,
+            fence=action.fence, event=event,
+        )
+    current = _new_world_conversation(action.basis.world_id)
+    settled = service.finish_consultation(
+        action_id=action.action_id, token=action.dispatch_token,
+        fence=action.fence, result=attributed_result(receipt, events),
+    )
+    assert settled.status == "completed"
+    assert service.list_conversation_status(
+        action.basis.world_id, current.active_conversation_id,
+    ).actions == []
+    assert service.list_conversation_status(
+        action.basis.world_id, _owner_id(action.basis.world_id),
+    ).actions[0].consultation.result == settled.consultation.result
 
 
 def test_pg_freeze_and_provider_append_are_token_fenced_and_idempotent(application_state_dsn):
@@ -472,7 +720,7 @@ def test_pg_historical_answer_hash_rejects_changed_same_turn_and_survives_reload
     request = reservation(basis=PlanActionBasis.model_validate(old.plan_basis.model_dump()))
     action, _ = service.reserve(request)
     receipt, policy = frozen_inputs(action, revision="graph-r2")
-    conversation_id, turn_id = uuid4(), uuid4()
+    conversation_id, turn_id = _owner_id(action.basis.world_id), uuid4()
     attribution = PlanAskHistoryAttributionV1(
         source_turn_id=turn_id, source_conversation_id=conversation_id, source_sequence=1,
         surface_instance_id="plan-pane", plan_basis=old.plan_basis, playable_target=None,
@@ -487,6 +735,7 @@ def test_pg_historical_answer_hash_rejects_changed_same_turn_and_survives_reload
         action=action, surface_instance_id="plan-pane", graph_authority=receipt.graph_authority,
         graph_packet=receipt.graph_packet, assembled_input=assembled,
         history_conversation_id=conversation_id, history_attribution=[attribution],
+        origin_conversation_id=conversation_id, origin_pointer_revision=1,
     )
     altered = attribution.model_copy(update={"answer_segments": [
         attribution.answer_segments[0].model_copy(update={"text": "Unrelated answer under the original turn ID."})
@@ -557,6 +806,7 @@ def test_pg_foreign_stale_or_mismatched_clarification_is_rejected(application_st
         receipt = build_consultation_receipt(
             action=reply, surface_instance_id="foreign-pane", graph_authority=receipt.graph_authority,
             graph_packet=receipt.graph_packet, assembled_input=receipt.assembled_input, continuation=link,
+            origin_conversation_id=_owner_id(reply.basis.world_id), origin_pointer_revision=1,
         )
     with pytest.raises(ApplicationStateConflictError, match="predecessor"):
         service.freeze_consultation(action_id=reply.action_id, token=reply.dispatch_token,
@@ -633,7 +883,8 @@ def test_pg_unresolved_authority_freezes_plain_failure_without_fake_graph(applic
     service = PlanActionDialogueService()
     action, _ = service.reserve(reservation())
     unavailable = build_consultation_receipt(
-        action=action, surface_instance_id="plan-pane", authority_failure_code="binding_unavailable"
+        action=action, surface_instance_id="plan-pane", authority_failure_code="binding_unavailable",
+        origin_conversation_id=_owner_id(action.basis.world_id), origin_pointer_revision=1,
     )
     frozen, fresh = service.freeze_consultation(
         action_id=action.action_id, token=action.dispatch_token, fence=action.fence, receipt=unavailable
@@ -660,6 +911,8 @@ def test_pg_unresolved_authority_freezes_plain_failure_without_fake_graph(applic
     loaded = PlanActionDialogueService().get_by_key(action.basis.world_id, action.idempotency_key)
     assert loaded.status == "failed" and loaded.consultation.result == result
     assert loaded.consultation.receipt.graph_authority is None
+    assert loaded.consultation.receipt.origin_conversation_id == _owner_id(action.basis.world_id)
+    assert loaded.consultation.receipt.origin_pointer_revision == 1
     assert loaded.consultation.receipt.graph_packet is None
     assert loaded.consultation.receipt.assembled_input is None
     assert loaded.consultation.execution is None

@@ -11,6 +11,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
 
 from application_state.agent_conversation.types import (
+    WorldPointer,
     PlanAskHistoryAttributionV1,
     PlanWorldGraphAssembledInputV1,
     PlanWorldGraphAuthorityV1,
@@ -83,6 +84,8 @@ class PlanActionConsultationReceipt(StrictModel):
     consultation_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     action_id: UUID
     request_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    origin_conversation_id: UUID
+    origin_pointer_revision: int = Field(strict=True, ge=1)
     surface_id: Literal["plan"]
     surface_instance_id: str = Field(min_length=1, max_length=128)
     basis: PlanActionBasis
@@ -205,6 +208,7 @@ class ConsultationOptionalModel(StrictModel):
 class PlanActionReservation(StrictModel):
     idempotency_key: UUID
     request_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    expected_world_pointer: WorldPointer | None = None
     action_type: ActionType
     basis: PlanActionBasis
     draft_matches_basis: bool
@@ -216,6 +220,14 @@ class PlanActionReservation(StrictModel):
 
     @model_validator(mode="after")
     def validate_target_witness(self):
+        if self.expected_world_pointer is not None and (
+            self.expected_world_pointer.world_id != self.basis.world_id
+            or self.expected_world_pointer.active_conversation_id is None
+            or self.expected_world_pointer.revision < 1
+            or self.action_type != "revise"
+            or self.target_kind != "replace_selection"
+        ):
+            raise ValueError("sourced Plan selection requires a current World conversation pointer")
         if self.target_kind == "replace_playable_body":
             if self.action_type != "revise" or self.selected_text_sha256 is not None or self.playable_target_receipt is None:
                 raise ValueError("Playable body actions require a revise action and one typed target receipt")
@@ -279,6 +291,16 @@ class PlanActionProjectionPage(StrictModel):
     )
     basis: PlanActionBasis
     actions: list[PlanActionProjection] = Field(max_length=50)
+
+
+class PlanActionConversationProjectionPage(StrictModel):
+    schema_version: Literal["dmb_world_plan_action_conversation_projection_v1"] = (
+        "dmb_world_plan_action_conversation_projection_v1"
+    )
+    world_id: str = Field(min_length=1, max_length=128)
+    conversation_id: UUID
+    actions: list[PlanActionProjection] = Field(max_length=50)
+    next_before_action_sequence: int | None = Field(default=None, ge=1)
 
 
 class CompletedPlanActionContext(ConsultationOptionalModel):
