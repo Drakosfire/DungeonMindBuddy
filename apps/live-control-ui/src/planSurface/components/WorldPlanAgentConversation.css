@@ -996,6 +996,16 @@
   font-size: 0.76rem;
 }
 
+.world-plan-agent-conversation__turn-debug {
+  display: flex;
+  justify-content: flex-end;
+  margin-block-start: 0.2rem;
+}
+
+.world-plan-agent-conversation__turn-details[open] {
+  inline-size: min(100%, 48rem);
+}
+
 .world-plan-agent-conversation__turn-details > summary,
 .world-plan-agent-conversation__earlier > summary,
 .world-plan-agent-conversation__local-activity > summary,
@@ -1003,6 +1013,10 @@
   width: fit-content;
   max-inline-size: 100%;
   cursor: pointer;
+}
+
+.world-plan-agent-conversation__turn-details > summary {
+  margin-inline-start: auto;
 }
 
 .world-plan-agent-conversation__turn-details > p {

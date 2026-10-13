@@ -4713,14 +4713,14 @@ export function WorldPlanAgentConversation({
   })();
   const authorizationBlocked = [historyError, error, editError].some((message) =>
     message?.includes("local Agent and Graph session is missing or was rejected"));
+  const hasUncertainGraphNotice = Boolean(uncertainPlanNoticeRef.current
+    && error === uncertainPlanNoticeRef.current.message);
   const pendingGraphAsk = pendingAsks.some((item) => item.envelope?.request.plan_context_policy);
   const savedAskRecords = pendingAsks.filter((item): item is StoredPendingAsk & { envelope: WorldPlanPendingAskEnvelope } =>
     item.envelope !== null);
   const pendingGraphAskRecords = savedAskRecords.filter((item) => item.envelope.request.plan_context_policy);
   const confirmedFailureCount = pendingGraphAskRecords.filter((item) => isPendingAskFailureConfirmed(item)).length;
   const unconfirmedGraphAskCount = pendingGraphAskRecords.length - confirmedFailureCount;
-  const isAwaitingGraphAskConfirmation = (turnId: string) => !sending && pendingGraphAskRecords.some((item) =>
-    item.envelope.request.turn_id === turnId && !isPendingAskFailureConfirmed(item, turnId));
   const intentBusy = sending || composing || saveInFlight || !scopeMatches || currentReview !== null;
   const inferredComposerIntent = classifyPlanComposerIntent(composerMessage);
   const detectedComposerIntent = continuationOfActionId ? "propose" : composerIntentCorrection?.message === composerMessage
@@ -4878,6 +4878,9 @@ export function WorldPlanAgentConversation({
     const failed = isHistoryTurnFailureConfirmed(turn.turn_id) || isWorldHistoryTurnFailed(turn.turn_id)
       || turn.lifecycle_status === "failed";
     const interrupted = turn.lifecycle_status === "interrupted";
+    const deliveryDiagnostic = uncertainPlanNoticeRef.current?.turnId === turn.turn_id
+      ? uncertainPlanNoticeRef.current.message
+      : null;
     const targetReceipt = historyTurnPlayableTargetLabel(turn);
     const rawHistoricalCardKind = turn.provenance.supporting_work
       .find((reference) => reference.kind === "dmb_plan_playable_target_v1")?.object_id?.split(":", 1)[0] ?? null;
@@ -4916,25 +4919,26 @@ export function WorldPlanAgentConversation({
             />
             {renderSourceActions(turn)}
           </div>
-        ) : (
+        ) : failed || interrupted ? (
           <p className="world-plan-agent-conversation__turn-status" role="status">
             {failed
               ? turn.provenance.surface_id === "play" ? "Buddy couldn’t finish this reply. No Run change was applied." : "Buddy couldn’t finish this reply. Your Plan was not changed."
-              : interrupted
-                ? turn.provenance.surface_id === "play" ? "This reply stopped before it finished. No Run change was applied." : "This reply stopped before it finished. Your Plan was not changed."
-                : "No answer has been saved yet."}
+              : turn.provenance.surface_id === "play" ? "This reply stopped before it finished. No Run change was applied." : "This reply stopped before it finished. Your Plan was not changed."}
           </p>
-        )}
-        <details className="world-plan-agent-conversation__turn-details">
-          <summary>{failed || interrupted ? "Why this reply stopped" : "Details"}</summary>
-          <p className="world-plan-agent-conversation__context">
-            Turn {turn.sequence} · {turn.lifecycle_status} · {historyTurnProvenanceLabel(turn)}
-          </p>
-          {targetReceipt ? (
-            <p role={targetReceipt.startsWith("Target receipt unavailable") ? "alert" : "note"}>{targetReceipt}</p>
-          ) : null}
-          {renderGraphContextHistory(turn)}
-        </details>
+        ) : null}
+        <div className="world-plan-agent-conversation__turn-debug">
+          <details className="world-plan-agent-conversation__turn-details">
+            <summary>Debug</summary>
+            <p className="world-plan-agent-conversation__context">
+              Turn {turn.sequence} · {turn.lifecycle_status} · {historyTurnProvenanceLabel(turn)}
+            </p>
+            {deliveryDiagnostic ? <p className="world-plan-agent-conversation__context">Delivery · {deliveryDiagnostic}</p> : null}
+            {targetReceipt ? (
+              <p role={targetReceipt.startsWith("Target receipt unavailable") ? "alert" : "note"}>{targetReceipt}</p>
+            ) : null}
+            {renderGraphContextHistory(turn)}
+          </details>
+        </div>
       </article>
     );
   };
@@ -5343,11 +5347,18 @@ export function WorldPlanAgentConversation({
             ? (submittedMessage.pointerRevision === (history?.pointer_revision ?? null))
             : submittedMessage.conversationId === history?.conversation_id)
           && !history?.turns.some((turn) => turn.turn_id === submittedMessage.id) ? (
-          <article aria-label="Submitted message awaiting confirmation">
+          <article aria-label="Submitted message">
             <p><strong>You:</strong> {submittedMessage.message}</p>
-            <p role="status">{isAwaitingGraphAskConfirmation(submittedMessage.id)
-              ? "No answer saved yet. Checking World history; this message will not be sent again."
-              : sending || composing ? "Waiting for Buddy…" : "Checking whether Buddy received this message…"}</p>
+            {uncertainPlanNoticeRef.current?.turnId === submittedMessage.id ? (
+              <div className="world-plan-agent-conversation__turn-debug">
+                <details className="world-plan-agent-conversation__turn-details">
+                  <summary>Debug</summary>
+                  <p className="world-plan-agent-conversation__context">
+                    Delivery · {uncertainPlanNoticeRef.current.message}
+                  </p>
+                </details>
+              </div>
+            ) : null}
           </article>
         ) : null}
         {conversationNotice ? <p role="status">{conversationNotice}</p> : null}
@@ -5450,7 +5461,7 @@ export function WorldPlanAgentConversation({
         {messageTooLong ? <p role="alert">{!isPlay && detectedComposerIntent === "propose"
           ? "Changes can be up to 4,000 characters. Shorten this request to continue."
           : "Questions can be up to 8,000 characters. Shorten this message to continue."}</p> : null}
-        {error && !authorizationBlocked ? <p role="alert">{error}</p> : null}
+        {error && !authorizationBlocked && !hasUncertainGraphNotice ? <p role="alert">{error}</p> : null}
         {editError && !authorizationBlocked ? <p role="alert">{editError}</p> : null}
         {!isPlay && detectedComposerIntent === "propose" && !editBridge ? (
           <p className="world-plan-agent-conversation__context" role="note">Plan changes are unavailable on this surface.</p>
