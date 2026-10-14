@@ -23,6 +23,40 @@ with representative NPC, Threat/statblock, choice, encounter and roll table.
 The final journey includes image selection and editable generated statblocks.
 PDF parsing itself is outside scope; parsed Markdown is the agreed input.
 
+## Primary priority — Mirathorn worldbuilding in Build, 2026-10-14
+
+Operator-authorized delivery priority: reuse the existing local Markdown hierarchy,
+starting with `corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md`.
+Fresh ingestion replaces legacy graph recovery on the critical path. Worldbuilding
+is ingested before chronological campaign recaps; document authoring dates do not
+by themselves establish fictional effective dates.
+
+Acceptance journey:
+1. Import the substantial Mirathorn Markdown into Elderwyld Build, render it
+   readably, edit and save it with durable document/source identity.
+2. DOGFOOD reviews actual rendering, headings, lists, tables, links, available
+   media and navigation on its independent port 5202; record concrete defects
+   and seek operator inspection of the usable result. Main port 5876 remains separate.
+3. PRIME implements ingestion, reusing existing source registration, mention and
+   known-entity context, multipass extraction, correction and publication. Examine
+   recap-only session/party/beat assumptions rather than forcing setting material
+   into played-event semantics. Ingest the exact saved source revision.
+4. Review source-faithful entities, descriptions and relationships, publish through
+   DungeonMind authority, and query them through ordinary Buddy conversation with
+   openable supporting passages. Verify retained knowledge/source access after restart.
+
+ARCHITECTURE owns independent review of roadmap and implementation PRs. PRIME owns
+implementation and merge coordination; DOGFOOD owns rendered-experience feedback
+and bounded presentation work with explicit non-overlapping leases. Completed
+slices go promptly to review; review dispatch requires no repeated operator approval.
+Preserve original corpus, authored knowledge, hashes and extraction/review/publication
+receipts. A candidate run or successful render alone does not satisfy this journey.
+
+After this first complete lifecycle, expand World foundation ingestion and then
+C1/C2 recaps including Session 28. Connected Session 29 planning/playing, shared
+cards and continuity acceptance remain downstream roadmap requirements. Record
+usage hourly against the operator's approximate 14.5 percentage-point daily target.
+
 ## Adopted decisions — 2026-09-26
 
 - Prove the durable local journey first; SERVER's hosted acceptance proceeds in
