@@ -48,6 +48,27 @@ def test_native_source_admission_persists_and_replays_after_repository_recreatio
     tmp_path: Path, disposable_database_url: str
 ) -> None:
     world = create_world_container(tmp_path, name=f"J1 Integration {uuid.uuid4().hex[:10]}")
+    import json
+    registry_path = tmp_path / "out/registries/world_containers.json"
+    registry_data = json.loads(registry_path.read_text())
+    from datetime import UTC, datetime
+    repository = PostgresNativeSourceEvidenceRepository(PostgresDatabase(disposable_database_url))
+    domain, profile = native._descriptors()
+    native_id = "native-" + world.world_id
+    native.initialize_empty_knowledge_space(
+        repository=repository, space_id=native_id,
+        initialization_id=native._stable_id("dmb-world-genesis", native_id),
+        created_at=native._parse_timestamp(world.created_at, field="created_at"),
+        domain_contract=domain, semantic_profile=profile,
+    )
+    validated_head = repository.get_head(native_id)
+    assert validated_head is not None
+    registry_data["records"][0]["native_graph_binding"] = {
+        "native_world_id": "native-" + world.world_id, "binding_version": 1,
+        "status": "active", "validated_at": datetime.now(UTC).isoformat(),
+        "validated_head_revision_id": validated_head.head_revision_id,
+    }
+    registry_path.write_text(json.dumps(registry_data))
     markdown = "# Exact source\n\nThis text remains evidence, not extracted canon.\n"
     record = create_workspace_document(
         tmp_path,
@@ -90,10 +111,10 @@ def test_native_source_admission_persists_and_replays_after_repository_recreatio
     first_repository = PostgresNativeSourceEvidenceRepository(
         PostgresDatabase(disposable_database_url)
     )
-    head_after_admission = first_repository.get_head(world.world_id)
+    head_after_admission = first_repository.get_head("native-" + world.world_id)
     assert head_after_admission is not None
     receipt = first_repository.get_native_source_admission_receipt(
-        world.world_id, first.admission_id
+        "native-" + world.world_id, first.admission_id
     )
     assert receipt is not None
 
@@ -107,9 +128,9 @@ def test_native_source_admission_persists_and_replays_after_repository_recreatio
     fresh_repository = PostgresNativeSourceEvidenceRepository(
         PostgresDatabase(disposable_database_url)
     )
-    fresh_head = fresh_repository.get_head(world.world_id)
+    fresh_head = fresh_repository.get_head("native-" + world.world_id)
     fresh_receipt = fresh_repository.get_native_source_admission_receipt(
-        world.world_id, replay.admission_id
+        "native-" + world.world_id, replay.admission_id
     )
     snapshot = get_workspace_document_snapshot(tmp_path, committed.document_id)
     body = snapshot.markdown.encode("utf-8")
@@ -125,3 +146,7 @@ def test_native_source_admission_persists_and_replays_after_repository_recreatio
     assert status.body_sha256 == sha256(body).hexdigest()
     assert status.span_start_byte == 0
     assert status.span_end_byte == len(body)
+
+    assert first.space_id == "native-" + world.world_id
+    assert first.world_id == world.world_id
+    assert fresh_repository.get_head(world.world_id) is None
