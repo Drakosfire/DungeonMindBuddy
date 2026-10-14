@@ -1,23 +1,20 @@
 # MIND — bounded edge-pass output allowance for C1S16 evidence
 
-Status: ACTIVE under PRIME approval, 2026-10-13. This PR implements the
-edge-only request-cap capability; it does not execute R6.
+Status: ACTIVE under PRIME approval, 2026-10-13. This bounded PR permits a
+120-second logical GenerationEngine operation; it does not execute R6.
 
 ## Lane and authority
 
 - Owner: DungeonMindBuddy MIND recap extraction. GenerationEngine remains the
   exclusive inference/provider-IO owner.
-- Verified Buddy remote base: `main@597c69b1ca5449947894311af83756812b2318fe`,
-  the merge commit for PR #1129.
-- Branch: `codex/mind-c1s16-edge-output-budget`.
-- Checkout: `/tmp/buddy-recap-edge-token-cap`, fresh, clean, and non-serving at
-  the verified base.
+- Verified Buddy remote base: `main@f2964c12e82c149c3d69a9798626a90164303707`.
+- Branch: `codex/mind-recap-logical-deadline-120s`.
+- Checkout: `/home/drakosfire/.local/state/dungeonmindbuddy/experiments/c1s16-r6-prep-20261013/implementation`,
+  fresh, clean, and non-serving at the verified base.
 - Topology: serial, one capability PR. No open PR was found leasing the bounded
   recap execution source or its focused tests.
 - Exact write allowlist:
   - `Docs/Plans/HANDOFF-MIND-c1s16-edge-output-budget-v1.md`
-  - `Docs/Plans/HANDOFF-MIND-recap-pass-response-evidence.md` (settle the
-    completed predecessor in this PR)
   - `src/graph_memory/extraction/bounded_recap_execution.py`
   - `tests/test_bounded_recap_execution.py`
 - No additional file or checkout/runtime state is in this lease.
@@ -41,8 +38,11 @@ a candidate and provides no semantic judgment about its edge count.
 
 ## Capability and implementation contract
 
-Add an optional `edge_max_output_tokens: int | None = None` to the internal
-`RecapExecutionLimits`:
+Preserve the existing edge-only output allowance and permit/select a
+`per_call_deadline_ms` of 120,000 for each logical GenerationEngine operation.
+GenerationEngine owns the initial attempt plus at most one conformance
+correction under that single deadline. This is not two separate 120-second
+attempts and does not change transport retry policy.
 
 - `None` preserves current behavior exactly.
 - An explicit value must be a strict Python `int` (not `bool`) in `1..16384`.
@@ -51,19 +51,19 @@ Add an optional `edge_max_output_tokens: int | None = None` to the internal
 - Apply the override only when the actual supplied `pass_spec.kind == "edge"`.
   Do not infer edge-ness from a string pass name.
 - All non-edge requests continue using `max_output_tokens` (8,192 in R6).
-- Keep max calls 8, per-call deadline 60,000 ms, total run deadline 480,000 ms,
-  transport retries 0, DeepSeek-only route, and no fallback unchanged.
+- Keep max calls 8, total run deadline 480,000 ms, transport retries 0,
+  DeepSeek-only route, and no fallback unchanged. Each request's selected
+  deadline is `min(120,000 ms, remaining whole-run budget)`.
 - Keep all required edge schema fields, durable IDs, endpoint bindings, and
   source/evidence fields unchanged. Do not add an edge-count ceiling or claim
   that the rough prompt guidance is a truth cap.
 
-The focused tests must prove: omitted override keeps the 8,192 default; 16,384
-is accepted; invalid values (including `True`, zero, 16,385, and non-integers)
-are rejected; the actual edge `TextRequest` alone gets 16,384 while a non-edge
-request remains at 8,192; the request still has the existing 60-second deadline,
-zero transport retries, and DeepSeek-only/no-fallback route. Do not replay the
-broad suite; run only this owning test file, Ruff on the two Python paths, and
-`git diff --check`.
+The focused tests must prove 120,000 ms reaches both `TextRequest.deadline_ms`
+and the owned worker's parent deadline when budget allows; a shortened remaining
+run budget clips both; and the 480,000 ms whole-run ceiling is unchanged. Retain
+the existing edge output, zero transport retries, and DeepSeek-only/no-fallback
+assertions. Do not replay the broad suite; run only this owning test file, Ruff
+on the two Python paths, and `git diff --check`.
 
 ## R6 candidate-only experiment proposal (not released in this PR)
 
@@ -88,9 +88,10 @@ hashes:
   `_party_registry.json` `f0f49045df06f7baf61aa9c43f3739d16483eeb20ac8ed1bbf29f8209474af25`.
 
 Use OpenRouter `deepseek/deepseek-v4.1-flash`, DeepSeek route only, no fallback,
-zero retries, max 8 calls, 60 seconds per call, 480 seconds total; request 8,192
+zero retries, max 8 calls, 120 seconds per logical pass (initial attempt plus
+one correction), 480 seconds total; request 8,192
 output tokens on non-edge passes and 16,384 only on the typed edge pass. The
-unchanged deadline remains controlling: timeout/unknown stops without replay.
+whole-run deadline clips each logical pass; timeout/unknown stops without replay.
 Supply the #1129 private response sink and the exact hashes above to the client.
 Use a fresh output path (proposed
 `out/c1s16-ge-deepseek-reconciled-r6`); never overwrite R5. The run remains
@@ -106,8 +107,7 @@ quality from schema validity alone, and do not impose a cardinality cap.
 
 ## Delivery boundary
 
-Commit this ACTIVE handoff before source/test changes. In this same PR, mark the
-#1129 response-evidence handoff COMPLETE with its exact PRIME PASS, merge/head,
-and retained R5 limitation. Implement only the four-path allowlist above. Push
-and open one PR, then request PRIME's independent review on the exact head.
-Merge remains separate authority. Do not run R6 in this PR.
+Commit this ACTIVE handoff before source/test changes. Implement only the
+three-path allowlist above. Push and open one PR, then request PRIME's independent
+review on the exact head. Merge remains separate authority. Do not run R6 in
+this PR; no provider call, serving, or publication is authorized here.
