@@ -113,3 +113,34 @@ def test_native_write_plan_retains_gazetteer_profile_and_rejects_unknown_version
     with pytest.raises(WorldbuildingWritePlanError) as error:
         build_worldbuilding_write_plan(**kwargs)
     assert error.value.code == "unsupported_worldbuilding_profile"
+
+
+def test_gazetteer_is_not_admitted_to_pilot_only_bootstrap():
+    from types import SimpleNamespace
+    from apps.live_control_server.services.extract_promote import (
+        _load_typed_worldbuilding_preview_for_run, ExtractPromoteError,
+    )
+    resolved = SimpleNamespace(source_domain="worldbuilding", extraction_profile="worldbuilding_gazetteer_v1@1.0")
+    with pytest.raises(ExtractPromoteError) as error:
+        _load_typed_worldbuilding_preview_for_run(resolved, allow_gazetteer=False)
+    assert error.value.code == "unsupported_worldbuilding_profile"
+
+
+def test_gazetteer_plan_cannot_be_verified_as_pilot():
+    from tests.test_cutover_worldbuilding_authority_port import _memory_context, _plan_kwargs, _wrap_built_plan
+    from graph_memory.worldbuilding_write_plan import (
+        build_worldbuilding_write_plan, verify_worldbuilding_write_plan,
+        WorldbuildingWritePlanVerificationContext, WorldbuildingWritePlanError,
+    )
+    context = _memory_context()
+    kwargs = _plan_kwargs(context)
+    kwargs["extraction_profile"] = "worldbuilding_gazetteer_v1@1.0"
+    plan = build_worldbuilding_write_plan(**kwargs)
+    verification = WorldbuildingWritePlanVerificationContext(
+        world_id=kwargs["world_id"], parent_revision_id=kwargs["expected_parent_revision_id"],
+        run_id=kwargs["run_id"], source_artifact_id=kwargs["source_artifact_id"],
+        source_revision_id=kwargs["source_revision_id"], source_uri=kwargs["source_uri"],
+        extraction_profile="worldbuilding_shepherds_flock_v0@0.1", campaign_scope=kwargs["campaign_scope"])
+    with pytest.raises(WorldbuildingWritePlanError):
+        verify_worldbuilding_write_plan(_wrap_built_plan(plan).model_dump(mode="json", by_alias=True),
+            preview=kwargs["preview"], mutation_context=context, context=verification)
