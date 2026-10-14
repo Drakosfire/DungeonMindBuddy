@@ -1,3 +1,9 @@
+import { useMemo, useRef } from "react";
+import type { Content, Root } from "mdast";
+
+import { parseMarkdownAst } from "../tiptap/markdown/parseMarkdownAst";
+import { stripLeadingYamlFrontmatter } from "../tiptap/markdown/stripLeadingYamlFrontmatter";
+import { createHeadingIdRegistry, extractPlainTextFromPhrasing } from "../markdownReader/markdownReaderHeadingId";
 import { MarkdownDocumentReader } from "../markdownReader/MarkdownDocumentReader";
 
 export type BuildSourceNavigationTargetStatus =
@@ -54,6 +60,21 @@ export function BuildSourceReader({
   dirty,
   navigationTarget = { status: "none" },
 }: BuildSourceReaderProps) {
+  const outlineRef = useRef<HTMLDetailsElement>(null);
+  const outline = useMemo(() => {
+    const headings: { id: string; text: string; depth: number }[] = [];
+    const ids = createHeadingIdRegistry();
+    function visit(node: Root | Content): void {
+      if (node.type === "heading") {
+        headings.push({ id: ids.allocate(node.children), text: extractPlainTextFromPhrasing(node.children), depth: node.depth });
+      } else if ("children" in node) {
+        for (const child of node.children) visit(child as Content);
+      }
+    }
+    visit(parseMarkdownAst(stripLeadingYamlFrontmatter(markdown).markdown));
+    return headings;
+  }, [markdown]);
+  const minimumDepth = Math.min(...outline.map(heading => heading.depth));
   const statusMessage = navigationStatusMessage(navigationTarget);
   const canPassHighlight =
     navigationTarget.status === "exact"
@@ -110,6 +131,18 @@ export function BuildSourceReader({
           </p>
         ) : null}
       </header>
+      {outline.length >= 3 ? (
+        <details ref={outlineRef} className="build-source-reader__outline">
+          <summary>On this page <span>{outline.length} sections</span></summary>
+          <nav aria-label="Source sections">
+            <ol>{outline.map(heading => (
+              <li key={heading.id} style={{ paddingInlineStart: `${Math.min(heading.depth - minimumDepth, 2) * 0.75}rem` }}>
+                <a href={`#${heading.id}`} onClick={() => { if (outlineRef.current) outlineRef.current.open = false; }}>{heading.text || "Untitled section"}</a>
+              </li>
+            ))}</ol>
+          </nav>
+        </details>
+      ) : null}
       <MarkdownDocumentReader markdown={markdown} sourceLineTarget={sourceLineTarget} />
     </article>
   );
