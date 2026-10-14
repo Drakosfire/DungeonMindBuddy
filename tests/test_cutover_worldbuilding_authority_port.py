@@ -806,6 +806,19 @@ def test_prepare_succeeds_with_buddy_graph_physically_absent(tmp_path, monkeypat
     import json
     registry_path = repo / "out/registries/world_containers.json"
     original_registry = registry_path.read_text()
+    for binding_state in ("missing", "inactive"):
+        unavailable_registry = json.loads(original_registry)
+        if binding_state == "missing":
+            unavailable_registry["records"][0]["native_graph_binding"] = None
+        else:
+            unavailable_registry["records"][0]["native_graph_binding"]["status"] = "inactive"
+        registry_path.write_text(json.dumps(unavailable_registry))
+        with pytest.raises(Exception) as unavailable_error:
+            confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
+        assert unavailable_error.value.code == "worldbuilding_source_binding_missing"
+        assert unavailable_error.value.status_code == 409
+        assert fake.publish_calls == 0
+    registry_path.write_text(original_registry)
     changed_registry = json.loads(original_registry)
     changed_registry["records"][0]["native_graph_binding"]["binding_version"] += 1
     registry_path.write_text(json.dumps(changed_registry))
