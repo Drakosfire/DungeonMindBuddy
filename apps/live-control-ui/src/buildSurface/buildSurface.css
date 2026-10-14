@@ -343,3 +343,66 @@
   color: #e0af68;
   font-size: 0.92rem;
 }
+
+/* Long Build sources keep a compact outline within reach without changing source. */
+.build-source-reader__outline {
+  position: sticky;
+  top: 0.5rem;
+  z-index: 1;
+  min-width: 0;
+  max-width: 42rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 8px;
+  background: var(--surface, #171d28);
+}
+
+.build-source-reader__outline summary {
+  cursor: pointer;
+  padding: 0.65rem 0.85rem;
+  font-weight: 600;
+}
+
+.build-source-reader__outline summary span {
+  margin-inline-start: 0.5rem;
+  color: var(--muted, #a8b8ca);
+  font-size: 0.85em;
+  font-weight: 400;
+}
+
+.build-source-reader__outline nav {
+  max-height: min(40vh, 24rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 0.85rem 0.65rem;
+}
+
+.build-source-reader__outline ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.build-source-reader__outline a {
+  display: block;
+  padding: 0.3rem 0.25rem;
+  color: inherit;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  border-radius: 4px;
+}
+
+.build-source-reader__outline a:hover {
+  background: rgba(130, 160, 200, 0.12);
+  text-decoration: underline;
+}
+
+.build-source-reader__outline a:focus-visible {
+  outline: 2px solid var(--accent, #e0af68);
+  outline-offset: 1px;
+}
+
+.build-source-reader .markdown-document-reader :is(h1, h2, h3, h4, h5, h6) {
+  scroll-margin-top: 4rem;
+}

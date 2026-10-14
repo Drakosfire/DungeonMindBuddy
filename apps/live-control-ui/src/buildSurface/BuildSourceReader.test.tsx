@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { BuildSourceReader } from "./BuildSourceReader";
@@ -107,5 +107,37 @@ describe("BuildSourceReader", () => {
     expect(status).toHaveAttribute("data-navigation-status", "document_mismatch");
     expect(status).toHaveTextContent(/wrong document open/i);
     expect(document.querySelector("[data-source-block='true']")).toBeNull();
+  });
+});
+
+
+describe("saved Build source navigation", () => {
+  it("links parsed headings to rendered IDs, including duplicate and formatted headings", () => {
+    const markdown = "---\ntitle: Hidden metadata\n---\n\n# City\n\n## **Guard** headquarters\n\n> ### Signals\n\n## Guard headquarters\n\n```md\n# Not a section\n```\n";
+    render(<BuildSourceReader title="Mirathorn" markdown={markdown} dirty={false} />);
+    const nav = screen.getByRole("navigation", { name: "Source sections" });
+    const links = within(nav).getAllByRole("link");
+    expect(links).toHaveLength(4);
+    expect(links.map(link => link.getAttribute("href"))).toEqual([
+      "#city", "#guard-headquarters", "#signals", "#guard-headquarters-1",
+    ]);
+    for (const link of links) {
+      const target = document.getElementById(link.getAttribute("href")!.slice(1));
+      expect(target).not.toBeNull();
+      expect(target!.textContent).toBe(link.textContent);
+    }
+    expect(within(nav).queryByText("Not a section")).not.toBeInTheDocument();
+    const disclosure = nav.closest("details")!;
+    disclosure.open = true;
+    fireEvent.click(links[3]);
+    expect(disclosure.open).toBe(false);
+  });
+
+  it("updates routes on saved-source replacement and leaves short sources quiet", () => {
+    const { rerender } = render(<BuildSourceReader title="City" markdown={"# City\n\n## Gates\n\n## Guard\n"} dirty={false} />);
+    expect(screen.getByRole("navigation", { name: "Source sections" })).toBeInTheDocument();
+    rerender(<BuildSourceReader title="Other source" markdown={"# Village\n\n## Inn\n"} dirty={false} />);
+    expect(screen.queryByRole("navigation", { name: "Source sections" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Inn" })).toBeInTheDocument();
   });
 });
