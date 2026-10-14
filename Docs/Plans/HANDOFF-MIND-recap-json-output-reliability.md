@@ -1,6 +1,7 @@
 # MIND — bounded recap JSON output reliability
 
-**Status:** ACTIVE — implementation authorized under PRIME direction.
+**Status:** COMPLETE — accepted and merged as PR #1133; superseded by the
+per-attempt evidence handoff for the follow-on GenerationEngine #19 consumer.
 **Buddy base:** `2dcd5b40f28757f8b398ad0a3ffcaf248db51bf0` (main after #1131)
 **Accepted GenerationEngine pin:** `e8f0fec98eef1a7c1a7fc0bb0b7d867420306929` (#18)
 **Topology:** serial; one Buddy consumer PR after the accepted GenerationEngine prerequisite.
@@ -84,6 +85,17 @@ separate authority.
 
 ## Completion record
 
-Fill exact implementation head, PR, review, and merge disposition after they
-occur. This handoff remains ACTIVE until independent review accepts the exact
-head.
+Disposition: `MIND_RECAP_JSON_OUTPUT_RELIABILITY_ACCEPTED`
+
+- PR: [#1133](https://github.com/Drakosfire/DungeonMindBuddy/pull/1133)
+- Exact reviewed head: `08765df702b253532f76fab6c5fecb76ce2a39c9`
+- PRIME review: PASS, exact-head review recorded in PR comment `6157599433`
+- Merge commit: `72c2987f4f757cfe2be91b89c0229814392a0a1a`
+- Merged: 2026-10-13
+- Owning focused tests: 40 passed; Ruff, lock consistency, and diff check passed.
+- No provider, ingestion, serving/runtime, candidate publication, retry,
+  replay, or salvage operation was performed.
+
+This handoff is closed. The next consumer slice uses the accepted GenerationEngine
+#19 pin and preserves the JSON reliability behavior while adding durable
+per-attempt response evidence.

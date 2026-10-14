@@ -24,8 +24,12 @@ def semantic_engine_seam(monkeypatch):
     from src.graph_memory.extraction import bounded_recap_execution as module
     from src.graph_memory.extraction._recap_inference_worker import _WorkerOutcome
 
-    def execute(factory, request, *, deadline):
+    def execute(factory, request, *, deadline, attempt_evidence=None):
         from generationengine.types import TextRequest
+        from generationengine import StructuredAttemptCompleted
+        from src.graph_memory.extraction.bounded_recap_execution import (
+            _write_private_response_evidence,
+        )
 
         async def run():
             try:
@@ -33,8 +37,66 @@ def semantic_engine_seam(monkeypatch):
             except Exception as exc:
                 return {"kind": "worker_failure", "error_type": type(exc).__name__}
             try:
-                result = await engine.generate_text(TextRequest.model_validate(request))
-                return {"kind": "result", "result": result.model_dump(mode="json")}
+                typed_request = TextRequest.model_validate(request)
+                callback = None
+                if attempt_evidence is not None:
+                    async def on_attempt_completed(event):
+                        event_payload = event.model_dump(mode="json")
+                        _write_private_response_evidence(
+                            Path(attempt_evidence["directory"]),
+                            ordinal=attempt_evidence["pass_ordinal"],
+                            pass_name=attempt_evidence["pass_name"],
+                            request=request,
+                            context_hashes=attempt_evidence["context_hashes"],
+                            raw_observation=event_payload,
+                            response_text=event.text,
+                            attempt_event=event_payload,
+                        )
+
+                    callback = on_attempt_completed
+                if hasattr(engine, "generate_structured"):
+                    result = await engine.generate_structured(
+                        typed_request, on_attempt_completed=callback
+                    )
+                else:
+                    result = await engine.generate_text(typed_request)
+                    if callback is not None and isinstance(result, TextResult):
+                        observation = result.observation
+                        event = StructuredAttemptCompleted(
+                            operation_id=f"test-operation-{attempt_evidence['pass_ordinal']}",
+                            event_id=f"test-operation-{attempt_evidence['pass_ordinal']}:1",
+                            ordinal=1,
+                            kind="initial",
+                            provider=observation.provider or "openai",
+                            requested_model=observation.requested_model,
+                            resolved_model=observation.resolved_model or "gpt-6-luna",
+                            response_model=observation.response_model,
+                            provider_request_id=observation.provider_request_id,
+                            provider_response_id=observation.provider_response_id,
+                            text=result.text,
+                            input_tokens=observation.input_tokens,
+                            cached_input_tokens=observation.cached_input_tokens,
+                            output_tokens=observation.output_tokens,
+                            reasoning_tokens=observation.reasoning_tokens,
+                        )
+                        try:
+                            await callback(event)
+                        except Exception:
+                            failure = InferenceFailure.from_code(
+                                FailureCode.ATTEMPT_EVIDENCE_PERSISTENCE_FAILED,
+                                "Consumer attempt-evidence sink did not accept a returned provider response.",
+                            )
+                            failed_observation = observation.model_copy(
+                                update={
+                                    "state": ObservationState.FAILED,
+                                    "failure_code": failure.code,
+                                }
+                            )
+                            raise GenerationEngineError(failure, failed_observation) from None
+                return {
+                    "kind": "result",
+                    "result": result.model_dump(mode="json"),
+                }
             except GenerationEngineError as exc:
                 return {
                     "kind": "provider_failure", "failure_code": exc.failure.code.value,
@@ -58,6 +120,7 @@ def observation(**changes):
         provider_response_id="response",
         latency_ms=12,
         retry_count=0,
+        provider_attempt_count=1,
         state=ObservationState.COMPLETED,
         **changes,
     )
@@ -137,14 +200,17 @@ def test_deepseek_route_caps_and_unknown_receipt():
     assert request.provider_route.order == ("DeepSeek",)
     assert request.provider_route.allow_fallbacks is False
     assert request.provider_route.require_parameters is True
-    assert request.reasoning_effort == "none" and request.json_object is True
-    assert request.json_schema is None and request.max_transport_retries == 0
+    assert request.reasoning_effort == "none" and request.json_object is False
+    assert request.json_schema and request.schema_name == "category_graph_actor_pass"
+    assert request.max_transport_retries == 0
     assert (request.max_output_tokens, request.deadline_ms) == (8192, 60000)
     assert "PRIVATE_PROMPT" in request.system_prompt
     assert "PRIVATE_SOURCE" not in request.system_prompt
     assert "one complete JSON object" in request.system_prompt
     assert "without Markdown fences" in request.system_prompt
     assert "close every string and container" in request.system_prompt
+    assert "Follow this schema" not in request.system_prompt
+    assert "observation_nodes" not in request.system_prompt
     assert result["cost_usd"] is None
     assert client.calls[0]["requested_route"] == {
         "order": ["DeepSeek"],
@@ -204,7 +270,7 @@ def test_deepseek_request_reaches_accepted_ge_openrouter_sdk_kwargs():
 
     assert result["parsed"] == {"observation_nodes": []}
     kwargs = completions.calls[0]
-    assert kwargs["response_format"] == {"type": "json_object"}
+    assert "response_format" not in kwargs
     assert kwargs["extra_body"]["provider"] == {
         "order": ["DeepSeek"],
         "allow_fallbacks": False,
@@ -264,9 +330,14 @@ def test_synthetic_invalid_json_is_preserved_and_classified_before_stop(tmp_path
     assert failure["response_sha256"] == hashlib.sha256(raw.encode("utf-8")).hexdigest()
     assert raw not in json.dumps(client.ledger())
 
-    response_path = run_dir / ".private" / "pass_responses" / "01-actor_pass.json"
+    response_path = (
+        run_dir / ".private" / "pass_responses" / "01-actor_pass-attempt-01.json"
+    )
     envelope = json.loads(response_path.read_text(encoding="utf-8"))
     assert envelope["capture_state"] == "unvalidated_snapshot"
+    assert envelope["schema"] == "dmb_private_recap_attempt_response_v1"
+    assert envelope["ge_attempt"]["ordinal"] == 1
+    assert envelope["ge_attempt"]["response_status"] == "returned"
     assert envelope["response"]["text"] == raw
     assert response_path.stat().st_mode & 0o777 == 0o600
     with pytest.raises(CategoryGraphExtractionError):
@@ -432,8 +503,8 @@ def test_private_response_evidence_keeps_earlier_pass_when_later_pass_fails(tmp_
 
     evidence_dir = tmp_path / "run" / ".private" / "pass_responses"
     assert sorted(path.name for path in evidence_dir.glob("*.json")) == [
-        "01-actor_pass.json",
-        "02-location_pass.json",
+        "01-actor_pass-attempt-01.json",
+        "02-location_pass-attempt-01.json",
     ]
     assert client.calls[0]["response_artifact_sha256"]
     assert client.calls[1]["response_artifact_sha256"]
@@ -457,16 +528,17 @@ def test_private_response_evidence_is_atomic_and_never_overwrites(tmp_path):
     second = private_response_client(lambda: second_engine, run_dir)
     with pytest.raises(
         CategoryGraphExtractionError,
-        match="private recap response evidence",
+        match="ATTEMPT_EVIDENCE_PERSISTENCE_FAILED",
     ) as caught:
         invoke(second)
 
-    assert caught.value.raw_model_response == known_response
+    assert caught.value.raw_model_response is None
     assert artifact_path.read_bytes() == original
     assert not list((run_dir / ".private" / "pass_responses").glob("*.pending"))
     assert "response_artifact_path" not in second.calls[0]
-    assert second.calls[0]["consumer_failure"] == "PrivateResponseEvidenceWriteFailed"
-    assert second.calls[0]["observation"]["state"] == "completed"
+    assert second.calls[0]["consumer_failure"] == "AttemptEvidencePersistenceFailed"
+    assert second.calls[0]["failure_code"] == "ATTEMPT_EVIDENCE_PERSISTENCE_FAILED"
+    assert second.calls[0]["observation"]["state"] == "failed"
     assert second.calls[0]["observation"]["input_tokens"] == 7
     assert second.calls[0]["observation"]["output_tokens"] == 3
     assert second.calls[0]["observation"]["provider_response_id"] == "response"
