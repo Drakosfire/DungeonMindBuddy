@@ -490,6 +490,10 @@ def map_worldbuilding_extraction_contribution_v3(
                 record is None
                 or pair not in pair_to_dm
                 or row.get("source_artifact_id") != pair[0]
+                or (row.get("source_revision_id") is not None
+                    and row["source_revision_id"] != pair[1])
+                or (row.get("source_content_sha256") is not None
+                    and row["source_content_sha256"] != pair[1].removeprefix("sha256:"))
                 or row.get("source_domain") != "worldbuilding"
                 or str(record.source_domain) != "worldbuilding"
                 or record.source_artifact_id != pair[0]

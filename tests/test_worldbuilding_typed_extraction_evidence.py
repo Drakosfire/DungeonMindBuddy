@@ -67,6 +67,8 @@ def test_all_spans_survive_and_identity_is_replayable():
 @pytest.mark.parametrize("field,value", [
     ("source_span_ref_id", ""), ("source_artifact_id", "wrong"),
     ("source_domain", "session_recap"), ("evidence_ref_id", "unknown"),
+    ("source_revision_id", "sha256:" + "f" * 64),
+    ("source_content_sha256", "f" * 64),
 ])
 def test_conflicting_declaration_rejects(field, value):
     contribution, store, pairs = fixture()
