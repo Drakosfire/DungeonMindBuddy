@@ -7,3 +7,7 @@ Invariant: explicit organization maps to existing native Faction ('persistent or
 Write set: this handoff; src/graph_memory/candidate_graph_to_contribution.py mapping; src/graph_memory/extract_identity_gate.py organization inference guard; src/graph_memory/worldbuilding_write_plan.py organization bind guard; tests/test_organization_native_kind.py.
 
 Verify actual emitted contribution kind and native predicate endpoint eligibility, same-name Party rejection/Faction eligibility in both identity inference and worldbuilding binding, preserved Party/Group behavior. Exact cumulative diff, focused owning tests and independent review required before merge. No serving ports, provider calls, corpus/schema/retained graph changes. Subsequent adoption/publication requires its own source/identity review and owning witness.
+
+Topology: serial. This is the only open implementation PR in this organization-kind slice; no unmerged behavioral parent. Other frozen recap lanes remain separate and are not activated by this handoff.
+
+Mutable predecessor authority sync: none. This slice consumes merged main without changing a predecessor activation, runtime adoption, or source-review decision; existing research holds remain truthful. PRIME owns post-merge re-anchoring and completion settlement in the next consuming profile/adoption handoff. This handoff does not declare the in-flight PR merged or the source package accepted.
