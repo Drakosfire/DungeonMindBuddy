@@ -188,6 +188,10 @@ def assemble_agent_graph_context(
     session = retrieval_session
     if session is None:
         session = create_session_from_preflight(graph_envelope, question=question)
+        from apps.live_control_server.services.selected_observation_initial_ledger import (
+            hydrate_selected_observations,
+        )
+        hydrate_selected_observations(session, graph_envelope, root=graph_root)
     latest_recap_change = graph_envelope.get("latest_recap_change")
     if isinstance(latest_recap_change, Mapping) and session.latest_recap_change is None:
         # Preserve S1 context on the shared session object so host hydrate and
