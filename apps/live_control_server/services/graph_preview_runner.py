@@ -27,6 +27,7 @@ from src.graph_memory.extraction.graph_preview_runner import (
 from src.graph_memory.extraction.recap_extraction_profile import (
     resolve_legacy_graph_extraction_profile,
 )
+from src.graph_memory.extraction.known_entity_registry import KnownEntity
 from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
 from src.graph_memory.extraction.worldbuilding_extraction_profile import (
     WORLDBUILDING_PROFILE_ID,
@@ -70,6 +71,7 @@ def run_recap_production_extraction(
     enable_edge_vocabulary_packet: bool = False,
     execution_limits: RecapExecutionLimits | None = None,
     ingest_context: Any | None = None,
+    extra_known_entities: tuple[KnownEntity, ...] | None = None,
 ) -> ProductionExtractionResult:
     repo_root = artifact_data_root(repo_root)
     if output_dir is not None:
@@ -106,6 +108,7 @@ def run_recap_production_extraction(
                 model_id=model_id,
                 allow_llm=allow_llm,
                 category_client=category_client,
+                extra_known_entities=extra_known_entities,
                 output_dir=output_dir,
                 context_vocabulary_packet=context_vocabulary_packet,
                 enable_node_vocabulary_packet=enable_node_vocabulary_packet,

@@ -336,7 +336,11 @@ def ensure_mentioned_known_npc_anchors(
             "proposed_action": "anchor",
             "confidence": "high",
             "warnings": ["context_anchor_no_session_evidence"],
-            "corpus_ref": dict(entity.corpus_ref),
+            # Native World identity is carried by node_id, not a corpus file.
+            "corpus_ref": (
+                None if entity.corpus_ref.get("resolution") == "world_head"
+                else dict(entity.corpus_ref)
+            ),
             "context_anchor": True,
             "aliases": [],
         })

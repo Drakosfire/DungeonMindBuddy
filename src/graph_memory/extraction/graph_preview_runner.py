@@ -38,6 +38,7 @@ from src.graph_memory.extraction.extraction_profile import (
     UnknownExtractionProfileError,
     require_admitted_profile,
 )
+from src.graph_memory.extraction.known_entity_registry import KnownEntity
 from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
 from src.graph_memory.extraction import worldbuilding_gazetteer_profile as _gazetteer_profiles  # noqa: F401
 from src.graph_memory.vocabulary.model import ContextVocabularyPacket
@@ -64,6 +65,7 @@ class ProductionExtractionRequest:
     enable_node_vocabulary_packet: bool = False
     enable_edge_vocabulary_packet: bool = False
     initial_lineage: dict[str, Any] | None = None
+    extra_known_entities: tuple[KnownEntity, ...] | None = None
 
 
 @dataclass
@@ -386,6 +388,7 @@ def run_production_extraction(
         source_ref_id=str(span_payload.get("source_ref_id") or "") or None,
         model_id=model_id,
         profile=profile,
+        extra_known_entities=request.extra_known_entities,
         enable_encounter_job_pass=profile.enable_encounter_job_pass,
         enable_party_participation_attachment=profile.enable_party_participation_attachment,
         enable_encounter_job_edge_guidance=profile.enable_encounter_job_edge_guidance,
@@ -512,6 +515,14 @@ def run_production_extraction(
             sha256=_file_sha256(candidate_path),
         ),
     }
+    if extraction.known_entity_mentions is not None:
+        mention_path = output_dir / "known_entity_mentions.json"
+        _write_json(mention_path, extraction.known_entity_mentions)
+        components[ExtractionRunComponentKind.PROVENANCE_INDEX.value] = _component(
+            ExtractionRunComponentKind.PROVENANCE_INDEX,
+            uri=_repo_uri(request.repo_root, mention_path),
+            sha256=_file_sha256(mention_path),
+        )
     extracted = _advance_run(
         request.repo_root,
         prepared,
