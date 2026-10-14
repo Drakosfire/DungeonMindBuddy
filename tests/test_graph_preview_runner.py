@@ -538,10 +538,53 @@ def test_worldbuilding_graph_uses_profile_semantic_state(tmp_path: Path) -> None
     frozen_path = tmp_path / loaded.components["source_artifact"].uri.removeprefix("repo://")
     assert frozen_path != mutable_source
     frozen_bytes = frozen_path.read_bytes()
-    mutable_source.write_text("Mirathorn changed after extraction.\n")
+    from apps.live_control_server.services.source_artifact_registry import get_source_artifact
+    from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
+    from apps.live_control_server.services.tiptap_markdown_write import (
+        prepare_tiptap_markdown_write, commit_tiptap_markdown_write,
+        TiptapMarkdownWritePrepareRequest, TiptapMarkdownWriteCommitRequest,
+    )
+    artifact = get_source_artifact(tmp_path, loaded.source_artifact_id)
+    before = get_workspace_document_snapshot(tmp_path, artifact.workspace_document_id)
+    updated_text = "Mirathorn changed after extraction.\n"
+    prepared_write = prepare_tiptap_markdown_write(root=tmp_path, request=TiptapMarkdownWritePrepareRequest(
+        document_id=before.record.document_id, markdown=updated_text,
+        expected_revision=before.loaded_revision, write_mode="authoring"))
+    commit_tiptap_markdown_write(root=tmp_path, request=TiptapMarkdownWriteCommitRequest(
+        document_id=before.record.document_id, markdown=updated_text,
+        expected_revision=before.loaded_revision, write_mode="authoring",
+        writer_confirm_token=prepared_write.writer_confirm_token))
+
     reopened = get_reviewable_extraction_run(tmp_path, loaded.run_id)
     assert reopened.components["source_artifact"].sha256 == loaded.components["source_artifact"].sha256
     assert frozen_path.read_bytes() == frozen_bytes
+    import subprocess
+    import sys
+    script = """import hashlib,sys
+from pathlib import Path
+from apps.live_control_server.services.graph_run_registry import get_reviewable_extraction_run
+root=Path(sys.argv[1]);run=get_reviewable_extraction_run(root,sys.argv[2])
+for component in run.components.values():
+ path=root/component.uri.removeprefix('repo://')
+ assert hashlib.sha256(path.read_bytes()).hexdigest()==component.sha256.removeprefix('sha256:')
+print('fresh-process registered components verified')
+"""
+    proof = subprocess.run([sys.executable, "-c", script, str(tmp_path), loaded.run_id],
+                           check=True, capture_output=True, text=True)
+    assert "registered components verified" in proof.stdout
+    from apps.live_control_server.services.graph_run_registry import (
+        assert_run_reviewable_evidence, GraphRunRegistryError,
+    )
+    alternate = tmp_path / "alternate-source.md"
+    alternate.write_bytes(frozen_bytes)
+    bad_components = dict(loaded.components)
+    bad_components["source_artifact"] = loaded.components["source_artifact"].model_copy(
+        update={"uri": "repo://alternate-source.md"})
+    with pytest.raises(GraphRunRegistryError, match="uri does not match"):
+        assert_run_reviewable_evidence(tmp_path, loaded.model_copy(update={"components": bad_components}))
+    frozen_path.write_text("Corrupt snapshot\n")
+    with pytest.raises(GraphRunRegistryError, match="digest mismatch"):
+        get_reviewable_extraction_run(tmp_path, loaded.run_id)
 
 
 def _run_recap_extraction(
