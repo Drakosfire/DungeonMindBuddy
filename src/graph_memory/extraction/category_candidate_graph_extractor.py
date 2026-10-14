@@ -985,12 +985,19 @@ def consolidate_category_outputs(
         }
         cross_class_remap = {}
 
+    # The pre-edge consolidation advertises this same configured context.
+    # Seed it before endpoint checks so those advertised IDs remain usable.
+    deduped_nodes, edges, party_collective_diag = merge_party_collective(
+        deduped_nodes,
+        [],
+        party_ctx,
+        default_semantic_state=semantic_state,
+    )
     edge_pass_id = active_profile.edge_pass.pass_id
     edge_payload = pass_outputs.get(edge_pass_id, {})
     raw_edges = edge_payload.get("observation_edges") or []
     per_pass_counts[edge_pass_id] = len(raw_edges)
     node_ids = {n["node_id"] for n in deduped_nodes}
-    edges: list[dict[str, Any]] = []
     dropped_edges: list[dict[str, str]] = []
     for raw in raw_edges:
         if not isinstance(raw, Mapping):
@@ -1008,12 +1015,6 @@ def consolidate_category_outputs(
                     "to_node_id": edge["to_node_id"],
                 }
             )
-    deduped_nodes, edges, party_collective_diag = merge_party_collective(
-        deduped_nodes,
-        edges,
-        party_ctx,
-        default_semantic_state=semantic_state,
-    )
     if enable_party_participation_attachment:
         edges, party_participation_diag = attach_party_participation_edges(
             deduped_nodes,
