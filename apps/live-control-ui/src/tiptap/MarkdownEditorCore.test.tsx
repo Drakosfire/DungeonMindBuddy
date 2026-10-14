@@ -78,7 +78,7 @@ describe("MarkdownEditorCore", () => {
     expect(meta).toEqual({ programmatic: false });
   });
 
-  it("tags the first mount update as programmatic and the first user edit as non-programmatic", async () => {
+  it("does not emit an update on mount and reports the first user edit", async () => {
     const handleUpdate = vi.fn();
     let editor: Editor | null = null;
 
@@ -92,11 +92,8 @@ describe("MarkdownEditorCore", () => {
 
     await waitFor(() => expect(editor).not.toBeNull());
 
-    await waitFor(() => {
-      expect(handleUpdate.mock.calls.some(([, , meta]) => meta?.programmatic === true)).toBe(true);
-    });
-
-    handleUpdate.mockClear();
+    await act(async () => { await Promise.resolve(); });
+    expect(handleUpdate).not.toHaveBeenCalled();
 
     act(() => {
       editor?.commands.insertContent("User edit.");

@@ -1,6 +1,8 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { StrictMode, useState } from "react";
+import type { Content } from "@tiptap/react";
+import { act, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import type { Editor } from "@tiptap/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   commitTiptapMarkdownWrite,
@@ -13,7 +15,26 @@ import {
   readWorkspaceDocumentLocalState,
   workspaceDocumentStorageKey,
 } from "../tiptap/state/tiptapLocalState";
+import { MarkdownEditorCore } from "../tiptap/MarkdownEditorCore";
+import { MarkdownCanvasSessionProvider, useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
+import { useBuildMarkdownCanvasSlots } from "../buildSurface/buildMarkdownCanvasAdapter";
+import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
+import type { WorkspaceDocumentAuthoringValue } from "./useWorkspaceDocumentAuthoring";
 import { useWorkspaceDocumentAuthoring } from "./useWorkspaceDocumentAuthoring";
+
+// happy-dom lacks the native dialog API; browser focus/Escape behavior is a rendered gate.
+const dialogPrototype = Object.getPrototypeOf(document.createElement("dialog"));
+const originalShowModal = Object.getOwnPropertyDescriptor(dialogPrototype, "showModal");
+beforeAll(() => {
+  Object.defineProperty(dialogPrototype, "showModal", { configurable: true, value(this: HTMLDialogElement) {
+    this.setAttribute("open", "");
+    this.open = true;
+  } });
+});
+afterAll(() => {
+  if (originalShowModal) Object.defineProperty(dialogPrototype, "showModal", originalShowModal);
+  else Reflect.deleteProperty(dialogPrototype, "showModal");
+});
 
 vi.mock("../api/liveApi", () => ({
   getWorkspaceDocumentSnapshot: vi.fn(),
@@ -545,5 +566,162 @@ describe("useWorkspaceDocumentAuthoring Markdown fidelity", () => {
     const preparedMarkdown = vi.mocked(prepareTiptapMarkdownWrite).mock.calls[0]?.[0]?.markdown ?? "";
     expect(preparedMarkdown).toContain("Edited after re-import.");
     expect(preparedMarkdown).not.toContain("Stale lossy projection");
+  });
+});
+
+
+describe("real rich-editor mount and saved-source cleanliness", () => {
+  beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); });
+
+  it("keeps Read→Edit and editable toggles clean until the first genuine document transaction", async () => {
+    const source = "---\r\ntitle: Guard notes\r\n---\r\n###   Gate    watch\r\n\r\nA **quiet** gate.\r\n";
+    vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(snapshot(source, { content_status: "committed" }));
+    let current!: WorkspaceDocumentAuthoringValue;
+    function Harness() {
+      const session = useWorkspaceDocumentAuthoring({ documentId: DOC_ID, surface: "build", kind: "worldbuilding_source" });
+      current = session;
+      const [editing, setEditing] = useState(false);
+      const [editable, setEditable] = useState(true);
+      return <>
+        <button onClick={() => setEditing(value => !value)}>Read or Edit</button>
+        <button onClick={() => setEditable(value => !value)}>Toggle editable</button>
+        {editing && session.phase.startsWith("ready") ? <MarkdownEditorCore
+          documentKey={session.documentKey} content={session.editorContent as Content}
+          editable={editable} onEditorChange={session.setEditor} onUpdate={session.handleEditorUpdate}
+        /> : <p>Reading saved source</p>}
+      </>;
+    }
+    render(<StrictMode><Harness /></StrictMode>);
+    await waitFor(() => expect(current.phase).toBe("ready_clean"));
+    const initial = readWorkspaceDocumentLocalState(localStorage, DOC_ID)!;
+    fireEvent.click(screen.getByRole("button", { name: "Read or Edit" }));
+    await waitFor(() => expect(current.editor).not.toBeNull());
+    await act(async () => { await Promise.resolve(); });
+    expect(current.editor!.getJSON()).toMatchObject(markdownToTiptapDoc(source).doc);
+    const mountedJson = current.editor!.getJSON();
+    expect(current.dirty).toBe(false);
+    expect(readWorkspaceDocumentLocalState(localStorage, DOC_ID)).toEqual(initial);
+    fireEvent.click(screen.getByRole("button", { name: "Toggle editable" }));
+    await waitFor(() => expect(current.editor!.isEditable).toBe(false));
+    fireEvent.click(screen.getByRole("button", { name: "Toggle editable" }));
+    await waitFor(() => expect(current.editor!.isEditable).toBe(true));
+    expect(current.editor!.getJSON()).toEqual(mountedJson);
+    expect(current.dirty).toBe(false);
+    expect(readWorkspaceDocumentLocalState(localStorage, DOC_ID)).toEqual(initial);
+    fireEvent.click(screen.getByRole("button", { name: "Read or Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Read or Edit" }));
+    await waitFor(() => expect(current.editor).not.toBeNull());
+    await act(async () => { await Promise.resolve(); });
+    expect(current.dirty).toBe(false);
+    act(() => { current.editor!.commands.insertContent("A real addition."); });
+    await waitFor(() => expect(current.dirty).toBe(true));
+    const edited = readWorkspaceDocumentLocalState(localStorage, DOC_ID)!;
+    expect(edited.exported_markdown).toContain("A real addition.");
+    expect(edited.base_revision).toBe(initial.base_revision);
+    expect(edited.base_content_sha256).toBe(initial.base_content_sha256);
+    const editedJson = current.editor!.getJSON();
+    fireEvent.click(screen.getByRole("button", { name: "Read or Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Read or Edit" }));
+    await waitFor(() => expect(current.editor).not.toBeNull());
+    await act(async () => { await Promise.resolve(); });
+    expect(current.editor!.getJSON()).toEqual(editedJson);
+    expect(current.dirty).toBe(true);
+    expect(readWorkspaceDocumentLocalState(localStorage, DOC_ID)).toEqual(edited);
+    expect(current.snapshot!.markdown).toBe(source);
+    expect(prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("real-session Save and Build discard exclusion", () => {
+  beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); });
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it("cannot discard during deferred prepare/commit or invalidate the resulting receipt", async () => {
+    function deferred<T>() {
+      let resolve!: (value: T) => void;
+      const promise = new Promise<T>(done => { resolve = done; });
+      return { promise, resolve };
+    }
+    const prepare = deferred<Awaited<ReturnType<typeof prepareTiptapMarkdownWrite>>>();
+    const commit = deferred<Awaited<ReturnType<typeof commitTiptapMarkdownWrite>>>();
+    const original = snapshot("Original source.\n", { content_status: "committed" });
+    let verified = original;
+    vi.mocked(getWorkspaceDocumentSnapshot).mockImplementation(async () => verified);
+    vi.mocked(prepareTiptapMarkdownWrite).mockReturnValue(prepare.promise);
+    vi.mocked(commitTiptapMarkdownWrite).mockReturnValue(commit.promise);
+    let current!: ReturnType<typeof useMarkdownCanvasSession>;
+    function Controls() {
+      current = useMarkdownCanvasSession();
+      const slots = useBuildMarkdownCanvasSlots({ hideFooterSave: true });
+      return current.snapshot ? <>
+        {slots.tools}
+        <MarkdownEditorCore documentKey={current.documentKey}
+          content={current.editorContent as Content} onEditorChange={current.setEditor}
+          onUpdate={current.handleEditorUpdate} />
+      </> : null;
+    }
+    render(<MarkdownCanvasSessionProvider documentId={DOC_ID} surface="build" kind="worldbuilding_source">
+      <Controls />
+    </MarkdownCanvasSessionProvider>);
+    await waitFor(() => expect(current.editor).not.toBeNull());
+    await act(async () => { await Promise.resolve(); });
+    act(() => { current.editor!.commands.insertContent("A real edit. "); });
+    await waitFor(() => expect(current.dirty).toBe(true));
+    const dirty = readWorkspaceDocumentLocalState(localStorage, DOC_ID);
+    fireEvent.click(screen.getByRole("button", { name: "Discard local draft" }));
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Keep editing" }));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(current.dirty).toBe(true);
+    expect(readWorkspaceDocumentLocalState(localStorage, DOC_ID)).toEqual(dirty);
+    expect(getWorkspaceDocumentSnapshot).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Discard local draft" }));
+    let saving!: Promise<void>;
+    act(() => { saving = current.saveMarkdown(); });
+    await waitFor(() => expect(current.phase).toBe("preparing"));
+    expect(current.activeCommand).not.toBeNull();
+    let discard = within(screen.getByRole("alertdialog")).getByRole("button", { name: "Discard changes" });
+    expect(discard).toBeDisabled();
+    fireEvent.click(discard);
+    expect(readWorkspaceDocumentLocalState(localStorage, DOC_ID)).toEqual(dirty);
+    expect(getWorkspaceDocumentSnapshot).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      prepare.resolve({ schema_version: "dmb_tiptap_markdown_write_prepare_v1", document_id: DOC_ID,
+        title: "Source", target_relpath: "corpus/source.md", target_display_path: "corpus/source.md",
+        registry_revision: 1, file_exists: true, writer_ok: true, writer_phase: "prepare",
+        writer_confirm_token: "synthetic-confirm", writer_diff: "+A real edit.", warnings: [], diagnostics: [] });
+    });
+    await waitFor(() => expect(current.phase).toBe("committing"));
+    discard = within(screen.getByRole("alertdialog")).getByRole("button", { name: "Discard changes" });
+    expect(discard).toBeDisabled();
+    fireEvent.click(discard);
+    expect(getWorkspaceDocumentSnapshot).toHaveBeenCalledTimes(1);
+    expect(readWorkspaceDocumentLocalState(localStorage, DOC_ID)).toEqual(dirty);
+    const committedMarkdown = vi.mocked(commitTiptapMarkdownWrite).mock.calls[0][0].markdown;
+    const record = fixtureWorkspaceDocumentRecord({ document_id: DOC_ID, kind: "worldbuilding_source",
+      revision: 2, content_status: "committed", target_session: null });
+    verified = { ...snapshot(committedMarkdown), record, loaded_revision: 2,
+      content_sha256: "sha-committed", file_fingerprint: "fp-committed" };
+    await act(async () => {
+      commit.resolve({ schema_version: "dmb_tiptap_markdown_write_commit_v1", document_id: DOC_ID,
+        title: record.title, target_relpath: record.target_relpath, target_display_path: record.target_relpath,
+        registry_revision: 2, committed_revision: 2, committed_record: record,
+        normalized_content_sha256: "sha-committed", writer_ok: true, bytes_written: committedMarkdown.length,
+        file_fingerprint: "fp-committed", diagnostics: [] });
+      await saving;
+    });
+    await waitFor(() => expect(current.phase).toBe("ready_clean"));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(current.lastCommitReceipt?.committed_revision).toBe(2);
+    expect(current.snapshot?.loaded_revision).toBe(2);
+    expect(current.snapshot?.markdown).toBe(committedMarkdown);
+    expect(readWorkspaceDocumentLocalState(localStorage, DOC_ID)?.base_revision).toBe(2);
+    expect(readWorkspaceDocumentLocalState(localStorage, DOC_ID)?.base_content_sha256).toBe("sha-committed");
+    expect(current.activeCommand).toBeNull();
+    expect(prepareTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
+    expect(commitTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
+    expect(getWorkspaceDocumentSnapshot).toHaveBeenCalledTimes(2);
   });
 });
