@@ -3,6 +3,7 @@ from dataclasses import replace
 from .extraction_profile import ExtractionPassSpec, register_extraction_profile
 from .worldbuilding_extraction_profile import WORLDBUILDING_PROFILE
 from .worldbuilding_source_sections import retain_owned_sections
+from .worldbuilding_role_support import compile_role_support
 
 GAZETTEER_PROFILE_ID = "worldbuilding_gazetteer_v1"
 GAZETTEER_PROFILE_VERSION = "1.0"
@@ -86,4 +87,10 @@ GAZETTEER_SOURCE_FIDELITY_PROFILE = register_extraction_profile(replace(
             _PLACE_SOURCE_FIDELITY if spec.pass_id == "location_pass" else ""
         ),
     ) for spec in GAZETTEER_SOURCE_RETENTION_PROFILE.node_passes),
+))
+
+
+GAZETTEER_ROLE_SUPPORT_PROFILE = register_extraction_profile(replace(
+    GAZETTEER_SOURCE_FIDELITY_PROFILE, profile_version="1.3",
+    source_section_retainer=compile_role_support,
 ))
