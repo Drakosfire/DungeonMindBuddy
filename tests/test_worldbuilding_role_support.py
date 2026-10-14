@@ -116,3 +116,16 @@ def test_damaged_support_never_recognized_as_role_only(damage):
         and diag["ownership_role_support"]["records"][0]["decision"]
         == "unresolved_support"
     )
+
+
+@pytest.mark.parametrize("field", ["source_artifact_id", "source_ref_id"])
+def test_foreign_full_reference_is_unresolved_even_when_span_and_quote_match(field):
+    graph, rows = fixture(["Nera — Proprietor of the Silver Inn"])
+    graph["source_artifact_ids"] = ["artifact:current"]
+    graph["edges"][0]["evidence_refs"][0][field] = "artifact:foreign"
+    result, diagnostics = compile_role_support(graph, rows)
+    assert result == graph
+    assert (
+        diagnostics["ownership_role_support"]["records"][0]["decision"]
+        == "unresolved_support"
+    )

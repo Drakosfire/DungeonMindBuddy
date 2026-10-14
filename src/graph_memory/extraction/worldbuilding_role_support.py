@@ -39,6 +39,7 @@ def compile_role_support(graph: dict[str, Any], rows: list[dict[str, Any]]):
     labels: dict[str, list[str]] = {}
     for node in result.get("nodes", []):
         labels.setdefault(node["node_id"], []).append(str(node.get("label") or ""))
+    current_artifacts = set(graph.get("source_artifact_ids") or [])
     records, kept = [], []
     for edge in result.get("edges", []):
         if edge.get("relationship_type") != "owns":
@@ -58,8 +59,17 @@ def compile_role_support(graph: dict[str, Any], rows: list[dict[str, Any]]):
             span = ref.get("source_span_ref_id")
             text = spans.get(span)
             quotes = ref.get("anchor_quotes") or []
+            artifact = ref.get("source_artifact_id")
+            source_ref = ref.get("source_ref_id")
+            foreign_identity = (
+                artifact is not None and artifact not in current_artifacts
+            ) or (
+                source_ref is not None
+                and source_ref not in {item + ":text" for item in current_artifacts}
+            )
             if (
-                span in seen
+                foreign_identity
+                or span in seen
                 or not isinstance(text, str)
                 or not quotes
                 or any(not isinstance(q, str) or not q or q not in text for q in quotes)
