@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Literal
@@ -297,8 +299,14 @@ def _claim_ledger_text(claims: Sequence[GraphClaim]) -> str | None:
             else claim.predicate or claim.claim_kind
         )
         value = claim.value_text or ""
+        if claim.claim_kind == "source_observation":
+            scope = json.dumps(claim.temporal_scope, sort_keys=True) if claim.temporal_scope is not None else "unspecified"
+            predicate += f" ({claim.observation_kind}; temporal_scope={scope})"
         bullets.append(f"- {label}: {predicate} — {value}".strip(" —"))
-    return "Graph-grounded facts for this turn:\n" + "\n".join(bullets)
+    heading = ("Graph-grounded facts and source context for this turn:\n"
+               if any(claim.claim_kind == "source_observation" for claim in claims)
+               else "Graph-grounded facts for this turn:\n")
+    return heading + "\n".join(bullets)
 
 
 def _source_citations_from_session(session: GraphRetrievalSession) -> list[SourceCitation]:

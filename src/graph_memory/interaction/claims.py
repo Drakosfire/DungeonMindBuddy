@@ -95,6 +95,7 @@ class GraphClaim(BaseModel):
 
     source_assertion_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
     observation_kind: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    temporal_scope: dict[str, Any] | None = Field(default=None, exclude_if=lambda value: value is None)
     review_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
     contribution_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
     publication_revision_id: str | None = Field(default=None, exclude_if=lambda value: value is None)
