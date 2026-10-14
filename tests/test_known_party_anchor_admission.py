@@ -369,3 +369,27 @@ def test_explicit_pc_candidate_requires_resolved_reference() -> None:
     node["corpus_ref"]["resolution"] = "unresolved"
     with pytest.raises(CandidateGraphMappingError, match="resolved PC/NPC corpus reference"):
         _gate([node], _context([_actor("karsemine")]))
+
+
+@pytest.mark.parametrize("case", ["valid", "wrong_digest", "wrong_kind"])
+def test_explicit_pc_reviewed_binding_preserves_exact_basis(case):
+    node, _, binding = _reviewed_binding_case()
+    node = _node("karsemine")
+    node["node_type"] = "pc"
+    binding = binding.model_copy(update={
+        "candidate_node_id": node["node_id"], "corpus_ref_type": "pc",
+        "corpus_ref_key": "karsemine", "target_object_id": "pc:karsemine",
+    })
+    actor = _actor("karsemine", kind="npc" if case == "wrong_kind" else "pc")
+    context = replace(_context([actor]), reviewed_corpus_bindings=(binding,),
+                      exact_candidate_sha256="f" * 64 if case == "wrong_digest" else "a" * 64)
+    before = copy.deepcopy(context)
+    if case != "valid":
+        with pytest.raises(CandidateGraphMappingError):
+            _gate([node], context)
+    else:
+        result = _gate([node], context)
+        assert result.node_id_map == {"node:karsemine": "pc:karsemine"}
+        assert result.accepted_proposals
+        assert all(a.assertion_kind != "node" for a in result.accepted_proposals)
+    assert context == before
