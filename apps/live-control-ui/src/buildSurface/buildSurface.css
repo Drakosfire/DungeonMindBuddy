@@ -12,6 +12,8 @@
 }
 
 .build-surface-context__row {
+  min-width: 0;
+  flex: 1;
   display: flex;
   flex-wrap: wrap;
   align-items: center;

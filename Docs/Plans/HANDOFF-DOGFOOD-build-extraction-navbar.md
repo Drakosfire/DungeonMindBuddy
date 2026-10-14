@@ -36,3 +36,9 @@ launch/admission and portalcleanup on unmount. Navbar slot tested in actualConte
 Page tests emit React act warnings in navigation/retainedSave cases; all pass.
 Cumulative7path diff inspected; no nonpresentation hook changes. Independentcode
 review/rendered390/647 checks remain required; no deployment claimed yet.
+
+Rendered6c546c: collapsed390/647 fits, nativeEnter/Space toggle keeps summary
+focus and Tab enters profile; profile persists and one toolbar.Expanded390
+FAILS: page493px; navbar row min-width:auto retains384.1875px mincontent inside
+309px module. SameleasedCSS repair gives row min-width0/flex1. Previous rendered
+head remainsHOLD; new exacthead review/390expanded acceptance required.
