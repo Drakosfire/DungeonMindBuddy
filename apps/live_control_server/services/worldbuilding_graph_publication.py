@@ -690,6 +690,7 @@ def confirm_worldbuilding(
         return _receipt_from_publication(
             receipt=recovered,
             verified=verified,
+            resolved=resolved, publication_binding=publication_binding,
             contribution=contribution,
             parent=parent,
             materialized_accepted=materialized_accepted,
@@ -747,6 +748,7 @@ def confirm_worldbuilding(
             return _receipt_from_publication(
                 receipt=recovered,
                 verified=verified,
+            resolved=resolved, publication_binding=publication_binding,
                 contribution=contribution,
                 parent=parent,
                 materialized_accepted=materialized_accepted,
@@ -760,6 +762,7 @@ def confirm_worldbuilding(
     return _receipt_from_publication(
         receipt=receipt,
         verified=verified,
+            resolved=resolved, publication_binding=publication_binding,
         contribution=contribution,
         parent=parent,
         materialized_accepted=materialized_accepted,
@@ -772,6 +775,8 @@ def confirm_worldbuilding(
 def _receipt_from_publication(
     *,
     receipt: WorldGraphPublicationReceipt,
+    resolved,
+    publication_binding,
     verified: Mapping[str, Any],
     contribution: Any,
     parent: str,
@@ -803,6 +808,11 @@ def _receipt_from_publication(
         outcome = "published_audit_degraded"
         warnings.extend(codes)
     accepted = list(materialized_accepted)
+    if _registered_publication_binding(resolved) != publication_binding:
+        raise ExtractPromoteError(
+            "World/source binding changed; completed publication remains in the original native World",
+            code="worldbuilding_source_binding_changed", status_code=409,
+        )
     return _confirm_receipt(
         outcome=outcome,
         verified=verified,
