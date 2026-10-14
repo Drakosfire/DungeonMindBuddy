@@ -9,7 +9,7 @@ Topology stacked consumer; parent codex/build-gazetteer-profile exact bc064cff.
 Code review may proceed while final server test-only verification settles.
 
 Exact proposed write lease: this handoff; BuildIngestToolbar.tsx;
-useBuildExtraction.ts; useBuildExtraction.test.tsx; BuildIngestToolbar.test.tsx,
+useBuildExtraction.ts; useBuildExtraction.test.tsx; BuildGazetteerSelection.test.tsx,
 all production/tests under apps/live-control-ui/src/buildSurface.
 
 Closed explicit profile choice: existing pilot default, gazetteer opt-in for
