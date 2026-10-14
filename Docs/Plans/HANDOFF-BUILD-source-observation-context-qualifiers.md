@@ -1,0 +1,13 @@
+# BUILD: preserve source-observation context qualifiers
+
+Status: ACTIVE. PRIME implements solo, ARCHITECTURE reviews. Base8107259d9e0a2a30c7a20e20615317f7bc03eff7. Serial remote-main lane /tmp/buddy-worldbuilding-passage-composition, non-serving, no unmerged parent. PRIME owns completion and settlement.
+
+Capability: carry already-owned source-observation temporal metadata into Buddy GraphClaim/session serialization and Agent prompt/claim ledger, alongside actual observation kind, epistemic/source attribution. Worldbuilding reference text is what that source says; unspecified fictional time or publication time must not be advertised as latest played state. Compare source-attributed contexts when later recaps differ. Do not invent pre-campaign dates, temporal precedence, new Core semantics or rewrite source facts.
+
+Concrete gap: native and Buddy observation views already expose temporal_scope and the query envelope copies it, but the prompt renderer omits it and actual observation_kind. GraphClaim/classifier lacks temporal_scope. C1 Session11 shows Thalia realizing guard corruption while the saved worldbuilding reference describes earlier unknowing resistance. Seven actor identity bindings may be valid while latest-state interpretation remains false.
+
+Exclusive writes: this handoff; src/graph_memory/interaction/claims.py; src/graph_memory/interaction/authority_classifier.py; src/graph_memory/interaction/answer_validator.py; apps/live_control_server/services/agent_world_graph_query_context.py; tests/test_source_observation_context_qualifiers.py. Existing source-kind and source/evidence validation gates remain intact. No inference/corpus/source revision/native database/serving writes. No primary-kind/aspect/identity bypass or generic state engine.
+
+Proof: typed observation qualifiers survive classifier→session roundtrip→model-facing ledger/prompt; exact actual kind/source identity retained; unspecified scope stays unspecified and does not become current truth. Synthetic conflicting worldbuilding/recap contexts remain distinguishable without choosing a fictional chronology. Existing source-observation/context/answer tests pass. This metadata propagation is not proof an Agent resolves real chronology or completes Mirathorn.
+
+Settlement: Core120 and Buddy1165/1166/1167 merged; full1.2 run629b7df6 is held for semantic/identity/qualification errors. Eight actor descriptions faithful, seven same-NPC links reviewed for disposable rehearsal, Barin creation withdrawn after Coppergleam/bartender ambiguity. FullWorld/Agent/passage/restart/operator acceptance remains held; retained graph untouched. Next additive actor-only clone rehearsal remains separately reviewed and must preserve source-versus-latest-state truth.
