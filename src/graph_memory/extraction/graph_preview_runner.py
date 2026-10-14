@@ -208,6 +208,19 @@ def _build_prepared_components(
     output_dir: Path,
 ) -> tuple[dict[str, ExtractionRunComponentRef], dict[str, Any]]:
     digest = source.source_sha256.removeprefix("sha256:")
+    source_bytes = source.source_text.encode("utf-8")
+    if hashlib.sha256(source_bytes).hexdigest() != digest:
+        raise ValueError("Normalized extraction source digest mismatch")
+    source_path = output_dir / "source.md"
+    source_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with source_path.open("xb") as stream:
+            stream.write(source_bytes)
+    except FileExistsError:
+        if source_path.is_symlink() or not source_path.is_file():
+            raise ValueError("Run source snapshot must be a regular owned file")
+        if source_path.read_bytes() != source_bytes:
+            raise ValueError("Run source snapshot conflicts with frozen bytes")
     index = build_source_span_index_for_text(
         source_artifact_id=source.source_artifact_id,
         content_sha256=digest,
@@ -219,7 +232,7 @@ def _build_prepared_components(
     components = {
         "source_artifact": _component(
             ExtractionRunComponentKind.SOURCE_ARTIFACT,
-            uri=source.source_uri,
+            uri=_repo_uri(repo_root, source_path),
             sha256=digest,
         ),
         "source_span_index": _component(

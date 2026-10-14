@@ -533,6 +533,59 @@ def test_worldbuilding_graph_uses_profile_semantic_state(tmp_path: Path) -> None
     assert report.issue_counts.get("invalid_semantic_state", 0) == 0
     assert report.issues == ()
 
+    from apps.live_control_server.services.graph_run_registry import get_reviewable_extraction_run
+    mutable_source = tmp_path / source.source_uri.removeprefix("repo://")
+    frozen_path = tmp_path / loaded.components["source_artifact"].uri.removeprefix("repo://")
+    assert frozen_path != mutable_source
+    frozen_bytes = frozen_path.read_bytes()
+    from apps.live_control_server.services.source_artifact_registry import get_source_artifact
+    from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
+    from apps.live_control_server.services.tiptap_markdown_write import (
+        prepare_tiptap_markdown_write, commit_tiptap_markdown_write,
+        TiptapMarkdownWritePrepareRequest, TiptapMarkdownWriteCommitRequest,
+    )
+    artifact = get_source_artifact(tmp_path, loaded.source_artifact_id)
+    before = get_workspace_document_snapshot(tmp_path, artifact.workspace_document_id)
+    updated_text = "Mirathorn changed after extraction.\n"
+    prepared_write = prepare_tiptap_markdown_write(root=tmp_path, request=TiptapMarkdownWritePrepareRequest(
+        document_id=before.record.document_id, markdown=updated_text,
+        expected_revision=before.loaded_revision, write_mode="authoring"))
+    commit_tiptap_markdown_write(root=tmp_path, request=TiptapMarkdownWriteCommitRequest(
+        document_id=before.record.document_id, markdown=updated_text,
+        expected_revision=before.loaded_revision, write_mode="authoring",
+        writer_confirm_token=prepared_write.writer_confirm_token))
+
+    reopened = get_reviewable_extraction_run(tmp_path, loaded.run_id)
+    assert reopened.components["source_artifact"].sha256 == loaded.components["source_artifact"].sha256
+    assert frozen_path.read_bytes() == frozen_bytes
+    import subprocess
+    import sys
+    script = """import hashlib,sys
+from pathlib import Path
+from apps.live_control_server.services.graph_run_registry import get_reviewable_extraction_run
+root=Path(sys.argv[1]);run=get_reviewable_extraction_run(root,sys.argv[2])
+for component in run.components.values():
+ path=root/component.uri.removeprefix('repo://')
+ assert hashlib.sha256(path.read_bytes()).hexdigest()==component.sha256.removeprefix('sha256:')
+print('fresh-process registered components verified')
+"""
+    proof = subprocess.run([sys.executable, "-c", script, str(tmp_path), loaded.run_id],
+                           check=True, capture_output=True, text=True)
+    assert "registered components verified" in proof.stdout
+    from apps.live_control_server.services.graph_run_registry import (
+        assert_run_reviewable_evidence, GraphRunRegistryError,
+    )
+    alternate = tmp_path / "alternate-source.md"
+    alternate.write_bytes(frozen_bytes)
+    bad_components = dict(loaded.components)
+    bad_components["source_artifact"] = loaded.components["source_artifact"].model_copy(
+        update={"uri": "repo://alternate-source.md"})
+    with pytest.raises(GraphRunRegistryError, match="uri does not match"):
+        assert_run_reviewable_evidence(tmp_path, loaded.model_copy(update={"components": bad_components}))
+    frozen_path.write_text("Corrupt snapshot\n")
+    with pytest.raises(GraphRunRegistryError, match="digest mismatch"):
+        get_reviewable_extraction_run(tmp_path, loaded.run_id)
+
 
 def _run_recap_extraction(
     tmp_path: Path,
@@ -855,3 +908,49 @@ def test_recap_snapshot_rejects_path_escape(tmp_path: Path) -> None:
             session_id="session-24/../evil",
             recap_text="escape attempt\n",
         )
+
+
+def test_prepared_source_snapshot_survives_mutable_source_edit(tmp_path):
+    import hashlib
+    from src.graph_memory.extraction.graph_preview_runner import _build_prepared_components
+    mutable = tmp_path / "document.md"
+    mutable.write_text("# Original\n")
+    body = mutable.read_text()
+    source = NormalizedExtractionSource("artifact:test", "worldbuilding", body,
+        hashlib.sha256(body.encode()).hexdigest(), "repo://document.md", "world", None)
+    components, _ = _build_prepared_components(tmp_path, source, tmp_path / "run")
+    mutable.write_text("# Later edit\n")
+    frozen = tmp_path / components["source_artifact"].uri.removeprefix("repo://")
+    assert frozen.read_text() == body
+    replay, _ = _build_prepared_components(tmp_path, source, tmp_path / "run")
+    assert replay["source_artifact"] == components["source_artifact"]
+    changed = replace(source, source_text="# Different\n",
+                      source_sha256=hashlib.sha256(b"# Different\n").hexdigest())
+    with pytest.raises(ValueError, match="conflicts"):
+        _build_prepared_components(tmp_path, changed, tmp_path / "run")
+    assert frozen.read_text() == body
+
+
+def test_prepared_snapshot_rejects_incorrect_digest(tmp_path):
+    from src.graph_memory.extraction.graph_preview_runner import _build_prepared_components
+    source = NormalizedExtractionSource("artifact:test", "worldbuilding", "# Body\n",
+                                       "0" * 64, "repo://document.md", "world", None)
+    with pytest.raises(ValueError, match="digest mismatch"):
+        _build_prepared_components(tmp_path, source, tmp_path / "run")
+    assert not (tmp_path / "run/source.md").exists()
+
+
+def test_prepared_snapshot_rejects_same_byte_symlink(tmp_path):
+    import hashlib
+    from src.graph_memory.extraction.graph_preview_runner import _build_prepared_components
+    body = "# Original\n"
+    mutable = tmp_path / "document.md"
+    mutable.write_text(body)
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    (run_dir / "source.md").symlink_to(mutable)
+    source = NormalizedExtractionSource("artifact:test", "worldbuilding", body,
+        hashlib.sha256(body.encode()).hexdigest(), "repo://document.md", "world", None)
+    with pytest.raises(ValueError, match="regular owned file"):
+        _build_prepared_components(tmp_path, source, run_dir)
+    assert mutable.read_text() == body
