@@ -292,3 +292,49 @@ def test_registered_build_publication_keeps_typed_worldbuilding_spans(
     assert opened.result.outcome == "enough"
     assert opened.result.content
     assert opened.source_span_ref_id == native.anchors[0].source_span_ref_id
+    from tests._cutover_d3a_blocker_safe_fixtures import _mutate_extraction_candidate
+    followup_directory = tmp_path / "followup"
+    followup_directory.mkdir()
+    root = _install_worldbuilding_repo(monkeypatch, followup_directory, native_id=case["world"])
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(root))
+    second_run, _ = _write_bld08_reviewable_run(
+        root, world_id="publication-managed", campaign_id="publication-managed",
+    )
+
+    def six_observations(payload):
+        import copy
+        template = payload["nodes"][0]
+        payload["nodes"] = []
+        for index in range(6):
+            node = copy.deepcopy(template)
+            node["node_type"] = "location"
+            node["label"] = native.object.label
+            node["node_id"] = "observation-section-" + str(index)
+            node["description"] = "Worldbuilding source for promote."
+            payload["nodes"].append(node)
+        payload["edges"] = []
+
+    _mutate_extraction_candidate(root, second_run, six_observations)
+    followup = prepare_worldbuilding(WorldbuildingWritePlanPrepareRequest.model_validate({
+        "runId": second_run, "expectedParentRevisionId": head.head_revision_id,
+        "dispositions": [
+            {"assertionId": "observation-section-" + str(index),
+             "decision": "bind_existing", "targetNodeId": node_id}
+            for index in range(6)
+        ],
+    }))
+    original_prose = native.object.summary
+    confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=followup))
+    latest = case["bundle"].world_graph.get_head(case["world"]).head_revision_id
+    fresh = direct.direct_services_from_config(case["world"])
+    followup_request = request.model_copy(update={"revision_pin": latest})
+    enriched = fresh.retrieval.get_complete_object(
+        direct._map_retrieval_context(followup_request, fresh.binding), object_id=node_id,
+    )
+    assert enriched.object.summary == original_prose
+    assert len(enriched.reviewed_source_observations) == 6
+    assert len({row.assertion_id for row in enriched.reviewed_source_observations}) == 6
+    assert all(row.text == "Worldbuilding source for promote."
+               for row in enriched.reviewed_source_observations)
+    assert all(row.observation_kind == "worldbuilding_observation"
+               for row in enriched.reviewed_source_observations)
