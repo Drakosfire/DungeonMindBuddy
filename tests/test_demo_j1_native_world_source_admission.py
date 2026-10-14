@@ -562,3 +562,20 @@ def test_binding_changes_during_native_readback_rejects(tmp_path, monkeypatch, m
     with pytest.raises(native.NativeWorldSourceAdmissionError) as error:
         native.get_native_world_source_status(tmp_path, record.document_id)
     assert error.value.code == "native_graph_binding_changed"
+
+
+def test_committed_source_recovery_does_not_hide_binding_change(tmp_path, monkeypatch, memory_repository):
+    world, record = _committed_source(tmp_path)
+    original = native.publish_native_text_source_evidence
+    path = tmp_path / "out/registries/world_containers.json"
+    def committed_then_changed(**kwargs):
+        receipt = original(**kwargs)
+        data = json.loads(path.read_text())
+        data["records"][0]["native_graph_binding"]["binding_version"] += 1
+        path.write_text(json.dumps(data))
+        raise RuntimeError("synthetic outcome observation failure")
+    monkeypatch.setattr(native, "publish_native_text_source_evidence", committed_then_changed)
+    with pytest.raises(native.NativeWorldSourceAdmissionError) as error:
+        _admit(tmp_path, record.document_id)
+    assert error.value.code == "native_graph_binding_changed"
+    assert memory_repository.get_head(world.world_id) is not None
