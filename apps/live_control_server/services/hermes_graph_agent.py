@@ -485,6 +485,12 @@ def _safe_ids_from_args(args: Mapping[str, Any]) -> dict[str, Any]:
             clipped = _clip_str(args[key], max_chars=_MAX_BOUNDED_ID_CHARS)
             if clipped is not None:
                 bounded[key] = clipped
+    anchor_ids = args.get("anchorIds", args.get("anchor_ids"))
+    if isinstance(anchor_ids, list):
+        from apps.live_control_server.services.agent_source_read_telemetry import (
+            summarize_requested_anchor_ids,
+        )
+        bounded.update(summarize_requested_anchor_ids(anchor_ids))
     seed_ids = args.get("seedNodeIds")
     if isinstance(seed_ids, list):
         bounded["seedNodeIds"] = [
@@ -521,6 +527,7 @@ def _summarize_tool_result(raw: Any) -> dict[str, Any]:
         "source_anchor_ids": [],
         "diagnostic_codes": [],
         "is_error": False,
+        "source_read_metadata": {},
     }
     if not isinstance(raw, str):
         return summary
@@ -559,6 +566,13 @@ def _summarize_tool_result(raw: Any) -> dict[str, Any]:
                     if isinstance(a, Mapping) and (a.get("anchorId") or a.get("id"))
                 ]
             )
+    from apps.live_control_server.services.agent_source_read_telemetry import (
+        summarize_batch_source_reads,
+    )
+    metadata, batch_anchors = summarize_batch_source_reads(parsed)
+    summary["source_read_metadata"] = metadata
+    if batch_anchors:
+        summary["source_anchor_ids"] = _cap_id_list(batch_anchors)
     diagnostics = parsed.get("diagnostics") or []
     if isinstance(diagnostics, list):
         summary["diagnostic_codes"] = [
@@ -856,7 +870,7 @@ class _ToolEventCollector:
                 focus=scope_fields["focus"],
                 admissibility=scope_fields["admissibility"],
                 revision_pin=scope_fields["revision_pin"],
-                bounded_ids=_safe_ids_from_args(args),
+                bounded_ids={**_safe_ids_from_args(args), **summary["source_read_metadata"]},
                 retrieval_schema=summary["retrieval_schema"],
                 outcome=summary["outcome"],
                 matched_node_ids=summary["matched_node_ids"],

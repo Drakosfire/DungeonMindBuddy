@@ -309,6 +309,7 @@ class _TurnCollector:
         summary = _summarize_tool_result(raw_result)
         state = "error" if forced_error or summary["is_error"] else "completion"
         attributes = self._scope_attributes(args)
+        attributes["bounded_ids"].update(summary["source_read_metadata"])
         attributes.update(
             {
                 "retrieval_schema": summary["retrieval_schema"],
