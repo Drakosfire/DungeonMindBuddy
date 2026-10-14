@@ -711,6 +711,23 @@ def _install_worldbuilding_repo(monkeypatch, tmp_path: Path, native_id=DEFAULT_W
     monkeypatch.setattr(promote_svc, "repo_root", lambda: repo)
     monkeypatch.setattr(promotable_mod, "repo_root", lambda: repo)
     monkeypatch.setattr(live_config, "world_graph_root", lambda: absent)
+    from apps.live_control_server.services import graph_run_registry
+    from src.graph_memory.extraction.graph_preview_runner import _build_prepared_components
+    from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
+    original_update = graph_run_registry.update_extraction_run_status
+    def update_with_frozen_source(root, run_id, **kwargs):
+        components = kwargs.get("components")
+        if components and "source_artifact" in components:
+            run = graph_run_registry.get_extraction_run(root, run_id)
+            source_component = components["source_artifact"]
+            body = (root / source_component.uri.removeprefix("repo://")).read_text()
+            output_dir = (root / components["candidate_graph"].uri.removeprefix("repo://")).parent
+            frozen_components, _ = _build_prepared_components(root, NormalizedExtractionSource(
+                run.source_artifact_id, "worldbuilding", body, source_component.sha256,
+                source_component.uri, run.campaign_id, None), output_dir)
+            kwargs["components"] = {**components, "source_artifact": frozen_components["source_artifact"]}
+        return original_update(root, run_id, **kwargs)
+    monkeypatch.setattr(graph_run_registry, "update_extraction_run_status", update_with_frozen_source)
     return repo
 
 
