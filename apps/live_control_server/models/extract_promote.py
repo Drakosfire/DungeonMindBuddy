@@ -290,6 +290,17 @@ class WorldbuildingPublicationBinding(_ExtractPromoteModel):
     source_sha256: str
 
 
+class WorldbuildingSourceAdmissionBinding(_ExtractPromoteModel):
+    source_artifact_id: str
+    source_revision_id: str
+    content_sha256: str
+    buddy_source_revision_id: str
+    source_locator: str
+    artifact_uri: str | None
+    catalog_fingerprint_sha256: str
+    campaign_id: None = None
+
+
 class WorldbuildingWritePlanResponse(_ExtractPromoteModel):
     schema_: Literal[
         WORLD_BUILDING_WRITE_PLAN_SCHEMA,
@@ -320,6 +331,7 @@ class WorldbuildingWritePlanResponse(_ExtractPromoteModel):
     ] = "BLD-10a prepares an inert write plan; graph confirmation is not implemented."
     prepare_binding: str | None = None
     publication_binding: WorldbuildingPublicationBinding | None = None
+    source_admission: WorldbuildingSourceAdmissionBinding | None = None
 
 
 WORLD_BUILDING_WRITE_PLAN_CONFIRM_REQUEST_SCHEMA = (

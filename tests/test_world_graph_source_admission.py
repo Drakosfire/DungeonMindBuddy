@@ -819,3 +819,37 @@ def test_internal_source_read_fails_closed_on_missing_or_stale_binding(
             "retrievalSessionId": "grs:stale", "anchorIds": ["anchor:one"],
         }, receipt_version=2)
     clear_sessions()
+
+
+def test_world_owned_source_admission_preserves_exact_none_campaign():
+    sources = InMemorySourceRepository()
+    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=sources)
+    request = WorldGraphSourceAdmissionRequest(
+        world_id=WORLD_ID, campaign_id=None,
+        source_artifact=_buddy_artifact(artifact_id=ARTIFACT_A, campaign_id=None),
+        source_revision_token=TOKEN,
+    )
+    first = adapter.prove_or_admit(request)
+    assert first.campaign_id is None
+    assert adapter.prove_or_admit(request) == first
+    assert adapter.prove(world_id=WORLD_ID, source_artifact_id=ARTIFACT_A,
+                         source_revision_id=first.source_revision_id,
+                         source_revision_token=TOKEN) == first
+
+
+def test_world_owned_request_cannot_retag_existing_campaign_source():
+    sources = InMemorySourceRepository()
+    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=sources)
+    original = adapter.prove_or_admit(WorldGraphSourceAdmissionRequest(
+        world_id=WORLD_ID, campaign_id=CAMPAIGN_ID,
+        source_artifact=_buddy_artifact(artifact_id=ARTIFACT_A), source_revision_token=TOKEN,
+    ))
+    with pytest.raises(WorldGraphSourceAdmissionError):
+        adapter.prove_or_admit(WorldGraphSourceAdmissionRequest(
+            world_id=WORLD_ID, campaign_id=None,
+            source_artifact=_buddy_artifact(artifact_id=ARTIFACT_A, campaign_id=None),
+            source_revision_token=TOKEN,
+        ))
+    assert adapter.prove(world_id=WORLD_ID, source_artifact_id=ARTIFACT_A,
+                         source_revision_id=original.source_revision_id,
+                         source_revision_token=TOKEN).campaign_id == CAMPAIGN_ID

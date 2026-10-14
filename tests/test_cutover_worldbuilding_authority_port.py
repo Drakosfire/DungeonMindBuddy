@@ -15,7 +15,16 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
-def _ingest_application_state(application_state_dsn: str) -> str:
+def _ingest_application_state(application_state_dsn: str, monkeypatch) -> str:
+    from dungeonmind.infrastructure.memory import InMemorySourceRepository
+    from apps.live_control_server.integrations.dungeonmind.world_graph_source_admission_adapter import (
+        DungeonMindWorldGraphSourceAdmissionAdapter,
+    )
+    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=InMemorySourceRepository())
+    monkeypatch.setattr(
+        "apps.live_control_server.ports.world_graph_source_admission_access.get_world_graph_source_admission_authority",
+        lambda: adapter,
+    )
     return application_state_dsn
 
 
