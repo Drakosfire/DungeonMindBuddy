@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from apps.live_control_server.config import artifact_data_root
+from apps.live_control_server.config import artifact_data_root, managed_world_data_root, ManagedWorldDataRootError
 
 from apps.live_control_server.services.source_artifact_registry import (
     SourceArtifactRegistryError,
@@ -98,6 +98,7 @@ def _map_navigation_error(exc: SourceNavigationError) -> None:
 
 def _reconcile_graph_registry_scope(
     *,
+    root: Path,
     artifact: GraphMemorySourceArtifact,
     snapshot: WorldGraphRetrievalSnapshot | None,
     graph_artifact: GraphMemorySourceArtifact | None,
@@ -112,7 +113,19 @@ def _reconcile_graph_registry_scope(
                 code="workspace_lineage_mismatch",
                 status_code=422,
             )
+        resolved_world = artifact_world
         if artifact_world != snapshot.world_id:
+            from apps.live_control_server.services.managed_world_graph_projection import (
+                resolve_managed_world_binding, WorldGraphProjectionServiceError,
+            )
+            try:
+                resolved_world = resolve_managed_world_binding(
+                    artifact_world, root=managed_world_data_root(root)
+                ).native_world_id
+            except (WorldGraphProjectionServiceError, ManagedWorldDataRootError):
+                _raise("Managed World binding is unavailable for this graph source.",
+                       code="workspace_lineage_mismatch", status_code=409)
+        if resolved_world != snapshot.world_id:
             _raise(
                 "Registry SourceArtifact world_id disagrees with the graph snapshot.",
                 code="workspace_lineage_mismatch",
@@ -220,6 +233,7 @@ def read_admitted_worldbuilding_span(
         )
 
     _reconcile_graph_registry_scope(
+        root=root,
         artifact=artifact,
         snapshot=snapshot,
         graph_artifact=graph_artifact,
@@ -270,7 +284,19 @@ def read_admitted_worldbuilding_span(
             status_code=409,
         )
 
-    relative_path = parse_repo_uri(artifact.uri)
+    from apps.live_control_server.services.graph_run_registry import (
+        GraphRunRegistryError, resolve_registered_source_snapshot,
+    )
+    frozen_source = None
+    if _normalize_sha256(workspace.content_sha256) != registry_digest or not workspace.file_exists:
+        try:
+            frozen_source = resolve_registered_source_snapshot(artifact_data_root(root), artifact)
+        except GraphRunRegistryError as exc:
+            _raise(str(exc), code="source_integrity_error", status_code=409)
+    source_uri = artifact.uri
+    if frozen_source is not None:
+        source_uri = "repo://" + frozen_source.relative_to(artifact_data_root(root).resolve()).as_posix()
+    relative_path = parse_repo_uri(source_uri)
     if relative_path is None:
         _raise(
             "Worldbuilding SourceArtifact URI must be repo:// relative.",

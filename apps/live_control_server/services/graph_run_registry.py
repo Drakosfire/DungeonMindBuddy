@@ -373,6 +373,29 @@ def get_extraction_run(root: Path, run_id: str) -> ExtractionRun:
         raise
 
 
+def resolve_registered_source_snapshot(root: Path, artifact: GraphMemorySourceArtifact) -> Path | None:
+    """Resolve an exact registered run snapshot; never select by latest content."""
+    try:
+        runs = ingest_service.list_extraction_runs(source_artifact_id=artifact.source_artifact_id)
+    except ApplicationStateError as exc:
+        _raise_registry(exc)
+    for run in sorted(runs, key=lambda item: item.run_id):
+        if run.status not in FROZEN_COMPONENT_STATUSES:
+            continue
+        source = _component_by_kind(run.components, ExtractionRunComponentKind.SOURCE_ARTIFACT)
+        index = _component_by_kind(run.components, ExtractionRunComponentKind.SOURCE_SPAN_INDEX)
+        if source is None or index is None or not index.uri.startswith("repo://"):
+            continue
+        if source.uri != index.uri.rsplit("/", 1)[0] + "/source.md":
+            continue
+        if run.source_domain != artifact.source_domain or run.campaign_id != artifact.campaign_id:
+            raise GraphRunRegistryError("Source snapshot ownership mismatch", status_code=409)
+        _assert_source_component_matches_artifact(source, artifact, index)
+        _assert_component_bytes(root, index)
+        return _assert_component_bytes(root, source, expected_digest=artifact.content_sha256)
+    return None
+
+
 def get_historical_recap_inspection(
     root: Path, run_id: str
 ) -> "HistoricalRecapInspectionResponse":
