@@ -84,3 +84,17 @@ def test_registered_gazetteer_run_retains_exact_profile_and_typed_definitions(tm
     preview = candidate_graph_preview_from_dict(result.candidate_graph)
     assert preview.session_id is None
     assert run.components["source_artifact"].uri.endswith("/source.md")
+
+
+def test_native_write_plan_retains_gazetteer_profile_and_rejects_unknown_version():
+    from tests.test_cutover_worldbuilding_authority_port import _memory_context, _plan_kwargs
+    from graph_memory.worldbuilding_write_plan import build_worldbuilding_write_plan, WorldbuildingWritePlanError
+    kwargs = _plan_kwargs(_memory_context())
+    kwargs["extraction_profile"] = "worldbuilding_gazetteer_v1@1.0"
+    plan = build_worldbuilding_write_plan(**kwargs)
+    assert plan.extraction_profile == "worldbuilding_gazetteer_v1@1.0"
+    assert plan.effect["contribution_meta"]["extraction_profile"] == "worldbuilding_gazetteer_v1@1.0"
+    kwargs["extraction_profile"] = "worldbuilding_gazetteer_v1@2.0"
+    with pytest.raises(WorldbuildingWritePlanError) as error:
+        build_worldbuilding_write_plan(**kwargs)
+    assert error.value.code == "unsupported_worldbuilding_profile"
