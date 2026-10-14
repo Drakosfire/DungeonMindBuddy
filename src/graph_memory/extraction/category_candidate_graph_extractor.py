@@ -12,8 +12,8 @@ from typing import Any, Mapping, Protocol, Sequence
 from src.bootstrap_env import load_dungeonmindbuddy_dotenv
 from src.graph_memory import identity_resolution as ir
 from src.graph_memory.anchor_quotes import coerce_anchor_quotes
+from src.graph_memory.extraction.native_edge_prompt_catalog import native_edge_prompt_markdown
 from src.graph_memory.predicate_catalog import (
-    prompt_markdown as predicate_catalog_prompt_markdown,
     predicate_family_for_type,
     validate_edge_predicate,
 )
@@ -510,7 +510,7 @@ def render_category_pass_prompts(
             "`beat_id`, `order` (positive int), `title`, `summary`, `involved_node_ids` (may be empty), `evidence_refs`.\n"
             f"{evidence_rule}\n\n## Source Packet\n\n{src}\n"
         )
-    predicate_catalog = predicate_catalog_prompt_markdown()
+    predicate_catalog = native_edge_prompt_markdown()
     edge = active_profile.edge_pass
     session_volume = ""
     relationship_sweep = ""
@@ -518,15 +518,6 @@ def render_category_pass_prompts(
         session_volume = (
             "For a session-sized graph, expect roughly 10-30 durable edges when evidence supports them; "
             "do not stop after the first few obvious edges.\n\n"
-        )
-        relationship_sweep = (
-            "## Relationship extraction sweep\n\n"
-            "Review the source and nodes systematically before returning JSON:\n"
-            "- Location containment: emit `located_in`, `part_of`, `within`, or related location predicates for gates, walls, roads, inns, rooms, settlements, and regions.\n"
-            "- Authority and command: emit `governs`, `leads`, `commands`, or `reports_to` for mayors, commanders, leaders, and organized refugee groups.\n"
-            "- Threat and displacement: emit `threatens`, `besieges`, `attacks`, or `displaced_from` for attackers, fleeing groups, sieges, and evacuation pressure.\n"
-            "- Knowledge and reports: emit `knows_about`, `aware_of`, or `reports_threat_in` for explicit knowledge, messages, warnings, and learned weaknesses.\n"
-            "- Composition and participation: emit `part_of`, `member_of`, or `participates_in` for waves, groups, encounters, and participants.\n\n"
         )
     prompts[_prompt_key(edge.pass_id)] = (
         f"# Category Graph Extraction — {edge.pass_id}\n\n{safety}\n\n{ledger}"
