@@ -733,6 +733,24 @@ def test_prepare_succeeds_with_buddy_graph_physically_absent(tmp_path, monkeypat
     _install_fake_authority(monkeypatch, fake)
     _explode_buddy_graph_runtime(monkeypatch)
     run_id, _source = _write_bld08_reviewable_run(repo, world_id="publication-managed", campaign_id="publication-managed")
+    from apps.live_control_server.services.promotable_ingest_run import resolve_promotable_ingest_run
+    from apps.live_control_server.services.source_artifact_registry import get_source_artifact
+    from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
+    from apps.live_control_server.services.tiptap_markdown_write import (
+        prepare_tiptap_markdown_write, commit_tiptap_markdown_write,
+        TiptapMarkdownWritePrepareRequest, TiptapMarkdownWriteCommitRequest,
+    )
+    frozen = resolve_promotable_ingest_run(run_id, root=repo)
+    artifact = get_source_artifact(repo, frozen.source_artifact_id)
+    before = get_workspace_document_snapshot(repo, artifact.workspace_document_id)
+    updated_text = before.markdown + "\nLater document edit, absent from the frozen extraction.\n"
+    prepared_write = prepare_tiptap_markdown_write(root=repo, request=TiptapMarkdownWritePrepareRequest(
+        document_id=before.record.document_id, markdown=updated_text,
+        expected_revision=before.loaded_revision, write_mode="authoring"))
+    commit_tiptap_markdown_write(root=repo, request=TiptapMarkdownWriteCommitRequest(
+        document_id=before.record.document_id, markdown=updated_text,
+        expected_revision=before.loaded_revision, write_mode="authoring",
+        writer_confirm_token=prepared_write.writer_confirm_token))
     request = WorldbuildingWritePlanPrepareRequest.model_validate(
         {
             "runId": run_id,
@@ -755,10 +773,19 @@ def test_prepare_succeeds_with_buddy_graph_physically_absent(tmp_path, monkeypat
     assert not (repo / "out/registries/worldbuilding_identity_checkpoints.json").exists()
 
 
+    assert plan.publication_binding.document_revision == artifact.workspace_document_revision
+    assert plan.publication_binding.source_sha256 == artifact.content_sha256
+    assert get_workspace_document_snapshot(repo, before.record.document_id).loaded_revision > artifact.workspace_document_revision
     assert plan.world_id == native_id
     assert plan.publication_binding.managed_world_id == "publication-managed"
     from apps.live_control_server.models.extract_promote import WorldbuildingWritePlanConfirmRequest
     from apps.live_control_server.services.worldbuilding_graph_publication import confirm_worldbuilding
+    forged = plan.model_copy(update={"publication_binding": plan.publication_binding.model_copy(
+        update={"document_revision": plan.publication_binding.document_revision + 1})})
+    with pytest.raises(Exception) as forged_error:
+        confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=forged))
+    assert forged_error.value.code == "worldbuilding_source_binding_changed"
+    assert fake.publish_calls == 0
     import json
     registry_path = repo / "out/registries/world_containers.json"
     original_registry = registry_path.read_text()
@@ -773,6 +800,18 @@ def test_prepare_succeeds_with_buddy_graph_physically_absent(tmp_path, monkeypat
     first = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
     assert first.outcome == "committed"
     assert first.world_id == native_id
+    original_recover = fake.recover
+    def changing_recover(*args, **kwargs):
+        receipt = original_recover(*args, **kwargs)
+        registry_path.write_text(json.dumps(changed_registry))
+        return receipt
+    monkeypatch.setattr(fake, "recover", changing_recover)
+    with pytest.raises(Exception) as recovery_error:
+        confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
+    assert recovery_error.value.code == "worldbuilding_source_binding_changed"
+    assert fake.publish_calls == 1
+    registry_path.write_text(original_registry)
+    monkeypatch.setattr(fake, "recover", original_recover)
     retry = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
     assert retry.outcome == "already_applied"
     assert fake.publish_calls == 1
