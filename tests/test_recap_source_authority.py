@@ -53,3 +53,17 @@ def test_mixed_claim_is_deferred_whole_even_with_an_allowed_citation():
     assert out["deferred_items"] == [record]
     assert deferred[0]["evidence_refs"] == record["evidence_refs"]
     assert parsed["observation_nodes"] == [record]
+
+
+def test_standalone_bold_recap_marker_resumes_played_content():
+    for marker in ["**Recap**:", "**Recap:**", "__Recap__:"]:
+        text = "## Next Beats :\nFuture reward.\n\n" + marker + "\n\nThe party enters a room."
+        kept, withheld, _ = partition_recap_source_rows(rows(text), text)
+        assert [r["text"] for r in kept] == [marker, "The party enters a room."]
+        assert [r["text"] for r in withheld] == ["## Next Beats :", "Future reward."]
+
+
+def test_quoted_fenced_or_prose_recap_marker_does_not_end_planning():
+    text = "## Next Beats\n> **Recap**:\n```text\n**Recap**:\n```\n**Recap**: proposed future scene.\nGive a reward."
+    kept, withheld, _ = partition_recap_source_rows(rows(text), text)
+    assert not kept and withheld == rows(text)
