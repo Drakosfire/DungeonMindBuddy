@@ -365,6 +365,12 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
       }
 
       const { response, envelope } = commandResult.value;
+      const expectedProfile = profile === "gazetteer" ? "worldbuilding_gazetteer_v1@1.0" : "worldbuilding_shepherds_flock_v0@0.1";
+      if (response.run.profile_id !== expectedProfile) {
+        setHandoff(null);
+        setError("Extraction returned a different or missing profile. Review is unavailable; refresh server configuration before trying again.");
+        return;
+      }
       const validation = validateExactRunIdentity({
         selectedDocumentId,
         requestedRunId: response.run.run_id,

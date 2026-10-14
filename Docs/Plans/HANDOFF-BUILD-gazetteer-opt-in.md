@@ -18,3 +18,7 @@ old-run profile on reopen; selecting profile cannot alter an in-flight request.
 No source edits, automatic extraction/publication, World overrides or credentials.
 Verify submitted exact pair, pilot unchanged, switches/document navigation, stale
 responses and stored run identity. Pin exact server merge before activation.
+
+Scope amendment: existing BuildIngestToolbar.test.tsx fixture now records real
+returned pilot profile; preserve all original owning cases. New launch must match
+returned composite profile; historical reopen retains run-recorded identity.
