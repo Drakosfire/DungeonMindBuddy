@@ -37,6 +37,7 @@ from src.graph_memory.extraction.extraction_profile import (
     require_admitted_profile,
 )
 from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
+from src.graph_memory.extraction import worldbuilding_gazetteer_profile as _gazetteer_profiles  # noqa: F401
 from src.graph_memory.vocabulary.model import ContextVocabularyPacket
 
 # Ensure profiles register on import.
