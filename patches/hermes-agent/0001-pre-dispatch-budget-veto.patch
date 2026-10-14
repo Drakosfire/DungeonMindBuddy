@@ -159,17 +159,24 @@ index b93dcf6..a8c5b73 100644
          msg["codex_reasoning_items"] = codex_items
  
 diff --git a/agent/codex_runtime.py b/agent/codex_runtime.py
-index c1e46e8..9f8ac67 100644
+index c1e46e8..9857b42 100644
 --- a/agent/codex_runtime.py
 +++ b/agent/codex_runtime.py
-@@ -848,9 +848,59 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
+@@ -848,9 +848,65 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
      the terminal event's ``output`` field.
      """
      import httpx as _httpx
 +    from agent.api_request_budget import ApiRequestBudgetVeto
  
      active_client = client or agent._ensure_primary_openai_client(reason="codex_stream_direct")
-     max_stream_retries = 1
+-    max_stream_retries = 1
++    # The conversation loop's parent authorization is single-use. A local
++    # retry here would enter the SDK again without returning through that
++    # guard, so guarded turns rely on the outer loop to make a new authorized
++    # attempt. Preserve the established in-function retry for legacy callers.
++    max_stream_retries = (
++        0 if callable(getattr(agent, "api_request_budget_guard", None)) else 1
++    )
 +
 +    def lifecycle(transition: str) -> bool:
 +        callback = getattr(agent, "api_provider_lifecycle_callback", None)
@@ -222,7 +229,7 @@ index c1e46e8..9f8ac67 100644
      # Accumulate streamed text so callers / compat shims can read it.
      agent._codex_streamed_text_parts: list = []
  
-@@ -878,7 +928,21 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
+@@ -878,7 +934,21 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
  
          try:
              event_stream = active_client.responses.create(**stream_kwargs)
@@ -244,7 +251,7 @@ index c1e46e8..9f8ac67 100644
              if attempt < max_stream_retries:
                  logger.debug(
                      "Codex Responses stream connect failed (attempt %s/%s); retrying. %s error=%s",
-@@ -887,11 +951,18 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
+@@ -887,11 +957,18 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
                  )
                  continue
              raise
@@ -263,7 +270,7 @@ index c1e46e8..9f8ac67 100644
                  return event_stream
  
              try:
-@@ -905,6 +976,9 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
+@@ -905,6 +982,9 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
                      interrupt_check=_interrupt_check,
                  )
              except (_httpx.RemoteProtocolError, _httpx.ReadTimeout, _httpx.ConnectError, ConnectionError) as exc:
@@ -273,7 +280,7 @@ index c1e46e8..9f8ac67 100644
                  if attempt < max_stream_retries:
                      logger.debug(
                          "Codex Responses stream transport failed mid-iteration "
-@@ -915,6 +989,17 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
+@@ -915,6 +995,17 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
                      continue
                  raise
  
