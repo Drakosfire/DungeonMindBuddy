@@ -1,0 +1,13 @@
+# BUILD: Worldbuilding observation consumer
+
+Status: ACTIVE. Core #119 independently accepted at7bf6379 and merged108dd6942cfa25ba33e1d40469ccf0b153172ab3. PRIME implements solo under authorized Mirathorn lifecycle; ARCHITECTURE reviews. Base Buddy98244b31044b702ef010569c06cf6cdc74fe298a; branch codex/worldbuilding-observation-consumer; non-serving /tmp/buddy-worldbuilding-passage-composition.
+
+Topology: serial consumer after exact accepted Core merge. No unmerged implementation dependency will be pinned. Frozen recap PRs1139/1142–1149 are disjoint from observation transport/claim classification; their activation remains unchanged. Stale rules dependency lease #763 is suspended; this slice owns the dependency pin on activation.
+
+Contract: transport and GraphClaim accept only session_observation or worldbuilding_observation from the Core finalized-review facet. Classifier retains actual kind as predicate/observation_kind, refuses unsupported kind and incomplete review/evidence identity, and requires anchors covering every evidence ref. Preserve accepted source-derived authority; no canonical-summary rewrite or source-disposition inference.
+
+Exclusive write set: this handoff; pyproject.toml; uv.lock; apps/live_control_server/models/world_graph_object_projection.py; src/graph_memory/interaction/claims.py; src/graph_memory/interaction/authority_classifier.py; tests/test_worldbuilding_observation_consumer.py. No schema/database/corpus/source-profile/serving changes or model calls. Dependency owner merge must be exact and lock verified.
+
+Proof: actual Core typed worldbuilding facet serializes through Buddy and yields six separately identified claims retaining kind, source/review/revision, text and anchors; existing session behavior survives. Unknown kind, missing review/source identity and missing/partial anchor support are excluded or rejected at owning boundary. Session persistence serialization roundtrip and answer validator preserve claimed refs. Nonempty authored prose is not overwritten. Ordinary PostgreSQL publication/body-open/restart witness remains required for end-to-end adoption; mock/helper tests cannot establish it.
+
+Predecessor sync: Core #118 settled85f0336; Core #119 settled108dd6942cfa25ba33e1d40469ccf0b153172ab3; adopt that exact pin. Buddy organization-kind #1161 settled98244b31. Core owning evidence:125focused tests, strengthened15conformance independently passed; actual finalized in-memory facet proof, PG/restart/bodyopening still separate. PRIME owns postmerge re-anchor; DOGFOOD runtime adoption remains under a separate pinned lease, source identity/fidelity/publication disposition still held. This consumer does not publish or declare Mirathorn complete.

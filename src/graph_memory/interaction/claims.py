@@ -106,7 +106,7 @@ class GraphClaim(BaseModel):
     def _require_reviewed_source_identity(self) -> GraphClaim:
         if self.claim_kind == "source_observation" and (
             self.authority_class != "source_derived_accepted_assertion"
-            or self.observation_kind != "session_observation"
+            or self.observation_kind not in {"session_observation", "worldbuilding_observation"}
             or self.source_assertion_id != self.claim_id
             or not self.subject_node_id
             or not self.value_text
