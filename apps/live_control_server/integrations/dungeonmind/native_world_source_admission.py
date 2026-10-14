@@ -244,6 +244,14 @@ def _load_exact_snapshot(
     return snapshot, body_bytes, actual_digest, admission_id, world_binding
 
 
+def _require_source_binding(root, managed_world_id, sealed_binding):
+    if _source_world_binding(root, managed_world_id) != sealed_binding:
+        raise NativeWorldSourceAdmissionError(
+            "native_graph_binding_changed",
+            "Source World binding changed; any completed admission remains in its original native World",
+        )
+
+
 def _origin(snapshot: WorkspaceDocumentSnapshot) -> NativeTextSourceOriginV1:
     return NativeTextSourceOriginV1(
         namespace=ORIGIN_NAMESPACE,
@@ -261,6 +269,8 @@ def _verify_receipt_and_source(
     admission_id: str,
     receipt,
     native_world_id: str,
+    root,
+    sealed_world_binding,
 ) -> NativeWorldSourceAdmissionStatus:
     record = snapshot.record
     world_id = record.world_id
@@ -303,6 +313,7 @@ def _verify_receipt_and_source(
         raise NativeWorldSourceAdmissionError(
             "admission_readback_mismatch", "DungeonMind did not return the exact admitted source bytes"
         )
+    _require_source_binding(root, world_id, sealed_world_binding)
     return NativeWorldSourceAdmissionStatus(
         state="admitted",
         world_id=world_id,
@@ -362,6 +373,7 @@ def get_native_world_source_status(
             body_sha256=body_sha256,
             admission_id=admission_id,
         )
+    _require_source_binding(root, world_id, sealed_world_binding)
     if receipt is None:
         return NativeWorldSourceAdmissionStatus(
             state="pending",
@@ -383,6 +395,7 @@ def get_native_world_source_status(
             admission_id=admission_id,
             receipt=receipt,
             native_world_id=native_world_id,
+            root=root, sealed_world_binding=sealed_world_binding,
         )
     except NativeWorldSourceAdmissionError as exc:
         if exc.code != "authority_unavailable":
@@ -425,12 +438,14 @@ def admit_native_world_source(
             admission_id=admission_id,
             receipt=prior,
             native_world_id=native_world_id,
+            root=root, sealed_world_binding=sealed_world_binding,
         )
 
     created_at = _parse_timestamp(
         get_world_container(config.managed_world_data_root(root), world_id).created_at,
         field="managed World created_at",
     )
+    _require_source_binding(root, world_id, sealed_world_binding)
     initialization_id = _stable_id("dmb-world-genesis", native_world_id)
     try:
         initialize_empty_knowledge_space(
@@ -454,6 +469,7 @@ def admit_native_world_source(
             head = repository.get_head(native_world_id)
         except Exception as exc:
             raise _authority_failure(exc, default_code="native_status_failed") from exc
+        _require_source_binding(root, world_id, sealed_world_binding)
         if head is None:
             raise NativeWorldSourceAdmissionError(
                 "native_genesis_missing", "Native World initialization did not create a head", status_code=503
@@ -478,6 +494,7 @@ def admit_native_world_source(
             origin=expected_origin,
             spans=[span],
         )
+        _require_source_binding(root, world_id, sealed_world_binding)
         try:
             receipt = publish_native_text_source_evidence(
                 repository=repository,
@@ -493,6 +510,7 @@ def admit_native_world_source(
                 admission_id=admission_id,
                 receipt=receipt,
                 native_world_id=native_world_id,
+                root=root, sealed_world_binding=sealed_world_binding,
             )
         except Exception as exc:
             try:
@@ -512,6 +530,7 @@ def admit_native_world_source(
                     admission_id=admission_id,
                     receipt=recovered,
                     native_world_id=native_world_id,
+                    root=root, sealed_world_binding=sealed_world_binding,
                 )
             if type(exc).__name__ != "KnowledgeStaleParentRevisionError" or attempt + 1 >= MAX_ADMISSION_ATTEMPTS:
                 mapped = _authority_failure(exc, default_code="native_admission_failed")
