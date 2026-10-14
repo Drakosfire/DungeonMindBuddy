@@ -7,7 +7,8 @@ from src.graph_memory.extraction.worldbuilding_profile_catalog import PUBLISHABL
 
 def test_closed_publication_profiles_preserve_pilot_and_exact_gazetteer_version():
     assert set(PUBLISHABLE_WORLDBUILDING_PROFILES) == {
-        "worldbuilding_shepherds_flock_v0@0.1", "worldbuilding_gazetteer_v1@1.0"}
+        "worldbuilding_shepherds_flock_v0@0.1", "worldbuilding_gazetteer_v1@1.0",
+        "worldbuilding_gazetteer_v1@1.1"}
     assert "worldbuilding_gazetteer_v1@2.0" not in PUBLISHABLE_WORLDBUILDING_PROFILES
     assert "worldbuilding_plumbing_v0@0.1" not in PUBLISHABLE_WORLDBUILDING_PROFILES
 

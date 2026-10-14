@@ -1983,6 +1983,14 @@ def run_category_pipeline(
         envelope,
         drop_empty_evidence_edges=inherit_edge_evidence,
     )
+    if active_profile.source_section_retainer is not None:
+        candidate_graph, retention_diagnostics = active_profile.source_section_retainer(
+            candidate_graph, source_rows,
+        )
+        stamp_graph_evidence_refs(
+            candidate_graph, source_artifact_id=source_artifact_id, source_ref_id=source_ref_id,
+        )
+        merged_diag["source_section_retention"] = retention_diagnostics
     registry_context_graph: dict[str, Any] | None = None
     if standing_parts.get("nodes"):
         ensure_standing_warning(standing_parts)
