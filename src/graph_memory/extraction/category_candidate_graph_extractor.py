@@ -445,8 +445,13 @@ def _prompt_key(pass_name: str) -> str:
 def _source_packet_md(rows: Sequence[dict[str, Any]]) -> str:
     parts: list[str] = []
     for row in rows:
+        span_ref = row['source_span_ref_id']
+        unit_ref = row.get('source_unit_id')
+        identifiers = str(span_ref)
+        if unit_ref and unit_ref != span_ref:
+            identifiers += f" / {unit_ref}"
         parts.append(
-            f"### {row['source_span_ref_id']} / {row['source_unit_id']} / "
+            f"### {identifiers} / "
             f"lines {row['line_start']}-{row['line_end']}\n\n"
             f"```text\n{row['text']}\n```"
         )
