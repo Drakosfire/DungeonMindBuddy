@@ -62,6 +62,15 @@ Stop if the pinned producer cannot distinguish a category deterministically; if 
 
 ## Implementation evidence
 
-- Handoff pin commit: to be recorded after this file is committed on the isolated branch.
-- Implementation head, test results, cumulative diff, and deviations: pending.
+- Handoff pin commit: `b5ed0004479680e5b6d95269602c10c3aed6e604`.
+- Implementation commit: `972c2687c13268687392ee767f99d09eec18a41b`; intended PR base remains `ac46913b596ef76b73bba7a73ec8a76ecd926116`.
+- The pinned Hermes patch applies cleanly to upstream `861d69c7bba8d2ea6a1cd170e989c901c74d32d1` (`git apply --check`). Its SHA-256 is `8142018a4898363263ecbfad6cd203d7ced5a5addfd26474f0bbc2f53d12832e`; prepared source tree is `c47ace962951bb5e58a62afe128f6656e4cff577`.
+- Producer acceptance: `tests/hermes_patch/test_pre_dispatch_budget_veto.py::test_pinned_hermes_dispatch_boundary_suite` passed (the pinned-source subprocess reports 16 passed).
+- New diagnostic/owning-boundary acceptance: 33 passed across the complete result-contract file and the producer-result, runtime-metadata, serialized worker IPC, and parent persistence/logging witnesses. The parent fixture proves the provider outcome remains unknown, no answer is fabricated, and redispatch stays blocked.
+- `ruff check` passed on all changed Python files; `compileall` passed on those files. `git diff --check` passed on source/test/contract files. The source patch file is a unified patch whose context lines contain standard patch-format whitespace; its validity is separately proven by the exact-upstream `git apply --check` above.
+- Two broader existing tests fail identically on the exact base under the same borrowed interpreter: `test_mixed_plugin_capability_policy_loads_both_surfaces` (OpenRouter model metadata cannot resolve in this network-restricted environment) and `test_lifecycle_transport_failure_is_unknown_and_never_retried` (the existing fixture receives no lifecycle events). Neither failure is changed by this diff. PRIME directed keeping both as recorded baseline failures and limiting this slice to its owned acceptance witnesses.
+- `uv sync --locked` could not fetch pinned Git dependencies because DNS/network access is unavailable. Tests used the existing nonserving interpreter `/tmp/buddy-r6-json-reliability/.venv/bin/python`; no provider request, live edit, or service restart was made.
+- Cumulative diff is limited to the 11 leased paths listed above; generated `out/hermes-agent` remains ignored test output and is not checked in. No deviations from the bounded diagnostic objective. The old Mirathorn/Q04 cause remains unknown; the new record improves evidence for reproduced/future failures only.
+- The exact cumulative base→implementation commit diff is 11 leased paths, 691 insertions and 55 deletions. It preserves the existing terminal failure code and durable unknown/no-redispatch behavior; the only new runtime surface is an allowlisted optional `terminalFailure` record on error results.
+- Final branch head and PR number: pending handoff evidence commit, push, and PR creation.
 - Acceptance token: `APP_STATE_PROVIDER_LIFECYCLE_DIAGNOSTICS_ACCEPTED` (pending PRIME review).
