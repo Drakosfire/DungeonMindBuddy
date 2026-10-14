@@ -3272,3 +3272,56 @@ def test_budget_veto_family_maps_at_public_result_and_preserves_prior_attempt(
     assert len(result.model_calls) == 1
     assert result.model_calls[0]["runtime_api_request_id"] == request_id
     assert result.telemetry_warnings == []
+
+
+def test_provider_lifecycle_diagnostic_is_projected_onto_typed_result(tmp_path: Path):
+    class VetoAgent:
+        def __init__(self, **kwargs):
+            self.session_id = kwargs.get("session_id")
+
+        def run_conversation(self, user_message, **_kwargs):
+            assert user_message == "Continue the bounded conversation."
+            return {
+                "messages": [],
+                "failure_reason": "request_budget_veto",
+                "failure_code": "provider_lifecycle_unavailable",
+                "failure_diagnostic": {
+                    "reason": "provider_transport_ambiguous",
+                    "transition": "outcome_unknown",
+                    "acknowledged": True,
+                    "transport_exception_class": "ConnectError",
+                    "exception_text": "PRIVATE_TRANSPORT_BODY",
+                },
+            }
+
+    result = run_hermes_graph_agent_turn(
+        HermesGraphAgentTurnRequest(
+            question="Continue the bounded conversation.",
+            world_id=None,
+            campaign_id=None,
+            scope_mode=None,
+            capability_policy=default_conversation_only_capability_policy(),
+            request_budget={
+                "schema": "dmb_hermes_request_budget_policy_v1",
+                "provider": "openai-api",
+                "model": "synthetic-model",
+                "apiMode": "chat_completions",
+                "estimator": "utf8_json_bytes_plus_64_per_node_v1",
+                "contextLimitTokens": 32768,
+                "outputReserveTokens": 1024,
+            },
+            root=tmp_path,
+        ),
+        agent_factory=VetoAgent,
+    )
+    assert result.status == "error"
+    assert result.error_code == "provider_lifecycle_unavailable"
+    assert result.final_response is None
+    assert result.terminal_failure == {
+        "phase": "provider_lifecycle",
+        "reason": "provider_transport_ambiguous",
+        "transition": "outcome_unknown",
+        "acknowledged": True,
+        "transportExceptionClass": "ConnectError",
+    }
+    assert "PRIVATE_TRANSPORT_BODY" not in repr(result.terminal_failure)

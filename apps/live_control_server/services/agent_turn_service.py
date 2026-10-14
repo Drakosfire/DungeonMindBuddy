@@ -94,6 +94,9 @@ from apps.live_control_server.services.agent_world_graph_query_context import (
 from apps.live_control_server.services.hermes_agent_runtime import (
     default_hermes_agent_runtime,
 )
+from apps.live_control_server.services.hermes_graph_agent_contract import (
+    validate_terminal_failure_record,
+)
 from apps.live_control_server.services.hermes_session_store import (
     HermesSessionPointerStore,
     HermesStructuredPointerResolution,
@@ -5150,26 +5153,47 @@ def execute_agent_turn(
                 safe_code = "invalid"
             phase = "none"
             phase_status = "none"
-            spans = policy_result.runtime_metadata.get("host_phase_spans")
-            if isinstance(spans, list) and spans and isinstance(spans[-1], Mapping):
-                candidate = spans[-1].get("name")
-                if isinstance(candidate, str) and re.fullmatch(
-                    r"[a-z][a-z0-9_]{0,63}", candidate
-                ):
-                    phase = candidate
-                candidate_status = spans[-1].get("status")
-                phase_status = (
-                    candidate_status if candidate_status in ("ok", "error") else "invalid"
+            terminal_reason = "none"
+            lifecycle_transition = "none"
+            lifecycle_acknowledged = "none"
+            transport_exception_class = "none"
+            terminal_failure = validate_terminal_failure_record(
+                policy_result.runtime_metadata.get("terminal_failure")
+            )
+            if terminal_failure is not None:
+                phase = "provider_lifecycle"
+                phase_status = "error"
+                terminal_reason = terminal_failure["reason"]
+                lifecycle_transition = terminal_failure["transition"]
+                lifecycle_acknowledged = str(terminal_failure["acknowledged"]).lower()
+                transport_exception_class = terminal_failure.get(
+                    "transportExceptionClass", "none"
                 )
+            spans = policy_result.runtime_metadata.get("host_phase_spans")
+            if terminal_failure is None and isinstance(spans, list):
+                for span in reversed(spans):
+                    if not isinstance(span, Mapping) or span.get("status") != "error":
+                        continue
+                    candidate = span.get("name")
+                    if isinstance(candidate, str) and re.fullmatch(
+                        r"[a-z][a-z0-9_]{0,63}", candidate
+                    ):
+                        phase = candidate
+                        phase_status = "error"
+                        break
             parent_code = "none" if adapter.failure is None else adapter.failure.code
             if not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", parent_code):
                 parent_code = "invalid"
             _LOG.warning(
-                "plan_graph_runtime_failure status=%s error_code=%s phase=%s phase_status=%s parent_authorized=%s turn_exists=%s parent_failure_code=%s",
+                "plan_graph_runtime_failure status=%s error_code=%s phase=%s phase_status=%s terminal_reason=%s lifecycle_transition=%s lifecycle_acknowledged=%s transport_exception_class=%s parent_authorized=%s turn_exists=%s parent_failure_code=%s",
                 policy_result.status if policy_result.status in ("ok", "error") else "invalid",
                 safe_code,
                 phase,
                 phase_status,
+                terminal_reason,
+                lifecycle_transition,
+                lifecycle_acknowledged,
+                transport_exception_class,
                 adapter.last_provider_attempt_id is not None,
                 policy_turn is not None,
                 parent_code,

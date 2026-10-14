@@ -112,8 +112,34 @@ _RESULT_ALLOWED_KEYS = frozenset(
         "modelCalls",
         "telemetryWarnings",
         "observedModelCallCount",
+        "terminalFailure",
     }
 )
+_TERMINAL_FAILURE_ALLOWED_KEYS = frozenset(
+    {
+        "phase",
+        "reason",
+        "transition",
+        "acknowledged",
+        "transportExceptionClass",
+        "responseStatus",
+    }
+)
+_TERMINAL_FAILURE_REASONS = frozenset(
+    {
+        "lifecycle_ack_denied",
+        "provider_transport_ambiguous",
+        "provider_exception_ambiguous",
+        "provider_response_incomplete",
+    }
+)
+_PROVIDER_LIFECYCLE_TRANSITIONS = frozenset(
+    {"sdk_entered", "response_received", "outcome_unknown"}
+)
+_SAFE_TRANSPORT_EXCEPTION_CLASSES = frozenset(
+    {"RemoteProtocolError", "ReadTimeout", "ConnectError", "ConnectionError"}
+)
+_SAFE_PROVIDER_RESPONSE_STATUSES = frozenset({"incomplete", "failed", "other"})
 _MODEL_CALL_ALLOWED_KEYS = frozenset(
     {
         "call_id",
@@ -241,6 +267,7 @@ class HermesGraphAgentTurnResult:
     model_calls: list[dict[str, Any]] = field(default_factory=list)
     telemetry_warnings: list[str] = field(default_factory=list)
     observed_model_call_count: int | None = None
+    terminal_failure: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1254,6 +1281,87 @@ def _serialize_model_call(call: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def _serialize_terminal_failure(value: Any) -> dict[str, Any]:
+    """Rebuild bounded provider-lifecycle facts; never copy worker values through."""
+    if not isinstance(value, Mapping):
+        raise ValueError("terminalFailure must be a mapping")
+    _reject_unknown_keys(value, _TERMINAL_FAILURE_ALLOWED_KEYS, label="terminalFailure")
+    if value.get("phase") != "provider_lifecycle":
+        raise ValueError("terminalFailure.phase is unsupported")
+    reason = value.get("reason")
+    if not isinstance(reason, str) or reason not in _TERMINAL_FAILURE_REASONS:
+        raise ValueError("terminalFailure.reason is unsupported")
+    transition = value.get("transition")
+    if not isinstance(transition, str) or transition not in _PROVIDER_LIFECYCLE_TRANSITIONS:
+        raise ValueError("terminalFailure.transition is unsupported")
+    acknowledged = value.get("acknowledged")
+    if not isinstance(acknowledged, bool):
+        raise ValueError("terminalFailure.acknowledged must be boolean")
+
+    result: dict[str, Any] = {
+        "phase": "provider_lifecycle",
+        "reason": reason,
+        "transition": transition,
+        "acknowledged": acknowledged,
+    }
+    exception_class = value.get("transportExceptionClass")
+    if exception_class is not None:
+        if (
+            not isinstance(exception_class, str)
+            or exception_class not in _SAFE_TRANSPORT_EXCEPTION_CLASSES
+            or reason != "provider_transport_ambiguous"
+        ):
+            raise ValueError("terminalFailure.transportExceptionClass is unsupported")
+        result["transportExceptionClass"] = exception_class
+
+    response_status = value.get("responseStatus")
+    if response_status is not None:
+        if (
+            not isinstance(response_status, str)
+            or response_status not in _SAFE_PROVIDER_RESPONSE_STATUSES
+            or reason != "provider_response_incomplete"
+        ):
+            raise ValueError("terminalFailure.responseStatus is unsupported")
+        result["responseStatus"] = response_status
+
+    if reason == "provider_response_incomplete" and response_status is None:
+        raise ValueError("terminalFailure.responseStatus is required")
+    if reason != "provider_response_incomplete" and response_status is not None:
+        raise ValueError("terminalFailure.responseStatus is only valid for incomplete responses")
+    if reason != "provider_transport_ambiguous" and exception_class is not None:
+        raise ValueError("terminalFailure.transportExceptionClass is only valid for transport failures")
+    if reason == "lifecycle_ack_denied" and acknowledged:
+        raise ValueError("terminalFailure acknowledgement-denied reason requires a false acknowledgement")
+    if reason in {"provider_transport_ambiguous", "provider_exception_ambiguous", "provider_response_incomplete"} and transition != "outcome_unknown":
+        raise ValueError("terminalFailure ambiguous outcome requires outcome_unknown transition")
+    return result
+
+
+def sanitize_terminal_failure_diagnostic(value: Any) -> dict[str, Any] | None:
+    """Project producer metadata onto the strict, safe result-contract allowlist."""
+    if not isinstance(value, Mapping):
+        return None
+    candidate: dict[str, Any] = {
+        "phase": "provider_lifecycle",
+        "reason": value.get("reason"),
+        "transition": value.get("transition"),
+        "acknowledged": value.get("acknowledged"),
+    }
+    if "transport_exception_class" in value:
+        candidate["transportExceptionClass"] = value.get("transport_exception_class")
+    if "response_status" in value:
+        candidate["responseStatus"] = value.get("response_status")
+    return validate_terminal_failure_record(candidate)
+
+
+def validate_terminal_failure_record(value: Any) -> dict[str, Any] | None:
+    """Validate and rebuild a camel-case terminal failure wire record."""
+    try:
+        return _serialize_terminal_failure(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def serialize_hermes_graph_agent_turn_result(
     result: HermesGraphAgentTurnResult,
 ) -> dict[str, Any]:
@@ -1288,6 +1396,13 @@ def serialize_hermes_graph_agent_turn_result(
         if not isinstance(result.retrieval_session, Mapping):
             raise ValueError("retrievalSession must be a mapping or null")
         retrieval_session = dict(result.retrieval_session)
+    terminal_failure = (
+        None
+        if result.terminal_failure is None
+        else _serialize_terminal_failure(result.terminal_failure)
+    )
+    if terminal_failure is not None and result.status != "error":
+        raise ValueError("terminalFailure is only valid on an error result")
     payload = {
         "status": result.status,
         "finalResponse": final_response,
@@ -1312,6 +1427,8 @@ def serialize_hermes_graph_agent_turn_result(
         "modelCalls": [_serialize_model_call(call) for call in model_calls],
         "telemetryWarnings": telemetry_warnings,
     }
+    if terminal_failure is not None:
+        payload["terminalFailure"] = terminal_failure
     # Explicit zero is proof of no call; truncation also requires the full count.
     if result.observed_model_call_count is not None or observed_model_call_count > len(model_calls):
         payload["observedModelCallCount"] = observed_model_call_count
@@ -1467,6 +1584,14 @@ def deserialize_hermes_graph_agent_turn_result(
         raise ValueError("modelCalls entries must be mappings")
     if observed_model_call_count is not None:
         observed_model_call_count = max(observed_model_call_count, len(model_calls))
+    terminal_failure_raw = payload.get("terminalFailure")
+    terminal_failure = (
+        None
+        if terminal_failure_raw is None
+        else _serialize_terminal_failure(terminal_failure_raw)
+    )
+    if terminal_failure is not None and status != "error":
+        raise ValueError("terminalFailure is only valid on an error result")
     return HermesGraphAgentTurnResult(
         status=status,  # type: ignore[arg-type]
         final_response=final_response,
@@ -1490,6 +1615,7 @@ def deserialize_hermes_graph_agent_turn_result(
         model_calls=model_calls,
         telemetry_warnings=telemetry_warnings,
         observed_model_call_count=observed_model_call_count,
+        terminal_failure=terminal_failure,
     )
 
 
