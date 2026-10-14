@@ -42,4 +42,11 @@ Preserve World/revision/source authority, exact denial matching, provider author
 
 ## Evidence
 
-Handoff pin and implementation head: pending. Acceptance token: `APP_STATE_GRAPH_REQUEST_RECOVERY_ACCEPTED` (pending PRIME review).
+- Handoff pin: `dc957dc61c399a793210c4404ef27aefa198b5a9`; implementation commit: `cb1744826a01ee6a1ab8dd81d157d7eb48e4f105`.
+- The new catch surrounds only pre-IO `ExpandGraphRetrievalRequest.model_validate`. It returns 422 through the existing exact-denial recorder; static published-field guidance excludes invalid values, extra-field names, exception text, and source content. The native-read/result/persistence exception handler is unchanged.
+- Focused owning-boundary suite: **23 passed**, covering four malformed input cases, corrected request through the native adapter with an honest empty synthetic result and subsequent provider authorization, post-IO transport/response-validation/persistence uncertainty, revision denial, forged-denial rejection, V3 source admission, and provider lifecycle/persistence fences.
+- Expanded owning module (one known stalled HTTP case deselected): **127 passed, 2 failed, 5 setup errors**. Both `test_reconciled_turn_context_policy_before_provider_freeze` failures (`unfrozen`, `frozen-v1`) reproduce identically on deployed base `d0c2b32`. Five real-PostgreSQL mounted tests could not connect to a disposable test database; their bodies were not verified here. The excluded HTTP history test was reproduced on the base under a 15-second timeout (exit 124), with its stack blocked in `TestClient.__enter__`/AnyIO.
+- Ruff and `git diff --check` passed. `uv sync --locked --offline` synchronized current-main dependencies from local caches in this nonserving lane.
+- Cumulative base→head inspection contains exactly the three leased paths. Existing structural target cardinality and technical context/count/storage/deadline contracts are unchanged. No Graph/provider execution, live edit, restart, or fresh product probe occurred.
+- The supplied live artifacts prove request-schema validation failed before native IO. They do not preserve which model-supplied field was invalid; no claim is made that this synthetic input is the live input. DGF retains any later live validation/adoption authority.
+- Acceptance token: `APP_STATE_GRAPH_REQUEST_RECOVERY_ACCEPTED` (pending PRIME review).
