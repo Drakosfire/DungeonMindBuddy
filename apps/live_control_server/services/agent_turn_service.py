@@ -390,6 +390,31 @@ def _require_fresh_execution_append(result: tuple[Any, bool]) -> Any:
     return result[0]
 
 
+def _safe_graph_request_validation_message(exc: ValidationError) -> str:
+    """Explain rejected input using published field guidance, never input values."""
+    hints = {
+        "schema": "Use schema dmb_expand_graph_retrieval_request_v1.",
+        "retrievalSessionId": "Use the retrievalSessionId supplied for this turn.",
+        "operation": "operation must be object, neighborhood, search, or support.",
+        "targets": "targets must be a list of at most 8 node targets with nonempty id.",
+        "queryText": "queryText must be text or null.",
+        "depth": "depth must be 1 or 2.",
+        "historicalRevisionId": "historicalRevisionId must be text or null.",
+    }
+    rejected_fields: set[str] = set()
+    extra_fields = False
+    for error in exc.errors(include_input=False, include_context=False, include_url=False):
+        location = error.get("loc", ())
+        if location and location[0] in hints:
+            rejected_fields.add(location[0])
+        if error.get("type") == "extra_forbidden":
+            extra_fields = True
+    guidance = [hint for field, hint in hints.items() if field in rejected_fields]
+    if extra_fields:
+        guidance.append("Remove fields outside the published tool schema.")
+    return " ".join(["Invalid expand_graph_retrieval arguments.", *guidance])
+
+
 def _safe_graph_failure_category(exc: Exception) -> str:
     """Return an allowlisted failure code without serializing exception details."""
     if isinstance(exc, ValidationError):
@@ -1811,7 +1836,16 @@ class _PolicyExecutionAdapter:
                     "revision_pin", "scope_mode",
                 }
             }
-            request = ExpandGraphRetrievalRequest.model_validate(normalized)
+            # This construction is wholly before native Graph IO. Its failure
+            # is known bad input, not an uncertain read or persistence outcome.
+            try:
+                request = ExpandGraphRetrievalRequest.model_validate(normalized)
+            except ValidationError as exc:
+                return self._denied_tool_result(
+                    "expand_graph_retrieval", "invalid_arguments", 422,
+                    _safe_graph_request_validation_message(exc),
+                    arguments=arguments,
+                )
             session = self.bootstrap.retrieval_session
             if request.retrieval_session_id != session.id or (
                 request.historical_revision_id is not None
