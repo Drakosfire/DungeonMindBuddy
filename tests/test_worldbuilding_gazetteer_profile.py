@@ -34,3 +34,33 @@ def test_named_definitions_are_admitted_with_source_evidence(kind):
 ])
 def test_out_of_scope_or_unsupported_candidates_reject(graph):
     assert validate_gazetteer_candidate_bounds(graph)
+
+
+def test_actual_pipeline_preserves_named_definition_and_source_qualification():
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        CategoryGraphExtractionOptions, FixtureCategoryGraphPassClient, run_category_pipeline,
+    )
+    body = "Float Goats are a livestock kind used to transport goods across water. The Renewal Fair is a recurring festival; locals believe it honors a goddess. A proposed hook has not occurred."
+    ref = {"source_span_ref_id": "span-1", "anchor_quotes": [body]}
+    client = FixtureCategoryGraphPassClient({"definition_pass": {"observation_nodes": [
+        {"node_id": "kind:float-goats", "node_type": "creature", "label": "Float Goats",
+         "description": "A livestock kind used to transport goods across water.",
+         "importance": "medium", "evidence_refs": [ref]},
+        {"node_id": "definition:fair", "node_type": "event", "label": "Renewal Fair",
+         "description": "A recurring festival; locals believe it honors a goddess.",
+         "importance": "medium", "evidence_refs": [ref]},
+    ]}})
+    result = run_category_pipeline(client, CategoryGraphExtractionOptions(
+        campaign_id="synthetic", session_id=None, session_number=None, source_text=body,
+        source_artifact_id="artifact:synthetic", source_span_index={
+            "source_artifact_id": "artifact:synthetic", "source_ref_id": "artifact:synthetic:text",
+            "spans": [{"source_span_ref_id": "span-1", "span_id": "span-1",
+                       "line_start": 1, "line_end": 1, "text": body}]},
+        profile=GAZETTEER_PROFILE, enable_party_claimed_fill=False))
+    graph = result.candidate_graph
+    assert len(graph["nodes"]) == 2
+    assert not graph["beats"]
+    assert graph["session_id"] is None
+    assert any("locals believe" in node["description"] for node in graph["nodes"])
+    assert all(node["semantic_state"]["canon_state"] == "worldbuilding_draft" for node in graph["nodes"])
+    assert not validate_gazetteer_candidate_bounds(graph)
