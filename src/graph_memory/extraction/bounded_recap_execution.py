@@ -49,6 +49,25 @@ _SAFE_OBSERVATION_FIELDS = (
     "pricing_source",
     "latency_ms",
     "provider_response_id",
+    "failure_code",
+)
+
+_SAFE_ATTEMPT_FIELDS = (
+    "operation_id",
+    "event_id",
+    "ordinal",
+    "kind",
+    "response_status",
+    "provider",
+    "requested_model",
+    "resolved_model",
+    "response_model",
+    "provider_request_id",
+    "provider_response_id",
+    "input_tokens",
+    "cached_input_tokens",
+    "output_tokens",
+    "reasoning_tokens",
 )
 
 _SAFE_REQUEST_FIELDS = (
@@ -85,6 +104,7 @@ def _write_private_response_evidence(
     context_hashes: Mapping[str, str],
     raw_observation: Any,
     response_text: str | None,
+    attempt_event: Mapping[str, Any] | None = None,
 ) -> tuple[Path, str]:
     """Atomically preserve one returned response without making it public graph data."""
     if not re.fullmatch(r"[a-z0-9_-]+", pass_name):
@@ -92,8 +112,9 @@ def _write_private_response_evidence(
 
     directory = Path(directory)
     private_root = directory.parent
+    private_root.mkdir(mode=0o700, parents=True, exist_ok=True)
     for path in (private_root, directory):
-        path.mkdir(mode=0o700, parents=False, exist_ok=True)
+        path.mkdir(mode=0o700, exist_ok=True)
         if path.is_symlink() or not path.is_dir():
             raise OSError("private response evidence path is not a directory")
         if stat.S_IMODE(path.stat().st_mode) & 0o077:
@@ -103,8 +124,21 @@ def _write_private_response_evidence(
     system_prompt = request.get("system_prompt")
     user_prompt = request.get("user_prompt")
     response_bytes = response_text.encode("utf-8") if response_text is not None else None
+    event_facts = None
+    if attempt_event is not None:
+        event_facts = {
+            key: attempt_event.get(key) for key in _SAFE_ATTEMPT_FIELDS
+        }
+        if type(event_facts["ordinal"]) is not int or event_facts["ordinal"] < 1:
+            raise ValueError("invalid GE attempt ordinal")
+        if not isinstance(event_facts["event_id"], str) or not event_facts["event_id"]:
+            raise ValueError("invalid GE attempt event identifier")
     envelope = {
-        "schema": "dmb_private_recap_pass_response_v1",
+        "schema": (
+            "dmb_private_recap_attempt_response_v1"
+            if event_facts is not None
+            else "dmb_private_recap_pass_response_v1"
+        ),
         "capture_state": "unvalidated_snapshot",
         "pass_ordinal": ordinal,
         "pass_name": pass_name,
@@ -130,8 +164,14 @@ def _write_private_response_evidence(
             ),
         },
     }
+    if event_facts is not None:
+        envelope["ge_attempt"] = event_facts
     artifact_bytes = _canonical_json_bytes(envelope) + b"\n"
-    filename = f"{ordinal:02d}-{pass_name}.json"
+    filename = (
+        f"{ordinal:02d}-{pass_name}-attempt-{event_facts['ordinal']:02d}.json"
+        if event_facts is not None
+        else f"{ordinal:02d}-{pass_name}.json"
+    )
     destination = directory / filename
     temporary = directory / f".{filename}.{os.getpid()}.{time.time_ns()}.pending"
     descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -151,6 +191,46 @@ def _write_private_response_evidence(
         temporary.unlink(missing_ok=True)
 
     return destination, hashlib.sha256(artifact_bytes).hexdigest()
+
+
+def _private_attempt_evidence_index(
+    directory: Path,
+    *,
+    pass_ordinal: int,
+    pass_name: str,
+    exclude_names: set[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Index durable response events without copying their private text into the ledger."""
+    directory = Path(directory)
+    if not directory.is_dir() or directory.is_symlink():
+        return []
+    prefix = f"{pass_ordinal:02d}-{pass_name}-attempt-"
+    excluded = exclude_names or set()
+    entries: list[dict[str, Any]] = []
+    for path in sorted(directory.glob(f"{prefix}*.json")):
+        if path.name in excluded:
+            continue
+        if path.is_symlink() or not path.is_file():
+            continue
+        artifact_bytes = path.read_bytes()
+        try:
+            artifact = json.loads(artifact_bytes)
+            event = artifact.get("ge_attempt")
+            if not isinstance(event, dict):
+                continue
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            continue
+        entries.append(
+            {
+                "event_id": event.get("event_id"),
+                "ordinal": event.get("ordinal"),
+                "kind": event.get("kind"),
+                "response_status": event.get("response_status"),
+                "path": str(path),
+                "sha256": hashlib.sha256(artifact_bytes).hexdigest(),
+            }
+        )
+    return entries
 
 
 class NonObjectResponseError(ValueError):
@@ -274,9 +354,39 @@ class BoundedRecapPassClient:
         self._stopped = False
 
     def ledger(self) -> dict[str, Any]:
+        def aggregate(field: str) -> dict[str, Any]:
+            known = 0
+            complete = True
+            for call in self.calls:
+                observation = call.get("observation")
+                value = observation.get(field) if isinstance(observation, Mapping) else None
+                if type(value) is int and value >= 0:
+                    known += value
+                elif call.get("external_outcome") == "not_started":
+                    continue
+                else:
+                    complete = False
+            return {
+                "total": known if complete else None,
+                "known_total": known,
+                "complete": complete,
+            }
+
         return {
             "schema": "dmb_bounded_recap_execution_v1",
             "limits": asdict(self.limits),
+            "pass_invocation_count": len(self.calls),
+            "pass_invocation_limit": self.limits.max_calls,
+            "attempt_counts": {
+                "provider_attempts": aggregate("provider_attempt_count"),
+                "transport_retries": aggregate("transport_retry_count"),
+                "conformance_retries": aggregate("conformance_retry_count"),
+                "semantics": (
+                    "max_calls is a pass-invocation budget, not a provider-attempt "
+                    "or authorization ceiling; provider-attempt counts include "
+                    "GE conformance corrections"
+                ),
+            },
             "calls": self.calls,
             "stopped": self._stopped,
         }
@@ -332,8 +442,7 @@ class BoundedRecapPassClient:
                 "Return exactly one complete JSON object, without Markdown fences "
                 "or surrounding prose. Escape quotes, backslashes, and control "
                 "characters as JSON requires, and close every string and "
-                "container. Follow this schema:\n"
-                + json.dumps(fmt["schema"], sort_keys=True, separators=(",", ":"))
+                "container."
             )
         request_kwargs: dict[str, Any] = {
             "user_prompt": user_content,
@@ -355,7 +464,8 @@ class BoundedRecapPassClient:
             request_kwargs.update(
                 provider_route=route,
                 reasoning_effort="none",
-                json_object=True,
+                json_schema=fmt["schema"],
+                schema_name=fmt["name"],
             )
         else:
             request_kwargs.update(json_schema=fmt["schema"], schema_name=fmt["name"])
@@ -377,19 +487,47 @@ class BoundedRecapPassClient:
             "deadline_ms": request.deadline_ms,
             "max_output_tokens": request.max_output_tokens,
             "observation": None,
+            "attempt_evidence": [],
         }
         self.calls.append(entry)
         result = None
         try:
             request_payload = request.model_dump(mode="json")
+            evidence_prefix = f"{len(self.calls):02d}-{pass_name}-attempt-"
+            preexisting_evidence = (
+                {
+                    path.name
+                    for path in self._response_artifact_dir.glob(f"{evidence_prefix}*.json")
+                }
+                if self._response_artifact_dir is not None
+                and self._response_artifact_dir.is_dir()
+                else set()
+            )
             outcome = _execute_in_owned_process(
                 self._engine_factory, request_payload,
                 deadline=wall_started + request.deadline_ms / 1000,
+                attempt_evidence=(
+                    {
+                        "directory": str(self._response_artifact_dir),
+                        "pass_ordinal": len(self.calls),
+                        "pass_name": pass_name,
+                        "context_hashes": self._request_context_hashes,
+                    }
+                    if self._response_artifact_dir is not None
+                    else None
+                ),
             )
             entry["wall_clock_ms"] = int((time.monotonic() - wall_started) * 1000)
             entry["worker_cleanup"] = "terminated" if outcome.terminated else "reaped"
             if outcome.terminated:
                 self._stopped = True
+            if self._response_artifact_dir is not None:
+                entry["attempt_evidence"] = _private_attempt_evidence_index(
+                    self._response_artifact_dir,
+                    pass_ordinal=len(self.calls),
+                    pass_name=pass_name,
+                    exclude_names=preexisting_evidence,
+                )
             receipt = outcome.receipt
             if receipt is None:
                 entry["external_outcome"] = "unknown"
@@ -398,7 +536,13 @@ class BoundedRecapPassClient:
                     pass_name=pass_name,
                 )
             if receipt["kind"] == "provider_failure":
-                entry["observation"] = receipt["observation"]
+                entry["observation"] = _safe_observation_snapshot(receipt["observation"])
+                entry["failure_code"] = receipt["failure_code"]
+                entry["external_outcome"] = "known_failure"
+                if receipt["failure_code"] == "STRUCTURED_OUTPUT_INVALID":
+                    entry["consumer_outcome"] = "invalid_structured_output"
+                elif receipt["failure_code"] == "ATTEMPT_EVIDENCE_PERSISTENCE_FAILED":
+                    entry["consumer_failure"] = "AttemptEvidencePersistenceFailed"
                 raise CategoryGraphExtractionError(
                     "bounded inference failed: " + receipt["failure_code"],
                     pass_name=pass_name,
@@ -410,63 +554,33 @@ class BoundedRecapPassClient:
                     "bounded inference outcome unknown: worker failed without GE receipt",
                     pass_name=pass_name,
                 )
-            raw_result = receipt.get("result")
-            raw_observation = (
-                raw_result.get("observation")
-                if isinstance(raw_result, Mapping)
-                else None
-            )
-            raw_text = (
-                raw_result.get("text")
-                if isinstance(raw_result, Mapping)
-                and isinstance(raw_result.get("text"), str)
-                else None
-            )
-            if self._response_artifact_dir is not None:
-                # The GE result is already known even if durable evidence cannot be
-                # written. Preserve its safe accounting before the fallible sink.
-                entry["observation"] = _safe_observation_snapshot(raw_observation)
-                try:
-                    response_path, response_digest = _write_private_response_evidence(
-                        self._response_artifact_dir,
-                        ordinal=len(self.calls),
-                        pass_name=pass_name,
-                        request=request_payload,
-                        context_hashes=self._request_context_hashes,
-                        raw_observation=raw_observation,
-                        response_text=raw_text,
-                    )
-                except Exception:
-                    self._stopped = True
-                    entry["consumer_failure"] = "PrivateResponseEvidenceWriteFailed"
-                    raise CategoryGraphExtractionError(
-                        "private recap response evidence could not be written",
-                        pass_name=pass_name,
-                        raw_model_response=raw_text,
-                    ) from None
-                entry["response_artifact_path"] = str(response_path)
-                entry["response_artifact_sha256"] = response_digest
+            if entry["attempt_evidence"]:
+                final_attempt = entry["attempt_evidence"][-1]
+                entry["response_artifact_path"] = final_attempt["path"]
+                entry["response_artifact_sha256"] = final_attempt["sha256"]
             result = TextResult.model_validate(receipt["result"])
             observation = result.observation.model_dump(mode="json")
             entry["observation"] = observation
+            conformance_retries = observation["conformance_retry_count"]
             if (
                 observation["state"] != "completed"
                 or observation["retry_count"] != 0
-                or observation["conformance_retry_count"] != 0
+                or conformance_retries not in (0, 1)
                 or observation.get("transport_retry_count") not in (None, 0)
+                or observation.get("provider_attempt_count") != 1 + conformance_retries
                 or (
                     deepseek
                     and (
                         observation.get("provider") != "openrouter"
                         or observation.get("requested_model") != self.limits.model
                         or observation.get("resolved_model") != self.limits.model
-                        or observation.get("provider_attempt_count") != 1
                         or observation.get("response_model") != self.limits.model
                     )
                 )
             ):
                 raise CategoryGraphExtractionError(
-                    "inference did not complete within one attempt", pass_name=pass_name,
+                    "inference did not complete within the bounded structured attempt policy",
+                    pass_name=pass_name,
                     raw_model_response=result.text,
                 )
             entry["external_outcome"] = "completed"

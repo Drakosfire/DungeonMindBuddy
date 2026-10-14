@@ -7,6 +7,7 @@ import os
 import time
 import threading
 from dataclasses import dataclass
+from pathlib import Path
 
 import pytest
 
@@ -29,7 +30,7 @@ class FakeGEFactory:
             return TimedGEEngine(self)
         return self
 
-    async def generate_text(self, request):
+    async def _produce_structured_result(self, request):
         from generationengine.failures import FailureCode, InferenceFailure
         from generationengine.observation import InferenceObservation, ObservationState
         from generationengine.types import GenerationEngineError, TextResult
@@ -60,6 +61,30 @@ class FakeGEFactory:
             raise GenerationEngineError(InferenceFailure.from_code(code), observation)
         return TextResult(text=self.raw, observation=observation)
 
+    async def generate_structured(self, request, *, on_attempt_completed=None):
+        from generationengine.types import StructuredAttemptCompleted
+
+        result = await self._produce_structured_result(request)
+        if on_attempt_completed is not None:
+            await on_attempt_completed(
+                StructuredAttemptCompleted(
+                    operation_id="fake-operation",
+                    event_id="fake-operation:1",
+                    ordinal=1,
+                    kind="initial",
+                    provider="openrouter",
+                    requested_model=DEEPSEEK_MODEL,
+                    resolved_model=DEEPSEEK_MODEL,
+                    response_model=DEEPSEEK_MODEL,
+                    provider_request_id="request",
+                    provider_response_id="response",
+                    text=result.text,
+                    input_tokens=result.observation.input_tokens,
+                    output_tokens=result.observation.output_tokens,
+                )
+            )
+        return result
+
     async def aclose(self):
         self.closed.value += 1
         if self.mode == "blocked_close":
@@ -86,13 +111,86 @@ class TimedGEEngine:
 
         self.engine = GenerationClient(text_providers={"openrouter": BlockingProvider(counters)})
 
-    async def generate_text(self, request):
+    async def generate_structured(self, request, *, on_attempt_completed=None):
         # Short GE timer leaves time to observe the real failure receipt before
         # the outer process timer. No SDK/client/network is constructed.
-        return await self.engine.generate_text(request.model_copy(update={"deadline_ms": 50}))
+        return await self.engine.generate_structured(
+            request.model_copy(update={"deadline_ms": 50}),
+            on_attempt_completed=on_attempt_completed,
+        )
 
     async def aclose(self):
         await self.engine.aclose()
+
+
+class AttemptTextProvider:
+    def __init__(self, calls, mode):
+        self.calls = calls
+        self.mode = mode
+
+    async def generate(self, call):
+        from generationengine.failures import FailureCode
+        from generationengine.providers.errors import ProviderError
+        from generationengine.providers.base import TextGenerationResult
+
+        self.calls.value += 1
+        ordinal = self.calls.value
+        if self.mode == "invalid_then_wait" and ordinal == 2:
+            await asyncio.Event().wait()
+        if self.mode == "invalid_then_transport" and ordinal == 2:
+            raise ProviderError.from_code(FailureCode.RATE_LIMITED)
+        if self.mode in {"invalid_then_valid", "invalid_then_wait", "invalid_then_transport"}:
+            text = "not-json" if ordinal == 1 else '{"observation_nodes": []}'
+        elif self.mode == "final_invalid":
+            text = "not-json" if ordinal == 1 else '{"observation_nodes": "wrong"}'
+        else:
+            text = '{"observation_nodes": []}'
+        return TextGenerationResult(
+            text=text,
+            provider_request_id=f"request-{ordinal}",
+            provider_response_id=f"response-{ordinal}",
+            response_model=DEEPSEEK_MODEL,
+            input_tokens=ordinal if ordinal == 1 else None,
+            cached_input_tokens=0,
+            output_tokens=7 + ordinal,
+            reasoning_tokens=None,
+        )
+
+    async def stream(self, call):
+        if False:
+            yield None
+
+
+@dataclass
+class AttemptGEFactory:
+    calls: object
+    mode: str
+
+    def __call__(self):
+        from generationengine import GenerationClient
+
+        return GenerationClient(
+            text_providers={"openrouter": AttemptTextProvider(self.calls, self.mode)}
+        )
+
+
+def build_attempt_client(tmp_path, mode, *, run_deadline_ms=5000):
+    context = multiprocessing.get_context("spawn")
+    factory = AttemptGEFactory(context.Value("i", 0), mode)
+    run_dir = tmp_path / "run"
+    client = BoundedRecapPassClient(
+        RecapExecutionLimits(
+            provider="openrouter",
+            model=DEEPSEEK_MODEL,
+            max_calls=1,
+            per_call_deadline_ms=60_000,
+            run_deadline_ms=run_deadline_ms,
+        ),
+        engine_factory=factory,
+        response_artifact_dir=run_dir / ".private" / "pass_responses",
+        request_context_hashes={"normalized_source": "a" * 64},
+    )
+    return client, factory, run_dir
 
 
 def build_client(mode="normal", raw='{"observation_nodes": []}', budget=2000):
@@ -130,6 +228,12 @@ def test_missing_ge_receipt_is_unknown_and_never_redispatches(mode):
     assert time.monotonic() - started < 2.5
     assert client.calls[0]["external_outcome"] == "unknown"
     assert client.calls[0]["observation"] is None
+    assert client.ledger()["pass_invocation_count"] == 1
+    assert client.ledger()["attempt_counts"]["provider_attempts"] == {
+        "total": None,
+        "known_total": 0,
+        "complete": False,
+    }
     with pytest.raises(CategoryGraphExtractionError):
         invoke(client)
     assert factory.calls.value == 1
@@ -148,7 +252,7 @@ def test_completed_receipt_survives_blocked_background_cleanup(mode):
         assert result["usage"] == {"input_tokens": None, "output_tokens": 3, "cached_tokens": None}
         assert result["response_id"] == "response" and result["cost_usd"] is None
         assert client.calls[0]["worker_cleanup"] == "terminated"
-        assert "external_outcome" not in client.calls[0]
+        assert client.calls[0]["external_outcome"] == "completed"
         assert factory.calls.value == factory.closed.value == 1
         assert_reaped(factory)
         with pytest.raises(CategoryGraphExtractionError):
@@ -156,6 +260,130 @@ def test_completed_receipt_survives_blocked_background_cleanup(mode):
         assert factory.calls.value == 1
     finally:
         assert_reaped(factory)
+
+
+def test_real_ge_attempt_hook_persists_invalid_then_valid_before_single_correction(tmp_path):
+    client, factory, run_dir = build_attempt_client(tmp_path, "invalid_then_valid")
+
+    result = invoke(client)
+
+    entry = client.calls[0]
+    assert result["parsed"] == {"observation_nodes": []}
+    assert factory.calls.value == 2
+    assert entry["observation"]["provider_attempt_count"] == 2
+    assert entry["observation"]["transport_retry_count"] == 0
+    assert entry["observation"]["conformance_retry_count"] == 1
+    assert client.ledger()["pass_invocation_count"] == 1
+    assert client.ledger()["attempt_counts"]["provider_attempts"] == {
+        "total": 2,
+        "known_total": 2,
+        "complete": True,
+    }
+    assert [item["ordinal"] for item in entry["attempt_evidence"]] == [1, 2]
+    assert [item["kind"] for item in entry["attempt_evidence"]] == [
+        "initial",
+        "conformance",
+    ]
+    evidence = [
+        json.loads(Path(item["path"]).read_text(encoding="utf-8"))
+        for item in entry["attempt_evidence"]
+    ]
+    assert [item["response"]["text"] for item in evidence] == [
+        "not-json",
+        '{"observation_nodes": []}',
+    ]
+    assert evidence[0]["ge_attempt"]["operation_id"] == evidence[1]["ge_attempt"]["operation_id"]
+    assert evidence[0]["ge_attempt"]["event_id"] != evidence[1]["ge_attempt"]["event_id"]
+    assert evidence[0]["request"]["system_prompt_sha256"]
+    assert evidence[0]["context_sha256"] == {"normalized_source": "a" * 64}
+    assert evidence[0]["response"]["sha256"]
+    assert "not-json" not in json.dumps(client.ledger())
+    assert (run_dir / ".private" / "pass_responses").is_dir()
+
+
+def test_real_ge_final_invalid_response_keeps_both_attempts_and_failure_observation(tmp_path):
+    client, factory, _ = build_attempt_client(tmp_path, "final_invalid")
+
+    with pytest.raises(CategoryGraphExtractionError):
+        invoke(client)
+
+    entry = client.calls[0]
+    assert factory.calls.value == 2
+    assert entry["failure_code"] == "STRUCTURED_OUTPUT_INVALID"
+    assert entry["consumer_outcome"] == "invalid_structured_output"
+    assert entry["observation"]["failure_code"] == "STRUCTURED_OUTPUT_INVALID"
+    assert entry["observation"]["provider_attempt_count"] == 2
+    assert entry["observation"]["transport_retry_count"] == 0
+    assert entry["observation"]["conformance_retry_count"] == 1
+    assert [item["ordinal"] for item in entry["attempt_evidence"]] == [1, 2]
+    assert "not-json" not in json.dumps(client.ledger())
+    assert all(Path(item["path"]).is_file() for item in entry["attempt_evidence"])
+
+
+def test_real_ge_transport_failure_after_initial_response_is_counted_without_event_or_retry(
+    tmp_path,
+):
+    client, factory, _ = build_attempt_client(tmp_path, "invalid_then_transport")
+
+    with pytest.raises(CategoryGraphExtractionError):
+        invoke(client)
+
+    entry = client.calls[0]
+    assert factory.calls.value == 2
+    assert entry["failure_code"] == "RATE_LIMITED"
+    assert entry["observation"]["provider_attempt_count"] == 2
+    assert entry["observation"]["transport_retry_count"] == 0
+    assert entry["observation"]["conformance_retry_count"] == 1
+    assert [item["ordinal"] for item in entry["attempt_evidence"]] == [1]
+
+
+def test_real_ge_sink_failure_stops_without_correction_or_replay(tmp_path):
+    client, factory, run_dir = build_attempt_client(tmp_path, "invalid_then_valid")
+    evidence_dir = run_dir / ".private" / "pass_responses"
+    evidence_dir.mkdir(mode=0o700, parents=True)
+    evidence_dir.chmod(0o700)
+    existing = evidence_dir / "01-actor_pass-attempt-01.json"
+    existing.write_text("prior no-overwrite witness", encoding="utf-8")
+    existing.chmod(0o600)
+
+    with pytest.raises(CategoryGraphExtractionError):
+        invoke(client)
+
+    entry = client.calls[0]
+    assert factory.calls.value == 1
+    assert entry["failure_code"] == "ATTEMPT_EVIDENCE_PERSISTENCE_FAILED"
+    assert entry["consumer_failure"] == "AttemptEvidencePersistenceFailed"
+    assert entry["observation"]["provider_attempt_count"] == 1
+    assert entry["observation"]["conformance_retry_count"] == 0
+    assert entry["attempt_evidence"] == []
+    assert existing.read_text(encoding="utf-8") == "prior no-overwrite witness"
+    assert not list(evidence_dir.glob("*.pending"))
+    assert "prior no-overwrite witness" not in json.dumps(client.ledger())
+
+
+def test_first_attempt_artifact_survives_worker_termination_during_correction(tmp_path):
+    client, factory, run_dir = build_attempt_client(
+        tmp_path, "invalid_then_wait", run_deadline_ms=1500
+    )
+
+    with pytest.raises(CategoryGraphExtractionError, match="outcome unknown"):
+        invoke(client)
+
+    entry = client.calls[0]
+    assert entry["external_outcome"] == "unknown"
+    assert entry["worker_cleanup"] == "terminated"
+    assert factory.calls.value == 2
+    assert len(entry["attempt_evidence"]) == 1
+    artifact_path = Path(entry["attempt_evidence"][0]["path"])
+    artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert artifact["response"]["text"] == "not-json"
+    assert artifact["ge_attempt"]["ordinal"] == 1
+    assert artifact_path.is_relative_to(run_dir / ".private" / "pass_responses")
+    assert "not-json" not in json.dumps(client.ledger())
+
+    with pytest.raises(CategoryGraphExtractionError):
+        invoke(client)
+    assert factory.calls.value == 2
 
 
 @pytest.mark.parametrize("mode", ["provider_failure", "failed_executor_cleanup"])
@@ -169,7 +397,7 @@ def test_known_failure_receipt_and_null_usage_survive_cleanup(mode):
         assert obs["input_tokens"] is None and obs["output_tokens"] is None
         assert obs["cost_usd"] is None and obs["provider_attempt_count"] == 1
         assert obs["retry_count"] == 0
-        assert "external_outcome" not in client.calls[0]
+        assert client.calls[0]["external_outcome"] == "known_failure"
         with pytest.raises(CategoryGraphExtractionError):
             invoke(client)
         assert factory.calls.value == 1
@@ -231,9 +459,9 @@ def test_real_ge_deadline_receipt_survives_blocked_executor_shutdown():
     assert 40 <= obs["latency_ms"] < 1000
     assert obs["provider_attempt_count"] == 1 and obs["retry_count"] == 0
     assert obs["input_tokens"] is None and obs["output_tokens"] is None
-    assert obs["cost_usd"] is None and obs["provider_request_id"] is None
+    assert obs["cost_usd"] is None and obs.get("provider_request_id") is None
     assert client.calls[0]["worker_cleanup"] == "terminated"
-    assert "external_outcome" not in client.calls[0]
+    assert client.calls[0]["external_outcome"] == "known_failure"
     assert factory.calls.value == factory.closed.value == 1
     assert_reaped(factory)
     with pytest.raises(CategoryGraphExtractionError):

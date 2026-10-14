@@ -34,31 +34,76 @@ def _write_receipt(path: Path, receipt: dict[str, Any]) -> None:
     os.replace(temporary, path)
 
 
-def _worker_entry(factory, request: dict[str, Any], receipt_path: str) -> None:
+def _worker_entry(
+    factory,
+    request: dict[str, Any],
+    receipt_path: str,
+    attempt_evidence: dict[str, Any] | None = None,
+) -> None:
     from generationengine.types import GenerationEngineError, TextRequest
 
     path = Path(receipt_path)
+    attempt_records: list[dict[str, Any]] = []
 
     async def execute() -> None:
         engine = factory()
         try:
             try:
-                result = await engine.generate_text(TextRequest.model_validate(request))
+                typed_request = TextRequest.model_validate(request)
+                callback = None
+                if attempt_evidence is not None:
+                    async def on_attempt_completed(event) -> None:
+                        from src.graph_memory.extraction.bounded_recap_execution import (
+                            _write_private_response_evidence,
+                        )
+
+                        event_payload = event.model_dump(mode="json")
+                        response_path, response_digest = _write_private_response_evidence(
+                            Path(attempt_evidence["directory"]),
+                            ordinal=attempt_evidence["pass_ordinal"],
+                            pass_name=attempt_evidence["pass_name"],
+                            request=request,
+                            context_hashes=attempt_evidence["context_hashes"],
+                            raw_observation=event_payload,
+                            response_text=event.text,
+                            attempt_event=event_payload,
+                        )
+                        attempt_records.append(
+                            {
+                                "event_id": event.event_id,
+                                "ordinal": event.ordinal,
+                                "kind": event.kind,
+                                "response_status": event.response_status,
+                                "path": str(response_path),
+                                "sha256": response_digest,
+                            }
+                        )
+
+                    callback = on_attempt_completed
+                result = await engine.generate_structured(
+                    typed_request,
+                    on_attempt_completed=callback,
+                )
             except GenerationEngineError as exc:
                 _write_receipt(path, {
                     "kind": "provider_failure",
                     "failure_code": exc.failure.code.value,
                     "observation": exc.observation.model_dump(mode="json"),
+                    "attempt_evidence": attempt_records,
                 })
             except Exception as exc:
                 _write_receipt(path, {
-                    "kind": "worker_failure", "error_type": type(exc).__name__,
+                    "kind": "worker_failure",
+                    "error_type": type(exc).__name__,
+                    "attempt_evidence": attempt_records,
                 })
             else:
                 # Preserve raw response and GE receipt before aclose, executor
                 # shutdown, and any consumer/schema validation in the parent.
                 _write_receipt(path, {
-                    "kind": "result", "result": result.model_dump(mode="json"),
+                    "kind": "result",
+                    "result": result.model_dump(mode="json"),
+                    "attempt_evidence": attempt_records,
                 })
         finally:
             await engine.aclose()
@@ -67,18 +112,27 @@ def _worker_entry(factory, request: dict[str, Any], receipt_path: str) -> None:
         asyncio.run(execute())
     except BaseException as exc:
         _write_receipt(path, {
-            "kind": "worker_failure", "error_type": type(exc).__name__,
+            "kind": "worker_failure",
+            "error_type": type(exc).__name__,
+            "attempt_evidence": attempt_records,
         })
 
 
-def _execute_in_owned_process(factory, request: dict[str, Any], *, deadline: float) -> _WorkerOutcome:
+def _execute_in_owned_process(
+    factory,
+    request: dict[str, Any],
+    *,
+    deadline: float,
+    attempt_evidence: dict[str, Any] | None = None,
+) -> _WorkerOutcome:
     # Spawn avoids inheriting caller threads, event loops, SDK resources or locks.
     # Factories supplied by callers must consequently be pickleable.
     context = multiprocessing.get_context("spawn")
     with TemporaryDirectory(prefix="dmb-recap-inference-") as directory:
         path = Path(directory) / "receipt.json"
         process = context.Process(
-            target=_worker_entry, args=(factory, request, str(path)),
+            target=_worker_entry,
+            args=(factory, request, str(path), attempt_evidence),
             name="dmb-recap-inference", daemon=True,
         )
         terminated = False
