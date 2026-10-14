@@ -2336,6 +2336,151 @@ def _denial_call(tool: str, arguments: dict[str, Any], payload: str, call_id: st
     ]
 
 
+@pytest.mark.parametrize(
+    ("invalid", "guidance"),
+    [
+        ({"operation": "PRIVATE_INVALID_OPERATION"}, "operation must be"),
+        ({"operation": "search", "depth": 3}, "depth must be 1 or 2"),
+        ({"operation": "search", "targets": [{"id": {"PRIVATE_VALUE": 1}}]}, "targets must be"),
+        ({"operation": "search", "PRIVATE_EXTRA_FIELD": "PRIVATE_VALUE"}, "Remove fields outside"),
+    ],
+)
+def test_invalid_graph_request_is_recoverable_before_native_io(
+    monkeypatch: Any, invalid: dict[str, Any], guidance: str,
+) -> None:
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads
+    from apps.live_control_server.services.hermes_graph_agent import _GraphOperationReservation
+
+    adapter, authorize = _denial_authorization_fixture(monkeypatch)
+    calls: list[str] = []
+
+    def forbidden_io(_world: str) -> Any:
+        calls.append("native_io")
+        raise AssertionError("invalid input reached native Graph IO")
+
+    monkeypatch.setattr(world_graph_reads, "direct_services_from_config", forbidden_io)
+    arguments = {"retrievalSessionId": adapter.bootstrap.retrieval_session.id, **invalid}
+    initial_events = list(adapter.fence.turn.graph_context_execution.events)
+    reservation = _GraphOperationReservation(
+        8,
+        lambda name, args: (
+            adapter.broker_graph_operation({"toolName": name, "arguments": args})["resultJson"],
+            None,
+        ),
+    )
+    payload, packet = reservation("expand_graph_retrieval", arguments)
+    result = json.loads(payload)
+    assert result["code"] == "invalid_arguments" and result["statusCode"] == 422
+    assert guidance in result["message"]
+    assert "PRIVATE" not in payload
+    assert calls == [] and packet is None
+    assert adapter.failure is None and reservation.indeterminate is False
+    assert reservation.count == 0 and adapter.operation_payloads == {}
+    assert adapter.fence.turn.graph_context_execution.events == initial_events
+    assert authorize(_denial_call("expand_graph_retrieval", arguments, payload))
+    admitted = adapter.fence.turn.graph_context_execution.events[-1]
+    assert admitted.kind == "provider_attempt_authorized_v2"
+    assert admitted.included_graph_event_ids == []
+    assert admitted.included_assertion_ids == []
+    assert admitted.included_evidence_ref_ids == []
+
+
+def _empty_native_graph_result(adapter: Any, *, revision: str | None = None) -> Any:
+    from graph_memory.retrieval.models import WorldGraphRetrievalResult
+
+    scope = adapter.bootstrap.world_scope
+    return WorldGraphRetrievalResult.model_validate({
+        "operation": "search", "outcome": "empty",
+        "snapshot": {
+            "worldId": scope.world_id, "campaignId": "", "scopeMode": "world",
+            "revisionId": revision or scope.revision_id,
+            "headRevisionId": scope.revision_id, "isHead": True,
+            "focus": {"kind": "none", "sessionId": None}, "admissibility": "gm",
+        },
+    })
+
+
+def test_corrected_graph_request_reaches_native_adapter_and_provider_continuation(
+    monkeypatch: Any,
+) -> None:
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads
+    from graph_memory.interaction.session_store import clear_sessions
+
+    adapter, authorize = _denial_authorization_fixture(monkeypatch)
+    arguments = {"retrievalSessionId": adapter.bootstrap.retrieval_session.id, "operation": "PRIVATE_INVALID"}
+    denied = adapter.broker_graph_operation({"toolName": "expand_graph_retrieval", "arguments": arguments})
+    feedback = _denial_call("expand_graph_retrieval", arguments, denied["resultJson"])
+    assert authorize(feedback)
+    assert adapter.record_lifecycle({"transition": "sdk_entered"})
+    assert adapter.record_lifecycle({"transition": "response_received"})
+    native_requests: list[Any] = []
+
+    def retrieve(_services: Any, request: Any) -> Any:
+        native_requests.append(request)
+        assert request.world_id == adapter.bootstrap.world_scope.world_id
+        assert request.revision_pin == adapter.bootstrap.world_scope.revision_id
+        return _empty_native_graph_result(adapter)
+
+    monkeypatch.setattr(world_graph_reads, "search_world_graph_direct", retrieve)
+    corrected = {**arguments, "operation": "search", "queryText": "synthetic query"}
+    try:
+        reply = adapter.broker_graph_operation({"toolName": "expand_graph_retrieval", "arguments": corrected})
+        assert json.loads(reply["resultJson"])["outcome"] == "empty"
+        assert len(native_requests) == 1 and adapter.failure is None
+        graph_events = [event for event in adapter.fence.turn.graph_context_execution.events if event.kind == "validated_graph_operation"]
+        assert len(graph_events) == 1
+        assert graph_events[0].assertion_ids == [] and graph_events[0].evidence_ref_ids == []
+        assert authorize([*feedback, *_denial_call("expand_graph_retrieval", corrected, reply["resultJson"], "corrected-call")])
+        continuation = adapter.fence.turn.graph_context_execution.events[-1]
+        assert continuation.included_graph_event_ids == [graph_events[0].event_id]
+        assert continuation.included_assertion_ids == []
+    finally:
+        clear_sessions()
+
+
+@pytest.mark.parametrize("failure", ["transport", "response_validation", "persistence", "revision"])
+def test_graph_failures_after_request_validation_keep_their_authority_boundary(
+    monkeypatch: Any, failure: str,
+) -> None:
+    from application_state.errors import ApplicationStateError
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads
+    from graph_memory.retrieval.models import WorldGraphRetrievalResult
+
+    adapter, authorize = _denial_authorization_fixture(monkeypatch)
+    calls: list[str] = []
+
+    def retrieve(_services: Any, _request: Any) -> Any:
+        calls.append("native_io")
+        if failure == "transport":
+            raise ConnectionError("PRIVATE_TRANSPORT")
+        if failure == "response_validation":
+            return WorldGraphRetrievalResult.model_validate({"operation": "PRIVATE_INVALID_RESULT"})
+        return _empty_native_graph_result(adapter, revision="foreign-revision" if failure == "revision" else None)
+
+    monkeypatch.setattr(world_graph_reads, "search_world_graph_direct", retrieve)
+    if failure == "persistence":
+        original_append = adapter.fence.append
+
+        def append(method: str, *args: Any, **kwargs: Any) -> Any:
+            if method == "append_validated_graph_operation":
+                raise ApplicationStateError("PRIVATE_PERSISTENCE")
+            return original_append(method, *args, **kwargs)
+
+        monkeypatch.setattr(adapter.fence, "append", append)
+    arguments = {"retrievalSessionId": adapter.bootstrap.retrieval_session.id, "operation": "search"}
+    reply = adapter.broker_graph_operation({"toolName": "expand_graph_retrieval", "arguments": arguments})
+    result = json.loads(reply["resultJson"])
+    assert calls == ["native_io"] and "PRIVATE" not in reply["resultJson"]
+    assert adapter.operation_payloads == {}
+    if failure == "revision":
+        assert result["code"] == "graph_revision_conflict" and result["statusCode"] == 409
+        assert adapter.failure is None
+    else:
+        assert result["code"] == "graph_operation_unavailable" and result["statusCode"] == 503
+        assert adapter.failure is not None and adapter.failure.code == "graph_operation_indeterminate"
+        assert not authorize(_denial_call("expand_graph_retrieval", arguments, reply["resultJson"]))
+
+
 @pytest.mark.parametrize("tool", ["expand_graph_retrieval", "read_graph_source", "read_related_recap_context"])
 def test_exact_parent_tool_denial_can_inform_next_request_without_becoming_evidence(monkeypatch: Any, tool: str) -> None:
     adapter, authorize = _denial_authorization_fixture(monkeypatch)
