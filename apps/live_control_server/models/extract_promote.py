@@ -1345,7 +1345,7 @@ class FirstWorldGraphPlan(_ExtractPromoteModel):
     workspace_document_revision: str
     campaign_scope: str | None = None
     session_scope: None = None
-    extraction_profile: Literal["worldbuilding_shepherds_flock_v0@0.1", "worldbuilding_gazetteer_v1@1.0"] = (
+    extraction_profile: Literal["worldbuilding_shepherds_flock_v0@0.1"] = (
         "worldbuilding_shepherds_flock_v0@0.1"
     )
     accepted_assertion_ids: list[str] = Field(default_factory=list)

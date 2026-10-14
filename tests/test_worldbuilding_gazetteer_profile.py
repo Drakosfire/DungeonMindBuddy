@@ -64,3 +64,23 @@ def test_actual_pipeline_preserves_named_definition_and_source_qualification():
     assert any("locals believe" in node["description"] for node in graph["nodes"])
     assert all(node["semantic_state"]["canon_state"] == "worldbuilding_draft" for node in graph["nodes"])
     assert not validate_gazetteer_candidate_bounds(graph)
+
+
+def test_registered_gazetteer_run_retains_exact_profile_and_typed_definitions(tmp_path, application_state_dsn):
+    from tests.test_graph_preview_runner import _admit_worldbuilding, FixtureClient, _first_paragraph_span_id
+    from src.graph_memory.extraction.graph_preview_runner import ProductionExtractionRequest, run_production_extraction
+    from apps.live_control_server.services.graph_run_registry import get_reviewable_extraction_run
+    from src.graph_memory.candidate_graph_preview import candidate_graph_preview_from_dict
+    source = _admit_worldbuilding(tmp_path, "Mirathorn is a river city.\n")
+    result = run_production_extraction(ProductionExtractionRequest(
+        repo_root=tmp_path, source=source, profile_id=GAZETTEER_PROFILE.profile_id,
+        profile_version=GAZETTEER_PROFILE.profile_version, allow_llm=True,
+        category_client=FixtureClient(span_ref=_first_paragraph_span_id(source)),
+        output_dir=tmp_path / "gazetteer-run"))
+    assert result.failure_kind is None
+    run = get_reviewable_extraction_run(tmp_path, result.run.run_id)
+    assert run.profile_id == "worldbuilding_gazetteer_v1@1.0"
+    assert run.session_id is None
+    preview = candidate_graph_preview_from_dict(result.candidate_graph)
+    assert preview.session_id is None
+    assert run.components["source_artifact"].uri.endswith("/source.md")

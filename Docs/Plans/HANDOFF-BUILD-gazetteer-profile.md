@@ -43,3 +43,6 @@ src/graph_memory/worldbuilding_write_plan.py;
 tests/test_worldbuilding_gazetteer_profile.py.
 Build UI explicit selection is a separate bounded consumer after server admission;
 existing Build defaults remain pilot. No DOGFOOD file overlap or serving/provider writes.
+
+Scope amendment: services/first_world_graph_publication.py preserves pilot-only
+bootstrap loader admission; gazetteer first-World bootstrap is explicitly excluded.

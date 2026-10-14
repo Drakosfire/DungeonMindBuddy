@@ -1908,7 +1908,7 @@ def prepare_worldbuilding(
     return _prepare(request)
 
 
-def _load_typed_worldbuilding_preview_for_run(resolved):
+def _load_typed_worldbuilding_preview_for_run(resolved, *, allow_gazetteer=True):
     """Shared prepare/confirm admission for one exact BLD-08 worldbuilding run."""
     if resolved.source_domain != "worldbuilding":
         raise ExtractPromoteError(
@@ -1926,9 +1926,10 @@ def _load_typed_worldbuilding_preview_for_run(resolved):
 
     from src.graph_memory.extraction.worldbuilding_profile_catalog import PUBLISHABLE_WORLDBUILDING_PROFILES
     expected_profile = resolved.extraction_profile
-    if expected_profile not in PUBLISHABLE_WORLDBUILDING_PROFILES:
+    if (expected_profile not in PUBLISHABLE_WORLDBUILDING_PROFILES
+            or (not allow_gazetteer and expected_profile != "worldbuilding_shepherds_flock_v0@0.1")):
         raise ExtractPromoteError(
-            "operation requires the exact BLD-08 extraction profile",
+            "operation requires an exactly admitted worldbuilding profile",
             code="unsupported_worldbuilding_profile",
             status_code=422,
             diagnostics=[

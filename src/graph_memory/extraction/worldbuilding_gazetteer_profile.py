@@ -26,7 +26,7 @@ def validate_gazetteer_candidate_bounds(graph):
 GAZETTEER_PROFILE = register_extraction_profile(replace(
     WORLDBUILDING_PROFILE,
     profile_id=GAZETTEER_PROFILE_ID, profile_version=GAZETTEER_PROFILE_VERSION,
-    node_passes=tuple(replace(p, instruction=p.instruction +
+    node_passes=tuple(replace(p, instruction=p.instruction + (" Exclude species/kind definitions: definition_pass owns them; retain explicitly named individual creatures only." if p.pass_id == "actor_pass" else "") +
         " Preserve qualified source descriptions, beliefs and allegations; never turn proposed hooks into played facts.")
         for p in WORLDBUILDING_PROFILE.node_passes) + (
         ExtractionPassSpec(pass_id="definition_pass", default_node_type="creature",
