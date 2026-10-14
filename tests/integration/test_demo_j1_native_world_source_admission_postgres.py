@@ -48,6 +48,15 @@ def test_native_source_admission_persists_and_replays_after_repository_recreatio
     tmp_path: Path, disposable_database_url: str
 ) -> None:
     world = create_world_container(tmp_path, name=f"J1 Integration {uuid.uuid4().hex[:10]}")
+    import json
+    registry_path = tmp_path / "out/registries/world_containers.json"
+    registry_data = json.loads(registry_path.read_text())
+    registry_data["records"][0]["native_graph_binding"] = {
+        "native_world_id": world.world_id, "binding_version": 1,
+        "status": "active", "validated_at": "2026-10-14T00:00:00Z",
+        "validated_head_revision_id": "rev:fixture",
+    }
+    registry_path.write_text(json.dumps(registry_data))
     markdown = "# Exact source\n\nThis text remains evidence, not extracted canon.\n"
     record = create_workspace_document(
         tmp_path,
