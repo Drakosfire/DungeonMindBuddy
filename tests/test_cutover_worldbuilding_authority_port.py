@@ -1501,7 +1501,7 @@ def test_registered_publication_binding_uses_native_target_without_latest_revisi
     monkeypatch.setattr(service, "resolve_managed_world_binding", lambda *args: SimpleNamespace(
         managed_world_id="managed-a", native_world_id="native-a", binding_version=4))
     resolved = SimpleNamespace(source_artifact_id="source-a", world_id="managed-a",
-                               source_domain="worldbuilding", session_id="")
+                               source_domain="worldbuilding", session_id="", source_revision_id="a" * 64)
     result = service._registered_publication_binding(resolved)
     assert result.native_world_id == "native-a"
     assert result.document_revision == 2
@@ -1516,7 +1516,19 @@ def test_registered_publication_binding_rejects_cross_world_document(monkeypatch
     monkeypatch.setattr(service, "get_workspace_document", lambda *args: SimpleNamespace(
         kind="worldbuilding_source", world_id="managed-b", status="active"))
     resolved = SimpleNamespace(source_artifact_id="source-a", world_id="managed-a",
-                               source_domain="worldbuilding", session_id="")
+                               source_domain="worldbuilding", session_id="", source_revision_id="a" * 64)
     with pytest.raises(service.ExtractPromoteError) as error:
         service._registered_publication_binding(resolved)
     assert error.value.code == "worldbuilding_source_binding_changed"
+
+
+def test_publication_binding_normalizes_missing_source_without_path_leak(monkeypatch):
+    from apps.live_control_server.services import worldbuilding_graph_publication as service
+    def missing(*args):
+        raise service.SourceArtifactRegistryError("private-path-detail", status_code=404)
+    monkeypatch.setattr(service, "get_source_artifact", missing)
+    with pytest.raises(service.ExtractPromoteError) as error:
+        service._registered_publication_binding(SimpleNamespace(source_artifact_id="missing"))
+    assert error.value.status_code == 409
+    assert error.value.code == "worldbuilding_source_binding_missing"
+    assert "private-path-detail" not in str(error.value)

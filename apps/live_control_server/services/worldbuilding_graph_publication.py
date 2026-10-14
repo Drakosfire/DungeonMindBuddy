@@ -57,17 +57,30 @@ from graph_memory.worldbuilding_write_plan import (
     verify_worldbuilding_write_plan,
 )
 
-from apps.live_control_server.services.source_artifact_registry import get_source_artifact
-from apps.live_control_server.services.workspace_document_registry import get_workspace_document
-from apps.live_control_server.services.managed_world_graph_projection import resolve_managed_world_binding
+from apps.live_control_server.services.source_artifact_registry import get_source_artifact, SourceArtifactRegistryError
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document, WorkspaceDocumentRegistryError
+from apps.live_control_server.services.managed_world_graph_projection import resolve_managed_world_binding, WorldGraphProjectionServiceError
 
 
 def _registered_publication_binding(resolved):
+    try:
+        return _load_registered_publication_binding(resolved)
+    except (SourceArtifactRegistryError, WorkspaceDocumentRegistryError, WorldGraphProjectionServiceError) as exc:
+        unavailable = getattr(exc, "status_code", 409) >= 500
+        raise ExtractPromoteError(
+            "Registered World/source storage is unavailable" if unavailable else "Registered World/source ownership is unavailable",
+            code="worldbuilding_source_unavailable" if unavailable else "worldbuilding_source_binding_missing",
+            status_code=503 if unavailable else 409,
+        ) from exc
+
+
+def _load_registered_publication_binding(resolved):
     root = live_config.repo_root()
     artifact = get_source_artifact(root, resolved.source_artifact_id)
     if (not artifact.workspace_document_id or not artifact.workspace_document_revision
             or not artifact.world_id or artifact.world_id != resolved.world_id
-            or resolved.source_domain != "worldbuilding" or resolved.session_id):
+            or resolved.source_domain != "worldbuilding" or resolved.session_id
+            or artifact.content_sha256 != resolved.source_revision_id.removeprefix("sha256:")):
         raise ExtractPromoteError("An exact registered Build source is required",
                                  code="worldbuilding_source_binding_missing", status_code=409)
     document = get_workspace_document(root, artifact.workspace_document_id)
