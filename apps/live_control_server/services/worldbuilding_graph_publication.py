@@ -28,6 +28,7 @@ from apps.live_control_server.models.extract_promote import (
     WorldbuildingWritePlanConfirmRequest,
     WorldbuildingWritePlanPrepareRequest,
     WorldbuildingWritePlanResponse,
+    WorldbuildingPublicationBinding,
 )
 from apps.live_control_server.ports.world_graph_authority import (
     WorldGraphAuthority,
@@ -47,7 +48,6 @@ from apps.live_control_server.services.promotable_ingest_run import (
     PromotableIngestRunError,
     resolve_promotable_ingest_run,
 )
-from graph_memory.extract_promote_ops import DEFAULT_WORLD_ID
 from graph_memory.worldbuilding_write_plan import (
     WorldbuildingDispositionInput,
     WorldbuildingWritePlanError,
@@ -56,6 +56,46 @@ from graph_memory.worldbuilding_write_plan import (
     materialize_worldbuilding_contribution,
     verify_worldbuilding_write_plan,
 )
+
+from apps.live_control_server.services.source_artifact_registry import get_source_artifact, SourceArtifactRegistryError
+from apps.live_control_server.services.workspace_document_registry import get_workspace_document, WorkspaceDocumentRegistryError
+from apps.live_control_server.services.managed_world_graph_projection import resolve_managed_world_binding, WorldGraphProjectionServiceError
+
+
+def _registered_publication_binding(resolved):
+    try:
+        return _load_registered_publication_binding(resolved)
+    except (SourceArtifactRegistryError, WorkspaceDocumentRegistryError, WorldGraphProjectionServiceError) as exc:
+        unavailable = getattr(exc, "status_code", 409) >= 500
+        raise ExtractPromoteError(
+            "Registered World/source storage is unavailable" if unavailable else "Registered World/source ownership is unavailable",
+            code="worldbuilding_source_unavailable" if unavailable else "worldbuilding_source_binding_missing",
+            status_code=503 if unavailable else 409,
+        ) from exc
+
+
+def _load_registered_publication_binding(resolved):
+    root = live_config.repo_root()
+    artifact = get_source_artifact(root, resolved.source_artifact_id)
+    if (not artifact.workspace_document_id or not artifact.workspace_document_revision
+            or not artifact.world_id or artifact.world_id != resolved.world_id
+            or resolved.source_domain != "worldbuilding" or resolved.session_id
+            or artifact.content_sha256 != resolved.source_revision_id.removeprefix("sha256:")):
+        raise ExtractPromoteError("An exact registered Build source is required",
+                                 code="worldbuilding_source_binding_missing", status_code=409)
+    document = get_workspace_document(root, artifact.workspace_document_id)
+    if (document.kind != "worldbuilding_source" or document.world_id != artifact.world_id
+            or document.status != "active"):
+        raise ExtractPromoteError("Registered source ownership changed",
+                                 code="worldbuilding_source_binding_changed", status_code=409)
+    binding = resolve_managed_world_binding(artifact.world_id)
+    return WorldbuildingPublicationBinding(
+        managed_world_id=binding.managed_world_id, native_world_id=binding.native_world_id,
+        binding_version=binding.binding_version, document_id=artifact.workspace_document_id,
+        document_revision=artifact.workspace_document_revision,
+        source_artifact_id=artifact.source_artifact_id, source_sha256=artifact.content_sha256,
+    )
+
 
 _PORT_ERROR_MAP: dict[str, tuple[str, int]] = {
     "authority_unavailable": ("authority_unavailable", 503),
@@ -145,10 +185,12 @@ def _prepare_binding_message(
     plan_id: str,
     plan_digest: str,
     identity_snapshot_digest: str,
+    publication_binding: Mapping[str, Any] | None = None,
 ) -> bytes:
     payload = json.dumps(
         {
             "schema": _PREPARE_BINDING_SCHEMA,
+            "publication_binding": publication_binding,
             "world_id": world_id,
             "parent_revision_id": parent_revision_id,
             "plan_id": plan_id,
@@ -169,6 +211,7 @@ def _sign_prepare_binding(
     plan_id: str,
     plan_digest: str,
     identity_snapshot_digest: str,
+    publication_binding: Mapping[str, Any] | None = None,
 ) -> str:
     digest = hmac.new(
         _prepare_binding_key(),
@@ -178,6 +221,7 @@ def _sign_prepare_binding(
             plan_id=plan_id,
             plan_digest=plan_digest,
             identity_snapshot_digest=identity_snapshot_digest,
+            publication_binding=publication_binding,
         ),
         hashlib.sha256,
     ).hexdigest()
@@ -194,6 +238,7 @@ def _require_prepare_binding(
         plan_id=str(plan.plan_id),
         plan_digest=str(plan.plan_digest),
         identity_snapshot_digest=_identity_snapshot_digest(snapshot),
+        publication_binding=plan.publication_binding.model_dump(mode="json") if plan.publication_binding else None,
     )
     provided = str(getattr(plan, "prepare_binding", None) or "").strip()
     if not provided or not hmac.compare_digest(provided, expected):
@@ -416,15 +461,17 @@ def prepare_worldbuilding(
     typed_preview, expected_profile = _load_typed_worldbuilding_preview_for_run(
         resolved
     )
+    publication_binding = _registered_publication_binding(resolved)
+    native_world_id = publication_binding.native_world_id
     authority = get_world_graph_authority()
     try:
         mutation_context = authority.mutation_context(
-            DEFAULT_WORLD_ID, request.expected_parent_revision_id
+            native_world_id, request.expected_parent_revision_id
         )
     except WorldGraphAuthorityError as exc:
         if exc.code == "revision_unavailable":
             try:
-                head = authority.current_head(DEFAULT_WORLD_ID)
+                head = authority.current_head(native_world_id)
             except WorldGraphAuthorityError:
                 raise _authority_error(exc) from exc
             if head.revision_id != request.expected_parent_revision_id:
@@ -445,7 +492,7 @@ def prepare_worldbuilding(
         plan = build_worldbuilding_write_plan(
             preview=typed_preview,
             mutation_context=mutation_context,
-            world_id=DEFAULT_WORLD_ID,
+            world_id=native_world_id,
             expected_parent_revision_id=request.expected_parent_revision_id,
             run_id=resolved.run_id,
             source_artifact_id=resolved.source_artifact_id,
@@ -466,7 +513,7 @@ def prepare_worldbuilding(
         raise _write_plan_error(exc) from exc
 
     try:
-        head = authority.current_head(DEFAULT_WORLD_ID)
+        head = authority.current_head(native_world_id)
     except WorldGraphAuthorityError as exc:
         raise _authority_error(exc) from exc
     if head.revision_id != request.expected_parent_revision_id:
@@ -485,6 +532,7 @@ def prepare_worldbuilding(
     response = WorldbuildingWritePlanResponse(
         schema=WORLD_BUILDING_WRITE_PLAN_SCHEMA,
         version=2,
+        publication_binding=publication_binding,
         plan_id=plan.plan_id,
         plan_digest=plan.plan_digest,
         decision_digest=plan.decision_digest,
@@ -507,7 +555,7 @@ def prepare_worldbuilding(
             preview=typed_preview,
             mutation_context=mutation_context,
             context=WorldbuildingWritePlanVerificationContext(
-                world_id=DEFAULT_WORLD_ID,
+                world_id=native_world_id,
                 parent_revision_id=request.expected_parent_revision_id,
                 run_id=resolved.run_id,
                 source_artifact_id=resolved.source_artifact_id,
@@ -531,11 +579,12 @@ def prepare_worldbuilding(
     return response.model_copy(
         update={
             "prepare_binding": _sign_prepare_binding(
-                world_id=DEFAULT_WORLD_ID,
+                world_id=native_world_id,
                 parent_revision_id=response.parent_revision_id,
                 plan_id=response.plan_id,
                 plan_digest=response.plan_digest,
                 identity_snapshot_digest=_identity_snapshot_digest(snapshot),
+                publication_binding=publication_binding.model_dump(mode="json"),
             )
         }
     )
@@ -573,8 +622,13 @@ def confirm_worldbuilding(
     typed_preview, expected_profile = _load_typed_worldbuilding_preview_for_run(
         resolved
     )
+    publication_binding = _registered_publication_binding(resolved)
+    native_world_id = publication_binding.native_world_id
+    if plan.publication_binding is None or plan.publication_binding != publication_binding:
+        raise ExtractPromoteError("World/source binding changed; prepare again",
+                                 code="worldbuilding_source_binding_changed", status_code=409)
     verify_context = WorldbuildingWritePlanVerificationContext(
-        world_id=DEFAULT_WORLD_ID,
+        world_id=native_world_id,
         parent_revision_id=plan.parent_revision_id,
         run_id=resolved.run_id,
         source_artifact_id=resolved.source_artifact_id,
@@ -588,7 +642,7 @@ def confirm_worldbuilding(
     _require_prepare_binding(plan, snapshot)
     try:
         mutation_context = authority.mutation_context(
-            DEFAULT_WORLD_ID,
+            native_world_id,
             plan.parent_revision_id,
             sealed_identity_snapshot=snapshot,
         )
@@ -649,6 +703,7 @@ def confirm_worldbuilding(
         return _receipt_from_publication(
             receipt=recovered,
             verified=verified,
+            resolved=resolved, publication_binding=publication_binding,
             contribution=contribution,
             parent=parent,
             materialized_accepted=materialized_accepted,
@@ -683,6 +738,9 @@ def confirm_worldbuilding(
         accepted_assertion_ids=tuple(materialized_accepted),
         operation_namespace="worldbuilding",
     )
+    if _registered_publication_binding(resolved) != publication_binding:
+        raise ExtractPromoteError("World/source binding changed before publication",
+                                 code="worldbuilding_source_binding_changed", status_code=409)
     try:
         receipt = authority.publish(publish_request)
     except WorldGraphAuthorityError as exc:
@@ -703,6 +761,7 @@ def confirm_worldbuilding(
             return _receipt_from_publication(
                 receipt=recovered,
                 verified=verified,
+            resolved=resolved, publication_binding=publication_binding,
                 contribution=contribution,
                 parent=parent,
                 materialized_accepted=materialized_accepted,
@@ -716,6 +775,7 @@ def confirm_worldbuilding(
     return _receipt_from_publication(
         receipt=receipt,
         verified=verified,
+            resolved=resolved, publication_binding=publication_binding,
         contribution=contribution,
         parent=parent,
         materialized_accepted=materialized_accepted,
@@ -728,6 +788,8 @@ def confirm_worldbuilding(
 def _receipt_from_publication(
     *,
     receipt: WorldGraphPublicationReceipt,
+    resolved,
+    publication_binding,
     verified: Mapping[str, Any],
     contribution: Any,
     parent: str,
@@ -759,6 +821,11 @@ def _receipt_from_publication(
         outcome = "published_audit_degraded"
         warnings.extend(codes)
     accepted = list(materialized_accepted)
+    if _registered_publication_binding(resolved) != publication_binding:
+        raise ExtractPromoteError(
+            "World/source binding changed; completed publication remains in the original native World",
+            code="worldbuilding_source_binding_changed", status_code=409,
+        )
     return _confirm_receipt(
         outcome=outcome,
         verified=verified,

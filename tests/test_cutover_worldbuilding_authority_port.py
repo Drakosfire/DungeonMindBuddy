@@ -679,7 +679,7 @@ def _explode_buddy_graph_runtime(monkeypatch) -> None:
     monkeypatch.setattr(builtins, "__import__", _guarded_import)
 
 
-def _install_worldbuilding_repo(monkeypatch, tmp_path: Path) -> Path:
+def _install_worldbuilding_repo(monkeypatch, tmp_path: Path, native_id=DEFAULT_WORLD_ID) -> Path:
 
 
     import apps.live_control_server.config as live_config
@@ -692,6 +692,17 @@ def _install_worldbuilding_repo(monkeypatch, tmp_path: Path) -> Path:
 
     repo = tmp_path / "repo"
     repo.mkdir()
+    from apps.live_control_server.services.world_container_registry import create_world_container
+    import json
+    create_world_container(repo, name="Publication Managed")
+    registry_path = repo / "out/registries/world_containers.json"
+    registry = json.loads(registry_path.read_text())
+    registry["records"][0]["native_graph_binding"] = {
+        "native_world_id": native_id, "binding_version": 1,
+        "status": "active", "validated_at": "2026-10-14T00:00:00Z",
+        "validated_head_revision_id": "rev:fixture",
+    }
+    registry_path.write_text(json.dumps(registry))
     absent = tmp_path / "buddy-world-graph-absent"
     monkeypatch.setenv(storage.WORLD_GRAPH_AUTHORITY_ENV, storage.WORLD_GRAPH_AUTHORITY_DUNGEONMIND)
     monkeypatch.setenv("DUNGEONMIND_WORLD_GRAPH_ROOT", str(absent))
@@ -700,10 +711,28 @@ def _install_worldbuilding_repo(monkeypatch, tmp_path: Path) -> Path:
     monkeypatch.setattr(promote_svc, "repo_root", lambda: repo)
     monkeypatch.setattr(promotable_mod, "repo_root", lambda: repo)
     monkeypatch.setattr(live_config, "world_graph_root", lambda: absent)
+    from apps.live_control_server.services import graph_run_registry
+    from src.graph_memory.extraction.graph_preview_runner import _build_prepared_components
+    from src.graph_memory.extraction.source_adapter import NormalizedExtractionSource
+    original_update = graph_run_registry.update_extraction_run_status
+    def update_with_frozen_source(root, run_id, **kwargs):
+        components = kwargs.get("components")
+        if components and "source_artifact" in components:
+            run = graph_run_registry.get_extraction_run(root, run_id)
+            source_component = components["source_artifact"]
+            body = (root / source_component.uri.removeprefix("repo://")).read_text()
+            output_dir = (root / components["candidate_graph"].uri.removeprefix("repo://")).parent
+            frozen_components, _ = _build_prepared_components(root, NormalizedExtractionSource(
+                run.source_artifact_id, "worldbuilding", body, source_component.sha256,
+                source_component.uri, run.campaign_id, None), output_dir)
+            kwargs["components"] = {**components, "source_artifact": frozen_components["source_artifact"]}
+        return original_update(root, run_id, **kwargs)
+    monkeypatch.setattr(graph_run_registry, "update_extraction_run_status", update_with_frozen_source)
     return repo
 
 
-def test_prepare_succeeds_with_buddy_graph_physically_absent(tmp_path, monkeypatch):
+@pytest.mark.parametrize("native_id", ["native-alpha", "native-beta"])
+def test_prepare_succeeds_with_buddy_graph_physically_absent(tmp_path, monkeypatch, native_id):
     from apps.live_control_server.models.extract_promote import (
         WorldbuildingWritePlanPrepareRequest,
     )
@@ -714,13 +743,31 @@ def test_prepare_succeeds_with_buddy_graph_physically_absent(tmp_path, monkeypat
 
 
     parent = "rev:d-a"
-    repo = _install_worldbuilding_repo(monkeypatch, tmp_path)
+    repo = _install_worldbuilding_repo(monkeypatch, tmp_path, native_id=native_id)
     fake = FakeWorldGraphAuthority()
-    fake.heads[DEFAULT_WORLD_ID] = parent
-    fake.revisions[(DEFAULT_WORLD_ID, parent)] = _empty_parent(revision_id=parent)
+    fake.heads[native_id] = parent
+    fake.revisions[(native_id, parent)] = _empty_parent(world_id=native_id, revision_id=parent)
     _install_fake_authority(monkeypatch, fake)
     _explode_buddy_graph_runtime(monkeypatch)
-    run_id, _source = _write_bld08_reviewable_run(repo)
+    run_id, _source = _write_bld08_reviewable_run(repo, world_id="publication-managed", campaign_id="publication-managed")
+    from apps.live_control_server.services.promotable_ingest_run import resolve_promotable_ingest_run
+    from apps.live_control_server.services.source_artifact_registry import get_source_artifact
+    from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
+    from apps.live_control_server.services.tiptap_markdown_write import (
+        prepare_tiptap_markdown_write, commit_tiptap_markdown_write,
+        TiptapMarkdownWritePrepareRequest, TiptapMarkdownWriteCommitRequest,
+    )
+    frozen = resolve_promotable_ingest_run(run_id, root=repo)
+    artifact = get_source_artifact(repo, frozen.source_artifact_id)
+    before = get_workspace_document_snapshot(repo, artifact.workspace_document_id)
+    updated_text = before.markdown + "\nLater document edit, absent from the frozen extraction.\n"
+    prepared_write = prepare_tiptap_markdown_write(root=repo, request=TiptapMarkdownWritePrepareRequest(
+        document_id=before.record.document_id, markdown=updated_text,
+        expected_revision=before.loaded_revision, write_mode="authoring"))
+    commit_tiptap_markdown_write(root=repo, request=TiptapMarkdownWriteCommitRequest(
+        document_id=before.record.document_id, markdown=updated_text,
+        expected_revision=before.loaded_revision, write_mode="authoring",
+        writer_confirm_token=prepared_write.writer_confirm_token))
     request = WorldbuildingWritePlanPrepareRequest.model_validate(
         {
             "runId": run_id,
@@ -741,6 +788,64 @@ def test_prepare_succeeds_with_buddy_graph_physically_absent(tmp_path, monkeypat
     assert plan.prepare_binding.startswith("v1.")
     assert not (tmp_path / "buddy-world-graph-absent").exists()
     assert not (repo / "out/registries/worldbuilding_identity_checkpoints.json").exists()
+
+
+    assert plan.publication_binding.document_revision == artifact.workspace_document_revision
+    assert plan.publication_binding.source_sha256 == artifact.content_sha256
+    assert get_workspace_document_snapshot(repo, before.record.document_id).loaded_revision > artifact.workspace_document_revision
+    assert plan.world_id == native_id
+    assert plan.publication_binding.managed_world_id == "publication-managed"
+    from apps.live_control_server.models.extract_promote import WorldbuildingWritePlanConfirmRequest
+    from apps.live_control_server.services.worldbuilding_graph_publication import confirm_worldbuilding
+    forged = plan.model_copy(update={"publication_binding": plan.publication_binding.model_copy(
+        update={"document_revision": plan.publication_binding.document_revision + 1})})
+    with pytest.raises(Exception) as forged_error:
+        confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=forged))
+    assert forged_error.value.code == "worldbuilding_source_binding_changed"
+    assert fake.publish_calls == 0
+    import json
+    registry_path = repo / "out/registries/world_containers.json"
+    original_registry = registry_path.read_text()
+    for binding_state in ("missing", "inactive"):
+        unavailable_registry = json.loads(original_registry)
+        if binding_state == "missing":
+            unavailable_registry["records"][0]["native_graph_binding"] = None
+        else:
+            unavailable_registry["records"][0]["native_graph_binding"]["status"] = "inactive"
+        registry_path.write_text(json.dumps(unavailable_registry))
+        with pytest.raises(Exception) as unavailable_error:
+            confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
+        assert unavailable_error.value.code == "worldbuilding_source_binding_missing"
+        assert unavailable_error.value.status_code == 409
+        assert fake.publish_calls == 0
+    registry_path.write_text(original_registry)
+    changed_registry = json.loads(original_registry)
+    changed_registry["records"][0]["native_graph_binding"]["binding_version"] += 1
+    registry_path.write_text(json.dumps(changed_registry))
+    with pytest.raises(Exception) as binding_error:
+        confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
+    assert binding_error.value.code == "worldbuilding_source_binding_changed"
+    assert fake.publish_calls == 0
+    registry_path.write_text(original_registry)
+    first = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
+    assert first.outcome == "committed"
+    assert first.world_id == native_id
+    original_recover = fake.recover
+    def changing_recover(*args, **kwargs):
+        receipt = original_recover(*args, **kwargs)
+        registry_path.write_text(json.dumps(changed_registry))
+        return receipt
+    monkeypatch.setattr(fake, "recover", changing_recover)
+    with pytest.raises(Exception) as recovery_error:
+        confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
+    assert recovery_error.value.code == "worldbuilding_source_binding_changed"
+    assert fake.publish_calls == 1
+    registry_path.write_text(original_registry)
+    monkeypatch.setattr(fake, "recover", original_recover)
+    retry = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
+    assert retry.outcome == "already_applied"
+    assert fake.publish_calls == 1
+    assert DEFAULT_WORLD_ID not in fake.heads
 
 
 def test_identity_drift_without_graph_head_advance_uses_sealed_snapshot(
@@ -764,7 +869,7 @@ def test_identity_drift_without_graph_head_advance_uses_sealed_snapshot(
     fake.revisions[(DEFAULT_WORLD_ID, parent)] = _empty_parent(revision_id=parent)
     _install_fake_authority(monkeypatch, fake)
     _explode_buddy_graph_runtime(monkeypatch)
-    run_id, _source = _write_bld08_reviewable_run(repo)
+    run_id, _source = _write_bld08_reviewable_run(repo, world_id="publication-managed", campaign_id="publication-managed")
     request = WorldbuildingWritePlanPrepareRequest.model_validate(
         {
             "runId": run_id,
@@ -823,7 +928,7 @@ def test_malformed_sealed_identity_fails_closed(tmp_path, monkeypatch):
     fake.revisions[(DEFAULT_WORLD_ID, parent)] = _empty_parent(revision_id=parent)
     _install_fake_authority(monkeypatch, fake)
     _explode_buddy_graph_runtime(monkeypatch)
-    run_id, _source = _write_bld08_reviewable_run(repo)
+    run_id, _source = _write_bld08_reviewable_run(repo, world_id="publication-managed", campaign_id="publication-managed")
     plan = prepare_worldbuilding(
         WorldbuildingWritePlanPrepareRequest.model_validate(
             {
@@ -885,7 +990,7 @@ def test_v1_confirm_requires_reprepare(tmp_path, monkeypatch):
     fake.revisions[(DEFAULT_WORLD_ID, parent)] = _empty_parent(revision_id=parent)
     _install_fake_authority(monkeypatch, fake)
     _explode_buddy_graph_runtime(monkeypatch)
-    run_id, _source = _write_bld08_reviewable_run(repo)
+    run_id, _source = _write_bld08_reviewable_run(repo, world_id="publication-managed", campaign_id="publication-managed")
     plan = prepare_worldbuilding(
         WorldbuildingWritePlanPrepareRequest.model_validate(
             {
@@ -930,7 +1035,7 @@ def test_exact_retry_is_already_applied_with_zero_second_publish(
     fake.revisions[(DEFAULT_WORLD_ID, parent)] = _empty_parent(revision_id=parent)
     _install_fake_authority(monkeypatch, fake)
     _explode_buddy_graph_runtime(monkeypatch)
-    run_id, _source = _write_bld08_reviewable_run(repo)
+    run_id, _source = _write_bld08_reviewable_run(repo, world_id="publication-managed", campaign_id="publication-managed")
     plan = prepare_worldbuilding(
         WorldbuildingWritePlanPrepareRequest.model_validate(
             {
@@ -973,7 +1078,7 @@ def test_stale_distinct_plan_fails_closed_after_unrelated_head_advance(
     fake.revisions[(DEFAULT_WORLD_ID, parent)] = _empty_parent(revision_id=parent)
     _install_fake_authority(monkeypatch, fake)
     _explode_buddy_graph_runtime(monkeypatch)
-    run_id, _source = _write_bld08_reviewable_run(repo)
+    run_id, _source = _write_bld08_reviewable_run(repo, world_id="publication-managed", campaign_id="publication-managed")
     plan = prepare_worldbuilding(
         WorldbuildingWritePlanPrepareRequest.model_validate(
             {
@@ -1142,7 +1247,7 @@ def test_tampered_identity_snapshot_fails_even_after_recompute(tmp_path, monkeyp
     }
     _install_fake_authority(monkeypatch, fake)
     _explode_buddy_graph_runtime(monkeypatch)
-    run_id, _source = _write_bld08_reviewable_run(repo)
+    run_id, _source = _write_bld08_reviewable_run(repo, world_id="publication-managed", campaign_id="publication-managed")
     honest = prepare_worldbuilding(
         WorldbuildingWritePlanPrepareRequest.model_validate(
             {
@@ -1204,7 +1309,7 @@ def test_tampered_identity_snapshot_fails_even_after_recompute(tmp_path, monkeyp
             require_current_head=False,
         )
         attack_plan = _wrap_built_plan(rebuilt).model_copy(
-            update={"prepare_binding": honest.prepare_binding}
+            update={"prepare_binding": honest.prepare_binding, "publication_binding": honest.publication_binding}
         )
         with pytest.raises(Exception) as exc:
             confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=attack_plan))
@@ -1241,7 +1346,7 @@ def test_identity_drift_appends_i1_without_changing_sealed_confirm(
     }
     _install_fake_authority(monkeypatch, fake)
     _explode_buddy_graph_runtime(monkeypatch)
-    run_id, _source = _write_bld08_reviewable_run(repo)
+    run_id, _source = _write_bld08_reviewable_run(repo, world_id="publication-managed", campaign_id="publication-managed")
     plan = prepare_worldbuilding(
         WorldbuildingWritePlanPrepareRequest.model_validate(
             {
@@ -1302,7 +1407,7 @@ def test_recomputed_plan_after_i1_cannot_reuse_prepare_binding(tmp_path, monkeyp
     }
     _install_fake_authority(monkeypatch, fake)
     _explode_buddy_graph_runtime(monkeypatch)
-    run_id, _source = _write_bld08_reviewable_run(repo)
+    run_id, _source = _write_bld08_reviewable_run(repo, world_id="publication-managed", campaign_id="publication-managed")
     prepared = prepare_worldbuilding(
         WorldbuildingWritePlanPrepareRequest.model_validate(
             {
@@ -1347,7 +1452,7 @@ def test_recomputed_plan_after_i1_cannot_reuse_prepare_binding(tmp_path, monkeyp
         require_current_head=False,
     )
     attack_plan = _wrap_built_plan(rebuilt).model_copy(
-        update={"prepare_binding": prepared.prepare_binding}
+        update={"prepare_binding": prepared.prepare_binding, "publication_binding": prepared.publication_binding}
     )
     assert attack_plan.plan_id != prepared.plan_id
     with pytest.raises(Exception) as exc:
@@ -1404,7 +1509,7 @@ def test_bind_existing_native_verify_proves_attribute_and_alias(tmp_path, monkey
     }
     _install_fake_authority(monkeypatch, fake)
     _explode_buddy_graph_runtime(monkeypatch)
-    run_id, _source = _write_bld08_reviewable_run(repo)
+    run_id, _source = _write_bld08_reviewable_run(repo, world_id="publication-managed", campaign_id="publication-managed")
     run = get_extraction_run(repo, run_id)
     candidate_path = _resolve_extraction_component_path(
         repo,
@@ -1453,3 +1558,46 @@ def test_bind_existing_native_verify_proves_attribute_and_alias(tmp_path, monkey
     assert any(item in child.evidence_refs for item in expected_evidence if item)
     assert "Witness Alias" in bound.aliases
     assert "mystery_puddles" in child.objects
+
+
+def test_registered_publication_binding_uses_native_target_without_latest_revision_requirement(monkeypatch):
+    from apps.live_control_server.services import worldbuilding_graph_publication as service
+    artifact = SimpleNamespace(workspace_document_id="doc-a", workspace_document_revision=2,
+                               world_id="managed-a", source_artifact_id="source-a", content_sha256="a" * 64)
+    document = SimpleNamespace(kind="worldbuilding_source", world_id="managed-a", status="active", revision=3)
+    monkeypatch.setattr(service, "get_source_artifact", lambda *args: artifact)
+    monkeypatch.setattr(service, "get_workspace_document", lambda *args: document)
+    monkeypatch.setattr(service, "resolve_managed_world_binding", lambda *args: SimpleNamespace(
+        managed_world_id="managed-a", native_world_id="native-a", binding_version=4))
+    resolved = SimpleNamespace(source_artifact_id="source-a", world_id="managed-a",
+                               source_domain="worldbuilding", session_id="", source_revision_id="a" * 64)
+    result = service._registered_publication_binding(resolved)
+    assert result.native_world_id == "native-a"
+    assert result.document_revision == 2
+    assert result.binding_version == 4
+
+
+def test_registered_publication_binding_rejects_cross_world_document(monkeypatch):
+    from apps.live_control_server.services import worldbuilding_graph_publication as service
+    artifact = SimpleNamespace(workspace_document_id="doc-a", workspace_document_revision=2,
+                               world_id="managed-a", source_artifact_id="source-a", content_sha256="a" * 64)
+    monkeypatch.setattr(service, "get_source_artifact", lambda *args: artifact)
+    monkeypatch.setattr(service, "get_workspace_document", lambda *args: SimpleNamespace(
+        kind="worldbuilding_source", world_id="managed-b", status="active"))
+    resolved = SimpleNamespace(source_artifact_id="source-a", world_id="managed-a",
+                               source_domain="worldbuilding", session_id="", source_revision_id="a" * 64)
+    with pytest.raises(service.ExtractPromoteError) as error:
+        service._registered_publication_binding(resolved)
+    assert error.value.code == "worldbuilding_source_binding_changed"
+
+
+def test_publication_binding_normalizes_missing_source_without_path_leak(monkeypatch):
+    from apps.live_control_server.services import worldbuilding_graph_publication as service
+    def missing(*args):
+        raise service.SourceArtifactRegistryError("private-path-detail", status_code=404)
+    monkeypatch.setattr(service, "get_source_artifact", missing)
+    with pytest.raises(service.ExtractPromoteError) as error:
+        service._registered_publication_binding(SimpleNamespace(source_artifact_id="missing"))
+    assert error.value.status_code == 409
+    assert error.value.code == "worldbuilding_source_binding_missing"
+    assert "private-path-detail" not in str(error.value)
