@@ -50,3 +50,40 @@ GAZETTEER_PROFILE = register_extraction_profile(replace(
 GAZETTEER_SOURCE_RETENTION_PROFILE = register_extraction_profile(replace(
     GAZETTEER_PROFILE, profile_version="1.1", source_section_retainer=retain_owned_sections,
 ))
+
+
+_ACTOR_SOURCE_FIDELITY = (
+    " A capitalized species, breed heading, product or plural kind is not an individual. "
+    "Extract only explicitly individuated people or creatures; capitalization alone is not "
+    "individuality evidence. Preserve uncertainty for merely referenced actors."
+)
+_PLACE_SOURCE_FIDELITY = (
+    " Use source-extractive descriptions for the exact named referent, retaining its source "
+    "heading or exact naming clause and separately citing owner/section context. Do not add "
+    "bridging ownership, membership, subtype, institutional or geographic claims. Enumerate "
+    "explicitly named places and establishments, including ones named through an owner or "
+    "proprietor, without upgrading proprietor to legal ownership. Retain named features and "
+    "customs in parent prose when independent identity/type is not established. Preserve all "
+    "relevant source clauses across paragraphs; every quoted clause needs its actual source "
+    "span, not one nearby citation for the whole description. Do not omit named customs or "
+    "qualifiers merely to shorten prose. A city being by a lake or at the base of peaks remains "
+    "a city geography statement; preserve the city subject and its naming context rather than "
+    "turning it into landform containment or a landform's own trade role. Political collectives "
+    "and unresolved cosmological referents are not Locations merely because they are named. "
+    "Role phrases alone do not prove a separate place identity. Authored approach/arrival "
+    "scenery remains prepared-scenario prose with its original heading and qualifications, "
+    "not enduring place facts or played events. Preserve source beliefs, hedges and examples. "
+    "Explicitly scoped livestock sections are retained separately by the profile's deterministic "
+    "source step; retain their named owner place, not independent species instances."
+)
+
+GAZETTEER_SOURCE_FIDELITY_PROFILE = register_extraction_profile(replace(
+    GAZETTEER_SOURCE_RETENTION_PROFILE,
+    profile_version="1.2",
+    node_passes=tuple(replace(
+        spec, instruction=spec.instruction + (
+            _ACTOR_SOURCE_FIDELITY if spec.pass_id == "actor_pass" else
+            _PLACE_SOURCE_FIDELITY if spec.pass_id == "location_pass" else ""
+        ),
+    ) for spec in GAZETTEER_SOURCE_RETENTION_PROFILE.node_passes),
+))

@@ -8,7 +8,7 @@ from src.graph_memory.extraction.worldbuilding_profile_catalog import PUBLISHABL
 def test_closed_publication_profiles_preserve_pilot_and_exact_gazetteer_version():
     assert set(PUBLISHABLE_WORLDBUILDING_PROFILES) == {
         "worldbuilding_shepherds_flock_v0@0.1", "worldbuilding_gazetteer_v1@1.0",
-        "worldbuilding_gazetteer_v1@1.1"}
+        "worldbuilding_gazetteer_v1@1.1", "worldbuilding_gazetteer_v1@1.2"}
     assert "worldbuilding_gazetteer_v1@2.0" not in PUBLISHABLE_WORLDBUILDING_PROFILES
     assert "worldbuilding_plumbing_v0@0.1" not in PUBLISHABLE_WORLDBUILDING_PROFILES
 
@@ -82,7 +82,8 @@ def test_actual_pipeline_preserves_named_definition_and_source_qualification():
     assert "Float Goats" in repr(contribution)
 
 
-def test_registered_gazetteer_run_retains_exact_profile_and_typed_definitions(tmp_path, application_state_dsn):
+@pytest.mark.parametrize("version", ["1.0", "1.1", "1.2"])
+def test_registered_gazetteer_run_retains_exact_profile_and_typed_definitions(tmp_path, application_state_dsn, version):
     from tests.test_graph_preview_runner import _admit_worldbuilding, FixtureClient, _first_paragraph_span_id
     from src.graph_memory.extraction.graph_preview_runner import ProductionExtractionRequest, run_production_extraction
     from apps.live_control_server.services.graph_run_registry import get_reviewable_extraction_run
@@ -90,12 +91,12 @@ def test_registered_gazetteer_run_retains_exact_profile_and_typed_definitions(tm
     source = _admit_worldbuilding(tmp_path, "Mirathorn is a river city.\n")
     result = run_production_extraction(ProductionExtractionRequest(
         repo_root=tmp_path, source=source, profile_id=GAZETTEER_PROFILE.profile_id,
-        profile_version=GAZETTEER_PROFILE.profile_version, allow_llm=True,
+        profile_version=version, allow_llm=True,
         category_client=FixtureClient(span_ref=_first_paragraph_span_id(source)),
         output_dir=tmp_path / "gazetteer-run"))
     assert result.failure_kind is None
     run = get_reviewable_extraction_run(tmp_path, result.run.run_id)
-    assert run.profile_id == "worldbuilding_gazetteer_v1@1.0"
+    assert run.profile_id == "worldbuilding_gazetteer_v1@" + version
     assert run.session_id is None
     preview = candidate_graph_preview_from_dict(result.candidate_graph)
     assert preview.session_id is None
@@ -145,3 +146,17 @@ def test_gazetteer_plan_cannot_be_verified_as_pilot():
     with pytest.raises(WorldbuildingWritePlanError):
         verify_worldbuilding_write_plan(_wrap_built_plan(plan).model_dump(mode="json", by_alias=True),
             preview=kwargs["preview"], mutation_context=context, context=verification)
+
+
+
+def test_fidelity_profile_is_versioned_and_preserves_source_retention_contract():
+    from src.graph_memory.extraction.worldbuilding_gazetteer_profile import (
+        GAZETTEER_SOURCE_FIDELITY_PROFILE, GAZETTEER_SOURCE_RETENTION_PROFILE,
+    )
+    assert GAZETTEER_SOURCE_FIDELITY_PROFILE.source_section_retainer is (
+        GAZETTEER_SOURCE_RETENTION_PROFILE.source_section_retainer
+    )
+    assert GAZETTEER_SOURCE_FIDELITY_PROFILE.edge_pass == GAZETTEER_SOURCE_RETENTION_PROFILE.edge_pass
+    assert GAZETTEER_SOURCE_FIDELITY_PROFILE.default_semantic_state == GAZETTEER_PROFILE.default_semantic_state
+    assert GAZETTEER_SOURCE_RETENTION_PROFILE.profile_version == "1.1"
+    assert GAZETTEER_PROFILE.profile_version == "1.0"
