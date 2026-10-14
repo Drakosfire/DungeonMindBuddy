@@ -1,0 +1,66 @@
+"""Retain explicitly owned numbered source sections without model paraphrase."""
+
+from copy import deepcopy
+import re
+from typing import Any
+
+
+class SourceSectionRetentionError(ValueError):
+    """A recognized source layout cannot be retained without ambiguity."""
+
+
+def retain_owned_sections(
+    graph: dict[str, Any], rows: list[dict[str, Any]],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    result = deepcopy(graph)
+    previous_end = 0
+    refs = set()
+    for row in rows:
+        if (row["line_start"] <= previous_end or row["line_end"] < row["line_start"]
+                or row["source_span_ref_id"] in refs):
+            raise SourceSectionRetentionError("invalid source span ordering or identity")
+        previous_end = row["line_end"]
+        refs.add(row["source_span_ref_id"])
+    retained = []
+    for owner in rows:
+        match = re.fullmatch(r"####\s+Fantastic Livestock for (?:the\s+)?(.+)",
+                             owner["text"], flags=re.I)
+        if not match:
+            continue
+        label = match.group(1).strip().casefold()
+        targets = [node for node in result.get("nodes", [])
+                   if node.get("node_type") == "location"
+                   and str(node.get("label", "")).removeprefix("The ").casefold() == label]
+        if len(targets) != 1:
+            raise SourceSectionRetentionError("source owner has no unique place candidate")
+        following = [row for row in rows if row["line_start"] > owner["line_end"]]
+        end = next((row["line_start"] for row in following
+                    if (re.match(r"^#{1,3}\s+", row["text"])
+                        or (re.match(r"^####\s+", row["text"])
+                            and not re.match(r"^####\s+\d+\.\s+", row["text"])))
+                    and not re.fullmatch(r"##\s+(?:Animal Products and Uses|Cultural Significance):?",
+                                         row["text"], flags=re.I)), None)
+        if end is None:
+            raise SourceSectionRetentionError("unbounded source owner section")
+        selected = [row for row in following if row["line_start"] < end]
+        headers = [row for row in selected if re.match(r"^####\s+\d+\.\s+", row["text"])]
+        numbers = [int(re.match(r"^####\s+(\d+)\.", row["text"]).group(1))
+                   for row in headers]
+        if not numbers or numbers != list(range(1, len(numbers) + 1)):
+            raise SourceSectionRetentionError("unsupported numbered source sequence")
+        target = targets[0]
+        evidence = [owner, *selected]
+        prose = "\n\n".join(row["text"] for row in evidence)
+        original = str(target.get("description") or "").strip()
+        target["description"] = (original if prose in original
+                                 else original + ("\n\n" if original else "") + prose)
+        existing = {ref["source_span_ref_id"] for ref in target.get("evidence_refs", [])}
+        target.setdefault("evidence_refs", []).extend(
+            {"source_span_ref_id": row["source_span_ref_id"], "anchor_quotes": [row["text"]]}
+            for row in evidence if row["source_span_ref_id"] not in existing
+        )
+        retained.append({"candidate_id": target["node_id"],
+                         "owner_span_ref_id": owner["source_span_ref_id"],
+                         "subsections": len(headers), "source_spans": len(evidence),
+                         "derivation": "verbatim-source-sections"})
+    return result, {"enabled": True, "retained_sections": retained}

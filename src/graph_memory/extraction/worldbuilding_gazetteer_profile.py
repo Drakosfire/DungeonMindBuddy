@@ -2,6 +2,7 @@
 from dataclasses import replace
 from .extraction_profile import ExtractionPassSpec, register_extraction_profile
 from .worldbuilding_extraction_profile import WORLDBUILDING_PROFILE
+from .worldbuilding_source_sections import retain_owned_sections
 
 GAZETTEER_PROFILE_ID = "worldbuilding_gazetteer_v1"
 GAZETTEER_PROFILE_VERSION = "1.0"
@@ -43,4 +44,9 @@ GAZETTEER_PROFILE = register_extraction_profile(replace(
         "definition_semantics": "species knowledge on associated places; recurring festivals; no played episodes",
     },
     post_extraction_validator=validate_gazetteer_candidate_bounds,
+))
+
+
+GAZETTEER_SOURCE_RETENTION_PROFILE = register_extraction_profile(replace(
+    GAZETTEER_PROFILE, profile_version="1.1", source_section_retainer=retain_owned_sections,
 ))

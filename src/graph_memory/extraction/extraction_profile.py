@@ -61,6 +61,7 @@ class ExtractionProfile:
     # controller before VALIDATED/REVIEWABLE. Descriptive policy mappings alone
     # are not sufficient — wire a callable when the profile declares bounds.
     post_extraction_validator: PostExtractionValidator | None = None
+    source_section_retainer: Callable[..., tuple[dict[str, Any], dict[str, Any]]] | None = None
 
     @property
     def qualified_id(self) -> str:
