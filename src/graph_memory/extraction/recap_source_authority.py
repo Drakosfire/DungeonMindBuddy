@@ -10,6 +10,7 @@ from typing import Any
 _PLANNING_TITLES = {"looking ahead", "next beats", "planning notes", "prep notes"}
 _HEADING = re.compile(r"^ {0,3}(#{1,6})\s+(.+?)\s*#*\s*$")
 _INLINE = re.compile(r"^\s*(?:\*\*|__)?\s*(?:looking\s+ahead|next\s+beats|planning\s+notes|prep\s+notes)\s*:\s*(?:\*\*|__)?", re.I)
+_RECAP_BOUNDARY = re.compile(r"^ {0,3}(?P<em>\*\*|__)\s*recap\s*:?\s*(?P=em)\s*:?\s*$", re.I)
 _FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 
 
@@ -42,6 +43,10 @@ def partition_recap_source_rows(
         if fence is not None:
             if section_level is not None or inline:
                 planned.add(number)
+            continue
+        if _RECAP_BOUNDARY.match(line):
+            section_level = None
+            inline = False
             continue
         heading = _HEADING.match(line)
         if heading:
