@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from apps.live_control_server.config import artifact_data_root
+from apps.live_control_server.config import artifact_data_root, managed_world_data_root, ManagedWorldDataRootError
 
 from apps.live_control_server.services.source_artifact_registry import (
     SourceArtifactRegistryError,
@@ -119,9 +119,12 @@ def _reconcile_graph_registry_scope(
                 resolve_managed_world_binding, WorldGraphProjectionServiceError,
             )
             try:
-                resolved_world = resolve_managed_world_binding(root, artifact_world).native_world_id
-            except WorldGraphProjectionServiceError as exc:
-                _raise(str(exc), code="workspace_lineage_mismatch", status_code=409)
+                resolved_world = resolve_managed_world_binding(
+                    artifact_world, root=managed_world_data_root(root)
+                ).native_world_id
+            except (WorldGraphProjectionServiceError, ManagedWorldDataRootError):
+                _raise("Managed World binding is unavailable for this graph source.",
+                       code="workspace_lineage_mismatch", status_code=409)
         if resolved_world != snapshot.world_id:
             _raise(
                 "Registry SourceArtifact world_id disagrees with the graph snapshot.",

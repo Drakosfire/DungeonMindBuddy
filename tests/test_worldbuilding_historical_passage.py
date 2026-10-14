@@ -1,4 +1,3 @@
-from types import SimpleNamespace
 import hashlib
 import json
 import os
@@ -8,7 +7,6 @@ import sys
 import pytest
 
 from apps.live_control_server.services import graph_run_registry as runs
-from apps.live_control_server.services import managed_world_graph_projection as binding
 from apps.live_control_server.services import worldbuilding_source_span_read as reader
 from apps.live_control_server.services.source_artifact_registry import (
     create_source_artifact_from_workspace_document,
@@ -53,7 +51,26 @@ def save(root, doc, text):
     return get_workspace_document(root, doc.document_id)
 
 
-def fixture_source(root):
+def fixture_source(root, monkeypatch):
+    from apps.live_control_server.services.world_container_registry import (
+        create_world_container,
+    )
+
+    registry_root = root / "managed-registry"
+    registry_root.mkdir()
+    monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(registry_root))
+    world = create_world_container(registry_root, name="Managed World")
+    assert world.world_id == "managed-world"
+    registry_path = registry_root / "out/registries/world_containers.json"
+    payload = json.loads(registry_path.read_text())
+    payload["records"][0]["native_graph_binding"] = {
+        "native_world_id": "native-world",
+        "binding_version": 1,
+        "status": "active",
+        "validated_at": "2026-10-14T00:00:00Z",
+        "validated_head_revision_id": "rev:accepted",
+    }
+    registry_path.write_text(json.dumps(payload))
     doc = create_workspace_document(
         root,
         title="Lore",
@@ -128,12 +145,7 @@ def open_span(root, artifact, span, world="native-world"):
 def test_registered_historical_passage_after_real_save(
     tmp_path, monkeypatch, application_state_dsn
 ):
-    doc, artifact, span, directory = fixture_source(tmp_path)
-    monkeypatch.setattr(
-        binding,
-        "resolve_managed_world_binding",
-        lambda root, world: SimpleNamespace(native_world_id="native-world"),
-    )
+    doc, artifact, span, directory = fixture_source(tmp_path, monkeypatch)
     assert open_span(tmp_path, artifact, span).content == "The tower watches the river."
     save(tmp_path, doc, "# Lore\n\nThe tower has fallen.\n")
     assert open_span(tmp_path, artifact, span).content == "The tower watches the river."
@@ -141,8 +153,10 @@ def test_registered_historical_passage_after_real_save(
 import sys
 from pathlib import Path
 from apps.live_control_server.services.worldbuilding_source_span_read import read_admitted_worldbuilding_span
+from graph_memory.retrieval.models import WorldGraphRetrievalSnapshot
+snapshot = WorldGraphRetrievalSnapshot(world_id='native-world',campaign_id='managed-world',revision_id='rev:accepted',head_revision_id='rev:accepted',is_head=True,focus={},admissibility='accepted',scope_mode='world')
 result = read_admitted_worldbuilding_span(root=Path(sys.argv[1]),source_artifact_id=sys.argv[2],
-    source_span_ref_id=sys.argv[3],graph_content_sha256=sys.argv[4],max_chars=1000,anchor_id='anchor:accepted')
+    source_span_ref_id=sys.argv[3],graph_content_sha256=sys.argv[4],max_chars=1000,anchor_id='anchor:accepted',snapshot=snapshot)
 assert result.content == 'The tower watches the river.'
 print('historical-passage-opened')
 """
@@ -172,13 +186,20 @@ print('historical-passage-opened')
 def test_missing_historical_snapshot_never_opens_current_text(
     tmp_path, monkeypatch, application_state_dsn
 ):
-    doc, artifact, span, directory = fixture_source(tmp_path)
-    monkeypatch.setattr(
-        binding,
-        "resolve_managed_world_binding",
-        lambda root, world: SimpleNamespace(native_world_id="native-world"),
-    )
+    doc, artifact, span, directory = fixture_source(tmp_path, monkeypatch)
     save(tmp_path, doc, "# Lore\n\nThe tower has fallen.\n")
     (directory / "source.md").unlink()
     with pytest.raises(WorldGraphRetrievalError, match="missing"):
+        open_span(tmp_path, artifact, span)
+
+
+def test_inactive_managed_binding_rejects_source(
+    tmp_path, monkeypatch, application_state_dsn
+):
+    doc, artifact, span, directory = fixture_source(tmp_path, monkeypatch)
+    registry_path = tmp_path / "managed-registry/out/registries/world_containers.json"
+    payload = json.loads(registry_path.read_text())
+    payload["records"][0]["native_graph_binding"]["status"] = "inactive"
+    registry_path.write_text(json.dumps(payload))
+    with pytest.raises(WorldGraphRetrievalError, match="binding is unavailable"):
         open_span(tmp_path, artifact, span)
