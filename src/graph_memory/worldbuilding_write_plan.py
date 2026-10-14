@@ -31,6 +31,7 @@ from graph_memory.candidate_semantic_promote_matrix import (
     map_reviewed_worldbuilding_semantics_to_kernel,
     semantic_diagnostics,
 )
+from src.graph_memory.extraction.worldbuilding_profile_catalog import PUBLISHABLE_WORLDBUILDING_PROFILES
 from graph_memory.extraction.worldbuilding_extraction_profile import (
     WORLDBUILDING_PROFILE_ID,
     WORLDBUILDING_PROFILE_VERSION,
@@ -1020,7 +1021,7 @@ def build_worldbuilding_write_plan(
     revision = _nonblank(source_revision_id, field="source_revision_id")
     uri = _nonblank(source_uri, field="source_uri")
     profile = _nonblank(extraction_profile, field="extraction_profile")
-    if profile != WORLDBUILDING_EXTRACTION_PROFILE:
+    if profile not in PUBLISHABLE_WORLDBUILDING_PROFILES:
         raise WorldbuildingWritePlanError(
             "worldbuilding write plans require the exact BLD-08 extraction profile",
             code="unsupported_worldbuilding_profile",
@@ -1449,12 +1450,12 @@ def verify_worldbuilding_write_plan(
                 "plan source_domain must be worldbuilding",
                 code="plan_verification_failed",
             )
-        if top_fields["extraction_profile"] != WORLDBUILDING_EXTRACTION_PROFILE:
+        if top_fields["extraction_profile"] not in PUBLISHABLE_WORLDBUILDING_PROFILES:
             raise WorldbuildingWritePlanError(
                 "plan extraction_profile is not the BLD-08 profile",
                 code="plan_verification_failed",
             )
-        if context.extraction_profile != WORLDBUILDING_EXTRACTION_PROFILE:
+        if context.extraction_profile not in PUBLISHABLE_WORLDBUILDING_PROFILES:
             raise WorldbuildingWritePlanError(
                 "verification context extraction_profile is not the BLD-08 profile",
                 code="plan_verification_failed",

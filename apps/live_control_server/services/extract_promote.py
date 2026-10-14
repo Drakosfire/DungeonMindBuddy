@@ -1922,14 +1922,11 @@ def _load_typed_worldbuilding_preview_for_run(resolved):
                 )
             ],
         )
-    from graph_memory.extraction.worldbuilding_extraction_profile import (
-        WORLDBUILDING_PROFILE_ID,
-        WORLDBUILDING_PROFILE_VERSION,
-    )
 
 
-    expected_profile = f"{WORLDBUILDING_PROFILE_ID}@{WORLDBUILDING_PROFILE_VERSION}"
-    if resolved.extraction_profile != expected_profile:
+    from src.graph_memory.extraction.worldbuilding_profile_catalog import PUBLISHABLE_WORLDBUILDING_PROFILES
+    expected_profile = resolved.extraction_profile
+    if expected_profile not in PUBLISHABLE_WORLDBUILDING_PROFILES:
         raise ExtractPromoteError(
             "operation requires the exact BLD-08 extraction profile",
             code="unsupported_worldbuilding_profile",
@@ -1997,14 +1994,10 @@ def _load_typed_worldbuilding_preview_for_run(resolved):
         ) from exc
 
 
-    from src.graph_memory.extraction.extraction_profile import get_extraction_profile
 
 
     try:
-        profile = get_extraction_profile(
-            WORLDBUILDING_PROFILE_ID,
-            WORLDBUILDING_PROFILE_VERSION,
-        )
+        profile = PUBLISHABLE_WORLDBUILDING_PROFILES[expected_profile]
         profile_errors = [
             str(item)
             for item in (

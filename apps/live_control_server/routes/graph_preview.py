@@ -349,8 +349,10 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
         WORLDBUILDING_PLUMBING_PROFILE_VERSION,
     )
 
+    from src.graph_memory.extraction.worldbuilding_profile_catalog import PUBLISHABLE_WORLDBUILDING_PROFILES
+
     _ALLOWED_BUILD_PROFILES = {
-        (WORLDBUILDING_PROFILE_ID, WORLDBUILDING_PROFILE_VERSION),
+        *(tuple(key.split("@")) for key in PUBLISHABLE_WORLDBUILDING_PROFILES),
         (WORLDBUILDING_PLUMBING_PROFILE_ID, WORLDBUILDING_PLUMBING_PROFILE_VERSION),
     }
 

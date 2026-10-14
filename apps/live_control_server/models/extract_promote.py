@@ -305,7 +305,7 @@ class WorldbuildingWritePlanResponse(_ExtractPromoteModel):
     source_domain: Literal["worldbuilding"] = "worldbuilding"
     source_artifact_id: str
     source_revision_id: str
-    extraction_profile: Literal["worldbuilding_shepherds_flock_v0@0.1"] = (
+    extraction_profile: Literal["worldbuilding_shepherds_flock_v0@0.1", "worldbuilding_gazetteer_v1@1.0"] = (
         "worldbuilding_shepherds_flock_v0@0.1"
     )
     candidate_preview_id: str
@@ -1345,7 +1345,7 @@ class FirstWorldGraphPlan(_ExtractPromoteModel):
     workspace_document_revision: str
     campaign_scope: str | None = None
     session_scope: None = None
-    extraction_profile: Literal["worldbuilding_shepherds_flock_v0@0.1"] = (
+    extraction_profile: Literal["worldbuilding_shepherds_flock_v0@0.1", "worldbuilding_gazetteer_v1@1.0"] = (
         "worldbuilding_shepherds_flock_v0@0.1"
     )
     accepted_assertion_ids: list[str] = Field(default_factory=list)
