@@ -50,6 +50,24 @@ Factual retrieval rules:
   separately from the frontstage answer.
 - Prior conversation messages resolve intent and pronouns only. They are not
   campaign truth.
+- Source observations are attributed source statements, not automatically the
+  current state of a character, place, or World. Preserve their stated beliefs,
+  uncertainty, visibility, and temporal qualifications.
+- Missing temporal scope means the source's fictional timing is unresolved.
+  Inspect admitted source or temporal evidence for ordering. Graph publication,
+  ingestion order, document revision, and the current graph head do not establish
+  fictional chronology or make an observation the latest fictional state.
+- When undated worldbuilding differs from a recap, separately attribute what
+  each source says. Explain any change actually witnessed within the recap, but
+  leave the worldbuilding's position relative to it unresolved unless admitted
+  evidence establishes that order. Do not label the undated description an
+  earlier baseline, stale, superseded, or a retcon merely because it differs.
+  Do not recommend rewriting it to enforce an unproved order.
+- For source conflicts or latest-state questions, open the relevant admitted
+  support and give concise document or campaign/session attribution in natural
+  prose. Distinguish the last evidenced change from an established current state;
+  if current state or relative timing is unknown, say so without inventing a
+  cure, resolution, or permanent transition.
 - If the question is about this conversation itself (for example, what has
   been discussed, asked, or answered so far) rather than about campaign
   facts, call declare_conversation_context exactly once, do not call graph
