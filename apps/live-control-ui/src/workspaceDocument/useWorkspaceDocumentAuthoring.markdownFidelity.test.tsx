@@ -1,8 +1,8 @@
 import { StrictMode, useState } from "react";
 import type { Content } from "@tiptap/react";
-import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import type { Editor } from "@tiptap/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   commitTiptapMarkdownWrite,
@@ -21,6 +21,20 @@ import { useBuildMarkdownCanvasSlots } from "../buildSurface/buildMarkdownCanvas
 import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
 import type { WorkspaceDocumentAuthoringValue } from "./useWorkspaceDocumentAuthoring";
 import { useWorkspaceDocumentAuthoring } from "./useWorkspaceDocumentAuthoring";
+
+// happy-dom lacks the native dialog API; browser focus/Escape behavior is a rendered gate.
+const dialogPrototype = Object.getPrototypeOf(document.createElement("dialog"));
+const originalShowModal = Object.getOwnPropertyDescriptor(dialogPrototype, "showModal");
+beforeAll(() => {
+  Object.defineProperty(dialogPrototype, "showModal", { configurable: true, value(this: HTMLDialogElement) {
+    this.setAttribute("open", "");
+    this.open = true;
+  } });
+});
+afterAll(() => {
+  if (originalShowModal) Object.defineProperty(dialogPrototype, "showModal", originalShowModal);
+  else Reflect.deleteProperty(dialogPrototype, "showModal");
+});
 
 vi.mock("../api/liveApi", () => ({
   getWorkspaceDocumentSnapshot: vi.fn(),
@@ -637,7 +651,6 @@ describe("real-session Save and Build discard exclusion", () => {
     vi.mocked(getWorkspaceDocumentSnapshot).mockImplementation(async () => verified);
     vi.mocked(prepareTiptapMarkdownWrite).mockReturnValue(prepare.promise);
     vi.mocked(commitTiptapMarkdownWrite).mockReturnValue(commit.promise);
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     let current!: ReturnType<typeof useMarkdownCanvasSession>;
     function Controls() {
       current = useMarkdownCanvasSession();
@@ -657,14 +670,21 @@ describe("real-session Save and Build discard exclusion", () => {
     act(() => { current.editor!.commands.insertContent("A real edit. "); });
     await waitFor(() => expect(current.dirty).toBe(true));
     const dirty = readWorkspaceDocumentLocalState(localStorage, DOC_ID);
+    fireEvent.click(screen.getByRole("button", { name: "Discard local draft" }));
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Keep editing" }));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(current.dirty).toBe(true);
+    expect(readWorkspaceDocumentLocalState(localStorage, DOC_ID)).toEqual(dirty);
+    expect(getWorkspaceDocumentSnapshot).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Discard local draft" }));
     let saving!: Promise<void>;
     act(() => { saving = current.saveMarkdown(); });
     await waitFor(() => expect(current.phase).toBe("preparing"));
     expect(current.activeCommand).not.toBeNull();
-    let discard = screen.getByRole("button", { name: "Discard local draft" });
+    let discard = within(screen.getByRole("alertdialog")).getByRole("button", { name: "Discard changes" });
     expect(discard).toBeDisabled();
     fireEvent.click(discard);
-    expect(confirm).not.toHaveBeenCalled();
     expect(readWorkspaceDocumentLocalState(localStorage, DOC_ID)).toEqual(dirty);
     expect(getWorkspaceDocumentSnapshot).toHaveBeenCalledTimes(1);
     await act(async () => {
@@ -674,10 +694,9 @@ describe("real-session Save and Build discard exclusion", () => {
         writer_confirm_token: "synthetic-confirm", writer_diff: "+A real edit.", warnings: [], diagnostics: [] });
     });
     await waitFor(() => expect(current.phase).toBe("committing"));
-    discard = screen.getByRole("button", { name: "Discard local draft" });
+    discard = within(screen.getByRole("alertdialog")).getByRole("button", { name: "Discard changes" });
     expect(discard).toBeDisabled();
     fireEvent.click(discard);
-    expect(confirm).not.toHaveBeenCalled();
     expect(getWorkspaceDocumentSnapshot).toHaveBeenCalledTimes(1);
     expect(readWorkspaceDocumentLocalState(localStorage, DOC_ID)).toEqual(dirty);
     const committedMarkdown = vi.mocked(commitTiptapMarkdownWrite).mock.calls[0][0].markdown;
@@ -694,6 +713,7 @@ describe("real-session Save and Build discard exclusion", () => {
       await saving;
     });
     await waitFor(() => expect(current.phase).toBe("ready_clean"));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
     expect(current.lastCommitReceipt?.committed_revision).toBe(2);
     expect(current.snapshot?.loaded_revision).toBe(2);
     expect(current.snapshot?.markdown).toBe(committedMarkdown);
@@ -703,6 +723,5 @@ describe("real-session Save and Build discard exclusion", () => {
     expect(prepareTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
     expect(commitTiptapMarkdownWrite).toHaveBeenCalledTimes(1);
     expect(getWorkspaceDocumentSnapshot).toHaveBeenCalledTimes(2);
-    expect(confirm).not.toHaveBeenCalled();
   });
 });

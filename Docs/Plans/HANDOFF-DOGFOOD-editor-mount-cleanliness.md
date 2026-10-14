@@ -115,3 +115,26 @@ mutation, loading/verification phases, unsafe-save-disabled recovery and cancel.
 All 29 Core/fidelity/recovery tests and app TypeScript pass. The exact guarded
 adapter bytes were restored after the negative-control run. Cumulative diff
 checked. No production hook change, operator Source Save or deployment occurred.
+
+## Explicit in-page confirmation refinement
+
+PRIME approved replacing native window.confirm with an accessible in-page
+alertdialog in the same six-path lease. The in-app browser's native confirmation
+blocked its automation bridge during rendered review: click timeout, no supported
+dialog handle, screenshot timeout. No confirmed discard or source Save occurred.
+The alertdialog uses native HTML dialog focus containment/Escape cancellation,
+initial safe focus, labelled text and explicit confirmation. Pending consent is
+pinned to documentId plus documentKey, invalidated on navigation/source replacement,
+and rechecks idle phase/active-command guard at confirmation. Cancel preserves
+actual unsaved edits. New head needs independent review before deployment.
+
+In-page refinement verification: 32 focused Core/fidelity/recovery cases and app
+TypeScript pass. The real-session test now opens confirmation, cancels while
+preserving genuine edited local state, reopens, then attempts confirmation during
+both deferred Save prepare and commit. The eventual receipt, verified snapshot
+and CAS base remain intact; successful Save invalidates pending consent. Adapter
+cases cover explicit confirmation, Escape cancel event, active-command exclusion,
+unsafe idle recovery and document ID/key navigation invalidation. happy-dom lacks
+showModal; a test-only shim marks the dialog open. Native browser focus containment,
+initial focus and Escape interaction remain rendered acceptance gates, not test
+claims. No source Save, extraction, publication or model calls were performed.
