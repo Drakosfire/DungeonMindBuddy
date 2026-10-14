@@ -14,7 +14,7 @@ Exclusive six paths:
 - src/graph_memory/extraction/worldbuilding_profile_catalog.py
 - src/graph_memory/extraction/worldbuilding_role_support.py
 - tests/test_worldbuilding_role_support.py
-- tests/test_worldbuilding_role_support_pipeline.py
+- tests/test_worldbuilding_gazetteer_profile.py
 
 Outcome: explicitly selectable Gazetteer1.3 preserves1.2 instructions/source
 retention and adds a narrow submitted-support disposition. Native v5 has no
