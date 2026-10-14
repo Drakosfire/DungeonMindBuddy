@@ -855,3 +855,33 @@ def test_recap_snapshot_rejects_path_escape(tmp_path: Path) -> None:
             session_id="session-24/../evil",
             recap_text="escape attempt\n",
         )
+
+
+def test_prepared_source_snapshot_survives_mutable_source_edit(tmp_path):
+    import hashlib
+    from src.graph_memory.extraction.graph_preview_runner import _build_prepared_components
+    mutable = tmp_path / "document.md"
+    mutable.write_text("# Original\n")
+    body = mutable.read_text()
+    source = NormalizedExtractionSource("artifact:test", "worldbuilding", body,
+        hashlib.sha256(body.encode()).hexdigest(), "repo://document.md", "world", None)
+    components, _ = _build_prepared_components(tmp_path, source, tmp_path / "run")
+    mutable.write_text("# Later edit\n")
+    frozen = tmp_path / components["source_artifact"].uri.removeprefix("repo://")
+    assert frozen.read_text() == body
+    replay, _ = _build_prepared_components(tmp_path, source, tmp_path / "run")
+    assert replay["source_artifact"] == components["source_artifact"]
+    changed = replace(source, source_text="# Different\n",
+                      source_sha256=hashlib.sha256(b"# Different\n").hexdigest())
+    with pytest.raises(ValueError, match="conflicts"):
+        _build_prepared_components(tmp_path, changed, tmp_path / "run")
+    assert frozen.read_text() == body
+
+
+def test_prepared_snapshot_rejects_incorrect_digest(tmp_path):
+    from src.graph_memory.extraction.graph_preview_runner import _build_prepared_components
+    source = NormalizedExtractionSource("artifact:test", "worldbuilding", "# Body\n",
+                                       "0" * 64, "repo://document.md", "world", None)
+    with pytest.raises(ValueError, match="digest mismatch"):
+        _build_prepared_components(tmp_path, source, tmp_path / "run")
+    assert not (tmp_path / "run/source.md").exists()
