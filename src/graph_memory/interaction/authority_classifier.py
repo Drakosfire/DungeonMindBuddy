@@ -361,6 +361,7 @@ def claims_from_retrieval_result(
                 authority_class="source_derived_accepted_assertion",
                 source_assertion_id=assertion_id,
                 observation_kind=observation_kind,
+                temporal_scope=_get(row, "temporal_scope", "temporalScope"),
                 review_id=_get(row, "review_id", "reviewId"),
                 contribution_id=_get(row, "contribution_id", "contributionId"),
                 publication_revision_id=_get(

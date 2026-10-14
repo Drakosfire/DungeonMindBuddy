@@ -760,6 +760,13 @@ def render_world_graph_prompt_block(envelope: dict[str, Any] | None) -> str:
         lines.append(
             "reviewed_source_observations (source context, not authored properties):"
         )
+        lines.append(
+            "Source observations report what their source says. Preserve its temporal and epistemic "
+            "scope. Unspecified scope and publication time do not establish current story state. "
+            "Worldbuilding references may differ from later recaps; consult relevant sources before "
+            "asserting the latest state. If source ordering is unproven, retain attributed differences "
+            "without selecting a current state."
+        )
         for row in reviewed:
             lines.append(
                 "- "
@@ -769,6 +776,11 @@ def render_world_graph_prompt_block(envelope: dict[str, Any] | None) -> str:
                 f"artifact={row.get('source_artifact_id')} | "
                 f"revision={row.get('source_revision_id')} | "
                 f"text={row.get('text') or ''}"
+                f" | observation_kind={row.get('observation_kind') or 'unspecified'}"
+                f" | temporal_scope={json.dumps(row.get('temporal_scope'), sort_keys=True) if row.get('temporal_scope') is not None else 'unspecified'}"
+                f" | epistemic_kind={row.get('epistemic_kind') or 'unspecified'}"
+                f" | visibility={row.get('visibility') or 'unspecified'}"
+                f"{_prompt_optional_json('campaign_scope', row.get('campaign_scope'))}"
                 f"{_prompt_optional_ids('evidence_ref_ids', row.get('evidence_ref_ids'))}"
             )
     coverage = envelope.get("reviewed_source_observation_coverage")
