@@ -395,8 +395,7 @@ def _reviewed_binding_anchor(
     expected_kind = "player_character" if binding.corpus_ref_type == "pc" else "npc"
     if (
         target is None or target.object_id in context.identity_redirects
-        or node.node_type not in {"character", "pc"}
-        or (node.node_type == "pc" and binding.corpus_ref_type != "pc")
+        or node.node_type != "character"
         or binding.corpus_ref_type not in {"pc", "npc"}
         or _norm_kind(target.kind) != expected_kind
         or target.canon_state != "canonical"
