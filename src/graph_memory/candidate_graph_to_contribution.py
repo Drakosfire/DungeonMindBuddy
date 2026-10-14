@@ -48,7 +48,7 @@ _NODE_TYPE_TO_KIND: dict[str, str] = {
     "place": "location",
     "party": "party",
     "collective": "party",
-    "organization": "party",
+    "organization": "faction",
     "faction": "faction",
     "event": "event",
     "beat": "event",
