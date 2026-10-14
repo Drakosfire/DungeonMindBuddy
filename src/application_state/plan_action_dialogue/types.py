@@ -19,6 +19,7 @@ from application_state.agent_conversation.types import (
     PlanWorldGraphClaimSegmentV1,
     PlanWorldGraphConnectiveSegmentV1,
     PlanWorldGraphExecutionV2,
+    PlanWorldGraphExecutionV3,
     PlanWorldGraphPacketV1,
 )
 
@@ -222,7 +223,7 @@ class PlanActionConsultation(StrictModel):
         "dmb_plan_action_consultation_v1"
     )
     receipt: PlanActionConsultationReceipt
-    execution: PlanWorldGraphExecutionV2 | None
+    execution: PlanWorldGraphExecutionV2 | PlanWorldGraphExecutionV3 | None
     result: PlanActionConsultationResult | None = None
 
     @model_validator(mode="after")

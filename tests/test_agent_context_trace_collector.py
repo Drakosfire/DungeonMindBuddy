@@ -97,6 +97,22 @@ def test_exact_source_snapshot_is_not_appended_separately_from_receipt():
     assert store.trace.observations[-1].sequence == 1
 
 
+def test_trace_collector_accepts_more_than_eight_passages_within_byte_and_character_bounds():
+    capture, store, _ = collector()
+    passages = []
+    for index in range(9):
+        text = f"bounded source passage {index}"
+        event = source_event(text)
+        passages.extend(capture.source_passages(
+            event, [{"content": text}], world_id="world",
+            graph_revision="graph-revision",
+        ))
+    assert len(passages) == 9
+    assert sum(item.returned_chars for item in passages) < 96_000
+    assert store.trace.capture_status == "recording"
+    assert capture._capture_exhausted() is False
+
+
 def test_changed_source_bytes_cannot_be_captured():
     capture, _, _ = collector()
     with pytest.raises(ValidationError):
@@ -180,7 +196,6 @@ def test_producer_observations_survive_real_postgres_terminal_failure(applicatio
 
 @pytest.mark.parametrize("reason,code", [
     ("trace exceeds the explicit 1 MiB per-attempt ceiling", "trace_size_limit"),
-    ("captured source passages exceed the 8-read turn ceiling", "source_read_capture_limit"),
     ("captured source passages exceed the 96,000 character turn ceiling", "source_character_capture_limit"),
 ])
 def test_known_source_cap_retries_only_same_receipt_without_releasing_bytes(reason, code):

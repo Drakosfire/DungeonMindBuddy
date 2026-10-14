@@ -7,11 +7,15 @@ from uuid import UUID, uuid4
 from application_state.agent_conversation.types import (
     CompletionBindingEventV1,
     GraphExecutionEventV2,
+    GraphExecutionEventV3,
     GraphExecutionPolicyV2,
+    GraphExecutionPolicyV3,
     PlanWorldGraphExecutionV2,
+    PlanWorldGraphExecutionV3,
     ProviderAttemptAuthorizedEventV1,
     WorldPointer,
     graph_execution_policy_digest_v2,
+    graph_execution_policy_digest_v3,
 )
 from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
 from application_state.plan_action_dialogue.graph_consultation import consultation_result_digest
@@ -69,7 +73,7 @@ class PlanActionDialogueService:
 
     def freeze_consultation(
         self, *, action_id: UUID, token: UUID, fence: int,
-        receipt: PlanActionConsultationReceipt, policy: GraphExecutionPolicyV2 | None = None,
+        receipt: PlanActionConsultationReceipt, policy: GraphExecutionPolicyV2 | GraphExecutionPolicyV3 | None = None,
     ) -> tuple[PlanActionRecord, bool]:
         """Freeze server-resolved action/Graph input before any provider authorization."""
         receipt = PlanActionConsultationReceipt.model_validate(
@@ -79,9 +83,11 @@ class PlanActionDialogueService:
             raise ApplicationStateValidationError("unavailable authority cannot authorize execution")
         if receipt.authority_status == "resolved" and policy is None:
             raise ApplicationStateValidationError("resolved consultation requires a frozen policy")
-        execution = None if policy is None else PlanWorldGraphExecutionV2.model_validate({
+        execution_type = PlanWorldGraphExecutionV3 if isinstance(policy, GraphExecutionPolicyV3) else PlanWorldGraphExecutionV2
+        digest = graph_execution_policy_digest_v3 if isinstance(policy, GraphExecutionPolicyV3) else graph_execution_policy_digest_v2
+        execution = None if policy is None else execution_type.model_validate({
             "context_receipt_sha256": receipt.consultation_receipt_sha256,
-            "execution_policy_sha256": graph_execution_policy_digest_v2(
+            "execution_policy_sha256": digest(
                 receipt.consultation_receipt_sha256, policy
             ),
             "policy": policy.model_dump(mode="json", by_alias=True), "events": [],
@@ -106,7 +112,7 @@ class PlanActionDialogueService:
             return repo.write_consultation(conn, current, consultation), True
 
     def append_consultation_event(
-        self, *, action_id: UUID, token: UUID, fence: int, event: GraphExecutionEventV2,
+        self, *, action_id: UUID, token: UUID, fence: int, event: GraphExecutionEventV2 | GraphExecutionEventV3,
     ) -> tuple[PlanActionRecord, bool]:
         """A fresh provider-authorization append is the only one-shot dispatch permission."""
         if isinstance(event, CompletionBindingEventV1):

@@ -11,7 +11,6 @@ from application_state.agent_conversation.context_trace import (
     ContextTraceObservation,
     CONTEXT_TRACE_TERMINAL_RESERVE_BYTES,
     MAX_CONTEXT_TRACE_BYTES,
-    MAX_SOURCE_READS_PER_TURN,
     MAX_SOURCE_PASSAGE_CHARS_PER_TURN,
     TraceContextSnapshot,
     TraceGraphTool,
@@ -104,7 +103,6 @@ def append_source_passages_locked(
         (turn_id,),
     ).fetchall()
     observed_chars = sum(item.returned_chars for item in candidates)
-    observed_reads = len(candidates)
     for attempt_row in all_attempt_rows:
         other = _load_trace(attempt_row[0])
         prior_passages = [
@@ -113,9 +111,6 @@ def append_source_passages_locked(
             and item.source_read_event_id != event_id
         ]
         observed_chars += sum(item.returned_chars for item in prior_passages)
-        observed_reads += len(prior_passages)
-    if observed_reads > MAX_SOURCE_READS_PER_TURN:
-        raise ApplicationStateValidationError("captured source passages exceed the 8-read turn ceiling")
     if observed_chars > MAX_SOURCE_PASSAGE_CHARS_PER_TURN:
         raise ApplicationStateValidationError("captured source passages exceed the 96,000 character turn ceiling")
     sequence = len(trace.observations)
@@ -176,7 +171,7 @@ def close_context_trace_locked(
     if isinstance(execution, dict):
         for event in execution.get("events", []):
             if (
-                event.get("kind") == "validated_graph_operation"
+                event.get("kind") in {"validated_graph_operation", "validated_graph_operation_v3"}
                 and int(event.get("sequence", -1)) >= trace.execution_start_sequence
                 and str(event.get("event_id")) not in trace_graph_event_ids
             ):
@@ -435,7 +430,7 @@ def _validate_graph_tool_observation(observation: TraceGraphTool, execution: obj
     matching = [
         event for event in events
         if isinstance(event, dict)
-        and event.get("kind") == "validated_graph_operation"
+        and event.get("kind") in {"validated_graph_operation", "validated_graph_operation_v3"}
         and event.get("event_id") == str(observation.execution_event_id)
     ]
     if len(matching) != 1:

@@ -2650,6 +2650,78 @@ def search_world_graph_direct_v2(
         raise _map_direct_error(exc) from exc
 
 
+
+@dataclass(frozen=True)
+class ResolvedWorldGraphOperationV3:
+    """Internal parent authority; source revisions never come from public Graph pins."""
+
+    result: WorldGraphRetrievalResult
+    source_pins: tuple[ResolvedSourceAnchorMetadataV2, ...]
+
+
+def _resolved_operation_v3(native: Any, public: WorldGraphRetrievalResult) -> ResolvedWorldGraphOperationV3:
+    pins: dict[str, ResolvedSourceAnchorMetadataV2] = {}
+    for anchor in native.anchors:
+        if not anchor.can_open_source or _classify_locator_kind(anchor) == "unsupported":
+            continue
+        if not anchor.source_revision_id or not anchor.evidence_ref_id or not anchor.source_artifact_id:
+            raise ValueError("Readable native anchor has incomplete source identity")
+        pin = ResolvedSourceAnchorMetadataV2(
+            anchor_id=_buddy_anchor_id(anchor.anchor_id), graph_revision=native.snapshot.revision_id,
+            evidence_ref_id=anchor.evidence_ref_id, source_artifact_id=anchor.source_artifact_id,
+            source_revision_id=anchor.source_revision_id,
+        )
+        if pin.anchor_id in pins and pins[pin.anchor_id] != pin:
+            raise ValueError("Native operation returned conflicting source identities")
+        pins[pin.anchor_id] = pin
+    return ResolvedWorldGraphOperationV3(public, tuple(pins[key] for key in sorted(pins)))
+
+
+def search_world_graph_direct_v3(services: DirectWorldGraphReadServices,
+                                 request: WorldGraphSearchRequest) -> ResolvedWorldGraphOperationV3:
+    try:
+        native = services.retrieval.search(_map_retrieval_context(request, services.binding),
+            query_text=request.query_text or "", seed_object_ids=request.seed_node_ids,
+            bounds=_retrieval_bounds(request.bounds))
+        return _resolved_operation_v3(native, _search_result_view(native, request=request))
+    except Exception as exc:
+        raise _map_direct_error(exc) from exc
+
+
+def get_object_direct_v3(services: DirectWorldGraphReadServices,
+                         request: WorldGraphObjectRequest) -> ResolvedWorldGraphOperationV3:
+    try:
+        native = services.retrieval.get_object(_map_retrieval_context(request, services.binding),
+            object_id=request.node_id, bounds=_retrieval_bounds(request.bounds))
+        return _resolved_operation_v3(native, _object_result_view(native, request=request))
+    except Exception as exc:
+        raise _map_direct_error(exc) from exc
+
+
+def get_neighborhood_direct_v3(services: DirectWorldGraphReadServices,
+                               request: WorldGraphNeighborhoodRequest) -> ResolvedWorldGraphOperationV3:
+    try:
+        native = services.retrieval.get_neighborhood(_map_retrieval_context(request, services.binding),
+            seed_object_ids=request.seed_node_ids, depth=request.max_depth,
+            bounds=_retrieval_bounds(request.bounds))
+        return _resolved_operation_v3(native, _neighborhood_result_view(native, request=request))
+    except Exception as exc:
+        raise _map_direct_error(exc) from exc
+
+
+def get_evidence_direct_v3(services: DirectWorldGraphReadServices,
+                           request: WorldGraphEvidenceRequest) -> ResolvedWorldGraphOperationV3:
+    try:
+        kind = _EVIDENCE_TARGET_KIND_MAP.get(request.target.kind)
+        if kind is None:
+            raise DirectWorldGraphReadError("Unsupported evidence target kind", code="invalid_request", status_code=422)
+        native = services.retrieval.get_evidence(_map_retrieval_context(request, services.binding),
+            target=EvidenceTarget(kind=kind, target_id=request.target.id))
+        return _resolved_operation_v3(native, _evidence_result_view(native, request=request))
+    except Exception as exc:
+        raise _map_direct_error(exc) from exc
+
+
 def _search_result_view(
     result: GraphSearchResult,
     *,

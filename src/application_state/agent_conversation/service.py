@@ -40,10 +40,14 @@ from application_state.agent_conversation.types import (
     LegacyImport,
     LegacyImportReceipt,
     PlanAskContextBasis,
-    PlanWorldGraphExecutionV1,
-    PlanWorldGraphExecutionV2,
+    PlanWorldGraphExecutionV3,
+    SourceScopeExtensionEventV3,
+    ValidatedGraphOperationEventV3,
+    GraphExecutionEventV3,
+    validate_selected_source_binding,
     ProviderAttemptAuthorizedEventV1,
     ProviderAttemptAuthorizedEventV2,
+    ProviderAttemptAuthorizedEventV3,
     ProviderOutcomeEventV1,
     RelatedRecapContextAuthorizationEventV2,
     RelatedRecapContextProviderInclusionEventV2,
@@ -770,11 +774,7 @@ class AgentConversationService:
                             kind="provider_outcome", provider_attempt_id=latest.provider_attempt_id,
                             outcome="outcome_unknown",
                         )
-                        execution_type = (
-                            PlanWorldGraphExecutionV2
-                            if isinstance(execution, PlanWorldGraphExecutionV2)
-                            else PlanWorldGraphExecutionV1
-                        )
+                        execution_type = type(execution)
                         execution = execution_type.model_validate(
                             execution.model_dump(mode="json", by_alias=True)
                             | {"events": [*[e.model_dump(mode="json", by_alias=True) for e in execution.events], unknown.model_dump(mode="json", by_alias=True)]}
@@ -829,7 +829,7 @@ class AgentConversationService:
         *,
         expected_revision: int,
         expected_attempt: int,
-        event: GraphExecutionEventV1 | GraphExecutionEventV2,
+        event: GraphExecutionEventV1 | GraphExecutionEventV2 | GraphExecutionEventV3,
         duplicate_key: str,
         source_passages: list[TraceSourcePassage] | None = None,
     ) -> tuple[Turn, bool]:
@@ -864,6 +864,10 @@ class AgentConversationService:
                         isinstance(prior, ValidatedGraphOperationEventV1)
                         and isinstance(event, ValidatedGraphOperationEventV1)
                     ):
+                        if isinstance(execution, PlanWorldGraphExecutionV3):
+                            if prior == event:
+                                return turn, False
+                            raise ApplicationStateConflictError("Graph origin was reused with changed content")
                         if prior.request_arguments_sha256 == event.request_arguments_sha256:
                             return turn, False
                         raise ApplicationStateConflictError("Graph operation ID was reused with changed arguments")
@@ -898,6 +902,17 @@ class AgentConversationService:
                     )
                 except ValueError as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
+            if trace_active and isinstance(event, ProviderAttemptAuthorizedEventV3):
+                payload = conn.execute(
+                    "SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
+                    (turn_id, expected_attempt),
+                ).fetchone()[0]
+                captured = {(item.get("source_read_event_id"), item.get("source_read_id"), item.get("content_sha256"))
+                            for item in payload["observations"] if item.get("kind") == "source_passage"}
+                for read_event in execution.events:
+                    if isinstance(read_event, ValidatedSourceReadEventV2) and read_event.event_id in event.included_source_read_event_ids:
+                        if any(read.returned_chars and (str(read_event.event_id), read.source_read_id, read.content_sha256) not in captured for read in read_event.receipts):
+                            raise ApplicationStateValidationError("provider inclusion requires captured source passages")
             if isinstance(event, ValidatedGraphOperationEventV1):
                 receipt = turn.graph_context_receipt
                 assert receipt is not None
@@ -913,11 +928,7 @@ class AgentConversationService:
                 raise ApplicationStateValidationError("passage observations require a validated source-read event")
             events = [*execution.events, event]
             try:
-                execution_type = (
-                    PlanWorldGraphExecutionV2
-                    if isinstance(execution, PlanWorldGraphExecutionV2)
-                    else PlanWorldGraphExecutionV1
-                )
+                execution_type = type(execution)
                 updated_execution = execution_type.model_validate(
                     execution.model_dump(mode="json", by_alias=True) | {"events": [e.model_dump(mode="json", by_alias=True) for e in events]}
                 )
@@ -925,6 +936,7 @@ class AgentConversationService:
                     validate_related_recap_context_scope(
                         turn.graph_context_receipt, updated_execution
                     )
+                    validate_selected_source_binding(turn.graph_context_receipt, updated_execution)
             except ValueError as exc:
                 raise ApplicationStateValidationError(str(exc)) from exc
             updated = repo.update_graph_execution(
@@ -948,11 +960,22 @@ class AgentConversationService:
     def append_validated_graph_operation(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int,
-        operation_event: ValidatedGraphOperationEventV1,
+        operation_event: ValidatedGraphOperationEventV1 | ValidatedGraphOperationEventV3,
     ) -> tuple[Turn, bool]:
         return self._append_graph_execution_event(
             world_id, conversation_id, turn_id, expected_revision=expected_revision,
             expected_attempt=expected_attempt, event=operation_event, duplicate_key="operation_id",
+        )
+
+    def extend_source_scope(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int,
+        extension: SourceScopeExtensionEventV3,
+    ) -> tuple[Turn, bool]:
+        """Admit only exact earlier parent-validated origin pins under the live claim."""
+        return self._append_graph_execution_event(
+            world_id, conversation_id, turn_id, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, event=extension, duplicate_key="event_id",
         )
 
     def authorize_provider_attempt(
@@ -1168,11 +1191,7 @@ class AgentConversationService:
                     claim_graph_event_ids=result.claim_graph_event_ids,
                 )
                 try:
-                    execution_type = (
-                        PlanWorldGraphExecutionV2
-                        if isinstance(execution, PlanWorldGraphExecutionV2)
-                        else PlanWorldGraphExecutionV1
-                    )
+                    execution_type = type(execution)
                     execution = execution_type.model_validate(
                         execution.model_dump(mode="json", by_alias=True)
                         | {"events": [*[e.model_dump(mode="json", by_alias=True) for e in execution.events], binding.model_dump(mode="json", by_alias=True)]}

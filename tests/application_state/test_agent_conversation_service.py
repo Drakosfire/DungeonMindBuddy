@@ -1085,8 +1085,8 @@ def test_claim_recovery_migration_preserves_completed_legacy_turn(
     command.downgrade(alembic_config(), "20261002_0012")
     command.upgrade(alembic_config(), "head")
     assert _current_and_head(application_state_dsn) == (
-        "20261013_0022",
-        "20261013_0022",
+        "20261013_0023",
+        "20261013_0023",
     )
 
     loaded = AgentConversationService().list_turns(
@@ -3021,3 +3021,114 @@ def test_related_recap_v2_admission_rejects_retired_or_forged_selector(patch):
     data = _related_recap_admission_fixture().model_dump(mode="json",by_alias=True)
     with pytest.raises(ValidationError):
         RelatedRecapContextAdmissionV2.model_validate(data | patch)
+
+
+def _source_admission_v3_fixture():
+    from application_state.agent_conversation.types import (
+        GraphExecutionPolicyV3, GraphSourceScopeAnchorV2, PlanWorldGraphExecutionV3,
+        SourceScopeExtensionEventV3, ValidatedGraphOperationEventV3,
+        graph_execution_policy_digest_v3,
+    )
+    receipt, legacy, _ = _selected_related_recap_execution_fixture()
+    values = legacy.policy.model_dump(mode="json", by_alias=True)
+    values.pop("max_source_read_calls")
+    values.pop("max_source_read_anchors")
+    values.update(max_source_read_chars=96000, max_graph_operations=32, max_results_per_operation=256,
+        provider_input_accounting={"kind": "exact_token_count", "estimator": receipt.assembled_input.tokenizer_name})
+    policy = GraphExecutionPolicyV3.model_validate(values)
+    execution = PlanWorldGraphExecutionV3(
+        context_receipt_sha256=receipt.context_receipt_sha256,
+        execution_policy_sha256=graph_execution_policy_digest_v3(receipt.context_receipt_sha256, policy),
+        policy=policy, events=[],
+    )
+    pins = [GraphSourceScopeAnchorV2(anchor_id=f"traversal-{i:02}", evidence_ref_id=f"returned-evidence-{i}",
+        source_artifact_id=f"artifact-{i}", source_revision_id=f"source-revision-{i}") for i in range(9)]
+    origin = ValidatedGraphOperationEventV3(event_id=uuid4(), sequence=0, kind="validated_graph_operation_v3",
+        operation_id=uuid4(), operation=policy.allowed_graph_operations[0], request_arguments_sha256="a"*64,
+        graph_revision=policy.source_read_scope.graph_revision, result_packet_sha256="b"*64,
+        assertion_ids=[], relationship_ids=[], evidence_ref_ids=sorted(pin.evidence_ref_id for pin in pins),
+        evidence_sufficiency_status="sufficient", coverage_status="complete", truncated=False,
+        source_opened=False, returned_source_pins=pins)
+    authority = receipt.graph_authority
+    extension = SourceScopeExtensionEventV3(event_id=uuid4(), sequence=1, kind="source_scope_extension_v3",
+        origin_graph_event_id=origin.event_id, context_receipt_sha256=execution.context_receipt_sha256,
+        execution_policy_sha256=execution.execution_policy_sha256, world_id=authority.managed_world_id,
+        native_world_id=authority.native_world_id, binding_version=authority.binding_version,
+        campaign_id=authority.campaign_id, graph_revision=authority.graph_revision,
+        retrieval_session_id=policy.source_read_scope.retrieval_session_id, pins=pins)
+    return receipt, execution, origin, extension
+
+
+def _v3_events(execution, events):
+    return type(execution).model_validate(execution.model_dump(mode="json", by_alias=True)
+        | {"events": [event.model_dump(mode="json", by_alias=True) for event in events]})
+
+
+def test_source_admission_v3_preserves_selected_commitment_and_legacy_bytes():
+    from application_state.agent_conversation.types import PlanWorldGraphExecutionV2, validate_selected_source_binding
+    receipt, execution, origin, extension = _source_admission_v3_fixture()
+    extended = _v3_events(execution, [origin, extension])
+    validate_selected_source_binding(receipt, extended)
+    assert extended.policy == execution.policy
+    assert len(extended.effective_source_pins()) == 10
+    assert "max_source_read_calls" not in extended.policy.model_dump()
+    _, v2, _ = _selected_related_recap_execution_fixture()
+    encoded = v2.model_dump_json(by_alias=True)
+    assert PlanWorldGraphExecutionV2.model_validate_json(encoded).model_dump_json(by_alias=True) == encoded
+
+
+@pytest.mark.parametrize("change", ["missing_origin", "late_origin", "pin", "evidence", "world", "native_world", "binding", "revision", "session", "rebind"])
+def test_source_admission_v3_rejects_unproven_extensions(change):
+    from application_state.agent_conversation.types import validate_selected_source_binding
+    receipt, execution, origin, extension = _source_admission_v3_fixture()
+    if change == "missing_origin":
+        extension = extension.model_copy(update={"origin_graph_event_id": uuid4()})
+    elif change == "late_origin":
+        origin, extension = origin.model_copy(update={"sequence": 1}), extension.model_copy(update={"sequence": 0})
+    elif change in {"pin", "evidence"}:
+        pins = [*extension.pins]
+        pins[0] = pins[0].model_copy(update={"source_revision_id" if change == "pin" else "evidence_ref_id": "forged"})
+        extension = extension.model_copy(update={"pins": pins})
+    elif change == "rebind":
+        pin = execution.policy.source_read_scope.admitted_anchors[0].model_copy(update={"source_revision_id": "rebound"})
+        origin = origin.model_copy(update={"returned_source_pins": [pin], "evidence_ref_ids": [pin.evidence_ref_id]})
+        extension = extension.model_copy(update={"pins": [pin]})
+    else:
+        field = {"world": "world_id", "native_world": "native_world_id", "binding": "binding_version", "revision": "graph_revision", "session": "retrieval_session_id"}[change]
+        extension = extension.model_copy(update={field: 99 if change == "binding" else "foreign"})
+    events = [extension, origin] if change == "late_origin" else [origin, extension]
+    with pytest.raises(ValueError):
+        validate_selected_source_binding(receipt, _v3_events(execution, events))
+
+
+def test_source_admission_v3_requires_origin_evidence_and_bounded_storage():
+    receipt, execution, origin, extension = _source_admission_v3_fixture()
+    with pytest.raises(ValueError, match="operation evidence"):
+        type(origin).model_validate(origin.model_dump(mode="json") | {"evidence_ref_ids": []})
+    # Actual serialized capacity, rather than a silent pin or event truncation.
+    events = []
+    for i in range(32):
+        events.append(origin.model_copy(update={"event_id": uuid4(), "operation_id": uuid4(), "sequence": i,
+            "assertion_ids": sorted(f"{i:02}-{j:03}-" + "x"*240 for j in range(150))}))
+    with pytest.raises(ValueError, match="storage size"):
+        _v3_events(execution, events)
+
+
+def test_source_admission_v3_retains_character_batch_and_event_bounds():
+    from application_state.agent_conversation.types import SourceReadAuthorizationEventV2
+    _, execution, origin, extension = _source_admission_v3_fixture()
+    scope = execution.policy.source_read_scope
+    events = [origin, extension]
+    for i in range(8):
+        events.append(SourceReadAuthorizationEventV2(event_id=uuid4(), sequence=len(events), kind="source_read_authorized_v2",
+            read_call_id=uuid4(), context_receipt_sha256=execution.context_receipt_sha256,
+            execution_policy_sha256=execution.execution_policy_sha256, retrieval_session_id=scope.retrieval_session_id,
+            world_id=scope.world_id, graph_revision=scope.graph_revision, anchors=[extension.pins[i]], max_chars=12000))
+    _v3_events(execution, events)
+    ninth = events[-1].model_copy(update={"event_id": uuid4(), "read_call_id": uuid4(), "sequence": len(events)})
+    with pytest.raises(ValueError, match="character budget"):
+        _v3_events(execution, [*events, ninth])
+    with pytest.raises(ValueError, match="at most 8"):
+        SourceReadAuthorizationEventV2.model_validate(ninth.model_dump(mode="json") | {"anchors": extension.pins})
+    with pytest.raises(ValueError):
+        _v3_events(execution, [*events]*205)

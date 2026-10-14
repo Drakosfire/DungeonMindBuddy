@@ -1074,3 +1074,133 @@ def test_current_related_recap_consultation_preserves_context_boundary():
     with pytest.raises(ValueError):
         validate_graph_execution_source_citations(PlanWorldGraphCitationMapV2(context_receipt_sha256=receipt.consultation_receipt_sha256,entries=[citation]),
             execution,final.provider_attempt_id)
+
+
+def _consultation_v3_policy(policy):
+    from application_state.agent_conversation.types import GraphExecutionPolicyV3
+    return GraphExecutionPolicyV3.model_validate(policy.model_dump(mode="json", by_alias=True,
+        exclude={"max_source_read_calls", "max_source_read_anchors"}))
+
+
+@pytest.mark.parametrize("version", [2, 3])
+def test_consultation_execution_version_round_trip(version):
+    from application_state.agent_conversation.types import PlanWorldGraphExecutionV3, graph_execution_policy_digest_v3
+    receipt, policy = frozen_inputs(model_action())
+    if version == 3:
+        policy = _consultation_v3_policy(policy)
+    execution_type = PlanWorldGraphExecutionV2 if version == 2 else PlanWorldGraphExecutionV3
+    digest = graph_execution_policy_digest_v2 if version == 2 else graph_execution_policy_digest_v3
+    consultation = PlanActionConsultation(receipt=receipt, execution=execution_type(
+        context_receipt_sha256=receipt.consultation_receipt_sha256,
+        execution_policy_sha256=digest(receipt.consultation_receipt_sha256, policy), policy=policy, events=[]))
+    encoded = consultation.model_dump_json(by_alias=True)
+    loaded = PlanActionConsultation.model_validate_json(encoded)
+    assert type(loaded.execution) is execution_type
+    assert loaded.model_dump_json(by_alias=True) == encoded
+
+
+def test_consultation_preserves_existing_v1_execution_rejection():
+    from application_state.agent_conversation.types import PlanWorldGraphExecutionV1
+    from tests.application_state.test_agent_conversation_postgres import _execution_completion_fixture
+    receipt, _ = frozen_inputs(model_action())
+    _, _, execution, *_ = _execution_completion_fixture()
+    assert isinstance(execution, PlanWorldGraphExecutionV1)
+    before = execution.model_dump_json(by_alias=True)
+    with pytest.raises(ValidationError):
+        PlanActionConsultation(receipt=receipt, execution=execution)
+    assert type(execution).model_validate_json(before).model_dump_json(by_alias=True) == before
+
+
+def test_pg_v3_consultation_freeze_append_and_fresh_readback(application_state_dsn):
+    from alembic import command
+    from application_state.cli import alembic_config
+    from application_state.agent_conversation.types import (
+        PlanWorldGraphExecutionV3, SourceScopeExtensionEventV3, ValidatedGraphOperationEventV3,
+    )
+    service = PlanActionDialogueService()
+    request = reservation()
+    action, _ = service.reserve(request)
+    receipt, policy = frozen_inputs(action)
+    policy = _consultation_v3_policy(policy)
+    frozen, fresh = service.freeze_consultation(action_id=action.action_id, token=action.dispatch_token,
+        fence=action.fence, receipt=receipt, policy=policy)
+    assert fresh and isinstance(frozen.consultation.execution, PlanWorldGraphExecutionV3)
+    assert service.freeze_consultation(action_id=action.action_id, token=action.dispatch_token,
+        fence=action.fence, receipt=receipt, policy=policy)[1] is False
+    origin = ValidatedGraphOperationEventV3.model_validate(consultation_events(receipt, GraphExecutionPolicyV2.model_validate(
+        policy.model_dump(mode="json", by_alias=True) | {"max_source_read_calls": 2, "max_source_read_anchors": 2}))[3].model_dump(mode="json")
+        | {"kind": "validated_graph_operation_v3", "sequence": 0,
+           "returned_source_pins": [policy.source_read_scope.admitted_anchors[0].model_dump(mode="json")]})
+    frozen, _ = service.append_consultation_event(action_id=action.action_id, token=action.dispatch_token,
+        fence=action.fence, event=origin)
+    execution = frozen.consultation.execution
+    authority = receipt.graph_authority
+    extension = SourceScopeExtensionEventV3(event_id=uuid4(), sequence=1, kind="source_scope_extension_v3",
+        origin_graph_event_id=origin.event_id, context_receipt_sha256=receipt.consultation_receipt_sha256,
+        execution_policy_sha256=execution.execution_policy_sha256, world_id=authority.managed_world_id,
+        native_world_id=authority.native_world_id, binding_version=authority.binding_version,
+        campaign_id=authority.campaign_id, graph_revision=authority.graph_revision,
+        retrieval_session_id=policy.source_read_scope.retrieval_session_id, pins=origin.returned_source_pins)
+    with pytest.raises(ValueError, match="frozen managed/native authority"):
+        service.append_consultation_event(action_id=action.action_id, token=action.dispatch_token,
+            fence=action.fence, event=extension.model_copy(update={"native_world_id": "foreign"}))
+    saved, _ = service.append_consultation_event(action_id=action.action_id, token=action.dispatch_token,
+        fence=action.fence, event=extension)
+    loaded = PlanActionDialogueService().get_by_key(request.basis.world_id, request.idempotency_key)
+    assert loaded == saved and type(loaded.consultation.execution) is PlanWorldGraphExecutionV3
+    assert loaded.consultation.execution.events == [origin, extension]
+    with pytest.raises(RuntimeError, match="V3"):
+        command.downgrade(alembic_config(), "20261013_0022")
+    assert PlanActionDialogueService().get_by_key(request.basis.world_id, request.idempotency_key) == saved
+
+
+def test_pg_v2_consultation_bytes_survive_v3_migration(application_state_dsn):
+    from alembic import command
+    from application_state.cli import alembic_config
+    service = PlanActionDialogueService()
+    request = reservation()
+    action, _ = service.reserve(request)
+    saved, _ = complete_action(service, action)
+    with psycopg.connect(application_state_dsn) as conn:
+        before = conn.execute("SELECT consultation::text FROM plan_action.action WHERE action_id=%s", (action.action_id,)).fetchone()[0]
+    command.downgrade(alembic_config(), "20261013_0022")
+    command.upgrade(alembic_config(), "head")
+    with psycopg.connect(application_state_dsn) as conn:
+        after = conn.execute("SELECT consultation::text FROM plan_action.action WHERE action_id=%s", (action.action_id,)).fetchone()[0]
+    assert before == after
+    loaded = PlanActionDialogueService().get_by_key(request.basis.world_id, request.idempotency_key)
+    assert loaded == saved and type(loaded.consultation.execution) is PlanWorldGraphExecutionV2
+
+
+def test_pg_v3_consultation_completed_source_history(application_state_dsn):
+    from application_state.agent_conversation.types import (
+        PlanWorldGraphExecutionV3, ProviderAttemptAuthorizedEventV3,
+        ValidatedGraphOperationEventV3, graph_execution_policy_digest_v3,
+    )
+    service = PlanActionDialogueService()
+    request = reservation()
+    action, _ = service.reserve(request)
+    receipt, old_policy = frozen_inputs(action)
+    policy = _consultation_v3_policy(old_policy)
+    frozen, _ = service.freeze_consultation(action_id=action.action_id, token=action.dispatch_token,
+        fence=action.fence, receipt=receipt, policy=policy)
+    events = []
+    for event in consultation_events(receipt, old_policy):
+        values = event.model_dump(mode="json", by_alias=True)
+        if isinstance(event, ProviderAttemptAuthorizedEventV2):
+            event = ProviderAttemptAuthorizedEventV3.model_validate(values | {"kind": "provider_attempt_authorized_v3"})
+        elif isinstance(event, ValidatedGraphOperationEventV1):
+            event = ValidatedGraphOperationEventV3.model_validate(values | {"kind": "validated_graph_operation_v3", "returned_source_pins": []})
+        elif isinstance(event, SourceReadAuthorizationEventV2):
+            event = SourceReadAuthorizationEventV2.model_validate(values | {"execution_policy_sha256": graph_execution_policy_digest_v3(receipt.consultation_receipt_sha256, policy)})
+        frozen, fresh = service.append_consultation_event(action_id=action.action_id, token=action.dispatch_token,
+            fence=action.fence, event=event)
+        assert fresh
+        events.append(event)
+    result = attributed_result(receipt, events)
+    completed = service.finish_consultation(action_id=action.action_id, token=action.dispatch_token,
+        fence=action.fence, result=result)
+    loaded = PlanActionDialogueService().get_by_key(request.basis.world_id, request.idempotency_key)
+    assert loaded == completed and type(loaded.consultation.execution) is PlanWorldGraphExecutionV3
+    assert loaded.consultation.result == result and loaded.status == "completed"
+    assert loaded.consultation.execution.events[5].receipts == events[5].receipts
