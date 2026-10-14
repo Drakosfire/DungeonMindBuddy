@@ -1,6 +1,7 @@
 """Category-decomposed graph extraction for runtime recap graph ingest."""
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -987,6 +988,20 @@ def consolidate_category_outputs(
         if not isinstance(raw, Mapping):
             continue
         edge = _normalize_edge(raw, semantic_state=semantic_state)
+        if re.match(r"^\s*Omitted:\s*no\s+source\s+support\b", edge["label"], re.I):
+            deferred.append(_normalize_disposition({
+                "item_id": "deferred:explicit-edge-rejection:" + hashlib.sha256(
+                    json.dumps(raw, sort_keys=True).encode()
+                ).hexdigest()[:16],
+                "label": edge["label"],
+                "reason": (
+                    f"Model explicitly rejected source support for {edge['edge_id']}: "
+                    f"{edge['from_node_id']} {edge['relationship_type']} {edge['to_node_id']}."
+                ),
+                "evidence_refs": edge["evidence_refs"],
+                "suggested_next_step": "Review the source before proposing this relationship.",
+            }, "deferred"))
+            continue
         edge["from_node_id"] = cross_class_remap.get(edge["from_node_id"], edge["from_node_id"])
         edge["to_node_id"] = cross_class_remap.get(edge["to_node_id"], edge["to_node_id"])
         if edge["from_node_id"] in node_ids and edge["to_node_id"] in node_ids:
