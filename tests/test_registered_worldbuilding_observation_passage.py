@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from tests.test_recap_source_observation_followup import observation_case  # noqa: F401
+from tests.test_recap_source_observation_followup import observation_case as _observation_fixture
 from tests.test_cutover_worldbuilding_authority_port import _install_worldbuilding_repo
 from tests._cutover_d3a_blocker_safe_fixtures import _write_bld08_reviewable_run
 from apps.live_control_server.models.extract_promote import (
@@ -25,6 +25,8 @@ from graph_memory.retrieval.models import (
     WorldGraphObjectRequest,
     RETRIEVAL_OBJECT_REQUEST_SCHEMA,
 )
+
+observation_case = _observation_fixture
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("DMB_RECAP_OBSERVATION_TEST_DATABASE_URL"),
