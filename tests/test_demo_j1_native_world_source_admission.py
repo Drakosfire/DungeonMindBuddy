@@ -397,3 +397,30 @@ def test_route_accepts_only_expected_revision_and_returns_typed_status(
     )
     assert admitted["state"] == "admitted"
     assert admitted["world_id"] == admitted["space_id"] == "j1-test-world"
+
+
+def test_source_admission_uses_separate_managed_registry_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    memory_repository: InMemoryNativeSourceEvidenceRepository,
+) -> None:
+    import shutil
+
+    document_root = tmp_path / "documents"
+    document_root.mkdir()
+    world, record = _committed_source(document_root)
+    registry_root = tmp_path / "managed"
+    registry = document_root / "out/registries/world_containers.json"
+    target = registry_root / "out/registries/world_containers.json"
+    target.parent.mkdir(parents=True)
+    shutil.copyfile(registry, target)
+    registry.unlink()
+    monkeypatch.setenv(native.config.MANAGED_WORLD_DATA_ROOT_ENV, str(registry_root))
+
+    admitted = _admit(document_root, record.document_id)
+    status = native.get_native_world_source_status(document_root, record.document_id)
+    assert admitted.state == status.state == "admitted"
+    assert admitted.world_id == world.world_id
+    assert admitted.body_sha256 == native.get_workspace_document_snapshot(
+        document_root, record.document_id
+    ).content_sha256
+    assert _admit(document_root, record.document_id).admission_id == admitted.admission_id

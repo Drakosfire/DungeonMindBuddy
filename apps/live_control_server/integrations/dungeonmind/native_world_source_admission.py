@@ -202,7 +202,12 @@ def _load_exact_snapshot(
             "The committed source bytes changed; refresh or reselect it before admission",
         )
     try:
-        get_world_container(root, record.world_id)
+        get_world_container(config.managed_world_data_root(root), record.world_id)
+    except config.ManagedWorldDataRootError as exc:
+        raise NativeWorldSourceAdmissionError(
+            "managed_world_unavailable", "Managed World storage is unavailable",
+            status_code=503,
+        ) from exc
     except WorldContainerRegistryError as exc:
         raise NativeWorldSourceAdmissionError(
             "managed_world_missing", "The source World is not present in the managed World registry",
@@ -397,7 +402,7 @@ def admit_native_world_source(
         )
 
     created_at = _parse_timestamp(
-        get_world_container(root, world_id).created_at,
+        get_world_container(config.managed_world_data_root(root), world_id).created_at,
         field="managed World created_at",
     )
     initialization_id = _stable_id("dmb-world-genesis", world_id)
