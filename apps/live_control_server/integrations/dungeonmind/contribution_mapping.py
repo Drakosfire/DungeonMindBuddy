@@ -451,3 +451,78 @@ def map_graph_review_contribution_v3(
         "schema_version": "dm_graph_contribution_v3",
         "assertions": [assertion.model_dump(mode="json") for assertion in typed_assertions],
     })
+
+
+def map_worldbuilding_extraction_contribution_v3(
+    store: Any,
+    contribution: Any,
+    pair_to_dm: dict[tuple[str, str], str],
+) -> GraphContributionV3:
+    """Preserve every explicitly declared worldbuilding span in fresh extraction."""
+    if contribution.source_kind != "source_extraction":
+        raise _fail("typed extraction requires extraction source kind", "source_kind_unmapped")
+    mapped = _map_contributions(store, [contribution], pair_to_dm)[0]
+    originals = {
+        item.assertion_id: item
+        for item in [
+            *contribution.candidate_assertions,
+            *contribution.accepted_assertions,
+            *contribution.rejected_assertions,
+        ]
+    }
+    typed_assertions = []
+    for assertion in mapped.assertions:
+        original = originals[assertion.assertion_id]
+        rows = original.value.get("evidence") if isinstance(original.value, dict) else None
+        ids = list(original.evidence_ref_ids)
+        if not ids or not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise _fail("extraction lacks explicit source evidence", "evidence_span_missing")
+        by_id = {str(row.get("evidence_ref_id") or ""): row for row in rows}
+        if len(by_id) != len(rows) or set(by_id) != set(ids) or len(set(ids)) != len(ids):
+            raise _fail("extraction evidence closure disagrees", "evidence_span_mismatch")
+        refs = []
+        for raw_id in ids:
+            row = by_id[raw_id]
+            record = store.evidence.get(raw_id)
+            span = str(row.get("source_span_ref_id") or "").strip()
+            pair = (original.source_artifact_id, original.source_revision_id)
+            if (
+                record is None
+                or pair not in pair_to_dm
+                or row.get("source_artifact_id") != pair[0]
+                or row.get("source_domain") != "worldbuilding"
+                or str(record.source_domain) != "worldbuilding"
+                or record.source_artifact_id != pair[0]
+                or not span
+                or record.source_span_ref_id != span
+            ):
+                raise _fail("extraction source binding disagrees", "evidence_span_mismatch")
+            typed = EvidenceRefV2(
+                evidence_ref_id=raw_id,
+                source_artifact_id=pair[0],
+                source_revision_id=pair_to_dm[pair],
+                source_domain_key="worldbuilding",
+                source_domain=SourceDomain.WORLDBUILDING,
+                evidence_role=EvidenceRole.SUPPORT,
+                can_open_source=True,
+                can_highlight_span=True,
+                session_id=None,
+                source_span_ref_id=span,
+                locator=None,
+                uri=None,
+                source_locator=None,
+                line_ref=None,
+            )
+            binding = typed.model_dump(mode="json", exclude={"evidence_ref_id"})
+            refs.append(typed.model_copy(update={
+                "evidence_ref_id": f"{raw_id}:dm-extraction-v3:{canonical_sha256(binding)}",
+            }))
+        typed_assertions.append(GraphContributionAssertionV3.model_validate({
+            **assertion.model_dump(mode="json"),
+            "evidence_refs": [ref.model_dump(mode="json") for ref in refs],
+        }))
+    return GraphContributionV3.model_validate({
+        **mapped.model_dump(mode="json"),
+        "schema_version": "dm_graph_contribution_v3",
+        "assertions": [assertion.model_dump(mode="json") for assertion in typed_assertions],
+    })

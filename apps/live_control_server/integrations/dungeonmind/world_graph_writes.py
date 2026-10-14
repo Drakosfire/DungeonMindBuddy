@@ -135,7 +135,10 @@ def _recap_extraction_evidence_view(
     pair_to_dm: dict[tuple[str, str], str],
     sources: Any | None = None,
 ) -> _EmptyEvidenceView:
-    """Source-extraction evidence bound to the admitted recap source pair.
+    """Source-extraction evidence bound to its admitted artifact domain.
+
+    Fresh worldbuilding uses the separate typed V3 mapper. The locator
+    transport described below remains specific to historical recap mapping.
 
     The empty-store fallback stamps SourceDomain.OTHER, which native
     projection rejects against a recap SourceArtifactV2 as
@@ -156,7 +159,22 @@ def _recap_extraction_evidence_view(
         artifact_id = str(getattr(assertion, "source_artifact_id", "") or "")
         token = str(getattr(assertion, "source_revision_id", "") or "")
         dm_revision_id = pair_to_dm.get((artifact_id, token), token)
+        declared_rows = (getattr(assertion, "value", None) or {}).get("evidence", [])
+        declared_worldbuilding = any(
+            isinstance(row, dict) and row.get("source_domain") == "worldbuilding"
+            for row in declared_rows
+        )
         revision_locator = None
+        domain = "session_recap"
+        if sources is not None and callable(getattr(sources, "get_artifact", None)):
+            artifact = sources.get_artifact(artifact_id)
+            if artifact is not None:
+                domain = str(artifact.source_domain)
+        if declared_worldbuilding and domain != "worldbuilding":
+            raise WorldGraphWriteError(
+                "worldbuilding extraction requires admitted source domain",
+                code="source_not_admitted",
+            )
         if sources is not None and dm_revision_id:
             try:
                 revision = sources.get_revision(dm_revision_id)
@@ -169,7 +187,7 @@ def _recap_extraction_evidence_view(
             records[str(evidence_id)] = _BuddyEvidenceRecord(
                 evidence_ref_id=str(evidence_id),
                 source_artifact_id=artifact_id,
-                source_domain="session_recap",
+                source_domain=domain,
                 evidence_role="support",
                 can_open_source=bool(revision_locator),
                 can_highlight_span=bool(span_id),
@@ -1354,6 +1372,7 @@ def _build_v2_candidate(
     from apps.live_control_server.integrations.dungeonmind.contribution_mapping import (
         _map_contributions,
         map_graph_review_contribution_v3,
+        map_worldbuilding_extraction_contribution_v3,
     )
     from dungeonmind.contracts.contribution import AcceptanceState, ContributionStatus
 
@@ -1363,8 +1382,15 @@ def _build_v2_candidate(
         evidence_view = _recap_extraction_evidence_view(
             contribution, pair_to_dm=pair_to_dm, sources=sources
         )
+    typed_worldbuilding = (
+        source_kind == "source_extraction"
+        and any(str(record.source_domain) == "worldbuilding"
+                for record in evidence_view.evidence.values())
+    )
     mapped = (
-        [map_graph_review_contribution_v3(evidence_view, contribution, pair_to_dm)]
+        [map_worldbuilding_extraction_contribution_v3(evidence_view, contribution, pair_to_dm)]
+        if typed_worldbuilding
+        else [map_graph_review_contribution_v3(evidence_view, contribution, pair_to_dm)]
         if source_kind == "graph_review_authored_assertion"
         else _map_contributions(evidence_view, [contribution], pair_to_dm)
     )
@@ -2709,7 +2735,6 @@ def _review_intent_sha256_for_threat_request(
     from dungeonmind.contracts.semantic_profile import SemanticProfileRef
     from dungeonmind.domain.canonical import canonical_sha256
 
-    typed_graph_review = contribution.source_kind == "graph_review_authored_assertion"
 
     try:
         parent_stored = bundle.world_graph.get_revision(
@@ -2746,6 +2771,7 @@ def _review_intent_sha256_for_threat_request(
         produced_at=reviewed_at,
         sources=bundle.sources,
     )
+    typed_graph_review = candidate.schema_version == "dm_graph_contribution_v3"
     proposals, verdicts = _build_identity_dispositions(candidate, verdict_states)
     assertion_verdicts = [
         ContributionAssertionVerdict(
@@ -2897,7 +2923,6 @@ def publish_contribution_via_dungeonmind(
         StaleParentRevisionError,
     )
 
-    typed_graph_review = contribution.source_kind == "graph_review_authored_assertion"
     dsn = _require_database_url(database_url)
     services = _direct_services(dsn, world_id)
     bundle = services.bundle
@@ -2983,6 +3008,7 @@ def publish_contribution_via_dungeonmind(
         produced_at=reviewed_at,
         sources=bundle.sources,
     )
+    typed_graph_review = candidate.schema_version == "dm_graph_contribution_v3"
     proposals, verdicts = _build_identity_dispositions(candidate, verdict_states)
     assertion_verdicts = [
         ContributionAssertionVerdict(

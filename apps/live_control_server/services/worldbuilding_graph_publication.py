@@ -384,8 +384,15 @@ def _evidence_id_on_child(present: set[str], expected_id: str) -> bool:
     """
     if expected_id in present:
         return True
-    marker = f"{expected_id}:dmv1:"
-    return any(item.startswith(marker) for item in present)
+    for marker in (":dmv1:", ":dm-extraction-v3:"):
+        prefix = expected_id + marker
+        for item in present:
+            if not item.startswith(prefix):
+                continue
+            digest = item[len(prefix):]
+            if len(digest) == 64 and all(char in "0123456789abcdef" for char in digest):
+                return True
+    return False
 
 
 def _identity_snapshot_payload(plan: WorldbuildingWritePlanResponse) -> dict[str, Any]:
