@@ -118,6 +118,14 @@ describe("BuildSurfaceContext", () => {
     };
   });
 
+  it("places the explicit extraction portal slot inside the source navbar", () => {
+    const attach = vi.fn();
+    renderBuildContext({ extractionTargetRef: attach });
+    const slot = within(screen.getByTestId("surface-context-host")).getByTestId("build-extraction-slot");
+    expect(attach).toHaveBeenCalledWith(slot);
+    expect(slot.closest(".build-surface-context__row")).not.toBeNull();
+  });
+
   it("publishes DOCUMENT with selector, badges, status, and Rename", () => {
     renderBuildContext();
 

@@ -24,3 +24,15 @@ No provider/extract/sourceSave/admission/retainedGraph writes for verification.
 Verify navbar composition, single toolbar/context preservation, existing owning
 selection/commands/tests; TypeScript/build/cumulativediff;390/647render acceptance.
 Independent review before owned5202adoption; stable5876 untouched. No merge authority.
+
+Implementation evidence: explicit navbar divref passed through Context; existing
+Toolbar retains original hook/session ownership and portals its presentation.
+Native details startsclosed; DOM staysmounted to preserve profile/status.Expanded
+content flows/wraps inside navbar, no viewport-positioned popup.31owning tests pass
+across Context/Toolbar/Selection/Page, appTypeScript and productionbuildpass.
+RealCanvasprovider portal test mounts outside providerDOM but retains Reactsession,
+asserts singletoolbar, closedinitial, profile retained through toggles, zero
+launch/admission and portalcleanup on unmount. Navbar slot tested in actualContextHost.
+Page tests emit React act warnings in navigation/retainedSave cases; all pass.
+Cumulative7path diff inspected; no nonpresentation hook changes. Independentcode
+review/rendered390/647 checks remain required; no deployment claimed yet.
