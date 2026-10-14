@@ -412,6 +412,37 @@ describe("useBuildExtraction", () => {
     expect(localStorage.getItem(`dmb.buildExtractionRun.${DOC_A}`)).toBe(RUN_A);
   });
 
+  it("keeps a pending launch pinned to its submitted profile", async () => {
+    const response = launchEnvelope({
+        runId: RUN_A,
+        profileId: "worldbuilding_gazetteer_v1@1.0",
+        artifactId: ARTIFACT_A,
+        documentId: DOC_A,
+        revision: 2,
+        sha: "sha-a",
+      });
+    let resolveLaunch!: (value: typeof response) => void;
+    vi.mocked(liveApi.launchExtractionRun).mockImplementation(() => new Promise((resolve) => { resolveLaunch = resolve; }));
+    let selectedProfile: "pilot" | "gazetteer" = "gazetteer";
+    const { result, rerender } = renderHook(() => useBuildExtraction({ documentId: DOC_A, profile: selectedProfile }), { wrapper: extractionWrapper(DOC_A) });
+    await waitFor(() => expect(result.current.canLaunch).toBe(true));
+    act(() => { void result.current.launch(); });
+    await waitFor(() => expect(liveApi.launchExtractionRun).toHaveBeenCalledTimes(1));
+    selectedProfile = "pilot";
+    rerender();
+    await act(async () => { resolveLaunch(response); });
+    expect(liveApi.launchExtractionRun).toHaveBeenCalledWith({
+      document_id: DOC_A,
+      expected_revision: 2,
+      expected_content_sha256: "sha-a",
+      profile_id: "worldbuilding_gazetteer_v1",
+      profile_version: "1.0",
+    });
+    expect(result.current.run?.run_id).toBe(RUN_A);
+    expect(window.location.search).toContain(`extractionRunId=${RUN_A}`);
+    expect(localStorage.getItem(`dmb.buildExtractionRun.${DOC_A}`)).toBe(RUN_A);
+  });
+
   it.each(["worldbuilding_shepherds_flock_v0@0.1", "worldbuilding_gazetteer_v1@2.0", undefined])("rejects wrong or missing returned profile %s", async (returnedProfile) => {
     const response = launchEnvelope({
         runId: RUN_A,
