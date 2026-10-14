@@ -1,6 +1,6 @@
 # BUILD — named gazetteer extraction and publication
 
-Status: BLOCKED successor; gate #1155 reviewed merge and exact main re-anchor.
+Status: ACTIVE; #1155 merged a79c6f47970b95be5b1354bcc0123379ca08b157; re-anchored.
 Operator Mirathorn goal; PRIME implementation, ARCHITECTURE review.
 Branch codex/build-gazetteer-profile; lane /tmp/buddy-gazetteer-profile.
 Design base 6c9e4d6dbe96a5f8dcd99d12caa8db55e9605407.
@@ -31,3 +31,15 @@ plan/contribution, durable recorded profile, native endpoint representability,
 quotes/modality preserved, no invented individuals/events/statblocks. Actual
 Mirathorn source fidelity reviewed separately. No provider/serving/native writes
 under this blocked design. Six source spans frozen in private coverage packet.
+
+Activated exact server-profile write set: this handoff;
+src/graph_memory/extraction/worldbuilding_gazetteer_profile.py;
+src/graph_memory/extraction/worldbuilding_profile_catalog.py;
+src/graph_memory/extraction/graph_preview_runner.py;
+apps/live_control_server/routes/graph_preview.py;
+apps/live_control_server/services/extract_promote.py;
+apps/live_control_server/models/extract_promote.py;
+src/graph_memory/worldbuilding_write_plan.py;
+tests/test_worldbuilding_gazetteer_profile.py.
+Build UI explicit selection is a separate bounded consumer after server admission;
+existing Build defaults remain pilot. No DOGFOOD file overlap or serving/provider writes.
