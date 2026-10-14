@@ -44,6 +44,24 @@ from graph_memory.vnext.domain_runtime import (
     dungeonbuddy_world_domain_contract,
 )
 
+from apps.live_control_server.services.managed_world_graph_projection import (
+    resolve_managed_world_binding, WorldGraphProjectionServiceError,
+)
+
+
+def _source_world_binding(root, managed_world_id):
+    try:
+        return resolve_managed_world_binding(
+            managed_world_id, root=config.managed_world_data_root(root),
+        )
+    except (WorldGraphProjectionServiceError, config.ManagedWorldDataRootError) as exc:
+        raise NativeWorldSourceAdmissionError(
+            getattr(exc, "code", "managed_world_unavailable"),
+            "Saved source has no verified active native World binding",
+            status_code=getattr(exc, "status_code", 503),
+        ) from exc
+
+
 SCHEMA_VERSION = "dmb_native_world_source_admission_status_v1"
 SOURCE_CLASSIFICATION = "dungeonbuddy.source:worldbuilding"
 ORIGIN_NAMESPACE = "dungeonbuddy.workspace-document-registry"
@@ -154,7 +172,7 @@ def _load_exact_snapshot(
     document_id: str,
     expected_revision: int | None,
     expected_body_sha256: str | None = None,
-) -> tuple[WorkspaceDocumentSnapshot, bytes, str, str]:
+) -> tuple[WorkspaceDocumentSnapshot, bytes, str, str, object]:
     try:
         snapshot = get_workspace_document_snapshot(root, document_id)
     except Exception as exc:
@@ -213,14 +231,25 @@ def _load_exact_snapshot(
             "managed_world_missing", "The source World is not present in the managed World registry",
             status_code=exc.status_code,
         ) from exc
+    world_binding = _source_world_binding(root, record.world_id)
     admission_id = _stable_id(
         "dmb-world-source",
+        world_binding.native_world_id,
+        str(world_binding.binding_version),
         record.world_id,
         record.document_id,
         str(snapshot.loaded_revision),
         actual_digest,
     )
-    return snapshot, body_bytes, actual_digest, admission_id
+    return snapshot, body_bytes, actual_digest, admission_id, world_binding
+
+
+def _require_source_binding(root, managed_world_id, sealed_binding):
+    if _source_world_binding(root, managed_world_id) != sealed_binding:
+        raise NativeWorldSourceAdmissionError(
+            "native_graph_binding_changed",
+            "Source World binding changed; any completed admission remains in its original native World",
+        )
 
 
 def _origin(snapshot: WorkspaceDocumentSnapshot) -> NativeTextSourceOriginV1:
@@ -239,6 +268,9 @@ def _verify_receipt_and_source(
     body_sha256: str,
     admission_id: str,
     receipt,
+    native_world_id: str,
+    root,
+    sealed_world_binding,
 ) -> NativeWorldSourceAdmissionStatus:
     record = snapshot.record
     world_id = record.world_id
@@ -246,7 +278,7 @@ def _verify_receipt_and_source(
     domain, _profile = _descriptors()
     expected_origin = _origin(snapshot)
     if (
-        receipt.space_id != world_id
+        receipt.space_id != native_world_id
         or receipt.admission_id != admission_id
         or receipt.origin != expected_origin
         or len(receipt.bindings) != 1
@@ -259,7 +291,7 @@ def _verify_receipt_and_source(
     try:
         context = open_native_text_source_access_context(
             repository=repository,
-            space_id=world_id,
+            space_id=native_world_id,
             revision_id=receipt.published_revision_id,
             domain_contract=domain,
             audience_labels=[GM_LABEL],
@@ -281,10 +313,11 @@ def _verify_receipt_and_source(
         raise NativeWorldSourceAdmissionError(
             "admission_readback_mismatch", "DungeonMind did not return the exact admitted source bytes"
         )
+    _require_source_binding(root, world_id, sealed_world_binding)
     return NativeWorldSourceAdmissionStatus(
         state="admitted",
         world_id=world_id,
-        space_id=world_id,
+        space_id=native_world_id,
         document_id=record.document_id,
         loaded_revision=snapshot.loaded_revision,
         body_sha256=body_sha256,
@@ -301,11 +334,12 @@ def _verify_receipt_and_source(
 def get_native_world_source_status(
     root, document_id: str, *, expected_revision: int | None = None
 ) -> NativeWorldSourceAdmissionStatus:
-    snapshot, body_bytes, body_sha256, admission_id = _load_exact_snapshot(
+    snapshot, body_bytes, body_sha256, admission_id, sealed_world_binding = _load_exact_snapshot(
         root, document_id, expected_revision
     )
     world_id = snapshot.record.world_id
     assert world_id is not None
+    native_world_id = sealed_world_binding.native_world_id
     try:
         repository = _repository()
     except NativeWorldSourceAdmissionError as exc:
@@ -316,14 +350,14 @@ def get_native_world_source_status(
             code=exc.code,
             message="Source is saved; native World admission status is temporarily unavailable",
             world_id=world_id,
-            space_id=world_id,
+            space_id=native_world_id,
             document_id=document_id,
             loaded_revision=snapshot.loaded_revision,
             body_sha256=body_sha256,
             admission_id=admission_id,
         )
     try:
-        receipt = repository.get_native_source_admission_receipt(world_id, admission_id)
+        receipt = repository.get_native_source_admission_receipt(native_world_id, admission_id)
     except Exception as exc:
         mapped = _authority_failure(exc, default_code="native_status_failed")
         if mapped.code != "authority_unavailable":
@@ -333,19 +367,20 @@ def get_native_world_source_status(
             code=mapped.code,
             message="Source is saved; native World admission status is temporarily unavailable",
             world_id=world_id,
-            space_id=world_id,
+            space_id=native_world_id,
             document_id=document_id,
             loaded_revision=snapshot.loaded_revision,
             body_sha256=body_sha256,
             admission_id=admission_id,
         )
+    _require_source_binding(root, world_id, sealed_world_binding)
     if receipt is None:
         return NativeWorldSourceAdmissionStatus(
             state="pending",
             code="native_admission_pending",
             message="Saved source has not yet been admitted to its native World",
             world_id=world_id,
-            space_id=world_id,
+            space_id=native_world_id,
             document_id=document_id,
             loaded_revision=snapshot.loaded_revision,
             body_sha256=body_sha256,
@@ -359,6 +394,8 @@ def get_native_world_source_status(
             body_sha256=body_sha256,
             admission_id=admission_id,
             receipt=receipt,
+            native_world_id=native_world_id,
+            root=root, sealed_world_binding=sealed_world_binding,
         )
     except NativeWorldSourceAdmissionError as exc:
         if exc.code != "authority_unavailable":
@@ -368,7 +405,7 @@ def get_native_world_source_status(
             code=exc.code,
             message="Saved source admission exists but native readback is temporarily unavailable",
             world_id=world_id,
-            space_id=world_id,
+            space_id=native_world_id,
             document_id=document_id,
             loaded_revision=snapshot.loaded_revision,
             body_sha256=body_sha256,
@@ -379,16 +416,17 @@ def get_native_world_source_status(
 def admit_native_world_source(
     root, document_id: str, *, expected_revision: int, expected_body_sha256: str
 ) -> NativeWorldSourceAdmissionStatus:
-    snapshot, body_bytes, body_sha256, admission_id = _load_exact_snapshot(
+    snapshot, body_bytes, body_sha256, admission_id, sealed_world_binding = _load_exact_snapshot(
         root, document_id, expected_revision, expected_body_sha256
     )
     record = snapshot.record
     world_id = record.world_id
     assert world_id is not None
+    native_world_id = sealed_world_binding.native_world_id
     domain, profile = _descriptors()
     repository = _repository()
     try:
-        prior = repository.get_native_source_admission_receipt(world_id, admission_id)
+        prior = repository.get_native_source_admission_receipt(native_world_id, admission_id)
     except Exception as exc:
         raise _authority_failure(exc, default_code="native_status_failed") from exc
     if prior is not None:
@@ -399,17 +437,20 @@ def admit_native_world_source(
             body_sha256=body_sha256,
             admission_id=admission_id,
             receipt=prior,
+            native_world_id=native_world_id,
+            root=root, sealed_world_binding=sealed_world_binding,
         )
 
     created_at = _parse_timestamp(
         get_world_container(config.managed_world_data_root(root), world_id).created_at,
         field="managed World created_at",
     )
-    initialization_id = _stable_id("dmb-world-genesis", world_id)
+    _require_source_binding(root, world_id, sealed_world_binding)
+    initialization_id = _stable_id("dmb-world-genesis", native_world_id)
     try:
         initialize_empty_knowledge_space(
             repository=repository,
-            space_id=world_id,
+            space_id=native_world_id,
             initialization_id=initialization_id,
             created_at=created_at,
             domain_contract=domain,
@@ -420,10 +461,15 @@ def admit_native_world_source(
 
     expected_origin = _origin(snapshot)
     for attempt in range(MAX_ADMISSION_ATTEMPTS):
+        if _source_world_binding(root, world_id) != sealed_world_binding:
+            raise NativeWorldSourceAdmissionError(
+                "native_graph_binding_changed", "Source World binding changed during admission",
+            )
         try:
-            head = repository.get_head(world_id)
+            head = repository.get_head(native_world_id)
         except Exception as exc:
             raise _authority_failure(exc, default_code="native_status_failed") from exc
+        _require_source_binding(root, world_id, sealed_world_binding)
         if head is None:
             raise NativeWorldSourceAdmissionError(
                 "native_genesis_missing", "Native World initialization did not create a head", status_code=503
@@ -436,7 +482,7 @@ def admit_native_world_source(
             expected_slice_sha256=body_sha256,
         )
         request = NativeTextSourceAdmissionV1(
-            space_id=world_id,
+            space_id=native_world_id,
             admission_id=admission_id,
             expected_parent_revision_id=head.head_revision_id,
             created_at=_parse_timestamp(record.updated_at, field="source updated_at"),
@@ -448,6 +494,7 @@ def admit_native_world_source(
             origin=expected_origin,
             spans=[span],
         )
+        _require_source_binding(root, world_id, sealed_world_binding)
         try:
             receipt = publish_native_text_source_evidence(
                 repository=repository,
@@ -462,10 +509,12 @@ def admit_native_world_source(
                 body_sha256=body_sha256,
                 admission_id=admission_id,
                 receipt=receipt,
+                native_world_id=native_world_id,
+                root=root, sealed_world_binding=sealed_world_binding,
             )
         except Exception as exc:
             try:
-                recovered = repository.get_native_source_admission_receipt(world_id, admission_id)
+                recovered = repository.get_native_source_admission_receipt(native_world_id, admission_id)
             except Exception as probe_error:
                 raise NativeWorldSourceAdmissionError(
                     "authority_unavailable",
@@ -480,6 +529,8 @@ def admit_native_world_source(
                     body_sha256=body_sha256,
                     admission_id=admission_id,
                     receipt=recovered,
+                    native_world_id=native_world_id,
+                    root=root, sealed_world_binding=sealed_world_binding,
                 )
             if type(exc).__name__ != "KnowledgeStaleParentRevisionError" or attempt + 1 >= MAX_ADMISSION_ATTEMPTS:
                 mapped = _authority_failure(exc, default_code="native_admission_failed")
