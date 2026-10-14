@@ -52,7 +52,7 @@ def test_native_source_admission_persists_and_replays_after_repository_recreatio
     registry_path = tmp_path / "out/registries/world_containers.json"
     registry_data = json.loads(registry_path.read_text())
     registry_data["records"][0]["native_graph_binding"] = {
-        "native_world_id": world.world_id, "binding_version": 1,
+        "native_world_id": "native-" + world.world_id, "binding_version": 1,
         "status": "active", "validated_at": "2026-10-14T00:00:00Z",
         "validated_head_revision_id": "rev:fixture",
     }
@@ -99,10 +99,10 @@ def test_native_source_admission_persists_and_replays_after_repository_recreatio
     first_repository = PostgresNativeSourceEvidenceRepository(
         PostgresDatabase(disposable_database_url)
     )
-    head_after_admission = first_repository.get_head(world.world_id)
+    head_after_admission = first_repository.get_head("native-" + world.world_id)
     assert head_after_admission is not None
     receipt = first_repository.get_native_source_admission_receipt(
-        world.world_id, first.admission_id
+        "native-" + world.world_id, first.admission_id
     )
     assert receipt is not None
 
@@ -116,9 +116,9 @@ def test_native_source_admission_persists_and_replays_after_repository_recreatio
     fresh_repository = PostgresNativeSourceEvidenceRepository(
         PostgresDatabase(disposable_database_url)
     )
-    fresh_head = fresh_repository.get_head(world.world_id)
+    fresh_head = fresh_repository.get_head("native-" + world.world_id)
     fresh_receipt = fresh_repository.get_native_source_admission_receipt(
-        world.world_id, replay.admission_id
+        "native-" + world.world_id, replay.admission_id
     )
     snapshot = get_workspace_document_snapshot(tmp_path, committed.document_id)
     body = snapshot.markdown.encode("utf-8")
@@ -134,3 +134,7 @@ def test_native_source_admission_persists_and_replays_after_repository_recreatio
     assert status.body_sha256 == sha256(body).hexdigest()
     assert status.span_start_byte == 0
     assert status.span_end_byte == len(body)
+
+    assert first.space_id == "native-" + world.world_id
+    assert first.world_id == world.world_id
+    assert fresh_repository.get_head(world.world_id) is None

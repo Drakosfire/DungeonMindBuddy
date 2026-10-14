@@ -545,3 +545,20 @@ def test_binding_change_during_repository_access_rejects_admitted_result(
         else:
             _admit(tmp_path, record.document_id)
     assert error.value.code == "native_graph_binding_changed"
+
+
+def test_binding_changes_during_native_readback_rejects(tmp_path, monkeypatch, memory_repository):
+    world, record = _committed_source(tmp_path)
+    _admit(tmp_path, record.document_id)
+    original = native.open_admitted_native_text
+    path = tmp_path / "out/registries/world_containers.json"
+    def changed_readback(*args, **kwargs):
+        result = original(*args, **kwargs)
+        data = json.loads(path.read_text())
+        data["records"][0]["native_graph_binding"]["binding_version"] += 1
+        path.write_text(json.dumps(data))
+        return result
+    monkeypatch.setattr(native, "open_admitted_native_text", changed_readback)
+    with pytest.raises(native.NativeWorldSourceAdmissionError) as error:
+        native.get_native_world_source_status(tmp_path, record.document_id)
+    assert error.value.code == "native_graph_binding_changed"
