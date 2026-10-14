@@ -397,3 +397,53 @@ def test_route_accepts_only_expected_revision_and_returns_typed_status(
     )
     assert admitted["state"] == "admitted"
     assert admitted["world_id"] == admitted["space_id"] == "j1-test-world"
+
+
+def test_source_admission_uses_separate_managed_registry_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    memory_repository: InMemoryNativeSourceEvidenceRepository,
+) -> None:
+    import shutil
+
+    document_root = tmp_path / "documents"
+    document_root.mkdir()
+    world, record = _committed_source(document_root)
+    registry_root = tmp_path / "managed"
+    registry = document_root / "out/registries/world_containers.json"
+    target = registry_root / "out/registries/world_containers.json"
+    target.parent.mkdir(parents=True)
+    shutil.copyfile(registry, target)
+    registry.unlink()
+    monkeypatch.setenv(native.config.MANAGED_WORLD_DATA_ROOT_ENV, str(registry_root))
+
+    admitted = _admit(document_root, record.document_id)
+    status = native.get_native_world_source_status(document_root, record.document_id)
+    assert admitted.state == status.state == "admitted"
+    assert admitted.world_id == world.world_id
+    assert admitted.body_sha256 == native.get_workspace_document_snapshot(
+        document_root, record.document_id
+    ).content_sha256
+    assert _admit(document_root, record.document_id).admission_id == admitted.admission_id
+
+
+@pytest.mark.parametrize("invalid_root", ["relative", "missing", "no_registry"])
+def test_source_admission_invalid_managed_root_fails_without_publication(
+    invalid_root: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    memory_repository: InMemoryNativeSourceEvidenceRepository,
+) -> None:
+    world, record = _committed_source(tmp_path)
+    if invalid_root == "no_registry":
+        (tmp_path / "empty-managed").mkdir()
+    configured = {"relative": "relative-root", "missing": str(tmp_path / "missing"),
+                  "no_registry": str(tmp_path / "empty-managed")}[invalid_root]
+    monkeypatch.setenv(native.config.MANAGED_WORLD_DATA_ROOT_ENV, configured)
+    with pytest.raises(native.NativeWorldSourceAdmissionError) as error:
+        _admit(tmp_path, record.document_id)
+    assert error.value.code == "managed_world_unavailable"
+    assert error.value.status_code == 503
+    assert memory_repository.get_head(world.world_id) is None
+
+    with pytest.raises(native.NativeWorldSourceAdmissionError) as status_error:
+        native.get_native_world_source_status(tmp_path, record.document_id)
+    assert status_error.value.code == "managed_world_unavailable"
+    assert status_error.value.status_code == 503
