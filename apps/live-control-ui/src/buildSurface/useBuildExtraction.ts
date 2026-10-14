@@ -189,6 +189,7 @@ export function validateExactRunIdentity(args: {
 
 export interface UseBuildExtractionArgs {
   documentId: string;
+  profile?: "pilot" | "gazetteer";
 }
 
 export interface BuildExtractionState {
@@ -207,7 +208,7 @@ export interface BuildExtractionState {
 }
 
 export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractionState {
-  const { documentId } = args;
+  const { documentId, profile = "pilot" } = args;
   const canvas = useMarkdownCanvasSession();
   const [run, setRun] = useState<ExtractionRunRecord | null>(null);
   const [handoff, setHandoff] = useState<GraphReviewHandoffPayload | null>(null);
@@ -344,8 +345,8 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
             document_id: selectedDocumentId,
             expected_revision: envelope.revision,
             expected_content_sha256: envelope.contentSha256,
-            profile_id: BUILD_WORLDBUILDING_PROFILE_ID,
-            profile_version: BUILD_WORLDBUILDING_PROFILE_VERSION,
+            profile_id: profile === "gazetteer" ? "worldbuilding_gazetteer_v1" : BUILD_WORLDBUILDING_PROFILE_ID,
+            profile_version: profile === "gazetteer" ? "1.0" : BUILD_WORLDBUILDING_PROFILE_VERSION,
           });
           if (signal.aborted) {
             throw new Error("Extraction launch aborted.");
@@ -396,7 +397,7 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
         setLaunching(false);
       }
     }
-  }, [canvas, documentId]);
+  }, [canvas, documentId, profile]);
 
   const canLaunch = Boolean(committedClean && !launching);
   const canRefresh = !launching;

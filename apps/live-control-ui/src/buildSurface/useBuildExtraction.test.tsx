@@ -381,6 +381,33 @@ describe("useBuildExtraction", () => {
     expect(localStorage.getItem(`dmb.buildExtractionRun.${DOC_A}`)).toBe(RUN_A);
   });
 
+  it("submits gazetteer selection with exact saved revision and digest", async () => {
+    vi.mocked(liveApi.launchExtractionRun).mockResolvedValue(
+      launchEnvelope({
+        runId: RUN_A,
+        artifactId: ARTIFACT_A,
+        documentId: DOC_A,
+        revision: 2,
+        sha: "sha-a",
+      }),
+    );
+    const { result } = renderHook(() => useBuildExtraction({ documentId: DOC_A, profile: "gazetteer" }), { wrapper: extractionWrapper(DOC_A) });
+    await waitFor(() => expect(result.current.canLaunch).toBe(true));
+    await act(async () => {
+      await result.current.launch();
+    });
+    expect(liveApi.launchExtractionRun).toHaveBeenCalledWith({
+      document_id: DOC_A,
+      expected_revision: 2,
+      expected_content_sha256: "sha-a",
+      profile_id: "worldbuilding_gazetteer_v1",
+      profile_version: "1.0",
+    });
+    expect(result.current.run?.run_id).toBe(RUN_A);
+    expect(window.location.search).toContain(`extractionRunId=${RUN_A}`);
+    expect(localStorage.getItem(`dmb.buildExtractionRun.${DOC_A}`)).toBe(RUN_A);
+  });
+
   it("clears handoff when URL run belongs to another document", async () => {
     window.history.pushState({}, "", `/build?documentId=${DOC_B}&extractionRunId=${RUN_A}`);
     writeCleanLocal(DOC_B, 3, "sha-b");
