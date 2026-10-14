@@ -533,6 +533,16 @@ def test_worldbuilding_graph_uses_profile_semantic_state(tmp_path: Path) -> None
     assert report.issue_counts.get("invalid_semantic_state", 0) == 0
     assert report.issues == ()
 
+    from apps.live_control_server.services.graph_run_registry import get_reviewable_extraction_run
+    mutable_source = tmp_path / source.source_uri.removeprefix("repo://")
+    frozen_path = tmp_path / loaded.components["source_artifact"].uri.removeprefix("repo://")
+    assert frozen_path != mutable_source
+    frozen_bytes = frozen_path.read_bytes()
+    mutable_source.write_text("Mirathorn changed after extraction.\n")
+    reopened = get_reviewable_extraction_run(tmp_path, loaded.run_id)
+    assert reopened.components["source_artifact"].sha256 == loaded.components["source_artifact"].sha256
+    assert frozen_path.read_bytes() == frozen_bytes
+
 
 def _run_recap_extraction(
     tmp_path: Path,
