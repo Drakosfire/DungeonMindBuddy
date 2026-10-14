@@ -408,6 +408,7 @@ def _snapshot_pair(
         source_locator=locator,
         artifact_uri=str(artifact.uri) if artifact.uri is not None else None,
         catalog_fingerprint_sha256=fingerprint,
+        campaign_id=artifact.campaign_id,
     )
     return artifact, revision, identity
 
@@ -497,7 +498,7 @@ class DungeonMindWorldGraphSourceAdmissionAdapter:
         dm_artifact, revision, buddy_token = _map_buddy_source(request, sources)
         if (
             dm_artifact.world_id != request.world_id
-            or (request.campaign_id and dm_artifact.campaign_id != request.campaign_id)
+            or dm_artifact.campaign_id != request.campaign_id
         ):
             raise WorldGraphSourceAdmissionError(
                 "Incoming source belongs to a different World or campaign.",

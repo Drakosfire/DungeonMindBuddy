@@ -40,7 +40,7 @@ class WorldGraphSourceAdmissionRequest:
     """Buddy source identity to map and prove/admit before a confirmable prepare."""
 
     world_id: str
-    campaign_id: str
+    campaign_id: str | None
     source_artifact: Any
     source_revision_token: str
     source_uri: str | None = None
@@ -60,6 +60,7 @@ class AdmittedSourceIdentity:
     source_locator: str | None = None
     artifact_uri: str | None = None
     catalog_fingerprint_sha256: str | None = None
+    campaign_id: str | None = None
 
 
 class WorldGraphSourceAdmissionAuthority(Protocol):

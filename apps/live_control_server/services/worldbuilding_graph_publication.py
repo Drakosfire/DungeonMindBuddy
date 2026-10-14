@@ -12,6 +12,8 @@ import hmac
 import json
 import os
 import secrets
+from dataclasses import asdict, replace
+from types import SimpleNamespace
 from typing import Any, Mapping
 
 from apps.live_control_server import config as live_config
@@ -29,6 +31,7 @@ from apps.live_control_server.models.extract_promote import (
     WorldbuildingWritePlanPrepareRequest,
     WorldbuildingWritePlanResponse,
     WorldbuildingPublicationBinding,
+    WorldbuildingSourceAdmissionBinding,
 )
 from apps.live_control_server.ports.world_graph_authority import (
     WorldGraphAuthority,
@@ -95,6 +98,81 @@ def _load_registered_publication_binding(resolved):
         document_revision=artifact.workspace_document_revision,
         source_artifact_id=artifact.source_artifact_id, source_sha256=artifact.content_sha256,
     )
+
+
+def _world_scoped_preview(preview, binding):
+    # Registered Build envelopes carry the managed owner in campaign_id.
+    # Compile a native World-scoped view only after registered ownership is proved.
+    if preview.campaign_id not in (None, "", binding.managed_world_id):
+        raise ExtractPromoteError("Candidate has genuine campaign ownership",
+                                 code="worldbuilding_source_binding_changed", status_code=409)
+    return replace(preview, campaign_id=None)
+
+
+def _prepare_source_admission(resolved, binding):
+    from apps.live_control_server.ports.world_graph_source_admission import (
+        WorldGraphSourceAdmissionRequest, WorldGraphSourceAdmissionError,
+    )
+    from apps.live_control_server.ports.world_graph_source_admission_access import (
+        get_world_graph_source_admission_authority,
+    )
+    artifact = get_source_artifact(live_config.repo_root(), resolved.source_artifact_id)
+    if artifact.campaign_id not in (None, "", binding.managed_world_id):
+        raise ExtractPromoteError("Build source has genuine campaign ownership",
+                                 code="worldbuilding_source_binding_changed", status_code=409)
+    digest = hashlib.sha256(resolved.normalized_recap_path.read_bytes()).hexdigest()
+    if digest != binding.source_sha256:
+        raise ExtractPromoteError("Frozen source digest changed",
+                                 code="worldbuilding_source_binding_changed", status_code=409)
+    data = artifact.model_dump()
+    data.update(world_id=binding.native_world_id, campaign_id=None)
+    # Derived transport only; the registered managed-World artifact is unchanged.
+    transport = SimpleNamespace(**data)
+    try:
+        identity = get_world_graph_source_admission_authority().prove_or_admit(
+            WorldGraphSourceAdmissionRequest(
+                world_id=binding.native_world_id, campaign_id=None,
+                source_artifact=transport, source_revision_token=resolved.source_revision_id,
+                source_uri=resolved.sealed_source_uri, verified_input_sha256=digest,
+            )
+        )
+        result = WorldbuildingSourceAdmissionBinding.model_validate(asdict(identity))
+    except WorldGraphSourceAdmissionError as exc:
+        raise ExtractPromoteError(str(exc), code=exc.code, status_code=409) from exc
+    except (ValueError, TypeError) as exc:
+        raise ExtractPromoteError("Source proof is not a canonical World-owned identity",
+                                 code="worldbuilding_source_binding_changed", status_code=409) from exc
+    if (result.source_artifact_id != binding.source_artifact_id
+            or result.content_sha256 != digest
+            or result.buddy_source_revision_id != resolved.source_revision_id):
+        raise ExtractPromoteError("Source admission identity disagrees with frozen input",
+                                 code="worldbuilding_source_binding_changed", status_code=409)
+    return result
+
+
+def _reprove_source_admission(plan):
+    from apps.live_control_server.ports.world_graph_source_admission import WorldGraphSourceAdmissionError
+    from apps.live_control_server.ports.world_graph_source_admission_access import (
+        get_world_graph_source_admission_authority,
+    )
+    sealed = plan.source_admission
+    if sealed is None:
+        raise _legacy_reprepare_error()
+    try:
+        actual = get_world_graph_source_admission_authority().prove(
+            world_id=plan.world_id, source_artifact_id=sealed.source_artifact_id,
+            source_revision_id=sealed.source_revision_id,
+            source_revision_token=sealed.buddy_source_revision_id,
+        )
+        proof = WorldbuildingSourceAdmissionBinding.model_validate(asdict(actual))
+    except WorldGraphSourceAdmissionError as exc:
+        raise ExtractPromoteError(str(exc), code=exc.code, status_code=409) from exc
+    except (ValueError, TypeError) as exc:
+        raise ExtractPromoteError("Source proof is not a canonical World-owned identity",
+                                 code="worldbuilding_source_binding_changed", status_code=409) from exc
+    if proof != sealed:
+        raise ExtractPromoteError("Prepared source catalog authority changed",
+                                 code="worldbuilding_source_binding_changed", status_code=409)
 
 
 _PORT_ERROR_MAP: dict[str, tuple[str, int]] = {
@@ -186,11 +264,13 @@ def _prepare_binding_message(
     plan_digest: str,
     identity_snapshot_digest: str,
     publication_binding: Mapping[str, Any] | None = None,
+    source_admission: Mapping[str, Any] | None = None,
 ) -> bytes:
     payload = json.dumps(
         {
             "schema": _PREPARE_BINDING_SCHEMA,
             "publication_binding": publication_binding,
+            "source_admission": source_admission,
             "world_id": world_id,
             "parent_revision_id": parent_revision_id,
             "plan_id": plan_id,
@@ -212,6 +292,7 @@ def _sign_prepare_binding(
     plan_digest: str,
     identity_snapshot_digest: str,
     publication_binding: Mapping[str, Any] | None = None,
+    source_admission: Mapping[str, Any] | None = None,
 ) -> str:
     digest = hmac.new(
         _prepare_binding_key(),
@@ -222,6 +303,7 @@ def _sign_prepare_binding(
             plan_digest=plan_digest,
             identity_snapshot_digest=identity_snapshot_digest,
             publication_binding=publication_binding,
+            source_admission=source_admission,
         ),
         hashlib.sha256,
     ).hexdigest()
@@ -239,6 +321,7 @@ def _require_prepare_binding(
         plan_digest=str(plan.plan_digest),
         identity_snapshot_digest=_identity_snapshot_digest(snapshot),
         publication_binding=plan.publication_binding.model_dump(mode="json") if plan.publication_binding else None,
+        source_admission=plan.source_admission.model_dump(mode="json") if plan.source_admission else None,
     )
     provided = str(getattr(plan, "prepare_binding", None) or "").strip()
     if not provided or not hmac.compare_digest(provided, expected):
@@ -452,7 +535,7 @@ def _verify_worldbuilding_child(
 def prepare_worldbuilding(
     request: WorldbuildingWritePlanPrepareRequest,
 ) -> WorldbuildingWritePlanResponse:
-    """Prepare one exact BLD-08 worldbuilding run into an inert v2 write plan."""
+    """Prepare a plan and admit exact source provenance, never graph facts."""
     try:
         resolved = resolve_promotable_ingest_run(request.run_id, root=live_config.repo_root())
     except PromotableIngestRunError as exc:
@@ -462,6 +545,7 @@ def prepare_worldbuilding(
         resolved
     )
     publication_binding = _registered_publication_binding(resolved)
+    typed_preview = _world_scoped_preview(typed_preview, publication_binding)
     native_world_id = publication_binding.native_world_id
     authority = get_world_graph_authority()
     try:
@@ -499,7 +583,7 @@ def prepare_worldbuilding(
             source_revision_id=resolved.source_revision_id,
             source_uri=resolved.sealed_source_uri,
             extraction_profile=expected_profile,
-            campaign_scope=resolved.campaign_id or None,
+            campaign_scope=None,
             dispositions=[
                 WorldbuildingDispositionInput(
                     assertion_id=item.assertion_id,
@@ -562,7 +646,7 @@ def prepare_worldbuilding(
                 source_revision_id=resolved.source_revision_id,
                 source_uri=resolved.sealed_source_uri,
                 extraction_profile=expected_profile,
-                campaign_scope=resolved.campaign_id or None,
+                campaign_scope=None,
             ),
             require_current_head=False,
         )
@@ -575,6 +659,18 @@ def prepare_worldbuilding(
             status_code=500,
             diagnostics=[_diagnostic("plan_verification_failed", str(exc))],
         ) from exc
+    admitted = _prepare_source_admission(resolved, publication_binding)
+    if _registered_publication_binding(resolved) != publication_binding:
+        raise ExtractPromoteError("World binding changed after source admission",
+                                 code="worldbuilding_source_binding_changed", status_code=409)
+    try:
+        admitted_head = authority.current_head(native_world_id)
+    except WorldGraphAuthorityError as exc:
+        raise _authority_error(exc) from exc
+    if admitted_head.revision_id != request.expected_parent_revision_id:
+        raise ExtractPromoteError("Parent changed after source admission",
+                                 code="stale_parent_revision", status_code=409)
+    response = response.model_copy(update={"source_admission": admitted})
     snapshot = _identity_snapshot_payload(response)
     return response.model_copy(
         update={
@@ -585,6 +681,7 @@ def prepare_worldbuilding(
                 plan_digest=response.plan_digest,
                 identity_snapshot_digest=_identity_snapshot_digest(snapshot),
                 publication_binding=publication_binding.model_dump(mode="json"),
+                source_admission=admitted.model_dump(mode="json"),
             )
         }
     )
@@ -623,6 +720,7 @@ def confirm_worldbuilding(
         resolved
     )
     publication_binding = _registered_publication_binding(resolved)
+    typed_preview = _world_scoped_preview(typed_preview, publication_binding)
     native_world_id = publication_binding.native_world_id
     if plan.publication_binding is None or plan.publication_binding != publication_binding:
         raise ExtractPromoteError("World/source binding changed; prepare again",
@@ -635,11 +733,12 @@ def confirm_worldbuilding(
         source_revision_id=resolved.source_revision_id,
         source_uri=resolved.sealed_source_uri,
         extraction_profile=expected_profile,
-        campaign_scope=resolved.campaign_id or None,
+        campaign_scope=None,
     )
     authority = get_world_graph_authority()
     snapshot = _identity_snapshot_payload(plan)
     _require_prepare_binding(plan, snapshot)
+    _reprove_source_admission(plan)
     try:
         mutation_context = authority.mutation_context(
             native_world_id,
