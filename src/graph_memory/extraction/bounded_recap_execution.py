@@ -354,9 +354,39 @@ class BoundedRecapPassClient:
         self._stopped = False
 
     def ledger(self) -> dict[str, Any]:
+        def aggregate(field: str) -> dict[str, Any]:
+            known = 0
+            complete = True
+            for call in self.calls:
+                observation = call.get("observation")
+                value = observation.get(field) if isinstance(observation, Mapping) else None
+                if type(value) is int and value >= 0:
+                    known += value
+                elif call.get("external_outcome") == "not_started":
+                    continue
+                else:
+                    complete = False
+            return {
+                "total": known if complete else None,
+                "known_total": known,
+                "complete": complete,
+            }
+
         return {
             "schema": "dmb_bounded_recap_execution_v1",
             "limits": asdict(self.limits),
+            "pass_invocation_count": len(self.calls),
+            "pass_invocation_limit": self.limits.max_calls,
+            "attempt_counts": {
+                "provider_attempts": aggregate("provider_attempt_count"),
+                "transport_retries": aggregate("transport_retry_count"),
+                "conformance_retries": aggregate("conformance_retry_count"),
+                "semantics": (
+                    "max_calls is a pass-invocation budget, not a provider-attempt "
+                    "or authorization ceiling; provider-attempt counts include "
+                    "GE conformance corrections"
+                ),
+            },
             "calls": self.calls,
             "stopped": self._stopped,
         }

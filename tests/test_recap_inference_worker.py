@@ -30,7 +30,7 @@ class FakeGEFactory:
             return TimedGEEngine(self)
         return self
 
-    async def generate_text(self, request):
+    async def _produce_structured_result(self, request):
         from generationengine.failures import FailureCode, InferenceFailure
         from generationengine.observation import InferenceObservation, ObservationState
         from generationengine.types import GenerationEngineError, TextResult
@@ -64,7 +64,7 @@ class FakeGEFactory:
     async def generate_structured(self, request, *, on_attempt_completed=None):
         from generationengine.types import StructuredAttemptCompleted
 
-        result = await self.generate_text(request)
+        result = await self._produce_structured_result(request)
         if on_attempt_completed is not None:
             await on_attempt_completed(
                 StructuredAttemptCompleted(
@@ -111,12 +111,9 @@ class TimedGEEngine:
 
         self.engine = GenerationClient(text_providers={"openrouter": BlockingProvider(counters)})
 
-    async def generate_text(self, request):
+    async def generate_structured(self, request, *, on_attempt_completed=None):
         # Short GE timer leaves time to observe the real failure receipt before
         # the outer process timer. No SDK/client/network is constructed.
-        return await self.engine.generate_text(request.model_copy(update={"deadline_ms": 50}))
-
-    async def generate_structured(self, request, *, on_attempt_completed=None):
         return await self.engine.generate_structured(
             request.model_copy(update={"deadline_ms": 50}),
             on_attempt_completed=on_attempt_completed,
@@ -231,6 +228,12 @@ def test_missing_ge_receipt_is_unknown_and_never_redispatches(mode):
     assert time.monotonic() - started < 2.5
     assert client.calls[0]["external_outcome"] == "unknown"
     assert client.calls[0]["observation"] is None
+    assert client.ledger()["pass_invocation_count"] == 1
+    assert client.ledger()["attempt_counts"]["provider_attempts"] == {
+        "total": None,
+        "known_total": 0,
+        "complete": False,
+    }
     with pytest.raises(CategoryGraphExtractionError):
         invoke(client)
     assert factory.calls.value == 1
@@ -270,6 +273,12 @@ def test_real_ge_attempt_hook_persists_invalid_then_valid_before_single_correcti
     assert entry["observation"]["provider_attempt_count"] == 2
     assert entry["observation"]["transport_retry_count"] == 0
     assert entry["observation"]["conformance_retry_count"] == 1
+    assert client.ledger()["pass_invocation_count"] == 1
+    assert client.ledger()["attempt_counts"]["provider_attempts"] == {
+        "total": 2,
+        "known_total": 2,
+        "complete": True,
+    }
     assert [item["ordinal"] for item in entry["attempt_evidence"]] == [1, 2]
     assert [item["kind"] for item in entry["attempt_evidence"]] == [
         "initial",

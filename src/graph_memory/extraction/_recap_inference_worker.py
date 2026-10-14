@@ -50,43 +50,40 @@ def _worker_entry(
         try:
             try:
                 typed_request = TextRequest.model_validate(request)
-                if typed_request.json_schema is not None:
-                    callback = None
-                    if attempt_evidence is not None:
-                        async def on_attempt_completed(event) -> None:
-                            from src.graph_memory.extraction.bounded_recap_execution import (
-                                _write_private_response_evidence,
-                            )
+                callback = None
+                if attempt_evidence is not None:
+                    async def on_attempt_completed(event) -> None:
+                        from src.graph_memory.extraction.bounded_recap_execution import (
+                            _write_private_response_evidence,
+                        )
 
-                            event_payload = event.model_dump(mode="json")
-                            response_path, response_digest = _write_private_response_evidence(
-                                Path(attempt_evidence["directory"]),
-                                ordinal=attempt_evidence["pass_ordinal"],
-                                pass_name=attempt_evidence["pass_name"],
-                                request=request,
-                                context_hashes=attempt_evidence["context_hashes"],
-                                raw_observation=event_payload,
-                                response_text=event.text,
-                                attempt_event=event_payload,
-                            )
-                            attempt_records.append(
-                                {
-                                    "event_id": event.event_id,
-                                    "ordinal": event.ordinal,
-                                    "kind": event.kind,
-                                    "response_status": event.response_status,
-                                    "path": str(response_path),
-                                    "sha256": response_digest,
-                                }
-                            )
+                        event_payload = event.model_dump(mode="json")
+                        response_path, response_digest = _write_private_response_evidence(
+                            Path(attempt_evidence["directory"]),
+                            ordinal=attempt_evidence["pass_ordinal"],
+                            pass_name=attempt_evidence["pass_name"],
+                            request=request,
+                            context_hashes=attempt_evidence["context_hashes"],
+                            raw_observation=event_payload,
+                            response_text=event.text,
+                            attempt_event=event_payload,
+                        )
+                        attempt_records.append(
+                            {
+                                "event_id": event.event_id,
+                                "ordinal": event.ordinal,
+                                "kind": event.kind,
+                                "response_status": event.response_status,
+                                "path": str(response_path),
+                                "sha256": response_digest,
+                            }
+                        )
 
-                        callback = on_attempt_completed
-                    result = await engine.generate_structured(
-                        typed_request,
-                        on_attempt_completed=callback,
-                    )
-                else:
-                    result = await engine.generate_text(typed_request)
+                    callback = on_attempt_completed
+                result = await engine.generate_structured(
+                    typed_request,
+                    on_attempt_completed=callback,
+                )
             except GenerationEngineError as exc:
                 _write_receipt(path, {
                     "kind": "provider_failure",

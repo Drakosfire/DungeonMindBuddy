@@ -84,8 +84,10 @@ editing.
   the private evidence sink is configured.
 - Keep the existing DeepSeek-only route (`DeepSeek`, no fallback,
   `require_parameters=True`), temperature/reasoning behavior, output limits,
-  deadlines, outer pass ceiling and `max_transport_retries=0`. No transport
-  retry or provider fallback is introduced.
+  deadlines, and `max_transport_retries=0`. No transport retry or provider
+  fallback is introduced. `RecapExecutionLimits.max_calls` bounds calls to
+  `run_pass` (pass invocations); it is not a provider-attempt or authorization
+  ceiling. GE conformance corrections are provider attempts within one pass.
 - The technical one-correction behavior remains GE's existing conformance
   policy; it is not a new operator authorization ceiling or an outer pass.
   Initial invalid and corrected responses are distinct attempt evidence. Every
@@ -104,6 +106,11 @@ editing.
   completion, failure, or termination. Include the actual ordinal gaps (for
   example, response events at 1 and 3 when attempt 2 returned no response) and
   safe event IDs/status/path/digest. Do not fabricate an event for attempt 2.
+- Distinguish pass invocations from actual provider attempts in the run ledger.
+  Aggregate provider-attempt/retry counts from GE observations; when an
+  outcome is unknown or an observation omits a count, preserve a known subtotal
+  and mark the aggregate incomplete instead of implying the pass limit is an
+  attempt limit.
 - Preserve exact source-fidelity labels and promotion hold. Valid JSON or schema
   conformance does not establish semantic correctness, source coverage, or
   attribution. No semantic-gold/corpus inputs, candidate promotion, ingestion,

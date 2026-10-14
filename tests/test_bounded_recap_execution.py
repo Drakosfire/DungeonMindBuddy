@@ -6,7 +6,11 @@ from types import SimpleNamespace
 import pytest
 from generationengine.failures import FailureCode, InferenceFailure
 from generationengine.observation import InferenceObservation, ObservationState
-from generationengine.types import GenerationEngineError, TextResult
+from generationengine.types import (
+    GenerationEngineError,
+    StructuredAttemptCompleted,
+    TextResult,
+)
 
 from src.graph_memory.extraction.bounded_recap_execution import (
     BoundedRecapPassClient,
@@ -20,13 +24,12 @@ from src.graph_memory.extraction.category_candidate_graph_extractor import (
 
 @pytest.fixture(autouse=True)
 def semantic_engine_seam(monkeypatch):
-    """Keep existing request/validation tests local; process tests live separately."""
+    """Use explicit structured fake engines; process tests live separately."""
     from src.graph_memory.extraction import bounded_recap_execution as module
     from src.graph_memory.extraction._recap_inference_worker import _WorkerOutcome
 
     def execute(factory, request, *, deadline, attempt_evidence=None):
         from generationengine.types import TextRequest
-        from generationengine import StructuredAttemptCompleted
         from src.graph_memory.extraction.bounded_recap_execution import (
             _write_private_response_evidence,
         )
@@ -54,45 +57,9 @@ def semantic_engine_seam(monkeypatch):
                         )
 
                     callback = on_attempt_completed
-                if hasattr(engine, "generate_structured"):
-                    result = await engine.generate_structured(
-                        typed_request, on_attempt_completed=callback
-                    )
-                else:
-                    result = await engine.generate_text(typed_request)
-                    if callback is not None and isinstance(result, TextResult):
-                        observation = result.observation
-                        event = StructuredAttemptCompleted(
-                            operation_id=f"test-operation-{attempt_evidence['pass_ordinal']}",
-                            event_id=f"test-operation-{attempt_evidence['pass_ordinal']}:1",
-                            ordinal=1,
-                            kind="initial",
-                            provider=observation.provider or "openai",
-                            requested_model=observation.requested_model,
-                            resolved_model=observation.resolved_model or "gpt-6-luna",
-                            response_model=observation.response_model,
-                            provider_request_id=observation.provider_request_id,
-                            provider_response_id=observation.provider_response_id,
-                            text=result.text,
-                            input_tokens=observation.input_tokens,
-                            cached_input_tokens=observation.cached_input_tokens,
-                            output_tokens=observation.output_tokens,
-                            reasoning_tokens=observation.reasoning_tokens,
-                        )
-                        try:
-                            await callback(event)
-                        except Exception:
-                            failure = InferenceFailure.from_code(
-                                FailureCode.ATTEMPT_EVIDENCE_PERSISTENCE_FAILED,
-                                "Consumer attempt-evidence sink did not accept a returned provider response.",
-                            )
-                            failed_observation = observation.model_copy(
-                                update={
-                                    "state": ObservationState.FAILED,
-                                    "failure_code": failure.code,
-                                }
-                            )
-                            raise GenerationEngineError(failure, failed_observation) from None
+                result = await engine.generate_structured(
+                    typed_request, on_attempt_completed=callback
+                )
                 return {
                     "kind": "result",
                     "result": result.model_dump(mode="json"),
@@ -108,6 +75,45 @@ def semantic_engine_seam(monkeypatch):
         return _WorkerOutcome(asyncio.run(run()), False)
 
     monkeypatch.setattr(module, "_execute_in_owned_process", execute)
+
+
+async def _complete_fake_structured_result(result, request, callback):
+    if isinstance(result, Exception):
+        raise result
+    if callback is not None:
+        observation = result.observation
+        event = StructuredAttemptCompleted(
+            operation_id="test-structured-operation",
+            event_id="test-structured-operation:1",
+            ordinal=1,
+            kind="initial",
+            provider=observation.provider or request.provider,
+            requested_model=observation.requested_model or request.model,
+            resolved_model=observation.resolved_model or request.model,
+            response_model=observation.response_model,
+            provider_request_id=observation.provider_request_id,
+            provider_response_id=observation.provider_response_id,
+            text=result.text,
+            input_tokens=observation.input_tokens,
+            cached_input_tokens=observation.cached_input_tokens,
+            output_tokens=observation.output_tokens,
+            reasoning_tokens=observation.reasoning_tokens,
+        )
+        try:
+            await callback(event)
+        except Exception:
+            failure = InferenceFailure.from_code(
+                FailureCode.ATTEMPT_EVIDENCE_PERSISTENCE_FAILED,
+                "Consumer attempt-evidence sink did not accept a returned provider response.",
+            )
+            failed_observation = observation.model_copy(
+                update={
+                    "state": ObservationState.FAILED,
+                    "failure_code": failure.code,
+                }
+            )
+            raise GenerationEngineError(failure, failed_observation) from None
+    return result
 
 
 def observation(**changes):
@@ -132,11 +138,11 @@ class Engine:
         self.requests = []
         self.closed = 0
 
-    async def generate_text(self, request):
+    async def generate_structured(self, request, *, on_attempt_completed=None):
         self.requests.append(request)
-        if isinstance(self.response, Exception):
-            raise self.response
-        return self.response
+        return await _complete_fake_structured_result(
+            self.response, request, on_attempt_completed
+        )
 
     async def aclose(self):
         self.closed += 1
@@ -218,6 +224,12 @@ def test_deepseek_route_caps_and_unknown_receipt():
         "require_parameters": True,
     }
     assert "PRIVATE" not in json.dumps(client.ledger())
+    assert client.ledger()["pass_invocation_count"] == 1
+    assert client.ledger()["attempt_counts"]["provider_attempts"] == {
+        "total": 1,
+        "known_total": 1,
+        "complete": True,
+    }
     assert engine.closed == 1
     with pytest.raises(CategoryGraphExtractionError):
         invoke(client, DEEPSEEK_MODEL)
@@ -259,7 +271,14 @@ def test_deepseek_request_reaches_accepted_ge_openrouter_sdk_kwargs():
         async def close(self):
             return None
 
-    provider = OpenRouterTextProvider(client=Client())
+    structured_calls = []
+
+    class RecordingOpenRouterTextProvider(OpenRouterTextProvider):
+        async def generate(self, call):
+            structured_calls.append(call)
+            return await super().generate(call)
+
+    provider = RecordingOpenRouterTextProvider(client=Client())
     engine = GenerationClient(text_providers={"openrouter": provider})
     client = BoundedRecapPassClient(
         RecapExecutionLimits(provider="openrouter", model=DEEPSEEK_MODEL),
@@ -269,8 +288,19 @@ def test_deepseek_request_reaches_accepted_ge_openrouter_sdk_kwargs():
     result = invoke(client, DEEPSEEK_MODEL)
 
     assert result["parsed"] == {"observation_nodes": []}
+    ge_call = structured_calls[0]
+    assert ge_call.schema_name == "category_graph_actor_pass"
+    assert ge_call.json_schema["properties"]["observation_nodes"]
+    assert "one complete JSON object" in ge_call.system_prompt
+    assert "observation_nodes" not in ge_call.system_prompt
     kwargs = completions.calls[0]
     assert "response_format" not in kwargs
+    sdk_system = next(message["content"] for message in kwargs["messages"] if message["role"] == "system")
+    assert sdk_system.count("one complete JSON object") == 1
+    from generationengine.conformance import schema_instruction
+
+    assert sdk_system.startswith(ge_call.system_prompt + "\n\n")
+    assert sdk_system.count(schema_instruction(ge_call.json_schema)) == 1
     assert kwargs["extra_body"]["provider"] == {
         "order": ["DeepSeek"],
         "allow_fallbacks": False,
@@ -486,8 +516,10 @@ def test_private_response_evidence_keeps_earlier_pass_when_later_pass_fails(tmp_
     ]
 
     class SequenceEngine:
-        async def generate_text(self, request):
-            return responses.pop(0)
+        async def generate_structured(self, request, *, on_attempt_completed=None):
+            return await _complete_fake_structured_result(
+                responses.pop(0), request, on_attempt_completed
+            )
 
         async def aclose(self):
             pass
@@ -651,9 +683,11 @@ def test_edge_output_allowance_applies_only_to_actual_edge_spec(
         def __init__(self):
             self.requests = []
 
-        async def generate_text(self, request):
+        async def generate_structured(self, request, *, on_attempt_completed=None):
             self.requests.append(request)
-            return responses.pop(0)
+            return await _complete_fake_structured_result(
+                responses.pop(0), request, on_attempt_completed
+            )
 
         async def aclose(self):
             pass
@@ -704,6 +738,15 @@ def test_edge_output_allowance_applies_only_to_actual_edge_spec(
         assert request.provider_route.allow_fallbacks is False
     assert limits.max_calls == 8
     assert limits.run_deadline_ms == 480_000
+    ledger = client.ledger()
+    assert ledger["pass_invocation_count"] == 3
+    assert ledger["pass_invocation_limit"] == 8
+    assert ledger["attempt_counts"]["provider_attempts"] == {
+        "total": 3,
+        "known_total": 3,
+        "complete": True,
+    }
+    assert "authorization ceiling" in ledger["attempt_counts"]["semantics"]
 
 
 @pytest.mark.parametrize("invalid", [0, 16385, True, 1.5, "16384"])
