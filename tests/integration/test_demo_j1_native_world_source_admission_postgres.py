@@ -51,10 +51,22 @@ def test_native_source_admission_persists_and_replays_after_repository_recreatio
     import json
     registry_path = tmp_path / "out/registries/world_containers.json"
     registry_data = json.loads(registry_path.read_text())
+    from datetime import UTC, datetime
+    repository = PostgresNativeSourceEvidenceRepository(PostgresDatabase(disposable_database_url))
+    domain, profile = native._descriptors()
+    native_id = "native-" + world.world_id
+    native.initialize_empty_knowledge_space(
+        repository=repository, space_id=native_id,
+        initialization_id=native._stable_id("dmb-world-genesis", native_id),
+        created_at=native._parse_timestamp(world.created_at, field="created_at"),
+        domain_contract=domain, semantic_profile=profile,
+    )
+    validated_head = repository.get_head(native_id)
+    assert validated_head is not None
     registry_data["records"][0]["native_graph_binding"] = {
         "native_world_id": "native-" + world.world_id, "binding_version": 1,
-        "status": "active", "validated_at": "2026-10-14T00:00:00Z",
-        "validated_head_revision_id": "rev:fixture",
+        "status": "active", "validated_at": datetime.now(UTC).isoformat(),
+        "validated_head_revision_id": validated_head.head_revision_id,
     }
     registry_path.write_text(json.dumps(registry_data))
     markdown = "# Exact source\n\nThis text remains evidence, not extracted canon.\n"
