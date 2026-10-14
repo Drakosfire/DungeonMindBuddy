@@ -64,3 +64,29 @@ zero prepare/commit calls. Existing unsafe-source fidelity protections still pas
 19 focused Core/fidelity tests pass. App TypeScript and cumulative diff check pass.
 No runtime adoption or browser/source Save was performed. Architecture review and
 ordinary rendered acceptance of the approved runtime remain separate gates.
+
+## Explicit recovery amendment (2026-10-14)
+
+PRIME extends this same coherent clean-edit/recovery PR with:
+- apps/live-control-ui/src/buildSurface/buildMarkdownCanvasAdapter.tsx
+- apps/live-control-ui/src/buildSurface/buildMarkdownCanvasAdapter.test.tsx
+
+The six-path lease preserves the original Core repair. Normal dirty Build
+sources have no discard affordance (the shared canvas exposes one only during
+conflict). The nested Edit toolbar does expose Save once its Document disclosure
+is expanded; an initial empty-toolbar interpretation was corrected. Add only
+ordinary confirmed Discard local draft through the existing session handler.
+Cancel must preserve the draft. Save visibility/disabled/authority semantics stay
+unchanged; no hidden storage clear, source save or automatic discard.
+
+Current served candidate 6769244b is read-only and must not be edited in place.
+New head requires independent review and approved replacement before ordinary
+UI discard/rendered acceptance. Native admission and extraction remain held.
+
+Recovery amendment evidence: the existing tools slot places confirmed Discard
+above the editor; the Save action block is byte-for-byte unchanged. Four owning
+adapter cases prove availability with hosted Save, cancellation retention,
+confirmed handler invocation without Save, quiet clean sources and preserved
+Save-disabled authority. All 23 editor/fidelity/recovery cases and app TypeScript
+pass. Cumulative diff checked. The amended candidate has not been deployed;
+independent review is required before ordinary UI discard/acceptance.

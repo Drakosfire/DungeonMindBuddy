@@ -24,6 +24,18 @@ export function useBuildMarkdownCanvasSlots(args?: {
     authorityErrorTestId: "build-authority-error",
     conflictTestId: "build-surface-conflict",
     saveErrorTestId: "build-save-error",
+    tools: session.dirty ? (
+      <button
+        type="button"
+        onClick={() => {
+          if (window.confirm("Discard unsaved changes in this browser? The saved source will not change.")) {
+            void session.discardLocalDraft();
+          }
+        }}
+      >
+        Discard local draft
+      </button>
+    ) : undefined,
     hideDefaultStatus: true,
     hideReadyHeader: true,
     actions: hideFooterSave ? undefined : (
