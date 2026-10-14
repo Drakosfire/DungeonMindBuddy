@@ -93,3 +93,26 @@ def test_missing_new_field_loads_without_inventing_time():
     restored = GraphClaim.model_validate(wire)
     assert restored.temporal_scope is None
     assert "temporal_scope" not in restored.model_dump(mode="json")
+
+
+
+def test_actual_fallback_and_support_ledger_preserve_epistemic_source_attribution():
+    from graph_memory.interaction.answer_validator import validate_structured_answer
+    payload = packet(count=1)
+    payload["reviewedSourceObservations"][0]["epistemicKind"] = "rumor"
+    claims = claims_from_retrieval_result(payload, revision_id="rev:published")
+    session = GraphRetrievalSession(
+        snapshot=SessionSnapshot(world_id="world:test", campaign_id="campaign:one",
+                                 revision_id="rev:published"), question="What does this source say?",
+        claims=claims,
+    )
+    answer = validate_structured_answer(session, None)
+    for rendered in [answer.answer_text, answer.support_claim_ledger_text]:
+        assert "epistemic_kind=rumor" in rendered
+        assert claims[0].source_artifact_id in rendered
+        assert claims[0].source_revision_id in rendered
+    altered = claims[0].model_copy(update={
+        "epistemic_kind": "asserted", "source_artifact_id": "artifact:other",
+        "source_revision_id": "revision:other",
+    })
+    assert _claim_ledger_text([altered]) != _claim_ledger_text(claims)

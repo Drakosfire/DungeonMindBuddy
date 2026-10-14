@@ -301,7 +301,12 @@ def _claim_ledger_text(claims: Sequence[GraphClaim]) -> str | None:
         value = claim.value_text or ""
         if claim.claim_kind == "source_observation":
             scope = json.dumps(claim.temporal_scope, sort_keys=True) if claim.temporal_scope is not None else "unspecified"
-            predicate += f" ({claim.observation_kind}; temporal_scope={scope})"
+            predicate += (
+                f" ({claim.observation_kind}; temporal_scope={scope}; "
+                f"epistemic_kind={claim.epistemic_kind or 'unspecified'}; "
+                f"source={claim.source_artifact_id or 'unspecified'}; "
+                f"source_revision={claim.source_revision_id or 'unspecified'})"
+            )
         bullets.append(f"- {label}: {predicate} — {value}".strip(" —"))
     heading = ("Graph-grounded facts and source context for this turn:\n"
                if any(claim.claim_kind == "source_observation" for claim in claims)
@@ -346,15 +351,9 @@ def synthesize_draft_from_session(
     factual = [c for c in session.claims if c.may_state_as_campaign_fact()]
     sections: list[AnswerSection] = []
     if factual and not (model_prose and model_prose.strip()):
-        bullets = []
-        for claim in factual[:12]:
-            label = claim.subject_label or claim.subject_node_id or claim.claim_id
-            predicate = claim.predicate or claim.claim_kind
-            value = claim.value_text or ""
-            bullets.append(f"- {label}: {predicate} — {value}".strip(" —"))
         sections.append(
             AnswerSection(
-                text="Graph-grounded facts for this turn:\n" + "\n".join(bullets),
+                text=_claim_ledger_text(factual) or "",
                 statement_kind="graph_fact",
                 supporting_claim_ids=[c.claim_id for c in factual],
             )
