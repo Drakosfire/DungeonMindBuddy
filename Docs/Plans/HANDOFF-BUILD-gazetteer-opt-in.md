@@ -1,10 +1,12 @@
 # BUILD — explicit gazetteer extraction selection
 
-Status BLOCKED successor to server profile #1157 reviewed merge.
+Status ACTIVE stacked consumer of #1157 head bc064cff30cc00af8162052d05c09dcb638ca06f;
+merge server first. No runtime launch before accepted server adoption.
 PRIME implementation; ARCHITECTURE review; DOGFOOD rendered inspection.
 Branch codex/build-gazetteer-opt-in; lane /tmp/buddy-gazetteer-opt-in.
 Design base a79c6f47970b95be5b1354bcc0123379ca08b157.
-Topology serial consumer; no launch of unsupported server profile before gate.
+Topology stacked consumer; parent codex/build-gazetteer-profile exact bc064cff.
+Code review may proceed while final server test-only verification settles.
 
 Exact proposed write lease: this handoff; BuildIngestToolbar.tsx;
 useBuildExtraction.ts; useBuildExtraction.test.tsx; BuildIngestToolbar.test.tsx,
