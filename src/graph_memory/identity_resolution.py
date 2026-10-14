@@ -105,6 +105,7 @@ PREDICATE_FAMILY: dict[str, str] = {
     "causes": "causality", "caused_by": "causality", "results_in": "causality",
     # participation / hook
     "participates_in": "participation", "present_at": "participation",
+    "occurred_at": "participation",
     "attends": "participation", "mission_targets": "hook_relation",
     "mission_focus": "hook_relation", "pursues": "hook_relation",
     "objective_of": "hook_relation",
