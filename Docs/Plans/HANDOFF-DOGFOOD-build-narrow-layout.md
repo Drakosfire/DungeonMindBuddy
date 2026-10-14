@@ -29,3 +29,11 @@ outline/navigation/Editclean, exact savedsource rev2/SHA70444f40… before==afte
 existing owningtests, appTypeScript/build, cumulative main→head diff, PR review.
 Rendered reproduction receipt: buddy-foundation-97dff3f0/adoption/foundation-rendered-receipt.json;
 DOGFOODvisualizations/mirathorn-narrow-97df.png and narrow-top-97df.png.
+
+Code evidence: Build-only app-wrap takes100% of available width with min-width0;
+profile label wraps with explicit gap and select max-width100%/min-width0.
+No hidden overflow suppression, sharedshell edit or Tools feature change.
+29 existing owning cases pass (3selection,15reader,11editor-fidelity), app
+TypeScript and production build pass. Exact cumulative diff is2leasedpaths.
+Actual390/647 candidate layout acceptance remains pending independent code
+review/ownedruntime replacement. Reproduction metrics are baseline, not fix proof.

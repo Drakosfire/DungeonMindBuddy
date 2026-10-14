@@ -135,6 +135,26 @@
   outline: none;
 }
 
+/* A flex child with auto width otherwise adopts the profile select's intrinsic
+   width plus both layers of padding, widening the entire Build page on phones. */
+.app-wrap:has(.build-ingest-toolbar) {
+  width: 100%;
+  min-width: 0;
+}
+
+.build-ingest-toolbar > label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.build-ingest-toolbar select {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .build-ingest-toolbar {
   border: 1px solid var(--border, #2a3142);
   border-radius: var(--radius, 10px);
