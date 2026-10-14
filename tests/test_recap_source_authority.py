@@ -67,3 +67,16 @@ def test_quoted_fenced_or_prose_recap_marker_does_not_end_planning():
     text = "## Next Beats\n> **Recap**:\n```text\n**Recap**:\n```\n**Recap**: proposed future scene.\nGive a reward."
     kept, withheld, _ = partition_recap_source_rows(rows(text), text)
     assert not kept and withheld == rows(text)
+
+
+def test_split_bold_recap_marker_resumes_played_content():
+    text = "## Looking Ahead :\nA future reward.\n\n**Recap:\n**The party rests."
+    kept, withheld, _ = partition_recap_source_rows(rows(text), text)
+    assert [r["text"] for r in kept] == ["**Recap:", "**The party rests."]
+    assert len(withheld) == 2
+
+
+def test_unclosed_bold_recap_marker_does_not_resume_played_content():
+    text = "## Looking Ahead :\n**Recap:\nA future scene."
+    kept, withheld, _ = partition_recap_source_rows(rows(text), text)
+    assert not kept and withheld == rows(text)

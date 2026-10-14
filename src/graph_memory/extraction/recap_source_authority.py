@@ -44,7 +44,12 @@ def partition_recap_source_rows(
             if section_level is not None or inline:
                 planned.add(number)
             continue
-        if _RECAP_BOUNDARY.match(line):
+        split_recap = (
+            line.strip().casefold() in {"**recap:", "__recap:"}
+            and number < len(lines)
+            and lines[number].lstrip().startswith(line.strip()[:2])
+        )
+        if _RECAP_BOUNDARY.match(line) or split_recap:
             section_level = None
             inline = False
             continue
