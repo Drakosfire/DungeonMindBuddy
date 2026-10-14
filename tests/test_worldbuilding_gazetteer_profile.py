@@ -82,7 +82,7 @@ def test_actual_pipeline_preserves_named_definition_and_source_qualification():
     assert "Float Goats" in repr(contribution)
 
 
-@pytest.mark.parametrize("version", ["1.0", "1.1", "1.2"])
+@pytest.mark.parametrize("version", ["1.0", "1.1", "1.2", "1.3"])
 def test_registered_gazetteer_run_retains_exact_profile_and_typed_definitions(tmp_path, application_state_dsn, version):
     from tests.test_graph_preview_runner import _admit_worldbuilding, FixtureClient, _first_paragraph_span_id
     from src.graph_memory.extraction.graph_preview_runner import ProductionExtractionRequest, run_production_extraction
@@ -283,3 +283,101 @@ def test_role_support_versions_differ_only_in_owned_pipeline_disposition():
         GAZETTEER_ROLE_SUPPORT_PROFILE.node_passes
         == GAZETTEER_SOURCE_FIDELITY_PROFILE.node_passes
     )
+
+
+def test_registered_role_support_run_preserves_source_and_deferred_evidence(
+    tmp_path, application_state_dsn
+):
+    from tests.test_graph_preview_runner import (
+        _admit_worldbuilding,
+        _first_paragraph_span_id,
+    )
+    from src.graph_memory.extraction.graph_preview_runner import (
+        ProductionExtractionRequest,
+        run_production_extraction,
+    )
+    from apps.live_control_server.services.graph_run_registry import (
+        get_reviewable_extraction_run,
+    )
+    from graph_memory.candidate_graph_preview import candidate_graph_preview_from_dict
+
+    source = _admit_worldbuilding(tmp_path, "Nera — Proprietor of the Silver Inn\n")
+    span = _first_paragraph_span_id(source)
+    ref = {
+        "source_span_ref_id": span,
+        "anchor_quotes": ["Nera — Proprietor of the Silver Inn"],
+    }
+
+    class Client:
+        def run_pass(self, pass_name, **kwargs):
+            nodes = []
+            edges = []
+            if pass_name == "actor_pass":
+                nodes = [
+                    {
+                        "node_id": "npc:nera",
+                        "node_type": "character",
+                        "label": "Nera",
+                        "description": "Nera — Proprietor of the Silver Inn",
+                        "evidence_refs": [ref],
+                    }
+                ]
+            if pass_name == "location_pass":
+                nodes = [
+                    {
+                        "node_id": "loc:silver",
+                        "node_type": "location",
+                        "label": "Silver Inn",
+                        "description": "Nera — Proprietor of the Silver Inn",
+                        "evidence_refs": [ref],
+                    }
+                ]
+            if pass_name == "edge_pass":
+                edges = [
+                    {
+                        "edge_id": "edge:role",
+                        "from_node_id": "npc:nera",
+                        "to_node_id": "loc:silver",
+                        "relationship_type": "owns",
+                        "label": "Nera owns Silver Inn",
+                        "evidence_refs": [ref],
+                    }
+                ]
+            return {
+                "parsed": {"observation_edges": edges}
+                if pass_name == "edge_pass"
+                else {"observation_nodes": nodes},
+                "usage": {},
+                "cost_usd": 0.0,
+                "elapsed_ms": 1,
+                "response_id": "fixture:" + pass_name,
+            }
+
+    result = run_production_extraction(
+        ProductionExtractionRequest(
+            repo_root=tmp_path,
+            source=source,
+            profile_id="worldbuilding_gazetteer_v1",
+            profile_version="1.3",
+            allow_llm=True,
+            category_client=Client(),
+            output_dir=tmp_path / "role-run",
+        )
+    )
+    assert result.failure_kind is None
+    run = get_reviewable_extraction_run(tmp_path, result.run.run_id)
+    assert run.profile_id == "worldbuilding_gazetteer_v1@1.3"
+    preview = candidate_graph_preview_from_dict(result.candidate_graph)
+    assert (
+        len(preview.nodes) == 2
+        and not preview.edges
+        and len(preview.deferred_items) == 1
+    )
+    assert preview.deferred_items[0].reason == "proprietor_role_not_ownership_assertion"
+    assert preview.deferred_items[0].evidence_refs[0].anchor_quotes == (
+        "Nera — Proprietor of the Silver Inn",
+    )
+    source_file = tmp_path / run.components["source_artifact"].uri.removeprefix(
+        "repo://"
+    )
+    assert source_file.read_text() == source.source_text
