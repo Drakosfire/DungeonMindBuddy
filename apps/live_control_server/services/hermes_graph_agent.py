@@ -487,9 +487,10 @@ def _safe_ids_from_args(args: Mapping[str, Any]) -> dict[str, Any]:
                 bounded[key] = clipped
     anchor_ids = args.get("anchorIds", args.get("anchor_ids"))
     if isinstance(anchor_ids, list):
-        bounded["anchorIds"] = [item[:_MAX_BOUNDED_ID_CHARS] for item in anchor_ids[:8] if isinstance(item, str)]
-        if len(anchor_ids) > 8:
-            bounded["anchorIdsTruncated"] = True
+        from apps.live_control_server.services.agent_source_read_telemetry import (
+            summarize_requested_anchor_ids,
+        )
+        bounded.update(summarize_requested_anchor_ids(anchor_ids))
     seed_ids = args.get("seedNodeIds")
     if isinstance(seed_ids, list):
         bounded["seedNodeIds"] = [

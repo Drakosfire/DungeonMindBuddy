@@ -175,3 +175,63 @@ def test_malformed_results_do_not_break_telemetry_or_claim_opening(damage):
         result["content"] = chr(0xD800)
     meta, _ = summarize_batch_source_reads(p)
     assert meta["sourceRead0"]["opened"] == "false"
+
+
+def test_oversized_ids_are_omitted_not_prefixes_through_collector_and_ipc():
+    long_id = "X" * 10000
+    p = packet()
+    p["reads"][0]["result"]["anchorId"] = long_id
+    p["reads"][0]["result"]["sourceArtifactId"] = long_id
+    summary = _summarize_tool_result(json.dumps(p))
+    assert summary["source_anchor_ids"] == []
+    row = summary["source_read_metadata"]["sourceRead0"]
+    assert "anchorId" not in row and "sourceArtifactId" not in row
+    assert row["opened"] == "false"
+    assert row["anchorIdSha256"] == hashlib.sha256(long_id.encode()).hexdigest()
+    assert "anchorId" in row["identityFieldsOmitted"]
+    policy = default_graph_only_capability_policy(
+        HermesGraphScope(
+            world_id="world:test",
+            campaign_id="",
+            focus={"kind": "none"},
+            admissibility="gm",
+            revision_pin="rev:1",
+            scope_mode="world",
+        )
+    )
+    collector = _ToolEventCollector(policy)
+    args = {"anchorIds": [long_id, "anchor:normal"]}
+    collector.on_start("call:long", "read_graph_source", args)
+    collector.on_complete("call:long", "read_graph_source", args, json.dumps(p))
+    result = HermesGraphAgentTurnResult(
+        status="ok",
+        final_response="Answer",
+        messages=[],
+        hermes_session_id="session:test",
+        tool_events=collector.events,
+    )
+    wire = serialize_hermes_graph_agent_turn_result(result)
+    restored = deserialize_hermes_graph_agent_turn_result(wire)
+    assert restored.tool_events[0].bounded_ids["anchorIds"] == ["anchor:normal"]
+    assert restored.tool_events[-1].source_anchor_ids == []
+    assert long_id not in json.dumps(wire) and long_id[:256] not in json.dumps(wire)
+
+
+def test_pydantic_collector_never_exports_oversized_exact_identity():
+    from apps.live_control_server.services.pydantic_ai_agent_runtime import (
+        _TurnCollector,
+    )
+    from tests.test_pydantic_ai_agent_runtime import _invocation
+
+    p = packet()
+    p["reads"][0]["result"]["anchorId"] = "X" * 10000
+    collector = _TurnCollector(_invocation())
+    collector.emit_finish(
+        "read_graph_source",
+        {"anchorIds": ["X" * 10000]},
+        duration_ms=1,
+        raw_result=json.dumps(p),
+    )
+    event = collector.tool_events[-1]
+    assert event.source_anchor_ids == [] and event.bounded_ids["anchorIds"] == []
+    assert event.bounded_ids["sourceRead0"]["opened"] == "false"

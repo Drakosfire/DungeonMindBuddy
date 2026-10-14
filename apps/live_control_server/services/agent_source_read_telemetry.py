@@ -8,6 +8,51 @@ BATCH_V1 = "dmb_read_graph_source_batch_v1"
 BATCH_V2 = "dmb_internal_read_graph_source_batch_v2"
 READ_SCHEMA = "dmb_world_graph_source_anchor_read_v1"
 MAX_READS = 8
+MAX_ID_CHARS = 256
+
+
+def _usable_identity(value: Any) -> bool:
+    if not isinstance(value, str) or not value or len(value) > MAX_ID_CHARS:
+        return False
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
+def _store_field(record, key, value, omitted):
+    if not isinstance(value, str):
+        return
+    if not _usable_identity(value):
+        omitted.append(key)
+        record[key + "Sha256"] = hashlib.sha256(
+            value.encode("utf-8", errors="surrogatepass")
+        ).hexdigest()
+        return
+    record[key] = value
+
+
+def summarize_requested_anchor_ids(values: list[Any]) -> dict[str, Any]:
+    ids, omitted = [], []
+    malformed = False
+    for value in values[:MAX_READS]:
+        if _usable_identity(value):
+            ids.append(value)
+        elif isinstance(value, str):
+            omitted.append(
+                hashlib.sha256(
+                    value.encode("utf-8", errors="surrogatepass")
+                ).hexdigest()
+            )
+        else:
+            malformed = True
+    result = {"anchorIds": ids}
+    if omitted:
+        result["anchorIdsOmittedSha256"] = omitted
+    if len(values) > MAX_READS or omitted or malformed:
+        result["anchorIdsTruncated"] = True
+    return result
 
 
 def summarize_batch_source_reads(packet: Mapping[str, Any]):
@@ -35,6 +80,7 @@ def summarize_batch_source_reads(packet: Mapping[str, Any]):
         receipt = item.get("receipt") if schema == BATCH_V2 else None
         receipt = receipt if isinstance(receipt, Mapping) else {}
         record = {}
+        omitted = []
         for key in (
             "anchorId",
             "evidenceRefId",
@@ -43,23 +89,23 @@ def summarize_batch_source_reads(packet: Mapping[str, Any]):
             "outcome",
             "code",
         ):
-            if isinstance(result.get(key), str):
-                record[key] = result[key][:256]
+            _store_field(record, key, result.get(key), omitted)
         for key in (
             "source_read_id",
             "source_revision_id",
             "source_revision_sha256",
             "graph_revision",
         ):
-            if isinstance(receipt.get(key), str):
-                record[key] = receipt[key][:256]
-        if isinstance(result.get("contentSha256"), str):
-            record["reportedContentSha256"] = result["contentSha256"][:256]
+            _store_field(record, key, receipt.get(key), omitted)
+        _store_field(
+            record, "reportedContentSha256", result.get("contentSha256"), omitted
+        )
         snapshot = result.get("snapshot")
         if isinstance(snapshot, Mapping) and isinstance(
             snapshot.get("revisionId"), str
         ):
-            record.setdefault("graph_revision", snapshot["revisionId"][:256])
+            if "graph_revision" not in record and "graph_revisionSha256" not in record:
+                _store_field(record, "graph_revision", snapshot["revisionId"], omitted)
         content = result.get("content")
         known_schema = result.get("schema") == READ_SCHEMA
         anchor = result.get("anchorId")
@@ -69,8 +115,7 @@ def summarize_batch_source_reads(packet: Mapping[str, Any]):
             "true"
             if (
                 known_schema
-                and isinstance(anchor, str)
-                and anchor
+                and _usable_identity(anchor)
                 and isinstance(content, str)
                 and content
                 and isinstance(outcome, str)
@@ -90,7 +135,9 @@ def summarize_batch_source_reads(packet: Mapping[str, Any]):
         if isinstance(result.get("truncated"), bool):
             record["truncated"] = "true" if result["truncated"] else "false"
         anchor = result.get("anchorId")
-        if isinstance(anchor, str) and anchor:
+        if _usable_identity(anchor):
             anchors.append(anchor)
+        if omitted:
+            record["identityFieldsOmitted"] = ",".join(omitted)
         metadata[f"sourceRead{index}"] = record
     return metadata, list(dict.fromkeys(anchors))
