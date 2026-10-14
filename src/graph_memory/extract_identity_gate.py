@@ -300,10 +300,12 @@ def _known_party_anchor(
     """Bind a party reference by its exact normalized ID, never its label alone."""
     ref = node.corpus_ref
     party_reference = ref is not None and ref.type in {"pc", "npc"}
-    if not (party_reference or (node.node_type == "character" and node.proposed_action == "anchor")):
+    if not (party_reference or (node.node_type in {"character", "pc"} and node.proposed_action == "anchor")):
         return None
-    if node.node_type != "character":
-        raise CandidateGraphMappingError("known party reference requires character node type")
+    if node.node_type not in {"character", "pc"}:
+        raise CandidateGraphMappingError("known party reference requires character or pc node type")
+    if node.node_type == "pc" and (ref is None or ref.type != "pc"):
+        raise CandidateGraphMappingError("explicit pc anchor requires a PC corpus reference")
     if context.world_id != world_id:
         raise CandidateGraphMappingError("known party anchor requires its pinned World")
     if ref is None or ref.type not in {"pc", "npc"} or ref.resolution != "resolved":
