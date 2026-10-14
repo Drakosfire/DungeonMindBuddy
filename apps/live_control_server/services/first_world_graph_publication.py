@@ -160,7 +160,7 @@ def prepare_first_world(
         raise _promotable_run_error(exc) from exc
 
     typed_preview, expected_profile = _load_typed_worldbuilding_preview_for_run(
-        resolved
+        resolved, allow_gazetteer=False
     )
     try:
         source_prose = resolved.normalized_recap_path.read_text(encoding="utf-8")
@@ -435,7 +435,7 @@ def confirm_first_world(
         raise _promotable_run_error(exc) from exc
 
     typed_preview, expected_profile = _load_typed_worldbuilding_preview_for_run(
-        resolved
+        resolved, allow_gazetteer=False
     )
     resolved_world = (getattr(resolved, "world_id", None) or "").strip()
     if resolved_world != plan.world_id:

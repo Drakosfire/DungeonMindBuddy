@@ -1,0 +1,8 @@
+"""Closed publishable World profile identities; registration is not publication authority."""
+from .worldbuilding_extraction_profile import WORLDBUILDING_PROFILE
+from .worldbuilding_gazetteer_profile import GAZETTEER_PROFILE
+
+PUBLISHABLE_WORLDBUILDING_PROFILES = {
+    f"{p.profile_id}@{p.profile_version}": p
+    for p in (WORLDBUILDING_PROFILE, GAZETTEER_PROFILE)
+}
