@@ -759,6 +759,17 @@ def test_prepare_succeeds_with_buddy_graph_physically_absent(tmp_path, monkeypat
     assert plan.publication_binding.managed_world_id == "publication-managed"
     from apps.live_control_server.models.extract_promote import WorldbuildingWritePlanConfirmRequest
     from apps.live_control_server.services.worldbuilding_graph_publication import confirm_worldbuilding
+    import json
+    registry_path = repo / "out/registries/world_containers.json"
+    original_registry = registry_path.read_text()
+    changed_registry = json.loads(original_registry)
+    changed_registry["records"][0]["native_graph_binding"]["binding_version"] += 1
+    registry_path.write_text(json.dumps(changed_registry))
+    with pytest.raises(Exception) as binding_error:
+        confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
+    assert binding_error.value.code == "worldbuilding_source_binding_changed"
+    assert fake.publish_calls == 0
+    registry_path.write_text(original_registry)
     first = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
     assert first.outcome == "committed"
     assert first.world_id == native_id
