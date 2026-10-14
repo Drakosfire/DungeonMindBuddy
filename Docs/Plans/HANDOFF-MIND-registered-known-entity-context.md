@@ -15,6 +15,7 @@ The Pippa experiment now works at category level on accepted code, but the regis
 
 - `apps/live_control_server/services/graph_preview_runner.py`
 - `src/graph_memory/extraction/graph_preview_runner.py`
+- `src/graph_memory/extraction/known_entity_mention_matcher.py`
 - `tests/test_registered_known_entity_context.py`
 - this handoff
 
@@ -25,3 +26,7 @@ Topology: serial successor after merged #1140/#1141; current open PR #1139 and o
 Use a synthetic registered source and fixture client, with a fresh disposable APP database. Prove the supplied NPC reaches the ledger/consolidated edge input, its canonical endpoint and explicit source-backed edge persist, and the registered run/components reopen with verified hashes. Exercise absent context and unmentioned context without provider calls. Run focused existing runner tests, lint and exact cumulative diff.
 
 Implementation includes commit/push/PR. PRIME-authored: independent review required before merge; the previous operator review exception covered #1140/#1141 only. No other agent dispatch authorized here. Rollout and source-backed production evaluation follow accepted merge; this capability alone does not prove full World readiness or automatic context enrichment.
+
+## Owning-boundary refinement
+
+The registered candidate validator rejects the existing World helper's `corpus_ref.resolution=world_head`. Add the matcher path to this lease before repair. Native canonical node IDs identify World objects; they must not masquerade as corpus-file references. Omit that native-only corpus_ref on inserted NPC anchors, retaining ordinary verified corpus refs. No new resolution enum or historical format compatibility is introduced. The earlier category-only test did not cover registered validation; record this limitation in the review packet.
