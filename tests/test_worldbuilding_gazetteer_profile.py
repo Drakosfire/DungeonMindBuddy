@@ -8,7 +8,7 @@ from src.graph_memory.extraction.worldbuilding_profile_catalog import PUBLISHABL
 def test_closed_publication_profiles_preserve_pilot_and_exact_gazetteer_version():
     assert set(PUBLISHABLE_WORLDBUILDING_PROFILES) == {
         "worldbuilding_shepherds_flock_v0@0.1", "worldbuilding_gazetteer_v1@1.0",
-        "worldbuilding_gazetteer_v1@1.1", "worldbuilding_gazetteer_v1@1.2"}
+        "worldbuilding_gazetteer_v1@1.1", "worldbuilding_gazetteer_v1@1.2", "worldbuilding_gazetteer_v1@1.3"}
     assert "worldbuilding_gazetteer_v1@2.0" not in PUBLISHABLE_WORLDBUILDING_PROFILES
     assert "worldbuilding_plumbing_v0@0.1" not in PUBLISHABLE_WORLDBUILDING_PROFILES
 
@@ -160,3 +160,126 @@ def test_fidelity_profile_is_versioned_and_preserves_source_retention_contract()
     assert GAZETTEER_SOURCE_FIDELITY_PROFILE.default_semantic_state == GAZETTEER_PROFILE.default_semantic_state
     assert GAZETTEER_SOURCE_RETENTION_PROFILE.profile_version == "1.1"
     assert GAZETTEER_PROFILE.profile_version == "1.0"
+
+
+def test_role_support_versions_differ_only_in_owned_pipeline_disposition():
+    from copy import deepcopy
+    from src.graph_memory.extraction.worldbuilding_gazetteer_profile import (
+        GAZETTEER_SOURCE_FIDELITY_PROFILE,
+        GAZETTEER_ROLE_SUPPORT_PROFILE,
+    )
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        CategoryGraphExtractionOptions,
+        FixtureCategoryGraphPassClient,
+        run_category_pipeline,
+    )
+    from graph_memory.candidate_graph_preview import candidate_graph_preview_from_dict
+
+    texts = ["Nera — Proprietor of the Silver Inn", "Pippa — Owner of the Copper Inn"]
+    refs = [
+        {"source_span_ref_id": f"span-{i}", "anchor_quotes": [t]}
+        for i, t in enumerate(texts)
+    ]
+    outputs = {
+        "actor_pass": {
+            "observation_nodes": [
+                {
+                    "node_id": "npc:nera",
+                    "node_type": "character",
+                    "label": "Nera",
+                    "description": texts[0],
+                    "evidence_refs": [refs[0]],
+                },
+                {
+                    "node_id": "npc:pippa",
+                    "node_type": "character",
+                    "label": "Pippa",
+                    "description": texts[1],
+                    "evidence_refs": [refs[1]],
+                },
+            ]
+        },
+        "location_pass": {
+            "observation_nodes": [
+                {
+                    "node_id": "loc:silver",
+                    "node_type": "location",
+                    "label": "Silver Inn",
+                    "description": texts[0],
+                    "evidence_refs": [refs[0]],
+                },
+                {
+                    "node_id": "loc:copper",
+                    "node_type": "location",
+                    "label": "Copper Inn",
+                    "description": texts[1],
+                    "evidence_refs": [refs[1]],
+                },
+            ]
+        },
+        "edge_pass": {
+            "observation_edges": [
+                {
+                    "edge_id": "edge:role",
+                    "from_node_id": "npc:nera",
+                    "to_node_id": "loc:silver",
+                    "relationship_type": "owns",
+                    "label": "Nera owns Silver Inn",
+                    "evidence_refs": [refs[0]],
+                },
+                {
+                    "edge_id": "edge:owner",
+                    "from_node_id": "npc:pippa",
+                    "to_node_id": "loc:copper",
+                    "relationship_type": "owns",
+                    "label": "Pippa owns Copper Inn",
+                    "evidence_refs": [refs[1]],
+                },
+            ]
+        },
+    }
+    original = deepcopy(outputs)
+    results = []
+    for profile in (GAZETTEER_SOURCE_FIDELITY_PROFILE, GAZETTEER_ROLE_SUPPORT_PROFILE):
+        result = run_category_pipeline(
+            FixtureCategoryGraphPassClient(deepcopy(outputs)),
+            CategoryGraphExtractionOptions(
+                campaign_id="synthetic",
+                session_id=None,
+                session_number=None,
+                source_text="\n".join(texts),
+                source_artifact_id="artifact:synthetic",
+                source_span_index={
+                    "source_artifact_id": "artifact:synthetic",
+                    "source_ref_id": "artifact:synthetic:text",
+                    "spans": [
+                        {
+                            "source_span_ref_id": f"span-{i}",
+                            "span_id": f"span-{i}",
+                            "line_start": i + 1,
+                            "line_end": i + 1,
+                            "text": t,
+                        }
+                        for i, t in enumerate(texts)
+                    ],
+                },
+                profile=profile,
+                enable_party_claimed_fill=False,
+            ),
+        )
+        results.append(result)
+    old, new = [r.candidate_graph for r in results]
+    assert {e["edge_id"] for e in old["edges"]} == {"edge:role", "edge:owner"}
+    assert {e["edge_id"] for e in new["edges"]} == {"edge:owner"}
+    assert new["nodes"] == old["nodes"] and outputs == original
+    item = candidate_graph_preview_from_dict(new).deferred_items[0]
+    assert (
+        item.reason == "proprietor_role_not_ownership_assertion" and item.evidence_refs
+    )
+    assert item.evidence_refs[0].source_artifact_id == "artifact:synthetic"
+    assert item.evidence_refs[0].anchor_quotes == (texts[0],)
+    assert GAZETTEER_SOURCE_FIDELITY_PROFILE.profile_version == "1.2"
+    assert (
+        GAZETTEER_ROLE_SUPPORT_PROFILE.node_passes
+        == GAZETTEER_SOURCE_FIDELITY_PROFILE.node_passes
+    )
