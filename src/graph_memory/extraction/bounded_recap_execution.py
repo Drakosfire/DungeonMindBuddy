@@ -597,7 +597,9 @@ class BoundedRecapPassClient:
                 raw_model_response=result.text if result is not None else None,
             ) from None
         try:
-            parsed = json.loads(result.text or "")
+            # GE validates structured output and may accept fenced provider text.
+            # Keep raw text as evidence; consume its parsed contract when supplied.
+            parsed = result.parsed if result.parsed is not None else json.loads(result.text or "")
             if not isinstance(parsed, dict):
                 raise NonObjectResponseError("expected JSON object")
             if deepseek:

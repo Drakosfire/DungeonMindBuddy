@@ -1096,3 +1096,34 @@ def test_public_ge_deadline_stops_slow_provider():
         invoke(client)
     assert client.calls[0]["observation"]["failure_code"] == "PROVIDER_TIMEOUT"
     assert client.ledger()["stopped"]
+
+
+def test_structured_parsed_object_preserves_fenced_raw_evidence(tmp_path):
+    payload = {"observation_nodes": []}
+    raw = "```json\n" + json.dumps(payload) + "\n```"
+    engine = Engine(TextResult(text=raw, parsed=payload, observation=deepseek_observation()))
+    client = BoundedRecapPassClient(
+        RecapExecutionLimits(provider="openrouter", model=DEEPSEEK_MODEL),
+        engine_factory=lambda: engine, response_artifact_dir=tmp_path,
+        request_context_hashes={"synthetic_source": "a" * 64},
+    )
+    result = invoke(client, DEEPSEEK_MODEL)
+    assert result["parsed"] == payload
+    assert result["raw_text"] == raw
+    evidence = json.loads(next(tmp_path.glob("*.json")).read_text())
+    assert evidence["response"]["text"] == raw
+    assert client.ledger()["calls"][0]["external_outcome"] == "completed"
+
+
+def test_structured_parsed_object_is_revalidated_at_buddy_boundary():
+    engine = Engine(TextResult(
+        text='{"observation_nodes": []}', parsed={"observation_nodes": "invalid"},
+        observation=deepseek_observation(),
+    ))
+    client = BoundedRecapPassClient(
+        RecapExecutionLimits(provider="openrouter", model=DEEPSEEK_MODEL),
+        engine_factory=lambda: engine,
+    )
+    with pytest.raises(CategoryGraphExtractionError):
+        invoke(client, DEEPSEEK_MODEL)
+    assert client.ledger()["calls"][0]["validation_failure"]["kind"] == "schema"
