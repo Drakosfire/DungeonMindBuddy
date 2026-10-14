@@ -90,3 +90,28 @@ confirmed handler invocation without Save, quiet clean sources and preserved
 Save-disabled authority. All 23 editor/fidelity/recovery cases and app TypeScript
 pass. Cumulative diff checked. The amended candidate has not been deployed;
 independent review is required before ordinary UI discard/acceptance.
+
+## Architecture HOLD repair: operation exclusion
+
+Review found ordinary discard could invalidate an in-flight Save generation.
+The same six-path lease now requires discard to be unavailable/refused outside
+idle recoverable phases and while a document command owns the session. Do not
+use saveDisabled: unsupported source must remain discardable when otherwise idle.
+A deferred real-session Save prepare/commit regression must prove the receipt,
+local CAS base and verified snapshot survive attempted discard. No production
+hook amendment is authorized or assumed. Independent review of the new head is
+required; the earlier amended candidate is not approved for deployment.
+
+Operation-exclusion repair evidence: discard is both disabled and refused unless
+phase is ready_clean/ready_dirty/save_error/committed and activeCommand is null.
+Save-disabled is deliberately not used, preserving recovery of unsafe sources.
+The deferred REAL MarkdownCanvasSessionProvider + authoring hook + editor test
+fails against prior unguarded adapter 71a11e99 at preparing/disabled assertion.
+With the guard it verifies attempted discard during both prepare and commit
+leaves local state untouched, then commit receipt, verified snapshot and local
+CAS base all advance to revision 2; exactly one prepare/commit, no discard-induced
+reload and no confirmation call. Nine adapter cases include active document
+mutation, loading/verification phases, unsafe-save-disabled recovery and cancel.
+All 29 Core/fidelity/recovery tests and app TypeScript pass. The exact guarded
+adapter bytes were restored after the negative-control run. Cumulative diff
+checked. No production hook change, operator Source Save or deployment occurred.

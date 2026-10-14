@@ -14,9 +14,9 @@ function Controls({ hideFooterSave = true }: { hideFooterSave?: boolean }) {
 const discard = vi.fn().mockResolvedValue(undefined);
 const save = vi.fn().mockResolvedValue(undefined);
 
-function session(dirty: boolean) {
+function session(dirty: boolean, overrides: Partial<Pick<ReturnType<typeof useMarkdownCanvasSession>, "phase" | "activeCommand">> = {}) {
   vi.mocked(useMarkdownCanvasSession).mockReturnValue({
-    record: { title: "Source" }, dirty, exportedMarkdownAuthoritative: false,
+    record: { title: "Source" }, dirty, phase: "ready_dirty", activeCommand: null, ...overrides, exportedMarkdownAuthoritative: false,
     discardLocalDraft: discard, saveMarkdown: save, saveDisabled: true,
   } as unknown as ReturnType<typeof useMarkdownCanvasSession>);
 }
@@ -57,5 +57,35 @@ describe("Build source draft recovery", () => {
     expect(screen.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Discard local draft" })).toBeEnabled();
     expect(save).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("Build recovery operation exclusion", () => {
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it.each(["loading", "preparing", "committing", "committed_verification_pending"] as const)(
+    "refuses discard during %s without treating saveDisabled as the busy signal", phase => {
+      vi.clearAllMocks();
+      session(true, { phase });
+      const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+      render(<Controls />);
+      const button = screen.getByRole("button", { name: "Discard local draft" });
+      expect(button).toBeDisabled();
+      fireEvent.click(button);
+      expect(confirm).not.toHaveBeenCalled();
+      expect(discard).not.toHaveBeenCalled();
+    },
+  );
+
+  it("refuses discard while a document mutation owns the session", () => {
+    vi.clearAllMocks();
+    session(true, { activeCommand: { id: "build.rename", documentId: "source", startedAt: 1 } });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<Controls />);
+    fireEvent.click(screen.getByRole("button", { name: "Discard local draft" }));
+    expect(screen.getByRole("button", { name: "Discard local draft" })).toBeDisabled();
+    expect(confirm).not.toHaveBeenCalled();
+    expect(discard).not.toHaveBeenCalled();
   });
 });

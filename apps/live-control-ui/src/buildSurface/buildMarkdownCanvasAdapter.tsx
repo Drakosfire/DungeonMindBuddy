@@ -9,6 +9,8 @@ export function useBuildMarkdownCanvasSlots(args?: {
 }): MarkdownCanvasSlots {
   const session = useMarkdownCanvasSession();
   const hideFooterSave = args?.hideFooterSave === true;
+  const canDiscard = ["ready_clean", "ready_dirty", "save_error", "committed"].includes(session.phase)
+    && session.activeCommand == null;
 
   return {
     title: session.record?.title ?? BUILD_SURFACE_LABEL,
@@ -27,7 +29,9 @@ export function useBuildMarkdownCanvasSlots(args?: {
     tools: session.dirty ? (
       <button
         type="button"
+        disabled={!canDiscard}
         onClick={() => {
+          if (!canDiscard) return;
           if (window.confirm("Discard unsaved changes in this browser? The saved source will not change.")) {
             void session.discardLocalDraft();
           }
