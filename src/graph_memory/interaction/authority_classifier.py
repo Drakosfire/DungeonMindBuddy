@@ -325,6 +325,9 @@ def claims_from_retrieval_result(
         row = _as_mapping(observation)
         if row is None:
             continue
+        observation_kind = str(_get(row, "observation_kind", "observationKind") or "")
+        if observation_kind not in {"session_observation", "worldbuilding_observation"}:
+            continue
         assertion_id = str(_get(row, "assertion_id", "assertionId") or "").strip()
         evidence_ids = _get(row, "evidence_ref_ids", "evidenceRefIds") or []
         if (
@@ -348,7 +351,7 @@ def claims_from_retrieval_result(
                 subject_node_id=str(
                     _get(row, "subject_node_id", "subjectNodeId") or ""
                 ),
-                predicate="session_observation",
+                predicate=observation_kind,
                 value_text=str(_get(row, "text") or ""),
                 epistemic_kind=str(_get(row, "epistemic_kind", "epistemicKind") or ""),
                 visibility=str(_get(row, "visibility") or ""),
@@ -357,9 +360,7 @@ def claims_from_retrieval_result(
                 revision_id=revision_id,
                 authority_class="source_derived_accepted_assertion",
                 source_assertion_id=assertion_id,
-                observation_kind=str(
-                    _get(row, "observation_kind", "observationKind") or ""
-                ),
+                observation_kind=observation_kind,
                 review_id=_get(row, "review_id", "reviewId"),
                 contribution_id=_get(row, "contribution_id", "contributionId"),
                 publication_revision_id=_get(

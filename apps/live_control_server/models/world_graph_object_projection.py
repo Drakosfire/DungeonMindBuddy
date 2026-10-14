@@ -154,7 +154,7 @@ class WorldGraphObjectReviewedSourceObservation(_ObjectProjectionModel):
 
     assertion_id: str
     subject_node_id: str
-    observation_kind: Literal["session_observation"]
+    observation_kind: Literal["session_observation", "worldbuilding_observation"]
     text: str
     entity_kind: str
     review_id: str
