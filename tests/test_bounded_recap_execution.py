@@ -209,7 +209,7 @@ def test_deepseek_route_caps_and_unknown_receipt():
     assert request.reasoning_effort == "none" and request.json_object is False
     assert request.json_schema and request.schema_name == "category_graph_actor_pass"
     assert request.max_transport_retries == 0
-    assert (request.max_output_tokens, request.deadline_ms) == (8192, 60000)
+    assert (request.max_output_tokens, request.deadline_ms) == (8192, 120000)
     assert "PRIVATE_PROMPT" in request.system_prompt
     assert "PRIVATE_SOURCE" not in request.system_prompt
     assert "one complete JSON object" in request.system_prompt
@@ -732,7 +732,7 @@ def test_edge_output_allowance_applies_only_to_actual_edge_spec(
     assert untyped_edge_request.max_output_tokens == 8192
     assert edge_request.max_output_tokens == expected_edge_limit
     for request in engine.requests:
-        assert 0 < request.deadline_ms <= 60_000
+        assert 0 < request.deadline_ms <= 120_000
         assert request.max_transport_retries == 0
         assert request.provider_route.order == ("DeepSeek",)
         assert request.provider_route.allow_fallbacks is False
@@ -773,7 +773,7 @@ def test_owning_request_caps_and_unknown_receipt():
         None,
     )
     assert (request.max_output_tokens, request.max_transport_retries) == (8192, 0)
-    assert 0 < request.deadline_ms <= 60000
+    assert 0 < request.deadline_ms <= 120000
     assert request.json_schema and request.schema_name == "category_graph_actor_pass"
     assert result["usage"]["input_tokens"] is None and result["cost_usd"] is None
     assert client.calls[0]["observation"]["response_model"] == "gpt-6-luna-actual"
@@ -843,6 +843,48 @@ def test_remaining_deadline_shrinks_and_zero_usage_is_known():
     invoke(client)
     assert engine.requests[0].deadline_ms == 750
     assert client.calls[0]["observation"]["input_tokens"] == 0
+
+
+@pytest.mark.parametrize(
+    "run_deadline_ms,elapsed_ms,expected_ms",
+    [(480_000, 0, 120_000), (480_000, 360_000, 120_000), (1000, 250, 750)],
+)
+def test_selected_logical_deadline_reaches_request_and_owned_worker(
+    monkeypatch, run_deadline_ms, elapsed_ms, expected_ms
+):
+    from src.graph_memory.extraction import bounded_recap_execution as module
+
+    engine = Engine(
+        TextResult(text="{}", observation=observation(input_tokens=0, output_tokens=0))
+    )
+    clock = [0.0]
+    client = BoundedRecapPassClient(
+        RecapExecutionLimits(run_deadline_ms=run_deadline_ms),
+        engine_factory=lambda: engine,
+        clock=lambda: clock[0],
+    )
+    worker_deadlines = []
+    execute = module._execute_in_owned_process
+
+    def capture_worker_deadline(factory, request, *, deadline, attempt_evidence=None):
+        worker_deadlines.append((request["deadline_ms"], deadline))
+        return execute(
+            factory, request, deadline=deadline, attempt_evidence=attempt_evidence
+        )
+
+    monkeypatch.setattr(module, "_execute_in_owned_process", capture_worker_deadline)
+    clock[0] = elapsed_ms / 1000
+    started = module.time.monotonic()
+    invoke(client)
+
+    request = engine.requests[0]
+    assert request.deadline_ms == expected_ms
+    assert client.limits.run_deadline_ms == run_deadline_ms
+    assert len(worker_deadlines) == 1
+    worker_request_ms, worker_deadline = worker_deadlines[0]
+    assert worker_request_ms == request.deadline_ms
+    assert started + expected_ms / 1000 <= worker_deadline + 0.01
+    assert worker_deadline <= started + expected_ms / 1000 + 0.01
 
 
 def test_wrapper_persists_ledger_on_failed_result(tmp_path, monkeypatch):

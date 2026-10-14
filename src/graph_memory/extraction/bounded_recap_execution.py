@@ -268,7 +268,7 @@ class RecapExecutionLimits:
     provider: str = "openai"
     model: str = "gpt-6-luna"
     max_calls: int = 8
-    per_call_deadline_ms: int = 60_000
+    per_call_deadline_ms: int = 120_000
     run_deadline_ms: int = 480_000
     max_output_tokens: int = 8192
     edge_max_output_tokens: int | None = None
@@ -281,7 +281,7 @@ class RecapExecutionLimits:
             raise ValueError("unsupported bounded recap provider/model selection")
         for name, ceiling in (
             ("max_calls", 8),
-            ("per_call_deadline_ms", 60_000),
+            ("per_call_deadline_ms", 120_000),
             ("run_deadline_ms", 480_000),
             ("max_output_tokens", 8192),
         ):
