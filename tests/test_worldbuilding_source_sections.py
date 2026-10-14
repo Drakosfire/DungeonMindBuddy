@@ -103,3 +103,18 @@ def test_actual_candidate_assembly_preserves_prose_and_stamps_all_evidence():
     assert result.consolidation_diagnostics["source_section_retention"]["retained_sections"][0]["subsections"] == 2
     assert GAZETTEER_PROFILE.source_section_retainer is None
     assert PUBLISHABLE_WORLDBUILDING_PROFILES["worldbuilding_gazetteer_v1@1.1"] is options.profile
+
+
+@pytest.mark.parametrize("heading", [
+    "#### Unrelated city", "#### Fantastic Livestock for the Otherland",
+])
+def test_peer_heading_ends_prior_owner_before_foreign_prose(heading):
+    source = rows()
+    source[7]["text"] = heading
+    if "Otherland" in heading:
+        with pytest.raises(SourceSectionRetentionError):
+            retain_owned_sections(graph(), source)
+    else:
+        transformed, _ = retain_owned_sections(graph(), source)
+        assert "Do not attach this city fact" not in transformed["nodes"][0]["description"]
+        assert len(transformed["nodes"][0]["evidence_refs"]) == 7

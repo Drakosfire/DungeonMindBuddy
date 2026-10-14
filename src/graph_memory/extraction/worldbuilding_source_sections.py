@@ -35,7 +35,9 @@ def retain_owned_sections(
             raise SourceSectionRetentionError("source owner has no unique place candidate")
         following = [row for row in rows if row["line_start"] > owner["line_end"]]
         end = next((row["line_start"] for row in following
-                    if re.match(r"^#{1,3}\s+", row["text"])
+                    if (re.match(r"^#{1,3}\s+", row["text"])
+                        or (re.match(r"^####\s+", row["text"])
+                            and not re.match(r"^####\s+\d+\.\s+", row["text"])))
                     and not re.fullmatch(r"##\s+(?:Animal Products and Uses|Cultural Significance):?",
                                          row["text"], flags=re.I)), None)
         if end is None:
