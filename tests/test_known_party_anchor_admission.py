@@ -369,3 +369,13 @@ def test_explicit_pc_candidate_requires_resolved_reference() -> None:
     node["corpus_ref"]["resolution"] = "unresolved"
     with pytest.raises(CandidateGraphMappingError, match="resolved PC/NPC corpus reference"):
         _gate([node], _context([_actor("karsemine")]))
+
+
+def test_reviewed_binding_transport_rejects_pc_outside_npc_contract():
+    from pydantic import ValidationError
+    from apps.live_control_server.models.extract_promote import ReviewedCorpusNativeBindingV1
+    _, _, binding = _reviewed_binding_case()
+    payload = binding.model_dump(mode="json")
+    payload["corpus_ref_type"] = "pc"
+    with pytest.raises(ValidationError):
+        ReviewedCorpusNativeBindingV1.model_validate(payload)

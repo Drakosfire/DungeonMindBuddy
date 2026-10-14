@@ -27,3 +27,5 @@ After acceptance, re-anchor the held source package and exercise explicit kind c
 ## Native identity boundary refinement
 
 The private Session 14 owning-boundary rehearsal proves explicit `pc` fails `_known_party_anchor` after mapper success. Extend this same capability through native identity resolution: permit explicit pc only with a resolved PC reference and the existing exact pinned canonical target checks. Character/NPC behavior remains intact; pc with NPC reference must reject. Add native planner regressions proving support-only observations, no replacement actor assertion, unchanged context, and rejection of mismatched references. No native identity or publication authority is broadened.
+
+Reviewed binding clarification: its transport is NPC-only. Do not widen it to PC or bypass its literal via model_copy fixtures. Explicit PCs use existing resolved PC references through _known_party_anchor; exact reviewed NPC binding contract remains unchanged.
