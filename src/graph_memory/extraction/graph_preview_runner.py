@@ -217,6 +217,8 @@ def _build_prepared_components(
         with source_path.open("xb") as stream:
             stream.write(source_bytes)
     except FileExistsError:
+        if source_path.is_symlink() or not source_path.is_file():
+            raise ValueError("Run source snapshot must be a regular owned file")
         if source_path.read_bytes() != source_bytes:
             raise ValueError("Run source snapshot conflicts with frozen bytes")
     index = build_source_span_index_for_text(

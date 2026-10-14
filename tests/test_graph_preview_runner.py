@@ -895,3 +895,19 @@ def test_prepared_snapshot_rejects_incorrect_digest(tmp_path):
     with pytest.raises(ValueError, match="digest mismatch"):
         _build_prepared_components(tmp_path, source, tmp_path / "run")
     assert not (tmp_path / "run/source.md").exists()
+
+
+def test_prepared_snapshot_rejects_same_byte_symlink(tmp_path):
+    import hashlib
+    from src.graph_memory.extraction.graph_preview_runner import _build_prepared_components
+    body = "# Original\n"
+    mutable = tmp_path / "document.md"
+    mutable.write_text(body)
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    (run_dir / "source.md").symlink_to(mutable)
+    source = NormalizedExtractionSource("artifact:test", "worldbuilding", body,
+        hashlib.sha256(body.encode()).hexdigest(), "repo://document.md", "world", None)
+    with pytest.raises(ValueError, match="regular owned file"):
+        _build_prepared_components(tmp_path, source, run_dir)
+    assert mutable.read_text() == body
