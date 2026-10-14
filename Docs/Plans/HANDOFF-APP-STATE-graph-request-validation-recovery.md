@@ -1,8 +1,8 @@
 # HANDOFF — APP-STATE: recover invalid Graph tool requests
 
-**Status:** ACTIVE — PRIME authorized this proved local fix after the diagnostic checkpoint.
+**Status:** SETTLED — exact-head independent PRIME review accepted this capability; PR #1137 merged.
 
-**Owner:** DungeonMindBuddy APP-STATE; PRIME owns exact-head review and merge. DGF owns live rollout and any fresh case.
+**Owner:** DungeonMindBuddy. During the operator-directed solo foundational phase, PRIME personally owns further work. Delegated implementation, review and DOGFOOD assignments are stopped.
 
 **Base:** `main@f2964c12e82c149c3d69a9798626a90164303707`.
 
@@ -50,3 +50,11 @@ Preserve World/revision/source authority, exact denial matching, provider author
 - Cumulative base→head inspection contains exactly the three leased paths. Existing structural target cardinality and technical context/count/storage/deadline contracts are unchanged. No Graph/provider execution, live edit, restart, or fresh product probe occurred.
 - The supplied live artifacts prove request-schema validation failed before native IO. They do not preserve which model-supplied field was invalid; no claim is made that this synthetic input is the live input. DGF retains any later live validation/adoption authority.
 - Acceptance token: `APP_STATE_GRAPH_REQUEST_RECOVERY_ACCEPTED` (pending PRIME review).
+
+## Acceptance and operator-directed takeover
+
+- Reviewed implementation head: `7c223f37f06085340d795717bcef44269995389a`.
+- PR: [#1137](https://github.com/Drakosfire/DungeonMindBuddy/pull/1137), merged at `8134b1c9bb0592131b14a999297541d4c80f09b8`.
+- PRIME personally inspected the cumulative three-path diff and independently ran 17 focused parent-boundary cases: passed in 1.03 seconds. The implementation was authored by SERVER before the solo transition; do not attribute it to solo implementation.
+- [Independent acceptance record](https://github.com/Drakosfire/DungeonMindBuddy/pull/1137#issuecomment-6159051792). Acceptance token: `APP_STATE_GRAPH_REQUEST_RECOVERY_ACCEPTED`.
+- The operator made foundational value the sole priority and directed PRIME to work without other agents. The earlier DGF rollout assignment is suspended. No live rollout, model call or full-World acceptance is claimed by this merge.
