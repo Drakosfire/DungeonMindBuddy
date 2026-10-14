@@ -29,6 +29,7 @@ from apps.live_control_server.services.hermes_graph_agent_contract import (
     HermesGraphAgentTurnRequest,
     HermesGraphAgentTurnResult,
     HermesGraphToolEvent,
+    validate_terminal_failure_record,
 )
 from apps.live_control_server.services.hermes_graph_agent_host import (
     HermesGraphAgentHost,
@@ -188,6 +189,9 @@ def map_hermes_result_to_runtime_result(
     }
     if worker_pid is not None:
         runtime_metadata["worker_pid"] = worker_pid
+    terminal_failure = validate_terminal_failure_record(result.terminal_failure)
+    if terminal_failure is not None:
+        runtime_metadata["terminal_failure"] = terminal_failure
     session_id = str(result.hermes_session_id or "").strip() or None
     return AgentRuntimeResult(
         status=result.status,

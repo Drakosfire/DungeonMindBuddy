@@ -75,6 +75,74 @@ def test_explicit_zero_model_call_count_survives_result_wire_round_trip():
     assert "observedModelCallCount" not in unknown
 
 
+def test_terminal_provider_lifecycle_failure_round_trips_only_safe_fields():
+    diagnostic = {
+        "phase": "provider_lifecycle",
+        "reason": "provider_transport_ambiguous",
+        "transition": "outcome_unknown",
+        "acknowledged": True,
+        "transportExceptionClass": "ConnectError",
+    }
+    result = HermesGraphAgentTurnResult(
+        status="error", final_response=None, messages=[], hermes_session_id="session-1",
+        tool_events=[], error_code="provider_lifecycle_unavailable",
+        terminal_failure=diagnostic,
+    )
+
+    wire = serialize_hermes_graph_agent_turn_result(result)
+    restored = deserialize_hermes_graph_agent_turn_result(wire)
+    assert wire["terminalFailure"] == diagnostic
+    assert restored.terminal_failure == diagnostic
+
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        sanitize_terminal_failure_diagnostic,
+    )
+
+    projected = sanitize_terminal_failure_diagnostic({
+        "reason": "provider_transport_ambiguous",
+        "transition": "outcome_unknown",
+        "acknowledged": True,
+        "transport_exception_class": "ConnectError",
+        "exception_text": "PRIVATE_STREAM_BODY api_key=secret",
+        "response_body": "PRIVATE_RESPONSE",
+    })
+    assert projected == diagnostic
+    assert "PRIVATE_STREAM_BODY" not in repr(projected)
+    assert "PRIVATE_RESPONSE" not in repr(projected)
+
+
+@pytest.mark.parametrize(
+    "diagnostic",
+    [
+        {
+            "phase": "provider_lifecycle", "reason": "provider_transport_ambiguous",
+            "transition": "outcome_unknown", "acknowledged": True,
+            "transportExceptionClass": "PrivateException",
+        },
+        {
+            "phase": "host_result_decode", "reason": "lifecycle_ack_denied",
+            "transition": "sdk_entered", "acknowledged": False,
+        },
+        {
+            "phase": "provider_lifecycle", "reason": "lifecycle_ack_denied",
+            "transition": "sdk_entered", "acknowledged": True,
+        },
+        {
+            "phase": "provider_lifecycle", "reason": "provider_response_incomplete",
+            "transition": "outcome_unknown", "acknowledged": True,
+            "responseStatus": "PRIVATE_STATUS",
+        },
+    ],
+)
+def test_terminal_failure_wire_rejects_unbounded_or_inconsistent_values(diagnostic):
+    result = HermesGraphAgentTurnResult(
+        status="error", final_response=None, messages=[], hermes_session_id="session-1",
+        tool_events=[], terminal_failure=diagnostic,
+    )
+    with pytest.raises(ValueError, match="terminalFailure"):
+        serialize_hermes_graph_agent_turn_result(result)
+
+
 def test_legacy_request_omits_budget_field_byte_for_byte():
     payload = serialize_hermes_graph_agent_turn_request(_request())
     assert "requestBudget" not in payload

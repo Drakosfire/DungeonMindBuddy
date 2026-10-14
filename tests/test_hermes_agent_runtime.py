@@ -318,6 +318,22 @@ def test_adapter_preserves_model_calls_without_recompute() -> None:
     assert "hermes_session_id" not in mapped.__dataclass_fields__
 
 
+def test_adapter_carries_only_validated_terminal_failure_metadata() -> None:
+    result = HermesGraphAgentTurnResult(
+        status="error", final_response=None, messages=[], hermes_session_id="session-1",
+        tool_events=[], error_code="provider_lifecycle_unavailable",
+        terminal_failure={
+            "phase": "provider_lifecycle",
+            "reason": "provider_transport_ambiguous",
+            "transition": "outcome_unknown",
+            "acknowledged": True,
+            "transportExceptionClass": "ConnectError",
+        },
+    )
+    mapped = map_hermes_result_to_runtime_result(result)
+    assert mapped.runtime_metadata["terminal_failure"] == result.terminal_failure
+
+
 def test_map_invocation_does_not_infer_missing_scope() -> None:
     invocation = _invocation()
     request = map_invocation_to_hermes_request(invocation)

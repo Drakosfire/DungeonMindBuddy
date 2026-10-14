@@ -3859,8 +3859,7 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
     assert veto.value.provider_dispatched is False
     assert "PRIVATE_PLAN_BODY" not in caplog.text
     assert "sk-secret-shaped" not in caplog.text
-    assert "rung3_plugin_discovery" in caplog.text
-    assert "phase_status=invalid" in caplog.text
+    assert "phase=none phase_status=none" in caplog.text
     assert "PRIVATE_PHASE_STATUS" not in caplog.text
     assert fake.accepted_count == 0
     assert fake.authorize_count == 0
@@ -3960,7 +3959,13 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
                 observed_model_call_count=4,
                 runtime_metadata={"host_phase_spans": [{
                     "name": "host_result_decode", "status": "ok",
-                }]},
+                }], "terminal_failure": {
+                    "phase": "provider_lifecycle",
+                    "reason": "provider_transport_ambiguous",
+                    "transition": "outcome_unknown",
+                    "acknowledged": True,
+                    "transportExceptionClass": "ConnectError",
+                }},
             ), uncertain_final=True)
         assert failed_delivery.value.code == (
             "plan_context_delivery_failure" if failure is None else "turn_persistence_indeterminate"
@@ -3983,7 +3988,13 @@ def test_policy_adapter_freezes_first_envelope_and_fences_provider_lifecycle(
             assert history.execution.authorization_state == "outcome_unknown"
             assert history.execution.claimability == "blocked_unknown_or_sent"
             assert history.execution.automatic_redispatch is False
-        assert "phase=host_result_decode phase_status=ok" in caplog.text
+        assert (
+            "phase=provider_lifecycle phase_status=error "
+            "terminal_reason=provider_transport_ambiguous "
+            "lifecycle_transition=outcome_unknown "
+            "lifecycle_acknowledged=true transport_exception_class=ConnectError"
+        ) in caplog.text
+        assert "host_result_decode" not in caplog.text
         assert "PRIVATE_STREAM_BODY" not in caplog.text
 
     fake = FakeExecutionPort()

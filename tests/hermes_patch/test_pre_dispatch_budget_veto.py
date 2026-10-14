@@ -72,4 +72,4 @@ requests.request = lambda *_args, **_kwargs: (_ for _ in ()).throw(
                 + stderr
             )
     assert completed.returncode == 0, completed.stdout + completed.stderr
-    assert "12 passed" in completed.stdout
+    assert "16 passed" in completed.stdout

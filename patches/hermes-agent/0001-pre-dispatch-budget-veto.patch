@@ -127,17 +127,27 @@ diff --git a/agent/chat_completion_helpers.py b/agent/chat_completion_helpers.py
 index b93dcf6..a8c5b73 100644
 --- a/agent/chat_completion_helpers.py
 +++ b/agent/chat_completion_helpers.py
-@@ -457,3 +457,3 @@ def interruptible_api_call(agent, api_kwargs: dict):
+@@ -455,7 +455,7 @@ def interruptible_api_call(agent, api_kwargs: dict):
+                     )
+                 ),
              )
 -        except Exception as e:
 +        except BaseException as e:
              # If the request was cancelled by the main thread's interrupt
-@@ -880,3 +880,3 @@ def build_api_kwargs(agent, api_messages: list) -> dict:
+             # handler, the transport error is the expected consequence of our
+             # own force-close, NOT a network bug. Swallow it instead of
+@@ -878,7 +878,7 @@ def build_api_kwargs(agent, api_messages: list) -> dict:
+             github_reasoning_extra=agent._github_models_reasoning_extra_body() if is_github_responses else None,
+             replay_encrypted_reasoning=bool(
                  getattr(agent, "_codex_reasoning_replay_enabled", True)
 -            ),
 +            ) and getattr(agent, "api_request_budget_guard", None) is None,
          )
-@@ -1190,3 +1190,7 @@ def build_assistant_message(agent, assistant_message, finish_reason: str) -> dic
+ 
+     # ── chat_completions (default) ─────────────────────────────────────
+@@ -1188,7 +1188,11 @@ def build_assistant_message(agent, assistant_message, finish_reason: str) -> dic
+ 
+     # Codex Responses API: preserve encrypted reasoning items for
      # multi-turn continuity. These get replayed as input on the next turn.
 -    codex_items = getattr(assistant_message, "codex_reasoning_items", None)
 +    codex_items = (
@@ -146,85 +156,168 @@ index b93dcf6..a8c5b73 100644
 +        else getattr(assistant_message, "codex_reasoning_items", None)
 +    )
      if codex_items:
+         msg["codex_reasoning_items"] = codex_items
+ 
 diff --git a/agent/codex_runtime.py b/agent/codex_runtime.py
-index c1e46e8..59ea179 100644
+index c1e46e8..9f8ac67 100644
 --- a/agent/codex_runtime.py
 +++ b/agent/codex_runtime.py
-@@ -852,3 +852,23 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
+@@ -848,9 +848,59 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
+     the terminal event's ``output`` field.
+     """
+     import httpx as _httpx
++    from agent.api_request_budget import ApiRequestBudgetVeto
+ 
      active_client = client or agent._ensure_primary_openai_client(reason="codex_stream_direct")
--    max_stream_retries = 1
-+    # The conversation loop's parent authorization is single-use. A local
-+    # retry here would enter the SDK again without returning through that
-+    # guard, so guarded turns rely on the outer loop to make a new authorized
-+    # attempt. Preserve the established in-function retry for legacy callers.
-+    max_stream_retries = (
-+        0 if callable(getattr(agent, "api_request_budget_guard", None)) else 1
-+    )
+     max_stream_retries = 1
 +
 +    def lifecycle(transition: str) -> bool:
 +        callback = getattr(agent, "api_provider_lifecycle_callback", None)
 +        if not callable(callback):
-+            return not callable(getattr(agent, "api_request_budget_guard", None))
-+        try:
-+            return callback(transition) is True
-+        except Exception:
-+            return False
++            acknowledged = not callable(getattr(agent, "api_request_budget_guard", None))
++        else:
++            try:
++                acknowledged = callback(transition) is True
++            except Exception:
++                acknowledged = False
++        agent._api_request_budget_lifecycle = {
++            "transition": transition,
++            "acknowledged": acknowledged,
++        }
++        return acknowledged
 +
-+    def abort_guarded_attempt() -> None:
++    def safe_transport_exception_class(exc: BaseException) -> str | None:
++        if isinstance(exc, _httpx.RemoteProtocolError):
++            return "RemoteProtocolError"
++        if isinstance(exc, _httpx.ReadTimeout):
++            return "ReadTimeout"
++        if isinstance(exc, _httpx.ConnectError):
++            return "ConnectError"
++        if isinstance(exc, ConnectionError):
++            return "ConnectionError"
++        return None
++
++    def abort_guarded_attempt(
++        reason: str,
++        *,
++        exc: BaseException | None = None,
++        response_status: str | None = None,
++    ) -> None:
 +        from agent.api_request_budget import ApiRequestBudgetVeto
 +
++        lifecycle_state = getattr(agent, "_api_request_budget_lifecycle", {})
++        diagnostic = {
++            "reason": reason,
++            "transition": lifecycle_state.get("transition"),
++            "acknowledged": lifecycle_state.get("acknowledged"),
++        }
++        if exc is not None:
++            exception_class = safe_transport_exception_class(exc)
++            if exception_class is not None:
++                diagnostic["transport_exception_class"] = exception_class
++        if response_status is not None:
++            diagnostic["response_status"] = response_status
++        agent._api_request_budget_terminal_failure = diagnostic
 +        raise ApiRequestBudgetVeto(code="provider_lifecycle_unavailable")
      # Accumulate streamed text so callers / compat shims can read it.
-@@ -880,3 +900,11 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
+     agent._codex_streamed_text_parts: list = []
+ 
+@@ -878,7 +928,21 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
+ 
+         try:
              event_stream = active_client.responses.create(**stream_kwargs)
 +            if not lifecycle("sdk_entered"):
 +                close_fn = getattr(event_stream, "close", None)
 +                if callable(close_fn):
 +                    close_fn()
-+                abort_guarded_attempt()
++                abort_guarded_attempt("lifecycle_ack_denied")
++        except ApiRequestBudgetVeto:
++            # A lifecycle veto can be raised after the SDK returned a stream
++            # object. Preserve the unknown-outcome notification without
++            # reclassifying the original acknowledgement failure.
++            lifecycle("outcome_unknown")
++            raise
          except (_httpx.RemoteProtocolError, _httpx.ReadTimeout, _httpx.ConnectError, ConnectionError) as exc:
 +            lifecycle("outcome_unknown")
 +            if callable(getattr(agent, "api_request_budget_guard", None)):
-+                abort_guarded_attempt()
++                abort_guarded_attempt("provider_transport_ambiguous", exc=exc)
              if attempt < max_stream_retries:
-@@ -889,2 +917,7 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
+                 logger.debug(
+                     "Codex Responses stream connect failed (attempt %s/%s); retrying. %s error=%s",
+@@ -887,11 +951,18 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
+                 )
+                 continue
              raise
 +        except BaseException:
 +            lifecycle("outcome_unknown")
 +            if callable(getattr(agent, "api_request_budget_guard", None)):
-+                abort_guarded_attempt()
++                abort_guarded_attempt("provider_exception_ambiguous")
 +            raise
  
-@@ -894,2 +927,4 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
+         try:
+             # Compatibility: some mocks/providers return a concrete response
+             # instead of an iterable.  Pass it straight through.
              if hasattr(event_stream, "output") and not hasattr(event_stream, "__iter__"):
 +                if callable(getattr(agent, "api_request_budget_guard", None)) and not lifecycle("response_received"):
-+                    abort_guarded_attempt()
++                    abort_guarded_attempt("lifecycle_ack_denied")
                  return event_stream
-@@ -907,2 +942,5 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
+ 
+             try:
+@@ -905,6 +976,9 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
+                     interrupt_check=_interrupt_check,
+                 )
              except (_httpx.RemoteProtocolError, _httpx.ReadTimeout, _httpx.ConnectError, ConnectionError) as exc:
 +                lifecycle("outcome_unknown")
 +                if callable(getattr(agent, "api_request_budget_guard", None)):
-+                    abort_guarded_attempt()
++                    abort_guarded_attempt("provider_transport_ambiguous", exc=exc)
                  if attempt < max_stream_retries:
-@@ -917,2 +955,9 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
+                     logger.debug(
+                         "Codex Responses stream transport failed mid-iteration "
+@@ -915,6 +989,17 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
+                     continue
+                 raise
  
 +            if final.status != "completed":
 +                lifecycle("outcome_unknown")
 +                if callable(getattr(agent, "api_request_budget_guard", None)):
-+                    abort_guarded_attempt()
++                    response_status = final.status if final.status in {"incomplete", "failed"} else "other"
++                    abort_guarded_attempt(
++                        "provider_response_incomplete",
++                        response_status=response_status,
++                    )
 +            elif not lifecycle("response_received"):
-+                abort_guarded_attempt()
++                abort_guarded_attempt("lifecycle_ack_denied")
 +
              if final.status in {"incomplete", "failed"}:
+                 logger.warning(
+                     "Codex Responses stream terminal status=%s "
 diff --git a/agent/conversation_loop.py b/agent/conversation_loop.py
-index 12c80a8..ae751a4 100644
+index 12c80a8..6cd8744 100644
 --- a/agent/conversation_loop.py
 +++ b/agent/conversation_loop.py
-@@ -36,2 +36,3 @@ from agent.turn_context import build_turn_context
+@@ -34,6 +34,7 @@ from agent.error_classifier import FailoverReason, classify_api_error
+ from agent.iteration_budget import IterationBudget
+ from agent.turn_context import build_turn_context
  from agent.turn_retry_state import TurnRetryState
 +from agent.api_request_budget import ApiRequestBudgetVeto
  from agent.memory_manager import build_memory_context_block
-@@ -1323,5 +1324,19 @@ def run_conversation(
+ from agent.message_sanitization import (
+     close_interrupted_tool_sequence,
+@@ -552,6 +553,11 @@ def run_conversation(
+     Returns:
+         Dict: Complete conversation result with final response and message history
+     """
++    if callable(getattr(agent, "api_request_budget_guard", None)):
++        # Diagnostics belong to one turn/request and must never leak from a
++        # prior guarded call on a persistent worker agent.
++        agent._api_request_budget_terminal_failure = None
++        agent._api_request_budget_lifecycle = None
+     if moa_config is None:
+         try:
+             from hermes_cli.moa_config import decode_moa_turn
+@@ -1321,9 +1327,23 @@ def run_conversation(
+                     if agent.api_mode == "codex_responses":
+                         next_api_kwargs = agent._get_transport().preflight_kwargs(
                              next_api_kwargs,
 -                            allow_stream=False,
 +                            # Codex requests are sent through
@@ -245,7 +338,11 @@ index 12c80a8..ae751a4 100644
 +
 +                    enforce_api_request_budget(agent, next_api_kwargs)
                      if _use_streaming:
-@@ -2298,3 +2313,29 @@ def run_conversation(
+                         return agent._interruptible_streaming_api_call(
+                             next_api_kwargs, on_first_delta=_stop_spinner
+@@ -2296,7 +2316,39 @@ def run_conversation(
+                         pass
+                 agent._touch_activity(f"API call #{api_call_count} completed")
                  break  # Success, exit retry loop
 -
 +            except ApiRequestBudgetVeto as veto:
@@ -261,7 +358,7 @@ index 12c80a8..ae751a4 100644
 +                    agent._persist_session(messages, conversation_history)
 +                except Exception:
 +                    logger.exception("Could not persist the conversation after a local request-budget veto")
-+                return {
++                veto_result = {
 +                    "final_response": (
 +                        "The current provider request was denied before dispatch by the local request-budget guard. "
 +                        "Earlier provider attempts may have occurred."
@@ -275,13 +372,21 @@ index 12c80a8..ae751a4 100644
 +                    "failure_reason": "request_budget_veto",
 +                    "error": veto.code,
 +                }
++                failure_diagnostic = getattr(
++                    agent, "_api_request_budget_terminal_failure", None
++                )
++                if isinstance(failure_diagnostic, dict):
++                    veto_result["failure_diagnostic"] = dict(failure_diagnostic)
++                return veto_result
              except InterruptedError:
+                 if thinking_spinner:
+                     thinking_spinner.stop("")
 diff --git a/tests/agent/test_pre_dispatch_budget_veto.py b/tests/agent/test_pre_dispatch_budget_veto.py
 new file mode 100644
-index 0000000..0529f0b
+index 0000000..9daf11b
 --- /dev/null
 +++ b/tests/agent/test_pre_dispatch_budget_veto.py
-@@ -0,0 +1,376 @@
+@@ -0,0 +1,514 @@
 +"""Terminal request-budget rejection at the common SDK dispatch boundary."""
 +
 +from __future__ import annotations
@@ -337,6 +442,12 @@ index 0000000..0529f0b
 +
 +    agent = agent_factory()
 +    agent._disable_streaming = streaming_disabled
++    agent._api_request_budget_terminal_failure = {
++        "reason": "provider_transport_ambiguous",
++        "transition": "outcome_unknown",
++        "acknowledged": True,
++        "transport_exception_class": "ConnectError",
++    }
 +    agent._fallback_chain = [{"provider": "fallback", "model": "synthetic-fallback"}]
 +    agent._fallback_index = 0
 +    dispatches = []
@@ -355,6 +466,7 @@ index 0000000..0529f0b
 +
 +    assert result["failure_code"] == "request_budget_exceeded"
 +    assert result["failure_reason"] == "request_budget_veto"
++    assert "failure_diagnostic" not in result
 +    assert result["api_request_id"].endswith(":api:1")
 +    assert "Earlier provider attempts may have occurred" in result["final_response"]
 +    assert views
@@ -497,6 +609,137 @@ index 0000000..0529f0b
 +    assert len(calls) == 1
 +    assert lifecycle == ["outcome_unknown"]
 +    assert calls[0]["stream"] is True
++    assert agent._api_request_budget_terminal_failure == {
++        "reason": "provider_transport_ambiguous",
++        "transition": "outcome_unknown",
++        "acknowledged": True,
++        "transport_exception_class": "ConnectError",
++    }
++    assert "synthetic ambiguous transport failure" not in repr(
++        agent._api_request_budget_terminal_failure
++    )
++
++
++@pytest.mark.parametrize(
++    ("acknowledgements", "expected_transition"),
++    [
++        ([False], "sdk_entered"),
++        ([True, False], "response_received"),
++    ],
++)
++def test_guarded_codex_lifecycle_ack_denial_is_reported_without_payload(
++    agent_factory, acknowledgements, expected_transition
++):
++    from agent.api_request_budget import ApiRequestBudgetVeto
++
++    agent = agent_factory(
++        base_url="https://api.openai.com/v1", model="gpt-6-luna"
++    )
++    agent.api_request_budget_guard = lambda _view: True
++    calls = []
++    transitions = []
++    answers = iter(acknowledgements)
++
++    def acknowledge(transition):
++        transitions.append(transition)
++        return next(answers)
++
++    agent.api_provider_lifecycle_callback = acknowledge
++    event_stream = SimpleNamespace(output=[], close=lambda: calls.append("closed"))
++    client = SimpleNamespace(
++        responses=SimpleNamespace(
++            create=lambda **kwargs: calls.append(kwargs) or event_stream
++        )
++    )
++    with pytest.raises(ApiRequestBudgetVeto) as veto:
++        agent._run_codex_stream(
++            {"model": "gpt-6-luna", "instructions": "private prompt", "input": []},
++            client=client,
++        )
++
++    assert veto.value.code == "provider_lifecycle_unavailable"
++    if expected_transition == "sdk_entered":
++        assert transitions == ["sdk_entered", "outcome_unknown"]
++    else:
++        assert transitions == ["sdk_entered", "response_received"]
++    assert agent._api_request_budget_terminal_failure == {
++        "reason": "lifecycle_ack_denied",
++        "transition": expected_transition,
++        "acknowledged": False,
++    }
++    assert "private prompt" not in repr(agent._api_request_budget_terminal_failure)
++
++
++def test_guarded_codex_noncompleted_response_has_bounded_status_diagnostic(agent_factory):
++    from agent.api_request_budget import ApiRequestBudgetVeto
++
++    agent = agent_factory(
++        base_url="https://api.openai.com/v1", model="gpt-6-luna"
++    )
++    agent.api_request_budget_guard = lambda _view: True
++    agent.api_provider_lifecycle_callback = lambda _transition: True
++    client = SimpleNamespace(
++        responses=SimpleNamespace(
++            create=lambda **_kwargs: iter([
++                SimpleNamespace(
++                    type="response.incomplete",
++                    response=SimpleNamespace(status="incomplete"),
++                )
++            ])
++        )
++    )
++    with pytest.raises(ApiRequestBudgetVeto) as veto:
++        agent._run_codex_stream(
++            {"model": "gpt-6-luna", "instructions": "private prompt", "input": []},
++            client=client,
++        )
++
++    assert veto.value.code == "provider_lifecycle_unavailable"
++    assert agent._api_request_budget_terminal_failure == {
++        "reason": "provider_response_incomplete",
++        "transition": "outcome_unknown",
++        "acknowledged": True,
++        "response_status": "incomplete",
++    }
++
++
++def test_conversation_veto_returns_safe_terminal_failure_diagnostic(agent_factory):
++    from agent.api_request_budget import ApiRequestBudgetVeto
++
++    agent = agent_factory(
++        base_url="https://api.openai.com/v1", model="gpt-6-luna"
++    )
++    agent.api_request_budget_guard = lambda _view: True
++    agent._api_request_budget_terminal_failure = {
++        "reason": "provider_transport_ambiguous",
++        "transition": "outcome_unknown",
++        "acknowledged": True,
++        "transport_exception_class": "ConnectError",
++    }
++
++    def fail_without_provider_call(*_args, **_kwargs):
++        agent._api_request_budget_terminal_failure = {
++            "reason": "provider_transport_ambiguous",
++            "transition": "outcome_unknown",
++            "acknowledged": True,
++            "transport_exception_class": "ConnectError",
++        }
++        raise ApiRequestBudgetVeto(code="provider_lifecycle_unavailable")
++
++    agent._interruptible_streaming_api_call = fail_without_provider_call
++    agent._interruptible_api_call = fail_without_provider_call
++    result = agent.run_conversation(
++        "synthetic request", conversation_history=[], task_id="lifecycle-diagnostic"
++    )
++
++    assert result["failure_reason"] == "request_budget_veto"
++    assert result["failure_code"] == "provider_lifecycle_unavailable"
++    assert result["failure_diagnostic"] == {
++        "reason": "provider_transport_ambiguous",
++        "transition": "outcome_unknown",
++        "acknowledged": True,
++        "transport_exception_class": "ConnectError",
++    }
 +
 +
 +def test_unguarded_codex_stream_keeps_legacy_retry(agent_factory):

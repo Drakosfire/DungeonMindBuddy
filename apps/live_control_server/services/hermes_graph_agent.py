@@ -60,6 +60,7 @@ from apps.live_control_server.services.hermes_graph_agent_contract import (
     deserialize_capability_policy,
     deserialize_hermes_graph_agent_turn_request,
     deserialize_hermes_graph_agent_turn_result,
+    sanitize_terminal_failure_diagnostic,
     serialize_capability_policy,
     serialize_hermes_graph_agent_turn_request,
     serialize_hermes_graph_agent_turn_result,
@@ -207,6 +208,7 @@ def _error_result(
     model_calls: list[dict[str, Any]] | None = None,
     telemetry_warnings: list[str] | None = None,
     observed_model_call_count: int | None = None,
+    terminal_failure: dict[str, Any] | None = None,
 ) -> HermesGraphAgentTurnResult:
     return HermesGraphAgentTurnResult(
         status="error",
@@ -220,6 +222,7 @@ def _error_result(
         model_calls=list(model_calls or []),
         telemetry_warnings=list(telemetry_warnings or []),
         observed_model_call_count=observed_model_call_count,
+        terminal_failure=terminal_failure,
     )
 
 
@@ -2178,6 +2181,22 @@ def run_hermes_graph_agent_turn(
                             failure_code = "request_budget_guard_invalid"
                     prior_calls, prior_warnings = api_observer.finish()
                     prior_attempts = bool(prior_calls)
+                    terminal_failure = (
+                        sanitize_terminal_failure_diagnostic(
+                            raw.get("failure_diagnostic")
+                        )
+                        if failure_code == "provider_lifecycle_unavailable"
+                        else None
+                    )
+                    if (
+                        failure_code == "provider_lifecycle_unavailable"
+                        and raw.get("failure_diagnostic") is not None
+                        and terminal_failure is None
+                    ):
+                        prior_warnings = [
+                            *prior_warnings,
+                            "terminal_failure_diagnostic_invalid",
+                        ]
                     if failure_code.startswith("provider_authorization_"):
                         failure_message = (
                             "The parent did not authorize this provider request before dispatch."
@@ -2201,6 +2220,7 @@ def run_hermes_graph_agent_turn(
                         model_calls=prior_calls,
                         telemetry_warnings=prior_warnings,
                         observed_model_call_count=len(prior_calls),
+                        terminal_failure=terminal_failure,
                     )
 
                 final_response = raw.get("final_response")

@@ -234,6 +234,53 @@ def _stub_worker_main(request_queue: Any, response_queue: Any) -> None:
         )
 
 
+def _terminal_failure_worker_main(request_queue: Any, response_queue: Any) -> None:
+    """Return a serialized guarded worker failure for the host IPC boundary."""
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        decode_json_wire,
+        serialize_hermes_graph_agent_turn_result,
+    )
+
+    _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
+    while True:
+        message = decode_json_wire(request_queue.get())
+        if message.get("type") == "shutdown":
+            _put_json(response_queue, {"type": "shutdown_ack", "pid": os.getpid()})
+            return
+        if message.get("type") == "proceed":
+            continue
+        if message.get("type") != "execute":
+            continue
+        request_id = str(message.get("requestId") or "")
+        _put_json(response_queue, {
+            "type": "accepted", "requestId": request_id, "pid": os.getpid(),
+        })
+        if _await_proceed_or_shutdown(request_queue, request_id) == "shutdown":
+            _put_json(response_queue, {"type": "shutdown_ack", "pid": os.getpid()})
+            return
+        result = serialize_hermes_graph_agent_turn_result(
+            HermesGraphAgentTurnResult(
+                status="error",
+                final_response=None,
+                messages=[],
+                hermes_session_id=f"worker-{os.getpid()}",
+                tool_events=[],
+                error_code="provider_lifecycle_unavailable",
+                terminal_failure={
+                    "phase": "provider_lifecycle",
+                    "reason": "provider_transport_ambiguous",
+                    "transition": "outcome_unknown",
+                    "acknowledged": True,
+                    "transportExceptionClass": "ConnectError",
+                },
+            )
+        )
+        _put_json(response_queue, {
+            "type": "result", "requestId": request_id,
+            "pid": os.getpid(), "payload": result,
+        })
+
+
 def _authorization_worker_main(request_queue: Any, response_queue: Any) -> None:
     """Synthetic worker proving the correlated parent authorization exchange."""
     from apps.live_control_server.services.hermes_graph_agent_contract import (
@@ -2250,6 +2297,30 @@ def test_host_emits_bounded_sanitized_phases_and_ignores_callback_failures() -> 
             on_host_phase=lambda _span: (_ for _ in ()).throw(RuntimeError("ignored")),
         )
         assert callback_failure_result.status == "ok"
+    finally:
+        host.shutdown()
+
+
+def test_serialized_worker_failure_keeps_terminal_diagnostic_and_decode_success() -> None:
+    host = HermesGraphAgentHost(worker_target=_terminal_failure_worker_main)
+    phases: list[dict[str, Any]] = []
+    try:
+        result = host.execute(
+            _request(question="synthetic failure fixture"),
+            on_host_phase=phases.append,
+        )
+        assert result.status == "error"
+        assert result.error_code == "provider_lifecycle_unavailable"
+        assert result.terminal_failure == {
+            "phase": "provider_lifecycle",
+            "reason": "provider_transport_ambiguous",
+            "transition": "outcome_unknown",
+            "acknowledged": True,
+            "transportExceptionClass": "ConnectError",
+        }
+        decode_phase = [phase for phase in phases if phase["name"] == "host_result_decode"]
+        assert len(decode_phase) == 1
+        assert decode_phase[0]["status"] == "ok"
     finally:
         host.shutdown()
 
