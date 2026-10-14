@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type Ref } from "react";
 
 import { buildBuildSurfaceIdentity } from "../agentInteraction/projectionSurfacePublication";
 import { formatReviewCampaignLabel } from "../graphLens/sessionCampaignContext";
@@ -42,7 +42,7 @@ export type BuildSurfaceContextProps = Pick<
   | "destinationOptions"
   | "suggestedDestinationValue"
   | "suggestedCreateCampaignId"
->;
+> & { extractionTargetRef?: Ref<HTMLDivElement> };
 
 export function BuildSurfaceContext({
   activeRecord,
@@ -65,6 +65,7 @@ export function BuildSurfaceContext({
   destinationOptions,
   suggestedDestinationValue,
   suggestedCreateCampaignId,
+  extractionTargetRef,
 }: BuildSurfaceContextProps) {
   const session = useOptionalMarkdownCanvasSession();
 
@@ -175,6 +176,9 @@ export function BuildSurfaceContext({
             onRetryImport={importError ? retryImportSource : undefined}
             disabled={documentMutationBusy}
           />
+          {activeDocumentId && extractionTargetRef ? (
+            <div className="build-extraction-slot" ref={extractionTargetRef} data-testid="build-extraction-slot" />
+          ) : null}
         </div>
         {listStatus === "error" ? (
           <SurfaceContextStatus tone="error">
@@ -201,6 +205,7 @@ export function BuildSurfaceContext({
       creating,
       destinationOptions,
       displayTitle,
+      extractionTargetRef,
       documentClass,
       documentMutationBusy,
       documents,

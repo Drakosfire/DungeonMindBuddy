@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { AppChrome } from "../chrome/AppChrome";
 import { announceSelectedWorldLocationChange } from "../selectedWorld/SelectedWorldContext";
@@ -15,6 +15,7 @@ import "./buildSurface.css";
 
 export function BuildSurfacePage() {
   const controller = useBuildWorkspaceDocumentController();
+  const [extractionTarget, setExtractionTarget] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!controller.activeRecord || typeof window === "undefined") return;
@@ -33,9 +34,9 @@ export function BuildSurfacePage() {
           kind={BUILD_MARKDOWN_CANVAS.kind}
           saveConflictsWith={BUILD_SAVE_CONFLICTS_WITH}
         >
-          <BuildSurfaceContext {...controller} />
+          <BuildSurfaceContext {...controller} extractionTargetRef={setExtractionTarget} />
           <BuildReferenceCapability documentId={controller.activeDocumentId}>
-            <BuildIngestToolbar documentId={controller.activeDocumentId} />
+            <BuildIngestToolbar documentId={controller.activeDocumentId} target={extractionTarget} />
             <BuildSurfaceShell />
           </BuildReferenceCapability>
         </MarkdownCanvasSessionProvider>

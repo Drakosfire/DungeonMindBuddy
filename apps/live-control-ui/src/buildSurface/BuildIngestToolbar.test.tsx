@@ -113,6 +113,35 @@ describe("BuildIngestToolbar", () => {
     );
   });
 
+  it("portals a single collapsed menu outside the session without resetting selection on close", async () => {
+    const user = userEvent.setup();
+    const target = document.createElement("div");
+    document.body.append(target);
+    try {
+      const view = render(<BuildCanvasTestProvider documentId={DOC_ID}>
+        <BuildIngestToolbar documentId={DOC_ID} target={target} />
+      </BuildCanvasTestProvider>);
+      const menu = target.querySelector("details")!;
+      expect(menu.open).toBe(false);
+      expect(view.container.querySelector("[data-testid=build-ingest-toolbar]")).toBeNull();
+      expect(target.querySelectorAll("[data-testid=build-ingest-toolbar]")).toHaveLength(1);
+      await user.click(screen.getByText("Extraction", { exact: true }));
+      expect(menu.open).toBe(true);
+      await user.selectOptions(screen.getByLabelText("Extraction approach"), "gazetteer");
+      expect(await screen.findByTestId("build-native-source-status")).toHaveTextContent("pending");
+      await user.click(screen.getByText("Extraction", { exact: true }));
+      expect(menu.open).toBe(false);
+      await user.click(screen.getByText("Extraction", { exact: true }));
+      expect(screen.getByLabelText("Extraction approach")).toHaveValue("gazetteer");
+      expect(liveApi.launchExtractionRun).not.toHaveBeenCalled();
+      expect(liveApi.admitNativeWorldSource).not.toHaveBeenCalled();
+      view.unmount();
+      expect(target.childElementCount).toBe(0);
+    } finally {
+      target.remove();
+    }
+  });
+
   it("shows saved-but-pending native admission and retries the exact selected revision", async () => {
     const user = userEvent.setup();
     render(<BuildCanvasTestProvider documentId={DOC_ID}><BuildIngestToolbar documentId={DOC_ID} /></BuildCanvasTestProvider>);

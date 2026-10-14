@@ -1,12 +1,14 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useBuildExtraction } from "./useBuildExtraction";
 import { useBuildNativeWorldSourceEvidence } from "./useBuildNativeWorldSourceEvidence";
 
 interface BuildIngestToolbarProps {
   documentId: string;
+  target?: HTMLElement | null;
 }
 
-export function BuildIngestToolbar({ documentId }: BuildIngestToolbarProps) {
+export function BuildIngestToolbar({ documentId, target }: BuildIngestToolbarProps) {
   const [selection, setSelection] = useState<{ documentId: string; profile: "pilot" | "gazetteer" }>({ documentId, profile: "pilot" });
   if (selection.documentId !== documentId) setSelection({ documentId, profile: "pilot" });
   const profile = selection.documentId === documentId ? selection.profile : "pilot";
@@ -24,7 +26,7 @@ export function BuildIngestToolbar({ documentId }: BuildIngestToolbarProps) {
     refresh,
   } = useBuildExtraction({ documentId, profile });
 
-  return (
+  const content = (
     <section className="build-ingest-toolbar" data-testid="build-ingest-toolbar" aria-label="Build extraction">
       <label>
         Extraction approach
@@ -118,4 +120,14 @@ export function BuildIngestToolbar({ documentId }: BuildIngestToolbarProps) {
       ) : null}
     </section>
   );
+
+  // Portal only presentation; hooks keep the owning document session/context.
+  // Keeping content mounted while collapsed also preserves the selected profile.
+  if (target === undefined) return content;
+  return target ? createPortal(
+    <details className="build-extraction-menu">
+      <summary>Extraction</summary>
+      {content}
+    </details>, target,
+  ) : null;
 }
