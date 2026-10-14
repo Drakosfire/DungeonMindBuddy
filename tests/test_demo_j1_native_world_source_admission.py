@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from hashlib import sha256
 from pathlib import Path
+import json
 
 import pytest
 from pydantic import ValidationError
@@ -29,6 +30,16 @@ def _committed_source(
 ):
     if world is None:
         world = create_world_container(root, name="J1 Test World")
+    registry_path = root / "out/registries/world_containers.json"
+    registry_data = json.loads(registry_path.read_text())
+    for entry in registry_data["records"]:
+        if entry["world_id"] == world.world_id:
+            entry["native_graph_binding"] = {
+                "native_world_id": world.world_id, "binding_version": 1,
+                "status": "active", "validated_at": "2026-10-14T00:00:00Z",
+                "validated_head_revision_id": "rev:fixture",
+            }
+    registry_path.write_text(json.dumps(registry_data))
     record = create_workspace_document(
         root,
         title="Test Source",
@@ -412,6 +423,7 @@ def test_source_admission_uses_separate_managed_registry_root(
     registry = document_root / "out/registries/world_containers.json"
     target = registry_root / "out/registries/world_containers.json"
     target.parent.mkdir(parents=True)
+    (registry_root / world.source_root_relpath).mkdir(parents=True)
     shutil.copyfile(registry, target)
     registry.unlink()
     monkeypatch.setenv(native.config.MANAGED_WORLD_DATA_ROOT_ENV, str(registry_root))
@@ -447,3 +459,123 @@ def test_source_admission_invalid_managed_root_fails_without_publication(
         native.get_native_world_source_status(tmp_path, record.document_id)
     assert status_error.value.code == "managed_world_unavailable"
     assert status_error.value.status_code == 503
+
+
+@pytest.mark.parametrize("native_id", ["native-alpha", "native-beta"])
+def test_source_admits_only_to_explicit_native_world(
+    tmp_path, monkeypatch, memory_repository, native_id,
+):
+    world, record = _committed_source(tmp_path)
+    path = tmp_path / "out/registries/world_containers.json"
+    data = json.loads(path.read_text())
+    data["records"][0]["native_graph_binding"]["native_world_id"] = native_id
+    path.write_text(json.dumps(data))
+    first = _admit(tmp_path, record.document_id)
+    assert first.world_id == world.world_id
+    assert first.space_id == native_id
+    assert memory_repository.get_head(world.world_id) is None
+    assert memory_repository.get_head(native_id) is not None
+    assert _admit(tmp_path, record.document_id).admission_id == first.admission_id
+    assert native.get_native_world_source_status(tmp_path, record.document_id).space_id == native_id
+
+
+def test_missing_binding_rejects_before_repository_access(tmp_path, monkeypatch):
+    world, record = _committed_source(tmp_path)
+    path = tmp_path / "out/registries/world_containers.json"
+    data = json.loads(path.read_text())
+    data["records"][0]["native_graph_binding"] = None
+    path.write_text(json.dumps(data))
+    monkeypatch.setattr(native, "_repository", lambda: pytest.fail("unbound native access"))
+    with pytest.raises(native.NativeWorldSourceAdmissionError) as error:
+        _admit(tmp_path, record.document_id)
+    assert error.value.code == "native_graph_binding_missing"
+
+
+def test_binding_change_before_source_publication_rejects(tmp_path, monkeypatch, memory_repository):
+    world, record = _committed_source(tmp_path)
+    original = native.initialize_empty_knowledge_space
+    path = tmp_path / "out/registries/world_containers.json"
+    def changing_initialize(**kwargs):
+        result = original(**kwargs)
+        data = json.loads(path.read_text())
+        data["records"][0]["native_graph_binding"]["binding_version"] += 1
+        path.write_text(json.dumps(data))
+        return result
+    monkeypatch.setattr(native, "initialize_empty_knowledge_space", changing_initialize)
+    monkeypatch.setattr(native, "publish_native_text_source_evidence",
+                        lambda **kwargs: pytest.fail("changed binding published source"))
+    with pytest.raises(native.NativeWorldSourceAdmissionError) as error:
+        _admit(tmp_path, record.document_id)
+    assert error.value.code == "native_graph_binding_changed"
+
+
+@pytest.mark.parametrize("state", ["inactive", "missing"])
+def test_unavailable_binding_blocks_status_and_admission(tmp_path, monkeypatch, state):
+    world, record = _committed_source(tmp_path)
+    path = tmp_path / "out/registries/world_containers.json"
+    data = json.loads(path.read_text())
+    if state == "missing":
+        data["records"][0]["native_graph_binding"] = None
+    else:
+        data["records"][0]["native_graph_binding"]["status"] = "inactive"
+    path.write_text(json.dumps(data))
+    monkeypatch.setattr(native, "_repository", lambda: pytest.fail("unbound native access"))
+    for operation in [lambda: _admit(tmp_path, record.document_id),
+                      lambda: native.get_native_world_source_status(tmp_path, record.document_id)]:
+        with pytest.raises(native.NativeWorldSourceAdmissionError):
+            operation()
+
+
+@pytest.mark.parametrize("operation", ["status", "replay"])
+def test_binding_change_during_repository_access_rejects_admitted_result(
+    tmp_path, monkeypatch, memory_repository, operation,
+):
+    world, record = _committed_source(tmp_path)
+    _admit(tmp_path, record.document_id)
+    path = tmp_path / "out/registries/world_containers.json"
+    def changed_repository():
+        data = json.loads(path.read_text())
+        data["records"][0]["native_graph_binding"]["binding_version"] += 1
+        path.write_text(json.dumps(data))
+        return memory_repository
+    monkeypatch.setattr(native, "_repository", changed_repository)
+    with pytest.raises(native.NativeWorldSourceAdmissionError) as error:
+        if operation == "status":
+            native.get_native_world_source_status(tmp_path, record.document_id)
+        else:
+            _admit(tmp_path, record.document_id)
+    assert error.value.code == "native_graph_binding_changed"
+
+
+def test_binding_changes_during_native_readback_rejects(tmp_path, monkeypatch, memory_repository):
+    world, record = _committed_source(tmp_path)
+    _admit(tmp_path, record.document_id)
+    original = native.open_admitted_native_text
+    path = tmp_path / "out/registries/world_containers.json"
+    def changed_readback(*args, **kwargs):
+        result = original(*args, **kwargs)
+        data = json.loads(path.read_text())
+        data["records"][0]["native_graph_binding"]["binding_version"] += 1
+        path.write_text(json.dumps(data))
+        return result
+    monkeypatch.setattr(native, "open_admitted_native_text", changed_readback)
+    with pytest.raises(native.NativeWorldSourceAdmissionError) as error:
+        native.get_native_world_source_status(tmp_path, record.document_id)
+    assert error.value.code == "native_graph_binding_changed"
+
+
+def test_committed_source_recovery_does_not_hide_binding_change(tmp_path, monkeypatch, memory_repository):
+    world, record = _committed_source(tmp_path)
+    original = native.publish_native_text_source_evidence
+    path = tmp_path / "out/registries/world_containers.json"
+    def committed_then_changed(**kwargs):
+        receipt = original(**kwargs)
+        data = json.loads(path.read_text())
+        data["records"][0]["native_graph_binding"]["binding_version"] += 1
+        path.write_text(json.dumps(data))
+        raise RuntimeError("synthetic outcome observation failure")
+    monkeypatch.setattr(native, "publish_native_text_source_evidence", committed_then_changed)
+    with pytest.raises(native.NativeWorldSourceAdmissionError) as error:
+        _admit(tmp_path, record.document_id)
+    assert error.value.code == "native_graph_binding_changed"
+    assert memory_repository.get_head(world.world_id) is not None
