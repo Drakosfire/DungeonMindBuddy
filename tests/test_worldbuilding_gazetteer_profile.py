@@ -66,13 +66,26 @@ def test_actual_pipeline_preserves_named_definition_and_source_qualification():
     assert any("locals believe" in node["description"] for node in graph["nodes"])
     assert all(node["semantic_state"]["canon_state"] == "worldbuilding_draft" for node in graph["nodes"])
     assert not validate_gazetteer_candidate_bounds(graph)
+    from tests.test_cutover_worldbuilding_authority_port import _memory_context, _plan_kwargs
+    from graph_memory.candidate_graph_preview import candidate_graph_preview_from_dict
+    from graph_memory.worldbuilding_write_plan import build_worldbuilding_write_plan, materialize_worldbuilding_contribution
+    kwargs = _plan_kwargs(_memory_context())
+    kwargs.update(preview=candidate_graph_preview_from_dict(graph),
+        source_artifact_id="artifact:synthetic", campaign_scope="synthetic", extraction_profile="worldbuilding_gazetteer_v1@1.0",
+        dispositions=[{"assertion_id": node["node_id"], "decision": "create_new"} for node in graph["nodes"]])
+    plan = build_worldbuilding_write_plan(**kwargs)
+    contribution = materialize_worldbuilding_contribution(world_id=plan.world_id,
+                                                         plan_digest=plan.plan_digest, effect=plan.effect)
+    assert contribution.accepted_assertions
+    assert "locals believe" in repr(contribution)
+    assert "Float Goats" in repr(contribution)
 
 
 def test_registered_gazetteer_run_retains_exact_profile_and_typed_definitions(tmp_path, application_state_dsn):
     from tests.test_graph_preview_runner import _admit_worldbuilding, FixtureClient, _first_paragraph_span_id
     from src.graph_memory.extraction.graph_preview_runner import ProductionExtractionRequest, run_production_extraction
     from apps.live_control_server.services.graph_run_registry import get_reviewable_extraction_run
-    from src.graph_memory.candidate_graph_preview import candidate_graph_preview_from_dict
+    from graph_memory.candidate_graph_preview import candidate_graph_preview_from_dict
     source = _admit_worldbuilding(tmp_path, "Mirathorn is a river city.\n")
     result = run_production_extraction(ProductionExtractionRequest(
         repo_root=tmp_path, source=source, profile_id=GAZETTEER_PROFILE.profile_id,
