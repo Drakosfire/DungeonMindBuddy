@@ -48,7 +48,7 @@ _NODE_PASSES: tuple[ExtractionPassSpec, ...] = (
     ),
     ExtractionPassSpec(
         pass_id="collective_pass",
-        default_node_type="faction",
+        default_node_type="group",
         instruction=(
             "Extract factions, councils, guards, mercenary groups, organizations, and parties (as collectives) only. "
             "Use node_type faction, organization, or group as appropriate."
