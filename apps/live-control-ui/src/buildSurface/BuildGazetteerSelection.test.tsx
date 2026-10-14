@@ -27,6 +27,9 @@ describe("Build extraction profile selection", () => {
     view.rerender(<BuildIngestToolbar documentId="doc-b" />);
     expect(screen.getByLabelText("Extraction approach")).toHaveValue("pilot");
     expect(useBuildExtraction).toHaveBeenLastCalledWith({ documentId: "doc-b", profile: "pilot" });
+    view.rerender(<BuildIngestToolbar documentId="doc-a" />);
+    expect(screen.getByLabelText("Extraction approach")).toHaveValue("pilot");
+    expect(useBuildExtraction).toHaveBeenLastCalledWith({ documentId: "doc-a", profile: "pilot" });
   });
   it("locks profile selection during launch", () => {
     state.launching = true;

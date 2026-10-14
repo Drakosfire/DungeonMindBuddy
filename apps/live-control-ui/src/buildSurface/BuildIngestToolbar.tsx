@@ -8,6 +8,7 @@ interface BuildIngestToolbarProps {
 
 export function BuildIngestToolbar({ documentId }: BuildIngestToolbarProps) {
   const [selection, setSelection] = useState<{ documentId: string; profile: "pilot" | "gazetteer" }>({ documentId, profile: "pilot" });
+  if (selection.documentId !== documentId) setSelection({ documentId, profile: "pilot" });
   const profile = selection.documentId === documentId ? selection.profile : "pilot";
   const nativeSource = useBuildNativeWorldSourceEvidence(documentId);
   const {
