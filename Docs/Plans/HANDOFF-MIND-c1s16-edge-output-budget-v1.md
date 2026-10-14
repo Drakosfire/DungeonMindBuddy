@@ -1,4 +1,4 @@
-# MIND — bounded edge-pass output allowance for C1S16 evidence
+# MIND — bounded logical deadline for C1S16 evidence
 
 Status: ACTIVE under PRIME approval, 2026-10-13. This bounded PR permits a
 120-second logical GenerationEngine operation; it does not execute R6.
@@ -26,8 +26,7 @@ PR #1129's response-evidence capability passed PRIME review at exact head
 `a1f8bdfdbc692f02879c3b68f58936838e902d21`, and merged as
 `597c69b1ca5449947894311af83756812b2318fe`. It adds an opt-in private sink;
 any future real extraction must supply that sink and its complete source/context
-hash map. This PR records the predecessor COMPLETE in the same necessary change,
-not in a separate bookkeeping PR.
+hash map. The predecessor is already merged and settled on the current main.
 
 R5's `edge_pass` requested and returned exactly 8,192 output tokens and failed
 JSON parsing at the response tail. The original R5 authority, result, raw
@@ -38,19 +37,14 @@ a candidate and provides no semantic judgment about its edge count.
 
 ## Capability and implementation contract
 
-Preserve the existing edge-only output allowance and permit/select a
-`per_call_deadline_ms` of 120,000 for each logical GenerationEngine operation.
-GenerationEngine owns the initial attempt plus at most one conformance
-correction under that single deadline. This is not two separate 120-second
-attempts and does not change transport retry policy.
+Permit/select a `per_call_deadline_ms` of 120,000 for each logical
+GenerationEngine operation. GenerationEngine owns the initial attempt plus at
+most one conformance correction under that single deadline. This is not two
+separate 120-second attempts and does not change transport retry policy. The
+existing edge-only output allowance and all other output policy remain
+unchanged: only a typed edge pass can receive the configured 16,384-token cap;
+non-edge requests remain at 8,192 tokens.
 
-- `None` preserves current behavior exactly.
-- An explicit value must be a strict Python `int` (not `bool`) in `1..16384`.
-- Keep the existing general `max_output_tokens` field and its `1..8192`
-  validation unchanged.
-- Apply the override only when the actual supplied `pass_spec.kind == "edge"`.
-  Do not infer edge-ness from a string pass name.
-- All non-edge requests continue using `max_output_tokens` (8,192 in R6).
 - Keep max calls 8, total run deadline 480,000 ms, transport retries 0,
   DeepSeek-only route, and no fallback unchanged. Each request's selected
   deadline is `min(120,000 ms, remaining whole-run budget)`.
