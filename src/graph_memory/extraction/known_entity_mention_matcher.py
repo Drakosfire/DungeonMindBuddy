@@ -302,6 +302,49 @@ def filter_observation_nodes_dropping_known_entities(
     return kept, dropped
 
 
+def ensure_mentioned_known_npc_anchors(
+    nodes: list[dict[str, Any]],
+    registry: KnownEntityRegistry,
+    sidecar: KnownEntityMentionSidecar,
+    *,
+    semantic_state: Mapping[str, Any],
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Keep verified, unambiguously mentioned NPCs available as edge endpoints.
+
+    The registry is caller-owned verified identity context, not a recognition
+    candidate list. Presence comes from the source matcher, not registry inclusion.
+    No historical descriptions, properties, or relationships are copied.
+    """
+    present = {m.canonical_entity_id for m in sidecar.mentions}
+    existing = {str(n.get("node_id")) for n in nodes}
+    inserted: list[str] = []
+    result = list(nodes)
+    for entity in registry.entities:
+        entity_id = entity.canonical_entity_id
+        if entity_id not in present or entity_id in existing:
+            continue
+        if entity.kind not in {"npc", "character", "dnd5e:npc"}:
+            continue
+        result.append({
+            "node_id": entity_id,
+            "label": entity.display_name,
+            "node_type": "character",
+            "description": "Verified known NPC mentioned in this source.",
+            "importance": "medium",
+            "semantic_state": dict(semantic_state),
+            "evidence_refs": [],
+            "proposed_action": "anchor",
+            "confidence": "high",
+            "warnings": ["context_anchor_no_session_evidence"],
+            "corpus_ref": dict(entity.corpus_ref),
+            "context_anchor": True,
+            "aliases": [],
+        })
+        existing.add(entity_id)
+        inserted.append(entity_id)
+    return result, {"inserted_known_npc_anchor_ids": inserted}
+
+
 def attach_mention_evidence_to_anchors(
     nodes: list[dict[str, Any]],
     sidecar: KnownEntityMentionSidecar,
