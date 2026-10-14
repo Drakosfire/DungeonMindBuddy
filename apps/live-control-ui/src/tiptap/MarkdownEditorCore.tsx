@@ -114,7 +114,9 @@ export function MarkdownEditorCore({
   }, [editor, onEditorChange]);
 
   useEffect(() => {
-    editor?.setEditable(editable);
+    // Editable-state hydration/toggles do not change the document. TipTap
+    // otherwise emits an update that can serialize untouched saved source.
+    editor?.setEditable(editable, false);
   }, [editable, editor]);
 
   if (!editor) {
