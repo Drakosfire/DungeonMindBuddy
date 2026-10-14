@@ -1,12 +1,12 @@
 # HANDOFF — APP-STATE: provider lifecycle failure diagnostics
 
-**Status:** ACTIVE — implementation lease issued by PRIME for one bounded Buddy PR.
+**Status:** SETTLED — PRIME accepted and merged implementation PR #1135 at `d0c2b32e273d39c84d481f3186992fc5a35a1cb1`. DGF owns the separate current-main rollout and one fresh diagnostic case; this handoff grants no live execution authority.
 
-**Owner:** DungeonMindBuddy APP-STATE. PRIME owns exact-head review, funding disposition, and adoption approval.
+**Owner:** DungeonMindBuddy APP-STATE. PRIME accepted exact head `f64fbb3f48ebad218969c3e67b0814a486273023`; DGF owns the separate rollout and fresh diagnostic case.
 
 **Base:** Buddy `main@ac46913b596ef76b73bba7a73ec8a76ecd926116` (2026-10-13; current remote-tracking main and GitHub latest merged-main commit at activation).
 
-**Topology:** serial, one PR. Isolated nonserving checkout `/tmp/buddy-provider-lifecycle-diagnostic`, branch `codex/provider-lifecycle-diagnostic`. No live deployment, provider call, or service restart is authorized.
+**Topology:** serial, one PR. PR #1135 merged from `codex/provider-lifecycle-diagnostic` at `f64fbb3f48ebad218969c3e67b0814a486273023`; merge commit `d0c2b32e273d39c84d481f3186992fc5a35a1cb1`. No live deployment, provider call, or service restart is authorized by this handoff.
 
 ## Mission
 
@@ -54,7 +54,7 @@ No other paths are leased. If the implementation needs another path or a new pub
 2. A bounded serialized worker error decodes as `status=error` with terminal lifecycle metadata while `host_result_decode` remains `ok`; the parent reports `phase=provider_lifecycle phase_status=error` and the safe subreason/transition/ack facts.
 3. Parent persistence still records the last authorized attempt as `outcome_unknown`, no assistant answer/completion is created, claimability blocks redispatch, and no provider replay/cleanup occurs.
 4. Focused tests, relevant repository gates, exact base→head diff and secret/payload checks pass. The PR body records exact base/head and evidence.
-5. No paid/provider calls, live edit, or restart is performed. PRIME reviews the exact PR head before adoption; this lease does not authorize merge or rollout.
+5. No paid/provider calls, live edit, or restart was performed for this implementation. PRIME accepted the exact PR head and merged it. This handoff does not authorize rollout; DGF owns the separate current-main rollout and one fresh diagnostic case.
 
 ## Stop conditions
 
@@ -73,5 +73,5 @@ Stop if the pinned producer cannot distinguish a category deterministically; if 
 - The final nonserving checkout's environment was prepared with `uv sync --locked --offline` from local caches. No provider request, live edit, or service restart was made.
 - Cumulative diff is limited to the 11 leased paths listed above; generated `out/hermes-agent` remains ignored test output and is not checked in. No deviations from the bounded diagnostic objective. The old Mirathorn/Q04 cause remains unknown; the new record improves evidence for reproduced/future failures only.
 - The exact cumulative diff is limited to this handoff and the 11 implementation/test paths in its write lease. It preserves the guarded no-local-retry policy, existing terminal failure code, and durable unknown/no-redispatch behavior; the only new runtime surface is an allowlisted optional `terminalFailure` record on error results.
-- Review PR: [#1135](https://github.com/Drakosfire/DungeonMindBuddy/pull/1135), draft and unmerged. Its PR metadata carries the exact current branch head; implementation commits are `972c2687c13268687392ee767f99d09eec18a41b` and `cee7dbae44271b460da82d234e1898b8a7354180`, with handoff evidence updated after review feedback.
-- Acceptance token: `APP_STATE_PROVIDER_LIFECYCLE_DIAGNOSTICS_ACCEPTED` (pending PRIME review).
+- Review PR: [#1135](https://github.com/Drakosfire/DungeonMindBuddy/pull/1135), accepted by PRIME review comment `6158707185` and merged at `d0c2b32e273d39c84d481f3186992fc5a35a1cb1` from exact reviewed head `f64fbb3f48ebad218969c3e67b0814a486273023`. PRIME's review accepted the producer, IPC/runtime, and parent boundary evidence and confirmed the guarded no-local-retry policy correction.
+- Acceptance token: `APP_STATE_PROVIDER_LIFECYCLE_DIAGNOSTICS_ACCEPTED` — satisfied by PRIME's PASS at exact head `f64fbb3f48ebad218969c3e67b0814a486273023`.
