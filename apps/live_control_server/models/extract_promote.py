@@ -2,15 +2,34 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, WithJsonSchema, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 from apps.live_control_server.models.world_graph_contribution_models import (
     ContributionIdentityMention,
     GraphContributionAssertion,
 )
+
+from src.graph_memory.extraction.worldbuilding_profile_catalog import (
+    PUBLISHABLE_WORLDBUILDING_PROFILES,
+)
+
+_PUBLICATION_PROFILE_IDS = tuple(sorted(PUBLISHABLE_WORLDBUILDING_PROFILES))
+
+
+def _require_publishable_worldbuilding_profile(value: str) -> str:
+    if value not in _PUBLICATION_PROFILE_IDS:
+        raise ValueError("unsupported publishable worldbuilding profile")
+    return value
+
+
+WorldbuildingPublicationProfile = Annotated[
+    str,
+    AfterValidator(_require_publishable_worldbuilding_profile),
+    WithJsonSchema({"type": "string", "enum": list(_PUBLICATION_PROFILE_IDS)}),
+]
 
 STATUS_SCHEMA = "dmb_extract_promote_status_v1"
 PREPARE_REQUEST_SCHEMA = "dmb_extract_promote_prepare_request_v2"
@@ -316,7 +335,7 @@ class WorldbuildingWritePlanResponse(_ExtractPromoteModel):
     source_domain: Literal["worldbuilding"] = "worldbuilding"
     source_artifact_id: str
     source_revision_id: str
-    extraction_profile: Literal["worldbuilding_shepherds_flock_v0@0.1", "worldbuilding_gazetteer_v1@1.0"] = (
+    extraction_profile: WorldbuildingPublicationProfile = (
         "worldbuilding_shepherds_flock_v0@0.1"
     )
     candidate_preview_id: str
