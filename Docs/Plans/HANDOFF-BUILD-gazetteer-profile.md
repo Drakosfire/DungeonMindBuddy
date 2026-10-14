@@ -8,9 +8,9 @@ Topology serial publication/profile successor; no overlapping model writes until
 
 Outcome: exact versioned gazetteer profile preserves named livestock definitions,
 uses, geography, governance, recurring festivals, qualified history/beliefs, and
-unplayed hooks without recap semantics. Existing vocabulary only. Species is a
-creature kind definition, not a manufactured individual; products remain qualified
-source descriptions unless independent item identity exists. No played episodes,
+unplayed hooks without recap semantics. Existing vocabulary only. Species knowledge remains source-qualified descriptions on explicitly associated
+places, without minting species identities; products remain qualified descriptions
+unless independent item identity exists. No played episodes,
 statblock invention, automatic identity merges, beats or party participation fill.
 
 Closed exact publishable profile catalog preserves Shepherd pilot identity and
@@ -46,3 +46,8 @@ existing Build defaults remain pilot. No DOGFOOD file overlap or serving/provide
 
 Scope amendment: services/first_world_graph_publication.py preserves pilot-only
 bootstrap loader admission; gazetteer first-World bootstrap is explicitly excluded.
+
+Core semantic ruling: species definitions are not accepted Creature taxonomy.
+Location pass preserves explicitly associated species/use knowledge as place
+descriptions and source evidence; definition pass owns recurring events only.
+Do not mint species identities or imply class-instance semantics.

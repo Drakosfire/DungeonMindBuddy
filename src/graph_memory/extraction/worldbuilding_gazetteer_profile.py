@@ -26,12 +26,12 @@ def validate_gazetteer_candidate_bounds(graph):
 GAZETTEER_PROFILE = register_extraction_profile(replace(
     WORLDBUILDING_PROFILE,
     profile_id=GAZETTEER_PROFILE_ID, profile_version=GAZETTEER_PROFILE_VERSION,
-    node_passes=tuple(replace(p, instruction=p.instruction + (" Exclude species/kind definitions: definition_pass owns them; retain explicitly named individual creatures only." if p.pass_id == "actor_pass" else "") +
+    node_passes=tuple(replace(p, instruction=p.instruction + (" Exclude species/kind definitions: location_pass preserves them as place descriptions; retain explicitly named individual creatures only." if p.pass_id == "actor_pass" else " Preserve explicitly associated livestock/ecology definitions, transport uses, cultural products, qualified cosmology and history in place descriptions with exact source evidence; do not invent a species object." if p.pass_id == "location_pass" else "") +
         " Preserve qualified source descriptions, beliefs and allegations; never turn proposed hooks into played facts.")
         for p in WORLDBUILDING_PROFILE.node_passes) + (
-        ExtractionPassSpec(pass_id="definition_pass", default_node_type="creature",
-            instruction="Extract explicitly defined named livestock/species as creature KIND definitions, not individual animals. Preserve source-backed uses/products in descriptions, not invented items or statblocks. Extract recurring named festivals as event definitions, never a played episode or invented date. Preserve origin/history and belief attribution; defer unplayed plot hooks.",
-            progress_label="Extracting named setting definitions", allowed_node_types=("creature", "event")),),
+        ExtractionPassSpec(pass_id="definition_pass", default_node_type="event",
+            instruction="Do not mint species/taxonomy creature identities. Preserve source-backed livestock definitions and uses/products in the explicitly associated place descriptions through location_pass, not invented items or statblocks. Extract recurring named festivals as event definitions, never a played episode or invented date. Preserve origin/history and belief attribution; defer unplayed plot hooks.",
+            progress_label="Extracting named setting definitions", allowed_node_types=("event",)),),
     vocabulary_policy={
         "mode": "bounded_gazetteer",
         "included_node_types": ["character", "creature", "location", "faction", "organization", "group", "event"],
@@ -40,7 +40,7 @@ GAZETTEER_PROFILE = register_extraction_profile(replace(
     post_extraction_validation_policy={
         "require_evidence_refs": True, "require_null_session": True,
         "forbid_session_beats": True, "auto_promotion": False,
-        "definition_semantics": "species kinds and recurring festivals; no played episodes",
+        "definition_semantics": "species knowledge on associated places; recurring festivals; no played episodes",
     },
     post_extraction_validator=validate_gazetteer_candidate_bounds,
 ))

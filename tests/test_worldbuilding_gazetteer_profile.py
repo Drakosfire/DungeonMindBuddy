@@ -14,8 +14,8 @@ def test_closed_publication_profiles_preserve_pilot_and_exact_gazetteer_version(
 
 def test_definition_pass_has_no_played_or_individual_invention():
     definitions = next(p for p in GAZETTEER_PROFILE.node_passes if p.pass_id == "definition_pass")
-    assert definitions.allowed_node_types == ("creature", "event")
-    for phrase in ["KIND definitions", "not individual", "never a played episode", "defer unplayed"]:
+    assert definitions.allowed_node_types == ("event",)
+    for phrase in ["Do not mint species", "place descriptions", "never a played episode", "defer unplayed"]:
         assert phrase in definitions.instruction
     assert GAZETTEER_PROFILE.beat_pass is None
     assert not GAZETTEER_PROFILE.enable_party_participation_attachment
@@ -42,10 +42,10 @@ def test_actual_pipeline_preserves_named_definition_and_source_qualification():
     )
     body = "Float Goats are a livestock kind used to transport goods across water. The Renewal Fair is a recurring festival; locals believe it honors a goddess. A proposed hook has not occurred."
     ref = {"source_span_ref_id": "span-1", "anchor_quotes": [body]}
-    client = FixtureCategoryGraphPassClient({"definition_pass": {"observation_nodes": [
-        {"node_id": "kind:float-goats", "node_type": "creature", "label": "Float Goats",
-         "description": "A livestock kind used to transport goods across water.",
-         "importance": "medium", "evidence_refs": [ref]},
+    client = FixtureCategoryGraphPassClient({"location_pass": {"observation_nodes": [
+        {"node_id": "location:region", "node_type": "location", "label": "Elderwyld",
+         "description": "Float Goats are a livestock kind used to transport goods across water.",
+         "importance": "medium", "evidence_refs": [ref]}]}, "definition_pass": {"observation_nodes": [
         {"node_id": "definition:fair", "node_type": "event", "label": "Renewal Fair",
          "description": "A recurring festival; locals believe it honors a goddess.",
          "importance": "medium", "evidence_refs": [ref]},
@@ -59,6 +59,8 @@ def test_actual_pipeline_preserves_named_definition_and_source_qualification():
         profile=GAZETTEER_PROFILE, enable_party_claimed_fill=False))
     graph = result.candidate_graph
     assert len(graph["nodes"]) == 2
+    assert not any(node["node_type"] == "creature" for node in graph["nodes"])
+    assert any("Float Goats" in node["description"] for node in graph["nodes"])
     assert not graph["beats"]
     assert graph["session_id"] is None
     assert any("locals believe" in node["description"] for node in graph["nodes"])
