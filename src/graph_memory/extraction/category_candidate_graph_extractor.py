@@ -23,6 +23,7 @@ from src.graph_memory.party_context import (
 )
 from src.graph_memory.extraction.known_entity_mention_matcher import (
     attach_mention_evidence_to_anchors,
+    ensure_mentioned_known_npc_anchors,
     filter_observation_nodes_dropping_known_entities,
     match_known_entities_in_spans,
     render_known_entity_ledger_markdown,
@@ -930,10 +931,15 @@ def consolidate_category_outputs(
         )
         attach_diag: dict[str, Any] = {"mention_evidence_attachments": 0}
         if known_entity_sidecar is not None:
+            deduped_nodes, npc_anchor_diag = ensure_mentioned_known_npc_anchors(
+                deduped_nodes, known_entity_registry, known_entity_sidecar,
+                semantic_state=semantic_state,
+            )
             deduped_nodes, attach_diag = attach_mention_evidence_to_anchors(
                 deduped_nodes,
                 known_entity_sidecar,
             )
+            attach_diag.update(npc_anchor_diag)
         ir_report = validate_known_entity_ir_assertions(
             nodes=deduped_nodes,
             edges=[],
