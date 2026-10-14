@@ -1,7 +1,7 @@
 # MIND — bounded logical deadline for C1S16 evidence
 
-Status: ACTIVE under PRIME approval, 2026-10-13. This bounded PR permits a
-120-second logical GenerationEngine operation; it does not execute R6.
+Status: SETTLED — PRIME independently reviewed and merged PR #1136. The
+120-second logical GenerationEngine operation is implemented; no R6 execution is claimed.
 
 ## Lane and authority
 
@@ -59,45 +59,14 @@ the existing edge output, zero transport retries, and DeepSeek-only/no-fallback
 assertions. Do not replay the broad suite; run only this owning test file, Ruff
 on the two Python paths, and `git diff --check`.
 
-## R6 candidate-only experiment proposal (not released in this PR)
+## Separate experiment authority
 
-After this capability is reviewed and merged, prepare one fresh, one-shot R6
-runner/proof/authority/output bundle pinned to the accepted code source. Keep
-the same `longmont-c1/session-16`, settled identity `pc:karsemine`, source
-artifact `artifact:recap:longmont-c1:session-16:d44898920ee0`, and exact input
-hashes:
-
-- Raw recap: `e8b8399abc94ba38daa3151d68b550f0ebc1c90e7a9181552ac71aecb098c161`
-- Normalized recap: `d44898920ee091ec32ca23fdfd07c83b4abaa452042ce4d70f45c3ab114b2330`
-- Source-span index: `e7c742f7578ecd40d497e11339b25caf23d55b8db0d8c429c730ae587c50a81b`
-- Context files: the exact eight-file hash map in preserved R5 authority
-  `ff1c6cf7b1cbeb8e05bc35d70a3e4b01938e570b9205f65abf7ec12f64df09d1`:
-  `PCs/baergrom/README.md` `cdf8ffa035f87cdc11decb3022d0e017f9e456ec1d959991dd0d218a4f3fe13e`;
-  `PCs/bonogo/README.md` `782c80e1fae8b7eb8457b9622cdebca6de15db0eaa2a48fe97cc580d92113055`;
-  `PCs/caelynn/README.md` `be74152335feb56acf12cb69948826eef0b4a8c252a149397d4f5532f3bfb538`;
-  `PCs/ephanna/README.md` `9655dd9cc665b87088760b4c93fe51641306753efec7daf117f647f068f1d873`;
-  `PCs/karsemine/README.md` `9bf826045d6a58ff20a1d6af10a91c66053a4f366cdc453cac061092dd2474db`;
-  `PCs/stafl/README.md` `ee0bf3393fd1e3848e4cf7ce92ec7f3f5662688672095a36b0b4aa7483e5d953`;
-  `_npc_registry.json` `9bbac67da3d9978ad88b7923e6c3629e2023f47861447063625250beec567b88`;
-  `_party_registry.json` `f0f49045df06f7baf61aa9c43f3739d16483eeb20ac8ed1bbf29f8209474af25`.
-
-Use OpenRouter `deepseek/deepseek-v4.1-flash`, DeepSeek route only, no fallback,
-zero retries, max 8 calls, 120 seconds per logical pass (initial attempt plus
-one correction), 480 seconds total; request 8,192
-output tokens on non-edge passes and 16,384 only on the typed edge pass. The
-whole-run deadline clips each logical pass; timeout/unknown stops without replay.
-Supply the #1129 private response sink and the exact hashes above to the client.
-Use a fresh output path (proposed
-`out/c1s16-ge-deepseek-reconciled-r6`); never overwrite R5. The run remains
-candidate-only: no manifest/public artifact exposure, native publication, World
-write, or runtime upgrade. No provider call is authorized by this code PR.
-
-The full fresh run is required because R5's six successful pass bodies are
-missing. If R6 later fails, retain all already-returned pass responses privately
-before validation; future manual reuse requires a separate source-fidelity and
-identity review. No automatic resume/replay is introduced. Review every edge
-against exact source spans and listed durable endpoint IDs. Do not claim semantic
-quality from schema validity alone, and do not impose a cardinality cap.
+The historical R6 proposal and its old temporary input pins are preserved in
+Git history at `f2964c12e82c149c3d69a9798626a90164303707`; they are not current
+launch authority. Any fresh experiment must pin its reviewed current source,
+input derivatives, context, evaluator separation and durable evidence sink.
+Eight logical pass invocations are distinct from actual provider attempts and
+from operator authorization. No provider execution is authorized by this lease.
 
 ## Delivery boundary
 
@@ -105,3 +74,14 @@ Commit this ACTIVE handoff before source/test changes. Implement only the
 three-path allowlist above. Push and open one PR, then request PRIME's independent
 review on the exact head. Merge remains separate authority. Do not run R6 in
 this PR; no provider call, serving, or publication is authorized here.
+
+## Acceptance and solo takeover
+
+PR #1136 reviewed at `3777011ff8f1c860c53e77640c0013d4938fe0c4`, merged at
+`f6a4990c10fc28d79642fe1a963727ca25e6f6e1`. PRIME personally inspected the
+three-path change and independently ran six targeted logical-deadline,
+remaining-budget and unknown-receipt cases: passed in 0.29 seconds.
+[Acceptance record](https://github.com/Drakosfire/DungeonMindBuddy/pull/1136#issuecomment-6159156441).
+MIND authored this implementation before the solo phase. Further execution is
+PRIME-only under the operator's foundational-work instruction; no agents are
+dispatched by this handoff. No serving, provider or publication result is claimed.
