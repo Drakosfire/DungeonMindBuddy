@@ -150,7 +150,7 @@ def assert_run_reviewable_evidence(root: Path, run: ExtractionRun) -> None:
         )
 
     _assert_component_bytes(root, source_component, expected_digest=artifact.content_sha256)
-    _assert_source_component_matches_artifact(source_component, artifact)
+    _assert_source_component_matches_artifact(source_component, artifact, graph_component)
 
     span_path = _assert_component_bytes(root, span_component)
     try:
@@ -189,7 +189,8 @@ def assert_immutable_component_refs(root: Path, run: ExtractionRun) -> None:
             _assert_component_bytes(
                 root, component, expected_digest=artifact.content_sha256
             )
-            _assert_source_component_matches_artifact(component, artifact)
+            _assert_source_component_matches_artifact(component, artifact,
+                _component_by_kind(run.components, ExtractionRunComponentKind.SOURCE_SPAN_INDEX))
             continue
         path = _assert_component_bytes(root, component)
         if component.kind == ExtractionRunComponentKind.SOURCE_SPAN_INDEX:
@@ -220,6 +221,7 @@ def assert_immutable_component_refs(root: Path, run: ExtractionRun) -> None:
 def _assert_source_component_matches_artifact(
     component: ExtractionRunComponentRef,
     artifact: GraphMemorySourceArtifact,
+    graph_component: ExtractionRunComponentRef | None = None,
 ) -> None:
     from graph_memory.ingestion.extraction_run import normalize_content_digest
 
@@ -230,6 +232,11 @@ def _assert_source_component_matches_artifact(
             status_code=422,
         )
     expected = artifact.uri
+    snapshot_uri = None
+    if graph_component is not None and graph_component.uri.startswith("repo://"):
+        snapshot_uri = graph_component.uri.rsplit("/", 1)[0] + "/source.md"
+    if uri == snapshot_uri:
+        return
     if uri.startswith("repo://"):
         if uri != expected:
             raise GraphRunRegistryError(
