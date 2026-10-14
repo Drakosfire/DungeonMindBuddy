@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useBuildExtraction } from "./useBuildExtraction";
 import { useBuildNativeWorldSourceEvidence } from "./useBuildNativeWorldSourceEvidence";
 
@@ -6,6 +7,9 @@ interface BuildIngestToolbarProps {
 }
 
 export function BuildIngestToolbar({ documentId }: BuildIngestToolbarProps) {
+  const [selection, setSelection] = useState<{ documentId: string; profile: "pilot" | "gazetteer" }>({ documentId, profile: "pilot" });
+  if (selection.documentId !== documentId) setSelection({ documentId, profile: "pilot" });
+  const profile = selection.documentId === documentId ? selection.profile : "pilot";
   const nativeSource = useBuildNativeWorldSourceEvidence(documentId);
   const {
     statusLabel,
@@ -18,10 +22,18 @@ export function BuildIngestToolbar({ documentId }: BuildIngestToolbarProps) {
     run,
     launch,
     refresh,
-  } = useBuildExtraction({ documentId });
+  } = useBuildExtraction({ documentId, profile });
 
   return (
     <section className="build-ingest-toolbar" data-testid="build-ingest-toolbar" aria-label="Build extraction">
+      <label>
+        Extraction approach
+        <select aria-label="Extraction approach" value={profile} disabled={launching}
+          onChange={(event) => setSelection({ documentId, profile: event.target.value === "gazetteer" ? "gazetteer" : "pilot" })}>
+          <option value="pilot">Focused lore</option>
+          <option value="gazetteer">Gazetteer — places, people and setting details</option>
+        </select>
+      </label>
       <div className="build-ingest-toolbar-row">
         <p data-testid="build-native-source-status" aria-live="polite">
           {nativeSource.loading
