@@ -1,4 +1,6 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { StrictMode, useState } from "react";
+import type { Content } from "@tiptap/react";
+import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import type { Editor } from "@tiptap/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -13,6 +15,9 @@ import {
   readWorkspaceDocumentLocalState,
   workspaceDocumentStorageKey,
 } from "../tiptap/state/tiptapLocalState";
+import { MarkdownEditorCore } from "../tiptap/MarkdownEditorCore";
+import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
+import type { WorkspaceDocumentAuthoringValue } from "./useWorkspaceDocumentAuthoring";
 import { useWorkspaceDocumentAuthoring } from "./useWorkspaceDocumentAuthoring";
 
 vi.mock("../api/liveApi", () => ({
@@ -545,5 +550,69 @@ describe("useWorkspaceDocumentAuthoring Markdown fidelity", () => {
     const preparedMarkdown = vi.mocked(prepareTiptapMarkdownWrite).mock.calls[0]?.[0]?.markdown ?? "";
     expect(preparedMarkdown).toContain("Edited after re-import.");
     expect(preparedMarkdown).not.toContain("Stale lossy projection");
+  });
+});
+
+
+describe("real rich-editor mount and saved-source cleanliness", () => {
+  beforeEach(() => { vi.clearAllMocks(); localStorage.clear(); });
+
+  it("keeps Read→Edit and editable toggles clean until the first genuine document transaction", async () => {
+    const source = "---\r\ntitle: Guard notes\r\n---\r\n###   Gate    watch\r\n\r\nA **quiet** gate.\r\n";
+    vi.mocked(getWorkspaceDocumentSnapshot).mockResolvedValue(snapshot(source, { content_status: "committed" }));
+    let current!: WorkspaceDocumentAuthoringValue;
+    function Harness() {
+      const session = useWorkspaceDocumentAuthoring({ documentId: DOC_ID, surface: "build", kind: "worldbuilding_source" });
+      current = session;
+      const [editing, setEditing] = useState(false);
+      const [editable, setEditable] = useState(true);
+      return <>
+        <button onClick={() => setEditing(value => !value)}>Read or Edit</button>
+        <button onClick={() => setEditable(value => !value)}>Toggle editable</button>
+        {editing && session.phase.startsWith("ready") ? <MarkdownEditorCore
+          documentKey={session.documentKey} content={session.editorContent as Content}
+          editable={editable} onEditorChange={session.setEditor} onUpdate={session.handleEditorUpdate}
+        /> : <p>Reading saved source</p>}
+      </>;
+    }
+    render(<StrictMode><Harness /></StrictMode>);
+    await waitFor(() => expect(current.phase).toBe("ready_clean"));
+    const initial = readWorkspaceDocumentLocalState(localStorage, DOC_ID)!;
+    fireEvent.click(screen.getByRole("button", { name: "Read or Edit" }));
+    await waitFor(() => expect(current.editor).not.toBeNull());
+    await act(async () => { await Promise.resolve(); });
+    expect(current.editor!.getJSON()).toMatchObject(markdownToTiptapDoc(source).doc);
+    const mountedJson = current.editor!.getJSON();
+    expect(current.dirty).toBe(false);
+    expect(readWorkspaceDocumentLocalState(localStorage, DOC_ID)).toEqual(initial);
+    fireEvent.click(screen.getByRole("button", { name: "Toggle editable" }));
+    await waitFor(() => expect(current.editor!.isEditable).toBe(false));
+    fireEvent.click(screen.getByRole("button", { name: "Toggle editable" }));
+    await waitFor(() => expect(current.editor!.isEditable).toBe(true));
+    expect(current.editor!.getJSON()).toEqual(mountedJson);
+    expect(current.dirty).toBe(false);
+    expect(readWorkspaceDocumentLocalState(localStorage, DOC_ID)).toEqual(initial);
+    fireEvent.click(screen.getByRole("button", { name: "Read or Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Read or Edit" }));
+    await waitFor(() => expect(current.editor).not.toBeNull());
+    await act(async () => { await Promise.resolve(); });
+    expect(current.dirty).toBe(false);
+    act(() => { current.editor!.commands.insertContent("A real addition."); });
+    await waitFor(() => expect(current.dirty).toBe(true));
+    const edited = readWorkspaceDocumentLocalState(localStorage, DOC_ID)!;
+    expect(edited.exported_markdown).toContain("A real addition.");
+    expect(edited.base_revision).toBe(initial.base_revision);
+    expect(edited.base_content_sha256).toBe(initial.base_content_sha256);
+    const editedJson = current.editor!.getJSON();
+    fireEvent.click(screen.getByRole("button", { name: "Read or Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Read or Edit" }));
+    await waitFor(() => expect(current.editor).not.toBeNull());
+    await act(async () => { await Promise.resolve(); });
+    expect(current.editor!.getJSON()).toEqual(editedJson);
+    expect(current.dirty).toBe(true);
+    expect(readWorkspaceDocumentLocalState(localStorage, DOC_ID)).toEqual(edited);
+    expect(current.snapshot!.markdown).toBe(source);
+    expect(prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(commitTiptapMarkdownWrite).not.toHaveBeenCalled();
   });
 });
