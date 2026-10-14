@@ -796,7 +796,9 @@ def _resolve_bind_target(
     raw_type = (node.node_type or "").strip().lower()
     if raw_type in {"character", "pc", "npc"}:
         allowed_target_kinds = {"pc", "npc"}
-    elif raw_type in {"collective", "organization", "party", "faction", "group"}:
+    elif raw_type == "organization":
+        allowed_target_kinds = {"faction"}
+    elif raw_type in {"collective", "party", "faction", "group"}:
         allowed_target_kinds = {"party", "faction"}
     else:
         allowed_target_kinds = {_candidate_kernel_kind(node)}

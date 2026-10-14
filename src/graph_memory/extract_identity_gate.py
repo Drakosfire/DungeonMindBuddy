@@ -282,7 +282,10 @@ def _infer_object_kind(
             terms = {obj.label.strip().lower(), *[a.strip().lower() for a in obj.aliases]}
             if label in terms and obj.kind in {"pc", "npc"}:
                 return obj.kind
-    if raw_type in {"collective", "organization", "party"}:
+    if raw_type == "organization":
+        # Same-name expedition parties do not establish organization identity.
+        return base
+    if raw_type in {"collective", "party"}:
         for obj in context.objects.values():
             terms = {obj.label.strip().lower(), *[a.strip().lower() for a in obj.aliases]}
             if label in terms and obj.kind in {"party", "faction"}:
