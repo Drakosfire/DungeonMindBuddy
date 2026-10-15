@@ -1,6 +1,6 @@
 # INGEST: constrain advisory selection to known proposal IDs
 
-Status BLOCKED pending exact design review. PRIME solo implementation; one serial
+Status ACTIVE after ARCHITECTURE design PASS on c6725b71f0be987f809f9a9b57a057b223c9d61a. PRIME solo implementation; one serial
 PR after merged1180/1182, base66b24a54684d56bf04f2b34efd4121cf94a64d9c.
 Branch codex/advisory-id-schema; isolated /tmp/buddy-advisory-review-design.
 
