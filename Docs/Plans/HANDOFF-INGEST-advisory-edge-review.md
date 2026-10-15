@@ -86,8 +86,8 @@ Registered persistence dependency is merged PR1179 (reviewed a43b99d1), NOT lega
  graph_ingest_packaging.py. The actual source-domain-neutral controller is
  graph_preview_runner.py.1179 owns retaining the supplied exception payload as
 RAW_MODEL_RESPONSE before FAILED; this producer owns constructing its bundle.
-No additional registered-controller edits are leased here; request an amendment
-if accepted1179 does not satisfy the registered failure witness.
+The amendment below leases only successful private evidence registration at the
+actual registered controller; accepted1179 failure retention remains unchanged.
 
 Bundle schema dmb_private_extraction_failure_bundle_v1 contains exact source
 artifact/hash, qualified profile, ordered completed pass IDs, request hashes,
@@ -115,6 +115,7 @@ roundtrip equality; old profiles retain their existing output behavior.
 - src/graph_memory/extraction/worldbuilding_edge_review.py (new pure review helpers)
 - src/graph_memory/extraction/worldbuilding_gazetteer_profile.py (opt-in1.4)
 - src/graph_memory/extraction/worldbuilding_profile_catalog.py (exact1.4 identity)
+- src/graph_memory/extraction/graph_preview_runner.py (success private bundle registration only)
 - tests/test_worldbuilding_edge_review.py (new)
 - tests/test_worldbuilding_gazetteer_profile.py (newversion owning pipeline cases)
 
@@ -156,3 +157,26 @@ DOGFOOD/SERVER own serving rollout; this lane owns no ports/retained databases.
 Use existing general review output ceiling; caller budget must fit the full flow,
 with no automatic increase. Lazy bounded-client validation avoids import cycles.
 Private tests/evidence under /tmp; no provider calls before implementation review.
+
+## Successful evidence persistence amendment
+
+ARCHITECTURE material review pending for this tenth-path amendment; no runner
+edit until exact-ref approval. Existing nine-path implementation may proceed.
+The actual registered runner discards return-only pass outputs/envelope/diagnostics.
+Add optional CategoryGraphExtractionResult.private_response_evidence (defaultNone)
+for a strict JSON-safe versioned dmb_private_extraction_review_bundle_v1 SUCCESS
+bundle: exact seam responses, ordered request hashes, safe GE observations and
+available attempt artifact refs, source/profile identity/hash, advisory original
+objects and pre-review envelope. This is private lineage, not another promotable
+candidate, raw wire response, public diagnostics or publication approval.
+
+Before candidate file/registration/status advancement, persist this optional string
+using accepted atomic0600/fsync writer, register existing RAW_MODEL_RESPONSE
+URI/hash component. No new kind/schema; old profiles withNone remain unchanged.
+Rename the private writer honestly within this leased runner if needed; preserve
+1179 failure behavior. Success storage/serialization failure cannot return or
+register a reviewable candidate or claim evidence retained. No automatic replay.
+The same leased test file exercises actual registered success/failure in unique
+APP fixture DBs, fresh-process reopen/hash/0600, canonical envelope-to-IR equality,
+oldprofileNone/no artifact and storagefailure after successful provider result.
+No serving, retained native data, model call or default routing lease is added.
