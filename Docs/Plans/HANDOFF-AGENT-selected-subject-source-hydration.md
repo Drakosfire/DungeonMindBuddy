@@ -1,6 +1,7 @@
 # AGENT: selected-subject source hydration
 
-Status: BLOCKED — exact contract review by ARCHITECTURE before activation.
+Status: ACTIVE — PRIME activates after ARCHITECTURE contract review of
+40d266a5 and the clarifications below. No serving/model experiment activation.
 PRIME owns design/solo implementation. Base d92a916220fe1d800936cfffe25288f9f770aad4.
 Serial replacement of the negative policy experiment, not dependent on its
 unmerged instructions. PR1176 remains frozen/HOLD. Explicit parallel-independent
@@ -89,3 +90,43 @@ all original objects unchanged, clone dropped. Negative outcomes stay immutable.
 Review exact cumulative diff and independent tests; commit/push/PR; PRIME merge
 only after applicable gates. No retained publication, full Mirathorn lifecycle,
 restart/history or operator acceptance is pre-marked complete.
+
+## Activation clarifications (binding implementation contract)
+
+- Re-anchored remote main remains d92a916. ARCH reviewed40d266a5 and authorized
+  PRIME activation after these clarifications; no implementation preceded this.
+- Declare deduplicated support IDs BEFORE session readability intersection or
+  cap. Missing/unreadable IDs remain coverage denominator/gaps. Cap overflow is
+  explicitly unread, never source/corpus completeness. Only selected subject
+  claim support is included; irrelevant anchors never become implicit scope.
+- Per-anchor maxChars=min(3000, remainingCharacters//remainingSelectedAnchors),
+  recomputed between batches with the same cap for every member of that batch.
+  Existing executor maxChars is PER ANCHOR. Subtract actual returned characters
+  only after validated batches. This reserves a fair share for later anchors.
+- Use ATOMIC BATCH rollback: snapshot entire session before each executor batch;
+  if response count/uniqueness/identity/receipt/snapshot/budget checks fail or an
+  exception escapes, restore that snapshot and store the replacement session.
+  Deliver no bodies/receipts from that batch; mark every attempted anchor a gap.
+  Earlier validated batches survive; valid siblings in rejected batch are
+  intentionally lost and disclosed. No local body slicing or automatic retry.
+- Authentic partial/truncated bodies may be delivered with original flags and
+  receipts, count as opened but not complete. Denied/unavailable are disclosed
+  non-content outcomes, not malformed successful reads. Batch integrity failures
+  cannot leave newly opened/citeable state. Declared/eligible/selected/attempted/
+  opened/truncated/unread counts remain distinct.
+- Helper returns exact genuine read result+receipt+sourceReadId in private
+  initial_opened_source_reads, plus initial_source_read_coverage. Assembler adds
+  these to the existing flexible private AgentRetrievalSession.packet; BOTH
+  scope renderers expose them as openedSourceReads/sourceReadCoverage. No new
+  accepted claims/public request schema. SourceReadEntry metadata+operations
+  are separately projected through private session IPC so hydrator and final
+  citations retain real reads; bodies need not persist in returned session.
+- Validate expected anchor and claim evidence refs; result/receipt source IDs,
+  source revision/digest, readID/sessionID, and snapshot World/campaign/scope/
+  admissibility/focus/Graph revision must agree. Native v2 remains source-body
+  integrity authority. Its contentSha256/read_content_sha256 denote SOURCE
+  revision digest, not returned snippet hash; preserve that meaning, never
+  require a paragraph hash to equal a whole-document hash. Exact returned body
+  hashes can be supplementary diagnostics without changing native receipts.
+- Predecessor1175 is merged d92a916;1176 is frozen negative experimental policy,
+  not an accepted dependency. This successor starts on accepted main policy.
