@@ -2,7 +2,7 @@
 
 Status: ACTIVE
 
-Branch: `codex/plan-empty-welcome` rebased onto `origin/main@25cba5a5`
+Branch: `codex/plan-empty-welcome` rebased onto `origin/main@3a890b9e`
 
 Checkout: `/tmp/dmb-plan-empty-welcome`
 
@@ -53,7 +53,7 @@ the integrated preview before the blank-document work is considered complete.
 
 ## Current main re-anchor and verification — 2026-10-15
 
-The implementation is rebased on fetched `origin/main@25cba5a5` in
+The implementation is rebased on fetched `origin/main@3a890b9e` in
 `/tmp/dmb-plan-empty-welcome`. The live World route is covered by the focused
 blank-route test. The focused Plan route, Plan editor-host/shell, and edit
 capability suites pass; the app TypeScript check passes. The broad
