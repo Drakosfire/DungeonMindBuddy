@@ -1,7 +1,7 @@
 # MIND — registered extraction verified identity context
 
 Status: ACTIVE. PRIME implements solo under the operator's foundational-work authorization.
-Base: Buddy origin/main `c9f5c21f3b835f35660b85fbd2e9a38312c401d4`.
+Base: Buddy origin/main `31c5044872076a9bdfd17fced71caf11510121c1`.
 Branch: `codex/registered-known-entity-context`.
 Lane: `/home/drakosfire/.local/state/dungeonmindbuddy/experiments/known-npc-endpoints-20261014/source` (non-serving).
 
@@ -19,13 +19,13 @@ The Pippa experiment now works at category level on accepted code, but the regis
 - `tests/test_registered_known_entity_context.py`
 - this handoff
 
-Topology: serial successor after merged #1140/#1141; current open PR #1139 and other inspected lanes have distinct paths. No serving ports/state leased. Existing source lifecycle, candidate schema, provider selection, corpus context and publication gates remain authoritative. No unreviewed World binding is inferred from a campaign ID.
+Topology: serial successor after merged #1140 and #1141. Current main includes merge commits #1140 `1a2fd31ee76648dfbaeb66a6830ca889af6c027c` and #1141 `364a1f54c2bf7a0d20810515bfab02bb0a62aa9c`. Current open sequence is #1142 → #1143 → #1145 → #1189: #1143 is the next serial consolidation slice, #1145 is stacked on #1143, and #1189 has overlapping extraction-runner/category-extractor paths and remains frozen until #1145 settles. These write leases are serialized, not parallel. No serving ports/state leased. Existing source lifecycle, candidate schema, provider selection, corpus context and publication gates remain authoritative. No unreviewed World binding is inferred from a campaign ID.
 
 ## Verification and completion
 
 Use a synthetic registered source and fixture client, with a fresh disposable APP database. Prove the supplied NPC reaches the ledger/consolidated edge input, its canonical endpoint and explicit source-backed edge persist, and the registered run/components reopen with verified hashes. Exercise absent context and unmentioned context without provider calls. Run focused existing runner tests, lint and exact cumulative diff.
 
-Implementation includes commit/push/PR. PRIME-authored: independent review required before merge; the previous operator review exception covered #1140/#1141 only. No other agent dispatch authorized here. Rollout and source-backed production evaluation follow accepted merge; this capability alone does not prove full World readiness or automatic context enrichment.
+Implementation includes commit/push/PR. PRIME-authored: ARCHITECTURE independently reviews the updated exact head before merge under the operator's standing review assignment; PRIME retains merge authority. Rollout and source-backed production evaluation follow accepted merge; this capability alone does not prove full World readiness or automatic context enrichment.
 
 ## Owning-boundary refinement
 
