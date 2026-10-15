@@ -18,6 +18,7 @@ from .worldbuilding_gazetteer_governance import (
     compile_gazetteer_governance_relations,
 )
 from .worldbuilding_gazetteer_scenario_scope import _heading, _ordered_rows
+from .worldbuilding_gazetteer_role_citations import _affirmed_role_occurrence
 
 
 PROFILE_VERSION = "1.10"
@@ -103,7 +104,11 @@ def _same_city_reference(name: str, city_name: str) -> bool:
 
 def _trade_claim_is_affirmative(claim: dict[str, Any]) -> bool:
     prefix = claim.get("prefix")
-    return isinstance(prefix, str) and not _NEGATED_OR_QUALIFIED_ACCESS.search(prefix)
+    return (
+        isinstance(prefix, str)
+        and not _NEGATED_OR_QUALIFIED_ACCESS.search(prefix)
+        and _affirmed_role_occurrence(str(claim.get("sentence") or ""), "access to")
+    )
 
 
 def _trade_claim_matches_city(claim: dict[str, Any], city_name: str) -> bool:

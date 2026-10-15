@@ -1,6 +1,6 @@
 # PRIME handoff — deterministic Gazetteer role citations
 
-**Status:** ACTIVE  
+**Status:** COMPLETED — merged as `44f63d962951974edfe8d7f0f84f15a058271f87`; this implementation lease is closed.
 **Base:** DungeonMindBuddy `main@3a890b9ec8b4e4c9924779249fe8570b7ecf9d1c`  
 **Branch:** `codex/mirathorn-role-citations-v17`  
 **Topology:** serial, one PR  

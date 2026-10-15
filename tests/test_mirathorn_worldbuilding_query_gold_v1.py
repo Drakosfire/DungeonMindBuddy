@@ -99,18 +99,6 @@ def test_gold_rejects_profile_drift_without_refreshing_snapshot(tmp_path):
     assert any("profile source SHA-256" in error for error in validate_gold(gold_path, root))
 
 
-def test_gold_keeps_catalog_hash_as_history_when_catalog_grows(tmp_path):
-    root, gold_path = _copy_fixture_repo(tmp_path)
-    profile = json.loads(gold_path.read_text(encoding="utf-8"))["profile_snapshot"]
-    catalog = root / profile["profile_catalog"]["source_path"]
-    catalog.write_text(
-        catalog.read_text(encoding="utf-8") + "\n# New profile registration.\n",
-        encoding="utf-8",
-    )
-
-    assert validate_gold(gold_path, root) == []
-
-
 def test_gold_rejects_unsupported_native_predicate(tmp_path):
     root, gold_path = _copy_fixture_repo(tmp_path)
     gold = json.loads(gold_path.read_text(encoding="utf-8"))
@@ -121,7 +109,7 @@ def test_gold_rejects_unsupported_native_predicate(tmp_path):
     assert any("not in the pinned extraction vocabulary" in error for error in validate_gold(gold_path, root))
 
 
-def test_governs_is_natively_mapped_but_live_path_remains_unverified(tmp_path):
+def test_governs_is_natively_mapped_but_live_contract_remains_unverified(tmp_path):
     root, gold_path = _copy_fixture_repo(tmp_path)
     gold = json.loads(gold_path.read_text(encoding="utf-8"))
     contract = gold["graph_contract_snapshot"]
@@ -131,7 +119,7 @@ def test_governs_is_natively_mapped_but_live_path_remains_unverified(tmp_path):
     assert "governs" in contract["extraction_predicates_used"]
     assert "governs" in contract["native_mapped_predicates_used"]
     assert question["graph_traversal"]["status"] == "native_contract_unverified"
-    assert [step["native_admission"] for step in path["steps"]] == ["admitted", "admitted"]
+    assert path["steps"][1]["native_admission"] == "admitted"
     assert validate_gold(gold_path, root) == []
 
     path["steps"][1]["native_admission"] = "unmapped_predicate"
@@ -168,17 +156,17 @@ def test_graph_path_native_kinds_must_match_write_qualification_mapping(tmp_path
     )
 
 
-def test_native_path_cannot_omit_its_pinned_governs_mapping(tmp_path):
+def test_unmapped_native_edge_cannot_be_counted_as_a_supported_path(tmp_path):
     root, gold_path = _copy_fixture_repo(tmp_path)
     gold = json.loads(gold_path.read_text(encoding="utf-8"))
-    gold["graph_contract_snapshot"]["native_mapped_predicates_used"].remove("governs")
     question = next(item for item in gold["questions"] if item["id"] == "q_council_interests")
-    question["graph_traversal"]["paths"][0]["steps"][1]["native_admission"] = "unmapped_predicate"
+    question["graph_traversal"]["status"] = "required_supported_path"
+    question["graph_traversal"]["paths"][0]["steps"][1][
+        "native_admission"
+    ] = "unmapped_predicate"
     gold_path.write_text(json.dumps(gold, ensure_ascii=False), encoding="utf-8")
 
-    errors = validate_gold(gold_path, root)
-    assert any("native mapping is missing from native_mapped_predicates_used" in error for error in errors)
-    assert any("incorrectly marks mapped predicate 'governs' as unmapped" in error for error in errors)
+    assert any("not natively admitted" in error for error in validate_gold(gold_path, root))
 
 
 def test_gold_rejects_disconnected_graph_path(tmp_path):

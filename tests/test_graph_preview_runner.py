@@ -318,8 +318,8 @@ def test_gazetteer_deferred_proposals_are_persisted_and_source_resolvable(
         BoundedRecapPassClient,
         DEEPSEEK_MODEL,
     )
-    from src.graph_memory.extraction.worldbuilding_gazetteer_profile import (
-        GAZETTEER_LIVESTOCK_HYGIENE_PROFILE,
+    from src.graph_memory.extraction.worldbuilding_gazetteer_scenario_scope import (
+        GAZETTEER_PREPARED_SCENARIO_PROFILE,
     )
     from types import SimpleNamespace
 
@@ -331,7 +331,7 @@ def test_gazetteer_deferred_proposals_are_persisted_and_source_resolvable(
         "Float Goats symbolize joy and lightness in local culture.",
         "## Later section",
         "This unrelated detail stays outside the livestock owner section.",
-        "## Prepared approach",
+        "## Approach to Mirathorn",
         "An approach-only prepared scene.",
     ])
     source = _admit_worldbuilding(tmp_path, text=source_text)
@@ -357,6 +357,11 @@ def test_gazetteer_deferred_proposals_are_persisted_and_source_resolvable(
             "node_type": "location", "description": "A source-backed place.",
             "importance": "medium",
             "evidence_refs": [ref_for("#### Fantastic Livestock for the Exampleland")],
+        }, {
+            "node_id": "scene:gate", "label": "Main Gate Scene",
+            "node_type": "location", "description": "A source-backed prepared scene.",
+            "importance": "medium",
+            "evidence_refs": [ref_for("An approach-only prepared scene.")],
         }]},
         "definition_pass": {"observation_nodes": [{
             "node_id": "event:goats", "label": "Float Goats Livestock Definition",
@@ -399,21 +404,6 @@ def test_gazetteer_deferred_proposals_are_persisted_and_source_resolvable(
             "livestock_semantic_hygiene"]["deferred_proposals"][
                 "deferred:livestock-section:edge:edge:goats"]["proposal"]
         proposal["qualifiers"] = {"certainty": "qualified", "scope": "Exampleland"}
-        diagnostics["source_section_retention"]["prepared_scenario_scope"] = {
-            "deferred_proposals": {
-                "deferred:prepared-scenario:node:scene:gate": {
-                    "item_id": "deferred:prepared-scenario:node:scene:gate",
-                    "kind": "node",
-                    "proposal": {
-                        "node_id": "scene:gate",
-                        "label": "Main Gate Scene",
-                        "node_type": "location",
-                        "description": "A source-backed prepared scene.",
-                        "evidence_refs": [ref_for("An approach-only prepared scene.")],
-                    },
-                },
-            },
-        }
         return dataclass_replace(result, consolidation_diagnostics=diagnostics)
 
     monkeypatch.setattr(
@@ -424,8 +414,8 @@ def test_gazetteer_deferred_proposals_are_persisted_and_source_resolvable(
         ProductionExtractionRequest(
             repo_root=tmp_path,
             source=source,
-            profile_id=GAZETTEER_LIVESTOCK_HYGIENE_PROFILE.profile_id,
-            profile_version=GAZETTEER_LIVESTOCK_HYGIENE_PROFILE.profile_version,
+            profile_id=GAZETTEER_PREPARED_SCENARIO_PROFILE.profile_id,
+            profile_version=GAZETTEER_PREPARED_SCENARIO_PROFILE.profile_version,
             model_id=DEEPSEEK_MODEL,
             allow_llm=True,
             category_client=fixture_client,
@@ -474,6 +464,8 @@ def test_gazetteer_deferred_proposals_are_persisted_and_source_resolvable(
     )
     candidate_node_ids = {item["node_id"] for item in candidate["nodes"]}
     assert "event:goats" not in candidate_node_ids
+    assert "scene:gate" not in candidate_node_ids
+    assert scenario_proposal["evidence_refs"][0]["source_span_ref_id"] in span_ids
     assert all(
         edge["from_node_id"] in candidate_node_ids
         and edge["to_node_id"] in candidate_node_ids

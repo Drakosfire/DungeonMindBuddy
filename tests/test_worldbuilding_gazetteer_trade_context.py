@@ -135,6 +135,10 @@ def test_negated_or_qualified_access_is_not_added_as_affirmative():
         "A trading hub with limited access to canal boats.",
         "A trading hub without access to canal boats.",
         "A trading hub could gain access to canal boats.",
+        "If approved, a trading hub with access to canal boats.",
+        "A trading hub with access to canal boats if approved.",
+        "A trading hub with access to canal boats, subject to approval.",
+        "Allegedly, a trading hub with access to canal boats.",
     ):
         result, diagnostics = _apply_trade_context(
             _candidate(), _rows_with_trade(sentence=sentence),
@@ -252,7 +256,7 @@ def test_profile_is_catalogued_as_an_immutable_extension():
 
 def test_profile_composes_governance_and_trade_without_new_entities_or_edges():
     governance_sentence = (
-        "A synthetic city-state governed by a council selected by ballots."
+        "A democratic city-state governed by a council selected by ballots."
     )
     rows = _rows(
         (1, 3, '---\ntitle: "The City of Asterport"\n---'),

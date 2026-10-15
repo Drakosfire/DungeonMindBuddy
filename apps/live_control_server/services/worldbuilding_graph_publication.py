@@ -258,11 +258,13 @@ def _worldbuilding_native_vocabulary_binding() -> dict[str, Any]:
         )
         from dungeonmind_dnd.application.world_property_vocabulary import (
             builtin_world_property_v4_vocabulary_ref,
+            load_builtin_world_property_v4_vocabulary,
         )
 
         object_vocabulary = builtin_world_object_v6_vocabulary_ref()
         property_vocabulary = builtin_world_property_v4_vocabulary_ref()
-        paired_object_vocabulary = property_vocabulary.world_object_vocabulary
+        property_catalog = load_builtin_world_property_v4_vocabulary()
+        paired_object_vocabulary = property_catalog.world_object_vocabulary
         if paired_object_vocabulary != object_vocabulary:
             raise ValueError("world-property-v4 is not paired with world-object-v6")
         predicates = {

@@ -252,8 +252,70 @@ def test_only_a_governance_section_and_explicit_city_state_sentence_qualify():
     assert diagnostics["status"] == "not_applicable"
 
 
+@pytest.mark.parametrize("statement, expected_added", [
+    ("The city is not a city-state governed by a council.", False),
+    ("The city is not currently a city-state governed by a council.", False),
+    ("The city may become a city-state governed by a council.", False),
+    ("The city might be a city-state governed by a council.", False),
+    ("The city would be a city-state governed by a council.", False),
+    ("If approved, the city is a city-state governed by a council.", False),
+    ("The city is a city-state governed by a council if approved.", False),
+    ("The city is a city-state governed by a council, subject to approval.", False),
+    ("Allegedly, the city is a city-state governed by a council.", False),
+    ("In spring, if approved, the city is a city-state governed by a council.", False),
+    ("The settlement might be a capital and a city-state governed by a council.", False),
+    ("A democratic city-state governed by a council.", True),
+    ("It is a city-state governed by a council and might adopt a new charter.", True),
+    ("The city might change charters. It is a city-state governed by a council.", True),
+    ("The city was not a republic but is a city-state governed by a council.", True),
+])
+def test_governance_preserves_claim_qualifier_scope(statement, expected_added):
+    rows = _rows(
+        "# The City of Mirathorn", "## Location", "A trade crossing.",
+        "### Governance:", statement,
+    )
+    graph = _graph(rows)
+    result, diagnostics = _apply_governance_relation(graph, rows)
+    assert bool(result["edges"]) is expected_added
+    assert graph["edges"] == []
+    if expected_added:
+        edge = result["edges"][0]
+        assert edge["relationship_type"] == "governs"
+        assert edge["from_node_id"] == "org_mirathorn_city_council"
+        assert edge["to_node_id"] == "loc_mirathorn"
+        assert edge["evidence_refs"][0]["anchor_quotes"] == [statement]
+        assert diagnostics["status"] == "added"
+    else:
+        assert result == graph
+        assert diagnostics["status"] == "not_applicable"
+
+
 def test_profile_is_a_new_catalogued_extension_of_prepared_scenario_scope():
     assert PROFILE == "worldbuilding_gazetteer_v1@1.9"
     assert GAZETTEER_GOVERNANCE_PROFILE.profile_version == "1.9"
     assert GAZETTEER_GOVERNANCE_PROFILE.profile_id == "worldbuilding_gazetteer_v1"
     assert PROFILE in PUBLISHABLE_WORLDBUILDING_PROFILES
+
+
+@pytest.mark.parametrize("statement, accepted", [
+    ("Otherport is a city-state governed by a council.", False),
+    ("The City of Otherport is a city-state governed by a council.", False),
+    ("Mirathorn trades with Otherport, which is a city-state governed by a council.", False),
+    ("Mirathorn is wealthy. Otherport is a city-state governed by a council.", False),
+    ("Otherport is a city-state governed by a council; Mirathorn is not.", False),
+    ("Mirathorn is a city-state governed by a council.", True),
+    ("The City of Mirathorn is a democratic city-state governed by a council.", True),
+    ("The city is a city-state governed by a council.", True),
+    ("A democratic city-state governed by a council.", True),
+])
+def test_governance_subject_must_bind_to_document_city(statement, accepted):
+    rows = _rows(
+        "# The City of Mirathorn", "## Location", "A trade crossing.",
+        "### Governance:", statement,
+    )
+    graph = _graph(rows)
+    result, diagnostics = _apply_governance_relation(graph, rows)
+    assert bool(result["edges"]) is accepted
+    if not accepted:
+        assert result == graph
+        assert diagnostics["reason"] == "governance_subject_not_bound"

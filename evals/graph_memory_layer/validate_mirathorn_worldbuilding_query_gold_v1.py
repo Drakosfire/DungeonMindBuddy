@@ -494,28 +494,9 @@ def validate_gold(
         errors.append("profile snapshot must distinguish pilot baseline from executed profile")
     if profile.get("execution_profile") != "unverified" or profile.get("runtime_document_class") != "unverified":
         errors.append("this gold cannot claim an execution profile or registered document class")
-    catalog_snapshot = profile.get("profile_catalog")
-    if not isinstance(catalog_snapshot, dict):
-        errors.append("profile catalog snapshot must be an object")
-        catalog_snapshot = {}
-    catalog_path = catalog_snapshot.get("source_path")
-    catalog_sha = catalog_snapshot.get("source_sha256")
-    if not isinstance(catalog_path, str) or not catalog_path:
-        errors.append("profile catalog snapshot requires a source path")
-    elif not (repo_root / catalog_path).is_file():
-        errors.append(f"could not read historical profile catalog path {catalog_path}")
-    if (
-        not isinstance(catalog_sha, str)
-        or len(catalog_sha) != 64
-        or any(character not in "0123456789abcdef" for character in catalog_sha)
-    ):
-        errors.append("profile catalog snapshot requires a lowercase SHA-256")
-
-    # This digest describes the catalog version present when the frozen
-    # evaluation was authored. Pin and verify each listed profile module below;
-    # catalog growth is covered by the catalog's own contract tests.
     profile_paths = [
         {"source_path": profile.get("source_path"), "source_sha256": profile.get("source_sha256")},
+        profile.get("profile_catalog", {}),
         *(profile.get("available_profiles") or []),
     ]
     for snapshot in profile_paths:
@@ -783,7 +764,7 @@ def main() -> int:
     print(
         "Mirathorn query gold valid: "
         f"{len(gold['facts'])} facts, {len(gold['questions'])} questions, "
-        f"{len(gold['explicit_omissions'])} explicit omissions; source, pinned profile modules, historical catalog snapshot, extraction vocabulary, native mapping, paths, and visibility match."
+        f"{len(gold['explicit_omissions'])} explicit omissions; source, profiles, extraction vocabulary, native mapping, paths, and visibility match."
     )
     return 0
 

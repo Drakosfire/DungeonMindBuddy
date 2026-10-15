@@ -1,9 +1,9 @@
 # PRIME handoff — Mirathorn prepared-scenario scope
 
-**Status:** ACTIVE  
-**Base:** Buddy PR #1193 head eb70124039890e4887b32e8c96b4cef797f4fea2  
-**Branch:** codex/mirathorn-prepared-scenario-v18  
-**Topology:** one stacked PR; keep role-citation v1.7 as its explicit parent  
+**Status:** COMPLETED — merged as `6bde87a27dfeb3768015d96444d22e3c517106bb`; this implementation lease is closed.
+**Base:** Buddy main `44f63d962951974edfe8d7f0f84f15a058271f87` (reviewed role-citation and two-World isolation predecessors merged)
+**Branch:** codex/mirathorn-prepared-scenario-v18
+**Topology:** serial; retarget this existing PR to main after incorporating the pinned predecessor. The downstream governance PR remains held until this slice is merged and re-anchored.
 **Runtime/state ownership:** none. Do not start or restart servers, call a provider, publish World knowledge, or edit retained data.
 
 ## Outcome
@@ -29,6 +29,8 @@ The source-locked gold facts, questions, quotes, and answer criteria are frozen.
 ## Write set
 
 - Docs/Plans/HANDOFF-BUILD-mirathorn-prepared-scenario-scope.md
+- Docs/Plans/HANDOFF-BUILD-mirathorn-role-citations.md — mark the merged predecessor completed.
+- Docs/Plans/HANDOFF-BUILD-mirathorn-two-world-isolation.md — mark the merged predecessor completed.
 - src/graph_memory/extraction/worldbuilding_gazetteer_scenario_scope.py
 - src/graph_memory/extraction/worldbuilding_profile_catalog.py
 - src/graph_memory/extraction/category_candidate_graph_extractor.py
@@ -47,6 +49,7 @@ Do not stage corpus text, private provider responses, credentials, candidate-run
 
 ## Verification and review
 
+- Read physical lines within grouped spans while retaining original span identities; reject spans crossing a scene boundary.
 - Prove the headings and line-range boundaries, including Reaches exclusion, unique span identities, and fail-closed malformed boundaries.
 - Prove scene-only nodes and edges are deferred with full evidence, no scene evidence remains in positive nodes/edges, the mixed City Guard claim is cleared, the durable command edge survives, and every retained edge has live endpoints.
 - Prove all diagnostic deferred proposals are stamped and persisted as immutable run evidence, including proposals from nested source-retention diagnostics.
