@@ -1,11 +1,11 @@
 # DOGFOOD: complete Build shared workspace integration
 
-Status BLOCKED for implementation pending ARCHITECTURE source-binding design
-review; operator explicitly authorizes design and one coherent implementation PR.
+Status ACTIVE. Operator authorizes one coherent Build implementation PR; PRIME
+activates after ARCH design gate on 9868724c and APP exclusive validator transfer.
 Design base d92a916220fe1d800936cfffe25288f9f770aad4; branchcodex/build-shared-workspace;
 non-serving checkout /home/drakosfire/.codex/worktrees/editor-mount-cleanliness/DungeonMindBuddy.
 Topology serial one PR. Designing steward DOGFOOD; PRIME coordinates cross-owner
-contracts and merge; ARCHITECTURE reviews. No provider/serving/state lease yet.
+contracts and merge; ARCHITECTURE reviews. No provider/serving/state lease. Implementation uses synthetic tests only.
 
 ## Intended invariant
 Shared workspace navbar/Edit/Tools/Buddy remain in consistent places; active
@@ -94,7 +94,7 @@ Request model permits required Build saved hash with registry revision and forbi
 Plan revision_n on Build. Resolve only active committed worldbuilding_source under
 managed root with containment/symlink checks, valid metadata, verified byte hash.
 Reject missing/stale/foreign/oversize source before turn claim/runtime. Maximum
-canonical saved-source UTF-8 size is 131072 bytes (128 KiB); reject larger sources
+canonical saved-source UTF-8 size is 65536 bytes (64 KiB); reject larger sources
 with 413 before claim, never silently clip text. Hash precisely the registry snapshot
 Markdown after its existing CRLF/CR-to-LF normalization and verify its reported SHA.
 Do not alter file bytes or claim raw-byte identity.
@@ -121,9 +121,9 @@ Only the Build digest/registry-revision branch changes: required saved SHA, no P
 revision_n. Plan/run/combat validation and historical fingerprint compatibility
 remain unchanged. No schema/store semantics change or other APP type edits.
 APP confirmed no overlapping edits and exclusively transferred this exact validator
-and new test path to DOGFOOD. ARCH activation remains outstanding; no code lease yet.
+and new test path to DOGFOOD. ARCH design gate passed on 9868724c; PRIME explicitly activated this bounded slice.
 
-## Proposed exact write set (not leased until activation)
+## ACTIVE exact write set
 Docs/Plans/HANDOFF-DOGFOOD-build-shared-workspace.md
 apps/live-control-ui/src/App.tsx
 apps/live-control-ui/src/agentInteraction/WorldAgentConversation.tsx
