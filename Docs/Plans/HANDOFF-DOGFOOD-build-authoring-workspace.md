@@ -7,7 +7,7 @@ handoff and the Build navbar Save dirty-state regression test only. Node write
 portion remains BLOCKED pending ARCHITECTURE identification of an existing governed
 command or a DungeonMind-owned contract. No native mutation adapter is authorized.
 Current fetched `origin/main` is
-`8c13f6e93e9fa89e7b3fd6dcafb672a19d6454d5` (including merged #1211).
+`9abb6c5f1903a10f784c5563081052472a3dc19e` (including merged #1211 and #1212).
 The current integration lane is
 `codex/build-1183-integrate-main`; existing PR #1183 remains on
 `codex/build-authoring-workspace` and will be updated in place after verification.
@@ -55,7 +55,7 @@ PRIME approves adding these two paths to the same PR/base and exclusive lease:
 ## Current completion lease and rendered acceptance — 2026-10-15
 
 PRIME reactivated the serial #1183 completion lane against fetched
-`origin/main@8c13f6e93e9fa89e7b3fd6dcafb672a19d6454d5`; after #1211 merged,
+`origin/main@9abb6c5f1903a10f784c5563081052472a3dc19e`; after #1212 merged,
 this existing PR was rebased to that main head. The selection-context endpoint
 is server-owned and outside this Build slice. The only current writable paths
 are:
