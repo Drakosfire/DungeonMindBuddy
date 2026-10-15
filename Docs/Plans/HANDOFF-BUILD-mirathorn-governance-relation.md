@@ -4,7 +4,7 @@
 **Base contract:** Buddy main `6bde87a27dfeb3768015d96444d22e3c517106bb`; DungeonMind main `1d120886b00acf7f97b3744e88619abd97c34591` defines the reviewed world-object-v6/world-property-v4 pair.  
 **Branch:** `codex/mirathorn-governs-consumer`.  
 **Topology:** serial; incorporate the exact accepted Buddy and DungeonMind predecessors, retarget this existing PR to main, then review the completed integration. Downstream trade-context work stays held.  
-**Runtime/state ownership:** isolated non-serving checkout `/tmp/prime-mirathorn-governance-current`; tests may create/drop uniquely named disposable application-state databases on 54329. Do not start or restart serving processes, call a provider, publish retained World knowledge, or edit operator data.
+**Runtime/state ownership:** isolated non-serving checkout `/tmp/prime-mirathorn-governance-current`; tests may create/drop uniquely named disposable application-state databases on 54329. Native source-readback tests own the disposable pgvector container `prime-mirathorn-native-test-20261015`, loopback port 54332, with ephemeral data; remove it when this checkpoint ends. Do not start or restart serving processes, call a provider, publish retained World knowledge, or edit operator data.
 
 ## Outcome
 
