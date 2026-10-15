@@ -15,6 +15,7 @@ Prove that two registered managed Worlds with distinct active native Graph bindi
 
 - This handoff.
 - `tests/test_cutover_worldbuilding_authority_port.py`.
+- `tests/_cutover_d3a_blocker_safe_fixtures.py` — assign each synthetic source its own component directory, preserving frozen evidence when multiple runs share a workspace.
 
 If the owning-boundary test exposes a production defect, stop and return to PRIME to split or amend the scope before changing production code.
 
@@ -28,7 +29,8 @@ The test must prove:
 2. Confirming A advances only `native-alpha`; B remains exactly at its original head and has no A publication.
 3. Confirming B advances only `native-beta`; A remains at its already-confirmed head and neither write reaches the default World.
 4. Each child contains the accepted source-backed candidates for its own command, while no cross-world plan or source binding is accepted.
-5. The original source artifacts and content remain distinct and immutable throughout the two publications.
+5. Swapping source/run bindings or forging the default target is rejected before publication; both native heads remain unchanged.
+6. The original source artifacts and content remain distinct and immutable throughout the two publications.
 
 Existing one-World tests remain in place. Do not weaken their stale-parent, source-binding, recovery, or confirm-time proof checks.
 
