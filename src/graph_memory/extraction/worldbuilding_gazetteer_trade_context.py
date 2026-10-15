@@ -56,13 +56,14 @@ _PROPER_SUBJECT_COMMA = re.compile(
     r"^\s*(?P<subject>[A-Z][A-Za-z'’.-]*(?:\s+[A-Z][A-Za-z'’.-]*)*)\s*,"
 )
 _GENERIC_CITY_SUBJECT = re.compile(
-    r"^\s*(?:it(?:['’]s|\s+is)?|this(?:\s+(?:city|place|location))?"
-    r"(?:\s+is)?|that(?:\s+(?:city|place|location))?(?:\s+is)?|"
-    r"the\s+(?:city|place|location)(?:\s+is)?)\b",
+    r"^\s*(?:it(?:['’]s|\s+(?:is|has|serves\s+as))|"
+    r"(?:the|this|that)\s+(?:city|place|location)\s+(?:is|has|serves\s+as)|"
+    r"(?:this|that)\s+is)\b",
     re.IGNORECASE,
 )
 _GENERIC_SENTENCE_OPENING = re.compile(
-    r"^\s*(?:a|an|the|it|this|that|there|in|at|from|near|within|outside)\b",
+    r"^\s*(?:a|an)\s+(?:key\s+)?"
+    r"(?:trade hub|trading hub|commercial hub|market center)\b",
     re.IGNORECASE,
 )
 
@@ -133,8 +134,8 @@ def _trade_claim_matches_city(claim: dict[str, Any], city_name: str) -> bool:
         if references or _GENERIC_CITY_SUBJECT.match(prefix):
             return True
         # An unrecognized proper-name opening may still be the sentence subject
-        # (for example, "Otherport — a trading hub ..."). Accept generic
-        # descriptive openings, and fail closed on other unmatched subjects.
+        # (for example, "Otherport — a trading hub ..."). Accept only supported
+        # article-led hub descriptions; defer other unmatched subjects.
         return _GENERIC_SENTENCE_OPENING.match(prefix) is not None
     subject = subject_match.group("subject")
     if _normalized_label(subject) in {"it", "this", "that", "the city", "the place", "the location"}:

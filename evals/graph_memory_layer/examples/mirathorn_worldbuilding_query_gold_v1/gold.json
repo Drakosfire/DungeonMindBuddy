@@ -116,7 +116,7 @@
       {
         "id": "worldbuilding_gazetteer_v1@1.10",
         "source_path": "src/graph_memory/extraction/worldbuilding_gazetteer_trade_context.py",
-        "source_sha256": "604522ab7a078663b8d989da3c8e633b8613ee9500c3ecac281499a54b42ca57",
+        "source_sha256": "22b93e71870df14580afc6663fdbed1b93e696be40e916b68279f4cb8f943de3",
         "relevant_behavior": [
           "Preserves v1.9 source-grounded governance and prepared-scene filtering.",
           "Copies one affirmative city-bound trade access statement with exact openable source evidence onto the existing city description; no new entities or relationships."

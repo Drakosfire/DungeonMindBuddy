@@ -316,3 +316,28 @@ def test_profile_composes_governance_and_trade_without_new_entities_or_edges():
     assert repeated == result
     assert repeated_diagnostics["source_grounded_governance"]["status"] == "already_present"
     assert repeated_diagnostics["source_grounded_trade_context"]["status"] == "already_present"
+
+
+def test_generic_opening_cannot_hide_an_explicit_foreign_city():
+    for sentence in (
+        "The neighboring city Otherport is a trading hub with access to canal boats.",
+        "The city Otherport is a trading hub with access to canal boats.",
+        "This city Otherport is a trading hub with access to canal boats.",
+        "A neighboring city Otherport is a trading hub with access to canal boats.",
+    ):
+        original = _candidate()
+        result, diagnostics = _apply_trade_context(original, _rows_with_trade(sentence=sentence))
+        assert result == original
+        assert diagnostics["reason"] == "trade_city_subject_mismatch"
+
+
+def test_supported_generic_subjects_still_bind_to_the_document_city():
+    for sentence in (
+        "It's a key trade hub with access to canal boats.",
+        "The city is a trading hub with access to canal boats.",
+        "This city has a trading hub with access to canal boats.",
+        "A trading hub with access to canal boats.",
+    ):
+        result, diagnostics = _apply_trade_context(_candidate(), _rows_with_trade(sentence=sentence))
+        assert diagnostics["status"] == "added"
+        assert "Trade access: canal boats." in result["nodes"][0]["description"]
