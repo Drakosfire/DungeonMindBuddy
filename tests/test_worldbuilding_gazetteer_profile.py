@@ -1,6 +1,8 @@
 import pytest
 from src.graph_memory.extraction.worldbuilding_gazetteer_profile import (
-    GAZETTEER_PROFILE, validate_gazetteer_candidate_bounds,
+    GAZETTEER_PROFILE, GAZETTEER_LIVESTOCK_HYGIENE_PROFILE,
+    compile_gazetteer_livestock_hygiene,
+    validate_gazetteer_candidate_bounds,
 )
 from src.graph_memory.extraction.worldbuilding_profile_catalog import PUBLISHABLE_WORLDBUILDING_PROFILES
 
@@ -8,7 +10,9 @@ from src.graph_memory.extraction.worldbuilding_profile_catalog import PUBLISHABL
 def test_closed_publication_profiles_preserve_pilot_and_exact_gazetteer_version():
     assert set(PUBLISHABLE_WORLDBUILDING_PROFILES) == {
         "worldbuilding_shepherds_flock_v0@0.1", "worldbuilding_gazetteer_v1@1.0",
-        "worldbuilding_gazetteer_v1@1.1", "worldbuilding_gazetteer_v1@1.2", "worldbuilding_gazetteer_v1@1.3", "worldbuilding_gazetteer_v1@1.4", "worldbuilding_gazetteer_v1@1.5"}
+        "worldbuilding_gazetteer_v1@1.1", "worldbuilding_gazetteer_v1@1.2",
+        "worldbuilding_gazetteer_v1@1.3", "worldbuilding_gazetteer_v1@1.4",
+        "worldbuilding_gazetteer_v1@1.5", "worldbuilding_gazetteer_v1@1.6"}
     assert "worldbuilding_gazetteer_v1@2.0" not in PUBLISHABLE_WORLDBUILDING_PROFILES
     assert "worldbuilding_plumbing_v0@0.1" not in PUBLISHABLE_WORLDBUILDING_PROFILES
 
@@ -21,6 +25,224 @@ def test_definition_pass_has_no_played_or_individual_invention():
     assert GAZETTEER_PROFILE.beat_pass is None
     assert not GAZETTEER_PROFILE.enable_party_participation_attachment
     assert GAZETTEER_PROFILE.default_semantic_state["canon_state"] == "worldbuilding_draft"
+
+
+def _livestock_source_rows():
+    texts = [
+        "#### Fantastic Livestock for the Exampleland",
+        "#### 1. Float Goats",
+        "Float Goats walk on water and carry goods across lakes.",
+        "#### 2. Glow Sheep",
+        "Glow Sheep provide luminous wool.",
+        "## Cultural Significance",
+        "Float Goats symbolize joy and lightness in local culture.",
+        "### Festival of Expansion",
+        "The Festival of Expansion commemorates the city's growth.",
+        "### Unrelated City",
+        "This unrelated city detail must not move to the Exampleland.",
+    ]
+    rows = [{"source_span_ref_id": f"span:{index}", "line_start": index + 1,
+             "line_end": index + 1, "text": value}
+            for index, value in enumerate(texts)]
+    return texts, rows
+
+
+def _source_ref(rows, index):
+    return {"source_span_ref_id": rows[index]["source_span_ref_id"],
+            "anchor_quotes": [rows[index]["text"]]}
+
+
+def test_v16_defers_only_exact_livestock_events_and_incident_edges():
+    _texts, rows = _livestock_source_rows()
+    original_node = {
+        "node_id": "event:goats", "label": "Float Goats Livestock Definition",
+        "node_type": "event", "description": "Source-backed goat definition.",
+        "evidence_refs": [_source_ref(rows, 2)],
+        "qualifiers": {"scope": "owner place", "authorship": "setting guide"},
+    }
+    original_edge = {
+        "edge_id": "edge:goats", "from_node_id": "event:goats",
+        "to_node_id": "place:exampleland", "relationship_type": "located_in",
+        "label": "", "qualifiers": {"certainty": "qualified", "basis": "heading"},
+        "evidence_refs": [_source_ref(rows, 2)],
+    }
+    graph = {
+        "session_id": None,
+        "beats": [],
+        "nodes": [
+            {"node_id": "place:exampleland", "label": "The Exampleland",
+             "node_type": "location", "description": "Original place context.",
+             "evidence_refs": [_source_ref(rows, 0)]},
+            original_node,
+            {"node_id": "event:culture", "label": "Cultural Significance of Float Goats",
+             "node_type": "event", "description": "Source-backed culture passage.",
+             "evidence_refs": [_source_ref(rows, 6)]},
+            {"node_id": "event:festival", "label": "Festival of Expansion",
+             "node_type": "event", "description": "A named recurring festival.",
+             "evidence_refs": [_source_ref(rows, 8)]},
+            {"node_id": "event:mixed", "label": "Float Goats",
+             "node_type": "event", "description": "Ambiguous cross-section evidence.",
+             "evidence_refs": [_source_ref(rows, 2), _source_ref(rows, 8)]},
+        ],
+        "edges": [
+            original_edge,
+            {"edge_id": "edge:festival", "from_node_id": "event:festival",
+             "to_node_id": "place:exampleland", "relationship_type": "present_at",
+             "label": "festival in place", "evidence_refs": [_source_ref(rows, 8)]},
+        ],
+        "deferred_items": [],
+    }
+
+    transformed, diagnostics = compile_gazetteer_livestock_hygiene(graph, rows)
+    node_ids = {node["node_id"] for node in transformed["nodes"]}
+    edge_ids = {edge["edge_id"] for edge in transformed["edges"]}
+    place = next(node for node in transformed["nodes"] if node["node_id"] == "place:exampleland")
+    deferred = {item["item_id"]: item for item in transformed["deferred_items"]}
+
+    assert "event:goats" not in node_ids and "event:culture" not in node_ids
+    assert {"event:festival", "event:mixed"} <= node_ids
+    assert "edge:goats" not in edge_ids and "edge:festival" in edge_ids
+    assert all(edge["from_node_id"] in node_ids and edge["to_node_id"] in node_ids
+               for edge in transformed["edges"])
+    assert "Float Goats walk on water" in place["description"]
+    assert "Float Goats symbolize joy" in place["description"]
+    assert "unrelated city detail" not in place["description"]
+    assert "deferred:livestock-section:node:event:goats" in deferred
+    assert "deferred:livestock-section:node:event:culture" in deferred
+    assert "deferred:livestock-section:edge:edge:goats" in deferred
+    assert deferred["deferred:livestock-section:node:event:goats"]["evidence_refs"] == [
+        _source_ref(rows, 2),
+    ]
+    assert diagnostics["livestock_semantic_hygiene"]["profile"] == "worldbuilding_gazetteer_v1@1.6"
+    proposals = diagnostics["livestock_semantic_hygiene"]["deferred_proposals"]
+    assert proposals["deferred:livestock-section:node:event:goats"] == {
+        "item_id": "deferred:livestock-section:node:event:goats",
+        "kind": "node",
+        "proposal": original_node,
+    }
+    assert proposals["deferred:livestock-section:edge:edge:goats"] == {
+        "item_id": "deferred:livestock-section:edge:edge:goats",
+        "kind": "edge",
+        "proposal": original_edge,
+    }
+
+
+def test_v16_real_pipeline_retains_livestock_and_keeps_recurring_festival():
+    from types import SimpleNamespace
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        CategoryGraphExtractionOptions, FixtureCategoryGraphPassClient, run_category_pipeline,
+    )
+    from src.graph_memory.extraction.bounded_recap_execution import (
+        BoundedRecapPassClient, DEEPSEEK_MODEL,
+    )
+
+    texts, rows = _livestock_source_rows()
+
+    def ref(index):
+        return _source_ref(rows, index)
+
+    outputs = {
+        "location_pass": {"observation_nodes": [{
+            "node_id": "place:exampleland", "label": "The Exampleland",
+            "node_type": "location", "description": "Original place context.",
+            "importance": "medium", "evidence_refs": [ref(0)],
+        }]},
+        "definition_pass": {"observation_nodes": [
+            {"node_id": "event:goats", "label": "Float Goats Livestock Definition",
+             "node_type": "event", "description": "Source-backed goat definition.",
+             "importance": "medium", "evidence_refs": [ref(2)]},
+            {"node_id": "event:culture", "label": "Cultural Significance of Float Goats",
+             "node_type": "event", "description": "Source-backed culture passage.",
+             "importance": "medium", "evidence_refs": [ref(6)]},
+            {"node_id": "event:festival", "label": "Festival of Expansion",
+             "node_type": "event", "description": "A recurring festival.",
+             "importance": "medium", "evidence_refs": [ref(8)]},
+        ]},
+        "edge_pass": {"observation_edges": [
+            {"edge_id": "edge:goats", "from_node_id": "event:goats",
+             "to_node_id": "place:exampleland", "relationship_type": "located_in",
+             "predicate_family": "spatial", "label": "", "evidence_refs": [ref(2)]},
+            {"edge_id": "edge:festival", "from_node_id": "event:festival",
+             "to_node_id": "place:exampleland", "relationship_type": "present_at",
+             "label": "festival in place", "evidence_refs": [ref(8)]},
+        ]},
+        "edge_review_pass": {"retained_edge_ids": ["edge:festival"]},
+    }
+
+    class BoundedFixtureClient(BoundedRecapPassClient):
+        def __init__(self):
+            self.limits = SimpleNamespace(provider="openrouter", model=DEEPSEEK_MODEL, max_calls=8)
+            self.fixture = FixtureCategoryGraphPassClient(outputs)
+            self.calls = []
+            self.prompts = []
+
+        def run_pass(self, pass_name, **kwargs):
+            self.calls.append({"pass_name": pass_name, "observation": None})
+            self.prompts.append(kwargs["user_content"])
+            if pass_name == "edge_review_pass":
+                return {"parsed": outputs[pass_name], "raw_text": "fixture review",
+                        "usage": {"input_tokens": 0, "output_tokens": 0},
+                        "cost_usd": 0.0, "cost_info": {}, "elapsed_ms": 0,
+                        "response_id": "fixture-review"}
+            return self.fixture.run_pass(pass_name, **kwargs)
+
+    result = run_category_pipeline(
+        BoundedFixtureClient(),
+        CategoryGraphExtractionOptions(
+            campaign_id="synthetic", session_id=None, session_number=None,
+            source_text="\n".join(texts), source_artifact_id="artifact:synthetic",
+            source_span_index={"source_artifact_id": "artifact:synthetic",
+                               "source_ref_id": "artifact:synthetic:text", "spans": rows},
+            model_id=DEEPSEEK_MODEL,
+            profile=GAZETTEER_LIVESTOCK_HYGIENE_PROFILE,
+            enable_party_claimed_fill=False,
+        ),
+    )
+    graph = result.candidate_graph
+    node_ids = {node["node_id"] for node in graph["nodes"]}
+    assert "event:goats" not in node_ids and "event:culture" not in node_ids
+    assert "event:festival" in node_ids
+    assert len(graph["deferred_items"]) == 3
+    assert [edge["edge_id"] for edge in graph["edges"]] == ["edge:festival"]
+    place = next(node for node in graph["nodes"] if node["node_id"] == "place:exampleland")
+    assert "Float Goats walk on water" in place["description"]
+    assert all(ref.get("source_artifact_id") == "artifact:synthetic"
+               for ref in place["evidence_refs"])
+    span_ids = {row["source_span_ref_id"] for row in rows}
+    evidence_refs = [
+        ref
+        for collection in ("nodes", "edges", "deferred_items", "ignored_items")
+        for item in graph.get(collection, [])
+        for ref in item.get("evidence_refs", [])
+    ]
+    assert evidence_refs
+    assert all(ref.get("source_span_ref_id") in span_ids for ref in evidence_refs)
+    persisted_edge = result.consolidation_diagnostics["source_section_retention"][
+        "livestock_semantic_hygiene"]["deferred_proposals"][
+            "deferred:livestock-section:edge:edge:goats"]["proposal"]
+    assert persisted_edge["label"] == ""
+    assert persisted_edge["relationship_type"] == "located_in"
+    assert persisted_edge["from_node_id"] == "event:goats"
+    assert persisted_edge["to_node_id"] == "place:exampleland"
+    assert persisted_edge["evidence_refs"][0]["source_artifact_id"] == "artifact:synthetic"
+    assert persisted_edge["evidence_refs"][0]["source_ref_id"] == "artifact:synthetic:text"
+
+
+def test_v16_profile_is_versioned_from_15_and_keeps_named_event_policy():
+    from src.graph_memory.extraction.worldbuilding_gazetteer_profile import (
+        GAZETTEER_CONSTRAINED_REVIEW_PROFILE,
+    )
+
+    v15 = GAZETTEER_CONSTRAINED_REVIEW_PROFILE
+    v16 = GAZETTEER_LIVESTOCK_HYGIENE_PROFILE
+    v16_definition = next(p for p in v16.node_passes if p.pass_id == "definition_pass")
+    assert v15.profile_version == "1.5"
+    assert v15.source_section_retainer.__name__ == "compile_role_support"
+    assert v16.profile_version == "1.6"
+    assert v16.source_section_retainer.__name__ == "compile_gazetteer_livestock_hygiene"
+    assert "not an event" in v16_definition.instruction
+    assert "recurring festivals" in v16_definition.instruction
+    assert v16.edge_review_pass == v15.edge_review_pass
 
 
 @pytest.mark.parametrize("kind", ["creature", "event"])

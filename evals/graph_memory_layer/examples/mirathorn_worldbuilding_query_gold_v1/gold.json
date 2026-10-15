@@ -46,7 +46,7 @@
     "runtime_document_class": "unverified",
     "notes": [
       "The Shepherds Flock v0.1 entry is the selected pilot-profile baseline for comparison, not evidence that this saved source executed with it.",
-      "DungeonMindBuddy main also contains Gazetteer v1.5; the execution profile for the registered Build source and its document-class admission are unverified.",
+      "Gazetteer v1.5 remains the selected historical pilot-profile baseline. This branch also defines v1.6; neither version has been established as the executed profile for the registered Build source, and its document-class admission remains unverified.",
       "The Markdown frontmatter says document_class=world; that does not establish the registered Build document class or profile eligibility.",
       "Separate answer correctness from graph representation. Festival and generic Float Goat facts may be answered from source-backed place descriptions/passages without requiring event or species nodes.",
       "Float Goats are a plural species/type description, not an individuated creature. Do not require a generic creature node.",
@@ -56,17 +56,27 @@
     "execution_profile": "unverified",
     "profile_catalog": {
       "source_path": "src/graph_memory/extraction/worldbuilding_profile_catalog.py",
-      "source_sha256": "bef3a79db126a4b6f29b405d3f74a6def7ac381e0ea6580e1935ee3a5a2b2cb4"
+      "source_sha256": "4d623f8bcdcc70a236586f002bffbce92e187c7839a530d34291b81b345d4570"
     },
     "available_profiles": [
       {
         "id": "worldbuilding_gazetteer_v1@1.5",
         "source_path": "src/graph_memory/extraction/worldbuilding_gazetteer_profile.py",
-        "source_sha256": "41b684e011f52575c17f954492af8a527ac7c4a293ef962c16de2e2a812acf13",
+        "source_sha256": "2b160d3c49a3f860c257869c459999064a08a8b76e8cabf2dfb1c8539cd3cb13",
         "relevant_behavior": [
           "Allows named recurring festival definitions as event nodes, not played episodes.",
           "Preserves livestock and species knowledge in associated place descriptions rather than minting generic species nodes.",
           "Keeps authored approach/arrival scenery as prepared-scenario prose, not enduring place facts or played events."
+        ]
+      },
+      {
+        "id": "worldbuilding_gazetteer_v1@1.6",
+        "source_path": "src/graph_memory/extraction/worldbuilding_gazetteer_profile.py",
+        "source_sha256": "2b160d3c49a3f860c257869c459999064a08a8b76e8cabf2dfb1c8539cd3cb13",
+        "relevant_behavior": [
+          "Retains exact source-backed livestock sections on their uniquely matched owner place.",
+          "Defers matching species and livestock cultural-significance event proposals with their incident edges.",
+          "Preserves named recurring festivals as event definitions, not played episodes."
         ]
       }
     ]

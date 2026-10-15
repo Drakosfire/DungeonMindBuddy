@@ -2026,6 +2026,23 @@ def _run_category_pipeline_impl(
         stamp_graph_evidence_refs(
             candidate_graph, source_artifact_id=source_artifact_id, source_ref_id=source_ref_id,
         )
+        deferred_proposals = (
+            retention_diagnostics.get("livestock_semantic_hygiene", {})
+            .get("deferred_proposals", {})
+        )
+        if isinstance(deferred_proposals, dict):
+            for item_id, disposition in deferred_proposals.items():
+                if (not isinstance(disposition, dict)
+                        or disposition.get("item_id") != item_id
+                        or disposition.get("kind") not in {"node", "edge"}
+                        or not isinstance(disposition.get("proposal"), dict)):
+                    raise ValueError("invalid deferred livestock proposal evidence")
+                key = "nodes" if disposition["kind"] == "node" else "edges"
+                stamp_graph_evidence_refs(
+                    {key: [disposition["proposal"]]},
+                    source_artifact_id=source_artifact_id,
+                    source_ref_id=source_ref_id,
+                )
         merged_diag["source_section_retention"] = retention_diagnostics
     if active_profile.edge_review_pass is not None:
         from src.graph_memory.extraction.worldbuilding_edge_review import (

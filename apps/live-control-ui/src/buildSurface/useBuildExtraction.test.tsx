@@ -388,7 +388,7 @@ describe("useBuildExtraction", () => {
     vi.mocked(liveApi.launchExtractionRun).mockResolvedValue(
       launchEnvelope({
         runId: RUN_A,
-        profileId: "worldbuilding_gazetteer_v1@1.5",
+        profileId: "worldbuilding_gazetteer_v1@1.6",
         artifactId: ARTIFACT_A,
         documentId: DOC_A,
         revision: 2,
@@ -405,7 +405,7 @@ describe("useBuildExtraction", () => {
       expected_revision: 2,
       expected_content_sha256: "sha-a",
       profile_id: "worldbuilding_gazetteer_v1",
-      profile_version: "1.5",
+      profile_version: "1.6",
     });
     expect(result.current.run?.run_id).toBe(RUN_A);
     expect(window.location.search).toContain(`extractionRunId=${RUN_A}`);
@@ -415,7 +415,7 @@ describe("useBuildExtraction", () => {
   it("keeps a pending launch pinned to its submitted profile", async () => {
     const response = launchEnvelope({
         runId: RUN_A,
-        profileId: "worldbuilding_gazetteer_v1@1.5",
+        profileId: "worldbuilding_gazetteer_v1@1.6",
         artifactId: ARTIFACT_A,
         documentId: DOC_A,
         revision: 2,
@@ -436,17 +436,17 @@ describe("useBuildExtraction", () => {
       expected_revision: 2,
       expected_content_sha256: "sha-a",
       profile_id: "worldbuilding_gazetteer_v1",
-      profile_version: "1.5",
+      profile_version: "1.6",
     });
     expect(result.current.run?.run_id).toBe(RUN_A);
     expect(window.location.search).toContain(`extractionRunId=${RUN_A}`);
     expect(localStorage.getItem(`dmb.buildExtractionRun.${DOC_A}`)).toBe(RUN_A);
   });
 
-  it.each(["worldbuilding_shepherds_flock_v0@0.1", "worldbuilding_gazetteer_v1@2.0", undefined])("rejects wrong or missing returned profile %s", async (returnedProfile) => {
+  it.each(["worldbuilding_shepherds_flock_v0@0.1", "worldbuilding_gazetteer_v1@1.5", "worldbuilding_gazetteer_v1@2.0", undefined])("rejects wrong or missing returned profile %s", async (returnedProfile) => {
     const response = launchEnvelope({
         runId: RUN_A,
-        profileId: "worldbuilding_gazetteer_v1@1.5",
+        profileId: "worldbuilding_gazetteer_v1@1.6",
         artifactId: ARTIFACT_A,
         documentId: DOC_A,
         revision: 2,

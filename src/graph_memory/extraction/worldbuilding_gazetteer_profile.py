@@ -1,8 +1,11 @@
 """Gazetteer definitions without inventing played episodes or individuals."""
+from copy import deepcopy
 from dataclasses import asdict, replace
+import re
+from typing import Any
 from .extraction_profile import ExtractionPassSpec, register_extraction_profile
 from .worldbuilding_extraction_profile import WORLDBUILDING_PROFILE
-from .worldbuilding_source_sections import retain_owned_sections
+from .worldbuilding_source_sections import owned_livestock_sections, retain_owned_sections
 from .worldbuilding_role_support import compile_role_support
 from .worldbuilding_edge_review import ConstrainedEdgeReviewPassSpec
 
@@ -122,4 +125,137 @@ GAZETTEER_CONSTRAINED_REVIEW_PROFILE = register_extraction_profile(replace(
     edge_review_pass=ConstrainedEdgeReviewPassSpec(
         **asdict(GAZETTEER_ADVISORY_REVIEW_PROFILE.edge_review_pass),
     ),
+))
+
+
+def _livestock_species_for_event_label(label: Any, species_labels: list[str]) -> str | None:
+    cleaned = re.sub(r"\s+", " ", str(label or "")).strip()
+    match = re.fullmatch(r"(.+?)\s+Livestock Definition", cleaned, flags=re.I)
+    if match:
+        cleaned = match.group(1).strip()
+    else:
+        match = re.fullmatch(r"Cultural Significance of (.+)", cleaned, flags=re.I)
+        if match:
+            cleaned = match.group(1).strip()
+    normalized = {re.sub(r"\s+", " ", name).strip().casefold(): name
+                  for name in species_labels}
+    return normalized.get(cleaned.casefold())
+
+
+def compile_gazetteer_livestock_hygiene(graph, rows):
+    """Retain owned livestock prose and defer its duplicate event proposals."""
+    result, diagnostics = compile_role_support(graph, rows)
+    sections = owned_livestock_sections(rows)
+    deferred_ids = {item.get("item_id") for item in result.get("deferred_items", [])}
+    deferred_proposals: dict[str, dict[str, Any]] = {}
+    removed_node_ids = set()
+    deferred_nodes = []
+
+    for node in result.get("nodes", []):
+        if node.get("node_type") != "event":
+            continue
+        evidence_span_ids = {
+            ref.get("source_span_ref_id") for ref in node.get("evidence_refs", [])
+            if isinstance(ref, dict)
+        }
+        if not evidence_span_ids or None in evidence_span_ids:
+            continue
+        matches = []
+        for section in sections:
+            species = _livestock_species_for_event_label(
+                node.get("label"), section["species_labels"],
+            )
+            if species and evidence_span_ids.issubset(set(section["source_span_ref_ids"])):
+                matches.append((section, species))
+        if len(matches) != 1:
+            continue
+        section, species = matches[0]
+        item_id = "deferred:livestock-section:node:" + str(node["node_id"])
+        if item_id in deferred_ids:
+            raise ValueError("livestock hygiene disposition identity collision")
+        refs = [ref for ref in node.get("evidence_refs", []) if isinstance(ref, dict)]
+        result.setdefault("deferred_items", []).append({
+            "item_id": item_id,
+            "label": node.get("label") or "",
+            "reason": "livestock_definition_retained_on_owner_place",
+            "evidence_refs": refs,
+            "warnings": ["source_support_policy:worldbuilding_gazetteer_v1@1.6"],
+            "suggested_next_step": (
+                f"Review the source-backed {species} section on "
+                f"{section['owner_label']}; do not treat it as a played event."
+            ),
+        })
+        deferred_proposals[item_id] = {
+            "item_id": item_id,
+            "kind": "node",
+            "proposal": deepcopy(node),
+        }
+        deferred_ids.add(item_id)
+        removed_node_ids.add(node["node_id"])
+        deferred_nodes.append(node["node_id"])
+
+    if removed_node_ids:
+        kept_nodes = [node for node in result.get("nodes", [])
+                      if node.get("node_id") not in removed_node_ids]
+        kept_edges = []
+        deferred_edges = []
+        for edge in result.get("edges", []):
+            if (edge.get("from_node_id") not in removed_node_ids
+                    and edge.get("to_node_id") not in removed_node_ids):
+                kept_edges.append(edge)
+                continue
+            item_id = "deferred:livestock-section:edge:" + str(edge["edge_id"])
+            if item_id in deferred_ids:
+                raise ValueError("livestock hygiene disposition identity collision")
+            result.setdefault("deferred_items", []).append({
+                "item_id": item_id,
+                "label": edge.get("label") or "",
+                "reason": "livestock_endpoint_deferred_with_source_definition",
+                "evidence_refs": [ref for ref in edge.get("evidence_refs", [])
+                                  if isinstance(ref, dict)],
+                "warnings": ["source_support_policy:worldbuilding_gazetteer_v1@1.6"],
+                "suggested_next_step": (
+                    "Review this proposed relationship after choosing a non-event "
+                    "representation for the retained source definition."
+                ),
+            })
+            deferred_proposals[item_id] = {
+                "item_id": item_id,
+                "kind": "edge",
+                "proposal": deepcopy(edge),
+            }
+            deferred_ids.add(item_id)
+            deferred_edges.append(edge["edge_id"])
+        result["nodes"] = kept_nodes
+        result["edges"] = kept_edges
+    else:
+        deferred_edges = []
+
+    diagnostics["livestock_semantic_hygiene"] = {
+        "profile": "worldbuilding_gazetteer_v1@1.6",
+        "deferred_node_ids": deferred_nodes,
+        "deferred_edge_ids": deferred_edges,
+        "owner_sections": len(sections),
+        "deferred_proposals": {
+            item_id: deferred_proposals[item_id]
+            for item_id in sorted(deferred_proposals)
+        },
+    }
+    return result, diagnostics
+
+
+GAZETTEER_LIVESTOCK_HYGIENE_PROFILE = register_extraction_profile(replace(
+    GAZETTEER_CONSTRAINED_REVIEW_PROFILE,
+    profile_version="1.6",
+    node_passes=tuple(replace(
+        spec,
+        instruction=spec.instruction + (
+            " A named livestock species, breed, product, or cultural description in an "
+            "explicitly owned Fantastic Livestock section is not an event. Return no "
+            "event node for it; the profile retains those exact source sections on their "
+            "owner place. Continue to extract explicitly named recurring festivals as "
+            "event definitions, never as played episodes."
+        ) if spec.pass_id == "definition_pass" else spec.instruction,
+    ) for spec in GAZETTEER_CONSTRAINED_REVIEW_PROFILE.node_passes),
+    source_section_retainer=compile_gazetteer_livestock_hygiene,
 ))

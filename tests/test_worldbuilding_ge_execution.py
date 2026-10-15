@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import multiprocessing
 from dataclasses import dataclass
@@ -61,8 +62,9 @@ class _FakeRun:
     status = SimpleNamespace(value="reviewable")
 
 
+@pytest.mark.parametrize("profile_version", ["1.5", "1.6"])
 def test_generationengine_execution_pins_exact_source_profile_and_provider(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, profile_version: str,
 ) -> None:
     from apps.live_control_server.services import worldbuilding_ge_execution as service
 
@@ -74,12 +76,13 @@ def test_generationengine_execution_pins_exact_source_profile_and_provider(
     monkeypatch.setattr(service, "BoundedRecapPassClient", _FakeBoundedClient)
     monkeypatch.setattr(service, "run_production_extraction", lambda request: captured.append(request) or SimpleNamespace(run=_FakeRun(), failure_kind=None, diagnostics=[]))
 
-    result = service.run_gazetteer_15_with_generation_engine(
+    result = service.run_gazetteer_with_generation_engine(
         repo_root=tmp_path,
         source_artifact_id=artifact.source_artifact_id,
         document_id=committed.document_id,
         document_revision=committed.revision,
         expected_content_sha256=expected_sha,
+        profile_version=profile_version,
     )
 
     assert result.run.run_id == "run-mirathorn"
@@ -89,7 +92,7 @@ def test_generationengine_execution_pins_exact_source_profile_and_provider(
     assert request.source.source_text == SOURCE
     assert (request.profile_id, request.profile_version) == (
         "worldbuilding_gazetteer_v1",
-        "1.5",
+        profile_version,
     )
     assert request.model_id == "deepseek/deepseek-v4.1-flash"
     client = _FakeBoundedClient.instances[0]
@@ -99,11 +102,15 @@ def test_generationengine_execution_pins_exact_source_profile_and_provider(
     assert client.limits.max_output_tokens == 8192
     assert client.limits.edge_max_output_tokens == 8192
     assert client.kwargs["request_context_hashes"]["source_content"] == expected_sha
+    assert client.kwargs["request_context_hashes"]["profile_identity"] == hashlib.sha256(
+        f"worldbuilding_gazetteer_v1@{profile_version}".encode()
+    ).hexdigest()
     ledger = next((tmp_path / "out/graph_memory/runs/extraction").rglob("inference_call_ledger.json"))
     ledger_json = json.loads(ledger.read_text(encoding="utf-8"))
     assert ledger_json["schema_version"] == "dmb_worldbuilding_generationengine_ledger_v1"
     assert ledger_json["document_revision"] == committed.revision
     assert ledger_json["source_sha256"] == expected_sha
+    assert ledger_json["profile_id"] == f"worldbuilding_gazetteer_v1@{profile_version}"
     assert ledger_json["run_id"] == "run-mirathorn"
     assert ledger.stat().st_mode & 0o777 == 0o600
     assert ledger.parent.stat().st_mode & 0o077 == 0
@@ -119,12 +126,13 @@ def test_generationengine_execution_rejects_digest_mismatch_before_client(
     monkeypatch.setattr(service, "BoundedRecapPassClient", _FakeBoundedClient)
 
     with pytest.raises(service.WorldbuildingExecutionInputError):
-        service.run_gazetteer_15_with_generation_engine(
+        service.run_gazetteer_with_generation_engine(
             repo_root=tmp_path,
             source_artifact_id=artifact.source_artifact_id,
             document_id=committed.document_id,
             document_revision=committed.revision,
             expected_content_sha256="0" * 64,
+            profile_version="1.6",
         )
 
     assert _FakeBoundedClient.instances == []
@@ -217,12 +225,13 @@ def test_real_ge_service_composition_tracks_conformance_and_fails_closed(
         monkeypatch.setattr(service, "_write_private_json", fail_private_ledger)
 
     def perform_run() -> Any:
-        return service.run_gazetteer_15_with_generation_engine(
+        return service.run_gazetteer_with_generation_engine(
             repo_root=tmp_path,
             source_artifact_id=artifact.source_artifact_id,
             document_id=committed.document_id,
             document_revision=committed.revision,
             expected_content_sha256=artifact.content_sha256 or "",
+            profile_version="1.5",
         )
 
     if fail_ledger:

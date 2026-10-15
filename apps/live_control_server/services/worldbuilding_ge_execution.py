@@ -32,8 +32,7 @@ from src.graph_memory.extraction.source_adapter import NormalizedExtractionSourc
 
 
 PROFILE_ID = "worldbuilding_gazetteer_v1"
-PROFILE_VERSION = "1.5"
-PROFILE_QUALIFIED = f"{PROFILE_ID}@{PROFILE_VERSION}"
+SUPPORTED_PROFILE_VERSIONS = frozenset({"1.5", "1.6"})
 
 
 class WorldbuildingExecutionInputError(ValueError):
@@ -103,32 +102,36 @@ def _fail_reviewable_run_after_ledger_error(
 
 
 def _source_context_hashes(
-    *, document_id: str, revision: int, source_artifact_id: str, source_sha256: str
+    *, document_id: str, revision: int, source_artifact_id: str,
+    source_sha256: str, profile_version: str,
 ) -> dict[str, str]:
     def digest(value: str) -> str:
         return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
     return {
         "document_identity": digest(f"{document_id}@{revision}"),
-        "profile_identity": digest(PROFILE_QUALIFIED),
+        "profile_identity": digest(f"{PROFILE_ID}@{profile_version}"),
         "source_artifact_identity": digest(source_artifact_id),
         "source_content": source_sha256,
     }
 
 
-def run_gazetteer_15_with_generation_engine(
+def run_gazetteer_with_generation_engine(
     *,
     repo_root: Path,
     source_artifact_id: str,
     document_id: str,
     document_revision: int,
     expected_content_sha256: str,
+    profile_version: str,
 ) -> ProductionExtractionResult:
-    """Run the exact registered Build revision through GE/OpenRouter DeepSeek.
+    """Run an exact registered Build revision through GE/OpenRouter DeepSeek.
 
     This creates reviewable extraction evidence only; it does not publish to a World.
     """
     root = artifact_data_root(repo_root)
+    if profile_version not in SUPPORTED_PROFILE_VERSIONS:
+        raise WorldbuildingExecutionInputError("unsupported Gazetteer profile version")
     expected_sha = expected_content_sha256.removeprefix("sha256:").strip().lower()
     if not re.fullmatch(r"[0-9a-f]{64}", expected_sha):
         raise WorldbuildingExecutionInputError("invalid expected source digest")
@@ -185,6 +188,7 @@ def run_gazetteer_15_with_generation_engine(
             revision=document_revision,
             source_artifact_id=source_artifact_id,
             source_sha256=expected_sha,
+            profile_version=profile_version,
         ),
     )
     result: ProductionExtractionResult | None = None
@@ -194,7 +198,7 @@ def run_gazetteer_15_with_generation_engine(
                 repo_root=root,
                 source=source,
                 profile_id=PROFILE_ID,
-                profile_version=PROFILE_VERSION,
+                profile_version=profile_version,
                 model_id=DEEPSEEK_MODEL,
                 allow_llm=True,
                 category_client=client,
@@ -202,6 +206,8 @@ def run_gazetteer_15_with_generation_engine(
             )
         )
         return result
+
+
     finally:
         try:
             _write_private_json(
@@ -212,7 +218,7 @@ def run_gazetteer_15_with_generation_engine(
                     "document_revision": document_revision,
                     "source_artifact_id": source_artifact_id,
                     "source_sha256": expected_sha,
-                    "profile_id": PROFILE_QUALIFIED,
+                    "profile_id": f"{PROFILE_ID}@{profile_version}",
                     "provider": "openrouter",
                     "model": DEEPSEEK_MODEL,
                     "run_id": result.run.run_id if result is not None else None,
