@@ -453,6 +453,19 @@ describe("Play selected-World admission", () => {
     expect(putWorldPlayActiveRun).not.toHaveBeenCalled();
   });
 
+  it("welcomes a World with no Runs and avoids a second empty-list notice", async () => {
+    window.history.replaceState({}, "", "/play?world=world-b&choose=1");
+    render(<PlaySurfacePage />);
+
+    const welcome = await screen.findByTestId("play-first-run-welcome");
+    expect(welcome).toHaveTextContent("An open table awaits.");
+    expect(welcome).toHaveTextContent("There are no Runs in World world-b yet.");
+    expect(welcome).toHaveTextContent("Choose a saved Runbook below, or create a blank one");
+    expect(screen.queryByText("No durable Runs are available.")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("play-existing-runs")).not.toBeInTheDocument();
+    expect(screen.getByTestId("play-run-chooser")).toBeInTheDocument();
+  });
+
   it("does not navigate through an invalid World active pointer", async () => {
     window.history.replaceState({}, "", "/play?world=world-b");
     vi.mocked(getWorldPlayActiveRun).mockResolvedValue({

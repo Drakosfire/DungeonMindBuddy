@@ -79,12 +79,14 @@ export function StartRunPanel({
   verifiedWorldId = null,
   initialPlanId = null,
   initialPlanRevisionPin = null,
+  firstRunWelcome = false,
 }: {
   onStarted: (runId: string) => void;
   productCampaignId?: string | null;
   verifiedWorldId?: string | null;
   initialPlanId?: string | null;
   initialPlanRevisionPin?: WorldStartRunExpectedSourcePin | null;
+  firstRunWelcome?: boolean;
 }) {
   const [listStatus, setListStatus] = useState<ListStatus>("loading");
   const [listDetail, setListDetail] = useState<string | null>(null);
@@ -513,7 +515,9 @@ export function StartRunPanel({
       <p className="play-muted">
         {planMode
           ? "Start an exact World Run from this saved Plan's current committed revision."
-          : "Choose one active Runbook, then start an exact Run from its current committed revision."}
+          : firstRunWelcome
+            ? "Choose a saved Runbook below or create a blank one to start shaping your first Run. Starting the Run is always explicit."
+            : "Choose one active Runbook, then start an exact Run from its current committed revision."}
       </p>
       {planMode ? (
         <>
@@ -543,7 +547,7 @@ export function StartRunPanel({
               {listDetail ?? "Runbooks are unavailable."}
             </p>
           ) : null}
-          {listStatus === "empty" ? (
+          {listStatus === "empty" && !firstRunWelcome ? (
             <p className="play-muted" data-testid="play-start-run-empty">No active Runbooks are available.</p>
           ) : null}
         </>

@@ -86,6 +86,73 @@
   font-size: 0.95rem;
 }
 
+.play-first-run-welcome {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(220px, 0.75fr);
+  gap: clamp(1rem, 3vw, 2.5rem);
+  align-items: center;
+  overflow: hidden;
+  padding: clamp(1.1rem, 3vw, 2rem);
+  border: 1px solid rgba(207, 170, 103, 0.4);
+  border-radius: 1rem;
+  background:
+    radial-gradient(ellipse at 0% 0%, rgba(109, 133, 132, 0.2), transparent 52%),
+    linear-gradient(135deg, #26313e 0%, #202a36 57%, #28333e 100%);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.play-first-run-welcome__copy { min-width: 0; }
+.play-first-run-welcome__eyebrow {
+  margin: 0 0 0.7rem;
+  color: #dfbd79;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.play-first-run-welcome__copy h2 {
+  max-width: 18ch;
+  margin: 0;
+  color: #f5e8ca;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.7rem, 3.4vw, 2.55rem);
+  line-height: 1.08;
+}
+.play-first-run-welcome__copy > p:not(.play-first-run-welcome__eyebrow) {
+  max-width: 52ch;
+  margin: 0.85rem 0 0;
+  color: #d2d9dc;
+  line-height: 1.65;
+}
+.play-first-run-welcome__copy .play-first-run-welcome__note {
+  margin-top: 0.7rem;
+  color: #aebbc1;
+  font-size: 0.87rem;
+}
+.play-first-run-welcome__art {
+  min-width: 0;
+  padding: 0.65rem 0.8rem 0.7rem;
+  border: 1px solid rgba(219, 190, 132, 0.28);
+  border-radius: 0.9rem;
+  background: linear-gradient(145deg, rgba(229, 205, 157, 0.12), rgba(150, 178, 166, 0.08));
+  transform: rotate(1deg);
+}
+.play-first-run-welcome__art svg { display: block; width: 100%; height: auto; }
+.play-first-run-welcome__map { fill: rgba(231, 211, 171, 0.08); stroke: #bba16d; stroke-width: 1.2; }
+.play-first-run-welcome__route { fill: none; stroke: #c8a654; stroke-width: 2.8; stroke-linecap: round; stroke-dasharray: 1 7; }
+.play-first-run-welcome__route--soft { stroke: #9db6aa; stroke-width: 1.25; stroke-dasharray: 3 6; }
+.play-first-run-welcome__camp-halo { fill: none; stroke: rgba(228, 184, 92, 0.42); stroke-width: 1.2; stroke-dasharray: 2 3; }
+.play-first-run-welcome__camp { fill: #dfa948; stroke: #f0d79e; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.play-first-run-welcome__star { fill: #f3dca7; }
+.play-first-run-welcome__art p { margin: 0; color: #d1d0bd; font-size: 0.8rem; line-height: 1.5; }
+.play-first-run-welcome__art strong { color: #f0d9a5; font-family: Georgia, "Times New Roman", serif; font-size: 1rem; }
+
+@media (max-width: 48rem) {
+  .play-first-run-welcome { grid-template-columns: minmax(0, 1fr); }
+  .play-first-run-welcome__art { display: grid; grid-template-columns: minmax(120px, 0.75fr) minmax(0, 1fr); align-items: center; gap: 0.65rem; }
+}
+
 .play-source-cue {
   align-self: flex-start;
   margin: -0.7rem 0 0;
