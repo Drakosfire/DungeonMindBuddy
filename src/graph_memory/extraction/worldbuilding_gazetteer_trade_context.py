@@ -35,9 +35,8 @@ _NEGATED_OR_QUALIFIED_ACCESS = re.compile(
     re.IGNORECASE,
 )
 _PLACE_OF_REFERENCE = re.compile(
-    r"\b(?:city|town|port|village|settlement|metropolis|capital)\s+of\s+"
+    r"(?i:\b(?:city|town|port|village|settlement|metropolis|capital)\s+of\s+)"
     r"(?P<name>[A-Z][A-Za-z'’.-]*(?:\s+[A-Z][A-Za-z'’.-]*)*)",
-    re.IGNORECASE,
 )
 _PREPOSITIONAL_CITY_REFERENCE = re.compile(
     r"\b(?:in|at|from|near|within|outside)\s+(?:the\s+)?"
