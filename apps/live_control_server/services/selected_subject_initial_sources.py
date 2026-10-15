@@ -119,6 +119,30 @@ def hydrate_selected_subject_sources(
                         outcome in {"denied", "unavailable", "empty"} and (not content)
                     ):
                         raise ValueError("Invalid native selected-source read")
+                    failures = [
+                        entry
+                        for entry in session.source_reads[len(before.source_reads) :]
+                        if entry.anchor_id == anchor
+                    ]
+                    anchor_state = next(
+                        (a for a in session.source_anchors if a.anchor_id == anchor),
+                        None,
+                    )
+                    if (
+                        result.get("schema") != "dmb_world_graph_source_anchor_read_v1"
+                        or row.get("receipt") is not None
+                        or len(failures) != 1
+                        or failures[0].source_read_id != row.get("sourceReadId")
+                        or failures[0].outcome != outcome
+                        or failures[0].receipt_v2 is not None
+                        or anchor_state is None
+                        or anchor_state.opened
+                        or (
+                            result.get("snapshot") is not None
+                            and not _snapshot_matches(result["snapshot"], session)
+                        )
+                    ):
+                        raise ValueError("Inconsistent native non-content read")
                     continue
                 if not result.get("schema") == "dmb_world_graph_source_anchor_read_v1":
                     raise ValueError("Invalid native selected-source read")
@@ -173,6 +197,19 @@ def hydrate_selected_subject_sources(
                 valid.append(row)
                 if outcome != "enough" or receipt.truncated:
                     partial.add(anchor)
+            appended = session.source_reads[len(before.source_reads) :]
+            if (
+                len(appended) != len(rows)
+                or len({r.source_read_id for r in appended}) != len(appended)
+                or bool(
+                    {r.source_read_id for r in appended}
+                    & {r.source_read_id for r in before.source_reads}
+                )
+                or {r.source_read_id for r in appended}
+                != {r.get("sourceReadId") for r in rows}
+                or any(r.anchor_id not in batch for r in appended)
+            ):
+                raise ValueError("Inconsistent native batch read ledger")
             if not (seen == set(batch) and characters <= remaining):
                 raise ValueError("Invalid native selected-source read")
             for operation in session.operations[len(before.operations) :]:

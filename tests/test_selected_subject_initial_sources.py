@@ -75,7 +75,9 @@ def fixture(monkeypatch, count=9, length=30, outcome="enough"):
                 "sourceDomain": "session_recap",
                 "sourceSpanRefId": request.anchor_id,
                 "locatorKind": "source_span",
-                "content": body,
+                "content": body
+                if outcome in {"enough", "partial", "truncated"}
+                else None,
                 "contentSha256": "a" * 64,
                 "truncated": outcome == "truncated",
                 "snapshot": {
@@ -262,4 +264,50 @@ def test_supplied_session_is_not_automatically_read(monkeypatch):
     assert (
         "initial_opened_source_reads"
         not in assembly.invocation.context_packet.retrieval_session.packet
+    )
+
+
+@pytest.mark.parametrize("outcome", ["denied", "unavailable", "empty"])
+def test_genuine_non_content_reads_remain_honest_failures(monkeypatch, outcome):
+    session, envelope, calls = fixture(monkeypatch, count=2, outcome=outcome)
+    result = read(session, envelope)
+    assert result["initial_opened_source_reads"] == []
+    assert result["initial_source_read_coverage"]["opened"] == 0
+    assert (
+        "selected_support_read_unavailable"
+        in result["initial_source_read_coverage"]["gapCodes"]
+    )
+    assert len(session.source_reads) == 2
+    assert all(
+        r.receipt_v2 is None and r.outcome == outcome for r in session.source_reads
+    )
+    assert not any(a.opened for a in session.source_anchors)
+
+
+@pytest.mark.parametrize("outcome", ["denied", "unavailable", "empty"])
+def test_forged_non_content_reply_rolls_back_successful_mutations(monkeypatch, outcome):
+    session, envelope, calls = fixture(monkeypatch, count=9)
+    real = hydration.execute_read_graph_source
+    count = 0
+
+    def execute(*args, **kwargs):
+        nonlocal count
+        count += 1
+        packet = real(*args, **kwargs)
+        if count == 2:
+            packet["reads"][0]["result"].update(outcome=outcome, content=None)
+        return packet
+
+    monkeypatch.setattr(hydration, "execute_read_graph_source", execute)
+    result = read(session, envelope)
+    assert len(session.source_reads) == len(get_session(session.id).source_reads) == 8
+    assert len(session.operations) == 8
+    assert not session.source_anchors[-1].opened
+    assert len(result["initial_opened_source_reads"]) == 8
+    restored = hydrate_session_from_packet(session.project_for_hermes())
+    assert len(restored.source_reads) == 8
+    assert not restored.source_anchors[-1].opened
+    assert (
+        "selected_support_batch_invalid"
+        in result["initial_source_read_coverage"]["gapCodes"]
     )
