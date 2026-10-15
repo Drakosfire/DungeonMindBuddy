@@ -21,7 +21,8 @@ extraction is distinct from retained World publication. No unchanged model repla
 - `apps/live_control_server/routes/recap_ingest.py`
 - `tests/test_recap_generationengine_default.py`
 - `tests/test_live_recap_ingest_graph_preview_api.py` (owning API fixtures adopt configured route and exact admitted citations).
-- `tests/test_bounded_recap_execution.py` (existing fake constructor seam if needed).
+- `tests/test_bounded_recap_execution.py`
+- `src/graph_memory/extraction/bounded_recap_execution.py` (derive profile-sized technical pass budget; preserve per-call/run deadlines).
 
 UI model-control hunk lease transferred from DOGFOOD to PRIME by explicit
 coordination (DOGFOOD acknowledged); #1191

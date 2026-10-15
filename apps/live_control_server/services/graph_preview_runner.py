@@ -153,6 +153,7 @@ def run_recap_production_extraction(
         ).resolve()
         if not output_dir.is_relative_to(repo_root):
             raise ValueError("extraction output must be inside the artifact repository")
+    profile_id, profile_version = resolve_legacy_graph_extraction_profile(profile)
     default_ge = allow_llm and category_client is None and execution_limits is None
     if default_ge:
         if model_id not in (None, DEEPSEEK_MODEL):
@@ -160,8 +161,28 @@ def run_recap_production_extraction(
                 "ordinary recap extraction requires the configured DeepSeek GenerationEngine route"
             )
         model_id = DEEPSEEK_MODEL
+        from src.graph_memory.extraction.extraction_profile import (
+            get_extraction_profile,
+        )
+
+        selected_profile = get_extraction_profile(profile_id, profile_version)
+        # Each configured pass runs once; party fill may be skipped when absent.
+        # This is an execution plan budget, not a provider authorization cap.
+        pass_budget = (
+            len(selected_profile.node_passes)
+            + int(selected_profile.beat_pass is not None)
+            + int(
+                selected_profile.enable_encounter_job_pass
+                and selected_profile.encounter_job_pass is not None
+            )
+            + 1  # relationship pass
+            + int(selected_profile.enable_party_claimed_fill)
+            + int(selected_profile.edge_review_pass is not None)
+        )
         execution_limits = RecapExecutionLimits(
-            provider="openrouter", model=DEEPSEEK_MODEL
+            provider="openrouter",
+            model=DEEPSEEK_MODEL,
+            max_calls=pass_budget,
         )
         if output_dir is None:
             output_dir = (
@@ -190,7 +211,6 @@ def run_recap_production_extraction(
         if not default_ge:
             bounded = BoundedRecapPassClient(execution_limits)
             category_client = bounded
-    profile_id, profile_version = resolve_legacy_graph_extraction_profile(profile)
     artifact = create_recap_source_artifact(
         repo_root,
         campaign_id=campaign_id,

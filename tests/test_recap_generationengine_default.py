@@ -203,3 +203,28 @@ def test_injected_client_does_not_construct_default_ge(ordinary, monkeypatch):
     invoke(root, category_client=sentinel, model_id="synthetic-model")
     assert not engine.requests
     assert not (root / "new-run" / "inference_call_ledger.json").exists()
+
+
+def test_encounter_profile_budget_finishes_nine_planned_invocations(
+    ordinary, monkeypatch
+):
+    root, engine, result = ordinary
+
+    def run(request):
+        assert request.profile_id == "recap_category_encounter_job_preview"
+        assert request.category_client.limits.max_calls == 9
+        for _ in range(9):
+            request.category_client.run_pass(
+                "actor_pass",
+                model_id=request.model_id,
+                instructions="synthetic pass",
+                user_content="Ari",
+            )
+        return result
+
+    monkeypatch.setattr(service, "run_production_extraction", run)
+    invoke(root, profile="category_encounter_job_preview")
+    assert len(engine.requests) == 9
+    ledger = json.loads((root / "new-run" / "inference_call_ledger.json").read_text())
+    assert ledger["pass_invocation_limit"] == 9
+    assert ledger["pass_invocation_count"] == 9
