@@ -157,3 +157,20 @@ conversation dock. The four owning suites pass 60 tests, TypeScript passes,
 the production build passes with the existing chunk-size warning, and
 `git diff --check` passes. This follow-up is part of PR #1183 and still needs
 an exact-head review and rendered 5203 check; 5202 remains unchanged.
+
+## Welcoming first-page treatment
+
+The no-source Build landing now reads as a worldbuilding welcome rather than a
+set of instructions: a warm editorial headline, a small decorative map-and-page
+illustration, and three clearly named ways to continue (open, start, or import).
+The illustration is decorative and hidden from assistive technology. The landing
+does not write placeholder text into a document, select a source, or create one
+automatically. The welcome stays inside the existing paper frame and shares the
+same World tools and conversation dock.
+
+The owning Build page/context/shell suites pass 49 tests. The UI app TypeScript
+check passes with its build-info output redirected to `/tmp`; the production Vite
+build passes with the existing large-chunk warning, and `git diff --check`
+passes. This is a visual refinement within the existing Build landing lease.
+Rendered desktop/narrow acceptance still awaits the recorded preview gates; no
+runtime or 5202 change is included.

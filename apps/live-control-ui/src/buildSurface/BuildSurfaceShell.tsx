@@ -103,41 +103,102 @@ export function BuildEmptyLanding({ loadStatus }: { loadStatus: "idle" | "loadin
         className={`build-surface-shell build-empty-landing${hasError ? " build-empty-landing--error" : ""}`}
         data-testid="build-surface-empty"
         aria-busy={isLoading}
+        aria-labelledby="build-empty-landing-title"
       >
-        <div className="build-empty-landing__hero">
-          <span className="build-empty-landing__mark" aria-hidden="true">✧</span>
-          <p className="build-empty-landing__eyebrow">BUILD · WORLDBUILDING</p>
-          <h1>{hasError ? "That source could not be opened." : "Give this world a place to begin."}</h1>
-          <p className="build-empty-landing__intro">
-            {hasError
-              ? "Choose another source above, or start a fresh page from Source actions."
-              : "Open an existing source, start a blank page, or bring in lore you already have. Your work will live here as an editable document."}
-          </p>
+        <div className="build-empty-landing__welcome">
+          <div className="build-empty-landing__hero">
+            <p className="build-empty-landing__eyebrow">YOUR WORLDBUILDING STUDIO</p>
+            <h1 id="build-empty-landing-title">
+              {hasError ? (
+                "That page took a wrong turn."
+              ) : (
+                <>
+                  Start with a spark.<br />
+                  <em>Build a world around it.</em>
+                </>
+              )}
+            </h1>
+            <p className="build-empty-landing__intro">
+              {hasError
+                ? "Choose another page from the Build bar, or start fresh from Source actions."
+                : "A place, a person, a strange rumor—give one idea a page, then let the rest of the world grow around it."}
+            </p>
+          </div>
+          <div className="build-empty-landing__illustration" aria-hidden="true">
+            <svg viewBox="0 0 420 240" role="presentation" aria-hidden="true" focusable="false">
+              <path
+                className="build-empty-landing__contour"
+                d="M31 178c43-58 85-59 120-32s57 32 87-2 75-43 151 3M22 202c51-41 94-41 129-16s59 24 92-5 78-39 150-2M70 145c30-39 57-40 83-20s45 23 66 0 52-31 96-10"
+              />
+              <path
+                className="build-empty-landing__route"
+                d="M75 106c47 0 49 52 100 52s54-74 107-74 53 50 88 50"
+              />
+              <circle className="build-empty-landing__node" cx="75" cy="106" r="7" />
+              <circle className="build-empty-landing__node" cx="175" cy="158" r="7" />
+              <circle className="build-empty-landing__node" cx="282" cy="84" r="7" />
+              <circle className="build-empty-landing__node" cx="370" cy="134" r="7" />
+              <g className="build-empty-landing__page" transform="translate(177 48) rotate(-5 34 43)">
+                <path d="M8 3h47l14 14v66H8z" />
+                <path d="M55 3v15h14M19 34h38M19 44h31M19 54h35M19 64h25" />
+                <path
+                  className="build-empty-landing__page-star"
+                  d="m18 20 2.2 4.5 4.8.7-3.5 3.4.8 4.8-4.3-2.3-4.3 2.3.8-4.8-3.5-3.4 4.8-.7z"
+                />
+              </g>
+              <path
+                className="build-empty-landing__spark"
+                d="m328 37 3 7 7 3-7 3-3 7-3-7-7-3 7-3zM112 46l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"
+              />
+            </svg>
+            <div className="build-empty-landing__illustration-caption">
+              <span>PLACES</span><i /> <span>PEOPLE</span><i /> <span>WHAT-IFS</span>
+            </div>
+          </div>
         </div>
         {isLoading ? (
           <p className="build-empty-landing__status" role="status">Finding your worldbuilding sources…</p>
         ) : hasError ? (
           <p className="build-empty-landing__status" role="alert">The requested source is unavailable. You can choose another from the Build bar.</p>
         ) : (
-          <div className="build-empty-landing__paths" aria-label="Ways to begin">
-            <section>
-              <span>01 · OPEN</span>
-              <h2>Choose a source</h2>
-              <p>Return to a saved worldbuilding document from the source selector above.</p>
-            </section>
-            <section>
-              <span>02 · CREATE</span>
-              <h2>Start a blank page</h2>
-              <p>Open Source actions in the Build bar and choose New source.</p>
-            </section>
-            <section>
-              <span>03 · IMPORT</span>
-              <h2>Bring in your lore</h2>
-              <p>Use Import source to bring existing Markdown into this world.</p>
-            </section>
-          </div>
+          <section className="build-empty-landing__begin" aria-labelledby="build-empty-landing-steps">
+            <p className="build-empty-landing__eyebrow" id="build-empty-landing-steps">CHOOSE YOUR FIRST STEP</p>
+            <div className="build-empty-landing__paths" aria-label="Ways to begin">
+              <section>
+                <span className="build-empty-landing__step">01</span>
+                <div>
+                  <p className="build-empty-landing__path-label">PICK UP WHERE YOU LEFT OFF</p>
+                  <h2>Open a page</h2>
+                  <p>Choose a saved worldbuilding source in the Build bar above.</p>
+                </div>
+              </section>
+              <section>
+                <span className="build-empty-landing__step">02</span>
+                <div>
+                  <p className="build-empty-landing__path-label">BEGIN WITH A CLEAN PAGE</p>
+                  <h2>Start something new</h2>
+                  <p>
+                    Choose <strong>New source</strong> in Source actions and give your idea a title.
+                  </p>
+                </div>
+              </section>
+              <section>
+                <span className="build-empty-landing__step">03</span>
+                <div>
+                  <p className="build-empty-landing__path-label">ALREADY HAVE NOTES?</p>
+                  <h2>Bring your lore</h2>
+                  <p>
+                    Choose <strong>Import source</strong> to continue from existing Markdown.
+                  </p>
+                </div>
+              </section>
+            </div>
+          </section>
         )}
-        <p className="build-empty-landing__footnote">The document, world tools, and conversation share this workspace.</p>
+        <p className="build-empty-landing__footnote">
+          <span aria-hidden="true">✦</span>
+          Nothing is created until you choose to begin. Your page and its world tools share this workspace.
+        </p>
       </main>
     </div>
   );

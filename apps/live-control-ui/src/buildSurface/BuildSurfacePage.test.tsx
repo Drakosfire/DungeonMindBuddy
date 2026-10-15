@@ -216,10 +216,12 @@ describe("BuildSurfacePage", () => {
     expect(landing).toHaveClass("build-empty-landing");
     expect(landing.closest(".build-surface-shell")).toBe(landing);
     expect(landing.closest('[data-document-surface="build"]')).not.toBeNull();
-    expect(landing).toHaveTextContent("Give this world a place to begin.");
-    expect(landing).toHaveTextContent("Choose a source");
-    expect(landing).toHaveTextContent("Start a blank page");
-    expect(landing).toHaveTextContent("Bring in your lore");
+    expect(landing).toHaveTextContent("Start with a spark.");
+    expect(landing).toHaveTextContent("Build a world around it.");
+    expect(landing).toHaveTextContent("Open a page");
+    expect(landing).toHaveTextContent("Start something new");
+    expect(landing).toHaveTextContent("Bring your lore");
+    expect(landing.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
     expect(container.querySelector(".plan-conversation-dock")).toBeInTheDocument();
     expect(screen.getByText("Source actions")).toBeInTheDocument();
     expect(screen.getByTestId("build-document-create-open")).toBeInTheDocument();
