@@ -218,7 +218,9 @@ def schema_for_pass_spec(pass_spec: Any) -> dict[str, Any]:
     if kind == "edge":
         return category_edge_pass_json_schema()
     if kind == "claimed_fill":
-        return party_claimed_fill_json_schema()
+        return party_claimed_fill_json_schema(
+            getattr(pass_spec, "source_row_indexes", None)
+        )
     if kind == "encounter_job":
         return category_node_pass_json_schema(
             include_dispositions=False,

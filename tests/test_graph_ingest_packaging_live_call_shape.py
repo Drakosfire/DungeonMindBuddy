@@ -121,6 +121,9 @@ def _run_live_call_shape(
         session_id="session-24",
         source_artifact_id=artifact.source_artifact_id,
     )
+    # The supplied synthetic candidate must cite this admitted source, not the
+    # fixture's unrelated session-only legacy ID. Production must not rebind IDs.
+    graph["evidence_refs"][0]["span_id"] = span_payload["spans"][0]["source_span_id"]
     candidate.write_text(json.dumps(graph, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     options_kwargs: dict[str, Any] = {

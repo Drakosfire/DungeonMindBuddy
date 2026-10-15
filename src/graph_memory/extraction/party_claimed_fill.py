@@ -12,7 +12,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
-from src.graph_memory.extraction.recap_extraction_profile import EVIDENCE_RULE
+from src.graph_memory.anchor_quotes import quote_found_in_paragraph
+from src.graph_memory.extraction.extraction_profile import ExtractionPassSpec
 
 STUB_DESCRIPTION = "Deterministic party context anchor"
 CLAIMABLE_KINDS = frozenset({"pc", "companion"})
@@ -20,19 +21,34 @@ PASS_NAME = "pc_claimed_fill_pass"
 PASS_PROGRESS_LABEL = "Filling claimed party nodes"
 
 
-def party_claimed_fill_json_schema() -> dict[str, Any]:
+@dataclass(frozen=True)
+class SourceBoundPartyFillSpec(ExtractionPassSpec):
+    source_row_indexes: tuple[int, ...] = ()
+
+
+def party_claimed_fill_json_schema(
+    source_row_indexes: Sequence[int] | None = None,
+) -> dict[str, Any]:
     """Production fill schema: filled_nodes only (no participation edges)."""
     evidence_ref = {
         "type": "object",
         "additionalProperties": False,
         "properties": {
-            "source_span_ref_id": {"type": "string"},
+            "source_row_index": {
+                "type": "integer",
+                "minimum": 0,
+                **(
+                    {"enum": list(source_row_indexes)}
+                    if source_row_indexes is not None
+                    else {}
+                ),
+            },
             "anchor_quotes": {
                 "type": "array",
                 "items": {"type": "string"},
             },
         },
-        "required": ["source_span_ref_id", "anchor_quotes"],
+        "required": ["source_row_index", "anchor_quotes"],
     }
     filled_node = {
         "type": "object",
@@ -150,7 +166,9 @@ def build_claims_from_mentions(
         claims.append(
             ClaimedEntity(
                 node_id=node_id,
-                label=str(head.get("display_name") or head.get("entity_slug") or node_id),
+                label=str(
+                    head.get("display_name") or head.get("entity_slug") or node_id
+                ),
                 entity_kind=str(head.get("entity_kind") or ""),
                 entity_slug=str(head.get("entity_slug") or ""),
                 mention_count=len(rows),
@@ -183,9 +201,7 @@ def build_claim_packet(
             baseline_nodes_by_id[str(raw["node_id"])] = dict(raw)
 
     allowed_targets = sorted(
-        nid
-        for nid in baseline_nodes_by_id
-        if nid not in {c.node_id for c in claims}
+        nid for nid in baseline_nodes_by_id if nid not in {c.node_id for c in claims}
     )
     return ClaimPacket(
         claims=claims,
@@ -195,7 +211,11 @@ def build_claim_packet(
     )
 
 
-def render_owned_claims_markdown(claims: Sequence[ClaimedEntity]) -> str:
+def render_owned_claims_markdown(
+    claims: Sequence[ClaimedEntity],
+    source_rows: Sequence[Mapping[str, Any]] = (),
+) -> str:
+    row_indexes = {row["source_span_ref_id"]: i for i, row in enumerate(source_rows)}
     lines = [
         "## Owned / authored claims (DO NOT invent new party IDs)",
         "",
@@ -204,26 +224,32 @@ def render_owned_claims_markdown(claims: Sequence[ClaimedEntity]) -> str:
         "",
     ]
     for claim in claims:
-        spans = ", ".join(f"`{s}`" for s in claim.source_span_ref_ids) or "(none)"
+        spans = (
+            ", ".join(
+                str(row_indexes[s])
+                for s in claim.source_span_ref_ids
+                if s in row_indexes
+            )
+            or "(none)"
+        )
         surfaces = ", ".join(repr(s) for s in claim.surface_texts) or "(none)"
         lines.append(
             f"- **{claim.entity_kind}** `{claim.node_id}` label={claim.label!r} "
-            f"surfaces=[{surfaces}] spans=[{spans}] mentions={claim.mention_count}"
+            f"surfaces=[{surfaces}] source_rows=[{spans}] mentions={claim.mention_count}"
         )
     return "\n".join(lines)
 
 
 def _source_packet_md(source_rows: Sequence[Mapping[str, Any]]) -> str:
     blocks: list[str] = []
-    for row in source_rows:
-        spref = row.get("source_span_ref_id")
+    for index, row in enumerate(source_rows):
         text = str(row.get("text") or "")
-        blocks.append(f"### `{spref}`\n\n{text}")
+        blocks.append(f"### Source row {index}\n\n{text}")
     return "\n\n".join(blocks) if blocks else "_No source spans._"
 
 
 def render_fill_prompt(packet: ClaimPacket) -> str:
-    claims_md = render_owned_claims_markdown(packet.claims)
+    claims_md = render_owned_claims_markdown(packet.claims, packet.source_rows)
     src = _source_packet_md(packet.source_rows)
     return (
         "# Claimed Party Node Fill Pass\n\n"
@@ -237,10 +263,120 @@ def render_fill_prompt(packet: ClaimPacket) -> str:
         "bullet-like phrases grounded in the source. Prefer action/state quotes in "
         "`evidence_refs.anchor_quotes` — not bare name-only quotes when richer text exists.\n\n"
         "Do NOT invent new party node IDs. Do NOT emit edges in this pass.\n\n"
-        f"{EVIDENCE_RULE}\n\n"
+        "Each evidence ref MUST contain `source_row_index` (the numbered source row) "
+        "and nonempty `anchor_quotes` copied from that exact row. Never output "
+        "source IDs or cite a different row for a quote.\n\n"
         "## Source Packet (claimed spans)\n\n"
         f"{src}\n"
     )
+
+
+def bind_fill_evidence(
+    packet: ClaimPacket,
+    parsed: Mapping[str, Any],
+) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+    """Validate the whole fill before binding host-owned immutable source IDs.
+
+    Rejection is atomic: callers retain their sanitized baseline unchanged.
+    Literal quote matching uses the shared normalized single-paragraph policy;
+    this does not establish semantic entailment of the generated description.
+    """
+    errors: list[str] = []
+    claims = {claim.node_id: claim for claim in packet.claims}
+    offered = parsed.get("filled_nodes")
+    seen: set[str] = set()
+    bound: list[dict[str, Any]] = []
+    if set(parsed) != {"filled_nodes"} or not isinstance(offered, list):
+        errors.append("invalid_fill_shape")
+        offered = []
+    for raw in offered:
+        if not isinstance(raw, Mapping):
+            errors.append("invalid_node_shape")
+            continue
+        node_id = raw.get("node_id")
+        if not isinstance(node_id, str) or node_id not in claims or node_id in seen:
+            errors.append("unknown_or_duplicate_node")
+            continue
+        seen.add(node_id)
+        if node_id not in packet.baseline_nodes_by_id:
+            errors.append("missing_baseline_node")
+        expected_fields = {
+            "node_id",
+            "label",
+            "node_type",
+            "description",
+            "importance",
+            "evidence_refs",
+            "session_actions",
+        }
+        if (
+            set(raw) != expected_fields
+            or any(
+                not isinstance(raw.get(key), str) or not raw[key].strip()
+                for key in ("label", "node_type", "description")
+            )
+            or raw.get("label") != claims[node_id].label
+            or raw.get("importance") not in ("high", "medium", "low")
+            or not isinstance(raw.get("session_actions"), list)
+            or any(
+                not isinstance(action, str) or not action.strip()
+                for action in (
+                    raw.get("session_actions")
+                    if isinstance(raw.get("session_actions"), list)
+                    else []
+                )
+            )
+        ):
+            errors.append("invalid_node_fields")
+        refs = raw.get("evidence_refs")
+        if not isinstance(refs, list) or not refs:
+            errors.append("missing_evidence")
+            continue
+        normalized = []
+        for ref in refs:
+            if not isinstance(ref, Mapping) or set(ref) != {
+                "source_row_index",
+                "anchor_quotes",
+            }:
+                errors.append("invalid_evidence_shape")
+                continue
+            index = ref.get("source_row_index")
+            if type(index) is not int or not 0 <= index < len(packet.source_rows):
+                errors.append("unknown_source_row")
+                continue
+            row = packet.source_rows[index]
+            span_id = row.get("source_span_ref_id")
+            if not isinstance(span_id, str) or not span_id:
+                errors.append("invalid_packet_source")
+                continue
+            quotes = ref.get("anchor_quotes")
+            if (
+                not isinstance(quotes, list)
+                or not quotes
+                or any(
+                    not isinstance(q, str)
+                    or not q.strip()
+                    or not quote_found_in_paragraph(str(row.get("text") or ""), q)
+                    for q in quotes
+                )
+            ):
+                errors.append("quote_not_in_selected_row")
+                continue
+            normalized.append(
+                {"source_span_ref_id": span_id, "anchor_quotes": list(quotes)}
+            )
+        bound.append({**raw, "evidence_refs": normalized})
+    if seen != set(claims):
+        errors.append("incomplete_claim_coverage")
+    diag = {
+        "evidence_binding_valid": not errors,
+        "enrichment_complete": not errors,
+        "binding_errors": errors,
+        "binding_error_count": len(errors),
+        "invalid_source_row_count": errors.count("unknown_source_row"),
+        "quote_mismatch_count": errors.count("quote_not_in_selected_row"),
+    }
+    return ({"filled_nodes": bound} if not errors else None), diag
 
 
 def apply_fill_to_nodes(
@@ -252,9 +388,7 @@ def apply_fill_to_nodes(
     """Enrich matching nodes in-place-copied list; ignore unknown / invented IDs."""
     out = [dict(n) for n in nodes if isinstance(n, Mapping)]
     by_id = {
-        str(n.get("node_id")): n
-        for n in out
-        if str(n.get("node_id") or "").strip()
+        str(n.get("node_id")): n for n in out if str(n.get("node_id") or "").strip()
     }
     applied = 0
     skipped_missing_anchor = 0
@@ -272,8 +406,12 @@ def apply_fill_to_nodes(
             skipped_missing_anchor += 1
             continue
         node = by_id[node_id]
-        node["description"] = str(raw.get("description") or node.get("description") or "")
-        node["importance"] = str(raw.get("importance") or node.get("importance") or "high")
+        node["description"] = str(
+            raw.get("description") or node.get("description") or ""
+        )
+        node["importance"] = str(
+            raw.get("importance") or node.get("importance") or "high"
+        )
         if raw.get("evidence_refs"):
             node["evidence_refs"] = list(raw["evidence_refs"])
         warnings = [

@@ -24,6 +24,7 @@ This proves provenance, not natural-language entailment.
 - `src/graph_memory/extraction/graph_ingest_packaging.py`
 - `tests/test_party_claimed_fill.py`
 - `tests/test_party_fill_source_binding.py`
+- `tests/test_graph_ingest_packaging_live_call_shape.py` (bind its synthetic supplied-candidate citation to the exact admitted source index; no legacy-ID rebinding in production).
 
 Open relevant PRs and existing leases inspected; prior PRIME extraction lanes are
 frozen/merged predecessors, not concurrent writers. DOGFOOD owns UI changes and
