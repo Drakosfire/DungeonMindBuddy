@@ -3504,8 +3504,8 @@ export function WorldPlanAgentConversation({
         owner_scope: { kind: "world", world_id: source.worldId },
         primary_work: { kind: "build", object_id: source.documentId, expected_revision: source.revision, expected_content_sha256: source.contentSha256 },
         client_work_state: source.dirty ? "saved_dirty" : "saved_clean",
-        graph_request: { mode: "world", world_id: source.worldId, campaign_id: null, revision_pin: null,
-          focus: { kind: "none", session_id: null, campaign_id: null } }, graph_selection: null, message,
+        graph_request: useWorldGraphForAsk ? { mode: "world", world_id: source.worldId, campaign_id: null, revision_pin: null,
+          focus: { kind: "none", session_id: null, campaign_id: null } } : { mode: "none" }, graph_selection: null, message,
       };
       const storageKey = pendingPlayTurnStorageKey(source.worldId);
       const serialized = JSON.stringify({ schema: "dmb_world_play_pending_turn_v1", request });
@@ -5588,7 +5588,8 @@ export function WorldPlanAgentConversation({
           headerActions={<>{newConversationButton}<details className="plan-conversation-dock__management" aria-label="Conversation options">
             <summary>Conversation options</summary><div>{headerActions}{managementDetails}</div>
           </details></>}
-          contextDetails={isBuild ? <><LoadedWorldGraphExplorer /><p>Buddy uses the saved source{buildMode?.savedSource?.title ? ` “${buildMode.savedSource.title}”` : ""}. Unsaved edits stay in the editor. Source material is separate from admitted World Graph facts. World retrieval is available for this question.</p></> : <p>Buddy uses the verified current World Run. Each submitted turn keeps its original moment.</p>}
+          contextDetails={isBuild ? <><LoadedWorldGraphExplorer /><p>Buddy uses the saved source{buildMode?.savedSource?.title ? ` “${buildMode.savedSource.title}”` : ""}. Unsaved edits stay in the editor. Source material is separate from admitted World Graph facts. World retrieval is available for this question.</p><button type="button" aria-pressed={useWorldGraphForAsk}
+            onClick={() => setUseWorldGraphForAsk(value => !value)}>Use {worldName} facts · {useWorldGraphForAsk ? "On" : "Off"}</button></> : <p>Buddy uses the verified current World Run. Each submitted turn keeps its original moment.</p>}
           messages={<div ref={playMessagesHostRef} className="plan-conversation-dock__messages">{messages}</div>}
           composer={<div className="plan-conversation-dock__composer">{composer}
             {!currentReadOnlyContext ? <p role="status">{isBuild ? "Save a World source to ask Buddy about it." : "Choose a verified World Run to ask about Play."}</p> : null}

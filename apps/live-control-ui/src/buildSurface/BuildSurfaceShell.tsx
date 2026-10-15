@@ -74,7 +74,7 @@ function BuildPresentableSourceView({
 
   useEffect(() => {
     onEditorTools?.({ target: { kind: "document", id: session.record!.document_id },
-      tools: { sections: [{ id: "document", title: "Document", defaultOpen: true, actions: [],
+      tools: { sections: [{ id: "build-document", title: "Document", defaultOpen: true, actions: [],
         panel: <><div className="shared-document-mode" aria-label="Source view mode">
           <button type="button" data-testid="build-source-mode-read" aria-label="Read source" aria-pressed={sourceViewMode === "read"}
             onClick={() => setSourceViewMode("read")}>Read source</button>
@@ -343,7 +343,7 @@ export function BuildSurfaceShell({ onEditorTools }: { onEditorTools?: (tools: A
   };
 
   return (
-    <div className="build-surface-with-graph-context">
+    <div className="build-surface-with-graph-context" data-document-surface="build">
       {graphPointer && acceptedDocumentCampaignId ? (
         <BuildGraphObjectContext
           documentCampaignId={acceptedDocumentCampaignId}

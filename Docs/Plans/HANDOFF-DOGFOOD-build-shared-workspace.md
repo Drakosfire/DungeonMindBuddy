@@ -216,3 +216,16 @@ switching to Plan and reopening a frozen Play request (composer disabled expecta
 Do not report a clean baseline or hide these during final integration verification.
 Snapshot text/digests follow existing registry normalized-newline semantics; do not
 claim a distinct raw-file-byte hash or change the source normalization contract.
+
+Implementation evidence (before rendered review): 80 focused UI tests pass, including
+Build-to-Plan transcript continuity, exact Build request pins, and durable server-ID
+correlation with wrong-key/hash rejection. Shared Edit host opens document modes and
+canonical outline once; no Build-local mode row. Source/turn-service regression run:
+157 passed with 2 known Plan policy cases deselected; additional real PostgreSQL
+Build completed replay test passes with one runtime dispatch after deleting current
+source body. Two Plan fake-policy cases also fail on exact parent f1ef5ba5 in the
+isolated archive; parent failure reaches a model-capacity guard while checkout run
+reaches the missing fake-service method guard. Neither is claimed green. Initial
+54329 DBfixture errors resolved by disposable tests on existing54331, without
+modifying serving databases. Python Ruff and production UI build pass; inherited
+React act warnings and production chunk-size warning remain. No real model call.

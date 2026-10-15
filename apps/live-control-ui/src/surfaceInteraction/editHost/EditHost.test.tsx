@@ -150,7 +150,7 @@ describe("EditHost", () => {
     expect(screen.queryByRole("button", { name: "Close Edit" })).not.toBeInTheDocument();
   });
 
-  it("keeps Plan Edit closed by default while other dock surfaces stay open", () => {
+  it("keeps document surfaces closed by default while generic dock surfaces stay open", () => {
     const planPublication = makePublication({
       surfaceId: "plan",
       identity: buildSurfaceInteractionIdentity({ surfaceId: "plan", instanceParts: ["edit-host"] }),
@@ -168,7 +168,7 @@ describe("EditHost", () => {
       editCommands: [makeEdit({ id: "save", label: "Save" })],
     });
     renderEditHost(<Publisher publication={buildPublication} />, { layout: "dock" });
-    expect(screen.getByRole("button", { name: "Close Edit" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Close Edit" })).not.toBeInTheDocument();
   });
 
   it("exposes aria-pressed and disabled reasons from contribution fields", async () => {

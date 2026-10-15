@@ -372,6 +372,37 @@ describe("one App-level World conversation host across Plan and Play", () => {
     await screen.findByText("Frank and Sara operate the Rocky Talkie.");
   });
 
+  it.each(["correct", "wrong_hash", "wrong_key"] as const)("recovers Build using the durable correlation and exact source basis: %s", async scenario => {
+    let current: WorldAgentConversationHistoryResponse = history();
+    let submitted!: WorldBuildAgentTurnRequestV1;
+    vi.mocked(getWorldAgentConversationHistory).mockImplementation(async () => current);
+    vi.mocked(postWorldBuildAgentTurn).mockImplementation(async request => {
+      submitted = request;
+      throw new Error("Connection lost after submit");
+    });
+    render(<Harness initial="build" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled());
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Who operates the radio?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await waitFor(() => expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    await screen.findByText(/Connection lost after submit/);
+    current = { ...history(), schema: "dmb_agent_conversation_history_v3", turns: [{
+      ...turn("plan", 1, "Frank and Sara operate the Rocky Talkie."),
+      turn_id: "00000000-0000-4000-8000-000000000055", user_text: submitted.message,
+      idempotency_key: scenario === "wrong_key" ? "00000000-0000-4000-8000-000000000099" : await expectedHistoryCorrelationKey(WORLD, submitted.turn_id),
+      provenance: { ...turn("plan", 1, "").provenance, surface_id: "build", surface_instance_id: "build-instance",
+        primary_work: { resolution: "resolved", kind: "build", object_id: "source-one", revision: "2",
+          content_sha256: scenario === "wrong_hash" ? "b".repeat(64) : SHA,
+          object_revision: null, work_revision_id: null, revision_n: null } },
+    }] };
+    fireEvent.click(screen.getByRole("button", { name: "Refresh shared history fixture" }));
+    await screen.findByText("Frank and Sara operate the Rocky Talkie.");
+    if (scenario === "correct") await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled());
+    else expect(screen.getByLabelText("Message DungeonBuddy")).toBeDisabled();
+    expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps Build composer closed to unverified or unsaved source context", async () => {
     render(<Harness initial="build" admitted={false} />);
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));

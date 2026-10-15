@@ -55,7 +55,7 @@ function targetsMatch(
 }
 
 function layoutDefaultOpen(layout: "overlay" | "dock", surfaceId: string | null): boolean {
-  return layout === "dock" && surfaceId !== "plan";
+  return layout === "dock" && surfaceId !== "plan" && surfaceId !== "build";
 }
 
 function mergeGroupsWithPanels(

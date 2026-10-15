@@ -26,7 +26,7 @@ export function BuildSurfacePage() {
   }, [controller.activeRecord]);
 
   return (
-    <AppChrome activeRoute="build" editorTools={editorTools} editToolboxLayout="overlay">
+    <AppChrome activeRoute="build" editorTools={editorTools} editToolboxLayout="dock">
       {controller.activeDocumentId ? (
         <MarkdownCanvasSessionProvider
           key={controller.activeDocumentId}
