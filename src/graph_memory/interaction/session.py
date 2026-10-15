@@ -253,6 +253,14 @@ class GraphRetrievalSession(BaseModel):
             ],
             "diagnostics": list(self.diagnostics),
         }
+        if self.source_reads:
+            packet["source_reads"] = [
+                read.model_dump(mode="json", by_alias=True) for read in self.source_reads
+            ]
+            packet["operations"] = [
+                operation.model_dump(mode="json", by_alias=True)
+                for operation in self.operations
+            ]
         if isinstance(self.latest_recap_change, dict):
             packet["latest_recap_change"] = dict(self.latest_recap_change)
         return packet
