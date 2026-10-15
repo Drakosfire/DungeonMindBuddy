@@ -74,6 +74,7 @@ import { createPlanSessionDescriptor } from "./config/planSessionDescriptor";
 import { EditCapabilityProvider } from "./edit/editCapability";
 import { PlanGraphLensProvider } from "./PlanGraphLensContext";
 import { PlanGraphReferenceResolverProvider } from "./reference/usePlanGraphReferenceResolver";
+import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
 import {
   WorldGraphLensProjectionProvider,
   WorldGraphLensProvider,
@@ -441,7 +442,6 @@ describe("PlanSurfaceShell", () => {
     const user = userEvent.setup();
     await waitFor(() => expect(planShellTestEditor).not.toBeNull());
     await openPlanEditTools();
-    await user.click(screen.getByRole("button", { name: /Unlock editing/ }));
     await user.click(await screen.findByRole("button", { name: "Open" }));
     await user.click(screen.getByRole("button", { name: "Capture Plan target" }));
     expect(screen.getByTestId("plan-compose-target")).toHaveTextContent("Insert at caret");
@@ -1953,6 +1953,12 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
+    await act(async () => {
+      planShellTestEditor?.commands.setContent(
+        markdownToTiptapDoc("[North Reach Gate](#dmb-ref:location:north-reach-gate)").doc,
+      );
+    });
+
     await waitFor(() => {
       expect(screen.getByLabelText("Find objects")).toBeInTheDocument();
     });
@@ -1998,6 +2004,11 @@ describe("PlanSurfaceShell", () => {
     });
     renderPlanSurface();
     await waitForPlanSurfaceReady();
+    await act(async () => {
+      planShellTestEditor?.commands.setContent(
+        markdownToTiptapDoc("[North Reach Gate](#dmb-ref:location:north-reach-gate)").doc,
+      );
+    });
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
     await user.click(screen.getByRole("button", { name: "Recap" }));
@@ -2079,6 +2090,7 @@ describe("PlanSurfaceShell", () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
 
+    await user.click(screen.getByRole("button", { name: "Use session-prep outline" }));
     await openPlanEditTools();
     await user.click(screen.getByRole("button", { name: "Save to Markdown" }));
 
@@ -2180,6 +2192,10 @@ describe("PlanSurfaceShell", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("plan-surface-canvas-editor")).toBeInTheDocument();
+    });
+    await waitFor(() => expect(planShellTestEditor).not.toBeNull());
+    act(() => {
+      planShellTestEditor?.commands.insertContent(" Session handback proof");
     });
     await waitFor(() => {
       const saveAction = editorTools?.tools.sections
@@ -3930,6 +3946,39 @@ describe("PlanSurfaceShell", () => {
       expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
     });
 
+    it("keeps a saved empty Plan welcoming after it is reopened", async () => {
+      const prepareSpy = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite");
+      await useActualResolvePlanningDocument();
+      const record = fixtureWorkspaceDocumentRecord({
+        document_id: DOC_A,
+        title: TITLES[DOC_A],
+        target_session: SESSIONS[DOC_A],
+      });
+      vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+        schema_version: "dmb_workspace_document_registry_v1",
+        records: [record],
+      });
+      vi.mocked(liveApi.getWorkspaceDocument).mockResolvedValue(record);
+      vi.mocked(liveApi.getWorkspaceDocumentAny).mockResolvedValue(record);
+      vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+        fixtureWorkspaceDocumentSnapshot({ record, markdown: "" }),
+      );
+      window.history.pushState({}, "", `/plan?campaigns=longmont-c1,longmont-c2&documentId=${DOC_A}`);
+      renderPlanSurface();
+      await waitForPlanSurfaceReady();
+
+      expect(screen.getByTestId("plan-blank-welcome")).toBeInTheDocument();
+      expect(screen.getByTestId("plan-surface-canvas-editor")).not.toHaveTextContent("Session intent");
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: "Use session-prep outline" }));
+
+      await waitFor(() => {
+        expect(screen.queryByTestId("plan-blank-welcome")).not.toBeInTheDocument();
+        expect(screen.getByTestId("plan-surface-canvas-editor")).toHaveTextContent("Session intent");
+      });
+      expect(prepareSpy).not.toHaveBeenCalled();
+    });
+
     it("creates a new prep document and opens it by exact documentId", async () => {
       await useActualResolvePlanningDocument();
       vi.mocked(liveApi.getWorkspaceDocument).mockImplementation(async (id) =>
@@ -4803,6 +4852,51 @@ describe("PlanSurfaceShell", () => {
         const saveButtons = screen.getAllByRole("button", { name: "Save to Markdown" });
         expect(saveButtons.some((button) => !(button as HTMLButtonElement).disabled)).toBe(true);
       });
+    });
+
+    it("opens a truly blank Plan with a welcoming first page and optional starters", async () => {
+      await renderIsolatedBlankPromotion({
+        initialShellState: {
+          kind: "blank_ready",
+          draft: fixtureBlankDraft(),
+          selectorListAvailable: true,
+        },
+      });
+
+      const editor = screen.getByTestId("plan-surface-canvas-editor");
+      expect(screen.getByTestId("plan-blank-welcome")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Give the table a reason to lean in." })).toBeInTheDocument();
+      expect(editor).not.toHaveTextContent("Session intent");
+      expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: "Set an intention" }));
+
+      await waitFor(() => {
+        expect(screen.queryByTestId("plan-blank-welcome")).not.toBeInTheDocument();
+        expect(editor).toHaveTextContent("Session intent");
+      });
+      expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
+    });
+
+    it("keeps the existing session-prep outline available as an explicit choice", async () => {
+      await renderIsolatedBlankPromotion({
+        initialShellState: {
+          kind: "blank_ready",
+          draft: fixtureBlankDraft(),
+          selectorListAvailable: true,
+        },
+      });
+      const user = userEvent.setup();
+
+      await user.click(screen.getByRole("button", { name: "Use session-prep outline" }));
+
+      await waitFor(() => {
+        expect(screen.queryByTestId("plan-blank-welcome")).not.toBeInTheDocument();
+        expect(screen.getByTestId("plan-surface-canvas-editor")).toHaveTextContent("Session intent");
+        expect(screen.getByTestId("plan-surface-canvas-editor")).toHaveTextContent("Scenes / beats");
+      });
+      expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
     });
 
     it("shows inventory-unavailable shell without assuming zero Plans", async () => {

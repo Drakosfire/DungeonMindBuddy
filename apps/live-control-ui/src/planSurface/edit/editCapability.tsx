@@ -9,7 +9,7 @@ export interface EditCapabilityValue {
 const EditCapabilityContext = createContext<EditCapabilityValue | null>(null);
 
 export function EditCapabilityProvider({ children }: { children: ReactNode }) {
-  const [isLocked, setIsLocked] = useState(true);
+  const [isLocked, setIsLocked] = useState(false);
 
   const toggleLock = useCallback(() => {
     setIsLocked((current) => !current);

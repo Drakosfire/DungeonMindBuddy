@@ -9,7 +9,7 @@ import {
   type ReactNode,
   type Ref,
 } from "react";
-import type { Content, Editor } from "@tiptap/core";
+import type { Content, Editor, JSONContent } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
 
 import type { AppChromeToolsGeneration } from "../../chrome/AppChrome";
@@ -21,6 +21,8 @@ import {
 import { defaultMarkdownDocumentAdapter } from "../../tiptap/MarkdownDocumentAdapter";
 import { MarkdownEditorCore } from "../../tiptap/MarkdownEditorCore";
 import { SemanticMarkdownPaste } from "../../tiptap/extensions/SemanticMarkdownPaste";
+import { tiptapJsonToSemanticMarkdown } from "../../tiptap/markdown/calloutMarkdown";
+import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import {
   toAppChromeToolsGeneration,
   type MarkdownEditorToolbarModel,
@@ -263,7 +265,7 @@ function PlanDurableSurfaceCanvas({
   const documentKind = planningDocument.kind as WorkspaceDocumentLocalKind;
   const authoringSurface: WorkspaceDocumentLocalSurface =
     documentKind === "runbook" ? "runbook" : "plan";
-  const { isLocked, canEdit, toggleLock } = useEditCapability();
+  const { isLocked, canEdit } = useEditCapability();
   const selectedWorld = useSelectedWorld();
   const { openGraphReference } = useProjection();
   const {
@@ -274,8 +276,11 @@ function PlanDurableSurfaceCanvas({
   const editorShellRef = useRef<HTMLDivElement | null>(null);
 
   const emptyMarkdownFallback = useMemo(
-    () => createStarterContentForPlanDocument(sessionDescriptor),
+    () => documentKind === "plan"
+      ? markdownToTiptapDoc("").doc
+      : createStarterContentForPlanDocument(sessionDescriptor),
     [
+      documentKind,
       sessionDescriptor.campaignId,
       sessionDescriptor.planningDocument.documentId,
       sessionDescriptor.planningDocument.targetSession,
@@ -296,6 +301,12 @@ function PlanDurableSurfaceCanvas({
     && authoring.phase !== "unloaded"
     && authoring.phase !== "conflict"
     && authoring.phase !== "load_error";
+
+  const replaceBlankPlanContent = useCallback((target: Editor, content: JSONContent) => {
+    target.commands.setContent(content, false);
+    authoring.handleEditorUpdate(target.getJSON(), target, { programmatic: false });
+    target.commands.focus("end");
+  }, [authoring.handleEditorUpdate]);
 
   const deliveredHandbackKeysRef = useRef<Set<string>>(new Set());
 
@@ -497,15 +508,6 @@ function PlanDurableSurfaceCanvas({
   }, [openGraphNodeFromChip, projection]);
 
   const toolbarModel = useMemo<MarkdownEditorToolbarModel>(() => ({
-    pinnedActions: [
-      {
-        id: "plan-canvas-edit-lock",
-        eyebrow: isLocked ? "Editing locked" : "Editing unlocked",
-        label: isLocked ? "Unlock editing" : "Lock editing",
-        onClick: toggleLock,
-        pressed: isLocked,
-      },
-    ],
     sections: [
       {
         id: "plan-world-graph-objects",
@@ -591,7 +593,6 @@ function PlanDurableSurfaceCanvas({
     insertDecisionConsequence,
     isLocked,
     removeActiveBlock,
-    toggleLock,
     worldGraphObjectsPanel,
   ]);
 
@@ -604,6 +605,10 @@ function PlanDurableSurfaceCanvas({
     || (authoring.phase === "save_error" && authoring.error)
     || (authoring.phase === "committed_verification_pending" && authoring.error),
   );
+  const showBlankPlanWelcome = documentKind === "plan"
+    && authoring.snapshot != null
+    && !authoring.exportedMarkdownAuthoritative
+    && tiptapJsonToSemanticMarkdown(authoring.editorContent).trim().length === 0;
 
   const editorBody = (() => {
     if (authoring.phase === "loading" || authoring.phase === "unloaded") {
@@ -649,7 +654,17 @@ function PlanDurableSurfaceCanvas({
       >
         {(ed) => (
           <GraphNodeChipRuntimeProvider value={chipRuntime}>
-            <EditorContent editor={ed} />
+            <>
+              {showBlankPlanWelcome ? (
+                <PlanBlankPageWelcome
+                  onStartWriting={() => ed.commands.focus("end")}
+                  onUseOutline={() => replaceBlankPlanContent(ed, createStarterContentForPlanDocument(sessionDescriptor))}
+                  onStartWithPrompt={(heading) => replaceBlankPlanContent(ed, createPlanPromptContent(heading))}
+                  disabled={!canEdit}
+                />
+              ) : null}
+              <EditorContent editor={ed} />
+            </>
           </GraphNodeChipRuntimeProvider>
         )}
       </MarkdownEditorCore>
@@ -734,7 +749,7 @@ function PlanLocalBlankSurfaceCanvas({
   onBlankPromotionStateChange,
 }: PlanLocalBlankSurfaceCanvasProps) {
   const canvasWorkTarget = useMemo(() => planShellWorkObject(shellState), [shellState]);
-  const { isLocked, canEdit, toggleLock } = useEditCapability();
+  const { canEdit } = useEditCapability();
   const editorShellRef = useRef<HTMLDivElement | null>(null);
   const planPasteExtensions = useMemo(() => [SemanticMarkdownPaste], []);
 
@@ -764,15 +779,6 @@ function PlanLocalBlankSurfaceCanvas({
     ?? (blankAuthoring.saveBusy ? "Saving Plan…" : null);
 
   const toolbarModel = useMemo<MarkdownEditorToolbarModel>(() => ({
-    pinnedActions: [
-      {
-        id: "plan-canvas-edit-lock",
-        eyebrow: isLocked ? "Editing locked" : "Editing unlocked",
-        label: isLocked ? "Unlock editing" : "Lock editing",
-        onClick: toggleLock,
-        pressed: isLocked,
-      },
-    ],
     sections: [
       {
         id: "plan-markdown-save",
@@ -794,9 +800,7 @@ function PlanLocalBlankSurfaceCanvas({
   }), [
     blankAuthoring.saveDisabled,
     blankAuthoring.saveMarkdown,
-    isLocked,
     saveActionDisabledReason,
-    toggleLock,
   ]);
 
   const editorToolsGeneration = useMemo(
@@ -834,10 +838,91 @@ function PlanLocalBlankSurfaceCanvas({
           onUpdate={blankAuthoring.handleEditorUpdate}
           dataTestId="plan-surface-canvas-editor"
         >
-          {(ed) => <EditorContent editor={ed} />}
+          {(ed) => (
+            <>
+              {blankAuthoring.isEmpty ? (
+                <PlanBlankPageWelcome
+                  onStartWriting={blankAuthoring.focusEditor}
+                  onUseOutline={blankAuthoring.startWithSessionPrepTemplate}
+                  onStartWithPrompt={blankAuthoring.startWithPrompt}
+                  disabled={!canEdit || blankAuthoring.saveBusy}
+                />
+              ) : null}
+              <EditorContent editor={ed} />
+            </>
+          )}
       </MarkdownEditorCore>
     </PlanSurfaceCanvasFrame>
   );
+}
+
+function PlanBlankPageWelcome({
+  onStartWriting,
+  onUseOutline,
+  onStartWithPrompt,
+  disabled,
+}: {
+  onStartWriting: () => void;
+  onUseOutline: () => void;
+  onStartWithPrompt: (heading: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <section className="plan-blank-welcome" aria-labelledby="plan-blank-welcome-title" data-testid="plan-blank-welcome">
+      <div className="plan-blank-welcome__copy">
+        <p className="plan-blank-welcome__eyebrow">
+          <span aria-hidden="true">✦</span> Your next session starts here
+        </p>
+        <h2 id="plan-blank-welcome-title">Give the table a reason to lean in.</h2>
+        <p className="plan-blank-welcome__intro">
+          Start with one bright idea. The scenes, choices, and surprises can grow from there.
+        </p>
+        <div className="plan-blank-welcome__actions">
+          <button type="button" className="plan-blank-welcome__primary" onClick={onStartWriting} disabled={disabled}>
+            Start writing
+          </button>
+          <button type="button" className="plan-blank-welcome__outline" onClick={onUseOutline} disabled={disabled}>
+            Use session-prep outline
+          </button>
+        </div>
+        <div className="plan-blank-welcome__sparks" aria-label="Optional starting points">
+          <span>Need a first spark?</span>
+          <button type="button" onClick={() => onStartWithPrompt("Session intent")} disabled={disabled}>
+            Set an intention
+          </button>
+          <button type="button" onClick={() => onStartWithPrompt("Opening scene")} disabled={disabled}>
+            Open on a scene
+          </button>
+          <button type="button" onClick={() => onStartWithPrompt("Loose threads")} disabled={disabled}>
+            Follow a loose thread
+          </button>
+        </div>
+      </div>
+      <div className="plan-blank-welcome__art" aria-hidden="true">
+        <svg viewBox="0 0 300 220" role="presentation">
+          <path className="plan-blank-welcome__map-edge" d="M36 44c24-15 52-17 81-6 18 7 37 7 59-1 32-12 62-7 89 9v130c-27-16-57-20-89-8-22 8-41 8-59 1-29-11-57-9-81 6z" />
+          <path className="plan-blank-welcome__map-line" d="M51 155c37-26 51-59 86-55 27 3 34 25 60 18 16-4 31-22 58-45" />
+          <path className="plan-blank-welcome__map-line plan-blank-welcome__map-line--soft" d="M62 73c20 12 35 11 49 0m72 84c16-9 30-10 47-3" />
+          <circle className="plan-blank-welcome__map-pin" cx="198" cy="118" r="8" />
+          <circle className="plan-blank-welcome__map-pin-halo" cx="198" cy="118" r="16" />
+          <path className="plan-blank-welcome__compass" d="m240 51 6 17 17 6-17 6-6 17-6-17-17-6 17-6z" />
+          <path className="plan-blank-welcome__spark" d="m87 42 3 8 8 3-8 3-3 8-3-8-8-3 8-3z" />
+          <path className="plan-blank-welcome__map-dash" d="M50 182h41m25 0h24m44 0h37" />
+        </svg>
+        <p><strong>Leave room for wonder.</strong><br />A plan is a compass, not a script.</p>
+      </div>
+    </section>
+  );
+}
+
+function createPlanPromptContent(heading: string): JSONContent {
+  return {
+    type: "doc",
+    content: [
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: heading }] },
+      { type: "paragraph" },
+    ],
+  };
 }
 
 function PlanShellStatusSurfaceCanvas({
@@ -848,22 +933,12 @@ function PlanShellStatusSurfaceCanvas({
   onEditorToolsChange,
 }: PlanSurfaceCanvasProps) {
   const canvasWorkTarget = useMemo(() => planShellWorkObject(shellState), [shellState]);
-  const { isLocked, toggleLock } = useEditCapability();
   const disabledReason =
     loadErrorMessage != null
       ? "Document failed to load; retry or choose another document."
       : "Document is still loading.";
 
   const toolbarModel = useMemo<MarkdownEditorToolbarModel>(() => ({
-    pinnedActions: [
-      {
-        id: "plan-canvas-edit-lock",
-        eyebrow: isLocked ? "Editing locked" : "Editing unlocked",
-        label: isLocked ? "Unlock editing" : "Lock editing",
-        onClick: toggleLock,
-        pressed: isLocked,
-      },
-    ],
     sections: [
       {
         id: "plan-markdown-save",
@@ -880,7 +955,7 @@ function PlanShellStatusSurfaceCanvas({
         ],
       },
     ],
-  }), [disabledReason, isLocked, toggleLock]);
+  }), [disabledReason]);
 
   useEffect(() => {
     onEditorToolsChange?.(toAppChromeToolsGeneration(toolbarModel, canvasWorkTarget));
