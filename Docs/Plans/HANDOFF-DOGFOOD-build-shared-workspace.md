@@ -123,6 +123,35 @@ remain unchanged. No schema/store semantics change or other APP type edits.
 APP confirmed no overlapping edits and exclusively transferred this exact validator
 and new test path to DOGFOOD. ARCH design gate passed on 9868724c; PRIME explicitly activated this bounded slice.
 
+## Build managed Graph binding amendment (pending exact ARCH review)
+PRIME authorizes this bounded design extension inside the same route/turn-service
+write lease. Generalize the existing verified managed projection branch for both
+Play and Build with explicit flavor preconditions. Build requires verified World
+owner equal to saved source World and request managed World, GM, campaign null,
+focus none, no selection. No inferred equality between managed and native IDs.
+Use project_managed_world_graph; verify exact returned managed/native/version and
+native GM World scope. No new assembler/runtime/selected-subject bootstrap paths.
+
+Build Graph turns freeze one supporting HistoricalReference with reserved kind
+ dmb_build_graph_binding_v1, resolved, object_id native World ID, revision canonical
+positive decimal binding version, all SHA/Plan pins null. Managed owner is already
+TurnProvenance.world_id; native Graph revision remains the existing single
+world_graph_revision reference with matching native World ID and nonblank revision.
+Strict codec rejects duplicates, malformed/missing/extraneous marker or graph ref,
+wrong source/surface/owner and mismatched IDs. Visibility and Graph markers coexist.
+Graph none has neither binding marker nor implicit Graph load. No APP schema change.
+
+Retry validates current managed/native/version against frozen receipt before
+runtime and uses frozen native Graph revision, never follows a new mapping/head.
+Completed answer replay under current GM authorization needs no historical body.
+Source-change and Graph-binding-change failures stay distinct. Graph unavailable
+cannot be represented as graph-complete or silently imply source admission.
+Owning tests cover differing IDs, none, wrongowner/focus/campaign/selection, mapping
+and version drift, malformed/missing/duplicate markers, unavailable pinned revision,
+no duplicate dispatch and Plan/Play regressions. No extra files needed beyond the
+existing active route/turn-service/new Build test paths. Do not implement codec
+until this exact material amendment passes ARCH review.
+
 ## ACTIVE exact write set
 Docs/Plans/HANDOFF-DOGFOOD-build-shared-workspace.md
 apps/live-control-ui/src/App.tsx
