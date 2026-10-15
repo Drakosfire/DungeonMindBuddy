@@ -7,7 +7,8 @@ handoff and the Build navbar Save dirty-state regression test only. Node write
 portion remains BLOCKED pending ARCHITECTURE identification of an existing governed
 command or a DungeonMind-owned contract. No native mutation adapter is authorized.
 Current fetched `origin/main` is
-`d03fdb67da877c604e19242d0bdc254515fe89f7`. The current integration lane is
+`8c13f6e93e9fa89e7b3fd6dcafb672a19d6454d5` (including merged #1211).
+The current integration lane is
 `codex/build-1183-integrate-main`; existing PR #1183 remains on
 `codex/build-authoring-workspace` and will be updated in place after verification.
 No new durable/public contract or PR is introduced. PRIME owns shared
@@ -54,8 +55,10 @@ PRIME approves adding these two paths to the same PR/base and exclusive lease:
 ## Current completion lease and rendered acceptance — 2026-10-15
 
 PRIME reactivated the serial #1183 completion lane against fetched
-`origin/main@d03fdb67da877c604e19242d0bdc254515fe89f7`. The only current writable
-paths are:
+`origin/main@8c13f6e93e9fa89e7b3fd6dcafb672a19d6454d5`; after #1211 merged,
+this existing PR was rebased to that main head. The selection-context endpoint
+is server-owned and outside this Build slice. The only current writable paths
+are:
 
 - `Docs/Plans/HANDOFF-DOGFOOD-build-authoring-workspace.md`
 - `apps/live-control-ui/src/buildSurface/BuildSurfacePage.test.tsx`
@@ -68,7 +71,8 @@ protection; do not create a second PR. No 5202 restart/deployment is authorized.
 
 Rendered read-only acceptance used 5205 because 5203 refused connections. The
 available 5205 preview is older, assembled from `main@3a890b9e` plus the then-current
-PR heads, so it is not proof of the d03fdb67 head. At desktop and 390×844, the
+PR heads, so it is not proof of the current main-integrated PR head. At desktop
+and 390×844, the
 Mirathorn source was readable on the paper canvas, the Build navbar controls were
 present, Plan and Play were discoverable, and the shared conversation dock opened
 with its transcript, New conversation, context, options, and composer. At narrow
