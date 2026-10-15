@@ -5,7 +5,7 @@ Topology: serial; one implementation PR based on `origin/main`
 Branch: `codex/ingest-empty-welcome`
 Checkout: `/tmp/dmb-ingest-empty-welcome`
 
-Base: fetched `origin/main@25cba5a5`.
+Base: fetched `origin/main@3a890b9e`.
 
 ## Objective
 
