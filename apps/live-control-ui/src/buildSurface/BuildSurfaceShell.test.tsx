@@ -216,14 +216,14 @@ describe("BuildSurfaceShell", () => {
     expect(buildShellTestEditor?.state.selection.$from.parent.type.name).toBe("paragraph");
   });
 
-  it("keeps the no-source conversation launcher in flow instead of covering the welcome", () => {
+  it("keeps the Build conversation launcher in flow instead of covering projected documents", () => {
     const buildCss = readBuildSurfaceCss();
-    const emptyLandingLauncherRule = buildCss.match(
-      /\.build-workspace-projection:has\(\.build-empty-landing\)\s+\.conversation-dock__launcher\s*\{([^}]*)\}/,
+    const buildLauncherRule = buildCss.match(
+      /\.build-workspace-projection\s+\.conversation-dock__launcher\s*\{([^}]*)\}/,
     );
 
-    expect(emptyLandingLauncherRule?.[1]).toMatch(/position:\s*static/);
-    expect(emptyLandingLauncherRule?.[1]).toMatch(/justify-self:\s*end/);
+    expect(buildLauncherRule?.[1]).toMatch(/position:\s*static/);
+    expect(buildLauncherRule?.[1]).toMatch(/justify-self:\s*end/);
   });
 
   it("keeps the live Build editor on the paper projection surface", () => {

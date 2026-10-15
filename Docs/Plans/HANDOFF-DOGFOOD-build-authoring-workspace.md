@@ -4,12 +4,11 @@ Status ACTIVE for document authoring/navigation presentation under explicit oper
 "Do it" and PRIME design ownership confirmation; UI leases released. Node write
 portion BLOCKED pending ARCHITECTURE identification of an existing governed command
 or a DungeonMind-owned contract. No native mutation adapter is authorized.
-Current fetched `origin/main` is `199a7404701d6a53fa8f4a1d68b2c7874df6771a`;
-branch `codex/build-authoring-workspace`; isolated checkout
-`/tmp/buddy-build-authoring-restored`. The serial implementation is assigned to
-PR #1183; no new durable/public contract. PRIME owns serving runtime/ports
-exclusively. The user is rendering the GET-only 5203 preview, which proxies API
-GETs to API8000 and denies writes. Preserve serving 5202 and its data.
+Current fetched `origin/main` is `25cba5a5e00130a38303d2c1c1d7bc9736527be9`;
+branch `codex/build-authoring-workspace` is being re-anchored in the isolated
+checkout `/tmp/dmb-build-empty-welcome-reanchor` for PR #1183. No new
+durable/public contract is introduced. PRIME owns shared serving/runtime ports;
+5202 and its data are preserved.
 
 Invariant: Build is a directly editable framed document, with stationary nonmodal
 Edit/Tools companions. Save in Build navbar invokes existing document CAS command;
@@ -178,9 +177,9 @@ only its selected heading into the editor after an explicit click and leaves the
 cursor in the following paragraph; opening the source remains truly blank.
 
 The collapsed Conversation launcher now occupies the dock's bottom layout row
-on the no-source Build landing instead of using the shared absolute overlay.
-This is scoped to that landing and leaves the shared dock presentation
-unchanged on other surfaces.
+throughout Build instead of using the shared absolute overlay. This keeps it
+from covering either the empty welcome or loaded document text, and leaves the
+shared dock presentation unchanged on other surfaces.
 
 After this addition, the Build page, context, shell, and shared conversation
 integration suites pass 90 tests. The app TypeScript check passes with its build
@@ -200,3 +199,25 @@ build passes with the existing large-chunk warning, and `git diff --check`
 passes. This is a visual refinement within the existing Build landing lease.
 Rendered desktop/narrow acceptance still awaits the recorded preview gates; no
 runtime or 5202 change is included.
+
+## Current main re-anchor and rendered acceptance — 2026-10-15
+
+PR #1183 is replayed on fetched `origin/main@25cba5a5`. A current-main Build
+preview runs at `127.0.0.1:5204` from this isolated checkout; it does not modify
+5202 or use the stale 5203 integrated preview.
+
+Rendered checks at desktop and 390px width confirm the no-source illustrated
+welcome and the loaded Mirathorn paper. The conversation launcher now sits in
+document flow at narrow width and no longer overlays the page text. Navigation
+opens Plan and Play from the shared nav. A temporary local editor change
+enabled Save, was discarded through the explicit discard confirmation, and the
+saved Mirathorn source was reloaded with its original text and committed status.
+No source content was saved or changed during acceptance.
+
+Authenticated write and live conversation checks are blocked in this preview:
+the dock reports local authorization rejected and disables its composer. Thus
+the Save API round trip, live conversation, and data-dependent Plan/Play landing
+states are not accepted here. The Build page/context/shell suites pass 52 tests;
+the Build shell launcher regression passes 29 tests; TypeScript passes. The
+production Vite build passes with the existing large-chunk warning, and
+`git diff --check` passes.
