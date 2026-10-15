@@ -16,7 +16,7 @@ class ExtractionPassSpec:
     default_node_type: str | None
     instruction: str
     progress_label: str
-    kind: str = "node"  # node | beat | encounter_job | edge | claimed_fill
+    kind: str = "node"  # node | beat | encounter_job | edge | claimed_fill | edge_review
     include_dispositions: bool = False
     allowed_node_types: tuple[str, ...] | None = None
 
@@ -62,6 +62,8 @@ class ExtractionProfile:
     # are not sufficient — wire a callable when the profile declares bounds.
     post_extraction_validator: PostExtractionValidator | None = None
     source_section_retainer: Callable[..., tuple[dict[str, Any], dict[str, Any]]] | None = None
+
+    edge_review_pass: ExtractionPassSpec | None = None
 
     @property
     def qualified_id(self) -> str:

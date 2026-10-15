@@ -480,6 +480,28 @@ def run_production_extraction(
             profile_version=profile.profile_version,
         )
 
+    if extraction.private_response_evidence is not None:
+        # Historical helper name: the same atomic private writer now also stores
+        # an explicitly versioned SUCCESS bundle, before any candidate artifact.
+        from src.graph_memory.extraction.worldbuilding_edge_review import json_copy
+
+        try:
+            bundle = json_copy(json.loads(extraction.private_response_evidence))
+            if (type(bundle) is not dict
+                    or bundle.get("schema") != "dmb_private_extraction_review_bundle_v1"
+                    or bundle.get("profile") != profile.qualified_id
+                    or bundle.get("source_artifact_id") != source.source_artifact_id
+                    or bundle.get("source_sha256") != source.source_sha256):
+                raise ValueError("invalid success evidence identity")
+        except Exception:
+            raise RuntimeError("Could not validate private extraction success evidence") from None
+        components = {
+            **components,
+            "raw_model_response": _retain_raw_failure_response(
+                request.repo_root, output_dir, extraction.private_response_evidence,
+            ),
+        }
+
     candidate_path = output_dir / "candidate_graph.json"
     _write_json(candidate_path, extraction.candidate_graph)
     components = {

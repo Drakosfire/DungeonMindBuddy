@@ -8,7 +8,7 @@ from src.graph_memory.extraction.worldbuilding_profile_catalog import PUBLISHABL
 def test_closed_publication_profiles_preserve_pilot_and_exact_gazetteer_version():
     assert set(PUBLISHABLE_WORLDBUILDING_PROFILES) == {
         "worldbuilding_shepherds_flock_v0@0.1", "worldbuilding_gazetteer_v1@1.0",
-        "worldbuilding_gazetteer_v1@1.1", "worldbuilding_gazetteer_v1@1.2", "worldbuilding_gazetteer_v1@1.3"}
+        "worldbuilding_gazetteer_v1@1.1", "worldbuilding_gazetteer_v1@1.2", "worldbuilding_gazetteer_v1@1.3", "worldbuilding_gazetteer_v1@1.4"}
     assert "worldbuilding_gazetteer_v1@2.0" not in PUBLISHABLE_WORLDBUILDING_PROFILES
     assert "worldbuilding_plumbing_v0@0.1" not in PUBLISHABLE_WORLDBUILDING_PROFILES
 
@@ -95,6 +95,7 @@ def test_registered_gazetteer_run_retains_exact_profile_and_typed_definitions(tm
         category_client=FixtureClient(span_ref=_first_paragraph_span_id(source)),
         output_dir=tmp_path / "gazetteer-run"))
     assert result.failure_kind is None
+    assert "raw_model_response" not in result.run.components
     run = get_reviewable_extraction_run(tmp_path, result.run.run_id)
     assert run.profile_id == "worldbuilding_gazetteer_v1@" + version
     assert run.session_id is None
