@@ -38,9 +38,9 @@ Exact UTF-8 file hashes; half-open Python Unicode codepoint offsets; 1-based inc
 ## §7 Verification
 
 ```bash
-python evals/graph_memory_layer/validate_session_29_connected_gold_v1.py
-python -m unittest discover -s tests -p test_session_29_connected_gold_v1.py
- git diff --check
+python3 evals/graph_memory_layer/validate_session_29_connected_gold_v1.py
+python3 -m unittest discover -s tests -p test_session_29_connected_gold_v1.py
+git diff --check
 ```
 
 Validator must verify literal evidence and hashes against local originals, unique IDs, endpoint/reference/path integrity, provenance classes, complete paragraph coverage and required semantic facts. Damaged-source/hash/offset/endpoint/provenance/coverage tests required.
