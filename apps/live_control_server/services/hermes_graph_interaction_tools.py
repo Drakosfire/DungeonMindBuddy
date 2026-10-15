@@ -165,6 +165,11 @@ def hermes_graph_interaction_tool_definitions() -> list[dict[str, Any]]:
     recap_schema = ReadRelatedRecapContextRequest.model_json_schema(
         by_alias=True, mode="validation"
     )
+    for schema in (expand_schema,read_schema,recap_schema):
+        schema["properties"]["resultPageToken"]={
+            "type":"string","minLength":1,
+            "description":"Opaque continuation from the previous result. Repeat the exact original arguments with this token; never invent a token.",
+        }
     return [
         {
             "type": "function",
@@ -185,6 +190,11 @@ def hermes_graph_interaction_tool_definitions() -> list[dict[str, Any]]:
                     "relevant subjectNodeId with object and open its supporting source "
                     "anchors before answering. Preserve belief and conditional language; "
                     "a role label does not establish organizational membership. "
+                    "Large results use dmb_graph_tool_page_v1: records carry original paths; "
+                    "claimDelta contains operation-local claims. Follow nextPageToken by "
+                    "repeating the exact same request with resultPageToken until the needed "
+                    "records are delivered. Core truncation is separate from pagination. "
+                    "Fragments require complete reassembly before use. "
                     "Do not open Markdown or corpus files directly on a graph gap."
                 ),
                 "parameters": expand_schema,
@@ -202,7 +212,9 @@ def hermes_graph_interaction_tool_definitions() -> list[dict[str, Any]]:
                     "source citation only after a successful integrity-checked read. "
                     "Pass retrievalSessionId and anchorIds from the session ledger. "
                     "Never supply filesystem paths, artifact IDs, or span IDs as "
-                    "caller authority."
+                    "caller authority. Large responses use the same bounded Graph result "
+                    "page protocol; follow nextPageToken using resultPageToken with the "
+                    "original arguments. Fragments are incomplete until reassembled."
                 ),
                 "parameters": read_schema,
             },

@@ -17,6 +17,13 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Literal
 
+from apps.live_control_server.services.graph_tool_transport import (
+    GraphToolPageCache,
+    PAGED_TOOLS,
+    PAGE_BYTES,
+    TransportScope,
+)
+
 from apps.live_control_server.services.hermes_graph_interaction_tools import (
     DECLARE_CONVERSATION_CONTEXT_TOOL_NAME,
     HERMES_GRAPH_INTERACTION_TOOL_NAMES,
@@ -361,12 +368,14 @@ def reset_graph_root_override(token: Any) -> None:
 
 def set_active_capability_policy(policy: HermesCapabilityPolicy | None) -> Any:
     """Bind the active capability policy for the current turn."""
+    _graph_page_cache.set(GraphToolPageCache() if policy is not None else None)
     return _active_capability_policy.set(policy)
 
 
 def reset_active_capability_policy(token: Any) -> None:
     """Reset the capability-policy ContextVar token."""
     _active_capability_policy.reset(token)
+    _graph_page_cache.set(None)
 
 
 def get_active_capability_policy() -> HermesCapabilityPolicy | None:
@@ -444,6 +453,11 @@ def apply_capability_policy_to_arguments(
     return payload, None
 
 
+_graph_page_cache: ContextVar[GraphToolPageCache | None] = ContextVar(
+    "graph_page_cache", default=None
+)
+
+
 def _handler_for(tool_name: str):
     def _handler(args: dict, **kwargs: Any) -> str:
         del kwargs
@@ -452,9 +466,48 @@ def _handler_for(tool_name: str):
             if denied is not None:
                 return denied
             assert payload is not None
+            cache = _graph_page_cache.get()
+            policy = get_active_capability_policy()
+            scope = None
+            if tool_name in PAGED_TOOLS and cache is not None and policy is not None:
+                session_id = get_active_retrieval_session_id()
+                graph_scope = policy.graph_scope
+                if session_id and graph_scope is not None:
+                    scope = TransportScope(
+                        session_id, graph_scope.world_id, graph_scope.revision_pin
+                    )
+                    packet = get_parent_retrieval_session_packet()
+                    if packet is not None:
+                        snapshot = packet.get("snapshot", {})
+                        if (
+                            packet.get("retrieval_session_id") != session_id
+                            or snapshot.get("world_id", snapshot.get("worldId"))
+                            != scope.world_id
+                            or snapshot.get("revision_id", snapshot.get("revisionId"))
+                            != scope.revision_id
+                        ):
+                            return _policy_denied_error(
+                                code="graph_page_scope_conflict",
+                                message="Frozen Graph packet differs from active scope.",
+                            )
+                    page = cache.continuation(tool_name, payload, scope)
+                    if page is not None:
+                        return page
+                elif "resultPageToken" in payload:
+                    return _policy_denied_error(
+                        code="graph_page_scope_unavailable",
+                        message="Active Graph scope unavailable.",
+                    )
+            if "resultPageToken" in payload and scope is None:
+                return _policy_denied_error(
+                    code="graph_page_scope_unavailable",
+                    message="Active Graph scope unavailable.",
+                )
+            clean_payload = {k: v for k, v in payload.items() if k != "resultPageToken"}
             if _parent_graph_broker_required.get():
                 if tool_name not in {
-                    "expand_graph_retrieval", "read_graph_source",
+                    "expand_graph_retrieval",
+                    "read_graph_source",
                     READ_RELATED_RECAP_CONTEXT_TOOL_NAME,
                 }:
                     return _policy_denied_error(
@@ -467,15 +520,21 @@ def _handler_for(tool_name: str):
                         code="plan_graph_broker_unavailable",
                         message="Parent Graph-operation broker is unavailable.",
                     )
-                result_json, retrieval_packet = broker(tool_name, payload)
+                result_json, retrieval_packet = broker(tool_name, clean_payload)
                 if isinstance(retrieval_packet, Mapping):
                     _parent_retrieval_session_packet.set(dict(retrieval_packet))
-                return result_json
-            return execute_hermes_graph_interaction_tool_json(
-                tool_name,
-                payload,
-                root=_graph_root_override.get(),
-            )
+            else:
+                result_json = execute_hermes_graph_interaction_tool_json(
+                    tool_name, clean_payload, root=_graph_root_override.get()
+                )
+            if scope is not None and cache is not None:
+                return cache.present(tool_name, payload, scope, result_json)
+            if tool_name in PAGED_TOOLS and len(result_json.encode()) > PAGE_BYTES:
+                return _policy_denied_error(
+                    code="graph_page_scope_unavailable",
+                    message="Active Graph scope required for this oversized result.",
+                )
+            return result_json
         except Exception:
             # Adapter already fail-closes; this is a last line of defense so
             # Hermes never sees a raised exception from a graph tool.
@@ -500,7 +559,9 @@ def register(ctx: Any) -> None:
         raise RuntimeError(
             "Model-visible catalog order drifted from ORDERED_MODEL_VISIBLE_TOOL_NAMES"
         )
-    graph_names = [name for name in names if name in HERMES_GRAPH_INTERACTION_TOOL_NAMES]
+    graph_names = [
+        name for name in names if name in HERMES_GRAPH_INTERACTION_TOOL_NAMES
+    ]
     if set(graph_names) != set(HERMES_GRAPH_INTERACTION_TOOL_NAMES) or len(
         graph_names
     ) != len(HERMES_GRAPH_INTERACTION_TOOL_NAMES):
