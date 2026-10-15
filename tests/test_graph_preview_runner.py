@@ -299,6 +299,167 @@ def test_worldbuilding_null_session_extracts(tmp_path: Path) -> None:
     assert loaded.lineage.get("profile_id") == WORLDBUILDING_PLUMBING_PROFILE_ID
 
 
+def test_gazetteer_deferred_proposals_are_persisted_and_source_resolvable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import hashlib
+    import stat
+    from dataclasses import replace as dataclass_replace
+
+    from apps.live_control_server.services.graph_run_registry import (
+        assert_immutable_component_refs,
+    )
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        FixtureCategoryGraphPassClient,
+        extract_category_candidate_graph,
+    )
+    from src.graph_memory.extraction.bounded_recap_execution import (
+        BoundedRecapPassClient,
+        DEEPSEEK_MODEL,
+    )
+    from src.graph_memory.extraction.worldbuilding_gazetteer_profile import (
+        GAZETTEER_LIVESTOCK_HYGIENE_PROFILE,
+    )
+    from types import SimpleNamespace
+
+    source_text = "\n\n".join([
+        "#### Fantastic Livestock for the Exampleland",
+        "#### 1. Float Goats",
+        "Float Goats walk on water and carry goods across lakes.",
+        "## Cultural Significance",
+        "Float Goats symbolize joy and lightness in local culture.",
+        "## Later section",
+        "This unrelated detail stays outside the livestock owner section.",
+    ])
+    source = _admit_worldbuilding(tmp_path, text=source_text)
+    source_lines = source.source_text.splitlines()
+
+    def ref_for(line_text: str) -> dict[str, Any]:
+        line_number = next(
+            index for index, value in enumerate(source_lines, start=1)
+            if value == line_text
+        )
+        span = next(
+            item for item in source.source_span_index["spans"]
+            if item["start_line"] <= line_number <= item["end_line"]
+        )
+        return {
+            "source_span_ref_id": span["source_span_id"],
+            "anchor_quotes": [line_text],
+        }
+
+    outputs = {
+        "location_pass": {"observation_nodes": [{
+            "node_id": "place:exampleland", "label": "The Exampleland",
+            "node_type": "location", "description": "A source-backed place.",
+            "importance": "medium",
+            "evidence_refs": [ref_for("#### Fantastic Livestock for the Exampleland")],
+        }]},
+        "definition_pass": {"observation_nodes": [{
+            "node_id": "event:goats", "label": "Float Goats Livestock Definition",
+            "node_type": "event", "description": "The original species proposal.",
+            "importance": "medium",
+            "evidence_refs": [ref_for("Float Goats walk on water and carry goods across lakes.")],
+        }]},
+        "edge_pass": {"observation_edges": [{
+            "edge_id": "edge:goats", "from_node_id": "event:goats",
+            "to_node_id": "place:exampleland", "relationship_type": "located_in",
+            "predicate_family": "spatial", "label": "",
+            "evidence_refs": [ref_for("Float Goats walk on water and carry goods across lakes.")],
+        }]},
+    }
+    class BoundedFixtureClient(BoundedRecapPassClient):
+        def __init__(self):
+            self.limits = SimpleNamespace(
+                provider="openrouter", model=DEEPSEEK_MODEL, max_calls=8,
+            )
+            self.fixture = FixtureCategoryGraphPassClient(outputs)
+            self.calls = []
+
+        def run_pass(self, pass_name, **kwargs):
+            result = self.fixture.run_pass(pass_name, **kwargs)
+            self.calls.append({
+                "pass_name": pass_name,
+                "observation": None,
+                "external_outcome": "completed",
+            })
+            return result
+
+    fixture_client = BoundedFixtureClient()
+
+    def extract_with_extra_review_qualifier(options, *, client=None, progress_callback=None):
+        result = extract_category_candidate_graph(
+            options, client=client, progress_callback=progress_callback,
+        )
+        diagnostics = copy.deepcopy(result.consolidation_diagnostics)
+        proposal = diagnostics["source_section_retention"][
+            "livestock_semantic_hygiene"]["deferred_proposals"][
+                "deferred:livestock-section:edge:edge:goats"]["proposal"]
+        proposal["qualifiers"] = {"certainty": "qualified", "scope": "Exampleland"}
+        return dataclass_replace(result, consolidation_diagnostics=diagnostics)
+
+    monkeypatch.setattr(
+        "src.graph_memory.extraction.graph_preview_runner.extract_category_candidate_graph",
+        extract_with_extra_review_qualifier,
+    )
+    result = run_production_extraction(
+        ProductionExtractionRequest(
+            repo_root=tmp_path,
+            source=source,
+            profile_id=GAZETTEER_LIVESTOCK_HYGIENE_PROFILE.profile_id,
+            profile_version=GAZETTEER_LIVESTOCK_HYGIENE_PROFILE.profile_version,
+            model_id=DEEPSEEK_MODEL,
+            allow_llm=True,
+            category_client=fixture_client,
+            output_dir=tmp_path / "out" / "gazetteer-diagnostics",
+        )
+    )
+
+    assert result.failure_kind is None
+    assert result.run.status == ExtractionRunStatus.REVIEWABLE
+    loaded = get_extraction_run(tmp_path, result.run.run_id)
+    diagnostics_ref = loaded.components["consolidation_diagnostics"]
+    diagnostics_path = tmp_path / diagnostics_ref.uri.removeprefix("repo://")
+    diagnostics_bytes = diagnostics_path.read_bytes()
+    assert diagnostics_ref.sha256 == hashlib.sha256(diagnostics_bytes).hexdigest()
+    assert diagnostics_ref.exists
+    assert stat.S_IMODE(diagnostics_path.stat().st_mode) == 0o600
+    diagnostics = json.loads(diagnostics_bytes)
+    proposals = diagnostics["source_section_retention"][
+        "livestock_semantic_hygiene"]["deferred_proposals"]
+    edge_proposal = proposals[
+        "deferred:livestock-section:edge:edge:goats"]["proposal"]
+    assert edge_proposal["label"] == ""
+    assert edge_proposal["from_node_id"] == "event:goats"
+    assert edge_proposal["to_node_id"] == "place:exampleland"
+    assert edge_proposal["relationship_type"] == "located_in"
+    assert edge_proposal["qualifiers"] == {
+        "certainty": "qualified", "scope": "Exampleland",
+    }
+    assert edge_proposal["evidence_refs"][0]["source_artifact_id"] == source.source_artifact_id
+    assert edge_proposal["evidence_refs"][0]["source_ref_id"] == f"{source.source_artifact_id}:text"
+
+    span_ref = loaded.components["source_span_index"]
+    span_index = json.loads(
+        (tmp_path / span_ref.uri.removeprefix("repo://")).read_text(encoding="utf-8")
+    )
+    span_ids = {item["source_span_id"] for item in span_index["spans"]}
+    assert edge_proposal["evidence_refs"][0]["source_span_ref_id"] in span_ids
+    candidate_ref = loaded.components["candidate_graph"]
+    candidate = json.loads(
+        (tmp_path / candidate_ref.uri.removeprefix("repo://")).read_text(encoding="utf-8")
+    )
+    candidate_node_ids = {item["node_id"] for item in candidate["nodes"]}
+    assert "event:goats" not in candidate_node_ids
+    assert all(
+        edge["from_node_id"] in candidate_node_ids
+        and edge["to_node_id"] in candidate_node_ids
+        for edge in candidate["edges"]
+    )
+    assert_immutable_component_refs(tmp_path, loaded)
+
+
 @pytest.mark.parametrize("mode,kind", [("refusal", "refusal"), ("incomplete", "incomplete"), ("schema", "schema")])
 def test_failure_modes_persist(tmp_path: Path, mode: str, kind: str) -> None:
     source = _admit_recap(tmp_path, "Mirathorn.\n")

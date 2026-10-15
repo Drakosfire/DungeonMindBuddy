@@ -17,7 +17,9 @@ from apps.live_control_server.services.workspace_document_registry import (
 SOURCE = "The Elderwyld is a continent. Mirathorn is a city.\n"
 
 
-def test_gazetteer_15_launch_binds_generation_to_committed_build_source(
+@pytest.mark.parametrize("profile_version", ["1.5", "1.6"])
+def test_gazetteer_launch_binds_generation_to_committed_build_source(
+    profile_version: str,
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     record = create_workspace_document(
@@ -46,7 +48,7 @@ def test_gazetteer_15_launch_binds_generation_to_committed_build_source(
             assert mode == "json"
             return {
                 "run_id": "run-gazetteer",
-                "profile_id": "worldbuilding_gazetteer_v1@1.5",
+                "profile_id": f"worldbuilding_gazetteer_v1@{profile_version}",
                 "status": "reviewable",
             }
 
@@ -60,7 +62,7 @@ def test_gazetteer_15_launch_binds_generation_to_committed_build_source(
 
     monkeypatch.setattr(
         worldbuilding_ge_execution,
-        "run_gazetteer_15_with_generation_engine",
+        "run_gazetteer_with_generation_engine",
         _execute,
     )
     payload = graph_preview.post_extraction_run(
@@ -69,13 +71,13 @@ def test_gazetteer_15_launch_binds_generation_to_committed_build_source(
             "expected_revision": committed.revision,
             "expected_content_sha256": digest,
             "profile_id": "worldbuilding_gazetteer_v1",
-            "profile_version": "1.5",
+            "profile_version": profile_version,
             "model_id": "client-selected-model-is-ignored",
             "world_id": "client-selected-world-is-ignored",
         }
     )
 
-    assert payload["run"]["profile_id"] == "worldbuilding_gazetteer_v1@1.5"
+    assert payload["run"]["profile_id"] == f"worldbuilding_gazetteer_v1@{profile_version}"
     assert payload["document_id"] == committed.document_id
     assert payload["document_revision"] == committed.revision
     assert payload["source_content_sha256"] == digest
@@ -86,5 +88,6 @@ def test_gazetteer_15_launch_binds_generation_to_committed_build_source(
             "document_id": committed.document_id,
             "document_revision": committed.revision,
             "expected_content_sha256": digest,
+            "profile_version": profile_version,
         }
     ]

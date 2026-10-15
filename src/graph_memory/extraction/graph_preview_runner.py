@@ -161,6 +161,50 @@ def _retain_raw_failure_response(
                 pass  # Preserve the original storage outcome; leftover text stays private.
 
 
+def _retain_private_json_component(
+    repo_root: Path,
+    output_dir: Path,
+    *,
+    filename: str,
+    payload: Mapping[str, Any],
+    kind: ExtractionRunComponentKind,
+) -> ExtractionRunComponentRef:
+    """Persist private review diagnostics atomically and bind them by digest."""
+    temporary: Path | None = None
+    try:
+        target = output_dir / filename
+        uri = _repo_uri(repo_root, target)
+        data = json.dumps(
+            payload, indent=2, sort_keys=True, ensure_ascii=False, allow_nan=False,
+        ).encode("utf-8") + b"\n"
+        descriptor, name = tempfile.mkstemp(prefix=".private-json-", dir=output_dir)
+        temporary = Path(name)
+        with os.fdopen(descriptor, "wb") as stream:
+            os.fchmod(stream.fileno(), 0o600)
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, target)
+        directory = os.open(output_dir, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+        return _component(
+            kind,
+            uri=uri,
+            sha256=hashlib.sha256(data).hexdigest(),
+        )
+    except Exception:
+        raise RuntimeError("Could not persist private extraction diagnostics") from None
+    finally:
+        if temporary is not None:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+
 def _create_draft_run(
     repo_root: Path,
     source: NormalizedExtractionSource,
@@ -504,6 +548,18 @@ def run_production_extraction(
                 request.repo_root, output_dir, extraction.private_response_evidence,
             ),
         }
+
+    diagnostics_ref = _retain_private_json_component(
+        request.repo_root,
+        output_dir,
+        filename="consolidation_diagnostics.json",
+        payload=extraction.consolidation_diagnostics,
+        kind=ExtractionRunComponentKind.CONSOLIDATION_DIAGNOSTICS,
+    )
+    components = {
+        **components,
+        "consolidation_diagnostics": diagnostics_ref,
+    }
 
     candidate_path = output_dir / "candidate_graph.json"
     _write_json(candidate_path, extraction.candidate_graph)

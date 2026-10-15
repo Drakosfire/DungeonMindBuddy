@@ -5,7 +5,7 @@ from copy import deepcopy
 import pytest
 
 from src.graph_memory.extraction.worldbuilding_source_sections import (
-    SourceSectionRetentionError, retain_owned_sections,
+    SourceSectionRetentionError, owned_livestock_sections, retain_owned_sections,
 )
 
 
@@ -67,6 +67,25 @@ def test_unrecognized_document_is_unchanged():
     transformed, diagnostic = retain_owned_sections(candidate, rows()[1:])
     assert transformed == candidate
     assert diagnostic["retained_sections"] == []
+
+
+def test_owned_livestock_section_metadata_uses_the_same_exact_retention_boundary():
+    section, = owned_livestock_sections(rows())
+
+    assert section["owner_label"] == "Exampleland"
+    assert section["owner_span_ref_id"] == "span:0"
+    assert section["species_labels"] == ["Glow Sheep", "Float Goats"]
+    assert section["source_span_ref_ids"] == [
+        "span:0", "span:1", "span:2", "span:3", "span:4", "span:5", "span:6",
+    ]
+    assert "span:7" not in section["source_span_ref_ids"]
+
+
+def test_owned_livestock_metadata_rejects_the_same_ambiguous_sequence_as_retention():
+    source = rows()
+    source[5]["text"] = "#### 9. Float Goats"
+    with pytest.raises(SourceSectionRetentionError):
+        owned_livestock_sections(source)
 
 
 def test_actual_candidate_assembly_preserves_prose_and_stamps_all_evidence():

@@ -111,6 +111,64 @@ def test_no_raw_response_does_not_invent_evidence(tmp_path, application_state_ds
     assert not list((tmp_path / "out/runs/failure").rglob("raw_model_response.txt"))
 
 
+def test_private_consolidation_diagnostics_component_is_digest_bound(tmp_path):
+    payload = {
+        "livestock_semantic_hygiene": {
+            "deferred_proposals": {
+                "deferred:livestock-section:edge:edge:goats": {
+                    "item_id": "deferred:livestock-section:edge:edge:goats",
+                    "kind": "edge",
+                    "proposal": {
+                        "edge_id": "edge:goats",
+                        "from_node_id": "event:goats",
+                        "to_node_id": "place:exampleland",
+                        "relationship_type": "located_in",
+                        "label": "",
+                        "qualifiers": {"certainty": "qualified"},
+                        "evidence_refs": [
+                            {"source_span_ref_id": "span:goats", "anchor_quotes": ["Float Goats"]}
+                        ],
+                    },
+                }
+            }
+        }
+    }
+    output_dir = tmp_path / "out" / "run"
+    output_dir.mkdir(parents=True)
+    component = runner._retain_private_json_component(
+        tmp_path,
+        output_dir,
+        filename="consolidation_diagnostics.json",
+        payload=payload,
+        kind=runner.ExtractionRunComponentKind.CONSOLIDATION_DIAGNOSTICS,
+    )
+    path = tmp_path / component.uri.removeprefix("repo://")
+    raw = path.read_bytes()
+
+    assert component.kind.value == "consolidation_diagnostics"
+    assert component.exists
+    assert component.sha256 == hashlib.sha256(raw).hexdigest()
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    assert json.loads(raw) == payload
+    assert not list(output_dir.glob(".private-json-*"))
+
+
+def test_private_diagnostics_write_failure_does_not_echo_payload(tmp_path, monkeypatch):
+    def unavailable(*args, **kwargs):
+        raise OSError("disk full synthetic")
+
+    monkeypatch.setattr(runner.tempfile, "mkstemp", unavailable)
+    with pytest.raises(RuntimeError, match="Could not persist private extraction diagnostics") as exc:
+        runner._retain_private_json_component(
+            tmp_path,
+            tmp_path,
+            filename="consolidation_diagnostics.json",
+            payload={"private": "SOURCE_TEXT"},
+            kind=runner.ExtractionRunComponentKind.CONSOLIDATION_DIAGNOSTICS,
+        )
+    assert "SOURCE_TEXT" not in str(exc.value)
+
+
 def test_storage_failure_cannot_report_retention_or_return_candidate(
     tmp_path,
     application_state_dsn,
