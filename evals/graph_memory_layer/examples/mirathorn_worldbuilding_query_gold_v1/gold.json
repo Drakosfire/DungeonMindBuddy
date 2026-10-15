@@ -1,0 +1,932 @@
+{
+  "schema_version": "dmb_mirathorn_worldbuilding_query_gold_v1",
+  "status": "hand_authored_before_target_run_development_not_blind",
+  "corpus": {
+    "source_path": "corpus/eldyrwild-markdown/Elderwyld/Cities and Towns/Mirathorn/The City of Mirathorn.md",
+    "world_id": "elderwyld",
+    "build_document_id": "a5f32e92-80d1-42c8-96bd-4587321f39e7",
+    "saved_revision": 2,
+    "sha256": "70444f40b9f16976f55620a72f802b1201efe56014a61343bb45811a33570342",
+    "source_artifact_id": null,
+    "source_artifact_note": "Resolve from the registered Build source at execution time, binding its exact document revision and digest; do not invent a stable artifact ID."
+  },
+  "profile_snapshot": {
+    "id": "worldbuilding_shepherds_flock_v0@0.1",
+    "source_path": "src/graph_memory/extraction/worldbuilding_extraction_profile.py",
+    "source_sha256": "b779e3195360ae60d2d9c140af7849f04e24cc17adfc7f7c9d4af159952cc17f",
+    "admitted_node_types": [
+      "character",
+      "creature",
+      "location",
+      "faction",
+      "organization",
+      "group"
+    ],
+    "excluded_node_types": [
+      "item",
+      "mystery",
+      "beat",
+      "event",
+      "clue",
+      "ecology",
+      "resource",
+      "flora",
+      "fauna_incidental",
+      "product",
+      "material",
+      "scenery"
+    ],
+    "document_class_admission": [
+      "lore",
+      "gazetteer",
+      "faction",
+      "place",
+      "institution"
+    ],
+    "runtime_document_class": "unverified",
+    "notes": [
+      "The Shepherds Flock v0.1 entry is the selected pilot-profile baseline for comparison, not evidence that this saved source executed with it.",
+      "DungeonMindBuddy main also contains Gazetteer v1.5; the execution profile for the registered Build source and its document-class admission are unverified.",
+      "The Markdown frontmatter says document_class=world; that does not establish the registered Build document class or profile eligibility.",
+      "Separate answer correctness from graph representation. Festival and generic Float Goat facts may be answered from source-backed place descriptions/passages without requiring event or species nodes.",
+      "Float Goats are a plural species/type description, not an individuated creature. Do not require a generic creature node.",
+      "The Mirathorn approach sentence is prepared-scenario prose, not an enduring world fact or played event."
+    ],
+    "snapshot_role": "selected_pilot_profile_baseline_not_execution_evidence",
+    "execution_profile": "unverified",
+    "profile_catalog": {
+      "source_path": "src/graph_memory/extraction/worldbuilding_profile_catalog.py",
+      "source_sha256": "bef3a79db126a4b6f29b405d3f74a6def7ac381e0ea6580e1935ee3a5a2b2cb4"
+    },
+    "available_profiles": [
+      {
+        "id": "worldbuilding_gazetteer_v1@1.5",
+        "source_path": "src/graph_memory/extraction/worldbuilding_gazetteer_profile.py",
+        "source_sha256": "41b684e011f52575c17f954492af8a527ac7c4a293ef962c16de2e2a812acf13",
+        "relevant_behavior": [
+          "Allows named recurring festival definitions as event nodes, not played episodes.",
+          "Preserves livestock and species knowledge in associated place descriptions rather than minting generic species nodes.",
+          "Keeps authored approach/arrival scenery as prepared-scenario prose, not enduring place facts or played events."
+        ]
+      }
+    ]
+  },
+  "required_expectations": [
+    "mirathorn_location_and_trade",
+    "council_and_representative_interests",
+    "float_goat_transport",
+    "festival_of_expansion_purpose",
+    "thalia_guard_corruption_continuity"
+  ],
+  "facts": [
+    {
+      "id": "mirathorn_location",
+      "claim": "Mirathorn is at the base of the Stormspire Peaks and beside Lake Mirathorn.",
+      "evidence": [
+        {
+          "start_line": 30,
+          "end_line": 30,
+          "quote": "At the base of the Stormspire Peaks, by Lake Mirathorn"
+        }
+      ],
+      "profile_fit": "in_scope",
+      "profile_note": "A location node is admitted; preserve the named geographic links rather than only recognizing the terms.",
+      "fact_role": "Mirathorn location description and links to both named geographic features.",
+      "representation_expectation": {
+        "mode": "location_node",
+        "typed_node_required_for_answer": true,
+        "note": "Location fact may be represented on Mirathorn; geography edges should be emitted only when native predicates preserve the source meaning."
+      }
+    },
+    {
+      "id": "mirathorn_trade_routes",
+      "claim": "The source calls Mirathorn a strategic trade hub and says it has access to rivers, mountain passes, and maintained roads.",
+      "evidence": [
+        {
+          "start_line": 30,
+          "end_line": 30,
+          "quote": "making it a strategic trade hub"
+        },
+        {
+          "start_line": 38,
+          "end_line": 38,
+          "quote": "access to rivers, mountain passes, and well-maintained roads"
+        }
+      ],
+      "profile_fit": "partial",
+      "profile_note": "The profile admits a location node but does not declare a route/trade-specific relationship vocabulary.",
+      "fact_role": "Trade-access facts connected to Mirathorn; preserve each route type and do not collapse them into a generic trade label.",
+      "representation_expectation": {
+        "mode": "location_description",
+        "typed_node_required_for_answer": false,
+        "note": "Rivers, mountain passes, and roads are generic access classes, not named route endpoints. No route node or edge is required."
+      }
+    },
+    {
+      "id": "mirathorn_governance",
+      "claim": "Mirathorn is a democratic city-state governed by a council representing various races and guilds.",
+      "evidence": [
+        {
+          "start_line": 166,
+          "end_line": 166,
+          "quote": "A democratic city-state governed by a council representing various races and guilds"
+        }
+      ],
+      "profile_fit": "partial",
+      "profile_note": "Organization is admitted, but this profile does not declare an institution node type or governance-specific edge vocabulary.",
+      "fact_role": "Mirathorn governed by council; council representation remains distinct from a fabricated voting procedure.",
+      "representation_expectation": {
+        "mode": "organization_and_governs_edge",
+        "typed_node_required_for_answer": true,
+        "note": "The council may be represented as an organization governed by source-backed relation to Mirathorn; do not infer its membership roster."
+      }
+    },
+    {
+      "id": "elara_leads_council",
+      "claim": "Mayor Elara Swiftwind is the Gnome leader of the city council.",
+      "evidence": [
+        {
+          "start_line": 190,
+          "end_line": 190,
+          "quote": "Mayor Elara Swiftwind"
+        },
+        {
+          "start_line": 190,
+          "end_line": 190,
+          "quote": "Charismatic Gnome leader of the city council"
+        }
+      ],
+      "profile_fit": "in_scope",
+      "profile_note": "Character and organization nodes are admitted; the leadership relation still requires source evidence.",
+      "fact_role": "Elara leads the council.",
+      "representation_expectation": {
+        "mode": "character_and_leads_edge",
+        "typed_node_required_for_answer": true,
+        "note": "Mayor Elara leads the city council; this is one source-supported path edge."
+      }
+    },
+    {
+      "id": "barin_commerce_concern",
+      "claim": "Barin Stonefoot represents Commerce and is concerned that the cult could harm the city's economy and disrupt the festival.",
+      "evidence": [
+        {
+          "start_line": 196,
+          "end_line": 196,
+          "quote": "Representative of Commerce"
+        },
+        {
+          "start_line": 200,
+          "end_line": 200,
+          "quote": "economic impact of the cult’s actions"
+        },
+        {
+          "start_line": 200,
+          "end_line": 200,
+          "quote": "potential disruption of the festival"
+        }
+      ],
+      "profile_fit": "in_scope",
+      "profile_note": "Character node is admitted; preserve the role and stance in source-backed descriptive facts.",
+      "fact_role": "Barin role and stance; do not infer a specific council vote or action.",
+      "representation_expectation": {
+        "mode": "character_description",
+        "typed_node_required_for_answer": false,
+        "note": "Role and stance are source-backed character facts; do not add a council membership edge."
+      }
+    },
+    {
+      "id": "grobnok_cultural_concern",
+      "claim": "Grobnok represents the Undercity and Cultural Sectors and is wary of the cult entering his territory.",
+      "evidence": [
+        {
+          "start_line": 206,
+          "end_line": 206,
+          "quote": "Representative of the Undercity and Cultural Sectors"
+        },
+        {
+          "start_line": 210,
+          "end_line": 210,
+          "quote": "wary of the cult’s influence creeping into his territory"
+        }
+      ],
+      "profile_fit": "in_scope",
+      "profile_note": "Character node is admitted; preserve the role and stance in source-backed descriptive facts.",
+      "fact_role": "Grobnok role and stance.",
+      "representation_expectation": {
+        "mode": "character_description",
+        "typed_node_required_for_answer": false,
+        "note": "Role and stance are source-backed character facts; do not add a council membership edge."
+      }
+    },
+    {
+      "id": "tinkerbright_arcane_concern",
+      "claim": "Headmaster Tinkerbright represents the Arcane and wants the Wizard’s College to detect and counter the cult's influence.",
+      "evidence": [
+        {
+          "start_line": 216,
+          "end_line": 216,
+          "quote": "Representative of the Arcane"
+        },
+        {
+          "start_line": 220,
+          "end_line": 220,
+          "quote": "Deeply troubled by the dark magic at play"
+        },
+        {
+          "start_line": 220,
+          "end_line": 220,
+          "quote": "views the corrupted meat as a perversion of magic"
+        },
+        {
+          "start_line": 220,
+          "end_line": 220,
+          "quote": "Deeply troubled by the dark magic at play, Tinkerbright views the corrupted meat as a perversion of magic"
+        },
+        {
+          "start_line": 220,
+          "end_line": 220,
+          "quote": "deploy the resources of the Wizard’s College to detect and counteract the cult’s influence"
+        }
+      ],
+      "profile_fit": "in_scope",
+      "profile_note": "Character and organization nodes are admitted; cross-name identity remains unresolved.",
+      "fact_role": "Tinkerbright role and stance; preserve Wizard’s College as the source label without merging it with Stormspire Academy.",
+      "representation_expectation": {
+        "mode": "character_description",
+        "typed_node_required_for_answer": false,
+        "note": "Role and stance are source-backed character facts; do not add a council membership edge or merge the College with the Academy."
+      }
+    },
+    {
+      "id": "thalia_law_order_role",
+      "claim": "Commander Thalia Ashenvale commands the Guard and represents Law and Order.",
+      "evidence": [
+        {
+          "start_line": 222,
+          "end_line": 222,
+          "quote": "Commander Thalia Ashenvale"
+        },
+        {
+          "start_line": 222,
+          "end_line": 222,
+          "quote": "Commander of the Guard"
+        },
+        {
+          "start_line": 226,
+          "end_line": 226,
+          "quote": "Representative of Law and Order"
+        }
+      ],
+      "profile_fit": "in_scope",
+      "profile_note": "Character node is admitted; preserve this relationship separately from Thalia’s hidden magical influence.",
+      "fact_role": "Thalia's command and civic role.",
+      "representation_expectation": {
+        "mode": "character_and_commands_edge",
+        "typed_node_required_for_answer": true,
+        "note": "The Commander-of-the-Guard role supports a direct commands edge if the Guard is represented as a group; do not infer council membership."
+      }
+    },
+    {
+      "id": "thalia_corruption_stance",
+      "claim": "Thalia is defensive about accusations against her Guard but will listen to solid evidence.",
+      "evidence": [
+        {
+          "start_line": 230,
+          "end_line": 230,
+          "quote": "Defensive about the accusations against her guard, but will listen to solid evidence"
+        }
+      ],
+      "profile_fit": "in_scope",
+      "profile_note": "Character description is admitted; do not replace this nuance with a binary claim that she always rejects evidence.",
+      "fact_role": "Thalia's explicit response to allegations.",
+      "representation_expectation": {
+        "mode": "character_description",
+        "typed_node_required_for_answer": false,
+        "note": "Preserve her stated willingness to hear solid evidence as a separate source-backed fact."
+      }
+    },
+    {
+      "id": "thalia_unaware_enchantment",
+      "claim": "The source says Thalia has been ensorcelled by the Wolf to overlook corruption in the Guard, unbeknownst to her.",
+      "evidence": [
+        {
+          "start_line": 228,
+          "end_line": 228,
+          "quote": "Unbeknownst to her, she has been ensorcelled by the Wolf to overlook the corruption within the guard"
+        }
+      ],
+      "visibility": "gm_spoiler_sensitive",
+      "profile_fit": "in_scope_with_visibility_gate",
+      "profile_note": "Character node is admitted, but the profile default is gm_private and this hidden relation must not become player-visible by default.",
+      "fact_role": "Spoiler-sensitive influence and its stated effect; do not claim she knowingly covers corruption.",
+      "representation_expectation": {
+        "mode": "gm_scoped_character_fact",
+        "typed_node_required_for_answer": false,
+        "note": "Keep the hidden cause GM-only; do not invent a Wolf-controls relation because the source states an enchantment fact, not a generic control relation."
+      }
+    },
+    {
+      "id": "torrin_guild_concern",
+      "claim": "Torrin Flamescale represents the Craft Guilds and is concerned about defenses, public safety, and tainted meat.",
+      "evidence": [
+        {
+          "start_line": 236,
+          "end_line": 236,
+          "quote": "Representative of the Craft Guilds"
+        },
+        {
+          "start_line": 240,
+          "end_line": 240,
+          "quote": "Concerned about the integrity of the city's defenses and the safety of its people"
+        },
+        {
+          "start_line": 240,
+          "end_line": 240,
+          "quote": "tainted meat being distributed in his city"
+        },
+        {
+          "start_line": 240,
+          "end_line": 240,
+          "quote": "tainted meat being distributed in his city"
+        }
+      ],
+      "profile_fit": "in_scope",
+      "profile_note": "Character node is admitted; preserve the distinction between safety concern and any unstated council decision.",
+      "fact_role": "Torrin role and stance.",
+      "representation_expectation": {
+        "mode": "character_description",
+        "typed_node_required_for_answer": false,
+        "note": "Role and stance are source-backed character facts; do not add a council membership edge."
+      }
+    },
+    {
+      "id": "merril_agriculture_concern",
+      "claim": "Merril Tealeaf represents Agriculture and Food Production and advocates immediate measures to cleanse food supplies.",
+      "evidence": [
+        {
+          "start_line": 246,
+          "end_line": 246,
+          "quote": "Representative of Agriculture and Food Production"
+        },
+        {
+          "start_line": 250,
+          "end_line": 250,
+          "quote": "advocating for immediate measures to cleanse the food supplies"
+        }
+      ],
+      "profile_fit": "in_scope",
+      "profile_note": "Character node is admitted; preserve her food-safety concern as a source-backed description.",
+      "fact_role": "Merril role and stance.",
+      "representation_expectation": {
+        "mode": "character_description",
+        "typed_node_required_for_answer": false,
+        "note": "Role and stance are source-backed character facts; do not add a council membership edge."
+      }
+    },
+    {
+      "id": "rurik_infrastructure_concern",
+      "claim": "Rurik Stonehammer represents Infrastructure and wants to assist in locating and sealing tunnels the cult might be using.",
+      "evidence": [
+        {
+          "start_line": 256,
+          "end_line": 256,
+          "quote": "Representative of Infrastructure"
+        },
+        {
+          "start_line": 260,
+          "end_line": 260,
+          "quote": "locating and sealing off any areas the cult might be using"
+        }
+      ],
+      "profile_fit": "in_scope",
+      "profile_note": "Character node is admitted; preserve the tentative wording “might be using.”",
+      "fact_role": "Rurik role and stance.",
+      "representation_expectation": {
+        "mode": "character_description",
+        "typed_node_required_for_answer": false,
+        "note": "Role and stance are source-backed character facts; do not add a council membership edge."
+      }
+    },
+    {
+      "id": "float_goats_water_walking",
+      "claim": "Float Goats can walk on water across lakes, rivers, and ponds.",
+      "evidence": [
+        {
+          "start_line": 134,
+          "end_line": 134,
+          "quote": "extraordinary ability to walk on water"
+        },
+        {
+          "start_line": 134,
+          "end_line": 134,
+          "quote": "across the surface of lakes, rivers, and ponds"
+        },
+        {
+          "start_line": 134,
+          "end_line": 134,
+          "quote": "across the surface of lakes, rivers, and ponds"
+        }
+      ],
+      "profile_fit": "outside_selected_pilot_scope",
+      "profile_note": "Creature is admitted, but the profile asks for named creatures; the old gold’s unknown_important type is not admitted.",
+      "fact_role": "Creature capability; it is not a statblock or quantified movement speed.",
+      "representation_expectation": {
+        "mode": "associated_place_description_or_source_passage",
+        "typed_node_required_for_answer": false,
+        "note": "Generic species/type fact; do not require a creature node. Gazetteer v1.5 preserves livestock knowledge on an associated place."
+      }
+    },
+    {
+      "id": "float_goats_transport_goods",
+      "claim": "Float Goats are kept as companions and beasts of burden and are used in the Elderwyld to transport goods across lakes and rivers.",
+      "evidence": [
+        {
+          "start_line": 154,
+          "end_line": 154,
+          "quote": "ideal for transporting goods across bodies of water and navigating difficult terrain"
+        },
+        {
+          "start_line": 156,
+          "end_line": 156,
+          "quote": "used in the Elderwyld to transport goods across lakes and rivers"
+        }
+      ],
+      "profile_fit": "outside_selected_pilot_scope",
+      "profile_note": "Creature node is possible; no transport relation family is declared by the bounded profile.",
+      "fact_role": "Creature-to-transport use; do not infer an exact route, cargo capacity, or an explicit city-specific service.",
+      "representation_expectation": {
+        "mode": "associated_place_description_or_source_passage",
+        "typed_node_required_for_answer": false,
+        "note": "Generic species/type fact; do not require a creature node or a named route."
+      }
+    },
+    {
+      "id": "mirathorn_approach_floatgoats",
+      "claim": "The Mirathorn approach describes some farms as having floatgoats used for labor and transportation.",
+      "evidence": [
+        {
+          "start_line": 314,
+          "end_line": 314,
+          "quote": "Some farms have floatgoats, the whimsical creatures used for labor and transportation"
+        }
+      ],
+      "profile_fit": "prepared_scenario_only",
+      "profile_note": "The source’s scene-like approach content is not explicitly covered by the bounded profile.",
+      "fact_role": "An approach-section fact; do not silently identify those farms as being within the city or on Lake Mirathorn.",
+      "representation_expectation": {
+        "mode": "source_passage_only",
+        "typed_node_required_for_answer": false,
+        "note": "The approach section can be opened as authored scenario material but must not become an enduring-world or played-event fact."
+      }
+    },
+    {
+      "id": "festival_expansion_purpose",
+      "claim": "The Festival of Expansion commemorates the Goddess’s sacrifice and the city’s growth.",
+      "evidence": [
+        {
+          "start_line": 174,
+          "end_line": 174,
+          "quote": "Commemorates the Goddess's sacrifice and the city's growth"
+        }
+      ],
+      "profile_fit": "outside_selected_pilot_scope",
+      "profile_note": "The event node type is explicitly excluded; this required answer is a known profile gap, not a reason to distort the fact.",
+      "fact_role": "Recurring world event linked to the Goddess and Mirathorn; not a played session beat.",
+      "representation_expectation": {
+        "mode": "source_backed_place_description_or_source_passage",
+        "typed_node_required_for_answer": false,
+        "note": "Answer fact does not require a typed event node. Gazetteer v1.5 can represent named recurring festivals as definitions, not played episodes."
+      }
+    },
+    {
+      "id": "festival_aspitome_history",
+      "claim": "The source says the festival was initially tied to expanding the Aspitome’s bubble.",
+      "evidence": [
+        {
+          "start_line": 174,
+          "end_line": 174,
+          "quote": "Initially tied to expanding the Aspitome’s bubble"
+        }
+      ],
+      "profile_fit": "outside_selected_pilot_scope",
+      "profile_note": "The event node type is explicitly excluded; the temporal qualifier is part of the gold.",
+      "fact_role": "Historical relationship of the recurring festival; preserve “initially” and do not treat as its only current purpose.",
+      "representation_expectation": {
+        "mode": "source_backed_place_description_or_source_passage",
+        "typed_node_required_for_answer": false,
+        "note": "Preserve the historical qualifier. Do not require a separate event node to answer from source evidence."
+      }
+    }
+  ],
+  "questions": [
+    {
+      "id": "q_location_trade",
+      "prompt": "Where is Mirathorn, and what about its position makes it a strategic trade hub?",
+      "expected_disposition": "answer",
+      "fact_ids": [
+        "mirathorn_location",
+        "mirathorn_trade_routes"
+      ],
+      "covers_expectations": [
+        "mirathorn_location_and_trade"
+      ],
+      "answer_key": "Mirathorn sits at the base of the Stormspire Peaks beside Lake Mirathorn. The source calls it a strategic trade hub with access to rivers, mountain passes, and maintained roads.",
+      "must_not_claim": [
+        "A named river connection not present in the source",
+        "A specific trade route or trade volume"
+      ],
+      "audience": "gm",
+      "must_not_disclose_fact_ids": [],
+      "task_shape": "multi_source_synthesis",
+      "graph_traversal": {
+        "status": "not_required",
+        "paths": [],
+        "note": "The answer combines the location clause at line 30 with generic route classes at line 38. The source does not name route endpoints; do not fabricate route nodes or edges."
+      }
+    },
+    {
+      "id": "q_council_interests",
+      "prompt": "How does Mayor Elara connect to Mirathorn’s government, and what different concerns do the named representatives raise about the cult?",
+      "expected_disposition": "answer_with_scope_note",
+      "fact_ids": [
+        "mirathorn_governance",
+        "elara_leads_council",
+        "barin_commerce_concern",
+        "grobnok_cultural_concern",
+        "tinkerbright_arcane_concern",
+        "thalia_law_order_role",
+        "thalia_corruption_stance",
+        "torrin_guild_concern",
+        "merril_agriculture_concern",
+        "rurik_infrastructure_concern"
+      ],
+      "covers_expectations": [
+        "council_and_representative_interests"
+      ],
+      "answer_key": "Mayor Elara Swiftwind leads the city council, and the source says that the council governs Mirathorn. The named representatives' concerns are distinct: Barin worries about economic effects and festival disruption; Grobnok about the cult's influence in his territory; Tinkerbright about dark magic and corrupted meat and wants the Wizard's College to counter it; Thalia is defensive about Guard accusations but will hear solid evidence; Torrin worries about defenses, public safety, and tainted meat; Merril wants food supplies cleansed; and Rurik wants to locate and seal tunnels the cult might use. These are the representatives named in the source, not a complete roster. Their representative roles do not establish formal council membership, and the source gives no voting procedure.",
+      "must_not_claim": [
+        "A complete council roster",
+        "A voting rule, number of seats, or decision already taken",
+        "Formal membership for every person solely from an inferred edge"
+      ],
+      "audience": "gm",
+      "must_not_disclose_fact_ids": [],
+      "task_shape": "native_representation_gap_plus_multi_source_synthesis",
+      "graph_traversal": {
+        "status": "native_representation_gap",
+        "note": "The answer facts are source-backed and can be aggregated, but this complete native graph path is not currently publishable: the first edge maps and was endpoint-admitted by ARCHITECTURE on Buddy main 211d97c44e5399dd22d7de28a3de2ab8d444d04c; the second predicate, governs, is extractable but unmapped by the native write qualification contract. Do not report this as a supported native multi-hop traversal.",
+        "paths": [
+          {
+            "start": {
+              "label": "Mayor Elara Swiftwind",
+              "node_type": "character"
+            },
+            "target": {
+              "label": "Mirathorn",
+              "node_type": "location"
+            },
+            "direction": "forward",
+            "steps": [
+              {
+                "from": {
+                  "label": "Mayor Elara Swiftwind",
+                  "node_type": "character"
+                },
+                "buddy_from_kind": "npc",
+                "native_from_kind": "dnd5e:npc",
+                "predicate": "leads",
+                "native_admission": "admitted",
+                "native_admission_evidence": {
+                  "check": "edge_endpoint_kind_admission_reason",
+                  "buddy_main_sha": "211d97c44e5399dd22d7de28a3de2ab8d444d04c",
+                  "native_vocabulary_blob_sha": "7eee30a5c10e1a407a3687e050f06eab55bc08a3",
+                  "result_reason": null
+                },
+                "to": {
+                  "label": "city council",
+                  "node_type": "organization"
+                },
+                "buddy_to_kind": "faction",
+                "native_to_kind": "dnd5e:faction",
+                "evidence_fact_ids": [
+                  "elara_leads_council"
+                ],
+                "native_term": "dnd5e:leads"
+              },
+              {
+                "from": {
+                  "label": "city council",
+                  "node_type": "organization"
+                },
+                "buddy_from_kind": "faction",
+                "native_from_kind": "dnd5e:faction",
+                "predicate": "governs",
+                "native_admission": "unmapped_predicate",
+                "to": {
+                  "label": "Mirathorn",
+                  "node_type": "location"
+                },
+                "buddy_to_kind": "location",
+                "native_to_kind": "dnd5e:location",
+                "evidence_fact_ids": [
+                  "mirathorn_governance"
+                ],
+                "native_term": null
+              }
+            ]
+          }
+        ],
+        "aggregated_fact_ids": [
+          "elara_leads_council",
+          "mirathorn_governance"
+        ],
+        "forbidden_inferences": [
+          "member_of",
+          "council_voting_process"
+        ]
+      }
+    },
+    {
+      "id": "q_float_goat_transport",
+      "prompt": "How could Float Goats help move goods, and what does the Mirathorn approach specifically say about them?",
+      "expected_disposition": "answer_with_scope_note",
+      "fact_ids": [
+        "float_goats_water_walking",
+        "float_goats_transport_goods",
+        "mirathorn_approach_floatgoats"
+      ],
+      "covers_expectations": [
+        "float_goat_transport"
+      ],
+      "answer_key": "The source describes Float Goats as able to walk on water and says they are used in the Elderwyld to carry goods across lakes and rivers. Separately, the Mirathorn approach says some farms have them for labor and transportation. It does not identify a particular Mirathorn route or say the farms are inside the city.",
+      "must_not_claim": [
+        "A city-specific Float Goat ferry route",
+        "A number of goats, cargo capacity, or exact speed",
+        "That the approach farms are inside Mirathorn"
+      ],
+      "audience": "gm",
+      "must_not_disclose_fact_ids": [],
+      "task_shape": "multi_source_synthesis",
+      "graph_traversal": {
+        "status": "profile_dependent",
+        "paths": [],
+        "note": "Aggregate explicit livestock-section passages and the separate prepared approach sentence. The selected pilot profile does not justify a generic species node; Gazetteer v1.5 preserves livestock definitions as place descriptions, while approach scenery remains scenario prose."
+      }
+    },
+    {
+      "id": "q_festival_purpose",
+      "prompt": "What does the Festival of Expansion commemorate, and what was it originally tied to?",
+      "expected_disposition": "answer",
+      "fact_ids": [
+        "festival_expansion_purpose",
+        "festival_aspitome_history"
+      ],
+      "covers_expectations": [
+        "festival_of_expansion_purpose"
+      ],
+      "answer_key": "It commemorates the Goddess’s sacrifice and Mirathorn’s growth. The source says it was initially tied to expanding the Aspitome’s bubble.",
+      "must_not_claim": [
+        "That the Aspitome expansion is still the festival’s only purpose"
+      ],
+      "audience": "gm",
+      "must_not_disclose_fact_ids": [],
+      "task_shape": "single_source_facts",
+      "graph_traversal": {
+        "status": "profile_dependent",
+        "paths": [],
+        "note": "Answer from the source-backed festival definition/passage. Do not require an event node for answer correctness; the selected pilot profile excludes events, while Gazetteer v1.5 permits named recurring event definitions, not played episodes."
+      }
+    },
+    {
+      "id": "q_thalia_guard_corruption",
+      "prompt": "Why might Commander Thalia resist accusations of corruption in the Guard, and what evidence might change her response?",
+      "expected_disposition": "answer_gm_only",
+      "fact_ids": [
+        "thalia_law_order_role",
+        "thalia_corruption_stance",
+        "thalia_unaware_enchantment"
+      ],
+      "covers_expectations": [
+        "thalia_guard_corruption_continuity"
+      ],
+      "answer_key": "Thalia commands the Guard and is defensive about accusations, although she will listen to solid evidence. The source says, unbeknownst to her, the Wolf has ensorcelled her to overlook corruption within the Guard.",
+      "visibility": "gm_spoiler_sensitive",
+      "must_not_claim": [
+        "Thalia knowingly protects the corruption",
+        "Thalia will never listen to evidence",
+        "That this hidden fact is safe to show players"
+      ],
+      "audience": "gm",
+      "must_not_disclose_fact_ids": [],
+      "task_shape": "multi_fact_gm_synthesis",
+      "graph_traversal": {
+        "status": "not_required",
+        "note": "Thalia’s office, stance, and hidden cause are answer facts. This gold does not rely on a commands edge until its native endpoint admission is independently verified.",
+        "paths": []
+      }
+    },
+    {
+      "id": "q_council_voting_process",
+      "prompt": "How many votes does each council representative have, and what voting process decides city policy?",
+      "expected_disposition": "abstain_unsupported",
+      "fact_ids": [],
+      "answer_key": "The source does not specify a voting process or vote allocation.",
+      "must_not_claim": [
+        "Any voting procedure or number of votes"
+      ],
+      "audience": "gm",
+      "must_not_disclose_fact_ids": [],
+      "task_shape": "abstention_control",
+      "graph_traversal": {
+        "status": "not_applicable",
+        "paths": [],
+        "note": "This negative control tests unsupported or unresolved claims, not path traversal."
+      }
+    },
+    {
+      "id": "q_float_goat_count",
+      "prompt": "How many Float Goats are kept on Lake Mirathorn, and what is their cargo capacity?",
+      "expected_disposition": "abstain_unsupported",
+      "fact_ids": [],
+      "answer_key": "The source gives no count or cargo capacity.",
+      "must_not_claim": [
+        "A count or capacity inferred from their use as beasts of burden"
+      ],
+      "audience": "gm",
+      "must_not_disclose_fact_ids": [],
+      "task_shape": "abstention_control",
+      "graph_traversal": {
+        "status": "not_applicable",
+        "paths": [],
+        "note": "This negative control tests unsupported or unresolved claims, not path traversal."
+      }
+    },
+    {
+      "id": "q_academy_identity",
+      "prompt": "Is Stormspire Academy definitely the same institution as the Wizard’s College?",
+      "expected_disposition": "abstain_identity_unresolved",
+      "fact_ids": [],
+      "answer_key": "The source names Stormspire Academy and the Wizard’s College but does not establish that they are the same institution.",
+      "evidence": [
+        {
+          "start_line": 170,
+          "end_line": 170,
+          "quote": "Stormspire Academy"
+        },
+        {
+          "start_line": 212,
+          "end_line": 212,
+          "quote": "Head of the Wizard’s College"
+        }
+      ],
+      "must_not_claim": [
+        "An identity merge without evidence"
+      ],
+      "audience": "gm",
+      "must_not_disclose_fact_ids": [],
+      "task_shape": "abstention_control",
+      "graph_traversal": {
+        "status": "not_applicable",
+        "paths": [],
+        "note": "This negative control tests unsupported or unresolved claims, not path traversal."
+      }
+    },
+    {
+      "id": "q_thalia_awareness",
+      "prompt": "Does Thalia know the Wolf has magically influenced her?",
+      "expected_disposition": "answer_gm_only",
+      "fact_ids": [
+        "thalia_unaware_enchantment"
+      ],
+      "answer_key": "No. The source says the enchantment is unbeknownst to her.",
+      "visibility": "gm_spoiler_sensitive",
+      "must_not_claim": [
+        "Thalia knowingly colludes with the Wolf"
+      ],
+      "audience": "gm",
+      "must_not_disclose_fact_ids": [],
+      "task_shape": "gm_sensitive_fact",
+      "graph_traversal": {
+        "status": "not_required",
+        "paths": [],
+        "note": "Retrieve the GM-scoped source fact for Thalia; no causal relationship edge is required."
+      }
+    },
+    {
+      "id": "q_thalia_player_safe_stance",
+      "prompt": "What is Thalia’s stated response when people accuse the Guard of corruption?",
+      "expected_disposition": "answer_player_safe",
+      "fact_ids": [
+        "thalia_law_order_role",
+        "thalia_corruption_stance"
+      ],
+      "covers_expectations": [],
+      "audience": "player",
+      "must_not_disclose_fact_ids": [
+        "thalia_unaware_enchantment"
+      ],
+      "task_shape": "player_safe_fact",
+      "graph_traversal": {
+        "status": "not_required",
+        "paths": [],
+        "note": "The GM-only cause must not be loaded into the player-visible answer; answer from the public-safe stance facts only."
+      },
+      "answer_key": "Thalia commands the Guard and is defensive about accusations, but she will listen to solid evidence.",
+      "must_not_claim": [
+        "The Wolf’s enchantment",
+        "That Thalia knows about the manipulation"
+      ]
+    }
+  ],
+  "explicit_omissions": [
+    {
+      "id": "livestock_products_and_ecology",
+      "lines": [
+        40,
+        162
+      ],
+      "decision": "Out of this query-gold slice except Float Goat capability and transport claims.",
+      "profile_behavior": "The selected Shepherds Flock pilot excludes product/ecology categories. Gazetteer 1.5 preserves livestock knowledge in associated place descriptions without generic species nodes. This gold tests only the cited Float Goat facts, not full-document recall."
+    },
+    {
+      "id": "reaches_measurement_and_history",
+      "lines": [
+        272,
+        302
+      ],
+      "decision": "Not tested by this first question set.",
+      "profile_behavior": "Do not claim unit-of-measurement coverage from this gold."
+    },
+    {
+      "id": "plot_hooks_and_approach_scene",
+      "lines": [
+        262,
+        368
+      ],
+      "decision": "Scene, hook, protest, and arrival details are outside this source-fact question set, except the Float Goat approach sentence at line 314.",
+      "profile_behavior": "Gazetteer 1.5 keeps authored approach scenery as prepared-scenario prose, not enduring place facts or played events. The line 314 Float Goat statement is source-only here."
+    },
+    {
+      "id": "cross_document_institution_identity",
+      "lines": [
+        170,
+        212
+      ],
+      "decision": "Stormspire Academy and Wizard’s College remain separate unresolved mentions.",
+      "profile_behavior": "No automatic identity merge; the negative question checks abstention."
+    }
+  ],
+  "provenance_note": "The prior mirathorn_city_candidate_graph_gold is an older hand-authored candidate-graph fixture over the same source digest. It is not this answer benchmark and contains node kinds the current profile excludes; compare it as prior work, not as profile-compatible truth.",
+  "methodology": {
+    "study_design": "development_not_blind",
+    "authored_before_target_run": true,
+    "prior_related_work_reviewed": [
+      "Existing Mirathorn candidate-graph gold and reports were inspected.",
+      "This predates the proposed target run only; it is not a claim that Mirathorn has never been processed."
+    ]
+  },
+  "graph_contract_snapshot": {
+    "extraction_predicate_source_path": "src/graph_memory/identity_resolution.py",
+    "extraction_predicate_source_sha256": "027502f4e411d7d69f247649f21bdb16937608001665972992ffa9a55a872433",
+    "native_predicate_source_path": "apps/live_control_server/integrations/dungeonmind/assertion_qualification.py",
+    "native_predicate_source_sha256": "d0f6afe6f5a91586908c1421edbc154b29928ecb0e3a899f82b6fad02a438fad",
+    "candidate_kind_mapping_source_path": "src/graph_memory/candidate_graph_to_contribution.py",
+    "candidate_kind_mapping_source_sha256": "5ff2974e0c07260a3a6751b8a451ea83b6008039209cbe79c9bda861aa675b96",
+    "extraction_predicates_used": [
+      "governs",
+      "leads"
+    ],
+    "native_mapped_predicates_used": [
+      "leads"
+    ],
+    "note": "Extraction vocabulary and native write admission are separate contracts. Buddy native predicates come only from the explicit qualification mapping; candidate node types are converted by the pinned candidate mapper. Endpoint admission also depends on the native v5 world-object vocabulary and must be reported separately. A predicate that the extractor can propose is not automatically publishable.",
+    "buddy_contract_commit": "211d97c44e5399dd22d7de28a3de2ab8d444d04c",
+    "native_vocabulary_snapshot": {
+      "repository": "Drakosfire/DungeonMind",
+      "commit": "33db6c526aa8568cc2a1eeb686aab2a5f3b5ca28",
+      "source_path": "src/dungeonmind_dnd/vocabularies/world-object-v5.json",
+      "blob_sha": "7eee30a5c10e1a407a3687e050f06eab55bc08a3",
+      "vocabulary_id": "dungeonmind.dnd5e.world_object",
+      "revision": "world-object-v5",
+      "predicates": [
+        {
+          "term": "dnd5e:leads",
+          "subject_kinds": [
+            "dnd5e:creature",
+            "dnd5e:threat",
+            "dnd5e:npc",
+            "dnd5e:player_character"
+          ],
+          "object_kinds": [
+            "dnd5e:faction",
+            "dnd5e:group",
+            "dnd5e:party"
+          ]
+        }
+      ],
+      "predicate_subset_sha256": "4b3292ccdd913a4c79c71cb9fa97c773a3ae2beb5af28d8c6ae77bc8a8cb81bd"
+    },
+    "buddy_dependency_source_path": "pyproject.toml",
+    "buddy_dependency_source_sha256": "ee6dfd5484e802768949b1605df235aaed07c351bf2f2e59c2f76501922cd8f6"
+  }
+}
