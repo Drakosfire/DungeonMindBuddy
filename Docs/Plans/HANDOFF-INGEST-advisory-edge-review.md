@@ -3,7 +3,7 @@
 Status BLOCKED: prerequisite PR1179 is merged and settled; ARCHITECTURE must
 review this exact amended contract before activation.
 PRIME owns solo implementation. Re-anchored base
-f7a01796aa60da10fdc26eb734d88facdb6cc280, including PR1179 merge
+a8a19345e21924716d184d3b7252ba8dd5a68f70, including PR1179 merge
 4de42fa3bfc1115d909f82b40392e539cf98a0e3.
 One capability: an explicitly selected Gazetteer1.4 performs a separate advisory
 review of generated edge proposals. It may retain only original edge IDs; the
@@ -21,8 +21,9 @@ independent/inherited. Full Mirathorn fidelity/publication remains incomplete.
 
 Add optional edge_review_pass spec to code-owned ExtractionProfile, defaultNone.
 New internal pass kind edge_review returns only {retained_edge_ids:[string]}.
-Validate exact keys/types, unique input IDs, unique returned IDs, subset membership;
-unknown/new/duplicate/malformed IDs FAIL the run, never silently salvage. Reorder
+Validate exact keys/types, nonblank string IDs, unique input IDs before calling
+review, unique returned IDs, subset membership;
+blank/non-string/unknown/new/duplicate/malformed IDs FAIL the run, never silently salvage. Reorder
 by original candidate order; do not let the model rewrite labels, refs, endpoints,
 qualifiers, nodes, descriptions or identity. Empty subset allowed with truthful
 all-deferred coverage, never a fidelity PASS. Old profiles make no extra calls.
@@ -42,8 +43,36 @@ keep their existing candidate semantic states; no reviewed/accepted promotion.
 All output artifacts must identify canonical post-review candidate separately
 from pre-review/raw generation envelope; do not publish divergent candidates.
 
-Review adds one normal GenerationEngine call under existing provider/budget and
-cost tracking. No retry/fallback; skip empty generated edge set without a call.
+## Executor contract
+
+Gazetteer1.4 requires an explicitly injected existing BoundedRecapPassClient,
+configured for GenerationEngine -> OpenRouter DeepSeek V4.1 Flash. Validate the
+client, provider/model and matching extraction model before ANY generation or
+review call. Absent or incompatible client fails before inference; do not fall
+through to OpenAICategoryGraphPassClient. Use the same client instance for writer
+and reviewer so run deadlines, call accounting and evidence sink cover both.
+This opt-in requirement does not migrate the default adapter or old profiles.
+The registered worldbuilding service currently forwards category_client without
+constructing a bounded client; therefore generic no-client Gazetteer1.4 use is
+explicitly unavailable in this slice. Real registered research runs inject the
+existing bounded client. A future UI/default routing change is separate scope.
+
+Review adds one run_pass invocation, not a promise of one provider attempt.
+The existing bounded GE client allows one structured-output conformance repair;
+retain actual provider_attempt_count/conformance_retry_count/transport_retry_count
+observations from its safe calls ledger. No new application retry, uncertain replay
+or fallback. Existing max_transport_retries=0 and provider-route no-fallback remain
+in force; missing observations remain unknown, never fabricated zero. Existing
+credential loading, worker lifecycle, request budgets and cost accounting remain
+owned by the bounded client/GE. Skip empty edge sets without invoking review.
+
+raw_text means exactly the text returned by this client seam, not HTTP wire bytes.
+Preserve its exact string, including whitespace, alongside the original GE attempt
+artifact references/hashes where available. Do not claim direct SDK stripped text
+or missing provider data is complete raw evidence. Whitelist JSON-safe ledger and
+result fields explicitly; unsupported values cause controlled evidence failure,
+never repr/default=str serialization of arbitrary objects.
+
 On review failure/malformed output, no reviewable post-review candidate. Preserve
 completed pass outputs AND exact raw responses where returned, review response
 where available, request/profile/source hashes, usage/response IDs and unknown
@@ -98,7 +127,11 @@ of Git. If failure packaging needs another source path, amend contract explicitl
 
 ## Required evidence / gates
 
-Owning fake-provider pipeline compares1.3(no review)/1.4(one review), exact original
+Owning tests prove absent/direct-SDK/wrong-route/wrong-model clients are rejected
+before any inference for1.4, unchanged old-profile default behavior, same injected
+bounded-client writer/reviewer accounting, and actual-attempt versus invocation
+counts. Use bounded-client engine seams or explicit test subclasses; no real model
+calls in code tests. Owning fake-provider pipeline compares1.3(no review)/1.4(one review), exact original
 kept objects, raw-generation immutability, omitted/deferred refs and diagnostics,
 role-guard retention, empty/no-call, unknown/duplicate/rewritten ID failures,
 no node/source/provenance change, source-qualified defaults and no new accepted
