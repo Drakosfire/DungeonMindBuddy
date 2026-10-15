@@ -4,9 +4,12 @@ Status ACTIVE for document authoring/navigation presentation under explicit oper
 "Do it" and PRIME design ownership confirmation; UI leases released. Node write
 portion BLOCKED pending ARCHITECTURE identification of an existing governed command
 or a DungeonMind-owned contract. No native mutation adapter is authorized.
-Base fetched main 66b24a54; branch codex/build-authoring-workspace; isolated checkout
-/tmp/buddy-build-authoring-workspace. Topology serial one independently useful UI PR;
-no new durable/public contract. PRIME currently owns serving runtime/ports exclusively; DOGFOOD has a temporary GET-only 5203 static preview lease proxying healthy API8000, no POST/provider/DB mutation, stopped after render. Preserve serving5202 processes250351/250352.
+Current fetched `origin/main` is `199a7404701d6a53fa8f4a1d68b2c7874df6771a`;
+branch `codex/build-authoring-workspace`; isolated checkout
+`/tmp/buddy-build-authoring-restored`. The serial implementation is assigned to
+PR #1183; no new durable/public contract. PRIME owns serving runtime/ports
+exclusively. The user is rendering the GET-only 5203 preview, which proxies API
+GETs to API8000 and denies writes. Preserve serving 5202 and its data.
 
 Invariant: Build is a directly editable framed document, with stationary nonmodal
 Edit/Tools companions. Save in Build navbar invokes existing document CAS command;
@@ -86,3 +89,17 @@ contract test compares those exact competing selectors and requires Build to
 win, in addition to asserting the bottom-sheet geometry. This closes the CSS
 cascade issue; rendered narrow interaction, desktop stationarity and Plan/Play
 acceptance are still required before using 5202.
+
+## Paper editor render finding
+
+The user rendered the PRIME-provided GET-only preview at `5203` and reported
+that the editable content appeared as a gray panel inside the cream document.
+The cause was the editor's Build dark-panel background and its inherited dark
+editor variables overriding the paper projection. The Build-only paper selector
+now makes that editor transparent, removes its nested panel border/padding, and
+sets readable paper-theme editor variables. A CSS contract test protects the
+surface. The four owning UI suites pass 60 tests, UI TypeScript passes, the
+production build passes with the existing chunk-size warning, and
+`git diff --check` passes. This fix still needs to be rendered in the refreshed
+5203 preview; the remaining pointer/keyboard, focus, frame/scroll, dirty-state,
+and Plan/Play acceptance is still a gate before this branch replaces 5202.

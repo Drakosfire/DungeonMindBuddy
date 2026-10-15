@@ -472,6 +472,18 @@
   background: var(--ui-background-paper, #f5ead4); color: var(--ui-text-on-paper, #3a3124);
   box-shadow: 0 2px 12px #0002; font-family: var(--ui-font-document, Georgia, serif);
 }
+.build-workspace-projection .build-surface-editor.tiptap-spike-editor {
+  --fg: var(--ui-text-on-paper, #3a3124);
+  --fg-mute: #75664e;
+  --border: var(--ui-border-paper, #c8b78f);
+  --bg-card: transparent;
+  --bg-input: #eee0c5;
+  --accent: #795b26;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
 .build-workspace-projection .build-source-reader__title { font-size: clamp(1.65rem, 3vw, 2.15rem); }
 @media (max-width: 42rem) {
   .build-workspace-projection .build-surface-with-graph-context { width: calc(100% - 1rem); padding: 0.65rem; }

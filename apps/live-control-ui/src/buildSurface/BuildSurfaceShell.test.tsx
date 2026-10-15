@@ -176,6 +176,20 @@ async function waitForEditor() {
 }
 
 describe("BuildSurfaceShell", () => {
+  it("keeps the live Build editor on the paper projection surface", () => {
+    const buildCss = readBuildSurfaceCss();
+    const paperEditorRule = buildCss.match(
+      /\.build-workspace-projection\s+\.build-surface-editor\.tiptap-spike-editor\s*\{([^}]*)\}/,
+    );
+
+    expect(paperEditorRule).not.toBeNull();
+    expect(paperEditorRule?.[1]).toMatch(/--fg:\s*var\(--ui-text-on-paper/);
+    expect(paperEditorRule?.[1]).toMatch(/--fg-mute:\s*#75664e/);
+    expect(paperEditorRule?.[1]).toMatch(/background:\s*transparent/);
+    expect(paperEditorRule?.[1]).toMatch(/border:\s*0/);
+    expect(paperEditorRule?.[1]).toMatch(/padding:\s*0/);
+  });
+
   it("scopes nonmodal companion overlays to Build and bounds narrow drawers", () => {
     const buildCss = readBuildSurfaceCss();
     const sharedCss = readFileSync(
