@@ -206,9 +206,15 @@ def schema_for_pass_spec(pass_spec: Any) -> dict[str, Any]:
     if kind == "beat":
         return category_beat_pass_json_schema()
     if kind == "edge_review":
-        return {"type": "object", "properties": {
-            "retained_edge_ids": {"type": "array", "items": {"type": "string"}}},
-            "required": ["retained_edge_ids"], "additionalProperties": False}
+        from src.graph_memory.extraction.worldbuilding_edge_review import (
+            ConstrainedEdgeReviewPassSpec, constrained_edge_ids,
+        )
+        selection = {"type": "array", "items": {"type": "string"}}
+        if isinstance(pass_spec, ConstrainedEdgeReviewPassSpec):
+            selection["items"]["enum"] = list(constrained_edge_ids(pass_spec))
+            selection["uniqueItems"] = True
+        return {"type": "object", "properties": {"retained_edge_ids": selection},
+                "required": ["retained_edge_ids"], "additionalProperties": False}
     if kind == "edge":
         return category_edge_pass_json_schema()
     if kind == "claimed_fill":

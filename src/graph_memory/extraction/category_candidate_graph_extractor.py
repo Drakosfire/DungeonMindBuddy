@@ -1994,13 +1994,19 @@ def _run_category_pipeline_impl(
         )
         merged_diag["source_section_retention"] = retention_diagnostics
     if active_profile.edge_review_pass is not None:
-        from src.graph_memory.extraction.worldbuilding_edge_review import apply_review, review_prompt
+        from src.graph_memory.extraction.worldbuilding_edge_review import (
+            apply_review, review_prompt, edge_ids, ConstrainedEdgeReviewPassSpec,
+        )
 
         pre_review_envelope = deepcopy(envelope)
         pre_review_candidate = deepcopy(candidate_graph)
         review = active_profile.edge_review_pass
         if candidate_graph.get("edges"):
-            prompt = review_prompt(candidate_graph, source_rows)
+            if isinstance(review, ConstrainedEdgeReviewPassSpec):
+                review = replace(review, allowed_edge_ids=tuple(edge_ids(candidate_graph["edges"])))
+                prompt = review_prompt(candidate_graph, source_rows, allowed_edge_ids=review.allowed_edge_ids)
+            else:
+                prompt = review_prompt(candidate_graph, source_rows)
             _notify(review.pass_id, "running")
             review_result = client.run_pass(
                 review.pass_id, model_id=model_id, instructions=review.instruction,
@@ -2092,8 +2098,13 @@ def run_category_pipeline(
     from src.graph_memory.extraction.bounded_recap_execution import (
         BoundedRecapPassClient, DEEPSEEK_MODEL,
     )
-    from src.graph_memory.extraction.worldbuilding_edge_review import RecordingPassClient
+    from src.graph_memory.extraction.worldbuilding_edge_review import (
+        RecordingPassClient, ConstrainedEdgeReviewPassSpec,
+    )
 
+    if (isinstance(profile.edge_review_pass, ConstrainedEdgeReviewPassSpec)
+            and profile.edge_review_pass.allowed_edge_ids is not None):
+        raise CategoryGraphExtractionError("profile review catalog must be unbound")
     if (not isinstance(client, BoundedRecapPassClient)
             or client.limits.provider != "openrouter"
             or client.limits.model != DEEPSEEK_MODEL
