@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as liveApi from "../api/liveApi";
 import { AppChrome, type AppChromeToolsGeneration } from "../chrome/AppChrome";
 import type { MarkdownCanvasSessionValue } from "../markdownCanvas/markdownCanvasTypes";
+import * as markdownCanvasSessionModule from "../markdownCanvas/MarkdownCanvasSession";
 import { useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { AskPluginSlotProvider } from "../agentInteraction/AskPluginSlot";
@@ -286,6 +287,53 @@ describe("BuildSurfacePage", () => {
     expect(screen.queryByRole("button", { name: "Read source" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Edit source" })).not.toBeInTheDocument();
     expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_ID);
+  });
+
+  it("keeps navbar Save disabled until a new blank source has edits", async () => {
+    const user = userEvent.setup();
+    const createdId = "33333333-3333-4333-8333-333333333333";
+    let activeSession: MarkdownCanvasSessionValue | null = null;
+    const useSession = markdownCanvasSessionModule.useMarkdownCanvasSession;
+    const sessionSpy = vi.spyOn(markdownCanvasSessionModule, "useMarkdownCanvasSession").mockImplementation(() => {
+      activeSession = useSession();
+      return activeSession;
+    });
+    mockUntitledDraftCreate(createdId, "longmont-c2");
+    vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue({
+      schema_version: "dmb_workspace_document_record_v1",
+      document_id: createdId,
+      title: "First notes",
+      campaign_id: "longmont-c2",
+      target_session: null,
+      kind: "worldbuilding_source",
+      target_relpath: `out/workspace/worldbuilding/${createdId}.md`,
+      status: "active",
+      content_status: "draft",
+      revision: 1,
+      created_at: "2026-07-22T00:00:00Z",
+      updated_at: "2026-07-22T00:00:00Z",
+      source_domain: "worldbuilding",
+      document_class: "lore",
+      authority_state: "draft",
+      visibility_state: "internal",
+    });
+
+    renderBuildPage();
+    await user.click(screen.getByTestId("build-document-create-open"));
+    await user.selectOptions(screen.getByTestId("build-document-create-destination"), "campaign:longmont-c2");
+    await user.type(screen.getByTestId("build-document-create-title"), "First notes");
+    await user.click(screen.getByTestId("build-document-create-submit"));
+
+    await screen.findByTestId("build-markdown-editor");
+    await waitFor(() => expect(activeSession?.editor).not.toBeNull());
+    expect(activeSession?.phase).toBe("ready_clean");
+    expect(activeSession?.saveDisabled).toBe(true);
+    expect(screen.getByTestId("build-navbar-save")).toBeDisabled();
+    act(() => activeSession!.editor!.chain().focus().insertContent("A first note").run());
+    await waitFor(() => expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes"));
+    expect(activeSession?.saveDisabled).toBe(false);
+    expect(screen.getByTestId("build-navbar-save")).toBeEnabled();
+    sessionSpy.mockRestore();
   });
 
   it("keeps one editor usable with Tools open and navigates changed duplicate headings", async () => {
