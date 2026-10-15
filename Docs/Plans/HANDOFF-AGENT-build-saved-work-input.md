@@ -1,6 +1,6 @@
 # AGENT: carry admitted Build source through the harness input boundary
 
-Status BLOCKED pending ARCHITECTURE exact-ref contract review. PRIME designs and
+Status ACTIVE after ARCHITECTURE design PASS on117e110d006390720b5b576d20015702de302cf6. PRIME designs and
 implements solo. Base13a4d89a05758c45547690e6b9c2e40f97216d9a. Branch
 codex/build-saved-work-harness-input, isolated non-serving checkout
 /tmp/buddy-advisory-review-design. Serial: one implementation PR.
@@ -75,3 +75,7 @@ merge. Only after accepted code and separately coordinated matched rollout may a
 NEW ordinary live question use existing standing Agent approval. Preserve the
 original failed turn and its unknown execution outcome. Live success is a separate
 gate; do not claim full graph ingestion/publication or operator acceptance.
+
+Activation: current main13a4d89a re-anchored, open relevant product work1178/1180/1181
+merged; no active overlapping seven-path lease. SERVER/DOGFOOD serving ownership
+remains disjoint. Independent implementation review required before merge.
