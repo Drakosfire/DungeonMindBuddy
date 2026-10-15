@@ -923,20 +923,22 @@ def test_worldbuilding_governs_uses_pinned_v6_at_prepare_and_confirm(
 
     plan = prepare_worldbuilding(request)
     binding = plan.native_vocabulary_binding.model_dump(mode="json", by_alias=True)
-    assert binding["world_object_vocabulary"]["vocabulary_revision"] == "world-object-v6"
-    assert binding["world_property_vocabulary"]["vocabulary_revision"] == "world-property-v4"
+    object_vocabulary_key = "worldObjectVocabulary"
+    property_vocabulary_key = "worldPropertyVocabulary"
+    assert binding[object_vocabulary_key]["vocabulary_revision"] == "world-object-v6"
+    assert binding[property_vocabulary_key]["vocabulary_revision"] == "world-property-v4"
     accepted_edge = next(
         item for item in plan.effect.accepted_proposals if item.assertion_kind == "edge"
     )
     assert accepted_edge.predicate == "governs"
 
     forged_binding = dict(binding)
-    forged_binding["world_object_vocabulary"] = {
-        **binding["world_object_vocabulary"],
+    forged_binding[object_vocabulary_key] = {
+        **binding[object_vocabulary_key],
         "vocabulary_revision": "world-object-v5",
     }
     forged_model = plan.native_vocabulary_binding.model_copy(
-        update={"world_object_vocabulary": forged_binding["world_object_vocabulary"]}
+        update={"world_object_vocabulary": forged_binding[object_vocabulary_key]}
     )
     forged = plan.model_copy(update={"native_vocabulary_binding": forged_model})
     with pytest.raises(Exception) as stale_contract:
