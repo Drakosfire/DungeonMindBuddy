@@ -28,16 +28,16 @@ remain shared; Build-scoped CSS removes modal backdrops without changing other
 surface behavior. Preserve dirty/conflict recovery, source navigation and chip
 serialization. No provider, source Save, Graph publication or runtime switch in QA.
 Mounted owning tests, typecheck/build and exact rendered checks required. Review
-cumulative diff, commit/push/open one PR; PRIME separate merge authority. Render only
-after SERVER matched health or on separately authorized GET-only preview.
+cumulative diff, commit/push/open one PR; PRIME separate merge authority. Render only after PRIME-confirmed matched health or on the separately authorized
+GET-only 5203 preview.
 
 ## Exact-ref design gate and draft disclosure
 
 This handoff is pinned alone before further implementation. Five product/test
 files already contain draft edits from operator-authorized exploration; those
 uncommitted edits are preserved and are not accepted implementation evidence.
-ARCHITECTURE exact-ref design acceptance is pending; no further product edits
-until that judgment. Six-path lease is exclusive and Plan/Play unchanged.
+ARCHITECTURE design ACCEPTABLE on pinned 884866e3bf4f9be9166d0b44d3fc063479bbd6cd
+against base66b24a54; implementation must separately pass exact-head review. Six-path lease is exclusive and Plan/Play unchanged.
 
 Nonmodal acceptance includes pointer and keyboard access to the editor while
 companions are open, no focus trap/inert/aria-modal mismatch, stable frame and

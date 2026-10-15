@@ -18,6 +18,8 @@ const sessionMock = vi.hoisted(() => ({
     activeCommand: { id: string; documentId: string; startedAt: number } | null;
     updateDocumentMetadata: ReturnType<typeof vi.fn>;
     lookupAdmission: ReturnType<typeof vi.fn>;
+    saveDisabled: boolean;
+    saveMarkdown: ReturnType<typeof vi.fn>;
   },
 }));
 
@@ -102,6 +104,8 @@ describe("BuildSurfaceContext", () => {
         document_class: "faction",
       }),
       statusLabel: "Committed",
+      saveDisabled: false,
+      saveMarkdown: vi.fn(),
       activeCommand: null,
       updateDocumentMetadata: vi.fn(),
       lookupAdmission: vi.fn(() => ({
@@ -130,13 +134,23 @@ describe("BuildSurfaceContext", () => {
     renderBuildContext();
 
     const host = screen.getByTestId("surface-context-host");
-    expect(within(host).getByText("DOCUMENT")).toBeInTheDocument();
+    expect(within(host).queryByText("DOCUMENT")).not.toBeInTheDocument();
+    expect(within(host).getByTestId("build-navbar-save")).toBeEnabled();
+    expect(within(host).getByText("Source actions")).toBeInTheDocument();
     expect(within(host).getByTestId("build-document-select")).toHaveValue(DOC_A);
     expect(within(host).getByText("C1")).toBeInTheDocument();
     expect(within(host).getByText("faction")).toBeInTheDocument();
     expect(within(host).getByTestId("build-document-status")).toHaveTextContent("Committed");
     expect(within(host).getByTestId("build-document-rename-open")).toHaveTextContent("Rename");
     expect(within(host).getByTestId("build-document-create-open")).toHaveTextContent("+ New source");
+  });
+
+  it("saves through the existing document command from the navbar", async () => {
+    const user = userEvent.setup();
+    renderBuildContext();
+    await user.click(screen.getByTestId("build-navbar-save"));
+    expect(sessionMock.current!.saveMarkdown).toHaveBeenCalledTimes(1);
+    expect(sessionMock.current!.updateDocumentMetadata).not.toHaveBeenCalled();
   });
 
   it("shows empty state when no active record", () => {

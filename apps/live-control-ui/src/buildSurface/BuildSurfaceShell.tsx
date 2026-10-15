@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { DocumentConversationDock, type PlanConversationPresentationHosts } from "../planSurface/components/PlanConversationDockAdapter";
 import { usePublishWorldBuildConversation, type SavedWorldBuildConversationContext } from "../agentInteraction/WorldAgentConversation";
 import type { AppChromeToolsGeneration } from "../chrome/AppChrome";
-import { MarkdownDocumentOutline } from "../markdownReader/MarkdownDocumentOutline";
 import { getBuildSourceNavigation } from "../api/liveApi";
 import { MarkdownCanvas } from "../markdownCanvas/MarkdownCanvas";
 import {
@@ -25,34 +24,10 @@ import {
 /** Rejected authority diagnostics stay in the page UI; Agent Interaction gets no UUID/rev/path/hash. */
 export const BUILD_AUTHORITY_REJECTION_AMBIENT = "Document rejected by Build authority";
 
-export type BuildSourceViewMode = "read" | "edit";
-
 function isPresentableSourcePhase(phase: string): boolean {
-  return (
-    phase !== "unloaded"
-    && phase !== "loading"
-    && phase !== "load_error"
-    && phase !== "conflict"
-  );
+  return !["unloaded", "loading", "load_error", "conflict"].includes(phase);
 }
 
-function isEffectivelyEmptyMarkdown(markdown: string): boolean {
-  return markdown.trim().length === 0;
-}
-
-export function initialSourceViewMode(args: {
-  dirty: boolean;
-  markdown: string;
-}): BuildSourceViewMode {
-  if (args.dirty) return "edit";
-  if (isEffectivelyEmptyMarkdown(args.markdown)) return "edit";
-  return "read";
-}
-
-/**
- * Ephemeral Read/Edit chrome for one admitted document.
- * Mounted with `key={documentId}` so the initial mode decision runs once per document.
- */
 const IDLE_SOURCE_NAVIGATION_TARGET: BuildSourceNavigationTarget = { status: "none" };
 
 function BuildPresentableSourceView({
@@ -66,41 +41,51 @@ function BuildPresentableSourceView({
   navigationTarget: BuildSourceNavigationTarget;
   onEditorTools?: (tools: AppChromeToolsGeneration | null) => void;
 }) {
-  const [sourceViewMode, setSourceViewMode] = useState<BuildSourceViewMode>(() =>
-    initialSourceViewMode({
-      dirty: session.dirty,
-      markdown: session.snapshot?.markdown ?? "",
-    }),
-  );
+  const [outlineVersion, setOutlineVersion] = useState(0);
+  useEffect(() => {
+    const editor = session.editor;
+    if (!editor) return;
+    const update = () => setOutlineVersion(value => value + 1);
+    editor.on("update", update);
+    editor.on("selectionUpdate", update);
+    return () => { editor.off("update", update); editor.off("selectionUpdate", update); };
+  }, [session.editor]);
 
   useEffect(() => {
+    const editor = session.editor;
+    const headings: { position: number; level: number; text: string }[] = [];
+    editor?.state.doc.descendants((node, position) => {
+      if (node.type.name === "heading") headings.push({ position, level: node.attrs.level, text: node.textContent });
+    });
     onEditorTools?.({ target: { kind: "document", id: session.record!.document_id },
       tools: { sections: [{ id: "build-document", title: "Document", defaultOpen: true, actions: [],
-        panel: <><div className="shared-document-mode" aria-label="Source view mode">
-          <button type="button" data-testid="build-source-mode-read" aria-label="Read source" aria-pressed={sourceViewMode === "read"}
-            onClick={() => setSourceViewMode("read")}>Read source</button>
-          <button type="button" data-testid="build-source-mode-edit" aria-label="Edit source" aria-pressed={sourceViewMode === "edit"}
-            onClick={() => setSourceViewMode("edit")}>Edit source</button>
-        </div>{sourceViewMode === "read" ? <MarkdownDocumentOutline markdown={session.snapshot!.markdown} />
-          : <p>Return to Read source to navigate the saved outline.</p>}</> }] } });
+        panel: <><div className="build-formatting" role="group" aria-label="Text formatting">
+          <button type="button" disabled={!editor} aria-pressed={editor?.isActive("bold") ?? false}
+            onClick={() => editor?.chain().focus().toggleBold().run()}>Bold</button>
+          <button type="button" disabled={!editor} aria-pressed={editor?.isActive("italic") ?? false}
+            onClick={() => editor?.chain().focus().toggleItalic().run()}>Italic</button>
+          <button type="button" disabled={!editor} onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}>Heading</button>
+          <button type="button" disabled={!editor?.can().undo()} onClick={() => editor?.chain().focus().undo().run()}>Undo</button>
+          <button type="button" disabled={!editor?.can().redo()} onClick={() => editor?.chain().focus().redo().run()}>Redo</button>
+        </div><nav className="markdown-document-outline" aria-label="On this page">
+          {headings.length ? <ol>{headings.map(heading => <li key={heading.position}
+            style={{ paddingInlineStart: `${Math.min(heading.level - 1, 2) * 0.75}rem` }}>
+            <button type="button" onClick={() => editor?.chain().focus().setTextSelection(heading.position + 1).scrollIntoView().run()}>
+              {heading.text || "Untitled section"}
+            </button>
+          </li>)}</ol> : <p>No headings in this document.</p>}
+        </nav></> }] } });
     return () => onEditorTools?.(null);
-  }, [onEditorTools, sourceViewMode, session.record?.document_id, session.snapshot?.markdown]);
+  }, [onEditorTools, session.editor, session.record?.document_id, outlineVersion]);
 
-  return (
-    <div className="build-surface-shell" data-testid="build-surface-shell">
-      {sourceViewMode === "read" ? (
-        <BuildSourceReader
-          showOutline={false}
-          title={session.record!.title}
-          markdown={session.snapshot!.markdown}
-          dirty={session.dirty}
-          navigationTarget={navigationTarget}
-        />
-      ) : (
-        <MarkdownCanvas slots={editSlots} />
-      )}
-    </div>
-  );
+  return <div className="build-surface-shell" data-testid="build-surface-shell">
+    {navigationTarget.status !== "none" ? <details className="build-source-evidence" open>
+      <summary>Saved evidence passage</summary>
+      <BuildSourceReader showOutline={false} title={session.record!.title}
+        markdown={session.snapshot!.markdown} dirty={session.dirty} navigationTarget={navigationTarget} />
+    </details> : null}
+    <MarkdownCanvas slots={editSlots} />
+  </div>;
 }
 
 function BuildConversationBinding({ source, hosts }: { source: SavedWorldBuildConversationContext | null; hosts: PlanConversationPresentationHosts }) {
@@ -109,9 +94,9 @@ function BuildConversationBinding({ source, hosts }: { source: SavedWorldBuildCo
 }
 
 /**
- * Build document chrome: Agent Interaction publication + Read/Edit composition.
+ * Build document workspace: shared authoring and conversation publication.
  * Document authority lives on MarkdownCanvasSession (provider is owned by BuildSurfacePage).
- * Read renders exact saved snapshot Markdown; Edit preserves MarkdownCanvas authoring.
+ * Saved evidence remains separate from the directly editable working document.
  */
 export function BuildSurfaceShell({ onEditorTools }: { onEditorTools?: (tools: AppChromeToolsGeneration | null) => void }) {
   const session = useMarkdownCanvasSession();
