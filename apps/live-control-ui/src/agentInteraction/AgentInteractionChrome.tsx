@@ -24,7 +24,7 @@ export function AgentInteractionChrome() {
   const surfaceLabel = agentSurfaceLabel(surfaceId);
   const surfaceSubtitle = surfaceContextSubtitle(activeSurfaceContext);
   const isPlan = surfaceId === "plan";
-  const isPlay = surfaceId === "play";
+  const isPlay = surfaceId === "play" || surfaceId === "build";
   const [planPanelWidth, setPlanPanelWidth] = useState(440);
   const [planSheetHeight, setPlanSheetHeight] = useState(() => (
     typeof window === "undefined" ? 440 : Math.round(window.innerHeight * 0.64)

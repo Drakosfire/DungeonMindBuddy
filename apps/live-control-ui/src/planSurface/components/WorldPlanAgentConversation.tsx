@@ -6,7 +6,7 @@ import type { PlanConversationPresentationHosts } from "./PlanConversationDockAd
 import { PlanEditReview } from "./PlanEditReview";
 import { BuddyContextTraceLoader } from "./BuddyContextTraceLoader";
 
-import { getWorldCommandResolution, postWorldCommandResolution, getWorldAgentNewConversationStatus, getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, getWorldPlanConversationActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldPlanDocumentEditProposal, postWorldGraphSourceAnchorRead, postWorldGraphRecapContextReadV2, connectNativeGraphSession, revokeNativeGraphSession, isValidWorldPlanGraphContextFailure, LiveApiError } from "../../api/liveApi";
+import { getWorldCommandResolution, postWorldCommandResolution, getWorldAgentNewConversationStatus, getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, getWorldPlanConversationActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldPlanDocumentEditProposal, postWorldGraphSourceAnchorRead, postWorldGraphRecapContextReadV2, connectNativeGraphSession, revokeNativeGraphSession, isValidWorldPlanGraphContextFailure, LiveApiError } from "../../api/liveApi";
 import type {
   AgentInteractionThread,
   AgentInteractionTurn,
@@ -14,6 +14,7 @@ import type {
   WorldPlanAgentContentBasisV1,
   WorldPlanAgentTurnRequestV1,
   WorldPlayAgentTurnRequestV1,
+  WorldBuildAgentTurnRequestV1,
   WorldPlanAgentTurnResolvedSummary,
   WorldPlanActionProjection,
   WorldAgentConversationHistoryResponse,
@@ -69,6 +70,7 @@ import "./WorldPlanAgentConversation.css";
 export interface WorldPlanAgentConversationProps {
   /** The persistent App host stays mounted while Plan and Play routes change. */
   visible?: boolean;
+  buildMode?: { savedSource: import("../../agentInteraction/WorldAgentConversation").SavedWorldBuildConversationContext | null } | null;
   playMode?: { admittedRun: { worldId: string; runId: string; runRevision: number; surfaceInstanceId: string;
     beatTitle?: string | null; sceneTitle?: string | null } | null } | null;
   presentationHosts?: PlanConversationPresentationHosts;
@@ -224,7 +226,7 @@ const PENDING_PLAY_TURN_STORAGE_PREFIX = "dmb:world-play-pending-turn:v1:";
 interface StoredPendingPlayTurn {
   storageKey: string;
   serialized: string;
-  request: WorldPlayAgentTurnRequestV1;
+  request: WorldPlayAgentTurnRequestV1 | WorldBuildAgentTurnRequestV1;
 }
 
 function pendingPlayTurnStorageKey(worldId: string): string {
@@ -241,7 +243,7 @@ function isSavedPlayGraphRequest(value: unknown, worldId: string): boolean {
     && value.focus.campaign_id === null;
 }
 
-function matchesPlayGraphResponse(value: unknown, request: WorldPlayAgentTurnRequestV1): boolean {
+function matchesPlayGraphResponse(value: unknown, request: WorldPlayAgentTurnRequestV1 | WorldBuildAgentTurnRequestV1): boolean {
   if (!isRecord(value)) return false;
   if (request.graph_request.mode === "none") return value.status === "not_requested";
   return ["ready", "empty", "replayed"].includes(String(value.status))
@@ -264,20 +266,24 @@ function readPendingPlayTurn(worldId: string): StoredPendingPlayTurn | null {
     || value.request.schema !== "dmb_agent_turn_request_v1"
     || !commandUuid(value.request.client_thread_id) || !commandUuid(value.request.turn_id)
     || !hasExactKeys(value.request.surface, ["surface_id", "instance_id"])
-    || value.request.surface.surface_id !== "play" || typeof value.request.surface.instance_id !== "string"
+    || !["play", "build"].includes(String(value.request.surface.surface_id)) || typeof value.request.surface.instance_id !== "string"
     || !value.request.surface.instance_id.trim()
     || !hasExactKeys(value.request.owner_scope, ["kind", "world_id"])
     || value.request.owner_scope.kind !== "world" || value.request.owner_scope.world_id !== worldId
-    || !hasExactKeys(value.request.primary_work, ["kind", "object_id", "expected_revision"])
-    || value.request.primary_work.kind !== "run" || typeof value.request.primary_work.object_id !== "string"
+    || !hasExactKeys(value.request.primary_work, value.request.surface.surface_id === "build"
+      ? ["kind", "object_id", "expected_revision", "expected_content_sha256"] : ["kind", "object_id", "expected_revision"])
+    || value.request.primary_work.kind !== (value.request.surface.surface_id === "build" ? "build" : "run") || typeof value.request.primary_work.object_id !== "string"
     || !value.request.primary_work.object_id.trim() || !isPositiveRevision(value.request.primary_work.expected_revision)
-    || value.request.client_work_state !== "saved_clean"
+    || !["saved_clean", ...(value.request.surface.surface_id === "build" ? ["saved_dirty"] : [])].includes(String(value.request.client_work_state))
+    || (value.request.surface.surface_id === "build" && (!isRecord(value.request.primary_work)
+      || typeof value.request.primary_work.expected_content_sha256 !== "string"
+      || !/^[0-9a-f]{64}$/.test(value.request.primary_work.expected_content_sha256)))
     || !isSavedPlayGraphRequest(value.request.graph_request, worldId)
     || value.request.graph_selection !== null || typeof value.request.message !== "string"
     || !value.request.message.trim() || value.request.message.length > 8000) {
     throw new Error("The saved Play request is malformed. It was retained and cannot be retried automatically.");
   }
-  return { storageKey, serialized, request: value.request as unknown as WorldPlayAgentTurnRequestV1 };
+  return { storageKey, serialized, request: value.request as unknown as WorldPlayAgentTurnRequestV1 | WorldBuildAgentTurnRequestV1 };
 }
 
 interface WorldPlanLocalProposalPosition {
@@ -1582,6 +1588,10 @@ async function pendingGraphAskIdempotencyKey(stored: StoredPendingAsk): Promise<
   const worldId = envelope.origin.worldId;
   const turnId = envelope.request.turn_id;
   if (!worldId || !turnId) return null;
+  return worldTurnIdempotencyKey(worldId, turnId);
+}
+
+async function worldTurnIdempotencyKey(worldId: string, turnId: string): Promise<string | null> {
   try {
     const namespace = uuidBytes(URL_NAMESPACE_UUID);
     if (namespace.length !== 16) return null;
@@ -1597,6 +1607,22 @@ async function pendingGraphAskIdempotencyKey(stored: StoredPendingAsk): Promise<
   } catch {
     return null;
   }
+}
+
+async function confirmedReadOnlyTurn(page: WorldAgentConversationHistoryResponse, stored: StoredPendingPlayTurn) {
+  const request = stored.request;
+  if (page.world_id !== request.owner_scope.world_id) return false;
+  const key = await worldTurnIdempotencyKey(request.owner_scope.world_id, request.turn_id);
+  const matching = page.turns.filter(turn => {
+    const basis = turn.provenance.primary_work;
+    return (turn.turn_id === request.turn_id || (key && "idempotency_key" in turn && turn.idempotency_key === key))
+      && ["completed", "failed", "interrupted"].includes(turn.lifecycle_status)
+      && turn.user_text === request.message && turn.provenance.world_id === request.owner_scope.world_id
+      && turn.provenance.surface_id === request.surface.surface_id && basis.kind === request.primary_work.kind
+      && basis.object_id === request.primary_work.object_id && basis.revision === String(request.primary_work.expected_revision)
+      && (request.primary_work.kind !== "build" || basis.content_sha256 === request.primary_work.expected_content_sha256);
+  });
+  return matching.length === 1;
 }
 
 function completedHistoryTurnMatchesPendingGraphAsk(
@@ -1986,6 +2012,7 @@ function isScopedPlanThread(
 export function WorldPlanAgentConversation({
   visible = true,
   playMode = null,
+  buildMode = null,
   presentationHosts,
   worldId,
   worldName,
@@ -2021,14 +2048,16 @@ export function WorldPlanAgentConversation({
   const setHistory = sharedConversation?.worldId === worldId ? sharedConversation.setHistory : setLocalHistory;
   const askSlot = useAskPluginSlotOptional();
   const verifiedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
-  const isPlay = playMode !== null;
-  const planReady = Boolean(pageReady
+  const isBuild = buildMode !== null;
+  const isReadOnly = playMode !== null || isBuild;
+  const currentReadOnlyContext = isBuild ? buildMode?.savedSource : playMode?.admittedRun;
+  const planReady = Boolean(!isReadOnly && pageReady
     && verifiedWorldId === worldId
     && documentId
     && surfaceInstanceId
     && isPositiveRevision(revision));
   const namespace = planReady && documentId ? planThreadNamespace(worldId, documentId) : null;
-  const surfaceContext = useMemo(() => visible && !isPlay && namespace && documentId ? ({
+  const surfaceContext = useMemo(() => visible && !isReadOnly && namespace && documentId ? ({
     surfaceId: "plan" as const,
     label: "World Plan conversation",
     campaignId: namespace,
@@ -2036,9 +2065,9 @@ export function WorldPlanAgentConversation({
     sessionNumber: null,
     ambientSummary: "Plan Ask uses the exact committed revision; unsaved draft text is excluded",
     sourceEnvelope: null,
-  }) : null, [documentId, namespace, visible, isPlay]);
+  }) : null, [documentId, namespace, visible, isReadOnly]);
   usePublishAgentSurfaceContext(surfaceContext);
-  useRegisterAskPluginPresence(visible && (planReady || (isPlay && verifiedWorldId === worldId)));
+  useRegisterAskPluginPresence(visible && (planReady || (isReadOnly && verifiedWorldId === worldId)));
 
   const scopeMatches = Boolean(namespace
     && documentId
@@ -2084,8 +2113,8 @@ export function WorldPlanAgentConversation({
     : effectiveEditTarget ? `Replace ${effectiveEditTarget.kind} body: ${(playableEditTarget ? playableEditTargetLabel : playableTargetLabel) || effectiveEditTarget.id} (${effectiveEditTarget.id})`
       : "Insert at editor cursor — no scene or text target selected";
   const lastPlanScopeForReviewRef = useRef(agent.scope);
-  if (!isPlay && scopeMatches) lastPlanScopeForReviewRef.current = agent.scope;
-  const reviewScope = !isPlay && scopeMatches ? agent.scope : lastPlanScopeForReviewRef.current;
+  if (!isReadOnly && scopeMatches) lastPlanScopeForReviewRef.current = agent.scope;
+  const reviewScope = !isReadOnly && scopeMatches ? agent.scope : lastPlanScopeForReviewRef.current;
   // Route chrome can replace the portal host while the captured Plan and edit target remain unchanged.
   // Apply still checks the live mounted Plan and provider binding before touching the draft.
   const currentPlanProposalFenceKey = JSON.stringify({
@@ -2110,10 +2139,10 @@ export function WorldPlanAgentConversation({
     } : null,
   });
   const lastPlanProposalFenceRef = useRef(currentPlanProposalFenceKey);
-  if (!isPlay && scopeMatches) lastPlanProposalFenceRef.current = currentPlanProposalFenceKey;
-  const proposalFenceKey = isPlay || !scopeMatches ? lastPlanProposalFenceRef.current : currentPlanProposalFenceKey;
+  if (!isReadOnly && scopeMatches) lastPlanProposalFenceRef.current = currentPlanProposalFenceKey;
+  const proposalFenceKey = isReadOnly || !scopeMatches ? lastPlanProposalFenceRef.current : currentPlanProposalFenceKey;
   const [composerDrafts, setComposerDrafts] = useState<Record<string, string>>({});
-  const composerDraftKey = isPlay ? `play:${playMode?.admittedRun?.runId ?? "unadmitted"}` : `plan:${documentId ?? "unsaved"}`;
+  const composerDraftKey = isBuild ? `build:${buildMode?.savedSource?.documentId ?? "unavailable"}` : isReadOnly ? `play:${playMode?.admittedRun?.runId ?? "unadmitted"}` : `plan:${documentId ?? "unsaved"}`;
   const composerMessage = composerDrafts[composerDraftKey] ?? "";
   const setComposerMessage = (action: string | ((current: string) => string)) => {
     setComposerDrafts((drafts) => {
@@ -2125,7 +2154,7 @@ export function WorldPlanAgentConversation({
   const composerEditGenerationRef = useRef(0);
   const lastVisiblePlanDocumentRef = useRef<string | null>(null);
   useLayoutEffect(() => {
-    if (!sharedConversation || !visible || isPlay) return;
+    if (!sharedConversation || !visible || isReadOnly) return;
     const priorDocument = lastVisiblePlanDocumentRef.current;
     if (priorDocument && priorDocument !== documentId) {
       setComposerDrafts((drafts) => {
@@ -2137,7 +2166,7 @@ export function WorldPlanAgentConversation({
       setContinuationOfActionId(null);
     }
     lastVisiblePlanDocumentRef.current = documentId;
-  }, [sharedConversation?.worldId, visible, isPlay, documentId]);
+  }, [sharedConversation?.worldId, visible, isReadOnly, documentId]);
   function restoreSubmittedDraft(snapshot: string, generation: number) {
     setComposerMessage((current) => current === "" && composerEditGenerationRef.current === generation ? snapshot : current);
   }
@@ -2316,7 +2345,7 @@ export function WorldPlanAgentConversation({
     ? preservedLegacyHistory?.thread ?? null
     : activeThread;
   const lastPlanProposalThreadRef = useRef<AgentInteractionThread | null>(null);
-  if (!isPlay && scopeMatches) lastPlanProposalThreadRef.current = activeThread?.worldPlanProposalHistory === WORLD_PLAN_LOCAL_PROPOSAL_HISTORY
+  if (!isReadOnly && scopeMatches) lastPlanProposalThreadRef.current = activeThread?.worldPlanProposalHistory === WORLD_PLAN_LOCAL_PROPOSAL_HISTORY
     ? activeThread : null;
   const proposalThreadForDisplay = lastPlanProposalThreadRef.current;
   const proposalOrderKeyForDisplay = namespace && proposalThreadForDisplay
@@ -2365,8 +2394,8 @@ export function WorldPlanAgentConversation({
     return event?.kind === "world" ? `${event.turn.turn_id}:${event.turn.assistant_text}` : null;
   })();
   useLayoutEffect(() => {
-    if ((!presentationHosts && !isPlay) || !agent.paneState.isOpen) return;
-    const viewport = isPlay ? playMessagesHostRef.current?.parentElement : presentationHosts?.messages?.parentElement;
+    if ((!presentationHosts && !isReadOnly) || !agent.paneState.isOpen) return;
+    const viewport = presentationHosts?.messages?.parentElement ?? playMessagesHostRef.current?.parentElement;
     if (!viewport) return;
     const nearBottom = () => viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= 48;
     const updateFollowState = () => {
@@ -2376,7 +2405,7 @@ export function WorldPlanAgentConversation({
     updateFollowState();
     viewport.addEventListener("scroll", updateFollowState, { passive: true });
     return () => viewport.removeEventListener("scroll", updateFollowState);
-  }, [agent.paneState.isOpen, presentationHosts, isPlay]);
+  }, [agent.paneState.isOpen, presentationHosts, isReadOnly]);
   useLayoutEffect(() => {
     const anchor = olderPageScrollAnchorRef.current;
     if (!anchor) return;
@@ -2385,20 +2414,20 @@ export function WorldPlanAgentConversation({
     anchor.viewport.scrollTop = anchor.scrollTop + addedHeight;
   }, [history]);
   useLayoutEffect(() => {
-    if (!isPlay || !agent.paneState.isOpen) return;
+    if (!isReadOnly || presentationHosts || !agent.paneState.isOpen) return;
     const viewport = playMessagesHostRef.current?.parentElement;
     if (viewport) viewport.scrollTop = viewport.scrollHeight;
-  }, [isPlay, agent.paneState.isOpen]);
+  }, [isReadOnly, agent.paneState.isOpen]);
   useLayoutEffect(() => {
-    if ((!presentationHosts && !isPlay) || !agent.paneState.isOpen || !history || historyLoading) return;
-    const viewport = isPlay ? playMessagesHostRef.current?.parentElement : presentationHosts?.messages?.parentElement;
+    if ((!presentationHosts && !isReadOnly) || !agent.paneState.isOpen || !history || historyLoading) return;
+    const viewport = presentationHosts?.messages?.parentElement ?? playMessagesHostRef.current?.parentElement;
     if (!viewport) return;
     if (!hasObservedConversationHistoryRef.current || observedConversationIdRef.current !== history.conversation_id) {
       hasObservedConversationHistoryRef.current = true;
       observedConversationIdRef.current = history.conversation_id;
       observedAssistantReplyKeyRef.current = latestAssistantReplyKey;
       setNewReplyAvailable(false);
-      if (isPlay) viewport.scrollTop = viewport.scrollHeight;
+      if (isReadOnly && !presentationHosts) viewport.scrollTop = viewport.scrollHeight;
       return;
     }
     if (!latestAssistantReplyKey || latestAssistantReplyKey === observedAssistantReplyKeyRef.current) return;
@@ -2420,10 +2449,10 @@ export function WorldPlanAgentConversation({
     }
     const frame = window.requestAnimationFrame(scrollToLatest);
     return () => window.cancelAnimationFrame(frame);
-  }, [agent.paneState.isOpen, history, historyLoading, latestAssistantReplyKey, presentationHosts, isPlay]);
+  }, [agent.paneState.isOpen, history, historyLoading, latestAssistantReplyKey, presentationHosts, isReadOnly]);
 
   function jumpToLatestReply() {
-    const viewport = isPlay ? playMessagesHostRef.current?.parentElement : presentationHosts?.messages?.parentElement;
+    const viewport = presentationHosts?.messages?.parentElement ?? playMessagesHostRef.current?.parentElement;
     if (!viewport) return;
     followsLatestRef.current = true;
     viewport.scrollTop = viewport.scrollHeight;
@@ -2570,8 +2599,8 @@ export function WorldPlanAgentConversation({
     }
     setOlderLoading(false);
     setHistoryError(null);
-    const reconcilingPendingPlay = sharedConversation?.pendingTurn?.surface === "play";
-    if (((!isPlay && (!scopeMatches || !documentId)) && !reconcilingPendingPlay)
+    const reconcilingPendingPlay = sharedConversation?.pendingTurn?.surface === "play" || sharedConversation?.pendingTurn?.surface === "build";
+    if (((!isReadOnly && (!scopeMatches || !documentId)) && !reconcilingPendingPlay)
       || verifiedWorldId !== worldId || (!visible && !reconcilingPendingPlay)) {
       setHistoryLoading(false);
       return () => { active = false; };
@@ -2595,28 +2624,29 @@ export function WorldPlanAgentConversation({
         if (!active || generation !== historyGenerationRef.current) return;
         sharedConversation?.setPendingTurn((current) => current && page.turns.some((turn) =>
           turn.turn_id === current.turnId && ["completed", "failed", "interrupted"].includes(turn.lifecycle_status)) ? null : current);
-        if (pendingPlayTurn && page.turns.some((turn) => turn.turn_id === pendingPlayTurn.request.turn_id
-          && ["completed", "failed", "interrupted"].includes(turn.lifecycle_status))) {
+        const readOnlyConfirmed = pendingPlayTurn && await confirmedReadOnlyTurn(page, pendingPlayTurn);
+        if (!active || generation !== historyGenerationRef.current) return;
+        if (pendingPlayTurn && readOnlyConfirmed) {
+          sharedConversation?.setPendingTurn(current => current?.turnId === pendingPlayTurn.request.turn_id ? null : current);
           try {
             if (window.localStorage.getItem(pendingPlayTurn.storageKey) === pendingPlayTurn.serialized) {
               window.localStorage.removeItem(pendingPlayTurn.storageKey);
               setPendingPlayTurn(null);
               setPendingPlayLoadError(null);
             } else {
-              setPendingPlayLoadError("The saved Play request changed. Review its recovery record before another turn.");
+              setPendingPlayLoadError("The saved request changed. Review its recovery record before another turn.");
             }
           } catch (reason) {
-            setPendingPlayLoadError(reason instanceof Error ? reason.message : "Could not clear the confirmed Play request.");
+            setPendingPlayLoadError(reason instanceof Error ? reason.message : "Could not clear the confirmed request.");
           }
         }
         const uncertainNotice = uncertainPlayNoticeRef.current;
-        if (uncertainNotice && page.turns.some((turn) => turn.turn_id === uncertainNotice.turnId
-          && ["completed", "failed", "interrupted"].includes(turn.lifecycle_status))) {
+        if (uncertainNotice && readOnlyConfirmed && pendingPlayTurn?.request.turn_id === uncertainNotice.turnId) {
           uncertainPlayNoticeRef.current = null;
           setError((current) => current === uncertainNotice.message ? null : current);
         }
         try {
-          if (isPlay || !documentId || !scopeMatches) {
+          if (isReadOnly || !documentId || !scopeMatches) {
             historySnapshotRef.current = page;
             setHistory(page);
             setHistoryLoading(false);
@@ -2697,7 +2727,7 @@ export function WorldPlanAgentConversation({
       });
     return () => { active = false; };
   }, [scopeKey, scopeMatches, verifiedWorldId, documentId, historyRefreshNonce, sharedConversation?.historyRefreshNonce,
-    sharedConversation?.pendingTurn?.surface, pendingPlayTurn?.serialized, isPlay, visible]);
+    sharedConversation?.pendingTurn?.surface, pendingPlayTurn?.serialized, isReadOnly, visible]);
 
   useEffect(() => {
     if (verifiedWorldId !== worldId || !sharedConversation?.pendingTurn) return;
@@ -2758,7 +2788,7 @@ export function WorldPlanAgentConversation({
       const stored = readPendingPlayTurn(verifiedWorldId);
       setPendingPlayTurn(stored);
       setPendingPlayLoadError(null);
-      if (stored) sharedConversation?.setPendingTurn((current) => current ?? { surface: "play", turnId: stored.request.turn_id });
+      if (stored) sharedConversation?.setPendingTurn((current) => current ?? { surface: stored.request.surface.surface_id, turnId: stored.request.turn_id });
     } catch (reason) {
       setPendingPlayLoadError(reason instanceof Error ? reason.message : "Saved Play request recovery is unavailable.");
     }
@@ -2782,16 +2812,16 @@ export function WorldPlanAgentConversation({
 
   useLayoutEffect(() => {
     const pending = proposalRequestRef.current;
-    if (!isPlay && scopeMatches && pending && latestRef.current.providerThreadId !== pending.providerThreadId) {
+    if (!isReadOnly && scopeMatches && pending && latestRef.current.providerThreadId !== pending.providerThreadId) {
       proposalRequestRef.current = null;
       setComposing(false);
     }
     const review = editReviewRef.current;
-    if (!isPlay && scopeMatches && review && activeThread && activeThread.threadId !== review.threadId) {
+    if (!isReadOnly && scopeMatches && review && activeThread && activeThread.threadId !== review.threadId) {
       editReviewRef.current = null;
       setEditReview(null);
     }
-  }, [activeThread?.threadId, agent.activeThread?.threadId, isPlay, scopeMatches]);
+  }, [activeThread?.threadId, agent.activeThread?.threadId, isReadOnly, scopeMatches]);
 
   useLayoutEffect(() => {
     requestRef.current = null;
@@ -3374,7 +3404,7 @@ export function WorldPlanAgentConversation({
       const terminal = sharedConversation?.history?.turns.some((turn) => turn.turn_id === stored.request.turn_id
         && ["completed", "failed", "interrupted"].includes(turn.lifecycle_status));
       if (current !== stored.serialized && !(current === null && terminal)) {
-        throw new Error("The saved Play request changed. Its recovery record was retained.");
+        throw new Error("The saved request changed. Its recovery record was retained.");
       }
       if (current === stored.serialized) window.localStorage.removeItem(stored.storageKey);
       setPendingPlayTurn(null);
@@ -3389,26 +3419,35 @@ export function WorldPlanAgentConversation({
   async function dispatchSavedPlayTurn(stored: StoredPendingPlayTurn) {
     const request = stored.request;
     if (verifiedWorldId !== request.owner_scope.world_id || requestRef.current || sending) return;
-    const token = Symbol("world-play-turn");
+    const token = Symbol("world-readonly-turn");
     requestRef.current = { token, scopeKey: request.owner_scope.world_id, fenceKey: JSON.stringify(request.primary_work) };
-    sharedConversation?.setPendingTurn({ surface: "play", turnId: request.turn_id });
+    sharedConversation?.setPendingTurn({ surface: request.surface.surface_id, turnId: request.turn_id });
     setSending(true);
     setError(null);
     try {
-      const response = await postWorldPlayAgentTurn(request);
+      setSubmittedMessage({ id: request.turn_id, scopeKey,
+        conversationId: historySnapshotRef.current?.conversation_id ?? null,
+        pointerRevision: historySnapshotRef.current?.pointer_revision ?? null,
+        message: request.message, kind: "discuss" });
+      void worldTurnIdempotencyKey(request.owner_scope.world_id, request.turn_id).then(key => {
+        setSubmittedMessage(current => current?.id === request.turn_id ? { ...current, idempotencyKey: key } : current);
+      });
+      const response = await (request.primary_work.kind === "build"
+        ? postWorldBuildAgentTurn(request as WorldBuildAgentTurnRequestV1)
+        : postWorldPlayAgentTurn(request as WorldPlayAgentTurnRequestV1));
       if (requestRef.current?.token !== token || !latestRef.current.mounted) return;
       if (!["dmb_agent_turn_response_v1", "dmb_agent_turn_response_v2"].includes(response.schema)
         || response.client_thread_id !== request.client_thread_id || response.turn_id !== request.turn_id
-        || response.surface.surface_id !== "play" || response.surface.instance_id !== request.surface.instance_id
+        || response.surface.surface_id !== request.surface.surface_id || response.surface.instance_id !== request.surface.instance_id
         || response.owner_scope.status !== "resolved"
         || response.owner_scope.kind !== "world" || response.owner_scope.owner_id !== request.owner_scope.world_id
         || response.primary_work.status !== "resolved"
-        || response.primary_work.kind !== "run" || response.primary_work.object_id !== request.primary_work.object_id
+        || response.primary_work.kind !== request.primary_work.kind || response.primary_work.object_id !== request.primary_work.object_id
         || response.primary_work.expected_revision !== request.primary_work.expected_revision
         || response.primary_work.revision_used !== request.primary_work.expected_revision
         || response.client_work_state_reported !== request.client_work_state
         || !matchesPlayGraphResponse(response.graph, request)) {
-        throw new Error("The Play response did not match the submitted World Run. Check World history before continuing.");
+        throw new Error("The reply did not match the saved request. Check World history before continuing.");
       }
       if (clearSavedPlayTurn(stored)) sharedConversation?.setPendingTurn((current) => current?.turnId === request.turn_id ? null : current);
       sharedConversation?.setHistoryRefreshNonce((current) => current + 1);
@@ -3420,13 +3459,14 @@ export function WorldPlanAgentConversation({
         return;
       }
       const rejectedBeforeDispatch = reason instanceof LiveApiError
-        && (["play_context_unavailable", "world_owner_unverified"].includes(reason.code ?? "")
+        && (["play_context_unavailable", "world_owner_unverified", "build_source_unavailable", "build_source_too_large"].includes(reason.code ?? "")
           || reason.status === 401 || reason.status === 403);
       if (rejectedBeforeDispatch) {
         if (clearSavedPlayTurn(stored)) {
           sharedConversation?.setPendingTurn((current) => current?.turnId === request.turn_id ? null : current);
+          setSubmittedMessage(current => current?.id === request.turn_id ? null : current);
           setComposerDrafts((drafts) => {
-            const key = `play:${request.primary_work.object_id}`;
+            const key = `${request.surface.surface_id}:${request.primary_work.object_id}`;
             return drafts[key] ? drafts : { ...drafts, [key]: request.message };
           });
         }
@@ -3434,11 +3474,11 @@ export function WorldPlanAgentConversation({
       const graphFailure = reason instanceof LiveApiError
         && ["graph_unavailable", "native_binding_invalid", "graph_revision_unavailable", "graph_read_failed"].includes(reason.code ?? "");
       const notice = rejectedBeforeDispatch
-        ? `This Play turn was refused before dispatch. ${localOperatorCredentialFailure(reason, "return to Play and send again")
-          ?? (reason instanceof Error ? reason.message : "Reload the Run.")}`
+        ? `This message was not sent. ${localOperatorCredentialFailure(reason, "send this message again")
+          ?? (reason instanceof Error ? reason.message : "Reopen the saved work.")}`
         : graphFailure
-          ? `The World Graph could not be resolved for this Play turn. ${reason.message} Check World history or explicitly retry the exact saved request; Graph context will remain required.`
-        : `${reason instanceof Error ? reason.message : "The Play turn outcome is unknown."} Check World history or explicitly retry the saved request with its original IDs.`;
+          ? `The World Graph could not be resolved for this message. ${reason.message} Check World history or explicitly retry the exact saved request; Graph context will remain required.`
+        : `${reason instanceof Error ? reason.message : "The message outcome is unknown."} Check World history or explicitly retry the saved request with its original IDs.`;
       uncertainPlayNoticeRef.current = rejectedBeforeDispatch ? null : { turnId: request.turn_id, message: notice };
       setError(notice);
       sharedConversation?.setHistoryRefreshNonce((current) => current + 1);
@@ -3453,8 +3493,36 @@ export function WorldPlanAgentConversation({
   async function submitPlay(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const admittedRun = playMode?.admittedRun;
+    const source = buildMode?.savedSource;
     const message = composerMessage.trim();
-    if (!visible || !isPlay || !admittedRun || admittedRun.worldId !== verifiedWorldId
+    if (isBuild) {
+      if (!visible || !source || source.worldId !== verifiedWorldId || !historySnapshotRef.current
+        || historyLoading || historyError || !message || message.length > 8000 || sending
+        || requestRef.current || sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError) return;
+      const request: WorldBuildAgentTurnRequestV1 = {
+        schema: "dmb_agent_turn_request_v1", client_thread_id: crypto.randomUUID(), turn_id: crypto.randomUUID(),
+        surface: { surface_id: "build", instance_id: source.surfaceInstanceId },
+        owner_scope: { kind: "world", world_id: source.worldId },
+        primary_work: { kind: "build", object_id: source.documentId, expected_revision: source.revision, expected_content_sha256: source.contentSha256 },
+        client_work_state: source.dirty ? "saved_dirty" : "saved_clean",
+        graph_request: useWorldGraphForAsk ? { mode: "world", world_id: source.worldId, campaign_id: null, revision_pin: null,
+          focus: { kind: "none", session_id: null, campaign_id: null } } : { mode: "none" }, graph_selection: null, message,
+      };
+      const storageKey = pendingPlayTurnStorageKey(source.worldId);
+      const serialized = JSON.stringify({ schema: "dmb_world_play_pending_turn_v1", request });
+      try {
+        if (window.localStorage.getItem(storageKey) !== null) throw new Error("An earlier request still needs recovery.");
+        window.localStorage.setItem(storageKey, serialized);
+        if (window.localStorage.getItem(storageKey) !== serialized) throw new Error("Could not preserve the exact request.");
+      } catch (reason) { setError(String(reason)); return; }
+      const stored = { storageKey, serialized, request };
+      setPendingPlayTurn(stored);
+      setComposerMessage("");
+      await dispatchSavedPlayTurn(stored);
+      return;
+    }
+
+    if (!visible || !isReadOnly || !admittedRun || admittedRun.worldId !== verifiedWorldId
       || !historySnapshotRef.current || historyLoading || historyError || !message || message.length > 8000
       || sending || requestRef.current || sharedConversation?.pendingTurn || pendingPlayTurn || pendingPlayLoadError) return;
     const request: WorldPlayAgentTurnRequestV1 = {
@@ -4704,12 +4772,12 @@ export function WorldPlanAgentConversation({
     ? createPortal(<p className="world-plan-agent-draft-note" role="status">{message}</p>, presentationHosts.composer)
     : null;
   if (!visible) return null;
-  if (!isPlay && !pageReady) return presentAvailability("Loading Plan conversation context…");
-  if (!isPlay && !documentId) {
+  if (!isReadOnly && !pageReady) return presentAvailability("Loading Plan conversation context…");
+  if (!isReadOnly && !documentId) {
     if (presentationHosts) return presentAvailability("Save this Plan to start an Agent conversation.");
     return <p className="world-plan-agent-draft-note" role="status">Save this Plan to start an Agent conversation.</p>;
   }
-  if (!isPlay && (!planReady || !askSlot?.hostElement || !scopeMatches)) return presentAvailability("Verifying saved Plan conversation context…");
+  if (!isReadOnly && (!planReady || !askSlot?.hostElement || !scopeMatches)) return presentAvailability("Verifying saved Plan conversation context…");
 
   const currentReviewBefore = editReview ? worldPlanEditReviewBefore(editReview.captured) : null;
   const currentReview = editReview
@@ -4750,13 +4818,13 @@ export function WorldPlanAgentConversation({
   const detectedComposerIntent = continuationOfActionId ? "propose" : composerIntentCorrection?.message === composerMessage
     ? composerIntentCorrection.intent
     : inferredComposerIntent;
-  const composerBusy = isPlay
+  const composerBusy = isReadOnly
     ? sending || Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError)
-      || historyLoading || !history || Boolean(historyError) || !playMode?.admittedRun
+      || historyLoading || !history || Boolean(historyError) || !currentReadOnlyContext
     : intentBusy || Boolean(sharedConversation?.pendingTurn) || Boolean(pendingPlayTurn) || Boolean(pendingPlayLoadError)
       || (detectedComposerIntent === "discuss"
       && (historyLoading || !history || Boolean(historyError)));
-  const messageLimit = isPlay || detectedComposerIntent === "discuss" ? 8000 : 4000;
+  const messageLimit = isReadOnly || detectedComposerIntent === "discuss" ? 8000 : 4000;
   const messageTooLong = composerMessage.length > messageLimit;
   const displayedSavedPlanVersion = savedPlanVersion?.key === committedPlanVersionKey
     ? savedPlanVersion
@@ -4769,7 +4837,7 @@ export function WorldPlanAgentConversation({
 
     event.preventDefault();
     if (!composerMessage.trim() || messageTooLong
-      || (!isPlay && detectedComposerIntent === "discuss" && playableTargetStale)) return;
+      || (!isReadOnly && detectedComposerIntent === "discuss" && playableTargetStale)) return;
     event.currentTarget.form?.requestSubmit();
   }
   const localProposalPositionsByTurnId = new Map(
@@ -4779,14 +4847,14 @@ export function WorldPlanAgentConversation({
   const renderFrozenReview = (turn: AgentInteractionTurn) => {
     const snapshot = reviewSnapshots[turn.turnId];
     if (!snapshot || snapshot.scopeKey !== scopeKey) return null;
-    if (isPlay) return <details className="world-plan-agent-conversation__review" aria-label="Read-only Plan proposal preview">
+    if (isReadOnly) return <details className="world-plan-agent-conversation__review" aria-label="Read-only Plan proposal preview">
       <summary>Plan proposal preview · return to Plan to review or apply</summary>
       <div className="world-plan-agent-conversation__preview">
         <section><h5>Before</h5><WorldPlanAgentAnswer answer={snapshot.preview.before.markdown} /></section>
         <section><h5>After</h5><WorldPlanAgentAnswer answer={snapshot.preview.after.markdown} /></section>
       </div>
     </details>;
-    const executable = !isPlay && currentReview?.turnId === turn.turnId ? currentReview : null;
+    const executable = !isReadOnly && currentReview?.turnId === turn.turnId ? currentReview : null;
     const status = turn.planEdit?.applied ? "applied"
       : executable ? applyingTurnId === turn.turnId ? "applying" : "review" : "stale";
     const canOfferSave = status === "applied" && savedDirty && snapshot.threadId === activeThread?.threadId
@@ -4858,10 +4926,10 @@ export function WorldPlanAgentConversation({
           </details>
         </>
       ) : null}
-      {isPlay && turn.planEdit && !turn.planEdit.applied ? (
+      {isReadOnly && turn.planEdit && !turn.planEdit.applied ? (
         <p role="note">Return to Plan to review or apply this proposal.</p>
       ) : null}
-      {reviewSnapshots[turn.turnId]?.scopeKey === scopeKey ? renderFrozenReview(turn) : !isPlay && currentReview?.turnId === turn.turnId ? (
+      {reviewSnapshots[turn.turnId]?.scopeKey === scopeKey ? renderFrozenReview(turn) : !isReadOnly && currentReview?.turnId === turn.turnId ? (
         <section className="world-plan-agent-conversation__review" aria-label="Review proposed Plan edit">
           <h4>Review this proposal</h4>
           {currentReview.admitted.response.assumptions.length ? (
@@ -5000,7 +5068,7 @@ export function WorldPlanAgentConversation({
 
   const newConversationButton = (
     <button
-      className={presentationHosts ? "conversation-dock__icon-button" : undefined}
+      className={presentationHosts || isReadOnly ? "conversation-dock__icon-button" : undefined}
       type="button"
       onClick={startNewConversation}
       disabled={newConversationDisabledReason !== null}
@@ -5008,7 +5076,7 @@ export function WorldPlanAgentConversation({
       title={newConversationDisabledReason ?? "New conversation"}
       aria-describedby={newConversationDisabledReason ? "world-plan-new-conversation-disabled-reason" : undefined}
     >
-      {newConversationSending ? "…" : presentationHosts ? <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg> : "New conversation"}
+      {newConversationSending ? "…" : (presentationHosts || isReadOnly) ? <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg> : "New conversation"}
     </button>
   );
   const headerActions = (
@@ -5016,7 +5084,7 @@ export function WorldPlanAgentConversation({
             <button type="button" aria-expanded={settingsOpen} aria-controls="world-plan-agent-settings" onClick={() => setSettingsOpen((open) => !open)}>
               {settingsOpen ? "Close settings" : "Settings"}
             </button>
-            {!presentationHosts || presentationHosts.newConversation === undefined ? newConversationButton : null}
+            {!isReadOnly && (!presentationHosts || presentationHosts.newConversation === undefined) ? newConversationButton : null}
             {newConversationDisabledReason ? (
               <p id="world-plan-new-conversation-disabled-reason" className="world-plan-agent-conversation__management-reason" role="note">
                 Unavailable right now: {newConversationDisabledReason}
@@ -5024,7 +5092,10 @@ export function WorldPlanAgentConversation({
             ) : null}
           </div>
   );
-  const contextDetails = (
+  const buildContextDetails = <><LoadedWorldGraphExplorer /><p>Buddy uses the saved source{buildMode?.savedSource?.title ? ` “${buildMode.savedSource.title}”` : ""}. Unsaved edits stay in the editor. Source material is separate from admitted World Graph facts.</p>
+    <button type="button" aria-pressed={useWorldGraphForAsk} onClick={() => setUseWorldGraphForAsk(value => !value)}>
+      Use {worldName} facts · {useWorldGraphForAsk ? "On" : "Off"}</button></>;
+  const contextDetails = isBuild ? buildContextDetails : (
     <div className="world-plan-agent-conversation__header-context" role="group" aria-label="What Buddy uses and where changes go">
           <section className="world-plan-agent-conversation__context-section" aria-label="Question sources">
             <LoadedWorldGraphExplorer />
@@ -5322,11 +5393,11 @@ export function WorldPlanAgentConversation({
     <div className="world-plan-agent-conversation__body">
       {newConversationError ? <p role="alert">{newConversationError}</p> : null}
       {pendingPlayLoadError ? <p role="alert">{pendingPlayLoadError}</p> : null}
-      {pendingPlayTurn ? <section className="world-plan-agent-conversation__recovery-notice" aria-label="Saved Play turn recovery">
-        <p>This Play turn is awaiting confirmation. Refresh history or retry its exact saved request; no request is sent automatically.</p>
+      {pendingPlayTurn ? <section className="world-plan-agent-conversation__recovery-notice" aria-label="Saved turn recovery">
+        <p>This request needs recovery. You can check its saved status or retry the exact request.</p>
         <button type="button" onClick={refreshWorldHistory} disabled={historyLoading}>Refresh World history</button>
         <button type="button" onClick={() => { void dispatchSavedPlayTurn(pendingPlayTurn); }} disabled={sending || requestRef.current !== null}>
-          Retry exact Play turn
+          Retry exact saved turn
         </button>
       </section> : null}
       {presentationHosts && playableTargetStale ? <p role="alert">The Ask target is stale. Select it again before asking.</p> : null}
@@ -5342,7 +5413,7 @@ export function WorldPlanAgentConversation({
       <section id="world-plan-agent-settings" className="world-plan-agent-conversation__settings" aria-label="Local operator Agent and Graph authorization" hidden={!settingsOpen}>
         <button type="button" onClick={connectGraphSession}>Connect local session</button>
         <button type="button" onClick={clearGraphSession}>Revoke local session</button>
-        <p role="note">Your local Agent and Graph session persists across reloads. {isPlay ? "Play questions use the admitted World Run." : "Plan + World is the default; switch to Plan only for a question that needs that scope."}</p>
+        <p role="note">Your local Agent and Graph session persists across reloads. {isReadOnly ? "Play questions use the admitted World Run." : "Plan + World is the default; switch to Plan only for a question that needs that scope."}</p>
         {graphCredentialStatus ? <p role="status">{graphCredentialStatus}</p> : null}
       </section>
       {saveInFlight ? (
@@ -5375,8 +5446,8 @@ export function WorldPlanAgentConversation({
           </button>
         ) : null}
         {latestConversationEvent ? renderConversationEvent(latestConversationEvent) : null}
-        {!isPlay ? conversationActions.map(renderConsultedAction) : null}
-        {!isPlay && conversationActionsError ? <p role="alert">{conversationActionsError}</p> : null}
+        {!isReadOnly ? conversationActions.map(renderConsultedAction) : null}
+        {!isReadOnly && conversationActionsError ? <p role="alert">{conversationActionsError}</p> : null}
         {submittedMessage?.scopeKey === scopeKey
           && (submittedMessage.conversationId === null
             ? (submittedMessage.pointerRevision === (history?.pointer_revision ?? null))
@@ -5401,20 +5472,20 @@ export function WorldPlanAgentConversation({
         ) : null}
         {conversationNotice && conversationNotice !== "The server confirmed this Ask. World history refreshed."
           ? <p role="status">{conversationNotice}</p> : null}
-        {(presentationHosts || isPlay) && newReplyAvailable ? (
+        {(presentationHosts || isReadOnly) && newReplyAvailable ? (
           <button type="button" className="world-plan-agent-conversation__new-reply" onClick={jumpToLatestReply}>
             Jump to latest reply
           </button>
         ) : null}
       </section>
-      {!presentationHosts && !isPlay ? managementDetails : null}
+      {!presentationHosts && !isReadOnly ? managementDetails : null}
     </div>
   );
   const composer = (
     <section className="world-plan-agent-conversation__composer" aria-label="Conversation composer">
-      <form onSubmit={isPlay ? (event) => { void submitPlay(event); } : submitComposer}>
-        {!isPlay ? <p className="world-plan-agent-conversation__context" aria-label="Actual Plan change target">{displayedEditScope}</p> : null}
-        {!isPlay && detectedComposerIntent === "propose" && !effectiveEditTarget && !editorSelectionActive ? (
+      <form onSubmit={isReadOnly ? (event) => { void submitPlay(event); } : submitComposer}>
+        {!isReadOnly ? <p className="world-plan-agent-conversation__context" aria-label="Actual Plan change target">{displayedEditScope}</p> : null}
+        {!isReadOnly && detectedComposerIntent === "propose" && !effectiveEditTarget && !editorSelectionActive ? (
           <details className="world-plan-agent-conversation__target-disclosure">
             <summary>
               {selectedSectionTargetLabel
@@ -5448,7 +5519,7 @@ export function WorldPlanAgentConversation({
             </div>
           </details>
         ) : null}
-        {!isPlay && sectionTargetStatus?.kind === "error" && detectedComposerIntent === "propose" ? (
+        {!isReadOnly && sectionTargetStatus?.kind === "error" && detectedComposerIntent === "propose" ? (
           <p className="world-plan-agent-conversation__target-error" role="alert">{sectionTargetStatus.message}</p>
         ) : null}
         <label className="sr-only" htmlFor="world-plan-agent-message">Message DungeonBuddy</label>
@@ -5464,17 +5535,17 @@ export function WorldPlanAgentConversation({
           }}
           onKeyDown={handleComposerKeyDown}
           maxLength={8000}
-          disabled={isPlay ? !playMode?.admittedRun : !scopeMatches}
-          placeholder={isPlay ? "Ask about this Run…" : "Ask Buddy, or tell it what to change…"}
+          disabled={composerBusy || (isReadOnly ? !currentReadOnlyContext : !scopeMatches)}
+          placeholder={isReadOnly ? (isBuild ? "Ask about this source or your World…" : "Ask about this Run…") : "Ask Buddy, or tell it what to change…"}
           aria-describedby="world-plan-agent-composer-hint"
         />
         <div className="world-plan-agent-conversation__composer-footer">
           <p id="world-plan-agent-composer-hint">
-            {!isPlay && detectedComposerIntent === "propose"
+            {!isReadOnly && detectedComposerIntent === "propose"
               ? `Plan change${effectiveEditTarget ? ` · ${(playableEditTarget ? playableEditTargetLabel : playableTargetLabel) || effectiveEditTarget.id}` : editorSelectionActive ? " · selected text" : ""} · Buddy will show a preview before anything is applied.`
               : "Enter to send · Shift+Enter for a new line."}
           </p>
-          {!isPlay && composerMessage.trim() ? (
+          {!isReadOnly && composerMessage.trim() ? (
             <details className="world-plan-agent-conversation__route-correction">
               <summary>{detectedComposerIntent === "propose" ? "Plan change · Change" : "Question · Change"}</summary>
               <div role="group" aria-label="Choose how Buddy handles this message">
@@ -5489,42 +5560,43 @@ export function WorldPlanAgentConversation({
           ) : null}
           <button
             type="submit"
-            aria-label={!isPlay && detectedComposerIntent === "propose" ? "Propose edit" : "Send message"}
+            aria-label={!isReadOnly && detectedComposerIntent === "propose" ? "Propose edit" : "Send message"}
             disabled={composerBusy || !composerMessage.trim() || messageTooLong
-            || (!isPlay && detectedComposerIntent === "discuss" && playableTargetStale)
-            || (!isPlay && detectedComposerIntent === "propose" && (effectiveEditTargetStale || !editBridge))}
+            || (!isReadOnly && detectedComposerIntent === "discuss" && playableTargetStale)
+            || (!isReadOnly && detectedComposerIntent === "propose" && (effectiveEditTargetStale || !editBridge))}
           >
             {sending || composing ? "Working…" : saveInFlight ? "Saving…" : "Send"}
           </button>
         </div>
-        {messageTooLong ? <p role="alert">{!isPlay && detectedComposerIntent === "propose"
+        {messageTooLong ? <p role="alert">{!isReadOnly && detectedComposerIntent === "propose"
           ? "Changes can be up to 4,000 characters. Shorten this request to continue."
           : "Questions can be up to 8,000 characters. Shorten this message to continue."}</p> : null}
         {error && !authorizationBlocked && !hasUncertainGraphNotice ? <p role="alert">{error}</p> : null}
         {editError && !authorizationBlocked ? <p role="alert">{editError}</p> : null}
-        {!isPlay && detectedComposerIntent === "propose" && !editBridge ? (
+        {!isReadOnly && detectedComposerIntent === "propose" && !editBridge ? (
           <p className="world-plan-agent-conversation__context" role="note">Plan changes are unavailable on this surface.</p>
         ) : null}
       </form>
     </section>
   );
-  if (isPlay) {
+  if (isReadOnly && !presentationHosts) {
     if (!askSlot?.hostElement || !agent.paneState.isOpen) return null;
-    const admittedRun = playMode.admittedRun;
+    const admittedRun = playMode?.admittedRun;
     return createPortal(
       <section className="world-plan-agent-conversation world-agent-conversation" aria-label="World conversation" data-testid="world-agent-conversation-host">
-        <ConversationDock className="plan-conversation-dock world-agent-conversation__dock" reader={null} readerLabel="Play workspace"
+        <ConversationDock className="plan-conversation-dock world-agent-conversation__dock" reader={null} readerLabel={isBuild ? "Build workspace" : "Play workspace"}
           conversationLabel="World conversation" title="Conversation"
-          contextLabel={`${worldName} · Play${admittedRun?.beatTitle ? ` · ${admittedRun.beatTitle}` : ""}${admittedRun?.sceneTitle ? ` · ${admittedRun.sceneTitle}` : ""}`}
+          contextLabel={isBuild ? `${worldName} · ${buildMode?.savedSource?.title ?? "Build"}` : `${worldName} · Play${admittedRun?.beatTitle ? ` · ${admittedRun.beatTitle}` : ""}${admittedRun?.sceneTitle ? ` · ${admittedRun.sceneTitle}` : ""}`}
           initialHeight={360} minHeight={240} minimumReaderHeight={0} collapseMode="launcher"
           expanded={agent.paneState.isOpen} onExpandedChange={agent.setPaneOpen}
-          headerActions={<details className="plan-conversation-dock__management" aria-label="Conversation options">
+          headerActions={<>{newConversationButton}<details className="plan-conversation-dock__management" aria-label="Conversation options">
             <summary>Conversation options</summary><div>{headerActions}{managementDetails}</div>
-          </details>}
-          contextDetails={<p>Buddy uses the verified current World Run. Each submitted turn keeps its original moment.</p>}
+          </details></>}
+          contextDetails={isBuild ? <><LoadedWorldGraphExplorer /><p>Buddy uses the saved source{buildMode?.savedSource?.title ? ` “${buildMode.savedSource.title}”` : ""}. Unsaved edits stay in the editor. Source material is separate from admitted World Graph facts. World retrieval is available for this question.</p><button type="button" aria-pressed={useWorldGraphForAsk}
+            onClick={() => setUseWorldGraphForAsk(value => !value)}>Use {worldName} facts · {useWorldGraphForAsk ? "On" : "Off"}</button></> : <p>Buddy uses the verified current World Run. Each submitted turn keeps its original moment.</p>}
           messages={<div ref={playMessagesHostRef} className="plan-conversation-dock__messages">{messages}</div>}
           composer={<div className="plan-conversation-dock__composer">{composer}
-            {!admittedRun ? <p role="status">Choose a verified World Run to ask about Play.</p> : null}
+            {!currentReadOnlyContext ? <p role="status">{isBuild ? "Save a World source to ask Buddy about it." : "Choose a verified World Run to ask about Play."}</p> : null}
             {sharedConversation?.pendingTurn && !sending ? <p role="status">A turn is awaiting confirmation in World history.</p> : null}
             <details><summary>Advanced</summary>
               {admittedRun ? <p>Run {admittedRun.runId} · revision {admittedRun.runRevision}</p> : null}

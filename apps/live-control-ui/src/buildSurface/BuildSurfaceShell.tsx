@@ -1,5 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import { DocumentConversationDock, type PlanConversationPresentationHosts } from "../planSurface/components/PlanConversationDockAdapter";
+import { usePublishWorldBuildConversation, type SavedWorldBuildConversationContext } from "../agentInteraction/WorldAgentConversation";
+import type { AppChromeToolsGeneration } from "../chrome/AppChrome";
+import { MarkdownDocumentOutline } from "../markdownReader/MarkdownDocumentOutline";
 import { getBuildSourceNavigation } from "../api/liveApi";
 import { MarkdownCanvas } from "../markdownCanvas/MarkdownCanvas";
 import {
@@ -55,10 +59,12 @@ function BuildPresentableSourceView({
   session,
   editSlots,
   navigationTarget,
+  onEditorTools,
 }: {
   session: MarkdownCanvasSessionValue;
   editSlots: MarkdownCanvasSlots;
   navigationTarget: BuildSourceNavigationTarget;
+  onEditorTools?: (tools: AppChromeToolsGeneration | null) => void;
 }) {
   const [sourceViewMode, setSourceViewMode] = useState<BuildSourceViewMode>(() =>
     initialSourceViewMode({
@@ -67,37 +73,24 @@ function BuildPresentableSourceView({
     }),
   );
 
+  useEffect(() => {
+    onEditorTools?.({ target: { kind: "document", id: session.record!.document_id },
+      tools: { sections: [{ id: "build-document", title: "Document", defaultOpen: true, actions: [],
+        panel: <><div className="shared-document-mode" aria-label="Source view mode">
+          <button type="button" data-testid="build-source-mode-read" aria-label="Read source" aria-pressed={sourceViewMode === "read"}
+            onClick={() => setSourceViewMode("read")}>Read source</button>
+          <button type="button" data-testid="build-source-mode-edit" aria-label="Edit source" aria-pressed={sourceViewMode === "edit"}
+            onClick={() => setSourceViewMode("edit")}>Edit source</button>
+        </div>{sourceViewMode === "read" ? <MarkdownDocumentOutline markdown={session.snapshot!.markdown} />
+          : <p>Return to Read source to navigate the saved outline.</p>}</> }] } });
+    return () => onEditorTools?.(null);
+  }, [onEditorTools, sourceViewMode, session.record?.document_id, session.snapshot?.markdown]);
+
   return (
     <div className="build-surface-shell" data-testid="build-surface-shell">
-      <div
-        className="build-source-mode-toggle"
-        role="group"
-        aria-label="Source view mode"
-        data-testid="build-source-mode-toggle"
-      >
-        <button
-          type="button"
-          className="build-source-mode-toggle__button"
-          aria-label="Read source"
-          aria-pressed={sourceViewMode === "read"}
-          data-testid="build-source-mode-read"
-          onClick={() => setSourceViewMode("read")}
-        >
-          Read
-        </button>
-        <button
-          type="button"
-          className="build-source-mode-toggle__button"
-          aria-label="Edit source"
-          aria-pressed={sourceViewMode === "edit"}
-          data-testid="build-source-mode-edit"
-          onClick={() => setSourceViewMode("edit")}
-        >
-          Edit
-        </button>
-      </div>
       {sourceViewMode === "read" ? (
         <BuildSourceReader
+          showOutline={false}
           title={session.record!.title}
           markdown={session.snapshot!.markdown}
           dirty={session.dirty}
@@ -110,18 +103,29 @@ function BuildPresentableSourceView({
   );
 }
 
+function BuildConversationBinding({ source, hosts }: { source: SavedWorldBuildConversationContext | null; hosts: PlanConversationPresentationHosts }) {
+  usePublishWorldBuildConversation(source, hosts);
+  return null;
+}
+
 /**
  * Build document chrome: Agent Interaction publication + Read/Edit composition.
  * Document authority lives on MarkdownCanvasSession (provider is owned by BuildSurfacePage).
  * Read renders exact saved snapshot Markdown; Edit preserves MarkdownCanvas authoring.
  */
-export function BuildSurfaceShell() {
+export function BuildSurfaceShell({ onEditorTools }: { onEditorTools?: (tools: AppChromeToolsGeneration | null) => void }) {
   const session = useMarkdownCanvasSession();
   const { rehydrateScope, publishSurfaceContext, surfaceInteractionPublication } = useAgentInteraction();
   const hasSharedEditSave = (surfaceInteractionPublication?.editCommands ?? []).some(
     (command) => command.id === BUILD_DOCUMENT_SAVE_COMMAND_ID,
   );
   const slots = useBuildMarkdownCanvasSlots({ hideFooterSave: hasSharedEditSave });
+  const conversationContext = useMemo(() => session.record?.world_id && session.record.content_status === "committed"
+    && session.snapshot && isPresentableSourcePhase(session.phase) ? {
+      worldId: session.record.world_id, documentId: session.record.document_id,
+      revision: session.snapshot.loaded_revision, contentSha256: session.snapshot.content_sha256,
+      surfaceInstanceId: `build:${session.record.document_id}`, title: session.record.title, dirty: session.dirty,
+    } : null, [session.record, session.snapshot, session.phase, session.dirty]);
   const lastAcceptedCampaignRef = useRef<string>("build");
   const [navigationTarget, setNavigationTarget] = useState<BuildSourceNavigationTarget>(
     IDLE_SOURCE_NAVIGATION_TARGET,
@@ -343,8 +347,8 @@ export function BuildSurfaceShell() {
     className: "build-surface-editor-shell",
   };
 
-  return (
-    <div className="build-surface-with-graph-context">
+  const projection = (
+    <div className="build-surface-with-graph-context document-projection" data-document-surface="build">
       {graphPointer && acceptedDocumentCampaignId ? (
         <BuildGraphObjectContext
           documentCampaignId={acceptedDocumentCampaignId}
@@ -359,8 +363,14 @@ export function BuildSurfaceShell() {
           session={session}
           editSlots={editSlots}
           navigationTarget={navigationTarget}
+          onEditorTools={onEditorTools}
         />
       )}
     </div>
   );
+  return <div className="build-workspace-projection">
+    <DocumentConversationDock surface="build" contextLabel={session.record?.title ?? "Worldbuilding source"} reader={projection}>
+      {hosts => <BuildConversationBinding source={conversationContext} hosts={hosts} />}
+    </DocumentConversationDock>
+  </div>;
 }

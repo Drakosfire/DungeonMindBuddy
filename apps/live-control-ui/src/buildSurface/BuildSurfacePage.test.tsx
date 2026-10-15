@@ -265,6 +265,9 @@ describe("BuildSurfacePage", () => {
     });
     // Blank new drafts default to Edit so the canvas is immediately usable.
     expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Edit", exact: true }));
+    expect(screen.getAllByRole("button", { name: "Document", exact: true })).toHaveLength(1);
+    expect(screen.getByTestId("build-source-mode-edit")).toBeVisible();
     expect(screen.getByTestId("build-source-mode-edit")).toHaveAttribute("aria-pressed", "true");
     expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_ID);
   });
@@ -1492,6 +1495,7 @@ describe("BuildSurfacePage", () => {
     renderBuildPage();
 
     await waitFor(() => expect(screen.getByTestId("build-surface-shell")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Edit", exact: true }));
     await user.click(screen.getByTestId("build-source-mode-edit"));
     await waitFor(() => expect(screen.getByTestId("build-markdown-editor")).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: "Tools" }));

@@ -359,7 +359,7 @@ function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
                   <ToolHost />
                   <LegacyProjectionHostAdapter />
                   <AgentInteractionChrome />
-                  <WorldAgentConversation surface={route === "plan" || route === "play" ? route : "other"}
+                  <WorldAgentConversation surface={route === "plan" || route === "play" || route === "build" ? route : "other"}
                     worldId={selectedWorld.kind === "managed" ? selectedWorld.worldId : null}
                     worldName={selectedWorld.kind === "managed" ? selectedWorld.name : undefined} />
                 </PeekRegionProvider>
