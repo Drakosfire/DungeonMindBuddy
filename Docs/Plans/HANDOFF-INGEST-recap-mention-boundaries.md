@@ -1,6 +1,6 @@
 # INGEST: whole-surface mention boundaries
 
-Status: ACTIVE under PRIME's operator-authorized ingestion/authoring repair.
+Status: MERGED as #1208 at `c6db599311209b434b830f495b2df35b8f9dbb92` after ARCHITECTURE PASS on `76efa7b2569fe92ee858aa487a1223ffb8077671` (205 independent tests). Implementation lease closed; deployment remains coordinated with DOGFOOD.
 Base: `98dfb01ff9ba88364b0f329521beb7ba7bb2f01c`.
 Lane: `codex/recap-mention-boundaries`, `/tmp/prime-recap-mention-boundaries`.
 Topology: serial successor to merged #1207; solo implementation, ARCHITECTURE review.
