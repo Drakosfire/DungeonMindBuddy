@@ -17,16 +17,22 @@ PROFILE_VERSION = "1.7"
 PROFILE = f"{PROFILE_ID}@{PROFILE_VERSION}"
 _PRIOR_PROFILE = "worldbuilding_gazetteer_v1@1.6"
 _PROFILE_WARNING = f"source_support_policy:{PROFILE}"
-_UNCERTAIN_ROLE_CLAUSE = re.compile(
-    r"\b(?:may|might|could|would|should|will|perhaps|possibly|allegedly|"
-    r"if|unless|provided\s+that|subject\s+to)\b",
+_UNCERTAIN_ROLE_PREFIX = re.compile(
+    r"\b(?:perhaps|possibly|potentially|allegedly|purportedly)\b", re.IGNORECASE,
+)
+_MODAL_ROLE_PREFIX = re.compile(
+    r"\b(?:may|might|could|would|should|will)\s+(?!is\b|was\b|has\b)"
+    r"(?:[a-z'-]+\s+)*(?:be|become|serve|act|hold|remain|take|assume)\b",
     re.IGNORECASE,
+)
+_CONDITIONAL_ROLE_CLAUSE = re.compile(
+    r"\b(?:if|unless|provided\s+that|subject\s+to)\b", re.IGNORECASE,
 )
 _NEGATED_ROLE_PREFIX = re.compile(
-    r"\b(?:not|never|no\s+longer|formerly|former|allegedly)"
-    r"(?:\s+(?!only\b)[a-z-]+){0,3}\s+(?:an?\s+|the\s+)?$",
-    re.IGNORECASE,
+    r"\b(?:not(?!\s+only\b)|never|no\s+longer|formerly|former|"
+    r"isn['’]t|wasn['’]t)\b", re.IGNORECASE,
 )
+_CLAUSE_BOUNDARY = re.compile(r",|\b(?:and|but|yet|while|whereas)\b", re.IGNORECASE)
 
 
 def _normalized(value: Any) -> str:
@@ -59,9 +65,21 @@ def _affirmed_role_occurrence(description: str, role: str) -> bool:
         end = min((index for index in ends if index >= 0), default=len(text))
         before = text[start:match.start()]
         after = text[match.end():end]
-        if _UNCERTAIN_ROLE_CLAUSE.search(before + " " + after):
+        # A separate coordinated clause may qualify a future action rather than
+        # the present role. A modal must introduce a predicate, so names such as
+        # May and Will do not count as uncertainty on their own.
+        prefix = _CLAUSE_BOUNDARY.split(before)[-1]
+        suffix = re.split(r"\b(?:and|but|yet|while|whereas)\b", after, maxsplit=1,
+                          flags=re.IGNORECASE)[0]
+        if (
+            _UNCERTAIN_ROLE_PREFIX.search(prefix)
+            or _MODAL_ROLE_PREFIX.search(prefix)
+            or _CONDITIONAL_ROLE_CLAUSE.search(prefix + " " + suffix)
+            or re.match(r"^\s*(?:if|unless|provided\s+that|subject\s+to)\b",
+                        before, re.IGNORECASE)
+        ):
             continue
-        if _NEGATED_ROLE_PREFIX.search(before):
+        if _NEGATED_ROLE_PREFIX.search(prefix):
             continue
         if re.match(
             r"\s*(?:but\s+)?(?:not|never|no longer|formerly)\b",

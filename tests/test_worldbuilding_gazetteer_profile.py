@@ -325,17 +325,23 @@ def test_v17_adds_only_unambiguous_affirmed_exact_role_line_citations():
     ]
 
 
-@pytest.mark.parametrize("description", [
-    "Nera is not currently a Representative of Commerce.",
-    "Nera may become a Representative of Commerce.",
-    "Nera might become the Representative of Commerce.",
-    "Nera would be the Representative of Commerce.",
-    "If appointed, Nera is the Representative of Commerce.",
-    "Nera is the Representative of Commerce if appointed.",
-    "Nera is the Representative of Commerce unless the council objects.",
-    "Nera is the Representative of Commerce, subject to council approval.",
+@pytest.mark.parametrize("description, expected_added", [
+    ('Nera is not currently a Representative of Commerce.', False),
+    ('Nera is not currently serving in the role of Representative of Commerce.', False),
+    ('Nera may become a Representative of Commerce.', False),
+    ('Nera might become the Representative of Commerce.', False),
+    ('Nera would be the Representative of Commerce.', False),
+    ('If appointed, Nera is the Representative of Commerce.', False),
+    ('Nera is the Representative of Commerce if appointed.', False),
+    ('Nera is the Representative of Commerce unless the council objects.', False),
+    ('Nera is the Representative of Commerce, subject to council approval.', False),
+    ('Nera is the Representative of Commerce and might retire next year.', True),
+    ('May is the Representative of Commerce.', True),
+    ('Will is the Representative of Commerce.', True),
+    ('Nera might retire. Nera is the Representative of Commerce.', True),
+    ('Nera is not only a Representative of Commerce but also a merchant.', True),
 ])
-def test_v17_does_not_cite_unasserted_role_claim(description):
+def test_v17_role_citations_respect_claim_qualifiers(description, expected_added):
     rows = [{
         "source_span_ref_id": "span:role",
         "line_start": 1,
@@ -359,11 +365,12 @@ def test_v17_does_not_cite_unasserted_role_claim(description):
 
     result, diagnostics = compile_gazetteer_role_citations(graph, rows)
 
-    assert result["nodes"][0]["evidence_refs"] == []
-    assert diagnostics["role_line_citations"]["records"] == [{
-        "source_span_ref_id": "span:role",
-        "decision": "no_matching_character_claim",
-    }]
+    refs = result["nodes"][0]["evidence_refs"]
+    assert bool(refs) is expected_added
+    record = diagnostics["role_line_citations"]["records"][0]
+    assert record["decision"] == ("citation_added" if expected_added else "no_matching_character_claim")
+    if expected_added:
+        assert refs == [{"source_span_ref_id": "span:role", "anchor_quotes": [rows[0]["text"]]}]
 
 
 def test_v17_role_citation_does_not_duplicate_an_existing_reference():
