@@ -1,7 +1,7 @@
 # AGENT: selected-subject source hydration
 
-Status: ACTIVE — PRIME activates after ARCHITECTURE contract review of
-40d266a5 and the clarifications below. No serving/model experiment activation.
+Status: BLOCKED — clarified contract awaits ARCHITECTURE review before
+implementation activation. No serving/model experiment activation.
 PRIME owns design/solo implementation. Base d92a916220fe1d800936cfffe25288f9f770aad4.
 Serial replacement of the negative policy experiment, not dependent on its
 unmerged instructions. PR1176 remains frozen/HOLD. Explicit parallel-independent
@@ -93,8 +93,8 @@ restart/history or operator acceptance is pre-marked complete.
 
 ## Activation clarifications (binding implementation contract)
 
-- Re-anchored remote main remains d92a916. ARCH reviewed40d266a5 and authorized
-  PRIME activation after these clarifications; no implementation preceded this.
+- Re-anchored remote main remains d92a916. ARCH reviewed40d266a5 and requested
+  these clarifications; activation judgment remains pending exact amended review.
 - Declare deduplicated support IDs BEFORE session readability intersection or
   cap. Missing/unreadable IDs remain coverage denominator/gaps. Cap overflow is
   explicitly unread, never source/corpus completeness. Only selected subject
