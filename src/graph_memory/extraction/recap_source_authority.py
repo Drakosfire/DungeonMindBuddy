@@ -11,7 +11,8 @@ _PLANNING_TITLES = {"looking ahead", "next beats", "planning notes", "prep notes
 _HEADING = re.compile(r"^ {0,3}(#{1,6})\s+(.+?)\s*#*\s*$")
 _INLINE = re.compile(r"^\s*(?:\*\*|__)?\s*(?:looking\s+ahead|next\s+beats|planning\s+notes|prep\s+notes)\s*:\s*(?:\*\*|__)?", re.I)
 _RECAP_BOUNDARY = re.compile(r"^ {0,3}(?P<em>\*\*|__)\s*recap\s*:?\s*(?P=em)\s*:?\s*$", re.I)
-_FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
+_FENCE_OPEN = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
+_FENCE_CLOSE = re.compile(r"^ {0,3}(`{3,}|~{3,})[ \t]*$")
 
 
 def partition_recap_source_rows(
@@ -30,17 +31,19 @@ def partition_recap_source_rows(
     inline = False
     fence: str | None = None
     for number, line in enumerate(lines, 1):
-        marker = _FENCE.match(line)
-        if marker:
-            token = marker.group(1)
-            if fence is None:
-                fence = token
-            elif token[0] == fence[0] and len(token) >= len(fence):
-                fence = None
+        if fence is not None:
+            closing = _FENCE_CLOSE.match(line)
+            if closing:
+                token = closing.group(1)
+                if token[0] == fence[0] and len(token) >= len(fence):
+                    fence = None
             if section_level is not None or inline:
                 planned.add(number)
             continue
-        if fence is not None:
+
+        opening = _FENCE_OPEN.match(line)
+        if opening and not (opening.group(1).startswith("`") and "`" in opening.group(2)):
+            fence = opening.group(1)
             if section_level is not None or inline:
                 planned.add(number)
             continue

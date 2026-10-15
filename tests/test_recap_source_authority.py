@@ -69,6 +69,40 @@ def test_quoted_fenced_or_prose_recap_marker_does_not_end_planning():
     assert not kept and withheld == rows(text)
 
 
+def test_fence_like_content_does_not_close_a_planning_fence():
+    text = (
+        "## Planning Notes\n```text\n```literal\n**Recap**:\n"
+        "The party will discover Moon Harbor.\n```\n"
+        "## Recap\nThe party arrived in Larkhaven."
+    )
+    kept, withheld, _ = partition_recap_source_rows(rows(text), text)
+    assert [row["text"] for row in kept] == ["## Recap", "The party arrived in Larkhaven."]
+    assert [row["text"] for row in withheld] == [
+        "## Planning Notes", "```text", "```literal", "**Recap**:",
+        "The party will discover Moon Harbor.", "```",
+    ]
+
+
+def test_longer_matching_fence_closes_but_mixed_delimiter_does_not():
+    text = (
+        "## Planning Notes\n~~~~text\n```\nStill planned.\n~~~~~\n"
+        "## Recap\nPlayed event."
+    )
+    kept, withheld, _ = partition_recap_source_rows(rows(text), text)
+    assert [row["text"] for row in kept] == ["## Recap", "Played event."]
+    assert len(withheld) == 5
+
+
+def test_planning_labels_inside_code_do_not_create_a_planning_section():
+    text = (
+        "Ordinary source.\n````markdown\n## Planning Notes\n**Recap**:\n"
+        "This is literal example text.\n````\nPlayed event."
+    )
+    kept, withheld, _ = partition_recap_source_rows(rows(text), text)
+    assert kept == rows(text)
+    assert not withheld
+
+
 def test_split_bold_recap_marker_resumes_played_content():
     text = "## Looking Ahead :\nA future reward.\n\n**Recap:\n**The party rests."
     kept, withheld, _ = partition_recap_source_rows(rows(text), text)

@@ -8,11 +8,11 @@ from src.graph_memory.extraction.worldbuilding_plumbing_profile import WORLDBUIL
 TEXT = "## Planning Notes\n\nIria will receive the Golden Map.\n\n## Recap\n\nIria arrived in Larkhaven."
 
 
-def setup():
+def setup(source_text=TEXT):
     index = source_span_index_to_dict(build_source_span_index_for_text(
-        source_artifact_id="artifact:synthetic", content_sha256=hashlib.sha256(TEXT.encode()).hexdigest(), text=TEXT,
+        source_artifact_id="artifact:synthetic", content_sha256=hashlib.sha256(source_text.encode()).hexdigest(), text=source_text,
     ))
-    rows = module.source_packet_rows_from_span_index(index, source_text=TEXT)
+    rows = module.source_packet_rows_from_span_index(index, source_text=source_text)
     planned = next(r for r in rows if "Golden Map" in r["text"])
     played = next(r for r in rows if "arrived" in r["text"])
     return index, planned, played
@@ -33,10 +33,10 @@ class Client(module.FixtureCategoryGraphPassClient):
         return super().run_pass(name, **kwargs)
 
 
-def options(index, **kwargs):
+def options(index, source_text=TEXT, **kwargs):
     return module.CategoryGraphExtractionOptions(
         campaign_id="longmont-c2", session_id="session-1", session_number=1,
-        source_span_index=index, source_text=TEXT, model_id="synthetic", **kwargs,
+        source_span_index=index, source_text=source_text, model_id="synthetic", **kwargs,
     )
 
 
@@ -68,6 +68,40 @@ def test_party_fill_cannot_reintroduce_withheld_planning(monkeypatch):
     assert all("Golden Map" not in message for _, message in client.messages)
     assert not any("Golden Map" in n["description"] for n in result.candidate_graph["nodes"])
     assert any(name == "pc_claimed_fill_pass" for name, _ in client.messages)
+
+
+def test_canonical_spans_keep_literal_recap_marker_inside_planning_fence():
+    text = (
+        "## Planning Notes\n\n```text\n```literal\n**Recap**:\n"
+        "Iria will receive the Golden Map.\n```\n\nStill planned.\n"
+        "\n## Recap\n\nIria arrived in Larkhaven."
+    )
+    index, planned, played = setup(text)
+    client = Client(planned, played)
+    result = module.run_category_pipeline(client, options(index, source_text=text, enable_party_claimed_fill=False))
+    assert all("Golden Map" not in message for _, message in client.messages)
+    assert any(node["node_id"] == "loc:larkhaven" for node in result.candidate_graph["nodes"])
+    assert not any(node["node_id"] == "event:reward" for node in result.candidate_graph["nodes"])
+    assert any(
+        ref["source_span_ref_id"] == planned["source_span_ref_id"]
+        for item in result.candidate_graph["deferred_items"]
+        for ref in item.get("evidence_refs", [])
+    )
+
+
+def test_canonical_spans_do_not_withhold_headings_inside_literal_code():
+    text = (
+        "A note introduces an example.\n\n````markdown\n## Planning Notes\n"
+        "**Recap**:\nIria will receive the Golden Map.\n````\n\n"
+        "## Recap\nIria arrived in Larkhaven."
+    )
+    index, planned, played = setup(text)
+    client = Client(planned, played)
+    result = module.run_category_pipeline(client, options(index, source_text=text, enable_party_claimed_fill=False))
+    assert any("Golden Map" in message for _, message in client.messages)
+    assert any(node["node_id"] == "event:reward" for node in result.candidate_graph["nodes"])
+    assert any(node["node_id"] == "loc:larkhaven" for node in result.candidate_graph["nodes"])
+    assert result.diagnostics["recap_source_authority"]["withheld_span_ids"] == []
 
 
 def test_worldbuilding_profile_preserves_its_original_source_selection():
