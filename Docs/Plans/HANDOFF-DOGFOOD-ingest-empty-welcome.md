@@ -69,3 +69,10 @@ URL explicitly selects `view=recap`. The IngestionModule and MemoryIngestPage
 suites pass 69 tests, and the app TypeScript check passes. The integrated render
 is pending; 5204 currently serves the Build-only branch, and neither 5202 nor
 5203 should be used as evidence for this updated branch.
+
+
+## Integrated preview acceptance — 2026-10-15 (supersedes pending-render note)
+
+The integrated local preview on 5205 includes `main@3a890b9e` and current heads of PRs #1183, #1188, #1190, and #1191. The plain `/ingest?world=elderwyld` route opened a guided first-use welcome at desktop and 390px, with the raw recap field empty and no error about missing publication context. The existing campaign/session defaults may be shown, but no recap text was entered, prepared, ingested, or saved. The welcome remains visually prominent; existing operational/readiness detail is still present farther down the surface. No ingestion state was changed and 5202 was not modified.
+
+The IngestionModule and MemoryIngestPage suites passed 69 tests; TypeScript and the combined production build passed. This verifies the entry experience, not a live ingestion run or authenticated persistence. The prior pending-render note is superseded.
