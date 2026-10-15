@@ -6,7 +6,8 @@ import logging
 import os
 import re
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from copy import deepcopy
 from typing import Any, Mapping, Protocol, Sequence
 
 from src.bootstrap_env import load_dungeonmindbuddy_dotenv
@@ -372,6 +373,7 @@ class CategoryGraphExtractionResult:
     diagnostics: dict[str, Any] = field(default_factory=dict)
     registry_context_graph: dict[str, Any] | None = None
     known_entity_mentions: dict[str, Any] | None = None
+    private_response_evidence: str | None = None
 
 
 def resolve_category_graph_model(model_id: str | None) -> str:
@@ -1669,7 +1671,7 @@ class FixtureCategoryGraphPassClient:
         }
 
 
-def run_category_pipeline(
+def _run_category_pipeline_impl(
     client: CategoryGraphPassClient,
     options: CategoryGraphExtractionOptions,
     *,
@@ -1991,6 +1993,39 @@ def run_category_pipeline(
             candidate_graph, source_artifact_id=source_artifact_id, source_ref_id=source_ref_id,
         )
         merged_diag["source_section_retention"] = retention_diagnostics
+    if active_profile.edge_review_pass is not None:
+        from src.graph_memory.extraction.worldbuilding_edge_review import apply_review, review_prompt
+
+        pre_review_envelope = deepcopy(envelope)
+        pre_review_candidate = deepcopy(candidate_graph)
+        review = active_profile.edge_review_pass
+        if candidate_graph.get("edges"):
+            prompt = review_prompt(candidate_graph, source_rows)
+            _notify(review.pass_id, "running")
+            review_result = client.run_pass(
+                review.pass_id, model_id=model_id, instructions=review.instruction,
+                user_content=prompt, pass_spec=review,
+            )
+            candidate_graph, advisory = apply_review(candidate_graph, review_result["parsed"])
+            pass_outputs[review.pass_id] = deepcopy(review_result["parsed"])
+            pass_telemetry[review.pass_id] = {
+                key: review_result.get(key) for key in
+                ("cost_usd", "usage", "elapsed_ms", "response_id")
+            }
+            cost = review_result.get("cost_usd")
+            total_cost = None if total_cost is None or cost is None else total_cost + cost
+            _notify(review.pass_id, "complete")
+        else:
+            advisory = {"skipped": "no_generated_edges", "semantic_acceptance": False}
+        # Only the private evidence bundle carries the pre-review envelope/objects.
+        client.advisory = {**advisory, "pre_review_envelope": pre_review_envelope,
+                           "pre_review_candidate": pre_review_candidate}
+        envelope["candidate_graph"] = deepcopy(candidate_graph)
+        merged_diag["advisory_edge_review"] = {
+            "semantic_acceptance": False,
+            "retained_count": len(candidate_graph.get("edges", [])),
+            "skipped": advisory.get("skipped"),
+        }
     registry_context_graph: dict[str, Any] | None = None
     if standing_parts.get("nodes"):
         ensure_standing_warning(standing_parts)
@@ -2042,6 +2077,49 @@ def run_category_pipeline(
         registry_context_graph=registry_context_graph,
         known_entity_mentions=known_entity_sidecar.to_dict(),
     )
+
+
+def run_category_pipeline(
+    client: CategoryGraphPassClient,
+    options: CategoryGraphExtractionOptions,
+    *,
+    progress_callback: Any | None = None,
+) -> CategoryGraphExtractionResult:
+    profile = resolve_extraction_profile(options)
+    if profile.edge_review_pass is None:
+        return _run_category_pipeline_impl(client, options, progress_callback=progress_callback)
+    # Lazy import: the bounded client imports this module's exception type.
+    from src.graph_memory.extraction.bounded_recap_execution import (
+        BoundedRecapPassClient, DEEPSEEK_MODEL,
+    )
+    from src.graph_memory.extraction.worldbuilding_edge_review import RecordingPassClient
+
+    if (not isinstance(client, BoundedRecapPassClient)
+            or client.limits.provider != "openrouter"
+            or client.limits.model != DEEPSEEK_MODEL
+            or resolve_category_graph_model(options.model_id) != client.limits.model):
+        raise CategoryGraphExtractionError("advisory review requires an explicit matching bounded GE DeepSeek client")
+    required_calls = len(profile.node_passes) + 2  # edge writer + advisory reviewer
+    required_calls += int(profile.beat_pass is not None)
+    required_calls += int(profile.enable_encounter_job_pass and profile.encounter_job_pass is not None)
+    if (not isinstance(options.source_text, str)
+            or client.limits.max_calls - len(client.calls) < required_calls):
+        raise CategoryGraphExtractionError("advisory review requires exact source text and sufficient existing run budget")
+    recording = RecordingPassClient(client)
+    try:
+        result = _run_category_pipeline_impl(recording, options, progress_callback=progress_callback)
+        evidence = recording.bundle(options, profile)
+    except Exception as exc:
+        try:
+            evidence = recording.bundle(options, profile, error=exc)
+        except Exception:
+            # Never stringify unsafe evidence or expose provider exception bodies.
+            raise CategoryGraphExtractionError("could not serialize private advisory evidence") from None
+        raise CategoryGraphExtractionError(
+            "advisory extraction failed; private evidence retained where available",
+            pass_name=getattr(exc, "pass_name", None), raw_model_response=evidence,
+        ) from None
+    return replace(result, private_response_evidence=evidence)
 
 
 def extract_category_candidate_graph(

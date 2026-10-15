@@ -94,3 +94,21 @@ GAZETTEER_ROLE_SUPPORT_PROFILE = register_extraction_profile(replace(
     GAZETTEER_SOURCE_FIDELITY_PROFILE, profile_version="1.3",
     source_section_retainer=compile_role_support,
 ))
+
+
+GAZETTEER_ADVISORY_REVIEW_PROFILE = register_extraction_profile(replace(
+    GAZETTEER_ROLE_SUPPORT_PROFILE, profile_version="1.4",
+    edge_review_pass=ExtractionPassSpec(
+        pass_id="edge_review_pass", default_node_type=None, kind="edge_review",
+        progress_label="Reviewing proposed relationships",
+        instruction=(
+            "Select only source-supported edge proposals using the complete source packet. "
+            "Endpoint descriptions, types and labels are navigation, not accepted truth. "
+            "Check exact referents, relation meaning/direction, qualifications and source "
+            "authoring context. A proprietor is not necessarily an owner; settlers fleeing "
+            "a polity do not establish that polity as a causal actor. Do not rewrite, add "
+            "or repair proposals. Return only retained_edge_ids. Omissions remain deferred "
+            "for review, not proven false. Your selection is advisory, not fact acceptance."
+        ),
+    ),
+))

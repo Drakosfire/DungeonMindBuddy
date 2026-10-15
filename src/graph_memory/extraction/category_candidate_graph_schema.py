@@ -205,6 +205,10 @@ def schema_for_pass_spec(pass_spec: Any) -> dict[str, Any]:
     allowed = getattr(pass_spec, "allowed_node_types", None)
     if kind == "beat":
         return category_beat_pass_json_schema()
+    if kind == "edge_review":
+        return {"type": "object", "properties": {
+            "retained_edge_ids": {"type": "array", "items": {"type": "string"}}},
+            "required": ["retained_edge_ids"], "additionalProperties": False}
     if kind == "edge":
         return category_edge_pass_json_schema()
     if kind == "claimed_fill":
