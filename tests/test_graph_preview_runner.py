@@ -331,6 +331,8 @@ def test_gazetteer_deferred_proposals_are_persisted_and_source_resolvable(
         "Float Goats symbolize joy and lightness in local culture.",
         "## Later section",
         "This unrelated detail stays outside the livestock owner section.",
+        "## Prepared approach",
+        "An approach-only prepared scene.",
     ])
     source = _admit_worldbuilding(tmp_path, text=source_text)
     source_lines = source.source_text.splitlines()
@@ -397,6 +399,21 @@ def test_gazetteer_deferred_proposals_are_persisted_and_source_resolvable(
             "livestock_semantic_hygiene"]["deferred_proposals"][
                 "deferred:livestock-section:edge:edge:goats"]["proposal"]
         proposal["qualifiers"] = {"certainty": "qualified", "scope": "Exampleland"}
+        diagnostics["source_section_retention"]["prepared_scenario_scope"] = {
+            "deferred_proposals": {
+                "deferred:prepared-scenario:node:scene:gate": {
+                    "item_id": "deferred:prepared-scenario:node:scene:gate",
+                    "kind": "node",
+                    "proposal": {
+                        "node_id": "scene:gate",
+                        "label": "Main Gate Scene",
+                        "node_type": "location",
+                        "description": "A source-backed prepared scene.",
+                        "evidence_refs": [ref_for("An approach-only prepared scene.")],
+                    },
+                },
+            },
+        }
         return dataclass_replace(result, consolidation_diagnostics=diagnostics)
 
     monkeypatch.setattr(
@@ -439,6 +456,11 @@ def test_gazetteer_deferred_proposals_are_persisted_and_source_resolvable(
     }
     assert edge_proposal["evidence_refs"][0]["source_artifact_id"] == source.source_artifact_id
     assert edge_proposal["evidence_refs"][0]["source_ref_id"] == f"{source.source_artifact_id}:text"
+    scenario_proposal = diagnostics["source_section_retention"][
+        "prepared_scenario_scope"]["deferred_proposals"][
+            "deferred:prepared-scenario:node:scene:gate"]["proposal"]
+    assert scenario_proposal["evidence_refs"][0]["source_artifact_id"] == source.source_artifact_id
+    assert scenario_proposal["evidence_refs"][0]["source_ref_id"] == f"{source.source_artifact_id}:text"
 
     span_ref = loaded.components["source_span_index"]
     span_index = json.loads(

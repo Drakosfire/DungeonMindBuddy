@@ -431,7 +431,7 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
     if (profile_id == "worldbuilding_gazetteer_v1"
-            and profile_version in {"1.5", "1.6", "1.7"}):
+            and profile_version in {"1.5", "1.6", "1.7", "1.8"}):
         from apps.live_control_server.services.worldbuilding_ge_execution import (
             WorldbuildingExecutionInputError,
             run_gazetteer_with_generation_engine,
