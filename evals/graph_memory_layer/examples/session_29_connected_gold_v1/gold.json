@@ -2148,6 +2148,16 @@
       "source_span_ids": [
         "artifact:recap:longmont-c2:session-29:4f963656828b:span:4f963656828b:45-45"
       ]
+    },
+    {
+      "id": "e165",
+      "source": "s23",
+      "quote": "then summons Ogonob who jumps over the wall",
+      "start": 7492,
+      "end": 7535,
+      "start_line": 32,
+      "end_line": 32,
+      "quote_sha256": "0273d2cae57726550df00ce6d164b908d16cce5248a25bf18fcab5d75d785de0"
     }
   ],
   "nodes": [
@@ -2156,168 +2166,180 @@
       "label": "Questionable Company",
       "kind": "party",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "lysandro_house",
       "label": "Lysandro House",
-      "kind": "entity",
+      "kind": "building",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A distinct functional building in its settlement; aliases stay literal names of this node."
     },
     {
       "id": "lysandro",
       "label": "Lysandro Ironveil",
       "kind": "person",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A named individual in source/corpus; species and mechanical class are separate attributes."
     },
     {
       "id": "south_gate",
       "label": "South Gate",
-      "kind": "entity",
+      "kind": "gate",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "fin_road",
       "label": "Road to Fin seen from Mireward lookout",
-      "kind": "place",
+      "kind": "route",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
-    },
-    {
-      "id": "surface_monsters",
-      "label": "Surface Monsters",
-      "kind": "entity",
-      "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "ephanna",
       "label": "Ephanna",
       "kind": "person",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A named individual in source/corpus; species and mechanical class are separate attributes."
     },
     {
       "id": "psychic_pull",
       "label": "Psychic Pull",
-      "kind": "entity",
+      "kind": "phenomenon",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A narrated effect or observable process whose continuity matters; no inferred underlying identity."
     },
     {
       "id": "thrin",
       "label": "Thrin",
       "kind": "person",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A named individual in source/corpus; species and mechanical class are separate attributes."
     },
     {
       "id": "north_road",
       "label": "Road north of Mireward gate",
-      "kind": "place",
+      "kind": "route",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "caelynn",
       "label": "Caelynn",
       "kind": "person",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A named individual in source/corpus; species and mechanical class are separate attributes."
     },
     {
       "id": "witness_seed",
       "label": "Witness Seed",
-      "kind": "entity",
+      "kind": "artifact_individual",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "new_forest",
       "label": "New Forest",
-      "kind": "entity",
+      "kind": "prospective_place",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping.",
+      "attributes": {
+        "existence_status": "prospective",
+        "purpose": "future living forest grown from seed"
+      }
     },
     {
       "id": "unknown_call",
       "label": "Unknown Call",
-      "kind": "entity",
+      "kind": "phenomenon",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A narrated effect or observable process whose continuity matters; no inferred underlying identity."
     },
     {
       "id": "storm",
       "label": "Storm",
-      "kind": "entity",
+      "kind": "weather_event",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "seed_disclosure",
       "label": "Seed Disclosure",
-      "kind": "entity",
+      "kind": "scene",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A meaningful bounded episode, not an automatic node for every action verb."
     },
     {
       "id": "warehouse_monsters",
       "label": "Session29 two child-carrying warehouse monsters",
       "kind": "creature_group",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "An incident-scoped creature collective; does not assert all members share a global identity."
     },
     {
       "id": "mireward_warehouse",
       "label": "Mireward refugee warehouse",
-      "kind": "place",
+      "kind": "building",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A distinct functional building in its settlement; aliases stay literal names of this node."
     },
     {
       "id": "rescued_children",
       "label": "Session29 sleeping children rescued from warehouse monsters",
-      "kind": "group",
+      "kind": "person_group",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A meaningful incident-scoped collective; membership/count is bounded by cited facts."
     },
     {
       "id": "lysandra",
       "label": "Lysandra Ironveil",
       "kind": "person",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
-    },
-    {
-      "id": "buildings",
-      "label": "Buildings",
-      "kind": "entity",
-      "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A named individual in source/corpus; species and mechanical class are separate attributes."
     },
     {
       "id": "hesta",
       "label": "Hesta",
       "kind": "person",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A named individual in source/corpus; species and mechanical class are separate attributes."
     },
     {
       "id": "child_rescue",
       "label": "Child Rescue",
-      "kind": "entity",
+      "kind": "scene",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A meaningful bounded episode, not an automatic node for every action verb."
     },
     {
       "id": "baergrom",
       "label": "Baergrom",
       "kind": "person",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A named individual in source/corpus; species and mechanical class are separate attributes."
     },
     {
       "id": "karsemine",
@@ -2325,582 +2347,550 @@
       "kind": "person",
       "world_id": null,
       "identity_scope": "gold-local; no native World binding",
-      "source_spelling_resolution": "contextual, see ambiguity log; no global generic alias"
+      "source_spelling_resolution": "contextual, see ambiguity log; no global generic alias",
+      "type_rationale": "A named individual in source/corpus; species and mechanical class are separate attributes."
     },
     {
       "id": "bonogo",
       "label": "Bonogo",
       "kind": "person",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A named individual in source/corpus; species and mechanical class are separate attributes."
     },
     {
       "id": "eldritch_blast",
       "label": "Eldritch Blast",
-      "kind": "entity",
+      "kind": "spell",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "stafl",
       "label": "Stafl",
       "kind": "person",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A named individual in source/corpus; species and mechanical class are separate attributes."
     },
     {
       "id": "arrows",
       "label": "Arrows",
-      "kind": "entity",
+      "kind": "item_type",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A named supply/equipment category, with quantities on acquisition/use facts rather than separate bottle identities."
     },
     {
       "id": "alchemists_fire",
       "label": "Alchemists Fire",
-      "kind": "entity",
+      "kind": "item_type",
       "world_id": null,
       "identity_scope": "gold-local; no native World binding",
-      "source_spelling_resolution": "contextual, see ambiguity log; no global generic alias"
+      "source_spelling_resolution": "contextual, see ambiguity log; no global generic alias",
+      "type_rationale": "A named supply/equipment category, with quantities on acquisition/use facts rather than separate bottle identities."
     },
     {
       "id": "greater_healing_potions",
       "label": "Greater Healing Potions",
-      "kind": "entity",
+      "kind": "item_type",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A named supply/equipment category, with quantities on acquisition/use facts rather than separate bottle identities."
     },
     {
       "id": "healing_potions",
       "label": "Healing Potions",
-      "kind": "entity",
+      "kind": "item_type",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A named supply/equipment category, with quantities on acquisition/use facts rather than separate bottle identities."
     },
     {
       "id": "minor_healing_half_bottles",
       "label": "Minor Healing Half Bottles",
-      "kind": "entity",
+      "kind": "item_type",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A named supply/equipment category, with quantities on acquisition/use facts rather than separate bottle identities."
     },
     {
       "id": "oil_vials",
       "label": "Oil Vials",
-      "kind": "entity",
+      "kind": "item_type",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A named supply/equipment category, with quantities on acquisition/use facts rather than separate bottle identities."
     },
     {
       "id": "north_gate",
       "label": "North Gate",
-      "kind": "entity",
+      "kind": "gate",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "ground_signal",
       "label": "Ground Signal",
-      "kind": "entity",
+      "kind": "planned_action",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A proposed action/objective; a node does not imply completion."
     },
     {
       "id": "ogonob",
       "label": "Ogonob",
-      "kind": "entity",
+      "kind": "creature_individual",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Named summoned creature companion in prior S23; creature subtype is not proven by this gold."
     },
     {
       "id": "north_tunnel",
       "label": "North Tunnel",
-      "kind": "entity",
+      "kind": "route",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "flesh_den",
       "label": "Flesh Den",
-      "kind": "entity",
+      "kind": "chamber",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "mireward_flesh",
       "label": "Session29 Mireward underground flesh creature",
-      "kind": "creature",
+      "kind": "creature_individual",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "psychic_pressure",
       "label": "Psychic Pressure",
-      "kind": "entity",
+      "kind": "phenomenon",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A narrated effect or observable process whose continuity matters; no inferred underlying identity."
     },
     {
       "id": "den_aperture",
       "label": "Den Aperture",
-      "kind": "entity",
+      "kind": "aperture",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "scouting_pair",
       "label": "Session29 Baergrom and Bonogo scouting pair",
-      "kind": "group",
+      "kind": "person_group",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
-    },
-    {
-      "id": "ten_by_ten_feet",
-      "label": "Ten By Ten Feet",
-      "kind": "entity",
-      "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A meaningful incident-scoped collective; membership/count is bounded by cited facts."
     },
     {
       "id": "restraining_tentacles",
       "label": "Restraining Tentacles",
-      "kind": "entity",
+      "kind": "body_part_group",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "town_attackers",
       "label": "Town Attackers",
-      "kind": "entity",
+      "kind": "creature_group",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
-    },
-    {
-      "id": "burning_flesh",
-      "label": "Burning Flesh",
-      "kind": "entity",
-      "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "An incident-scoped creature collective; does not assert all members share a global identity."
     },
     {
       "id": "lower_tunnel",
       "label": "Lower Tunnel",
-      "kind": "entity",
+      "kind": "route",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "mireward",
       "label": "Mireward Reach",
-      "kind": "place",
+      "kind": "settlement",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
-    },
-    {
-      "id": "short_rest",
-      "label": "Short Rest",
-      "kind": "entity",
-      "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
-    },
-    {
-      "id": "north",
-      "label": "North",
-      "kind": "entity",
-      "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "black_cat_familiar",
       "label": "Black Cat Familiar",
-      "kind": "entity",
+      "kind": "creature_individual",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping.",
+      "attributes": {
+        "role": "familiar",
+        "appearance": "black cat",
+        "summoned_by": "ephanna"
+      }
     },
     {
       "id": "townspeople",
       "label": "Townspeople",
-      "kind": "entity",
+      "kind": "person_group",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A meaningful incident-scoped collective; membership/count is bounded by cited facts."
     },
     {
       "id": "mireward_walls",
       "label": "Mireward Walls",
-      "kind": "entity",
+      "kind": "defensive_structure",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
-    },
-    {
-      "id": "psychic_control",
-      "label": "Psychic Control",
-      "kind": "entity",
-      "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "remaining_monsters",
       "label": "Remaining Monsters",
-      "kind": "entity",
+      "kind": "creature_group",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
-    },
-    {
-      "id": "long_rest",
-      "label": "Long Rest",
-      "kind": "entity",
-      "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "An incident-scoped creature collective; does not assert all members share a global identity."
     },
     {
       "id": "apothecary",
       "label": "Apothecary",
-      "kind": "entity",
+      "kind": "building",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A distinct functional building in its settlement; aliases stay literal names of this node."
     },
     {
       "id": "mireward_inn",
       "label": "Mireward Inn",
-      "kind": "entity",
+      "kind": "building",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A distinct functional building in its settlement; aliases stay literal names of this node."
     },
     {
       "id": "brin",
       "label": "Brin",
       "kind": "person",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A named individual in source/corpus; species and mechanical class are separate attributes."
     },
     {
       "id": "edge",
       "label": "Edge",
-      "kind": "entity",
+      "kind": "settlement",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
-    },
-    {
-      "id": "military_fort",
-      "label": "Military Fort",
-      "kind": "entity",
-      "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "magical_wards",
       "label": "Magical Wards",
-      "kind": "entity",
+      "kind": "defensive_structure",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "edge_flesh",
       "label": "Brin-reported Edge cellar flesh creature",
-      "kind": "creature",
+      "kind": "creature_individual",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "edge_cellar",
       "label": "Edge Cellar",
-      "kind": "entity",
+      "kind": "chamber",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "edge_monsters",
       "label": "Edge Monsters",
-      "kind": "entity",
+      "kind": "creature_group",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "An incident-scoped creature collective; does not assert all members share a global identity."
     },
     {
       "id": "edge_storm",
       "label": "Edge Storm",
-      "kind": "entity",
+      "kind": "weather_event",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "edge_fugitives",
       "label": "Edge Fugitives",
-      "kind": "entity",
+      "kind": "person_group",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A meaningful incident-scoped collective; membership/count is bounded by cited facts."
     },
     {
       "id": "edge_guards",
       "label": "Edge Guards",
-      "kind": "entity",
+      "kind": "person_group",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A meaningful incident-scoped collective; membership/count is bounded by cited facts."
     },
     {
       "id": "edge_refugees",
       "label": "Edge Refugees",
-      "kind": "entity",
+      "kind": "person_group",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A meaningful incident-scoped collective; membership/count is bounded by cited facts."
     },
     {
       "id": "psychic_assault",
       "label": "Psychic Assault",
-      "kind": "entity",
+      "kind": "phenomenon",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A narrated effect or observable process whose continuity matters; no inferred underlying identity."
     },
     {
       "id": "fellinor",
       "label": "Fellinor",
       "kind": "person",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A named individual in source/corpus; species and mechanical class are separate attributes."
     },
     {
       "id": "edge_house",
       "label": "Edge House",
-      "kind": "entity",
+      "kind": "building",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A distinct functional building in its settlement; aliases stay literal names of this node."
     },
     {
       "id": "edge_warehouse",
       "label": "Fellinor’s warehouse in Edge",
-      "kind": "place",
+      "kind": "building",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
-    },
-    {
-      "id": "edge_bank",
-      "label": "Edge Bank",
-      "kind": "entity",
-      "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A distinct functional building in its settlement; aliases stay literal names of this node."
     },
     {
       "id": "personal_safe",
       "label": "Personal Safe",
-      "kind": "entity",
+      "kind": "equipment_individual",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
-    },
-    {
-      "id": "next_morning",
-      "label": "Next Morning",
-      "kind": "entity",
-      "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
-    },
-    {
-      "id": "immediate_threat",
-      "label": "Immediate Threat",
-      "kind": "entity",
-      "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "horses_wagon",
       "label": "Horses Wagon",
-      "kind": "entity",
+      "kind": "asset_collection",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping.",
+      "attributes": {
+        "components": [
+          "horses",
+          "wagon"
+        ],
+        "counts": "not stated",
+        "owner_scope": "party travel belongings"
+      }
     },
     {
       "id": "refugee_cures",
       "label": "Refugee Cures",
-      "kind": "entity",
+      "kind": "item_type",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A named supply/equipment category, with quantities on acquisition/use facts rather than separate bottle identities."
     },
     {
       "id": "grobnok",
       "label": "Grobnok",
       "kind": "person",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A named individual in source/corpus; species and mechanical class are separate attributes."
     },
     {
       "id": "cinderbranch",
       "label": "Cinderbranch",
       "kind": "person",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A named individual in source/corpus; species and mechanical class are separate attributes."
     },
     {
       "id": "misted_cure",
       "label": "Misted Cure",
-      "kind": "entity",
+      "kind": "treatment_technique",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Misting is a reusable cure administration technique, linked by knowledge transfer and reported treatment."
     },
     {
       "id": "mirathorn_responders",
       "label": "Mirathorn Responders",
-      "kind": "entity",
+      "kind": "person_group",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A meaningful incident-scoped collective; membership/count is bounded by cited facts."
     },
     {
       "id": "mirathorn_infected",
       "label": "Mirathorn Infected",
-      "kind": "entity",
+      "kind": "person_group",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A meaningful incident-scoped collective; membership/count is bounded by cited facts."
     },
     {
       "id": "mirathorn",
       "label": "Mirathorn",
-      "kind": "entity",
+      "kind": "settlement",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "swamp_investigation",
       "label": "Swamp Investigation",
-      "kind": "entity",
+      "kind": "planned_action",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
-    },
-    {
-      "id": "undisclosed_gossip",
-      "label": "Undisclosed Gossip",
-      "kind": "entity",
-      "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A proposed action/objective; a node does not imply completion."
     },
     {
       "id": "mossford",
       "label": "Mossford",
-      "kind": "entity",
+      "kind": "settlement",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "bayou",
       "label": "Bayou",
-      "kind": "entity",
+      "kind": "region",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "bayou_tentacles",
       "label": "Bayou Tentacles",
-      "kind": "entity",
+      "kind": "creature_group",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "An incident-scoped creature collective; does not assert all members share a global identity."
     },
     {
       "id": "wildlife",
       "label": "Wildlife",
-      "kind": "entity",
+      "kind": "creature_group",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "An incident-scoped creature collective; does not assert all members share a global identity."
     },
     {
       "id": "physical_thrum",
       "label": "Physical Thrum",
-      "kind": "entity",
+      "kind": "phenomenon",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
-    },
-    {
-      "id": "ironveil_warehouse",
-      "label": "Ironveil Warehouse",
-      "kind": "entity",
-      "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
-    },
-    {
-      "id": "brin_holloway",
-      "label": "Brin Holloway",
-      "kind": "entity",
-      "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
-    },
-    {
-      "id": "hesta_bramblewood",
-      "label": "Hesta Bramblewood",
-      "kind": "entity",
-      "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
-    },
-    {
-      "id": "crooked_retort",
-      "label": "Crooked Retort",
-      "kind": "entity",
-      "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
-    },
-    {
-      "id": "witness_seed_kind",
-      "label": "Witness Seed Kind",
-      "kind": "entity",
-      "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A narrated effect or observable process whose continuity matters; no inferred underlying identity."
     },
     {
       "id": "pippa",
       "label": "Pippa",
-      "kind": "entity",
+      "kind": "person",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A named individual in source/corpus; species and mechanical class are separate attributes."
     },
     {
       "id": "stone_bridge",
       "label": "Stone Bridge",
-      "kind": "entity",
+      "kind": "settlement",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "bubbles",
       "label": "Bubbles",
-      "kind": "entity",
+      "kind": "creature_individual",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "den_combat",
       "label": "Den Combat",
-      "kind": "entity",
+      "kind": "scene",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A meaningful bounded episode, not an automatic node for every action verb."
     },
     {
       "id": "north_journey",
       "label": "North Journey",
-      "kind": "entity",
+      "kind": "scene",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A meaningful bounded episode, not an automatic node for every action verb."
     },
     {
       "id": "fin",
       "label": "Fin",
-      "kind": "entity",
+      "kind": "named_destination",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "sleep_potions",
       "label": "Sleep Potions",
-      "kind": "entity",
+      "kind": "item_type",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "A named supply/equipment category, with quantities on acquisition/use facts rather than separate bottle identities."
     },
     {
       "id": "find_familiar",
       "label": "Find Familiar",
-      "kind": "entity",
+      "kind": "spell",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     },
     {
       "id": "sword",
       "label": "Sword",
-      "kind": "entity",
+      "kind": "equipment_individual",
       "world_id": null,
-      "identity_scope": "gold-local; no native World binding"
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
     }
   ],
   "facts": [
@@ -2922,9 +2912,9 @@
     {
       "id": "house_owner",
       "subject": "lysandro_house",
-      "predicate": "associated_with",
+      "predicate": "home_of",
       "object": "lysandro",
-      "description": "Possessive establishes house association; legal ownership not separately proved.",
+      "description": "Lysandro’s house is his home/possession, explicitly established by the ordinary possessive.",
       "evidence": [
         "e002"
       ],
@@ -2968,7 +2958,6 @@
       "id": "no_movement",
       "subject": "party",
       "predicate": "observes_absence",
-      "object": "surface_monsters",
       "description": "No other movement or ground-emerging monsters at that moment.",
       "evidence": [
         "e005"
@@ -2977,7 +2966,15 @@
       "status": "occurred",
       "confidence": "high",
       "temporal_scope": "C2S29 paragraph 1",
-      "attributes": {}
+      "attributes": {
+        "observation_scope": "lookout view at that moment",
+        "polarity": "absent",
+        "permanence": "time_local"
+      },
+      "object_value": {
+        "type": "observation",
+        "value": "no other movement, including monsters emerging from ground"
+      }
     },
     {
       "id": "psychic_ephanna",
@@ -3197,7 +3194,6 @@
       "id": "no_burning",
       "subject": "lysandra",
       "predicate": "conditions_help_on",
-      "object": "buildings",
       "description": "Lysandra promises to remain and help provided buildings are not burned.",
       "evidence": [
         "e019"
@@ -3206,7 +3202,11 @@
       "status": "occurred",
       "confidence": "high",
       "temporal_scope": "C2S29 paragraph 3",
-      "attributes": {}
+      "attributes": {},
+      "object_value": {
+        "type": "contextual_set",
+        "value": "buildings in Mireward Reach"
+      }
     },
     {
       "id": "cure_plan",
@@ -3667,7 +3667,6 @@
       "id": "den_size",
       "subject": "flesh_den",
       "predicate": "has_dimensions",
-      "object": "ten_by_ten_feet",
       "description": "Remaining den is 10 by 10 feet and filled by creature.",
       "evidence": [
         "e049"
@@ -3681,6 +3680,14 @@
           10,
           10
         ]
+      },
+      "object_value": {
+        "type": "dimensions",
+        "value": [
+          10,
+          10
+        ],
+        "unit": "feet"
       }
     },
     {
@@ -3790,7 +3797,7 @@
     },
     {
       "id": "lower_revealed",
-      "subject": "burning_flesh",
+      "subject": "mireward_flesh",
       "predicate": "reveals",
       "object": "lower_tunnel",
       "description": "Shriveling flesh reveals tunnel below; remains extend out of sight.",
@@ -3801,7 +3808,9 @@
       "status": "occurred",
       "confidence": "high",
       "temporal_scope": "C2S29 paragraph 8",
-      "attributes": {}
+      "attributes": {
+        "condition": "burning and shriveling"
+      }
     },
     {
       "id": "escape",
@@ -3822,7 +3831,6 @@
       "id": "short_rest",
       "subject": "party",
       "predicate": "takes",
-      "object": "short_rest",
       "description": "Party rests until enough flesh burns to assess lower tunnel.",
       "evidence": [
         "e059"
@@ -3831,13 +3839,16 @@
       "status": "occurred",
       "confidence": "high",
       "temporal_scope": "C2S29 paragraph 8",
-      "attributes": {}
+      "attributes": {},
+      "object_value": {
+        "type": "activity_type",
+        "value": "short_rest"
+      }
     },
     {
       "id": "depth",
       "subject": "lower_tunnel",
       "predicate": "descends",
-      "object": "north",
       "description": "Stafl torch estimate: drop about 20 feet then slopes north.",
       "evidence": [
         "e060"
@@ -3848,6 +3859,10 @@
       "temporal_scope": "C2S29 paragraph 8",
       "attributes": {
         "drop_feet_approximate": 20
+      },
+      "object_value": {
+        "type": "direction",
+        "value": "north"
       }
     },
     {
@@ -3901,7 +3916,6 @@
       "id": "control_lost",
       "subject": "town_attackers",
       "predicate": "cease_directed_action",
-      "object": "psychic_control",
       "description": "Remaining monsters stop as if direction lost; causal mechanism is inference.",
       "evidence": [
         "e064"
@@ -3911,7 +3925,14 @@
       "confidence": "medium",
       "temporal_scope": "C2S29 paragraph 8",
       "attributes": {
-        "attributed_to": "lysandra"
+        "attributed_to": "lysandra",
+        "observed_behavior": "stopped moving with apparent lost direction",
+        "mechanism": "psychic control loss is an inferred explanation",
+        "permanence": "time_local"
+      },
+      "object_value": {
+        "type": "behavioral_observation",
+        "value": "remaining attackers stopped as if direction was lost; then killed"
       }
     },
     {
@@ -3965,7 +3986,6 @@
       "id": "long_rest_plan",
       "subject": "party",
       "predicate": "plans",
-      "object": "long_rest",
       "description": "Party believes time permits long rest before swamp.",
       "evidence": [
         "e068"
@@ -3974,7 +3994,11 @@
       "status": "intended",
       "confidence": "high",
       "temporal_scope": "C2S29 paragraph 9",
-      "attributes": {}
+      "attributes": {},
+      "object_value": {
+        "type": "activity_type",
+        "value": "long_rest"
+      }
     },
     {
       "id": "sleep_delivery",
@@ -4039,8 +4063,7 @@
     {
       "id": "fort",
       "subject": "edge",
-      "predicate": "formerly",
-      "object": "military_fort",
+      "predicate": "formerly_had_role",
       "description": "Brin account: Edge was military fort about 150 years ago; not monster arrival date.",
       "evidence": [
         "e073"
@@ -4053,12 +4076,16 @@
         "attributed_to": "brin",
         "years_before_session_approximate": 150,
         "dates": "military fort era, not infestation"
+      },
+      "object_value": {
+        "type": "historical_role",
+        "value": "military fort"
       }
     },
     {
       "id": "wards",
-      "subject": "military_fort",
-      "predicate": "protected_by",
+      "subject": "edge",
+      "predicate": "formerly_protected_by",
       "object": "magical_wards",
       "description": "Historical fort had strong walls and wards; poorly maintained after becoming town.",
       "evidence": [
@@ -4270,7 +4297,6 @@
       "id": "bank",
       "subject": "fellinor",
       "predicate": "acted_as",
-      "object": "edge_bank",
       "description": "Fellinor acted as town bank; town here is Edge.",
       "evidence": [
         "e087"
@@ -4279,7 +4305,11 @@
       "status": "occurred",
       "confidence": "high",
       "temporal_scope": "C2S29 paragraph 11",
-      "attributes": {}
+      "attributes": {},
+      "object_value": {
+        "type": "social_role",
+        "value": "town bank for Edge"
+      }
     },
     {
       "id": "safe_access",
@@ -4300,7 +4330,6 @@
       "id": "night_off",
       "subject": "bonogo",
       "predicate": "suggests",
-      "object": "long_rest",
       "description": "Bonogo suggests night off and long rest.",
       "evidence": [
         "e089"
@@ -4309,13 +4338,16 @@
       "status": "intended",
       "confidence": "high",
       "temporal_scope": "C2S29 paragraph 11",
-      "attributes": {}
+      "attributes": {},
+      "object_value": {
+        "type": "activity_type",
+        "value": "long_rest"
+      }
     },
     {
       "id": "morning",
       "subject": "storm",
       "predicate": "ended_by",
-      "object": "next_morning",
       "description": "Next daylight storm is long gone; damaged town already rebuilding.",
       "evidence": [
         "e090"
@@ -4324,7 +4356,11 @@
       "status": "occurred",
       "confidence": "high",
       "temporal_scope": "C2S29 paragraph 12",
-      "attributes": {}
+      "attributes": {},
+      "object_value": {
+        "type": "relative_time",
+        "value": "next daylight after night encounter"
+      }
     },
     {
       "id": "cheers",
@@ -4345,7 +4381,6 @@
       "id": "no_threat",
       "subject": "party",
       "predicate": "observes_absence",
-      "object": "immediate_threat",
       "description": "No apparent immediate threat at departure; time-local impression.",
       "evidence": [
         "e092"
@@ -4354,7 +4389,15 @@
       "status": "occurred",
       "confidence": "high",
       "temporal_scope": "C2S29 paragraph 12",
-      "attributes": {}
+      "attributes": {
+        "observation_scope": "morning departure impression",
+        "polarity": "apparently_absent",
+        "permanence": "time_local"
+      },
+      "object_value": {
+        "type": "observation",
+        "value": "no apparent immediate threat at morning departure"
+      }
     },
     {
       "id": "transport",
@@ -4492,7 +4535,6 @@
       "id": "gossip",
       "subject": "caelynn",
       "predicate": "overhears",
-      "object": "undisclosed_gossip",
       "description": "After apparent hangup Caelynn hears gossip; content unspecified.",
       "evidence": [
         "e101"
@@ -4503,6 +4545,10 @@
       "temporal_scope": "C2S29 paragraph 13",
       "attributes": {
         "attributed_to": "caelynn"
+      },
+      "object_value": {
+        "type": "undisclosed_information",
+        "value": "gossip overheard after apparent hangup; contents not stated"
       }
     },
     {
@@ -4697,7 +4743,7 @@
       "subject": "lysandro_house",
       "predicate": "located_in",
       "object": "mireward",
-      "description": "House assigned to continuing Mireward episode using S29 possessive, town name and prior Lysandro scene.",
+      "description": "Lysandro’s home is in the continuing Mireward episode, using S29 possessive, town name and prior Lysandro scene.",
       "evidence": [
         "e115",
         "e116",
@@ -4792,8 +4838,7 @@
     {
       "id": "warehouse_identity",
       "subject": "mireward_warehouse",
-      "predicate": "identified_as",
-      "object": "ironveil_warehouse",
+      "predicate": "named",
       "description": "Continuing warehouse scene follows prior Ironveil siege; contextual identity, not a generic warehouse alias.",
       "evidence": [
         "e128",
@@ -4804,7 +4849,11 @@
       "status": "contextual",
       "confidence": "high",
       "temporal_scope": "prior campaign/world context; not a new Session29 action",
-      "attributes": {}
+      "attributes": {},
+      "object_value": {
+        "type": "proper_name",
+        "value": "Ironveil Warehouse"
+      }
     },
     {
       "id": "refugee_origin",
@@ -4855,8 +4904,7 @@
     {
       "id": "brin_identity",
       "subject": "brin",
-      "predicate": "identified_as",
-      "object": "brin_holloway",
+      "predicate": "named",
       "description": "Prior recap names Brin Holloway, cook from Edge.",
       "evidence": [
         "e135"
@@ -4865,13 +4913,16 @@
       "status": "contextual",
       "confidence": "high",
       "temporal_scope": "prior campaign/world context; not a new Session29 action",
-      "attributes": {}
+      "attributes": {},
+      "object_value": {
+        "type": "proper_name",
+        "value": "Brin Holloway"
+      }
     },
     {
       "id": "hesta_identity",
       "subject": "hesta",
-      "predicate": "identified_as",
-      "object": "hesta_bramblewood",
+      "predicate": "named",
       "description": "S25 names Hesta Bramblewood at local apothecary; no Lestra alias.",
       "evidence": [
         "e136"
@@ -4880,13 +4931,16 @@
       "status": "contextual",
       "confidence": "high",
       "temporal_scope": "prior campaign/world context; not a new Session29 action",
-      "attributes": {}
+      "attributes": {},
+      "object_value": {
+        "type": "proper_name",
+        "value": "Hesta Bramblewood"
+      }
     },
     {
       "id": "apothecary_name",
       "subject": "apothecary",
       "predicate": "named",
-      "object": "crooked_retort",
       "description": "Prior local apothecary is Crooked Retort.",
       "evidence": [
         "e137"
@@ -4895,13 +4949,16 @@
       "status": "contextual",
       "confidence": "high",
       "temporal_scope": "prior campaign/world context; not a new Session29 action",
-      "attributes": {}
+      "attributes": {},
+      "object_value": {
+        "type": "proper_name",
+        "value": "Crooked Retort"
+      }
     },
     {
       "id": "seed_world",
       "subject": "witness_seed",
       "predicate": "instance_of",
-      "object": "witness_seed_kind",
       "description": "World reference describes seeds as living Fey constructs for cultural continuity; does not prove Thrin=Threnn.",
       "evidence": [
         "e138",
@@ -4911,7 +4968,11 @@
       "status": "contextual",
       "confidence": "high",
       "temporal_scope": "prior campaign/world context; not a new Session29 action",
-      "attributes": {}
+      "attributes": {},
+      "object_value": {
+        "type": "artifact_type",
+        "value": "Witness Seed: living Fey construct"
+      }
     },
     {
       "id": "edge_north",
@@ -5281,7 +5342,7 @@
       "id": "p01",
       "paragraph": 1,
       "start_line": 19,
-      "summary": "Party uses second floor of Lysandro’s house as lookout.; Possessive establishes house association; legal ownership not separately proved.; Smoke visible near south gate.; Other smoke lies along road to Fin; no north-road equivalence.; No other movement or ground-emerging monsters at that moment.; Ephanna shares northward psychic pull.; Thrin shares northward psychic pull.; Force located about 300 meters beyond north gate along road.; Thrin reports compulsion will not stop until he gets closer.",
+      "summary": "Party uses second floor of Lysandro’s house as lookout.; Lysandro’s house is his home/possession, explicitly established by the ordinary possessive.; Smoke visible near south gate.; Other smoke lies along road to Fin; no north-road equivalence.; No other movement or ground-emerging monsters at that moment.; Ephanna shares northward psychic pull.; Thrin shares northward psychic pull.; Force located about 300 meters beyond north gate along road.; Thrin reports compulsion will not stop until he gets closer.; Local force about 300m beyond north gate.; Road named by destination Fin; orientation not stated.",
       "required_facts": [
         "vantage",
         "house_owner",
@@ -5327,7 +5388,7 @@
       "id": "p03",
       "paragraph": 3,
       "start_line": 23,
-      "summary": "Karsemine sees two monsters emerge from warehouse.; Both monsters carry sleeping children; precise total unstated.; Lysandra promises to remain and help provided buildings are not burned.; Lysandra will help Hesta make as many cures as necessary at apothecary.; Party plans ambush and rescue.",
+      "summary": "Karsemine sees two monsters emerge from warehouse.; Both monsters carry sleeping children; precise total unstated.; Lysandra promises to remain and help provided buildings are not burned.; Lysandra will help Hesta make as many cures as necessary at apothecary.; Party plans ambush and rescue.; Planned ambush becomes rescue in next paragraph.",
       "required_facts": [
         "warehouse_exit",
         "children_carried",
@@ -5347,7 +5408,7 @@
       "id": "p04",
       "paragraph": 4,
       "start_line": 25,
-      "summary": "Baergrom dashes in front to draw attention.; Karesmine and Bonogo land sneak attacks.; Bonogo participates in sneak attacks.; Future phrasing preserves intent; actual cast not independently stated.; Stafl shoots arrows from window in ambush.; Monsters quickly dealt with.; Baergrom carries sleeping children back to house.; Others see no remaining monsters during check.; After denying supplies, Lysandro gives party two bottles.; Six greater healing potions supplied.; Eight healing potions supplied.; Eight half bottles minor healing supplied; do not count as eight full bottles.; Each party member fills oil vials.; Party departs for north gate.",
+      "summary": "Baergrom dashes in front to draw attention.; Karesmine and Bonogo land sneak attacks.; Bonogo participates in sneak attacks.; Future phrasing preserves intent; actual cast not independently stated.; Stafl shoots arrows from window in ambush.; Monsters quickly dealt with.; Baergrom carries sleeping children back to house.; Others see no remaining monsters during check.; After denying supplies, Lysandro gives party two bottles.; Six greater healing potions supplied.; Eight healing potions supplied.; Eight half bottles minor healing supplied; do not count as eight full bottles.; Each party member fills oil vials.; Party departs for north gate.; Baergrom performs rescue.; Children taken to the current Lysandro house, contextual deictic resolution.",
       "required_facts": [
         "distraction",
         "sneak_kar",
@@ -5398,7 +5459,7 @@
       "id": "p06",
       "paragraph": 6,
       "start_line": 29,
-      "summary": "Baergrom compelled to eat flesh.; Bonogo compelled to eat flesh.; All road party feel strong mental pressure.; Only Caelynn among road party also charmed; she digs compulsively.; Others help dig believing reaching monster will stop force; opening 10 feet above den.; Baergrom and Bonogo enveloped in tentacles and eating flesh.; Remaining den is 10 by 10 feet and filled by creature.",
+      "summary": "Baergrom compelled to eat flesh.; Bonogo compelled to eat flesh.; All road party feel strong mental pressure.; Only Caelynn among road party also charmed; she digs compulsively.; Others help dig believing reaching monster will stop force; opening 10 feet above den.; Baergrom and Bonogo enveloped in tentacles and eating flesh.; Remaining den is 10 by 10 feet and filled by creature.; Baergrom is one of the two scouts.; Bonogo is one of the two scouts.",
       "required_facts": [
         "charm_baer",
         "charm_bon",
@@ -5421,7 +5482,7 @@
       "id": "p07",
       "paragraph": 7,
       "start_line": 31,
-      "summary": "Thrin first attacks with sword; effectiveness unobservable.; Karamine uses Fire Bolt on tentacles holding Baergrom and Bonogo.; Monster psychic attack misses.; Recap states monster spent much power creating town attackers.; Stafl cuts wound and pours one bottle Alchemist’s Fire inside.; Creature thrashes and burns; chamber fills with smoke and cooked-meat smell.; Karsemine slaps Bonogo and Baergrom; charm breaks and both vomit tainted meat.",
+      "summary": "Thrin first attacks with sword; effectiveness unobservable.; Karamine uses Fire Bolt on tentacles holding Baergrom and Bonogo.; Monster psychic attack misses.; Recap states monster spent much power creating town attackers.; Stafl cuts wound and pours one bottle Alchemist’s Fire inside.; Creature thrashes and burns; chamber fills with smoke and cooked-meat smell.; Karsemine slaps Bonogo and Baergrom; charm breaks and both vomit tainted meat.; Combat against local flesh creature in den.; Local flesh creature is combat target.; Restraining tentacles belong to local flesh creature.; Fire user linked to item type.; Sword attack performed, damage effect unknown.",
       "required_facts": [
         "sword",
         "firebolt",
@@ -5447,7 +5508,7 @@
       "id": "p08",
       "paragraph": 8,
       "start_line": 33,
-      "summary": "Shriveling flesh reveals tunnel below; remains extend out of sight.; Stafl moves toward town seeking ceiling breakthrough for exit.; Party rests until enough flesh burns to assess lower tunnel.; Stafl torch estimate: drop about 20 feet then slopes north.; Find Familiar produces black cat sent to explore tunnel; no result given.; Stafl calls Lysandra for town update.; Lysandra update reports people repairing walls.; Remaining monsters stop as if direction lost; causal mechanism is inference.; Remaining monsters quickly killed following cessation.",
+      "summary": "Shriveling flesh reveals tunnel below; remains extend out of sight.; Stafl moves toward town seeking ceiling breakthrough for exit.; Party rests until enough flesh burns to assess lower tunnel.; Stafl torch estimate: drop about 20 feet then slopes north.; Find Familiar produces black cat sent to explore tunnel; no result given.; Stafl calls Lysandra for town update.; Lysandra update reports people repairing walls.; Remaining monsters stop as if direction lost; causal mechanism is inference.; Remaining monsters quickly killed following cessation.; Performed Find Familiar, distinct from intended Eldritch Blast.; Cat sent into newly revealed lower tunnel.",
       "required_facts": [
         "lower_revealed",
         "escape",
@@ -5472,7 +5533,7 @@
       "id": "p09",
       "paragraph": 9,
       "start_line": 35,
-      "summary": "Party chooses north above ground rather than lower tunnel.; Psychic presence now gone; permanent global freedom not asserted.; Party believes time permits long rest before swamp.; Hesta hands sleep potions to Lysandra for warehouse delivery.; Hesta owns apothecary.; Inn meeting concerns plans and more help for Hesta.; Party asks Brin to describe Edge, next town north.",
+      "summary": "Party chooses north above ground rather than lower tunnel.; Psychic presence now gone; permanent global freedom not asserted.; Party believes time permits long rest before swamp.; Hesta hands sleep potions to Lysandra for warehouse delivery.; Hesta owns apothecary.; Inn meeting concerns plans and more help for Hesta.; Party asks Brin to describe Edge, next town north.; Hesta supplies sleeping potions; exact maker not restated here.; Lysandra intended carrier of sleeping potions to warehouse.",
       "required_facts": [
         "surface_route",
         "pull_gone",
@@ -5518,7 +5579,7 @@
       "id": "p11",
       "paragraph": 11,
       "start_line": 39,
-      "summary": "Bonogo overhears wealthy merchant worrying about defenses and repeat losses.; Fellinor thanks party for saving town; Bonogo explicitly names Mireward Reach.; Fellinor reports resources in Edge house and warehouse, access uncertain.; Fellinor warehouse in Edge differs from Mireward refugee warehouse.; Merchant provides safe details to Bonogo; exact combination absent.; Fellinor acted as town bank; town here is Edge.; Warehouse access depends on opening safe; no actual retrieval yet.; Bonogo suggests night off and long rest.",
+      "summary": "Bonogo overhears wealthy merchant worrying about defenses and repeat losses.; Fellinor thanks party for saving town; Bonogo explicitly names Mireward Reach.; Fellinor reports resources in Edge house and warehouse, access uncertain.; Fellinor warehouse in Edge differs from Mireward refugee warehouse.; Merchant provides safe details to Bonogo; exact combination absent.; Fellinor acted as town bank; town here is Edge.; Warehouse access depends on opening safe; no actual retrieval yet.; Bonogo suggests night off and long rest.; Fellinor warehouse in Edge.; Fellinor house in Edge.",
       "required_facts": [
         "fellinor",
         "saved_town",
@@ -5582,7 +5643,7 @@
       "id": "p14",
       "paragraph": 14,
       "start_line": 45,
-      "summary": "Six additional bottles; Alchamist spelling treated as contextual item variant.; Stafl tells Lysandro cure can be misted.; They decide to send messenger to Mossford for possible further south retreat; dispatch/completion unstated.; Party leaves town through north gate.; North route overgrown rapidly despite use; corruption grows through bayou.; Tentacles grab wildlife and drag it underground.; Low thrum explicitly not mental; do not merge with earlier psychic pull.; They camp intending daylight arrival at Edge; arrival not in recap.",
+      "summary": "Six additional bottles; Alchamist spelling treated as contextual item variant.; Stafl tells Lysandro cure can be misted.; They decide to send messenger to Mossford for possible further south retreat; dispatch/completion unstated.; Party leaves town through north gate.; North route overgrown rapidly despite use; corruption grows through bayou.; Tentacles grab wildlife and drag it underground.; Low thrum explicitly not mental; do not merge with earlier psychic pull.; They camp intending daylight arrival at Edge; arrival not in recap.; Northbound onward journey passes through bayou.; Stafl communicates Mirathorn misting technique to Lysandro.",
       "required_facts": [
         "fire_more",
         "mist_transfer",
@@ -5769,7 +5830,13 @@
           "father",
           "lysandra"
         ]
-      ]
+      ],
+      "expected_node_kinds": {
+        "lysandra": "person",
+        "lysandro": "person",
+        "lysandro_house": "building"
+      },
+      "expected_literal_objects": {}
     },
     {
       "id": "q02",
@@ -5810,11 +5877,23 @@
         [
           "edge_refugees",
           "refugee_housing",
-          "mireward_warehouse",
-          "warehouse_identity",
-          "ironveil_warehouse"
+          "mireward_warehouse"
         ]
-      ]
+      ],
+      "expected_node_kinds": {
+        "baergrom": "person",
+        "edge": "settlement",
+        "edge_refugees": "person_group",
+        "mireward_warehouse": "building",
+        "rescued_children": "person_group",
+        "warehouse_monsters": "creature_group"
+      },
+      "expected_literal_objects": {
+        "warehouse_identity": {
+          "type": "proper_name",
+          "value": "Ironveil Warehouse"
+        }
+      }
     },
     {
       "id": "q03",
@@ -5844,7 +5923,17 @@
           "edge_store_location",
           "edge"
         ]
-      ]
+      ],
+      "expected_node_kinds": {
+        "baergrom": "person",
+        "edge_warehouse": "building",
+        "fellinor": "person",
+        "mireward_warehouse": "building",
+        "personal_safe": "equipment_individual",
+        "rescued_children": "person_group",
+        "warehouse_monsters": "creature_group"
+      },
+      "expected_literal_objects": {}
     },
     {
       "id": "q04",
@@ -5875,7 +5964,16 @@
           "burning",
           "mireward_flesh"
         ]
-      ]
+      ],
+      "expected_node_kinds": {
+        "alchemists_fire": "item_type",
+        "lysandro": "person",
+        "mireward_flesh": "creature_individual",
+        "oil_vials": "item_type",
+        "party": "party",
+        "stafl": "person"
+      },
+      "expected_literal_objects": {}
     },
     {
       "id": "q05",
@@ -5911,7 +6009,23 @@
           "psychic_location",
           "north_road"
         ]
-      ]
+      ],
+      "expected_node_kinds": {
+        "alchemists_fire": "item_type",
+        "ephanna": "person",
+        "mireward_flesh": "creature_individual",
+        "north_road": "route",
+        "party": "party",
+        "psychic_pull": "phenomenon",
+        "thrin": "person",
+        "town_attackers": "creature_group"
+      },
+      "expected_literal_objects": {
+        "control_lost": {
+          "type": "behavioral_observation",
+          "value": "remaining attackers stopped as if direction was lost; then killed"
+        }
+      }
     },
     {
       "id": "q06",
@@ -5937,7 +6051,16 @@
           "eldritch_intent",
           "eldritch_blast"
         ]
-      ]
+      ],
+      "expected_node_kinds": {
+        "arrows": "item_type",
+        "eldritch_blast": "spell",
+        "ephanna": "person",
+        "karsemine": "person",
+        "restraining_tentacles": "body_part_group",
+        "stafl": "person"
+      },
+      "expected_literal_objects": {}
     },
     {
       "id": "q07",
@@ -5960,12 +6083,22 @@
       "traversals": [
         [
           "edge",
-          "fort",
-          "military_fort",
           "wards",
           "magical_wards"
         ]
-      ]
+      ],
+      "expected_node_kinds": {
+        "edge": "settlement",
+        "edge_cellar": "chamber",
+        "edge_flesh": "creature_individual",
+        "magical_wards": "defensive_structure"
+      },
+      "expected_literal_objects": {
+        "fort": {
+          "type": "historical_role",
+          "value": "military fort"
+        }
+      }
     },
     {
       "id": "q08",
@@ -5999,7 +6132,20 @@
           "mist_communicated",
           "lysandro"
         ]
-      ]
+      ],
+      "expected_node_kinds": {
+        "cinderbranch": "person",
+        "hesta": "person",
+        "lysandro": "person",
+        "mirathorn_infected": "person_group",
+        "mirathorn_responders": "person_group",
+        "misted_cure": "treatment_technique",
+        "mossford": "settlement",
+        "party": "party",
+        "refugee_cures": "item_type",
+        "stafl": "person"
+      },
+      "expected_literal_objects": {}
     },
     {
       "id": "q09",
@@ -6031,7 +6177,14 @@
           "new_forest_goal",
           "new_forest"
         ]
-      ]
+      ],
+      "expected_node_kinds": {
+        "ephanna": "person",
+        "new_forest": "prospective_place",
+        "thrin": "person",
+        "witness_seed": "artifact_individual"
+      },
+      "expected_literal_objects": {}
     },
     {
       "id": "q10",
@@ -6067,7 +6220,25 @@
           "bayou",
           "bayou"
         ]
-      ]
+      ],
+      "expected_node_kinds": {
+        "bayou": "region",
+        "bayou_tentacles": "creature_group",
+        "edge": "settlement",
+        "horses_wagon": "asset_collection",
+        "lysandra": "person",
+        "mireward": "settlement",
+        "north_road": "route",
+        "party": "party",
+        "physical_thrum": "phenomenon",
+        "wildlife": "creature_group"
+      },
+      "expected_literal_objects": {
+        "long_rest_plan": {
+          "type": "activity_type",
+          "value": "long_rest"
+        }
+      }
     },
     {
       "id": "q11",
@@ -6097,7 +6268,21 @@
           "cat_tunnel",
           "lower_tunnel"
         ]
-      ]
+      ],
+      "expected_node_kinds": {
+        "black_cat_familiar": "creature_individual",
+        "ephanna": "person",
+        "lower_tunnel": "route",
+        "mireward_flesh": "creature_individual",
+        "north_road": "route",
+        "party": "party"
+      },
+      "expected_literal_objects": {
+        "depth": {
+          "type": "direction",
+          "value": "north"
+        }
+      }
     },
     {
       "id": "q12",
@@ -6127,7 +6312,22 @@
           "stays",
           "mireward"
         ]
-      ]
+      ],
+      "expected_node_kinds": {
+        "hesta": "person",
+        "lysandra": "person",
+        "mireward": "settlement",
+        "mireward_inn": "building",
+        "mireward_walls": "defensive_structure",
+        "refugee_cures": "item_type",
+        "townspeople": "person_group"
+      },
+      "expected_literal_objects": {
+        "no_burning": {
+          "type": "contextual_set",
+          "value": "buildings in Mireward Reach"
+        }
+      }
     },
     {
       "id": "q13",
@@ -6155,7 +6355,15 @@
           "pippa_prior",
           "stone_bridge"
         ]
-      ]
+      ],
+      "expected_node_kinds": {
+        "bubbles": "creature_individual",
+        "lysandro_house": "building",
+        "mireward": "settlement",
+        "pippa": "person",
+        "stone_bridge": "settlement"
+      },
+      "expected_literal_objects": {}
     }
   ],
   "native_mapping_gaps": [
@@ -6213,7 +6421,6 @@
       "status": "unmapped_or_unverified",
       "policy": "retain semantic fact; mapping needs separate native qualification review",
       "facts": [
-        "house_owner",
         "edge_transform",
         "pippa_prior"
       ]
@@ -6488,11 +6695,19 @@
       ]
     },
     {
-      "predicate": "formerly",
+      "predicate": "formerly_had_role",
       "status": "unmapped_or_unverified",
       "policy": "retain semantic fact; mapping needs separate native qualification review",
       "facts": [
         "fort"
+      ]
+    },
+    {
+      "predicate": "formerly_protected_by",
+      "status": "unmapped_or_unverified",
+      "policy": "retain semantic fact; mapping needs separate native qualification review",
+      "facts": [
+        "wards"
       ]
     },
     {
@@ -6528,21 +6743,19 @@
       ]
     },
     {
+      "predicate": "home_of",
+      "status": "unmapped_or_unverified",
+      "policy": "retain semantic fact; mapping needs separate native qualification review",
+      "facts": [
+        "house_owner"
+      ]
+    },
+    {
       "predicate": "housed_in",
       "status": "unmapped_or_unverified",
       "policy": "retain semantic fact; mapping needs separate native qualification review",
       "facts": [
         "refugee_housing"
-      ]
-    },
-    {
-      "predicate": "identified_as",
-      "status": "unmapped_or_unverified",
-      "policy": "retain semantic fact; mapping needs separate native qualification review",
-      "facts": [
-        "warehouse_identity",
-        "brin_identity",
-        "hesta_identity"
       ]
     },
     {
@@ -6682,6 +6895,9 @@
       "status": "unmapped_or_unverified",
       "policy": "retain semantic fact; mapping needs separate native qualification review",
       "facts": [
+        "warehouse_identity",
+        "brin_identity",
+        "hesta_identity",
         "apothecary_name"
       ]
     },
@@ -6831,14 +7047,6 @@
       "policy": "retain semantic fact; mapping needs separate native qualification review",
       "facts": [
         "guards"
-      ]
-    },
-    {
-      "predicate": "protected_by",
-      "status": "unmapped_or_unverified",
-      "policy": "retain semantic fact; mapping needs separate native qualification review",
-      "facts": [
-        "wards"
       ]
     },
     {
@@ -7286,7 +7494,11 @@
     "start_base": "d03fdb67da877c604e19242d0bdc254515fe89f7",
     "handoff_first": "47e330a0a15394d3a0d03e1afea93f9212ce103b",
     "frozen_at_utc": "2026-10-15T23:46:00Z",
-    "candidate_comparison": "not performed"
+    "candidate_comparison": "not performed",
+    "typing_refinement": {
+      "reviewed_parent": "d61aa537addc568936c16305a1eb3172bddaaf4c",
+      "method": "PRIME independent review prompted gold-only kinds and typed literals; no candidate outputs read"
+    }
   },
   "research_exclusions": [
     {
@@ -7298,6 +7510,77 @@
       "path": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_party_registry.json",
       "sha256": "f0f49045df06f7baf61aa9c43f3739d16483eeb20ac8ed1bbf29f8209474af25",
       "disposition": "Inspected known roster; no C1 session1 roster used as proof of C2S29 membership."
+    }
+  ],
+  "domain_kind_inventory": {
+    "party": "Named adventuring party identity.",
+    "person": "Named individual with personhood; species subtype need not be established.",
+    "building": "Distinct house, warehouse, inn or shop building.",
+    "gate": "Distinct settlement gate.",
+    "route": "Road or tunnel corridor.",
+    "settlement": "Named city, town or route destination treated as settlement; detailed scale may be unknown.",
+    "region": "Geographic landscape/region.",
+    "prospective_place": "Intended future place, explicitly not asserted extant.",
+    "chamber": "Room, cellar or underground chamber.",
+    "aperture": "Incident-specific opening between surface and den.",
+    "defensive_structure": "Wall or magical ward system guarding a place.",
+    "creature_individual": "A distinct individual creature or named creature companion.",
+    "creature_group": "Incident-scoped creatures or wildlife collective, not a generic global alias.",
+    "person_group": "Meaningful people/refugee/responders collective, including an incident scouting pair.",
+    "body_part_group": "An anatomically related set of parts of a creature.",
+    "artifact_individual": "A particular story-bearing artifact.",
+    "equipment_individual": "A particular possessed object whose connection matters.",
+    "item_type": "A named supply or consumable category; amount belongs to facts.",
+    "asset_collection": "A source-grouped travel asset collection without fabricated individual IDs.",
+    "spell": "A named spell, with intent/performance on its use facts.",
+    "phenomenon": "A particular narrated sensory or psychic effect.",
+    "weather_event": "A temporally bounded storm.",
+    "scene": "A coherent rescue, combat, disclosure or journey episode.",
+    "planned_action": "A proposed signal/action or investigation objective.",
+    "treatment_technique": "A reusable method for administering a remedy.",
+    "named_destination": "Named destination whose settlement/geographic subtype is not established."
+  },
+  "literal_type_inventory": {
+    "activity_type": "Typed assertion value, not an independently extractable graph entity.",
+    "artifact_type": "Typed assertion value, not an independently extractable graph entity.",
+    "behavioral_observation": "Typed assertion value, not an independently extractable graph entity.",
+    "contextual_set": "Typed assertion value, not an independently extractable graph entity.",
+    "dimensions": "Typed assertion value, not an independently extractable graph entity.",
+    "direction": "Typed assertion value, not an independently extractable graph entity.",
+    "historical_role": "Typed assertion value, not an independently extractable graph entity.",
+    "observation": "Typed assertion value, not an independently extractable graph entity.",
+    "proper_name": "Typed assertion value, not an independently extractable graph entity.",
+    "relative_time": "Typed assertion value, not an independently extractable graph entity.",
+    "social_role": "Typed assertion value, not an independently extractable graph entity.",
+    "undisclosed_information": "Typed assertion value, not an independently extractable graph entity."
+  },
+  "unresolved_kind_decisions": [
+    {
+      "id": "uk01",
+      "node": "ogonob",
+      "resolved_kind": "creature_individual",
+      "unresolved_dimension": "creature subtype/species",
+      "candidate_subtypes": [],
+      "reason": "S23 states Ephanna summons Ogonob; no species/subtype claim required or proved by inspected evidence.",
+      "evidence": [
+        "e165"
+      ],
+      "status": "subtype unresolved; primary gold kind resolved"
+    },
+    {
+      "id": "uk02",
+      "node": "fin",
+      "resolved_kind": "named_destination",
+      "unresolved_dimension": "settlement scale and exact geography",
+      "candidate_subtypes": [
+        "settlement",
+        "other geographic destination"
+      ],
+      "reason": "Source names the destination of a road; exact geographic kind is not independently established.",
+      "evidence": [
+        "e156"
+      ],
+      "status": "primary kind intentionally broad; geographic subtype unresolved"
     }
   ]
 }

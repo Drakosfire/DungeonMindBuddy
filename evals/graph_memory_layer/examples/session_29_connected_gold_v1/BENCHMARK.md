@@ -1,6 +1,6 @@
 # Continuity and multi-hop benchmark
 
-Evaluate semantic coverage separately from native admission. Each answer has fact IDs, exact evidence IDs and explicit directed traversal witnesses in `gold.json`. `expected_fact_path` is an answer-support subgraph, not an assertion that every listed edge forms one linear path. A reply must retain attribution, uncertainty, modality and chronology.
+Evaluate semantic coverage separately from native admission. Each answer has fact IDs, exact evidence IDs and explicit directed traversal witnesses in `gold.json`. `expected_fact_path` is an answer-support subgraph, not an assertion that every listed edge forms one linear path. Each question also freezes expected node kinds and any typed literal objects, so a correct prose answer cannot hide missing children/groups, merged warehouses, untyped spells/items or values promoted to entities. A reply must retain attribution, uncertainty, modality and chronology.
 
 ## q01: Whose house provides the lookout and how does he relate to Lysandra?
 

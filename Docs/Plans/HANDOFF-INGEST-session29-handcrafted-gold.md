@@ -33,7 +33,7 @@ parallel-independent of PRIME source-selection/context backend lane and DOGFOOD 
 
 ## §6 Evidence semantics
 
-Exact UTF-8 file hashes; half-open Python Unicode codepoint offsets; 1-based inclusive line bounds; literal quotes. Separate source assertions, attributed observations, contextual inference, unresolved hypotheses and operator additions. Canonical corpus support does not duplicate derived recap support. Unknown identity mappings remain unknown. Meaningful relations survive native mapping gaps.
+Exact UTF-8 file hashes; half-open Python Unicode codepoint offsets; 1-based inclusive line bounds; literal quotes. Separate source assertions, attributed observations, contextual inference, unresolved hypotheses and operator additions. Canonical corpus support does not duplicate derived recap support. Unknown identity mappings remain unknown. Meaningful relations survive native mapping gaps. Every retained node has an intentional gold-only domain kind; typed literal objects carry dimensions, directions, rest activities, time labels and names. Genuine unresolved subtype decisions are recorded separately. Generic entity defaults are rejected.
 
 ## §7 Verification
 

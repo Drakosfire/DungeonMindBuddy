@@ -94,6 +94,38 @@ class Session29GoldTests(unittest.TestCase):
         next(f for f in self.gold['facts'] if f['id'] == 'eldritch_intent')['status'] = 'occurred'
         self.assertIn('intended Eldritch Blast became performed', self.errors())
 
+    def test_generic_default_node_kind_rejected(self):
+        next(n for n in self.gold['nodes'] if n['id'] == 'lysandro_house')['kind'] = 'entity'
+        self.assertIn('unclassified/generic node kind', self.errors())
+        self.assertIn('required domain kind changed', self.errors())
+
+    def test_spell_cannot_be_lumped_into_generic_item(self):
+        next(n for n in self.gold['nodes'] if n['id'] == 'eldritch_blast')['kind'] = 'item_type'
+        self.assertIn('required domain kind changed', self.errors())
+
+    def test_literal_cannot_also_have_entity_endpoint(self):
+        fact = next(f for f in self.gold['facts'] if f['id'] == 'den_size')
+        fact['object'] = 'flesh_den'
+        self.assertIn('require exactly one node or literal object', self.errors())
+
+    def test_dimension_value_must_be_typed_and_measured(self):
+        fact = next(f for f in self.gold['facts'] if f['id'] == 'den_size')
+        fact['object_value']['unit'] = 'meters'
+        self.assertIn('invalid dimension literal', self.errors())
+
+    def test_removed_value_is_not_an_extractable_entity(self):
+        self.gold['nodes'].append({'id': 'north', 'kind': 'region', 'type_rationale': 'guess'})
+        self.assertIn('literal value promoted to entity', self.errors())
+
+    def test_undocumented_kind_uncertainty_rejected(self):
+        self.gold['unresolved_kind_decisions'][0]['reason'] = ''
+        self.assertIn('undocumented kind uncertainty', self.errors())
+
+    def test_possessive_home_relation_cannot_be_weakened(self):
+        fact = next(f for f in self.gold['facts'] if f['id'] == 'house_owner')
+        fact['predicate'] = 'associated_with'
+        self.assertIn('house possessive relationship weakened', self.errors())
+
     def test_missing_originals_fail_instead_of_skip(self):
         with tempfile.TemporaryDirectory() as directory:
             errors = validator.validate(self.gold, Path(directory))

@@ -30,6 +30,30 @@ REQUIRED = {'vantage', 'house_owner', 'father', 'mireward_context', 'smoke_south
             'mist_transfer', 'wall_repair', 'stays', 'bayou', 'wildlife',
             'physical_thrum', 'camp', 'seed_reappraisal', 'pippa_prior'}
 
+DOMAIN_KINDS = {
+    'party', 'person', 'building', 'gate', 'route', 'settlement', 'region',
+    'prospective_place', 'chamber', 'aperture', 'defensive_structure',
+    'creature_individual', 'creature_group', 'person_group', 'body_part_group',
+    'artifact_individual', 'equipment_individual', 'item_type', 'asset_collection',
+    'spell', 'phenomenon', 'weather_event', 'scene', 'planned_action',
+    'treatment_technique', 'named_destination',
+}
+LITERAL_TYPES = {
+    'dimensions', 'direction', 'contextual_set', 'activity_type', 'relative_time',
+    'historical_role', 'social_role', 'proper_name', 'artifact_type', 'observation',
+    'behavioral_observation', 'undisclosed_information',
+}
+TYPED_ANCHORS = {
+    'lysandro_house': 'building', 'mireward_warehouse': 'building',
+    'edge_warehouse': 'building', 'north_gate': 'gate', 'south_gate': 'gate',
+    'rescued_children': 'person_group', 'warehouse_monsters': 'creature_group',
+    'mireward_flesh': 'creature_individual', 'edge_flesh': 'creature_individual',
+    'ogonob': 'creature_individual', 'eldritch_blast': 'spell',
+    'find_familiar': 'spell', 'alchemists_fire': 'item_type',
+    'witness_seed': 'artifact_individual', 'child_rescue': 'scene',
+    'den_combat': 'scene',
+}
+
 
 def digest(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
@@ -54,6 +78,23 @@ def validate(gold: dict, source_root: Path) -> list[str]:
     sources, evidence, nodes, facts = (indexed(k) for k in ('sources', 'evidence', 'nodes', 'facts'))
     indexed('ambiguities')
     indexed('questions')
+    require(set(gold.get('domain_kind_inventory', {})) == DOMAIN_KINDS, 'domain kind inventory drift')
+    require(set(gold.get('literal_type_inventory', {})) == LITERAL_TYPES, 'literal type inventory drift')
+    for nid, node in nodes.items():
+        require(node.get('kind') in DOMAIN_KINDS, f'{nid}: unclassified/generic node kind')
+        require(bool(node.get('type_rationale')), f'{nid}: missing intentional type rationale')
+    for nid, kind in TYPED_ANCHORS.items():
+        require(nodes.get(nid, {}).get('kind') == kind, f'{nid}: required domain kind changed')
+    for removed in ('north', 'ten_by_ten_feet', 'buildings', 'short_rest', 'long_rest', 'next_morning'):
+        require(removed not in nodes, f'{removed}: literal value promoted to entity')
+    for decision in gold.get('unresolved_kind_decisions', []):
+        node = nodes.get(decision.get('node'), {})
+        require(bool(node) and decision.get('resolved_kind') == node.get('kind'),
+                f'{decision.get("id")}: unresolved kind node mismatch')
+        require(bool(decision.get('reason')) and bool(decision.get('unresolved_dimension')),
+                f'{decision.get("id")}: undocumented kind uncertainty')
+        require(bool(decision.get('evidence')) and all(e in evidence for e in decision['evidence']),
+                f'{decision.get("id")}: unresolved kind evidence')
     texts: dict[str, str] = {}
     for sid, source in sources.items():
         relative = Path(source['path'])
@@ -103,7 +144,27 @@ def validate(gold: dict, source_root: Path) -> list[str]:
                 require(bool(span) and span.get('start_line', 10**9) <= item['start_line']
                         and span.get('end_line', 0) >= item['end_line'], f'{eid}: wrong frozen span')
     for fid, fact in facts.items():
-        require(fact.get('subject') in nodes and fact.get('object') in nodes, f'{fid}: dangling endpoint')
+        require(fact.get('subject') in nodes, f'{fid}: dangling endpoint')
+        has_node = 'object' in fact
+        has_literal = 'object_value' in fact
+        require(has_node != has_literal, f'{fid}: require exactly one node or literal object')
+        if has_node:
+            require(isinstance(fact['object'], str) and fact['object'] in nodes, f'{fid}: dangling endpoint')
+        if has_literal:
+            value = fact['object_value']
+            if not isinstance(value, dict):
+                require(False, f'{fid}: invalid typed literal')
+            else:
+                require(value.get('type') in LITERAL_TYPES and 'value' in value,
+                        f'{fid}: invalid typed literal')
+                if value.get('type') == 'dimensions':
+                    require(value.get('unit') == 'feet' and isinstance(value.get('value'), list)
+                            and len(value['value']) == 2
+                            and all(isinstance(v, (int, float)) and v > 0 for v in value['value']),
+                            f'{fid}: invalid dimension literal')
+                if value.get('type') == 'direction':
+                    require(value.get('value') in {'north', 'south', 'east', 'west'},
+                            f'{fid}: invalid direction literal')
         require(bool(fact.get('predicate')) and bool(fact.get('description')), f'{fid}: empty assertion')
         provenance = fact.get('provenance')
         require(provenance in CLASSES, f'{fid}: invalid provenance')
@@ -147,6 +208,11 @@ def validate(gold: dict, source_root: Path) -> list[str]:
         expected = {e for f in path if f in facts for e in facts[f]['evidence']}
         require(set(question.get('expected_evidence', [])) == expected, f'{qid}: question evidence mismatch')
         require(bool(question.get('failure_examples')), f'{qid}: no failure examples')
+        for nid, kind in question.get('expected_node_kinds', {}).items():
+            require(nodes.get(nid, {}).get('kind') == kind, f'{qid}: benchmark node kind mismatch')
+        for fid, value in question.get('expected_literal_objects', {}).items():
+            require(fid in path and facts.get(fid, {}).get('object_value') == value,
+                    f'{qid}: benchmark typed literal mismatch')
         for traversal in question.get('traversals', []):
             require(len(traversal) >= 3 and len(traversal) % 2 == 1, f'{qid}: malformed traversal')
             for n in range(1, len(traversal), 2):
@@ -161,6 +227,9 @@ def validate(gold: dict, source_root: Path) -> list[str]:
     require(gap_facts == facts.keys(), 'mapping gap inventory incomplete')
     require(facts.get('eldritch_intent', {}).get('status') == 'intended', 'intended Eldritch Blast became performed')
     require(facts.get('operator_children_origin', {}).get('provenance') == 'operator_addition', 'operator child origin laundered')
+    require(facts.get('house_owner', {}).get('predicate') == 'home_of', 'house possessive relationship weakened')
+    require(facts.get('den_size', {}).get('object_value', {}).get('type') == 'dimensions',
+            'den dimensions lost typed value')
     return errors
 
 
