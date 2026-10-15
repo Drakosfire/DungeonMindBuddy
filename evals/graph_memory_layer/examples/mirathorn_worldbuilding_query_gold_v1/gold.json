@@ -86,7 +86,7 @@
       {
         "id": "worldbuilding_gazetteer_v1@1.7",
         "source_path": "src/graph_memory/extraction/worldbuilding_gazetteer_role_citations.py",
-        "source_sha256": "97d8b4510538ecd2fb0c301a3f1d2345ef74b8d17eda5f938b6c4d9391df767c",
+        "source_sha256": "940d8081e5310119fb72dfb00bfd5e4f92e3f4ff9bd5161b72a442b323a7caab",
         "relevant_behavior": [
           "Preserves v1.6 extraction prompts and deterministic livestock hygiene.",
           "Adds an exact source Role-line citation only when one character candidate already makes that affirmative role claim.",
@@ -96,7 +96,7 @@
       {
         "id": "worldbuilding_gazetteer_v1@1.8",
         "source_path": "src/graph_memory/extraction/worldbuilding_gazetteer_scenario_scope.py",
-        "source_sha256": "a6d113a0200677b95a8b90e867afde248cb92a844464192ab819b2b43aea638f",
+        "source_sha256": "d0313b9fbdd4a2f9d9bbe2b4078e5d140c86d6bfba247fdbfbdbc22a6768f5b5",
         "relevant_behavior": [
           "Defers extracted nodes supported only by the bounded Plot Hooks and Encounters or Approach to Mirathorn sections, together with their incident edges.",
           "Defers relationships supported by those prepared-scene spans and preserves the complete proposal and citations in run diagnostics.",
@@ -107,7 +107,7 @@
       {
         "id": "worldbuilding_gazetteer_v1@1.9",
         "source_path": "src/graph_memory/extraction/worldbuilding_gazetteer_governance.py",
-        "source_sha256": "aac039a62d5d5614e878bf0e69dd23cecc7208de69e86a2342996a14172b17ee",
+        "source_sha256": "865250f77eb4c824b1bb9db892e27d2e94183b36cc47ec9a2ebfc5614f23aaae",
         "relevant_behavior": [
           "Preserves v1.8 scene filtering and proposes a directed council-governs-city edge only when a unique city title, matching council/location candidates, and shared exact openable Governance evidence are present.",
           "Does not create or rename nodes, reverse conflicting edges, infer membership, or publish the candidate."
@@ -953,7 +953,7 @@
     "note": "Extraction vocabulary and native write admission are separate contracts. Buddy native predicates come only from explicit qualification maps; candidate node types are converted by the pinned candidate mapper. The Build-only v6 map adds directed faction-governs-location. This contract is not evidence that Mirathorn has been published or retrieved in the live World.",
     "native_vocabulary_snapshot": {
       "repository": "Drakosfire/DungeonMind",
-      "commit": "fa509ce05a08dd259f28d177e34fab5df57bfce6",
+      "commit": "1d120886b00acf7f97b3744e88619abd97c34591",
       "source_path": "src/dungeonmind_dnd/vocabularies/world-object-v6.json",
       "blob_sha": "28cb89deb8b006068a4cbd6ddb371279e4234c28",
       "vocabulary_id": "dungeonmind.dnd5e.world_object",
@@ -987,10 +987,10 @@
       "predicate_subset_sha256": "39a870212da47c97fb853e82bf5d6e29717895bdc5aa88d3445517e65f038f65"
     },
     "buddy_dependency_source_path": "pyproject.toml",
-    "buddy_dependency_source_sha256": "381f8bd56d741554d68d8452054e9c80ed5ae999cd81270d7514e9e0ca74776b",
+    "buddy_dependency_source_sha256": "5a83e819e86886b005c794db32c7fc6a3671254e8e23841ce95c93499a860d42",
     "native_property_vocabulary_snapshot": {
       "repository": "Drakosfire/DungeonMind",
-      "commit": "fa509ce05a08dd259f28d177e34fab5df57bfce6",
+      "commit": "1d120886b00acf7f97b3744e88619abd97c34591",
       "source_path": "src/dungeonmind_dnd/vocabularies/world-property-v4.json",
       "blob_sha": "75e0be0bc897bfc410953376e2d7379bc5ca147c",
       "vocabulary_id": "dungeonmind.dnd5e.world_property",

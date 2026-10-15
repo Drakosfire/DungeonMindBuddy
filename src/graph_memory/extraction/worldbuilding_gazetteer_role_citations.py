@@ -17,6 +17,31 @@ PROFILE_VERSION = "1.7"
 PROFILE = f"{PROFILE_ID}@{PROFILE_VERSION}"
 _PRIOR_PROFILE = "worldbuilding_gazetteer_v1@1.6"
 _PROFILE_WARNING = f"source_support_policy:{PROFILE}"
+_UNCERTAIN_ROLE_PREFIX = re.compile(
+    r"\b(?:perhaps|possibly|potentially|allegedly|purportedly)\b", re.IGNORECASE,
+)
+_MODAL_ROLE_PREFIX = re.compile(
+    r"\b(?:may|might|could|would|should|will)\s+(?!is\b|was\b|has\b)"
+    r"(?:[a-z'-]+\s+)*(?:be|become|serve|act|hold|remain|take|assume)\b",
+    re.IGNORECASE,
+)
+_CONDITIONAL_ROLE_CLAUSE = re.compile(
+    r"\b(?:if|unless|provided\s+that|subject\s+to)\b", re.IGNORECASE,
+)
+_NEGATED_ROLE_PREFIX = re.compile(
+    r"\b(?:not(?!\s+only\b)|never|no\s+longer|formerly|former|"
+    r"isn['’]t|wasn['’]t)\b", re.IGNORECASE,
+)
+_INDEPENDENT_ROLE_CLAUSE = re.compile(
+    r"\b(?:and|but|yet|while|whereas)\s+"
+    r"(?:[a-z][\w'-]*\s+)?(?=(?:is|are|serves|acts|holds|works)\b)",
+    re.IGNORECASE,
+)
+_FOLLOWING_PREDICATE = re.compile(
+    r"\b(?:and|but|yet|while|whereas)\s+(?:[a-z][\w'-]*\s+)?"
+    r"(?=(?:is|are|serves|acts|holds|works)\b|"
+    r"(?:may|might|will|would|could|can|should)\s+[a-z])", re.IGNORECASE,
+)
 
 
 def _normalized(value: Any) -> str:
@@ -43,13 +68,24 @@ def _affirmed_role_occurrence(description: str, role: str) -> bool:
     text = _normalized(description)
     pattern = re.compile(rf"(?<!\w){re.escape(role)}(?!\w)", re.IGNORECASE)
     for match in pattern.finditer(text):
-        before = text[max(0, match.start() - 40):match.start()]
-        after = text[match.end():match.end() + 36]
-        if re.search(
-            r"\b(?:not|never|no longer|formerly|former|allegedly)\s+(?:an?\s+|the\s+)?$",
-            before,
-            re.IGNORECASE,
+        # Qualifiers belong to the containing sentence, not an arbitrary window.
+        start = max(text.rfind(mark, 0, match.start()) for mark in ".!?;") + 1
+        ends = [text.find(mark, match.end()) for mark in ".!?;"]
+        end = min((index for index in ends if index >= 0), default=len(text))
+        before = text[start:match.start()]
+        after = text[match.end():end]
+        # A separate coordinated clause may qualify a future action rather than
+        # the present role. A modal must introduce a predicate, so names such as
+        # May and Will do not count as uncertainty on their own.
+        prefix = _INDEPENDENT_ROLE_CLAUSE.split(before)[-1]
+        suffix = _FOLLOWING_PREDICATE.split(after, maxsplit=1)[0]
+        if (
+            _UNCERTAIN_ROLE_PREFIX.search(before)
+            or _MODAL_ROLE_PREFIX.search(prefix)
+            or _CONDITIONAL_ROLE_CLAUSE.search(before + " " + suffix)
         ):
+            continue
+        if _NEGATED_ROLE_PREFIX.search(prefix):
             continue
         if re.match(
             r"\s*(?:but\s+)?(?:not|never|no longer|formerly)\b",

@@ -195,3 +195,66 @@ def test_duplicate_or_crossing_scene_section_boundaries_fail_closed():
     crossing[1]["line_end"] = 4
     with pytest.raises(SourceSectionRetentionError):
         prepared_scenario_sections(crossing)
+
+
+def test_grouped_heading_and_body_keep_original_source_span_identity():
+    rows = [
+        {
+            "source_span_ref_id": "span:city",
+            "line_start": 1,
+            "line_end": 2,
+            "text": "# The City of Mirathorn\n## Quirks of the Elderwyld",
+        },
+        {
+            "source_span_ref_id": "span:plot",
+            "line_start": 3,
+            "line_end": 4,
+            "text": "#### Plot Hooks and Encounters\n**Rescue Mission:** Free captives.",
+        },
+        {
+            "source_span_ref_id": "span:lore",
+            "line_start": 5,
+            "line_end": 6,
+            "text": "## Reaches\nOne Reach is equivalent to 8 kilometers.",
+        },
+        {
+            "source_span_ref_id": "span:approach",
+            "line_start": 7,
+            "line_end": 8,
+            "text": "## Approach to Mirathorn\nThe players see the fields.",
+        },
+        {
+            "source_span_ref_id": "span:next",
+            "line_start": 9,
+            "line_end": 9,
+            "text": "# Next Chapter",
+        },
+    ]
+
+    sections = prepared_scenario_sections(rows)
+
+    assert [section["heading"] for section in sections] == [
+        "Plot Hooks and Encounters", "Approach to Mirathorn",
+    ]
+    assert sections[0]["source_span_ref_ids"] == ["span:plot"]
+    assert sections[1]["source_span_ref_ids"] == ["span:approach"]
+
+
+def test_grouped_source_span_crossing_scene_boundary_is_rejected():
+    rows = [
+        {
+            "source_span_ref_id": "span:city",
+            "line_start": 1,
+            "line_end": 1,
+            "text": "# The City of Mirathorn",
+        },
+        {
+            "source_span_ref_id": "span:grouped-boundary",
+            "line_start": 2,
+            "line_end": 4,
+            "text": "#### Plot Hooks and Encounters\nHook\n## Reaches",
+        },
+    ]
+
+    with pytest.raises(SourceSectionRetentionError, match="crosses the boundary"):
+        prepared_scenario_sections(rows)

@@ -8,6 +8,7 @@ from dataclasses import replace
 from typing import Any
 
 from .extraction_profile import register_extraction_profile
+from .worldbuilding_gazetteer_role_citations import _affirmed_role_occurrence
 from .worldbuilding_gazetteer_scenario_scope import (
     GAZETTEER_PREPARED_SCENARIO_PROFILE,
     _heading,
@@ -89,6 +90,14 @@ def _document_city_title(
     return titles[0] if len(titles) == 1 else None
 
 
+def _affirmed_city_governance(text: str) -> bool:
+    # Preserve shared and introductory qualifiers using the reviewed claim rules.
+    return any(
+        _affirmed_role_occurrence(text, match.group(0))
+        for match in _CITY_GOVERNANCE.finditer(text)
+    )
+
+
 def _governance_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     lines = _physical_source_lines(rows)
     in_governance = False
@@ -106,7 +115,7 @@ def _governance_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 in_governance = True
                 governance_level = level
             continue
-        if in_governance and _CITY_GOVERNANCE.search(row["text"]):
+        if in_governance and _affirmed_city_governance(row["text"]):
             matches.append(row)
     return matches
 

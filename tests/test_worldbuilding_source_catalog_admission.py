@@ -206,6 +206,120 @@ def test_registered_build_prepare_admits_exact_world_source_and_confirm_only_pro
     )
 
 
+def test_registered_governance_publishes_and_opens_historical_source(
+    observation_case, tmp_path, monkeypatch,
+):
+    import copy
+    import json
+
+    from apps.live_control_server.services import source_artifact_registry as registry
+    from apps.live_control_server.services.workspace_document_registry import get_workspace_document
+    from apps.live_control_server.services.promotable_ingest_run import resolve_promotable_ingest_run
+    from apps.live_control_server.ports.world_graph_authority_access import get_world_graph_authority
+    from tests._cutover_d3a_blocker_safe_fixtures import _mutate_extraction_candidate
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+    from graph_memory.retrieval.models import (
+        WorldGraphObjectRequest, RETRIEVAL_OBJECT_REQUEST_SCHEMA,
+        WorldGraphSourceAnchorReadRequest, RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA,
+    )
+    from apps.live_control_server.services.world_graph_retrieval import read_source_anchor_internal_v2
+
+    case = observation_case
+    sentence = "Testport Council governs Testport."
+    root = _install_worldbuilding_repo(monkeypatch, tmp_path, native_id=case["world"])
+    monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(root))
+    monkeypatch.setattr(
+        "apps.live_control_server.services.managed_world_graph_projection.resolve_managed_world_binding",
+        actual_binding,
+    )
+    register = registry.create_source_artifact_from_workspace_document
+
+    def register_governance(repo, *, document_id, **kwargs):
+        document = get_workspace_document(repo, document_id)
+        path = repo / document.target_relpath
+        path.write_text(path.read_text() + "\n" + sentence + "\n")
+        return register(repo, document_id=document_id, **kwargs)
+
+    monkeypatch.setattr(registry, "create_source_artifact_from_workspace_document", register_governance)
+    run_id, working_source = _write_bld08_reviewable_run(
+        root, world_id="publication-managed", campaign_id="publication-managed",
+        profile_id="worldbuilding_gazetteer_v1@1.9",
+    )
+    run = resolve_promotable_ingest_run(run_id, root=root)
+    index = json.loads(run.source_span_index_path.read_text())
+    lines = run.normalized_recap_path.read_text().splitlines()
+    span = next(row for row in index["spans"] if sentence in "\n".join(
+        lines[row["start_line"] - 1:row["end_line"]]
+    ))
+    span_id = span["source_span_id"]
+
+    def governance_candidate(candidate):
+        reference = {
+            "source_artifact_id": run.source_artifact_id,
+            "source_ref_id": index["source_ref_id"],
+            "source_anchor_id": f"anchor:{run.source_artifact_id}:{span_id}",
+            "source_span_ref_id": span_id, "anchor_quotes": [sentence],
+            "evidence_role": "source_evidence", "label": "Governance source",
+            "can_open_source": True, "can_highlight_span": True,
+        }
+        for node, identifier, label, kind in zip(candidate["nodes"],
+                ("testport_council", "testport"), ("Testport Council", "Testport"),
+                ("organization", "location"), strict=True):
+            node.update(node_id=identifier, label=label, node_type=kind,
+                        description=sentence, evidence_refs=[copy.deepcopy(reference)])
+        edge = candidate["edges"][0]
+        edge.update(edge_id="council-governs-city", from_node_id="testport_council",
+                    to_node_id="testport", relationship_type="governs", label=sentence,
+                    evidence_refs=[copy.deepcopy(reference)])
+        candidate["edges"] = [edge]
+
+    _mutate_extraction_candidate(root, run_id, governance_candidate)
+    parent = case["bundle"].world_graph.get_head(case["world"])
+    plan = prepare_worldbuilding(WorldbuildingWritePlanPrepareRequest.model_validate({
+        "runId": run_id, "expectedParentRevisionId": parent.head_revision_id,
+        "dispositions": [
+            {"assertionId": "testport_council", "decision": "create_new"},
+            {"assertionId": "testport", "decision": "create_new"},
+            {"assertionId": "council-governs-city", "decision": "accept"},
+        ],
+    }))
+    binding = plan.native_vocabulary_binding.model_dump(mode="json", by_alias=True)
+    assert binding["worldObjectVocabulary"]["vocabulary_revision"] == "world-object-v6"
+    assert binding["worldPropertyVocabulary"]["vocabulary_revision"] == "world-property-v4"
+    receipt = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
+    view = get_world_graph_authority().read_revision(case["world"], receipt.committed_revision_id)
+    city = plan.effect.node_id_map["testport"]
+    council = plan.effect.node_id_map["testport_council"]
+    assert any(edge.predicate == "governs" and edge.subject_object_id == council
+               and edge.target_object_id == city for edge in view.relationships.values())
+    stored = case["bundle"].world_graph.get_revision(case["world"], receipt.committed_revision_id)
+    assert any(edge["predicate"] == "dnd5e:governs" and edge["source_object_id"] == council
+               and edge["target_object_id"] == city for edge in stored.graph_payload["relationships"])
+    repeated = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
+    assert repeated.committed_revision_id == receipt.committed_revision_id
+    assert case["bundle"].world_graph.get_head(case["world"]).head_revision_id == receipt.committed_revision_id
+
+    # Fresh services must read the published source after the editable copy changes.
+    working_source.write_text("An edited working copy, absent from the historical publication.\n")
+    services = direct.direct_services_from_config(case["world"])
+    context = {"worldId": case["world"], "campaignId": "", "admissibility": "gm",
+               "revisionPin": receipt.committed_revision_id, "scopeMode": "world", "focus": {}}
+    request = WorldGraphObjectRequest.model_validate({
+        **context, "schema": RETRIEVAL_OBJECT_REQUEST_SCHEMA, "nodeId": city,
+    })
+    native = services.retrieval.get_complete_object(
+        direct._map_retrieval_context(request, services.binding), object_id=city,
+    )
+    anchor = next(row for row in native.anchors if row.source_span_ref_id == span_id)
+    opened = read_source_anchor_internal_v2(WorldGraphSourceAnchorReadRequest.model_validate({
+        **context, "schema": RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA,
+        "anchorId": anchor.anchor_id, "maxChars": 4000,
+    }), repo_root=root)
+    assert opened.result.outcome == "enough"
+    assert sentence in opened.result.content
+    assert opened.source_span_ref_id == span_id
+
+
 def test_registered_build_publication_keeps_typed_worldbuilding_spans(
     observation_case,
     tmp_path,
