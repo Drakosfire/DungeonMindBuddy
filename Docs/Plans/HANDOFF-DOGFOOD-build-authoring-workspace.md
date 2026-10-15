@@ -27,6 +27,8 @@ Expected exclusive document UI write set:
 - apps/live-control-ui/src/buildSurface/BuildSurfacePage.test.tsx
 - apps/live-control-ui/src/buildSurface/BuildSurfaceContext.test.tsx
 - apps/live-control-ui/src/buildSurface/BuildSurfaceShell.test.tsx
+- apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.tsx
+- apps/live-control-ui/src/agentInteraction/WorldAgentConversation.planPlay.integration.test.tsx
 
 ## No-document Build landing lease amendment
 
@@ -39,6 +41,28 @@ state, runtime, and 5202. Acceptance uses `BuildSurfacePage.test.tsx` to verify
 that bare `/build` presents the framed landing and shared dock without creating
 a source, and that opening a saved source still works. This does not authorize
 PR merge or runtime replacement.
+
+## Empty-Build conversation lease amendment
+
+PRIME approves adding these two paths to the same PR/base and exclusive lease:
+
+- `apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.tsx`
+- `apps/live-control-ui/src/agentInteraction/WorldAgentConversation.planPlay.integration.test.tsx`
+
+In Build only, an empty saved-source context must be stated honestly and expose
+an accessible reason/action that directs the user to open, create, import, or
+save a source. Keep Send disabled and dispatch no request when no source is
+selected. A selected→empty transition must clear any prior source title/context;
+selected-source context remains accurate. Preserve all Plan, Play, and other
+surface behavior. No source-free inference, API/backend/graph/publication,
+runtime, port, or data changes are authorized.
+
+The mounted integration test uses the real controller and conversation portal
+path for empty→selected and selected→empty. It proves there is no stale source,
+Send is disabled and no Build API turn is sent while empty, selected state shows
+the correct saved-source context and existing behavior, and no source is
+auto-created. This is an additive, same-PR Build empty-state capability only;
+it does not authorize merge.
 
 Node workspace is deferred as a separate owner contract: existing governed Graph Review does not provide general existing-node attribute updates. No Node Apply in this PR. Shared hosts
 remain shared; Build-scoped CSS removes modal backdrops without changing other
