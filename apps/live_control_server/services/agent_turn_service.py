@@ -1855,6 +1855,7 @@ class _PolicyExecutionAdapter:
         )
         from graph_memory.interaction.expansion_executor import (
             ExpandGraphRetrievalRequest,
+            resolve_expansion_target_ids,
         )
         from graph_memory.interaction.session import SourceAnchorState
         from graph_memory.interaction.session_store import replace_session
@@ -1916,9 +1917,7 @@ class _PolicyExecutionAdapter:
                 and request.historical_revision_id != self.bootstrap.world_scope.revision_id
             ):
                 return denied("graph_revision_conflict", 409)
-            target_ids = [target.id for target in request.targets] or (
-                session.selected_referent_ids() or list(session.preflight_candidate_ids)
-            )
+            target_ids = resolve_expansion_target_ids(request, session)
             common = {
                 "worldId": self.bootstrap.world_scope.world_id,
                 "campaignId": "", "scopeMode": "world",
