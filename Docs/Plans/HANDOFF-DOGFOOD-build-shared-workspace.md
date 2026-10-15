@@ -91,6 +91,15 @@ Unsaved document editing remains the shared user-operated Edit host capability.
 Test actual invocation bytes using fake runtime, injection-shaped source as data,
 strict codec round-trip, historical change rejection and no duplicate dispatch.
 
+## Cross-owner validator amendment
+PRIME explicitly authorizes inclusion of the APP-owned SubmittedPrimaryWorkIntentV1
+validator hunk and focused owning tests in this single coherent PR, contingent on
+APP confirming collision-free transfer and ARCH reviewing this exact amendment.
+Only the Build digest/registry-revision branch changes: required saved SHA, no Plan
+revision_n. Plan/run/combat validation and historical fingerprint compatibility
+remain unchanged. No schema/store semantics change or other APP type edits.
+APP collision transfer and ARCH activation remain outstanding; no code lease yet.
+
 ## Proposed exact write set (not leased until activation)
 Docs/Plans/HANDOFF-DOGFOOD-build-shared-workspace.md
 apps/live-control-ui/src/App.tsx
@@ -101,6 +110,7 @@ apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.tsx
 apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.test.tsx
 apps/live-control-ui/src/planSurface/components/PlanConversationDockAdapter.tsx
 apps/live-control-ui/src/api/types.ts
+apps/live-control-ui/src/api/liveApi.ts
 apps/live-control-ui/src/chrome/AppChrome.tsx
 apps/live-control-ui/src/styles.css
 apps/live-control-ui/src/surfaceInteraction/editHost/EditHost.tsx
@@ -121,6 +131,8 @@ apps/live_control_server/models/agent_turn.py
 apps/live_control_server/services/agent_surface_context.py
 apps/live_control_server/services/agent_turn_service.py
 tests/test_agent_build_surface_context.py (new)
+tests/test_agent_build_submitted_intent.py (new)
+src/application_state/agent_conversation/types.py (SubmittedPrimaryWorkIntentV1 validator only)
 tests/test_agent_turn_service.py
 
 PRIME reserved files NOT in lease: agent_context_assembler.py,
@@ -142,3 +154,11 @@ unchanged. Review cumulative exact main→head, tests/types/build, code review,
 then bounded owned5202 acceptance. Open assigned PR; PRIME merges separately.
 
 Current runtime remains reviewedbaad/Core33db on5202; no source/model/Graph writes.
+
+Baseline verification before implementation: shared MarkdownDocumentReader and
+BuildSourceReader suites pass; combined three-suite run has 46 passed / 2 failed.
+The inherited Plan/Play integration failures concern uncertain Play recovery after
+switching to Plan and reopening a frozen Play request (composer disabled expectation).
+Do not report a clean baseline or hide these during final integration verification.
+Snapshot text/digests follow existing registry normalized-newline semantics; do not
+claim a distinct raw-file-byte hash or change the source normalization contract.
