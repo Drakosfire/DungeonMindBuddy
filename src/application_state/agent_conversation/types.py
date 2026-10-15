@@ -596,6 +596,11 @@ class SubmittedPrimaryWorkIntentV1(StrictModel):
 
     @model_validator(mode="after")
     def validate_plan_basis(self) -> "SubmittedPrimaryWorkIntentV1":
+        if self.kind == "build":
+            if self.expected_revision_n is not None or self.expected_content_sha256 is None:
+                raise ValueError("Build work requires a saved digest and forbids Plan revision_n")
+            return self
+
         has_revision_n = self.expected_revision_n is not None
         has_digest = self.expected_content_sha256 is not None
         if has_revision_n != has_digest:

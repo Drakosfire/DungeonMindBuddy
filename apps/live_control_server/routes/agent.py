@@ -51,6 +51,10 @@ from apps.live_control_server.services.agent_play_surface_context import (
 from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
 from apps.live_control_server.services.agent_turn_service import (
     AgentPlanWorldGraphBootstrap,
+    BuildSavedSourceBasis,
+    BuildGraphBinding,
+    BUILD_SOURCE_MAX_BYTES,
+    validate_build_source_reference,
     AgentTurnResolvedWork,
     AgentTurnServiceError,
     build_existing_graph_context,
@@ -78,6 +82,7 @@ from apps.live_control_server.services.workspace_document_registry import (
     get_committed_playable_revision,
     get_current_world_plan_revision,
     get_workspace_document,
+    get_workspace_document_snapshot,
 )
 from apps.live_control_server.services.world_container_registry import (
     WorldContainerRegistryError,
@@ -140,6 +145,39 @@ def _owner_resolver(body: AgentTurnRequest) -> Mapping[str, Any] | None:
     return {"kind": "world", "id": record.world_id, "name": record.name}
 
 
+def _build_work_resolver(body: AgentTurnRequest, owner: Mapping[str, Any] | None) -> AgentTurnResolvedWork:
+    locator = body.primary_work
+    if (locator is None or locator.kind != "build" or body.surface.surface_id != "build"
+        or owner is None or owner.get("kind") != "world" or not owner.get("id")):
+        raise AgentTurnServiceError("Build requires a verified World source", code="build_source_unavailable", status_code=403)
+    try:
+        snapshot = get_workspace_document_snapshot(_managed_world_root(), locator.object_id)
+    except WorkspaceDocumentRegistryError as exc:
+        raise AgentTurnServiceError("The saved source is unavailable", code="build_source_unavailable", status_code=exc.status_code) from exc
+    record = snapshot.record
+    digest = sha256(snapshot.markdown.encode("utf-8")).hexdigest()
+    if (record.kind != "worldbuilding_source" or record.status != "active"
+        or record.content_status != "committed" or record.world_id != owner["id"]
+        or record.document_id != locator.object_id or record.revision != locator.expected_revision
+        or snapshot.loaded_revision != record.revision
+        or digest != snapshot.content_sha256 or digest != locator.expected_content_sha256
+        or record.source_domain != "worldbuilding" or not record.document_class
+        or record.authority_state not in {"draft", "reviewed", "canonical"}
+        or record.visibility_state not in {"internal", "player_safe"}):
+        raise AgentTurnServiceError("The saved Build source changed or is not available in this World", code="build_source_unavailable", status_code=409)
+    if len(snapshot.markdown.encode("utf-8")) > BUILD_SOURCE_MAX_BYTES:
+        raise AgentTurnServiceError("This saved source exceeds the 64 KiB context limit", code="build_source_too_large", status_code=413)
+    basis = BuildSavedSourceBasis(record.document_id, str(owner["id"]), record.revision, digest,
+        record.title, record.source_domain, record.document_class, record.authority_state,
+        record.visibility_state, snapshot.markdown)
+    return AgentTurnResolvedWork(kind="build", object_id=record.document_id, revision=record.revision,
+        changed_since_expected=False, owner_kind="world", owner_id=str(owner["id"]),
+        world_id=str(owner["id"]), build_source=basis,
+        surface_context=AgentSurfaceContext(surface_id="build", current_work=AgentCurrentWorkContext(
+            kind="build", work_object_id=record.document_id, title=record.title,
+            object_revision=record.revision, target_session=None)))
+
+
 def _work_resolver(
     body: AgentTurnRequest,
     owner: Mapping[str, Any] | None,
@@ -147,6 +185,8 @@ def _work_resolver(
     locator = body.primary_work
     if locator is None:
         return None
+    if locator.kind == "build":
+        return _build_work_resolver(body, owner)
     if locator.kind == "run" and body.surface.surface_id == "play":
         if owner is None or owner.get("kind") != "world" or not owner.get("id"):
             raise AgentTurnServiceError("A Play Run requires a verified World.", code="world_owner_unverified", status_code=403)
@@ -312,6 +352,19 @@ def _historical_work_resolver(
     if reference.resolution == "absent":
         return None
     locator = body.primary_work
+    if reference.kind == "build":
+        try:
+            document_id, revision, digest, visibility = validate_build_source_reference(provenance)
+        except ValueError as exc:
+            raise AgentTurnServiceError(str(exc), code="turn_receipt_unverifiable", status_code=409) from exc
+        if (locator is None or locator.kind != "build" or locator.object_id != document_id
+            or locator.expected_revision != revision or locator.expected_content_sha256 != digest
+            or owner is None or owner.get("id") != provenance.world_id):
+            raise AgentTurnServiceError("Build retry does not match its frozen source", code="turn_receipt_unverifiable", status_code=409)
+        work = _build_work_resolver(body, owner)
+        if work.build_source is None or work.build_source.visibility_state != visibility:
+            raise AgentTurnServiceError("Build source visibility changed", code="historical_work_unavailable", status_code=409)
+        return work
     if locator is not None and locator.kind == "run" and body.surface.surface_id == "play":
         try:
             receipt = decode_play_run_turn_context_references(reference, provenance.supporting_work)
@@ -424,18 +477,18 @@ def _graph_resolver(
     owner: Mapping[str, Any] | None,
     work: AgentTurnResolvedWork | None,
     *,
-    expected_play_binding: PlayGraphBindingReceiptV1 | None = None,
+    expected_play_binding: PlayGraphBindingReceiptV1 | BuildGraphBinding | None = None,
 ) -> tuple[dict[str, Any], Any]:
     graph = body.graph_request
     if graph.mode == "none":
         raise AgentTurnServiceError(
             "Graph was not requested.", code="graph_not_requested"
         )
-    if body.surface.surface_id == "play" and body.primary_work is not None:
+    if body.surface.surface_id in {"play", "build"} and body.primary_work is not None:
         if (
             graph.mode != "world" or owner is None
             or owner.get("kind") != "world" or owner.get("id") != graph.world_id
-            or work is None or work.kind != "run" or work.world_id != graph.world_id
+            or work is None or work.kind != ("build" if body.surface.surface_id == "build" else "run") or work.world_id != graph.world_id
             or graph.campaign_id is not None or graph.focus.kind != "none"
             or body.graph_selection is not None
         ):

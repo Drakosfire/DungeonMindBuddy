@@ -12,11 +12,19 @@ export interface AdmittedWorldPlayConversationContext {
   sceneTitle?: string | null;
 }
 
+export interface SavedWorldBuildConversationContext {
+  worldId: string; documentId: string; revision: number; contentSha256: string;
+  surfaceInstanceId: string; title: string; dirty: boolean;
+}
+
 interface Registration<T> { token: symbol; value: T }
 
 interface WorldConversationRegistry {
   worldId: string | null;
   plan: Registration<WorldPlanAgentConversationProps> | null;
+  build: Registration<SavedWorldBuildConversationContext | null> | null;
+  registerBuild: (token: symbol, value: SavedWorldBuildConversationContext | null) => void;
+  unregisterBuild: (token: symbol) => void;
   play: Registration<AdmittedWorldPlayConversationContext | null> | null;
   registerPlan: (token: symbol, value: WorldPlanAgentConversationProps) => void;
   unregisterPlan: (token: symbol) => void;
@@ -24,8 +32,8 @@ interface WorldConversationRegistry {
   unregisterPlay: (token: symbol) => void;
   history: WorldAgentConversationHistoryResponse | null;
   setHistory: Dispatch<SetStateAction<WorldAgentConversationHistoryResponse | null>>;
-  pendingTurn: { surface: "plan" | "play"; turnId: string } | null;
-  setPendingTurn: Dispatch<SetStateAction<{ surface: "plan" | "play"; turnId: string } | null>>;
+  pendingTurn: { surface: "plan" | "play" | "build"; turnId: string } | null;
+  setPendingTurn: Dispatch<SetStateAction<{ surface: "plan" | "play" | "build"; turnId: string } | null>>;
   historyRefreshNonce: number;
   setHistoryRefreshNonce: Dispatch<SetStateAction<number>>;
 }
@@ -34,17 +42,20 @@ const Registry = createContext<WorldConversationRegistry | null>(null);
 
 export function WorldAgentConversationProvider({ children, worldId }: { children: ReactNode; worldId: string | null }) {
   const [plan, setPlan] = useState<Registration<WorldPlanAgentConversationProps> | null>(null);
+  const [build, setBuild] = useState<Registration<SavedWorldBuildConversationContext | null> | null>(null);
+  const registerBuild = useCallback((token: symbol, value: SavedWorldBuildConversationContext | null) => setBuild({ token, value }), []);
+  const unregisterBuild = useCallback((token: symbol) => setBuild(current => current?.token === token ? null : current), []);
   const [play, setPlay] = useState<Registration<AdmittedWorldPlayConversationContext | null> | null>(null);
   const [history, setHistory] = useState<WorldAgentConversationHistoryResponse | null>(null);
-  const [pendingTurn, setPendingTurn] = useState<{ surface: "plan" | "play"; turnId: string } | null>(null);
+  const [pendingTurn, setPendingTurn] = useState<{ surface: "plan" | "play" | "build"; turnId: string } | null>(null);
   const [historyRefreshNonce, setHistoryRefreshNonce] = useState(0);
   const registerPlan = useCallback((token: symbol, value: WorldPlanAgentConversationProps) => setPlan({ token, value }), []);
   const unregisterPlan = useCallback((token: symbol) => setPlan((current) => current?.token === token ? null : current), []);
   const registerPlay = useCallback((token: symbol, value: AdmittedWorldPlayConversationContext | null) => setPlay({ token, value }), []);
   const unregisterPlay = useCallback((token: symbol) => setPlay((current) => current?.token === token ? null : current), []);
-  const value = useMemo(() => ({ worldId, plan, play, registerPlan, unregisterPlan, registerPlay, unregisterPlay,
+  const value = useMemo(() => ({ worldId, plan, play, build, registerBuild, unregisterBuild, registerPlan, unregisterPlan, registerPlay, unregisterPlay,
     history, setHistory, pendingTurn, setPendingTurn, historyRefreshNonce, setHistoryRefreshNonce }),
-  [worldId, plan, play, registerPlan, unregisterPlan, registerPlay, unregisterPlay, history, pendingTurn, historyRefreshNonce]);
+  [worldId, plan, play, build, registerBuild, unregisterBuild, registerPlan, unregisterPlan, registerPlay, unregisterPlay, history, pendingTurn, historyRefreshNonce]);
   return <Registry.Provider value={value}>{children}</Registry.Provider>;
 }
 
@@ -80,9 +91,19 @@ export function usePublishWorldPlayConversation(context: AdmittedWorldPlayConver
   }, [registry?.registerPlay, registry?.unregisterPlay, worldId, runId, runRevision, surfaceInstanceId, beatTitle, sceneTitle]);
 }
 
+export function usePublishWorldBuildConversation(context: SavedWorldBuildConversationContext | null) {
+  const registry = useContext(Registry);
+  const token = useRef(Symbol("world-build-conversation"));
+  useLayoutEffect(() => {
+    if (!registry) return;
+    registry.registerBuild(token.current, context);
+    return () => registry.unregisterBuild(token.current);
+  }, [registry?.registerBuild, registry?.unregisterBuild, context]);
+}
+
 /** One persistent conversation controller; route adapters supply current context and portal hosts. */
 export function WorldAgentConversation({ surface, worldId, worldName }: {
-  surface: "plan" | "play" | "other";
+  surface: "plan" | "play" | "build" | "other";
   worldId: string | null;
   worldName?: string;
 }) {
@@ -95,12 +116,15 @@ export function WorldAgentConversation({ surface, worldId, worldName }: {
     revision: null, editBridge: null, draftGeneration: 0, selectionGeneration: 0,
     savedDirty: false, pageReady: false, saveInFlight: false,
   };
+  const build = registry.build?.value;
+  const savedSource = build?.worldId === worldId ? build : null;
   const run = registry.play?.value;
   const admittedRun = run && run.worldId === worldId && run.runId.trim()
     && Number.isSafeInteger(run.runRevision) && run.runRevision > 0 && run.surfaceInstanceId.trim()
     ? run : null;
   return <WorldPlanAgentConversation {...props} worldName={worldName ?? props.worldName}
     presentationHosts={surface === "plan" ? props.presentationHosts : undefined}
-    visible={(surface === "plan" && registry.plan?.value.worldId === worldId) || surface === "play"}
+    visible={(surface === "plan" && registry.plan?.value.worldId === worldId) || surface === "play" || surface === "build"}
+    buildMode={surface === "build" ? { savedSource } : null}
     playMode={surface === "play" ? { admittedRun } : null} />;
 }

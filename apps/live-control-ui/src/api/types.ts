@@ -826,6 +826,20 @@ export interface WorldPlayAgentTurnRequestV1 {
   message: string;
 }
 
+/** Build uses only a server-verified saved source, never browser Markdown. */
+export interface WorldBuildAgentTurnRequestV1 {
+  schema: "dmb_agent_turn_request_v1";
+  client_thread_id: string;
+  turn_id: string;
+  surface: { surface_id: "build"; instance_id: string };
+  owner_scope: { kind: "world"; world_id: string };
+  primary_work: { kind: "build"; object_id: string; expected_revision: number; expected_content_sha256: string };
+  client_work_state: "saved_clean" | "saved_dirty";
+  graph_request: WorldPlayAgentTurnRequestV1["graph_request"];
+  graph_selection: null;
+  message: string;
+}
+
 /** Wire shape returned by the accepted generic turn route; runtime-validated by its caller. */
 export interface WorldPlanAgentTurnResponseV1 {
   schema: "dmb_agent_turn_response_v1";

@@ -1643,6 +1643,10 @@ export async function postWorldPlayAgentTurn(
   });
 }
 
+export async function postWorldBuildAgentTurn(request: import("./types").WorldBuildAgentTurnRequestV1): Promise<WorldPlanAgentTurnResponse> {
+  return apiFetch<WorldPlanAgentTurnResponse>("/api/live/agent/turn", { method: "POST", body: JSON.stringify(request) });
+}
+
 export async function getWorldAgentTurnContextTrace(worldId: string, turnId: string) {
   return apiFetch<import('./buddyContextTraceTypes').WorldAgentTurnContextTraceResponse>(
     `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/turns/${encodeURIComponent(turnId)}/context-trace`,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { AppChrome } from "../chrome/AppChrome";
+import { AppChrome, type AppChromeToolsGeneration } from "../chrome/AppChrome";
 import { announceSelectedWorldLocationChange } from "../selectedWorld/SelectedWorldContext";
 import { MarkdownCanvasSessionProvider } from "../markdownCanvas/MarkdownCanvasSession";
 import { BUILD_MARKDOWN_CANVAS } from "./buildMarkdownCanvasAdapter";
@@ -14,6 +14,7 @@ import { useBuildWorkspaceDocumentController } from "./useBuildWorkspaceDocument
 import "./buildSurface.css";
 
 export function BuildSurfacePage() {
+  const [editorTools, setEditorTools] = useState<AppChromeToolsGeneration | null>(null);
   const controller = useBuildWorkspaceDocumentController();
   const [extractionTarget, setExtractionTarget] = useState<HTMLDivElement | null>(null);
 
@@ -25,7 +26,7 @@ export function BuildSurfacePage() {
   }, [controller.activeRecord]);
 
   return (
-    <AppChrome activeRoute="build">
+    <AppChrome activeRoute="build" editorTools={editorTools} editToolboxLayout="overlay">
       {controller.activeDocumentId ? (
         <MarkdownCanvasSessionProvider
           key={controller.activeDocumentId}
@@ -37,7 +38,7 @@ export function BuildSurfacePage() {
           <BuildSurfaceContext {...controller} extractionTargetRef={setExtractionTarget} />
           <BuildReferenceCapability documentId={controller.activeDocumentId}>
             <BuildIngestToolbar documentId={controller.activeDocumentId} target={extractionTarget} />
-            <BuildSurfaceShell />
+            <BuildSurfaceShell onEditorTools={setEditorTools} />
           </BuildReferenceCapability>
         </MarkdownCanvasSessionProvider>
       ) : (

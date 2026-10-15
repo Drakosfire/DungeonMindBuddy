@@ -454,3 +454,10 @@
 .build-source-reader .markdown-document-reader :is(h1, h2, h3, h4, h5, h6) {
   scroll-margin-top: 4rem;
 }
+
+.markdown-document-outline { min-width: 0; }
+.markdown-document-outline ol { list-style: none; padding: 0; margin: 0.5rem 0; }
+.markdown-document-outline li { margin: 0.25rem 0; }
+.markdown-document-outline a { display: block; padding: 0.3rem; overflow-wrap: anywhere; color: inherit; text-decoration: none; border-radius: 0.25rem; }
+.markdown-document-outline a:hover, .markdown-document-outline a:focus-visible { background: var(--surface-hover, #283543); }
+.shared-document-mode { display: flex; gap: 0.5rem; flex-wrap: wrap; }

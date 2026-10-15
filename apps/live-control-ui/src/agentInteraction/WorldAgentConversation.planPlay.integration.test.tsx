@@ -2,14 +2,14 @@ import { useMemo, useState } from "react";
 import { webcrypto } from "node:crypto";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldPlanDocumentEditProposal } from "../api/liveApi";
-import type { AgentInteractionTurn, WorldAgentConversationHistoryResponseV1, WorldPlanAgentTurnRequestV1, WorldPlayAgentTurnRequestV1, WorldPlanAgentPlanContextV2, WorldPlanGraphAnswerContextStatusV1, WorldPlanGraphExecutionProjectionV1, WorldAgentConversationHistoryResponse } from "../api/types";
+import { getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldPlanDocumentEditProposal } from "../api/liveApi";
+import type { AgentInteractionTurn, WorldAgentConversationHistoryResponseV1, WorldPlanAgentTurnRequestV1, WorldPlayAgentTurnRequestV1, WorldBuildAgentTurnRequestV1, WorldPlanAgentPlanContextV2, WorldPlanGraphAnswerContextStatusV1, WorldPlanGraphExecutionProjectionV1, WorldAgentConversationHistoryResponse } from "../api/types";
 import { AgentInteractionChrome } from "./AgentInteractionChrome";
 import { AgentInteractionProvider } from "./AgentInteractionProvider";
 import { useAgentInteraction } from "./useAgentInteraction";
 import { AskPluginSlotProvider } from "./AskPluginSlot";
 import { usePublishAgentSurfaceContext } from "./usePublishAgentSurfaceContext";
-import { WorldAgentConversation, WorldAgentConversationProvider, WorldPlanConversationRegistration, usePublishWorldPlayConversation, useWorldAgentConversationState } from "./WorldAgentConversation";
+import { WorldAgentConversation, WorldAgentConversationProvider, WorldPlanConversationRegistration, usePublishWorldPlayConversation, usePublishWorldBuildConversation, useWorldAgentConversationState } from "./WorldAgentConversation";
 import type { CapturedWorldPlanEditTarget, WorldPlanEditBridge } from "../planSurface/agentEdit/planAgentEditProposal";
 
 const selectedWorld = vi.hoisted(() => ({ id: "world-one" }));
@@ -27,6 +27,7 @@ vi.mock("../api/liveApi", async (importOriginal) => ({
   postWorldAgentNewConversation: vi.fn(),
   postWorldPlanAgentTurn: vi.fn(),
   postWorldPlayAgentTurn: vi.fn(),
+  postWorldBuildAgentTurn: vi.fn(),
   postWorldPlanDocumentEditProposal: vi.fn(),
 }));
 
@@ -70,6 +71,15 @@ function PlayPublisher({ admitted }: { admitted: boolean }) {
   usePublishWorldPlayConversation(run);
   return null;
 }
+function BuildPublisher({ admitted }: { admitted: boolean }) {
+  const surface = useMemo(() => ({ surfaceId: "build" as const, label: "Build", campaignId: null,
+    documentId: "source-one", sessionNumber: null, ambientSummary: "Saved source", sourceEnvelope: null }), []);
+  const source = useMemo(() => admitted ? ({ worldId: WORLD, documentId: "source-one", revision: 2,
+    contentSha256: SHA, surfaceInstanceId: "build-instance", title: "City of Mirathorn", dirty: true }) : null, [admitted]);
+  usePublishAgentSurfaceContext(surface);
+  usePublishWorldBuildConversation(source);
+  return null;
+}
 function ProposalFixture() {
   const agent = useAgentInteraction();
   return <button type="button" onClick={() => {
@@ -94,7 +104,7 @@ function NewerPendingFixture() {
     <button type="button" onClick={() => state?.setHistoryRefreshNonce(value => value + 1)}>Refresh shared history fixture</button></>;
 }
 function Harness({ initial = "plan", admitted = true, editBridge = null }: {
-  initial?: "plan" | "play"; admitted?: boolean; editBridge?: WorldPlanEditBridge | null;
+  initial?: "plan" | "play" | "build"; admitted?: boolean; editBridge?: WorldPlanEditBridge | null;
 }) {
   const [surface, setSurface] = useState(initial);
   const [world, setWorld] = useState(WORLD);
@@ -105,7 +115,7 @@ function Harness({ initial = "plan", admitted = true, editBridge = null }: {
       <button type="button" onClick={() => setDocumentId("plan-two")}>Switch Plan document</button>
       <button type="button" onClick={() => { selectedWorld.id = "world-two"; setWorld("world-two"); }}>Switch World</button>
       <ProposalFixture /><NewerPendingFixture />
-      {surface === "plan" ? <PlanPublisher documentId={documentId} editBridge={editBridge} /> : <PlayPublisher admitted={admitted && world === WORLD} />}
+      {surface === "plan" ? <PlanPublisher documentId={documentId} editBridge={editBridge} /> : surface === "build" ? <BuildPublisher admitted={admitted && world === WORLD} /> : <PlayPublisher admitted={admitted && world === WORLD} />}
       <AgentInteractionChrome />
       <WorldAgentConversation surface={surface} worldId={world} worldName="Test World" />
     </WorldAgentConversationProvider>
@@ -327,6 +337,48 @@ describe("one App-level World conversation host across Plan and Play", () => {
   });
 
 
+  it("submits exact Build source pins through the same World conversation and keeps its answer on Plan", async () => {
+    let current = history();
+    vi.mocked(getWorldAgentConversationHistory).mockImplementation(async () => current);
+    vi.mocked(postWorldBuildAgentTurn).mockImplementation(async (request: WorldBuildAgentTurnRequestV1) => {
+      const answerTurn = { ...turn("plan", 1, "Frank and Sara operate the Rocky Talkie."),
+        turn_id: request.turn_id, user_text: request.message,
+        provenance: { ...turn("plan", 1, "").provenance, surface_id: "build", surface_instance_id: "build-instance",
+          primary_work: { resolution: "resolved" as const, kind: "build", object_id: "source-one", revision: "2",
+            content_sha256: SHA, object_revision: null, work_revision_id: null, revision_n: null } } };
+      current = history([answerTurn]);
+      const response = playResponse({ graph_request: { mode: "world" } } as WorldPlayAgentTurnRequestV1);
+      return { ...response, client_thread_id: request.client_thread_id, turn_id: request.turn_id,
+        surface: { ...response.surface, surface_id: "build", instance_id: "build-instance" },
+        primary_work: { ...response.primary_work, kind: "build", object_id: "source-one", expected_revision: 2, revision_used: 2 },
+        client_work_state_reported: "saved_dirty", graph: { ...response.graph, status: "ready", world_id: "native-world-one",
+          campaign_id: "", scope_mode: "world", revision_id: "native-revision-one", focus: { kind: "none" } },
+        conversation: { ...response.conversation, client_thread_id: request.client_thread_id, turn_id: request.turn_id } };
+    });
+    render(<Harness initial="build" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled());
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Who operates the radio?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await waitFor(() => expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    const request = vi.mocked(postWorldBuildAgentTurn).mock.calls[0]![0];
+    expect(request.primary_work).toEqual({ kind: "build", object_id: "source-one", expected_revision: 2, expected_content_sha256: SHA });
+    expect(request.client_work_state).toBe("saved_dirty");
+    expect(JSON.stringify(request)).not.toContain("markdown");
+    expect(postWorldPlanAgentTurn).not.toHaveBeenCalled();
+    expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
+    await screen.findByText("Frank and Sara operate the Rocky Talkie.");
+    fireEvent.click(screen.getByRole("button", { name: "Switch surface" }));
+    await screen.findByText("Frank and Sara operate the Rocky Talkie.");
+  });
+
+  it("keeps Build composer closed to unverified or unsaved source context", async () => {
+    render(<Harness initial="build" admitted={false} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    expect(await screen.findByLabelText("Message DungeonBuddy")).toBeDisabled();
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+  });
+
   it.each(["failed", "interrupted", "wrong_key", "wrong_basis", "wrong_conversation", "duplicate", "changed_envelope", "newer_pending"] as const)("reconciles terminal Graph Ask safely: %s", async (scenario) => {
     const terminal = scenario === "failed" ? "failed" : "interrupted";
     let current: WorldAgentConversationHistoryResponse = history();
@@ -422,7 +474,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     vi.mocked(getWorldAgentConversationHistory).mockImplementation(async () => history([
       turn("plan", 1, "Original Plan answer"),
       ...(phase === "initial" ? [] : [{ ...turn("play", 2, "Recovered Play answer"),
-        turn_id: playTurnId, assistant_text: phase === "pending" ? null : "Recovered Play answer",
+        turn_id: playTurnId, user_text: "What happens next?", assistant_text: phase === "pending" ? null : "Recovered Play answer",
         lifecycle_status: phase === "pending" ? "pending" as const : "completed" as const }]),
     ]));
     vi.mocked(postWorldPlayAgentTurn).mockImplementation(async (request) => {
@@ -478,13 +530,13 @@ describe("one App-level World conversation host across Plan and Play", () => {
     await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeDisabled());
     expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
     expect(window.localStorage.getItem(storageKey)).toBe(frozen);
-    fireEvent.click(screen.getByRole("button", { name: "Retry exact Play turn" }));
+    fireEvent.click(screen.getByRole("button", { name: "Retry exact saved turn" }));
     await waitFor(() => expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(2));
     expect(vi.mocked(postWorldPlayAgentTurn).mock.calls[1]?.[0]).toEqual(firstRequest);
     expect(JSON.stringify(vi.mocked(postWorldPlayAgentTurn).mock.calls[1]?.[0])).toBe(JSON.stringify(firstRequest));
     await waitFor(() => expect(screen.getByText("Retried Play answer")).toBeInTheDocument());
     await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled());
-    expect(screen.queryByRole("button", { name: "Retry exact Play turn" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry exact saved turn" })).not.toBeInTheDocument();
   });
 
   it("recovers an actual saved legacy graphless Play turn without changing its request", async () => {
@@ -504,7 +556,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     vi.mocked(postWorldPlayAgentTurn).mockImplementation(async (posted) => playResponse(posted));
     render(<Harness initial="play" />);
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-    const retry = await screen.findByRole("button", { name: "Retry exact Play turn" });
+    const retry = await screen.findByRole("button", { name: "Retry exact saved turn" });
     expect(window.localStorage.getItem(storageKey)).toBe(serialized);
     fireEvent.click(retry);
     await waitFor(() => expect(postWorldPlayAgentTurn).toHaveBeenCalledWith(request));
@@ -532,7 +584,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     }));
     render(<Harness initial="play" />);
     fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Retry exact Play turn" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Retry exact saved turn" }));
     await waitFor(() => expect(postWorldPlayAgentTurn).toHaveBeenCalledWith(request));
     await waitFor(() => expect(window.localStorage.getItem(storageKey)).toBeNull());
     expect(playResponse(request).graph.world_id).toBe("native-world-one");
@@ -568,7 +620,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     await waitFor(() => expect(composer).toBeEnabled());
     fireEvent.change(composer, { target: { value: "What happens now?" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
-    await screen.findByText(/Play response did not match/);
+    await screen.findByText(/reply did not match the saved request/);
     expect(screen.queryByText("Original Play answer")).not.toBeInTheDocument();
     expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
     expect(window.localStorage.getItem(`dmb:world-play-pending-turn:v1:${encodeURIComponent(WORLD)}`)).not.toBeNull();
@@ -586,7 +638,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     const storageKey = `dmb:world-play-pending-turn:v1:${encodeURIComponent(WORLD)}`;
     const frozen = window.localStorage.getItem(storageKey);
     fireEvent.click(screen.getByRole("button", { name: "Switch World" }));
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Retry exact Play turn" })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Retry exact saved turn" })).not.toBeInTheDocument());
     expect(window.localStorage.getItem(storageKey)).toBe(frozen);
     expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
   });
@@ -603,7 +655,7 @@ describe("one App-level World conversation host across Plan and Play", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("Ask about this Run"));
     await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled());
-    expect(screen.queryByRole("button", { name: "Retry exact Play turn" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry exact saved turn" })).not.toBeInTheDocument();
     expect(postWorldPlayAgentTurn).toHaveBeenCalledTimes(1);
   });
 

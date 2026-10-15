@@ -16,10 +16,12 @@ import type {
   TableRow,
 } from "mdast";
 
+import { GraphNodeHoverToken, presentationForNodeId, useGraphNodeChipRuntime } from "../graphReference";
+import { isValidGraphNodeId } from "../tiptap/references/runbookReferences";
 import { parsePlayableHtmlComment } from "../tiptap/playable/playableElementIdentity";
 import { parseMarkdownAst } from "../tiptap/markdown/parseMarkdownAst";
 import { splitLeadingYamlFrontmatter, stripLeadingYamlFrontmatter } from "../tiptap/markdown/stripLeadingYamlFrontmatter";
-import { createHeadingIdRegistry, type HeadingIdRegistry } from "./markdownReaderHeadingId";
+import { createHeadingIdRegistry, extractPlainTextFromPhrasing, type HeadingIdRegistry } from "./markdownReaderHeadingId";
 import { classifyImageUrl, classifyLinkUrl } from "./markdownReaderUrlPolicy";
 
 export interface MarkdownSourceLineTarget {
@@ -280,7 +282,21 @@ function renderImage(node: Image, key: string): ReactNode {
   );
 }
 
+function SavedGraphReference({ nodeId, label }: { nodeId: string; label: string }) {
+  const { nodeViews, activeNodeId, onSelectNode, deltaByNodeId } = useGraphNodeChipRuntime();
+  // Only explicit durable node IDs qualify; ordinary names never become guessed graph links.
+  const presentation = presentationForNodeId(nodeViews, nodeId, label);
+  const delta = deltaByNodeId?.[nodeId];
+  return <GraphNodeHoverToken presentation={presentation} label={label || nodeId}
+    pinned={activeNodeId === nodeId} onSelect={() => onSelectNode(nodeId)}
+    deltaStatus={delta?.status} deltaLabel={delta?.label} deltaSummary={delta?.summary} />;
+}
+
 function renderLink(node: Link, ctx: RenderContext, key: string): ReactNode {
+  const nodeId = node.url.startsWith("dmb-node:") ? node.url.slice(9)
+    : node.url.startsWith("#dmb-ref:graph-node:") ? node.url.slice(20) : null;
+  if (nodeId && isValidGraphNodeId(nodeId)) return <SavedGraphReference key={key} nodeId={nodeId}
+    label={extractPlainTextFromPhrasing(node.children)} />;
   return renderSafeLink({
     url: node.url,
     title: node.title,
@@ -299,12 +315,7 @@ function renderLinkReference(node: LinkReference, ctx: RenderContext, key: strin
       </span>
     );
   }
-  return renderSafeLink({
-    url: definition.url,
-    title: definition.title,
-    children: label,
-    key,
-  });
+  return renderLink({ type: "link", url: definition.url, title: definition.title, children: node.children }, ctx, key);
 }
 
 function renderImageReference(node: ImageReference, ctx: RenderContext, key: string): ReactNode {
