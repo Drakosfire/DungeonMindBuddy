@@ -857,6 +857,103 @@ def test_prepare_succeeds_with_buddy_graph_physically_absent(tmp_path, monkeypat
     assert DEFAULT_WORLD_ID not in fake.heads
 
 
+@pytest.mark.parametrize(
+    ("source_kind", "target_kind", "accepted"),
+    [("organization", "location", True), ("location", "organization", False)],
+)
+def test_worldbuilding_governs_uses_pinned_v6_at_prepare_and_confirm(
+    tmp_path, monkeypatch, source_kind, target_kind, accepted
+):
+    from apps.live_control_server.models.extract_promote import (
+        WorldbuildingWritePlanConfirmRequest,
+        WorldbuildingWritePlanPrepareRequest,
+    )
+    from apps.live_control_server.services.worldbuilding_graph_publication import (
+        confirm_worldbuilding,
+        prepare_worldbuilding,
+    )
+    from tests._cutover_d3a_blocker_safe_fixtures import (
+        _mutate_extraction_candidate,
+        _write_bld08_reviewable_run,
+    )
+
+    parent = "rev:governs-parent"
+    native_id = "native-governs"
+    repo = _install_worldbuilding_repo(monkeypatch, tmp_path, native_id=native_id)
+    fake = FakeWorldGraphAuthority()
+    fake.heads[native_id] = parent
+    fake.revisions[(native_id, parent)] = _empty_parent(
+        world_id=native_id, revision_id=parent
+    )
+    _install_fake_authority(monkeypatch, fake)
+    run_id, _source = _write_bld08_reviewable_run(
+        repo, world_id="publication-managed", campaign_id="publication-managed"
+    )
+
+    def make_governance_edge(candidate):
+        candidate["nodes"][0]["node_type"] = source_kind
+        candidate["nodes"][1]["node_type"] = target_kind
+        edge = next(item for item in candidate["edges"] if item["edge_id"] == "e33")
+        edge.update(
+            from_node_id=candidate["nodes"][0]["node_id"],
+            to_node_id=candidate["nodes"][1]["node_id"],
+            relationship_type="governs",
+            label="governs",
+        )
+
+    _mutate_extraction_candidate(repo, run_id, make_governance_edge)
+    request = WorldbuildingWritePlanPrepareRequest.model_validate(
+        {
+            "runId": run_id,
+            "expectedParentRevisionId": parent,
+            "dispositions": [
+                {"assertionId": "obj_session22_vial", "decision": "create_new"},
+                {"assertionId": "mystery_puddles", "decision": "create_new"},
+                {"assertionId": "e33", "decision": "accept"},
+            ],
+        }
+    )
+
+    if not accepted:
+        with pytest.raises(Exception) as rejected:
+            prepare_worldbuilding(request)
+        assert rejected.value.code == "worldbuilding_native_relation_inexpressible"
+        assert fake.publish_calls == 0
+        return
+
+    plan = prepare_worldbuilding(request)
+    binding = plan.native_vocabulary_binding.model_dump(mode="json", by_alias=True)
+    assert binding["world_object_vocabulary"]["vocabulary_revision"] == "world-object-v6"
+    assert binding["world_property_vocabulary"]["vocabulary_revision"] == "world-property-v4"
+    accepted_edge = next(
+        item for item in plan.effect.accepted_proposals if item.assertion_kind == "edge"
+    )
+    assert accepted_edge.predicate == "governs"
+
+    forged_binding = dict(binding)
+    forged_binding["world_object_vocabulary"] = {
+        **binding["world_object_vocabulary"],
+        "vocabulary_revision": "world-object-v5",
+    }
+    forged_model = plan.native_vocabulary_binding.model_copy(
+        update={"world_object_vocabulary": forged_binding["world_object_vocabulary"]}
+    )
+    forged = plan.model_copy(update={"native_vocabulary_binding": forged_model})
+    with pytest.raises(Exception) as stale_contract:
+        confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=forged))
+    assert stale_contract.value.code == "worldbuilding_native_vocabulary_changed"
+    assert fake.publish_calls == 0
+
+    receipt = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan))
+    published = fake.revisions[(native_id, receipt.committed_revision_id)]
+    relation = next(iter(published.relationships.values()))
+    assert relation.subject_object_id == "obj_session22_vial"
+    assert relation.target_object_id == "mystery_puddles"
+    assert relation.predicate == "dnd5e:governs"
+    assert fake.publish_calls == 1
+    assert DEFAULT_WORLD_ID not in fake.heads
+
+
 def test_identity_drift_without_graph_head_advance_uses_sealed_snapshot(
     tmp_path, monkeypatch
 ):
@@ -1166,6 +1263,9 @@ def _wrap_built_plan(built) -> object:
         WORLD_BUILDING_WRITE_PLAN_SCHEMA,
         WorldbuildingWritePlanResponse,
     )
+    from apps.live_control_server.services.worldbuilding_graph_publication import (
+        _worldbuilding_native_vocabulary_binding,
+    )
 
 
     return WorldbuildingWritePlanResponse(
@@ -1186,6 +1286,7 @@ def _wrap_built_plan(built) -> object:
         effect=built.effect,
         summary=built.summary,
         diagnostics=built.diagnostics,
+        native_vocabulary_binding=_worldbuilding_native_vocabulary_binding(),
     )
 
 

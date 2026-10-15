@@ -320,6 +320,14 @@ class WorldbuildingSourceAdmissionBinding(_ExtractPromoteModel):
     campaign_id: None = None
 
 
+class WorldbuildingNativeVocabularyBinding(_ExtractPromoteModel):
+    schema_: Literal["dmb_worldbuilding_native_vocabulary_binding_v1"] = Field(
+        default="dmb_worldbuilding_native_vocabulary_binding_v1", alias="schema"
+    )
+    world_object_vocabulary: dict[str, Any]
+    world_property_vocabulary: dict[str, Any]
+
+
 class WorldbuildingWritePlanResponse(_ExtractPromoteModel):
     schema_: Literal[
         WORLD_BUILDING_WRITE_PLAN_SCHEMA,
@@ -351,6 +359,7 @@ class WorldbuildingWritePlanResponse(_ExtractPromoteModel):
     prepare_binding: str | None = None
     publication_binding: WorldbuildingPublicationBinding | None = None
     source_admission: WorldbuildingSourceAdmissionBinding | None = None
+    native_vocabulary_binding: WorldbuildingNativeVocabularyBinding | None = None
 
 
 WORLD_BUILDING_WRITE_PLAN_CONFIRM_REQUEST_SCHEMA = (

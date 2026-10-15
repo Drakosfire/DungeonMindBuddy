@@ -7,6 +7,7 @@ in ``first_world_graph_publication.py``. Product code talks only to
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import hmac
 import json
@@ -31,6 +32,7 @@ from apps.live_control_server.models.extract_promote import (
     WorldbuildingWritePlanPrepareRequest,
     WorldbuildingWritePlanResponse,
     WorldbuildingPublicationBinding,
+    WorldbuildingNativeVocabularyBinding,
     WorldbuildingSourceAdmissionBinding,
 )
 from apps.live_control_server.ports.world_graph_authority import (
@@ -247,6 +249,150 @@ def _identity_snapshot_digest(snapshot: Mapping[str, Any]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def _worldbuilding_native_vocabulary_binding() -> dict[str, Any]:
+    """Pin the exact additive vocabulary pair used by Build publication."""
+    try:
+        from dungeonmind_dnd.application.world_object_vocabulary import (
+            builtin_world_object_v6_vocabulary_ref,
+            load_builtin_world_object_v6_vocabulary,
+        )
+        from dungeonmind_dnd.application.world_property_vocabulary import (
+            builtin_world_property_v4_vocabulary_ref,
+        )
+
+        object_vocabulary = builtin_world_object_v6_vocabulary_ref()
+        property_vocabulary = builtin_world_property_v4_vocabulary_ref()
+        paired_object_vocabulary = property_vocabulary.world_object_vocabulary
+        if paired_object_vocabulary != object_vocabulary:
+            raise ValueError("world-property-v4 is not paired with world-object-v6")
+        predicates = {
+            item.term for item in load_builtin_world_object_v6_vocabulary().predicates
+        }
+        if "dnd5e:governs" not in predicates:
+            raise ValueError("world-object-v6 does not define dnd5e:governs")
+        return WorldbuildingNativeVocabularyBinding(
+            world_object_vocabulary=object_vocabulary.model_dump(mode="json"),
+            world_property_vocabulary=property_vocabulary.model_dump(mode="json"),
+        ).model_dump(mode="json", by_alias=True)
+    except Exception as exc:
+        raise ExtractPromoteError(
+            "Build publication requires the pinned world-object-v6/world-property-v4 vocabulary pair",
+            code="worldbuilding_native_vocabulary_unavailable",
+            status_code=503,
+            diagnostics=[_diagnostic("worldbuilding_native_vocabulary_unavailable", str(exc))],
+        ) from exc
+
+
+def _qualify_worldbuilding_native_edges(
+    *,
+    preview: Any,
+    effect: Mapping[str, Any],
+    native_vocabulary_binding: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Validate accepted Build relationships and express v6-only terms natively.
+
+    The sealed write plan remains in Buddy vocabulary. This deterministic
+    projection runs only after plan verification, and the source predicate and
+    exact vocabulary refs stay alongside the native predicate for audit.
+    """
+    from apps.live_control_server.integrations.dungeonmind.assertion_qualification import (
+        CURRENT_WORLD_BUILDING_V6_TARGET,
+        edge_endpoint_kind_admission_reason,
+        resolve_buddy_predicate_mapping_v4,
+    )
+    from graph_memory.candidate_graph_to_contribution import kernel_kind_for_node_type
+
+    effect_data = (
+        effect.model_dump(mode="json", by_alias=True)
+        if callable(getattr(effect, "model_dump", None))
+        else dict(effect)
+    )
+    result = copy.deepcopy(effect_data)
+    nodes = {node.node_id: node for node in preview.nodes}
+    edges = {edge.edge_id: edge for edge in preview.edges}
+    node_id_map = dict(result.get("node_id_map") or {})
+    proposals = result.get("accepted_proposals")
+    if not isinstance(proposals, list):
+        raise ExtractPromoteError(
+            "verified worldbuilding plan has no accepted proposal list",
+            code="worldbuilding_native_relation_inexpressible",
+            status_code=409,
+        )
+
+    for assertion in proposals:
+        if not isinstance(assertion, dict) or assertion.get("assertion_kind") != "edge":
+            continue
+        if assertion.get("predicate") != "governs":
+            continue
+        value = assertion.get("value")
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except ValueError:
+                value = None
+        value = dict(value) if isinstance(value, dict) else {}
+        edge_id = str(value.get("extract_edge_id") or "").strip()
+        edge = edges.get(edge_id)
+        if edge is None or edge.relationship_type != "governs":
+            raise ExtractPromoteError(
+                "accepted governs assertion is not bound to its exact candidate edge",
+                code="worldbuilding_native_relation_inexpressible",
+                status_code=409,
+                diagnostics=[_diagnostic("worldbuilding_native_relation_inexpressible", edge_id or "missing edge id")],
+            )
+        source = nodes.get(edge.from_node_id)
+        target_node = nodes.get(edge.to_node_id)
+        if source is None or target_node is None:
+            raise ExtractPromoteError(
+                "accepted governs edge has a missing candidate endpoint",
+                code="worldbuilding_native_relation_inexpressible",
+                status_code=409,
+            )
+        mapping = resolve_buddy_predicate_mapping_v4(
+            edge.relationship_type, target=CURRENT_WORLD_BUILDING_V6_TARGET
+        )
+        reason = edge_endpoint_kind_admission_reason(
+            buddy_predicate=edge.relationship_type,
+            from_buddy_kind=kernel_kind_for_node_type(source.node_type),
+            to_buddy_kind=kernel_kind_for_node_type(target_node.node_type),
+            target=CURRENT_WORLD_BUILDING_V6_TARGET,
+        )
+        reverse = bool(mapping[1]) if mapping is not None else False
+        expected_subject = node_id_map.get(edge.to_node_id if reverse else edge.from_node_id)
+        expected_target = node_id_map.get(edge.from_node_id if reverse else edge.to_node_id)
+        if (
+            mapping is None
+            or mapping[0] != "dnd5e:governs"
+            or reason is not None
+            or assertion.get("subject_node_id") != expected_subject
+            or assertion.get("target_node_id") != expected_target
+        ):
+            raise ExtractPromoteError(
+                "accepted governs edge is not admitted by the pinned World vocabulary",
+                code="worldbuilding_native_relation_inexpressible",
+                status_code=409,
+                diagnostics=[
+                    _diagnostic(
+                        "worldbuilding_native_relation_inexpressible",
+                        reason or "mapped assertion endpoints or predicate disagree with candidate edge",
+                    )
+                ],
+            )
+        assertion["predicate"] = mapping[0]
+        if reverse:
+            assertion["subject_node_id"], assertion["target_node_id"] = (
+                assertion["target_node_id"],
+                assertion["subject_node_id"],
+            )
+        assertion["value"] = {
+            **value,
+            "buddy_predicate": edge.relationship_type,
+            "dm_predicate": mapping[0],
+            "native_vocabulary_binding": dict(native_vocabulary_binding),
+        }
+    return result
+
+
 def _prepare_binding_key() -> bytes:
     explicit = os.environ.get(_PREPARE_BINDING_KEY_ENV, "").strip()
     if explicit:
@@ -265,12 +411,14 @@ def _prepare_binding_message(
     identity_snapshot_digest: str,
     publication_binding: Mapping[str, Any] | None = None,
     source_admission: Mapping[str, Any] | None = None,
+    native_vocabulary_binding: Mapping[str, Any] | None = None,
 ) -> bytes:
     payload = json.dumps(
         {
             "schema": _PREPARE_BINDING_SCHEMA,
             "publication_binding": publication_binding,
             "source_admission": source_admission,
+            "native_vocabulary_binding": native_vocabulary_binding,
             "world_id": world_id,
             "parent_revision_id": parent_revision_id,
             "plan_id": plan_id,
@@ -293,6 +441,7 @@ def _sign_prepare_binding(
     identity_snapshot_digest: str,
     publication_binding: Mapping[str, Any] | None = None,
     source_admission: Mapping[str, Any] | None = None,
+    native_vocabulary_binding: Mapping[str, Any] | None = None,
 ) -> str:
     digest = hmac.new(
         _prepare_binding_key(),
@@ -304,6 +453,7 @@ def _sign_prepare_binding(
             identity_snapshot_digest=identity_snapshot_digest,
             publication_binding=publication_binding,
             source_admission=source_admission,
+            native_vocabulary_binding=native_vocabulary_binding,
         ),
         hashlib.sha256,
     ).hexdigest()
@@ -322,6 +472,10 @@ def _require_prepare_binding(
         identity_snapshot_digest=_identity_snapshot_digest(snapshot),
         publication_binding=plan.publication_binding.model_dump(mode="json") if plan.publication_binding else None,
         source_admission=plan.source_admission.model_dump(mode="json") if plan.source_admission else None,
+        native_vocabulary_binding=(
+            plan.native_vocabulary_binding.model_dump(mode="json", by_alias=True)
+            if plan.native_vocabulary_binding else None
+        ),
     )
     provided = str(getattr(plan, "prepare_binding", None) or "").strip()
     if not provided or not hmac.compare_digest(provided, expected):
@@ -552,6 +706,7 @@ def prepare_worldbuilding(
         resolved
     )
     publication_binding = _registered_publication_binding(resolved)
+    native_vocabulary_binding = _worldbuilding_native_vocabulary_binding()
     typed_preview = _world_scoped_preview(typed_preview, publication_binding)
     native_world_id = publication_binding.native_world_id
     authority = get_world_graph_authority()
@@ -603,6 +758,14 @@ def prepare_worldbuilding(
     except WorldbuildingWritePlanError as exc:
         raise _write_plan_error(exc) from exc
 
+    # Reject accepted relationships that the sealed native vocabulary cannot
+    # express before returning a plan the operator might review.
+    _qualify_worldbuilding_native_edges(
+        preview=typed_preview,
+        effect=plan.effect,
+        native_vocabulary_binding=native_vocabulary_binding,
+    )
+
     try:
         head = authority.current_head(native_world_id)
     except WorldGraphAuthorityError as exc:
@@ -639,6 +802,7 @@ def prepare_worldbuilding(
         effect=plan.effect,
         summary=plan.summary,
         diagnostics=plan.diagnostics,
+        native_vocabulary_binding=native_vocabulary_binding,
     )
     try:
         verify_worldbuilding_write_plan(
@@ -689,6 +853,7 @@ def prepare_worldbuilding(
                 identity_snapshot_digest=_identity_snapshot_digest(snapshot),
                 publication_binding=publication_binding.model_dump(mode="json"),
                 source_admission=admitted.model_dump(mode="json"),
+                native_vocabulary_binding=native_vocabulary_binding,
             )
         }
     )
@@ -727,11 +892,28 @@ def confirm_worldbuilding(
         resolved
     )
     publication_binding = _registered_publication_binding(resolved)
+    native_vocabulary_binding = _worldbuilding_native_vocabulary_binding()
     typed_preview = _world_scoped_preview(typed_preview, publication_binding)
     native_world_id = publication_binding.native_world_id
     if plan.publication_binding is None or plan.publication_binding != publication_binding:
         raise ExtractPromoteError("World/source binding changed; prepare again",
                                  code="worldbuilding_source_binding_changed", status_code=409)
+    if (
+        plan.native_vocabulary_binding is None
+        or plan.native_vocabulary_binding.model_dump(mode="json", by_alias=True)
+        != native_vocabulary_binding
+    ):
+        raise ExtractPromoteError(
+            "Worldbuilding vocabulary changed; prepare again",
+            code="worldbuilding_native_vocabulary_changed",
+            status_code=409,
+            diagnostics=[
+                _diagnostic(
+                    "worldbuilding_native_vocabulary_changed",
+                    "prepared World vocabulary refs do not match the current pinned pair",
+                )
+            ],
+        )
     verify_context = WorldbuildingWritePlanVerificationContext(
         world_id=native_world_id,
         parent_revision_id=plan.parent_revision_id,
@@ -763,10 +945,15 @@ def confirm_worldbuilding(
             context=verify_context,
             require_current_head=False,
         )
+        native_effect = _qualify_worldbuilding_native_edges(
+            preview=typed_preview,
+            effect=verified["effect"],
+            native_vocabulary_binding=native_vocabulary_binding,
+        )
         contribution = materialize_worldbuilding_contribution(
             world_id=verified["world_id"],
             plan_digest=verified["plan_digest"],
-            effect=verified["effect"],
+            effect=native_effect,
         )
     except WorldbuildingWritePlanError as exc:
         raise _write_plan_error(exc) from exc
