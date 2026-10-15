@@ -1,6 +1,6 @@
 # PRIME handoff — source-backed Gazetteer trade detail
 
-**Status:** ACTIVE — bounded extension to the registered Gazetteer extraction profile.
+**Status:** COMPLETED — PR #1197 merged as `8ad55ad804b6767dedcbe309c4115027a8062d49` after independent review. Retained lifecycle remains pending.
 **Base:** Buddy main `fae8838318ff98f1196a09b4c365f4107231af4f`; governance PR #1196 is accepted.
 **Branch:** `codex/gazetteer-trade-context`.
 **Topology:** serial; incorporate the accepted governance prerequisite, then retarget existing PR #1197 to main.
