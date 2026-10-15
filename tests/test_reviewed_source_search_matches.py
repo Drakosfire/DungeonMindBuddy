@@ -135,7 +135,7 @@ def test_tool_guidance_requires_object_and_source_read_for_discovery_pointers():
     assert "reviewedSourceObservationMatches" in definition
     assert "belief and conditional language" in definition
     assert "supporting source" in definition
-    assert "does not establish council membership" in definition
+    assert "does not establish organizational membership" in definition
 
 
 def test_native_anchor_identity_stays_joined_to_discovery_assertion():

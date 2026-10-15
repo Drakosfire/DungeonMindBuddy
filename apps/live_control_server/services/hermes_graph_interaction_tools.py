@@ -184,7 +184,7 @@ def hermes_graph_interaction_tool_definitions() -> list[dict[str, Any]]:
                     "pointers, not canonical attributes or answer claims. Expand each "
                     "relevant subjectNodeId with object and open its supporting source "
                     "anchors before answering. Preserve belief and conditional language; "
-                    "a representative role does not establish council membership. "
+                    "a role label does not establish organizational membership. "
                     "Do not open Markdown or corpus files directly on a graph gap."
                 ),
                 "parameters": expand_schema,
