@@ -1,6 +1,6 @@
 # INGEST: complete recap relationship responses
 
-Status: ACTIVE under PRIME's authorized ingestion scope, 2026-10-15.
+Status: SETTLED. Merged #1209 as `de4100b6c1b9ac8e5e586d112d0bdd0880f6834d` after independent review of `7c55646f83297a9a18c0045119f2bd75418bb253`. Implementation lease ended; runtime rollout and semantic acceptance remain separate.
 Base: `c6db599311209b434b830f495b2df35b8f9dbb92`.
 Lane: `codex/recap-edge-response-capacity`, `/tmp/prime-recap-mention-boundaries`.
 Topology: serial successor; solo PRIME implementation, ARCHITECTURE review.

@@ -355,3 +355,17 @@ def test_extra_known_entities_feed_ledger_suppression_and_mentions() -> None:
     labels = {n.get("label") for n in result.candidate_graph["nodes"]}
     assert "Mirathorn" not in labels
     assert "Mirathorn Guard" in labels
+
+
+def test_canonical_injected_clients_keep_source_evidence_contract():
+    """A source-bearing recap still works with the existing canonical protocol."""
+    client = RecordingClient()
+    result = extract_category_candidate_graph(
+        CategoryGraphExtractionOptions(
+            campaign_id='longmont-c2', session_id='session-24', session_number=24,
+            source_span_index=_span_index(session_id='session-24'),
+            source_text='Mirathorn is a river city.', profile=RECAP_EXTRACTION_PROFILE,
+        ), client=client,
+    )
+    assert 'actor_pass' in client.passes
+    assert result.pass_outputs['actor_pass']['observation_nodes'][0]['evidence_refs'][0]['source_span_ref_id'] == 'span-1'
