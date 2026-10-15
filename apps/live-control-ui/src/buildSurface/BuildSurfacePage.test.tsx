@@ -8,6 +8,7 @@ import { AppChrome, type AppChromeToolsGeneration } from "../chrome/AppChrome";
 import type { MarkdownCanvasSessionValue } from "../markdownCanvas/markdownCanvasTypes";
 import { useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
+import { AskPluginSlotProvider } from "../agentInteraction/AskPluginSlot";
 import { buildGraphObjectCardFromNodeView } from "../graphObjectCard";
 import { referenceFromGraphNode } from "../graphReference/referenceFromGraphNode";
 import { MarkdownCanvasSessionProvider, useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
@@ -30,16 +31,19 @@ import type { BuildReferenceContextBinding } from "./reference/buildBuildSurface
 import { BUILD_REFERENCE_CONTEXT_BINDING_ID } from "./reference/buildReferenceIds";
 import { BuildReferenceCapability } from "./reference/BuildReferenceCapability";
 
-function renderBuildPage() {
+function renderBuildPage({ withConversationDock = false }: { withConversationDock?: boolean } = {}) {
+  const page = <>
+    <SurfaceContextProvider>
+      <PeekRegionProvider>
+        <BuildSurfacePage />
+        <ToolHost />
+        <LegacyProjectionHostAdapter />
+      </PeekRegionProvider>
+    </SurfaceContextProvider>
+  </>;
   return render(
     <AgentInteractionProvider>
-      <SurfaceContextProvider>
-        <PeekRegionProvider>
-          <BuildSurfacePage />
-          <ToolHost />
-          <LegacyProjectionHostAdapter />
-        </PeekRegionProvider>
-      </SurfaceContextProvider>
+      {withConversationDock ? <AskPluginSlotProvider>{page}</AskPluginSlotProvider> : page}
     </AgentInteractionProvider>,
   );
 }
@@ -204,11 +208,19 @@ describe("BuildSurfacePage", () => {
     });
   });
 
-  it("E2: bare /build shows DOCUMENT context and empty state without creating", async () => {
+  it("E2: bare /build shows a framed landing and shared conversation dock without creating", async () => {
     mockUntitledDraftCreate();
-    renderBuildPage();
+    const { container } = renderBuildPage({ withConversationDock: true });
 
-    expect(await screen.findByTestId("build-surface-empty")).toBeInTheDocument();
+    const landing = await screen.findByTestId("build-surface-empty");
+    expect(landing).toHaveClass("build-empty-landing");
+    expect(landing.closest(".build-surface-shell")).toBe(landing);
+    expect(landing.closest('[data-document-surface="build"]')).not.toBeNull();
+    expect(landing).toHaveTextContent("Give this world a place to begin.");
+    expect(landing).toHaveTextContent("Choose a source");
+    expect(landing).toHaveTextContent("Start a blank page");
+    expect(landing).toHaveTextContent("Bring in your lore");
+    expect(container.querySelector(".plan-conversation-dock")).toBeInTheDocument();
     expect(screen.getByText("Source actions")).toBeInTheDocument();
     expect(screen.getByTestId("build-document-create-open")).toBeInTheDocument();
     expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();

@@ -20,12 +20,25 @@ node Apply from document Save; no fake enabled Apply without governed capability
 
 Expected exclusive document UI write set:
 - Docs/Plans/HANDOFF-DOGFOOD-build-authoring-workspace.md
+- apps/live-control-ui/src/buildSurface/BuildSurfacePage.tsx
 - apps/live-control-ui/src/buildSurface/BuildSurfaceShell.tsx
 - apps/live-control-ui/src/buildSurface/BuildSurfaceContext.tsx
 - apps/live-control-ui/src/buildSurface/buildSurface.css
 - apps/live-control-ui/src/buildSurface/BuildSurfacePage.test.tsx
 - apps/live-control-ui/src/buildSurface/BuildSurfaceContext.test.tsx
 - apps/live-control-ui/src/buildSurface/BuildSurfaceShell.test.tsx
+
+## No-document Build landing lease amendment
+
+PRIME approves adding `apps/live-control-ui/src/buildSurface/BuildSurfacePage.tsx`
+to the exclusive lease for this existing PR. Its only purpose in this slice is
+to render the no-document landing inside Build's existing framed projection and
+shared `DocumentConversationDock`. Preserve loaded-document behavior, existing
+route/context semantics, Plan/Play, shared hosts, APIs, graph state, source/save
+state, runtime, and 5202. Acceptance uses `BuildSurfacePage.test.tsx` to verify
+that bare `/build` presents the framed landing and shared dock without creating
+a source, and that opening a saved source still works. This does not authorize
+PR merge or runtime replacement.
 
 Node workspace is deferred as a separate owner contract: existing governed Graph Review does not provide general existing-node attribute updates. No Node Apply in this PR. Shared hosts
 remain shared; Build-scoped CSS removes modal backdrops without changing other
@@ -103,3 +116,20 @@ production build passes with the existing chunk-size warning, and
 `git diff --check` passes. This fix still needs to be rendered in the refreshed
 5203 preview; the remaining pointer/keyboard, focus, frame/scroll, dirty-state,
 and Plan/Play acceptance is still a gate before this branch replaces 5202.
+
+## No-document Build landing
+
+Dogfooding found that `/build` without a selected source bypassed the framed
+projection and shared conversation dock, leaving only a bare “Choose or create
+a source above” message. The no-document branch now stays inside the same paper
+workspace frame, offers clear paths to open, create, or import a source, and
+mounts the shared conversation dock with no saved-source context. Loading and
+unavailable-source states receive explicit status and recovery copy; the route
+still does not create a document automatically.
+
+The bare `/build` test verifies the framed landing, Build surface marker, all
+three paths, source controls, no auto-create behavior, and the shared
+conversation dock. The four owning suites pass 60 tests, TypeScript passes,
+the production build passes with the existing chunk-size warning, and
+`git diff --check` passes. This follow-up is part of PR #1183 and still needs
+an exact-head review and rendered 5203 check; 5202 remains unchanged.

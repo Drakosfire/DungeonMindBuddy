@@ -93,6 +93,64 @@ function BuildConversationBinding({ source, hosts }: { source: SavedWorldBuildCo
   return null;
 }
 
+/** Build's no-document landing is still a framed projection with the same conversation dock. */
+export function BuildEmptyLanding({ loadStatus }: { loadStatus: "idle" | "loading" | "ready" | "empty" | "error" }) {
+  const isLoading = loadStatus === "idle" || loadStatus === "loading";
+  const hasError = loadStatus === "error";
+  const reader = (
+    <div className="build-surface-with-graph-context document-projection" data-document-surface="build">
+      <main
+        className={`build-surface-shell build-empty-landing${hasError ? " build-empty-landing--error" : ""}`}
+        data-testid="build-surface-empty"
+        aria-busy={isLoading}
+      >
+        <div className="build-empty-landing__hero">
+          <span className="build-empty-landing__mark" aria-hidden="true">✧</span>
+          <p className="build-empty-landing__eyebrow">BUILD · WORLDBUILDING</p>
+          <h1>{hasError ? "That source could not be opened." : "Give this world a place to begin."}</h1>
+          <p className="build-empty-landing__intro">
+            {hasError
+              ? "Choose another source above, or start a fresh page from Source actions."
+              : "Open an existing source, start a blank page, or bring in lore you already have. Your work will live here as an editable document."}
+          </p>
+        </div>
+        {isLoading ? (
+          <p className="build-empty-landing__status" role="status">Finding your worldbuilding sources…</p>
+        ) : hasError ? (
+          <p className="build-empty-landing__status" role="alert">The requested source is unavailable. You can choose another from the Build bar.</p>
+        ) : (
+          <div className="build-empty-landing__paths" aria-label="Ways to begin">
+            <section>
+              <span>01 · OPEN</span>
+              <h2>Choose a source</h2>
+              <p>Return to a saved worldbuilding document from the source selector above.</p>
+            </section>
+            <section>
+              <span>02 · CREATE</span>
+              <h2>Start a blank page</h2>
+              <p>Open Source actions in the Build bar and choose New source.</p>
+            </section>
+            <section>
+              <span>03 · IMPORT</span>
+              <h2>Bring in your lore</h2>
+              <p>Use Import source to bring existing Markdown into this world.</p>
+            </section>
+          </div>
+        )}
+        <p className="build-empty-landing__footnote">The document, world tools, and conversation share this workspace.</p>
+      </main>
+    </div>
+  );
+
+  return (
+    <div className="build-workspace-projection">
+      <DocumentConversationDock surface="build" contextLabel="Worldbuilding source" reader={reader}>
+        {hosts => <BuildConversationBinding source={null} hosts={hosts} />}
+      </DocumentConversationDock>
+    </div>
+  );
+}
+
 /**
  * Build document workspace: shared authoring and conversation publication.
  * Document authority lives on MarkdownCanvasSession (provider is owned by BuildSurfacePage).
