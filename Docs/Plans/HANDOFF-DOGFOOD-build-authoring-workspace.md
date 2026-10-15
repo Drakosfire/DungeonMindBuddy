@@ -22,6 +22,7 @@ Expected exclusive document UI write set:
 - apps/live-control-ui/src/buildSurface/buildSurface.css
 - apps/live-control-ui/src/buildSurface/BuildSurfacePage.test.tsx
 - apps/live-control-ui/src/buildSurface/BuildSurfaceContext.test.tsx
+- apps/live-control-ui/src/buildSurface/BuildSurfaceShell.test.tsx
 
 Node workspace is deferred as a separate owner contract: existing governed Graph Review does not provide general existing-node attribute updates. No Node Apply in this PR. Shared hosts
 remain shared; Build-scoped CSS removes modal backdrops without changing other
@@ -37,7 +38,7 @@ This handoff is pinned alone before further implementation. Five product/test
 files already contain draft edits from operator-authorized exploration; those
 uncommitted edits are preserved and are not accepted implementation evidence.
 ARCHITECTURE design ACCEPTABLE on pinned 884866e3bf4f9be9166d0b44d3fc063479bbd6cd
-against base66b24a54; implementation must separately pass exact-head review. Six-path lease is exclusive and Plan/Play unchanged.
+against base66b24a54; implementation must separately pass exact-head review. The amended seven-path lease is exclusive and Plan/Play unchanged.
 
 Nonmodal acceptance includes pointer and keyboard access to the editor while
 companions are open, no focus trap/inert/aria-modal mismatch, stable frame and
@@ -50,3 +51,11 @@ live duplicate/changed heading navigation, tools-open typing, exact saved eviden
 separate from dirty draft, Graph reference chips/serialization, desktop/narrow
 without remount or data loss. Preserve existing formatting/undo paths. Save writes
 the document only; Node Apply remains deferred to its real owner contract.
+
+## Test-only lease amendment
+
+PRIME approved adding `apps/live-control-ui/src/buildSurface/BuildSurfaceShell.test.tsx`
+to this implementation lease. Its legacy tests asserted the removed Read/Edit
+switch and a single rendered reader. Update those expectations to continuous
+authoring while preserving source-navigation, dirty-state and persistence
+coverage. No additional production paths or capability are included.
