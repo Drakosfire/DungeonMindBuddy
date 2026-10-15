@@ -155,6 +155,11 @@ def _build_work_resolver(body: AgentTurnRequest, owner: Mapping[str, Any] | None
     except WorkspaceDocumentRegistryError as exc:
         raise AgentTurnServiceError("The saved source is unavailable", code="build_source_unavailable", status_code=exc.status_code) from exc
     record = snapshot.record
+    from apps.live_control_server.config import artifact_data_root
+    source_root = artifact_data_root(_managed_world_root()).resolve()
+    source_path = source_root / (record.target_relpath or "")
+    if not source_path.is_relative_to(source_root) or source_path.resolve() != source_path:
+        raise AgentTurnServiceError("The source path is not an exact managed file", code="build_source_unavailable", status_code=409)
     digest = sha256(snapshot.markdown.encode("utf-8")).hexdigest()
     if (record.kind != "worldbuilding_source" or record.status != "active"
         or record.content_status != "committed" or record.world_id != owner["id"]

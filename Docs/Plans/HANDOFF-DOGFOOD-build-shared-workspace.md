@@ -2,7 +2,8 @@
 
 Status ACTIVE. Operator authorizes one coherent Build implementation PR; PRIME
 activates after ARCH design gate on 9868724c and APP exclusive validator transfer.
-Design base d92a916220fe1d800936cfffe25288f9f770aad4; branchcodex/build-shared-workspace;
+Design base d92a916220fe1d800936cfffe25288f9f770aad4; implementation rebased onto
+f1ef5ba5a0bc3c40eabff44af3afbf1101012f84; branch codex/build-shared-workspace;
 non-serving checkout /home/drakosfire/.codex/worktrees/editor-mount-cleanliness/DungeonMindBuddy.
 Topology serial one PR. Designing steward DOGFOOD; PRIME coordinates cross-owner
 contracts and merge; ARCHITECTURE reviews. No provider/serving/state lease. Implementation uses synthetic tests only.
@@ -123,7 +124,7 @@ remain unchanged. No schema/store semantics change or other APP type edits.
 APP confirmed no overlapping edits and exclusively transferred this exact validator
 and new test path to DOGFOOD. ARCH design gate passed on 9868724c; PRIME explicitly activated this bounded slice.
 
-## Build managed Graph binding amendment (pending exact ARCH review)
+## Build managed Graph binding amendment (ACTIVE)
 PRIME authorizes this bounded design extension inside the same route/turn-service
 write lease. Generalize the existing verified managed projection branch for both
 Play and Build with explicit flavor preconditions. Build requires verified World
@@ -150,7 +151,8 @@ Owning tests cover differing IDs, none, wrongowner/focus/campaign/selection, map
 and version drift, malformed/missing/duplicate markers, unavailable pinned revision,
 no duplicate dispatch and Plan/Play regressions. No extra files needed beyond the
 existing active route/turn-service/new Build test paths. Do not implement codec
-until this exact material amendment passes ARCH review.
+before exact material review. ARCH accepted 6ad109eda7a36acc0dd939ebc22659fbd5834581
+and PRIME activated the amendment; implementation is now authorized.
 
 ## ACTIVE exact write set
 Docs/Plans/HANDOFF-DOGFOOD-build-shared-workspace.md

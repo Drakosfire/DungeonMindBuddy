@@ -170,3 +170,40 @@ def test_duplicate_visibility_and_changed_world_cannot_reopen_source(source):
         agent._historical_work_resolver(body, owner, malformed)
     with pytest.raises(AgentTurnServiceError):
         agent._historical_work_resolver(body, dict(kind='world', id='another'), provenance)
+
+
+def test_source_symlink_inside_managed_root_cannot_rebind_document(source, tmp_path):
+    target = tmp_path / source.record.target_relpath
+    different_source = target.parent / 'different.md'
+    different_source.write_text(source.markdown)
+    target.unlink()
+    target.symlink_to(different_source)
+    with pytest.raises(AgentTurnServiceError, match='exact managed file'):
+        agent._work_resolver(request(source), dict(kind='world', id='elderwyld'))
+
+
+def test_durable_build_retry_replays_without_dispatch_or_current_body(source, tmp_path, application_state_dsn):
+    from application_state.agent_conversation import AgentConversationService
+    service = AgentConversationService()
+    calls = []
+    class Runtime:
+        descriptor = AgentRuntimeDescriptor('fake', 'fake', 'test', 'conversation')
+        def run(self, invocation):
+            calls.append(invocation)
+            return AgentRuntimeResult(status='ok', final_text='Frank and Sara.', runtime_session_id='saved-source-session')
+    body = request(source)
+    options = dict(root=tmp_path, pointer_store=HermesSessionPointerStore(tmp_path/'durable-pointers'),
+        owner_resolver=lambda _: dict(kind='world', id='elderwyld', name='Elderwyld'),
+        work_resolver=agent._work_resolver, historical_work_resolver=agent._historical_work_resolver,
+        graph_resolver=lambda *_: pytest.fail('No implicit Graph'), runtime=Runtime(), conversation_service=service)
+    first = execute_agent_turn(body, **options)
+    conversation = service.get_active_conversation('elderwyld')
+    turns = service.list_turns('elderwyld', conversation.conversation_id)
+    assert len(turns) == 1
+    assert turns[0].user_text == body.message
+    assert turns[0].provenance.primary_work.content_sha256 == source.content_sha256
+    assert validate_build_source_reference(turns[0].provenance)[0] == source.record.document_id
+    (tmp_path / source.record.target_relpath).unlink()
+    replay = execute_agent_turn(body, **options)
+    assert replay.answer.text == first.answer.text
+    assert len(calls) == 1

@@ -1065,6 +1065,7 @@ def validate_build_source_reference(provenance: TurnProvenance) -> tuple[str, in
     ref = provenance.primary_work
     markers = [r for r in provenance.supporting_work if r.kind == BUILD_SOURCE_VISIBILITY_REFERENCE]
     if (provenance.surface_id != "build" or provenance.surface_resolution != "resolved"
+        or provenance.selected_object.resolution != "absent"
         or ref.resolution != "resolved" or ref.kind != "build" or not ref.object_id
         or ref.revision is None or not ref.revision.isdecimal()
         or str(int(ref.revision)) != ref.revision or int(ref.revision) < 1
@@ -3595,7 +3596,8 @@ def _stored_play_graph_binding(
             if (locator is None or locator.kind != "build" or locator.object_id != document_id
                 or locator.expected_revision != revision or locator.expected_content_sha256 != digest
                 or request.owner_scope is None or request.owner_scope.kind != "world"
-                or request.owner_scope.world_id != provenance.world_id):
+                or request.owner_scope.world_id != provenance.world_id
+                or request.surface.instance_id != provenance.surface_instance_id):
                 raise ValueError("Build source intent does not match frozen provenance")
             bindings = [r for r in provenance.supporting_work if r.kind == BUILD_GRAPH_BINDING_REFERENCE]
             graphs = [r for r in provenance.supporting_work if r.kind == "world_graph_revision"]

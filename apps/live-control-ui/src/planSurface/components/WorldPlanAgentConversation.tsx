@@ -3419,12 +3419,19 @@ export function WorldPlanAgentConversation({
   async function dispatchSavedPlayTurn(stored: StoredPendingPlayTurn) {
     const request = stored.request;
     if (verifiedWorldId !== request.owner_scope.world_id || requestRef.current || sending) return;
-    const token = Symbol("world-play-turn");
+    const token = Symbol("world-readonly-turn");
     requestRef.current = { token, scopeKey: request.owner_scope.world_id, fenceKey: JSON.stringify(request.primary_work) };
     sharedConversation?.setPendingTurn({ surface: request.surface.surface_id, turnId: request.turn_id });
     setSending(true);
     setError(null);
     try {
+      setSubmittedMessage({ id: request.turn_id, scopeKey,
+        conversationId: historySnapshotRef.current?.conversation_id ?? null,
+        pointerRevision: historySnapshotRef.current?.pointer_revision ?? null,
+        message: request.message, kind: "discuss" });
+      void worldTurnIdempotencyKey(request.owner_scope.world_id, request.turn_id).then(key => {
+        setSubmittedMessage(current => current?.id === request.turn_id ? { ...current, idempotencyKey: key } : current);
+      });
       const response = await (request.primary_work.kind === "build"
         ? postWorldBuildAgentTurn(request as WorldBuildAgentTurnRequestV1)
         : postWorldPlayAgentTurn(request as WorldPlayAgentTurnRequestV1));
