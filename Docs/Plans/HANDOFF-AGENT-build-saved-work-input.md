@@ -79,3 +79,21 @@ gate; do not claim full graph ingestion/publication or operator acceptance.
 Activation: current main13a4d89a re-anchored, open relevant product work1178/1180/1181
 merged; no active overlapping seven-path lease. SERVER/DOGFOOD serving ownership
 remains disjoint. Independent implementation review required before merge.
+
+## Implementation review evidence
+
+Author67 focused tests pass: new admitted Unicode source -> actual service ->
+Hermes adapter -> spawned process/strict decoder; public/ordinary/default/invalid
+input kinds, stale source hash, existing Plan behavior, full encoded UTF8 overflow
+before queue dispatch, and unchanged final provider-envelope guard before provider
+authorization. Initial wire test incorrectly expected no worker startup; existing
+host acquires a worker before wire encoding. Corrected proof asserts wire-encode
+failure and no request queue dispatch, without changing production host lifecycle.
+Existing contract/runtime/Build suites pass. PydanticAI directly passes message to
+Agent.run_sync (line560), has no matching size cap and needs no production edit.
+
+SERVER later reconstructed the exact original saved turn/source pins provider-free
+and confirmed this serialization failure before worker/provider dispatch. Receipt:
+/home/drakosfire/.local/state/dungeonmindbuddy/rollout-candidates/buddy-build-a8a19345/adoption/sourceask-failure-receipt.json.
+Original failed turn remains preserved; this repair does not retry it. No provider
+calls, serving changes, retained native writes or private corpus committed.
