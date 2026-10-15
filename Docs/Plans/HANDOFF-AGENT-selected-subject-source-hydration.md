@@ -1,7 +1,9 @@
 # AGENT: selected-subject source hydration
 
-Status: ACTIVE — PRIME activates after ARCHITECTURE accepted clarified
-contract9403d3f9. Exact accepted base d92a916; no serving/model activation.
+Status: DONE for the bounded source-delivery implementation. PR1177 merged
+49cb3570fff19504ea46b9db5daeffc83bd9aa6f after two independent review cycles.
+Reviewed head adbe38e9069907e30b71389079327cf68f8712a4. No serving adoption
+or retained publication implied; full Mirathorn lifecycle remains incomplete.
 PRIME owns design/solo implementation. Base d92a916220fe1d800936cfffe25288f9f770aad4.
 Serial replacement of the negative policy experiment, not dependent on its
 unmerged instructions. PR1176 remains frozen/HOLD. Explicit parallel-independent
@@ -130,3 +132,21 @@ restart/history or operator acceptance is pre-marked complete.
   hashes can be supplementary diagnostics without changing native receipts.
 - Predecessor1175 is merged d92a916;1176 is frozen negative experimental policy,
   not an accepted dependency. This successor starts on accepted main policy.
+
+## Settlement
+
+Cycle1 held5c3d5481 for contradictory non-content replies preserving citeable
+successful read state. Corrected adbe38e9 passed independent36tests and cycle2.
+Exact corrected-head ordinary disposable-clone trial delivered9/9 source bodies
+(including the previously unread realization) in first provider request; useful
+cross-source explanation independently accepted with attribution qualifications.
+Three provider calls;126234 reported inputtokens,1432outputtokens; estimated API
+costUSD0.00689891, actual billing unknown. Fourteen genuine source citation
+entries are receipt-backed; UI clicking/fresh-process/restart not proved by that
+trial. All525 original objects unchanged; disposable clone dropped.
+
+Private evidence: thalia-ordinary-hydrated-support-1 under owned experiment root.
+No full three-case gold acceptance, selected-World completeness or retained
+worldbuilding publication claim. PR1176 negative policy experiment is superseded;
+its instructions are not part of this implementation. Implementation write lease
+is released; downstream work must re-anchor and name its own bounded lease.
