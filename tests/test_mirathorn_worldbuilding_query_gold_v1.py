@@ -19,7 +19,10 @@ def _copy_fixture_repo(tmp_path: Path) -> tuple[Path, Path]:
         gold["corpus"]["source_path"],
         profile["source_path"],
         profile["profile_catalog"]["source_path"],
-        gold["graph_contract_snapshot"]["source_path"],
+        gold["graph_contract_snapshot"]["extraction_predicate_source_path"],
+        gold["graph_contract_snapshot"]["native_predicate_source_path"],
+        gold["graph_contract_snapshot"]["candidate_kind_mapping_source_path"],
+        gold["graph_contract_snapshot"]["buddy_dependency_source_path"],
         *(item["source_path"] for item in profile["available_profiles"]),
     }
     for relative_path in relative_paths:
@@ -103,7 +106,64 @@ def test_gold_rejects_unsupported_native_predicate(tmp_path):
     path["steps"][0]["predicate"] = "commemorates"
     gold_path.write_text(json.dumps(gold, ensure_ascii=False), encoding="utf-8")
 
-    assert any("not in the pinned native vocabulary" in error for error in validate_gold(gold_path, root))
+    assert any("not in the pinned extraction vocabulary" in error for error in validate_gold(gold_path, root))
+
+
+def test_extractable_but_native_unmapped_governs_is_recorded_as_a_gap(tmp_path):
+    root, gold_path = _copy_fixture_repo(tmp_path)
+    gold = json.loads(gold_path.read_text(encoding="utf-8"))
+    contract = gold["graph_contract_snapshot"]
+    question = next(item for item in gold["questions"] if item["id"] == "q_council_interests")
+    path = question["graph_traversal"]["paths"][0]
+
+    assert "governs" in contract["extraction_predicates_used"]
+    assert "governs" not in contract["native_mapped_predicates_used"]
+    assert question["graph_traversal"]["status"] == "native_representation_gap"
+    assert path["steps"][1]["native_admission"] == "unmapped_predicate"
+    assert validate_gold(gold_path, root) == []
+
+    path["steps"][1]["native_admission"] = "mapped_endpoint_unverified"
+    gold_path.write_text(json.dumps(gold, ensure_ascii=False), encoding="utf-8")
+    assert any("claims native support for unmapped predicate 'governs'" in error for error in validate_gold(gold_path, root))
+
+
+def test_native_endpoint_snapshot_blocks_unadmitted_candidate_kinds(tmp_path):
+    root, gold_path = _copy_fixture_repo(tmp_path)
+    gold = json.loads(gold_path.read_text(encoding="utf-8"))
+    snapshot = gold["graph_contract_snapshot"]["native_vocabulary_snapshot"]
+    snapshot["predicates"][0]["object_kinds"] = ["dnd5e:group"]
+    snapshot["predicate_subset_sha256"] = __import__("hashlib").sha256(
+        json.dumps(snapshot["predicates"], ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    gold_path.write_text(json.dumps(gold, ensure_ascii=False), encoding="utf-8")
+
+    assert any(
+        "endpoint kinds are not admitted by the pinned native vocabulary" in error
+        for error in validate_gold(gold_path, root)
+    )
+
+
+def test_graph_path_native_kinds_must_match_write_qualification_mapping(tmp_path):
+    root, gold_path = _copy_fixture_repo(tmp_path)
+    gold = json.loads(gold_path.read_text(encoding="utf-8"))
+    path = next(q for q in gold["questions"] if q["id"] == "q_council_interests")["graph_traversal"]["paths"][0]
+    path["steps"][0]["native_to_kind"] = "dnd5e:group"
+    gold_path.write_text(json.dumps(gold, ensure_ascii=False), encoding="utf-8")
+
+    assert any(
+        "native kind does not match the pinned write-qualification mapping" in error
+        for error in validate_gold(gold_path, root)
+    )
+
+
+def test_unmapped_native_edge_cannot_be_counted_as_a_supported_path(tmp_path):
+    root, gold_path = _copy_fixture_repo(tmp_path)
+    gold = json.loads(gold_path.read_text(encoding="utf-8"))
+    question = next(item for item in gold["questions"] if item["id"] == "q_council_interests")
+    question["graph_traversal"]["status"] = "required_supported_path"
+    gold_path.write_text(json.dumps(gold, ensure_ascii=False), encoding="utf-8")
+
+    assert any("not natively admitted" in error for error in validate_gold(gold_path, root))
 
 
 def test_gold_rejects_disconnected_graph_path(tmp_path):

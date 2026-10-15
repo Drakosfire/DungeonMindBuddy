@@ -571,9 +571,10 @@
       ],
       "audience": "gm",
       "must_not_disclose_fact_ids": [],
-      "task_shape": "supported_graph_path_plus_multi_source_synthesis",
+      "task_shape": "native_representation_gap_plus_multi_source_synthesis",
       "graph_traversal": {
-        "status": "required_supported_path",
+        "status": "native_representation_gap",
+        "note": "The answer facts are source-backed and can be aggregated, but this complete native graph path is not currently publishable: the first edge maps and was endpoint-admitted by ARCHITECTURE on Buddy main 211d97c44e5399dd22d7de28a3de2ab8d444d04c; the second predicate, governs, is extractable but unmapped by the native write qualification contract. Do not report this as a supported native multi-hop traversal.",
         "paths": [
           {
             "start": {
@@ -591,44 +592,57 @@
                   "label": "Mayor Elara Swiftwind",
                   "node_type": "character"
                 },
+                "buddy_from_kind": "npc",
+                "native_from_kind": "dnd5e:npc",
                 "predicate": "leads",
+                "native_admission": "admitted",
+                "native_admission_evidence": {
+                  "check": "edge_endpoint_kind_admission_reason",
+                  "buddy_main_sha": "211d97c44e5399dd22d7de28a3de2ab8d444d04c",
+                  "native_vocabulary_blob_sha": "7eee30a5c10e1a407a3687e050f06eab55bc08a3",
+                  "result_reason": null
+                },
                 "to": {
                   "label": "city council",
                   "node_type": "organization"
                 },
+                "buddy_to_kind": "faction",
+                "native_to_kind": "dnd5e:faction",
                 "evidence_fact_ids": [
                   "elara_leads_council"
-                ]
+                ],
+                "native_term": "dnd5e:leads"
               },
               {
                 "from": {
                   "label": "city council",
                   "node_type": "organization"
                 },
+                "buddy_from_kind": "faction",
+                "native_from_kind": "dnd5e:faction",
                 "predicate": "governs",
+                "native_admission": "unmapped_predicate",
                 "to": {
                   "label": "Mirathorn",
                   "node_type": "location"
                 },
+                "buddy_to_kind": "location",
+                "native_to_kind": "dnd5e:location",
                 "evidence_fact_ids": [
                   "mirathorn_governance"
-                ]
+                ],
+                "native_term": null
               }
             ]
           }
         ],
         "aggregated_fact_ids": [
-          "barin_commerce_concern",
-          "grobnok_cultural_concern",
-          "tinkerbright_arcane_concern",
-          "thalia_law_order_role",
-          "thalia_corruption_stance",
-          "torrin_guild_concern",
-          "merril_agriculture_concern",
-          "rurik_infrastructure_concern"
+          "elara_leads_council",
+          "mirathorn_governance"
         ],
         "forbidden_inferences": [
-          "Do not infer member_of edges from the representatives’ role labels."
+          "member_of",
+          "council_voting_process"
         ]
       }
     },
@@ -706,37 +720,9 @@
       "must_not_disclose_fact_ids": [],
       "task_shape": "multi_fact_gm_synthesis",
       "graph_traversal": {
-        "status": "optional_supported_edges",
-        "paths": [
-          {
-            "start": {
-              "label": "Commander Thalia Ashenvale",
-              "node_type": "character"
-            },
-            "target": {
-              "label": "the Guard",
-              "node_type": "group"
-            },
-            "direction": "forward",
-            "steps": [
-              {
-                "from": {
-                  "label": "Commander Thalia Ashenvale",
-                  "node_type": "character"
-                },
-                "predicate": "commands",
-                "to": {
-                  "label": "the Guard",
-                  "node_type": "group"
-                },
-                "evidence_fact_ids": [
-                  "thalia_law_order_role"
-                ]
-              }
-            ]
-          }
-        ],
-        "note": "This direct edge expresses her source-stated office only. The hidden enchantment and stance remain facts about Thalia; do not invent an additional Wolf-controls edge."
+        "status": "not_required",
+        "note": "Thalia’s office, stance, and hidden cause are answer facts. This gold does not rely on a commands edge until its native endpoint admission is independently verified.",
+        "paths": []
       }
     },
     {
@@ -900,13 +886,47 @@
     ]
   },
   "graph_contract_snapshot": {
-    "source_path": "src/graph_memory/identity_resolution.py",
-    "source_sha256": "027502f4e411d7d69f247649f21bdb16937608001665972992ffa9a55a872433",
-    "legal_predicates_used": [
-      "commands",
+    "extraction_predicate_source_path": "src/graph_memory/identity_resolution.py",
+    "extraction_predicate_source_sha256": "027502f4e411d7d69f247649f21bdb16937608001665972992ffa9a55a872433",
+    "native_predicate_source_path": "apps/live_control_server/integrations/dungeonmind/assertion_qualification.py",
+    "native_predicate_source_sha256": "d0f6afe6f5a91586908c1421edbc154b29928ecb0e3a899f82b6fad02a438fad",
+    "candidate_kind_mapping_source_path": "src/graph_memory/candidate_graph_to_contribution.py",
+    "candidate_kind_mapping_source_sha256": "5ff2974e0c07260a3a6751b8a451ea83b6008039209cbe79c9bda861aa675b96",
+    "extraction_predicates_used": [
       "governs",
       "leads"
     ],
-    "note": "A declared graph path must use a predicate in the exact native PREDICATE_FAMILY snapshot and node types admitted by the selected baseline. Descriptive claims and multi-source dependencies are not graph hops."
+    "native_mapped_predicates_used": [
+      "leads"
+    ],
+    "note": "Extraction vocabulary and native write admission are separate contracts. Buddy native predicates come only from the explicit qualification mapping; candidate node types are converted by the pinned candidate mapper. Endpoint admission also depends on the native v5 world-object vocabulary and must be reported separately. A predicate that the extractor can propose is not automatically publishable.",
+    "buddy_contract_commit": "211d97c44e5399dd22d7de28a3de2ab8d444d04c",
+    "native_vocabulary_snapshot": {
+      "repository": "Drakosfire/DungeonMind",
+      "commit": "33db6c526aa8568cc2a1eeb686aab2a5f3b5ca28",
+      "source_path": "src/dungeonmind_dnd/vocabularies/world-object-v5.json",
+      "blob_sha": "7eee30a5c10e1a407a3687e050f06eab55bc08a3",
+      "vocabulary_id": "dungeonmind.dnd5e.world_object",
+      "revision": "world-object-v5",
+      "predicates": [
+        {
+          "term": "dnd5e:leads",
+          "subject_kinds": [
+            "dnd5e:creature",
+            "dnd5e:threat",
+            "dnd5e:npc",
+            "dnd5e:player_character"
+          ],
+          "object_kinds": [
+            "dnd5e:faction",
+            "dnd5e:group",
+            "dnd5e:party"
+          ]
+        }
+      ],
+      "predicate_subset_sha256": "4b3292ccdd913a4c79c71cb9fa97c773a3ae2beb5af28d8c6ae77bc8a8cb81bd"
+    },
+    "buddy_dependency_source_path": "pyproject.toml",
+    "buddy_dependency_source_sha256": "ee6dfd5484e802768949b1605df235aaed07c351bf2f2e59c2f76501922cd8f6"
   }
 }
