@@ -17,6 +17,16 @@ PROFILE_VERSION = "1.7"
 PROFILE = f"{PROFILE_ID}@{PROFILE_VERSION}"
 _PRIOR_PROFILE = "worldbuilding_gazetteer_v1@1.6"
 _PROFILE_WARNING = f"source_support_policy:{PROFILE}"
+_UNCERTAIN_ROLE_CLAUSE = re.compile(
+    r"\b(?:may|might|could|would|should|will|perhaps|possibly|allegedly|"
+    r"if|unless|provided\s+that|subject\s+to)\b",
+    re.IGNORECASE,
+)
+_NEGATED_ROLE_PREFIX = re.compile(
+    r"\b(?:not|never|no\s+longer|formerly|former|allegedly)"
+    r"(?:\s+(?!only\b)[a-z-]+){0,3}\s+(?:an?\s+|the\s+)?$",
+    re.IGNORECASE,
+)
 
 
 def _normalized(value: Any) -> str:
@@ -43,13 +53,15 @@ def _affirmed_role_occurrence(description: str, role: str) -> bool:
     text = _normalized(description)
     pattern = re.compile(rf"(?<!\w){re.escape(role)}(?!\w)", re.IGNORECASE)
     for match in pattern.finditer(text):
-        before = text[max(0, match.start() - 40):match.start()]
-        after = text[match.end():match.end() + 36]
-        if re.search(
-            r"\b(?:not|never|no longer|formerly|former|allegedly)\s+(?:an?\s+|the\s+)?$",
-            before,
-            re.IGNORECASE,
-        ):
+        # Qualifiers belong to the containing sentence, not an arbitrary window.
+        start = max(text.rfind(mark, 0, match.start()) for mark in ".!?;") + 1
+        ends = [text.find(mark, match.end()) for mark in ".!?;"]
+        end = min((index for index in ends if index >= 0), default=len(text))
+        before = text[start:match.start()]
+        after = text[match.end():end]
+        if _UNCERTAIN_ROLE_CLAUSE.search(before + " " + after):
+            continue
+        if _NEGATED_ROLE_PREFIX.search(before):
             continue
         if re.match(
             r"\s*(?:but\s+)?(?:not|never|no longer|formerly)\b",
