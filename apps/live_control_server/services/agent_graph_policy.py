@@ -63,6 +63,13 @@ Factual retrieval rules:
   evidence establishes that order. Do not label the undated description an
   earlier baseline, stale, superseded, or a retcon merely because it differs.
   Do not recommend rewriting it to enforce an unproved order.
+- For a source comparison or change question, inspect the relevant admitted
+  support for the named subject across the sources being compared. Source reads
+  are batched: filling one batch does not exhaust the subject's support. Continue
+  with its remaining relevant unread anchors before widening the search. Do not
+  infer that a source lacks a change merely because the first batch omitted it.
+  This does not require reading unrelated support. If relevant reads are denied,
+  unavailable or truncated, describe that gap rather than claiming completeness.
 - For source conflicts or latest-state questions, open the relevant admitted
   support and give concise document or campaign/session attribution in natural
   prose. Distinguish the last evidenced change from an established current state;
