@@ -207,3 +207,55 @@ def test_durable_build_retry_replays_without_dispatch_or_current_body(source, tm
     replay = execute_agent_turn(body, **options)
     assert replay.answer.text == first.answer.text
     assert len(calls) == 1
+
+
+@pytest.mark.parametrize('outcome', ['ok', 'error', 'exception', 'disabled'])
+def test_ordinary_build_dispatch_private_evidence_observes_actual_runtime(source, tmp_path, monkeypatch, outcome):
+    from apps.live_control_server.services.agent_runtime_evidence import ENV
+    directory = tmp_path / 'private-runtime-evidence'
+    if outcome == 'disabled':
+        monkeypatch.delenv(ENV, raising=False)
+    else:
+        monkeypatch.setenv(ENV, str(directory))
+    calls = []
+    class Runtime:
+        descriptor = AgentRuntimeDescriptor('fake', 'fake', 'test', 'conversation')
+        def run(self, invocation):
+            calls.append(invocation)
+            if outcome == 'exception':
+                raise RuntimeError('private failure detail')
+            return AgentRuntimeResult(
+                status='error' if outcome == 'error' else 'ok',
+                final_text=None if outcome == 'error' else 'Frank and Sara.',
+                runtime_session_id='build-session',
+                error_code='hermes_worker_timeout' if outcome == 'error' else None,
+                messages=[{'role': 'tool', 'tool_call_id': 'read:one', 'content': '{"anchorId":"anchor:one","content":"Frank and Sara."}'}],
+                context_updates={'retrieval_session': {'source_reads': [{'source_read_id': 'read:one', 'anchor_id': 'anchor:one'}]}},
+            )
+    def execute():
+        return execute_agent_turn(request(source), root=tmp_path,
+            pointer_store=HermesSessionPointerStore(tmp_path/'pointers'),
+            owner_resolver=lambda _: dict(kind='world', id='elderwyld', name='Elderwyld'),
+            work_resolver=agent._work_resolver,
+            graph_resolver=lambda *_: pytest.fail('implicit Graph read'), runtime=Runtime())
+    if outcome == 'exception':
+        with pytest.raises(RuntimeError, match='private failure detail'):
+            execute()
+    elif outcome == 'error':
+        response = execute()
+        assert response.answer.status == 'error'
+        assert response.answer.code == 'hermes_worker_timeout'
+    else:
+        assert execute().answer.text == 'Frank and Sara.'
+    assert len(calls) == 1
+    if outcome == 'disabled':
+        assert not directory.exists()
+    else:
+        record_path, = directory.glob('*-result.json')
+        data = json.loads(record_path.read_text())
+        assert data['invocation']['message'] == calls[0].message
+        sent = json.loads(data['invocation']['message'])
+        assert sent['saved_source']['content'] == source.markdown
+        assert data['binding']['turn_id'] == 'build-turn'
+        if outcome != 'exception':
+            assert data['result']['retrieval_session']['source_reads'][0]['source_read_id'] == 'read:one'

@@ -83,6 +83,7 @@ from apps.live_control_server.services.agent_runtime import (
     descriptor_for_runtime,
 )
 from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
+from apps.live_control_server.services.agent_runtime_evidence import run_with_private_evidence
 from apps.live_control_server.services.agent_context_trace_collector import ContextTraceCollector
 from apps.live_control_server.services.agent_context_trace_projection import graph_operation_observation
 from apps.live_control_server.services.agent_context_compaction_report import ContextCompactionReport
@@ -5524,7 +5525,16 @@ def execute_agent_turn(
             invocation = replace(
                 assembly.invocation, plan_continuity_turn=plan_continuity
             )
-            result = selected_runtime.run(invocation)
+            result = run_with_private_evidence(
+                selected_runtime, invocation,
+                binding={
+                    "world_id": canonical_world_id,
+                    "turn_id": str(running_turn.turn_id) if running_turn else request.turn_id,
+                    "conversation_id": str(running_turn.conversation_id) if running_turn else None,
+                    "attempt": running_turn.attempt if running_turn else None,
+                    "trace_id": trace.trace_id,
+                },
+            )
             if plan_continuity and result.status == "ok":
                 if not result.runtime_session_id:
                     raise AgentTurnServiceError(
