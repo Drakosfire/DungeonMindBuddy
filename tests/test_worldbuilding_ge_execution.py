@@ -62,7 +62,7 @@ class _FakeRun:
     status = SimpleNamespace(value="reviewable")
 
 
-@pytest.mark.parametrize("profile_version", ["1.5", "1.6", "1.7", "1.8"])
+@pytest.mark.parametrize("profile_version", ["1.5", "1.6", "1.7", "1.8", "1.9"])
 def test_generationengine_execution_pins_exact_source_profile_and_provider(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, profile_version: str,
 ) -> None:

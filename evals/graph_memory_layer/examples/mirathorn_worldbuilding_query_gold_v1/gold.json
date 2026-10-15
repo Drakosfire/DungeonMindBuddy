@@ -53,13 +53,14 @@
       "The Mirathorn approach sentence is prepared-scenario prose, not an enduring world fact or played event.",
       "A local deterministic v1.7 replay of the preserved v1.6 candidate added seven exact Role-line citations while preserving all 44 candidate nodes, all 20 edges, and every node semantic field. The candidate remains review material and is not publication evidence.",
       "Gazetteer v1.7 changes evidence attachment only; it does not resolve prepared-scene prose being promoted into durable place knowledge.",
-      "A local deterministic v1.8 replay of the same revision-2 candidate defers nine nodes supported only by Plot Hooks and Encounters or Approach to Mirathorn, plus six scene-supported edges. It clears the mixed City Guard description and aliases while retaining the City Guard identity through the source-backed Thalia command edge. The result has 35 nodes and 14 edges; Reaches material stays outside the excluded ranges, and the line-314 Float Goat scene sentence remains source-only. This is candidate-shaping evidence, not publication or live retrieval evidence."
+      "A local deterministic v1.8 replay of the same revision-2 candidate defers nine nodes supported only by Plot Hooks and Encounters or Approach to Mirathorn, plus six scene-supported edges. It clears the mixed City Guard description and aliases while retaining the City Guard identity through the source-backed Thalia command edge. The result has 35 nodes and 14 edges; Reaches material stays outside the excluded ranges, and the line-314 Float Goat scene sentence remains source-only. This is candidate-shaping evidence, not publication or live retrieval evidence.",
+      "A deterministic local replay of the preserved GenerationEngine v1.5 candidate for the exact saved revision started with 39 nodes and 20 edges. The v1.8 profile produced 29 nodes and 18 edges; v1.9 preserved those results, attached an openable title citation to the Mirathorn and Mirathorn City Council candidates, and added one source-backed candidate edge from the council to Mirathorn with the exact title and Governance citations. This replay used the saved candidate response; no provider call or World publication occurred."
     ],
     "snapshot_role": "selected_pilot_profile_baseline_not_execution_evidence",
     "execution_profile": "unverified",
     "profile_catalog": {
       "source_path": "src/graph_memory/extraction/worldbuilding_profile_catalog.py",
-      "source_sha256": "37bc622f514e1ab81c33b0bce37014e9db6db7bd6e35fbf8f8ff1752ebff7e52"
+      "source_sha256": "a203cb84dd9206c3777b0bcc311c975d73d5fac76d8d01bf86632f1207e3c281"
     },
     "available_profiles": [
       {
@@ -101,6 +102,15 @@
           "Defers relationships supported by those prepared-scene spans and preserves the complete proposal and citations in run diagnostics.",
           "When a mixed-evidence entity survives through a clean durable relationship, clears its unsupported description and aliases, then retains the minimal identity with that relationship's exact source evidence.",
           "Leaves the intervening Quirks of the Elderwyld and Reaches material outside the prepared-scene ranges; source passages remain in the immutable source index."
+        ]
+      },
+      {
+        "id": "worldbuilding_gazetteer_v1@1.9",
+        "source_path": "src/graph_memory/extraction/worldbuilding_gazetteer_governance.py",
+        "source_sha256": "aac039a62d5d5614e878bf0e69dd23cecc7208de69e86a2342996a14172b17ee",
+        "relevant_behavior": [
+          "Preserves v1.8 scene filtering and proposes a directed council-governs-city edge only when a unique city title, matching council/location candidates, and shared exact openable Governance evidence are present.",
+          "Does not create or rename nodes, reverse conflicting edges, infer membership, or publish the candidate."
         ]
       }
     ]
