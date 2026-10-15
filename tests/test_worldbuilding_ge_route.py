@@ -17,7 +17,7 @@ from apps.live_control_server.services.workspace_document_registry import (
 SOURCE = "The Elderwyld is a continent. Mirathorn is a city.\n"
 
 
-@pytest.mark.parametrize("profile_version", ["1.5", "1.6", "1.7", "1.8"])
+@pytest.mark.parametrize("profile_version", ["1.5", "1.6", "1.7", "1.8", "1.9"])
 def test_gazetteer_launch_binds_generation_to_committed_build_source(
     profile_version: str,
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch

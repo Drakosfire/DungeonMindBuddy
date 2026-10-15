@@ -1,9 +1,9 @@
 # PRIME handoff — Mirathorn prepared-scenario scope
 
-**Status:** ACTIVE  
-**Base:** Buddy main `44f63d962951974edfe8d7f0f84f15a058271f87` (reviewed role-citation and two-World isolation predecessors merged)  
-**Branch:** codex/mirathorn-prepared-scenario-v18  
-**Topology:** serial; retarget this existing PR to main after incorporating the pinned predecessor. The downstream governance PR remains held until this slice is merged and re-anchored.  
+**Status:** COMPLETED — merged as `6bde87a27dfeb3768015d96444d22e3c517106bb`; this implementation lease is closed.
+**Base:** Buddy main `44f63d962951974edfe8d7f0f84f15a058271f87` (reviewed role-citation and two-World isolation predecessors merged)
+**Branch:** codex/mirathorn-prepared-scenario-v18
+**Topology:** serial; retarget this existing PR to main after incorporating the pinned predecessor. The downstream governance PR remains held until this slice is merged and re-anchored.
 **Runtime/state ownership:** none. Do not start or restart servers, call a provider, publish World knowledge, or edit retained data.
 
 ## Outcome

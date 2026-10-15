@@ -15,6 +15,7 @@ from typing import Any
 
 from dungeonmind_dnd.application.world_object_vocabulary import (
     load_builtin_world_object_v5_vocabulary,
+    load_builtin_world_object_v6_vocabulary,
 )
 
 _BUDDY_TO_DM_KIND: dict[str, str] = {
@@ -94,6 +95,10 @@ _REVERSE_ENDPOINT_PREDICATE_MAP: dict[str, tuple[str, bool]] = {
     "belongs_to": ("dnd5e:owns", True),
 }
 
+_WORLD_BUILDING_V6_PREDICATE_MAP: dict[str, tuple[str, bool]] = {
+    "governs": ("dnd5e:governs", False),
+}
+
 _INTENTIONALLY_UNRESOLVED_PREDICATES: frozenset[str] = frozenset(
     {
         "carries_report_to",
@@ -153,15 +158,25 @@ _DIRECTION_REVERSE_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
 
 @dataclass(frozen=True, slots=True)
 class QualificationTarget:
-    """Slim current-v5 target surface needed by mounted write qualification."""
+    """Versioned target surface needed by mounted write qualification."""
 
     buddy_to_dm_kind: Mapping[str, str]
     world_object_loader: Callable[[], Any]
+    predicate_map_additions: Mapping[str, tuple[str, bool]] | None = None
 
 
 CURRENT_V5_TARGET = QualificationTarget(
     buddy_to_dm_kind=_BUDDY_TO_DM_KIND_V5,
     world_object_loader=load_builtin_world_object_v5_vocabulary,
+)
+
+# Worldbuilding alone may opt into this additive contract. Recap and other
+# publication paths keep the existing v5 target until their own handoff adopts
+# a newer vocabulary.
+CURRENT_WORLD_BUILDING_V6_TARGET = QualificationTarget(
+    buddy_to_dm_kind=_BUDDY_TO_DM_KIND_V5,
+    world_object_loader=load_builtin_world_object_v6_vocabulary,
+    predicate_map_additions=_WORLD_BUILDING_V6_PREDICATE_MAP,
 )
 
 
@@ -181,12 +196,17 @@ _predicate_allowed_endpoints = predicate_allowed_endpoints
 
 def resolve_buddy_predicate_mapping_v4(
     buddy_predicate: str,
+    *,
+    target: QualificationTarget = CURRENT_V5_TARGET,
 ) -> tuple[str | None, bool] | None:
     """Return (dm_term, reverse_endpoints) for an explicit v4 map, else None.
 
     Intentionally unresolved / mechanics / unknown predicates return None.
     Does not invent ``dnd5e:{pred}`` or ``dnd5e:related_to``.
     """
+    additions = target.predicate_map_additions or {}
+    if buddy_predicate in additions:
+        return additions[buddy_predicate]
     if buddy_predicate == _USES_STATBLOCK:
         return None
     if buddy_predicate in _INTENTIONALLY_UNRESOLVED_PREDICATES:
@@ -206,6 +226,7 @@ def edge_endpoint_kind_admission_reason(
     from_buddy_kind: str,
     to_buddy_kind: str,
     vocabulary: Any | None = None,
+    target: QualificationTarget = CURRENT_V5_TARGET,
 ) -> str | None:
     """Return an eligibility/write rejection reason, or None when endpoints admit.
 
@@ -216,17 +237,17 @@ def edge_endpoint_kind_admission_reason(
     - ``vocabulary_missing_predicate`` — mapped DM term absent from vocabulary
     - ``endpoint_kind_not_admitted`` — endpoint kinds fail the qualified predicate
     """
-    mapping = resolve_buddy_predicate_mapping_v4(buddy_predicate)
+    mapping = resolve_buddy_predicate_mapping_v4(buddy_predicate, target=target)
     if mapping is None or not mapping[0]:
         return "unmapped_predicate"
     dm_predicate, reverse_endpoints = mapping
-    vocab = vocabulary if vocabulary is not None else CURRENT_V5_TARGET.world_object_loader()
+    vocab = vocabulary if vocabulary is not None else target.world_object_loader()
     allowed = predicate_allowed_endpoints(dm_predicate, vocab)
     if allowed is None:
         return "vocabulary_missing_predicate"
     subject_kinds, object_kinds = allowed
-    src_dm = CURRENT_V5_TARGET.buddy_to_dm_kind.get(from_buddy_kind or "")
-    tgt_dm = CURRENT_V5_TARGET.buddy_to_dm_kind.get(to_buddy_kind or "")
+    src_dm = target.buddy_to_dm_kind.get(from_buddy_kind or "")
+    tgt_dm = target.buddy_to_dm_kind.get(to_buddy_kind or "")
     admit_src, admit_tgt = (tgt_dm, src_dm) if reverse_endpoints else (src_dm, tgt_dm)
     if (
         admit_src is None

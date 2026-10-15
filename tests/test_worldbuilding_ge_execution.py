@@ -62,7 +62,7 @@ class _FakeRun:
     status = SimpleNamespace(value="reviewable")
 
 
-@pytest.mark.parametrize("profile_version", ["1.5", "1.6", "1.7", "1.8"])
+@pytest.mark.parametrize("profile_version", ["1.5", "1.6", "1.7", "1.8", "1.9"])
 def test_generationengine_execution_pins_exact_source_profile_and_provider(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, profile_version: str,
 ) -> None:
@@ -137,6 +137,65 @@ def test_generationengine_execution_rejects_digest_mismatch_before_client(
 
     assert _FakeBoundedClient.instances == []
     assert not (tmp_path / "out/graph_memory/runs/extraction").exists()
+
+
+def test_publication_binding_reads_pair_from_loaded_property_catalog(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import sys
+    from types import ModuleType
+
+    from apps.live_control_server.services import worldbuilding_graph_publication
+
+    class _VocabularyRef:
+        def __init__(self, vocabulary_id: str, revision: str, digest: str) -> None:
+            self.vocabulary_id = vocabulary_id
+            self.vocabulary_revision = revision
+            self.catalog_sha256 = digest
+
+        def model_dump(self, *, mode: str) -> dict[str, str]:
+            assert mode == "json"
+            return {
+                "vocabulary_id": self.vocabulary_id,
+                "vocabulary_revision": self.vocabulary_revision,
+                "catalog_sha256": self.catalog_sha256,
+            }
+
+    object_ref = _VocabularyRef(
+        "dungeonmind.dnd5e.world_object", "world-object-v6", "object-v6-digest"
+    )
+    property_ref = _VocabularyRef(
+        "dungeonmind.dnd5e.world_property", "world-property-v4", "property-v4-digest"
+    )
+    object_module = ModuleType(
+        "dungeonmind_dnd.application.world_object_vocabulary"
+    )
+    object_module.builtin_world_object_v6_vocabulary_ref = lambda: object_ref
+    object_module.load_builtin_world_object_v6_vocabulary = lambda: SimpleNamespace(
+        predicates=[SimpleNamespace(term="dnd5e:governs")]
+    )
+    property_module = ModuleType(
+        "dungeonmind_dnd.application.world_property_vocabulary"
+    )
+    property_module.builtin_world_property_v4_vocabulary_ref = lambda: property_ref
+    property_module.load_builtin_world_property_v4_vocabulary = lambda: SimpleNamespace(
+        world_object_vocabulary=object_ref
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "dungeonmind_dnd.application.world_object_vocabulary",
+        object_module,
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "dungeonmind_dnd.application.world_property_vocabulary",
+        property_module,
+    )
+
+    binding = worldbuilding_graph_publication._worldbuilding_native_vocabulary_binding()
+
+    assert binding["worldObjectVocabulary"] == object_ref.model_dump(mode="json")
+    assert binding["worldPropertyVocabulary"] == property_ref.model_dump(mode="json")
 
 
 @dataclass

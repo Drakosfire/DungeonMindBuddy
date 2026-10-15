@@ -2,7 +2,10 @@
 import copy
 import pytest
 from apps.live_control_server.integrations.dungeonmind.assertion_qualification import (
-    CURRENT_V5_TARGET, edge_endpoint_kind_admission_reason, resolve_buddy_predicate_mapping_v4,
+    CURRENT_V5_TARGET,
+    CURRENT_WORLD_BUILDING_V6_TARGET,
+    edge_endpoint_kind_admission_reason,
+    resolve_buddy_predicate_mapping_v4,
 )
 from src.graph_memory.extraction.category_candidate_graph_extractor import consolidate_category_outputs
 
@@ -43,3 +46,28 @@ def test_protection_does_not_invent_predicates_or_accept_wrong_subject_kind():
     assert resolve_buddy_predicate_mapping_v4("made_up_protects") is None
     assert edge_endpoint_kind_admission_reason(buddy_predicate="protects", from_buddy_kind="item", to_buddy_kind="npc") == "endpoint_kind_not_admitted"
     assert edge_endpoint_kind_admission_reason(buddy_predicate="protects", from_buddy_kind="npc", to_buddy_kind="event") == "endpoint_kind_not_admitted"
+
+
+def test_governs_is_admitted_only_by_the_worldbuilding_v6_target():
+    assert resolve_buddy_predicate_mapping_v4("governs") is None
+    assert resolve_buddy_predicate_mapping_v4(
+        "governs", target=CURRENT_WORLD_BUILDING_V6_TARGET
+    ) == ("dnd5e:governs", False)
+    assert edge_endpoint_kind_admission_reason(
+        buddy_predicate="governs",
+        from_buddy_kind="faction",
+        to_buddy_kind="location",
+        target=CURRENT_WORLD_BUILDING_V6_TARGET,
+    ) is None
+    assert edge_endpoint_kind_admission_reason(
+        buddy_predicate="governs",
+        from_buddy_kind="location",
+        to_buddy_kind="faction",
+        target=CURRENT_WORLD_BUILDING_V6_TARGET,
+    ) == "endpoint_kind_not_admitted"
+    assert edge_endpoint_kind_admission_reason(
+        buddy_predicate="governs",
+        from_buddy_kind="npc",
+        to_buddy_kind="location",
+        target=CURRENT_WORLD_BUILDING_V6_TARGET,
+    ) == "endpoint_kind_not_admitted"

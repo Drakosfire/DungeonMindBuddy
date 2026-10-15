@@ -53,13 +53,14 @@
       "The Mirathorn approach sentence is prepared-scenario prose, not an enduring world fact or played event.",
       "A local deterministic v1.7 replay of the preserved v1.6 candidate added seven exact Role-line citations while preserving all 44 candidate nodes, all 20 edges, and every node semantic field. The candidate remains review material and is not publication evidence.",
       "Gazetteer v1.7 changes evidence attachment only; it does not resolve prepared-scene prose being promoted into durable place knowledge.",
-      "A local deterministic v1.8 replay of the same revision-2 candidate defers nine nodes supported only by Plot Hooks and Encounters or Approach to Mirathorn, plus six scene-supported edges. It clears the mixed City Guard description and aliases while retaining the City Guard identity through the source-backed Thalia command edge. The result has 35 nodes and 14 edges; Reaches material stays outside the excluded ranges, and the line-314 Float Goat scene sentence remains source-only. This is candidate-shaping evidence, not publication or live retrieval evidence."
+      "A local deterministic v1.8 replay of the same revision-2 candidate defers nine nodes supported only by Plot Hooks and Encounters or Approach to Mirathorn, plus six scene-supported edges. It clears the mixed City Guard description and aliases while retaining the City Guard identity through the source-backed Thalia command edge. The result has 35 nodes and 14 edges; Reaches material stays outside the excluded ranges, and the line-314 Float Goat scene sentence remains source-only. This is candidate-shaping evidence, not publication or live retrieval evidence.",
+      "A deterministic local replay of the preserved GenerationEngine v1.5 candidate for the exact saved revision started with 39 nodes and 20 edges. The v1.8 profile produced 29 nodes and 18 edges; v1.9 preserved those results, attached an openable title citation to the Mirathorn and Mirathorn City Council candidates, and added one source-backed candidate edge from the council to Mirathorn with the exact title and Governance citations. This replay used the saved candidate response; no provider call or World publication occurred."
     ],
     "snapshot_role": "selected_pilot_profile_baseline_not_execution_evidence",
     "execution_profile": "unverified",
     "profile_catalog": {
       "source_path": "src/graph_memory/extraction/worldbuilding_profile_catalog.py",
-      "source_sha256": "37bc622f514e1ab81c33b0bce37014e9db6db7bd6e35fbf8f8ff1752ebff7e52"
+      "source_sha256": "a203cb84dd9206c3777b0bcc311c975d73d5fac76d8d01bf86632f1207e3c281"
     },
     "available_profiles": [
       {
@@ -101,6 +102,15 @@
           "Defers relationships supported by those prepared-scene spans and preserves the complete proposal and citations in run diagnostics.",
           "When a mixed-evidence entity survives through a clean durable relationship, clears its unsupported description and aliases, then retains the minimal identity with that relationship's exact source evidence.",
           "Leaves the intervening Quirks of the Elderwyld and Reaches material outside the prepared-scene ranges; source passages remain in the immutable source index."
+        ]
+      },
+      {
+        "id": "worldbuilding_gazetteer_v1@1.9",
+        "source_path": "src/graph_memory/extraction/worldbuilding_gazetteer_governance.py",
+        "source_sha256": "d562cd066f26d37ee674822de3b77dce518cf22f538d7365740a14f0b9d1d025",
+        "relevant_behavior": [
+          "Preserves v1.8 scene filtering and proposes a directed council-governs-city edge only when a unique city title, matching council/location candidates, and shared exact openable Governance evidence are present.",
+          "Does not create or rename nodes, reverse conflicting edges, infer membership, or publish the candidate."
         ]
       }
     ]
@@ -605,10 +615,10 @@
       ],
       "audience": "gm",
       "must_not_disclose_fact_ids": [],
-      "task_shape": "native_representation_gap_plus_multi_source_synthesis",
+      "task_shape": "native_contract_unverified_plus_multi_source_synthesis",
       "graph_traversal": {
-        "status": "native_representation_gap",
-        "note": "The answer facts are source-backed and can be aggregated, but this complete native graph path is not currently publishable: the first edge maps and was endpoint-admitted by ARCHITECTURE on Buddy main 211d97c44e5399dd22d7de28a3de2ab8d444d04c; the second predicate, governs, is extractable but unmapped by the native write qualification contract. Do not report this as a supported native multi-hop traversal.",
+        "status": "native_contract_unverified",
+        "note": "The pinned Buddy Build publisher and DungeonMind v6 vocabulary now define the complete native path from Mayor Elara to the city council to Mirathorn. This is contract evidence only: publication into the retained Elderwyld World, ordinary-Agent traversal, and openable passages remain unverified.",
         "paths": [
           {
             "start": {
@@ -632,8 +642,8 @@
                 "native_admission": "admitted",
                 "native_admission_evidence": {
                   "check": "edge_endpoint_kind_admission_reason",
-                  "buddy_main_sha": "211d97c44e5399dd22d7de28a3de2ab8d444d04c",
-                  "native_vocabulary_blob_sha": "7eee30a5c10e1a407a3687e050f06eab55bc08a3",
+                  "buddy_contract_source_sha256": "2d802283d304c609e5da4aadd784a655dedc8494437b62494d2037e9694936c0",
+                  "native_vocabulary_blob_sha": "28cb89deb8b006068a4cbd6ddb371279e4234c28",
                   "result_reason": null
                 },
                 "to": {
@@ -655,7 +665,7 @@
                 "buddy_from_kind": "faction",
                 "native_from_kind": "dnd5e:faction",
                 "predicate": "governs",
-                "native_admission": "unmapped_predicate",
+                "native_admission": "admitted",
                 "to": {
                   "label": "Mirathorn",
                   "node_type": "location"
@@ -665,7 +675,13 @@
                 "evidence_fact_ids": [
                   "mirathorn_governance"
                 ],
-                "native_term": null
+                "native_term": "dnd5e:governs",
+                "native_admission_evidence": {
+                  "check": "edge_endpoint_kind_admission_reason",
+                  "buddy_contract_source_sha256": "2d802283d304c609e5da4aadd784a655dedc8494437b62494d2037e9694936c0",
+                  "native_vocabulary_blob_sha": "28cb89deb8b006068a4cbd6ddb371279e4234c28",
+                  "result_reason": null
+                }
               }
             ]
           }
@@ -923,7 +939,7 @@
     "extraction_predicate_source_path": "src/graph_memory/identity_resolution.py",
     "extraction_predicate_source_sha256": "027502f4e411d7d69f247649f21bdb16937608001665972992ffa9a55a872433",
     "native_predicate_source_path": "apps/live_control_server/integrations/dungeonmind/assertion_qualification.py",
-    "native_predicate_source_sha256": "d0f6afe6f5a91586908c1421edbc154b29928ecb0e3a899f82b6fad02a438fad",
+    "native_predicate_source_sha256": "2d802283d304c609e5da4aadd784a655dedc8494437b62494d2037e9694936c0",
     "candidate_kind_mapping_source_path": "src/graph_memory/candidate_graph_to_contribution.py",
     "candidate_kind_mapping_source_sha256": "5ff2974e0c07260a3a6751b8a451ea83b6008039209cbe79c9bda861aa675b96",
     "extraction_predicates_used": [
@@ -931,18 +947,28 @@
       "leads"
     ],
     "native_mapped_predicates_used": [
-      "leads"
+      "leads",
+      "governs"
     ],
-    "note": "Extraction vocabulary and native write admission are separate contracts. Buddy native predicates come only from the explicit qualification mapping; candidate node types are converted by the pinned candidate mapper. Endpoint admission also depends on the native v5 world-object vocabulary and must be reported separately. A predicate that the extractor can propose is not automatically publishable.",
-    "buddy_contract_commit": "211d97c44e5399dd22d7de28a3de2ab8d444d04c",
+    "note": "Extraction vocabulary and native write admission are separate contracts. Buddy native predicates come only from explicit qualification maps; candidate node types are converted by the pinned candidate mapper. The Build-only v6 map adds directed faction-governs-location. This contract is not evidence that Mirathorn has been published or retrieved in the live World.",
     "native_vocabulary_snapshot": {
       "repository": "Drakosfire/DungeonMind",
-      "commit": "33db6c526aa8568cc2a1eeb686aab2a5f3b5ca28",
-      "source_path": "src/dungeonmind_dnd/vocabularies/world-object-v5.json",
-      "blob_sha": "7eee30a5c10e1a407a3687e050f06eab55bc08a3",
+      "commit": "1d120886b00acf7f97b3744e88619abd97c34591",
+      "source_path": "src/dungeonmind_dnd/vocabularies/world-object-v6.json",
+      "blob_sha": "28cb89deb8b006068a4cbd6ddb371279e4234c28",
       "vocabulary_id": "dungeonmind.dnd5e.world_object",
-      "revision": "world-object-v5",
+      "revision": "world-object-v6",
+      "catalog_sha256": "2c6e2a8547515f968a960fa5647c5ba28ce0978b8e4adb60befe55ef45666845",
       "predicates": [
+        {
+          "term": "dnd5e:governs",
+          "subject_kinds": [
+            "dnd5e:faction"
+          ],
+          "object_kinds": [
+            "dnd5e:location"
+          ]
+        },
         {
           "term": "dnd5e:leads",
           "subject_kinds": [
@@ -958,9 +984,20 @@
           ]
         }
       ],
-      "predicate_subset_sha256": "4b3292ccdd913a4c79c71cb9fa97c773a3ae2beb5af28d8c6ae77bc8a8cb81bd"
+      "predicate_subset_sha256": "39a870212da47c97fb853e82bf5d6e29717895bdc5aa88d3445517e65f038f65"
     },
     "buddy_dependency_source_path": "pyproject.toml",
-    "buddy_dependency_source_sha256": "ee6dfd5484e802768949b1605df235aaed07c351bf2f2e59c2f76501922cd8f6"
+    "buddy_dependency_source_sha256": "5a83e819e86886b005c794db32c7fc6a3671254e8e23841ce95c93499a860d42",
+    "native_property_vocabulary_snapshot": {
+      "repository": "Drakosfire/DungeonMind",
+      "commit": "1d120886b00acf7f97b3744e88619abd97c34591",
+      "source_path": "src/dungeonmind_dnd/vocabularies/world-property-v4.json",
+      "blob_sha": "75e0be0bc897bfc410953376e2d7379bc5ca147c",
+      "vocabulary_id": "dungeonmind.dnd5e.world_property",
+      "revision": "world-property-v4",
+      "catalog_sha256": "1b94913b9c0ecee5270d7b9f48b0a8b8824e768b2400ad69d0624241e2c58cb9",
+      "world_object_revision": "world-object-v6",
+      "world_object_catalog_sha256": "2c6e2a8547515f968a960fa5647c5ba28ce0978b8e4adb60befe55ef45666845"
+    }
   }
 }

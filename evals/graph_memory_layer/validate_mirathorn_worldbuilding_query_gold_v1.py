@@ -65,6 +65,7 @@ GRAPH_STATUSES = {
     "required_supported_path",
     "optional_supported_edges",
     "native_representation_gap",
+    "native_contract_unverified",
     "not_required",
     "profile_dependent",
     "not_applicable",
@@ -74,6 +75,7 @@ TASK_SHAPES = {
     "multi_source_synthesis",
     "supported_graph_path_plus_multi_source_synthesis",
     "native_representation_gap_plus_multi_source_synthesis",
+    "native_contract_unverified_plus_multi_source_synthesis",
     "multi_fact_gm_synthesis",
     "gm_sensitive_fact",
     "player_safe_fact",
@@ -142,11 +144,18 @@ def _native_predicate_mappings(source_text: str) -> dict[str, tuple[str, bool]]:
     direct = _literal_assignment(tree, "_DIRECT_PREDICATE_MAP")
     renamed = _literal_assignment(tree, "_RENAME_PREDICATE_MAP")
     reversed_edges = _literal_assignment(tree, "_REVERSE_ENDPOINT_PREDICATE_MAP")
-    if not isinstance(direct, (set, frozenset)) or not isinstance(renamed, dict) or not isinstance(reversed_edges, dict):
+    worldbuilding_v6 = _literal_assignment(tree, "_WORLD_BUILDING_V6_PREDICATE_MAP")
+    if (
+        not isinstance(direct, (set, frozenset))
+        or not isinstance(renamed, dict)
+        or not isinstance(reversed_edges, dict)
+        or not isinstance(worldbuilding_v6, dict)
+    ):
         raise ValueError("native predicate maps have an unexpected literal shape")
     mappings = {predicate: ("dnd5e:" + predicate, False) for predicate in direct}
     mappings.update({predicate: (term, False) for predicate, term in renamed.items()})
     mappings.update({predicate: (term, reverse) for predicate, (term, reverse) in reversed_edges.items()})
+    mappings.update({predicate: (term, reverse) for predicate, (term, reverse) in worldbuilding_v6.items()})
     return mappings
 
 
@@ -159,10 +168,13 @@ def _native_vocabulary_predicates(snapshot: Any) -> tuple[dict[str, tuple[set[st
             errors.append(f"native vocabulary snapshot requires {key}")
     if snapshot.get("repository") != "Drakosfire/DungeonMind":
         errors.append("native vocabulary snapshot must identify the pinned DungeonMind repository")
-    if snapshot.get("source_path") != "src/dungeonmind_dnd/vocabularies/world-object-v5.json":
-        errors.append("native vocabulary snapshot must identify the v5 world-object source")
-    if snapshot.get("vocabulary_id") != "dungeonmind.dnd5e.world_object" or snapshot.get("revision") != "world-object-v5":
-        errors.append("native vocabulary snapshot must identify world-object-v5")
+    if snapshot.get("source_path") != "src/dungeonmind_dnd/vocabularies/world-object-v6.json":
+        errors.append("native vocabulary snapshot must identify the v6 world-object source")
+    if snapshot.get("vocabulary_id") != "dungeonmind.dnd5e.world_object" or snapshot.get("revision") != "world-object-v6":
+        errors.append("native vocabulary snapshot must identify world-object-v6")
+    catalog_sha = snapshot.get("catalog_sha256")
+    if not isinstance(catalog_sha, str) or len(catalog_sha) != 64 or any(char not in "0123456789abcdef" for char in catalog_sha):
+        errors.append("native vocabulary snapshot catalog_sha256 must be a lowercase SHA-256")
     for key in ("commit", "blob_sha"):
         value = snapshot.get(key)
         if not isinstance(value, str) or len(value) != 40 or any(char not in "0123456789abcdef" for char in value):
@@ -198,6 +210,37 @@ def _native_vocabulary_predicates(snapshot: Any) -> tuple[dict[str, tuple[set[st
             continue
         result[term] = (set(subjects), set(objects))
     return result, errors
+
+
+def _native_property_vocabulary_pair(snapshot: Any, object_snapshot: Any) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(snapshot, dict):
+        return ["native_property_vocabulary_snapshot must be an object"]
+    for key in (
+        "repository", "commit", "source_path", "blob_sha", "vocabulary_id",
+        "revision", "catalog_sha256", "world_object_revision",
+        "world_object_catalog_sha256",
+    ):
+        if not isinstance(snapshot.get(key), str) or not snapshot[key]:
+            errors.append(f"native property vocabulary snapshot requires {key}")
+    if snapshot.get("repository") != "Drakosfire/DungeonMind":
+        errors.append("native property vocabulary snapshot must identify DungeonMind")
+    if snapshot.get("source_path") != "src/dungeonmind_dnd/vocabularies/world-property-v4.json":
+        errors.append("native property vocabulary snapshot must identify world-property-v4")
+    if snapshot.get("vocabulary_id") != "dungeonmind.dnd5e.world_property" or snapshot.get("revision") != "world-property-v4":
+        errors.append("native property vocabulary snapshot must identify world-property-v4")
+    for key in ("commit", "blob_sha"):
+        value = snapshot.get(key)
+        if not isinstance(value, str) or len(value) != 40 or any(char not in "0123456789abcdef" for char in value):
+            errors.append(f"native property vocabulary snapshot {key} must be a lowercase Git SHA")
+    if snapshot.get("world_object_revision") != "world-object-v6":
+        errors.append("world-property-v4 must be paired with world-object-v6")
+    if not isinstance(object_snapshot, dict) or (
+        snapshot.get("commit") != object_snapshot.get("commit")
+        or snapshot.get("world_object_catalog_sha256") != object_snapshot.get("catalog_sha256")
+    ):
+        errors.append("world-property-v4 must pin the exact world-object-v6 catalog")
+    return errors
 
 
 def _candidate_node_kinds(source_text: str) -> dict[str, str]:
@@ -264,7 +307,7 @@ def _check_graph_paths(
     buddy_native_kinds: dict[str, str],
     pinned_extraction_predicates: set[str],
     pinned_native_predicates: set[str],
-    buddy_contract_commit: str,
+    buddy_contract_source_sha256: str,
     native_vocabulary_blob_sha: str,
 ) -> list[str]:
     errors: list[str] = []
@@ -279,13 +322,13 @@ def _check_graph_paths(
     if not isinstance(paths, list):
         return errors + [f"question {question_id} graph_traversal.paths must be an array"]
 
-    if status in {"required_supported_path", "native_representation_gap"} and not paths:
+    if status in {"required_supported_path", "native_representation_gap", "native_contract_unverified"} and not paths:
         errors.append(f"question {question_id} requires explicit graph path evidence for status {status}")
     if status in {"not_required", "profile_dependent", "not_applicable"} and paths:
         errors.append(f"question {question_id} cannot claim paths for status {status}")
     if status == "optional_supported_edges" and not paths:
         errors.append(f"question {question_id} must list its optional supported edges")
-    if status in {"required_supported_path", "native_representation_gap", "not_required", "profile_dependent", "not_applicable"} and not traversal.get("note"):
+    if status in {"required_supported_path", "native_representation_gap", "native_contract_unverified", "not_required", "profile_dependent", "not_applicable"} and not traversal.get("note"):
         errors.append(f"question {question_id} must explain graph traversal status {status}")
 
     question_fact_ids = set(question.get("fact_ids") or [])
@@ -305,7 +348,7 @@ def _check_graph_paths(
         if not isinstance(steps, list) or not steps:
             errors.append(f"{owner} needs one or more explicit edge steps")
             continue
-        minimum_steps = 2 if status == "required_supported_path" else 1
+        minimum_steps = 2 if status in {"required_supported_path", "native_contract_unverified"} else 1
         if len(steps) < minimum_steps:
             errors.append(f"{owner} has fewer than {minimum_steps} required edge steps")
 
@@ -347,7 +390,7 @@ def _check_graph_paths(
             if mapping is None:
                 if expected_native_status != "unmapped_predicate" or native_term is not None:
                     errors.append(f"{step_owner} claims native support for unmapped predicate {predicate!r}")
-                if status in {"required_supported_path", "optional_supported_edges"}:
+                if status in {"required_supported_path", "optional_supported_edges", "native_contract_unverified"}:
                     errors.append(f"{step_owner} is not natively admitted and cannot be counted as a supported graph path")
             else:
                 if predicate not in pinned_native_predicates:
@@ -357,12 +400,12 @@ def _check_graph_paths(
                     errors.append(f"{step_owner} native term does not match the pinned Buddy write mapping")
                 if expected_native_status == "unmapped_predicate":
                     errors.append(f"{step_owner} incorrectly marks mapped predicate {predicate!r} as unmapped")
-                if status in {"required_supported_path", "optional_supported_edges"} and expected_native_status != "admitted":
+                if status in {"required_supported_path", "optional_supported_edges", "native_contract_unverified"} and expected_native_status != "admitted":
                     errors.append(f"{step_owner} is not natively admitted and cannot be counted as a supported graph path")
                 if expected_native_status == "admitted":
                     endpoints = native_vocabulary_predicates.get(mapped_term)
                     if endpoints is None:
-                        errors.append(f"{step_owner} native term {mapped_term!r} is absent from the pinned v5 vocabulary")
+                        errors.append(f"{step_owner} native term {mapped_term!r} is absent from the pinned v6 vocabulary")
                     else:
                         subject_kinds, object_kinds = endpoints
                         subject_kind, object_kind = (to_kind, from_kind) if reverse_endpoints else (from_kind, to_kind)
@@ -371,7 +414,7 @@ def _check_graph_paths(
                     evidence = step.get("native_admission_evidence")
                     if not isinstance(evidence, dict) or (
                         evidence.get("check") != "edge_endpoint_kind_admission_reason"
-                        or evidence.get("buddy_main_sha") != buddy_contract_commit
+                        or evidence.get("buddy_contract_source_sha256") != buddy_contract_source_sha256
                         or evidence.get("native_vocabulary_blob_sha") != native_vocabulary_blob_sha
                         or evidence.get("result_reason") is not None
                     ):
@@ -401,6 +444,12 @@ def _check_graph_paths(
         for step in path.get("steps", []) if isinstance(path.get("steps"), list)
     ):
         errors.append(f"question {question_id} must identify at least one unmapped native predicate")
+    if status == "native_contract_unverified" and any(
+        isinstance(step, dict) and step.get("native_admission") != "admitted"
+        for path in paths if isinstance(path, dict)
+        for step in path.get("steps", []) if isinstance(path.get("steps"), list)
+    ):
+        errors.append(f"question {question_id} must not claim an incomplete native path")
     return errors
 
 
@@ -497,6 +546,12 @@ def validate_gold(
         graph_contract.get("native_vocabulary_snapshot")
     )
     errors.extend(vocabulary_errors)
+    errors.extend(
+        _native_property_vocabulary_pair(
+            graph_contract.get("native_property_vocabulary_snapshot"),
+            graph_contract.get("native_vocabulary_snapshot"),
+        )
+    )
     candidate_node_kinds: dict[str, str] = {}
     buddy_native_kinds: dict[str, str] = {}
     try:
@@ -609,7 +664,7 @@ def validate_gold(
         task_shape = question.get("task_shape")
         if task_shape not in TASK_SHAPES:
             errors.append(f"question {question_id} has an unknown task_shape")
-        if task_shape in {"multi_source_synthesis", "supported_graph_path_plus_multi_source_synthesis", "native_representation_gap_plus_multi_source_synthesis"}:
+        if task_shape in {"multi_source_synthesis", "supported_graph_path_plus_multi_source_synthesis", "native_representation_gap_plus_multi_source_synthesis", "native_contract_unverified_plus_multi_source_synthesis"}:
             multi_source_count += 1
             if len(refs) < 2:
                 errors.append(f"multi-source question {question_id} must depend on multiple gold facts")
@@ -643,7 +698,7 @@ def validate_gold(
             buddy_native_kinds=buddy_native_kinds,
             pinned_extraction_predicates=pinned_extraction_set,
             pinned_native_predicates=pinned_native_set,
-            buddy_contract_commit=str(graph_contract.get("buddy_contract_commit") or ""),
+            buddy_contract_source_sha256=str(graph_contract.get("native_predicate_source_sha256") or ""),
             native_vocabulary_blob_sha=str(
                 (graph_contract.get("native_vocabulary_snapshot") or {}).get("blob_sha") or ""
             ),
