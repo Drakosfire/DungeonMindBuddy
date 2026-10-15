@@ -18,10 +18,12 @@ do not publish candidate knowledge to the Elderwyld World in this slice.
 
 The operator has standing authorization for approved C1/C2 and saved worldbuilding
 corpus extraction through GenerationEngine → OpenRouter DeepSeek V4.1 Flash. This
-execution uses the approved route, makes no retries or fallback, and records observed
-provider usage/cost. The profile's existing invocation budget is an execution safeguard,
-not an authorization cap; its current six required passes fit the existing eight-pass
-runner. Do not request per-run approval.
+execution uses the approved route and records provider usage/cost. There is no transport
+retry, provider fallback, unchanged-request replay, or replay after an uncertain outcome.
+GenerationEngine may make at most one changed-prompt schema-conformance correction for an
+invalid structured response within a pass; that is a distinct provider attempt and is
+recorded in private attempt evidence and the ledger. The eight-unit execution budget counts
+pass invocations, not provider attempts or authorization. Do not request per-run approval.
 
 ## Exact input and target
 
@@ -61,13 +63,18 @@ managed-World registries, database schema, or publication code.
   must match that exact profile.
 - Server derives document/source/World ownership from the committed registry and registered
   artifact, verifies expected revision and hash before constructing an inference client, and
-  ignores any client-supplied model/provider/World target.
+  ignores any client-supplied model/provider/World target. Source identity, bytes, revision,
+  and digest mismatches fail before client construction; profile and document-class admission
+  is enforced by the runner before any provider use (the client is lazy).
 - The Gazetteer 1.5 run uses GenerationEngine's bounded OpenRouter DeepSeek client required
   by its constrained edge review. It must fail before provider use on stale/missing source,
   wrong source domain/class, uncommitted or divergent bytes, unsupported profile, absent
   credential, or wrong profile/client pairing. No OpenAI fallback.
 - Preserve run status, source span index, candidate graph, review bundle, private responses,
-  and cost/usage observations. Retries/fallback remain disabled for this experiment.
+  and cost/usage observations. Disable transport retries and fallback; do not replay unchanged
+  requests or uncertain attempts. Allow only GenerationEngine's single changed-prompt schema
+  conformance correction per pass, with every provider attempt recorded. If the usage ledger
+  cannot be persisted, revoke reviewability and fail the run.
 - Candidate-only: no prepare/confirm/publish operation and no mutation of the Elderwyld graph.
 
 ## Verification
@@ -76,7 +83,8 @@ managed-World registries, database schema, or publication code.
    unchanged pilot behavior, stale-source and invalid-profile rejection, and no provider call
    for failed preconditions.
 2. Owning execution-service tests exercise GenerationEngine request construction, DeepSeek-only
-   routing, no fallback/retry, structured pass schema, ledger persistence, and run artifacts.
+   routing, no transport retry/fallback, changed-prompt conformance correction, structured pass
+   schema, fail-closed ledger persistence, and run artifacts through the production runner.
 3. Run the exact saved source once in the isolated `/tmp` data root through the route's owning
    extraction service. Review nodes, relationships, descriptions, and evidence spans against
    `evals/graph_memory_layer/examples/mirathorn_worldbuilding_query_gold_v1/gold.json`; record
@@ -84,7 +92,8 @@ managed-World registries, database schema, or publication code.
    answer-quality proof.
 
    The completed run was reviewable after six successful DeepSeek V4.1 Flash passes, with no
-   retries or fallback. The provider ledger records 162,085 input and 22,490 output tokens,
+   schema-conformance correction, transport retry, or fallback observed. The provider ledger
+   records 162,085 input and 22,490 output tokens,
    about 84.9 seconds summed pass latency, and no dollar cost. It produced 39 nodes, 20 edges,
    and 196 evidence references; all 196 referenced source spans resolve. The manual gold check
    found overlap for 17 of 18 expected facts, but also found unsupported relationship proposals,

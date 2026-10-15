@@ -71,6 +71,37 @@ def _write_private_json(path: Path, payload: dict[str, Any]) -> None:
         ) from exc
 
 
+def _fail_reviewable_run_after_ledger_error(
+    repo_root: Path, result: ProductionExtractionResult
+) -> None:
+    """Prevent a candidate from remaining reviewable without its required usage ledger."""
+    from apps.live_control_server.services.graph_run_registry import (
+        update_extraction_run_status,
+    )
+    from src.graph_memory.ingestion.extraction_run import ExtractionRunStatus
+
+    if result.run.status != ExtractionRunStatus.REVIEWABLE:
+        return
+    diagnostics = result.run.diagnostics.model_copy(deep=True)
+    diagnostics.messages.append(
+        "GenerationEngine usage evidence could not be persisted; run was failed."
+    )
+    diagnostics.errors.append("inference_call_ledger_persistence_failed")
+    lineage = {
+        **result.run.lineage,
+        "reviewable": False,
+        "usage_ledger_state": "missing",
+    }
+    update_extraction_run_status(
+        repo_root,
+        result.run.run_id,
+        status=ExtractionRunStatus.FAILED,
+        expected_revision=result.run.revision,
+        diagnostics=diagnostics,
+        lineage=lineage,
+    )
+
+
 def _source_context_hashes(
     *, document_id: str, revision: int, source_artifact_id: str, source_sha256: str
 ) -> dict[str, str]:
@@ -189,5 +220,12 @@ def run_gazetteer_15_with_generation_engine(
                     "execution": client.ledger(),
                 },
             )
-        except WorldbuildingExecutionEvidenceError:
+        except WorldbuildingExecutionEvidenceError as exc:
+            if result is not None:
+                try:
+                    _fail_reviewable_run_after_ledger_error(root, result)
+                except Exception:
+                    raise WorldbuildingExecutionEvidenceError(
+                        "could not persist usage evidence or revoke run reviewability"
+                    ) from exc
             raise

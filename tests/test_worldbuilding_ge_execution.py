@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import multiprocessing
+from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -127,3 +129,143 @@ def test_generationengine_execution_rejects_digest_mismatch_before_client(
 
     assert _FakeBoundedClient.instances == []
     assert not (tmp_path / "out/graph_memory/runs/extraction").exists()
+
+
+@dataclass
+class _FakeGenerationEngineFactory:
+    calls: Any
+
+    def __call__(self):
+        from generationengine import GenerationClient
+
+        return GenerationClient(
+            text_providers={"openrouter": _SchemaAwareFakeProvider(self.calls)}
+        )
+
+
+class _SchemaAwareFakeProvider:
+    def __init__(self, calls: Any) -> None:
+        self.calls = calls
+
+    async def generate(self, call: Any) -> Any:
+        from generationengine.providers.base import TextGenerationResult
+
+        with self.calls.get_lock():
+            self.calls.value += 1
+            ordinal = self.calls.value
+        if ordinal == 1:
+            text = "not-json"
+        else:
+            schema = call.json_schema or {}
+            text = json.dumps({key: [] for key in schema.get("required", [])})
+        return TextGenerationResult(
+            text=text,
+            provider_request_id=f"request-{ordinal}",
+            provider_response_id=f"response-{ordinal}",
+            response_model=call.model,
+            input_tokens=5,
+            output_tokens=3,
+        )
+
+    async def stream(self, call: Any):
+        if False:
+            yield call
+
+
+@pytest.mark.parametrize("fail_ledger", [False, True])
+def test_real_ge_service_composition_tracks_conformance_and_fails_closed(
+    tmp_path: Path,
+    application_state_dsn: str,
+    monkeypatch: pytest.MonkeyPatch,
+    fail_ledger: bool,
+) -> None:
+    from apps.live_control_server.services import worldbuilding_ge_execution as service
+    from apps.live_control_server.services.graph_run_registry import (
+        GraphRunRegistryError,
+        get_extraction_run,
+        get_reviewable_extraction_run,
+    )
+    from src.graph_memory.extraction.bounded_recap_execution import (
+        BoundedRecapPassClient,
+    )
+    from src.graph_memory.ingestion.extraction_run import ExtractionRunStatus
+
+    committed, artifact = _registered_source(tmp_path)
+    provider_calls = multiprocessing.get_context("spawn").Value("i", 0)
+    clients: list[BoundedRecapPassClient] = []
+    results: list[Any] = []
+    factory = _FakeGenerationEngineFactory(provider_calls)
+
+    class InjectedBoundedClient(BoundedRecapPassClient):
+        def __init__(self, limits: Any, **kwargs: Any) -> None:
+            super().__init__(limits, engine_factory=factory, **kwargs)
+            clients.append(self)
+
+    real_runner = service.run_production_extraction
+
+    def capture_runner_result(request: Any) -> Any:
+        result = real_runner(request)
+        results.append(result)
+        return result
+
+    monkeypatch.setattr(service, "BoundedRecapPassClient", InjectedBoundedClient)
+    monkeypatch.setattr(service, "run_production_extraction", capture_runner_result)
+    if fail_ledger:
+        def fail_private_ledger(path: Path, payload: dict[str, Any]) -> None:
+            raise service.WorldbuildingExecutionEvidenceError("simulated ledger failure")
+
+        monkeypatch.setattr(service, "_write_private_json", fail_private_ledger)
+
+    def perform_run() -> Any:
+        return service.run_gazetteer_15_with_generation_engine(
+            repo_root=tmp_path,
+            source_artifact_id=artifact.source_artifact_id,
+            document_id=committed.document_id,
+            document_revision=committed.revision,
+            expected_content_sha256=artifact.content_sha256 or "",
+        )
+
+    if fail_ledger:
+        with pytest.raises(
+            service.WorldbuildingExecutionEvidenceError,
+            match="simulated ledger failure",
+        ):
+            perform_run()
+    else:
+        result = perform_run()
+        assert result.run.status == ExtractionRunStatus.REVIEWABLE
+        ledger = next(
+            (tmp_path / "out/graph_memory/runs/extraction").rglob(
+                "inference_call_ledger.json"
+            )
+        )
+        ledger_payload = json.loads(ledger.read_text(encoding="utf-8"))
+        assert ledger_payload["run_id"] == result.run.run_id
+        assert ledger_payload["execution"]["attempt_counts"]["conformance_retries"] == {
+            "total": 1,
+            "known_total": 1,
+            "complete": True,
+        }
+        assert ledger_payload["execution"]["attempt_counts"]["transport_retries"] == {
+            "total": 0,
+            "known_total": 0,
+            "complete": True,
+        }
+
+    assert len(results) == 1
+    original = results[0]
+    execution = clients[0].ledger()
+    assert provider_calls.value == execution["pass_invocation_count"] + 1
+    assert execution["attempt_counts"]["conformance_retries"]["known_total"] == 1
+    assert execution["attempt_counts"]["transport_retries"]["known_total"] == 0
+    correction = execution["calls"][0]["attempt_evidence"]
+    assert [item["kind"] for item in correction] == ["initial", "conformance"]
+
+    if fail_ledger:
+        root = service.artifact_data_root(tmp_path)
+        failed = get_extraction_run(root, original.run.run_id)
+        assert failed.status == ExtractionRunStatus.FAILED
+        assert failed.lineage["usage_ledger_state"] == "missing"
+        assert "inference_call_ledger_persistence_failed" in failed.diagnostics.errors
+        with pytest.raises(GraphRunRegistryError, match="not reviewable"):
+            get_reviewable_extraction_run(root, original.run.run_id)
