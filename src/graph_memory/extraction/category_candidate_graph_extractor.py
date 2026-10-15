@@ -1688,9 +1688,35 @@ def _run_category_pipeline_impl(
         options.source_span_index,
         source_text=options.source_text,
     )
+    from src.graph_memory.extraction.recap_source_authority import (
+        deferred_source_rows, filter_planning_pass_output, partition_recap_source_rows,
+    )
+    withheld_rows: list[dict[str, Any]] = []
+    authority_diag: dict[str, Any] = {"checked": False, "reason": "not_recap_profile"}
+    if active_profile.admitted_source_domains == frozenset({"recap"}):
+        source_rows, withheld_rows, authority_diag = partition_recap_source_rows(
+            source_rows, options.source_text,
+        )
+    blocked_span_refs = {r["source_span_ref_id"] for r in withheld_rows}
+    deferred_planning = deferred_source_rows(withheld_rows)
+    original_client = client
+
+    def _run_pass(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        result = original_client.run_pass(*args, **kwargs)
+        parsed, deferred = filter_planning_pass_output(
+            result["parsed"], blocked_span_refs, _canonical_spref,
+        )
+        deferred_planning.extend(deferred)
+        return {**result, "parsed": parsed}
+
     allowed_span_refs = {r["source_span_ref_id"] for r in source_rows}
     for span in options.source_span_index.get("spans") or []:
         if isinstance(span, Mapping):
+            identifiers = {span[k] for k in ("source_span_ref_id", "span_id", "source_span_id")
+                           if isinstance(span.get(k), str)}
+            if identifiers & blocked_span_refs or (withheld_rows and span.get("kind") == "full_text"):
+                blocked_span_refs.update(v for v in identifiers if isinstance(v, str))
+                continue
             for key in ("source_span_ref_id", "span_id", "source_span_id"):
                 val = span.get(key)
                 if isinstance(val, str):
@@ -1746,7 +1772,7 @@ def _run_category_pipeline_impl(
             node_vocabulary_packet_override=effective_node_vocabulary_packet,
         )
         node_vocabulary_pass_diagnostics[pass_name] = node_vocabulary_diag
-        result = client.run_pass(
+        result = _run_pass(
             pass_name,
             model_id=model_id,
             instructions=system,
@@ -1767,7 +1793,7 @@ def _run_category_pipeline_impl(
     if active_profile.beat_pass is not None:
         beat = active_profile.beat_pass
         _notify(beat.pass_id, "running")
-        beat_result = client.run_pass(
+        beat_result = _run_pass(
             beat.pass_id,
             model_id=model_id,
             instructions=system,
@@ -1833,7 +1859,7 @@ def _run_category_pipeline_impl(
             kind="encounter_job",
             allowed_node_types=("combat_encounter", "quest"),
         )
-        encounter_result = client.run_pass(
+        encounter_result = _run_pass(
             encounter_pass_id,
             model_id=model_id,
             instructions=system,
@@ -1866,7 +1892,7 @@ def _run_category_pipeline_impl(
         options=options,
     )
     _notify(edge.pass_id, "running")
-    edge_result = client.run_pass(
+    edge_result = _run_pass(
         edge.pass_id,
         model_id=model_id,
         instructions=system,
@@ -1917,7 +1943,7 @@ def _run_category_pipeline_impl(
             span_index=options.source_span_index,
             source_text=options.source_text,
             candidate_nodes=list(sanitized.get("nodes") or []),
-            source_packet_rows_from_span_index=source_packet_rows_from_span_index,
+            source_packet_rows_from_span_index=lambda *_args, **_kwargs: list(source_rows),
         )
         if packet.claims:
             fill_spec = ExtractionPassSpec(
@@ -1930,7 +1956,7 @@ def _run_category_pipeline_impl(
                 kind="claimed_fill",
             )
             _notify(PARTY_CLAIMED_FILL_PASS, "running")
-            fill_result = client.run_pass(
+            fill_result = _run_pass(
                 PARTY_CLAIMED_FILL_PASS,
                 model_id=model_id,
                 instructions=(
@@ -1963,6 +1989,9 @@ def _run_category_pipeline_impl(
                 "skipped": "no_pc_companion_mentions",
                 "claim_count": 0,
             }
+    deferred_planning = list({item["item_id"]: item for item in deferred_planning}.values())
+    sanitized["deferred_items"].extend(deferred_planning)
+    authority_diag["deferred_items"] = len(deferred_planning)
     recap_parts, standing_parts, partition_diag = partition_candidate_parts_by_provenance(
         sanitized
     )
@@ -2076,6 +2105,7 @@ def _run_category_pipeline_impl(
         total_cost_usd=None if total_cost is None else round(total_cost, 6),
         diagnostics={
             "extraction_mode": "category_decomposed",
+            "recap_source_authority": authority_diag,
             "model_id": model_id,
             "edge_vocabulary_ablation": edge_vocabulary_diag,
             "encounter_job_edge_guidance": encounter_job_edge_diag,
