@@ -221,3 +221,10 @@ states are not accepted here. The Build page/context/shell suites pass 52 tests;
 the Build shell launcher regression passes 29 tests; TypeScript passes. The
 production Vite build passes with the existing large-chunk warning, and
 `git diff --check` passes.
+
+
+## Integrated preview acceptance — 2026-10-15 (supersedes older pending-render notes)
+
+The integrated local preview on 5205 was assembled from `main@3a890b9e` plus the exact then-current heads of PRs #1183, #1188, #1190, and #1191. On Build, the no-source desktop welcome rendered inside the framed workspace with the shared conversation launcher and explicit open/start/import paths; no document was created automatically. At 390px, the Build welcome remained usable. The selected Mirathorn source rendered on the paper surface with its original content readable. A temporary editor change made Save available, then was discarded through the explicit confirmation; the saved source returned to its original text and committed state. No content was saved or changed.
+
+The desktop conversation launcher and Plan/Play navigation were present. Authenticated save/reopen and live conversation sending were not verified; this acceptance did not write to the user's source. 5202 was not modified. The combined production build passed; Build page/context/shell suites passed 52 tests, TypeScript passed, and `git diff --check` passed. The historical 5203 and 5204 pending-render notes above are superseded by this integrated render; the user-source write boundary remains untested.
