@@ -1,0 +1,36 @@
+# INGEST: ordinary recap GenerationEngine execution
+
+Status: ACTIVE under PRIME's standing ingestion scope, 2026-10-15.
+Base: `75152c52f430dfb0c6c8dcbc6d6ead65263ce6b2` (#1206).
+Lane: `codex/recap-generationengine-default`, `/tmp/prime-mirathorn-governance-current`.
+Topology: serial; solo PRIME implementation, independent ARCHITECTURE review.
+
+## Contract
+
+Ordinary recap extraction uses the existing GenerationEngine/OpenRouter DeepSeek
+V4.1 Flash adapter, rather than silently defaulting to direct OpenAI. Provider/model
+mismatch rejects before inference; injected clients remain explicit test seams.
+Record private source/context hashes, returned attempts and usage/failure ledger.
+Failure to retain required evidence cannot leave the run reviewable. Candidate
+extraction is distinct from retained World publication. No unchanged model replay.
+
+## Exclusive write set
+
+- This handoff and `Docs/Plans/HANDOFF-INGEST-party-fill-source-binding.md` (settle merged lease).
+- `apps/live_control_server/services/graph_preview_runner.py`
+- `apps/live_control_server/routes/recap_ingest.py`
+- `tests/test_recap_generationengine_default.py`
+- `tests/test_bounded_recap_execution.py` (existing fake constructor seam if needed).
+
+Conditional UI lease (activate only after DOGFOOD's explicit model-control hunk transfer):
+`apps/live-control-ui/src/modules/IngestionModule.tsx` and `.test.tsx`.
+Only obsolete Mini selection/request labels change; #1191 welcome/layout ownership
+stays with DOGFOOD. Build #1183 is disjoint and continues independently.
+
+## Evidence and state
+
+Prove ordinary route→service→GE request and private evidence/ledger with a fake
+worker, including failed attempts and ledger persistence failure. No credential
+contents/public corpus output. No serving port, database migration or retained
+World change in this code slice. Private run outputs remain under artifact root.
+Exact-head review precedes the changed-pipeline live experiment and deployment.

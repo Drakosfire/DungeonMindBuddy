@@ -1,6 +1,6 @@
 # INGEST: party-fill source binding
 
-Status: ACTIVE under PRIME's authorized recap ingestion repair, 2026-10-15.
+Status: MERGED as #1206 at `75152c52f430dfb0c6c8dcbc6d6ead65263ce6b2` after ARCHITECTURE PASS on `230313b03f53ef56a3c2a9b5f527cae36ba3ec20`; implementation lease closed. Live extraction acceptance remains outstanding under the dependent GenerationEngine handoff.
 Base: `e778b3f048bea547e6531c950bc7565a96922fa4`.
 Lane: `codex/party-fill-source-binding`, `/tmp/prime-mirathorn-governance-current`.
 Topology: serial, one bounded PR; implementation solo, ARCHITECTURE independent review.
