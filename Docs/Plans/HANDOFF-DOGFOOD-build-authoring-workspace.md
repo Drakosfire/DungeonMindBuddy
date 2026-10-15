@@ -4,7 +4,7 @@ Status ACTIVE for document authoring/navigation presentation under explicit oper
 "Do it" and PRIME design ownership confirmation; UI leases released. Node write
 portion BLOCKED pending ARCHITECTURE identification of an existing governed command
 or a DungeonMind-owned contract. No native mutation adapter is authorized.
-Current fetched `origin/main` is `25cba5a5e00130a38303d2c1c1d7bc9736527be9`;
+Current fetched `origin/main` is `3a890b9ec8b4e4c9924779249fe8570b7ecf9d1c`;
 branch `codex/build-authoring-workspace` is being re-anchored in the isolated
 checkout `/tmp/dmb-build-empty-welcome-reanchor` for PR #1183. No new
 durable/public contract is introduced. PRIME owns shared serving/runtime ports;
@@ -202,7 +202,7 @@ runtime or 5202 change is included.
 
 ## Current main re-anchor and rendered acceptance — 2026-10-15
 
-PR #1183 is replayed on fetched `origin/main@25cba5a5`. A current-main Build
+PR #1183 is replayed on fetched `origin/main@3a890b9e`. A current-main Build
 preview runs at `127.0.0.1:5204` from this isolated checkout; it does not modify
 5202 or use the stale 5203 integrated preview.
 
