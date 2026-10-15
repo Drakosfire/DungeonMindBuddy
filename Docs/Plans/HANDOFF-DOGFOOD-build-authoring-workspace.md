@@ -174,12 +174,22 @@ serialized into the source, and it does not appear for populated sources or
 source-evidence views. The invitation gives the blank editor a clear first step
 without inserting sample lore.
 
+The collapsed Conversation launcher now occupies the dock's bottom layout row
+on the no-source Build landing instead of using the shared absolute overlay.
+This is scoped to that landing and leaves the shared dock presentation
+unchanged on other surfaces.
+
 After this addition, the Build page, context, shell, and shared conversation
-integration suites pass 88 tests. The app TypeScript check passes with its build
+integration suites pass 89 tests. The app TypeScript check passes with its build
 info redirected to `/tmp`; the production Vite build passes with the existing
 large-chunk warning, and `git diff --check` passes. The blank-source welcome has
 not been rendered in 5203 yet; the current preview still lacks authenticated
 write behavior, and 5202 remains unchanged.
+
+The earlier desktop preview showed the collapsed Conversation launcher covering
+part of the third welcome card. It now occupies the dock's bottom layout row on
+the no-source Build landing. This is scoped to Build and the CSS contract test
+passes; a refreshed rendered check is still needed to verify the visual result.
 
 The owning Build page/context/shell suites pass 49 tests. The UI app TypeScript
 check passes with its build-info output redirected to `/tmp`; the production Vite

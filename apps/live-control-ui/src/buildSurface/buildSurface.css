@@ -643,6 +643,11 @@ body:has([data-document-surface="build"])
   font-size: .92rem;
   line-height: 1.5;
 }
+.build-workspace-projection:has(.build-empty-landing) .conversation-dock__launcher {
+  position: static;
+  justify-self: end;
+  margin: .5rem 1rem;
+}
 
 @media (max-width: 42rem) {
   body:has([data-document-surface="build"])

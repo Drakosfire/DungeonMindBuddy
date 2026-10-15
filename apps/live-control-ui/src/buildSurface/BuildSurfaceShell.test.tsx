@@ -197,6 +197,16 @@ describe("BuildSurfaceShell", () => {
     expect(buildShellTestEditor?.getText()).toContain("The road begins at dawn.");
   });
 
+  it("keeps the no-source conversation launcher in flow instead of covering the welcome", () => {
+    const buildCss = readBuildSurfaceCss();
+    const emptyLandingLauncherRule = buildCss.match(
+      /\.build-workspace-projection:has\(\.build-empty-landing\)\s+\.conversation-dock__launcher\s*\{([^}]*)\}/,
+    );
+
+    expect(emptyLandingLauncherRule?.[1]).toMatch(/position:\s*static/);
+    expect(emptyLandingLauncherRule?.[1]).toMatch(/justify-self:\s*end/);
+  });
+
   it("keeps the live Build editor on the paper projection surface", () => {
     const buildCss = readBuildSurfaceCss();
     const paperEditorRule = buildCss.match(
