@@ -344,6 +344,44 @@ describe("one App-level World conversation host across Plan and Play", () => {
   });
 
 
+  it("shows recovery only after an active Build request becomes uncertain, including after remount", async () => {
+    let reject!: (reason: Error) => void;
+    vi.mocked(postWorldBuildAgentTurn).mockReturnValue(new Promise((_resolve, rejectRequest) => { reject = rejectRequest; }));
+    const mounted = render(<Harness initial="build" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled());
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Describe Mirathorn" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await waitFor(() => expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("button", { name: "Send message" })).toHaveTextContent("Working…");
+    expect(screen.queryByRole("region", { name: "Saved turn recovery" })).not.toBeInTheDocument();
+    expect(screen.queryByText("This request needs recovery. You can check its saved status or retry the exact request.")).not.toBeInTheDocument();
+    await act(async () => { reject(new Error("Connection lost after submit")); });
+    await screen.findByRole("region", { name: "Saved turn recovery" });
+    expect(screen.getByRole("button", { name: "Retry exact saved turn" })).toBeEnabled();
+    mounted.unmount();
+    render(<Harness initial="build" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    await screen.findByRole("region", { name: "Saved turn recovery" });
+    expect(screen.getByRole("button", { name: "Retry exact saved turn" })).toBeEnabled();
+    expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["failed", "interrupted"] as const)("labels a historical Build %s with its saved source while viewing Plan", async lifecycle => {
+    const historical = { ...turn("plan", 1, ""), lifecycle_status: lifecycle,
+      provenance: { ...turn("plan", 1, "").provenance, surface_id: "build", surface_instance_id: "build-instance",
+        primary_work: { resolution: "resolved" as const, kind: "build", object_id: "source-one", revision: "2",
+          content_sha256: SHA, object_revision: null, work_revision_id: null, revision_n: null } } };
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue(history([historical]));
+    render(<Harness initial="plan" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    await screen.findByText(lifecycle === "failed"
+      ? "Buddy couldn’t finish this reply. Your saved source was not changed."
+      : "This reply stopped before it finished. Your saved source was not changed.");
+    expect(screen.queryByText(/Your Plan was not changed/)).not.toBeInTheDocument();
+    expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+  });
+
   it("submits exact Build source pins through the same World conversation and keeps its answer on Plan", async () => {
     let current = history();
     vi.mocked(getWorldAgentConversationHistory).mockImplementation(async () => current);
