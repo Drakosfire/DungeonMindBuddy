@@ -985,6 +985,14 @@ def consolidate_category_outputs(
         }
         cross_class_remap = {}
 
+    # The pre-edge consolidation advertises this same configured context.
+    # Seed it before endpoint checks so those advertised IDs remain usable.
+    deduped_nodes, seeded_party_edges, party_collective_diag = merge_party_collective(
+        deduped_nodes,
+        [],
+        party_ctx,
+        default_semantic_state=semantic_state,
+    )
     edge_pass_id = active_profile.edge_pass.pass_id
     edge_payload = pass_outputs.get(edge_pass_id, {})
     raw_edges = edge_payload.get("observation_edges") or []
@@ -1008,12 +1016,9 @@ def consolidate_category_outputs(
                     "to_node_id": edge["to_node_id"],
                 }
             )
-    deduped_nodes, edges, party_collective_diag = merge_party_collective(
-        deduped_nodes,
-        edges,
-        party_ctx,
-        default_semantic_state=semantic_state,
-    )
+    # Keep source-backed model edges ahead of evidence-free standing-context
+    # edges so canonical deduplication preserves the stronger source citation.
+    edges.extend(seeded_party_edges)
     if enable_party_participation_attachment:
         edges, party_participation_diag = attach_party_participation_edges(
             deduped_nodes,
