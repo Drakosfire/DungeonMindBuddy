@@ -5,7 +5,9 @@ import subprocess
 import sys
 
 import pytest
+import psycopg
 
+from application_state.source.service import get_source_markdown
 from apps.live_control_server.services import graph_run_registry as runs
 from apps.live_control_server.services import worldbuilding_source_span_read as reader
 from apps.live_control_server.services.source_artifact_registry import (
@@ -146,8 +148,42 @@ def test_registered_historical_passage_after_real_save(
     tmp_path, monkeypatch, application_state_dsn
 ):
     doc, artifact, span, directory = fixture_source(tmp_path, monkeypatch)
+    original_markdown = (tmp_path / doc.target_relpath).read_text(encoding="utf-8")
+    durable = get_source_markdown(
+        source_artifact_id=artifact.source_artifact_id,
+        content_sha256=artifact.content_sha256,
+    )
+    assert durable is not None
+    assert durable.markdown == original_markdown
+    assert durable.source_domain == "worldbuilding"
+    assert durable.campaign_id == artifact.campaign_id
+    assert durable.session_id is None
+    assert durable.world_id == artifact.world_id
+
+    # Re-adopting the same exact source through a later run is idempotent.
+    runs.create_extraction_run(
+        tmp_path,
+        source_artifact_id=artifact.source_artifact_id,
+        source_domain="worldbuilding",
+        campaign_id=artifact.campaign_id,
+        components={},
+        status=ExtractionRunStatus.DRAFT,
+    )
+    with psycopg.connect(application_state_dsn) as conn:
+        count = conn.execute(
+            "SELECT count(*) FROM source.revision WHERE source_artifact_id = %s",
+            (artifact.source_artifact_id,),
+        ).fetchone()
+    assert count == (1,)
+
     assert open_span(tmp_path, artifact, span).content == "The tower watches the river."
     save(tmp_path, doc, "# Lore\n\nThe tower has fallen.\n")
+    # The immutable DB revision, rather than the current workspace or local
+    # derived files, now carries the exact old passage and stable span IDs.
+    (directory / "source.md").unlink()
+    (directory / "spans.json").unlink()
+    source_span_index_path(tmp_path, artifact.source_artifact_id).unlink()
+    (tmp_path / doc.target_relpath).unlink()
     assert open_span(tmp_path, artifact, span).content == "The tower watches the river."
     script = """
 import sys
@@ -178,8 +214,21 @@ print('historical-passage-opened')
     assert child.stdout.strip() == "historical-passage-opened"
     with pytest.raises(WorldGraphRetrievalError, match="disagrees"):
         open_span(tmp_path, artifact, span, world="other-world")
-    (directory / "source.md").write_text("tampered")
-    with pytest.raises(WorldGraphRetrievalError, match="digest mismatch"):
+
+
+def test_durable_world_mismatch_fails_closed(
+    tmp_path, monkeypatch, application_state_dsn
+):
+    _doc, artifact, span, _directory = fixture_source(tmp_path, monkeypatch)
+    get_source = reader.source_service.get_source_markdown
+
+    def wrong_world(**kwargs):
+        record = get_source(**kwargs)
+        assert record is not None
+        return record.model_copy(update={"world_id": "foreign-world"})
+
+    monkeypatch.setattr(reader.source_service, "get_source_markdown", wrong_world)
+    with pytest.raises(WorldGraphRetrievalError, match="Durable source identity"):
         open_span(tmp_path, artifact, span)
 
 
@@ -188,8 +237,15 @@ def test_missing_historical_snapshot_never_opens_current_text(
 ):
     doc, artifact, span, directory = fixture_source(tmp_path, monkeypatch)
     save(tmp_path, doc, "# Lore\n\nThe tower has fallen.\n")
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute(
+            "DELETE FROM source.revision WHERE source_artifact_id = %s",
+            (artifact.source_artifact_id,),
+        )
     (directory / "source.md").unlink()
-    with pytest.raises(WorldGraphRetrievalError, match="missing"):
+    (directory / "spans.json").unlink()
+    source_span_index_path(tmp_path, artifact.source_artifact_id).unlink()
+    with pytest.raises(WorldGraphRetrievalError, match="not found"):
         open_span(tmp_path, artifact, span)
 
 

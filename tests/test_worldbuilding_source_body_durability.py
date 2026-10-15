@@ -1,0 +1,274 @@
+from __future__ import annotations
+
+import hashlib
+import json
+from datetime import UTC, datetime
+from uuid import uuid4
+
+import pytest
+
+from application_state.errors import ApplicationStateConflictError
+from application_state.source.types import SourceMarkdownRecord
+from apps.live_control_server.services import graph_run_registry as runs
+from apps.live_control_server.services import worldbuilding_source_span_read as reader
+from apps.live_control_server.services.source_artifact_registry import (
+    create_source_artifact_from_workspace_document,
+    source_span_index_path,
+)
+from apps.live_control_server.services.tiptap_markdown_write import (
+    TiptapMarkdownWriteCommitRequest,
+    TiptapMarkdownWritePrepareRequest,
+    commit_tiptap_markdown_write,
+    prepare_tiptap_markdown_write,
+)
+from apps.live_control_server.services.workspace_document_registry import (
+    create_workspace_document,
+    get_workspace_document,
+)
+from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
+from graph_memory.ingestion.extraction_run import ExtractionRunStatus
+from graph_memory.retrieval.errors import WorldGraphRetrievalError
+from graph_memory.retrieval.models import WorldGraphRetrievalSnapshot
+from graph_memory.source_span import build_source_span_index_for_text
+
+
+def _save_source(root, document, markdown: str):
+    prepared = prepare_tiptap_markdown_write(
+        root=root,
+        request=TiptapMarkdownWritePrepareRequest(
+            document_id=document.document_id,
+            markdown=markdown,
+            expected_revision=document.revision,
+        ),
+    )
+    assert prepared.writer_ok
+    commit_tiptap_markdown_write(
+        root=root,
+        request=TiptapMarkdownWriteCommitRequest(
+            document_id=document.document_id,
+            markdown=markdown,
+            expected_revision=document.revision,
+            writer_confirm_token=prepared.writer_confirm_token,
+        ),
+    )
+    return get_workspace_document(root, document.document_id)
+
+
+def _registered_source(tmp_path, monkeypatch):
+    from apps.live_control_server.services.world_container_registry import (
+        create_world_container,
+    )
+
+    registry_root = tmp_path / "managed-registry"
+    registry_root.mkdir()
+    monkeypatch.setenv("DMB_MANAGED_WORLD_DATA_ROOT", str(registry_root))
+    world = create_world_container(registry_root, name="Managed World")
+    registry_path = registry_root / "out/registries/world_containers.json"
+    payload = json.loads(registry_path.read_text(encoding="utf-8"))
+    payload["records"][0]["native_graph_binding"] = {
+        "native_world_id": "native-world",
+        "binding_version": 1,
+        "status": "active",
+        "validated_at": "2026-10-14T00:00:00Z",
+        "validated_head_revision_id": "rev:accepted",
+    }
+    registry_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    markdown = "# Lore\n\nThe tower watches the river.\n"
+    document = create_workspace_document(
+        tmp_path,
+        title="Lore",
+        campaign_id=world.world_id,
+        kind="worldbuilding_source",
+        source_domain="worldbuilding",
+        document_class="lore",
+        authority_state="draft",
+        visibility_state="internal",
+    )
+    document = _save_source(tmp_path, document, markdown)
+    artifact = create_source_artifact_from_workspace_document(
+        tmp_path,
+        document_id=document.document_id,
+        expected_revision=document.revision,
+    )
+    return document, artifact, markdown
+
+
+def _durable_record(artifact: GraphMemorySourceArtifact, markdown: str):
+    return SourceMarkdownRecord(
+        source_revision_id=uuid4(),
+        source_artifact_id=artifact.source_artifact_id,
+        source_domain=str(artifact.source_domain),
+        campaign_id=artifact.campaign_id,
+        session_id=artifact.session_id,
+        world_id=artifact.world_id,
+        content_sha256=hashlib.sha256(markdown.encode("utf-8")).hexdigest(),
+        media_type="text/markdown",
+        encoding="utf-8",
+        markdown=markdown,
+        lineage={},
+        created_at=datetime.now(UTC),
+    )
+
+
+def _span_id(artifact: GraphMemorySourceArtifact, markdown: str) -> str:
+    index = build_source_span_index_for_text(
+        source_artifact_id=artifact.source_artifact_id,
+        content_sha256=artifact.content_sha256 or "",
+        text=markdown,
+    )
+    return index.spans[-1].source_span_id
+
+
+def _open(root, artifact, span_id):
+    snapshot = WorldGraphRetrievalSnapshot(
+        world_id="native-world",
+        campaign_id="managed-world",
+        revision_id="rev:accepted",
+        head_revision_id="rev:accepted",
+        is_head=True,
+        focus={},
+        admissibility="accepted",
+        scope_mode="world",
+    )
+    return reader.read_admitted_worldbuilding_span(
+        root=root,
+        source_artifact_id=artifact.source_artifact_id,
+        source_span_ref_id=span_id,
+        graph_content_sha256=artifact.content_sha256,
+        max_chars=1000,
+        anchor_id="anchor:accepted",
+        snapshot=snapshot,
+        graph_artifact=artifact,
+    )
+
+
+def test_worldbuilding_run_persists_exact_registered_source(monkeypatch, tmp_path):
+    _document, artifact, markdown = _registered_source(tmp_path, monkeypatch)
+    persisted: list[dict] = []
+    monkeypatch.setattr(
+        runs,
+        "load_registered_source_artifact_text",
+        lambda _root, artifact_id: (artifact, markdown)
+        if artifact_id == artifact.source_artifact_id
+        else pytest.fail("wrong source artifact requested"),
+    )
+    monkeypatch.setattr(
+        runs.source_service,
+        "persist_source_markdown",
+        lambda **kwargs: persisted.append(kwargs),
+    )
+    monkeypatch.setattr(runs.ingest_service, "create_extraction_run", lambda run: run)
+
+    run = runs.create_extraction_run(
+        tmp_path,
+        source_artifact_id=artifact.source_artifact_id,
+        source_domain="worldbuilding",
+        campaign_id=artifact.campaign_id,
+        components={},
+        status=ExtractionRunStatus.DRAFT,
+    )
+
+    assert run.source_artifact_id == artifact.source_artifact_id
+    assert len(persisted) == 1
+    assert persisted[0] == {
+        "source_artifact_id": artifact.source_artifact_id,
+        "source_domain": "worldbuilding",
+        "campaign_id": artifact.campaign_id,
+        "session_id": None,
+        "world_id": artifact.world_id,
+        "markdown": markdown,
+        "content_sha256": artifact.content_sha256,
+        "lineage": {
+            "adopted_from_uri": artifact.uri,
+            "workspace_document_id": artifact.workspace_document_id,
+            "workspace_document_revision": artifact.workspace_document_revision,
+        },
+    }
+
+
+def test_worldbuilding_persistence_failure_prevents_run_creation(monkeypatch, tmp_path):
+    _document, artifact, markdown = _registered_source(tmp_path, monkeypatch)
+    run_creation: list[object] = []
+    monkeypatch.setattr(
+        runs,
+        "load_registered_source_artifact_text",
+        lambda _root, _artifact_id: (artifact, markdown),
+    )
+
+    def reject_persist(**_kwargs):
+        raise ApplicationStateConflictError("source digest conflict")
+
+    monkeypatch.setattr(
+        runs.source_service,
+        "persist_source_markdown",
+        reject_persist,
+    )
+    monkeypatch.setattr(
+        runs.ingest_service,
+        "create_extraction_run",
+        lambda run: run_creation.append(run),
+    )
+
+    with pytest.raises(runs.GraphRunRegistryError, match="durable worldbuilding source"):
+        runs.create_extraction_run(
+            tmp_path,
+            source_artifact_id=artifact.source_artifact_id,
+            source_domain="worldbuilding",
+            campaign_id=artifact.campaign_id,
+            components={},
+            status=ExtractionRunStatus.DRAFT,
+        )
+    assert run_creation == []
+
+
+def test_historical_span_reads_from_durable_body_after_workspace_edit_and_sidecar_loss(
+    monkeypatch, tmp_path
+):
+    document, artifact, original = _registered_source(tmp_path, monkeypatch)
+    record = _durable_record(artifact, original)
+    monkeypatch.setattr(
+        reader.source_service,
+        "get_source_markdown",
+        lambda **kwargs: record
+        if kwargs
+        == {
+            "source_artifact_id": artifact.source_artifact_id,
+            "content_sha256": artifact.content_sha256,
+        }
+        else pytest.fail("lookup must bind the exact artifact and digest"),
+    )
+
+    span_id = _span_id(artifact, original)
+    _save_source(tmp_path, document, "# Lore\n\nThe tower has fallen.\n")
+    source_span_index_path(tmp_path, artifact.source_artifact_id).unlink()
+
+    result = _open(tmp_path, artifact, span_id)
+    assert result.content == "The tower watches the river."
+    assert result.source_span_ref_id == span_id
+    assert result.content_sha256 == artifact.content_sha256
+    assert result.line_start == 3
+    assert result.line_end == 3
+
+
+@pytest.mark.parametrize(
+    "updates",
+    [
+        {"world_id": "foreign-world"},
+        {"campaign_id": "foreign-campaign"},
+        {"source_domain": "recap"},
+        {"content_sha256": "0" * 64},
+        {"markdown": "# Forged\n"},
+    ],
+)
+def test_durable_source_mismatch_fails_closed(monkeypatch, tmp_path, updates):
+    _document, artifact, markdown = _registered_source(tmp_path, monkeypatch)
+    record = _durable_record(artifact, markdown).model_copy(update=updates)
+    monkeypatch.setattr(
+        reader.source_service,
+        "get_source_markdown",
+        lambda **_kwargs: record,
+    )
+
+    with pytest.raises(WorldGraphRetrievalError, match="Durable source"):
+        _open(tmp_path, artifact, _span_id(artifact, markdown))

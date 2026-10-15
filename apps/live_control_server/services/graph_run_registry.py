@@ -335,12 +335,13 @@ def _bind_run_to_artifact(
     return artifact
 
 
-def _persist_recap_source_authority(
+def _persist_source_authority(
     root: Path,
     artifact: GraphMemorySourceArtifact,
 ) -> None:
-    """Adopt new recap input before its ExtractionRun becomes canonical."""
-    if str(artifact.source_domain) != "recap":
+    """Adopt exact recap/Worldbuilding input before its ExtractionRun is canonical."""
+    source_domain = str(artifact.source_domain)
+    if source_domain not in {"recap", "worldbuilding"}:
         return
     try:
         _registered_artifact, markdown = load_registered_source_artifact_text(
@@ -349,17 +350,25 @@ def _persist_recap_source_authority(
         )
         source_service.persist_source_markdown(
             source_artifact_id=artifact.source_artifact_id,
-            source_domain=str(artifact.source_domain),
+            source_domain=source_domain,
             campaign_id=artifact.campaign_id,
             session_id=artifact.session_id,
             world_id=artifact.world_id,
             markdown=markdown,
             content_sha256=artifact.content_sha256,
-            lineage={"adopted_from_uri": artifact.uri},
+            lineage=(
+                {
+                    "adopted_from_uri": artifact.uri,
+                    "workspace_document_id": artifact.workspace_document_id,
+                    "workspace_document_revision": artifact.workspace_document_revision,
+                }
+                if source_domain == "worldbuilding"
+                else {"adopted_from_uri": artifact.uri}
+            ),
         )
     except (SourceArtifactRegistryError, ApplicationStateError) as exc:
         raise GraphRunRegistryError(
-            f"durable recap source persistence failed: {exc}",
+            f"durable {source_domain} source persistence failed: {exc}",
             status_code=getattr(exc, "status_code", 409),
         ) from exc
 
@@ -529,7 +538,7 @@ def create_extraction_run(
             "cannot create an extraction run directly in a terminal status",
             status_code=422,
         )
-    _persist_recap_source_authority(root, artifact)
+    _persist_source_authority(root, artifact)
 
     now = _utc_now_iso()
     run = ExtractionRun(
