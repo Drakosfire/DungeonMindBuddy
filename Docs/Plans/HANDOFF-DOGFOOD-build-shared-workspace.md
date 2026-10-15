@@ -163,6 +163,7 @@ apps/live-control-ui/src/agentInteraction/WorldAgentConversation.planPlay.integr
 apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.tsx
 apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.test.tsx
 apps/live-control-ui/src/planSurface/components/PlanConversationDockAdapter.tsx
+apps/live-control-ui/src/planSurface/components/PlanConversationDockAdapter.css
 apps/live-control-ui/src/api/types.ts
 apps/live-control-ui/src/api/liveApi.ts
 apps/live-control-ui/src/chrome/AppChrome.tsx
@@ -240,3 +241,12 @@ fold default. No second inline Build conversation composition is accepted when
 shared hosts exist. Cycle1 review also requires predispatch refusal restoration to
 the frozen request surface draft key, preserving newer drafts, with Build stale,
 oversize and authorization-refusal owning tests. All remain inside declared paths.
+
+## PRIME-authorized responsive presentation amendment
+
+PRIME authorizes the shared PlanConversationDockAdapter.css path above to fix the
+confirmed 390px fullscreen context-toggle collapse (13.5px) caused by unconditional
+footer rules overriding the narrow media query. Preserve a90 failure evidence;
+change the cascade only, then verify shared Plan/Build desktop and narrow header
+controls, fullscreen/restore/close, stationary document and no horizontal overflow
+on the new exact head. No additional capability, surface, store or runtime lease.
