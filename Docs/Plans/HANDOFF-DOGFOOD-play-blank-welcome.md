@@ -39,3 +39,8 @@ TypeScript check passes. Rendered acceptance remains pending in the integrated
 current-main preview; the Build-only 5204 preview does not include this branch,
 and Elderwyld already has saved Runs, so a verified empty Run state still needs
 an isolated empty-world fixture or a safe UI-only fixture.
+
+
+## Integrated preview acceptance — 2026-10-15
+
+The integrated local preview on 5205 includes `main@3a890b9e` and current heads of PRs #1183, #1188, #1190, and #1191. Shared navigation from Build opened the Play surface. Elderwyld already has saved Runs, so the no-run welcome could not be exercised against live World state without creating/changing data; this remains a visual acceptance gap. The first-run state is covered by the focused Play page and Start Run panel tests (48 passed), and TypeScript plus the combined production build passed. No Runbook or Run was created; 5202 and 5876 were not modified.
