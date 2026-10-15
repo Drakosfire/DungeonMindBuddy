@@ -186,8 +186,14 @@ describe("BuildSurfaceShell", () => {
       /body:has\(\[data-document-surface="build"\]\)\s+\.app-shell--edit-dock\s+\.app-edit-toolbox--docked\s+\.app-edit-toolbox-backdrop,\s*body:has\(\[data-document-surface="build"\]\)\s+\.app-tools-toolbox\s+\.app-tools-toolbox-backdrop\s*\{([^}]*)\}/,
     );
     const narrowDrawerRule = buildCss.match(
-      /@media\s*\(max-width:\s*42rem\)\s*\{[\s\S]*?body:has\(\[data-document-surface="build"\]\)\s+\.app-shell--edit-dock\s+\.app-edit-toolbox--docked\s+\.app-edit-toolbox-drawer,\s*body:has\(\[data-document-surface="build"\]\)\s+\.app-tools-toolbox\s+\.app-tools-toolbox-drawer\s*\{([^}]*)\}/,
+      /@media\s*\(max-width:\s*42rem\)\s*\{[\s\S]*?body:has\(\[data-document-surface="build"\]\)\s+\.app-shell--edit-dock:has\(\.app-edit-toolbox--docked\.open\)\s+\.app-edit-toolbox--docked\s+\.app-edit-toolbox-drawer,\s*body:has\(\[data-document-surface="build"\]\)\s+\.app-tools-toolbox\s+\.app-tools-toolbox-drawer\s*\{([^}]*)\}/,
     );
+    const buildNarrowEditSelector = buildCss.match(
+      /body:has\(\[data-document-surface="build"\]\)\s+\.app-shell--edit-dock:has\(\.app-edit-toolbox--docked\.open\)\s+\.app-edit-toolbox--docked\s+\.app-edit-toolbox-drawer/,
+    )?.[0] ?? "";
+    const sharedOpenEditSelector = sharedCss.match(
+      /\.app-shell--edit-dock:has\(\.app-edit-toolbox--docked\.open\)\s+\.app-edit-toolbox--docked\s+\.app-edit-toolbox-drawer/,
+    )?.[0] ?? "";
 
     expect(buildBackdropRule).not.toBeNull();
     expect(buildBackdropRule?.[1]).toMatch(/display:\s*none\s*!important/);
@@ -200,8 +206,8 @@ describe("BuildSurfaceShell", () => {
     expect(narrowDrawerRule?.[1]).toMatch(/height:\s*42dvh/);
     expect(narrowDrawerRule?.[1]).toMatch(/max-height:\s*42dvh/);
 
-    // The Build selector has one attribute and three classes, so its (0,4,0)
-    // class/attribute specificity beats the shared mobile backdrop's (0,3,0).
+    // The Build selectors must outrank both shared open-dock geometry and the
+    // mobile backdrop override; :has() contributes its argument's specificity.
     const buildEditSelector = buildBackdropRule?.[0].split(",")[0] ?? "";
     const sharedMobileBackdropSelector = sharedCss.match(
       /\.app-shell--edit-dock\s+\.app-edit-toolbox--docked\s+\.app-edit-toolbox-backdrop\s*\{/
@@ -209,6 +215,13 @@ describe("BuildSurfaceShell", () => {
     const classAndAttributeCount = (selector: string) => (selector.match(/[.[]/g) ?? []).length;
     expect(classAndAttributeCount(buildEditSelector)).toBe(4);
     expect(classAndAttributeCount(sharedMobileBackdropSelector)).toBe(3);
+    expect(buildNarrowEditSelector).not.toBe("");
+    expect(sharedOpenEditSelector).not.toBe("");
+    expect(classAndAttributeCount(buildNarrowEditSelector)).toBe(6);
+    expect(classAndAttributeCount(sharedOpenEditSelector)).toBe(5);
+    expect(classAndAttributeCount(buildNarrowEditSelector)).toBeGreaterThan(
+      classAndAttributeCount(sharedOpenEditSelector),
+    );
   });
 
   beforeEach(() => {

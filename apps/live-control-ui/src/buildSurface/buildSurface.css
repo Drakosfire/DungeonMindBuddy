@@ -506,7 +506,7 @@ body:has([data-document-surface="build"])
 
 @media (max-width: 42rem) {
   body:has([data-document-surface="build"])
-    .app-shell--edit-dock
+    .app-shell--edit-dock:has(.app-edit-toolbox--docked.open)
     .app-edit-toolbox--docked
     .app-edit-toolbox-drawer,
   body:has([data-document-surface="build"])

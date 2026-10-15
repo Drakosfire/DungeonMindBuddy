@@ -77,3 +77,12 @@ refused connections and no `5203` listener was present, despite a relay saying
 the API was healthy. No `5202` process or data was changed. Request another exact
 head review through PRIME; only after that review passes and the serving lease is
 coordinated may this Build branch replace the 5202 UI.
+
+ARCHITECTURE's follow-up HOLD on `dd8f0e9efb93f169f9bb144248241a3a82d62763`
+found the shared open-dock geometry selector at `(0,5,0)` still outranked the
+narrow Build Edit drawer selector at `(0,4,1)`. The Build Edit drawer selector
+now includes the open-dock `:has()` state and has `(0,6,1)` specificity. The CSS
+contract test compares those exact competing selectors and requires Build to
+win, in addition to asserting the bottom-sheet geometry. This closes the CSS
+cascade issue; rendered narrow interaction, desktop stationarity and Plan/Play
+acceptance are still required before using 5202.
