@@ -18,7 +18,7 @@ def test_closed_publication_profiles_preserve_pilot_and_exact_gazetteer_version(
         "worldbuilding_gazetteer_v1@1.3", "worldbuilding_gazetteer_v1@1.4",
         "worldbuilding_gazetteer_v1@1.5", "worldbuilding_gazetteer_v1@1.6",
         "worldbuilding_gazetteer_v1@1.7", "worldbuilding_gazetteer_v1@1.8",
-        "worldbuilding_gazetteer_v1@1.9"}
+        "worldbuilding_gazetteer_v1@1.9", "worldbuilding_gazetteer_v1@1.10"}
     assert "worldbuilding_gazetteer_v1@2.0" not in PUBLISHABLE_WORLDBUILDING_PROFILES
     assert "worldbuilding_plumbing_v0@0.1" not in PUBLISHABLE_WORLDBUILDING_PROFILES
 
@@ -467,14 +467,14 @@ def test_actual_pipeline_preserves_named_definition_and_source_qualification():
     from src.graph_memory.extraction.category_candidate_graph_extractor import (
         CategoryGraphExtractionOptions, FixtureCategoryGraphPassClient, run_category_pipeline,
     )
-    body = "Float Goats are a livestock kind used to transport goods across water. The Renewal Fair is a recurring festival; locals believe it honors a goddess. A proposed hook has not occurred."
+    body = "Riverbacks are livestock used to move cargo across water. The Tide Lantern Festival is recurring; locals believe it honors a river spirit. A proposed hook has not occurred."
     ref = {"source_span_ref_id": "span-1", "anchor_quotes": [body]}
     client = FixtureCategoryGraphPassClient({"location_pass": {"observation_nodes": [
-        {"node_id": "location:region", "node_type": "location", "label": "Elderwyld",
-         "description": "Float Goats are a livestock kind used to transport goods across water.",
+        {"node_id": "location:region", "node_type": "location", "label": "Azure Reach",
+         "description": "Riverbacks are livestock used to move cargo across water.",
          "importance": "medium", "evidence_refs": [ref]}]}, "definition_pass": {"observation_nodes": [
-        {"node_id": "definition:fair", "node_type": "event", "label": "Renewal Fair",
-         "description": "A recurring festival; locals believe it honors a goddess.",
+        {"node_id": "definition:fair", "node_type": "event", "label": "Tide Lantern Festival",
+         "description": "A recurring festival; locals believe it honors a river spirit.",
          "importance": "medium", "evidence_refs": [ref]},
     ]}})
     result = run_category_pipeline(client, CategoryGraphExtractionOptions(
@@ -487,7 +487,7 @@ def test_actual_pipeline_preserves_named_definition_and_source_qualification():
     graph = result.candidate_graph
     assert len(graph["nodes"]) == 2
     assert not any(node["node_type"] == "creature" for node in graph["nodes"])
-    assert any("Float Goats" in node["description"] for node in graph["nodes"])
+    assert any("Riverbacks" in node["description"] for node in graph["nodes"])
     assert not graph["beats"]
     assert graph["session_id"] is None
     assert any("locals believe" in node["description"] for node in graph["nodes"])
@@ -505,7 +505,7 @@ def test_actual_pipeline_preserves_named_definition_and_source_qualification():
                                                          plan_digest=plan.plan_digest, effect=plan.effect)
     assert contribution.accepted_assertions
     assert "locals believe" in repr(contribution)
-    assert "Float Goats" in repr(contribution)
+    assert "Riverbacks" in repr(contribution)
 
 
 @pytest.mark.parametrize("version", ["1.0", "1.1", "1.2", "1.3", "1.8"])
@@ -514,7 +514,7 @@ def test_registered_gazetteer_run_retains_exact_profile_and_typed_definitions(tm
     from src.graph_memory.extraction.graph_preview_runner import ProductionExtractionRequest, run_production_extraction
     from apps.live_control_server.services.graph_run_registry import get_reviewable_extraction_run
     from graph_memory.candidate_graph_preview import candidate_graph_preview_from_dict
-    source = _admit_worldbuilding(tmp_path, "Mirathorn is a river city.\n")
+    source = _admit_worldbuilding(tmp_path, "Asterport is a river city.\n")
     result = run_production_extraction(ProductionExtractionRequest(
         repo_root=tmp_path, source=source, profile_id=GAZETTEER_PROFILE.profile_id,
         profile_version=version, allow_llm=True,
