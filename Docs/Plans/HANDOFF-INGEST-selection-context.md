@@ -32,3 +32,14 @@ private corpus and frozen candidate. Verify real route/auth and source/record
 validation, stale/cross-scope substitutions, emoji/combining characters, repeated
 paragraphs, neighborhood truncation and no artifact mutation. DOGFOOD must later
 witness real selected passage/node context; helper tests do not prove UI adoption.
+
+## Implementation evidence
+
+The real retained Session29 run `f43e48e6-c775-4960-824f-fb398fe50bb9`
+revision 5 resolved the sleeping-children passage and `loc:warehouse` into three
+candidate nodes and two incident edges under managed `elderwyld` → native
+`eldyrwild`, binding version 1. Private local receipt:
+`~/.local/state/dungeonmindbuddy/experiments/session29-selection-context-20261016/context.json`.
+This is backend source/record resolution, not a browser or Agent-action witness.
+The candidate and native World were not changed. New selection and existing
+immutable-correction suites pass 180 tests together; Ruff/diff checks pass.

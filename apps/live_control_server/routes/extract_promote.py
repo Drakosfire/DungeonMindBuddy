@@ -11,6 +11,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 
+from apps.live_control_server.models.ingest_selection_context import IngestSelectionContextRequest
 from apps.live_control_server.models.extract_promote import (
     ExtractPromoteConfirmReceipt,
     ExtractPromoteConfirmRequest,
@@ -325,6 +326,31 @@ def post_recap_semantic_disposition(
             )
         )
     return response.model_dump(mode="json", by_alias=True)
+
+
+@router.post("/runs/{run_id}/selection-context", response_model=None)
+def post_ingest_selection_context(
+    request_context: Request,
+    run_id: str,
+    request: IngestSelectionContextRequest,
+    principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+) -> dict[str, Any] | JSONResponse:
+    """Read-only, exact-run selection packet; never invokes a model or Graph write."""
+    from apps.live_control_server.services.ingest_selection_context import resolve_ingest_selection_context
+    from apps.live_control_server.services.graph_run_registry import GraphRunRegistryError
+    try:
+        _reject_selector_query(request_context)
+        return resolve_ingest_selection_context(run_id, request, operator_subject=principal.subject)
+    except ExtractPromoteError as exc:
+        return _error_response(exc)
+    except GraphRunRegistryError as exc:
+        return _error_response(ExtractPromoteError(str(exc), code="ingest_selection_unavailable", status_code=exc.status_code))
+    except Exception:
+        logger.exception("ingest selection context failed unexpectedly")
+        return _error_response(ExtractPromoteError(
+            "Selected ingestion context could not be resolved.",
+            code="ingest_selection_unavailable", status_code=503,
+        ))
 
 
 @router.post("/prepare", response_model=ExtractPromotePrepareResponse)
