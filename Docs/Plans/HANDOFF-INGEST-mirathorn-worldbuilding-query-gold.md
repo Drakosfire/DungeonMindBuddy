@@ -10,9 +10,9 @@
 
 ## Outcome
 
-Create a hand-authored, source-locked question-answer gold that lets future extraction and ordinary Agent runs be evaluated against Mirathorn before inference. It must record expected answer claims, the exact source lines that support them, required graph traversal shape, unresolved identity/entailment boundaries, and source material this first slice intentionally leaves out.
+Create a hand-authored, source-locked question-answer gold before the next target run. This is development material, not a blind holdout: prior Mirathorn work and the existing candidate-graph gold were reviewed. Record expected answer claims, exact source lines, real graph traversal contracts where applicable, unresolved identity/entailment boundaries, and source material this slice leaves out.
 
-This is a benchmark contract, not extraction output or graph publication. The existing Mirathorn candidate-graph gold remains useful historical material but is not silently treated as answer-quality evidence or as compatible with the current `worldbuilding_shepherds_flock_v0@0.1` profile.
+This is a benchmark contract, not extraction output or graph publication. The existing Mirathorn candidate-graph gold remains useful historical material but is not silently treated as answer-quality evidence. The Shepherds Flock `0.1` profile is recorded as a selected pilot baseline only; main also contains Gazetteer `1.5`, while the execution profile and registered document class for this Build source remain unverified.
 
 ## Required questions
 
@@ -24,13 +24,16 @@ Cover all five goal expectations with answerable prompts and source-backed answe
 4. The Festival of Expansion's commemorative purpose and its stated historical connection to the Aspitome bubble.
 5. Thalia's command role, resistance to accusations of guard corruption, and the source's explanation for that resistance. Keep hidden information spoiler-sensitive.
 
-Include at least two multi-hop question forms, one answerable-with-caution case, and negative controls for unsupported details. Each question names the fact IDs needed to answer it, whether abstention is expected, and the expected evidence lines.
+Include at least two multi-source or relationship-sensitive question forms, one answerable-with-caution case, and negative controls for unsupported details. Keep answer facts separate from graph paths. A path counts as graph traversal only when it lists connected source/target node selectors, exact native predicates, direction, and evidence fact IDs. The supported Elara → city council → Mirathorn path uses `leads` then `governs`; representative concerns are separate source-backed descriptions, with no inferred `member_of` edges. Generic Float Goats and the festival may be answered from source-backed descriptions/passages; correctness does not require a species or event node. Record each question's audience and explicit hidden-fact exclusions.
 
 ## Source and quality rules
 
 - Bind every claim to the exact path, saved revision, and SHA-256 above. Store only short quote anchors and line ranges; the validator must fail if the source bytes change.
 - Phrase gold claims at the level the source states. Record explicit distinctions between source fact, cautious synthesis, and unsupported detail.
-- Record profile coverage for each expected fact. The current Shepherd's Flock profile allows character/creature/location/faction/organization/group and excludes `event`, `item`, ecology and products. Identify where required answer facts do not fit instead of changing their meaning to fit the profile.
+- Record the selected pilot baseline and available Gazetteer `1.5` behavior separately. The `0.1` baseline excludes `event`, ecology and products and extracts named individuals rather than generic species; Gazetteer `1.5` supports recurring festival definitions and retains livestock details on associated place descriptions. Neither profile snapshot proves which one executed for this saved source.
+- Separate answer correctness from typed Graph representation. Do not require Festival/Float Goat entity nodes solely to answer their source facts; don't turn Mirathorn's approach scenery into an enduring world fact or played event.
+- Pin the native predicate source. Every claimed graph walk must use a legal predicate and admitted node type, have edge-contiguous direction, and cite question dependencies. Unsupported or unverified paths remain explicit gaps.
+- Require GM/player audience on questions. GM-only answers may use Thalia's hidden enchantment; player-safe answers must exclude it as a dependency and explicitly forbid its disclosure.
 - Keep omissions explicit, including the extensive livestock/product material and unstructured approach/scene details. This gold slice does not claim full-document recall.
 - Do not copy model answers into the gold, run a provider, edit source/corpus files, mutate the graph, publish candidates, or infer current database readiness.
 
@@ -45,8 +48,8 @@ No extraction profile, production schema, candidate graph, retrieval implementat
 
 ## Owning-boundary verification
 
-- Validate the JSON structure, source hash, all exact line ranges/quote anchors, fact references, question references, and uniqueness constraints with a deterministic no-network validator.
-- Run focused tests proving valid gold passes; stale source digest, absent quote, invalid bounds, dangling fact IDs, and missing required expectation fail.
+- Validate source/profile/predicate hashes, exact quote anchors, fact references, graph path endpoints/predicates/continuity, profile representation requirements, audience scope, and uniqueness constraints with a deterministic no-network validator.
+- Run focused tests proving valid gold passes; stale source, profile or predicate digest, absent quote, invalid bounds, dangling fact IDs, unsupported/disconnected graph paths, dropped player hidden-fact exclusions, and missing required expectations fail.
 - Manually inspect every accepted answer claim against its cited source lines; verify each required fact is represented and each documented omission/profile gap remains visible.
 - Run Ruff and `git diff --check`; inspect the complete base→head diff.
 
