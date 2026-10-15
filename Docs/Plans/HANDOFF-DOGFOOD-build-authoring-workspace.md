@@ -59,3 +59,21 @@ to this implementation lease. Its legacy tests asserted the removed Read/Edit
 switch and a single rendered reader. Update those expectations to continuous
 authoring while preserving source-navigation, dirty-state and persistence
 coverage. No additional production paths or capability are included.
+
+## Narrow overlay review response
+
+ARCHITECTURE HOLD on `8fc0687b0f54f714dc9f88285414b603fabc6343` identified that
+the shared narrow Edit-dock backdrop selector outranked the original Build
+override. The Build CSS now scopes both Edit and Tools backdrop removal to the
+Build document marker, disables pointer events on those backdrops, and gives the
+narrow drawers a full-width bottom-sheet bound of 42dvh. The shared selectors
+remain unchanged. A CSS contract test in `BuildSurfaceShell.test.tsx` checks
+Build-only scoping, the specificity increase, non-intercepting backdrop rules,
+and narrow drawer bounds; the owning UI suites pass 59 tests, with UI TypeScript,
+production build, and `git diff --check` passing.
+
+Rendered acceptance remains pending. From the DOGFOOD executor, `127.0.0.1:8000`
+refused connections and no `5203` listener was present, despite a relay saying
+the API was healthy. No `5202` process or data was changed. Request another exact
+head review through PRIME; only after that review passes and the serving lease is
+coordinated may this Build branch replace the 5202 UI.

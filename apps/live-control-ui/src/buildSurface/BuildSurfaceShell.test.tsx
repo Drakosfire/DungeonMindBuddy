@@ -1,7 +1,7 @@
 import type { ComponentProps } from "react";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import type { Editor } from "@tiptap/core";
-import { existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -54,6 +54,10 @@ const DOC_ID = "11111111-1111-4111-8111-111111111111";
 const ARTIFACT_ID = "artifact-glass-hesta";
 const SPAN_ID = "span-hesta-gate-passage";
 const OTHER_DOC_ID = "22222222-2222-4222-8222-222222222222";
+
+function readBuildSurfaceCss() {
+  return readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "buildSurface.css"), "utf8");
+}
 
 function buildExactSourceNavigationResult(
   overrides: Partial<BuildSourceNavigationResponse> = {},
@@ -172,6 +176,41 @@ async function waitForEditor() {
 }
 
 describe("BuildSurfaceShell", () => {
+  it("scopes nonmodal companion overlays to Build and bounds narrow drawers", () => {
+    const buildCss = readBuildSurfaceCss();
+    const sharedCss = readFileSync(
+      path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../styles.css"),
+      "utf8",
+    );
+    const buildBackdropRule = buildCss.match(
+      /body:has\(\[data-document-surface="build"\]\)\s+\.app-shell--edit-dock\s+\.app-edit-toolbox--docked\s+\.app-edit-toolbox-backdrop,\s*body:has\(\[data-document-surface="build"\]\)\s+\.app-tools-toolbox\s+\.app-tools-toolbox-backdrop\s*\{([^}]*)\}/,
+    );
+    const narrowDrawerRule = buildCss.match(
+      /@media\s*\(max-width:\s*42rem\)\s*\{[\s\S]*?body:has\(\[data-document-surface="build"\]\)\s+\.app-shell--edit-dock\s+\.app-edit-toolbox--docked\s+\.app-edit-toolbox-drawer,\s*body:has\(\[data-document-surface="build"\]\)\s+\.app-tools-toolbox\s+\.app-tools-toolbox-drawer\s*\{([^}]*)\}/,
+    );
+
+    expect(buildBackdropRule).not.toBeNull();
+    expect(buildBackdropRule?.[1]).toMatch(/display:\s*none\s*!important/);
+    expect(buildBackdropRule?.[1]).toMatch(/pointer-events:\s*none\s*!important/);
+    expect(narrowDrawerRule?.[1]).toMatch(/top:\s*auto/);
+    expect(narrowDrawerRule?.[1]).toMatch(/bottom:\s*0/);
+    expect(narrowDrawerRule?.[1]).toMatch(/left:\s*0/);
+    expect(narrowDrawerRule?.[1]).toMatch(/right:\s*0/);
+    expect(narrowDrawerRule?.[1]).toMatch(/width:\s*100%/);
+    expect(narrowDrawerRule?.[1]).toMatch(/height:\s*42dvh/);
+    expect(narrowDrawerRule?.[1]).toMatch(/max-height:\s*42dvh/);
+
+    // The Build selector has one attribute and three classes, so its (0,4,0)
+    // class/attribute specificity beats the shared mobile backdrop's (0,3,0).
+    const buildEditSelector = buildBackdropRule?.[0].split(",")[0] ?? "";
+    const sharedMobileBackdropSelector = sharedCss.match(
+      /\.app-shell--edit-dock\s+\.app-edit-toolbox--docked\s+\.app-edit-toolbox-backdrop\s*\{/
+    )?.[0].replace(/\s*\{$/, "") ?? "";
+    const classAndAttributeCount = (selector: string) => (selector.match(/[.[]/g) ?? []).length;
+    expect(classAndAttributeCount(buildEditSelector)).toBe(4);
+    expect(classAndAttributeCount(sharedMobileBackdropSelector)).toBe(3);
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();

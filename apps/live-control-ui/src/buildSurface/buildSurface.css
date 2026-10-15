@@ -477,9 +477,17 @@
   .build-workspace-projection .build-surface-with-graph-context { width: calc(100% - 1rem); padding: 0.65rem; }
 }
 
-/* Build authoring companions float without intercepting the document. */
-body:has([data-document-surface="build"]) :is(.app-edit-toolbox-backdrop, .app-tools-toolbox-backdrop) {
+/* Build authoring companions float without intercepting the document. Their
+   selectors outrank the shared narrow Edit-dock backdrop rule. */
+body:has([data-document-surface="build"])
+  .app-shell--edit-dock
+  .app-edit-toolbox--docked
+  .app-edit-toolbox-backdrop,
+body:has([data-document-surface="build"])
+  .app-tools-toolbox
+  .app-tools-toolbox-backdrop {
   display: none !important;
+  pointer-events: none !important;
 }
 .build-source-actions { position: relative; }
 .build-source-actions > summary { cursor: pointer; padding: .35rem .55rem; white-space: nowrap; }
@@ -497,7 +505,13 @@ body:has([data-document-surface="build"]) :is(.app-edit-toolbox-backdrop, .app-t
 .build-source-evidence .build-source-reader { padding: .75rem; border: 1px solid #b8a780; }
 
 @media (max-width: 42rem) {
-  body:has([data-document-surface="build"]) :is(.app-edit-toolbox-drawer, .app-tools-toolbox-drawer) {
+  body:has([data-document-surface="build"])
+    .app-shell--edit-dock
+    .app-edit-toolbox--docked
+    .app-edit-toolbox-drawer,
+  body:has([data-document-surface="build"])
+    .app-tools-toolbox
+    .app-tools-toolbox-drawer {
     top: auto; bottom: 0; left: 0; right: 0; width: 100%; height: 42dvh; max-height: 42dvh;
     border-top: 1px solid #3c4657; border-radius: .6rem .6rem 0 0;
   }
