@@ -1,14 +1,17 @@
 # DOGFOOD: direct Build authoring workspace
 
 Status ACTIVE for document authoring/navigation presentation under explicit operator
-"Do it" and PRIME design ownership confirmation; UI leases released. Node write
-portion BLOCKED pending ARCHITECTURE identification of an existing governed command
-or a DungeonMind-owned contract. No native mutation adapter is authorized.
-Current fetched `origin/main` is `3a890b9ec8b4e4c9924779249fe8570b7ecf9d1c`;
-branch `codex/build-authoring-workspace` is being re-anchored in the isolated
-checkout `/tmp/dmb-build-empty-welcome-reanchor` for PR #1183. No new
-durable/public contract is introduced. PRIME owns shared serving/runtime ports;
-5202 and its data are preserved.
+"Do it" and PRIME design ownership confirmation. Prior implementation leases were
+released; PRIME reactivated a bounded serial completion lease on 2026-10-15 for the
+handoff and the Build navbar Save dirty-state regression test only. Node write
+portion remains BLOCKED pending ARCHITECTURE identification of an existing governed
+command or a DungeonMind-owned contract. No native mutation adapter is authorized.
+Current fetched `origin/main` is
+`d03fdb67da877c604e19242d0bdc254515fe89f7`. The current integration lane is
+`codex/build-1183-integrate-main`; existing PR #1183 remains on
+`codex/build-authoring-workspace` and will be updated in place after verification.
+No new durable/public contract or PR is introduced. PRIME owns shared
+serving/runtime ports; 5202 and its data are preserved.
 
 Invariant: Build is a directly editable framed document, with stationary nonmodal
 Edit/Tools companions. Save in Build navbar invokes existing document CAS command;
@@ -17,7 +20,7 @@ reference pills retain inspection behavior and document Save never mutates Graph
 Node workspace must explicitly distinguish source/candidate/accepted authority and
 node Apply from document Save; no fake enabled Apply without governed capability.
 
-Expected exclusive document UI write set:
+Original cumulative PR authoring paths (review scope; not the current completion lease):
 - Docs/Plans/HANDOFF-DOGFOOD-build-authoring-workspace.md
 - apps/live-control-ui/src/buildSurface/BuildSurfacePage.tsx
 - apps/live-control-ui/src/buildSurface/BuildSurfaceShell.tsx
@@ -47,6 +50,39 @@ PRIME approves adding these two paths to the same PR/base and exclusive lease:
 
 - `apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.tsx`
 - `apps/live-control-ui/src/agentInteraction/WorldAgentConversation.planPlay.integration.test.tsx`
+
+## Current completion lease and rendered acceptance — 2026-10-15
+
+PRIME reactivated the serial #1183 completion lane against fetched
+`origin/main@d03fdb67da877c604e19242d0bdc254515fe89f7`. The only current writable
+paths are:
+
+- `Docs/Plans/HANDOFF-DOGFOOD-build-authoring-workspace.md`
+- `apps/live-control-ui/src/buildSurface/BuildSurfacePage.test.tsx`
+
+This completion adds only the test proving a newly created blank source keeps
+navbar Save disabled while clean and enables it after the first edit. Existing
+#1183 product paths remain cumulative review scope and will not be changed in this
+completion. Rebase and update the existing PR branch with expected-old-head
+protection; do not create a second PR. No 5202 restart/deployment is authorized.
+
+Rendered read-only acceptance used 5205 because 5203 refused connections. The
+available 5205 preview is older, assembled from `main@3a890b9e` plus the then-current
+PR heads, so it is not proof of the d03fdb67 head. At desktop and 390×844, the
+Mirathorn source was readable on the paper canvas, the Build navbar controls were
+present, Plan and Play were discoverable, and the shared conversation dock opened
+with its transcript, New conversation, context, options, and composer. At narrow
+width, navigation is horizontally scrollable and the dock becomes a bottom sheet
+with the composer visible. The dock context identifies the saved Mirathorn source
+and says unsaved editor changes remain local; the World Graph is not loaded and
+Explore loaded graph is disabled.
+
+The preview already displayed “Unsaved local changes” before this acceptance. That
+draft was preserved: no typing, save, discard, message send, or 5202 change occurred.
+Therefore durable save/reopen and live conversation sending remain unverified; this
+does not establish full World Graph integration. Use a separate disposable document
+in a fresh preview for any future write-path acceptance. The viewport override was
+reset after the narrow-width check.
 
 In Build only, an empty saved-source context must be stated honestly and expose
 an accessible reason/action that directs the user to open, create, import, or
