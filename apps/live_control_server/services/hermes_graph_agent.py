@@ -2020,6 +2020,10 @@ def run_hermes_graph_agent_turn(
                             model=model,
                             base_url=base_url,
                             **(
+                                {"request_overrides": {"parallel_tool_calls": False}}
+                                if policy.mode != "conversation_only" else {}
+                            ),
+                            **(
                                 {"max_tokens": request.request_budget["outputReserveTokens"]}
                                 if request.request_budget is not None
                                 else {}
@@ -2037,6 +2041,18 @@ def run_hermes_graph_agent_turn(
                                 retrieval_session_packet=retrieval_session_packet,
                             ),
                         )
+                        if agent_factory is None and policy.mode != "conversation_only":
+                            from apps.live_control_server.services.hermes_graph_dispatch_adapter import (
+                                install_graph_serial_dispatch,
+                            )
+                            try:
+                                install_graph_serial_dispatch(agent)
+                            except ValueError:
+                                return observed_error(
+                                    hermes_session_id=session_id,
+                                    error_code="hermes_graph_dispatch_unsupported",
+                                    error_message="The pinned Agent Harness dispatcher contract is unsupported.",
+                                )
                         if request.request_budget is not None:
                             agent.api_request_budget_guard = _request_budget_guard(
                                 request.request_budget,

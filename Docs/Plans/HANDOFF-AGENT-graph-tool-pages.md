@@ -59,3 +59,25 @@ parseable, bounded and recoverable. Verify both transports emit parallel false.
 Review full cumulative diff and exact head; finish to PR. After accepted merge,
 roll out stable5876/API8002 and repeat ordinary conversation only on changed
 runtime. No end-to-end acceptance from helper tests alone.
+
+## Implementation evidence
+
+Pages are at most8,000 UTF-8 bytes, below even the pinned Harness's8,000-char
+minimum single-result threshold. The worker-local cache holds at most8MB of
+serialized pages for300seconds; expiry/eviction/foreign scope fail explicitly.
+Thirty-two serial results (stronger cumulative-volume proof than the initial
+24-result plan) exceed200KB while actual vendor persistence/enforcement and
+next-request call/response pairing remain valid. Real pinned dispatch tests also
+prove cancellation and capability denial prevent further Graph IO.
+
+Retained frozen-revision plugin probe: search12pages (maximum7,922bytes),
+object2pages (maximum7,227bytes), opened source1page/1,574bytes. Continuing pages
+changes neither operation count nor authoritative claims/source-read receipts.
+Descriptions/qualification lead the search pages; full remaining records stay
+recoverable. No provider call or retained World publication in implementation.
+
+Focused regression passes69tests. The wider pre-existing Harness suite has six
+failures (profile permissions, model-visible surface fixtures and a parent-source
+policy expectation); the exact same six reproduce against unchanged main with
+the same installed environment. They are not counted as passing. Ordinary live
+conversation, latency and operator acceptance remain pending after review.
