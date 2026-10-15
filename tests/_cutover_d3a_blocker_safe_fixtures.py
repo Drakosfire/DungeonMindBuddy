@@ -877,7 +877,15 @@ def _write_reviewable_extraction_run(
             break
 
 
-    run_dir = repo / "out" / "graph_memory" / "runs" / "extraction" / "wb1"
+    run = create_extraction_run(
+        repo,
+        source_artifact_id=artifact.source_artifact_id,
+        source_domain="worldbuilding",
+        campaign_id=campaign_id,
+        session_id=None,
+        profile_id="worldbuilding_plumbing_v0@0.1",
+    )
+    run_dir = repo / "out" / "graph_memory" / "runs" / "extraction" / run.run_id
     run_dir.mkdir(parents=True, exist_ok=True)
 
 
@@ -922,7 +930,7 @@ def _write_reviewable_extraction_run(
                 ),
             ),
         )
-        alt_rel = "out/graph_memory/runs/extraction/wb1/alt_source_span_index.json"
+        alt_rel = (run_dir / "alt_source_span_index.json").relative_to(repo).as_posix()
         alt_path = repo / alt_rel
         write_json(alt_path, source_span_index_to_dict(alt_index))
         span_component_uri = f"repo://{alt_rel}"
@@ -990,14 +998,6 @@ def _write_reviewable_extraction_run(
     }
 
 
-    run = create_extraction_run(
-        repo,
-        source_artifact_id=artifact.source_artifact_id,
-        source_domain="worldbuilding",
-        campaign_id=campaign_id,
-        session_id=None,
-        profile_id="worldbuilding_plumbing_v0@0.1",
-    )
     reachable = [
         ExtractionRunStatus.PREPARED,
         ExtractionRunStatus.EXTRACTED,
