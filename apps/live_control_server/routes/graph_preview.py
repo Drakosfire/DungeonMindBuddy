@@ -430,19 +430,36 @@ def post_extraction_run(body: dict[str, Any]) -> dict[str, Any]:
     except SourceArtifactRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
 
-    result = run_worldbuilding_production_extraction(
-        repo_root=root,
-        source_artifact_id=artifact.source_artifact_id,
-        profile_id=profile_id,
-        profile_version=profile_version,
-        allow_llm=True,
-        output_dir=root
-        / "out"
-        / "graph_memory"
-        / "runs"
-        / "extraction"
-        / artifact.source_artifact_id.replace(":", "_"),
-    )
+    if (profile_id, profile_version) == ("worldbuilding_gazetteer_v1", "1.5"):
+        from apps.live_control_server.services.worldbuilding_ge_execution import (
+            WorldbuildingExecutionInputError,
+            run_gazetteer_15_with_generation_engine,
+        )
+
+        try:
+            result = run_gazetteer_15_with_generation_engine(
+                repo_root=root,
+                source_artifact_id=artifact.source_artifact_id,
+                document_id=record.document_id,
+                document_revision=record.revision,
+                expected_content_sha256=expected_content_sha256,
+            )
+        except WorldbuildingExecutionInputError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+    else:
+        result = run_worldbuilding_production_extraction(
+            repo_root=root,
+            source_artifact_id=artifact.source_artifact_id,
+            profile_id=profile_id,
+            profile_version=profile_version,
+            allow_llm=True,
+            output_dir=root
+            / "out"
+            / "graph_memory"
+            / "runs"
+            / "extraction"
+            / artifact.source_artifact_id.replace(":", "_"),
+        )
 
     content_sha256 = artifact.content_sha256 or expected_content_sha256.removeprefix("sha256:").strip().lower()
     return {

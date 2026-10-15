@@ -45,7 +45,7 @@ or candidate is written into the user's working corpus or retained World.
 - `apps/live_control_server/services/worldbuilding_ge_execution.py`
 - `apps/live-control-ui/src/buildSurface/useBuildExtraction.ts`
 - `apps/live-control-ui/src/buildSurface/useBuildExtraction.test.tsx`
-- `tests/test_graph_preview_routes.py`
+- `tests/test_worldbuilding_ge_route.py`
 - `tests/test_worldbuilding_ge_execution.py`
 
 Do not edit `apps/live_control_server/services/graph_preview_runner.py` (#1142 lease),
@@ -82,6 +82,16 @@ managed-World registries, database schema, or publication code.
    `evals/graph_memory_layer/examples/mirathorn_worldbuilding_query_gold_v1/gold.json`; record
    explicit misses and unsupported claims. This is candidate evidence, not publication or
    answer-quality proof.
+
+   The completed run was reviewable after six successful DeepSeek V4.1 Flash passes, with no
+   retries or fallback. The provider ledger records 162,085 input and 22,490 output tokens,
+   about 84.9 seconds summed pass latency, and no dollar cost. It produced 39 nodes, 20 edges,
+   and 196 evidence references; all 196 referenced source spans resolve. The manual gold check
+   found overlap for 17 of 18 expected facts, but also found unsupported relationship proposals,
+   several livestock facts misclassified as events, and one mismatched anchor quote. The
+   prepared-scene-only expectation is correctly excluded from durable World knowledge. This
+   shows that schema validity, resolvable evidence, and raw gold overlap are not enough to
+   establish semantic correctness. No candidate was published or used for an Agent answer.
 4. Run the gold validator, focused Python tests, focused UI tests/typecheck, Ruff, and
    `git diff --check`; inspect the complete cumulative base→head diff.
 5. Send the exact PR head to ARCHITECTURE for independent review. No merge until that review,
