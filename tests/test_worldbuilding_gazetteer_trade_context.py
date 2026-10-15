@@ -129,6 +129,68 @@ def test_trade_detail_and_location_must_each_be_unambiguous():
     assert diagnostics["reason"] == "city_location_not_unique"
 
 
+def test_negated_or_qualified_access_is_not_added_as_affirmative():
+    for sentence in (
+        "A trading hub with no access to canal boats.",
+        "A trading hub with limited access to canal boats.",
+        "A trading hub without access to canal boats.",
+    ):
+        result, diagnostics = _apply_trade_context(
+            _candidate(), _rows_with_trade(sentence=sentence),
+        )
+        assert result == _candidate()
+        assert diagnostics["reason"] == "trade_access_claim_not_affirmative"
+
+    # A separate earlier sentence must not poison an affirmative trade claim.
+    sentence = (
+        "It has no trade with rivals. Asterport is a trading hub with access "
+        "to moonlit ferries."
+    )
+    result, diagnostics = _apply_trade_context(
+        _candidate(), _rows_with_trade(sentence=sentence),
+    )
+    assert diagnostics["status"] == "added"
+    assert "Trade access: moonlit ferries." in result["nodes"][0]["description"]
+
+
+def test_explicit_trade_city_must_match_the_document_city():
+    other_city = "Otherport is a trading hub with access to moonlit ferries."
+    result, diagnostics = _apply_trade_context(
+        _candidate(), _rows_with_trade(sentence=other_city),
+    )
+    assert result == _candidate()
+    assert diagnostics["reason"] == "trade_city_subject_mismatch"
+
+    named_city_with_dash = "Otherport — a trading hub with access to moonlit ferries."
+    result, diagnostics = _apply_trade_context(
+        _candidate(), _rows_with_trade(sentence=named_city_with_dash),
+    )
+    assert result == _candidate()
+    assert diagnostics["reason"] == "trade_city_subject_mismatch"
+
+    same_city = "Asterport is a trading hub with access to moonlit ferries."
+    result, diagnostics = _apply_trade_context(
+        _candidate(), _rows_with_trade(sentence=same_city),
+    )
+    assert diagnostics["status"] == "added"
+    assert "Trade access: moonlit ferries." in result["nodes"][0]["description"]
+
+    generic_subject = "A trading hub has access to moonlit ferries."
+    result, diagnostics = _apply_trade_context(
+        _candidate(), _rows_with_trade(sentence=generic_subject),
+    )
+    assert diagnostics["status"] == "added"
+
+    other_city_location = (
+        "Near Otherport, a trading hub with access to moonlit ferries."
+    )
+    result, diagnostics = _apply_trade_context(
+        _candidate(), _rows_with_trade(sentence=other_city_location),
+    )
+    assert result == _candidate()
+    assert diagnostics["reason"] == "trade_city_subject_mismatch"
+
+
 def test_trade_evidence_must_belong_to_the_existing_location_source():
     rows = _rows(
         (1, 3, '---\ntitle: "The City of Asterport"\n---'),
