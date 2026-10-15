@@ -9,6 +9,7 @@ from .worldbuilding_gazetteer_profile import (
 from .worldbuilding_gazetteer_role_citations import GAZETTEER_ROLE_CITATION_PROFILE
 from .worldbuilding_gazetteer_scenario_scope import GAZETTEER_PREPARED_SCENARIO_PROFILE
 from .worldbuilding_gazetteer_governance import GAZETTEER_GOVERNANCE_PROFILE
+from .worldbuilding_gazetteer_trade_context import GAZETTEER_TRADE_CONTEXT_PROFILE
 
 PUBLISHABLE_WORLDBUILDING_PROFILES = {
     f"{p.profile_id}@{p.profile_version}": p
@@ -19,5 +20,6 @@ PUBLISHABLE_WORLDBUILDING_PROFILES = {
         GAZETTEER_ROLE_CITATION_PROFILE,
         GAZETTEER_PREPARED_SCENARIO_PROFILE,
         GAZETTEER_GOVERNANCE_PROFILE,
+        GAZETTEER_TRADE_CONTEXT_PROFILE,
     )
 }

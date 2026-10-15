@@ -1,6 +1,6 @@
 # PRIME handoff — source-grounded Mirathorn governance relation
 
-**Status:** ACTIVE — implementation extends Buddy PR #1196.
+**Status:** COMPLETED — PR #1196 merged as `fae8838318ff98f1196a09b4c365f4107231af4f` after independent review. Retained publication and Agent acceptance remain pending.
 **Base contract:** Buddy main `6bde87a27dfeb3768015d96444d22e3c517106bb`; DungeonMind main `1d120886b00acf7f97b3744e88619abd97c34591` defines the reviewed world-object-v6/world-property-v4 pair.
 **Branch:** `codex/mirathorn-governs-consumer`.
 **Topology:** serial; incorporate the exact accepted Buddy and DungeonMind predecessors, retarget this existing PR to main, then review the completed integration. Downstream trade-context work stays held.
@@ -8,7 +8,7 @@
 
 ## Outcome
 
-Complete the Mirathorn governance path from the exact saved Build source into the existing candidate review/publication flow. The preserved v1.6 candidate already contains one `Mirathorn` location and one `Mirathorn City Council` organization, each carrying the same openable source span for the explicit Governance sentence, but it omits their `governs` edge. Buddy's v1.8 scene-scope profile removes prepared-scene contamination; this slice adds a new immutable Gazetteer profile version that preserves that behavior, adds the source title as identity evidence to the two existing nodes, and deterministically proposes the missing directed relation for review.
+Complete the Mirathorn governance path from the exact saved Build source into the existing candidate review/publication flow. The preserved v1.6 candidate already contains one `Mirathorn` location and one `Mirathorn City Council` organization, each carrying the same openable source span for the explicit Governance sentence, with an existing `governs` edge in the preserved replay. Buddy's v1.8 scene-scope profile removes prepared-scene contamination; this slice adds a new immutable Gazetteer profile version that preserves that behavior, adds the source title as identity evidence to the two existing nodes, and deterministically proposes the missing directed relation for review.
 
 Add the relation only when all conditions hold:
 

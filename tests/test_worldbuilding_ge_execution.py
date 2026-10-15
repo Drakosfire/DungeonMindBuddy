@@ -19,14 +19,14 @@ from apps.live_control_server.services.workspace_document_registry import (
 )
 
 
-SOURCE = "The Elderwyld is a continent on the edge of reality.\nMirathorn is a city.\n"
+SOURCE = "The Azure Reach is a continent at the edge of reality.\nAsterport is a city.\n"
 
 
 def _registered_source(root: Path):
     record = create_workspace_document(
         root,
-        title="The City of Mirathorn",
-        campaign_id="elderwyld",
+        title="The City of Asterport",
+        campaign_id="azure-reach",
         kind="worldbuilding_source",
         source_domain="worldbuilding",
         document_class="lore",
@@ -58,11 +58,11 @@ class _FakeBoundedClient:
 
 
 class _FakeRun:
-    run_id = "run-mirathorn"
+    run_id = "run-worldbuilding"
     status = SimpleNamespace(value="reviewable")
 
 
-@pytest.mark.parametrize("profile_version", ["1.5", "1.6", "1.7", "1.8", "1.9"])
+@pytest.mark.parametrize("profile_version", ["1.5", "1.6", "1.7", "1.8", "1.9", "1.10"])
 def test_generationengine_execution_pins_exact_source_profile_and_provider(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, profile_version: str,
 ) -> None:
@@ -85,7 +85,7 @@ def test_generationengine_execution_pins_exact_source_profile_and_provider(
         profile_version=profile_version,
     )
 
-    assert result.run.run_id == "run-mirathorn"
+    assert result.run.run_id == "run-worldbuilding"
     request = captured[0]
     assert request.source.source_artifact_id == artifact.source_artifact_id
     assert request.source.source_sha256 == expected_sha
@@ -111,7 +111,7 @@ def test_generationengine_execution_pins_exact_source_profile_and_provider(
     assert ledger_json["document_revision"] == committed.revision
     assert ledger_json["source_sha256"] == expected_sha
     assert ledger_json["profile_id"] == f"worldbuilding_gazetteer_v1@{profile_version}"
-    assert ledger_json["run_id"] == "run-mirathorn"
+    assert ledger_json["run_id"] == "run-worldbuilding"
     assert ledger.stat().st_mode & 0o777 == 0o600
     assert ledger.parent.stat().st_mode & 0o077 == 0
 

@@ -14,18 +14,18 @@ from apps.live_control_server.services.workspace_document_registry import (
 )
 
 
-SOURCE = "The Elderwyld is a continent. Mirathorn is a city.\n"
+SOURCE = "The Azure Reach is a continent. Asterport is a city.\n"
 
 
-@pytest.mark.parametrize("profile_version", ["1.5", "1.6", "1.7", "1.8", "1.9"])
+@pytest.mark.parametrize("profile_version", ["1.5", "1.6", "1.7", "1.8", "1.9", "1.10"])
 def test_gazetteer_launch_binds_generation_to_committed_build_source(
     profile_version: str,
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     record = create_workspace_document(
         tmp_path,
-        title="The City of Mirathorn",
-        campaign_id="elderwyld",
+        title="The City of Asterport",
+        campaign_id="azure-reach",
         kind="worldbuilding_source",
         source_domain="worldbuilding",
         document_class="lore",
