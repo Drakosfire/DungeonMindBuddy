@@ -71,6 +71,7 @@ _REQUEST_ALLOWED_KEYS = frozenset(
         "retrievalSession",
         "surfaceContextBlock",
         "planContinuityTurn",
+        "inputKind",
         "requestBudget",
         "providerAuthorizationRequired",
         "parentGraphBrokerRequired",
@@ -287,6 +288,7 @@ class HermesGraphAgentTurnRequest:
     retrieval_session: Mapping[str, Any] | None = None
     surface_context_block: str | None = None
     plan_continuity_turn: bool = False
+    input_kind: Literal["ordinary_question", "server_assembled_saved_work"] = "ordinary_question"
     request_budget: Mapping[str, Any] | None = None
     provider_authorization_required: bool = False
     parent_graph_broker_required: bool = False
@@ -793,17 +795,28 @@ def deserialize_capability_policy(payload: Mapping[str, Any]) -> HermesCapabilit
     )
 
 
+def _input_kind(value: Any) -> Literal["ordinary_question", "server_assembled_saved_work"]:
+    if type(value) is not str or value not in {"ordinary_question", "server_assembled_saved_work"}:
+        raise ValueError("inputKind must name a supported internal input kind")
+    return value
+
+
 def serialize_hermes_graph_agent_turn_request(
     request: HermesGraphAgentTurnRequest,
 ) -> dict[str, Any]:
     """Serialize a Rung 3 turn request for host IPC (no callables)."""
-    # A Plan turn carries exact committed Markdown in this internal field.
+    # A trusted saved-work assembly carries exact committed text in this field.
     # The public user question remains bounded by AgentTurnRequest; the host
     # wire limit and final provider-envelope budget bound the assembled input.
+    input_kind = _input_kind(request.input_kind)
     question = _require_str(
         request.question,
         label="question",
-        max_chars=MAX_WIRE_BYTES if request.plan_continuity_turn else MAX_QUESTION_CHARS,
+        max_chars=(
+            MAX_WIRE_BYTES
+            if request.plan_continuity_turn or input_kind == "server_assembled_saved_work"
+            else MAX_QUESTION_CHARS
+        ),
     )
     policy = request.capability_policy
     conversation_only = policy is not None and policy.mode == "conversation_only"
@@ -908,6 +921,7 @@ def serialize_hermes_graph_agent_turn_request(
         "retrievalSession": retrieval_session,
         "surfaceContextBlock": surface_block,
         "planContinuityTurn": request.plan_continuity_turn,
+        "inputKind": input_kind,
     }
     if request_budget is not None:
         payload["requestBudget"] = request_budget
@@ -935,6 +949,7 @@ def deserialize_hermes_graph_agent_turn_request(
     retrieval_session_raw = payload.get("retrievalSession")
     if retrieval_session_raw is not None and not isinstance(retrieval_session_raw, Mapping):
         raise ValueError("retrievalSession must be a mapping or null")
+    input_kind = _input_kind(payload.get("inputKind", "ordinary_question"))
     plan_continuity_turn = payload.get("planContinuityTurn", False)
     if not isinstance(plan_continuity_turn, bool):
         raise ValueError("planContinuityTurn must be a boolean")
@@ -986,7 +1001,11 @@ def deserialize_hermes_graph_agent_turn_request(
         question=_require_str(
             payload.get("question") or "",
             label="question",
-            max_chars=MAX_WIRE_BYTES if plan_continuity_turn else MAX_QUESTION_CHARS,
+            max_chars=(
+                MAX_WIRE_BYTES
+                if plan_continuity_turn or input_kind == "server_assembled_saved_work"
+                else MAX_QUESTION_CHARS
+            ),
         ),
         world_id=world_id,
         campaign_id=campaign_id,
@@ -1022,6 +1041,7 @@ def deserialize_hermes_graph_agent_turn_request(
             max_chars=MAX_SURFACE_CONTEXT_BLOCK_CHARS,
         ),
         plan_continuity_turn=plan_continuity_turn,
+        input_kind=input_kind,
         request_budget=request_budget,
         provider_authorization_required=provider_authorization_required,
         parent_graph_broker_required=parent_graph_broker_required,

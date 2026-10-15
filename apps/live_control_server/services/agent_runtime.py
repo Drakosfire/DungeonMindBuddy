@@ -114,6 +114,8 @@ class AgentRuntimeInvocation:
     run_options: AgentRunOptions
     # Resolved by AgentTurnService from the saved-work owner and active surface.
     plan_continuity_turn: bool = False
+    # Set only by trusted saved-work assembly; independent of continuity/capabilities.
+    input_kind: Literal["ordinary_question", "server_assembled_saved_work"] = "ordinary_question"
 
 
 @dataclass(frozen=True, slots=True)

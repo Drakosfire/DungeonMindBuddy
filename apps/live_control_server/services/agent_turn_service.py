@@ -5136,6 +5136,10 @@ def execute_agent_turn(
                     None if policy_bootstrap is None else policy_bootstrap.retrieval_session
                 ),
             )
+        if work is not None and work.build_source is not None:
+            assembly = replace(assembly, invocation=replace(
+                assembly.invocation, input_kind="server_assembled_saved_work",
+            ))
     except Exception:
         context_assembly_status = "error"
         raise
