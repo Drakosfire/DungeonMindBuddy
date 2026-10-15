@@ -107,7 +107,7 @@
       {
         "id": "worldbuilding_gazetteer_v1@1.9",
         "source_path": "src/graph_memory/extraction/worldbuilding_gazetteer_governance.py",
-        "source_sha256": "865250f77eb4c824b1bb9db892e27d2e94183b36cc47ec9a2ebfc5614f23aaae",
+        "source_sha256": "d562cd066f26d37ee674822de3b77dce518cf22f538d7365740a14f0b9d1d025",
         "relevant_behavior": [
           "Preserves v1.8 scene filtering and proposes a directed council-governs-city edge only when a unique city title, matching council/location candidates, and shared exact openable Governance evidence are present.",
           "Does not create or rename nodes, reverse conflicting edges, infer membership, or publish the candidate."

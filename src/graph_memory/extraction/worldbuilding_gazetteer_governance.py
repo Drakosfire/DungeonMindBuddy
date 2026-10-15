@@ -98,6 +98,36 @@ def _affirmed_city_governance(text: str) -> bool:
     )
 
 
+def _governance_subject_matches(text: str, city_name: str) -> bool:
+    """Bind narrow source templates to this city; defer ambiguous prose.
+
+    The section scopes article-led descriptions, not another named city. Check
+    affirmation and subject binding on the same governance occurrence.
+    """
+    city = _normalized_label(city_name)
+    subjects = {city, f"city of {city}", f"the city of {city}", "it", "the city"}
+    for match in _CITY_GOVERNANCE.finditer(text):
+        if not _affirmed_role_occurrence(text, match.group(0)):
+            continue
+        prefix = re.split(r"[.!?;]", text[:match.start()])[-1].strip()
+        # Keep the original subject when correcting a prior negative assertion.
+        prefix = re.sub(r"\s+was not\s+[^,;.!?]+\s+but is\s+", " is ", prefix,
+                        flags=re.IGNORECASE)
+        explicit = re.fullmatch(r"(.+?)\s+is\s+(.+)", prefix, re.IGNORECASE)
+        if explicit:
+            subject, description = explicit.groups()
+            if _normalized_label(subject) not in subjects:
+                continue
+        else:
+            description = prefix
+        if re.fullmatch(
+            r"(?:a|an)(?:\s+(?:democratic|autonomous|independent|sovereign))*",
+            description.strip(), re.IGNORECASE,
+        ):
+            return True
+    return False
+
+
 def _governance_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     lines = _physical_source_lines(rows)
     in_governance = False
@@ -246,6 +276,12 @@ def _apply_governance_relation(
             "reason": "city_title_unresolved",
         }
     city_name, title_row = city_title
+    if not _governance_subject_matches(statements[0]["text"], city_name):
+        return result, {
+            "profile": PROFILE,
+            "status": "skipped",
+            "reason": "governance_subject_not_bound",
+        }
     city_nodes = _matching_city_nodes(nodes, city_name)
     council_nodes = _matching_council_nodes(nodes, city_name)
     if len(city_nodes) != 1 or len(council_nodes) != 1:

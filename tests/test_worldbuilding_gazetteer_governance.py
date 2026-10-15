@@ -295,3 +295,27 @@ def test_profile_is_a_new_catalogued_extension_of_prepared_scenario_scope():
     assert GAZETTEER_GOVERNANCE_PROFILE.profile_version == "1.9"
     assert GAZETTEER_GOVERNANCE_PROFILE.profile_id == "worldbuilding_gazetteer_v1"
     assert PROFILE in PUBLISHABLE_WORLDBUILDING_PROFILES
+
+
+@pytest.mark.parametrize("statement, accepted", [
+    ("Otherport is a city-state governed by a council.", False),
+    ("The City of Otherport is a city-state governed by a council.", False),
+    ("Mirathorn trades with Otherport, which is a city-state governed by a council.", False),
+    ("Mirathorn is wealthy. Otherport is a city-state governed by a council.", False),
+    ("Otherport is a city-state governed by a council; Mirathorn is not.", False),
+    ("Mirathorn is a city-state governed by a council.", True),
+    ("The City of Mirathorn is a democratic city-state governed by a council.", True),
+    ("The city is a city-state governed by a council.", True),
+    ("A democratic city-state governed by a council.", True),
+])
+def test_governance_subject_must_bind_to_document_city(statement, accepted):
+    rows = _rows(
+        "# The City of Mirathorn", "## Location", "A trade crossing.",
+        "### Governance:", statement,
+    )
+    graph = _graph(rows)
+    result, diagnostics = _apply_governance_relation(graph, rows)
+    assert bool(result["edges"]) is accepted
+    if not accepted:
+        assert result == graph
+        assert diagnostics["reason"] == "governance_subject_not_bound"
