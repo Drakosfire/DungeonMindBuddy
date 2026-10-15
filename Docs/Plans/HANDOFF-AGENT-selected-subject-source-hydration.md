@@ -1,7 +1,7 @@
 # AGENT: selected-subject source hydration
 
-Status: BLOCKED — clarified contract awaits ARCHITECTURE review before
-implementation activation. No serving/model experiment activation.
+Status: ACTIVE — PRIME activates after ARCHITECTURE accepted clarified
+contract9403d3f9. Exact accepted base d92a916; no serving/model activation.
 PRIME owns design/solo implementation. Base d92a916220fe1d800936cfffe25288f9f770aad4.
 Serial replacement of the negative policy experiment, not dependent on its
 unmerged instructions. PR1176 remains frozen/HOLD. Explicit parallel-independent
@@ -52,8 +52,7 @@ harness adapters. Propagate source_reads in existing private session projection;
 existing hydrator already validates SourceReadEntry. Do not fake tool events,
 claims, citations or opened states. Record reads as server_initial operations.
 Missing/malformed/foreign replies yield gaps, never model-visible content. Avoid
-partial mutation making unverified content citeable; define rollback at each
-invalid result using the pre-read session snapshot, preserving prior valid reads.
+partial mutation making unverified content citeable; use the atomic-batch rollback contract below, preserving prior valid batches.
 
 Only existing native admitted source access is permitted. No provider calls in
 implementation tests. Later exact-head ordinary diagnostic needs independent
@@ -94,7 +93,8 @@ restart/history or operator acceptance is pre-marked complete.
 ## Activation clarifications (binding implementation contract)
 
 - Re-anchored remote main remains d92a916. ARCH reviewed40d266a5 and requested
-  these clarifications; activation judgment remains pending exact amended review.
+  these clarifications; ARCH subsequently accepted exact9403d3f9; PRIME activates this portable
+  pinned handoff under ecosystem core rule3. Main merge is not an activation gate.
 - Declare deduplicated support IDs BEFORE session readability intersection or
   cap. Missing/unreadable IDs remain coverage denominator/gaps. Cap overflow is
   explicitly unread, never source/corpus completeness. Only selected subject
