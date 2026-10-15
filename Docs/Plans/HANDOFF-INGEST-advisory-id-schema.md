@@ -1,6 +1,6 @@
 # INGEST: constrain advisory selection to known proposal IDs
 
-Status ACTIVE after ARCHITECTURE design PASS on c6725b71f0be987f809f9a9b57a057b223c9d61a. PRIME solo implementation; one serial
+Status COMPLETE. PR #1184 merged at head 2507aab50584817811965a7fb75c7f2d38eb2c3a; main settlement 9f694665fb4550990396bc0255efdb1000238bcb. PRIME implemented; ARCHITECTURE independently reviewed.
 PR after merged1180/1182, base66b24a54684d56bf04f2b34efd4121cf94a64d9c.
 Branch codex/advisory-id-schema; isolated /tmp/buddy-advisory-review-design.
 
@@ -71,10 +71,7 @@ with a synthetic worker seam to inspect schema and keep usage/attempt accounting
 no live provider. Actual registered failure retains prior outputs/response/hash.
 Existing preservation/canonical/source retention gates remain intact.
 
-Complete implementation/tests/diff/commit/push/PR and independent exact-head
-review before merge. Only afterward may a separately recorded changed-request
-research run use standing ingestion approval. No original failed-turn replay or
-retained World publication is authorized here. Full Mirathorn lifecycle incomplete.
+Implementation, verification and independent exact-head review are complete and merged. Lease released. A separately recorded changed-request research run may use standing ingestion approval. No original failed-turn replay or retained World publication is authorized here. Full Mirathorn lifecycle remains incomplete.
 
 ## Implementation evidence for review
 
@@ -86,3 +83,12 @@ prompt, e034 absent after role filtering. Valid selection becomes reviewable;
 malicious e034 output fails at the existing consumer schema check with prior raw
 responses and attempt observations retained in the registered failure bundle.
 No provider, serving, native publication or source edits occurred in implementation.
+
+
+## Settlement
+
+- PR: https://github.com/Drakosfire/DungeonMindBuddy/pull/1184
+- Reviewed head: `2507aab50584817811965a7fb75c7f2d38eb2c3a`.
+- Merge/current main revision at settlement: `9f694665fb4550990396bc0255efdb1000238bcb`.
+- ARCHITECTURE exact-head review passed; its independent focused suites reported 98 passed, with one inherited Pydantic warning.
+- Implementation lease released. This change constrains candidate-ID membership only; semantic fidelity, publication and ordinary Graph answers remain separate gates.
