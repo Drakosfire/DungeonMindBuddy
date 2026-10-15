@@ -1,7 +1,10 @@
 # DOGFOOD: complete Build shared workspace integration
 
-Status ACTIVE. Operator authorizes one coherent Build implementation PR; PRIME
-activates after ARCH design gate on 9868724c and APP exclusive validator transfer.
+Status COMPLETED. PR #1178 merged as ce439099085851131c89e3e6d7d545a0b0072ca2.
+Exact reviewed head 01e5642d7adda48ed3a28d6384fd8a478a5b3a61 passed four formal
+review cycles, with final code and qualified rendered acceptance. Combined status
+checks were empty; no CI-green claim. Operator authorized one coherent Build PR;
+PRIME activated after ARCH design and APP exclusive validator transfer.
 Design base d92a916220fe1d800936cfffe25288f9f770aad4; implementation rebased onto
 f1ef5ba5a0bc3c40eabff44af3afbf1101012f84; branch codex/build-shared-workspace;
 non-serving checkout /home/drakosfire/.codex/worktrees/editor-mount-cleanliness/DungeonMindBuddy.
@@ -250,3 +253,18 @@ footer rules overriding the narrow media query. Preserve a90 failure evidence;
 change the cascade only, then verify shared Plan/Build desktop and narrow header
 controls, fullscreen/restore/close, stationary document and no horizontal overflow
 on the new exact head. No additional capability, surface, store or runtime lease.
+
+## Post-merge verification and runtime adoption
+
+Final focused shared UI regression: 49 passed; broader affected UI run: 83 passed.
+Production build passed with inherited chunk-size warning. Exact final render pack:
+/tmp/buddy-build-01e564-rendered-evidence.json. Plan and Build fullscreen match
+390×844 and 1040×725 CSS viewports; narrow context control is 137.42×32px after
+cascade correction. Restore/Close work and Build document bounds stay stationary.
+The prior a90 failure geometry and screenshots remain preserved.
+
+PRIME authorized matched current-main adoption to the dogfood 5202 lane, retaining
+main 5876 preference. SERVER exclusively owns packaging/port switch and state proof.
+No migration, Graph publication, reset, new provider credentials or source mutation
+is authorized by this rollout. Runtime adoption completion and provider witness are
+not claimed until separately verified.
