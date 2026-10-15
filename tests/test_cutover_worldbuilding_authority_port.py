@@ -1,4 +1,4 @@
-"""CUTOVER D.2B: worldbuilding authority-port contract (no PostgreSQL)."""
+"""Worldbuilding authority-port contract with disposable application-state PostgreSQL."""
 
 
 from __future__ import annotations
@@ -12,20 +12,6 @@ from types import SimpleNamespace
 
 
 import pytest
-
-
-@pytest.fixture(autouse=True)
-def _ingest_application_state(application_state_dsn: str, monkeypatch) -> str:
-    from dungeonmind.infrastructure.memory import InMemorySourceRepository
-    from apps.live_control_server.integrations.dungeonmind.world_graph_source_admission_adapter import (
-        DungeonMindWorldGraphSourceAdmissionAdapter,
-    )
-    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=InMemorySourceRepository())
-    monkeypatch.setattr(
-        "apps.live_control_server.ports.world_graph_source_admission_access.get_world_graph_source_admission_authority",
-        lambda: adapter,
-    )
-    return application_state_dsn
 
 
 import apps.live_control_server.config as storage
@@ -58,6 +44,20 @@ from src.graph_memory.extraction.worldbuilding_extraction_profile import (
     DEFAULT_SEMANTIC_STATE,
 )
 from tests._cutover_d3a_blocker_safe_fixtures import _candidate_graph_payload
+
+
+@pytest.fixture(autouse=True)
+def _ingest_application_state(application_state_dsn: str, monkeypatch) -> str:
+    from dungeonmind.infrastructure.memory import InMemorySourceRepository
+    from apps.live_control_server.integrations.dungeonmind.world_graph_source_admission_adapter import (
+        DungeonMindWorldGraphSourceAdmissionAdapter,
+    )
+    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=InMemorySourceRepository())
+    monkeypatch.setattr(
+        "apps.live_control_server.ports.world_graph_source_admission_access.get_world_graph_source_admission_authority",
+        lambda: adapter,
+    )
+    return application_state_dsn
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -1742,7 +1742,7 @@ def test_two_registered_managed_worlds_publish_only_to_their_native_worlds(
         _mutate_extraction_candidate(repo, run_id, add_marker_node)
         return run_id, artifact.source_artifact_id
 
-    def publish_run(run_id: str, parent_id: str, managed_id: str, native_id: str):
+    def prepare_run(run_id: str, parent_id: str, managed_id: str, native_id: str):
         from apps.live_control_server.services.promotable_ingest_run import (
             resolve_promotable_ingest_run,
         )
@@ -1769,31 +1769,73 @@ def test_two_registered_managed_worlds_publish_only_to_their_native_worlds(
         )
         assert plan.world_id == native_id
         assert plan.publication_binding.managed_world_id == managed_id
-        receipt = confirm_worldbuilding(
-            WorldbuildingWritePlanConfirmRequest(plan=plan)
-        )
-        assert receipt.world_id == native_id
-        return plan, receipt
+        return plan
+
+    from apps.live_control_server.services import worldbuilding_graph_publication as service
+    from apps.live_control_server.services.promotable_ingest_run import (
+        resolve_promotable_ingest_run,
+    )
 
     run_a, source_a = create_run_and_marker(managed_a)
-    plan_a, receipt_a = publish_run(
-        run_a, parent_by_native["native-alpha"], managed_a, "native-alpha"
-    )
+    original_a = resolve_promotable_ingest_run(run_a, root=repo)
+    source_bytes_a = original_a.normalized_recap_path.read_bytes()
+    candidate_bytes_a = original_a.candidate_graph_path.read_bytes()
+    run_b, source_b = create_run_and_marker(managed_b)
+    resolved_b = resolve_promotable_ingest_run(run_b, root=repo)
+    resolved_a = resolve_promotable_ingest_run(run_a, root=repo)
+    source_bytes_b = resolved_b.normalized_recap_path.read_bytes()
+    assert resolved_a.candidate_graph_path != resolved_b.candidate_graph_path
+    assert resolved_a.normalized_recap_path != resolved_b.normalized_recap_path
+    assert resolved_a.candidate_graph_path.read_bytes() == candidate_bytes_a
+    assert resolved_a.normalized_recap_path.read_bytes() == source_bytes_a
+    assert source_bytes_a != source_bytes_b
+
+    # A corrupted run/source World association must fail before either publication.
+    with monkeypatch.context() as tamper:
+        tamper.setattr(service, "resolve_promotable_ingest_run", lambda *args, **kwargs:
+                       replace(resolved_a, world_id=managed_b))
+        with pytest.raises(service.ExtractPromoteError) as error:
+            prepare_run(run_a, parent_by_native["native-alpha"], managed_a, "native-alpha")
+        assert error.value.code == "worldbuilding_source_binding_missing"
+        assert error.value.status_code == 409
+    assert fake.publish_calls == 0
+    assert fake.heads == parent_by_native
+
+    # A parent revision from the other World cannot select that World implicitly.
+    with pytest.raises(service.ExtractPromoteError) as error:
+        prepare_run(run_a, parent_by_native["native-beta"], managed_a, "native-alpha")
+    assert error.value.code == "stale_parent_revision"
+    assert fake.publish_calls == 0
+    assert fake.heads == parent_by_native
+
+    plan_a = prepare_run(run_a, parent_by_native["native-alpha"], managed_a, "native-alpha")
+    plan_b = prepare_run(run_b, parent_by_native["native-beta"], managed_b, "native-beta")
+    for forged in (
+        plan_a.model_copy(update={"publication_binding": plan_b.publication_binding}),
+        plan_a.model_copy(update={"run_id": run_b}),
+        plan_a.model_copy(update={"source_artifact_id": source_b}),
+        plan_a.model_copy(update={"world_id": DEFAULT_WORLD_ID}),
+    ):
+        with pytest.raises(service.ExtractPromoteError):
+            confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=forged))
+        assert fake.publish_calls == 0
+        assert fake.heads == parent_by_native
+
+    receipt_a = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan_a))
     head_a = fake.heads["native-alpha"]
     child_a = fake.read_revision("native-alpha", head_a)
     assert receipt_a.outcome == "committed"
+    assert receipt_a.world_id == "native-alpha"
     assert plan_a.source_artifact_id == source_a
     assert f"world-marker:{managed_a}" in child_a.objects
     assert f"world-marker:{managed_b}" not in child_a.objects
     assert fake.heads["native-beta"] == parent_by_native["native-beta"]
 
-    run_b, source_b = create_run_and_marker(managed_b)
-    plan_b, receipt_b = publish_run(
-        run_b, parent_by_native["native-beta"], managed_b, "native-beta"
-    )
+    receipt_b = confirm_worldbuilding(WorldbuildingWritePlanConfirmRequest(plan=plan_b))
     head_b = fake.heads["native-beta"]
     child_b = fake.read_revision("native-beta", head_b)
     assert receipt_b.outcome == "committed"
+    assert receipt_b.world_id == "native-beta"
     assert plan_b.source_artifact_id == source_b
     assert source_a != source_b
     assert f"world-marker:{managed_b}" in child_b.objects
@@ -1801,3 +1843,5 @@ def test_two_registered_managed_worlds_publish_only_to_their_native_worlds(
     assert fake.heads["native-alpha"] == head_a
     assert DEFAULT_WORLD_ID not in fake.heads
     assert fake.publish_calls == 2
+    assert resolve_promotable_ingest_run(run_a, root=repo).normalized_recap_path.read_bytes() == source_bytes_a
+    assert resolve_promotable_ingest_run(run_b, root=repo).normalized_recap_path.read_bytes() == source_bytes_b
