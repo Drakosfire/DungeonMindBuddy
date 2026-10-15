@@ -6,10 +6,10 @@ Branch: `codex/agent-reviewed-description-discovery`; topology: serial consumer.
 
 ## Contract and outcome
 
-Core #123 search is accepted at1cbd8f5; #124 node read-facet is independently
-approved at20c0ce4a8c00995847245c5c0a63a063f3300bc3, CI pending. Non-serving
-verification may use that reviewed dependency head. Final PR and rollout must
-pin the actual accepted #124 merge revision, after exact-head CI and merge.
+Core #123 search is accepted at `1cbd8f544213a6e1b851a7c478c00f44e76ffaca`.
+Core #124 node read-facet passed independent review and all three CI checks at
+`20c0ce4a8c00995847245c5c0a63a063f3300bc3`; accepted merge and consumer pin:
+`30c7f64ea52d74bde65dbb46efe3d462042c92e3`.
 
 Adopt both Core capabilities through the existing Buddy search → object →
 source-open adapter. Role/concern search discovers subject IDs and native match
@@ -48,3 +48,15 @@ existing stable-main5876/API8002 operational lease for matched rollout and the
 changed ordinary Mirathorn council benchmark. Preserve prior failed results.
 Ordinary Agent correctness, source opening, restart preservation and operator
 inspection remain lifecycle gates; do not claim completion from a pin or test.
+
+## Consumer verification
+
+Isolated locked Core import resolves to `30c7f64ea52d74bde65dbb46efe3d462042c92e3`.
+Lock check and diff check pass; no other package version/artifact changes.
+Focused consumer/Harness/source suite: 97 pass, one inherited failure at
+`test_fresh_recap_publication_source_read_is_digest_verified:1020` (object empty).
+The same disposable fixture fails identically with the previous Core pin;
+this is not evidence of successful fresh recap publication. Keep that gate open.
+Actual retained Mirathorn tool probe through the locked installed dependency:
+search 55,874 bytes / 24 claims; object 32,417 bytes / 25 claims; opened source
+1,574 bytes. No source checkout override, provider call or retained World write.
