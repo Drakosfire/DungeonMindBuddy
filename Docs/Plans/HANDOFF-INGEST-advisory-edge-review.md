@@ -160,8 +160,8 @@ Private tests/evidence under /tmp; no provider calls before implementation revie
 
 ## Successful evidence persistence amendment
 
-ARCHITECTURE material review pending for this tenth-path amendment; no runner
-edit until exact-ref approval. Existing nine-path implementation may proceed.
+ARCHITECTURE accepted tenth-path amendment2997e724972ffe37cd5d74c79a11bd51b744930c.
+PRIME activates this bounded runner edit; implementation review remains required.
 The actual registered runner discards return-only pass outputs/envelope/diagnostics.
 Add optional CategoryGraphExtractionResult.private_response_evidence (defaultNone)
 for a strict JSON-safe versioned dmb_private_extraction_review_bundle_v1 SUCCESS
