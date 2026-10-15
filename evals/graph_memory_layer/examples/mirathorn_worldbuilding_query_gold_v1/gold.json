@@ -52,13 +52,14 @@
       "Float Goats are a plural species/type description, not an individuated creature. Do not require a generic creature node.",
       "The Mirathorn approach sentence is prepared-scenario prose, not an enduring world fact or played event.",
       "A local deterministic v1.7 replay of the preserved v1.6 candidate added seven exact Role-line citations while preserving all 44 candidate nodes, all 20 edges, and every node semantic field. The candidate remains review material and is not publication evidence.",
-      "Gazetteer v1.7 changes evidence attachment only; it does not resolve prepared-scene prose being promoted into durable place knowledge."
+      "Gazetteer v1.7 changes evidence attachment only; it does not resolve prepared-scene prose being promoted into durable place knowledge.",
+      "A local deterministic v1.8 replay of the same revision-2 candidate defers nine nodes supported only by Plot Hooks and Encounters or Approach to Mirathorn, plus six scene-supported edges. It clears the mixed City Guard description and aliases while retaining the City Guard identity through the source-backed Thalia command edge. The result has 35 nodes and 14 edges; Reaches material stays outside the excluded ranges, and the line-314 Float Goat scene sentence remains source-only. This is candidate-shaping evidence, not publication or live retrieval evidence."
     ],
     "snapshot_role": "selected_pilot_profile_baseline_not_execution_evidence",
     "execution_profile": "unverified",
     "profile_catalog": {
       "source_path": "src/graph_memory/extraction/worldbuilding_profile_catalog.py",
-      "source_sha256": "a4b54cc6f9949ef9b1d6a8ef89d177e39c2c5ba14632a7ddefc5ef74f54bf240"
+      "source_sha256": "37bc622f514e1ab81c33b0bce37014e9db6db7bd6e35fbf8f8ff1752ebff7e52"
     },
     "available_profiles": [
       {
@@ -89,6 +90,17 @@
           "Preserves v1.6 extraction prompts and deterministic livestock hygiene.",
           "Adds an exact source Role-line citation only when one character candidate already makes that affirmative role claim.",
           "Leaves candidate facts and relationships unchanged; it does not prevent prepared-scene prose from entering a durable location description."
+        ]
+      },
+      {
+        "id": "worldbuilding_gazetteer_v1@1.8",
+        "source_path": "src/graph_memory/extraction/worldbuilding_gazetteer_scenario_scope.py",
+        "source_sha256": "d0313b9fbdd4a2f9d9bbe2b4078e5d140c86d6bfba247fdbfbdbc22a6768f5b5",
+        "relevant_behavior": [
+          "Defers extracted nodes supported only by the bounded Plot Hooks and Encounters or Approach to Mirathorn sections, together with their incident edges.",
+          "Defers relationships supported by those prepared-scene spans and preserves the complete proposal and citations in run diagnostics.",
+          "When a mixed-evidence entity survives through a clean durable relationship, clears its unsupported description and aliases, then retains the minimal identity with that relationship's exact source evidence.",
+          "Leaves the intervening Quirks of the Elderwyld and Reaches material outside the prepared-scene ranges; source passages remain in the immutable source index."
         ]
       }
     ]

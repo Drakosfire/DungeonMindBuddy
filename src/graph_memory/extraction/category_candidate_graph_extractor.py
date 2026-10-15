@@ -2026,17 +2026,26 @@ def _run_category_pipeline_impl(
         stamp_graph_evidence_refs(
             candidate_graph, source_artifact_id=source_artifact_id, source_ref_id=source_ref_id,
         )
-        deferred_proposals = (
-            retention_diagnostics.get("livestock_semantic_hygiene", {})
-            .get("deferred_proposals", {})
-        )
-        if isinstance(deferred_proposals, dict):
+        def deferred_proposal_maps(value):
+            if not isinstance(value, dict):
+                return
+            proposals = value.get("deferred_proposals")
+            if isinstance(proposals, dict):
+                yield proposals
+            for key, nested in value.items():
+                if key != "deferred_proposals" and isinstance(nested, dict):
+                    yield from deferred_proposal_maps(nested)
+
+        seen_deferred_ids = set()
+        for deferred_proposals in deferred_proposal_maps(retention_diagnostics):
             for item_id, disposition in deferred_proposals.items():
                 if (not isinstance(disposition, dict)
                         or disposition.get("item_id") != item_id
                         or disposition.get("kind") not in {"node", "edge"}
-                        or not isinstance(disposition.get("proposal"), dict)):
-                    raise ValueError("invalid deferred livestock proposal evidence")
+                        or not isinstance(disposition.get("proposal"), dict)
+                        or item_id in seen_deferred_ids):
+                    raise ValueError("invalid deferred source-section proposal evidence")
+                seen_deferred_ids.add(item_id)
                 key = "nodes" if disposition["kind"] == "node" else "edges"
                 stamp_graph_evidence_refs(
                     {key: [disposition["proposal"]]},

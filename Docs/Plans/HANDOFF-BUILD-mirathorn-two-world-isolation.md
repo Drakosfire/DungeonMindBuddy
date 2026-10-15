@@ -1,6 +1,6 @@
 # BUILD: prove Worldbuilding publication stays isolated across managed Worlds
 
-**Status:** ACTIVE — PRIME implements solo; ARCHITECTURE independently reviews the exact result.
+**Status:** COMPLETED — merged as `f5487a8d57cac7335c3dc4f2b3cb502c92f30ad3`; this implementation lease is closed.
 
 - **Base:** DungeonMindBuddy `main@3a890b9ec8b4e4c9924779249fe8570b7ecf9d1c`
 - **Branch:** `codex/mirathorn-two-world-isolation`
