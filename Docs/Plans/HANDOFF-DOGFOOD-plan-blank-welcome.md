@@ -67,3 +67,10 @@ The integrated rendered acceptance is still pending. The Build-only 5204
 preview does not include this branch; the previous 5203 render predates the
 current main re-anchor. Do not claim the Plan welcome is visually accepted until
 it is checked with this branch in the integrated preview.
+
+
+## Integrated preview acceptance — 2026-10-15 (supersedes pending-render note)
+
+The integrated local preview on 5205 includes `main@3a890b9e` and the current heads of PRs #1183, #1188, #1190, and #1191. The blank live World Plan route rendered as a warm paper welcome at desktop and 390px; the first screen offers writing prompts and the existing outline as explicit choices. The welcome is presentation-only and the editor stays empty until the user acts. No Plan was saved or modified. 5202 was not modified.
+
+The focused live blank-route, editor-host/shell, and edit-capability suites passed 106 tests total; TypeScript and the combined production build passed. The broad `PlanSurfacePage.test.tsx` still has 44 legacy conversation assertions using an obsolete accessible region name, reproduced against current main before this change; those are not counted as passing. The earlier pending-render note is superseded. Durable save was not part of this read-only visual acceptance.
