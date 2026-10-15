@@ -1,6 +1,7 @@
 # INGEST: optional advisory edge review
 
-Status BLOCKED: ARCHITECTURE reviews this bounded contract before activation.
+Status BLOCKED: prerequisite PR1179 must merge and ARCHITECTURE must review
+this bounded contract before activation. Re-anchor activation base after both gates.
 PRIME owns solo implementation. Base f1ef5ba5a0bc3c40eabff44af3afbf1101012f84.
 One capability: an explicitly selected Gazetteer1.4 performs a separate advisory
 review of generated edge proposals. It may retain only original edge IDs; the
@@ -48,6 +49,29 @@ costs. Use existing private RAW_MODEL_RESPONSE failure artifact with explicit
 versioned evidence-bundle labeling; never pretend the bundle is one raw provider
 response. Existing packaging must durably retain the bundle before FAILED state.
 A failed sixth call must not erase successful generation or authorize replay.
+
+Registered persistence dependency is PR1179 (review head a43b99d1), NOT legacy
+ graph_ingest_packaging.py. The actual source-domain-neutral controller is
+ graph_preview_runner.py.1179 owns retaining the supplied exception payload as
+RAW_MODEL_RESPONSE before FAILED; this producer owns constructing its bundle.
+No additional registered-controller edits are leased here; request an amendment
+if accepted1179 does not satisfy the registered failure witness.
+
+Bundle schema dmb_private_extraction_failure_bundle_v1 contains exact source
+artifact/hash, qualified profile, ordered completed pass IDs, request hashes,
+exact raw_text where returned, parsed output, reported usage/cost/response IDs,
+and failed-review raw response where available plus failure TYPE. Never capture
+client/config objects, headers, credentials or exception repr. Missing usage/cost
+remains unknown. Private scope/path/0600/hash registration comes from1179; raw
+bundle must not be copied into public error/log messages. Existing provider output
+budgets and profile pass count bound capture; no automatic retries or fallback.
+The bundle is untrusted diagnostic data, never a promotable/corpus source.
+
+For1.4 only, final envelope.candidate_graph must be a deep copy of the canonical
+post-review candidate (including inherited source retention and deferred items).
+Keep pre-review envelope separately in advisory diagnostics/raw pass lineage,
+not as a second indistinguishable final candidate. Test normalized envelope→IR
+roundtrip equality; old profiles retain their existing output behavior.
 
 ## Ownership / exact prospective write lease
 
