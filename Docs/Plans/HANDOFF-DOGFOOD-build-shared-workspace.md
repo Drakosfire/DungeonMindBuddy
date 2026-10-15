@@ -52,6 +52,45 @@ commands remain limited to explicitly admitted shared document commands; no
 provider-direct Save or Graph mutation. Any proposed Agent edit application must
 reuse an existing verified preview/confirmation contract or return to stewardship.
 
+## Concrete source transport and historical basis amendment
+
+The registry document ID is the existing artifact identity; the registry has no
+separate artifact ID. Do not invent one. The internal resolved-work carrier gains
+a Build-specific saved-source basis with exact UTF-8 bytes and verified metadata.
+It is separate from plan_markdown and Plan WorkRevision fields. Turn service wraps
+invocation.message as JSON data containing user_question and saved_source (identity,
+World owner, registry revision, digest, title, domain/class/authority/visibility,
+and exact content). Persist the original user question separately. Both existing
+adapters consume invocation.message; no adapter/assembler write is required.
+The bounded descriptive surface-context renderer never carries source content.
+
+Proposed durable codec uses existing typed provenance fields, without schema change:
+- primary_work: resolution resolved, kind build, object_id document ID,
+  revision canonical positive decimal registry revision, content_sha256 exact hash;
+  object_revision/work_revision_id/revision_n remain null.
+- World owner: TurnProvenance.world_id, checked against request and registry owner.
+- supporting_work: exactly one reserved dmb_build_source_visibility_v1 reference,
+  object_id internal or player_safe, revision 1; all digest/Plan pins null.
+Strict encode/decode rejects duplicate, malformed, foreign and mismatched references.
+This codec is proposed for ARCH/APP review, not silently activated by this document.
+
+The registry does not retain immutable historical source bodies. Retry can reopen
+only a current snapshot matching every frozen identity/revision/digest/privacy pin;
+changed or missing source fails closed, before dispatch. Never substitute later
+bytes. Preserve durable completed history and uncertain-dispatch recovery without
+reposting. Build source Ask and its transcript are GM-only; prove history/recovery
+cannot expose previous GM source content to Player or another World.
+
+Request model permits required Build saved hash with registry revision and forbids
+Plan revision_n on Build. Resolve only active committed worldbuilding_source under
+managed root with containment/symlink checks, valid metadata, verified byte hash.
+Reject missing/stale/foreign/oversize source before turn claim/runtime; choose a
+bounded explicit source-byte limit and fail rather than silently clip exact text.
+Source Ask is read-only: no proposal/apply capability is claimed in this slice.
+Unsaved document editing remains the shared user-operated Edit host capability.
+Test actual invocation bytes using fake runtime, injection-shaped source as data,
+strict codec round-trip, historical change rejection and no duplicate dispatch.
+
 ## Proposed exact write set (not leased until activation)
 Docs/Plans/HANDOFF-DOGFOOD-build-shared-workspace.md
 apps/live-control-ui/src/App.tsx
