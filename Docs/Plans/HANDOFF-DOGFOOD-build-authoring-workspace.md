@@ -168,6 +168,19 @@ does not write placeholder text into a document, select a source, or create one
 automatically. The welcome stays inside the existing paper frame and shares the
 same World tools and conversation dock.
 
+An opened worldbuilding source with no body now has a temporary writing welcome
+inside the paper frame. It disappears as soon as the user types; it is not
+serialized into the source, and it does not appear for populated sources or
+source-evidence views. The invitation gives the blank editor a clear first step
+without inserting sample lore.
+
+After this addition, the Build page, context, shell, and shared conversation
+integration suites pass 88 tests. The app TypeScript check passes with its build
+info redirected to `/tmp`; the production Vite build passes with the existing
+large-chunk warning, and `git diff --check` passes. The blank-source welcome has
+not been rendered in 5203 yet; the current preview still lacks authenticated
+write behavior, and 5202 remains unchanged.
+
 The owning Build page/context/shell suites pass 49 tests. The UI app TypeScript
 check passes with its build-info output redirected to `/tmp`; the production Vite
 build passes with the existing large-chunk warning, and `git diff --check`

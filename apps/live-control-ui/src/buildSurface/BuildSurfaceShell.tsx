@@ -78,12 +78,24 @@ function BuildPresentableSourceView({
     return () => onEditorTools?.(null);
   }, [onEditorTools, session.editor, session.record?.document_id, outlineVersion]);
 
+  const showEmptySourcePrompt = session.record?.kind === "worldbuilding_source"
+    && navigationTarget.status === "none"
+    && (session.editor?.isEmpty ?? !session.snapshot?.markdown.trim());
+
   return <div className="build-surface-shell" data-testid="build-surface-shell">
     {navigationTarget.status !== "none" ? <details className="build-source-evidence" open>
       <summary>Saved evidence passage</summary>
       <BuildSourceReader showOutline={false} title={session.record!.title}
         markdown={session.snapshot!.markdown} dirty={session.dirty} navigationTarget={navigationTarget} />
     </details> : null}
+    {showEmptySourcePrompt ? <section className="build-empty-document-prompt" data-testid="build-empty-document-prompt" aria-label="A beginning for this page">
+      <span className="build-empty-document-prompt__spark" aria-hidden="true">✦</span>
+      <div>
+        <p className="build-empty-document-prompt__eyebrow">A FRESH PAGE</p>
+        <h2>Every world starts somewhere.</h2>
+        <p>Begin with a place, a person, or a small mystery. Your first words can go right below.</p>
+      </div>
+    </section> : null}
     <MarkdownCanvas slots={editSlots} />
   </div>;
 }

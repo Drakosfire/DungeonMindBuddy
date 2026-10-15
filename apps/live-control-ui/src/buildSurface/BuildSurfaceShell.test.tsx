@@ -176,6 +176,27 @@ async function waitForEditor() {
 }
 
 describe("BuildSurfaceShell", () => {
+  it("welcomes a blank worldbuilding source without adding starter text to it", async () => {
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({
+      ...buildWorldbuildingSnapshot(DOC_ID),
+      markdown: "",
+    });
+
+    render(<BuildDocumentHarness documentId={DOC_ID} />);
+
+    const prompt = await screen.findByTestId("build-empty-document-prompt");
+    const editor = await screen.findByTestId("build-markdown-editor");
+    expect(editor.querySelector('[contenteditable="true"]')).not.toBeNull();
+    expect(buildShellTestEditor?.isEmpty).toBe(true);
+    expect(prompt).toHaveTextContent("Every world starts somewhere.");
+    expect(prompt).toHaveTextContent("Your first words can go right below.");
+
+    act(() => buildShellTestEditor?.commands.insertContent("The road begins at dawn."));
+
+    await waitFor(() => expect(screen.queryByTestId("build-empty-document-prompt")).not.toBeInTheDocument());
+    expect(buildShellTestEditor?.getText()).toContain("The road begins at dawn.");
+  });
+
   it("keeps the live Build editor on the paper projection surface", () => {
     const buildCss = readBuildSurfaceCss();
     const paperEditorRule = buildCss.match(
