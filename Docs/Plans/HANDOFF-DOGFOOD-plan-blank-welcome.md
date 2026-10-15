@@ -2,9 +2,9 @@
 
 Status: ACTIVE
 
-Branch: `codex/plan-empty-welcome` from `origin/main@31c50448`
+Branch: `codex/plan-empty-welcome` rebased onto `origin/main@25cba5a5`
 
-Checkout: `/home/drakosfire/.codex/worktrees/plan-empty-welcome/DungeonMindBuddy`
+Checkout: `/tmp/dmb-plan-empty-welcome`
 
 Topology: parallel-independent from Build PRs #1183 and #1187; this lane owns only Plan authoring paths.
 
@@ -19,6 +19,8 @@ Make a newly opened Plan feel like an inviting, intentional first page. A new lo
 - `apps/live-control-ui/src/planSurface/edit/editCapability.tsx`
 - `apps/live-control-ui/src/planSurface/edit/editCapability.test.tsx`
 - `apps/live-control-ui/src/planSurface/planSurface.css`
+- `apps/live-control-ui/src/planSurface/PlanSurfacePage.tsx`
+- `apps/live-control-ui/src/planSurface/PlanSurfacePage.test.tsx`
 - Plan-owned tests under `apps/live-control-ui/src/planSurface/`
 - This handoff
 
@@ -30,5 +32,38 @@ No shared shell, Build, Play, Ingest, server, database, or 5202 runtime changes.
 - Typing or choosing a starter dismisses the welcome without losing text, altering saved plans, or triggering an automatic save.
 - Reload/recovery continues to preserve the local draft. Saving still uses the existing exact target-session and promotion/receipt gates.
 - The welcome is keyboard accessible, responsive, and visually belongs inside the existing paper Plan canvas.
+- The live World Plan route (`/plan?world=<world>`) uses the same temporary welcome when its editor is empty; choosing a starter is the only action that writes draft content.
 - Verify the focused Plan tests, TypeScript, production build, `git diff --check`, and the exact cumulative diff.
-- No 5202 changes. Live rendered acceptance is separate from structural tests and may remain blocked by the unavailable 5203 preview.
+- No 5202 changes. Rendered acceptance must use a current-main preview that includes this branch; do not use stale 5203.
+
+## Live World Plan route lease amendment
+
+Rendered DOGFOOD evidence showed that the current `/plan?world=elderwyld` route
+renders `WorldOwnedPlanPage` and bypasses `PlanBlankPageWelcome`, leaving only
+the “Unsaved Plan Draft” kicker over a blank sheet. The existing welcome in
+`PlanSurfaceCanvas` covers a different Plan path and therefore does not meet the
+new-user acceptance for the route users actually open.
+
+The lease now includes `PlanSurfacePage.tsx` and `PlanSurfacePage.test.tsx` so
+the World-owned blank editor can reuse the same Plan-specific welcome and
+optional starters. Keep all welcome copy outside serialized editor content;
+initial render must not create, save, or modify a Plan. Saved non-empty Plans
+remain unchanged. This route and the starter interaction must be verified in
+the integrated preview before the blank-document work is considered complete.
+
+## Current main re-anchor and verification — 2026-10-15
+
+The implementation is rebased on fetched `origin/main@25cba5a5` in
+`/tmp/dmb-plan-empty-welcome`. The live World route is covered by the focused
+blank-route test. The focused Plan route, Plan editor-host/shell, and edit
+capability suites pass; the app TypeScript check passes. The broad
+`PlanSurfacePage.test.tsx` file still has 44 failures in older conversation
+tests that query the obsolete accessible region name “Saved World Plan
+conversation” while the current page exposes “Plan workspace”. This same
+accessibility-name mismatch was reproduced on current main before this blank
+welcome change; those baseline assertions are not hidden or counted as passing.
+
+The integrated rendered acceptance is still pending. The Build-only 5204
+preview does not include this branch; the previous 5203 render predates the
+current main re-anchor. Do not claim the Plan welcome is visually accepted until
+it is checked with this branch in the integrated preview.

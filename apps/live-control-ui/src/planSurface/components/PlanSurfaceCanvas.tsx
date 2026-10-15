@@ -856,7 +856,7 @@ function PlanLocalBlankSurfaceCanvas({
   );
 }
 
-function PlanBlankPageWelcome({
+export function PlanBlankPageWelcome({
   onStartWriting,
   onUseOutline,
   onStartWithPrompt,

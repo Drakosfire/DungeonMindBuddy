@@ -883,6 +883,58 @@ it("keeps the local blank Plan out of Agent scope until it has been saved", asyn
   expect(postTurn).not.toHaveBeenCalled();
 });
 
+it("welcomes the live World Plan blank document without creating content until a starter is chosen", async () => {
+  window.history.replaceState({}, "", `/plan?world=${worldId}`);
+  vi.spyOn(liveApi, "getManagedWorldPlanContext").mockResolvedValue(managedContext(worldId));
+  vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+    schema_version: "dmb_world_container_registry_v1",
+    records: [{
+      schema_version: "dmb_world_container_record_v1",
+      world_id: worldId,
+      name: "Of Conks",
+      source_root_relpath: "corpus/of-conks-cons-demo-markdown",
+      created_at: "2026-01-01T00:00:00Z",
+    }],
+  });
+  vi.spyOn(liveApi, "listWorldOwnedPlans").mockResolvedValue({
+    schema_version: "dmb_workspace_document_registry_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    records: [],
+  });
+  const create = vi.spyOn(liveApi, "createWorldOwnedPlan");
+  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite");
+  render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}`}>
+      <VerifiedPlanPage />
+    </SelectedWorldProvider>,
+  );
+
+  const page = await screen.findByTestId("world-owned-plan");
+  expect(await screen.findByRole("heading", { name: "Give the table a reason to lean in." })).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByRole("button", { name: "Set an intention" })).toBeEnabled());
+  expect(within(screen.getByRole("group", { name: "Plan controls" })).getByText("Ready to begin")).toBeInTheDocument();
+  expect(screen.getByTestId("plan-authoring-identity")).toHaveTextContent("New Plan");
+  const editorRoot = within(page).getByTestId("world-owned-plan-markdown-editor");
+  expect(editorRoot.querySelector(".ProseMirror")?.textContent).toBe("");
+  expect(JSON.parse(localStorage.getItem(`dmb:world-plan-local-draft:v2:${worldId}`) ?? "null")).toMatchObject({
+    document_id: null,
+    markdown: "",
+  });
+  expect(create).not.toHaveBeenCalled();
+  expect(commit).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByRole("button", { name: "Set an intention" }));
+
+  await waitFor(() => expect(screen.queryByTestId("plan-blank-welcome")).not.toBeInTheDocument());
+  expect(within(screen.getByRole("group", { name: "Plan controls" })).getByText("Unsaved changes")).toBeInTheDocument();
+  expect(screen.getByTestId("plan-authoring-identity")).toHaveTextContent("Unsaved Plan draft");
+  expect(editorRoot.querySelector(".ProseMirror")?.textContent).toContain("Session intent");
+  expect(JSON.parse(localStorage.getItem(`dmb:world-plan-local-draft:v2:${worldId}`) ?? "null").markdown).toContain("## Session intent");
+  expect(create).not.toHaveBeenCalled();
+  expect(commit).not.toHaveBeenCalled();
+});
+
 it("retains the mounted Plan and typed question across Cards, Document and dock collapse without dispatch", async () => {
   mockSavedPlanForAgent(savedAgentPlanId, 7, 7, twoScenePlanMarkdown);
   const postTurn = vi.spyOn(liveApi, "postWorldPlanAgentTurn");
