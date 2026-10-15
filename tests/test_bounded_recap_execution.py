@@ -1127,3 +1127,16 @@ def test_structured_parsed_object_is_revalidated_at_buddy_boundary():
     with pytest.raises(CategoryGraphExtractionError):
         invoke(client, DEEPSEEK_MODEL)
     assert client.ledger()["calls"][0]["validation_failure"]["kind"] == "schema"
+
+
+@pytest.mark.parametrize("invalid", [0, -1, True, 1.5, "9"])
+def test_profile_budget_requires_positive_integer(invalid):
+    with pytest.raises(ValueError, match="max_calls"):
+        RecapExecutionLimits(max_calls=invalid)
+
+
+def test_profile_budget_supports_nine_pass_recap_without_changing_deadlines():
+    limits = RecapExecutionLimits(max_calls=9)
+    assert limits.max_calls == 9
+    assert limits.per_call_deadline_ms == 120000
+    assert limits.run_deadline_ms == 480000

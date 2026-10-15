@@ -202,6 +202,13 @@ def _stamp_fixture_candidate(
         session_id="session-22",
         source_artifact_id=artifact.source_artifact_id,
     )
+    # Synthetic supplied candidates cite this exact admitted source.
+    from apps.live_control_server.services.source_artifact_registry import load_source_span_index
+    from src.graph_memory.source_span import source_span_index_to_dict
+    spans = source_span_index_to_dict(load_source_span_index(ROOT, artifact.source_artifact_id))["spans"]
+    for ref in graph.get("evidence_refs", []):
+        if isinstance(ref, dict):
+            ref["span_id"] = spans[0]["source_span_id"]
     candidate.write_text(
         json.dumps(graph, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -396,7 +403,7 @@ def _patch_fake_category_extract(monkeypatch: pytest.MonkeyPatch) -> None:
             pass_outputs={},
             pass_telemetry={},
             consolidation_diagnostics={},
-            model_id=options.model_id or "gpt-5.4-mini",
+            model_id=options.model_id or "deepseek/deepseek-v4.1-flash",
             total_cost_usd=0.0,
             diagnostics={"extraction_mode": "category_decomposed"},
             known_entity_mentions={
@@ -431,7 +438,7 @@ def test_recap_ingest_build_graph_preview_bundle_with_extract_graph_fake_client(
             "managed_world_id": "elderwyld",
             "session": 22,
             "extract_graph": True,
-            "graph_model_id": "gpt-5.4-mini",
+            "graph_model_id": "deepseek/deepseek-v4.1-flash",
         },
     )
 
@@ -439,7 +446,7 @@ def test_recap_ingest_build_graph_preview_bundle_with_extract_graph_fake_client(
     graph = response.json()["ingest_report"]["graph_preview"]
     assert graph["status"] == "candidate_validation_ready"
     assert graph["extraction_mode"] == "category_decomposed"
-    assert graph["model_id"] == "gpt-5.4-mini"
+    assert graph["model_id"] == "deepseek/deepseek-v4.1-flash"
     assert graph["candidate_node_count"] >= 1
     assert (ROOT / graph["candidate_graph_path"]).is_file()
 
@@ -505,7 +512,7 @@ def test_recap_ingest_typed_validation_failure_blocks_candidate_and_preview_unio
             pass_outputs={},
             pass_telemetry={},
             consolidation_diagnostics={},
-            model_id=options.model_id or "gpt-5.4-mini",
+            model_id=options.model_id or "deepseek/deepseek-v4.1-flash",
             total_cost_usd=0.0,
             diagnostics={"extraction_mode": "category_decomposed"},
             known_entity_mentions={
@@ -530,7 +537,7 @@ def test_recap_ingest_typed_validation_failure_blocks_candidate_and_preview_unio
             "session": 22,
             "extract_graph": True,
             "force_graph_run": True,
-            "graph_model_id": "gpt-5.4-mini",
+            "graph_model_id": "deepseek/deepseek-v4.1-flash",
         },
     )
     assert build.status_code == 200
@@ -555,7 +562,7 @@ def test_recap_ingest_typed_validation_failure_blocks_candidate_and_preview_unio
             "extract_graph": True,
             "force_graph_run": True,
             "materialize_after_extract": True,
-            "graph_model_id": "gpt-5.4-mini",
+            "graph_model_id": "deepseek/deepseek-v4.1-flash",
         },
     )
     assert materialize.status_code == 200
@@ -591,7 +598,7 @@ def test_recap_ingest_packaged_span_index_resolves_evidence_for_surface(
             "managed_world_id": "elderwyld",
             "session": 22,
             "extract_graph": True,
-            "graph_model_id": "gpt-5.4-mini",
+            "graph_model_id": "deepseek/deepseek-v4.1-flash",
         },
     )
     assert response.status_code == 200
@@ -716,7 +723,7 @@ def test_materialize_reextracts_when_selected_world_binding_changes(
             "managed_world_id": "elderwyld",
             "session": 22,
             "extract_graph": True,
-            "graph_model_id": "gpt-5.4-mini",
+            "graph_model_id": "deepseek/deepseek-v4.1-flash",
         },
     )
     assert build.status_code == 200, build.text
@@ -856,7 +863,7 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
             "slug": "Mireward Road Dogfood",
             "check": True,
             "include_graph_extraction": True,
-            "graph_model_id": "gpt-5.4-mini",
+            "graph_model_id": "deepseek/deepseek-v4.1-flash",
         },
     )
 
@@ -867,7 +874,7 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
     graph = body["ingest_report"]["graph_preview"]
     assert graph["status"] == "candidate_validation_ready"
     assert graph["extraction_mode"] == "category_decomposed"
-    assert graph["model_id"] == "gpt-5.4-mini"
+    assert graph["model_id"] == "deepseek/deepseek-v4.1-flash"
     assert "legacy_breadcrumb_skipped" in " ".join(body["warnings"])
 
 
@@ -887,7 +894,7 @@ def test_generate_recap_memory_reuses_preview_graph_without_force(
         "slug": "Mireward Road Dogfood",
         "check": True,
         "include_graph_extraction": True,
-        "graph_model_id": "gpt-5.4-mini",
+        "graph_model_id": "deepseek/deepseek-v4.1-flash",
     }
     first = client.post("/api/live/recap-ingest", json=payload)
     assert first.status_code == 200, first.text
@@ -917,7 +924,7 @@ def test_generate_recap_memory_force_graph_run_starts_new_preview_run(
         "slug": "Mireward Road Dogfood",
         "check": True,
         "include_graph_extraction": True,
-        "graph_model_id": "gpt-5.4-mini",
+        "graph_model_id": "deepseek/deepseek-v4.1-flash",
     }
     first = client.post("/api/live/recap-ingest", json=payload)
     assert first.status_code == 200, first.text
@@ -953,7 +960,7 @@ def test_generate_recap_memory_reuses_staged_notes_and_still_materializes_graph(
             "slug": "Mireward Road Dogfood",
             "check": True,
             "include_graph_extraction": True,
-            "graph_model_id": "gpt-5.4-mini",
+            "graph_model_id": "deepseek/deepseek-v4.1-flash",
         },
     )
 
@@ -1234,7 +1241,7 @@ def test_unmocked_candidate_completion_recovers_without_provider_replay(client_e
         "operation": "build_graph_preview_bundle", "campaign_id": "longmont-c2",
         "managed_world_id": "elderwyld",
         "session": 22,
-        "extract_graph": True, "graph_model_id": "gpt-5.4-mini",
+        "extract_graph": True, "graph_model_id": "deepseek/deepseek-v4.1-flash",
     })
     assert built.status_code == 200, built.text
     initial = built.json()["ingest_report"]["graph_preview"]
@@ -1253,7 +1260,7 @@ def test_unmocked_candidate_completion_recovers_without_provider_replay(client_e
         "managed_world_id": "elderwyld",
         "session": 22,
                "include_graph_extraction": True, "include_legacy_breadcrumb": False,
-               "graph_model_id": "gpt-5.4-mini"}
+               "graph_model_id": "deepseek/deepseek-v4.1-flash"}
     for _ in range(2):
         response = client.post("/api/live/recap-ingest", json=request)
         assert response.status_code == 200, response.text

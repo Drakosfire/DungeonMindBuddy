@@ -279,8 +279,9 @@ class RecapExecutionLimits:
             ("openrouter", DEEPSEEK_MODEL),
         }:
             raise ValueError("unsupported bounded recap provider/model selection")
+        if type(self.max_calls) is not int or self.max_calls < 1:
+            raise ValueError("max_calls must be a positive integer")
         for name, ceiling in (
-            ("max_calls", 8),
             ("per_call_deadline_ms", 120_000),
             ("run_deadline_ms", 480_000),
             ("max_output_tokens", 8192),

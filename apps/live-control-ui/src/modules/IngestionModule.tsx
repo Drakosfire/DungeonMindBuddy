@@ -767,7 +767,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   /** Which primary action is in flight — drives spinner / status copy. */
   const [primaryOp, setPrimaryOp] = useState<"prep" | "ingest" | null>(null);
   const [candidateGraphPath, setCandidateGraphPath] = useState("");
-  const [extractGraphWithMini, setExtractGraphWithMini] = useState(false);
+  const [extractGraphWithModel, setExtractGraphWithModel] = useState(false);
   const [state, setState] = useState<IngestionPaneState>({ status: "idle" });
   const [latestResult, setLatestResult] = useState<RecapIngestStatus | null>(null);
   const [previewSignature, setPreviewSignature] = useState<string | null>(null);
@@ -893,7 +893,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const hasNormalizedRecap = hasApplied;
   const canBuildGraphPreview = hasNormalizedRecap && !busy && (!hasPreviewUnionStore || forceGraphRun);
   const canMaterializePreviewSupergraph = hasNormalizedRecap && !busy && (!hasPreviewUnionStore || forceGraphRun) && Boolean(
-    extractGraphWithMini ||
+    extractGraphWithModel ||
     candidateGraphPath.trim() ||
     graphPreview?.candidate_graph_path ||
     graphPreview?.status === "candidate_validation_ready",
@@ -1409,7 +1409,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           check: true,
           include_graph_extraction: true,
           include_legacy_breadcrumb: false,
-          graph_model_id: "gpt-5.4-mini",
+          graph_model_id: "deepseek/deepseek-v4.1-flash",
           force_graph_run: forceGraphRun || undefined,
         }),
       );
@@ -1805,9 +1805,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         campaign_id: ingestCampaignId,
         managed_world_id: managedWorldId,
         session: recapSession,
-        candidate_graph_path: extractGraphWithMini ? undefined : candidateGraphPath.trim() || undefined,
-        extract_graph: extractGraphWithMini,
-        graph_model_id: extractGraphWithMini ? "gpt-5.4-mini" : undefined,
+        candidate_graph_path: extractGraphWithModel ? undefined : candidateGraphPath.trim() || undefined,
+        extract_graph: extractGraphWithModel,
+        graph_model_id: extractGraphWithModel ? "deepseek/deepseek-v4.1-flash" : undefined,
         force_graph_run: forceGraphRun || undefined,
       });
       applyResultAndSyncSlug(result);
@@ -1831,10 +1831,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         campaign_id: ingestCampaignId,
         managed_world_id: managedWorldId,
         session: recapSession,
-        candidate_graph_path: extractGraphWithMini ? undefined : candidateGraphPath.trim() || undefined,
-        extract_graph: extractGraphWithMini,
-        graph_model_id: extractGraphWithMini ? "gpt-5.4-mini" : undefined,
-        materialize_after_extract: extractGraphWithMini,
+        candidate_graph_path: extractGraphWithModel ? undefined : candidateGraphPath.trim() || undefined,
+        extract_graph: extractGraphWithModel,
+        graph_model_id: extractGraphWithModel ? "deepseek/deepseek-v4.1-flash" : undefined,
+        materialize_after_extract: extractGraphWithModel,
         force_graph_run: forceGraphRun || undefined,
       });
       applyResultAndSyncSlug(result);
@@ -2436,22 +2436,22 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
               value={candidateGraphPath}
               onChange={(event) => setCandidateGraphPath(event.target.value)}
               placeholder="out/graph_memory/fixtures/candidate_graph.json"
-              disabled={extractGraphWithMini}
+              disabled={extractGraphWithModel}
             />
             <label className="ingestion-checkbox-row">
               <input
                 type="checkbox"
-                checked={extractGraphWithMini}
+                checked={extractGraphWithModel}
                 onChange={(event) => {
                   const checked = event.target.checked;
-                  setExtractGraphWithMini(checked);
+                  setExtractGraphWithModel(checked);
                   if (checked) setCandidateGraphPath("");
                 }}
               />
-              Extract graph from recap with category extraction (gpt-5.4-mini)
+              Extract graph from recap with category extraction (DeepSeek)
             </label>
             <p className="module-muted">
-              Optional preview-only candidate graph artifact. When category extraction is enabled, the backend runs seven structured passes over the normalized recap.
+              Optional preview-only candidate graph artifact. When category extraction is enabled, the backend extracts source-backed nodes and relationships from the saved recap.
             </p>
             <div className="ingestion-actions ingestion-manual-actions">
               <button type="button" onClick={buildGraphPreview} disabled={!canBuildGraphPreview}>

@@ -22,9 +22,6 @@ from src.corpus.session_recap_paths import (
     normalized_recap_relpath,
     recap_tail,
 )
-from src.graph_memory.extraction.category_candidate_graph_extractor import (
-    resolve_category_graph_model,
-)
 from src.live_play.recap_ingest_pipeline import (
     PipelineOptions,
     inspect_recap_ingest_status,
@@ -363,7 +360,7 @@ def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path |
                 session=body.session,
                 normalized_recap_path=normalized,
                 extract_graph=True,
-                graph_model_id=body.graph_model_id or resolve_category_graph_model(None),
+                graph_model_id=body.graph_model_id,
                 force_graph_run=body.force_graph_run,
                 ingest_context=ingest_context,
             )
