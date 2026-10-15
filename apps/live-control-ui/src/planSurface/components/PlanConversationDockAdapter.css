@@ -158,6 +158,10 @@
   display: none;
 }
 
+.plan-conversation-dock .conversation-dock__header > strong { position: static; inline-size: auto; block-size: auto; clip-path: none; overflow: visible; white-space: nowrap; }
+.plan-conversation-dock .conversation-dock__header { display: flex; }
+.plan-conversation-dock .conversation-dock__context-toggle { max-inline-size: 35%; }
+
 @media (max-width: 42rem) {
   .plan-conversation-dock .conversation-dock__header {
     display: grid;
@@ -201,9 +205,6 @@
   }
 }
 
-.plan-conversation-dock .conversation-dock__header > strong { position: static; inline-size: auto; block-size: auto; clip-path: none; overflow: visible; white-space: nowrap; }
-.plan-conversation-dock .conversation-dock__header { display: flex; }
-.plan-conversation-dock .conversation-dock__context-toggle { max-inline-size: 35%; }
 .plan-conversation-dock__scope { margin: .5rem 0; font-weight: 600; }
 .plan-conversation-dock__messages { max-inline-size:72rem; margin-inline:auto; }
 .plan-conversation-dock__management > div {

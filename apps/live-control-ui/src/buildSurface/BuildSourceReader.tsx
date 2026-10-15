@@ -1,9 +1,5 @@
 import { useMemo, useRef } from "react";
-import type { Content, Root } from "mdast";
-
-import { parseMarkdownAst } from "../tiptap/markdown/parseMarkdownAst";
-import { stripLeadingYamlFrontmatter } from "../tiptap/markdown/stripLeadingYamlFrontmatter";
-import { createHeadingIdRegistry, extractPlainTextFromPhrasing } from "../markdownReader/markdownReaderHeadingId";
+import { markdownDocumentHeadings } from "../markdownReader/MarkdownDocumentOutline";
 import { MarkdownDocumentReader } from "../markdownReader/MarkdownDocumentReader";
 
 export type BuildSourceNavigationTargetStatus =
@@ -26,6 +22,7 @@ export interface BuildSourceNavigationTarget {
 export interface BuildSourceReaderProps {
   /** Exact accepted workspace-document title. */
   title: string;
+  showOutline?: boolean;
   /** Exact saved `snapshot.markdown` — never TipTap serialization. */
   markdown: string;
   /** When true, Read is showing saved source while local edits exist. */
@@ -56,24 +53,13 @@ function navigationStatusMessage(target: BuildSourceNavigationTarget): string | 
  */
 export function BuildSourceReader({
   title,
+  showOutline = true,
   markdown,
   dirty,
   navigationTarget = { status: "none" },
 }: BuildSourceReaderProps) {
   const outlineRef = useRef<HTMLDetailsElement>(null);
-  const outline = useMemo(() => {
-    const headings: { id: string; text: string; depth: number }[] = [];
-    const ids = createHeadingIdRegistry();
-    function visit(node: Root | Content): void {
-      if (node.type === "heading") {
-        headings.push({ id: ids.allocate(node.children), text: extractPlainTextFromPhrasing(node.children), depth: node.depth });
-      } else if ("children" in node) {
-        for (const child of node.children) visit(child as Content);
-      }
-    }
-    visit(parseMarkdownAst(stripLeadingYamlFrontmatter(markdown).markdown));
-    return headings;
-  }, [markdown]);
+  const outline = useMemo(() => markdownDocumentHeadings(markdown), [markdown]);
   const minimumDepth = Math.min(...outline.map(heading => heading.depth));
   const statusMessage = navigationStatusMessage(navigationTarget);
   const canPassHighlight =
@@ -131,7 +117,7 @@ export function BuildSourceReader({
           </p>
         ) : null}
       </header>
-      {outline.length >= 3 ? (
+      {showOutline && outline.length >= 3 ? (
         <details ref={outlineRef} className="build-source-reader__outline">
           <summary>On this page <span>{outline.length} sections</span></summary>
           <nav aria-label="Source sections">

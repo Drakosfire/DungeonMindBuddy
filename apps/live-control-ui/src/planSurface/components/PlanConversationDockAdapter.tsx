@@ -14,15 +14,18 @@ export interface PlanConversationPresentationHosts {
 
 type AdapterProps = {
   reader:ReactNode;contextLabel:string;
+  surface?: "plan" | "build";
   children:(hosts:PlanConversationPresentationHosts)=>ReactNode;
 };
 const absentHosts:PlanConversationPresentationHosts={header:null,newConversation:null,context:null,messages:null,composer:null};
-export function PlanConversationDockAdapter(props:AdapterProps) {
+export function DocumentConversationDock(props:AdapterProps) {
   const slot=useAskPluginSlotOptional();
   if (!slot) return <>{props.reader}{props.children(absentHosts)}</>;
   return <MountedPlanDock {...props} slot={slot}/>;
 }
-function MountedPlanDock({reader,contextLabel,children,slot}:AdapterProps & {slot:NonNullable<ReturnType<typeof useAskPluginSlotOptional>>}) {
+export const PlanConversationDockAdapter = DocumentConversationDock;
+
+function MountedPlanDock({reader,contextLabel,children,slot,surface="plan"}:AdapterProps & {slot:NonNullable<ReturnType<typeof useAskPluginSlotOptional>>}) {
   const {paneState,setPaneOpen}=useAgentInteraction();
   const management = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
@@ -57,8 +60,8 @@ function MountedPlanDock({reader,contextLabel,children,slot}:AdapterProps & {slo
   const composer=useCallback((node:HTMLDivElement|null)=>{bind("composer",node);setHostElement(node);},[bind,setHostElement]);
   useLayoutEffect(()=>{setLayoutOwner("plan-workspace");return()=>{setLayoutOwner("chrome");setHostElement(null);setLauncherHost(null);};},[setLayoutOwner,setHostElement,setLauncherHost]);
   return <>
-    <ConversationDock className="plan-conversation-dock" reader={reader} readerLabel="Plan workspace"
-      conversationLabel="Saved World Plan conversation"
+    <ConversationDock className="plan-conversation-dock" reader={reader} readerLabel={`${surface === "build" ? "Build" : "Plan"} workspace`}
+      conversationLabel="World conversation"
       title="Conversation" contextLabel="What Buddy sees" collapseMode="launcher" fullscreenEnabled expanded={paneState.isOpen} onExpandedChange={setPaneOpen}
       initialHeight={360} minHeight={240} minimumReaderHeight={0}
       headerActions={<><div ref={newConversation} className="plan-conversation-dock__new-conversation"/><details ref={management} className="plan-conversation-dock__management" aria-label="Conversation options"><summary>Conversation options</summary><div ref={header}/></details></>}

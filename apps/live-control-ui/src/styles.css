@@ -3174,3 +3174,12 @@ button:disabled {
 .app-wrap[data-workspace-layout="bounded"] > .app-chrome-header { flex:0 0 auto; }
 .app-wrap[data-workspace-layout="bounded"] > .app-chrome-workspace { flex:1; min-height:0; display:flex; align-items:stretch; overflow:hidden; }
 .app-wrap[data-workspace-layout="bounded"] .app-chrome-center { flex:1; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
+
+/* Shared document object: controls float above the projection without reflowing it. */
+.document-projection {
+  box-sizing: border-box;
+  border: 1px solid var(--ui-border-strong, #708097);
+  border-radius: 0.85rem;
+  background: var(--ui-background-panel, #171d27);
+  box-shadow: 0 10px 32px #0002;
+}

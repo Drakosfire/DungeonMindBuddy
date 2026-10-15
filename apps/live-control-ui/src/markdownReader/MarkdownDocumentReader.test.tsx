@@ -1,6 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { GraphNodeChipRuntimeProvider } from "../graphReference";
 import { MarkdownDocumentReader } from "./MarkdownDocumentReader";
 
 const HESTA_FIXTURE = `---
@@ -273,4 +274,16 @@ describe("MarkdownDocumentReader", () => {
     expect(screen.queryByTestId("markdown-reader-source-no-highlight")).toBeNull();
   });
 
+});
+
+
+it("uses shared pills only for explicit durable node references", () => {
+  const onSelectNode = vi.fn();
+  render(<GraphNodeChipRuntimeProvider value={{ nodeViews: {}, activeNodeId: null, onSelectNode }}>
+    <MarkdownDocumentReader markdown={"Frank is a guard. [Frank](dmb-node:npc:frank). [Sara][radio]\n\n[radio]: #dmb-ref:graph-node:npc:sara"} />
+  </GraphNodeChipRuntimeProvider>);
+  fireEvent.click(screen.getByRole("button", { name: "Frank" }));
+  fireEvent.click(screen.getByRole("button", { name: "Sara" }));
+  expect(onSelectNode.mock.calls).toEqual([["npc:frank"], ["npc:sara"]]);
+  expect(screen.getAllByRole("button")).toHaveLength(2);
 });

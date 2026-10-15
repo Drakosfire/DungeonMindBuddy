@@ -454,3 +454,25 @@
 .build-source-reader .markdown-document-reader :is(h1, h2, h3, h4, h5, h6) {
   scroll-margin-top: 4rem;
 }
+
+.markdown-document-outline { min-width: 0; }
+.markdown-document-outline ol { list-style: none; padding: 0; margin: 0.5rem 0; }
+.markdown-document-outline li { margin: 0.25rem 0; }
+.markdown-document-outline a { display: block; padding: 0.3rem; overflow-wrap: anywhere; color: inherit; text-decoration: none; border-radius: 0.25rem; }
+.markdown-document-outline a:hover, .markdown-document-outline a:focus-visible { background: var(--surface-hover, #283543); }
+.shared-document-mode { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+.build-workspace-projection { flex: 1; width: 100%; min-height: 0; overflow: hidden; }
+.build-workspace-projection .build-surface-with-graph-context {
+  width: min(76rem, calc(100% - 2rem)); margin: 1rem auto; padding: clamp(1rem, 3vw, 2rem);
+}
+.build-workspace-projection .build-surface-shell {
+  width: min(54rem, 100%); margin-inline: auto; padding: clamp(1rem, 3vw, 2.75rem);
+  border: 1px solid var(--ui-border-paper, #c8b78f); border-radius: 0.45rem;
+  background: var(--ui-background-paper, #f5ead4); color: var(--ui-text-on-paper, #3a3124);
+  box-shadow: 0 2px 12px #0002; font-family: var(--ui-font-document, Georgia, serif);
+}
+.build-workspace-projection .build-source-reader__title { font-size: clamp(1.65rem, 3vw, 2.15rem); }
+@media (max-width: 42rem) {
+  .build-workspace-projection .build-surface-with-graph-context { width: calc(100% - 1rem); padding: 0.65rem; }
+}

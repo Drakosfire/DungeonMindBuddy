@@ -90,6 +90,11 @@ class AgentTurnPrimaryWork(BaseModel):
 
     @model_validator(mode="after")
     def validate_plan_content_pin(self) -> AgentTurnPrimaryWork:
+        if self.kind == "build":
+            if self.expected_revision_n is not None or self.expected_content_sha256 is None:
+                raise ValueError("Build work requires a saved digest and forbids Plan revision_n")
+            return self
+
         has_revision_n = self.expected_revision_n is not None
         has_content_sha256 = self.expected_content_sha256 is not None
         if has_revision_n != has_content_sha256:
@@ -242,6 +247,10 @@ class AgentTurnRequest(BaseModel):
             "saved_dirty",
         }:
             raise ValueError("primary_work requires saved_clean or saved_dirty state")
+        if self.primary_work is not None and (
+            (self.primary_work.kind == "build") != (self.surface.surface_id == "build")
+        ):
+            raise ValueError("Build source work requires the Build surface")
         if self.playable_target is not None and (
             self.surface.surface_id != "plan"
             or self.primary_work is None
