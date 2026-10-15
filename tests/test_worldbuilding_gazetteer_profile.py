@@ -325,6 +325,60 @@ def test_v17_adds_only_unambiguous_affirmed_exact_role_line_citations():
     ]
 
 
+@pytest.mark.parametrize("description, expected_added", [
+    ('Nera might become mayor and Representative of Commerce.', False),
+    ('Allegedly, Nera is the Representative of Commerce.', False),
+    ('In spring, if elected, Nera is the Representative of Commerce.', False),
+    ('Nera is the Representative of Commerce and Mayor if elected.', False),
+    ('Nera might become mayor but is currently the Representative of Commerce.', True),
+    ('Nera was formerly a trader, but she is the Representative of Commerce.', True),
+    ('Nera is not currently a Representative of Commerce.', False),
+    ('Nera is not currently serving in the role of Representative of Commerce.', False),
+    ('Nera may become a Representative of Commerce.', False),
+    ('Nera might become the Representative of Commerce.', False),
+    ('Nera would be the Representative of Commerce.', False),
+    ('If appointed, Nera is the Representative of Commerce.', False),
+    ('Nera is the Representative of Commerce if appointed.', False),
+    ('Nera is the Representative of Commerce unless the council objects.', False),
+    ('Nera is the Representative of Commerce, subject to council approval.', False),
+    ('Nera is the Representative of Commerce and might retire next year.', True),
+    ('May is the Representative of Commerce.', True),
+    ('Will is the Representative of Commerce.', True),
+    ('Nera might retire. Nera is the Representative of Commerce.', True),
+    ('Nera is not only a Representative of Commerce but also a merchant.', True),
+])
+def test_v17_role_citations_respect_claim_qualifiers(description, expected_added):
+    rows = [{
+        "source_span_ref_id": "span:role",
+        "line_start": 1,
+        "line_end": 1,
+        "text": "Role: Representative of Commerce",
+    }]
+    graph = {
+        "session_id": None,
+        "beats": [],
+        "source_artifact_ids": ["artifact:synthetic"],
+        "nodes": [{
+            "node_id": "npc:nera",
+            "label": "Nera",
+            "node_type": "character",
+            "description": description,
+            "evidence_refs": [],
+        }],
+        "edges": [],
+        "deferred_items": [],
+    }
+
+    result, diagnostics = compile_gazetteer_role_citations(graph, rows)
+
+    refs = result["nodes"][0]["evidence_refs"]
+    assert bool(refs) is expected_added
+    record = diagnostics["role_line_citations"]["records"][0]
+    assert record["decision"] == ("citation_added" if expected_added else "no_matching_character_claim")
+    if expected_added:
+        assert refs == [{"source_span_ref_id": "span:role", "anchor_quotes": [rows[0]["text"]]}]
+
+
 def test_v17_role_citation_does_not_duplicate_an_existing_reference():
     rows = [{
         "source_span_ref_id": "span:role", "line_start": 1, "line_end": 1,
@@ -513,14 +567,29 @@ def test_registered_gazetteer_run_retains_exact_profile_and_typed_definitions(tm
     from src.graph_memory.extraction.graph_preview_runner import ProductionExtractionRequest, run_production_extraction
     from apps.live_control_server.services.graph_run_registry import get_reviewable_extraction_run
     from graph_memory.candidate_graph_preview import candidate_graph_preview_from_dict
+    from types import SimpleNamespace
+    from src.graph_memory.extraction.bounded_recap_execution import BoundedRecapPassClient, DEEPSEEK_MODEL
+
+    class RegisteredBoundedFixture(BoundedRecapPassClient):
+        def __init__(self, fixture):
+            self.fixture = fixture
+            self.limits = SimpleNamespace(provider="openrouter", model=DEEPSEEK_MODEL, max_calls=8)
+            self.calls = []
+
+        def run_pass(self, pass_name, **kwargs):
+            result = self.fixture.run_pass(pass_name, **kwargs)
+            self.calls.append({"pass_name": pass_name, "external_outcome": "not_started",
+                               "observation": None, "attempt_evidence": []})
+            return result
+
     source = _admit_worldbuilding(tmp_path, "Mirathorn is a river city.\n")
     result = run_production_extraction(ProductionExtractionRequest(
         repo_root=tmp_path, source=source, profile_id=GAZETTEER_PROFILE.profile_id,
-        profile_version=version, allow_llm=True,
-        category_client=FixtureClient(span_ref=_first_paragraph_span_id(source)),
+        profile_version=version, allow_llm=True, model_id=DEEPSEEK_MODEL,
+        category_client=RegisteredBoundedFixture(FixtureClient(span_ref=_first_paragraph_span_id(source))),
         output_dir=tmp_path / "gazetteer-run"))
     assert result.failure_kind is None
-    assert "raw_model_response" not in result.run.components
+    assert ("raw_model_response" in result.run.components) is (version == "1.8")
     run = get_reviewable_extraction_run(tmp_path, result.run.run_id)
     assert run.profile_id == "worldbuilding_gazetteer_v1@" + version
     assert run.session_id is None

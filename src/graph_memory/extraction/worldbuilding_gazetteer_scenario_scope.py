@@ -55,12 +55,34 @@ def _ordered_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return rows
 
 
+def _physical_source_lines(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Expand grouped source spans while retaining their original identities."""
+    physical = []
+    for row in _ordered_rows(rows):
+        start = row["line_start"]
+        end = row["line_end"]
+        lines = row["text"].splitlines()
+        if len(lines) != end - start + 1:
+            raise SourceSectionRetentionError(
+                "source span text does not match its physical line range"
+            )
+        for offset, text in enumerate(lines):
+            physical.append({
+                **row,
+                "line_start": start + offset,
+                "line_end": start + offset,
+                "text": text,
+            })
+    return physical
+
+
 def _section_refs(
     rows: list[dict[str, Any]], *, title: str, heading_level: int,
     stop_levels: set[int], optional: bool = False,
 ) -> dict[str, Any] | None:
+    physical_rows = _physical_source_lines(rows)
     matches = [
-        index for index, row in enumerate(rows)
+        index for index, row in enumerate(physical_rows)
         if (_heading(row["text"]) == (heading_level, title))
     ]
     if not matches and optional:
@@ -70,15 +92,15 @@ def _section_refs(
             f"expected one {title!r} source heading; found {len(matches)}"
         )
     start_index = matches[0]
-    start_line = rows[start_index]["line_start"]
+    start_line = physical_rows[start_index]["line_start"]
     next_heading = next((
-        row for row in rows[start_index + 1:]
+        row for row in physical_rows[start_index + 1:]
         if (parsed := _heading(row["text"])) is not None
         and parsed[0] in stop_levels
     ), None)
     end_line = next_heading["line_start"] - 1 if next_heading else rows[-1]["line_end"]
     refs = []
-    for row in rows:
+    for row in _ordered_rows(rows):
         overlaps = row["line_start"] <= end_line and row["line_end"] >= start_line
         if not overlaps:
             continue

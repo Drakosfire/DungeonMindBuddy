@@ -85,7 +85,7 @@
       {
         "id": "worldbuilding_gazetteer_v1@1.7",
         "source_path": "src/graph_memory/extraction/worldbuilding_gazetteer_role_citations.py",
-        "source_sha256": "97d8b4510538ecd2fb0c301a3f1d2345ef74b8d17eda5f938b6c4d9391df767c",
+        "source_sha256": "940d8081e5310119fb72dfb00bfd5e4f92e3f4ff9bd5161b72a442b323a7caab",
         "relevant_behavior": [
           "Preserves v1.6 extraction prompts and deterministic livestock hygiene.",
           "Adds an exact source Role-line citation only when one character candidate already makes that affirmative role claim.",
@@ -95,7 +95,7 @@
       {
         "id": "worldbuilding_gazetteer_v1@1.8",
         "source_path": "src/graph_memory/extraction/worldbuilding_gazetteer_scenario_scope.py",
-        "source_sha256": "a6d113a0200677b95a8b90e867afde248cb92a844464192ab819b2b43aea638f",
+        "source_sha256": "d0313b9fbdd4a2f9d9bbe2b4078e5d140c86d6bfba247fdbfbdbc22a6768f5b5",
         "relevant_behavior": [
           "Defers extracted nodes supported only by the bounded Plot Hooks and Encounters or Approach to Mirathorn sections, together with their incident edges.",
           "Defers relationships supported by those prepared-scene spans and preserves the complete proposal and citations in run diagnostics.",
