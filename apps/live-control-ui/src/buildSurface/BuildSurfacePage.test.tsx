@@ -267,6 +267,7 @@ describe("BuildSurfacePage", () => {
     expect(await screen.findByTestId("build-markdown-editor")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Edit", exact: true }));
     expect(screen.getAllByRole("button", { name: "Document", exact: true })).toHaveLength(1);
+    expect(screen.getByTestId("build-source-mode-edit")).toBeVisible();
     expect(screen.getByTestId("build-source-mode-edit")).toHaveAttribute("aria-pressed", "true");
     expect(new URL(window.location.href).searchParams.get("documentId")).toBe(DOC_ID);
   });

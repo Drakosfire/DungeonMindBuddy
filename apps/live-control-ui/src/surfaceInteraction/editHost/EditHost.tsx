@@ -75,6 +75,7 @@ function mergeGroupsWithPanels(
     );
     if (existing) {
       existing.panel = attachment.panel;
+      if (attachment.groupDefaultOpen !== undefined) existing.groupDefaultOpen = attachment.groupDefaultOpen;
       continue;
     }
     merged.push({

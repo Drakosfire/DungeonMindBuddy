@@ -4,6 +4,8 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldPlanDocumentEditProposal } from "../api/liveApi";
 import type { AgentInteractionTurn, WorldAgentConversationHistoryResponseV1, WorldPlanAgentTurnRequestV1, WorldPlayAgentTurnRequestV1, WorldBuildAgentTurnRequestV1, WorldPlanAgentPlanContextV2, WorldPlanGraphAnswerContextStatusV1, WorldPlanGraphExecutionProjectionV1, WorldAgentConversationHistoryResponse } from "../api/types";
+import { DocumentConversationDock, type PlanConversationPresentationHosts } from "../planSurface/components/PlanConversationDockAdapter";
+import type { SavedWorldBuildConversationContext } from "./WorldAgentConversation";
 import { AgentInteractionChrome } from "./AgentInteractionChrome";
 import { AgentInteractionProvider } from "./AgentInteractionProvider";
 import { useAgentInteraction } from "./useAgentInteraction";
@@ -77,7 +79,12 @@ function BuildPublisher({ admitted }: { admitted: boolean }) {
   const source = useMemo(() => admitted ? ({ worldId: WORLD, documentId: "source-one", revision: 2,
     contentSha256: SHA, surfaceInstanceId: "build-instance", title: "City of Mirathorn", dirty: true }) : null, [admitted]);
   usePublishAgentSurfaceContext(surface);
-  usePublishWorldBuildConversation(source);
+  return <DocumentConversationDock surface="build" contextLabel="City of Mirathorn" reader={<div>Build source projection</div>}>
+    {hosts => <BuildHarnessBinding source={source} hosts={hosts} />}
+  </DocumentConversationDock>;
+}
+function BuildHarnessBinding({source, hosts}: {source: SavedWorldBuildConversationContext | null; hosts: PlanConversationPresentationHosts}) {
+  usePublishWorldBuildConversation(source, hosts);
   return null;
 }
 function ProposalFixture() {
@@ -370,6 +377,23 @@ describe("one App-level World conversation host across Plan and Play", () => {
     await screen.findByText("Frank and Sara operate the Rocky Talkie.");
     fireEvent.click(screen.getByRole("button", { name: "Switch surface" }));
     await screen.findByText("Frank and Sara operate the Rocky Talkie.");
+  });
+
+  it.each([
+    [409, "build_source_unavailable"], [413, "build_source_too_large"], [403, "graph_auth_required"],
+  ] as const)("restores the Build question after refusal before dispatch: %s %s", async (status, code) => {
+    vi.mocked(postWorldBuildAgentTurn).mockRejectedValue(new LiveApiError("Saved source unavailable", status, { code }));
+    render(<Harness initial="build" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+    await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled());
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Who operates the radio?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await waitFor(() => expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("Who operates the radio?"));
+    await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).toBeEnabled());
+    expect(screen.queryByLabelText("Submitted message")).not.toBeInTheDocument();
+    expect(postWorldBuildAgentTurn).toHaveBeenCalledTimes(1);
+    expect(postWorldPlayAgentTurn).not.toHaveBeenCalled();
   });
 
   it.each(["correct", "wrong_hash", "wrong_key"] as const)("recovers Build using the durable correlation and exact source basis: %s", async scenario => {

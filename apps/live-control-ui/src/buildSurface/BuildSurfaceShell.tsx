@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { usePublishWorldBuildConversation } from "../agentInteraction/WorldAgentConversation";
+import { DocumentConversationDock, type PlanConversationPresentationHosts } from "../planSurface/components/PlanConversationDockAdapter";
+import { usePublishWorldBuildConversation, type SavedWorldBuildConversationContext } from "../agentInteraction/WorldAgentConversation";
 import type { AppChromeToolsGeneration } from "../chrome/AppChrome";
 import { MarkdownDocumentOutline } from "../markdownReader/MarkdownDocumentOutline";
 import { getBuildSourceNavigation } from "../api/liveApi";
@@ -102,6 +103,11 @@ function BuildPresentableSourceView({
   );
 }
 
+function BuildConversationBinding({ source, hosts }: { source: SavedWorldBuildConversationContext | null; hosts: PlanConversationPresentationHosts }) {
+  usePublishWorldBuildConversation(source, hosts);
+  return null;
+}
+
 /**
  * Build document chrome: Agent Interaction publication + Read/Edit composition.
  * Document authority lives on MarkdownCanvasSession (provider is owned by BuildSurfacePage).
@@ -120,7 +126,6 @@ export function BuildSurfaceShell({ onEditorTools }: { onEditorTools?: (tools: A
       revision: session.snapshot.loaded_revision, contentSha256: session.snapshot.content_sha256,
       surfaceInstanceId: `build:${session.record.document_id}`, title: session.record.title, dirty: session.dirty,
     } : null, [session.record, session.snapshot, session.phase, session.dirty]);
-  usePublishWorldBuildConversation(conversationContext);
   const lastAcceptedCampaignRef = useRef<string>("build");
   const [navigationTarget, setNavigationTarget] = useState<BuildSourceNavigationTarget>(
     IDLE_SOURCE_NAVIGATION_TARGET,
@@ -342,8 +347,8 @@ export function BuildSurfaceShell({ onEditorTools }: { onEditorTools?: (tools: A
     className: "build-surface-editor-shell",
   };
 
-  return (
-    <div className="build-surface-with-graph-context" data-document-surface="build">
+  const projection = (
+    <div className="build-surface-with-graph-context document-projection" data-document-surface="build">
       {graphPointer && acceptedDocumentCampaignId ? (
         <BuildGraphObjectContext
           documentCampaignId={acceptedDocumentCampaignId}
@@ -363,4 +368,9 @@ export function BuildSurfaceShell({ onEditorTools }: { onEditorTools?: (tools: A
       )}
     </div>
   );
+  return <div className="build-workspace-projection">
+    <DocumentConversationDock surface="build" contextLabel={session.record?.title ?? "Worldbuilding source"} reader={projection}>
+      {hosts => <BuildConversationBinding source={conversationContext} hosts={hosts} />}
+    </DocumentConversationDock>
+  </div>;
 }

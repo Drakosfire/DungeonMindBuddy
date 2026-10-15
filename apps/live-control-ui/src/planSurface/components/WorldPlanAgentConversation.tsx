@@ -2395,7 +2395,7 @@ export function WorldPlanAgentConversation({
   })();
   useLayoutEffect(() => {
     if ((!presentationHosts && !isReadOnly) || !agent.paneState.isOpen) return;
-    const viewport = isReadOnly ? playMessagesHostRef.current?.parentElement : presentationHosts?.messages?.parentElement;
+    const viewport = presentationHosts?.messages?.parentElement ?? playMessagesHostRef.current?.parentElement;
     if (!viewport) return;
     const nearBottom = () => viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= 48;
     const updateFollowState = () => {
@@ -2414,20 +2414,20 @@ export function WorldPlanAgentConversation({
     anchor.viewport.scrollTop = anchor.scrollTop + addedHeight;
   }, [history]);
   useLayoutEffect(() => {
-    if (!isReadOnly || !agent.paneState.isOpen) return;
+    if (!isReadOnly || presentationHosts || !agent.paneState.isOpen) return;
     const viewport = playMessagesHostRef.current?.parentElement;
     if (viewport) viewport.scrollTop = viewport.scrollHeight;
   }, [isReadOnly, agent.paneState.isOpen]);
   useLayoutEffect(() => {
     if ((!presentationHosts && !isReadOnly) || !agent.paneState.isOpen || !history || historyLoading) return;
-    const viewport = isReadOnly ? playMessagesHostRef.current?.parentElement : presentationHosts?.messages?.parentElement;
+    const viewport = presentationHosts?.messages?.parentElement ?? playMessagesHostRef.current?.parentElement;
     if (!viewport) return;
     if (!hasObservedConversationHistoryRef.current || observedConversationIdRef.current !== history.conversation_id) {
       hasObservedConversationHistoryRef.current = true;
       observedConversationIdRef.current = history.conversation_id;
       observedAssistantReplyKeyRef.current = latestAssistantReplyKey;
       setNewReplyAvailable(false);
-      if (isReadOnly) viewport.scrollTop = viewport.scrollHeight;
+      if (isReadOnly && !presentationHosts) viewport.scrollTop = viewport.scrollHeight;
       return;
     }
     if (!latestAssistantReplyKey || latestAssistantReplyKey === observedAssistantReplyKeyRef.current) return;
@@ -2452,7 +2452,7 @@ export function WorldPlanAgentConversation({
   }, [agent.paneState.isOpen, history, historyLoading, latestAssistantReplyKey, presentationHosts, isReadOnly]);
 
   function jumpToLatestReply() {
-    const viewport = isReadOnly ? playMessagesHostRef.current?.parentElement : presentationHosts?.messages?.parentElement;
+    const viewport = presentationHosts?.messages?.parentElement ?? playMessagesHostRef.current?.parentElement;
     if (!viewport) return;
     followsLatestRef.current = true;
     viewport.scrollTop = viewport.scrollHeight;
@@ -2634,10 +2634,10 @@ export function WorldPlanAgentConversation({
               setPendingPlayTurn(null);
               setPendingPlayLoadError(null);
             } else {
-              setPendingPlayLoadError("The saved Play request changed. Review its recovery record before another turn.");
+              setPendingPlayLoadError("The saved request changed. Review its recovery record before another turn.");
             }
           } catch (reason) {
-            setPendingPlayLoadError(reason instanceof Error ? reason.message : "Could not clear the confirmed Play request.");
+            setPendingPlayLoadError(reason instanceof Error ? reason.message : "Could not clear the confirmed request.");
           }
         }
         const uncertainNotice = uncertainPlayNoticeRef.current;
@@ -3404,7 +3404,7 @@ export function WorldPlanAgentConversation({
       const terminal = sharedConversation?.history?.turns.some((turn) => turn.turn_id === stored.request.turn_id
         && ["completed", "failed", "interrupted"].includes(turn.lifecycle_status));
       if (current !== stored.serialized && !(current === null && terminal)) {
-        throw new Error("The saved Play request changed. Its recovery record was retained.");
+        throw new Error("The saved request changed. Its recovery record was retained.");
       }
       if (current === stored.serialized) window.localStorage.removeItem(stored.storageKey);
       setPendingPlayTurn(null);
@@ -3464,8 +3464,9 @@ export function WorldPlanAgentConversation({
       if (rejectedBeforeDispatch) {
         if (clearSavedPlayTurn(stored)) {
           sharedConversation?.setPendingTurn((current) => current?.turnId === request.turn_id ? null : current);
+          setSubmittedMessage(current => current?.id === request.turn_id ? null : current);
           setComposerDrafts((drafts) => {
-            const key = `play:${request.primary_work.object_id}`;
+            const key = `${request.surface.surface_id}:${request.primary_work.object_id}`;
             return drafts[key] ? drafts : { ...drafts, [key]: request.message };
           });
         }
@@ -3473,11 +3474,11 @@ export function WorldPlanAgentConversation({
       const graphFailure = reason instanceof LiveApiError
         && ["graph_unavailable", "native_binding_invalid", "graph_revision_unavailable", "graph_read_failed"].includes(reason.code ?? "");
       const notice = rejectedBeforeDispatch
-        ? `This Play turn was refused before dispatch. ${localOperatorCredentialFailure(reason, "return to Play and send again")
-          ?? (reason instanceof Error ? reason.message : "Reload the Run.")}`
+        ? `This message was not sent. ${localOperatorCredentialFailure(reason, "send this message again")
+          ?? (reason instanceof Error ? reason.message : "Reopen the saved work.")}`
         : graphFailure
-          ? `The World Graph could not be resolved for this Play turn. ${reason.message} Check World history or explicitly retry the exact saved request; Graph context will remain required.`
-        : `${reason instanceof Error ? reason.message : "The Play turn outcome is unknown."} Check World history or explicitly retry the saved request with its original IDs.`;
+          ? `The World Graph could not be resolved for this message. ${reason.message} Check World history or explicitly retry the exact saved request; Graph context will remain required.`
+        : `${reason instanceof Error ? reason.message : "The message outcome is unknown."} Check World history or explicitly retry the saved request with its original IDs.`;
       uncertainPlayNoticeRef.current = rejectedBeforeDispatch ? null : { turnId: request.turn_id, message: notice };
       setError(notice);
       sharedConversation?.setHistoryRefreshNonce((current) => current + 1);
@@ -5091,7 +5092,10 @@ export function WorldPlanAgentConversation({
             ) : null}
           </div>
   );
-  const contextDetails = (
+  const buildContextDetails = <><LoadedWorldGraphExplorer /><p>Buddy uses the saved source{buildMode?.savedSource?.title ? ` “${buildMode.savedSource.title}”` : ""}. Unsaved edits stay in the editor. Source material is separate from admitted World Graph facts.</p>
+    <button type="button" aria-pressed={useWorldGraphForAsk} onClick={() => setUseWorldGraphForAsk(value => !value)}>
+      Use {worldName} facts · {useWorldGraphForAsk ? "On" : "Off"}</button></>;
+  const contextDetails = isBuild ? buildContextDetails : (
     <div className="world-plan-agent-conversation__header-context" role="group" aria-label="What Buddy uses and where changes go">
           <section className="world-plan-agent-conversation__context-section" aria-label="Question sources">
             <LoadedWorldGraphExplorer />
@@ -5575,7 +5579,7 @@ export function WorldPlanAgentConversation({
       </form>
     </section>
   );
-  if (isReadOnly) {
+  if (isReadOnly && !presentationHosts) {
     if (!askSlot?.hostElement || !agent.paneState.isOpen) return null;
     const admittedRun = playMode?.admittedRun;
     return createPortal(

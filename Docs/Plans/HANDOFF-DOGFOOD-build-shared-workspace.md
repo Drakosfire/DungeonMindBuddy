@@ -229,3 +229,14 @@ reaches the missing fake-service method guard. Neither is claimed green. Initial
 54329 DBfixture errors resolved by disposable tests on existing54331, without
 modifying serving databases. Python Ruff and production UI build pass; inherited
 React act warnings and production chunk-size warning remain. No real model call.
+
+Direct operator rendered corrections refine the same invariant: shared controller
+alone is insufficient. Build must mount the exact DocumentConversationDock
+presentation host also exported as the Plan compatibility adapter, including the
+same launcher, header, context, messages, composer, fullscreen and Close controls.
+The document is a framed projection; opening Edit/Tools must not change its bounds
+or reflow prose. Panels float over it. Shared Edit panel merging honors its declared
+fold default. No second inline Build conversation composition is accepted when
+shared hosts exist. Cycle1 review also requires predispatch refusal restoration to
+the frozen request surface draft key, preserving newer drafts, with Build stale,
+oversize and authorization-refusal owning tests. All remain inside declared paths.
