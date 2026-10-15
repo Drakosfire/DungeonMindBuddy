@@ -1,6 +1,8 @@
 # AGENT: carry admitted Build source through the harness input boundary
 
-Status ACTIVE after ARCHITECTURE design PASS on117e110d006390720b5b576d20015702de302cf6. PRIME designs and
+Status COMPLETED: PR1182 merged f2ba909617a885819ceabd1a936d611cb2a8e578
+after ARCHITECTURE cycle1 ACCEPTABLE on8773e9d00867d3d32bc0464a7863b671c2eded7a.
+Six-path implementation lease released. PRIME designs and
 implements solo. Base13a4d89a05758c45547690e6b9c2e40f97216d9a. Branch
 codex/build-saved-work-harness-input, isolated non-serving checkout
 /tmp/buddy-advisory-review-design. Serial: one implementation PR.
@@ -97,3 +99,8 @@ and confirmed this serialization failure before worker/provider dispatch. Receip
 /home/drakosfire/.local/state/dungeonmindbuddy/rollout-candidates/buddy-build-a8a19345/adoption/sourceask-failure-receipt.json.
 Original failed turn remains preserved; this repair does not retry it. No provider
 calls, serving changes, retained native writes or private corpus committed.
+
+Settlement: author and independent67 focused tests pass; inherited11Pydantic
+warning entries. One formal review cycle, no Bugbot findings. GitHub combined
+status list empty; no CI-green claim. Serving adoption/new live question remain
+separate gates; original failed turn preserved. Full Mirathorn goal incomplete.
