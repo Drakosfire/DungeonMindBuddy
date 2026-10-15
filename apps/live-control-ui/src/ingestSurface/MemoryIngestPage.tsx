@@ -9,6 +9,7 @@ import { buildIngestContextFromPlanView } from "../planSurface/config/ingestSurf
 import { GraphReviewWorkbenchModule } from "../planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule";
 import { parseGraphReviewRunHandoff } from "../planSurface/graphReviewWorkbench/graphReviewRunSelection";
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
+import { worldScopedSurfaceHref } from "../selectedWorld/worldSelectionNavigation";
 import { useIngestRunCatalogInformation } from "./useIngestRunCatalogInformation";
 import "../planSurface/planSurface.css";
 import "./MemoryIngestPage.css";
@@ -33,13 +34,36 @@ export function MemoryIngestPage() {
   if (selectedWorld.kind === "managed") return <SelectedWorldMemoryIngestPage key={selectedWorld.worldId} managedWorldId={selectedWorld.worldId} />;
   return (
     <AppChrome activeRoute="ingest">
-      <main className={`app-status${selectedWorld.kind === "loading" ? "" : " app-error"}`}>
-        <h1>Memory Ingest</h1>
-        {selectedWorld.kind === "loading" ? <p role="status">Loading World selection…</p> : (
-          <div role="alert">
-            <p>{selectedWorld.kind === "error" ? selectedWorld.message : "No World selected."}</p>
-            <p>Select a World using the World picker in the navigation to continue.</p>
-          </div>
+      <main className="ingest-first-use">
+        {selectedWorld.kind === "loading" ? (
+          <section className="ingest-welcome-card" aria-labelledby="ingest-loading-title">
+            <p className="ingest-welcome-kicker">A place for your sources</p>
+            <h1 id="ingest-loading-title">Getting your World ready…</h1>
+            <p role="status">Loading World selection…</p>
+          </section>
+        ) : selectedWorld.kind === "error" ? (
+          <section className="ingest-welcome-card ingest-welcome-card--error" aria-labelledby="ingest-error-title">
+            <p className="ingest-welcome-kicker">World selection</p>
+            <h1 id="ingest-error-title">We couldn’t open that World.</h1>
+            <div role="alert">
+              <p>{selectedWorld.message}</p>
+              <p>Choose a different World from the navigation to continue.</p>
+            </div>
+          </section>
+        ) : (
+          <section className="ingest-welcome-card" aria-labelledby="ingest-welcome-title">
+            <p className="ingest-welcome-kicker">A place for your sources</p>
+            <h1 id="ingest-welcome-title">Give your World a little more to remember.</h1>
+            <p className="ingest-welcome-intro">
+              Ingest turns your notes and session recaps into evidence you can inspect before it becomes part of a World.
+              Choose a World in the navigation to begin.
+            </p>
+            <ol className="ingest-welcome-steps" aria-label="How Ingest works">
+              <li><span>01</span><div><strong>Choose a World</strong><p>Pick the setting you want to grow.</p></div></li>
+              <li><span>02</span><div><strong>Bring in a source</strong><p>Open Build to add a document or recap.</p></div></li>
+              <li><span>03</span><div><strong>Review what it found</strong><p>Inspect the evidence before accepting it.</p></div></li>
+            </ol>
+          </section>
         )}
       </main>
     </AppChrome>
@@ -222,10 +246,18 @@ function SelectedWorldMemoryIngestPage({ managedWorldId: selectedManagedWorldId 
           {managedWorldId === "elderwyld" ? (
             <IngestionModule campaignId="longmont-c2" session={29} managedWorldId={selectedManagedWorldId} initialSourceSession={29} />
           ) : (
-            <>
-              <p>No exact extraction run is selected for this World.</p>
-              <p>Open a source in Build and follow its exact extraction-run link to review it here.</p>
-            </>
+            <section className="ingest-welcome-card ingest-welcome-card--world" aria-labelledby="ingest-world-welcome-title">
+              <p className="ingest-welcome-kicker">{selectedWorld.kind === "managed" ? selectedWorld.name : "Your World"}</p>
+              <h2 id="ingest-world-welcome-title">Bring a source into the story.</h2>
+              <p className="ingest-welcome-intro">
+                Add a document in Build, then start an extraction to turn its details into reviewable World evidence.
+                Ingest will bring you back to the exact run so you can inspect what Buddy found.
+              </p>
+              <a className="ingest-welcome-action" href={worldScopedSurfaceHref("/build", managedWorldId)}>
+                Open Build <span aria-hidden="true">→</span>
+              </a>
+              <p className="ingest-welcome-footnote">Nothing enters the World Graph until you review and accept it.</p>
+            </section>
           )}
         </main>
       </AppChrome>

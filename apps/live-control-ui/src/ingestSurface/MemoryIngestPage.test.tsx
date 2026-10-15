@@ -60,12 +60,13 @@ describe("managed-World Ingest boundary", () => {
     window.history.replaceState({}, "", "/ingest?world=world-b");
   });
 
-  it("requires a World before any legacy or exact-run reads", async () => {
+  it("welcomes a first-time visitor without attempting legacy or exact-run reads", async () => {
     selection.current = { kind: "legacy" };
     window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-22");
     render(<MemoryIngestPage />);
-    expect(screen.getByRole("alert")).toHaveTextContent("No World selected.");
-    expect(screen.getByRole("alert")).toHaveTextContent("World picker");
+    expect(screen.getByRole("heading", { name: /give your World a little more to remember/i })).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "How Ingest works" })).toHaveTextContent("Review what it found");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(getPlanView).not.toHaveBeenCalled();
     expect(getExtractionRun).not.toHaveBeenCalled();
     expect(screen.queryByTestId("exact-graph-review")).not.toBeInTheDocument();
@@ -87,7 +88,8 @@ describe("managed-World Ingest boundary", () => {
 
   it("does not mount the C1/C2 recap browser on a bare managed landing", async () => {
     render(<MemoryIngestPage />);
-    expect(await screen.findByText("No exact extraction run is selected for this World.")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Bring a source into the story." })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /open build/i })).toHaveAttribute("href", "/build?world=world-b");
     expect(getPlanView).toHaveBeenCalledWith("world-b");
     expect(screen.queryByTestId("exact-graph-review")).not.toBeInTheDocument();
   });
