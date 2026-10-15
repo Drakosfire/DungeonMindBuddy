@@ -137,6 +137,27 @@ describe("IngestionModule", () => {
     expect(await screen.findByLabelText("Recap/source session")).toHaveValue(29);
   });
 
+  it("welcomes a blank Elderwyld recap entry without trying to restore a saved recap route", async () => {
+    const user = setupIngestUser();
+    window.history.replaceState({}, "", "/ingest?world=elderwyld");
+    vi.spyOn(liveApi, "ensureNativeGraphSession").mockResolvedValue("csrf-token");
+    const inspection = vi.spyOn(liveApi, "getHistoricalRecapInspection");
+    const ingest = vi.mocked(recapIngestApi.postRecapIngest);
+
+    render(<IngestionModule campaignId="longmont-c2" session={30} managedWorldId="elderwyld" initialSourceSession={29} />);
+
+    expect(await screen.findByRole("heading", { name: "Bring your table’s story into the World." })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Start with a session recap" })).toBeInTheDocument();
+    expect(screen.queryByText("Operator prep tool over the PR92 ingestion orchestrator.")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Write a recap" }));
+    expect(screen.getByRole("textbox", { name: "Raw recap text" })).toHaveFocus();
+
+    await waitFor(() => expect(screen.queryByText("Saved recap route has an invalid campaign or session.")).not.toBeInTheDocument());
+    expect(inspection).not.toHaveBeenCalled();
+    expect(ingest.mock.calls.every(([body]) => body.operation === "inspect_status")).toBe(true);
+    expect(window.location.search).toBe("?world=elderwyld");
+  });
+
   it("renders editable recap/source session input", async () => {
     const user = setupIngestUser();
     render(<IngestionModule campaignId="longmont-c2" session={23} />);

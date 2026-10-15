@@ -147,6 +147,12 @@
   transition: transform 140ms ease, background-color 140ms ease;
 }
 
+button.ingest-welcome-action {
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+}
+
 .ingest-welcome-action:hover {
   transform: translateY(-1px);
   background: #edbc56;

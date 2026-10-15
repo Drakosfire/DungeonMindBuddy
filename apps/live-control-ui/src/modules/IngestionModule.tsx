@@ -744,6 +744,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const initialRecapSession = requestedRecapSession ?? initialSourceSession ?? defaultRecapSession(session);
   const [activeStep, setActiveStep] = useState<number>(1);
   const [rawText, setRawText] = useState("");
+  const rawRecapTextAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const [recapSession, setRecapSession] = useState<number>(() => initialRecapSession);
   const [slug, setSlug] = useState("");
   const [title, setTitle] = useState("");
@@ -789,6 +790,11 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const hydrateInspectGenerationRef = useRef(0);
   const validRecapSession = Number.isInteger(recapSession) && recapSession > 0;
   const terminalCampaign = campaignNumberFromId(ingestCampaignId);
+  const blankRecapRoute = (() => {
+    const params = new URLSearchParams(window.location.search);
+    return isIngestSurfacePath() && params.get("view") !== "recap" && !params.has("campaign") && !params.has("session");
+  })();
+  const showRecapWelcome = blankRecapRoute && !readerMode && sourceMode === "raw" && loadedArtifact === null && !rawText.trim();
 
   function handleIngestCampaignSelect(nextCampaignId: string) {
     if (nextCampaignId === ingestCampaignId) return;
@@ -2027,23 +2033,50 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     <div className="module-panel ingestion-module" data-module-id="ingestion">
       <header className="ingestion-module-header">
         <div>
-          <h2 className="module-title">Raw Recap Ingestion</h2>
-          <p className="module-muted">Operator prep tool over the PR92 ingestion orchestrator.</p>
+          <h2 className="module-title">{showRecapWelcome ? "Start with a session recap" : "Raw Recap Ingestion"}</h2>
+          {!showRecapWelcome ? <p className="module-muted">Operator prep tool over the PR92 ingestion orchestrator.</p> : null}
           <div className="ingestion-module-header-meta">
             <ReviewCampaignPicker
               selectedCampaignId={ingestCampaignId}
               onSelect={handleIngestCampaignSelect}
               className="graph-preview-run-picker ingestion-campaign-picker"
             />
-            <p className="module-muted">
-              Live workspace session: <strong>{session}</strong>
-            </p>
+            {!showRecapWelcome ? (
+              <p className="module-muted">
+                Live workspace session: <strong>{session}</strong>
+              </p>
+            ) : null}
           </div>
         </div>
-        <button type="button" className="wizard-step-chip" onClick={() => startNewRecap(1)}>
-          New recap
-        </button>
+        {!showRecapWelcome ? (
+          <button type="button" className="wizard-step-chip" onClick={() => startNewRecap(1)}>
+            New recap
+          </button>
+        ) : null}
       </header>
+
+      {showRecapWelcome ? (
+        <section className="ingest-welcome-card ingest-welcome-card--world" aria-labelledby="ingest-first-recap-title">
+          <p className="ingest-welcome-kicker">A NEW STORY STARTS HERE</p>
+          <h2 id="ingest-first-recap-title">Bring your table’s story into the World.</h2>
+          <p className="ingest-welcome-intro">
+            Paste a session recap below. Buddy will prepare the notes and show you the evidence before anything joins the World.
+          </p>
+          <ol className="ingest-welcome-steps" aria-label="From recap to World memory">
+            <li><span>01</span><div><strong>Bring the moments</strong><p>Paste the recap or load a processed one.</p></div></li>
+            <li><span>02</span><div><strong>See what Buddy found</strong><p>Inspect the proposed people, places, and connections.</p></div></li>
+            <li><span>03</span><div><strong>Choose what belongs</strong><p>Review every change before it enters the World.</p></div></li>
+          </ol>
+          <button
+            type="button"
+            className="ingest-welcome-action"
+            onClick={() => rawRecapTextAreaRef.current?.focus()}
+          >
+            Write a recap <span aria-hidden="true">↓</span>
+          </button>
+          <p className="ingest-welcome-footnote">This is only a draft. Nothing is prepared or ingested until you choose those steps.</p>
+        </section>
+      ) : null}
 
       {toast ? (
         <section className={`ingestion-toast ingestion-toast-${toast.tone}`} role="alert" aria-live="polite">
@@ -2208,6 +2241,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                 <textarea
                   id="ingestion-raw-text"
                   aria-label="Raw recap text"
+                  ref={rawRecapTextAreaRef}
                   value={rawText}
                   onChange={(event) => {
                     setRawText(event.target.value);
@@ -2340,7 +2374,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
             setReviewSource(null);
             setReviewError(null);
             setReviewLoading(false);
-            if (available) void reviewSavedSource(true);
+            if (available && readerMode) void reviewSavedSource(true);
           }} />
           {reviewSource ? <pre aria-label="Recap frontmatter">{reviewSource.projection?.markdown.match(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/)?.[0] ?? "No frontmatter"}</pre> : null}
         <ol className="ingestion-flow-steps ingestion-readiness-lanes">
