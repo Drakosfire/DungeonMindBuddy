@@ -20,9 +20,12 @@ extraction is distinct from retained World publication. No unchanged model repla
 - `apps/live_control_server/services/graph_preview_runner.py`
 - `apps/live_control_server/routes/recap_ingest.py`
 - `tests/test_recap_generationengine_default.py`
+- `tests/test_live_recap_ingest_graph_preview_api.py` (owning API fixtures adopt configured route and exact admitted citations).
 - `tests/test_bounded_recap_execution.py` (existing fake constructor seam if needed).
 
-Conditional UI lease (activate only after DOGFOOD's explicit model-control hunk transfer):
+UI model-control hunk lease transferred from DOGFOOD to PRIME by explicit
+coordination (DOGFOOD acknowledged); #1191
+is frozen at `553a24acbb4f0cadf0e2ceb00fe5206e8306898` until this slice merges:
 `apps/live-control-ui/src/modules/IngestionModule.tsx` and `.test.tsx`.
 Only obsolete Mini selection/request labels change; #1191 welcome/layout ownership
 stays with DOGFOOD. Build #1183 is disjoint and continues independently.

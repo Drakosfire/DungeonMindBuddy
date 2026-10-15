@@ -1028,7 +1028,7 @@ describe("IngestionModule", () => {
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
     await user.click(screen.getByText("Advanced graph dogfood"));
     const extractToggle = await screen.findByLabelText(
-      "Extract graph from recap with category extraction (gpt-5.4-mini)",
+      "Extract graph from recap with category extraction (deepseek/deepseek-v4.1-flash)",
     );
     expect(extractToggle).toBeInTheDocument();
     await user.click(extractToggle);
@@ -1044,7 +1044,7 @@ describe("IngestionModule", () => {
           operation: "build_graph_preview_bundle",
           session: 22,
           extract_graph: true,
-          graph_model_id: "gpt-5.4-mini",
+          graph_model_id: "deepseek/deepseek-v4.1-flash",
         }),
       ),
     );
@@ -1084,7 +1084,7 @@ describe("IngestionModule", () => {
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
     await user.click(screen.getByText("Advanced graph dogfood"));
     await user.type(screen.getByLabelText("Candidate graph path"), "out/candidate.json");
-    await user.click(screen.getByLabelText("Extract graph from recap with category extraction (gpt-5.4-mini)"));
+    await user.click(screen.getByLabelText("Extract graph from recap with category extraction (deepseek/deepseek-v4.1-flash)"));
     expect(screen.getByLabelText("Candidate graph path")).toBeDisabled();
     expect(screen.getByLabelText("Candidate graph path")).toHaveValue("");
     await waitFor(() => expect(screen.getByRole("button", { name: "Materialize Preview Supergraph" })).toBeEnabled());
@@ -1097,7 +1097,7 @@ describe("IngestionModule", () => {
           session: 22,
           candidate_graph_path: undefined,
           extract_graph: true,
-          graph_model_id: "gpt-5.4-mini",
+          graph_model_id: "deepseek/deepseek-v4.1-flash",
           materialize_after_extract: true,
         }),
       ),
