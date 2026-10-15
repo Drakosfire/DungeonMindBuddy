@@ -62,7 +62,7 @@ def fixture(monkeypatch, count=9, length=30, outcome="enough"):
     replace_session(session)
     calls = []
 
-    def native_read(request, *, root):
+    def native_read(request, *, repo_root):
         calls.append(request)
         body = ("source " + request.anchor_id + " ") * length
         body = body[: request.max_chars]

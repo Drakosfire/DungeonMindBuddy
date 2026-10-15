@@ -10,6 +10,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from apps.live_control_server.config import artifact_data_root
 from apps.live_control_server.services import world_graph_retrieval as retrieval_service
 from apps.live_control_server.services.world_graph_retrieval import (
     WorldGraphRetrievalServiceError,
@@ -294,8 +295,9 @@ def _dispatch_expansion(
     ctx: dict[str, Any],
     focus: WorldGraphRetrievalFocus,
     node_ids: list[str],
-    root: Path | None,
 ):
+    # Mounted Graph authority comes from server configuration, never the
+    # Harness code/source repository. World and revision remain frozen in ctx.
     del focus  # focus already embedded in ctx
     if request.operation == "object":
         obj_req = WorldGraphObjectRequest.model_validate(
@@ -306,7 +308,7 @@ def _dispatch_expansion(
             }
         )
         return retrieval_service.get_campaign_object_with_reviewed_sources(
-            obj_req, root=root
+            obj_req
         )
     if request.operation == "neighborhood":
         neigh_req = WorldGraphNeighborhoodRequest.model_validate(
@@ -317,7 +319,7 @@ def _dispatch_expansion(
                 "maxDepth": request.depth,
             }
         )
-        return retrieval_service.get_object_neighborhood(neigh_req, root=root)
+        return retrieval_service.get_object_neighborhood(neigh_req)
     if request.operation == "support":
         evidence_req = WorldGraphEvidenceRequest.model_validate(
             {
@@ -326,7 +328,7 @@ def _dispatch_expansion(
                 "target": {"kind": "node", "id": node_ids[0]},
             }
         )
-        return retrieval_service.get_object_evidence(evidence_req, root=root)
+        return retrieval_service.get_object_evidence(evidence_req)
     search_req = WorldGraphSearchRequest.model_validate(
         {
             **ctx,
@@ -335,7 +337,7 @@ def _dispatch_expansion(
             "seedNodeIds": node_ids,
         }
     )
-    return retrieval_service.search_campaign_graph(search_req, root=root)
+    return retrieval_service.search_campaign_graph(search_req)
 
 
 def execute_expand_graph_retrieval(
@@ -343,6 +345,8 @@ def execute_expand_graph_retrieval(
     *,
     root: Path | None = None,
 ) -> dict[str, Any]:
+    # root is the Harness repository, not an alternate Graph store.
+    del root
     try:
         request = ExpandGraphRetrievalRequest.model_validate(
             _normalize_interaction_arguments(arguments)
@@ -395,7 +399,6 @@ def execute_expand_graph_retrieval(
             ctx=ctx,
             focus=focus,
             node_ids=node_ids,
-            root=root,
         )
     except WorldGraphRetrievalServiceError as exc:
         return {
@@ -561,12 +564,16 @@ def execute_read_graph_source(
                 }
             )
             resolved = (
-                retrieval_service.read_source_anchor_internal_v2(read_req, root=root)
+                retrieval_service.read_source_anchor_internal_v2(
+                    read_req, repo_root=artifact_data_root(default=root)
+                )
                 if receipt_version == 2 else None
             )
             result = (
                 resolved.result if resolved is not None
-                else retrieval_service.read_source_anchor(read_req, root=root)
+                else retrieval_service.read_source_anchor(
+                    read_req, repo_root=artifact_data_root(default=root)
+                )
             )
         except WorldGraphRetrievalServiceError as exc:
             failed_read = {
