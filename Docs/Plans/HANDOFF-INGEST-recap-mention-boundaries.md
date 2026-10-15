@@ -20,6 +20,7 @@ candidate, canonical identity, or retained World knowledge are rewritten.
 - `Docs/Plans/HANDOFF-INGEST-recap-generationengine-default.md` (settle merged lease).
 - `src/graph_memory/projection/markdown_mentions.py`
 - `tests/test_recap_mention_word_boundaries.py`
+- `tests/test_markdown_mentions.py` (explicitly supersede the single historical substring-bug expectation; preserve the historical fixture bytes).
 
 DOGFOOD owns document-first Ingest UI; no overlapping files. The live GE process
 uses a separate accepted-code checkout and owns its private candidate directory.

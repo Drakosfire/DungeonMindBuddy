@@ -508,7 +508,7 @@ def _project_markdown_mentions_free_only(
     matches: list[tuple[int, int, str, str]] = []
     for surface, node_id in ordered:
         pattern = re.compile(
-            rf"(?<![\w\\[]){re.escape(surface)}(?![\w\\]])",
+            rf"(?<![\w\\\[]){re.escape(surface)}(?![\w\\\]])",
             re.IGNORECASE,
         )
         for match in pattern.finditer(markdown):
@@ -532,7 +532,7 @@ def _project_markdown_mentions_free_only(
             key,
         )
         pattern = re.compile(
-            rf"(?<![\w\\[]){re.escape(sample)}(?![\w\\]])",
+            rf"(?<![\w\\\[]){re.escape(sample)}(?![\w\\\]])",
             re.IGNORECASE,
         )
         for match in pattern.finditer(markdown):
@@ -646,7 +646,7 @@ def project_markdown_mentions(
     matches: list[tuple[int, int, str, str]] = list(located_matches)
     for surface, node_id in ordered:
         pattern = re.compile(
-            rf"(?<![\w\\[]){re.escape(surface)}(?![\w\\]])",
+            rf"(?<![\w\\\[]){re.escape(surface)}(?![\w\\\]])",
             re.IGNORECASE,
         )
         for match in pattern.finditer(markdown):
@@ -670,7 +670,7 @@ def project_markdown_mentions(
             key,
         )
         pattern = re.compile(
-            rf"(?<![\w\\[]){re.escape(sample)}(?![\w\\]])",
+            rf"(?<![\w\\\[]){re.escape(sample)}(?![\w\\\]])",
             re.IGNORECASE,
         )
         for match in pattern.finditer(markdown):
