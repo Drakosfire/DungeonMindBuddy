@@ -24,6 +24,8 @@ const RUN_STORAGE_PREFIX = "dmb.buildExtractionRun.";
 /** Bounded BLD-08 worldbuilding profile (Build product default). */
 export const BUILD_WORLDBUILDING_PROFILE_ID = "worldbuilding_shepherds_flock_v0";
 export const BUILD_WORLDBUILDING_PROFILE_VERSION = "0.1";
+export const BUILD_GAZETTEER_PROFILE_ID = "worldbuilding_gazetteer_v1";
+export const BUILD_GAZETTEER_PROFILE_VERSION = "1.5";
 
 function runIdFromLocation(): string | null {
   const value = new URLSearchParams(window.location.search).get("extractionRunId");
@@ -345,8 +347,8 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
             document_id: selectedDocumentId,
             expected_revision: envelope.revision,
             expected_content_sha256: envelope.contentSha256,
-            profile_id: profile === "gazetteer" ? "worldbuilding_gazetteer_v1" : BUILD_WORLDBUILDING_PROFILE_ID,
-            profile_version: profile === "gazetteer" ? "1.0" : BUILD_WORLDBUILDING_PROFILE_VERSION,
+            profile_id: profile === "gazetteer" ? BUILD_GAZETTEER_PROFILE_ID : BUILD_WORLDBUILDING_PROFILE_ID,
+            profile_version: profile === "gazetteer" ? BUILD_GAZETTEER_PROFILE_VERSION : BUILD_WORLDBUILDING_PROFILE_VERSION,
           });
           if (signal.aborted) {
             throw new Error("Extraction launch aborted.");
@@ -365,7 +367,7 @@ export function useBuildExtraction(args: UseBuildExtractionArgs): BuildExtractio
       }
 
       const { response, envelope } = commandResult.value;
-      const expectedProfile = profile === "gazetteer" ? "worldbuilding_gazetteer_v1@1.0" : "worldbuilding_shepherds_flock_v0@0.1";
+      const expectedProfile = profile === "gazetteer" ? `${BUILD_GAZETTEER_PROFILE_ID}@${BUILD_GAZETTEER_PROFILE_VERSION}` : `${BUILD_WORLDBUILDING_PROFILE_ID}@${BUILD_WORLDBUILDING_PROFILE_VERSION}`;
       if (response.run.profile_id !== expectedProfile) {
         setHandoff(null);
         setError("Extraction returned a different or missing profile. Review is unavailable; refresh server configuration before trying again.");
