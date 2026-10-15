@@ -1,6 +1,6 @@
-# ACTIVE handoff — Build Mirathorn Gazetteer livestock hygiene
+# PRIME handoff — Build Mirathorn Gazetteer livestock hygiene
 
-**Status:** ACTIVE — PRIME implementation and review lane
+**Status:** READY FOR PRIME MERGE — implementation and verification are complete. This bounded implementation/review lease ends when PR #1189 is merged. Post-merge candidate execution and any publication are separate lifecycle work; this handoff does not authorize publication.
 **Base:** DungeonMindBuddy `main@25cba5a5e00130a38303d2c1c1d7bc9736527be9` (includes #1145)
 **Branch:** `codex/mirathorn-gazetteer-fauna-hygiene`
 **Topology:** serial successor after merged PR #1187
