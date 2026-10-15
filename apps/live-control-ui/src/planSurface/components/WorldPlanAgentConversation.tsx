@@ -5018,8 +5018,8 @@ export function WorldPlanAgentConversation({
         ) : failed || interrupted ? (
           <p className="world-plan-agent-conversation__turn-status" role="status">
             {failed
-              ? turn.provenance.surface_id === "play" ? "Buddy couldn’t finish this reply. No Run change was applied." : "Buddy couldn’t finish this reply. Your Plan was not changed."
-              : turn.provenance.surface_id === "play" ? "This reply stopped before it finished. No Run change was applied." : "This reply stopped before it finished. Your Plan was not changed."}
+              ? turn.provenance.surface_id === "play" ? "Buddy couldn’t finish this reply. No Run change was applied." : turn.provenance.surface_id === "build" ? "Buddy couldn’t finish this reply. Your saved source was not changed." : "Buddy couldn’t finish this reply. Your Plan was not changed."
+              : turn.provenance.surface_id === "play" ? "This reply stopped before it finished. No Run change was applied." : turn.provenance.surface_id === "build" ? "This reply stopped before it finished. Your saved source was not changed." : "This reply stopped before it finished. Your Plan was not changed."}
           </p>
         ) : null}
         <div className="world-plan-agent-conversation__turn-debug">
@@ -5393,7 +5393,7 @@ export function WorldPlanAgentConversation({
     <div className="world-plan-agent-conversation__body">
       {newConversationError ? <p role="alert">{newConversationError}</p> : null}
       {pendingPlayLoadError ? <p role="alert">{pendingPlayLoadError}</p> : null}
-      {pendingPlayTurn ? <section className="world-plan-agent-conversation__recovery-notice" aria-label="Saved turn recovery">
+      {pendingPlayTurn && !sending && requestRef.current === null ? <section className="world-plan-agent-conversation__recovery-notice" aria-label="Saved turn recovery">
         <p>This request needs recovery. You can check its saved status or retry the exact request.</p>
         <button type="button" onClick={refreshWorldHistory} disabled={historyLoading}>Refresh World history</button>
         <button type="button" onClick={() => { void dispatchSavedPlayTurn(pendingPlayTurn); }} disabled={sending || requestRef.current !== null}>
