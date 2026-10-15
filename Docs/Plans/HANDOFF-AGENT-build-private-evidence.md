@@ -51,3 +51,19 @@ outcome. Prove bindings, unchanged returned source receipts/messages, no overwri
 path traversal resistance, private modes, explicit capture limits and IO failures.
 Inspect cumulative diff, commit/push/open one PR and dispatch exact-head review.
 All fixture text synthetic; retained packets stay private. Record begin/end refs.
+
+## Implementation evidence
+
+The capture boundary observes the actual selected runtime invocation and result.
+Private POSIX publication uses 0700 directory / 0600 files, no-follow checks,
+exclusive directory locking and atomic non-overwriting links. Each payload is
+limited to 4 MiB, the directory to 64 MiB; capacity failures explicitly report
+incomplete capture without changing execution. Existing evidence is never pruned.
+Capture stores runtime input and returned observations, not provider wire or APP
+authorization receipts. The public Debug trace remains a separately recorded gap.
+
+Focused capture/Build/intent tests pass39, including the directory-limit case.
+Wider service suite passes166 with seven failures; all seven reproduce against
+unchanged accepted main (two old policy expectations and five fresh-subprocess
+imports resolving the older editable package). They are not counted as passing.
+No provider call, World publication or serving-runtime mutation in implementation.
