@@ -3,6 +3,7 @@ from copy import deepcopy
 import hashlib
 import json
 import os
+from pathlib import Path
 import stat
 import subprocess
 import sys
@@ -296,3 +297,97 @@ def test_success_storage_failure_is_not_reviewable_or_replayed(tmp_path, applica
     run = get_extraction_run(tmp_path, drafts[0].run_id)
     assert run.status.value == "prepared"
     assert "raw_model_response" not in run.components and "candidate_graph" not in run.components
+
+
+@pytest.mark.parametrize("fail_review", [False, True])
+def test_real_bounded_attempt_accounting_survives_registered_bundle(
+    tmp_path, application_state_dsn, monkeypatch, fail_review,
+):
+    from src.graph_memory.extraction import bounded_recap_execution as bounded
+    from src.graph_memory.extraction._recap_inference_worker import _WorkerOutcome
+    from src.graph_memory.extraction.graph_preview_runner import ProductionExtractionRequest, run_production_extraction
+    from tests.test_worldbuilding_profile_pipeline import _admit_fixture_source, _load_fixture, _pass_outputs_for_span
+    from tests.test_bounded_recap_execution import deepseek_observation
+    from generationengine.types import TextResult
+
+    source, span = _admit_fixture_source(tmp_path)
+    fixture = _pass_outputs_for_span(_load_fixture(), span)
+    names = [spec.pass_id for spec in PROFILE.node_passes] + ["edge_pass", "edge_review_pass"]
+    evidence_dir = tmp_path / "private" / "attempts"
+    evidence_dir.parent.mkdir(mode=0o700)
+    invoked = []
+    expected_refs = []
+
+    def worker(factory, request, *, deadline, attempt_evidence=None):
+        name = names[len(invoked)]
+        invoked.append(name)
+        parsed = fixture.get(name, {"observation_nodes": []})
+        if name == "edge_review_pass":
+            parsed = {"retained_edge_ids": []}
+        # These are actual worker-seam receipts, not run_pass overrides.
+        obs = deepseek_observation(provider_attempt_count=2, conformance_retry_count=1,
+            transport_retry_count=0, input_tokens=101, output_tokens=23,
+            cached_input_tokens=17, reasoning_tokens=5, latency_ms=12,
+            provider_response_id="response-known", cost_usd=None)
+        payload = obs.model_dump(mode="json")
+        for ordinal in (1, 2):
+            event = {"operation_id": name, "event_id": name + str(ordinal),
+                "ordinal": ordinal, "kind": "initial" if ordinal == 1 else "conformance_retry",
+                "response_status": "returned", "provider": "openrouter",
+                "requested_model": DEEPSEEK_MODEL, "resolved_model": DEEPSEEK_MODEL,
+                "response_model": DEEPSEEK_MODEL, "provider_response_id": "response-known"}
+            path, sha = bounded._write_private_response_evidence(evidence_dir,
+                ordinal=len(invoked), pass_name=name, request=request,
+                context_hashes={"source": source.source_sha256}, raw_observation=payload,
+                response_text="first invalid text" if ordinal == 1 else json.dumps(parsed),
+                attempt_event=event)
+            if name == "edge_review_pass":
+                expected_refs.append((str(path), sha))
+        if fail_review and name == "edge_review_pass":
+            return _WorkerOutcome({"kind": "provider_failure", "failure_code": "STRUCTURED_OUTPUT_INVALID",
+                "observation": {**payload, "state": "failed", "failure_code": "STRUCTURED_OUTPUT_INVALID",
+                                "private_provider_field": "EXCLUDE_PRIVATE_MARKER"}}, False)
+        return _WorkerOutcome({"kind": "result", "result": TextResult(
+            text=json.dumps(parsed), parsed=parsed, observation=obs).model_dump(mode="json")}, False)
+
+    monkeypatch.setattr(bounded, "_execute_in_owned_process", worker)
+    client = BoundedRecapPassClient(bounded.RecapExecutionLimits(provider="openrouter", model=DEEPSEEK_MODEL),
+        response_artifact_dir=evidence_dir, request_context_hashes={"source": source.source_sha256})
+    client.private_client_field = "EXCLUDE_PRIVATE_MARKER"
+    result = run_production_extraction(ProductionExtractionRequest(repo_root=tmp_path, source=source,
+        profile_id=PROFILE.profile_id, profile_version=PROFILE.profile_version,
+        model_id=DEEPSEEK_MODEL, allow_llm=True, category_client=client, output_dir=tmp_path / "out"))
+    assert len(invoked) == 6 and len(client.calls) == 6, (client.calls, result.diagnostics)  # 6 invocations != 12 attempts.
+    assert bool(result.failure_kind) is fail_review
+    assert result.run.status.value == ("failed" if fail_review else "reviewable")
+    ref = result.run.components["raw_model_response"]
+    data = (tmp_path / ref.uri.removeprefix("repo://")).read_bytes()
+    assert hashlib.sha256(data).hexdigest() == ref.sha256
+    assert b"EXCLUDE_PRIVATE_MARKER" not in data
+    bundle = json.loads(data)
+    observation = bundle["execution_observations"][-1]["observation"]
+    assert {key: observation[key] for key in (
+        "provider_attempt_count", "conformance_retry_count", "transport_retry_count",
+        "input_tokens", "output_tokens", "cached_input_tokens", "reasoning_tokens",
+        "latency_ms", "provider_response_id", "cost_usd")} == {
+        "provider_attempt_count": 2, "conformance_retry_count": 1, "transport_retry_count": 0,
+        "input_tokens": 101, "output_tokens": 23, "cached_input_tokens": 17,
+        "reasoning_tokens": 5, "latency_ms": 12, "provider_response_id": "response-known", "cost_usd": None}
+    refs = bundle["execution_observations"][-1]["attempt_evidence"]
+    assert [(item["path"], item["sha256"]) for item in refs] == expected_refs
+    assert [item["ordinal"] for item in refs] == [1, 2]
+    for path, sha in expected_refs:
+        assert hashlib.sha256(Path(path).read_bytes()).hexdigest() == sha
+    child = subprocess.run([sys.executable, "-c", '''
+import json,hashlib,sys
+from pathlib import Path
+from apps.live_control_server.services.graph_run_registry import get_extraction_run
+root=Path(sys.argv[1]); run=get_extraction_run(root,sys.argv[2]); ref=run.components['raw_model_response']
+data=(root/ref.uri.removeprefix('repo://')).read_bytes(); assert hashlib.sha256(data).hexdigest()==ref.sha256
+row=json.loads(data)['execution_observations'][-1]
+assert row['observation']['provider_attempt_count']==2 and row['observation']['conformance_retry_count']==1
+for item in row['attempt_evidence']: assert hashlib.sha256(Path(item['path']).read_bytes()).hexdigest()==item['sha256']
+print('attempt-evidence-reopened')
+''', str(tmp_path), result.run.run_id], env=dict(os.environ), text=True, capture_output=True)
+    assert child.returncode == 0, child.stderr
+    assert child.stdout.strip() == "attempt-evidence-reopened"
