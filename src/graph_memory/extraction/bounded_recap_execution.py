@@ -317,6 +317,8 @@ def _default_engine_for(provider: str):
 
 
 class BoundedRecapPassClient:
+    supports_actor_source_handles = True
+
     def __init__(
         self,
         limits: RecapExecutionLimits,
@@ -393,7 +395,8 @@ class BoundedRecapPassClient:
         }
 
     def run_pass(
-        self, pass_name, *, model_id, instructions, user_content, pass_spec=None
+        self, pass_name, *, model_id, instructions, user_content, pass_spec=None,
+        source_evidence_packet=None,
     ):
         from generationengine.types import TextResult
 
@@ -427,6 +430,20 @@ class BoundedRecapPassClient:
             if pass_spec
             else category_pass_text_format(pass_name)
         )["format"]
+        canonical_schema = fmt["schema"]
+        context_hashes = dict(self._request_context_hashes)
+        if source_evidence_packet is not None:
+            from src.graph_memory.extraction.source_sentence_evidence import actor_wire_schema
+            if pass_name != "actor_pass":
+                raise CategoryGraphExtractionError("source handles require actor pass", pass_name=pass_name)
+            expected_source = context_hashes.get("source_content")
+            if expected_source is not None and expected_source != source_evidence_packet.source_sha256:
+                raise CategoryGraphExtractionError("source packet does not match run source", pass_name=pass_name)
+            fmt["schema"] = actor_wire_schema(canonical_schema, source_evidence_packet)
+            context_hashes.update(
+                actor_source=source_evidence_packet.source_sha256,
+                actor_source_packet=source_evidence_packet.packet_id,
+            )
         deepseek = self.limits.provider == "openrouter"
         route = None
         system_prompt = instructions
@@ -489,6 +506,7 @@ class BoundedRecapPassClient:
             "max_output_tokens": request.max_output_tokens,
             "observation": None,
             "attempt_evidence": [],
+            "source_evidence_context": context_hashes if source_evidence_packet is not None else None,
         }
         self.calls.append(entry)
         result = None
@@ -512,7 +530,7 @@ class BoundedRecapPassClient:
                         "directory": str(self._response_artifact_dir),
                         "pass_ordinal": len(self.calls),
                         "pass_name": pass_name,
-                        "context_hashes": self._request_context_hashes,
+                        "context_hashes": context_hashes,
                     }
                     if self._response_artifact_dir is not None
                     else None
@@ -603,8 +621,27 @@ class BoundedRecapPassClient:
             parsed = result.parsed if result.parsed is not None else json.loads(result.text or "")
             if not isinstance(parsed, dict):
                 raise NonObjectResponseError("expected JSON object")
-            if deepseek:
+            if deepseek or source_evidence_packet is not None:
                 validate_json_schema(parsed, fmt["schema"])
+            if source_evidence_packet is not None:
+                from src.graph_memory.extraction.source_sentence_evidence import materialize_actor_evidence
+                parsed = materialize_actor_evidence(
+                    source_evidence_packet, parsed,
+                    expected_packet_id=context_hashes["actor_source_packet"],
+                )
+                validate_json_schema(parsed, canonical_schema)
+                if self._response_artifact_dir is not None:
+                    path, sha = _write_private_response_evidence(
+                        self._response_artifact_dir,
+                        ordinal=len(self.calls), pass_name=pass_name + "-normalized",
+                        request=request_payload, context_hashes=context_hashes,
+                        raw_observation=observation,
+                        response_text=json.dumps({
+                            "parsed": parsed,
+                            "source_units": [asdict(unit) for unit in source_evidence_packet.units],
+                        }, ensure_ascii=False),
+                    )
+                    entry["normalized_artifact"] = {"path": str(path), "sha256": sha}
         except (json.JSONDecodeError, NonObjectResponseError, JsonSchemaValidationError) as exc:
             self._stopped = True
             entry["consumer_failure"] = type(exc).__name__

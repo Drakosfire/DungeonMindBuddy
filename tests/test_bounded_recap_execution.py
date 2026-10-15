@@ -1140,3 +1140,153 @@ def test_profile_budget_supports_nine_pass_recap_without_changing_deadlines():
     assert limits.max_calls == 9
     assert limits.per_call_deadline_ms == 120000
     assert limits.run_deadline_ms == 480000
+
+
+def actor_handle_packet(source='Dr. Ari did not enter.\n\nShe waited unless Bea returned.'):
+    from src.graph_memory.extraction.source_sentence_evidence import compile_source_sentence_packet
+    return compile_source_sentence_packet(source, [
+        {'source_span_ref_id': 'span:a', 'text': source.split('\n\n')[0], 'line_start': 1},
+        {'source_span_ref_id': 'span:b', 'text': source.split('\n\n')[1], 'line_start': 3},
+    ])
+
+
+def actor_handle_response(ids=None):
+    return {'observation_nodes': [{
+        'node_id': 'actor:ari', 'label': 'Ari', 'node_type': 'character',
+        'description': 'Ari stayed outside unless Bea returned.', 'importance': 'medium',
+        'evidence_refs': [{'source_quote_ids': ids or ['Q001', 'Q002']}],
+    }]}
+
+
+def test_actor_handle_wire_materializes_canonical_evidence_and_retains_both(tmp_path):
+    from src.graph_memory.extraction.category_candidate_graph_schema import category_pass_text_format
+    from jsonschema import validate
+    packet = actor_handle_packet()
+    raw = actor_handle_response()
+    engine = Engine(TextResult(text=json.dumps(raw), parsed=raw, observation=deepseek_observation()))
+    client = BoundedRecapPassClient(
+        RecapExecutionLimits(provider='openrouter', model=DEEPSEEK_MODEL),
+        engine_factory=lambda: engine,
+        response_artifact_dir=tmp_path / '.private' / 'responses',
+        request_context_hashes={'source_content': packet.source_sha256},
+    )
+    result = client.run_pass('actor_pass', model_id=DEEPSEEK_MODEL,
+                             instructions='Extract actors', user_content='host rendered source',
+                             source_evidence_packet=packet)
+    schema = engine.requests[0].json_schema
+    ref_schema = schema['properties']['observation_nodes']['items']['properties']['evidence_refs']['items']
+    assert ref_schema['properties']['source_quote_ids']['items']['enum'] == ['Q001', 'Q002']
+    assert 'source_span_ref_id' not in ref_schema['properties']
+    validate(result['parsed'], category_pass_text_format('actor_pass')['format']['schema'])
+    assert result['parsed']['observation_nodes'][0]['evidence_refs'] == [
+        {'source_span_ref_id': 'span:a', 'anchor_quotes': ['Dr. Ari did not enter.']},
+        {'source_span_ref_id': 'span:b', 'anchor_quotes': ['She waited unless Bea returned.']},
+    ]
+    assert result['raw_text'] == json.dumps(raw)
+    call = client.calls[0]
+    raw_evidence = json.loads(Path(call['response_artifact_path']).read_text())
+    normalized = json.loads(Path(call['normalized_artifact']['path']).read_text())
+    assert json.loads(raw_evidence['response']['text']) == raw
+    normalized_payload = json.loads(normalized['response']['text'])
+    assert normalized_payload['parsed'] == result['parsed']
+    assert len(normalized_payload['source_units']) == 2
+    assert raw_evidence['context_sha256']['actor_source_packet'] == packet.packet_id
+    assert normalized['context_sha256'] == raw_evidence['context_sha256']
+
+
+@pytest.mark.parametrize('ids', [['Q999'], ['Q001', 'Q001']])
+def test_actor_invalid_handles_reject_whole_pass(ids):
+    packet = actor_handle_packet()
+    raw = actor_handle_response(ids)
+    engine = Engine(TextResult(text=json.dumps(raw), parsed=raw, observation=deepseek_observation()))
+    client = BoundedRecapPassClient(
+        RecapExecutionLimits(provider='openrouter', model=DEEPSEEK_MODEL), engine_factory=lambda: engine,
+    )
+    with pytest.raises(CategoryGraphExtractionError):
+        client.run_pass('actor_pass', model_id=DEEPSEEK_MODEL, instructions='Extract',
+                        user_content='source', source_evidence_packet=packet)
+    assert client.ledger()['stopped'] is True
+
+
+def test_actor_packet_swap_rejected_before_provider_call():
+    packet = actor_handle_packet()
+    engine = Engine(None)
+    client = BoundedRecapPassClient(
+        RecapExecutionLimits(provider='openrouter', model=DEEPSEEK_MODEL), engine_factory=lambda: engine,
+        response_artifact_dir='/unused/private/path', request_context_hashes={'source_content': 'f' * 64},
+    )
+    with pytest.raises(CategoryGraphExtractionError, match='does not match run source'):
+        client.run_pass('actor_pass', model_id=DEEPSEEK_MODEL, instructions='Extract',
+                        user_content='source', source_evidence_packet=packet)
+    assert engine.requests == [] and client.calls == []
+
+
+def test_real_recap_producer_supplies_packet_to_ge_and_receives_canonical_result():
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        CategoryGraphExtractionOptions, extract_category_candidate_graph,
+    )
+    from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+    packet = actor_handle_packet()
+
+    class PipelineEngine(Engine):
+        async def generate_structured(self, request, *, on_attempt_completed=None):
+            self.requests.append(request)
+            payload = (
+                actor_handle_response() if request.schema_name == 'category_graph_actor_pass'
+                else {key: [] for key in request.json_schema['required']}
+            )
+            return await _complete_fake_structured_result(
+                TextResult(text=json.dumps(payload), parsed=payload, observation=deepseek_observation()),
+                request, on_attempt_completed,
+            )
+    engine = PipelineEngine(None)
+    client = BoundedRecapPassClient(
+        RecapExecutionLimits(provider='openrouter', model=DEEPSEEK_MODEL, max_calls=16),
+        engine_factory=lambda: engine,
+    )
+    result = extract_category_candidate_graph(CategoryGraphExtractionOptions(
+        campaign_id='longmont-c2', session_id='session-1', session_number=1,
+        source_text=packet.source, model_id=DEEPSEEK_MODEL,
+        source_artifact_id='artifact:synthetic', source_ref_id='artifact:synthetic:text',
+        source_span_index={'spans': [
+            {'kind': 'paragraph', 'source_span_ref_id': 'span:a', 'line_start': 1, 'line_end': 1},
+            {'kind': 'paragraph', 'source_span_ref_id': 'span:b', 'line_start': 3, 'line_end': 3},
+        ]}, profile=RECAP_EXTRACTION_PROFILE,
+    ), client=client)
+    actor = engine.requests[0]
+    assert '### Q001\nDr. Ari did not enter.' in actor.user_prompt
+    assert '### Q002\nShe waited unless Bea returned.' in actor.user_prompt
+    assert 'source_quote_ids' in actor.user_prompt
+    assert 'source_quote_ids' not in engine.requests[1].json_schema['properties']['observation_nodes']['items']['properties']['evidence_refs']['items']['properties']
+    refs = result.pass_outputs['actor_pass']['observation_nodes'][0]['evidence_refs']
+    assert refs[0]['anchor_quotes'] == ['Dr. Ari did not enter.']
+    assert refs[1]['source_span_ref_id'] == 'span:b'
+    assert client.calls[0]['source_evidence_context']['actor_source_packet'] == packet.packet_id
+    assert result.candidate_graph['nodes']
+
+
+def test_failed_normalized_evidence_persistence_preserves_wire_and_stops(tmp_path, monkeypatch):
+    from src.graph_memory.extraction import bounded_recap_execution as adapter
+    packet = actor_handle_packet()
+    raw = actor_handle_response()
+    engine = Engine(TextResult(text=json.dumps(raw), parsed=raw, observation=deepseek_observation()))
+    client = BoundedRecapPassClient(
+        RecapExecutionLimits(provider='openrouter', model=DEEPSEEK_MODEL), engine_factory=lambda: engine,
+        response_artifact_dir=tmp_path / '.private' / 'responses',
+        request_context_hashes={'source_content': packet.source_sha256},
+    )
+    writer = adapter._write_private_response_evidence
+
+    def fail_normalized(*args, **kwargs):
+        if kwargs['pass_name'].endswith('-normalized'):
+            raise OSError('synthetic failure')
+        return writer(*args, **kwargs)
+
+    monkeypatch.setattr(adapter, '_write_private_response_evidence', fail_normalized)
+    with pytest.raises(CategoryGraphExtractionError):
+        client.run_pass('actor_pass', model_id=DEEPSEEK_MODEL, instructions='Extract',
+                        user_content='source', source_evidence_packet=packet)
+    call = client.calls[0]
+    assert Path(call['response_artifact_path']).exists()
+    assert 'normalized_artifact' not in call
+    assert client.ledger()['stopped'] is True
