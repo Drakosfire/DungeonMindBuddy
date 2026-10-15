@@ -14,11 +14,11 @@ Add a separately versioned Gazetteer profile `worldbuilding_gazetteer_v1@1.7` th
 2. Exactly one extracted character node has a description containing that exact normalized role value.
 3. The node does not already cite that source span.
 
-The transformation may add the exact source span and quote as evidence; it must not change node identity, type, description, relationships, confidence, or any semantic claim. Ambiguous, malformed, unsupported, or duplicate inputs remain unchanged and are reported in deterministic diagnostics. Profiles 1.0–1.6 retain their current behavior and versioned identity. Build selects 1.7, routed through the existing pinned GenerationEngine/OpenRouter DeepSeek path.
+The transformation may add the exact source span and quote as evidence; it must not change node identity, type, description, relationships, confidence, or any semantic claim. Non-matching role rows are ignored. A role line without one unique matching character receives a deterministic no-match or ambiguous-match diagnostic and remains unchanged. The existing source-span-index validation continues to reject invalid span structure before this profile runs. Profiles 1.0–1.6 retain their current behavior and versioned identity. Build selects 1.7, routed through the existing pinned GenerationEngine/OpenRouter DeepSeek path.
 
 ## Evidence motivating this slice
 
-The exact saved Mirathorn revision-2 candidate produced under profile 1.6 has six character descriptions containing their source-backed representative roles without citing the corresponding `Role:` lines. The frozen gold expects those role facts and their exact lines. Adding citations conditionally repairs provenance without asking a model to invent or reinterpret a fact.
+The exact saved Mirathorn revision-2 candidate produced under profile 1.6 has seven character descriptions containing their source-backed representative roles without citing the corresponding `Role:` lines. The frozen gold expects those role facts and their exact lines. Adding citations conditionally repairs provenance without asking a model to invent or reinterpret a fact.
 
 The source-backed query gold remains the authority for the expected facts and relationships. Do not change its facts, questions, evidence quotes, or answer criteria.
 
@@ -40,7 +40,7 @@ No other path is leased. Do not stage corpus text, source passages, private prov
 
 ## Required verification
 
-- Unit tests cover exact role-field parsing, unique character match, existing-reference idempotence, unsupported/malformed rows, and ambiguous duplicate matches.
+- Unit tests cover exact role-field parsing, negated and no-match cases, ambiguous character matches, and existing-reference idempotence; the existing source-span-index validator retains its invalid and duplicate-span checks.
 - A real `run_category_pipeline` fixture proves the versioned profile adds only the exact source evidence reference and preserves all semantic fields. A neighboring no-match case remains unchanged.
 - Tests prove profiles 1.0–1.6 keep their historical version/behavior and 1.7 is catalogued.
 - Build uses 1.7; the route and GenerationEngine execution adapter accept 1.7 while retaining source digest/revision/provider pinning and rejecting unsupported versions.

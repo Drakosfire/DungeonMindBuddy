@@ -4,6 +4,10 @@ from src.graph_memory.extraction.worldbuilding_gazetteer_profile import (
     compile_gazetteer_livestock_hygiene,
     validate_gazetteer_candidate_bounds,
 )
+from src.graph_memory.extraction.worldbuilding_gazetteer_role_citations import (
+    GAZETTEER_ROLE_CITATION_PROFILE,
+    compile_gazetteer_role_citations,
+)
 from src.graph_memory.extraction.worldbuilding_profile_catalog import PUBLISHABLE_WORLDBUILDING_PROFILES
 
 
@@ -12,7 +16,8 @@ def test_closed_publication_profiles_preserve_pilot_and_exact_gazetteer_version(
         "worldbuilding_shepherds_flock_v0@0.1", "worldbuilding_gazetteer_v1@1.0",
         "worldbuilding_gazetteer_v1@1.1", "worldbuilding_gazetteer_v1@1.2",
         "worldbuilding_gazetteer_v1@1.3", "worldbuilding_gazetteer_v1@1.4",
-        "worldbuilding_gazetteer_v1@1.5", "worldbuilding_gazetteer_v1@1.6"}
+        "worldbuilding_gazetteer_v1@1.5", "worldbuilding_gazetteer_v1@1.6",
+        "worldbuilding_gazetteer_v1@1.7"}
     assert "worldbuilding_gazetteer_v1@2.0" not in PUBLISHABLE_WORLDBUILDING_PROFILES
     assert "worldbuilding_plumbing_v0@0.1" not in PUBLISHABLE_WORLDBUILDING_PROFILES
 
@@ -243,6 +248,204 @@ def test_v16_profile_is_versioned_from_15_and_keeps_named_event_policy():
     assert "not an event" in v16_definition.instruction
     assert "recurring festivals" in v16_definition.instruction
     assert v16.edge_review_pass == v15.edge_review_pass
+
+
+def test_v17_profile_preserves_v16_prompts_and_only_changes_source_retention():
+    v16 = GAZETTEER_LIVESTOCK_HYGIENE_PROFILE
+    v17 = GAZETTEER_ROLE_CITATION_PROFILE
+    assert v16.profile_version == "1.6"
+    assert v16.source_section_retainer.__name__ == "compile_gazetteer_livestock_hygiene"
+    assert v17.profile_version == "1.7"
+    assert v17.node_passes == v16.node_passes
+    assert v17.edge_pass == v16.edge_pass
+    assert v17.edge_review_pass == v16.edge_review_pass
+    assert v17.source_section_retainer is compile_gazetteer_role_citations
+
+
+def test_v17_adds_only_unambiguous_affirmed_exact_role_line_citations():
+    rows = [
+        {"source_span_ref_id": "span:role", "line_start": 1, "line_end": 1,
+         "text": "**Role:** Representative of Commerce"},
+        {"source_span_ref_id": "span:negated", "line_start": 2, "line_end": 2,
+         "text": "Role: Representative of Arcane"},
+        {"source_span_ref_id": "span:ambiguous", "line_start": 3, "line_end": 3,
+         "text": "Role: Representative of the Guilds"},
+    ]
+    graph = {
+        "session_id": None,
+        "beats": [],
+        "source_artifact_ids": ["artifact:synthetic"],
+        "nodes": [
+            {"node_id": "npc:nera", "label": "Nera", "node_type": "character",
+             "description": "Nera is a Representative of Commerce.",
+             "evidence_refs": [{"source_span_ref_id": "span:name"}]},
+            {"node_id": "npc:aric", "label": "Aric", "node_type": "character",
+             "description": "Aric is not a Representative of Arcane.",
+             "evidence_refs": []},
+            {"node_id": "npc:beren", "label": "Beren", "node_type": "character",
+             "description": "Beren is a Representative of the Guilds.",
+             "evidence_refs": []},
+            {"node_id": "npc:beren-two", "label": "Beren Two", "node_type": "character",
+             "description": "Also a Representative of the Guilds.",
+             "evidence_refs": []},
+        ],
+        "edges": [],
+        "deferred_items": [],
+    }
+    original_semantics = [
+        (node["node_id"], node["label"], node["node_type"], node["description"])
+        for node in graph["nodes"]
+    ]
+
+    result, diagnostics = compile_gazetteer_role_citations(graph, rows)
+
+    nera = next(node for node in result["nodes"] if node["node_id"] == "npc:nera")
+    assert nera["description"] == "Nera is a Representative of Commerce."
+    assert nera["evidence_refs"] == [
+        {"source_span_ref_id": "span:name"},
+        {"source_span_ref_id": "span:role",
+         "anchor_quotes": ["**Role:** Representative of Commerce"]},
+    ]
+    assert all(
+        not any(ref.get("source_span_ref_id") in {"span:negated", "span:ambiguous"}
+                for ref in node.get("evidence_refs", []))
+        for node in result["nodes"]
+    )
+    assert [
+        (node["node_id"], node["label"], node["node_type"], node["description"])
+        for node in result["nodes"]
+    ] == original_semantics
+    assert diagnostics["role_line_citations"]["records"] == [
+        {"source_span_ref_id": "span:role", "candidate_node_id": "npc:nera",
+         "decision": "citation_added"},
+        {"source_span_ref_id": "span:negated",
+         "decision": "no_matching_character_claim"},
+        {"source_span_ref_id": "span:ambiguous",
+         "decision": "ambiguous_character_match"},
+    ]
+
+
+def test_v17_role_citation_does_not_duplicate_an_existing_reference():
+    rows = [{
+        "source_span_ref_id": "span:role", "line_start": 1, "line_end": 1,
+        "text": "Role: Representative of Commerce",
+    }]
+    graph = {
+        "session_id": None,
+        "beats": [],
+        "nodes": [{"node_id": "npc:nera", "label": "Nera", "node_type": "character",
+                   "description": "Representative of Commerce.",
+                   "evidence_refs": [{"source_span_ref_id": "span:role",
+                                      "anchor_quotes": [rows[0]["text"]]}]}],
+        "edges": [],
+        "deferred_items": [],
+    }
+    result, diagnostics = compile_gazetteer_role_citations(graph, rows)
+    assert result["nodes"][0]["evidence_refs"] == graph["nodes"][0]["evidence_refs"]
+    assert diagnostics["role_line_citations"]["records"] == [
+        {"source_span_ref_id": "span:role", "decision": "already_cited"},
+    ]
+
+
+def test_v17_real_category_pipeline_adds_source_stamped_role_citations():
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        CategoryGraphExtractionOptions,
+        FixtureCategoryGraphPassClient,
+        run_category_pipeline,
+    )
+    from types import SimpleNamespace
+    from src.graph_memory.extraction.bounded_recap_execution import (
+        BoundedRecapPassClient,
+        DEEPSEEK_MODEL,
+    )
+
+    texts = [
+        "**Nera** — A representative.",
+        "**Role:** Representative of Commerce",
+        "**Aric** — A cautious official.",
+        "**Role:** Representative of Arcane",
+    ]
+    rows = [{
+        "source_span_ref_id": f"span:{index + 1}",
+        "line_start": index + 1,
+        "line_end": index + 1,
+        "text": text,
+    } for index, text in enumerate(texts)]
+    outputs = {
+        "actor_pass": {"observation_nodes": [
+            {"node_id": "npc:nera", "label": "Nera", "node_type": "character",
+             "description": "Representative of Commerce.", "importance": "medium",
+             "evidence_refs": [{"source_span_ref_id": "span:1",
+                                "anchor_quotes": [texts[0]]}]},
+            {"node_id": "npc:aric", "label": "Aric", "node_type": "character",
+             "description": "Not a Representative of Arcane.", "importance": "medium",
+             "evidence_refs": [{"source_span_ref_id": "span:3",
+                                "anchor_quotes": [texts[2]]}]},
+        ]},
+    }
+    artifact_id = "artifact:synthetic"
+    class BoundedFixtureClient(BoundedRecapPassClient):
+        def __init__(self):
+            self.limits = SimpleNamespace(provider="openrouter", model=DEEPSEEK_MODEL, max_calls=8)
+            self.fixture = FixtureCategoryGraphPassClient(outputs)
+            self.calls = []
+
+        def run_pass(self, pass_name, **kwargs):
+            self.calls.append({
+                "pass_name": pass_name,
+                "external_outcome": "not_started",
+                "observation": None,
+                "attempt_evidence": [],
+            })
+            return self.fixture.run_pass(pass_name, **kwargs)
+
+    def run(profile):
+        return run_category_pipeline(
+            BoundedFixtureClient(),
+            CategoryGraphExtractionOptions(
+                campaign_id="synthetic",
+                session_id=None,
+                session_number=None,
+                source_text="\n".join(texts),
+                source_artifact_id=artifact_id,
+                source_span_index={
+                    "source_artifact_id": artifact_id,
+                    "source_ref_id": f"{artifact_id}:text",
+                    "spans": rows,
+                },
+                model_id=DEEPSEEK_MODEL,
+                profile=profile,
+                enable_party_claimed_fill=False,
+            ),
+        )
+
+    baseline = run(GAZETTEER_LIVESTOCK_HYGIENE_PROFILE)
+    result = run(GAZETTEER_ROLE_CITATION_PROFILE)
+    baseline_graph = baseline.candidate_graph
+    result_graph = result.candidate_graph
+    assert [
+        {key: value for key, value in node.items() if key != "evidence_refs"}
+        for node in result_graph["nodes"]
+    ] == [
+        {key: value for key, value in node.items() if key != "evidence_refs"}
+        for node in baseline_graph["nodes"]
+    ]
+    assert result_graph["edges"] == baseline_graph["edges"]
+    assert result_graph["beats"] == baseline_graph["beats"]
+
+    nodes = {node["node_id"]: node for node in result_graph["nodes"]}
+    nera = nodes["npc:nera"]
+    assert nera["description"] == "Representative of Commerce."
+    assert any(
+        ref.get("source_span_ref_id") == "span:2"
+        and ref.get("anchor_quotes") == [texts[1]]
+        and ref.get("source_artifact_id") == artifact_id
+        and ref.get("source_ref_id") == f"{artifact_id}:text"
+        for ref in nera["evidence_refs"]
+    )
+    aric = nodes["npc:aric"]
+    assert all(ref.get("source_span_ref_id") != "span:4" for ref in aric["evidence_refs"])
+    assert result.consolidation_diagnostics["source_section_retention"]["role_line_citations"]["profile"] == "worldbuilding_gazetteer_v1@1.7"
 
 
 @pytest.mark.parametrize("kind", ["creature", "event"])

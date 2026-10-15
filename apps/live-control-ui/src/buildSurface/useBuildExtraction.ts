@@ -25,7 +25,7 @@ const RUN_STORAGE_PREFIX = "dmb.buildExtractionRun.";
 export const BUILD_WORLDBUILDING_PROFILE_ID = "worldbuilding_shepherds_flock_v0";
 export const BUILD_WORLDBUILDING_PROFILE_VERSION = "0.1";
 export const BUILD_GAZETTEER_PROFILE_ID = "worldbuilding_gazetteer_v1";
-export const BUILD_GAZETTEER_PROFILE_VERSION = "1.6";
+export const BUILD_GAZETTEER_PROFILE_VERSION = "1.7";
 
 function runIdFromLocation(): string | null {
   const value = new URLSearchParams(window.location.search).get("extractionRunId");

@@ -46,17 +46,19 @@
     "runtime_document_class": "unverified",
     "notes": [
       "The Shepherds Flock v0.1 entry is the selected pilot-profile baseline for comparison, not evidence that this saved source executed with it.",
-      "Gazetteer v1.5 remains the selected historical pilot-profile baseline. This branch also defines v1.6; neither version has been established as the executed profile for the registered Build source, and its document-class admission remains unverified.",
+      "Gazetteer v1.5 remains the selected historical pilot-profile baseline. The exact registered Build revision 2 was candidate-extracted in an isolated non-serving run under v1.6; this proves that runner/profile execution, not interactive Build selection, publication, or live World readiness.",
       "The Markdown frontmatter says document_class=world; that does not establish the registered Build document class or profile eligibility.",
       "Separate answer correctness from graph representation. Festival and generic Float Goat facts may be answered from source-backed place descriptions/passages without requiring event or species nodes.",
       "Float Goats are a plural species/type description, not an individuated creature. Do not require a generic creature node.",
-      "The Mirathorn approach sentence is prepared-scenario prose, not an enduring world fact or played event."
+      "The Mirathorn approach sentence is prepared-scenario prose, not an enduring world fact or played event.",
+      "A local deterministic v1.7 replay of the preserved v1.6 candidate added seven exact Role-line citations while preserving all 44 candidate nodes, all 20 edges, and every node semantic field. The candidate remains review material and is not publication evidence.",
+      "Gazetteer v1.7 changes evidence attachment only; it does not resolve prepared-scene prose being promoted into durable place knowledge."
     ],
     "snapshot_role": "selected_pilot_profile_baseline_not_execution_evidence",
     "execution_profile": "unverified",
     "profile_catalog": {
       "source_path": "src/graph_memory/extraction/worldbuilding_profile_catalog.py",
-      "source_sha256": "4d623f8bcdcc70a236586f002bffbce92e187c7839a530d34291b81b345d4570"
+      "source_sha256": "a4b54cc6f9949ef9b1d6a8ef89d177e39c2c5ba14632a7ddefc5ef74f54bf240"
     },
     "available_profiles": [
       {
@@ -77,6 +79,16 @@
           "Retains exact source-backed livestock sections on their uniquely matched owner place.",
           "Defers matching species and livestock cultural-significance event proposals with their incident edges.",
           "Preserves named recurring festivals as event definitions, not played episodes."
+        ]
+      },
+      {
+        "id": "worldbuilding_gazetteer_v1@1.7",
+        "source_path": "src/graph_memory/extraction/worldbuilding_gazetteer_role_citations.py",
+        "source_sha256": "97d8b4510538ecd2fb0c301a3f1d2345ef74b8d17eda5f938b6c4d9391df767c",
+        "relevant_behavior": [
+          "Preserves v1.6 extraction prompts and deterministic livestock hygiene.",
+          "Adds an exact source Role-line citation only when one character candidate already makes that affirmative role claim.",
+          "Leaves candidate facts and relationships unchanged; it does not prevent prepared-scene prose from entering a durable location description."
         ]
       }
     ]
