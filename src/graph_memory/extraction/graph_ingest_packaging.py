@@ -673,6 +673,30 @@ def _write_validation_report(
                             and not _is_full_text_span_id(spref)
                         ):
                             warnings.append(f"candidate {field} {obj_id} has no paragraph-level evidence")
+    nested_refs = [ref
+                   for field in (nodes_key, edges_key, beats_key)
+                   for obj in (candidate_graph.get(field) if isinstance(candidate_graph.get(field), list) else [])
+                   if isinstance(obj, dict)
+                   for ref in (obj.get("evidence_refs") if isinstance(obj.get("evidence_refs"), list) else [])
+                   if isinstance(ref, dict)]
+    top_refs = candidate_graph.get("evidence_refs", [])
+    all_refs = (top_refs if isinstance(top_refs, list) else []) + nested_refs
+    all_refs = [ref for ref in all_refs if isinstance(ref, dict)]
+    unresolved_count = sum(
+        1 for ref in all_refs
+        if not (ref.get("span_id") or ref.get("source_span_ref_id"))
+        or (known_span_ids and
+            (ref.get("span_id") or ref.get("source_span_ref_id")) not in known_span_ids)
+    )
+    if unresolved_count:
+        errors.append(f"unresolved nested/top-level evidence references: {unresolved_count}")
+    incomplete_fill_count = sum(
+        1 for node in (candidate_graph.get(nodes_key) or [])
+        if isinstance(node, dict)
+        and "party_claimed_fill_incomplete" in (node.get("warnings") or [])
+    )
+    if incomplete_fill_count:
+        errors.append(f"party enrichment incomplete for {incomplete_fill_count} nodes")
     diagnostics = candidate_graph.get("diagnostics", {})
     for flag in (
         "canon_promotion",
@@ -703,10 +727,13 @@ def _write_validation_report(
         "errors": errors,
         "warnings": warnings,
         "diagnostics": {
-            "evidence_ref_count": len(candidate_graph.get("evidence_refs", [])) if isinstance(candidate_graph.get("evidence_refs"), list) else 0,
-            "resolvable_evidence_ref_count": sum(1 for ref in candidate_graph.get("evidence_refs", []) if isinstance(ref, dict) and (not known_span_ids or (ref.get("span_id") or ref.get("source_span_ref_id")) in known_span_ids)),
-            "paragraph_evidence_ref_count": sum(1 for ref in candidate_graph.get("evidence_refs", []) if isinstance(ref, dict) and ":recap:paragraph:" in str(ref.get("span_id") or ref.get("source_span_ref_id") or "")),
-            "full_text_fallback_ref_count": sum(1 for ref in candidate_graph.get("evidence_refs", []) if isinstance(ref, dict) and str(ref.get("span_id") or ref.get("source_span_ref_id") or "").endswith(":recap:full_text")),
+            "party_fill_incomplete_node_count": incomplete_fill_count,
+            "evidence_ref_count": len(all_refs),
+            "resolvable_evidence_ref_count": len(all_refs) - unresolved_count if known_span_ids else 0,
+            "unresolved_evidence_ref_count": unresolved_count,
+            "evidence_resolution_checked": bool(known_span_ids),
+            "paragraph_evidence_ref_count": sum(1 for ref in all_refs if _is_paragraph_span_id(str(ref.get("span_id") or ref.get("source_span_ref_id") or ""))),
+            "full_text_fallback_ref_count": sum(1 for ref in all_refs if _is_full_text_span_id(str(ref.get("span_id") or ref.get("source_span_ref_id") or ""))),
             "preview_only": True,
             "canon_promotion": False,
             "approved_memory_write": False,

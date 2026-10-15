@@ -138,7 +138,7 @@ class _FillRecordingClient:
                             "importance": "high",
                             "evidence_refs": [
                                 {
-                                    "source_span_ref_id": "span-1",
+                                    "source_row_index": 0,
                                     "anchor_quotes": ["Caelynn"],
                                 }
                             ],

@@ -43,6 +43,8 @@ from src.graph_memory.extraction.party_claimed_fill import (
     PASS_NAME as PARTY_CLAIMED_FILL_PASS,
     PASS_PROGRESS_LABEL as PARTY_CLAIMED_FILL_PROGRESS,
     apply_fill_to_parts,
+    bind_fill_evidence,
+    SourceBoundPartyFillSpec,
     build_claim_packet,
     render_fill_prompt,
 )
@@ -1946,7 +1948,7 @@ def _run_category_pipeline_impl(
             source_packet_rows_from_span_index=lambda *_args, **_kwargs: list(source_rows),
         )
         if packet.claims:
-            fill_spec = ExtractionPassSpec(
+            fill_spec = SourceBoundPartyFillSpec(
                 pass_id=PARTY_CLAIMED_FILL_PASS,
                 default_node_type="character",
                 instruction=(
@@ -1954,6 +1956,7 @@ def _run_category_pipeline_impl(
                 ),
                 progress_label=PARTY_CLAIMED_FILL_PROGRESS,
                 kind="claimed_fill",
+                source_row_indexes=tuple(range(len(packet.source_rows))),
             )
             _notify(PARTY_CLAIMED_FILL_PASS, "running")
             fill_result = _run_pass(
@@ -1975,11 +1978,30 @@ def _run_category_pipeline_impl(
                 "progress_label": PARTY_CLAIMED_FILL_PROGRESS,
             }
             total_cost = None if total_cost is None or fill_result["cost_usd"] is None else total_cost + fill_result["cost_usd"]
-            sanitized, claimed_fill_diag = apply_fill_to_parts(
-                sanitized,
-                parsed=fill_result["parsed"],
-                claimed_ids={c.node_id for c in packet.claims},
-            )
+            bound_fill, binding_diag = bind_fill_evidence(packet, fill_result["parsed"])
+            if bound_fill is not None:
+                sanitized, claimed_fill_diag = apply_fill_to_parts(
+                    sanitized,
+                    parsed=bound_fill,
+                    claimed_ids={c.node_id for c in packet.claims},
+                )
+                sanitized, final_fill_sanitize_diag = sanitize_parts(
+                    sanitized, allowed_span_refs,
+                    drop_empty_evidence_edges=inherit_edge_evidence,
+                )
+                claimed_fill_diag["final_sanitize"] = final_fill_sanitize_diag
+            else:
+                claimed_fill_diag = {"enabled": True, "filled_applied": 0}
+                # Preserve baseline facts/evidence while making the incomplete
+                # enrichment visible in the canonical review artifact as well.
+                claimed_ids = {claim.node_id for claim in packet.claims}
+                sanitized["nodes"] = [
+                    {**node, "warnings": list(node.get("warnings") or [])
+                     + ["party_claimed_fill_incomplete"]}
+                    if node.get("node_id") in claimed_ids else node
+                    for node in sanitized["nodes"]
+                ]
+            claimed_fill_diag.update(binding_diag)
             claimed_fill_diag["claim_count"] = len(packet.claims)
             claimed_fill_diag["cost_usd"] = fill_result["cost_usd"]
             _notify(PARTY_CLAIMED_FILL_PASS, "complete")
