@@ -1,8 +1,9 @@
 # INGEST: optional advisory edge review
 
-Status ACTIVE: PRIME activates after ARCHITECTURE design PASS on
-f665ca92d60aa7f2de43ca4f0dac9c2ae76b4cd3. Prerequisite PR1179 is merged
-and settled. Implementation review remains required before merge.
+Status COMPLETED: PR1180 merged25deb7a2ae379166a23d54a0baddc963fa1295c3
+after ARCHITECTURE cycle2 ACCEPTABLE on a7b98bb5f6df97f927cbab218dc5f0cf8fab3d51.
+Two formal distinct-head review cycles; ten-path implementation lease released.
+Prerequisite1179 remains settled. Semantic trial/publication remains separate.
 PRIME owns solo implementation. Re-anchored base
 a8a19345e21924716d184d3b7252ba8dd5a68f70, including PR1179 merge
 4de42fa3bfc1115d909f82b40392e539cf98a0e3.
@@ -194,3 +195,13 @@ old-profile artifact absence, and post-provider storage failure with PREPARED st
 no candidate file/components. Existing1179 failure cases remain covered. No provider
 calls, retained corpus/World mutation or serving change. Independent exact-head
 implementation review remains required; semantic benchmark and publication held.
+
+## Post-merge settlement
+
+Merged25deb7a2; reviewedheada7b98bb5; author84 and independent86 focused tests
+passed on reviewer-selected suites, with inherited Pydantic schema-shadow warning.
+Combined GitHub status list empty, no CI-green claim. Cycle1 held populated attempt
+preservation proof; test-only repair closed it. No provider, retained native data
+or serving changes in implementation. Generic no-client1.4 remains unavailable.
+Separate exact-source research can use standing operator ingestion approval;
+semantic selection still cannot authorize retained publication.
