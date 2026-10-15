@@ -44,3 +44,15 @@ cumulative diff, commit/push/open one PR, request independent exact-head review.
 After accepted merge, repeat ordinary Build conversation and review source reads,
 answer fidelity, latency and actual usage. No helper-only acceptance. Preserve
 begin/end refs and private evidence; public APP trace remains a separate gap.
+
+## Implementation evidence
+
+31 focused target/direct/parent-boundary and mounted/source-mapping tests pass.
+The retained exact captured search, pinned to the same native World revision,
+previously returned only the eight inherited city/location/council seeds. With
+no implicit seeds it discovers Barin, Merril, Rurik and Torrin descriptions and
+additional named-subject matches. Native truncation remains explicit; this is
+not a claim that one bounded search covers every representative. No provider
+call or World write in this comparison. Parent tests inspect the exact native
+request and stop before unrelated APP persistence; they do not claim a full
+parent execution/publication witness. Ordinary answer quality remains pending.

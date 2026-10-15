@@ -175,10 +175,14 @@ def _session_or_raise(session_id: str):
     return session
 
 
-def _target_node_ids(request: ExpandGraphRetrievalRequest, session) -> list[str]:
+def resolve_expansion_target_ids(request: ExpandGraphRetrievalRequest, session) -> list[str]:
     if request.targets:
         # Schema admits node targets only; every target id is a node id.
         return [t.id for t in request.targets]
+    # Search with zero seeds is explicit discovery. Preflight context is a
+    # starting point, not a compulsory seed set that consumes the result bound.
+    if request.operation == "search":
+        return []
     selected = session.selected_referent_ids()
     if selected:
         return selected
@@ -382,7 +386,7 @@ def execute_expand_graph_retrieval(
     started = time.perf_counter()
     focus = _focus_for_request(session.snapshot.focus)
     ctx = _request_context_payload(session, focus)
-    node_ids = _target_node_ids(request, session)
+    node_ids = resolve_expansion_target_ids(request, session)
     cardinality_error = _target_cardinality_error(
         operation=request.operation,
         requested_count=len(request.targets),
