@@ -1,7 +1,8 @@
 # INGEST: optional advisory edge review
 
-Status BLOCKED: prerequisite PR1179 is merged and settled; ARCHITECTURE must
-review this exact amended contract before activation.
+Status ACTIVE: PRIME activates after ARCHITECTURE design PASS on
+f665ca92d60aa7f2de43ca4f0dac9c2ae76b4cd3. Prerequisite PR1179 is merged
+and settled. Implementation review remains required before merge.
 PRIME owns solo implementation. Re-anchored base
 a8a19345e21924716d184d3b7252ba8dd5a68f70, including PR1179 merge
 4de42fa3bfc1115d909f82b40392e539cf98a0e3.
@@ -144,3 +145,14 @@ Any new semantic benchmark is separate exact-head evidence after independent cod
 review. Complete implementation→tests→cumulative diff→commit/push/PR, independent
 review before merge. No full gold, native eligibility, retained publication,
 source edit/restart or operator acceptance is pre-marked complete.
+
+## Activation
+
+Serial topology: one implementation PR for this capability. Branch
+codex/worldbuilding-advisory-edge-review, checkout /tmp/buddy-advisory-review-design.
+Base a8a19345e21924716d184d3b7252ba8dd5a68f70. Current open PRs inspected:
+frozen1139/1142-1149 do not own active edits;1178 merged and settled.
+DOGFOOD/SERVER own serving rollout; this lane owns no ports/retained databases.
+Use existing general review output ceiling; caller budget must fit the full flow,
+with no automatic increase. Lazy bounded-client validation avoids import cycles.
+Private tests/evidence under /tmp; no provider calls before implementation review.
