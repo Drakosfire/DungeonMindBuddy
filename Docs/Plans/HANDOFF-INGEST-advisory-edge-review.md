@@ -1,8 +1,10 @@
 # INGEST: optional advisory edge review
 
-Status BLOCKED: prerequisite PR1179 must merge and ARCHITECTURE must review
-this bounded contract before activation. Re-anchor activation base after both gates.
-PRIME owns solo implementation. Base f1ef5ba5a0bc3c40eabff44af3afbf1101012f84.
+Status BLOCKED: prerequisite PR1179 is merged and settled; ARCHITECTURE must
+review this exact amended contract before activation.
+PRIME owns solo implementation. Re-anchored base
+f7a01796aa60da10fdc26eb734d88facdb6cc280, including PR1179 merge
+4de42fa3bfc1115d909f82b40392e539cf98a0e3.
 One capability: an explicitly selected Gazetteer1.4 performs a separate advisory
 review of generated edge proposals. It may retain only original edge IDs; the
 application copies original objects unchanged and preserves omissions as deferred
@@ -50,7 +52,7 @@ versioned evidence-bundle labeling; never pretend the bundle is one raw provider
 response. Existing packaging must durably retain the bundle before FAILED state.
 A failed sixth call must not erase successful generation or authorize replay.
 
-Registered persistence dependency is PR1179 (review head a43b99d1), NOT legacy
+Registered persistence dependency is merged PR1179 (reviewed a43b99d1), NOT legacy
  graph_ingest_packaging.py. The actual source-domain-neutral controller is
  graph_preview_runner.py.1179 owns retaining the supplied exception payload as
 RAW_MODEL_RESPONSE before FAILED; this producer owns constructing its bundle.
