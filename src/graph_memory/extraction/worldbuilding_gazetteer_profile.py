@@ -1,9 +1,10 @@
 """Gazetteer definitions without inventing played episodes or individuals."""
-from dataclasses import replace
+from dataclasses import asdict, replace
 from .extraction_profile import ExtractionPassSpec, register_extraction_profile
 from .worldbuilding_extraction_profile import WORLDBUILDING_PROFILE
 from .worldbuilding_source_sections import retain_owned_sections
 from .worldbuilding_role_support import compile_role_support
+from .worldbuilding_edge_review import ConstrainedEdgeReviewPassSpec
 
 GAZETTEER_PROFILE_ID = "worldbuilding_gazetteer_v1"
 GAZETTEER_PROFILE_VERSION = "1.0"
@@ -110,5 +111,15 @@ GAZETTEER_ADVISORY_REVIEW_PROFILE = register_extraction_profile(replace(
             "or repair proposals. Return only retained_edge_ids. Omissions remain deferred "
             "for review, not proven false. Your selection is advisory, not fact acceptance."
         ),
+    ),
+))
+
+
+# The bound catalog is request-local; frozen1.4 keeps its original schema/prompt.
+
+GAZETTEER_CONSTRAINED_REVIEW_PROFILE = register_extraction_profile(replace(
+    GAZETTEER_ADVISORY_REVIEW_PROFILE, profile_version="1.5",
+    edge_review_pass=ConstrainedEdgeReviewPassSpec(
+        **asdict(GAZETTEER_ADVISORY_REVIEW_PROFILE.edge_review_pass),
     ),
 ))

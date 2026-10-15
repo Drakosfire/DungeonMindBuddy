@@ -1,5 +1,8 @@
 """Advisory unchanged-subset selection; never factual or publication approval."""
 from copy import deepcopy
+from dataclasses import dataclass
+
+from src.graph_memory.extraction.extraction_profile import ExtractionPassSpec
 import hashlib
 import json
 import math
@@ -47,16 +50,47 @@ def edge_ids(edges):
     return ids
 
 
-def review_prompt(graph, source_rows):
-    edge_ids(graph.get("edges", []))  # Validate before spending a provider call.
-    return json.dumps({
+@dataclass(frozen=True)
+class ConstrainedEdgeReviewPassSpec(ExtractionPassSpec):
+    """A review-only request-local constraint; None means not yet bound."""
+    allowed_edge_ids: tuple[str, ...] | None = None
+
+    def __post_init__(self):
+        if self.kind != "edge_review":
+            raise ValueError("ID constraints require an edge review spec")
+        if self.allowed_edge_ids is not None:
+            constrained_edge_ids(self)
+
+
+def constrained_edge_ids(spec):
+    if not isinstance(spec, ConstrainedEdgeReviewPassSpec) or spec.kind != "edge_review":
+        raise ValueError("ID constraints require a specialized edge review spec")
+    ids = spec.allowed_edge_ids
+    if type(ids) is not tuple or not ids:
+        raise ValueError("advisory ID constraint is unbound or empty")
+    edge_ids([{"edge_id": item} for item in ids])
+    return ids
+
+
+def review_prompt(graph, source_rows, *, allowed_edge_ids=None):
+    ids = edge_ids(graph.get("edges", []))  # Validate before spending a provider call.
+    payload = {
         "source_packet": source_rows,
         "endpoint_navigation_not_accepted_truth": [
             {key: node.get(key) for key in ("node_id", "label", "node_type", "description")}
             for node in graph.get("nodes", [])
         ],
         "edge_proposals": graph.get("edges", []),
-    }, ensure_ascii=False, allow_nan=False)
+    }
+    if allowed_edge_ids is not None:
+        if type(allowed_edge_ids) is not tuple or list(allowed_edge_ids) != ids:
+            raise ValueError("review allowlist must exactly match canonical proposals")
+        payload["allowed_edge_ids"] = list(allowed_edge_ids)
+        payload["id_selection_rule"] = (
+            "Return only exact IDs from allowed_edge_ids. Missing numbers and gaps "
+            "are intentional; never infer, add or repair an ID."
+        )
+    return json.dumps(payload, ensure_ascii=False, allow_nan=False)
 
 
 def apply_review(graph, parsed):

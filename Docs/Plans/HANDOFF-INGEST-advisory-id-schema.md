@@ -75,3 +75,14 @@ Complete implementation/tests/diff/commit/push/PR and independent exact-head
 review before merge. Only afterward may a separately recorded changed-request
 research run use standing ingestion approval. No original failed-turn replay or
 retained World publication is authorized here. Full Mirathorn lifecycle incomplete.
+
+## Implementation evidence for review
+
+Specialized spec is recognized by explicit type, frozen and validated; profile
+catalog must remain unbound, and a prebound profile rejects before any writer call.
+The generic1.4 schema and prompt bytes are tested unchanged. New1.5 binds only
+post-role IDs; real bounded-client synthetic worker sees e035 in both schema and
+prompt, e034 absent after role filtering. Valid selection becomes reviewable;
+malicious e034 output fails at the existing consumer schema check with prior raw
+responses and attempt observations retained in the registered failure bundle.
+No provider, serving, native publication or source edits occurred in implementation.

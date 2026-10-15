@@ -391,3 +391,144 @@ print('attempt-evidence-reopened')
 ''', str(tmp_path), result.run.run_id], env=dict(os.environ), text=True, capture_output=True)
     assert child.returncode == 0, child.stderr
     assert child.stdout.strip() == "attempt-evidence-reopened"
+
+
+def test_version14_schema_and_prompt_bytes_remain_frozen():
+    from src.graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
+    graph = {"nodes": [], "edges": [{"edge_id": "e035"}]}
+    rows = [{"source_span_ref_id": "s", "text": "source"}]
+    assert review_prompt(graph, rows) == json.dumps({"source_packet": rows,
+        "endpoint_navigation_not_accepted_truth": [], "edge_proposals": graph["edges"]},
+        ensure_ascii=False, allow_nan=False)
+    assert schema_for_pass_spec(PROFILE.edge_review_pass) == {"type": "object", "properties": {
+        "retained_edge_ids": {"type": "array", "items": {"type": "string"}}},
+        "required": ["retained_edge_ids"], "additionalProperties": False}
+
+
+@pytest.mark.parametrize('bad', [(), [], ('',), (' ',), (1,), ('e035', 'e035')])
+def test_specialized_catalog_is_immutable_and_rejects_bad_ids(bad):
+    from dataclasses import replace
+    from src.graph_memory.extraction.worldbuilding_gazetteer_profile import GAZETTEER_CONSTRAINED_REVIEW_PROFILE as profile
+    with pytest.raises(ValueError):
+        replace(profile.edge_review_pass, allowed_edge_ids=bad)
+
+
+def test_unbound_specialized_spec_cannot_execute_and_bound_schema_is_exact():
+    from dataclasses import replace, FrozenInstanceError
+    import jsonschema
+    from src.graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
+    from src.graph_memory.extraction.worldbuilding_gazetteer_profile import GAZETTEER_CONSTRAINED_REVIEW_PROFILE as profile
+    spec = profile.edge_review_pass
+    with pytest.raises(ValueError, match='unbound'):
+        schema_for_pass_spec(spec)
+    from src.graph_memory.extraction.bounded_recap_execution import RecapExecutionLimits
+    client = BoundedRecapPassClient(RecapExecutionLimits(provider='openrouter', model=DEEPSEEK_MODEL),
+        engine_factory=lambda: pytest.fail('unbound spec must not execute'))
+    with pytest.raises(ValueError, match='unbound'):
+        client.run_pass(spec.pass_id, model_id=DEEPSEEK_MODEL, instructions='test', user_content='test', pass_spec=spec)
+    assert not client.calls
+    bound = replace(spec, allowed_edge_ids=('e035', 'e040'))
+    with pytest.raises(FrozenInstanceError):
+        bound.allowed_edge_ids = ('e034',)
+    schema = schema_for_pass_spec(bound)
+    assert schema['properties']['retained_edge_ids'] == {'type': 'array',
+        'items': {'type': 'string', 'enum': ['e035', 'e040']}, 'uniqueItems': True}
+    jsonschema.validate({'retained_edge_ids': []}, schema)
+    for values in [['e034'], ['e035', 'e035']]:
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate({'retained_edge_ids': values}, schema)
+
+
+def test_version15_changes_only_review_request_and_keeps_application_guard():
+    from src.graph_memory.extraction.worldbuilding_gazetteer_profile import GAZETTEER_CONSTRAINED_REVIEW_PROFILE as profile
+    old, new = Client(), Client()
+    a = run_category_pipeline(old, options())
+    b = run_category_pipeline(new, options(profile=profile))
+    assert old.prompts[:-1] == new.prompts[:-1]
+    assert a.candidate_graph == b.candidate_graph
+    assert json.loads(new.prompts[-1])['allowed_edge_ids'] == ['edge:leads']
+    with pytest.raises(CategoryGraphExtractionError):
+        run_category_pipeline(Client(retained=['unknown']), options(profile=profile))
+    empty = Client(payload={'edge_pass': {'observation_edges': []}})
+    run_category_pipeline(empty, options(profile=profile))
+    assert len(empty.calls) == 5
+
+
+@pytest.mark.parametrize('returned', ['e035', 'e034'])
+def test_real_bounded_catalog_excludes_role_removed_id_and_retains_registered_failure(
+    tmp_path, application_state_dsn, monkeypatch, returned,
+):
+    from src.graph_memory.extraction import bounded_recap_execution as bounded
+    from src.graph_memory.extraction._recap_inference_worker import _WorkerOutcome
+    from src.graph_memory.extraction.worldbuilding_gazetteer_profile import GAZETTEER_CONSTRAINED_REVIEW_PROFILE as profile
+    from src.graph_memory.extraction.category_candidate_graph_extractor import source_packet_rows_from_span_index
+    from src.graph_memory.extraction.category_candidate_graph_schema import schema_for_pass_spec
+    from src.graph_memory.extraction.graph_preview_runner import ProductionExtractionRequest, run_production_extraction
+    from src.graph_memory.predicate_catalog import predicate_family_for_type
+    from tests.test_graph_preview_runner import _admit_worldbuilding
+    from tests.test_bounded_recap_execution import deepseek_observation
+    from generationengine.types import TextResult
+
+    text = 'Barin Stonefoot – Proprietor of Coppervein Mining Co.\n\nMayor Elara owns the Ledger Inn.\n'
+    source = _admit_worldbuilding(tmp_path, text)
+    rows = source_packet_rows_from_span_index(source.source_span_index, source_text=source.source_text)
+    refs = [{'source_span_ref_id': row['source_span_ref_id'], 'anchor_quotes': [row['text']]} for row in rows]
+    assert len(refs) == 2
+    def node(ident, label, kind, index):
+        return dict(node_id=ident, label=label, node_type=kind, description=rows[index]['text'],
+                    importance='medium', evidence_refs=[refs[index]])
+    payloads = {spec.pass_id: {key: [] for key in schema_for_pass_spec(spec)['required']}
+                for spec in profile.node_passes}
+    payloads['actor_pass']['observation_nodes'] = [node('a:barin', 'Barin Stonefoot', 'character', 0),
+        node('a:elara', 'Mayor Elara', 'character', 1)]
+    payloads['location_pass']['observation_nodes'] = [node('l:copper', 'Coppervein Mining Co.', 'location', 0),
+        node('l:ledger', 'Ledger Inn', 'location', 1)]
+    payloads['edge_pass'] = {'observation_edges': [dict(edge_id=ident, from_node_id=actor, to_node_id=place,
+        label='owns', relationship_type='owns', predicate_family=predicate_family_for_type('owns'),
+        evidence_refs=[refs[index]]) for ident, actor, place, index in [
+            ('e034', 'a:barin', 'l:copper', 0), ('e035', 'a:elara', 'l:ledger', 1)]]}
+    names = [spec.pass_id for spec in profile.node_passes] + ['edge_pass', 'edge_review_pass']
+    seen = []
+    def worker(factory, request_value, *, deadline, attempt_evidence=None):
+        name = names[len(seen)]
+        seen.append(name)
+        if name == 'edge_review_pass':
+            selection = request_value['json_schema']['properties']['retained_edge_ids']
+            assert selection == {'type': 'array', 'items': {'type': 'string', 'enum': ['e035']}, 'uniqueItems': True}
+            prompt = json.loads(request_value['user_prompt'])
+            assert prompt['allowed_edge_ids'] == ['e035']
+            assert [edge['edge_id'] for edge in prompt['edge_proposals']] == ['e035']
+            parsed = {'retained_edge_ids': [returned]}
+        else:
+            parsed = payloads[name]
+        return _WorkerOutcome({'kind': 'result', 'result': TextResult(text=json.dumps(parsed), parsed=parsed,
+            observation=deepseek_observation()).model_dump(mode='json')}, False)
+    monkeypatch.setattr(bounded, '_execute_in_owned_process', worker)
+    client = BoundedRecapPassClient(bounded.RecapExecutionLimits(provider='openrouter', model=DEEPSEEK_MODEL))
+    result = run_production_extraction(ProductionExtractionRequest(repo_root=tmp_path, source=source,
+        profile_id=profile.profile_id, profile_version=profile.profile_version, model_id=DEEPSEEK_MODEL,
+        allow_llm=True, category_client=client, output_dir=tmp_path / 'out'))
+    assert len(client.calls) == len(seen) == 6
+    if returned == 'e035':
+        assert result.failure_kind is None and result.run.status.value == 'reviewable'
+        assert [edge['edge_id'] for edge in result.candidate_graph['edges']] == ['e035']
+    else:
+        assert result.failure_kind and result.run.status.value == 'failed' and result.candidate_graph is None
+        assert client.calls[-1]['consumer_failure'] == 'ValidationError'
+    ref = result.run.components['raw_model_response']
+    data = (tmp_path / ref.uri.removeprefix('repo://')).read_bytes()
+    assert hashlib.sha256(data).hexdigest() == ref.sha256
+    bundle = json.loads(data)
+    assert len(bundle['completed_passes']) == (6 if returned == 'e035' else 5)
+    assert bundle['execution_observations'][-1]['observation']['provider_attempt_count'] == 1
+    assert bundle['execution_observations'][-1]['observation']['cost_usd'] is None
+
+
+def test_prebound_profile_rejects_before_writer_or_reviewer_inference():
+    from dataclasses import replace
+    from src.graph_memory.extraction.worldbuilding_gazetteer_profile import GAZETTEER_CONSTRAINED_REVIEW_PROFILE as profile
+    prebound = replace(profile, edge_review_pass=replace(profile.edge_review_pass, allowed_edge_ids=('edge:leads',)))
+    client = Client()
+    with pytest.raises(CategoryGraphExtractionError, match='must be unbound'):
+        run_category_pipeline(client, options(profile=prebound))
+    assert not client.calls
