@@ -30,11 +30,14 @@ _TRADE_ACCESS = re.compile(
 )
 _NEGATED_OR_QUALIFIED_ACCESS = re.compile(
     r"\b(?:no|not|never|without|lack(?:s|ing)?|unable|cannot|can't|"
-    r"limited|restricted|partial|seasonal|intermittent|occasional)\b",
+    r"limited|restricted|partial|seasonal|intermittent|occasional|"
+    r"could|might|may|would|should)\b",
     re.IGNORECASE,
 )
-_CITY_OF_REFERENCE = re.compile(
-    r"\bcity\s+of\s+(?P<name>[A-Z][A-Za-z'’.-]*(?:\s+[A-Z][A-Za-z'’.-]*)*)"
+_PLACE_OF_REFERENCE = re.compile(
+    r"\b(?:city|town|port|village|settlement|metropolis|capital)\s+of\s+"
+    r"(?P<name>[A-Z][A-Za-z'’.-]*(?:\s+[A-Z][A-Za-z'’.-]*)*)",
+    re.IGNORECASE,
 )
 _PREPOSITIONAL_CITY_REFERENCE = re.compile(
     r"\b(?:in|at|from|near|within|outside)\s+(?:the\s+)?"
@@ -111,7 +114,7 @@ def _trade_claim_matches_city(claim: dict[str, Any], city_name: str) -> bool:
 
     references = [
         match.group("name")
-        for pattern in (_CITY_OF_REFERENCE, _PREPOSITIONAL_CITY_REFERENCE)
+        for pattern in (_PLACE_OF_REFERENCE, _PREPOSITIONAL_CITY_REFERENCE)
         for match in pattern.finditer(prefix)
     ]
     if any(not _same_city_reference(name, city_name) for name in references):
