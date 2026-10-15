@@ -279,6 +279,38 @@ class WorldGraphSourceAnchor(_RetrievalResponseModel):
     display_label: str | None = None
 
 
+class WorldGraphReviewedSourceObservationMatch(_RetrievalResponseModel):
+    """Native bounded discovery pointer, not a canonical assertion or claim."""
+
+    assertion_id: str
+    subject_node_id: str
+    observation_kind: Literal["session_observation", "worldbuilding_observation"]
+    text_excerpt: str = Field(max_length=768)
+    excerpt_start: int = Field(ge=0)
+    excerpt_end: int = Field(ge=0)
+    text_length: int = Field(ge=0)
+    text_sha256: str
+    entity_kind: str
+    review_id: str
+    contribution_id: str
+    publication_revision_id: str
+    source_artifact_id: str
+    source_revision_id: str
+    evidence_ref_ids: list[str]
+    campaign_scope: str | None
+    visibility: Literal["gm", "player"]
+    epistemic_kind: str
+    temporal_scope: dict[str, Any] | None
+
+    @model_validator(mode="after")
+    def validate_excerpt_extent(self) -> "WorldGraphReviewedSourceObservationMatch":
+        if not (self.excerpt_start <= self.excerpt_end <= self.text_length):
+            raise ValueError("discovery excerpt offsets must lie within original text")
+        if self.excerpt_end - self.excerpt_start != len(self.text_excerpt):
+            raise ValueError("discovery excerpt length must match original Unicode offsets")
+        return self
+
+
 class WorldGraphRetrievalResult(_RetrievalResponseModel):
     schema_: Literal[RETRIEVAL_RESULT_SCHEMA] = Field(
         alias="schema", default=RETRIEVAL_RESULT_SCHEMA
@@ -289,6 +321,9 @@ class WorldGraphRetrievalResult(_RetrievalResponseModel):
     request_summary: dict[str, Any] = Field(default_factory=dict)
     matched_node_ids: list[str] = Field(default_factory=list)
     match_reasons: dict[str, list[str]] = Field(default_factory=dict)
+    reviewed_source_observation_matches: list[WorldGraphReviewedSourceObservationMatch] = Field(
+        default_factory=list
+    )
     requested_node_id: str | None = None
     resolved_node_id: str | None = None
     nodes: list[WorldGraphRetrievalNode] = Field(default_factory=list)

@@ -44,3 +44,14 @@ serialized bytes. Record inherited failures distinctly. Run focused regression,
 lock/diff checks; commit/push/open PR and request exact-head independent review.
 After merge, matched stable-main5876/API8002 rollout and ordinary conversation
 remain required. A successful mapping test does not establish useful answers.
+
+## Implementation evidence
+
+63 focused synthetic/adapter/source tests pass; Ruff and diff check pass.
+Actual retained locked-dependency probe preserves search pointers and opens the
+same source: search72,189 UTF-8 bytes including24-claim cumulative ledger,
+object32,455 bytes/25claims, source1,574 bytes. Previous search was55,874 bytes.
+No consumer clipping or extra claims; Core excerpt/assertion bounds unchanged.
+No additional serialized-byte ceiling exists in this Buddy tool transport.
+These measurements are not ordinary answer acceptance or latency evidence.
+No provider call or retained publication occurred during this implementation.

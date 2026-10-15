@@ -180,6 +180,11 @@ def hermes_graph_interaction_tool_definitions() -> list[dict[str, Any]]:
                     "For relationship or multi-entity questions, prefer neighborhood with "
                     "1–8 seeds. Call object or support separately for each single node. "
                     "Use this instead of rediscovering objects independently. "
+                    "Search reviewedSourceObservationMatches are bounded discovery "
+                    "pointers, not canonical attributes or answer claims. Expand each "
+                    "relevant subjectNodeId with object and open its supporting source "
+                    "anchors before answering. Preserve belief and conditional language; "
+                    "a representative role does not establish council membership. "
                     "Do not open Markdown or corpus files directly on a graph gap."
                 ),
                 "parameters": expand_schema,
