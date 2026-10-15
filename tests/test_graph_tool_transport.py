@@ -8,7 +8,7 @@ import pytest
 from apps.live_control_server.services.graph_tool_transport import (
     GraphToolPageCache,
     PAGE_BYTES,
-    PAGE_SCHEMA,
+    OVERVIEW_SCHEMA,
     TransportScope,
 )
 import graph_memory.hermes_graph_plugin as plugin
@@ -54,6 +54,11 @@ def _raw():
 
 def _pages(cache, raw, *, tool="expand_graph_retrieval", args=ARGS, scope=SCOPE):
     first = cache.present(tool, args, scope, raw)
+    initial = json.loads(first)
+    if initial.get("detailPageToken"):
+        first = cache.continuation(
+            tool, {**args, "resultPageToken": initial["detailPageToken"]}, scope
+        )
     pages = [json.loads(first)]
     while pages[-1].get("nextPageToken"):
         next_args = {**args, "resultPageToken": pages[-1]["nextPageToken"]}
@@ -127,7 +132,10 @@ def test_foreign_or_expired_continuation_never_silently_restarts(change):
     now = [0.0]
     cache = GraphToolPageCache(clock=lambda: now[0], lifetime=1)
     page = json.loads(cache.present("expand_graph_retrieval", ARGS, SCOPE, _raw()))
-    args = {**ARGS, "resultPageToken": page["nextPageToken"]}
+    args = {
+        **ARGS,
+        "resultPageToken": page.get("detailPageToken", page.get("nextPageToken")),
+    }
     scope = SCOPE
     tool = "expand_graph_retrieval"
     if change == "scope":
@@ -186,11 +194,11 @@ def test_plugin_pages_broker_and_direct_without_repeating_operation(
     try:
         handler = plugin._handler_for("expand_graph_retrieval")
         first = json.loads(handler(ARGS))
-        assert first["schema"] == PAGE_SCHEMA
+        assert first["schema"] == OVERVIEW_SCHEMA
         count = len(calls)
-        next_args = {**ARGS, "resultPageToken": first["nextPageToken"]}
+        next_args = {**ARGS, "resultPageToken": first["detailPageToken"]}
         second = json.loads(handler(next_args))
-        assert second["pageIndex"] == 1 and len(calls) == count == 1
+        assert second["pageIndex"] == 0 and len(calls) == count == 1
         assert "resultPageToken" not in calls[0][1]
         foreign = json.loads(handler({**next_args, "queryText": "changed"}))
         assert foreign["code"] == "foreign_graph_result_page" and len(calls) == 1
@@ -224,9 +232,11 @@ def test_actual_harness_budget_preserves_large_cumulative_serial_transcript():
                 {"role": "tool", "tool_call_id": str(i), "content": bounded}
             )
             enforce_turn_budget(messages[-1:], env=None)
-            assert json.loads(messages[-1]["content"])["schema"] == PAGE_SCHEMA
+            assert json.loads(messages[-1]["content"])["schema"] == OVERVIEW_SCHEMA
         assert sum(len(m["content"]) for m in messages) > 200000
-        assert all(json.loads(m["content"])["schema"] == PAGE_SCHEMA for m in messages)
+        assert all(
+            json.loads(m["content"])["schema"] == OVERVIEW_SCHEMA for m in messages
+        )
 
 
 def test_evicted_result_token_fails_without_repeating_original():
@@ -238,8 +248,83 @@ def test_evicted_result_token_fails_without_repeating_original():
     result = json.loads(
         cache.continuation(
             "expand_graph_retrieval",
-            {**ARGS, "resultPageToken": first["nextPageToken"]},
+            {**ARGS, "resultPageToken": first["detailPageToken"]},
             SCOPE,
         )
     )
     assert result["code"] == "expired_or_unknown_graph_result_page"
+
+
+def test_overview_exposes_exact_qualified_discovery_and_admitted_source_handle():
+    original = {
+        "schema": "dmb_world_graph_retrieval_result_v1",
+        "operation": "search",
+        "outcome": "truncated",
+        "coverage": {"truncatedFields": ["objects"]},
+        "reviewedSourceObservationMatches": [
+            {
+                "assertionId": "assertion:belief",
+                "subjectNodeId": "npc:keeper",
+                "textExcerpt": "The keeper believes the visitors may be scouts.",
+                "excerptStart": 0,
+                "excerptEnd": 50,
+                "textLength": 50,
+                "textSha256": "original",
+                "epistemicKind": "belief",
+                "temporalScope": {"condition": "if visitors return"},
+                "visibility": "gm",
+                "evidenceRefIds": ["e:one"],
+            }
+        ],
+        "sourceAnchors": [
+            {"anchorId": "opaque:admitted", "evidenceRefId": "e:one", "readable": True}
+        ],
+        "nodes": [{"nodeId": "npc:keeper", "label": "Keeper", "summary": None}],
+        "provenance": "full detail " * 4000,
+    }
+    raw = json.dumps(original)
+    cache = GraphToolPageCache()
+    result = json.loads(cache.present("expand_graph_retrieval", ARGS, SCOPE, raw))
+    assert result["schema"] == OVERVIEW_SCHEMA
+    assert result["coreTruncated"] and result["coreCoverage"] == original["coverage"]
+    row = result["view"]["reviewedSourceObservationMatches"][0]
+    assert (
+        row["textExcerpt"]
+        == original["reviewedSourceObservationMatches"][0]["textExcerpt"]
+    )
+    assert row["epistemicKind"] == "belief" and row["temporalScope"] == {
+        "condition": "if visitors return"
+    }
+    assert row["discoveryOnly"] is True and row["sourceAnchorIds"] == [
+        "opaque:admitted"
+    ]
+    assert row["sourceAnchorCount"] == 1
+    assert (
+        "nextPageToken" not in result
+    )  # provenance is optional, not a drain instruction
+    assert (
+        len(json.dumps(result, ensure_ascii=False, separators=(",", ":")).encode())
+        <= PAGE_BYTES
+    )
+    assert json.loads(raw) == original
+    for key, counts in result["counts"].items():
+        assert counts["shown"] == len(result["view"][key])
+        assert counts["total"] == counts["shown"] + counts["omitted"]
+
+
+def test_overview_never_clips_large_qualification_or_text_into_fact():
+    original = json.loads(_raw())
+    original["reviewedSourceObservations"][0]["temporalScope"] = {
+        "condition": "x" * 10000
+    }
+    cache = GraphToolPageCache()
+    result = json.loads(
+        cache.present("expand_graph_retrieval", ARGS, SCOPE, json.dumps(original))
+    )
+    shown = result["view"]["reviewedSourceObservations"]
+    assert not any(r["assertionId"] == "a:0" for r in shown)
+    assert result["counts"]["reviewedSourceObservations"]["omitted"] > 0
+    assert (
+        len(json.dumps(result, ensure_ascii=False, separators=(",", ":")).encode())
+        <= PAGE_BYTES
+    )

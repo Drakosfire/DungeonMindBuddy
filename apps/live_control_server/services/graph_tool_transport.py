@@ -50,6 +50,133 @@ def _request_key(arguments: Mapping[str, Any]) -> str:
     return hashlib.sha256(_json(clean).encode()).hexdigest()
 
 
+OVERVIEW_SCHEMA = "dmb_graph_tool_overview_v1"
+_QUALIFICATION = (
+    "supportState",
+    "epistemicKind",
+    "canonState",
+    "acceptanceState",
+    "visibility",
+    "campaignScope",
+    "temporalScope",
+)
+
+
+def _overview(value: dict, header: dict, detail_token: str) -> str | None:
+    """Select complete actionable rows, leaving the exact packet recoverable.
+
+    This is a presentation index, not a new assertion or citation authority.
+    Never paraphrase text or fabricate source handles to save bytes.
+    """
+    anchors = value.get("sourceAnchors") or []
+
+    def source_handles(row):
+        evidence = set(row.get("evidenceRefIds") or [])
+        assertion = row.get("assertionId")
+        return [
+            a["anchorId"]
+            for a in anchors
+            if a.get("anchorId")
+            and (
+                a.get("evidenceRefId") in evidence
+                or (assertion and assertion in (a.get("supportingAssertionIds") or []))
+            )
+        ]
+
+    groups = {}
+    fields = {
+        "nodes": ("nodeId", "label", "kind", "summary"),
+        "reviewedSourceObservationMatches": (
+            "assertionId",
+            "subjectNodeId",
+            "observationKind",
+            "textExcerpt",
+            "excerptStart",
+            "excerptEnd",
+            "textLength",
+            "entityKind",
+        ),
+        "reviewedSourceObservations": (
+            "assertionId",
+            "subjectNodeId",
+            "observationKind",
+            "text",
+            "entityKind",
+        ),
+        "relationships": (
+            "edgeId",
+            "sourceNodeId",
+            "targetNodeId",
+            "predicate",
+            "label",
+            "direction",
+            "directionFromNodeId",
+        ),
+        "attributes": (
+            "assertionId",
+            "subjectNodeId",
+            "predicate",
+            "value",
+            "textValue",
+        ),
+        "sourceAnchors": (
+            "anchorId",
+            "supportingGraphObjectIds",
+            "supportingAssertionIds",
+            "readable",
+            "locatorKind",
+            "displayLabel",
+        ),
+    }
+    for key, names in fields.items():
+        rows = []
+        for original in value.get(key) or []:
+            row = {k: original[k] for k in (*names, *_QUALIFICATION) if k in original}
+            if key in (
+                "reviewedSourceObservationMatches",
+                "reviewedSourceObservations",
+            ):
+                handles = source_handles(original)
+                # One exact admitted handle enables a source read immediately.
+                # Remaining handles and complete provenance remain in detail.
+                row["sourceAnchorIds"] = handles[:1]
+                row["sourceAnchorCount"] = len(handles)
+                row["discoveryOnly"] = key == "reviewedSourceObservationMatches"
+            rows.append(row)
+        groups[key] = rows
+    result = {
+        **header,
+        "schema": OVERVIEW_SCHEMA,
+        "operation": value.get("operation"),
+        "requestedNodeId": value.get("requestedNodeId"),
+        "resolvedNodeId": value.get("resolvedNodeId"),
+        "observationCoverage": value.get("reviewedSourceObservationCoverage"),
+        "detailPageToken": detail_token,
+        "detailUse": "Optional exact provenance/records. Repeat original request with resultPageToken only if more detail is needed; do not drain details before object/source reads.",
+        "interpretation": "Discovery excerpts require object expansion and an opened source. Preserve all qualifications. Role labels do not establish membership.",
+        "counts": {
+            k: {"total": len(rows), "shown": 0, "omitted": len(rows)}
+            for k, rows in groups.items()
+        },
+        "view": {k: [] for k in groups},
+    }
+    # Names first, then descriptions and connections. Entire rows are included
+    # or explicitly omitted, so a clipped condition can never become a fact.
+    if _size(result) > PAGE_BYTES:
+        return None
+    for key, rows in groups.items():
+        for row in rows:
+            result["view"][key].append(row)
+            counts = result["counts"][key]
+            counts["shown"] += 1
+            counts["omitted"] -= 1
+            if _size(result) > PAGE_BYTES:
+                result["view"][key].pop()
+                counts["shown"] -= 1
+                counts["omitted"] += 1
+    return _json(result)
+
+
 @dataclass(frozen=True)
 class TransportScope:
     retrieval_session_id: str
@@ -233,7 +360,14 @@ class GraphToolPageCache:
             if len(encoded.encode()) > PAGE_BYTES:
                 return _error("graph_result_page_over_budget")
             pages.append(encoded)
-        byte_count = sum(len(p.encode()) for p in pages)
+        overview = (
+            _overview(value, header, tokens[0])
+            if tool == "expand_graph_retrieval"
+            else None
+        )
+        byte_count = sum(len(p.encode()) for p in pages) + (
+            len(overview.encode()) if overview else 0
+        )
         if not pages or byte_count > self._max_bytes:
             return _error("graph_result_cache_over_budget")
         entry = _Entry(
@@ -248,4 +382,4 @@ class GraphToolPageCache:
         with self._lock:
             self._entries[result_id] = entry
             self._prune()
-        return pages[0]
+        return overview or pages[0]
