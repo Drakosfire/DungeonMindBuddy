@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import tempfile
 import re
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
@@ -114,6 +116,47 @@ def _component(
     exists: bool = True,
 ) -> ExtractionRunComponentRef:
     return ExtractionRunComponentRef(kind=kind, uri=uri, exists=exists, sha256=sha256)
+
+
+def _retain_raw_failure_response(
+    repo_root: Path,
+    output_dir: Path,
+    content: str,
+) -> ExtractionRunComponentRef:
+    """Durably retain returned private text before recording a failed run."""
+    temporary: Path | None = None
+    try:
+        target = output_dir / "raw_model_response.txt"
+        uri = _repo_uri(repo_root, target)
+        data = content.encode("utf-8")
+        descriptor, name = tempfile.mkstemp(prefix=".raw-response-", dir=output_dir)
+        temporary = Path(name)
+        with os.fdopen(descriptor, "wb") as stream:
+            os.fchmod(stream.fileno(), 0o600)
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, target)
+        directory = os.open(output_dir, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+        return _component(
+            ExtractionRunComponentKind.RAW_MODEL_RESPONSE,
+            uri=uri,
+            sha256=hashlib.sha256(data).hexdigest(),
+        )
+    except Exception:
+        raise RuntimeError(
+            "Could not persist private extraction failure evidence"
+        ) from None
+    finally:
+        if temporary is not None:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass  # Preserve the original storage outcome; leftover text stays private.
 
 
 def _create_draft_run(
@@ -374,6 +417,13 @@ def run_production_extraction(
             client=request.category_client,
         )
     except CategoryGraphExtractionError as exc:
+        if isinstance(exc.raw_model_response, str):
+            components = {
+                **components,
+                "raw_model_response": _retain_raw_failure_response(
+                    request.repo_root, output_dir, exc.raw_model_response,
+                ),
+            }
         message = str(exc)
         failure_kind = "extraction"
         lowered = message.lower()
