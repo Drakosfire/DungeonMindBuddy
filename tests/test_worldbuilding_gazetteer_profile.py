@@ -326,6 +326,12 @@ def test_v17_adds_only_unambiguous_affirmed_exact_role_line_citations():
 
 
 @pytest.mark.parametrize("description, expected_added", [
+    ('Nera might become mayor and Representative of Commerce.', False),
+    ('Allegedly, Nera is the Representative of Commerce.', False),
+    ('In spring, if elected, Nera is the Representative of Commerce.', False),
+    ('Nera is the Representative of Commerce and Mayor if elected.', False),
+    ('Nera might become mayor but is currently the Representative of Commerce.', True),
+    ('Nera was formerly a trader, but she is the Representative of Commerce.', True),
     ('Nera is not currently a Representative of Commerce.', False),
     ('Nera is not currently serving in the role of Representative of Commerce.', False),
     ('Nera may become a Representative of Commerce.', False),

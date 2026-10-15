@@ -84,7 +84,7 @@
       {
         "id": "worldbuilding_gazetteer_v1@1.7",
         "source_path": "src/graph_memory/extraction/worldbuilding_gazetteer_role_citations.py",
-        "source_sha256": "4e2a732447978a0925f798652f3bbc25166376635f0a5c75cdd23829ffa53939",
+        "source_sha256": "940d8081e5310119fb72dfb00bfd5e4f92e3f4ff9bd5161b72a442b323a7caab",
         "relevant_behavior": [
           "Preserves v1.6 extraction prompts and deterministic livestock hygiene.",
           "Adds an exact source Role-line citation only when one character candidate already makes that affirmative role claim.",

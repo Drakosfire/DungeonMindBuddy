@@ -32,7 +32,16 @@ _NEGATED_ROLE_PREFIX = re.compile(
     r"\b(?:not(?!\s+only\b)|never|no\s+longer|formerly|former|"
     r"isn['’]t|wasn['’]t)\b", re.IGNORECASE,
 )
-_CLAUSE_BOUNDARY = re.compile(r",|\b(?:and|but|yet|while|whereas)\b", re.IGNORECASE)
+_INDEPENDENT_ROLE_CLAUSE = re.compile(
+    r"\b(?:and|but|yet|while|whereas)\s+"
+    r"(?:[a-z][\w'-]*\s+)?(?=(?:is|are|serves|acts|holds|works)\b)",
+    re.IGNORECASE,
+)
+_FOLLOWING_PREDICATE = re.compile(
+    r"\b(?:and|but|yet|while|whereas)\s+(?:[a-z][\w'-]*\s+)?"
+    r"(?=(?:is|are|serves|acts|holds|works)\b|"
+    r"(?:may|might|will|would|could|can|should)\s+[a-z])", re.IGNORECASE,
+)
 
 
 def _normalized(value: Any) -> str:
@@ -68,15 +77,12 @@ def _affirmed_role_occurrence(description: str, role: str) -> bool:
         # A separate coordinated clause may qualify a future action rather than
         # the present role. A modal must introduce a predicate, so names such as
         # May and Will do not count as uncertainty on their own.
-        prefix = _CLAUSE_BOUNDARY.split(before)[-1]
-        suffix = re.split(r"\b(?:and|but|yet|while|whereas)\b", after, maxsplit=1,
-                          flags=re.IGNORECASE)[0]
+        prefix = _INDEPENDENT_ROLE_CLAUSE.split(before)[-1]
+        suffix = _FOLLOWING_PREDICATE.split(after, maxsplit=1)[0]
         if (
-            _UNCERTAIN_ROLE_PREFIX.search(prefix)
+            _UNCERTAIN_ROLE_PREFIX.search(before)
             or _MODAL_ROLE_PREFIX.search(prefix)
-            or _CONDITIONAL_ROLE_CLAUSE.search(prefix + " " + suffix)
-            or re.match(r"^\s*(?:if|unless|provided\s+that|subject\s+to)\b",
-                        before, re.IGNORECASE)
+            or _CONDITIONAL_ROLE_CLAUSE.search(before + " " + suffix)
         ):
             continue
         if _NEGATED_ROLE_PREFIX.search(prefix):
