@@ -74,6 +74,15 @@ Proposed durable codec uses existing typed provenance fields, without schema cha
 Strict encode/decode rejects duplicate, malformed, foreign and mismatched references.
 This codec is proposed for ARCH/APP review, not silently activated by this document.
 
+Registry revision binds metadata as well as content: update_workspace_document
+applies title/class/authority/visibility changes with revision=existing.revision+1
+under registry CAS (workspace_document_registry.py). source_domain is fixed by
+worldbuilding_source creation. Implementation must prove each supported metadata
+change increments revision and invalidates the prior basis, including same-body
+changes, using the real registry mutation API; otherwise activation returns to
+stewardship for explicit lossless metadata freezing. Document ID is the registry
+source identity, never a native SourceArtifact identity or admission claim.
+
 The registry does not retain immutable historical source bodies. Retry can reopen
 only a current snapshot matching every frozen identity/revision/digest/privacy pin;
 changed or missing source fails closed, before dispatch. Never substitute later
@@ -84,9 +93,22 @@ cannot expose previous GM source content to Player or another World.
 Request model permits required Build saved hash with registry revision and forbids
 Plan revision_n on Build. Resolve only active committed worldbuilding_source under
 managed root with containment/symlink checks, valid metadata, verified byte hash.
-Reject missing/stale/foreign/oversize source before turn claim/runtime; choose a
-bounded explicit source-byte limit and fail rather than silently clip exact text.
+Reject missing/stale/foreign/oversize source before turn claim/runtime. Maximum
+canonical saved-source UTF-8 size is 131072 bytes (128 KiB); reject larger sources
+with 413 before claim, never silently clip text. Hash precisely the registry snapshot
+Markdown after its existing CRLF/CR-to-LF normalization and verify its reported SHA.
+Do not alter file bytes or claim raw-byte identity.
 Source Ask is read-only: no proposal/apply capability is claimed in this slice.
+Existing conversation_only_v1 or world_graph_read_v1 capability policy is enforced
+at runtime/tool admission; no edit/source-save/graph-write tool is added. Prove the
+actual policy on Build invocations and rejection of unauthorized tool attempts;
+quoting source data is explanatory defense, not a permission boundary.
+Existing /agent/turn, World history, trace and command/recovery routes authenticate
+GM before storage/runtime reads. Tests cover each reachable transcript/trace/recovery
+read against Player and mismatched World, not only initial submission. Browser
+pending request stores identities/question only, no source body; shared state is
+keyed by selected World and clears on World change. No visibility marker is an
+access grant. No bypass through prior Plan context or stale source registration.
 Unsaved document editing remains the shared user-operated Edit host capability.
 Test actual invocation bytes using fake runtime, injection-shaped source as data,
 strict codec round-trip, historical change rejection and no duplicate dispatch.
@@ -98,7 +120,8 @@ APP confirming collision-free transfer and ARCH reviewing this exact amendment.
 Only the Build digest/registry-revision branch changes: required saved SHA, no Plan
 revision_n. Plan/run/combat validation and historical fingerprint compatibility
 remain unchanged. No schema/store semantics change or other APP type edits.
-APP collision transfer and ARCH activation remain outstanding; no code lease yet.
+APP confirmed no overlapping edits and exclusively transferred this exact validator
+and new test path to DOGFOOD. ARCH activation remains outstanding; no code lease yet.
 
 ## Proposed exact write set (not leased until activation)
 Docs/Plans/HANDOFF-DOGFOOD-build-shared-workspace.md
