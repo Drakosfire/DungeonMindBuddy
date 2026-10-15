@@ -2158,6 +2158,32 @@
       "start_line": 32,
       "end_line": 32,
       "quote_sha256": "0273d2cae57726550df00ce6d164b908d16cce5248a25bf18fcab5d75d785de0"
+    },
+    {
+      "id": "e166",
+      "source": "s29",
+      "quote": "Baergrom and Bonogo continue along the cramped tunnel as it slowly begins to slope down.",
+      "start": 3658,
+      "end": 3746,
+      "start_line": 27,
+      "end_line": 27,
+      "quote_sha256": "586f8600842ecc774a367c18b9de97a080871c7e1a83ab1cad19f01e802b3261",
+      "source_span_ids": [
+        "artifact:recap:longmont-c2:session-29:4f963656828b:span:4f963656828b:27-27"
+      ]
+    },
+    {
+      "id": "e167",
+      "source": "s29",
+      "quote": "After traveling the group decides to stop and camp, intending to get to Edge during the day.",
+      "start": 11119,
+      "end": 11211,
+      "start_line": 45,
+      "end_line": 45,
+      "quote_sha256": "be4c648af6ea075533473878fd31dfb3f100536934e2f611ad31edd23075358b",
+      "source_span_ids": [
+        "artifact:recap:longmont-c2:session-29:4f963656828b:span:4f963656828b:45-45"
+      ]
     }
   ],
   "nodes": [
@@ -2891,6 +2917,14 @@
       "world_id": null,
       "identity_scope": "gold-local; no native World binding",
       "type_rationale": "Explicitly selected domain kind from source meaning; this classification does not request a runtime schema mapping."
+    },
+    {
+      "id": "fire_bolt",
+      "label": "Fire Bolt",
+      "kind": "spell",
+      "world_id": null,
+      "identity_scope": "gold-local; no native World binding",
+      "type_rationale": "The source explicitly names Fire Bolt as the spell Karsemine uses against restraining tentacles."
     }
   ],
   "facts": [
@@ -3049,13 +3083,11 @@
       "evidence": [
         "e010"
       ],
-      "provenance": "attributed_observation",
+      "provenance": "source_assertion",
       "status": "occurred",
       "confidence": "high",
       "temporal_scope": "C2S29 paragraph 2",
-      "attributes": {
-        "attributed_to": "thrin"
-      }
+      "attributes": {}
     },
     {
       "id": "understand",
@@ -3066,13 +3098,11 @@
       "evidence": [
         "e011"
       ],
-      "provenance": "attributed_observation",
+      "provenance": "source_assertion",
       "status": "occurred",
       "confidence": "high",
       "temporal_scope": "C2S29 paragraph 2",
-      "attributes": {
-        "attributed_to": "thrin"
-      }
+      "attributes": {}
     },
     {
       "id": "seed_bearer",
@@ -3152,13 +3182,11 @@
       "evidence": [
         "e016"
       ],
-      "provenance": "attributed_observation",
+      "provenance": "source_assertion",
       "status": "occurred",
       "confidence": "high",
       "temporal_scope": "C2S29 paragraph 2",
-      "attributes": {
-        "attributed_to": "thrin"
-      }
+      "attributes": {}
     },
     {
       "id": "warehouse_exit",
@@ -3469,14 +3497,14 @@
     {
       "id": "scout_plan",
       "subject": "baergrom",
-      "predicate": "scouts_with",
+      "predicate": "plans_scout_with",
       "object": "bonogo",
-      "description": "Baergrom and Bonogo scout north in cramped tunnels while party follows road.",
+      "description": "Stafl proposes Baergrom and Bonogo scout north in tunnels while the others follow the road; execution is separately attested.",
       "evidence": [
         "e036"
       ],
       "provenance": "source_assertion",
-      "status": "occurred",
+      "status": "intended",
       "confidence": "high",
       "temporal_scope": "C2S29 paragraph 5",
       "attributes": {}
@@ -3718,7 +3746,10 @@
       "status": "occurred",
       "confidence": "high",
       "temporal_scope": "C2S29 paragraph 7",
-      "attributes": {}
+      "attributes": {
+        "spell_ref": "fire_bolt",
+        "encounter_ref": "den_combat"
+      }
     },
     {
       "id": "psychic_miss",
@@ -4663,17 +4694,20 @@
     {
       "id": "camp",
       "subject": "party",
-      "predicate": "camps_before",
+      "predicate": "decides_to_camp_before",
       "object": "edge",
-      "description": "They camp intending daylight arrival at Edge; arrival not in recap.",
+      "description": "Party decides to stop and camp before Edge. The decision is narrated; completed camp setup and arrival are not independently described.",
       "evidence": [
-        "e109"
+        "e167"
       ],
       "provenance": "source_assertion",
-      "status": "intended",
+      "status": "occurred",
       "confidence": "high",
       "temporal_scope": "C2S29 paragraph 14",
-      "attributes": {}
+      "attributes": {
+        "action_stage": "decision",
+        "completed_encampment_confirmed": false
+      }
     },
     {
       "id": "thrin_improved",
@@ -5335,6 +5369,75 @@
       "confidence": "high",
       "temporal_scope": "C2S29 paragraph 14",
       "attributes": {}
+    },
+    {
+      "id": "scout_execution",
+      "subject": "baergrom",
+      "predicate": "scouts_with",
+      "object": "bonogo",
+      "description": "Baergrom and Bonogo actually continue through the cramped descending tunnel, separately supporting execution of the scouting plan.",
+      "evidence": [
+        "e166"
+      ],
+      "provenance": "source_assertion",
+      "status": "occurred",
+      "confidence": "high",
+      "temporal_scope": "C2S29 paragraph 5",
+      "attributes": {}
+    },
+    {
+      "id": "edge_arrival_intent",
+      "subject": "party",
+      "predicate": "intends_arrive_at",
+      "object": "edge",
+      "description": "Party intends to reach Edge during daylight; no arrival occurs within this recap.",
+      "evidence": [
+        "e167"
+      ],
+      "provenance": "source_assertion",
+      "status": "intended",
+      "confidence": "high",
+      "temporal_scope": "C2S29 paragraph 14",
+      "attributes": {
+        "arrival_timing": "during the day",
+        "completed_arrival_confirmed": false
+      }
+    },
+    {
+      "id": "firebolt_spell",
+      "subject": "karsemine",
+      "predicate": "casts",
+      "object": "fire_bolt",
+      "description": "Karsemine actually casts Fire Bolt at the tentacles restraining Baergrom and Bonogo in the den combat.",
+      "evidence": [
+        "e051"
+      ],
+      "provenance": "source_assertion",
+      "status": "occurred",
+      "confidence": "high",
+      "temporal_scope": "C2S29 paragraph 7",
+      "attributes": {
+        "target_ref": "restraining_tentacles",
+        "encounter_ref": "den_combat"
+      }
+    },
+    {
+      "id": "den_firebolt",
+      "subject": "den_combat",
+      "predicate": "includes_spell",
+      "object": "fire_bolt",
+      "description": "Fire Bolt is actually used in the den encounter; its caster and tentacle target are specified by the cast facts.",
+      "evidence": [
+        "e051"
+      ],
+      "provenance": "source_assertion",
+      "status": "occurred",
+      "confidence": "high",
+      "temporal_scope": "C2S29 paragraph 7",
+      "attributes": {
+        "caster_ref": "karsemine",
+        "target_ref": "restraining_tentacles"
+      }
     }
   ],
   "coverage": [
@@ -5438,7 +5541,7 @@
       "id": "p05",
       "paragraph": 5,
       "start_line": 27,
-      "summary": "Baergrom and Bonogo scout north in cramped tunnels while party follows road.; Stafl proposes periodic ground slams as road safety signal.; Ephanna stays near Thrin and Ogonob, using magical darkness to conceal Thrin.; Ogonob remains near Thrin and Ephanna.; Tunnel slopes down past initial fighting chamber into larger chamber.; Encounter identifies giant tentacled flesh mass as force source.; Huge lump of flesh fills chamber with tentacles probing every direction.",
+      "summary": "Stafl proposes Baergrom and Bonogo scout north in tunnels while the others follow the road; execution is separately attested.; Stafl proposes periodic ground slams as road safety signal.; Ephanna stays near Thrin and Ogonob, using magical darkness to conceal Thrin.; Ogonob remains near Thrin and Ephanna.; Tunnel slopes down past initial fighting chamber into larger chamber.; Encounter identifies giant tentacled flesh mass as force source.; Huge lump of flesh fills chamber with tentacles probing every direction.; Baergrom and Bonogo actually continue through the cramped descending tunnel, separately supporting execution of the scouting plan.",
       "required_facts": [
         "scout_plan",
         "signal_plan",
@@ -5446,7 +5549,8 @@
         "ogonob",
         "tunnel_descent",
         "flesh_source",
-        "den_occupied"
+        "den_occupied",
+        "scout_execution"
       ],
       "disposition": "represented",
       "residual": "No source sentence licenses stronger identity, causality, completion or permanence than the listed facts.",
@@ -5482,7 +5586,7 @@
       "id": "p07",
       "paragraph": 7,
       "start_line": 31,
-      "summary": "Thrin first attacks with sword; effectiveness unobservable.; Karamine uses Fire Bolt on tentacles holding Baergrom and Bonogo.; Monster psychic attack misses.; Recap states monster spent much power creating town attackers.; Stafl cuts wound and pours one bottle Alchemist’s Fire inside.; Creature thrashes and burns; chamber fills with smoke and cooked-meat smell.; Karsemine slaps Bonogo and Baergrom; charm breaks and both vomit tainted meat.; Combat against local flesh creature in den.; Local flesh creature is combat target.; Restraining tentacles belong to local flesh creature.; Fire user linked to item type.; Sword attack performed, damage effect unknown.",
+      "summary": "Thrin first attacks with sword; effectiveness unobservable.; Karamine uses Fire Bolt on tentacles holding Baergrom and Bonogo.; Monster psychic attack misses.; Recap states monster spent much power creating town attackers.; Stafl cuts wound and pours one bottle Alchemist’s Fire inside.; Creature thrashes and burns; chamber fills with smoke and cooked-meat smell.; Karsemine slaps Bonogo and Baergrom; charm breaks and both vomit tainted meat.; Combat against local flesh creature in den.; Local flesh creature is combat target.; Restraining tentacles belong to local flesh creature.; Fire user linked to item type.; Sword attack performed, damage effect unknown.; Karsemine actually casts Fire Bolt at the tentacles restraining Baergrom and Bonogo in the den combat.; Fire Bolt is actually used in the den encounter; its caster and tentacle target are specified by the cast facts.",
       "required_facts": [
         "sword",
         "firebolt",
@@ -5495,7 +5599,9 @@
         "den_target",
         "flesh_tentacles",
         "fire_user_item",
-        "sword_item"
+        "sword_item",
+        "firebolt_spell",
+        "den_firebolt"
       ],
       "disposition": "represented",
       "residual": "No source sentence licenses stronger identity, causality, completion or permanence than the listed facts.",
@@ -5643,7 +5749,7 @@
       "id": "p14",
       "paragraph": 14,
       "start_line": 45,
-      "summary": "Six additional bottles; Alchamist spelling treated as contextual item variant.; Stafl tells Lysandro cure can be misted.; They decide to send messenger to Mossford for possible further south retreat; dispatch/completion unstated.; Party leaves town through north gate.; North route overgrown rapidly despite use; corruption grows through bayou.; Tentacles grab wildlife and drag it underground.; Low thrum explicitly not mental; do not merge with earlier psychic pull.; They camp intending daylight arrival at Edge; arrival not in recap.; Northbound onward journey passes through bayou.; Stafl communicates Mirathorn misting technique to Lysandro.",
+      "summary": "Six additional bottles; Alchamist spelling treated as contextual item variant.; Stafl tells Lysandro cure can be misted.; They decide to send messenger to Mossford for possible further south retreat; dispatch/completion unstated.; Party leaves town through north gate.; North route overgrown rapidly despite use; corruption grows through bayou.; Tentacles grab wildlife and drag it underground.; Low thrum explicitly not mental; do not merge with earlier psychic pull.; Party decides to stop and camp before Edge. The decision is narrated; completed camp setup and arrival are not independently described.; Northbound onward journey passes through bayou.; Stafl communicates Mirathorn misting technique to Lysandro.; Party intends to reach Edge during daylight; no arrival occurs within this recap.",
       "required_facts": [
         "fire_more",
         "mist_transfer",
@@ -5654,7 +5760,8 @@
         "physical_thrum",
         "camp",
         "journey_scene",
-        "mist_communicated"
+        "mist_communicated",
+        "edge_arrival_intent"
       ],
       "disposition": "represented",
       "residual": "No source sentence licenses stronger identity, causality, completion or permanence than the listed facts.",
@@ -6034,7 +6141,9 @@
       "expected_fact_path": [
         "eldritch_intent",
         "arrows",
-        "firebolt"
+        "firebolt",
+        "firebolt_spell",
+        "den_firebolt"
       ],
       "expected_evidence": [
         "e025",
@@ -6050,12 +6159,24 @@
           "ephanna",
           "eldritch_intent",
           "eldritch_blast"
+        ],
+        [
+          "karsemine",
+          "firebolt_spell",
+          "fire_bolt"
+        ],
+        [
+          "den_combat",
+          "den_firebolt",
+          "fire_bolt"
         ]
       ],
       "expected_node_kinds": {
         "arrows": "item_type",
+        "den_combat": "scene",
         "eldritch_blast": "spell",
         "ephanna": "person",
+        "fire_bolt": "spell",
         "karsemine": "person",
         "restraining_tentacles": "body_part_group",
         "stafl": "person"
@@ -6189,7 +6310,7 @@
     {
       "id": "q10",
       "question": "What route follows victory and what remains dangerous?",
-      "expected_answer": "Choose surface north, rest proposal and next morning departure with horses/wagon; Lysandra stays. Bayou tentacles take wildlife; physical thrum; camp for daylight Edge arrival.",
+      "expected_answer": "Choose surface north, rest proposal and next morning departure with horses/wagon; Lysandra stays. Bayou tentacles take wildlife; physical thrum; decide to stop and camp, intending daylight Edge arrival. Camp setup and arrival are not independently narrated.",
       "expected_fact_path": [
         "surface_route",
         "long_rest_plan",
@@ -6198,7 +6319,8 @@
         "bayou",
         "wildlife",
         "physical_thrum",
-        "camp"
+        "camp",
+        "edge_arrival_intent"
       ],
       "expected_evidence": [
         "e066",
@@ -6208,7 +6330,7 @@
         "e106",
         "e107",
         "e108",
-        "e109"
+        "e167"
       ],
       "failure_examples": [
         "Edge arrival already occurred",
@@ -6248,13 +6370,17 @@
         "lower_revealed",
         "depth",
         "familiar",
-        "surface_route"
+        "surface_route",
+        "scout_plan",
+        "scout_execution"
       ],
       "expected_evidence": [
+        "e036",
         "e057",
         "e060",
         "e061",
-        "e066"
+        "e066",
+        "e166"
       ],
       "failure_examples": [
         "Cat confirms tunnel reaches Edge",
@@ -6270,7 +6396,9 @@
         ]
       ],
       "expected_node_kinds": {
+        "baergrom": "person",
         "black_cat_familiar": "creature_individual",
+        "bonogo": "person",
         "ephanna": "person",
         "lower_tunnel": "route",
         "mireward_flesh": "creature_individual",
@@ -6444,14 +6572,6 @@
       ]
     },
     {
-      "predicate": "camps_before",
-      "status": "unmapped_or_unverified",
-      "policy": "retain semantic fact; mapping needs separate native qualification review",
-      "facts": [
-        "camp"
-      ]
-    },
-    {
       "predicate": "capture",
       "status": "unmapped_or_unverified",
       "policy": "retain semantic fact; mapping needs separate native qualification review",
@@ -6480,7 +6600,8 @@
       "status": "unmapped_or_unverified",
       "policy": "retain semantic fact; mapping needs separate native qualification review",
       "facts": [
-        "familiar_spell"
+        "familiar_spell",
+        "firebolt_spell"
       ]
     },
     {
@@ -6588,6 +6709,14 @@
       "policy": "retain semantic fact; mapping needs separate native qualification review",
       "facts": [
         "cures_ready"
+      ]
+    },
+    {
+      "predicate": "decides_to_camp_before",
+      "status": "unmapped_or_unverified",
+      "policy": "retain semantic fact; mapping needs separate native qualification review",
+      "facts": [
+        "camp"
       ]
     },
     {
@@ -6768,6 +6897,14 @@
       ]
     },
     {
+      "predicate": "includes_spell",
+      "status": "unmapped_or_unverified",
+      "policy": "retain semantic fact; mapping needs separate native qualification review",
+      "facts": [
+        "den_firebolt"
+      ]
+    },
+    {
       "predicate": "informs",
       "status": "unmapped_or_unverified",
       "policy": "retain semantic fact; mapping needs separate native qualification review",
@@ -6790,6 +6927,14 @@
       "facts": [
         "seed_forest",
         "new_forest_goal"
+      ]
+    },
+    {
+      "predicate": "intends_arrive_at",
+      "status": "unmapped_or_unverified",
+      "policy": "retain semantic fact; mapping needs separate native qualification review",
+      "facts": [
+        "edge_arrival_intent"
       ]
     },
     {
@@ -7026,6 +7171,14 @@
       ]
     },
     {
+      "predicate": "plans_scout_with",
+      "status": "unmapped_or_unverified",
+      "policy": "retain semantic fact; mapping needs separate native qualification review",
+      "facts": [
+        "scout_plan"
+      ]
+    },
+    {
       "predicate": "plans_warning_to",
       "status": "unmapped_or_unverified",
       "policy": "retain semantic fact; mapping needs separate native qualification review",
@@ -7136,7 +7289,7 @@
       "status": "unmapped_or_unverified",
       "policy": "retain semantic fact; mapping needs separate native qualification review",
       "facts": [
-        "scout_plan"
+        "scout_execution"
       ]
     },
     {
@@ -7485,7 +7638,11 @@
     "familiar_spell",
     "cat_tunnel",
     "sword_item",
-    "mist_communicated"
+    "mist_communicated",
+    "scout_execution",
+    "edge_arrival_intent",
+    "firebolt_spell",
+    "den_firebolt"
   ],
   "independent_freeze": {
     "candidate_outputs_read": false,
@@ -7498,6 +7655,11 @@
     "typing_refinement": {
       "reviewed_parent": "d61aa537addc568936c16305a1eb3172bddaaf4c",
       "method": "PRIME independent review prompted gold-only kinds and typed literals; no candidate outputs read"
+    },
+    "semantic_refinement": {
+      "reviewed_parent": "357291c437c696fc425a604737dc1e8fced89a00",
+      "changes": "precise paragraph-2 narrator attribution; scout proposal/execution stages; camp decision/arrival intent; Fire Bolt spell identity and encounter links",
+      "candidate_outputs_read": false
     }
   },
   "research_exclusions": [

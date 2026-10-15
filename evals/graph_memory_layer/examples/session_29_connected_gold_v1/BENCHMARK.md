@@ -1,6 +1,6 @@
 # Continuity and multi-hop benchmark
 
-Evaluate semantic coverage separately from native admission. Each answer has fact IDs, exact evidence IDs and explicit directed traversal witnesses in `gold.json`. `expected_fact_path` is an answer-support subgraph, not an assertion that every listed edge forms one linear path. Each question also freezes expected node kinds and any typed literal objects, so a correct prose answer cannot hide missing children/groups, merged warehouses, untyped spells/items or values promoted to entities. A reply must retain attribution, uncertainty, modality and chronology.
+Evaluate semantic coverage separately from native admission. Each answer has fact IDs, exact evidence IDs and explicit directed traversal witnesses in `gold.json`. `expected_fact_path` is an answer-support subgraph, not an assertion that every listed edge forms one linear path. Each question also freezes expected node kinds and typed literal objects. Retain attribution, uncertainty, modality and chronology.
 
 ## q01: Whose house provides the lookout and how does he relate to Lysandra?
 
@@ -46,7 +46,7 @@ Failures: Seed call permanently cured; Road to Fin necessarily north road.
 
 Recap says will use: intended cast only. Stafl shoots arrows; later Karsemine casts Fire Bolt in den.
 
-Expected facts: eldritch_intent, arrows, firebolt.
+Expected facts: eldritch_intent, arrows, firebolt, firebolt_spell, den_firebolt.
 
 Failures: Eldritch Blast confirmed hit/kill; All attacks only plans.
 
@@ -76,9 +76,9 @@ Failures: Seed removed; Thrin proved Threnn.
 
 ## q10: What route follows victory and what remains dangerous?
 
-Choose surface north, rest proposal and next morning departure with horses/wagon; Lysandra stays. Bayou tentacles take wildlife; physical thrum; camp for daylight Edge arrival.
+Choose surface north, rest proposal and next morning departure with horses/wagon; Lysandra stays. Bayou tentacles take wildlife; physical thrum; decide to stop and camp, intending daylight Edge arrival. Camp setup and arrival are not independently narrated.
 
-Expected facts: surface_route, long_rest_plan, transport, stays, bayou, wildlife, physical_thrum, camp.
+Expected facts: surface_route, long_rest_plan, transport, stays, bayou, wildlife, physical_thrum, camp, edge_arrival_intent.
 
 Failures: Edge arrival already occurred; All threat vanished permanently.
 
@@ -86,7 +86,7 @@ Failures: Edge arrival already occurred; All threat vanished permanently.
 
 Burning exposes remains below; torch estimates 20-foot drop then north slope; black cat sent, no report; party chooses surface.
 
-Expected facts: lower_revealed, depth, familiar, surface_route.
+Expected facts: lower_revealed, depth, familiar, surface_route, scout_plan, scout_execution.
 
 Failures: Cat confirms tunnel reaches Edge; 10-foot aperture is 20-foot lower drop.
 

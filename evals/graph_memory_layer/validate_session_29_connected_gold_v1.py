@@ -28,7 +28,8 @@ REQUIRED = {'vantage', 'house_owner', 'father', 'mireward_context', 'smoke_south
             'flesh_source', 'control_lost', 'pull_gone', 'fort', 'edge_monster',
             'sleep_delivery', 'cures_ready', 'mist_cure', 'spraying',
             'mist_transfer', 'wall_repair', 'stays', 'bayou', 'wildlife',
-            'physical_thrum', 'camp', 'seed_reappraisal', 'pippa_prior'}
+            'physical_thrum', 'camp', 'seed_reappraisal', 'pippa_prior',
+            'scout_execution', 'edge_arrival_intent', 'firebolt_spell', 'den_firebolt'}
 
 DOMAIN_KINDS = {
     'party', 'person', 'building', 'gate', 'route', 'settlement', 'region',
@@ -49,7 +50,7 @@ TYPED_ANCHORS = {
     'rescued_children': 'person_group', 'warehouse_monsters': 'creature_group',
     'mireward_flesh': 'creature_individual', 'edge_flesh': 'creature_individual',
     'ogonob': 'creature_individual', 'eldritch_blast': 'spell',
-    'find_familiar': 'spell', 'alchemists_fire': 'item_type',
+    'find_familiar': 'spell', 'fire_bolt': 'spell', 'alchemists_fire': 'item_type',
     'witness_seed': 'artifact_individual', 'child_rescue': 'scene',
     'den_combat': 'scene',
 }
@@ -170,6 +171,9 @@ def validate(gold: dict, source_root: Path) -> list[str]:
         require(provenance in CLASSES, f'{fid}: invalid provenance')
         require(fact.get('status') in STATUSES, f'{fid}: invalid status')
         require(bool(fact.get('temporal_scope')) and bool(fact.get('confidence')), f'{fid}: missing scope/confidence')
+        for key in ('spell_ref', 'encounter_ref', 'target_ref', 'caster_ref'):
+            if key in fact.get('attributes', {}):
+                require(fact['attributes'][key] in nodes, f'{fid}: dangling semantic node reference')
         refs = fact.get('evidence', [])
         require(all(e in evidence for e in refs), f'{fid}: dangling evidence')
         if provenance == 'operator_addition':
@@ -228,6 +232,18 @@ def validate(gold: dict, source_root: Path) -> list[str]:
     require(facts.get('eldritch_intent', {}).get('status') == 'intended', 'intended Eldritch Blast became performed')
     require(facts.get('operator_children_origin', {}).get('provenance') == 'operator_addition', 'operator child origin laundered')
     require(facts.get('house_owner', {}).get('predicate') == 'home_of', 'house possessive relationship weakened')
+    for fid in ('shoulder', 'understand', 'storm_worse'):
+        require(facts.get(fid, {}).get('provenance') == 'source_assertion'
+                and 'attributed_to' not in facts.get(fid, {}).get('attributes', {}),
+                f'{fid}: narrator assertion misattributed')
+    require(facts.get('scout_plan', {}).get('status') == 'intended'
+            and facts.get('scout_execution', {}).get('status') == 'occurred', 'scouting stages collapsed')
+    require(facts.get('camp', {}).get('predicate') == 'decides_to_camp_before'
+            and facts.get('camp', {}).get('status') == 'occurred'
+            and facts.get('edge_arrival_intent', {}).get('status') == 'intended', 'camp decision/arrival stages collapsed')
+    require(facts.get('firebolt', {}).get('attributes', {}).get('spell_ref') == 'fire_bolt'
+            and facts.get('firebolt', {}).get('attributes', {}).get('encounter_ref') == 'den_combat'
+            and facts.get('firebolt_spell', {}).get('object') == 'fire_bolt', 'Fire Bolt identity/use disconnected')
     require(facts.get('den_size', {}).get('object_value', {}).get('type') == 'dimensions',
             'den dimensions lost typed value')
     return errors

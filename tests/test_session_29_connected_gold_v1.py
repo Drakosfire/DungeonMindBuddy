@@ -126,6 +126,29 @@ class Session29GoldTests(unittest.TestCase):
         fact['predicate'] = 'associated_with'
         self.assertIn('house possessive relationship weakened', self.errors())
 
+    def test_narrator_descriptions_not_thrin_testimony(self):
+        for fid in ('shoulder', 'understand', 'storm_worse'):
+            with self.subTest(fact=fid):
+                fact = next(f for f in self.gold['facts'] if f['id'] == fid)
+                fact['provenance'] = 'attributed_observation'
+                fact['attributes']['attributed_to'] = 'thrin'
+                self.assertIn('narrator assertion misattributed', self.errors())
+                fact['provenance'] = 'source_assertion'
+                fact['attributes'].pop('attributed_to')
+
+    def test_scout_proposal_not_automatically_performed(self):
+        next(f for f in self.gold['facts'] if f['id'] == 'scout_plan')['status'] = 'occurred'
+        self.assertIn('scouting stages collapsed', self.errors())
+
+    def test_camp_decision_does_not_prove_arrival(self):
+        next(f for f in self.gold['facts'] if f['id'] == 'edge_arrival_intent')['status'] = 'occurred'
+        self.assertIn('camp decision/arrival stages collapsed', self.errors())
+
+    def test_fire_bolt_use_requires_spell_and_encounter(self):
+        fact = next(f for f in self.gold['facts'] if f['id'] == 'firebolt')
+        fact['attributes'].pop('spell_ref')
+        self.assertIn('Fire Bolt identity/use disconnected', self.errors())
+
     def test_missing_originals_fail_instead_of_skip(self):
         with tempfile.TemporaryDirectory() as directory:
             errors = validator.validate(self.gold, Path(directory))

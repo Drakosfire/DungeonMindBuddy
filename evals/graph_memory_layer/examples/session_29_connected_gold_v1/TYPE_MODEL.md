@@ -23,7 +23,7 @@ This is an intentional extraction reference vocabulary. It is independent of run
 | equipment_individual | A particular possessed object whose connection matters. | personal_safe, sword |
 | item_type | A named supply or consumable category; amount belongs to facts. | arrows, alchemists_fire, greater_healing_potions, healing_potions, minor_healing_half_bottles, oil_vials, refugee_cures, sleep_potions |
 | asset_collection | A source-grouped travel asset collection without fabricated individual IDs. | horses_wagon |
-| spell | A named spell, with intent/performance on its use facts. | eldritch_blast, find_familiar |
+| spell | A named spell, with intent/performance on its use facts. | eldritch_blast, find_familiar, fire_bolt |
 | phenomenon | A particular narrated sensory or psychic effect. | psychic_pull, unknown_call, psychic_pressure, psychic_assault, physical_thrum |
 | weather_event | A temporally bounded storm. | storm, edge_storm |
 | scene | A coherent rescue, combat, disclosure or journey episode. | seed_disclosure, child_rescue, den_combat, north_journey |
