@@ -1610,3 +1610,194 @@ def test_publication_binding_normalizes_missing_source_without_path_leak(monkeyp
     assert error.value.status_code == 409
     assert error.value.code == "worldbuilding_source_binding_missing"
     assert "private-path-detail" not in str(error.value)
+
+
+def test_two_registered_managed_worlds_publish_only_to_their_native_worlds(
+    tmp_path, monkeypatch
+):
+    """Concurrent managed bindings must keep preparation and publication isolated."""
+    import copy
+    import json
+
+    from apps.live_control_server.models.extract_promote import (
+        WorldbuildingWritePlanConfirmRequest,
+        WorldbuildingWritePlanPrepareRequest,
+    )
+    from apps.live_control_server.services.source_artifact_registry import (
+        get_source_artifact,
+        source_span_index_relpath,
+    )
+    from apps.live_control_server.services.workspace_document_registry import (
+        get_workspace_document,
+    )
+    from apps.live_control_server.services.world_container_registry import (
+        create_world_container,
+    )
+    from apps.live_control_server.services import source_artifact_registry as registry
+    from apps.live_control_server.services.worldbuilding_graph_publication import (
+        confirm_worldbuilding,
+        prepare_worldbuilding,
+    )
+    from tests._cutover_d3a_blocker_safe_fixtures import (
+        _mutate_extraction_candidate,
+        _write_bld08_reviewable_run,
+    )
+
+    repo = _install_worldbuilding_repo(monkeypatch, tmp_path, native_id="native-alpha")
+    registry_path = repo / "out/registries/world_containers.json"
+    payload = json.loads(registry_path.read_text())
+    managed_a = payload["records"][0]["world_id"]
+    managed_b = create_world_container(repo, name="Second Publication Managed").world_id
+    payload = json.loads(registry_path.read_text())
+    managed_to_native = {
+        managed_a: "native-alpha",
+        managed_b: "native-beta",
+    }
+    parent_by_native = {
+        "native-alpha": "rev:parent-alpha",
+        "native-beta": "rev:parent-beta",
+    }
+    for row in payload["records"]:
+        native_id = managed_to_native[row["world_id"]]
+        row["native_graph_binding"] = {
+            "native_world_id": native_id,
+            "binding_version": 1,
+            "status": "active",
+            "validated_at": "2026-10-14T00:00:00Z",
+            "validated_head_revision_id": parent_by_native[native_id],
+        }
+    registry_path.write_text(json.dumps(payload))
+
+    fake = FakeWorldGraphAuthority()
+    for native_id, parent_id in parent_by_native.items():
+        fake.heads[native_id] = parent_id
+        fake.revisions[(native_id, parent_id)] = _empty_parent(
+            world_id=native_id, revision_id=parent_id
+        )
+    _install_fake_authority(monkeypatch, fake)
+    _explode_buddy_graph_runtime(monkeypatch)
+
+    marker_by_managed: dict[str, str] = {}
+    register_source = registry.create_source_artifact_from_workspace_document
+
+    def register_with_world_marker(root, *, document_id, **kwargs):
+        document = get_workspace_document(root, document_id)
+        marker = f"World isolation marker: {document.world_id}."
+        marker_by_managed[document.world_id] = marker
+        source_path = root / document.target_relpath
+        source_path.write_text(source_path.read_text() + "\n\n" + marker + "\n")
+        return register_source(root, document_id=document_id, **kwargs)
+
+    monkeypatch.setattr(
+        registry,
+        "create_source_artifact_from_workspace_document",
+        register_with_world_marker,
+    )
+
+    def create_run_and_marker(managed_id: str) -> tuple[str, str]:
+        run_id, _source = _write_bld08_reviewable_run(
+            repo, world_id=managed_id, campaign_id=managed_id
+        )
+        from apps.live_control_server.services.promotable_ingest_run import (
+            resolve_promotable_ingest_run,
+        )
+
+        resolved = resolve_promotable_ingest_run(run_id, root=repo)
+        artifact = get_source_artifact(repo, resolved.source_artifact_id)
+        marker = marker_by_managed[managed_id]
+        index = json.loads(
+            (repo / source_span_index_relpath(artifact.source_artifact_id)).read_text()
+        )
+        source_text = (repo / artifact.uri.removeprefix("repo://")).read_text()
+        source_lines = source_text.splitlines()
+        marker_span = next(
+            span for span in index["spans"]
+            if marker in "\n".join(
+                source_lines[int(span["start_line"]) - 1 : int(span["end_line"])]
+            )
+        )
+
+        def add_marker_node(candidate):
+            node = copy.deepcopy(candidate["nodes"][0])
+            node["node_id"] = f"world-marker:{managed_id}"
+            node["label"] = marker
+            node["node_type"] = "location"
+            node["description"] = marker
+            span_id = marker_span["source_span_id"]
+            node["evidence_refs"] = [
+                {
+                    **node["evidence_refs"][0],
+                    "source_ref_id": f"ref:{artifact.source_artifact_id}:{span_id}",
+                    "source_artifact_id": artifact.source_artifact_id,
+                    "source_anchor_id": (
+                        f"anchor:{artifact.source_artifact_id}:{span_id}"
+                    ),
+                    "label": "world-isolation marker source span",
+                    "source_span_ref_id": span_id,
+                    "anchor_quotes": [marker],
+                }
+            ]
+            candidate["nodes"].append(node)
+
+        _mutate_extraction_candidate(repo, run_id, add_marker_node)
+        return run_id, artifact.source_artifact_id
+
+    def publish_run(run_id: str, parent_id: str, managed_id: str, native_id: str):
+        from apps.live_control_server.services.promotable_ingest_run import (
+            resolve_promotable_ingest_run,
+        )
+        from graph_memory.candidate_graph_to_contribution import (
+            load_typed_candidate_graph,
+        )
+
+        resolved = resolve_promotable_ingest_run(run_id, root=repo)
+        candidate = load_typed_candidate_graph(
+            json.loads(resolved.candidate_graph_path.read_text())
+        )
+        plan = prepare_worldbuilding(
+            WorldbuildingWritePlanPrepareRequest.model_validate({
+                "runId": run_id,
+                "expectedParentRevisionId": parent_id,
+                "dispositions": [
+                    {"assertionId": node.node_id, "decision": "create_new"}
+                    for node in candidate.nodes
+                ] + [
+                    {"assertionId": edge.edge_id, "decision": "accept"}
+                    for edge in candidate.edges
+                ],
+            })
+        )
+        assert plan.world_id == native_id
+        assert plan.publication_binding.managed_world_id == managed_id
+        receipt = confirm_worldbuilding(
+            WorldbuildingWritePlanConfirmRequest(plan=plan)
+        )
+        assert receipt.world_id == native_id
+        return plan, receipt
+
+    run_a, source_a = create_run_and_marker(managed_a)
+    plan_a, receipt_a = publish_run(
+        run_a, parent_by_native["native-alpha"], managed_a, "native-alpha"
+    )
+    head_a = fake.heads["native-alpha"]
+    child_a = fake.read_revision("native-alpha", head_a)
+    assert receipt_a.outcome == "committed"
+    assert plan_a.source_artifact_id == source_a
+    assert f"world-marker:{managed_a}" in child_a.objects
+    assert f"world-marker:{managed_b}" not in child_a.objects
+    assert fake.heads["native-beta"] == parent_by_native["native-beta"]
+
+    run_b, source_b = create_run_and_marker(managed_b)
+    plan_b, receipt_b = publish_run(
+        run_b, parent_by_native["native-beta"], managed_b, "native-beta"
+    )
+    head_b = fake.heads["native-beta"]
+    child_b = fake.read_revision("native-beta", head_b)
+    assert receipt_b.outcome == "committed"
+    assert plan_b.source_artifact_id == source_b
+    assert source_a != source_b
+    assert f"world-marker:{managed_b}" in child_b.objects
+    assert f"world-marker:{managed_a}" not in child_b.objects
+    assert fake.heads["native-alpha"] == head_a
+    assert DEFAULT_WORLD_ID not in fake.heads
+    assert fake.publish_calls == 2
