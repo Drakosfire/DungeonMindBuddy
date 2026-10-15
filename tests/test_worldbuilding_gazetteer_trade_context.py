@@ -201,6 +201,22 @@ def test_explicit_trade_city_must_match_the_document_city():
     assert diagnostics["reason"] == "trade_city_subject_mismatch"
 
 
+def test_lowercase_place_type_does_not_consume_predicate_as_city_name():
+    sentence = (
+        "The city of Asterport is a trading hub with access to "
+        "moonlit ferries, sky barges, and clockwork rail."
+    )
+
+    result, diagnostics = _apply_trade_context(
+        _candidate(), _rows_with_trade(sentence=sentence),
+    )
+
+    assert diagnostics["status"] == "added"
+    assert "Trade access: moonlit ferries, sky barges, and clockwork rail." in (
+        result["nodes"][0]["description"]
+    )
+
+
 def test_trade_evidence_must_belong_to_the_existing_location_source():
     rows = _rows(
         (1, 3, '---\ntitle: "The City of Asterport"\n---'),
