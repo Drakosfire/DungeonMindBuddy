@@ -376,11 +376,13 @@ function PlayChooser({
       <header>
         <p className="play-kicker">Play</p>
         <h1>Choose a Run</h1>
-        <p className="play-muted">
-          {initialPlanId
-            ? "Open one exact durable Run, or start a new exact Run from the selected Plan."
-            : "Open one exact durable Run, or start a new exact Run from a committed Runbook. Nothing is selected until you choose it."}
-        </p>
+        {!showFirstRunWelcome ? (
+          <p className="play-muted">
+            {initialPlanId
+              ? "Open one exact durable Run, or start a new exact Run from the selected Plan."
+              : "Open one exact durable Run, or start a new exact Run from a committed Runbook. Nothing is selected until you choose it."}
+          </p>
+        ) : null}
         {continuityWarning ? (
           <p role="alert" className="play-continuity-warning" data-testid="play-active-run-warning">
             {continuityWarning}

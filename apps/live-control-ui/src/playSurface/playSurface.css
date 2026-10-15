@@ -150,6 +150,9 @@
 
 @media (max-width: 48rem) {
   .play-first-run-welcome { grid-template-columns: minmax(0, 1fr); }
+  .play-first-run-welcome + .play-start-run { margin-block-start: 1.5rem; }
+  .play-chooser:has(.play-first-run-welcome) { padding-block-end: 6rem; }
+  .play-chooser:has(.play-first-run-welcome) .play-start-run > p { max-width: calc(100% - 5rem); }
   .play-first-run-welcome__art { display: grid; grid-template-columns: minmax(120px, 0.75fr) minmax(0, 1fr); align-items: center; gap: 0.65rem; }
 }
 

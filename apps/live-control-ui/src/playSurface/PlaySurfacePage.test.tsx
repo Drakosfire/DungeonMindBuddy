@@ -461,6 +461,7 @@ describe("Play selected-World admission", () => {
     expect(welcome).toHaveTextContent("An open table awaits.");
     expect(welcome).toHaveTextContent("There are no Runs in World world-b yet.");
     expect(welcome).toHaveTextContent("Choose a saved Runbook below, or create a blank one");
+    expect(screen.queryByText(/Open one exact durable Run/)).not.toBeInTheDocument();
     expect(screen.queryByText("No durable Runs are available.")).not.toBeInTheDocument();
     expect(screen.queryByTestId("play-existing-runs")).not.toBeInTheDocument();
     expect(screen.getByTestId("play-run-chooser")).toBeInTheDocument();
