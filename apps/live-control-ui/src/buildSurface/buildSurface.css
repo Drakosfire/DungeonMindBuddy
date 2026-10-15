@@ -602,28 +602,28 @@ body:has([data-document-surface="build"])
 .build-source-evidence .build-source-reader { padding: .75rem; border: 1px solid #b8a780; }
 .build-empty-document-prompt {
   display: grid;
-  grid-template-columns: 2.25rem minmax(0, 1fr);
-  align-items: start;
-  gap: .8rem;
-  margin: 0 0 .35rem;
-  padding: 1rem 1.1rem;
-  border: 1px solid #d8c59e;
-  border-radius: .55rem;
-  background: linear-gradient(120deg, #fbf4e5, #f2e6ce 72%, #efe1c4);
-  box-shadow: inset 0 0 0 4px rgb(255 251 239 / 42%);
+  grid-template-columns: minmax(4rem, 6.5rem) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(.8rem, 2.3vw, 1.45rem);
+  margin: 0 0 .65rem;
+  padding: clamp(1rem, 2.5vw, 1.65rem);
+  overflow: hidden;
+  border: 1px solid #d4bd8e;
+  border-radius: .7rem;
+  background:
+    radial-gradient(ellipse at 9% 18%, rgb(255 255 255 / 62%), transparent 42%),
+    linear-gradient(125deg, #fbf5e8, #f2e5cc 72%, #eee0c1);
+  box-shadow: inset 0 0 0 4px rgb(255 251 239 / 44%), 0 5px 16px rgb(63 46 20 / 7%);
 }
-.build-empty-document-prompt__spark {
+.build-empty-document-prompt__art {
   display: grid;
   place-items: center;
-  width: 2.1rem;
-  height: 2.1rem;
-  border: 1px solid #c6a357;
-  border-radius: 50%;
-  color: #936c1f;
-  font-size: 1.15rem;
+  color: #98783b;
 }
+.build-empty-document-prompt__art svg { display: block; width: 100%; max-width: 7rem; height: auto; overflow: visible; }
+.build-empty-document-prompt__copy { min-width: 0; }
 .build-empty-document-prompt__eyebrow {
-  margin: 0 0 .25rem;
+  margin: 0 0 .35rem;
   color: #876728;
   font-family: var(--ui-font-interface, sans-serif);
   font-size: .66rem;
@@ -633,16 +633,34 @@ body:has([data-document-surface="build"])
 .build-empty-document-prompt h2 {
   margin: 0;
   color: #3c3122;
-  font-size: clamp(1.25rem, 2.4vw, 1.6rem);
+  font-size: clamp(1.3rem, 2.5vw, 1.75rem);
   font-style: italic;
   line-height: 1.2;
 }
-.build-empty-document-prompt p:last-child {
-  margin: .35rem 0 0;
+.build-empty-document-prompt__copy > p:not(.build-empty-document-prompt__eyebrow) {
+  margin: .4rem 0 0;
   color: #655842;
   font-size: .92rem;
   line-height: 1.5;
 }
+.build-empty-document-prompt__starters { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .85rem; }
+.build-empty-document-prompt__starters button {
+  padding: .38rem .75rem;
+  border: 1px solid #c9ae77;
+  border-radius: 999px;
+  background: rgb(255 251 240 / 68%);
+  color: #56472e;
+  font-family: var(--ui-font-interface, sans-serif);
+  font-size: .8rem;
+  cursor: pointer;
+  transition: background-color .16s ease, border-color .16s ease, transform .16s ease;
+}
+.build-empty-document-prompt__starters button:hover {
+  transform: translateY(-1px);
+  border-color: #a78645;
+  background: #fffaf0;
+}
+.build-empty-document-prompt__starters button:focus-visible { outline: 2px solid #946f29; outline-offset: 2px; }
 .build-workspace-projection:has(.build-empty-landing) .conversation-dock__launcher {
   position: static;
   justify-self: end;
@@ -650,6 +668,11 @@ body:has([data-document-surface="build"])
 }
 
 @media (max-width: 42rem) {
+  .build-empty-document-prompt { grid-template-columns: 3.5rem minmax(0, 1fr); gap: .7rem; padding: .9rem; }
+  .build-empty-document-prompt__art svg { max-width: 4.5rem; }
+  .build-empty-document-prompt__starters { gap: .35rem; margin-top: .65rem; }
+  .build-empty-document-prompt__starters button { padding: .34rem .62rem; font-size: .76rem; }
+
   body:has([data-document-surface="build"])
     .app-shell--edit-dock:has(.app-edit-toolbox--docked.open)
     .app-edit-toolbox--docked

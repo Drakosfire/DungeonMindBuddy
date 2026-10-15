@@ -189,12 +189,31 @@ describe("BuildSurfaceShell", () => {
     expect(editor.querySelector('[contenteditable="true"]')).not.toBeNull();
     expect(buildShellTestEditor?.isEmpty).toBe(true);
     expect(prompt).toHaveTextContent("Every world starts somewhere.");
-    expect(prompt).toHaveTextContent("Your first words can go right below.");
+    expect(prompt).toHaveTextContent("skip the prompt and start typing below");
+    expect(screen.getByRole("button", { name: "A place" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "A person" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "A mystery" })).toBeEnabled();
 
     act(() => buildShellTestEditor?.commands.insertContent("The road begins at dawn."));
 
     await waitFor(() => expect(screen.queryByTestId("build-empty-document-prompt")).not.toBeInTheDocument());
     expect(buildShellTestEditor?.getText()).toContain("The road begins at dawn.");
+  });
+
+  it("adds only the chosen heading when a writer picks a blank-page starter", async () => {
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({
+      ...buildWorldbuildingSnapshot(DOC_ID),
+      markdown: "",
+    });
+    render(<BuildDocumentHarness documentId={DOC_ID} />);
+    const user = await waitForEditor();
+
+    await screen.findByTestId("build-empty-document-prompt");
+    await user.click(screen.getByRole("button", { name: "A mystery" }));
+
+    await waitFor(() => expect(screen.queryByTestId("build-empty-document-prompt")).not.toBeInTheDocument());
+    expect(buildShellTestEditor?.getText().trim()).toBe("A mystery");
+    expect(buildShellTestEditor?.state.selection.$from.parent.type.name).toBe("paragraph");
   });
 
   it("keeps the no-source conversation launcher in flow instead of covering the welcome", () => {

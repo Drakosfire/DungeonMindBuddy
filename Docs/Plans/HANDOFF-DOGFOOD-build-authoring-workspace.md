@@ -172,7 +172,10 @@ An opened worldbuilding source with no body now has a temporary writing welcome
 inside the paper frame. It disappears as soon as the user types; it is not
 serialized into the source, and it does not appear for populated sources or
 source-evidence views. The invitation gives the blank editor a clear first step
-without inserting sample lore.
+without inserting sample lore. The invitation now includes a small map-and-page
+illustration and optional Place, Person, and Mystery starters. A starter writes
+only its selected heading into the editor after an explicit click and leaves the
+cursor in the following paragraph; opening the source remains truly blank.
 
 The collapsed Conversation launcher now occupies the dock's bottom layout row
 on the no-source Build landing instead of using the shared absolute overlay.
@@ -180,7 +183,7 @@ This is scoped to that landing and leaves the shared dock presentation
 unchanged on other surfaces.
 
 After this addition, the Build page, context, shell, and shared conversation
-integration suites pass 89 tests. The app TypeScript check passes with its build
+integration suites pass 90 tests. The app TypeScript check passes with its build
 info redirected to `/tmp`; the production Vite build passes with the existing
 large-chunk warning, and `git diff --check` passes. The blank-source welcome has
 not been rendered in 5203 yet; the current preview still lacks authenticated

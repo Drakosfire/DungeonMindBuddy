@@ -81,6 +81,14 @@ function BuildPresentableSourceView({
   const showEmptySourcePrompt = session.record?.kind === "worldbuilding_source"
     && navigationTarget.status === "none"
     && (session.editor?.isEmpty ?? !session.snapshot?.markdown.trim());
+  const startWith = (heading: string) => {
+    const editor = session.editor;
+    if (!editor?.isEmpty) return;
+    editor.chain().focus().insertContent([
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: heading }] },
+      { type: "paragraph" },
+    ]).run();
+  };
 
   return <div className="build-surface-shell" data-testid="build-surface-shell">
     {navigationTarget.status !== "none" ? <details className="build-source-evidence" open>
@@ -89,11 +97,26 @@ function BuildPresentableSourceView({
         markdown={session.snapshot!.markdown} dirty={session.dirty} navigationTarget={navigationTarget} />
     </details> : null}
     {showEmptySourcePrompt ? <section className="build-empty-document-prompt" data-testid="build-empty-document-prompt" aria-label="A beginning for this page">
-      <span className="build-empty-document-prompt__spark" aria-hidden="true">✦</span>
-      <div>
+      <div className="build-empty-document-prompt__art" aria-hidden="true">
+        <svg viewBox="0 0 120 104" fill="none">
+          <path d="M7 83c17-13 29-13 43 0s26 13 42 0 17-12 21-10" stroke="currentColor" strokeWidth="1.5" strokeDasharray="3 4" />
+          <path d="M17 24 34 9l14 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M29 14v14m-7-7h14" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
+          <rect x="42" y="20" width="53" height="68" rx="4" fill="#fffaf0" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M52 34h32M52 42h24M52 58c8-7 15-7 22 0s13 7 18 1" stroke="#c8ad72" strokeWidth="1.4" strokeLinecap="round" />
+          <path d="m82 73 3.2 6.5 7.2 1-5.2 5 .9 7-6.1-3.4-6.3 3.4 1.2-7-5.3-5 7.1-1L82 73Z" fill="#e0b34d" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" />
+          <circle cx="103" cy="22" r="2" fill="#c58b33" />
+          <circle cx="109" cy="32" r="1.25" fill="#c58b33" />
+        </svg>
+      </div>
+      <div className="build-empty-document-prompt__copy">
         <p className="build-empty-document-prompt__eyebrow">A FRESH PAGE</p>
         <h2>Every world starts somewhere.</h2>
-        <p>Begin with a place, a person, or a small mystery. Your first words can go right below.</p>
+        <p>Pick a first thread—or skip the prompt and start typing below.</p>
+        <div className="build-empty-document-prompt__starters" role="group" aria-label="Choose a first heading">
+          {(["A place", "A person", "A mystery"] as const).map(heading =>
+            <button key={heading} type="button" onClick={() => startWith(heading)}>{heading}</button>)}
+        </div>
       </div>
     </section> : null}
     <MarkdownCanvas slots={editSlots} />
