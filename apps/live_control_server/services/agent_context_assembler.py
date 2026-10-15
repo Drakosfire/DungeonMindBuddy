@@ -185,6 +185,7 @@ def assemble_agent_graph_context(
         if conversation_history
         else None
     )
+    initial_sources = None
     session = retrieval_session
     if session is None:
         session = create_session_from_preflight(graph_envelope, question=question)
@@ -192,6 +193,12 @@ def assemble_agent_graph_context(
             hydrate_selected_observations,
         )
         hydrate_selected_observations(session, graph_envelope, root=graph_root)
+        from apps.live_control_server.services.selected_subject_initial_sources import (
+            hydrate_selected_subject_sources,
+        )
+        initial_sources = hydrate_selected_subject_sources(
+            session, graph_envelope, root=graph_root,
+        )
     latest_recap_change = graph_envelope.get("latest_recap_change")
     if isinstance(latest_recap_change, Mapping) and session.latest_recap_change is None:
         # Preserve S1 context on the shared session object so host hydrate and
@@ -225,6 +232,8 @@ def assemble_agent_graph_context(
     # Compatibility debt: projection method remains Hermes-named (A3 proved
     # the packet is harness-neutral; renaming lives outside A5 / graph_memory).
     retrieval_session_packet = session.project_for_hermes()
+    if initial_sources is not None:
+        retrieval_session_packet.update(initial_sources)
     world_scope = AgentWorldScope(
         world_id=world_id,
         campaign_id=campaign_id,

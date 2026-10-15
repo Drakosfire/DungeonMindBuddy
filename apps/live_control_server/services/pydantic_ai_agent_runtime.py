@@ -221,6 +221,12 @@ def _scope_capability_packet(invocation: AgentRuntimeInvocation) -> str:
             initial["latestRecapChange"] = latest_packet
             if isinstance(excerpt, str) and excerpt.strip():
                 initial["admittedRecapExcerpt"] = excerpt.strip()
+        for private_key, model_key in (
+            ("initial_opened_source_reads", "openedSourceReads"),
+            ("initial_source_read_coverage", "sourceReadCoverage"),
+        ):
+            if private_key in packet:
+                initial[model_key] = packet[private_key]
         payload["initialClaimPacket"] = initial
     return (
         "Turn capability policy (runtime-enforced; also required on tool calls).\n"
