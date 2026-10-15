@@ -86,6 +86,7 @@ def test_default_ge_route_and_private_evidence(ordinary):
     assert request.provider_route.order == ("DeepSeek",)
     assert request.provider_route.allow_fallbacks is False
     assert request.max_transport_retries == 0
+    assert request.max_output_tokens == 8192
     output = root / "new-run"
     ledger = json.loads((output / "inference_call_ledger.json").read_text())
     assert ledger["run_id"] == "new-run"
@@ -228,3 +229,21 @@ def test_encounter_profile_budget_finishes_nine_planned_invocations(
     ledger = json.loads((root / "new-run" / "inference_call_ledger.json").read_text())
     assert ledger["pass_invocation_limit"] == 9
     assert ledger["pass_invocation_count"] == 9
+
+
+def test_ordinary_edge_pass_uses_larger_response_capacity(ordinary, monkeypatch):
+    from src.graph_memory.extraction.recap_extraction_profile import RECAP_EXTRACTION_PROFILE
+    root, engine, result = ordinary
+    engine.response = TextResult(text=json.dumps({"observation_edges": []}), observation=deepseek_observation())
+    def run(request):
+        request.category_client.run_pass("edge_pass", model_id=request.model_id,
+            instructions="Extract source-backed relationships", user_content="Ari guards the gate.",
+            pass_spec=RECAP_EXTRACTION_PROFILE.edge_pass)
+        return result
+    monkeypatch.setattr(service, "run_production_extraction", run)
+    invoke(root)
+    assert len(engine.requests) == 1
+    assert engine.requests[0].max_output_tokens == 16384
+    assert engine.requests[0].deadline_ms <= 120000
+    ledger = json.loads((root / "new-run" / "inference_call_ledger.json").read_text())
+    assert ledger["calls"][0]["max_output_tokens"] == 16384

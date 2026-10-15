@@ -183,6 +183,7 @@ def run_recap_production_extraction(
             provider="openrouter",
             model=DEEPSEEK_MODEL,
             max_calls=pass_budget,
+            edge_max_output_tokens=16384,
         )
         if output_dir is None:
             output_dir = (
