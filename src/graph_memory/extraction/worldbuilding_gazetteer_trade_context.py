@@ -23,9 +23,43 @@ from .worldbuilding_gazetteer_scenario_scope import _heading, _ordered_rows
 PROFILE_VERSION = "1.10"
 PROFILE = f"worldbuilding_gazetteer_v1@{PROFILE_VERSION}"
 _TRADE_ACCESS = re.compile(
-    r"\b(?:[^.!?]*\b(?:trade hub|trading hub|commercial hub|market center)"
+    r"(?P<prefix>[^.!?]*\b(?:trade hub|trading hub|commercial hub|market center)"
     r"[^.!?]*?\baccess\s+to\s+)"
     r"(?P<routes>[^.!?]+)[.!?]",
+    re.IGNORECASE,
+)
+_NEGATED_OR_QUALIFIED_ACCESS = re.compile(
+    r"\b(?:no|not|never|without|lack(?:s|ing)?|unable|cannot|can't|"
+    r"limited|restricted|partial|seasonal|intermittent|occasional)\b",
+    re.IGNORECASE,
+)
+_CITY_OF_REFERENCE = re.compile(
+    r"\bcity\s+of\s+(?P<name>[A-Z][A-Za-z'’.-]*(?:\s+[A-Z][A-Za-z'’.-]*)*)"
+)
+_PREPOSITIONAL_CITY_REFERENCE = re.compile(
+    r"\b(?:in|at|from|near|within|outside)\s+(?:the\s+)?"
+    r"(?:(?:city\s+of)\s+)?"
+    r"(?P<name>[A-Z][A-Za-z'’.-]*(?:\s+[A-Z][A-Za-z'’.-]*)*)"
+)
+_NAMED_CITY_SUBJECT = re.compile(
+    r"^\s*(?P<subject>[A-Z][A-Za-z'’.-]*"
+    r"(?:\s+(?:of|the|de|du|van|von|[A-Z][A-Za-z'’.-]*))*)"
+    r"\s+(?i:is|was|has|serves\s+as)\b",
+)
+_POSSESSIVE_CITY_SUBJECT = re.compile(
+    r"^\s*(?P<subject>[A-Z][A-Za-z'’.-]*(?:\s+[A-Z][A-Za-z'’.-]*)*)['’]s\b"
+)
+_PROPER_SUBJECT_COMMA = re.compile(
+    r"^\s*(?P<subject>[A-Z][A-Za-z'’.-]*(?:\s+[A-Z][A-Za-z'’.-]*)*)\s*,"
+)
+_GENERIC_CITY_SUBJECT = re.compile(
+    r"^\s*(?:it(?:['’]s|\s+is)?|this(?:\s+(?:city|place|location))?"
+    r"(?:\s+is)?|that(?:\s+(?:city|place|location))?(?:\s+is)?|"
+    r"the\s+(?:city|place|location)(?:\s+is)?)\b",
+    re.IGNORECASE,
+)
+_GENERIC_SENTENCE_OPENING = re.compile(
+    r"^\s*(?:a|an|the|it|this|that|there|in|at|from|near|within|outside)\b",
     re.IGNORECASE,
 )
 
@@ -54,8 +88,51 @@ def _trade_section_claims(rows: list[dict[str, Any]]) -> tuple[int, list[dict[st
                 **row,
                 "sentence": match.group(0).strip(),
                 "routes": match.group("routes").strip(),
+                "prefix": match.group("prefix"),
             })
     return 1, claims
+
+
+def _same_city_reference(name: str, city_name: str) -> bool:
+    normalized = _normalized_label(name)
+    normalized = re.sub(r"^(?:the\s+)?city\s+of\s+", "", normalized)
+    return normalized == _normalized_label(city_name)
+
+
+def _trade_claim_is_affirmative(claim: dict[str, Any]) -> bool:
+    prefix = claim.get("prefix")
+    return isinstance(prefix, str) and not _NEGATED_OR_QUALIFIED_ACCESS.search(prefix)
+
+
+def _trade_claim_matches_city(claim: dict[str, Any], city_name: str) -> bool:
+    prefix = claim.get("prefix")
+    if not isinstance(prefix, str):
+        return False
+
+    references = [
+        match.group("name")
+        for pattern in (_CITY_OF_REFERENCE, _PREPOSITIONAL_CITY_REFERENCE)
+        for match in pattern.finditer(prefix)
+    ]
+    if any(not _same_city_reference(name, city_name) for name in references):
+        return False
+
+    subject_match = (
+        _NAMED_CITY_SUBJECT.match(prefix)
+        or _POSSESSIVE_CITY_SUBJECT.match(prefix)
+        or _PROPER_SUBJECT_COMMA.match(prefix)
+    )
+    if subject_match is None:
+        if references or _GENERIC_CITY_SUBJECT.match(prefix):
+            return True
+        # An unrecognized proper-name opening may still be the sentence subject
+        # (for example, "Otherport — a trading hub ..."). Accept generic
+        # descriptive openings, and fail closed on other unmatched subjects.
+        return _GENERIC_SENTENCE_OPENING.match(prefix) is not None
+    subject = subject_match.group("subject")
+    if _normalized_label(subject) in {"it", "this", "that", "the city", "the place", "the location"}:
+        return True
+    return _same_city_reference(subject, city_name)
 
 
 def _source_binding(node: dict[str, Any]) -> tuple[str, str] | None:
@@ -147,6 +224,13 @@ def _apply_trade_context(
             "reason": "trade_access_claim_not_unique",
             "claim_count": len(claims),
         }
+    if not _trade_claim_is_affirmative(claims[0]):
+        return result, {
+            "profile": PROFILE,
+            "status": "skipped",
+            "reason": "trade_access_claim_not_affirmative",
+            "source_span_ref_id": claims[0].get("source_span_ref_id"),
+        }
 
     title = _document_city_title(rows)
     if title is None:
@@ -156,6 +240,13 @@ def _apply_trade_context(
             "reason": "city_title_unresolved",
         }
     city_name, _title_row = title
+    if not _trade_claim_matches_city(claims[0], city_name):
+        return result, {
+            "profile": PROFILE,
+            "status": "skipped",
+            "reason": "trade_city_subject_mismatch",
+            "source_span_ref_id": claims[0].get("source_span_ref_id"),
+        }
     locations = _matching_city_nodes(nodes, city_name)
     if len(locations) != 1:
         return result, {
