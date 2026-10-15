@@ -93,6 +93,13 @@ def test_neutral_linker_replays_base_characterization(case: dict[str, Any]) -> N
         case["markdown"],
         _bindings(case["nodes"]),
     )
+    # The historical fixture deliberately stays unchanged. Its one prefix
+    # false positive is superseded by the whole-word repair (tea/team dogfood).
+    if case["case_id"] == "surface_embedded_in_longer_word":
+        assert projected == case["markdown"]
+        assert mentions == []
+        assert diagnostics == []
+        return
     assert projected == case["projected_markdown"]
     assert [
         [m.mention_id, m.node_id, m.label, m.start_offset, m.end_offset]
@@ -109,6 +116,13 @@ def test_recap_adapter_replays_base_characterization(case: dict[str, Any]) -> No
         case["markdown"],
         _node_views(case["nodes"]),
     )
+    # The historical fixture deliberately stays unchanged. Its one prefix
+    # false positive is superseded by the whole-word repair (tea/team dogfood).
+    if case["case_id"] == "surface_embedded_in_longer_word":
+        assert projected == case["markdown"]
+        assert mentions == []
+        assert diagnostics == []
+        return
     assert projected == case["projected_markdown"]
     assert [
         [m.mention_id, m.node_id, m.label, m.start_offset, m.end_offset]

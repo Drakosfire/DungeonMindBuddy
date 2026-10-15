@@ -1,6 +1,6 @@
 # INGEST: ordinary recap GenerationEngine execution
 
-Status: ACTIVE under PRIME's standing ingestion scope, 2026-10-15.
+Status: MERGED as #1207 at `98dfb01ff9ba88364b0f329521beb7ba7bb2f01c`, following ARCHITECTURE PASS on `cbd778cf37d3b6384725281338649499a10d3e1b` (60 independent tests). Implementation/model-control lease closed and returned to DOGFOOD. Fresh extraction/source-fidelity acceptance remains in progress under PRIME.
 Base: `75152c52f430dfb0c6c8dcbc6d6ead65263ce6b2` (#1206).
 Lane: `codex/recap-generationengine-default`, `/tmp/prime-mirathorn-governance-current`.
 Topology: serial; solo PRIME implementation, independent ARCHITECTURE review.
