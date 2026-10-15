@@ -1,6 +1,6 @@
 # INGEST: exact source handles for recap actors
 
-Status: ACTIVE under PRIME's authorized ingestion goal, 2026-10-15.
+Status: SETTLED. Merged #1210 as `d03fdb67da877c604e19242d0bdc254515fe89f7` after independent review PASS at `7f2a0f9a598e0d6efea267a12c6cd3abcaefbad4` (75 independent tests, 87 author tests). Implementation lease ended. Runtime rollout and semantic acceptance remain outstanding.
 Base: `de4100b6c1b9ac8e5e586d112d0bdd0880f6834d`.
 Lane: `codex/recap-actor-source-handles`, `/tmp/prime-recap-mention-boundaries`.
 Topology: serial successor; solo PRIME implementation, ARCHITECTURE review.
