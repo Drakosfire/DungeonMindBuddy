@@ -325,6 +325,47 @@ def test_v17_adds_only_unambiguous_affirmed_exact_role_line_citations():
     ]
 
 
+@pytest.mark.parametrize("description", [
+    "Nera is not currently a Representative of Commerce.",
+    "Nera may become a Representative of Commerce.",
+    "Nera might become the Representative of Commerce.",
+    "Nera would be the Representative of Commerce.",
+    "If appointed, Nera is the Representative of Commerce.",
+    "Nera is the Representative of Commerce if appointed.",
+    "Nera is the Representative of Commerce unless the council objects.",
+    "Nera is the Representative of Commerce, subject to council approval.",
+])
+def test_v17_does_not_cite_unasserted_role_claim(description):
+    rows = [{
+        "source_span_ref_id": "span:role",
+        "line_start": 1,
+        "line_end": 1,
+        "text": "Role: Representative of Commerce",
+    }]
+    graph = {
+        "session_id": None,
+        "beats": [],
+        "source_artifact_ids": ["artifact:synthetic"],
+        "nodes": [{
+            "node_id": "npc:nera",
+            "label": "Nera",
+            "node_type": "character",
+            "description": description,
+            "evidence_refs": [],
+        }],
+        "edges": [],
+        "deferred_items": [],
+    }
+
+    result, diagnostics = compile_gazetteer_role_citations(graph, rows)
+
+    assert result["nodes"][0]["evidence_refs"] == []
+    assert diagnostics["role_line_citations"]["records"] == [{
+        "source_span_ref_id": "span:role",
+        "decision": "no_matching_character_claim",
+    }]
+
+
 def test_v17_role_citation_does_not_duplicate_an_existing_reference():
     rows = [{
         "source_span_ref_id": "span:role", "line_start": 1, "line_end": 1,
