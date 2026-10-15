@@ -134,6 +134,7 @@ def test_negated_or_qualified_access_is_not_added_as_affirmative():
         "A trading hub with no access to canal boats.",
         "A trading hub with limited access to canal boats.",
         "A trading hub without access to canal boats.",
+        "A trading hub could gain access to canal boats.",
     ):
         result, diagnostics = _apply_trade_context(
             _candidate(), _rows_with_trade(sentence=sentence),
@@ -157,6 +158,15 @@ def test_explicit_trade_city_must_match_the_document_city():
     other_city = "Otherport is a trading hub with access to moonlit ferries."
     result, diagnostics = _apply_trade_context(
         _candidate(), _rows_with_trade(sentence=other_city),
+    )
+    assert result == _candidate()
+    assert diagnostics["reason"] == "trade_city_subject_mismatch"
+
+    town_of_other_city = (
+        "The town of Otherport is a trading hub with access to moonlit ferries."
+    )
+    result, diagnostics = _apply_trade_context(
+        _candidate(), _rows_with_trade(sentence=town_of_other_city),
     )
     assert result == _candidate()
     assert diagnostics["reason"] == "trade_city_subject_mismatch"
