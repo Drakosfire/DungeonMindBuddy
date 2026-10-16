@@ -191,6 +191,59 @@ describe("IngestionModule", () => {
     expect(window.location.search).toBe("?world=elderwyld");
   });
 
+  it("identifies prepared recap work when a blank entry restores a local draft without its source text", async () => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld");
+    window.localStorage.setItem("dmb.ingestion.longmont-c2.session.29", JSON.stringify({
+      version: 3,
+      activeStep: 3,
+      rawText: "",
+      recapSession: 29,
+      slug: "",
+      title: "Session 29 - The Meat Mind of Mireward Reach",
+      showAdvanced: false,
+      forceStage: false,
+      forceRecap: false,
+      latestResult: null,
+      previewSignature: null,
+      state: { status: "idle" },
+      ignoreDiskResume: false,
+    }));
+    vi.mocked(recapIngestApi.postRecapIngest).mockResolvedValue(makeStatus({
+      session: 29,
+      status: "breadcrumb_required",
+      states: ["normalized_reused", "ingest_status_inspected"],
+    }));
+    vi.mocked(liveApi.getRecapArtifacts).mockResolvedValue({
+      schema_version: "dmb_recap_artifacts_registry_v1",
+      version: "1",
+      records: [{
+        schema_version: "dmb_recap_artifact_record_v1",
+        artifact_id: "recap-session-29",
+        campaign_id: "longmont-c2",
+        session_id: "session-29",
+        source_recap_path: "corpus/eldyrwild-markdown/Session 29 - The Meat Mind.md",
+        run_bundle_uri: "bundle",
+        run_manifest_uri: "manifest",
+        source_span_index_uri: "index",
+        graph_run_refs: [],
+        default_projection_mode: "preview_union",
+        registered_at: "2026-06-29T00:00:00Z",
+        updated_at: "2026-06-29T00:00:00Z",
+        registry_source: "scan",
+      }],
+    });
+
+    render(<IngestionModule campaignId="longmont-c2" session={29} managedWorldId="elderwyld" />);
+
+    expect(await screen.findByRole("note", { name: "Prepared recap source" })).toHaveTextContent(
+      "The saved recap is ready, but its text is not loaded in this editor.",
+    );
+    expect(screen.queryByRole("textbox", { name: "Raw recap text" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("option", { name: /Session 29/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Review recap canvas" })).toBeEnabled();
+    expect(screen.getByLabelText("Prior processed recap")).toHaveDisplayValue("Load a processed recap…");
+  });
+
   it("renders editable recap/source session input", async () => {
     const user = setupIngestUser();
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
@@ -1019,7 +1072,8 @@ describe("IngestionModule", () => {
     );
     await user.click(screen.getByRole("button", { name: "Prep for ingest" }));
 
-    const errorToast = await screen.findByRole("alert");
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("The recap could not be prepared."));
+    const errorToast = screen.getByRole("alert");
     const toolbar = screen.getByRole("region", { name: "Ingest workspace toolbar" });
     expect(within(toolbar).getByRole("status")).toHaveTextContent("Needs attention · details below.");
     expect(toolbar).not.toHaveTextContent("The recap could not be prepared.");
@@ -1472,6 +1526,8 @@ describe("IngestionModule", () => {
     expect(screen.queryByText("Loaded processed recap")).not.toBeInTheDocument();
     expect(new URLSearchParams(window.location.search).get("view")).not.toBe("recap");
     expect(screen.queryByText("Saved recap route has an invalid campaign or session.")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Dismiss ingestion toast" }));
+    expect(screen.getByLabelText("Raw recap text")).toBeInTheDocument();
   });
 
   it("starts a new recap from a loaded processed recap without losing prior-load options", async () => {

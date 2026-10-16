@@ -1,7 +1,7 @@
 # DOGFOOD: simplify Ingest local source navigation
 
 **Status:** ACTIVE — directly authorized follow-up to operator feedback on 2026-10-16.
-**Base:** fetched `origin/main@494f9646a177fd43e0a8e25d7211a401749f859e` after #1245 merged.
+**Base:** fetched `origin/main@75951c99a9e1d50861133da3283250781e2a62f4` after #1246 merged.
 **Branch:** `codex/ingest-local-nav-source-flow`.
 **Checkout:** `/home/drakosfire/.codex/worktrees/ingest-manual-source-load/DungeonMindBuddy`.
 **Topology:** serial successor to merged #1191. Parallel-independent from open #1235 (`codex/ingest-source-observation-review`, head `46ecdd5019f7fc70519b0e7b50b1a1ebe6955994`, based on `b2c76cb6c83b3e4d9835376dd92956ab5f2b6f13`); #1235 changes extraction/promote and Graph Review files, with no overlap in this lease. Open #1244 changes graph packaging and its handoff, also with no overlap. The #1243 main merge changed no leased UI files.
@@ -74,18 +74,26 @@ provider files are leased.
 
 ## Current-main rebase and acceptance — 2026-10-16
 
-Rebased the existing PR onto fetched `origin/main@494f9646a177fd43e0a8e25d7211a401749f859e`.
+Rebased the existing PR onto fetched `origin/main@75951c99a9e1d50861133da3283250781e2a62f4`.
 The cumulative diff remains limited to the nine leased paths. The focused
-IngestionModule and MemoryIngestPage suites pass 71 tests; UI typecheck and
-production build pass (with the existing Vite large-chunk warning); and
-`git diff --check` passes.
+IngestionModule and MemoryIngestPage suites pass 72 tests. Both UI TypeScript
+projects pass when their build-info files are redirected to `/tmp`; the
+default typecheck cannot write its configured cache under the read-only shared
+`node_modules`. The production bundle builds to `/tmp/dmb-ingest-preview` with
+the existing Vite large-chunk warning. `git diff --check` passes.
 
-The rebased production preview was rendered at desktop and 390px. At desktop,
-campaign/session/title and source/workflow actions sit in one local toolbar
-above the blank welcome. At 390px, those fields stack without horizontal
-overflow and the welcome remains readable. No prepare, extract, review, save,
-or ingestion-data action was performed. 5202 and 5204 were not changed; 5204
-still serves the pre-nav implementation until this PR is reviewed and deployed.
+Rendered the rebuilt production bundle at desktop and a 390px viewport. At both
+widths, campaign/session/title and source/workflow actions stay in the local
+toolbar; the 390px viewport reports document scroll width 375px, with no
+horizontal overflow. The render exposed a restored-draft state where prepared
+Session 29 work appeared alongside an empty raw-text
+editor. The surface now identifies that prepared source and directs the user
+to Review or an explicit Load, rather than presenting the empty field as the
+active source. The static preview had no live artifact registry, so this
+verifies presentation only, not reading the live saved source. No prepare,
+extract, review, save, or ingestion-data action was performed. 5202 and 5204
+were not changed; 5204 still serves the pre-nav implementation until this PR
+is reviewed and deployed.
 
 ## Implementation notes
 
@@ -98,6 +106,10 @@ still serves the pre-nav implementation until this PR is reviewed and deployed.
 - Manual prior-recap load now writes a valid recap route after source content
   is read, bypasses route-restoration validation for the manual selection, and
   displays failures instead of a success state when the source is missing.
+- When a restored local draft has a prepared recap but no loaded source text,
+  the editor shows a prepared-source notice instead of an empty raw-input
+  field. A regression test covers this state; a failed explicit source read
+  still returns to the raw editor for recovery.
 
 ## Completion
 

@@ -793,6 +793,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const [priorIngestionArtifacts, setPriorIngestionArtifacts] = useState<RecapArtifactRecord[]>([]);
   const [selectedPriorArtifactId, setSelectedPriorArtifactId] = useState("");
   const [loadingPriorIngestion, setLoadingPriorIngestion] = useState(false);
+  const [priorSourceReadFailed, setPriorSourceReadFailed] = useState(false);
   const [ignoreDiskResume, setIgnoreDiskResume] = useState(false);
   const lastToastKeyRef = useRef<string | null>(null);
   /** When set, the result→toast effect skips one cycle so Prep/Run can own the toast. */
@@ -903,6 +904,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   // Trust live graph_preview.status only — draft states must not claim materialized.
   const hasPreviewUnionStore = graphPreview?.status === "preview_union_store_ready";
   const hasNormalizedRecap = hasApplied;
+  const showPreparedSourceNotice =
+    sourceMode === "raw" && !rawTextSatisfied && hasNormalizedRecap && recapSession > 0 && !priorSourceReadFailed;
   const canBuildGraphPreview = hasNormalizedRecap && !busy && (!hasPreviewUnionStore || forceGraphRun);
   const canMaterializePreviewSupergraph = hasNormalizedRecap && !busy && (!hasPreviewUnionStore || forceGraphRun) && Boolean(
     extractGraphWithModel ||
@@ -1254,6 +1257,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     setForceRecap(false);
     setForceGraphRun(false);
     setSourceMode("raw");
+    setPriorSourceReadFailed(false);
     setLoadedArtifact(null);
     setProcessedPreviewText("");
     setSelectedPriorArtifactId("");
@@ -1297,6 +1301,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   async function loadPriorIngestion(record: RecapArtifactRecord) {
     const sessionNumber = recapSessionNumber(record.session_id);
     if (sessionNumber == null || sessionNumber <= 0) {
+      setPriorSourceReadFailed(true);
       setToast({
         tone: "error",
         title: "Could not load ingestion",
@@ -1309,6 +1314,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
 
     invalidateInFlightHydrateInspect();
     setLoadingPriorIngestion(true);
+    setPriorSourceReadFailed(false);
     setSourceMode("processed");
     setLoadedArtifact(record);
     setRawText("");
@@ -1358,6 +1364,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       setSourceMode("raw");
       setLoadedArtifact(null);
       setProcessedPreviewText("");
+      setPriorSourceReadFailed(true);
       setToast({
         tone: "error",
         title: "Could not load prior ingestion",
@@ -2236,6 +2243,14 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                   placeholder="Load a prior ingestion to preview the normalized recap that graph extraction will use."
                 />
               </div>
+            ) : showPreparedSourceNotice ? (
+              <div className="ingestion-prepared-source-notice" role="note" aria-label="Prepared recap source">
+                <strong>Prepared recap · Session {recapSession}</strong>
+                <p>
+                  The saved recap is ready, but its text is not loaded in this editor. Use Review above to inspect it,
+                  or select it under Prior processed recap and press Load if it is listed there.
+                </p>
+              </div>
             ) : (
               <div className="ingestion-raw-block">
                 <label htmlFor="ingestion-raw-text">
@@ -2249,6 +2264,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                   onChange={(event) => {
                     setRawText(event.target.value);
                     setSourceMode("raw");
+                    setPriorSourceReadFailed(false);
                   }}
                   rows={18}
                   placeholder="Session 22 Recap&#10;&#10;The group turns their focus..."

@@ -315,6 +315,29 @@ button.ingest-welcome-action {
   white-space: nowrap;
 }
 
+.ingestion-prepared-source-notice {
+  box-sizing: border-box;
+  grid-column: 1 / -1;
+  min-height: 20rem;
+  padding: 1.1rem 1.2rem;
+  border: 1px solid #3a4358;
+  border-left: 3px solid #d9a83f;
+  border-radius: 0.65rem;
+  background: linear-gradient(145deg, rgba(31, 39, 54, 0.72), rgba(20, 25, 36, 0.82));
+  color: #d4dbea;
+}
+
+.ingestion-prepared-source-notice strong {
+  color: #f0d7a9;
+  font-weight: 700;
+}
+
+.ingestion-prepared-source-notice p {
+  max-width: 48rem;
+  margin-block: 0.6rem 0;
+  line-height: 1.6;
+}
+
 .ingest-surface-root .ingestion-source-grid {
   grid-template-columns: minmax(0, 1fr);
 }
