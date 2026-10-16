@@ -83,3 +83,14 @@ def challenge_cases():
              ('Tern nesting record', 'Terns nest on the eastern cliffs.')],
             ['Identify the lantern fuel.'], 'provisionally_supported', ['u1']),
     }
+
+
+def coverage_cases():
+    """Collection control frozen before the batched coverage policy run."""
+    return {'distinct_gatekeeper_collection': _case('Which named gatekeepers guard which gates?',
+        [('Aster gatekeeping record', 'Aster guards the northern gate.'),
+         ('Bela gatekeeping record', 'Bela guards the southern gate.'),
+         ('Cora gatekeeping record', 'Cora guards the eastern gate.'),
+         ('Tern nesting record', 'Terns nest on the cliffs.')],
+        ['Identify every named gatekeeper and their gate.'],
+        'provisionally_supported', ['u1', 'u2', 'u3'])}

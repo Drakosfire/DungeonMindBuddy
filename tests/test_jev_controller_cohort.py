@@ -72,3 +72,11 @@ def test_challenge_controls_do_not_change_frozen_original_cohort():
     assert len(controls) == 3
     for case in controls.values():
         validate_snapshot(case['snapshot'])
+
+
+def test_collection_control_has_three_distinct_required_items():
+    from evals.graph_memory_layer.jev_controller_cohort import coverage_cases
+    collection = coverage_cases()['distinct_gatekeeper_collection']
+    validate_snapshot(collection['snapshot'])
+    assert collection['gold']['required_selected_ids'] == ['u1', 'u2', 'u3']
+    assert len(collection['snapshot']['actions']) == 4

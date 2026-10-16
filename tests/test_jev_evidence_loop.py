@@ -339,3 +339,86 @@ def test_challenge_none_is_heuristic_unknown_and_failure_cannot_pass(tmp_path, c
         assert result['rounds'][-1]['coverage_judgment'] == 'heuristic_no_plausible_unread_competitor'
     else:
         assert result['unresolved_requirements'] == result['rounds'][-1]['unresolved'] == ['leader']
+
+
+def test_coverage_acquires_all_useful_actions_as_one_validated_wave(tmp_path):
+    snap = fixture()
+    snap['requirements'] = [snap['requirements'][0]]
+    waves, evidence_seen = [], []
+    async def acquire(actions):
+        waves.append([a['id'] for a in actions])
+        return {a['id']: [snap['units'][uid] for uid in a['unit_ids']] for a in actions}
+    async def evaluate(request):
+        if request['state'].get('phase') == 'unread_coverage_before_sufficiency':
+            return {'answers': {q['name']: {'kind': 'choice', 'selected': 'useful'} for q in request['questions']},
+                    'observation': {'response_model': 'jev-1.14.0'}}
+        evidence_seen.append([u['id'] for u in request['state']['evidence']])
+        return decisions(request)
+    result = asyncio.run(run_loop(snap, evaluate, output=tmp_path/'run', retrieve_many=acquire,
+                                  coverage_before_stop=True))
+    assert waves == [['a1'], ['a2', 'a3']]
+    assert evidence_seen == [['u1'], ['u1', 'u2', 'u3']]
+    assert result['status'] == 'provisionally_supported'
+    assert result['rounds'][0]['challenge']['selected_actions'] == ['a2', 'a3']
+    assert result['rounds'][-1]['coverage_judgment'] == 'legal_catalog_exhausted_not_world_complete'
+
+
+@pytest.mark.parametrize('fault,expected', [('unknown','retrieval_unavailable_or_invalid'),
+    ('missing_key','challenge_unavailable_or_invalid'), ('partial_batch','retrieval_unavailable_or_invalid')])
+def test_coverage_unknown_malformed_and_partial_wave_hold_success(tmp_path, fault, expected):
+    snap = fixture()
+    snap['requirements'] = [snap['requirements'][0]]
+    decisions_count = []
+    async def acquire(actions):
+        loaded = {a['id']: [snap['units'][uid] for uid in a['unit_ids']] for a in actions}
+        if fault == 'unknown' and len(actions) > 1:
+            raise TimeoutError()
+        if fault == 'partial_batch' and len(actions) > 1:
+            loaded.pop('a3')
+        return loaded
+    async def evaluate(request):
+        decisions_count.append(request)
+        if request['state'].get('phase') == 'unread_coverage_before_sufficiency':
+            answers = {q['name']: {'kind': 'choice', 'selected': 'unknown' if fault == 'unknown' else 'useful'}
+                       for q in request['questions']}
+            if fault == 'missing_key':
+                answers.pop(next(iter(answers)))
+            return {'answers': answers, 'observation': {'response_model': 'jev-1.14.0'}}
+        return decisions(request)
+    result = asyncio.run(run_loop(snap, evaluate, output=tmp_path/'run', retrieve_many=acquire,
+                                  coverage_before_stop=True))
+    assert result['status'] == expected
+    assert len(decisions_count) == 2
+    from evals.graph_memory_layer.jev_live_evidence import writer_request
+    with pytest.raises(ValueError):
+        writer_request(result, snap['question'])
+
+
+def test_experimental_stopping_policies_are_mutually_exclusive(tmp_path):
+    with pytest.raises(ValueError, match='one experimental'):
+        asyncio.run(run_loop(fixture(), None, output=tmp_path/'run', challenge_before_stop=True,
+                             coverage_before_stop=True))
+    assert not (tmp_path/'run').exists()
+
+
+@pytest.mark.parametrize('label,probability,reads,unknown', [
+    ('useful', .0, ['a1'], []), ('unknown', .5, ['a1'], ['a1']),
+    ('not_useful', .62, ['a1'], ['a1']), ('not_useful', .95, [], []),
+    ('not_useful', None, ['a1'], ['a1']),
+])
+def test_coverage_only_skips_confident_negative_hints(label, probability, reads, unknown):
+    from evals.graph_memory_layer.jev_evidence_loop import coverage_disposition
+    answer = {'selected':label}
+    if probability is not None:
+        answer['probabilities'] = {'not_useful':probability}
+    chosen, uncertain, skipped = coverage_disposition([{'id':'a1'}], {'use_a1':answer}, .9)
+    assert chosen == reads and uncertain == unknown
+    assert skipped == ([] if reads else ['a1'])
+
+
+@pytest.mark.parametrize('probability', [True, float('nan'), -1, 1.2, 'high'])
+def test_invalid_coverage_probability_cannot_exclude_evidence(probability):
+    from evals.graph_memory_layer.jev_evidence_loop import coverage_disposition
+    with pytest.raises(ValueError, match='probability'):
+        coverage_disposition([{'id':'a1'}], {'use_a1': {'selected':'not_useful',
+            'probabilities': {'not_useful':probability}}}, .9)
