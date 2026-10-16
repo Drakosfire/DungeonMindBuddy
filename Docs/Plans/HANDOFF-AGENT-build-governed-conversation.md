@@ -95,3 +95,10 @@ Tests must reproduce the lost observation, prove correct subject/revision/pins
 and reject mismatched or unsupported claims. No new durable APP schema or public
 Graph authority contract, provider calls or retained publication. Current head
 remains unmerged pending repair and a new independent exact-head review.
+
+The same owning preservation repair additionally leases
+`apps/live_control_server/services/agent_context_trace_projection.py`: its
+identifier consistency check must count anchored reviewed-source assertions
+alongside canonical attributes, matching the broker's validated event without
+weakening result-hash, snapshot or typed-payload checks. Existing consumer tests
+cover the protected trace with the reviewed assertion and its exact passage.
