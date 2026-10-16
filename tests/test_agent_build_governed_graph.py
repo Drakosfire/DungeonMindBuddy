@@ -127,7 +127,13 @@ class SyntheticHarness:
                         page_args = {**operation_args, 'resultPageToken': token}
                         page = on_graph_operation({'toolName': 'expand_graph_retrieval', 'arguments': page_args})
                         operation_pages.append((page_args, page['resultJson']))
-                        token = json.loads(page['resultJson']).get('nextPageToken')
+                        page_value = json.loads(page['resultJson'])
+                        token = page_value.get('nextPageToken')
+                        needed = [r for r in page_value.get('records', [])
+                            if r['path'] == ['reviewedSourceObservations', 0]]
+                        if any('value' in r or r.get('end') == r.get('length') for r in needed):
+                            assert token, 'fixture must leave unrelated pages unread'
+                            break
                 elif 'reviewedSourceObservations' not in result:
                     return AgentRuntimeResult(status='error', error_code=result.get('code', 'graph_operation_unavailable'))
                 if self.graph == 'observation':
@@ -303,6 +309,10 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
             native_observation = native_observation.model_copy(update={'subject_node_id': 'another-person'})
         elif observation == 'wrong_source':
             native_observation = native_observation.model_copy(update={'source_revision_id': 'another-source-revision'})
+        observations = (native_observation,)
+        if observation in {'paged', 'paged-mutated'}:
+            observations += (native_observation.model_copy(update={
+                'assertion_id': 'unrelated-observation', 'text': 'Unrelated qualified description. ' * 300}),)
         result = WorldGraphRetrievalResult.model_validate({
             'operation': 'object', 'outcome': 'enough', 'requestedNodeId': 'frank',
             'snapshot': {'worldId': 'native-build-world', 'campaignId': '', 'scopeMode': 'world',
@@ -310,11 +320,11 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
                 'headRevisionId': 'native-rev-3', 'isHead': True},
             'sourceAnchors': [{'anchorId': 'anchor-one', 'revisionId': 'native-rev-3', 'evidenceRefId': EVIDENCE_ID,
                 'sourceArtifactId': 'artifact-one', 'sourceDomain': 'worldbuilding', 'readable': True,
-                'locatorKind': 'source_span', 'supportingAssertionIds': ['observation-one']}],
+                'locatorKind': 'source_span', 'supportingAssertionIds': [row.assertion_id for row in observations]}],
         })
         resolved = direct.ResolvedWorldGraphReviewedObjectV3(result, (SimpleNamespace(
             anchor_id='anchor-one', graph_revision='native-rev-3', evidence_ref_id=EVIDENCE_ID,
-            source_artifact_id='artifact-one', source_revision_id='source-rev-one'),), (native_observation,), (), ())
+            source_artifact_id='artifact-one', source_revision_id='source-rev-one'),), observations, (), ())
         monkeypatch.setattr(direct, 'direct_services_from_config', lambda _: SimpleNamespace())
         monkeypatch.setattr(direct, 'get_object_with_reviewed_sources_direct_v3', lambda *_: resolved)
         monkeypatch.setattr(svc._PolicyExecutionAdapter, '_related_recap_offers', lambda *_: [])
@@ -355,13 +365,14 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
         for trace in traces for observation in trace.observations)
     if observation:
         event, = [e for e in turn.graph_context_execution.events if e.kind == 'validated_graph_operation_v3']
-        assert event.assertion_ids == ['observation-one']
+        assert set(event.assertion_ids) == ({'observation-one', 'unrelated-observation'} if observation == 'paged' else {'observation-one'})
         assert event.returned_source_pins[0].source_revision_id == 'source-rev-one'
         if observation == 'paged':
             attempts = [e for e in turn.graph_context_execution.events if e.kind == 'provider_attempt_authorized_v3']
             assert len(attempts) == 3
             assert 'observation-one' not in attempts[1].included_assertion_ids
             assert 'observation-one' in attempts[2].included_assertion_ids
+            assert 'unrelated-observation' not in attempts[2].included_assertion_ids
             assert len(attempts[2].included_source_read_event_ids) == 1
             assert len([e for e in turn.graph_context_execution.events if e.kind == 'validated_source_read_v2']) == 1
 

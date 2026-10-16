@@ -217,7 +217,12 @@ def test_parent_bytes_survive_real_harness_dispatch_and_provider_serializer(
                 request_overrides={"parallel_tool_calls": False},
             )
             delivered = provider["messages"][1]["content"]
-            assert json.loads(delivered)["schema"] == "dmb_graph_tool_overview_v1"
+            overview = json.loads(delivered)
+            assert overview["schema"] == "dmb_graph_tool_overview_v1"
+            assert "needed complete detail record" in overview["detailUse"]
+            assert "Do not drain unrelated pages" in overview["detailUse"]
+            assert "Open the supporting source" in overview["interpretation"]
+            assert len(delivered.encode()) <= 8000
             assert parent.inclusion(TOOL, [delivered])[0].assertion_ids == frozenset()
             assert len(calls) == 1
     finally:

@@ -54,6 +54,24 @@ class GraphToolPresentation:
         result = _Result(tool, event_id, raw, json.loads(raw))
         payload = self.cache.present(tool, arguments, self.scope, raw)
         value = json.loads(payload)
+        if value.get("schema") == OVERVIEW_SCHEMA:
+            # Keep parent admission and model-facing workflow aligned. Source
+            # opening supplies passage evidence, not a hidden assertion target.
+            value["detailUse"] = (
+                "For factual claims, fetch the needed complete detail record via resultPageToken. "
+                "Do not drain unrelated pages."
+            )
+            value["interpretation"] = (
+                "Discovery only; source reads do not admit hidden targets. Preserve qualifications. "
+                "Open the supporting source before citing."
+            )
+            payload = json.dumps(
+                value, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+            )
+            from .graph_tool_transport import PAGE_BYTES
+
+            if len(payload.encode()) > PAGE_BYTES:
+                raise ValueError("Parent overview exceeds presentation budget")
         if value.get("schema") in {PAGE_SCHEMA, OVERVIEW_SCHEMA}:
             self._results[value["resultId"]] = result
         elif payload != raw:

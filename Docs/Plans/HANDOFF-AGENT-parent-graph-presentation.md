@@ -74,3 +74,15 @@ Logs: `/tmp/parent-presentation-regression.log`,
 `/tmp/parent-graph-dispatch-tests.log`. Ruff and cumulative diff checks pass.
 Overview rows remain discovery-only until exact complete detail/object records
 are delivered; no omitted provenance becomes factual/citation authority.
+
+Independent review of `8f5c77ed` held the slice on misleading optional-detail
+instructions. Repair keeps the same overview schema but parent-overrides its
+existing detailUse/interpretation fields with shorter instructions requiring the
+needed complete record and separate supporting source, without draining unrelated
+pages. The actual serialized Harness test asserts this guidance. The real APP
+witness now leaves later unrelated observation pages unread, admits the desired
+assertion, excludes the unrelated assertion and completes with an openable source.
+69 tests pass after repair (`/tmp/parent-presentation-regression-v3.log`); the
+intermediate over-budget wording was caught by tests and shortened to preserve
+the existing 8KB cap. No inference or serving changes. Exact new head requires
+independent review before acceptance.
