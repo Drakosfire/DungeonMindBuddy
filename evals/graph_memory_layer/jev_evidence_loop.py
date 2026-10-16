@@ -82,6 +82,9 @@ def request_for(snapshot: dict, units: list[dict], available: list[dict]) -> dic
 
 
 def validate_answers(request: dict, result: dict) -> dict:
+    observation = result.get("observation", {})
+    if "response_model" in observation and observation["response_model"] != request["model"]:
+        raise ValueError("Returned decision model differs from pinned request")
     answers = result["answers"]
     if set(answers) != {q["name"] for q in request["questions"]}:
         raise ValueError("Decision keys differ")
@@ -105,7 +108,7 @@ async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], 
     validate_snapshot(snapshot)
     if not 0 <= relevant_min <= 1:
         raise ValueError("Invalid experimental relevance threshold")
-    output.mkdir(parents=True, exist_ok=False)
+    output.mkdir(parents=True, exist_ok=False, mode=0o700)
     started = time.perf_counter()
     (output / "snapshot.json").write_text(json.dumps(snapshot, ensure_ascii=False, indent=2))
     visited, seen, selected = set(), {}, set()

@@ -164,3 +164,17 @@ def test_discovery_hints_are_explicitly_not_support(tmp_path):
         assert 'Legal action labels are discovery hints, never evidence' in request['state']['rules']
         return decisions(request)
     asyncio.run(run_loop(fixture(), evaluate, output=tmp_path / "run"))
+
+
+@pytest.mark.parametrize("returned", [None, "jev-1.13.0", "gpt-6-luna"])
+def test_returned_model_mismatch_retains_usage_and_stops(tmp_path, returned):
+    async def evaluate(request):
+        result = decisions(request)
+        result["observation"]["response_model"] = returned
+        return result
+    result = asyncio.run(run_loop(fixture(), evaluate, output=tmp_path / "run"))
+    assert result["status"] == "decision_unavailable_or_invalid"
+    assert len(result["observations"]) == 1
+    assert result["input_tokens_reported"] == 100
+    assert result["observations"][0]["response_model"] == returned
+    assert (tmp_path / "run").stat().st_mode & 0o777 == 0o700
