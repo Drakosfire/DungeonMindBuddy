@@ -47,6 +47,9 @@ from apps.live_control_server.services.agent_graph_policy import (
     GRAPH_SYSTEM_POLICY as _GRAPH_SYSTEM_POLICY,
     resolve_agent_graph_openai_inference as _resolve_hermes_openai_inference,
 )
+from apps.live_control_server.services.graph_tool_transport import (
+    OVERVIEW_SCHEMA, PAGE_SCHEMA, PAGE_BYTES, TransportScope,
+)
 from apps.live_control_server.services.agent_turn_trace import (
     map_hermes_observer_to_model_call,
 )
@@ -1434,7 +1437,9 @@ class _GraphOperationReservation:
         broker: Callable[[str, Mapping[str, Any]], tuple[str, Mapping[str, Any] | None]],
         source_limit: int = 0,
         context_limit: int = 0,
+        scope: TransportScope | None = None,
     ) -> None:
+        self.scope = scope
         self.limit = limit
         self.source_limit = source_limit
         self.context_limit = context_limit
@@ -1442,6 +1447,7 @@ class _GraphOperationReservation:
         self.count = 0
         self.source_count = 0
         self.context_count = 0
+        self.has_pages = False
         self.indeterminate = False
         self.agents: list[Any] = []
         self._lock = threading.Lock()
@@ -1456,6 +1462,48 @@ class _GraphOperationReservation:
         with self._lock:
             return self._call_locked(tool_name, arguments)
 
+    def _presentation_schema(self, result: Mapping[str, Any], tool: str,
+                             arguments: Mapping[str, Any], encoded: str) -> str | None:
+        expected = {
+            "expand_graph_retrieval": {"dmb_world_graph_retrieval_result_v1"},
+            "read_graph_source": {"dmb_world_graph_source_anchor_read_v1", "dmb_read_graph_source_batch_v1"},
+            "read_related_recap_context": {"dmb_related_recap_context_read_v2"},
+        }
+        scope = self.scope
+        if (scope is None or len(encoded.encode()) > PAGE_BYTES
+            or result.get("tool") != tool
+            or not isinstance(result.get("resultSchema"), str)
+            or result["resultSchema"] not in expected.get(tool, set())
+            or result.get("retrievalSessionId") != scope.retrieval_session_id
+            or arguments.get("retrievalSessionId") != scope.retrieval_session_id
+            or result.get("worldId") != scope.world_id
+            or result.get("revisionId") != scope.revision_id
+            or not isinstance(result.get("resultId"), str) or not result["resultId"]
+            or not isinstance(result.get("coreTruncated"), bool)
+            or not isinstance(result.get("outcome"), str)):
+            return None
+        if result.get("schema") == OVERVIEW_SCHEMA:
+            if (tool != "expand_graph_retrieval" or "resultPageToken" in arguments
+                or not isinstance(result.get("view"), Mapping)
+                or not isinstance(result.get("counts"), Mapping)
+                or not isinstance(result.get("detailPageToken"), str)
+                or not result["detailPageToken"]):
+                return None
+        elif result.get("schema") == PAGE_SCHEMA:
+            if (type(result.get("pageIndex")) is not int or result["pageIndex"] < 0
+                or not isinstance(result.get("records"), list) or not result["records"]
+                or not all(isinstance(row, Mapping) and isinstance(row.get("path"), list)
+                    and ("value" in row or (row.get("requiresReassembly") is True
+                        and isinstance(row.get("fragment"), str))) for row in result["records"])
+                or not isinstance(result.get("transportTruncated"), bool)
+                or type(result.get("remainingRecords")) is not int or result["remainingRecords"] < 0
+                or type(result.get("recordCount")) is not int or result["recordCount"] < 1
+                or not (result.get("nextPageToken") is None or isinstance(result["nextPageToken"], str))):
+                return None
+        else:
+            return None
+        return result["resultSchema"]
+
     def _call_locked(
         self, tool_name: str, arguments: Mapping[str, Any],
     ) -> tuple[str, Mapping[str, Any] | None]:
@@ -1467,16 +1515,17 @@ class _GraphOperationReservation:
                 "statusCode": 503,
                 "diagnostics": [],
             }, separators=(",", ":")), None
-        if (tool_name == "expand_graph_retrieval" and self.count >= self.limit) or (
+        continuation = "resultPageToken" in arguments
+        if not continuation and ((tool_name == "expand_graph_retrieval" and self.count >= self.limit) or (
             tool_name == "read_graph_source" and self.source_count >= self.source_limit
         ) or (
             tool_name == "read_related_recap_context"
             and self.context_count >= self.context_limit
-        ):
+        )):
             if (
                 self.count >= self.limit
                 and self.source_count >= self.source_limit
-                and self.context_count >= self.context_limit
+                and self.context_count >= self.context_limit and not self.has_pages
             ):
                 self._retire_tools()
             return json.dumps({
@@ -1502,39 +1551,33 @@ class _GraphOperationReservation:
             if isinstance(status, bool) or not isinstance(status, int) or not 400 <= status < 500:
                 self.indeterminate = True
                 self._retire_tools()
-        elif tool_name == "expand_graph_retrieval" and isinstance(result, Mapping) and result.get("schema") == "dmb_world_graph_retrieval_result_v1":
-            self.count += 1
-            if (
-                self.count >= self.limit
-                and self.source_count >= self.source_limit
-                and self.context_count >= self.context_limit
-            ):
-                self._retire_tools()
-        elif tool_name == "read_graph_source" and isinstance(result, Mapping) and result.get("schema") in {
-            "dmb_world_graph_source_anchor_read_v1", "dmb_read_graph_source_batch_v1",
-        }:
-            self.source_count += 1
-            if (
-                self.count >= self.limit
-                and self.source_count >= self.source_limit
-                and self.context_count >= self.context_limit
-            ):
-                self._retire_tools()
-        elif (
-            tool_name == "read_related_recap_context"
-            and isinstance(result, Mapping)
-            and result.get("schema") == "dmb_related_recap_context_read_v2"
-        ):
-            self.context_count += 1
-            if (
-                self.count >= self.limit
-                and self.source_count >= self.source_limit
-                and self.context_count >= self.context_limit
-            ):
-                self._retire_tools()
         else:
-            self.indeterminate = True
-            self._retire_tools()
+            schema = result.get("schema") if isinstance(result, Mapping) else None
+            if not isinstance(schema, str):
+                schema = None
+            wrapped = schema in {PAGE_SCHEMA, OVERVIEW_SCHEMA}
+            if wrapped:
+                schema = self._presentation_schema(result, tool_name, arguments, result_json)
+            accepted = (
+                tool_name == "expand_graph_retrieval" and schema == "dmb_world_graph_retrieval_result_v1"
+                or tool_name == "read_graph_source" and schema in {
+                    "dmb_world_graph_source_anchor_read_v1", "dmb_read_graph_source_batch_v1"}
+                or tool_name == "read_related_recap_context" and schema == "dmb_related_recap_context_read_v2"
+            )
+            if not accepted or (continuation and not wrapped):
+                self.indeterminate = True
+                self._retire_tools()
+            elif not continuation:
+                self.has_pages = self.has_pages or wrapped
+                if tool_name == "expand_graph_retrieval":
+                    self.count += 1
+                elif tool_name == "read_graph_source":
+                    self.source_count += 1
+                else:
+                    self.context_count += 1
+                if (self.count >= self.limit and self.source_count >= self.source_limit
+                    and self.context_count >= self.context_limit and not self.has_pages):
+                    self._retire_tools()
         return result_json, session_packet
 
 
@@ -1852,6 +1895,8 @@ def run_hermes_graph_agent_turn(
                 request.request_budget["maxGraphOperations"], on_parent_graph_operation,
                 source_limit=8,
                 context_limit=8,
+                scope=TransportScope(request.retrieval_session_id or "", request.world_id,
+                                     request.revision_pin or ""),
             )
             if request.parent_graph_broker_required and on_parent_graph_operation is not None
             else None
