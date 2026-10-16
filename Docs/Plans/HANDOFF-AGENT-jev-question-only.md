@@ -27,3 +27,10 @@ then read-only Float/Council from exact saved source. Preserve failures and comp
 source/gold coverage, stopping, actions, component latency, actual reported usage.
 Independent semantic review before merge. Success is bounded question-only acquisition,
 not arbitrary question accuracy or ordinary Agent adoption.
+
+First frozen synthetic run: 4/5 expected outcomes. Same-time conflict falsely stopped
+after source A without opening B. This experiment is not ready for ordinary adoption.
+Preserve controller-question-only-01 and its false sufficient stop. Defer live
+Float/Council calls until a separately reviewed competing-evidence policy addresses
+this failure; no unchanged model replay. The failed case is now a development
+regression, not an unseen validation case for its eventual repair.
