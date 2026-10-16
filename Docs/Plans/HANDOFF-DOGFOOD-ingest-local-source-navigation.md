@@ -1,10 +1,10 @@
 # DOGFOOD: simplify Ingest local source navigation
 
 **Status:** ACTIVE — directly authorized follow-up to operator feedback on 2026-10-16.
-**Base:** fetched `origin/main@98b28b08470ae9320e638dda8d8810b492b86ca0` after #1248 merged.
+**Base:** fetched `origin/main@fc1daff4b7fc8f6ba7d35445dd22e9fca15f6d49` after #1250 merged.
 **Branch:** `codex/ingest-local-nav-source-flow`.
-**Checkout:** `/home/drakosfire/.codex/worktrees/ingest-manual-source-load/DungeonMindBuddy`.
-**Topology:** serial successor to merged #1191. Parallel-independent from open #1235 (`codex/ingest-source-observation-review`, head `46ecdd5019f7fc70519b0e7b50b1a1ebe6955994`, based on `b2c76cb6c83b3e4d9835376dd92956ab5f2b6f13`); #1235 changes extraction/promote and Graph Review files, with no overlap in this lease. Open #1244 changes graph packaging and its handoff, also with no overlap. The #1243 main merge changed no leased UI files.
+**Checkout:** `/tmp/dmb-ingest-local-nav-refresh` (isolated refresh lane; the original clean checkout is preserved).
+**Topology:** serial successor to merged #1191. Parallel-independent from open #1235 (`codex/ingest-source-observation-review`, head `46ecdd5019f7fc70519b0e7b50b1a1ebe6955994`, based on `b2c76cb6c83b3e4d9835376dd92956ab5f2b6f13`); #1235 changes extraction/promote and Graph Review files, with no overlap in this lease. Open #1244 (`codex/ingest-candidate-evidence-ref-recovery`, head `d081196b0785821e124248b7bb7761dd234f3d28`) changes graph packaging and its handoff, also with no overlap. Open #1251 (`codex/ingest-evidence-readiness`, head `8e1ebf64b1ed677808b6b435f8d2d23e32f576ac`) changes readiness modules and the server adapter, with no overlap in this lease. The #1250 main merge changed no leased UI files.
 **Runtime:** UI-only. Do not change 5202, 5204, APIs, graph/corpus data, or extraction state.
 
 ## Objective
@@ -91,6 +91,18 @@ review, save, or ingestion-data action was performed. 5202 and 5204 were not
 changed; 5204 still serves the pre-nav implementation until this PR is
 reviewed and deployed. Bugbot reviewed the recovered-source change before the
 latest-main rebase and found no confirmed bugs.
+
+Re-anchored again on `origin/main@fc1daff4b7fc8f6ba7d35445dd22e9fca15f6d49`
+after #1250 merged. The merge changes agent-response diagnostics and does not
+touch any of this lease's nine paths. The cumulative UI diff is unchanged from
+the acceptance above. A fresh focused-test attempt in the isolated refresh
+checkout could not start because Vitest is not installed there. `npm ci` stalled
+and was interrupted; `npm ci --offline --ignore-scripts` then failed with
+`ENOTCACHED` because the React package was not in the local npm cache. No
+tracked dependency manifests or UI source files changed. The prior 72-test,
+typecheck, build, and desktop/390px rendered results remain the only executed
+verification for the unchanged UI diff. Open #1235, #1244, and #1251 were
+rechecked; their changed paths do not overlap this UI lease.
 
 ## Implementation notes
 
