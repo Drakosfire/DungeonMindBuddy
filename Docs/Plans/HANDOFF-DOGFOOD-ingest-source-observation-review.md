@@ -1,10 +1,10 @@
 # DOGFOOD — review source observations during Ingest
 
-Status: ACTIVE  
-Owner: DOGFOOD  
-Base: `origin/main@b2c76cb6c83b3e4d9835376dd92956ab5f2b6f13`
+- Status: ACTIVE
+- Owner: DOGFOOD
+Base: `origin/main@fc1daff4b7fc8f6ba7d35445dd22e9fca15f6d49`
 Branch: `codex/ingest-source-observation-review`
-Checkout: `/tmp/dmb-ingest-empty-welcome`
+Checkout: `/tmp/dmb-ingest-source-observation-refresh-sparse` (sparse refresh lane; original dirty checkout preserved)
 Topology: serial; assigned implementation PR #1235 remains the sole PR for this slice after merged #1191 and #1232/#1234.
 
 ## Objective
@@ -16,9 +16,9 @@ dispositions, and prepare an exact, revision-bound write plan for inspection.
 Do not claim this fixes extraction/linking quality, rerun semantics, or live
 ingestion acceptance; those remain separate Ingest-mandate work.
 
-## Re-anchoring and evidence
+## Initial re-anchoring and evidence
 
-- GitHub confirmed current `main` at
+- At the initial review, GitHub confirmed `main` at
   `80dd7a2a54a2677953c1fa8443df156717d04861` on 2026-10-16, 13 commits beyond
   the PR's `b2c76cb6` base. Compare shows the intervening changes are in server
   graph-context code and tests; none touch this UI write lease. GitHub currently
@@ -120,13 +120,25 @@ provider, database, serving configuration, external runtime, or 5202 writes.
   candidate was prepared or confirmed, no World Graph was written, and live
   Ingest UI/publication acceptance remains outstanding.
 
+## Latest rebase and review status — 2026-10-16
+
+Rebased the six-commit PR onto fetched
+`origin/main@fc1daff4b7fc8f6ba7d35445dd22e9fca15f6d49`. The merge-tree check
+was clean. A path comparison confirms current main changes none of the ten
+leased files; the cumulative product-code diff is unchanged. The original
+74-test, UI typecheck, and Vite-build results were recorded against the prior
+base and were not rerun after this rebase because the sparse refresh checkout
+has no installed UI dependencies and `/tmp` has only 249 MB free. The prior
+rendered acceptance was mocked/static only; no live candidate was prepared or
+published.
+
+The PR remains a draft and is mergeable against current main. No review or
+merge is being claimed. The server confirmation-contract mismatch and real
+source-observation publication/readback remain open gates; live Ingest
+acceptance is still outstanding.
+
 ## Completion
 
 Implementation remains in draft PR #1235 on
-`codex/ingest-source-observation-review`, now based on
-`main@b2c76cb6c83b3e4d9835376dd92956ab5f2b6f13`. GitHub currently reports the
-PR mergeable against latest `main@80dd7a2a54a2677953c1fa8443df156717d04861`.
-The PR branch is authoritative for the current head SHA. Do not merge without
-explicit merge authority. The server confirmation-contract mismatch and real
-source-observation publication/readback remain open gates; live Ingest
-acceptance is still outstanding.
+`codex/ingest-source-observation-review`, head refreshed from the isolated
+sparse lane. Do not merge without explicit merge authority.
