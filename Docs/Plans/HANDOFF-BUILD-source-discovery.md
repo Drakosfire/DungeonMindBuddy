@@ -1,6 +1,6 @@
 # Build reviewed-source discovery
 
-- Status: ACTIVE; PRIME implements solo; ARCHITECTURE reviews independently.
+- Status: SETTLED; merged #1253 as `76db867872aa793fbad2e81163d41d11c3375219`, independently reviewed and adopted. Implementation lease ended. Council rerun reached all seven representatives and 24 passages but timed out; broad answer acceptance remains pending.
 - Authority: Mirathorn lifecycle goal and reviewed Core #126 contract.
 - Base: Buddy `314e866587e18beec8d420a4e5f734bdc6857ba9`.
 - Branch: `codex/build-source-discovery`; checkout `/tmp/prime-recap-mention-boundaries`.

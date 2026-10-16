@@ -177,7 +177,12 @@ def hermes_graph_interaction_tool_definitions() -> list[dict[str, Any]]:
                 "name": "expand_graph_retrieval",
                 "description": (
                     "Expand the current shared GraphRetrievalSession with a bounded "
-                    "graph operation (object, neighborhood, search, or support). "
+                    "graph operation (object, neighborhood, search, support, or observations). "
+                    "In governed Build, prefer observations with 1–8 observationIds from saved-source "
+                    "discovery for multi-subject source questions. Pass IDs only, no targets/query; "
+                    "the parent freezes source identity. This returns complete qualified records "
+                    "and anchors without unrelated object history. Missing selection or overflow "
+                    "admits nothing; narrow to exact available IDs. Open relevant supporting sources. "
                     "Always pass the retrievalSessionId "
                     "that was provided for this turn. Scope/revision are server-enforced. "
                     "object/support require exactly one node target; neighborhood requires "

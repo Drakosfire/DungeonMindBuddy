@@ -421,9 +421,9 @@ def _safe_graph_request_validation_message(exc: ValidationError) -> str:
     hints = {
         "schema": "Use schema dmb_expand_graph_retrieval_request_v1.",
         "retrievalSessionId": "Use the retrievalSessionId supplied for this turn.",
-        "operation": "operation must be object, neighborhood, search, or support.",
+        "operation": "operation must be object, neighborhood, search, support, or observations.",
         "targets": "targets must be a list of at most 8 node targets with nonempty id.",
-        "observationIds": "observationIds require object and distinct nonblank assertion IDs.",
+        "observationIds": "observationIds require object or observations and distinct nonblank assertion IDs.",
         "queryText": "queryText must be text or null.",
         "depth": "depth must be 1 or 2.",
         "historicalRevisionId": "historicalRevisionId must be text or null.",
@@ -1961,7 +1961,7 @@ class _PolicyExecutionAdapter:
         from graph_memory.interaction.session_store import replace_session
         from graph_memory.retrieval.models import (
             WorldGraphEvidenceRequest, WorldGraphNeighborhoodRequest,
-            WorldGraphObjectRequest, WorldGraphSearchRequest,
+            WorldGraphObjectRequest, WorldGraphSearchRequest, WorldGraphObservationSelectionRequest,
         )
         from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
             DirectWorldGraphReadError, direct_services_from_config, get_evidence_direct, get_neighborhood_direct,
@@ -2030,7 +2030,25 @@ class _PolicyExecutionAdapter:
             stage = "native_retrieval"
             services = direct_services_from_config(self.bootstrap.world_scope.world_id)
             reviewed = None
-            if request.operation == "object":
+            if request.operation == "observations":
+                source = self.bootstrap.build_source_discovery
+                if (not _governed_build_turn(self.request) or not source
+                        or source.get("status") not in {"complete", "partial"}
+                        or source.get("graph_revision") != self.bootstrap.world_scope.revision_id
+                        or source.get("world_id") != self.bootstrap.world_scope.world_id
+                        or not source.get("source_revision_id")):
+                    return denied("selected_observations_unavailable", 422)
+                effective_request = WorldGraphObservationSelectionRequest.model_validate({
+                    **common, "schema": "dmb_world_graph_observation_selection_v1",
+                    "sourceArtifactId": source["source_artifact_id"],
+                    "sourceRevisionId": source["source_revision_id"],
+                    "observationIds": request.observation_ids,
+                })
+                from apps.live_control_server.integrations.dungeonmind.selected_observation_reads import select_observations_direct
+                reviewed = select_observations_direct(services, effective_request)
+                resolved = reviewed
+                result = reviewed.result
+            elif request.operation == "object":
                 if len(target_ids) != 1:
                     return denied("ambiguous_target", 422)
                 effective_request = WorldGraphObjectRequest.model_validate({
@@ -2096,7 +2114,13 @@ class _PolicyExecutionAdapter:
                 pins = {pin.anchor_id: pin for pin in reviewed.source_pins}
                 anchors = result.source_anchors
                 for observation in reviewed.reviewed_source_observations:
-                    if observation.subject_node_id != effective_request.node_id:
+                    if request.operation == "observations":
+                        if (observation.assertion_id not in effective_request.observation_ids
+                                or observation.subject_node_id not in result.matched_node_ids
+                                or observation.source_artifact_id != effective_request.source_artifact_id
+                                or observation.source_revision_id != effective_request.source_revision_id):
+                            raise ValueError("Reviewed observation differs from exact source selection")
+                    elif observation.subject_node_id != effective_request.node_id:
                         raise ValueError("Reviewed observation belongs to another object")
                     for evidence_id in observation.evidence_ref_ids:
                         if not any(anchor.evidence_ref_id == evidence_id
@@ -2245,11 +2269,12 @@ class _PolicyExecutionAdapter:
             # Preserve it as ordinary tool feedback, never as an uncertain
             # publication/read outcome. All other native failures stay fatal.
             if (stage == "native_retrieval" and isinstance(exc, DirectWorldGraphReadError)
-                    and exc.code == "selected_observation_unavailable" and exc.status_code == 422):
+                    and exc.code in {"selected_observation_unavailable", "observation_selection_overflow"}
+                    and exc.status_code in {422, 413}):
                 return self._denied_tool_result(
-                    "expand_graph_retrieval", "selected_observation_unavailable", 422,
-                    "The selected observation is unavailable on this object at the pinned revision. "
-                    "Use its subjectNodeId from discovery, or read the object without an observation selection.",
+                    "expand_graph_retrieval", exc.code, exc.status_code,
+                    "The exact observation selection is unavailable or exceeds the result budget. "
+                    "Use exact IDs from this source discovery and narrow the selection if needed.",
                     arguments=message.get("arguments"),
                 )
             category = _safe_graph_failure_category(exc)

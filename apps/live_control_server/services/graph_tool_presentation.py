@@ -61,7 +61,7 @@ class GraphToolPresentation:
             # A targeted object can avoid discovery when its first verified
             # detail page delivers a whole claim and all its source anchors.
             # Remaining records retain explicit continuation metadata.
-            if (tool == "expand_graph_retrieval" and arguments.get("operation") == "object"
+            if (tool == "expand_graph_retrieval" and arguments.get("operation") in {"object", "observations"}
                     and self.cache.page_bytes == 32_000):
                 detail = self.cache.continuation(tool, {
                     **arguments, "resultPageToken": value["detailPageToken"],
@@ -78,7 +78,7 @@ class GraphToolPresentation:
                     if page.get("nextPageToken") is None or complete_claim:
                         payload, value = detail, page
             if value.get("schema") == OVERVIEW_SCHEMA:
-                if arguments.get("operation") == "object":
+                if arguments.get("operation") in {"object", "observations"}:
                     payload = self._initial_records(value, result.value)
                 else:
                     # Search/neighborhood exist to discover the next target.

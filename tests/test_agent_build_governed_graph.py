@@ -126,11 +126,12 @@ class SyntheticHarness:
                     'payloadSha256': sha256(payload.encode()).hexdigest(), 'payloadUtf8Bytes': len(payload.encode())})
                 assert on_provider_lifecycle({'transition': 'sdk_entered'})
                 assert on_provider_lifecycle({'transition': 'response_received'})
-            if self.graph in {'observation', 'selected-observation', 'paged', 'paged-mutated', 'paged-unseen', 'initial-small', 'initial-small-unseen', 'recover-selected', 'fatal-native'}:
+            if self.graph in {'observation', 'selected-observation', 'paged', 'paged-mutated', 'paged-unseen', 'initial-small', 'initial-small-unseen', 'recover-selected', 'fatal-native', 'batch-selected'}:
                 operation = on_graph_operation({'toolName': 'expand_graph_retrieval', 'arguments': {
                     'schema': 'dmb_expand_graph_retrieval_request_v1',
                     'retrievalSessionId': self.bootstrap.retrieval_session.id, 'operation': 'object',
-                    'targets': [{'kind': 'node', 'id': 'frank'}],
+                    **({'operation': 'observations', 'observationIds': ['observation-one', 'observation-two']}
+                       if self.graph == 'batch-selected' else {'targets': [{'kind': 'node', 'id': 'frank'}]}),
                     **({'observationIds': ['observation-one']} if self.graph == 'selected-observation' else {}),
                 }})
                 operation_args = {'schema': 'dmb_expand_graph_retrieval_request_v1',
@@ -138,6 +139,16 @@ class SyntheticHarness:
                     'targets': [{'kind': 'node', 'id': 'frank'}]}
                 operation_pages = []
                 result = json.loads(operation['resultJson'])
+                if self.graph == 'batch-selected' and result.get('schema') == 'dmb_graph_tool_overview_v1':
+                    operation_args = {'retrievalSessionId': self.bootstrap.retrieval_session.id,
+                        'operation': 'observations', 'observationIds': ['observation-one', 'observation-two'],
+                        'schema': 'dmb_expand_graph_retrieval_request_v1'}
+                    token = result['detailPageToken']
+                    while token:
+                        page_args = {**operation_args, 'resultPageToken': token}
+                        page = on_graph_operation({'toolName': 'expand_graph_retrieval', 'arguments': page_args})
+                        operation_pages.append((page_args, page['resultJson']))
+                        token = json.loads(page['resultJson']).get('nextPageToken')
                 if self.graph in {'paged', 'paged-mutated', 'paged-unseen'} and result.get('schema') == 'dmb_graph_tool_overview_v1':
                     overview_body = json.loads(payload)
                     overview_body['input'].extend([
@@ -168,7 +179,7 @@ class SyntheticHarness:
                 elif self.graph in {'initial-small', 'initial-small-unseen'}:
                     assert result['schema'] == 'dmb_graph_tool_overview_v1'
                     assert result['completeRecordCounts']['included'] == 1
-                elif 'reviewedSourceObservations' not in result:
+                elif 'reviewedSourceObservations' not in result and not (self.graph == 'batch-selected' and result.get('schema') in {'dmb_graph_tool_overview_v1', 'dmb_graph_tool_page_v1'}):
                     return AgentRuntimeResult(status='error', error_code=result.get('code', 'graph_operation_unavailable'))
                 if self.graph == 'observation':
                     assert result['reviewedSourceObservations'][0]['assertionId'] == 'observation-one'
@@ -311,8 +322,8 @@ def test_build_failure_retains_execution_and_trace(build_case, tmp_path, forged)
     assert turn.completion is None
 
 
-@pytest.mark.parametrize('observation', [False, True, 'wrong_subject', 'wrong_source', 'mutated-evidence', 'paged', 'paged-mutated', 'paged-unseen', 'model-map', 'model-open', 'forged-target', 'forged-revision', 'omitted-source', 'multi-ref', 'selected-observation', 'initial-small', 'initial-small-unseen', 'recover-selected', 'fatal-native'],
-    ids=['relationship', 'reviewed-source-observation', 'foreign-observation-subject', 'foreign-observation-source', 'mutated-producing-evidence', 'parent-paged-evidence', 'mutated-page', 'unseen-page-claim', 'forbidden-model-map', 'forbidden-model-open', 'forged-target', 'forged-revision', 'performed-but-omitted-source', 'traversal-three-refs-one-open', 'selected-observation', 'initial-small', 'initial-small-unseen', 'recover-selected', 'fatal-native'])
+@pytest.mark.parametrize('observation', [False, True, 'wrong_subject', 'wrong_source', 'mutated-evidence', 'paged', 'paged-mutated', 'paged-unseen', 'model-map', 'model-open', 'forged-target', 'forged-revision', 'omitted-source', 'multi-ref', 'selected-observation', 'initial-small', 'initial-small-unseen', 'recover-selected', 'fatal-native', 'batch-selected', 'batch-missing', 'batch-overflow', 'batch-wrong-world', 'batch-no-source'],
+    ids=['relationship', 'reviewed-source-observation', 'foreign-observation-subject', 'foreign-observation-source', 'mutated-producing-evidence', 'parent-paged-evidence', 'mutated-page', 'unseen-page-claim', 'forbidden-model-map', 'forbidden-model-open', 'forged-target', 'forged-revision', 'performed-but-omitted-source', 'traversal-three-refs-one-open', 'selected-observation', 'initial-small', 'initial-small-unseen', 'recover-selected', 'fatal-native', 'batch-selected', 'batch-missing', 'batch-overflow', 'batch-wrong-world', 'batch-no-source'])
 def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(build_case, tmp_path, monkeypatch, observation):
     from graph_memory.interaction.authority_classifier import claims_from_retrieval_result
     from graph_memory.interaction.session import SourceAnchorState
@@ -392,6 +403,20 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
             pins.extend(SimpleNamespace(anchor_id=anchor.anchor_id, graph_revision='native-rev-3',
                 evidence_ref_id=anchor.evidence_ref_id, source_artifact_id='artifact-one',
                 source_revision_id='source-rev-one') for anchor in extra_anchors)
+        if str(observation).startswith('batch-'):
+            second = native_observation.model_copy(update={'assertion_id': 'observation-two',
+                'subject_node_id': 'sara', 'text': 'Sara watches the eastern gate.',
+                'evidence_ref_ids': ['evidence-two']})
+            observations += (second,)
+            second_anchor = result.source_anchors[0].model_copy(update={'anchor_id': 'anchor-two',
+                'evidence_ref_id': 'evidence-two', 'supporting_assertion_ids': ['observation-two']})
+            result = result.model_copy(update={'operation': 'observations', 'matched_node_ids': ['frank', 'sara'],
+                'source_anchors': [*result.source_anchors, second_anchor]})
+            pins.append(SimpleNamespace(anchor_id='anchor-two', graph_revision='native-rev-3',
+                evidence_ref_id='evidence-two', source_artifact_id='artifact-one', source_revision_id='source-rev-one'))
+            bootstrap = replace(bootstrap, build_source_discovery={'status': 'complete',
+                'world_id': 'native-build-world', 'graph_revision': 'native-rev-3',
+                'source_artifact_id': 'artifact-one', 'source_revision_id': 'source-rev-one'})
         resolved = direct.ResolvedWorldGraphReviewedObjectV3(result, tuple(sorted(pins, key=lambda pin: pin.anchor_id)), observations, (), ())
         monkeypatch.setattr(direct, 'direct_services_from_config', lambda _: SimpleNamespace())
         def read_reviewed(*_args, **kwargs):
@@ -402,7 +427,34 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
             assert kwargs == ({'observation_ids': ('observation-one',)} if observation == 'selected-observation' else {})
             return resolved
         monkeypatch.setattr(direct, 'get_object_with_reviewed_sources_direct_v3', read_reviewed)
+        if str(observation).startswith('batch-'):
+            if observation == 'batch-wrong-world':
+                bootstrap = replace(bootstrap, build_source_discovery={**bootstrap.build_source_discovery, 'world_id': 'foreign'})
+            if observation == 'batch-no-source':
+                bootstrap = replace(bootstrap, build_source_discovery=None)
+            def read_batch(_services, effective):
+                if observation in {'batch-missing', 'batch-overflow'}:
+                    raise direct.DirectWorldGraphReadError('Synthetic atomic selection refusal',
+                        code='selected_observation_unavailable' if observation == 'batch-missing' else 'observation_selection_overflow',
+                        status_code=422 if observation == 'batch-missing' else 413)
+                if observation in {'batch-wrong-world', 'batch-no-source'}:
+                    pytest.fail('Invalid frozen source reached native selection')
+                assert effective.observation_ids == ['observation-one', 'observation-two']
+                assert effective.source_artifact_id == 'artifact-one'
+                assert effective.source_revision_id == 'source-rev-one' and effective.revision_pin == 'native-rev-3'
+                return resolved
+            monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.selected_observation_reads.select_observations_direct', read_batch)
         monkeypatch.setattr(svc._PolicyExecutionAdapter, '_related_recap_offers', lambda *_: [])
+    if observation in {'batch-missing', 'batch-overflow', 'batch-wrong-world', 'batch-no-source'}:
+        with pytest.raises(svc.AgentTurnServiceError):
+            execute((source, request, bootstrap), tmp_path, SyntheticHarness(source, bootstrap, graph='batch-selected'))
+        service = AgentConversationService()
+        conversation = service.get_active_conversation('elderwyld')
+        turn, = service.list_turns('elderwyld', conversation.conversation_id)
+        assert not any(e.kind in {'validated_graph_operation_v3', 'source_scope_extension_v3'}
+            for e in turn.graph_context_execution.events)
+        assert turn.completion is None
+        return
     if observation in {'wrong_subject', 'wrong_source'}:
         with pytest.raises(svc.AgentTurnServiceError):
             execute((source, request, bootstrap), tmp_path, SyntheticHarness(source, bootstrap, graph='observation'))
@@ -422,7 +474,7 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
         assert turn.completion is None
         return
     harness = SyntheticHarness(source, bootstrap,
-        graph=observation if observation in {'initial-small', 'initial-small-unseen', 'recover-selected', 'fatal-native'} else 'selected-observation' if observation == 'selected-observation' else 'paged' if observation == 'multi-ref' else (observation if observation in {'paged', 'paged-unseen'} else ('observation' if observation else True)),
+        graph=observation if observation in {'initial-small', 'initial-small-unseen', 'recover-selected', 'fatal-native', 'batch-selected'} else 'selected-observation' if observation == 'selected-observation' else 'paged' if observation == 'multi-ref' else (observation if observation in {'paged', 'paged-unseen'} else ('observation' if observation else True)),
         mutation={'model-map':'citation-map','model-open':'source-open','forged-target':'target',
             'forged-revision':'revision', 'multi-ref':'multi-ref'}.get(observation), omit_source=observation == 'omitted-source')
     if observation == 'fatal-native':
@@ -456,6 +508,20 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
     assert citation.source_opened and citation.source_read_ids == ['source-read-one']
     expected_refs = sorted([EVIDENCE_ID, 'evidence-extra-one', 'evidence-extra-two']) if observation == 'multi-ref' else [EVIDENCE_ID]
     assert citation.evidence_ref_ids == expected_refs and citation.claim_id == CLAIM_ID
+    if observation == 'batch-selected':
+        service = AgentConversationService()
+        conversation = service.get_active_conversation('elderwyld')
+        turn, = service.list_turns('elderwyld', conversation.conversation_id)
+        event, = [e for e in turn.graph_context_execution.events if e.kind == 'validated_graph_operation_v3']
+        assert event.assertion_ids == ['observation-one', 'observation-two']
+        assert set(event.evidence_ref_ids) == {EVIDENCE_ID, 'evidence-two'}
+        assert len(event.returned_source_pins) == 2
+        assert citation.evidence_ref_ids == [EVIDENCE_ID]
+        captured = service.list_context_trace_attempts(world_id=turn.world_id, turn_id=turn.turn_id)
+        assert any(o.kind == 'graph_tool' and o.request.operation == 'observations'
+            and o.request.observation_ids == ['observation-one', 'observation-two']
+            for trace in captured for o in trace.observations)
+
     if observation == 'multi-ref':
         assert len(context.source_open_targets) == 3
         assert sum(t.source_read_id is not None for t in context.source_open_targets) == 1
@@ -475,7 +541,7 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
         assert len(citation.source_read_ids) == 1
     if observation:
         event, = [e for e in turn.graph_context_execution.events if e.kind == 'validated_graph_operation_v3']
-        assert set(event.assertion_ids) == ({'observation-one', 'unrelated-observation'} if observation in {'paged', 'initial-small', 'initial-small-unseen'} else {'observation-one'})
+        assert set(event.assertion_ids) == ({'observation-one', 'unrelated-observation'} if observation in {'paged', 'initial-small', 'initial-small-unseen'} else {'observation-one', 'observation-two'} if observation == 'batch-selected' else {'observation-one'})
         assert event.returned_source_pins[0].source_revision_id == 'source-rev-one'
         if observation == 'initial-small':
             attempts = [e for e in turn.graph_context_execution.events if e.kind == 'provider_attempt_authorized_v3']
