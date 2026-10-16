@@ -8,9 +8,10 @@ Serial successor to merged #1273; checked open Ingest leases are disjoint.
 One optional evaluator capability: before tentative sufficient stopping, independently
 classify every unread legal action as useful/not_useful/unknown for missing coverage,
 qualification or contradiction of the exact question and current evidence. Acquire
-all useful unique actions as a wave with existing native bounded chunks, then
-reevaluate full evidence. Discovery hints remain non-authoritative. If no useful
-action remains and any necessary coverage is unknown, hold success. None remains
+all useful or uncertain unique actions as a wave with existing native bounded chunks,
+then reevaluate full evidence. Only a confident not_useful judgment may exclude an
+unread action. Discovery hints remain non-authoritative; inability to acquire or
+validate needed evidence holds success. Exclusion remains
 heuristic; no roster/gold IDs/manual facets or subject-identity inventions.
 
 Writes: this handoff; Docs/Plans/HANDOFF-AGENT-jev-competing-evidence.md;
