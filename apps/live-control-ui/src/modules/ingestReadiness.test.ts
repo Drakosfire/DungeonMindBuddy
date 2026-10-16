@@ -62,7 +62,17 @@ describe("buildIngestReadiness", () => {
           "preview_union_store_ready",
         ],
         ingest_report: {
-          graph_preview: { status: "preview_union_store_ready", node_count: 12, edge_count: 8 },
+          graph_preview: {
+            status: "preview_union_store_ready",
+            node_count: 12,
+            edge_count: 8,
+            candidate_validation: {
+              state: "valid",
+              error_count: 0,
+              warning_count: 0,
+              unresolved_evidence_reference_count: 0,
+            },
+          },
         },
       }),
     );
@@ -117,7 +127,17 @@ it("keeps a validated candidate distinct from memory and native Graph readiness"
   const readiness = buildIngestReadiness(makeStatus({
     status: "breadcrumb_required",
     states: ["normalized_reused", "graph_candidate_ready"],
-    ingest_report: { graph_preview: { status: "candidate_validation_ready", candidate_node_count: 37, candidate_edge_count: 23 } },
+    ingest_report: { graph_preview: {
+      status: "candidate_validation_ready",
+      candidate_node_count: 37,
+      candidate_edge_count: 23,
+      candidate_validation: {
+        state: "valid",
+        error_count: 0,
+        warning_count: 0,
+        unresolved_evidence_reference_count: 0,
+      },
+    } },
   }));
   expect(readiness.memoryReady).toBe(false);
   expect(readiness.graphReady).toBe(false);
@@ -125,4 +145,67 @@ it("keeps a validated candidate distinct from memory and native Graph readiness"
   expect(readiness.graph.detail).toContain("37 nodes, 23 edges");
   expect(readiness.nextAction).toContain("admission is pending");
   expect(readiness.nextAction).not.toMatch(/Run ingest/i);
+});
+
+it("blocks candidate readiness when validation reports unresolved evidence refs", () => {
+  const readiness = buildIngestReadiness(makeStatus({
+    status: "breadcrumb_required",
+    states: ["normalized_reused", "graph_candidate_ready"],
+    ingest_report: { graph_preview: {
+      status: "candidate_validation_ready",
+      candidate_node_count: 59,
+      candidate_edge_count: 33,
+      candidate_validation: {
+        state: "blocked",
+        error_count: 0,
+        warning_count: 10,
+        unresolved_evidence_reference_count: 10,
+      },
+    } },
+  }));
+
+  expect(readiness.graph.state).toBe("blocked");
+  expect(readiness.attention.state).toBe("blocked");
+  expect(readiness.attention.detail).toContain("10 unresolved evidence references");
+  expect(readiness.graph.detail).toContain("59 nodes, 33 edges");
+  expect(readiness.nextAction).toContain("resolve or recover 10 unresolved evidence references");
+  expect(readiness.isComplete).toBe(false);
+});
+
+it("keeps candidate validation warnings visible without calling the report blocked", () => {
+  const readiness = buildIngestReadiness(makeStatus({
+    status: "breadcrumb_required",
+    states: ["normalized_reused", "graph_candidate_ready"],
+    ingest_report: { graph_preview: {
+      status: "candidate_validation_ready",
+      candidate_node_count: 4,
+      candidate_edge_count: 2,
+      candidate_validation: {
+        state: "warning",
+        error_count: 0,
+        warning_count: 2,
+        unresolved_evidence_reference_count: 0,
+      },
+    } },
+  }));
+
+  expect(readiness.graph.state).toBe("not_ready");
+  expect(readiness.attention.state).toBe("not_ready");
+  expect(readiness.attention.detail).toContain("2 candidate validation warnings");
+  expect(readiness.graph.detail).toContain("available for review");
+  expect(readiness.graph.detail).not.toContain("ready for review");
+  expect(readiness.nextAction).toContain("review candidate validation warnings");
+});
+
+it("does not claim an old or unverifiable candidate is ready", () => {
+  const readiness = buildIngestReadiness(makeStatus({
+    status: "breadcrumb_required",
+    states: ["normalized_reused", "graph_candidate_ready"],
+    ingest_report: { graph_preview: { status: "candidate_validation_ready" } },
+  }));
+
+  expect(readiness.graph.state).toBe("blocked");
+  expect(readiness.attention.detail).toContain("validation details are unavailable");
+  expect(readiness.graph.detail).not.toContain("Candidate extracted");
+  expect(readiness.nextAction).toContain("inspect the candidate run");
 });

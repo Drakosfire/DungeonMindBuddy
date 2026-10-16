@@ -1,10 +1,10 @@
 # INGEST: surface candidate validation in readiness
 
 **Status:** ACTIVE — authorized by the persistent Ingest-first goal.
-**Base:** `origin/main@8f54acee7ffe980a5a00573eed03009895a05384`, freshly cloned from current `main` on 2026-10-16.
+**Base:** `origin/main@fc1daff4b7fc8f6ba7d35445dd22e9fca15f6d49`, refreshed after PR #1250 merged on 2026-10-16; #1250 changed only agent provider files and did not touch this lease.
 **Branch:** `codex/ingest-evidence-readiness`.
 **Checkout:** `/tmp/dmb-ingest-evidence-readiness`.
-**Topology:** `parallel-independent` from open #1237 (Ingest local navigation), #1244 (candidate packaging reference repair), and #1235 (Worldbuilding source observation review). Their current write sets do not overlap this lease. The implementation only reads candidate validation artifacts; it does not modify extraction outputs. No live server, database, or corpus owner is introduced.
+**Topology:** `parallel-independent` from open #1237 (Ingest local navigation), #1244 (candidate packaging reference repair), and #1235 (Worldbuilding source observation review). PR #1235 also edits the shared API `types.ts`; this lease deliberately avoids that file and keeps the small response shape local to the readiness model. The current write sets therefore do not overlap. The implementation only reads candidate validation artifacts; it does not modify extraction outputs. No live server, database, or corpus owner is introduced.
 
 ## Objective
 
@@ -25,8 +25,7 @@ The current retained Session 29 run proves the failure case: its manifest says `
 
 - `Docs/Plans/HANDOFF-INGEST-candidate-evidence-readiness.md`
 - `apps/live_control_server/services/recap_graph_preview_ingest.py`
-- `tests/test_live_recap_ingest_graph_preview_api.py`
-- `apps/live-control-ui/src/api/types.ts`
+- `tests/test_recap_graph_preview_validation_summary.py`
 - `apps/live-control-ui/src/modules/ingestReadiness.ts`
 - `apps/live-control-ui/src/modules/ingestReadiness.test.ts`
 
@@ -34,8 +33,14 @@ No extraction, packaging, route, Graph Review, corpus, database, lockfile, share
 
 ## Verification
 
-- Unit tests cover clean validation, warnings, invalid reports, unresolved refs even when a legacy report incorrectly says valid, missing/malformed reports, wrong run identity, and hash mismatch.
-- API-level test proves the current status response includes the compact validation summary derived from the selected run’s exact report.
+- Unit tests cover clean validation, warnings, invalid reports, unresolved refs even when a legacy report incorrectly says valid, missing/malformed reports, wrong run identity, candidate/report hash mismatch, changed candidate bytes, and a missing candidate artifact on a candidate-ready run.
+- Service status-adapter tests prove the graph-preview status payload includes the compact validation summary derived from the selected run’s exact report, and fails closed when its candidate or report is unavailable.
 - UI tests prove the Attention and next-action copy cannot report “No blocking review items” or “candidate ready” when validation is invalid, unresolved, or unavailable.
 - Run focused server/UI tests, affected typecheck, build where practical, and `git diff --check`.
 - Do not mutate the retained candidate, corpus, database, or live service. The preserved Session 29 artifacts are read-only acceptance evidence; an end-to-end ingest/write remains a later authorized dogfood gate.
+
+## Read-only retained-run check
+
+The selected Session 29 run under `out/graph_memory/runs/longmont-c2/session-29/20261015T204654Z` was read through the new status adapter. Its manifest reports `candidate_validation_ready`; the referenced, hash-verified report contains zero errors, ten warnings, and ten unresolved evidence-reference warnings. The adapter returns `blocked`, `error_count: 0`, `warning_count: 10`, and `unresolved_evidence_reference_count: 10`. No run, corpus, database, or live service state was changed. This verifies the server summary against the real retained files; rendered live-UI acceptance is still pending deployment and review.
+
+Focused verification on this branch: server unit tests pass (13); Ingest readiness tests pass (8); IngestionModule and MemoryIngestPage tests pass (70); both UI TypeScript projects pass; Ruff checks pass for the changed Python files; `git diff --check` passes. The whole service file is not Ruff-format clean at baseline, so it was not reformatted as that would create unrelated churn.
