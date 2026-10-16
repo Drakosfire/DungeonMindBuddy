@@ -207,6 +207,7 @@ describe("IngestionModule", () => {
   });
 
   it("welcomes a restored empty session even when older processed recaps exist", async () => {
+    const user = setupIngestUser();
     window.history.replaceState({}, "", "/ingest?world=elderwyld");
     window.localStorage.setItem("dmb.ingestion.longmont-c2.session.29", JSON.stringify({
       version: 3,
@@ -247,12 +248,27 @@ describe("IngestionModule", () => {
       session: 29,
       status: "breadcrumb_required",
       states: ["breadcrumb_required", "ingest_status_inspected", "graph_candidate_ready"],
+      next_actions: [
+        "Review/bless frontmatter seed, run breadcrumb_query_run --ingest-routing-only for Session 29, then rerun --materialize-session-memory.",
+      ],
       ingest_report: {
         graph_preview: {
           status: "candidate_validation_ready",
           candidate_node_count: 59,
           candidate_edge_count: 33,
         },
+        corpus_impact: [
+          {
+            key: "canonical_recap",
+            relpath: "Longmont Campaign/Campaign 2/Session Recaps/Session 29 - The Meat Mind of Mireward Reach.md",
+            exists: false,
+          },
+          {
+            key: "normalized_recap",
+            relpath: "Longmont Campaign/Campaign 2/Session Recaps/_normalized/Session 29 - The Meat Mind of Mireward Reach.md",
+            exists: false,
+          },
+        ],
       },
     }));
 
@@ -265,15 +281,25 @@ describe("IngestionModule", () => {
     expect(await screen.findByLabelText("Prior processed recap")).toBeInTheDocument();
     const nav = screen.getByRole("navigation", { name: "Ingest workspace navigation" });
     expect(within(nav).queryByRole("group", { name: "Extraction actions" })).not.toBeInTheDocument();
-    expect(within(nav).getByRole("status")).toHaveTextContent("Breadcrumb required before retrieval");
+    expect(within(nav).getByRole("status")).toHaveTextContent("Recap source missing");
     expect(within(nav).getByRole("status")).not.toHaveTextContent("No recap source loaded");
     expect(within(nav).getByRole("link", { name: "Evidence" })).toHaveAttribute("href", "#ingestion-evidence-details");
     expect(screen.getByText(/Saved ingest work exists, but no recap text is open/i)).toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "Continue this recap safely" })).not.toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: "Paste recap" })).toBeInTheDocument();
-    expect(screen.getByText(/latest status did not confirm canonical and normalized recap files/i)).toBeInTheDocument();
+    expect(screen.getByText(/disk check found one or both recap files missing/i)).toBeInTheDocument();
     expect(screen.queryByText(/Canonical \+ normalized recap exist on disk/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Canonical recap and normalized recap are on disk/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByText("Evidence & details"));
+    expect(screen.getByText("Canonical and normalized recap files are not both present")).toBeInTheDocument();
+    const rawRecommendations = screen.getByText("Raw server recommendations");
+    const recommendationDetails = rawRecommendations.closest("details");
+    expect(recommendationDetails).not.toHaveAttribute("open");
+    expect(screen.queryByRole("listitem", { name: /breadcrumb_query_run --ingest-routing-only/i })).not.toBeInTheDocument();
+
+    await user.click(rawRecommendations);
+    expect(screen.getByText(/Review\/bless frontmatter seed, run breadcrumb_query_run --ingest-routing-only/i)).toBeInTheDocument();
   });
 
   it("identifies prepared recap work when a blank entry restores a local draft without its source text", async () => {
