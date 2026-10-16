@@ -1,7 +1,7 @@
 # DOGFOOD: simplify Ingest local source navigation
 
 **Status:** ACTIVE — directly authorized follow-up to operator feedback on 2026-10-16.
-**Base:** fetched `origin/main@64e659248c9d40681b33df2c29a9a2573dfd6a8f` after #1243 merged.
+**Base:** fetched `origin/main@494f9646a177fd43e0a8e25d7211a401749f859e` after #1245 merged.
 **Branch:** `codex/ingest-local-nav-source-flow`.
 **Checkout:** `/home/drakosfire/.codex/worktrees/ingest-manual-source-load/DungeonMindBuddy`.
 **Topology:** serial successor to merged #1191. Parallel-independent from open #1235 (`codex/ingest-source-observation-review`, head `46ecdd5019f7fc70519b0e7b50b1a1ebe6955994`, based on `b2c76cb6c83b3e4d9835376dd92956ab5f2b6f13`); #1235 changes extraction/promote and Graph Review files, with no overlap in this lease. Open #1244 changes graph packaging and its handoff, also with no overlap. The #1243 main merge changed no leased UI files.
@@ -74,7 +74,7 @@ provider files are leased.
 
 ## Current-main rebase and acceptance — 2026-10-16
 
-Rebased the existing PR onto fetched `origin/main@64e659248c9d40681b33df2c29a9a2573dfd6a8f`.
+Rebased the existing PR onto fetched `origin/main@494f9646a177fd43e0a8e25d7211a401749f859e`.
 The cumulative diff remains limited to the nine leased paths. The focused
 IngestionModule and MemoryIngestPage suites pass 71 tests; UI typecheck and
 production build pass (with the existing Vite large-chunk warning); and
