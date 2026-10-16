@@ -142,7 +142,7 @@ describe("BuildSurfaceContext", () => {
     expect(within(host).getByText("faction")).toBeInTheDocument();
     expect(within(host).getByTestId("build-document-status")).toHaveTextContent("Committed");
     expect(within(host).getByTestId("build-document-rename-open")).toHaveTextContent("Rename");
-    expect(within(host).getByTestId("build-document-create-open")).toHaveTextContent("+ New source");
+    expect(within(host).getByTestId("build-document-create-open")).toHaveTextContent("+ New page");
   });
 
   it("saves through the existing document command from the navbar", async () => {

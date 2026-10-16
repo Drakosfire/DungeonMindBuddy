@@ -219,6 +219,28 @@ function buildEditGeometryFixture() {
 }
 
 describe("BuildSurfaceShell", () => {
+  it("applies an explicitly queued starter only as an unsaved edit", async () => {
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({ ...buildWorldbuildingSnapshot(DOC_ID), markdown: "" });
+    sessionStorage.setItem(`dmb.build.starter.${DOC_ID}`, "worldbuilding");
+    render(<BuildDocumentHarness documentId={DOC_ID} />);
+    await waitFor(() => expect(buildShellTestEditor?.getText()).toContain("Start with a spark"));
+    expect(screen.getByTestId("build-document-status")).toHaveTextContent("Unsaved local changes");
+    expect(liveApi.prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(liveApi.commitTiptapMarkdownWrite).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem(`dmb.build.starter.${DOC_ID}`)).toBeNull();
+    expect(screen.getByRole("toolbar", {name:"Page authoring"})).toBeInTheDocument();
+    expect(screen.getByRole("button",{name:"Ask Agent"})).toBeEnabled();
+  });
+
+  it("never replaces existing text with a queued starter", async () => {
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(buildWorldbuildingSnapshot(DOC_ID));
+    sessionStorage.setItem(`dmb.build.starter.${DOC_ID}`, "worldbuilding");
+    render(<BuildDocumentHarness documentId={DOC_ID} />);
+    await waitFor(() => expect(buildShellTestEditor?.getText()).toContain("Build Source"));
+    expect(buildShellTestEditor?.getText()).not.toContain("Start with a spark");
+    expect(liveApi.prepareTiptapMarkdownWrite).not.toHaveBeenCalled();
+  });
+
   it("welcomes a blank worldbuilding source without adding starter text to it", async () => {
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({
       ...buildWorldbuildingSnapshot(DOC_ID),
@@ -381,6 +403,7 @@ describe("BuildSurfaceShell", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    sessionStorage.clear();
     buildShellTestEditor = null;
   });
 
