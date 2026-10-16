@@ -74,7 +74,10 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Literal, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Iterable, Literal, Mapping, Sequence
+
+if TYPE_CHECKING:
+    from apps.live_control_server.services.worldbuilding_source_span_read import WorldbuildingSourceReadBatch
 
 from dungeonmind.application.graph_snapshot import (
     GraphEvidenceRecord,
@@ -3077,6 +3080,7 @@ def _source_anchor_read_from_resolution(
     request: WorldGraphSourceAnchorReadRequest,
     repo_root: Path,
     revision_digests: dict[str | None, str | None],
+    source_batch: WorldbuildingSourceReadBatch | None = None,
 ) -> ResolvedSourceAnchorReadV2:
     revision_id = (
         resolution.anchor.source_revision_id
@@ -3093,6 +3097,7 @@ def _source_anchor_read_from_resolution(
         result=_anchor_read_view(
             services, resolution, request=request, repo_root=repo_root,
             revision_digest=revision_digest,
+            source_batch=source_batch,
         ),
         source_revision_id=revision_id,
         source_revision_sha256=revision_digest,
@@ -3140,13 +3145,16 @@ def read_source_anchors_direct_v2(
             raise ValueError("native source-read batch identity differs")
     except Exception as exc:
         raise _map_direct_error(exc) from exc
+    from apps.live_control_server.services.worldbuilding_source_span_read import WorldbuildingSourceReadBatch
+
+    source_batch = WorldbuildingSourceReadBatch()
     digests: dict[str | None, str | None] = {}
     reads: list[ResolvedSourceAnchorReadV2 | DirectWorldGraphReadError] = []
     for request, resolution in zip(requests, native.resolutions, strict=True):
         try:
             reads.append(_source_anchor_read_from_resolution(
                 services, resolution, request=request, repo_root=repo_root,
-                revision_digests=digests,
+                revision_digests=digests, source_batch=source_batch,
             ))
         except Exception as exc:
             reads.append(_map_direct_error(exc))
@@ -3310,6 +3318,7 @@ def _anchor_read_view(
     request: WorldGraphSourceAnchorReadRequest,
     repo_root: Path,
     revision_digest: str | None,
+    source_batch: WorldbuildingSourceReadBatch | None = None,
 ) -> WorldGraphSourceAnchorReadResult:
     snapshot = _retrieval_snapshot_view(
         resolution.snapshot, focus=request.focus.to_projection_focus()
@@ -3382,6 +3391,7 @@ def _anchor_read_view(
                     evidence_ref_id=anchor.evidence_ref_id,
                     snapshot=snapshot,
                     graph_artifact=None,
+                    _source_batch=source_batch,
                 )
             except WorldGraphRetrievalError as exc:
                 return WorldGraphSourceAnchorReadResult(

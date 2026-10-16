@@ -267,3 +267,19 @@ def test_executor_rejects_malformed_internal_batch_without_open_receipts(setup, 
     assert all(item["receipt"] is None for item in output["reads"])
     assert all(item["result"]["code"] == "source_batch_unverifiable" for item in output["reads"])
     assert not any(anchor.opened for anchor in session.source_anchors)
+
+
+def test_source_body_reuse_context_is_owned_by_one_batch(setup, monkeypatch):
+    f = setup
+    contexts = []
+    original = direct._anchor_read_view
+    def view(*args, **kwargs):
+        contexts.append(kwargs['source_batch'])
+        return original(*args, **kwargs)
+    monkeypatch.setattr(direct, '_anchor_read_view', view)
+    direct.read_source_anchors_direct_v2(f.services, f.requests, repo_root=f.root)
+    direct.read_source_anchors_direct_v2(f.services, f.requests, repo_root=f.root)
+    assert contexts[0] is contexts[1]
+    assert contexts[2] is contexts[3]
+    assert contexts[0] is not contexts[2]
+    assert contexts[0] is not None
