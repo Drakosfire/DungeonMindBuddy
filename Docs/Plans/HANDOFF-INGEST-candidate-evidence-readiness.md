@@ -1,6 +1,6 @@
 # INGEST: surface candidate validation in readiness
 
-**Status:** ACTIVE — authorized by the persistent Ingest-first goal.
+**Status:** SETTLED — PR #1251 merged as `85b3949c5cb4fd6419767c7a6037e3002a20750e`; the candidate-validation response and readiness lease ended. The separate missing-source identity gap is tracked by `HANDOFF-INGEST-graph-candidate-source-status.md`.
 **Base:** `origin/main@fc1daff4b7fc8f6ba7d35445dd22e9fca15f6d49`, refreshed after PR #1250 merged on 2026-10-16; #1250 changed only agent provider files and did not touch this lease.
 **Branch:** `codex/ingest-evidence-readiness`.
 **Checkout:** `/tmp/dmb-ingest-evidence-readiness`.
