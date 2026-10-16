@@ -257,6 +257,31 @@ def read_source_anchor_internal_v2(
         raise _map_direct_error(exc) from None
 
 
+def read_source_anchors_internal_v2(
+    requests: tuple[WorldGraphSourceAnchorReadRequest, ...],
+    *,
+    root: Path | None = None,
+    repo_root: Path | None = None,
+) -> tuple[ResolvedSourceAnchorReadV2 | WorldGraphRetrievalServiceError, ...]:
+    """Resolve one pinned native batch, then preserve each body's outcome."""
+    _require_mounted_native_read(root)
+    from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+
+    if not requests:
+        raise WorldGraphRetrievalServiceError(
+            "Source-read batch must not be empty", code="invalid_request", status_code=422,
+        )
+    try:
+        results = direct.read_source_anchors_direct_v2(
+            direct.direct_services_from_config(requests[0].world_id), requests,
+            repo_root=_resolved_repo_root(root=root, repo_root=repo_root),
+        )
+    except direct.DirectWorldGraphReadError as exc:
+        raise _map_direct_error(exc) from None
+    return tuple(_map_direct_error(item) if isinstance(item, direct.DirectWorldGraphReadError)
+                 else item for item in results)
+
+
 __all__ = [
     "WorldGraphRetrievalServiceError",
     "get_campaign_object",
@@ -264,6 +289,7 @@ __all__ = [
     "get_object_neighborhood",
     "read_source_anchor",
     "read_source_anchor_internal_v2",
+    "read_source_anchors_internal_v2",
     "search_campaign_graph",
 ]
 

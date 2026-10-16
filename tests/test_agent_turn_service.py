@@ -5993,11 +5993,11 @@ def test_mounted_v3_traversal_source_route_real_pg_and_history(
         assert result.get('reads') and result['reads'][0].get('receipt'), result
         return result
     monkeypatch.setattr(expansion_executor, 'execute_read_graph_source', checked_execute)
-    original_read = direct.read_source_anchor_direct_v2
+    original_read = direct.read_source_anchors_direct_v2
     def counted_read(*args, **kwargs):
-        core_reads.append(args[1].anchor_id)
+        core_reads.extend(request.anchor_id for request in args[1])
         return original_read(*args, **kwargs)
-    monkeypatch.setattr(direct, 'read_source_anchor_direct_v2', counted_read)
+    monkeypatch.setattr(direct, 'read_source_anchors_direct_v2', counted_read)
     monkeypatch.setattr(direct, 'direct_services_from_config', lambda _: services)
     monkeypatch.setattr(source, "_require_mounted_native_read", lambda _: None)
     monkeypatch.setattr(source, "_resolved_repo_root", lambda **kwargs: tmp_path)
@@ -6097,6 +6097,19 @@ def test_mounted_v3_traversal_source_route_real_pg_and_history(
                 payload['input'].extend([
                     {'type':'function_call','call_id':call_id,'name':name,'arguments':'{}'},
                     {'type':'function_call_output','call_id':call_id,'output':reply['resultJson']},
+                ])
+            if operation in {'search', 'neighborhood'}:
+                # Those operations expose discovery, not this object's complete
+                # property assertions. Fetch the claim the synthetic writer uses.
+                detail = on_graph_operation({'toolName': 'expand_graph_retrieval', 'arguments': {
+                    'retrievalSessionId': session.id, 'operation': 'object',
+                    'targets': [{'kind': 'node', 'id': 'obj:tavern'}],
+                }})
+                payload['input'].extend([
+                    {'type': 'function_call', 'call_id': 'graph-detail',
+                     'name': 'expand_graph_retrieval', 'arguments': '{}'},
+                    {'type': 'function_call_output', 'call_id': 'graph-detail',
+                     'output': detail['resultJson']},
                 ])
             send()
             claim = {

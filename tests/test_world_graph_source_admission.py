@@ -612,8 +612,8 @@ def test_internal_source_read_receipt_binds_executors_id_and_rejects_forgery(
         locator_identity="span:one", graph_revision="graph:one",
     )
     monkeypatch.setattr(
-        executor.retrieval_service, "read_source_anchor_internal_v2",
-        lambda *_args, **_kwargs: resolved,
+        executor.retrieval_service, "read_source_anchors_internal_v2",
+        lambda *_args, **_kwargs: (resolved,),
     )
     request = {
         "retrievalSessionId": session.id, "anchorIds": ["anchor:one"],
@@ -701,8 +701,8 @@ def test_internal_source_read_rejects_mismatched_authoritative_binding(
             None if tamper in {"source_revision_id", "locator_identity"} else "foreign"
         )
     monkeypatch.setattr(
-        executor.retrieval_service, "read_source_anchor_internal_v2",
-        lambda *_args, **_kwargs: SimpleNamespace(**resolved),
+        executor.retrieval_service, "read_source_anchors_internal_v2",
+        lambda *_args, **_kwargs: (SimpleNamespace(**resolved),),
     )
     output = executor.execute_read_graph_source({
         "retrievalSessionId": session.id, "anchorIds": ["anchor:one"],
@@ -744,14 +744,14 @@ def test_internal_json_pointer_read_keeps_revision_and_excerpt_digests_distinct(
         },
     })
     monkeypatch.setattr(
-        executor.retrieval_service, "read_source_anchor_internal_v2",
-        lambda *_args, **_kwargs: SimpleNamespace(
+        executor.retrieval_service, "read_source_anchors_internal_v2",
+        lambda *_args, **_kwargs: (SimpleNamespace(
             result=result, source_revision_id="source-revision:json",
             source_revision_sha256="a" * 64,
             evidence_ref_id="evidence:json", source_artifact_id="artifact:json",
             source_span_ref_id=None, locator_kind="json_pointer",
             locator_identity="/fact", graph_revision="graph:one",
-        ),
+        ),),
     )
     output = executor.execute_read_graph_source({
         "retrievalSessionId": session.id, "anchorIds": ["anchor:json"],
@@ -793,13 +793,13 @@ def test_internal_source_read_fails_closed_on_missing_or_stale_binding(
         },
     })
     monkeypatch.setattr(
-        executor.retrieval_service, "read_source_anchor_internal_v2",
-        lambda *_args, **_kwargs: SimpleNamespace(
+        executor.retrieval_service, "read_source_anchors_internal_v2",
+        lambda *_args, **_kwargs: (SimpleNamespace(
             result=result, source_revision_id=None, source_revision_sha256=None,
             evidence_ref_id=None, source_artifact_id=None,
             source_span_ref_id=None, locator_kind="source_span",
             locator_identity="span:one", graph_revision="graph:stale",
-        ),
+        ),),
     )
     output = executor.execute_read_graph_source({
         "retrievalSessionId": session.id, "anchorIds": ["anchor:one"],
