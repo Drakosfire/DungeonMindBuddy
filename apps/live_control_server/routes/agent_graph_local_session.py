@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Request, Response
 
 from apps.live_control_server.services.agent_graph_local_session import (
-    COOKIE_NAME,
+    session_cookie_name,
     COOKIE_PATH,
     MAX_AGE,
     issue_session,
@@ -24,7 +24,7 @@ def _no_store(response: Response) -> None:
 def bootstrap(request: Request, response: Response) -> dict[str, str]:
     session_id, csrf = issue_session(request)
     response.set_cookie(
-        COOKIE_NAME, session_id, max_age=MAX_AGE, path=COOKIE_PATH,
+        session_cookie_name(), session_id, max_age=MAX_AGE, path=COOKIE_PATH,
         httponly=True, samesite="strict", secure=False,
     )
     _no_store(response)
@@ -41,6 +41,6 @@ def status(request: Request, response: Response) -> dict[str, str]:
 @router.delete("")
 def revoke(request: Request, response: Response) -> dict[str, str]:
     revoke_session(request)
-    response.delete_cookie(COOKIE_NAME, path=COOKIE_PATH)
+    response.delete_cookie(session_cookie_name(), path=COOKIE_PATH)
     _no_store(response)
     return {"status": "revoked"}

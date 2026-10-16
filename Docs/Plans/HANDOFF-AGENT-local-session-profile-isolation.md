@@ -16,7 +16,9 @@ This is distinct from DOGFOOD preview5206's unconfirmed origin mismatch.
 Choose a deterministic cookie name from canonical configured UI origin and API
 authority including ports, never from client headers. The suffix is public routing
 metadata, not authentication. Bootstrap, require and revoke use the same name;
-foreign/renamed cookies still fail existing secret/store verification. Preserve
+foreign/renamed cookies fail even when profiles share a secret and store: bind
+session-store and CSRF HMACs to the canonical profile namespace with structured
+encoding and distinct purpose tags (ARCHITECTURE approved). Preserve
 exact peer/Host/origin/CSRF, expiry, private store and cookie security attributes.
 No old-cookie fallback. Existing sessions re-bootstrap once after rollout through
 the existing trusted auth-recovery path; no credential regeneration or broader
@@ -43,3 +45,8 @@ sessions reject. Issue/revoke touch only the profile cookie; security flags/path
 remain unchanged. Canonical config yields stable names; distinct configured
 profiles differ; invalid/missing config remains fail closed under existing policy.
 Review cumulative base→head; carry to one PR and obtain exact independent review.
+
+Author verification: 21 local-session/auth/launch-profile tests pass, including
+real shared-cookie-jar bootstrap/revoke and shared-secret/shared-store renamed
+cookie/foreign-CSRF rejection with original-session survival. Ruff and cumulative
+diff checks pass. No existing operator session or serving process was changed.

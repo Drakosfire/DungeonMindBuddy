@@ -18,7 +18,7 @@ from urllib.parse import urlsplit
 
 from fastapi import HTTPException, Request
 
-COOKIE_NAME = "dmb_local_graph_session"
+COOKIE_NAME_PREFIX = "dmb_local_graph_session"
 COOKIE_PATH = "/api/live"
 MAX_AGE = 8 * 60 * 60
 MAX_SESSIONS = 64
@@ -50,6 +50,26 @@ def _origin_host() -> tuple[str, str]:
     ):
         raise _config_error()
     return origin, host
+
+
+def session_cookie_name() -> str:
+    """Namespace browser cookies by trusted profile; ports do not scope cookies.
+
+    This public routing discriminator grants no authority. Session verification
+    still requires the configured secret, private store, peer, Host and CSRF.
+    """
+    origin, host = _origin_host()
+    ui = urlsplit(origin)
+    api = urlsplit(f"http://{host}")
+    canonical = json.dumps(
+        [
+            [ui.scheme, ipaddress.ip_address(ui.hostname).compressed, ui.port],
+            [api.scheme, ipaddress.ip_address(api.hostname).compressed, api.port],
+        ],
+        separators=(",", ":"),
+    )
+    suffix = sha256(canonical.encode("utf-8")).hexdigest()[:24]
+    return f"{COOKIE_NAME_PREFIX}_{suffix}"
 
 
 def _peer_and_host(request: Request) -> str:
@@ -129,12 +149,20 @@ def _locked_store() -> Iterator[tuple[Path, dict[str, int]]]:
         raise _config_error() from exc
 
 
+def _profile_mac(secret: str, session_id: str, *, purpose: str) -> str:
+    payload = json.dumps(
+        ["dmb_local_graph_session_v2", purpose, session_cookie_name(), session_id],
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hmac.new(secret.encode("utf-8"), payload, sha256).hexdigest()
+
+
 def _key(secret: str, session_id: str) -> str:
-    return hmac.new(secret.encode(), session_id.encode(), sha256).hexdigest()
+    return _profile_mac(secret, session_id, purpose="session-store")
 
 
 def _csrf(secret: str, session_id: str) -> str:
-    return hmac.new(secret.encode(), f"csrf:{session_id}".encode(), sha256).hexdigest()
+    return _profile_mac(secret, session_id, purpose="csrf")
 
 
 def issue_session(request: Request) -> tuple[str, str]:
@@ -150,7 +178,7 @@ def issue_session(request: Request) -> tuple[str, str]:
 
 def require_session(request: Request, *, unsafe: bool = False) -> str:
     secret = _peer_and_host(request)
-    session_id = request.cookies.get(COOKIE_NAME, "")
+    session_id = request.cookies.get(session_cookie_name(), "")
     if len(session_id) < 32 or len(session_id) > 128:
         raise HTTPException(401, detail={"code": "graph_auth_required"})
     with _locked_store() as (_path, entries):
@@ -169,6 +197,6 @@ def require_session(request: Request, *, unsafe: bool = False) -> str:
 def revoke_session(request: Request) -> None:
     secret = _peer_and_host(request)
     require_session(request, unsafe=True)
-    session_id = request.cookies[COOKIE_NAME]
+    session_id = request.cookies[session_cookie_name()]
     with _locked_store() as (_path, entries):
         entries.pop(_key(secret, session_id), None)

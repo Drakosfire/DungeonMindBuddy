@@ -11,6 +11,7 @@ from starlette.requests import Request
 
 from apps.live_control_server.main import create_app
 from apps.live_control_server.services.agent_graph_auth import authenticate_native_graph_principal
+from apps.live_control_server.services.agent_graph_local_session import session_cookie_name
 from src import bootstrap_env
 
 
@@ -39,7 +40,7 @@ def _client() -> TestClient:
 
 def _guard_request(cookie: str, method: str, *, csrf: str = "", origin: str = ORIGIN,
                    peer: str = "127.0.0.1") -> Request:
-    headers = {"Host": HOST, "Cookie": f"dmb_local_graph_session={cookie}"}
+    headers = {"Host": HOST, "Cookie": f"{session_cookie_name()}={cookie}"}
     if method != "GET":
         headers["Origin"] = origin
         if csrf:
@@ -57,7 +58,7 @@ def test_bootstrap_reload_status_and_revoke_are_durable(local_config: Path) -> N
     boot = client.post(URL, headers=HEADERS)
     assert boot.status_code == 200, boot.text
     assert boot.json()["status"] == "active"
-    cookie = client.cookies.get("dmb_local_graph_session")
+    cookie = client.cookies.get(session_cookie_name())
     assert cookie and len(cookie) >= 32
     assert "httponly" in boot.headers["set-cookie"].lower()
     assert "samesite=strict" in boot.headers["set-cookie"].lower()
@@ -70,7 +71,7 @@ def test_bootstrap_reload_status_and_revoke_are_durable(local_config: Path) -> N
     assert cookie not in stored and SECRET not in stored
 
     reloaded = _client()
-    reloaded.cookies.set("dmb_local_graph_session", cookie, path="/api/live")
+    reloaded.cookies.set(session_cookie_name(), cookie, path="/api/live")
     status = reloaded.get(URL, headers={"Host": HOST})
     assert status.status_code == 200, status.text
     csrf = status.json()["csrf_token"]
@@ -156,3 +157,130 @@ def test_expiry_rotation_and_production_configuration_fail_closed(
     assert client.get(URL, headers={"Host": HOST}).status_code == 401
     monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "production")
     assert client.post(URL, headers=HEADERS).status_code == 503
+
+
+@pytest.mark.parametrize("revoked", ["a", "b"])
+def test_same_host_profiles_share_cookie_jar_without_overwriting_sessions(
+    monkeypatch, tmp_path, revoked
+):
+    # One real HTTP cookie jar models browser cookies shared across ports.
+    client = TestClient(create_app(), base_url="http://127.0.0.1:8000", client=("127.0.0.1", 50000))
+    def profile(which):
+        ui, api = (5202, 8000) if which == "a" else (5876, 8002)
+        monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_UI_ORIGIN", f"http://127.0.0.1:{ui}")
+        monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_API_HOST", f"127.0.0.1:{api}")
+        monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", SECRET + which)
+        monkeypatch.setenv("DMB_AGENT_GRAPH_SESSION_STORE", str(tmp_path / which / "sessions.json"))
+        return f"http://127.0.0.1:{api}" + URL, {
+            "Origin": f"http://127.0.0.1:{ui}", "Host": f"127.0.0.1:{api}", "Sec-Fetch-Site": "same-origin",
+        }
+    names, csrf, values = {}, {}, {}
+    for which in ("a", "b"):
+        url, headers = profile(which)
+        response = client.post(url, headers=headers)
+        assert response.status_code == 200, response.text
+        names[which] = session_cookie_name()
+        values[which] = client.cookies.get(names[which])
+        csrf[which] = response.json()["csrf_token"]
+        assert names[which] in response.headers["set-cookie"]
+    assert names["a"] != names["b"]
+    assert {c.name for c in client.cookies.jar} == set(names.values())
+    for which in ("a", "b"):
+        url, headers = profile(which)
+        assert client.get(url, headers={"Host": headers["Host"]}).status_code == 200
+    url, headers = profile(revoked)
+    response = client.delete(url, headers={**headers, "X-DMB-Graph-CSRF": csrf[revoked]})
+    assert response.status_code == 200, response.text
+    assert response.headers["set-cookie"].startswith(names[revoked] + "=")
+    assert client.get(url, headers={"Host": headers["Host"]}).status_code == 401
+    survivor = "b" if revoked == "a" else "a"
+    url, headers = profile(survivor)
+    assert client.cookies.get(names[survivor]) == values[survivor]
+    assert client.get(url, headers={"Host": headers["Host"]}).status_code == 200
+
+
+def test_profile_cookie_name_uses_canonical_trusted_configuration(monkeypatch):
+    first = session_cookie_name()
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_UI_ORIGIN", "http://127.0.0.1:5876")
+    assert session_cookie_name() != first
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_UI_ORIGIN", ORIGIN)
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_API_HOST", "127.0.0.1:8002")
+    assert session_cookie_name() != first
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_UI_ORIGIN", "http://[::1]:5202")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_API_HOST", "[::1]:8000")
+    compact = session_cookie_name()
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_UI_ORIGIN", "http://[0:0:0:0:0:0:0:1]:5202")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_API_HOST", "[0:0:0:0:0:0:0:1]:8000")
+    assert session_cookie_name() == compact
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_UI_ORIGIN", "https://example.invalid")
+    with pytest.raises(HTTPException) as caught:
+        session_cookie_name()
+    assert caught.value.status_code == 503
+
+
+def test_renamed_foreign_expired_and_legacy_cookies_do_not_authenticate(local_config, monkeypatch):
+    client = _client()
+    boot = client.post(URL, headers=HEADERS)
+    assert boot.status_code == 200
+    name = session_cookie_name()
+    value = client.cookies.get(name)
+    foreign = _client()
+    # The old shared name is intentionally not an authentication fallback.
+    foreign.cookies.set("dmb_local_graph_session", value, path="/api/live")
+    assert foreign.get(URL, headers={"Host": HOST}).status_code == 401
+    foreign.cookies.set(name, "foreign-synthetic-session-value-at-least-32", path="/api/live")
+    assert foreign.get(URL, headers={"Host": HOST}).status_code == 401
+    # A real other-profile session renamed into this namespace is also invalid.
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", SECRET + "other")
+    other = _client()
+    other_boot = other.post(URL, headers=HEADERS)
+    assert other_boot.status_code == 200
+    other_value = other.cookies.get(name)
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", SECRET)
+    foreign.cookies.set(name, other_value, path="/api/live")
+    assert foreign.get(URL, headers={"Host": HOST}).status_code == 401
+    assert client.get(URL, headers={"Host": "127.0.0.1:9999"}).status_code == 403
+    csrf = boot.json()["csrf_token"]
+    assert client.delete(URL, headers={**HEADERS, "Origin": "http://127.0.0.1:9999", "X-DMB-Graph-CSRF": csrf}).status_code == 403
+    entries = json.loads(local_config.read_text())
+    local_config.write_text(json.dumps({key: 1 for key in entries}), encoding="utf-8")
+    assert client.get(URL, headers={"Host": HOST}).status_code == 401
+
+
+def test_cookie_profile_bootstrap_requires_configured_capability(monkeypatch):
+    monkeypatch.delenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN")
+    response = _client().post(URL, headers=HEADERS)
+    assert response.status_code == 503
+
+
+def test_shared_secret_and_store_do_not_authorize_renamed_cookie_or_foreign_csrf(
+    monkeypatch, local_config
+):
+    client = TestClient(create_app(), base_url="http://127.0.0.1:8000", client=("127.0.0.1", 50000))
+    def profile(which):
+        ui, api = (5202, 8000) if which == "a" else (5876, 8002)
+        monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_UI_ORIGIN", f"http://127.0.0.1:{ui}")
+        monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_API_HOST", f"127.0.0.1:{api}")
+        return f"http://127.0.0.1:{api}" + URL, {
+            "Origin": f"http://127.0.0.1:{ui}", "Host": f"127.0.0.1:{api}", "Sec-Fetch-Site": "same-origin",
+        }
+    names, values, csrf = {}, {}, {}
+    for which in ("a", "b"):
+        url, headers = profile(which)
+        response = client.post(url, headers=headers)
+        assert response.status_code == 200
+        names[which] = session_cookie_name()
+        values[which] = client.cookies.get(names[which])
+        csrf[which] = response.json()["csrf_token"]
+    url, headers = profile("a")
+    client.cookies.set(names["a"], values["b"], domain="127.0.0.1", path="/api/live")
+    assert client.get(url, headers={"Host": headers["Host"]}).status_code == 401
+    client.cookies.set(names["a"], values["a"], domain="127.0.0.1", path="/api/live")
+    assert client.get(url, headers={"Host": headers["Host"]}).status_code == 200
+    assert client.delete(url, headers={**headers, "X-DMB-Graph-CSRF": csrf["b"]}).status_code == 403
+    assert client.delete(url, headers={**headers, "X-DMB-Graph-CSRF": csrf["a"]}).status_code == 200
+    # Failed foreign authentication and revocation of A cannot invalidate B.
+    url, headers = profile("b")
+    assert client.cookies.get(names["b"]) == values["b"]
+    assert client.get(url, headers={"Host": headers["Host"]}).status_code == 200
+    assert len(json.loads(local_config.read_text())) == 1
