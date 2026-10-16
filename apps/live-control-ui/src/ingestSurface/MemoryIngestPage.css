@@ -575,7 +575,23 @@ button.ingest-welcome-action {
   }
 
   .ingest-local-nav__title {
-    grid-column: 1;
+    position: relative;
+    grid-column: 1 / -1;
+  }
+
+  .ingest-local-nav__title-control {
+    display: block;
+  }
+
+  .ingest-local-nav__title-control input {
+    display: block;
+    width: 100%;
+  }
+
+  .ingest-local-nav__title-control .field-required {
+    position: absolute;
+    top: 0;
+    right: 0;
   }
 
   .ingest-local-nav__primary-action {

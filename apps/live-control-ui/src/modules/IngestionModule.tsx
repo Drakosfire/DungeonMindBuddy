@@ -2387,7 +2387,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           </h2>
           <p className="ingest-welcome-intro">
             {hasPriorIngestWork
-              ? "Saved ingest work exists, but no recap text is open. Load a processed recap or paste the verified source to continue."
+              ? "Your earlier ingest work is preserved. No graph changes have been written."
               : "Paste or write a session recap, or load a processed recap from the bar above. Buddy shows proposed people, places, and connections before anything joins the World."}
           </p>
         </section>

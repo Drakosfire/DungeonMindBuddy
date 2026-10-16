@@ -284,7 +284,7 @@ describe("IngestionModule", () => {
     expect(within(nav).getByRole("status")).toHaveTextContent("Recap source missing");
     expect(within(nav).getByRole("status")).not.toHaveTextContent("No recap source loaded");
     expect(within(nav).getByRole("link", { name: "Evidence" })).toHaveAttribute("href", "#ingestion-evidence-details");
-    expect(screen.getByText(/Saved ingest work exists, but no recap text is open/i)).toBeInTheDocument();
+    expect(screen.getByText("Your earlier ingest work is preserved. No graph changes have been written.")).toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "Continue this recap safely" })).not.toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: "Paste recap" })).toBeInTheDocument();
     expect(screen.getByText(/disk check found one or both recap files missing/i)).toBeInTheDocument();
@@ -293,6 +293,7 @@ describe("IngestionModule", () => {
     const dismissStatus = within(nav).queryByRole("button", { name: "Dismiss ingestion toast" });
     if (dismissStatus) await user.click(dismissStatus);
     expect(within(nav).getByRole("status")).toHaveTextContent("Load a processed recap or paste the verified source to continue.");
+    expect(screen.getAllByText("Load a processed recap or paste the verified source to continue.")).toHaveLength(1);
 
     await user.click(within(nav).getByRole("link", { name: "Evidence" }));
     const evidenceDetails = screen.getByText("Evidence & details").closest("details");

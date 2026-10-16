@@ -1,9 +1,9 @@
 # DOGFOOD: streamline Ingest local navigation and evidence
 
 **Status:** ACTIVE under the user-authorized Ingest-first UX iteration (2026-10-16).
-**Base:** PR merge-base remains `b309616302225f2d84e08514eb39eb81f49f414d`, after merged #1260 changed Agent source-read accounting. Rechecked against current `main@f92a3e9e151742f80c77fbadbfa2b723712d1906`: nine later commits touch Agent/server evidence paths and handoffs, disjoint from this UI lease. The PR is nine commits behind and has not been rebased. GitHub currently reports `mergeable: false`, although `git merge-tree` against fetched `main` completes cleanly; reconcile that state before merge or dogfood. The original UI work merged by #1256 is included in this base.
+**Base:** PR merge-base remains `b309616302225f2d84e08514eb39eb81f49f414d`, after merged #1260 changed Agent source-read accounting. The last locally fetched `main` snapshot is `f92a3e9e151742f80c77fbadbfa2b723712d1906`; it showed nine later commits in disjoint Agent/server evidence paths and handoffs, and `git merge-tree` completed cleanly. GitHub's latest PR read on 2026-10-16 reports #1259 open, unmerged, and mergeable. The shell cannot currently resolve github.com, so refresh refs before rebasing or moving to dogfood. The original UI work merged by #1256 is included in this base.
 **Branch:** `codex/ingest-evidence-surface-cleanup`.
-**Checkout:** `/tmp/dmb-ingest-local-nav-refresh`.
+**PR checkout:** `/tmp/dmb-ingest-pr1259-review` at the current PR head. `/tmp/dmb-ingest-local-nav-refresh` is a stale, dirty precursor checkout at `6c3bf566` with overlapping uncommitted changes; do not treat it as the PR source without reconciliation.
 **Topology:** serial successor to merged #1256, one follow-on PR. Open #1235 owns Graph Review/source-observation review files; open #1244 owns packaging/reference recovery; neither overlaps this UI lease. #1251 and #1258 are merged prerequisites and do not own these paths.
 **Runtime/data:** UI-only. 5202 and 5204 stay read-only. A local frontend preview of this checkout may run on `127.0.0.1:5205` for rendered desktop/narrow-width acceptance; it can use existing read-only surface/artifact/status endpoints, including `inspect_status`. Do not call Prepare, Extract, Review mutations, Graph admission, publication, provider/model actions, or any endpoint that writes source, candidate, Corpus, graph, or persistence data.
 
@@ -147,6 +147,13 @@ slice rather than broadening this UI lease.
   `IngestionModule.test.tsx` passed 68/68, UI typecheck, production build, and
   `git diff --check` passed. The build retains the existing large-chunk warning
   and the IngestionModule tests retain existing React `act(...)` warnings.
+- Latest nav polish keeps the empty-state next action in the local nav and
+  changes the welcome card to a distinct preservation/safety message. At 390px,
+  the session-title input now spans the available row instead of being squeezed
+  beside its Required badge; desktop identity controls remain in one row.
+  Rendered proof was captured at 390x844 and 1280x720 on isolated 5206. The
+  focused Ingest suites pass 81/81; typecheck, production build, and cumulative
+  `git diff --check` pass. No ingestion write action was used.
 - Loading the existing Session 27 processed recap in the isolated preview
   displayed “Local Graph session was revoked. Reconnect explicitly.” I did not
   reconnect or run another graph action. The tab's temporary UI state was
