@@ -83,7 +83,7 @@ def request_for(snapshot: dict, units: list[dict], available: list[dict]) -> dic
 
 def validate_answers(request: dict, result: dict) -> dict:
     observation = result.get("observation", {})
-    if "response_model" in observation and observation["response_model"] != request["model"]:
+    if observation.get("response_model") != request["model"]:
         raise ValueError("Returned decision model differs from pinned request")
     answers = result["answers"]
     if set(answers) != {q["name"] for q in request["questions"]}:

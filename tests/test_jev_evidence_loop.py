@@ -41,7 +41,7 @@ def decisions(request, *, missing=False, conflict=False, bad=False):
             supported = target in ids and not missing
             selected = ("conflict" if conflict else "sufficient" if supported else "more_evidence") if name.startswith("coverage_") else target if name.startswith("support_") and supported else "a2" if name.startswith("next_") and "a2" in q["options"] else "none"
             answers[name] = {"kind": "choice", "selected": "invented" if bad else selected}
-    return {"answers": answers, "observation": {"input_tokens": 100, "output_tokens": 20}}
+    return {"answers": answers, "observation": {"input_tokens": 100, "output_tokens": 20, "response_model": "jev-1.14.0"}}
 
 
 def test_missing_link_targets_next_action_without_repeating(tmp_path):
@@ -178,3 +178,18 @@ def test_returned_model_mismatch_retains_usage_and_stops(tmp_path, returned):
     assert result["input_tokens_reported"] == 100
     assert result["observations"][0]["response_model"] == returned
     assert (tmp_path / "run").stat().st_mode & 0o777 == 0o700
+
+
+@pytest.mark.parametrize("missing", ["model", "observation"])
+def test_missing_model_identity_never_completes(tmp_path, missing):
+    async def evaluate(request):
+        result = decisions(request)
+        if missing == "model":
+            del result["observation"]["response_model"]
+        else:
+            del result["observation"]
+        return result
+    result = asyncio.run(run_loop(fixture(), evaluate, output=tmp_path / "run"))
+    assert result["status"] == "decision_unavailable_or_invalid"
+    assert not result["rounds"]
+    assert len(result["retrieval_events"]) == 2
