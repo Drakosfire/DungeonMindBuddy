@@ -102,3 +102,14 @@ identifier consistency check must count anchored reviewed-source assertions
 alongside canonical attributes, matching the broker's validated event without
 weakening result-hash, snapshot or typed-payload checks. Existing consumer tests
 cover the protected trace with the reviewed assertion and its exact passage.
+
+Preservation repair evidence: 10 governed Build owning tests plus nine trace
+projection regressions pass (19 combined). The new object case proves a reviewed
+worldbuilding observation becomes a governed assertion, retains its exact source
+pin, opens through the parent source broker and appears in the producing answer
+and protected trace. Foreign subject/source revision is rejected before operation
+admission. Seven reviewed-source consumer tests also pass against a uniquely
+created and removed Core database, including two real synthetic publication →
+V3 reviewed-object → exact source-pin paths. No retained World writes occurred.
+The repair changes Build object adoption only; Plan's object path stays unchanged.
+Logs: `/tmp/build-governed-tests.log`, `/tmp/build-reviewed-native-tests.log`.

@@ -1888,7 +1888,7 @@ class _PolicyExecutionAdapter:
             direct_services_from_config, get_evidence_direct, get_neighborhood_direct,
             get_object_direct, search_world_graph_direct,
             get_evidence_direct_v3, get_neighborhood_direct_v3,
-            get_object_direct_v3, search_world_graph_direct_v3,
+            get_object_direct_v3, search_world_graph_direct_v3, get_object_with_reviewed_sources_direct_v3,
         )
 
         def denied(code: str, status: int = 502) -> Mapping[str, Any]:
@@ -1948,6 +1948,7 @@ class _PolicyExecutionAdapter:
             }
             stage = "native_retrieval"
             services = direct_services_from_config(self.bootstrap.world_scope.world_id)
+            reviewed = None
             if request.operation == "object":
                 if len(target_ids) != 1:
                     return denied("ambiguous_target", 422)
@@ -1955,10 +1956,14 @@ class _PolicyExecutionAdapter:
                     **common, "schema": "dmb_world_graph_object_request_v1",
                     "nodeId": target_ids[0],
                 })
-                resolved = (
-                    get_object_direct_v3(services, effective_request)
-                    if isinstance(execution, graph_types.PlanWorldGraphExecutionV3) else None
-                )
+                if _governed_build_turn(self.request):
+                    reviewed = get_object_with_reviewed_sources_direct_v3(services, effective_request)
+                    resolved = reviewed
+                else:
+                    resolved = (
+                        get_object_direct_v3(services, effective_request)
+                        if isinstance(execution, graph_types.PlanWorldGraphExecutionV3) else None
+                    )
                 result = resolved.result if resolved is not None else get_object_direct(services, effective_request)
             elif request.operation == "neighborhood":
                 if not 1 <= len(target_ids) <= 8:
@@ -2003,10 +2008,32 @@ class _PolicyExecutionAdapter:
             ):
                 return denied("graph_revision_conflict", 409)
             result_payload = result.model_dump(mode="json", by_alias=True)
+            if reviewed is not None:
+                pins = {pin.anchor_id: pin for pin in reviewed.source_pins}
+                anchors = result.source_anchors
+                for observation in reviewed.reviewed_source_observations:
+                    if observation.subject_node_id != effective_request.node_id:
+                        raise ValueError("Reviewed observation belongs to another object")
+                    for evidence_id in observation.evidence_ref_ids:
+                        if not any(anchor.evidence_ref_id == evidence_id
+                            and observation.assertion_id in anchor.supporting_assertion_ids
+                            and anchor.anchor_id in pins
+                            and pins[anchor.anchor_id].evidence_ref_id == evidence_id
+                            and pins[anchor.anchor_id].source_artifact_id == observation.source_artifact_id
+                            and pins[anchor.anchor_id].source_revision_id == observation.source_revision_id
+                            for anchor in anchors):
+                            raise ValueError("Reviewed observation lacks its exact source pin")
+                result_payload["reviewedSourceObservations"] = [
+                    row.model_dump(mode="json", by_alias=True) for row in reviewed.reviewed_source_observations]
+                result_payload["reviewedSourceObservationCoverage"] = {
+                    "gapCodes": list(reviewed.observation_gap_codes), "missingIds": list(reviewed.observation_missing_ids)}
             claims = claims_from_retrieval_result(
                 result_payload, revision_id=self.bootstrap.world_scope.revision_id
             )
-            assertion_ids = sorted({item.assertion_id for item in result.attributes})
+            assertion_ids = sorted({item.assertion_id for item in result.attributes} | {
+                claim.source_assertion_id for claim in claims
+                if reviewed is not None and claim.claim_kind == "source_observation" and claim.source_assertion_id
+            })
             relationship_ids = sorted({item.edge_id for item in result.relationships})
             evidence_ids = sorted({
                 item.evidence_ref_id for item in result.source_anchors
@@ -2027,7 +2054,7 @@ class _PolicyExecutionAdapter:
             sufficient = bool((assertion_ids or relationship_ids) and evidence_ids)
             truncated = result.outcome == "truncated" or bool(
                 result.coverage.truncated_fields
-            )
+            ) or bool(reviewed is not None and (reviewed.observation_gap_codes or reviewed.observation_missing_ids))
             if sufficient and not truncated:
                 offers = self._related_recap_offers(result, services)
                 if offers:

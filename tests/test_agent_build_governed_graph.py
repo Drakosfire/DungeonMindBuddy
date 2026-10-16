@@ -83,12 +83,28 @@ class SyntheticHarness:
         assert on_provider_lifecycle({'transition': 'response_received'})
         if self.graph:
             assert source_read_enabled
+            operation = None
+            if self.graph == 'observation':
+                operation = on_graph_operation({'toolName': 'expand_graph_retrieval', 'arguments': {
+                    'schema': 'dmb_expand_graph_retrieval_request_v1',
+                    'retrievalSessionId': self.bootstrap.retrieval_session.id, 'operation': 'object',
+                    'targets': [{'kind': 'node', 'id': 'frank'}],
+                }})
+                result = json.loads(operation['resultJson'])
+                if 'reviewedSourceObservations' not in result:
+                    return AgentRuntimeResult(status='error', error_code=result.get('code', 'graph_operation_unavailable'))
+                assert result['reviewedSourceObservations'][0]['assertionId'] == 'observation-one'
             opened = on_graph_operation({'toolName': 'read_graph_source', 'arguments': {
                 'retrievalSessionId': self.bootstrap.retrieval_session.id, 'anchorIds': ['anchor-one'],
             }})
             result = json.loads(opened['resultJson'])
             assert result.get('content') == 'Frank guards the western gate.', result
             body = json.loads(payload)
+            if operation is not None:
+                body['input'].extend([
+                    {'type': 'function_call', 'name': 'expand_graph_retrieval', 'call_id': 'object-call', 'arguments': '{}'},
+                    {'type': 'function_call_output', 'call_id': 'object-call', 'output': operation['resultJson']},
+                ])
             body['input'].extend([
                 {'type': 'function_call', 'name': 'read_graph_source', 'call_id': 'source-call', 'arguments': '{}'},
                 {'type': 'function_call_output', 'call_id': 'source-call', 'output': opened['resultJson']},
@@ -99,7 +115,8 @@ class SyntheticHarness:
                 'payloadSha256': sha256(encoded.encode()).hexdigest(), 'payloadUtf8Bytes': len(encoded.encode())})
             assert on_provider_lifecycle({'transition': 'sdk_entered'})
             assert on_provider_lifecycle({'transition': 'response_received'})
-            claim = {'claim_id': 'gate-claim', 'target_kind': 'relationship', 'target_id': 'rel-gate',
+            claim = {'claim_id': 'gate-claim', 'target_kind': 'assertion' if operation else 'relationship',
+                     'target_id': 'observation-one' if operation else 'rel-gate',
                      'graph_revision': 'native-rev-3', 'evidence_ref_ids': ['ev-gate']}
             return AgentRuntimeResult(status='ok', final_text=json.dumps({
                 'answer_context_status': 'graph_grounded',
@@ -173,7 +190,9 @@ def test_build_failure_retains_execution_and_trace(build_case, tmp_path, forged)
     assert turn.completion is None
 
 
-def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(build_case, tmp_path, monkeypatch):
+@pytest.mark.parametrize('observation', [False, True, 'wrong_subject', 'wrong_source'],
+    ids=['relationship', 'reviewed-source-observation', 'foreign-observation-subject', 'foreign-observation-source'])
+def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(build_case, tmp_path, monkeypatch, observation):
     from graph_memory.interaction.authority_classifier import claims_from_retrieval_result
     from graph_memory.interaction.session import SourceAnchorState
     from graph_memory.interaction.session_store import create_session
@@ -206,7 +225,46 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
                 'source_artifact_id': 'artifact-one', 'source_revision_id': 'source-rev-one',
                 'read_content_sha256': digest, 'outcome': 'enough', 'truncated': False}}]}
     monkeypatch.setattr('graph_memory.interaction.expansion_executor.execute_read_graph_source', read_external_graph)
-    response = execute((source, request, bootstrap), tmp_path, SyntheticHarness(source, bootstrap, graph=True))
+    if observation:
+        from apps.live_control_server.integrations.dungeonmind import world_graph_reads as direct
+        from apps.live_control_server.models.world_graph_object_projection import WorldGraphObjectReviewedSourceObservation
+        from graph_memory.retrieval.models import WorldGraphRetrievalResult
+        from types import SimpleNamespace
+        native_observation = WorldGraphObjectReviewedSourceObservation(
+            assertion_id='observation-one', subject_node_id='frank', observation_kind='worldbuilding_observation',
+            text=text, entity_kind='npc', review_id='review-one', contribution_id='contribution-one',
+            publication_revision_id='native-rev-3', source_artifact_id='artifact-one',
+            source_revision_id='source-rev-one', evidence_ref_ids=['ev-gate'], visibility='gm', epistemic_kind='fact')
+        if observation == 'wrong_subject':
+            native_observation = native_observation.model_copy(update={'subject_node_id': 'another-person'})
+        elif observation == 'wrong_source':
+            native_observation = native_observation.model_copy(update={'source_revision_id': 'another-source-revision'})
+        result = WorldGraphRetrievalResult.model_validate({
+            'operation': 'object', 'outcome': 'enough', 'requestedNodeId': 'frank',
+            'snapshot': {'worldId': 'native-build-world', 'campaignId': '', 'scopeMode': 'world',
+                'focus': {'kind': 'none', 'sessionId': None}, 'admissibility': 'gm', 'revisionId': 'native-rev-3',
+                'headRevisionId': 'native-rev-3', 'isHead': True},
+            'sourceAnchors': [{'anchorId': 'anchor-one', 'revisionId': 'native-rev-3', 'evidenceRefId': 'ev-gate',
+                'sourceArtifactId': 'artifact-one', 'sourceDomain': 'worldbuilding', 'readable': True,
+                'locatorKind': 'source_span', 'supportingAssertionIds': ['observation-one']}],
+        })
+        resolved = direct.ResolvedWorldGraphReviewedObjectV3(result, (SimpleNamespace(
+            anchor_id='anchor-one', graph_revision='native-rev-3', evidence_ref_id='ev-gate',
+            source_artifact_id='artifact-one', source_revision_id='source-rev-one'),), (native_observation,), (), ())
+        monkeypatch.setattr(direct, 'direct_services_from_config', lambda _: SimpleNamespace())
+        monkeypatch.setattr(direct, 'get_object_with_reviewed_sources_direct_v3', lambda *_: resolved)
+        monkeypatch.setattr(svc._PolicyExecutionAdapter, '_related_recap_offers', lambda *_: [])
+    if observation in {'wrong_subject', 'wrong_source'}:
+        with pytest.raises(svc.AgentTurnServiceError):
+            execute((source, request, bootstrap), tmp_path, SyntheticHarness(source, bootstrap, graph='observation'))
+        service = AgentConversationService()
+        conversation = service.get_active_conversation('elderwyld')
+        turn, = service.list_turns('elderwyld', conversation.conversation_id)
+        assert not any(e.kind == 'validated_graph_operation_v3' for e in turn.graph_context_execution.events)
+        assert turn.completion is None
+        return
+    response = execute((source, request, bootstrap), tmp_path,
+        SyntheticHarness(source, bootstrap, graph='observation' if observation else True))
     context = response.knowledge_context
     assert context.completion.answer_basis == 'saved_source_plus_world_graph'
     citation, = context.completion.citation_map.entries
@@ -219,6 +277,10 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
     turn, = service.list_turns('elderwyld', conversation.conversation_id)
     traces = service.list_context_trace_attempts(world_id='elderwyld', turn_id=turn.turn_id)
     assert any(getattr(observation, 'text', None) == text for trace in traces for observation in trace.observations)
+    if observation:
+        event, = [e for e in turn.graph_context_execution.events if e.kind == 'validated_graph_operation_v3']
+        assert event.assertion_ids == ['observation-one']
+        assert event.returned_source_pins[0].source_revision_id == 'source-rev-one'
 
 
 @pytest.mark.parametrize('change', ['source', 'question'])

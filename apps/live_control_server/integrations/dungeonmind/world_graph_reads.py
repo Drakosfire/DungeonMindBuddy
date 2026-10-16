@@ -1937,11 +1937,21 @@ def get_object_direct(
 def get_object_with_reviewed_sources_direct(
     services: DirectWorldGraphReadServices,
     request: WorldGraphObjectRequest,
+) -> tuple[WorldGraphRetrievalResult, list[WorldGraphObjectReviewedSourceObservation], list[str], list[str]]:
+    result, observations, gaps, missing, _, _ = _get_object_with_reviewed_sources_direct(services, request)
+    return result, observations, gaps, missing
+
+
+def _get_object_with_reviewed_sources_direct(
+    services: DirectWorldGraphReadServices,
+    request: WorldGraphObjectRequest,
 ) -> tuple[
     WorldGraphRetrievalResult,
     list[WorldGraphObjectReviewedSourceObservation],
     list[str],
     list[str],
+    Any,
+    Any,
 ]:
     """Keep bounded object semantics while adding Core's reviewed source facet.
 
@@ -2058,7 +2068,7 @@ def get_object_with_reviewed_sources_direct(
                 ],
             }
         )
-        return result, accepted, sorted(set(gaps)), missing
+        return result, accepted, sorted(set(gaps)), missing, bounded, complete
     except Exception as exc:  # noqa: BLE001
         raise _map_direct_error(exc) from exc
 
@@ -2697,6 +2707,34 @@ def get_object_direct_v3(services: DirectWorldGraphReadServices,
         return _resolved_operation_v3(native, _object_result_view(native, request=request))
     except Exception as exc:
         raise _map_direct_error(exc) from exc
+
+
+@dataclass(frozen=True)
+class ResolvedWorldGraphReviewedObjectV3(ResolvedWorldGraphOperationV3):
+    reviewed_source_observations: tuple[WorldGraphObjectReviewedSourceObservation, ...]
+    observation_gap_codes: tuple[str, ...]
+    observation_missing_ids: tuple[str, ...]
+
+
+def get_object_with_reviewed_sources_direct_v3(
+    services: DirectWorldGraphReadServices,
+    request: WorldGraphObjectRequest,
+) -> ResolvedWorldGraphReviewedObjectV3:
+    """Preserve bounded reviewed observations with the exact returned anchor pins."""
+    result, observations, gaps, missing, bounded, complete = _get_object_with_reviewed_sources_direct(services, request)
+    returned = {anchor.anchor_id for anchor in result.source_anchors}
+    pins: dict[str, ResolvedSourceAnchorMetadataV2] = {}
+    for native in (bounded, complete):
+        for pin in _resolved_operation_v3(native, result).source_pins:
+            if pin.anchor_id not in returned:
+                continue
+            if pin.anchor_id in pins and pins[pin.anchor_id] != pin:
+                raise PersistenceIntegrityError("Reviewed object anchor has conflicting source identity")
+            pins[pin.anchor_id] = pin
+    if any(anchor.readable and anchor.anchor_id not in pins for anchor in result.source_anchors):
+        raise PersistenceIntegrityError("Reviewed object readable anchor has no exact source pin")
+    return ResolvedWorldGraphReviewedObjectV3(result, tuple(pins[key] for key in sorted(pins)),
+        tuple(observations), tuple(gaps), tuple(missing))
 
 
 def get_neighborhood_direct_v3(services: DirectWorldGraphReadServices,
