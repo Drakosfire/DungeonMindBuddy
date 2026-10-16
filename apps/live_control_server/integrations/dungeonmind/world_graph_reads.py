@@ -2022,6 +2022,26 @@ def _get_object_with_reviewed_sources_direct(
                 )
             selection_partial = bool(available - set(observation_ids))
             observations = tuple(row for row in observations if row.assertion_id in observation_ids)
+        canonical_anchors = dict(anchors)
+        if observation_ids:
+            required = {}
+            for observation in observations:
+                for evidence_id in observation.evidence_ref_ids:
+                    matches = [anchor for anchor in complete_anchors
+                               if anchor.evidence_ref_id == evidence_id
+                               and observation.assertion_id in anchor.supporting_assertion_ids]
+                    if not matches:
+                        raise PersistenceIntegrityError(
+                            "Reviewed observation has no admitted supporting anchor"
+                        )
+                    anchor = sorted(matches, key=lambda row: row.anchor_id)[0]
+                    required[anchor.anchor_id] = anchor
+            if len(required) > request.bounds.max_source_anchors:
+                observations = ()
+                truncated = True
+            else:
+                # Explicit selection owns the bounded evidence budget first.
+                anchors = {}
         for observation in observations:
             if len(accepted) >= request.bounds.max_attributes:
                 truncated = True
@@ -2061,7 +2081,25 @@ def _get_object_with_reviewed_sources_direct(
                         }
                     )
             accepted.append(_reviewed_source_observation_view(observation))
+        canonical_displaced = False
+        if observation_ids:
+            for anchor_id, anchor in sorted(canonical_anchors.items()):
+                if anchor_id in anchors:
+                    current = anchors[anchor_id]
+                    anchors[anchor_id] = current.model_copy(update={
+                        "supporting_assertion_ids": sorted(set(current.supporting_assertion_ids)
+                                                           | set(anchor.supporting_assertion_ids)),
+                    })
+                elif len(anchors) < request.bounds.max_source_anchors:
+                    anchors[anchor_id] = anchor
+                else:
+                    canonical_displaced = True
         coverage = result.coverage
+        if canonical_displaced:
+            gaps.append("reviewed_source_observation_canonical_anchors_displaced")
+            coverage = coverage.model_copy(update={
+                "truncated_fields": sorted(set(coverage.truncated_fields) | {"source_anchors"}),
+            })
         if selection_partial:
             gaps.append("reviewed_source_observation_selection")
             coverage = coverage.model_copy(update={
@@ -2081,7 +2119,7 @@ def _get_object_with_reviewed_sources_direct(
             update={
                 "source_anchors": list(anchors.values()),
                 "coverage": coverage,
-                "outcome": "truncated" if truncated else ("partial" if selection_partial and result.outcome == "enough" else result.outcome),
+                "outcome": "truncated" if truncated else ("partial" if (selection_partial or canonical_displaced) and result.outcome == "enough" else result.outcome),
                 "diagnostics": [
                     *result.diagnostics,
                     *(
