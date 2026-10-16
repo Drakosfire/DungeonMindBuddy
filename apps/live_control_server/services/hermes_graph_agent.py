@@ -1439,7 +1439,9 @@ class _GraphOperationReservation:
         source_limit: int | None = 0,
         context_limit: int | None = 0,
         scope: TransportScope | None = None,
+        page_bytes: int = PAGE_BYTES,
     ) -> None:
+        self.page_bytes = page_bytes
         self.scope = scope
         self.limit = limit
         self.source_limit = source_limit
@@ -1475,7 +1477,7 @@ class _GraphOperationReservation:
             "read_related_recap_context": {"dmb_related_recap_context_read_v2"},
         }
         scope = self.scope
-        if (scope is None or len(encoded.encode()) > PAGE_BYTES
+        if (scope is None or len(encoded.encode()) > self.page_bytes
             or result.get("tool") != tool
             or not isinstance(result.get("resultSchema"), str)
             or result["resultSchema"] not in expected.get(tool, set())
@@ -1490,7 +1492,7 @@ class _GraphOperationReservation:
                 and result.get("outcome") is None))):
             return None
         if result.get("schema") == OVERVIEW_SCHEMA:
-            if (tool != "expand_graph_retrieval" or "resultPageToken" in arguments
+            if (len(encoded.encode()) > PAGE_BYTES or tool != "expand_graph_retrieval" or "resultPageToken" in arguments
                 or not isinstance(result.get("view"), Mapping)
                 or not isinstance(result.get("counts"), Mapping)
                 or not isinstance(result.get("detailPageToken"), str)
@@ -1904,6 +1906,7 @@ def run_hermes_graph_agent_turn(
                 request.request_budget["maxGraphOperations"], on_parent_graph_operation,
                 source_limit=None if request.request_budget["maxGraphOperations"] is None else 8,
                 context_limit=None if request.request_budget["maxGraphOperations"] is None else 8,
+                page_bytes=request.request_budget.get("graphToolPageBytes", PAGE_BYTES),
                 scope=TransportScope(request.retrieval_session_id or "", request.world_id,
                                      request.revision_pin or ""),
             )
@@ -2101,7 +2104,7 @@ def run_hermes_graph_agent_turn(
                         )
                         if agent_factory is None and policy.mode != "conversation_only":
                             from apps.live_control_server.services.hermes_graph_dispatch_adapter import (
-                                install_graph_serial_dispatch,
+                                install_graph_serial_dispatch, verify_graph_page_capacity,
                             )
                             try:
                                 install_graph_serial_dispatch(agent)
@@ -2110,6 +2113,15 @@ def run_hermes_graph_agent_turn(
                                     hermes_session_id=session_id,
                                     error_code="hermes_graph_dispatch_unsupported",
                                     error_message="The pinned Agent Harness dispatcher contract is unsupported.",
+                                )
+                        if agent_factory is None and policy.mode != "conversation_only":
+                            try:
+                                verify_graph_page_capacity(agent, (request.request_budget or {}).get("graphToolPageBytes", PAGE_BYTES))
+                            except ValueError:
+                                return observed_error(
+                                    hermes_session_id=session_id,
+                                    error_code="hermes_graph_page_capacity_unsupported",
+                                    error_message="The Agent Harness cannot safely carry the configured Graph detail pages.",
                                 )
                         if request.request_budget is not None:
                             agent.api_request_budget_guard = _request_budget_guard(

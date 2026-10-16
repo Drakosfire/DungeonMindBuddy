@@ -17,6 +17,7 @@ from time import monotonic
 from typing import Any
 
 PAGE_BYTES = 8_000
+MAX_DETAIL_PAGE_BYTES = 32_000
 CACHE_BYTES = 8_000_000
 CACHE_SECONDS = 300
 PAGE_SCHEMA = "dmb_graph_tool_page_v1"
@@ -197,10 +198,13 @@ class _Entry:
 
 class GraphToolPageCache:
     def __init__(
-        self, *, clock=monotonic, lifetime=CACHE_SECONDS, max_bytes=CACHE_BYTES
+        self, *, clock=monotonic, lifetime=CACHE_SECONDS, max_bytes=CACHE_BYTES, page_bytes=PAGE_BYTES
     ):
         self._clock = clock
         self._lifetime = lifetime
+        if isinstance(page_bytes, bool) or not isinstance(page_bytes, int) or not PAGE_BYTES <= page_bytes <= MAX_DETAIL_PAGE_BYTES:
+            raise ValueError("Graph detail page size is unsupported")
+        self.page_bytes = page_bytes
         self._max_bytes = max_bytes
         self._entries: OrderedDict[str, _Entry] = OrderedDict()
         self._lock = RLock()
@@ -293,7 +297,7 @@ class GraphToolPageCache:
             )
             for path, row in units:
                 record = {"path": path, "value": row}
-                if _size(record) <= 6_000:
+                if _size(record) <= self.page_bytes - 2_000:
                     records.append(record)
                     continue
                 # A fragment is explicitly not a complete assertion. Unicode
@@ -331,13 +335,13 @@ class GraphToolPageCache:
                 "remainingRecords": len(records),
                 "recordCount": len(records),
             }
-            if _size(probe) > PAGE_BYTES:
+            if _size(probe) > self.page_bytes:
                 if not batch:
                     return _error("graph_result_record_over_budget")
                 batches.append(batch)
                 batch = []
                 probe["records"] = [record]
-                if _size(probe) > PAGE_BYTES:
+                if _size(probe) > self.page_bytes:
                     return _error("graph_result_record_over_budget")
             batch.append(record)
         if batch:
@@ -357,7 +361,7 @@ class GraphToolPageCache:
                 "recordCount": len(records),
             }
             encoded = _json(page)
-            if len(encoded.encode()) > PAGE_BYTES:
+            if len(encoded.encode()) > self.page_bytes:
                 return _error("graph_result_page_over_budget")
             pages.append(encoded)
         overview = (
