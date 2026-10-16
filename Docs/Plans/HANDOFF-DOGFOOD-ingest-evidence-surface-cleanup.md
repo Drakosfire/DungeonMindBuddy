@@ -120,9 +120,13 @@ slice rather than broadening this UI lease.
   `breadcrumb_required` and CLI breadcrumb-routing steps when both recap files
   are missing. The UI now labels that state from explicit on-disk proof and
   keeps raw server recommendations in a collapsed diagnostic disclosure.
-  The status-service precedence itself is outside this UI lease; a follow-on
-  server slice must distinguish missing source from missing breadcrumb and
-  withhold routing recommendations until both recap artifacts are verified.
+  The status-service precedence itself is outside this UI lease. Existing
+  tests intentionally use `breadcrumb_required` as a retrieval-readiness state
+  even immediately after Stage + Preview, before recap files exist. A follow-on
+  server slice should separate retrieval readiness from the immediate next
+  operation: report the earliest missing source/derivative prerequisite and
+  withhold breadcrumb-routing recommendations until the normalized recap and
+  reviewed seed are verified.
 - `IngestionModule.test.tsx`: 64 passed after adding regression coverage for
   missing-source proof, user-facing recovery guidance, and collapsed raw server
   recommendations. Existing React `act(...)` warnings remain.
