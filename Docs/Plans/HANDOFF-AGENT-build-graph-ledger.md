@@ -54,3 +54,29 @@ consumer must reuse parent provider authorization, Graph broker, protected trace
 and verified source-read receipts with Build-specific assembly, then prove an
 ordinary Mirathorn question and opened passage. Latency/usefulness and operator
 inspection remain required. Never replay timed-out provider turn `5893388c…`.
+
+## Author evidence
+
+Nineteen owning Build cases pass against real disposable PostgreSQL: separate
+Build intent/source receipt, brokered Graph event and opened source passage,
+completion and protected passage readback through a fresh service, exact replay,
+foreign source/World/native binding rejection, cross-surface rejection, and
+timeout with an unknown provider outcome that cannot be reclaimed. SQL rejects
+missing/foreign source bases. Downgrade refuses retained Build receipts instead
+of discarding them; existing Plan rows/fingerprints survive the previous-head
+roundtrip unchanged.
+
+The shared APP ledger/Graph/source/historical-trace regression run has 151 passes
+and one inherited fingerprint-fixture failure. That exact failure reproduces
+on source archived from base `990d229d` (the old expectation includes a null
+selection field omitted by the already merged selection implementation). It is
+not suppressed or changed here. Existing migration head assertions alone advance
+to 0024. Ruff and cumulative diff checks pass. No provider call, serving migration,
+retained database/corpus write, or ordinary Build runtime adoption occurred.
+
+New serialized variants are `dmb_build_graph_intent_v1`,
+`dmb_build_graph_context_receipt_v1`, and `dmb_build_graph_completion_v1`.
+APP's existing submitted-intent-v2 digest column stores the normalized governed
+intent fingerprint; its name does not reclassify Build as Plan. Shared execution
+events retain their established formats. Build requires source-read execution
+(V2 or its V3 subtype); metadata-only Plan completion cannot validate Build.

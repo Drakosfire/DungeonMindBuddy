@@ -22,7 +22,7 @@ from application_state.agent_conversation.types import (
     PlanAskContextBasis,
     PlanAskHistoryAttributionV1,
     CompletionBindingEventV1,
-    PlanWorldGraphCompletion,
+    GraphTurnCompletion,
     PlanWorldGraphExecution,
     Turn,
     TurnProvenance,
@@ -918,7 +918,7 @@ def complete_claimed_turn(
     expected_revision: int,
     expected_attempt: int,
     assistant_text: str,
-    completion: PlanWorldGraphCompletion | None,
+    completion: GraphTurnCompletion | None,
     graph_context_execution: PlanWorldGraphExecution | None = None,
 ) -> Turn | None:
     with conn.cursor(row_factory=dict_row) as cur:

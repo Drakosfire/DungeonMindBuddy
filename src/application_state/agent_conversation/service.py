@@ -55,6 +55,7 @@ from application_state.agent_conversation.types import (
     SourceReadAuthorizationEventV2,
     SubmittedTurnIntentV1,
     SubmittedTurnIntentV2,
+    BuildGraphIntentV1,
     Turn,
     TurnClaimReceipt,
     TurnFailure,
@@ -624,7 +625,7 @@ class AgentConversationService:
         self,
         world_id: str,
         idempotency_key: UUID,
-        submitted_intent: SubmittedTurnIntentV1 | SubmittedTurnIntentV2,
+        submitted_intent: SubmittedTurnIntentV1 | SubmittedTurnIntentV2 | BuildGraphIntentV1,
     ) -> Turn | None:
         """Find an exact World receipt before resolving mutable current context.
 
@@ -636,7 +637,7 @@ class AgentConversationService:
             raise ApplicationStateValidationError(
                 "submitted intent World does not match verified World"
             )
-        if isinstance(submitted_intent, SubmittedTurnIntentV2):
+        if isinstance(submitted_intent, (SubmittedTurnIntentV2, BuildGraphIntentV1)):
             digest_v1 = None
             digest_v2 = submitted_turn_intent_fingerprint_v2(submitted_intent)
         else:

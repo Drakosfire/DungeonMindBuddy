@@ -749,6 +749,41 @@ class PlanContextPolicyV1(StrictModel):
     policy: Literal["auto_plan_world"]
 
 
+class BuildGraphIntentV1(SubmittedTurnIntentV1):
+    """Saved Build source plus an explicitly requested managed World Graph."""
+
+    schema_: Literal["dmb_build_graph_intent_v1"] = Field(
+        default="dmb_build_graph_intent_v1", alias="schema"
+    )
+    surface_id: Literal["build"]
+    client_work_state: Literal["saved_clean", "saved_dirty"]
+    primary_work: SubmittedPrimaryWorkIntentV1
+    playable_target: None = None
+    selected_knowledge: None = None
+    graph_selection: None = None
+
+    @model_validator(mode="after")
+    def validate_build(self) -> "BuildGraphIntentV1":
+        ref = self.primary_work
+        if (ref.kind != "build"
+            or ref.expected_content_sha256 is None
+            or ref.expected_revision_n is not None
+            or self.graph_request.mode != "world"
+            or self.graph_request.campaign_id is not None
+            or self.graph_request.focus is None
+            or self.graph_request.focus.kind != "none"):
+            raise ValueError("Build Graph intent requires an exact saved Build source and World Graph")
+        return self
+
+
+class BuildSourceContextBasisV1(StrictModel):
+    world_id: str = Field(min_length=1, max_length=128)
+    document_id: str = Field(min_length=1, max_length=256)
+    registry_revision: int = Field(strict=True, ge=1)
+    content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    visibility: Literal["internal", "player_safe"]
+
+
 class SubmittedTurnIntentV2(StrictModel):
     """Normalized explicit Plan/World Graph policy intent, before resolution."""
 
@@ -797,7 +832,7 @@ class SubmittedTurnIntentV2(StrictModel):
         return self
 
 
-def submitted_turn_intent_fingerprint_v2(intent: SubmittedTurnIntentV2) -> str:
+def submitted_turn_intent_fingerprint_v2(intent: SubmittedTurnIntentV2 | BuildGraphIntentV1) -> str:
     """Fingerprint only normalized caller intent, excluding routing thread identity."""
     payload = intent.model_dump(
         mode="json", by_alias=True, exclude={"client_thread_id"}
@@ -987,6 +1022,36 @@ def validate_graph_packet_input(
         )
 
 
+class BuildGraphContextReceiptV1(StrictModel):
+    schema_: Literal["dmb_build_graph_context_receipt_v1"] = Field(
+        default="dmb_build_graph_context_receipt_v1", alias="schema"
+    )
+    receipt_serializer_version: Literal["canonical-json-utf8-v1"]
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_basis: BuildSourceContextBasisV1
+    graph_authority: PlanWorldGraphAuthorityV1
+    graph_packet: PlanWorldGraphPacketV1
+    assembled_input: PlanWorldGraphAssembledInputV1
+    evidence_mode: Literal["metadata_only"]
+    source_opened: Literal[False]
+
+    @model_validator(mode="after")
+    def validate_receipt(self) -> "BuildGraphContextReceiptV1":
+        if self.source_basis.world_id != self.graph_authority.managed_world_id:
+            raise ValueError("Build source and Graph must have the same managed World")
+        validate_graph_packet_input(self.graph_packet, self.assembled_input)
+        payload = self.model_dump(mode="json", by_alias=True, exclude={"context_receipt_sha256"})
+        if self.context_receipt_sha256 != _canonical_sha256(payload):
+            raise ValueError("Build receipt digest does not match its contents")
+        return self
+
+
+GraphContextReceipt = Annotated[
+    PlanWorldGraphContextReceiptV1 | BuildGraphContextReceiptV1,
+    Field(discriminator="schema_"),
+]
+
+
 class GraphEvidenceValidationInputs(StrictModel):
     """Common validation inputs, independent of an Ask or action lifecycle."""
 
@@ -997,11 +1062,13 @@ class GraphEvidenceValidationInputs(StrictModel):
     assembled_input: PlanWorldGraphAssembledInputV1
 
 def _ask_graph_validation_inputs(
-    receipt: PlanWorldGraphContextReceiptV1,
+    receipt: GraphContextReceipt,
 ) -> GraphEvidenceValidationInputs:
     return GraphEvidenceValidationInputs(
         context_receipt_sha256=receipt.context_receipt_sha256,
-        committed_content_sha256=receipt.plan_basis.content_sha256,
+        committed_content_sha256=(receipt.source_basis.content_sha256
+            if isinstance(receipt, BuildGraphContextReceiptV1)
+            else receipt.plan_basis.content_sha256),
         graph_authority=receipt.graph_authority,
         graph_packet=receipt.graph_packet,
         assembled_input=receipt.assembled_input,
@@ -1231,6 +1298,66 @@ class PlanWorldGraphCompletionV2(StrictModel):
 PlanWorldGraphCitation = PlanWorldGraphCitationV1 | PlanWorldGraphCitationV2
 PlanWorldGraphCitationMap = PlanWorldGraphCitationMapV1 | PlanWorldGraphCitationMapV2
 PlanWorldGraphCompletion = PlanWorldGraphCompletionV1 | PlanWorldGraphCompletionV2
+
+
+class SavedSourceClaimV1(StrictModel):
+    """Attribution to a frozen authored source; never admitted Graph authority."""
+
+    kind: Literal["saved_source_claim"]
+    text: str = Field(min_length=1, max_length=4000)
+    content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+BuildGraphAnswerSegment = Annotated[
+    SavedSourceClaimV1 | PlanWorldGraphClaimSegmentV1 | PlanWorldGraphConnectiveSegmentV1,
+    Field(discriminator="kind"),
+]
+
+
+class BuildGraphCompletionV1(StrictModel):
+    schema_: Literal["dmb_build_graph_completion_v1"] = Field(
+        default="dmb_build_graph_completion_v1", alias="schema"
+    )
+    context_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    answer_basis: Literal["saved_source", "saved_source_plus_world_graph"]
+    answer_context_status: Literal[
+        "graph_grounded", "graph_grounded_partial",
+        "source_only_insufficient_evidence", "source_only_graph_unused",
+    ]
+    answer_segments: list[BuildGraphAnswerSegment] = Field(min_length=1, max_length=128)
+    citation_map: PlanWorldGraphCitationMapV2 | None
+
+    @model_validator(mode="after")
+    def validate_shape(self) -> "BuildGraphCompletionV1":
+        claims = {s.claim_id: s for s in self.answer_segments if isinstance(s, PlanWorldGraphClaimSegmentV1)}
+        claim_count = sum(isinstance(s, PlanWorldGraphClaimSegmentV1) for s in self.answer_segments)
+        if len(claims) != claim_count:
+            raise ValueError("Build Graph claim IDs must be unique")
+        if self.answer_basis != ("saved_source_plus_world_graph" if claims else "saved_source"):
+            raise ValueError("Build answer basis must follow its typed segments")
+        if self.citation_map is not None and self.citation_map.context_receipt_sha256 != self.context_receipt_sha256:
+            raise ValueError("Build citations must bind the exact receipt")
+        if self.answer_context_status.startswith("source_only_"):
+            if claims or self.citation_map is not None:
+                raise ValueError("Saved-source-only answers cannot carry Graph authority")
+        else:
+            if not claims or self.citation_map is None or len(self.citation_map.entries) != len(claims):
+                raise ValueError("Build Graph answers require one citation per claim")
+            if len({e.claim_id for e in self.citation_map.entries}) != len(claims):
+                raise ValueError("Build Graph citations must have unique claim IDs")
+            for entry in self.citation_map.entries:
+                claim = claims.get(entry.claim_id)
+                if claim is None or (entry.target_kind != claim.target_kind
+                    or entry.target_id != claim.target_id
+                    or entry.graph_revision != claim.graph_revision
+                    or entry.evidence_ref_ids != claim.evidence_ref_ids):
+                    raise ValueError("Build citation must match its Graph claim")
+        if len(self.model_dump_json(by_alias=True).encode("utf-8")) > 1_048_576:
+            raise ValueError("Build completion exceeds storage size limit")
+        return self
+
+
+GraphTurnCompletion = PlanWorldGraphCompletion | BuildGraphCompletionV1
 
 
 class GraphCompletionRejectionCode(str, Enum):
@@ -2542,7 +2669,7 @@ def validate_graph_provider_envelope(
 
 
 def validate_selected_source_binding(
-    receipt: PlanWorldGraphContextReceiptV1,
+    receipt: GraphContextReceipt,
     execution: PlanWorldGraphExecution | None,
 ) -> None:
     validate_graph_selected_source_binding(_ask_graph_validation_inputs(receipt), execution)
@@ -2581,7 +2708,7 @@ def validate_graph_selected_source_binding(inputs: GraphEvidenceValidationInputs
 
 
 def validate_related_recap_context_scope(
-    receipt: PlanWorldGraphContextReceiptV1,
+    receipt: GraphContextReceipt,
     execution: PlanWorldGraphExecution | None,
 ) -> None:
     validate_graph_related_recap_context_scope(_ask_graph_validation_inputs(receipt), execution)
@@ -2683,6 +2810,8 @@ def validate_completion_against_receipt(
     completion: PlanWorldGraphCompletion,
     receipt: PlanWorldGraphContextReceiptV1,
 ) -> None:
+    if not isinstance(receipt, PlanWorldGraphContextReceiptV1) or not isinstance(completion, (PlanWorldGraphCompletionV1, PlanWorldGraphCompletionV2)):
+        raise ValueError("Metadata-only completion validation requires the Plan contract")
     if completion.context_receipt_sha256 != receipt.context_receipt_sha256:
         _reject_graph_completion(
             GraphCompletionRejectionCode.RECEIPT_BINDING,
@@ -2819,7 +2948,7 @@ def derive_execution_answer_context_status(
     *, context_receipt_sha256: str,
     answer_segments: list[PlanWorldGraphAnswerSegmentV1],
     citation_map: PlanWorldGraphCitationMapV1 | None,
-    receipt: PlanWorldGraphContextReceiptV1,
+    receipt: GraphContextReceipt,
     execution: PlanWorldGraphExecution,
     producing_provider_attempt_id: UUID,
     claim_graph_event_ids: dict[str, list[UUID]],
@@ -2917,6 +3046,8 @@ def derive_graph_execution_evidence_status(
             for read in event.receipts
         }
     for segment in answer_segments:
+        if isinstance(segment, SavedSourceClaimV1) and segment.content_sha256 != inputs.committed_content_sha256:
+            raise ValueError("Saved-source claim attribution must match the frozen source digest")
         if isinstance(segment, PlanWorldGraphPlanClaimSegmentV1) and segment.plan_content_sha256 != inputs.committed_content_sha256:
             _reject_graph_completion(
                 GraphCompletionRejectionCode.PLAN_BASIS_ATTRIBUTION,
@@ -3105,15 +3236,17 @@ def derive_graph_execution_evidence_status(
 
 
 def validate_execution_completion(
-    completion: PlanWorldGraphCompletion,
-    receipt: PlanWorldGraphContextReceiptV1,
+    completion: GraphTurnCompletion,
+    receipt: GraphContextReceipt,
     execution: PlanWorldGraphExecution,
     producing_provider_attempt_id: UUID,
     claim_graph_event_ids: dict[str, list[UUID]],
 ) -> None:
     """Validate supplied status against the derived producing-envelope status."""
+    if isinstance(receipt, BuildGraphContextReceiptV1) != isinstance(completion, BuildGraphCompletionV1):
+        raise ValueError("Completion and frozen receipt must identify the same surface contract")
     validate_selected_source_binding(receipt, execution)
-    if isinstance(completion, PlanWorldGraphCompletionV2):
+    if isinstance(completion, (PlanWorldGraphCompletionV2, BuildGraphCompletionV1)):
         if not isinstance(execution, PlanWorldGraphExecutionV2):
             raise ValueError("V2 completion requires a V2 execution record")  # noqa: TRY004
         _validate_v2_completion_source_reads(completion, execution, producing_provider_attempt_id)
@@ -3126,6 +3259,11 @@ def validate_execution_completion(
         producing_provider_attempt_id=producing_provider_attempt_id,
         claim_graph_event_ids=claim_graph_event_ids,
     )
+    if isinstance(completion, BuildGraphCompletionV1):
+        expected_status = {
+            "plan_only_insufficient_evidence": "source_only_insufficient_evidence",
+            "plan_only_graph_unused": "source_only_graph_unused",
+        }.get(expected_status, expected_status)
     if completion.answer_context_status == expected_status:
         return
     if expected_status in {"graph_grounded", "graph_grounded_partial"}:
@@ -3140,7 +3278,7 @@ def validate_execution_completion(
 
 
 def _validate_v2_completion_source_reads(
-    completion: PlanWorldGraphCompletionV2, execution: PlanWorldGraphExecutionV2,
+    completion: PlanWorldGraphCompletionV2 | BuildGraphCompletionV1, execution: PlanWorldGraphExecutionV2,
     producing_provider_attempt_id: UUID,
 ) -> None:
     validate_graph_execution_source_citations(
@@ -3219,8 +3357,8 @@ class TurnSubmission(StrictModel):
     user_text: str
     provenance: TurnProvenance
     submitted_intent_v1: SubmittedTurnIntentV1 | None = None
-    submitted_intent_v2: SubmittedTurnIntentV2 | None = None
-    graph_context_receipt: PlanWorldGraphContextReceiptV1 | None = None
+    submitted_intent_v2: SubmittedTurnIntentV2 | BuildGraphIntentV1 | None = None
+    graph_context_receipt: GraphContextReceipt | None = None
     graph_context_execution: PlanWorldGraphExecution | None = None
 
     @model_validator(mode="after")
@@ -3241,8 +3379,13 @@ class TurnSubmission(StrictModel):
             and self.submitted_intent_v2 is not None
         ):
             raise ValueError("a turn cannot carry both submitted intent v1 and v2")
+        if isinstance(self.submitted_intent_v2, BuildGraphIntentV1):
+            _validate_build_submission(self)
+            return self
         if self.submitted_intent_v2 is not None:
             intent = self.submitted_intent_v2
+            if not isinstance(self.graph_context_receipt, PlanWorldGraphContextReceiptV1):
+                raise ValueError("Plan intent requires a Plan Graph receipt")
             if self.graph_context_receipt is None:
                 raise ValueError(
                     "auto_plan_world turn requires a frozen Graph context receipt"
@@ -3282,37 +3425,93 @@ class TurnSubmission(StrictModel):
                 raise ValueError(
                     "Graph context receipt must match the submitted Plan intent"
                 )
-            validate_selected_source_binding(receipt, self.graph_context_execution)
-            if self.graph_context_execution is not None:
-                execution = self.graph_context_execution
-                if execution.events:
-                    raise ValueError("accepted Graph execution record must start empty")
-                if execution.context_receipt_sha256 != receipt.context_receipt_sha256:
-                    raise ValueError("Graph execution policy must bind the frozen receipt")
-                accounting = execution.policy.provider_input_accounting
-                if isinstance(execution, PlanWorldGraphExecutionV2):
-                    scope = execution.policy.source_read_scope
-                    if (
-                        scope.world_id != receipt.graph_authority.managed_world_id
-                        or scope.campaign_id != receipt.graph_authority.campaign_id
-                        or scope.graph_revision != receipt.graph_authority.graph_revision
-                        or any(a.evidence_ref_id not in receipt.graph_packet.candidate_evidence_ref_ids for a in scope.admitted_anchors)
-                    ):
-                        raise ValueError("V2 source-read scope must match the frozen Graph receipt")
-                validate_selected_source_binding(receipt, execution)
-                if accounting.estimator != receipt.assembled_input.tokenizer_name:
-                    raise ValueError("receipt tokenizer metadata differs from Graph execution policy")
-                if (
-                    accounting.kind == "conservative_upper_bound"
-                    and receipt.assembled_input.tokenizer_version != "v1"
-                ):
-                    raise ValueError("receipt accounting differs from Graph execution policy")
+            _validate_initial_graph_execution(receipt, self.graph_context_execution)
         elif self.graph_context_receipt is not None:
             raise ValueError("Graph context receipt requires submitted intent v2")
         if self.graph_context_execution is not None and self.submitted_intent_v2 is None:
             raise ValueError("Graph execution requires submitted intent v2")
         return self
 
+
+def _validate_build_submission(submission: TurnSubmission) -> None:
+    intent = submission.submitted_intent_v2
+    receipt = submission.graph_context_receipt
+    if not isinstance(intent, BuildGraphIntentV1) or not isinstance(receipt, BuildGraphContextReceiptV1):
+        raise ValueError("Build Graph intent requires its own frozen source receipt")
+    basis = receipt.source_basis
+    provenance = submission.provenance
+    ref = provenance.primary_work
+    if (intent.world_id != submission.world_id or intent.message != submission.user_text
+        or basis.world_id != submission.world_id
+        or basis.document_id != intent.primary_work.object_id
+        or basis.registry_revision != intent.primary_work.expected_revision
+        or basis.content_sha256 != intent.primary_work.expected_content_sha256
+        or (intent.graph_request.revision_pin is not None
+            and intent.graph_request.revision_pin != receipt.graph_authority.graph_revision)
+        or provenance.surface_resolution != "resolved" or provenance.surface_id != "build"
+        or provenance.surface_instance_id != intent.surface_instance_id
+        or ref.resolution != "resolved" or ref.kind != "build"
+        or ref.object_id != basis.document_id or ref.revision != str(basis.registry_revision)
+        or ref.content_sha256 != basis.content_sha256
+        or any(x is not None for x in (ref.object_revision, ref.work_revision_id, ref.revision_n))
+        or provenance.selected_object.resolution != "absent"):
+        raise ValueError("Build Graph receipt must match the submitted source and provenance")
+    _validate_build_receipt_provenance(receipt, provenance)
+    if not isinstance(submission.graph_context_execution, PlanWorldGraphExecutionV2):
+        raise ValueError("Build requires governed Graph source-read execution")
+    _validate_initial_graph_execution(receipt, submission.graph_context_execution)
+
+
+def _validate_build_receipt_provenance(receipt, provenance) -> None:
+    basis = receipt.source_basis
+    ref = provenance.primary_work
+    authority = receipt.graph_authority
+    if (provenance.world_id != basis.world_id or provenance.surface_resolution != "resolved"
+        or provenance.surface_id != "build" or ref.resolution != "resolved"
+        or ref.kind != "build" or ref.object_id != basis.document_id
+        or ref.revision != str(basis.registry_revision) or ref.content_sha256 != basis.content_sha256
+        or any(x is not None for x in (ref.object_revision, ref.work_revision_id, ref.revision_n))
+        or provenance.selected_object.resolution != "absent"):
+        raise ValueError("Stored Build receipt differs from its frozen source")
+    expected = {
+        "dmb_build_source_visibility_v1": (basis.visibility, "1"),
+        "dmb_build_graph_binding_v1": (authority.native_world_id, str(authority.binding_version)),
+        "world_graph_revision": (authority.native_world_id, authority.graph_revision),
+    }
+    for kind, (object_id, revision) in expected.items():
+        refs = [r for r in provenance.supporting_work if r.kind == kind]
+        if (len(refs) != 1 or refs[0].resolution != "resolved"
+            or refs[0].object_id != object_id or refs[0].revision != revision
+            or any(x is not None for x in (refs[0].object_revision, refs[0].work_revision_id,
+                                          refs[0].revision_n, refs[0].content_sha256))):
+            raise ValueError("Build source visibility or managed/native Graph binding differs")
+
+
+def _validate_initial_graph_execution(receipt, execution) -> None:
+    validate_selected_source_binding(receipt, execution)
+    if execution is not None:
+        if execution.events:
+            raise ValueError("accepted Graph execution record must start empty")
+        if execution.context_receipt_sha256 != receipt.context_receipt_sha256:
+            raise ValueError("Graph execution policy must bind the frozen receipt")
+        accounting = execution.policy.provider_input_accounting
+        if isinstance(execution, PlanWorldGraphExecutionV2):
+            scope = execution.policy.source_read_scope
+            if (
+                scope.world_id != receipt.graph_authority.managed_world_id
+                or scope.campaign_id != receipt.graph_authority.campaign_id
+                or scope.graph_revision != receipt.graph_authority.graph_revision
+                or any(a.evidence_ref_id not in receipt.graph_packet.candidate_evidence_ref_ids for a in scope.admitted_anchors)
+            ):
+                raise ValueError("V2 source-read scope must match the frozen Graph receipt")
+        validate_selected_source_binding(receipt, execution)
+        if accounting.estimator != receipt.assembled_input.tokenizer_name:
+            raise ValueError("receipt tokenizer metadata differs from Graph execution policy")
+        if (
+            accounting.kind == "conservative_upper_bound"
+            and receipt.assembled_input.tokenizer_version != "v1"
+        ):
+            raise ValueError("receipt accounting differs from Graph execution policy")
 
 def _receipt_target_matches_intent(
     receipt_target: PlanPlayableTargetReceiptV1 | None,
@@ -3347,9 +3546,9 @@ class Turn(StrictModel):
     submitted_intent_fingerprint_v2: str | None = Field(
         default=None, pattern=r"^[0-9a-f]{64}$"
     )
-    graph_context_receipt: PlanWorldGraphContextReceiptV1 | None = None
+    graph_context_receipt: GraphContextReceipt | None = None
     graph_context_execution: PlanWorldGraphExecution | None = None
-    completion: PlanWorldGraphCompletion | None = None
+    completion: GraphTurnCompletion | None = None
     attempt: int = Field(ge=0)
     claim_expires_at: datetime | None = None
     accepted_at: datetime
@@ -3388,6 +3587,16 @@ class Turn(StrictModel):
             )
             if has_completion_binding != (self.completion is not None):
                 raise ValueError("completion binding must be present exactly when completion is stored")
+        if isinstance(self.graph_context_receipt, BuildGraphContextReceiptV1) and (
+            not isinstance(self.graph_context_execution, PlanWorldGraphExecutionV2)
+            or self.provenance.surface_id != "build"
+            or self.provenance.primary_work.kind != "build"
+        ):
+            raise ValueError("Build Graph receipt requires governed Build execution and provenance")
+        if isinstance(self.graph_context_receipt, BuildGraphContextReceiptV1):
+            _validate_build_receipt_provenance(self.graph_context_receipt, self.provenance)
+            if isinstance(self.completion, BuildGraphCompletionV1) and self.assistant_text != "\n".join(s.text for s in self.completion.answer_segments):
+                raise ValueError("Build answer text must match its validated completion segments")
         if self.completion is not None:
             if self.graph_context_receipt is None:
                 raise ValueError("Graph completion requires its frozen context receipt")
@@ -3418,7 +3627,7 @@ class TurnResult(StrictModel):
     turn_id: UUID
     expected_revision: int = Field(ge=1)
     assistant_text: str
-    completion: PlanWorldGraphCompletion | None = None
+    completion: GraphTurnCompletion | None = None
     producing_provider_attempt_id: UUID | None = None
     claim_graph_event_ids: dict[str, list[UUID]] | None = None
 
@@ -3426,6 +3635,8 @@ class TurnResult(StrictModel):
     def validate_text(self) -> "TurnResult":
         if not self.assistant_text.strip():
             raise ValueError("assistant_text is required")
+        if isinstance(self.completion, BuildGraphCompletionV1) and self.assistant_text != "\n".join(s.text for s in self.completion.answer_segments):
+            raise ValueError("Build answer text must match its completion segments")
         if (self.producing_provider_attempt_id is None) != (self.claim_graph_event_ids is None):
             raise ValueError("execution completion binding inputs must be supplied together")
         if self.completion is None and self.producing_provider_attempt_id is not None:
