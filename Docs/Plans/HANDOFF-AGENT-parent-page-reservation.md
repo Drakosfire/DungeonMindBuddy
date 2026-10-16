@@ -1,6 +1,10 @@
 # AGENT: recognize parent pages in the Harness operation reservation
 
-Status ACTIVE under PRIME's Mirathorn lifecycle goal. Base and accepted #1220
+Status SETTLED: #1221 independently reviewed at1aca1ff3 and merged at
+`362d304413deabf39c12ca52e4c41d33816fa513`. Matched preview ordinary question
+traversed two Graph operations and opened source passages; final citation_shape
+rejection remains. Successor: `HANDOFF-AGENT-unvalidated-answer-capture.md`.
+Original scope: Base and accepted #1220
 merge `f4e3ab68025e08abfe229e96add852631f29ce1b`. Serial successor.
 PRIME implements solo in `/tmp/prime-recap-mention-boundaries`, branch
 `codex/agent-parent-page-reservation`; ARCHITECTURE independently reviews.

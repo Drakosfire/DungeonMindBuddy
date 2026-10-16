@@ -388,3 +388,95 @@ def test_later_gap_preserves_first_marker_and_capacity_remains_independent():
     assert store.trace.capture_failure_code == "historical_source_unavailable"
     assert store.trace.observations[-1].code == "trace_size_limit"
     assert capture._capture_exhausted()
+
+
+def answer_capture_case():
+    capture, store, turn = collector()
+    producer = uuid4()
+    turn.graph_context_execution = SimpleNamespace(events=[
+        SimpleNamespace(kind='provider_attempt_authorized_v3', provider_attempt_id=producer),
+        SimpleNamespace(kind='provider_outcome', provider_attempt_id=producer, outcome='response_received')])
+    turn.graph_context_receipt = SimpleNamespace(context_receipt_sha256='c' * 64)
+    capture.bound_context_receipt_sha256 = 'c' * 64
+    return capture, store, turn, producer
+
+
+def test_unvalidated_answer_capture_exact_idempotent_and_not_authority():
+    capture, store, turn, producer = answer_capture_case()
+    answer = '{"citation_map":{"broken":[]},"text":"Ω quoted draft"}'
+    capture.answer_draft(answer, producing_provider_attempt_id=producer)
+    capture.answer_draft(answer, producing_provider_attempt_id=producer)
+    snapshot, = store.trace.observations
+    item, = snapshot.materials
+    assert item.text == answer and item.role == 'assistant'
+    assert item.item_id == f'unvalidated-provider-answer:{producer}:{"c" * 64}'
+    assert item.source_reads == [] and item.route is None
+    assert len(store.bindings) == 1
+    with pytest.raises(ApplicationStateValidationError, match='different bytes'):
+        capture.answer_draft(answer + ' ', producing_provider_attempt_id=producer)
+    assert store.trace.observations[0].materials[0].text == answer
+    assert turn.graph_context_execution.events[-1].outcome == 'response_received'
+
+
+@pytest.mark.parametrize('change', ['wrong', 'earlier', 'no-response'])
+def test_answer_draft_rejects_foreign_or_nonproducing_attempt(change):
+    capture, store, turn, producer = answer_capture_case()
+    if change == 'wrong':
+        producer = uuid4()
+    elif change == 'earlier':
+        turn.graph_context_execution.events.append(SimpleNamespace(
+            kind='provider_attempt_authorized_v3', provider_attempt_id=uuid4()))
+    else:
+        turn.graph_context_execution.events.pop()
+    with pytest.raises(ApplicationStateValidationError, match='producing provider response'):
+        capture.answer_draft('draft', producing_provider_attempt_id=producer)
+    assert store.trace.observations == []
+
+
+@pytest.mark.parametrize('problem', ['bytes', 'aggregate', 'events', 'encoding'])
+def test_answer_draft_omissions_are_explicit_and_never_prefixes(problem):
+    capture, store, _, producer = answer_capture_case()
+    text = 'exact draft'
+    if problem == 'bytes':
+        text = 'x' * 1_048_576
+    elif problem == 'aggregate':
+        capture.observe({'kind':'context_snapshot','stage':'before','materials':[
+            {'item_id':'retained','state':'model_context','role':'assistant','text':'x'*1_040_000}]})
+        text = 'x' * 10_000
+    elif problem == 'events':
+        # The real APP ceiling is exercised through this collector preflight;
+        # fake store avoids 2048 irrelevant database roundtrips.
+        item = SimpleNamespace(kind='failure')
+        capture.trace = capture.trace.model_copy(update={'observations':[item]*2048})
+    else:
+        text = '\ud800'
+    capture.answer_draft(text, producing_provider_attempt_id=producer)
+    assert capture.trace.capture_status == 'incomplete'
+    expected = 'size_limit' if problem in {'bytes','aggregate'} else ('event_limit' if problem == 'events' else 'encoding_unavailable')
+    assert capture.trace.capture_failure_code == 'answer_draft_' + expected
+    assert not any(getattr(m,'item_id','').startswith('unvalidated-provider-answer:')
+        for o in capture.trace.observations if o.kind == 'context_snapshot' for m in o.materials)
+
+
+def test_answer_draft_persistence_failure_propagates_without_retry():
+    capture, store, _, producer = answer_capture_case()
+    store.failure = ApplicationStateConflictError('fenced')
+    with pytest.raises(ApplicationStateConflictError):
+        capture.answer_draft('draft', producing_provider_attempt_id=producer)
+    assert len(store.bindings) == 1 and store.trace.observations == []
+
+
+@pytest.mark.parametrize('change',['receipt','turn','world','conversation'])
+def test_answer_draft_cannot_rebind_frozen_trace_context(change):
+    capture, store, turn, producer = answer_capture_case()
+    if change == 'receipt':
+        turn.graph_context_receipt.context_receipt_sha256 = 'd' * 64
+    elif change == 'world':
+        turn.world_id = 'other'
+    elif change == 'turn':
+        turn.turn_id = uuid4()
+    else:
+        turn.conversation_id = uuid4()
+    with pytest.raises(ApplicationStateValidationError, match='frozen trace context'):
+        capture.answer_draft('draft',producing_provider_attempt_id=producer)
+    assert store.trace.observations == []
