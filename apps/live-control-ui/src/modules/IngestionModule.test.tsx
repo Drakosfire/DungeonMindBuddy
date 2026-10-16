@@ -290,6 +290,9 @@ describe("IngestionModule", () => {
     expect(screen.getByText(/disk check found one or both recap files missing/i)).toBeInTheDocument();
     expect(screen.queryByText(/Canonical \+ normalized recap exist on disk/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Canonical recap and normalized recap are on disk/i)).not.toBeInTheDocument();
+    const dismissStatus = within(nav).queryByRole("button", { name: "Dismiss ingestion toast" });
+    if (dismissStatus) await user.click(dismissStatus);
+    expect(within(nav).getByRole("status")).toHaveTextContent("Load a processed recap or paste the verified source to continue.");
 
     await user.click(screen.getByText("Evidence & details"));
     expect(screen.getByText("Canonical and normalized recap files are not both present")).toBeInTheDocument();
