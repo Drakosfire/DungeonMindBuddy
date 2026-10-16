@@ -149,6 +149,52 @@ class Session29GoldTests(unittest.TestCase):
         fact['attributes'].pop('spell_ref')
         self.assertIn('Fire Bolt identity/use disconnected', self.errors())
 
+    def test_warehouse_cannot_move_to_edge(self):
+        fact = next(f for f in self.gold['facts'] if f['id'] == 'warehouse_mireward')
+        fact['object'] = 'edge'
+        self.assertIn('warehouse_mireward: context endpoint/predicate mismatch', self.errors())
+
+    def test_children_cannot_come_from_fellinor_warehouse(self):
+        fact = next(f for f in self.gold['facts'] if f['id'] == 'children_from_warehouse')
+        fact['object'] = 'edge_warehouse'
+        self.assertIn('children_from_warehouse: context endpoint/predicate mismatch', self.errors())
+
+    def test_context_joins_cannot_become_direct_source_claims(self):
+        for fid in ('warehouse_mireward', 'children_from_warehouse', 'rescue_eldritch_plan'):
+            with self.subTest(fact=fid):
+                fact = next(f for f in self.gold['facts'] if f['id'] == fid)
+                fact['provenance'] = 'source_assertion'
+                self.assertIn(f'{fid}: contextual join laundered', self.errors())
+                fact['provenance'] = 'contextual_inference'
+
+    def test_child_location_does_not_prove_individual_refugee_membership(self):
+        fact = next(f for f in self.gold['facts'] if f['id'] == 'children_from_warehouse')
+        fact['attributes']['individual_refugee_membership_directly_stated'] = True
+        self.assertIn('child warehouse context promoted to direct refugee membership', self.errors())
+
+    def test_eldritch_rescue_context_does_not_confirm_cast(self):
+        fact = next(f for f in self.gold['facts'] if f['id'] == 'rescue_eldritch_plan')
+        fact['status'] = 'occurred'
+        fact['attributes']['actual_cast_confirmed'] = True
+        self.assertIn('rescue_eldritch_plan: context modality changed', self.errors())
+        self.assertIn('rescue spell context overstates execution/target', self.errors())
+
+    def test_eldritch_plan_cannot_move_to_den_encounter(self):
+        fact = next(f for f in self.gold['facts'] if f['id'] == 'rescue_eldritch_plan')
+        fact['subject'] = 'den_combat'
+        self.assertIn('rescue_eldritch_plan: context endpoint/predicate mismatch', self.errors())
+
+    def test_dropped_context_link_fails_even_if_manifest_edited(self):
+        target = 'warehouse_mireward'
+        self.gold['facts'] = [f for f in self.gold['facts'] if f['id'] != target]
+        self.gold['required_fact_ids'].remove(target)
+        self.assertIn('required semantic coverage dropped', self.errors())
+
+    def test_operator_clarification_cannot_replace_corpus_basis(self):
+        fact = next(f for f in self.gold['facts'] if f['id'] == 'children_from_warehouse')
+        fact['attributes']['basis_fact_ids'] = ['operator_children_origin']
+        self.assertIn('children_from_warehouse: invalid context basis', self.errors())
+
     def test_missing_originals_fail_instead_of_skip(self):
         with tempfile.TemporaryDirectory() as directory:
             errors = validator.validate(self.gold, Path(directory))

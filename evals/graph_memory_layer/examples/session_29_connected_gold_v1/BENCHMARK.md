@@ -12,17 +12,17 @@ Failures: Lysandro and Lysandra are the same person; Relation guessed from simil
 
 ## q02: Which children were rescued, where, and what supports Edge origin?
 
-Sleeping children carried from Mireward warehouse; Baergrom rescues them. S25 houses Edge refugees there and mentions older children; exact rescued-child origin is operator clarified.
+Sleeping children are carried out of the Mireward refugee warehouse, then rescued by Baergrom and taken to Lysandro’s house. The warehouse-to-Mireward location is a campaign-context join. S25 houses Edge refugees there and mentions children; exact rescued-child membership remains operator clarification plus medium-confidence continuity inference.
 
-Expected facts: rescue_actual, children_carried, warehouse_identity, refugee_housing, refugee_origin, children_context, operator_children_origin.
+Expected facts: rescue_actual, children_carried, warehouse_identity, refugee_housing, refugee_origin, children_context, operator_children_origin, warehouse_mireward, children_from_warehouse, children_house, mireward_context.
 
-Failures: Quote Session29 as explicitly saying children are from Edge; Put rescue in Fellinor warehouse.
+Failures: Quote Session29 as explicitly saying children are from Edge; Put rescue in Fellinor warehouse; Treat the pre-rescue warehouse location as their permanent or post-rescue location; Claim S25 individually identifies the rescued sleeping children.
 
 ## q03: How do Mireward rescue and Fellinor warehouse access differ?
 
 Mireward warehouse rescue occurred; Edge warehouse access is future and depends on safe.
 
-Expected facts: warehouse_exit, rescue_actual, edge_warehouse, safe_access.
+Expected facts: warehouse_exit, rescue_actual, edge_warehouse, safe_access, warehouse_mireward, edge_store_location.
 
 Failures: One warehouse; Party already looted safe.
 
@@ -44,11 +44,11 @@ Failures: Seed call permanently cured; Road to Fin necessarily north road.
 
 ## q06: Did Ephanna actually cast Eldritch Blast in child rescue?
 
-Recap says will use: intended cast only. Stafl shoots arrows; later Karsemine casts Fire Bolt in den.
+Ephanna’s intended Eldritch Blast is linked to the warehouse-monster ambush/child-rescue scene by adjacent passage context. The source says will use; no actual cast, exact target, hit or kill is separately confirmed. Stafl shoots arrows; later Karsemine actually casts Fire Bolt in the distinct den combat.
 
-Expected facts: eldritch_intent, arrows, firebolt, firebolt_spell, den_firebolt.
+Expected facts: eldritch_intent, arrows, firebolt, firebolt_spell, den_firebolt, rescue_eldritch_plan, rescue_scene, warehouse_mireward.
 
-Failures: Eldritch Blast confirmed hit/kill; All attacks only plans.
+Failures: Eldritch Blast confirmed hit/kill; All attacks only plans; Move intended Eldritch Blast into the later den combat; Confirm an exact spell target from the inferred rescue context.
 
 ## q07: Did Edge monster appear 150 years ago?
 
