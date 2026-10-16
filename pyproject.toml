@@ -38,7 +38,7 @@ dependencies = [
     "worldkeeper @ git+https://github.com/Drakosfire/WorldKeeper.git@49a8620f066ce7ef8972a699020c012f50af9158",
     # Exact source pin: GenerationEngine PR #19 merge (structured attempt evidence).
     # This source pin does not update any deployed/serving runtime.
-    "generationengine[openai,openrouter] @ git+https://github.com/Drakosfire/GenerationEngine.git@e4b683a459d9f0dfaa2a41d8b073ff6117c3aa6e",
+    "generationengine[openai,openrouter,typesafe] @ git+https://github.com/Drakosfire/GenerationEngine.git@dde768f3e632af20b969cc694d8318265ce6ff5c",
     "psycopg[binary]>=3.2",
     "alembic>=1.16",
 ]

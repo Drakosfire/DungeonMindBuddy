@@ -1,6 +1,7 @@
 # AGENT — durable controller/writer role policy
 
-ACTIVE. PRIME implements solo; ARCHITECTURE independently reviews.
+MERGED #1275 at bd6d8cb88b710ce9f9ef930ee584bc72cfb239bc; producer lease ended.
+Successor: HANDOFF-AGENT-build-jev-first-dispatch.md. Original activation: PRIME implements solo; ARCHITECTURE independently reviews.
 Base fc175ee2e10ebb98e3231efa7e6ac79054fc82c9; branch
 codex/jev-durable-role-policy; isolated /tmp/prime-recap-mention-boundaries.
 Serial producer prerequisite to Build-only Jev prepared-envelope adoption. GE #20
