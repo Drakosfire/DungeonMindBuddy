@@ -11,6 +11,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 
+from apps.live_control_server import config as live_config
 from apps.live_control_server.models.ingest_selection_context import IngestSelectionContextRequest
 from apps.live_control_server.models.extract_promote import (
     ExtractPromoteConfirmReceipt,
@@ -49,6 +50,7 @@ from apps.live_control_server.models.extract_promote import (
     FirstWorldGraphConfirmRequest,
     FirstWorldGraphPlan,
     FirstWorldGraphPrepareRequest,
+    WorldbuildingPublicationCapabilities,
     WorldbuildingWritePlanConfirmReceipt,
     WorldbuildingWritePlanConfirmRequest,
     WorldbuildingWritePlanPrepareRequest,
@@ -385,6 +387,36 @@ def post_extract_promote_prepare(
             )
         )
     return response.model_dump(mode="json", by_alias=True)
+
+
+@router.get(
+    "/worldbuilding/capabilities",
+    response_model=WorldbuildingPublicationCapabilities,
+)
+def get_worldbuilding_publication_capabilities(
+    request_context: Request,
+    _principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+) -> WorldbuildingPublicationCapabilities | JSONResponse:
+    """Inspect configuration only; confirm remains the plan authority boundary.
+
+    No database connection or source/World lookup is attempted. A configured
+    descriptor does not prove reachability, plan validity, or publication success.
+    Historical sealed plans (including their inert metadata) remain untouched.
+    """
+    try:
+        _reject_selector_query(request_context)
+    except ExtractPromoteError as exc:
+        return _error_response(exc)
+    reasons = []
+    try:
+        live_config.world_graph_authority_mode()
+    except live_config.WorldGraphAuthorityConfigurationError:
+        reasons.append("native_authority_configuration_invalid")
+    if live_config.world_graph_authority_database_url() is None:
+        reasons.append("native_database_unconfigured")
+    return WorldbuildingPublicationCapabilities(
+        configured=not reasons, unavailability_reasons=reasons,
+    )
 
 
 @router.post(
