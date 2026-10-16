@@ -55,28 +55,92 @@ class GraphToolPresentation:
         payload = self.cache.present(tool, arguments, self.scope, raw)
         value = json.loads(payload)
         if value.get("schema") == OVERVIEW_SCHEMA:
-            # Keep parent admission and model-facing workflow aligned. Source
-            # opening supplies passage evidence, not a hidden assertion target.
-            value["detailUse"] = (
-                "For factual claims, fetch the needed complete detail record via resultPageToken. "
-                "Do not drain unrelated pages."
-            )
-            value["interpretation"] = (
-                "Discovery only; source reads do not admit hidden targets. Preserve qualifications. "
-                "Open the supporting source before citing."
-            )
-            payload = json.dumps(
-                value, ensure_ascii=False, separators=(",", ":"), sort_keys=True
-            )
-            from .graph_tool_transport import PAGE_BYTES
-
-            if len(payload.encode()) > PAGE_BYTES:
-                raise ValueError("Parent overview exceeds presentation budget")
+            payload = self._initial_records(value, result.value)
         if value.get("schema") in {PAGE_SCHEMA, OVERVIEW_SCHEMA}:
             self._results[value["resultId"]] = result
         elif payload != raw:
             raise ValueError("Parent presentation did not preserve the result")
         return self._remember(tool, payload, result)
+
+    @staticmethod
+    def _initial_records(overview: dict, original: dict) -> str:
+        from .graph_tool_transport import PAGE_BYTES
+
+        def encode():
+            return json.dumps(overview, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+
+        discovery = overview["view"]
+        overview["view"] = {key: [] for key in discovery}
+        for counts in overview["counts"].values():
+            counts.update(shown=0, omitted=counts["total"])
+        overview["records"] = []
+        overview["completeRecordCounts"] = {"included": 0, "omitted": 0}
+        overview["detailUse"] = (
+            "Complete records below are available for claims. For a discovery-only target, fetch the "
+            "needed complete detail record via resultPageToken. Do not drain unrelated pages."
+        )
+        overview["interpretation"] = (
+            "Only exact complete records grant claim authority; view is discovery only. Preserve qualifications. "
+            "Open the supporting source and cite substantive support, not a document header."
+        )
+        anchors = original.get("sourceAnchors", [])
+        included_paths = set()
+        claim_groups = ("reviewedSourceObservations", "attributes", "relationships")
+        total = sum(len(original.get(key, [])) for key in claim_groups)
+        overview["completeRecordCounts"]["omitted"] = total
+        if len(encode().encode()) > PAGE_BYTES:
+            raise ValueError("Parent overview exceeds presentation budget")
+        for key in claim_groups:
+            for index, row in enumerate(original.get(key, [])):
+                refs = set(row.get("evidenceRefIds") or [])
+                if not refs:
+                    continue
+                supporting = [(i, anchor) for i, anchor in enumerate(anchors)
+                              if anchor.get("evidenceRefId") in refs]
+                if refs != {anchor.get("evidenceRefId") for _, anchor in supporting}:
+                    continue
+                bundle = [{"path": [key, index], "value": row}]
+                bundle += [{"path": ["sourceAnchors", i], "value": anchor}
+                           for i, anchor in supporting if ("sourceAnchors", i) not in included_paths]
+                before = len(overview["records"])
+                overview["records"].extend(bundle)
+                counts = overview["completeRecordCounts"]
+                counts["included"] += 1
+                counts["omitted"] -= 1
+                if len(encode().encode()) > PAGE_BYTES:
+                    del overview["records"][before:]
+                    counts["included"] -= 1
+                    counts["omitted"] += 1
+                else:
+                    included_paths.update(tuple(record["path"]) for record in bundle)
+        # Retain a compact pointer when an oversized description could not
+        # appear in the cache's discovery view. A pointer grants no authority.
+        for key in claim_groups:
+            id_key = "edgeId" if key == "relationships" else "assertionId"
+            shown_ids = {row.get(id_key) for row in discovery.get(key, [])}
+            for row in original.get(key, []):
+                if row.get(id_key) and row[id_key] not in shown_ids:
+                    discovery.setdefault(key, []).append({
+                        name: row[name] for name in (
+                            id_key, "subjectNodeId", "sourceNodeId", "targetNodeId", "predicate",
+                            "epistemicKind", "temporalScope", "visibility",
+                        ) if name in row
+                    })
+            for row in discovery.get(key, []):
+                row["discoveryOnly"] = True
+        # Fill remaining room with the existing bounded discovery rows. Their
+        # counts describe only this view, independently of complete records.
+        for key, rows in discovery.items():
+            for row in rows:
+                overview["view"][key].append(row)
+                counts = overview["counts"][key]
+                counts["shown"] += 1
+                counts["omitted"] -= 1
+                if len(encode().encode()) > PAGE_BYTES:
+                    overview["view"][key].pop()
+                    counts["shown"] -= 1
+                    counts["omitted"] += 1
+        return encode()
 
     def continuation(self, tool: str, arguments: dict) -> str:
         payload = self.cache.continuation(tool, arguments, self.scope)
@@ -108,10 +172,8 @@ class GraphToolPresentation:
             fragments: dict[tuple, dict[int, dict]] = {}
             for payload in pages:
                 page = json.loads(payload)
-                if page.get("schema") == OVERVIEW_SCHEMA:
-                    # An index may drop provenance/qualification. It establishes
-                    # discovery only; exact records remain on detail pages.
-                    continue
+                # Both initial presentations and detail pages can carry exact
+                # complete records. Discovery rows are never interpreted here.
                 for record in page.get("records", []):
                     path = tuple(record["path"])
                     if "value" in record:

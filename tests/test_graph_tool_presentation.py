@@ -25,7 +25,7 @@ def detail_pages(parent, first, tool=TOOL, args=ARGS):
     return pages
 
 
-def test_overview_is_discovery_details_authorize_exact_subsets_and_repeats():
+def test_initial_complete_records_and_details_authorize_exact_subsets_and_repeats():
     parent = GraphToolPresentation(SCOPE)
     raw = json.loads(_raw())
     raw["relationships"] = [
@@ -43,11 +43,10 @@ def test_overview_is_discovery_details_authorize_exact_subsets_and_repeats():
     event_id = uuid4()
     first = parent.present(TOOL, ARGS, json.dumps(raw), event_id)
     (overview,) = parent.inclusion(TOOL, [first])
-    assert (
-        not overview.assertion_ids
-        and not overview.relationship_ids
-        and not overview.evidence_ref_ids
-    )
+    assert overview.assertion_ids and len(overview.assertion_ids) < 80
+    assert not overview.relationship_ids
+    assert overview.evidence_ref_ids == {"e:one"}
+    assert not overview.complete
     pages = detail_pages(parent, first)
     (partial,) = parent.inclusion(TOOL, pages[:1])
     assert partial.assertion_ids and len(partial.assertion_ids) < 80
@@ -173,7 +172,9 @@ def test_parent_bytes_survive_real_harness_dispatch_and_provider_serializer(
 
     def broker(tool, args):
         calls.append(args)
-        return parent.present(tool, args, _raw(), uuid4()), None
+        raw = json.loads(_raw())
+        raw["sourceAnchors"][0]["evidenceRefId"] = "e:one"
+        return parent.present(tool, args, json.dumps(raw), uuid4()), None
 
     pt = plugin.set_active_capability_policy(policy)
     st = plugin.set_active_retrieval_session_id("session:one")
@@ -223,7 +224,7 @@ def test_parent_bytes_survive_real_harness_dispatch_and_provider_serializer(
             assert "Do not drain unrelated pages" in overview["detailUse"]
             assert "Open the supporting source" in overview["interpretation"]
             assert len(delivered.encode()) <= 8000
-            assert parent.inclusion(TOOL, [delivered])[0].assertion_ids == frozenset()
+            assert 0 < len(parent.inclusion(TOOL, [delivered])[0].assertion_ids) < 80
             assert len(calls) == 1
     finally:
         plugin.reset_parent_graph_broker(bt)
