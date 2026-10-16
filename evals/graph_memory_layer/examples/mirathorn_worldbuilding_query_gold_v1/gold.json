@@ -60,7 +60,7 @@
     "execution_profile": "unverified",
     "profile_catalog": {
       "source_path": "src/graph_memory/extraction/worldbuilding_profile_catalog.py",
-      "source_sha256": "ed37a6d94a8fad6d7d9a1aff54b264795a84c7fd7faf383c12eebe033d2f2d59"
+      "source_sha256": "e0fbbf5699d78c477d7130db185ca62df44d0063094735776185f2a3a53238d3"
     },
     "available_profiles": [
       {
@@ -950,7 +950,7 @@
     "native_predicate_source_path": "apps/live_control_server/integrations/dungeonmind/assertion_qualification.py",
     "native_predicate_source_sha256": "2d802283d304c609e5da4aadd784a655dedc8494437b62494d2037e9694936c0",
     "candidate_kind_mapping_source_path": "src/graph_memory/candidate_graph_to_contribution.py",
-    "candidate_kind_mapping_source_sha256": "5ff2974e0c07260a3a6751b8a451ea83b6008039209cbe79c9bda861aa675b96",
+    "candidate_kind_mapping_source_sha256": "037e8803fa3e27803680576aa8fcc11958250c1eb5b8d63bef91b0a6c9c314d1",
     "extraction_predicates_used": [
       "governs",
       "leads"
@@ -962,7 +962,7 @@
     "note": "Extraction vocabulary and native write admission are separate contracts. Buddy native predicates come only from explicit qualification maps; candidate node types are converted by the pinned candidate mapper. The Build-only v6 map adds directed faction-governs-location. This contract is not evidence that Mirathorn has been published or retrieved in the live World.",
     "native_vocabulary_snapshot": {
       "repository": "Drakosfire/DungeonMind",
-      "commit": "1d120886b00acf7f97b3744e88619abd97c34591",
+      "commit": "df755a00e6119f3a3997a5431420d8dfcdee9caf",
       "source_path": "src/dungeonmind_dnd/vocabularies/world-object-v6.json",
       "blob_sha": "28cb89deb8b006068a4cbd6ddb371279e4234c28",
       "vocabulary_id": "dungeonmind.dnd5e.world_object",
@@ -996,10 +996,10 @@
       "predicate_subset_sha256": "39a870212da47c97fb853e82bf5d6e29717895bdc5aa88d3445517e65f038f65"
     },
     "buddy_dependency_source_path": "pyproject.toml",
-    "buddy_dependency_source_sha256": "5a83e819e86886b005c794db32c7fc6a3671254e8e23841ce95c93499a860d42",
+    "buddy_dependency_source_sha256": "68628f0b8d12ffbfc42859f7d8153f06b71957eea509d616cbdd231873b32186",
     "native_property_vocabulary_snapshot": {
       "repository": "Drakosfire/DungeonMind",
-      "commit": "1d120886b00acf7f97b3744e88619abd97c34591",
+      "commit": "df755a00e6119f3a3997a5431420d8dfcdee9caf",
       "source_path": "src/dungeonmind_dnd/vocabularies/world-property-v4.json",
       "blob_sha": "75e0be0bc897bfc410953376e2d7379bc5ca147c",
       "vocabulary_id": "dungeonmind.dnd5e.world_property",

@@ -32,7 +32,7 @@ from src.graph_memory.extraction.source_adapter import NormalizedExtractionSourc
 
 
 PROFILE_ID = "worldbuilding_gazetteer_v1"
-SUPPORTED_PROFILE_VERSIONS = frozenset({"1.5", "1.6", "1.7", "1.8", "1.9", "1.10", "1.11"})
+SUPPORTED_PROFILE_VERSIONS = frozenset({"1.5", "1.6", "1.7", "1.8", "1.9", "1.10", "1.11", "1.12"})
 
 
 class WorldbuildingExecutionInputError(ValueError):
