@@ -85,11 +85,11 @@ def authenticate_native_graph_principal(request: Request) -> NativeGraphPrincipa
     authorization = request.headers.get("authorization", "")
     if not authorization:
         from apps.live_control_server.services.agent_graph_local_session import (
-            COOKIE_NAME,
+            session_cookie_name,
             require_session,
         )
 
-        if not request.cookies.get(COOKIE_NAME):
+        if not request.cookies.get(session_cookie_name()):
             raise _unauthorized()
         require_session(request, unsafe=request.method not in {"GET", "HEAD", "OPTIONS"})
         return NativeGraphPrincipal(
