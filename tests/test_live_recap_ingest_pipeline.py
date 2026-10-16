@@ -5,12 +5,30 @@ from pathlib import Path
 
 import pytest
 
+from src.agent.recap_frontmatter_seed import build_frontmatter_seed
 from src.corpus.session_recap_paths import (
+    breadcrumbed_relpath,
+    frontmatter_seed_relpath,
     is_generic_recap_tail,
+    normalized_recap_relpath,
     normalized_basename_from_disk,
     pick_normalized_basename_from_disk,
 )
-from src.live_play.recap_ingest_pipeline import PipelineOptions, inspect_recap_ingest_status, run_pipeline
+from src.live_play.recap_derivative_provenance import (
+    sha256_bytes,
+    sha256_file,
+    store_provenanced_artifact,
+)
+from src.live_play.recap_ingest_pipeline import (
+    PipelineOptions,
+    _expected_normalized_content,
+    inspect_recap_ingest_status,
+    run_pipeline,
+)
+from scripts.materialize_session_memory import (
+    _materialize_one as materialize_session_memory_one,
+    main as materialize_session_memory_main,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 RAW_FIXTURE = ROOT / "tests/fixtures/live_recap_ingest/session_22_raw_recap.md"
@@ -50,6 +68,86 @@ def _opts(**kwargs: object) -> PipelineOptions:
     }
     base.update(kwargs)
     return PipelineOptions(**base)
+
+
+def _write_current_source_chain(
+    corpus: Path,
+    *,
+    session: int = 22,
+    campaign_number: int = 2,
+    title: str = "Mireward Road and Lysandro",
+    breadcrumb_text: str | None = None,
+) -> tuple[Path, Path, Path, Path]:
+    canonical_rel = f"Longmont Campaign/Campaign {campaign_number}/Session Recaps/Session {session} - {title}.md"
+    normalized_rel = normalized_recap_relpath(
+        campaign_number=campaign_number, session=session, title=title
+    )
+    canonical = corpus / canonical_rel
+    canonical.parent.mkdir(parents=True, exist_ok=True)
+    canonical.write_text(
+        f"---\ntitle: Session {session} - {title}\nsession: {session}\n---\nThe group travels.\n",
+        encoding="utf-8",
+    )
+    normalized = corpus / normalized_rel
+    normalized.parent.mkdir(parents=True, exist_ok=True)
+    normalized.write_text(
+        _expected_normalized_content(corpus=corpus, canonical_recap_rel=canonical_rel),
+        encoding="utf-8",
+    )
+
+    seed_path = corpus / frontmatter_seed_relpath(
+        campaign_number=campaign_number, session=session, corpus_root=corpus
+    )
+    seed_text = build_frontmatter_seed(
+        corpus_root=corpus, campaign_number=campaign_number, session=session
+    )
+    seed_bytes = (seed_text if seed_text.endswith("\n") else seed_text + "\n").encode("utf-8")
+    seed_result, _ = store_provenanced_artifact(
+        output_path=seed_path,
+        corpus_root=corpus,
+        stage="frontmatter_seed",
+        campaign_number=campaign_number,
+        session=session,
+        input_digests={
+            "normalized_recap": sha256_file(normalized),
+            "generated_seed": sha256_bytes(seed_bytes),
+        },
+        content=seed_bytes,
+        force=False,
+        allow_edited_current_inputs=True,
+    )
+    assert seed_result == "created"
+
+    breadcrumb_path = corpus / breadcrumbed_relpath(
+        campaign_number=campaign_number, session=session, corpus_root=corpus
+    )
+    if breadcrumb_text is None:
+        breadcrumb_text = (
+            "---\n"
+            "schema: dmb_recap_breadcrumbs_v1\n"
+            f'source_recap_path: "{normalized_rel}"\n'
+            f"campaign_id: longmont-c{campaign_number}\n"
+            "session:\n"
+            f"  number: {session}\n"
+            "---\n"
+            "The group travels.\n"
+        )
+    breadcrumb_bytes = breadcrumb_text.encode("utf-8")
+    breadcrumb_result, _ = store_provenanced_artifact(
+        output_path=breadcrumb_path,
+        corpus_root=corpus,
+        stage="breadcrumbed_recap",
+        campaign_number=campaign_number,
+        session=session,
+        input_digests={
+            "normalized_recap": sha256_file(normalized),
+            "frontmatter_seed": sha256_file(seed_path),
+        },
+        content=breadcrumb_bytes,
+        force=False,
+    )
+    assert breadcrumb_result == "created"
+    return canonical, normalized, seed_path, breadcrumb_path
 
 
 def test_stage_preview_reports_ingest_details(tmp_path: Path) -> None:
@@ -108,7 +206,7 @@ def test_pipeline_returns_reconciliation_state_for_ambiguous_normalized_recaps(t
     assert "expected exactly one normalized recap" not in " ".join(status["errors"])
 
 
-def test_pipeline_continues_when_duplicate_normalized_recaps_have_clear_pick(tmp_path: Path) -> None:
+def test_pipeline_blocks_duplicate_normalized_recaps_without_provenance(tmp_path: Path) -> None:
     corpus = _seed_corpus(tmp_path)
     recaps_dir = corpus / "Longmont Campaign/Campaign 2/Session Recaps"
     norm_dir = recaps_dir / "_normalized"
@@ -129,12 +227,14 @@ def test_pipeline_continues_when_duplicate_normalized_recaps_have_clear_pick(tmp
         corpus=corpus,
     )
 
-    assert status["status"] != "needs_reconciliation"
+    assert status["status"] == "needs_reconciliation"
     assert "normalized_recap_duplicates" in status["states"]
+    assert "normalized_stale" in status["states"]
+    assert "derivative_reconciliation_required" in status["states"]
     assert "expected exactly one normalized recap" not in " ".join(status.get("errors", []))
 
 
-def test_pipeline_returns_reconciliation_state_for_duplicate_normalized_recaps(tmp_path: Path) -> None:
+def test_pipeline_blocks_duplicate_normalized_recaps_without_canonical_source(tmp_path: Path) -> None:
     corpus = _seed_corpus(tmp_path)
     norm_dir = corpus / "Longmont Campaign/Campaign 2/Session Recaps/_normalized"
     norm_dir.mkdir(parents=True, exist_ok=True)
@@ -153,8 +253,10 @@ def test_pipeline_returns_reconciliation_state_for_duplicate_normalized_recaps(t
         corpus=corpus,
     )
 
-    assert status["status"] != "needs_reconciliation"
+    assert status["status"] == "needs_reconciliation"
     assert "normalized_recap_duplicates" in status["states"]
+    assert "normalized_provenance_unknown" in status["states"]
+    assert "derivative_reconciliation_required" in status["states"]
     assert "expected exactly one normalized recap" not in " ".join(status.get("errors", []))
 
 
@@ -210,17 +312,17 @@ def test_apply_writes_canonical_recap_path(tmp_path: Path) -> None:
     assert not text.split("# Session 22 Recap", 1)[1].lstrip().startswith("Session 22 Recap")
 
 
-def test_apply_reuses_existing_recap_without_force(tmp_path: Path) -> None:
+def test_apply_preserves_conflicting_recap_without_force(tmp_path: Path) -> None:
     corpus = _seed_corpus(tmp_path)
     recap_path = corpus / "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
     recap_path.write_text("existing", encoding="utf-8")
     status = run_pipeline(_opts(apply=True, slug="Mireward Road and Lysandro"), corpus=corpus)
-    assert status["status"] == "breadcrumb_required"
-    assert "recap_reused" in status["states"]
+    assert status["status"] == "needs_reconciliation"
+    assert "canonical_recap_conflict" in status["states"]
     assert recap_path.read_text(encoding="utf-8") == "existing"
 
 
-def test_normalize_reuses_existing_normalized(tmp_path: Path) -> None:
+def test_normalize_preserves_stale_normalized_without_force(tmp_path: Path) -> None:
     corpus = _seed_corpus(tmp_path)
     recap_path = corpus / "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
     normalized = corpus / (
@@ -235,31 +337,52 @@ def test_normalize_reuses_existing_normalized(tmp_path: Path) -> None:
     normalized.parent.mkdir(parents=True, exist_ok=True)
     normalized.write_text("existing normalized", encoding="utf-8")
     status = run_pipeline(
-        _opts(apply=True, normalize=True, slug="Mireward Road and Lysandro"),
+        _opts(
+            apply=False,
+            normalize=True,
+            stage=False,
+            preview=False,
+            slug="Mireward Road and Lysandro",
+        ),
         corpus=corpus,
     )
-    assert status["status"] == "breadcrumb_required"
-    assert "normalized_reused" in status["states"]
+    assert status["status"] == "needs_reconciliation"
+    assert "normalized_stale" in status["states"]
     assert normalized.read_text(encoding="utf-8") == "existing normalized"
 
 
-def test_inspect_status_reports_disk_progress(tmp_path: Path) -> None:
+def test_force_normalize_archives_stale_output_before_replacing(tmp_path: Path) -> None:
     corpus = _seed_corpus(tmp_path)
-    recap_path = corpus / "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
-    normalized = corpus / (
-        "Longmont Campaign/Campaign 2/Session Recaps/_normalized/"
-        "Session 22 - Mireward Road and Lysandro.md"
+    canonical, normalized, _seed, _breadcrumb = _write_current_source_chain(corpus)
+    canonical.write_text(
+        "---\ntitle: Session 22 - Mireward Road and Lysandro\nsession: 22\n---\nThe road changes.\n",
+        encoding="utf-8",
     )
-    breadcrumb = corpus / (
-        "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/"
-        "Session 22 - Mireward Road and Lysandro.breadcrumbed.md"
+    old_normalized = normalized.read_text(encoding="utf-8")
+
+    status = run_pipeline(
+        _opts(
+            apply=False,
+            normalize=True,
+            stage=False,
+            preview=False,
+            slug="Mireward Road and Lysandro",
+            force_normalize=True,
+        ),
+        corpus=corpus,
     )
-    recap_path.parent.mkdir(parents=True, exist_ok=True)
-    recap_path.write_text("canonical", encoding="utf-8")
-    normalized.parent.mkdir(parents=True, exist_ok=True)
-    normalized.write_text("normalized", encoding="utf-8")
-    breadcrumb.parent.mkdir(parents=True, exist_ok=True)
-    breadcrumb.write_text("breadcrumb", encoding="utf-8")
+
+    assert "normalized_refreshed" in status["states"]
+    assert "derivative_reconciliation_required" in status["states"]
+    assert normalized.read_text(encoding="utf-8") != old_normalized
+    archived = status["ingest_report"]["archived_artifacts"]
+    assert archived[0]["from"].endswith("_normalized/Session 22 - Mireward Road and Lysandro.md")
+    assert (corpus / archived[0]["to"]).read_text(encoding="utf-8") == old_normalized
+
+
+def test_inspect_status_reports_current_lineage_and_disk_progress(tmp_path: Path) -> None:
+    corpus = _seed_corpus(tmp_path)
+    _write_current_source_chain(corpus)
 
     status = inspect_recap_ingest_status(
         campaign_id="longmont-c2",
@@ -273,23 +396,55 @@ def test_inspect_status_reports_disk_progress(tmp_path: Path) -> None:
     assert "recap_reused" in status["states"]
     assert "normalized_reused" in status["states"]
     assert "breadcrumb_found" in status["states"]
+    assert "normalized_current" in status["states"]
+    assert "frontmatter_seed_current" in status["states"]
+    assert "breadcrumb_current" in status["states"]
     assert any("Materialize Session Memory" in item for item in status["next_actions"])
+
+
+def test_stale_normalized_source_blocks_current_breadcrumb_downstream(tmp_path: Path) -> None:
+    corpus = _seed_corpus(tmp_path)
+    canonical, _normalized, _seed, _breadcrumb = _write_current_source_chain(corpus)
+    canonical.write_text(
+        "---\ntitle: Session 22 - Mireward Road and Lysandro\nsession: 22\n---\nThe road changes.\n",
+        encoding="utf-8",
+    )
+
+    status = inspect_recap_ingest_status(
+        campaign_id="longmont-c2",
+        session=22,
+        title="Session 22 - Mireward Road and Lysandro",
+        slug="Mireward Road and Lysandro",
+        corpus=corpus,
+    )
+
+    assert "normalized_stale" in status["states"]
+    assert "frontmatter_seed_current" in status["states"]
+    assert "breadcrumb_blocked_by_upstream" in status["states"]
+    assert "breadcrumb_current" not in status["states"]
+    assert "ready_for_planning_activation" not in status["states"]
+
+    pipeline = run_pipeline(
+        _opts(
+            stage=False,
+            preview=False,
+            apply=False,
+            normalize=False,
+            materialize_session_memory=True,
+            slug="Mireward Road and Lysandro",
+        ),
+        corpus=corpus,
+    )
+    assert pipeline["status"] == "needs_reconciliation"
+    assert "session_memory_skipped" in pipeline["states"]
+    assert not list((corpus / "Longmont Campaign/Campaign 2/Session Recaps/_session_memory").glob("*"))
 
 
 def test_inspect_status_reports_frontmatter_seed_without_breadcrumb(tmp_path: Path) -> None:
     corpus = _seed_corpus(tmp_path)
-    normalized = corpus / (
-        "Longmont Campaign/Campaign 2/Session Recaps/_normalized/"
-        "Session 22 - Mireward Road and Lysandro.md"
-    )
-    seed = corpus / (
-        "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/"
-        "Session 22 - Mireward Road and Lysandro.frontmatter_seed.md"
-    )
-    normalized.parent.mkdir(parents=True, exist_ok=True)
-    normalized.write_text("normalized", encoding="utf-8")
-    seed.parent.mkdir(parents=True, exist_ok=True)
-    seed.write_text("---\n---\n", encoding="utf-8")
+    _canonical, normalized, seed, breadcrumb = _write_current_source_chain(corpus)
+    breadcrumb.unlink()
+    breadcrumb.with_name(f"{breadcrumb.name}.provenance.json").unlink()
 
     status = inspect_recap_ingest_status(
         campaign_id="longmont-c2",
@@ -301,6 +456,7 @@ def test_inspect_status_reports_frontmatter_seed_without_breadcrumb(tmp_path: Pa
 
     assert status["status"] == "breadcrumb_required"
     assert "frontmatter_seed_found" in status["states"]
+    assert "frontmatter_seed_current" in status["states"]
     assert "frontmatter_seed_required" not in status["states"]
     assert status["paths"]["frontmatter_seed"].endswith(
         "Session 22 - Mireward Road and Lysandro.frontmatter_seed.md"
@@ -308,7 +464,51 @@ def test_inspect_status_reports_frontmatter_seed_without_breadcrumb(tmp_path: Pa
     assert any("breadcrumb_query_run --ingest-routing-only" in item for item in status["next_actions"])
 
 
-def test_apply_force_recap_overwrites_target_only(tmp_path: Path) -> None:
+def test_materializer_cli_refuses_unverified_breadcrumb(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    corpus = _seed_corpus(tmp_path)
+    _canonical, _normalized, _seed, breadcrumb = _write_current_source_chain(corpus)
+    breadcrumb.with_name(f"{breadcrumb.name}.provenance.json").unlink()
+
+    result = materialize_session_memory_main(
+        ["--corpus-root", str(corpus), "--campaign", "2", "--session", "22"]
+    )
+
+    assert result == 1
+    assert "breadcrumb lineage is not verified" in capsys.readouterr().err
+    assert not list((corpus / "Longmont Campaign/Campaign 2/Session Recaps/_session_memory").glob("*"))
+
+
+def test_session_memory_rerun_is_noop_then_preserves_drift_until_force(tmp_path: Path) -> None:
+    corpus = _seed_corpus(tmp_path)
+    _write_current_source_chain(corpus)
+
+    args = {"corpus_root": corpus, "campaign_number": 2, "session": 22, "dry_run": False}
+    first = materialize_session_memory_one(**args)
+    assert first["outcome"] == "created"
+    paths = [corpus / str(first["jsonl_rel"]), corpus / str(first["meta_rel"])]
+    original_meta = paths[1].read_bytes()
+    assert materialize_session_memory_one(**args)["outcome"] == "reused"
+
+    reviewed_jsonl = b"reviewed memory content\n"
+    paths[0].write_bytes(reviewed_jsonl)
+    preserved = materialize_session_memory_one(**args)
+    assert preserved["outcome"] == "stale"
+    assert paths[0].read_bytes() == reviewed_jsonl
+    assert paths[1].read_bytes() == original_meta
+
+    refreshed = materialize_session_memory_one(**{**args, "force": True})
+    assert refreshed["outcome"] == "refreshed"
+    assert paths[0].read_bytes() != reviewed_jsonl
+    assert len(refreshed["archived_artifacts"]) == 2
+    archived_jsonl = next(
+        row for row in refreshed["archived_artifacts"] if row["from"].endswith(".records_meta.jsonl")
+    )
+    assert (corpus / archived_jsonl["to"]).read_bytes() == reviewed_jsonl
+
+
+def test_apply_force_recap_archives_previous_target(tmp_path: Path) -> None:
     corpus = _seed_corpus(tmp_path)
     recap_path = corpus / "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
     recap_path.write_text("existing", encoding="utf-8")
@@ -320,6 +520,9 @@ def test_apply_force_recap_overwrites_target_only(tmp_path: Path) -> None:
     )
     assert status["status"] == "breadcrumb_required"
     assert recap_path.read_text(encoding="utf-8").startswith("---")
+    assert "canonical_recap_refreshed" in status["states"]
+    archive = status["ingest_report"]["archived_artifacts"][0]
+    assert (corpus / archive["to"]).read_text(encoding="utf-8") == "existing"
     assert prep_path.read_text(encoding="utf-8") == prep_before
 
 
@@ -360,18 +563,13 @@ def test_materialize_requires_breadcrumb(tmp_path: Path) -> None:
 
 def test_materialize_runs_when_breadcrumb_exists(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     corpus = _seed_corpus(tmp_path)
-    breadcrumb = corpus / (
-        "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/"
-        "Session 22 - Mireward Road and Lysandro.breadcrumbed.md"
-    )
-    breadcrumb.parent.mkdir(parents=True, exist_ok=True)
-    breadcrumb.write_text("---\n---\n", encoding="utf-8")
+    _write_current_source_chain(corpus)
 
     called: dict[str, bool] = {"materialize": False, "check": False}
 
     def _fake_materialize_one(**_kwargs: object) -> dict[str, object]:
         called["materialize"] = True
-        return {"record_count": 7}
+        return {"record_count": 7, "outcome": "created"}
 
     def _fake_check_one(**_kwargs: object) -> bool:
         called["check"] = True
@@ -395,6 +593,9 @@ def test_materialize_runs_when_breadcrumb_exists(tmp_path: Path, monkeypatch: py
     assert called["check"] is True
     assert status["status"] == "ready_for_planning_activation"
     assert "session_memory_materialized" in status["states"]
+    assert "session_memory_current" in status["states"]
+    assert "derivative_reconciliation_required" not in status["states"]
+    assert "breadcrumb_provenance_unknown" not in status["states"]
     assert status["ingest_report"]["session_memory_record_count"] == 7
 
 
@@ -402,29 +603,13 @@ def test_materialize_uses_disk_breadcrumb_when_slug_mismatches(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     corpus = _seed_corpus(tmp_path)
-    recap = corpus / (
-        "Longmont Campaign/Campaign 2/Session Recaps/Session 22 - Mireward Road and Lysandro.md"
-    )
-    normalized = corpus / (
-        "Longmont Campaign/Campaign 2/Session Recaps/_normalized/"
-        "Session 22 - Mireward Road and Lysandro.md"
-    )
-    breadcrumb = corpus / (
-        "Longmont Campaign/Campaign 2/Session Recaps/_breadcrumbed/"
-        "Session 22 - Mireward Road and Lysandro.breadcrumbed.md"
-    )
-    recap.parent.mkdir(parents=True, exist_ok=True)
-    recap.write_text("---\ntitle: Session 22 - Mireward Road and Lysandro\n---\n# Session 22 Recap\n", encoding="utf-8")
-    normalized.parent.mkdir(parents=True, exist_ok=True)
-    normalized.write_text("---\ntitle: Session 22 - Mireward Road and Lysandro\n---\n# Session 22 Recap\n", encoding="utf-8")
-    breadcrumb.parent.mkdir(parents=True, exist_ok=True)
-    breadcrumb.write_text("---\n---\n", encoding="utf-8")
+    _write_current_source_chain(corpus)
 
     called: dict[str, bool] = {"materialize": False}
 
     def _fake_materialize_one(**_kwargs: object) -> dict[str, object]:
         called["materialize"] = True
-        return {"record_count": 3}
+        return {"record_count": 3, "outcome": "created"}
 
     monkeypatch.setattr("src.live_play.recap_ingest_pipeline._materialize_one", _fake_materialize_one)
     monkeypatch.setattr("src.live_play.recap_ingest_pipeline._check_one", lambda **_kwargs: True)
@@ -549,7 +734,11 @@ def test_inspect_resolves_titled_canonical_when_slug_default_missing(tmp_path: P
     expected_rel = f"Longmont Campaign/Campaign 2/Session Recaps/{titled}"
     assert status["paths"]["canonical_recap"] == expected_rel
     assert "recap_reused" in status["states"]
-    assert "session_memory_materialized" in status["states"]
+    assert "normalized_stale" in status["states"]
+    assert "frontmatter_seed_provenance_unknown" in status["states"]
+    assert "breadcrumb_provenance_unknown" in status["states"]
+    assert "derivative_reconciliation_required" in status["states"]
+    assert "session_memory_materialized" not in status["states"]
     assert "slug_mismatch_used_disk_breadcrumb" in status["warnings"]
 
     impact = {

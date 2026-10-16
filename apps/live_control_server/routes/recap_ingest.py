@@ -4,6 +4,7 @@ import io
 import os
 from pathlib import Path
 from typing import Annotated, Any, Literal
+from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException
 
@@ -29,6 +30,19 @@ from src.live_play.recap_ingest_pipeline import (
     run_pipeline,
 )
 from src.live_play.recap_stage_paths import corpus_root as default_corpus_root
+from src.live_play.recap_derivative_provenance import (
+    provenance_path,
+    record_archived_artifacts,
+    sha256_bytes,
+    sha256_file,
+    store_provenanced_artifact,
+)
+from src.session_memory.breadcrumb_normalize import (
+    BreadcrumbNormalizeError,
+    extract_meta_from_frontmatter,
+    normalize_breadcrumb_artifact,
+)
+from src.session_memory.breadcrumb_smoke import parse_frontmatter_and_body
 from apps.live_control_server.services.recap_graph_preview_ingest import (
     build_recap_graph_preview_bundle,
     ensure_graph_ingest_projection_payload,
@@ -70,6 +84,10 @@ class RecapIngestRequest(BaseModel):
     keep_basename: str | None = None
     force_stage: bool = False
     force_recap: bool = False
+    force_normalize: bool = False
+    force_seed: bool = False
+    force_breadcrumb: bool = False
+    force_session_memory: bool = False
     check: bool = False
     candidate_graph_path: str | None = None
     force_graph_run: bool = False
@@ -139,6 +157,43 @@ def _run_routing_only_breadcrumb(
     )
 
 
+def _validate_breadcrumb_candidate(
+    *,
+    content: bytes,
+    normalized_path: Path,
+    corpus_root: Path,
+    campaign_id: str,
+    session: int,
+) -> None:
+    """Reject a generated breadcrumb before it can replace a trusted artifact."""
+    try:
+        artifact_text = content.decode("utf-8")
+        frontmatter, _body = parse_frontmatter_and_body(artifact_text)
+        if frontmatter is None:
+            raise BreadcrumbNormalizeError("missing YAML frontmatter")
+        metadata = extract_meta_from_frontmatter(frontmatter)
+        expected_source_path = normalized_path.resolve().relative_to(
+            corpus_root.resolve()
+        ).as_posix()
+        if metadata["source_recap_path"] != expected_source_path:
+            raise BreadcrumbNormalizeError(
+                "source_recap_path does not match the current normalized recap"
+            )
+        if metadata["campaign_id"] != campaign_id:
+            raise BreadcrumbNormalizeError("campaign_id does not match the requested campaign")
+        if metadata["session_number"] != session:
+            raise BreadcrumbNormalizeError("session number does not match the requested session")
+        normalize_breadcrumb_artifact(
+            artifact_text=artifact_text,
+            corpus_root=corpus_root,
+        )
+    except (BreadcrumbNormalizeError, OSError, UnicodeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=f"invalid breadcrumb candidate: {exc}",
+        ) from exc
+
+
 def _add_unique(values: list[str], value: str) -> None:
     if value not in values:
         values.append(value)
@@ -158,6 +213,18 @@ def _merge_stage_reuse_warning(status: dict[str, Any], staged_status: dict[str, 
     return status
 
 
+def _carry_archived_artifacts(previous: dict[str, Any] | None, current: dict[str, Any]) -> dict[str, Any]:
+    if not previous:
+        return current
+    previous_report = previous.get("ingest_report", {})
+    current_report = current.setdefault("ingest_report", {})
+    if isinstance(previous_report, dict) and isinstance(current_report, dict):
+        artifacts = previous_report.get("archived_artifacts", [])
+        if isinstance(artifacts, list):
+            record_archived_artifacts(current_report, artifacts)
+    return current
+
+
 def _build_frontmatter_seed_from_request(body: RecapIngestRequest, corpus: Path) -> dict[str, Any]:
     campaign_number = campaign_number_from_id(body.campaign_id)
     out_path = default_frontmatter_seed_path(
@@ -172,10 +239,11 @@ def _build_frontmatter_seed_from_request(body: RecapIngestRequest, corpus: Path)
         slug=body.slug,
         corpus=corpus,
     )
-    if out_path.is_file():
-        _add_unique(status["states"], "frontmatter_seed_reused")
-        _add_unique(status["warnings"], "frontmatter_seed_already_exists")
-        status["ingest_report"]["frontmatter_seed_path"] = str(out_path)
+    if "normalized_current" not in status.get("states", []):
+        if "normalized_reused" in status.get("states", []):
+            _add_unique(status["states"], "derivative_reconciliation_required")
+            status["status"] = "needs_reconciliation"
+            _add_unique(status["next_actions"], "Refresh the normalized recap before building or refreshing the frontmatter seed.")
         return status
 
     seed = build_frontmatter_seed(
@@ -183,8 +251,43 @@ def _build_frontmatter_seed_from_request(body: RecapIngestRequest, corpus: Path)
         campaign_number=campaign_number,
         session=body.session,
     )
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(seed if seed.endswith("\n") else seed + "\n", encoding="utf-8")
+    seed_bytes = (seed if seed.endswith("\n") else seed + "\n").encode("utf-8")
+    normalized_path = corpus / normalized_recap_relpath(
+        campaign_number=campaign_number,
+        session=body.session,
+        corpus_root=corpus,
+    )
+    outcome, archived = store_provenanced_artifact(
+        output_path=out_path,
+        corpus_root=corpus,
+        stage="frontmatter_seed",
+        campaign_number=campaign_number,
+        session=body.session,
+        input_digests={
+            "normalized_recap": sha256_file(normalized_path),
+            "generated_seed": sha256_bytes(seed_bytes),
+        },
+        content=seed_bytes,
+        force=body.force_seed,
+        allow_edited_current_inputs=True,
+    )
+    status["ingest_report"]["frontmatter_seed_path"] = str(out_path)
+    status["ingest_report"]["frontmatter_seed_provenance_path"] = str(provenance_path(out_path))
+    if archived:
+        record_archived_artifacts(status["ingest_report"], archived)
+    if outcome == "reused":
+        _add_unique(status["states"], "frontmatter_seed_reused")
+    elif outcome == "edited_current_inputs":
+        _add_unique(status["states"], "frontmatter_seed_edited_current_inputs")
+    elif outcome in {"created", "refreshed"}:
+        _add_unique(status["states"], "frontmatter_seed_refreshed" if outcome == "refreshed" else "frontmatter_seed_built")
+    else:
+        _add_unique(status["states"], f"frontmatter_seed_{'provenance_unknown' if outcome == 'unknown' else outcome}")
+        _add_unique(status["states"], "derivative_reconciliation_required")
+        status["status"] = "needs_reconciliation"
+        _add_unique(status["warnings"], f"frontmatter seed was preserved because its lineage is {outcome}")
+        _add_unique(status["next_actions"], "Review the normalized recap and explicitly refresh the seed to replace the preserved file.")
+        return status
     status = inspect_recap_ingest_status(
         campaign_id=body.campaign_id,
         session=body.session,
@@ -192,8 +295,11 @@ def _build_frontmatter_seed_from_request(body: RecapIngestRequest, corpus: Path)
         slug=body.slug,
         corpus=corpus,
     )
-    _add_unique(status["states"], "frontmatter_seed_built")
+    _add_unique(status["states"], "frontmatter_seed_edited_current_inputs" if outcome == "edited_current_inputs" else "frontmatter_seed_reused" if outcome == "reused" else "frontmatter_seed_refreshed" if outcome == "refreshed" else "frontmatter_seed_built")
     status["ingest_report"]["frontmatter_seed_path"] = str(out_path)
+    status["ingest_report"]["frontmatter_seed_provenance_path"] = str(provenance_path(out_path))
+    if archived:
+        record_archived_artifacts(status["ingest_report"], archived)
     return status
 
 
@@ -233,22 +339,74 @@ def _run_breadcrumb_ingest_from_request(body: RecapIngestRequest, corpus: Path) 
     )
     if not seed_path.is_file():
         raise HTTPException(status_code=422, detail=f"frontmatter seed missing: {seed_path}")
-    if breadcrumb_path.is_file():
-        _add_unique(status["states"], "breadcrumb_ingest_reused")
-        _add_unique(status["warnings"], "breadcrumbed_recap_already_exists")
-        status["ingest_report"]["breadcrumbed_recap_path"] = str(breadcrumb_path)
+    if "normalized_current" not in status.get("states", []):
+        _add_unique(status["states"], "derivative_reconciliation_required")
+        status["status"] = "needs_reconciliation"
+        _add_unique(status["next_actions"], "Refresh the normalized recap before routing a breadcrumb.")
+        return status
+    seed_blockers = {
+        "frontmatter_seed_stale",
+        "frontmatter_seed_provenance_unknown",
+        "frontmatter_seed_corrupt",
+    }
+    if seed_blockers.intersection(status.get("states", [])):
+        status["status"] = "needs_reconciliation"
         return status
 
+    if breadcrumb_path.is_file() and not body.force_breadcrumb:
+        _add_unique(status["states"], "breadcrumb_ingest_reused")
+        status["ingest_report"]["breadcrumbed_recap_path"] = str(breadcrumb_path)
+        if "breadcrumb_current" not in status.get("states", []):
+            status["status"] = "needs_reconciliation"
+        return status
+
+    candidate_path = breadcrumb_path.with_name(
+        f".{breadcrumb_path.name}.candidate-{uuid4().hex}"
+    )
+    candidate_bytes: bytes | None = None
     try:
         report = _run_routing_only_breadcrumb(
             recap_md=normalized_path,
             frontmatter_seed_md=seed_path,
             corpus_root=corpus,
-            out_path=breadcrumb_path,
+            out_path=candidate_path,
         )
     except SystemExit as exc:
         detail = str(exc) or "breadcrumb ingest failed"
         raise HTTPException(status_code=422, detail=detail) from exc
+    finally:
+        if candidate_path.exists():
+            candidate_bytes = candidate_path.read_bytes()
+        candidate_path.unlink(missing_ok=True)
+
+    if candidate_bytes is None:
+        raise HTTPException(status_code=422, detail="breadcrumb generator returned without an artifact")
+    _validate_breadcrumb_candidate(
+        content=candidate_bytes,
+        normalized_path=normalized_path,
+        corpus_root=corpus,
+        campaign_id=body.campaign_id,
+        session=body.session,
+    )
+    outcome, archived = store_provenanced_artifact(
+        output_path=breadcrumb_path,
+        corpus_root=corpus,
+        stage="breadcrumbed_recap",
+        campaign_number=campaign_number,
+        session=body.session,
+        input_digests={
+            "normalized_recap": sha256_file(normalized_path),
+            "frontmatter_seed": sha256_file(seed_path),
+        },
+        content=candidate_bytes,
+        force=body.force_breadcrumb,
+    )
+    if outcome not in {"created", "refreshed"}:
+        _add_unique(status["states"], f"breadcrumb_{'provenance_unknown' if outcome == 'unknown' else outcome}")
+        _add_unique(status["states"], "derivative_reconciliation_required")
+        status["status"] = "needs_reconciliation"
+        _add_unique(status["warnings"], f"breadcrumb output was preserved because its lineage is {outcome}")
+        return status
 
     status = inspect_recap_ingest_status(
         campaign_id=body.campaign_id,
@@ -257,8 +415,13 @@ def _run_breadcrumb_ingest_from_request(body: RecapIngestRequest, corpus: Path) 
         slug=body.slug,
         corpus=corpus,
     )
-    _add_unique(status["states"], "breadcrumb_ingest_ran")
+    _add_unique(status["states"], "breadcrumb_ingest_refreshed" if outcome == "refreshed" else "breadcrumb_ingest_ran")
     status["ingest_report"]["breadcrumb_ingest"] = report
+    report["artifact_path"] = str(breadcrumb_path)
+    status["ingest_report"]["breadcrumbed_recap_path"] = str(breadcrumb_path)
+    status["ingest_report"]["breadcrumbed_recap_provenance_path"] = str(provenance_path(breadcrumb_path))
+    if archived:
+        record_archived_artifacts(status["ingest_report"], archived)
     return status
 
 
@@ -344,10 +507,23 @@ def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path |
                 return status
             staged_reuse_status = status
 
-    applied = {"recap_applied", "recap_reused", "normalized_created", "normalized_reused"}
-    if not applied.intersection(status.get("states", [])):
+    applied = {
+        "recap_applied",
+        "recap_reused",
+        "normalized_created",
+        "normalized_refreshed",
+        "normalized_reused",
+    }
+    if (
+        not applied.intersection(status.get("states", []))
+        or body.force_recap
+        or body.force_normalize
+    ):
         apply_body = body.model_copy(update={"operation": "apply_normalize"})
-        status = run_pipeline(_options_for_request(apply_body), corpus=corpus)
+        status = _carry_archived_artifacts(
+            status,
+            run_pipeline(_options_for_request(apply_body), corpus=corpus),
+        )
         if status.get("status") in {"error", "needs_reconciliation"}:
             return status
 
@@ -388,22 +564,46 @@ def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path |
             )
 
     if body.include_legacy_breadcrumb:
-        if "frontmatter_seed_found" not in status.get("states", []):
-            status = _build_frontmatter_seed_from_request(body, active_corpus)
+        if "frontmatter_seed_found" not in status.get("states", []) or body.force_seed:
+            status = _carry_archived_artifacts(
+                status,
+                _build_frontmatter_seed_from_request(body, active_corpus),
+            )
             if status.get("status") == "error":
                 return status
+            if status.get("status") == "needs_reconciliation":
+                seed_ready = "normalized_current" in status.get("states", []) and bool(
+                    {"frontmatter_seed_current", "frontmatter_seed_edited_current_inputs"}
+                    .intersection(status.get("states", []))
+                )
+                if not (body.force_breadcrumb and seed_ready):
+                    return status
 
-        if "breadcrumb_found" not in status.get("states", []):
-            status = _run_breadcrumb_ingest_from_request(body, active_corpus)
+        if "breadcrumb_found" not in status.get("states", []) or body.force_breadcrumb:
+            status = _carry_archived_artifacts(
+                status,
+                _run_breadcrumb_ingest_from_request(body, active_corpus),
+            )
             if status.get("status") == "error":
+                return status
+            if status.get("status") == "needs_reconciliation" and not (
+                body.force_session_memory and "breadcrumb_current" in status.get("states", [])
+            ):
                 return status
 
         if "session_memory_materialized" not in status.get("states", []):
             materialize_body = body.model_copy(update={"operation": "materialize_session_memory"})
-            status = run_pipeline(_options_for_request(materialize_body), corpus=corpus)
+            status = _carry_archived_artifacts(
+                status,
+                run_pipeline(_options_for_request(materialize_body), corpus=corpus),
+            )
             if status.get("status") in {"error", "needs_reconciliation"}:
                 return status
-        if status.get("status") != "ready_for_planning_activation":
+        if (
+            status.get("status") != "ready_for_planning_activation"
+            and status.get("status") != "needs_reconciliation"
+            and "session_memory_current" in status.get("states", [])
+        ):
             status["status"] = "ready_for_planning_activation"
     else:
         _add_unique(
@@ -435,6 +635,8 @@ def _options_for_request(body: RecapIngestRequest) -> PipelineOptions:
             force_stage=body.force_stage,
             force_recap=False,
             json_output=True,
+            force_normalize=False,
+            force_session_memory=False,
         )
 
     if operation == "apply_normalize":
@@ -459,6 +661,8 @@ def _options_for_request(body: RecapIngestRequest) -> PipelineOptions:
             force_stage=False,
             force_recap=body.force_recap,
             json_output=True,
+            force_normalize=body.force_normalize,
+            force_session_memory=False,
         )
 
     if operation == "materialize_session_memory":
@@ -483,6 +687,8 @@ def _options_for_request(body: RecapIngestRequest) -> PipelineOptions:
             force_stage=False,
             force_recap=False,
             json_output=True,
+            force_normalize=False,
+            force_session_memory=body.force_session_memory,
         )
 
     raise HTTPException(status_code=422, detail=f"unsupported operation: {operation}")
