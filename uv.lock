@@ -423,7 +423,7 @@ dependencies = [
     { name = "blake3" },
     { name = "dungeonmind", extra = ["postgres"] },
     { name = "fastapi" },
-    { name = "generationengine", extra = ["openai", "openrouter"] },
+    { name = "generationengine", extra = ["openai", "openrouter", "typesafe"] },
     { name = "hermes-agent" },
     { name = "httpx" },
     { name = "jsonschema" },
@@ -453,7 +453,7 @@ requires-dist = [
     { name = "blake3", specifier = ">=0.3.3" },
     { name = "dungeonmind", extras = ["postgres"], git = "https://github.com/Drakosfire/DungeonMind.git?rev=637364c647da475d766cfba0b7eebed66d1182f4" },
     { name = "fastapi", specifier = ">=0.115.0" },
-    { name = "generationengine", extras = ["openai", "openrouter"], git = "https://github.com/Drakosfire/GenerationEngine.git?rev=e4b683a459d9f0dfaa2a41d8b073ff6117c3aa6e" },
+    { name = "generationengine", extras = ["openai", "openrouter", "typesafe"], git = "https://github.com/Drakosfire/GenerationEngine.git?rev=dde768f3e632af20b969cc694d8318265ce6ff5c" },
     { name = "hermes-agent", directory = "out/hermes-agent" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "jsonschema", specifier = ">=4.25.1" },
@@ -536,7 +536,7 @@ wheels = [
 [[package]]
 name = "generationengine"
 version = "0.1.0"
-source = { git = "https://github.com/Drakosfire/GenerationEngine.git?rev=e4b683a459d9f0dfaa2a41d8b073ff6117c3aa6e#e4b683a459d9f0dfaa2a41d8b073ff6117c3aa6e" }
+source = { git = "https://github.com/Drakosfire/GenerationEngine.git?rev=dde768f3e632af20b969cc694d8318265ce6ff5c#dde768f3e632af20b969cc694d8318265ce6ff5c" }
 dependencies = [
     { name = "httpx" },
     { name = "jsonschema" },
@@ -550,6 +550,9 @@ openai = [
 ]
 openrouter = [
     { name = "openai" },
+]
+typesafe = [
+    { name = "typesafe-sdk" },
 ]
 
 [[package]]
@@ -2278,6 +2281,25 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/f5/24/cb09efec5cc954f7f9b930bf8279447d24618bb6758d4f6adf2574c41780/typer-0.24.1.tar.gz", hash = "sha256:e39b4732d65fbdcde189ae76cf7cd48aeae72919dea1fdfc16593be016256b45", size = 118613 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/4a/91/48db081e7a63bb37284f9fbcefda7c44c277b18b0e13fbc36ea2335b71e6/typer-0.24.1-py3-none-any.whl", hash = "sha256:112c1f0ce578bfb4cab9ffdabc68f031416ebcc216536611ba21f04e9aa84c9e", size = 56085 },
+]
+
+[[package]]
+name = "typesafe-sdk"
+version = "0.7.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "httpx2" },
+    { name = "packaging" },
+    { name = "pydantic" },
+    { name = "pydantic-core" },
+    { name = "tenacity" },
+    { name = "truststore", marker = "sys_platform != 'emscripten'" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/26/4d/383aa14f4cfe5fb41023ea1cab52d7f79cc31ab200ee7314317cf89db744/typesafe_sdk-0.7.5.tar.gz", hash = "sha256:1eeeb0dc80a7161d84896db42a5016dc0a7c8872fa16540b70163e5357b6d398", size = 34152 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1c/f6/bee4c3b49570c2d312057c9e37c1446cf37eb1b86bf5872f7a797e803326/typesafe_sdk-0.7.5-py3-none-any.whl", hash = "sha256:967a8b61494d536abb55ee3f3a2b10e81685cb6baad6ccdcab588bdc6c9b86d2", size = 49948 },
 ]
 
 [[package]]

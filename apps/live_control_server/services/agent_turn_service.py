@@ -532,21 +532,7 @@ def _included_graph_operation_payloads(body: Mapping[str, Any]) -> list[str]:
     return _included_tool_payloads(body, tool_name="expand_graph_retrieval")
 
 
-def _initial_claim_packet_from_view(
-    view: Any,
-    bootstrap: AgentPlanWorldGraphBootstrap,
-    *,
-    frozen_projection: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Parse the provider request's actual system policy block and verify it."""
-    try:
-        body = json.loads(view.payload_json)
-    except (TypeError, ValueError, AttributeError) as exc:
-        raise AgentTurnServiceError(
-            "The Agent Harness provider request could not be validated.",
-            code="graph_evidence_invalid",
-            status_code=502,
-        ) from exc
+def _expected_initial_claim_packet(bootstrap, frozen_projection=None) -> dict[str, Any]:
     expected_packet = (
         frozen_projection
         if frozen_projection is not None
@@ -567,6 +553,31 @@ def _initial_claim_packet_from_view(
         expected["latestRecapChange"] = latest_packet
         if isinstance(excerpt, str) and excerpt.strip():
             expected["admittedRecapExcerpt"] = excerpt.strip()
+    return expected
+
+
+def _initial_claim_packet_from_view(
+    view: Any,
+    bootstrap: AgentPlanWorldGraphBootstrap,
+    *,
+    frozen_projection: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Parse the provider request's actual system policy block and verify it."""
+    try:
+        body = json.loads(view.payload_json)
+    except (TypeError, ValueError, AttributeError) as exc:
+        raise AgentTurnServiceError(
+            "The Agent Harness provider request could not be validated.",
+            code="graph_evidence_invalid",
+            status_code=502,
+        ) from exc
+    expected = _expected_initial_claim_packet(bootstrap, frozen_projection)
+    if getattr(view, "api_mode", None) == "typesafe_decision":
+        packet = body.get("state", {}).get("initialClaimPacket")
+        if packet != expected:
+            raise AgentTurnServiceError("The structured initial Graph packet differs.",
+                code="graph_evidence_invalid", status_code=502, provider_dispatched=False)
+        return packet
     parsed_packets: list[dict[str, Any]] = []
     marker = "Turn capability policy (runtime-enforced; also required on tool calls):"
     decoder = json.JSONDecoder()
@@ -682,7 +693,7 @@ def _build_initial_claim_evidence(
     frozen_projection: Mapping[str, Any],
 ) -> list[tuple[str, str, tuple[str, ...]]]:
     packet = _initial_claim_packet_from_view(
-        type("RequestView", (), {"payload_json": view["payloadJson"]})(),
+        type("RequestView", (), {"payload_json": view["payloadJson"], "api_mode": view.get("apiMode")})(),
         bootstrap, frozen_projection=frozen_projection,
     )
     assertions, relationships, evidence = _initial_packet_membership(packet, bootstrap)
@@ -841,7 +852,20 @@ def _verify_policy_plan_payload(
     request: AgentTurnRequest,
     work: AgentTurnResolvedWork,
     playable_target: PlanPlayableTargetReceiptV1 | None,
+    bootstrap: AgentPlanWorldGraphBootstrap | None = None,
 ) -> None:
+    if view.get("apiMode") == "typesafe_decision":
+        from .build_jev_dispatch import first_state, validate_body
+        if not _governed_build_turn(request) or bootstrap is None:
+            raise AgentTurnServiceError("Structured decisions require a saved Build Graph turn.",
+                code="graph_evidence_invalid", status_code=502, provider_dispatched=False)
+        try:
+            validate_body(view["payloadJson"], first_state(work, bootstrap, request.message,
+                _expected_initial_claim_packet(bootstrap)))
+        except (KeyError, TypeError, ValueError) as exc:
+            raise AgentTurnServiceError("The prepared Build decision differs from host authority.",
+                code="graph_evidence_invalid", status_code=502, provider_dispatched=False) from exc
+        return
     if _governed_build_turn(request):
         if work.build_source is None:
             raise AgentTurnServiceError("The final request has no saved Build source.", code="graph_evidence_invalid", status_code=502, provider_dispatched=False)
@@ -879,9 +903,9 @@ def _freeze_policy_receipt(
 ) -> tuple[PlanWorldGraphContextReceiptV1 | BuildGraphContextReceiptV1, Any, tuple[list[str], list[str], list[str]]]:
     """Freeze exact first-request accounting and source-free initial evidence."""
     graph_types = _app_state_graph_execution_types()
-    _verify_policy_plan_payload(view, request, work, playable_target)
+    _verify_policy_plan_payload(view, request, work, playable_target, bootstrap)
     packet = _initial_claim_packet_from_view(
-        type("RequestView", (), {"payload_json": view["payloadJson"]})(),
+        type("RequestView", (), {"payload_json": view["payloadJson"], "api_mode": view.get("apiMode")})(),
         bootstrap,
     )
     assertions, relationships, evidence = _initial_packet_membership(packet, bootstrap)
@@ -992,7 +1016,7 @@ def _freeze_policy_receipt(
             },
             "assembled_input": {
                 "assembler_version": bootstrap.assembler_version,
-                "budget_policy_version": "plan_world_graph_budget_v1",
+                "budget_policy_version": ("build_jev_first_basis_discovery_v1" if view.get("apiMode") == "typesafe_decision" else "plan_world_graph_budget_v1"),
                 "provider_model_name": view["model"],
                 "provider_model_version": view["model"],
                 "tokenizer_name": budget["estimator"],
@@ -1067,7 +1091,10 @@ def _freeze_policy_receipt(
             )
             if selected_index:
                 policy_fields["policy_version"] = "world_graph_execution_selected_scope_uncapped_v1" if budget["maxProviderAttempts"] is None else "plan_world_graph_execution_selected_scope_v1"
-            policy = graph_types.SettledGraphExecutionPolicyV3(
+            policy_class = (graph_types.ControllerWriterGraphExecutionPolicyV3
+                if budget.get("providerRoles") is not None else graph_types.SettledGraphExecutionPolicyV3)
+            policy = policy_class(
+                **({"provider_roles": budget["providerRoles"]} if budget.get("providerRoles") is not None else {}),
                 source_read_accounting="settled_receipts_v1",
                 **policy_fields,
                 source_read_scope=scope,
@@ -1521,10 +1548,10 @@ class _PolicyExecutionAdapter:
         self, view: Mapping[str, Any],
     ) -> tuple[Turn, list[str], list[str], list[str]]:
         _verify_policy_plan_payload(
-            view, self.request, self.work, self.playable_target
+            view, self.request, self.work, self.playable_target, self.bootstrap
         )
         initial = _initial_claim_packet_from_view(
-            type("RequestView", (), {"payload_json": view["payloadJson"]})(),
+            type("RequestView", (), {"payload_json": view["payloadJson"], "api_mode": view.get("apiMode")})(),
             self.bootstrap,
             frozen_projection=self.initial_session_projection,
         )
@@ -1659,6 +1686,9 @@ class _PolicyExecutionAdapter:
         """Return allow only for one fresh durable authorization append."""
         if self.failure is not None:
             return False
+        if (self.budget.get("apiMode") == "typesafe_decision"
+                and getattr(self, "_prepared_build_authorizing", None) is not view):
+            return False
         try:
             if (
                 view.get("provider") != self.budget["provider"]
@@ -1728,7 +1758,7 @@ class _PolicyExecutionAdapter:
                     code="provider_envelope_over_budget", status_code=413,
                     provider_dispatched=False,
                 )
-            provider_attempt_id = uuid4()
+            provider_attempt_id = UUID(view["providerAttemptId"]) if view.get("apiMode") == "typesafe_decision" else uuid4()
             try:
                 included_payloads = self._included_evidence_payloads(body, "expand_graph_retrieval")
                 included_source_payloads = self._included_evidence_payloads(body, "read_graph_source")
@@ -1788,7 +1818,7 @@ class _PolicyExecutionAdapter:
                 event_id=uuid4(), sequence=len(execution.events),
                 provider_attempt_id=provider_attempt_id,
                 envelope_sha256=view["payloadSha256"],
-                serializer_version="canonical-json-utf8-v1",
+                serializer_version=("typesafe-sdk-json-v1" if view.get("apiMode") == "typesafe_decision" else "canonical-json-utf8-v1"),
                 provider=view["provider"], model=view["model"],
                 api_mode=view["apiMode"],
                 tool_schema_sha256=_canonical_sha256(body.get("tools", [])),
@@ -1887,12 +1917,42 @@ class _PolicyExecutionAdapter:
             )
             return False
 
+    def authorize_prepared_build_decision(self, prepared: Any) -> bool:
+        from .build_jev_dispatch import API_MODE, first_state, prepared_view, request_budget
+        if (self.budget != request_budget() or self.budget.get("apiMode") != API_MODE or not _governed_build_turn(self.request)
+                or self.fence is not None or self.last_provider_attempt_id is not None):
+            return False
+        try:
+            expected = first_state(self.work, self.bootstrap, self.request.message,
+                _expected_initial_claim_packet(self.bootstrap, self.initial_session_projection))
+            view = prepared_view(prepared, expected)
+        except (AttributeError, KeyError, TypeError, ValueError):
+            self.failure = AgentTurnServiceError("The prepared Build decision failed verification.",
+                code="graph_evidence_invalid", status_code=502, provider_dispatched=False)
+            return False
+        self._prepared_build_authorizing = view
+        try:
+            accepted = self.authorize(view)
+        finally:
+            self._prepared_build_authorizing = None
+        if accepted:
+            self._prepared_build_decision = prepared
+        return accepted
+
+    def record_prepared_build_decision(self, event: Any) -> bool:
+        prepared = getattr(self, "_prepared_build_decision", None)
+        if prepared is None or event.request != prepared or str(self.last_provider_attempt_id) != prepared.attempt_id:
+            return False
+        transition = {"sending": "sdk_entered", "known_not_sent": "known_not_sent",
+            "response_received": "response_received", "outcome_unknown": "outcome_unknown"}.get(event.outcome)
+        return transition is not None and self.record_lifecycle({"transition": transition, "statusCode": event.http_status})
+
     def record_lifecycle(self, lifecycle: Mapping[str, Any]) -> bool:
         try:
             if self.fence is None or self.last_provider_attempt_id is None:
                 return False
             transition = lifecycle.get("transition")
-            if transition not in {"sdk_entered", "response_received", "outcome_unknown"}:
+            if transition not in {"sdk_entered", "response_received", "outcome_unknown", "known_not_sent"}:
                 return False
             graph_types = _app_state_graph_execution_types()
             event = graph_types.ProviderOutcomeEventV1(
@@ -1901,18 +1961,19 @@ class _PolicyExecutionAdapter:
                 kind="provider_outcome",
                 provider_attempt_id=self.last_provider_attempt_id,
                 outcome=transition,
+                status_code=lifecycle.get("statusCode"),
             )
             updated = _require_fresh_execution_append(
                 self.fence.append("record_provider_outcome", "outcome", event)
             )
             self.turn = updated
-            if transition == "response_received":
+            if transition == "response_received" and self.budget.get("apiMode") != "typesafe_decision":
                 self.producing_provider_attempt_id = self.last_provider_attempt_id
             if self.context_capture is not None and transition != "sdk_entered":
                 self.context_capture.observe({
                     "kind": "provider_call", "provider_attempt_id": self.last_provider_attempt_id,
                     "provider": self.budget["provider"], "model": self.budget["model"],
-                    "outcome": "response_received" if transition == "response_received" else "unknown",
+                    "outcome": transition if transition in {"response_received", "known_not_sent"} else "unknown",
                 })
             return True
         except (AgentTurnServiceError, ApplicationStateError, ValueError) as exc:
