@@ -32,6 +32,7 @@ export type BuddyTraceGraphRequest =
   | (GraphLimits & { operation: 'object'; target_node_id: string })
   | (GraphLimits & { operation: 'neighborhood'; seed_node_ids: string[]; depth: 1 | 2 })
   | { operation: 'support'; target_node_id: string; max_source_anchors?: number | null }
+  | { operation: 'observations'; observation_ids: string[]; max_bytes: number }
 export interface BuddyTraceGraphCounts { nodes: number; relationships: number; claims: number; evidence_refs: number }
 export interface BuddyTraceGraphResult {
   outcome: 'enough' | 'partial' | 'truncated' | 'empty' | 'denied' | 'unavailable'

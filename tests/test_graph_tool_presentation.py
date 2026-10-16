@@ -25,8 +25,9 @@ def detail_pages(parent, first, tool=TOOL, args=ARGS):
     return pages
 
 
-def test_initial_complete_records_and_details_authorize_exact_subsets_and_repeats():
-    args = {**ARGS, "operation": "object"}
+@pytest.mark.parametrize("operation", ["object", "observations"])
+def test_initial_complete_records_and_details_authorize_exact_subsets_and_repeats(operation):
+    args = {**ARGS, "operation": operation}
     parent = GraphToolPresentation(SCOPE)
     raw = json.loads(_raw())
     raw["relationships"] = [

@@ -46,6 +46,7 @@ ExpansionOperation = Literal[
     "neighborhood",
     "search",
     "support",
+    "observations",
 ]
 
 # Shared cap for search/neighborhood seed lists. object/support allow at most one.
@@ -89,17 +90,21 @@ class ExpandGraphRetrievalRequest(BaseModel):
     query_text: str | None = Field(default=None, alias="queryText")
     observation_ids: list[str] = Field(
         default_factory=list, alias="observationIds", max_length=8,
-        description="Object-only reviewed assertion IDs from search pointers; governed Build only.",
+        description="Reviewed assertion IDs from pointers; object or observations, governed Build only.",
     )
 
     @model_validator(mode="after")
     def _validate_observation_ids(self):
         if self.observation_ids and (
-            self.operation != "object"
+            self.operation not in {"object", "observations"}
             or len(set(self.observation_ids)) != len(self.observation_ids)
             or any(not value.strip() or value != value.strip() for value in self.observation_ids)
         ):
             raise ValueError("observationIds require object and distinct nonblank IDs")
+        if self.operation == "observations" and (
+            not self.observation_ids or self.targets or self.query_text is not None or self.depth != 1
+        ):
+            raise ValueError("observations requires IDs only, without targets or query")
         return self
 
     depth: Literal[1, 2] = 1
@@ -196,7 +201,7 @@ def resolve_expansion_target_ids(request: ExpandGraphRetrievalRequest, session) 
         return [t.id for t in request.targets]
     # Search with zero seeds is explicit discovery. Preflight context is a
     # starting point, not a compulsory seed set that consumes the result bound.
-    if request.operation == "search":
+    if request.operation in {"search", "observations"}:
         return []
     selected = session.selected_referent_ids()
     if selected:

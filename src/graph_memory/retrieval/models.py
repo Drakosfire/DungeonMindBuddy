@@ -44,7 +44,7 @@ RetrievalOutcome = Literal[
     "truncated",
     "unavailable",
 ]
-RetrievalOperation = Literal["search", "object", "neighborhood", "evidence"]
+RetrievalOperation = Literal["search", "object", "neighborhood", "evidence", "observations"]
 EvidenceTargetKind = Literal["node", "relationship", "attribute"]
 LocatorKind = Literal["heading", "json_pointer", "source_span", "unsupported"]
 
@@ -148,6 +148,15 @@ class WorldGraphSearchRequest(WorldGraphRetrievalRequestContext):
     @classmethod
     def _validate_seed_node_ids(cls, value: list[str]) -> list[str]:
         return _reject_blank_ids(value)
+
+
+class WorldGraphObservationSelectionRequest(WorldGraphRetrievalRequestContext):
+    """Parent-only exact source selection; never accepted from model scope."""
+    schema_: Literal["dmb_world_graph_observation_selection_v1"] = Field(alias="schema")
+    source_artifact_id: str = Field(min_length=1)
+    source_revision_id: str = Field(min_length=1)
+    observation_ids: list[str] = Field(min_length=1, max_length=8)
+    max_bytes: int = Field(default=262144, ge=256, le=262144)
 
 
 class WorldGraphObjectRequest(WorldGraphRetrievalRequestContext):

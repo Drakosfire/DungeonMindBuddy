@@ -15,13 +15,13 @@ from application_state.agent_conversation.types import ValidatedGraphOperationEv
 from graph_memory.interaction.authority_classifier import claims_from_retrieval_result
 from graph_memory.retrieval.models import (
     WorldGraphEvidenceRequest, WorldGraphNeighborhoodRequest, WorldGraphObjectRequest,
-    WorldGraphRetrievalResult, WorldGraphSearchRequest,
+    WorldGraphRetrievalResult, WorldGraphSearchRequest, WorldGraphObservationSelectionRequest,
 )
 
 
 def graph_operation_observation(
     *, request: WorldGraphSearchRequest | WorldGraphObjectRequest
-    | WorldGraphNeighborhoodRequest | WorldGraphEvidenceRequest,
+    | WorldGraphNeighborhoodRequest | WorldGraphEvidenceRequest | WorldGraphObservationSelectionRequest,
     result: WorldGraphRetrievalResult, result_payload: Mapping[str, Any],
     execution_event: ValidatedGraphOperationEventV1, sequence: int,
     elapsed_ms: float, duration_ms: float,
@@ -48,22 +48,26 @@ def graph_operation_observation(
             or relationships != sorted(execution_event.relationship_ids)
             or evidence != sorted(execution_event.evidence_ref_ids)):
         raise ValueError("trace result identifiers differ from its execution event")
-    bounds = request.bounds
-    observed: dict[str, Any] = {"max_source_anchors": bounds.max_source_anchors}
-    if not isinstance(request, WorldGraphEvidenceRequest):
-        observed.update(max_nodes=bounds.max_nodes,
-                        max_relationships=bounds.max_relationships,
-                        max_claims=bounds.max_attributes)
-    if isinstance(request, WorldGraphSearchRequest):
-        observed.update(operation="search", query_text=request.query_text,
-                        seed_node_ids=list(request.seed_node_ids))
-    elif isinstance(request, WorldGraphObjectRequest):
-        observed.update(operation="object", target_node_id=request.node_id)
-    elif isinstance(request, WorldGraphNeighborhoodRequest):
-        observed.update(operation="neighborhood", seed_node_ids=list(request.seed_node_ids),
-                        depth=request.max_depth)
+    if isinstance(request, WorldGraphObservationSelectionRequest):
+        observed = {"operation": "observations", "observation_ids": list(request.observation_ids),
+                    "max_bytes": request.max_bytes}
     else:
-        observed.update(operation="support", target_node_id=request.target.id)
+        bounds = request.bounds
+        observed: dict[str, Any] = {"max_source_anchors": bounds.max_source_anchors}
+        if not isinstance(request, WorldGraphEvidenceRequest):
+            observed.update(max_nodes=bounds.max_nodes,
+                            max_relationships=bounds.max_relationships,
+                            max_claims=bounds.max_attributes)
+        if isinstance(request, WorldGraphSearchRequest):
+            observed.update(operation="search", query_text=request.query_text,
+                            seed_node_ids=list(request.seed_node_ids))
+        elif isinstance(request, WorldGraphObjectRequest):
+            observed.update(operation="object", target_node_id=request.node_id)
+        elif isinstance(request, WorldGraphNeighborhoodRequest):
+            observed.update(operation="neighborhood", seed_node_ids=list(request.seed_node_ids),
+                            depth=request.max_depth)
+        else:
+            observed.update(operation="support", target_node_id=request.target.id)
     expected_operation = "evidence" if observed["operation"] == "support" else observed["operation"]
     if result.operation != expected_operation:
         raise ValueError("trace result operation differs from its effective request")

@@ -28,6 +28,11 @@ Factual retrieval rules:
   relationships are sparse. Try spelling/alias variants when a search is empty.
   If evidence is genuinely insufficient, identify the World coverage gap.
 - Use expand_graph_retrieval for object/neighborhood/search/support.
+  In governed Build, use observations with observationIds from the saved-source
+  discovery to fetch up to eight full relevant records across subjects in one
+  call. This avoids unrelated object history. Pass IDs only, no targets/query.
+  Discovery excerpts are hints, not claims; read the returned complete records
+  and open their relevant supporting sources. Batch source opening when useful.
 - For relationships, connections, or multi-entity questions, use neighborhood with
   1–8 seed nodes. Use object or support for one node at a time; repeat the call
   per node. Use search when discovering or anchoring without a pinned node

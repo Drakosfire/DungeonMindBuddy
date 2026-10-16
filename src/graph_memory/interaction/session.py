@@ -36,6 +36,7 @@ OperationName = Literal[
     "coverage",
     "source_read",
     "search",
+    "observations",
 ]
 
 OperationStatus = Literal["started", "completed", "partial", "failed", "blocked"]

@@ -159,9 +159,15 @@ class TraceGraphSupportRequest(TraceModel):
     max_source_anchors: int | None = Field(default=None, strict=True, ge=1, le=32)
 
 
+class TraceGraphObservationsRequest(TraceModel):
+    operation: Literal["observations"]
+    observation_ids: list[str] = Field(min_length=1, max_length=8)
+    max_bytes: int = Field(strict=True, ge=256, le=262144)
+
+
 TraceGraphOperationRequest = Annotated[
     TraceGraphSearchRequest | TraceGraphObjectRequest
-    | TraceGraphNeighborhoodRequest | TraceGraphSupportRequest,
+    | TraceGraphNeighborhoodRequest | TraceGraphSupportRequest | TraceGraphObservationsRequest,
     Field(discriminator="operation"),
 ]
 
