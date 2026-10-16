@@ -1,6 +1,6 @@
 # BUILD — Independent source-definition observations
 
-Status: ACTIVE, PRIME solo; base Buddy `26a0a771b2b721865f8cd6f5bfb1633880358a95`.
+Status: COMPLETE prerequisite, merged #1231 at `c21feff20156fdd8c3c082cfa083895ceee5eef6` after independent corrected-head review. Source-section lease transfers to `HANDOFF-BUILD-source-observations.md`. Original scope follows: PRIME solo; base Buddy `26a0a771b2b721865f8cd6f5bfb1633880358a95`.
 Lane `/tmp/prime-recap-mention-boundaries`, branch
 `codex/worldbuilding-definition-boundaries`. Topology serial. Other open welcome,
 held MIND and Rules lanes do not own the paths below. No runtime/state lease.

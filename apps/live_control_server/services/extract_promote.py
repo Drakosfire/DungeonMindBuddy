@@ -730,6 +730,7 @@ def _assert_and_project_candidate_evidence(
     source_artifact_id: str,
     span_index: Any,
     inspect_false_anchor_quotes: bool = False,
+    allow_source_observations: bool = False,
 ) -> list[ExactRunReviewAssertion]:
     """Fail closed when candidate evidence is not bound to frozen span content.
 
@@ -745,7 +746,7 @@ def _assert_and_project_candidate_evidence(
 
 
     try:
-        typed = validate_candidate_document_integrity(candidate_payload)
+        typed = validate_candidate_document_integrity(candidate_payload, allow_source_observations=allow_source_observations)
     except CandidateGraphMappingError as exc:
         raise ExtractPromoteError(
             f"candidate graph failed typed validation: {exc}",
@@ -913,6 +914,12 @@ def _assert_and_project_candidate_evidence(
                 evidence_refs=edge.evidence_refs,
             )
         )
+    for observation in typed.source_observations:
+        assertions.append(_project_holder(
+            assertion_id=observation.observation_id, kind="source_observation",
+            label=observation.title, summary=observation.description,
+            evidence_refs=observation.evidence_refs,
+        ).model_copy(update={"subject_candidate_node_id": observation.subject_candidate_node_id}))
     return assertions
 
 
@@ -1317,6 +1324,7 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
             source_artifact_id=resolved.source_artifact_id,
             span_index=span_index,
             inspect_false_anchor_quotes=True,
+            allow_source_observations=(resolved.source_domain == "worldbuilding" and resolved.extraction_profile == "worldbuilding_gazetteer_v1@1.11"),
         )
 
         invalid_evidence_count = sum(
@@ -1985,7 +1993,7 @@ def _load_typed_worldbuilding_preview_for_run(resolved, *, allow_gazetteer=True)
         session_id=resolved.session_id,
     )
     try:
-        typed_preview = load_typed_candidate_graph(candidate_payload)
+        typed_preview = load_typed_candidate_graph(candidate_payload, allow_source_observations=True)
     except CandidateGraphMappingError as exc:
         raise ExtractPromoteError(
             f"candidate graph failed typed validation: {exc}",
@@ -2040,6 +2048,7 @@ def _load_typed_worldbuilding_preview_for_run(resolved, *, allow_gazetteer=True)
         source_prose=source_prose,
         source_artifact_id=resolved.source_artifact_id,
         span_index=span_index,
+        allow_source_observations=(expected_profile == "worldbuilding_gazetteer_v1@1.11"),
     )
     return typed_preview, expected_profile
 

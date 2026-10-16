@@ -65,8 +65,11 @@ def canonical_candidate_digest(candidate_graph: Mapping[str, Any]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def validate_candidate_document_integrity(candidate_graph: Mapping[str, Any]):
+def validate_candidate_document_integrity(candidate_graph: Mapping[str, Any], *, allow_source_observations: bool = False):
     """Return the exact typed preview while treating unsupported kinds as eligibility."""
+    if candidate_graph.get("version") == "0.2" and not allow_source_observations:
+        from graph_memory.candidate_graph_to_contribution import CandidateGraphMappingError
+        raise CandidateGraphMappingError("candidate v0.2 requires source-observation review")
     digest = canonical_candidate_digest(candidate_graph)
     classification = classify_candidate_document_integrity(candidate_graph)
     if classification.parse_error:

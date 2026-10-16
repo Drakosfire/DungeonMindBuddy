@@ -85,7 +85,7 @@ def _require_nonempty(value: str | None, *, field: str) -> str:
     return text
 
 
-def load_typed_candidate_graph(payload: Mapping[str, Any]) -> CandidateGraphPreview:
+def load_typed_candidate_graph(payload: Mapping[str, Any], *, allow_source_observations: bool = False) -> CandidateGraphPreview:
     """Parse and structurally validate a CandidateGraphPreview IR document."""
     if payload.get("schema") == "dmb_portable_object_demo_candidate_v1":
         raise CandidateGraphMappingError(
@@ -97,6 +97,8 @@ def load_typed_candidate_graph(payload: Mapping[str, Any]) -> CandidateGraphPrev
             f"unsupported schema {payload.get('schema')!r}; require "
             f"{CANDIDATE_GRAPH_PREVIEW_SCHEMA}"
         )
+    if payload.get("version") == "0.2" and not allow_source_observations:
+        raise CandidateGraphMappingError("candidate v0.2 requires source-observation review")
     # Detect common category-extractor drift before pydantic-ish dataclass parse.
     nodes = list(payload.get("nodes") or [])
     if nodes and isinstance(nodes[0], dict):

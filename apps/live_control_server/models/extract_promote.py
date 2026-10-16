@@ -244,7 +244,7 @@ class WorldbuildingWritePlanPrepareRequest(_ExtractPromoteModel):
 
 class WorldbuildingWritePlanDecisionSnapshot(_ExtractPromoteModel):
     assertion_id: str
-    candidate_kind: Literal["node", "edge"]
+    candidate_kind: Literal["node", "edge", "source_observation"]
     decision: WorldbuildingDispositionDecision
     target_node_id: str | None = None
 
@@ -478,9 +478,10 @@ class ExactRunReviewEvidence(_ExtractPromoteModel):
 
 class ExactRunReviewAssertion(_ExtractPromoteModel):
     assertion_id: str
-    kind: Literal["object", "relationship"]
+    kind: Literal["object", "relationship", "source_observation"]
     label: str
     summary: str
+    subject_candidate_node_id: str | None = None
     evidence: list[ExactRunReviewEvidence] = Field(default_factory=list)
 
 

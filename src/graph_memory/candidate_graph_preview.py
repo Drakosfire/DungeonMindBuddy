@@ -84,6 +84,18 @@ class CandidateNode:
     enriched_by: str | None = None
 
 @dataclass(frozen=True)
+class CandidateSourceObservation:
+    observation_id: str
+    subject_candidate_node_id: str
+    title: str
+    description: str
+    semantic_state: SemanticState
+    evidence_refs: tuple[EvidenceRef, ...]
+    confidence: str
+    warnings: tuple[str, ...] = ()
+    proposed_action: str = "create"
+
+@dataclass(frozen=True)
 class CandidateEdge:
     edge_id: str
     from_node_id: str
@@ -167,6 +179,7 @@ class CandidateGraphPreview:
     ignored_items: tuple[IgnoredItem, ...]
     deferred_items: tuple[DeferredItem, ...]
     diagnostics: PreviewDiagnostics
+    source_observations: tuple[CandidateSourceObservation, ...] = ()
 
 @dataclass(frozen=True)
 class CandidateGraphPreviewIssue:
@@ -270,13 +283,24 @@ def candidate_graph_preview_from_dict(data: Mapping[str, Any]) -> CandidateGraph
         ignored_items=tuple(IgnoredItem(**{**i, "evidence_refs": _refs(i.get("evidence_refs", ())), "warnings": tuple(i.get("warnings", ()))}) for i in data.get("ignored_items", ())),
         deferred_items=tuple(DeferredItem(**{**d, "evidence_refs": _refs(d.get("evidence_refs", ())), "warnings": tuple(d.get("warnings", ()))}) for d in data.get("deferred_items", ())),
         diagnostics=PreviewDiagnostics(**data["diagnostics"]),
+        source_observations=tuple(CandidateSourceObservation(**{
+            **o, "semantic_state": semantic_state_from_dict(o["semantic_state"]),
+            "evidence_refs": _refs(o.get("evidence_refs", ())),
+            "warnings": tuple(o.get("warnings", ())),
+        }) for o in data.get("source_observations", ())),
     )
 
-def candidate_graph_preview_to_dict(preview: CandidateGraphPreview) -> dict[str, Any]: return asdict(preview)
+def candidate_graph_preview_to_dict(preview: CandidateGraphPreview) -> dict[str, Any]:
+    data = asdict(preview)
+    if preview.version == "0.1":
+        if preview.source_observations:
+            raise ValueError("source observations require candidate preview v0.2")
+        data.pop("source_observations")
+    return data
 
 def _all_refs(p: CandidateGraphPreview) -> tuple[EvidenceRef, ...]:
     refs=[]
-    for seq in (p.nodes,p.edges,p.beats,p.proposed_writes,p.ignored_items,p.deferred_items):
+    for seq in (p.nodes,p.edges,p.beats,p.proposed_writes,p.ignored_items,p.deferred_items,p.source_observations):
         for o in seq: refs.extend(o.evidence_refs)
     return tuple(refs)
 
@@ -284,7 +308,30 @@ def validate_candidate_graph_preview(preview: CandidateGraphPreview) -> Candidat
     issues=[]
     def add(code,msg,obj=None,field=None,severity="error"): issues.append(CandidateGraphPreviewIssue(severity,code,msg,obj,field))
     if preview.schema != CANDIDATE_GRAPH_PREVIEW_SCHEMA: add("invalid_semantic_state","schema mismatch",preview.preview_id,"schema")
-    if preview.version != CANDIDATE_GRAPH_PREVIEW_VERSION: add("invalid_semantic_state","version mismatch",preview.preview_id,"version")
+    if preview.version not in {CANDIDATE_GRAPH_PREVIEW_VERSION, "0.2"}: add("invalid_semantic_state","version mismatch",preview.preview_id,"version")
+    if preview.version == "0.1" and preview.source_observations:
+        add("invalid_semantic_state", "source observations require v0.2", preview.preview_id, "version")
+    observations = preview.source_observations
+    node_map = {n.node_id: n for n in preview.nodes}
+    all_ids = [n.node_id for n in preview.nodes] + [e.edge_id for e in preview.edges]
+    observation_ids = [o.observation_id for o in observations]
+    if len(set(observation_ids)) != len(observation_ids) or set(observation_ids) & set(all_ids):
+        add("duplicate_observation_id", "observation identities must be unique", preview.preview_id)
+    for observation in observations:
+        if not all(isinstance(value, str) and value.strip() for value in (
+            observation.observation_id, observation.subject_candidate_node_id,
+            observation.title, observation.description, observation.confidence,
+        )):
+            add("invalid_observation", "source observation requires nonblank fields", observation.observation_id)
+        subject = node_map.get(observation.subject_candidate_node_id)
+        if subject is None:
+            add("missing_observation_subject", "source observation subject is missing", observation.observation_id)
+        elif observation.semantic_state != subject.semantic_state:
+            add("invalid_observation", "source observation must preserve its subject source qualification", observation.observation_id)
+        if not observation.evidence_refs:
+            add("missing_evidence_ref", "source observation needs complete evidence", observation.observation_id)
+        if observation.proposed_action in COMMITTED_ACTIONS:
+            add("committed_write_forbidden", "observation is not yet reviewed", observation.observation_id)
     if preview.status != "preview" or preview.status not in PREVIEW_STATUSES: add("invalid_preview_status","preview status must be preview",preview.preview_id,"status")
     if not preview.preview_id: add("invalid_preview_status","preview_id must be non-empty",None,"preview_id")
     def dup(ids, code):

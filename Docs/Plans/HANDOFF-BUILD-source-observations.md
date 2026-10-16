@@ -23,6 +23,7 @@ Exclusive expected paths:
 - src/graph_memory/extraction/category_candidate_graph_extractor.py
 - src/graph_memory/extraction/graph_ingest_packaging.py
 - apps/live_control_server/models/extract_promote.py
+- apps/live_control_server/services/candidate_graph_admission.py (explicit observation-aware integrity gate)
 - apps/live_control_server/services/extract_promote.py
 - tests/test_worldbuilding_source_observations.py (new)
 - tests/test_worldbuilding_gazetteer_profile.py (catalog expectation only)
@@ -43,3 +44,25 @@ No helper-only pass implies ordinary Agent or operator acceptance. Full actual
 publication/readback/open passages and UI witness remain required before retained
 adoption under a newly pinned operational contract. Track exact refs/test/model
 cost, inspect cumulative diff, commit/push/PR, independent review, then PRIME merge.
+
+Author evidence:117 affected codec/registered-profile/publication-planner tests
+pass, two native-only cases skipped there; a separate uniquely created Core DB
+runs all16 owning source-observation tests including new/bound native confirm,
+idempotency, canonical-object/relationship preservation and exact-source opening.
+The real runner seals and reloads two synthetic definitions and the ordinary
+review API exposes both subjects; forged quotes and unknown spans reject.
+One inherited schema-shadow warning remains. No external provider calls occurred.
+Logs `/tmp/worldbuilding-observations-regression.log` and
+`/tmp/worldbuilding-source-observations-native.log`.
+
+Deterministic reprocessing of the preserved Mirathorn candidate matches all six
+frozen definition texts/evidence exactly (10/10/10/10/10/17refs), leaving a478char
+place description with4refs. This private result is neither a fresh inference/run
+nor publication. Evidence `mirathorn-independent-observation-proof.json` under
+`experiments/build-governed-preview-20261016`. The historical assertion is untouched.
+
+Remaining explicit gates: independent review, DOGFOOD observation review UI,
+operational current-main adoption, reviewed fresh Mirathorn run/publication and
+ordinary Agent witness. Separate observations do not guarantee all fit one bounded
+object result; topic-selective observation retrieval/paging is a required successor
+before claiming Float Goat query readiness. Do not broaden limits or omit refs.
