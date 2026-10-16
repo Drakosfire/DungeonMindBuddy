@@ -128,8 +128,10 @@ slice rather than broadening this UI lease.
   withhold breadcrumb-routing recommendations until the normalized recap and
   reviewed seed are verified.
 - `IngestionModule.test.tsx`: 64 passed after adding regression coverage for
-  missing-source proof, user-facing recovery guidance, and collapsed raw server
-  recommendations. Existing React `act(...)` warnings remain.
+  missing-source proof, user-facing recovery guidance, collapsed raw server
+  recommendations, and persistent local-nav guidance after its transient toast
+  is dismissed. Fresh inspection-only status still keeps the empty nav quiet.
+  Existing React `act(...)` warnings remain.
 - Loading the existing Session 27 processed recap in the isolated preview
   displayed “Local Graph session was revoked. Reconnect explicitly.” I did not
   reconnect or run another graph action. The tab's temporary UI state was
