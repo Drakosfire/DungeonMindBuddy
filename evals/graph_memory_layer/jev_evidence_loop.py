@@ -123,8 +123,12 @@ def validate_answers(request: dict, result: dict) -> dict:
 async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], *,
                    output: Path, relevant_min: float = 0.5,
                    retrieve: Callable[[dict], Awaitable[list[dict]]] | None = None,
-                   retrieve_many: Callable[[list[dict]], Awaitable[dict[str, list[dict]]]] | None = None) -> dict:
+                   retrieve_many: Callable[[list[dict]], Awaitable[dict[str, list[dict]]]] | None = None,
+                   question_only: bool = False) -> dict:
     """Acquire legal actions; optional live reader owns immutable source proof."""
+    if question_only:
+        snapshot = {**snapshot, "requirements": [{"id": "answer", "text": snapshot["question"]}],
+                    "initial_actions": []}
     live = retrieve is not None or retrieve_many is not None
     validate_snapshot(snapshot, live=live)
     if not 0 <= relevant_min <= 1:
@@ -136,7 +140,7 @@ async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], 
     pending = list(snapshot["initial_actions"])
     events, observations, rounds, requests, batches = [], [], [], set(), []
     status, gaps = "retrieval_exhausted", [r["id"] for r in snapshot["requirements"]]
-    while pending:
+    while pending or (question_only and not rounds):
         acquired = []
         queue = [(aid, "initial_seed" if not rounds else "jev_missing_requirement")
                  for aid in sorted(set(pending))]
@@ -231,7 +235,7 @@ async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], 
         for req in snapshot["requirements"]:
             rid = req["id"]
             label = answers["coverage_" + rid]["selected"]
-            support = answers["support_" + rid]["selected"]
+            support = answers.get("support_" + rid, {}).get("selected", "none")
             rel = answers.get("relevant_" + support, {}).get("probability_true", 0)
             accepted = label == "sufficient" and support in by_id and rel >= relevant_min
             coverage[rid] = {"judgment": label, "support": support, "relevance": rel,
@@ -267,6 +271,7 @@ async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], 
     result = {"schema": "dmb_jev_loop_result_v1", "status": status, "unresolved_requirements": gaps,
               "mode": "live_revision_bound_source_acquisition" if live else "frozen_revision_retrieval_replay", "rounds": rounds, "retrieval_events": events,
               "acquisition_batches": batches,
+              "planning_mode": "question_only" if question_only else "manual_requirements_and_seeds",
               "selected_evidence": [u for u in seen.values() if u["id"] in selected],
               "retrieved_unit_ids": [u["id"] for u in seen.values()],
               "observations": observations, "elapsed_seconds": time.perf_counter() - started,
@@ -276,7 +281,7 @@ async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], 
               "luna_calls": 0, "relevance_threshold": relevant_min,
               "accuracy": "requires_separate_gold_evaluation",
               "limitations": ["Live acquisition includes selected DB/source reads; replay excludes them." if live else "Replay retrieval timing excludes live database/source I/O.",
-                             "Requirement templates and entry seeds are human-authored pilot inputs.",
+                             "One whole-question requirement and Jev discovery planning are experimental." if question_only else "Requirement templates and entry seeds are human-authored pilot inputs.",
                              "Semantic support is provisional; no answer writer or retained World change."]}
     (output / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2))
     return result

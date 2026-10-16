@@ -1,6 +1,6 @@
 # AGENT — independent controller challenge cohort
 
-ACTIVE, PRIME solo, ARCHITECTURE independent review. Base Buddy
+MERGED #1271 at2604dca14e0a957b7ef3c2deada6c96e8d338d01; implementation lease ended. Question-only successor: HANDOFF-AGENT-jev-question-only.md. Original activation: PRIME solo, ARCHITECTURE independent review. Base Buddy
 2c18521a4e250bab420a17ba7bb30b04110b3041; branch
 codex/jev-controller-holdout-cohort; isolated /tmp/prime-recap-mention-boundaries.
 Serial successor to merged #1270. Open Ingest work owns disjoint files.
