@@ -8,9 +8,9 @@ Classification: bounded_resolution. Facts: sneak_kar, firebolt.
 
 ## a02: Children origin
 
-S25 supports refugee/warehouse/children context, but does not individually identify rescued children. Exact membership stays operator addition alongside medium-confidence contextual inference.
+S25 supports refugee/warehouse/children context, but does not individually identify rescued children. Exact membership stays operator addition alongside medium-confidence contextual inference. The new carried-from edge establishes immediate pre-rescue location from the same S29 sentence, not individual refugee lodging. Warehouse→Mireward is separately marked campaign-context inference; children are subsequently returned to Lysandro’s house.
 
-Classification: unresolved_hypothesis. Facts: children_context, operator_children_origin.
+Classification: unresolved_hypothesis. Facts: children_context, operator_children_origin, warehouse_mireward, children_from_warehouse.
 
 ## a03: Distinct creatures
 
@@ -26,9 +26,9 @@ Classification: unresolved_hypothesis. Facts: seed_world, seed_bearer.
 
 ## a05: Temporal limits
 
-150 years dates fort era, not creature arrival. No movement/no threat/pull gone/city okay are time-local. Plans do not prove execution. Long rest is proposed then later daylight, not explicit duration.
+150 years dates fort era, not creature arrival. No movement/no threat/pull gone/city okay are time-local. Plans do not prove execution. Long rest is proposed then later daylight, not explicit duration. The intended Eldritch Blast is placed in the rescue scene through adjacent context; no exact target, performed cast, hit or kill is established by that join.
 
-Classification: bounded_resolution. Facts: fort, no_movement, no_threat, pull_gone, city_status, eldritch_intent.
+Classification: bounded_resolution. Facts: fort, no_movement, no_threat, pull_gone, city_status, eldritch_intent, rescue_eldritch_plan.
 
 ## a06: Names and items
 

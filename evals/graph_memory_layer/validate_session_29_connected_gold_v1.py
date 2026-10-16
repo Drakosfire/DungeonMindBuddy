@@ -29,7 +29,8 @@ REQUIRED = {'vantage', 'house_owner', 'father', 'mireward_context', 'smoke_south
             'sleep_delivery', 'cures_ready', 'mist_cure', 'spraying',
             'mist_transfer', 'wall_repair', 'stays', 'bayou', 'wildlife',
             'physical_thrum', 'camp', 'seed_reappraisal', 'pippa_prior',
-            'scout_execution', 'edge_arrival_intent', 'firebolt_spell', 'den_firebolt'}
+            'scout_execution', 'edge_arrival_intent', 'firebolt_spell', 'den_firebolt',
+            'warehouse_mireward', 'children_from_warehouse', 'rescue_eldritch_plan'}
 
 DOMAIN_KINDS = {
     'party', 'person', 'building', 'gate', 'route', 'settlement', 'region',
@@ -192,6 +193,8 @@ def validate(gold: dict, source_root: Path) -> list[str]:
     for item in ledger:
         refs = item.get('required_facts', [])
         require(bool(refs) and all(f in facts for f in refs), f'{item.get("id")}: coverage dangling/empty')
+        require(all(f in facts for f in item.get('context_fact_ids', [])),
+                f'{item.get("id")}: dangling paragraph context')
         covered.update(refs)
         require(item.get('disposition') == 'represented', f'{item.get("id")}: missing disposition')
         if 's29' in texts:
@@ -231,6 +234,29 @@ def validate(gold: dict, source_root: Path) -> list[str]:
     require(gap_facts == facts.keys(), 'mapping gap inventory incomplete')
     require(facts.get('eldritch_intent', {}).get('status') == 'intended', 'intended Eldritch Blast became performed')
     require(facts.get('operator_children_origin', {}).get('provenance') == 'operator_addition', 'operator child origin laundered')
+    context_contracts = {
+        'warehouse_mireward': ('mireward_warehouse', 'located_in', 'mireward', 'contextual',
+                              {'warehouse_identity', 'mireward_context'}),
+        'children_from_warehouse': ('rescued_children', 'carried_from', 'mireward_warehouse', 'occurred',
+                                    {'warehouse_exit', 'children_carried'}),
+        'rescue_eldritch_plan': ('child_rescue', 'includes_planned_spell', 'eldritch_blast', 'intended',
+                               {'rescue_plan', 'eldritch_intent'}),
+    }
+    for fid, (subject, predicate, obj, status, basis) in context_contracts.items():
+        fact = facts.get(fid, {})
+        require((fact.get('subject'), fact.get('predicate'), fact.get('object')) ==
+                (subject, predicate, obj), f'{fid}: context endpoint/predicate mismatch')
+        require(fact.get('provenance') == 'contextual_inference', f'{fid}: contextual join laundered')
+        require(fact.get('status') == status, f'{fid}: context modality changed')
+        actual_basis = set(fact.get('attributes', {}).get('basis_fact_ids', []))
+        require(actual_basis == basis and actual_basis <= facts.keys(), f'{fid}: invalid context basis')
+    require(facts.get('children_from_warehouse', {}).get('attributes', {}).get(
+                'individual_refugee_membership_directly_stated') is False,
+            'child warehouse context promoted to direct refugee membership')
+    planned = facts.get('rescue_eldritch_plan', {}).get('attributes', {})
+    require(planned.get('actual_cast_confirmed') is False
+            and planned.get('specific_target_confirmed') is False
+            and planned.get('caster_ref') == 'ephanna', 'rescue spell context overstates execution/target')
     require(facts.get('house_owner', {}).get('predicate') == 'home_of', 'house possessive relationship weakened')
     for fid in ('shoulder', 'understand', 'storm_worse'):
         require(facts.get(fid, {}).get('provenance') == 'source_assertion'

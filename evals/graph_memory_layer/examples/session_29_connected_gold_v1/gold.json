@@ -5438,6 +5438,77 @@
         "caster_ref": "karsemine",
         "target_ref": "restraining_tentacles"
       }
+    },
+    {
+      "id": "warehouse_mireward",
+      "subject": "mireward_warehouse",
+      "predicate": "located_in",
+      "object": "mireward",
+      "description": "The current refugee warehouse is in Mireward Reach: the continuing Ironveil Warehouse scene is joined to the town explicitly named as saved in Session29. This is a campaign-context join, distinct from Fellinor’s warehouse in Edge.",
+      "evidence": [
+        "e128",
+        "e129",
+        "e130",
+        "e116"
+      ],
+      "provenance": "contextual_inference",
+      "status": "contextual",
+      "confidence": "high",
+      "temporal_scope": "C2S25–29 continuing Mireward warehouse context",
+      "attributes": {
+        "basis_fact_ids": [
+          "warehouse_identity",
+          "mireward_context"
+        ],
+        "location_resolution": "campaign continuity; current Mireward episode"
+      }
+    },
+    {
+      "id": "children_from_warehouse",
+      "subject": "rescued_children",
+      "predicate": "carried_from",
+      "object": "mireward_warehouse",
+      "description": "At the observed emergence, the monsters carry the sleeping children out of the Mireward warehouse. This is their immediate pre-rescue location; it does not prove which children were previously housed among the Edge refugees.",
+      "evidence": [
+        "e017",
+        "e018"
+      ],
+      "provenance": "contextual_inference",
+      "status": "occurred",
+      "confidence": "high",
+      "temporal_scope": "C2S29 paragraph 3; immediately before ambush/rescue",
+      "attributes": {
+        "basis_fact_ids": [
+          "warehouse_exit",
+          "children_carried"
+        ],
+        "location_interval": "immediately before rescue; children are subsequently taken to Lysandro’s house",
+        "individual_refugee_membership_directly_stated": false
+      }
+    },
+    {
+      "id": "rescue_eldritch_plan",
+      "subject": "child_rescue",
+      "predicate": "includes_planned_spell",
+      "object": "eldritch_blast",
+      "description": "Ephanna’s intended Eldritch Blast belongs to the adjacent warehouse-monster ambush and child-rescue plan. The source says will use; the join identifies the intended combat context without confirming a cast, target selection, hit or kill.",
+      "evidence": [
+        "e021",
+        "e025"
+      ],
+      "provenance": "contextual_inference",
+      "status": "intended",
+      "confidence": "high",
+      "temporal_scope": "C2S29 paragraphs 3–4; rescue plan and ambush passage",
+      "attributes": {
+        "basis_fact_ids": [
+          "rescue_plan",
+          "eldritch_intent"
+        ],
+        "caster_ref": "ephanna",
+        "actual_cast_confirmed": false,
+        "specific_target_confirmed": false
+      }
     }
   ],
   "coverage": [
@@ -5491,27 +5562,31 @@
       "id": "p03",
       "paragraph": 3,
       "start_line": 23,
-      "summary": "Karsemine sees two monsters emerge from warehouse.; Both monsters carry sleeping children; precise total unstated.; Lysandra promises to remain and help provided buildings are not burned.; Lysandra will help Hesta make as many cures as necessary at apothecary.; Party plans ambush and rescue.; Planned ambush becomes rescue in next paragraph.",
+      "summary": "Karsemine sees two monsters emerge from warehouse.; Both monsters carry sleeping children; precise total unstated.; Lysandra promises to remain and help provided buildings are not burned.; Lysandra will help Hesta make as many cures as necessary at apothecary.; Party plans ambush and rescue.; Planned ambush becomes rescue in next paragraph.; At the observed emergence, the monsters carry the sleeping children out of the Mireward warehouse. This is their immediate pre-rescue location; it does not prove which children were previously housed among the Edge refugees.",
       "required_facts": [
         "warehouse_exit",
         "children_carried",
         "no_burning",
         "cure_plan",
         "rescue_plan",
-        "rescue_scene"
+        "rescue_scene",
+        "children_from_warehouse"
       ],
       "disposition": "represented",
       "residual": "No source sentence licenses stronger identity, causality, completion or permanence than the listed facts.",
       "start": 1843,
       "end": 2338,
       "sha256": "4b1dd895c802773849c82f9532340c52b7ca5c1af1516651134495e173851eeb",
-      "end_line": 23
+      "end_line": 23,
+      "context_fact_ids": [
+        "warehouse_mireward"
+      ]
     },
     {
       "id": "p04",
       "paragraph": 4,
       "start_line": 25,
-      "summary": "Baergrom dashes in front to draw attention.; Karesmine and Bonogo land sneak attacks.; Bonogo participates in sneak attacks.; Future phrasing preserves intent; actual cast not independently stated.; Stafl shoots arrows from window in ambush.; Monsters quickly dealt with.; Baergrom carries sleeping children back to house.; Others see no remaining monsters during check.; After denying supplies, Lysandro gives party two bottles.; Six greater healing potions supplied.; Eight healing potions supplied.; Eight half bottles minor healing supplied; do not count as eight full bottles.; Each party member fills oil vials.; Party departs for north gate.; Baergrom performs rescue.; Children taken to the current Lysandro house, contextual deictic resolution.",
+      "summary": "Baergrom dashes in front to draw attention.; Karesmine and Bonogo land sneak attacks.; Bonogo participates in sneak attacks.; Future phrasing preserves intent; actual cast not independently stated.; Stafl shoots arrows from window in ambush.; Monsters quickly dealt with.; Baergrom carries sleeping children back to house.; Others see no remaining monsters during check.; After denying supplies, Lysandro gives party two bottles.; Six greater healing potions supplied.; Eight healing potions supplied.; Eight half bottles minor healing supplied; do not count as eight full bottles.; Each party member fills oil vials.; Party departs for north gate.; Baergrom performs rescue.; Children taken to the current Lysandro house, contextual deictic resolution.; Ephanna’s intended Eldritch Blast belongs to the adjacent warehouse-monster ambush and child-rescue plan. The source says will use; the join identifies the intended combat context without confirming a cast, target selection, hit or kill.",
       "required_facts": [
         "distraction",
         "sneak_kar",
@@ -5528,7 +5603,8 @@
         "oil",
         "to_gate",
         "rescue_baergrom",
-        "children_house"
+        "children_house",
+        "rescue_eldritch_plan"
       ],
       "disposition": "represented",
       "residual": "No source sentence licenses stronger identity, causality, completion or permanence than the listed facts.",
@@ -5805,10 +5881,12 @@
     {
       "id": "a02",
       "topic": "Children origin",
-      "decision": "S25 supports refugee/warehouse/children context, but does not individually identify rescued children. Exact membership stays operator addition alongside medium-confidence contextual inference.",
+      "decision": "S25 supports refugee/warehouse/children context, but does not individually identify rescued children. Exact membership stays operator addition alongside medium-confidence contextual inference. The new carried-from edge establishes immediate pre-rescue location from the same S29 sentence, not individual refugee lodging. Warehouse→Mireward is separately marked campaign-context inference; children are subsequently returned to Lysandro’s house.",
       "facts": [
         "children_context",
-        "operator_children_origin"
+        "operator_children_origin",
+        "warehouse_mireward",
+        "children_from_warehouse"
       ],
       "evidence": [],
       "classification": "unresolved_hypothesis"
@@ -5840,14 +5918,15 @@
     {
       "id": "a05",
       "topic": "Temporal limits",
-      "decision": "150 years dates fort era, not creature arrival. No movement/no threat/pull gone/city okay are time-local. Plans do not prove execution. Long rest is proposed then later daylight, not explicit duration.",
+      "decision": "150 years dates fort era, not creature arrival. No movement/no threat/pull gone/city okay are time-local. Plans do not prove execution. Long rest is proposed then later daylight, not explicit duration. The intended Eldritch Blast is placed in the rescue scene through adjacent context; no exact target, performed cast, hit or kill is established by that join.",
       "facts": [
         "fort",
         "no_movement",
         "no_threat",
         "pull_gone",
         "city_status",
-        "eldritch_intent"
+        "eldritch_intent",
+        "rescue_eldritch_plan"
       ],
       "evidence": [],
       "classification": "bounded_resolution"
@@ -5948,7 +6027,7 @@
     {
       "id": "q02",
       "question": "Which children were rescued, where, and what supports Edge origin?",
-      "expected_answer": "Sleeping children carried from Mireward warehouse; Baergrom rescues them. S25 houses Edge refugees there and mentions older children; exact rescued-child origin is operator clarified.",
+      "expected_answer": "Sleeping children are carried out of the Mireward refugee warehouse, then rescued by Baergrom and taken to Lysandro’s house. The warehouse-to-Mireward location is a campaign-context join. S25 houses Edge refugees there and mentions children; exact rescued-child membership remains operator clarification plus medium-confidence continuity inference.",
       "expected_fact_path": [
         "rescue_actual",
         "children_carried",
@@ -5956,22 +6035,33 @@
         "refugee_housing",
         "refugee_origin",
         "children_context",
-        "operator_children_origin"
+        "operator_children_origin",
+        "warehouse_mireward",
+        "children_from_warehouse",
+        "children_house",
+        "mireward_context"
       ],
       "expected_evidence": [
+        "e017",
         "e018",
         "e028",
+        "e115",
+        "e116",
+        "e117",
         "e128",
         "e129",
         "e130",
         "e131",
         "e132",
         "e133",
-        "e134"
+        "e134",
+        "e152"
       ],
       "failure_examples": [
         "Quote Session29 as explicitly saying children are from Edge",
-        "Put rescue in Fellinor warehouse"
+        "Put rescue in Fellinor warehouse",
+        "Treat the pre-rescue warehouse location as their permanent or post-rescue location",
+        "Claim S25 individually identifies the rescued sleeping children"
       ],
       "traversals": [
         [
@@ -5985,12 +6075,28 @@
           "edge_refugees",
           "refugee_housing",
           "mireward_warehouse"
+        ],
+        [
+          "rescued_children",
+          "children_from_warehouse",
+          "mireward_warehouse",
+          "warehouse_mireward",
+          "mireward"
+        ],
+        [
+          "rescued_children",
+          "children_house",
+          "lysandro_house",
+          "mireward_context",
+          "mireward"
         ]
       ],
       "expected_node_kinds": {
         "baergrom": "person",
         "edge": "settlement",
         "edge_refugees": "person_group",
+        "lysandro_house": "building",
+        "mireward": "settlement",
         "mireward_warehouse": "building",
         "rescued_children": "person_group",
         "warehouse_monsters": "creature_group"
@@ -6010,13 +6116,20 @@
         "warehouse_exit",
         "rescue_actual",
         "edge_warehouse",
-        "safe_access"
+        "safe_access",
+        "warehouse_mireward",
+        "edge_store_location"
       ],
       "expected_evidence": [
         "e017",
         "e028",
         "e085",
-        "e088"
+        "e088",
+        "e116",
+        "e128",
+        "e129",
+        "e130",
+        "e150"
       ],
       "failure_examples": [
         "One warehouse",
@@ -6029,12 +6142,19 @@
           "edge_warehouse",
           "edge_store_location",
           "edge"
+        ],
+        [
+          "mireward_warehouse",
+          "warehouse_mireward",
+          "mireward"
         ]
       ],
       "expected_node_kinds": {
         "baergrom": "person",
+        "edge": "settlement",
         "edge_warehouse": "building",
         "fellinor": "person",
+        "mireward": "settlement",
         "mireward_warehouse": "building",
         "personal_safe": "equipment_individual",
         "rescued_children": "person_group",
@@ -6137,22 +6257,34 @@
     {
       "id": "q06",
       "question": "Did Ephanna actually cast Eldritch Blast in child rescue?",
-      "expected_answer": "Recap says will use: intended cast only. Stafl shoots arrows; later Karsemine casts Fire Bolt in den.",
+      "expected_answer": "Ephanna’s intended Eldritch Blast is linked to the warehouse-monster ambush/child-rescue scene by adjacent passage context. The source says will use; no actual cast, exact target, hit or kill is separately confirmed. Stafl shoots arrows; later Karsemine actually casts Fire Bolt in the distinct den combat.",
       "expected_fact_path": [
         "eldritch_intent",
         "arrows",
         "firebolt",
         "firebolt_spell",
-        "den_firebolt"
+        "den_firebolt",
+        "rescue_eldritch_plan",
+        "rescue_scene",
+        "warehouse_mireward"
       ],
       "expected_evidence": [
+        "e021",
         "e025",
         "e026",
-        "e051"
+        "e028",
+        "e051",
+        "e116",
+        "e128",
+        "e129",
+        "e130",
+        "e145"
       ],
       "failure_examples": [
         "Eldritch Blast confirmed hit/kill",
-        "All attacks only plans"
+        "All attacks only plans",
+        "Move intended Eldritch Blast into the later den combat",
+        "Confirm an exact spell target from the inferred rescue context"
       ],
       "traversals": [
         [
@@ -6169,15 +6301,30 @@
           "den_combat",
           "den_firebolt",
           "fire_bolt"
+        ],
+        [
+          "child_rescue",
+          "rescue_eldritch_plan",
+          "eldritch_blast"
+        ],
+        [
+          "child_rescue",
+          "rescue_scene",
+          "mireward_warehouse",
+          "warehouse_mireward",
+          "mireward"
         ]
       ],
       "expected_node_kinds": {
         "arrows": "item_type",
+        "child_rescue": "scene",
         "den_combat": "scene",
         "eldritch_blast": "spell",
         "ephanna": "person",
         "fire_bolt": "spell",
         "karsemine": "person",
+        "mireward": "settlement",
+        "mireward_warehouse": "building",
         "restraining_tentacles": "body_part_group",
         "stafl": "person"
       },
@@ -6580,6 +6727,14 @@
       ]
     },
     {
+      "predicate": "carried_from",
+      "status": "unmapped_or_unverified",
+      "policy": "retain semantic fact; mapping needs separate native qualification review",
+      "facts": [
+        "children_from_warehouse"
+      ]
+    },
+    {
       "predicate": "carries",
       "status": "unmapped_or_unverified",
       "policy": "retain semantic fact; mapping needs separate native qualification review",
@@ -6897,6 +7052,14 @@
       ]
     },
     {
+      "predicate": "includes_planned_spell",
+      "status": "unmapped_or_unverified",
+      "policy": "retain semantic fact; mapping needs separate native qualification review",
+      "facts": [
+        "rescue_eldritch_plan"
+      ]
+    },
+    {
       "predicate": "includes_spell",
       "status": "unmapped_or_unverified",
       "policy": "retain semantic fact; mapping needs separate native qualification review",
@@ -7008,7 +7171,8 @@
       "facts": [
         "mireward_context",
         "edge_store_location",
-        "edge_home_location"
+        "edge_home_location",
+        "warehouse_mireward"
       ]
     },
     {
@@ -7642,7 +7806,10 @@
     "scout_execution",
     "edge_arrival_intent",
     "firebolt_spell",
-    "den_firebolt"
+    "den_firebolt",
+    "warehouse_mireward",
+    "children_from_warehouse",
+    "rescue_eldritch_plan"
   ],
   "independent_freeze": {
     "candidate_outputs_read": false,
@@ -7659,6 +7826,13 @@
     "semantic_refinement": {
       "reviewed_parent": "357291c437c696fc425a604737dc1e8fced89a00",
       "changes": "precise paragraph-2 narrator attribution; scout proposal/execution stages; camp decision/arrival intent; Fire Bolt spell identity and encounter links",
+      "candidate_outputs_read": false
+    },
+    "context_link_successor": {
+      "base": "5d14ed96b0a7b93b84c58cd21c2cabf9489935e8",
+      "predecessor_merge": "9abb6c5f1903a10f784c5563081052472a3dc19e",
+      "handoff_first": "d9d5188cb128888b32b8ac573b30c78b625c7192",
+      "method": "three explicit contextual relations derived solely from existing immutable corpus evidence; predecessor facts, source entries, quote ranges and nodes unchanged",
       "candidate_outputs_read": false
     }
   },
