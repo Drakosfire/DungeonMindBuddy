@@ -55,7 +55,27 @@ class GraphToolPresentation:
         payload = self.cache.present(tool, arguments, self.scope, raw)
         value = json.loads(payload)
         if value.get("schema") == OVERVIEW_SCHEMA:
-            payload = self._initial_records(value, result.value)
+            # A targeted object can avoid discovery when its first verified
+            # detail page delivers a whole claim and all its source anchors.
+            # Remaining records retain explicit continuation metadata.
+            if (tool == "expand_graph_retrieval" and arguments.get("operation") == "object"
+                    and self.cache.page_bytes == 32_000):
+                detail = self.cache.continuation(tool, {
+                    **arguments, "resultPageToken": value["detailPageToken"],
+                }, self.scope)
+                page = json.loads(detail) if detail is not None else {}
+                if page.get("schema") == PAGE_SCHEMA:
+                    exposure = self._exposure(result, [detail])
+                    complete_claim = any(
+                        row.get("evidenceRefIds") and set(row["evidenceRefIds"]).issubset(exposure.evidence_ref_ids)
+                        and row.get("assertionId", row.get("edgeId")) in (exposure.assertion_ids | exposure.relationship_ids)
+                        for key in ("reviewedSourceObservations", "attributes", "relationships")
+                        for row in result.value.get(key, [])
+                    )
+                    if page.get("nextPageToken") is None or complete_claim:
+                        payload, value = detail, page
+            if value.get("schema") == OVERVIEW_SCHEMA:
+                payload = self._initial_records(value, result.value)
         if value.get("schema") in {PAGE_SCHEMA, OVERVIEW_SCHEMA}:
             self._results[value["resultId"]] = result
         elif payload != raw:

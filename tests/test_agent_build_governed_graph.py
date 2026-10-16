@@ -117,8 +117,7 @@ class SyntheticHarness:
                     'targets': [{'kind': 'node', 'id': 'frank'}]}
                 operation_pages = []
                 result = json.loads(operation['resultJson'])
-                if self.graph in {'paged', 'paged-mutated', 'paged-unseen'}:
-                    assert result['schema'] == 'dmb_graph_tool_overview_v1'
+                if self.graph in {'paged', 'paged-mutated', 'paged-unseen'} and result.get('schema') == 'dmb_graph_tool_overview_v1':
                     overview_body = json.loads(payload)
                     overview_body['input'].extend([
                         {'type': 'function_call', 'name': 'expand_graph_retrieval', 'call_id': 'overview', 'arguments': json.dumps(operation_args)},
@@ -142,6 +141,9 @@ class SyntheticHarness:
                             if self.mutation != 'multi-ref':
                                 assert token, 'fixture must leave unrelated pages unread'
                             break
+                elif self.graph in {'paged', 'paged-mutated', 'paged-unseen'} and result.get('schema') == 'dmb_graph_tool_page_v1':
+                    assert result['nextPageToken'] is None
+                    assert self.mutation == 'multi-ref'
                 elif self.graph in {'initial-small', 'initial-small-unseen'}:
                     assert result['schema'] == 'dmb_graph_tool_overview_v1'
                     assert result['completeRecordCounts']['included'] == 1
