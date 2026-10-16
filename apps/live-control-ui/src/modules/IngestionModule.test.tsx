@@ -517,7 +517,7 @@ describe("IngestionModule", () => {
     vi.spyOn(liveApi, "getHistoricalRecapInspection").mockResolvedValue({ schema: "dmb_historical_recap_inspection_v1", runId: "saved-run", runStatus: "reviewable", sourceDomain: "recap", sourceArtifactId: "source", campaignId: "longmont-c2", sessionId: "session-22", sourceStatus: "available", sourceProse: "Exact saved recap" });
     await user.click(screen.getByRole("button", { name: "Review recap canvas" }));
     expect(await screen.findByText("Current World Graph context. This extraction is awaiting Graph admission.")).toBeInTheDocument();
-    expect(screen.getByText("Advanced").parentElement).not.toHaveAttribute("open");
+    expect(screen.getByText("Evidence & details").parentElement).not.toHaveAttribute("open");
     const completeRead = vi.spyOn(liveApi, "postWorldGraphCompleteObject").mockRejectedValue(new Error("Read unavailable"));
     const pill = await waitFor(() => {
       const token = document.querySelector("button.recap-node-token") as HTMLButtonElement;
@@ -699,7 +699,7 @@ describe("IngestionModule", () => {
     await user.click(await screen.findByRole("button", { name: "Review recap canvas" }));
     expect(await screen.findByText(/Open Advanced → Native Graph access to connect the local Graph session/)).toBeInTheDocument();
     const ingestCalls = ingest.mock.calls.length;
-    await user.click(screen.getByText("Advanced", { exact: true }));
+    await user.click(screen.getByText("Evidence & details", { exact: true }));
     expect(screen.queryByLabelText("Local operator Graph credential")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Connect local Graph session" }));
     expect(connect).toHaveBeenCalledOnce();
@@ -873,8 +873,10 @@ describe("IngestionModule", () => {
     render(<IngestionModule campaignId="longmont-c2" session={24} />);
 
     await waitFor(() => expect(screen.getByLabelText("Session title")).toHaveValue("Session 23 - Mireward"));
-    expect(screen.getByText("What was ingested?")).toBeInTheDocument();
+    const proof = screen.getByRole("region", { name: "Ingestion proof artifacts" });
+    expect(screen.queryByRole("region", { name: "What was ingested" })).not.toBeInTheDocument();
     expect(screen.getAllByText("records: 3").length).toBeGreaterThan(0);
+    await user.click(within(proof).getByText("normalized recap", { exact: true }));
     expect(screen.getByText(/The party held the gate/)).toBeInTheDocument();
     expect(screen.queryByText("Raw recap text is required to start a new ingest.")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Prep for ingest" }));
@@ -1766,11 +1768,12 @@ describe("IngestionModule", () => {
 
     await waitFor(() => expect(screen.getByLabelText("Session title")).toHaveValue("Session 29 - The Meat Mind of Mireward Reach"));
     expect(within(toolbar).getByRole("status")).not.toHaveTextContent(/breadcrumb|reused without overwrite|stale next action/i);
-    await userEvent.setup().click(screen.getByText("Advanced"));
+    await userEvent.setup().click(screen.getByText("Evidence & details"));
     const evidence = screen.getByRole("complementary", { name: "Ingestion evidence and proof" });
     expect(evidence).toHaveTextContent("Missing");
     expect(evidence).not.toHaveTextContent("saved/normalized-session-29.md");
     expect(evidence).not.toHaveTextContent("normalized_reused");
+    expect(evidence.querySelector(".ingestion-readiness-lanes")).toBeNull();
   });
 
   it("does not promote an unverified saved status when disk inspection fails", async () => {
@@ -1935,7 +1938,7 @@ describe("IngestionModule", () => {
     );
   });
 
-  it("shows Session-24 readiness: memory ready, graph missing, titled canonical Found", async () => {
+  it("keeps next action in the nav and shows each file proof once", async () => {
     const titled =
       "Longmont Campaign/Campaign 2/Session Recaps/Session 24 - Mireward Gate Battle.md";
     vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
@@ -1993,18 +1996,14 @@ describe("IngestionModule", () => {
 
     render(<IngestionModule campaignId="longmont-c2" session={25} />);
 
-    await waitFor(() =>
-      expect(
-        screen.getAllByText(/Next: Run ingest to extract the graph/i)
-          .length,
-      ).toBeGreaterThan(0),
-    );
-    expect(screen.getByText("Recap memory")).toBeInTheDocument();
-    expect(screen.getByText("Graph preview")).toBeInTheDocument();
-    expect(screen.getAllByText("Ready").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Not ready").length).toBeGreaterThan(0);
-    expect(screen.queryByText(/^Complete:/)).not.toBeInTheDocument();
-    expect(screen.queryByText("Prove")).toBeInTheDocument();
+    const toolbar = screen.getByRole("region", { name: "Ingest workspace toolbar" });
+    await waitFor(() => expect(within(toolbar).getByRole("status")).toHaveTextContent(/Next: Run ingest to extract the graph/i));
+    expect(screen.queryByText("Recap memory")).not.toBeInTheDocument();
+    expect(screen.queryByText("Graph preview")).not.toBeInTheDocument();
+    await userEvent.setup().click(screen.getByText("Evidence & details"));
+    const proof = screen.getByRole("region", { name: "Ingestion proof artifacts" });
+    expect(proof).toHaveTextContent("Prove");
+    expect(proof.querySelector(".ingestion-readiness-lanes")).toBeNull();
 
     const canonicalRows = screen.getAllByText("canonical recap");
     const proveCanonical = canonicalRows

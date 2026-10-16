@@ -114,7 +114,7 @@ interface IngestionToast {
 
 interface CorpusImpactRow {
   key: string;
-  relpath: string;
+  relpath: string | null;
   exists: boolean;
   size_bytes?: number;
   modified_at?: string;
@@ -917,7 +917,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     graphPreview?.status === "candidate_validation_ready",
   );
   const ingestReadiness = useMemo(() => buildIngestReadiness(latestResult), [latestResult]);
-  const readinessLanes = [ingestReadiness.memory, ingestReadiness.graph, ingestReadiness.attention];
   const workflowNextAction = (() => {
     if (!sourceInputSatisfied && !hasNormalizedRecap) {
       return "No recap source loaded.";
@@ -2039,14 +2038,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     : inferredTitle || `Session ${recapSession || defaultRecapSession(session)} - Mireward Gate Battle`;
   const normalizedDuplicates = normalizedRecapCandidates(latestResult);
   const corpusImpact = corpusImpactRows(latestResult);
-  const proofRows =
+  const proofRows: CorpusImpactRow[] =
     corpusImpact.length > 0
-      ? corpusImpact.map((row) => ({
-          key: row.key,
-          relpath: row.relpath,
-          exists: row.exists,
-          record_count: row.record_count,
-        }))
+      ? corpusImpact
       : proofPathKeys(latestResult).map((key) => ({
           key,
           relpath: latestResult?.paths?.[key] ?? null,
@@ -2342,7 +2336,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
               <button type="button" onClick={closeSavedReader}>Close review</button>
             </section>
           ) : null}
-          <details><summary>Advanced</summary>
+          <details><summary>Evidence &amp; details</summary>
           <NativeGraphAccessControl onChanged={(available) => {
             reviewEpoch.current += 1;
             setReviewSource(null);
@@ -2351,26 +2345,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
             if (available && readerMode) void reviewSavedSource(true);
           }} />
           {reviewSource ? <pre aria-label="Recap frontmatter">{reviewSource.projection?.markdown.match(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/)?.[0] ?? "No frontmatter"}</pre> : null}
-        <ol className="ingestion-flow-steps ingestion-readiness-lanes">
-          {readinessLanes.map((lane) => (
-            <li
-              key={lane.id}
-              className={`ingestion-flow-step ingestion-flow-step-${lane.state === "ready" ? "done" : lane.state === "blocked" ? "active" : lane.state === "not_ready" ? "active" : "locked"}`}
-            >
-              <span>{lane.label}</span>
-              <strong>
-                {lane.state === "ready"
-                  ? "Ready"
-                  : lane.state === "blocked"
-                    ? "Blocked"
-                    : lane.state === "not_ready"
-                      ? "Not ready"
-                      : "Idle"}
-              </strong>
-              <p className="ingestion-readiness-detail">{lane.detail}</p>
-            </li>
-          ))}
-        </ol>
           <details className="ingestion-advanced-fold">
             <summary>Advanced file controls</summary>
             <label>
@@ -2734,47 +2708,30 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                 const statusLabel = row.exists ? "done" : "waiting";
                 return (
                   <li key={row.key} className={`ingestion-proof-path ingestion-proof-path-${statusLabel}`}>
-                    <span>{pathLabel(row.key)}</span>
-                    <strong>{row.exists ? "Found" : "Missing"}</strong>
-                    <code>{row.relpath ?? "not reported yet"}</code>
-                    {typeof row.record_count === "number" ? (
-                      <span className="pill pill-neutral">records: {row.record_count}</span>
-                    ) : null}
+                    <details className="ingestion-proof-path__details">
+                      <summary>
+                        <span>{pathLabel(row.key)}</span>
+                        <strong>{row.exists ? "Found" : "Missing"}</strong>
+                        {typeof row.record_count === "number" ? (
+                          <span className="pill pill-neutral">records: {row.record_count}</span>
+                        ) : null}
+                      </summary>
+                      <code>{row.relpath ?? "not reported yet"}</code>
+                      {row.exists && (typeof row.size_bytes === "number" || row.modified_at) ? (
+                        <p className="module-muted">
+                          {typeof row.size_bytes === "number" ? formatBytes(row.size_bytes) : null}
+                          {row.modified_at
+                            ? `${typeof row.size_bytes === "number" ? " · " : ""}${new Date(row.modified_at).toLocaleString()}`
+                            : null}
+                        </p>
+                      ) : null}
+                      {row.preview ? <pre>{row.preview}</pre> : null}
+                    </details>
                   </li>
                 );
               })}
             </ul>
           </section>
-
-          {corpusImpact.length > 0 ? (
-            <section className="ingestion-proof-card" aria-label="What was ingested">
-              <h4>What was ingested?</h4>
-              <p className="module-muted">
-                Read-only corpus impact previews from the latest ingest/status check.
-              </p>
-              <div className="ingestion-impact-list">
-                {corpusImpact.map((row) => (
-                  <details key={`${row.key}-${row.relpath}`} className="ingestion-impact-row">
-                    <summary>
-                      <span>{pathLabel(row.key)}</span>
-                      <strong>{row.exists ? "Found" : "Missing"}</strong>
-                      {typeof row.record_count === "number" ? (
-                        <span className="pill pill-neutral">records: {row.record_count}</span>
-                      ) : null}
-                    </summary>
-                    <code>{row.relpath}</code>
-                    {row.exists ? (
-                      <p className="module-muted">
-                        {formatBytes(row.size_bytes ?? 0)}
-                        {row.modified_at ? ` - ${new Date(row.modified_at).toLocaleString()}` : ""}
-                      </p>
-                    ) : null}
-                    {row.preview ? <pre>{row.preview}</pre> : null}
-                  </details>
-                ))}
-              </div>
-            </section>
-          ) : null}
 
           {latestResult ? (
             <section className="ingestion-status-panel">
@@ -2807,7 +2764,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                 </div>
               </div>
 
-              <details open>
+              <details>
                 <summary>Canonical preview</summary>
                 <ul>
                   <li>title_line_stripped: {String(report.title_line_stripped ?? false)}</li>
@@ -2836,7 +2793,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                 <p className="module-muted">Roll tables are reference tools, not play facts.</p>
               </details>
 
-              <details open>
+              <details>
                 <summary>Spelling / Entity audit</summary>
                 <p className="module-muted">Review only. No auto-corrections are applied.</p>
                 {latestResult.entity_spelling_audit.length === 0 ? (
