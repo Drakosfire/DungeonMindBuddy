@@ -328,6 +328,19 @@ class WorldbuildingNativeVocabularyBinding(_ExtractPromoteModel):
     world_property_vocabulary: dict[str, Any]
 
 
+class WorldbuildingPublicationCapabilities(_ExtractPromoteModel):
+    """Server/configuration discovery, never authority for an individual plan."""
+
+    schema_: Literal["dmb_worldbuilding_publication_capabilities_v1"] = Field(
+        default="dmb_worldbuilding_publication_capabilities_v1", alias="schema"
+    )
+    confirmation_supported: Literal[True] = True
+    configured: bool
+    unavailability_reasons: list[
+        Literal["native_authority_configuration_invalid", "native_database_unconfigured"]
+    ] = Field(default_factory=list)
+
+
 class WorldbuildingWritePlanResponse(_ExtractPromoteModel):
     schema_: Literal[
         WORLD_BUILDING_WRITE_PLAN_SCHEMA,

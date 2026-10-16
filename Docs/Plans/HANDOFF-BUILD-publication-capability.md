@@ -32,3 +32,9 @@ Implementation owns no serving ports, databases, corpus, runtime config or provi
 calls. Push one reviewable PR; independent exact-head review precedes merge.
 The later consumer must explicitly confirm exact reviewed effects, preserve decisions
 on refusal, avoid duplicate submissions, and not auto-retry uncertain publication.
+
+Author evidence: 62 tests passed across the new 15 HTTP capability cases and
+existing authority-port/profile-publication suites, including disposable APP
+PostgreSQL tests. Ruff and cumulative diff checks pass. No provider, serving,
+retained database or World publication action occurred. The historical sealed
+plan model is unchanged; the new descriptor cannot make a plan valid.
