@@ -1,7 +1,10 @@
 # AGENT: ordinary Build conversation with governed World evidence
 
-Status ACTIVE under the operator's Mirathorn lifecycle goal. PRIME implements;
-ARCHITECTURE independently reviews. Base `9dbc958daa1c0ab4c731ebec6ee26f8810971c89`.
+Status IMPLEMENTATION SETTLED: #1217 merged at
+`2e61446033eac508233a94cfb523c62d42d622ad` after independent ARCHITECTURE PASS
+on `53ff389bfc2897b83200f6f8836875b8decfb655`. Product write leases ended.
+Runtime/ordinary-answer acceptance is ACTIVE below under PRIME; DOGFOOD reviews
+the rendered experience. Base `9dbc958daa1c0ab4c731ebec6ee26f8810971c89`.
 Lane `codex/build-governed-agent`, `/tmp/prime-recap-mention-boundaries`.
 Topology serial consumer after accepted APP producer #1216 (`ad7e6661`).
 
@@ -113,3 +116,39 @@ created and removed Core database, including two real synthetic publication →
 V3 reviewed-object → exact source-pin paths. No retained World writes occurred.
 The repair changes Build object adoption only; Plan's object path stays unchanged.
 Logs: `/tmp/build-governed-tests.log`, `/tmp/build-reviewed-native-tests.log`.
+
+
+## Matched preview acceptance lease — ACTIVE
+
+Authority: operator's Mirathorn lifecycle goal, accepted consumer merge above.
+Pinned lane `codex/build-governed-preview`, base `2e614460`; implementation remains
+unchanged. Contract path is this existing Buddy-owned handoff. No new product
+implementation or additional implementation PR is authorized by this lease.
+
+PRIME owns replacing only the existing preview services
+`dungeonmindbuddy-review-api-8004.service` and
+`dungeonmindbuddy-review-ui-5207.service`, loopback ports 8004/5207, with a matched
+archive of accepted main. Existing 5202/5876 and their data/credentials/drafts stay
+owned by DOGFOOD. Transfer of the settled 5207 UI was notified to DOGFOOD.
+
+First create a private current APP backup, restore into uniquely named
+`dungeonbuddy_app_state_build_preview_*`, compare all application table contents
+and migrate that clone to 0024. Record backup hash/size and restored/migrated
+fingerprints without printing private data. Preview uses only this clone for
+conversation writes, retained registered source files read-only, and native
+Elderwyld Graph reads. Existing credential is consumed opaquely; no new provider
+or credential. No retained APP migration, source edit, extraction or publication.
+
+Run ordinary Build questions against saved Mirathorn revision 2 and actual World
+bindings. Open supporting passages; record actual answer/evidence/latency and
+provider usage without claiming unknown cost is zero. Never replay uncertain
+requests. Restart this preview and prove document, saved history and passages
+remain available. Historical source-edit resilience needs separate controlled
+source/revision evidence; do not edit Mirathorn to manufacture it here.
+
+Use existing protected local operator session bootstrap. Keep private evidence in
+`/home/drakosfire/.local/state/dungeonmindbuddy/experiments/build-governed-preview-20261016/`.
+Scripts/config and code archive under `/tmp/build-governed-preview-*` are PRIME
+owned. Preserve recoverable prior preview launcher/config. Stop owned services
+and remove the clone only after its evidence/needed operator inspection is
+preserved or a declared replacement owns it. Do not leave an unowned runtime.
