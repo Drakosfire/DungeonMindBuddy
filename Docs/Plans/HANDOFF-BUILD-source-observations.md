@@ -1,6 +1,6 @@
 # BUILD — Review and publish independent source observations
 
-Status ACTIVE, PRIME solo; base `c21feff20156fdd8c3c082cfa083895ceee5eef6`.
+Status MERGED as `b285e4fd1ab61139b66b461730ee7b058a909994`; implementation lease ended. Base `c21feff20156fdd8c3c082cfa083895ceee5eef6`.
 Lane `/tmp/prime-recap-mention-boundaries`, branch
 `codex/worldbuilding-source-observations`. Topology serial. Transfers completed
 source-boundary prerequisite lease; other open UI/MIND/Rules work is disjoint.
@@ -61,7 +61,9 @@ place description with4refs. This private result is neither a fresh inference/ru
 nor publication. Evidence `mirathorn-independent-observation-proof.json` under
 `experiments/build-governed-preview-20261016`. The historical assertion is untouched.
 
-Remaining explicit gates: independent review, DOGFOOD observation review UI,
+Independent ARCHITECTURE review passed exact `36fd44101f0ac2fa775c9172c06d8987a17e56c0`:16 native owning tests and20 generic regressions.
+
+Remaining explicit gates: DOGFOOD observation review UI,
 operational current-main adoption, reviewed fresh Mirathorn run/publication and
 ordinary Agent witness. Separate observations do not guarantee all fit one bounded
 object result; topic-selective observation retrieval/paging is a required successor
