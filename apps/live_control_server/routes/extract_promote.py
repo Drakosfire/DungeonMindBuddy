@@ -13,6 +13,7 @@ from fastapi.routing import APIRoute
 
 from apps.live_control_server import config as live_config
 from apps.live_control_server.models.ingest_selection_context import IngestSelectionContextRequest
+from apps.live_control_server.models.worldbuilding_publication_coverage import WorldbuildingPublicationCoverage
 from apps.live_control_server.models.extract_promote import (
     ExtractPromoteConfirmReceipt,
     ExtractPromoteConfirmRequest,
@@ -141,6 +142,28 @@ router = APIRouter(
     tags=["extract-promote"],
     route_class=_ExtractPromoteAPIRoute,
 )
+
+
+@router.get("/runs/{run_id}/worldbuilding-publication-coverage", response_model=WorldbuildingPublicationCoverage)
+def get_worldbuilding_publication_coverage_route(
+    request: Request,
+    run_id: str,
+    _principal: NativeGraphPrincipal = Depends(native_graph_gm_dependency),
+) -> dict[str, Any] | JSONResponse:
+    """Authenticated historical proof; no publication replay or caller selectors."""
+    from apps.live_control_server.services.worldbuilding_publication_coverage import (
+        get_worldbuilding_publication_coverage,
+    )
+    try:
+        _reject_selector_query(request)
+        return get_worldbuilding_publication_coverage(run_id).model_dump(mode="json", by_alias=True)
+    except ExtractPromoteError as exc:
+        return _error_response(exc)
+    except Exception:
+        return _error_response(ExtractPromoteError(
+            "Publication coverage is unknown because native evidence could not be read.",
+            code="publication_coverage_unavailable", status_code=503,
+        ))
 
 
 def _reject_selector_query(request: Request) -> None:

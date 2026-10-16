@@ -5,8 +5,8 @@ Buddy base `2efb6ea184870df0f266ff98fe2eb9938c5d0366`, branch
 `codex/worldbuilding-publication-coverage`, non-serving checkout
 `/tmp/prime-recap-mention-boundaries`. Topology: cross-repository stacked consumer
 of Core #128 reviewed head `5430d5ddca52f2aab0ae71f62556adbb41b44313`.
-Core must merge with applicable CI gates before this consumer's dependency pin,
-merge or runtime adoption. Implementation/tests may use that exact reviewed source.
+Core merged as `dd20b9734eeba5e17704c6e091bc0e61411e7964` after renewed
+independent exact-head PASS and CI success; consumer pin uses that accepted merge.
 
 ## Outcome
 
@@ -70,4 +70,13 @@ Predecessor settlement: Core #128 added verified complete pinned-ancestry discov
 its initial author82/independent46 tests pass. CI repair restores typed selection
 construction without changing serialized semantics. Retained read-only Mirathorn
 witness found one publication/11 assertions across13 revisions in1.083 seconds.
-Core merge and consumer acceptance remain unclaimed until actually verified.
+Core merge is verified; Buddy consumer acceptance remains pending. Twenty focused
+tests pass including six real native publication/reopen cases in disposable Core
+and APP databases, current 1.13 source observations and governs normalization,
+selective second-publication aggregation, changed candidate/source, zero result,
+and mounted route authentication/binding/unknown behavior. Initial test failures
+exposed an invalid v0.1 fixture under profile1.13 and an accepted-edge hypothesis
+outcome/rekey mismatch; fixed through the real producer's pure mapping contracts.
+One earlier redundant sandboxed ASGI pytest process stalled; stopped its exact
+PID after the same mounted tests passed in the isolated runner. No provider,
+retained publication, corpus edit, migration or serving runtime change occurred.
