@@ -294,7 +294,9 @@ describe("IngestionModule", () => {
     if (dismissStatus) await user.click(dismissStatus);
     expect(within(nav).getByRole("status")).toHaveTextContent("Load a processed recap or paste the verified source to continue.");
 
-    await user.click(screen.getByText("Evidence & details"));
+    await user.click(within(nav).getByRole("link", { name: "Evidence" }));
+    const evidenceDetails = screen.getByText("Evidence & details").closest("details");
+    expect(evidenceDetails).toHaveAttribute("open");
     expect(screen.getByText("Canonical and normalized recap files are not both present")).toBeInTheDocument();
     const rawRecommendations = screen.getByText("Raw server recommendations");
     const recommendationDetails = rawRecommendations.closest("details");
@@ -303,6 +305,56 @@ describe("IngestionModule", () => {
 
     await user.click(rawRecommendations);
     expect(screen.getByText(/Review\/bless frontmatter seed, run breadcrumb_query_run --ingest-routing-only/i)).toBeInTheDocument();
+  });
+
+  it.each([
+    ["one confirmed file", [{ key: "canonical_recap", relpath: "corpus/session-29.md", exists: true }]],
+    ["a source row without a path", [
+      { key: "canonical_recap", relpath: "", exists: true },
+      { key: "normalized_recap", relpath: "corpus/normalized-session-29.md", exists: true },
+    ]],
+    ["malformed existence values", [
+      { key: "canonical_recap", relpath: "corpus/session-29.md", exists: "true" },
+      { key: "normalized_recap", relpath: "corpus/normalized-session-29.md", exists: true },
+    ]],
+    ["no file proof", undefined],
+  ])("requires explicit confirmation of both recap files when status returns %s", async (_case, corpusImpact) => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld");
+    window.localStorage.setItem("dmb.ingestion.longmont-c2.session.29", JSON.stringify({
+      version: 3,
+      activeStep: 1,
+      rawText: "",
+      recapSession: 29,
+      slug: "",
+      title: "Session 29 - The Meat Mind of Mireward Reach",
+      showAdvanced: false,
+      forceStage: false,
+      forceRecap: false,
+      latestResult: null,
+      previewSignature: null,
+      state: { status: "idle" },
+      ignoreDiskResume: false,
+    }));
+    vi.mocked(recapIngestApi.postRecapIngest).mockResolvedValue(makeStatus({
+      session: 29,
+      status: "breadcrumb_required",
+      states: ["ingest_status_inspected", "breadcrumb_required", "recap_reused", "normalized_reused"],
+      ingest_report: corpusImpact ? { corpus_impact: corpusImpact } : {},
+    }));
+
+    render(<IngestionModule campaignId="longmont-c2" session={29} managedWorldId="elderwyld" />);
+
+    const nav = screen.getByRole("navigation", { name: "Ingest workspace navigation" });
+    await waitFor(() => expect(within(nav).getByRole("status")).toHaveTextContent("Recap source needs confirmation"));
+    expect(within(nav).getByRole("status")).not.toHaveTextContent("Recap source missing");
+    await userEvent.setup().click(within(nav).getByRole("link", { name: "Evidence" }));
+    expect(screen.getByText("Canonical and normalized recap files need verification")).toBeInTheDocument();
+    const proof = screen.getByRole("region", { name: "Ingestion proof artifacts" });
+    const recapProofRows = ["canonical recap", "normalized recap"].map((label) =>
+      within(proof).getByText(label, { exact: true }).closest("li"),
+    );
+    expect(recapProofRows.some((row) => row?.textContent?.includes("Unverified"))).toBe(true);
+    expect(recapProofRows.every((row) => !row?.textContent?.includes("Missing"))).toBe(true);
   });
 
   it("identifies prepared recap work when a blank entry restores a local draft without its source text", async () => {
