@@ -74,3 +74,24 @@ one V2 source-cap fixture. These inherited failures are not a live acceptance.
 
 No inference, retained migration, publication or serving replacement occurred.
 Independent review and matched preview/ordinary Mirathorn acceptance remain open.
+
+## Review-discovered preservation repair (ACTIVE amendment)
+
+Independent review of `f9a05544` identified that the shared broker's object read
+omits the reviewed-source observation facet already supported by direct Build
+Graph traversal. Preserving that capability is required before this consumer can
+ship. Extend this slice's exclusive write set by exactly:
+
+- `apps/live_control_server/integrations/dungeonmind/world_graph_reads.py`
+- `tests/test_reviewed_source_observation_consumer.py`
+
+ARCHITECTURE recommends an internal V3 reviewed-object operation with checked
+bounded/complete reads at the same exact snapshot, existing observation/anchor
+bounds and exact returned-anchor source pins. Reuse the current reviewed-source
+consumer and classifier; do not independently promote navigation excerpts.
+The broker must bind reviewed assertion identity, subject and evidence to those
+pins before recording assertion admission. Retain explicit incomplete coverage.
+Tests must reproduce the lost observation, prove correct subject/revision/pins
+and reject mismatched or unsupported claims. No new durable APP schema or public
+Graph authority contract, provider calls or retained publication. Current head
+remains unmerged pending repair and a new independent exact-head review.
