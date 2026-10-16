@@ -32,3 +32,11 @@ PUBLISHABLE_WORLDBUILDING_PROFILES = {
         GAZETTEER_LOCATION_SOURCE_FIDELITY_PROFILE,
     )
 }
+
+# Candidate v0.2 requires explicitly admitted source-observation semantics at
+# every review/preview/plan boundary. Registration alone does not imply this.
+SOURCE_OBSERVATION_WORLDBUILDING_PROFILES = frozenset({
+    GAZETTEER_DEFINITION_OBSERVATION_PROFILE.qualified_id,
+    GAZETTEER_COLLECTIVE_SOURCE_FIDELITY_PROFILE.qualified_id,
+    GAZETTEER_LOCATION_SOURCE_FIDELITY_PROFILE.qualified_id,
+})

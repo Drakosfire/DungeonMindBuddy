@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from src.graph_memory.extraction.worldbuilding_profile_catalog import SOURCE_OBSERVATION_WORLDBUILDING_PROFILES
+
 
 import hashlib
 import json
@@ -1324,7 +1326,7 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
             source_artifact_id=resolved.source_artifact_id,
             span_index=span_index,
             inspect_false_anchor_quotes=True,
-            allow_source_observations=(resolved.source_domain == "worldbuilding" and resolved.extraction_profile in {"worldbuilding_gazetteer_v1@1.11", "worldbuilding_gazetteer_v1@1.12", "worldbuilding_gazetteer_v1@1.13"}),
+            allow_source_observations=(resolved.source_domain == "worldbuilding" and resolved.extraction_profile in SOURCE_OBSERVATION_WORLDBUILDING_PROFILES),
         )
 
         invalid_evidence_count = sum(
@@ -2048,7 +2050,7 @@ def _load_typed_worldbuilding_preview_for_run(resolved, *, allow_gazetteer=True)
         source_prose=source_prose,
         source_artifact_id=resolved.source_artifact_id,
         span_index=span_index,
-        allow_source_observations=(expected_profile in {"worldbuilding_gazetteer_v1@1.11", "worldbuilding_gazetteer_v1@1.12", "worldbuilding_gazetteer_v1@1.13"}),
+        allow_source_observations=(expected_profile in SOURCE_OBSERVATION_WORLDBUILDING_PROFILES),
     )
     return typed_preview, expected_profile
 

@@ -32,7 +32,9 @@ from graph_memory.candidate_semantic_promote_matrix import (
     map_reviewed_worldbuilding_semantics_to_kernel,
     semantic_diagnostics,
 )
-from src.graph_memory.extraction.worldbuilding_profile_catalog import PUBLISHABLE_WORLDBUILDING_PROFILES
+from src.graph_memory.extraction.worldbuilding_profile_catalog import (
+    PUBLISHABLE_WORLDBUILDING_PROFILES, SOURCE_OBSERVATION_WORLDBUILDING_PROFILES,
+)
 from src.graph_memory.extraction.worldbuilding_extraction_profile import (
     WORLDBUILDING_PROFILE_ID,
     WORLDBUILDING_PROFILE_VERSION,
@@ -1041,9 +1043,9 @@ def build_worldbuilding_write_plan(
     report = validate_candidate_graph_preview(preview)
     if any(issue.severity == "error" for issue in report.issues):
         raise WorldbuildingWritePlanError("candidate graph structural validation failed", code="invalid_candidate")
-    if profile == "worldbuilding_gazetteer_v1@1.11" and preview.version != "0.2":
+    if profile in SOURCE_OBSERVATION_WORLDBUILDING_PROFILES and preview.version != "0.2":
         raise WorldbuildingWritePlanError("observation profile requires candidate v0.2", code="invalid_candidate")
-    if preview.version == "0.2" and profile != "worldbuilding_gazetteer_v1@1.11":
+    if preview.version == "0.2" and profile not in SOURCE_OBSERVATION_WORLDBUILDING_PROFILES:
         raise WorldbuildingWritePlanError("source observations require the exact observation profile", code="unsupported_worldbuilding_profile")
     parent = _admit_parent_context(
         mutation_context,

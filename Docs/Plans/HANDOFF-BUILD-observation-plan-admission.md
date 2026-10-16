@@ -22,3 +22,8 @@ OnePR; actual inert plan production regression for1.11/1.12/1.13, reject older
 observation-incompatible profile and wrong candidate version. No retained write,
 provider, serving, schema or fact changes. Fresh clone prepare follows accepted
 code; independently review its exact effect before any confirmation.
+
+Author evidence: new create/bind plan cases fail for1.12/1.13 before repair
+(four failures, three controls pass). After centralization86 tests pass, two
+optional native tests skip without dedicated CoreDSN. Ruff/diff pass. Gold diff
+only catalog fingerprint. Clone prepare failure is preserved before any confirm.

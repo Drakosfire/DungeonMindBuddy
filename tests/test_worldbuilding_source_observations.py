@@ -60,7 +60,7 @@ def candidate():
     return data
 
 
-def plan(data=None, decisions=None, context=None):
+def plan(data=None, decisions=None, context=None, *, profile=PROFILE):
     data = candidate() if data is None else data
     preview = load_typed_candidate_graph(data, allow_source_observations=True)
     context = context or _memory_context()
@@ -80,7 +80,7 @@ def plan(data=None, decisions=None, context=None):
         source_artifact_id=ARTIFACT,
         source_revision_id="sha256:abc",
         source_uri="repo://Docs/source.md",
-        extraction_profile=PROFILE,
+        extraction_profile=profile,
         campaign_scope=data.get("campaign_id"),
         dispositions=decisions,
     )
@@ -119,8 +119,9 @@ def test_v01_serialization_stays_unchanged_and_cannot_hide_observations():
         load_typed_candidate_graph(bad, allow_source_observations=True)
 
 
+@pytest.mark.parametrize("profile", ["worldbuilding_gazetteer_v1@1.11", "worldbuilding_gazetteer_v1@1.12", "worldbuilding_gazetteer_v1@1.13"])
 @pytest.mark.parametrize("bind", [False, True])
-def test_new_and_bound_places_receive_distinct_observations_and_effect_ids(bind):
+def test_new_and_bound_places_receive_distinct_observations_and_effect_ids(bind, profile):
     data = candidate()
     original = deepcopy(data)
     target = "place:coast"
@@ -146,7 +147,7 @@ def test_new_and_bound_places_receive_distinct_observations_and_effect_ids(bind)
             for o in data["source_observations"]
         ],
     ]
-    result = plan(data, decisions, context)
+    result = plan(data, decisions, context, profile=profile)
     effect = result.effect
     observations = [
         a
@@ -163,7 +164,7 @@ def test_new_and_bound_places_receive_distinct_observations_and_effect_ids(bind)
     )
     for item in data["source_observations"]:
         assert len(effect["candidate_effect_map"][item["observation_id"]]) == 1
-    assert result.plan_digest == plan(data, decisions, context).plan_digest
+    assert result.plan_digest == plan(data, decisions, context, profile=profile).plan_digest
     snapshots = [
         x
         for x in effect["decision_snapshot"]
@@ -635,3 +636,8 @@ def test_native_confirm_retains_distinct_observations_sources_and_idempotency(
             repo_root=root,
         )
         assert opened.result.outcome == "enough"
+
+
+def test_observation_write_plan_rejects_incompatible_exact_profile():
+    with pytest.raises(WorldbuildingWritePlanError, match="exact observation profile"):
+        plan(profile="worldbuilding_gazetteer_v1@1.10")
