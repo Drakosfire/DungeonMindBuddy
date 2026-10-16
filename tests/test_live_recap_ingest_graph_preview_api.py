@@ -72,29 +72,20 @@ def client_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[TestCli
 
 def _prepare_normalized(client: TestClient) -> None:
     raw = "Session 22 Recap\n\nThe group scouts the Mireward road and regroups at dusk."
-    stage = client.post(
+    response = client.post(
         "/api/live/recap-ingest",
         json={
-            "operation": "stage_preview",
+            "operation": "generate_recap_memory",
             "campaign_id": "longmont-c2",
             "managed_world_id": "elderwyld",
             "session": 22,
             "raw_text": raw,
             "slug": "Mireward Road Dogfood",
+            "include_graph_extraction": False,
         },
     )
-    assert stage.status_code == 200
-    apply = client.post(
-        "/api/live/recap-ingest",
-        json={
-            "operation": "apply_normalize",
-            "campaign_id": "longmont-c2",
-            "managed_world_id": "elderwyld",
-            "session": 22,
-            "slug": "Mireward Road Dogfood",
-        },
-    )
-    assert apply.status_code == 200
+    assert response.status_code == 200
+    assert response.json()["paths"]["normalized_recap"]
 
 
 def test_recap_graph_ingest_requires_world_context_before_staging_or_source_registration(
@@ -114,6 +105,7 @@ def test_recap_graph_ingest_requires_world_context_before_staging_or_source_regi
             "campaign_id": "longmont-c2",
             "session": 22,
             "raw_text": "Session 22 Recap\n\nA new recap.",
+            "slug": "New Mireward Road Recap",
             "include_graph_extraction": True,
         },
     )
@@ -152,6 +144,7 @@ def test_uninitialized_world_stops_before_recap_staging_or_source_registration(
             "managed_world_id": "elderwyld",
             "session": 22,
             "raw_text": "Session 22 Recap\n\nA new recap.",
+            "slug": "New Mireward Road Recap",
             "include_graph_extraction": True,
         },
     )
@@ -334,10 +327,46 @@ def test_recap_ingest_rejects_unsafe_candidate_graph_path(client_env: tuple[Test
 
 def _live_extraction_payload(*, source_artifact_id: str, spref: str) -> dict:
     from tests.fixtures.graph_memory.category_extraction_helpers import (
-        canonical_candidate_graph_from_passes,
+        minimal_category_pass_outputs,
+    )
+    from src.graph_memory.extraction.category_candidate_graph_extractor import (
+        CategoryGraphExtractionOptions,
+        FixtureCategoryGraphPassClient,
+        run_category_pipeline,
     )
 
-    graph = canonical_candidate_graph_from_passes(spref=spref)
+    # This route fixture covers evidence packaging and provenance, not party
+    # enrichment. Explicitly model a completed extraction without invoking the
+    # separate claimed-fill contract, so the candidate is valid for these tests.
+    span_index = {
+        "source_artifact_id": source_artifact_id,
+        "source_ref_id": f"{source_artifact_id}:text",
+        "spans": [
+            {
+                "kind": "paragraph",
+                "span_id": spref,
+                "source_span_ref_id": spref,
+                "source_artifact_id": source_artifact_id,
+                "line_start": 1,
+                "line_end": 3,
+                "text": "Bonogo scouts the Mireward road and regroups at dusk.",
+            }
+        ],
+    }
+    result = run_category_pipeline(
+        FixtureCategoryGraphPassClient(minimal_category_pass_outputs(spref)),
+        CategoryGraphExtractionOptions(
+            campaign_id="longmont-c2",
+            session_id="session-22",
+            session_number=22,
+            source_span_index=span_index,
+            source_artifact_id=source_artifact_id,
+            source_ref_id=f"{source_artifact_id}:text",
+            model_id="gpt-5.4-mini",
+            enable_party_claimed_fill=False,
+        ),
+    )
+    graph = result.candidate_graph
     graph["source_artifact_ids"] = [source_artifact_id]
     for collection in ("nodes", "edges", "beats", "ignored_items", "deferred_items", "proposed_writes"):
         for item in graph.get(collection) or []:
@@ -832,16 +861,14 @@ def test_recap_ingest_generate_recap_memory_without_graph_extraction(
             "session": 22,
             "raw_text": "Session 22 Recap\n\nThe group scouts the Mireward road.",
             "slug": "Mireward Road Dogfood",
-            "check": True,
             "include_graph_extraction": False,
-            "include_legacy_breadcrumb": True,
         },
     )
 
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "ready_for_planning_activation"
-    assert "session_memory_materialized" in body["states"]
+    assert "normalized_current" in body["states"]
+    assert not any("breadcrumb" in state or "session_memory" in state for state in body["states"])
     assert "graph_preview" not in body["ingest_report"]
 
 
@@ -861,7 +888,6 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
             "session": 22,
             "raw_text": "Session 22 Recap\n\nThe group scouts the Mireward road.",
             "slug": "Mireward Road Dogfood",
-            "check": True,
             "include_graph_extraction": True,
             "graph_model_id": "deepseek/deepseek-v4.1-flash",
         },
@@ -875,7 +901,7 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
     assert graph["status"] == "candidate_validation_ready"
     assert graph["extraction_mode"] == "category_decomposed"
     assert graph["model_id"] == "deepseek/deepseek-v4.1-flash"
-    assert "legacy_breadcrumb_skipped" in " ".join(body["warnings"])
+    assert not any("breadcrumb" in warning.lower() for warning in body["warnings"])
 
 
 def test_generate_recap_memory_reuses_preview_graph_without_force(
@@ -892,7 +918,6 @@ def test_generate_recap_memory_reuses_preview_graph_without_force(
         "managed_world_id": "elderwyld",
         "session": 22,
         "slug": "Mireward Road Dogfood",
-        "check": True,
         "include_graph_extraction": True,
         "graph_model_id": "deepseek/deepseek-v4.1-flash",
     }
@@ -922,7 +947,6 @@ def test_generate_recap_memory_force_graph_run_starts_new_preview_run(
         "managed_world_id": "elderwyld",
         "session": 22,
         "slug": "Mireward Road Dogfood",
-        "check": True,
         "include_graph_extraction": True,
         "graph_model_id": "deepseek/deepseek-v4.1-flash",
     }
@@ -937,7 +961,7 @@ def test_generate_recap_memory_force_graph_run_starts_new_preview_run(
     assert forced_graph["manifest_path"] != first_manifest
 
 
-def test_generate_recap_memory_reuses_staged_notes_and_still_materializes_graph(
+def test_generate_recap_memory_stops_on_staged_source_conflict(
     client_env: tuple[TestClient, Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client, corpus, _candidate = client_env
@@ -958,7 +982,6 @@ def test_generate_recap_memory_reuses_staged_notes_and_still_materializes_graph(
             "session": 22,
             "raw_text": "Different pasted text should not replace staged notes.",
             "slug": "Mireward Road Dogfood",
-            "check": True,
             "include_graph_extraction": True,
             "graph_model_id": "deepseek/deepseek-v4.1-flash",
         },
@@ -968,11 +991,9 @@ def test_generate_recap_memory_reuses_staged_notes_and_still_materializes_graph(
     body = response.json()
     assert body["status"] != "ready_for_planning_activation"
     assert "staged_raw_notes_conflict" in body["states"]
-    assert "graph_candidate_ready" in body["states"]
-    assert body["ingest_report"]["staged_raw_notes_reused_existing"] is True
+    assert "graph_candidate_ready" not in body["states"]
+    assert "graph_preview" not in body["ingest_report"]
     assert "Different pasted text" not in staged.read_text(encoding="utf-8")
-    graph = body["ingest_report"]["graph_preview"]
-    assert graph["status"] == "candidate_validation_ready"
 
 
 def test_recap_ingest_generate_recap_memory_with_blocked_graph_preserves_recap_success(
@@ -997,7 +1018,6 @@ def test_recap_ingest_generate_recap_memory_with_blocked_graph_preserves_recap_s
             "session": 22,
             "raw_text": "Session 22 Recap\n\nThe group scouts the Mireward road.",
             "slug": "Mireward Road Dogfood",
-            "check": True,
             "include_graph_extraction": True,
         },
     )
@@ -1259,8 +1279,9 @@ def test_unmocked_candidate_completion_recovers_without_provider_replay(client_e
         "campaign_id": "longmont-c2",
         "managed_world_id": "elderwyld",
         "session": 22,
-               "include_graph_extraction": True, "include_legacy_breadcrumb": False,
-               "graph_model_id": "deepseek/deepseek-v4.1-flash"}
+        "include_graph_extraction": True,
+        "graph_model_id": "deepseek/deepseek-v4.1-flash",
+    }
     for _ in range(2):
         response = client.post("/api/live/recap-ingest", json=request)
         assert response.status_code == 200, response.text

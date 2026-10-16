@@ -210,7 +210,7 @@ describe("App same-document primary navigation", () => {
 
     window.history.pushState({}, "", "/ingest");
     const ingest = render(<App />);
-    expect(await screen.findByRole("heading", { name: "Graph Review Workbench" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Give your World a little more to remember." })).toBeInTheDocument();
     ingest.unmount();
 
     window.history.pushState({}, "", "/build");
@@ -240,7 +240,7 @@ describe("App same-document primary navigation", () => {
 
     const chrome = screen.getByTestId("agent-interaction-chrome");
     fireEvent.click(within(commandBoardNav()).getByRole("link", { name: "Ingest" }));
-    expect(await screen.findByRole("heading", { name: "Graph Review Workbench" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Give your World a little more to remember." })).toBeInTheDocument();
     expect(window.location.pathname).toBe("/ingest");
     expect(screen.getByTestId("agent-interaction-chrome")).toBe(chrome);
 
@@ -267,7 +267,7 @@ describe("App same-document primary navigation", () => {
     render(<App />);
 
     fireEvent.click(within(commandBoardNav()).getByRole("link", { name: "Ingest" }));
-    expect(await screen.findByRole("heading", { name: "Graph Review Workbench" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Give your World a little more to remember." })).toBeInTheDocument();
     fireEvent.click(within(commandBoardNav()).getByRole("link", { name: "Plan" }));
     expect(await screen.findByTestId("plan-canvas-title")).toBeInTheDocument();
     fireEvent.click(within(commandBoardNav()).getByRole("link", { name: "Build" }));
@@ -281,7 +281,7 @@ describe("App same-document primary navigation", () => {
     window.history.back();
     await waitFor(() => {
       expect(window.location.pathname).toBe("/ingest");
-      expect(screen.getByRole("heading", { name: "Graph Review Workbench" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Give your World a little more to remember." })).toBeInTheDocument();
     });
     window.history.forward();
     await waitFor(() => {
@@ -299,7 +299,7 @@ describe("App same-document primary navigation", () => {
 
     const nav = commandBoardNav();
     await user.click(within(nav).getByRole("link", { name: "Ingest" }));
-    expect(await screen.findByRole("heading", { name: "Graph Review Workbench" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Give your World a little more to remember." })).toBeInTheDocument();
     expect(window.location.pathname).toBe("/ingest");
     expect(window.location.search).toBe("");
 
@@ -314,7 +314,7 @@ describe("App same-document primary navigation", () => {
     const user = userEvent.setup();
     window.history.pushState({}, "", "/ingest");
     render(<App />);
-    expect(await screen.findByRole("heading", { name: "Graph Review Workbench" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Give your World a little more to remember." })).toBeInTheDocument();
 
     const pushSpy = vi.spyOn(window.history, "pushState");
     const nav = commandBoardNav();

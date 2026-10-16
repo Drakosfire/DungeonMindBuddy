@@ -29,18 +29,6 @@ export const CORPUS_PIPELINE_STEPS: CorpusPipelineStep[] = [
     matchStates: ["normalized_created", "normalized_reused"],
     pathKey: "normalized_recap",
   },
-  {
-    id: "breadcrumb",
-    label: "Breadcrumb routing",
-    matchStates: ["breadcrumb_found"],
-    pathKey: "breadcrumbed_recap",
-  },
-  {
-    id: "session_memory",
-    label: "Session memory",
-    matchStates: ["session_memory_materialized"],
-    pathKey: "session_memory_jsonl",
-  },
 ];
 
 export function recapSourceSession(liveSession: number): number {
@@ -74,9 +62,6 @@ export function corpusStatusHeadline(result: RecapIngestStatus | null): string {
   }
   if (corpusReadyForPlanning(result)) {
     return "Corpus loaded for planning";
-  }
-  if (result.status === "breadcrumb_required") {
-    return "Breadcrumb artifact missing";
   }
   const completed = CORPUS_PIPELINE_STEPS.filter((step) => stepComplete(result, step)).length;
   return `Corpus ingest ${completed}/${CORPUS_PIPELINE_STEPS.length} complete`;
