@@ -12,6 +12,7 @@ import pytest
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 PATCHED_SOURCE = REPOSITORY_ROOT / "out" / "hermes-agent"
 UPSTREAM_TEST = PATCHED_SOURCE / "tests" / "agent" / "test_pre_dispatch_budget_veto.py"
+FINALIZER_TEST = PATCHED_SOURCE / "tests" / "agent" / "test_turn_finalizer_iteration_limit_exit.py"
 
 
 def test_pinned_hermes_dispatch_boundary_suite() -> None:
@@ -54,7 +55,7 @@ requests.request = lambda *_args, **_kwargs: (_ for _ in ()).throw(
         env["DMB_HERMES_TEST_SITE_MARKER"] = str(Path(stub_root, "sitecustomize-ran"))
         try:
             completed = subprocess.run(
-                [sys.executable, "-m", "pytest", "-vv", str(UPSTREAM_TEST)],
+                [sys.executable, "-m", "pytest", "-vv", str(UPSTREAM_TEST), str(FINALIZER_TEST)],
                 cwd=PATCHED_SOURCE,
                 env=env,
                 capture_output=True,
@@ -72,4 +73,5 @@ requests.request = lambda *_args, **_kwargs: (_ for _ in ()).throw(
                 + stderr
             )
     assert completed.returncode == 0, completed.stdout + completed.stderr
-    assert "16 passed" in completed.stdout
+    assert "test_real_conversation_nullable_iteration_exit[None-answer] PASSED" in completed.stdout
+    assert "test_default_iteration_limit_remains_explicitly_finite PASSED" in completed.stdout
