@@ -909,7 +909,9 @@ def _commit_tiptap_markdown_write_unlocked(
             backup_path = target.parent / ".backups" / f"{timestamp}__{target.name}"
             backup_path.parent.mkdir(parents=True, exist_ok=True)
             backup_path.write_bytes(prior_bytes or b"")
-            backup_relpath = backup_path.relative_to(root.resolve()).as_posix()
+            from apps.live_control_server.config import artifact_data_root
+
+            backup_relpath = backup_path.relative_to(artifact_data_root(root)).as_posix()
         _atomic_write_text(target, content)
     except OSError as exc:
         _rollback_after_failure(

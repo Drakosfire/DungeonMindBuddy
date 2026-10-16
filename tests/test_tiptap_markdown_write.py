@@ -1003,3 +1003,34 @@ def test_preserved_yaml_authoring_still_requires_exact_save_basis(tmp_path, inte
     with pytest.raises(TiptapMarkdownWriteConflictError):
         commit_tiptap_markdown_write(root=tmp_path, request=request)
     assert target.read_bytes() == before
+
+
+def test_live_source_save_uses_configured_data_root_for_backup(tmp_path, monkeypatch):
+    from apps.live_control_server.routes import live
+
+    code = tmp_path / 'code'
+    data = tmp_path / 'data'
+    code.mkdir()
+    data.mkdir()
+    record = _create_world_scoped_source(data)
+    target = data / record.target_relpath
+    target.parent.mkdir(parents=True, exist_ok=True)
+    original = '---\ntitle: Mirathorn\n---\n# Lore\nOriginal council.\n'
+    target.write_text(original)
+    monkeypatch.setenv('DMB_ARTIFACT_DATA_ROOT', str(data))
+    monkeypatch.setattr(live, 'repo_root', lambda: code)
+    changed = original.replace('Original council.', 'Edited council.')
+    prepared = live.post_tiptap_markdown_write_prepare(TiptapMarkdownWritePrepareRequest(
+        document_id=record.document_id, markdown=changed, expected_revision=1))
+    assert prepared['writer_ok']
+    committed = live.post_tiptap_markdown_write_commit(TiptapMarkdownWriteCommitRequest(
+        document_id=record.document_id, markdown=changed, expected_revision=1,
+        writer_confirm_token=prepared['writer_confirm_token']))
+    assert committed['writer_ok'] and committed['committed_revision'] == 2
+    backup = data / committed['backup_relpath']
+    assert backup.is_relative_to(data) and backup.parent == target.parent / '.backups'
+    assert backup.read_bytes() == original.encode()
+    assert target.read_bytes() == changed.encode()
+    reopened = get_workspace_document_snapshot(code, record.document_id)
+    assert reopened.loaded_revision == 2 and reopened.markdown == changed
+    assert list(code.iterdir()) == []
