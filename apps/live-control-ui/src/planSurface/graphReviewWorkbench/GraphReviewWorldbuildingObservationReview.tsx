@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { prepareWorldbuildingWritePlan } from "../../api/extractPromoteApi";
 import { postManagedWorldGraphProjection } from "../../api/liveApi";
@@ -118,6 +118,7 @@ export function GraphReviewWorldbuildingObservationReview({
   const [preparedPlan, setPreparedPlan] = useState<WorldbuildingWritePlanResponse | null>(null);
   const [prepareError, setPrepareError] = useState<string | null>(null);
   const [preparing, setPreparing] = useState(false);
+  const prepareGenerationRef = useRef(0);
 
   const objectAssertions = useMemo(
     () => review.assertions.filter((assertion) => assertion.kind === "object"),
@@ -128,12 +129,34 @@ export function GraphReviewWorldbuildingObservationReview({
     [review.assertions],
   );
 
+  const prepareContextKey = JSON.stringify([
+    review.runId,
+    review.sourceArtifactId,
+    review.sourceRevisionId,
+    review.worldId,
+    review.assertions.map((assertion) => assertion.assertionId),
+    managedWorldId,
+    graphPin?.nativeWorldId,
+    graphPin?.bindingVersion,
+    graphPin?.revisionId,
+  ]);
+  const prepareContextKeyRef = useRef(prepareContextKey);
+  useLayoutEffect(() => {
+    if (prepareContextKeyRef.current === prepareContextKey) return;
+    prepareContextKeyRef.current = prepareContextKey;
+    prepareGenerationRef.current += 1;
+    setPreparedPlan(null);
+    setPrepareError(null);
+    setPreparing(false);
+  }, [prepareContextKey]);
+
   useEffect(() => {
     setDecisions({});
     setSearchTerms({});
     setSearchResults({});
     setPreparedPlan(null);
     setPrepareError(null);
+    setPreparing(false);
     setGraphPin(null);
     setGraphError(null);
 
@@ -176,7 +199,7 @@ export function GraphReviewWorldbuildingObservationReview({
       setGraphError(error instanceof Error ? error.message : "Could not load the selected World Graph revision.");
     });
     return () => { cancelled = true; };
-  }, [managedWorldId, objectAssertions, review.runId, review.worldId, snapshotRefreshCount]);
+  }, [managedWorldId, objectAssertions, review.runId, review.sourceArtifactId, review.sourceRevisionId, review.worldId, snapshotRefreshCount]);
 
   useEffect(() => {
     if (!managedWorldId || !graphPin || graphStatus !== "ready") return;
@@ -274,6 +297,7 @@ export function GraphReviewWorldbuildingObservationReview({
     && !preparing;
 
   const updateDecision = (assertionId: string, decision: LocalDecision) => {
+    prepareGenerationRef.current += 1;
     setPreparedPlan(null);
     setPrepareError(null);
     setDecisions((current) => ({
@@ -286,6 +310,7 @@ export function GraphReviewWorldbuildingObservationReview({
   };
 
   const deferUndecided = () => {
+    prepareGenerationRef.current += 1;
     setPreparedPlan(null);
     setPrepareError(null);
     setDecisions((current) => Object.fromEntries(review.assertions.map((assertion) => [
@@ -297,6 +322,8 @@ export function GraphReviewWorldbuildingObservationReview({
   };
 
   const refreshSnapshot = () => {
+    prepareGenerationRef.current += 1;
+    setPreparing(false);
     setGraphStatus("loading");
     setGraphError(null);
     setGraphPin(null);
@@ -326,6 +353,10 @@ export function GraphReviewWorldbuildingObservationReview({
         ...(choice.decision === "bind_existing" ? { targetNodeId: choice.targetNodeId } : {}),
       };
     });
+    const requestGeneration = ++prepareGenerationRef.current;
+    const requestContextKey = prepareContextKey;
+    const requestIsCurrent = () => requestGeneration === prepareGenerationRef.current
+      && requestContextKey === prepareContextKeyRef.current;
     setPreparing(true);
     setPrepareError(null);
     setPreparedPlan(null);
@@ -335,6 +366,7 @@ export function GraphReviewWorldbuildingObservationReview({
         expectedParentRevisionId: graphPin.revisionId,
         dispositions,
       });
+      if (!requestIsCurrent()) return;
       if (plan.runId !== review.runId
         || plan.sourceArtifactId !== review.sourceArtifactId
         || plan.sourceRevisionId !== review.sourceRevisionId
@@ -351,9 +383,11 @@ export function GraphReviewWorldbuildingObservationReview({
       }
       setPreparedPlan(plan);
     } catch (error) {
-      setPrepareError(error instanceof Error ? error.message : "Could not prepare the source review.");
+      if (requestIsCurrent()) {
+        setPrepareError(error instanceof Error ? error.message : "Could not prepare the source review.");
+      }
     } finally {
-      setPreparing(false);
+      if (requestIsCurrent()) setPreparing(false);
     }
   };
 
