@@ -17,6 +17,15 @@ from graph_memory.interaction.session import CoverageState, GraphRetrievalSessio
 from tests.test_agent_build_surface_context import source as source_fixture, graph_request
 
 
+# Native evidence construction composes artifact/span IDs. Exercise the whole
+# governed path at the consumer boundary, rather than only a codec helper.
+from application_state.agent_conversation.identifier_limits import (
+    GRAPH_EVIDENCE_REF_ID_MAX_CHARS, GRAPH_CLAIM_ID_MAX_CHARS,
+)
+EVIDENCE_ID = 'evidence:artifact:worldbuilding:' + 'r' * (GRAPH_EVIDENCE_REF_ID_MAX_CHARS - len('evidence:artifact:worldbuilding:'))
+CLAIM_ID = 'claim:' + 'c' * (GRAPH_CLAIM_ID_MAX_CHARS - len('claim:'))
+
+
 @pytest.fixture
 def build_case(tmp_path, monkeypatch, application_state_dsn):
     source = source_fixture.__wrapped__(tmp_path, monkeypatch)
@@ -45,9 +54,11 @@ def build_case(tmp_path, monkeypatch, application_state_dsn):
 class SyntheticHarness:
     descriptor = AgentRuntimeDescriptor('synthetic', 'fake', 'test', 'graph')
 
-    def __init__(self, source, bootstrap, *, fail=False, forged=False, graph=False):
+    def __init__(self, source, bootstrap, *, fail=False, forged=False, graph=False, refuse=False, tamper_evidence=False):
         self.source, self.bootstrap = source, bootstrap
         self.calls = 0
+        self.refuse = refuse
+        self.tamper_evidence = tamper_evidence
         self.fail, self.forged, self.graph = fail, forged, graph
 
     def run(self, invocation):
@@ -73,9 +84,13 @@ class SyntheticHarness:
         payload = json.dumps({'input': [
             {'role': 'system', 'content': 'Turn capability policy (runtime-enforced; also required on tool calls):\n'
                 + json.dumps({'initialClaimPacket': packet})}, {'role': 'user', 'content': message}], 'tools': []})
-        assert authorize({'provider': request_budget['provider'], 'model': request_budget['model'],
+        admitted = authorize({'provider': request_budget['provider'], 'model': request_budget['model'],
             'apiMode': request_budget['apiMode'], 'payloadJson': payload,
             'payloadSha256': sha256(payload.encode()).hexdigest(), 'payloadUtf8Bytes': len(payload.encode())})
+        if self.refuse:
+            assert not admitted
+            return AgentRuntimeResult(status='error', error_code='receipt_freeze_failed')
+        assert admitted
         assert on_provider_lifecycle({'transition': 'sdk_entered'})
         if self.fail:
             assert on_provider_lifecycle({'transition': 'outcome_unknown'})
@@ -115,9 +130,11 @@ class SyntheticHarness:
                 'payloadSha256': sha256(encoded.encode()).hexdigest(), 'payloadUtf8Bytes': len(encoded.encode())})
             assert on_provider_lifecycle({'transition': 'sdk_entered'})
             assert on_provider_lifecycle({'transition': 'response_received'})
-            claim = {'claim_id': 'gate-claim', 'target_kind': 'assertion' if operation else 'relationship',
+            claim = {'claim_id': CLAIM_ID, 'target_kind': 'assertion' if operation else 'relationship',
                      'target_id': 'observation-one' if operation else 'rel-gate',
-                     'graph_revision': 'native-rev-3', 'evidence_ref_ids': ['ev-gate']}
+                     'graph_revision': 'native-rev-3', 'evidence_ref_ids': [EVIDENCE_ID]}
+            if self.tamper_evidence:
+                claim['evidence_ref_ids'] = [EVIDENCE_ID[:-1] + 'z']
             return AgentRuntimeResult(status='ok', final_text=json.dumps({
                 'answer_context_status': 'graph_grounded',
                 'answer_segments': [{'kind': 'graph_claim', 'text': result['content'], **claim}],
@@ -190,8 +207,8 @@ def test_build_failure_retains_execution_and_trace(build_case, tmp_path, forged)
     assert turn.completion is None
 
 
-@pytest.mark.parametrize('observation', [False, True, 'wrong_subject', 'wrong_source'],
-    ids=['relationship', 'reviewed-source-observation', 'foreign-observation-subject', 'foreign-observation-source'])
+@pytest.mark.parametrize('observation', [False, True, 'wrong_subject', 'wrong_source', 'mutated-evidence'],
+    ids=['relationship', 'reviewed-source-observation', 'foreign-observation-subject', 'foreign-observation-source', 'mutated-producing-evidence'])
 def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(build_case, tmp_path, monkeypatch, observation):
     from graph_memory.interaction.authority_classifier import claims_from_retrieval_result
     from graph_memory.interaction.session import SourceAnchorState
@@ -200,15 +217,15 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
     session = bootstrap.retrieval_session
     session.claims = claims_from_retrieval_result({
         'relationships': [{'edgeId': 'rel-gate', 'sourceNodeId': 'frank', 'targetNodeId': 'gate',
-            'predicate': 'guards', 'evidenceRefIds': ['ev-gate']}],
+            'predicate': 'guards', 'evidenceRefIds': [EVIDENCE_ID]}],
         'sourceAnchors': [{'anchorId': 'anchor-one', 'revisionId': 'native-rev-3',
-            'evidenceRefId': 'ev-gate', 'readable': True, 'supportingGraphObjectIds': ['rel-gate']}],
+            'evidenceRefId': EVIDENCE_ID, 'readable': True, 'supportingGraphObjectIds': ['rel-gate']}],
     }, revision_id='native-rev-3')
     session.source_anchors = [SourceAnchorState(anchor_id='anchor-one', readable=True)]
     create_session(session)
-    bootstrap = replace(bootstrap, candidate_relationship_ids=('rel-gate',), candidate_evidence_ref_ids=('ev-gate',),
-        evidence_by_anchor_id={'anchor-one': 'ev-gate'}, source_scope_anchors=({
-            'anchor_id': 'anchor-one', 'evidence_ref_id': 'ev-gate', 'source_artifact_id': 'artifact-one',
+    bootstrap = replace(bootstrap, candidate_relationship_ids=('rel-gate',), candidate_evidence_ref_ids=(EVIDENCE_ID,),
+        evidence_by_anchor_id={'anchor-one': EVIDENCE_ID}, source_scope_anchors=({
+            'anchor_id': 'anchor-one', 'evidence_ref_id': EVIDENCE_ID, 'source_artifact_id': 'artifact-one',
             'source_revision_id': 'source-rev-one'},))
     text = 'Frank guards the western gate.'
     digest = sha256(text.encode()).hexdigest()
@@ -217,11 +234,11 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
         return {'schema': 'dmb_internal_read_graph_source_batch_v2', 'retrievalSessionId': session.id,
             'reads': [{'sourceReadId': 'source-read-one', 'result': {
                 'schema': 'dmb_world_graph_source_anchor_read_v1', 'anchorId': 'anchor-one',
-                'evidenceRefId': 'ev-gate', 'sourceArtifactId': 'artifact-one',
+                'evidenceRefId': EVIDENCE_ID, 'sourceArtifactId': 'artifact-one',
                 'outcome': 'enough', 'content': text, 'contentSha256': digest,
                 'lineStart': 1, 'lineEnd': 1, 'truncated': False,
             }, 'receipt': {'source_read_id': 'source-read-one', 'retrieval_session_id': session.id,
-                'graph_revision': 'native-rev-3', 'anchor_id': 'anchor-one', 'evidence_ref_id': 'ev-gate',
+                'graph_revision': 'native-rev-3', 'anchor_id': 'anchor-one', 'evidence_ref_id': EVIDENCE_ID,
                 'source_artifact_id': 'artifact-one', 'source_revision_id': 'source-rev-one',
                 'read_content_sha256': digest, 'outcome': 'enough', 'truncated': False}}]}
     monkeypatch.setattr('graph_memory.interaction.expansion_executor.execute_read_graph_source', read_external_graph)
@@ -234,7 +251,7 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
             assertion_id='observation-one', subject_node_id='frank', observation_kind='worldbuilding_observation',
             text=text, entity_kind='npc', review_id='review-one', contribution_id='contribution-one',
             publication_revision_id='native-rev-3', source_artifact_id='artifact-one',
-            source_revision_id='source-rev-one', evidence_ref_ids=['ev-gate'], visibility='gm', epistemic_kind='fact')
+            source_revision_id='source-rev-one', evidence_ref_ids=[EVIDENCE_ID], visibility='gm', epistemic_kind='fact')
         if observation == 'wrong_subject':
             native_observation = native_observation.model_copy(update={'subject_node_id': 'another-person'})
         elif observation == 'wrong_source':
@@ -244,12 +261,12 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
             'snapshot': {'worldId': 'native-build-world', 'campaignId': '', 'scopeMode': 'world',
                 'focus': {'kind': 'none', 'sessionId': None}, 'admissibility': 'gm', 'revisionId': 'native-rev-3',
                 'headRevisionId': 'native-rev-3', 'isHead': True},
-            'sourceAnchors': [{'anchorId': 'anchor-one', 'revisionId': 'native-rev-3', 'evidenceRefId': 'ev-gate',
+            'sourceAnchors': [{'anchorId': 'anchor-one', 'revisionId': 'native-rev-3', 'evidenceRefId': EVIDENCE_ID,
                 'sourceArtifactId': 'artifact-one', 'sourceDomain': 'worldbuilding', 'readable': True,
                 'locatorKind': 'source_span', 'supportingAssertionIds': ['observation-one']}],
         })
         resolved = direct.ResolvedWorldGraphReviewedObjectV3(result, (SimpleNamespace(
-            anchor_id='anchor-one', graph_revision='native-rev-3', evidence_ref_id='ev-gate',
+            anchor_id='anchor-one', graph_revision='native-rev-3', evidence_ref_id=EVIDENCE_ID,
             source_artifact_id='artifact-one', source_revision_id='source-rev-one'),), (native_observation,), (), ())
         monkeypatch.setattr(direct, 'direct_services_from_config', lambda _: SimpleNamespace())
         monkeypatch.setattr(direct, 'get_object_with_reviewed_sources_direct_v3', lambda *_: resolved)
@@ -263,20 +280,32 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
         assert not any(e.kind == 'validated_graph_operation_v3' for e in turn.graph_context_execution.events)
         assert turn.completion is None
         return
+    if observation == 'mutated-evidence':
+        with pytest.raises(svc.AgentTurnServiceError):
+            execute((source, request, bootstrap), tmp_path,
+                SyntheticHarness(source, bootstrap, graph='observation', tamper_evidence=True))
+        service = AgentConversationService()
+        conversation = service.get_active_conversation('elderwyld')
+        turn, = service.list_turns('elderwyld', conversation.conversation_id)
+        assert turn.completion is None
+        return
     response = execute((source, request, bootstrap), tmp_path,
         SyntheticHarness(source, bootstrap, graph='observation' if observation else True))
     context = response.knowledge_context
     assert context.completion.answer_basis == 'saved_source_plus_world_graph'
     citation, = context.completion.citation_map.entries
     assert citation.source_opened and citation.source_read_ids == ['source-read-one']
+    assert citation.evidence_ref_ids == [EVIDENCE_ID] and citation.claim_id == CLAIM_ID
     target, = context.source_open_targets
     assert target.managed_world_id == 'elderwyld' and target.native_world_id == 'native-build-world'
+    assert target.evidence_ref_id == EVIDENCE_ID and target.claim_id == CLAIM_ID
     assert target.source_revision_id == 'source-rev-one' and target.graph_revision == 'native-rev-3'
     service = AgentConversationService()
     conversation = service.get_active_conversation('elderwyld')
     turn, = service.list_turns('elderwyld', conversation.conversation_id)
     traces = service.list_context_trace_attempts(world_id='elderwyld', turn_id=turn.turn_id)
-    assert any(getattr(observation, 'text', None) == text for trace in traces for observation in trace.observations)
+    assert any(getattr(observation, 'text', None) == text and observation.evidence_ref_id == EVIDENCE_ID
+        for trace in traces for observation in trace.observations)
     if observation:
         event, = [e for e in turn.graph_context_execution.events if e.kind == 'validated_graph_operation_v3']
         assert event.assertion_ids == ['observation-one']
@@ -307,4 +336,15 @@ def test_stale_build_source_refuses_before_provider_admission(build_case, tmp_pa
         execute(build_case, tmp_path, harness)
     assert error.value.code == 'build_source_unavailable'
     assert harness.calls == 0
+    assert AgentConversationService().get_active_conversation('elderwyld') is None
+
+
+def test_over_limit_native_evidence_refuses_before_provider_dispatch(build_case, tmp_path):
+    source, request, bootstrap = build_case
+    bootstrap = replace(bootstrap, source_scope_anchors=({
+        'anchor_id': 'anchor-one', 'evidence_ref_id': EVIDENCE_ID + 'x',
+        'source_artifact_id': 'artifact-one', 'source_revision_id': 'source-rev-one'},))
+    with pytest.raises(svc.AgentTurnServiceError) as error:
+        execute((source, request, bootstrap), tmp_path, SyntheticHarness(source, bootstrap, refuse=True))
+    assert error.value.provider_dispatched is False
     assert AgentConversationService().get_active_conversation('elderwyld') is None

@@ -1,7 +1,10 @@
 # AGENT: ordinary Build conversation with governed World evidence
 
-Status ACTIVE under the operator's Mirathorn lifecycle goal. PRIME implements;
-ARCHITECTURE independently reviews. Base `9dbc958daa1c0ab4c731ebec6ee26f8810971c89`.
+Status IMPLEMENTATION SETTLED: #1217 merged at
+`2e61446033eac508233a94cfb523c62d42d622ad` after independent ARCHITECTURE PASS
+on `53ff389bfc2897b83200f6f8836875b8decfb655`. Product write leases ended.
+Ordinary-answer acceptance remains active under the pinned preview contract
+`a2064010b3013794b1ca5e0f7b3dc6f4b67b1d1e` on `codex/build-governed-preview`. Base `9dbc958daa1c0ab4c731ebec6ee26f8810971c89`.
 Lane `codex/build-governed-agent`, `/tmp/prime-recap-mention-boundaries`.
 Topology serial consumer after accepted APP producer #1216 (`ad7e6661`).
 
@@ -75,7 +78,7 @@ one V2 source-cap fixture. These inherited failures are not a live acceptance.
 No inference, retained migration, publication or serving replacement occurred.
 Independent review and matched preview/ordinary Mirathorn acceptance remain open.
 
-## Review-discovered preservation repair (ACTIVE amendment)
+## Review-discovered preservation repair (SETTLED)
 
 Independent review of `f9a05544` identified that the shared broker's object read
 omits the reviewed-source observation facet already supported by direct Build
@@ -93,8 +96,7 @@ The broker must bind reviewed assertion identity, subject and evidence to those
 pins before recording assertion admission. Retain explicit incomplete coverage.
 Tests must reproduce the lost observation, prove correct subject/revision/pins
 and reject mismatched or unsupported claims. No new durable APP schema or public
-Graph authority contract, provider calls or retained publication. Current head
-remains unmerged pending repair and a new independent exact-head review.
+Graph authority contract, provider calls or retained publication. The corrected head was independently accepted and merged in #1217.
 
 The same owning preservation repair additionally leases
 `apps/live_control_server/services/agent_context_trace_projection.py`: its
@@ -113,3 +115,12 @@ created and removed Core database, including two real synthetic publication →
 V3 reviewed-object → exact source-pin paths. No retained World writes occurred.
 The repair changes Build object adoption only; Plan's object path stays unchanged.
 Logs: `/tmp/build-governed-tests.log`, `/tmp/build-reviewed-native-tests.log`.
+
+
+The matched 5207/8004 preview uses accepted main and a verified APP clone migrated
+to 0024; every restored application table matched the exported backup snapshot
+and migration preserved retained rows. No retained APP/native migration or World
+publication occurred. The first ordinary question failed before provider admission
+because native composite evidence IDs exceeded APP's representation limit.
+The bounded successor is `HANDOFF-AGENT-native-reference-limits.md`; provider
+inference and ordinary-answer acceptance remain unproven until it is accepted.
