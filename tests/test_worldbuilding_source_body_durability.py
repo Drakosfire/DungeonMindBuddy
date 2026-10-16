@@ -120,7 +120,7 @@ def _span_id(artifact: GraphMemorySourceArtifact, markdown: str) -> str:
     return index.spans[-1].source_span_id
 
 
-def _open(root, artifact, span_id):
+def _open(root, artifact, span_id, batch=None):
     snapshot = WorldGraphRetrievalSnapshot(
         world_id="native-world",
         campaign_id="managed-world",
@@ -140,6 +140,7 @@ def _open(root, artifact, span_id):
         anchor_id="anchor:accepted",
         snapshot=snapshot,
         graph_artifact=artifact,
+        _source_batch=batch,
     )
 
 
@@ -272,3 +273,69 @@ def test_durable_source_mismatch_fails_closed(monkeypatch, tmp_path, updates):
 
     with pytest.raises(WorldGraphRetrievalError, match="Durable source"):
         _open(tmp_path, artifact, _span_id(artifact, markdown))
+
+
+def test_batch_reuses_validated_body_index_and_revalidates_next_batch(monkeypatch, tmp_path):
+    from unittest.mock import Mock
+    document, artifact, markdown = _registered_source(tmp_path, monkeypatch)
+    record = _durable_record(artifact, markdown)
+    load = Mock(return_value=record)
+    index = Mock(wraps=reader.build_source_span_index_for_text)
+    monkeypatch.setattr(reader.source_service, 'get_source_markdown', load)
+    monkeypatch.setattr(reader, 'build_source_span_index_for_text', index)
+    batch = reader.WorldbuildingSourceReadBatch()
+    span_id = _span_id(artifact, markdown)
+    before = _open(tmp_path, artifact, span_id, batch)
+    _save_source(tmp_path, document, '# Lore\n\nA newer draft.\n')
+    source_span_index_path(tmp_path, artifact.source_artifact_id).unlink()
+    after = _open(tmp_path, artifact, span_id, batch)
+    assert after.model_dump() == before.model_dump()
+    assert load.call_count == index.call_count == 1
+    # A new operation must not inherit cached success or bypass byte verification.
+    load.return_value = record.model_copy(update={'markdown': '# Corrupted\n'})
+    with pytest.raises(WorldGraphRetrievalError, match='Durable source bytes'):
+        _open(tmp_path, artifact, span_id, reader.WorldbuildingSourceReadBatch())
+    assert load.call_count == 2
+
+
+def test_batch_still_checks_artifact_lineage_on_every_span(monkeypatch, tmp_path):
+    from unittest.mock import Mock
+    _document, artifact, markdown = _registered_source(tmp_path, monkeypatch)
+    load = Mock(return_value=_durable_record(artifact, markdown))
+    monkeypatch.setattr(reader.source_service, 'get_source_markdown', load)
+    batch = reader.WorldbuildingSourceReadBatch()
+    span_id = _span_id(artifact, markdown)
+    _open(tmp_path, artifact, span_id, batch)
+    monkeypatch.setattr(reader, 'get_source_artifact', lambda *_: artifact.model_copy(update={'world_id': 'foreign'}))
+    with pytest.raises(WorldGraphRetrievalError):
+        _open(tmp_path, artifact, span_id, batch)
+    assert load.call_count == 1
+
+
+def test_batch_failed_validation_is_not_cached_and_metadata_keys_are_distinct(monkeypatch, tmp_path):
+    from unittest.mock import Mock
+    _document, artifact, markdown = _registered_source(tmp_path, monkeypatch)
+    valid = _durable_record(artifact, markdown)
+    load = Mock(side_effect=[valid.model_copy(update={'world_id': 'foreign'}), valid, valid])
+    monkeypatch.setattr(reader.source_service, 'get_source_markdown', load)
+    batch = reader.WorldbuildingSourceReadBatch()
+    span_id = _span_id(artifact, markdown)
+    with pytest.raises(WorldGraphRetrievalError, match='Durable source identity'):
+        _open(tmp_path, artifact, span_id, batch)
+    assert _open(tmp_path, artifact, span_id, batch).content == 'The tower watches the river.'
+    assert load.call_count == 2
+    # Even non-lineage artifact metadata changes cannot hit the old key.
+    changed = artifact.model_copy(update={'title': 'Changed title'})
+    batch.read(changed, artifact.content_sha256)
+    assert load.call_count == 3
+
+
+def test_unavailable_immutable_source_does_not_poison_batch_cache(monkeypatch, tmp_path):
+    from unittest.mock import Mock
+    _document, artifact, markdown = _registered_source(tmp_path, monkeypatch)
+    load = Mock(side_effect=[None, _durable_record(artifact, markdown)])
+    monkeypatch.setattr(reader.source_service, 'get_source_markdown', load)
+    batch = reader.WorldbuildingSourceReadBatch()
+    assert batch.read(artifact, artifact.content_sha256) is None
+    assert batch.read(artifact, artifact.content_sha256)[0] == markdown
+    assert load.call_count == 2

@@ -1,6 +1,6 @@
 # AGENT — batched revision-bound evidence acquisition
 
-Status: ACTIVE. PRIME solo implementation under the operator's MIND-first goal;
+Status: MERGED as #1269 at eca65816e3db336aa9df4593a1f0668a55c0f0ea. Implementation lease ended; source-body reuse follows under HANDOFF-AGENT-worldbuilding-source-batch.md. Original activation: PRIME solo implementation under the operator's MIND-first goal;
 ARCHITECTURE independently reviews. Serial successor to merged Jev live reader
 Buddy #1268 and MIND #131 (637364c647da475d766cfba0b7eebed66d1182f4).
 Base Buddy c6eacbbba94efdf8f6a0c1fad43b5a0c6bf709d1; branch

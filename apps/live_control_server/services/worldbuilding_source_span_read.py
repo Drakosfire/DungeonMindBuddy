@@ -163,6 +163,27 @@ def _read_durable_source(
     return source.markdown, index
 
 
+class WorldbuildingSourceReadBatch:
+    """Validated immutable bodies owned by one admitted anchor-read operation.
+
+    Metadata/lineage/scope checks still run for every span. Including the complete
+    artifact in the key prevents reusing a body validated under different lineage.
+    Only this loader can populate entries; failed loads are never cached.
+    """
+
+    def __init__(self) -> None:
+        self._sources: dict[tuple[str, str], tuple[str, SourceSpanIndex]] = {}
+
+    def read(self, artifact: GraphMemorySourceArtifact, digest: str) -> tuple[str, SourceSpanIndex] | None:
+        key = (artifact.model_dump_json(), digest)
+        if key not in self._sources:
+            loaded = _read_durable_source(artifact=artifact, expected_digest=digest)
+            if loaded is None:
+                return None
+            self._sources[key] = loaded
+        return self._sources[key]
+
+
 def _read_text_line_span(
     *,
     text: str,
@@ -303,6 +324,7 @@ def read_admitted_worldbuilding_span(
     evidence_ref_id: str | None = None,
     snapshot: WorldGraphRetrievalSnapshot | None = None,
     graph_artifact: GraphMemorySourceArtifact | None = None,
+    _source_batch: WorldbuildingSourceReadBatch | None = None,
 ) -> WorldGraphSourceAnchorReadResult:
     """Return exact admitted worldbuilding source text for the registered artifact."""
     cleaned_artifact_id = source_artifact_id.strip()
@@ -381,10 +403,8 @@ def read_admitted_worldbuilding_span(
             status_code=409,
         )
 
-    durable_source = _read_durable_source(
-        artifact=artifact,
-        expected_digest=registry_digest,
-    )
+    durable_source = (_source_batch.read(artifact, registry_digest) if _source_batch is not None
+                      else _read_durable_source(artifact=artifact, expected_digest=registry_digest))
     if durable_source is not None:
         durable_markdown, index = durable_source
     else:
