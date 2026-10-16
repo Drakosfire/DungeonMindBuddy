@@ -1,7 +1,8 @@
 import type { ComponentProps } from "react";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import type { Editor } from "@tiptap/core";
-import { readFileSync } from "node:fs";
+import { chromium } from "@playwright/test";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -54,6 +55,7 @@ const DOC_ID = "11111111-1111-4111-8111-111111111111";
 const ARTIFACT_ID = "artifact-glass-hesta";
 const SPAN_ID = "span-hesta-gate-passage";
 const OTHER_DOC_ID = "22222222-2222-4222-8222-222222222222";
+const layoutChromiumPath = process.env.BUILD_LAYOUT_CHROMIUM_PATH ?? chromium.executablePath();
 
 function readBuildSurfaceCss() {
   return readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "buildSurface.css"), "utf8");
@@ -175,6 +177,47 @@ async function waitForEditor() {
   return user;
 }
 
+function readSharedLayoutCss() {
+  const directory = path.dirname(fileURLToPath(import.meta.url));
+  const stripImports = (source: string) => source.replace(/^\s*@import[^;]+;\s*/gm, "");
+  return [
+    stripImports(readFileSync(path.resolve(directory, "../ui/tokens.css"), "utf8")),
+    stripImports(readFileSync(path.resolve(directory, "../styles.css"), "utf8")),
+    stripImports(readFileSync(path.resolve(directory, "../ui/ConversationDock.css"), "utf8")),
+    stripImports(readBuildSurfaceCss()),
+  ].join("\n");
+}
+
+function buildEditGeometryFixture() {
+  const paragraphs = Array.from({ length: 28 }, (_, index) =>
+    `<p>Paragraph ${index + 1}: The cartographer marks a second route across the plateau, then records how the river bends below the old road.</p>`,
+  ).join("");
+  return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>${readSharedLayoutCss()}\nhtml,body,#root { height:100%; margin:0; }</style></head><body>
+    <div id="root"><div class="app-shell app-shell--edit-dock"><div class="app-shell-layout">
+      <div class="app-wrap" data-workspace-layout="bounded">
+        <header class="app-chrome-header" style="height:8rem;flex:0 0 8rem">Build</header>
+        <div class="app-chrome-workspace"><div class="app-chrome-center">
+          <div class="build-workspace-projection"><div class="conversation-dock plan-conversation-dock">
+            <div class="conversation-dock__reader" data-testid="reader">
+              <div class="build-surface-with-graph-context document-projection" data-document-surface="build">
+                <main class="build-surface-shell" data-testid="paper">
+                  <div class="build-surface-editor tiptap-spike-editor"><div class="tiptap">
+                    <h1>The Elderwyld</h1><p>The paper begins with a clear account of the world and its old roads.</p>${paragraphs}
+                    <p data-testid="last-paper-line">The final note remains readable above the open companion.</p>
+                  </div></div>
+                </main>
+              </div>
+            </div>
+            <div class="conversation-dock__conversation" hidden></div>
+          </div></div></div>
+      </div>
+      <aside class="app-edit-toolbox app-edit-toolbox--docked" data-testid="edit-host">
+        <div class="app-edit-toolbox-drawer" data-testid="edit-drawer">Edit tools</div>
+      </aside>
+    </div></div></div>
+  </body></html>`;
+}
+
 describe("BuildSurfaceShell", () => {
   it("welcomes a blank worldbuilding source without adding starter text to it", async () => {
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue({
@@ -287,6 +330,53 @@ describe("BuildSurfaceShell", () => {
       classAndAttributeCount(sharedOpenEditSelector),
     );
   });
+
+  it.skipIf(!existsSync(layoutChromiumPath))("keeps the Build paper outside the desktop Edit drawer and scrollable above the narrow sheet", async () => {
+    const executablePath = process.env.BUILD_LAYOUT_CHROMIUM_PATH;
+    const browser = await chromium.launch({
+      headless: true,
+      ...(executablePath ? { executablePath } : {}),
+    });
+    try {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+      await page.setContent(buildEditGeometryFixture());
+      const editHost = page.getByTestId("edit-host");
+      const paper = page.getByTestId("paper");
+      const initialPaper = await paper.boundingBox();
+      expect(initialPaper).not.toBeNull();
+
+      await editHost.evaluate(element => element.classList.add("open"));
+      const desktopEdit = await page.getByTestId("edit-drawer").boundingBox();
+      const desktopPaper = await paper.boundingBox();
+      expect(desktopEdit).not.toBeNull();
+      expect(desktopPaper).not.toBeNull();
+      expect(desktopPaper!.x).toBeGreaterThanOrEqual(desktopEdit!.x + desktopEdit!.width - 1);
+      expect(desktopPaper!.x + desktopPaper!.width).toBeLessThanOrEqual(1281);
+
+      await editHost.evaluate(element => element.classList.remove("open"));
+      const restoredPaper = await paper.boundingBox();
+      expect(restoredPaper).not.toBeNull();
+      expect(Math.abs(restoredPaper!.x - initialPaper!.x)).toBeLessThan(1);
+
+      await page.setViewportSize({ width: 390, height: 844 });
+      await editHost.evaluate(element => element.classList.add("open"));
+      const reader = page.getByTestId("reader");
+      const narrowEdit = await page.getByTestId("edit-drawer").boundingBox();
+      const narrowPaper = await paper.boundingBox();
+      expect(narrowEdit).not.toBeNull();
+      expect(narrowPaper).not.toBeNull();
+      expect(narrowEdit!.y).toBeGreaterThan(0);
+      expect(narrowPaper!.x).toBeGreaterThanOrEqual(0);
+      expect(narrowPaper!.x + narrowPaper!.width).toBeLessThanOrEqual(391);
+      await reader.evaluate(element => { element.scrollTop = element.scrollHeight; });
+      const finalLine = await page.getByTestId("last-paper-line").boundingBox();
+      expect(finalLine).not.toBeNull();
+      expect(finalLine!.y + finalLine!.height).toBeLessThanOrEqual(narrowEdit!.y);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
+    } finally {
+      await browser.close();
+    }
+  }, 20_000);
 
   beforeEach(() => {
     vi.clearAllMocks();

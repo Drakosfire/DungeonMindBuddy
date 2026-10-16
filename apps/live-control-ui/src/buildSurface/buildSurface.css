@@ -566,6 +566,21 @@
   padding: 0;
 }
 .build-workspace-projection .build-source-reader__title { font-size: clamp(1.65rem, 3vw, 2.15rem); }
+
+/* The shared Edit drawer is fixed over the left edge. Build alone reserves that
+   space so its paper reflows instead of hiding text behind the companion. */
+@media (min-width: 42.001rem) {
+  body:has([data-document-surface="build"])
+    .app-shell--edit-dock:has(.app-edit-toolbox--docked.open)
+    .app-wrap
+    .build-workspace-projection
+    .build-surface-with-graph-context {
+    width: min(76rem, calc(100% - var(--app-edit-host-dock-width) - 2rem));
+    max-width: none;
+    margin-left: calc(var(--app-edit-host-dock-width) + 1rem);
+    margin-right: 1rem;
+  }
+}
 @media (max-width: 42rem) {
   .build-workspace-projection .build-surface-with-graph-context { width: calc(100% - 1rem); padding: 0.65rem; }
   .build-empty-landing { min-height: auto; }
@@ -682,5 +697,16 @@ body:has([data-document-surface="build"])
     .app-tools-toolbox-drawer {
     top: auto; bottom: 0; left: 0; right: 0; width: 100%; height: 42dvh; max-height: 42dvh;
     border-top: 1px solid #3c4657; border-radius: .6rem .6rem 0 0;
+  }
+
+  /* Keep the bottom-sheet overlap scrollable: the paper's final lines can be
+     brought above Edit instead of remaining trapped beneath it. */
+  body:has([data-document-surface="build"])
+    .app-shell--edit-dock:has(.app-edit-toolbox--docked.open)
+    .app-wrap
+    .build-workspace-projection
+    .conversation-dock__reader {
+    padding-block-end: calc(42dvh + 1rem + env(safe-area-inset-bottom));
+    scroll-padding-block-end: calc(42dvh + 1rem + env(safe-area-inset-bottom));
   }
 }
