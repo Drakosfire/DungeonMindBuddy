@@ -6337,3 +6337,38 @@ def test_parent_uncapped_related_context_can_read_ninth_passage(monkeypatch):
     events = fixture.adapter.fence.turn.graph_context_execution.events
     assert sum(event.kind == 'related_recap_context_authorized_v2' for event in events) == 9
     assert sum(event.kind == 'validated_related_recap_context_v2' for event in events) == 9
+
+
+@pytest.mark.parametrize("failure,code,status", [
+    ("known", "evidence_bundle_unsupported_operation", 409),
+    ("unknown", "evidence_bundle_unavailable", 409),
+    ("overflow", "evidence_bundle_overflow", 413),
+])
+def test_bundle_refusal_feedback_uses_existing_exact_parent_denial_boundary(monkeypatch, failure, code, status):
+    from types import SimpleNamespace
+    from apps.live_control_server.services import graph_evidence_bundle as bundles
+    from apps.live_control_server.services.agent_turn_service import _PolicyExecutionAdapter
+
+    fixture = _related_recap_broker_fixture(monkeypatch)
+    adapter = fixture.adapter
+    observations = []
+    adapter.context_capture = SimpleNamespace(observe=observations.append)
+    args = {"retrievalSessionId": fixture.session.id, "operation": "neighborhood", "includeSources": True}
+    def reject(*_):
+        if failure == "known":
+            raise bundles.EvidenceBundleRefusal(code, "Omit includeSources for neighborhood.")
+        raise ValueError("evidence_bundle_overflow" if failure == "overflow" else "private exception payload")
+    monkeypatch.setattr(bundles, "acquire_evidence_bundle", reject)
+    reply = adapter.broker_graph_operation({"toolName": "expand_graph_retrieval", "arguments": args})
+    result = json.loads(reply["resultJson"])
+    assert result["code"] == code and result["statusCode"] == status
+    assert "private exception payload" not in reply["resultJson"]
+    assert observations == [{"kind": "failure", "code": code, "phase": "graph_retrieval"}]
+    assert fixture.calls == []
+    body = {"input": [
+        {"type": "function_call", "name": "expand_graph_retrieval", "call_id": "call", "arguments": json.dumps(args)},
+        {"type": "function_call_output", "call_id": "call", "output": reply["resultJson"]},
+    ]}
+    assert _PolicyExecutionAdapter._included_evidence_payloads(adapter, body, "expand_graph_retrieval") == []
+    body["input"][1]["output"] += " "
+    assert _PolicyExecutionAdapter._included_evidence_payloads(adapter, body, "expand_graph_retrieval") == [reply["resultJson"] + " "]

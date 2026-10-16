@@ -21,3 +21,5 @@ No schema, provider, corpus, retained database, source authority or serving-runt
 ## Verification
 
 Exercise each known refusal before Graph/source IO; malformed IDs/extra fields cannot leak values; wrong scope cannot hit cache; unresolved attempts cannot rerun. Exercise actual parent broker and trace failure capture, exact current-envelope denial recognition, altered denial rejection, generic unknown-exception sanitization and retained413overflow behavior. Existing bundle success/byte/receipt/inclusion tests stay passing. Record beginning/end refs, test evidence and cumulative diff, commit/push/open PR, independent review. Runtime re-adoption and ordinary question remain separate.
+
+Author evidence:34focused bundle/parent tests PASS; Ruff and cumulative diff check PASS. Known refusals preserve pre-IO rejection, prior-attempt guard and exact denial envelope exclusion. Unknown exception contents remain absent from replies. No provider, runtime, corpus or retained state changes. Original benchmark failure cause remains unknown.

@@ -10,6 +10,8 @@ import json
 from typing import Any
 from uuid import UUID
 
+from pydantic import ValidationError
+
 BUNDLE_SCHEMA = "dmb_graph_evidence_packet_v1"
 _HOST_METADATA = frozenset(
     {
@@ -123,6 +125,15 @@ def build_evidence_packet(
     }
 
 
+class EvidenceBundleRefusal(ValueError):
+    """Known refusal with fixed host-authored feedback, never exception inputs."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+
+
 def acquire_evidence_bundle(adapter: Any, message: dict[str, Any]) -> dict[str, Any]:
     """Follow admitted pointers using the same guarded parent operations."""
     from graph_memory.interaction.expansion_executor import (
@@ -131,22 +142,42 @@ def acquire_evidence_bundle(adapter: Any, message: dict[str, Any]) -> dict[str, 
     )
 
     arguments = message["arguments"]
-    request = ExpandGraphRetrievalRequest.model_validate(
-        _normalize_interaction_arguments(arguments)
-    )
+    try:
+        request = ExpandGraphRetrievalRequest.model_validate(
+            _normalize_interaction_arguments(arguments)
+        )
+    except ValidationError as exc:
+        raise EvidenceBundleRefusal(
+            "evidence_bundle_invalid_request",
+            "Invalid bundle request. Use object with one target, or observations "
+            "with 1–8 distinct observationIds and no targets/query. Pass the current "
+            "retrievalSessionId and only fields declared by the tool schema.",
+        ) from exc
     if request.operation not in {"object", "observations"}:
-        raise ValueError("source bundles require object or observations")
+        raise EvidenceBundleRefusal(
+            "evidence_bundle_unsupported_operation",
+            "Source bundles require object or observations. For search, neighborhood "
+            "or support, omit includeSources; then select detail using returned IDs.",
+        )
     if (
         adapter.failure is not None
         or adapter.fence is None
         or adapter.last_provider_attempt_id is None
     ):
-        raise ValueError("source bundle requires a resolved admitted provider turn")
+        raise EvidenceBundleRefusal(
+            "evidence_bundle_turn_unavailable",
+            "Source bundle requires an active admitted provider turn. Do not repeat "
+            "this request within an unavailable or failed turn.",
+        )
     execution = adapter._broker_execution()
     from application_state.agent_conversation.types import PlanWorldGraphExecutionV3
 
     if not isinstance(execution, PlanWorldGraphExecutionV3):
-        raise ValueError("source bundle requires dynamic source admission")
+        raise EvidenceBundleRefusal(
+            "evidence_bundle_policy_unavailable",
+            "This turn does not admit bundled source acquisition. Use its existing "
+            "Graph/source tools without includeSources; do not retry this opt-in.",
+        )
     authority = adapter._broker_receipt().graph_authority
     scope = execution.policy.source_read_scope
     if (
@@ -157,15 +188,21 @@ def acquire_evidence_bundle(adapter: Any, message: dict[str, Any]) -> dict[str, 
         or authority.managed_world_id != adapter.world_id
         or authority.binding_version != adapter.bootstrap.binding_version
     ):
-        raise ValueError("source bundle session or frozen authority differs")
+        raise EvidenceBundleRefusal(
+            "evidence_bundle_scope_mismatch",
+            "Bundle session or frozen World authority differs. Use only the current "
+            "retrievalSessionId; do not reuse another turn's session or cached result.",
+        )
     if not hasattr(adapter, "evidence_bundle_cache"):
         adapter.evidence_bundle_cache = {}
     cache_key = json.dumps(arguments, sort_keys=True, separators=(",", ":"))
     if cache_key in adapter.evidence_bundle_cache:
         cached = adapter.evidence_bundle_cache[cache_key]
         if cached is None:
-            raise ValueError(
-                "prior bundle attempt has no delivered packet; do not repeat"
+            raise EvidenceBundleRefusal(
+                "evidence_bundle_prior_attempt_unresolved",
+                "Prior bundle attempt has no delivered packet; do not repeat. "
+                "Previously acquired data is not delivered evidence; report the gap.",
             )
         # Do not replace a newer child session projection with the cached one.
         return {**cached, "retrievalSession": None}

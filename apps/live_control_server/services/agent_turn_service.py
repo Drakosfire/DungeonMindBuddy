@@ -1954,7 +1954,7 @@ class _PolicyExecutionAdapter:
         if (message.get("toolName") == "expand_graph_retrieval"
                 and isinstance(arguments, Mapping)
                 and arguments.get("includeSources", arguments.get("include_sources")) is True):
-            from .graph_evidence_bundle import acquire_evidence_bundle
+            from .graph_evidence_bundle import EvidenceBundleRefusal, acquire_evidence_bundle
             try:
                 reply = acquire_evidence_bundle(self, dict(message))
                 parsed = json.loads(reply["resultJson"])
@@ -1962,6 +1962,9 @@ class _PolicyExecutionAdapter:
                     return self._denied_tool_result("expand_graph_retrieval", parsed["code"],
                         parsed["statusCode"], parsed["message"], arguments=arguments)
                 return reply
+            except EvidenceBundleRefusal as exc:
+                return self._denied_tool_result("expand_graph_retrieval", exc.code,
+                    409, exc.message, arguments=arguments)
             except (ValueError, TypeError, KeyError) as exc:
                 return self._denied_tool_result("expand_graph_retrieval",
                     "evidence_bundle_overflow" if str(exc) == "evidence_bundle_overflow" else "evidence_bundle_unavailable",

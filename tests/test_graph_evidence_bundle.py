@@ -549,3 +549,39 @@ def test_cached_bundle_cannot_cross_changed_parent_authority(change):
     with pytest.raises(ValueError, match="authority differs"):
         acquire(adapter, message)
     assert calls == ["graph", "source"]
+
+
+@pytest.mark.parametrize("case,code", [
+    ("too_many", "evidence_bundle_invalid_request"),
+    ("extra", "evidence_bundle_invalid_request"),
+    ("unsupported", "evidence_bundle_unsupported_operation"),
+    ("turn", "evidence_bundle_turn_unavailable"),
+    ("policy", "evidence_bundle_policy_unavailable"),
+    ("scope", "evidence_bundle_scope_mismatch"),
+    ("unresolved", "evidence_bundle_prior_attempt_unresolved"),
+])
+def test_known_bundle_refusals_have_safe_reasons_before_io(case, code):
+    from apps.live_control_server.services.graph_evidence_bundle import EvidenceBundleRefusal
+
+    acquire, adapter, message, calls = acquisition_fixture()
+    args = message["arguments"]
+    secret = "private-invalid-value-never-release"
+    if case == "too_many":
+        args.update(operation="observations", targets=[], observationIds=[secret+str(n) for n in range(9)])
+    elif case == "extra":
+        args[secret] = secret
+    elif case == "unsupported":
+        args.update(operation="neighborhood")
+    elif case == "turn":
+        adapter.fence = None
+    elif case == "policy":
+        adapter._broker_execution = lambda: object()
+    elif case == "scope":
+        args["retrievalSessionId"] = secret
+    else:
+        adapter.evidence_bundle_cache[json.dumps(args, sort_keys=True, separators=(",", ":"))] = None
+    with pytest.raises(EvidenceBundleRefusal) as error:
+        acquire(adapter, message)
+    assert error.value.code == code
+    assert secret not in error.value.message
+    assert calls == []
