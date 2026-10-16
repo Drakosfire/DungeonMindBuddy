@@ -22,3 +22,8 @@ Verify fixture production extraction through exact review and publication previe
 for both1.11/1.12, retaining openable evidence and rejecting damaged references.
 Inspect cumulative diff; complete one PR and independent review. No serving,
 provider, corpus or retained World writes during implementation.
+
+Author evidence: new 1.12 owning regression fails before the two admission changes
+while 1.11 passes. Afterward, 67 focused tests pass; two existing optional native
+source-observation tests skip without a dedicated Core DSN. Ruff and cumulative
+diff checks pass. Fixture-only provider; disposable APP databases are removed.

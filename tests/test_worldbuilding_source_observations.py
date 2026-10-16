@@ -246,8 +246,9 @@ def test_damaged_or_unreviewed_observations_fail_closed(damage):
         plan(data, decisions)
 
 
+@pytest.mark.parametrize("profile_version", ["1.11", "1.12"])
 def test_registered_runner_seals_independent_observations_and_reloads(
-    tmp_path, application_state_dsn, monkeypatch
+    tmp_path, application_state_dsn, monkeypatch, profile_version
 ):
     monkeypatch.setenv("DMB_ARTIFACT_DATA_ROOT", str(tmp_path))
     monkeypatch.setattr(
@@ -332,7 +333,7 @@ def test_registered_runner_seals_independent_observations_and_reloads(
             repo_root=tmp_path,
             source=admitted,
             profile_id="worldbuilding_gazetteer_v1",
-            profile_version="1.11",
+            profile_version=profile_version,
             allow_llm=True,
             model_id=DEEPSEEK_MODEL,
             category_client=Fixture(),
@@ -341,7 +342,7 @@ def test_registered_runner_seals_independent_observations_and_reloads(
     )
     assert result.failure_kind is None, result.diagnostics
     run = get_reviewable_extraction_run(tmp_path, result.run.run_id)
-    assert run.profile_id == PROFILE
+    assert run.profile_id == f"worldbuilding_gazetteer_v1@{profile_version}"
     resolved = resolve_promotable_ingest_run(run.run_id, root=tmp_path)
     typed, _ = _load_typed_worldbuilding_preview_for_run(resolved)
     assert len(typed.source_observations) == 2
