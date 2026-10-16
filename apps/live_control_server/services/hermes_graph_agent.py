@@ -1480,7 +1480,9 @@ class _GraphOperationReservation:
             or result.get("revisionId") != scope.revision_id
             or not isinstance(result.get("resultId"), str) or not result["resultId"]
             or not isinstance(result.get("coreTruncated"), bool)
-            or not isinstance(result.get("outcome"), str)):
+            or not (isinstance(result.get("outcome"), str) or (
+                result.get("resultSchema") == "dmb_read_graph_source_batch_v1"
+                and result.get("outcome") is None))):
             return None
         if result.get("schema") == OVERVIEW_SCHEMA:
             if (tool != "expand_graph_retrieval" or "resultPageToken" in arguments

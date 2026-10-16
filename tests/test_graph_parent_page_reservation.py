@@ -20,7 +20,7 @@ from apps.live_control_server.services.hermes_graph_agent import (
 from tests.test_graph_tool_transport import SCOPE, ARGS, _raw
 
 
-def parent_broker(parent, reads):
+def parent_broker(parent, reads, *, batch=False):
     def broker(tool, args):
         try:
             if "resultPageToken" in args:
@@ -40,6 +40,24 @@ def parent_broker(parent, reads):
                     }
                 )
             )
+            if batch and tool == "read_graph_source":
+                raw = json.dumps(
+                    {
+                        "schema": "dmb_read_graph_source_batch_v1",
+                        "retrievalSessionId": parent.scope.retrieval_session_id,
+                        "reads": [
+                            {
+                                "schema": "dmb_world_graph_source_anchor_read_v1",
+                                "sourceReadId": f"read:{i}",
+                                "anchorId": f"anchor:{i}",
+                                "outcome": "enough",
+                                "truncated": False,
+                                "content": "qualified batch passage. " * 300,
+                            }
+                            for i in range(2)
+                        ],
+                    }
+                )
             return parent.present(tool, args, raw, uuid4()), None
         except ValueError as exc:
             return json.dumps(
@@ -150,7 +168,7 @@ def test_parent_denial_is_feedback_without_new_read_or_uncertainty(change):
 
 
 @pytest.mark.parametrize(
-    "kind", ["overview", "source-page", "small", "continuation-at-cap"]
+    "kind", ["overview", "source-page", "small", "continuation-at-cap", "source-batch"]
 )
 def test_actual_reservation_plugin_sdk_and_next_provider_guard(
     tmp_path, monkeypatch, kind
@@ -172,8 +190,12 @@ def test_actual_reservation_plugin_sdk_and_next_provider_guard(
     )
     parent = GraphToolPresentation(scope)
     reads = []
-    broker = parent_broker(parent, reads)
-    tool = "read_graph_source" if kind == "source-page" else "expand_graph_retrieval"
+    broker = parent_broker(parent, reads, batch=kind == "source-batch")
+    tool = (
+        "read_graph_source"
+        if kind in {"source-page", "source-batch"}
+        else "expand_graph_retrieval"
+    )
     if kind == "small":
 
         def broker(tool, args):
@@ -295,3 +317,30 @@ def test_actual_reservation_plugin_sdk_and_next_provider_guard(
         plugin.reset_parent_graph_broker(bt)
         plugin.reset_active_retrieval_session_id(st)
         plugin.reset_active_capability_policy(pt)
+
+
+def test_real_batch_contract_has_no_aggregate_outcome_and_survives_all_pages():
+    parent = GraphToolPresentation(SCOPE)
+    reads = []
+    reserve = _GraphOperationReservation(
+        0,
+        parent_broker(parent, reads, batch=True),
+        source_limit=1,
+        context_limit=0,
+        scope=SCOPE,
+    )
+    first, _ = reserve("read_graph_source", ARGS)
+    page = json.loads(first)
+    assert page["resultSchema"] == "dmb_read_graph_source_batch_v1"
+    assert page["outcome"] is None
+    assert reserve.source_count == 1 and not reserve.indeterminate
+    pages = [first]
+    while page.get("nextPageToken"):
+        result, _ = reserve(
+            "read_graph_source", {**ARGS, "resultPageToken": page["nextPageToken"]}
+        )
+        pages.append(result)
+        page = json.loads(result)
+    assert len(pages) > 1 and len(reads) == 1
+    assert reserve.source_count == 1 and not reserve.indeterminate
+    assert parent.inclusion("read_graph_source", pages)[0].complete

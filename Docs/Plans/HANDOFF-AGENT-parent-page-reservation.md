@@ -62,3 +62,11 @@ Logs `/tmp/parent-page-reservation-focused.log`,
 `/tmp/parent-reservation-base-failures.log`. Guard fixture uses production's
 Responses transport with opaque reasoning replay disabled; no API inference.
 Ruff and cumulative diff checks pass. Ordinary runtime acceptance remains open.
+
+Independent review held `7a6bcb9b`: production batch-source results have per-read
+outcomes and no aggregate outcome, so valid batch pages carry outcome:null. The
+repair accepts that absence only for `dmb_read_graph_source_batch_v1`; other
+schemas retain string-outcome validation. Added an exact production-shaped
+multi-read batch through parent presenter/reservation/SDK/next-provider guard,
+and full cached-page reconstruction without another read. 53 focused tests pass
+(`/tmp/parent-page-reservation-batch.log`). No serving or inference changes.
