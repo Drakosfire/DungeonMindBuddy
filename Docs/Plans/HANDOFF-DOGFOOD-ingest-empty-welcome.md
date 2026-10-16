@@ -150,3 +150,19 @@ repeated: `5204` refused connections, and a static preview bind on `5208` failed
 with `EPERM`. A fresh GitHub fetch also failed because this environment could
 not resolve `github.com`; the remote PR head/status is therefore unverified in
 this turn. No candidate, runtime, persistence, or 5202 state was changed.
+
+## Current-head rendered acceptance — 2026-10-16
+
+After the GitHub connector confirmed and the branch was pushed at
+`28d61482525a2ce7b62839829bb548b33726ed4e`, a static preview started on port
+5213 from this checkout's production build. Read-only rendered acceptance was
+completed at the default desktop viewport and at 390×844. The local toolbar
+kept campaign, session, title, source selection, prior-recap loading and
+extraction actions usable above the blank welcome; the editor/welcome remained
+the main surface. The 3-step welcome remained readable at narrow width. The
+prior-recap list stayed unselected. No buttons that prepare, extract, admit, or
+save were activated. The temporary viewport override was reset afterward.
+
+This verifies only the current UI presentation. No recap was ingested or
+published, no retained candidate was changed, and the runtime/persistence
+boundary was not exercised. The 5202 service remained untouched.
