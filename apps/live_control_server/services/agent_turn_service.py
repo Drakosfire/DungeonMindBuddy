@@ -853,6 +853,7 @@ def _verify_policy_plan_payload(
     work: AgentTurnResolvedWork,
     playable_target: PlanPlayableTargetReceiptV1 | None,
     bootstrap: AgentPlanWorldGraphBootstrap | None = None,
+    build_jev_expected_state: Mapping[str, Any] | None = None,
 ) -> None:
     if view.get("apiMode") == "typesafe_decision":
         from .build_jev_dispatch import first_state, validate_body
@@ -860,8 +861,9 @@ def _verify_policy_plan_payload(
             raise AgentTurnServiceError("Structured decisions require a saved Build Graph turn.",
                 code="graph_evidence_invalid", status_code=502, provider_dispatched=False)
         try:
-            validate_body(view["payloadJson"], first_state(work, bootstrap, request.message,
-                _expected_initial_claim_packet(bootstrap)))
+            expected = (build_jev_expected_state if build_jev_expected_state is not None else
+                first_state(work, bootstrap, request.message, _expected_initial_claim_packet(bootstrap)))
+            validate_body(view["payloadJson"], expected)
         except (KeyError, TypeError, ValueError) as exc:
             raise AgentTurnServiceError("The prepared Build decision differs from host authority.",
                 code="graph_evidence_invalid", status_code=502, provider_dispatched=False) from exc
@@ -1515,6 +1517,11 @@ class _PolicyExecutionAdapter:
     def _included_evidence_payloads(
         self, body: Mapping[str, Any], tool_name: str,
     ) -> list[str]:
+        state = body.get("state")
+        if (getattr(self, "budget", {}).get("apiMode") == "typesafe_decision"
+                and isinstance(state, Mapping) and state.get("schema") == "dmb_build_jev_controller_state_v1"):
+            key = {"expand_graph_retrieval": "graph", "read_graph_source": "sources"}.get(tool_name)
+            return list(state["exposure"][key]) if key is not None else []
         # A broker denial is conversational feedback, not a validated read.
         # Only exact parent-produced bytes for this tool are excluded. Foreign
         # errors and fabricated results still fail ordinary evidence membership.
@@ -1548,7 +1555,8 @@ class _PolicyExecutionAdapter:
         self, view: Mapping[str, Any],
     ) -> tuple[Turn, list[str], list[str], list[str]]:
         _verify_policy_plan_payload(
-            view, self.request, self.work, self.playable_target, self.bootstrap
+            view, self.request, self.work, self.playable_target, self.bootstrap,
+            build_jev_expected_state=getattr(self, "_active_build_jev_expected_state", None),
         )
         initial = _initial_claim_packet_from_view(
             type("RequestView", (), {"payload_json": view["payloadJson"], "api_mode": view.get("apiMode")})(),
@@ -1917,26 +1925,103 @@ class _PolicyExecutionAdapter:
             )
             return False
 
+    def stage_build_controller_exposure(self, *, graph_payloads=(), source_payloads=()) -> dict[str, Any]:
+        """Select exact delivered bytes; only the parent owns the proof manifest."""
+        from .build_jev_dispatch import controller_exposure, first_state, request_budget
+        if self.failure is not None or self.fence is None or self.budget != request_budget():
+            raise ValueError("Controller exposure requires an active admitted Build turn")
+        execution = self._broker_execution()
+        if not isinstance(execution.policy, _app_state_graph_execution_types().ControllerWriterGraphExecutionPolicyV3):
+            raise ValueError("Controller exposure requires the frozen controller/writer policy")
+        attempts = [event for event in execution.events if _is_provider_authorization(event)]
+        if not attempts or attempts[-1].provider_attempt_id != self.last_provider_attempt_id:
+            raise ValueError("Controller exposure differs from the current provider attempt")
+        prior = attempts[-1]
+        controller = execution.policy.provider_roles.controller
+        if (prior.provider, prior.model, prior.api_mode) != controller.identity():
+            raise ValueError("Only a controller can prepare acquisition exposure")
+        outcomes = [event.outcome for event in execution.events
+                    if getattr(event, "kind", None) == "provider_outcome"
+                    and event.provider_attempt_id == prior.provider_attempt_id]
+        if outcomes[-1:] != ["response_received"]:
+            raise ValueError("Controller exposure requires a resolved controller response")
+        graph_payloads, source_payloads = tuple(graph_payloads), tuple(source_payloads)
+        if not all(isinstance(payload, str) for payload in (*graph_payloads, *source_payloads)):
+            raise ValueError("Controller exposure requires exact parent payload strings")
+        if (not graph_payloads and not source_payloads or len(set(graph_payloads)) != len(graph_payloads)
+                or len(set(source_payloads)) != len(source_payloads)):
+            raise ValueError("Controller exposure needs distinct completed payloads")
+        presenter = self._tool_presentation()
+        graphs = presenter.inclusion("expand_graph_retrieval", list(graph_payloads))
+        sources = presenter.inclusion("read_graph_source", list(source_payloads))
+        sources.extend(presenter.bundled_source_inclusion(list(graph_payloads)))
+        by_event = {event.event_id: event for event in execution.events}
+        for exposure in graphs:
+            event = by_event.get(exposure.event_id)
+            if (getattr(event, "kind", None) != "validated_graph_operation_v3"
+                    or not exposure.assertion_ids.issubset(event.assertion_ids)
+                    or not exposure.relationship_ids.issubset(event.relationship_ids)
+                    or not exposure.evidence_ref_ids.issubset(event.evidence_ref_ids)):
+                raise ValueError("Controller Graph exposure is partial or unadmitted")
+            exposed_targets = ({("assertion", target) for target in exposure.assertion_ids}
+                | {("relationship", target) for target in exposure.relationship_ids})
+            complete_targets = {(kind, target) for kind, target, refs in exposure.claim_evidence
+                if set(refs).issubset(exposure.evidence_ref_ids)}
+            if (exposed_targets != complete_targets
+                    or (event.assertion_ids or event.relationship_ids) and not complete_targets):
+                raise ValueError("Controller Graph records lack complete exposed support")
+        opened_refs = set()
+        for exposure in sources:
+            event = by_event.get(exposure.event_id)
+            if (not exposure.complete or getattr(event, "kind", None) != "validated_source_read_v2"
+                    or not event.receipts or any(read.outcome != "enough" or read.truncated for read in event.receipts)):
+                raise ValueError("Controller source exposure is partial or unadmitted")
+            opened_refs.update(read.evidence_ref_id for read in event.receipts)
+        required_refs = {ref for exposure in graphs for _, _, refs in exposure.claim_evidence for ref in refs}
+        if not required_refs.issubset(opened_refs):
+            raise ValueError("Controller Graph exposure omits opened source support")
+        manifest = controller_exposure(first_state(self.work, self.bootstrap, self.request.message,
+                _expected_initial_claim_packet(self.bootstrap, self.initial_session_projection)),
+            event_sequence=len(execution.events), prior_provider_attempt_id=str(prior.provider_attempt_id),
+            turn_id=str(self.turn.turn_id), context_receipt_sha256=execution.context_receipt_sha256,
+            execution_policy_sha256=execution.execution_policy_sha256,
+            graph_payloads=graph_payloads, source_payloads=source_payloads,
+            graph_event_ids=tuple(sorted(str(item.event_id) for item in graphs)),
+            source_event_ids=tuple(sorted({str(item.event_id) for item in sources})))
+        self._build_controller_exposure = manifest
+        return manifest.state()
+
     def authorize_prepared_build_decision(self, prepared: Any) -> bool:
         from .build_jev_dispatch import API_MODE, first_state, prepared_view, request_budget
-        if (self.budget != request_budget() or self.budget.get("apiMode") != API_MODE or not _governed_build_turn(self.request)
-                or self.fence is not None or self.last_provider_attempt_id is not None):
+        if self.budget != request_budget() or self.budget.get("apiMode") != API_MODE or not _governed_build_turn(self.request):
             return False
         try:
-            expected = first_state(self.work, self.bootstrap, self.request.message,
-                _expected_initial_claim_packet(self.bootstrap, self.initial_session_projection))
+            if self.fence is None:
+                if self.last_provider_attempt_id is not None:
+                    return False
+                expected = first_state(self.work, self.bootstrap, self.request.message,
+                    _expected_initial_claim_packet(self.bootstrap, self.initial_session_projection))
+            else:
+                manifest = getattr(self, "_build_controller_exposure", None)
+                if (manifest is None or manifest.event_sequence != len(self._broker_execution().events)
+                        or manifest.prior_provider_attempt_id != str(self.last_provider_attempt_id)):
+                    return False
+                expected = manifest.state()
             view = prepared_view(prepared, expected)
         except (AttributeError, KeyError, TypeError, ValueError):
             self.failure = AgentTurnServiceError("The prepared Build decision failed verification.",
                 code="graph_evidence_invalid", status_code=502, provider_dispatched=False)
             return False
         self._prepared_build_authorizing = view
+        self._active_build_jev_expected_state = expected
         try:
             accepted = self.authorize(view)
         finally:
             self._prepared_build_authorizing = None
+            self._active_build_jev_expected_state = None
         if accepted:
             self._prepared_build_decision = prepared
+            self._build_controller_exposure = None
         return accepted
 
     def record_prepared_build_decision(self, event: Any) -> bool:

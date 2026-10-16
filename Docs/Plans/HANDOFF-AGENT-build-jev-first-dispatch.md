@@ -1,6 +1,7 @@
 # AGENT — genuine Build Jev first dispatch
 
-ACTIVE. PRIME solo; ARCHITECTURE independently reviews. Serial successor to Buddy
+MERGED #1277 at e70d658326a631dbefa34b7f0b7c7cb5aa36ae3d; first-dispatch lease ended.
+Successor: HANDOFF-AGENT-build-jev-controller-exposure.md. Original activation: PRIME solo; ARCHITECTURE independently reviews. Serial successor to Buddy
 #1275 at bd6d8cb88b710ce9f9ef930ee584bc72cfb239bc. Base is that exact main;
 branch codex/build-jev-first-dispatch; isolated /tmp/prime-recap-mention-boundaries.
 GE #20 accepted pin dde768f3e632af20b969cc694d8318265ce6ff5c. Checked open
