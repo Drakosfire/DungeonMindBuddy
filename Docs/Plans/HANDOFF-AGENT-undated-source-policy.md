@@ -1,6 +1,6 @@
 # AGENT: attributed source time
 
-Status ACTIVE; PRIME solo under the Mirathorn lifecycle goal.
+Status: implementation accepted on main (policy commit `a1e436715c97a9c9d41f436d1d91e18f7c743029`); implementation lease closed. Semantic experiment limitations below remain. The successor policy-path lease is `HANDOFF-AGENT-topic-discovery.md`.
 Exact base c67318632367f1e56c869d3287e025ea0061befe. Serial successor of
 accepted initial-ledger and Gazetteer role-support foundations. Isolated /tmp
 checkout branch codex/agent-undated-source-policy; no serving or retained lease.

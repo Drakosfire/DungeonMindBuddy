@@ -52,3 +52,13 @@ latency and token usage; no uncertain replay. Full saved source remains provided
 so success is ordinary topic discovery, not Graph-only reasoning. A prompt change
 that fails to improve observed behavior is not semantic acceptance. DOGFOOD owns
 5202 and operator UX inspection; those runtimes are outside this lease.
+
+Author verification: existing shared-policy/Harness suite produced95passes,
+twofailures and7deselected on both candidate and accepted-base policy substitution.
+Inherited failures: `test_mixed_plugin_capability_policy_loads_both_surfaces`
+(tool-surface mismatch) and `test_parent_graph_broker_blocks_child_fallback_and_returns_parent_packet`
+(old source-read denial expectation). Deselected locked-environment/realAIagent
+and automatic Responses-selection cases require a different SDK/runtime fixture;
+this policy slice does not claim those gates. Logs `/tmp/agent-topic-policy-tests.log`
+and `/tmp/agent-topic-policy-base-tests.log`. Ruff and diff-check pass.
+No live changed-policy experiment has occurred; semantic acceptance remains open.
