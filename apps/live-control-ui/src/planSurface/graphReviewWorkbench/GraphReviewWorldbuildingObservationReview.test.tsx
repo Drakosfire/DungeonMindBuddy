@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -56,6 +56,25 @@ const review: ExactRunReviewPackage = {
   ],
 };
 
+function reviewInWorld(worldId: string, runId: string): ExactRunReviewPackage {
+  const sourceArtifactId = `artifact:worldbuilding:${worldId}:r2`;
+  return {
+    ...review,
+    runId,
+    sourceArtifactId,
+    sourceRevisionId: `${runId}:source-revision`,
+    worldId,
+    assertions: review.assertions.map((assertion) => ({
+      ...assertion,
+      evidence: assertion.evidence.map((evidence) => ({
+        ...evidence,
+        sourceArtifactId,
+        sourceSpanRefId: evidence.sourceSpanRefId.replace("source", worldId),
+      })),
+    })),
+  };
+}
+
 function graphProjection(
   managedWorldId = "elderwyld",
   overrides: Partial<ManagedWorldGraphProjectionResponse["projection"]["snapshot"]> = {},
@@ -63,12 +82,12 @@ function graphProjection(
   return {
     schema: "dmb_managed_world_graph_projection_v1",
     managedWorldId,
-    nativeWorldId: "elderwyld",
+    nativeWorldId: managedWorldId,
     bindingVersion: 1,
     projection: {
       schema: "dmb_world_graph_projection_v1",
       snapshot: {
-        worldId: "elderwyld",
+        worldId: managedWorldId,
         campaignId: "",
         revisionId: "rev:head-1",
         headRevisionId: "rev:head-1",
@@ -374,5 +393,131 @@ describe("GraphReviewWorldbuildingObservationReview", () => {
 
     rerender(<GraphReviewWorldbuildingObservationReview review={{ ...review, worldId: "other-world" }} managedWorldId="elderwyld" />);
     expect(await screen.findByText(/belongs to a different World/)).toBeInTheDocument();
+  });
+});
+
+describe("stale prepare request isolation", () => {
+  it("does not attach a late old-run plan to a new review", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(liveApi, "postManagedWorldGraphProjection").mockResolvedValue(graphProjection());
+    let resolvePlan!: (plan: WorldbuildingWritePlanResponse) => void;
+    vi.spyOn(extractPromoteApi, "prepareWorldbuildingWritePlan").mockImplementation(
+      () => new Promise((resolve) => { resolvePlan = resolve; }),
+    );
+    const { rerender } = render(
+      <GraphReviewWorldbuildingObservationReview review={review} managedWorldId="elderwyld" />,
+    );
+    await screen.findByText("World elderwyld · graph revision rev:head-1");
+    const place = screen.getByText("Mirathorn", { selector: "h4" }).closest("li");
+    const observation = screen.getByText("Eastern coastline").closest("li");
+    expect(place).not.toBeNull();
+    expect(observation).not.toBeNull();
+    await user.click(within(place as HTMLElement).getByRole("radio", { name: "Create new" }));
+    await user.click(within(observation as HTMLElement).getByRole("radio", { name: "Accept" }));
+    await user.click(screen.getByRole("button", { name: "Prepare review plan" }));
+
+    rerender(
+      <GraphReviewWorldbuildingObservationReview
+        review={{ ...review, runId: "run-new" }}
+        managedWorldId="elderwyld"
+      />,
+    );
+    await screen.findByText("World elderwyld · graph revision rev:head-1");
+    await act(async () => {
+      resolvePlan(preparedPlan());
+      await Promise.resolve();
+    });
+    expect(screen.queryByRole("region", { name: "Prepared review plan" })).not.toBeInTheDocument();
+    expect(screen.queryByText("artifact:worldbuilding:elderwyld:r1")).not.toBeInTheDocument();
+  });
+
+  it("invalidates a prepare request when selection changes across Worlds and back", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(liveApi, "postManagedWorldGraphProjection").mockImplementation(async ({ managedWorldId }) =>
+      graphProjection(managedWorldId),
+    );
+    let resolvePlan!: (plan: WorldbuildingWritePlanResponse) => void;
+    vi.spyOn(extractPromoteApi, "prepareWorldbuildingWritePlan").mockImplementation(
+      () => new Promise((resolve) => { resolvePlan = resolve; }),
+    );
+    const { rerender } = render(
+      <GraphReviewWorldbuildingObservationReview review={review} managedWorldId="elderwyld" />,
+    );
+    await screen.findByText("World elderwyld · graph revision rev:head-1");
+    const place = screen.getByText("Mirathorn", { selector: "h4" }).closest("li");
+    const observation = screen.getByText("Eastern coastline").closest("li");
+    expect(place).not.toBeNull();
+    expect(observation).not.toBeNull();
+    await user.click(within(place as HTMLElement).getByRole("radio", { name: "Create new" }));
+    await user.click(within(observation as HTMLElement).getByRole("radio", { name: "Accept" }));
+    await user.click(screen.getByRole("button", { name: "Prepare review plan" }));
+
+    const otherWorldId = "other-world";
+    const otherWorldReview = reviewInWorld(otherWorldId, "run-other-world");
+    rerender(
+      <GraphReviewWorldbuildingObservationReview review={otherWorldReview} managedWorldId={otherWorldId} />,
+    );
+    await screen.findByText("World other-world · graph revision rev:head-1");
+    rerender(<GraphReviewWorldbuildingObservationReview review={review} managedWorldId="elderwyld" />);
+    await screen.findByText("World elderwyld · graph revision rev:head-1");
+    await act(async () => {
+      resolvePlan(preparedPlan());
+      await Promise.resolve();
+    });
+    expect(screen.queryByRole("region", { name: "Prepared review plan" })).not.toBeInTheDocument();
+  });
+
+  it("keeps a newer review's pending state when an old prepare fails", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(liveApi, "postManagedWorldGraphProjection").mockImplementation(async ({ managedWorldId }) =>
+      graphProjection(managedWorldId),
+    );
+    const pending: Array<{
+      resolve: (plan: WorldbuildingWritePlanResponse) => void;
+      reject: (error: Error) => void;
+    }> = [];
+    vi.spyOn(extractPromoteApi, "prepareWorldbuildingWritePlan").mockImplementation(
+      () => new Promise((resolve, reject) => { pending.push({ resolve, reject }); }),
+    );
+    const { rerender } = render(
+      <GraphReviewWorldbuildingObservationReview review={review} managedWorldId="elderwyld" />,
+    );
+    await screen.findByText("World elderwyld · graph revision rev:head-1");
+    const chooseAndPrepare = async () => {
+      const place = screen.getByText("Mirathorn", { selector: "h4" }).closest("li");
+      const observation = screen.getByText("Eastern coastline").closest("li");
+      expect(place).not.toBeNull();
+      expect(observation).not.toBeNull();
+      await user.click(within(place as HTMLElement).getByRole("radio", { name: "Create new" }));
+      await user.click(within(observation as HTMLElement).getByRole("radio", { name: "Accept" }));
+      await user.click(screen.getByRole("button", { name: "Prepare review plan" }));
+    };
+    await chooseAndPrepare();
+    expect(pending).toHaveLength(1);
+
+    const otherWorldReview = reviewInWorld("other-world", "run-new");
+    rerender(
+      <GraphReviewWorldbuildingObservationReview review={otherWorldReview} managedWorldId="other-world" />,
+    );
+    await screen.findByText("World other-world · graph revision rev:head-1");
+    await chooseAndPrepare();
+    expect(pending).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Preparing review…" })).toBeDisabled();
+
+    await act(async () => {
+      pending[0].reject(new Error("Old run failed"));
+      await Promise.resolve();
+    });
+    expect(screen.queryByText("Old run failed")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Preparing review…" })).toBeDisabled();
+
+    pending[1].resolve({
+      ...preparedPlan(),
+      runId: otherWorldReview.runId,
+      worldId: otherWorldReview.worldId,
+      sourceArtifactId: otherWorldReview.sourceArtifactId,
+      sourceRevisionId: otherWorldReview.sourceRevisionId,
+    });
+    expect(await screen.findByText("Review plan is ready")).toBeInTheDocument();
   });
 });
