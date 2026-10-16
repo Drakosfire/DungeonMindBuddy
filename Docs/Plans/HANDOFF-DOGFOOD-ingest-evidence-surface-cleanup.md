@@ -246,12 +246,12 @@ authorized by this amendment. This remains the single serial implementation PR
   Every recap mutation also verifies that the returned campaign/session matches
   its request before adopting the result; a mismatched response produces a
   visible recovery status rather than leaving the operation in a loading state.
-  Saved-file proof remains bound to a hydrated result matching the current
-  campaign/session; active wizard previews use the current result because
-  selection changes clear it and late responses are discarded. Regressions hold
-  Stage + Preview open, change the selected session, and confirm that its late
-  response does not re-enable Apply; a second verifies that a mismatched server
-  response produces an actionable status.
+  All transient wizard actions require a result matching the current
+  campaign/session; saved-file proof additionally requires hydrated status for
+  that selection. Regressions hold Stage + Preview open, change the selected
+  session, and confirm that its late response does not re-enable Apply; a
+  second verifies that a mismatched server response produces an actionable
+  status.
 - Verification after this repair: `IngestionModule.test.tsx` 73 passed and
   `MemoryIngestPage.test.tsx` 13 passed; UI typecheck and production build
   passed (86 tests total); cumulative `git diff --check` passed. The build retains the existing

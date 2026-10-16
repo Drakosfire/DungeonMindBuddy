@@ -1006,13 +1006,15 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     previewSignature != null && previewSignature !== currentPreviewSignature;
   const rawTextSatisfied = rawText.trim().length > 0;
   const matchingResult =
-    latestResult?.campaign_id === ingestCampaignId && latestResult.session === recapSession;
+    latestResult?.campaign_id === ingestCampaignId && latestResult.session === recapSession
+      ? latestResult
+      : null;
   const resultOwnsSelection =
     hydrated &&
-    matchingResult;
-  // In-progress wizard feedback follows the current result; only saved-file
-  // proof requires both hydration and an exact campaign/session match.
-  const proofResult = resultOwnsSelection ? latestResult : null;
+    matchingResult !== null;
+  // Transient wizard actions require a result for the current selection;
+  // saved-file proof additionally requires hydrated status for that selection.
+  const proofResult = resultOwnsSelection ? matchingResult : null;
   const busy = [
     "running_full_ingest",
     "previewing",
@@ -1024,16 +1026,16 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     "materializing_preview_supergraph",
   ].includes(state.status);
   const hasPreview =
-    (hasState(latestResult, "recap_preview_created") &&
+    (hasState(matchingResult, "recap_preview_created") &&
       !previewInvalidated &&
       previewSignature === currentPreviewSignature) ||
-    hasState(latestResult, "staged_raw_notes_reused");
+    hasState(matchingResult, "staged_raw_notes_reused");
   const genericGuardPass = isNonGenericSlugOrTitle(effectiveSlug, effectiveTitle);
   const hasApplied =
-    hasState(latestResult, "recap_applied") ||
-    hasState(latestResult, "recap_reused") ||
-    hasState(latestResult, "normalized_created") ||
-    hasState(latestResult, "normalized_reused");
+    hasState(matchingResult, "recap_applied") ||
+    hasState(matchingResult, "recap_reused") ||
+    hasState(matchingResult, "normalized_created") ||
+    hasState(matchingResult, "normalized_reused");
   const recapSourceNavigationProof = recapSourceProof(proofResult);
   const hasCurrentNormalizedSource =
     resultOwnsSelection &&
@@ -1042,8 +1044,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     recapSourceNavigationProof.normalizedCurrent &&
     (!rawTextSatisfied ||
       (previewSignature === currentPreviewSignature && !previewInvalidated));
-  const hasFrontmatterSeed = hasState(latestResult, "frontmatter_seed_found");
-  const hasBreadcrumb = hasState(latestResult, "breadcrumb_found");
+  const hasFrontmatterSeed = hasState(matchingResult, "frontmatter_seed_found");
+  const hasBreadcrumb = hasState(matchingResult, "breadcrumb_found");
   const canResumeFromDisk = hasApplied || hasFrontmatterSeed || hasBreadcrumb;
   const processedSourceReady =
     sourceMode === "processed" &&
@@ -1056,20 +1058,20 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     (canResumeFromDisk && hasCurrentNormalizedSource);
   const canMaterialize =
     !busy &&
-    !!latestResult &&
+    !!matchingResult &&
     hasBreadcrumb;
   const canBuildFrontmatterSeed =
     !busy &&
-    !!latestResult &&
+    !!matchingResult &&
     hasApplied &&
     !hasFrontmatterSeed;
   const canRunBreadcrumbIngest =
     !busy &&
-    !!latestResult &&
+    !!matchingResult &&
     hasFrontmatterSeed &&
     !hasBreadcrumb;
   const hasMaterialized =
-    hasState(latestResult, "session_memory_materialized") ||
+    hasState(matchingResult, "session_memory_materialized") ||
     (resultOwnsSelection && state.status === "ready_for_planning_activation");
   const isBuildingFrontmatterSeed = state.status === "building_frontmatter_seed";
   const isRunningBreadcrumbIngest = state.status === "running_breadcrumb_ingest";
@@ -1122,9 +1124,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     !hasLoadedRecapContent &&
     !busy &&
     state.status !== "error" &&
-    !latestResult?.errors?.length;
+    !matchingResult?.errors?.length;
   const hasPriorIngestWork = Boolean(
-    resultOwnsSelection && latestResult?.states.some((item) => item !== "ingest_status_inspected"),
+    resultOwnsSelection && matchingResult?.states.some((item) => item !== "ingest_status_inspected"),
   );
   const canBuildGraphPreview = hasCurrentNormalizedSource && !busy && (!hasPreviewUnionStore || forceGraphRun);
   const canMaterializePreviewSupergraph = hasCurrentNormalizedSource && !busy && (!hasPreviewUnionStore || forceGraphRun) && Boolean(
@@ -1133,7 +1135,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     graphPreview?.candidate_graph_path ||
     graphPreview?.status === "candidate_validation_ready",
   );
-  const ingestReadiness = useMemo(() => buildIngestReadiness(latestResult), [latestResult]);
+  const ingestReadiness = useMemo(() => buildIngestReadiness(matchingResult), [matchingResult]);
   const workflowNextAction = (() => {
     if (!sourceInputSatisfied && !hasNormalizedRecap) {
       return "Load a processed recap or paste the verified source to continue.";
