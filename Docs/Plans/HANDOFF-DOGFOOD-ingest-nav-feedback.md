@@ -31,12 +31,22 @@ does not repeat toolbar instructions. The blank placeholder is instructional,
 context-neutral, and never editor value or persistence input. Source selection,
 review behavior, and ingestion gates remain unchanged.
 
+When a saved browser draft is resumed, a fresh `inspect_status` response is the
+authority for disk-derived recap status, paths, warnings, next actions, and
+spelling audit. A stale draft must not restore claims such as `normalized_reused`
+or an old readiness status when the current inspection reports the files
+missing. If that inspect response does not include graph-preview information,
+the last graph-preview result may remain visible as a separate graph lane; an
+explicit current graph-preview result (including `missing`) replaces it.
+
 ## Expected write set
 
 - `Docs/Plans/HANDOFF-DOGFOOD-ingest-nav-feedback.md`
 - `Docs/Plans/HANDOFF-DOGFOOD-ingest-local-source-navigation.md` (settle merged #1237)
 - `apps/live-control-ui/src/modules/IngestionModule.tsx`
 - `apps/live-control-ui/src/modules/IngestionModule.test.tsx`
+- `apps/live-control-ui/src/modules/ingestResultMerge.ts`
+- `apps/live-control-ui/src/modules/ingestResultMerge.test.ts`
 - `apps/live-control-ui/src/ingestSurface/MemoryIngestPage.css`
 
 Do not change API contracts, extraction or validation behavior, corpus files,
@@ -51,6 +61,10 @@ shared app navigation, saved drafts, or runtime services.
 - A blank raw-recap field has an empty value and a neutral prompt such as
   “Paste or write the session recap here…”. It contains no Session 22 sample
   text for a selected session or a fresh entry.
+- Resuming a saved browser draft cannot make fresh disk inspection appear to
+  have reused files or be more ready than it is. Graph-preview evidence remains
+  available only when the fresh inspection does not provide a newer graph
+  result; an explicit missing result clears stale graph-ready claims.
 - Source selection, review, and ingestion gating stay unchanged.
 - Focused Ingest UI tests, UI typecheck/build, cumulative diff check, and
   rendered desktop/narrow preview are attempted and recorded. A preview may
@@ -76,3 +90,23 @@ Stop if the fix needs a shared component, route contract, extraction change, or 
   The open 5202 page was observed read-only; no production service was changed.
 - No prepare, extract, graph admission, publication, provider, or persistence
   action was taken.
+
+### Saved-draft status reconciliation follow-up
+
+- Root cause: hydration merges the fresh read-only `inspect_status` result with
+  `latestResult` saved in localStorage. The prior merge let the old draft win
+  status rank and restored old paths, warnings, next actions, and spelling
+  findings. This could show `normalized_reused` beside fresh corpus proof that
+  the normalized recap is missing.
+- Updated the merge contract so fresh inspection owns recap/disk state. When
+  inspection does not report a graph preview, the prior graph-preview result
+  remains in its separate graph lane; an explicit graph result, including
+  `missing`, takes precedence and clears stale candidate-ready states.
+- Verification: `ingestResultMerge.test.ts` and `IngestionModule.test.tsx`
+  passed (63 tests); `MemoryIngestPage.test.tsx` passed (13 tests); UI
+  typecheck, production build, and `git diff --check` passed. The build retains
+  the existing large-chunk warning.
+- Rendered check remains blocked: only the user’s 5202 tabs were available in
+  the browser, and the 5204 preview had refused connections on the earlier
+  attempt. No navigation or write action was taken in 5202. No ingestion,
+  publication, API, database, or corpus action was taken.
