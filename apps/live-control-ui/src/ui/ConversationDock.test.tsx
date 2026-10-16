@@ -101,11 +101,20 @@ describe("ConversationDock", () => {
     expect(messages.scrollTop).toBe(137);
   });
 
+  it("names context visibility explicitly and closes it on submit without clearing input", () => {
+    render(<ConversationDock reader="Page" messages="Reply" initialExpanded contextLabel="context" contextDetails="Saved page" composer={<form><textarea defaultValue="Keep my draft" /><button type="submit">Send</button></form>} />);
+    fireEvent.click(screen.getByRole("button", {name:"Show context"}));
+    expect(screen.getByRole("button", {name:"Hide context"})).toHaveAttribute("aria-expanded","true");
+    fireEvent.submit(screen.getByRole("textbox").closest("form")!);
+    expect(screen.getByRole("button", {name:"Show context"})).toHaveAttribute("aria-expanded","false");
+    expect(screen.getByRole("textbox")).toHaveValue("Keep my draft");
+  });
+
   it("opens context without losing the chosen scope and hides it when collapsed", async () => {
     const user = userEvent.setup();
     const onExpandedChange = vi.fn();
     render(<Fixture onExpandedChange={onExpandedChange} />);
-    const context = screen.getByRole("button", {name:"This scene"});
+    const context = screen.getByRole("button", {name:/This scene/});
     await user.click(context);
     expect(context).toHaveAttribute("aria-expanded", "true");
     expect(onExpandedChange).toHaveBeenCalledWith(true);
@@ -189,10 +198,10 @@ describe("ConversationDock", () => {
     const user = userEvent.setup();
     const composer = <input aria-label="Draft" defaultValue="Keep this" />;
     const view = render(<ConversationDock reader="Reader" messages="Messages" composer={composer} contextDetails="Source details" />);
-    await user.click(screen.getByRole("button", {name:"Context"}));
+    await user.click(screen.getByRole("button", {name:/Context/}));
     const input = screen.getByLabelText("Draft");
     view.rerender(<ConversationDock reader="Reader" messages="Messages" composer={composer} contextDetails={null} />);
-    expect(screen.queryByRole("button", {name:"Context"})).toBeNull();
+    expect(screen.queryByRole("button", {name:/Context/})).toBeNull();
     expect(screen.getByLabelText("Draft")).toBe(input);
     expect(input).toHaveValue("Keep this");
     expect(screen.getByRole("log")).toBeInTheDocument();

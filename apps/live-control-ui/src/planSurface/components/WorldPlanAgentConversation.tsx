@@ -1,3 +1,4 @@
+import { positionLatestAssistantReply } from "./conversationReplyPosition";
 import { LoadedWorldGraphExplorer } from "../../graphLens/LoadedWorldGraphExplorer";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
@@ -2527,7 +2528,7 @@ export function WorldPlanAgentConversation({
       observedConversationIdRef.current = history.conversation_id;
       observedAssistantReplyKeyRef.current = latestAssistantReplyKey;
       setNewReplyAvailable(false);
-      if (isReadOnly && !presentationHosts) viewport.scrollTop = viewport.scrollHeight;
+      positionLatestAssistantReply(viewport);
       return;
     }
     if (!latestAssistantReplyKey || latestAssistantReplyKey === observedAssistantReplyKeyRef.current) return;
@@ -2537,7 +2538,7 @@ export function WorldPlanAgentConversation({
       if (observedConversationIdRef.current !== conversationId || !agent.paneState.isOpen) return;
       observedAssistantReplyKeyRef.current = replyKey;
       if (followsLatestRef.current) {
-        viewport.scrollTop = viewport.scrollHeight;
+        positionLatestAssistantReply(viewport);
         setNewReplyAvailable(false);
       } else {
         setNewReplyAvailable(true);
@@ -2555,7 +2556,7 @@ export function WorldPlanAgentConversation({
     const viewport = presentationHosts?.messages?.parentElement ?? playMessagesHostRef.current?.parentElement;
     if (!viewport) return;
     followsLatestRef.current = true;
-    viewport.scrollTop = viewport.scrollHeight;
+    positionLatestAssistantReply(viewport);
     setNewReplyAvailable(false);
   }
 
@@ -5601,6 +5602,11 @@ export function WorldPlanAgentConversation({
   );
   const composer = (
     <section className="world-plan-agent-conversation__composer" aria-label="Conversation composer">
+      {sending || composing ? <div className="world-plan-agent-conversation__working" role="status" aria-live="polite">
+        <span className="world-plan-agent-conversation__working-dot" aria-hidden="true" />
+        {composing ? "Preparing your edit…" : "Working on your reply…"}
+      </div> : null}
+
       <form onSubmit={isReadOnly ? (event) => { void submitPlay(event); } : submitComposer}>
         {!isReadOnly ? <p className="world-plan-agent-conversation__context" aria-label="Actual Plan change target">{displayedEditScope}</p> : null}
         {!isReadOnly && detectedComposerIntent === "propose" && !effectiveEditTarget && !editorSelectionActive ? (
@@ -5643,6 +5649,7 @@ export function WorldPlanAgentConversation({
         <label className="sr-only" htmlFor="world-plan-agent-message">Message DungeonBuddy</label>
         <textarea
           id="world-plan-agent-message"
+          rows={3}
           value={composerMessage}
           onChange={(event) => {
             composerEditGenerationRef.current += 1;
@@ -5653,7 +5660,7 @@ export function WorldPlanAgentConversation({
           }}
           onKeyDown={handleComposerKeyDown}
           maxLength={8000}
-          disabled={composerBusy || (isReadOnly ? !currentReadOnlyContext : !scopeMatches)}
+          disabled={isReadOnly ? !currentReadOnlyContext : !scopeMatches}
           placeholder={isReadOnly ? (isBuild ? "Ask about this source or your World…" : "Ask about this Run…") : "Ask Buddy, or tell it what to change…"}
           aria-describedby={`world-plan-agent-composer-hint${buildSourceMissing ? ` ${BUILD_SOURCE_REQUIRED_DESCRIPTION_ID}` : ""}`}
         />
