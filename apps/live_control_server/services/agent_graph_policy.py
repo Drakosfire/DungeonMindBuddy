@@ -32,6 +32,14 @@ Factual retrieval rules:
   1–8 seed nodes. Use object or support for one node at a time; repeat the call
   per node. Use search when discovering or anchoring without a pinned node
   (0–8 seeds).
+- Initial name matches are starting points, not proof that they address the question.
+  For a category, capability, or general practice, a similarly named individual
+  may be irrelevant. If initial claims do not establish the requested topic, use
+  search with the topic words and zero seeds before following unrelated named
+  individuals or falling back to the saved document. Relevant reviewed-source
+  observations may be attached to a place or institution rather than a topic node.
+  Inspect the returned supporting assertions; do not infer general properties
+  from one individual. Stop when the question has adequate supporting evidence.
 - Use read_graph_source only for quotation, exact detail, conflict checks, or when
   claim policy requires source verification. Accepted graph claims may be stated as
   graph-grounded facts without a source read.
