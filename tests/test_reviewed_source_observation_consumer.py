@@ -60,6 +60,15 @@ def _verify_real_published_observation(case, receipt, node_id):
     assert observation.publication_revision_id==child
     assert observation.source_artifact_id==case["artifact"].source_artifact_id
     assert observation.source_revision_id=="sha256:"+case["artifact"].content_sha256
+    resolved = direct.get_object_with_reviewed_sources_direct_v3(services, request)
+    assert len(resolved.reviewed_source_observations) == 1
+    assert resolved.reviewed_source_observations[0].assertion_id == observation.assertion_id
+    assert resolved.reviewed_source_observations[0].text == TEXT.strip()
+    assert {pin.anchor_id for pin in resolved.source_pins} == {
+        anchor.anchor_id for anchor in resolved.result.source_anchors if anchor.readable}
+    assert all(pin.graph_revision == child for pin in resolved.source_pins)
+    assert any(pin.source_revision_id == observation.source_revision_id
+        and pin.source_artifact_id == observation.source_artifact_id for pin in resolved.source_pins)
     clear_sessions()
     try:
         session=GraphRetrievalSession(

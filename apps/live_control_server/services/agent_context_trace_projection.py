@@ -12,6 +12,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from application_state.agent_conversation.types import ValidatedGraphOperationEventV1
+from graph_memory.interaction.authority_classifier import claims_from_retrieval_result
 from graph_memory.retrieval.models import (
     WorldGraphEvidenceRequest, WorldGraphNeighborhoodRequest, WorldGraphObjectRequest,
     WorldGraphRetrievalResult, WorldGraphSearchRequest,
@@ -36,7 +37,11 @@ def graph_operation_observation(
             or request.revision_pin != execution_event.graph_revision
             or result.snapshot.world_id != request.world_id):
         raise ValueError("trace request/result revision differs from its execution event")
-    assertions = sorted({item.assertion_id for item in result.attributes})
+    assertions = sorted({item.assertion_id for item in result.attributes} | {
+        claim.source_assertion_id
+        for claim in claims_from_retrieval_result(result_payload, revision_id=execution_event.graph_revision)
+        if claim.claim_kind == "source_observation" and claim.source_assertion_id
+    })
     relationships = sorted({item.edge_id for item in result.relationships})
     evidence = sorted({item.evidence_ref_id for item in result.source_anchors if item.evidence_ref_id})
     if (assertions != sorted(execution_event.assertion_ids)

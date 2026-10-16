@@ -2,8 +2,8 @@ import { useMemo, useState } from "react";
 import { webcrypto } from "node:crypto";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createWorkspaceDocument, getWorkspaceDocumentSnapshot, getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, listWorkspaceDocuments, listWorldContainers, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldPlanDocumentEditProposal } from "../api/liveApi";
-import type { AgentInteractionTurn, WorkspaceDocumentRecord, WorkspaceDocumentSnapshot, WorldAgentConversationHistoryResponseV1, WorldPlanAgentTurnRequestV1, WorldPlayAgentTurnRequestV1, WorldBuildAgentTurnRequestV1, WorldPlanAgentPlanContextV2, WorldPlanGraphAnswerContextStatusV1, WorldPlanGraphExecutionProjectionV1, WorldAgentConversationHistoryResponse } from "../api/types";
+import { createWorkspaceDocument, getWorkspaceDocumentSnapshot, getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, listWorkspaceDocuments, listWorldContainers, LiveApiError, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlayAgentTurn, postWorldBuildAgentTurn, postWorldGraphSourceAnchorRead, postWorldPlanDocumentEditProposal } from "../api/liveApi";
+import type { AgentInteractionTurn, WorkspaceDocumentRecord, WorkspaceDocumentSnapshot, WorldAgentConversationHistoryResponseV1, WorldPlanAgentTurnRequestV1, WorldPlayAgentTurnRequestV1, WorldBuildAgentTurnRequestV1, WorldPlanAgentPlanContextV2, WorldPlanGraphAnswerContextStatusV1, WorldPlanGraphExecutionProjectionV1, WorldAgentConversationHistoryResponse, WorldBuildKnowledgeContextV1 } from "../api/types";
 import { DocumentConversationDock, type PlanConversationPresentationHosts } from "../planSurface/components/PlanConversationDockAdapter";
 import type { SavedWorldBuildConversationContext } from "./WorldAgentConversation";
 import { AgentInteractionChrome } from "./AgentInteractionChrome";
@@ -40,6 +40,7 @@ vi.mock("../api/liveApi", async (importOriginal) => ({
   postWorldPlanAgentTurn: vi.fn(),
   postWorldPlayAgentTurn: vi.fn(),
   postWorldBuildAgentTurn: vi.fn(),
+  postWorldGraphSourceAnchorRead: vi.fn(),
   postWorldPlanDocumentEditProposal: vi.fn(),
 }));
 
@@ -382,6 +383,36 @@ async function planGraphContext(
 }
 
 
+async function buildGraphContext(): Promise<WorldBuildKnowledgeContextV1> {
+  const plan = await planGraphContext("graph_grounded");
+  const { plan_basis: _plan, plan_context_policy: _policy, playable_target: _target, ...common } = plan.receipt;
+  const receipt = { ...common, schema: "dmb_build_graph_context_receipt_v1" as const,
+    graph_authority: {...common.graph_authority, admissibility_version: "gm-v1"},
+    source_basis: { world_id: WORLD, document_id: "source-one", registry_revision: 2,
+      content_sha256: SHA, visibility: "internal" as const } };
+  const { context_receipt_sha256: _digest, ...hashable } = receipt;
+  receipt.context_receipt_sha256 = await sha256Hex(canonicalJson(hashable));
+  const claim = plan.completion!.answer_segments[0]!;
+  if (claim.kind !== "graph_claim") throw new Error("Expected Graph fixture");
+  return { schema: "dmb_build_graph_context_response_v1", receipt, delivery_replay: false,
+    execution: plan.execution, completion: { schema: "dmb_build_graph_completion_v1",
+      context_receipt_sha256: receipt.context_receipt_sha256, answer_basis: "saved_source_plus_world_graph",
+      answer_context_status: "graph_grounded", answer_segments: [claim], citation_map: {
+        schema: "dmb_graph_citation_map_v2", context_receipt_sha256: receipt.context_receipt_sha256,
+        entries: plan.completion!.citation_map!.entries.map(entry => ({ ...entry, source_read_ids: [] })),
+      } },
+    source_open_targets: [{ schema: "dmb_agent_evidence_anchor_open_target_v1", kind: "evidence_anchor",
+      claim_id: claim.claim_id, source_artifact_id: "artifact-one", source_revision_id: "source-rev-one",
+      managed_world_id: WORLD, native_world_id: receipt.graph_authority.native_world_id,
+      binding_version: receipt.graph_authority.binding_version, scope_mode: "world", campaign_id: null,
+      focus: {kind: "none", session_id: null, campaign_id: null}, admissibility: "gm",
+      graph_revision: receipt.graph_authority.graph_revision, anchor_id: "anchor-one",
+      evidence_ref_id: "evidence-internal-test", source_read_id: null, read_outcome: null }],
+    evidence_anchor_statuses: [{schema: "dmb_agent_evidence_anchor_status_v1", claim_id: claim.claim_id,
+      status: "available", target_count: 1}], related_recap_context_statuses: [],
+  };
+}
+
 describe("one App-level World conversation host across Plan and Play", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -438,6 +469,46 @@ describe("one App-level World conversation host across Plan and Play", () => {
       : "This reply stopped before it finished. Your saved source was not changed.");
     expect(screen.queryByText(/Your Plan was not changed/)).not.toBeInTheDocument();
     expect(postWorldBuildAgentTurn).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])("opens a pinned Build Graph passage and rejects foreign source context: %s", async foreign => {
+    const context = await buildGraphContext();
+    const base = turn("plan", 1, "The western gate is watched.");
+    const source = context.receipt.source_basis;
+    const authority = context.receipt.graph_authority;
+    const ref = (kind: string, object_id: string, revision: string) => ({ resolution: "resolved" as const,
+      kind, object_id, revision, content_sha256: null, object_revision: null, work_revision_id: null, revision_n: null });
+    const historical = { ...base, knowledge_context: context,
+      provenance: { ...base.provenance, surface_id: "build", surface_instance_id: "build-instance",
+        primary_work: { ...ref("build", "source-one", "2"), content_sha256: SHA }, supporting_work: [
+          ref("dmb_build_source_visibility_v1", source.visibility, "1"),
+          ref("dmb_build_graph_binding_v1", authority.native_world_id, String(authority.binding_version)),
+          ref("world_graph_revision", authority.native_world_id, authority.graph_revision),
+        ] } };
+    if (foreign) context.receipt.source_basis.document_id = "another-source";
+    vi.mocked(getWorldAgentConversationHistory).mockResolvedValue({ ...history(),
+      schema: "dmb_agent_conversation_history_v2", turns: [historical] });
+    vi.mocked(postWorldGraphSourceAnchorRead).mockResolvedValue({
+      schema: "dmb_world_graph_source_anchor_read_v1", outcome: "enough", anchorId: "anchor-one",
+      evidenceRefId: "evidence-internal-test", sourceArtifactId: "artifact-one", sourceRevisionId: "source-rev-one",
+      content: "The saved source describes the guards at the western gate.", truncated: false,
+      snapshot: { worldId: authority.native_world_id, campaignId: "", revisionId: authority.graph_revision,
+        scopeMode: "world", admissibility: "gm", focus: {kind: "none", sessionId: null, campaignId: null} },
+    } as Awaited<ReturnType<typeof postWorldGraphSourceAnchorRead>>);
+    render(<Harness initial="build" />);
+    fireEvent.click(await screen.findByRole("button", {name: "Open"}));
+    if (foreign) {
+      await screen.findByRole("group", {name: "World history unavailable"});
+      expect(screen.queryByRole("button", {name: "Open evidence"})).not.toBeInTheDocument();
+    } else {
+      await screen.findAllByText("The western gate is watched.");
+      fireEvent.click(screen.getByText(/1 claim · 1 cited Graph reference/));
+      fireEvent.click(await screen.findByRole("button", {name: "Open evidence"}));
+      await screen.findByText("The saved source describes the guards at the western gate.");
+      expect(postWorldGraphSourceAnchorRead).toHaveBeenCalledWith(expect.objectContaining({
+        worldId: authority.native_world_id, revisionPin: authority.graph_revision, anchorId: "anchor-one",
+      }));
+    }
   });
 
   it("submits exact Build source pins through the same World conversation and keeps its answer on Plan", async () => {

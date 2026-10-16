@@ -842,6 +842,7 @@ export interface WorldBuildAgentTurnRequestV1 {
 
 /** Wire shape returned by the accepted generic turn route; runtime-validated by its caller. */
 export interface WorldPlanAgentTurnResponseV1 {
+  knowledge_context?: WorldBuildKnowledgeContextV1;
   schema: "dmb_agent_turn_response_v1";
   client_thread_id: string;
   turn_id: string;
@@ -1055,6 +1056,23 @@ export interface WorldPlanAgentPlanContextV2 {
   related_recap_context_statuses?: WorldPlanRelatedRecapContextStatusV2[];
 }
 
+export interface WorldBuildGraphReceiptV1 extends Omit<WorldPlanGraphContextReceiptV1, "schema" | "plan_context_policy" | "plan_basis" | "playable_target"> {
+  schema: "dmb_build_graph_context_receipt_v1";
+  source_basis: { world_id: string; document_id: string; registry_revision: number; content_sha256: string; visibility: "internal" | "player_safe" };
+}
+export type WorldBuildGraphAnswerStatus = "graph_grounded" | "graph_grounded_partial" | "source_only_insufficient_evidence" | "source_only_graph_unused";
+export interface WorldBuildGraphCompletionV1 extends Omit<WorldPlanGraphCompletionV2, "schema" | "answer_basis" | "answer_context_status" | "answer_segments"> {
+  schema: "dmb_build_graph_completion_v1";
+  answer_basis: "saved_source" | "saved_source_plus_world_graph";
+  answer_context_status: WorldBuildGraphAnswerStatus;
+  answer_segments: (Extract<WorldPlanGraphAnswerSegmentV1, {kind: "graph_claim" | "connective"}> | {kind: "saved_source_claim"; text: string; content_sha256: string})[];
+}
+export interface WorldBuildKnowledgeContextV1 extends Omit<WorldPlanAgentPlanContextV2, "schema" | "receipt" | "completion"> {
+  schema: "dmb_build_graph_context_response_v1";
+  receipt: WorldBuildGraphReceiptV1;
+  completion: WorldBuildGraphCompletionV1 | null;
+}
+
 export interface WorldPlanEvidenceAnchorStatusV1 {
   schema: "dmb_agent_evidence_anchor_status_v1";
   claim_id: string;
@@ -1147,6 +1165,7 @@ export type AgentConversationTurnLifecycleV1 =
   | "interrupted";
 
 export interface WorldAgentConversationHistoryTurnV1 {
+  knowledge_context?: WorldBuildKnowledgeContextV1;
   turn_id: string;
   sequence: number;
   lifecycle_status: AgentConversationTurnLifecycleV1;
