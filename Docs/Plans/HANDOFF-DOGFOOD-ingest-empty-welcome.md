@@ -1,6 +1,6 @@
 # DOGFOOD: Ingest first-use and local toolbar
 
-Status: ACTIVE
+Status: MERGED / HISTORICAL. PR #1191 merged as `b2c76cb6c83b3e4d9835376dd92956ab5f2b6f13`; implementation lease closed. The local source-navigation cleanup is a new, bounded successor in `HANDOFF-DOGFOOD-ingest-local-source-navigation.md`.
 Topology: serial; one implementation PR based on `origin/main`
 Branch: `codex/ingest-empty-welcome`
 Checkout: `/tmp/dmb-ingest-empty-welcome`

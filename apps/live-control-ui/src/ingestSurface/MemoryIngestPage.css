@@ -278,25 +278,6 @@ button.ingest-welcome-action {
   min-width: 0;
 }
 
-.ingest-local-nav__group-label {
-  margin-right: 0.15rem;
-  color: #e2b75f;
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-}
-
-.ingest-local-nav__source .ingestion-source-mode-toggle {
-  display: flex;
-  gap: 0.25rem;
-  margin: 0;
-}
-
-.ingest-local-nav__source .ingestion-source-mode-toggle button {
-  padding: 0.38rem 0.58rem;
-}
-
 .ingest-local-nav__prior {
   min-width: 0;
 }
@@ -332,6 +313,29 @@ button.ingest-welcome-action {
   font-size: 0.78rem;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.ingestion-prepared-source-notice {
+  box-sizing: border-box;
+  grid-column: 1 / -1;
+  min-height: 20rem;
+  padding: 1.1rem 1.2rem;
+  border: 1px solid #3a4358;
+  border-left: 3px solid #d9a83f;
+  border-radius: 0.65rem;
+  background: linear-gradient(145deg, rgba(31, 39, 54, 0.72), rgba(20, 25, 36, 0.82));
+  color: #d4dbea;
+}
+
+.ingestion-prepared-source-notice strong {
+  color: #f0d7a9;
+  font-weight: 700;
+}
+
+.ingestion-prepared-source-notice p {
+  max-width: 48rem;
+  margin-block: 0.6rem 0;
+  line-height: 1.6;
 }
 
 .ingest-surface-root .ingestion-source-grid {
@@ -426,7 +430,7 @@ button.ingest-welcome-action {
   }
 
   .ingest-local-nav__identity {
-    grid-template-columns: minmax(0, 1fr) minmax(5.5rem, 0.45fr);
+    grid-template-columns: minmax(0, 1fr) minmax(9rem, 0.65fr);
     gap: 0.5rem;
   }
 
@@ -480,5 +484,11 @@ button.ingest-welcome-action {
 
   .ingest-source-review-metadata dd {
     margin-block-end: 0.35rem;
+  }
+}
+
+@media (max-width: 22.5rem) {
+  .ingest-local-nav__identity {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

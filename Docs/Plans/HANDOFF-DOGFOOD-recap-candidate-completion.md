@@ -1,6 +1,6 @@
 # DOGFOOD — Validated recap candidate completion
 
-Status: ACTIVE. Operator authority: fix Run ingest failing after direct operator dispatch, 2026-10-02. Serial successor to merged PR877. Base a4e1166a16906d411e6864221513632a90dc2dae; branch codex/dogfood-recap-candidate-completion; checkout /home/drakosfire/.codex/worktrees/996b/DungeonMindBuddy.
+Status: MERGED / HISTORICAL. PR #878 merged as `67b0df1a478f50ff324b919d13f299c276b89198`; the Run-ingest implementation lease is closed. Preserved candidate acceptance and source fidelity remain under the active Ingest mandate, outside this completed implementation slice.
 
 Write lease: this handoff; HANDOFF-DOGFOOD-recap-content-root.md (predecessor settlement); recap_graph_preview_ingest.py and routes/recap_ingest.py under apps/live_control_server; IngestionModule.tsx/test and ingestReadiness.ts/test under apps/live-control-ui/src/modules; tests/test_live_recap_ingest_graph_preview_api.py.
 
