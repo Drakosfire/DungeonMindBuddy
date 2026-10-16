@@ -15,3 +15,11 @@ Existing worldbuilding-source authoring may preserve an existing recognized lead
 ## Verification
 
 Owning prepare→commit→reopen with unchanged header/body edit and exact newline fidelity; changed/added/deleted header, malformed/unclosed envelopes, later lossy content with exact original line numbers, stale CAS and import behavior. Reproduce failure on accepted base. Run affected writer and historical-source tests, inspect cumulative diff, Ruff/diff check, commit/push/open one review PR. Independent ARCHITECTURE review required before PRIME merge. No provider calls, serving changes, actual Mirathorn edit, extraction or retained World/APP publication in this implementation slice. Resume the isolated actual-source lifecycle proof only after acceptance under a new matched runtime pin.
+
+## Author evidence
+
+47 writer/import/CAS/historical tests pass, one deselected obsolete error-message assertion independently reproduced with exact base writer code (expected “V2 Plan”, unchanged producer emits “V2 World”). The new LF/CRLF save cases both fail with the accepted base writer. Ruff and cumulative diff check pass. Logs: `/tmp/build-frontmatter-{regression,base}.log`.
+
+The guarded disposable actual-Mirathorn witness now performs ordinary prepare/commit from revision2 to3, retaining the header and changing only the intended body sentence. Fresh child processes recover the original published passage after that save and after deletion of the copied mutable document. File-write auditing restricts writes to the copied root; child reads reject fallback to retained corpus paths. Retained source and registry hashes are unchanged; all21 preview APP tables compare identical. Private evidence stays local; no corpus or candidate data enters this PR.
+
+Existing snapshot reads canonicalize CRLF to LF. This slice proves byte-preserving direct writer requests with either envelope newline form, while reopened snapshots retain their existing canonical-LF contract; it does not claim a CRLF-origin UI roundtrip, which remains a separate read/export contract issue. Actual Mirathorn is LF. No serving upgrade or rendered save acceptance is claimed before review and matched deployment.

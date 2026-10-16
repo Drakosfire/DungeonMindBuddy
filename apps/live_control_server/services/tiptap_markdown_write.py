@@ -163,9 +163,36 @@ def authorize_target_for_record(record: WorkspaceDocumentRecord) -> str:
     raise TiptapMarkdownWriteError(f"unsupported document kind: {record.kind}")
 
 
-def _commit_blocking_lossy(kind: str, markdown: str) -> list[str]:
+# Same envelope recognition as the editor's splitLeadingYamlFrontmatter.
+_LEADING_YAML_ENVELOPE_RE = re.compile(
+    r"^---[ \t]*(?:\r\n|\n)([\s\S]*?)(?:\r\n|\n)---[ \t]*(?:(?:\r\n|\n)|$)"
+)
+_YAML_KEY_RE = re.compile(r"(?:^|\r?\n)[A-Za-z0-9_.-]+:\s*")
+
+
+def _leading_yaml_envelope(markdown: str) -> str:
+    match = _LEADING_YAML_ENVELOPE_RE.match(markdown)
+    return match[0] if match and _YAML_KEY_RE.search(match[1]) else ""
+
+
+def _commit_blocking_lossy(
+    kind: str, markdown: str, *, target: Path | None = None,
+) -> list[str]:
     if kind != "worldbuilding_source":
         return []
+    if target is not None and target.is_file():
+        # read_text would normalize CRLF before checking byte-exact metadata.
+        original = target.read_bytes().decode("utf-8")
+        envelope = _leading_yaml_envelope(original)
+        if envelope:
+            if _leading_yaml_envelope(markdown) != envelope:
+                return ["Existing leading YAML frontmatter must remain unchanged.",
+                        *markdown_lossy_diagnostics(markdown)]
+            # Blank out only the preserved envelope, keeping body diagnostics
+            # in original source coordinates. Later delimiters remain checked.
+            return markdown_lossy_diagnostics(
+                "\n" * envelope.count("\n") + markdown[len(envelope):]
+            )
     return markdown_lossy_diagnostics(markdown)
 
 
@@ -684,8 +711,10 @@ def prepare_tiptap_markdown_write(
     blocking_lossy = (
         []
         if write_mode == "source_import"
-        else _commit_blocking_lossy(record.kind, request.markdown)
+        else _commit_blocking_lossy(record.kind, request.markdown, target=target)
     )
+    if record.kind == "worldbuilding_source" and write_mode == "authoring":
+        lossy = blocking_lossy
     advisory_lossy = lossy if not blocking_lossy and lossy else []
     exists = target.is_file()
     existing = target.read_text(encoding="utf-8") if exists else ""
@@ -862,7 +891,7 @@ def _commit_tiptap_markdown_write_unlocked(
     blocking_lossy = (
         []
         if write_mode == "source_import"
-        else _commit_blocking_lossy(record.kind, request.markdown)
+        else _commit_blocking_lossy(record.kind, request.markdown, target=target)
     )
     if blocking_lossy:
         raise TiptapMarkdownWriteError(
