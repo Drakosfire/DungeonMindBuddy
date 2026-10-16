@@ -3113,8 +3113,21 @@ def derive_graph_execution_evidence_status(
                 "Graph claim evidence refs must be sorted and unique",
             )
         refs = set(claim.evidence_ref_ids)
+        # Source-index hints are not delivered Graph evidence. A later mapped
+        # traversal can deliver evidence absent from the initial packet, but
+        # only for this claim's target and through the producing envelope.
+        traversal_refs: set[str] = set()
+        included_targets = included_assertions if claim.target_kind == "assertion" else included_relationships
+        for event_id in claim_graph_event_ids[claim.claim_id]:
+            event = events.get(event_id)
+            if (event is None or event_id not in included_event_ids
+                    or event.graph_revision != inputs.graph_authority.graph_revision):
+                continue
+            targets = event.assertion_ids if claim.target_kind == "assertion" else event.relationship_ids
+            if claim.target_id in targets and claim.target_id in included_targets:
+                traversal_refs.update(set(event.evidence_ref_ids) & included_evidence)
         indexed_refs = (
-            refs - set(inputs.assembled_input.dispatched_evidence_ref_ids)
+            refs - set(inputs.assembled_input.dispatched_evidence_ref_ids) - traversal_refs
             if indexed_policy else set()
         )
         indexed_reads: dict[str, SourceReadAnchorReceiptV2] = {}
