@@ -598,7 +598,13 @@ function buildToastForResult(
   }
 
   const warningSet = new Set(result.warnings);
-  const nextSteps = [...result.next_actions];
+  const canonicalRecapConfirmed =
+    result.states.includes("recap_reused") || result.states.includes("recap_applied");
+  const normalizedRecapConfirmed =
+    result.states.includes("normalized_reused") || result.states.includes("normalized_created");
+  const breadcrumbSourceIncomplete =
+    result.status === "breadcrumb_required" && !(canonicalRecapConfirmed && normalizedRecapConfirmed);
+  const nextSteps = breadcrumbSourceIncomplete ? [] : [...result.next_actions];
   const stagedRawConflict = result.states.includes("staged_raw_notes_conflict");
   const frontmatterSeedReady =
     result.states.includes("frontmatter_seed_built") ||
@@ -646,11 +652,16 @@ function buildToastForResult(
   }
 
   if (result.status === "breadcrumb_required") {
-    nextSteps.unshift(
-      "Canonical + normalized recap exist on disk.",
-      "Breadcrumb + session memory are not retrieval-ready yet.",
-      "Bless the frontmatter seed and breadcrumb artifact, then inspect status before materializing session memory.",
-    );
+    if (breadcrumbSourceIncomplete) {
+      nextSteps.unshift(
+        "The latest status did not confirm both canonical and normalized recap files. Restore or load the source before continuing.",
+      );
+    } else {
+      nextSteps.unshift(
+        "Breadcrumb + session memory are not retrieval-ready yet.",
+        "Bless the frontmatter seed and breadcrumb artifact, then inspect status before materializing session memory.",
+      );
+    }
   }
 
   if (result.status === "ready_for_planning_activation") {
@@ -704,7 +715,9 @@ function buildToastForResult(
       : result.status === "ready_for_planning_activation"
         ? "Session packaged. Next: Run ingest to extract the graph."
       : result.status === "breadcrumb_required"
-      ? "Expected v1 stop: canonical recap and normalized recap are prepared; retrieval activation waits for breadcrumb + session memory."
+      ? breadcrumbSourceIncomplete
+        ? "Retrieval is waiting for breadcrumb + session memory, but the latest status did not confirm canonical and normalized recap files. Check the per-file evidence before proceeding."
+        : "Retrieval is waiting for breadcrumb + session memory. Check the per-file evidence for the next safe step."
       : result.errors.length > 0
         ? result.errors.join("; ")
         : result.warnings.length > 0
@@ -801,7 +814,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const hydrateInspectGenerationRef = useRef(0);
   const validRecapSession = Number.isInteger(recapSession) && recapSession > 0;
   const terminalCampaign = campaignNumberFromId(ingestCampaignId);
-  const showRecapWelcome = freshRecapEntry && !readerMode && sourceMode === "raw" && loadedArtifact === null && !rawText.trim() && recapSession === 0 && latestResult === null;
 
   function handleIngestCampaignSelect(nextCampaignId: string) {
     if (nextCampaignId === ingestCampaignId) return;
@@ -909,6 +921,21 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const hasNormalizedRecap = hasApplied;
   const showPreparedSourceNotice =
     sourceMode === "raw" && !rawTextSatisfied && hasNormalizedRecap && recapSession > 0 && !priorSourceReadFailed;
+  const hasLoadedRecapContent =
+    sourceMode !== "raw" ||
+    loadedArtifact !== null ||
+    Boolean(rawText.trim()) ||
+    (resultOwnsSelection && (hasNormalizedRecap || hasPreview));
+  const showRecapWelcome =
+    hydrated &&
+    !readerMode &&
+    !hasLoadedRecapContent &&
+    !busy &&
+    state.status !== "error" &&
+    !latestResult?.errors?.length;
+  const hasPriorIngestWork = Boolean(
+    resultOwnsSelection && latestResult?.states.some((item) => item !== "ingest_status_inspected"),
+  );
   const canBuildGraphPreview = hasNormalizedRecap && !busy && (!hasPreviewUnionStore || forceGraphRun);
   const canMaterializePreviewSupergraph = hasNormalizedRecap && !busy && (!hasPreviewUnionStore || forceGraphRun) && Boolean(
     extractGraphWithModel ||
@@ -2060,8 +2087,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const canReconcile = hasNormalizedDuplicates && !reconciling && Boolean(selectedKeep);
   const showSourceActions = priorIngestionArtifacts.length > 0 || loadingPriorIngestion;
   const showWorkflowActions =
-    sourceInputSatisfied || hasNormalizedRecap || busy || Boolean(toast) || state.status === "error";
-  const showWorkflowFeedback = showWorkflowActions;
+    sourceInputSatisfied || hasNormalizedRecap || busy;
+  const showWorkflowFeedback = showWorkflowActions || Boolean(toast) || state.status === "error";
 
   return (
     <div className="module-panel ingestion-module" data-module-id="ingestion">
@@ -2208,8 +2235,12 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                       : toast
                         ? <>
                             <span className="ingest-local-nav__status-title">{toast.title}</span>
-                            <span aria-hidden="true"> · </span>
-                            <span>{workflowNextAction}</span>
+                            {sourceInputSatisfied || hasNormalizedRecap ? (
+                              <>
+                                <span aria-hidden="true"> · </span>
+                                <span>{workflowNextAction}</span>
+                              </>
+                            ) : null}
                           </>
                         : workflowNextAction}
             </p>
@@ -2247,22 +2278,36 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
 
       {showRecapWelcome ? (
         <section className="ingest-welcome-card ingest-welcome-card--world" aria-labelledby="ingest-first-recap-title">
-          <p className="ingest-welcome-kicker">A NEW STORY STARTS HERE</p>
-          <h2 id="ingest-first-recap-title">Bring your table’s story into the World.</h2>
-          <p className="ingest-welcome-intro">
-            Paste a session recap below. Buddy will prepare the notes and show you the evidence before anything joins the World.
+          <p className="ingest-welcome-kicker">
+            {hasPriorIngestWork ? `SESSION ${recapSession} · PRIOR WORK FOUND` : "A NEW STORY STARTS HERE"}
           </p>
-          <ol className="ingest-welcome-steps" aria-label="From recap to World memory">
-            <li><span>01</span><div><strong>Bring the moments</strong><p>Paste the recap or load a processed one.</p></div></li>
-            <li><span>02</span><div><strong>See what Buddy found</strong><p>Inspect the proposed people, places, and connections.</p></div></li>
-            <li><span>03</span><div><strong>Choose what belongs</strong><p>Review every change before it enters the World.</p></div></li>
-          </ol>
+          <h2 id="ingest-first-recap-title">
+            {hasPriorIngestWork ? "This recap’s source isn’t loaded." : "Bring your table’s story into the World."}
+          </h2>
+          <p className="ingest-welcome-intro">
+            {hasPriorIngestWork
+              ? "There is saved ingest status for this session, but no recap text is open here. Check Evidence & details, then load a processed recap above or paste the verified source before continuing."
+              : "Paste a session recap below. Buddy will prepare the notes and show you the evidence before anything joins the World."}
+          </p>
+          {hasPriorIngestWork ? (
+            <ol className="ingest-welcome-steps" aria-label="Continue this recap safely">
+              <li><span>01</span><div><strong>Check prior findings</strong><p>Open Evidence & details to inspect the saved status and source checks.</p></div></li>
+              <li><span>02</span><div><strong>Load the recap</strong><p>Choose a processed recap in the nav or paste its verified source below.</p></div></li>
+              <li><span>03</span><div><strong>Continue from evidence</strong><p>Review the candidate before running extraction again.</p></div></li>
+            </ol>
+          ) : (
+            <ol className="ingest-welcome-steps" aria-label="From recap to World memory">
+              <li><span>01</span><div><strong>Bring the moments</strong><p>Paste the recap or load a processed one.</p></div></li>
+              <li><span>02</span><div><strong>See what Buddy found</strong><p>Inspect the proposed people, places, and connections.</p></div></li>
+              <li><span>03</span><div><strong>Choose what belongs</strong><p>Review every change before it enters the World.</p></div></li>
+            </ol>
+          )}
           <button
             type="button"
             className="ingest-welcome-action"
             onClick={() => rawRecapTextAreaRef.current?.focus()}
           >
-            Write a recap <span aria-hidden="true">↓</span>
+            {hasPriorIngestWork ? "Paste recap text" : "Write a recap"} <span aria-hidden="true">↓</span>
           </button>
         </section>
       ) : null}
@@ -2616,12 +2661,13 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
             <div className="ingestion-boundary-card" role="status">
               <strong>Expected v1 boundary: breadcrumb required</strong>
               <p>
-                Canonical recap and normalized recap are on disk. Retrieval is not ready until a blessed
-                breadcrumb and session memory records exist.
+                Retrieval is not retrieval-ready until a blessed breadcrumb and session memory records
+                exist. The per-file evidence below is the source of truth for canonical and normalized
+                recap availability.
               </p>
               <p>
-                Build the deterministic frontmatter seed, review it, run routing-only breadcrumb tagging,
-                then materialize session memory.
+                Restore or load the recap first if either source artifact is missing, then follow the
+                next action from the latest status.
               </p>
             </div>
           ) : null}

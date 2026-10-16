@@ -558,6 +558,10 @@ button.ingest-welcome-action {
     margin-left: 0;
   }
 
+  .ingest-local-nav__source {
+    flex: 0 1 auto;
+  }
+
   .ingest-local-nav__prior {
     flex: 1 1 10rem;
   }

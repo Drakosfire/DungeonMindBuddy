@@ -203,6 +203,73 @@ describe("IngestionModule", () => {
     expect(window.location.search).toBe("?world=elderwyld");
   });
 
+  it("welcomes a restored empty session even when older processed recaps exist", async () => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld");
+    window.localStorage.setItem("dmb.ingestion.longmont-c2.session.29", JSON.stringify({
+      version: 3,
+      activeStep: 1,
+      rawText: "",
+      recapSession: 29,
+      slug: "",
+      title: "Session 29 - The Meat Mind of Mireward Reach",
+      showAdvanced: false,
+      forceStage: false,
+      forceRecap: false,
+      latestResult: null,
+      previewSignature: null,
+      state: { status: "idle" },
+      ignoreDiskResume: false,
+    }));
+    vi.mocked(liveApi.getRecapArtifacts).mockResolvedValue({
+      schema_version: "dmb_recap_artifacts_registry_v1",
+      version: "1",
+      records: [{
+        schema_version: "dmb_recap_artifact_record_v1",
+        artifact_id: "recap-session-27",
+        campaign_id: "longmont-c2",
+        session_id: "session-27",
+        source_recap_path: "corpus/eldyrwild-markdown/Session 27 - Ironveil Warehouse Wall Collapse.md",
+        run_bundle_uri: "bundle",
+        run_manifest_uri: "manifest",
+        source_span_index_uri: "index",
+        graph_run_refs: [],
+        default_projection_mode: "preview_union",
+        registered_at: "2026-06-29T00:00:00Z",
+        updated_at: "2026-06-29T00:00:00Z",
+        registry_source: "scan",
+      }],
+    });
+    vi.mocked(recapIngestApi.postRecapIngest).mockResolvedValue(makeStatus({
+      campaign_id: "longmont-c2",
+      session: 29,
+      status: "breadcrumb_required",
+      states: ["breadcrumb_required", "ingest_status_inspected", "graph_candidate_ready"],
+      ingest_report: {
+        graph_preview: {
+          status: "candidate_validation_ready",
+          candidate_node_count: 59,
+          candidate_edge_count: 33,
+        },
+      },
+    }));
+
+    render(<IngestionModule campaignId="longmont-c2" session={29} managedWorldId="elderwyld" />);
+
+    expect(await screen.findByRole("heading", { name: "This recap’s source isn’t loaded." })).toBeInTheDocument();
+    expect(screen.getByLabelText("Recap/source session")).toHaveValue(29);
+    expect(screen.getByLabelText("Session title")).toHaveValue("Session 29 - The Meat Mind of Mireward Reach");
+    expect(screen.getByRole("textbox", { name: "Raw recap text" })).toHaveValue("");
+    expect(await screen.findByLabelText("Prior processed recap")).toBeInTheDocument();
+    const nav = screen.getByRole("navigation", { name: "Ingest workspace navigation" });
+    expect(within(nav).queryByRole("group", { name: "Extraction actions" })).not.toBeInTheDocument();
+    expect(within(nav).getByRole("status")).toHaveTextContent("Breadcrumb required before retrieval");
+    expect(within(nav).getByRole("status")).not.toHaveTextContent("No recap source loaded");
+    expect(screen.getByText(/saved ingest status for this session, but no recap text is open here/i)).toBeInTheDocument();
+    expect(screen.getByText(/latest status did not confirm canonical and normalized recap files/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Canonical \+ normalized recap exist on disk/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Canonical recap and normalized recap are on disk/i)).not.toBeInTheDocument();
+  });
+
   it("identifies prepared recap work when a blank entry restores a local draft without its source text", async () => {
     window.history.replaceState({}, "", "/ingest?world=elderwyld");
     window.localStorage.setItem("dmb.ingestion.longmont-c2.session.29", JSON.stringify({
@@ -493,7 +560,7 @@ describe("IngestionModule", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     await user.click(within(toolbar).getByText("Details"));
     expect(screen.getByText(/Expected v1 boundary: breadcrumb required/i)).toBeInTheDocument();
-    expect(screen.getByText(/not retrieval-ready/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/not retrieval-ready/i).length).toBeGreaterThan(0);
     await waitFor(() =>
       expect(
         within(toolbar).getByRole("status"),
