@@ -300,3 +300,71 @@ def test_continuation_cannot_change_observation_selection():
             "expand_graph_retrieval",
             {**args, "observationIds": ["obs:1"], "resultPageToken": token},
         )
+
+
+def _canonical_saturation(monkeypatch, count=1):
+    canonical = [_anchor().model_copy(update={
+        'anchor_id': f'canonical:{i}', 'evidence_ref_id': f'canonical-ev:{i}',
+        'supporting_assertion_ids': [f'canonical-claim:{i}'],
+    }) for i in range(count)]
+    monkeypatch.setattr(direct, '_object_result_view', lambda *_a, **_k:
+        WorldGraphRetrievalResult(operation='object', outcome='enough', source_anchors=canonical))
+    return canonical
+
+
+def test_selected_evidence_displaces_saturated_canonical_anchors(bounded_case, monkeypatch):
+    services, request, _ = bounded_case
+    _canonical_saturation(monkeypatch)
+    result, observations, gaps, *_ = direct._get_object_with_reviewed_sources_direct(
+        services, request, observation_ids=('obs:2',))
+    assert [row.assertion_id for row in observations] == ['obs:2']
+    assert [row.evidence_ref_id for row in result.source_anchors] == ['ev:2']
+    assert result.outcome == 'partial'
+    assert 'source_anchors' in result.coverage.truncated_fields
+    assert 'reviewed_source_observation_canonical_anchors_displaced' in gaps
+    # The omitted canonical claim receives no supporting anchor in this packet.
+    assert not any('canonical-claim:0' in a.supporting_assertion_ids for a in result.source_anchors)
+    unselected = direct._get_object_with_reviewed_sources_direct(services, request)
+    assert not unselected[1]
+    assert unselected[0].source_anchors[0].anchor_id == 'canonical:0'
+
+
+def test_selected_union_over_budget_admits_none(bounded_case, monkeypatch):
+    services, request, _ = bounded_case
+    _canonical_saturation(monkeypatch)
+    result, observations, gaps, *_ = direct._get_object_with_reviewed_sources_direct(
+        services, request, observation_ids=('obs:0', 'obs:1'))
+    assert not observations
+    assert [a.anchor_id for a in result.source_anchors] == ['canonical:0']
+    assert result.outcome == 'truncated'
+    assert 'reviewed_source_observation_anchor_bound' in gaps
+
+
+def test_selected_records_share_evidence_budget(bounded_case, monkeypatch):
+    services, request, _ = bounded_case
+    _canonical_saturation(monkeypatch)
+    original = services.retrieval.get_complete_object
+    def shared(*args, **kwargs):
+        native = original(*args, **kwargs)
+        native.reviewed_source_observations = tuple(
+            replace(o, evidence_ref_ids=('ev:shared',)) for o in native.reviewed_source_observations)
+        return native
+    services.retrieval.get_complete_object = shared
+    monkeypatch.setattr(direct, '_source_anchor_views', lambda *_a, **_k: [
+        _anchor().model_copy(update={'anchor_id': 'shared', 'evidence_ref_id': 'ev:shared',
+                                    'supporting_assertion_ids': ['obs:0', 'obs:1', 'obs:2']})])
+    result, observations, *_ = direct._get_object_with_reviewed_sources_direct(
+        services, request, observation_ids=('obs:0', 'obs:1'))
+    assert [o.assertion_id for o in observations] == ['obs:0', 'obs:1']
+    assert len(result.source_anchors) == 1
+    assert set(result.source_anchors[0].supporting_assertion_ids) == {'obs:0', 'obs:1', 'obs:2'}
+
+
+def test_remaining_canonical_capacity_is_filled_deterministically(bounded_case, monkeypatch):
+    services, request, _ = bounded_case
+    _canonical_saturation(monkeypatch, 3)
+    request = request.model_copy(update={'bounds': request.bounds.model_copy(update={'max_source_anchors': 3})})
+    result, observations, *_ = direct._get_object_with_reviewed_sources_direct(
+        services, request, observation_ids=('obs:2',))
+    assert observations
+    assert [a.anchor_id for a in result.source_anchors] == ['a:2', 'canonical:0', 'canonical:1']
