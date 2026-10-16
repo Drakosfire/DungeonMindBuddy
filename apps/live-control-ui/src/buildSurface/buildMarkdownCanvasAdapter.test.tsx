@@ -36,7 +36,7 @@ function session(dirty: boolean, overrides: Partial<Pick<Session, "phase" | "act
   } as unknown as Session);
 }
 function openConfirmation() {
-  fireEvent.click(screen.getByRole("button", { name: "Discard local draft", exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: "Discard draft", exact: true }));
   return screen.getByRole("alertdialog", { name: "Discard local draft?" });
 }
 
@@ -84,7 +84,7 @@ describe("Build source draft recovery", () => {
     session(true);
     render(<Controls hideFooterSave={false} />);
     expect(screen.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Discard local draft" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Discard draft" })).toBeEnabled();
     expect(save).not.toHaveBeenCalled();
   });
 
@@ -92,7 +92,7 @@ describe("Build source draft recovery", () => {
     "refuses to open confirmation during %s", phase => {
       session(true, { phase });
       render(<Controls />);
-      const button = screen.getByRole("button", { name: "Discard local draft" });
+      const button = screen.getByRole("button", { name: "Discard draft" });
       expect(button).toBeDisabled();
       fireEvent.click(button);
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();

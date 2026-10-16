@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { BUILD_STUDIO_ACTION, type BuildStudioAction } from "./buildStudioActions";
 
 import {
   SurfaceContextAction,
@@ -27,6 +28,7 @@ export type BuildSourceDestinationOption =
     };
 
 export interface BuildDocumentCreateSubmitPayload {
+  starter?: boolean;
   title: string;
   destination: BuildSourceDestinationIntent;
 }
@@ -105,6 +107,17 @@ export function BuildDocumentCreateControl({
   disabled = false,
 }: BuildDocumentCreateControlProps) {
   const [createOpen, setCreateOpen] = useState(false);
+  const [starter, setStarter] = useState(true);
+  useEffect(() => {
+    const open = (event: Event) => {
+      if (disabled || creating) return;
+      const action = (event as CustomEvent<BuildStudioAction>).detail;
+      if (action === "new") setCreateOpen(true);
+      if (action === "import") setImportOpen(true);
+    };
+    window.addEventListener(BUILD_STUDIO_ACTION, open);
+    return () => window.removeEventListener(BUILD_STUDIO_ACTION, open);
+  }, [disabled, creating]);
   const [importOpen, setImportOpen] = useState(false);
   const [destinationSelection, setDestinationSelection] = useState<DestinationSelection>(() => ({
     value: normalizeDestinationValue(suggestedDestinationValue, destinationOptions),
@@ -178,7 +191,7 @@ export function BuildDocumentCreateControl({
     if (disabled || creating || !resolvedDestination) return;
     const trimmed = title.trim();
     if (!trimmed) return;
-    onSubmit({ title: trimmed, destination: resolvedDestination });
+    onSubmit({ title: trimmed, destination: resolvedDestination, starter });
   };
 
   const handleImportSubmit = (event: React.FormEvent) => {
@@ -275,6 +288,7 @@ export function BuildDocumentCreateControl({
           >
             Cancel
           </button>
+          <label className="build-starter-choice"><input type="checkbox" checked={starter} onChange={event => setStarter(event.target.checked)} /> Start with worldbuilding prompts</label>
           <button type="submit" data-testid="build-document-create-submit" disabled={!canCreateSubmit}>
             {creating ? "Creating…" : "Create source"}
           </button>
@@ -386,7 +400,7 @@ export function BuildDocumentCreateControl({
       <SurfaceContextPopover
         open={createOpen}
         onOpenChange={setCreateOpen}
-        title="New source"
+        title="New page"
         align="end"
         placement="beside"
         className="surface-context-popover--wide"
@@ -396,7 +410,7 @@ export function BuildDocumentCreateControl({
             onClick={() => setCreateOpen(true)}
             disabled={disabled || creating}
           >
-            + New source
+            + New page
           </SurfaceContextAction>
         }
       >

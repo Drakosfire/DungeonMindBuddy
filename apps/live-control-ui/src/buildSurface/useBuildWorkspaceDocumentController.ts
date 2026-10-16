@@ -1,3 +1,4 @@
+import { buildStarterKey } from "./buildStudioActions";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -276,6 +277,7 @@ export interface BuildWorkspaceDocumentController {
   importError: string | null;
   selectDocument: (documentId: string) => void;
   createDocument: (payload: {
+    starter?: boolean;
     title: string;
     destination: BuildSourceDestinationIntent;
   }) => void;
@@ -721,7 +723,9 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
     async ({
       title,
       destination,
+      starter = false,
     }: {
+      starter?: boolean;
       title: string;
       destination: BuildSourceDestinationIntent;
     }) => {
@@ -744,6 +748,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
           return;
         }
         try {
+          if (starter) sessionStorage.setItem(buildStarterKey(created.record.document_id), "worldbuilding");
           await activateCreatedRecord(created.record);
         } catch (error) {
           const message =

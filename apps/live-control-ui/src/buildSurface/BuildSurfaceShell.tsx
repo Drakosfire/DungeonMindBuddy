@@ -1,3 +1,5 @@
+import { BUILD_STARTER_CONTENT, buildStarterKey, requestBuildStudioAction } from "./buildStudioActions";
+import { BUILD_FIND_EXISTING_TOOL_ID } from "./reference/buildReferenceIds";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { DocumentConversationDock, type PlanConversationPresentationHosts } from "../planSurface/components/PlanConversationDockAdapter";
@@ -42,6 +44,26 @@ function BuildPresentableSourceView({
   onEditorTools?: (tools: AppChromeToolsGeneration | null) => void;
 }) {
   const [outlineVersion, setOutlineVersion] = useState(0);
+  const { openTool, setPaneOpen, surfaceInteractionPublication } = useAgentInteraction();
+  const referenceTool = surfaceInteractionPublication?.tools.find(tool => tool.id === BUILD_FIND_EXISTING_TOOL_ID);
+  useEffect(() => {
+    const editor = session.editor;
+    const record = session.record;
+    if (!editor || !record || navigationTarget.status !== "none") return;
+    const key = buildStarterKey(record.document_id);
+    if (sessionStorage.getItem(key) !== "worldbuilding") return;
+    // Wait for the editor's document-key hydration to settle before consuming
+    // the explicit create intent. It must never target a replaced editor.
+    const timer = window.setTimeout(() => {
+      if (editor.isDestroyed) return;
+      if (editor.isEmpty && !session.snapshot?.markdown.trim() && !session.dirty) {
+        editor.commands.insertContent(BUILD_STARTER_CONTENT);
+        session.handleEditorUpdate(editor.getJSON(), editor, { programmatic: false });
+      }
+      sessionStorage.removeItem(key);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [session.editor, session.documentKey, session.record, session.snapshot, session.dirty, session.handleEditorUpdate, navigationTarget.status]);
   useEffect(() => {
     const editor = session.editor;
     if (!editor) return;
@@ -119,6 +141,19 @@ function BuildPresentableSourceView({
         </div>
       </div>
     </section> : null}
+    <div className="build-authoring-toolbar" role="toolbar" aria-label="Page authoring">
+      <div role="group" aria-label="Format page">
+        <button type="button" aria-pressed={session.editor?.isActive("bold") ?? false} disabled={!session.editor} onClick={() => session.editor?.chain().focus().toggleBold().run()}>Bold</button>
+        <button type="button" aria-pressed={session.editor?.isActive("italic") ?? false} disabled={!session.editor} onClick={() => session.editor?.chain().focus().toggleItalic().run()}>Italic</button>
+        <button type="button" disabled={!session.editor} onClick={() => session.editor?.chain().focus().toggleHeading({level:2}).run()}>Heading</button>
+        <button type="button" disabled={!session.editor} onClick={() => session.editor?.chain().focus().toggleBulletList().run()}>List</button>
+        <button type="button" disabled={!session.editor?.can().undo()} onClick={() => session.editor?.chain().focus().undo().run()}>Undo</button>
+      </div>
+      <div role="group" aria-label="Worldbuilding tools">
+        <button type="button" disabled={referenceTool?.availability.status !== "enabled"} onClick={() => openTool(BUILD_FIND_EXISTING_TOOL_ID)}>Link existing node</button>
+        <button type="button" onClick={() => setPaneOpen(true)}>Ask Agent</button>
+      </div>
+    </div>
     <MarkdownCanvas slots={editSlots} />
   </div>;
 }
@@ -191,6 +226,7 @@ export function BuildEmptyLanding({ loadStatus }: { loadStatus: "idle" | "loadin
             </div>
           </div>
         </div>
+        {!isLoading && !hasError ? <button type="button" className="build-studio-start" onClick={() => requestBuildStudioAction("new")}>Make this page yours →</button> : null}
         {isLoading ? (
           <p className="build-empty-landing__status" role="status">Finding your worldbuilding sources…</p>
         ) : hasError ? (
@@ -199,34 +235,34 @@ export function BuildEmptyLanding({ loadStatus }: { loadStatus: "idle" | "loadin
           <section className="build-empty-landing__begin" aria-labelledby="build-empty-landing-steps">
             <p className="build-empty-landing__eyebrow" id="build-empty-landing-steps">CHOOSE YOUR FIRST STEP</p>
             <div className="build-empty-landing__paths" aria-label="Ways to begin">
-              <section>
+              <button type="button" onClick={() => requestBuildStudioAction("open")}>
                 <span className="build-empty-landing__step">01</span>
                 <div>
                   <p className="build-empty-landing__path-label">PICK UP WHERE YOU LEFT OFF</p>
                   <h2>Open a page</h2>
                   <p>Choose a saved worldbuilding source in the Build bar above.</p>
                 </div>
-              </section>
-              <section>
+              </button>
+              <button type="button" onClick={() => requestBuildStudioAction("new")}>
                 <span className="build-empty-landing__step">02</span>
                 <div>
                   <p className="build-empty-landing__path-label">BEGIN WITH A CLEAN PAGE</p>
                   <h2>Start something new</h2>
                   <p>
-                    Choose <strong>New source</strong> in Source actions and give your idea a title.
+                    Give this starter a title, then make it your own.
                   </p>
                 </div>
-              </section>
-              <section>
+              </button>
+              <button type="button" onClick={() => requestBuildStudioAction("import")}>
                 <span className="build-empty-landing__step">03</span>
                 <div>
                   <p className="build-empty-landing__path-label">ALREADY HAVE NOTES?</p>
                   <h2>Bring your lore</h2>
                   <p>
-                    Choose <strong>Import source</strong> to continue from existing Markdown.
+                    Continue from your existing Markdown notes.
                   </p>
                 </div>
-              </section>
+              </button>
             </div>
           </section>
         )}
@@ -258,7 +294,7 @@ export function BuildSurfaceShell({ onEditorTools }: { onEditorTools?: (tools: A
   const hasSharedEditSave = (surfaceInteractionPublication?.editCommands ?? []).some(
     (command) => command.id === BUILD_DOCUMENT_SAVE_COMMAND_ID,
   );
-  const slots = useBuildMarkdownCanvasSlots({ hideFooterSave: hasSharedEditSave });
+  const slots = useBuildMarkdownCanvasSlots({ hideFooterSave: hasSharedEditSave, hideDraftTools: true });
   const conversationContext = useMemo(() => session.record?.world_id && session.record.content_status === "committed"
     && session.snapshot && isPresentableSourcePhase(session.phase) ? {
       worldId: session.record.world_id, documentId: session.record.document_id,
