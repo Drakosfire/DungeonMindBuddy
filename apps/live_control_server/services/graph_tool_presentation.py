@@ -75,7 +75,23 @@ class GraphToolPresentation:
                     if page.get("nextPageToken") is None or complete_claim:
                         payload, value = detail, page
             if value.get("schema") == OVERVIEW_SCHEMA:
-                payload = self._initial_records(value, result.value)
+                if arguments.get("operation") == "object":
+                    payload = self._initial_records(value, result.value)
+                else:
+                    # Search/neighborhood exist to discover the next target.
+                    # Do not spend their hint budget on unrelated exact edges.
+                    value["detailUse"] = (
+                        "Fetch the needed complete detail record via resultPageToken before claiming facts. "
+                        "Do not drain unrelated pages."
+                    )
+                    value["interpretation"] = (
+                        "Discovery only; use subjectNodeId for object expansion. "
+                        "Source reads do not admit hidden targets. Open the supporting source."
+                    )
+                    payload = json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+                    from .graph_tool_transport import PAGE_BYTES
+                    if len(payload.encode()) > PAGE_BYTES:
+                        raise ValueError("Parent discovery exceeds presentation budget")
         if value.get("schema") in {PAGE_SCHEMA, OVERVIEW_SCHEMA}:
             self._results[value["resultId"]] = result
         elif payload != raw:

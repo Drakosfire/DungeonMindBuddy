@@ -26,6 +26,7 @@ def detail_pages(parent, first, tool=TOOL, args=ARGS):
 
 
 def test_initial_complete_records_and_details_authorize_exact_subsets_and_repeats():
+    args = {**ARGS, "operation": "object"}
     parent = GraphToolPresentation(SCOPE)
     raw = json.loads(_raw())
     raw["relationships"] = [
@@ -41,13 +42,13 @@ def test_initial_complete_records_and_details_authorize_exact_subsets_and_repeat
     ]
     raw["sourceAnchors"][0]["evidenceRefId"] = "e:one"
     event_id = uuid4()
-    first = parent.present(TOOL, ARGS, json.dumps(raw), event_id)
+    first = parent.present(TOOL, args, json.dumps(raw), event_id)
     (overview,) = parent.inclusion(TOOL, [first])
     assert overview.assertion_ids and len(overview.assertion_ids) < 80
     assert not overview.relationship_ids
     assert overview.evidence_ref_ids == {"e:one"}
     assert not overview.complete
-    pages = detail_pages(parent, first)
+    pages = detail_pages(parent, first, args=args)
     (partial,) = parent.inclusion(TOOL, pages[:1])
     assert partial.assertion_ids and len(partial.assertion_ids) < 80
     assert not partial.relationship_ids
@@ -191,6 +192,7 @@ def test_parent_bytes_survive_real_harness_dispatch_and_provider_serializer(
             )
             install_graph_serial_dispatch(harness)
             call = _call(0)
+            call.function.arguments = json.dumps({"operation": "object", "targets": [{"kind": "node", "id": "npc:0"}]})
             assistant = {
                 "role": "assistant",
                 "content": None,

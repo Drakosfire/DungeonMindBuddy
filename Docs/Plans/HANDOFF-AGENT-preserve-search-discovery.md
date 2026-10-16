@@ -14,3 +14,5 @@ Latest live trial49b269d7 recovered from selected_observation_unavailable but wa
 - tests/test_agent_initial_complete_records.py
 
 Verify native-like mixed matches/relationships preserve exact owner/excerpt hints within8KB and do not admit discovery IDs; object whole-record and existing detail/SDK/APP boundaries remain passing. Re-run the private read-only pinned query to confirm FloatGoat owner visibility. No provider/serving/retained-state/Graph publication/UI/dependency changes during implementation. Complete pushed PR and exact-head independent review. Preserve task beginning/end refs.
+
+Author verification:83 focused tests pass across discovery starvation, exact object presentation, SDK serialization/capacity, transport pagination and29 real disposable-APP Build cases. The pinned real query replay now preserves all6cache-visible observation hints, including FloatGoat assertion4d8 with Elderwyld owner, in7,783bytes; before-state had0hints in7,961bytes. Original failed diagnostic is preserved separately. No provider call or serving/state change during implementation. Ruff/diff checks pass. Ordinary successful answer remains unproved.
