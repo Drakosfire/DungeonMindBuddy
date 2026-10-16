@@ -1,6 +1,6 @@
 # APP: explicit uncapped execution authorization
 
-Status: ACTIVE — PRIME implementation under operator's standing instruction to remove fixed call/Graph-operation caps; ARCHITECTURE owns independent review.
+Status: MERGED — PR #1224 at `fc2807af1df456f47c71592a7fe404a1852e3048`; bounded implementation lease ended. Previous activation: ACTIVE — PRIME implementation under operator's standing instruction to remove fixed call/Graph-operation caps; ARCHITECTURE owns independent review.
 
 ## Invariant and activation
 

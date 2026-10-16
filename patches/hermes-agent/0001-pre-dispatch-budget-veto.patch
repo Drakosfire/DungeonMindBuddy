@@ -1,3 +1,16 @@
+diff --git a/agent/agent_init.py b/agent/agent_init.py
+index c5826b4..0719318 100644
+--- a/agent/agent_init.py
++++ b/agent/agent_init.py
+@@ -284,7 +284,7 @@ def init_agent(
+     command: str = None,
+     args: list[str] | None = None,
+     model: str = "",
+-    max_iterations: int = 90,  # Default tool-calling iterations (shared with subagents)
++    max_iterations: int | None = 90,  # Default tool-calling iterations (shared with subagents)
+     tool_delay: float = 1.0,
+     enabled_toolsets: List[str] = None,
+     disabled_toolsets: List[str] = None,
 diff --git a/agent/api_request_budget.py b/agent/api_request_budget.py
 new file mode 100644
 index 0000000..237db84
@@ -143,10 +156,10 @@ index b93dcf6..a8c5b73 100644
 -            ),
 +            ) and getattr(agent, "api_request_budget_guard", None) is None,
          )
- 
+
      # ── chat_completions (default) ─────────────────────────────────────
 @@ -1188,7 +1188,11 @@ def build_assistant_message(agent, assistant_message, finish_reason: str) -> dic
- 
+
      # Codex Responses API: preserve encrypted reasoning items for
      # multi-turn continuity. These get replayed as input on the next turn.
 -    codex_items = getattr(assistant_message, "codex_reasoning_items", None)
@@ -157,7 +170,7 @@ index b93dcf6..a8c5b73 100644
 +    )
      if codex_items:
          msg["codex_reasoning_items"] = codex_items
- 
+
 diff --git a/agent/codex_runtime.py b/agent/codex_runtime.py
 index c1e46e8..9857b42 100644
 --- a/agent/codex_runtime.py
@@ -167,7 +180,7 @@ index c1e46e8..9857b42 100644
      """
      import httpx as _httpx
 +    from agent.api_request_budget import ApiRequestBudgetVeto
- 
+
      active_client = client or agent._ensure_primary_openai_client(reason="codex_stream_direct")
 -    max_stream_retries = 1
 +    # The conversation loop's parent authorization is single-use. A local
@@ -228,9 +241,9 @@ index c1e46e8..9857b42 100644
 +        raise ApiRequestBudgetVeto(code="provider_lifecycle_unavailable")
      # Accumulate streamed text so callers / compat shims can read it.
      agent._codex_streamed_text_parts: list = []
- 
+
 @@ -878,7 +934,21 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
- 
+
          try:
              event_stream = active_client.responses.create(**stream_kwargs)
 +            if not lifecycle("sdk_entered"):
@@ -260,7 +273,7 @@ index c1e46e8..9857b42 100644
 +            if callable(getattr(agent, "api_request_budget_guard", None)):
 +                abort_guarded_attempt("provider_exception_ambiguous")
 +            raise
- 
+
          try:
              # Compatibility: some mocks/providers return a concrete response
              # instead of an iterable.  Pass it straight through.
@@ -268,7 +281,7 @@ index c1e46e8..9857b42 100644
 +                if callable(getattr(agent, "api_request_budget_guard", None)) and not lifecycle("response_received"):
 +                    abort_guarded_attempt("lifecycle_ack_denied")
                  return event_stream
- 
+
              try:
 @@ -905,6 +982,9 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
                      interrupt_check=_interrupt_check,
@@ -283,7 +296,7 @@ index c1e46e8..9857b42 100644
 @@ -915,6 +995,17 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
                      continue
                  raise
- 
+
 +            if final.status != "completed":
 +                lifecycle("outcome_unknown")
 +                if callable(getattr(agent, "api_request_budget_guard", None)):
@@ -299,7 +312,7 @@ index c1e46e8..9857b42 100644
                  logger.warning(
                      "Codex Responses stream terminal status=%s "
 diff --git a/agent/conversation_loop.py b/agent/conversation_loop.py
-index 12c80a8..6cd8744 100644
+index 12c80a8..84adda3 100644
 --- a/agent/conversation_loop.py
 +++ b/agent/conversation_loop.py
 @@ -34,6 +34,7 @@ from agent.error_classifier import FailoverReason, classify_api_error
@@ -322,7 +335,19 @@ index 12c80a8..6cd8744 100644
      if moa_config is None:
          try:
              from hermes_cli.moa_config import decode_moa_turn
-@@ -1321,9 +1327,23 @@ def run_conversation(
+@@ -640,7 +646,10 @@ def run_conversation(
+             should_review_memory=_should_review_memory,
+         )
+
+-    while (api_call_count < agent.max_iterations and agent.iteration_budget.remaining > 0) or agent._budget_grace_call:
++    while (
++        (agent.max_iterations is None or api_call_count < agent.max_iterations)
++        and (agent.iteration_budget.remaining is None or agent.iteration_budget.remaining > 0)
++    ) or agent._budget_grace_call:
+         # Reset per-turn checkpoint dedup so each iteration can take one snapshot
+         agent._checkpoint_mgr.new_turn()
+
+@@ -1321,9 +1330,23 @@ def run_conversation(
                      if agent.api_mode == "codex_responses":
                          next_api_kwargs = agent._get_transport().preflight_kwargs(
                              next_api_kwargs,
@@ -347,7 +372,7 @@ index 12c80a8..6cd8744 100644
                      if _use_streaming:
                          return agent._interruptible_streaming_api_call(
                              next_api_kwargs, on_first_delta=_stop_spinner
-@@ -2296,7 +2316,39 @@ def run_conversation(
+@@ -2296,7 +2319,39 @@ def run_conversation(
                          pass
                  agent._touch_activity(f"API call #{api_call_count} completed")
                  break  # Success, exit retry loop
@@ -388,12 +413,110 @@ index 12c80a8..6cd8744 100644
              except InterruptedError:
                  if thinking_spinner:
                      thinking_spinner.stop("")
+@@ -5349,7 +5404,7 @@ def run_conversation(
+             # role-alternation invariants.
+
+             # If we're near the limit, break to avoid infinite loops
+-            if api_call_count >= agent.max_iterations - 1:
++            if agent.max_iterations is not None and api_call_count >= agent.max_iterations - 1:
+                 _turn_exit_reason = f"error_near_max_iterations({error_msg[:80]})"
+                 final_response = f"I apologize, but I encountered repeated errors: {error_msg}"
+                 # Append as assistant so the history stays valid for
+diff --git a/agent/iteration_budget.py b/agent/iteration_budget.py
+index 213b97c..05d5b4e 100644
+--- a/agent/iteration_budget.py
++++ b/agent/iteration_budget.py
+@@ -19,6 +19,7 @@ class IterationBudget:
+
+     Each agent (parent or subagent) gets its own ``IterationBudget``.
+     The parent's budget is capped at ``max_iterations`` (default 90).
++    Explicit ``None`` removes the count ceiling while preserving usage accounting.
+     Each subagent gets an independent budget capped at
+     ``delegation.max_iterations`` (default 50) — this means total
+     iterations across parent + subagents can exceed the parent's cap.
+@@ -29,7 +30,7 @@ class IterationBudget:
+     :meth:`refund` so they don't eat into the budget.
+     """
+
+-    def __init__(self, max_total: int):
++    def __init__(self, max_total: int | None):
+         self.max_total = max_total
+         self._used = 0
+         self._lock = threading.Lock()
+@@ -37,7 +38,7 @@ class IterationBudget:
+     def consume(self) -> bool:
+         """Try to consume one iteration.  Returns True if allowed."""
+         with self._lock:
+-            if self._used >= self.max_total:
++            if self.max_total is not None and self._used >= self.max_total:
+                 return False
+             self._used += 1
+             return True
+@@ -54,9 +55,9 @@ class IterationBudget:
+             return self._used
+
+     @property
+-    def remaining(self) -> int:
++    def remaining(self) -> int | None:
+         with self._lock:
+-            return max(0, self.max_total - self._used)
++            return None if self.max_total is None else max(0, self.max_total - self._used)
+
+
+ __all__ = ["IterationBudget"]
+diff --git a/agent/turn_finalizer.py b/agent/turn_finalizer.py
+index 1adc3c6..33ae0fc 100644
+--- a/agent/turn_finalizer.py
++++ b/agent/turn_finalizer.py
+@@ -52,8 +52,8 @@ def finalize_turn(
+     from agent.conversation_loop import logger
+
+     budget_exhausted = (
+-        api_call_count >= agent.max_iterations
+-        or agent.iteration_budget.remaining <= 0
++        (agent.max_iterations is not None and api_call_count >= agent.max_iterations)
++        or (agent.iteration_budget.remaining is not None and agent.iteration_budget.remaining <= 0)
+     )
+     budget_fallback_eligible = (
+         budget_exhausted
+@@ -151,7 +151,8 @@ def finalize_turn(
+         final_response is not None
+         and not failed
+         and (
+-            api_call_count < agent.max_iterations
++            agent.max_iterations is None
++            or api_call_count < agent.max_iterations
+             or normal_text_response
+         )
+     )
+@@ -257,7 +258,7 @@ def finalize_turn(
+     _budget_max = agent.iteration_budget.max_total if agent.iteration_budget else 0
+
+     _diag_msg = (
+-        "Turn ended: reason=%s model=%s api_calls=%d/%d budget=%d/%d "
++        "Turn ended: reason=%s model=%s api_calls=%d/%s budget=%d/%s "
+         "tool_turns=%d last_msg_role=%s response_len=%d session=%s"
+     )
+     _diag_args = (
+diff --git a/run_agent.py b/run_agent.py
+index fe378f3..ebef233 100644
+--- a/run_agent.py
++++ b/run_agent.py
+@@ -424,7 +424,7 @@ class AIAgent:
+         command: str = None,
+         args: list[str] | None = None,
+         model: str = "",
+-        max_iterations: int = 90,  # Default tool-calling iterations (shared with subagents)
++        max_iterations: int | None = 90,  # Default tool-calling iterations (shared with subagents)
+         tool_delay: float = 1.0,
+         enabled_toolsets: List[str] = None,
+         disabled_toolsets: List[str] = None,
 diff --git a/tests/agent/test_pre_dispatch_budget_veto.py b/tests/agent/test_pre_dispatch_budget_veto.py
 new file mode 100644
-index 0000000..9daf11b
+index 0000000..7f2dfb4
 --- /dev/null
 +++ b/tests/agent/test_pre_dispatch_budget_veto.py
-@@ -0,0 +1,514 @@
+@@ -0,0 +1,600 @@
 +"""Terminal request-budget rejection at the common SDK dispatch boundary."""
 +
 +from __future__ import annotations
@@ -422,13 +545,14 @@ index 0000000..9daf11b
 +        base_url="http://127.0.0.1:9/v1",
 +        provider="openai-api",
 +        model="synthetic-model",
++        max_iterations=4,
 +    ):
 +        return AIAgent(
 +            api_key="synthetic-test-key",
 +            base_url=base_url,
 +            provider=provider,
 +            model=model,
-+            max_iterations=4,
++            max_iterations=max_iterations,
 +            enabled_toolsets=[],
 +            quiet_mode=True,
 +            skip_context_files=True,
@@ -908,3 +1032,88 @@ index 0000000..9daf11b
 +    )
 +    stored = agent._build_assistant_message(response, "stop")
 +    assert stored["codex_reasoning_items"] == response.codex_reasoning_items
++
++
++@pytest.mark.parametrize("maximum", [None, 3])
++def test_iteration_budget_nullable_accounting_and_refund(maximum):
++    from agent.iteration_budget import IterationBudget
++    budget = IterationBudget(maximum)
++    count = 2000 if maximum is None else 3
++    assert all(budget.consume() for _ in range(count))
++    assert budget.used == count
++    assert budget.remaining is None if maximum is None else budget.remaining == 0
++    if maximum is not None:
++        assert budget.consume() is False
++    budget.refund()
++    assert budget.used == count - 1
++    assert budget.consume() is True
++    assert budget.used == count
++
++
++@pytest.mark.parametrize("maximum,stop", [(None, "answer"), (None, "cancel"), (None, "veto"), (3, "finite")])
++def test_real_conversation_nullable_iteration_exit(agent_factory, maximum, stop):
++    from openai.types.chat import ChatCompletion
++    agent = agent_factory(max_iterations=maximum)
++    agent.api_mode = "chat_completions"
++    agent._disable_streaming = True
++    agent.compression_enabled = False
++    agent._persist_disabled = True
++    agent.valid_tool_names = ["synthetic_lookup"]
++    agent.tools = [{"type": "function", "function": {"name": "synthetic_lookup", "description": "Offline test", "parameters": {"type": "object", "properties": {}}}}]
++    calls = []
++    tool_steps = []
++    summaries = []
++    agent._handle_max_iterations = lambda *_a: summaries.append(True) or "finite summary"
++    def tool(message, messages, *_args):
++        tool_steps.append(message.tool_calls[0].id)
++        messages.append({"role": "tool", "tool_call_id": message.tool_calls[0].id, "name": "synthetic_lookup", "content": "synthetic result"})
++    agent._execute_tool_calls = tool
++    def response(_kwargs):
++        calls.append(True)
++        i = len(calls)
++        if i == 92:
++            message = {"role": "assistant", "content": "Source-backed answer"}
++            finish = "stop"
++        else:
++            message = {"role": "assistant", "content": None, "tool_calls": [{"id": f"call-{i}", "type": "function", "function": {"name": "synthetic_lookup", "arguments": "{}"}}]}
++            finish = "tool_calls"
++        if i == 91 and stop == "cancel":
++            agent._interrupt_requested = True
++        return ChatCompletion.model_validate({"id": f"response-{i}", "object": "chat.completion", "created": 0, "model": "synthetic-model", "choices": [{"index": 0, "message": message, "finish_reason": finish}], "usage": {"prompt_tokens": 10, "completion_tokens": 1, "total_tokens": 11}})
++    agent._interruptible_api_call = response
++    authorizations = []
++    def allow(_view):
++        authorizations.append(True)
++        return not (stop == "veto" and len(authorizations) == 92)
++    agent.api_request_budget_guard = allow
++    result = agent.run_conversation("Offline iteration test", conversation_history=[], task_id="uncapped-test")
++    if stop == "finite":
++        assert len(calls) == 3
++        assert summaries == [True]
++    else:
++        assert len(calls) >= 91
++        assert not summaries
++        assert agent.iteration_budget.used >= 91
++        assert agent.iteration_budget.max_total is None
++        assert agent.iteration_budget.remaining is None
++        if stop == "answer":
++            assert len(calls) == 92
++            assert result["final_response"] == "Source-backed answer"
++            assert result["completed"] is True
++        elif stop == "veto":
++            assert len(calls) == 91
++            assert result["failure_code"] == "request_budget_exceeded"
++        else:
++            assert len(calls) == 91
++            assert result["interrupted"] is True
++    assert agent._session_init_model_config["max_iterations"] == maximum
++    import json
++    json.dumps(agent._session_init_model_config, allow_nan=False)
++
++
++def test_default_iteration_limit_remains_explicitly_finite():
++    import inspect
++    from run_agent import AIAgent
++    from agent.agent_init import init_agent
++    assert inspect.signature(AIAgent).parameters["max_iterations"].default == 90
++    assert inspect.signature(init_agent).parameters["max_iterations"].default == 90
