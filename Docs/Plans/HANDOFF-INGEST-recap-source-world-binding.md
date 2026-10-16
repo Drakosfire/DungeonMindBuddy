@@ -54,6 +54,12 @@ PRIME expands the same capability's expected write set after verifying the direc
 - tests/test_recap_literal_evidence_correction.py
 - tests/test_recap_source_content_root.py
 - tests/test_recap_source_observation_followup.py
+- tests/test_graph_object_authoring_prepare.py
+- tests/test_graph_object_authoring_routes.py
+- tests/test_graph_object_authoring_published_recap_write.py
+- tests/test_session28_retained_package_registration.py
+
+The authoring and retained-package owning tests are explicitly included for the already-leased creator callers. Change campaign-as-World fallback only where needed to enforce this source contract; do not redesign unrelated authoring or Worldbuilding workflows.
 
 Changes in these paths are restricted to adopting the new explicit native-World source contract and necessary identity/lineage fixture assertions. Synthetic tests may name an explicit fixture World; real evaluation entrypoints must use verified existing native-World input or require explicit input and refuse if absent, never derive authority from a campaign/title/default. Do not run private corpus evaluation or publication. Preserve negative tests for missing/foreign World rather than changing them into happy paths. Report inherited failures separately; no unrelated test rewriting.
 
