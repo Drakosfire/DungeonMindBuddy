@@ -430,7 +430,7 @@ button.ingest-welcome-action {
   }
 
   .ingest-local-nav__identity {
-    grid-template-columns: minmax(0, 1fr) minmax(5.5rem, 0.45fr);
+    grid-template-columns: minmax(0, 1fr) minmax(9rem, 0.65fr);
     gap: 0.5rem;
   }
 
@@ -484,5 +484,11 @@ button.ingest-welcome-action {
 
   .ingest-source-review-metadata dd {
     margin-block-end: 0.35rem;
+  }
+}
+
+@media (max-width: 22.5rem) {
+  .ingest-local-nav__identity {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
