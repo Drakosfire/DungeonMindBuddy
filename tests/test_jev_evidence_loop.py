@@ -363,7 +363,7 @@ def test_coverage_acquires_all_useful_actions_as_one_validated_wave(tmp_path):
     assert result['rounds'][-1]['coverage_judgment'] == 'legal_catalog_exhausted_not_world_complete'
 
 
-@pytest.mark.parametrize('fault,expected', [('unknown','coverage_unknown'),
+@pytest.mark.parametrize('fault,expected', [('unknown','retrieval_unavailable_or_invalid'),
     ('missing_key','challenge_unavailable_or_invalid'), ('partial_batch','retrieval_unavailable_or_invalid')])
 def test_coverage_unknown_malformed_and_partial_wave_hold_success(tmp_path, fault, expected):
     snap = fixture()
@@ -371,6 +371,8 @@ def test_coverage_unknown_malformed_and_partial_wave_hold_success(tmp_path, faul
     decisions_count = []
     async def acquire(actions):
         loaded = {a['id']: [snap['units'][uid] for uid in a['unit_ids']] for a in actions}
+        if fault == 'unknown' and len(actions) > 1:
+            raise TimeoutError()
         if fault == 'partial_batch' and len(actions) > 1:
             loaded.pop('a3')
         return loaded
@@ -397,3 +399,26 @@ def test_experimental_stopping_policies_are_mutually_exclusive(tmp_path):
         asyncio.run(run_loop(fixture(), None, output=tmp_path/'run', challenge_before_stop=True,
                              coverage_before_stop=True))
     assert not (tmp_path/'run').exists()
+
+
+@pytest.mark.parametrize('label,probability,reads,unknown', [
+    ('useful', .0, ['a1'], []), ('unknown', .5, ['a1'], ['a1']),
+    ('not_useful', .62, ['a1'], ['a1']), ('not_useful', .95, [], []),
+    ('not_useful', None, ['a1'], ['a1']),
+])
+def test_coverage_only_skips_confident_negative_hints(label, probability, reads, unknown):
+    from evals.graph_memory_layer.jev_evidence_loop import coverage_disposition
+    answer = {'selected':label}
+    if probability is not None:
+        answer['probabilities'] = {'not_useful':probability}
+    chosen, uncertain, skipped = coverage_disposition([{'id':'a1'}], {'use_a1':answer}, .9)
+    assert chosen == reads and uncertain == unknown
+    assert skipped == ([] if reads else ['a1'])
+
+
+@pytest.mark.parametrize('probability', [True, float('nan'), -1, 1.2, 'high'])
+def test_invalid_coverage_probability_cannot_exclude_evidence(probability):
+    from evals.graph_memory_layer.jev_evidence_loop import coverage_disposition
+    with pytest.raises(ValueError, match='probability'):
+        coverage_disposition([{'id':'a1'}], {'use_a1': {'selected':'not_useful',
+            'probabilities': {'not_useful':probability}}}, .9)

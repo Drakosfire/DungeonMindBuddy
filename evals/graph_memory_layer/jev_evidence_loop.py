@@ -122,6 +122,27 @@ def coverage_request(snapshot: dict, units: list[dict], available: list[dict]) -
             "max_transport_retries": 0, "deadline_ms": 120000}
 
 
+def coverage_disposition(available: list[dict], judgments: dict, exclusion_min: float):
+    """Acquire uncertain hints; only confidently irrelevant hints may be skipped."""
+    chosen, uncertain, excluded = [], [], []
+    for action in available:
+        aid = action["id"]
+        answer = judgments["use_" + aid]
+        label = answer["selected"]
+        probability = (answer.get("probabilities") or {}).get("not_useful")
+        if probability is not None and (isinstance(probability, bool)
+                or not isinstance(probability, (int, float)) or not math.isfinite(probability)
+                or not 0 <= probability <= 1):
+            raise ValueError("Invalid coverage exclusion probability")
+        if label == "not_useful" and probability is not None and probability >= exclusion_min:
+            excluded.append(aid)
+        else:
+            chosen.append(aid)
+            if label != "useful":
+                uncertain.append(aid)
+    return chosen, uncertain, excluded
+
+
 def validate_answers(request: dict, result: dict) -> dict:
     observation = result.get("observation", {})
     if observation.get("response_model") != request["model"]:
@@ -148,8 +169,10 @@ async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], 
                    retrieve: Callable[[dict], Awaitable[list[dict]]] | None = None,
                    retrieve_many: Callable[[list[dict]], Awaitable[dict[str, list[dict]]]] | None = None,
                    question_only: bool = False, challenge_before_stop: bool = False,
-                   coverage_before_stop: bool = False) -> dict:
+                   coverage_before_stop: bool = False, coverage_exclusion_min: float = 0.9) -> dict:
     """Acquire legal actions; optional live reader owns immutable source proof."""
+    if not 0 <= coverage_exclusion_min <= 1:
+        raise ValueError("Invalid experimental coverage exclusion threshold")
     if challenge_before_stop and coverage_before_stop:
         raise ValueError("Choose one experimental stopping policy")
     if question_only:
@@ -295,8 +318,7 @@ async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], 
                     observations.append(decision.get("observation", {}))
                     judgments = validate_answers(challenge, decision)
                     if coverage_before_stop:
-                        chosen = [a["id"] for a in available if judgments["use_" + a["id"]]["selected"] == "useful"]
-                        unknown = [a["id"] for a in available if judgments["use_" + a["id"]]["selected"] == "unknown"]
+                        chosen, unknown, excluded = coverage_disposition(available, judgments, coverage_exclusion_min)
                         answer = "expand_wave" if chosen else "unknown" if unknown else "none"
                     else:
                         answer = judgments["challenge_action"]["selected"]
@@ -315,7 +337,8 @@ async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], 
                 row["challenge"] = {"selected_action": answer, "request_sha256": digest(challenge),
                                     "elapsed_seconds": time.perf_counter() - challenge_started}
                 if coverage_before_stop:
-                    row["challenge"].update(selected_actions=chosen, unknown_actions=unknown,
+                    row["challenge"].update(selected_actions=chosen, unknown_actions=unknown, excluded_actions=excluded,
+                                            exclusion_threshold=coverage_exclusion_min,
                                             action_judgments={a["id"]: judgments["use_" + a["id"]]["selected"] for a in available})
                 if answer == "unknown":
                     status = "coverage_unknown"
@@ -351,6 +374,7 @@ async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], 
               "planning_mode": "question_only" if question_only else "manual_requirements_and_seeds",
               "challenge_before_stop": challenge_before_stop,
               "coverage_before_stop": coverage_before_stop,
+              "coverage_exclusion_min": coverage_exclusion_min,
               "selected_evidence": [u for u in seen.values() if u["id"] in selected],
               "retrieved_unit_ids": [u["id"] for u in seen.values()],
               "observations": observations, "elapsed_seconds": time.perf_counter() - started,

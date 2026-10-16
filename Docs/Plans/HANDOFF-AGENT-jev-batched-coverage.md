@@ -30,3 +30,13 @@ batched owning-reader validation, gold exclusion, recorded decisions/stops/usage
 After independent policy review, run exact saved-source Float/Council read-only,
 record coverage/classes/latency/token changes and independent semantic review.
 No automatic generic accuracy, answer quality or ordinary adoption clearance.
+
+First frozen policy run is preserved at controller-batched-coverage-01, implementation
+197b7f6f2b2c323eab0b37e261edeca812d8a07e:7/9 (missed competing record;
+collection held on unrelated unknown). In-scope refinement: use decision uncertainty
+to acquire evidence rather than promote exclusion. Only not_useful with valid
+probability at/above an explicit experimental exclusion threshold may skip a read;
+other judgments open the legal action and require full reevaluation. Default trial
+threshold0.9 is a conservative experiment setting, not calibrated truth or call cap.
+Retain raw decisions; reuse recorded responses for byte-identical requests and report
+fresh provider calls separately. No fixture tuning. Acquisition failure still holds.
