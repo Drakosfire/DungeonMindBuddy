@@ -299,9 +299,9 @@ def _authorization_worker_main(request_queue: Any, response_queue: Any) -> None:
         _put_json(response_queue, {"type": "accepted", "requestId": request_id})
         if _await_proceed_or_shutdown(request_queue, request_id) == "shutdown":
             return
-        payload_json = '{"model":"test-model"}'
+        payload_json = json.dumps({"model": "test-model", "input": "x" * int(message["payload"].get("requestBudget", {}).get("maxProviderRequestBytes", 0) // 2)})
         authorization_id = f"{request_id}:1"
-        _put_json(response_queue, {
+        authorization_frame = {
             "type": "provider_authorization_request",
             "requestId": request_id,
             "authorizationId": authorization_id,
@@ -314,7 +314,9 @@ def _authorization_worker_main(request_queue: Any, response_queue: Any) -> None:
                 "payloadSha256": hashlib.sha256(payload_json.encode()).hexdigest(),
                 "payloadUtf8Bytes": len(payload_json.encode()),
             },
-        })
+        }
+        from apps.live_control_server.services.hermes_graph_agent_contract import encode_provider_authorization_wire, provider_request_byte_limit
+        response_queue.put(encode_provider_authorization_wire(authorization_frame, body_limit=provider_request_byte_limit(message["payload"].get("requestBudget"))))
         response = decode_json_wire(request_queue.get(timeout=10))
         status = "ok" if response.get("allowOnce") is True else "error"
         result = serialize_hermes_graph_agent_turn_result(
@@ -3710,3 +3712,63 @@ def test_oversized_model_calls_truncated_fail_open() -> None:
     assert "model_calls_truncated" in restored.telemetry_warnings
     assert wire["observedModelCallCount"] == MAX_MODEL_CALLS + 1
     assert restored.observed_model_call_count == MAX_MODEL_CALLS + 1
+
+
+@pytest.mark.parametrize("allow", [True, False])
+def test_large_provider_frame_reaches_correlated_parent_gate(allow):
+    host = HermesGraphAgentHost(worker_target=_authorization_worker_main)
+    views = []
+    try:
+        result = host.execute(
+            _request(provider_authorization_required=True,
+                     request_budget={**_synthetic_request_budget(), "maxProviderRequestBytes": 1_050_000}),
+            on_provider_authorization=lambda view: (views.append(dict(view)) or allow),
+        )
+        assert len(views) == 1
+        assert views[0]["payloadUtf8Bytes"] > MAX_WIRE_BYTES
+        assert (result.status == "ok") is allow
+        if not allow:
+            assert result.error_code == "authorization_denied"
+    finally:
+        host.shutdown()
+
+
+def _large_real_worker_boundary(request_queue, response_queue):
+    # Replace inference only: exercise the actual production worker authorization
+    # callback, serialization, parent gate and terminal error propagation.
+    from types import SimpleNamespace
+    import apps.live_control_server.services.hermes_graph_agent as agent
+
+    def synthetic_turn(request, **callbacks):
+        payload = json.dumps({"input": "x" * 300_000})
+        view = SimpleNamespace(provider="openai-api", model="test-model",
+                               api_mode="codex_responses", base_url=None,
+                               payload_json=payload,
+                               payload_sha256=hashlib.sha256(payload.encode()).hexdigest(),
+                               payload_utf8_bytes=len(payload.encode()))
+        allowed = callbacks["on_provider_authorization"](view)
+        return HermesGraphAgentTurnResult(
+            status="ok" if allowed else "error", final_response="authorized" if allowed else None,
+            messages=[], hermes_session_id="synthetic", tool_events=[],
+            error_code=None if allowed else "provider_authorization_denied",
+            error_message=None if allowed else "denied",
+        )
+
+    agent.run_hermes_graph_agent_turn = synthetic_turn
+    hermes_graph_agent_worker_main(request_queue, response_queue)
+
+
+@pytest.mark.parametrize("limit,expected", [(256_000, "provider_request_bytes_exceeded"), (1_050_000, None)])
+def test_real_worker_size_failure_is_explicit_and_large_request_authorizes(limit, expected):
+    host = HermesGraphAgentHost(worker_target=_large_real_worker_boundary)
+    views = []
+    try:
+        result = host.execute(
+            _request(provider_authorization_required=True,
+                     request_budget={**_synthetic_request_budget(), "maxProviderRequestBytes": limit}),
+            on_provider_authorization=lambda view: (views.append(dict(view)) or True),
+        )
+        assert result.error_code == expected
+        assert len(views) == (0 if expected else 1)
+    finally:
+        host.shutdown()
