@@ -381,6 +381,8 @@ def _app_state_graph_execution_types() -> Any:
         "PlanWorldGraphExecutionV1",
         "PlanWorldGraphExecutionV3",
         "GraphExecutionPolicyV3",
+        "SettledGraphExecutionPolicyV3",
+        "source_read_character_usage",
         "ValidatedGraphOperationEventV3",
         "SourceScopeExtensionEventV3",
         "ProviderAttemptAuthorizedEventV3",
@@ -1065,7 +1067,8 @@ def _freeze_policy_receipt(
             )
             if selected_index:
                 policy_fields["policy_version"] = "world_graph_execution_selected_scope_uncapped_v1" if budget["maxProviderAttempts"] is None else "plan_world_graph_execution_selected_scope_v1"
-            policy = graph_types.GraphExecutionPolicyV3(
+            policy = graph_types.SettledGraphExecutionPolicyV3(
+                source_read_accounting="settled_receipts_v1",
                 **policy_fields,
                 source_read_scope=scope,
                 max_source_read_chars=96_000,
@@ -2476,7 +2479,7 @@ class _PolicyExecutionAdapter:
                     or sum(len(event.anchors) for event in prior_auth) + len(request.anchor_ids)
                     > execution.policy.max_source_read_anchors
                  ))
-                or sum(event.max_chars * len(event.anchors) for event in prior_auth)
+                or graph_types.source_read_character_usage(execution.policy, execution.events)
                 + request.max_chars * len(request.anchor_ids)
                 > execution.policy.max_source_read_chars
                 or request.max_chars > execution.policy.max_chars_per_source_read

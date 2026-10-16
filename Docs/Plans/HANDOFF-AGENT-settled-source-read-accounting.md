@@ -25,3 +25,10 @@ Open ownership inspected: DOGFOOD #1259 Ingest evidence UI, #1235 publication UI
 ## Required evidence and review
 
 Prove full8anchor12kreservation settles to actualbody usage and permits later admission; unresolvedbatch blocks; partial/duplicate/changed/future receipt cannot refund; unavailable0/truncated/mixedreceipts charge exactcounts; concurrent overbooking rejected at authorization prefix even with later settlement; oldpolicy remains reservation accounting with unchanged bytes/hash; exactpolicy hashed and reopened through APP PostgreSQL; broker and APP agree; provider/citation checks unchanged. Test corrected path alongside source/provider regressions, inspect cumulative base→head diff, commit/push/open PR for independent review. No merge before review; runtime adoption and a fresh ordinary Agent benchmark follow separately.
+
+## Author evidence
+
+- 29 accounting/dynamic-source/uncapped-policy unit tests passed; 26 selected parent/shared-consumer tests passed (overlap includes new accounting cases).
+- Four mounted authenticated route/Core-source/provider-inclusion/citation/history cases and one nine-read PostgreSQL settlement/reopen case passed. Evidence: local build-scratch/settled-source-read-36971ac134/result.json. Actual source receipt persistence needs no schema migration.
+- Initial repeated identical-read provider fixture hit existing presentation ambiguity (identical public bytes bound to multiple read events). Preserved failed logs; no presentation/admission gate changed. The final proof separates real route/citation cases from nine durable APP appends. This slice does not claim to fix repeated-identical-result presentation.
+- A standalone broker test collection initially imported an old installed Core; rerun explicitly used accepted Core source path. Ruff and cumulative diff checks pass. No provider calls, retained database changes or serving changes.

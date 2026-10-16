@@ -14,6 +14,7 @@ from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation.types import (
     GraphExecutionAccountingV1,
     GraphExecutionPolicyV3,
+    SettledGraphExecutionPolicyV3,
     PlanWorldGraphExecutionV3,
     GraphSelectedSourceReadScopeV2,
     GraphSourceReadScopeV2,
@@ -393,7 +394,8 @@ def _freeze_action_inputs(
         if selected
         else GraphSourceReadScopeV2(**scope_fields)
     )
-    policy = GraphExecutionPolicyV3(
+    policy = SettledGraphExecutionPolicyV3(
+        source_read_accounting="settled_receipts_v1",
         policy_version=(
             ("world_graph_execution_selected_scope_uncapped_v1" if selected else "world_graph_execution_uncapped_v1")
             if budget["maxProviderAttempts"] is None else
