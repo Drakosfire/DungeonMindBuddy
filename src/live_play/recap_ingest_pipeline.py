@@ -17,7 +17,12 @@ from scripts.materialize_normalized_recaps import (
     _extract_recap_raw,
     _parse_minimal_frontmatter,
 )
-from scripts.materialize_session_memory import _check_one, _materialize_one
+from scripts.materialize_session_memory import (
+    _check_one,
+    _expected_session_memory_outputs,
+    _materialize_one,
+)
+from src.agent.recap_frontmatter_seed import build_frontmatter_seed
 from src.agent.corpus_writer import is_writable_corpus_path, write_corpus_file
 from src.agent.recap_ingest_helpers import assemble_recap
 from src.corpus.session_recap_paths import (
@@ -34,7 +39,16 @@ from src.corpus.session_recap_paths import (
     session_recaps_prefix,
 )
 from src.live_play.recap_ingest_status import RecapIngestStatus
+from src.live_play.recap_derivative_provenance import (
+    archive_existing,
+    provenance_path,
+    record_archived_artifacts,
+    read_provenance_state,
+    sha256_bytes,
+    sha256_file,
+)
 from src.live_play.recap_stage_paths import RecapStagePaths, corpus_root
+from src.session_memory.breadcrumb_normalize import BreadcrumbNormalizeError
 
 _GENERIC_RECAP_TITLE_RE = re.compile(r"^Session\s+\d+\s*(?:-\s*)?Recap\s*:?\s*$", re.IGNORECASE)
 _SESSION_TITLE_RE = re.compile(r"^Session\s+\d+\s*(?:-\s*)?(.+?)\s*$", re.IGNORECASE)
@@ -58,6 +72,8 @@ class PipelineOptions:
     force_stage: bool
     force_recap: bool
     json_output: bool
+    force_normalize: bool = False
+    force_session_memory: bool = False
 
 
 def _parse_args(argv: list[str] | None = None) -> PipelineOptions:
@@ -81,6 +97,8 @@ def _parse_args(argv: list[str] | None = None) -> PipelineOptions:
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--force-stage", action="store_true")
     parser.add_argument("--force-recap", action="store_true")
+    parser.add_argument("--force-normalize", action="store_true")
+    parser.add_argument("--force-session-memory", action="store_true")
     parser.add_argument("--json", action="store_true", dest="json_output")
     ns = parser.parse_args(argv)
 
@@ -113,6 +131,8 @@ def _parse_args(argv: list[str] | None = None) -> PipelineOptions:
         force_stage=bool(ns.force_stage),
         force_recap=bool(ns.force_recap),
         json_output=bool(ns.json_output),
+        force_normalize=bool(ns.force_normalize),
+        force_session_memory=bool(ns.force_session_memory),
     )
 
 
@@ -235,23 +255,29 @@ def _safe_write_recap(
     recap_rel: str,
     recap_text: str,
     force_recap: bool,
-) -> tuple[str, str | None]:
-    """Return (outcome, error). Outcome is created, reused, or failed."""
+) -> tuple[str, str | None, list[dict[str, str]]]:
+    """Return outcome, error, and any reversibly archived prior recap."""
     allowed, reason = is_writable_corpus_path(recap_rel, "create")
     if not allowed:
-        return "failed", reason
+        return "failed", reason, []
     target = (corpus / recap_rel).resolve()
     try:
         target.relative_to(corpus.resolve())
     except ValueError:
-        return "failed", "canonical recap path escapes corpus root"
+        return "failed", "canonical recap path escapes corpus root", []
 
-    if target.exists() and not force_recap:
-        return "reused", None
-
-    if target.exists() and force_recap:
-        target.write_text(recap_text if recap_text.endswith("\n") else recap_text + "\n", encoding="utf-8")
-        return "created", None
+    content = recap_text if recap_text.endswith("\n") else recap_text + "\n"
+    archived: list[dict[str, str]] = []
+    if target.is_file():
+        if target.read_text(encoding="utf-8") == content:
+            return "reused", None, []
+        if not force_recap:
+            return (
+                "stale",
+                "canonical recap already exists with different content; explicit refresh is required",
+                [],
+            )
+        archived = archive_existing(paths=[target], corpus_root=corpus)
 
     preview = write_corpus_file(
         corpus,
@@ -261,7 +287,7 @@ def _safe_write_recap(
         dry_run=True,
     )
     if not preview.get("ok"):
-        return "failed", str(preview.get("error") or "recap preview failed")
+        return "failed", str(preview.get("error") or "recap preview failed"), archived
     commit = write_corpus_file(
         corpus,
         path=recap_rel,
@@ -271,8 +297,8 @@ def _safe_write_recap(
         confirm_token=str(preview.get("confirm_token") or ""),
     )
     if not commit.get("ok"):
-        return "failed", str(commit.get("error") or "recap commit failed")
-    return "created", None
+        return "failed", str(commit.get("error") or "recap commit failed"), archived
+    return ("refreshed" if archived else "created"), None, archived
 
 
 def _disk_derivative_paths(
@@ -376,30 +402,30 @@ def _normalize_one(
     corpus: Path,
     canonical_recap_rel: str,
     normalized_recap_rel: str,
-) -> tuple[str, str | None]:
-    """Return (outcome, error). Outcome is created, reused, or failed."""
+    force: bool = False,
+) -> tuple[str, str | None, list[dict[str, str]]]:
+    """Return outcome, error, and any reversibly archived prior artifact."""
     normalized_target = (corpus / normalized_recap_rel).resolve()
+    try:
+        content = _expected_normalized_content(
+            corpus=corpus,
+            canonical_recap_rel=canonical_recap_rel,
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        return "failed", str(exc), []
     if normalized_target.is_file():
-        return "reused", None
-
-    recap_path = (corpus / canonical_recap_rel).resolve()
-    if not recap_path.is_file():
-        return "failed", f"canonical recap missing for normalize step: {canonical_recap_rel}"
-
-    text = recap_path.read_text(encoding="utf-8")
-    fm, body = _parse_minimal_frontmatter(text)
-    title = str(fm.get("title") or "").strip()
-    if _GENERIC_RECAP_TITLE_RE.match(title):
-        return "failed", "normalize blocked: generic recap title requires non-generic slug/title"
-    recap_raw, _ = _extract_recap_raw(body)
-    clean = _clean_body(recap_raw)
-    content = _build_normalized_content(
-        fm=fm,
-        body_clean=clean,
-        session=int(fm.get("session") or 0),
-        normalized_from=canonical_recap_rel,
-        title=title,
-    )
+        existing = normalized_target.read_text(encoding="utf-8")
+        if existing == content:
+            return "reused", None, []
+        if not force:
+            return (
+                "stale",
+                "normalized recap differs from the current canonical recap; explicit refresh is required",
+                [],
+            )
+        archived = archive_existing(paths=[normalized_target], corpus_root=corpus)
+    else:
+        archived = []
     preview = write_corpus_file(
         corpus,
         path=normalized_recap_rel,
@@ -408,7 +434,7 @@ def _normalize_one(
         dry_run=True,
     )
     if not preview.get("ok"):
-        return "failed", str(preview.get("error") or "normalize preview failed")
+        return "failed", str(preview.get("error") or "normalize preview failed"), archived
     commit = write_corpus_file(
         corpus,
         path=normalized_recap_rel,
@@ -418,8 +444,30 @@ def _normalize_one(
         confirm_token=str(preview.get("confirm_token") or ""),
     )
     if not commit.get("ok"):
-        return "failed", str(commit.get("error") or "normalize commit failed")
-    return "created", None
+        return "failed", str(commit.get("error") or "normalize commit failed"), archived
+    return ("refreshed" if archived else "created"), None, archived
+
+
+def _expected_normalized_content(*, corpus: Path, canonical_recap_rel: str) -> str:
+    recap_path = resolve_under_corpus(corpus, canonical_recap_rel)
+    if not recap_path.is_file():
+        raise FileNotFoundError(
+            f"canonical recap missing for normalize step: {canonical_recap_rel}"
+        )
+    text = recap_path.read_text(encoding="utf-8")
+    fm, body = _parse_minimal_frontmatter(text)
+    title = str(fm.get("title") or "").strip()
+    if _GENERIC_RECAP_TITLE_RE.match(title):
+        raise ValueError("normalize blocked: generic recap title requires non-generic slug/title")
+    recap_raw, _ = _extract_recap_raw(body)
+    clean = _clean_body(recap_raw)
+    return _build_normalized_content(
+        fm=fm,
+        body_clean=clean,
+        session=int(fm.get("session") or 0),
+        normalized_from=canonical_recap_rel,
+        title=title,
+    )
 
 
 def run_pipeline(
@@ -544,7 +592,7 @@ def run_pipeline(
         if recap_preview is None:
             status.add_error("apply requested but no recap preview is available")
             return status.to_dict()
-        ok, err = _safe_write_recap(
+        ok, err, archived = _safe_write_recap(
             corpus=corpus_dir,
             recap_rel=paths.canonical_recap_rel,
             recap_text=recap_preview,
@@ -553,25 +601,51 @@ def run_pipeline(
         if ok == "failed":
             status.add_error(err or "failed to apply canonical recap")
             return status.to_dict()
+        if ok == "stale":
+            status.add_state("canonical_recap_conflict")
+            status.add_state("derivative_reconciliation_required")
+            status.add_warning(err or "canonical recap differs from the staged source")
+            status.add_next_action(
+                "Review the canonical recap and preview, then explicitly refresh the canonical source if replacement is intended."
+            )
+            _annotate_corpus_impact(status, corpus_dir)
+            return status.to_dict()
         if ok == "reused":
             status.add_state("recap_reused")
         else:
             status.add_state("recap_applied")
+            if ok == "refreshed":
+                status.add_state("canonical_recap_refreshed")
+            if archived:
+                record_archived_artifacts(status.ingest_report, archived)
 
     if options.normalize:
-        ok, err = _normalize_one(
+        ok, err, archived = _normalize_one(
             corpus=corpus_dir,
             canonical_recap_rel=paths.canonical_recap_rel,
             normalized_recap_rel=paths.normalized_recap_rel,
+            force=options.force_normalize,
         )
         if ok == "failed":
             status.add_state("normalized_skipped")
             status.add_error(err or "normalize step failed")
             return status.to_dict()
+        if ok == "stale":
+            status.add_state("normalized_stale")
+            status.add_state("derivative_reconciliation_required")
+            status.add_warning(err or "normalized recap is stale")
+            status.add_next_action(
+                "Review and refresh the normalized recap from the current canonical recap before continuing."
+            )
+            _annotate_corpus_impact(status, corpus_dir)
+            return status.to_dict()
         if ok == "reused":
             status.add_state("normalized_reused")
         else:
-            status.add_state("normalized_created")
+            status.add_state("normalized_refreshed" if ok == "refreshed" else "normalized_created")
+            if archived:
+                record_archived_artifacts(status.ingest_report, archived)
+        status.add_state("normalized_current")
     else:
         status.add_state("normalized_skipped")
 
@@ -624,6 +698,58 @@ def run_pipeline(
             pass
         status.add_warning("slug_mismatch_used_disk_breadcrumb")
 
+    derivative_status = inspect_recap_ingest_status(
+        campaign_id=options.campaign_id,
+        session=options.session,
+        title=options.title,
+        slug=options.slug,
+        corpus=corpus_dir,
+    )
+    derivative_states = set(derivative_status.get("states", []))
+    upstream_blockers = {
+        "normalized_stale",
+        "normalized_provenance_unknown",
+        "frontmatter_seed_stale",
+        "frontmatter_seed_provenance_unknown",
+        "frontmatter_seed_corrupt",
+        "breadcrumb_stale",
+        "breadcrumb_provenance_unknown",
+        "breadcrumb_corrupt",
+        "breadcrumb_blocked_by_upstream",
+    }
+    refreshing_only_stale_memory = (
+        options.materialize_session_memory
+        and options.force_session_memory
+        and "breadcrumb_current" in derivative_states
+        and "session_memory_stale" in derivative_states
+        and not upstream_blockers.intersection(derivative_states)
+    )
+    for state in derivative_status.get("states", []):
+        if refreshing_only_stale_memory and state in {
+            "session_memory_stale",
+            "derivative_reconciliation_required",
+        }:
+            continue
+        if state == "derivative_reconciliation_required" or state.startswith(
+            ("normalized_", "frontmatter_seed_", "breadcrumb_", "session_memory_")
+        ):
+            status.add_state(state)
+    for warning in derivative_status.get("warnings", []):
+        if refreshing_only_stale_memory and warning == (
+            "session-memory files differ from the validated breadcrumb output; existing files were preserved"
+        ):
+            continue
+        status.add_warning(warning)
+    for action in derivative_status.get("next_actions", []):
+        if refreshing_only_stale_memory and action == (
+            "Review the breadcrumb, then explicitly refresh session memory to archive and replace the stale outputs."
+        ):
+            continue
+        status.add_next_action(action)
+    derivative_report = derivative_status.get("ingest_report", {}).get("derivative_stages")
+    if isinstance(derivative_report, dict):
+        status.ingest_report["derivative_stages"] = derivative_report
+
     frontmatter_seed_path = (corpus_dir / str(status.paths["frontmatter_seed"])).resolve()
     if frontmatter_seed_path.is_file():
         status.add_state("frontmatter_seed_found")
@@ -648,13 +774,49 @@ def run_pipeline(
         if not breadcrumb_path.is_file():
             status.add_state("session_memory_skipped")
             return status.to_dict()
-        summary = _materialize_one(
-            corpus_root=corpus_dir,
-            campaign_number=paths.campaign_number,
-            session=options.session,
-            dry_run=False,
-        )
+        verified_states = set(derivative_status.get("states", []))
+        if "breadcrumb_current" not in verified_states:
+            status.add_state("session_memory_skipped")
+            status.add_state("derivative_reconciliation_required")
+            status.add_next_action(
+                "Resolve upstream recap, seed, or breadcrumb lineage before materializing session memory."
+            )
+            return status.to_dict()
+        try:
+            summary = _materialize_one(
+                corpus_root=corpus_dir,
+                campaign_number=paths.campaign_number,
+                session=options.session,
+                dry_run=False,
+                force=options.force_session_memory,
+            )
+        except (OSError, ValueError, BreadcrumbNormalizeError) as exc:
+            status.add_state("session_memory_failed")
+            status.add_state("derivative_reconciliation_required")
+            status.add_warning(f"session-memory materialization failed: {exc}")
+            status.add_next_action(
+                "Review and correct the validated breadcrumb before materializing session memory again."
+            )
+            _annotate_corpus_impact(status, corpus_dir)
+            return status.to_dict()
+        if summary.get("outcome") == "stale":
+            status.add_state("session_memory_stale")
+            status.add_state("derivative_reconciliation_required")
+            status.add_warning("session-memory files differ from the current breadcrumb and were preserved")
+            status.add_next_action(
+                "Review the current breadcrumb, then explicitly refresh session memory to archive and replace the stale files."
+            )
+            status.ingest_report["session_memory_outcome"] = "stale"
+            _annotate_corpus_impact(status, corpus_dir)
+            return status.to_dict()
         status.add_state("session_memory_materialized")
+        status.add_state("session_memory_current")
+        status.ingest_report["session_memory_outcome"] = summary.get("outcome")
+        if summary.get("archived_artifacts"):
+            record_archived_artifacts(
+                status.ingest_report,
+                list(summary["archived_artifacts"]),
+            )
         status.ingest_report["session_memory_record_count"] = summary.get("record_count")
         if options.check:
             if _check_one(
@@ -952,13 +1114,92 @@ def inspect_recap_ingest_status(
     if canonical_path.is_file():
         status.add_state("recap_reused")
 
+    normalized_state = "missing"
     normalized_path = (corpus_dir / str(status.paths["normalized_recap"])).resolve()
     if normalized_path.is_file():
         status.add_state("normalized_reused")
+        try:
+            expected_normalized = _expected_normalized_content(
+                corpus=corpus_dir,
+                canonical_recap_rel=str(status.paths["canonical_recap"]),
+            )
+        except (FileNotFoundError, UnicodeDecodeError, ValueError) as exc:
+            normalized_state = "unknown"
+            status.add_state("normalized_provenance_unknown")
+            status.add_state("derivative_reconciliation_required")
+            status.add_warning(f"normalized recap could not be checked against its canonical source: {exc}")
+        else:
+            expected_digest = sha256_bytes(expected_normalized.encode("utf-8"))
+            actual_digest = sha256_bytes(normalized_path.read_bytes())
+            if expected_digest == actual_digest:
+                normalized_state = "current"
+                status.add_state("normalized_current")
+            else:
+                normalized_state = "stale"
+                status.add_state("normalized_stale")
+                status.add_state("derivative_reconciliation_required")
+                status.add_warning("normalized recap differs from the deterministic output for the current canonical recap")
+                status.add_next_action(
+                    "Review and refresh the normalized recap before building or routing downstream artifacts."
+                )
+            status.ingest_report.setdefault("derivative_stages", {})["normalized_recap"] = {
+                "state": normalized_state,
+                "expected_sha256": expected_digest,
+                "output_sha256": actual_digest,
+            }
 
     frontmatter_seed_path = (corpus_dir / str(status.paths["frontmatter_seed"])).resolve()
+    seed_provenance_path = provenance_path(frontmatter_seed_path)
+    status.paths["frontmatter_seed_provenance"] = seed_provenance_path.resolve().relative_to(corpus_dir).as_posix()
+    seed_state = "missing"
     if frontmatter_seed_path.is_file():
         status.add_state("frontmatter_seed_found")
+        if normalized_path.is_file():
+            try:
+                generated_seed = build_frontmatter_seed(
+                    corpus_root=corpus_dir,
+                    campaign_number=paths.campaign_number,
+                    session=session,
+                )
+                generated_seed_bytes = (
+                    generated_seed if generated_seed.endswith("\n") else generated_seed + "\n"
+                ).encode("utf-8")
+                seed_input_digests = {
+                    "normalized_recap": sha256_file(normalized_path),
+                    "generated_seed": sha256_bytes(generated_seed_bytes),
+                }
+                seed_state, _ = read_provenance_state(
+                    output_path=frontmatter_seed_path,
+                    corpus_root=corpus_dir,
+                    stage="frontmatter_seed",
+                    campaign_number=paths.campaign_number,
+                    session=session,
+                    input_digests=seed_input_digests,
+                )
+            except (OSError, UnicodeDecodeError, ValueError) as exc:
+                seed_state = "unknown"
+                status.add_warning(f"frontmatter seed lineage could not be checked: {exc}")
+            status.ingest_report.setdefault("derivative_stages", {})["frontmatter_seed"] = {
+                "state": seed_state,
+                "provenance_path": status.paths["frontmatter_seed_provenance"],
+            }
+            if seed_state == "current":
+                status.add_state("frontmatter_seed_current")
+            elif seed_state == "edited_current_inputs":
+                status.add_state("frontmatter_seed_edited_current_inputs")
+            else:
+                stage_state = "provenance_unknown" if seed_state == "unknown" else seed_state
+                status.add_state(f"frontmatter_seed_{stage_state}")
+                status.add_state("derivative_reconciliation_required")
+                status.add_warning(f"frontmatter seed is {stage_state}; preserve it and explicitly refresh/review before routing")
+                status.add_next_action(
+                    "Refresh the frontmatter seed from the current normalized recap, then review it before routing."
+                )
+        else:
+            seed_state = "unknown"
+            status.add_state("frontmatter_seed_provenance_unknown")
+            status.add_state("derivative_reconciliation_required")
+            status.add_warning("frontmatter seed cannot be verified because its normalized recap is missing")
     elif "normalized_reused" in status.states:
         status.add_state("frontmatter_seed_required")
         status.add_next_action(
@@ -981,8 +1222,55 @@ def inspect_recap_ingest_status(
     if breadcrumb_rel != status.paths["breadcrumbed_recap"]:
         status.paths["breadcrumbed_recap"] = breadcrumb_rel
 
+    breadcrumb_sidecar = provenance_path(breadcrumb_path)
+    status.paths["breadcrumbed_recap_provenance"] = breadcrumb_sidecar.resolve().relative_to(corpus_dir).as_posix()
     if breadcrumb_path.is_file():
         status.add_state("breadcrumb_found")
+        if normalized_path.is_file() and frontmatter_seed_path.is_file():
+            try:
+                breadcrumb_input_digests = {
+                    "normalized_recap": sha256_file(normalized_path),
+                    "frontmatter_seed": sha256_file(frontmatter_seed_path),
+                }
+                breadcrumb_state, _ = read_provenance_state(
+                    output_path=breadcrumb_path,
+                    corpus_root=corpus_dir,
+                    stage="breadcrumbed_recap",
+                    campaign_number=paths.campaign_number,
+                    session=session,
+                    input_digests=breadcrumb_input_digests,
+                )
+            except OSError as exc:
+                breadcrumb_state = "unknown"
+                status.add_warning(f"breadcrumb lineage could not be checked: {exc}")
+        else:
+            breadcrumb_state = "unknown"
+        status.ingest_report.setdefault("derivative_stages", {})["breadcrumbed_recap"] = {
+            "state": breadcrumb_state,
+            "provenance_path": status.paths["breadcrumbed_recap_provenance"],
+        }
+        upstream_current = normalized_state == "current" and seed_state in {
+            "current",
+            "edited_current_inputs",
+        }
+        if breadcrumb_state == "current" and upstream_current:
+            status.add_state("breadcrumb_current")
+        elif breadcrumb_state == "current":
+            status.add_state("breadcrumb_blocked_by_upstream")
+            status.add_state("derivative_reconciliation_required")
+            status.ingest_report["derivative_stages"]["breadcrumbed_recap"]["readiness"] = "blocked_upstream"
+            status.add_warning("breadcrumb matches its direct inputs, but an upstream recap derivative is stale or unverified")
+            status.add_next_action(
+                "Resolve the normalized recap and frontmatter seed lineage before using this breadcrumb downstream."
+            )
+        else:
+            stage_state = "provenance_unknown" if breadcrumb_state == "unknown" else breadcrumb_state
+            status.add_state(f"breadcrumb_{stage_state}")
+            status.add_state("derivative_reconciliation_required")
+            status.add_warning(f"breadcrumb is {stage_state}; automatic reuse is blocked")
+            status.add_next_action(
+                "Review current normalized recap and frontmatter seed, then explicitly rerun breadcrumb routing."
+            )
     else:
         status.add_state("breadcrumb_required")
         status.add_next_action(
@@ -991,12 +1279,38 @@ def inspect_recap_ingest_status(
         )
 
     memory_jsonl = (corpus_dir / str(status.paths["session_memory_jsonl"])).resolve()
-    if memory_jsonl.is_file():
-        status.add_state("session_memory_materialized")
-        status.add_state("ready_for_planning_activation")
-        status.add_next_action("Ingest complete. Proceed with planning activation.")
-    elif "breadcrumb_found" in status.states:
-        status.add_next_action("Run Materialize Session Memory.")
+    memory_meta = (corpus_dir / str(status.paths["session_memory_meta"])).resolve()
+    memory_files = [path for path in (memory_jsonl, memory_meta) if path.is_file()]
+    if "breadcrumb_current" in status.states:
+        try:
+            expected_memory = _expected_session_memory_outputs(
+                corpus_root=corpus_dir,
+                campaign_number=paths.campaign_number,
+                session=session,
+            )
+            expected_jsonl = bytes(expected_memory["jsonl_bytes"])
+            expected_meta = bytes(expected_memory["meta_bytes"])
+            memory_current = (
+                memory_jsonl.is_file()
+                and memory_meta.is_file()
+                and memory_jsonl.read_bytes() == expected_jsonl
+                and memory_meta.read_bytes() == expected_meta
+            )
+        except (OSError, BreadcrumbNormalizeError, ValueError) as exc:
+            memory_current = False
+            status.add_warning(f"session-memory outputs could not be validated: {exc}")
+        if memory_current:
+            status.add_state("session_memory_materialized")
+            status.add_state("session_memory_current")
+            status.add_state("ready_for_planning_activation")
+            status.add_next_action("Ingest complete. Proceed with planning activation.")
+        elif memory_files:
+            status.add_state("session_memory_stale")
+            status.add_state("derivative_reconciliation_required")
+            status.add_warning("session-memory files differ from the validated breadcrumb output; existing files were preserved")
+            status.add_next_action("Review the breadcrumb, then explicitly refresh session memory to archive and replace the stale outputs.")
+        else:
+            status.add_next_action("Run Materialize Session Memory.")
 
     status.add_state("ingest_status_inspected")
     _annotate_corpus_impact(status, corpus_dir)

@@ -39,6 +39,9 @@ _CREATE_ALLOWED_RE = re.compile(
 _BREADCRUMBED_RE = re.compile(
     r"(?:^|/)Session Recaps/_breadcrumbed/Session \d+ - .+\.(?:breadcrumbed|frontmatter_seed)\.md$"
 )
+_DERIVATIVE_PROVENANCE_RE = re.compile(
+    r"(?:^|/)Session Recaps/_breadcrumbed/Session \d+ - .+\.(?:breadcrumbed|frontmatter_seed)\.md\.provenance\.json$"
+)
 _SESSION_MEMORY_RE = re.compile(
     r"(?:^|/)Session Recaps/_session_memory/Session \d+ - .+\.records_meta\.(?:jsonl|json)$"
 )
@@ -143,6 +146,8 @@ def is_writable_corpus_path(rel_path: str, mode: str) -> tuple[bool, str]:
         if _CREATE_ALLOWED_RE.search(cleaned):
             return True, ""
         if _BREADCRUMBED_RE.search(cleaned):
+            return True, ""
+        if _DERIVATIVE_PROVENANCE_RE.search(cleaned):
             return True, ""
         if _SESSION_MEMORY_RE.search(cleaned):
             return True, ""

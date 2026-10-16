@@ -36,6 +36,14 @@ from src.agent.corpus_writer import (
             "create",
         ),
         (
+            "Longmont Campaign/Campaign 1/Session Recaps/_breadcrumbed/Session 13 - The Meaty and the Dead.frontmatter_seed.md.provenance.json",
+            "create",
+        ),
+        (
+            "Longmont Campaign/Campaign 1/Session Recaps/_breadcrumbed/Session 13 - The Meaty and the Dead.breadcrumbed.md.provenance.json",
+            "create",
+        ),
+        (
             "Longmont Campaign/Campaign 1/Session Recaps/_session_memory/Session 13 - The Meaty and the Dead.records_meta.jsonl",
             "create",
         ),
