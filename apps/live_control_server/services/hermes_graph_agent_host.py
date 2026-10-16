@@ -19,7 +19,7 @@ import time
 import uuid
 from datetime import UTC, datetime
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from multiprocessing.context import BaseContext
 from multiprocessing.process import BaseProcess
 from multiprocessing.queues import Queue
@@ -32,6 +32,9 @@ from apps.live_control_server.services.hermes_graph_agent_contract import (
     HermesGraphAgentTurnRequest,
     HermesGraphAgentTurnResult,
     decode_json_wire,
+    decode_worker_wire,
+    encode_provider_authorization_wire,
+    provider_request_byte_limit,
     deserialize_hermes_graph_agent_turn_request,
     deserialize_hermes_graph_agent_turn_result,
     encode_json_wire,
@@ -465,14 +468,16 @@ def hermes_graph_agent_worker_main(
                     and message.get("acknowledged") is True
                 )
 
+            provider_size_failure = False
+
             def authorize_provider_request(view: Any) -> bool:
-                nonlocal authorization_sequence
+                nonlocal authorization_sequence, provider_size_failure
                 if not request.provider_authorization_required:
                     return True
                 authorization_sequence += 1
                 authorization_id = f"{request_id}:{authorization_sequence}"
                 try:
-                    response_queue.put(encode_json_wire({
+                    response_queue.put(encode_provider_authorization_wire({
                         "type": "provider_authorization_request",
                         "requestId": request_id,
                         "authorizationId": authorization_id,
@@ -485,8 +490,13 @@ def hermes_graph_agent_worker_main(
                             "payloadSha256": view.payload_sha256,
                             "payloadUtf8Bytes": view.payload_utf8_bytes,
                         },
-                    }))
+                    }, body_limit=provider_request_byte_limit(request.request_budget)))
                     message = decode_json_wire(request_queue.get(timeout=30.0))
+                except ValueError as exc:
+                    provider_size_failure = str(exc) in {
+                        "provider_request_bytes_exceeded", "provider_authorization_frame_bytes_exceeded",
+                    }
+                    return False
                 except Exception:
                     return False
                 return (
@@ -569,6 +579,10 @@ def hermes_graph_agent_worker_main(
                 on_provider_lifecycle=report_provider_lifecycle,
                 on_parent_graph_operation=broker_graph_operation,
             )
+            if provider_size_failure:
+                result = replace(result, status="error", final_response=None,
+                                 error_code="provider_request_bytes_exceeded",
+                                 error_message="The provider request exceeds its frozen byte transport budget.")
             response_queue.put(
                 encode_json_wire(
                     {
@@ -891,7 +905,7 @@ class HermesGraphAgentHost:
                             for key in ("provider", "model", "apiMode"))
                         and (view.get("baseUrl") is None or isinstance(view.get("baseUrl"), str))
                         and isinstance(raw_json, str)
-                        and len(raw_json.encode("utf-8")) <= 256_000
+                        and len(raw_json.encode("utf-8")) <= provider_request_byte_limit(wire_payload.get("requestBudget"))
                         and isinstance(raw_digest, str)
                         and re.fullmatch(r"[0-9a-f]{64}", raw_digest) is not None
                         and isinstance(raw_size, int)
@@ -1025,6 +1039,7 @@ class HermesGraphAgentHost:
                 telemetry_calls=streamed_calls,
                 telemetry_warnings=streamed_warnings,
                 telemetry_worker_phases=streamed_worker_phases,
+                provider_body_limit=provider_request_byte_limit(wire_payload.get("requestBudget")),
                 on_provider_authorization=handle_provider_authorization,
                 on_provider_lifecycle=handle_provider_lifecycle,
                 on_graph_operation=handle_graph_operation,
@@ -1272,6 +1287,7 @@ class HermesGraphAgentHost:
         telemetry_calls: list[dict[str, Any]] | None = None,
         telemetry_warnings: list[str] | None = None,
         telemetry_worker_phases: list[dict[str, Any]] | None = None,
+        provider_body_limit: int = 256_000,
         on_provider_authorization: Callable[[dict[str, Any]], None] | None = None,
         on_provider_lifecycle: Callable[[dict[str, Any]], None] | None = None,
         on_graph_operation: Callable[[dict[str, Any]], None] | None = None,
@@ -1302,7 +1318,7 @@ class HermesGraphAgentHost:
                     return None
                 continue
             try:
-                message = decode_json_wire(raw)
+                message = decode_worker_wire(raw, body_limit=provider_body_limit)
             except Exception:
                 if not process.is_alive():
                     _drain_streamed_telemetry(

@@ -21,3 +21,8 @@ No serving port, credentials, provider call, retained database, Graph publicatio
 
 ## Failure cases and evidence
 Prove former rejection; below/at/above body boundary; JSON escaping/control/Unicode expansion; forged declared size/hash; oversized non-provider frame; frozen-budget validation; spawned worker/parent correlated authorization with a large synthetic request and denial. No real provider dispatch. Existing APP evidence/fencing remains unchanged and its owning tests must pass. Explicit size errors must be distinguishable without exposing request content. Record beginning/end refs for task experiments.
+
+## Author evidence
+The focused provider/host/Build authorization run completed with 107 passing tests and three failures. All three failures reproduce identically on unchanged accepted base 00e457f1 (host fixture request serialization/lifecycle assertions); they are inherited and not claimed passing. Two previously inherited offline-worker tests were excluded explicitly. Additional control-escaping/frame-limit regression added afterward and rerun separately. Ruff and cumulative diff checks pass. No external calls or serving/state changes occurred. Formal independent review and ordinary runtime acceptance remain pending.
+
+The provider frame ceiling is six times the frozen body byte cap plus 65,536 bytes for bounded metadata/JSON framing; it remains an independent enforced bound. It does not permit oversized non-provider frames or bypass the final provider JSON/evidence/context checks.

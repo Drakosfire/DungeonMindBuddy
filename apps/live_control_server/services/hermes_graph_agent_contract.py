@@ -27,6 +27,8 @@ ProcessIsolationMode = Literal["process_exclusive"]
 PROCESS_ISOLATION_MODE: ProcessIsolationMode = "process_exclusive"
 
 MAX_WIRE_BYTES = 262144
+MAX_PROVIDER_REQUEST_BYTES = 1_050_000
+DEFAULT_PROVIDER_REQUEST_BYTES = 256_000
 MAX_QUESTION_CHARS = 8000
 MAX_ID_CHARS = 256
 MAX_SESSION_ID_CHARS = 256
@@ -321,6 +323,7 @@ def _serialize_request_budget(value: Any) -> dict[str, Any] | None:
         "estimator",
         "contextLimitTokens",
         "graphToolPageBytes",
+        "maxProviderRequestBytes",
         "outputReserveTokens",
         "maxProviderAttempts",
         "maxToolCapableAttempts",
@@ -355,6 +358,8 @@ def _serialize_request_budget(value: Any) -> dict[str, Any] | None:
         if isinstance(page_bytes, bool) or not isinstance(page_bytes, int) or not 8_000 <= page_bytes <= 32_000:
             raise ValueError("requestBudget.graphToolPageBytes is outside its supported range")
         result["graphToolPageBytes"] = page_bytes
+    if "maxProviderRequestBytes" in value:
+        result["maxProviderRequestBytes"] = provider_request_byte_limit(value)
     reservation_keys = (
         "maxProviderAttempts", "maxToolCapableAttempts", "maxGraphOperations",
     )
@@ -561,6 +566,72 @@ def decode_json_wire(raw: bytes | bytearray | memoryview | str) -> dict[str, Any
         raise ValueError("wire payload must be a JSON object")
     return parsed
 
+
+
+def provider_request_byte_limit(budget: Mapping[str, Any] | None) -> int:
+    value = (budget or {}).get("maxProviderRequestBytes", DEFAULT_PROVIDER_REQUEST_BYTES)
+    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= MAX_PROVIDER_REQUEST_BYTES:
+        raise ValueError("requestBudget.maxProviderRequestBytes is outside its supported range")
+    return value
+
+
+def _provider_frame_limit(body_limit: int) -> int:
+    provider_request_byte_limit({"maxProviderRequestBytes": body_limit})
+    # A JSON string can expand each UTF-8 input byte to six bytes (\u0000).
+    # Metadata is bounded separately; preserve room for its escaped encoding.
+    return 6 * body_limit + 65_536
+
+
+def _validate_provider_frame(message: dict[str, Any], body_limit: int) -> None:
+    import hashlib
+
+    if set(message) != {"type", "requestId", "authorizationId", "view"} or message.get("type") != "provider_authorization_request":
+        raise ValueError("provider authorization frame has invalid fields")
+    view = message.get("view")
+    if not isinstance(view, dict) or set(view) != {
+        "provider", "model", "apiMode", "baseUrl", "payloadJson", "payloadSha256", "payloadUtf8Bytes",
+    }:
+        raise ValueError("provider authorization view has invalid fields")
+    for value in (message["requestId"], message["authorizationId"], view["provider"], view["model"], view["apiMode"]):
+        if not isinstance(value, str) or not value.strip() or len(value.encode("utf-8")) > MAX_ID_CHARS * 4:
+            raise ValueError("provider authorization metadata is invalid")
+    if view["baseUrl"] is not None and (not isinstance(view["baseUrl"], str) or len(view["baseUrl"].encode("utf-8")) > MAX_ROOT_CHARS * 4):
+        raise ValueError("provider authorization base URL is invalid")
+    payload = view["payloadJson"]
+    if not isinstance(payload, str):
+        raise ValueError("provider authorization payload must be text")
+    raw = payload.encode("utf-8")
+    if len(raw) > body_limit:
+        raise ValueError("provider_request_bytes_exceeded")
+    size = view["payloadUtf8Bytes"]
+    if isinstance(size, bool) or not isinstance(size, int) or size != len(raw) or view["payloadSha256"] != hashlib.sha256(raw).hexdigest():
+        raise ValueError("provider authorization payload integrity mismatch")
+
+
+def encode_provider_authorization_wire(message: dict[str, Any], *, body_limit: int) -> bytes:
+    _validate_provider_frame(message, body_limit)
+    raw = json.dumps(message, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode("utf-8")
+    if len(raw) > _provider_frame_limit(body_limit):
+        raise ValueError("provider_authorization_frame_bytes_exceeded")
+    return raw
+
+
+def decode_worker_wire(raw: bytes | bytearray | memoryview | str, *, body_limit: int) -> dict[str, Any]:
+    limit = _provider_frame_limit(body_limit)
+    if not isinstance(raw, (bytes, bytearray, memoryview, str)):
+        raise ValueError("wire payload must be bytes or str")
+    text = raw if isinstance(raw, str) else bytes(raw).decode("utf-8")
+    size = len(text.encode("utf-8"))
+    if size > limit:
+        raise ValueError("provider_authorization_frame_bytes_exceeded")
+    message = json.loads(text)
+    if not isinstance(message, dict):
+        raise ValueError("wire payload must be a JSON object")
+    if message.get("type") == "provider_authorization_request":
+        _validate_provider_frame(message, body_limit)
+    elif size > MAX_WIRE_BYTES:
+        raise ValueError("non-provider wire payload exceeds max bytes")
+    return message
 
 def serialize_capability_policy(policy: HermesCapabilityPolicy) -> dict[str, Any]:
     """Serialize a capability policy to a bounded JSON-compatible dict."""

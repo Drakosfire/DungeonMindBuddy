@@ -3209,6 +3209,7 @@ def _policy_request_budget() -> dict[str, Any]:
         "estimator": "utf8_json_bytes_plus_64_per_node_v1",
         "contextLimitTokens": 1_050_000,
         "graphToolPageBytes": 32_000,
+        "maxProviderRequestBytes": 1_050_000,
         "outputReserveTokens": 2048,
         "maxProviderAttempts": None,
         "maxToolCapableAttempts": None,
