@@ -1,7 +1,7 @@
 # DOGFOOD: streamline Ingest local navigation and evidence
 
 **Status:** ACTIVE under the user-authorized Ingest-first UX iteration (2026-10-16).
-**Base:** PR merge-base remains `b309616302225f2d84e08514eb39eb81f49f414d`, after merged #1260 changed Agent source-read accounting. Rechecked against current `main@f92a3e9e151742f80c77fbadbfa2b723712d1906`: nine later commits touch Agent/server evidence paths and handoffs, disjoint from this UI lease. GitHub reports PR #1259 mergeable; it is nine commits behind current main and has not been rebased. The original UI work merged by #1256 is included in this base.
+**Base:** PR merge-base remains `b309616302225f2d84e08514eb39eb81f49f414d`, after merged #1260 changed Agent source-read accounting. Rechecked against current `main@f92a3e9e151742f80c77fbadbfa2b723712d1906`: nine later commits touch Agent/server evidence paths and handoffs, disjoint from this UI lease. The PR is nine commits behind and has not been rebased. GitHub currently reports `mergeable: false`, although `git merge-tree` against fetched `main` completes cleanly; reconcile that state before merge or dogfood. The original UI work merged by #1256 is included in this base.
 **Branch:** `codex/ingest-evidence-surface-cleanup`.
 **Checkout:** `/tmp/dmb-ingest-local-nav-refresh`.
 **Topology:** serial successor to merged #1256, one follow-on PR. Open #1235 owns Graph Review/source-observation review files; open #1244 owns packaging/reference recovery; neither overlaps this UI lease. #1251 and #1258 are merged prerequisites and do not own these paths.
