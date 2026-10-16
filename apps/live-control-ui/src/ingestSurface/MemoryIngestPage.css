@@ -526,9 +526,14 @@ button.ingest-welcome-action {
     gap: 0.5rem;
   }
 
-  .ingest-local-nav__title,
+  .ingest-local-nav__title {
+    grid-column: 1;
+  }
+
   .ingest-local-nav__new {
-    grid-column: 1 / -1;
+    grid-column: 2;
+    justify-self: end;
+    align-self: end;
   }
 
   .ingest-local-nav__workflow {

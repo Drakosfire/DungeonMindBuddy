@@ -328,7 +328,7 @@ describe("IngestionModule", () => {
     render(<IngestionModule campaignId="longmont-c2" session={22} />);
     expect(screen.getByRole("button", { name: "Prep for ingest" })).toBeDisabled();
     await waitFor(() =>
-      expect(screen.getByText("Add recap text below or load a saved recap above.")).toBeInTheDocument(),
+      expect(screen.getByText("No recap source loaded.")).toBeInTheDocument(),
     );
   });
 

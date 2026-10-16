@@ -917,7 +917,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const readinessLanes = [ingestReadiness.memory, ingestReadiness.graph, ingestReadiness.attention];
   const workflowNextAction = (() => {
     if (!sourceInputSatisfied && !hasNormalizedRecap) {
-      return "Add recap text below or load a saved recap above.";
+      return "No recap source loaded.";
     }
     if (!validRecapSession) return "Choose a session number before preparing this recap.";
     if (!genericGuardPass) return "Add a specific session title before preparing this recap.";

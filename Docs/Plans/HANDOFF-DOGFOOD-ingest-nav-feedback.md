@@ -1,7 +1,7 @@
 # DOGFOOD: consolidate Ingest navigation feedback
 
 **Status:** ACTIVE under the user-authorized Ingest-first goal (2026-10-16).
-**Base:** GitHub confirms `origin/main@2efb6ea184870df0f266ff98fe2eb9938c5d0366`, the merge of #1237. This isolated checkout starts at #1237 head `cbc2312dcdace89b62bc4b8c0d9d9ab8314f103f`, which is a parent of that merge and has the same product tree. A shell fetch was unavailable because this environment cannot resolve `github.com`.
+**Base:** Re-anchored on fetched `origin/main@182738395801989b6169f5b3b354da9d2688dbf2` after #1257 merged. The main-only commits since this branch's original base change publication-coverage server/API files and do not overlap this UI lease. The branch was rebased onto this current main before updating the PR.
 **Branch:** `codex/ingest-nav-feedback`.
 **Checkout:** `/tmp/dmb-ingest-local-nav-refresh`.
 **Topology:** serial successor to merged and deployed #1237; one PR. Checked open #1235 (`codex/ingest-source-observation-review` at `46ecdd5019f7fc70519b0e7b50b1a1ebe6955994`) for Graph Review/source-observation prepare UI, #1244 (`codex/ingest-candidate-evidence-ref-recovery` at `e6bea55259fec6efd3950e0d68aa9250dfa0bf15`) for server graph packaging, and #1251 (`codex/ingest-evidence-readiness` at `8e1ebf64b1ed677808b6b435f8d2d23e32f576ac`) for server readiness and `ingestReadiness` modules. Their active write sets do not overlap this UI-only lane.
@@ -160,3 +160,20 @@ Stop if the fix needs a shared component, route contract, extraction change, or 
 - No Prepare, Extract, Graph admission, publication, provider, persistence, or
   corpus write was triggered. 5202 was only read; the isolated preview was not
   used to reconnect or mutate its local Graph session.
+
+### Local-nav redundancy and narrow layout refinement — 2026-10-16
+
+- Kept the Ingest workflow in the sticky local nav: campaign/session/title,
+  New recap, processed-source loading, Prepare/Extract/Review, and one current
+  status. The idle status now says only “No recap source loaded”; the textarea
+  keeps the actionable paste/write prompt, so the nav no longer repeats it.
+- On narrow screens, New recap shares the session-title row instead of taking
+  a separate full-width row. This trims vertical weight while leaving the
+  session identity and source/workflow actions visible.
+- Rendered the 390px Ingest preview and confirmed the title/New recap row,
+  source loader, Prepare/Extract, and concise status remain visible without
+  horizontal overflow. This was read-only; no ingestion, Graph reconnect, or
+  persistence action was taken.
+- Verification after the refinement: the three focused UI suites pass 78/78,
+  `npm run typecheck`, `npm run build`, and `git diff --check` pass. The build
+  retains the existing large-chunk warning.
