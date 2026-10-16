@@ -1,6 +1,8 @@
 # AGENT — batch unread actions for missing answer coverage
 
-ACTIVE. PRIME solo; ARCHITECTURE independent code/evidence review and policy advice.
+MERGED #1274 at fc175ee2e10ebb98e3231efa7e6ac79054fc82c9; evaluator lease ended.
+Production-policy successor: HANDOFF-AGENT-jev-durable-role-policy.md.
+Original activation: PRIME solo; ARCHITECTURE independent code/evidence review and policy advice.
 Baseae0e4614d2aca1535d13c67533a4c1900c78ea8b; branch
 codex/jev-batched-coverage-check; isolated /tmp/prime-recap-mention-boundaries.
 Serial successor to merged #1273; checked open Ingest leases are disjoint.

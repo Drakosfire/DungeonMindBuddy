@@ -1722,6 +1722,46 @@ class SettledGraphExecutionPolicyV3(GraphExecutionPolicyV3):
     source_read_accounting: Literal["settled_receipts_v1"]
 
 
+class GraphProviderRoleTargetV1(StrictModel):
+    """An exact product-selected target; this does not resolve a provider route."""
+
+    provider: str = Field(min_length=1, max_length=128)
+    model: str = Field(min_length=1, max_length=256)
+    api_mode: str = Field(min_length=1, max_length=64)
+
+    @model_validator(mode="after")
+    def validate_identity(self) -> "GraphProviderRoleTargetV1":
+        if any(value != value.strip() or not value.strip()
+               for value in (self.provider, self.model, self.api_mode)):
+            raise ValueError("provider role identities must be nonblank and trimmed")
+        return self
+
+    def identity(self) -> tuple[str, str, str]:
+        return self.provider, self.model, self.api_mode
+
+
+class GraphControllerWriterRolesV1(StrictModel):
+    controller: GraphProviderRoleTargetV1
+    writer: GraphProviderRoleTargetV1
+
+    @model_validator(mode="after")
+    def validate_distinct_roles(self) -> "GraphControllerWriterRolesV1":
+        if self.controller.identity() == self.writer.identity():
+            raise ValueError("controller and writer require distinct provider role identities")
+        return self
+
+
+class ControllerWriterGraphExecutionPolicyV3(SettledGraphExecutionPolicyV3):
+    """One writer authorization after controller-owned acquisition.
+
+    No fixed controller call allowance is introduced. A known-not-sent writer
+    still consumes its sole authorization; the product fails the turn rather
+    than automatically requesting another attempt.
+    """
+
+    provider_roles: GraphControllerWriterRolesV1
+
+
 class GraphExecutionEventBaseV1(StrictModel):
     event_id: UUID
     sequence: int = Field(strict=True, ge=0, le=2047)
@@ -2526,8 +2566,50 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
     schema_: Literal["dmb_agent_plan_world_graph_execution_v3"] = Field(
         default="dmb_agent_plan_world_graph_execution_v3", alias="schema"
     )
-    policy: SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
+    policy: ControllerWriterGraphExecutionPolicyV3 | SettledGraphExecutionPolicyV3 | GraphExecutionPolicyV3
     events: list[GraphExecutionEventV3] = Field(max_length=2048)
+
+    @model_validator(mode="after")
+    def validate_controller_writer_phases(self) -> "PlanWorldGraphExecutionV3":
+        if not isinstance(self.policy, ControllerWriterGraphExecutionPolicyV3):
+            return self
+        roles = self.policy.provider_roles
+        latest_attempt: UUID | None = None
+        latest_outcome: str | None = None
+        writer_attempt: UUID | None = None
+        acquisition_events = (
+            ValidatedGraphOperationEventV1, SourceScopeExtensionEventV3,
+            SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2,
+            RelatedRecapContextAuthorizationEventV2, ValidatedRelatedRecapContextEventV2,
+        )
+        for event in self.events:
+            if isinstance(event, ProviderAttemptAuthorizedEventV1):
+                identity = (event.provider, event.model, event.api_mode)
+                if identity == roles.controller.identity():
+                    if writer_attempt is not None:
+                        raise ValueError("controller cannot resume after writer authorization")
+                elif identity == roles.writer.identity():
+                    if latest_attempt is None:
+                        raise ValueError("first provider authorization must be controller")
+                    if writer_attempt is not None:
+                        raise ValueError("only one writer authorization is permitted")
+                    writer_attempt = event.provider_attempt_id
+                else:
+                    raise ValueError("provider identity is outside the frozen controller/writer roles")
+                latest_attempt = event.provider_attempt_id
+                latest_outcome = None
+            elif isinstance(event, ProviderOutcomeEventV1):
+                if event.provider_attempt_id == latest_attempt:
+                    latest_outcome = event.outcome
+            elif isinstance(event, acquisition_events):
+                if writer_attempt is not None:
+                    raise ValueError("acquisition cannot continue after writer authorization")
+                if latest_attempt is not None and latest_outcome not in {"response_received", "known_not_sent"}:
+                    raise ValueError("acquisition requires a resolved controller attempt")
+            elif isinstance(event, CompletionBindingEventV1):
+                if writer_attempt is None or event.provider_attempt_id != writer_attempt:
+                    raise ValueError("completion must bind the authorized writer attempt")
+        return self
 
     def effective_source_pins(self) -> dict[str, GraphSourceScopeAnchorV2]:
         pins = {pin.anchor_id: pin for pin in self.policy.source_read_scope.admitted_anchors}
