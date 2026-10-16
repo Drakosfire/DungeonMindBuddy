@@ -28,6 +28,7 @@ origin/host allowlist. Explicit revocation stays explicit.
 - `Docs/Plans/HANDOFF-AGENT-selected-knowledge.md` (settle #1213).
 - `apps/live_control_server/services/agent_graph_local_session.py`
 - `apps/live_control_server/routes/agent_graph_local_session.py`
+- `apps/live_control_server/services/agent_graph_auth.py` (existing cookie-presence guard must use the same derived name; no bearer or authorization-policy change).
 - `tests/test_agent_graph_local_session.py`
 
 No UI, provider, schema, serving, credential or retained session-store write lease.
