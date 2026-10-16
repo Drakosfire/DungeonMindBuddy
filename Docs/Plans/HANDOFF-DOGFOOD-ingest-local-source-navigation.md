@@ -1,6 +1,6 @@
 # DOGFOOD: simplify Ingest local source navigation
 
-**Status:** ACTIVE — directly authorized follow-up to operator feedback on 2026-10-16.
+**Status:** MERGED / HISTORICAL. PR #1237 merged as `2efb6ea184870df0f266ff98fe2eb9938c5d0366`; the local-toolbar implementation lease is closed. Its UI-only successor is `HANDOFF-DOGFOOD-ingest-nav-feedback.md`.
 **Base:** fetched `origin/main@9d5e26665076d38c8f1d458065c38f8c1b45f785` after #1255 merged.
 **Branch:** `codex/ingest-local-nav-source-flow`.
 **Checkout:** `/tmp/dmb-ingest-local-nav-refresh` (isolated refresh lane; the original clean checkout is preserved).
@@ -157,5 +157,12 @@ The PR is rebased and the responsive fix is ready for a fresh review. Live saved
 
 ## Completion
 
-The bounded implementation is committed and pushed in PR #1237. It remains
-open for review; merge and deployment to 5202 remain separate authorization.
+The bounded implementation was committed and pushed in PR #1237, then merged
+as `2efb6ea184870df0f266ff98fe2eb9938c5d0366`. Deployment to 5202/5876 has
+since been verified. A fresh read-only 5202 tab showed the consolidated local
+navigation, campaign/session/title identity, prior-source loading, and
+Prepare/Extract/Review actions. The existing pre-deployment browser tab still
+showed its older document; refreshing is required to see the merged toolbar.
+Live source loading was exercised on a blank route without prepare, extraction,
+publication, or provider calls. This does not prove end-to-end ingestion or
+graph admission.

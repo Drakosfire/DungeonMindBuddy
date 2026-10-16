@@ -9,19 +9,15 @@ const GRAPH_PREVIEW_STATES = new Set([
   "graph_preview_failed",
 ]);
 
-function progressRank(status: string): number {
-  switch (status) {
-    case "ready_for_planning_activation":
-      return 5;
-    case "breadcrumb_required":
-      return 4;
-    case "recap_applied":
-      return 3;
-    case "recap_preview_created":
-      return 2;
-    default:
-      return 1;
-  }
+const GRAPH_STATE_PREFIXES = [
+  "graph_",
+  "preview_union_store_",
+  "source_span_bundle_",
+  "candidate_validation_",
+];
+
+function isGraphState(state: string): boolean {
+  return GRAPH_PREVIEW_STATES.has(state) || GRAPH_STATE_PREFIXES.some((prefix) => state.startsWith(prefix));
 }
 
 function graphStatesForInspect(inspected: RecapIngestStatus): string[] {
@@ -51,37 +47,31 @@ export function mergeInspectResult(
     return inspected;
   }
 
-  const nonGraphDraft = draftResult.states.filter((state) => !GRAPH_PREVIEW_STATES.has(state));
-  const nonGraphInspected = inspected.states.filter((state) => !GRAPH_PREVIEW_STATES.has(state));
-  const mergedStates = [
-    ...new Set([...nonGraphDraft, ...nonGraphInspected, ...graphStatesForInspect(inspected)]),
-  ];
-
-  const status =
-    progressRank(draftResult.status) >= progressRank(inspected.status)
-      ? draftResult.status
-      : inspected.status;
-
   const draftReport = draftResult.ingest_report ?? {};
   const inspectedReport = inspected.ingest_report ?? {};
+  const inspectHasGraphResult =
+    Object.prototype.hasOwnProperty.call(inspectedReport, "graph_preview") ||
+    inspected.states.some(isGraphState);
+  const preservedDraftGraphStates = inspectHasGraphResult
+    ? []
+    : draftResult.states.filter(isGraphState);
+  const inspectedGraphStates = graphStatesForInspect(inspected);
+  const graphPreview = Object.prototype.hasOwnProperty.call(inspectedReport, "graph_preview")
+    ? inspectedReport.graph_preview
+    : draftReport.graph_preview;
 
   return {
     ...inspected,
-    status,
-    states: mergedStates,
-    paths: { ...inspected.paths, ...draftResult.paths },
-    warnings: [...new Set([...draftResult.warnings, ...inspected.warnings])],
-    next_actions:
-      draftResult.next_actions.length > 0 ? draftResult.next_actions : inspected.next_actions,
-    // Inspect wins on report keys (especially graph_preview). Draft only fills gaps.
+    // `inspect_status` reports the current disk state. Local drafts may contain
+    // older operation results, so only the independent graph-preview lane can
+    // be carried forward when this inspection did not include one.
+    states: [...new Set([...inspected.states, ...preservedDraftGraphStates, ...inspectedGraphStates])],
+    // Keep unrelated graph/run details, but never restore old disk-derived
+    // paths, corpus impact, readiness, warnings, or next actions.
     ingest_report: {
       ...draftReport,
       ...inspectedReport,
-      graph_preview: inspectedReport.graph_preview ?? draftReport.graph_preview,
+      ...(graphPreview === undefined ? {} : { graph_preview: graphPreview }),
     },
-    entity_spelling_audit:
-      draftResult.entity_spelling_audit.length > 0
-        ? draftResult.entity_spelling_audit
-        : inspected.entity_spelling_audit,
   };
 }
