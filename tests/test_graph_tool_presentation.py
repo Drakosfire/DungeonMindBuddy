@@ -232,3 +232,34 @@ def test_parent_bytes_survive_real_harness_dispatch_and_provider_serializer(
         plugin.reset_parent_graph_broker(bt)
         plugin.reset_active_retrieval_session_id(st)
         plugin.reset_active_capability_policy(pt)
+
+
+def test_per_target_closures_do_not_union_refs_or_admit_discovery_rows():
+    parent = GraphToolPresentation(SCOPE)
+    raw = json.loads(_raw())
+    raw['reviewedSourceObservations'] = [
+        {'assertionId': 'a:one', 'text': 'One fact', 'evidenceRefIds': ['e:b', 'e:a']},
+        {'assertionId': 'a:two', 'text': 'Other fact', 'evidenceRefIds': ['e:other']},
+    ]
+    raw['attributes'] = []
+    raw['relationships'] = []
+    first = parent.present(TOOL, ARGS, json.dumps(raw), uuid4())
+    exposure, = parent.inclusion(TOOL, [first])
+    # A raw small result delivers both exact records; references stay disjoint.
+    assert exposure.claim_evidence == (
+        ('assertion', 'a:one', ('e:a', 'e:b')),
+        ('assertion', 'a:two', ('e:other',)),
+    )
+    large = GraphToolPresentation(SCOPE, cache=GraphToolPageCache(page_bytes=8000))
+    raw['reviewedSourceObservations'][0]['text'] = 'qualified ' * 1500
+    first = large.present(TOOL, ARGS, json.dumps(raw), uuid4())
+    discovery, = large.inclusion(TOOL, [first])
+    assert discovery.claim_evidence == ()
+    pages = detail_pages(large, first)
+    complete, = large.inclusion(TOOL, pages)
+    assert complete.claim_evidence == exposure.claim_evidence
+    partial, = large.inclusion(TOOL, [pages[0]])
+    assert not any(target == 'a:one' for _, target, _ in partial.claim_evidence)
+    # An earlier completed reassembly cannot authorize a later partial envelope.
+    partial_again, = large.inclusion(TOOL, [pages[-1]])
+    assert not any(target == 'a:one' for _, target, _ in partial_again.claim_evidence)

@@ -132,9 +132,9 @@ Return only JSON with exactly answer_context_status and answer_segments. Do not 
 Allowed statuses: graph_grounded, graph_grounded_partial, source_only_insufficient_evidence, source_only_graph_unused. Graph grounding requires an admitted assertion or relationship with evidence refs included in the final provider input. Use source_only_graph_unused when sufficient Graph evidence is available but unused, otherwise source_only_insufficient_evidence.
 Each answer segment has one exact shape:
 - Saved-source attribution: {"kind":"saved_source_claim","text":"..."}. The host binds the saved-source digest; do not provide it. This is authored source content, not admitted Graph truth.
-- Graph fact: {"kind":"graph_claim","claim_id":"...","text":"...","target_kind":"assertion","target_id":"...","graph_revision":"...","evidence_ref_ids":["..."]}. target_kind may also be relationship. All IDs must come from admitted Graph results in your input.
+- Graph fact: {"kind":"graph_claim","claim_id":"...","text":"...","target_kind":"assertion","target_id":"..."}. target_kind may also be relationship. All IDs must come from admitted Graph results in your input.
 - Nonfactual connecting prose: {"kind":"connective","text":"..."}.
-Use sorted unique evidence refs on each graph_claim. Do not invent IDs or claim source opening. The host derives citations and actual source opening from the producing request and its admitted read receipts. Use read_graph_source for the relevant admitted anchor when its passage is needed; one sufficient passage need not trigger further source reads. Do not wrap the JSON in Markdown.
+Do not emit graph_revision, evidence_ref_ids, or source-opening fields. Select an exact admitted target; the host supplies its revision and complete evidence references. Do not invent IDs or claim source opening. The host derives citations and actual source opening from the producing request and its admitted read receipts. Use read_graph_source for the relevant admitted anchor when its passage is needed; one sufficient passage need not trigger further source reads. Do not wrap the JSON in Markdown.
 """
 
 
@@ -662,6 +662,64 @@ def _initial_packet_membership(
             provider_dispatched=False,
         )
     return sorted(assertion_ids), sorted(relationship_ids), sorted(evidence_ids)
+
+
+@dataclass(frozen=True)
+class _BuildClaimEvidence:
+    """Parent-only support for one exact producing envelope, never model input."""
+
+    provider_attempt_id: UUID
+    envelope_sha256: str
+    context_receipt_sha256: str
+    graph_revision: str
+    closures: tuple[tuple[str, str, tuple[str, ...]], ...]
+
+
+def _build_initial_claim_evidence(
+    view: Mapping[str, Any], bootstrap: AgentPlanWorldGraphBootstrap,
+    frozen_projection: Mapping[str, Any],
+) -> list[tuple[str, str, tuple[str, ...]]]:
+    packet = _initial_claim_packet_from_view(
+        type("RequestView", (), {"payload_json": view["payloadJson"]})(),
+        bootstrap, frozen_projection=frozen_projection,
+    )
+    assertions, relationships, evidence = _initial_packet_membership(packet, bootstrap)
+    closures = []
+    for row in packet["claimLedger"]:
+        target = row.get("claim_id")
+        kind = ("assertion" if target in assertions else
+                "relationship" if target in relationships else None)
+        refs = row.get("evidence_ref_ids")
+        if (kind is not None and row.get("revision_id") == bootstrap.world_scope.revision_id
+                and isinstance(refs, list) and refs
+                and all(isinstance(ref, str) and ref and ref == ref.strip() for ref in refs)
+                and set(refs).issubset(evidence)):
+            closures.append((kind, target, tuple(sorted(set(refs)))))
+    return closures
+
+
+def _normalize_build_graph_claim(
+    segment: Mapping[str, Any], support: _BuildClaimEvidence | None,
+    turn: Turn, producing_provider_attempt_id: UUID,
+) -> dict[str, Any]:
+    if set(segment) != {"kind", "claim_id", "text", "target_kind", "target_id"}:
+        raise ValueError("Build Graph claim must select a target without evidence metadata")
+    receipt = turn.graph_context_receipt
+    execution = turn.graph_context_execution
+    auth = next(event for event in execution.events
+                if _is_provider_authorization(event)
+                and event.provider_attempt_id == producing_provider_attempt_id)
+    if (support is None or support.provider_attempt_id != producing_provider_attempt_id
+            or support.envelope_sha256 != auth.envelope_sha256
+            or support.context_receipt_sha256 != receipt.context_receipt_sha256
+            or support.graph_revision != receipt.graph_authority.graph_revision):
+        raise ValueError("Build Graph support differs from the producing envelope")
+    matches = {refs for kind, target, refs in support.closures
+               if kind == segment["target_kind"] and target == segment["target_id"]}
+    if len(matches) != 1:
+        raise ValueError("Build Graph target has absent or ambiguous complete evidence")
+    return {**segment, "graph_revision": support.graph_revision,
+            "evidence_ref_ids": list(next(iter(matches)))}
 
 
 def _admitted_initial_policy_bootstrap(
@@ -1380,6 +1438,7 @@ class _PolicyExecutionAdapter:
         self.failure: AgentTurnServiceError | None = None
         self.deterministic_guard_exhausted = False
         self.presentation = None
+        self.build_claim_evidence: dict[UUID, _BuildClaimEvidence] = {}
         self.operation_payloads: dict[UUID, str] = {}
         self.source_payloads: dict[UUID, str] = {}
         self.context_payloads: dict[UUID, str] = {}
@@ -1699,6 +1758,17 @@ class _PolicyExecutionAdapter:
                 item for event in included_operations for item in event.evidence_ref_ids
                 if item in exposed[event.event_id].evidence_ref_ids
             })
+            build_closures = []
+            if _governed_build_turn(self.request):
+                build_closures = _build_initial_claim_evidence(
+                    view, self.bootstrap, self.initial_session_projection,
+                )
+                for operation in included_operations:
+                    for kind, target, refs in exposed[operation.event_id].claim_evidence:
+                        allowed = operation.assertion_ids if kind == "assertion" else operation.relationship_ids
+                        if (target in allowed and set(refs).issubset(operation.evidence_ref_ids)
+                                and set(refs).issubset(evidence)):
+                            build_closures.append((kind, target, refs))
             event_fields = dict(
                 event_id=uuid4(), sequence=len(execution.events),
                 provider_attempt_id=provider_attempt_id,
@@ -1776,6 +1846,13 @@ class _PolicyExecutionAdapter:
             )
             self.turn = updated
             self.last_provider_attempt_id = provider_attempt_id
+            if _governed_build_turn(self.request):
+                self.build_claim_evidence[provider_attempt_id] = _BuildClaimEvidence(
+                    provider_attempt_id, view["payloadSha256"],
+                    updated.graph_context_receipt.context_receipt_sha256,
+                    updated.graph_context_receipt.graph_authority.graph_revision,
+                    tuple(sorted(set(build_closures))),
+                )
             if self.context_capture is not None:
                 self.context_capture.provider_context(self.request.message, included_source_events, body=body)
                 self.context_capture.observe({
@@ -2966,6 +3043,7 @@ def _parse_policy_completion(
     final_text: str,
     turn: Turn,
     producing_provider_attempt_id: UUID,
+    *, build_evidence: _BuildClaimEvidence | None = None,
 ) -> tuple[Any, dict[str, list[UUID]], str]:
     """Admit a strict typed answer, then bind every claim to producing evidence."""
     graph_types = _app_state_graph_execution_types()
@@ -2996,6 +3074,10 @@ def _parse_policy_completion(
             if not isinstance(segment, dict):
                 raise ValueError("answer segment must be an object")
             normalized = dict(segment)
+            if normalized.get("kind") == "graph_claim" and isinstance(receipt, BuildGraphContextReceiptV1):
+                normalized = _normalize_build_graph_claim(
+                    normalized, build_evidence, turn, producing_provider_attempt_id,
+                )
             if normalized.get("kind") == "saved_source_claim" and isinstance(receipt, BuildGraphContextReceiptV1):
                 if normalized.get("content_sha256") not in {None, receipt.source_basis.content_sha256}:
                     raise ValueError("Saved-source claim used another content digest")
@@ -5626,6 +5708,7 @@ def execute_agent_turn(
             completion, bindings, answer_text = _parse_policy_completion(
                 policy_result.final_text, policy_turn,
                 adapter.producing_provider_attempt_id,
+                build_evidence=adapter.build_claim_evidence.get(adapter.producing_provider_attempt_id),
             )
             if capture_error is not None:
                 raise capture_error

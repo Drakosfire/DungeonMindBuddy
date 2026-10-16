@@ -10,7 +10,7 @@
 
 Build Agent selects exact admitted Graph targets and writes prose without retyping long evidence identifiers. Parent supplies sorted evidence references and revision from complete per-target records actually present in the producing provider envelope. Existing durable completion schemas, producing-event binding, source-read inclusion, and APP validation remain authoritative. Plan wire behavior is unchanged.
 
-Initial support derives only from the verified initial provider packet, exact per-target declared references, and admitted anchor mapping. Expanded support derives only from exact complete delivered records/reassembled fragments and their complete delivered anchors, never discovery views, cumulative claim ledger, packet-wide evidence unions, or all effective pins. Conflicting per-target closures fail ambiguous. Unknown targets, foreign revisions/envelopes, partial records, and model-supplied reference fields fail closed. Raw rejected drafts stay retained. Semantic entailment remains separately reviewed.
+Initial support derives only from the verified initial provider packet, exact per-target declared references, and admitted anchor mapping. Expanded support derives only from exact complete delivered records/reassembled fragments and their complete admitted anchor references (initial packet or currently delivered anchors), never discovery views, cumulative claim ledger, packet-wide evidence unions, or all effective pins. Conflicting per-target closures fail ambiguous. Unknown targets, foreign revisions/envelopes, partial records, and model-supplied reference fields fail closed. Raw rejected drafts stay retained. Semantic entailment remains separately reviewed.
 
 ## Exclusive expected write set
 
