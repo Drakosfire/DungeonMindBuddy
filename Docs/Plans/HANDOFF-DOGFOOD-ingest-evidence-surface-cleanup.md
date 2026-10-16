@@ -224,3 +224,17 @@ authorized by this amendment. This remains the single serial implementation PR
   The focused Ingest suites now pass 83/83; UI typecheck, production build, and
   `git diff --check` pass. Run fresh Bugbot on the updated exact PR head before
   dogfood.
+- Bugbot on final PR head `acb2c470cb08f3dc59414ad2e01b423514486614` found a
+  P2 session-switch gap: source proof from the previous selection could linger
+  and enable actions for the newly selected session before its status was
+  checked. Campaign/session changes now clear the prior result and state;
+  saved-file proof and graph actions additionally require a hydrated result
+  whose campaign/session match the current selection. Session changes inspect
+  saved status on blur. A regression checks that verified Session 23 proof
+  cannot enable graph or ingest actions for Session 24 when its files are
+  unverified. The live wizard continues to use its current operation result
+  while it is in progress, independent of the saved-status proof gate.
+- Final focused verification after the session-switch fix: 71 IngestionModule
+  tests and 13 MemoryIngestPage tests pass; UI typecheck and production build
+  pass; `git diff --check` passes. The build retains its existing large-chunk
+  warning. A fresh Bugbot review of the resulting PR head remains required.

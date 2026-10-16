@@ -823,6 +823,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const [rawText, setRawText] = useState("");
   const rawRecapTextAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const [recapSession, setRecapSession] = useState<number>(() => initialRecapSession);
+  const selectedIngestTarget = JSON.stringify([ingestCampaignId, recapSession]);
+  const selectedIngestTargetRef = useRef(selectedIngestTarget);
+  selectedIngestTargetRef.current = selectedIngestTarget;
   const [slug, setSlug] = useState("");
   const [title, setTitle] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -862,6 +865,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const [loadingPriorIngestion, setLoadingPriorIngestion] = useState(false);
   const [priorSourceReadFailed, setPriorSourceReadFailed] = useState(false);
   const [ignoreDiskResume, setIgnoreDiskResume] = useState(false);
+  const inspectedTargetRef = useRef("");
   const lastToastKeyRef = useRef<string | null>(null);
   /** When set, the result→toast effect skips one cycle so Prep/Run can own the toast. */
   const suppressResultToastRef = useRef(false);
@@ -876,7 +880,22 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     syncReviewCampaignUrl(nextCampaignId);
     setHydrated(false);
     setIgnoreDiskResume(false);
+    setLatestResult(null);
+    setState({ status: "idle" });
+    setPreviewSignature(null);
+    inspectedTargetRef.current = "";
     window.dispatchEvent(new Event(GRAPH_REVIEW_RUNS_CHANGED_EVENT));
+  }
+
+  function handleRecapSessionChange(nextSession: number) {
+    if (nextSession === recapSession) return;
+    invalidateInFlightHydrateInspect();
+    setRecapSession(nextSession);
+    setLatestResult(null);
+    setState({ status: "idle" });
+    setPreviewSignature(null);
+    setIgnoreDiskResume(false);
+    inspectedTargetRef.current = "";
   }
 
   function invalidateInFlightHydrateInspect() {
@@ -884,6 +903,62 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     // The operator's newer action now owns this draft; do not keep it behind
     // the stale disk-inspection request's hydration gate.
     setHydrated(true);
+  }
+
+  async function inspectSelectedRecapStatus(
+    campaignId = ingestCampaignId,
+    sessionNumber = recapSession,
+  ) {
+    if (!Number.isInteger(sessionNumber) || sessionNumber <= 0 || ignoreDiskResume) return;
+    const identity = JSON.stringify([campaignId, sessionNumber]);
+    if (inspectedTargetRef.current === identity) return;
+    const inspectGeneration = ++hydrateInspectGenerationRef.current;
+    setToast(null);
+    try {
+      const inspected = await postRecapIngest({
+        operation: "inspect_status",
+        campaign_id: campaignId,
+        session: sessionNumber,
+        slug: slug.trim() || undefined,
+        title: title.trim() || undefined,
+      });
+      if (
+        inspectGeneration !== hydrateInspectGenerationRef.current ||
+        selectedIngestTargetRef.current !== identity ||
+        inspected.campaign_id !== campaignId ||
+        inspected.session !== sessionNumber
+      ) return;
+      const sanitizedResult = sanitizeLatestResult(inspected) ?? inspected;
+      setLatestResult(sanitizedResult);
+      inspectedTargetRef.current = identity;
+      const synced = syncSlugTitleFromResult(sanitizedResult);
+      if (synced) {
+        setSlug(synced.slug);
+        setTitle(synced.title);
+      }
+      setActiveStep((current) => Math.max(current, deriveStepFromResult(sanitizedResult)));
+      setState(derivePaneStateFromResult(sanitizedResult));
+    } catch {
+      if (
+        inspectGeneration === hydrateInspectGenerationRef.current &&
+        selectedIngestTargetRef.current === identity
+      ) {
+        setLatestResult(null);
+        setState({ status: "idle" });
+        setToast({
+          tone: "warning",
+          title: "Could not verify saved ingest status",
+          detail: "The current recap files could not be checked. This browser's saved status may be out of date.",
+          nextSteps: ["Refresh the page to check the saved files again before continuing."],
+          sticky: true,
+        });
+      }
+    } finally {
+      if (
+        inspectGeneration === hydrateInspectGenerationRef.current &&
+        selectedIngestTargetRef.current === identity
+      ) setHydrated(true);
+    }
   }
 
   const inferredTitle = useMemo(
@@ -901,6 +976,13 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const previewInvalidated =
     previewSignature != null && previewSignature !== currentPreviewSignature;
   const rawTextSatisfied = rawText.trim().length > 0;
+  const resultOwnsSelection =
+    hydrated &&
+    latestResult?.campaign_id === ingestCampaignId &&
+    latestResult.session === recapSession;
+  // Keep the most recent operation result for the in-progress wizard UI. Only
+  // use the identity-matched result as saved-file proof for graph extraction.
+  const proofResult = resultOwnsSelection ? latestResult : null;
   const busy = [
     "running_full_ingest",
     "previewing",
@@ -922,8 +1004,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     hasState(latestResult, "recap_reused") ||
     hasState(latestResult, "normalized_created") ||
     hasState(latestResult, "normalized_reused");
-  const recapSourceNavigationProof = recapSourceProof(latestResult);
+  const recapSourceNavigationProof = recapSourceProof(proofResult);
   const hasCurrentNormalizedSource =
+    resultOwnsSelection &&
     hasApplied &&
     recapSourceNavigationProof.confirmed &&
     recapSourceNavigationProof.normalizedCurrent &&
@@ -957,15 +1040,14 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     !hasBreadcrumb;
   const hasMaterialized =
     hasState(latestResult, "session_memory_materialized") ||
-    state.status === "ready_for_planning_activation";
+    (resultOwnsSelection && state.status === "ready_for_planning_activation");
   const isBuildingFrontmatterSeed = state.status === "building_frontmatter_seed";
   const isRunningBreadcrumbIngest = state.status === "running_breadcrumb_ingest";
   const isMaterializing = state.status === "materializing";
   const isRunningFullIngest = state.status === "running_full_ingest";
   const isBuildingGraphPreview = state.status === "building_graph_preview";
   const isMaterializingPreviewSupergraph = state.status === "materializing_preview_supergraph";
-  const graphPreview = latestResult?.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined;
-  const resultOwnsSelection = latestResult?.campaign_id === ingestCampaignId && latestResult.session === recapSession;
+  const graphPreview = proofResult?.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined;
   const selectedReaderRun = readerRun?.campaign === ingestCampaignId && readerRun.session === `session-${recapSession}` ? readerRun.runId : null;
   const reviewIdentity = JSON.stringify([ingestCampaignId, recapSession, selectedReaderRun ?? (resultOwnsSelection ? graphPreview?.extraction_run_id : null) ?? null]);
   useLayoutEffect(() => {
@@ -1183,12 +1265,24 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
             return;
           }
           if (!restoredIgnoreDiskResume) {
-            const mergedWithDraft = mergeInspectResult(usableDraft?.latestResult ?? null, inspected);
+            const savedResult =
+              usableDraft?.latestResult?.campaign_id === ingestCampaignId &&
+              usableDraft.latestResult.session === defaultRecap
+                ? usableDraft.latestResult
+                : null;
+            const mergedWithDraft = mergeInspectResult(savedResult, inspected);
             const sanitizedResult = sanitizeLatestResult(mergedWithDraft) ?? mergedWithDraft;
             setLatestResult((prev) => {
-              const merged = mergeInspectResult(prev ?? usableDraft?.latestResult ?? null, inspected);
+              const matchingPrevious =
+                prev?.campaign_id === ingestCampaignId && prev.session === defaultRecap
+                  ? prev
+                  : savedResult;
+              const merged = mergeInspectResult(matchingPrevious, inspected);
               return sanitizeLatestResult(merged) ?? merged;
             });
+            if (inspected.campaign_id === ingestCampaignId && inspected.session === defaultRecap) {
+              inspectedTargetRef.current = JSON.stringify([ingestCampaignId, defaultRecap]);
+            }
             const synced = sanitizedResult.session === recapSession ? syncSlugTitleFromResult(sanitizedResult) : null;
             if (synced) {
               setSlug(synced.slug);
@@ -1447,12 +1541,16 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     }
 
     invalidateInFlightHydrateInspect();
+    const requestGeneration = hydrateInspectGenerationRef.current;
     setLoadingPriorIngestion(true);
     setPriorSourceReadFailed(false);
     setSourceMode("processed");
     setLoadedArtifact(record);
     setRawText("");
     setRecapSession(sessionNumber);
+    setLatestResult(null);
+    setState({ status: "idle" });
+    inspectedTargetRef.current = "";
     setTitle(titleFromArtifact(record));
     setSlug("");
     setPreviewSignature(null);
@@ -1461,11 +1559,19 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     try {
       const inspected = await postRecapIngest({
         operation: "inspect_status",
-        campaign_id: ingestCampaignId,
+        campaign_id: record.campaign_id,
         session: sessionNumber,
         title: titleFromArtifact(record) || undefined,
       });
+      const targetIdentity = JSON.stringify([record.campaign_id, sessionNumber]);
+      if (
+        requestGeneration !== hydrateInspectGenerationRef.current ||
+        selectedIngestTargetRef.current !== targetIdentity ||
+        inspected.campaign_id !== record.campaign_id ||
+        inspected.session !== sessionNumber
+      ) return;
       applyResultAndSyncSlug(inspected);
+      inspectedTargetRef.current = targetIdentity;
       setActiveStep(Math.max(1, deriveStepFromResult(inspected)));
       setState(derivePaneStateFromResult(inspected));
 
@@ -2229,9 +2335,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                 value={recapSession > 0 ? recapSession : ""}
                 onChange={(event) => {
                   const nextValue = Number.parseInt(event.target.value, 10);
-                  setRecapSession(Number.isNaN(nextValue) ? 0 : nextValue);
-                  setIgnoreDiskResume(false);
+                  handleRecapSessionChange(Number.isNaN(nextValue) ? 0 : nextValue);
                 }}
+                onBlur={() => void inspectSelectedRecapStatus()}
               />
               <RequiredBadge satisfied={validRecapSession} />
             </span>
@@ -2492,9 +2598,13 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                 payload={{ ...reviewSource.projection, markdown: reviewSource.projection.markdown.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, "") }}
                 selectedSessionId={`session-${reviewSource.session}`}
                 sessionOptions={Array.from(new Set([`session-${reviewSource.session}`, ...priorIngestionArtifacts.filter((item) => item.campaign_id === ingestCampaignId).map((item) => item.session_id)])).sort((a, b) => Number(a.replace("session-", "")) - Number(b.replace("session-", "")))}
-                onSelectSession={(value) => setRecapSession(Number(value.replace("session-", "")))}
+                onSelectSession={(value) => {
+                  const nextSession = Number(value.replace("session-", ""));
+                  handleRecapSessionChange(nextSession);
+                  void inspectSelectedRecapStatus(ingestCampaignId, nextSession);
+                }}
                 selectedCampaignId={ingestCampaignId}
-                onSelectCampaign={setIngestCampaignId}
+                onSelectCampaign={handleIngestCampaignSelect}
               />
               </> : <article aria-label="Loaded recap">
                 <h3>Session {reviewSource.session}</h3>

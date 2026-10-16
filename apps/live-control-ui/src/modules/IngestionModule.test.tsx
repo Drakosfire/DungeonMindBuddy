@@ -490,6 +490,67 @@ describe("IngestionModule", () => {
     expect(vi.mocked(recapIngestApi.postRecapIngest).mock.calls.every(([request]) => request.operation === "inspect_status")).toBe(true);
   });
 
+  it("invalidates source proof when the selected session changes", async () => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-23");
+    const inspectSpy = vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (request) => {
+      if (request.operation !== "inspect_status") {
+        throw new Error(`Unexpected ingestion write: ${request.operation}`);
+      }
+      if (request.session === 23) {
+        return makeStatus({
+          session: 23,
+          status: "breadcrumb_required",
+          states: ["ingest_status_inspected", "recap_reused", "normalized_reused", "breadcrumb_required"],
+        });
+      }
+      return makeStatus({
+        session: 24,
+        status: "breadcrumb_required",
+        states: ["ingest_status_inspected", "recap_reused", "normalized_reused", "breadcrumb_required"],
+        ingest_report: { corpus_impact: [] },
+      });
+    });
+
+    const user = userEvent.setup();
+    render(<IngestionModule campaignId="longmont-c2" session={24} managedWorldId="elderwyld" initialSourceSession={23} />);
+
+    await waitFor(() => expect(inspectSpy).toHaveBeenCalledWith(expect.objectContaining({
+      operation: "inspect_status",
+      campaign_id: "longmont-c2",
+      session: 23,
+    })));
+    await user.click(screen.getByText("Evidence & details"));
+    await user.click(screen.getByText("Advanced graph dogfood"));
+    await user.type(screen.getByLabelText("Candidate graph path"), "out/candidate.json");
+
+    const buildPreview = screen.getByRole("button", { name: "Build Graph Preview" });
+    const materializePreview = screen.getByRole("button", { name: "Materialize Preview Supergraph" });
+    expect(buildPreview).toBeEnabled();
+    expect(materializePreview).toBeEnabled();
+
+    const sessionInput = screen.getByLabelText("Recap/source session");
+    fireEvent.change(sessionInput, { target: { value: "24" } });
+    expect(sessionInput).toHaveValue(24);
+    expect(buildPreview).toBeDisabled();
+    expect(materializePreview).toBeDisabled();
+    const extract = screen.queryByRole("button", { name: /run ingest|extract/i });
+    if (extract) expect(extract).toBeDisabled();
+
+    fireEvent.blur(sessionInput);
+    await waitFor(() => expect(inspectSpy).toHaveBeenCalledWith(expect.objectContaining({
+      operation: "inspect_status",
+      campaign_id: "longmont-c2",
+      session: 24,
+    })));
+    await waitFor(() => {
+      expect(buildPreview).toBeDisabled();
+      expect(materializePreview).toBeDisabled();
+      const currentExtract = screen.queryByRole("button", { name: /run ingest|extract/i });
+      if (currentExtract) expect(currentExtract).toBeDisabled();
+    });
+    expect(inspectSpy).toHaveBeenCalledTimes(2);
+  });
+
   it("identifies prepared recap work when a blank entry restores a local draft without its source text", async () => {
     window.history.replaceState({}, "", "/ingest?world=elderwyld");
     window.localStorage.setItem("dmb.ingestion.longmont-c2.session.29", JSON.stringify({
