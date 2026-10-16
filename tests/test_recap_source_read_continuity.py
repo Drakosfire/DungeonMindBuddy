@@ -615,21 +615,25 @@ def test_source_batch_v2_opens_split_root_recap_spans_with_receipts(
             anchor_id=f"source-anchor:v1:split-root-{line}",
         )
         anchors[anchor.anchor_id] = anchor
+    snapshot = SimpleNamespace(
+        world_id="world:recap-source-read-continuity", revision_id="rev:split-root",
+        revision_pin="rev:split-root",
+    )
     services = SimpleNamespace(
         binding=object(),
         bundle=SimpleNamespace(sources=_FakeSources(
             locator=f"repo://{relative}", digest=digest,
         )),
-        retrieval=SimpleNamespace(resolve_source_anchor=lambda _ctx, anchor_id: (
-            SimpleNamespace(
-                found=True, anchor=anchors[anchor_id],
-                snapshot=SimpleNamespace(revision_id="rev:split-root"),
-            )
+        retrieval=SimpleNamespace(resolve_source_anchors=lambda request: SimpleNamespace(
+            snapshot=snapshot,
+            resolutions=tuple(SimpleNamespace(
+                found=True, anchor=anchors[anchor_id], anchor_id=anchor_id, snapshot=snapshot,
+            ) for anchor_id in request.anchor_ids),
         )),
     )
     monkeypatch.setattr(retrieval, "_require_mounted_native_read", lambda _root: None)
     monkeypatch.setattr(direct, "direct_services_from_config", lambda _world: services)
-    monkeypatch.setattr(direct, "_map_retrieval_context", lambda *_args: object())
+    monkeypatch.setattr(direct, "_map_retrieval_context", lambda *_args: snapshot)
     monkeypatch.setattr(direct, "_dnd_anchor_id", lambda anchor_id: anchor_id)
     monkeypatch.setattr(direct, "_retrieval_snapshot_view", lambda _snapshot, *, focus: (
         WorldGraphRetrievalSnapshot(

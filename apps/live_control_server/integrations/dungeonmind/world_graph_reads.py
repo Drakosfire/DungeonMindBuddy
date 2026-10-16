@@ -94,6 +94,7 @@ from dungeonmind.application.world_graph_retrieval import (
     NeighborhoodResult,
     ObjectLookupResult,
     RetrievalBounds,
+    SourceAnchorBatchRequest,
     SourceAnchorIndexRequest,
     SourceContextIndexRequest,
     SelectedSourceAnchorIndexRequest,
@@ -3061,42 +3062,95 @@ def _read_source_anchor_resolved(
         resolution = services.retrieval.resolve_source_anchor(
             dnd_request, anchor_id=_dnd_anchor_id(request.anchor_id)
         )
-        revision_id = (
-            resolution.anchor.source_revision_id
-            if resolution.found and resolution.anchor is not None else None
-        )
-        anchor = resolution.anchor if resolution.found else None
-        revision_digest = (
-            _source_revision_digest(services, revision_id)
-            if resolution.found and resolution.anchor is not None
-            and resolution.anchor.can_open_source
-            and _classify_locator_kind(resolution.anchor) != "unsupported"
-            else None
-        )
-        return ResolvedSourceAnchorReadV2(
-            result=_anchor_read_view(
-                services, resolution, request=request, repo_root=repo_root,
-                revision_digest=revision_digest,
-            ),
-            source_revision_id=revision_id,
-            source_revision_sha256=revision_digest,
-            evidence_ref_id=anchor.evidence_ref_id if anchor is not None else None,
-            source_artifact_id=(
-                anchor.source_artifact_id if anchor is not None else None
-            ),
-            source_span_ref_id=(
-                _product_source_span_ref_id(anchor) if anchor is not None else None
-            ),
-            locator_kind=(
-                _classify_locator_kind(anchor) if anchor is not None else None
-            ),
-            locator_identity=(
-                anchor.locator_identity if anchor is not None else None
-            ),
-            graph_revision=resolution.snapshot.revision_id,
+        return _source_anchor_read_from_resolution(
+            services, resolution, request=request, repo_root=repo_root,
+            revision_digests={},
         )
     except Exception as exc:  # noqa: BLE001
         raise _map_direct_error(exc) from exc
+
+
+def _source_anchor_read_from_resolution(
+    services: DirectWorldGraphReadServices,
+    resolution: SourceAnchorResolution,
+    *,
+    request: WorldGraphSourceAnchorReadRequest,
+    repo_root: Path,
+    revision_digests: dict[str | None, str | None],
+) -> ResolvedSourceAnchorReadV2:
+    revision_id = (
+        resolution.anchor.source_revision_id
+        if resolution.found and resolution.anchor is not None else None
+    )
+    anchor = resolution.anchor if resolution.found else None
+    revision_digest = None
+    if (anchor is not None and anchor.can_open_source
+            and _classify_locator_kind(anchor) != "unsupported"):
+        if revision_id not in revision_digests:
+            revision_digests[revision_id] = _source_revision_digest(services, revision_id)
+        revision_digest = revision_digests[revision_id]
+    return ResolvedSourceAnchorReadV2(
+        result=_anchor_read_view(
+            services, resolution, request=request, repo_root=repo_root,
+            revision_digest=revision_digest,
+        ),
+        source_revision_id=revision_id,
+        source_revision_sha256=revision_digest,
+        evidence_ref_id=anchor.evidence_ref_id if anchor is not None else None,
+        source_artifact_id=(
+            anchor.source_artifact_id if anchor is not None else None
+        ),
+        source_span_ref_id=(
+            _product_source_span_ref_id(anchor) if anchor is not None else None
+        ),
+        locator_kind=(
+            _classify_locator_kind(anchor) if anchor is not None else None
+        ),
+        locator_identity=(
+            anchor.locator_identity if anchor is not None else None
+        ),
+        graph_revision=resolution.snapshot.revision_id,
+    )
+
+
+def read_source_anchors_direct_v2(
+    services: DirectWorldGraphReadServices,
+    requests: tuple[WorldGraphSourceAnchorReadRequest, ...],
+    *,
+    repo_root: Path,
+) -> tuple[ResolvedSourceAnchorReadV2 | DirectWorldGraphReadError, ...]:
+    """One admitted native context; independent immutable body/read outcomes."""
+    try:
+        if not requests:
+            raise ValueError("source-read batch must not be empty")
+        context = requests[0].model_dump(exclude={"schema_", "anchor_id", "max_chars"})
+        if any(item.model_dump(exclude={"schema_", "anchor_id", "max_chars"}) != context
+               for item in requests):
+            raise ValueError("source-read batch contexts differ")
+        projection = _map_retrieval_context(requests[0], services.binding)
+        ids = tuple(_dnd_anchor_id(item.anchor_id) for item in requests)
+        native = services.retrieval.resolve_source_anchors(SourceAnchorBatchRequest(projection, ids))
+        if (native.snapshot.world_id != projection.world_id
+                or native.snapshot.revision_id != projection.revision_pin
+                or tuple(item.anchor_id for item in native.resolutions) != ids
+                or any(item.snapshot != native.snapshot
+                       or item.found != (item.anchor is not None)
+                       or (item.anchor is not None and item.anchor.anchor_id != item.anchor_id)
+                       for item in native.resolutions)):
+            raise ValueError("native source-read batch identity differs")
+    except Exception as exc:
+        raise _map_direct_error(exc) from exc
+    digests: dict[str | None, str | None] = {}
+    reads: list[ResolvedSourceAnchorReadV2 | DirectWorldGraphReadError] = []
+    for request, resolution in zip(requests, native.resolutions, strict=True):
+        try:
+            reads.append(_source_anchor_read_from_resolution(
+                services, resolution, request=request, repo_root=repo_root,
+                revision_digests=digests,
+            ))
+        except Exception as exc:
+            reads.append(_map_direct_error(exc))
+    return tuple(reads)
 
 
 def split_recap_body_paragraphs(text: str) -> list[str]:

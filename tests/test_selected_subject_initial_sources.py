@@ -106,8 +106,8 @@ def fixture(monkeypatch, count=9, length=30, outcome="enough"):
 
     monkeypatch.setattr(
         expansion_executor.retrieval_service,
-        "read_source_anchor_internal_v2",
-        native_read,
+        "read_source_anchors_internal_v2",
+        lambda requests, **kw: tuple(native_read(request, **kw) for request in requests),
     )
     envelope = dict(
         world_id="world:test",

@@ -563,6 +563,35 @@ def execute_read_graph_source(
     focus = _focus_for_request(session.snapshot.focus)
     reads: list[dict[str, Any]] = []
     internal_reads: list[dict[str, Any]] = []
+    batch_reads: dict[str, Any] = {}
+    if receipt_version == 2:
+        authorized_requests = tuple(
+            WorldGraphSourceAnchorReadRequest.model_validate({
+                **_request_context_payload(session, focus),
+                "schema": RETRIEVAL_SOURCE_ANCHOR_READ_REQUEST_SCHEMA,
+                "anchorId": anchor_id, "maxChars": request.max_chars,
+            })
+            for anchor_id in request.anchor_ids if anchor_id in admitted
+        )
+        if authorized_requests:
+            try:
+                batch = retrieval_service.read_source_anchors_internal_v2(
+                    authorized_requests, repo_root=artifact_data_root(default=root),
+                )
+                if len(batch) != len(authorized_requests) or any(
+                    not isinstance(item, WorldGraphRetrievalServiceError)
+                    and item.result.anchor_id != expected.anchor_id
+                    for expected, item in zip(authorized_requests, batch, strict=True)
+                ):
+                    raise WorldGraphRetrievalServiceError(
+                        "Source-read batch does not match admitted selectors",
+                        code="source_batch_unverifiable", status_code=409,
+                    )
+                batch_reads = {expected.anchor_id: item
+                               for expected, item in zip(authorized_requests, batch, strict=True)}
+            except WorldGraphRetrievalServiceError as exc:
+                # A failed batch must never be replayed as independent reads.
+                batch_reads = {expected.anchor_id: exc for expected in authorized_requests}
     for anchor_id in request.anchor_ids:
         if anchor_id not in admitted:
             denied_read = {
@@ -592,12 +621,9 @@ def execute_read_graph_source(
                     "maxChars": request.max_chars,
                 }
             )
-            resolved = (
-                retrieval_service.read_source_anchor_internal_v2(
-                    read_req, repo_root=artifact_data_root(default=root)
-                )
-                if receipt_version == 2 else None
-            )
+            resolved = batch_reads[anchor_id] if receipt_version == 2 else None
+            if isinstance(resolved, WorldGraphRetrievalServiceError):
+                raise resolved
             result = (
                 resolved.result if resolved is not None
                 else retrieval_service.read_source_anchor(
