@@ -2817,6 +2817,51 @@ describe("World Plan conversation consumer", () => {
     expect(screen.queryByText(/invalid Graph-context receipt/)).not.toBeInTheDocument();
   });
 
+  it.each([24, 64, 65])("validates the bounded cited-source choice count %s in saved history", async (count) => {
+    const context = await planGraphContext("graph_grounded");
+    const completion = context.completion! as unknown as Record<string, unknown>;
+    const citationMap = completion.citation_map as Record<string, unknown>;
+    const entries = citationMap.entries as Array<Record<string, unknown>>;
+    completion.schema = "dmb_plan_world_graph_completion_v2";
+    citationMap.schema = "dmb_graph_citation_map_v2";
+    entries[0]!.source_opened = true;
+    entries[0]!.source_read_ids = Array.from({ length: 25 }, (_, index) => `read-${String(index).padStart(5, "0")}`);
+    const target = sourceOpenTargets().find((row) => row.kind === "evidence_anchor")!;
+    context.source_open_targets = Array.from({ length: Math.min(count, 64) }, (_, index) => ({
+      ...target, anchor_id: `anchor-${index}`,
+    }));
+    context.evidence_anchor_statuses = [{ schema: "dmb_agent_evidence_anchor_status_v1",
+      claim_id: "claim-internal-test", status: "available", target_count: count }];
+    setupApi(await historyV2("conversation-a", 5, [policyHistoryTurn(
+      1, "many-source-turn", "What is known?", "The western gate is watched.", context,
+    )]));
+    render(conversationElement());
+    if (count > 64) {
+      expect(await screen.findByText(/invalid Graph-context receipt/)).toBeInTheDocument();
+      expect(screen.queryByText("The western gate is watched.")).not.toBeInTheDocument();
+    } else {
+      expect((await screen.findAllByText("The western gate is watched.")).length).toBeGreaterThan(0);
+      expect(screen.queryByText(/invalid Graph-context receipt/)).not.toBeInTheDocument();
+    }
+  });
+
+  it("rejects a source-read citation beyond the APP outer capacity", async () => {
+    const context = await planGraphContext("graph_grounded");
+    const completion = context.completion! as unknown as Record<string, unknown>;
+    const citationMap = completion.citation_map as Record<string, unknown>;
+    const entries = citationMap.entries as Array<Record<string, unknown>>;
+    completion.schema = "dmb_plan_world_graph_completion_v2";
+    citationMap.schema = "dmb_graph_citation_map_v2";
+    entries[0]!.source_opened = true;
+    entries[0]!.source_read_ids = Array.from({ length: 16_385 }, (_, index) => `read-${String(index).padStart(5, "0")}`);
+    setupApi(await historyV2("conversation-a", 5, [policyHistoryTurn(
+      1, "over-capacity-source-turn", "What is known?", "The western gate is watched.", context,
+    )]));
+    render(conversationElement());
+    expect(await screen.findByText(/invalid Graph-context receipt/)).toBeInTheDocument();
+    expect(screen.queryByText("The western gate is watched.")).not.toBeInTheDocument();
+  });
+
   it("opens exact evidence and related recap targets from saved World history without a provider repost", async () => {
     const context = await planGraphContext("graph_grounded");
     context.source_open_targets = sourceOpenTargets();
