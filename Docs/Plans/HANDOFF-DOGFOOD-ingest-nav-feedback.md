@@ -128,3 +128,35 @@ Stop if the fix needs a shared component, route contract, extraction change, or 
 - Rendered local preview remains blocked by host networking (`listen EPERM` on
   127.0.0.1:5205); the attempted 5204 preview still refused connections.
   User-owned 5202 was observed read-only and left unchanged.
+
+### Rendered preview and real-run inspection — 2026-10-16
+
+- Started the PR UI on 127.0.0.1:5204 after the sandboxed bind failed. The
+  desktop toolbar and empty recap prompt rendered. At 390×844, the toolbar,
+  controls, and editor remain stacked without horizontal document overflow
+  (`documentElement.scrollWidth === 390`).
+- Opened the known Session 29 review route for run
+  `f43e48e6-c775-4960-824f-fb398fe50bb9` read-only. The PR preview displayed the
+  saved recap source, but its World Graph status was “Needs attention” and its
+  detail said the local Graph session was revoked; Prepare and Extract were
+  disabled. I did not reconnect the session or trigger any write action.
+- The same review route on 5202 (current main, read-only) showed World Graph
+  Ready and the existing recap source. Its status details expose a real
+  contradiction for run `20261015T204654Z`: the manifest says
+  `candidate_validation_ready`, `extraction_performed: false`,
+  `llm_used: false`, and preview-only; the candidate has 59 nodes, 33 edges,
+  and 154 evidence references, of which 144 resolve. Its validation report
+  says `valid: true` while listing 10 unresolved evidence-reference warnings.
+  The page also reports the canonical and normalized recap files missing while
+  retaining `recap_reused` and `normalized_reused` in the inspected states.
+- These are owning API/pipeline readiness and evidence-reference gaps, outside
+  this UI-only lease. Open #1244 addresses provable legacy reference recovery;
+  open #1251 makes unresolved candidate validation block readiness. No new
+  pipeline implementation is claimed here.
+- A read-only scan of available candidates found no `team`→`tea` node in the
+  Session 29 candidate. The `tea` nodes found are in Session 25 and have direct
+  source quotes about Hesta brewing tea, so that observation does not reproduce
+  the reported misparse; its originating run still needs to be identified.
+- No Prepare, Extract, Graph admission, publication, provider, persistence, or
+  corpus write was triggered. 5202 was only read; the isolated preview was not
+  used to reconnect or mutate its local Graph session.
