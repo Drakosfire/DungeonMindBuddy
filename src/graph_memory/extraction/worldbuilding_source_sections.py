@@ -1,6 +1,8 @@
 """Retain explicitly owned numbered source sections without model paraphrase."""
 
 from copy import deepcopy
+from hashlib import sha256
+import json
 import re
 from typing import Any
 
@@ -55,6 +57,46 @@ def owned_livestock_sections(rows: list[dict[str, Any]]) -> list[dict[str, Any]]
                                     for row in [owner, *selected]],
         })
     return sections
+
+
+
+def owned_livestock_definitions(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Describe individual source definitions without creating Graph identities.
+
+    Shared owner/preamble text is part of each definition's evidence, preserving
+    qualifiers that apply to the whole group. This is a source-boundary record,
+    not an accepted candidate or permission to publish an observation.
+    """
+    sections = owned_livestock_sections(rows)
+    by_ref = {row["source_span_ref_id"]: row for row in rows}
+    definitions = []
+    for section in sections:
+        selected = [by_ref[ref] for ref in section["source_span_ref_ids"]]
+        starts = [index for index, row in enumerate(selected)
+                  if re.match(r"^####\s+\d+\.\s+", row["text"])]
+        shared = selected[:starts[0]]
+        for number, start in enumerate(starts):
+            end = starts[number + 1] if number + 1 < len(starts) else len(selected)
+            body = selected[start:end]
+            # A heading alone carries a name, not a source definition.
+            if not any(row["text"].strip() and not re.match(r"^#{1,6}\s+", row["text"])
+                       for row in body[1:]):
+                raise SourceSectionRetentionError("source definition has no body")
+            evidence = [*shared, *body]
+            title = re.sub(r"^####\s+\d+\.\s+", "", body[0]["text"]).strip()
+            payload = {
+                "schema": "dmb_source_definition_v1",
+                "owner_label": section["owner_label"],
+                "owner_span_ref_id": section["owner_span_ref_id"],
+                "title": title,
+                "definition_span_ref_id": body[0]["source_span_ref_id"],
+                "description": "\n\n".join(row["text"] for row in evidence),
+                "source_span_ref_ids": [row["source_span_ref_id"] for row in evidence],
+            }
+            digest = sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False,
+                                       separators=(",", ":")).encode("utf-8")).hexdigest()
+            definitions.append({"definition_id": f"source-definition:{digest}", **payload})
+    return definitions
 
 
 def retain_owned_sections(

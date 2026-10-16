@@ -49,3 +49,13 @@ Proof must traverse producer→sealed reload→review→native confirm/readback�
 passages under ordinary limits, with idempotency and foreign-source/subject/duplicate
 rejection. Keep all qualifications and historical knowledge. Passing this source
 boundary prerequisite is not publication or Agent acceptance.
+
+Author evidence:58passes across new boundary tests and unchanged Gazetteer profile
+suite, one inherited schema-shadow warning. Ruff/diff pass. The new test fails
+collection on the accepted base because the boundary capability is absent.
+Checksum-verified retained Mirathorn source and span index produce six definitions:
+five with10spans each, Float Goats17spans. Complete text, owner context and exact
+span IDs are frozen privately in `mirathorn-definition-boundary-gold.json` under
+`experiments/build-governed-preview-20261016`; no corpus bytes enter this PR.
+Existing profiles still emit their prior shape; this helper is not an adopted
+candidate contract or proof that native publication/Agent retrieval changed.
