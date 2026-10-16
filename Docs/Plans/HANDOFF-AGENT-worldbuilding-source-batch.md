@@ -1,6 +1,6 @@
 # AGENT — reuse immutable worldbuilding source within one read batch
 
-Status ACTIVE. PRIME implements solo; ARCHITECTURE independently reviews.
+Status MERGED as Buddy #1270 at 2c18521a4e250bab420a17ba7bb30b04110b3041. Implementation lease ended; controller evaluation follows HANDOFF-AGENT-jev-controller-cohort.md. Original activation: PRIME implements solo; ARCHITECTURE independently reviews.
 Serial successor to Buddy #1269 merged eca65816e3db336aa9df4593a1f0668a55c0f0ea;
 base that exact remote-main revision, branch codex/batch-worldbuilding-source-snapshot,
 non-serving /tmp/prime-recap-mention-boundaries. Operator MIND-first efficiency goal
