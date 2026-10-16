@@ -180,6 +180,7 @@ describe("IngestionModule", () => {
     expect(within(toolbar).getByLabelText("Recap/source session")).toHaveValue(null);
     expect(within(toolbar).getByLabelText("Session title")).toHaveValue("");
     expect(within(toolbar).getByLabelText("Prior processed recap")).toBeInTheDocument();
+    expect(within(toolbar).getByRole("button", { name: "Paste recap" })).toBeInTheDocument();
     expect(within(toolbar).queryByRole("button", { name: "Prep for ingest" })).not.toBeInTheDocument();
     expect(within(toolbar).queryByRole("button", { name: "Run ingest" })).not.toBeInTheDocument();
     expect(within(toolbar).queryByRole("status")).not.toBeInTheDocument();
@@ -191,7 +192,9 @@ describe("IngestionModule", () => {
     await waitFor(() => expect(screen.getByLabelText("Prior processed recap")).toHaveDisplayValue("Load a processed recap…"));
     expect(ingest).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "Load processed recap" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Write a recap" }));
+    expect(screen.queryByRole("list", { name: "From recap to World memory" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Write a recap" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Paste recap" }));
     const rawField = screen.getByRole("textbox", { name: "Raw recap text" });
     expect(rawField).toHaveFocus();
     expect(rawField).toHaveValue("");
@@ -264,7 +267,10 @@ describe("IngestionModule", () => {
     expect(within(nav).queryByRole("group", { name: "Extraction actions" })).not.toBeInTheDocument();
     expect(within(nav).getByRole("status")).toHaveTextContent("Breadcrumb required before retrieval");
     expect(within(nav).getByRole("status")).not.toHaveTextContent("No recap source loaded");
-    expect(screen.getByText(/saved ingest status for this session, but no recap text is open here/i)).toBeInTheDocument();
+    expect(within(nav).getByRole("link", { name: "Evidence" })).toHaveAttribute("href", "#ingestion-evidence-details");
+    expect(screen.getByText(/Saved ingest work exists, but no recap text is open/i)).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Continue this recap safely" })).not.toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: "Paste recap" })).toBeInTheDocument();
     expect(screen.getByText(/latest status did not confirm canonical and normalized recap files/i)).toBeInTheDocument();
     expect(screen.queryByText(/Canonical \+ normalized recap exist on disk/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Canonical recap and normalized recap are on disk/i)).not.toBeInTheDocument();

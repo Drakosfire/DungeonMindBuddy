@@ -255,8 +255,21 @@ button.ingest-welcome-action {
   white-space: nowrap;
 }
 
-.ingest-local-nav__new {
+.ingest-local-nav__primary-action {
   align-self: end;
+  border-color: #edc264;
+  background: #d9a83f;
+  color: #1d1b17;
+  font-weight: 750;
+}
+
+.ingest-local-nav__primary-action:hover:not(:disabled) {
+  background: #edbc56;
+}
+
+.ingest-local-nav__primary-action:focus-visible {
+  outline: 3px solid #f5d98f;
+  outline-offset: 3px;
 }
 
 .ingest-local-nav__workflow {
@@ -302,6 +315,31 @@ button.ingest-welcome-action {
   border-radius: 0.45rem;
   background: #0f1218;
   color: inherit;
+}
+
+.ingest-local-nav__evidence {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
+  padding: 0.42rem 0.7rem;
+  border: 1px solid #3a4358;
+  border-radius: 0.45rem;
+  background: #232b3c;
+  color: #d5dbea;
+  font-size: 0.85rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.ingest-local-nav__evidence:hover,
+.ingest-local-nav__evidence:focus-visible {
+  border-color: #7187aa;
+  color: #fff;
+}
+
+.ingest-local-nav__evidence:focus-visible {
+  outline: 3px solid #a7c8ff;
+  outline-offset: 2px;
 }
 
 .ingest-local-nav__replace {
@@ -540,7 +578,7 @@ button.ingest-welcome-action {
     grid-column: 1;
   }
 
-  .ingest-local-nav__new {
+  .ingest-local-nav__primary-action {
     grid-column: 2;
     justify-self: end;
     align-self: end;
@@ -617,11 +655,11 @@ button.ingest-welcome-action {
   }
 
   .ingest-local-nav__title,
-  .ingest-local-nav__new {
+  .ingest-local-nav__primary-action {
     grid-column: 1;
   }
 
-  .ingest-local-nav__new {
+  .ingest-local-nav__primary-action {
     justify-self: stretch;
   }
 }

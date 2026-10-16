@@ -2086,6 +2086,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     (selectableKeep.length === 1 ? selectableKeep[0].basename : null);
   const canReconcile = hasNormalizedDuplicates && !reconciling && Boolean(selectedKeep);
   const showSourceActions = priorIngestionArtifacts.length > 0 || loadingPriorIngestion;
+  const showEvidenceShortcut = latestResult !== null;
   const showWorkflowActions =
     sourceInputSatisfied || hasNormalizedRecap || busy;
   const showWorkflowFeedback = showWorkflowActions || Boolean(toast) || state.status === "error";
@@ -2131,14 +2132,18 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
               <RequiredBadge satisfied={genericGuardPass} />
             </span>
           </label>
-          {!showRecapWelcome ? (
-            <button type="button" className="ingest-local-nav__new" onClick={() => startNewRecap(1)}>
-              New recap
+          {hydrated ? (
+            <button
+              type="button"
+              className="ingest-local-nav__primary-action"
+              onClick={() => showRecapWelcome ? rawRecapTextAreaRef.current?.focus() : startNewRecap(1)}
+            >
+              {showRecapWelcome ? "Paste recap" : "New recap"}
             </button>
           ) : null}
         </div>
 
-        {showSourceActions || showWorkflowActions ? (
+        {showSourceActions || showWorkflowActions || showEvidenceShortcut ? (
           <div className="ingest-local-nav__workflow">
             {showSourceActions ? (
               <div className="ingest-local-nav__source" role="group" aria-label="Source actions">
@@ -2170,6 +2175,12 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                   </button>
                 ) : null}
               </div>
+            ) : null}
+
+            {showEvidenceShortcut ? (
+              <a className="ingest-local-nav__evidence" href="#ingestion-evidence-details">
+                Evidence
+              </a>
             ) : null}
 
             {showWorkflowActions ? (
@@ -2286,29 +2297,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           </h2>
           <p className="ingest-welcome-intro">
             {hasPriorIngestWork
-              ? "There is saved ingest status for this session, but no recap text is open here. Check Evidence & details, then load a processed recap above or paste the verified source before continuing."
-              : "Paste a session recap below. Buddy will prepare the notes and show you the evidence before anything joins the World."}
+              ? "Saved ingest work exists, but no recap text is open. Load a processed recap or paste the verified source to continue."
+              : "Paste or write a session recap, or load a processed recap from the bar above. Buddy shows proposed people, places, and connections before anything joins the World."}
           </p>
-          {hasPriorIngestWork ? (
-            <ol className="ingest-welcome-steps" aria-label="Continue this recap safely">
-              <li><span>01</span><div><strong>Check prior findings</strong><p>Open Evidence & details to inspect the saved status and source checks.</p></div></li>
-              <li><span>02</span><div><strong>Load the recap</strong><p>Choose a processed recap in the nav or paste its verified source below.</p></div></li>
-              <li><span>03</span><div><strong>Continue from evidence</strong><p>Review the candidate before running extraction again.</p></div></li>
-            </ol>
-          ) : (
-            <ol className="ingest-welcome-steps" aria-label="From recap to World memory">
-              <li><span>01</span><div><strong>Bring the moments</strong><p>Paste the recap or load a processed one.</p></div></li>
-              <li><span>02</span><div><strong>See what Buddy found</strong><p>Inspect the proposed people, places, and connections.</p></div></li>
-              <li><span>03</span><div><strong>Choose what belongs</strong><p>Review every change before it enters the World.</p></div></li>
-            </ol>
-          )}
-          <button
-            type="button"
-            className="ingest-welcome-action"
-            onClick={() => rawRecapTextAreaRef.current?.focus()}
-          >
-            {hasPriorIngestWork ? "Paste recap text" : "Write a recap"} <span aria-hidden="true">↓</span>
-          </button>
         </section>
       ) : null}
 
@@ -2389,7 +2380,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
               <button type="button" onClick={closeSavedReader}>Close review</button>
             </section>
           ) : null}
-          <details><summary>Evidence &amp; details</summary>
+          <details id="ingestion-evidence-details"><summary>Evidence &amp; details</summary>
           <NativeGraphAccessControl onChanged={(available) => {
             reviewEpoch.current += 1;
             setReviewSource(null);

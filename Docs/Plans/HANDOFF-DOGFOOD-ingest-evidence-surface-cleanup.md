@@ -33,6 +33,11 @@ states; readiness lanes repeat the current next action already shown in the nav.
   disabled Prepare/Extract controls, or an empty-state status that repeats the
   editor prompt. Surface those controls as soon as a source, active operation,
   or operation feedback makes them relevant.
+- Keep the empty-state “Paste recap” action in the local nav. The welcome canvas
+  explains the experience briefly; it does not repeat the source choices and
+  workflow as a numbered checklist or second CTA.
+- When saved ingest status exists, provide a local-nav shortcut to the evidence
+  disclosure while leaving recap text and detailed proof on the main surface.
 - Show the designed empty welcome after hydration when no recap text, loaded
   artifact, normalized recap, or preview exists, even if prior processed recaps
   are available or the selected session is nonzero. Keep it hidden for prepared
@@ -68,8 +73,10 @@ states; readiness lanes repeat the current next action already shown in the nav.
 - Make the local bar a named navigation landmark. On a new/empty recap, show
   only the identity controls and any available real source choice; omit disabled
   source/load controls, inapplicable stage buttons, and “No recap source loaded”.
-  Once recap text or a processed source is available, expose the workflow stages
-  and a concise next action in the nav.
+  Keep the “Paste recap” action in that bar; the welcome remains concise and has
+  no duplicate step list or paste button. With saved status, show an Evidence
+  shortcut there. Once recap text or a processed source is available, expose
+  the workflow stages and a concise next action in the nav.
 - Add focused regression tests for one file-status presentation and expandable
   per-file evidence, plus empty and ready nav states. Run the focused Ingest
   suites, UI typecheck/build where dependencies permit, and cumulative
@@ -89,12 +96,16 @@ slice rather than broadening this UI lease.
 ## Verification
 
 - `IngestionModule.test.tsx` and `MemoryIngestPage.test.tsx`: 77 passed
-  (64 + 13), including restored-empty-session recovery and loaded-source
-  navigation states.
+  (64 + 13), including empty-state nav focus, concise welcome, saved-status
+  Evidence shortcut, and loaded-source navigation states.
 - `npm run typecheck`: passed.
 - `npm run build`: passed; Vite reports the existing large-chunk warning.
 - `git diff --check`: passed.
-- Rendered acceptance on isolated 5205: at desktop, the nav keeps campaign,
+- Rendered acceptance on isolated 5206 because 5205 was already occupied: at
+  desktop, the empty nav keeps campaign, session, title, recap entry, and source
+  choice together; the welcome is reduced to a short explanatory panel. The
+  session 29 Evidence shortcut is covered by the component test. Earlier
+  rendered acceptance on isolated 5205 verified that the nav keeps campaign,
   session, title, and source choice together; loading processed Session 27
   exposes Prepare / Extract / Review and the loaded normalized recap. At 390px,
   the welcome stack and toolbar remain readable; the source row's desktop flex
