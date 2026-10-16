@@ -20,3 +20,11 @@ existing source mismatch refusal and failed/unknown provider handling. No model 
 retained source/APP/Graph writes, serving changes or migration in this implementation.
 Fresh Mirathorn1.11 inference, explicit data review/publication and ordinary answers
 remain separate operational follow-through. Current tests cannot imply their success.
+
+Author evidence:14 tests pass, including the real GE service/worker composition with
+synthetic provider responses for1.5 and1.11, exact-source/profile/provider and ledger
+identity checks, persisted candidate failure when ledger saving fails, and rejection
+of1.12 before source/provider work. Ruff and cumulative diff check pass. The first
+local convenience launcher lacked a spawn guard and recursively ran pytest; corrected
+spawn-safe launcher passes. No external provider calls or retained state changes.
+Log /tmp/worldbuilding-observation-ge-execution-v2.log.
