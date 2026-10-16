@@ -960,7 +960,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const ingestReadiness = useMemo(() => buildIngestReadiness(latestResult), [latestResult]);
   const workflowNextAction = (() => {
     if (!sourceInputSatisfied && !hasNormalizedRecap) {
-      return "No recap source loaded.";
+      return "Load a processed recap or paste the verified source to continue.";
     }
     if (!validRecapSession) return "Choose a session number before preparing this recap.";
     if (!genericGuardPass) return "Add a specific session title before preparing this recap.";
@@ -2108,7 +2108,11 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const showEvidenceShortcut = latestResult !== null;
   const showWorkflowActions =
     sourceInputSatisfied || hasNormalizedRecap || busy;
-  const showWorkflowFeedback = showWorkflowActions || Boolean(toast) || state.status === "error";
+  const showWorkflowFeedback =
+    showWorkflowActions ||
+    Boolean(toast) ||
+    state.status === "error" ||
+    (hydrated && showRecapWelcome && latestResult?.status === "breadcrumb_required" && sourceArtifactsNotBothFound);
 
   return (
     <div className="module-panel ingestion-module" data-module-id="ingestion">
