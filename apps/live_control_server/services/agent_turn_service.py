@@ -975,16 +975,16 @@ def _freeze_policy_receipt(
             "context_receipt_sha256": _canonical_sha256(provisional.model_dump(mode="json", by_alias=True, exclude={"context_receipt_sha256"}))
         }).model_dump(mode="json", by_alias=True))
         policy_fields = dict(
-                policy_version="plan_world_graph_execution_v1",
+                policy_version="world_graph_execution_uncapped_v1" if budget["maxProviderAttempts"] is None else "plan_world_graph_execution_v1",
                 allowed_graph_operations=["expand_graph_retrieval"],
                 max_provider_attempts=budget["maxProviderAttempts"],
                 max_graph_operations=budget["maxGraphOperations"],
                 max_results_per_operation=512,
                 max_total_provider_input_tokens=(
-                    budget["contextLimitTokens"] * budget["maxProviderAttempts"]
+                    None if budget["maxProviderAttempts"] is None else budget["contextLimitTokens"] * budget["maxProviderAttempts"]
                 ),
                 max_total_provider_output_tokens=(
-                    budget["outputReserveTokens"] * budget["maxProviderAttempts"]
+                    None if budget["maxProviderAttempts"] is None else budget["outputReserveTokens"] * budget["maxProviderAttempts"]
                 ),
                 provider_input_accounting=graph_types.GraphExecutionAccountingV1(
                     kind="conservative_upper_bound", estimator=budget["estimator"],
@@ -1005,7 +1005,7 @@ def _freeze_policy_receipt(
                 **({"selected_index_commitment": index_commitment, "initial_claim_packet_sha256":_canonical_sha256(packet)} if selected_index else {}),
             )
             if selected_index:
-                policy_fields["policy_version"] = "plan_world_graph_execution_selected_scope_v1"
+                policy_fields["policy_version"] = "world_graph_execution_selected_scope_uncapped_v1" if budget["maxProviderAttempts"] is None else "plan_world_graph_execution_selected_scope_v1"
             policy = graph_types.GraphExecutionPolicyV3(
                 **policy_fields,
                 source_read_scope=scope,
@@ -1628,7 +1628,7 @@ class _PolicyExecutionAdapter:
                 event for event in execution.events
                 if _is_provider_authorization(event)
             ]
-            if len(attempts) >= execution.policy.max_provider_attempts:
+            if execution.policy.max_provider_attempts is not None and len(attempts) >= execution.policy.max_provider_attempts:
                 latest_id = attempts[-1].provider_attempt_id
                 outcomes = [
                     event.outcome for event in execution.events
@@ -1892,12 +1892,12 @@ class _PolicyExecutionAdapter:
             if self.fence is None or self.last_provider_attempt_id is None:
                 return denied("graph_operation_before_authorization", 409)
             execution = self._broker_execution()
-            if execution is None or sum(
+            if execution is None or (execution.policy.max_graph_operations is not None and sum(
                 getattr(event, "kind", None) in {
                     "validated_graph_operation", "validated_graph_operation_v3",
                 }
                 for event in execution.events
-            ) >= execution.policy.max_graph_operations:
+            ) >= execution.policy.max_graph_operations):
                 return denied("graph_operation_over_budget", 413)
             graph_types = _app_state_graph_execution_types()
             arguments = message.get("arguments")
@@ -2739,7 +2739,7 @@ class _PolicyExecutionAdapter:
             event for event in execution.events
             if getattr(event, "kind", None) == "related_recap_context_authorized_v2"
         ]
-        if len(prior) >= 8 or sum(item.max_chars for item in prior) + request.max_chars > 96000:
+        if (execution.policy.max_provider_attempts is not None and len(prior) >= 8) or sum(item.max_chars for item in prior) + request.max_chars > 96000:
             return denied("related_recap_context_over_budget", 413)
         try:
             admission, source_uri = self._related_recap_admission(request)
@@ -3196,16 +3196,16 @@ def _policy_request_budget() -> dict[str, Any]:
             provider_dispatched=False,
         )
     return {
-        "schema": "dmb_hermes_request_budget_policy_v1",
+        "schema": "dmb_agent_request_budget_uncapped_v1",
         "provider": provider,
         "model": model,
         "apiMode": "codex_responses",
         "estimator": "utf8_json_bytes_plus_64_per_node_v1",
         "contextLimitTokens": 1_050_000,
         "outputReserveTokens": 2048,
-        "maxProviderAttempts": 4,
-        "maxToolCapableAttempts": 3,
-        "maxGraphOperations": 8,
+        "maxProviderAttempts": None,
+        "maxToolCapableAttempts": None,
+        "maxGraphOperations": None,
     }
 
 

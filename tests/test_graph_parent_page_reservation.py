@@ -344,3 +344,40 @@ def test_real_batch_contract_has_no_aggregate_outcome_and_survives_all_pages():
     assert len(pages) > 1 and len(reads) == 1
     assert reserve.source_count == 1 and not reserve.indeterminate
     assert parent.inclusion("read_graph_source", pages)[0].complete
+
+
+def test_uncapped_reservations_keep_all_tools_and_count_actual_reads():
+    parent = GraphToolPresentation(SCOPE)
+    reads = []
+    reservation = _GraphOperationReservation(None, parent_broker(parent, reads), source_limit=None, context_limit=None, scope=SCOPE)
+    agent = SimpleNamespace(tools=["expand_graph_retrieval", "read_graph_source", "read_related_recap_context"])
+    reservation.agents.append(agent)
+    for tool in agent.tools:
+        for _ in range(10):
+            result = json.loads(reservation(tool, ARGS)[0])
+            assert result["schema"] in {"dmb_graph_tool_page_v1", "dmb_graph_tool_overview_v1"}
+            assert not reservation.indeterminate and len(agent.tools) == 3
+    assert (reservation.count, reservation.source_count, reservation.context_count) == (10, 10, 10)
+    assert len(reads) == 30
+    policy = {
+        "provider": "openai-api", "model": "synthetic-model", "apiMode": "chat_completions",
+        "estimator": "utf8_json_bytes_plus_64_per_node_v1", "contextLimitTokens": 32768, "outputReserveTokens": 100,
+        "maxProviderAttempts": None, "maxToolCapableAttempts": None, "maxGraphOperations": None,
+    }
+    dispatched = []
+    guard = _request_budget_guard(policy, on_provider_authorization=lambda view: dispatched.append(view) or True,
+        on_provider_lifecycle=lambda _: True, graph_outcome_indeterminate=lambda: reservation.indeterminate)
+    guard.bind_agent.append(agent)
+    payload = json.dumps({"model": "synthetic-model", "messages": [{"role": "user", "content": "Continue with tools"}],
+        "max_completion_tokens": 100, "tools": [{"type": "function", "function": {"name": "read_graph_source", "parameters": {"type": "object"}}}]})
+    view = SimpleNamespace(provider="openai-api", model="synthetic-model", api_mode="chat_completions",
+        payload_json=payload, payload_utf8_bytes=len(payload.encode()))
+    for _ in range(10):
+        assert guard(view)
+        assert guard.provider_lifecycle({"transition": "response_received"})
+        assert len(agent.tools) == 3
+    assert len(dispatched) == 10
+    huge = SimpleNamespace(**(vars(view) | {"payload_utf8_bytes": 50000}))
+    assert guard(huge) is False
+    assert guard.guard_state["last_rejection_reason"] == "context_budget_exceeded"
+    assert len(dispatched) == 10

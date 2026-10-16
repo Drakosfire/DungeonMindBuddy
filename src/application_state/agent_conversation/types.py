@@ -2625,7 +2625,7 @@ def _validate_related_recap_context_events(
                 raise ValueError("related recap inclusion digest differs from read results")
             inclusion_pending = event
 
-    if authorization_count > 8:
+    if execution.policy.max_provider_attempts is not None and authorization_count > 8:
         raise ValueError("related recap read call budget exceeded")
     if authorized_chars > 96000 or returned_chars > 96000:
         raise ValueError("related recap character budget exceeded")

@@ -440,7 +440,8 @@ def _build_ephemeral_system_prompt(
         retrieval_session=retrieval_session_packet,
     )
     parts = [_GRAPH_SYSTEM_POLICY, scope_part]
-    if request.parent_graph_broker_required and request.request_budget is not None:
+    if (request.parent_graph_broker_required and request.request_budget is not None
+        and request.request_budget.get("maxProviderAttempts") is not None):
         parts.append(
             "This turn permits at most "
             f"{request.request_budget['maxToolCapableAttempts']} tool-capable model requests "
@@ -1433,10 +1434,10 @@ class _GraphOperationReservation:
 
     def __init__(
         self,
-        limit: int,
+        limit: int | None,
         broker: Callable[[str, Mapping[str, Any]], tuple[str, Mapping[str, Any] | None]],
-        source_limit: int = 0,
-        context_limit: int = 0,
+        source_limit: int | None = 0,
+        context_limit: int | None = 0,
         scope: TransportScope | None = None,
     ) -> None:
         self.scope = scope
@@ -1451,6 +1452,10 @@ class _GraphOperationReservation:
         self.indeterminate = False
         self.agents: list[Any] = []
         self._lock = threading.Lock()
+
+    @staticmethod
+    def _exhausted(count: int, limit: int | None) -> bool:
+        return limit is not None and count >= limit
 
     def _retire_tools(self) -> None:
         for agent in self.agents:
@@ -1518,16 +1523,16 @@ class _GraphOperationReservation:
                 "diagnostics": [],
             }, separators=(",", ":")), None
         continuation = "resultPageToken" in arguments
-        if not continuation and ((tool_name == "expand_graph_retrieval" and self.count >= self.limit) or (
-            tool_name == "read_graph_source" and self.source_count >= self.source_limit
+        if not continuation and ((tool_name == "expand_graph_retrieval" and self._exhausted(self.count, self.limit)) or (
+            tool_name == "read_graph_source" and self._exhausted(self.source_count, self.source_limit)
         ) or (
             tool_name == "read_related_recap_context"
-            and self.context_count >= self.context_limit
+            and self._exhausted(self.context_count, self.context_limit)
         )):
             if (
-                self.count >= self.limit
-                and self.source_count >= self.source_limit
-                and self.context_count >= self.context_limit and not self.has_pages
+                self._exhausted(self.count, self.limit)
+                and self._exhausted(self.source_count, self.source_limit)
+                and self._exhausted(self.context_count, self.context_limit) and not self.has_pages
             ):
                 self._retire_tools()
             return json.dumps({
@@ -1577,8 +1582,8 @@ class _GraphOperationReservation:
                     self.source_count += 1
                 else:
                     self.context_count += 1
-                if (self.count >= self.limit and self.source_count >= self.source_limit
-                    and self.context_count >= self.context_limit and not self.has_pages):
+                if (self._exhausted(self.count, self.limit) and self._exhausted(self.source_count, self.source_limit)
+                    and self._exhausted(self.context_count, self.context_limit) and not self.has_pages):
                     self._retire_tools()
         return result_json, session_packet
 
@@ -1669,14 +1674,16 @@ def run_hermes_graph_agent_turn(
         total = budget.get("maxProviderAttempts")
         tool_capable = budget.get("maxToolCapableAttempts")
         graph_limit = budget.get("maxGraphOperations")
-        source_limit = 8
-        if (
-            any(isinstance(value, bool) or not isinstance(value, int)
-                for value in (total, tool_capable, graph_limit, source_limit))
-            or not (1 <= tool_capable < total <= 128)
-            or not (1 <= graph_limit <= 128)
-            or not (0 <= source_limit <= 8)
-        ):
+        uncapped = budget.get("schema") == "dmb_agent_request_budget_uncapped_v1"
+        counts_valid = (
+            all(key in budget and budget[key] is None for key in (
+                "maxProviderAttempts", "maxToolCapableAttempts", "maxGraphOperations",
+            )) if uncapped else (
+                all(type(value) is int for value in (total, tool_capable, graph_limit))
+                and 1 <= tool_capable < total <= 128 and 1 <= graph_limit <= 128
+            )
+        )
+        if not counts_valid:
             return _error_result(
                 hermes_session_id=session_id,
                 error_code="request_budget_guard_invalid",
@@ -1895,8 +1902,8 @@ def run_hermes_graph_agent_turn(
         graph_reservation = (
             _GraphOperationReservation(
                 request.request_budget["maxGraphOperations"], on_parent_graph_operation,
-                source_limit=8,
-                context_limit=8,
+                source_limit=None if request.request_budget["maxGraphOperations"] is None else 8,
+                context_limit=None if request.request_budget["maxGraphOperations"] is None else 8,
                 scope=TransportScope(request.retrieval_session_id or "", request.world_id,
                                      request.revision_pin or ""),
             )
@@ -2059,6 +2066,10 @@ def run_hermes_graph_agent_turn(
                     ) as agent_construction_succeeded:
                         agent = factory(
                             quiet_mode=True,
+                            **({"max_iterations": None}
+                               if request.request_budget is not None
+                               and request.request_budget.get("schema") == "dmb_agent_request_budget_uncapped_v1"
+                               else {}),
                             skip_memory=True,
                             skip_context_files=True,
                             enabled_toolsets=list(policy.enabled_toolsets),

@@ -395,15 +395,16 @@ def _freeze_action_inputs(
     )
     policy = GraphExecutionPolicyV3(
         policy_version=(
-            "plan_world_graph_execution_selected_scope_v1"
-            if selected else "plan_world_graph_execution_v1"
+            ("world_graph_execution_selected_scope_uncapped_v1" if selected else "world_graph_execution_uncapped_v1")
+            if budget["maxProviderAttempts"] is None else
+            ("plan_world_graph_execution_selected_scope_v1" if selected else "plan_world_graph_execution_v1")
         ),
         allowed_graph_operations=["expand_graph_retrieval"],
         max_provider_attempts=budget["maxProviderAttempts"],
         max_graph_operations=budget["maxGraphOperations"],
         max_results_per_operation=512,
-        max_total_provider_input_tokens=budget["contextLimitTokens"] * budget["maxProviderAttempts"],
-        max_total_provider_output_tokens=budget["outputReserveTokens"] * budget["maxProviderAttempts"],
+        max_total_provider_input_tokens=None if budget["maxProviderAttempts"] is None else budget["contextLimitTokens"] * budget["maxProviderAttempts"],
+        max_total_provider_output_tokens=None if budget["maxProviderAttempts"] is None else budget["outputReserveTokens"] * budget["maxProviderAttempts"],
         provider_input_accounting=GraphExecutionAccountingV1(
             kind="conservative_upper_bound", estimator=budget["estimator"]
         ),

@@ -327,7 +327,7 @@ def _serialize_request_budget(value: Any) -> dict[str, Any] | None:
     }
     _reject_unknown_keys(value, frozenset(allowed), label="requestBudget")
     schema = _require_str(value.get("schema"), label="requestBudget.schema", max_chars=64)
-    if schema != "dmb_hermes_request_budget_policy_v1":
+    if schema not in {"dmb_hermes_request_budget_policy_v1", "dmb_agent_request_budget_uncapped_v1"}:
         raise ValueError("requestBudget.schema is unsupported")
     result: dict[str, Any] = {"schema": schema}
     for key in ("provider", "model", "apiMode"):
@@ -352,6 +352,11 @@ def _serialize_request_budget(value: Any) -> dict[str, Any] | None:
     reservation_keys = (
         "maxProviderAttempts", "maxToolCapableAttempts", "maxGraphOperations",
     )
+    if schema == "dmb_agent_request_budget_uncapped_v1":
+        if not all(key in value and value[key] is None for key in reservation_keys):
+            raise ValueError("uncapped requestBudget requires explicit null counts")
+        result.update(dict.fromkeys(reservation_keys))
+        return result
     if any(key in value for key in reservation_keys):
         if not all(key in value for key in reservation_keys):
             raise ValueError("requestBudget final-answer reservation is incomplete")

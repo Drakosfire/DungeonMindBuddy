@@ -1196,8 +1196,9 @@ def test_real_aiagent_dispatches_provider_tool_call_through_registry(
 
 
 @pytest.mark.parametrize("uncertain", [False, True])
+@pytest.mark.parametrize("uncapped", [False, True])
 def test_real_aiagent_executes_third_tool_before_toolless_fourth_request(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, uncertain: bool,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, uncertain: bool, uncapped: bool,
 ) -> None:
     from graph_memory.hermes_graph_plugin import parent_brokered_graph_expansion_policy
 
@@ -1223,13 +1224,17 @@ def test_real_aiagent_executes_third_tool_before_toolless_fourth_request(
         "maxProviderAttempts": 4, "maxToolCapableAttempts": 3,
         "maxGraphOperations": 8,
     }
+    if uncapped:
+        budget.update(schema="dmb_agent_request_budget_uncapped_v1", maxProviderAttempts=None,
+            maxToolCapableAttempts=None, maxGraphOperations=None)
+    expected_requests = 10 if uncapped else 4
     tool_args = json.dumps({
         "schema": EXPAND_GRAPH_RETRIEVAL_SCHEMA,
         "retrievalSessionId": "sess:third-tool", "operation": "search",
         "queryText": "Tripod",
     })
     streams = []
-    for number in range(1, 2 if uncertain else 4):
+    for number in range(1, 2 if uncertain else expected_requests):
         streams.append([
             SimpleNamespace(
                 type="response.output_item.done",
@@ -1279,9 +1284,12 @@ def test_real_aiagent_executes_third_tool_before_toolless_fourth_request(
         provider_bodies.append(kwargs)
         if uncertain:
             assert len(provider_bodies) == 1, "uncertain Graph admission reached another SDK request"
-        elif len(provider_bodies) == 4:
-            assert broker_calls == ["expand_graph_retrieval"] * 3
-            assert "tools" not in kwargs and "tool_choice" not in kwargs
+        elif len(provider_bodies) == expected_requests:
+            assert broker_calls == ["expand_graph_retrieval"] * (expected_requests - 1)
+            if uncapped:
+                assert kwargs.get("tools")
+            else:
+                assert "tools" not in kwargs and "tool_choice" not in kwargs
             assert any(
                 item.get("type") == "function_call_output"
                 and item.get("call_id") == "call-graph-3"
@@ -1292,6 +1300,8 @@ def test_real_aiagent_executes_third_tool_before_toolless_fourth_request(
         return iter(streams.pop(0))
 
     def factory(**kwargs: Any) -> Any:
+        if uncapped:
+            assert "max_iterations" in kwargs and kwargs["max_iterations"] is None
         with hermes_import_namespace():
             with patch("run_agent.OpenAI"):
                 agent = AIAgent(api_key="offline-test-key", **kwargs)
@@ -1329,9 +1339,9 @@ def test_real_aiagent_executes_third_tool_before_toolless_fourth_request(
     else:
         assert result.status == "ok", (result.error_code, result.error_message)
         assert result.final_response == "Final from Graph evidence."
-        assert len(provider_bodies) == len(authorizations) == 4
-        assert broker_calls == ["expand_graph_retrieval"] * 3
-        assert [event.state for event in result.tool_events].count("completion") == 3
+        assert len(provider_bodies) == len(authorizations) == expected_requests
+        assert broker_calls == ["expand_graph_retrieval"] * (expected_requests - 1)
+        assert [event.state for event in result.tool_events].count("completion") == expected_requests - 1
 
 
 def test_policy_structure_requires_one_rule_per_enabled_tool() -> None:
