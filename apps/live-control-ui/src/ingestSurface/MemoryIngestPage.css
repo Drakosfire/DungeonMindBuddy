@@ -260,10 +260,11 @@ button.ingest-welcome-action {
 }
 
 .ingest-local-nav__workflow {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.45rem 1rem;
+  flex-wrap: wrap;
   min-width: 0;
   padding-top: 0.55rem;
   border-top: 1px solid #2e374a;
@@ -276,6 +277,15 @@ button.ingest-welcome-action {
   align-items: center;
   gap: 0.4rem;
   min-width: 0;
+}
+
+.ingest-local-nav__source {
+  flex: 1 1 18rem;
+}
+
+.ingest-local-nav__stages {
+  justify-content: flex-end;
+  margin-left: auto;
 }
 
 .ingest-local-nav__prior {
@@ -537,12 +547,15 @@ button.ingest-welcome-action {
   }
 
   .ingest-local-nav__workflow {
-    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .ingest-local-nav__source,
   .ingest-local-nav__stages {
     align-items: center;
+    justify-content: flex-start;
+    margin-left: 0;
   }
 
   .ingest-local-nav__prior {

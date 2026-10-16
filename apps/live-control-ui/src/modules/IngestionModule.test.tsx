@@ -174,14 +174,15 @@ describe("IngestionModule", () => {
     render(<IngestionModule campaignId="longmont-c2" session={30} managedWorldId="elderwyld" initialSourceSession={29} />);
 
     expect(await screen.findByRole("heading", { name: "Bring your table’s story into the World." })).toBeInTheDocument();
-    const toolbar = screen.getByRole("region", { name: "Ingest workspace toolbar" });
+    const toolbar = screen.getByRole("navigation", { name: "Ingest workspace navigation" });
     expect(toolbar).toBeInTheDocument();
     expect(within(toolbar).getByLabelText("Campaign")).toBeInTheDocument();
     expect(within(toolbar).getByLabelText("Recap/source session")).toHaveValue(null);
     expect(within(toolbar).getByLabelText("Session title")).toHaveValue("");
     expect(within(toolbar).getByLabelText("Prior processed recap")).toBeInTheDocument();
-    expect(within(toolbar).getByRole("button", { name: "Prep for ingest" })).toBeDisabled();
-    expect(within(toolbar).getByRole("button", { name: "Run ingest" })).toBeDisabled();
+    expect(within(toolbar).queryByRole("button", { name: "Prep for ingest" })).not.toBeInTheDocument();
+    expect(within(toolbar).queryByRole("button", { name: "Run ingest" })).not.toBeInTheDocument();
+    expect(within(toolbar).queryByRole("status")).not.toBeInTheDocument();
     expect(screen.queryByText("Operator prep tool over the PR92 ingestion orchestrator.")).not.toBeInTheDocument();
     expect(screen.queryByText("Current next action")).not.toBeInTheDocument();
     expect(screen.queryByText(/Next: Review the extracted candidate/)).not.toBeInTheDocument();
@@ -189,7 +190,7 @@ describe("IngestionModule", () => {
     expect(screen.getByLabelText("Session title")).toHaveValue("");
     await waitFor(() => expect(screen.getByLabelText("Prior processed recap")).toHaveDisplayValue("Load a processed recap…"));
     expect(ingest).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Load processed recap" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Load processed recap" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Write a recap" }));
     const rawField = screen.getByRole("textbox", { name: "Raw recap text" });
     expect(rawField).toHaveFocus();
@@ -321,15 +322,20 @@ describe("IngestionModule", () => {
         onLayoutSaved={vi.fn()}
       />,
     );
-    expect(await screen.findByRole("region", { name: "Ingest workspace toolbar" })).toBeInTheDocument();
+    expect(await screen.findByRole("navigation", { name: "Ingest workspace navigation" })).toBeInTheDocument();
   });
 
-  it("disables stage preview with empty raw text", async () => {
+  it("keeps the empty local navigation focused on recap identity", async () => {
     render(<IngestionModule campaignId="longmont-c2" session={22} />);
-    expect(screen.getByRole("button", { name: "Prep for ingest" })).toBeDisabled();
-    await waitFor(() =>
-      expect(screen.getByText("No recap source loaded.")).toBeInTheDocument(),
-    );
+    const nav = screen.getByRole("navigation", { name: "Ingest workspace navigation" });
+    expect(within(nav).getByLabelText("Campaign")).toBeInTheDocument();
+    expect(within(nav).getByLabelText("Recap/source session")).toBeInTheDocument();
+    expect(within(nav).getByLabelText("Session title")).toBeInTheDocument();
+    expect(within(nav).queryByLabelText("Prior processed recap")).not.toBeInTheDocument();
+    expect(within(nav).queryByRole("button", { name: "Load processed recap" })).not.toBeInTheDocument();
+    expect(within(nav).queryByRole("group", { name: "Extraction actions" })).not.toBeInTheDocument();
+    expect(within(nav).queryByText("No recap source loaded.")).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Raw recap text" })).toHaveValue("");
   });
 
   it("submits stage_preview with edited recap session and no raw_path", async () => {
@@ -482,7 +488,7 @@ describe("IngestionModule", () => {
     await waitFor(() =>
       expect(screen.getAllByText("breadcrumb_required").length).toBeGreaterThan(0),
     );
-    const toolbar = screen.getByRole("region", { name: "Ingest workspace toolbar" });
+    const toolbar = screen.getByRole("navigation", { name: "Ingest workspace navigation" });
     expect(within(toolbar).getByRole("status")).toHaveTextContent("Breadcrumb required before retrieval");
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     await user.click(within(toolbar).getByText("Details"));
@@ -1091,7 +1097,7 @@ describe("IngestionModule", () => {
 
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Ingestion error"));
     const errorToast = screen.getByRole("alert");
-    const toolbar = screen.getByRole("region", { name: "Ingest workspace toolbar" });
+    const toolbar = screen.getByRole("navigation", { name: "Ingest workspace navigation" });
     expect(within(toolbar).getByRole("alert")).toHaveTextContent("Ingestion error");
     const feedbackDetails = within(toolbar).getByText("Details").closest("details");
     expect(feedbackDetails).not.toHaveAttribute("open");
@@ -1613,8 +1619,8 @@ describe("IngestionModule", () => {
 
     expect(await screen.findByLabelText("Raw recap text")).toBeInTheDocument();
     expect(screen.queryByLabelText("Normalized recap preview")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Run ingest" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Load processed recap" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Run ingest" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Load processed recap" })).not.toBeInTheDocument();
     expect((screen.getByLabelText("Raw recap text") as HTMLTextAreaElement).value).toBe("");
   });
 
@@ -1684,13 +1690,14 @@ describe("IngestionModule", () => {
     await waitFor(() => expect(ingestSpy).toHaveBeenCalledWith(expect.objectContaining({ operation: "inspect_status" })));
 
     expect(await screen.findByLabelText("Raw recap text")).toBeInTheDocument();
+    await screen.findByLabelText("Prior processed recap");
     expect((screen.getByLabelText("Raw recap text") as HTMLTextAreaElement).value).toBe("");
     expect(screen.queryByLabelText("Normalized recap preview")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Run ingest" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Run ingest" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Load processed recap" })).toBeInTheDocument();
   });
 
-  it("waits for fresh disk inspection before showing a resumed draft status", async () => {
+  it("keeps the empty navigation quiet while fresh disk inspection replaces stale draft status", async () => {
     window.history.replaceState({}, "", "/ingest?world=elderwyld");
     const staleResult = makeStatus({
       session: 29,
@@ -1743,9 +1750,9 @@ describe("IngestionModule", () => {
     render(<IngestionModule campaignId="longmont-c2" session={29} initialSourceSession={29} />);
 
     await waitFor(() => expect(ingestSpy).toHaveBeenCalledWith(expect.objectContaining({ operation: "inspect_status" })));
-    const toolbar = screen.getByRole("region", { name: "Ingest workspace toolbar" });
-    expect(within(toolbar).getByRole("status")).toHaveTextContent("Checking saved recap status…");
-    expect(within(toolbar).getByRole("status")).not.toHaveTextContent(/breadcrumb|reused without overwrite/i);
+    const toolbar = screen.getByRole("navigation", { name: "Ingest workspace navigation" });
+    expect(within(toolbar).queryByRole("status")).not.toBeInTheDocument();
+    expect(within(toolbar).queryByText(/breadcrumb|reused without overwrite/i)).not.toBeInTheDocument();
 
     await act(async () => {
       resolveInspect?.(makeStatus({
@@ -1767,7 +1774,8 @@ describe("IngestionModule", () => {
     });
 
     await waitFor(() => expect(screen.getByLabelText("Session title")).toHaveValue("Session 29 - The Meat Mind of Mireward Reach"));
-    expect(within(toolbar).getByRole("status")).not.toHaveTextContent(/breadcrumb|reused without overwrite|stale next action/i);
+    expect(within(toolbar).queryByRole("status")).not.toBeInTheDocument();
+    expect(within(toolbar).queryByText(/breadcrumb|reused without overwrite|stale next action/i)).not.toBeInTheDocument();
     await userEvent.setup().click(screen.getByText("Evidence & details"));
     const evidence = screen.getByRole("complementary", { name: "Ingestion evidence and proof" });
     expect(evidence).toHaveTextContent("Missing");
@@ -1807,7 +1815,7 @@ describe("IngestionModule", () => {
     render(<IngestionModule campaignId="longmont-c2" session={29} initialSourceSession={29} />);
 
     await waitFor(() => expect(ingestSpy).toHaveBeenCalledWith(expect.objectContaining({ operation: "inspect_status" })));
-    const toolbar = screen.getByRole("region", { name: "Ingest workspace toolbar" });
+    const toolbar = screen.getByRole("navigation", { name: "Ingest workspace navigation" });
     const warning = await within(toolbar).findByRole("alert");
     expect(warning).toHaveTextContent("Could not verify saved ingest status");
     expect(warning).not.toHaveTextContent(/breadcrumb|reused without overwrite/i);
@@ -1852,7 +1860,7 @@ describe("IngestionModule", () => {
     await waitFor(() => expect(ingestSpy).toHaveBeenCalledWith(expect.objectContaining({ operation: "inspect_status" })));
     expect(await screen.findByDisplayValue("Session 29 Recap\\n\\nThe party finds a path north.")).toBeInTheDocument();
 
-    const toolbar = screen.getByRole("region", { name: "Ingest workspace toolbar" });
+    const toolbar = screen.getByRole("navigation", { name: "Ingest workspace navigation" });
     const prepButton = within(toolbar).getByRole("button", { name: "Prep for ingest" });
     expect(prepButton).toBeEnabled();
     await user.click(prepButton);
@@ -1996,7 +2004,7 @@ describe("IngestionModule", () => {
 
     render(<IngestionModule campaignId="longmont-c2" session={25} />);
 
-    const toolbar = screen.getByRole("region", { name: "Ingest workspace toolbar" });
+    const toolbar = screen.getByRole("navigation", { name: "Ingest workspace navigation" });
     await waitFor(() => expect(within(toolbar).getByRole("status")).toHaveTextContent(/Next: Run ingest to extract the graph/i));
     expect(screen.queryByText("Recap memory")).not.toBeInTheDocument();
     expect(screen.queryByText("Graph preview")).not.toBeInTheDocument();
