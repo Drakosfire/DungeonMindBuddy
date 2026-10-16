@@ -5,7 +5,7 @@ Topology: serial; one implementation PR based on `origin/main`
 Branch: `codex/ingest-empty-welcome`
 Checkout: `/tmp/dmb-ingest-empty-welcome`
 
-Current base: `origin/main@d2d80adb6aace8d166c4619e3c377faf56870c90`.
+Current base: `origin/main@26a0a771b2b721865f8cd6f5bfb1633880358a95` (fetched 2026-10-16).
 
 ## Objective
 
@@ -127,3 +127,8 @@ visually accepted on this head.
 
 No recap was prepared, run, admitted, or saved. This presentation change does
 not claim to fix extraction quality or prove authenticated persistence.
+
+
+## Current-main rebase — 2026-10-16
+
+Rebased the existing PR #1191 onto fetched `origin/main@26a0a771b2b721865f8cd6f5bfb1633880358a95`. No commits since the prior base touched the six leased paths, and the cumulative scope remains unchanged. The focused IngestionModule and MemoryIngestPage suites pass 69 tests; `npm --prefix apps/live-control-ui run build` passes with the existing large-chunk warning; cumulative `git diff --check` passes. This is still a presentation slice only. No recap, candidate, runtime, or persistence state was changed; extraction/linking quality, rerun semantics, and live persistence acceptance remain open Ingest-mandate work.
