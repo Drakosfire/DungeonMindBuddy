@@ -40,7 +40,9 @@ substantial Jev input traffic; unseen generality, economical selection and fresh
 end-to-end latency remain open. Recorded response reuse is reported separately.
 
 GE #20 and #21 are merged; #21 at 4aade6b34d64edbdc3d1cacb0a89d185663e2268
-adds actual serialized nonstreaming OpenAI text dispatch truth. Buddy #1275 freezes
+adds actual serialized nonstreaming OpenAI text dispatch truth. GE #22 at
+5c69e7c55d2573a582a85ae11ba947160d5f142d rejects unsuccessful provider terminals
+even when residual output appears valid. Buddy #1275 freezes
 controller/writer roles, #1277 authorizes actual first Build Jev requests and #1278
 binds subsequent decisions to completed parent Graph/source exposures. The next
 producer is [one evidence-bound writer](../Plans/HANDOFF-AGENT-build-jev-single-writer.md)

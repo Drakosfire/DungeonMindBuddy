@@ -240,3 +240,31 @@ def test_raw_capture_unavailable_never_completes(build_case,monkeypatch):
         adapter.complete_build_writer(result)
     fresh=AgentConversationService().list_turns(adapter.turn.world_id,adapter.turn.conversation_id)[0]
     assert fresh.completion is None and fresh.status!='completed'
+
+
+@pytest.mark.parametrize('status',['failed','cancelled','queued','in_progress','incomplete','unknown',None,'completed_with_error','empty'])
+def test_provider_unsuccessful_status_with_residual_valid_output_never_completes(build_case,monkeypatch,status):
+    class TerminalWire(WriterWire):
+        async def handle_async_request(self,request):
+            response=await super().handle_async_request(request)
+            body=json.loads(response.content)
+            body['status']='completed' if status in {'completed_with_error','empty'} else status
+            if status in {'failed','completed_with_error'}:
+                body['error']={'code':'server_error','message':'synthetic private provider detail'}
+            if status=='empty':
+                body['output'][0]['content'][0]['text']=''
+            return httpx.Response(200,request=request,json=body)
+    adapter,staged,_,_=stage(build_case,monkeypatch)
+    wire=TerminalWire(adapter)
+    with pytest.raises(GenerationEngineError) as error:
+        invoke(adapter,staged,wire)
+    assert error.value.observation.provider_attempt_count==1
+    assert error.value.observation.state.value!='completed'
+    assert error.value.observation.input_tokens==500 and error.value.observation.output_tokens==80
+    assert len(wire.calls)==1 and wire.closed
+    # Headers are truthfully acknowledged, but no successful result is delivered
+    # to the completion path. No writer or provider request is replayed.
+    fresh=AgentConversationService().list_turns(adapter.turn.world_id,adapter.turn.conversation_id)[0]
+    assert fresh.graph_context_execution.events[-1].outcome=='response_received'
+    assert fresh.completion is None and fresh.assistant_text is None and fresh.status!='completed'
+    assert not adapter.authorize_prepared_build_writer(prepared(staged))
