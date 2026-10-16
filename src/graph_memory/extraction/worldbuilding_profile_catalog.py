@@ -15,6 +15,8 @@ from .worldbuilding_definition_observations import GAZETTEER_DEFINITION_OBSERVAT
 
 from .worldbuilding_collective_source_fidelity import GAZETTEER_COLLECTIVE_SOURCE_FIDELITY_PROFILE
 
+from .worldbuilding_location_source_fidelity import GAZETTEER_LOCATION_SOURCE_FIDELITY_PROFILE
+
 PUBLISHABLE_WORLDBUILDING_PROFILES = {
     f"{p.profile_id}@{p.profile_version}": p
     for p in (
@@ -27,5 +29,6 @@ PUBLISHABLE_WORLDBUILDING_PROFILES = {
         GAZETTEER_TRADE_CONTEXT_PROFILE,
         GAZETTEER_DEFINITION_OBSERVATION_PROFILE,
         GAZETTEER_COLLECTIVE_SOURCE_FIDELITY_PROFILE,
+        GAZETTEER_LOCATION_SOURCE_FIDELITY_PROFILE,
     )
 }

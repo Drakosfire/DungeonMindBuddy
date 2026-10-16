@@ -246,7 +246,7 @@ def test_damaged_or_unreviewed_observations_fail_closed(damage):
         plan(data, decisions)
 
 
-@pytest.mark.parametrize("profile_version", ["1.11", "1.12"])
+@pytest.mark.parametrize("profile_version", ["1.11", "1.12", "1.13"])
 def test_registered_runner_seals_independent_observations_and_reloads(
     tmp_path, application_state_dsn, monkeypatch, profile_version
 ):

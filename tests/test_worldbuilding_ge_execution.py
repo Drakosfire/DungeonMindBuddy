@@ -62,7 +62,7 @@ class _FakeRun:
     status = SimpleNamespace(value="reviewable")
 
 
-@pytest.mark.parametrize("profile_version", ["1.5", "1.6", "1.7", "1.8", "1.9", "1.10", "1.11", "1.12"])
+@pytest.mark.parametrize("profile_version", ["1.5", "1.6", "1.7", "1.8", "1.9", "1.10", "1.11", "1.12", "1.13"])
 def test_generationengine_execution_pins_exact_source_profile_and_provider(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, profile_version: str,
 ) -> None:
@@ -239,7 +239,7 @@ class _SchemaAwareFakeProvider:
             yield call
 
 
-@pytest.mark.parametrize("profile_version", ["1.5", "1.11", "1.12"])
+@pytest.mark.parametrize("profile_version", ["1.5", "1.11", "1.12", "1.13"])
 @pytest.mark.parametrize("fail_ledger", [False, True])
 def test_real_ge_service_composition_tracks_conformance_and_fails_closed(
     tmp_path: Path,

@@ -60,7 +60,7 @@
     "execution_profile": "unverified",
     "profile_catalog": {
       "source_path": "src/graph_memory/extraction/worldbuilding_profile_catalog.py",
-      "source_sha256": "e0fbbf5699d78c477d7130db185ca62df44d0063094735776185f2a3a53238d3"
+      "source_sha256": "2171042acbc5eb641efeb2bd58e8c1625ccfad7a40b365a33edf7ff3ab07adc3"
     },
     "available_profiles": [
       {
