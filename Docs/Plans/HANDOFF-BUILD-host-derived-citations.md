@@ -1,6 +1,8 @@
 # BUILD: host-derived citations from producing-envelope claims
 
-Status ACTIVE under PRIME's Mirathorn lifecycle goal. Base
+Status MERGED — PR #1223 at `38f79e1c64c93968ea15802a5cd58ff81d55d9f9`.
+Bounded implementation lease ended; ordinary Agent acceptance continues under PRIME.
+Previous activation under PRIME's Mirathorn lifecycle goal. Base
 `48d3101c15c88832bb41a8ac71fa23045e429cee`; serial successor to #1222.
 PRIME implements solo, `/tmp/prime-recap-mention-boundaries`, branch
 `codex/build-host-derived-citations`; ARCHITECTURE independently reviews.

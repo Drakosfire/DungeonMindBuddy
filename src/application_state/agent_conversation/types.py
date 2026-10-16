@@ -1497,16 +1497,28 @@ class GraphExecutionAccountingV1(StrictModel):
 class GraphExecutionPolicyV1(StrictModel):
     policy_version: str = Field(min_length=1, max_length=128)
     allowed_graph_operations: list[str] = Field(min_length=1, max_length=32)
-    max_provider_attempts: int = Field(strict=True, ge=1, le=128)
-    max_graph_operations: int = Field(strict=True, ge=0, le=512)
+    max_provider_attempts: int | None = Field(strict=True, ge=1, le=128)
+    max_graph_operations: int | None = Field(strict=True, ge=0, le=512)
     max_results_per_operation: int = Field(strict=True, ge=0, le=4096)
-    max_total_provider_input_tokens: int = Field(strict=True, ge=1)
-    max_total_provider_output_tokens: int = Field(strict=True, ge=1)
+    max_total_provider_input_tokens: int | None = Field(strict=True, ge=1)
+    max_total_provider_output_tokens: int | None = Field(strict=True, ge=1)
     provider_input_accounting: GraphExecutionAccountingV1
     source_opened: Literal[False]
 
     @model_validator(mode="after")
     def validate_policy(self) -> "GraphExecutionPolicyV1":
+        limits = (
+            self.max_provider_attempts, self.max_graph_operations,
+            self.max_total_provider_input_tokens, self.max_total_provider_output_tokens,
+        )
+        uncapped = self.policy_version in {
+            "world_graph_execution_uncapped_v1",
+            "world_graph_execution_selected_scope_uncapped_v1",
+        }
+        if uncapped and any(limit is not None for limit in limits):
+            raise ValueError("uncapped execution policy requires explicit null limits")
+        if not uncapped and any(limit is None for limit in limits):
+            raise ValueError("null limits require an explicit uncapped execution policy")
         if any(not item.strip() for item in self.allowed_graph_operations):
             raise ValueError("allowed Graph operations cannot be blank")
         if self.allowed_graph_operations != sorted(set(self.allowed_graph_operations)):
@@ -1671,7 +1683,7 @@ class GraphExecutionPolicyV2(GraphExecutionPolicyV1):
 
     @model_validator(mode="after")
     def validate_source_budgets(self) -> GraphExecutionPolicyV2:
-        if (self.policy_version == "plan_world_graph_execution_selected_scope_v1") != isinstance(self.source_read_scope, GraphSelectedSourceReadScopeV2):
+        if (self.policy_version in {"plan_world_graph_execution_selected_scope_v1", "world_graph_execution_selected_scope_uncapped_v1"}) != isinstance(self.source_read_scope, GraphSelectedSourceReadScopeV2):
             raise ValueError("selected execution policy requires the selected scope subtype")
         if (self.max_source_read_calls == 0) != (self.max_source_read_anchors == 0):
             raise ValueError("disabled source-read budgets must set call and anchor limits to zero")
@@ -1690,7 +1702,7 @@ class GraphExecutionPolicyV3(GraphExecutionPolicyV1):
 
     @model_validator(mode="after")
     def validate_selected_scope(self) -> "GraphExecutionPolicyV3":
-        if (self.policy_version == "plan_world_graph_execution_selected_scope_v1") != isinstance(self.source_read_scope, GraphSelectedSourceReadScopeV2):
+        if (self.policy_version in {"plan_world_graph_execution_selected_scope_v1", "world_graph_execution_selected_scope_uncapped_v1"}) != isinstance(self.source_read_scope, GraphSelectedSourceReadScopeV2):
             raise ValueError("selected execution policy requires the selected scope subtype")
         return self
 
@@ -2255,10 +2267,10 @@ class PlanWorldGraphExecutionV1(StrictModel):
                     raise ValueError("completion binding must be unique and the final execution event")
                 if event.provider_attempt_id not in attempts or outcomes[event.provider_attempt_id][-1:] != ["response_received"]:
                     raise ValueError("completion binding requires a response-received attempt")
-        if len(attempts) > self.policy.max_provider_attempts:
+        if self.policy.max_provider_attempts is not None and len(attempts) > self.policy.max_provider_attempts:
             raise ValueError("provider attempt policy limit exceeded")
         graph_events = [e for e in self.events if isinstance(e, ValidatedGraphOperationEventV1)]
-        if len(graph_events) > self.policy.max_graph_operations:
+        if self.policy.max_graph_operations is not None and len(graph_events) > self.policy.max_graph_operations:
             raise ValueError("Graph operation policy limit exceeded")
         graph_by_event_id = {event.event_id: event for event in graph_events}
         if any(
@@ -2269,7 +2281,13 @@ class PlanWorldGraphExecutionV1(StrictModel):
             raise ValueError("Graph operation result limit exceeded")
         input_total = sum(event.input_tokens for event in attempts.values())
         output_total = sum(event.output_token_reserve for event in attempts.values())
-        if input_total > self.policy.max_total_provider_input_tokens or output_total > self.policy.max_total_provider_output_tokens:
+        if (
+            self.policy.max_total_provider_input_tokens is not None
+            and input_total > self.policy.max_total_provider_input_tokens
+        ) or (
+            self.policy.max_total_provider_output_tokens is not None
+            and output_total > self.policy.max_total_provider_output_tokens
+        ):
             raise ValueError("provider token budget exceeded")
         for attempt in attempts.values():
             if any(event_id not in graph_by_event_id for event_id in attempt.included_graph_event_ids):
