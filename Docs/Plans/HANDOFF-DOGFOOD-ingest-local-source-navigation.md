@@ -1,7 +1,7 @@
 # DOGFOOD: simplify Ingest local source navigation
 
 **Status:** ACTIVE — directly authorized follow-up to operator feedback on 2026-10-16.
-**Base:** fetched `origin/main@fc1daff4b7fc8f6ba7d35445dd22e9fca15f6d49` after #1250 merged.
+**Base:** fetched `origin/main@9d5e26665076d38c8f1d458065c38f8c1b45f785` after #1255 merged.
 **Branch:** `codex/ingest-local-nav-source-flow`.
 **Checkout:** `/tmp/dmb-ingest-local-nav-refresh` (isolated refresh lane; the original clean checkout is preserved).
 **Topology:** serial successor to merged #1191. Parallel-independent from open #1235 (`codex/ingest-source-observation-review`, head `46ecdd5019f7fc70519b0e7b50b1a1ebe6955994`, based on `b2c76cb6c83b3e4d9835376dd92956ab5f2b6f13`); #1235 changes extraction/promote and Graph Review files, with no overlap in this lease. Open #1244 (`codex/ingest-candidate-evidence-ref-recovery`, head `d081196b0785821e124248b7bb7761dd234f3d28`) changes graph packaging and its handoff, also with no overlap. Open #1251 (`codex/ingest-evidence-readiness`, head `8e1ebf64b1ed677808b6b435f8d2d23e32f576ac`) changes readiness modules and the server adapter, with no overlap in this lease. The #1250 main merge changed no leased UI files.
@@ -128,6 +128,16 @@ not changed.
 
 The rebased implementation is ready for review in the existing PR. Live
 saved-source loading and end-to-end ingestion acceptance remain unverified.
+
+## Current-main refresh and narrow session-field repair — 2026-10-16
+
+Rebased the existing PR onto fetched `origin/main@9d5e26665076d38c8f1d458065c38f8c1b45f785` after #1255 merged. That backend-only merge does not overlap the UI lease. The narrow identity grid now reserves a 9rem minimum for Session through the 390px breakpoint and stacks the identity fields at 360px and below.
+
+- Focused `IngestionModule` and `MemoryIngestPage` suites pass 72/72; `npm run build` (including typecheck) and `git diff --check origin/main...HEAD` pass. Build retains the existing Vite large-chunk warning.
+- Rendered the rebuilt production bundle at 390px and 320px. The empty Session input is 73.63px at 390px (up from the reviewed 19.59px) and 158.03px at 320px. Document width equals viewport width at both sizes. A local unsaved `29` entry remains visible; the Required marker clears and the field expands to 144px/228.41px respectively. No Prepare, Extract, Review, save, or ingestion action was triggered.
+- Rendered screenshots: `/tmp/ingest-toolbar-390-empty.png` and `/tmp/ingest-toolbar-320-empty.png`. The static preview's graph badge says Needs attention because it is disconnected from the live API. 5202 and 5204 remain untouched.
+
+The PR is rebased and the responsive fix is ready for a fresh review. Live saved-source loading and end-to-end ingestion acceptance remain outstanding.
 
 ## Implementation notes
 
