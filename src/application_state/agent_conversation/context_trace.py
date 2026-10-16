@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from application_state.agent_conversation.identifier_limits import (
+    GRAPH_EVIDENCE_REF_ID_MAX_CHARS,
+)
+
 import hashlib
 import json
 from datetime import datetime
@@ -27,7 +31,7 @@ class TraceRoute(TraceModel):
     graph_revision: str = Field(min_length=1, max_length=256)
     node_id: str | None = Field(default=None, max_length=256)
     anchor_id: str | None = Field(default=None, max_length=256)
-    evidence_ref_id: str | None = Field(default=None, max_length=256)
+    evidence_ref_id: str | None = Field(default=None, max_length=GRAPH_EVIDENCE_REF_ID_MAX_CHARS)
     source_artifact_id: str | None = Field(default=None, max_length=256)
     source_revision_id: str | None = Field(default=None, max_length=256)
     content_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
@@ -259,7 +263,7 @@ class TraceSourcePassage(TraceEvent):
     graph_revision: str = Field(min_length=1, max_length=256)
     source_read_id: str = Field(min_length=1, max_length=128)
     anchor_id: str = Field(min_length=1, max_length=256)
-    evidence_ref_id: str = Field(min_length=1, max_length=256)
+    evidence_ref_id: str = Field(min_length=1, max_length=GRAPH_EVIDENCE_REF_ID_MAX_CHARS)
     source_artifact_id: str = Field(min_length=1, max_length=256)
     source_revision_id: str = Field(min_length=1, max_length=256)
     line_start: int | None = Field(default=None, strict=True, ge=1)

@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from application_state.agent_conversation.identifier_limits import (
+    GRAPH_EVIDENCE_REF_ID_MAX_CHARS,
+    GRAPH_CLAIM_ID_MAX_CHARS,
+)
+
 from graph_memory.ingestion.selection_context import AgentKnowledgeSelection
 
 import hashlib
@@ -1097,7 +1102,7 @@ def plan_world_graph_context_receipt_digest(
 
 class PlanWorldGraphClaimSegmentV1(StrictModel):
     kind: Literal["graph_claim"]
-    claim_id: str = Field(min_length=1, max_length=128)
+    claim_id: str = Field(min_length=1, max_length=GRAPH_CLAIM_ID_MAX_CHARS)
     text: str = Field(min_length=1, max_length=4000)
     target_kind: Literal["assertion", "relationship"]
     target_id: str = Field(min_length=1, max_length=256)
@@ -1131,7 +1136,7 @@ PlanWorldGraphAnswerSegmentV1 = (
 
 
 class PlanWorldGraphCitationV1(StrictModel):
-    claim_id: str = Field(min_length=1, max_length=128)
+    claim_id: str = Field(min_length=1, max_length=GRAPH_CLAIM_ID_MAX_CHARS)
     target_kind: Literal["assertion", "relationship"]
     target_id: str = Field(min_length=1, max_length=256)
     graph_revision: str = Field(min_length=1, max_length=256)
@@ -1225,7 +1230,7 @@ class PlanWorldGraphCompletionV1(StrictModel):
 
 
 class PlanWorldGraphCitationV2(StrictModel):
-    claim_id: str = Field(min_length=1, max_length=128)
+    claim_id: str = Field(min_length=1, max_length=GRAPH_CLAIM_ID_MAX_CHARS)
     target_kind: Literal["assertion", "relationship"]
     target_id: str = Field(min_length=1, max_length=256)
     graph_revision: str = Field(min_length=1, max_length=256)
@@ -1517,7 +1522,7 @@ class GraphExecutionPolicyV1(StrictModel):
 
 class GraphSourceScopeAnchorV2(StrictModel):
     anchor_id: str = Field(min_length=1, max_length=256)
-    evidence_ref_id: str = Field(min_length=1, max_length=256)
+    evidence_ref_id: str = Field(min_length=1, max_length=GRAPH_EVIDENCE_REF_ID_MAX_CHARS)
     source_artifact_id: str = Field(min_length=1, max_length=256)
     source_revision_id: str = Field(min_length=1, max_length=256)
 
@@ -1825,7 +1830,7 @@ class SourceReadAuthorizationEventV2(GraphExecutionEventBaseV1):
 class SourceReadAnchorReceiptV2(StrictModel):
     source_read_id: str = Field(min_length=1, max_length=128)
     anchor_id: str = Field(min_length=1, max_length=256)
-    evidence_ref_id: str = Field(min_length=1, max_length=256)
+    evidence_ref_id: str = Field(min_length=1, max_length=GRAPH_EVIDENCE_REF_ID_MAX_CHARS)
     source_artifact_id: str = Field(min_length=1, max_length=256)
     source_revision_id: str | None = Field(default=None, max_length=256)
     outcome: Literal["enough", "partial", "empty", "denied", "truncated", "unavailable"]
@@ -1868,7 +1873,7 @@ class ValidatedSourceReadEventV2(GraphExecutionEventBaseV1):
 
 
 class RelatedRecapProvenanceBindingV2(StrictModel):
-    evidence_ref_id: str = Field(min_length=1, max_length=256)
+    evidence_ref_id: str = Field(min_length=1, max_length=GRAPH_EVIDENCE_REF_ID_MAX_CHARS)
     source_artifact_id: str = Field(min_length=1, max_length=256)
     source_revision_id: str = Field(min_length=1, max_length=256)
 

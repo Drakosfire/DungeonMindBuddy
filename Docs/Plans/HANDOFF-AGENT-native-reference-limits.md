@@ -58,3 +58,17 @@ identity/digest rejection, old shorter Plan/Build replay and aggregate limits.
 Inspect cumulative diff, open one PR, obtain independent exact-head review.
 After acceptance, the actual read-only Mirathorn resolver must pass before a
 fresh ordinary Agent question. No replay of uncertain attempts.
+
+## Review evidence
+
+44 owning tests pass: long native-shaped IDs through real APP provider admission,
+Graph/source broker, producing citation, protected trace, fresh-service history
+and source-open target; short/268/boundary source codecs; claim labels through
+256; over-limit refusal before provider admission; altered producing evidence
+refusal; unchanged Build ledger and protected-trace aggregate limits. No SQL
+per-ID evidence/claim length constraint exists in current migrations; storage
+remains JSON under the existing aggregate limits, so no migration is required.
+Existing source/World identity and digest checks are unchanged.
+Log `/tmp/graph-reference-limits-tests.log`. Ruff and cumulative diff checks pass.
+No provider inference, source write, native publication, retained migration or
+serving replacement occurred. Actual resolver/ordinary-answer acceptance is next.

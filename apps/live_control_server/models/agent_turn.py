@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from application_state.agent_conversation.identifier_limits import (
+    GRAPH_EVIDENCE_REF_ID_MAX_CHARS,
+    GRAPH_CLAIM_ID_MAX_CHARS,
+)
+
 import re
 from typing import Annotated, Literal
 from uuid import UUID
@@ -474,7 +479,7 @@ class AgentSourceOpenAuthorityV1(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    claim_id: str = Field(min_length=1, max_length=128)
+    claim_id: str = Field(min_length=1, max_length=GRAPH_CLAIM_ID_MAX_CHARS)
     source_artifact_id: str = Field(min_length=1, max_length=256)
     source_revision_id: str = Field(min_length=1, max_length=256)
     managed_world_id: str = Field(min_length=1, max_length=128)
@@ -493,7 +498,7 @@ class AgentEvidenceAnchorOpenTargetV1(AgentSourceOpenAuthorityV1):
     )
     kind: Literal["evidence_anchor"] = "evidence_anchor"
     anchor_id: str = Field(min_length=1, max_length=256)
-    evidence_ref_id: str = Field(min_length=1, max_length=256)
+    evidence_ref_id: str = Field(min_length=1, max_length=GRAPH_EVIDENCE_REF_ID_MAX_CHARS)
     source_read_id: str | None = Field(default=None, min_length=1, max_length=128)
     read_outcome: Literal["enough", "partial", "truncated"] | None = None
 
@@ -510,7 +515,7 @@ class AgentRelatedRecapContextOpenTargetV2(AgentSourceOpenAuthorityV1):
     )
     kind: Literal["related_recap_context"] = "related_recap_context"
     context_anchor_id: str = Field(pattern=r"^dm-context-anchor:v2:.+")
-    provenance_evidence_ref_id: str = Field(min_length=1, max_length=256)
+    provenance_evidence_ref_id: str = Field(min_length=1, max_length=GRAPH_EVIDENCE_REF_ID_MAX_CHARS)
     source_campaign_id: str | None = None
     source_uri: str = Field(min_length=1)
     content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -551,7 +556,7 @@ class AgentEvidenceAnchorStatusV1(BaseModel):
     schema_: Literal["dmb_agent_evidence_anchor_status_v1"] = Field(
         default="dmb_agent_evidence_anchor_status_v1", alias="schema"
     )
-    claim_id: str = Field(min_length=1, max_length=128)
+    claim_id: str = Field(min_length=1, max_length=GRAPH_CLAIM_ID_MAX_CHARS)
     status: Literal["available", "no_anchor", "partial", "overflow"]
     target_count: int = Field(strict=True, ge=0, le=8)
 
@@ -572,7 +577,7 @@ class AgentRelatedRecapContextStatusV2(BaseModel):
     schema_: Literal["dmb_agent_related_recap_context_status_v2"] = Field(
         default="dmb_agent_related_recap_context_status_v2", alias="schema"
     )
-    claim_id: str = Field(min_length=1, max_length=128)
+    claim_id: str = Field(min_length=1, max_length=GRAPH_CLAIM_ID_MAX_CHARS)
     status: Literal[
         "available", "multiple_choices", "no_context", "metadata_unavailable",
         "partial", "overflow",
