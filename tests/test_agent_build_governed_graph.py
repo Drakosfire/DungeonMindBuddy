@@ -83,6 +83,10 @@ class SyntheticHarness:
         restored = deserialize_hermes_graph_agent_turn_request(json.loads(json.dumps(wire)))
         assert restored.world_id == 'native-build-world' and restored.revision_pin == 'native-rev-3'
         message = restored.question
+        self.request_question = message
+        if getattr(self, "omit_discovery", False):
+            head, rest = message.split("\n\nReviewed-source discovery", 1)
+            message = head + "\n\n" + rest.split("\n\n", 1)[1]
         assert self.source.markdown in json.loads(message.split('\n\n')[0])['saved_source']['content']
         assert 'saved_source_claim' in message
         assert 'Return only JSON with exactly answer_context_status and answer_segments.' in message
@@ -567,3 +571,26 @@ def test_answer_capture_persistence_error_cannot_publish_or_mask_parse_failure(b
     assert turn.completion is None and turn.assistant_text is None
     if malformed:
         assert turn.status == 'failed' and turn.failure_code == 'answer_validation_failed'
+
+
+def test_build_discovery_reaches_governed_provider_without_admitting_claims(build_case, tmp_path):
+    source, request, bootstrap = build_case
+    packet = {"schema": "dmb_build_source_discovery_v1", "discovery_only": True,
+              "entries": [{"subject_object_id": "person:barin", "assertion_id": "discovery:only"}],
+              "eligible_count": 1, "status": "complete"}
+    bootstrap = replace(bootstrap, build_source_discovery=packet)
+    harness = SyntheticHarness(source, bootstrap)
+    result = execute((source, request, bootstrap), tmp_path, harness)
+    assert result.answer.status == "ok"
+    assert "person:barin" in harness.request_question
+    assert bootstrap.candidate_assertion_ids == ()
+    assert bootstrap.candidate_evidence_ref_ids == ()
+
+
+def test_missing_discovery_in_final_provider_payload_is_rejected(build_case, tmp_path):
+    source, request, bootstrap = build_case
+    bootstrap = replace(bootstrap, build_source_discovery={"discovery_only": True, "entries": []})
+    harness = SyntheticHarness(source, bootstrap, refuse=True)
+    harness.omit_discovery = True
+    with pytest.raises(svc.AgentTurnServiceError):
+        execute((source, request, bootstrap), tmp_path, harness)
