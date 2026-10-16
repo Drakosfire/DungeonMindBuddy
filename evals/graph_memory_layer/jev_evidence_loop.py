@@ -99,6 +99,17 @@ def request_for(snapshot: dict, units: list[dict], available: list[dict]) -> dic
             "questions": questions, "max_transport_retries": 0, "deadline_ms": 120000}
 
 
+def challenge_request(snapshot: dict, units: list[dict], available: list[dict]) -> dict:
+    """Separate coverage challenge; discovery labels never establish support."""
+    state = request_for(snapshot, units, available)["state"]
+    state["phase"] = "challenge_tentative_sufficiency"
+    return {"provider": "typesafe", "model": snapshot["model"], "state": state,
+            "questions": [{"kind": "choice", "name": "challenge_action",
+                "question": "Before accepting the tentative answer, which unread legal action is most plausibly able to change, contradict or materially qualify it? Seek competing claims about the same subject/relation/time, missing qualifications or another necessary hop. Do not treat different subjects or earlier states as simultaneous contradictions. Choose none only when discovery hints identify no plausible useful competitor; that remains a heuristic. Choose unknown when the discovery metadata is too ambiguous to make this judgment. Labels are never source evidence.",
+                "options": ["none", "unknown", *[a["id"] for a in available]]}],
+            "max_transport_retries": 0, "deadline_ms": 120000}
+
+
 def validate_answers(request: dict, result: dict) -> dict:
     observation = result.get("observation", {})
     if observation.get("response_model") != request["model"]:
@@ -124,7 +135,7 @@ async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], 
                    output: Path, relevant_min: float = 0.5,
                    retrieve: Callable[[dict], Awaitable[list[dict]]] | None = None,
                    retrieve_many: Callable[[list[dict]], Awaitable[dict[str, list[dict]]]] | None = None,
-                   question_only: bool = False) -> dict:
+                   question_only: bool = False, challenge_before_stop: bool = False) -> dict:
     """Acquire legal actions; optional live reader owns immutable source proof."""
     if question_only:
         snapshot = {**snapshot, "requirements": [{"id": "answer", "text": snapshot["question"]}],
@@ -255,6 +266,45 @@ async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], 
                "unresolved": gaps, "next_actions": sorted(set(pending))}
         rounds.append(row)
         if not gaps:
+            if challenge_before_stop and available:
+                challenge = challenge_request(snapshot, units, available)
+                stem = output / f"challenge-{index:02d}"
+                Path(str(stem) + "-request.json").write_text(json.dumps(challenge, ensure_ascii=False, indent=2))
+                with Path(str(stem) + "-started.json").open("x") as marker:
+                    json.dump({"request_sha256": digest(challenge)}, marker)
+                challenge_started = time.perf_counter()
+                try:
+                    decision = await evaluate(challenge)
+                    Path(str(stem) + "-response.json").write_text(json.dumps(decision, ensure_ascii=False, indent=2))
+                    observations.append(decision.get("observation", {}))
+                    answer = validate_answers(challenge, decision)["challenge_action"]["selected"]
+                except Exception as exc:
+                    status = "challenge_unavailable_or_invalid"
+                    row["challenge"] = {"status": status, "exception_type": type(exc).__name__, "retry": False}
+                    row["stop_reason"] = status
+                    gaps = [r["id"] for r in snapshot["requirements"]]
+                    row["unresolved"] = gaps
+                    observation = getattr(exc, "observation", None)
+                    if observation is not None:
+                        observations.append(observation.model_dump(mode="json"))
+                    break
+                row["challenge"] = {"selected_action": answer, "request_sha256": digest(challenge),
+                                    "elapsed_seconds": time.perf_counter() - challenge_started}
+                if answer == "unknown":
+                    status = "coverage_unknown"
+                    gaps = [r["id"] for r in snapshot["requirements"]]
+                    row["stop_reason"] = "discovery_metadata_insufficient_for_coverage_judgment"
+                    row["unresolved"] = gaps
+                    break
+                if answer != "none":
+                    pending = [answer]
+                    gaps = [r["id"] for r in snapshot["requirements"]]
+                    row.update(unresolved=gaps, next_actions=pending,
+                               continue_reason="unread_action_could_change_or_qualify_answer")
+                    continue
+                row["coverage_judgment"] = "heuristic_no_plausible_unread_competitor"
+            elif challenge_before_stop:
+                row["coverage_judgment"] = "legal_catalog_exhausted_not_world_complete"
             status = "provisionally_supported"
             row["stop_reason"] = "all_requirements_have_relevant_selected_support"
             break
@@ -272,6 +322,7 @@ async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], 
               "mode": "live_revision_bound_source_acquisition" if live else "frozen_revision_retrieval_replay", "rounds": rounds, "retrieval_events": events,
               "acquisition_batches": batches,
               "planning_mode": "question_only" if question_only else "manual_requirements_and_seeds",
+              "challenge_before_stop": challenge_before_stop,
               "selected_evidence": [u for u in seen.values() if u["id"] in selected],
               "retrieved_unit_ids": [u["id"] for u in seen.values()],
               "observations": observations, "elapsed_seconds": time.perf_counter() - started,

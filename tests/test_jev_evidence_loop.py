@@ -292,3 +292,50 @@ def test_question_only_unsupported_bootstrap_sufficiency_cannot_pass(tmp_path):
     assert result['status'] == 'retrieval_exhausted'
     assert result['selected_evidence'] == []
     assert result['unresolved_requirements'] == ['answer']
+
+
+def test_competing_action_is_opened_and_entire_evidence_reevaluated(tmp_path):
+    snap = fixture()
+    snap['requirements'] = [snap['requirements'][0]]
+    snap['units']['u2']['text'] = 'Aster does not lead the assembly. Both claims are current and unresolved.'
+    snap['units']['u2']['content_sha256'] = hashlib.sha256(snap['units']['u2']['text'].encode()).hexdigest()
+    calls = []
+    async def evaluate(request):
+        calls.append(request)
+        if request['state'].get('phase') == 'challenge_tentative_sufficiency':
+            assert [u['id'] for u in request['state']['evidence']] == ['u1']
+            return {'answers': {'challenge_action': {'kind': 'choice', 'selected': 'a2'}},
+                    'observation': {'response_model': 'jev-1.14.0'}}
+        return decisions(request, conflict=len(request['state']['evidence']) == 2)
+    result = asyncio.run(run_loop(snap, evaluate, output=tmp_path/'run', challenge_before_stop=True))
+    assert result['status'] == 'conflict_requires_qualification'
+    assert [e['action_id'] for e in result['retrieval_events']] == ['a1', 'a2']
+    assert {u['id'] for u in result['selected_evidence']} == {'u1', 'u2'}
+    assert len(calls) == 3
+    assert [u['id'] for u in calls[-1]['state']['evidence']] == ['u1', 'u2']
+    assert (tmp_path/'run/challenge-01-started.json').exists()
+
+
+@pytest.mark.parametrize('choice,status', [
+    ('none', 'provisionally_supported'), ('unknown', 'coverage_unknown'),
+    ('foreign', 'challenge_unavailable_or_invalid'), ('timeout', 'challenge_unavailable_or_invalid'),
+])
+def test_challenge_none_is_heuristic_unknown_and_failure_cannot_pass(tmp_path, choice, status):
+    snap = fixture()
+    snap['requirements'] = [snap['requirements'][0]]
+    calls = []
+    async def evaluate(request):
+        calls.append(request)
+        if request['state'].get('phase') == 'challenge_tentative_sufficiency':
+            if choice == 'timeout':
+                raise TimeoutError()
+            return {'answers': {'challenge_action': {'kind': 'choice', 'selected': choice}},
+                    'observation': {'response_model': 'jev-1.14.0'}}
+        return decisions(request)
+    result = asyncio.run(run_loop(snap, evaluate, output=tmp_path/'run', challenge_before_stop=True))
+    assert result['status'] == status
+    assert len(calls) == 2  # No uncertain challenge retry.
+    if choice == 'none':
+        assert result['rounds'][-1]['coverage_judgment'] == 'heuristic_no_plausible_unread_competitor'
+    else:
+        assert result['unresolved_requirements'] == result['rounds'][-1]['unresolved'] == ['leader']

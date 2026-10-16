@@ -7,13 +7,15 @@ import json
 import os
 from pathlib import Path
 
-from evals.graph_memory_layer.jev_controller_cohort import cases, score_case
+from evals.graph_memory_layer.jev_controller_cohort import cases, challenge_cases, score_case
 from evals.graph_memory_layer.jev_evidence_loop import digest, run_loop
 
 
-async def run_cohort(evaluate, output: Path, *, question_only=False):
+async def run_cohort(evaluate, output: Path, *, question_only=False, challenge_before_stop=False):
     output.mkdir(parents=True, exist_ok=False, mode=0o700)
     cohort = cases()
+    if challenge_before_stop:
+        cohort.update(challenge_cases())
     (output/'frozen-cohort.json').write_text(json.dumps(cohort, indent=2))
     rows, inputs_seen = [], set()
     for name, case in cohort.items():
@@ -23,9 +25,9 @@ async def run_cohort(evaluate, output: Path, *, question_only=False):
             if identity in inputs_seen:
                 continue
             inputs_seen.add(identity)
-        result = await run_loop(case['snapshot'], evaluate, output=output/name, question_only=question_only)
+        result = await run_loop(case['snapshot'], evaluate, output=output/name, question_only=question_only, challenge_before_stop=challenge_before_stop)
         score = score_case(result, case['gold'])
-        row = {'case': name, **score, 'rounds': len(result['rounds']),
+        row = {'case': name, **score, 'rounds': len(result['rounds']), 'decision_calls_reported': len(result['observations']),
                'elapsed_seconds': result['elapsed_seconds'], 'usage_status': result['usage_status'],
                'input_tokens': result['input_tokens_reported'], 'output_tokens': result['output_tokens_reported']}
         rows.append(row)
@@ -33,7 +35,7 @@ async def run_cohort(evaluate, output: Path, *, question_only=False):
         # Persist completed cases even if a later independent case is interrupted.
         (output/'progress.json').write_text(json.dumps(rows, indent=2))
     report = {'cohort_sha256': digest(cohort), 'cases': rows, 'passed': sum(r['passed'] for r in rows),
-              'total': len(rows), 'luna_calls': 0, 'retained_writes': 0, 'question_only': question_only,
+              'total': len(rows), 'luna_calls': 0, 'retained_writes': 0, 'question_only': question_only, 'challenge_before_stop': challenge_before_stop,
               'provider_cost': 'unavailable_not_zero',
               'limits': ['Synthetic constructed holdouts; question-only mode replaces manual requirements and seeds.' if question_only else 'Synthetic constructed holdouts with human requirements and seeds.',
                          'Whole-question variant probes manual decomposition dependence; it does not remove it.',
@@ -47,6 +49,7 @@ async def main():
     parser.add_argument('--credential-file', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--question-only', action='store_true')
+    parser.add_argument('--challenge-before-stop', action='store_true')
     args = parser.parse_args()
     os.umask(0o077)
     from dotenv import dotenv_values
@@ -61,7 +64,7 @@ async def main():
         response = await client.decide(DecisionRequest.model_validate(request))
         return response.model_dump(mode='json')
     try:
-        report = await run_cohort(evaluate, args.output, question_only=args.question_only)
+        report = await run_cohort(evaluate, args.output, question_only=args.question_only, challenge_before_stop=args.challenge_before_stop)
     finally:
         await client.aclose()
     print(json.dumps(report))

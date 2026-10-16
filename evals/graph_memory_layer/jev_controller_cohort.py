@@ -65,3 +65,21 @@ def score_case(result, gold):
             'passed': stop_matches and not missing,
             'accuracy_scope': 'constructed stopping and required support, not generated answer accuracy',
             'semantic_review': 'required'}
+
+
+def challenge_cases():
+    """Additional constructed controls frozen before the challenge-policy run."""
+    return {
+        'competing_record_without_explicit_conflict_label': _case('What fuel does the lantern use on Day 3?',
+            [('Lantern public log', 'On Day 3 the lantern uses only gleam moss as fuel.'),
+             ('Lantern keeper private log', 'On Day 3 that lantern uses only reed oil as fuel. Both logs are current and unresolved.')],
+            ['Determine the Day 3 fuel.'], 'conflict_requires_qualification', ['u1', 'u2']),
+        'similar_label_different_subject': _case('What fuel does the northern lantern use?',
+            [('Northern lantern fuel record', 'The northern lantern burns only gleam moss.'),
+             ('Southern lantern fuel record', 'The southern lantern burns only reed oil.')],
+            ['Identify the northern lantern fuel.'], 'provisionally_supported', ['u1']),
+        'no_useful_competitor': _case('What fuel does the lantern use?',
+            [('Lantern fuel record', 'The lantern burns only gleam moss.'),
+             ('Tern nesting record', 'Terns nest on the eastern cliffs.')],
+            ['Identify the lantern fuel.'], 'provisionally_supported', ['u1']),
+    }

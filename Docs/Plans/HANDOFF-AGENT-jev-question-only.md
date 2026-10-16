@@ -1,6 +1,6 @@
 # AGENT — question-only evidence acquisition experiment
 
-ACTIVE under the operator's Jev/controller goal. PRIME solo; ARCHITECTURE independent
+MERGED as #1272 at72f3378517c5b318936ae21eb808b113c5a79823; bounded lease ended. Successor: HANDOFF-AGENT-jev-competing-evidence.md. Original activation under the operator's Jev/controller goal. PRIME solo; ARCHITECTURE independent
 review. Serial successor to #1271 merged2604dca14e0a957b7ef3c2deada6c96e8d338d01.
 Base that fetched Buddy main; branch codex/jev-question-only-acquisition;
 non-serving /tmp/prime-recap-mention-boundaries. Open Ingest leases are disjoint.
