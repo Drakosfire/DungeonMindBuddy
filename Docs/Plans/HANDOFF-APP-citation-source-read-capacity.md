@@ -22,3 +22,9 @@ Shared constants bind the existing2048V3event field and8receipt field to derived
 ## Evidence
 
 First demonstrate the24read regression against untouched base. Then prove24/64/>64read IDs, duplicates/unsorted/unknown/omitted/noncontent/foreignref rejection, derived outer limit+1 rejection, and actualAPP completion with24read IDs plus fresh-process identical readback. Revalidate the exact preserved failed draft locally against its original producing authorization; do not mark the original failed turn completed or replay its provider request. Preserve beginning/end refs and all outcomes for task gold. Inspect cumulative diff, commit/push/open one PR, independent review before merge; runtime adoption/new ordinary turn follow separately.
+
+## Author evidence
+
+The synthetic24read regression fails on unchanged base with the exact max8 error. After repair,16focused capacity/persistence cases PASS, including24/64/65IDs, repeated reads sharing one evidence ref, invalid/omitted/noncontent source rejection, capacity16384+1 rejection, and actualAPP completion/fresh-process identical24-ID readback. Broader affected APP/Build/admission suites:127PASS, one unrelated intent-fingerprint assertion failure reproduced against exact base types module (same mismatching hashes), preserved rather than repaired here. Ruff/diff checks PASS.
+
+Exact original Float Goat draft (same SHA) now passes full local policy completion parsing with24refs/24sourceIDs and original producing bindings; original retained turn remains failed/unmodified. Private evidence citation-capacity-validation-replay.json is local under the original experiment directory. No provider calls or serving/retained writes. SQL completion JSONB constraints cap1MiB but contain no per-citation max8; disposable save/reopen confirms no migration required. UI normalizers/string[] impose no max8. Independent review and subsequent ordinary runtime acceptance remain outstanding.

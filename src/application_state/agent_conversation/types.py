@@ -25,6 +25,14 @@ TurnStatus = Literal["accepted", "running", "completed", "failed", "interrupted"
 CommandKind = Literal["new", "archive", "reopen"]
 TurnClaimDisposition = Literal["claimed", "pending", "completed"]
 
+# A citation can include every receipt actually supplied in one V3 envelope.
+# These outer validation capacities do not grant reads or weaken event checks.
+MAX_INCLUDED_SOURCE_READ_EVENTS_V3 = 2048
+MAX_RECEIPTS_PER_SOURCE_READ_EVENT = 8
+MAX_CITATION_SOURCE_READ_IDS = (
+    MAX_INCLUDED_SOURCE_READ_EVENTS_V3 * MAX_RECEIPTS_PER_SOURCE_READ_EVENT
+)
+
 
 def _fingerprint(value: object) -> str:
     encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
@@ -1236,7 +1244,7 @@ class PlanWorldGraphCitationV2(StrictModel):
     target_id: str = Field(min_length=1, max_length=256)
     graph_revision: str = Field(min_length=1, max_length=256)
     evidence_ref_ids: list[str] = Field(min_length=1, max_length=64)
-    source_read_ids: list[str] = Field(max_length=8)
+    source_read_ids: list[str] = Field(max_length=MAX_CITATION_SOURCE_READ_IDS)
     source_opened: bool
 
     @model_validator(mode="after")
@@ -1888,7 +1896,7 @@ class SourceReadAnchorReceiptV2(StrictModel):
 class ValidatedSourceReadEventV2(GraphExecutionEventBaseV1):
     kind: Literal["validated_source_read_v2"]
     read_call_id: UUID
-    receipts: list[SourceReadAnchorReceiptV2] = Field(min_length=1, max_length=8)
+    receipts: list[SourceReadAnchorReceiptV2] = Field(min_length=1, max_length=MAX_RECEIPTS_PER_SOURCE_READ_EVENT)
 
 
 class RelatedRecapProvenanceBindingV2(StrictModel):
@@ -2185,7 +2193,7 @@ class ProviderAttemptAuthorizedEventV2(ProviderAttemptAuthorizedEventV1):
 
 class ProviderAttemptAuthorizedEventV3(ProviderAttemptAuthorizedEventV2):
     kind: Literal["provider_attempt_authorized_v3"]
-    included_source_read_event_ids: list[UUID] = Field(max_length=2048)
+    included_source_read_event_ids: list[UUID] = Field(max_length=MAX_INCLUDED_SOURCE_READ_EVENTS_V3)
 
 
 
