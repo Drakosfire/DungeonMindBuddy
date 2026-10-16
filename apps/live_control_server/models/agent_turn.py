@@ -8,6 +8,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from application_state.agent_conversation.context_trace import TurnContextTraceV1
+from graph_memory.ingestion.selection_context import AgentKnowledgeSelection
 
 from application_state.agent_conversation.types import (
     PlanWorldGraphCompletionV1,
@@ -218,6 +219,7 @@ class AgentTurnRequest(BaseModel):
     client_work_state: Literal["none", "saved_clean", "saved_dirty", "new_unsaved"]
     graph_request: AgentTurnGraphRequest
     graph_selection: AgentTurnGraphSelection | None
+    selected_knowledge: AgentKnowledgeSelection | None = None
     plan_context_policy: PlanContextPolicyV1 | None = None
     message: str = Field(min_length=1, max_length=8000)
 
@@ -237,6 +239,13 @@ class AgentTurnRequest(BaseModel):
 
     @model_validator(mode="after")
     def reject_contradictory_unsaved_work(self) -> AgentTurnRequest:
+        if self.selected_knowledge is not None and (
+            self.surface.surface_id != "ingest"
+            or self.owner_scope is None or self.owner_scope.kind != "world"
+            or self.selected_knowledge.context_request.expected_world_id != self.owner_scope.world_id
+            or self.primary_work is not None or self.plan_context_policy is not None
+        ):
+            raise ValueError("Knowledge selection requires the matching World Ingest surface")
         if (
             self.client_work_state in {"saved_clean", "saved_dirty"}
             and self.primary_work is None

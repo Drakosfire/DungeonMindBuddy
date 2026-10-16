@@ -1,6 +1,6 @@
 # INGEST: verified source and candidate selection context
 
-Status: ACTIVE under PRIME's authorized ingestion editing scope, 2026-10-15.
+Status: SETTLED. Merged #1211 as `8c13f6e93e9fa89e7b3fd6dcafb672a19d6454d5` after independent review PASS at `ee321a2a86d1955be08711c98fe5e09e2a2e8352` (29 independent context tests, 180 combined author tests). Implementation lease ended; rendered adoption remains outstanding.
 Base: `d03fdb67da877c604e19242d0bdc254515fe89f7`.
 Lane: `codex/ingest-selection-context`, `/tmp/prime-recap-mention-boundaries`.
 Topology: serial successor; PRIME implementation, ARCHITECTURE independent review.

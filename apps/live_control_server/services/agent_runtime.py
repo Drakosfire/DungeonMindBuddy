@@ -14,6 +14,7 @@ from typing import Any, Literal, Protocol
 
 WORLD_GRAPH_READ_POLICY_ID = "world_graph_read_v1"
 CONVERSATION_ONLY_POLICY_ID = "conversation_only_v1"
+SELECTED_KNOWLEDGE_CONTEXT_MAX_CHARS = 64000
 
 AgentRuntimeStatus = Literal["ok", "error"]
 AgentRuntimeToolEventState = Literal["start", "completion", "error"]
@@ -101,6 +102,7 @@ class AgentContextPacket:
     world_scope: AgentWorldScope | None
     retrieval_session: AgentRetrievalSession | None = None
     surface_context: AgentSurfaceContext | None = None
+    selected_knowledge_context: Mapping[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)

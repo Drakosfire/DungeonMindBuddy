@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from graph_memory.ingestion.selection_context import AgentKnowledgeSelection
+
 import hashlib
 import json
 from datetime import datetime
@@ -675,10 +677,17 @@ class SubmittedTurnIntentV1(StrictModel):
     primary_work: SubmittedPrimaryWorkIntentV1 | None
     playable_target: SubmittedPlanPlayableTargetV1 | None = None
     graph_request: SubmittedGraphRequestIntentV1
+    selected_knowledge: AgentKnowledgeSelection | None = None
     graph_selection: SubmittedGraphSelectionIntentV1 | None
 
     @model_validator(mode="after")
     def validate_identity(self) -> "SubmittedTurnIntentV1":
+        if self.selected_knowledge is not None and (
+            self.surface_id != "ingest"
+            or self.primary_work is not None
+            or self.selected_knowledge.context_request.expected_world_id != self.world_id
+        ):
+            raise ValueError("Knowledge selection requires matching World Ingest intent")
         if (
             not self.world_id.strip()
             or not self.client_thread_id.strip()
@@ -728,6 +737,8 @@ def submitted_turn_intent_fingerprint_v1(intent: SubmittedTurnIntentV1) -> str:
     # existed. Omit its null shape byte-for-byte; targeted intents include it.
     if payload.get("playable_target") is None:
         payload.pop("playable_target", None)
+    if payload.get("selected_knowledge") is None:
+        payload.pop("selected_knowledge", None)
     return _fingerprint(payload)
 
 
