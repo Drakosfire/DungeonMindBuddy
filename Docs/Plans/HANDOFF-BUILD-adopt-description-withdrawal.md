@@ -19,3 +19,9 @@ object existence, authored graph payload and historical citations. It does not
 automatically withdraw Council data or enable a UI action. Runtime adoption and
 any retained operation require exact separate evidence and review. Complete one
 pushed PR and independent review before PRIME merge.
+
+Author verification: 70 Buddy capability/publication/source-observation consumer
+tests pass using the exact merged Core contract bytes. uv lock --check passes.
+The dependency diff is four line replacements across pyproject.toml/uv.lock;
+resolver metadata churn was discarded, and other dependency records are unchanged.
+Cumulative diff check passes. Serving/runtime and retained state remain untouched.
