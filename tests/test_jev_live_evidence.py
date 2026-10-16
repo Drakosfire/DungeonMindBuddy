@@ -96,3 +96,25 @@ def test_packet_deduplicates_exact_opened_text_preserving_qualifications():
 def test_incomplete_source_catalog_rejected():
     with pytest.raises(ValueError, match='Incomplete'):
         LiveSourceReader(None, None, {}, '', {'status':'partial', 'next_page_token':None})
+
+
+@pytest.mark.parametrize('provider_status, text, expected', [
+    ('completed', 'Useful answer.', 'completed'), ('completed', '', 'empty_completion'),
+    ('incomplete', 'Truncated', 'incomplete'), ('failed', '', 'failed'),
+    ('cancelled', '', 'cancelled'), ('queued', '', 'unknown_provider_status'),
+    (None, 'Something', 'unknown_provider_status')])
+def test_writer_terminal_status_preserves_raw_response(tmp_path, provider_status, text, expected):
+    response = {'answer':text, 'data': {'status':provider_status, 'usage': {'input_tokens':12}}}
+    calls = []
+    async def invoke(request):
+        calls.append(request)
+        return response
+    result = {'status':'provisionally_supported', 'unresolved_requirements':[],
+              'selected_evidence':[fixture()['units']['u1']]}
+    recorded = asyncio.run(write_once(result, 'question', invoke, tmp_path))
+    assert recorded['status'] == expected
+    assert recorded['response'] == response
+    assert len(calls) == 1
+    assert json.loads((tmp_path/'writer-citation-map.json').read_text())['u1']['scope']['world_id'] == 'synthetic'
+    prompt = json.loads(calls[0]['input'])['evidence'][0]
+    assert 'scope' not in prompt and 'provenance' not in prompt

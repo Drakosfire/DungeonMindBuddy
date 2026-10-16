@@ -173,14 +173,16 @@ def writer_request(result: dict, question: str) -> dict:
         raise ValueError("Writer requires supported evidence; partial retrieval is not success")
     passages, units = {}, []
     for unit in result["selected_evidence"]:
-        item = {k: unit[k] for k in ("id", "subject", "scope", "source_class", "provenance")}
+        # Full authority/provenance stays in the host result and citation map.
+        # The writer needs readable text and short handles, not repeated hashes.
+        item = {k: unit[k] for k in ("id", "subject", "source_class")}
         item.update({k: unit[k] for k in ("epistemic_kind", "temporal_scope") if k in unit})
         if "opened_passages" in unit:
             item["observation"] = unit["observation_text"]
             item["passage_ids"] = []
             for passage in unit["opened_passages"]:
                 pid = "p" + digest(passage)[:16]
-                passages[pid] = passage
+                passages[pid] = {k: passage[k] for k in ("text", "start_line", "end_line")}
                 item["passage_ids"].append(pid)
         else:
             item["text"] = unit["text"]
@@ -196,10 +198,19 @@ async def write_once(result, question, invoke, output: Path):
     with (output / "writer-started.json").open("x") as f:
         json.dump({"request_sha256": digest(request)}, f)
     (output / "writer-request.json").write_text(json.dumps(request, ensure_ascii=False, indent=2))
+    (output / "writer-citation-map.json").write_text(json.dumps(
+        {u["id"]: u for u in result["selected_evidence"]}, ensure_ascii=False, indent=2))
     started = time.perf_counter()
     try:
         response = await invoke(request)
-        answer = {"status": "completed", "elapsed_seconds": time.perf_counter() - started,
+        data = response.get("data", {})
+        provider_status = data.get("status")
+        status = ("completed" if provider_status == "completed" and response.get("answer", "").strip()
+                  else "empty_completion" if provider_status == "completed"
+                  else provider_status if provider_status in {"incomplete", "failed", "cancelled"}
+                  else "unknown_provider_status")
+        answer = {"status": status, "provider_status": provider_status,
+                  "elapsed_seconds": time.perf_counter() - started,
                   "provider_calls": 1, "response": response}
     except Exception as exc:
         answer = {"status": "uncertain_do_not_replay", "elapsed_seconds": time.perf_counter() - started,

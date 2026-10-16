@@ -111,8 +111,9 @@ async def main():
     # Evaluation files never enter either provider request.
     gold_bytes = args.gold.read_bytes()
     score = score_gold(result, json.loads(gold_bytes))
+    score['answer_accuracy'] = 'requires_independent_review' if writer else 'not_measured_no_writer'
     score['gold_sha256'] = hashlib.sha256(gold_bytes).hexdigest()
-    usage = writer['response']['data'].get('usage') if writer and writer['status'] == 'completed' else None
+    usage = writer.get('response', {}).get('data', {}).get('usage') if writer else None
     cost_usage = None
     if usage:
         cost_usage = {'input_tokens': usage['input_tokens'], 'output_tokens': usage['output_tokens'],
