@@ -2012,6 +2012,41 @@ class _PolicyExecutionAdapter:
         self._build_controller_exposure = manifest
         return manifest.state()
 
+    def read_build_section(self, *, line_start: int, line_end: int) -> str:
+        """Authorize materializing a slice of the already resolved saved body."""
+        from application_state.agent_conversation.build_section import exact_saved_section
+        graph_types = _app_state_graph_execution_types()
+        if (self.failure is not None or self.fence is None or not _governed_build_turn(self.request)
+                or self.work.build_source is None):
+            raise ValueError("Saved section requires an admitted Build controller turn")
+        receipt = self.fence.turn.graph_context_receipt
+        if not isinstance(receipt, graph_types.BuildGraphContextReceiptV1):
+            raise ValueError("Saved section requires Build source authority")
+        source = self.work.build_source
+        basis = receipt.source_basis
+        if (source.world_id != basis.world_id or source.document_id != basis.document_id
+                or int(source.revision) != basis.registry_revision or source.content_sha256 != basis.content_sha256
+                or source.visibility_state != basis.visibility):
+            raise ValueError("Saved source drifted from the frozen basis")
+        authorization = graph_types.BuildSectionReadAuthorizationV1(
+            kind="build_section_read_authorized_v1", event_id=uuid4(),
+            sequence=len(self._broker_execution().events), read_id=uuid4(), source_basis=basis,
+            source_class="saved_authored_source_not_played_truth", line_start=line_start, line_end=line_end,
+            max_chars=self._broker_execution().policy.max_chars_per_source_read)
+        self.turn = _require_fresh_execution_append(self.fence.append(
+            "authorize_build_section_read", "authorization", authorization))
+        # No substring is materialized before durable authorization. Full source
+        # was loaded by earlier work resolution; this is not a new disk read.
+        text = exact_saved_section(source.markdown, basis.content_sha256, line_start, line_end)
+        event = graph_types.ValidatedBuildSectionReadV1(
+            kind="validated_build_section_read_v1", event_id=uuid4(),
+            sequence=len(self._broker_execution().events), read_id=authorization.read_id,
+            source_basis=basis, source_class=authorization.source_class, line_start=line_start,
+            line_end=line_end, text=text, excerpt_sha256=sha256(text.encode()).hexdigest())
+        self.turn = _require_fresh_execution_append(self.fence.append(
+            "record_validated_build_section", "receipt", event, source_markdown=source.markdown))
+        return event.model_dump_json(by_alias=True)
+
     def stage_build_writer(self, *, graph_payloads=(), source_payloads=()):
         from . import build_jev_writer as writer
         # Reuse the existing parent inclusion/completeness/source proof, never a

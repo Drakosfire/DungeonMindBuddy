@@ -44,9 +44,11 @@ adds actual serialized nonstreaming OpenAI text dispatch truth. GE #22 at
 5c69e7c55d2573a582a85ae11ba947160d5f142d rejects unsuccessful provider terminals
 even when residual output appears valid. Buddy #1275 freezes
 controller/writer roles, #1277 authorizes actual first Build Jev requests and #1278
-binds subsequent decisions to completed parent Graph/source exposures. The next
-producer is [one evidence-bound writer](../Plans/HANDOFF-AGENT-build-jev-single-writer.md)
-under the same durable conversation fence. Production controller selection and
+binds subsequent decisions to completed parent Graph/source exposures. #1279
+adds one evidence-bound Graph writer with durable completion and source targets.
+The next [saved Build section producer](../Plans/HANDOFF-AGENT-build-saved-section-admission.md)
+adds separately attributed authored passages; this is required before reproducing
+the full pilot cases through ordinary conversation. Production controller selection and
 ordinary runtime adoption follow separately. Jev judges relevance and missing
 evidence; code owns acquisition, uniqueness, caching and stopping.
 

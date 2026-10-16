@@ -2518,6 +2518,7 @@ class PlanWorldGraphExecutionV2(StrictModel):
                     RelatedRecapContextAuthorizationEventV2,
                     ValidatedRelatedRecapContextEventV2,
                     RelatedRecapContextProviderInclusionEventV2,
+                    BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1,
                 ),
             ):
                 continue
@@ -2552,12 +2553,48 @@ class PlanWorldGraphExecutionV2(StrictModel):
         return self
 
 
+class BuildSectionReadAuthorizationV1(GraphExecutionEventBaseV1):
+    kind: Literal["build_section_read_authorized_v1"]
+    read_id: UUID
+    source_basis: BuildSourceContextBasisV1
+    source_class: Literal["saved_authored_source_not_played_truth"]
+    line_start: int = Field(strict=True, ge=1)
+    line_end: int = Field(strict=True, ge=1)
+    max_chars: int = Field(strict=True, ge=1, le=12000)
+
+    @model_validator(mode="after")
+    def validate_range(self):
+        if self.line_end < self.line_start:
+            raise ValueError("Saved section range is reversed")
+        return self
+
+
+class ValidatedBuildSectionReadV1(GraphExecutionEventBaseV1):
+    kind: Literal["validated_build_section_read_v1"]
+    read_id: UUID
+    source_basis: BuildSourceContextBasisV1
+    source_class: Literal["saved_authored_source_not_played_truth"]
+    line_start: int = Field(strict=True, ge=1)
+    line_end: int = Field(strict=True, ge=1)
+    text: str = Field(min_length=1, max_length=12000)
+    excerpt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_passage(self):
+        if (self.line_end < self.line_start or not self.text.strip()
+                or hashlib.sha256(self.text.encode("utf-8")).hexdigest() != self.excerpt_sha256
+                or len(self.text.splitlines(keepends=True)) != self.line_end - self.line_start + 1):
+            raise ValueError("Saved section content, range or hash differs")
+        return self
+
+
 GraphExecutionEventV3 = Annotated[
     ValidatedGraphOperationEventV3 | ProviderAttemptAuthorizedEventV3
     | ProviderOutcomeEventV1 | CompletionBindingEventV1
     | SourceScopeExtensionEventV3 | SourceReadAuthorizationEventV2 | ValidatedSourceReadEventV2
     | RelatedRecapContextAuthorizationEventV2 | ValidatedRelatedRecapContextEventV2
-    | RelatedRecapContextProviderInclusionEventV2,
+    | RelatedRecapContextProviderInclusionEventV2
+    | BuildSectionReadAuthorizationV1 | ValidatedBuildSectionReadV1,
     Field(discriminator="kind"),
 ]
 
@@ -2581,8 +2618,26 @@ class PlanWorldGraphExecutionV3(PlanWorldGraphExecutionV2):
             ValidatedGraphOperationEventV1, SourceScopeExtensionEventV3,
             SourceReadAuthorizationEventV2, ValidatedSourceReadEventV2,
             RelatedRecapContextAuthorizationEventV2, ValidatedRelatedRecapContextEventV2,
+            BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1,
         )
+        section_auths, section_reads = {}, set()
         for event in self.events:
+            if isinstance(event, BuildSectionReadAuthorizationV1):
+                if (latest_attempt is None or latest_outcome != "response_received"
+                        or event.read_id in section_auths):
+                    raise ValueError("Build section requires a resolved controller and unique authorization")
+                section_auths[event.read_id] = event
+            elif isinstance(event, ValidatedBuildSectionReadV1):
+                auth = section_auths.get(event.read_id)
+                if (auth is None or event.read_id in section_reads
+                        or event.source_basis != auth.source_basis or event.source_class != auth.source_class
+                        or event.line_start != auth.line_start or event.line_end != auth.line_end
+                        or len(event.text) > auth.max_chars):
+                    raise ValueError("Build section receipt differs from its unique prior authorization")
+                section_reads.add(event.read_id)
+            elif isinstance(event, ProviderAttemptAuthorizedEventV1) and set(section_auths) != section_reads:
+                raise ValueError("Provider cannot proceed with an unresolved Build section read")
+
             if isinstance(event, ProviderAttemptAuthorizedEventV1):
                 identity = (event.provider, event.model, event.api_mode)
                 if identity == roles.controller.identity():
@@ -2828,6 +2883,12 @@ def validate_selected_source_binding(
     execution: PlanWorldGraphExecution | None,
 ) -> None:
     validate_graph_selected_source_binding(_ask_graph_validation_inputs(receipt), execution)
+    for event in execution.events if execution is not None else ():
+        if isinstance(event, (BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1)):
+            if (not isinstance(receipt, BuildGraphContextReceiptV1)
+                    or event.source_basis != receipt.source_basis
+                    or not isinstance(execution.policy, ControllerWriterGraphExecutionPolicyV3)):
+                raise ValueError("Saved section differs from its frozen Build source authority")
 
 
 def validate_graph_selected_source_binding(inputs: GraphEvidenceValidationInputs, execution: PlanWorldGraphExecution | None) -> None:

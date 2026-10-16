@@ -1,6 +1,9 @@
 # AGENT — one evidence-bound Build writer
 
-ACTIVE, serial. PRIME implements solo; ARCHITECTURE independently reviews.
+SETTLED — #1279 merged at 04f9f09bbf94ab42e894ecb5e86ae5914adac96b.
+Successor: [saved section admission](HANDOFF-AGENT-build-saved-section-admission.md).
+
+PRIME implements solo; ARCHITECTURE independently reviews.
 Buddy base 292efb111778d43cf9c59ccab7601f629e8cd925; prerequisite GE #21 plus #22 terminal repair accepted
 at 5c69e7c55d2573a582a85ae11ba947160d5f142d. Branch
 codex/build-jev-single-writer, isolated non-serving /tmp/prime-recap-mention-boundaries.

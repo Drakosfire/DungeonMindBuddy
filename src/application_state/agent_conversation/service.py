@@ -44,6 +44,9 @@ from application_state.agent_conversation.types import (
     SourceScopeExtensionEventV3,
     ValidatedGraphOperationEventV3,
     GraphExecutionEventV3,
+    BuildGraphContextReceiptV1,
+    BuildSectionReadAuthorizationV1,
+    ValidatedBuildSectionReadV1,
     validate_selected_source_binding,
     ProviderAttemptAuthorizedEventV1,
     ProviderAttemptAuthorizedEventV2,
@@ -833,6 +836,7 @@ class AgentConversationService:
         event: GraphExecutionEventV1 | GraphExecutionEventV2 | GraphExecutionEventV3,
         duplicate_key: str,
         source_passages: list[TraceSourcePassage] | None = None,
+        build_source_markdown: str | None = None,
     ) -> tuple[Turn, bool]:
         world_id = _world_id(world_id)
         dsn = _ready_dsn()
@@ -848,6 +852,20 @@ class AgentConversationService:
             now = repo.database_clock(conn)
             if turn.claim_expires_at is None or turn.claim_expires_at <= now:
                 raise ApplicationStateConflictError("Graph execution claim has expired")
+            if isinstance(event, (BuildSectionReadAuthorizationV1, ValidatedBuildSectionReadV1)):
+                receipt = turn.graph_context_receipt
+                if (not isinstance(receipt, BuildGraphContextReceiptV1)
+                        or event.source_basis != receipt.source_basis):
+                    raise ApplicationStateValidationError("Saved section differs from frozen Build source")
+                if isinstance(event, ValidatedBuildSectionReadV1):
+                    from application_state.agent_conversation.build_section import exact_saved_section
+                    try:
+                        exact = exact_saved_section(build_source_markdown, receipt.source_basis.content_sha256,
+                            event.line_start, event.line_end)
+                    except (TypeError, ValueError, UnicodeError) as exc:
+                        raise ApplicationStateValidationError("Immutable Build passage proof is unavailable or invalid") from exc
+                    if event.text != exact:
+                        raise ApplicationStateValidationError("Saved passage is not the exact immutable source slice")
             trace_row = conn.execute(
                 "SELECT payload->>'capture_status' FROM agent.turn_context_trace "
                 "WHERE turn_id=%s AND attempt=%s",
@@ -859,6 +877,9 @@ class AgentConversationService:
                 # Inclusion and outcome events share the authorization attempt ID.
                 # Only an earlier authorization can be its duplicate.
                 if duplicate_key == "provider_attempt_id" and not isinstance(prior, ProviderAttemptAuthorizedEventV1):
+                    continue
+                if (isinstance(event, BuildSectionReadAuthorizationV1)
+                        and duplicate_key == "read_id" and not isinstance(prior, BuildSectionReadAuthorizationV1)):
                     continue
                 if getattr(prior, duplicate_key, None) == getattr(event, duplicate_key, None):
                     if (
@@ -1000,6 +1021,24 @@ class AgentConversationService:
             world_id, conversation_id, turn_id, expected_revision=expected_revision,
             expected_attempt=expected_attempt, event=outcome, duplicate_key="event_id",
         )
+
+    def authorize_build_section_read(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int,
+        authorization: BuildSectionReadAuthorizationV1,
+    ) -> tuple[Turn, bool]:
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=authorization, duplicate_key="read_id")
+
+    def record_validated_build_section(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int,
+        receipt: ValidatedBuildSectionReadV1, source_markdown: str,
+    ) -> tuple[Turn, bool]:
+        return self._append_graph_execution_event(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            event=receipt, duplicate_key="event_id", build_source_markdown=source_markdown)
 
     def authorize_source_read(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
