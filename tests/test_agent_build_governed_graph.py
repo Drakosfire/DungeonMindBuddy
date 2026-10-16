@@ -54,9 +54,11 @@ def build_case(tmp_path, monkeypatch, application_state_dsn):
 class SyntheticHarness:
     descriptor = AgentRuntimeDescriptor('synthetic', 'fake', 'test', 'graph')
 
-    def __init__(self, source, bootstrap, *, fail=False, forged=False, graph=False, refuse=False, tamper_evidence=False, malformed=False):
+    def __init__(self, source, bootstrap, *, fail=False, forged=False, graph=False, refuse=False, tamper_evidence=False, malformed=False, mutation=None, omit_source=False):
         self.source, self.bootstrap = source, bootstrap
         self.malformed = malformed
+        self.mutation = mutation
+        self.omit_source = omit_source
         self.final_text = None
         self.calls = 0
         self.refuse = refuse
@@ -83,6 +85,8 @@ class SyntheticHarness:
         message = restored.question
         assert self.source.markdown in json.loads(message.split('\n\n')[0])['saved_source']['content']
         assert 'saved_source_claim' in message
+        assert 'Return only JSON with exactly answer_context_status and answer_segments.' in message
+        assert 'Do not emit citation_map or source-opening flags' in message
         payload = json.dumps({'input': [
             {'role': 'system', 'content': 'Turn capability policy (runtime-enforced; also required on tool calls):\n'
                 + json.dumps({'initialClaimPacket': packet})}, {'role': 'user', 'content': message}], 'tools': []})
@@ -101,7 +105,7 @@ class SyntheticHarness:
         if self.graph:
             assert source_read_enabled
             operation = None
-            if self.graph in {'observation', 'paged', 'paged-mutated'}:
+            if self.graph in {'observation', 'paged', 'paged-mutated', 'paged-unseen'}:
                 operation = on_graph_operation({'toolName': 'expand_graph_retrieval', 'arguments': {
                     'schema': 'dmb_expand_graph_retrieval_request_v1',
                     'retrievalSessionId': self.bootstrap.retrieval_session.id, 'operation': 'object',
@@ -112,7 +116,7 @@ class SyntheticHarness:
                     'targets': [{'kind': 'node', 'id': 'frank'}]}
                 operation_pages = []
                 result = json.loads(operation['resultJson'])
-                if self.graph in {'paged', 'paged-mutated'}:
+                if self.graph in {'paged', 'paged-mutated', 'paged-unseen'}:
                     assert result['schema'] == 'dmb_graph_tool_overview_v1'
                     overview_body = json.loads(payload)
                     overview_body['input'].extend([
@@ -145,7 +149,7 @@ class SyntheticHarness:
             }})
             result = json.loads(opened['resultJson'])
             source_pages = []
-            if self.graph in {'paged', 'paged-mutated'}:
+            if self.graph in {'paged', 'paged-mutated', 'paged-unseen'}:
                 assert result['schema'] == 'dmb_graph_tool_page_v1'
                 token = result.get('nextPageToken')
                 while token:
@@ -174,6 +178,10 @@ class SyntheticHarness:
                         {'type': 'function_call_output', 'call_id': call_id, 'output': page}])
             if self.graph == 'paged-mutated':
                 body['input'][-1]['output'] += ' '
+            if self.omit_source:
+                source_calls = {item['call_id'] for item in body['input']
+                    if item.get('type') == 'function_call' and item.get('name') == 'read_graph_source'}
+                body['input'] = [item for item in body['input'] if item.get('call_id') not in source_calls]
             encoded = json.dumps(body)
             if self.graph == 'paged-mutated':
                 assert not authorize({'provider': request_budget['provider'], 'model': request_budget['model'],
@@ -190,18 +198,27 @@ class SyntheticHarness:
                      'graph_revision': 'native-rev-3', 'evidence_ref_ids': [EVIDENCE_ID]}
             if self.tamper_evidence:
                 claim['evidence_ref_ids'] = [EVIDENCE_ID[:-1] + 'z']
-            return AgentRuntimeResult(status='ok', final_text=json.dumps({
-                'answer_context_status': 'graph_grounded',
-                'answer_segments': [{'kind': 'graph_claim', 'text': 'Frank guards the western gate.', **claim}],
-                'citation_map': {'entries': [{**claim, 'source_opened': False}]},
-            }))
+            segment = {'kind': 'graph_claim', 'text': 'Frank guards the western gate.', **claim}
+            if self.mutation == 'source-open':
+                segment['source_opened'] = True
+            elif self.mutation == 'target':
+                segment['target_id'] = 'unadmitted-target'
+            elif self.mutation == 'revision':
+                segment['graph_revision'] = 'different-revision'
+            if self.graph == 'paged-unseen':
+                segment['target_id'] = 'unrelated-observation'
+            final = {'answer_context_status': 'graph_grounded', 'answer_segments': [segment]}
+            if self.mutation == 'citation-map':
+                final['citation_map'] = {'entries': [{**claim, 'source_opened': False}]}
+            self.final_text = json.dumps(final)
+            return AgentRuntimeResult(status='ok', final_text=self.final_text)
         segment = {'kind': 'saved_source_claim', 'text': 'Frank and Sara operate the Rocky Talkie.'}
         if self.forged:
             segment['content_sha256'] = 'f' * 64
-        self.final_text = json.dumps({
-            'answer_context_status': 'source_only_insufficient_evidence', 'answer_segments': [segment],
-            'citation_map': {'wrong-citation-shape': []} if self.malformed else None,
-        })
+        final = {'answer_context_status': 'source_only_insufficient_evidence', 'answer_segments': [segment]}
+        if self.malformed:
+            final['citation_map'] = {'wrong-citation-shape': []}
+        self.final_text = json.dumps(final)
         return AgentRuntimeResult(status='ok', final_text=self.final_text,
             runtime_session_id='synthetic-build-session')
 
@@ -265,8 +282,8 @@ def test_build_failure_retains_execution_and_trace(build_case, tmp_path, forged)
     assert turn.completion is None
 
 
-@pytest.mark.parametrize('observation', [False, True, 'wrong_subject', 'wrong_source', 'mutated-evidence', 'paged', 'paged-mutated'],
-    ids=['relationship', 'reviewed-source-observation', 'foreign-observation-subject', 'foreign-observation-source', 'mutated-producing-evidence', 'parent-paged-evidence', 'mutated-page'])
+@pytest.mark.parametrize('observation', [False, True, 'wrong_subject', 'wrong_source', 'mutated-evidence', 'paged', 'paged-mutated', 'paged-unseen', 'model-map', 'model-open', 'forged-target', 'forged-revision', 'omitted-source'],
+    ids=['relationship', 'reviewed-source-observation', 'foreign-observation-subject', 'foreign-observation-source', 'mutated-producing-evidence', 'parent-paged-evidence', 'mutated-page', 'unseen-page-claim', 'forbidden-model-map', 'forbidden-model-open', 'forged-target', 'forged-revision', 'performed-but-omitted-source'])
 def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(build_case, tmp_path, monkeypatch, observation):
     from graph_memory.interaction.authority_classifier import claims_from_retrieval_result
     from graph_memory.interaction.session import SourceAnchorState
@@ -285,7 +302,7 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
         evidence_by_anchor_id={'anchor-one': EVIDENCE_ID}, source_scope_anchors=({
             'anchor_id': 'anchor-one', 'evidence_ref_id': EVIDENCE_ID, 'source_artifact_id': 'artifact-one',
             'source_revision_id': 'source-rev-one'},))
-    text = 'Frank guards the western gate.' * (310 if observation in {'paged', 'paged-mutated'} else 1)
+    text = 'Frank guards the western gate.' * (310 if observation in {'paged', 'paged-mutated', 'paged-unseen'} else 1)
     digest = sha256(text.encode()).hexdigest()
     def read_external_graph(arguments, *, receipt_version):
         assert receipt_version == 2 and arguments['anchorIds'] == ['anchor-one']
@@ -315,7 +332,7 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
         elif observation == 'wrong_source':
             native_observation = native_observation.model_copy(update={'source_revision_id': 'another-source-revision'})
         observations = (native_observation,)
-        if observation in {'paged', 'paged-mutated'}:
+        if observation in {'paged', 'paged-mutated', 'paged-unseen'}:
             observations += (native_observation.model_copy(update={
                 'assertion_id': 'unrelated-observation', 'text': 'Unrelated qualified description. ' * 300}),)
         result = WorldGraphRetrievalResult.model_validate({
@@ -351,11 +368,30 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
         turn, = service.list_turns('elderwyld', conversation.conversation_id)
         assert turn.completion is None
         return
-    response = execute((source, request, bootstrap), tmp_path,
-        SyntheticHarness(source, bootstrap, graph='paged' if observation == 'paged' else ('observation' if observation else True)))
+    harness = SyntheticHarness(source, bootstrap,
+        graph=observation if observation in {'paged', 'paged-unseen'} else ('observation' if observation else True),
+        mutation={'model-map':'citation-map','model-open':'source-open','forged-target':'target',
+            'forged-revision':'revision'}.get(observation), omit_source=observation == 'omitted-source')
+    if observation in {'paged-unseen', 'model-map', 'model-open', 'forged-target', 'forged-revision'}:
+        with pytest.raises(svc.AgentTurnServiceError) as error:
+            execute((source, request, bootstrap), tmp_path, harness)
+        assert error.value.code == 'answer_validation_failed'
+        service = AgentConversationService()
+        conversation = service.get_active_conversation('elderwyld')
+        turn, = service.list_turns('elderwyld', conversation.conversation_id)
+        assert turn.completion is None and turn.assistant_text is None
+        return
+    response = execute((source, request, bootstrap), tmp_path, harness)
     context = response.knowledge_context
     assert context.completion.answer_basis == 'saved_source_plus_world_graph'
     citation, = context.completion.citation_map.entries
+    if observation == 'omitted-source':
+        assert not citation.source_opened and citation.source_read_ids == []
+        service = AgentConversationService()
+        conversation = service.get_active_conversation('elderwyld')
+        turn, = service.list_turns('elderwyld', conversation.conversation_id)
+        assert any(e.kind == 'validated_source_read_v2' for e in turn.graph_context_execution.events)
+        return
     assert citation.source_opened and citation.source_read_ids == ['source-read-one']
     assert citation.evidence_ref_ids == [EVIDENCE_ID] and citation.claim_id == CLAIM_ID
     target, = context.source_open_targets

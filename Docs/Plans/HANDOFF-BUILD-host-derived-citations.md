@@ -44,3 +44,17 @@ source-open, rejected raw draft remains diagnostic, and Plan compatibility.
 Inspect cumulative diff; commit/push/open assigned PR; independent exact-head
 review before merge. Future changed-runtime ordinary question/passages and
 restart/operator acceptance remain required; no uncertain replay.
+
+## Review evidence
+
+70 focused tests pass, with existing Pydantic schema-shadow warnings. Real APP
+Build tests exercise relationship and reviewed-source assertion claims, host
+source-open citations and durable source targets, exact new prompt/output shape,
+model-map/source-flag refusal, forged target/evidence/revision rejection, unseen
+partial-page claim refusal and performed-but-omitted source read staying unopened.
+Protected raw draft capture and failed-history exclusion remain covered. Explicit
+Plan V2/V3 producing-source envelope and mixed history tests pass unchanged;
+existing Build surface/protected access/Graph policy/batch-source tests pass.
+Logs `/tmp/build-derived-citations-owning.log` and
+`/tmp/build-derived-citations-regression.log`. Ruff/cumulative diff checks pass.
+No provider calls, serving changes or retained World/source writes occurred.
