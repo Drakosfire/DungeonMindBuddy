@@ -62,3 +62,13 @@ def test_question_only_cohort_collapses_identical_question_variants(tmp_path):
     report = asyncio.run(run_cohort(unavailable, tmp_path/'cohort', question_only=True))
     assert len(calls) == report['total'] == 5
     assert report['question_only'] is True
+
+
+def test_challenge_controls_do_not_change_frozen_original_cohort():
+    from evals.graph_memory_layer.jev_controller_cohort import challenge_cases
+    from evals.graph_memory_layer.jev_evidence_loop import digest
+    assert digest(cases()) == '416ee6b3c1a9a24b22521a2eb2a518489bbe5dbabfdfdecc6c1e07037e5ff920'
+    controls = challenge_cases()
+    assert len(controls) == 3
+    for case in controls.values():
+        validate_snapshot(case['snapshot'])
