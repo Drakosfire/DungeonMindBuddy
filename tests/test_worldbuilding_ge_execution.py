@@ -62,7 +62,7 @@ class _FakeRun:
     status = SimpleNamespace(value="reviewable")
 
 
-@pytest.mark.parametrize("profile_version", ["1.5", "1.6", "1.7", "1.8", "1.9", "1.10", "1.11"])
+@pytest.mark.parametrize("profile_version", ["1.5", "1.6", "1.7", "1.8", "1.9", "1.10", "1.11", "1.12"])
 def test_generationengine_execution_pins_exact_source_profile_and_provider(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, profile_version: str,
 ) -> None:
@@ -239,7 +239,7 @@ class _SchemaAwareFakeProvider:
             yield call
 
 
-@pytest.mark.parametrize("profile_version", ["1.5", "1.11"])
+@pytest.mark.parametrize("profile_version", ["1.5", "1.11", "1.12"])
 @pytest.mark.parametrize("fail_ledger", [False, True])
 def test_real_ge_service_composition_tracks_conformance_and_fails_closed(
     tmp_path: Path,
@@ -351,5 +351,5 @@ def test_unknown_profile_rejects_before_source_or_provider_work(tmp_path, monkey
     with pytest.raises(service.WorldbuildingExecutionInputError, match="unsupported Gazetteer"):
         service.run_gazetteer_with_generation_engine(
             repo_root=tmp_path, source_artifact_id="missing", document_id="missing",
-            document_revision=1, expected_content_sha256="0" * 64, profile_version="1.12",
+            document_revision=1, expected_content_sha256="0" * 64, profile_version="9.99",
         )
