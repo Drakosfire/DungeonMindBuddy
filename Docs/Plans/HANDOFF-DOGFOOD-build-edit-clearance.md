@@ -55,9 +55,21 @@ change to Build-local layout rules; no shared host or global stylesheet changes.
   proves Edit-open paper bounds begin outside the desktop drawer and narrow
   document content can scroll beyond the bottom sheet, while closed layout is
   unchanged. Avoid CSS-string-only assertions as the geometry proof.
-- Render the integrated Build source with Edit open before/after at 1280×720 and
-  390×844. Record screenshot paths and measured paper/drawer/scroll bounds under
-  `/tmp`; use a disposable source if interaction is needed.
+- Integrated rendered acceptance used the merged #1183 Build source on the
+  existing preview for baseline and a disposable branch-built Vite preview on
+  5208 for after. Opened/closed Edit and scrolled the paper only; no source edits,
+  saves, or Buddy messages were made. The exact Mirathorn source loaded in the
+  candidate preview. The graph badge showed `Needs attention` there, so graph
+  readiness was not part of this layout acceptance.
+- Baseline desktop screenshot: `/tmp/build-1183-merged-workspace.jpg` (1280×720),
+  showing the 380px Edit drawer covering the paper's left text. Candidate desktop
+  screenshot: `/tmp/build-edit-clearance-after-desktop.png` (1280×720); measured
+  drawer x=0..380 and paper frame x=416..1244, with the paper text beginning at
+  x=504. Candidate narrow screenshot:
+  `/tmp/build-edit-clearance-after-narrow.png` (390×844); drawer y=489.5..844,
+  paper's final paragraph bottom y=335.2 after scroll, and document scroll width
+  390px. The existing preview's viewport override did not change its screenshot
+  dimensions, so no saved narrow baseline image is claimed.
 - Run the owning Build shell tests, UI typecheck/build, and `git diff --check`;
   inspect the exact cumulative main-to-head diff.
 - Preserve failure output and explicitly state any preview/auth/backend limits.
@@ -66,3 +78,16 @@ change to Build-local layout rules; no shared host or global stylesheet changes.
 The supplied 1280×720 screenshot is the reported baseline: drawer x=0..380
 covers the paper's left text column. The starting source is the merged #1183
 paper/editor UI at main@`990d229`; no source change is expected to be needed.
+
+## Acceptance evidence — 2026-10-15
+
+The branch-built 5208 preview verified the actual Build shell and loaded source
+at both target sizes. On desktop, the paper frame starts 36px to the right of
+the 380px drawer; on narrow, its last paragraph is reachable above the bottom
+sheet without page-width overflow. `BuildSurfaceShell.test.tsx` passed 30/30 with
+`BUILD_LAYOUT_CHROMIUM_PATH=/usr/bin/google-chrome`; `npm run typecheck`,
+`npm run build`, and `git diff --check` passed. Build emitted its existing
+large-chunk advisory. The Vite development server could not start because the
+container reached its file-watcher limit; the production preview worked and was
+stopped after screenshots were captured. Existing 5207 state was restored with
+Edit closed. 5202 and 5876 were not touched.

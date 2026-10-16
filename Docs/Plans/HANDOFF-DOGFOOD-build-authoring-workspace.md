@@ -1,18 +1,16 @@
 # DOGFOOD: direct Build authoring workspace
 
-Status ACTIVE for document authoring/navigation presentation under explicit operator
-"Do it" and PRIME design ownership confirmation. Prior implementation leases were
-released; PRIME reactivated a bounded serial completion lease on 2026-10-15 for the
-handoff and the Build navbar Save dirty-state regression test only. Node write
-portion remains BLOCKED pending ARCHITECTURE identification of an existing governed
-command or a DungeonMind-owned contract. No native mutation adapter is authorized.
-Current fetched `origin/main` is
+Status SETTLED after PR #1183 merged at `990d229d6f131985b830fabc2a6598a5b12f61a5`.
+The merged Build authoring implementation and its completion lease have ended. The
+older lease/path history below is retained as historical evidence and grants no
+current write authority. Node write portion remains BLOCKED pending ARCHITECTURE
+identification of an existing governed command or a DungeonMind-owned contract. No
+native mutation adapter is authorized.
+At the last #1183 integration checkpoint, fetched `origin/main` was
 `9abb6c5f1903a10f784c5563081052472a3dc19e` (including merged #1211 and #1212).
-The current integration lane is
-`codex/build-1183-integrate-main`; existing PR #1183 remains on
-`codex/build-authoring-workspace` and will be updated in place after verification.
-No new durable/public contract or PR is introduced. PRIME owns shared
-serving/runtime ports; 5202 and its data are preserved.
+The integration lane was `codex/build-1183-integrate-main`, and PR #1183 was
+then updated in place after verification. No Node write contract was introduced;
+PRIME owned shared serving/runtime ports, and 5202/data were preserved.
 
 Invariant: Build is a directly editable framed document, with stationary nonmodal
 Edit/Tools companions. Save in Build navbar invokes existing document CAS command;
@@ -278,3 +276,12 @@ A new blank disposable Build source (`31e6d747-a70a-4dc6-8b94-6f2f2c7ba05d`) beg
 At 390×844, the current-head Build paper/editor and conversation dock fit the viewport: document scroll width was 390px and the dock was 350px wide at x=20. The viewport override was reset after inspection. Mirathorn remained read-only. Earlier desktop Build→Play→Plan navigation remains verified.
 
 The pending New Conversation request was resolved through its supported status/recovery controls; creating a new conversation then succeeded and cleared the transcript. A distinct follow-up question subsequently failed terminally with `hermes_worker_timeout` after 121.3 seconds. The UI recorded no answer or execution trace, and no source passage was opened. An earlier `hermes_worker_start_failed` came from a temporary API launcher missing its `__main__` guard; that launcher was fixed only under `/tmp`. The question was not replayed. Conversation answer generation and trace capture remain unaccepted backend work, separate from this Build UI slice.
+
+
+## Lease settlement — 2026-10-15
+
+PR #1183 merged on Buddy main as `990d229d6f131985b830fabc2a6598a5b12f61a5`.
+This document's authoring implementation is settled; its old Build UI path list is
+cumulative review history, not an active write lease. PRIME transferred any stale
+Build CSS ownership needed for the successor paper-clearance repair to
+`HANDOFF-DOGFOOD-build-edit-clearance.md`. No Node Apply capability was delivered.
