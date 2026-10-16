@@ -254,3 +254,41 @@ def test_substantive_section_does_not_follow_navigation_pointer(tmp_path):
     result = asyncio.run(run_loop(snapshot, evaluate, output=tmp_path/'run'))
     assert [e['action_id'] for e in result['retrieval_events']] == ['a1','a4']
     assert result['status'] == 'retrieval_exhausted'
+
+
+def test_question_only_plans_before_reads_and_discards_manual_decomposition(tmp_path):
+    snap = fixture()
+    snap['initial_actions'] = ['a3']
+    original = deepcopy(snap)
+    calls = []
+    async def evaluate(request):
+        calls.append(request)
+        ids = {u['id'] for u in request['state']['evidence']}
+        complete = {'u1', 'u2'} <= ids
+        answers = {}
+        for q in request['questions']:
+            if q['kind'] == 'binary':
+                answers[q['name']] = {'kind': 'binary', 'probability_true': .99}
+            else:
+                selected = ('sufficient' if complete else 'more_evidence') if q['name'].startswith('coverage_') else ('u2' if complete else 'none') if q['name'].startswith('support_') else 'a1' if not ids else 'a2' if not complete else 'none'
+                answers[q['name']] = {'kind': 'choice', 'selected': selected}
+        return {'answers': answers, 'observation': {'response_model': 'jev-1.14.0'}}
+    result = asyncio.run(run_loop(snap, evaluate, output=tmp_path/'run', question_only=True))
+    assert snap == original
+    assert calls[0]['state']['evidence'] == []
+    assert calls[0]['state']['requirements'] == [{'id': 'answer', 'text': snap['question']}]
+    assert [e['action_id'] for e in result['retrieval_events']] == ['a1', 'a2']
+    assert result['status'] == 'provisionally_supported'
+    assert len(calls) == 3
+
+
+def test_question_only_unsupported_bootstrap_sufficiency_cannot_pass(tmp_path):
+    async def evaluate(request):
+        assert request['state']['evidence'] == []
+        answers = {q['name']: {'kind': 'choice', 'selected': 'sufficient' if q['name'].startswith('coverage_') else 'none'}
+                   for q in request['questions']}
+        return {'answers': answers, 'observation': {'response_model': 'jev-1.14.0'}}
+    result = asyncio.run(run_loop(fixture(), evaluate, output=tmp_path/'run', question_only=True))
+    assert result['status'] == 'retrieval_exhausted'
+    assert result['selected_evidence'] == []
+    assert result['unresolved_requirements'] == ['answer']

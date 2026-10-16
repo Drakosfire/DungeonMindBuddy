@@ -11,13 +11,19 @@ from evals.graph_memory_layer.jev_controller_cohort import cases, score_case
 from evals.graph_memory_layer.jev_evidence_loop import digest, run_loop
 
 
-async def run_cohort(evaluate, output: Path):
+async def run_cohort(evaluate, output: Path, *, question_only=False):
     output.mkdir(parents=True, exist_ok=False, mode=0o700)
     cohort = cases()
     (output/'frozen-cohort.json').write_text(json.dumps(cohort, indent=2))
-    rows = []
+    rows, inputs_seen = [], set()
     for name, case in cohort.items():
-        result = await run_loop(case['snapshot'], evaluate, output=output/name)
+        if question_only:
+            identity = digest({k: v for k, v in case['snapshot'].items()
+                               if k not in {'requirements', 'initial_actions'}})
+            if identity in inputs_seen:
+                continue
+            inputs_seen.add(identity)
+        result = await run_loop(case['snapshot'], evaluate, output=output/name, question_only=question_only)
         score = score_case(result, case['gold'])
         row = {'case': name, **score, 'rounds': len(result['rounds']),
                'elapsed_seconds': result['elapsed_seconds'], 'usage_status': result['usage_status'],
@@ -27,9 +33,9 @@ async def run_cohort(evaluate, output: Path):
         # Persist completed cases even if a later independent case is interrupted.
         (output/'progress.json').write_text(json.dumps(rows, indent=2))
     report = {'cohort_sha256': digest(cohort), 'cases': rows, 'passed': sum(r['passed'] for r in rows),
-              'total': len(rows), 'luna_calls': 0, 'retained_writes': 0,
+              'total': len(rows), 'luna_calls': 0, 'retained_writes': 0, 'question_only': question_only,
               'provider_cost': 'unavailable_not_zero',
-              'limits': ['Synthetic constructed holdouts with human requirements and seeds.',
+              'limits': ['Synthetic constructed holdouts; question-only mode replaces manual requirements and seeds.' if question_only else 'Synthetic constructed holdouts with human requirements and seeds.',
                          'Whole-question variant probes manual decomposition dependence; it does not remove it.',
                          'Independent semantic review required; no answer writer or general accuracy claim.']}
     (output/'report.json').write_text(json.dumps(report, indent=2))
@@ -40,6 +46,7 @@ async def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--credential-file', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--question-only', action='store_true')
     args = parser.parse_args()
     os.umask(0o077)
     from dotenv import dotenv_values
@@ -54,7 +61,7 @@ async def main():
         response = await client.decide(DecisionRequest.model_validate(request))
         return response.model_dump(mode='json')
     try:
-        report = await run_cohort(evaluate, args.output)
+        report = await run_cohort(evaluate, args.output, question_only=args.question_only)
     finally:
         await client.aclose()
     print(json.dumps(report))

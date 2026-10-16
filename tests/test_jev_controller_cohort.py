@@ -49,3 +49,16 @@ def test_runner_preserves_each_failure_without_provider_retry(tmp_path):
     with pytest.raises(FileExistsError):
         asyncio.run(run_cohort(unavailable, tmp_path/'cohort'))
     assert len(calls) == 6
+
+
+def test_question_only_cohort_collapses_identical_question_variants(tmp_path):
+    calls = []
+    async def unavailable(request):
+        calls.append(request)
+        assert len(request['state']['requirements']) == 1
+        assert request['state']['requirements'][0]['text'] == request['state']['user_question']
+        assert request['state']['evidence'] == []
+        raise TimeoutError()
+    report = asyncio.run(run_cohort(unavailable, tmp_path/'cohort', question_only=True))
+    assert len(calls) == report['total'] == 5
+    assert report['question_only'] is True
