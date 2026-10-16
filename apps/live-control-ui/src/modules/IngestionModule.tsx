@@ -967,13 +967,24 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   // Trust live graph_preview.status only — draft states must not claim materialized.
   const hasPreviewUnionStore = graphPreview?.status === "preview_union_store_ready";
   const hasNormalizedRecap = hasApplied;
+  const recapSourceNavigationProof = recapSourceProof(latestResult);
+  const sourcePresentButUnverified =
+    sourceMode === "raw" &&
+    !rawTextSatisfied &&
+    hasNormalizedRecap &&
+    !recapSourceNavigationProof.confirmed;
   const showPreparedSourceNotice =
-    sourceMode === "raw" && !rawTextSatisfied && hasNormalizedRecap && recapSession > 0 && !priorSourceReadFailed;
+    sourceMode === "raw" &&
+    !rawTextSatisfied &&
+    hasNormalizedRecap &&
+    recapSourceNavigationProof.confirmed &&
+    recapSession > 0 &&
+    !priorSourceReadFailed;
   const hasLoadedRecapContent =
     sourceMode !== "raw" ||
     loadedArtifact !== null ||
     Boolean(rawText.trim()) ||
-    (resultOwnsSelection && (hasNormalizedRecap || hasPreview));
+    (resultOwnsSelection && (recapSourceNavigationProof.confirmed || hasPreview));
   const showRecapWelcome =
     hydrated &&
     !readerMode &&
@@ -1015,6 +1026,11 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     }
     if (hasPreviewUnionStore) {
       return "Graph exists · choose Replace graph to run a fresh extraction.";
+    }
+    if (sourcePresentButUnverified) {
+      return recapSourceNavigationProof.missing
+        ? "Recap files are reported missing. Inspect Evidence or load/paste the source to continue."
+        : "Recap file presence is unverified. Inspect Evidence or load the recap to continue.";
     }
     return ingestReadiness.nextAction;
   })();

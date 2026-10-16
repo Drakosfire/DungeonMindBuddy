@@ -347,6 +347,9 @@ describe("IngestionModule", () => {
     const nav = screen.getByRole("navigation", { name: "Ingest workspace navigation" });
     await waitFor(() => expect(within(nav).getByRole("status")).toHaveTextContent("Recap source needs confirmation"));
     expect(within(nav).getByRole("status")).not.toHaveTextContent("Recap source missing");
+    expect(screen.queryByRole("note", { name: "Prepared recap source" })).not.toBeInTheDocument();
+    await userEvent.setup().click(within(nav).getByRole("button", { name: "Dismiss ingestion toast" }));
+    expect(within(nav).getByRole("status")).toHaveTextContent("Recap file presence is unverified");
     await userEvent.setup().click(within(nav).getByRole("link", { name: "Evidence" }));
     expect(screen.getByText("Canonical and normalized recap files need verification")).toBeInTheDocument();
     const proof = screen.getByRole("region", { name: "Ingestion proof artifacts" });
@@ -378,6 +381,12 @@ describe("IngestionModule", () => {
       session: 29,
       status: "breadcrumb_required",
       states: ["normalized_reused", "ingest_status_inspected"],
+      ingest_report: {
+        corpus_impact: [
+          { key: "canonical_recap", relpath: "corpus/session-29.md", exists: true },
+          { key: "normalized_recap", relpath: "corpus/normalized-session-29.md", exists: true },
+        ],
+      },
     }));
     vi.mocked(liveApi.getRecapArtifacts).mockResolvedValue({
       schema_version: "dmb_recap_artifacts_registry_v1",
