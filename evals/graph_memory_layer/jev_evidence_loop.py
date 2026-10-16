@@ -20,13 +20,18 @@ def digest(value: Any) -> str:
                                    separators=(",", ":"), allow_nan=False).encode()).hexdigest()
 
 
-def validate_snapshot(snapshot: dict) -> None:
+def validate_snapshot(snapshot: dict, *, live: bool = False) -> None:
     if snapshot.get("schema") != "dmb_jev_loop_snapshot_v1":
         raise ValueError("Unknown snapshot schema")
     for key in ("world_id", "graph_revision", "source_revision", "source_sha256"):
         if not isinstance(snapshot.get(key), str) or not snapshot[key]:
             raise ValueError("Missing frozen scope")
     for uid, unit in snapshot["units"].items():
+        if live and unit.get("unretrieved") is True:
+            if (unit["id"] != uid or unit["scope"] != {k: snapshot[k] for k in
+                    ("world_id", "graph_revision", "source_revision")}):
+                raise ValueError("Live descriptor scope differs")
+            continue
         if unit["id"] != uid or not unit.get("text") or not unit.get("provenance"):
             raise ValueError("Evidence lacks identity, text or provenance")
         if unit["scope"] != {k: snapshot[k] for k in ("world_id", "graph_revision", "source_revision")}:
@@ -116,9 +121,10 @@ def validate_answers(request: dict, result: dict) -> dict:
 
 
 async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], *,
-                   output: Path, relevant_min: float = 0.5) -> dict:
-    """Replay legal snapshot actions. Threshold is experimental, not calibrated."""
-    validate_snapshot(snapshot)
+                   output: Path, relevant_min: float = 0.5,
+                   retrieve: Callable[[dict], Awaitable[list[dict]]] | None = None) -> dict:
+    """Acquire legal actions; optional live reader owns immutable source proof."""
+    validate_snapshot(snapshot, live=retrieve is not None)
     if not 0 <= relevant_min <= 1:
         raise ValueError("Invalid experimental relevance threshold")
     output.mkdir(parents=True, exist_ok=False, mode=0o700)
@@ -140,22 +146,41 @@ async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], 
                 raise ValueError("Unknown retrieval action")
             action = snapshot["actions"][aid]
             visited.add(aid)
-            for uid in action["unit_ids"]:
-                unit = snapshot["units"][uid]
+            read_started = time.perf_counter()
+            try:
+                loaded = (await retrieve(action) if retrieve is not None else
+                          [snapshot["units"][uid] for uid in action["unit_ids"]])
+                if {u["id"] for u in loaded} != set(action["unit_ids"]):
+                    raise ValueError("Live read returned different evidence identities")
+                for unit in loaded:
+                    if unit.get("unretrieved"):
+                        raise ValueError("Unretrieved descriptor is not evidence")
+                    validate_snapshot({**snapshot, "units": {**snapshot["units"], unit["id"]: unit}},
+                                      live=retrieve is not None)
+            except Exception as exc:
+                status = "retrieval_unavailable_or_invalid"
+                events.append({"action_id": aid, "reason": status,
+                               "exception_type": type(exc).__name__, "retry": False})
+                queue.clear()
+                break
+            for unit in loaded:
                 key = (unit["source_class"], unit["content_sha256"], digest(unit["provenance"]))
                 if key not in seen:
                     seen[key] = unit
                     acquired.append(unit)
             events.append({"action_id": aid, "kind": action["kind"], "label": action["label"],
-                           "unit_ids": action["unit_ids"], "reason": reason})
+                           "unit_ids": action["unit_ids"], "reason": reason,
+                           "retrieval_seconds": time.perf_counter() - read_started})
             heading_only = all(
                 all(not line.strip() or re.fullmatch(r"\s*#{1,6}\s+.+", line)
-                    for line in snapshot["units"][uid]["text"].splitlines())
-                for uid in action["unit_ids"]
+                    for line in unit["text"].splitlines())
+                for unit in loaded
             )
             if action["kind"] == "saved_build_section" and heading_only:
                 queue.extend((next_id, "heading_only_adjacent_source_context")
                              for next_id in action.get("continuation_action_ids", []))
+        if status == "retrieval_unavailable_or_invalid":
+            break
         units = list(seen.values())
         available = [a for aid, a in snapshot["actions"].items() if aid not in visited
                      and any(uid not in {u["id"] for u in units} for uid in a["unit_ids"])]
@@ -223,7 +248,7 @@ async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], 
         row["continue_reason"] = "specific_requirements_missing_and_legal_actions_selected"
     known = all(o.get("input_tokens") is not None and o.get("output_tokens") is not None for o in observations) and bool(observations)
     result = {"schema": "dmb_jev_loop_result_v1", "status": status, "unresolved_requirements": gaps,
-              "mode": "frozen_revision_retrieval_replay", "rounds": rounds, "retrieval_events": events,
+              "mode": "live_revision_bound_source_acquisition" if retrieve else "frozen_revision_retrieval_replay", "rounds": rounds, "retrieval_events": events,
               "selected_evidence": [u for u in seen.values() if u["id"] in selected],
               "retrieved_unit_ids": [u["id"] for u in seen.values()],
               "observations": observations, "elapsed_seconds": time.perf_counter() - started,
@@ -232,7 +257,7 @@ async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], 
               "output_tokens_reported": sum(o.get("output_tokens") or 0 for o in observations),
               "luna_calls": 0, "relevance_threshold": relevant_min,
               "accuracy": "requires_separate_gold_evaluation",
-              "limitations": ["Replay retrieval timing excludes live database/source I/O.",
+              "limitations": ["Live acquisition includes selected DB/source reads; replay excludes them." if retrieve else "Replay retrieval timing excludes live database/source I/O.",
                              "Requirement templates and entry seeds are human-authored pilot inputs.",
                              "Semantic support is provisional; no answer writer or retained World change."]}
     (output / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2))
