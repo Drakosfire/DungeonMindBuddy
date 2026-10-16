@@ -113,14 +113,14 @@ def prepared_view(prepared: Any, expected_state: Mapping[str, Any]) -> dict:
 
 def request_budget() -> dict:
     # Shared64k is an explicit application ceiling for both roles, not Luna's
-    # advertised capacity. The future writer also needs its own output check.
-    return {"schema": "dmb_build_jev_first_request_budget_v1", "provider": PROVIDER,
+    # advertised capacity. The writer separately counts its output reserve.
+    return {"schema": "dmb_build_jev_first_request_budget_v2", "provider": PROVIDER,
             "model": MODEL, "apiMode": API_MODE, "estimator": ESTIMATOR,
             "contextLimitTokens": REQUEST_LIMIT, "outputReserveTokens": 0,
             "graphToolPageBytes": 32_000, "maxProviderRequestBytes": REQUEST_LIMIT,
             "maxProviderAttempts": None, "maxToolCapableAttempts": None, "maxGraphOperations": None,
             "providerRoles": {"controller": {"provider": PROVIDER, "model": MODEL, "api_mode": API_MODE},
-                "writer": {"provider": "openai-api", "model": "gpt-6-luna", "api_mode": "codex_responses"}}}
+                "writer": {"provider": "openai", "model": "gpt-6-luna", "api_mode": "responses"}}}
 
 
 @dataclass(frozen=True)

@@ -39,14 +39,14 @@ Acquisition still reads roughly 61–66% of the available action catalogue and i
 substantial Jev input traffic; unseen generality, economical selection and fresh
 end-to-end latency remain open. Recorded response reuse is reported separately.
 
-GE #20 is merged at dde768f3e632af20b969cc694d8318265ce6ff5c and supplies opt-in
-actual serialized decision dispatch authorization/lifecycle truth. Buddy's next
-producer step is the durable controller/writer role policy under
-[HANDOFF-AGENT-jev-durable-role-policy.md](../Plans/HANDOFF-AGENT-jev-durable-role-policy.md).
-The genuine Build prepared-envelope adapter and production controller consumer
-follow separately through the existing parent Graph/source broker and durable
-conversation fence. Keep runtime free of evaluator imports. Jev judges relevance
-and missing evidence; code owns legal acquisition, uniqueness, caching and stopping.
+GE #20 and #21 are merged; #21 at 4aade6b34d64edbdc3d1cacb0a89d185663e2268
+adds actual serialized nonstreaming OpenAI text dispatch truth. Buddy #1275 freezes
+controller/writer roles, #1277 authorizes actual first Build Jev requests and #1278
+binds subsequent decisions to completed parent Graph/source exposures. The next
+producer is [one evidence-bound writer](../Plans/HANDOFF-AGENT-build-jev-single-writer.md)
+under the same durable conversation fence. Production controller selection and
+ordinary runtime adoption follow separately. Jev judges relevance and missing
+evidence; code owns acquisition, uniqueness, caching and stopping.
 
 No evaluator/dependency/policy merge alone updates a serving runtime or completes
 the Mirathorn journey. Ordinary Agent Harness adoption, durable citation/history

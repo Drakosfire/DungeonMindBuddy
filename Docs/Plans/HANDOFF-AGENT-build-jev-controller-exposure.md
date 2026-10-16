@@ -1,6 +1,9 @@
 # AGENT — subsequent Jev controller evidence exposure
 
-ACTIVE. PRIME implements solo; ARCHITECTURE independently reviews. Serial successor
+SETTLED — #1278 merged at 292efb111778d43cf9c59ccab7601f629e8cd925.
+Successor: [single writer](HANDOFF-AGENT-build-jev-single-writer.md).
+
+PRIME implements solo; ARCHITECTURE independently reviews. Serial successor
 of Buddy #1277 at e70d658326a631dbefa34b7f0b7c7cb5aa36ae3d; that exact main is
 base. Branch codex/build-jev-controller-exposure; isolated
 /tmp/prime-recap-mention-boundaries. Open Ingest/UI leases are disjoint.
