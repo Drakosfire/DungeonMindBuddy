@@ -1,6 +1,6 @@
 # AGENT — challenge a sufficient stop with unread competing evidence
 
-ACTIVE. PRIME solo; ARCHITECTURE independent review and policy consultation.
+MERGED #1273 atae0e4614d2aca1535d13c67533a4c1900c78ea8b; lease ended. Successor HANDOFF-AGENT-jev-batched-coverage.md. Original activation: PRIME solo; ARCHITECTURE independent review and policy consultation.
 Base72f3378517c5b318936ae21eb808b113c5a79823 (merged #1272);
 branch codex/jev-competing-evidence-check; non-serving
 /tmp/prime-recap-mention-boundaries. Serial; open Ingest leases are disjoint.

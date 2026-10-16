@@ -110,6 +110,18 @@ def challenge_request(snapshot: dict, units: list[dict], available: list[dict]) 
             "max_transport_retries": 0, "deadline_ms": 120000}
 
 
+def coverage_request(snapshot: dict, units: list[dict], available: list[dict]) -> dict:
+    """Independent closed-set utility judgments for one acquisition wave."""
+    state = request_for(snapshot, units, available)["state"]
+    state["phase"] = "unread_coverage_before_sufficiency"
+    state["coverage_rule"] = "Evaluate the exact question's remaining coverage, not only contradiction. A plural collection or comparison needs every distinctly relevant item in this source scope, while a singular target does not require unrelated subjects. Read useful missing facets, alternate source support, qualifications and competing claims. Redundant labels are not identity proof. Hints are never evidence; selected actions must actually be read and reevaluated."
+    return {"provider": "typesafe", "model": snapshot["model"], "state": state,
+            "questions": [{"kind": "choice", "name": "use_" + action["id"],
+                "question": f"Would unread action {action['id']}: {action['label']} plausibly supply distinct missing support, an unrepresented relevant item, qualification or contradiction for the user's exact question? Choose useful to acquire it, not_useful only when hints reasonably indicate it adds nothing material, unknown when metadata is too weak to decide. Do not infer its source content from the label.",
+                "options": ["useful", "not_useful", "unknown"]} for action in available],
+            "max_transport_retries": 0, "deadline_ms": 120000}
+
+
 def validate_answers(request: dict, result: dict) -> dict:
     observation = result.get("observation", {})
     if observation.get("response_model") != request["model"]:
@@ -135,8 +147,11 @@ async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], 
                    output: Path, relevant_min: float = 0.5,
                    retrieve: Callable[[dict], Awaitable[list[dict]]] | None = None,
                    retrieve_many: Callable[[list[dict]], Awaitable[dict[str, list[dict]]]] | None = None,
-                   question_only: bool = False, challenge_before_stop: bool = False) -> dict:
+                   question_only: bool = False, challenge_before_stop: bool = False,
+                   coverage_before_stop: bool = False) -> dict:
     """Acquire legal actions; optional live reader owns immutable source proof."""
+    if challenge_before_stop and coverage_before_stop:
+        raise ValueError("Choose one experimental stopping policy")
     if question_only:
         snapshot = {**snapshot, "requirements": [{"id": "answer", "text": snapshot["question"]}],
                     "initial_actions": []}
@@ -266,8 +281,9 @@ async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], 
                "unresolved": gaps, "next_actions": sorted(set(pending))}
         rounds.append(row)
         if not gaps:
-            if challenge_before_stop and available:
-                challenge = challenge_request(snapshot, units, available)
+            if (challenge_before_stop or coverage_before_stop) and available:
+                challenge = (coverage_request(snapshot, units, available) if coverage_before_stop
+                             else challenge_request(snapshot, units, available))
                 stem = output / f"challenge-{index:02d}"
                 Path(str(stem) + "-request.json").write_text(json.dumps(challenge, ensure_ascii=False, indent=2))
                 with Path(str(stem) + "-started.json").open("x") as marker:
@@ -277,7 +293,15 @@ async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], 
                     decision = await evaluate(challenge)
                     Path(str(stem) + "-response.json").write_text(json.dumps(decision, ensure_ascii=False, indent=2))
                     observations.append(decision.get("observation", {}))
-                    answer = validate_answers(challenge, decision)["challenge_action"]["selected"]
+                    judgments = validate_answers(challenge, decision)
+                    if coverage_before_stop:
+                        chosen = [a["id"] for a in available if judgments["use_" + a["id"]]["selected"] == "useful"]
+                        unknown = [a["id"] for a in available if judgments["use_" + a["id"]]["selected"] == "unknown"]
+                        answer = "expand_wave" if chosen else "unknown" if unknown else "none"
+                    else:
+                        answer = judgments["challenge_action"]["selected"]
+                        chosen = [answer] if answer not in {"none", "unknown"} else []
+                        unknown = []
                 except Exception as exc:
                     status = "challenge_unavailable_or_invalid"
                     row["challenge"] = {"status": status, "exception_type": type(exc).__name__, "retry": False}
@@ -290,6 +314,9 @@ async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], 
                     break
                 row["challenge"] = {"selected_action": answer, "request_sha256": digest(challenge),
                                     "elapsed_seconds": time.perf_counter() - challenge_started}
+                if coverage_before_stop:
+                    row["challenge"].update(selected_actions=chosen, unknown_actions=unknown,
+                                            action_judgments={a["id"]: judgments["use_" + a["id"]]["selected"] for a in available})
                 if answer == "unknown":
                     status = "coverage_unknown"
                     gaps = [r["id"] for r in snapshot["requirements"]]
@@ -297,13 +324,13 @@ async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], 
                     row["unresolved"] = gaps
                     break
                 if answer != "none":
-                    pending = [answer]
+                    pending = chosen
                     gaps = [r["id"] for r in snapshot["requirements"]]
                     row.update(unresolved=gaps, next_actions=pending,
                                continue_reason="unread_action_could_change_or_qualify_answer")
                     continue
                 row["coverage_judgment"] = "heuristic_no_plausible_unread_competitor"
-            elif challenge_before_stop:
+            elif challenge_before_stop or coverage_before_stop:
                 row["coverage_judgment"] = "legal_catalog_exhausted_not_world_complete"
             status = "provisionally_supported"
             row["stop_reason"] = "all_requirements_have_relevant_selected_support"
@@ -323,6 +350,7 @@ async def run_loop(snapshot: dict, evaluate: Callable[[dict], Awaitable[dict]], 
               "acquisition_batches": batches,
               "planning_mode": "question_only" if question_only else "manual_requirements_and_seeds",
               "challenge_before_stop": challenge_before_stop,
+              "coverage_before_stop": coverage_before_stop,
               "selected_evidence": [u for u in seen.values() if u["id"] in selected],
               "retrieved_unit_ids": [u["id"] for u in seen.values()],
               "observations": observations, "elapsed_seconds": time.perf_counter() - started,
