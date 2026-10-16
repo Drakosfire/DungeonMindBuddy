@@ -592,7 +592,7 @@ function buildToastForResult(
   if (
     !allowInspectResume &&
     result.states.includes("ingest_status_inspected") &&
-    (result.status === "ready_for_planning_activation" || result.status === "recap_applied")
+    (result.status === "initialized" || result.status === "ready_for_planning_activation" || result.status === "recap_applied")
   ) {
     return null;
   }
@@ -2166,19 +2166,60 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
               <button type="button" onClick={openGraphReviewWorkbench}>Review in workbench</button>
             ) : null}
           </div>
-          <p className="ingest-local-nav__status" role="status" aria-live="polite">
-            {state.status === "error"
-              ? "Needs attention · details below."
-              : primaryOp === "ingest"
-                ? "Extracting graph…"
-                : primaryOp === "prep"
-                  ? "Preparing recap…"
-                  : isMaterializing
-                    ? "Materializing graph…"
-                    : freshRecapEntry && state.status === "idle"
-                      ? "New draft · nothing prepared"
-                      : workflowNextAction}
-          </p>
+          <div className={`ingest-local-nav__feedback ingest-local-nav__feedback--${toast?.tone ?? "neutral"}`}>
+            <p
+              className="ingest-local-nav__status"
+              role={toast?.tone === "error" || toast?.tone === "warning" ? "alert" : "status"}
+              aria-live={toast?.tone === "error" || toast?.tone === "warning" ? "assertive" : "polite"}
+              aria-atomic="true"
+            >
+              {state.status === "error"
+                ? <span className="ingest-local-nav__status-title">{toast?.title ?? "Needs attention"}</span>
+                : primaryOp === "ingest"
+                  ? "Extracting graph…"
+                  : primaryOp === "prep"
+                    ? "Preparing recap…"
+                    : isMaterializing
+                      ? "Materializing graph…"
+                      : freshRecapEntry && state.status === "idle"
+                        ? "New draft · nothing prepared"
+                        : toast
+                          ? <>
+                              <span className="ingest-local-nav__status-title">{toast.title}</span>
+                              <span aria-hidden="true"> · </span>
+                              <span>{workflowNextAction}</span>
+                            </>
+                          : workflowNextAction}
+            </p>
+            {toast ? (
+              <>
+                <details className="ingest-local-nav__feedback-details" aria-label="Ingestion feedback details">
+                  <summary>Details</summary>
+                  <div className="ingest-local-nav__feedback-popover">
+                    <p>{toast.detail}</p>
+                    {toast.nextSteps.length > 0 ? (
+                      <>
+                        <p className="ingestion-toast-next-label">Next steps</p>
+                        <ul>
+                          {toast.nextSteps.map((step) => (
+                            <li key={step}>{step}</li>
+                          ))}
+                        </ul>
+                      </>
+                    ) : null}
+                  </div>
+                </details>
+                <button
+                  type="button"
+                  className="ingest-local-nav__dismiss"
+                  onClick={() => setToast(null)}
+                  aria-label="Dismiss ingestion toast"
+                >
+                  <span aria-hidden="true">×</span>
+                </button>
+              </>
+            ) : null}
+          </div>
         </div>
       </section>
 
@@ -2204,28 +2245,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         </section>
       ) : null}
 
-      {toast ? (
-        <section className={`ingestion-toast ingestion-toast-${toast.tone}`} role="alert" aria-live="polite">
-          <div className="ingestion-toast-header">
-            <strong>{toast.title}</strong>
-            <button type="button" onClick={() => setToast(null)} aria-label="Dismiss ingestion toast">
-              Dismiss
-            </button>
-          </div>
-          <p>{toast.detail}</p>
-          {toast.nextSteps.length > 0 ? (
-            <>
-              <p className="ingestion-toast-next-label">Next steps</p>
-              <ul>
-                {toast.nextSteps.map((step) => (
-                  <li key={step}>{step}</li>
-                ))}
-              </ul>
-            </>
-          ) : null}
-        </section>
-      ) : null}
-
       <div className="ingestion-command-grid">
         <section className="ingestion-controls-pane" aria-label="Recap editor">
           <div className="ingestion-source-grid">
@@ -2247,8 +2266,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
               <div className="ingestion-prepared-source-notice" role="note" aria-label="Prepared recap source">
                 <strong>Prepared recap · Session {recapSession}</strong>
                 <p>
-                  The saved recap is ready, but its text is not loaded in this editor. Use Review above to inspect it,
-                  or select it under Prior processed recap and press Load if it is listed there.
+                  This recap is prepared on disk. Its text is not loaded in this editor.
                 </p>
               </div>
             ) : (
@@ -2267,7 +2285,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                     setPriorSourceReadFailed(false);
                   }}
                   rows={18}
-                  placeholder="Session 22 Recap&#10;&#10;The group turns their focus..."
+                  placeholder="Paste or write the session recap here…"
                 />
               </div>
             )}

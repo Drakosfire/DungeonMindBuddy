@@ -137,6 +137,14 @@ describe("IngestionModule", () => {
     expect(await screen.findByLabelText("Recap/source session")).toHaveValue(29);
   });
 
+  it("keeps a blank recap editor empty and its prompt independent of session examples", async () => {
+    render(<IngestionModule campaignId="longmont-c2" session={29} initialSourceSession={29} />);
+
+    const rawField = await screen.findByRole("textbox", { name: "Raw recap text" });
+    expect(rawField).toHaveValue("");
+    expect(rawField).toHaveAttribute("placeholder", "Paste or write the session recap here…");
+  });
+
   it("welcomes a blank Elderwyld recap entry without trying to restore a saved recap route", async () => {
     const user = setupIngestUser();
     window.history.replaceState({}, "", "/ingest?world=elderwyld");
@@ -183,7 +191,10 @@ describe("IngestionModule", () => {
     expect(ingest).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Load processed recap" })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "Write a recap" }));
-    expect(screen.getByRole("textbox", { name: "Raw recap text" })).toHaveFocus();
+    const rawField = screen.getByRole("textbox", { name: "Raw recap text" });
+    expect(rawField).toHaveFocus();
+    expect(rawField).toHaveValue("");
+    expect(rawField).toHaveAttribute("placeholder", "Paste or write the session recap here…");
 
     await waitFor(() => expect(screen.queryByText("Saved recap route has an invalid campaign or session.")).not.toBeInTheDocument());
     expect(inspection).not.toHaveBeenCalled();
@@ -235,9 +246,9 @@ describe("IngestionModule", () => {
 
     render(<IngestionModule campaignId="longmont-c2" session={29} managedWorldId="elderwyld" />);
 
-    expect(await screen.findByRole("note", { name: "Prepared recap source" })).toHaveTextContent(
-      "The saved recap is ready, but its text is not loaded in this editor.",
-    );
+    const preparedSource = await screen.findByRole("note", { name: "Prepared recap source" });
+    expect(preparedSource).toHaveTextContent("This recap is prepared on disk. Its text is not loaded in this editor.");
+    expect(preparedSource).not.toHaveTextContent("Use Review above");
     expect(screen.queryByRole("textbox", { name: "Raw recap text" })).not.toBeInTheDocument();
     expect(await screen.findByRole("option", { name: /Session 29/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Review recap canvas" })).toBeEnabled();
@@ -471,14 +482,18 @@ describe("IngestionModule", () => {
     await waitFor(() =>
       expect(screen.getAllByText("breadcrumb_required").length).toBeGreaterThan(0),
     );
-    expect(screen.getByText("Breadcrumb required before retrieval")).toBeInTheDocument();
+    const toolbar = screen.getByRole("region", { name: "Ingest workspace toolbar" });
+    expect(within(toolbar).getByRole("status")).toHaveTextContent("Breadcrumb required before retrieval");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await user.click(within(toolbar).getByText("Details"));
     expect(screen.getByText(/Expected v1 boundary: breadcrumb required/i)).toBeInTheDocument();
     expect(screen.getByText(/not retrieval-ready/i)).toBeInTheDocument();
     await waitFor(() =>
       expect(
-        screen.getByText("Next: Build Frontmatter Seed, then breadcrumb and session memory."),
+        within(toolbar).getByRole("status"),
       ).toBeInTheDocument(),
     );
+    expect(within(toolbar).getByRole("status")).toHaveTextContent("Next: Build Frontmatter Seed, then breadcrumb and session memory.");
     await user.click(screen.getByText("Terminal path stays available"));
     expect(screen.getByText("Materialize waits for breadcrumb_found.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Materialize Session Memory" })).toBeDisabled();
@@ -1072,13 +1087,17 @@ describe("IngestionModule", () => {
     );
     await user.click(screen.getByRole("button", { name: "Prep for ingest" }));
 
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("The recap could not be prepared."));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Ingestion error"));
     const errorToast = screen.getByRole("alert");
     const toolbar = screen.getByRole("region", { name: "Ingest workspace toolbar" });
-    expect(within(toolbar).getByRole("status")).toHaveTextContent("Needs attention · details below.");
-    expect(toolbar).not.toHaveTextContent("The recap could not be prepared.");
-    expect(within(errorToast).getByText("The recap could not be prepared.")).toBeInTheDocument();
-    expect(within(errorToast).getAllByText("The recap could not be prepared.")).toHaveLength(1);
+    expect(within(toolbar).getByRole("alert")).toHaveTextContent("Ingestion error");
+    const feedbackDetails = within(toolbar).getByText("Details").closest("details");
+    expect(feedbackDetails).not.toHaveAttribute("open");
+    const errorDetail = within(feedbackDetails as HTMLElement).getByText("The recap could not be prepared.");
+    expect(errorDetail).not.toBeVisible();
+    await user.click(within(toolbar).getByText("Details"));
+    expect(errorDetail).toBeVisible();
+    expect(within(errorToast.parentElement as HTMLElement).getAllByText("The recap could not be prepared.")).toHaveLength(1);
     expect(within(screen.getByRole("region", { name: "Graph preview status" })).queryByText(/Last ingest error:/)).not.toBeInTheDocument();
     expect(screen.getByText("Error details").closest("details")).not.toHaveAttribute("open");
   });
@@ -1519,7 +1538,8 @@ describe("IngestionModule", () => {
     await user.click(screen.getByRole("button", { name: "Load processed recap" }));
 
     expect(await screen.findByText("Could not load prior ingestion")).toBeInTheDocument();
-    expect(screen.getByText("source host is unavailable")).toBeInTheDocument();
+    await user.click(screen.getByText("Details"));
+    expect(screen.getByText("source host is unavailable")).toBeVisible();
     expect(await screen.findByLabelText("Raw recap text")).toBeInTheDocument();
     expect(screen.queryByLabelText("Normalized recap preview")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Saved extraction source review")).not.toBeInTheDocument();
