@@ -193,3 +193,64 @@ def test_missing_model_identity_never_completes(tmp_path, missing):
     assert result["status"] == "decision_unavailable_or_invalid"
     assert not result["rounds"]
     assert len(result["retrieval_events"]) == 2
+
+
+def heading_fixture():
+    snapshot = fixture()
+    for i, text in [(4, '## Outer heading'), (5, '### Empty nested heading')]:
+        uid = f'u{i}'
+        unit = deepcopy(snapshot['units']['u3'])
+        unit.update(id=uid, text=text, content_sha256=hashlib.sha256(text.encode()).hexdigest(),
+                    provenance=[{'start_line':i, 'end_line':i}])
+        snapshot['units'][uid] = unit
+        snapshot['actions'][f'a{i}'] = {'id':f'a{i}', 'label':text,
+            'kind':'saved_build_section', 'unit_ids':[uid], 'continuation_action_ids':[f'a{i+1}']}
+    unit = deepcopy(snapshot['units']['u2'])
+    unit['provenance'] = [{'start_line':6,'end_line':7}]
+    snapshot['units']['u2'] = unit
+    snapshot['actions']['a6'] = {'id':'a6','label':'Adjacent body context',
+        'kind':'saved_build_section','unit_ids':['u2']}
+    snapshot['initial_actions'] = ['a1','a4']
+    return snapshot
+
+
+def test_heading_navigation_reaches_body_without_extra_decision_round(tmp_path):
+    calls = []
+    async def evaluate(request):
+        calls.append(request)
+        return decisions(request)
+    result = asyncio.run(run_loop(heading_fixture(), evaluate, output=tmp_path/'run'))
+    assert len(calls) == 1
+    assert result['status'] == 'provisionally_supported'
+    assert [e['action_id'] for e in result['retrieval_events']] == ['a1','a4','a5','a6']
+    assert result['retrieval_events'][-1]['reason'] == 'heading_only_adjacent_source_context'
+
+
+@pytest.mark.parametrize('change', ['backward','overlap','unknown','graph'])
+def test_invalid_structural_continuations_reject_before_inference(change):
+    snapshot = heading_fixture()
+    if change == 'backward':
+        snapshot['actions']['a5']['continuation_action_ids'] = ['a4']
+    elif change == 'overlap':
+        snapshot['units']['u2']['provenance'][0]['start_line'] = 5
+    elif change == 'unknown':
+        snapshot['actions']['a4']['continuation_action_ids'] = ['foreign']
+    else:
+        snapshot['actions']['a5']['continuation_action_ids'] = ['a2']
+    with pytest.raises(ValueError):
+        validate_snapshot(snapshot)
+
+
+def test_substantive_section_does_not_follow_navigation_pointer(tmp_path):
+    snapshot = heading_fixture()
+    snapshot['units']['u4']['text'] += '\nThis section has its own body.'
+    snapshot['units']['u4']['content_sha256'] = hashlib.sha256(snapshot['units']['u4']['text'].encode()).hexdigest()
+    async def evaluate(request):
+        result = decisions(request)
+        for key in result['answers']:
+            if key.startswith('next_'):
+                result['answers'][key]['selected'] = 'none'
+        return result
+    result = asyncio.run(run_loop(snapshot, evaluate, output=tmp_path/'run'))
+    assert [e['action_id'] for e in result['retrieval_events']] == ['a1','a4']
+    assert result['status'] == 'retrieval_exhausted'
