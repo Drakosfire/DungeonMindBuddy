@@ -115,7 +115,7 @@ interface IngestionToast {
 interface CorpusImpactRow {
   key: string;
   relpath: string | null;
-  exists: boolean;
+  exists: boolean | null;
   size_bytes?: number;
   modified_at?: string;
   record_count?: number;
@@ -513,16 +513,49 @@ function corpusImpactRows(result: RecapIngestStatus | null): CorpusImpactRow[] {
   }
   return raw
     .filter((row): row is Record<string, unknown> => typeof row === "object" && row !== null)
+    .filter(
+      (row) =>
+        typeof row.key === "string" &&
+        row.key.trim().length > 0 &&
+        typeof row.relpath === "string" &&
+        row.relpath.trim().length > 0,
+    )
     .map((row) => ({
-      key: String(row.key ?? ""),
-      relpath: String(row.relpath ?? ""),
-      exists: Boolean(row.exists),
+      key: (row.key as string).trim(),
+      relpath: row.relpath as string,
+      exists: typeof row.exists === "boolean" ? row.exists : null,
       size_bytes: typeof row.size_bytes === "number" ? row.size_bytes : undefined,
       modified_at: typeof row.modified_at === "string" ? row.modified_at : undefined,
       record_count: typeof row.record_count === "number" ? row.record_count : undefined,
       preview: typeof row.preview === "string" ? row.preview : undefined,
-    }))
-    .filter((row) => row.key.length > 0 && row.relpath.length > 0);
+    }));
+}
+
+function recapSourceProof(result: RecapIngestStatus | null): {
+  confirmed: boolean;
+  missing: boolean;
+  hasProofRows: boolean;
+  actionStateConfirmed: boolean;
+} {
+  const sourceRows = corpusImpactRows(result).filter(
+    (row) => row.key === "canonical_recap" || row.key === "normalized_recap",
+  );
+  const canonical = sourceRows.filter((row) => row.key === "canonical_recap");
+  const normalized = sourceRows.filter((row) => row.key === "normalized_recap");
+  return {
+    confirmed:
+      canonical.length === 1 &&
+      canonical[0].exists === true &&
+      normalized.length === 1 &&
+      normalized[0].exists === true,
+    missing: sourceRows.some((row) => row.exists === false),
+    hasProofRows: sourceRows.length > 0,
+    actionStateConfirmed: Boolean(
+      result &&
+        (result.states.includes("recap_reused") || result.states.includes("recap_applied")) &&
+        (result.states.includes("normalized_reused") || result.states.includes("normalized_created")),
+    ),
+  };
 }
 
 function formatBytes(bytes: number): string {
@@ -598,18 +631,18 @@ function buildToastForResult(
   }
 
   const warningSet = new Set(result.warnings);
-  const canonicalRecapConfirmed =
-    result.states.includes("recap_reused") || result.states.includes("recap_applied");
-  const normalizedRecapConfirmed =
-    result.states.includes("normalized_reused") || result.states.includes("normalized_created");
-  const sourceArtifactProof = corpusImpactRows(result).filter(
-    (row) => row.key === "canonical_recap" || row.key === "normalized_recap",
-  );
-  const sourceArtifactsNotBothFound =
-    sourceArtifactProof.length === 2 && sourceArtifactProof.some((row) => !row.exists);
+  const {
+    confirmed: recapSourceConfirmed,
+    missing: recapSourceMissing,
+    hasProofRows: hasRecapSourceProofRows,
+    actionStateConfirmed: recapSourceActionConfirmed,
+  } = recapSourceProof(result);
+  const inspectedDiskStatus = result.states.includes("ingest_status_inspected");
   const breadcrumbSourceIncomplete =
     result.status === "breadcrumb_required" &&
-    (!(canonicalRecapConfirmed && normalizedRecapConfirmed) || sourceArtifactsNotBothFound);
+    (recapSourceMissing ||
+      ((inspectedDiskStatus || hasRecapSourceProofRows) && !recapSourceConfirmed) ||
+      (!inspectedDiskStatus && !recapSourceConfirmed && !recapSourceActionConfirmed));
   const nextSteps = breadcrumbSourceIncomplete ? [] : [...result.next_actions];
   const stagedRawConflict = result.states.includes("staged_raw_notes_conflict");
   const frontmatterSeedReady =
@@ -660,7 +693,7 @@ function buildToastForResult(
   if (result.status === "breadcrumb_required") {
     if (breadcrumbSourceIncomplete) {
       nextSteps.unshift(
-        sourceArtifactsNotBothFound
+        recapSourceMissing
           ? "The disk check did not find both canonical and normalized recap files. Restore or load the verified source before continuing."
           : "The latest status did not confirm both canonical and normalized recap files. Restore or load the source before continuing.",
       );
@@ -724,7 +757,7 @@ function buildToastForResult(
         ? "Session packaged. Next: Run ingest to extract the graph."
       : result.status === "breadcrumb_required"
       ? breadcrumbSourceIncomplete
-        ? sourceArtifactsNotBothFound
+        ? recapSourceMissing
           ? "The disk check found one or both recap files missing. Restore or load the verified recap before continuing."
           : "The latest status did not confirm both recap files. Restore or load the verified recap before continuing."
         : "Retrieval is waiting for breadcrumb + session memory. Check the per-file evidence for the next safe step."
@@ -745,7 +778,7 @@ function buildToastForResult(
           ? "Frontmatter seed ready"
         : result.status === "breadcrumb_required"
         ? breadcrumbSourceIncomplete
-          ? sourceArtifactsNotBothFound
+          ? recapSourceMissing
             ? "Recap source missing"
             : "Recap source needs confirmation"
           : "Breadcrumb required before retrieval"
@@ -791,6 +824,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const [readerMode, setReaderMode] = useState(() => new URLSearchParams(window.location.search).get("view") === "recap");
   const readerAttempt = useRef<string | null>(null);
   const restoreReaderRoute = useRef(true);
+  const evidenceDetailsRef = useRef<HTMLDetailsElement>(null);
   const [readerRun, setReaderRun] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get("view") === "recap" && params.get("recapReviewRunId")
@@ -2079,20 +2113,31 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     : inferredTitle || `Session ${recapSession || defaultRecapSession(session)} - Mireward Gate Battle`;
   const normalizedDuplicates = normalizedRecapCandidates(latestResult);
   const corpusImpact = corpusImpactRows(latestResult);
-  const sourceArtifactProof = corpusImpact.filter(
-    (row) => row.key === "canonical_recap" || row.key === "normalized_recap",
+  const {
+    confirmed: recapSourceConfirmed,
+    missing: recapSourceMissing,
+    hasProofRows: hasRecapSourceProofRows,
+    actionStateConfirmed: recapSourceActionConfirmed,
+  } = recapSourceProof(latestResult);
+  const recapSourceUnconfirmed = Boolean(
+    recapSourceMissing ||
+      ((latestResult?.states.includes("ingest_status_inspected") || hasRecapSourceProofRows) &&
+        !recapSourceConfirmed) ||
+      (!recapSourceConfirmed && !recapSourceActionConfirmed),
   );
-  const sourceArtifactsNotBothFound =
-    sourceArtifactProof.length === 2 && sourceArtifactProof.some((row) => !row.exists);
-  const proofRows: CorpusImpactRow[] =
-    corpusImpact.length > 0
-      ? corpusImpact
-      : proofPathKeys(latestResult).map((key) => ({
+  const proofRows: CorpusImpactRow[] = latestResult
+    ? [
+        ...corpusImpact,
+        ...proofPathKeys(latestResult)
+          .filter((key) => !corpusImpact.some((row) => row.key === key))
+          .map((key) => ({
           key,
           relpath: latestResult?.paths?.[key] ?? null,
-          exists: false,
+          exists: null,
           record_count: undefined as number | undefined,
-        }));
+          })),
+      ]
+    : [];
   const hasNormalizedDuplicates = normalizedDuplicates.length > 1;
   const recommendedKeep =
     normalizedDuplicates.find((row) => row.recommended)?.basename ?? null;
@@ -2112,7 +2157,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     showWorkflowActions ||
     Boolean(toast) ||
     state.status === "error" ||
-    (hydrated && showRecapWelcome && latestResult?.status === "breadcrumb_required" && sourceArtifactsNotBothFound);
+    (hydrated && showRecapWelcome && latestResult?.status === "breadcrumb_required" && recapSourceUnconfirmed);
 
   return (
     <div className="module-panel ingestion-module" data-module-id="ingestion">
@@ -2201,7 +2246,13 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
             ) : null}
 
             {showEvidenceShortcut ? (
-              <a className="ingest-local-nav__evidence" href="#ingestion-evidence-details">
+              <a
+                className="ingest-local-nav__evidence"
+                href="#ingestion-evidence-details"
+                onClick={() => {
+                  if (evidenceDetailsRef.current) evidenceDetailsRef.current.open = true;
+                }}
+              >
                 Evidence
               </a>
             ) : null}
@@ -2403,7 +2454,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
               <button type="button" onClick={closeSavedReader}>Close review</button>
             </section>
           ) : null}
-          <details id="ingestion-evidence-details"><summary>Evidence &amp; details</summary>
+          <details id="ingestion-evidence-details" ref={evidenceDetailsRef}><summary>Evidence &amp; details</summary>
           <NativeGraphAccessControl onChanged={(available) => {
             reviewEpoch.current += 1;
             setReviewSource(null);
@@ -2674,14 +2725,16 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           {latestResult?.status === "breadcrumb_required" ? (
             <div className="ingestion-boundary-card" role="status">
               <strong>
-                {sourceArtifactsNotBothFound
-                  ? "Canonical and normalized recap files are not both present"
+                {recapSourceUnconfirmed
+                  ? recapSourceMissing
+                    ? "Canonical and normalized recap files are not both present"
+                    : "Canonical and normalized recap files need verification"
                   : "Expected v1 boundary: breadcrumb required"}
               </strong>
-              {sourceArtifactsNotBothFound ? (
+              {recapSourceUnconfirmed ? (
                 <p>
-                  Restore the verified recap or load/paste its source before continuing. Breadcrumb
-                  routing and session-memory steps come after both recap files are present.
+                  Restore or load/paste the verified recap before continuing. Breadcrumb routing and
+                  session-memory steps come after both recap files are confirmed present.
                 </p>
               ) : (
                 <p>
@@ -2780,19 +2833,19 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
             </div>
             <ul className="ingestion-proof-paths">
               {proofRows.map((row) => {
-                const statusLabel = row.exists ? "done" : "waiting";
+                const statusLabel = row.exists === true ? "done" : row.exists === false ? "waiting" : "unverified";
                 return (
                   <li key={row.key} className={`ingestion-proof-path ingestion-proof-path-${statusLabel}`}>
                     <details className="ingestion-proof-path__details">
                       <summary>
                         <span>{pathLabel(row.key)}</span>
-                        <strong>{row.exists ? "Found" : "Missing"}</strong>
+                        <strong>{row.exists === true ? "Found" : row.exists === false ? "Missing" : "Unverified"}</strong>
                         {typeof row.record_count === "number" ? (
                           <span className="pill pill-neutral">records: {row.record_count}</span>
                         ) : null}
                       </summary>
                       <code>{row.relpath ?? "not reported yet"}</code>
-                      {row.exists && (typeof row.size_bytes === "number" || row.modified_at) ? (
+                      {row.exists === true && (typeof row.size_bytes === "number" || row.modified_at) ? (
                         <p className="module-muted">
                           {typeof row.size_bytes === "number" ? formatBytes(row.size_bytes) : null}
                           {row.modified_at
@@ -2837,10 +2890,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
               {latestResult.next_actions.length > 0 ? (
                 <details className="ingestion-status-diagnostics">
                   <summary>Raw server recommendations</summary>
-                  {sourceArtifactsNotBothFound ? (
+                  {recapSourceUnconfirmed ? (
                     <p className="module-muted">
-                      These were returned by the status service. The recap-file proof above takes
-                      precedence: restore or load the source before following breadcrumb steps.
+                      These were returned by the status service. The recap-file check above did not
+                      confirm both sources: restore or load the recap before following breadcrumb steps.
                     </p>
                   ) : null}
                   <ul>{evidenceRows(latestResult.next_actions)}</ul>
