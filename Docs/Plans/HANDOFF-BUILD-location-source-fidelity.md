@@ -32,3 +32,10 @@ retainers, schema/defaults, evidence/identity authority and semantic gold unchan
 Independent review before merge. Fresh candidate-only comparison follows merge
 under existing GE→OpenRouter DeepSeekV4.1Flash approval; no runtime or World writes
 in implementation. Record losses and false claims against frozen expectations.
+
+Author evidence: 107 focused tests pass, two existing optional native observation
+tests skip without dedicated Core DSN. Actual fixture production dispatch, real
+GE composition with synthetic provider, and production-to-review/publication
+preview cover1.13. Ruff/diff pass. Gold diff changes only catalog source SHA.
+An initial unguarded local pytest wrapper recursively ran in spawned workers;
+its failed log is preserved and the guarded rerun passes. No external provider.
