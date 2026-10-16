@@ -1,6 +1,6 @@
 # AGENT: ordinary conversation without fixed execution counts
 
-Status: ACTIVE — PRIME implementation under standing operator approval; ARCHITECTURE independently reviews.
+Status: SETTLED — merged as `65ab104be533854e72e5b5277e07744bcfe2e1f9` after independent ARCHITECTURE PASS at `9f9bdceba5a8d97b73d10d564d7c9cb049eae89c`. Runtime acceptance remains required. Live follow-through reached five provider calls and opened a passage; a separate APP traversal-evidence classification defect is owned by `HANDOFF-APP-traversal-evidence-admission.md`.
 
 Base `f4f3cfb5e4e9ba75100cc41058d4f3ca3ad1ba3e`, branch `codex/agent-uncapped-graph-consumer`, isolated non-serving checkout `/tmp/prime-recap-mention-boundaries`. First pin before implementation. Serial consumer of accepted APP #1224 and SDK #1225. Open ownership inspected; no overlapping active Agent/APP/IPC lease. Gold audit completed read-only.
 

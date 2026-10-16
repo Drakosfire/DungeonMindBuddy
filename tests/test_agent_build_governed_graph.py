@@ -138,7 +138,8 @@ class SyntheticHarness:
                         needed = [r for r in page_value.get('records', [])
                             if r['path'] == ['reviewedSourceObservations', 0]]
                         if any('value' in r or r.get('end') == r.get('length') for r in needed):
-                            assert token, 'fixture must leave unrelated pages unread'
+                            if self.mutation != 'multi-ref':
+                                assert token, 'fixture must leave unrelated pages unread'
                             break
                 elif 'reviewedSourceObservations' not in result:
                     return AgentRuntimeResult(status='error', error_code=result.get('code', 'graph_operation_unavailable'))
@@ -149,8 +150,9 @@ class SyntheticHarness:
             }})
             result = json.loads(opened['resultJson'])
             source_pages = []
-            if self.graph in {'paged', 'paged-mutated', 'paged-unseen'}:
+            if self.graph in {'paged', 'paged-mutated', 'paged-unseen'} and self.mutation != 'multi-ref':
                 assert result['schema'] == 'dmb_graph_tool_page_v1'
+            if result.get('schema') == 'dmb_graph_tool_page_v1':
                 token = result.get('nextPageToken')
                 while token:
                     page_args = {'retrievalSessionId': self.bootstrap.retrieval_session.id,
@@ -196,6 +198,8 @@ class SyntheticHarness:
             claim = {'claim_id': CLAIM_ID, 'target_kind': 'assertion' if operation else 'relationship',
                      'target_id': 'observation-one' if operation else 'rel-gate',
                      'graph_revision': 'native-rev-3', 'evidence_ref_ids': [EVIDENCE_ID]}
+            if self.mutation == 'multi-ref':
+                claim['evidence_ref_ids'] = sorted([EVIDENCE_ID, 'evidence-extra-one', 'evidence-extra-two'])
             if self.tamper_evidence:
                 claim['evidence_ref_ids'] = [EVIDENCE_ID[:-1] + 'z']
             segment = {'kind': 'graph_claim', 'text': 'Frank guards the western gate.', **claim}
@@ -282,8 +286,8 @@ def test_build_failure_retains_execution_and_trace(build_case, tmp_path, forged)
     assert turn.completion is None
 
 
-@pytest.mark.parametrize('observation', [False, True, 'wrong_subject', 'wrong_source', 'mutated-evidence', 'paged', 'paged-mutated', 'paged-unseen', 'model-map', 'model-open', 'forged-target', 'forged-revision', 'omitted-source'],
-    ids=['relationship', 'reviewed-source-observation', 'foreign-observation-subject', 'foreign-observation-source', 'mutated-producing-evidence', 'parent-paged-evidence', 'mutated-page', 'unseen-page-claim', 'forbidden-model-map', 'forbidden-model-open', 'forged-target', 'forged-revision', 'performed-but-omitted-source'])
+@pytest.mark.parametrize('observation', [False, True, 'wrong_subject', 'wrong_source', 'mutated-evidence', 'paged', 'paged-mutated', 'paged-unseen', 'model-map', 'model-open', 'forged-target', 'forged-revision', 'omitted-source', 'multi-ref'],
+    ids=['relationship', 'reviewed-source-observation', 'foreign-observation-subject', 'foreign-observation-source', 'mutated-producing-evidence', 'parent-paged-evidence', 'mutated-page', 'unseen-page-claim', 'forbidden-model-map', 'forbidden-model-open', 'forged-target', 'forged-revision', 'performed-but-omitted-source', 'traversal-three-refs-one-open'])
 def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(build_case, tmp_path, monkeypatch, observation):
     from graph_memory.interaction.authority_classifier import claims_from_retrieval_result
     from graph_memory.interaction.session import SourceAnchorState
@@ -302,6 +306,12 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
         evidence_by_anchor_id={'anchor-one': EVIDENCE_ID}, source_scope_anchors=({
             'anchor_id': 'anchor-one', 'evidence_ref_id': EVIDENCE_ID, 'source_artifact_id': 'artifact-one',
             'source_revision_id': 'source-rev-one'},))
+    if observation == 'multi-ref':
+        bootstrap = replace(bootstrap, source_index_commitment={
+            'schema': 'dmb_bounded_source_anchor_index_commitment_v1',
+            'world_id': 'native-build-world', 'graph_revision': 'native-rev-3',
+            'status': 'complete', 'max_entries': 512, 'eligible_count': 1,
+            'source_pins': list(bootstrap.source_scope_anchors)})
     text = 'Frank guards the western gate.' * (310 if observation in {'paged', 'paged-mutated', 'paged-unseen'} else 1)
     digest = sha256(text.encode()).hexdigest()
     def read_external_graph(arguments, *, receipt_version):
@@ -331,6 +341,9 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
             native_observation = native_observation.model_copy(update={'subject_node_id': 'another-person'})
         elif observation == 'wrong_source':
             native_observation = native_observation.model_copy(update={'source_revision_id': 'another-source-revision'})
+        if observation == 'multi-ref':
+            native_observation = native_observation.model_copy(update={
+                'evidence_ref_ids': sorted([EVIDENCE_ID, 'evidence-extra-one', 'evidence-extra-two'])})
         observations = (native_observation,)
         if observation in {'paged', 'paged-mutated', 'paged-unseen'}:
             observations += (native_observation.model_copy(update={
@@ -344,9 +357,17 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
                 'sourceArtifactId': 'artifact-one', 'sourceDomain': 'worldbuilding', 'readable': True,
                 'locatorKind': 'source_span', 'supportingAssertionIds': [row.assertion_id for row in observations]}],
         })
-        resolved = direct.ResolvedWorldGraphReviewedObjectV3(result, (SimpleNamespace(
-            anchor_id='anchor-one', graph_revision='native-rev-3', evidence_ref_id=EVIDENCE_ID,
-            source_artifact_id='artifact-one', source_revision_id='source-rev-one'),), observations, (), ())
+        pins = [SimpleNamespace(anchor_id='anchor-one', graph_revision='native-rev-3', evidence_ref_id=EVIDENCE_ID,
+            source_artifact_id='artifact-one', source_revision_id='source-rev-one')]
+        if observation == 'multi-ref':
+            extra_anchors = [result.source_anchors[0].model_copy(update={
+                'anchor_id': f'anchor-extra-{i}', 'evidence_ref_id': ref})
+                for i, ref in enumerate(['evidence-extra-one', 'evidence-extra-two'])]
+            result = result.model_copy(update={'source_anchors': [*result.source_anchors, *extra_anchors]})
+            pins.extend(SimpleNamespace(anchor_id=anchor.anchor_id, graph_revision='native-rev-3',
+                evidence_ref_id=anchor.evidence_ref_id, source_artifact_id='artifact-one',
+                source_revision_id='source-rev-one') for anchor in extra_anchors)
+        resolved = direct.ResolvedWorldGraphReviewedObjectV3(result, tuple(sorted(pins, key=lambda pin: pin.anchor_id)), observations, (), ())
         monkeypatch.setattr(direct, 'direct_services_from_config', lambda _: SimpleNamespace())
         monkeypatch.setattr(direct, 'get_object_with_reviewed_sources_direct_v3', lambda *_: resolved)
         monkeypatch.setattr(svc._PolicyExecutionAdapter, '_related_recap_offers', lambda *_: [])
@@ -369,9 +390,9 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
         assert turn.completion is None
         return
     harness = SyntheticHarness(source, bootstrap,
-        graph=observation if observation in {'paged', 'paged-unseen'} else ('observation' if observation else True),
+        graph='paged' if observation == 'multi-ref' else (observation if observation in {'paged', 'paged-unseen'} else ('observation' if observation else True)),
         mutation={'model-map':'citation-map','model-open':'source-open','forged-target':'target',
-            'forged-revision':'revision'}.get(observation), omit_source=observation == 'omitted-source')
+            'forged-revision':'revision', 'multi-ref':'multi-ref'}.get(observation), omit_source=observation == 'omitted-source')
     if observation in {'paged-unseen', 'model-map', 'model-open', 'forged-target', 'forged-revision'}:
         with pytest.raises(svc.AgentTurnServiceError) as error:
             execute((source, request, bootstrap), tmp_path, harness)
@@ -393,8 +414,12 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
         assert any(e.kind == 'validated_source_read_v2' for e in turn.graph_context_execution.events)
         return
     assert citation.source_opened and citation.source_read_ids == ['source-read-one']
-    assert citation.evidence_ref_ids == [EVIDENCE_ID] and citation.claim_id == CLAIM_ID
-    target, = context.source_open_targets
+    expected_refs = sorted([EVIDENCE_ID, 'evidence-extra-one', 'evidence-extra-two']) if observation == 'multi-ref' else [EVIDENCE_ID]
+    assert citation.evidence_ref_ids == expected_refs and citation.claim_id == CLAIM_ID
+    if observation == 'multi-ref':
+        assert len(context.source_open_targets) == 3
+        assert sum(t.source_read_id is not None for t in context.source_open_targets) == 1
+    target, = [target for target in context.source_open_targets if target.evidence_ref_id == EVIDENCE_ID]
     assert target.managed_world_id == 'elderwyld' and target.native_world_id == 'native-build-world'
     assert target.evidence_ref_id == EVIDENCE_ID and target.claim_id == CLAIM_ID
     assert target.source_revision_id == 'source-rev-one' and target.graph_revision == 'native-rev-3'
@@ -404,6 +429,10 @@ def test_build_graph_claim_uses_parent_source_broker_and_opens_pinned_target(bui
     traces = service.list_context_trace_attempts(world_id='elderwyld', turn_id=turn.turn_id)
     assert any(getattr(observation, 'text', None) == text and observation.evidence_ref_id == EVIDENCE_ID
         for trace in traces for observation in trace.observations)
+    if observation == 'multi-ref':
+        assert turn.status == 'completed' and turn.completion.citation_map.entries[0] == citation
+        assert not {'evidence-extra-one', 'evidence-extra-two'} & set(turn.graph_context_receipt.assembled_input.dispatched_evidence_ref_ids)
+        assert len(citation.source_read_ids) == 1
     if observation:
         event, = [e for e in turn.graph_context_execution.events if e.kind == 'validated_graph_operation_v3']
         assert set(event.assertion_ids) == ({'observation-one', 'unrelated-observation'} if observation == 'paged' else {'observation-one'})

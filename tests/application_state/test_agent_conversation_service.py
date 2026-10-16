@@ -3269,3 +3269,55 @@ def test_uncapped_related_context_records_more_than_eight_calls():
     old = finite.model_dump(mode="json", by_alias=True) | {"events": [e.model_copy(update={"execution_policy_sha256": finite.execution_policy_sha256}).model_dump(mode="json", by_alias=True) for e in events]}
     with pytest.raises(ValueError, match="read call budget"):
         type(finite).model_validate(old)
+
+
+@pytest.mark.parametrize("opened", [False, True])
+@pytest.mark.parametrize("mutation", [None, "omitted-event", "omitted-ref", "unrelated-target", "foreign-revision", "truncated", "mixed-index", "unrelated-event"])
+def test_delivered_traversal_evidence_does_not_require_every_passage(opened, mutation):
+    from application_state.agent_conversation.types import (
+        GraphCompletionValidationError, validate_execution_completion,
+    )
+    receipt, execution, completion, attempt_id, event_id = _indexed_graph_completion_fixture(
+        include_read=opened, cite_read=opened,
+    )
+    refs = ["evidence-indexed", "evidence-second", "evidence-third"]
+    events = []
+    for event in execution.events:
+        if event.event_id == event_id:
+            event = event.model_copy(update={"evidence_ref_ids": refs,
+                **({"assertion_ids": ["unrelated"]} if mutation == "unrelated-target" else {}),
+                **({"graph_revision": "foreign"} if mutation == "foreign-revision" else {}),
+                **({"truncated": True, "coverage_status": "incomplete"} if mutation == "truncated" else {})})
+        if getattr(event, "provider_attempt_id", None) == attempt_id and event.kind == "provider_attempt_authorized_v2":
+            included = refs[:-1] if mutation == "omitted-ref" else (refs[1:] if mutation == "mixed-index" else refs)
+            event = event.model_copy(update={"included_evidence_ref_ids": included,
+                **({"included_graph_event_ids": []} if mutation == "omitted-event" else {})})
+        events.append(event)
+    if mutation == "unrelated-event":
+        mapped = next(event for event in events if event.event_id == event_id)
+        unrelated = mapped.model_copy(update={"event_id": uuid4(), "operation_id": uuid4(),
+            "assertion_ids": ["unrelated-target"]})
+        events = [event.model_copy(update={"evidence_ref_ids": ["evidence-initial"]})
+            if event.event_id == event_id else event for event in events]
+        events.insert(0, unrelated)
+        events = [event.model_copy(update={"sequence": i,
+            **({"included_graph_event_ids": [event_id, unrelated.event_id]}
+                if event.kind == "provider_attempt_authorized_v2" else {})})
+            for i, event in enumerate(events)]
+    execution = execution.model_copy(update={"events": events})
+    claim = completion.answer_segments[0].model_copy(update={"evidence_ref_ids": refs})
+    citation = completion.citation_map.entries[0].model_copy(update={"evidence_ref_ids": refs})
+    completion = completion.model_copy(update={"answer_segments": [claim],
+        "answer_context_status": "graph_grounded_partial" if mutation == "truncated" else "graph_grounded",
+        "citation_map": completion.citation_map.model_copy(update={"entries": [citation]})})
+    # An index-only ref must still be opened; omitted-ref is not repaired by
+    # globally present refs from some unrelated operation.
+    rejected = mutation in {"omitted-event", "unrelated-target", "foreign-revision", "unrelated-event", "omitted-ref"} or (
+        mutation == "mixed-index" and not opened)
+    if rejected:
+        with pytest.raises((GraphCompletionValidationError, ValueError)):
+            validate_execution_completion(completion, receipt, execution, attempt_id, {"claim-indexed": [event_id]})
+    else:
+        validate_execution_completion(completion, receipt, execution, attempt_id, {"claim-indexed": [event_id]})
+        assert citation.source_opened is opened
+        assert citation.source_read_ids == (["indexed-read-1"] if opened else [])
