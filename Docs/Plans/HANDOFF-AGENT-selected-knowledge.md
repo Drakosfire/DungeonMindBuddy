@@ -1,6 +1,6 @@
 # AGENT: selection-aware ordinary conversation
 
-Status: ACTIVE under PRIME's authorized selected-source/knowledge interaction scope.
+Status: SETTLED. Merged #1213 as `60c35904d1ef9658f3f00922d9394508b981e973` after ARCHITECTURE independent PASS at `c3f0068872e07dd742404770fe60321876732666` (15 owning tests independently passed; 202 combined author tests). Backend implementation lease ended; browser adoption, semantic runtime evidence and proposal/apply remain outstanding.
 Base: `9abb6c5f1903a10f784c5563081052472a3dc19e`.
 Lane: `codex/agent-selected-knowledge`, `/tmp/prime-recap-mention-boundaries`.
 Topology: serial successor; PRIME implementation, ARCHITECTURE independent review.
