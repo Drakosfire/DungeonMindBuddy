@@ -1,6 +1,6 @@
 # DOGFOOD — recap reader navigation
 
-Status: ACTIVE, directly authorized by the operator. PRIME acknowledged the bounded three-file lease.
+Status: MERGED / HISTORICAL. PR #883 merged as `0431c512724264c316abc69544ef48901473c81c`; the route/source-reader implementation lease is closed.
 Base: fetched origin/main 3b70f5b78d2d41ed0272de393861ffc1781657e5 (merged PR882).
 Branch: codex/dogfood-recap-reader-navigation. Topology: serial successor to PR882.
 Write lease: this handoff; apps/live-control-ui/src/modules/IngestionModule.tsx and IngestionModule.test.tsx. No shared viewer or CSS edits. No overlapping current lease found.
