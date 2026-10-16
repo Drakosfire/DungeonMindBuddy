@@ -177,3 +177,23 @@ Stop if the fix needs a shared component, route contract, extraction change, or 
 - Verification after the refinement: the three focused UI suites pass 78/78,
   `npm run typecheck`, `npm run build`, and `git diff --check` pass. The build
   retains the existing large-chunk warning.
+
+### Superseded hydration and 320px breakpoint follow-up — 2026-10-16
+
+- A resumed raw draft can enable Prepare while its initial disk inspection is
+  pending. If that inspection later rejects, the old catch used to clear the
+  newer Prepare result and replace its status with a stale verification
+  warning. Hydration rejection and finalization now check the same generation
+  fence as the successful response; starting a newer operation also releases
+  the hydration gate so its result can be saved.
+- Added a regression test that starts Prepare from a resumed raw draft, lets it
+  complete successfully, then rejects the older inspect request. The prepared
+  result and Run ingest availability remain intact.
+- At 320px, the 40rem title/New recap placement used column 2 even though the
+  22.5rem breakpoint has one explicit column. Both controls now use that single
+  column. The rendered preview shows campaign/session/title/source controls
+  stacked cleanly; document width is 305px in a 320px viewport.
+- Verification: the three focused UI suites pass 79/79, `npm run typecheck`,
+  `npm run build`, and `git diff --check origin/main...HEAD` pass. Build retains
+  the existing large-chunk warning. Rendered checks were read-only; no live
+  Prepare, Extract, Graph admission, or persistence action was taken.

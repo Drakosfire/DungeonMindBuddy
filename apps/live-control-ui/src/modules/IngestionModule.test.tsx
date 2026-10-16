@@ -1813,6 +1813,64 @@ describe("IngestionModule", () => {
     expect(document.body.textContent).not.toContain("saved/unverified-normalized-session-29.md");
   });
 
+  it("does not let a rejected saved-draft inspection overwrite a newer successful prep", async () => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld");
+    window.localStorage.setItem("dmb.ingestion.longmont-c2.session.29", JSON.stringify({
+      version: 3,
+      activeStep: 1,
+      rawText: "Session 29 Recap\\n\\nThe party finds a path north.",
+      recapSession: 29,
+      slug: "",
+      title: "Session 29 - A Path North",
+      showAdvanced: false,
+      forceStage: false,
+      forceRecap: false,
+      latestResult: null,
+      previewSignature: null,
+      state: { status: "idle" },
+      ignoreDiskResume: false,
+    }));
+
+    let rejectInspect: ((error: Error) => void) | undefined;
+    const inspectPromise = new Promise<RecapIngestStatus>((_resolve, reject) => {
+      rejectInspect = reject;
+    });
+    const ingestSpy = vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {
+      if (body.operation === "inspect_status") return inspectPromise;
+      return makeStatus({
+        session: 29,
+        status: "ready_for_planning_activation",
+        states: ["recap_applied", "normalized_created", "session_memory_materialized"],
+      });
+    });
+
+    const user = setupIngestUser();
+    render(<IngestionModule campaignId="longmont-c2" session={29} initialSourceSession={29} />);
+    await waitFor(() => expect(ingestSpy).toHaveBeenCalledWith(expect.objectContaining({ operation: "inspect_status" })));
+    expect(await screen.findByDisplayValue("Session 29 Recap\\n\\nThe party finds a path north.")).toBeInTheDocument();
+
+    const toolbar = screen.getByRole("region", { name: "Ingest workspace toolbar" });
+    const prepButton = within(toolbar).getByRole("button", { name: "Prep for ingest" });
+    expect(prepButton).toBeEnabled();
+    await user.click(prepButton);
+
+    await waitFor(() => expect(ingestSpy).toHaveBeenCalledWith(expect.objectContaining({
+      operation: "generate_recap_memory",
+      include_graph_extraction: false,
+    })));
+    expect(await within(toolbar).findByRole("status")).toHaveTextContent("Prep complete");
+    expect(within(toolbar).getByRole("button", { name: "Run ingest" })).toBeEnabled();
+
+    await act(async () => {
+      rejectInspect?.(new Error("inspection offline"));
+      await inspectPromise.catch(() => undefined);
+    });
+
+    expect(within(toolbar).getByRole("status")).toHaveTextContent("Prep complete");
+    expect(within(toolbar).queryByText("Could not verify saved ingest status")).not.toBeInTheDocument();
+    expect(within(toolbar).getByRole("button", { name: "Run ingest" })).toBeEnabled();
+  });
+
   it("allows replacing an existing preview graph when force re-extract is checked", async () => {
     const user = userEvent.setup();
     const ingestSpy = vi.spyOn(recapIngestApi, "postRecapIngest").mockImplementation(async (body) => {

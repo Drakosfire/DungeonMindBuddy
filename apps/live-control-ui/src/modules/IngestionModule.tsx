@@ -815,6 +815,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
 
   function invalidateInFlightHydrateInspect() {
     hydrateInspectGenerationRef.current += 1;
+    // The operator's newer action now owns this draft; do not keep it behind
+    // the stale disk-inspection request's hydration gate.
+    setHydrated(true);
   }
 
   const inferredTitle = useMemo(
@@ -1011,6 +1014,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     let cancelled = false;
 
     async function hydrateFromStorageAndDisk() {
+      const inspectGeneration = hydrateInspectGenerationRef.current;
       const draft = readDraft(storageKey);
       const usableDraft =
         requestedRecapSession != null && draft?.recapSession !== requestedRecapSession
@@ -1054,7 +1058,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
 
       if (!freshRecapEntry || usableDraft) {
         try {
-          const inspectGeneration = hydrateInspectGenerationRef.current;
           const inspected = await postRecapIngest({
             operation: "inspect_status",
             campaign_id: ingestCampaignId,
@@ -1098,7 +1101,12 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
             });
           }
         } catch {
-          if (!cancelled && usableDraft && !restoredIgnoreDiskResume) {
+          if (
+            !cancelled &&
+            inspectGeneration === hydrateInspectGenerationRef.current &&
+            usableDraft &&
+            !restoredIgnoreDiskResume
+          ) {
             setLatestResult(null);
             setState({ status: "idle" });
             setToast({
@@ -1112,7 +1120,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         }
       }
 
-      if (!cancelled) {
+      if (!cancelled && inspectGeneration === hydrateInspectGenerationRef.current) {
         setHydrated(true);
       }
     }

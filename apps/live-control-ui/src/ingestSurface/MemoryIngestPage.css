@@ -598,4 +598,13 @@ button.ingest-welcome-action {
   .ingest-local-nav__identity {
     grid-template-columns: minmax(0, 1fr);
   }
+
+  .ingest-local-nav__title,
+  .ingest-local-nav__new {
+    grid-column: 1;
+  }
+
+  .ingest-local-nav__new {
+    justify-self: stretch;
+  }
 }
