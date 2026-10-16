@@ -875,6 +875,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
 
   function handleIngestCampaignSelect(nextCampaignId: string) {
     if (nextCampaignId === ingestCampaignId) return;
+    selectedIngestTargetRef.current = JSON.stringify([nextCampaignId, recapSession]);
     invalidateInFlightHydrateInspect();
     setIngestCampaignId(nextCampaignId);
     syncReviewCampaignUrl(nextCampaignId);
@@ -883,18 +884,25 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     setLatestResult(null);
     setState({ status: "idle" });
     setPreviewSignature(null);
+    setPrimaryOp(null);
+    setToast(null);
+    lastToastKeyRef.current = null;
     inspectedTargetRef.current = "";
     window.dispatchEvent(new Event(GRAPH_REVIEW_RUNS_CHANGED_EVENT));
   }
 
   function handleRecapSessionChange(nextSession: number) {
     if (nextSession === recapSession) return;
+    selectedIngestTargetRef.current = JSON.stringify([ingestCampaignId, nextSession]);
     invalidateInFlightHydrateInspect();
     setRecapSession(nextSession);
     setLatestResult(null);
     setState({ status: "idle" });
     setPreviewSignature(null);
     setIgnoreDiskResume(false);
+    setPrimaryOp(null);
+    setToast(null);
+    lastToastKeyRef.current = null;
     inspectedTargetRef.current = "";
   }
 
@@ -903,6 +911,27 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     // The operator's newer action now owns this draft; do not keep it behind
     // the stale disk-inspection request's hydration gate.
     setHydrated(true);
+  }
+
+  async function postForSelectedIngestTarget(
+    request: Parameters<typeof postRecapIngest>[0],
+    targetIdentity: string,
+  ): Promise<RecapIngestStatus | null> {
+    const result = await postRecapIngest(request);
+    if (selectedIngestTargetRef.current !== targetIdentity) return null;
+    if (result.campaign_id !== request.campaign_id || result.session !== request.session) {
+      const message = "The service returned a result for a different campaign or session. Inspect this recap before retrying.";
+      setState({ status: "error", message });
+      setToast({
+        tone: "error",
+        title: "Response did not match this recap",
+        detail: message,
+        nextSteps: [],
+        sticky: true,
+      });
+      return null;
+    }
+    return result;
   }
 
   async function inspectSelectedRecapStatus(
@@ -976,12 +1005,13 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   const previewInvalidated =
     previewSignature != null && previewSignature !== currentPreviewSignature;
   const rawTextSatisfied = rawText.trim().length > 0;
+  const matchingResult =
+    latestResult?.campaign_id === ingestCampaignId && latestResult.session === recapSession;
   const resultOwnsSelection =
     hydrated &&
-    latestResult?.campaign_id === ingestCampaignId &&
-    latestResult.session === recapSession;
-  // Keep the most recent operation result for the in-progress wizard UI. Only
-  // use the identity-matched result as saved-file proof for graph extraction.
+    matchingResult;
+  // In-progress wizard feedback follows the current result; only saved-file
+  // proof requires both hydration and an exact campaign/session match.
   const proofResult = resultOwnsSelection ? latestResult : null;
   const busy = [
     "running_full_ingest",
@@ -1540,6 +1570,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       return;
     }
 
+    const targetIdentity = JSON.stringify([record.campaign_id, sessionNumber]);
+    selectedIngestTargetRef.current = targetIdentity;
     invalidateInFlightHydrateInspect();
     const requestGeneration = hydrateInspectGenerationRef.current;
     setLoadingPriorIngestion(true);
@@ -1563,7 +1595,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         session: sessionNumber,
         title: titleFromArtifact(record) || undefined,
       });
-      const targetIdentity = JSON.stringify([record.campaign_id, sessionNumber]);
       if (
         requestGeneration !== hydrateInspectGenerationRef.current ||
         selectedIngestTargetRef.current !== targetIdentity ||
@@ -1580,6 +1611,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         record.source_recap_path;
       const citationPath = corpusCitationPath(normalizedPath);
       const source = await postCitationSource({ path: citationPath });
+      if (
+        requestGeneration !== hydrateInspectGenerationRef.current ||
+        selectedIngestTargetRef.current !== targetIdentity
+      ) return;
       if (!source.content.trim()) throw new Error("The saved recap source was empty.");
       setProcessedPreviewText(source.content);
 
@@ -1600,6 +1635,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         nextSteps: [],
       });
     } catch (error) {
+      if (
+        requestGeneration !== hydrateInspectGenerationRef.current ||
+        selectedIngestTargetRef.current !== targetIdentity
+      ) return;
       closeSavedReader();
       setSourceMode("raw");
       setLoadedArtifact(null);
@@ -1646,6 +1685,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
 
   async function runIngest() {
     if (!canRunIngest) return;
+    const targetIdentity = selectedIngestTarget;
     setReaderRun(null);
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
@@ -1660,8 +1700,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     jumpToStep(2);
 
     try {
-      const result = applyAutomatedResult(
-        await postRecapIngest({
+      const response = await postForSelectedIngestTarget({
           operation: "generate_recap_memory",
           campaign_id: ingestCampaignId,
           managed_world_id: managedWorldId,
@@ -1673,8 +1712,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           include_legacy_breadcrumb: false,
           graph_model_id: "deepseek/deepseek-v4.1-flash",
           force_graph_run: forceGraphRun || undefined,
-        }),
-      );
+        }, targetIdentity);
+      if (!response) return;
+      const result = applyAutomatedResult(response);
 
       if (result.status === "error") {
         setState({ status: "error", result, message: resultErrorMessage(result, "Ingest failed") });
@@ -1736,6 +1776,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         });
       }
     } catch (error) {
+      if (selectedIngestTargetRef.current !== targetIdentity) return;
       const message = error instanceof Error ? error.message : "Ingest failed";
       setState({
         status: "error",
@@ -1750,12 +1791,13 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         sticky: true,
       });
     } finally {
-      setPrimaryOp(null);
+      if (selectedIngestTargetRef.current === targetIdentity) setPrimaryOp(null);
     }
   }
 
   async function prepForIngest() {
     if (!canPrepForIngest) return;
+    const targetIdentity = selectedIngestTarget;
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
     setPrimaryOp("prep");
@@ -1769,8 +1811,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
     jumpToStep(2);
 
     try {
-      const result = applyAutomatedResult(
-        await postRecapIngest({
+      const response = await postForSelectedIngestTarget({
           operation: "generate_recap_memory",
           campaign_id: ingestCampaignId,
           session: recapSession,
@@ -1782,8 +1823,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           check: true,
           include_graph_extraction: false,
           include_legacy_breadcrumb: false,
-        }),
-      );
+        }, targetIdentity);
+      if (!response) return;
+      const result = applyAutomatedResult(response);
       const synced = result.session === recapSession ? syncSlugTitleFromResult(result) : null;
       setPreviewSignature(
         previewSourceSignature(
@@ -1831,22 +1873,24 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         setState(derivePaneStateFromResult(result));
       }
     } catch (error) {
+      if (selectedIngestTargetRef.current !== targetIdentity) return;
       setState({
         status: "error",
         result: latestResult ?? undefined,
         message: error instanceof Error ? error.message : "Prep failed",
       });
     } finally {
-      setPrimaryOp(null);
+      if (selectedIngestTargetRef.current === targetIdentity) setPrimaryOp(null);
     }
   }
 
   async function stagePreview() {
+    const targetIdentity = selectedIngestTarget;
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
     setState({ status: "previewing" });
     try {
-      const result = await postRecapIngest({
+      const result = await postForSelectedIngestTarget({
         operation: "stage_preview",
         campaign_id: ingestCampaignId,
         session: recapSession,
@@ -1854,7 +1898,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         slug: effectiveSlug || undefined,
         title: effectiveTitle || undefined,
         force_stage: forceStage || undefined,
-      });
+      }, targetIdentity);
+      if (!result) return;
       applyResultAndSyncSlug(result);
       const cleanResult = sanitizeLatestResult(result) ?? result;
       const synced = cleanResult.session === recapSession ? syncSlugTitleFromResult(cleanResult) : null;
@@ -1878,6 +1923,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       }
       jumpToStep(2);
     } catch (error) {
+      if (selectedIngestTargetRef.current !== targetIdentity) return;
       setState({
         status: "error",
         result: latestResult ?? undefined,
@@ -1887,18 +1933,20 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   }
 
   async function applyNormalize() {
+    const targetIdentity = selectedIngestTarget;
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
     setState({ status: "applying" });
     try {
-      const result = await postRecapIngest({
+      const result = await postForSelectedIngestTarget({
         operation: "apply_normalize",
         campaign_id: ingestCampaignId,
         session: recapSession,
         slug: effectiveSlug || undefined,
         title: effectiveTitle || undefined,
         force_recap: forceRecap || undefined,
-      });
+      }, targetIdentity);
+      if (!result) return;
       applyResultAndSyncSlug(result);
       if (result.status === "error") {
         setState({
@@ -1917,6 +1965,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       }
       jumpToStep(3);
     } catch (error) {
+      if (selectedIngestTargetRef.current !== targetIdentity) return;
       setState({
         status: "error",
         result: latestResult ?? undefined,
@@ -1926,6 +1975,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   }
 
   async function buildFrontmatterSeed() {
+    const targetIdentity = selectedIngestTarget;
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
     setState({ status: "building_frontmatter_seed" });
@@ -1936,13 +1986,14 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       nextSteps: [],
     });
     try {
-      const result = await postRecapIngest({
+      const result = await postForSelectedIngestTarget({
         operation: "build_frontmatter_seed",
         campaign_id: ingestCampaignId,
         session: recapSession,
         slug: effectiveSlug || undefined,
         title: effectiveTitle || undefined,
-      });
+      }, targetIdentity);
+      if (!result) return;
       applyResultAndSyncSlug(result);
       if (result.status === "error") {
         setState({
@@ -1959,6 +2010,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       setState(derivePaneStateFromResult(result));
       jumpToStep(3);
     } catch (error) {
+      if (selectedIngestTargetRef.current !== targetIdentity) return;
       setState({
         status: "error",
         result: latestResult ?? undefined,
@@ -1968,6 +2020,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   }
 
   async function runBreadcrumbIngest() {
+    const targetIdentity = selectedIngestTarget;
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
     setState({ status: "running_breadcrumb_ingest" });
@@ -1978,13 +2031,14 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       nextSteps: [],
     });
     try {
-      const result = await postRecapIngest({
+      const result = await postForSelectedIngestTarget({
         operation: "run_breadcrumb_ingest",
         campaign_id: ingestCampaignId,
         session: recapSession,
         slug: effectiveSlug || undefined,
         title: effectiveTitle || undefined,
-      });
+      }, targetIdentity);
+      if (!result) return;
       applyResultAndSyncSlug(result);
       if (result.status === "error") {
         setState({
@@ -2001,6 +2055,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       setState(derivePaneStateFromResult(result));
       jumpToStep(3);
     } catch (error) {
+      if (selectedIngestTargetRef.current !== targetIdentity) return;
       setState({
         status: "error",
         result: latestResult ?? undefined,
@@ -2010,6 +2065,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   }
 
   async function materializeSessionMemory() {
+    const targetIdentity = selectedIngestTarget;
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
     setState({ status: "materializing" });
@@ -2020,14 +2076,15 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       nextSteps: [],
     });
     try {
-      const result = await postRecapIngest({
+      const result = await postForSelectedIngestTarget({
         operation: "materialize_session_memory",
         campaign_id: ingestCampaignId,
         session: recapSession,
         slug: effectiveSlug || undefined,
         title: effectiveTitle || undefined,
         check: true,
-      });
+      }, targetIdentity);
+      if (!result) return;
       applyResultAndSyncSlug(result);
       if (result.status === "error") {
         setState({
@@ -2050,6 +2107,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       }
       jumpToStep(3);
     } catch (error) {
+      if (selectedIngestTargetRef.current !== targetIdentity) return;
       setState({
         status: "error",
         result: latestResult ?? undefined,
@@ -2060,11 +2118,12 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
 
   async function buildGraphPreview() {
     if (!canBuildGraphPreview) return;
+    const targetIdentity = selectedIngestTarget;
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
     setState({ status: "building_graph_preview" });
     try {
-      const result = await postRecapIngest({
+      const result = await postForSelectedIngestTarget({
         operation: "build_graph_preview_bundle",
         campaign_id: ingestCampaignId,
         managed_world_id: managedWorldId,
@@ -2073,10 +2132,12 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         extract_graph: extractGraphWithModel,
         graph_model_id: extractGraphWithModel ? "deepseek/deepseek-v4.1-flash" : undefined,
         force_graph_run: forceGraphRun || undefined,
-      });
+      }, targetIdentity);
+      if (!result) return;
       applyResultAndSyncSlug(result);
       setState(derivePaneStateFromResult(result));
     } catch (error) {
+      if (selectedIngestTargetRef.current !== targetIdentity) return;
       setState({
         status: "error",
         result: latestResult ?? undefined,
@@ -2087,11 +2148,12 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
 
   async function materializePreviewSupergraph() {
     if (!canMaterializePreviewSupergraph) return;
+    const targetIdentity = selectedIngestTarget;
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
     setState({ status: "materializing_preview_supergraph" });
     try {
-      const result = await postRecapIngest({
+      const result = await postForSelectedIngestTarget({
         operation: "materialize_preview_supergraph",
         campaign_id: ingestCampaignId,
         managed_world_id: managedWorldId,
@@ -2101,7 +2163,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         graph_model_id: extractGraphWithModel ? "deepseek/deepseek-v4.1-flash" : undefined,
         materialize_after_extract: extractGraphWithModel,
         force_graph_run: forceGraphRun || undefined,
-      });
+      }, targetIdentity);
+      if (!result) return;
       applyResultAndSyncSlug(result);
       if (result.states.includes("preview_union_store_ready")) {
         setState({ status: "preview_supergraph_ready", result });
@@ -2109,6 +2172,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         setState(derivePaneStateFromResult(result));
       }
     } catch (error) {
+      if (selectedIngestTargetRef.current !== targetIdentity) return;
       setState({
         status: "error",
         result: latestResult ?? undefined,
@@ -2203,6 +2267,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
   }
 
   async function reconcileNormalizedRecap(keepBasename: string) {
+    const targetIdentity = selectedIngestTarget;
     invalidateInFlightHydrateInspect();
     lastToastKeyRef.current = null;
     setReconciling(true);
@@ -2213,12 +2278,13 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
       nextSteps: [],
     });
     try {
-      const result = await postRecapIngest({
+      const result = await postForSelectedIngestTarget({
         operation: "reconcile_normalized_recap",
         campaign_id: ingestCampaignId,
         session: recapSession,
         keep_basename: keepBasename,
-      });
+      }, targetIdentity);
+      if (!result) return;
       applyResultAndSyncSlug(result);
       setReconcileChoice(null);
       if (result.status === "error") {
@@ -2240,6 +2306,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
         sticky: true,
       });
     } catch (error) {
+      if (selectedIngestTargetRef.current !== targetIdentity) return;
       const message = error instanceof Error ? error.message : "Reconcile failed";
       setState({ status: "error", result: latestResult ?? undefined, message });
       setToast({

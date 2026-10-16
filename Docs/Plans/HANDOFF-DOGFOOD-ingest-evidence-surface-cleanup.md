@@ -238,3 +238,24 @@ authorized by this amendment. This remains the single serial implementation PR
   tests and 13 MemoryIngestPage tests pass; UI typecheck and production build
   pass; `git diff --check` passes. The build retains its existing large-chunk
   warning. A fresh Bugbot review of the resulting PR head remains required.
+- Bugbot on PR head `6eb0044f18f66dd75d169bf7f4399243c972176b` found a P2 race:
+  a recap operation started for one session could finish after the operator
+  switched sessions and restore the old result into the new selection. Campaign
+  and session changes now synchronously invalidate the selected-target token,
+  clear stale operation status, and ignore late success/error/finally updates.
+  Every recap mutation also verifies that the returned campaign/session matches
+  its request before adopting the result; a mismatched response produces a
+  visible recovery status rather than leaving the operation in a loading state.
+  Saved-file proof remains bound to a hydrated result matching the current
+  campaign/session; active wizard previews use the current result because
+  selection changes clear it and late responses are discarded. Regressions hold
+  Stage + Preview open, change the selected session, and confirm that its late
+  response does not re-enable Apply; a second verifies that a mismatched server
+  response produces an actionable status.
+- Verification after this repair: `IngestionModule.test.tsx` 73 passed and
+  `MemoryIngestPage.test.tsx` 13 passed; UI typecheck and production build
+  passed (86 tests total); cumulative `git diff --check` passed. The build retains the existing
+  Vite large-chunk warning and the component suite retains existing React
+  `act(...)` warnings. No live ingestion or write action was used; 5202 and
+  5204 remain untouched. Fresh Bugbot review of the updated exact PR head is
+  required before dogfood.
