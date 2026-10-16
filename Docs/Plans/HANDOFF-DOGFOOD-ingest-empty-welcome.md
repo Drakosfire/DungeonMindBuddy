@@ -5,7 +5,7 @@ Topology: serial; one implementation PR based on `origin/main`
 Branch: `codex/ingest-empty-welcome`
 Checkout: `/tmp/dmb-ingest-empty-welcome`
 
-Base: fetched `origin/main@3a890b9e`.
+Base: fetched `origin/main@65ab104be533854e72e5b5277e07744bcfe2e1f9`.
 
 ## Objective
 
@@ -76,3 +76,11 @@ is pending; 5204 currently serves the Build-only branch, and neither 5202 nor
 The integrated local preview on 5205 includes `main@3a890b9e` and current heads of PRs #1183, #1188, #1190, and #1191. The plain `/ingest?world=elderwyld` route opened a guided first-use welcome at desktop and 390px, with the raw recap field empty and no error about missing publication context. The existing campaign/session defaults may be shown, but no recap text was entered, prepared, ingested, or saved. The welcome remains visually prominent; existing operational/readiness detail is still present farther down the surface. No ingestion state was changed and 5202 was not modified.
 
 The IngestionModule and MemoryIngestPage suites passed 69 tests; TypeScript and the combined production build passed. This verifies the entry experience, not a live ingestion run or authenticated persistence. The prior pending-render note is superseded.
+
+## Current-main rebase and preview — 2026-10-15
+
+Rebased the assigned PR #1191 onto current `origin/main@65ab104be533854e72e5b5277e07744bcfe2e1f9` (HEAD before final handoff sync: `109c804677b82a0dff4fc7741bb87a0a036dfa20`). The cumulative change remains within this handoff's six expected paths. The two IngestionModule test labels were updated to match the current `(DeepSeek)` UI label after the main rebase.
+
+Verification on this head: focused IngestionModule and MemoryIngestPage suites passed 69 tests; UI typecheck and production build passed; `git diff --check origin/main...HEAD` passed. The current-head local preview visibly rendered the first-use welcome at desktop, including the three-step recap workflow, empty raw-recap field, and the statement that nothing is prepared or ingested until the user chooses those steps. Current-head narrow-width rendering could not be verified: the installed Playwright browser binary is missing and system Chrome terminated before capture. The prior 390px check is from the older pre-rebase preview and is not current-head evidence.
+
+No recap was prepared, run, admitted, or saved. The existing `f43e48e6-c775-4960-824f-fb398fe50bb9` review candidate in 5202 was left unchanged. This PR improves first-use Ingest presentation only; it does not resolve the saved candidate's visible `team` → `tea` links, establish extraction quality, clarify rerun semantics, or prove authenticated persistence. Those are the next ingestion-mandate work, under a separately bounded handoff after this serial PR is reviewed/settled.

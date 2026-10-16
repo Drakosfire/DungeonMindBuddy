@@ -1049,7 +1049,7 @@ describe("IngestionModule", () => {
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
     await user.click(screen.getByText("Advanced graph dogfood"));
     const extractToggle = await screen.findByLabelText(
-      "Extract graph from recap with category extraction (deepseek/deepseek-v4.1-flash)",
+      "Extract graph from recap with category extraction (DeepSeek)",
     );
     expect(extractToggle).toBeInTheDocument();
     await user.click(extractToggle);
@@ -1105,7 +1105,7 @@ describe("IngestionModule", () => {
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
     await user.click(screen.getByText("Advanced graph dogfood"));
     await user.type(screen.getByLabelText("Candidate graph path"), "out/candidate.json");
-    await user.click(screen.getByLabelText("Extract graph from recap with category extraction (deepseek/deepseek-v4.1-flash)"));
+    await user.click(screen.getByLabelText("Extract graph from recap with category extraction (DeepSeek)"));
     expect(screen.getByLabelText("Candidate graph path")).toBeDisabled();
     expect(screen.getByLabelText("Candidate graph path")).toHaveValue("");
     await waitFor(() => expect(screen.getByRole("button", { name: "Materialize Preview Supergraph" })).toBeEnabled());
