@@ -1,0 +1,166 @@
+import asyncio
+from copy import deepcopy
+import hashlib
+import json
+
+import pytest
+
+from evals.graph_memory_layer.jev_evidence_loop import run_loop, validate_snapshot
+from evals.graph_memory_layer.run_jev_evidence_loop import score_gold
+
+
+def fixture():
+    scope = {"world_id": "synthetic", "graph_revision": "r1", "source_revision": "s1"}
+    units = {}
+    for uid, text in [("u1", "Aster leads the assembly."), ("u2", "The assembly governs Harbor."),
+                      ("u3", "Some goats produce milk.")]:
+        units[uid] = {"id": uid, "subject": uid, "text": text, "scope": scope.copy(),
+                      "content_sha256": hashlib.sha256(text.encode()).hexdigest(),
+                      "source_class": "world_reference", "provenance": [{"start_line": 1, "end_line": 1}]}
+    return {"schema": "dmb_jev_loop_snapshot_v1", **scope, "source_sha256": "f" * 64,
+            "model": "jev-1.14.0", "question": "How does Aster relate to Harbor government?",
+            "requirements": [{"id": "leader", "text": "Who does Aster lead?"},
+                             {"id": "government", "text": "What governs Harbor?"}],
+            "units": units, "actions": {
+                "a1": {"id": "a1", "label": "Aster observations", "kind": "graph_observations", "unit_ids": ["u1"]},
+                "a2": {"id": "a2", "label": "Assembly neighborhood citation", "kind": "graph_observations", "unit_ids": ["u2"]},
+                "a3": {"id": "a3", "label": "Goats", "kind": "saved_build_section", "unit_ids": ["u3"]}},
+            "initial_actions": ["a1"]}
+
+
+def decisions(request, *, missing=False, conflict=False, bad=False):
+    ids = {e["id"] for e in request["state"]["evidence"]}
+    answers = {}
+    for q in request["questions"]:
+        name = q["name"]
+        if q["kind"] == "binary":
+            answers[name] = {"kind": "binary", "value": not name.endswith("u3"),
+                             "probability_true": .01 if name.endswith("u3") else .99}
+        else:
+            target = "u1" if name.endswith("leader") else "u2"
+            supported = target in ids and not missing
+            selected = ("conflict" if conflict else "sufficient" if supported else "more_evidence") if name.startswith("coverage_") else target if name.startswith("support_") and supported else "a2" if name.startswith("next_") and "a2" in q["options"] else "none"
+            answers[name] = {"kind": "choice", "selected": "invented" if bad else selected}
+    return {"answers": answers, "observation": {"input_tokens": 100, "output_tokens": 20}}
+
+
+def test_missing_link_targets_next_action_without_repeating(tmp_path):
+    calls = []
+    async def evaluate(request):
+        calls.append(request)
+        return decisions(request)
+    result = asyncio.run(run_loop(fixture(), evaluate, output=tmp_path / "run"))
+    assert result["status"] == "provisionally_supported"
+    assert len(calls) == 2
+    assert [e["action_id"] for e in result["retrieval_events"]] == ["a1", "a2"]
+    assert result["rounds"][0]["unresolved"] == ["government"]
+    assert result["input_tokens_reported"] == 200
+    assert result["luna_calls"] == 0
+    assert {u["id"] for u in result["selected_evidence"]} == {"u1", "u2"}
+
+
+def test_exhaustion_is_not_sufficiency_or_an_unchanged_retry(tmp_path):
+    async def evaluate(request):
+        return decisions(request, missing=True)
+    result = asyncio.run(run_loop(fixture(), evaluate, output=tmp_path / "run"))
+    assert result["status"] == "retrieval_exhausted"
+    assert len(result["rounds"]) == 2
+    assert result["unresolved_requirements"] == ["leader", "government"]
+
+
+def test_conflict_is_retained_and_stops_for_qualification(tmp_path):
+    async def evaluate(request):
+        return decisions(request, conflict=True)
+    result = asyncio.run(run_loop(fixture(), evaluate, output=tmp_path / "run"))
+    assert result["status"] == "conflict_requires_qualification"
+    assert result["selected_evidence"]
+
+
+def test_malformed_action_never_executes_and_reported_usage_is_preserved(tmp_path):
+    async def evaluate(request):
+        return decisions(request, bad=True)
+    result = asyncio.run(run_loop(fixture(), evaluate, output=tmp_path / "run"))
+    assert result["status"] == "decision_unavailable_or_invalid"
+    assert len(result["retrieval_events"]) == 2
+    assert result["usage_status"] == "reported"
+    assert result["input_tokens_reported"] == 100
+    assert (tmp_path / "run/round-01-response.json").exists()
+
+
+def test_provider_failure_preserves_start_marker_and_does_not_retry(tmp_path):
+    calls = []
+    async def evaluate(request):
+        calls.append(request)
+        raise TimeoutError()
+    result = asyncio.run(run_loop(fixture(), evaluate, output=tmp_path / "run"))
+    assert len(calls) == 1
+    assert result["usage_status"] == "unavailable_or_partial_not_zero"
+    assert result["status"] == "decision_unavailable_or_invalid"
+    assert (tmp_path / "run/round-01-started.json").exists()
+    with pytest.raises(FileExistsError):
+        asyncio.run(run_loop(fixture(), evaluate, output=tmp_path / "run"))
+
+
+@pytest.mark.parametrize("change", ["scope", "body", "unknown_unit"])
+def test_bad_snapshot_fails_before_provider(change):
+    snapshot = fixture()
+    if change == "scope":
+        snapshot["units"]["u1"]["scope"]["world_id"] = "foreign"
+    elif change == "body":
+        snapshot["units"]["u1"]["text"] = "changed"
+    else:
+        snapshot["actions"]["a1"]["unit_ids"] = ["foreign"]
+    with pytest.raises(ValueError):
+        validate_snapshot(snapshot)
+
+
+def test_name_matching_distractor_excluded_and_gold_separate(tmp_path):
+    snapshot = fixture()
+    snapshot["initial_actions"] = ["a1", "a2", "a3"]
+    async def evaluate(request):
+        assert "facts" not in json.dumps(request)
+        return decisions(request)
+    result = asyncio.run(run_loop(snapshot, evaluate, output=tmp_path / "run"))
+    assert result["status"] == "provisionally_supported"
+    assert "u3" not in {u["id"] for u in result["selected_evidence"]}
+    score = score_gold(result, {"facts": [{"id": "governs", "evidence": [{"quote": "governs Harbor", "start_line": 1, "end_line": 1}]}]})
+    assert score["recall"] == 1
+    altered = deepcopy(result)
+    altered["selected_evidence"] = [snapshot["units"]["u1"]]
+    assert score_gold(altered, {"facts": [{"id": "governs", "evidence": [{"quote": "governs Harbor", "start_line": 1, "end_line": 1}]}]})["false_sufficient_stop"]
+
+
+def test_independent_missing_requirements_retrieved_in_one_wave(tmp_path):
+    snapshot = fixture()
+    snapshot["initial_actions"] = ["a3"]
+    async def evaluate(request):
+        result = decisions(request)
+        for rid, action in [("leader", "a1"), ("government", "a2")]:
+            key = "next_" + rid
+            q = next((q for q in request["questions"] if q["name"] == key), None)
+            if q and action in q["options"]:
+                result["answers"][key]["selected"] = action
+        return result
+    result = asyncio.run(run_loop(snapshot, evaluate, output=tmp_path / "run"))
+    assert result["rounds"][0]["next_actions"] == ["a1", "a2"]
+    assert len(result["rounds"]) == 2
+    assert result["status"] == "provisionally_supported"
+
+
+def test_sufficient_without_relevant_support_cannot_complete(tmp_path):
+    async def evaluate(request):
+        result = decisions(request)
+        for value in result["answers"].values():
+            if value["kind"] == "binary":
+                value.update(value=False, probability_true=0.0)
+        return result
+    result = asyncio.run(run_loop(fixture(), evaluate, output=tmp_path / "run"))
+    assert result["status"] == "retrieval_exhausted"
+    assert result["unresolved_requirements"] == ["leader", "government"]
+
+
+def test_discovery_hints_are_explicitly_not_support(tmp_path):
+    async def evaluate(request):
+        assert 'Legal action labels are discovery hints, never evidence' in request['state']['rules']
+        return decisions(request)
+    asyncio.run(run_loop(fixture(), evaluate, output=tmp_path / "run"))
