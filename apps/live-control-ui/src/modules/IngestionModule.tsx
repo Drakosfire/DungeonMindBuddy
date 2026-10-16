@@ -724,7 +724,7 @@ function buildToastForResult(
           ? "Prep complete"
         : `Ingestion ${result.status}`,
     detail,
-    nextSteps: uniqueNextSteps.slice(0, 4),
+    nextSteps: uniqueNextSteps.filter((step) => step !== detail).slice(0, 4),
     sticky: tone === "error" || (stagedRawConflict && result.status !== "ready_for_planning_activation"),
   };
 }
@@ -2185,7 +2185,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
           </div>
           <p className="ingest-local-nav__status" role="status" aria-live="polite">
             {state.status === "error"
-              ? state.message ?? "Ingestion operation failed."
+              ? "Needs attention · details below."
               : primaryOp === "ingest"
                 ? "Extracting graph…"
                 : primaryOp === "prep"
@@ -2297,10 +2297,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
               <p>Preview invalidated by raw text/title edits. Prep for ingest again.</p>
             ) : null}
           </div>
-
-          {state.status === "error" ? (
-            <p className="module-error">{state.message ?? "Ingestion operation failed."}</p>
-          ) : null}
         </section>
 
         <aside className="ingestion-evidence-pane" aria-label="Ingestion evidence and proof">
@@ -2777,8 +2773,17 @@ export function IngestionModule({ campaignId: planCampaignId, session, managedWo
                   <ul>{evidenceRows(latestResult.warnings)}</ul>
                 </div>
                 <div>
-                  <h5>Errors</h5>
-                  <ul>{evidenceRows(latestResult.errors)}</ul>
+                  {state.status === "error" ? (
+                    <details>
+                      <summary>Error details</summary>
+                      <ul>{evidenceRows(latestResult.errors)}</ul>
+                    </details>
+                  ) : (
+                    <>
+                      <h5>Errors</h5>
+                      <ul>{evidenceRows(latestResult.errors)}</ul>
+                    </>
+                  )}
                 </div>
                 <div>
                   <h5>Next actions</h5>

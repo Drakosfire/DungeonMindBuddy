@@ -1005,6 +1005,31 @@ describe("IngestionModule", () => {
     expect(screen.queryByText(/preview graph materialized/i)).not.toBeInTheDocument();
   });
 
+  it("keeps the prep error in one message and collapses diagnostic details", async () => {
+    const user = setupIngestUser();
+    mockRecapIngestWithInspect(() => makeStatus({
+      status: "error",
+      states: ["recap_generation_failed"],
+      errors: ["The recap could not be prepared."],
+    }));
+
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await fillRecapInputs(
+      user,
+      "Session 22 Recap\n\nThe party pressed on.",
+      "Session 22 - Mireward Road and Lysandro",
+    );
+    await user.click(screen.getByRole("button", { name: "Prep for ingest" }));
+
+    const errorToast = await screen.findByRole("alert");
+    const toolbar = screen.getByRole("region", { name: "Ingest workspace toolbar" });
+    expect(within(toolbar).getByRole("status")).toHaveTextContent("Needs attention · details below.");
+    expect(toolbar).not.toHaveTextContent("The recap could not be prepared.");
+    expect(within(errorToast).getByText("The recap could not be prepared.")).toBeInTheDocument();
+    expect(within(errorToast).getAllByText("The recap could not be prepared.")).toHaveLength(1);
+    expect(screen.getByText("Error details").closest("details")).not.toHaveAttribute("open");
+  });
+
   it("reports blocked Run ingest without offering Plan Recap View", async () => {
     const user = setupIngestUser();
     let phase: "prep" | "ingest" = "prep";

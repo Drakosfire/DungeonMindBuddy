@@ -166,3 +166,16 @@ save were activated. The temporary viewport override was reset afterward.
 This verifies only the current UI presentation. No recap was ingested or
 published, no retained candidate was changed, and the runtime/persistence
 boundary was not exercised. The 5202 service remained untouched.
+
+## Bugbot follow-up — 2026-10-16
+
+Bugbot found a repeated ingestion error message in the toolbar and recap editor.
+The toolbar now gives one concise attention status, the error remains in the
+single primary toast, and the raw error list in the status panel is collapsed
+until requested. Toast next steps omit a string already shown as the error
+detail. Added a regression test for the single-message presentation.
+
+Verification on this change: both focused suites pass 70 tests;
+TypeScript and production build pass (with the existing large-chunk warning);
+`git diff --check` passes. This remains a presentation-only change; no ingestion
+or persistence behavior was exercised.
