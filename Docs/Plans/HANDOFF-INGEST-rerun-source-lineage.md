@@ -57,8 +57,9 @@ No UI, graph extraction/packaging, unrelated readiness APIs, corpus, database, W
 
 ## Verification and release boundary
 
-- The focused provenance, pipeline, seed, materializer, and corpus-writer suites pass: 110 tests. The owning tests/test_live_recap_ingest_api.py suite passes: 25 tests. These use the existing matching project venv and disposable test corpora.
-- The new regression verifies that an explicit breadcrumb refresh with either a wrong source_recap_path or breadcrumb text that differs from the normalized recap returns HTTP 422 before archiving and leaves both the installed breadcrumb and provenance sidecar byte-identical. A direct call through the route orchestration independently confirms the same invariant and that no archive is created.
+- The focused provenance, pipeline, seed, materializer, and corpus-writer suites pass: 110 tests. The owning tests/test_live_recap_ingest_api.py suite now passes: 27 tests. Combined repository coverage for these suites is 137 passed; all tests use disposable corpora.
+- Added API regressions for two orchestration gaps found during PRIME/ARCHITECTURE review: Graph build/materialize requests stop before World-context resolution when normalized source is stale/unverified, while current normalized content remains eligible for graph-first work even if optional legacy derivatives are stale; a combined explicit normalization/seed/breadcrumb/session-memory refresh continues through each requested stage and reaches ready_for_planning_activation. The two supplied review reproductions also pass against the route.
+- The explicit breadcrumb-refresh regression verifies that a wrong source_recap_path or breadcrumb text mismatch returns HTTP 422 before archiving and leaves both installed breadcrumb and provenance sidecar byte-identical.
 - Ruff on every changed Python module/test and git diff --check pass.
 - Additional direct route checks proved: a three-stage explicit refresh returns ready_for_planning_activation and reports all six prior artifacts; an edited seed is preserved until explicit refresh; and a legacy breadcrumb without lineage remains unchanged and triggers zero routing-model calls.
 - Tests use disposable corpora only. No retained recap, live Corpus, provider, database, World Graph, 5202, or 5204 state was changed. No rendered UI or full ingestion acceptance is claimed.

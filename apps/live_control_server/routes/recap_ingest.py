@@ -426,6 +426,30 @@ def _run_breadcrumb_ingest_from_request(body: RecapIngestRequest, corpus: Path) 
 
 
 
+def _normalized_recap_is_graph_ready(status: dict[str, Any]) -> bool:
+    """Graph work requires a verified current normalized recap, but not legacy derivatives."""
+    states = set(status.get("states", []))
+    if "normalized_current" not in states:
+        return False
+    if {"normalized_stale", "normalized_provenance_unknown", "canonical_recap_conflict"}.intersection(states):
+        return False
+    if "normalized_recap_duplicates" in states:
+        candidates = status.get("ingest_report", {}).get("normalized_recap_candidates", [])
+        if not isinstance(candidates, list) or sum(bool(row.get("recommended")) for row in candidates if isinstance(row, dict)) != 1:
+            return False
+    return True
+
+
+def _block_graph_without_current_normalized(status: dict[str, Any]) -> dict[str, Any]:
+    status["status"] = "needs_reconciliation"
+    _add_unique(status.setdefault("warnings", []), "Graph work was skipped because the normalized recap is not verified current.")
+    _add_unique(
+        status.setdefault("next_actions", []),
+        "Review and explicitly refresh the normalized recap before building or materializing Graph evidence.",
+    )
+    return status
+
+
 def _normalized_recap_graph_path(status: dict[str, Any], corpus: Path | None) -> str | None:
     raw = status.get("paths", {}).get("normalized_recap")
     if not raw:
@@ -472,7 +496,11 @@ def _inspect_status_with_graph(body: RecapIngestRequest, corpus: Path | None) ->
         slug=body.slug,
         corpus=corpus,
     )
-    normalized = _normalized_recap_graph_path(status, corpus)
+    normalized = (
+        _normalized_recap_graph_path(status, corpus)
+        if _normalized_recap_is_graph_ready(status)
+        else None
+    )
     graph = inspect_recap_graph_preview_status(
         repo_root=repo_root(),
         campaign_id=body.campaign_id,
@@ -483,7 +511,6 @@ def _inspect_status_with_graph(body: RecapIngestRequest, corpus: Path | None) ->
 
 
 def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path | None) -> dict[str, Any]:
-    ingest_context = _request_recap_context(body) if body.include_graph_extraction else None
     active_corpus = (corpus or default_corpus_root()).resolve()
     staged_reuse_status: dict[str, Any] | None = None
 
@@ -524,12 +551,15 @@ def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path |
             status,
             run_pipeline(_options_for_request(apply_body), corpus=corpus),
         )
-        if status.get("status") in {"error", "needs_reconciliation"}:
+        if status.get("status") == "error":
+            return status
+        if status.get("status") == "needs_reconciliation" and not _normalized_recap_is_graph_ready(status):
             return status
 
     if body.include_graph_extraction:
         normalized = _normalized_recap_graph_path(status, corpus)
-        if normalized:
+        if normalized and _normalized_recap_is_graph_ready(status):
+            ingest_context = _request_recap_context(body)
             graph = materialize_recap_preview_supergraph(
                 repo_root=repo_root(),
                 campaign_id=body.campaign_id,
@@ -557,6 +587,8 @@ def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path |
                 and graph.get("status") == "preview_union_store_ready"
             ):
                 status["status"] = "ready_for_planning_activation"
+        elif not _normalized_recap_is_graph_ready(status):
+            _block_graph_without_current_normalized(status)
         else:
             _add_unique(
                 status.setdefault("warnings", []),
@@ -733,7 +765,6 @@ def post_recap_ingest(body: RecapIngestRequest) -> dict[str, Any]:
         if body.operation == "inspect_graph_preview":
             return _inspect_status_with_graph(body, corpus)
         if body.operation in {"build_graph_preview_bundle", "materialize_preview_supergraph"}:
-            ingest_context = _request_recap_context(body)
             status = inspect_recap_ingest_status(
                 campaign_id=body.campaign_id,
                 session=body.session,
@@ -742,14 +773,17 @@ def post_recap_ingest(body: RecapIngestRequest) -> dict[str, Any]:
                 corpus=corpus,
             )
             normalized = _normalized_recap_graph_path(status, corpus)
+            if not _normalized_recap_is_graph_ready(status):
+                return _block_graph_without_current_normalized(status)
+            if not normalized:
+                raise HTTPException(status_code=422, detail="normalized recap missing")
+            ingest_context = _request_recap_context(body)
             if body.extract_graph and body.candidate_graph_path:
                 raise HTTPException(
                     status_code=422,
                     detail="candidate_graph_path cannot be combined with extract_graph=true",
                 )
             if body.operation == "build_graph_preview_bundle":
-                if not normalized:
-                    raise HTTPException(status_code=422, detail="normalized recap missing")
                 graph = build_recap_graph_preview_bundle(
                     repo_root=repo_root(),
                     campaign_id=body.campaign_id,

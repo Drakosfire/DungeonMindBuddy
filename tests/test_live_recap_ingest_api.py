@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from apps.live_control_server.config import SESSION_DIR_ENV
 from apps.live_control_server.main import create_app
+from apps.live_control_server.routes import recap_ingest as recap_ingest_route
 from src.corpus.session_recap_paths import normalized_recap_relpath
 from src.live_play.recap_ingest_pipeline import _expected_normalized_content
 
@@ -899,3 +900,152 @@ def test_inspect_status_is_read_only_and_reports_disk(client: TestClient, isolat
     assert "recap_reused" in body["states"]
     assert "corpus_impact" in body["ingest_report"]
     assert recap.read_text(encoding="utf-8") == "canonical on disk"
+
+
+def test_graph_preview_requires_current_normalized_source_but_not_legacy_derivatives(
+    client: TestClient,
+    isolated_session: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    normalized = _write_current_normalized(Path(isolated_session / "corpus/eldyrwild-markdown"))
+    states = ["normalized_reused", "normalized_stale", "derivative_reconciliation_required"]
+    graph_calls: list[dict[str, object]] = []
+    context_calls: list[object] = []
+
+    def _status() -> dict[str, object]:
+        return {
+            "schema": "dmb_raw_recap_ingest_status_v1",
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "status": "needs_reconciliation",
+            "states": list(states),
+            "paths": {"normalized_recap": str(normalized)},
+            "authority": {"normalized_recap": "canon_play_prepared"},
+            "warnings": [],
+            "errors": [],
+            "next_actions": [],
+            "ingest_report": {},
+            "entity_spelling_audit": [],
+        }
+
+    monkeypatch.setattr(
+        recap_ingest_route,
+        "_request_recap_context",
+        lambda body: (context_calls.append(body) or None),
+    )
+    monkeypatch.setattr(recap_ingest_route, "inspect_recap_ingest_status", lambda **_kwargs: _status())
+    monkeypatch.setattr(
+        recap_ingest_route,
+        "build_recap_graph_preview_bundle",
+        lambda **kwargs: (graph_calls.append(kwargs) or {"status": "source_span_bundle_ready", "next_actions": []}),
+    )
+    payload = {
+        "operation": "build_graph_preview_bundle",
+        "campaign_id": "longmont-c2",
+        "managed_world_id": "elderwyld",
+        "session": 22,
+        "slug": "Mireward Road and Lysandro",
+    }
+
+    stale = client.post("/api/live/recap-ingest", json=payload)
+    assert stale.status_code == 200
+    assert stale.json()["status"] == "needs_reconciliation"
+    assert "normalized_stale" in stale.json()["states"]
+    assert graph_calls == []
+    assert context_calls == []
+
+    states[:] = ["normalized_reused", "normalized_current", "frontmatter_seed_stale", "derivative_reconciliation_required"]
+    current = client.post("/api/live/recap-ingest", json=payload)
+    assert current.status_code == 200
+    assert len(graph_calls) == 1
+    assert len(context_calls) == 1
+    assert "frontmatter_seed_stale" in current.json()["states"]
+    assert current.json()["ingest_report"]["graph_preview"]["status"] == "source_span_bundle_ready"
+
+
+def test_generate_rerun_continues_explicit_derivative_refresh_after_normalize(
+    client: TestClient,
+    isolated_session: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    normalized = _write_current_normalized(Path(isolated_session / "corpus/eldyrwild-markdown"))
+    stages: list[str] = []
+
+    def _status(states: list[str], status: str = "needs_reconciliation") -> dict[str, object]:
+        return {
+            "schema": "dmb_raw_recap_ingest_status_v1",
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "status": status,
+            "states": list(states),
+            "paths": {"normalized_recap": str(normalized)},
+            "authority": {"normalized_recap": "canon_play_prepared"},
+            "warnings": [],
+            "errors": [],
+            "next_actions": [],
+            "ingest_report": {},
+            "entity_spelling_audit": [],
+        }
+
+    initial = _status([
+        "recap_reused", "normalized_reused", "normalized_stale",
+        "frontmatter_seed_found", "breadcrumb_found", "session_memory_materialized",
+        "derivative_reconciliation_required",
+    ])
+    normalized_status = _status([
+        "recap_reused", "normalized_reused", "normalized_current", "normalized_refreshed",
+        "frontmatter_seed_found", "frontmatter_seed_stale", "breadcrumb_found",
+        "breadcrumb_stale", "session_memory_stale", "derivative_reconciliation_required",
+    ])
+    seed_status = _status([
+        "recap_reused", "normalized_current", "frontmatter_seed_found", "frontmatter_seed_current",
+        "breadcrumb_found", "breadcrumb_stale", "session_memory_stale", "derivative_reconciliation_required",
+    ])
+    breadcrumb_status = _status([
+        "recap_reused", "normalized_current", "frontmatter_seed_found", "frontmatter_seed_current",
+        "breadcrumb_found", "breadcrumb_current", "session_memory_stale", "derivative_reconciliation_required",
+    ])
+    ready_status = _status([
+        "recap_reused", "normalized_current", "frontmatter_seed_current", "breadcrumb_current",
+        "session_memory_materialized", "session_memory_current", "ready_for_planning_activation",
+    ], status="ready_for_planning_activation")
+
+    def _run_pipeline(options: object, **_kwargs: object) -> dict[str, object]:
+        if getattr(options, "normalize", False):
+            stages.append("normalize")
+            return normalized_status
+        stages.append("session_memory")
+        return ready_status
+
+    monkeypatch.setattr(recap_ingest_route, "inspect_recap_ingest_status", lambda **_kwargs: initial)
+    monkeypatch.setattr(recap_ingest_route, "run_pipeline", _run_pipeline)
+    monkeypatch.setattr(
+        recap_ingest_route,
+        "_build_frontmatter_seed_from_request",
+        lambda *_args, **_kwargs: (stages.append("seed") or seed_status),
+    )
+    monkeypatch.setattr(
+        recap_ingest_route,
+        "_run_breadcrumb_ingest_from_request",
+        lambda *_args, **_kwargs: (stages.append("breadcrumb") or breadcrumb_status),
+    )
+
+    response = client.post(
+        "/api/live/recap-ingest",
+        json={
+            "operation": "generate_recap_memory",
+            "campaign_id": "longmont-c2",
+            "session": 22,
+            "slug": "Mireward Road and Lysandro",
+            "include_graph_extraction": False,
+            "include_legacy_breadcrumb": True,
+            "force_normalize": True,
+            "force_seed": True,
+            "force_breadcrumb": True,
+            "force_session_memory": True,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "ready_for_planning_activation"
+    assert stages == ["normalize", "seed", "breadcrumb", "session_memory"]
