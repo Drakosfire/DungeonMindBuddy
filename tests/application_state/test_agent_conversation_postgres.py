@@ -349,6 +349,8 @@ def _accepted_execution_turn(
     world_id: str,
     *,
     max_graph_operations: int = 2,
+    uncapped: bool = False,
+    execution_version: int = 1,
     candidate_assertion_ids: list[str] | None = None,
 ) -> tuple[Any, PlanWorldGraphContextReceiptV1, Any, Any]:
     from application_state.agent_conversation.types import (
@@ -402,13 +404,13 @@ def _accepted_execution_turn(
         schema="dmb_agent_plan_world_graph_execution_v1",
         context_receipt_sha256=receipt.context_receipt_sha256,
         policy=GraphExecutionPolicyV1(
-            policy_version="test-policy-v1",
+            policy_version="world_graph_execution_uncapped_v1" if uncapped else "test-policy-v1",
             allowed_graph_operations=["search_assertions"],
-            max_provider_attempts=2,
-            max_graph_operations=max_graph_operations,
+            max_provider_attempts=None if uncapped else 2,
+            max_graph_operations=None if uncapped else max_graph_operations,
             max_results_per_operation=8,
-            max_total_provider_input_tokens=200,
-            max_total_provider_output_tokens=40,
+            max_total_provider_input_tokens=None if uncapped else 200,
+            max_total_provider_output_tokens=None if uncapped else 40,
             provider_input_accounting=GraphExecutionAccountingV1(
                 kind="exact_token_count", estimator="synthetic-tokenizer"
             ),
@@ -416,6 +418,33 @@ def _accepted_execution_turn(
         ),
         events=[],
     )
+    if execution_version > 1:
+        from application_state.agent_conversation.types import (
+            GraphExecutionPolicyV2, GraphExecutionPolicyV3, GraphSourceReadScopeV2,
+            PlanWorldGraphExecutionV2, PlanWorldGraphExecutionV3,
+            graph_execution_policy_digest_v2, graph_execution_policy_digest_v3,
+        )
+        source_scope = GraphSourceReadScopeV2(
+            retrieval_session_id="uncapped-persistence", world_id=world_id,
+            campaign_id=None, graph_revision=receipt.graph_authority.graph_revision,
+            admitted_anchors=[],
+        )
+        data = execution.policy.model_dump(mode="json", by_alias=True) | {
+            "source_read_scope": source_scope.model_dump(mode="json", by_alias=True),
+            "max_source_read_chars": 0, "max_chars_per_source_read": 12000,
+        }
+        if execution_version == 2:
+            policy = GraphExecutionPolicyV2.model_validate(data | {"max_source_read_calls": 0, "max_source_read_anchors": 0})
+            execution = PlanWorldGraphExecutionV2(
+                context_receipt_sha256=receipt.context_receipt_sha256, policy=policy, events=[],
+                execution_policy_sha256=graph_execution_policy_digest_v2(receipt.context_receipt_sha256, policy),
+            )
+        else:
+            policy = GraphExecutionPolicyV3.model_validate(data)
+            execution = PlanWorldGraphExecutionV3(
+                context_receipt_sha256=receipt.context_receipt_sha256, policy=policy, events=[],
+                execution_policy_sha256=graph_execution_policy_digest_v3(receipt.context_receipt_sha256, policy),
+            )
     accepted = service.accept_turn(
         TurnSubmission(
             world_id=world_id,
@@ -578,7 +607,7 @@ def test_agent_conversation_migration_is_single_current_head(
     application_state_dsn: str,
 ) -> None:
     current, head = _current_and_head(application_state_dsn)
-    assert current == head == "20261016_0024"
+    assert current == head == "20261016_0025"
 
 
 def test_completion_validation_codes_are_closed_safe_and_valueerror_compatible() -> (
@@ -1124,11 +1153,11 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
     assert v1_execution_before is not None
     command.downgrade(alembic_config(), "20261005_0017")
     assert _current_and_head(application_state_dsn) == (
-        "20261005_0017", "20261016_0024"
+        "20261005_0017", "20261016_0025"
     )
     command.upgrade(alembic_config(), "head")
     assert _current_and_head(application_state_dsn) == (
-        "20261016_0024", "20261016_0024"
+        "20261016_0025", "20261016_0025"
     )
     with psycopg.connect(application_state_dsn, autocommit=True) as conn:
         assert conn.execute(
@@ -1152,7 +1181,7 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
     command.downgrade(alembic_config(), "20261004_0016")
     command.upgrade(alembic_config(), "head")
     assert _current_and_head(application_state_dsn) == (
-        "20261016_0024", "20261016_0024"
+        "20261016_0025", "20261016_0025"
     )
     with psycopg.connect(application_state_dsn, autocommit=True) as conn:
         assert conn.execute(
@@ -1177,8 +1206,8 @@ def test_graph_receipt_and_completion_round_trip_through_fresh_service(
     with pytest.raises(RuntimeError, match="refusing to drop non-null Agent Graph context"):
         command.downgrade(alembic_config(), "20261004_0015")
     assert _current_and_head(application_state_dsn) == (
-        "20261016_0024",
-        "20261016_0024",
+        "20261016_0025",
+        "20261016_0025",
     )
 
 
@@ -3421,7 +3450,7 @@ def test_graph_execution_v2_source_read_receipt_round_trip_through_fresh_service
     from application_state.cli import alembic_config
     with pytest.raises(RuntimeError, match="refusing to discard recorded context traces"):
         command.downgrade(alembic_config(), "20261005_0017")
-    assert _current_and_head(application_state_dsn) == ("20261016_0024", "20261016_0024")
+    assert _current_and_head(application_state_dsn) == ("20261016_0025", "20261016_0025")
     assert AgentConversationService().list_turns(world_id, conversation.conversation_id)[0] == failed
 
 
@@ -3858,7 +3887,7 @@ def test_terminal_records_fresh_readback_immutable_and_downgrade_refused(applica
                 conn.execute(statement)
     with pytest.raises(Exception, match="downgrade refused"):
         migration.downgrade(alembic_config(), "20261007_0018")
-    assert _current_and_head(application_state_dsn) == ("20261016_0024", "20261016_0024")
+    assert _current_and_head(application_state_dsn) == ("20261016_0025", "20261016_0025")
     assert service.get_command_resolution(request) == record
 
 
@@ -3874,9 +3903,9 @@ def test_terminal_empty_ledger_downgrade_and_nonterminal_cas_rolls_back(applicat
         assert conn.execute("SELECT count(*) FROM agent.world_state WHERE world_id=%s", (original.world_id,)).fetchone()[0] == 0
         assert conn.execute("SELECT count(*) FROM agent.command_resolution").fetchone()[0] == 0
     migration.downgrade(alembic_config(), "20261007_0018")
-    assert _current_and_head(application_state_dsn) == ("20261007_0018", "20261016_0024")
+    assert _current_and_head(application_state_dsn) == ("20261007_0018", "20261016_0025")
     migration.upgrade(alembic_config(), "head")
-    assert _current_and_head(application_state_dsn) == ("20261016_0024", "20261016_0024")
+    assert _current_and_head(application_state_dsn) == ("20261016_0025", "20261016_0025")
 
 
 def test_terminal_resolution_actual_http_binding_readback_and_auth(application_state_dsn, monkeypatch):
@@ -3967,3 +3996,75 @@ def test_selected_source_scope_jsonb_and_legacy_roundtrip(application_state_dsn,
     assert legacy_loaded.graph_context_execution.model_dump_json(by_alias=True)==legacy_execution.model_dump_json(by_alias=True)
     assert not isinstance(legacy_loaded.graph_context_execution.policy.source_read_scope,GraphSelectedSourceReadScopeV2)
     assert set(legacy_loaded.graph_context_execution.policy.source_read_scope.model_dump(mode='json',by_alias=True))=={'schema','retrieval_session_id','world_id','campaign_id','graph_revision','admitted_anchors'}
+
+
+@pytest.mark.parametrize("execution_version", [1, 2, 3])
+def test_uncapped_execution_persists_accounting_and_guards_downgrade(application_state_dsn, execution_version):
+    import psycopg
+    from psycopg.types.json import Jsonb
+    from alembic import command
+    from application_state.cli import alembic_config
+    from application_state.agent_conversation.types import ProviderOutcomeEventV1, ValidatedGraphOperationEventV1, ValidatedGraphOperationEventV3, ProviderAttemptAuthorizedEventV3
+
+    service = AgentConversationService()
+    legacy_conversation, _, legacy, _ = _accepted_execution_turn(service, "finite-preservation")
+    before = service.list_turns("finite-preservation", legacy_conversation.conversation_id)[0].model_dump_json(by_alias=True)
+    command.downgrade(alembic_config(), "20261016_0024")
+    command.upgrade(alembic_config(), "head")
+    assert AgentConversationService().list_turns("finite-preservation", legacy_conversation.conversation_id)[0].model_dump_json(by_alias=True) == before
+
+    conversation, receipt, accepted, current = _accepted_execution_turn(service, "uncapped-persistence", uncapped=True, execution_version=execution_version)
+    operation_type = ValidatedGraphOperationEventV3 if execution_version == 3 else ValidatedGraphOperationEventV1
+    for _ in range(9):
+        current, _ = service.append_validated_graph_operation(
+            "uncapped-persistence", conversation.conversation_id, accepted.turn_id,
+            expected_revision=current.revision, expected_attempt=current.attempt,
+            operation_event=operation_type(
+                event_id=uuid4(), sequence=len(current.graph_context_execution.events), kind="validated_graph_operation_v3" if execution_version == 3 else "validated_graph_operation",
+                operation_id=uuid4(), operation="search_assertions", request_arguments_sha256="a"*64,
+                graph_revision=receipt.graph_authority.graph_revision, result_packet_sha256="b"*64,
+                assertion_ids=[], relationship_ids=[], evidence_ref_ids=[],
+                **({"returned_source_pins": []} if execution_version == 3 else {}),
+                evidence_sufficiency_status="insufficient", coverage_status="incomplete", truncated=False, source_opened=False,
+            ),
+        )
+    for _ in range(5):
+        attempt_id = uuid4()
+        authorization = _provider_authorization_event(attempt_id=attempt_id, sequence=len(current.graph_context_execution.events))
+        if execution_version == 3:
+            authorization = ProviderAttemptAuthorizedEventV3.model_validate(
+                authorization.model_dump(mode="json", by_alias=True) | {
+                    "kind": "provider_attempt_authorized_v3", "included_source_read_event_ids": [],
+                }
+            )
+        current, _ = service.authorize_provider_attempt(
+            "uncapped-persistence", conversation.conversation_id, accepted.turn_id,
+            expected_revision=current.revision, expected_attempt=current.attempt,
+            provider_attempt_event=authorization,
+        )
+        for outcome in ("sdk_entered", "response_received"):
+            current, _ = service.record_provider_outcome(
+                "uncapped-persistence", conversation.conversation_id, accepted.turn_id,
+                expected_revision=current.revision, expected_attempt=current.attempt,
+                outcome=ProviderOutcomeEventV1(event_id=uuid4(), sequence=len(current.graph_context_execution.events),
+                    kind="provider_outcome", provider_attempt_id=attempt_id, outcome=outcome),
+            )
+    reopened = AgentConversationService().list_turns("uncapped-persistence", conversation.conversation_id)[0]
+    assert reopened.graph_context_execution == current.graph_context_execution
+    assert len(reopened.graph_context_execution.events) == 24
+    assert sum(getattr(e, "input_tokens", 0) for e in reopened.graph_context_execution.events) == 60
+    encoded = reopened.graph_context_execution.model_dump(mode="json", by_alias=True)
+    for field in ("max_provider_attempts", "max_graph_operations", "max_total_provider_input_tokens", "max_total_provider_output_tokens"):
+        for value in (True, "1", 1):
+            invalid = encoded | {"policy": encoded["policy"] | {field: value}}
+            with pytest.raises(psycopg.errors.CheckViolation), psycopg.connect(application_state_dsn) as conn:
+                conn.execute("UPDATE agent.turn SET graph_context_execution=%s WHERE turn_id=%s", (Jsonb(invalid), accepted.turn_id))
+        invalid = encoded | {"policy": {k: v for k, v in encoded["policy"].items() if k != field}}
+        with pytest.raises(psycopg.errors.CheckViolation), psycopg.connect(application_state_dsn) as conn:
+            conn.execute("UPDATE agent.turn SET graph_context_execution=%s WHERE turn_id=%s", (Jsonb(invalid), accepted.turn_id))
+    invalid = encoded | {"policy": encoded["policy"] | {"policy_version": "test-policy-v1"}}
+    with pytest.raises(psycopg.errors.CheckViolation), psycopg.connect(application_state_dsn) as conn:
+        conn.execute("UPDATE agent.turn SET graph_context_execution=%s WHERE turn_id=%s", (Jsonb(invalid), accepted.turn_id))
+    with pytest.raises(RuntimeError, match="retained uncapped"):
+        command.downgrade(alembic_config(), "20261016_0024")
+    assert AgentConversationService().list_turns("uncapped-persistence", conversation.conversation_id)[0] == reopened

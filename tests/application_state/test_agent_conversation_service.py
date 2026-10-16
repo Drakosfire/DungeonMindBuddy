@@ -1085,8 +1085,8 @@ def test_claim_recovery_migration_preserves_completed_legacy_turn(
     command.downgrade(alembic_config(), "20261002_0012")
     command.upgrade(alembic_config(), "head")
     assert _current_and_head(application_state_dsn) == (
-        "20261016_0024",
-        "20261016_0024",
+        "20261016_0025",
+        "20261016_0025",
     )
 
     loaded = AgentConversationService().list_turns(
@@ -3132,3 +3132,120 @@ def test_source_admission_v3_retains_character_batch_and_event_bounds():
         SourceReadAuthorizationEventV2.model_validate(ninth.model_dump(mode="json") | {"anchors": extension.pins})
     with pytest.raises(ValueError):
         _v3_events(execution, [*events]*205)
+
+
+_UNCAPPED_LIMITS = dict.fromkeys((
+    "max_provider_attempts", "max_graph_operations",
+    "max_total_provider_input_tokens", "max_total_provider_output_tokens",
+))
+
+
+@pytest.mark.parametrize("version", [1, 2, 3])
+def test_explicit_uncapped_policy_retains_ledger_and_historical_enforcement(version):
+    from application_state.agent_conversation.types import (
+        GraphExecutionPolicyV1, PlanWorldGraphExecutionV1,
+        graph_execution_policy_digest_v2, graph_execution_policy_digest_v3,
+    )
+    if version == 3:
+        _, original, _, _ = _source_admission_v3_fixture()
+    else:
+        original, _, _ = _v2_graph_execution_fixture()
+        if version == 1:
+            fields = GraphExecutionPolicyV1.model_fields
+            original = PlanWorldGraphExecutionV1(
+                context_receipt_sha256=original.context_receipt_sha256,
+                policy={k: v for k, v in original.policy.model_dump().items() if k in fields},
+                events=[],
+            )
+    encoded = original.model_dump_json(by_alias=True)
+    assert type(original).model_validate_json(encoded).model_dump_json(by_alias=True) == encoded
+    policy_data = original.policy.model_dump(mode="json", by_alias=True) | _UNCAPPED_LIMITS | {
+        "policy_version": "world_graph_execution_selected_scope_uncapped_v1" if version == 3
+        else "world_graph_execution_uncapped_v1",
+    }
+    policy = type(original.policy).model_validate(policy_data)
+    payload = original.model_dump(mode="json", by_alias=True) | {"policy": policy.model_dump(mode="json", by_alias=True)}
+    if version > 1:
+        digest = graph_execution_policy_digest_v3 if version == 3 else graph_execution_policy_digest_v2
+        payload["execution_policy_sha256"] = digest(original.context_receipt_sha256, policy)
+        assert payload["execution_policy_sha256"] != original.execution_policy_sha256
+    events = []
+    for _ in range(9):
+        event = {
+            "event_id": str(uuid4()), "sequence": len(events),
+            "kind": "validated_graph_operation_v3" if version == 3 else "validated_graph_operation",
+            "operation_id": str(uuid4()), "operation": policy.allowed_graph_operations[0],
+            "request_arguments_sha256": "a" * 64, "graph_revision": policy.source_read_scope.graph_revision if version > 1 else "revision-1",
+            "result_packet_sha256": "b" * 64, "assertion_ids": [], "relationship_ids": [],
+            "evidence_ref_ids": [], "evidence_sufficiency_status": "insufficient",
+            "coverage_status": "incomplete", "truncated": False, "source_opened": False,
+        }
+        if version == 3:
+            event["returned_source_pins"] = []
+        events.append(event)
+    for _ in range(5):
+        attempt = str(uuid4())
+        event = {
+            "event_id": str(uuid4()), "sequence": len(events),
+            "kind": "provider_attempt_authorized_v3" if version == 3 else "provider_attempt_authorized",
+            "provider_attempt_id": attempt, "envelope_sha256": "c" * 64,
+            "serializer_version": "canonical-json-utf8-v1", "provider": "synthetic",
+            "model": "synthetic", "api_mode": "messages", "tool_schema_sha256": "d" * 64,
+            "input_accounting_kind": policy.provider_input_accounting.kind,
+            "input_estimator": policy.provider_input_accounting.estimator,
+            "input_tokens": 1000, "output_token_reserve": 1000,
+            "included_assertion_ids": [], "included_relationship_ids": [],
+            "included_evidence_ref_ids": [], "included_graph_event_ids": [],
+        }
+        if version == 3:
+            event["included_source_read_event_ids"] = []
+        events.append(event)
+        for outcome in ("sdk_entered", "response_received"):
+            events.append({"event_id": str(uuid4()), "sequence": len(events),
+                "kind": "provider_outcome", "provider_attempt_id": attempt, "outcome": outcome})
+    payload["events"] = events
+    accepted = type(original).model_validate(payload)
+    assert len(accepted.events) == 24
+    serialized = accepted.model_dump_json(by_alias=True)
+    assert type(accepted).model_validate_json(serialized).model_dump_json(by_alias=True) == serialized
+    # Null does not disable ordering, evidence, uncertainty or per-result constraints.
+    with pytest.raises(ValueError, match="contiguous"):
+        type(original).model_validate(payload | {"events": events[1:]})
+    invalid = [dict(e) for e in events]
+    invalid[9]["included_graph_event_ids"] = [str(uuid4())]
+    with pytest.raises(ValueError, match="unknown Graph"):
+        type(original).model_validate(payload | {"events": invalid})
+    invalid = [dict(e) for e in events]
+    invalid[11]["outcome"] = "outcome_unknown"
+    with pytest.raises(ValueError, match="resolved prior attempt"):
+        type(original).model_validate(payload | {"events": invalid})
+    finite_payload = payload | {"policy": original.policy.model_dump(mode="json", by_alias=True)}
+    if version > 1:
+        finite_payload["execution_policy_sha256"] = original.execution_policy_sha256
+    with pytest.raises(ValueError, match="policy limit"):
+        type(original).model_validate(finite_payload)
+    for field, finite_limit, message in (
+        ("max_provider_attempts", 4, "provider attempt policy limit"),
+        ("max_graph_operations", 8, "Graph operation policy limit"),
+        ("max_total_provider_input_tokens", 4999, "token budget"),
+        ("max_total_provider_output_tokens", 4999, "token budget"),
+    ):
+        finite_policy = type(policy).model_validate(original.policy.model_dump(mode="json", by_alias=True) | {
+            "max_provider_attempts": 128, "max_graph_operations": 512,
+            "max_total_provider_input_tokens": 100000, "max_total_provider_output_tokens": 100000,
+            field: finite_limit,
+        })
+        finite_payload = payload | {"policy": finite_policy.model_dump(mode="json", by_alias=True)}
+        if version > 1:
+            finite_payload["execution_policy_sha256"] = digest(original.context_receipt_sha256, finite_policy)
+        with pytest.raises(ValueError, match=message):
+            type(original).model_validate(finite_payload)
+    # The four aggregate limits are required and the new version is intentional.
+    for field in _UNCAPPED_LIMITS:
+        with pytest.raises(ValueError, match="required"):
+            type(policy).model_validate({k: v for k, v in policy_data.items() if k != field})
+        for wrong in (True, "1", 1):
+            with pytest.raises(ValueError):
+                type(policy).model_validate(policy_data | {field: wrong})
+        with pytest.raises(ValueError, match="explicit uncapped"):
+            type(policy).model_validate(original.policy.model_dump(by_alias=True) | {field: None})
